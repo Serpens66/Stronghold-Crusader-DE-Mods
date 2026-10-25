@@ -44,6 +44,9 @@ namespace ExtendedData
                 AwaitingTrailMakerReturn = false;
         }
 
+        // A frontend rejection never ended the active mission (notably during a restart).
+        internal void CancelPendingLaunch() => PendingLaunch = MissionPresetLaunchKind.None;
+
         internal bool ConfirmStarted(MissionPresetLaunchKind kind)
         {
             if (kind == MissionPresetLaunchKind.None || PendingLaunch != kind)

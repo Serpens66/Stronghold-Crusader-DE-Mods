@@ -3,19 +3,30 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.199",
+  "Version": "1.0.201",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.0",
   "MaximumScriptExtenderVersion": "",
   "Dependencies": [
     {
       "GUID": "APIShared_Serp",
-      "MinimumVersion": "0.12.6"
+      "MinimumVersion": "0.16.0"
     }
   ],
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.201",
+      "Changes": [
+        "Fix Custom Lord Coop partners starting at a random free position instead of the mission's assigned position, including first selection, continuation, mission changes and swapped Coop positions.",
+        "Add localized Active/Inactive status filtering to the settings search, using APIShared 0.16.0 while preserving host/client editing permissions and existing text filters."
+      ]
+    },
+    {
+      "Version": "1.0.200",
+      "Changes": ["Disable AI sell-threshold safety by default and on reset; preserve existing saved choices. Mark it as a gameplay preference and explain in tooltips that some lord creators deliberately use negative sell thresholds for unlimited AI gold."]
+    },
     {
       "Version": "1.0.199",
       "Changes": ["Add a default-enabled host option under Game setup, multiplayer and spectators to redraw the minimap at most every 0.1 seconds instead of on every simulation tick, giving clearly higher game speed on large maps (about 85 to 144 ticks per second on an 8-AI test map)."]

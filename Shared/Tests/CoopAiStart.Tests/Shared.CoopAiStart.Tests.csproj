@@ -11,10 +11,14 @@
   <ItemGroup>
     <Compile Include="..\..\Runtime\Gameplay\CoopAiSelectionRules.cs" Link="CoopAiSelectionRules.cs" />
     <Compile Include="..\..\Adapters\APIShared\CoopAiStartPlanFactory.cs" Link="CoopAiStartPlanFactory.cs" />
+    <Compile Include="..\..\..\BugfixesAndQoL\src\CoopCustomLordSelectionPolicy.cs" Link="CoopCustomLordSelectionPolicy.cs" />
+    <Compile Include="..\..\..\BugfixesAndQoL\src\CustomLordLobbyUtility.cs" Link="CustomLordLobbyUtility.cs" />
+    <Compile Include="..\..\..\ExtendedData\src\MissionPresetLifecycleState.cs" Link="MissionPresetLifecycleState.cs" />
     <Reference Include="APIShared"><HintPath>$(ApiSharedDir)\APIShared.dll</HintPath><Private>true</Private></Reference>
     <Reference Include="Assembly-CSharp"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\Assembly-CSharp.dll</HintPath><Private>true</Private></Reference>
     <Reference Include="Noesis.NoesisGUI"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\Noesis.NoesisGUI.dll</HintPath><Private>true</Private></Reference>
     <Reference Include="UnityEngine.CoreModule"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.CoreModule.dll</HintPath><Private>true</Private></Reference>
     <Reference Include="SHCDESE"><HintPath>$(ExtenderDir)\SHCDESE.dll</HintPath><Private>true</Private></Reference>
+    <Reference Include="com.rlabrecque.steamworks.net"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\com.rlabrecque.steamworks.net.dll</HintPath><Private>true</Private></Reference>
   </ItemGroup>
 </Project>

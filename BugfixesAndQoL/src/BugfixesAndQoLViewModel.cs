@@ -29,7 +29,9 @@ namespace BugfixesAndQoL
         {
             if (args.PropertyName == nameof(System_ModSettingsSearchText) ||
                 args.PropertyName == nameof(System_ModSettingsSearchIncludeToolTips) ||
-                args.PropertyName == nameof(System_ModSettingsSearchExactKey))
+                args.PropertyName == nameof(System_ModSettingsSearchExactKey) ||
+                args.PropertyName == nameof(System_ModSettingsSearchStateFilter) ||
+                args.PropertyName == nameof(System_ModSettingsSearchStateRevision))
                 RefreshSettingsPresentation();
         }
 
@@ -44,7 +46,7 @@ namespace BugfixesAndQoL
         {
             APIShared.ModSettings.ModSettingsSearchCatalog.TryGetEntries(this, out var entries);
             SettingsPresentation.RefreshSearch(System_ModSettingsSearchText, System_ModSettingsSearchIncludeToolTips,
-                System_ModSettingsSearchExactKey, entries);
+                System_ModSettingsSearchExactKey, entries, System_ModSettingsSearchStateFilter, this);
         }
 
         private bool enableMod = true;
@@ -58,7 +60,7 @@ namespace BugfixesAndQoL
         private bool rememberAiAivSettings = true;
         private bool enableCustomLordListEnhancements = true;
         private bool enableAiStoneReserveFix = true;
-        private bool enableAiSellThresholdFix = true;
+        private bool enableAiSellThresholdFix = false;
         private bool enableAiDefensePatrolFix = true;
         private bool enableAiRaidRetargetFix = true;
         private bool enableEnemyGatePathfindingFix = true;
@@ -1633,7 +1635,7 @@ namespace BugfixesAndQoL
                 AllowFullAiMultiplayerLobby = true;
                 ShowMpAdvancedSettingsInSingleplayer = true;
                 EnableAiStoneReserveFix = true;
-                EnableAiSellThresholdFix = true;
+                EnableAiSellThresholdFix = false;
                 EnableAiDefensePatrolFix = true;
                 EnableAiRaidRetargetFix = true;
                 EnableEnemyGatePathfindingFix = true;

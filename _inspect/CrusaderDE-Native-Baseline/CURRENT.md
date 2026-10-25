@@ -1,5 +1,7 @@
 # Current CrusaderDE Native Baseline
 
+- [CastlePlanner visual observation](./sem/FBCB9319/knowledge/CASTLE_VISUAL_OBSERVATION.md): construction and native/managed graphics boundaries, read-only diagnostic snapshots and pending Wolf-6 reproduction evidence.
+
 - [Foreign troop HUD skins](./sem/FBCB9319/knowledge/FOREIGN_TROOP_SKINS.md): current unit material, Monk/Temple Guard render flow, colored portrait variants and isolated view regression coverage; in-game visual acceptance remains separate.
 
 - [Weighted Assassin search cost](./sem/FBCB9319/knowledge/ASSASSIN_WEIGHTED_SEARCH_COST.md): D9C40 depth limit 800 and climb-fallback rules, the post-load AI target burst with whole-component searches toward unreachable targets, and the exact backward unreachability proof; runtime evidence on the 8-lord stress save.

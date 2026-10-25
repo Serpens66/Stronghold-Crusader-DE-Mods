@@ -119,3 +119,42 @@ Automated tests cover all four rotations, exact/over-limit boundaries, complete
 footprint rejection, overwritten anchors, odd allied half-range, duplicate deductions,
 policy fingerprints and all three Baibars Nimrod variants (70 blocked, 80 clear).
 Live lobby host/client refresh and visual acceptance remain game smoke tests.
+
+## Supplemental prefab automatic sprites (2026-10-25)
+
+Native SHA256: FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
+The complete current supplemental set is audited in
+`.work/a/castle-spawn-fix/001/supplemental-audit.json` (21 mapper entries,
+checked against installed Extender enums and the catalog-driven spawn routes).
+Native AIV builder 51790 initializes argument 7 to 15; none of these mappers
+enters its hovel/directional/workshop/drawbridge exceptions. In 6D580, argument
+15 and the old 0 both select unrotated placement geometry; the difference is
+sprite selection in 6E620, where 15 avoids camera-relative sheet offsets.
+
+Constructors are covered by dispatch, not by assuming granary behavior:
+- Granary, armoury and the ordinary fear buildings: 75780 forwards variation to
+  B47E0 argument 9. That allocator persists the variation consumed by 6E620.
+- Stores (struct 10): 76E80 creates four stockpile records and forwards the
+  variation to B47E0 for each record.
+- Gardens, statues and shrines: 73EA0 passes the mapper-derived family subtype
+  to B47E0 (confirmed from canonical machine code, since decompilation omits
+  arguments). The caller's orientation argument is not the family subtype.
+- Cess pits and ponds: 76060 similarly retains the mapper-derived family data;
+  allocator normalization preserves their specialized sprite behavior.
+
+SupplementalPrefabVisualPolicy accepts exactly the current supported mappers
+and supplies the automatic-sprite sentinel 0x0f (no Extender enum defines it).
+Unknown supplemental mappers are rejected before creation, pending their audit.
+All supplemental calls pass through SupplementalPrefabSpawner and the one
+CreatePrefab call in CastlePlannerRuntime; native AIV placement, hovel styles,
+keeps, gates and workshops retain their separate conventions. No new native
+hook, offset, public member, serializer or lifecycle callback is introduced.
+
+Tests enumerate all Extender mapper values against actual FearFactor and
+compound/storage routes, then execute each supported mapper through the real
+capture helper and verify a single delegate invocation with variation 15.
+Existing identity, nesting, raw-return, terrain and rotation checks remain.
+Existing saves keep their persisted wrong variation; this is a future-spawn fix.
+The user confirmed corrected in-game graphics after spawning a new castle on
+2026-10-25. The temporary visual diagnosis, its four managed observation hooks,
+partial call sites and dedicated tests were removed for version 0.8.46.

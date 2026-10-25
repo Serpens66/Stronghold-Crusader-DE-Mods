@@ -123,6 +123,10 @@ echo [%date% %time%] PowerShell checks / build step
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-RuntimePreflight.ps1" -GameDir "%GAME_DIR%" -SkipRuntimeSourcePreflight
 if not "%ERRORLEVEL%"=="0" goto forbidden_source_popd
 echo [%date% %time%] Run tests
+dotnet build "%PROJECT_DIR%..\Shared\Tests\CoopAiStart.Tests\Shared.CoopAiStart.Tests.csproj" -c Release "-p:GameDir=%GAME_DIR%" "-p:ExtenderDir=%EXTENDER_DIR%"
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+"%PROJECT_DIR%..\Shared\Tests\CoopAiStart.Tests\bin\Release\net481\Shared.CoopAiStart.Tests.exe"
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 dotnet run --project ExtendedData.Tests -c Release "-p:GameDir=%GAME_DIR%" "-p:ExtenderDir=%EXTENDER_DIR%"
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 echo [%date% %time%] Compile projects

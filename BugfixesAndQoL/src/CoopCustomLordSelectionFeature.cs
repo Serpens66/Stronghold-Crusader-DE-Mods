@@ -69,6 +69,8 @@ namespace BugfixesAndQoL
             RequireField(typeof(FRONT_Multiplayer), "coopShowHiddenFriends", AllInstance);
         private static readonly FieldInfo SinglePlayerCoopAllyField =
             RequireField(typeof(FRONT_Multiplayer), "singlePlayerCoopAlly", AllInstance);
+        private static readonly MethodInfo UpdateHostInfoMethod =
+            RequireMethod(typeof(FRONT_Multiplayer), "UpdateHostInfo", AllInstance, typeof(bool));
         private static readonly MethodInfo SetCoopRowMethod =
             RequireMethod(
                 typeof(FRONT_Multiplayer),
@@ -119,6 +121,7 @@ namespace BugfixesAndQoL
         private TextureSource selectedPortrait;
         private bool customSelectionActive;
         private bool initialized;
+        private ICoopAiStartPreviewCapability coopAiPreview;
 
         internal CoopCustomLordSelectionFeature(
             ManualLogSource log,
@@ -199,6 +202,7 @@ namespace BugfixesAndQoL
                         out ICoopAiStartImportCapability coopImport, out NativeCapabilityDiagnostic diagnostic) ||
                     !coopImport.TryRegisterProvider("BugfixesAndQoL.CoopLordSelection", ProvideCoopAiStart, out diagnostic))
                     throw new InvalidOperationException("APIShared Coop AI start import unavailable: " + diagnostic?.Reason);
+                coopAiPreview = coopImport as ICoopAiStartPreviewCapability;
 
                 coopMissionChangedHook = pendingMission;
                 initCoopGameHook = pendingInit;
@@ -248,6 +252,12 @@ namespace BugfixesAndQoL
             CoopCustomLordSelectionFeature feature = current;
             if (feature == null)
                 return;
+
+            if (feature.settings.EnableMod && self?.singlePlayerCoop == true && !self.closePanelDisplayed &&
+                FRONT_Multiplayer.coopGame && !FRONT_Multiplayer.customCoopGame &&
+                string.Equals(command, "COOP_START", StringComparison.Ordinal) && self.AIVs?.Length == 8 &&
+                self.currentLobby?.members != null && self.currentLobby.this_player_to_SteamID_mapping?.Length == 8)
+                Shared.CoopAiStartPlanFactory.PrepareDirectPartner(self.currentLobby, self.AIVs);
 
             if (string.Equals(command, "CoopSinglePlayer", StringComparison.Ordinal))
                 feature.ClearSelection("new Coop run");
@@ -517,7 +527,7 @@ namespace BugfixesAndQoL
             {
                 // Vanilla team IDs are zero-based; its Coop ally is explicitly assigned team 1.
                 Platform_Multiplayer.MPLobbyMember member = CustomLordLobbyUtility.AddAndInitialize(
-                    self, lord, forcedTeam: 1, insertionIndex: null, colourId: null, out int playerId);
+                    self, lord, forcedTeam: 1, out int playerId);
                 if (playerId != 2)
                 {
                     Platform_Multiplayer.Instance.kickSkirmishPlayer(member.GetSteamID());
@@ -598,32 +608,13 @@ namespace BugfixesAndQoL
             FRONT_Multiplayer self,
             CustomisationFileManager.CustomLord lord)
         {
-            Platform_Multiplayer.MPLobbyMember oldPartner =
-                self.currentLobby.GetLobbyMemberFromThis_PlayerID(2);
-            if (oldPartner == null)
-                throw new InvalidOperationException("Vanilla did not rebuild the Coop partner in player slot 2.");
-
-            int insertionIndex = self.currentLobby.members.IndexOf(oldPartner);
-            int colourId = oldPartner.colourID;
-            int partnerTeam = self.currentLobby.getTeam(oldPartner);
-            if (partnerTeam < 0)
-                throw new InvalidOperationException("Vanilla did not assign a team to the Coop partner.");
-
-            Platform_Multiplayer.Instance.kickSkirmishPlayer(oldPartner.GetSteamID());
-            Platform_Multiplayer.MPLobbyMember replacement = CustomLordLobbyUtility.AddAndInitialize(
-                self, lord, partnerTeam, insertionIndex, colourId, out int playerId);
-            if (replacement == null || playerId != 2)
-                throw new InvalidOperationException("The restored Coop custom lord did not occupy player slot 2.");
-
-            self.currentLobby.validateTeams();
-            if (self.currentLobby.getTeam(replacement) != partnerTeam)
-                throw new InvalidOperationException("The restored Coop custom lord did not retain Vanilla's partner team.");
+            CustomLordLobbyUtility.ConfigureExistingCoopPartner(self.currentLobby, self.AIVs, lord);
+            UpdateHostInfoMethod.Invoke(self, new object[] { false });
             if (Shared.DebugLogHelper.DiagnosticsEnabled)
             {
                 // Keep captures inside the enabled scope; otherwise the compiler can allocate them before the guard.
                 var diagnosticLord = @lord;
-                var diagnosticPartnerTeam = @partnerTeam;
-                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/CoopCustomLordSelectionFeature.cs:631", () => $"Bugfixes and QoL restored Coop custom lord '{diagnosticLord.lordName}' after mission change: team={diagnosticPartnerTeam}.");
+                Shared.DebugLogHelper.LogDebugLimited(log, "coop-custom-partner-restored", () => $"Bugfixes and QoL configured Coop custom lord '{diagnosticLord.lordName}' in Vanilla's existing player slot 2.");
             }
         }
 
@@ -763,6 +754,8 @@ namespace BugfixesAndQoL
             if (request.IsPreview && !self.singlePlayerCoop && request.CoopTrail > 0)
                 return PreviewMultiplayerCoopStart(self);
             int selectedAllyLordType = checked((int)(ulong)SinglePlayerCoopAllyField.GetValue(self));
+            if (self.singlePlayerCoop)
+                Shared.CoopAiStartPlanFactory.ValidateLobby(self.currentLobby, self.AIVs);
             var plans = new List<CoopAiSlotPlan>();
             foreach (Platform_Multiplayer.MPLobbyMember member in self.currentLobby.members)
             {
@@ -780,7 +773,7 @@ namespace BugfixesAndQoL
                         self.singlePlayerCoop,
                         selectedInfo?.lordType == lordType,
                         selectedInfo != null && (!selectedInfo.builtInLord ||
-                            (!selectedInfo.builtIn && selectedInfo.aivs?.Count > 0)),
+                            (!selectedInfo.builtIn && (selectedInfo.community || selectedInfo.historical || selectedInfo.aivs?.Count > 0))),
                         playerId))
                 {
                     plan = self.singlePlayerCoop
@@ -805,6 +798,56 @@ namespace BugfixesAndQoL
                     plans.Add(plan);
             }
             return plans.Count == 0 ? null : new CoopAiStartContribution(plans);
+        }
+
+        // The existing final managed start hook also covers restart paths that bypass the Play button.
+        internal static bool TryValidateLocalCoopStart(FRONT_Multiplayer self)
+        {
+            CoopCustomLordSelectionFeature feature = current;
+            if (feature?.EnhancementsEnabled != true || self?.singlePlayerCoop != true ||
+                !FRONT_Multiplayer.coopGame || FRONT_Multiplayer.customCoopGame) return true;
+            try
+            {
+                if (feature.IsActiveCustomContext(self))
+                    CustomLordLobbyUtility.ValidateSelectedCoopPartner(
+                        self.currentLobby, self.AIVs, feature.selectedLordName);
+                Shared.CoopAiStartPlanFactory.ValidateLobby(self.currentLobby, self.AIVs);
+                var expected = new List<CoopAiSlotPlan>();
+                foreach (Platform_Multiplayer.MPLobbyMember member in self.currentLobby.members)
+                {
+                    if (member == null || !member.SkirmishMember || member.SkirmishHumanMember) continue;
+                    int id = self.currentLobby.getThisPlayerFromSteamID(member.GetSteamID());
+                    CoopAiSlotPlan plan = Shared.CoopAiStartPlanFactory.Create(self.AIVs[id - 1], id,
+                        member.GetLordType(), -1, null, true);
+                    if (plan != null) expected.Add(plan);
+                }
+                if (feature.coopAiPreview == null)
+                {
+                    if (expected.Count == 0) return true;
+                    throw new Shared.CoopAiSelectionException("MissingImportPlan", expected[0].PlayerId, "preview unavailable");
+                }
+                if (!feature.coopAiPreview.TryPreview(self.currentLobby.coopTrailID + 1,
+                    self.currentLobby.coopSelectedMission - 1, out CoopAiStartPreview preview, out NativeCapabilityDiagnostic diagnostic))
+                    throw new Shared.CoopAiSelectionException("ImportPlanMismatch", 0, diagnostic?.Reason ?? "preview unavailable");
+                if (!preview.Succeeded)
+                    throw new Shared.CoopAiSelectionException("ImportPlanMismatch", 0, preview.Failure);
+                foreach (CoopAiSlotPlan plan in expected)
+                    Shared.CoopAiStartPlanFactory.RequirePlan(plan, preview.PlanFor(plan.PlayerId), true);
+                return true;
+            }
+            catch (Shared.CoopAiSelectionException failure)
+            {
+                Shared.DebugLogHelper.LogErrorLimited(feature.log, "coop-ai-launch-validation",
+                    "Blocked Coop start: trail=" + (self.currentLobby?.coopTrailID + 1) +
+                    ", mission=" + self.currentLobby?.coopSelectedMission + ", route=" +
+                    (MissionRestart.IsInProgress ? "restart" : FRONT_Multiplayer.skirmishGame ? "customize" : "direct") + "; " + failure +
+                    "; selections=[" + Shared.CoopAiStartPlanFactory.DescribeLobby(self.currentLobby, self.AIVs) + "]");
+                HUD_ConfirmationPopup.ShowConfirmationOKMessage(SerpLocalization.Get("CoopAi.StartBlocked"), () => { },
+                    SerpLocalization.Get("CoopAi.Error." + failure.Code).Replace("{Player}", failure.PlayerId.ToString()));
+                MainViewModel.Instance.Show_HUD_Confirmation = false;
+                MainViewModel.Instance.Show_HUD_ConfirmationMP = true;
+                return false;
+            }
         }
 
         // Host-side preview of BeginCoopStart: every AI slot from the host's selection, which its lobby data and

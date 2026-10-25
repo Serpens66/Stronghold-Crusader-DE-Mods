@@ -141,20 +141,63 @@ internal static partial class Program
             Check(Ancestors(editor.Node).Any(a => a.Attributes?["IsEnabled"]?.Value == "{Binding " + authority + "}"),
                 "editor retains role authority: " + editor.Property);
             Check(!Ancestors(topicNode).Any(a => a.Attributes?["IsEnabled"] != null), "topic header remains browsable independently of authority");
-            XmlNode marker = row.ChildNodes.Cast<XmlNode>().Single(n => n.LocalName == "TextBlock");
+            XmlNode marker = row.ChildNodes.Cast<XmlNode>().Single(n => n.LocalName == "ContentControl");
             Check(marker.Attributes?["DataContext"]?.Value == "{Binding SettingsPresentation." + editor.Property + "}" &&
-                marker.Attributes?["Text"]?.Value == "{Binding Symbol}" &&
+                marker.Attributes?["Content"]?.Value == "{Binding Symbol}" &&
+                marker.Attributes?["Style"]?.Value == "{StaticResource RecommendationMarker}" &&
+                marker.Attributes?["ToolTip"]?.Value == "{Binding ToolTip}" &&
+                marker.Attributes?["ToolTipService.ShowDuration"]?.Value == "60000" &&
+                SearchAttribute(marker, "Exclude") == "True" &&
                 marker.Attributes?["Grid.Column"] == null &&
                 row.SelectSingleNode("*[local-name()='Grid.ColumnDefinitions']/*[1]")?.Attributes?["Width"]?.Value == "28",
                 "fixed left recommendation column: " + editor.Property);
             // The classification itself is editorial metadata in ModSettingsPresentation.Recommendations.cs;
             // every shown option must carry one and its marker must match it.
             string symbol = (string)Get(option, "Symbol");
-            Check((symbol == "★" && !(bool)Get(option, "IsPreference")) || (symbol == "◇" && (bool)Get(option, "IsPreference")),
+            Check((symbol == "★" && !(bool)Get(option, "IsPreference")) || (symbol == "" && (bool)Get(option, "IsPreference")),
                 "every option has an explicit classification with a matching marker: " + editor.Property);
             Check((string)Get(option, "ReasonKey") == "BugfixesAndQoL.SettingsRework.Reason." + editor.Property,
                 "reason is keyed to the stable setting identity: " + editor.Property);
         }
+        // Guard the reported false checkbox affordance and font-dependent icon regression.
+        // Native Noesis rendering/scaling still needs visual acceptance in the game.
+        XmlNode markerStyle = nodes.Single(n => n.LocalName == "Style" && n.Attributes.Cast<XmlAttribute>()
+            .Any(a => a.LocalName == "Key" && a.Value == "RecommendationMarker"));
+        Check(markerStyle.Attributes?["TargetType"]?.Value == "{x:Type ContentControl}" &&
+            new[] { "Focusable", "IsTabStop" }.All(property => markerStyle.SelectSingleNode(
+                "./*[local-name()='Setter' and @Property='" + property + "' and @Value='False']") != null),
+            "recommendation marker cannot take keyboard focus");
+        XmlNode personTemplate = nodes.Single(n => n.LocalName == "ControlTemplate" && n.Attributes.Cast<XmlAttribute>()
+            .Any(a => a.LocalName == "Key" && a.Value == "PreferencePersonTemplate"));
+        XmlNode personPath = personTemplate.SelectSingleNode("./*[local-name()='Path']");
+        Check(personPath?.Attributes?["Data"]?.Value == "{StaticResource PreferencePersonGeometry}" &&
+            personPath.Attributes?["Fill"]?.Value == "#FFCCCCCC" &&
+            personPath.Attributes?["Width"]?.Value == "16" && personPath.Attributes?["Height"]?.Value == "16" &&
+            personPath.Attributes?["Stroke"] == null && personTemplate.ChildNodes.Cast<XmlNode>().Count(n => n.NodeType == XmlNodeType.Element) == 1,
+            "personal preference is an unframed filled vector icon");
+        XmlNode geometry = nodes.Single(n => n.LocalName == "PathGeometry" && n.Attributes.Cast<XmlAttribute>()
+            .Any(a => a.LocalName == "Key" && a.Value == "PreferencePersonGeometry"));
+        Type geometryType = scrollViewer.Assembly.GetType("Noesis.PathGeometry", true);
+        Type contentControlType = scrollViewer.Assembly.GetType("Noesis.ContentControl", true);
+        Check(geometryType.GetProperty("Figures") != null && !string.IsNullOrWhiteSpace(geometry.Attributes?["Figures"]?.Value) &&
+            new[] { "Content", "Template", "Focusable", "IsTabStop" }.All(property => contentControlType.GetProperty(property) != null),
+            "person marker uses properties exposed by the installed Noesis assembly");
+        Check(markerStyle.SelectSingleNode(".//*[local-name()='DataTrigger' and @Binding='{Binding IsPreference}' and @Value='True']/*[local-name()='Setter' and @Property='Template' and @Value='{StaticResource PreferencePersonTemplate}']") != null,
+            "preference classification selects the vector template");
+        XmlNode legendLabel = nodes.Single(n => n.LocalName == "TextBlock" &&
+            n.Attributes?["Text"]?.Value == "{Binding SettingsPresentation.LegendPreferenceText}");
+        Check(legendLabel.ParentNode.SelectSingleNode("./*[local-name()='ContentControl' and @Template='{StaticResource PreferencePersonTemplate}' and @Focusable='False' and @IsTabStop='False']") != null,
+            "legend and option markers share the same noninteractive person template");
+        object keepRange = options.Single(o => (string)Get(o, "PropertyName") == "RemoveAIKeepRangeLimit");
+        var keepEditor = editors.Single(e => e.Property == "RemoveAIKeepRangeLimit");
+        XmlNode keepRow = Ancestors(keepEditor.Node).First(a => SearchAttribute(a, "Key") != null);
+        Check(Get(keepRange, "Category").ToString() == "Fixes" &&
+            (string)Get(keepRange, "Symbol") == "★" && !(bool)Get(keepRange, "IsPreference") &&
+            keepRow.ParentNode.Attributes?["Visibility"]?.Value == "{Binding SettingsPresentation.HostAi.FixesVisibility}" &&
+            keepRow.ParentNode.ChildNodes.Cast<XmlNode>().Last(n => n.LocalName == "Grid") == keepRow &&
+            SearchAttribute(keepRow, "Key") == "bugfixes.remove-ai-keep-range-limit" &&
+            keepEditor.Node.Attributes?["IsChecked"]?.Value == "{Binding RemoveAIKeepRangeLimit, Mode=TwoWay}",
+            "AI keep range is recommended and appears once at the end of AI fixes with its original binding and search identity");
         Check(options.All(o => o.GetType().GetProperties().All(p => p.GetCustomAttributesData().All(a =>
             !a.AttributeType.Name.StartsWith("Sync") && a.AttributeType.Name != "PresetLocalAttribute"))), "view metadata is not a setting");
         Check(modelType.GetProperty("SettingsPresentation").SetMethod == null &&
@@ -168,9 +211,9 @@ internal static partial class Program
         approve.Invoke(example, new[] { Enum.Parse(kind, "Recommended"), "Confirmed example reason" });
         Check((string)Get(example, "Symbol") == "★" && !(bool)Get(example, "IsPreference"), "approved recommendation uses gold-star state");
         approve.Invoke(example, new[] { Enum.Parse(kind, "Preference"), "Confirmed preference reason" });
-        Check((string)Get(example, "Symbol") == "◇" && (bool)Get(example, "IsPreference"), "approved preference uses diamond state");
+        Check((string)Get(example, "Symbol") == "" && (bool)Get(example, "IsPreference"), "approved preference selects a vector icon without a text glyph");
         approve.Invoke(example, new object[] { Enum.Parse(kind, "Unreviewed"), null });
-        Check((string)Get(example, "Symbol") == "", "removing editorial classification restores blank column");
+        Check((string)Get(example, "Symbol") == "" && !(bool)Get(example, "IsPreference"), "removing editorial classification clears both star and person icon");
         bool rejectedReason = false;
         try { approve.Invoke(example, new object[] { Enum.Parse(kind, "Recommended"), "" }); }
         catch (TargetInvocationException ex) { rejectedReason = ex.InnerException is ArgumentException; }
@@ -213,7 +256,7 @@ internal static partial class Program
         object[] indexed = ((IEnumerable)entries).Cast<object>().ToArray();
         Check(options.All(o => indexed.Any(e => (string)Get(e, "Key") == (string)Get(o, "Key"))), "closed-topic XAML catalog includes every main option");
         MethodInfo refresh = presentationType.GetMethod("RefreshSearch", All);
-        Action<string, bool, string> search = (text, tooltips, exact) => refresh.Invoke(presentation, new[] { (object)text, tooltips, exact, entries });
+        Action<string, bool, string> search = (text, tooltips, exact) => refresh.Invoke(presentation, new[] { (object)text, tooltips, exact, entries, Enum.ToObject(catalog.Assembly.GetType("APIShared.ModSettings.ModSettingsSearchStateFilter", true), 0), fixture });
 
         object performance = Get(presentation, "HostPerformance"), market = Get(presentation, "ClientMarket");
         string performanceKey = (string)Get(performance, "Key");
@@ -256,6 +299,18 @@ internal static partial class Program
         Check(Visible(performance, "ContentVisibility"), "refreshed catalog remains searchable");
         search("", true, "");
         Check(!Visible(performance, "ContentVisibility"), "catalog replacement preserves manual state");
+        bool[] manualTopicVisibility = topics.Select(topic => Visible(topic, "ContentVisibility")).ToArray();
+        Type stateType = catalog.Assembly.GetType("APIShared.ModSettings.ModSettingsSearchStateFilter", true);
+        refresh.Invoke(presentation, new object[] { "", false, "", entries, Enum.ToObject(stateType, 1), fixture });
+        Check(topics.All(t => !Visible(t, "Visibility")), "unsupported values and unchecked checkboxes do not create active topics");
+        ((SearchFixtureBase)fixture).EnableImprovedAssassinPathfindingAI = true;
+        refresh.Invoke(presentation, new object[] { "", false, "", entries, Enum.ToObject(stateType, 1), fixture });
+        Check(Visible(performance, "ContentVisibility") && !Visible(display, "Visibility"), "status-only search opens the matching topic");
+        ((SearchFixtureBase)fixture).EnableImprovedAssassinPathfindingAI = false;
+        refresh.Invoke(presentation, new object[] { "", false, "", entries, Enum.ToObject(stateType, 2), fixture });
+        Check(Visible(performance, "ContentVisibility"), "inactive checkbox opens its topic");
+        search("", false, "");
+        Check(topics.Select(topic => Visible(topic, "ContentVisibility")).SequenceEqual(manualTopicVisibility), "clearing status restores the manual session view");
 
         Check(topicNodes.All(n => !n.SelectNodes(".//*[local-name()='ScrollViewer']").Cast<XmlNode>().Any()), "no nested scrolling in topics");
         Check(nodes.Where(n => n.LocalName == "Button" && Ancestors(n).Any(a => SearchAttribute(a, "IsSection") == "True"))
@@ -295,6 +350,7 @@ internal static partial class Program
 
 public class SearchFixtureBase
 {
+    public bool EnableImprovedAssassinPathfindingAI { get; set; }
     public static SearchPresentationLabels Labels;
     public SearchPresentationLabels SettingsPresentation => Labels;
     public SearchGoodFixture[] MarketGoodsOrderItems => new[] { new SearchGoodFixture() };

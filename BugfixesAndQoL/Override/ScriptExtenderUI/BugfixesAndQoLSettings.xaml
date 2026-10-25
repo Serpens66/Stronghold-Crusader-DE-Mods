@@ -1,4 +1,7 @@
-<Grid xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:b="http://schemas.microsoft.com/xaml/behaviors" xmlns:ui="clr-namespace:SHCDESE.UI;assembly=SHCDESE" xmlns:sys="clr-namespace:System;assembly=mscorlib" xmlns:shared="clr-namespace:APIShared.ModSettings;assembly=APIShared" xmlns:seui="clr-namespace:SHCDESE.UI;assembly=SHCDESE" xmlns:local="clr-namespace:BugfixesAndQoL;assembly=BugfixesAndQoL" shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}" shared:ModSettingsSearch.IncludeToolTips="{Binding System_ModSettingsSearchIncludeToolTips}" shared:ModSettingsSearch.ExactKey="{Binding System_ModSettingsSearchExactKey}">
+<Grid xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:b="http://schemas.microsoft.com/xaml/behaviors" xmlns:ui="clr-namespace:SHCDESE.UI;assembly=SHCDESE" xmlns:sys="clr-namespace:System;assembly=mscorlib" xmlns:shared="clr-namespace:APIShared.ModSettings;assembly=APIShared" xmlns:seui="clr-namespace:SHCDESE.UI;assembly=SHCDESE" xmlns:local="clr-namespace:BugfixesAndQoL;assembly=BugfixesAndQoL"       shared:ModSettingsSearch.SourceModel="{Binding}"
+      shared:ModSettingsSearch.StateFilter="{Binding System_ModSettingsSearchStateFilter}"
+      shared:ModSettingsSearch.StateRevision="{Binding System_ModSettingsSearchStateRevision}"
+shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}" shared:ModSettingsSearch.IncludeToolTips="{Binding System_ModSettingsSearchIncludeToolTips}" shared:ModSettingsSearch.ExactKey="{Binding System_ModSettingsSearchExactKey}">
   <Grid.Resources>
     <Style TargetType="{x:Type ToolTip}">
       <Setter Property="Background" Value="#FF1D1710"/>
@@ -45,11 +48,11 @@
       <Setter Property="CornerRadius" Value="3"/>
       <Setter Property="Padding" Value="8,4"/>
     </Style>
-    <shared:ModSettingsSearchVisibilityConverter x:Key="ModSettingsSearchVisibilityConverter"/>
+    <shared:ModSettingsSearchStateVisibilityConverter x:Key="ModSettingsSearchVisibilityConverter"/>
     <Style x:Key="ModSettingsSearchTargetGrid" TargetType="{x:Type Grid}">
       <Setter Property="Visibility">
         <Setter.Value>
-          <MultiBinding Converter="{StaticResource ModSettingsSearchVisibilityConverter}">
+          <MultiBinding Converter="{StaticResource ModSettingsSearchVisibilityConverter}"><Binding RelativeSource="{RelativeSource Self}" Path="(shared:ModSettingsSearch.SourceModel)"/><Binding RelativeSource="{RelativeSource Self}" Path="(shared:ModSettingsSearch.StateFilter)"/><Binding RelativeSource="{RelativeSource Self}" Path="(shared:ModSettingsSearch.StateRevision)"/>
             <Binding RelativeSource="{RelativeSource Self}" Path="(shared:ModSettingsSearch.FilterText)"/>
             <Binding RelativeSource="{RelativeSource Self}" Path="(shared:ModSettingsSearch.IncludeToolTips)"/>
             <Binding RelativeSource="{RelativeSource Self}" Path="(shared:ModSettingsSearch.ExactKey)"/>
@@ -70,15 +73,28 @@
         </DataTrigger>
       </Style.Triggers>
     </Style>
-    <Style x:Key="RecommendationMarker" TargetType="{x:Type TextBlock}">
+    <PathGeometry x:Key="PreferencePersonGeometry" Figures="M 8,0 A 3.5,3.5 0 1 1 8,7 A 3.5,3.5 0 1 1 8,0 Z M 0,16 L 0,13 C 0,10 3.5,8.5 8,8.5 C 12.5,8.5 16,10 16,13 L 16,16 Z"/>
+    <ControlTemplate x:Key="PreferencePersonTemplate" TargetType="{x:Type ContentControl}">
+      <Path Data="{StaticResource PreferencePersonGeometry}" Fill="#FFCCCCCC" Width="16" Height="16" Stretch="Uniform"/>
+    </ControlTemplate>
+    <Style x:Key="RecommendationMarker" TargetType="{x:Type ContentControl}">
       <Setter Property="Foreground" Value="#FFF2D48A"/>
       <Setter Property="FontSize" Value="18"/>
+      <Setter Property="Focusable" Value="False"/>
+      <Setter Property="IsTabStop" Value="False"/>
       <Setter Property="HorizontalAlignment" Value="Center"/>
       <Setter Property="VerticalAlignment" Value="Top"/>
       <Setter Property="Margin" Value="0,1,0,0"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="{x:Type ContentControl}">
+            <TextBlock Text="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}" FontSize="{TemplateBinding FontSize}"/>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
       <Style.Triggers>
         <DataTrigger Binding="{Binding IsPreference}" Value="True">
-          <Setter Property="Foreground" Value="#FFCCCCCC"/>
+          <Setter Property="Template" Value="{StaticResource PreferencePersonTemplate}"/>
         </DataTrigger>
       </Style.Triggers>
     </Style>
@@ -235,6 +251,10 @@
             </Viewbox>
           </Button>
         </StackPanel>
+        <WrapPanel Orientation="Horizontal" Margin="0,5,0,0">
+          <TextBlock Text="{Binding System_ModSettingsSearchStateLabelText}" Foreground="White" VerticalAlignment="Center" Margin="0,0,8,0"/>
+          <ComboBox ItemsSource="{Binding System_ModSettingsSearchStateFilters}" SelectedIndex="{Binding System_ModSettingsSearchStateFilterIndex, Mode=TwoWay}" MinWidth="140" ToolTip="{Binding System_ModSettingsSearchStateHelpText}" ToolTipService.ShowDuration="60000"/>
+        </WrapPanel>
         <TextBlock Text="{Binding System_ModSettingsSearchNoResultsText}" Visibility="{Binding System_ModSettingsSearchNoResultsVisibility}" Foreground="#FFCC66" HorizontalAlignment="Left" Margin="0,4,0,0"/>
       </StackPanel>
       <TextBlock Text="{Binding ActionsScopeNoticeText}" Visibility="{Binding ActionsScopeNoticeVisibility}" Foreground="#BBBBBB" TextWrapping="Wrap" Margin="0,0,0,8"/>
@@ -243,7 +263,14 @@
       <TextBlock Text="{Binding HostReadOnlyNoticeText}" Visibility="{Binding HostReadOnlyNoticeVisibility}" Foreground="#FFCC66" FontWeight="Bold" Margin="0,0,0,8"/>
       <WrapPanel Margin="0,2,0,10" shared:ModSettingsSearch.Exclude="True" Width="{Binding ViewportWidth, ElementName=SettingsViewport, Converter={StaticResource SettingsTopicWidthConverter}}" HorizontalAlignment="Left">
         <TextBlock Text="{Binding SettingsPresentation.LegendRecommendedText}" Foreground="#FFF2D48A" TextWrapping="Wrap" Margin="0,0,14,4"/>
-        <TextBlock Text="{Binding SettingsPresentation.LegendPreferenceText}" Foreground="#FFCCCCCC" TextWrapping="Wrap" Margin="0,0,14,4"/>
+        <Grid Margin="0,0,14,4">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="22"/>
+            <ColumnDefinition Width="*"/>
+          </Grid.ColumnDefinitions>
+          <ContentControl Template="{StaticResource PreferencePersonTemplate}" Focusable="False" IsTabStop="False" VerticalAlignment="Center"/>
+          <TextBlock Grid.Column="1" Text="{Binding SettingsPresentation.LegendPreferenceText}" Foreground="#FFCCCCCC" TextWrapping="Wrap"/>
+        </Grid>
         <TextBlock Text="{Binding SettingsPresentation.LegendUnreviewedText}" Foreground="#FFBBBBBB" TextWrapping="Wrap" Margin="0,0,14,4"/>
       </WrapPanel>
       <WrapPanel Margin="0,12,0,6" shared:ModSettingsSearch.Exclude="True" Width="{Binding ViewportWidth, ElementName=SettingsViewport, Converter={StaticResource SettingsTopicWidthConverter}}" HorizontalAlignment="Left">
@@ -276,7 +303,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.PreserveDisplayResolution}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.PreserveDisplayResolution}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditClientSettings}" Opacity="{Binding ClientSettingsOpacity}">
                 <CheckBox IsChecked="{Binding PreserveDisplayResolution, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding PreserveDisplayResolutionHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding PreserveDisplayResolutionText}" Foreground="White" TextWrapping="Wrap"/>
@@ -288,7 +315,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableGatehouseTargetMarkerHeightFix}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableGatehouseTargetMarkerHeightFix}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditClientSettings}" Opacity="{Binding ClientSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnableGatehouseTargetMarkerHeightFix, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableGatehouseTargetMarkerHeightFixHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnableGatehouseTargetMarkerHeightFixText}" Foreground="White" TextWrapping="Wrap"/>
@@ -300,7 +327,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableVanillaPerformanceOptimizations}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableVanillaPerformanceOptimizations}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditClientSettings}" Opacity="{Binding ClientSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnableVanillaPerformanceOptimizations, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableVanillaPerformanceOptimizationsHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnableVanillaPerformanceOptimizationsText}" Foreground="White" TextWrapping="Wrap"/>
@@ -312,7 +339,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.SpriteSheetMergeModeIndex}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.SpriteSheetMergeModeIndex}"/>
               <WrapPanel Margin="0,0,14,8" Grid.Column="1" IsEnabled="{Binding CanEditClientSettings}" Opacity="{Binding ClientSettingsOpacity}">
                 <TextBlock Text="{Binding SpriteSheetMergeModeText}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding SpriteSheetMergeModeHelpText}"/>
                 <WrapPanel Orientation="Horizontal" Margin="4,0,0,0" VerticalAlignment="Center">
@@ -325,7 +352,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableCompleteNotificationSkipOnClick}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableCompleteNotificationSkipOnClick}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditClientSettings}" Opacity="{Binding ClientSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnableCompleteNotificationSkipOnClick, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableCompleteNotificationSkipOnClickHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnableCompleteNotificationSkipOnClickText}" Foreground="White" TextWrapping="Wrap"/>
@@ -340,7 +367,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.ShowSelectedUnitHealth}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.ShowSelectedUnitHealth}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditClientSettings}" Opacity="{Binding ClientSettingsOpacity}">
                 <CheckBox IsChecked="{Binding ShowSelectedUnitHealth, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding ShowSelectedUnitHealthHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding ShowSelectedUnitHealthText}" Foreground="White" TextWrapping="Wrap"/>
@@ -352,7 +379,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.ShowForeignTroopHud}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.ShowForeignTroopHud}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditClientSettings}" Opacity="{Binding ClientSettingsOpacity}">
                 <CheckBox IsChecked="{Binding ShowForeignTroopHud, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding ShowForeignTroopHudHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding ShowForeignTroopHudText}" Foreground="White" TextWrapping="Wrap"/>
@@ -364,7 +391,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableDamagedHealthBars}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableDamagedHealthBars}"/>
               <Grid Margin="0,0,0,8" Grid.Column="1" IsEnabled="{Binding CanEditClientSettings}" Opacity="{Binding ClientSettingsOpacity}">
                 <StackPanel Orientation="Vertical" ToolTipService.ShowDuration="60000" ToolTip="{Binding DamagedHealthBarsHotkeyHelpText}">
                   <CheckBox IsChecked="{Binding EnableDamagedHealthBars, Mode=TwoWay}" Foreground="White" VerticalAlignment="Center" Margin="0,0,12,0" ToolTip="{Binding DamagedHealthBarsHotkeyHelpText}" ToolTipService.ShowDuration="60000">
@@ -385,7 +412,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.ShowCountdownTimers}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.ShowCountdownTimers}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditClientSettings}" Opacity="{Binding ClientSettingsOpacity}">
                 <CheckBox IsChecked="{Binding ShowCountdownTimers, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding ShowCountdownTimersHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding ShowCountdownTimersText}" Foreground="White" TextWrapping="Wrap"/>
@@ -397,7 +424,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.StatisticsTeamBadgeMode}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.StatisticsTeamBadgeMode}"/>
               <WrapPanel ToolTipService.ShowDuration="60000" ToolTip="{Binding StatisticsTeamBadgeModeHelpText}" Margin="0,0,0,8" Grid.Column="1" IsEnabled="{Binding CanEditClientSettings}" Opacity="{Binding ClientSettingsOpacity}">
                 <TextBlock Text="{Binding StatisticsTeamBadgeModeText}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center"/>
                 <WrapPanel Orientation="Horizontal" Margin="4,0,0,0" VerticalAlignment="Center">
@@ -424,7 +451,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableNotificationLastFrame}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableNotificationLastFrame}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditClientSettings}" Opacity="{Binding ClientSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnableNotificationLastFrame, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableNotificationLastFrameHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnableNotificationLastFrameText}" Foreground="White" TextWrapping="Wrap"/>
@@ -436,11 +463,11 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.ArabianIdleSoundVolumePercent}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.ArabianIdleSoundVolumePercent}"/>
               <WrapPanel ToolTipService.ShowDuration="60000" ToolTip="{Binding ArabianIdleSoundVolumeHelpText}" Margin="0,0,0,8" Grid.Column="1" IsEnabled="{Binding CanEditClientSettings}" Opacity="{Binding ClientSettingsOpacity}">
                 <TextBlock Text="{Binding ArabianIdleSoundVolumeText}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center"/>
                 <WrapPanel Orientation="Horizontal" Margin="4,0,0,0" VerticalAlignment="Center">
-                  <Slider Width="160" Minimum="0" Maximum="100" Value="{Binding ArabianIdleSoundVolumePercent, Mode=TwoWay}" TickFrequency="1" SmallChange="1" LargeChange="1" IsSnapToTickEnabled="True" ToolTipService.ShowDuration="60000" ToolTip="{Binding ArabianIdleSoundVolumeHelpText}"/>
+                  <Slider shared:ModSettingsSearch.InactiveValues="100" Width="160" Minimum="0" Maximum="100" Value="{Binding ArabianIdleSoundVolumePercent, Mode=TwoWay}" TickFrequency="1" SmallChange="1" LargeChange="1" IsSnapToTickEnabled="True" ToolTipService.ShowDuration="60000" ToolTip="{Binding ArabianIdleSoundVolumeHelpText}"/>
                   <TextBlock Text="{Binding ArabianIdleSoundVolumeValueText}" Foreground="White" VerticalAlignment="Center" Margin="4,0,0,0"/>
                 </WrapPanel>
               </WrapPanel>
@@ -471,7 +498,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableMinimapCursorFollowFix}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableMinimapCursorFollowFix}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditClientSettings}" Opacity="{Binding ClientSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnableMinimapCursorFollowFix, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableMinimapCursorFollowFixHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnableMinimapCursorFollowFixText}" Foreground="White" TextWrapping="Wrap"/>
@@ -483,7 +510,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableDisbandedUnitControlGroupCleanup}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableDisbandedUnitControlGroupCleanup}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditClientSettings}" Opacity="{Binding ClientSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnableDisbandedUnitControlGroupCleanup, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableDisbandedUnitControlGroupCleanupHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnableDisbandedUnitControlGroupCleanupText}" Foreground="White" TextWrapping="Wrap"/>
@@ -495,7 +522,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableEnemyProximityBulldozeCursorFix}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableEnemyProximityBulldozeCursorFix}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditClientSettings}" Opacity="{Binding ClientSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnableEnemyProximityBulldozeCursorFix, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableEnemyProximityBulldozeCursorFixHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnableEnemyProximityBulldozeCursorFixText}" Foreground="White" TextWrapping="Wrap"/>
@@ -510,7 +537,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableImprovedBuildPreview}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableImprovedBuildPreview}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditClientSettings}" Opacity="{Binding ClientSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnableImprovedBuildPreview, Mode=TwoWay}" Foreground="White" Margin="0,0,14,8" ToolTipService.ShowDuration="60000" ToolTip="{Binding ImprovedBuildPreviewHelpText}">
                   <TextBlock Text="{Binding ImprovedBuildPreviewText}" Foreground="White" TextWrapping="Wrap"/>
@@ -522,7 +549,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableTroopHudMiddleClickCameraJump}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableTroopHudMiddleClickCameraJump}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditClientSettings}" Opacity="{Binding ClientSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnableTroopHudMiddleClickCameraJump, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableTroopHudMiddleClickCameraJumpHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnableTroopHudMiddleClickCameraJumpText}" Foreground="White" TextWrapping="Wrap"/>
@@ -534,7 +561,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.AllowMinimapWhilePlacingBuilding}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.AllowMinimapWhilePlacingBuilding}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditClientSettings}" Opacity="{Binding ClientSettingsOpacity}">
                 <CheckBox IsChecked="{Binding AllowMinimapWhilePlacingBuilding, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding AllowMinimapWhilePlacingBuildingHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding AllowMinimapWhilePlacingBuildingText}" Foreground="White" TextWrapping="Wrap"/>
@@ -546,7 +573,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.PreventMoveOrderOnPlacementCancel}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.PreventMoveOrderOnPlacementCancel}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditClientSettings}" Opacity="{Binding ClientSettingsOpacity}">
                 <CheckBox IsChecked="{Binding PreventMoveOrderOnPlacementCancel, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding PreventMoveOrderOnPlacementCancelHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding PreventMoveOrderOnPlacementCancelText}" Foreground="White" TextWrapping="Wrap"/>
@@ -558,7 +585,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.AllowCameraMovementWithModifiers}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.AllowCameraMovementWithModifiers}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditClientSettings}" Opacity="{Binding ClientSettingsOpacity}">
                 <CheckBox IsChecked="{Binding AllowCameraMovementWithModifiers, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding AllowCameraMovementWithModifiersHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding AllowCameraMovementWithModifiersText}" Foreground="White" TextWrapping="Wrap"/>
@@ -570,7 +597,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableResolutionAwareExtendedZoom}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableResolutionAwareExtendedZoom}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditClientSettings}" Opacity="{Binding ClientSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnableResolutionAwareExtendedZoom, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableResolutionAwareExtendedZoomHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnableResolutionAwareExtendedZoomText}" Foreground="White" TextWrapping="Wrap"/>
@@ -603,7 +630,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableCustomTrailExtremeGoldFix}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableCustomTrailExtremeGoldFix}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditClientSettings}" Opacity="{Binding ClientSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnableCustomTrailExtremeGoldFix, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableCustomTrailExtremeGoldFixHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnableCustomTrailExtremeGoldFixText}" Foreground="White" TextWrapping="Wrap"/>
@@ -618,7 +645,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.ShowLoadSaveDialogControls}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.ShowLoadSaveDialogControls}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditClientSettings}" Opacity="{Binding ClientSettingsOpacity}">
                 <CheckBox IsChecked="{Binding ShowLoadSaveDialogControls, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding ShowLoadSaveDialogControlsHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding ShowLoadSaveDialogControlsText}" Foreground="White" TextWrapping="Wrap"/>
@@ -630,7 +657,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableSoloMultiplayerSaveLoading}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableSoloMultiplayerSaveLoading}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditClientSettings}" Opacity="{Binding ClientSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnableSoloMultiplayerSaveLoading, Mode=TwoWay}" Content="{Binding EnableSoloMultiplayerSaveLoadingText}" Foreground="White" Margin="0,0,14,8" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableSoloMultiplayerSaveLoadingHelpText}"/>
               </Grid>
@@ -640,7 +667,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.FixSkirmishLoadButtonVisibility}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.FixSkirmishLoadButtonVisibility}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditClientSettings}" Opacity="{Binding ClientSettingsOpacity}">
                 <CheckBox IsChecked="{Binding FixSkirmishLoadButtonVisibility, Mode=TwoWay}" Content="{Binding FixSkirmishLoadButtonVisibilityText}" Foreground="White" Margin="0,0,14,8" ToolTipService.ShowDuration="60000" ToolTip="{Binding FixSkirmishLoadButtonVisibilityHelpText}"/>
               </Grid>
@@ -650,7 +677,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.ImproveYellowLobbyContrast}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.ImproveYellowLobbyContrast}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditClientSettings}" Opacity="{Binding ClientSettingsOpacity}">
                 <CheckBox IsChecked="{Binding ImproveYellowLobbyContrast, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding ImproveYellowLobbyContrastHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding ImproveYellowLobbyContrastText}" Foreground="White" TextWrapping="Wrap"/>
@@ -662,7 +689,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableBriefingNoStartingGoldFix}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableBriefingNoStartingGoldFix}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditClientSettings}" Opacity="{Binding ClientSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnableBriefingNoStartingGoldFix, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableBriefingNoStartingGoldFixHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnableBriefingNoStartingGoldFixText}" Foreground="White" TextWrapping="Wrap"/>
@@ -674,7 +701,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableIngameSteamInvitePrompt}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableIngameSteamInvitePrompt}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditClientSettings}" Opacity="{Binding ClientSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnableIngameSteamInvitePrompt, Mode=TwoWay}" Foreground="White" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableIngameSteamInvitePromptHelpText}" Margin="0,0,10,0">
                   <TextBlock Text="{Binding EnableIngameSteamInvitePromptText}" Foreground="White" TextWrapping="Wrap"/>
@@ -689,7 +716,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableWorkshopUploadLordSelectionFix}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableWorkshopUploadLordSelectionFix}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditClientSettings}" Opacity="{Binding ClientSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnableWorkshopUploadLordSelectionFix, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableWorkshopUploadLordSelectionFixHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnableWorkshopUploadLordSelectionFixText}" Foreground="White" TextWrapping="Wrap"/>
@@ -701,7 +728,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableLordAndMapListEnhancements}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableLordAndMapListEnhancements}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditClientSettings}" Opacity="{Binding ClientSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnableLordAndMapListEnhancements, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableLordAndMapListEnhancementsHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnableLordAndMapListEnhancementsText}" Foreground="White" TextWrapping="Wrap"/>
@@ -713,7 +740,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableMissingMapSaveRecovery}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableMissingMapSaveRecovery}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditClientSettings}" Opacity="{Binding ClientSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnableMissingMapSaveRecovery, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableMissingMapSaveRecoveryHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnableMissingMapSaveRecoveryText}" Foreground="White" TextWrapping="Wrap"/>
@@ -746,7 +773,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableMarketKeyMainMenuFix}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableMarketKeyMainMenuFix}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditClientSettings}" Opacity="{Binding ClientSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnableMarketKeyMainMenuFix, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableMarketKeyMainMenuFixHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnableMarketKeyMainMenuFixText}" Foreground="White" TextWrapping="Wrap"/>
@@ -758,7 +785,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableAutoTradeSellZeroFix}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableAutoTradeSellZeroFix}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditClientSettings}" Opacity="{Binding ClientSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnableAutoTradeSellZeroFix, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableAutoTradeSellZeroFixHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnableAutoTradeSellZeroFixText}" Foreground="White" TextWrapping="Wrap"/>
@@ -773,7 +800,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableAllyGoodsAmountModifiers}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableAllyGoodsAmountModifiers}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditClientSettings}" Opacity="{Binding ClientSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnableAllyGoodsAmountModifiers, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableAllyGoodsAmountModifiersHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnableAllyGoodsAmountModifiersText}" Foreground="White" TextWrapping="Wrap"/>
@@ -785,7 +812,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.HdMarketView}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.HdMarketView}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditClientSettings}" Opacity="{Binding ClientSettingsOpacity}">
                 <CheckBox IsChecked="{Binding HdMarketView, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding HdMarketViewHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding HdMarketViewText}" Foreground="White" TextWrapping="Wrap"/>
@@ -863,7 +890,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableAbruptHostMigrationFix}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableAbruptHostMigrationFix}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnableAbruptHostMigrationFix, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableAbruptHostMigrationFixHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnableAbruptHostMigrationFixText}" Foreground="White" TextWrapping="Wrap"/>
@@ -875,7 +902,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableConnectionRecoverySave}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableConnectionRecoverySave}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnableConnectionRecoverySave, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableConnectionRecoverySaveHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnableConnectionRecoverySaveText}" Foreground="White" TextWrapping="Wrap"/>
@@ -887,7 +914,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableResyncHostKick}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableResyncHostKick}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnableResyncHostKick, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableResyncHostKickHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnableResyncHostKickText}" Foreground="White" TextWrapping="Wrap"/>
@@ -899,7 +926,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableCorruptLordDataSpawnFix}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableCorruptLordDataSpawnFix}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnableCorruptLordDataSpawnFix, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableCorruptLordDataSpawnFixHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnableCorruptLordDataSpawnFixText}" Foreground="White" TextWrapping="Wrap"/>
@@ -911,7 +938,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableMultiplayerStartupStateFix}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableMultiplayerStartupStateFix}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnableMultiplayerStartupStateFix, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableMultiplayerStartupStateFixHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnableMultiplayerStartupStateFixText}" Foreground="White" TextWrapping="Wrap"/>
@@ -923,7 +950,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnablePeaceTimeGameplayFixes}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnablePeaceTimeGameplayFixes}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnablePeaceTimeGameplayFixes, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnablePeaceTimeGameplayFixesHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnablePeaceTimeGameplayFixesText}" Foreground="White" TextWrapping="Wrap"/>
@@ -938,7 +965,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.ShowMpAdvancedSettingsInSingleplayer}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.ShowMpAdvancedSettingsInSingleplayer}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
                 <CheckBox IsChecked="{Binding ShowMpAdvancedSettingsInSingleplayer, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding ShowMpAdvancedSettingsInSingleplayerHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding ShowMpAdvancedSettingsInSingleplayerText}" Foreground="White" TextWrapping="Wrap"/>
@@ -950,7 +977,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableCustomLordListEnhancements}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableCustomLordListEnhancements}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnableCustomLordListEnhancements, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableCustomLordListEnhancementsHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnableCustomLordListEnhancementsText}" Foreground="White" TextWrapping="Wrap"/>
@@ -962,7 +989,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableTrailCustomizationButtons}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableTrailCustomizationButtons}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnableTrailCustomizationButtons, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableTrailCustomizationButtonsHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnableTrailCustomizationButtonsText}" Foreground="White" TextWrapping="Wrap"/>
@@ -974,7 +1001,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.AllowFullAiMultiplayerLobby}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.AllowFullAiMultiplayerLobby}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
                 <CheckBox IsChecked="{Binding AllowFullAiMultiplayerLobby, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding AllowFullAiMultiplayerLobbyHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding AllowFullAiMultiplayerLobbyText}" Foreground="White" TextWrapping="Wrap"/>
@@ -986,7 +1013,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableReturnToMultiplayerLobby}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableReturnToMultiplayerLobby}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnableReturnToMultiplayerLobby, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableReturnToMultiplayerLobbyHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnableReturnToMultiplayerLobbyText}" Foreground="White" TextWrapping="Wrap"/>
@@ -998,7 +1025,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.MultiplayerTimeControlPermissionIndex}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.MultiplayerTimeControlPermissionIndex}"/>
               <WrapPanel Margin="0,0,14,8" Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
                 <TextBlock Text="{Binding EnableMultiplayerGameSpeedChangesText}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center"/>
                 <WrapPanel Orientation="Horizontal" Margin="4,0,0,0" VerticalAlignment="Center">
@@ -1011,7 +1038,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.MultiplayerGameSpeedMaximum}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.MultiplayerGameSpeedMaximum}"/>
               <WrapPanel Margin="0,0,0,8" Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
                 <TextBlock Text="{Binding MultiplayerGameSpeedMaximumText}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding MultiplayerGameSpeedMaximumHelpText}"/>
                 <WrapPanel Orientation="Horizontal" Margin="4,0,0,0" VerticalAlignment="Center">
@@ -1025,7 +1052,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableShiftGameSpeedSteps}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableShiftGameSpeedSteps}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnableShiftGameSpeedSteps, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableShiftGameSpeedStepsHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnableShiftGameSpeedStepsText}" Foreground="White" TextWrapping="Wrap"/>
@@ -1037,7 +1064,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableMinimapRefreshThrottle}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableMinimapRefreshThrottle}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnableMinimapRefreshThrottle, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableMinimapRefreshThrottleHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnableMinimapRefreshThrottleText}" Foreground="White" TextWrapping="Wrap"/>
@@ -1049,7 +1076,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableSurrenderAndStatistics}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableSurrenderAndStatistics}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnableSurrenderAndStatistics, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableSurrenderAndStatisticsHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnableSurrenderAndStatisticsText}" Foreground="White" TextWrapping="Wrap"/>
@@ -1061,7 +1088,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableEliminatedPlayersBecomeSpectators}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableEliminatedPlayersBecomeSpectators}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnableEliminatedPlayersBecomeSpectators, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableEliminatedPlayersBecomeSpectatorsHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnableEliminatedPlayersBecomeSpectatorsText}" Foreground="White" TextWrapping="Wrap"/>
@@ -1073,7 +1100,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableSpectatorPerspective}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableSpectatorPerspective}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnableSpectatorPerspective, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableSpectatorPerspectiveHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnableSpectatorPerspectiveText}" Foreground="White" TextWrapping="Wrap"/>
@@ -1085,7 +1112,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableRandomOpponentSelectionEnhancements}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableRandomOpponentSelectionEnhancements}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnableRandomOpponentSelectionEnhancements, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableRandomOpponentSelectionEnhancementsHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnableRandomOpponentSelectionEnhancementsText}" Foreground="White" TextWrapping="Wrap"/>
@@ -1118,7 +1145,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableAiStoneReserveFix}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableAiStoneReserveFix}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnableAiStoneReserveFix, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableAiStoneReserveFixHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnableAiStoneReserveFixText}" Foreground="White" TextWrapping="Wrap"/>
@@ -1130,7 +1157,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableAiDefensePatrolFix}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableAiDefensePatrolFix}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnableAiDefensePatrolFix, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableAiDefensePatrolFixHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnableAiDefensePatrolFixText}" Foreground="White" TextWrapping="Wrap"/>
@@ -1142,7 +1169,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableAiWallTargetingFix}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableAiWallTargetingFix}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnableAiWallTargetingFix, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableAiWallTargetingFixHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnableAiWallTargetingFixText}" Foreground="White" TextWrapping="Wrap"/>
@@ -1154,7 +1181,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnablePrebuiltAiWorkshopBothFix}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnablePrebuiltAiWorkshopBothFix}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnablePrebuiltAiWorkshopBothFix, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnablePrebuiltAiWorkshopBothFixHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnablePrebuiltAiWorkshopBothFixText}" Foreground="White" TextWrapping="Wrap"/>
@@ -1166,7 +1193,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableAivDefenderPositionFix}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableAivDefenderPositionFix}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnableAivDefenderPositionFix, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableAivDefenderPositionFixHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnableAivDefenderPositionFixText}" Foreground="White" TextWrapping="Wrap"/>
@@ -1178,7 +1205,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.FixAIPreplacedMapBuildings}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.FixAIPreplacedMapBuildings}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
                 <CheckBox IsChecked="{Binding FixAIPreplacedMapBuildings, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding FixAIPreplacedMapBuildingsHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding FixAIPreplacedMapBuildingsText}" Foreground="White" TextWrapping="Wrap"/>
@@ -1190,7 +1217,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.FixAITowerRepair}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.FixAITowerRepair}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
                 <CheckBox IsChecked="{Binding FixAITowerRepair, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding FixAITowerRepairHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding FixAITowerRepairText}" Foreground="White" TextWrapping="Wrap"/>
@@ -1202,7 +1229,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.BetterAIOverbuildRules}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.BetterAIOverbuildRules}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
                 <CheckBox IsChecked="{Binding BetterAIOverbuildRules, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding BetterAIOverbuildRulesHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding BetterAIOverbuildRulesText}" Foreground="White" TextWrapping="Wrap"/>
@@ -1214,7 +1241,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.PreventAIPause}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.PreventAIPause}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
                 <CheckBox IsChecked="{Binding PreventAIPause, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding PreventAIPauseHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding PreventAIPauseText}" Foreground="White" TextWrapping="Wrap"/>
@@ -1226,7 +1253,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.PreventEmergencyDemolition}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.PreventEmergencyDemolition}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
                 <CheckBox IsChecked="{Binding PreventEmergencyDemolition, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding PreventEmergencyDemolitionHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding PreventEmergencyDemolitionText}" Foreground="White" TextWrapping="Wrap"/>
@@ -1238,7 +1265,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.PreventHovelDeletion}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.PreventHovelDeletion}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
                 <CheckBox IsChecked="{Binding PreventHovelDeletion, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding PreventHovelDeletionHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding PreventHovelDeletionText}" Foreground="White" TextWrapping="Wrap"/>
@@ -1250,7 +1277,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.InaccessibleAIBuildingDemolitionProtection}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.InaccessibleAIBuildingDemolitionProtection}"/>
               <WrapPanel ToolTipService.ShowDuration="60000" ToolTip="{Binding InaccessibleAIBuildingDemolitionProtectionHelpText}" Margin="0,0,0,8" Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
                 <TextBlock Text="{Binding InaccessibleAIBuildingDemolitionProtectionText}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center"/>
                 <WrapPanel Orientation="Horizontal" Margin="4,0,0,0" VerticalAlignment="Center">
@@ -1258,6 +1285,18 @@
                   <TextBlock Text="{Binding InaccessibleAIBuildingDemolitionProtectionValueText}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center" Margin="4,0,0,0"/>
                 </WrapPanel>
               </WrapPanel>
+            </Grid>
+            <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.remove-ai-keep-range-limit" shared:ModSettingsSearch.Title="{Binding RemoveAIKeepRangeLimitText}" shared:ModSettingsSearch.ToolTipText="{Binding RemoveAIKeepRangeLimitHelpText}">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="28"/>
+                <ColumnDefinition Width="*"/>
+              </Grid.ColumnDefinitions>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.RemoveAIKeepRangeLimit}"/>
+              <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
+                <CheckBox IsChecked="{Binding RemoveAIKeepRangeLimit, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding RemoveAIKeepRangeLimitHelpText}" Margin="0,0,14,8">
+                  <TextBlock Text="{Binding RemoveAIKeepRangeLimitText}" Foreground="White" TextWrapping="Wrap"/>
+                </CheckBox>
+              </Grid>
             </Grid>
           </StackPanel>
           <StackPanel Visibility="{Binding SettingsPresentation.HostAi.QolVisibility}">
@@ -1267,7 +1306,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.RememberAiAivSettings}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.RememberAiAivSettings}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
                 <CheckBox IsChecked="{Binding RememberAiAivSettings, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding RememberAiAivSettingsHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding RememberAiAivSettingsText}" Foreground="White" TextWrapping="Wrap"/>
@@ -1279,7 +1318,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableAIQuarryPileTowardsKeep}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableAIQuarryPileTowardsKeep}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnableAIQuarryPileTowardsKeep, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableAIQuarryPileTowardsKeepHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnableAIQuarryPileTowardsKeepText}" Foreground="White" TextWrapping="Wrap"/>
@@ -1290,24 +1329,12 @@
           <StackPanel Visibility="{Binding SettingsPresentation.HostAi.PossibleVisibility}">
             <TextBlock Text="{Binding PossibleFixesTitleText}" Style="{StaticResource CategoryHeader}" Margin="28,8,0,4" shared:ModSettingsSearch.Exclude="True"/>
             <TextBlock Text="{Binding SettingsPresentation.PossibleFixesHelpText}" Foreground="#FFBBBBBB" TextWrapping="Wrap" Margin="28,0,0,8" shared:ModSettingsSearch.Exclude="True"/>
-            <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.remove-ai-keep-range-limit" shared:ModSettingsSearch.Title="{Binding RemoveAIKeepRangeLimitText}" shared:ModSettingsSearch.ToolTipText="{Binding RemoveAIKeepRangeLimitHelpText}">
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="28"/>
-                <ColumnDefinition Width="*"/>
-              </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.RemoveAIKeepRangeLimit}"/>
-              <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
-                <CheckBox IsChecked="{Binding RemoveAIKeepRangeLimit, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding RemoveAIKeepRangeLimitHelpText}" Margin="0,0,14,8">
-                  <TextBlock Text="{Binding RemoveAIKeepRangeLimitText}" Foreground="White" TextWrapping="Wrap"/>
-                </CheckBox>
-              </Grid>
-            </Grid>
             <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-ai-sell-threshold-fix" shared:ModSettingsSearch.Title="{Binding EnableAiSellThresholdFixText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableAiSellThresholdFixHelpText}">
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableAiSellThresholdFix}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableAiSellThresholdFix}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnableAiSellThresholdFix, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableAiSellThresholdFixHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnableAiSellThresholdFixText}" Foreground="White" TextWrapping="Wrap"/>
@@ -1340,7 +1367,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableTroopMovementFix}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableTroopMovementFix}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnableTroopMovementFix, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableTroopMovementFixHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnableTroopMovementFixText}" Foreground="White" TextWrapping="Wrap"/>
@@ -1352,7 +1379,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableMountedStockpileMovementFix}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableMountedStockpileMovementFix}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnableMountedStockpileMovementFix, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableMountedStockpileMovementFixHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnableMountedStockpileMovementFixText}" Foreground="White" TextWrapping="Wrap"/>
@@ -1364,7 +1391,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableHealerAttackCommandFix}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableHealerAttackCommandFix}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnableHealerAttackCommandFix, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableHealerAttackCommandFixHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnableHealerAttackCommandFixText}" Foreground="White" TextWrapping="Wrap"/>
@@ -1376,7 +1403,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableAssassinCombatResumeFix}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableAssassinCombatResumeFix}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnableAssassinCombatResumeFix, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableAssassinCombatResumeFixHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnableAssassinCombatResumeFixText}" Foreground="White" TextWrapping="Wrap"/>
@@ -1388,7 +1415,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableAssemblyPointPlacementFix}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableAssemblyPointPlacementFix}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnableAssemblyPointPlacementFix, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableAssemblyPointPlacementFixHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnableAssemblyPointPlacementFixText}" Foreground="White" TextWrapping="Wrap"/>
@@ -1403,7 +1430,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableExtendedShiftCommandQueue}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableExtendedShiftCommandQueue}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnableExtendedShiftCommandQueue, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableExtendedShiftCommandQueueHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnableExtendedShiftCommandQueueText}" Foreground="White" TextWrapping="Wrap"/>
@@ -1415,7 +1442,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableFastRecruitRallyMovement}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableFastRecruitRallyMovement}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnableFastRecruitRallyMovement, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableFastRecruitRallyMovementHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnableFastRecruitRallyMovementText}" Foreground="White" TextWrapping="Wrap"/>
@@ -1427,7 +1454,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableRallyTerrainSlowdownFix}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableRallyTerrainSlowdownFix}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnableRallyTerrainSlowdownFix, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableRallyTerrainSlowdownFixHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnableRallyTerrainSlowdownFixText}" Foreground="White" TextWrapping="Wrap"/>
@@ -1439,7 +1466,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableLordUnitControls}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableLordUnitControls}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnableLordUnitControls, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableLordUnitControlsHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnableLordUnitControlsText}" Foreground="White" TextWrapping="Wrap"/>
@@ -1472,7 +1499,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableKeepFlagRotationFix}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableKeepFlagRotationFix}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnableKeepFlagRotationFix, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableKeepFlagRotationFixHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnableKeepFlagRotationFixText}" Foreground="White" TextWrapping="Wrap"/>
@@ -1484,7 +1511,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableTanneryAnimationFix}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableTanneryAnimationFix}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnableTanneryAnimationFix, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableTanneryAnimationFixHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnableTanneryAnimationFixText}" Foreground="White" TextWrapping="Wrap"/>
@@ -1496,7 +1523,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnablePlaguePopularityFix}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnablePlaguePopularityFix}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnablePlaguePopularityFix, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnablePlaguePopularityFixHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnablePlaguePopularityFixText}" Foreground="White" TextWrapping="Wrap"/>
@@ -1508,7 +1535,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnablePlagueCloudRemovalFix}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnablePlagueCloudRemovalFix}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnablePlagueCloudRemovalFix, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnablePlagueCloudRemovalFixHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnablePlagueCloudRemovalFixText}" Foreground="White" TextWrapping="Wrap"/>
@@ -1520,7 +1547,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableStuckApothecaryFix}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableStuckApothecaryFix}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnableStuckApothecaryFix, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableStuckApothecaryFixHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnableStuckApothecaryFixText}" Foreground="White" TextWrapping="Wrap"/>
@@ -1532,7 +1559,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnablePlagueTargetReservationFix}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnablePlagueTargetReservationFix}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnablePlagueTargetReservationFix, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnablePlagueTargetReservationFixHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnablePlagueTargetReservationFixText}" Foreground="White" TextWrapping="Wrap"/>
@@ -1547,7 +1574,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableSingleBuildingPause}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableSingleBuildingPause}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnableSingleBuildingPause, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableSingleBuildingPauseHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnableSingleBuildingPauseText}" Foreground="White" TextWrapping="Wrap"/>
@@ -1559,7 +1586,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableNearestWaterboyTargeting}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableNearestWaterboyTargeting}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnableNearestWaterboyTargeting, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableNearestWaterboyTargetingHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnableNearestWaterboyTargetingText}" Foreground="White" TextWrapping="Wrap"/>
@@ -1571,7 +1598,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableShiftRepairAllBuildings}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableShiftRepairAllBuildings}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnableShiftRepairAllBuildings, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableShiftRepairAllBuildingsHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnableShiftRepairAllBuildingsText}" Foreground="White" TextWrapping="Wrap"/>
@@ -1583,7 +1610,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableQuarryPileRelocation}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableQuarryPileRelocation}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnableQuarryPileRelocation, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableQuarryPileRelocationHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnableQuarryPileRelocationText}" Foreground="White" TextWrapping="Wrap"/>
@@ -1595,7 +1622,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableCtrlSingleMarketTrade}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableCtrlSingleMarketTrade}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnableCtrlSingleMarketTrade, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableCtrlSingleMarketTradeHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnableCtrlSingleMarketTradeText}" Foreground="White" TextWrapping="Wrap"/>
@@ -1611,7 +1638,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableBakerMillerBreaks}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableBakerMillerBreaks}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnableBakerMillerBreaks, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableBakerMillerBreaksHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnableBakerMillerBreaksText}" Foreground="White" TextWrapping="Wrap"/>
@@ -1623,7 +1650,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableWorkshopIdleDelayFix}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableWorkshopIdleDelayFix}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnableWorkshopIdleDelayFix, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableWorkshopIdleDelayFixHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnableWorkshopIdleDelayFixText}" Foreground="White" TextWrapping="Wrap"/>
@@ -1656,7 +1683,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableGatehouseLivingCaptureFix}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableGatehouseLivingCaptureFix}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnableGatehouseLivingCaptureFix, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableGatehouseLivingCaptureFixHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnableGatehouseLivingCaptureFixText}" Foreground="White" TextWrapping="Wrap"/>
@@ -1668,7 +1695,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableDrawbridgeDestructionFix}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableDrawbridgeDestructionFix}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnableDrawbridgeDestructionFix, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableDrawbridgeDestructionFixHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnableDrawbridgeDestructionFixText}" Foreground="White" TextWrapping="Wrap"/>
@@ -1680,7 +1707,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableAssassinGatehouseClimbFix}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableAssassinGatehouseClimbFix}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnableAssassinGatehouseClimbFix, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableAssassinGatehouseClimbFixHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnableAssassinGatehouseClimbFixText}" Foreground="White" TextWrapping="Wrap"/>
@@ -1692,7 +1719,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableTunnelPlacementDistanceFix}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableTunnelPlacementDistanceFix}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnableTunnelPlacementDistanceFix, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableTunnelPlacementDistanceFixHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnableTunnelPlacementDistanceFixText}" Foreground="White" TextWrapping="Wrap"/>
@@ -1707,7 +1734,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableCenteredGatehouseDistanceFix}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableCenteredGatehouseDistanceFix}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnableCenteredGatehouseDistanceFix, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableCenteredGatehouseDistanceFixHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnableCenteredGatehouseDistanceFixText}" Foreground="White" TextWrapping="Wrap"/>
@@ -1719,7 +1746,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableFairSiegeAmmoRestock}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableFairSiegeAmmoRestock}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnableFairSiegeAmmoRestock, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableFairSiegeAmmoRestockHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnableFairSiegeAmmoRestockText}" Foreground="White" TextWrapping="Wrap"/>
@@ -1735,7 +1762,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableAssassinCapturedGateProtectionFix}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableAssassinCapturedGateProtectionFix}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnableAssassinCapturedGateProtectionFix, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableAssassinCapturedGateProtectionFixHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnableAssassinCapturedGateProtectionFixText}" Foreground="White" TextWrapping="Wrap"/>
@@ -1769,7 +1796,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableEnemyGatePathfindingFix}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableEnemyGatePathfindingFix}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnableEnemyGatePathfindingFix, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableEnemyGatePathfindingFixHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnableEnemyGatePathfindingFixText}" Foreground="White" TextWrapping="Wrap"/>
@@ -1781,7 +1808,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableAiRaidRetargetFix}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableAiRaidRetargetFix}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnableAiRaidRetargetFix, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableAiRaidRetargetFixHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnableAiRaidRetargetFixText}" Foreground="White" TextWrapping="Wrap"/>
@@ -1793,7 +1820,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableLadderAttackPathfindingFix}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableLadderAttackPathfindingFix}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnableLadderAttackPathfindingFix, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableLadderAttackPathfindingFixHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnableLadderAttackPathfindingFixText}" Foreground="White" TextWrapping="Wrap"/>
@@ -1808,7 +1835,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableImprovedAssassinPathfinding}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableImprovedAssassinPathfinding}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnableImprovedAssassinPathfinding, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableImprovedAssassinPathfindingHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnableImprovedAssassinPathfindingText}" Foreground="White" TextWrapping="Wrap"/>
@@ -1820,7 +1847,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableImprovedAssassinPathfindingAI}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableImprovedAssassinPathfindingAI}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnableImprovedAssassinPathfindingAI, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableImprovedAssassinPathfindingAIHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnableImprovedAssassinPathfindingAIText}" Foreground="White" TextWrapping="Wrap"/>
@@ -1832,7 +1859,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableMoveFormationEnhancements}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableMoveFormationEnhancements}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnableMoveFormationEnhancements, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableMoveFormationEnhancementsHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnableMoveFormationEnhancementsText}" Foreground="White" TextWrapping="Wrap"/>
@@ -1844,7 +1871,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableImprovedManualUnitCommands}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableImprovedManualUnitCommands}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnableImprovedManualUnitCommands, Mode=TwoWay}" Foreground="White" IsEnabled="{Binding CanEditHostSettings}" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableImprovedManualUnitCommandsHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnableImprovedManualUnitCommandsText}" Foreground="White" TextWrapping="Wrap"/>
@@ -1856,7 +1883,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableImprovedMoatFilling}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableImprovedMoatFilling}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnableImprovedMoatFilling, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableImprovedMoatFillingHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnableImprovedMoatFillingText}" Foreground="White" TextWrapping="Wrap"/>
@@ -1868,7 +1895,7 @@
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <TextBlock Text="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.RequireReachableEnemyForAutomaticGateClosing}"/>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.RequireReachableEnemyForAutomaticGateClosing}"/>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
                 <CheckBox IsChecked="{Binding RequireReachableEnemyForAutomaticGateClosing, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding RequireReachableEnemyForAutomaticGateClosingHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding RequireReachableEnemyForAutomaticGateClosingText}" Foreground="White" TextWrapping="Wrap"/>

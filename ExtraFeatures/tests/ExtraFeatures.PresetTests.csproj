@@ -1,0 +1,145 @@
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="15.0">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition="'$(Configuration)' == ''">Debug</Configuration>
+    <Platform Condition="'$(Platform)' == ''">AnyCPU</Platform>
+    <ProjectGuid>{E4011E6D-F516-41B4-A400-6BB1BE94867A}</ProjectGuid>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>HostClientPresetTests</RootNamespace>
+    <AssemblyName>ExtraFeatures.PresetTests</AssemblyName>
+    <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
+    <OutputPath>bin/PresetTests/</OutputPath>
+    <LangVersion>latest</LangVersion><NoWarn>$(NoWarn);0436</NoWarn>
+    <DefineConstants>$(DefineConstants);API_SHARED_PRESET_TESTS</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup>
+    <GameDir Condition="'$(GameDir)' == ''">E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition</GameDir>
+    <ExtenderDir Condition="'$(ExtenderDir)' == '' and '$(SHCDESE_EXTENDER_DIR)' != ''">$(SHCDESE_EXTENDER_DIR)</ExtenderDir>
+    <ExtenderDir Condition="'$(ExtenderDir)' == ''">$(GameDir)\BepInEx\plugins\000shcdese</ExtenderDir>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="..\..\APIShared\src\Missions\MissionLifecycleContracts.cs" />
+    <Compile Include="..\..\APIShared\src\Missions\MissionLifecycleState.cs" />
+    <Reference Include="R3">
+      <HintPath>$(ExtenderDir)\R3.dll</HintPath>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="MessagePack">
+      <HintPath>$(ExtenderDir)\MessagePack.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="MessagePack.Annotations">
+      <HintPath>$(ExtenderDir)\MessagePack.Annotations.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="Microsoft.Bcl.AsyncInterfaces">
+      <HintPath>$(ExtenderDir)\Microsoft.Bcl.AsyncInterfaces.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="System.Threading.Tasks.Extensions">
+      <HintPath>$(ExtenderDir)\System.Threading.Tasks.Extensions.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="System.Memory">
+      <HintPath>$(ExtenderDir)\System.Memory.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="System.Buffers">
+      <HintPath>$(ExtenderDir)\System.Buffers.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="System.Runtime.CompilerServices.Unsafe">
+      <HintPath>$(ExtenderDir)\System.Runtime.CompilerServices.Unsafe.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Compile Include="..\..\APIShared\src\GameModes\MissionModePolicy.cs" />
+    <Compile Include="..\..\APIShared\src\GameModes\CustomizedLaunchOrigins.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="..\..\APIShared\src\ModSettings\Presets\DynamicPresetSettings.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\ModSettingsApplication.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Presets\ModSettingsPresetContracts.cs">
+      <Link>ModSettingsPresetContracts.cs</Link>
+    </Compile>
+    <Compile Include="..\..\APIShared\src\ModSettings\Presets\ModSettingsWorkingSources.cs">
+      <Link>ModSettingsWorkingSources.cs</Link>
+    </Compile>
+    <Compile Include="..\..\APIShared\src\ModSettings\Presets\PresetDialogModels.cs">
+      <Link>PresetDialogModels.cs</Link>
+    </Compile>
+    <Compile Include="..\..\APIShared\src\ModSettings\Presets\ModSettingsPresetJson.cs">
+      <Link>ModSettingsPresetJson.cs</Link>
+    </Compile>
+    <Compile Include="..\..\APIShared\src\ModSettings\Presets\ModSettingsPresetCatalog.cs">
+      <Link>ModSettingsPresetCatalog.cs</Link>
+    </Compile>
+    <Compile Include="..\..\APIShared\src\ModSettings\Presets\PresetLobbyModSettingsViewModel.cs">
+      <Link>PresetLobbyModSettingsViewModel.cs</Link>
+    </Compile>
+    <Compile Include="..\..\APIShared\src\ModSettings\Lobby\PerPlayerLobbySettings.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Lobby\HostLobbySettingsPublisher.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Internal\LobbySettingsRestoreScope.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Presets\PresetAtomicFilePublisher.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Presets\LobbyPresetController.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Presets\LobbyPresetController.Catalog.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Presets\LobbyPresetController.Persistence.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Presets\LobbyPresetController.Mission.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Presets\LobbyPresetController.Snapshots.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Presets\ILobbyPresetHost.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Presets\PresetLobbyModSettingsViewModel.PresetIntegration.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Presets\LobbyPresetStorage.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Presets\PersonalSettingsPaths.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Presets\PresetLobbyModSettingsViewModel.Sources.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\UI\ModSettingsHorizontalFocusScrollGuard.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Presets\LobbyModSettingsPresetRegistration.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\UI\ModSettingsSearch.cs">
+      <Link>ModSettingsSearch.cs</Link>
+    </Compile>
+    <Compile Include="..\..\APIShared\src\GameModes\GameplayModModePolicy.cs">
+      <Link>GameplayModModePolicy.cs</Link>
+    </Compile>
+    <Compile Include="..\..\APIShared\src\GameModes\GameplayModeGate.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\UI\ModSettingsModeAvailability.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Presets\PresetLobbyModSettingsViewModel.ModeAvailability.cs" />
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <ItemGroup>
+    <Compile Include="..\..\APIShared\src\ModSettings\Internal\AtomicFileReplacement.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Internal\DependencyFreeJson.cs" />
+    <Compile Include="..\..\APIShared\src\GameModes\Internal\PlayerIdentityHelper.cs" />
+    <Compile Include="..\..\APIShared\src\Missions\Internal\MissionEventRelay.cs" />
+  </ItemGroup>
+  <PropertyGroup>
+    <StartupObject>ExtraFeatures.Tests.PresetEntry</StartupObject>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../src/ExtraFeaturesViewModel.Popularity.cs" />
+    <Compile Include="../src/IndependentFeatureRegistration.cs" />
+    <Compile Include="PresetIntegration.cs" />
+    <Compile Include="../src/ExtraFeaturesViewModel.cs" />
+    <Compile Include="../src/ModSettingsPresentation.cs" /><Compile Include="../src/ModSettingsPresentation.Popularity.cs" />
+    <Compile Include="../src/MarketGoodPriceDefinition.cs" />
+    <Compile Include="../src/MarketGoodPriceItemViewModel.cs" />
+    <Compile Include="../src/EnemyProximityPolicy.cs" />
+    <Compile Include="../src/LordHealthMultiplierPolicy.cs" />
+    <Compile Include="../../Shared/Runtime/UI/NumericTextInput.cs" />
+    <Compile Include="ViewModelBoundary.cs" />
+    <Compile Include="PopularityLifecycleTests.cs" />
+    <Compile Include="../../APIShared/src/Economy/FearPopularity.cs" />
+    <Compile Include="../../APIShared/src/Economy/PopularityOverrides.cs" />
+    <Compile Include="../../APIShared/tests/PopularityDisplay.Tests/FearRuntimeBoundary.cs" />
+    <Compile Include="../src/PopularityRuntime.cs" />
+    <Compile Include="../src/PopularityCatalog.cs" />
+    <Compile Include="../../Shared/Adapters/APIShared/SerpsModProfiles.cs" />
+    <Reference Include="RedBird.Core"><HintPath>$(ExtenderDir)/RedBird.Core.dll</HintPath></Reference>
+    <Reference Include="Assembly-CSharp"><HintPath>$(GameDir)/Stronghold Crusader Definitive Edition_Data/Managed/Assembly-CSharp.dll</HintPath></Reference>
+    <Reference Include="Noesis.NoesisGUI"><HintPath>$(GameDir)/Stronghold Crusader Definitive Edition_Data/Managed/Noesis.NoesisGUI.dll</HintPath></Reference>
+    <Reference Include="UnityEngine.CoreModule"><HintPath>$(GameDir)/Stronghold Crusader Definitive Edition_Data/Managed/UnityEngine.CoreModule.dll</HintPath></Reference>
+    <Reference Include="SHCDESE"><HintPath>$(ExtenderDir)/SHCDESE.dll</HintPath></Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="PresetEnvironment.cs" />
+    <Compile Include="../../APIShared/tests/LobbyModSettingsPresetTests/MissionTestEnvironment.cs" />
+  </ItemGroup>
+</Project>

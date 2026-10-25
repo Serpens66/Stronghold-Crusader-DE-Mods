@@ -12,12 +12,69 @@ using SHCDESE.ViewModels;
 using System;
 using System.Collections.ObjectModel;
 using System.Globalization;
+using System.Linq;
 
 namespace ExtraFeatures
 {
-    public sealed class ExtraFeaturesViewModel : APIShared.ModSettings.PresetLobbyModSettingsViewModel
+    public sealed partial class ExtraFeaturesViewModel : APIShared.ModSettings.PresetLobbyModSettingsViewModel
     {
         public event Action<string> SettingChanged;
+
+        public ModSettingsPresentation SettingsPresentation { get; }
+        public string SoldierBehaviorTitleText => SerpLocalization.Get("ExtraFeatures.SettingsLayout.SoldierBehavior");
+        public string KnightTransformationTitleText => SerpLocalization.Get("ExtraFeatures.SettingsLayout.KnightTransformation");
+        public string GateControlTitleText => SerpLocalization.Get("ExtraFeatures.SettingsLayout.GateControl");
+        public string GateReopenDelayTitleText => SerpLocalization.Get("ExtraFeatures.SettingsLayout.ReopenDelay");
+        public string GateClosingDistanceTitleText => SerpLocalization.Get("ExtraFeatures.SettingsLayout.ClosingDistance");
+        public string SingleplayerText => SerpLocalization.Get("ExtraFeatures.SettingsLayout.Singleplayer");
+        public string MultiplayerText => SerpLocalization.Get("ExtraFeatures.SettingsLayout.Multiplayer");
+        public string HumanEnemyProximitySingleplayerSearchTitle => EnemyProximityTitleText + " – " + HumanEnemyProximitySingleplayerText;
+        public string HumanEnemyProximityMultiplayerSearchTitle => EnemyProximityTitleText + " – " + HumanEnemyProximityMultiplayerText;
+        public string AIEnemyProximitySingleplayerSearchTitle => EnemyProximityTitleText + " – " + AIEnemyProximitySingleplayerText;
+        public string AIEnemyProximityMultiplayerSearchTitle => EnemyProximityTitleText + " – " + AIEnemyProximityMultiplayerText;
+        private string settingsSearchLanguage;
+        private string settingsSearchGoodsTitles;
+
+        private void OnSettingsPresentationPropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs args)
+        {
+            if (args.PropertyName == nameof(System_ModSettingsSearchText) ||
+                args.PropertyName == nameof(System_ModSettingsSearchIncludeToolTips) ||
+                args.PropertyName == nameof(System_ModSettingsSearchExactKey) ||
+                args.PropertyName == nameof(System_ModSettingsSearchStateFilter) ||
+                args.PropertyName == nameof(System_ModSettingsSearchStateRevision))
+                RefreshSettingsPresentation();
+        }
+
+        private void OnSettingsSearchSourceChanged(object owner)
+        {
+            if (!ReferenceEquals(owner, this)) return;
+            settingsSearchLanguage = GameAssetManagerAPI.Instance.CurrentLanguage;
+            settingsSearchGoodsTitles = GetSettingsSearchGoodsTitles();
+            RefreshSettingsPresentation();
+        }
+
+        private string GetSettingsSearchGoodsTitles() => string.Join("\u001f",
+            MarketGoodPriceItems.Select(item => item.BuySearchTitle));
+
+        // Called by the existing settings-hub UI event, after goods names/icons are refreshed.
+        // Catalog item metadata is a snapshot; replace it when language or resolved names change.
+        internal void RefreshSettingsSearchSource(ManualLogSource log)
+        {
+            if (!ModSettingsSearchCatalog.IsRegistered(this)) return;
+            string language = GameAssetManagerAPI.Instance.CurrentLanguage;
+            if (string.Equals(settingsSearchLanguage, language, StringComparison.Ordinal) &&
+                string.Equals(settingsSearchGoodsTitles, GetSettingsSearchGoodsTitles(), StringComparison.Ordinal)) return;
+            if (GameAssetManagerAPI.Instance.GetModifiedFilePath("ScriptExtenderUI/ExtraFeaturesSettings.xaml", out string path))
+                ModSettingsSearchCatalog.RegisterSource(this, path, Shared.DebugLogHelper.ForExternalCode(log),
+                    ExtraFeaturesPlugin.PluginName, System_ApplyModSettingsSearchTarget);
+        }
+
+        private void RefreshSettingsPresentation()
+        {
+            ModSettingsSearchCatalog.TryGetEntries(this, out var entries);
+            SettingsPresentation.RefreshSearch(System_ModSettingsSearchText, System_ModSettingsSearchIncludeToolTips,
+                System_ModSettingsSearchExactKey, entries, System_ModSettingsSearchStateFilter, this);
+        }
 
         private bool enableMod = true;
         private int woodRefundPercent = -1;
@@ -70,6 +127,7 @@ namespace ExtraFeatures
         private int aiEnemyProximityMultiplayer = EnemyProximityPolicy.VanillaMode;
         private int aiTowerGateRebuildDelaySeconds = 60;
         private bool marketGoodPriceVisualsResolved;
+        private string marketGoodPriceVisualsLanguage;
         private ImageSource buildingRepairIcon;
 
         protected override string ResolveSettingsUiText(string key, string fallback) =>
@@ -77,6 +135,10 @@ namespace ExtraFeatures
 
         public ExtraFeaturesViewModel(bool legacySomeSettingsLoaded)
         {
+            SettingsPresentation = new ModSettingsPresentation();
+            InitializePopularitySettings();
+            ((System.ComponentModel.INotifyPropertyChanged)this).PropertyChanged += OnSettingsPresentationPropertyChanged;
+            ModSettingsSearchCatalog.SourceChanged += OnSettingsSearchSourceChanged;
             LegacyModWarningVisibility = legacySomeSettingsLoaded ? Visibility.Visible : Visibility.Collapsed;
             ResetToDefaultCommand = new RelayCommand(ResetToDefault);
         }
@@ -330,6 +392,7 @@ namespace ExtraFeatures
         {
             if (CanEditHostSettings)
             {
+                ResetPopularityDefaults();
                 EnableMod = true;
                 WoodRefundPercent = -1;
                 StoneRefundPercent = -1;
@@ -481,7 +544,9 @@ namespace ExtraFeatures
 
         internal void RefreshMarketGoodPriceVisuals()
         {
-            if (marketGoodPriceVisualsResolved || !MainViewModel.viewModelLoaded)
+            string language = GameAssetManagerAPI.Instance.CurrentLanguage;
+            if ((marketGoodPriceVisualsResolved && string.Equals(marketGoodPriceVisualsLanguage, language, StringComparison.Ordinal)) ||
+                !MainViewModel.viewModelLoaded)
                 return;
 
             MainViewModel viewModel = MainViewModel.Instance;
@@ -502,6 +567,7 @@ namespace ExtraFeatures
             marketGoodPriceVisualsResolved =
                 resolvedIconCount == MarketGoodPriceDefinition.Count &&
                 resolvedNameCount == MarketGoodPriceDefinition.Count;
+            marketGoodPriceVisualsLanguage = language;
         }
 
         internal void RefreshBuildingRepairIcon()

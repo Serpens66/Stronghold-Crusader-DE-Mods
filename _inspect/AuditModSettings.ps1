@@ -388,7 +388,8 @@ foreach ($entry in $settings.GetEnumerator()) {
             'FontSize="{x:Static shared:ToolTipPresentation.FontSize}"')
     }
     if ($entry.Key -ne 'SerpsModsHost') {
-        $requiredMarkers += @('x:Key="SectionHeader"', 'Text="{Binding ModEnabledText}"')
+        $requiredMarkers += 'Text="{Binding ModEnabledText}"'
+        $requiredMarkers += if ($entry.Key -eq 'ExtraFeatures') { 'x:Key="TopicHeading"' } else { 'x:Key="SectionHeader"' }
         $requiredMarkers += @(
             'Command="{Binding System_DeletePresetCommand}"',
             'IsEnabled="{Binding System_CanDeleteSelectedPreset}"',
@@ -1230,6 +1231,7 @@ foreach ($entry in $settings.GetEnumerator()) {
 
     $searchPath = Join-Path $workspace $entry.Value
     $searchXaml = [IO.File]::ReadAllText($searchPath)
+    $sectionPresentationMarker = if ($entry.Key -eq 'ExtraFeatures') { 'x:Key="TopicHeading"' } else { 'ModSettingsSearchSectionGrid' }
     foreach ($required in @(
         'System_PresetLoadEntries',
         'System_PresetSaveSettings',
@@ -1246,7 +1248,7 @@ foreach ($entry in $settings.GetEnumerator()) {
         'shared:ModSettingsSearch.SectionTitle=',
         'shared:ModSettingsSearch.IsSection="True"',
         'ModSettingsSearchTargetGrid',
-        'ModSettingsSearchSectionGrid',
+        $sectionPresentationMarker,
         'shared:ModSettingsSearch.Exclude="True"')) {
         if (-not $searchXaml.Contains($required)) {
             throw "$($entry.Key) shared-search marker is missing: $required"
@@ -1290,6 +1292,8 @@ foreach ($entry in $settings.GetEnumerator()) {
 
         $isSectionAttribute = $node.Attributes | Where-Object LocalName -eq 'ModSettingsSearch.IsSection' | Select-Object -First 1
         if ($null -ne $isSectionAttribute -and $isSectionAttribute.Value -eq 'True' -and
+            # ExtraFeatures topic controls are checked by its dedicated section audit below.
+            $entry.Key -ne 'ExtraFeatures' -and
             ($node.LocalName -ne 'Grid' -or $node.GetAttribute('Style') -ne '{StaticResource ModSettingsSearchSectionGrid}')) {
             throw "$($entry.Key) section headings must use a neutral Grid and the declarative section style."
         }
@@ -1357,7 +1361,7 @@ foreach ($required in @(
     'shared:ModSettingsSearch.SectionKey=',
     'shared:ModSettingsSearch.SectionTitle=',
     'shared:ModSettingsSearch.IsSection="True"',
-    'ModSettingsSearchSectionGrid',
+    'x:Key="TopicHeading"',
     'shared:ModSettingsSearch.Exclude="True"',
     'BuySearchKey',
     'SellSearchKey')) {
@@ -1395,8 +1399,15 @@ foreach ($node in $extraSearchDocument.SelectNodes('//*')) {
             $sectionKeys.Add($attribute.Value)
         }
         if ($attribute.LocalName -eq 'ModSettingsSearch.IsSection' -and $attribute.Value -eq 'True') {
-            if ($node.LocalName -ne 'Grid' -or $node.GetAttribute('Style') -ne '{StaticResource ModSettingsSearchSectionGrid}') {
-                throw 'ExtraFeatures section headings must use a neutral Grid and the declarative section style.'
+            # The topic owns search metadata; its excluded button only changes UI expansion.
+            $heading = @($node.SelectNodes('./*[local-name()="Button"]') | Where-Object {
+                $_.GetAttribute('Style') -eq '{StaticResource TopicHeading}' -and
+                $_.GetAttribute('Command') -match '^\{Binding SettingsPresentation\.\w+\.ToggleCommand\}$' -and
+                @($_.Attributes | Where-Object { $_.LocalName -eq 'ModSettingsSearch.Exclude' -and $_.Value -eq 'True' }).Count -eq 1
+            })
+            if ($node.LocalName -ne 'StackPanel' -or $heading.Count -ne 1 -or
+                $node.GetAttribute('Visibility') -notmatch '^\{Binding SettingsPresentation\.\w+\.Visibility\}$') {
+                throw 'ExtraFeatures sections must expose one excluded topic toggle and presentation-controlled visibility.'
             }
         }
     }
@@ -1429,8 +1440,10 @@ $duplicateSectionKeys = @($sectionKeys | Group-Object | Where-Object Count -gt 1
 if ($duplicateSectionKeys.Count -gt 0) {
     throw "ExtraFeatures contains duplicate section keys: $($duplicateSectionKeys.Name -join ', ')"
 }
-if ($sectionKeys.Count -ne 8) {
-    throw "ExtraFeatures must declare all 8 remaining thematic sections; found $($sectionKeys.Count)."
+# These seven areas are the agreed ExtraFeatures layout; exact membership/order is
+# exercised against the compiled presentation in ExtraFeatures/Test-CompiledContracts.ps1.
+if ($sectionKeys.Count -ne 7) {
+    throw "ExtraFeatures must declare the seven agreed topic sections; found $($sectionKeys.Count)."
 }
 foreach ($target in $extraSearchDocument.SelectNodes('//*[@*[local-name()="ModSettingsSearch.Key"]]')) {
     $sectionOwnerCount = 0

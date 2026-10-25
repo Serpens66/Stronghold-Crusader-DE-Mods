@@ -88,7 +88,7 @@ namespace BugfixesAndQoL
             int playerId) =>
             coopGame && playerId > 1 &&
             (customCoopGame ||
-             (singlePlayerCoop && playerId > 2 && selectedLordMatches && hasCustomSelection));
+             (singlePlayerCoop && playerId > 1 && selectedLordMatches && hasCustomSelection));
 
         internal static bool ShouldOverridePreviewName(
             bool activeCustomContext,

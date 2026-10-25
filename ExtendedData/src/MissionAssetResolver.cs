@@ -169,48 +169,7 @@ namespace ExtendedData
             if (!saved.builtInLord && saved.lordConfig == null)
                 throw new MissionAssetException(MissionAssetException.EmbeddedSlotInvalid, path,
                     "Player slot " + lord.SourcePlayerId + " of [" + path + "] has a custom AIC without configuration.");
-            return CopyEmbedded(saved);
-        }
-
-        // Independent copy: later lobby changes must never mutate the decoded package data.
-        private static FRONT_Multiplayer.MPAIVInfo CopyEmbedded(FRONT_Multiplayer.MPAIVInfo saved)
-        {
-            var copy = new FRONT_Multiplayer.MPAIVInfo
-            {
-                lordType = saved.lordType,
-                lordName = saved.lordName ?? string.Empty,
-                builtIn = saved.builtIn,
-                community = saved.community,
-                historical = saved.historical,
-                rotation = saved.rotation,
-                builtInLord = saved.builtInLord,
-                lordConfig = saved.lordConfig == null ? null : new CustomisationFileManager.CustomLordConfig
-                {
-                    name = saved.lordConfig.name,
-                    path = saved.lordConfig.path,
-                    lordType = saved.lordConfig.lordType,
-                    checksum = saved.lordConfig.checksum,
-                    workshop = saved.lordConfig.workshop,
-                    workshopUploadInfoAvailable = saved.lordConfig.workshopUploadInfoAvailable,
-                    lordData = saved.lordConfig.lordData,
-                },
-                imageData = (byte[])saved.imageData?.Clone(),
-                image = saved.image,
-            };
-            copy.aivs.Clear();
-            foreach (CustomisationFileManager.CustomAIV aiv in saved.aivs ?? new List<CustomisationFileManager.CustomAIV>())
-                copy.aivs.Add(new CustomisationFileManager.CustomAIV
-                {
-                    lordType = aiv.lordType,
-                    AIVName = aiv.AIVName,
-                    builtIn = aiv.builtIn,
-                    workshopUploadInfoAvailable = aiv.workshopUploadInfoAvailable,
-                    workshop = aiv.workshop,
-                    path = aiv.path,
-                    checksum = aiv.checksum,
-                    data = (short[])aiv.data?.Clone(),
-                });
-            return copy;
+            return CoopMissionDataCopies.CopyLord(saved);
         }
 
         private static CustomisationFileManager.CustomLordConfig ResolveLordConfig(LoadedMission loaded, LordReference reference, int baseLordId)

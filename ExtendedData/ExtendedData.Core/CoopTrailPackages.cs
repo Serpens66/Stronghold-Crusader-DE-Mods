@@ -12,8 +12,11 @@ namespace ExtendedData.Core
         public const int CurrentSchemaVersion = 2;
 
         public static CoopTrailPackageManifest Read(string path)
+            => Parse(File.ReadAllText(path, Encoding.UTF8));
+
+        internal static CoopTrailPackageManifest Parse(string json)
         {
-            object parsed = Shared.DependencyFreeJson.Parse(File.ReadAllText(path, Encoding.UTF8));
+            object parsed = Shared.DependencyFreeJson.Parse(json);
             if (!(parsed is Dictionary<string, object> root))
                 throw new InvalidDataException("Coop Trail manifest root must be an object.");
             return new CoopTrailPackageManifest
@@ -105,6 +108,8 @@ namespace ExtendedData.Core
                 .ToArray();
             using (SHA256 hash = SHA256.Create())
             {
+                var buffer = new byte[64 * 1024];
+                var separator = new byte[1];
                 foreach (string file in ordered)
                 {
                     if (!file.StartsWith(root, StringComparison.OrdinalIgnoreCase))
@@ -113,9 +118,13 @@ namespace ExtendedData.Core
                         throw new FileNotFoundException("Fingerprint file was not found.", file);
                     byte[] name = Encoding.UTF8.GetBytes(GetRelativePath(root, file));
                     hash.TransformBlock(name, 0, name.Length, null, 0);
-                    hash.TransformBlock(new byte[] { 0 }, 0, 1, null, 0);
-                    byte[] content = File.ReadAllBytes(file);
-                    hash.TransformBlock(content, 0, content.Length, null, 0);
+                    hash.TransformBlock(separator, 0, 1, null, 0);
+                    using (var input = File.OpenRead(file))
+                    {
+                        int count;
+                        while ((count = input.Read(buffer, 0, buffer.Length)) != 0)
+                            hash.TransformBlock(buffer, 0, count, null, 0);
+                    }
                 }
                 hash.TransformFinalBlock(Array.Empty<byte>(), 0, 0);
                 return string.Concat(hash.Hash.Select(value => value.ToString("x2")));
@@ -126,7 +135,7 @@ namespace ExtendedData.Core
             path.Substring(root.Length).Replace(Path.DirectorySeparatorChar, '/').Replace(Path.AltDirectorySeparatorChar, '/');
     }
 
-    public sealed class CoopTrailPackageCatalog
+    public sealed partial class CoopTrailPackageCatalog
     {
         private readonly Dictionary<string, CoopTrailPackage> packages =
             new Dictionary<string, CoopTrailPackage>(StringComparer.OrdinalIgnoreCase);

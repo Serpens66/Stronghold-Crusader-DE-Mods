@@ -3,19 +3,76 @@
   "Author": "Serpens66",
   "Name": "Extra Features",
   "Description": "Optional gameplay additions and economy customization for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.114",
+  "Version": "1.0.121",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.0",
   "MaximumScriptExtenderVersion": "",
   "Dependencies": [
     {
       "GUID": "APIShared_Serp",
-      "MinimumVersion": "0.12.0"
+      "MinimumVersion": "0.16.0"
     }
   ],
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.121",
+      "Changes": [
+        "Activate rations, food variety, crowding, taxes, religion, ale and fairs with one Human and one AI switch per thematic group. Every group member uses its independent player-type value; disabling retains all entered numbers.",
+        "Keep group titles and labelled activation switches in a shared table header, with slider/value rows below. Remove unused checkbox columns, retain compact responsive sliders and keep activation context accessible during text and state searches.",
+        "Preserve numeric setting keys, host authority, mission locking and existing negative/positive fear group switches. New ordinary group switches default off; unpublished per-value activation flags are intentionally not migrated."
+      ]
+    },
+    {
+      "Version": "1.0.120",
+      "Changes": [
+        "Keep both Human and AI Popularity editors on a single aligned table row with shared column headers instead of wrapping player blocks.",
+        "Use compact title columns, responsive 80–120 pixel sliders and 64-pixel numeric inputs. Preserve complete rows with horizontal scrolling in narrow views; full captions remain available in tooltips. Existing settings, values, search, fear group switches and gameplay behavior are unchanged."
+      ]
+    },
+    {
+      "Version": "1.0.119",
+      "Changes": [
+        "Configure every Popularity contribution independently for Human and AI players. Each ordinary row has two opt-in value blocks; each fear sign group has one switch per player type and five independent level values.",
+        "Use compact 120-pixel sliders and 64-pixel numeric fields; whole player blocks wrap on narrow settings panels. Search and direct navigation retain the matching player block and row caption.",
+        "Publish player-specific policies through APIShared 0.16.0 instead of temporarily or permanently changing shared global stacks. Preserve existing ExtraFeatures settings, mode gates, host authority, mission locking and independent unit fear neutralization. Unpublished common Popularity settings are intentionally not migrated."
+      ]
+    },
+    {
+      "Version": "1.0.118",
+      "Changes": [
+        "Integrate all PopularityTest contributions into a new collapsible Popularity host-settings topic, using the existing ExtraFeatures presets, search and mode gate. Existing ExtraFeatures settings, defaults and layouts are preserved; new overrides start disabled without importing testmod preferences.",
+        "Configure rations, food variety, crowding, taxes, religion, ale and fairs in whole report points. Fear uses five fixed contributions per sign, with independent negative/positive activation, zero and reversed signs. Existing unit/combat fear neutralization remains independent.",
+        "Preserve foreign override layers and clear owned state across initialization, save/editor starts and mission retirement. Require APIShared 0.15.0 and retain the installed shared API.",
+        "Validate source/package/installation content hashes and compiled plugin metadata; copy assets independently of timestamps while preserving user settings and unrelated installed files. Retire the standalone PopularityTest after integration."
+      ]
+    },
+    {
+      "Version": "1.0.117",
+      "Changes": [
+        "Plague clouds can damage units on walls, gates, towers and keeps according to their actual standing heights. Four host settings control these surfaces independently; walls, gates and towers are enabled by default, keeps are disabled.",
+        "Damage reaches units within 20 native height units of the cloud standing surface, excluding the visual cloud offset. Cloud height follows movement and building changes; Vanilla damage, range, apothecary protection, treatment and unit immunities are preserved.",
+        "Use the shared APIShared 0.14.0 plague-height capability; the standalone PlagueHeightTest mod is retired."
+      ]
+    },
+    {
+      "Version": "1.0.116",
+      "Changes": [
+        "Install AI defence and elevated-moat hooks during startup and keep them logically inactive until enabled; share validated native DLL fingerprints.",
+        "Use native fear-factor stubs and reduce repeated goods-multiplier, market-price and gatehouse-automation work.",
+        "Track owned market-price overrides so restoring settings does not overwrite values subsequently changed by another participant.",
+        "Coordinate troop HUD and recruitment availability with APIShared, including knight dismount capacity handling.",
+        "Avoid disabled support-log preparation across feature callbacks and cache repeated failure hashes while retaining warnings and errors."
+      ]
+    },
+    {
+      "Version": "1.0.115",
+      "Changes": [
+        "Faster game start: startup detours install without suspending game threads and the native DLL hash is shared; AI defense and elevated-moat hooks install at game start and stay inactive until their feature is enabled.",
+        "Fear factor uses native stubs instead of managed callbacks; lighter goods-multiplier and gatehouse-automation event handling. Behavior is unchanged."
+      ]
+    },
     {
       "Version": "1.0.114",
       "Changes": [

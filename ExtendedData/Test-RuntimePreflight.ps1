@@ -217,6 +217,13 @@ try {
     }
     $customisation = $managedAssembly.MainModule.Types |
         Where-Object { $_.FullName -ceq 'CustomisationFileManager' }
+    Assert-ManagedMethodContract $managedAssembly 'CustomisationFileManager' 'BuildFileLists' @() 'Public'
+    # CopyLord deliberately copies this scalar transfer struct by value. A future
+    # reference field needs an explicit copying policy before templates can share it.
+    $lordTransfer = $engine.NestedTypes | Where-Object Name -CEQ 'AILordConfigTransferData'
+    if (-not $lordTransfer.IsValueType -or @($lordTransfer.Fields | Where-Object {
+        -not $_.IsStatic -and $_.FieldType.FullName -cne 'System.Int32'
+    }).Count -ne 0) { throw 'Cached Lord transfer data is no longer a scalar int struct; review deep copying.' }
     $lookup = @($customisation.Methods | Where-Object {
         $_.Name -ceq 'getLordLordList' -and $_.IsPublic -and
         $_.Parameters.Count -eq 2 -and

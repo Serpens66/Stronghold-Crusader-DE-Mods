@@ -75,6 +75,9 @@ echo [%date% %time%] PowerShell checks / build step
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%verify-repair.ps1" -GameDir "%GAME_DIR%" -ExtenderDir "%GAME_SCRIPT_EXTENDER_DIR%" -SkipSharedPreflight
 if not "%ERRORLEVEL%"=="0" goto build_failed
 
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%verify-popularity.ps1"
+if not "%ERRORLEVEL%"=="0" goto build_failed
+
 if not exist "%MSBUILD%" goto build_failed
 if exist "%GAME_SCRIPT_EXTENDER_DIR%\SHCDESE.dll" (
   set "EXTENDER_DIR=%GAME_SCRIPT_EXTENDER_DIR%"
@@ -104,33 +107,12 @@ echo [%date% %time%] Compiled classification and dependency contracts
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-CompiledContracts.ps1" -AssemblyPath "%LOCAL_PLUGIN_DIR%\ExtraFeatures.dll" -GameDir "%GAME_DIR%" -ExtenderDir "%EXTENDER_DIR%" -ApiSharedDir "%API_SHARED_DIR%"
 if not "%ERRORLEVEL%"=="0" goto build_failed
 
-echo [%date% %time%] Copy package files
-copy /Y "%PROJECT_DIR%info.json" "%LOCAL_PLUGIN_DIR%\info.json" >nul
-echo [%date% %time%] Copy package files
-xcopy "%PROJECT_DIR%Override" "%LOCAL_PLUGIN_DIR%\Override\" /E /I /Q /Y >nul
-if not exist "%LOCAL_PLUGIN_DIR%\ExtraFeatures.dll" goto package_failed
-if not exist "%LOCAL_PLUGIN_DIR%\info.json" goto package_failed
+echo [%date% %time%] Validate source and package hashes
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%tools/Verify-Package.ps1"
+if not "%ERRORLEVEL%"=="0" goto package_failed
 
 if "%NO_INSTALL%"=="1" goto prepared_no_install
-if exist "%GAME_PLUGIN_DIR%\" (
-  rem Keep player-created lobby settings while replacing all packaged files.
-  for /D %%D in ("%GAME_PLUGIN_DIR%\*") do (
-    if /I not "%%~nxD"=="LobbyModSettings" (
-      rmdir /S /Q "%%~fD"
-      if not errorlevel 0 cmd /c exit 1
-      if errorlevel 1 goto copy_failed
-    )
-  )
-  for %%F in ("%GAME_PLUGIN_DIR%\*") do (
-    if exist "%%~fF" if not exist "%%~fF\" (
-      del /F /Q "%%~fF"
-      if not errorlevel 0 cmd /c exit 1
-      if errorlevel 1 goto copy_failed
-    )
-  )
-)
-echo [%date% %time%] Copy package files
-xcopy "%LOCAL_PLUGIN_DIR%" "%GAME_PLUGIN_DIR%\" /E /I /Q /Y >nul
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%tools/Verify-Package.ps1" -Install -InstalledDirectory "%GAME_PLUGIN_DIR%"
 if not "%ERRORLEVEL%"=="0" goto copy_failed
 echo [%date% %time%] PowerShell checks / build step
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%..\Shared\Tools\Release\Write-LocalBuildManifest.ps1" -ModName ExtraFeatures

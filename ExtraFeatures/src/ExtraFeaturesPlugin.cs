@@ -9,7 +9,7 @@ using System;
 namespace ExtraFeatures
 {
     [BepInDependency(ScriptExtenderGuid, "2.14.0")]
-    [BepInDependency(ApiSharedGuid, "0.14.0")]
+    [BepInDependency(ApiSharedGuid, "0.16.0")]
     [BepInDependency(LegacySomeSettingsGuid, BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("FearFactorNeutralizationTest_Serp", BepInDependency.DependencyFlags.SoftDependency)]
@@ -25,7 +25,7 @@ namespace ExtraFeatures
 
         public const string PluginGuid = "ExtraFeatures_Serp";
         public const string PluginName = "Extra Features";
-        public const string PluginVersion = "1.0.117";
+        public const string PluginVersion = "1.0.121";
 
         private ExtraFeaturesRuntime runtime;
         private bool marketGoodPriceVisualRefreshFailureLogged;
@@ -173,6 +173,7 @@ namespace ExtraFeatures
             try
             {
                 Settings.RefreshMarketGoodPriceVisuals();
+                Settings.RefreshSettingsSearchSource(Logger);
             }
             catch (Exception ex)
             {
@@ -180,7 +181,7 @@ namespace ExtraFeatures
                     return;
 
                 marketGoodPriceVisualRefreshFailureLogged = true;
-                Shared.DebugLogHelper.LogErrorLimited(Logger, "ExtraFeatures/src/ExtraFeaturesPlugin.cs:177", $"Extra Features market-price icon refresh failed; multiplier controls remain usable: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "ExtraFeatures/src/ExtraFeaturesPlugin.cs:177", $"Extra Features market-price visual/search refresh failed; multiplier controls remain usable: {ex}");
             }
         }
 

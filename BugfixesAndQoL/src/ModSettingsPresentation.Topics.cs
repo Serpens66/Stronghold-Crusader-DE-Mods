@@ -196,9 +196,9 @@ namespace BugfixesAndQoL
             AddOption("PreventEmergencyDemolition", "bugfixes.prevent-emergency-demolition", SettingsCategory.Fixes, HostAi);
             AddOption("PreventHovelDeletion", "bugfixes.prevent-hovel-deletion", SettingsCategory.Fixes, HostAi);
             AddOption("InaccessibleAIBuildingDemolitionProtection", "bugfixes.inaccessible-ai-building-protection", SettingsCategory.Fixes, HostAi);
+            AddOption("RemoveAIKeepRangeLimit", "bugfixes.remove-ai-keep-range-limit", SettingsCategory.Fixes, HostAi);
             AddOption("RememberAiAivSettings", "bugfixes.remember-ai-aiv-settings", SettingsCategory.Qol, HostAi);
             AddOption("EnableAIQuarryPileTowardsKeep", "bugfixes.ai-quarry-pile-towards-keep", SettingsCategory.Qol, HostAi);
-            AddOption("RemoveAIKeepRangeLimit", "bugfixes.remove-ai-keep-range-limit", SettingsCategory.Possible, HostAi);
             AddOption("EnableAiSellThresholdFix", "bugfixes.enable-ai-sell-threshold-fix", SettingsCategory.Possible, HostAi);
             HostTroops = AddTopic("HostTroops", "bugfixes.topic.host-troops", true);
             AddOption("EnableTroopMovementFix", "bugfixes.enable-troop-movement-fix", SettingsCategory.Fixes, HostTroops);

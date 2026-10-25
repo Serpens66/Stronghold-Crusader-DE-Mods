@@ -52,12 +52,13 @@ internal static class DeferredSettingsTests
 namespace Noesis
 {
     public enum Visibility { Visible, Collapsed }
-    public sealed class ComboBoxItem
+    public sealed class ComboBoxItem : FrameworkElement
     {
         public static int Created;
         public ComboBoxItem() { Created++; }
         public object Content { get; set; }
         public bool IsEnabled { get; set; } = true;
+        public FrameworkTemplate Template = new FrameworkTemplate();
     }
 }
 namespace SHCDESE.NoesisUtil { internal sealed class NamespaceMarker { } }

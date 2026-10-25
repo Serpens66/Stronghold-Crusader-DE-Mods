@@ -74,15 +74,18 @@ namespace BugfixesAndQoL
         // Called on the UI thread by filter changes and the catalog's SourceChanged event.
         // Metadata and matching remain owned by APIShared, including DataTemplate item snapshots.
         internal void RefreshSearch(string text, bool includeToolTips, string exactKey,
-            IReadOnlyList<ModSettingsSearchEntry> entries)
+            IReadOnlyList<ModSettingsSearchEntry> entries,
+            ModSettingsSearchStateFilter stateFilter = ModSettingsSearchStateFilter.All, object model = null)
         {
-            searchActive = !string.IsNullOrWhiteSpace(text) || !string.IsNullOrWhiteSpace(exactKey);
+            searchActive = stateFilter != ModSettingsSearchStateFilter.All || !string.IsNullOrWhiteSpace(text) || !string.IsNullOrWhiteSpace(exactKey);
+            bool Matches(ModSettingsSearchEntry entry) =>
+                (stateFilter == ModSettingsSearchStateFilter.All || (!entry.IsSection && ModSettingsSearchStateMatcher.IsMatch(
+                    stateFilter, ModSettingsSearchCatalog.GetState(model, entry.Key)))) &&
+                ModSettingsSearchMatcher.IsMatch(text, includeToolTips, exactKey, entry.Key, entry.Title, entry.ToolTip, entry.SectionKey, entry.SectionTitle);
             foreach (SettingsTopicPresentation topic in topics)
             {
                 IEnumerable<ModSettingsSearchEntry> matches = (entries ?? Array.Empty<ModSettingsSearchEntry>())
-                    .Where(entry => entry.SectionKey == topic.Key && ModSettingsSearchMatcher.IsMatch(
-                        text, includeToolTips, exactKey, entry.Key, entry.Title, entry.ToolTip,
-                        entry.SectionKey, entry.SectionTitle));
+                    .Where(entry => entry.SectionKey == topic.Key && Matches(entry));
                 topic.Refresh(searchActive, matches);
             }
             // If filtering hides the hotkey editor, stop consuming unrelated keyboard input.
@@ -126,8 +129,7 @@ namespace BugfixesAndQoL
         // Editorial metadata only; the approved table is keyed by stable PropertyName.
         internal SettingsRecommendationKind Recommendation { get; private set; }
         internal string ReasonKey { get; private set; }
-        public string Symbol => Recommendation == SettingsRecommendationKind.Recommended ? "★" :
-            Recommendation == SettingsRecommendationKind.Preference ? "◇" : string.Empty;
+        public string Symbol => Recommendation == SettingsRecommendationKind.Recommended ? "★" : string.Empty;
         public bool IsPreference => Recommendation == SettingsRecommendationKind.Preference;
         public string ToolTip => FormatToolTip(SerpLocalization.Get);
 

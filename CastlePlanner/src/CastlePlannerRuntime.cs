@@ -1152,9 +1152,9 @@ namespace CastlePlanner
             bool previousBypassValue = GameTileManagerAPI.Instance.TileManager.PlacementBlockedOverrideValue;
             try
             {
-                return supplementalSpawner.Create(playerId, mapper.ConvertToEStructs(), x, y,
-                    () => GameBuildingManagerAPI.Instance.CreatePrefab(playerId, x, y, mapper,
-                        BuildingScales.GetScale(mapper), 0, true, bypassPlacementRules),
+                return supplementalSpawner.Create(playerId, mapper, x, y,
+                    variation => GameBuildingManagerAPI.Instance.CreatePrefab(playerId, x, y, mapper,
+                        BuildingScales.GetScale(mapper), variation, true, bypassPlacementRules),
                     LookupSupplementalBuilding, out reason);
             }
             finally

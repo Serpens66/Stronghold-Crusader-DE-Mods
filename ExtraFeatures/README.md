@@ -54,6 +54,9 @@ Set separate Singleplayer and Multiplayer enemy-exclusion radii for human and AI
 
 ## Economy features
 
+### Customize popularity
+Adjust popularity values independently for human and AI players in the Popularity section of the mod settings.
+
 ### Multiply gained goods
 Apply separate multipliers to goods gained by human and AI players, allowing normal deposits to produce additional copies.
 
@@ -76,7 +79,7 @@ Set how far an apothecary searches from its assigned building for plague clouds.
 
 ## Compatibility and diagnostics
 
-This mod requires the Script Extender and **APIShared 0.14.0 or newer**. Subscribe to APIShared separately when using the Steam modpack. Mod settings indicate when gameplay changes are inactive for a direct mission or Trail launch. Use **Customize** where available to start with those changes; edits made while inactive are saved for later games.
+This mod requires the Script Extender and **APIShared 0.16.0 or newer**. Subscribe to APIShared separately when using the Steam modpack. Mod settings indicate when gameplay changes are inactive for a direct mission or Trail launch. Use **Customize** where available to start with those changes; edits made while inactive are saved for later games.
 
 Plague-height, market-price, repair-HUD and troop-command integrations use coordinated APIShared hooks. Gatehouse and mount/dismount actions use its synchronized multiplayer transport.
 

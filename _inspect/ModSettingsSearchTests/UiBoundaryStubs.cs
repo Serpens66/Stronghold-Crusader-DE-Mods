@@ -56,6 +56,12 @@ namespace SHCDESE.BepInEx.Bootstrap
 }
 namespace APIShared.Internal
 {
+    internal static class UnityMainThreadDispatch
+    {
+        private static readonly System.Collections.Concurrent.ConcurrentQueue<Action> pending = new System.Collections.Concurrent.ConcurrentQueue<Action>();
+        internal static bool TryEnqueue(Action action) { pending.Enqueue(action); return true; }
+        internal static void Drain() { while (pending.TryDequeue(out Action action)) action(); }
+    }
     public static class DebugLogHelper
     {
         public static int Warnings;

@@ -17,8 +17,6 @@ namespace BugfixesAndQoL
             FRONT_Multiplayer owner,
             CustomisationFileManager.CustomLord lord,
             int forcedTeam,
-            int? insertionIndex,
-            int? colourId,
             out int playerId)
         {
             playerId = 0;
@@ -32,17 +30,6 @@ namespace BugfixesAndQoL
             if (member == null)
                 throw new InvalidOperationException("Vanilla did not create the custom-lord lobby member.");
 
-            if (colourId.HasValue)
-                member.colourID = colourId.Value;
-
-            if (insertionIndex.HasValue)
-            {
-                // Coop rebuilds the partner first. Preserve that list position so mapping remains player slot 2.
-                owner.currentLobby.members.Remove(member);
-                int index = Math.Max(0, Math.Min(insertionIndex.Value, owner.currentLobby.members.Count));
-                owner.currentLobby.members.Insert(index, member);
-            }
-
             owner.currentLobby.numLobbyMembers = owner.currentLobby.members.Count;
             UpdateSteamMappings(owner);
             FinalizeIdentity(owner, member);
@@ -54,11 +41,75 @@ namespace BugfixesAndQoL
             return member;
         }
 
+        internal static Platform_Multiplayer.MPLobbyMember ConfigureExistingCoopPartner(
+            Platform_Multiplayer.MPLobby lobby,
+            FRONT_Multiplayer.MPAIVInfo[] infos,
+            CustomisationFileManager.CustomLord lord)
+        {
+            Platform_Multiplayer.MPLobbyMember partner = RequireCoopPartner(lobby, infos);
+            if (!IsValid(lord))
+                throw new InvalidOperationException("The custom lord has no usable AIV/AIC data.");
+
+            // Prepare off to the side: a failed import must not change the existing member or selection.
+            var prepared = new FRONT_Multiplayer.MPAIVInfo();
+            InitializeAivInfo(prepared, partner, lord);
+
+            // Keep Vanilla's identity and mapping. Removing this member would discard its mission keep
+            // assignment; updateSteamIDMappings would then choose a random free map position.
+            partner.customLordName = lord.lordName;
+            infos[1] = prepared;
+            return partner;
+        }
+
+        internal static void ValidateSelectedCoopPartner(
+            Platform_Multiplayer.MPLobby lobby,
+            FRONT_Multiplayer.MPAIVInfo[] infos,
+            string selectedLordName)
+        {
+            Platform_Multiplayer.MPLobbyMember partner = RequireCoopPartner(lobby, infos);
+            if (string.IsNullOrWhiteSpace(selectedLordName) ||
+                !string.Equals(partner.customLordName, selectedLordName, StringComparison.OrdinalIgnoreCase) ||
+                !string.Equals(infos[1]?.lordName, selectedLordName, StringComparison.OrdinalIgnoreCase))
+                throw new Shared.CoopAiSelectionException("InvalidCustomLord", 2,
+                    "selected Lord, partner identity and AIV selection disagree");
+            Shared.CoopAiStartPlanFactory.Validate(infos[1], 2, partner.GetLordType(), out _);
+        }
+
+        private static Platform_Multiplayer.MPLobbyMember RequireCoopPartner(
+            Platform_Multiplayer.MPLobby lobby,
+            FRONT_Multiplayer.MPAIVInfo[] infos)
+        {
+            if (lobby?.members == null || lobby.this_player_to_SteamID_mapping?.Length != 8 ||
+                infos?.Length != 8)
+                throw new Shared.CoopAiSelectionException("InvalidSlot", 2, "eight-slot Coop lobby unavailable");
+
+            ulong partnerId = lobby.this_player_to_SteamID_mapping[1];
+            int mappings = 0;
+            foreach (ulong id in lobby.this_player_to_SteamID_mapping)
+                if (id == partnerId) mappings++;
+            Platform_Multiplayer.MPLobbyMember partner = null;
+            int members = 0;
+            foreach (Platform_Multiplayer.MPLobbyMember member in lobby.members)
+            {
+                if (member == null || member.GetSteamID() != partnerId) continue;
+                partner = member;
+                members++;
+            }
+            if (partnerId == 0 || mappings != 1 || members != 1 ||
+                !partner.SkirmishMember || partner.SkirmishHumanMember ||
+                partner.GetLordType() != CoopCustomLordSelectionPolicy.CustomPartnerLordType ||
+                lobby.getTeam(partner) < 0)
+                throw new Shared.CoopAiSelectionException("InvalidSlot", 2,
+                    "Coop partner identity, mapping or team is missing or inconsistent");
+            return partner;
+        }
+
         internal static bool IsValid(CustomisationFileManager.CustomLord lord) =>
             lord != null &&
             !string.IsNullOrWhiteSpace(lord.lordName) &&
             lord.aivs != null && lord.aivs.Count > 0 &&
-            lord.configs != null && lord.configs.Count > 0;
+            lord.aivs[0]?.data != null && lord.aivs[0].data.Length > 0 &&
+            lord.configs != null && lord.configs.Count > 0 && lord.configs[0] != null;
 
         internal static void UpdateSteamMappings(FRONT_Multiplayer owner) =>
             UpdateSteamMappingsMethod.Invoke(owner, null);

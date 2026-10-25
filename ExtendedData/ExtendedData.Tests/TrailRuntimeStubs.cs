@@ -15,7 +15,14 @@ public sealed partial class CustomisationFileManager
         public List<CustomLordConfig> configs = new();
         public List<CustomAIV> aivs = new();
     }
-    public sealed class CustomAIV { public ulong checksum; }
+    public sealed class CustomAIV
+    {
+        public ulong checksum;
+        public int lordType;
+        public string AIVName, path;
+        public bool builtIn, workshop, workshopUploadInfoAvailable;
+        public short[] data;
+    }
 }
 
 namespace CrusaderDE
@@ -29,6 +36,18 @@ namespace CrusaderDE
             public bool builtInLord;
             public CustomisationFileManager.CustomLordConfig lordConfig;
             public List<CustomisationFileManager.CustomAIV> aivs = new();
+            public bool builtIn, community, historical;
+            public int rotation;
+            public byte[] imageData;
+            public object image;
+        }
+        public sealed class CoopMissionSetupData
+        {
+            public string mapName;
+            public FileHeader header;
+            public int[] keepOrder, teams, AIs, AIVs;
+            public int fairness, starting_level, allowBarracksPlayer1, allowMercPostPlayer1,
+                allowStockadePlayer1, allowBarracksPlayer2, allowMercPostPlayer2, allowStockadePlayer2;
         }
     }
     public sealed class HUD_IngameMenu

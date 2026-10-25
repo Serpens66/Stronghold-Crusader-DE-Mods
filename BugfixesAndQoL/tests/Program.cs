@@ -40,6 +40,14 @@ namespace BugfixesAndQoL
 
         private static int Main(string[] args)
         {
+            if (args.Length == 1 && args[0] == "--coop-ai")
+            {
+                TestCoopCustomLordSelectionPolicy();
+                TestCustomCoopAivSyncPolicy();
+                TestTrailCustomizationOwnership();
+                Console.WriteLine("Coop AI policy and integration checks: failures=" + failures);
+                return failures == 0 ? 0 : 1;
+            }
             if (args.Length > 0 && string.Equals(args[0], "--settings-ui", StringComparison.Ordinal))
             {
                 TestTimerCountdownMigration();
@@ -2853,11 +2861,11 @@ namespace BugfixesAndQoL
             Check(
                 CoopCustomLordSelectionPolicy.ShouldUseSelectedCoopAiv(true, true, false, false, false, 4) &&
                 CoopCustomLordSelectionPolicy.ShouldUseSelectedCoopAiv(true, false, true, true, true, 4) &&
-                !CoopCustomLordSelectionPolicy.ShouldUseSelectedCoopAiv(true, false, true, true, true, 2) &&
+                CoopCustomLordSelectionPolicy.ShouldUseSelectedCoopAiv(true, false, true, true, true, 2) &&
                 !CoopCustomLordSelectionPolicy.ShouldUseSelectedCoopAiv(true, false, true, false, true, 4) &&
                 !CoopCustomLordSelectionPolicy.ShouldUseSelectedCoopAiv(true, false, true, true, false, 4) &&
                 !CoopCustomLordSelectionPolicy.ShouldUseSelectedCoopAiv(false, false, true, true, true, 4),
-                "Custom Coop AI selections survive singleplayer restart without overriding the Vanilla partner");
+                "Custom Coop AI selections include the customized partner and survive singleplayer restart");
 
             // F4: the AIC (builtInLord) and the castle source are independent dimensions.
             int custom = Shared.CoopAiSelectionRules.FirstCustomLordType;
@@ -3111,13 +3119,15 @@ namespace BugfixesAndQoL
                 : string.Empty;
             Check(
                 restoreBoundsValid &&
-                restoreSource.Contains("int insertionIndex = self.currentLobby.members.IndexOf(oldPartner);") &&
-                restoreSource.Contains("int colourId = oldPartner.colourID;") &&
-                restoreSource.Contains("int partnerTeam = self.currentLobby.getTeam(oldPartner);") &&
-                restoreSource.Contains("self, lord, partnerTeam, insertionIndex, colourId, out int playerId") &&
-                restoreSource.Contains("self.currentLobby.validateTeams();") &&
-                !restoreSource.Contains("forceCoopTeams()"),
-                "Coop custom partner restoration inherits Vanilla's position, colour and team without changing enemy teams");
+                restoreSource.Contains("CustomLordLobbyUtility.ConfigureExistingCoopPartner(self.currentLobby, self.AIVs, lord);") &&
+                restoreSource.Contains("UpdateHostInfoMethod.Invoke(self, new object[] { false });") &&
+                !restoreSource.Contains("kickSkirmishPlayer") &&
+                !restoreSource.Contains("AddAndInitialize") &&
+                !restoreSource.Contains("validateTeams") &&
+                !restoreSource.Contains("forceCoopTeams()") &&
+                featureSource.Contains("CustomLordLobbyUtility.ValidateSelectedCoopPartner("),
+                // Wiring guard only; executable CoopAiStart tests verify the production helper's state contract.
+                "Coop restoration configures the existing slot and publishes once; the final launch validates its identity");
 
             string multiplayerHookSource = File.ReadAllText(
                 Path.Combine("src", "SkirmishAiSelectionMemoryHook.cs"));

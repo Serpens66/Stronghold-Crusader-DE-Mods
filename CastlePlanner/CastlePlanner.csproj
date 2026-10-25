@@ -235,6 +235,7 @@
     <Compile Include="src\CastleSpawnContentPolicy.cs" />
     <Compile Include="src\CoalescedSynchronizationContextQueue.cs" />
     <Compile Include="src\SupplementalPrefabSpawner.cs" />
+    <Compile Include="src\SupplementalPrefabVisualPolicy.cs" />
     <Compile Include="src\SupplementalPlacementPolicy.cs" />
     <Compile Include="..\AIVPlacement\AIVPlacement.Core\AivTerrainPlacementRules.cs" Link="SpawnPlan\AivTerrainPlacementRules.cs" />
     <Compile Include="src\DecorationVerificationPolicy.cs" />

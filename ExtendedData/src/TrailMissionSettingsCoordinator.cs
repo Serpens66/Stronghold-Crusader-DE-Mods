@@ -192,10 +192,13 @@ namespace ExtendedData
             private short builtInCustomizeOriginPacketId;
 
             public event Action CoopPackagesChanged;
+            internal event Action CoopPackageExported;
             public event Action CoopSetupOpened;
             public event Action<int, int> CoopLaunchReceived;
             public event Action<FRONT_Multiplayer> LobbyOpened;
             public event Func<FRONT_Multiplayer, bool> SinglePlayerCoopStarting;
+            public event Func<FRONT_Multiplayer, string> SinglePlayerCoopLaunchValidating;
+            public event Action SinglePlayerCoopStartRejected;
             public event Action SourcesChanged;
 
             public IReadOnlyList<TrailModCompatibilityInfo> DiscoverModCompatibility()
@@ -1793,7 +1796,7 @@ namespace ExtendedData
                         WriteLordRequirements(destination, makerRoot, makerRequirements);
                         RemoveCoopPackage(destination);
                     }
-                    CoopPackagesChanged?.Invoke();
+                    CoopPackageExported?.Invoke();
                 }
                 catch (Exception exception)
                 {
@@ -2480,11 +2483,20 @@ namespace ExtendedData
                         try
                         {
                             ValidateSinglePlayerCoopAivs(self);
+                            string importError = SinglePlayerCoopLaunchValidating?.Invoke(self);
+                            if (importError != null) throw new InvalidDataException(importError);
                         }
                         catch (Exception exception)
                         {
-                            Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:2229", "Blocked Custom Coop Trail launch: " + exception);
-                            ShowInformation(SerpLocalization.Get("ExtendedData.StartBlockedTitle"), exception.Message);
+                            Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:2229",
+                                "Blocked Custom Coop Trail launch: trail=" + (self.currentLobby?.coopTrailID + 1) +
+                                ", mission=" + self.currentLobby?.coopSelectedMission + ", route=" +
+                                (MissionRestart.IsInProgress ? "restart" : ExtendedDataLaunchOriginApi.RestoredFromSave ? "restore" :
+                                    FRONT_Multiplayer.skirmishGame ? "customize" : "direct") + "; " + exception);
+                            string reason = exception is Shared.CoopAiSelectionException selection
+                                ? SerpLocalization.Get("CoopAi.Error." + selection.Code).Replace("{Player}", selection.PlayerId.ToString())
+                                : exception.Message;
+                            ShowInformation(SerpLocalization.Get("ExtendedData.StartBlockedTitle"), reason);
                             return;
                         }
                     }
@@ -2493,7 +2505,7 @@ namespace ExtendedData
                     if (!TryPrepareRestartSettings()) return;
                     startInvoked = true;
                     try { startSkirmishGameOriginal(self, customTrailRestartInfo); }
-                    catch { RecoverCoopDraft(); throw; }
+                    catch { startInvoked = false; RecoverCoopDraft(); throw; }
                     customTrailSetupRestartInfo = null;
                     customTrailSetupHeader = null;
                 }
@@ -2501,33 +2513,22 @@ namespace ExtendedData
                 {
                     // Validation can reject a start without an exception or a lifecycle
                     // attempt. Release the read-only draft in that path as well.
-                    if (!startInvoked) RecoverCoopDraft();
+                    if (!startInvoked)
+                    {
+                        if (self?.singlePlayerCoop == true)
+                        {
+                            missionPresetLifecycle.CancelPendingLaunch();
+                            ExtendedDataLaunchOriginApi.CancelPendingLaunch();
+                            SinglePlayerCoopStartRejected?.Invoke();
+                        }
+                        RecoverCoopDraft();
+                    }
                 }
             }
 
             private static void ValidateSinglePlayerCoopAivs(FRONT_Multiplayer self)
             {
-                if (self?.currentLobby == null || self.AIVs == null)
-                    throw new InvalidDataException("Custom Coop Trail AI data is unavailable.");
-                foreach (Platform_Multiplayer.MPLobbyMember member in self.currentLobby.members)
-                {
-                    if (member == null || !member.SkirmishMember || member.SkirmishHumanMember)
-                        continue;
-                    int playerId = self.currentLobby.getThisPlayerFromSteamID(member.GetSteamID());
-                    if (playerId < 2 || playerId > self.AIVs.Length)
-                        throw new InvalidDataException("Custom Coop Trail has an invalid AI player slot.");
-                    FRONT_Multiplayer.MPAIVInfo info = self.AIVs[playerId - 1];
-                    if (info == null || info.lordType != member.GetLordType())
-                        throw new InvalidDataException($"Custom Coop Trail Lord selection for player {playerId} changed.");
-                    if (!info.builtInLord &&
-                        (string.IsNullOrWhiteSpace(info.lordName) || info.lordConfig == null))
-                        throw new InvalidDataException($"Custom Coop Trail Lord data for player {playerId} is incomplete.");
-                    if (info.builtInLord && info.builtIn)
-                        continue;
-                    if (info.aivs == null || info.aivs.Count == 0 ||
-                        info.aivs.Any(aiv => aiv?.data == null || aiv.data.Length == 0))
-                        throw new InvalidDataException($"Custom Coop Trail AIV for player {playerId} is missing or invalid.");
-                }
+                Shared.CoopAiStartPlanFactory.ValidateLobby(self?.currentLobby, self?.AIVs);
             }
 
             private void FrontendOpenCustomTrailHook(FrontendMenus self, string trailName, int level)
@@ -3176,6 +3177,9 @@ namespace ExtendedData
                 try
                 {
                     self.CoopMissionChanged(trailId, mission);
+                    // Start the editor with the actual partner's defaults, not Vanilla's redundant Rat placeholder.
+                    if (self.singlePlayerCoop)
+                        Shared.CoopAiStartPlanFactory.PrepareDirectPartner(self.currentLobby, self.AIVs);
                     launchedThroughCustomize = true;
                     if (notifyClients)
                         BroadcastCoopCustomize(trailId, mission);

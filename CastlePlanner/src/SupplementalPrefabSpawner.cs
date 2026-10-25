@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading;
+using SHCDESE.Extensions;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 
@@ -44,13 +45,19 @@ namespace CastlePlanner
             capture.GlobalId = identity.Value.GlobalId;
         }
 
-        internal int Create(int owner, eStructs type, int x, int y, Func<long> create,
+        internal int Create(int owner, eMappers mapper, int x, int y, Func<int, long> create,
             Func<int, SupplementalBuildingIdentity?> lookup, out string reason)
         {
+            if (!SupplementalPrefabVisualPolicy.TryGetVariation(mapper, out int variation))
+            {
+                reason = $"unsupported-supplemental-visual(mapper={mapper})";
+                return -1;
+            }
+            eStructs type = mapper.ConvertToEStructs();
             var capture = new Capture { Owner = owner, Type = type, X = x, Y = y };
             Stack<Capture> stack = frames.Value;
             stack.Push(capture);
-            try { create(); } // The raw native return is a status/residue, never an ID.
+            try { create(variation); } // The raw native return is a status/residue, never an ID.
             finally { stack.Pop(); }
             if (capture.Events != 1 || capture.Id <= 0)
             {

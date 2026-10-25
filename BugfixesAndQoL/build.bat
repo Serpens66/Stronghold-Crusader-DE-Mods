@@ -126,14 +126,22 @@ set "NOTIFICATION_CHECKS=0"
 set "GATEHOUSE_CHECKS=0"
 set "FOREIGN_HUD_CHECKS=0"
 set "SETTINGS_CHECKS=0"
+set "COOP_CHECKS=0"
 for %%A in (%*) do if /I "%%~A"=="/checks:notifications" set "NOTIFICATION_CHECKS=1"
 for %%A in (%*) do if /I "%%~A"=="/checks:gatehouse" set "GATEHOUSE_CHECKS=1"
 for %%A in (%*) do if /I "%%~A"=="/checks:foreignhud" set "FOREIGN_HUD_CHECKS=1"
 for %%A in (%*) do if /I "%%~A"=="/checks:settings" set "SETTINGS_CHECKS=1"
-set /a CHECK_SCOPES=NOTIFICATION_CHECKS+GATEHOUSE_CHECKS+FOREIGN_HUD_CHECKS+SETTINGS_CHECKS
+for %%A in (%*) do if /I "%%~A"=="/checks:coop" set "COOP_CHECKS=1"
+set /a CHECK_SCOPES=NOTIFICATION_CHECKS+GATEHOUSE_CHECKS+FOREIGN_HUD_CHECKS+SETTINGS_CHECKS+COOP_CHECKS
 if %CHECK_SCOPES% GTR 1 goto build_failed
 pushd "%PROJECT_DIR%"
 if "%BUILD_TEST_MODE%"=="none" goto foreign_hud_checks_completed
+rem Shared Coop selection validation is part of every checked build of both consumers.
+dotnet build "%PROJECT_DIR%..\Shared\Tests\CoopAiStart.Tests\Shared.CoopAiStart.Tests.csproj" -c Release "-p:GameDir=%GAME_DIR%" "-p:ExtenderDir=%EXTENDER_DIR%"
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+"%PROJECT_DIR%..\Shared\Tests\CoopAiStart.Tests\bin\Release\net481\Shared.CoopAiStart.Tests.exe"
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+if "%COOP_CHECKS%"=="1" goto coop_checks
 if "%BUILD_TEST_MODE%"=="quick" goto quick_checks
 if "%SETTINGS_CHECKS%"=="1" goto settings_checks
 if "%FOREIGN_HUD_CHECKS%"=="1" goto foreign_hud_checks
@@ -455,6 +463,13 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-ModOp
 call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 goto foreign_hud_behavior_checks
+
+:coop_checks
+"%MSBUILD%" "%PROJECT_DIR%tests\ImprovedMoatFilling.Tests.csproj" /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /nologo /verbosity:minimal
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+"%PROJECT_DIR%tests\bin\ImprovedMoatFilling.Tests.exe" --coop-ai
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+goto foreign_hud_checks_completed
 
 :checks_completed
 rem Keep foreign HUD regressions in the ordinary suite as well as the scoped build.
