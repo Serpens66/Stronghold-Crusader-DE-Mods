@@ -70,6 +70,7 @@ namespace ExtraFeatures
         private AIMarketVanillaPriceHook aiMarketVanillaPriceHook;
         private MonkAlwaysRunPatch monkAlwaysRunPatch;
         private FearFactorNeutralizationRuntime fearFactorRuntime;
+        private PopularityRuntime popularityRuntime;
         private PlagueDurationPatch plagueDurationPatch;
         private PlagueApothecarySearchRangePatch plagueApothecarySearchRangePatch;
         private IntPtr libraryHandle;
@@ -141,6 +142,13 @@ namespace ExtraFeatures
             TryRunFeature("Lord health lifecycle", lordHealthRuntime.Initialize);
             TryRunFeature("building repair HUD lifecycle", InitializeBuildingRepairHud);
             InitializeMissionLifecycle();
+            TryRunFeature("popularity lifecycle", () =>
+            {
+                if (popularityRuntime != null) return;
+                var candidate = new PopularityRuntime(log, settings);
+                candidate.Register();
+                popularityRuntime = candidate;
+            });
             // LibraryLoaded runs after every plugin's Awake, so Bugfixes and QoL is now present.
             TryRunFeature("market-purchase guard integration", marketTradeGuardBridge.TryConnect);
         }
@@ -221,6 +229,7 @@ namespace ExtraFeatures
 
         public void ApplySettings()
         {
+            popularityRuntime?.RefreshActivation();
             ApplyPlagueHeightSettings();
             processKeepBuildRangeRuntime?.Refresh();
             TryRunFeature("building repair HUD configuration", ReconcileBuildingRepairHud);
@@ -468,6 +477,7 @@ namespace ExtraFeatures
 
         private void OnSettingChanged(string propertyName)
         {
+            if (propertyName == nameof(ExtraFeaturesViewModel.EnableMod)) popularityRuntime?.RefreshActivation();
             if (propertyName == nameof(ExtraFeaturesViewModel.EnableMod) || propertyName.StartsWith("PlagueDamage", StringComparison.Ordinal))
                 ApplyPlagueHeightSettings();
             if (propertyName == nameof(ExtraFeaturesViewModel.KeepBuildRange))

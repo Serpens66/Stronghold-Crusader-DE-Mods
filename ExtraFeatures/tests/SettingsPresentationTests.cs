@@ -25,6 +25,7 @@ public static class SettingsPresentationTests
         { "Demolition", new[] { "keep-storage-content", "wood-refund", "stone-refund", "iron-refund", "pitch-refund", "gold-refund" } },
         { "Plague", new[] { "plague-damage-walls", "plague-damage-gates", "plague-damage-towers", "plague-damage-keeps", "plague-duration", "apothecary-plague-search-distance", "healer-targets" } },
         { "Market", new[] { "market-prices-also-ai", "market-buy-price-multiplier", "market-sell-price-multiplier" } }
+        ,{ "Popularity", new[] { "popularity.RationsPopModifierNone.human", "popularity.RationsPopModifierNone.ai", "popularity.RationsPopModifierHalf.human", "popularity.RationsPopModifierHalf.ai", "popularity.RationsPopModifierFull.human", "popularity.RationsPopModifierFull.ai", "popularity.RationsPopModifierExtra.human", "popularity.RationsPopModifierExtra.ai", "popularity.RationsPopModifierDouble.human", "popularity.RationsPopModifierDouble.ai", "popularity.RationsPopModifierNoPreferredFood.human", "popularity.RationsPopModifierNoPreferredFood.ai", "popularity.RationsPopModifierNoPopulation.human", "popularity.RationsPopModifierNoPopulation.ai", "popularity.FoodVarietyPopModifierTwoTypes.human", "popularity.FoodVarietyPopModifierTwoTypes.ai", "popularity.FoodVarietyPopModifierThreeTypes.human", "popularity.FoodVarietyPopModifierThreeTypes.ai", "popularity.FoodVarietyPopModifierFourTypes.human", "popularity.FoodVarietyPopModifierFourTypes.ai", "popularity.OverpopulationPopModifierTierOne.human", "popularity.OverpopulationPopModifierTierOne.ai", "popularity.OverpopulationPopModifierTierTwo.human", "popularity.OverpopulationPopModifierTierTwo.ai", "popularity.OverpopulationPopModifierTierThree.human", "popularity.OverpopulationPopModifierTierThree.ai", "popularity.OverpopulationPopModifierTierFour.human", "popularity.OverpopulationPopModifierTierFour.ai", "popularity.OverpopulationPopModifierTierFive.human", "popularity.OverpopulationPopModifierTierFive.ai", "popularity.TaxPopModifierHugeDonation.human", "popularity.TaxPopModifierHugeDonation.ai", "popularity.TaxPopModifierBigDonation.human", "popularity.TaxPopModifierBigDonation.ai", "popularity.TaxPopModifierSmallDonation.human", "popularity.TaxPopModifierSmallDonation.ai", "popularity.TaxPopModifierNone.human", "popularity.TaxPopModifierNone.ai", "popularity.TaxPopModifierLow.human", "popularity.TaxPopModifierLow.ai", "popularity.TaxPopModifierModerate.human", "popularity.TaxPopModifierModerate.ai", "popularity.TaxPopModifierHigh.human", "popularity.TaxPopModifierHigh.ai", "popularity.TaxPopModifierMean.human", "popularity.TaxPopModifierMean.ai", "popularity.TaxPopModifierUsurious.human", "popularity.TaxPopModifierUsurious.ai", "popularity.TaxPopModifierCruel.human", "popularity.TaxPopModifierCruel.ai", "popularity.TaxPopModifierMostCruel.human", "popularity.TaxPopModifierMostCruel.ai", "popularity.TaxPopModifierCruellest.human", "popularity.TaxPopModifierCruellest.ai", "popularity.TaxPopModifierUnaffordableDonation.human", "popularity.TaxPopModifierUnaffordableDonation.ai", "popularity.TaxPopModifierUnknownMode.human", "popularity.TaxPopModifierUnknownMode.ai", "popularity.ReligionPopModifierTierOne.human", "popularity.ReligionPopModifierTierOne.ai", "popularity.ReligionPopModifierTierTwo.human", "popularity.ReligionPopModifierTierTwo.ai", "popularity.ReligionPopModifierTierThree.human", "popularity.ReligionPopModifierTierThree.ai", "popularity.ReligionPopModifierTierFour.human", "popularity.ReligionPopModifierTierFour.ai", "popularity.ChurchPopModifier.human", "popularity.ChurchPopModifier.ai", "popularity.CathedralPopModifier.human", "popularity.CathedralPopModifier.ai", "popularity.AlePopModifierTierOne.human", "popularity.AlePopModifierTierOne.ai", "popularity.AlePopModifierTierTwo.human", "popularity.AlePopModifierTierTwo.ai", "popularity.AlePopModifierTierThree.human", "popularity.AlePopModifierTierThree.ai", "popularity.AlePopModifierTierFour.human", "popularity.AlePopModifierTierFour.ai", "popularity.FairsPopularityEventModifier.human", "popularity.FairsPopularityEventModifier.ai", "popularity.NegativeFear.human", "popularity.NegativeFear.ai", "popularity.FearNegative1.human", "popularity.FearNegative1.ai", "popularity.FearNegative2.human", "popularity.FearNegative2.ai", "popularity.FearNegative3.human", "popularity.FearNegative3.ai", "popularity.FearNegative4.human", "popularity.FearNegative4.ai", "popularity.FearNegative5.human", "popularity.FearNegative5.ai", "popularity.PositiveFear.human", "popularity.PositiveFear.ai", "popularity.FearPositive1.human", "popularity.FearPositive1.ai", "popularity.FearPositive2.human", "popularity.FearPositive2.ai", "popularity.FearPositive3.human", "popularity.FearPositive3.ai", "popularity.FearPositive4.human", "popularity.FearPositive4.ai", "popularity.FearPositive5.human", "popularity.FearPositive5.ai" } }
     };
 
     private static object Get(object instance, string property) { return instance.GetType().GetProperty(property, All).GetValue(instance, null); }
@@ -59,7 +60,7 @@ public static class SettingsPresentationTests
     {
         XmlNode[] nodes = document.SelectNodes("//*").Cast<XmlNode>().ToArray();
         XmlNode[] topics = nodes.Where(n => Search(n, "IsSection") == "True").ToArray();
-        Check(topics.Length == Membership.Count, "seven topic sections");
+        Check(topics.Length == Membership.Count, "declared topic sections");
         foreach (KeyValuePair<string, string[]> pair in Membership)
         {
             string prefix = "SettingsPresentation." + pair.Key;
@@ -90,6 +91,11 @@ public static class SettingsPresentationTests
             items.SelectNodes(".//*[local-name()='WrapPanel']").Cast<XmlNode>().All(n => n.Attributes["Width"] == null), "goods wrap to the finite available width");
         Check(nodes.Any(n => n.LocalName == "ScrollViewer" && n.Attributes["HorizontalScrollBarVisibility"].Value == "Auto" &&
             n.Attributes["VerticalScrollBarVisibility"].Value == "Auto"), "outer Auto scrollbars retained");
+        foreach(XmlNode slider in nodes.Where(n=>n.LocalName=="Slider" && Ancestors(n).Any(a=>(Search(a,"Key")??"").StartsWith("extra.popularity.")))) {
+            Check(slider.Attributes["Width"].Value=="120","Popularity sliders have the requested compact width");
+            XmlNode block=Ancestors(slider).First(a=>(Search(a,"Key")??"").StartsWith("extra.popularity."));
+            Check(block.ParentNode.LocalName=="WrapPanel" && block.SelectNodes("./*[local-name()='TextBox' and @Width='64']").Count==1,"whole role blocks wrap with 64px numeric inputs");
+        }
         ValidateCompactLayout(document);
     }
 
@@ -118,7 +124,7 @@ public static class SettingsPresentationTests
         {
             Check(float.Parse(EffectiveStyleValue(row, "MinHeight"), CultureInfo.InvariantCulture) >= 28, "setting rows reserve checkbox height");
             bool spacing = EffectiveStyleValue(row, "Margin").Split(',').Last() == "8" || Ancestors(row).Any(n =>
-                n.LocalName == "Grid" && EffectiveStyleValue(n, "Margin").Split(',').Last() == "8");
+                EffectiveStyleValue(n, "Margin").Split(',').Last() == "8");
             Check(spacing, "every setting row or enclosing table row has eight-unit spacing");
             Check(row.SelectNodes("./*[local-name()='Grid.ColumnDefinitions']/*").Cast<XmlNode>().All(n => n.Attributes["Width"].Value != "*"), "setting labels never consume the remaining page width");
             foreach (XmlNode check in row.SelectNodes(".//*[local-name()='CheckBox']"))
@@ -250,6 +256,20 @@ public static class SettingsPresentationTests
         Check(Visible(market, "ContentVisibility"), "exact section navigation");
         search("Topic.Plague", false, "");
         Check(Visible(Get(presentation, "Plague"), "ContentVisibility") && !Visible(market, "Visibility"), "topic-title search");
+        object popularity = Get(presentation, "Popularity");
+        int popularityCount = (int)Get(popularity, "OptionCount");
+        search("", false, "extra.popularity.FearNegative3.human");
+        Check(Visible(popularity, "ContentVisibility") && topics.Where(t => !ReferenceEquals(t,popularity)).All(t => !Visible(t,"Visibility")), "fear navigation opens only Popularity");
+        Check(Visible(Get(presentation,"PopularityFearOptions"),"Visibility") && Visible(Get(presentation,"PopularityNegativeFearOptions"),"Visibility") &&
+            !Visible(Get(presentation,"PopularityPositiveFearOptions"),"Visibility") && !Visible(Get(presentation,"PopularityRationsOptions"),"Visibility"), "fear navigation retains only relevant subgroup headings");
+        Check(Visible(Get(presentation,"PopularityRowFearNegative3"),"Visibility"),"exact role navigation retains its row caption");
+        search("",false,"extra.popularity.FearNegative3.ai");
+        Check(Visible(Get(presentation,"PopularityRowFearNegative3"),"Visibility") && !Visible(Get(presentation,"PopularityRowFearNegative2"),"Visibility"),"AI navigation retains only matching value row");
+        Check((int)Get(popularity,"OptionCount")==popularityCount,"Popularity count stays complete during search");
+        search("Topic.Popularity", false, "");
+        Check(Visible(Get(presentation,"PopularityRationsOptions"),"Visibility") && Visible(Get(presentation,"PopularityPositiveFearOptions"),"Visibility"),"whole Popularity topic search retains its subsections");
+        search("",false,"");
+        Check(!Visible(popularity,"ContentVisibility"),"search restores closed manual Popularity state");
         search("Help.MarketSellPriceMultiplierHelpText", false, "");
         Check(!Visible(market, "Visibility"), "tooltip excluded unless requested");
         search("Help.MarketSellPriceMultiplierHelpText", true, "");
@@ -358,6 +378,7 @@ public class SettingsSearchLabels
         Demolition = new SettingsSearchTopicLabel { Title = "Topic.Demolition" };
         Plague = new SettingsSearchTopicLabel { Title = "Topic.Plague" };
         Market = new SettingsSearchTopicLabel { Title = "Topic.Market" };
+        Popularity = new SettingsSearchTopicLabel { Title = "Topic.Popularity" };
     }
     public SettingsSearchTopicLabel Units { get; private set; }
     public SettingsSearchTopicLabel Gatehouses { get; private set; }
@@ -366,6 +387,7 @@ public class SettingsSearchLabels
     public SettingsSearchTopicLabel Demolition { get; private set; }
     public SettingsSearchTopicLabel Plague { get; private set; }
     public SettingsSearchTopicLabel Market { get; private set; }
+    public SettingsSearchTopicLabel Popularity { get; private set; }
 }
 public class SettingsSearchGood
 {

@@ -49,6 +49,7 @@ namespace ExtendedData
                 value = value && CanEdit;
                 if (isDropDownOpen == value) return;
                 isDropDownOpen = value;
+                if (!value) DetachPopup();
                 Changed(nameof(IsDropDownOpen));
                 Changed(nameof(IsInputBlocked));
             }
@@ -106,6 +107,12 @@ namespace ExtendedData
                 .Select(item => item.Content?.ToString() ?? string.Empty).ToArray();
             if (options.SequenceEqual(refreshed, StringComparer.Ordinal)) return;
             options = refreshed;
+            if (IsDropDownOpen)
+            {
+                ClearHover();
+                FitDropdown();
+                SchedulePopupLayout();
+            }
             // Replacing ItemsSource can synchronously reset Noesis' selection. That is
             // presentation maintenance, not a user request to select Vanilla.
             refreshingOptions = true;

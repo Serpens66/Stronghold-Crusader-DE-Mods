@@ -202,3 +202,88 @@ registrations or the complete original SE multiplication. Level zero stays neutr
 The Extender's configurable multiplier directly exposes Vanilla's constant 25; that
 is a technical explanation, not evidence of the author's personal design motivation.
 Actual game, report/preview and real host/client acceptance remain separate.
+
+## Human/AI targeting feasibility (2026-10-25)
+
+Canonical native SHA-256 was rechecked and remains
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+The earlier complete scheduler/component/report audit above therefore remains the
+native contract; no new native address or hook span is proposed here. The installed
+SHCDESE 2.14.3.0 assembly SHA-256 is
+`5CB1C33BE5463086505A17F5C48AAA357D733CFFF7240E101C821F0E3C668498`.
+Its actual BulkPlayerDetours and GamePlayerManagerAPI bodies were decompiled for
+this feasibility check; generic native function labels retain their earlier trust
+classification. The managed observations below are confirmed-static.
+
+The popularity replacement already obtains the current native player ID from R15
+and resolves that same player's resource pointer before reading the component
+parameters. GamePlayerManagerAPI publicly exposes IsAIPlayer(playerId), backed by
+the AI-lord lineup. Classification must use a valid participating slot; a false AI
+result alone does not prove that an empty or invalid slot is an active human.
+
+All ordinary popularity coefficients currently come from global ManagedValue<int>
+objects. ExtraFeatures publishes its owned overrides for the session, and the
+existing FearPopularity selection accepts a level without player identity. These
+interfaces do not currently support Human/AI targeting. Existing calculation
+context makes such a capability feasible, but both the ordinary coefficient reads
+and the fear selection would need player-aware selection before their consumers.
+Unmatched players must retain existing SE/foreign values and the original branches.
+
+The installed callback raises OnPlayerCalculatePopularity(Pre) only after component
+stores, the auxiliary unsigned religion accumulation and worst-source comparisons.
+Changing only its final Popularity value cannot reproduce player-specific component
+semantics. The native event/clamp path and eligibility/small-population bypasses
+remain independently authoritative. Temporarily changing global stacks per player
+would also expose transient global values to other readers; it is not a verified
+targeting mechanism.
+
+The independent report path follows the selected native viewpoint. APIShared's
+current presentation snapshot captures component inputs but does not select ordinary
+or fear policies by that player's identity. A future targeting implementation must
+apply the same player-specific selection to simulation, report and previews; the
+existing public PlayerPerspectiveAPI.GetViewedPlayerId is the relevant identity
+boundary, including uncertainty handling. No targeting behavior, lifecycle roster
+timing or real multiplayer execution was implemented or runtime-tested in this check.
+
+## Targeted policy implementation audit (2026-10-25)
+
+This is an additional dated implementation observation, retaining the preceding
+feasibility snapshot. Native SHA-256 remains
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`;
+installed SE 2.14.3 SHA-256 is
+`5CB1C33BE5463086505A17F5C48AAA357D733CFFF7240E101C821F0E3C668498`.
+Managed game report identity remains BC8B6A39 as documented above.
+Evidence: workspace `.work/a/pop-targets/001` (installed method/player API
+extraction) and `.work/a/pop-human-ai/001` (tests, review and delivery).
+
+Native scheduler 0xD1AD0 calls 0xCB090 only for eligible resource slots. Its
+signed checks at manager offsets 0x12EC54 and 0x12ED94 require values >0.
+Subtracting resource base 0x12EBC0 yields public `r_KeepId` +0x94 and
+`r_KeepDoorId` +0x1D4, with slot stride 0x583C. The targeting classifier uses
+these typed public fields to exclude empty/unresolved slots, then the public
+SE `IsAIPlayer` query. `ActivePlayerListVA` must not be interpreted as a human
+roster: its values distinguish native slot activity, not controller type.
+
+The installed SE callback reads its player ID from the native callback argument's
+`NativePointer<X64SmartCPUContext>.Pointer->R15`, narrows to Int32 and passes that
+same value to `TryGetPlayerResourcesById`. The new startup data-flow validator
+requires the resource pointer for every resource access and source read to be
+that resolver's output, and the ID local to retain that same origin. It covers
+all declared ordinary source getter/GetValue reads and the existing fear products.
+The rewritten real method is generated and JIT-prepared by installed-assembly
+tests; a counterexample replacing R15 by R14 is rejected before player edits
+and retains the independent legacy fear manipulation.
+
+Selection occurs immediately after successful resource resolution. Each ordinary
+GetValue result is replaced only for the captured role/source; missing entries
+retain its effective foreign/global value. Fear consumes the same captured policy.
+Original arithmetic/branches, strongest-component comparisons, religion auxiliary
+bookkeeping, event paths and final clamp remain downstream. No native hooks,
+global stack swaps, per-read locks, allocations or roster scans were added.
+The independent report adapter captures the viewed player's policy and applies it
+to its detached component/preview data. Explicit targeted values equal to a SE
+default remain present, covering the known zero-population report discrepancy.
+
+Automated tests prove installed managed data flow and isolated policy/report
+behavior. They do not execute native gameplay or establish Mono rendering,
+save/load gameplay or Host/Client acceptance; those remain separate game checks.

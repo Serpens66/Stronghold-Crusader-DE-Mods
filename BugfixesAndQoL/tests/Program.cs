@@ -3119,13 +3119,15 @@ namespace BugfixesAndQoL
                 : string.Empty;
             Check(
                 restoreBoundsValid &&
-                restoreSource.Contains("int insertionIndex = self.currentLobby.members.IndexOf(oldPartner);") &&
-                restoreSource.Contains("int colourId = oldPartner.colourID;") &&
-                restoreSource.Contains("int partnerTeam = self.currentLobby.getTeam(oldPartner);") &&
-                restoreSource.Contains("self, lord, partnerTeam, insertionIndex, colourId, out int playerId") &&
-                restoreSource.Contains("self.currentLobby.validateTeams();") &&
-                !restoreSource.Contains("forceCoopTeams()"),
-                "Coop custom partner restoration inherits Vanilla's position, colour and team without changing enemy teams");
+                restoreSource.Contains("CustomLordLobbyUtility.ConfigureExistingCoopPartner(self.currentLobby, self.AIVs, lord);") &&
+                restoreSource.Contains("UpdateHostInfoMethod.Invoke(self, new object[] { false });") &&
+                !restoreSource.Contains("kickSkirmishPlayer") &&
+                !restoreSource.Contains("AddAndInitialize") &&
+                !restoreSource.Contains("validateTeams") &&
+                !restoreSource.Contains("forceCoopTeams()") &&
+                featureSource.Contains("CustomLordLobbyUtility.ValidateSelectedCoopPartner("),
+                // Wiring guard only; executable CoopAiStart tests verify the production helper's state contract.
+                "Coop restoration configures the existing slot and publishes once; the final launch validates its identity");
 
             string multiplayerHookSource = File.ReadAllText(
                 Path.Combine("src", "SkirmishAiSelectionMemoryHook.cs"));

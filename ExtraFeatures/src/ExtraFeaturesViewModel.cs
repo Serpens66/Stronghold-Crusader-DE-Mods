@@ -16,7 +16,7 @@ using System.Linq;
 
 namespace ExtraFeatures
 {
-    public sealed class ExtraFeaturesViewModel : APIShared.ModSettings.PresetLobbyModSettingsViewModel
+    public sealed partial class ExtraFeaturesViewModel : APIShared.ModSettings.PresetLobbyModSettingsViewModel
     {
         public event Action<string> SettingChanged;
 
@@ -134,6 +134,7 @@ namespace ExtraFeatures
         public ExtraFeaturesViewModel(bool legacySomeSettingsLoaded)
         {
             SettingsPresentation = new ModSettingsPresentation();
+            InitializePopularitySettings();
             ((System.ComponentModel.INotifyPropertyChanged)this).PropertyChanged += OnSettingsPresentationPropertyChanged;
             ModSettingsSearchCatalog.SourceChanged += OnSettingsSearchSourceChanged;
             LegacyModWarningVisibility = legacySomeSettingsLoaded ? Visibility.Visible : Visibility.Collapsed;
@@ -389,6 +390,7 @@ namespace ExtraFeatures
         {
             if (CanEditHostSettings)
             {
+                ResetPopularityDefaults();
                 EnableMod = true;
                 WoodRefundPercent = -1;
                 StoneRefundPercent = -1;

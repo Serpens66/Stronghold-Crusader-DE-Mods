@@ -10,17 +10,17 @@ using System.Windows.Input;
 namespace ExtraFeatures
 {
     // Session-only view state. Settings, persistence and search metadata remain with their owners.
-    public sealed class ModSettingsPresentation : INotifyPropertyChanged
+    public sealed partial class ModSettingsPresentation : INotifyPropertyChanged
     {
         private bool searchActive;
 
         internal ModSettingsPresentation()
         {
-            Topics = new[] { Units, Gatehouses, Building, Economy, Demolition, Plague, Market };
+            Topics = new[] { Units, Gatehouses, Building, Economy, Demolition, Plague, Market, Popularity };
             Groups = new[] { SoldierOptions, KnightOptions, LordOptions, MoatOptions, GateOptions, GateReopenOptions,
                 GateDistanceOptions, BuildingOptions, EnemyProximityOptions, EnemySingleplayerOptions,
                 EnemyMultiplayerOptions, AiRebuildOptions, PopulationOptions, KillRewardOptions,
-                EconomyBonusOptions, RefundOptions, PlagueOptions, PlagueSurfacesOptions, HealerOptions, MarketGeneralOptions };
+                EconomyBonusOptions, RefundOptions, PlagueOptions, PlagueSurfacesOptions, HealerOptions, MarketGeneralOptions }.Concat(PopularityGroups).ToArray();
             ExpandAllCommand = new SettingsViewCommand(() => SetAll(true));
             CollapseAllCommand = new SettingsViewCommand(() => SetAll(false));
         }
@@ -33,6 +33,7 @@ namespace ExtraFeatures
         public SettingsTopicPresentation Demolition { get; } = new SettingsTopicPresentation("Demolition", "extra.topic.demolition");
         public SettingsTopicPresentation Plague { get; } = new SettingsTopicPresentation("Plague", "extra.topic.plague");
         public SettingsTopicPresentation Market { get; } = new SettingsTopicPresentation("Market", "extra.topic.market");
+        public SettingsTopicPresentation Popularity { get; } = new SettingsTopicPresentation("Popularity", "extra.topic.popularity");
         internal IReadOnlyList<SettingsTopicPresentation> Topics { get; }
         // Group membership only controls contextual captions/rows; APIShared remains the sole search index.
         public SettingsGroupPresentation SoldierOptions { get; } = new SettingsGroupPresentation("fear-factor-neutralization", "monks-always-run");

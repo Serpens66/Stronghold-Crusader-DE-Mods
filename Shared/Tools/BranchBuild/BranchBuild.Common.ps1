@@ -279,7 +279,6 @@ function Convert-BranchBatch([string]$Text, [string]$Relative, [string]$Suffix) 
         $boundary = switch -Regex ($Relative.Replace('\','/')) {
             '^ExtremePowers/' { '(?m)^if exist "%GAME_PLUGIN_DIR%" \('; break }
             '^Helpers/ActiveAIVDetector/' { '(?m)^  echo Kopiere Plugin in den Spielordner'; break }
-            '^Testmods/PopularityTest/' { '(?m)^powershell\.exe[^\r\n]*%~dp0install\.ps1'; break }
             default { '(?m)^\s*(?:if (?:not )?exist "[%!]?(?:GAME_PLUGIN_DIR|INSTALL)[%!][^\r\n]*|xcopy [^\r\n]*"%GAME_DIR%\\BepInEx\\plugins\\|xcopy [^\r\n]*"[%!](?:GAME_PLUGIN_DIR|INSTALL)[%!])' }
         }
         $match = [regex]::Match($Text, $boundary)
@@ -323,7 +322,7 @@ $installRelative = $relative -replace '^(BepInEx\\plugins\\[^\\]+)', '${1}_dev'
             $Text = $Text.Replace("Join-Path `$game 'BepInEx\plugins\DependencyBootstrapProbeControl_Serp'", "Join-Path `$game 'BepInEx\plugins\DependencyBootstrapProbeControl_Serp_dev'")
         }
         default {
-            # Post-install checks and PopularityTest's installer use absolute game paths.
+            # Post-install checks may use absolute game paths.
             $Text = [regex]::Replace($Text, '(?i)([A-Z]:\\[^''"\r\n]*\\BepInEx\\plugins\\)([A-Za-z][A-Za-z0-9_]*_Serp)(?=[''"\\])', '${1}${2}_dev')
         }
     }
@@ -335,7 +334,7 @@ function Set-BranchBuildTools($Selection, [string]$ControllerRoot, [switch]$Api,
     $overrides = @()
     $tracked = @(Invoke-BranchGit $Selection.Root @('-c','core.quotepath=false','ls-files'))
     $installScripts = @('tools/Build.ps1','Testmods/OutpostTest/Build-OutpostTest.ps1','Testmods/MoatMove/tests/Install-Package.ps1',
-        'Testmods/DependencyBootstrapProbe/Build.ps1','Testmods/PopularityTest/install.ps1',
+        'Testmods/DependencyBootstrapProbe/Build.ps1',
         'Testmods/PlagueHeightTest/verify-installed.ps1','Testmods/CrenelatedWallTest/verify-installed.ps1')
     foreach ($relative in $tracked) {
         if ($relative -match '^(_inspect|\.inspect|shcde-script-extender)/') { continue }

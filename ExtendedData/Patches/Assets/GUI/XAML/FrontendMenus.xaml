@@ -11,12 +11,91 @@
         <ComboBox x:Name="ExtendedDataCoopTrailDropdown"
                   Width="520" Height="40" Margin="0,150,0,0"
                   HorizontalAlignment="Center" VerticalAlignment="Top"
-                  FontSize="24" MaxDropDownHeight="360"
+                  FontSize="24" MaxDropDownHeight="494"
+                  ScrollViewer.CanContentScroll="True"
+                  VirtualizingPanel.IsVirtualizing="True"
+                  VirtualizingPanel.VirtualizationMode="Recycling"
                   ItemsSource="{Binding Options}"
                   SelectedIndex="{Binding SelectedIndex, Mode=TwoWay}"
                   IsEnabled="{Binding CanEdit}"
                   IsDropDownOpen="{Binding IsDropDownOpen, Mode=TwoWay}"
                   ToolTipService.ShowDuration="60000">
+          <ComboBox.ItemsPanel>
+            <ItemsPanelTemplate><VirtualizingStackPanel/></ItemsPanelTemplate>
+          </ComboBox.ItemsPanel>
+          <ComboBox.ItemContainerStyle>
+            <Style TargetType="ComboBoxItem" BasedOn="{StaticResource {x:Type ComboBoxItem}}">
+              <Setter Property="Height" Value="48"/>
+              <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+              <Setter Property="Template">
+                <Setter.Value>
+                  <ControlTemplate TargetType="ComboBoxItem">
+                    <Grid Background="Transparent" ClipToBounds="True">
+                      <Border x:Name="Selection" Background="{TemplateBinding Background}"/>
+                      <!-- This layer is controlled by popup hit testing, independently of mouse capture. -->
+                      <Border x:Name="PointerHover" Background="{DynamicResource Brush.Item.Over}"
+                              Visibility="Collapsed" IsHitTestVisible="False"/>
+                      <TextBlock Text="{TemplateBinding Content}" Margin="12,0"
+                                 VerticalAlignment="Center" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                      <Trigger Property="IsSelected" Value="True">
+                        <Setter TargetName="Selection" Property="Background" Value="{DynamicResource Brush.Item.Selected}"/>
+                        <Setter TargetName="PointerHover" Property="Background" Value="{DynamicResource Brush.Item.SelectedOver}"/>
+                      </Trigger>
+                      <Trigger Property="IsEnabled" Value="False">
+                        <Setter Property="Foreground" Value="{DynamicResource Brush.Foreground.Disabled}"/>
+                      </Trigger>
+                    </ControlTemplate.Triggers>
+                  </ControlTemplate>
+                </Setter.Value>
+              </Setter>
+            </Style>
+          </ComboBox.ItemContainerStyle>
+          <ComboBox.Template>
+            <ControlTemplate TargetType="ComboBox">
+              <Grid>
+                <ToggleButton Style="{StaticResource Style.ComboBox.Toggle}" ClickMode="Press" IsTabStop="False"
+                              Foreground="{TemplateBinding Foreground}"
+                              IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">
+                  <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1">
+                    <Grid>
+                      <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                      <TextBlock Text="{TemplateBinding SelectionBoxItem}" Margin="6,0" VerticalAlignment="Center"
+                                 TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
+                      <Path Grid.Column="1" Data="{StaticResource Geometry.ComboBox.Arrow}" Stroke="{TemplateBinding Foreground}"
+                            Margin="10,0" VerticalAlignment="Center" IsHitTestVisible="False"/>
+                    </Grid>
+                  </Border>
+                </ToggleButton>
+                <Popup x:Name="PART_Popup" Placement="Bottom" Focusable="False" AllowsTransparency="True"
+                       IsOpen="{Binding IsDropDownOpen, RelativeSource={RelativeSource TemplatedParent}}">
+                  <Border x:Name="DropDownBorder" Width="{TemplateBinding ActualWidth}" MaxHeight="{TemplateBinding MaxDropDownHeight}"
+                          Background="{DynamicResource Brush.Background.Popup}" BorderBrush="{DynamicResource Brush.Border.Popup}"
+                          BorderThickness="1" Padding="0,6">
+                    <ScrollViewer x:Name="CoopTrailScroll" CanContentScroll="True" Focusable="False"
+                                  VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                                  KeyboardNavigation.TabNavigation="Cycle" KeyboardNavigation.DirectionalNavigation="Contained">
+                      <ScrollViewer.Template>
+                        <ControlTemplate TargetType="ScrollViewer">
+                          <Grid>
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <ScrollContentPresenter x:Name="ItemsViewport" Content="{TemplateBinding Content}"
+                                                    CanContentScroll="{TemplateBinding CanContentScroll}" ClipToBounds="True"/>
+                            <ScrollBar x:Name="PART_VerticalScrollBar" Grid.Column="1" Orientation="Vertical"
+                                       Visibility="{TemplateBinding ComputedVerticalScrollBarVisibility}"
+                                       Value="{Binding VerticalOffset, Mode=OneWay, RelativeSource={RelativeSource TemplatedParent}}"
+                                       ViewportSize="{TemplateBinding ViewportHeight}" Minimum="0" Maximum="{TemplateBinding ScrollableHeight}"/>
+                          </Grid>
+                        </ControlTemplate>
+                      </ScrollViewer.Template>
+                      <ItemsPresenter/>
+                    </ScrollViewer>
+                  </Border>
+                </Popup>
+              </Grid>
+            </ControlTemplate>
+          </ComboBox.Template>
           <ComboBox.ToolTip>
             <ToolTip seui:ToolTipResolutionScale.Enabled="True"
                      Content="{Binding HelpText}"

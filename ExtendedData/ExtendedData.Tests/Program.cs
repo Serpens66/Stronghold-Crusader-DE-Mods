@@ -11,6 +11,8 @@ var tests = new (string Name, Action Run)[]
 {
     ("Coop menu mirrors authoritative selection, catalog refresh and edit permissions", CoopTrailMenuTests.Selection),
     ("Coop menu consumes dismissal through release and resets recreated views", CoopTrailMenuTests.Input),
+    ("Coop menu hover follows clipped popup hits, scroll, recycling and view lifetime", CoopTrailMenuTests.Hover),
+    ("Coop menu bounds fit resolutions and scales with at most ten visible rows", CoopTrailMenuTests.Geometry),
     ("Coop Customize drafts survive ready, repeated start, rejection and mission replacement", CoopDraftTests.Run),
     ("Maker embedded maps retain original data and publish validated immutable cache entries", TrailMakerEmbeddedMapTests.Run),
     ("Trail reset sources retain authored rules and replace or clear mission identity", TrailSetupTests.Sources),
