@@ -180,12 +180,13 @@ namespace ExtendedData
                         new KeyValuePair<string, string>("Guest", "OK|package|host-fingerprint|stale-selection"),
                     }, "OK|package|host-fingerprint") == catalog["ExtendedData.ErrorParticipantsSelectionNotReady"].Replace("{Players}", "Guest"),
                         "an outdated selection suffix was reported as different package files");
-                    string[] chunks = CoopLaunchBlockDiagnostics.ChatMessages("Ready", new[] { reason, invalid });
+                    string lordReason = catalog["ExtendedData.LordSlotsNotConfirmed"].Replace("{Players}", "3, 4, 5, 6, 7, 8");
+                    string[] chunks = CoopLaunchBlockDiagnostics.ChatMessages("Ready", new[] { reason, invalid, lordReason });
                     string reconstructed = string.Concat(chunks.Select(message =>
                         System.Text.RegularExpressions.Regex.Replace(message.Substring(CoopLaunchBlockDiagnostics.ChatPrefix.Length),
                             @"^\[\d+/\d+\] ", "")));
                     Assert(chunks.All(message => message.Length <= 280) &&
-                        reconstructed == "Ready: " + (reason + "; " + invalid).Replace('\r', ' ').Replace('\n', ' '),
+                        reconstructed == "Ready: " + (reason + "; " + invalid + "; " + lordReason).Replace('\r', ' ').Replace('\n', ' '),
                         "localized package messages were shortened in chat");
                     var state = new CoopLaunchAnnouncementState();
                     DateTime now = DateTime.UtcNow;

@@ -14,6 +14,19 @@ try {
         ($before[0].Parameters.ParameterType.FullName -join ',') -cne 'System.Int32&,System.Int32&') {
         throw 'Actual public EditorDirector.preDLLCallActions signature differs.'
     }
+    $update = @($editor.Methods | Where-Object Name -eq 'Update')
+    if ($update.Count -ne 1 -or -not $update[0].IsPrivate -or $update[0].IsStatic -or
+        $update[0].ReturnType.FullName -ne 'System.Void' -or $update[0].Parameters.Count -ne 0 -or -not $update[0].HasBody) {
+        throw 'Actual reflected EditorDirector.Update signature differs.'
+    }
+    $inputCalls = @($update[0].Body.Instructions | Where-Object {
+        $_.OpCode.Name -eq 'call' -and $_.Operand -is [Mono.Cecil.MethodReference] -and
+        $_.Operand.DeclaringType.FullName -eq 'UnityEngine.Input' -and
+        $_.Previous.OpCode.Name -eq 'ldc.i4.0'
+    } | ForEach-Object { $_.Operand.Name })
+    foreach ($name in @('GetMouseButtonDown','GetMouseButton','GetMouseButtonUp')) {
+        if ($name -notin $inputCalls) { throw "Editor Update no longer owns primary mouse input: $name" }
+    }
     $engine = @($assembly.MainModule.Types | Where-Object Name -eq 'EngineInterface')[0]
     $gate = @($engine.Fields | Where-Object Name -eq 'threadLock')
     if ($gate.Count -ne 1 -or -not $gate[0].IsStatic -or $gate[0].FieldType.FullName -ne 'System.Object') {
@@ -48,7 +61,7 @@ try {
         if (@($events.Fields | Where-Object { $_.Name -eq $name -and $_.IsPublic -and $_.IsStatic }).Count -ne 1) { throw "Missing actual edit event: $name" }
     }
 } finally { $assembly.Dispose() }
-Write-Host 'PASS: actual public editor/path/event members and locked pre-cursor engine boundary.'
+Write-Host 'PASS: actual editor input lifecycle, public path/event members and locked pre-cursor engine boundary.'
 if (-not $RunTests) { return }
 . (Join-Path $workspace 'Shared/Tools/Paths/WorkPaths.ps1')
 $fixture = New-ShortWorkDirectory -Root $workspace -Kind t -Name 'editor-regions' -Identity 'Production scheduling and private canonical PCL execution'

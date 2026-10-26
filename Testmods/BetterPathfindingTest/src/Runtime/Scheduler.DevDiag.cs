@@ -47,6 +47,7 @@ namespace BetterPathfindingTest
         {
             lock (sync)
             {
+                if (failed) return;
                 if (note.Kind == MissionLifecycleKind.Start)
                 {
                     if (!schedule.Start(note.Context.SessionId)) return;
@@ -71,6 +72,13 @@ namespace BetterPathfindingTest
             Shared.DevDiag.Log(() => "phase=capture-failed session=" + current.Id + " ordinal=" + (schedule.Captures + 1) + " status=INCOMPLETE error=" + error);
             current.Cancel.Cancel(); Queue(current.FailureJob(error, schedule.Captures + 1)); Queue(current.Release);
         }
+        private void StopObserver(Exception error)
+        {
+            failed = true; RetireSession();
+            string reportOutput = output;
+            Queue(() => SessionWork.Unsupported(reportOutput, error));
+            Shared.DevDiag.Log(() => "UNSUPPORTED runtime contract; observer stopped: " + error);
+        }
         internal void Frame()
         {
             int now = Time.frameCount; if (frame == now) return; frame = now;
@@ -90,10 +98,7 @@ namespace BetterPathfindingTest
                     }
                     catch (Exception ex)
                     {
-                        failed = true; RetireSession();
-                        string reportOutput = output;
-                        Queue(() => SessionWork.Unsupported(reportOutput, ex));
-                        Shared.DevDiag.Log(() => "UNSUPPORTED initialization contract; observer stopped: " + ex); return;
+                        StopObserver(ex); return;
                     }
                 }
                 SessionWork current = session;
@@ -109,6 +114,7 @@ namespace BetterPathfindingTest
                     Queue(current.Job(envelope, ordinal));
                     Shared.DevDiag.Log(() => "snapshot-copied session=" + current.Id + " ordinal=" + ordinal + " copyMs=" + envelope.Map.CopyMilliseconds.ToString("F3") + "; post-startup render active.");
                 }
+                catch (CaptureContractException ex) { StopObserver(ex); }
                 catch (CaptureNotReadyException ex) { schedule.WaitingReason = ex.Message; }
                 catch (Exception ex) { FailSession(ex); }
                 finally { engine.Exit(); }

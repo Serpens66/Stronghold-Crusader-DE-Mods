@@ -145,6 +145,21 @@ namespace BugfixesAndQoL.UnitCommands {
     try{f.ApplyPacket(nestedPacket,"nested-error");throw new Exception("expected native error");}
     catch(InvalidOperationException){Check(ReferenceEquals(f.pendingCommand,outer)&&f.dispatchDepth==0,"nested error lost outer scope");}
     f.pendingCommand=null;GameTribeManagerAPI.Instance.Move=f.Issue;
+    // The production release fixture proves the death rebase. Execute its resulting
+    // one-survivor packet shape through the real synchronized planner and unit events.
+    var original=new[]{new SelectionIdentity(1,1,22,1,1),new SelectionIdentity(2,2,22,1,1)};
+    f.ordered=new[]{new FormationUnit(2,2,22,FormationRole.Neutral)};
+    APIShared.UnitAccess.Count=1300;f.commandRuntime.Blocked=0;
+    foreach(bool nativeFallback in new[]{false,true}) {
+     APIShared.UnitAccess.Units[0].Alive=false;APIShared.UnitAccess.Units[0].PackedPath=789;
+     APIShared.UnitAccess.Units[1]=new GameUnit{Alive=true,r_TribeId=415,r_GlobalId=2,State=9,PackedPath=123};
+     var survivor=new ActiveDrag(1,415,new GroundTarget(400,400),original,FormationKind.Line,2,RangedPlacementMode.Rear,2);
+     survivor.Selection=original.Skip(1).ToArray();survivor.UseVanillaFallback=nativeFallback;
+     f.TryCreatePacket(survivor,out var packet);Check(ValidatePacket(packet,out _),"single survivor packet validation");
+     Check(f.ApplyPacket(Wire(packet),"single-survivor"),"single survivor not dispatched");
+     Check(APIShared.UnitAccess.Units[1].State==2&&APIShared.UnitAccess.Units[1].PackedPath==0&&
+      APIShared.UnitAccess.Units[0].PackedPath==789,"single survivor movement/dead unit preservation");
+    }
     // Distant requested slots must not turn a partial placement into a map flood.
     var far=new[]{new FormationPoint(300,300,0,0)};GameTileManagerAPI.Instance.Reads=0;
     var slots=f.CaptureReachableCandidates(400,400,8192,false,far);

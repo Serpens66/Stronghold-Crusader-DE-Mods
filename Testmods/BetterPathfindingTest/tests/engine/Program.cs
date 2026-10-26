@@ -45,6 +45,9 @@ internal static class EngineContract
         Assembly assembly = typeof(EngineInterface).Assembly;
         Check((assembly.Location.Length == 0) == (mode == "memory"), "Loader scenario was not reproduced.");
         ManagedContracts.Validate();
+        ManagedContracts.ValidatePackedLengths(320800, 320800);
+        bool capacityRejected = false; try { ManagedContracts.ValidatePackedLengths(320800, 320799); } catch (CaptureContractException) { capacityRejected = true; }
+        Check(capacityRejected, "SDK capacity mismatch was not classified as a permanent contract failure.");
         var evidence = new ManagedEvidence(root, assembly, Hash);
         Check(evidence.InstalledHash.Length == 64 && evidence.InstalledHash == Hash(evidence.InstalledPath), "Installed game image hash differs.");
         Check(evidence.LoadedName == assembly.FullName && evidence.LoadedMvid == assembly.ManifestModule.ModuleVersionId.ToString("D"), "Loaded identity missing.");

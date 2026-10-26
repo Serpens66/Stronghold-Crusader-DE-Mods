@@ -56,7 +56,7 @@ internal static class Program
         Check(Activator.CreateInstance(typeof(FormationOrderPacketFormatter)) != null,
             "attribute formatter has a public reflection constructor");
         var packet = new FormationOrderPacket {
-            ProtocolVersion = 7, OperationId = 42, TribeId = 4499,
+            ProtocolVersion = 10, OperationId = 42, TribeId = 4499,
             TargetX = 399, TargetY = 398, IsNewOrder = 1, MoveType = -255,
             Formation = (byte)FormationKind.Wedge, Density = 4,
             PlacementMode = (byte)RangedPlacementMode.Rear, DirectionSector = 7,
@@ -358,6 +358,15 @@ internal static class Program
 
     private static void TestReleaseStateModel()
     {
+        var newLeft = FormationReleaseStateModel.DiscardDeferred(new FormationMouseState(1, true, true, false, true), 0);
+        Check(newLeft.LeftState == 1 && newLeft.RightDown && newLeft.RightUp && !newLeft.StateRead && !newLeft.UpPending,
+            "Discard old left release preserves a new left down and opposite button");
+        var oldLeft = FormationReleaseStateModel.DiscardDeferred(new FormationMouseState(3, false, true, false, true), 0);
+        Check(oldLeft.LeftState == 0 && oldLeft.StateRead && !oldLeft.UpPending && oldLeft.RightUp,
+            "Discard old left edge and delayed left up only");
+        var newRight = FormationReleaseStateModel.DiscardDeferred(new FormationMouseState(3, true, true, false, true), 1);
+        Check(newRight.LeftState == 3 && newRight.RightDown && !newRight.RightUp && !newRight.StateRead && newRight.UpPending,
+            "Discard old right release preserves new right down and opposite left release");
         var leftRelease = new FormationMouseState(3, false, false, false, true);
         var inputFirst = new FormationReleaseGate(commandButton: 0);
         Check(inputFirst.ObserveInputRelease() && inputFirst.ReleaseEventSeen &&

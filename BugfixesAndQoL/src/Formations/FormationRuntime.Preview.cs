@@ -42,6 +42,11 @@ namespace BugfixesAndQoL.UnitCommands
 
         private void PublishPreviewLocked(ActiveDrag state, bool force)
         {
+            if (state.ReleaseGate.ReleaseEventSeen || state.ReleaseGate.VanillaReleaseClaimed)
+            {
+                ClearPreview();
+                return;
+            }
             if (!state.PreviewAdmissionCaptured || state.PreviewAdmissionRevision != commandRuntime.placementRevision)
             {
                 state.HasPreviewPlan = false;
@@ -149,6 +154,15 @@ namespace BugfixesAndQoL.UnitCommands
 
         private bool AuthorizePreview(ActiveDrag state)
         {
+            if (!nativeFeedbackRunActive || speechEngineLock == null ||
+                !System.Threading.Monitor.IsEntered(speechEngineLock)) return false;
+            GestureSelectionState selection = RefreshGestureSelection(state);
+            if (selection == GestureSelectionState.Changed)
+            {
+                AbortDrag("preview-selection-changed");
+                return false;
+            }
+            if (selection == GestureSelectionState.Unavailable || selection == GestureSelectionState.Empty) return false;
             bool allowed;
             lock (stateSync)
             {
@@ -188,7 +202,11 @@ namespace BugfixesAndQoL.UnitCommands
             if (state == null) return;
             AuthorizePreview(state);
             bool captured;
-            lock (stateSync) captured = ReferenceEquals(drag, state) && CapturePreviewAdmission(state);
+            lock (stateSync)
+            {
+                captured = ReferenceEquals(drag, state) && (CapturePreviewAdmission(state) || state.PreviewDirty);
+                if (captured) state.PreviewDirty = false;
+            }
             if (captured) Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(() => PublishPreview(state, true));
         }
 
@@ -223,6 +241,13 @@ namespace BugfixesAndQoL.UnitCommands
             internal FormationUnit[] PreviewUnits;
             internal long PreviewAdmissionRevision;
             internal bool PreviewAdmissionCaptured;
+            internal bool PreviewDirty;
+            internal bool UseVanillaFallback;
+            internal bool ReleaseDeferred;
+            internal readonly SelectionIdentity[] OriginalSelection;
+            internal readonly SelectionIdentity[] SelectionScratch;
+            internal readonly bool[] RemainingOriginals, SeenSurvivors;
+            internal readonly Dictionary<int, int> OriginalOrdinals;
             internal ActiveDrag(
                 int commandButton,
                 int tribeId,
@@ -237,6 +262,16 @@ namespace BugfixesAndQoL.UnitCommands
                 TribeId = tribeId;
                 Target = target;
                 Selection = selection;
+                OriginalSelection = selection;
+                SelectionScratch = new SelectionIdentity[selection.Length];
+                RemainingOriginals = new bool[selection.Length];
+                SeenSurvivors = new bool[selection.Length];
+                OriginalOrdinals = new Dictionary<int, int>(selection.Length);
+                for (int i = 0; i < selection.Length; i++)
+                {
+                    OriginalOrdinals.Add(selection[i].UnitId, i);
+                    RemainingOriginals[i] = true;
+                }
                 Kind = kind;
                 Density = density;
                 PlacementMode = placementMode;
@@ -258,9 +293,9 @@ namespace BugfixesAndQoL.UnitCommands
             }
 
             internal int CommandButton { get; }
-            internal int TribeId { get; }
+            internal int TribeId { get; set; }
             internal GroundTarget Target { get; }
-            internal SelectionIdentity[] Selection { get; }
+            internal SelectionIdentity[] Selection { get; set; }
             internal FormationKind Kind { get; }
             internal int Density { get; }
             internal RangedPlacementMode PlacementMode { get; }

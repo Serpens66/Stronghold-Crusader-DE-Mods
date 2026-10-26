@@ -226,3 +226,5 @@ ExtendedData.ErrorParticipantsDisabled=Extended Data is disabled for: {Players}.
 ExtendedData.ErrorPackageReportsPending=Waiting for package information from all players. Wait until everyone has finished joining the lobby and checking their packages.
 ExtendedData.ErrorCoopPreparationFailed=The Coop mission could not be prepared. Check the Coop package and required mods. Details are in the BepInEx log.
 ExtendedData.ErrorParticipantsSelectionNotReady=The Coop mission or Lord selection is not synchronized yet for: {Players}. Wait for the current selection to synchronize and check any local Lord error messages.
+ExtendedData.LordSlotsNotConfirmed=The selected Lord data do not match the confirmed data for player slots: {Players}. Wait for synchronization. If this persists, select the Coop mission again and check the BepInEx log.
+ExtendedData.LordSlotSelectionUnavailable=The selected Lords are not fully loaded yet. Select the Coop mission again and wait for synchronization.

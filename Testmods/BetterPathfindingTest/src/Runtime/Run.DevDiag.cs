@@ -45,7 +45,7 @@ namespace BetterPathfindingTest
         {
             Exception failure = RunGuard.Execute(() => {
                 Directory.CreateDirectory(output); string path = Path.Combine(output, "unsupported-" + DateTime.UtcNow.ToString("yyyyMMdd-HHmmss-fff"));
-                Json(path + ".json", new Dictionary<string, object> { ["status"] = "UNSUPPORTED", ["phase"] = "initialization", ["error"] = error.ToString(), ["runtime"] = "Unity/Mono" });
+                Json(path + ".json", new Dictionary<string, object> { ["status"] = "UNSUPPORTED", ["phase"] = error is CaptureContractException ? "capture-contract" : "initialization", ["error"] = error.ToString(), ["runtime"] = "Unity/Mono" });
                 File.WriteAllText(path + ".md", "# BetterPathfindingTest\r\n\r\nUNSUPPORTED: " + error.Message + "\r\n\r\nNo snapshot/search comparison was accepted.\r\n");
             }, () => { });
             if (failure != null) Shared.DevDiag.Log(() => "phase=report-failed initialization error=" + failure);

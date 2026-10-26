@@ -864,7 +864,7 @@ before the next game start; retain sources/evidence rather than deleting it.
 
 ## Update fallback, startup checks and remaining hash bindings (2026-10-22)
 
-Procedure: [AGENTS/native-analysis.md](../AGENTS/native-analysis.md), section „Prüfkosten“.
+Procedure: [AGENTS/native-analysis.md](../AGENTS/native-analysis.md), section â€žPrÃ¼fkostenâ€œ.
 - **Known native hash:** reference bytes only.
 - **Unknown hash:** one section-limited pattern fallback whose result is cached in `BepInEx/cache/BugfixesAndQoL_Serp.native-cache.tsv`. The cache key is the native SHA-256 plus the mod version.
 - The shared cache is `src/BfqolNativeCache.cs` over `Shared/Runtime/Native/NativeResolutionCache.cs`, saved once at the end of LibraryLoaded.
@@ -1250,7 +1250,8 @@ remain separate from these offline proofs.
 
 The editor-only correction consumes SE Post events for type painting/clearing, all
 height tools, deletion and vegetation, armed only after APIShared editor completion.
-It requests invalidation and batches work at the permanent managed preparation
+It records pending changes, deferring both invalidation and forced rebuilding until
+the primary mouse button is released. Work runs at the permanent managed preparation
 postfix inside the real EngineInterface.threadLock, before DLL_RunTick/cursor work.
 No map-start flood, per-tile managed hook or competing native detour is installed.
 
@@ -1270,11 +1271,66 @@ preparation/native calls and engine Monitor/finally order; it also requires curr
 ownership of that lock before native work. Missing/ambiguous patterns, unavailable
 APIs, unknown managed boundary or unsuccessful native publication disable only this
 feature with a millisecond-timestamped error. Pending edits are consumed before the
-call so nested changes survive. A changed generation AND clean dirty flag avoids
-a redundant rebuild after Vanilla completed the batch. All patches/subscriptions
+call so nested changes survive. A generation changed AFTER the latest completed
+edit AND clean dirty flag avoids a redundant rebuild; a mid-stroke rebuild cannot
+cover subsequent unmarked edits. All patches/subscriptions
 remain rooted until process exit; the master switch changes logical activation.
+
+Release batching (2026-10-26): a permanent prefix on the real private instance
+EditorDirector.Update() samples physical Mouse0 only for a pending batch. The IL
+contract requires primary-button down/held/up ownership. SE KeyManager events are
+not authoritative here: their independent state machine is UI-filtered and can
+arrive before or after the editor's native-facing release. Unity input is never
+queried on the engine thread. A batch-tagged atomic snapshot starts unknown, so
+stale samples from a retired batch/session cannot release a later batch. Focus
+loss publishes release; focus gain requires a fresh sample. While held/unknown,
+the engine callback returns before reading path context, generation or dirty.
+Only a released pending batch can request invalidation, once immediately before
+its forced live rebuild. Actual delayed edits remain pending for another pass;
+there is no timer or suppression of independent Vanilla rebuilds.
 
 Audit: current baseline knowledge/EDITOR_REGION_REFRESH.md. Tests: production
 RefreshState, installed member/IL preflight, and unchanged canonical flood/query
 execution in private PE memory. Fixture memset and input graph are explicit
 boundaries; real GUI and continuous-drawing latency need game acceptance.
+
+
+## Formation anchored cancellation and survivors (2026-10-26)
+
+Reference native SHA-256 remains FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
+No native hook or public API is added. Protocol 10 preserves the 16-field wire
+layout and permits one surviving member of a gesture begun with multiple units.
+Current full selection count/hash remain mandatory at synchronized execution.
+
+Ground rejection ownership requires coherent fresh anchor feedback, mode1,
+kind5, fileAC, image41, command17/detail-10 and no hovered unit/building/wall.
+These are the terminal 8F3DA..8F45E ordinary-ground result and cursor kind5;
+other reject sprites, mode5 attacks and interaction details1/3 do not qualify.
+An owned two-tile drag consumes its rejected release without staging any move
+or voice. A confirmed Move keeps its press anchor. Vanilla/unclassified clicks
+retain the native path. Once claimed, dispatch/UI errors cannot restore the edge.
+
+Survivor refresh runs under EngineInterface.threadLock then stateSync, using the
+existing LocalSelectionAPI completed snapshot and UnitAccess.IsReallyAlive.
+The native WORD death marker at GameUnit+29C covers melee as well as projectiles;
+AliveState alone does not prove life during death animation. Per-gesture identity
+maps and marks are reused; the unchanged refresh allocates no buffers. Dead entries
+may remain in the completed selection; filter them from current live metadata.
+Reused selected IDs, live deselections, ownership/type changes and new IDs never
+inherit the original proof. Proven survivors retain shape/facing/row intent.
+Removed original slots or a death-related group change use Vanilla placement at
+the same anchor, density1, no role placement. Empty survivors consume without move.
+
+Cursor count may lag confirmed deaths until the next native export; only an
+engine-validated survivor rebind permits counts between surviving and original
+count, and the current/original group. Cursor output never authorizes a new ID.
+UI preview removes dead members without repeating regional classification.
+
+Unavailable selection defers only an already-owned release: run the original once
+with neutral input, restore its exact snapshot only if the same gesture still
+owns it, then retry after simulation progress. Abort clears that old command edge
+without clearing a new down/opposite button. A native-only deferred release also
+freezes held controls. Released/deferred previews cannot republish markers.
+The original input contract is documented in MOVE_COMMAND_RELEASE.md. Two-thread
+speech, actual gesture/packet/formatter/dispatcher/slot/unit-state fixtures and
+native mask/entry machines remain separate from actual editor/host-client acceptance.

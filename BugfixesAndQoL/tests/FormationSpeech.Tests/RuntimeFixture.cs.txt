@@ -49,16 +49,17 @@ namespace BugfixesAndQoL.UnitCommands {
  internal struct FormationMouseState {}
  internal static class FormationReleaseStateModel {
   internal static bool HasCommandRelease(FormationMouseState state,int button)=>true;
-  internal static FormationMouseState Consume()=>new();
+  internal static FormationMouseState Consume()=>new();internal static FormationMouseState DiscardDeferred(FormationMouseState s,int b)=>s;
  }
  internal class NativeContext { public IntPtr ModuleHandle;public byte[] Memory=Array.Empty<byte>(); }
  internal class Commands { public int mapEpoch=4; }
- internal class Gate { public bool TryClaimVanillaRelease(FormationMouseState state)=>true; }
- internal class Authorization { public bool IsConfirmed=true; }
+ internal class Gate { public bool VanillaReleaseClaimed;public void ObserveInputRelease(){} public bool TryClaimVanillaRelease(FormationMouseState state){VanillaReleaseClaimed=true;return true;} }
+ internal class Authorization { public bool IsConfirmed=true;public bool OwnsGroundGesture=true; }
+ internal class Geometry {public bool ExplicitDirection;}
  internal class Target { public int NativeX=10,NativeY=10; }
  internal class ActiveDrag {
   public int TribeId=2,MapEpoch=4,PlayerId=1,CommandButton=1,Kind,Density=1,PlacementMode;
-  public Gate ReleaseGate=new();public Authorization Authorization=new();public Target Target=new();
+  public bool ReleaseDeferred;public Geometry Geometry=new();public Gate ReleaseGate=new();public Authorization Authorization=new();public Target Target=new();
  }
  internal class FormationOrderPacket { public int OperationId=1,MoveType=1; }
  internal enum DispatchDisposition { Accepted,Rejected }
@@ -111,6 +112,8 @@ namespace BugfixesAndQoL.UnitCommands {
   private APIShared.Internal.GroundMovePreviewRejection EvaluateFormationTargetBounds(Target target)=>APIShared.Internal.GroundMovePreviewRejection.None;
   private string ToRejectionReason(APIShared.Internal.GroundMovePreviewRejection reason)=>reason.ToString();
   private bool ValidateActiveDrag(ActiveDrag state)=>state!=null;
+  private enum GestureSelectionState {Unchanged,Survivors,Empty,Changed,Unavailable}
+  private GestureSelectionState RefreshGestureSelection(ActiveDrag state)=>GestureSelectionState.Unchanged;
   private void ClearPreview() {}
   private bool TryCreatePacket(ActiveDrag state,out FormationOrderPacket packet) { packet=new();return true; }
   private DispatchDisposition TryDispatch(FormationOrderPacket packet,out string rejection) {
@@ -164,7 +167,7 @@ namespace BugfixesAndQoL.UnitCommands {
      if(delayed)r.buffer=false;
      r.Tick();
      Check(r.moves==1&&r.originalRuns==1&&!r.localFailed,scenario+": failure isolated from engine/movement");
-     if(scenario=="rejected")Check(!EditorDirector.instance.Consumed&&n.Emitted==0,"Rejected input left to Vanilla");
+     if(scenario=="rejected")Check(EditorDirector.instance.Consumed&&n.Emitted==0,"Owned dispatch rejection cannot retarget or emit");
      else Check(EditorDirector.instance.Consumed,"Accepted input remains consumed");
      if(delayed) {
       Check(n.Emitted==0,"No-buffer retained");

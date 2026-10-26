@@ -204,14 +204,18 @@ namespace BugfixesAndQoL.UnitCommands
                 return;
 
             menuViewModel.CloseMenu();
-            if (!TryCaptureSelection(out SelectionIdentity[] selection, out int tribeId))
-                return;
-            if (!TryCaptureCommandTarget(
-                    out GroundTarget target,
-                    out _))
+            SelectionIdentity[] selection;
+            int tribeId;
+            GroundTarget target;
+            bool taken = false;
+            try
             {
-                return;
+                if (speechEngineLock == null) return;
+                System.Threading.Monitor.TryEnter(speechEngineLock, 0, ref taken);
+                if (!taken || !TryCaptureSelection(out selection, out tribeId) ||
+                    !TryCaptureCommandTarget(out target, out _)) return;
             }
+            finally { if (taken) System.Threading.Monitor.Exit(speechEngineLock); }
 
             var state = new ActiveDrag(
                 commandButton,

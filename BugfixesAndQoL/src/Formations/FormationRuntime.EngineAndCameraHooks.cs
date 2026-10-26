@@ -49,6 +49,7 @@ namespace BugfixesAndQoL.UnitCommands
 
             bool originalEntered = false;
             FormationMouseState inputState = default;
+            ActiveDrag state = null;
             try
             {
                 AgeReleaseConsumptionWatch();
@@ -56,90 +57,139 @@ namespace BugfixesAndQoL.UnitCommands
                 if (director == null)
                     return RunOriginalOnce(mpFrameSkip, ref originalEntered);
 
-                ActiveDrag state;
                 lock (stateSync)
                     state = drag;
                 if (state == null)
                     return RunOriginalOnce(mpFrameSkip, ref originalEntered);
 
-                // Five reflected reads per frame are only needed while a drag exists; nothing
-                // between the frame start and this point writes these director fields.
                 inputState = CaptureMouseState(director);
-
-                APIShared.Internal.GroundMovePreviewRejection modeRejection =
-                    EvaluateCommandMode();
-                if (modeRejection != APIShared.Internal.GroundMovePreviewRejection.None)
+                FormationReleaseDisposition disposition;
+                FormationOrderPacket packet;
+                FormationSpeechRequest speechRequest;
+                lock (speechEngineLock)
+                    disposition = PrepareFormationRelease(state, inputState, out packet, out speechRequest);
+                if (disposition == FormationReleaseDisposition.Deferred)
+                    return RunOriginalWithDeferredRelease(state, director, inputState, mpFrameSkip, ref originalEntered);
+                if (disposition == FormationReleaseDisposition.Cancelled)
                 {
-                    AbortDrag("release-command-" +
-                        ToRejectionReason(modeRejection));
+                    ConsumeGestureRelease(state, director, 0);
+                    QueueSpeech(null);
+                    ClearPreview();
                     return RunOriginalOnce(mpFrameSkip, ref originalEntered);
                 }
-                APIShared.Internal.GroundMovePreviewRejection targetRejection =
-                    EvaluateFormationTargetBounds(state.Target);
-                if (targetRejection != APIShared.Internal.GroundMovePreviewRejection.None)
-                {
-                    AbortDrag("release-target-" +
-                        ToRejectionReason(targetRejection));
+                if (disposition != FormationReleaseDisposition.Accepted)
                     return RunOriginalOnce(mpFrameSkip, ref originalEntered);
-                }
-
-                if (!ValidateActiveDrag(state))
-                {
-                    AbortDrag("release-state-changed");
-                    return RunOriginalOnce(mpFrameSkip, ref originalEntered);
-                }
-                if (!state.Authorization.IsConfirmed)
-                {
-                    if (FormationReleaseStateModel.HasCommandRelease(inputState, state.CommandButton))
-                        AbortDrag("release-unconfirmed-move");
-                    return RunOriginalOnce(mpFrameSkip, ref originalEntered);
-                }
-
-                bool releaseClaimed;
-                lock (stateSync)
-                {
-                    releaseClaimed = ReferenceEquals(drag, state) &&
-                        state.ReleaseGate.TryClaimVanillaRelease(inputState);
-                    if (releaseClaimed)
-                    {
-                        drag = null;
-                        RefreshNativeObserverDemand();
-                    }
-                }
-                if (!releaseClaimed)
-                    return RunOriginalOnce(mpFrameSkip, ref originalEntered);
-                ClearPreview();
-
-                // The full release state was captured before dispatch. Once dispatch
-                // is accepted, no fallible reflection read may stand between
-                // acceptance and permanent consumption of the input edge.
-                if (!TryCreatePacket(state, out FormationOrderPacket packet))
-                    return RunOriginalOnce(mpFrameSkip, ref originalEntered);
-
-                FormationSpeechRequest speechRequest = CaptureSpeech(state, (TribeMoveType)packet.MoveType);
-                DispatchDisposition disposition = TryDispatch(packet, out string rejection);
-                if (disposition != DispatchDisposition.Accepted)
-                {
-                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/Formations/FormationRuntime.EngineAndCameraHooks.cs:117", $"Formation order fell back to Vanilla: {rejection}.");
-                    return RunOriginalOnce(mpFrameSkip, ref originalEntered);
-                }
-
-                return RunOriginalAfterReleaseConsumed(
-                    state,
-                    director,
-                    mpFrameSkip,
-                    packet,
-                    inputState,
-                    speechRequest,
-                    ref originalEntered);
+                return RunOriginalAfterReleaseConsumed(state, director, mpFrameSkip,
+                    packet, inputState, speechRequest, ref originalEntered);
             }
             catch (Exception exception)
             {
+                // Once claimed, even a presentation/dispatch exception must not hand
+                // this release back to Vanilla at the current mouse position.
+                if (!originalEntered && state?.ReleaseGate.VanillaReleaseClaimed == true)
+                {
+                    try { ConsumeGestureRelease(state, EditorDirector.instance, 0); } catch { }
+                    try { QueueSpeech(null); } catch { }
+                }
                 FailOpen("engine-run", exception);
                 if (originalEntered)
                     throw;
                 return RunOriginalOnce(mpFrameSkip, ref originalEntered);
             }
+        }
+
+        private enum FormationReleaseDisposition { Vanilla, Deferred, Cancelled, Accepted }
+
+        // Caller holds the engine lock; do not run the native frame while preparing.
+        private FormationReleaseDisposition PrepareFormationRelease(ActiveDrag state,
+            FormationMouseState input, out FormationOrderPacket packet, out FormationSpeechRequest speech)
+        {
+            packet = null; speech = null;
+            if (!ValidateActiveDrag(state) ||
+                EvaluateCommandMode() != APIShared.Internal.GroundMovePreviewRejection.None ||
+                EvaluateFormationTargetBounds(state.Target) != APIShared.Internal.GroundMovePreviewRejection.None)
+            {
+                AbortDrag("release-context-changed");
+                return FormationReleaseDisposition.Vanilla;
+            }
+            GestureSelectionState selection = RefreshGestureSelection(state);
+            if (selection == GestureSelectionState.Changed)
+            {
+                AbortDrag("release-selection-changed");
+                return FormationReleaseDisposition.Vanilla;
+            }
+            if (!FormationReleaseStateModel.HasCommandRelease(input, state.CommandButton))
+                return FormationReleaseDisposition.Vanilla;
+            if (selection == GestureSelectionState.Unavailable)
+            {
+                if (state.Authorization.IsConfirmed || (state.Geometry.ExplicitDirection && state.Authorization.OwnsGroundGesture))
+                {
+                    lock (stateSync)
+                    {
+                        state.ReleaseGate.ObserveInputRelease(); // Freeze controls even without a managed KeyUp.
+                        state.ReleaseDeferred = true;
+                    }
+                    return FormationReleaseDisposition.Deferred;
+                }
+                AbortDrag("release-unavailable-unclassified");
+                return FormationReleaseDisposition.Vanilla;
+            }
+            bool cancelled = selection == GestureSelectionState.Empty || !state.Authorization.IsConfirmed;
+            if (cancelled && selection != GestureSelectionState.Empty &&
+                (!state.Geometry.ExplicitDirection || !state.Authorization.OwnsGroundGesture))
+            {
+                AbortDrag("release-unclassified");
+                return FormationReleaseDisposition.Vanilla;
+            }
+            lock (stateSync)
+            {
+                if (!ReferenceEquals(drag, state) || !state.ReleaseGate.TryClaimVanillaRelease(input))
+                    return FormationReleaseDisposition.Vanilla;
+                drag = null;
+                state.ReleaseDeferred = false;
+                RefreshNativeObserverDemand();
+            }
+            if (cancelled) return FormationReleaseDisposition.Cancelled;
+            // The identity snapshot and packet are captured under the same engine lock.
+            if (!TryCreatePacket(state, out packet)) return FormationReleaseDisposition.Cancelled;
+            speech = CaptureSpeech(state, (TribeMoveType)packet.MoveType);
+            if (TryDispatch(packet, out string rejection) == DispatchDisposition.Accepted)
+                return FormationReleaseDisposition.Accepted;
+            Shared.DebugLogHelper.LogWarningLimited(log, "formation-anchored-dispatch",
+                $"Anchored formation dispatch rejected: {rejection}.");
+            // Ownership is already established; a technical rejection cannot retarget the release.
+            return FormationReleaseDisposition.Cancelled;
+        }
+
+        private void ConsumeGestureRelease(ActiveDrag state, EditorDirector director, int operationId)
+        {
+            if (director == null) throw new InvalidOperationException("EditorDirector disappeared during release.");
+            try { director.clearMouseStateForEngine(); }
+            finally { ApplyMouseState(director, FormationReleaseStateModel.Consume()); }
+            lock (stateSync)
+                releaseConsumptionWatch = new ReleaseConsumptionWatch(operationId, state.TribeId, state.CommandButton, 2);
+        }
+
+        private int RunOriginalWithDeferredRelease(ActiveDrag state, EditorDirector director, FormationMouseState input,
+            bool mpFrameSkip, ref bool originalEntered)
+        {
+            ApplyMouseState(director, FormationReleaseStateModel.Consume());
+            try { return RunOriginalOnce(mpFrameSkip, ref originalEntered); }
+            finally
+            {
+                // No command accepted: retry this edge only while the same gesture
+                // still owns it. An abort/new press during the native run must not revive it.
+                lock (stateSync)
+                    if (ReferenceEquals(drag, state) && state.ReleaseDeferred) ApplyMouseState(director, input);
+            }
+        }
+
+        private void DiscardDeferredRelease(ActiveDrag state)
+        {
+            if (state == null || !state.ReleaseDeferred || EditorDirector.instance == null) return;
+            FormationMouseState current = CaptureMouseState(EditorDirector.instance);
+            ApplyMouseState(EditorDirector.instance, FormationReleaseStateModel.DiscardDeferred(current, state.CommandButton));
+            state.ReleaseDeferred = false;
         }
 
         private int RunOriginalAfterReleaseConsumed(
@@ -151,28 +201,8 @@ namespace BugfixesAndQoL.UnitCommands
             FormationSpeechRequest speechRequest,
             ref bool originalEntered)
         {
-            if (director == null)
-            {
-                throw new InvalidOperationException(
-                    "EditorDirector disappeared after the formation order was accepted.");
-            }
-
-            try
-            {
-                director.clearMouseStateForEngine();
-            }
-            finally
-            {
-                // clearMouseStateForEngine does not clear rightDown/rightUp. Applying
-                // the audited terminal state also makes consumption robust if that
-                // method changes part of the state before reporting a failure.
-                ApplyMouseState(director, FormationReleaseStateModel.Consume());
-            }
-            lock (stateSync)
-            {
-                releaseConsumptionWatch = new ReleaseConsumptionWatch(
-                    packet.OperationId, state.TribeId, state.CommandButton, 2);
-            }
+            ConsumeGestureRelease(state, director, packet.OperationId);
+            ClearPreview();
             QueueSpeech(speechRequest);
 
             try

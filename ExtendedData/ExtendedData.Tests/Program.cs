@@ -103,6 +103,7 @@ var tests = new (string Name, Action Run)[]
     ("Fixes preference snapshots retain every current and future property", TestFixesPreferenceCodec),
     ("Fixes preference snapshots reject incompatible schemas and lossy values", TestFixesPreferenceIncompatibility),
     ("Lord sync diagnostics identify state without logging JSON values", TestLordSyncDiagnostics),
+    ("embedded unnamed Lord slots require exact prepared and published configurations", TestEmbeddedLordSlotReadiness),
     ("deferred Lord confirmations reject stale lobby and selection", TestDeferredLordPublication),
     ("Lord sync accepts a confirmed lobby before game mode becomes multiplayer", TestLordSyncLobbyGate),
     ("selected Lord fingerprint ignores media and detects gameplay files", TestLordPackageFingerprint),
@@ -727,6 +728,92 @@ static void TestLordSyncLobbyGate()
         LordDataSyncDiagnostics.MatchesSelectedSlots(selected, new[] { 3 }) &&
         !LordDataSyncDiagnostics.MatchesSelectedSlots(selected, new[] { 4 }),
         "an empty or stale snapshot was accepted for a selected Custom Lord");
+}
+
+static void TestEmbeddedLordSlotReadiness()
+{
+    // Self-contained equivalent of a portable eight-player Trail: two humans and six
+    // unnamed Custom AICs. No installed paths or media providers are available.
+    var infos = new CrusaderDE.FRONT_Multiplayer.MPAIVInfo[8];
+    var slots = new List<LordDataSlot>();
+    for (int index = 0; index < infos.Length; index++)
+    {
+        int playerId = index + 1;
+        infos[index] = new CrusaderDE.FRONT_Multiplayer.MPAIVInfo
+        {
+            builtInLord = index < 2, lordName = string.Empty, lordType = index,
+            lordConfig = index < 2 ? null : new CustomisationFileManager.CustomLordConfig
+            { lordType = index, name = "embedded-aic-" + playerId, checksum = (ulong)(100 + playerId) },
+        };
+        if (index < 2) continue;
+        infos[index].aivs.Add(new CustomisationFileManager.CustomAIV { checksum = (ulong)playerId, data = new short[4] });
+        slots.Add(new LordDataSlot { PlayerId = playerId, LordType = index, LordName = "Author Lord " + playerId,
+            ConfigName = infos[index].lordConfig.name, ConfigChecksum = infos[index].lordConfig.checksum.ToString() });
+    }
+    var embedded = new HashSet<int>(Enumerable.Range(3, 6));
+    Func<int, bool> activeAi = playerId => playerId >= 3;
+    LordDataSnapshot original = LordDataSnapshot.Create("lobby", false, slots);
+    LordDataSnapshot snapshot = original, prepared = original;
+    LordSnapshotSlotSelection Inspect() => LordSnapshotSlotSelection.Inspect(snapshot, infos, activeAi, embedded, prepared);
+    Assert(Inspect().Matches, "six valid embedded AICs required installed Lord names or files");
+
+    snapshot = LordDataSnapshot.Create("lobby", false, slots.Where(slot => slot.PlayerId != 3));
+    LordSnapshotSlotSelection missing = Inspect();
+    Assert(!missing.Matches && missing.MissingPlayers.SequenceEqual(new[] { 3 }) &&
+        missing.AffectedPlayers.Contains(3) && missing.Diagnostic.Contains("missing=[3]", StringComparison.Ordinal),
+        "snapshot omitted an embedded Lord without identifying its player slot");
+    snapshot = LordDataSnapshot.Create("lobby", false, slots.Concat(new[] {
+        new LordDataSlot { PlayerId = 1, LordType = 0, LordName = "human stale data", ConfigName = "old", ConfigChecksum = "1" },
+    }));
+    Assert(!Inspect().Matches && Inspect().ExtraPlayers.SequenceEqual(new[] { 1 }),
+        "snapshot with an extra human slot passed");
+    snapshot = original;
+    prepared = LordDataSnapshot.Create("lobby", false, slots.Where(slot => slot.PlayerId != 3));
+    Assert(!Inspect().Matches && Inspect().InvalidPlayers.Contains(3), "unprepared unnamed slot was accepted");
+    prepared = original;
+    infos[2].lordConfig.checksum++;
+    LordSnapshotSlotSelection changed = Inspect();
+    Assert(!changed.Matches && changed.InvalidPlayers.Contains(3) &&
+        changed.Diagnostic.Contains("configChecksum=104", StringComparison.Ordinal) &&
+        changed.Diagnostic.Contains("preparedChecksum=103", StringComparison.Ordinal) &&
+        changed.Diagnostic.Contains("embedded=True", StringComparison.Ordinal), "changed configuration passed or lost diagnostic identities");
+    infos[2].lordConfig.checksum--;
+    infos[2].lordConfig.name = "other-aic";
+    Assert(!Inspect().Matches, "different configuration name was accepted as embedded");
+    infos[2].lordConfig.name = slots[0].ConfigName;
+    infos[2].lordConfig.lordType++;
+    Assert(!Inspect().Matches, "different configuration type was accepted as embedded");
+    infos[2].lordConfig.lordType--;
+    var savedConfig = infos[2].lordConfig;
+    infos[2].lordConfig = null;
+    Assert(!Inspect().Matches, "missing AIC was accepted");
+    infos[2].lordConfig = savedConfig;
+    var savedInfo = infos[2];
+    infos[2] = null;
+    Assert(!Inspect().Matches, "missing active Lord selection was accepted");
+    infos[2] = savedInfo;
+    infos[2].lordName = "optional-media-alias";
+    Assert(Inspect().Matches, "optional media alias changed a valid embedded binding");
+    infos[2].lordName = string.Empty;
+    embedded.Remove(3);
+    Assert(!Inspect().Matches, "an unnamed slot without an embedded binding was accepted");
+    infos[2].lordName = slots[0].LordName;
+    Assert(Inspect().Matches, "ordinary named Custom Lord was rejected");
+    infos[2].lordConfig.checksum++;
+    Assert(!Inspect().Matches, "named Custom Lord configuration differed from the published snapshot");
+    infos[2].lordConfig.checksum--;
+
+    activeAi = playerId => playerId >= 4;
+    Assert(!Inspect().Matches && Inspect().ExtraPlayers.Contains(3), "inactive or human slot remained in the snapshot");
+    snapshot = LordDataSnapshot.Create("lobby", false, slots.Skip(1));
+    Assert(Inspect().Matches, "inactive or human selection was included as an AI");
+    activeAi = playerId => playerId >= 3;
+    infos[2].builtInLord = true;
+    Assert(Inspect().Matches, "ordinary Vanilla Lord required a Custom Lord snapshot entry");
+    embedded.Add(3);
+    Assert(!Inspect().Matches, "a Vanilla Lord was accepted as a claimed embedded Custom AIC");
+    Assert(!LordSnapshotSlotSelection.Inspect(snapshot, null, activeAi, embedded, prepared).Matches,
+        "absent lobby selection was accepted");
 }
 
 static void TestDeferredLordPublication()

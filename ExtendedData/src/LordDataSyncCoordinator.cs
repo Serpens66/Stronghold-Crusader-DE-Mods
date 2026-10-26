@@ -1178,15 +1178,21 @@ namespace ExtendedData
                 return false;
             }
             if (verifyEffectiveData && !HasVerifiedSnapshot(out reason)) return false;
-            if (!activeFromSave && (lobby?.AIVs == null || !LordDataSyncDiagnostics.MatchesSelectedSlots(active,
-                lobby.AIVs.Take(8).Select((selected, index) => new { selected, index })
-                    .Where(item => IsActiveAiSlot(lobby, item.index + 1) &&
-                        item.selected != null && !item.selected.builtInLord &&
-                        !string.IsNullOrWhiteSpace(item.selected.lordName))
-                    .Select(item => item.index + 1))))
+            if (!activeFromSave)
             {
-                reason = "The selected Custom Lord slots do not match the published snapshot.";
-                return false;
+                LordSnapshotSlotSelection selection = LordSnapshotSlotSelection.Inspect(active, lobby?.AIVs,
+                    playerId => IsActiveAiSlot(lobby, playerId), embeddedTrailSlots, pendingTrail);
+                if (!selection.Matches)
+                {
+                    int[] affected = selection.AffectedPlayers;
+                    reason = affected.Length == 0 ? SerpLocalization.Get("ExtendedData.LordSlotSelectionUnavailable") :
+                        SerpLocalization.Get("ExtendedData.LordSlotsNotConfirmed")
+                            .Replace("{Players}", string.Join(", ", affected));
+                    CoopLaunchBlockDiagnostics.ReportLocal(log, "LordSlotCheck", reason,
+                        "role=host, lobby=" + CurrentSessionId(lobby) + ", snapshot=" + active.Digest,
+                        selection.Diagnostic);
+                    return false;
+                }
             }
             if (!PlayerIdentityHelper.TryCaptureHumanRoster(false, true,
                 out Dictionary<int, ulong> players, out string rosterError, out _))

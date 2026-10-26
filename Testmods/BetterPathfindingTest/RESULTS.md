@@ -143,3 +143,9 @@ je Vergleichslauf; für ausstehende Erfassungen gelten 30 Sekunden ohne blockier
 Warten. Suchalgorithmus, vorhandene Mods und gemeinsam genutzte Quellen wurden für
 diese Korrektur nicht geändert. Die neue Ingame-Erfassung ist nach Installation
 noch gesondert nachzuweisen.
+
+Spätere Beobachtung am selben Tag: Der Spielstart mit 0.1.1 meldete um 16:10:03.999
+`READY`. Die zuvor fehlschlagende Initialisierung ist damit auch unter Unity/Mono
+belegt. Für diesen Lauf liegen weiterhin keine Kartensnapshots oder abgeschlossenen
+Ingame-Suchvergleiche vor. Eine abschließende Ergänzung klassifiziert abweichende
+SDK-Layerkapazitäten dauerhaft als `UNSUPPORTED`; Kartenfehler bleiben sitzungsbezogen.

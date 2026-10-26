@@ -28,6 +28,8 @@ namespace BetterPathfindingTest
     }
     internal static class ManagedContracts
     {
+        internal static void ValidatePackedLengths(params int[] lengths)
+        { foreach (int length in lengths) if (length != 320800) throw new CaptureContractException("SDK tile capacity changed: expected audited 320800, got " + length); }
         internal static void Validate()
         {
             if (Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.N0000010E)).ToInt32() != 0x6C || Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.N000001E6)).ToInt32() != 0x3CC) throw new NotSupportedException("Unit cadence layout changed.");

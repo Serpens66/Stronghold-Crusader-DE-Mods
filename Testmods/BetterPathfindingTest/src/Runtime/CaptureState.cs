@@ -26,6 +26,8 @@ namespace BetterPathfindingTest
     }
     internal sealed class CaptureNotReadyException : Exception
     { internal CaptureNotReadyException(string message) : base(message) { } }
+    internal sealed class CaptureContractException : NotSupportedException
+    { internal CaptureContractException(string message) : base(message) { } }
     internal static class GateCapture
     {
         internal static IEnemyGateRoutePolicySnapshot[] Read(IEnemyGatePathPolicy policy)

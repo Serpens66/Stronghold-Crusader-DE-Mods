@@ -58,8 +58,35 @@ second native argument is the player, and the actual footprint is argument five.
 The correction deliberately does not interpret that payload.
 
 Live calls through 0xE49D0 preserve the existing command-runtime repair guard.
-No second native detour is installed. A changed generation plus clean dirty
-marker proves Vanilla completed the pending batch; a clean marker alone does not.
+No second native detour is installed. A changed generation since the latest edit
+plus clean dirty marker proves Vanilla completed the pending batch; a clean marker
+alone or a rebuild preceding a later unmarked edit does not.
+
+## Release batching (2026-10-26)
+
+The user confirmed the initial editor correction works. The follow-up efficiency
+change defers its own dirty request as well as its forced rebuild until Mouse0 is
+released. Native E49D0 checks dirty independently from its countdown, so merely
+delaying the forced call while still setting dirty would retain avoidable Vanilla
+rebuild requests during continuous drawing. Native or foreign dirty writers and
+forced calls remain untouched.
+
+Confirmed-static managed input chain: EditorDirector.Update reads physical primary
+button down/held/up and produces its separate engine mouse state. Its preparation
+method consumes that state, performs held painting and a final release placement;
+the native Chore can complete later during DLL_RunTick. Consequently a late real
+edit must remain pending even after a release-triggered rebuild.
+
+KeyManager.Update independently advances its own key states and filters them for
+Noesis keyboard capture; the SE raises down/held/up events after that method. These
+events are not a reliable sole physical release boundary for terrain brushes.
+The correction instead samples physical input in a permanent EditorDirector.Update
+prefix only while edits are pending, atomically tagged with their batch. New work
+starts unknown, held work returns before engine-side map reads, focus loss ends
+deferral and focus regain requires resampling. The existing locked pre-cursor
+boundary remains the only place where the correction invalidates/rebuilds regions.
+No new native hooks or public APIs are required. Runtime cost savings from this
+batching still require actual continuous-drawing measurements in a DEVDIAG build.
 
 Tests execute the unchanged canonical 0xE49D0 and 0xE2610 in private image memory
 with explicit flag/edge graph inputs and a fixture replacement for memory fill.

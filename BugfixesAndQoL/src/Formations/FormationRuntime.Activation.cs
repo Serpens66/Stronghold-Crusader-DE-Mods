@@ -29,16 +29,19 @@ namespace BugfixesAndQoL.UnitCommands
         internal void ResetTransientState()
         {
             groundFrameObserver?.SetActive(false);
+            ActiveDrag abandoned;
             lock (stateSync)
             {
                 speechQueue.Clear();
                 if (drag == null && pendingCommand == null && activeCommand == null) return;
+                abandoned = drag;
                 drag = null;
                 pendingCommand = null;
                 activeCommand = commonGroupCommand = null;
                 ClearUnitAssignmentFrames(null);
                 unitFallbackAttempt = null;
             }
+            DiscardDeferredRelease(abandoned);
             ClearPreview();
             Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(menuViewModel.CloseMenu);
         }
@@ -49,8 +52,7 @@ namespace BugfixesAndQoL.UnitCommands
             state.MapEpoch == commandRuntime.mapEpoch &&
             state.PlayerId == GamePlayerManagerAPI.Instance.GetLocalPlayerId() &&
             (FatControler.instance == null || !FatControler.instance.overNoesisGUI()) &&
-            GetCommandMouseButton() == state.CommandButton &&
-            SelectionMatches(state.Selection, state.TribeId);
+            GetCommandMouseButton() == state.CommandButton;
 
         private void AbortDrag(string reason)
         {
@@ -63,6 +65,7 @@ namespace BugfixesAndQoL.UnitCommands
             }
             if (state == null)
                 return;
+            DiscardDeferredRelease(state);
             ClearPreview();
         }
 
@@ -87,12 +90,15 @@ namespace BugfixesAndQoL.UnitCommands
         {
             groundFrameObserver?.SetActive(false);
             localInputFailed = true;
+            ActiveDrag abandoned;
             lock (stateSync)
             {
                 speechQueue.Clear();
+                abandoned = drag;
                 drag = null;
                 releaseConsumptionWatch = null;
             }
+            try { DiscardDeferredRelease(abandoned); } catch { }
             // Fail-open must reach Vanilla even if a presentation or logger also fails.
             try { ClearPreview(); } catch { }
             try { Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(menuViewModel.CloseMenu); } catch { }

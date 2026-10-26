@@ -41,6 +41,7 @@ namespace BugfixesAndQoL.EditorRegions
         {
             if (instance != null) return;
             var before = EngineBoundary.ValidateManagedBoundary(out var gateField);
+            var input = EngineBoundary.ValidateInputBoundary();
             object gate = gateField.GetValue(null) ?? throw new InvalidOperationException("Engine lock is null.");
             var resolved = BfqolNativeCache.Current.ResolveUnique(context.Memory, NativeContract.RebuildPattern,
                 NativeContract.RebuildRva, "editor-region-rebuild", log);
@@ -57,6 +58,8 @@ namespace BugfixesAndQoL.EditorRegions
             try
             {
                 runtime.harmony.Patch(before, postfix: new HarmonyMethod(typeof(EditorRegionRefreshRuntime), nameof(BeforeNativeCursor)));
+                runtime.harmony.Patch(input, prefix: new HarmonyMethod(typeof(EditorRegionRefreshRuntime), nameof(CapturePlacementInput)));
+                UnityEngine.Application.focusChanged += FocusChanged;
                 runtime.Subscribe(MapEditorR3EventHooks.OnSetTileType);
                 runtime.Subscribe(MapEditorR3EventHooks.OnSetTileTypeToNone);
                 runtime.Subscribe(MapEditorR3EventHooks.OnSetTileHeightToPreset);
@@ -68,7 +71,7 @@ namespace BugfixesAndQoL.EditorRegions
                 runtime.SubscribeLifecycle();
                 settings.SettingChanged += runtime.SettingChanged;
                 Shared.DevDiag.Attach(log);
-                Shared.DebugLogHelper.LogInfo(log, "EDITOR_REGIONS_READY: editor edit events; live native entry; locked pre-cursor refresh; no startup rebuild.");
+                Shared.DebugLogHelper.LogInfo(log, "EDITOR_REGIONS_READY: editor edits batched until mouse release; live native entry; locked pre-cursor refresh; no startup rebuild.");
             }
             catch (Exception error) { runtime.Fail(error); }
         }
@@ -108,17 +111,44 @@ namespace BugfixesAndQoL.EditorRegions
                 lock (engineGate)
                 {
                     if (!state.Active) return;
-                    if (state.Changed(pathing.GetComponentGeneration())) pathing.RequestComponentRebuild();
+                    state.Changed(pathing.GetComponentGeneration());
                     Shared.DevDiag.Count("editor.regions.edits");
                 }
             }
             catch (Exception error) { Fail(error); }
         }
 
+        private static void CapturePlacementInput()
+        {
+            var runtime = instance;
+            int ticket = runtime?.state.PendingInputTicket ?? 0;
+            if (ticket == 0) return;
+            try
+            {
+                // SE key events use a separate, UI-filtered state machine. Read
+                // physical input only on Vanilla's main-thread input path and
+                // only while an actual edit is waiting, never on the engine thread.
+                bool held = UnityEngine.Application.isFocused && UnityEngine.Input.GetMouseButton(0);
+                runtime.state.ObservePlacementButton(ticket, held);
+                Shared.DevDiag.Count("editor.regions.inputSamples");
+            }
+            catch (Exception error) { runtime.Fail(error); }
+        }
+
+        private static void FocusChanged(bool focused)
+        {
+            var runtime = instance;
+            int ticket = runtime?.state.PendingInputTicket ?? 0;
+            if (ticket == 0) return;
+            if (focused) runtime.state.InvalidatePlacementInput();
+            else runtime.state.ObservePlacementButton(ticket, false);
+        }
+
         private static void BeforeNativeCursor()
         {
             var runtime = instance;
             if (runtime == null || !runtime.state.HasPending) return;
+            if (!runtime.state.CanFlush) { Shared.DevDiag.Count("editor.regions.deferredPasses"); return; }
             try { runtime.Flush(); }
             catch (Exception error) { runtime.Fail(error); }
         }
@@ -127,6 +157,7 @@ namespace BugfixesAndQoL.EditorRegions
         {
             // A preparation call from any other context cannot mutate global path data.
             if (!Monitor.IsEntered(engineGate)) throw new InvalidOperationException("Editor refresh lacks the Vanilla engine lock.");
+            if (!state.CanFlush) return;
             var view = pathing.GetPathfindingContextView();
             var decision = state.BeginFlush(view.ComponentGeneration, view.ComponentGridDirty != 0);
             if (decision == RefreshDecision.AlreadyRebuilt) { Shared.DevDiag.Count("editor.regions.vanillaCompleted"); return; }
@@ -135,6 +166,7 @@ namespace BugfixesAndQoL.EditorRegions
             Shared.DevDiag.Start(ref started);
             try
             {
+                pathing.RequestComponentRebuild();
                 uint generation = view.ComponentGeneration;
                 if (rebuild(view.Address, 1) != 1 || view.ComponentGeneration == generation)
                     throw new InvalidOperationException("Forced region rebuild did not publish a new generation.");

@@ -9,6 +9,28 @@ namespace BugfixesAndQoL.EditorRegions
 {
     internal static class EngineBoundary
     {
+        internal static MethodInfo ValidateInputBoundary()
+        {
+            var update = typeof(EditorDirector).GetMethod("Update", BindingFlags.Instance | BindingFlags.NonPublic,
+                null, Type.EmptyTypes, null);
+            if (update == null || !update.IsPrivate || update.IsStatic ||
+                update.ReturnType != typeof(void) || update.GetMethodBody() == null)
+                throw new InvalidOperationException("Editor main-thread input boundary signature differs.");
+            var code = new List<CodeInstruction>(PatchProcessor.GetOriginalInstructions(update));
+            bool down = false, held = false, up = false;
+            for (int i = 1; i < code.Count; i++)
+            {
+                if (code[i - 1].opcode != OpCodes.Ldc_I4_0 || code[i].opcode != OpCodes.Call ||
+                    !(code[i].operand is MethodInfo call) || call.DeclaringType != typeof(UnityEngine.Input)) continue;
+                down |= call.Name == nameof(UnityEngine.Input.GetMouseButtonDown);
+                held |= call.Name == nameof(UnityEngine.Input.GetMouseButton);
+                up |= call.Name == nameof(UnityEngine.Input.GetMouseButtonUp);
+            }
+            if (!down || !held || !up)
+                throw new InvalidOperationException("Editor Update no longer owns the primary mouse input lifecycle.");
+            return update;
+        }
+
         internal static MethodInfo ValidateManagedBoundary(out FieldInfo gate)
         {
             gate = typeof(EngineInterface).GetField("threadLock", BindingFlags.Static | BindingFlags.NonPublic);

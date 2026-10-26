@@ -52,7 +52,8 @@ namespace BetterPathfindingTest
             var watch = Stopwatch.StartNew(); var tile = GameTileManagerAPI.Instance;
             if (tile.GetTileManager() == IntPtr.Zero || tile.MapRowLookupTable == null) throw new InvalidOperationException("TileManager/row lookup unavailable for ready session.");
             var logic = tile.GetLogicLayer(); var heights = tile.GetHeightLayer(); var edges = tile.GetPathLinkageLayer(); var structures = tile.GetStructureLayer(); var organisms = tile.GetOrganismLayer(); var indices = tile.GetMoatWorkTaskIndexLayer(); var tasks = tile.GetMoatWorkTasks(); int slots = tile.GetMoatWorkTaskSlotLimit();
-            if (logic.Length != 320800 || heights.Length != logic.Length || edges.Length != logic.Length || structures.Length != logic.Length || organisms.Length != logic.Length || indices.Length != logic.Length || slots < 0 || slots > tasks.Length) throw new InvalidOperationException("Live tile/moat capacities do not match audited snapshot contract.");
+            ManagedContracts.ValidatePackedLengths(logic.Length, heights.Length, edges.Length, structures.Length, organisms.Length, indices.Length);
+            if (slots < 0 || slots > tasks.Length) throw new InvalidOperationException("Moat slot limit outside captured capacity.");
             IEnemyGatePathPolicy policy = EnemyGatePathPolicyBridge.Current;
             bool published = policy != null && policy.HasPublishedMask;
             var gates = GateCapture.Read(policy);

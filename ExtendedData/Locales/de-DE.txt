@@ -226,3 +226,5 @@ ExtendedData.ErrorParticipantsDisabled=Extended Data ist deaktiviert bei: {Playe
 ExtendedData.ErrorPackageReportsPending=Warte auf die Paketmeldungen aller Spieler. Wartet, bis alle der Lobby vollständig beigetreten sind und ihre Pakete geprüft wurden.
 ExtendedData.ErrorCoopPreparationFailed=Die Koop-Mission konnte nicht vorbereitet werden. Prüft das Koop-Paket und die benötigten Mods. Details stehen im BepInEx-Log.
 ExtendedData.ErrorParticipantsSelectionNotReady=Die Koop-Mission oder Lord-Auswahl ist noch nicht abgeglichen bei: {Players}. Wartet, bis die aktuelle Auswahl synchronisiert ist, und prüft lokale Fehlermeldungen zu den Lords.
+ExtendedData.LordSlotsNotConfirmed=Die ausgewählten Lord-Daten stimmen noch nicht mit dem bestätigten Datenstand überein. Betroffene Spielerplätze: {Players}. Wartet auf die Synchronisation. Bleibt der Fehler bestehen, wählt die Koop-Mission erneut aus und prüft das BepInEx-Log.
+ExtendedData.LordSlotSelectionUnavailable=Die ausgewählten Lords sind noch nicht vollständig geladen. Wählt die Koop-Mission erneut aus und wartet auf die Synchronisation.

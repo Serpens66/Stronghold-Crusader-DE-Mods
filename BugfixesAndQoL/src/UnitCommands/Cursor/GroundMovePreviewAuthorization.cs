@@ -20,6 +20,11 @@ namespace BugfixesAndQoL.UnitCommands
         internal bool FormationMoveAllowed => Mode == 1 && Kind == 3 && File == 0x6B &&
             ((Image == 0 && Command == 1) || (Image == 0x20 && Command == 9)) &&
             CommandDetail == 0;
+        // 8F3DA..8F45E: ordinary failed ground route. The reject sprite alone
+        // also occurs for object interactions, so require the complete ground result.
+        internal bool FormationGroundRejected => Mode == 1 && Kind == 5 && File == 0xAC &&
+            Image == 0x41 && Command == 17 && CommandDetail == -10 &&
+            HoveredUnit == 0 && HoveredBuilding == 0 && Wall == 0;
         internal bool GroundAllowed => Kind == 3 && File == 0x6B &&
             (Image == 0 || Image == 0x20) && (Command == 1 || Command == 9) &&
             CommandDetail == 0 && HoveredUnit == 0 && HoveredBuilding == 0 && Wall == 0;
@@ -48,24 +53,37 @@ namespace BugfixesAndQoL.UnitCommands
     // Formation-only proof; the strict queue ground policy remains unchanged.
     internal sealed class FormationMoveAuthorization
     {
-        private readonly int player, tribe, count, x, y;
+        private readonly int player, initialCount, initialTribe, x, y;
+        private int tribe, count;
+        private bool rebound;
         private readonly long startedAfterGeneration;
         private long observedGeneration;
         internal bool IsConfirmed { get; private set; }
+        internal bool OwnsGroundGesture { get; private set; }
 
         internal FormationMoveAuthorization(int player, int tribe, int count,
             int x, int y, long startedAfterGeneration)
         {
             this.player = player; this.tribe = tribe; this.count = count;
+            initialCount = count;
+            initialTribe = tribe;
             this.x = x; this.y = y;
             this.startedAfterGeneration = startedAfterGeneration;
             observedGeneration = startedAfterGeneration;
         }
 
+        // Called only after the engine-locked identity check proved a survivor subset.
+        internal void RebindSurvivors(int tribe, int count)
+        {
+            this.tribe = tribe; this.count = count; rebound = true;
+        }
+
         internal bool Observe(GroundMoveFeedback feedback, long generation, bool coherentCursor)
         {
-            if (feedback.Player != player || feedback.Tribe != tribe ||
-                feedback.Count != count || feedback.Mode != 1)
+            if (feedback.Player != player ||
+                (feedback.Tribe != tribe && (!rebound || feedback.Tribe != initialTribe)) ||
+                (feedback.Count != count && (!rebound || feedback.Count < count ||
+                    feedback.Count > initialCount)) || feedback.Mode != 1)
                 return IsConfirmed = false;
             // The confirmed press owns the command anchor. Subsequent hover,
             // even back on that tile, only supplies the gesture's facing.
@@ -77,7 +95,10 @@ namespace BugfixesAndQoL.UnitCommands
             // A later hover supplies facing, never a replacement command anchor.
             // Incoherent snapshots cannot establish or replace command proof.
             if (coherentCursor && feedback.X == x && feedback.Y == y)
+            {
                 IsConfirmed = feedback.FormationMoveAllowed;
+                OwnsGroundGesture |= IsConfirmed || feedback.FormationGroundRejected;
+            }
             return IsConfirmed;
         }
     }
@@ -99,6 +120,7 @@ namespace BugfixesAndQoL.UnitCommands
             Check(image, 0x8F3DA, new byte[] { 0xC7,0x05,0x7C,0xE1,0x01,0x06,0xF6,0xFF,0xFF,0xFF });
             Check(image, 0x8F3EA, new byte[] { 0xC7,0x05,0x54,0xE1,0x01,0x06,0x41,0,0,0 });
             Check(image, 0x8F3FE, new byte[] { 0xC7,0x05,0x44,0xE1,0x01,0x06,0xAC,0,0,0 });
+            Check(image, 0x90054, new byte[] { 0xC7,0x05,0xEE,0x9D,0x41,0x03,5,0,0,0 });
             // Terminal dispatch publishes accepted animated movement cursor kind 3.
             Check(image, 0x9002D, new byte[] { 0x41,0xBE,3,0,0,0,0x44,0x89,0x35,0x12,0x9E,0x41,3 });
             APIShared.Internal.NativeTroopCommandModeReader.ValidateContract(image);

@@ -33,6 +33,7 @@ namespace BugfixesAndQoL.UnitCommands
                 return false;
             if (state.TribeId <= 0 || state.TribeId >= MaximumTribeCount)
                 return false;
+            bool vanilla = state.UseVanillaFallback;
             packet = new FormationOrderPacket
             {
                 ProtocolVersion = ProtocolVersion,
@@ -42,11 +43,11 @@ namespace BugfixesAndQoL.UnitCommands
                 TargetY = state.Target.NativeY,
                 IsNewOrder = 1,
                 MoveType = (int)TribeMoveType.DefaultInSync,
-                Formation = (byte)state.Kind,
-                Density = (byte)FormationModel.NormalizeDensity(state.Density),
-                PlacementMode = (byte)state.PlacementMode,
+                Formation = (byte)(vanilla ? FormationKind.Vanilla : state.Kind),
+                Density = (byte)(vanilla ? 1 : FormationModel.NormalizeDensity(state.Density)),
+                PlacementMode = (byte)(vanilla ? RangedPlacementMode.Off : state.PlacementMode),
                 DirectionSector = (byte)state.Geometry.Direction,
-                RequestedRows = checked((ushort)Math.Min(state.Selection.Length, state.Geometry.RequestedRows)),
+                RequestedRows = vanilla ? (ushort)0 : checked((ushort)Math.Min(state.Selection.Length, state.Geometry.RequestedRows)),
                 UnitCount = checked((ushort)state.Selection.Length),
                 SelectionHash = ComputeSelectionHash(state.Selection)
             };
@@ -250,7 +251,7 @@ namespace BugfixesAndQoL.UnitCommands
                 rejection = "invalid ranged placement mode";
             else if (packet.DirectionSector > 7)
                 rejection = "invalid direction";
-            else if (packet.UnitCount < 2 ||
+            else if (packet.UnitCount < 1 ||
                      packet.UnitCount > FormationPreviewMarkerModel.MaximumMarkers)
                 rejection = "invalid unit count";
             else if (packet.RequestedRows > packet.UnitCount ||
