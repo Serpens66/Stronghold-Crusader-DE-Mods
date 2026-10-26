@@ -128,6 +128,11 @@ namespace BugfixesAndQoL.GateRouting {
         private void ObserveEnemyGateAssassinBuilding(IEnemyGatePathPolicy p,int t,int b,int r,int m){}
         private void ObserveBuildingApproachBuilderWithMoat(IntPtr m,int t,int b,int n,int pcl,int p)=>originalBuilding(m,t,b,n,pcl,p);
         private void ObserveBuildingCandidateConsumerWithMoat(IntPtr m,int t,int v)=>originalConsumer(m,t,v);
+        // The separate gate-attack freeze DEVDIAG capture is outside this fixture's contract; keep it neutral.
+        private static class GateAttackFreezeCapture { internal const int Approach=0,Consumer=1; internal struct Context {}
+            internal static long Enter(int stage,Context context)=>0; internal static void Leave(long token,int result,bool completed) {} }
+        private GateAttackFreezeCapture.Context FreezeGroupContext(int tribe,int building)=>default;
+        private sealed class FreezeAttack { internal int TargetValue1; } private FreezeAttack activeAttackCommand;
         /* ACTUAL_STANDALONE_METHODS */
         internal bool RunInactive()
         { GateRoutingFeature.IsActive=false;try{FilterAlternateConsumer(IntPtr.Zero,37,1);return Calls==1&&Releases==0&&attackOrderDiagnostics.Begins==0;}finally{GateRoutingFeature.IsActive=true;} }

@@ -36,3 +36,19 @@ Accept only the four native micro-coordinate pairs on the north-east footprint t
 - A CastlePlanner restart with human orientation `2` and AI orientation `6` produced micro `(7,0)`; both corrected projectiles were found by their direct projectile array IDs and verified after initialization.
 
 Projectile IDs are direct indices into `GameProjectileManagerAPI.GetProjectilesAsSpan()` with slot `0` reserved. `SourceWorldTileX/Y` and `TargetWorldTileX/Y` use micro-coordinates; `CurrentTileX/Y` use ordinary tile coordinates.
+
+## Stored Keep direction (2026-10-27, static Vanilla evidence)
+
+The unchanged canonical hash above was verified again. In the human branch of
+94350, orientation 15 is passed to BuildStructure (6D580), whose Keep switch
+reaches constructor 74DA0. The constructor writes its effective seventh argument
+to `DAT_1864ccc9e + buildingId * 0x32c`, exposed by the installed Extender as
+`GameBuilding.r_SpriteVariationIndex`. It uses 0 for geometry when that argument
+is 15; otherwise it uses the supplied cardinal direction. D0630 reads the same
+stored value for the Keep's access coordinates, treating values other than
+2/4/6 as the South branch. Reading a live root Keep therefore observes the
+constructor's effective direction; camera rotation is a different input.
+
+This confirms the stored-field and 15-to-0 geometry contract from the native
+decompiler exports. It does not establish that arbitrary unknown variation
+values are supported rotations or prove a mod's runtime integration.

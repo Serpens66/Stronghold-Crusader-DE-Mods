@@ -10,7 +10,7 @@ For future chats, link this file and require the DLL hash to be checked before u
 
 - The raw baseline, the semantic exports, the Ghidra/Rizin projects, the managed and XAML exports and the version diff below describe only the Vanilla game files.
 - Knowledge documents under `sem/FBCB9319/knowledge` are grouped below by scope. The machine-readable assignment is [document-scopes.json](./sem/FBCB9319/knowledge/document-scopes.json).
-- Each document title ends with `[Scope: ...]`. In mixed documents, headings ending with `[mod integration]` describe our mods; in mod and external documents, headings ending with `[Vanilla facts]` hold reusable Vanilla facts.
+- Each document title ends with `[Scope: ...]`. In mixed documents, headings ending with `[mod integration]` describe our mods; in mod and external documents, headings ending with `[Vanilla facts]` hold reusable Vanilla facts. Documents whose exact bytes are pinned by validators stay unmarked; they are listed under `markers.untagged` in `document-scopes.json`.
 - For Vanilla questions use the Vanilla sections first. Mod, testmod and external-component documents are not Vanilla evidence by themselves.
 
 ## Vanilla raw and semantic artifacts (Vanilla only)

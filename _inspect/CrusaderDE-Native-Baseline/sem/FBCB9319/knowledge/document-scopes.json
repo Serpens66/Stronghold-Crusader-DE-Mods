@@ -12,8 +12,12 @@
     "section": "heading suffix [mod integration] or [Vanilla facts]",
     "lineStability": "Markers are appended to existing lines so line-number evidence stays valid.",
     "untagged": [
-      "CHORE_SYSTEM.md (database manifest input)"
-    ]
+      "CHORE_SYSTEM.md (pinned by DATABASE_INFO.json input and chore-evidence.jsonl)",
+      "BUILDING_SLEEP_SELECTION.md (pinned by chore-evidence.jsonl)",
+      "MARKET_PRICE_QUERIES.md (pinned by tools/semantic/audited-models.json)",
+      "WORKSHOP_IDLE_DELAY.md (pinned by tools/semantic/audited-models.json)"
+    ],
+    "untaggedReason": "Their exact bytes are pinned by validators that do not resolve Git history; their scope is recorded only here and in CURRENT.md."
   },
   "documents": [
     {
@@ -166,7 +170,7 @@
         "Fixes"
       ],
       "integrationSections": [],
-      "note": "Fixes patch references inline."
+      "note": "Fixes patch references inline. Not tagged in file: bytes are pinned by chore-evidence.jsonl."
     },
     {
       "file": "CASTLE_VISUAL_OBSERVATION.md",
@@ -184,7 +188,7 @@
       "scope": "vanilla",
       "components": [],
       "integrationSections": [],
-      "note": "Database manifest input; not edited."
+      "note": "Database manifest input; not edited. Not tagged in file: bytes are pinned by DATABASE_INFO.json input and chore-evidence.jsonl."
     },
     {
       "file": "COOP_PACKAGE_MAP_READINESS.md",
@@ -622,7 +626,7 @@
         "APIShared"
       ],
       "integrationSections": [],
-      "note": "Mod ownership inline."
+      "note": "Mod ownership inline. Not tagged in file: bytes are pinned by tools/semantic/audited-models.json."
     },
     {
       "file": "MISSION_LIFECYCLE.md",
@@ -1042,7 +1046,8 @@
       ],
       "integrationSections": [
         "Optional poleturner/tanner workshop idle delay"
-      ]
+      ],
+      "note": "Not tagged in file: bytes are pinned by tools/semantic/audited-models.json."
     }
   ]
 }

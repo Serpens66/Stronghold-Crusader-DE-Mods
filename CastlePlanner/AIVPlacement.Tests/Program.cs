@@ -78,6 +78,7 @@ internal static class Program
             ("randomizes every highest partial score tie", FindsEveryHighestPartialScoreTie),
             ("roundtrips strict native AIV spawn data", RoundtripsStrictNativeSpawnData),
             ("roundtrips nothing, keep-only and castle decisions", RoundtripsFreeCastleDecisions),
+            ("limits castle-selection requirements to the active Blueprint preview", GatesBlueprintLayoutPreparation),
             ("normalizes and formats castle-selection timeouts", NormalizesAndFormatsCastleSelectionTimeouts),
             ("roundtrips castle-selection timeout packets", RoundtripsCastleSelectionTimeoutPackets),
             ("rejects invalid free-castle decisions", RejectsInvalidFreeCastleDecisions),
@@ -105,7 +106,12 @@ internal static class Program
             ("coalesces synchronization-context packet dispatch in FIFO order", CoalescesSynchronizationContextPacketDispatch),
             ("invalidates stale multiplayer loading warnings", InvalidatesStaleMultiplayerLoadingWarnings),
             ("verifies the audited native Keep hook site", VerifiesAuditedKeepHookSite),
+            ("preserves native Keep arguments and rejects unknown directions", PreservesNativeKeepArguments),
+            ("enforces rotation and content permissions in selection manifests", EnforcesRotationPermissions),
+            ("offers only allowed spawn choices without requiring a catalog", OffersAllowedSpawnChoices),
             ("maps localized castle rotation labels to Vanilla directions", MapsLocalizedCastleRotationLabels),
+            ("decorates Unchanged without changing rotation intent", DecoratesUnchangedRotation),
+            ("refreshes rotation presentation across map and permission changes", RefreshesRotationPresentation),
             ("falls back to English castle rotation directions", FallsBackToEnglishCastleRotationDirections),
             ("selects the official AIV API when available", SelectsOfficialAivApiWhenAvailable),
             ("recognizes the known nested CoarseGridBuffer failure", RecognizesKnownNestedCoarseGridBufferFailure),
@@ -316,9 +322,36 @@ internal static class Program
             FreeCastleSelection roundtrip = FreeCastleProtocol.DecodeSelections(
                 FreeCastleProtocol.EncodeSelections(new[] { rotatedKeep })).Single();
             Equal(rotation, roundtrip.Rotation);
+            Assert(FreeCastleSelectionLookup.TryGetRotation(
+                    new[] { roundtrip }, roundtrip.PlayerId, out int blueprintRotation),
+                $"keep-only rotation {rotation} was unavailable to Blueprints");
+            Equal(rotation, blueprintRotation);
             Assert(!roundtrip.HasCastle && roundtrip.RawData.Length == 0,
                 $"keep-only rotation {rotation} acquired castle data");
         }
+    }
+
+    private static void GatesBlueprintLayoutPreparation()
+    {
+        foreach (FreeCastleSelectionMode mode in new[]
+        {
+            FreeCastleSelectionMode.Nothing,
+            FreeCastleSelectionMode.RotateKeepOnly,
+            FreeCastleSelectionMode.Castle
+        })
+        {
+            var selection = new FreeCastleSelection { Mode = mode };
+            Equal(mode == FreeCastleSelectionMode.Castle,
+                BlueprintLayoutPolicy.CanPrepare(
+                    previewActive: true, previewHasSelectedCastle: selection.HasCastle));
+            Assert(BlueprintLayoutPolicy.CanPrepare(
+                    previewActive: false, previewHasSelectedCastle: selection.HasCastle),
+                $"normal Blueprints were blocked after a {mode} start decision");
+        }
+
+        Assert(BlueprintLayoutPolicy.CanPrepare(
+                previewActive: false, previewHasSelectedCastle: false),
+            "normal Blueprints required a spawn selection when Spawn Castle was disabled");
     }
 
     private static void NormalizesAndFormatsCastleSelectionTimeouts()
@@ -954,6 +987,80 @@ internal static class Program
             "queue did not schedule a new drain after becoming idle");
     }
 
+    private static void PreservesNativeKeepArguments()
+    {
+        foreach (int original in new[] { 0, 2, 4, 6, 15 })
+        {
+            Assert(KeepRotationPolicy.TryNormalize(original, out int direction), "known Keep variation was rejected");
+            Equal(original == 15 ? 0 : original, direction);
+            foreach (int requested in new[] { 0, 2, 4, 6 })
+            {
+                int nativeArgument = original;
+                KeepRotationPolicy.ApplyToNativeArgument(true, requested, ref nativeArgument);
+                Equal(original, nativeArgument);
+                KeepRotationPolicy.ApplyToNativeArgument(false, requested, ref nativeArgument);
+                Equal(requested, nativeArgument);
+            }
+        }
+        foreach (int invalid in new[] { -1, 1, 3, 5, 7, 14, 16, 65535 })
+            Assert(!KeepRotationPolicy.TryNormalize(invalid, out _), "unknown Keep variation was guessed");
+    }
+
+    private static void EnforcesRotationPermissions()
+    {
+        foreach (int rotation in new[] { 0, 2, 4, 6 })
+        {
+            FreeCastleSelection unchangedKeep = FreeCastleSelection.ForKeepOnly(1, rotation, true);
+            Equal(FreeCastleSelectionMode.Nothing, unchangedKeep.Mode);
+            Equal(0, unchangedKeep.Rotation);
+            FreeCastleProtocol.ValidatePermissions(unchangedKeep, false, false, rotation);
+            var castle = new FreeCastleSelection
+            {
+                Mode = FreeCastleSelectionMode.Castle, PlayerId = 1,
+                Rotation = rotation, PreserveKeepRotation = true, RawData = new short[] { 1 }
+            };
+            FreeCastleSelection copy = FreeCastleProtocol.DecodeSelections(
+                FreeCastleProtocol.EncodeSelections(new[] { castle })).Single();
+            Assert(copy.PreserveKeepRotation && copy.Clone().PreserveKeepRotation,
+                "rotation intent was lost in encoding or cloning");
+            Equal(rotation, copy.Rotation);
+            FreeCastleProtocol.ValidatePermissions(copy, false, true, rotation);
+            FreeCastleProtocol.ValidatePermissions(copy, true, true, rotation);
+            AssertThrows(() => FreeCastleProtocol.ValidatePermissions(copy, false, true, (rotation + 2) % 8), "inherited direction tampering was accepted");
+            AssertThrows(() => FreeCastleProtocol.ValidatePermissions(copy, true, false, rotation), "disabled castle content was accepted");
+            copy.PreserveKeepRotation = false;
+            FreeCastleProtocol.ValidatePermissions(copy, true, true, rotation);
+            AssertThrows(() => FreeCastleProtocol.ValidatePermissions(copy, false, true, rotation), "disabled explicit rotation was accepted");
+
+            var keep = new FreeCastleSelection { Mode = FreeCastleSelectionMode.RotateKeepOnly, PlayerId = 1, Rotation = rotation };
+            FreeCastleProtocol.ValidatePermissions(keep, true, false, rotation);
+            AssertThrows(() => FreeCastleProtocol.ValidatePermissions(keep, false, false, rotation), "disabled keep-only rotation was accepted");
+            keep.PreserveKeepRotation = true;
+            AssertThrows(() => FreeCastleProtocol.ValidateSelection(keep), "keep-only unchanged was not normalized to Nothing");
+        }
+        FreeCastleProtocol.ValidatePermissions(new FreeCastleSelection
+            { Mode = FreeCastleSelectionMode.Nothing, PlayerId = 1 }, false, false, 0);
+    }
+
+    private static void OffersAllowedSpawnChoices()
+    {
+        foreach (bool content in new[] { false, true })
+        foreach (bool rotation in new[] { false, true })
+        {
+            string[] choices = CastleSpawnContentPolicy.GetChoices(content, rotation,
+                "Nothing", "Only Rotate", new[] { "A", "B" }).ToArray();
+            Equal("Nothing", choices[0]);
+            Equal(rotation, choices.Contains("Only Rotate"));
+            Equal(content, choices.Contains("A"));
+            Equal(content, choices.Contains("B"));
+            Equal(!content && !rotation, CastleSpawnContentPolicy.ShouldDisableBeforeContentChange(
+                true, true, content, false, false, false, false, false, rotation));
+        }
+        Assert(CastleSpawnContentPolicy.DefaultAllowRotation, "rotation default changed");
+        Assert(CastleSpawnContentPolicy.GetChoices(false, true, "Nothing", "Only Rotate", null)
+            .SequenceEqual(new[] { "Nothing", "Only Rotate" }), "rotation-only start enumerated a missing catalog");
+    }
+
     private static void MapsLocalizedCastleRotationLabels()
     {
         var localized = new Dictionary<string, string>(StringComparer.Ordinal)
@@ -966,15 +1073,17 @@ internal static class Program
         CastleRotationOptions options = CastleRotationOptions.Create(
             key => localized.TryGetValue(key, out string text) ? text : null);
 
-        Equal(4, options.DisplayTexts.Count);
-        Equal("Süd (0°)", options.DisplayTexts[0]);
-        Equal("Ost (90°)", options.DisplayTexts[1]);
-        Equal("Nord (180°)", options.DisplayTexts[2]);
-        Equal("West (270°)", options.DisplayTexts[3]);
-        Equal(0, options.GetNativeRotation(options.DisplayTexts[0]));
-        Equal(2, options.GetNativeRotation(options.DisplayTexts[1]));
-        Equal(4, options.GetNativeRotation(options.DisplayTexts[2]));
-        Equal(6, options.GetNativeRotation(options.DisplayTexts[3]));
+        Equal(5, options.DisplayTexts.Count);
+        Equal("Unchanged", options.DefaultDisplayText);
+        Assert(options.PreservesKeepRotation(options.DefaultDisplayText), "default rotation overrides the Keep");
+        Equal("Süd (0°)", options.DisplayTexts[1]);
+        Equal("Ost (90°)", options.DisplayTexts[2]);
+        Equal("Nord (180°)", options.DisplayTexts[3]);
+        Equal("West (270°)", options.DisplayTexts[4]);
+        Equal(0, options.GetNativeRotation(options.DisplayTexts[1]));
+        Equal(2, options.GetNativeRotation(options.DisplayTexts[2]));
+        Equal(4, options.GetNativeRotation(options.DisplayTexts[3]));
+        Equal(6, options.GetNativeRotation(options.DisplayTexts[4]));
         Equal(0, options.GetNativeRotation("Nord (180°) "));
 
     }
@@ -982,18 +1091,71 @@ internal static class Program
     private static void FallsBackToEnglishCastleRotationDirections()
     {
         CastleRotationOptions missing = CastleRotationOptions.Create(key => key);
-        Equal("South (0°)", missing.DisplayTexts[0]);
-        Equal("East (90°)", missing.DisplayTexts[1]);
-        Equal("North (180°)", missing.DisplayTexts[2]);
-        Equal("West (270°)", missing.DisplayTexts[3]);
-        Equal("South (0°)", missing.DefaultDisplayText);
+        Equal("South (0°)", missing.DisplayTexts[1]);
+        Equal("East (90°)", missing.DisplayTexts[2]);
+        Equal("North (180°)", missing.DisplayTexts[3]);
+        Equal("West (270°)", missing.DisplayTexts[4]);
+        Equal("Unchanged", missing.DefaultDisplayText);
 
         CastleRotationOptions failed = CastleRotationOptions.Create(
             _ => throw new InvalidOperationException("translation unavailable"));
-        Equal("South (0°)", failed.DisplayTexts[0]);
+        Equal("Unchanged", failed.DisplayTexts[0]);
+        Equal("South (0°)", failed.DisplayTexts[1]);
         Equal(6, failed.GetNativeRotation("West (270°)"));
         Equal(0, failed.GetNativeRotation("unknown"));
         Equal(0, failed.GetNativeRotation(null));
+    }
+
+    private static void DecoratesUnchangedRotation()
+    {
+        var german = new Dictionary<string, string>
+        {
+            ["TEXT_CUSTOMISATION_017"] = "Süd", ["TEXT_CUSTOMISATION_016"] = "Ost",
+            ["TEXT_CUSTOMISATION_015"] = "Nord", ["TEXT_CUSTOMISATION_018"] = "West"
+        };
+        CastleRotationOptions options = CastleRotationOptions.Create(
+            key => german[key], "Unverändert");
+        string[] directions = { "Süd", "Ost", "Nord", "West" };
+        for (int index = 0; index < directions.Length; index++)
+        {
+            int rotation = index * 2;
+            string display = $"Unverändert ({directions[index]}, {index * 90}°)";
+            Equal(display, options.FormatUnchanged(rotation));
+            string selection = options.FromDisplayText(display, true);
+            Equal("Unverändert", selection);
+            Assert(options.PreservesKeepRotation(selection), "decorated label became an explicit rotation");
+            Equal(display, options.ToDisplayText(selection, rotation, true));
+            Equal(display, options.ToDisplayText(options.DisplayTexts[1], rotation, false));
+        }
+        Equal("Unverändert", options.FormatUnchanged(null));
+        Equal("Unverändert", options.FormatUnchanged(3));
+        CastleRotationOptions missing = CastleRotationOptions.Create(key => key);
+        Equal("Unchanged (South, 0°)", missing.FormatUnchanged(0));
+        Equal("Unchanged (East, 90°)", missing.FormatUnchanged(2));
+        Equal("Unchanged (North, 180°)", missing.FormatUnchanged(4));
+        Equal("Unchanged (West, 270°)", missing.FormatUnchanged(6));
+        CastleRotationOptions failed = CastleRotationOptions.Create(_ => throw new Exception("unavailable"));
+        Equal("Unchanged (East, 90°)", failed.FormatUnchanged(2));
+    }
+
+    private static void RefreshesRotationPresentation()
+    {
+        CastleRotationOptions options = CastleRotationOptions.Create(_ => null);
+        string selection = options.DefaultDisplayText;
+        Equal("Unchanged", options.ToDisplayText(selection, null, true));
+        string east = options.ToDisplayText(selection, 2, true);
+        Equal("Unchanged (East, 90°)", east);
+        selection = options.FromDisplayText(east, true);
+        Equal("Unchanged (North, 180°)", options.ToDisplayText(selection, 4, true));
+        Equal("Unchanged", options.ToDisplayText(selection, null, true));
+        Equal(selection, options.FromDisplayText(east, true));
+        Equal(selection, options.FromDisplayText(null, true));
+        selection = options.FromDisplayText("West (270°)", true);
+        Equal("West (270°)", options.ToDisplayText(selection, 2, true));
+        Equal(6, options.GetNativeRotation(selection));
+        Equal("Unchanged (East, 90°)", options.ToDisplayText(selection, 2, false));
+        selection = options.FromDisplayText("West (270°)", false);
+        Assert(options.PreservesKeepRotation(selection), "disabled rotation retained an explicit selection");
     }
 
     private static void SelectsOfficialAivApiWhenAvailable()

@@ -143,6 +143,7 @@ namespace BugfixesAndQoL.UnitCommands
         private byte* movementTargetAvailability;
         private GetGroupUnitIdDelegate getGroupUnitId;
         private ActiveDrag drag;
+        private PendingDragStart pendingStart; // Written under stateSync; read lock-free per engine run.
         private PendingFormationCommand pendingCommand;
         private ActiveFormationCommand activeCommand;
         private ActiveFormationCommand commonGroupCommand;

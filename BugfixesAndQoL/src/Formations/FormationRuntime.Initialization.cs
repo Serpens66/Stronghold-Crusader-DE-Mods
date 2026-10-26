@@ -77,6 +77,10 @@ namespace BugfixesAndQoL.UnitCommands
                 if (!commandRuntime.FormationHooksAvailable || !markerRenderer.ReplacementAvailable)
                     throw new InvalidOperationException("Shared formation selectors or marker renderer are unavailable.");
                 groundFeedbackReader = new NativeGroundMoveFeedbackReader(libraryContext.ModuleHandle, libraryContext.Memory);
+                // Deliberately fatal for the whole runtime. Rejected (2026-10-26): a local-only
+                // fallback keeping packet reception. Every failure cause (hash, bytes, RedBird
+                // span, NetworkMode-1 hooks such as Spectator's) is identical on all peers, so it
+                // gains nothing and could drop the root of an already published hook.
                 groundFrameObserver = new GroundMoveFrameObserver(ObserveNativeGroundFeedback);
                 groundFrameObserver.Install(libraryContext, log);
                 nativeTribeManager = (IntPtr)(libraryBase + NativeTribeManagerRva);

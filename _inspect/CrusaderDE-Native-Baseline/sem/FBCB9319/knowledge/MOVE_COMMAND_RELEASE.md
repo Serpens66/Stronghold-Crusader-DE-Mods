@@ -252,6 +252,20 @@ DLL_RunTick and play-state copying; no new native call races the simulation.
 The offline test checks this field against the real Assembly-CSharp metadata,
 not a publicized assembly, and exercises busy/unprotected/protected cases.
 
+## Formation drag start under a busy engine lock (2026-10-26)
+
+Managed SHA-256 `BC8B6A39...`: `Director.runSimTickTest` runs `EngineInterface.run`
+on the separate `Stronghold1Engine` thread; a `System.Threading.Timer` queues ticks at
+game speed, and `run` holds `threadLock` for the complete tick. Vanilla blocks the
+main thread on that lock only for discrete inputs (`KeyManager` hotkeys and HUD
+buttons through `GameAction`); `TroopSelection` and building placement run inside
+`preDLLCallActions` on the engine thread. The Formation press therefore captures
+its Unity target on the main thread and its native selection only under the lock:
+when `TryEnter(0)` fails, the next `EngineInterface.run` hook completes the start
+before Vanilla's preparation. A blocking wait was rejected (one frame stall per
+command click, up to a long AI tick); dropping to Vanilla was rejected (the
+formation is lost under load). A click released before completion remains Vanilla.
+
 ## Confirmed render-time cursor lifetime (2026-10-26)
 
 Native SHA-256: FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.

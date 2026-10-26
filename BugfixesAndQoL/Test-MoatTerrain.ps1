@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([switch]$RunTests)
+param([switch]$RunTests, [switch]$UpdateAuditEvidence)
 $ErrorActionPreference = 'Stop'
 $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $game = 'E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition'
@@ -40,7 +40,37 @@ $exe = Join-Path $testRoot 'bin/MoatTerrain.Tests.exe'
 $contract = Join-Path $fixture 'compiled-sites.tsv'
 & $exe --audit-out $contract
 if ($LASTEXITCODE -ne 0) { throw 'Compiled native contract export failed.' }
-& 'D:\CDesktopLink\Portable\Python\WinPy64\python\python.exe' (Join-Path $testRoot 'audit_native.py') $workspace $contract
-if ($LASTEXITCODE -ne 0) { throw 'Current native audit failed.' }
+# Incoming-xref/instruction facts are fixed for one native image. The full audit reads the
+# untracked knowledge database; build copies never contain it. They instead require the
+# compiled site contract to equal the committed audited evidence for the installed hash.
+$python = 'D:\CDesktopLink\Portable\Python\WinPy64\python\python.exe'
+$audit = Join-Path $testRoot 'audit_native.py'
+$evidence = Join-Path $testRoot 'native-audit.tsv'
+$baseline = Join-Path $workspace '_inspect/CrusaderDE-Native-Baseline'
+$current = Get-Content -LiteralPath (Join-Path $baseline 'CURRENT.json') -Raw | ConvertFrom-Json
+$manifest = Get-Content -LiteralPath (Join-Path $baseline $current.databaseManifest) -Raw | ConvertFrom-Json
+$database = Join-Path $baseline $manifest.database.path
+if ($UpdateAuditEvidence) {
+    if (-not (Test-Path -LiteralPath $database)) { throw "Audit evidence update needs the knowledge database: $database" }
+    & $python -I $audit $workspace $contract --evidence-out $evidence
+    if ($LASTEXITCODE -ne 0) { throw 'Current native audit failed.' }
+} else {
+    if (Test-Path -LiteralPath $database) {
+        & $python -I $audit $workspace $contract
+        if ($LASTEXITCODE -ne 0) { throw 'Current native audit failed.' }
+    }
+    $native = @($manifest.binaries | Where-Object role -eq 'current-native')[0]
+    # .NET directly: Windows PowerShell 5 in the build driver lacks Get-FileHash here.
+    $sha = [Security.Cryptography.SHA256]::Create()
+    try { $installed = -join ($sha.ComputeHash([IO.File]::ReadAllBytes($native.sourcePath)) | ForEach-Object { $_.ToString('X2') }) }
+    finally { $sha.Dispose() }
+    $expected = @("# CrusaderDE $installed") + @(Get-Content -LiteralPath $contract)
+    $recorded = if (Test-Path -LiteralPath $evidence) { @(Get-Content -LiteralPath $evidence) } else { @() }
+    if ($installed -ne $current.currentNativeHash -or
+        (Compare-Object -ReferenceObject $recorded -DifferenceObject $expected -SyncWindow 0)) {
+        throw 'Moat terrain sites or native image differ from the audited evidence; run Test-MoatTerrain.ps1 -RunTests -UpdateAuditEvidence in a workspace with the knowledge database.'
+    }
+    Write-Host "PASS: compiled moat terrain sites match the audited native evidence ($($recorded.Count - 1) sites)."
+}
 & $exe
 if ($LASTEXITCODE -ne 0) { throw 'Executable production moat terrain fixtures failed.' }

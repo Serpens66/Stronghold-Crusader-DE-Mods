@@ -137,8 +137,8 @@ namespace CastlePlanner
         private bool handledCurrentMap;
         private readonly Dictionary<int, PendingAivImport> pendingAivImports =
             new Dictionary<int, PendingAivImport>();
-        private readonly Dictionary<int, int> pendingKeepRotations =
-            new Dictionary<int, int>();
+        private readonly Dictionary<int, FreeCastleSelection> pendingKeepRotations =
+            new Dictionary<int, FreeCastleSelection>();
         private readonly Dictionary<int, PreparedAivCastle> preparedAivCastles =
             new Dictionary<int, PreparedAivCastle>();
         private readonly Dictionary<int, PreparedAivCastle> executedAivCastles =
@@ -340,7 +340,7 @@ namespace CastlePlanner
                 // malformed AIV therefore aborts the whole transaction without partial imports.
                 fixesKeepRotation.Apply(requests);
                 foreach (FreeCastleSelection request in requests)
-                    pendingKeepRotations.Add(request.PlayerId, request.Rotation);
+                    pendingKeepRotations.Add(request.PlayerId, request);
 
                 List<FreeCastleSelection> castleRequests = requests
                     .Where(request => request.HasCastle)
@@ -485,7 +485,7 @@ namespace CastlePlanner
                 args.TileY == castle.PreparedKeepY &&
                 args.Mappers == eMappers.MAPPER_KEEP2 &&
                 args.BuildingScaleUnknown == 7 &&
-                args.Unknown1 == castle.Orientation &&
+                args.Unknown1 == castle.NativeOrientationArgument &&
                 !args.IsFree;
             if (!matchesPreparedStart)
             {
@@ -493,7 +493,7 @@ namespace CastlePlanner
                 failedAivCastlePlayers.Add(args.PlayerId);
                 Shared.DebugLogHelper.LogErrorLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:522", $"Vanilla human-start arguments diverged after early preparation; " +
                     $"playerId={args.PlayerId}, expectedKeep=({castle.PreparedKeepX},{castle.PreparedKeepY}), " +
-                    $"actualKeep=({args.TileX},{args.TileY}), expectedOrientation={castle.Orientation}, " +
+                    $"actualKeep=({args.TileX},{args.TileY}), expectedNativeOrientation={castle.NativeOrientationArgument}, layoutOrientation={castle.Orientation}, " +
                     $"actualOrientation={args.Unknown1}, mapper={args.Mappers}, " +
                     $"scale={args.BuildingScaleUnknown}, isFree={args.IsFree}. " +
                     "Native castle execution is disabled for this player.");
@@ -550,6 +550,9 @@ namespace CastlePlanner
             try
             {
                 LogVanillaStartState(castle, "KeepPostBeforeAiv");
+                if (!FreeCastlePreviewRuntime.TryReadKeepRotation(args.PlayerId, out int actualRotation) ||
+                    actualRotation != castle.Orientation)
+                    throw new InvalidOperationException("The created Keep direction differs from the prepared AIV layout.");
                 ExecutePreparedCastle(castle);
                 executedAivCastles[args.PlayerId] = castle;
                 LogVanillaStartState(castle, "KeepPostAfterAiv");
@@ -687,7 +690,7 @@ namespace CastlePlanner
                     $"Native AIV spec allocation failed; returned specIndex={specIndex}.");
             }
 
-            // The player explicitly chose this orientation. Other rotations must never be tried.
+            // Use the chosen or inherited direction. Never try alternative rotations.
             setPlacement(
                 aivState,
                 specIndex,
@@ -1705,16 +1708,18 @@ namespace CastlePlanner
 
             X64SmartCPUContext* registers = context.Pointer;
             int playerId = unchecked((int)registers->RSI);
-            if (!pendingKeepRotations.TryGetValue(playerId, out int rotation) ||
+            if (!pendingKeepRotations.TryGetValue(playerId, out FreeCastleSelection selection) ||
                 preparedAivCastles.ContainsKey(playerId))
             {
                 return;
             }
 
             pendingKeepRotations.Remove(playerId);
+            int rotation = selection.Rotation;
             if (!pendingAivImports.TryGetValue(playerId, out PendingAivImport imported))
             {
-                *(int*)(registers->RSP + 0x30) = rotation;
+                KeepRotationPolicy.ApplyToNativeArgument(
+                    selection.PreserveKeepRotation, rotation, ref *(int*)(registers->RSP + 0x30));
                 if (Shared.DebugLogHelper.DiagnosticsEnabled)
                     Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:1840", $"Vanilla human Keep rotation prepared without an AIV castle: " +
                         $"playerId={playerId}, orientation={rotation} " +
@@ -1747,9 +1752,12 @@ namespace CastlePlanner
                 // RVA 0x95B3C is the first read of the human Keep coordinates. Updating
                 // Vanilla's source values here makes the unmodified caller feed the same
                 // anchor to the Keep, coupled start complex, flag and later unit setup.
+                KeepRotationPolicy.ApplyToNativeArgument(
+                    selection.PreserveKeepRotation, castle.Orientation,
+                    ref *(int*)(registers->RSP + 0x30));
                 *keepX = castle.PreparedKeepX;
                 *keepY = castle.PreparedKeepY;
-                *(int*)(registers->RSP + 0x30) = castle.Orientation;
+                castle.NativeOrientationArgument = *(int*)(registers->RSP + 0x30);
                 preparedAivCastles[playerId] = castle;
 
                 if (Shared.DebugLogHelper.DiagnosticsEnabled)
@@ -2334,6 +2342,7 @@ namespace CastlePlanner
                 SpecIndex = specIndex;
                 HighestFrame = highestFrame;
                 Orientation = orientation;
+                NativeOrientationArgument = orientation;
                 RequestedKeepX = requestedKeepX;
                 RequestedKeepY = requestedKeepY;
                 PreparedKeepX = preparedKeepX;
@@ -2349,6 +2358,7 @@ namespace CastlePlanner
             public int SpecIndex { get; }
             public int HighestFrame { get; }
             public int Orientation { get; }
+            public int NativeOrientationArgument { get; set; }
             public int RequestedKeepX { get; }
             public int RequestedKeepY { get; }
             public int PreparedKeepX { get; }

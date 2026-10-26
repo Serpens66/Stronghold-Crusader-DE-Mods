@@ -57,6 +57,10 @@ internal unsafe sealed class RaidChainFixture
         private void EndTemporaryAssassinScope(object token,bool completed,int result){}
         private void ObserveEnemyGateAssassinBuilding(IEnemyGatePathPolicy p,int t,int b,int r,int raw){}
         private void TryLogDiagnosticFailure(string source,Exception e)=>throw new Exception(source,e);
+        // The separate gate-attack freeze DEVDIAG capture is outside this fixture's contract; keep it neutral.
+        private static class GateAttackFreezeCapture { internal const int Approach=0; internal struct Context {}
+            internal static long Enter(int stage,Context context)=>0; internal static void Leave(long token,int result,bool completed) {} }
+        private GateAttackFreezeCapture.Context FreezeGroupContext(int tribe,int building)=>default;
         /* ACTUAL_BUILDING_WRAPPER */
         internal void Run(int building,int region,bool active,Action callback) {
             var policy=new Policy();EnemyGatePathPolicyBridge.Current=active?policy:null;

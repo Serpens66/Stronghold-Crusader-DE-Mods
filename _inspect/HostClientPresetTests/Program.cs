@@ -113,6 +113,16 @@ internal static class Program
         try
         {
             if (args != null && args.Length == 1 && args[0] == "plague-height") { PlagueHeightPresetTests.Run(); return 0; }
+            if (args != null && args.Length == 1 && args[0] == "castle-rotation")
+            {
+                TestCastleSpawnContentPolicy();
+                TestCastleRotationPresets();
+                TestBuildPreviewLocalIntegration();
+                TestSnapshotCompletionHook();
+                TestFreeCastleProtocol();
+                Console.WriteLine("PASS: CastlePlanner rotation defaults, host rights, legacy presets, persistence, snapshots, content policy and protocol.");
+                return 0;
+            }
             if (args != null && args.Length == 1 && args[0] == "preview-identity")
             {
                 TestPreviewIdentityFailureKinds();
@@ -255,6 +265,7 @@ internal static class Program
             TestPersonalBundledExternalPresetSaveLoad();
             TestCastlePlannerBlueprintHudPolicies();
             TestCastleSpawnContentPolicy();
+            TestCastleRotationPresets();
             TestSnapshotCompletionHook();
             RandomEventsChatPresetTests.Run();
             ExtremePowersPresetTests.Run();
@@ -4974,6 +4985,49 @@ internal static class Program
             "CastlePlanner disabled spawning while host-controlled braziers and flags remained enabled");
     }
 
+    private static void TestCastleRotationPresets()
+    {
+        // Probe the shared preset engine using the production default. Production
+        // runtime settings are separately checked by the scoped manifest/XAML audit.
+        GameNetworkAPI.LocalHost = true;
+        GameNetworkAPI.Networked = true;
+        GameNetworkAPI.MultiplayerGame = true;
+        string pluginPath = Path.Combine(PresetFixtureInstallRoot, "CastleRotationProbe.dll");
+        var vm = new CastlePlannerPresetProbeViewModel();
+        vm.PreparePresets(null, pluginPath, "CastleRotationProbe");
+        vm.ActivatePresets();
+        Check(vm.AllowRotation, "Allow Rotation is not default-enabled");
+        var legacySnapshot = vm.System_CreateCurrentWorkingSnapshot();
+        legacySnapshot.Remove(nameof(vm.AllowRotation));
+        vm.System_ApplyWorkingSnapshot(legacySnapshot);
+        Check(vm.AllowRotation, "legacy settings disabled the new rotation option");
+        vm.AllowRotation = false;
+        var snapshot = vm.System_CreateCurrentWorkingSnapshot();
+        var restored = new CastlePlannerPresetProbeViewModel();
+        restored.PreparePresets(null, pluginPath, "CastleRotationProbe");
+        restored.ActivatePresets();
+        Check(!restored.AllowRotation, "Allow Rotation was not persisted");
+        restored.AllowRotation = true;
+        restored.System_ApplyWorkingSnapshot(snapshot);
+        Check(!restored.AllowRotation, "snapshot lost the host rotation option");
+        GameNetworkAPI.LocalHost = false;
+        restored.System_RefreshSettingsAccess();
+        restored.AllowRotation = true;
+        Check(!restored.AllowRotation, "a client could enable host rotation");
+        GameXAMLManagerAPI.Instance.ApplyNetworkSync(restored, () => restored.AllowRotation = true);
+        Check(restored.AllowRotation, "a client did not apply synchronized rotation permission");
+        GameNetworkAPI.LocalHost = true;
+        restored.System_RefreshSettingsAccess();
+        restored.System_LoadModDefaults();
+        Check(restored.AllowRotation, "reset did not restore the rotation default");
+        Check(!CastlePlanner.CastleSpawnContentPolicy.ShouldDisableBeforeContentChange(
+            true, true, false, false, false, false, false, false, true),
+            "rotation-only spawn was automatically disabled");
+        Check(CastlePlanner.CastleSpawnContentPolicy.ShouldDisableBeforeContentChange(
+            true, true, false, false, false, false, false, false, false),
+            "spawn remained enabled with every function disabled");
+    }
+
     private static void TestSnapshotCompletionHook()
     {
         GameNetworkAPI.LocalHost = true;
@@ -5819,6 +5873,21 @@ internal sealed class MixedViewModel : PresetLobbyModSettingsViewModel
 
 internal sealed class CastlePlannerPresetProbeViewModel : PresetLobbyModSettingsViewModel
 {
+    private bool allowRotation = CastlePlanner.CastleSpawnContentPolicy.DefaultAllowRotation;
+
+    [SyncHostOnly]
+    public bool AllowRotation
+    {
+        get => allowRotation;
+        set
+        {
+            if (!CanMutateSetting(nameof(AllowRotation)) || allowRotation == value)
+                return;
+            allowRotation = value;
+            OnPropertyChanged(nameof(AllowRotation));
+        }
+    }
+
     private bool blueprints = true;
     private bool spawnFortifications = true;
     private bool blueprintShowFortifications = true;

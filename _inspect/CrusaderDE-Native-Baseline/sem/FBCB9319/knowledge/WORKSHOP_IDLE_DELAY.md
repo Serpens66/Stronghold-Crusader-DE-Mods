@@ -1,4 +1,4 @@
-# Poleturner and tanner idle-animation audit [Scope: Vanilla + mod integration]
+# Poleturner and tanner idle-animation audit
 
 Native hash: FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
 Canonical Extender source commit f8d51730fcb54b25af43d3c9348d57db058e077f; tree 657af449e1397c58e6c5ec054977d83198b68e66. Native hash rechecked 2026-10-01.
@@ -10,7 +10,7 @@ Poleturner idle sequence lengths are 54/26/100/156 words at 0x332D30/0x332CF8/0x
 
 Poleturner selects stockpile wood through 0xB9280, validates access via 0xC90E0 and route via 0x196280, state 2 withdraws one wood through 0xB6100, state 3 deposits at workshop and repeats if more wood is required. Fade state 0x6D resumes 6, then 30-update preparation and state 5 production; states 7/8 deliver output. Existing work-rate/fear logic 0x193A70/0x191070 remains unchanged. Tanner uses workshop hides first or 0x18B470 to select a cow, states 2/3 acquire/return, state 9 slaughters and adds three hides. Fade resumes 6; preparation consumes one hide, followed by production and delivery. No fix should directly rewrite these states or reservation/consumption fields.
 
-## Optional poleturner/tanner workshop idle delay [mod integration]
+## Optional poleturner/tanner workshop idle delay
 
 Reference native SHA-256: `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
 `EnableWorkshopIdleDelayFix` is a shared host setting, default/reset false. It changes only the idle-animation exit after the native positive-fear helper has returned zero. The native material selection, accessibility, routing, consumption and output routines remain authoritative.

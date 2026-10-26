@@ -98,6 +98,8 @@ namespace BugfixesAndQoL.UnitCommands {
   private Commands commandRuntime=new();private Renderer markerRenderer=new();private NativeContext libraryContext=new();
   private IntPtr nativeTribeManager;
   private ActiveDrag drag=new(); private ReleaseConsumptionWatch releaseConsumptionWatch;
+  // Deferred drag starts are covered by FriendlyMoatMovement.Tests; none is pending here.
+  private object pendingStart; private ActiveDrag TryCompletePendingStart()=>drag;
   private Config formationConfig=new(),densityConfig=new(),placementModeConfig=new();
   private Func<bool,int> engineRunOriginal;
   private bool HasValidMap()=>mapValid;

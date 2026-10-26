@@ -10,13 +10,13 @@ internal static class FormationMoveRuntimeTests
         var runtime = CSharpSyntaxTree.ParseText(FeatureSourceModel.Read(root, "FormationRuntime", "BugfixesAndQoL/src/Formations")).GetRoot()
             .DescendantNodes().OfType<ClassDeclarationSyntax>()
             .Single(c => c.Identifier.Text == "FormationRuntime");
-        string[] methods = { "TryStartDrag", "TryCaptureCommandTarget", "TryCaptureTarget",
+        string[] methods = { "TryStartDrag", "CompleteDragStart", "TryCompletePendingStart", "TryCaptureCommandTarget", "TryCaptureTarget",
             "EvaluateFormationTargetBounds", "IsTargetInsideNativeMap", "EvaluateCommandMode",
             "ValidateActiveDrag", "RefreshGestureSelection", "RefreshGestureSelectionLocked", "AuthorizePreview", "ObserveNativeGroundFeedback", "CapturePreviewAdmission", "EngineRunHook",
             "RunOriginalOnce", "RunOriginalAfterReleaseConsumed", "DiscardDeferredRelease", "AbortDrag", "OnKeyDown", "TryGetMouseButton", "PrepareFormationRelease", "RunOriginalWithDeferredRelease", "ConsumeGestureRelease", "UpdateGesture",
             "OnKeyHeld", "OnKeyUp", "PublishPreview", "PublishPreviewLocked", "ResolveDirectionAndWidth",
             "HasExplicitDirection", "ClearPreview", "TryCreatePacket", "ValidatePacket", "ComputeSelectionHash" };
-        string[] types = { "ActiveDrag", "GroundTarget", "SelectionIdentity", "NativeDestination",
+        string[] types = { "ActiveDrag", "PendingDragStart", "GroundTarget", "SelectionIdentity", "NativeDestination",
             "DispatchDisposition", "ReleaseConsumptionWatch", "FormationReleaseDisposition", "GestureSelectionState" };
         var members = runtime.Members.Where(m => m is MethodDeclarationSyntax method &&
                 methods.Contains(method.Identifier.Text) || m is BaseTypeDeclarationSyntax type &&
@@ -143,7 +143,7 @@ namespace BugfixesAndQoL.UnitCommands {
         private object speechEngineLock=new object();
         private object log=new object();private readonly object stateSync=new object();
         private const int MapWidth=100,MinimumDragTileDistance=2,MaximumTribeCount=4500;__PROTOCOL__private int nextOperationId;
-        private ActiveDrag drag;private ReleaseConsumptionWatch releaseConsumptionWatch;
+        private ActiveDrag drag;private PendingDragStart pendingStart;private ReleaseConsumptionWatch releaseConsumptionWatch;
         private FrameObserver groundFrameObserver=new FrameObserver();
         private Marker markerRenderer=new Marker();private Menu menuViewModel=new Menu();
         private Commands commandRuntime=new Commands();private long nativeFeedbackGeneration;
@@ -268,6 +268,29 @@ namespace BugfixesAndQoL.UnitCommands {
             Check(deferred.commandRuntime.Reads==1&&deferred.drag.PreviewUnits.Length==500,"Busy UI capture did not defer once to native engine-lock scope");
             Check(deferred.drag.Geometry.ExplicitDirection&&deferred.drag.Geometry.Direction==manualDirection&&deferred.drag.Rows==Math.Min(manualRows,500),"Deferred admission lost explicit facing/rows");
             deferred.Release();Check(deferred.Dispatched==1,"Deferred preview broke gesture dispatch");
+            // A press during a running tick must neither wait for the engine lock nor lose the
+            // formation: the next engine run completes the start under the lock it holds.
+            foreach(string busyCase in new[]{"complete","released","map"}) {
+                var busy=Fresh();var held=new System.Threading.ManualResetEventSlim();var leave=new System.Threading.ManualResetEventSlim();
+                var owner=new System.Threading.Thread(()=>{lock(busy.speechEngineLock){held.Set();leave.Wait();}});owner.Start();held.Wait();
+                var watch=System.Diagnostics.Stopwatch.StartNew();busy.TryStartDrag(1);watch.Stop();
+                PendingDragStart queued=busy.pendingStart;
+                leave.Set();owner.Join();
+                Check(busy.drag==null&&queued!=null&&watch.ElapsedMilliseconds<1000,"Busy engine lock blocked or discarded the gesture start ("+busyCase+")");
+                if(busyCase=="complete") {
+                    busy.Tick();
+                    Check(busy.drag!=null&&busy.pendingStart==null&&busy.drag.Target.NativeX==queued.Target.NativeX&&
+                        busy.drag.Target.NativeY==queued.Target.NativeY,"Deferred start was not completed at the clicked target");
+                    Check(busy.Render(),"Deferred start missed its native confirmation");
+                    busy.Release();Check(busy.Dispatched==1&&busy.VanillaReleases==0,"Deferred start did not dispatch the formation");
+                } else if(busyCase=="released") {
+                    busy.Release();
+                    Check(busy.drag==null&&busy.pendingStart==null&&busy.Dispatched==0&&busy.VanillaReleases==1,"Click released before deferred start did not stay Vanilla");
+                } else {
+                    busy.commandRuntime.mapEpoch++;busy.Tick();
+                    Check(busy.drag==null&&busy.pendingStart==null,"Deferred start survived a map change");
+                }
+            }
             var delayedClear=Fresh();delayedClear.TryStartDrag(1);delayedClear.Tick();
             Shared.UnityMainThreadDispatch.Deferred=true;delayedClear.ClearPreview();Shared.UnityMainThreadDispatch.Deferred=false;
             delayedClear.PublishPreview(delayedClear.drag,true);

@@ -24408,7 +24408,6 @@ void FUN_180029520(longlong param_1,int param_2)
 
 /* FUNCTION FUN_180029650 VA=0x180029650 RVA=0x29650 */
 
-
 undefined8 FUN_180029650(undefined8 param_1,int param_2,undefined4 param_3,int param_4)
 
 {
@@ -24433,7 +24432,6 @@ undefined8 FUN_180029650(undefined8 param_1,int param_2,undefined4 param_3,int p
 
 
 /* FUNCTION FUN_180029700 VA=0x180029700 RVA=0x29700 */
-
 
 void FUN_180029700(undefined8 param_1,int param_2,undefined4 param_3,int param_4)
 
@@ -35981,7 +35979,6 @@ void FUN_18003ea50(longlong param_1,int param_2)
 
 /* FUNCTION FUN_18003ec90 VA=0x18003EC90 RVA=0x3EC90 */
 
-
 void FUN_18003ec90(longlong param_1,int param_2)
 
 {
@@ -38113,7 +38110,6 @@ void FUN_180041d10(longlong param_1)
 
 
 /* FUNCTION FUN_180041d60 VA=0x180041D60 RVA=0x41D60 */
-
 
 /* WARNING: Globals starting with '_' overlap smaller symbols at the same address */
 
@@ -61370,7 +61366,6 @@ void FUN_180069850(longlong param_1,int param_2,int param_3)
 
 /* FUNCTION FUN_1800698e0 VA=0x1800698E0 RVA=0x698E0 */
 
-
 undefined8 FUN_1800698e0(longlong param_1,uint param_2,uint param_3,uint param_4,uint param_5)
 
 {
@@ -61944,7 +61939,6 @@ void FUN_18006a620(longlong param_1,int param_2,int param_3,int *param_4,int *pa
 
 
 /* FUNCTION FUN_18006a780 VA=0x18006A780 RVA=0x6A780 */
-
 
 void FUN_18006a780(longlong param_1,int param_2,int param_3,char param_4)
 
@@ -62555,7 +62549,6 @@ LAB_18006b463:
 
 /* FUNCTION FUN_18006b530 VA=0x18006B530 RVA=0x6B530 */
 
-
 uint FUN_18006b530(longlong param_1,int param_2,int param_3)
 
 {
@@ -62722,7 +62715,6 @@ LAB_18006b7af:
 
 /* FUNCTION FUN_18006b910 VA=0x18006B910 RVA=0x6B910 */
 
-
 uint FUN_18006b910(longlong param_1,int param_2)
 
 {
@@ -62746,7 +62738,6 @@ uint FUN_18006b910(longlong param_1,int param_2)
 
 
 /* FUNCTION FUN_18006b990 VA=0x18006B990 RVA=0x6B990 */
-
 
 int FUN_18006b990(longlong param_1,int param_2,int param_3)
 
@@ -105135,7 +105126,6 @@ undefined8 FUN_1800b7060(longlong param_1,int param_2,int param_3)
 
 /* FUNCTION FUN_1800b70c0 VA=0x1800B70C0 RVA=0xB70C0 */
 
-
 undefined8 FUN_1800b70c0(longlong param_1,int param_2,int param_3)
 
 {
@@ -107360,7 +107350,6 @@ void FUN_1800bacc0(longlong param_1,int param_2,short param_3)
 
 /* FUNCTION FUN_1800bad50 VA=0x1800BAD50 RVA=0xBAD50 */
 
-
 undefined8
 FUN_1800bad50(longlong param_1,int param_2,int param_3,int param_4,int param_5,int param_6)
 
@@ -107530,7 +107519,6 @@ FUN_1800bad50(longlong param_1,int param_2,int param_3,int param_4,int param_5,i
 
 
 /* FUNCTION FUN_1800bb3d0 VA=0x1800BB3D0 RVA=0xBB3D0 */
-
 
 undefined8 FUN_1800bb3d0(longlong param_1,int param_2,int param_3,int param_4)
 
@@ -110569,7 +110557,6 @@ undefined8 FUN_1800c0700(longlong param_1,int param_2)
 
 
 /* FUNCTION c_game_building_get_type_height_offset VA=0x1800C07C0 RVA=0xC07C0 */
-
 
 /* [NativeKnowledge:function nkfn-000003]
    [semantic:confirmed] Evidence curated:confirmed:native-knowledge-double-review from
@@ -115906,7 +115893,6 @@ ulonglong FUN_1800c9080(undefined8 param_1,int param_2,int param_3)
 
 /* FUNCTION FUN_1800c90e0 VA=0x1800C90E0 RVA=0xC90E0 */
 
-
 undefined8 FUN_1800c90e0(longlong param_1,int param_2,undefined4 param_3)
 
 {
@@ -115979,7 +115965,6 @@ undefined8 FUN_1800c90e0(longlong param_1,int param_2,undefined4 param_3)
 
 
 /* FUNCTION FUN_1800c9310 VA=0x1800C9310 RVA=0xC9310 */
-
 
 undefined8 FUN_1800c9310(longlong param_1,int param_2,undefined4 param_3,int param_4,int param_5)
 
@@ -120127,7 +120112,6 @@ undefined4 FUN_1800ceb00(longlong param_1,undefined8 param_2,int param_3)
 
 /* FUNCTION c_game_ai_get_buy_price VA=0x1800CEB10 RVA=0xCEB10 */
 
-
 /* [semantic:confirmed] Evidence curated:confirmed:semantic-reconstruction from
    fn-ai-get-buy-price:0; matched 1800ceb10
    [NativeKnowledge:function nkfn-000001]
@@ -120285,7 +120269,6 @@ int FUN_1800ceb50(longlong param_1,undefined8 param_2,int param_3)
 
 
 /* FUNCTION c_game_ai_get_sell_price VA=0x1800CEB90 RVA=0xCEB90 */
-
 
 /* [semantic:confirmed] Evidence curated:confirmed:semantic-reconstruction from
    fn-ai-get-sell-price:0; matched 1800ceb90
@@ -125961,7 +125944,6 @@ LAB_1800d788a:
 
 /* FUNCTION FUN_1800d78c0 VA=0x1800D78C0 RVA=0xD78C0 */
 
-
 void FUN_1800d78c0(int param_1,int param_2,undefined4 param_3,int param_4)
 
 {
@@ -126022,7 +126004,6 @@ void FUN_1800d78c0(int param_1,int param_2,undefined4 param_3,int param_4)
 
 
 /* FUNCTION FUN_1800d7ad0 VA=0x1800D7AD0 RVA=0xD7AD0 */
-
 
 void FUN_1800d7ad0(int param_1,int param_2,int param_3,int param_4)
 
@@ -126185,7 +126166,6 @@ int FUN_1800d8510(longlong param_1,int param_2,int param_3,int param_4,undefined
 
 
 /* FUNCTION FUN_1800d86f0 VA=0x1800D86F0 RVA=0xD86F0 */
-
 
 /* WARNING: Function: __security_check_cookie replaced with injection: security_check_cookie */
 
@@ -127685,7 +127665,6 @@ LAB_1800daf7f:
 
 /* FUNCTION FUN_1800dafd0 VA=0x1800DAFD0 RVA=0xDAFD0 */
 
-
 /* WARNING: Globals starting with '_' overlap smaller symbols at the same address */
 
 undefined8
@@ -128079,7 +128058,6 @@ FUN_1800db650(longlong param_1,uint param_2,uint param_3,uint param_4,uint param
 
 
 /* FUNCTION FUN_1800dbc60 VA=0x1800DBC60 RVA=0xDBC60 */
-
 
 void FUN_1800dbc60(longlong param_1,undefined8 param_2,undefined8 param_3,uint param_4,uint param_5,
                   int param_6,int param_7,undefined4 param_8)
@@ -130799,7 +130777,6 @@ int FUN_1800e0ac0(longlong param_1,int param_2,int param_3,int param_4,int param
 
 /* FUNCTION FUN_1800e0c20 VA=0x1800E0C20 RVA=0xE0C20 */
 
-
 undefined4
 FUN_1800e0c20(longlong param_1,undefined4 param_2,uint param_3,uint param_4,uint param_5,
              uint param_6)
@@ -130868,7 +130845,6 @@ FUN_1800e0c20(longlong param_1,undefined4 param_2,uint param_3,uint param_4,uint
 
 
 /* FUNCTION FUN_1800e0eb0 VA=0x1800E0EB0 RVA=0xE0EB0 */
-
 
 undefined4 FUN_1800e0eb0(longlong param_1,uint param_2,uint param_3,uint param_4,uint param_5)
 
@@ -139698,7 +139674,6 @@ FUN_1800f09a0(longlong param_1,undefined8 param_2,int param_3,uint param_4,uint 
 
 
 /* FUNCTION FUN_1800f0d70 VA=0x1800F0D70 RVA=0xF0D70 */
-
 
 void FUN_1800f0d70(longlong param_1,int param_2,uint param_3,uint param_4,int param_5,int param_6,
                   int param_7,int param_8,int param_9,int param_10)
@@ -152602,7 +152577,6 @@ LAB_180107d90:
 
 /* FUNCTION FUN_180107e00 VA=0x180107E00 RVA=0x107E00 */
 
-
 int FUN_180107e00(longlong param_1,undefined4 param_2,uint param_3,uint param_4)
 
 {
@@ -156154,7 +156128,6 @@ void FUN_18010ddc0(undefined8 param_1,int param_2,int param_3)
 
 
 /* FUNCTION FUN_18010df60 VA=0x18010DF60 RVA=0x10DF60 */
-
 
 /* WARNING: Globals starting with '_' overlap smaller symbols at the same address */
 
@@ -217622,7 +217595,6 @@ switchD_180180833_caseD_0:
 
 /* FUNCTION FUN_180180a80 VA=0x180180A80 RVA=0x180A80 */
 
-
 void FUN_180180a80(longlong param_1,int param_2)
 
 {
@@ -218818,7 +218790,6 @@ undefined8 FUN_180182a30(undefined8 param_1,int param_2)
 
 
 /* FUNCTION FUN_180182b00 VA=0x180182B00 RVA=0x182B00 */
-
 
 /* WARNING: Globals starting with '_' overlap smaller symbols at the same address */
 
@@ -220115,7 +220086,6 @@ LAB_180184e68:
 
 
 /* FUNCTION c_game_unit_update_standing_height VA=0x180184FD0 RVA=0x184FD0 */
-
 
 /* [NativeKnowledge:function nkfn-000004]
    [semantic:confirmed] Evidence curated:confirmed:native-knowledge-double-review from

@@ -33,6 +33,7 @@ namespace BugfixesAndQoL.UnitCommands
             lock (stateSync)
             {
                 speechQueue.Clear();
+                pendingStart = null;
                 if (drag == null && pendingCommand == null && activeCommand == null) return;
                 abandoned = drag;
                 drag = null;
@@ -61,6 +62,7 @@ namespace BugfixesAndQoL.UnitCommands
             {
                 state = drag;
                 drag = null;
+                pendingStart = null;
                 RefreshNativeObserverDemand();
             }
             if (state == null)
@@ -96,6 +98,7 @@ namespace BugfixesAndQoL.UnitCommands
                 speechQueue.Clear();
                 abandoned = drag;
                 drag = null;
+                pendingStart = null;
                 releaseConsumptionWatch = null;
             }
             try { DiscardDeferredRelease(abandoned); } catch { }

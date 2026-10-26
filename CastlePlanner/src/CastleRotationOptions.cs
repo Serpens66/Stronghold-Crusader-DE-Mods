@@ -35,28 +35,33 @@ namespace CastlePlanner
         };
 
         private readonly Dictionary<string, int> nativeRotations;
+        private readonly Dictionary<int, string> unchangedDisplayTexts;
 
         private CastleRotationOptions(
             IReadOnlyList<string> displayTexts,
-            Dictionary<string, int> nativeRotations)
+            Dictionary<string, int> nativeRotations,
+            Dictionary<int, string> unchangedDisplayTexts)
         {
             DisplayTexts = displayTexts;
             this.nativeRotations = nativeRotations;
+            this.unchangedDisplayTexts = unchangedDisplayTexts;
         }
 
         public IReadOnlyList<string> DisplayTexts { get; }
         public string DefaultDisplayText => DisplayTexts[0];
 
         public static CastleRotationOptions Create(
-            Func<string, string> vanillaTextResolver)
+            Func<string, string> vanillaTextResolver,
+            string unchangedDisplayText = "Unchanged")
         {
             if (vanillaTextResolver == null)
                 throw new ArgumentNullException(nameof(vanillaTextResolver));
 
-            var displayTexts = new List<string>(Definitions.Length);
+            var displayTexts = new List<string>(Definitions.Length + 1) { unchangedDisplayText };
             var nativeRotations = new Dictionary<string, int>(
                 Definitions.Length,
                 StringComparer.Ordinal);
+            var unchangedDisplayTexts = new Dictionary<int, string>(Definitions.Length);
             foreach (Definition definition in Definitions)
             {
                 string direction = ResolveDirection(
@@ -66,12 +71,29 @@ namespace CastlePlanner
                 string displayText = $"{direction} ({definition.Degrees}°)";
                 displayTexts.Add(displayText);
                 nativeRotations.Add(displayText, definition.NativeRotation);
+                unchangedDisplayTexts.Add(definition.NativeRotation,
+                    $"{unchangedDisplayText} ({direction}, {definition.Degrees}°)");
             }
 
             return new CastleRotationOptions(
                 new ReadOnlyCollection<string>(displayTexts),
-                nativeRotations);
+                nativeRotations,
+                unchangedDisplayTexts);
         }
+
+        public string FormatUnchanged(int? capturedRotation) =>
+            capturedRotation.HasValue && unchangedDisplayTexts.TryGetValue(capturedRotation.Value, out string text)
+                ? text : DefaultDisplayText;
+
+        public string ToDisplayText(string selection, int? capturedRotation, bool allowRotation) =>
+            !allowRotation || PreservesKeepRotation(selection)
+                ? FormatUnchanged(capturedRotation) : selection;
+
+        // Collection replacement may temporarily clear SelectedItem. Both that
+        // value and the decorated Unchanged label retain the stable default choice.
+        public string FromDisplayText(string displayText, bool allowRotation) =>
+            allowRotation && displayText != null && nativeRotations.ContainsKey(displayText)
+                ? displayText : DefaultDisplayText;
 
         public int GetNativeRotation(string displayText)
         {
@@ -80,6 +102,9 @@ namespace CastlePlanner
                 ? nativeRotation
                 : 0;
         }
+
+        public bool PreservesKeepRotation(string displayText) =>
+            string.Equals(displayText, DefaultDisplayText, StringComparison.Ordinal);
 
         public static string GetDirection(int degrees, Func<string, string> vanillaTextResolver)
         {
@@ -119,5 +144,26 @@ namespace CastlePlanner
 
             return englishDirection;
         }
+    }
+
+    internal static class KeepRotationPolicy
+    {
+        // Native Keep constructors retain 15 in the sprite-variation field but
+        // use the same orientation as 0. Never forward 15 to AIV placement.
+        public static bool TryNormalize(int variation, out int rotation)
+        {
+            rotation = variation == 15 ? 0 : variation;
+            return rotation == 0 || rotation == 2 || rotation == 4 || rotation == 6;
+        }
+
+        public static void ApplyToNativeArgument(
+            bool preserveKeepRotation, int rotation, ref int nativeArgument)
+        {
+            if (!TryNormalize(rotation, out int normalized) || normalized != rotation)
+                throw new InvalidOperationException("Invalid explicit Keep rotation.");
+            if (!preserveKeepRotation)
+                nativeArgument = rotation;
+        }
+
     }
 }

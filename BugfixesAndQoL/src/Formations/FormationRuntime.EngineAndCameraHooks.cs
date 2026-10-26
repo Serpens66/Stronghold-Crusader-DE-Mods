@@ -59,6 +59,8 @@ namespace BugfixesAndQoL.UnitCommands
 
                 lock (stateSync)
                     state = drag;
+                if (state == null && System.Threading.Volatile.Read(ref pendingStart) != null)
+                    state = TryCompletePendingStart();
                 if (state == null)
                     return RunOriginalOnce(mpFrameSkip, ref originalEntered);
 

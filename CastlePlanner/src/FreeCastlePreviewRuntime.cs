@@ -10,6 +10,7 @@ using SHCDESE.EventAPI;
 using SHCDESE.EventAPI.MapLoader;
 using SHCDESE.EventAPI.Network;
 using SHCDESE.Interop.Enums;
+using SHCDESE.Interop;
 using Steamworks;
 using System;
 using System.Collections;
@@ -126,6 +127,7 @@ namespace CastlePlanner
         private string selectedChoice = string.Empty;
         private string selectedRotation;
         private string statusText = string.Empty;
+        private readonly Dictionary<int, int> inheritedKeepRotations = new Dictionary<int, int>();
 
         public FreeCastlePreviewRuntime(
             ManualLogSource log,
@@ -133,7 +135,8 @@ namespace CastlePlanner
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
-            rotationOptions = CastleRotationOptions.Create(GetVanillaGameText);
+            rotationOptions = CastleRotationOptions.Create(
+                GetVanillaGameText, SerpLocalization.Get("CastlePlanner.Preview.Unchanged"));
             rotations = new ObservableCollection<string>(rotationOptions.DisplayTexts);
             selectedRotation = rotationOptions.DefaultDisplayText;
             ConfirmCommand = new RelayCommand(ConfirmLocalSelection, () => CanConfirm);
@@ -159,8 +162,27 @@ namespace CastlePlanner
         public bool HasRotatableSelection =>
             IsPreviewActive &&
             !string.Equals(selectedChoice, NothingText, StringComparison.Ordinal);
-        public int SelectedNativeRotation =>
-            rotationOptions.GetNativeRotation(selectedRotation);
+        public bool PreserveSelectedKeepRotation =>
+            !settings.AllowRotation || rotationOptions.PreservesKeepRotation(selectedRotation);
+        public int SelectedNativeRotation
+        {
+            get
+            {
+                if (TryGetSelectedNativeRotation(out int rotation))
+                    return rotation;
+                throw new InvalidOperationException("The preview Keep rotation is unavailable.");
+            }
+        }
+        internal bool TryGetSelectedNativeRotation(out int rotation)
+        {
+            if (!PreserveSelectedKeepRotation)
+            {
+                rotation = rotationOptions.GetNativeRotation(selectedRotation);
+                return true;
+            }
+            return inheritedKeepRotations.TryGetValue(localPlayerId, out rotation) ||
+                TryReadKeepRotation(localPlayerId, out rotation);
+        }
         public string TitleText => SerpLocalization.Get("CastlePlanner.Preview.Title");
         public string TimerText
         {
@@ -187,6 +209,8 @@ namespace CastlePlanner
             set
             {
                 string normalized = value ?? string.Empty;
+                if (!CanConfirm || !castleChoices.Contains(normalized))
+                    return;
                 if (string.Equals(selectedChoice, normalized, StringComparison.Ordinal))
                     return;
                 selectedChoice = normalized;
@@ -208,12 +232,11 @@ namespace CastlePlanner
 
         public string SelectedRotation
         {
-            get => selectedRotation;
+            get => rotationOptions.ToDisplayText(selectedRotation, CapturedLocalKeepRotation, settings.AllowRotation);
             set
             {
-                string normalized = rotations.Contains(value)
-                    ? value
-                    : rotationOptions.DefaultDisplayText;
+                string normalized = rotationOptions.FromDisplayText(
+                    value, settings.AllowRotation);
                 if (selectedRotation == normalized)
                     return;
                 selectedRotation = normalized;
@@ -610,12 +633,8 @@ namespace CastlePlanner
                 }
                 else if (string.Equals(SelectedChoice, KeepOnlyText, StringComparison.Ordinal))
                 {
-                    selection = new FreeCastleSelection
-                    {
-                        Mode = FreeCastleSelectionMode.RotateKeepOnly,
-                        PlayerId = localPlayerId,
-                        Rotation = SelectedNativeRotation
-                    };
+                    selection = FreeCastleSelection.ForKeepOnly(
+                        localPlayerId, SelectedNativeRotation, PreserveSelectedKeepRotation);
                     FreeCastleProtocol.ValidateSelection(selection);
                 }
                 else
@@ -626,7 +645,9 @@ namespace CastlePlanner
                             out selection,
                             out string error))
                         throw new InvalidOperationException(error);
+                    selection.PreserveKeepRotation = PreserveSelectedKeepRotation;
                 }
+                ValidateSelectionPermissions(selection);
                 localConfirmed = true;
                 NotifyAll();
                 if (!realMultiplayer)
@@ -664,6 +685,8 @@ namespace CastlePlanner
 
         private void AcceptHostDecision(int playerId, FreeCastleSelection selection)
         {
+            if (selection != null)
+                ValidateSelectionPermissions(selection);
             if (selection?.HasCastle == true)
                 selection.SpawnBraziersAndFlags = settings.SpawnBraziersAndFlags;
             if (!roster.Contains(playerId) || decisions.ContainsKey(playerId) || noneDecisions.Contains(playerId))
@@ -1107,7 +1130,22 @@ namespace CastlePlanner
             if (localCatalogReady)
                 return;
 
-            if (!settings.EnsureCastleCatalogLoaded())
+            if (inheritedKeepRotations.Count == 0)
+            {
+                foreach (int playerId in roster)
+                {
+                    if (!TryReadKeepRotation(playerId, out int rotation))
+                    {
+                        inheritedKeepRotations.Clear();
+                        FailBeforeCommit("A human preview Keep has no supported rotation.");
+                        return;
+                    }
+                    inheritedKeepRotations.Add(playerId, rotation);
+                }
+                RefreshUnchangedRotationLabel();
+            }
+
+            if (settings.HasSpawnContent && !settings.EnsureCastleCatalogLoaded())
             {
                 if (!catalogWaitLogged)
                 {
@@ -1478,10 +1516,10 @@ namespace CastlePlanner
 
         private void RebuildChoices()
         {
-            settings.EnsureCastleCatalogLoaded();
-            castleChoices.ReplaceWith(
-                new[] { NothingText, KeepOnlyText }.Concat(settings.CastleOptions));
-            selectedChoice = settings.CastleOptions.Contains(settings.SelectedCastle)
+            castleChoices.ReplaceWith(CastleSpawnContentPolicy.GetChoices(
+                settings.HasSpawnContent, settings.AllowRotation,
+                NothingText, KeepOnlyText, settings.CastleOptions));
+            selectedChoice = settings.HasSpawnContent && settings.CastleOptions.Contains(settings.SelectedCastle)
                 ? settings.SelectedCastle
                 : NothingText;
             Notify(nameof(CastleChoices));
@@ -1555,6 +1593,7 @@ namespace CastlePlanner
 
         private void ResetPreview()
         {
+            inheritedKeepRotations.Clear();
             ReleaseMultiplayerLivenessGuard(
                 refreshRemoteHumanTimestamps: false,
                 reason: "preview-reset");
@@ -1587,10 +1626,24 @@ namespace CastlePlanner
         {
             // The ComboBox can retain its previous SelectedItem while the preview
             // panel is hidden. Force the source notifications on every new map so
-            // its visible value cannot drift from the native zero rotation.
+            // its visible value cannot retain an explicit direction on the next map.
             selectedRotation = rotationOptions.DefaultDisplayText;
+            RefreshUnchangedRotationLabel();
             Notify(nameof(SelectedRotation));
             Notify(nameof(SelectedNativeRotation));
+        }
+
+        private int? CapturedLocalKeepRotation =>
+            inheritedKeepRotations.TryGetValue(localPlayerId, out int rotation) ? rotation : (int?)null;
+
+        private void RefreshUnchangedRotationLabel()
+        {
+            string displayText = rotationOptions.FormatUnchanged(CapturedLocalKeepRotation);
+            if (string.Equals(rotations[0], displayText, StringComparison.Ordinal))
+                return;
+            rotations[0] = displayText;
+            Notify(nameof(RotationChoices));
+            Notify(nameof(SelectedRotation));
         }
 
         private static string GetVanillaGameText(string key)
@@ -1634,9 +1687,39 @@ namespace CastlePlanner
         private void ValidateRestartCompatibility(
             IReadOnlyCollection<FreeCastleSelection> selections)
         {
+            foreach (FreeCastleSelection selection in selections)
+                ValidateSelectionPermissions(selection);
             string error = RestartCompatibilityValidator?.Invoke(selections);
             if (!string.IsNullOrEmpty(error))
                 throw new InvalidOperationException(error);
+        }
+
+        private void ValidateSelectionPermissions(FreeCastleSelection selection)
+        {
+            inheritedKeepRotations.TryGetValue(selection.PlayerId, out int inheritedRotation);
+            if (selection.PreserveKeepRotation && !inheritedKeepRotations.ContainsKey(selection.PlayerId))
+                throw new InvalidOperationException("No inherited Keep rotation was captured for this player.");
+            FreeCastleProtocol.ValidatePermissions(
+                selection, settings.AllowRotation, settings.HasSpawnContent, inheritedRotation);
+        }
+
+        internal static bool TryReadKeepRotation(int playerId, out int rotation)
+        {
+            rotation = 0;
+            if (playerId < 1 || GameBuildingManagerAPI.Instance == null)
+                return false;
+            foreach (GameBuilding building in GameBuildingManagerAPI.Instance.GetBuildingsAsSpan())
+            {
+                if (building.r_PlayerIdOwner != playerId ||
+                    (building.r_AliveState != AliveState.IsAlive && building.r_AliveState != AliveState.NeedsInit))
+                    continue;
+                eStructs type = building.r_BuildingType;
+                if (type == eStructs.STRUCT_KEEP_ONE || type == eStructs.STRUCT_KEEP_TWO ||
+                    type == eStructs.STRUCT_KEEP_THREE || type == eStructs.STRUCT_KEEP_FOUR ||
+                    type == eStructs.STRUCT_KEEP_FIVE)
+                    return KeepRotationPolicy.TryNormalize(building.r_SpriteVariationIndex, out rotation);
+            }
+            return false;
         }
 
         private sealed class IncomingTransfer

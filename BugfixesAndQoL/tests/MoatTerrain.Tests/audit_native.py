@@ -11,6 +11,9 @@ import sys
 from pathlib import Path
 
 root, contract = map(Path, sys.argv[1:3])
+# Optional: record the passed result. Builds compare against this small hash-bound evidence
+# instead of requiring the untracked multi-GB knowledge database inside every build copy.
+evidence_out = Path(sys.argv[4]) if len(sys.argv) == 5 and sys.argv[3] == '--evidence-out' else None
 baseline = root / '_inspect/CrusaderDE-Native-Baseline'
 current = json.loads((baseline / 'CURRENT.json').read_text(encoding='utf-8-sig'))
 manifest = json.loads((baseline / current['databaseManifest']).read_text(encoding='utf-8-sig'))
@@ -56,4 +59,8 @@ for line in contract.read_text(encoding='utf-8-sig').splitlines():
         assert not (previous < rva + length and rva < previous + previous_length), 'Own hook overlap'
     sites.append((rva, length))
 assert sites, 'No compiled sites supplied'
+if evidence_out:
+    lines = [f"# CrusaderDE {current['currentNativeHash']}"] + contract.read_text(encoding='utf-8-sig').splitlines()
+    evidence_out.write_bytes(('\r\n'.join(lines) + '\r\n').encode('ascii'))
+    print(f'Wrote audited contract evidence: {evidence_out}')
 print(f'PASS: {len(sites)} compiled native sites; canonical hash/function bytes; exact instructions; no incoming interiors or own overlap.')

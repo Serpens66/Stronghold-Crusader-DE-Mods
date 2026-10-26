@@ -626,6 +626,9 @@ namespace BugfixesAndQoL
             TryApplyFeature(
                 "high-contrast yellow presentation",
                 () => processLobbyYellowContrastFeature?.ApplySetting());
+            // Retried on each settings change while unconstructed. Rejected (2026-10-26): a
+            // one-shot "attempted" flag. Retries cost only after a failure, the health ledger
+            // coalesces their reports, and a retry recovers a start off the Unity thread.
             TryInitializePersistentFeature("compact lobby chat", () =>
             {
                 if (processCompactLobbyChatFeature == null)

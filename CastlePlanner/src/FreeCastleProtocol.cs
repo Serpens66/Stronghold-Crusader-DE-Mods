@@ -208,6 +208,7 @@ namespace CastlePlanner
         public FreeCastleSelectionMode Mode;
         public int PlayerId;
         public int Rotation;
+        public bool PreserveKeepRotation;
         public bool SpawnBraziersAndFlags;
         public ushort FlagProjectileType;
         public string DisplayName = string.Empty;
@@ -216,11 +217,20 @@ namespace CastlePlanner
 
         public bool HasCastle => Mode == FreeCastleSelectionMode.Castle;
 
+        internal static FreeCastleSelection ForKeepOnly(int playerId, int rotation, bool unchanged) =>
+            new FreeCastleSelection
+            {
+                Mode = unchanged ? FreeCastleSelectionMode.Nothing : FreeCastleSelectionMode.RotateKeepOnly,
+                PlayerId = playerId,
+                Rotation = unchanged ? 0 : rotation
+            };
+
         public FreeCastleSelection Clone() => new FreeCastleSelection
         {
             Mode = Mode,
             PlayerId = PlayerId,
             Rotation = Rotation,
+            PreserveKeepRotation = PreserveKeepRotation,
             SpawnBraziersAndFlags = SpawnBraziersAndFlags,
             FlagProjectileType = FlagProjectileType,
             DisplayName = DisplayName ?? string.Empty,
@@ -231,7 +241,7 @@ namespace CastlePlanner
 
     internal static class FreeCastleProtocol
     {
-        internal const int ProtocolVersion = 5;
+        internal const int ProtocolVersion = 6;
         internal const int MinimumPreviewTimeoutSeconds = 60;
         internal const int DefaultPreviewTimeoutSeconds = 120;
         internal const int MaximumPreviewTimeoutSeconds = 600;
@@ -291,6 +301,7 @@ namespace CastlePlanner
                     writer.Write((byte)selection.Mode);
                     writer.Write(selection.PlayerId);
                     writer.Write(selection.Rotation);
+                    writer.Write(selection.PreserveKeepRotation);
                     writer.Write(selection.SpawnBraziersAndFlags);
                     writer.Write(selection.FlagProjectileType);
                     WriteString(writer, selection.DisplayName, 512);
@@ -335,6 +346,7 @@ namespace CastlePlanner
                         (FreeCastleSelectionMode)reader.ReadByte();
                     int playerId = reader.ReadInt32();
                     int rotation = reader.ReadInt32();
+                    bool preserveKeepRotation = reader.ReadBoolean();
                     bool spawnBraziersAndFlags = reader.ReadBoolean();
                     ushort flagProjectileType = reader.ReadUInt16();
                     string displayName = ReadString(reader, 512);
@@ -350,6 +362,7 @@ namespace CastlePlanner
                         Mode = mode,
                         PlayerId = playerId,
                         Rotation = rotation,
+                        PreserveKeepRotation = preserveKeepRotation,
                         SpawnBraziersAndFlags = spawnBraziersAndFlags,
                         FlagProjectileType = flagProjectileType,
                         DisplayName = displayName,
@@ -487,6 +500,8 @@ namespace CastlePlanner
                 throw new InvalidDataException("Selected castle has null AIV data.");
             if (selection.Mode != FreeCastleSelectionMode.Castle)
             {
+                if (selection.PreserveKeepRotation)
+                    throw new InvalidDataException("Only a castle selection may preserve its Keep rotation.");
                 if (selection.RawData.Length != 0 ||
                     selection.DisplayName.Length != 0 ||
                     selection.SpawnBraziersAndFlags ||
@@ -514,6 +529,21 @@ namespace CastlePlanner
             {
                 throw new InvalidDataException("Selected castle hash mismatch.");
             }
+        }
+
+        internal static void ValidatePermissions(
+            FreeCastleSelection selection, bool allowRotation, bool hasSpawnContent,
+            int inheritedRotation)
+        {
+            ValidateSelection(selection);
+            if (selection.Mode == FreeCastleSelectionMode.Nothing)
+                return;
+            if (!allowRotation && !selection.PreserveKeepRotation)
+                throw new InvalidDataException("Explicit Keep rotation is disabled by the host.");
+            if (selection.HasCastle && !hasSpawnContent)
+                throw new InvalidDataException("Castle content is disabled by the host.");
+            if (selection.PreserveKeepRotation && selection.Rotation != inheritedRotation)
+                throw new InvalidDataException("Preserved Keep rotation differs from the preview Keep.");
         }
 
         private static void WriteString(

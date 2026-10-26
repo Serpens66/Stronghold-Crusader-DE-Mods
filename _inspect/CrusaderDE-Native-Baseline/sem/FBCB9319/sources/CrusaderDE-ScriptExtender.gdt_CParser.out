@@ -9329,7 +9329,7 @@ typedef struct PlayerResources
 	uint32_t N00005337;
 	uint32_t N00004114;
 	uint32_t N00005339;
-	uint32_t N00004115;
+	uint32_t r_AILastStandPhase;
 	uint32_t N0000533B;
 	uint32_t N00004116;
 	uint32_t N0000533D;
@@ -11701,6 +11701,7 @@ typedef enum ProjectileType
 } ProjectileType;
 
 
+
 typedef enum AIDefensivePositionClass
 {
     AIDefensivePositionClass_Default = 0,
@@ -13517,9 +13518,9 @@ typedef struct GameUnitManager
 
  #pragma once
 
-#line 13517: "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\sem\FBCB9319\sources\script-extender-types-ghidra.h"
-
 #line 13518: "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\sem\FBCB9319\sources\script-extender-types-ghidra.h"
+
+#line 13519: "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\sem\FBCB9319\sources\script-extender-types-ghidra.h"
 typedef struct LoadMapReturnData
 {
     int32_t errorCode;
@@ -18235,7 +18236,7 @@ typedef struct PlayerResources
 	uint32_t N00005337;
 	uint32_t N00004114;
 	uint32_t N00005339;
-	uint32_t N00004115;
+	uint32_t r_AILastStandPhase;
 	uint32_t N0000533B;
 	uint32_t N00004116;
 	uint32_t N0000533D;
@@ -19791,6 +19792,7 @@ typedef struct PlayerResources
 	uint32_t N00003966;
 	uint32_t N00005B0C;
 };
+
 
 
 struct CrusaderDE_PlayerBuildingIndexCache
