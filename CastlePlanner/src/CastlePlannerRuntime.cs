@@ -909,14 +909,16 @@ namespace CastlePlanner
             {
                 AivJsonMiscItem item = castle.FilteredDocument.miscItems[index];
                 AivMiscSpawnCategory category = AivSpawnPlan.ClassifyMisc(item.itemType);
-                AivWorldTile tile = AivWorldTransform.ProjectNativeFit(
-                    new AivGridPoint(item.positionOfset),
+                if (!SupplementalPlacementPolicy.TryResolveMiscTile(
+                    item.positionOfset,
                     nativeReferenceX,
                     nativeReferenceY,
-                    rotation);
-                if (!GameTileManagerAPI.Instance.IsTileInsideMapBounds(tile.X, tile.Y))
+                    rotation,
+                    CheckSupplementalMiscTile,
+                    out AivWorldTile tile,
+                    out string reason))
                 {
-                    skipped.Add("out-of-bounds", $"sourceIndex={index}, itemType={item.itemType}, position=({tile.X},{tile.Y})");
+                    skipped.Add(reason, $"sourceIndex={index}, itemType={item.itemType}, aivAnchor={item.positionOfset}, position=({tile.X},{tile.Y})");
                     continue;
                 }
 
@@ -1112,6 +1114,15 @@ namespace CastlePlanner
             if (Shared.DebugLogHelper.DiagnosticsEnabled)
                 Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:1174", $"Supplemental decoration created: playerId={playerId}, projectileId={projectileId}, mapper={mapper}, projectileType={projectileType}, position=({worldX},{worldY}), height={height}.");
             return true;
+        }
+
+        private static string CheckSupplementalMiscTile(AivWorldTile tile)
+        {
+            GameTileManagerAPI tiles = GameTileManagerAPI.Instance;
+            if (!tiles.IsTileInsideMapBounds(tile.X, tile.Y)) return "out-of-bounds";
+            int tileId = tiles.GetTileId(tile.X, tile.Y);
+            if (!tiles.IsValidTileId(tileId)) return "invalid-map-tile";
+            return SupplementalPlacementPolicy.CheckMiscTerrain(tiles.GetTilePropertyFlag(tileId));
         }
 
         private bool CanPlaceSupplementalPrefab(

@@ -29,6 +29,30 @@ namespace CastlePlanner
 
     internal static class SupplementalPlacementPolicy
     {
+        internal static bool TryResolveMiscTile(int encodedPosition, int keepX, int keepY,
+            AivRotation rotation, Func<AivWorldTile, string> checkTile,
+            out AivWorldTile tile, out string reason)
+        {
+            tile = default;
+            if (encodedPosition < 0 || encodedPosition >= AivGridPoint.GridSize * AivGridPoint.GridSize)
+            { reason = "source-anchor-out-of-bounds"; return false; }
+            tile = AivWorldTransform.ProjectNativeFit(new AivGridPoint(encodedPosition), keepX, keepY, rotation);
+            reason = checkTile(tile);
+            return string.IsNullOrEmpty(reason);
+        }
+
+        internal static string CheckMiscTerrain(TilePropertyFlag flags)
+        {
+            if ((flags & (TilePropertyFlag.Sea | TilePropertyFlag.River |
+                TilePropertyFlag.Ford | TilePropertyFlag.IsMoat)) != 0)
+                return "water-terrain";
+            // ImpassableEdge also occurs on fortifications; preserve their valid misc placements.
+            if ((flags & TilePropertyFlag.ImpassableEdge) != 0 &&
+                (flags & (TilePropertyFlag.IsWall | TilePropertyFlag.IsElevated)) == 0)
+                return "impassable-terrain";
+            return string.Empty;
+        }
+
         internal static bool CanPlace(int mapper, int encodedPosition, int keepX, int keepY,
             AivRotation rotation, Func<AivWorldTile, string> checkTile, out string reason)
         {

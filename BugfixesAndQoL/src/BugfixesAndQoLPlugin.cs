@@ -346,6 +346,14 @@ namespace BugfixesAndQoL
             GatehouseTargetMarkerHeightHook.Install(context, Logger, Settings);
             try
             {
+                EditorRegions.EditorRegionRefreshRuntime.Install(context, Logger, Settings);
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(Logger, "EDITOR_REGIONS_INSTALL_FAILED: Vanilla behavior retained; " + ex);
+            }
+            try
+            {
                 VanillaPerformance.VanillaPerformanceFeature.Install(Logger, Settings, context);
             }
             catch (Exception ex)

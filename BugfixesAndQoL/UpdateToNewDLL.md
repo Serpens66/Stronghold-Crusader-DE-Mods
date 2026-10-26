@@ -1233,3 +1233,36 @@ formation, Shift, Assassin and gate regression suites; `GroundFrameMachineTests`
 executes actual entry bytes/production demand guard with six arguments and stack
 checks. Game latency, actual island replay and matching-build host/client acceptance
 remain separate from these offline proofs.
+
+## 2026-10-26: editor terrain region publication
+
+The editor-only correction consumes SE Post events for type painting/clearing, all
+height tools, deletion and vegetation, armed only after APIShared editor completion.
+It requests invalidation and batches work at the permanent managed preparation
+postfix inside the real EngineInterface.threadLock, before DLL_RunTick/cursor work.
+No map-start flood, per-tile managed hook or competing native detour is installed.
+
+Reference native SHA256: FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
+Call-only target: region rebuild RVA 0xE49D0, Win64 int(context*, int force). The
+production semantic signature checks force -> dirty+6C, countdown gating, generation
++74 and dirty clearing. Known hash uses reference bytes; failed reference validation
+still reaches executable-section unique-pattern fallback. Unknown images use the
+existing native-hash/mod-version resolution cache, confirming the signature again.
+Context and generation/dirty access use the public installed SE view, whose two
+field offsets are independently fixed by those decoded native instructions.
+No stock component-buffer pointer/capacity is cached; foreign relocated buffers and
+the existing command-runtime E49D0 entry detour remain authoritative.
+
+The pre-cursor boundary validates actual public managed signatures, unique
+preparation/native calls and engine Monitor/finally order; it also requires current
+ownership of that lock before native work. Missing/ambiguous patterns, unavailable
+APIs, unknown managed boundary or unsuccessful native publication disable only this
+feature with a millisecond-timestamped error. Pending edits are consumed before the
+call so nested changes survive. A changed generation AND clean dirty flag avoids
+a redundant rebuild after Vanilla completed the batch. All patches/subscriptions
+remain rooted until process exit; the master switch changes logical activation.
+
+Audit: current baseline knowledge/EDITOR_REGION_REFRESH.md. Tests: production
+RefreshState, installed member/IL preflight, and unchanged canonical flood/query
+execution in private PE memory. Fixture memset and input graph are explicit
+boundaries; real GUI and continuous-drawing latency need game acceptance.

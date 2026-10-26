@@ -1,5 +1,7 @@
 # Current CrusaderDE Native Baseline
 
+- [Editor terrain region publication](./sem/FBCB9319/knowledge/EDITOR_REGION_REFRESH.md): missing terrain invalidation, shared water/moat path, other editor tools and locked pre-cursor correction; native fixture evidence and GUI acceptance limits.
+
 - [Packaged Coop maps and Ready admission](./sem/FBCB9319/knowledge/COOP_PACKAGE_MAP_READINESS.md): direct package headers versus Vanilla multiplayer catalogs, cached verification, silent Ready rejection and lobby system-message rendering; confirmed-static managed path, two-peer acceptance pending.
 
 - [NativeKnowledge in Ghidra](./tools/semantic/NATIVE_KNOWLEDGE.md): all 88 APIShared catalog fields and four double-reviewed function records, including newly named building-height-offset and unit-standing-height helpers; confidence, provenance, historical views and reader documentation remain visible; raw baseline unchanged.

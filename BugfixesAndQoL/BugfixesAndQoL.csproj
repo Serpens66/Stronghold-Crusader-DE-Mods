@@ -271,6 +271,7 @@
     <Compile Include="src\MapPlayerCountCellBehavior.cs" />
     <Compile Include="src\VanillaMapEditorHook.cs" />
     <Compile Include="src\VanillaMapEditorPolicy.cs" />
+    <Compile Include="src\EditorRegions\*.cs" />
     <Compile Include="src\TrailDeletionPolicy.cs" />
     <Compile Include="src\TrailDeletionViewModel.cs" />
     <Compile Include="src\SaveDeletionPolicy.cs" />
