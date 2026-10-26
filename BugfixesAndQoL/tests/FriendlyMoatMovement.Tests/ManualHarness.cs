@@ -11,6 +11,7 @@ namespace CommandFixture
         internal AliveState r_AliveState;
         internal int r_ControllableForPlayerId, r_CurrentTilePositionX, r_CurrentTilePositionY;
         internal uint r_GlobalId, r_CurrentPositionTileId;
+        internal ushort r_AttackMoveToTargetTileX, r_AttackMoveToTargetTileY;
         internal bool Digger;
         internal int r_UnitChimp;
         internal int r_TribeId, r_AI_LastIssuedTribeCommand;
@@ -35,12 +36,17 @@ namespace CommandFixture
         internal bool IsAIPlayer(int id) => Ai;
         internal bool IsPlayerIdValid(int id) => id>=1 && id<=8;
     }
+    internal sealed class GameTileManagerView { internal byte[] PathEdgeMaskGrid=new byte[640000]; internal ushort[] PathConnectionGrid=new ushort[640000]; internal int[] LogicGrid=new int[640000]; }
     internal sealed class GameTileManagerAPI
     {
         internal static GameTileManagerAPI Instance = new();
+        internal GameTileManagerView TileManager=new();
+        internal int[] TileUnitIdGrid=new int[640000];
+        internal int GetTileUnitId(int tile)=>TileUnitIdGrid[tile];
         internal int GetTileId(int x,int y)=>y*800+x;
         internal unsafe ushort* MapColumnLookupTable;
     }
+    internal sealed class UnitMoveHereEventArgs {internal bool SkipOriginalFunction;internal int UnitId,TileX,TileY;}
     internal sealed class TribeIssueOrderMoveHereEventArgs
     {
         internal EventHookPhase Phase;
@@ -53,8 +59,10 @@ namespace CommandFixture
     }
     internal enum EventHookPhase { Pre, Post }
     internal sealed class TribeIssueOrderWithTargetEventArgs { internal EventHookPhase Phase; internal bool SkipOriginalFunction; }
-    internal sealed class FormationRuntime
+    internal unsafe sealed partial class FormationRuntime
     {
+        internal bool Prepared;
+        internal bool HasPreparedFormation(TribeIssueOrderMoveHereEventArgs args)=>Prepared;
         internal Action<TribeIssueOrderMoveHereEventArgs> Observe;
         internal void OnTribeIssueOrderMoveHere(TribeIssueOrderMoveHereEventArgs args) => Observe?.Invoke(args);
     }
@@ -96,7 +104,8 @@ namespace CommandFixture
         private sealed class BuildingApproachPerformanceScope {}
         private sealed class BuildingConsumerPerformanceScope {}
         private sealed class PlanScope {}
-        private sealed class UnitMoveFrame {}
+        private sealed class UnitMoveFrame {internal bool Stale;}
+        private UnitMoveFrame GetCurrentUnitMoveFrame(){if(unitMoveFrame?.Stale==true)unitMoveFrame=null;return unitMoveFrame;}
         private sealed class MoveCommandScope
         {
             internal int Sequence=77;

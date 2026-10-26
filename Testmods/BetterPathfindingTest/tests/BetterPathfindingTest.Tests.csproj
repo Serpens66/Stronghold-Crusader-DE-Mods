@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework><AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <ImportDirectoryBuildTargets>false</ImportDirectoryBuildTargets><Optimize>true</Optimize><ImplicitUsings>disable</ImplicitUsings><NuGetAudit>false</NuGetAudit>
+    <GameDir Condition="'$(GameDir)' == ''">E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition</GameDir>
+    <ApiSharedDir Condition="'$(ApiSharedDir)' == ''">$(GameDir)\BepInEx\plugins\APIShared_Serp</ApiSharedDir>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Remove="engine/**/*.cs" />
+    <Compile Include="../src/Core/*.cs" Link="Core/%(Filename)%(Extension)" />
+    <!-- Current production sources, offline only. No historical blobs or runtime source coupling. -->
+    <Compile Include="../../../BugfixesAndQoL/src/UnitCommands/Movement/WeightedGridSearchKernel.cs" Link="Oracle/WeightedGridSearchKernel.cs" />
+    <Compile Include="../../../BugfixesAndQoL/src/UnitCommands/Movement/WeightedMoatRoutePlanner.cs" Link="Oracle/WeightedMoatRoutePlanner.cs" />
+    <Compile Include="../../../BugfixesAndQoL/src/UnitCommands/Moat/MoatCandidateField.cs" Link="Oracle/MoatCandidateField.cs" />
+    <Compile Include="../../../BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandContracts.cs" Link="Oracle/UnitCommandContracts.cs" />
+    <Reference Include="APIShared"><HintPath>$(ApiSharedDir)\APIShared.dll</HintPath></Reference>
+  </ItemGroup>
+</Project>

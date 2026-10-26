@@ -159,6 +159,7 @@ namespace ExtendedData
             if (readinessInMission || !IsCurrentSteamLobby(self)) { blockAnnouncements.Reset(); return; }
             WatchConfigurationReadiness();
             var reasons = new List<string>();
+            string packageSyncDetail = string.Empty;
             if (ModSettingsApplication.HasActivationFailures)
                 reasons.Add(SerpLocalization.Get("ExtendedData.SettingsProviderFailed"));
             foreach (var endpoint in ModSettingsApplication.Endpoints)
@@ -180,7 +181,10 @@ namespace ExtendedData
                 {
                     List<HumanPackageState> participants = GetHumanPackageStates(self);
                     if (!settings.System_ArePerPlayerSettingsReady(participants.Select(item => item.PlayerId), out string syncError))
-                        reasons.Add(SerpLocalization.Get("ExtendedData.ErrorPackageNotReady") + " " + syncError);
+                    {
+                        reasons.Add(SerpLocalization.Get("ExtendedData.ErrorPackageReportsPending"));
+                        packageSyncDetail = "; Shared personal settings incomplete: " + syncError;
+                    }
                     if (!AreAllHumanPlayersPackageReady(participants)) reasons.Add(GetParticipantPackageBlockReason(participants));
                     if (selected != null && IsLocalPackageReady())
                     {
@@ -200,7 +204,7 @@ namespace ExtendedData
             string[] current = reasons.Where(reason => !string.IsNullOrWhiteSpace(reason)).Distinct(StringComparer.Ordinal).ToArray();
             if (!blockAnnouncements.ShouldSend(LaunchScope(self), "Lobby", current, true, DateTime.UtcNow)) return;
             blockTransitionSequence++;
-            string detail = "transition=" + blockTransitionSequence;
+            string detail = "transition=" + blockTransitionSequence + packageSyncDetail;
             if (self.currentLobby.isHost && activation.CoopPackages && CurrentSlotRequiresPackage(self))
                 detail += "; " + DescribeHumanPackageStates(self, GetHumanPackageStates(self));
             foreach (string reason in current)

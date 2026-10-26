@@ -80,6 +80,15 @@ namespace BugfixesAndQoL.UnitCommands
                         units,
                         explicitDirection: false,
                         out _);
+                    if (destinations.Length == 0)
+                    {
+                        // Ordinary slot failure can reject before mutations. Special moat,
+                        // structure and Assassin paths retain their prior native fallback.
+                        if (!commandRuntime.TryRejectPreparedFormationWithoutSlots(args))
+                            throw new InvalidOperationException("No ordinary formation slots; retain the special native command path.");
+                        lock (stateSync) if (ReferenceEquals(pendingCommand, pending)) pendingCommand = null;
+                        return;
+                    }
                     ulong actualPlanHash = ComputePlanHash(
                         units, destinations,
                         FormationModel.NormalizePlacementMode(packet.PlacementMode), rows);

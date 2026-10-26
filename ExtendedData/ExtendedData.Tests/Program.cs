@@ -59,6 +59,7 @@ var tests = new (string Name, Action Run)[]
     ("Maker menus discover twenty forty-mission packages without opening their contents", TestMakerPackageDiscovery),
     ("Maker metadata preserves replicas, conflicts, legacy sources and refreshes", TestMakerPackageMetadata),
     ("selected package session reuses and invalidates validated data", TestPackageSession),
+    ("author re-export diverges from the subscribed package only after publication", TestAuthorExportCompatibility),
     ("lazy mission cache resolves only selected slots and retries failures", TestLazyMissionCache),
     ("mission dependencies detect catalog, map and external file changes", TestMissionDependencies),
     ("mission table restoration protects templates and foreign entries", TestMissionTableRestoration),
@@ -2071,6 +2072,47 @@ static void TestPackageSession()
     Assert(!hit, "explicit export invalidation did not clear the session");
     Directory.Delete(path, recursive: true);
     ExpectFailure(() => session.GetOrLoad(catalog.Discover(new[] { root }), id, out _), "removed package remained available");
+}
+
+static void TestAuthorExportCompatibility()
+{
+    using Fixture fixture = Fixture.Create();
+    string localRoot = Path.Combine(fixture.Root, "CustomTrails");
+    string workshopRoot = Path.Combine(fixture.Root, "WorkshopItem");
+    string local = CreatePackage(fixture, localRoot, "Author", 1);
+    string subscribed = Path.Combine(workshopRoot, "Subscribed");
+    CopyTree(local, subscribed);
+    var catalog = new CoopTrailPackageCatalog();
+    string id = CoopTrailPackageCatalog.Load(local).Manifest.PackageId;
+    var author = new CoopTrailPackageSession();
+    var guest = new CoopTrailPackageSession();
+    CoopTrailPackage oldExport = author.GetOrLoad(catalog.Discover(new[] { localRoot }), id, out _);
+    CoopTrailPackage workshop = guest.GetOrLoad(catalog.Discover(new[] { workshopRoot }), id, out _);
+    Assert(oldExport.Manifest.ContentFingerprint == workshop.Manifest.ContentFingerprint,
+        "identical author/Workshop packages differed because of origin or directory names");
+
+    string makerSource = Path.Combine(local, "TrailMakerSource", "01.trail");
+    Directory.CreateDirectory(Path.GetDirectoryName(makerSource));
+    File.WriteAllText(makerSource, "unpublished Maker changes");
+    CoopTrailPackage stillOld = author.GetOrLoad(catalog.Discover(new[] { localRoot }), id, out _, forceValidation: true);
+    Assert(ReferenceEquals(stillOld, oldExport) && stillOld.Manifest.ContentFingerprint == workshop.Manifest.ContentFingerprint,
+        "editing Maker sources changed the playable export without publishing it");
+
+    // The export boundary supplies new mission bytes and a matching manifest. The game-facing
+    // exporter owns that encoding; this test exercises the real package/session boundary it publishes.
+    string map = Path.Combine(local, "CoopMissions", "map.map");
+    File.AppendAllText(map, "newly exported map content");
+    RehashTestPackage(local);
+    author.Clear(); // OnCoopPackagesExported retires the previous session before applying the export.
+    CoopTrailPackage updated = author.GetOrLoad(catalog.Discover(new[] { localRoot }), id, out bool hit);
+    Assert(!hit && !ReferenceEquals(updated, oldExport) && updated.Manifest.PackageId == workshop.Manifest.PackageId &&
+        updated.Manifest.ContentFingerprint != workshop.Manifest.ContentFingerprint,
+        "new export was cached, lost its package identity or matched the old Workshop contents");
+    Assert(guest.GetOrLoad(catalog.Discover(new[] { workshopRoot }), id, out _).Manifest.ContentFingerprint ==
+        workshop.Manifest.ContentFingerprint, "local re-export changed the subscribed copy");
+    File.AppendAllText(map, "unverified direct edit");
+    ExpectFailure(() => author.GetOrLoad(catalog.Discover(new[] { localRoot }), id, out _),
+        "directly changed export was accepted without a matching fingerprint");
 }
 
 static void RehashTestPackage(string root)

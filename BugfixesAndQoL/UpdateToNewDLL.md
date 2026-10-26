@@ -1175,3 +1175,61 @@ protocol7/full-selection identity and topology invalidation on update. See nativ
 knowledge/MANUAL_GROUP_ADMISSION.md and the production/native execution fixtures.
 Real game/editor latency and host/client results remain independent acceptance.
 
+
+## 2026-10-26: separated-group cursor, gesture proof and ordinary destination slots
+
+Owner: Improved Manual Commands / Formation Enhancements. Reference native SHA-256:
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+
+The new permanent demand-gated context hook enters `41D60` before its first
+instruction. NativeX64 inline/context minimum 14 displaces exactly three 5-byte
+nonvolatile saves (`48895C2410 48896C2418 4889742420`), resumes at `41D6F`.
+The complete renderer range is `41D60..4580E` (exclusive end), body SHA-256
+`3EF71AC141815F4AAD74E1A20B6991425175728DA09EC4F07E2C813DF8533FFF`.
+`DLL_RunTick` calls cursor selection at `86920 -> 8C5F0`, then renderer at
+`86A68 -> 41D60`. Cursor kind is cleared at `45702` before `4570C -> 41D10`;
+the existing end-of-render speech callback cannot authorize a gesture.
+
+The entry has six Win64 integer/pointer parameters, with no incoming flags or
+XMM parameter contract. The production guard bypasses Mono when no gesture is
+pending. The full executable-section direct-branch superset scan and exception
+function entries contain no interior entry into `[41D60,41D6F)`. The sole direct
+caller is `86A68`; audited switch data does not target the prologue. Inspect the
+whole function and its indirect/switch targets again on any native update.
+
+Resolution intentionally remains hash-bound: the common save prologue alone is
+not a safe unique semantic fallback for the cursor-producer/render/clear timing
+contract or the existing cursor field layout. Validate pristine entry bytes and
+exact live span before enabling; an overlap/layout failure disables local formation
+input while the independent admitted-group/default-slot path remains available.
+The observer and its demand byte remain rooted until process exit; resets only
+clear logical demand. No extra per-unit or per-visible-tile callback is added.
+
+Own-unit repair is bound to ground call-site `8F325`, ordinary mode 1, the native
+nonzero R15D permission, stable own living-unit identity and an ordinary positive
+same-PCL witness. Stationary native types from `1811A0` (Trebuchet, Mangonel,
+Ballista) and Assassins do not provide the shortcut. Digger capability alone does
+not block an ordinary same-PCL witness; actual moat/structure starts retain their
+special checks. Current
+packed tile and native next movement start must both be ordinary and in the target
+PCL. Attacks and special paths keep their existing exact providers. No new full
+cursor path-probe loop is entered for friendly hovers.
+
+`118E00` has no selector; ordinary mixed groups without a prepared formation collect
+one bounded set of default slots, using the audited `11BB33..11BB45 -> E1D30`
+spacing 1. Capture is shared with Vanilla formations, at most 4001 inspected nodes,
+with reused visited/queue buffers and finally cleanup. True slot shortage repeats
+existing cells deterministically; no valid slot rejects before queue/member writes.
+Destinations are consumed through the existing UnitMoveHere Pre event after the
+unchanged native `118F50` admission gate. No extra full path probes or move calls.
+
+Preview admission captures once per gesture under the existing validated private
+engine lock (nonblocking from UI, otherwise deferred into the native run). It never
+activates a native mask or constrains later authoritative admission. Internal formation
+protocol is 8; packet shape, public APIs, SDK and mod version are unchanged.
+
+Evidence: `.work/a/island-targets/001/native-audit.json`, production friendly/moat,
+formation, Shift, Assassin and gate regression suites; `GroundFrameMachineTests`
+executes actual entry bytes/production demand guard with six arguments and stack
+checks. Game latency, actual island replay and matching-build host/client acceptance
+remain separate from these offline proofs.

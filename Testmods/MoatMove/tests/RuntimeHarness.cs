@@ -137,6 +137,12 @@ namespace MoatMove
         private Func<int,int,int,bool> nativeManualPathProbe;
         private bool ProbeNativeManualPath(int id,int x,int y)=>nativeManualPathProbe?.Invoke(id,x,y)==true;
         private bool ProbeNativeCursorConnectivity(int p,int a,int b,out RouteProbeSummary s) { s=default;return false; }
+        // The ordinary manual-cursor family executes in FriendlyMoatMovement.Tests;
+        // this fixture isolates the existing traversal provider, like its exact-probe seam below.
+        private sealed class ManualCommandMode { internal int Read()=>1; }
+        private ManualCommandMode manualGroundCommandMode=new();
+        private bool TryBindFriendlyGroundCursor(int p,uint raw,int tile,int site,int permission,int mode,bool interaction,out int id,out uint global) {id=0;global=0;return false;}
+        private bool TryQualifySameRegionSelection(AttackCursorPairScope p,int[] ids,string token,out AttackCursorPairScope b,out CursorGroupRouteSummary s) {b=null;s=default;return false;}
         private bool TryQualifyNativeSelection(AttackCursorPairScope p,int[] ids,string token,out AttackCursorPairScope b,out CursorGroupRouteSummary s) { b=null;s=default;return false; }
 
         private static int tick = 10;
@@ -1337,3 +1343,6 @@ namespace Shared {
   [System.Diagnostics.Conditional("SERP_DEVDIAG")] internal static void StopSpike(ref long timestamp,string name,long threshold,System.Func<string> details=null) {}
  }
 }
+
+// Ordinary Move mode is the validated external cursor command contract.
+namespace APIShared.Internal { internal static class GroundMovePreviewEligibility {internal const int OrdinaryMoveCommandMode=1;} }

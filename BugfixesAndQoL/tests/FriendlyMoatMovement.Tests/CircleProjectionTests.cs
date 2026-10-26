@@ -18,6 +18,7 @@ internal static class CircleProjectionTests
         string fixture = """
 using System;using System.Linq;using System.Collections.Generic;
 using BugfixesAndQoL.UnitCommands;using UnityEngine;using Noesis;
+namespace Shared {internal static class DevDiag {internal static void Count(string name){}}}
 namespace UnityEngine {
     public struct Vector3 {public float x,y,z;public Vector3(float a,float b,float c){x=a;y=b;z=c;}}
     public class Camera {public Vector3 WorldToScreenPoint(Vector3 world)=>new Vector3(50+world.x,50+world.y,0);}

@@ -106,6 +106,7 @@ namespace BugfixesAndQoL.UnitCommands
                 try
                 {
                     formationRuntime?.OnTribeIssueOrderMoveHere(args);
+                    PrepareDefaultGroupDestinations(args);
                     if (args.SkipOriginalFunction)
                     {
                         moveEventObservers.Pop(); moveEventDepths.Pop();

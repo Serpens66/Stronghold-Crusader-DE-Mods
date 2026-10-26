@@ -18,12 +18,12 @@ namespace ExtendedData
 {
     public sealed class ExtendedDataSettingsViewModel : APIShared.ModSettings.PresetLobbyModSettingsViewModel
     {
-        internal const string ErrorStatusPrefix = "ERROR|";
-        internal const string MissingStatus = "ERROR|MISSING";
-        internal const string MismatchStatus = "ERROR|MISMATCH";
-        internal const string InvalidStatusPrefix = "ERROR|INVALID|";
-        internal const string DisabledStatus = "ERROR|DISABLED";
-        internal const string WaitingStatus = "WAITING";
+        internal const string ErrorStatusPrefix = CoopPackageStatusCodes.ErrorPrefix;
+        internal const string MissingStatus = CoopPackageStatusCodes.Missing;
+        internal const string MismatchStatus = CoopPackageStatusCodes.Mismatch;
+        internal const string InvalidStatusPrefix = CoopPackageStatusCodes.InvalidPrefix;
+        internal const string DisabledStatus = CoopPackageStatusCodes.Disabled;
+        internal const string WaitingStatus = CoopPackageStatusCodes.Waiting;
 
         private bool enableClientFeatures = true;
         private bool enableMod = true;

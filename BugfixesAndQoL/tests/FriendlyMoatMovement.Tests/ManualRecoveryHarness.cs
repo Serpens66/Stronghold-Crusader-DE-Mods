@@ -1,9 +1,11 @@
 using System;
+using System.Linq;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using BugfixesAndQoL.UnitCommands;
 
-namespace SHCDESE.Interop { internal enum eChimps { CHIMP_TYPE_ARAB_ASSASIN = 73 } }
+namespace APIShared.Internal {internal static class GroundMovePreviewEligibility {internal const int OrdinaryMoveCommandMode=1;}}
+namespace SHCDESE.Interop { internal enum eChimps { CHIMP_TYPE_ARAB_ASSASIN = 73, CHIMP_TYPE_TREBUCHET=40,CHIMP_TYPE_MANGONEL=41,CHIMP_TYPE_BALLISTA=61 } }
 namespace CommandFixture
 {
     internal struct FormationUnit { internal int UnitId; internal uint GlobalId; }
@@ -13,12 +15,13 @@ namespace CommandFixture
         private Func<IntPtr,int,int,int> getGroupUnitId;
         private Func<IntPtr> manualThreadToken = () => (IntPtr)123;
         private Func<int,int,int,int,int> manualRegionQuery;
+        private IntPtr manualAdmissionSlot;
         private const uint CursorSpecialStructureTileFlagMask = 0x10000300;
 
         private void RecoveryTests()
         {
             int firstAssertion = assertions;
-            GameUnit* units = (GameUnit*)NativeMemory.AllocZeroed(1001 * (nuint)sizeof(GameUnit));
+            GameUnit* units = (GameUnit*)NativeMemory.AllocZeroed(1301 * (nuint)sizeof(GameUnit));
             GameTribe* tribe = (GameTribe*)NativeMemory.AllocZeroed((nuint)sizeof(GameTribe));
             byte* manager = (byte*)NativeMemory.AllocZeroed(0x200);
             movementTargetAvailability = (byte*)NativeMemory.Alloc(800*800);
@@ -27,7 +30,7 @@ namespace CommandFixture
             var keys = new HashSet<(int,int,int,int)>();
             try
             {
-                APIShared.UnitAccess.Units = units; APIShared.UnitAccess.UnitCapacity = 1001;
+                APIShared.UnitAccess.Units = units; APIShared.UnitAccess.UnitCapacity = 1301;
                 GameTribeManagerAPI.Instance.Tribe = tribe;
                 nativePathManager = (IntPtr)manager; nativeTribeManager = (IntPtr)tribe; nativeUnitManager = (byte*)units;
                 manualRegionQuery = QueryManualGroupRegion;
@@ -57,7 +60,7 @@ namespace CommandFixture
                         return 0;
                     };
                 }
-                foreach(int count in new[]{100,200,550,1000})
+                foreach(int count in new[]{100,200,550,1000,1300})
                 foreach(int blocked in new[]{0,count/2,count})
                 {
                     Setup(count,blocked);
@@ -76,6 +79,82 @@ namespace CommandFixture
                     Check(manualAdmission==null,"command context always closes");
                 }
 
+                var tiles=GameTileManagerAPI.Instance.TileManager;
+                for(int y=1;y<80;y++)for(int x=1;x<80;x++){
+                    tiles.PathConnectionGrid[y*800+x]=42;tiles.PathEdgeMaskGrid[y*800+x]=255;
+                }
+                manualAdmissionSlot=Marshal.AllocHGlobal(IntPtr.Size);
+                foreach(int count in new[]{100,200,550,1000,1300})foreach(short patrol in new short[]{0,1})foreach(bool newOrder in new[]{false,true}){
+                    Setup(count,count/2);var command=new TribeIssueOrderMoveHereEventArgs{IsPatrolPath=patrol,IsNewOrder=newOrder};
+                    var parent=BeginManualGroupAdmission(command);var current=manualAdmission;
+                    PrepareDefaultGroupDestinations(command);
+                    Check(current.DefaultSlotsPrepared&&!command.SkipOriginalFunction,"Mixed ordinary group prepares default slots before mutations");
+                    var distinct=new HashSet<(int,int)>();current.CommonEntered=true;
+                    Marshal.WriteIntPtr(manualAdmissionSlot,current.NativeState);
+                    for(int id=1;id<=count;id++){
+                        byte[] saved=new ReadOnlySpan<byte>(units+id,sizeof(GameUnit)).ToArray();
+                        var move=new UnitMoveHereEventArgs{UnitId=id,TileX=20,TileY=20};
+                        ApplyDefaultGroupDestination(move);
+                        if(id<=count/2)Check(new ReadOnlySpan<byte>(units+id,sizeof(GameUnit)).SequenceEqual(saved),"Excluded member order/path bytes unchanged by default assignment");
+                        else {distinct.Add((move.TileX,move.TileY));Check(units[id].r_AttackMoveToTargetTileX==move.TileX&&units[id].r_AttackMoveToTargetTileY==move.TileY,"Actual per-unit order fields receive prepared slot");}
+                    }
+                    Check(distinct.Count==current.Reachable&&queries==1&&probes==0,"All admitted default destinations distinct with zero full probes");
+                    var selection=new FormationUnit[count];for(int id=1;id<=count;id++)selection[id-1]=new FormationUnit{UnitId=id,GlobalId=units[id].r_GlobalId};
+                    int beforeQueries=queries;var preview=CapturePreviewFormationAdmission(selection,1,20,20,out long revision);
+                    Check(preview.Length==current.Reachable&&queries-beforeQueries==1&&revision==placementRevision,"Preview independently classifies once per region key");
+                    Check(ReferenceEquals(manualAdmission,current),"UI admission never replaces authoritative context");
+                    Marshal.WriteIntPtr(manualAdmissionSlot,IntPtr.Zero);EndManualGroupAdmission(parent);
+                }
+                Setup(8,4);var scarcity=new TribeIssueOrderMoveHereEventArgs();var scarcityParent=BeginManualGroupAdmission(scarcity);
+                Array.Clear(tiles.PathEdgeMaskGrid);PrepareDefaultGroupDestinations(scarcity);
+                Check(manualAdmission.DefaultSlotsPrepared&&manualAdmission.Members.Where(m=>m.Id>4&&m.Id<=8).Select(m=>(m.DestinationX,m.DestinationY)).Distinct().Count()==1,"True one-tile shortage reuses the sole valid cell without losing command");
+                EndManualGroupAdmission(scarcityParent);
+                Setup(8,4);var empty=new TribeIssueOrderMoveHereEventArgs();scarcityParent=BeginManualGroupAdmission(empty);
+                tiles.PathConnectionGrid[16020]=0;PrepareDefaultGroupDestinations(empty);
+                Check(empty.SkipOriginalFunction&&!manualAdmission.DefaultSlotsPrepared,"No slots rejects before queues or member mutations");
+                EndManualGroupAdmission(scarcityParent);tiles.PathConnectionGrid[16020]=42;
+                Setup(2,1);var noSlots=new TribeIssueOrderMoveHereEventArgs();scarcityParent=BeginManualGroupAdmission(noSlots);
+                manualAdmission.Supported=false;
+                Check(!TryRejectPreparedFormationWithoutSlots(noSlots)&&!noSlots.SkipOriginalFunction,"Special/unknown admission retains native fallback when ordinary slots are absent");
+                manualAdmission.Supported=true;
+                Check(TryRejectPreparedFormationWithoutSlots(noSlots)&&noSlots.SkipOriginalFunction,"Ordinary no-slot formation is consumed before mutations");
+                EndManualGroupAdmission(scarcityParent);
+                Setup(8,4);var explicitOrder=new TribeIssueOrderMoveHereEventArgs();scarcityParent=BeginManualGroupAdmission(explicitOrder);
+                formationRuntime=new FormationRuntime{Prepared=true};PrepareDefaultGroupDestinations(explicitOrder);
+                Check(!manualAdmission.DefaultSlotsPrepared&&!explicitOrder.SkipOriginalFunction,"Explicit formation never receives a second default plan");
+                formationRuntime=null;EndManualGroupAdmission(scarcityParent);
+                Setup(8,4);cursorGroundContractReady=true;var cursor=new AttackCursorPairScope();
+                Check(TryQualifySameRegionSelection(cursor,Enumerable.Range(1,8).ToArray(),"full-selection",out var witness,out var summary)&&witness.UnitId==5&&summary.AllowFallback&&probes==0,"Cursor finds reachable member after excluded leader without path probes");
+                units[5].N000000DB=0;
+                Check(TryQualifySameRegionSelection(cursor,Enumerable.Range(1,8).ToArray(),"s",out witness,out summary)&&witness.UnitId==6,"Cursor witness excludes stationary member");
+                units[6].Digger=true;TraversalEnabled=true;
+                Check(TryQualifySameRegionSelection(cursor,new[]{6},"s",out _,out _)&&probes==0,"Digger capability alone does not block a proven ordinary same-PCL Move with MoatMove enabled");
+                completedMoatTiles.Add((int)units[6].r_CurrentPositionTileId);
+                Check(!TryQualifySameRegionSelection(cursor,new[]{6},"s",out _,out _),"Actual moat starter still retains its traversal-specific checks");
+                completedMoatTiles.Clear();units[6].Digger=false;TraversalEnabled=false;
+                foreach(int mode in new[]{0,1,5,20})foreach(int permission in new[]{0,1})foreach(bool interaction in new[]{false,true}){
+                    Check(TryBindFriendlyGroundCursor(1,2,16020,0x8F325,permission,mode,interaction,out int own,out uint global)==(mode==1&&permission!=0&&!interaction),"Own hover preserves native veto and command kind");
+                }
+                units[2].r_ControllableForPlayerId=2;
+                Check(!TryBindFriendlyGroundCursor(1,2,16020,0x8F325,1,1,false,out _,out _),"Foreign hover cannot use friendly fallback");
+                foreach(int type in new[]{40,41,61,73}) {
+                    units[6].r_UnitChimp=type;
+                    Check(!TryQualifySameRegionSelection(cursor,new[]{6},"s",out _,out _),"Native stationary siege and Assassin types cannot provide ordinary cursor witness");
+                }
+                units[6].r_UnitChimp=0;cursor.OrdinaryGroundMove=false;
+                Check(!TryQualifySameRegionSelection(cursor,new[]{6},"s",out _,out _),"AttackHere/other native contexts retain original checks even on ground");
+                cursor.OrdinaryGroundMove=true;
+                cursor.FallbackKind=CursorPairFallbackKind.UnitApproach;
+                Check(!TryQualifySameRegionSelection(cursor,new[]{6},"s",out _,out _),"Attack retains its precise path checks");
+                cursorGroundContractReady=false;
+
+                Setup(2,1);unitMoveFrame=new UnitMoveFrame{Stale=true};
+                var staleParent=BeginManualGroupAdmission(new());
+                Check(manualAdmission?.Mixed==true,"Skipped/stale prior unit invocation is pruned before new group admission");
+                EndManualGroupAdmission(staleParent);
+                Setup(2,1);unitMoveFrame=new UnitMoveFrame();staleParent=BeginManualGroupAdmission(new());
+                Check(manualAdmission==null,"Live nested unit invocation still retains native ownership");
+                EndManualGroupAdmission(staleParent);unitMoveFrame=null;
                 Setup(4,4); units[2].r_PathConnectionMode=ushort.MaxValue; units[3].r_PathConnectionMode=1;
                 for(int i=0;i<0x200;i++)manager[i]=(byte)(i^0x5A);
                 byte[] before = new ReadOnlySpan<byte>(manager,0x200).ToArray();
@@ -152,10 +231,16 @@ namespace CommandFixture
                 outer=BeginManualGroupAdmission(new());
                 Check(!manualPlayerMove.Rejected,"nested group call cannot mark the parent player's move rejected");
                 EndManualGroupAdmission(outer);manualPlayerMove=default;
+                var rejected=new TribeIssueOrderMoveHereEventArgs();
+                manualPlayerMove=new ManualPlayerMoveFrame{Valid=true,Tribe=1,GroupSeen=true,GroupArguments=new object()};
+                RejectPreparedMove(rejected);Check(!manualPlayerMove.Rejected,"Nested preparation failure cannot roll back parent flag");
+                manualPlayerMove.GroupArguments=rejected;RejectPreparedMove(rejected);
+                Check(manualPlayerMove.Rejected,"Own preparation failure restores earlier wrapper write");manualPlayerMove=default;
                 Console.WriteLine($"PASS: {assertions-firstAssertion} production pre-dispatch admission checks; 100/200/550/1000, no full probes.");
             }
             finally
             {
+                if(manualAdmissionSlot!=IntPtr.Zero)Marshal.FreeHGlobal(manualAdmissionSlot);manualAdmissionSlot=IntPtr.Zero;
                 manualAdmission=null;manualAdmissionReady=false;activeAttackCommand=null;activePlan=null;pendingPlan=null;
                 NativeMemory.Free(units);NativeMemory.Free(tribe);NativeMemory.Free(manager);
                 NativeMemory.Free(movementTargetAvailability);NativeMemory.Free(tileFlags);

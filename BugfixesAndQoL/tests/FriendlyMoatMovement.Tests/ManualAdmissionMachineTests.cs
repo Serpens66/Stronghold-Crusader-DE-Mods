@@ -18,7 +18,7 @@ internal static unsafe class ManualAdmissionMachineTests
     private static readonly List<object> roots = new();
     internal static void Validate()
     {
-        const int maximum = 1000, bytes = (maximum+1)*0x490+0xB00;
+        const int maximum = 1300, bytes = (maximum+1)*0x490+0xB00;
         byte* units = (byte*)NativeMemory.AllocZeroed(bytes);
         byte* paths = (byte*)NativeMemory.Alloc((maximum+1)*1000);
         IntPtr* slot = (IntPtr*)NativeMemory.AllocZeroed((nuint)IntPtr.Size);
@@ -66,7 +66,7 @@ internal static unsafe class ManualAdmissionMachineTests
         int assertions=0;
         void Check(bool result,string name){assertions++;if(!result)throw new Exception(name);}
         long generation=0;
-        foreach(int count in new[]{100,200,550,1000})
+        foreach(int count in new[]{100,200,550,1000,1300})
         {
             new Span<byte>(units,bytes).Fill(0xA5);
             new Span<byte>(paths,(maximum+1)*1000).Fill(0xB6);
@@ -106,17 +106,18 @@ internal static unsafe class ManualAdmissionMachineTests
 
         // This measures only filter bookkeeping and the real generated gate. Native
         // E2610/engine latency still requires separate in-game measurements.
+        const int measuredCount=1000;
         var times=new List<double>();
         for(int iteration=0;iteration<120;iteration++)
         {
             long start=Stopwatch.GetTimestamp();batch.Reset(++generation);
-            for(int id=1;id<=maximum;id++)batch.Add(id,(uint)(500+id),id<=500?7:42,0,true,true);
+            for(int id=1;id<=measuredCount;id++)batch.Add(id,(uint)(500+id),id<=500?7:42,0,true,true);
             batch.Evaluate(1,42,(p,s,t,m)=>0);batch.Publish(token,(IntPtr)units);*slot=batch.NativeState;
-            for(int id=1;id<=maximum;id++)run((IntPtr)units,id,77);
+            for(int id=1;id<=measuredCount;id++)run((IntPtr)units,id,77);
             if(iteration>=20)times.Add(Stopwatch.GetElapsedTime(start).TotalMilliseconds);
         }
         times.Sort();
-        Console.WriteLine($"PASS: {assertions} executed native admission assertions; real inline hook, order/path preservation, identity/thread/generation, 100/200/550/1000.");
+        Console.WriteLine($"PASS: {assertions} executed native admission assertions; real inline hook, order/path preservation, identity/thread/generation, 100/200/550/1000/1300.");
         Console.WriteLine($"FILTER HARNESS ONLY 1000 units p95={times[94]:F3}ms p99={times[98]:F3}ms; graph/engine timing excluded.");
         *slot=IntPtr.Zero;
         // Published stub dependencies remain allocated until process exit.

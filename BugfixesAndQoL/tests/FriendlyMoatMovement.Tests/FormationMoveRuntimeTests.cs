@@ -12,7 +12,7 @@ internal static class FormationMoveRuntimeTests
             .Single(c => c.Identifier.Text == "FormationRuntime");
         string[] methods = { "TryStartDrag", "TryCaptureCommandTarget", "TryCaptureTarget",
             "EvaluateFormationTargetBounds", "IsTargetInsideNativeMap", "EvaluateCommandMode",
-            "ValidateActiveDrag", "SelectionMatches", "AuthorizePreview", "EngineRunHook",
+            "ValidateActiveDrag", "SelectionMatches", "AuthorizePreview", "ObserveNativeGroundFeedback", "CapturePreviewAdmission", "EngineRunHook",
             "RunOriginalOnce", "RunOriginalAfterReleaseConsumed", "UpdateGesture",
             "OnKeyHeld", "OnKeyUp", "PublishPreview", "ResolveDirectionAndWidth",
             "HasExplicitDirection", "ClearPreview" };
@@ -73,7 +73,7 @@ public class EditorDirector {
     public int Left;public bool RightDown,RightUp,StateRead,UpPending;
     public void clearMouseStateForEngine() {Left=0;StateRead=true;UpPending=false;}
 }
-namespace Shared { public static class DebugLogHelper { public static bool DiagnosticsEnabled => true;  public static void LogDebugLimited(object log,string site,params object[] parts) { APIShared.Internal.DebugLogHelper.LogDebug(log,System.String.Concat(parts)); } public static void LogWarningLimited(object log,string site,params object[] parts) { APIShared.Internal.DebugLogHelper.LogWarning(log,System.String.Concat(parts)); } } }
+namespace Shared { public static class DevDiag {public static void Count(string name){}} public static class UnityMainThreadDispatch {public static void TryRunInlineOrEnqueue(Action action)=>action();} public static class DebugLogHelper { public static bool DiagnosticsEnabled => true;  public static void LogDebugLimited(object log,string site,params object[] parts) { APIShared.Internal.DebugLogHelper.LogDebug(log,System.String.Concat(parts)); } public static void LogWarningLimited(object log,string site,params object[] parts) { APIShared.Internal.DebugLogHelper.LogWarning(log,System.String.Concat(parts)); } } }
 namespace APIShared.Internal {
     public class NativeTroopCommandModeReader {public int Mode=1;public int Read()=>Mode;}
     public static class DebugLogHelper { public static bool DiagnosticsEnabled => true; public static void LogDebugLimited(object l, string site, params object[] parts) { LogDebug(l, System.String.Concat(parts)); } public static void LogDebug(object l,string m) {} public static void LogWarningLimited(object l, string site, params object[] parts) { LogWarning(l, System.String.Concat(parts)); } public static void LogWarning(object l,string m) {}}
@@ -101,7 +101,11 @@ namespace BugfixesAndQoL.UnitCommands {
         internal void RememberSelectedRows(FormationKind kind,int rows) {Remembers++;}
     }
     internal sealed class Entry<T> {internal T Value;internal Entry(T value) {Value=value;}}
-    internal sealed class Commands {internal int mapEpoch;}
+    internal sealed class FrameObserver {internal bool Active;internal void SetActive(bool active)=>Active=active;}
+    internal sealed class Commands {internal int mapEpoch;internal long placementRevision;internal int Reads,Allowed=-1;
+        internal FormationUnit[] CapturePreviewFormationAdmission(FormationUnit[] units,int tribe,int x,int y,out long revision) {
+            Reads++;revision=placementRevision;return Allowed<0?units:units.Take(Allowed).ToArray();
+        }}
     internal struct FormationOrderPacket {
         internal int OperationId,TribeId,TargetX,TargetY,Formation,Density,PlacementMode,DirectionSector,Width,Rows,UnitCount;
         internal ulong PlanHash;
@@ -110,9 +114,11 @@ namespace BugfixesAndQoL.UnitCommands {
         // Only external world/input/packet/placement boundaries are simulated.
         // Candidate, preview publication, authorization and release orchestration
         // below are compiled directly from the production runtime.
+        private object speechEngineLock=new object();
         private object log=new object();private readonly object stateSync=new object();
         private const int MapWidth=100,MinimumDragTileDistance=2;
         private ActiveDrag drag;private ReleaseConsumptionWatch releaseConsumptionWatch;
+        private FrameObserver groundFrameObserver=new FrameObserver();
         private Marker markerRenderer=new Marker();private Menu menuViewModel=new Menu();
         private Commands commandRuntime=new Commands();private long nativeFeedbackGeneration;
         private long nativeFeedbackRunGeneration;private bool nativeFeedbackRunActive;
@@ -125,7 +131,7 @@ namespace BugfixesAndQoL.UnitCommands {
         // Local gesture/preview gate; the fixture's FailOpen closes it together with Enabled.
         private bool LocalInputEnabled=>Enabled;
         private static SelectionIdentity[] selection;private static bool mapValid=true,shift;private static int button,selectionTribe=2;
-        private int Originals,VanillaReleases,Dispatched;private int OriginalResult=1;private bool RejectPacket,RenderInsideOriginal;
+        private int Originals,VanillaReleases,Dispatched;private int OriginalResult=1;private bool RejectPacket,RenderInsideOriginal;private bool PreviewFails;
         private FormationOrderPacket LastPacket;
         private bool HasValidMap()=>mapValid;
         private bool IsShiftHeld()=>shift;
@@ -147,7 +153,7 @@ namespace BugfixesAndQoL.UnitCommands {
         private string ToRejectionReason(APIShared.Internal.GroundMovePreviewRejection r)=>r.ToString();
         private FormationMouseState CaptureMouseState(EditorDirector d)=>new FormationMouseState(d.Left,d.RightDown,d.RightUp,d.StateRead,d.UpPending);
         private void ApplyMouseState(EditorDirector d,FormationMouseState s) {d.Left=s.LeftState;d.RightDown=s.RightDown;d.RightUp=s.RightUp;d.StateRead=s.StateRead;d.UpPending=s.UpPending;}
-        private int engineRunOriginal(bool skip) {Originals++;if(FormationReleaseStateModel.HasCommandRelease(CaptureMouseState(EditorDirector.instance),button))VanillaReleases++;if(RenderInsideOriginal&&OriginalResult>0)Render();return OriginalResult;}
+        private int engineRunOriginal(bool skip) {Originals++;if(FormationReleaseStateModel.HasCommandRelease(CaptureMouseState(EditorDirector.instance),button))VanillaReleases++;if(OriginalResult>0&&groundFrameObserver.Active)lock(speechEngineLock)ObserveNativeGroundFeedback();if(RenderInsideOriginal&&OriginalResult>0)Render();return OriginalResult;}
         private bool TryCreatePacket(ActiveDrag state,out FormationOrderPacket p) {
             p=new FormationOrderPacket {OperationId=1,TribeId=state.TribeId,TargetX=state.Target.NativeX,TargetY=state.Target.NativeY,
                 Formation=(int)state.Kind,Density=state.Density,Rows=state.Rows,UnitCount=state.Selection.Length};
@@ -158,7 +164,7 @@ namespace BugfixesAndQoL.UnitCommands {
         private ulong ComputePlanHash(FormationUnit[] units,NativeDestination[] slots,RangedPlacementMode placement,int rows)=>1;
         private NativeDestination[] BuildManagedDestinations(int x,int y,FormationKind kind,int density,int direction,int rows,RangedPlacementMode placement,
             FormationUnit[] units,bool explicitDirection,out FormationDirectionIndicator indicator) {
-            indicator=FormationDirectionIndicator.Hidden;return units.Select((u,i)=>new NativeDestination(y*MapWidth+x+i,x+i,y,u.Role)).ToArray();
+            if(PreviewFails)throw new InvalidOperationException("fixture slot shortage");indicator=FormationDirectionIndicator.Hidden;return units.Select((u,i)=>new NativeDestination(y*MapWidth+x+i,x+i,y,u.Role)).ToArray();
         }
         __MEMBERS__
         private static void Check(bool value,string message) {if(!value)throw new Exception(message);}
@@ -167,7 +173,7 @@ namespace BugfixesAndQoL.UnitCommands {
             GameMap.instance=new GameMap();FatControler.instance=new FatControler();EditorDirector.instance=new EditorDirector();
             GameTileManagerAPI.Instance=new GameTileManagerAPI();
             GamePlayerManagerAPI.Instance.Player=1;var f=new RuntimeFixture();
-            f.SetFeedback(unit:42);return f;
+            f.SetFeedback(unit:42,count:count);return f;
         }
         private void SetFeedback(int x=10,int y=20,int kind=3,int command=1,int detail=0,int mode=1,int player=1,int tribe=2,int count=31,int unit=0,int building=0,int wall=0,int file=0x6B,int image=0,bool coherent=true) {
             groundFeedbackReader.Feedback=new GroundMoveFeedback(player,tribe,count,mode,x,y,kind,file,image,command,detail,unit,building,wall);
@@ -201,6 +207,28 @@ namespace BugfixesAndQoL.UnitCommands {
                 f.Tick();Check(!f.Render(),"Attack/interaction/rejection approved");f.Release();
                 Check(f.Dispatched==0&&f.VanillaReleases==1,"Rejected Move consumed release");
             }
+            foreach(bool missingMarkers in new[]{false,true}) {
+                var f=Fresh();f.PreviewFails=!missingMarkers;f.TryStartDrag(1);if(missingMarkers)f.markerRenderer.ClearPreviewMarkerTiles();
+                Check(f.drag!=null&&f.markerRenderer.Tiles==null,"Preview failure discarded gesture");
+                f.Tick();Check(f.drag.Authorization.IsConfirmed,"No-marker native render did not confirm gesture");
+                GameMap.instance.X=28;f.Release();
+                Check(f.Dispatched==1&&f.VanillaReleases==0&&f.LastPacket.TargetX==10,"Preview failure moved anchor to release");
+                Check(!f.groundFrameObserver.Active,"Released gesture left native demand armed");
+            }
+            var admitted=Fresh(count:1000);admitted.commandRuntime.Allowed=500;admitted.TryStartDrag(1);
+            Check(admitted.drag.PreviewUnits.Length==500&&admitted.menuViewModel.Points.Length==500,"Preview used full blocked selection");
+            admitted.Tick();admitted.Tick();admitted.OnKeyHeld(new UnityInputEventArgs{Key=KeyCode.Mouse1});
+            Check(admitted.commandRuntime.Reads==1,"Preview repeated regional classification per frame");
+            admitted.commandRuntime.placementRevision++;admitted.PublishPreview(admitted.drag,false);
+            Check(admitted.markerRenderer.Tiles==null&&admitted.commandRuntime.Reads==1,"Invalidated preview reused or re-queried admission");
+            admitted.Release();Check(admitted.Dispatched==1,"Preview invalidation blocked authoritative dispatch");
+            var deferred=Fresh(count:1000);deferred.commandRuntime.Allowed=500;deferred.speechEngineLock=null;
+            deferred.TryStartDrag(1);deferred.drag.Geometry.UpdateDirection(20,0,2);deferred.drag.Geometry.ApplyWheel(-2,54321);
+            int manualRows=deferred.drag.Rows;int manualDirection=deferred.drag.Geometry.Direction;
+            deferred.speechEngineLock=new object();deferred.Tick();
+            Check(deferred.commandRuntime.Reads==1&&deferred.drag.PreviewUnits.Length==500,"Busy UI capture did not defer once to native engine-lock scope");
+            Check(deferred.drag.Geometry.ExplicitDirection&&deferred.drag.Geometry.Direction==manualDirection&&deferred.drag.Rows==Math.Min(manualRows,500),"Deferred admission lost explicit facing/rows");
+            deferred.Release();Check(deferred.Dispatched==1,"Deferred preview broke gesture dispatch");
             var pending=Fresh();pending.TryStartDrag(1);pending.Release();
             Check(pending.Dispatched==0&&pending.VanillaReleases==1,"Unconfirmed fast click replaced Vanilla");
             var nested=Fresh();nested.RenderInsideOriginal=true;nested.TryStartDrag(1);nested.Tick();

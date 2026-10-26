@@ -20,6 +20,7 @@ namespace BugfixesAndQoL.UnitCommands
         {
             if (args.Phase == EventHookPhase.Pre)
             {
+                ApplyDefaultGroupDestination(args);
                 formationRuntime?.OnUnitMoveHere(args);
                 ObserveUnitMoveOrder(args);
             }

@@ -337,11 +337,13 @@ namespace BugfixesAndQoL.UnitCommands
         private readonly int count;
         private double wheelRemainder;
         private int lastWheelFrame = -1;
+        private bool rowsExplicit;
         internal FormationGestureState(FormationKind kind, int count, int direction, int rememberedRows = 0)
         {
             this.kind = kind;
             this.count = count;
             int selectedRows = FormationModel.NormalizeRememberedRows(rememberedRows);
+            rowsExplicit = selectedRows != 0;
             Rows = kind == FormationKind.Circle || kind == FormationKind.Vanilla || selectedRows == 0
                 ? FormationModel.ResolveAutomaticRows(kind, count)
                 : FormationModel.NormalizeRows(selectedRows, count);
@@ -350,6 +352,13 @@ namespace BugfixesAndQoL.UnitCommands
         internal int Rows { get; private set; }
         internal int Direction { get; private set; }
         internal bool ExplicitDirection { get; private set; }
+        internal FormationGestureState WithCount(int admittedCount)
+        {
+            return new FormationGestureState(kind, Math.Max(1, admittedCount), Direction, rowsExplicit ? Rows : 0) {
+                wheelRemainder = this.wheelRemainder, lastWheelFrame = this.lastWheelFrame,
+                ExplicitDirection = this.ExplicitDirection, rowsExplicit = this.rowsExplicit
+            };
+        }
         internal void ApplyWheel(float delta, int frame)
         {
             if (frame == lastWheelFrame || float.IsNaN(delta) || float.IsInfinity(delta)) return;
@@ -358,6 +367,7 @@ namespace BugfixesAndQoL.UnitCommands
             wheelRemainder += delta;
             double steps = Math.Truncate(wheelRemainder);
             wheelRemainder -= steps;
+            if (steps != 0) rowsExplicit = true;
             Rows = (int)Math.Max(1, Math.Min(count, Rows - steps));
         }
         internal void UpdateDirection(int deltaX, int deltaY, int threshold)

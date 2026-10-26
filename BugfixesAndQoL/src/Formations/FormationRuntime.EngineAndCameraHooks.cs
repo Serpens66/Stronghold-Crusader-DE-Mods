@@ -101,7 +101,10 @@ namespace BugfixesAndQoL.UnitCommands
                     releaseClaimed = ReferenceEquals(drag, state) &&
                         state.ReleaseGate.TryClaimVanillaRelease(inputState);
                     if (releaseClaimed)
+                    {
                         drag = null;
+                        groundFrameObserver.SetActive(false);
+                    }
                 }
                 if (!releaseClaimed)
                     return RunOriginalOnce(mpFrameSkip, ref originalEntered);
@@ -205,7 +208,7 @@ namespace BugfixesAndQoL.UnitCommands
             try
             {
                 int result = engineRunOriginal(mpFrameSkip);
-                // The terminal marker callback can run inside DLL_RunTick. It
+                // The render-entry observer runs inside DLL_RunTick. It
                 // uses this run's generation immediately, before the render
                 // tail clears cursor kind. No-buffer runs never reach it and
                 // return zero, so they do not publish a completed generation.

@@ -65,6 +65,7 @@ namespace BugfixesAndQoL.UnitCommands {
  internal class ReleaseConsumptionWatch { public ReleaseConsumptionWatch(int a,int b,int c,int d) {} }
  internal static class FormationModel { internal static int NormalizeDensity(int n)=>n;internal static int NormalizePlacementMode(int n)=>n; }
  internal class Config { public int Value; }
+ internal class FrameObserver { internal void SetActive(bool active) {} }
  internal sealed class Renderer {
   internal Action NativeFrameCompleted { private get; set; }
   internal class Hook { public Action<IntPtr> Original; }
@@ -91,6 +92,7 @@ namespace BugfixesAndQoL.UnitCommands {
   private long nativeFeedbackGeneration,nativeFeedbackRunGeneration;
   private bool nativeFeedbackRunActive;
   private int mainThreadId=Environment.CurrentManagedThreadId,originalRuns,moves;
+  private FrameObserver groundFrameObserver=new();
   private Commands commandRuntime=new();private Renderer markerRenderer=new();private NativeContext libraryContext=new();
   private IntPtr nativeTribeManager;
   private ActiveDrag drag=new(); private ReleaseConsumptionWatch releaseConsumptionWatch;

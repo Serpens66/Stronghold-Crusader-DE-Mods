@@ -76,6 +76,8 @@ namespace BugfixesAndQoL.UnitCommands
                 if (!commandRuntime.FormationHooksAvailable || !markerRenderer.ReplacementAvailable)
                     throw new InvalidOperationException("Shared formation selectors or marker renderer are unavailable.");
                 groundFeedbackReader = new NativeGroundMoveFeedbackReader(libraryContext.ModuleHandle, libraryContext.Memory);
+                groundFrameObserver = new GroundMoveFrameObserver(ObserveNativeGroundFeedback);
+                groundFrameObserver.Install(libraryContext, log);
                 nativeTribeManager = (IntPtr)(libraryBase + NativeTribeManagerRva);
                 nativePathManager = (IntPtr)(libraryBase + NativePathManagerRva);
                 movementTargetAvailability = (byte*)(libraryBase +

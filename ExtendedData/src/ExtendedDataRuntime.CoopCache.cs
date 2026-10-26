@@ -119,8 +119,11 @@ namespace ExtendedData
             missingMods = Array.Empty<string>();
             lordDataCoordinator?.SetEmbeddedTrailSlots(null);
             missionSettingsCoordinator.ExitContext();
-            SetLocalPackageError(ExtendedDataSettingsViewModel.InvalidStatusPrefix + exception.Message,
-                SerpLocalization.Get("ExtendedData.ErrorPackageInvalid") + " " + exception.Message);
+            // Package loading already classified missing/mismatched content. Do not overwrite
+            // that useful status when the absent package subsequently prevents mission selection.
+            if (activePackage != null || string.IsNullOrWhiteSpace(localPackageError))
+                SetLocalPackageError(ExtendedDataSettingsViewModel.InvalidStatusPrefix + exception.Message,
+                    CoopPackageBlockMessages.LocalLoadFailure(false, settings.ActiveCoopPackageId));
             LogError("Could not prepare custom Trail" + (trailId + 1) + "/" + missionId.ToString("00") + ": " + exception);
             ShowLocalPackageBlockAfterSync();
         }

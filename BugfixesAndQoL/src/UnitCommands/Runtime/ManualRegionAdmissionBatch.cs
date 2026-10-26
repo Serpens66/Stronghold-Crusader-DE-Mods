@@ -16,9 +16,12 @@ namespace BugfixesAndQoL.UnitCommands
             internal int Id, Source, Mode;
             internal uint GlobalId;
             internal ManualRegionAdmission Decision;
+            internal int DestinationX, DestinationY;
         }
 
         internal readonly Member[] Members = new Member[Capacity];
+        private readonly int[] memberOrdinals = new int[Capacity + 1];
+        internal bool DefaultSlotsPrepared;
         private readonly Dictionary<ulong, ManualRegionAdmission> answers =
             new Dictionary<ulong, ManualRegionAdmission>();
         // Retained with the permanent hook owner; never freed while a stub can read it.
@@ -43,6 +46,7 @@ namespace BugfixesAndQoL.UnitCommands
         {
             Count = Reachable = Excluded = Queries = 0;
             Supported = true; CommonEntered = false; Generation = generation;
+            DefaultSlotsPrepared = false;
             answers.Clear();
         }
 
@@ -53,6 +57,7 @@ namespace BugfixesAndQoL.UnitCommands
                 Decision = movable ? ManualRegionAdmission.Unknown : ManualRegionAdmission.Excluded };
             if (!ordinary || id <= 0 || id > Capacity || globalId == 0 || source <= 0)
                 Supported = false;
+            else memberOrdinals[id] = Count - 1;
         }
 
         internal void Evaluate(int player, int target, Func<int, int, int, int, int> query)
@@ -104,6 +109,18 @@ namespace BugfixesAndQoL.UnitCommands
             byte* entry = (byte*)NativeState + HeaderBytes + id * EntryBytes;
             return *(long*)entry == Generation && *(uint*)(entry + 8) == globalId &&
                 entry[12] == (byte)ManualRegionAdmission.Excluded;
+        }
+
+        internal bool TryGetDefaultDestination(int id, uint globalId, out int x, out int y)
+        {
+            x = y = 0;
+            if (!Supported || !DefaultSlotsPrepared || id <= 0 || id > Capacity) return false;
+            int ordinal = memberOrdinals[id];
+            if ((uint)ordinal >= (uint)Count) return false;
+            Member member = Members[ordinal];
+            if (member.Id != id || member.GlobalId != globalId || member.Decision != ManualRegionAdmission.Reachable) return false;
+            x = member.DestinationX; y = member.DestinationY;
+            return true;
         }
     }
 }

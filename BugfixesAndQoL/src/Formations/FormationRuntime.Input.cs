@@ -224,11 +224,16 @@ namespace BugfixesAndQoL.UnitCommands
                 menuViewModel.GetRememberedRows(FormationModel.NormalizeKind((int)formationConfig.Value)));
             state.MapEpoch = commandRuntime.mapEpoch;
             state.PlayerId = GamePlayerManagerAPI.Instance.GetLocalPlayerId();
+            var previewUnits = new FormationUnit[selection.Length];
+            for (int i = 0; i < previewUnits.Length; i++)
+                previewUnits[i] = new FormationUnit(selection[i].UnitId, selection[i].GlobalId,
+                    selection[i].UnitType, Classify((eChimps)selection[i].UnitType));
+            state.PreviewUnits = previewUnits;
             state.Authorization = new FormationMoveAuthorization(
                 state.PlayerId, tribeId, selection.Length,
                 target.NativeX, target.NativeY, nativeFeedbackGeneration);
             menuViewModel.SetPreviewAuthorization(false);
-            state.PreviewAuthorization = () => AuthorizePreview(state);
+            state.PreviewAuthorization = () => state.Authorization.IsConfirmed;
             ResolveDirectionAndWidth(state, out int direction, out int width);
             state.DirectionSector = direction;
             state.Width = width;
@@ -236,6 +241,8 @@ namespace BugfixesAndQoL.UnitCommands
             {
                 releaseConsumptionWatch = null;
                 drag = state;
+                groundFrameObserver.SetActive(true);
+                CapturePreviewAdmission(state);
                 PublishPreview(state, force: true);
             }
         }

@@ -19,6 +19,7 @@ namespace ExtendedData
             Run("Coop launch blocks remain visible without diagnostics", TestCoopLaunchBlockLogs);
             Run("Coop block chat chunks and transition deduplication", TestCoopBlockChatState);
             Run("Coop block logs retain reasons beyond the shared detail limit", TestLongCoopBlockLog);
+            Run("Coop package messages classify players and keep technical errors out of chat", TestCoopPackageMessages);
             Run("complete package and retry", TestCompletePackageAndRetry);
             Run("upload allowlist and excluded gameplay gate", TestUploadAllowlistAndExcludedWarning);
             Run("local and Workshop Lord source selection", TestLordSourceSelection);
@@ -120,6 +121,87 @@ namespace ExtendedData
                 CoopLaunchBlockDiagnostics.ReportLocal(log, "Ready", reason, "package and mission context");
                 Assert(messages.Count > 1 && messages.Last().Contains("complete final reason") &&
                     messages.Last().Contains("package and mission context"), "shared ledger truncated a long block report");
+            }
+        }
+
+        private static void TestCoopPackageMessages()
+        {
+            var cultures = new[] { "de-DE", "en-US" };
+            foreach (string culture in cultures)
+            {
+                var catalog = File.ReadAllLines(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Locales", culture + ".txt"))
+                    .Where(line => line.StartsWith("ExtendedData.", StringComparison.Ordinal) && line.Contains("="))
+                    .ToDictionary(line => line.Substring(0, line.IndexOf('=')), line => line.Substring(line.IndexOf('=') + 1));
+                SerpLocalization.Overrides = catalog;
+                try
+                {
+                    const string expected = "OK|package|host-fingerprint|1/2/mission-digest/lord-selection";
+                    const string technical = "contentFingerprint does not match; C:/private-path/package";
+                    var cases = new[] {
+                        new KeyValuePair<string, string>(CoopPackageStatusCodes.Missing, "ErrorParticipantsMissing"),
+                        new KeyValuePair<string, string>(CoopPackageStatusCodes.Mismatch, "ErrorParticipantsMismatch"),
+                        new KeyValuePair<string, string>("OK|package|old-fingerprint", "ErrorParticipantsMismatch"),
+                        new KeyValuePair<string, string>("OK|other-package|host-fingerprint", "ErrorParticipantsMismatch"),
+                        new KeyValuePair<string, string>("OK|package|host-fingerprint", "ErrorParticipantsSelectionNotReady"),
+                        new KeyValuePair<string, string>("OK|package|host-fingerprint|1/1/mission-digest/lord-selection", "ErrorParticipantsSelectionNotReady"),
+                        new KeyValuePair<string, string>("OK|package|host-fingerprint|1/2/mission-digest/other-lords", "ErrorParticipantsSelectionNotReady"),
+                        new KeyValuePair<string, string>(CoopPackageStatusCodes.InvalidPrefix + technical, "ErrorParticipantsInvalid"),
+                        new KeyValuePair<string, string>(CoopPackageStatusCodes.Disabled, "ErrorParticipantsDisabled"),
+                        new KeyValuePair<string, string>(CoopPackageStatusCodes.Waiting, "ErrorParticipantsNotReady"),
+                        new KeyValuePair<string, string>(null, "ErrorParticipantsNotReady"),
+                    };
+                    foreach (var item in cases)
+                    {
+                        string message = CoopPackageBlockMessages.Participants(new[] {
+                            new KeyValuePair<string, string>("Guest", item.Key),
+                            new KeyValuePair<string, string>("Ready player", expected),
+                        }, expected);
+                        Assert(message == catalog["ExtendedData." + item.Value].Replace("{Players}", "Guest"),
+                            "wrong category or player attribution: " + culture + " " + item.Key);
+                        Assert(!message.Contains(technical) && !message.Contains("Ready player"),
+                            "chat leaked technical status or blamed a ready player");
+                    }
+                    string missing = CoopPackageBlockMessages.LocalLoadFailure(true, "selected-package");
+                    string invalid = CoopPackageBlockMessages.LocalLoadFailure(false, "selected-package");
+                    Assert(missing == catalog["ExtendedData.ErrorPackageMissingHelp"].Replace("{Package}", "selected-package"),
+                        "missing package was reported as invalid");
+                    Assert(invalid == catalog["ExtendedData.ErrorPackageValidationFailed"], "invalid package help missing");
+                    var mixedReports = new[] {
+                        new KeyValuePair<string, string>("First guest", CoopPackageStatusCodes.Mismatch),
+                        new KeyValuePair<string, string>("Second guest", "OK|package|old-fingerprint"),
+                        new KeyValuePair<string, string>("Pending guest", CoopPackageStatusCodes.Waiting),
+                    };
+                    string reason = CoopPackageBlockMessages.Participants(mixedReports, expected);
+                    Assert(reason.Contains("First guest, Second guest") && reason.Contains("Pending guest"),
+                        "combined report lost players or their groups");
+                    Assert(CoopPackageBlockMessages.Participants(mixedReports.Reverse(), expected) == reason,
+                        "roster ordering changed the cause and bypassed announcement deduplication");
+                    Assert(CoopPackageBlockMessages.Participants(new[] {
+                        new KeyValuePair<string, string>("Guest", "OK|package|host-fingerprint|stale-selection"),
+                    }, "OK|package|host-fingerprint") == catalog["ExtendedData.ErrorParticipantsSelectionNotReady"].Replace("{Players}", "Guest"),
+                        "an outdated selection suffix was reported as different package files");
+                    string[] chunks = CoopLaunchBlockDiagnostics.ChatMessages("Ready", new[] { reason, invalid });
+                    string reconstructed = string.Concat(chunks.Select(message =>
+                        System.Text.RegularExpressions.Regex.Replace(message.Substring(CoopLaunchBlockDiagnostics.ChatPrefix.Length),
+                            @"^\[\d+/\d+\] ", "")));
+                    Assert(chunks.All(message => message.Length <= 280) &&
+                        reconstructed == "Ready: " + (reason + "; " + invalid).Replace('\r', ' ').Replace('\n', ' '),
+                        "localized package messages were shortened in chat");
+                    var state = new CoopLaunchAnnouncementState();
+                    DateTime now = DateTime.UtcNow;
+                    Assert(state.ShouldSend("lobby", "Lobby", new[] { reason }, true, now) &&
+                        !state.ShouldSend("lobby", "Lobby", new[] { reason }, true, now.AddMinutes(1)) &&
+                        state.ShouldSend("lobby", "Lobby", new[] { invalid }, true, now.AddMinutes(1)),
+                        "unchanged localized blocks repeated or a different cause was hidden");
+                    using (var log = new ManualLogSource("coop-package-message-" + culture))
+                    {
+                        var entries = new List<string>();
+                        log.LogEvent += (_, args) => entries.Add(args.Data.ToString());
+                        CoopLaunchBlockDiagnostics.ReportLocal(log, "Ready", invalid, "role=client; package=selected-package", technical);
+                        Assert(entries.Single().Contains(technical), "friendly message removed technical log detail");
+                    }
+                }
+                finally { SerpLocalization.Overrides = null; }
             }
         }
 

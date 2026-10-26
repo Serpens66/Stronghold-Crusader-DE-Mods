@@ -79,6 +79,7 @@
     <Compile Include="src\TrailModSelectionItem.cs" />
     <Compile Include="src\ExtendedDataRuntime.cs" />
     <Compile Include="src\CoopLaunchBlockDiagnostics.cs" />
+    <Compile Include="src\CoopPackageBlockMessages.cs" />
     <Compile Include="src\ExtendedDataRuntime.CoopCache.cs" />
     <Compile Include="src\ExtendedDataRuntime.LaunchReadiness.cs" />
     <Compile Include="src\CoopMissionDataCopies.cs" />

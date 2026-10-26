@@ -13,6 +13,7 @@
     <Compile Remove="ManualRecoveryHarness.cs" />
     <Compile Include="..\..\src\UnitCommands\Runtime\ManualRegionAdmissionBatch.cs" Link="ManualRegionAdmissionBatch.cs" />
     <Compile Include="..\..\src\UnitCommands\Native\ManualGroupAdmissionGate.cs" Link="ManualGroupAdmissionGate.cs" />
+    <Compile Include="..\..\src\DemandGatedContextHook.cs" Link="DemandGatedContextHook.cs" />
     <Compile Include="..\..\..\Testmods\MoatMove\tests\SplitContracts.cs" Link="SplitContracts.cs" />
     <Compile Include="..\..\..\BugfixesAndQoL\src\UnitCommands\Moat\MoatModeFlagIntermediaryFactory.cs" Link="MoatModeFlagIntermediaryFactory.cs" />
     <Reference Include="Iced"><HintPath>$(ExtenderDir)\Iced.dll</HintPath></Reference>

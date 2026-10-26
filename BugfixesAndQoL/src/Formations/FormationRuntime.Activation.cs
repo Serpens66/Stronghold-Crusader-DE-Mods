@@ -28,6 +28,7 @@ namespace BugfixesAndQoL.UnitCommands
     {
         internal void ResetTransientState()
         {
+            groundFrameObserver?.SetActive(false);
             lock (stateSync)
             {
                 speechQueue.Clear();
@@ -53,6 +54,7 @@ namespace BugfixesAndQoL.UnitCommands
 
         private void AbortDrag(string reason)
         {
+            groundFrameObserver?.SetActive(false);
             ActiveDrag state;
             lock (stateSync)
             {
@@ -83,6 +85,7 @@ namespace BugfixesAndQoL.UnitCommands
         // Vanilla. Received packets keep the synchronized formation path on every peer.
         private void FailOpen(string contract, Exception exception)
         {
+            groundFrameObserver?.SetActive(false);
             localInputFailed = true;
             lock (stateSync)
             {
@@ -103,6 +106,7 @@ namespace BugfixesAndQoL.UnitCommands
 
         private void ClearPreview()
         {
+            lock (stateSync) if (drag != null) drag.DisplayedAuthorization = false;
             markerRenderer?.ClearPreviewMarkerTiles();
             menuViewModel.ClearPreview();
         }

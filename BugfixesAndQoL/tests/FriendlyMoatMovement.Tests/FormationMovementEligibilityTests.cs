@@ -26,7 +26,7 @@ internal static class FormationMovementEligibilityTests
 using System;using System.Linq;using System.Collections.Generic;
 using SHCDESE.Interop;using SHCDESE.API;using SHCDESE.EventAPI;using SHCDESE.EventAPI.Units;
 namespace SHCDESE.EventAPI {public enum EventHookPhase {Pre,Post}}
-namespace SHCDESE.EventAPI.Tribes {public class TribeIssueOrderMoveHereEventArgs {public EventHookPhase Phase;public bool SkipOriginalFunction;}}
+namespace SHCDESE.EventAPI.Tribes {public class TribeIssueOrderMoveHereEventArgs {public EventHookPhase Phase;public bool SkipOriginalFunction;public long ReturnValue;}}
 namespace SHCDESE.EventAPI.Units {
     public class UnitMoveHereEventArgs {
         public EventHookPhase Phase;public int UnitId,TileX,TileY,Unknown;
@@ -61,12 +61,12 @@ namespace SHCDESE.API {
 namespace BugfixesAndQoL.UnitCommands {
     using SHCDESE.EventAPI.Tribes;
     internal static class UnitCommandPathAPI {internal static Commands Runtime=new Commands();}
-    internal sealed class Commands {
+    internal sealed class Commands {internal bool TryRejectPreparedFormationWithoutSlots(TribeIssueOrderMoveHereEventArgs args){args.SkipOriginalFunction=true;args.ReturnValue=0;return true;}
         internal int Blocked;
         internal FormationUnit[] AdmitFormationMembers(FormationUnit[] units,int tribe,int x,int y)=>units.Where(u=>u.UnitId>Blocked).ToArray();
     }
     public unsafe class EligibilityFixture {
-        private readonly object stateSync=new object();private bool Enabled=true;
+        private readonly object stateSync=new object();private bool Enabled=true;private Commands commandRuntime=UnitCommandPathAPI.Runtime;
         private ActiveFormationCommand activeCommand;private UnitAssignmentFrame unitAssignmentFrame;
         private UnitFallbackAttempt unitFallbackAttempt;
         private PendingFormationCommand pendingCommand;

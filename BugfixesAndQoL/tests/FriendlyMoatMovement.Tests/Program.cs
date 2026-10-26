@@ -29,7 +29,8 @@ var ground=CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"Bugfix
 var region=CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"BugfixesAndQoL/src/UnitCommands/Attack/UnitCommandPathRuntime.RegionFallback.cs")), options);
 var recovery=CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"BugfixesAndQoL/src/UnitCommands/Runtime/ManualGroupAdmission.cs")), options);
 var admissionNames = new HashSet<string> { "BeginManualGroupAdmission", "EndManualGroupAdmission", "IsMixedManualGroup", "QueryManualGroupRegion",
-    "manualAdmissionReady", "manualAdmissionPool", "manualAdmission", "manualAdmissionGeneration", "AdmitFormationMembers", "manualPlayerMove", "ManualPlayerMoveFrame" };
+    "AddManualAdmissionMember", "QueryGroupRegionPreservingState", "QueryPreviewGroupRegion", "CapturePreviewFormationAdmission",
+    "FilterFormationMembers", "ApplyDefaultGroupDestination", "PrepareDefaultGroupDestinations", "TryRejectPreparedFormationWithoutSlots", "RejectPreparedMove", "manualAdmissionReady", "manualAdmissionPool", "manualAdmission", "manualAdmissionGeneration", "AdmitFormationMembers", "manualPlayerMove", "ManualPlayerMoveFrame" };
 names.Add("moveAdmissionParents");
 names.Add("queueDefersMove");
 var unitMovement=CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"BugfixesAndQoL/src/UnitCommands/Movement/UnitMovementContext.cs")), options);
@@ -45,6 +46,8 @@ var members=(diagnostic ? new[]{syntax,permanent,traversal,adapter,proof,proofDi
         StructDeclarationSyntax type=>names.Contains(type.Identifier.Text),
         FieldDeclarationSyntax field=>field.Declaration.Variables.Any(v=>names.Contains(v.Identifier.Text)),
         _=>false}).ToArray();
+var selectionSyntax=CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"BugfixesAndQoL/src/UnitCommands/Cursor/UnitCommandPathRuntime.Selection.cs")));
+members=members.Concat(selectionSyntax.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Where(m=>new[]{"TryQualifySameRegionSelection","TryGetOwnCursorUnit","TryBindFriendlyGroundCursor"}.Contains(m.Identifier.Text))).ToArray();
 members = members.Append(unitMovement.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single(m=>m.Identifier.Text=="GetNativeMovementStart")).ToArray();
 // Exercise the actual native fallback dispatch before the unrelated addon
 // qualification branches. These original-first prefixes are the command seam.
@@ -62,12 +65,21 @@ foreach(var (name,count,guard) in new[] {
         method.Body.Statements.Take(count).Append(SyntaxFactory.ParseStatement("return vanillaResult;"))))));
 }
 string source="using BugfixesAndQoL;using BugfixesAndQoL.UnitCommands;using APIShared;using SHCDESE.Interop.Enums;using System;using System.Collections.Generic;using System.Runtime.InteropServices;namespace CommandFixture { public unsafe partial class UnitCommandPathRuntime {"+
-    string.Join("\n",members.Select(m=>m.ToFullString()).Concat(fallbackPrefixes.Select(m=>m.ToFullString()))).Replace("SHCDESE.EventAPI.Tribes.","")
+    string.Join("\n",members.Select(m=>m.ToFullString()).Concat(fallbackPrefixes.Select(m=>m.ToFullString()))).Replace("SHCDESE.EventAPI.Units.","").Replace("SHCDESE.EventAPI.Tribes.","")
         .Replace("SHCDESE.EventAPI.","")+"}}";
 // DEVDIAG measurement calls compile to nothing in production; the fixture only needs the API shape.
 const string devDiagStub="namespace Shared { internal static class DebugLogHelper {internal static void LogWarningLimited(object l,string k,string t){} } internal static class DevDiag { internal static void StopSpike(ref long t,string n,int threshold,System.Func<string> detail){} internal static void Log(System.Func<string> text){} internal static void Start(ref long t){} internal static void Stop(ref long t,string n){} internal static void Count(string n){} internal static void Count(string n,long a){} } }";
 var trees=new List<SyntaxTree> { CSharpSyntaxTree.ParseText(source, options), CSharpSyntaxTree.ParseText(devDiagStub, options), CSharpSyntaxTree.ParseText(File.ReadAllText(
     Path.Combine(root,"BugfixesAndQoL/tests/FriendlyMoatMovement.Tests/ManualHarness.cs")), options) };
+var destinationSyntax=CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"BugfixesAndQoL/src/Formations/FormationRuntime.Destinations.cs")));
+var slotNames=new HashSet<string>{"CaptureGroundSlots","TryEnqueueVanillaCandidate","RentVisited","ReturnVisited","NativeDestination","VanillaSearchNode","visitedScratch","vanillaQueueScratch"};
+var slotMembers=destinationSyntax.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single(c=>c.Identifier.Text=="FormationRuntime").Members.Where(m=>m switch {
+    MethodDeclarationSyntax method=>slotNames.Contains(method.Identifier.Text),
+    StructDeclarationSyntax type=>slotNames.Contains(type.Identifier.Text),
+    FieldDeclarationSyntax field=>field.Declaration.Variables.Any(v=>slotNames.Contains(v.Identifier.Text)),_=>false});
+var modelSyntax=CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"BugfixesAndQoL/src/Formations/FormationModel.cs")));
+var slotModel=modelSyntax.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Where(m=>new[]{"NormalizeDensity","IsNativeVanillaSlotCandidate"}.Contains(m.Identifier.Text));
+trees.Add(CSharpSyntaxTree.ParseText("using System;using System.Collections.Generic;using BugfixesAndQoL.UnitCommands;namespace BugfixesAndQoL.UnitCommands {internal enum FormationRole { Neutral }} namespace CommandFixture {internal static class FormationModel {"+string.Join("\n",slotModel.Select(m=>m.ToFullString()))+"} internal unsafe sealed partial class FormationRuntime {private const int MapWidth=800,MaximumVanillaSelectorCandidates=4001;"+string.Join("\n",slotMembers.Select(m=>m.ToFullString()))+"}}",options));
 trees.Add(CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"BugfixesAndQoL/src/UnitCommands/Cursor/CursorRegionRejectPool.cs")), options));
 trees.Add(CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"BugfixesAndQoL/src/UnitCommands/Cursor/CursorGroundRejectProof.cs")), options));
 trees.Add(CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"BugfixesAndQoL/tests/FriendlyMoatMovement.Tests/ManualRejectHarness.cs")), options));
@@ -91,6 +103,7 @@ catch(TargetInvocationException e){System.Runtime.ExceptionServices.ExceptionDis
 MoatModeFlagContract.Validate();
 NativeCommandDetourContract.Validate(root);
 ManualAdmissionMachineTests.Validate();
+GroundFrameMachineTests.Validate(root);
 CursorPermissionNativeTests.Validate(root);
 MovementLifeGeneratorTests.Validate(root);
 RallyTerrainGeneratorTests.Validate(root);

@@ -9,6 +9,10 @@ namespace BugfixesAndQoL.UnitCommands
     internal sealed unsafe partial class FormationRuntime
     {
         bool IFormationCommandHandler.IsDispatching => IsDispatching;
+        bool IFormationCommandHandler.HasPreparedFormation(TribeIssueOrderMoveHereEventArgs args)
+        {
+            lock (stateSync) return Enabled && activeCommand != null && activeCommand.Matches(args);
+        }
         bool IFormationCommandHandler.TryChooseStandardFormationSlot(IntPtr manager, int spacing, int x, int y) =>
             TryChooseStandardFormationSlot(manager, spacing, x, y);
         bool IFormationCommandHandler.TryChooseAssassinFormationSlot(IntPtr manager, int spacing, int x, int y, out int tileId) =>

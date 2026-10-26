@@ -679,7 +679,7 @@ namespace ExtendedData
                             participantStates.Select(state => state.PlayerId),
                             out string syncError))
                     {
-                        BlockLaunch(command, SerpLocalization.Get("ExtendedData.ErrorPackageNotReady"),
+                        BlockLaunch(command, SerpLocalization.Get("ExtendedData.ErrorPackageReportsPending"),
                             "Shared personal settings incomplete: " + syncError + "; " +
                             DescribeHumanPackageStates(self, participantStates));
                         return;
@@ -742,7 +742,7 @@ namespace ExtendedData
                 catch (Exception exception)
                 {
                     missionSettingsCoordinator.RecoverCoopDraft();
-                    string reason = SerpLocalization.Get("ExtendedData.ErrorPackageInvalid") + " " + exception.Message;
+                    string reason = SerpLocalization.Get("ExtendedData.ErrorCoopPreparationFailed");
                     BlockLaunch(command, reason, "Launch preparation failed: " + exception);
                     return;
                 }
@@ -904,10 +904,13 @@ namespace ExtendedData
                 if (!string.Equals(next.Manifest.ContentFingerprint, settings.ActiveCoopPackageFingerprint, StringComparison.OrdinalIgnoreCase) ||
                     next.Manifest.MissionCount != settings.ActiveCoopPackageMissionCount)
                 {
+                    string reason = SerpLocalization.Get("ExtendedData.ErrorFingerprintMismatch");
+                    CoopLaunchBlockDiagnostics.ReportLocal(log, "PackageCheck", reason, DescribeLaunchBlockContext(
+                        GetExistingMainViewModel()?.FRONTMultiplayer), "localFingerprint=" + next.Manifest.ContentFingerprint +
+                        "; localMissionCount=" + next.Manifest.MissionCount + "; hostMissionCount=" + settings.ActiveCoopPackageMissionCount);
                     ClearPackageData();
                     missionSettingsCoordinator?.SetCoopPackagePresentation(settings.ActiveCoopPackageId, settings.ActiveCoopPackageMissionCount);
-                    SetLocalPackageError(ExtendedDataSettingsViewModel.MismatchStatus,
-                        SerpLocalization.Get("ExtendedData.ErrorFingerprintMismatch"));
+                    SetLocalPackageError(ExtendedDataSettingsViewModel.MismatchStatus, reason);
                     ShowLocalPackageBlockAfterSync();
                     return;
                 }
@@ -931,7 +934,7 @@ namespace ExtendedData
                 SetLocalPackageError(
                     exception is FileNotFoundException ? ExtendedDataSettingsViewModel.MissingStatus :
                         ExtendedDataSettingsViewModel.InvalidStatusPrefix + exception.Message,
-                    SerpLocalization.Get("ExtendedData.ErrorPackageInvalid") + " " + exception.Message);
+                    CoopPackageBlockMessages.LocalLoadFailure(exception is FileNotFoundException, settings.ActiveCoopPackageId));
                 LogError("Selected Coop Trail package is unusable: " + exception);
                 ShowLocalPackageBlockAfterSync();
             }
@@ -1456,36 +1459,9 @@ namespace ExtendedData
                 state.PlayerId > 0 &&
                 string.Equals(state.Status, ExpectedReadyStatus(), StringComparison.Ordinal));
 
-        private string GetParticipantPackageBlockReason(IReadOnlyCollection<HumanPackageState> states)
-        {
-            string expected = ExpectedReadyStatus();
-            var missing = new List<string>();
-            var mismatched = new List<string>();
-            var notReady = new List<string>();
-            foreach (HumanPackageState state in states)
-            {
-                if (state.PlayerId > 0 && string.Equals(state.Status, expected, StringComparison.Ordinal))
-                    continue;
-                if (string.Equals(state.Status, ExtendedDataSettingsViewModel.MissingStatus, StringComparison.Ordinal))
-                    missing.Add(state.Name);
-                else if (string.Equals(state.Status, ExtendedDataSettingsViewModel.MismatchStatus, StringComparison.Ordinal) ||
-                    state.Status.StartsWith("OK|", StringComparison.Ordinal))
-                    mismatched.Add(state.Name);
-                else
-                    notReady.Add(state.Name);
-            }
-
-            var reasons = new List<string>();
-            if (missing.Count != 0)
-                reasons.Add(SerpLocalization.Get("ExtendedData.ErrorParticipantsMissing") + " " + string.Join(", ", missing));
-            if (mismatched.Count != 0)
-                reasons.Add(SerpLocalization.Get("ExtendedData.ErrorParticipantsMismatch") + " " + string.Join(", ", mismatched));
-            if (notReady.Count != 0)
-                reasons.Add(SerpLocalization.Get("ExtendedData.ErrorParticipantsNotReady") + " " + string.Join(", ", notReady));
-            return reasons.Count == 0
-                ? SerpLocalization.Get("ExtendedData.ErrorPackageNotReady")
-                : string.Join("\r\n", reasons);
-        }
+        private string GetParticipantPackageBlockReason(IReadOnlyCollection<HumanPackageState> states) =>
+            CoopPackageBlockMessages.Participants(states.Select(state => new KeyValuePair<string, string>(
+                state.Name, state.PlayerId > 0 ? state.Status : null)), ExpectedReadyStatus());
 
         private string DescribeHumanPackageStates(
             FRONT_Multiplayer self,
@@ -1754,7 +1730,7 @@ namespace ExtendedData
             {
                 coopLaunchPending = false;
                 missionSettingsCoordinator.RecoverCoopDraft();
-                string reason = SerpLocalization.Get("ExtendedData.ErrorPackageInvalid") + " " + exception.Message;
+                string reason = SerpLocalization.Get("ExtendedData.ErrorCoopPreparationFailed");
                 BlockLaunch("COOP_START", reason, "Single-player Coop restart failed: " + exception);
                 return false;
             }

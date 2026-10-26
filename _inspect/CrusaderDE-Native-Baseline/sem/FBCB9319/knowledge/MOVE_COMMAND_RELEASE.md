@@ -251,3 +251,22 @@ on the same object. EngineInterface.run holds it around preDLLCallActions,
 DLL_RunTick and play-state copying; no new native call races the simulation.
 The offline test checks this field against the real Assembly-CSharp metadata,
 not a publicized assembly, and exercises busy/unprotected/protected cases.
+
+## Confirmed render-time cursor lifetime (2026-10-26)
+
+Native SHA-256: FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
+`DLL_RunTick` (`86680`) calls `8C5F0` at `86920`, then the visible renderer
+`41D60` at `86A68`. Renderer range `41D60..4580E`, exclusive end; native body
+SHA-256 3EF71AC141815F4AAD74E1A20B6991425175728DA09EC4F07E2C813DF8533FFF.
+Its first three instructions save RBX/RBP/RSI at `[rsp+10/18/20]`, 5 bytes each.
+Cursor kind is cleared to -1 at `45702`, before the `41D10` draw-list reset call
+at `4570C`. Consequently reset-completion feedback is too late for a fresh Move
+proof. Six integer/pointer ABI arguments are preserved by an entry observer.
+
+The prologue span has no direct interior targets across executable sections and
+no interior exception-function entry. Inline/context minimum 14 therefore rounds
+to 15 bytes, continuation `41D6F`. The function includes embedded switch data;
+a linear disassembler byte total is not a valid whole-function coverage check.
+Evidence: `.work/a/island-targets/001/audit.py` and `native-audit.json`;
+production entry/demand machine execution in `GroundFrameMachineTests.cs`.
+These are static/machine contracts, not an in-game frame-time measurement.

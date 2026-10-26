@@ -11,6 +11,7 @@ namespace MoatMove
         internal Func<IntPtr, int, int, int, int?> Assassin;
         internal bool Disabled;
         public bool IsDispatching => false;
+        public bool HasPreparedFormation(TribeIssueOrderMoveHereEventArgs args) => false;
         public void ResetTransientState() { }
         public void OnTribeIssueOrderMoveHere(TribeIssueOrderMoveHereEventArgs args) { }
         public void OnUnitMoveHere(UnitMoveHereEventArgs args) { }

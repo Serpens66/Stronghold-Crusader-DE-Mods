@@ -27,7 +27,7 @@ namespace BugfixesAndQoL.UnitCommands
 {
     internal sealed unsafe partial class FormationRuntime : IFormationCommandHandler
     {
-        private const int ProtocolVersion = 7;
+        private const int ProtocolVersion = 8;
         private const int MapWidth = 800;
         private const int MaximumUnitCount = 10000;
         private const int MaximumTribeCount = 4500;
@@ -107,6 +107,7 @@ namespace BugfixesAndQoL.UnitCommands
         private readonly IUnitCommandSettings settings;
         private readonly UnitCommandPathRuntime commandRuntime;
         private NativeGroundMoveFeedbackReader groundFeedbackReader;
+        private GroundMoveFrameObserver groundFrameObserver;
         private long nativeFeedbackGeneration;
         private long nativeFeedbackRunGeneration;
         private bool nativeFeedbackRunActive;
@@ -116,7 +117,7 @@ namespace BugfixesAndQoL.UnitCommands
         internal bool Enabled => initialized && !failed && settings.EnableMod && settings.EnableMoveFormationEnhancements;
         // Gates local input, preview and presentation. A local UI failure must not make
         // this peer execute received formation packets differently from the other peers.
-        internal bool LocalInputEnabled => Enabled && !localInputFailed;
+        internal bool LocalInputEnabled => Enabled && !localInputFailed && speechEngineLock != null;
         private int dispatchDepth;
         internal bool IsDispatching { get { lock (stateSync) return dispatchDepth > 0; } }
 

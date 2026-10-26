@@ -12,7 +12,10 @@ namespace CommandFixture
     {
         internal int UnitId, PlayerId=1, TargetX=20, TargetY=20, BuildingId;
         internal CursorPairFallbackKind FallbackKind=CursorPairFallbackKind.DirectTile;
-        internal bool GroupCursorAuthorized;
+        internal bool GroupCursorAuthorized,FriendlyGroundMove;
+        internal bool OrdinaryGroundMove=true;
+        internal int FriendlyUnitId;internal uint FriendlyUnitGlobalId;
+        internal int TargetTileId=>TargetY*800+TargetX;
         internal string GroupSelectionSignature;
     }
     internal struct SelectedCursorUnitSnapshot
