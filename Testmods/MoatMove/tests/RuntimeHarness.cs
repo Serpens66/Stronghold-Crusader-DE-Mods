@@ -124,6 +124,15 @@ namespace MoatMove
         private void ResetFastCommandMap() {}
 
         private bool IsNativeManualGroupFlood(IntPtr manager,int p,int r,int x,int y)=>false;
+        // The addon fixture exercises its existing placement provider with the
+        // optional dry-command admission owner inactive. That owner's generated
+        // native gate and scoped decisions run in FriendlyMoatMovement.Tests.
+        private IntPtr manualAdmissionSlot;
+        private sealed class DryAdmissionBoundary { internal bool CommonEntered; internal IntPtr NativeState; internal int Tribe,X,Y,Player; }
+        private DryAdmissionBoundary manualAdmission;
+        private bool IsMixedManualGroup(int tribe,int x,int y)=>false;
+        private bool CanRestoreManualAdmission(IntPtr state)=>state==IntPtr.Zero;
+        private void InvalidateManualGroupAdmission(){}
         private bool TryQualifyNativeMoatStart(PlanScope p,out RouteProbeSummary s) { s=default; return false; }
         private Func<int,int,int,bool> nativeManualPathProbe;
         private bool ProbeNativeManualPath(int id,int x,int y)=>nativeManualPathProbe?.Invoke(id,x,y)==true;

@@ -1106,3 +1106,72 @@ fallbacks, edge filtering, stamp/neighbor/row tables and 18E1E0 early-return ord
 Regression evidence: FriendlyMoatMovement ManualHarness production paths and closed-set
 oracle, existing GateRouting/Assassin fixtures; real island timing requires replay.
 
+## Dry mixed-group recovery (2026-10-25)
+
+Historical implementation, superseded by pre-mutation admission below.
+Owner: failed human dry-ground Move/queue/patrol commands. Reference native SHA-256
+FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
+No new hook/site/span. The existing E2610 observer supplies an effective rejection;
+tribe Post completes one existing 118E00 fallback only after zero return and zero
+prior unit movement attempts, before frame clearing and queue/formation completion.
+Original patrol/new-order inputs and native member permissions remain authoritative.
+
+The E2610 query-only closure is manager+98/+C0/+C4 (three int32), bound to the full
+native hash and complete 1589-byte body SHA-256
+7F875ED003B5E0A047F394632F0F2F952D4364DCC9DD8C9A62D179441B39A0ED.
+Original-image writer anchors E2660/E2747/E2C29 validate the displacements and
+RIP-derived fallback at manager RVA 60AD660 +98 = RVA 60AD6F8. Independent writes:
+E297E/E2996 for +C0; E298A/E29A5 for +98. The whole-function audit establishes the
+exclusive write set; +C4 is E2660's counter increment. Query-only changes are
+restored in finally; real simulation queries keep their state. No tile/unit buffer
+snapshot is needed. GameUnit.r_PathConnectionMode at +35C uses signed-short native
+semantics. Target availability uses existing 3A11EA4 y*800+x; PCL/flags use existing
+packed tile views. No extra terrain traversal or placement search is authorized.
+
+Unknown hash, writer/field mismatch or ambiguous/mutated command context disables
+only this optional recovery; there is no signature-only fallback for the closure.
+Re-audit 11B520 rejection/exit branches, 117C70, the whole E2610 and all writes,
+118E00 member/waypoint checks, 196280 permission/path flow and Extender Pre/Post
+input/result ordering on update. Baseline knowledge/MANUAL_GROUP_REGION_RECOVERY.md
+and production FriendlyMoatMovement recovery/cost tests hold the evidence; game
+latency and host/client acceptance are distinct from fingerprint/fixture results.
+
+## Mixed-group admission before native order writes (2026-10-26)
+
+Owner: improved manual dry ground commands and their executed queue/patrol steps.
+Reference SHA-256 FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
+This replaces the Post-only repair; it is not an additional retry/fallback layer.
+
+New inline span 118F50..118F5E (14 bytes, 9-byte target store + 5-byte MOV):
+664689BC2934090000BA65000000. Normal resume 118F5E, excluded-member target 118FBE.
+The complete 118E00 body SHA-256 is FE838B2718364376F36321E32940F4418AF6678151501D17A74E0F4B0E897A39.
+No incoming edge into the span or internal jump table was found. Existing common
+entry 118E00 and Fixes' ordinary formation site 11BB38 do not overlap. Validate
+immutable instructions plus unmodified live own span, actual backend displacement,
+member predicates, EAX/RCX/R13/RSI identities and all continuation registers/flags.
+The native stub performs no managed transition; its Windows x64 GS:30 token and
+generation/global identity bind the reusable table to one executing command.
+
+The enclosing runtime is full-hash bound. There is no signature-only update
+fallback for this semantic closure. An unknown DLL inherits the enclosing runtime's
+compatibility gate; within a compatible runtime, span/field mismatch or overlap
+disables only admission. Permanent hooks remain installed and logically dormant.
+The existing 117BC0 and E7C40 hooks choose the native common branch before its
+unnecessary flood, only for the matching supported mixed command.
+
+Additional audited data: GameUnit base65C, GlobalId +94 (native6F0), native mobility
+field +442 (nativeA9E), query mode +35C. Independent mobility writer 19A44C reads
+3226B0[type*4]. Player wrapper 196100 writes tribe+56C before the group event;
+fully rejected invocations restore only that earlier flag through a nested frame.
+118E00 clears native748/74C (GameUnit EC/EE/F0), NOT path flags F2/native74E.
+196305/19630F read flags F2 and substep F4/native750: current only at flags0 AND
+substep8, otherwise next2. Reuse GetNativeMovementStart; preserve unknown native
+position-normalization cases (19B1B0) instead of simulating its writes.
+Existing E2610 closure98/C0/C4 restores in finally; same-region equality is free.
+
+Re-audit the entire input/Chore/player/group/common/unit/path chain, special-route
+exceptions, queue insertion/execution distinction, zero-Post skips, formation
+protocol7/full-selection identity and topology invalidation on update. See native
+knowledge/MANUAL_GROUP_ADMISSION.md and the production/native execution fixtures.
+Real game/editor latency and host/client results remain independent acceptance.
+

@@ -28,6 +28,15 @@ namespace BugfixesAndQoL.UnitCommands
         internal int AllowBuilderAfterFailedRegionSearch(
             IntPtr pathManager, int movementClass, int targetRegion, int startX, int startY)
         {
+            // This synthetic group-only query immediately selects 118E00 on zero;
+            // none of the skipped E7C40 flood outputs is consumed by that branch.
+            if (manualAdmission != null && IsMixedManualGroup(manualAdmission.Tribe, manualAdmission.X, manualAdmission.Y) &&
+                pathManager == nativePathManager && movementClass == manualAdmission.Player &&
+                GameTribeManagerAPI.Instance.TryGetTribeById(manualAdmission.Tribe, out GameTribe* admissionTribe) && admissionTribe != null &&
+                APIShared.UnitAccess.TryGetById(admissionTribe->r_LeaderUnitId, out GameUnit* admissionLeader, out _) && admissionLeader != null &&
+                admissionLeader->r_CurrentTilePositionX == startX && admissionLeader->r_CurrentTilePositionY == startY &&
+                targetRegion == unchecked((short)pathRegionGrid[GameTileManagerAPI.Instance.GetTileId(manualAdmission.X, manualAdmission.Y)]))
+                return 0;
             int vanillaResult = originalRegionReachability(pathManager, movementClass, targetRegion, startX, startY);
             // 11B520's original moat branch chooses 118E00 on zero. Preserve
             // the flood's native outputs, then choose its per-unit fallback for
@@ -315,6 +324,10 @@ namespace BugfixesAndQoL.UnitCommands
                 return vanillaResult;
 
             MoveCommandScope command = activeMoveCommand;
+            if (command != null && tribeManager == nativeTribeManager &&
+                IsMixedManualGroup(tribeId, command.TargetX, command.TargetY) &&
+                GameTribeManagerAPI.Instance.TryGetTribeById(tribeId, out GameTribe* admissionTribe) && admissionTribe != null)
+                return admissionTribe->r_LeaderUnitId;
             if (command?.NativeCommonFallback == true && tribeManager == nativeTribeManager &&
                 command.TribeId == tribeId && GameTribeManagerAPI.Instance.TryGetTribeById(tribeId, out GameTribe* manualTribe) &&
                 manualTribe != null && Array.IndexOf(command.ActiveUnitIdsAtDispatch, manualTribe->r_LeaderUnitId) >= 0)

@@ -626,6 +626,7 @@ namespace BugfixesAndQoL.UnitCommands
                 TryInstallAttackApproachDiagnostics(memory, libraryBase);
                 TryInstallMoatWorkTargetSelection(memory, libraryBase);
                 InstallConnectivityAndRecovery(memory, libraryBase);
+                InstallManualGroupAdmission(memory, libraryBase);
 #if SERP_DEVDIAG
                 UnityEngine.Application.onBeforeRender += ObserveCursorPerformance;
 #endif

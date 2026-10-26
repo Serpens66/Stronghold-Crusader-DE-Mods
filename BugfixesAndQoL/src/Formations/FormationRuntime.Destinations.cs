@@ -458,6 +458,51 @@ namespace BugfixesAndQoL.UnitCommands
             return hash;
         }
 
+        private static int ResolveAdmittedRows(FormationKind kind, int count, int width) =>
+            kind == FormationKind.Vanilla || kind == FormationKind.Circle
+                ? FormationModel.ResolveAutomaticRows(kind, count)
+                : Math.Max(1, (count + Math.Max(1, width) - 1) / Math.Max(1, width));
+
+        private static ulong ComputeSelectionHash(IReadOnlyList<FormationUnit> units)
+        {
+            ulong hash = 14695981039346656037UL;
+            for (int i = 0; i < units.Count; i++)
+            {
+                hash = unchecked((hash ^ (uint)units[i].UnitId) * 1099511628211UL);
+                hash = unchecked((hash ^ units[i].GlobalId) * 1099511628211UL);
+            }
+            return hash == 0 ? 1UL : hash;
+        }
+
+        private static ulong ComputeSelectionHash(IReadOnlyList<SelectionIdentity> units)
+        {
+            // CaptureOrderedGroupUnits uses ascending native IDs as its stable order.
+            var ordered = new SelectionIdentity[units.Count];
+            for (int i = 0; i < units.Count; i++) ordered[i] = units[i];
+            Array.Sort(ordered, (a, b) => a.UnitId.CompareTo(b.UnitId));
+            ulong hash = 14695981039346656037UL;
+            for (int i = 0; i < ordered.Length; i++)
+            {
+                hash = unchecked((hash ^ (uint)ordered[i].UnitId) * 1099511628211UL);
+                hash = unchecked((hash ^ ordered[i].GlobalId) * 1099511628211UL);
+            }
+            return hash == 0 ? 1UL : hash;
+        }
+
+        private static ulong CombineAdmissionPlanHash(ulong plan, ulong selection,
+            FormationUnit[] selected, FormationUnit[] movers)
+        {
+            ulong hash = unchecked((plan ^ selection) * 1099511628211UL);
+            int cursor = 0;
+            foreach (FormationUnit unit in selected)
+            {
+                bool admitted = cursor < movers.Length && movers[cursor].UnitId == unit.UnitId;
+                if (admitted) cursor++;
+                hash = unchecked((hash ^ (admitted ? 1UL : 0UL)) * 1099511628211UL);
+            }
+            return hash;
+        }
+
         private static FormationRole Classify(eChimps type)
         {
             switch (type)

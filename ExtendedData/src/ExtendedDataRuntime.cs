@@ -215,8 +215,6 @@ namespace ExtendedData
         private string lastShownLocalBlockSignature = string.Empty;
         private string lastPackageRosterDiagnostic = string.Empty;
         private string lastCompatibilityLogSignature = string.Empty;
-        private string lastBlockedChatReason = string.Empty;
-        private DateTime lastBlockedChatAtUtc;
         private ExtendedDataFeatureActivation activation;
         private readonly CoopTrailMenuViewModel coopTrailMenu;
 
@@ -273,7 +271,8 @@ namespace ExtendedData
             lordDataCoordinator.Initialize();
             missionSettingsCoordinator.LordDataCoordinator = lordDataCoordinator;
             missionSettingsCoordinator.LobbyOpened += lordDataCoordinator.OnLobbyOpened;
-            mapSettingsCoordinator.MultiplayerSaveLaunchPreparing += lordDataCoordinator.PrepareSave;
+            mapSettingsCoordinator.MultiplayerSaveLaunchPreparing += PrepareLordSaveWithDiagnostics;
+            InitializeLaunchReadiness();
             RefreshModCompatibility();
             settings.ActiveCoopPackageChanged += OnActiveCoopPackageChanged;
             settings.CoopPackageRemoteStatusChanged += OnCoopPackageRemoteStatusChanged;
@@ -380,11 +379,13 @@ namespace ExtendedData
                 missingMods = Array.Empty<string>();
                 OnActiveCoopPackageChanged();
             }
+            QueueLaunchReadiness();
         }
 
         private int compatibilityMeasurements;
         public void RefreshModCompatibility()
         {
+            QueueLaunchReadiness();
             if (missionSettingsCoordinator == null)
                 return;
             var compatibilityWatch = Shared.DebugLogHelper.DiagnosticsEnabled ? System.Diagnostics.Stopwatch.StartNew() : null;
@@ -420,6 +421,7 @@ namespace ExtendedData
 
         public void Dispose()
         {
+            StopLaunchReadiness();
             coopTrailMenu.Disable();
             activation = ExtendedDataFeatureActivation.Disabled;
             ExtendedDataModDataApi.UnregisterSource();
@@ -448,7 +450,7 @@ namespace ExtendedData
             missionSettingsCoordinator?.ExitContext(force: true);
             mapSettingsCoordinator?.Dispose();
             if (mapSettingsCoordinator != null && lordDataCoordinator != null)
-                mapSettingsCoordinator.MultiplayerSaveLaunchPreparing -= lordDataCoordinator.PrepareSave;
+                mapSettingsCoordinator.MultiplayerSaveLaunchPreparing -= PrepareLordSaveWithDiagnostics;
             if (missionSettingsCoordinator != null && lordDataCoordinator != null)
                 missionSettingsCoordinator.LobbyOpened -= lordDataCoordinator.OnLobbyOpened;
             lordDataCoordinator?.Dispose();
@@ -511,6 +513,7 @@ namespace ExtendedData
             // Resolve and install BEFORE Vanilla reads the selected table entry.
             selected = next;
             missionTrampoline(self, trailId, missionId, resetOrderSwapped);
+            PublishPackageMap(self);
             missionSettingsCoordinator.ObserveCoopLobby(self);
             missionSettingsCoordinator.EnsureCoopCustomizeButtons();
             if (!activation.CoopPackages)
@@ -639,6 +642,16 @@ namespace ExtendedData
                     BlockLaunch(command, featureError);
                     return;
                 }
+                if (selected?.Loaded.Definition.Map.Source == "bundled" && !sharedMapLookupRegistered)
+                {
+                    BlockLaunch(command, SerpLocalization.Get("ExtendedData.MapServiceUnavailable"));
+                    return;
+                }
+                if (!string.IsNullOrEmpty(mapLookupFailure))
+                {
+                    BlockLaunch(command, mapLookupFailure);
+                    return;
+                }
                 if (!IsLocalPackageReady())
                 {
                     BlockLaunch(command, GetLocalBlockReason());
@@ -737,6 +750,9 @@ namespace ExtendedData
             try
             {
                 buttonTrampoline(self, command);
+                lastAttemptFailure = string.Empty;
+                ReportUnacceptedReady(self, command);
+                QueueLaunchReadiness();
                 if (missionSettingsCoordinator.IsCustomizeDraftEditable) coopLaunchPending = false;
             }
             catch
@@ -1345,7 +1361,7 @@ namespace ExtendedData
             settings.ActiveCoopPackageMissionCount >= 1 && settings.ActiveCoopPackageMissionCount <= 40
                 ? SerpLocalization.Get("ExtendedData.CustomCoopTrailEndNotice")
                     .Replace("{Count}", settings.ActiveCoopPackageMissionCount.ToString())
-                : SerpLocalization.Get("ExtendedData.ErrorPackageNotReady");
+                : GetLocalBlockReason();
 
         private bool IsLocalPackageReady() =>
             string.Equals(settings.CoopPackageStatus, ExpectedReadyStatus(), StringComparison.Ordinal);
@@ -1618,68 +1634,22 @@ namespace ExtendedData
             MainViewModelInstanceField?.GetValue(null) as MainViewModel;
 
         private void BlockLaunch(string command, string reason, string detail = null)
+            => ReportLaunchFailure(command, reason, detail, showPopup: true);
+
+        private void ReportLaunchFailure(string command, string reason, string detail, bool showPopup)
         {
-            FRONT_Multiplayer lobby = GetExistingMainViewModel()?.FRONTMultiplayer;
-            string context = "role=" + (lobby?.singlePlayerCoop == true ? "single-player" :
-                lobby?.currentLobby == null ? "unknown" : lobby.currentLobby.isHost ? "host" : "client") +
-                ", lobby=" + (lobby?.currentLobby?.id.m_SteamID.ToString() ?? "unknown") +
-                ", package=" + settings.ActiveCoopPackageId +
-                ", fingerprint=" + settings.ActiveCoopPackageFingerprint +
-                ", mission=" + (lobby?.currentLobby == null ? "unknown" :
-                    "Trail" + (lobby.currentLobby.coopTrailID + 1) + "/" + lobby.currentLobby.coopSelectedMission) +
-                ", localStatus=" + settings.CoopPackageStatus;
-            CoopLaunchBlockDiagnostics.ReportLocal(log, command, reason, context, detail);
-            bool chatMuted = Platform_Multiplayer.MPChatMuted;
-            ShowBlockedMessage(reason);
-            if (!IsStartCommand(command))
-                return;
-            if (FRONT_Multiplayer.skirmishGame || lobby?.singlePlayerCoop == true ||
-                lobby?.currentLobby?.isHost != true ||
-                lobby.currentLobby.id.m_SteamID == 0 ||
-                Platform_Multiplayer.Instance?.activeLobby?.id.m_SteamID !=
-                    lobby.currentLobby.id.m_SteamID)
-            {
-                if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    LogInfo("Blocked-start lobby chat skipped: skirmish=" +
-                        FRONT_Multiplayer.skirmishGame + ",singlePlayerCoop=" +
-                        (lobby?.singlePlayerCoop == true) + ",host=" +
-                        (lobby?.currentLobby?.isHost == true) + ",activeLobbyMatches=" +
-                        (lobby?.currentLobby != null &&
-                         Platform_Multiplayer.Instance?.activeLobby?.id.m_SteamID ==
-                             lobby.currentLobby.id.m_SteamID) + ".");
-                return;
-            }
-            string chatReason = (reason ?? string.Empty).Replace('\r', ' ').Replace('\n', ' ');
-            string chatMessage = CoopLaunchBlockDiagnostics.ChatPrefix + chatReason;
-            if (chatMessage.Length > 280)
-                chatMessage = chatMessage.Substring(0, 277) + "...";
-            DateTime now = DateTime.UtcNow;
-            if (string.Equals(lastBlockedChatReason, chatMessage, StringComparison.Ordinal) &&
-                (now - lastBlockedChatAtUtc).TotalSeconds < 2)
-            {
-                if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    LogInfo("Blocked-start lobby chat suppressed as duplicate: lobby=" +
-                        lobby.currentLobby.id.m_SteamID + ",elapsedMs=" +
-                        (int)(now - lastBlockedChatAtUtc).TotalMilliseconds + ".");
-                return;
-            }
-            try
-            {
-                Platform_Multiplayer.Instance.SendLobbyChatMessage(chatMessage);
-                lastBlockedChatReason = chatMessage;
-                lastBlockedChatAtUtc = now;
-                if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    LogInfo("Blocked-start lobby chat submitted: lobby=" +
-                        lobby.currentLobby.id.m_SteamID + ",messageLength=" +
-                        chatMessage.Length + ",chatMuted=" + chatMuted +
-                        ",confirmationVisible=" +
-                        (GetExistingMainViewModel()?.Show_HUD_Confirmation == true) +
-                        ",deliveryNotConfirmed=true.");
-            }
-            catch (Exception exception)
-            {
-                LogError("Could not announce the blocked multiplayer start in lobby chat: " + exception);
-            }
+            FRONT_Multiplayer self = GetExistingMainViewModel()?.FRONTMultiplayer;
+            CoopLaunchBlockDiagnostics.ReportLocal(log, command, reason, DescribeLaunchBlockContext(self), detail);
+            lastAttemptFailure = reason ?? string.Empty;
+            lastAttemptScope = LaunchScope(self);
+            lastAttemptRevision = System.Threading.Interlocked.Read(ref readinessInputRevision);
+            if (blockAnnouncements.ShouldSend(lastAttemptScope, command, new[] { reason }, false, DateTime.UtcNow))
+                SendLaunchBlockChat(self, command, new[] { reason });
+            QueueLaunchReadiness();
+            // Chat and log do not depend on a popup being rendered successfully.
+            if (showPopup)
+                try { ShowBlockedMessage(reason); }
+                catch (Exception error) { LogError("Could not display launch block dialog: " + error); }
         }
 
         private void ClearLaunchTracking()
@@ -1723,6 +1693,7 @@ namespace ExtendedData
 
         private void OnMapStarted(MissionContext mission)
         {
+            readinessInMission = true;
             ExtendedDataLaunchOriginApi.MarkMapStarted(mission.SessionId);
             if (!coopLaunchPending || selected == null)
                 return;
@@ -1803,22 +1774,20 @@ namespace ExtendedData
             string featureError = SelectedFeatureDependencyError();
             if (featureError != null)
             {
-                LogError("Ignored authenticated Coop Trail launch: " + featureError);
-                ShowBlockedMessage(featureError);
+                BlockLaunch("COOP_START", featureError);
                 return;
             }
             RefreshSelectedLordRequirementStatus(GetExistingMainViewModel()?.FRONTMultiplayer);
             if (!IsLocalPackageReady())
             {
-                LogError($"Ignored authenticated Coop Trail launch for Trail{trailId + 1}/{missionId:00} because the local package is not ready.");
+                BlockLaunch("COOP_START", GetLocalBlockReason());
                 return;
             }
             if (!lordDataCoordinator.IsLocalSelectionReady(
                 CurrentLordInfoMap(GetExistingMainViewModel()?.FRONTMultiplayer),
                 out string localLordReason))
             {
-                LogError("Ignored authenticated Coop Trail launch because selected Lord data is not ready: " +
-                    localLordReason);
+                BlockLaunch("COOP_START", localLordReason);
                 return;
             }
 
@@ -1830,7 +1799,7 @@ namespace ExtendedData
             // transition supplies the missing launch boundary before OnUnloadMap clears presets.
             if (!PrepareSelectedLordRequirements(out string lordReason))
             {
-                LogError("Ignored authenticated Coop Trail launch because Lord requirements failed: " + lordReason);
+                BlockLaunch("COOP_START", lordReason);
                 return;
             }
             ActivateSelectedMissionSettingsUnlessMap(
@@ -1845,6 +1814,8 @@ namespace ExtendedData
 
         private void OnMissionEnded(MissionLifecycleNotification notification)
         {
+            readinessInMission = false;
+            QueueLaunchReadiness();
             bool retained = missionSettingsCoordinator?.HandleMissionEnded(notification) == true;
             if (retained)
             {

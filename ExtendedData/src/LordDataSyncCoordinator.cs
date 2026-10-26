@@ -911,8 +911,11 @@ namespace ExtendedData
             return false;
         }
 
+        internal string LastSaveBlockReason { get; private set; }
+
         internal bool PrepareSave(FRONT_Multiplayer lobby, FileHeader header)
         {
+            LastSaveBlockReason = string.Empty;
             if (!activation.LordDataIntegration) return true;
 
             try
@@ -953,6 +956,7 @@ namespace ExtendedData
                 if (!IsHostLobby(lobby))
                 {
                     LogHostGateSkip(lobby, "multiplayer-save");
+                    LastSaveBlockReason = "Only the authenticated lobby host can prepare the saved Lord data.";
                     return false;
                 }
                 if (saved.FixesInstalled != fixes.Installed)
@@ -977,12 +981,14 @@ namespace ExtendedData
                         reconstructed ? "legacy-save" : "multiplayer-save");
                 bool ready = IsReadyToLaunch(lobby, out string reason);
                 LogStartDecision(true, ready, reason);
+                if (!ready) LastSaveBlockReason = reason;
                 return ready;
             }
             catch (Exception exception)
             {
                 Invalidate(exception.Message);
                 Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/LordDataSyncCoordinator.cs:798", "Lord-data save preparation failed: " + exception);
+                LastSaveBlockReason = exception.Message;
                 return false;
             }
         }
@@ -1053,7 +1059,7 @@ namespace ExtendedData
         }
 
         internal bool IsLocalSelectionReady(
-            IReadOnlyDictionary<int, FRONT_Multiplayer.MPAIVInfo> infos, out string reason)
+            IReadOnlyDictionary<int, FRONT_Multiplayer.MPAIVInfo> infos, out string reason, bool verifyEffectiveData = true)
         {
             reason = string.Empty;
             if (!NeedsLordStartGate)
@@ -1091,7 +1097,7 @@ namespace ExtendedData
                 return false;
             }
             if (!packageManifest.UseLocalValues && packageManifest.Slots.Any(slot => slot.NeedsSnapshot) &&
-                !HasVerifiedSnapshot(out reason)) return false;
+                verifyEffectiveData && !HasVerifiedSnapshot(out reason)) return false;
             return true;
         }
 
@@ -1132,7 +1138,7 @@ namespace ExtendedData
             return AreLocalPackagesReady(lobby, false, out reason);
         }
 
-        internal bool IsReadyToLaunch(FRONT_Multiplayer lobby, out string reason)
+        internal bool IsReadyToLaunch(FRONT_Multiplayer lobby, out string reason, bool verifyEffectiveData = true)
         {
             reason = error;
             if (!NeedsLordStartGate)
@@ -1171,7 +1177,7 @@ namespace ExtendedData
                 reason = "The published Lord-data setting does not match the host snapshot.";
                 return false;
             }
-            if (!HasVerifiedSnapshot(out reason)) return false;
+            if (verifyEffectiveData && !HasVerifiedSnapshot(out reason)) return false;
             if (!activeFromSave && (lobby?.AIVs == null || !LordDataSyncDiagnostics.MatchesSelectedSlots(active,
                 lobby.AIVs.Take(8).Select((selected, index) => new { selected, index })
                     .Where(item => IsActiveAiSlot(lobby, item.index + 1) &&

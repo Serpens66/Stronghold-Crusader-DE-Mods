@@ -42,6 +42,9 @@ namespace BugfixesAndQoL.UnitCommands
                 if (pending == null || !pending.Matches(args))
                     return;
 
+                pending.NativeDispatchObserved = true;
+                if (args.SkipOriginalFunction) return;
+
                 try
                 {
                     FormationOrderPacket packet = pending.Packet;
@@ -58,21 +61,31 @@ namespace BugfixesAndQoL.UnitCommands
                             $"current={units.Length}.");
                     }
 
+                    if (ComputeSelectionHash(units) != packet.SelectionHash)
+                        throw new InvalidOperationException("Formation selection identities changed before dispatch.");
+                    FormationUnit[] selected = units;
+                    units = UnitCommandPathAPI.Runtime?.AdmitFormationMembers(units, packet.TribeId, packet.TargetX, packet.TargetY) ?? units;
+                    if (units.Length == 0) return;
+                    bool filtered = units.Length != selected.Length;
+                    int rows = filtered ? ResolveAdmittedRows(kind, units.Length, packet.Width) : packet.Rows;
+
                     NativeDestination[] destinations = BuildManagedDestinations(
                         packet.TargetX,
                         packet.TargetY,
                         kind,
                         density,
                         packet.DirectionSector,
-                        packet.Rows,
+                        rows,
                         FormationModel.NormalizePlacementMode(packet.PlacementMode),
                         units,
                         explicitDirection: false,
                         out _);
                     ulong actualPlanHash = ComputePlanHash(
                         units, destinations,
-                        FormationModel.NormalizePlacementMode(packet.PlacementMode), packet.Rows);
-                    if (actualPlanHash != packet.PlanHash)
+                        FormationModel.NormalizePlacementMode(packet.PlacementMode), rows);
+                    // The selection identity is mandatory. A filtered plan is derived
+                    // from synchronized simulation state on every peer, never a UI cache.
+                    if (!filtered && packet.PlanHash != 0 && actualPlanHash != packet.PlanHash)
                     {
                         throw new InvalidOperationException(
                             $"Formation plan hash mismatch: packet=0x{packet.PlanHash:X16}, " +
@@ -81,6 +94,7 @@ namespace BugfixesAndQoL.UnitCommands
 
                     ActiveFormationCommand active = new ActiveFormationCommand(
                         pending, kind, density, units, destinations);
+                    active.ExecutionPlanHash = CombineAdmissionPlanHash(actualPlanHash, packet.SelectionHash, selected, units);
                     lock (stateSync)
                     {
                         if (!ReferenceEquals(pendingCommand, pending) || activeCommand != null)
@@ -273,6 +287,7 @@ namespace BugfixesAndQoL.UnitCommands
 
             internal FormationOrderPacket Packet { get; }
             internal string Source { get; }
+            internal bool NativeDispatchObserved;
 
             internal bool Matches(TribeIssueOrderMoveHereEventArgs args) =>
                 args != null && FormationOrderMatchModel.Matches(
@@ -334,6 +349,7 @@ namespace BugfixesAndQoL.UnitCommands
             }
 
             internal PendingFormationCommand Pending { get; }
+            internal ulong ExecutionPlanHash { get; set; }
             internal FormationKind Kind { get; }
             internal int TribeId => Pending.Packet.TribeId;
             internal int TargetX => Pending.Packet.TargetX;

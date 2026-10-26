@@ -22,11 +22,12 @@ namespace BugfixesAndQoL.UnitCommands
         [Key(12)] public ushort UnitCount;
         [Key(13)] public ulong PlanHash;
         [Key(14)] public ushort Rows;
+        [Key(15)] public ulong SelectionHash;
     }
 
     internal sealed class FormationOrderPacketFormatter : IMessagePackFormatter<FormationOrderPacket>
     {
-        private const int FieldCount = 15;
+        private const int FieldCount = 16;
 
         // MessagePack's attribute resolver instantiates this formatter by reflection.
         public FormationOrderPacketFormatter() { }
@@ -58,6 +59,7 @@ namespace BugfixesAndQoL.UnitCommands
             writer.Write(value.UnitCount);
             writer.Write(value.PlanHash);
             writer.Write(value.Rows);
+            writer.Write(value.SelectionHash);
         }
 
         public FormationOrderPacket Deserialize(
@@ -88,6 +90,7 @@ namespace BugfixesAndQoL.UnitCommands
                     case 12: packet.UnitCount = reader.ReadUInt16(); break;
                     case 13: packet.PlanHash = reader.ReadUInt64(); break;
                     case 14: packet.Rows = reader.ReadUInt16(); break;
+                    case 15: packet.SelectionHash = reader.ReadUInt64(); break;
                     default: reader.Skip(); break;
                 }
             }

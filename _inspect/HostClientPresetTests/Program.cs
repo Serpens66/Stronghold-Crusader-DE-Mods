@@ -100,6 +100,7 @@ internal static class Program
 
     private static int Main(string[] args)
     {
+        APIShared.Localization.UiText.Configure(() => "en-US");
         string documentsRoot = Path.Combine(Path.GetTempPath(), "HostClientDocuments-" + Guid.NewGuid().ToString("N"));
         PresetFixtureInstallRoot = Path.Combine(documentsRoot, "installation");
         Directory.CreateDirectory(PresetFixtureInstallRoot);

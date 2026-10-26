@@ -150,7 +150,8 @@ try {
     $panelActive = @($front.Fields | Where-Object Name -CEQ 'panelActive')
     if ($panelActive.Count -ne 1 -or -not $panelActive[0].IsPublic -or $panelActive[0].IsStatic -or
         $panelActive[0].FieldType.FullName -cne 'System.Boolean') { throw 'Coop presentation input gate contract changed.' }
-    foreach ($contract in @(@('MPsetupData', 'EngineInterface/MultiplayerSetupData'), @('selectedMPHeader', 'FileHeader'),
+    foreach ($contract in @(@('MPMapChecked', 'System.Boolean'), @('MPMapValid', 'System.Boolean'),
+        @('MPsetupData', 'EngineInterface/MultiplayerSetupData'), @('selectedMPHeader', 'FileHeader'),
         @('MPLocalReady', 'System.Boolean'), @('MPLocalReadyLocked', 'System.Boolean'))) {
         $field = @($front.Fields | Where-Object Name -CEQ $contract[0])
         if ($field.Count -ne 1 -or -not $field[0].IsPrivate -or $field[0].IsStatic -or

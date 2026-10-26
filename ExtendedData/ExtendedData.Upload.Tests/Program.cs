@@ -17,6 +17,8 @@ namespace ExtendedData
                 return ExpectUnsafePackage(args[1]);
 
             Run("Coop launch blocks remain visible without diagnostics", TestCoopLaunchBlockLogs);
+            Run("Coop block chat chunks and transition deduplication", TestCoopBlockChatState);
+            Run("Coop block logs retain reasons beyond the shared detail limit", TestLongCoopBlockLog);
             Run("complete package and retry", TestCompletePackageAndRetry);
             Run("upload allowlist and excluded gameplay gate", TestUploadAllowlistAndExcludedWarning);
             Run("local and Workshop Lord source selection", TestLordSourceSelection);
@@ -44,6 +46,27 @@ namespace ExtendedData
                 ? "All CustomLordUpload tests passed."
                 : failures + " CustomLordUpload test(s) failed.");
             return failures == 0 ? 0 : 1;
+        }
+
+        private static void TestCoopBlockChatState()
+        {
+            string reason = string.Concat(Enumerable.Repeat("\U0001F40D", 300)) + " complete final reason";
+            string[] messages = CoopLaunchBlockDiagnostics.ChatMessages("Ready", new[] { reason, "other failure" });
+            Assert(messages.Length > 1 && messages.All(message => message.Length <= 280), "chat text was truncated or exceeds Vanilla limits");
+            string reconstructed = string.Concat(messages.Select(message =>
+                System.Text.RegularExpressions.Regex.Replace(message.Substring(CoopLaunchBlockDiagnostics.ChatPrefix.Length), @"^\[\d+/\d+\] ", "")));
+            Assert(reconstructed == "Ready: " + reason + "; other failure", "chat chunks lost or reordered a reason");
+            Assert(messages.All(message => !char.IsHighSurrogate(message[message.Length - 1])), "chunk split a surrogate pair");
+            var state = new CoopLaunchAnnouncementState();
+            DateTime now = DateTime.UtcNow;
+            Assert(state.ShouldSend("lobby1", "Lobby", new[] { "a", "b" }, true, now), "first transition hidden");
+            Assert(!state.ShouldSend("lobby1", "Lobby", new[] { "b", "a" }, true, now.AddMinutes(1)), "unchanged set was repeated");
+            Assert(state.ShouldSend("lobby1", "Ready", new[] { "c" }, false, now), "different click reason hidden");
+            Assert(!state.ShouldSend("lobby1", "Ready", new[] { "c" }, false, now.AddSeconds(1)), "click throttle missing");
+            Assert(state.ShouldSend("lobby1", "Ready", new[] { "c" }, false, now.AddSeconds(3)), "explicit retry hidden indefinitely");
+            Assert(!state.ShouldSend("lobby1", "Lobby", Array.Empty<string>(), true, now.AddSeconds(3)), "cleared state announced as a block");
+            Assert(state.ShouldSend("lobby1", "Lobby", new[] { "a", "b" }, true, now.AddSeconds(3)), "reappearing reason hidden");
+            Assert(state.ShouldSend("lobby2", "Lobby", new[] { "a", "b" }, true, now.AddSeconds(3)), "new lobby inherited suppression");
         }
 
         private static void TestCoopLaunchBlockLogs()
@@ -84,6 +107,19 @@ namespace ExtendedData
                 Assert(messages.Count == reasons.Length + 3, "independent sender was suppressed");
                 Assert(messages.All(item => System.Text.RegularExpressions.Regex.IsMatch(item.Data.ToString(),
                     @"^\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}\]")), "millisecond timestamp missing");
+            }
+        }
+
+        private static void TestLongCoopBlockLog()
+        {
+            using (var log = new ManualLogSource("long-coop-block-fixture"))
+            {
+                var messages = new List<string>();
+                log.LogEvent += (_, args) => messages.Add(args.Data.ToString());
+                string reason = new string('x', 8000) + " complete final reason";
+                CoopLaunchBlockDiagnostics.ReportLocal(log, "Ready", reason, "package and mission context");
+                Assert(messages.Count > 1 && messages.Last().Contains("complete final reason") &&
+                    messages.Last().Contains("package and mission context"), "shared ledger truncated a long block report");
             }
         }
 

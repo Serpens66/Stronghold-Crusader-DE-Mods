@@ -56,11 +56,11 @@ internal static class Program
         Check(Activator.CreateInstance(typeof(FormationOrderPacketFormatter)) != null,
             "attribute formatter has a public reflection constructor");
         var packet = new FormationOrderPacket {
-            ProtocolVersion = 6, OperationId = 42, TribeId = 4499,
+            ProtocolVersion = 7, OperationId = 42, TribeId = 4499,
             TargetX = 399, TargetY = 398, IsNewOrder = 1, MoveType = -255,
             Formation = (byte)FormationKind.Wedge, Density = 4,
             PlacementMode = (byte)RangedPlacementMode.Rear, DirectionSector = 7,
-            Rows = 20, Width = 200, UnitCount = 4000, PlanHash = ulong.MaxValue
+            Rows = 20, Width = 200, UnitCount = 4000, PlanHash = ulong.MaxValue, SelectionHash = 0xDEADBEEF12345678
         };
         byte[] wire = MessagePack.MessagePackSerializer.Serialize(packet);
         FormationOrderPacket restored = MessagePack.MessagePackSerializer.Deserialize<FormationOrderPacket>(wire);
@@ -70,7 +70,7 @@ internal static class Program
             restored.IsNewOrder == packet.IsNewOrder && restored.MoveType == packet.MoveType &&
             restored.Formation == packet.Formation && restored.Density == packet.Density &&
             restored.PlacementMode == packet.PlacementMode && restored.DirectionSector == packet.DirectionSector &&
-            restored.Rows == packet.Rows && restored.Width == packet.Width && restored.UnitCount == packet.UnitCount && restored.PlanHash == packet.PlanHash,
+            restored.Rows == packet.Rows && restored.Width == packet.Width && restored.UnitCount == packet.UnitCount && restored.PlanHash == packet.PlanHash && restored.SelectionHash == packet.SelectionHash,
             "all selection and order fields round-trip using the installed MessagePack resolver");
     }
 

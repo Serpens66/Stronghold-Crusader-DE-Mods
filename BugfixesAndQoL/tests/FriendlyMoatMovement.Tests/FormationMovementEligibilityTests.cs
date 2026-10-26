@@ -14,9 +14,10 @@ internal static class FormationMovementEligibilityTests
             "FormationRuntime", "BugfixesAndQoL/src/Formations")).GetRoot();
         string[] methods = { "OnUnitMoveHere", "PruneUnitAssignmentFrames",
             "ClearUnitAssignmentFrames", "TryGetMatchingUnit", "FinishUnitAssignmentFrame",
-            "RunUnitFallbacks", "LogFormationOrderResult" };
+            "RunUnitFallbacks", "LogFormationOrderResult", "OnTribeIssueOrderMoveHere",
+            "ComputeSelectionHash", "ResolveAdmittedRows", "CombineAdmissionPlanHash", "ComputePlanHash" };
         string[] types = { "ActiveFormationCommand", "UnitAssignmentFrame", "NativeDestination",
-            "UnitFallbackAttempt", "UnitFallbackRequest", "UnitFallbackSummary" };
+            "UnitFallbackAttempt", "UnitFallbackRequest", "UnitFallbackSummary", "SelectionIdentity" };
         string members = string.Join("\n", syntax.DescendantNodes()
             .Where(n => n is MethodDeclarationSyntax m && m.ExplicitInterfaceSpecifier == null && methods.Contains(m.Identifier.Text) ||
                 n is BaseTypeDeclarationSyntax t && types.Contains(t.Identifier.Text))
@@ -25,7 +26,7 @@ internal static class FormationMovementEligibilityTests
 using System;using System.Linq;using System.Collections.Generic;
 using SHCDESE.Interop;using SHCDESE.API;using SHCDESE.EventAPI;using SHCDESE.EventAPI.Units;
 namespace SHCDESE.EventAPI {public enum EventHookPhase {Pre,Post}}
-namespace SHCDESE.EventAPI.Tribes {public class TribeIssueOrderMoveHereEventArgs {}}
+namespace SHCDESE.EventAPI.Tribes {public class TribeIssueOrderMoveHereEventArgs {public EventHookPhase Phase;public bool SkipOriginalFunction;}}
 namespace SHCDESE.EventAPI.Units {
     public class UnitMoveHereEventArgs {
         public EventHookPhase Phase;public int UnitId,TileX,TileY,Unknown;
@@ -59,17 +60,36 @@ namespace SHCDESE.API {
 }
 namespace BugfixesAndQoL.UnitCommands {
     using SHCDESE.EventAPI.Tribes;
+    internal static class UnitCommandPathAPI {internal static Commands Runtime=new Commands();}
+    internal sealed class Commands {
+        internal int Blocked;
+        internal FormationUnit[] AdmitFormationMembers(FormationUnit[] units,int tribe,int x,int y)=>units.Where(u=>u.UnitId>Blocked).ToArray();
+    }
     public unsafe class EligibilityFixture {
         private readonly object stateSync=new object();private bool Enabled=true;
         private ActiveFormationCommand activeCommand;private UnitAssignmentFrame unitAssignmentFrame;
         private UnitFallbackAttempt unitFallbackAttempt;
+        private PendingFormationCommand pendingCommand;
+        private ActiveFormationCommand commonGroupCommand;
+        private FormationUnit[] ordered;
+        private int availableSlots=8,plannedCount,plannedRows;
+        private void DetectUnexpectedSecondOrder(TribeIssueOrderMoveHereEventArgs args,PendingFormationCommand pending){}
+        private FormationUnit[] CaptureOrderedGroupUnits(int tribe)=>ordered;
+        private NativeDestination[] BuildManagedDestinations(int x,int y,FormationKind kind,int density,int direction,int rows,
+            RangedPlacementMode placement,FormationUnit[] units,bool explicitDirection,out object indicator) {
+            indicator=null;plannedCount=units.Length;plannedRows=rows;
+            if(units.Length>availableSlots)throw new Exception("No room for all selected units");
+            return units.Select(u=>new NativeDestination(0,570+u.UnitId,361,u.Role)).ToArray();
+        }
         private readonly List<string> Logs=new List<string>();
         private void LogDebugNoThrow(string text)=>Logs.Add(text);
         private void LogWarningNoThrow(string text)=>Logs.Add(text);
         private void DisableAfterNativeFailure(string contract,Exception e)=>throw new Exception(contract,e);
-        private class Packet {public int TribeId=415,TargetX=562,TargetY=360,IsNewOrder=1,OperationId=12;}
+        private class FormationOrderPacket {public int TribeId=415,TargetX=562,TargetY=360,IsNewOrder=1,OperationId=12;
+            public int Formation,Density=2,UnitCount,DirectionSector,Rows=2,Width=3,PlacementMode;public ulong PlanHash,SelectionHash;}
         private class PendingFormationCommand {
-            public Packet Packet=new Packet();public string Source="fixture";
+            public FormationOrderPacket Packet=new FormationOrderPacket();public string Source="fixture";
+            public bool NativeDispatchObserved;
             public bool Matches(TribeIssueOrderMoveHereEventArgs args)=>true;
         }
         __MEMBERS__
@@ -143,6 +163,29 @@ namespace BugfixesAndQoL.UnitCommands {
             Check(calls.Count==0,"Ambiguous same-unit parent acquired fallback permission");
             current=new EligibilityFixture();calls.Clear();var empty=current.CreateCommand(0x3d,0x28,0x29);
             current.Finish(empty);Check(calls.Count==0&&empty.SkippedTerminalCount==3,"Stationary-only group moved");
+            foreach(int blocked in new[]{0,3,5}) {
+                current=new EligibilityFixture();
+                current.ordered=Enumerable.Range(1,6).Select(id=>new FormationUnit(id,(uint)(id+100),22,FormationRole.Neutral)).ToArray();
+                current.pendingCommand=new PendingFormationCommand();var packet=current.pendingCommand.Packet;
+                packet.Formation=(int)FormationKind.Line;packet.UnitCount=6;packet.SelectionHash=ComputeSelectionHash(current.ordered);packet.PlanHash=0;
+                current.availableSlots=6-blocked;UnitCommandPathAPI.Runtime.Blocked=blocked;
+                current.OnTribeIssueOrderMoveHere(new TribeIssueOrderMoveHereEventArgs{Phase=EventHookPhase.Pre});
+                Check(current.plannedCount==6-blocked && current.activeCommand.ExpectedCount==6-blocked,
+                    "only admitted members occupy formation slots on a small island");
+                Check(current.plannedRows==Math.Max(1,(6-blocked+2)/3),"formation retains intended width for the admitted subset");
+                Check(current.activeCommand.ExecutionPlanHash!=0,"execution hash includes full selection and admitted mask");
+            }
+            current=new EligibilityFixture();current.pendingCommand=new PendingFormationCommand();
+            var consumed=current.pendingCommand;
+            current.OnTribeIssueOrderMoveHere(new TribeIssueOrderMoveHereEventArgs{Phase=EventHookPhase.Pre,SkipOriginalFunction=true});
+            Check(consumed.NativeDispatchObserved && current.activeCommand==null && current.plannedCount==0,
+                "all-rejected order is handled without planning slots or replaying native movement");
+            current=new EligibilityFixture();current.ordered=new[]{new FormationUnit(1,101,22,FormationRole.Neutral)};
+            current.pendingCommand=new PendingFormationCommand();current.pendingCommand.Packet.UnitCount=1;
+            current.pendingCommand.Packet.SelectionHash=ComputeSelectionHash(current.ordered)+1;
+            current.OnTribeIssueOrderMoveHere(new TribeIssueOrderMoveHereEventArgs{Phase=EventHookPhase.Pre});
+            Check(current.activeCommand==null && current.plannedCount==0,"identity mismatch rejects formation before planning");
+            UnitCommandPathAPI.Runtime.Blocked=0;
             APIShared.UnitAccess.Units=null;
         }
     }

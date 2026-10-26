@@ -12,12 +12,16 @@ namespace CommandFixture
         internal int r_ControllableForPlayerId, r_CurrentTilePositionX, r_CurrentTilePositionY;
         internal uint r_GlobalId, r_CurrentPositionTileId;
         internal bool Digger;
-        internal int r_UnitChimp, r_TribeId, r_AI_LastIssuedTribeCommand;
+        internal int r_UnitChimp;
+        internal int r_TribeId, r_AI_LastIssuedTribeCommand;
         internal ushort r_IsKilledByProjectile;
         internal ushort r_PathConnectionMode;
         internal ushort r_NextTilePositionX2, r_NextTilePositionY2;
+        internal ushort r_MovementSubstep;
+        internal ushort r_PathPlanStateBitFlags;
+        internal ushort N000000DB;
     }
-    internal struct GameTribe { internal int r_PlayerIdOwner, r_LeaderUnitId; }
+    internal struct GameTribe { internal int r_PlayerIdOwner, r_LeaderUnitId, r_UnitsInGroup; }
     internal unsafe sealed class GameTribeManagerAPI
     {
         internal static GameTribeManagerAPI Instance = new();
@@ -29,6 +33,7 @@ namespace CommandFixture
         internal static GamePlayerManagerAPI Instance = new();
         internal bool Ai;
         internal bool IsAIPlayer(int id) => Ai;
+        internal bool IsPlayerIdValid(int id) => id>=1 && id<=8;
     }
     internal sealed class GameTileManagerAPI
     {
@@ -41,6 +46,10 @@ namespace CommandFixture
         internal EventHookPhase Phase;
         internal bool SkipOriginalFunction;
         internal int TribeId=1, TileX=20, TileY=20;
+        internal short IsPatrolPath;
+        internal bool IsNewOrder = true;
+        internal int MoveType;
+        internal long ReturnValue;
     }
     internal enum EventHookPhase { Pre, Post }
     internal sealed class TribeIssueOrderWithTargetEventArgs { internal EventHookPhase Phase; internal bool SkipOriginalFunction; }
@@ -94,6 +103,7 @@ namespace CommandFixture
             internal int TribeId=1, TargetX=20, TargetY=20, UnitsOnMoatAtDispatch=1;
             internal int[] ActiveUnitIdsAtDispatch={1,2};
             internal bool NativeCommonFallback;
+            internal int UnitMoveCalls;
         }
         private void ClearUnitMoveFrames()=>unitMoveFrame=null;
         private Action<TribeIssueOrderMoveHereEventArgs> queueMoveEvent;
@@ -129,6 +139,7 @@ namespace CommandFixture
             fixture.DispatchTests();
             new UnitCommandPathRuntime().RejectTests();
             new UnitCommandPathRuntime().GroundTests();
+            new UnitCommandPathRuntime().RecoveryTests();
             Console.WriteLine($"PASS: {assertions} actual manual-path and mixed-group assertions.");
         }
         private void DispatchTests()

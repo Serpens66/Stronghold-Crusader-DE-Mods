@@ -27,22 +27,32 @@ var proof=CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"Bugfixe
 var proofDiag=CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"BugfixesAndQoL/src/UnitCommands/Cursor/CursorRegionRejectProof.DevDiag.cs")), options, "CursorRegionRejectProof.DevDiag.cs");
 var ground=CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"BugfixesAndQoL/src/UnitCommands/Cursor/CursorGroundRejectRuntime.cs")), options, "CursorGroundRejectRuntime.cs");
 var region=CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"BugfixesAndQoL/src/UnitCommands/Attack/UnitCommandPathRuntime.RegionFallback.cs")), options);
+var recovery=CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"BugfixesAndQoL/src/UnitCommands/Runtime/ManualGroupAdmission.cs")), options);
+var admissionNames = new HashSet<string> { "BeginManualGroupAdmission", "EndManualGroupAdmission", "IsMixedManualGroup", "QueryManualGroupRegion",
+    "manualAdmissionReady", "manualAdmissionPool", "manualAdmission", "manualAdmissionGeneration", "AdmitFormationMembers", "manualPlayerMove", "ManualPlayerMoveFrame" };
+names.Add("moveAdmissionParents");
+names.Add("queueDefersMove");
+var unitMovement=CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"BugfixesAndQoL/src/UnitCommands/Movement/UnitMovementContext.cs")), options);
 names.Add("ObserveScopedRegionPairReachability");
-var members=(diagnostic ? new[]{syntax,permanent,traversal,adapter,proof,proofDiag,region,ground} : new[]{syntax,permanent,traversal,proof,region,ground}).SelectMany(t=>t.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>()
+var members=(diagnostic ? new[]{syntax,permanent,traversal,adapter,proof,proofDiag,region,ground,recovery} : new[]{syntax,permanent,traversal,proof,region,ground,recovery}).SelectMany(t=>t.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>()
     .Single(c=>c.Identifier.Text=="UnitCommandPathRuntime").Members).Where(m=>m switch {
         _ when m.SyntaxTree==proof || m.SyntaxTree==proofDiag || m.SyntaxTree==ground=>true,
+        MethodDeclarationSyntax method when m.SyntaxTree==recovery=>admissionNames.Contains(method.Identifier.Text),
+        FieldDeclarationSyntax field when m.SyntaxTree==recovery=>field.Declaration.Variables.Any(v=>admissionNames.Contains(v.Identifier.Text)),
+        StructDeclarationSyntax type when m.SyntaxTree==recovery=>admissionNames.Contains(type.Identifier.Text),
         MethodDeclarationSyntax method=>names.Contains(method.Identifier.Text),
         ClassDeclarationSyntax type=>names.Contains(type.Identifier.Text),
         StructDeclarationSyntax type=>names.Contains(type.Identifier.Text),
         FieldDeclarationSyntax field=>field.Declaration.Variables.Any(v=>names.Contains(v.Identifier.Text)),
         _=>false}).ToArray();
+members = members.Append(unitMovement.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single(m=>m.Identifier.Text=="GetNativeMovementStart")).ToArray();
 // Exercise the actual native fallback dispatch before the unrelated addon
 // qualification branches. These original-first prefixes are the command seam.
 var runtimeSyntax=CSharpSyntaxTree.ParseText(FeatureSourceModel.Read(root, "UnitCommandPathRuntime"));
 var fallbackPrefixes=new List<MethodDeclarationSyntax>();
 foreach(var (name,count,guard) in new[] {
-    ("SelectOwnerSafeGroupMoatMode",4,"NativeCommonFallback"),
-    ("AllowBuilderAfterFailedRegionSearch",2,"IsNativeManualGroupFlood") })
+    ("SelectOwnerSafeGroupMoatMode",5,"NativeCommonFallback"),
+    ("AllowBuilderAfterFailedRegionSearch",3,"IsNativeManualGroupFlood") })
 {
     var method=runtimeSyntax.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>()
         .Single(m=>m.Identifier.Text==name);
@@ -62,6 +72,8 @@ trees.Add(CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"Bugfixe
 trees.Add(CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"BugfixesAndQoL/src/UnitCommands/Cursor/CursorGroundRejectProof.cs")), options));
 trees.Add(CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"BugfixesAndQoL/tests/FriendlyMoatMovement.Tests/ManualRejectHarness.cs")), options));
 trees.Add(CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"BugfixesAndQoL/tests/FriendlyMoatMovement.Tests/ManualGroundHarness.cs")), options));
+trees.Add(CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"BugfixesAndQoL/tests/FriendlyMoatMovement.Tests/ManualRecoveryHarness.cs")), options));
+trees.Add(CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"BugfixesAndQoL/src/UnitCommands/Runtime/ManualRegionAdmissionBatch.cs")), options));
 if (diagnostic)
 {
     trees.Add(CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"BugfixesAndQoL/src/UnitCommands/Runtime/ManualProbeCapture.DevDiag.cs")), options));
@@ -78,6 +90,7 @@ catch(TargetInvocationException e){System.Runtime.ExceptionServices.ExceptionDis
 }
 MoatModeFlagContract.Validate();
 NativeCommandDetourContract.Validate(root);
+ManualAdmissionMachineTests.Validate();
 CursorPermissionNativeTests.Validate(root);
 MovementLifeGeneratorTests.Validate(root);
 RallyTerrainGeneratorTests.Validate(root);
@@ -87,4 +100,5 @@ FormationMoveRuntimeTests.Validate(root);
 FormationMarkerFallbackTests.Validate(root);
 CircleProjectionTests.Validate(root);
 FormationMovementEligibilityTests.Validate(root);
+FormationDispatchOutcomeTests.Validate(root);
 Console.WriteLine("PASS: main command fixes use native probes and group fallback; actual installed RedBird contracts verified.");

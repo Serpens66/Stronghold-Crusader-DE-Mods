@@ -27,7 +27,7 @@ namespace BugfixesAndQoL.UnitCommands
 {
     internal sealed unsafe partial class FormationRuntime : IFormationCommandHandler
     {
-        private const int ProtocolVersion = 6;
+        private const int ProtocolVersion = 7;
         private const int MapWidth = 800;
         private const int MaximumUnitCount = 10000;
         private const int MaximumTribeCount = 4500;

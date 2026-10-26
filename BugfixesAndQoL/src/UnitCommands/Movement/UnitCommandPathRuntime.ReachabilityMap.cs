@@ -36,6 +36,7 @@ namespace BugfixesAndQoL.UnitCommands
 
         internal void ResetMapState()
         {
+            ResetManualGroupAdmission();
             // TEMP_GATE_ROUTE_ACCEPTANCE: maps never retain an unfinished order association.
 #if SERP_DEVDIAG
             if (temporaryAssassinScope != null)

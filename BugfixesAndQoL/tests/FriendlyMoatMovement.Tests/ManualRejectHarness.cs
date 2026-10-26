@@ -37,7 +37,7 @@ namespace CommandFixture
         private Func<IntPtr,int,int,int> originalBuildingCursorReachability=(m,b,id)=>0;
         private int? effectiveRegionOverride;
         private bool badContract;
-        private void TryLogDiagnosticFailure(string stage,Exception error){}
+        private void TryLogDiagnosticFailure(string stage,Exception error)=>diagnosticFailures.Add(stage+":"+error.Message);
         private static AttackCursorPairScope CreateCursorScopeForSnapshot(AttackCursorPairScope t,SelectedCursorUnitSnapshot u)=>new() {
             UnitId=u.UnitId,PlayerId=t.PlayerId,TargetX=t.TargetX,TargetY=t.TargetY,FallbackKind=t.FallbackKind,BuildingId=t.BuildingId };
         private int CallBuildingCursorWithRegions(IntPtr m,int b,int id)=>ProbeNativeCursorPath(id,20,20)?1:0;

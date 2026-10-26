@@ -193,6 +193,17 @@ namespace ExtendedData
 
             public event Action CoopPackagesChanged;
             internal event Action CoopPackageExported;
+            internal Action<string, string, string> LaunchBlocked { get; set; }
+
+            private void ReportLaunchBlock(string reason, string detail = null)
+            {
+                if (LaunchBlocked != null) LaunchBlocked("Play", reason, detail);
+                else
+                {
+                    Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData.ConfigurationLaunchBlocked", reason, detail);
+                    ShowInformation(SerpLocalization.Get("ExtendedData.StartBlockedTitle"), reason);
+                }
+            }
             public event Action CoopSetupOpened;
             public event Action<int, int> CoopLaunchReceived;
             public event Action<FRONT_Multiplayer> LobbyOpened;
@@ -885,6 +896,7 @@ namespace ExtendedData
                 }
                 // Button callers use their contextual reporter; other launch routes retain one dialog.
                 if (onBlocked != null) onBlocked(reason);
+                else if (LaunchBlocked != null) LaunchBlocked("Play", reason, null);
                 else
                 {
                     Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData.ConfigurationLaunchBlocked", reason);
@@ -2216,7 +2228,7 @@ namespace ExtendedData
                         Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:1990", $"Could not prepare Custom Trail mod settings: {exception}");
                         if (ModSettingsApplication.HasApplicationEndpoints || ModSettingsApplication.HasRestartPreparation || ModSettingsApplication.HasActivationFailures)
                         {
-                            ShowInformation(SerpLocalization.Get("ExtendedData.StartBlockedTitle"), exception.GetBaseException().Message);
+                            ReportLaunchBlock(exception.GetBaseException().Message, exception.ToString());
                             return;
                         }
                         ApplyDocument(ModSettingsDefinition.CreateModDefaults(), editable: false);
@@ -2253,7 +2265,7 @@ namespace ExtendedData
                     LordDataCoordinator?.SetEmbeddedTrailSlots(null);
                     LordDataCoordinator?.PrepareTrail(null, null, false, out _);
                     Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:2029", "Blocked Custom Trail launch: " + exception);
-                    ShowInformation(SerpLocalization.Get("ExtendedData.StartBlockedTitle"), exception.Message);
+                    ReportLaunchBlock(exception.Message, exception.ToString());
                     RecoverCoopDraft();
                     return;
                 }
@@ -2469,8 +2481,7 @@ namespace ExtendedData
                             LordDataCoordinator?.SetEmbeddedTrailSlots(null);
                             LordDataCoordinator?.PrepareTrail(null, null, false, out _);
                             Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:2211", "Blocked customized Custom Trail launch: " + exception);
-                            ShowInformation(SerpLocalization.Get("ExtendedData.StartBlockedTitle"),
-                                exception.Message);
+                            ReportLaunchBlock(exception.Message, exception.ToString());
                             return;
                         }
                     }
@@ -2496,7 +2507,7 @@ namespace ExtendedData
                             string reason = exception is Shared.CoopAiSelectionException selection
                                 ? SerpLocalization.Get("CoopAi.Error." + selection.Code).Replace("{Player}", selection.PlayerId.ToString())
                                 : exception.Message;
-                            ShowInformation(SerpLocalization.Get("ExtendedData.StartBlockedTitle"), reason);
+                            ReportLaunchBlock(reason, exception.ToString());
                             return;
                         }
                     }

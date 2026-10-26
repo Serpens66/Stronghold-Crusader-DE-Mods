@@ -6,6 +6,10 @@ Settings are grouped into collapsible topics with search and recommendation mark
 
 ## Fixes
 
+### Fix Tree Blight decay
+
+This enabled-by-default, Recommended host fix starts woodland trees killed by Tree Blight at the beginning of their normal dead phase and lets them decay even if they were previously damaged or felled. It covers both Vanilla events and events triggered by RandomEvents, and repairs stalled dead trees from existing saves during normal simulation updates. The trees stop blocking construction when they disappear; they cannot be built over before then. The setting is under **Host → Economy → Fixes**.
+
 ### Restore terrain slowdown on the way to rally points
 
 The enabled-by-default **Fix Rally Point Terrain Slowdown** setting preserves Vanilla slowdown in swamps, fords and while climbing. Vanilla's rally movement state otherwise overwrites the terrain-adjusted movement delay with the unit's base delay before moving. The fix applies to all affected troop types, human and AI players, and units restored from saved games.

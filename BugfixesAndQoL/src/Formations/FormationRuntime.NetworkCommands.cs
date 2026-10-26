@@ -51,9 +51,11 @@ namespace BugfixesAndQoL.UnitCommands
                 Width = (ushort)width,
                 Rows = checked((ushort)state.Rows),
                 UnitCount = checked((ushort)state.Selection.Length),
-                PlanHash = state.PreviewPlanHash
+                PlanHash = state.PreviewPlanHash,
+                SelectionHash = ComputeSelectionHash(state.Selection)
             };
-            return state.HasPreviewPlan;
+            // A preview slot shortage must not cancel a move for its reachable subset.
+            return packet.SelectionHash != 0;
         }
 
         private DispatchDisposition TryDispatch(
@@ -152,7 +154,7 @@ namespace BugfixesAndQoL.UnitCommands
                     LogWarningNoThrow(
                         $"FORMATION_ORDER_FELL_BACK_TO_VANILLA: source={source}, " +
                         $"operation={packet.OperationId}, reason=move-command-rejected.");
-                    return false;
+                    return command.NativeDispatchObserved;
                 }
                 return true;
             }
@@ -201,7 +203,9 @@ namespace BugfixesAndQoL.UnitCommands
             LogWarningNoThrow(
                 $"FORMATION_ORDER_FELL_BACK_TO_VANILLA: source={source}, " +
                 $"operation={packet.OperationId}, reason={reason}, issued={issued}.");
-            return issued;
+            // The native command was already submitted. A negative movement result
+            // must not replay the original release as a second whole-group order.
+            return true;
         }
 
         private static bool ValidatePacket(FormationOrderPacket packet, out string rejection)
@@ -237,8 +241,8 @@ namespace BugfixesAndQoL.UnitCommands
             else if (packet.Width != FormationModel.ResolveWidthForRows(
                          (FormationKind)packet.Formation, packet.UnitCount, packet.Rows))
                 rejection = "width does not match rows";
-            else if (packet.PlanHash == 0UL)
-                rejection = "managed formation packet has no plan hash";
+            else if (packet.SelectionHash == 0UL)
+                rejection = "managed formation packet has no selection identity hash";
             else if (packet.IsNewOrder != 0 && packet.IsNewOrder != 1)
                 rejection = "invalid new-order flag";
             else if (packet.MoveType != (int)TribeMoveType.DefaultInSync &&

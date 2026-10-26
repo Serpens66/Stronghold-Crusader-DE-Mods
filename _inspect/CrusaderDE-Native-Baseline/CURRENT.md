@@ -1,5 +1,7 @@
 # Current CrusaderDE Native Baseline
 
+- [Packaged Coop maps and Ready admission](./sem/FBCB9319/knowledge/COOP_PACKAGE_MAP_READINESS.md): direct package headers versus Vanilla multiplayer catalogs, cached verification, silent Ready rejection and lobby system-message rendering; confirmed-static managed path, two-peer acceptance pending.
+
 - [NativeKnowledge in Ghidra](./tools/semantic/NATIVE_KNOWLEDGE.md): all 88 APIShared catalog fields and four double-reviewed function records, including newly named building-height-offset and unit-standing-height helpers; confidence, provenance, historical views and reader documentation remain visible; raw baseline unchanged.
 
 - [CastlePlanner visual observation](./sem/FBCB9319/knowledge/CASTLE_VISUAL_OBSERVATION.md): construction and native/managed graphics boundaries, read-only diagnostic snapshots and pending Wolf-6 reproduction evidence.

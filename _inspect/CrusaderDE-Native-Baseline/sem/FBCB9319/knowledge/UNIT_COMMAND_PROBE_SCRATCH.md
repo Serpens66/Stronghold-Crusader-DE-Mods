@@ -76,3 +76,7 @@ map/tick/placement/diplomacy boundaries remain required. The stamp set must be
 materialized before restoring the probe but published only after restoration.
 The complete original scratch closure above is still required for every executed
 probe. No smaller buffer, expanded batch lifetime, or extra native search follows.
+
+Dry mixed-group command recovery uses a separate macro-query write closure, not
+a reduced 18E1E0 snapshot. See [MANUAL_GROUP_REGION_RECOVERY.md](MANUAL_GROUP_REGION_RECOVERY.md)
+for the full E2610 machine audit, three-int restoration and command Post ordering.
