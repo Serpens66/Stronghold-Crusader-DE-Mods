@@ -136,6 +136,15 @@ set /a CHECK_SCOPES=NOTIFICATION_CHECKS+GATEHOUSE_CHECKS+FOREIGN_HUD_CHECKS+SETT
 if %CHECK_SCOPES% GTR 1 goto build_failed
 pushd "%PROJECT_DIR%"
 if "%BUILD_TEST_MODE%"=="none" goto foreign_hud_checks_completed
+rem Exercise the linked production display hook in every checked build, including quick mode.
+call :step_start "tests" "display-DisplayResolutionFocusGuardTests.csproj"
+"%MSBUILD%" "%PROJECT_DIR%..\_inspect\DisplayResolutionFocusGuardTests\DisplayResolutionFocusGuardTests.csproj" /p:Configuration=Release /nologo /verbosity:minimal
+call :step_end %ERRORLEVEL%
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+call :step_start "tests" "display-DisplayResolutionFocusGuardTests.exe"
+"%PROJECT_DIR%..\_inspect\DisplayResolutionFocusGuardTests\bin\DisplayResolutionFocusGuardTests.exe"
+call :step_end %ERRORLEVEL%
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 rem Shared Coop selection validation is part of every checked build of both consumers.
 dotnet build "%PROJECT_DIR%..\Shared\Tests\CoopAiStart.Tests\Shared.CoopAiStart.Tests.csproj" -c Release "-p:GameDir=%GAME_DIR%" "-p:ExtenderDir=%EXTENDER_DIR%"
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd

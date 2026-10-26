@@ -34,6 +34,7 @@ namespace BugfixesAndQoL
             options["ShowLoadSaveDialogControls"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.ShowLoadSaveDialogControls");
             options["EnableSoloMultiplayerSaveLoading"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableSoloMultiplayerSaveLoading");
             options["FixSkirmishLoadButtonVisibility"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.FixSkirmishLoadButtonVisibility");
+            options["EnableCompactLobbyChat"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableCompactLobbyChat");
             options["ImproveYellowLobbyContrast"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.ImproveYellowLobbyContrast");
             options["EnableBriefingNoStartingGoldFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableBriefingNoStartingGoldFix");
             options["EnableIngameSteamInvitePrompt"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableIngameSteamInvitePrompt");

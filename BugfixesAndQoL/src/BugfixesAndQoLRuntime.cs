@@ -33,6 +33,7 @@ namespace BugfixesAndQoL
         private readonly CoopCustomLordSelectionFeature coopCustomLordSelectionFeature;
         private static PlacementCancelMoveSuppressionFeature processPlacementCancelMoveSuppressionFeature;
         private static LobbyYellowContrastFeature processLobbyYellowContrastFeature;
+        private static CompactLobbyChatFeature processCompactLobbyChatFeature;
         private static BriefingNoStartingGoldFixRegistration processBriefingNoStartingGoldFixRegistration;
         private ExtendedShiftCommandQueueRuntime extendedShiftCommandQueueRuntime;
         private static ExtendedShiftCommandQueueRuntime processExtendedShiftCommandQueueRuntime;
@@ -625,6 +626,12 @@ namespace BugfixesAndQoL
             TryApplyFeature(
                 "high-contrast yellow presentation",
                 () => processLobbyYellowContrastFeature?.ApplySetting());
+            TryInitializePersistentFeature("compact lobby chat", () =>
+            {
+                if (processCompactLobbyChatFeature == null)
+                    processCompactLobbyChatFeature = new CompactLobbyChatFeature(log, settings);
+            });
+            TryApplyFeature("compact lobby chat", () => processCompactLobbyChatFeature?.ApplySetting());
             TryInitializeFeature("AI castle/settings list enhancements", EnsureAiCastleSettingsListEnhancementHook);
             TryApplyFeature("AI castle/settings list enhancements", () => aiCastleSettingsListEnhancementHook?.ApplySetting());
             TryInitializeFeature("map-origin sorting", EnsureMapOriginSortHook);

@@ -8,8 +8,8 @@
     <OutputType>Library</OutputType>
     <RootNamespace>BugfixesAndQoL</RootNamespace>
     <AssemblyName>BugfixesAndQoL</AssemblyName>
-    <AssemblyVersion>1.0.202.0</AssemblyVersion>
-    <FileVersion>1.0.202.0</FileVersion>
+    <AssemblyVersion>1.0.203.0</AssemblyVersion>
+    <FileVersion>1.0.203.0</FileVersion>
     <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
     <LangVersion>latest</LangVersion>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
@@ -265,6 +265,9 @@
     <Compile Include="src\MapOriginSortPolicy.cs" />
     <Compile Include="src\LobbyMapSelectionMemory.cs" />
     <Compile Include="src\LobbyYellowContrastFeature.cs" />
+    <Compile Include="src\CompactLobbyChatFeature.cs" />
+    <Compile Include="src\CompactLobbyChatLayout.cs" />
+    <Compile Include="src\CompactLobbyChatIl.cs" />
     <Compile Include="src\LobbyYellowContrastPolicy.cs" />
     <Compile Include="src\BriefingNoStartingGoldFixPolicy.cs" />
     <Compile Include="src\BriefingNoStartingGoldFixRegistration.cs" />

@@ -189,6 +189,13 @@ namespace ExtendedData
         private Hook coopTrail4RowHook;
         private InitCoopMissionsDelegate initTrampoline;
         private CoopMissionChangedDelegate missionTrampoline;
+        // Vanilla's CoopMissionChanged ends with UpdateHostInfo() while the lobby AIVs still hold the previous
+        // mission's Lords; ExtendedData applies the new ones only after the trampoline. Host Lord publication waits
+        // for that (DEVDIAG lobby log 2026-10-26 21:19:56: partner join switched Trail1/10 -> 1/1 and the
+        // intermediate check reported "Selected Lord Falcon has no host configuration").
+        private int missionChangeDepth;
+        private bool hostLordRefreshDeferred;
+        private bool preparingHostTrailLordData;
         private ButtonClickedDelegate buttonTrampoline;
         private UpdateHostInfoDelegate updateHostInfoTrampoline;
         private UpdateCustomLordNamesDelegate updateCustomLordNamesTrampoline;
@@ -201,7 +208,6 @@ namespace ExtendedData
         private CoopPreviewTeams coopTrail2Preview;
         private CoopPreviewTeams coopTrail3Preview;
         private CoopPreviewTeams coopTrail4Preview;
-        private readonly HashSet<string> previewNameFailures = new HashSet<string>(StringComparer.Ordinal);
         private TrailMissionSettingsCoordinator missionSettingsCoordinator;
         private MapModSettingsCoordinator mapSettingsCoordinator;
         private LordDataSyncCoordinator lordDataCoordinator;
@@ -447,6 +453,17 @@ namespace ExtendedData
 
         private void CoopMissionChangedHook(FRONT_Multiplayer self, int trailId, int missionId, bool resetOrderSwapped)
         {
+            try { CoopMissionChangedCore(self, trailId, missionId, resetOrderSwapped); }
+            finally
+            {
+                // Normally ApplySelectedMission already republished; this covers selections without a package mission.
+                if (hostLordRefreshDeferred && missionChangeDepth == 0)
+                    RefreshHostLordData(self);
+            }
+        }
+
+        private void CoopMissionChangedCore(FRONT_Multiplayer self, int trailId, int missionId, bool resetOrderSwapped)
+        {
             if (HasActiveCoopPackage() &&
                 !CoopTrailMissionRange.Contains(settings.ActiveCoopPackageMissionCount, trailId, missionId))
             {
@@ -465,6 +482,15 @@ namespace ExtendedData
                 // genuinely different mission selection ends that pending attempt.
                 coopLaunchPending = false;
             }
+            // View without a partner: Vanilla only updates the title and lobby progress there (CoopMissionChanged returns
+            // while Show_CoopHostInvitePane is shown) and selects the mission again when the partner joins (Update_Coop).
+            // Nothing is resolved or prepared for this selection; only the package mission's title is shown.
+            if (HasActiveCoopPackage() && self?.currentLobby?.isHost == true &&
+                GetExistingMainViewModel()?.Show_CoopHostInvitePane == true)
+            {
+                ShowCoopMissionWithoutPartner(self, trailId, missionId, resetOrderSwapped);
+                return;
+            }
             ResolvedMission next = null;
             if (HasActiveCoopPackage())
             {
@@ -478,7 +504,9 @@ namespace ExtendedData
             missionSettingsCoordinator.ResetCustomizeForNewCoopSelection();
             // Resolve and install BEFORE Vanilla reads the selected table entry.
             selected = next;
-            missionTrampoline(self, trailId, missionId, resetOrderSwapped);
+            missionChangeDepth++;
+            try { missionTrampoline(self, trailId, missionId, resetOrderSwapped); }
+            finally { missionChangeDepth--; }
             PublishPackageMap(self);
             missionSettingsCoordinator.ObserveCoopLobby(self);
             missionSettingsCoordinator.EnsureCoopCustomizeButtons();
@@ -510,6 +538,24 @@ namespace ExtendedData
                 missionSettingsCoordinator.ExitContext();
                 LogError("Could not activate replacement Trail" + (trailId + 1) + "/" + missionId.ToString("00") + ": " + ex);
             }
+        }
+
+        private void ShowCoopMissionWithoutPartner(FRONT_Multiplayer self, int trailId, int missionId, bool resetOrderSwapped)
+        {
+            missionSettingsCoordinator.ResetCustomizeForNewCoopSelection();
+            selected = null;
+            missionChangeDepth++;
+            try { missionTrampoline(self, trailId, missionId, resetOrderSwapped); }
+            finally { missionChangeDepth--; }
+            lordDataCoordinator.SetEmbeddedTrailSlots(null);
+            missingMods = Array.Empty<string>();
+            missionSettingsCoordinator.ExitContext();
+            PublishPackageMap(self);
+            missionSettingsCoordinator.ObserveCoopLobby(self);
+            missionSettingsCoordinator.EnsureCoopCustomizeButtons();
+            MainViewModel model = GetExistingMainViewModel();
+            if (model != null && catalog.TryGet(trailId, missionId, out LoadedMission mission))
+                model.CoopMissionTitle = mission.Definition.DisplayName;
         }
 
         private void ButtonClickedHook(FRONT_Multiplayer self, string command)
@@ -732,17 +778,29 @@ namespace ExtendedData
         private void UpdateHostInfoHook(FRONT_Multiplayer self, bool delayed)
         {
             updateHostInfoTrampoline(self, delayed);
-            if (activation.CoopPackages && !delayed)
+            if (!activation.CoopPackages || delayed)
+                return;
+            if (missionChangeDepth > 0)
             {
-                if (selected != null && CurrentSlotRequiresPackage(self))
-                {
-                    RefreshSelectedLordRequirementStatus(self);
-                    PrepareHostTrailLordData(self);
-                }
-                lordDataCoordinator?.RefreshPackageManifest(self, "host-selection-update");
-                if (lordDataCoordinator?.IsUsingLocalValues != true)
-                    lordDataCoordinator?.RefreshHost(self, "host-selection-update");
+                hostLordRefreshDeferred = true;
+                return;
             }
+            RefreshHostLordData(self);
+        }
+
+        private void RefreshHostLordData(FRONT_Multiplayer self)
+        {
+            hostLordRefreshDeferred = false;
+            if (!activation.CoopPackages)
+                return;
+            if (selected != null && CurrentSlotRequiresPackage(self))
+            {
+                RefreshSelectedLordRequirementStatus(self);
+                PrepareHostTrailLordData(self);
+            }
+            lordDataCoordinator?.RefreshPackageManifest(self, "host-selection-update");
+            if (lordDataCoordinator?.IsUsingLocalValues != true)
+                lordDataCoordinator?.RefreshHost(self, "host-selection-update");
         }
 
         public void RefreshPackageCatalog()
@@ -1020,14 +1078,12 @@ namespace ExtendedData
                 member.GetLordType() >= 29 && member.GetLordType() <= 37 &&
                 playerId >= 2 && playerId <= 8)
             {
-                string failure = self.currentLobby.coopTrailID + "/" +
-                    self.currentLobby.coopSelectedMission + "/" + playerId + "/" +
-                    member.GetLordType() + "/" + member.customLordName;
-                if (previewNameFailures.Add(failure))
-                {
-                    LogWarning("Custom Coop Trail preview name unavailable for slot " + playerId +
-                        ": selected lobby Lord identity is missing or does not match the member.");
-                }
+                // Expected while a mission switch or the host's lobby data is still converging (client log
+                // 2026-10-26 21:28); the Vanilla name is the intended fallback, so this is development diagnostics.
+                Shared.DevDiag.Log(() => "Custom Coop Trail preview name unavailable for slot " + playerId +
+                    ": selected lobby Lord identity is missing or does not match the member (" +
+                    self.currentLobby.coopTrailID + "/" + self.currentLobby.coopSelectedMission + "/" +
+                    member.GetLordType() + "/" + member.customLordName + ").");
             }
             return combinedNameTrampoline(member);
         }
@@ -1211,10 +1267,18 @@ namespace ExtendedData
                 return;
             }
             if (lordDataCoordinator.CanSatisfyTrail(selected.Loaded.LordRequirements,
-                    CurrentLordInfoMap(self), out string reason))
+                    CurrentLordInfoMap(self), out string reason, out bool selectionPending))
             {
                 localPackageError = string.Empty;
                 SetLocalPackageStatus(ExpectedReadyStatus());
+            }
+            // A client compares the new mission with lobby Lord data the host has not republished yet
+            // (client log 2026-10-26 21:28:38). Report it as pending; the host's update re-evaluates it and
+            // APIShared escalates a state that persists. The Start checks remain complete.
+            else if (selectionPending && self?.currentLobby?.isHost == false && !self.singlePlayerCoop)
+            {
+                localPackageError = string.Empty;
+                SetLocalPackageStatus(ExtendedDataSettingsViewModel.WaitingStatus);
             }
             else
                 SetLocalPackageError(ExtendedDataSettingsViewModel.InvalidStatusPrefix + reason, reason);
@@ -1223,16 +1287,25 @@ namespace ExtendedData
         // Publishes the selected Trail's embedded Lord values as soon as the host lobby has a partner, so clients
         // acknowledge them before Start. Without this the first Start click published them and was rejected
         // while the acknowledgement was in flight (DEVDIAG lobby log 2026-10-26 19:15, source=trail-fixes).
-        // The click repeats the preparation with media remapping; an unchanged digest keeps the acknowledgements.
+        // This includes the Lord media names: before, the first Start click published them and was rejected with
+        // "Lord media selection changed; ... start again". The click repeats the preparation; an unchanged digest
+        // and unchanged lobby names keep the acknowledgements.
         private void PrepareHostTrailLordData(FRONT_Multiplayer self)
         {
             if (!activation.CoopPackages || !activation.LordDataIntegration || coopLaunchPending ||
-                selected?.Loaded.LordRequirements == null || self?.currentLobby?.isHost != true ||
-                self.singlePlayerCoop || self.currentLobby.CountHumanPlayers() < 2 || !CurrentSlotRequiresPackage(self))
+                preparingHostTrailLordData || selected?.Loaded.LordRequirements == null ||
+                self?.currentLobby?.isHost != true || self.singlePlayerCoop ||
+                self.currentLobby.CountHumanPlayers() < 2 || !CurrentSlotRequiresPackage(self))
                 return;
-            // A false result only means that acknowledgements are pending or the selection is not satisfiable;
-            // the status provider and the Start click report those reasons.
-            lordDataCoordinator.PrepareTrail(selected.Loaded.LordRequirements, CurrentLordInfoMap(self), false, out _);
+            // Publishing changed media names calls UpdateHostInfo, which re-enters through RefreshHostLordData.
+            preparingHostTrailLordData = true;
+            try
+            {
+                // A false result only means that acknowledgements or the media publication are pending, or the
+                // selection is not satisfiable; the status provider and the Start click report those reasons.
+                PrepareSelectedLordRequirements(out _);
+            }
+            finally { preparingHostTrailLordData = false; }
         }
 
         private bool PrepareSelectedLordRequirements(out string reason, bool captureLocalReplacements = false)

@@ -75,6 +75,12 @@ namespace ExtendedData
                     FRONT_Multiplayer self = GetExistingMainViewModel()?.FRONTMultiplayer;
                     if (self?.currentLobby?.isHost != true || selected?.Loaded.LordRequirements == null ||
                         !CurrentSlotRequiresPackage(self)) return;
+                    // Inside Vanilla's mission switch the slots still hold the previous mission's Lords.
+                    if (missionChangeDepth > 0)
+                    {
+                        hostLordRefreshDeferred = true;
+                        return;
+                    }
                     RefreshSelectedLordRequirementStatus(self);
                     PrepareHostTrailLordData(self);
                 }
@@ -125,6 +131,11 @@ namespace ExtendedData
             FRONT_Multiplayer self = GetExistingMainViewModel()?.FRONTMultiplayer;
             if (readinessInMission || !HasCurrentPackageMap(self) || !IsCurrentSteamLobby(self) ||
                 !string.Equals(result.Request.FileName, self.currentLobby.mapFileName, StringComparison.OrdinalIgnoreCase)) return;
+            // Not a verification result yet: the host's CRC is still unknown, or the local selection still follows a
+            // host package switch (client log 2026-10-26 20:43:35: map=Close Encounters, hostCRC=0, localCRC=0).
+            // The lookup after the selection update decides.
+            if (result.Request.Crc == 0 ||
+                !string.Equals(result.Request.FileName, selected.Header.fileName, StringComparison.OrdinalIgnoreCase)) return;
             bool matchesPackage = result.Header != null &&
                 string.Equals(result.Header.filePath, selected.Header.filePath, StringComparison.OrdinalIgnoreCase) &&
                 result.Header.crc == selected.Header.crc;
@@ -252,7 +263,10 @@ namespace ExtendedData
 
         private void ReportUnacceptedReady(FRONT_Multiplayer self, string command)
         {
-            if (command != "Ready" || ReadLobbyFlag(self, LocalReadyField) || !HasActiveCoopPackage()) return;
+            // Only the custom Coop mission map is ours to explain; in other lobbies (e.g. a skirmish whose map the
+            // client still lacks) Vanilla's own map check and transfer apply.
+            if (command != "Ready" || ReadLobbyFlag(self, LocalReadyField) || !HasActiveCoopPackage() ||
+                self?.currentLobby?.coopTrailGame != true || !CurrentSlotRequiresPackage(self)) return;
             string reason = ReadLobbyFlag(self, MapValidField)
                 ? SerpLocalization.Get("ExtendedData.ReadyNotAccepted") : SerpLocalization.Get("ExtendedData.MapNotVerified");
             BlockLaunch(command, reason, "Vanilla result: mapChecked=" + ReadLobbyFlag(self, MapCheckedField) +

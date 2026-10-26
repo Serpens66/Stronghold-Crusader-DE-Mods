@@ -3,7 +3,7 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.202",
+  "Version": "1.0.203",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.0",
   "MaximumScriptExtenderVersion": "",
@@ -16,6 +16,12 @@
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.203",
+      "Changes": [
+        "Add Compact lobby chat, an enabled-by-default local QoL preference: display shield, sender and message on one line in the multiplayer skirmish lobby and all four Coop Trail chats, with automatic wrapping for long messages. Each player chooses independently of the host; switching restores the existing history without changing chat transport or gameplay."
+      ]
+    },
     {
       "Version": "1.0.202",
       "Changes": [

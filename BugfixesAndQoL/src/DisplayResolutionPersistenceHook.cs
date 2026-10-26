@@ -119,31 +119,20 @@ namespace BugfixesAndQoL
                         out DisplaySettingsSnapshot protectedSettings))
                 {
                     bool changed = !SettingsEqual(current, protectedSettings);
-                    if (changed && !IsSupportedFullscreenResolution(
-                            protectedSettings.FullscreenWidth,
-                            protectedSettings.FullscreenHeight))
+                    RestoreSettings(protectedSettings);
+                    if (changed)
                     {
-                        Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/DisplayResolutionPersistenceHook.cs:126", "Bugfixes and QoL left an automatic display change untouched because this PC no longer " +
-                            $"reports the protected target: observed={current}, protected={protectedSettings}.");
-                        CancelProtection();
-                    }
-                    else
-                    {
-                        RestoreSettings(protectedSettings);
-                        if (changed)
+                        if (!interceptedSaveLogged)
                         {
-                            if (!interceptedSaveLogged)
-                            {
-                                interceptedSaveLogged = true;
-                                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/DisplayResolutionPersistenceHook.cs:140", "Bugfixes and QoL prevented an automatic borderless resolution change " +
-                                    $"from reaching settings.cfg: observed={current}, protected={protectedSettings}, " +
-                                    $"focused={Application.isFocused}.");
-                            }
-
-                            // Focused startup changes have no later focus event, so this Save is the recovery trigger.
-                            if (Application.isFocused)
-                                RecoverProtectedTarget("automatic change detected before settings save");
+                            interceptedSaveLogged = true;
+                            Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/DisplayResolutionPersistenceHook.cs:140", "Bugfixes and QoL prevented an automatic borderless resolution change " +
+                                $"from reaching settings.cfg: observed={current}, protected={protectedSettings}, " +
+                                $"focused={Application.isFocused}.");
                         }
+
+                        // Focused startup changes have no later focus event, so this Save is the recovery trigger.
+                        if (Application.isFocused)
+                            RecoverProtectedTarget("automatic change detected before settings save");
                     }
                 }
                 else if (!IsEnabled && state.IsArmed)
@@ -272,13 +261,8 @@ namespace BugfixesAndQoL
             if (action != DisplayRecoveryAction.ApplyTarget)
                 return;
 
-            if (!IsSupportedFullscreenResolution(target.FullscreenWidth, target.FullscreenHeight))
-            {
-                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/DisplayResolutionPersistenceHook.cs:281", $"Bugfixes and QoL cannot restore the protected borderless target because this PC does not report it: target={target}.");
-                CancelProtection();
-                return;
-            }
-
+            // Screen.resolutions constrains ExclusiveFullScreen, not Borderless render dimensions.
+            // Keep the loaded target even when the monitor's mode list omits it; verify the actual result below.
             Screen.SetResolution(
                 target.FullscreenWidth,
                 target.FullscreenHeight,
@@ -384,21 +368,6 @@ namespace BugfixesAndQoL
                 Screen.fullScreenMode == FullScreenMode.FullScreenWindow &&
                 Screen.width == target.FullscreenWidth &&
                 Screen.height == target.FullscreenHeight;
-        }
-
-        private static bool IsSupportedFullscreenResolution(int width, int height)
-        {
-            Resolution[] resolutions = Screen.resolutions;
-            if (resolutions == null || resolutions.Length == 0)
-                return true;
-
-            foreach (Resolution resolution in resolutions)
-            {
-                if (resolution.width == width && resolution.height == height)
-                    return true;
-            }
-
-            return false;
         }
 
         private bool IsEnabled =>

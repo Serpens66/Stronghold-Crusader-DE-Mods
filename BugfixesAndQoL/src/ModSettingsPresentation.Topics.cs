@@ -39,6 +39,7 @@ namespace BugfixesAndQoL
         public SettingsOptionPresentation ShowLoadSaveDialogControls => options["ShowLoadSaveDialogControls"];
         public SettingsOptionPresentation EnableSoloMultiplayerSaveLoading => options["EnableSoloMultiplayerSaveLoading"];
         public SettingsOptionPresentation FixSkirmishLoadButtonVisibility => options["FixSkirmishLoadButtonVisibility"];
+        public SettingsOptionPresentation EnableCompactLobbyChat => options["EnableCompactLobbyChat"];
         public SettingsOptionPresentation ImproveYellowLobbyContrast => options["ImproveYellowLobbyContrast"];
         public SettingsOptionPresentation EnableBriefingNoStartingGoldFix => options["EnableBriefingNoStartingGoldFix"];
         public SettingsOptionPresentation EnableIngameSteamInvitePrompt => options["EnableIngameSteamInvitePrompt"];
@@ -154,6 +155,7 @@ namespace BugfixesAndQoL
             AddOption("ShowLoadSaveDialogControls", "bugfixes.show-vanilla-maps-in-editor", SettingsCategory.Qol, ClientMenus);
             AddOption("EnableSoloMultiplayerSaveLoading", "bugfixes.solo-multiplayer-save-loading", SettingsCategory.Qol, ClientMenus);
             AddOption("FixSkirmishLoadButtonVisibility", "bugfixes.skirmish-load-button-visibility", SettingsCategory.Qol, ClientMenus);
+            AddOption("EnableCompactLobbyChat", "bugfixes.compact-lobby-chat", SettingsCategory.Qol, ClientMenus);
             AddOption("ImproveYellowLobbyContrast", "bugfixes.improve-yellow-lobby-contrast", SettingsCategory.Qol, ClientMenus);
             AddOption("EnableBriefingNoStartingGoldFix", "bugfixes.briefing-no-starting-gold", SettingsCategory.Qol, ClientMenus);
             AddOption("EnableIngameSteamInvitePrompt", "bugfixes.enable-ingame-steam-invite-prompt", SettingsCategory.Qol, ClientMenus);

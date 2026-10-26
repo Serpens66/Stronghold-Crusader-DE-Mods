@@ -353,9 +353,11 @@ namespace ExtendedData
                 pendingTrailMediaNames.TryGetValue(playerId, out string name) ? name : null;
         }
 
+        // selectionPending: the lobby's Lord selection does not match the mission yet (for example while a client
+        // still holds the host's data for the previous mission); no local content problem.
         internal bool CanSatisfyTrail(TrailLordRequirements requirements,
-            IReadOnlyDictionary<int, FRONT_Multiplayer.MPAIVInfo> infos, out string reason)
-            => TryInspectTrail(requirements, infos, out _, out reason);
+            IReadOnlyDictionary<int, FRONT_Multiplayer.MPAIVInfo> infos, out string reason, out bool selectionPending)
+            => TryInspectTrail(requirements, infos, out _, out reason, out selectionPending);
 
         internal bool PrepareTrail(TrailLordRequirements requirements,
             IReadOnlyDictionary<int, FRONT_Multiplayer.MPAIVInfo> infos,
@@ -376,7 +378,7 @@ namespace ExtendedData
                 reason = SerpLocalization.Get("ExtendedData.LordIntegrationRequired");
                 return false;
             }
-            if (!TryInspectTrail(requirements, infos, out Dictionary<int, string> names, out reason))
+            if (!TryInspectTrail(requirements, infos, out Dictionary<int, string> names, out reason, out _))
                 return false;
             try
             {
@@ -466,10 +468,11 @@ namespace ExtendedData
 
         private bool TryInspectTrail(TrailLordRequirements requirements,
             IReadOnlyDictionary<int, FRONT_Multiplayer.MPAIVInfo> infos,
-            out Dictionary<int, string> names, out string reason)
+            out Dictionary<int, string> names, out string reason, out bool selectionPending)
         {
             names = new Dictionary<int, string>();
             reason = string.Empty;
+            selectionPending = false;
             if (requirements == null) return true;
             try
             {
@@ -479,12 +482,12 @@ namespace ExtendedData
                     if (infos == null || !infos.TryGetValue(slot.PlayerId, out FRONT_Multiplayer.MPAIVInfo info) ||
                         info?.lordConfig == null || info.builtInLord ||
                          string.IsNullOrWhiteSpace(info.lordConfig.name))
-                        throw new InvalidDataException("The selected Lord configuration is unavailable: " + slot.LordName);
+                        throw new TrailSelectionMismatchException("The selected Lord configuration is unavailable: " + slot.LordName);
                     // Recheck the full binding right before the snapshot is built: a later
                     // configuration change must not be relabelled with this slot's stored values.
                     if (!TrailLordSelectionPolicy.HasSameConfiguration(slot, info.lordConfig.lordType,
                             info.lordConfig.name, info.lordConfig.checksum.ToString()))
-                        throw new InvalidDataException("The selected configuration of " + slot.LordName +
+                        throw new TrailSelectionMismatchException("The selected configuration of " + slot.LordName +
                             " (player " + slot.PlayerId + ") changed; refresh the Lord selection before starting.");
                     fixes.ValidateSnapshotValue(slot.FixesJson);
                     fixes.NormalizeSources(slot.FixesSources);
@@ -507,8 +510,15 @@ namespace ExtendedData
             catch (Exception exception)
             {
                 reason = exception.Message;
+                selectionPending = exception is TrailSelectionMismatchException;
                 return false;
             }
+        }
+
+        // The lobby's Lord selection differs from the mission's embedded Lord (selection state, not local content).
+        private sealed class TrailSelectionMismatchException : IOException
+        {
+            internal TrailSelectionMismatchException(string message) : base(message) { }
         }
 
         internal void OnLobbyOpened(FRONT_Multiplayer lobby)
@@ -595,7 +605,7 @@ namespace ExtendedData
                     LordPackageFileState files = LordPackageFingerprint.Capture(config.path, config.name);
                     if (files.HasUnsupportedGameplayFiles ||
                         File.Exists(Path.Combine(config.path, config.name + ".modlord.json")) ||
-                        fixes.Capture(info.lordName, info.lordType) != null ||
+                        fixes.Capture(info.lordName, config.lordType) != null ||
                         fixes.CaptureSources(info.lordName, config.lordType, config.lordData.opponent_type) != null ||
                         (fixes.Installed && File.Exists(Path.Combine(config.path,
                             "Override", "Fixes", "preferences.json"))))
@@ -651,7 +661,9 @@ namespace ExtendedData
                     bool fixesCaptureFailed = false;
                     try
                     {
-                        fixesJson = fixes.Capture(info.lordName, info.lordType);
+                        // MPAIVInfo.lordType is the lobby slot's AI type; the Lord's own identity (Fixes key,
+                        // snapshot slot, client lookup) is its configuration's type, as in CaptureSlot.
+                        fixesJson = fixes.Capture(info.lordName, config.lordType);
                         fixesSources = fixes.CaptureSources(info.lordName, config.lordType, config.lordData.opponent_type);
                     }
                     catch (Exception exception)
@@ -664,7 +676,7 @@ namespace ExtendedData
                     slots.Add(new LordPackageSlot
                     {
                         PlayerId = index + 1,
-                        LordType = info.lordType,
+                        LordType = config.lordType,
                         LordName = info.lordName,
                         ConfigName = config.name,
                         ConfigChecksum = config.checksum.ToString(),

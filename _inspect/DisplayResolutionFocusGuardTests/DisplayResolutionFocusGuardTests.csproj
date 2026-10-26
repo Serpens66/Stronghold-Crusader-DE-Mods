@@ -15,6 +15,9 @@
   <ItemGroup>
     <Reference Include="System" />
     <Compile Include="..\..\BugfixesAndQoL\src\DisplayResolutionFocusState.cs"><Link>DisplayResolutionFocusState.cs</Link></Compile>
+    <Compile Include="..\..\BugfixesAndQoL\src\DisplayResolutionPersistenceHook.cs"><Link>DisplayResolutionPersistenceHook.cs</Link></Compile>
+    <Compile Include="RuntimeBoundaryDoubles.cs" />
+    <Compile Include="ProductionHookTests.cs" />
     <Compile Include="Program.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

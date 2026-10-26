@@ -52,6 +52,7 @@ namespace BugfixesAndQoL
         private bool enableMod = true;
         private bool enableLordAndMapListEnhancements = true;
         private bool enableMissingMapSaveRecovery = true;
+        private bool enableCompactLobbyChat = true;
         private bool enableRandomOpponentSelectionEnhancements = true;
         private bool enableMultiplayerStartupStateFix = true;
         private bool enablePeaceTimeGameplayFixes = true;
@@ -270,6 +271,15 @@ namespace BugfixesAndQoL
             });
             HealthBarHotkeyInputCommand = new ParameterRelayCommand(CaptureHealthBarHotkey);
             steamInviteBlacklist.Changed += OnSteamInviteBlacklistChanged;
+        }
+
+        public string EnableCompactLobbyChatText => SerpLocalization.Get("BugfixesAndQoL.EnableCompactLobbyChat");
+        public string EnableCompactLobbyChatHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableCompactLobbyChatHelp");
+        [APIShared.ModSettings.PresetLocal]
+        public bool EnableCompactLobbyChat
+        {
+            get => enableCompactLobbyChat;
+            set => SetSetting(ref enableCompactLobbyChat, value, nameof(EnableCompactLobbyChat));
         }
 
         public string EnableLordAndMapListEnhancementsText => SerpLocalization.Get("BugfixesAndQoL.EnableLordAndMapListEnhancements");
@@ -1733,6 +1743,7 @@ namespace BugfixesAndQoL
             EnableClientFeatures = true;
             EnableLordAndMapListEnhancements = true;
             EnableMissingMapSaveRecovery = true;
+            EnableCompactLobbyChat = true;
             AllowMinimapWhilePlacingBuilding = true;
             PreventMoveOrderOnPlacementCancel = true;
             AllowCameraMovementWithModifiers = true;

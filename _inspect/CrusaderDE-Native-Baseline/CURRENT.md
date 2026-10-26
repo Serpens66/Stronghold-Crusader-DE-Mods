@@ -1,5 +1,7 @@
 # Current CrusaderDE Native Baseline
 
+- [Lobby chat layout](./sem/FBCB9319/knowledge/LOBBY_CHAT_LAYOUT.md): shared Coop/Skirmish managed renderer, fixed-width name and forced line break, local compact presentation and foreach/finally insertion boundary; native visual acceptance pending.
+
 - [Editor terrain region publication](./sem/FBCB9319/knowledge/EDITOR_REGION_REFRESH.md): missing terrain invalidation, shared water/moat path, other editor tools and locked pre-cursor correction; native fixture evidence and GUI acceptance limits.
 
 - [Packaged Coop maps and Ready admission](./sem/FBCB9319/knowledge/COOP_PACKAGE_MAP_READINESS.md): direct package headers versus Vanilla multiplayer catalogs, cached verification, silent Ready rejection and lobby system-message rendering; confirmed-static managed path, two-peer acceptance pending.

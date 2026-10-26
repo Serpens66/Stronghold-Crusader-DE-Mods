@@ -297,6 +297,9 @@ Adds more zoom levels (with game setting Extra Zoom enabled) which allows the sa
 ### Team Markers in Statistic
 On Statistic screen you will now see team markers next to the colour-shield.  
 
+### Compact lobby chat
+The enabled-by-default local **Compact lobby chat** QoL option shows the shield, sender and message on the same line in multiplayer Skirmish lobbies and all four Coop Trail chats. Long messages wrap automatically. Each player chooses the layout independently of the host; switching the option preserves the current history. Find it under local client options, Menus/Lobby. The in-game chat is unchanged.
+
 ### Customize trails
 Adds "Customize" Button to custom and coop trails. Allows to use custom AI as Ally in Coop Trails.
 

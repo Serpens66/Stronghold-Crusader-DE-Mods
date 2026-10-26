@@ -613,3 +613,6 @@ BugfixesAndQoL.SettingsRework.Reason.EnableMoatTerrainRestoration=Ob das Auffül
 BugfixesAndQoL.EnableTreeBlightDecayFix=Baumsterben: Verfall korrigieren
 BugfixesAndQoL.EnableTreeBlightDecayFixHelp=Setzt vom Baumsterben betroffene Waldbäume auf den Beginn der normalen toten Phase und ermöglicht ihren Verfall trotz vorheriger Fällschäden oder Fällzustände. Repariert auch vorzeitig feststeckende tote Bäume aus vorhandenen Spielständen während der normalen Simulation. Erlaubt kein Überbauen und aktiviert kein Baumwachstum im Editor.
 BugfixesAndQoL.SettingsRework.Reason.EnableTreeBlightDecayFix=Behebt dauerhafte Bauhindernisse durch inkonsistente Zustände toter Bäume und erhält normales Waldwachstum und Abholzen.
+BugfixesAndQoL.EnableCompactLobbyChat=Kompakter Lobbychat
+BugfixesAndQoL.EnableCompactLobbyChatHelp=Zeigt im Coop-Trail- und Multiplayer-Skirmish-Lobbychat Schild, Absender und Nachricht in derselben Zeile. Lange Nachrichten umbrechen automatisch. Gilt nur für deine eigene Anzeige und kann unabhängig vom Host gewählt werden. Standardmäßig aktiv.
+BugfixesAndQoL.SettingsRework.Reason.EnableCompactLobbyChat=Die kompakte Darstellung zeigt mehr Nachrichten auf derselben Fläche. Das gewünschte Chatlayout ist eine persönliche Präferenz.

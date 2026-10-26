@@ -672,6 +672,16 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}" sha
                 <CheckBox IsChecked="{Binding FixSkirmishLoadButtonVisibility, Mode=TwoWay}" Content="{Binding FixSkirmishLoadButtonVisibilityText}" Foreground="White" Margin="0,0,14,8" ToolTipService.ShowDuration="60000" ToolTip="{Binding FixSkirmishLoadButtonVisibilityHelpText}"/>
               </Grid>
             </Grid>
+            <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.compact-lobby-chat" shared:ModSettingsSearch.Title="{Binding EnableCompactLobbyChatText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableCompactLobbyChatHelpText}">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="28"/>
+                <ColumnDefinition Width="*"/>
+              </Grid.ColumnDefinitions>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableCompactLobbyChat}"/>
+              <Grid Grid.Column="1" IsEnabled="{Binding CanEditClientSettings}" Opacity="{Binding ClientSettingsOpacity}">
+                <CheckBox IsChecked="{Binding EnableCompactLobbyChat, Mode=TwoWay}" Content="{Binding EnableCompactLobbyChatText}" Foreground="White" Margin="0,0,14,8" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableCompactLobbyChatHelpText}"/>
+              </Grid>
+            </Grid>
             <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.improve-yellow-lobby-contrast" shared:ModSettingsSearch.Title="{Binding ImproveYellowLobbyContrastText}" shared:ModSettingsSearch.ToolTipText="{Binding ImproveYellowLobbyContrastHelpText}">
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="28"/>
