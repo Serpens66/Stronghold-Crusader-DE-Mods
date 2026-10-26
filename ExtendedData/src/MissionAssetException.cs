@@ -12,6 +12,7 @@ namespace ExtendedData
         internal const string MapNotMultiplayer = "map-not-multiplayer";
         internal const string MapTooFewPlayers = "map-too-few-players";
         internal const string LordUnresolved = "lord-unresolved";
+        internal const string AivMissing = "aiv-missing";
         internal const string EmbeddedTrailUnreadable = "embedded-trail-unreadable";
         internal const string EmbeddedSlotInvalid = "embedded-slot-invalid";
 
@@ -24,6 +25,12 @@ namespace ExtendedData
 
         internal string Category { get; }
         internal string AssetPath { get; }
+    }
+
+    // A transient preparation conflict (for example a Lord catalogue reload); selecting the mission again resolves it.
+    internal sealed class MissionRetryException : IOException
+    {
+        internal MissionRetryException(string message) : base(message) { }
     }
 
     // Identifies the exported mission that failed; the inner exception holds the cause.

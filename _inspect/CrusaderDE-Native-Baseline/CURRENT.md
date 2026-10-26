@@ -34,7 +34,7 @@
 
 - [Script Extender 2.14.2 source compatibility review](../../Shared/Tools/ScriptExtenderUpdate/2.14.1-2.14.2.review.md): music-only managed change; source baseline refresh, installed extender remains 2.14.1; runtime acceptance pending.
 
-- [Fixes wheat-sale startup correction](./sem/FBCB9319/knowledge/FIXES_WHEAT_STARTUP.md): confirmed wrong player stack slot, second-start crash evidence, synchronous startup/engine-lock limits and pending runtime acceptance.
+- [Fixes wheat-sale startup correction](./sem/FBCB9319/knowledge/FIXES_WHEAT_STARTUP.md): legacy player stack slot and Fixes 1.29.1 R9/remainder/category defects, bounded in-place startup repair, native fixtures and separate gameplay acceptance limits.
 
 - [AI economy observation boundaries](./sem/FBCB9319/knowledge/AI_ECONOMY_OBSERVATION.md): tax settlement ABI, Pre-only tax notifications, separate AI trade execution and accessibility-group/removal evidence; static audit, runtime acceptance pending.
 

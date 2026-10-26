@@ -497,9 +497,10 @@ namespace ExtendedData
             SetTrailPropertyModeIds(NormalizePropertyIds(player), NormalizePropertyIds(fixedValues));
         }
 
-        internal void RefreshModCompatibility(IEnumerable<TrailModCompatibilityInfo> entries, Action<string> diagnostics = null)
+        internal void RefreshModCompatibility(IEnumerable<TrailModCompatibilityInfo> entries)
         {
-            var watch = diagnostics != null ? Stopwatch.StartNew() : null;
+            long started = 0;
+            Shared.DevDiag.Start(ref started);
             int rebuilt = 0;
             TrailModCompatibilityInfo[] catalog = (entries ?? Enumerable.Empty<TrailModCompatibilityInfo>()).ToArray();
             string[] fixedDefaults = NormalizePropertyIds(catalog
@@ -536,7 +537,7 @@ namespace ExtendedData
                         ReferenceEquals(cached.Item1, entry.Endpoint) && cached.Item2 == signature)
                         return cached.Item3;
                     var model = new TrailModSelectionItem(entry.ModId, entry.DisplayName, BuildSettingGroups(entry),
-                        GetTrailPropertyMode, SetTrailPropertiesMode, TrailSettingModeHelpText, diagnostics);
+                        GetTrailPropertyMode, SetTrailPropertiesMode, TrailSettingModeHelpText);
                     if (cached != null) model.RestorePresentation(cached.Item3);
                     selectionCache[entry.ModId] = Tuple.Create(entry.Endpoint, signature, model);
                     rebuilt++;
@@ -545,7 +546,8 @@ namespace ExtendedData
                 .ToArray();
             var retained = new HashSet<string>(compatibleTrailMods.Select(x => x.ModId), StringComparer.Ordinal);
             foreach (string id in selectionCache.Keys.Where(x => !retained.Contains(x)).ToArray()) selectionCache.Remove(id);
-            if (rebuilt != 0) diagnostics?.Invoke("[PresetPerf] compatibility models: rebuilt=" + rebuilt + ", options=" + catalog.Sum(x => x.Properties.Length) + ", ms=" + watch.Elapsed.TotalMilliseconds.ToString("F2", System.Globalization.CultureInfo.InvariantCulture));
+            Shared.DevDiag.Count("trail.compatibility.modelsRebuilt", rebuilt);
+            Shared.DevDiag.Stop(ref started, "trail.compatibility.models");
             incompatibleTrailModsText = string.Join(", ", catalog
                 .Where(entry => !entry.IsCompatible)
                 .Select(entry => entry.DisplayName));

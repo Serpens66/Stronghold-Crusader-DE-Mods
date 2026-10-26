@@ -99,7 +99,7 @@ namespace ExtendedData
             mission.Dependencies = new CoopMissionDependencies(revision, files,
                 loaded.Definition.Map.Source == "bundled" ? null : mission.Header);
             if (revision != Volatile.Read(ref lordCatalogueRevision))
-                throw new IOException("Lord catalogue changed while preparing the Coop mission; select it again.");
+                throw new MissionRetryException("Lord catalogue changed while preparing the Coop mission; select it again.");
             if (!string.IsNullOrWhiteSpace(loaded.Definition.ModSettingsError))
                 LogError("Trail" + loaded.TrailNumber + "/" + loaded.MissionNumber.ToString("00") +
                     " ignored an invalid mod-settings sidecar; local mod settings remain unchanged: " + loaded.Definition.ModSettingsError);
@@ -123,7 +123,7 @@ namespace ExtendedData
             // that useful status when the absent package subsequently prevents mission selection.
             if (activePackage != null || string.IsNullOrWhiteSpace(localPackageError))
                 SetLocalPackageError(ExtendedDataSettingsViewModel.InvalidStatusPrefix + exception.Message,
-                    CoopPackageBlockMessages.LocalLoadFailure(false, settings.ActiveCoopPackageId));
+                    CoopPackageBlockMessages.MissionPreparationFailure(exception));
             LogError("Could not prepare custom Trail" + (trailId + 1) + "/" + missionId.ToString("00") + ": " + exception);
             ShowLocalPackageBlockAfterSync();
         }

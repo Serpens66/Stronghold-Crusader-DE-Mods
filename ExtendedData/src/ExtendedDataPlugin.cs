@@ -53,7 +53,12 @@ namespace ExtendedData
                     PluginGuid,
                     Settings,
                     "ScriptExtenderUI/ExtendedDataSettings.xaml",
-                    logRoutineActivity: Shared.DebugLogHelper.DiagnosticsEnabled);
+                    // Routine preset activity is development diagnostics (build.bat /devdiag only).
+#if SERP_DEVDIAG
+                    logRoutineActivity: true);
+#else
+                    logRoutineActivity: false);
+#endif
                 string customTrailsRoot = ConfigSettings.GetUserCustomTrailsPath();
                 var runtimeCandidate = new ExtendedDataRuntime(Logger, customTrailsRoot, Settings);
                 // Initialize publishes permanent hooks incrementally. Keep their owner rooted even
@@ -87,7 +92,7 @@ namespace ExtendedData
         private void OnDestroy()
         {
             // The BepInEx manager object is destroyed during startup; runtime hooks must survive it.
-            Shared.DebugLogHelper.LogDebugLimited(Logger, "ExtendedData/src/ExtendedDataPlugin.cs:81", "ExtendedData OnDestroy called; keeping process-lifetime runtime active.");
+            Shared.DevDiag.Log(() => "ExtendedData OnDestroy called; keeping process-lifetime runtime active.");
         }
 
         private static void ScheduleDeferredCompatibilityRefresh()

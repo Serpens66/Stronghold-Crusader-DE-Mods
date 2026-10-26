@@ -2784,6 +2784,8 @@ namespace BepInEx.Logging
 {
     public sealed class ManualLogSource
     {
+        // Target of the linked Shared.DevDiag writer in /devdiag builds; these tests do not inspect its output.
+        public void LogMessage(object value) { }
     }
 }
 

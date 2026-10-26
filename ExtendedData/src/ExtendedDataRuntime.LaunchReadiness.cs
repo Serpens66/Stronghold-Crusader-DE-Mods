@@ -15,9 +15,7 @@ namespace ExtendedData
     {
         private static readonly FieldInfo MapCheckedField = RequirePrivateLobbyFlag("MPMapChecked");
         private static readonly FieldInfo MapValidField = RequirePrivateLobbyFlag("MPMapValid");
-        private readonly CoopLaunchAnnouncementState blockAnnouncements = new CoopLaunchAnnouncementState();
         private readonly HashSet<INotifyPropertyChanged> configurationObservers = new HashSet<INotifyPropertyChanged>();
-        private int readinessQueued;
         private long readinessInputRevision;
         private long lastAttemptRevision;
         private string publishedMapIdentity = string.Empty;
@@ -27,7 +25,6 @@ namespace ExtendedData
         private bool sharedMapLookupRegistered;
         private bool readinessInMission;
         private bool launchReadinessActive;
-        private long blockTransitionSequence;
 
         private void InitializeLaunchReadiness()
         {
@@ -40,10 +37,10 @@ namespace ExtendedData
                 LogError("APIShared multiplayer map lookup is unavailable; packaged Coop maps remain blocked.");
             if (!MultiplayerMapLookup.TryRegisterObserver(ExtendedDataPlugin.PluginGuid, "Coop.MapResult",
                 ObservePackageMapLookup, out diagnostic)) LogError("Could not observe map lookup: " + diagnostic);
-            if (!LobbyChatPresentation.IsAvailable ||
-                !LobbyChatPresentation.TryRegisterSystemMessageRule(ExtendedDataPlugin.PluginGuid, "Launch.Blocks",
-                    message => launchReadinessActive && CoopLaunchBlockDiagnostics.IsBlockedStartChat(message.Message), out diagnostic))
-                LogError("APIShared lobby system-message presentation is unavailable.");
+            // APIShared announces, deduplicates and logs; this provider only reports current reasons.
+            if (!LobbyLaunchStatus.TryRegisterProvider(ExtendedDataPlugin.PluginGuid, "Coop.LaunchStatus",
+                ProvideLaunchStatus, out diagnostic))
+                LogError("Could not register the lobby launch status provider: " + diagnostic);
             settings.PropertyChanged += ReadinessInputChanged;
             settings.CoopPackageRemoteStatusChanged += ReadinessInputChanged;
             settings.LordDataRemoteStatusChanged += ReadinessInputChanged;
@@ -67,7 +64,23 @@ namespace ExtendedData
             if (missionSettingsCoordinator != null) missionSettingsCoordinator.LaunchBlocked = null;
         }
 
-        private void ReadinessLobbyChanged(PerPlayerLobbySnapshot snapshot) => ReadinessInputChanged();
+        private void ReadinessLobbyChanged(PerPlayerLobbySnapshot snapshot)
+        {
+            ReadinessInputChanged();
+            // A joining partner makes the host lobby eligible for the Trail Lord publication.
+            Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(() =>
+            {
+                try
+                {
+                    FRONT_Multiplayer self = GetExistingMainViewModel()?.FRONTMultiplayer;
+                    if (self?.currentLobby?.isHost != true || selected?.Loaded.LordRequirements == null ||
+                        !CurrentSlotRequiresPackage(self)) return;
+                    RefreshSelectedLordRequirementStatus(self);
+                    PrepareHostTrailLordData(self);
+                }
+                catch (Exception exception) { LogError("Could not publish the Trail Lord data after a lobby change: " + exception); }
+            });
+        }
 
         private void WatchConfigurationReadiness()
         {
@@ -81,21 +94,10 @@ namespace ExtendedData
             Interlocked.Increment(ref readinessInputRevision);
             QueueLaunchReadiness();
         }
+        // APIShared coalesces requests and calls ProvideLaunchStatus on the Unity thread.
         private void QueueLaunchReadiness()
         {
-            if (!launchReadinessActive) return;
-            if (Interlocked.Exchange(ref readinessQueued, 1) != 0) return;
-            if (!Shared.UnityMainThreadDispatch.TryEnqueue(() =>
-            {
-                Interlocked.Exchange(ref readinessQueued, 0);
-                if (lastAttemptRevision != Interlocked.Read(ref readinessInputRevision)) lastAttemptFailure = string.Empty;
-                try { ObserveLaunchReadiness(); }
-                catch (Exception error) { LogError("Could not inspect lobby launch readiness: " + error); }
-            }))
-            {
-                Interlocked.Exchange(ref readinessQueued, 0);
-                LogError("Could not dispatch lobby readiness observation.");
-            }
+            if (launchReadinessActive) LobbyLaunchStatus.RequestRefresh();
         }
 
         private bool HasCurrentPackageMap(FRONT_Multiplayer self) =>
@@ -152,65 +154,83 @@ namespace ExtendedData
             QueueLaunchReadiness();
         }
 
-        private void ObserveLaunchReadiness()
+        // Current reasons for the active lobby, called by APIShared on the Unity thread.
+        // Loading: expected while a player joins and applies the host selection (see the 2026-10-26 lobby logs);
+        // APIShared escalates it to a block if it persists. Clients leave their own loading states to the host,
+        // which reports them per player. Waiting: the Coop lobby still lacks its second human player.
+        // Lobby scope: local client problems the host cannot detect; APIShared sends them to everyone.
+        private IEnumerable<LobbyLaunchStatusItem> ProvideLaunchStatus(LobbyLaunchStatusQuery query)
         {
-            if (!launchReadinessActive) return;
-            FRONT_Multiplayer self = GetExistingMainViewModel()?.FRONTMultiplayer;
-            if (readinessInMission || !IsCurrentSteamLobby(self)) { blockAnnouncements.Reset(); return; }
+            var items = new List<LobbyLaunchStatusItem>();
+            FRONT_Multiplayer self = query.Lobby;
+            if (!launchReadinessActive || readinessInMission || !IsCurrentSteamLobby(self)) return items;
+            if (lastAttemptRevision != Interlocked.Read(ref readinessInputRevision)) lastAttemptFailure = string.Empty;
             WatchConfigurationReadiness();
-            var reasons = new List<string>();
-            string packageSyncDetail = string.Empty;
+            bool host = self.currentLobby.isHost;
+            int humans = self.currentLobby.CountHumanPlayers();
+            string context = DescribeLaunchBlockContext(self);
+            void Add(string text, LobbyLaunchStatusKind kind, string detail = null,
+                LobbyLaunchStatusScope scope = LobbyLaunchStatusScope.Local)
+            {
+                // Without a partner nobody can start yet; the host's own short loading states would only be noise.
+                if (string.IsNullOrWhiteSpace(text) || kind == LobbyLaunchStatusKind.Loading && (!host || humans < 2)) return;
+                items.Add(new LobbyLaunchStatusItem(text, kind, string.IsNullOrEmpty(detail) ? context : context + "; " + detail, scope));
+            }
+
             if (ModSettingsApplication.HasActivationFailures)
-                reasons.Add(SerpLocalization.Get("ExtendedData.SettingsProviderFailed"));
+                Add(SerpLocalization.Get("ExtendedData.SettingsProviderFailed"), LobbyLaunchStatusKind.Blocking,
+                    scope: LobbyLaunchStatusScope.Lobby);
             foreach (var endpoint in ModSettingsApplication.Endpoints)
                 if (endpoint.Value.System_ConfigurationNeedsRestart())
-                    reasons.Add(SerpLocalization.Get("ExtendedData.SettingsRestartRequired") + " [" + endpoint.Key + "]");
-            if (activation.CoopPackages && CurrentSlotOutsidePackage(self)) reasons.Add(CustomCoopTrailEndNotice(self));
-            if (HasActiveCoopPackage() && !IsLocalPackageReady() && !string.IsNullOrWhiteSpace(localPackageError))
-                reasons.Add(localPackageError);
+                    Add(SerpLocalization.Get("ExtendedData.SettingsRestartRequired") + " [" + endpoint.Key + "]", LobbyLaunchStatusKind.Blocking,
+                        scope: LobbyLaunchStatusScope.Lobby);
+            // Mission 0 is the empty selection before Vanilla or the host sync chooses a mission, not a slot after the package end.
+            if (activation.CoopPackages && self.currentLobby.coopSelectedMission > 0 && CurrentSlotOutsidePackage(self))
+                Add(CustomCoopTrailEndNotice(self), LobbyLaunchStatusKind.Blocking);
+            bool localError = HasActiveCoopPackage() && !IsLocalPackageReady() && !string.IsNullOrWhiteSpace(localPackageError);
+            if (localError) Add(localPackageError, LobbyLaunchStatusKind.Blocking, scope: LobbyLaunchStatusScope.Lobby);
             if (activation.CoopPackages && CurrentSlotRequiresPackage(self))
             {
-                string feature = SelectedFeatureDependencyError();
-                if (feature != null) reasons.Add(feature);
-                if (!IsLocalPackageReady()) reasons.Add(GetLocalBlockReason());
-                if (selected == null) reasons.Add(SerpLocalization.Get("ExtendedData.ErrorPackageNotReady"));
+                Add(SelectedFeatureDependencyError(), LobbyLaunchStatusKind.Blocking, scope: LobbyLaunchStatusScope.Lobby);
+                if (!localError && (!IsLocalPackageReady() || selected == null))
+                    Add(GetLocalBlockReason(), LobbyLaunchStatusKind.Loading);
                 if (selected?.Loaded.Definition.Map.Source == "bundled" && !sharedMapLookupRegistered)
-                    reasons.Add(SerpLocalization.Get("ExtendedData.MapServiceUnavailable"));
-                if (mapLookupFailure.Length != 0) reasons.Add(mapLookupFailure);
-                if (self.currentLobby.isHost)
+                    Add(SerpLocalization.Get("ExtendedData.MapServiceUnavailable"), LobbyLaunchStatusKind.Blocking,
+                        scope: LobbyLaunchStatusScope.Lobby);
+                Add(mapLookupFailure, LobbyLaunchStatusKind.Blocking, scope: LobbyLaunchStatusScope.Lobby);
+                if (host && humans < 2)
+                    Add(SerpLocalization.Get("ExtendedData.WaitingForPartner"), LobbyLaunchStatusKind.Waiting);
+                else if (host)
                 {
+                    // Partner checks only apply while a partner is present; Vanilla keeps Start disabled otherwise.
                     List<HumanPackageState> participants = GetHumanPackageStates(self);
-                    if (!settings.System_ArePerPlayerSettingsReady(participants.Select(item => item.PlayerId), out string syncError))
-                    {
-                        reasons.Add(SerpLocalization.Get("ExtendedData.ErrorPackageReportsPending"));
-                        packageSyncDetail = "; Shared personal settings incomplete: " + syncError;
-                    }
-                    if (!AreAllHumanPlayersPackageReady(participants)) reasons.Add(GetParticipantPackageBlockReason(participants));
-                    if (selected != null && IsLocalPackageReady())
-                    {
-                        string aiError = CoopAiStartBlockReason(self);
-                        if (aiError != null) reasons.Add(aiError);
-                    }
+                    string roster = DescribeHumanPackageStates(self, participants);
+                    CoopPackageBlockMessages.ParticipantStatus(participants.Select(state => new KeyValuePair<string, string>(
+                        state.Name, state.PlayerId > 0 ? state.Status : null)), ExpectedReadyStatus(),
+                        out string blocking, out string loading);
+                    Add(blocking, LobbyLaunchStatusKind.Blocking, roster);
+                    Add(loading, LobbyLaunchStatusKind.Loading, roster);
+                    if (!settings.System_ArePerPlayerSettingsReady(participants.Select(item => item.PlayerId), out string syncError) &&
+                        loading.Length == 0)
+                        Add(SerpLocalization.Get("ExtendedData.ErrorPackageReportsPending"), LobbyLaunchStatusKind.Loading,
+                            "Shared personal settings incomplete: " + syncError + "; " + roster);
+                    if (selected != null && IsLocalPackageReady() && AreAllHumanPlayersPackageReady(participants))
+                        Add(CoopAiStartBlockReason(self), LobbyLaunchStatusKind.Blocking);
                 }
             }
             if (activation.LordDataIntegration && lordDataCoordinator?.NeedsLordStartGate == true)
             {
+                // Lord data synchronizes after the package selection; a persistent failure is escalated by APIShared.
                 if (!lordDataCoordinator.IsLocalSelectionReady(CurrentLordInfoMap(self), out string reason,
-                    verifyEffectiveData: false)) reasons.Add(reason);
-                if (self.currentLobby.isHost && selected?.Loaded.LordRequirements != null &&
-                    !lordDataCoordinator.IsReadyToLaunch(self, out reason, verifyEffectiveData: false)) reasons.Add(reason);
+                    verifyEffectiveData: false)) Add(reason, LobbyLaunchStatusKind.Loading);
+                // Same gate as the Start click (NeedsLordStartGate covers Trail and lobby selections);
+                // the effective-data verification stays with the click because it reads game data.
+                if (host && humans >= 2 &&
+                    !lordDataCoordinator.IsReadyToLaunch(self, out reason, verifyEffectiveData: false))
+                    Add(reason, LobbyLaunchStatusKind.Loading, lordDataCoordinator.LastSlotSelectionDiagnostic);
             }
-            if (lastAttemptScope == LaunchScope(self) && lastAttemptFailure.Length != 0) reasons.Add(lastAttemptFailure);
-            string[] current = reasons.Where(reason => !string.IsNullOrWhiteSpace(reason)).Distinct(StringComparer.Ordinal).ToArray();
-            if (!blockAnnouncements.ShouldSend(LaunchScope(self), "Lobby", current, true, DateTime.UtcNow)) return;
-            blockTransitionSequence++;
-            string detail = "transition=" + blockTransitionSequence + packageSyncDetail;
-            if (self.currentLobby.isHost && activation.CoopPackages && CurrentSlotRequiresPackage(self))
-                detail += "; " + DescribeHumanPackageStates(self, GetHumanPackageStates(self));
-            foreach (string reason in current)
-                CoopLaunchBlockDiagnostics.ReportLocal(log, "Readiness", reason, DescribeLaunchBlockContext(self),
-                    detail);
-            SendLaunchBlockChat(self, SerpLocalization.Get("ExtendedData.ReadyOrStart"), current);
+            if (lastAttemptScope == LaunchScope(self)) Add(lastAttemptFailure, LobbyLaunchStatusKind.Blocking);
+            return items;
         }
 
         private static bool IsCurrentSteamLobby(FRONT_Multiplayer self) =>
@@ -229,23 +249,6 @@ namespace ExtendedData
             ", package=" + settings.ActiveCoopPackageId + ", fingerprint=" + settings.ActiveCoopPackageFingerprint +
             ", mission=Trail" + (self?.currentLobby?.coopTrailID + 1) + "/" + self?.currentLobby?.coopSelectedMission +
             ", localStatus=" + settings.CoopPackageStatus;
-
-        private void SendLaunchBlockChat(FRONT_Multiplayer self, string operation, IEnumerable<string> reasons)
-        {
-            if (!IsCurrentSteamLobby(self)) return;
-            if (operation == "Ready" || operation == "ReadyLock") operation = SerpLocalization.Get("ExtendedData.ReadyAction");
-            else if (operation == "Play" || operation == "COOP_START") operation = SerpLocalization.Get("ExtendedData.StartAction");
-            try
-            {
-                foreach (string message in CoopLaunchBlockDiagnostics.ChatMessages(operation, reasons))
-                    Platform_Multiplayer.Instance.SendLobbyChatMessage(message);
-            }
-            catch (Exception error)
-            {
-                blockAnnouncements.Reset();
-                LogError("Could not announce lobby launch block: " + error);
-            }
-        }
 
         private void ReportUnacceptedReady(FRONT_Multiplayer self, string command)
         {

@@ -28,13 +28,12 @@ namespace ExtendedData
         private readonly Action<string, IEnumerable<string>, TrailSettingMode> changed;
         private readonly Func<string, string, TrailSettingMode> getMode;
         private readonly DeferredSettingsPage<TrailSettingGroupDefinition, TrailSettingSelectionItem> page;
-        private readonly Action<string> diagnostics;
         internal TrailModSelectionItem(string modId, string displayName, IEnumerable<TrailSettingGroupDefinition> definitions,
             Func<string, string, TrailSettingMode> getMode, Action<string, IEnumerable<string>, TrailSettingMode> changed,
-            string helpText, Action<string> diagnostics = null)
+            string helpText)
         {
             ModId = modId; DisplayName = displayName; HelpText = helpText;
-            this.changed = changed; this.getMode = getMode; this.diagnostics = diagnostics;
+            this.changed = changed; this.getMode = getMode;
             ModeOptions = CreateModeOptions(includeMixed: true);
             page = new DeferredSettingsPage<TrailSettingGroupDefinition, TrailSettingSelectionItem>(definitions,
                 (d, term) => d.DisplayName.IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0 || d.PropertyNames.Any(x => x.IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0),
@@ -58,9 +57,10 @@ namespace ExtendedData
         {
             get
             {
-                var watch = diagnostics != null ? Stopwatch.StartNew() : null; int before = page.CreatedRows;
+                long started = 0;
+                Shared.DevDiag.Start(ref started);
                 var rows = page.Rows;
-                if (page.CreatedRows != before) diagnostics?.Invoke("[PresetPerf] visible rows: mod=" + ModId + ", created=" + (page.CreatedRows - before) + ", total=" + page.Count + ", ms=" + watch.Elapsed.TotalMilliseconds.ToString("F2", System.Globalization.CultureInfo.InvariantCulture));
+                Shared.DevDiag.Stop(ref started, "trail.settings.visibleRows");
                 return rows;
             }
         }

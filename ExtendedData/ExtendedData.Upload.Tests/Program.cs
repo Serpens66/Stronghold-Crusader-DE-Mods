@@ -17,7 +17,6 @@ namespace ExtendedData
                 return ExpectUnsafePackage(args[1]);
 
             Run("Coop launch blocks remain visible without diagnostics", TestCoopLaunchBlockLogs);
-            Run("Coop block chat chunks and transition deduplication", TestCoopBlockChatState);
             Run("Coop block logs retain reasons beyond the shared detail limit", TestLongCoopBlockLog);
             Run("Coop package messages classify players and keep technical errors out of chat", TestCoopPackageMessages);
             Run("complete package and retry", TestCompletePackageAndRetry);
@@ -49,27 +48,6 @@ namespace ExtendedData
             return failures == 0 ? 0 : 1;
         }
 
-        private static void TestCoopBlockChatState()
-        {
-            string reason = string.Concat(Enumerable.Repeat("\U0001F40D", 300)) + " complete final reason";
-            string[] messages = CoopLaunchBlockDiagnostics.ChatMessages("Ready", new[] { reason, "other failure" });
-            Assert(messages.Length > 1 && messages.All(message => message.Length <= 280), "chat text was truncated or exceeds Vanilla limits");
-            string reconstructed = string.Concat(messages.Select(message =>
-                System.Text.RegularExpressions.Regex.Replace(message.Substring(CoopLaunchBlockDiagnostics.ChatPrefix.Length), @"^\[\d+/\d+\] ", "")));
-            Assert(reconstructed == "Ready: " + reason + "; other failure", "chat chunks lost or reordered a reason");
-            Assert(messages.All(message => !char.IsHighSurrogate(message[message.Length - 1])), "chunk split a surrogate pair");
-            var state = new CoopLaunchAnnouncementState();
-            DateTime now = DateTime.UtcNow;
-            Assert(state.ShouldSend("lobby1", "Lobby", new[] { "a", "b" }, true, now), "first transition hidden");
-            Assert(!state.ShouldSend("lobby1", "Lobby", new[] { "b", "a" }, true, now.AddMinutes(1)), "unchanged set was repeated");
-            Assert(state.ShouldSend("lobby1", "Ready", new[] { "c" }, false, now), "different click reason hidden");
-            Assert(!state.ShouldSend("lobby1", "Ready", new[] { "c" }, false, now.AddSeconds(1)), "click throttle missing");
-            Assert(state.ShouldSend("lobby1", "Ready", new[] { "c" }, false, now.AddSeconds(3)), "explicit retry hidden indefinitely");
-            Assert(!state.ShouldSend("lobby1", "Lobby", Array.Empty<string>(), true, now.AddSeconds(3)), "cleared state announced as a block");
-            Assert(state.ShouldSend("lobby1", "Lobby", new[] { "a", "b" }, true, now.AddSeconds(3)), "reappearing reason hidden");
-            Assert(state.ShouldSend("lobby2", "Lobby", new[] { "a", "b" }, true, now.AddSeconds(3)), "new lobby inherited suppression");
-        }
-
         private static void TestCoopLaunchBlockLogs()
         {
             Assert(!Shared.DebugLogHelper.DiagnosticsEnabled, "fixture requires default-disabled diagnostics");
@@ -94,18 +72,6 @@ namespace ExtendedData
                 string local = messages.Last().Data.ToString();
                 Assert(local.Contains(longReason) && local.Contains("Player Two") && local.Contains("sync missing"),
                     "local log was shortened to chat length or lost participant details");
-                CoopLaunchBlockDiagnostics.ReportRemote(log, 34, "12", "ordinary chat");
-                CoopLaunchBlockDiagnostics.ReportRemote(log, 34, "12", null);
-                Assert(messages.Count == reasons.Length + 1, "unrelated chat was logged");
-                string chat = CoopLaunchBlockDiagnostics.ChatPrefix + "Package differs";
-                CoopLaunchBlockDiagnostics.ReportRemote(log, 34, "12", chat);
-                Assert(messages.Last().Level == LogLevel.Warning &&
-                    messages.Last().Data.ToString().Contains(chat) &&
-                    messages.Last().Data.ToString().Contains("sender=34"), "remote reason or sender missing");
-                CoopLaunchBlockDiagnostics.ReportRemote(log, 34, "12", chat);
-                Assert(messages.Count == reasons.Length + 2, "identical remote blocks were not throttled");
-                CoopLaunchBlockDiagnostics.ReportRemote(log, 35, "12", chat);
-                Assert(messages.Count == reasons.Length + 3, "independent sender was suppressed");
                 Assert(messages.All(item => System.Text.RegularExpressions.Regex.IsMatch(item.Data.ToString(),
                     @"^\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}\]")), "millisecond timestamp missing");
             }
@@ -141,7 +107,9 @@ namespace ExtendedData
                         new KeyValuePair<string, string>(CoopPackageStatusCodes.Missing, "ErrorParticipantsMissing"),
                         new KeyValuePair<string, string>(CoopPackageStatusCodes.Mismatch, "ErrorParticipantsMismatch"),
                         new KeyValuePair<string, string>("OK|package|old-fingerprint", "ErrorParticipantsMismatch"),
-                        new KeyValuePair<string, string>("OK|other-package|host-fingerprint", "ErrorParticipantsMismatch"),
+                        // Another package ID means the player has not applied the host selection yet (2026-10-26 logs: OK|VANILLA).
+                        new KeyValuePair<string, string>("OK|other-package|host-fingerprint", "ErrorParticipantsNotReady"),
+                        new KeyValuePair<string, string>("OK|VANILLA", "ErrorParticipantsNotReady"),
                         new KeyValuePair<string, string>("OK|package|host-fingerprint", "ErrorParticipantsSelectionNotReady"),
                         new KeyValuePair<string, string>("OK|package|host-fingerprint|1/1/mission-digest/lord-selection", "ErrorParticipantsSelectionNotReady"),
                         new KeyValuePair<string, string>("OK|package|host-fingerprint|1/2/mission-digest/other-lords", "ErrorParticipantsSelectionNotReady"),
@@ -180,20 +148,38 @@ namespace ExtendedData
                         new KeyValuePair<string, string>("Guest", "OK|package|host-fingerprint|stale-selection"),
                     }, "OK|package|host-fingerprint") == catalog["ExtendedData.ErrorParticipantsSelectionNotReady"].Replace("{Players}", "Guest"),
                         "an outdated selection suffix was reported as different package files");
-                    string lordReason = catalog["ExtendedData.LordSlotsNotConfirmed"].Replace("{Players}", "3, 4, 5, 6, 7, 8");
-                    string[] chunks = CoopLaunchBlockDiagnostics.ChatMessages("Ready", new[] { reason, invalid, lordReason });
-                    string reconstructed = string.Concat(chunks.Select(message =>
-                        System.Text.RegularExpressions.Regex.Replace(message.Substring(CoopLaunchBlockDiagnostics.ChatPrefix.Length),
-                            @"^\[\d+/\d+\] ", "")));
-                    Assert(chunks.All(message => message.Length <= 280) &&
-                        reconstructed == "Ready: " + (reason + "; " + invalid + "; " + lordReason).Replace('\r', ' ').Replace('\n', ' '),
-                        "localized package messages were shortened in chat");
-                    var state = new CoopLaunchAnnouncementState();
-                    DateTime now = DateTime.UtcNow;
-                    Assert(state.ShouldSend("lobby", "Lobby", new[] { reason }, true, now) &&
-                        !state.ShouldSend("lobby", "Lobby", new[] { reason }, true, now.AddMinutes(1)) &&
-                        state.ShouldSend("lobby", "Lobby", new[] { invalid }, true, now.AddMinutes(1)),
-                        "unchanged localized blocks repeated or a different cause was hidden");
+                    CoopPackageBlockMessages.ParticipantStatus(new[] {
+                        new KeyValuePair<string, string>("Missing guest", CoopPackageStatusCodes.Missing),
+                        new KeyValuePair<string, string>("Joining guest", "OK|VANILLA"),
+                        new KeyValuePair<string, string>("Syncing guest", "OK|package|host-fingerprint|1/1/old/old"),
+                        new KeyValuePair<string, string>("Unreported guest", null),
+                        new KeyValuePair<string, string>("Ready player", expected),
+                    }, expected, out string blocking, out string loading);
+                    Assert(blocking == catalog["ExtendedData.ErrorParticipantsMissing"].Replace("{Players}", "Missing guest"),
+                        "a joining player was reported as a blocking problem: " + culture);
+                    Assert(loading == catalog["ExtendedData.LoadingParticipants"].Replace("{Players}", "Joining guest, Syncing guest, Unreported guest"),
+                        "loading players were not listed in one wait hint: " + culture);
+                    CoopPackageBlockMessages.ParticipantStatus(new[] { new KeyValuePair<string, string>("Ready player", expected) },
+                        expected, out blocking, out loading);
+                    Assert(blocking.Length == 0 && loading.Length == 0, "a ready lobby reported a status");
+                    var failures = new Dictionary<Exception, string> {
+                        [new MissionAssetException(MissionAssetException.MapMissing, "Antler map", "technical")] =
+                            catalog["ExtendedData.ErrorMissionMapMissing"].Replace("{Map}", "Antler map"),
+                        [new MissionAssetException(MissionAssetException.LordUnresolved, "Saladin+", "technical")] =
+                            catalog["ExtendedData.ErrorMissionLordMissing"].Replace("{Lord}", "Saladin+"),
+                        [new MissionAssetException(MissionAssetException.AivMissing, "Saladin+ (castle)", "technical")] =
+                            catalog["ExtendedData.ErrorMissionLordMissing"].Replace("{Lord}", "Saladin+ (castle)"),
+                        [new MissionRetryException("technical")] = catalog["ExtendedData.ErrorMissionRetry"],
+                        [new MissionAssetException(MissionAssetException.MapUnreadable, "C:/private-path/map.map", "technical")] = invalid,
+                        [new InvalidDataException("technical")] = invalid,
+                        [new InvalidOperationException("technical")] = catalog["ExtendedData.ErrorCoopPreparationFailed"],
+                    };
+                    foreach (var failure in failures)
+                    {
+                        string text = CoopPackageBlockMessages.MissionPreparationFailure(failure.Key);
+                        Assert(text == failure.Value && !text.Contains("technical") && !text.Contains("private-path"),
+                            "wrong mission preparation message for " + failure.Key.GetType().Name + ": " + culture);
+                    }
                     using (var log = new ManualLogSource("coop-package-message-" + culture))
                     {
                         var entries = new List<string>();

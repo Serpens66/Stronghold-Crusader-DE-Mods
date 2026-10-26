@@ -284,32 +284,6 @@ namespace ExtendedData
                     ClearLaunchTracking();
                 if (!notification.Context.IsEditor) OnMapStarted(notification.Context);
             }));
-            subscriptions.Add(NetworkR3EventHooks.OnReceiveLobbyChatMessage.Observable.Subscribe(notification =>
-            {
-                if (notification?.Message == null ||
-                    !CoopLaunchBlockDiagnostics.IsBlockedStartChat(notification.Message))
-                    return;
-                string message = notification.Message;
-                ulong senderId = notification.SteamId.m_SteamID;
-                if (!Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(() =>
-                {
-                    FRONT_Multiplayer chatLobby = GetExistingMainViewModel()?.FRONTMultiplayer;
-                    CoopLaunchBlockDiagnostics.ReportRemote(log, senderId,
-                        chatLobby?.currentLobby?.id.m_SteamID.ToString() ?? "unknown", message);
-                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                        LogInfo("Blocked-start lobby chat received: lobby=" +
-                            chatLobby?.currentLobby?.id.m_SteamID +
-                            ",sender=" + senderId +
-                            ",messageLength=" + message.Length +
-                            ",chatMuted=" + Platform_Multiplayer.MPChatMuted +
-                            ",confirmationVisible=" +
-                            (GetExistingMainViewModel()?.Show_HUD_Confirmation == true) +
-                            ",uiRenderingNotConfirmed=true.");
-                }))
-                    LogError("Blocked-start lobby chat receipt could not be dispatched: sender=" +
-                        senderId + ", message=" + message);
-            }));
-
             MethodInfo initMethod = RequireMethod("InitCoopMissions");
             initHook = new Hook(initMethod, (InitCoopMissionsDelegate)InitCoopMissionsHook);
             initTrampoline = initHook.GenerateTrampoline<InitCoopMissionsDelegate>();
@@ -357,10 +331,8 @@ namespace ExtendedData
 
             InstallLordCatalogueObserver();
             OnActiveCoopPackageChanged();
-            {
-                if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    LogInfo("Runtime initialized; selected Coop Trail packages use cooptrail.json and centralized Trail settings.");
-            }
+            // Permanent startup marker for support logs (once per process).
+            LogInfo("Runtime initialized; selected Coop Trail packages use cooptrail.json and centralized Trail settings.");
         }
 
         internal void SetActivation(ExtendedDataFeatureActivation value)
@@ -382,24 +354,18 @@ namespace ExtendedData
             QueueLaunchReadiness();
         }
 
-        private int compatibilityMeasurements;
         public void RefreshModCompatibility()
         {
             QueueLaunchReadiness();
             if (missionSettingsCoordinator == null)
                 return;
-            var compatibilityWatch = Shared.DebugLogHelper.DiagnosticsEnabled ? System.Diagnostics.Stopwatch.StartNew() : null;
+            long started = 0;
+            Shared.DevDiag.Start(ref started);
             TrailModCompatibilityInfo[] catalog = missionSettingsCoordinator
                 .DiscoverModCompatibility()
                 .ToArray();
-            double discoveryMs = compatibilityWatch?.Elapsed.TotalMilliseconds ?? 0;
-            settings.RefreshModCompatibility(catalog, Shared.DebugLogHelper.DiagnosticsEnabled ? (Action<string>)(message => LogInfo(message)) : null);
-            if (compatibilityWatch == null) return;
-            if (++compatibilityMeasurements <= 3)
-                {
-                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                        LogInfo("[PresetPerf] compatibility refresh: call=" + compatibilityMeasurements + ", discoveryMs=" + discoveryMs.ToString("F2", System.Globalization.CultureInfo.InvariantCulture) + ", totalMs=" + compatibilityWatch.Elapsed.TotalMilliseconds.ToString("F2", System.Globalization.CultureInfo.InvariantCulture));
-                }
+            settings.RefreshModCompatibility(catalog);
+            Shared.DevDiag.Stop(ref started, "trail.compatibility.refresh");
             string compatible = string.Join(", ", catalog
                 .Where(item => item.IsCompatible)
                 .Select(item => item.DisplayName)
@@ -412,8 +378,8 @@ namespace ExtendedData
             if (string.Equals(lastCompatibilityLogSignature, signature, StringComparison.Ordinal))
                 return;
             lastCompatibilityLogSignature = signature;
-            if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                LogInfo(
+            // Support-relevant: which mods' settings Maps and Trails can carry. Logged only on change.
+            LogInfo(
                     "Map/Trail mod-settings compatibility refreshed: compatible=" +
                     catalog.Count(item => item.IsCompatible) + " [" + compatible + "], incompatible=" +
                     catalog.Count(item => !item.IsCompatible) + " [" + incompatible + "].");
@@ -618,7 +584,8 @@ namespace ExtendedData
                     if (!captured || !ready)
                     {
                         BlockLaunch(command, string.IsNullOrEmpty(lordDataReason)
-                            ? "Selected Lord data is not synchronized yet." : lordDataReason);
+                            ? "Selected Lord data is not synchronized yet." : lordDataReason,
+                            lordDataCoordinator.LastSlotSelectionDiagnostic);
                         return;
                     }
                 }
@@ -672,8 +639,7 @@ namespace ExtendedData
                 if (IsStartCommand(command) && !self.singlePlayerCoop && self.currentLobby != null && self.currentLobby.isHost)
                 {
                     List<HumanPackageState> participantStates = GetHumanPackageStates(self);
-                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                        LogInfo("Custom Coop package participant audit: " +
+                    Shared.DevDiag.Log(() => "Custom Coop package participant audit: " +
                             DescribeHumanPackageStates(self, participantStates));
                     if (!settings.System_ArePerPlayerSettingsReady(
                             participantStates.Select(state => state.PlayerId),
@@ -769,7 +735,10 @@ namespace ExtendedData
             if (activation.CoopPackages && !delayed)
             {
                 if (selected != null && CurrentSlotRequiresPackage(self))
+                {
                     RefreshSelectedLordRequirementStatus(self);
+                    PrepareHostTrailLordData(self);
+                }
                 lordDataCoordinator?.RefreshPackageManifest(self, "host-selection-update");
                 if (lordDataCoordinator?.IsUsingLocalValues != true)
                     lordDataCoordinator?.RefreshHost(self, "host-selection-update");
@@ -831,8 +800,7 @@ namespace ExtendedData
                     source: "custom Coop mission setup");
                 MainViewModel.Instance.StandaloneMissionText = BuildMissionDescription();
                 {
-                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                        LogInfo("Refreshed custom Coop mission mod-settings context after opening the setup screen.");
+                    Shared.DevDiag.Log(() => "Refreshed custom Coop mission mod-settings context after opening the setup screen.");
                 }
             }
             catch (Exception exception)
@@ -920,7 +888,12 @@ namespace ExtendedData
                 if (ReferenceEquals(activePackage, next)) return;
                 ClearPackageData(clearSession: false);
                 activePackage = next;
-                catalog.Load(next, message => LogInfo(message), message => LogError(message));
+                // Per-mission load lines are development diagnostics (build.bat /devdiag only).
+#if SERP_DEVDIAG
+                catalog.Load(next, message => Shared.DevDiag.Log(() => message), message => LogError(message));
+#else
+                catalog.Load(next, null, message => LogError(message));
+#endif
                 missionSettingsCoordinator?.SetCoopPackagePresentation(next.Manifest.DisplayName, next.Manifest.MissionCount);
                 localPackageError = string.Empty;
                 SetLocalPackageStatus(ExpectedReadyStatus());
@@ -1245,6 +1218,21 @@ namespace ExtendedData
             }
             else
                 SetLocalPackageError(ExtendedDataSettingsViewModel.InvalidStatusPrefix + reason, reason);
+        }
+
+        // Publishes the selected Trail's embedded Lord values as soon as the host lobby has a partner, so clients
+        // acknowledge them before Start. Without this the first Start click published them and was rejected
+        // while the acknowledgement was in flight (DEVDIAG lobby log 2026-10-26 19:15, source=trail-fixes).
+        // The click repeats the preparation with media remapping; an unchanged digest keeps the acknowledgements.
+        private void PrepareHostTrailLordData(FRONT_Multiplayer self)
+        {
+            if (!activation.CoopPackages || !activation.LordDataIntegration || coopLaunchPending ||
+                selected?.Loaded.LordRequirements == null || self?.currentLobby?.isHost != true ||
+                self.singlePlayerCoop || self.currentLobby.CountHumanPlayers() < 2 || !CurrentSlotRequiresPackage(self))
+                return;
+            // A false result only means that acknowledgements are pending or the selection is not satisfiable;
+            // the status provider and the Start click report those reasons.
+            lordDataCoordinator.PrepareTrail(selected.Loaded.LordRequirements, CurrentLordInfoMap(self), false, out _);
         }
 
         private bool PrepareSelectedLordRequirements(out string reason, bool captureLocalReplacements = false)
@@ -1573,8 +1561,7 @@ namespace ExtendedData
             // Host package settings can arrive after AutoJoinLobby selected Vanilla data.
             // Re-run the same Vanilla selection path so map, AIs, title and Trail preset agree.
             self.CoopMissionChanged(trailId, missionId, false);
-            if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                LogInfo("Refreshed visible Coop mission after package settings changed: Trail" + (trailId + 1) + "/" + missionId.ToString("00") + ".");
+            Shared.DevDiag.Log(() => "Refreshed visible Coop mission after package settings changed: Trail" + (trailId + 1) + "/" + missionId.ToString("00") + ".");
         }
 
         private void ShowLocalPackageBlockAfterSync()
@@ -1615,12 +1602,20 @@ namespace ExtendedData
         private void ReportLaunchFailure(string command, string reason, string detail, bool showPopup)
         {
             FRONT_Multiplayer self = GetExistingMainViewModel()?.FRONTMultiplayer;
-            CoopLaunchBlockDiagnostics.ReportLocal(log, command, reason, DescribeLaunchBlockContext(self), detail);
             lastAttemptFailure = reason ?? string.Empty;
             lastAttemptScope = LaunchScope(self);
             lastAttemptRevision = System.Threading.Interlocked.Read(ref readinessInputRevision);
-            if (blockAnnouncements.ShouldSend(lastAttemptScope, command, new[] { reason }, false, DateTime.UtcNow))
-                SendLaunchBlockChat(self, command, new[] { reason });
+            // APIShared logs the attempt in full and announces it once in an active Steam lobby.
+            try
+            {
+                APIShared.Lobby.LobbyLaunchStatus.ReportAttempt(ExtendedDataPlugin.PluginGuid,
+                    command == "Ready" || command == "ReadyLock" ? APIShared.Lobby.LobbyLaunchOperation.Ready
+                        : APIShared.Lobby.LobbyLaunchOperation.Start,
+                    new APIShared.Lobby.LobbyLaunchStatusItem(reason, APIShared.Lobby.LobbyLaunchStatusKind.Blocking,
+                        "command=" + command + "; " + DescribeLaunchBlockContext(self) +
+                        (string.IsNullOrEmpty(detail) ? string.Empty : "; " + detail)));
+            }
+            catch (Exception error) { LogError("Could not report launch block " + command + ": " + reason + "; " + error); }
             QueueLaunchReadiness();
             // Chat and log do not depend on a popup being rendered successfully.
             if (showPopup)
@@ -1654,14 +1649,12 @@ namespace ExtendedData
         {
             if (MissionRestart.IsInProgress)
             {
-                if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    LogInfo("Retained current mission settings during " + source + ".");
+                Shared.DevDiag.Log(() => "Retained current mission settings during " + source + ".");
                 return;
             }
             if (mapSettingsCoordinator?.IsActiveForLobby(lobby) == true)
             {
-                if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    LogInfo("Retained the manually selected Map mod-settings preset during " + source + ".");
+                Shared.DevDiag.Log(() => "Retained the manually selected Map mod-settings preset during " + source + ".");
                 return;
             }
             ActivateSelectedMissionSettings(editable, source, starting);
@@ -1675,8 +1668,7 @@ namespace ExtendedData
                 return;
             coopLaunchPending = false;
             {
-                if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    LogInfo("Custom Coop mission map started; retaining its active mod-settings preset.");
+                Shared.DevDiag.Log(() => "Custom Coop mission map started; retaining its active mod-settings preset.");
             }
         }
 
@@ -1720,8 +1712,7 @@ namespace ExtendedData
                 ExtendedDataLaunchOriginApi.PrepareCoopLaunch(trailId, missionId, MissionRestart.IsInProgress);
                 missionSettingsCoordinator.PrepareCoopMissionLaunch();
                 coopLaunchPending = true;
-                if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    LogInfo(
+                Shared.DevDiag.Log(() => 
                         "Revalidated custom single-player Coop restart: Trail" + (trailId + 1) + "/" +
                         missionId.ToString("00") + ".");
                 return true;
@@ -1784,8 +1775,8 @@ namespace ExtendedData
                 source: "authenticated host Coop launch", starting: true);
             coopLaunchPending = true;
             missionSettingsCoordinator.PrepareCoopMissionLaunch();
-            if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                LogInfo($"Prepared authenticated Coop Trail launch trail={trailId + 1}, mission={missionId}; retaining its active mod-settings preset across map unload.");
+            // Support-relevant once per launch.
+            LogInfo($"Prepared authenticated Coop Trail launch trail={trailId + 1}, mission={missionId}; retaining its active mod-settings preset across map unload.");
         }
 
         private void OnMissionEnded(MissionLifecycleNotification notification)
@@ -1824,7 +1815,8 @@ namespace ExtendedData
         private static bool ReadLobbyFlag(FRONT_Multiplayer self, FieldInfo field) =>
             self != null && (bool)field.GetValue(self);
 
-        private void LogInfo(string message, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0) => Shared.DebugLogHelper.LogDebugLimited(log, callerFile + ":" + callerLine, message);
+        // Player/support-relevant information only; development diagnostics use Shared.DevDiag.
+        private void LogInfo(string message) => Shared.DebugLogHelper.LogInfo(log, message);
         private void LogError(string message, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0) => Shared.DebugLogHelper.LogErrorLimited(log, callerFile + ":" + callerLine, message);
     }
 }

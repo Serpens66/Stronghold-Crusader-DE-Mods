@@ -40,6 +40,7 @@
     <Compile Include="..\..\Shared\Runtime\Workshop\WorkshopUploadStaging.cs"><Link>WorkshopUploadStaging.cs</Link></Compile>
     <Compile Include="..\src\CoopLaunchBlockDiagnostics.cs"><Link>CoopLaunchBlockDiagnostics.cs</Link></Compile>
     <Compile Include="..\src\CoopPackageBlockMessages.cs"><Link>CoopPackageBlockMessages.cs</Link></Compile>
+    <Compile Include="..\src\MissionAssetException.cs"><Link>MissionAssetException.cs</Link></Compile>
     <Compile Include="Program.cs" />
     <Compile Include="SerpLocalizationStub.cs" />
     <Compile Include="TestExtenderTypes.cs" />
