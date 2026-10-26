@@ -1,4 +1,4 @@
-# Move-command release contract
+# Move-command release contract [Scope: Vanilla + mod integration]
 
 ## Scope and provenance
 

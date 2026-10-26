@@ -1,4 +1,4 @@
-# Movement target marker height audit
+# Movement target marker height audit [Scope: Vanilla + mod integration]
 
 Native SHA-256: FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
 Managed Assembly-CSharp SHA-256: BC8B6A395F01D48557DB413600C8DD8D1FDFD3ABDF97BFBBB68A3C56B04FD789.
@@ -132,7 +132,7 @@ adjustment is 2. This is not the gate's 20-unit discrepancy. No equivalent stati
 not excluded. Destroyed tower types and visual changes require separate in-game
 counterchecks; this audit does not claim full destroyed-building visual parity.
 
-## Consumer implementation and compatibility
+## Consumer implementation and compatibility [mod integration]
 
 BugfixesAndQoL owns a permanent Harmony prefix on public GameMap.addUpdatePixie.
 It applies tile_y += 20 only to the documented green marker family on types 45/46,

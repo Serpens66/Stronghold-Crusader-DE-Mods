@@ -1,4 +1,4 @@
-# Opt-in pathfinding table replacement audit, 2026-10-14
+# Opt-in pathfinding table replacement audit, 2026-10-14 [Scope: Mod work, not Vanilla]
 
 Native SHA-256: FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
 Recomputed from installed CrusaderDE.dll before implementation; it matches

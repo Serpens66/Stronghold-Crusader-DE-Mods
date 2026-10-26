@@ -1,4 +1,4 @@
-# Prebuilt AI workshop production
+# Prebuilt AI workshop production [Scope: Vanilla + mod integration]
 
 Installed `CrusaderDE.dll` SHA-256:
 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
@@ -15,7 +15,7 @@ Addresses below are RVAs for this hash. Evidence is the semantic decompiler expo
 
 The installed editor's `PnlEditLordViewModel` maps Both to `-999`. Extracted Vanilla AIC data contains `fletchers_make = -999` for Baldwin, and his bundled AIVs contain several fletcher frames. This gives a reproduction scenario without modifying `testlord_serp`.
 
-## Diagnostic boundary
+## Diagnostic boundary [mod integration]
 
 `BuildingR3EventHooks.OnBuildingSpawn` Post fires after the native spawn call and before the caller's `0x31000` initializer. The testmod captures the Lord slot and AIC value there. Its correction is limited to a new complete-castle start with a confirmed Both AIC value and prebuilt workshops that retain `NeedsInit` and both default goods at managed start. Save loads and later workshop construction are outside the correction scope. The earlier zero-slot theory was refuted by the Frederick trace and was removed from the correction condition.
 
@@ -33,7 +33,7 @@ This ties the observed default-only Fletcher result to the `0xBEC10` filter: it 
 
 The bounded correction now plans choices in ascending captured building-ID order. It begins with existing alive workshops of the same player and type, then adds each planned prebuilt choice to the balancing counts before choosing the next. For fletcher IDs `35`, `322`, `325` with no alive fletcher baseline, this produces bows, crossbows, bows. It writes both production fields only after every captured group member still matches the confirmed `NeedsInit`/default-goods state. The next trace confirms this behavior in a new Frederick game.
 
-## Frederick correction trace, 2026-09-27
+## Frederick correction trace, 2026-09-27 [mod integration]
 
 A subsequent new complete-castle game for Frederick as player 2 captured three fletchers, IDs `34`, `246`, `247`, and two blacksmiths, IDs `36`, `248`. The prebuilt bitfield was `0x00000002`; the Lord slot was `10`, and Fletcher AIC value `-999` was stable from spawn through the first tick. Before correction all three fletchers were `NeedsInit` with both fields set to bows. At managed start the correction planned bows, crossbows, bows in ascending ID order, then wrote both fields for the group. First-tick snapshots confirmed that the crossbow choice persisted in both fields for ID `246`, with bows retained for IDs `34` and `247`. The blacksmith AIC value was the fixed swords value `22`; both blacksmiths retained swords in both fields. The post-startup-cleanup first-tick marker fired and this game section contains no testmod error or exception.
 

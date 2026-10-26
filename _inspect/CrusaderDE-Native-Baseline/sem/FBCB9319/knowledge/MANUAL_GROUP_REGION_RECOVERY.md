@@ -1,4 +1,4 @@
-# Dry mixed-group movement recovery
+# Dry mixed-group movement recovery [Scope: Vanilla + mod integration]
 
 Historical implementation: superseded on 2026-10-26 by
 [pre-mutation group admission](MANUAL_GROUP_ADMISSION.md). The dated findings and
@@ -47,7 +47,7 @@ representative writer bytes and the existing GameUnit mode offset. No semantic
 fallback is claimed on unknown DLLs. Query-only calls restore +98/+C0/+C4 in
 finally, including exceptions; real simulation queries keep their side effects.
 
-## Consumer ordering and limits
+## Consumer ordering and limits [mod integration]
 
 Extender BulkTribeDetours raises Post after 11B520 and returns its ReturnValue.
 Post has original inputs; a retained Pre object has final effective inputs.

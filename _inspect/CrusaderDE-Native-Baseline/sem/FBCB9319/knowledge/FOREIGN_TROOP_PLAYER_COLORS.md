@@ -1,4 +1,4 @@
-# Foreign troop HUD player colors
+# Foreign troop HUD player colors [Scope: Vanilla + mod integration]
 
 ## Provenance and audited flow
 
@@ -21,7 +21,7 @@ Portrait resources have a different order: red, orange, yellow, blue, black/gray
 
 `SpriteMapping.remapColours`, `RemapMPLoadedColour`, `Platform_Multiplayer.Instance`, `UIColourRemap`, `spriteLoader.instance` and `GetGMMaterial` were checked as public against the installed real managed assembly using ILSpy. No publicized-member access or new native hook is needed.
 
-## BugfixesAndQoL consumer
+## BugfixesAndQoL consumer [mod integration]
 
 Previously each owner/type group copied the first unit's `r_SpritePlayerColorId` directly into both the label palette and portrait lookup. Ownership and a sprite's color field are distinct; grouping by owner does not ensure equal sprite fields. The mod's UI-order label palette also did not implement the current Vanilla player mapping. This permits inconsistent P2 labels; the screenshot alone does not establish individual units' actual stored values.
 

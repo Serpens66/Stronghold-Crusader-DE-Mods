@@ -1,4 +1,4 @@
-# Multiplayer building sleep and local selection
+# Multiplayer building sleep and local selection [Scope: Vanilla + mod integration]
 
 Native build SHA-256: `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`. The installed DLL hash was checked before using these RVAs. The functions below are identified by direct data flow; `DLL_GameAction` is a confirmed export, while the other symbolic roles are static reconstructions from candidate-labeled decompiler functions and references.
 

@@ -1,4 +1,4 @@
-# Script Extender 2.14.1 engage-range audit
+# Script Extender 2.14.1 engage-range audit [Scope: External component]
 
 Review date: 2026-10-08. Previous baseline commit: 5049b5d051d0face848cc2eb098db1fedf5451a7 (2.14.0). Reviewed target: 5908e1f12437deb7ef5f5b1dc2d64e301178fba3, tree c238441ea12db35ee36c5c5668d3c8fce0897295 (v2.14.1). Installed/local build/package SHCDESE.dll: SHA-256 E5D78FDF2EA9701336C398F7D29410F206D141FC01AA8099F30C824E6AB8A0B3, assembly 2.14.1.0. Native SHA-256 FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2; managed Assembly-CSharp SHA-256 BC8B6A395F01D48557DB413600C8DD8D1FDFD3ABDF97BFBBB68A3C56B04FD789. These are provenance-bound facts, not permanent version expectations.
 

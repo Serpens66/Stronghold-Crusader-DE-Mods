@@ -1,4 +1,4 @@
-# Fireman Targeting and Extinguishing Audit
+# Fireman Targeting and Extinguishing Audit [Scope: Vanilla + mod integration]
 
 ## Provenance
 
@@ -24,7 +24,7 @@ After the direct target is extinguished, `FUN_180159C30` reads the 32-bit buildi
 
 `FUN_1800C4D30` (`RVA 0xC4D30`) starts an eligible fire by setting the counter to one. The building update `FUN_1800C60F0` (`RVA 0xC60F0`) increments active fire counters and contains independent terminal paths, so reservations must revalidate the target rather than assume only a fireman can end a fire.
 
-## Per-player nearest-owner handoff contract
+## Per-player nearest-owner handoff contract [mod integration]
 
 `GameUnit.r_ControllableForPlayerId` is the one-byte owner field at unit offset `0x92`. Reservation conflicts can therefore be scoped to the requesting fireman's player without changing the selector's diplomacy behavior for other players. The selector's distance helper `FUN_1800079C0` computes the Manhattan distance from the fireman's current tile (`GameUnit +0xC0/+0xC2`) to the candidate building's begin tile (`GameBuilding +0x28/+0x2A`); strict comparison means an equal distance retains the earlier candidate/current owner.
 
@@ -32,6 +32,6 @@ A requester entering the selector from state 1 or 2 is idle/searching and may sa
 
 Live activation may seed existing state-3/state-4 assignments without mutating the units. If several same-player units already cover one fire or compound, the deterministic representative order is state 4 first, then shortest remaining Manhattan distance, then lowest 1-based unit ID. Deactivation only clears that player's reservation metadata; it does not modify a running Vanilla assignment.
 
-## Detour contract
+## Detour contract [mod integration]
 
 The target-selector entry begins with two five-byte stack-save instructions. The installed RedBird 1.5.0 `NativeDetour<T>` backend selects its preferred `Indirect` scheme, whose six-byte entry patch rounds to these two complete instructions and therefore displaces exactly 10 bytes through RVA `0xB8F4A`. The entry becomes `FF 25 rel32` followed by four NOP bytes; its pointer slot contains the managed hook entry. No direct branch enters the open interval. This contract is distinct from `X64InlineHook` and must be tested with the NativeX64 detour backend itself. A detour must retain the original ABI `(GameBuildingManager*, int unitId) -> int buildingId` and call the trampoline for Vanilla distance, diplomacy, and reachability behavior.

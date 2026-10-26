@@ -1,4 +1,4 @@
-# Trail import list and local deletion
+# Trail import list and local deletion [Scope: Vanilla + mod integration]
 
 Verified against installed binaries on 2026-10-10.
 Native SHA-256: FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.

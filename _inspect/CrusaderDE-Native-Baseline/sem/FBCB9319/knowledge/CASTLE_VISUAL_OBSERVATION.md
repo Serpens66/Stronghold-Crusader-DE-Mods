@@ -1,9 +1,9 @@
-# CastlePlanner building visual observation (2026-10-24)
+# CastlePlanner building visual observation (2026-10-24) [Scope: Mod work, not Vanilla]
 
 Installed native SHA-256: FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
 The diagnostic does not install a native hook or change any graphics value.
 
-## Relevant audited boundaries
+## Relevant audited boundaries [Vanilla facts]
 
 - The construction dispatch at 0x6D580 reaches the generic construction path
   0x75780, which calls allocator 0xB47E0. Native building records use stride

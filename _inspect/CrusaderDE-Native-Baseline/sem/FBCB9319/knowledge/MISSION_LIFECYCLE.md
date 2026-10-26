@@ -1,4 +1,4 @@
-# Unified mission lifecycle audit
+# Unified mission lifecycle audit [Scope: Vanilla + mod integration]
 
 Native SHA-256: FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
 Managed SHA-256: BC8B6A395F01D48557DB413600C8DD8D1FDFD3ABDF97BFBBB68A3C56B04FD789.
@@ -14,7 +14,7 @@ tree 9cfb59b7b531553b23709b90b3cc3f10b0615cc1. No fork changes or additional nat
 - `DLL_PreInitMap_Multiplayer` RVA 0x86270 (confirmed export/PInvoke) receives byte skirmish flag, signed Int32 restart byte length and byte pointer, signed Int32 coop trail/mission, and byte test/custom/extreme flags. It resets via 0x87D10/0x8ADC0 and stores coop trail at RVA 0x366A090 and mission at 0x366A094 unchanged. Frontend selection 21..24 maps to native trail 1..4; the UI's one-based mission is decremented in `CoopMissionChanged`. StartGame and the local StartSkirmishGame pass the resulting zero-based mission unchanged. Capture the managed preinitializer arguments; the shared skirmish entry alone cannot distinguish standard local Coop from custom games.
 - `LoadMapReturnData.siege_or_invasion` is serialized 0=Siege, 1=Invasion, 2=Economy, 3=FreeBuild. `GameData.Init` explicitly converts this to `Enums.GameModes`; these enum numeric values are not interchangeable. `coopMissionID`, `skirmishTrailLevel` and campaign `mission_level` retain native zero-based indices. Game player IDs are one-based.
 
-## Managed completion and retirement
+## Managed completion and retirement [mod integration]
 
 Interactive roots: EditorDirector creation/editor load/campaign/trail/custom trail/save, FRONT_StandaloneMission.StartMap, FRONT_Multiplayer.StartSkirmishGame/RestartSkirmishGame, HUD_Tutorial.StartTutorial, Platform_Multiplayer.StartGame/StartSave. Nested custom-trail/skirmish calls belong to one attempt. Editor creation observes newMapEditor output, editor loading requires both native success and the outer bool success. Lower LoadMapFile exports without an interactive root create no mission.
 
@@ -22,7 +22,7 @@ Interactive roots: EditorDirector creation/editor load/campaign/trail/custom tra
 
 `MainViewModel.GoToScreen` and direct `FatControler.NewScene` are observed after their actual screen state changes. Options bypass scene replacement. HUD win/lose presentation is not departure. The Extender's HUD exit hook publishes a synthetic Unload Pre with a null pointer; this is logical retirement even without a native Unload Post. An editor flag can survive departure and is not session evidence.
 
-## Public and Shared contract
+## Public and Shared contract [mod integration]
 
 `IMissionLifecycleCapability` supersedes the editor-specific API completely. Context and notifications are immutable; process-local attempt IDs are monotonic. Initialization phases never replay. Only a current, fully managed-ready session replays. End includes last captured context, last reached phase, reason and whether Start occurred. Observer and diagnostic exceptions are isolated; Vanilla delegates execute once. Unpublished failed hook candidates are rolled back; published services remain process-rooted.
 

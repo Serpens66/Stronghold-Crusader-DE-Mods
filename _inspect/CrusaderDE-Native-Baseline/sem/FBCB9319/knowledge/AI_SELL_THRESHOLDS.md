@@ -1,4 +1,4 @@
-# AI negative sell thresholds and phantom gold
+# AI negative sell thresholds and phantom gold [Scope: Vanilla + mod integration]
 
 Native SHA-256: FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
 Static audit and private native execution dated 2026-10-22. In-game acceptance is pending.

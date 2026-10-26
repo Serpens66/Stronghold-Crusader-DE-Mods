@@ -1,4 +1,4 @@
-# Savegame metadata and missing original maps
+# Savegame metadata and missing original maps [Scope: Vanilla + mod integration]
 
 Confirmed 2026-10-16 against native SHA-256 FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2 and managed SHA-256 BC8B6A395F01D48557DB413600C8DD8D1FDFD3ABDF97BFBBB68A3C56B04FD789.
 
@@ -14,7 +14,7 @@ Removing only the final rejection is insufficient: encode dereferences selectedH
 
 Testmods/SavegameMissingMapFixTest implements this as managed IL transforms with no native hook. Desktop tests execute clones of the actual game decoder/encoder, isolate catalog and Unity image creation, adapt one Unity Mono String.Split overload in a cloned setup parser, and verify byte-identical save roundtrips, disabled behavior, installed/local/Workshop/built-in/trail cases, corruption rejection and restart guarding. In-game acceptance of the new mod remains pending; the user confirmation above concerns Vanilla's original map dependency.
 
-## Trail Maker consumer audit (2026-10-21)
+## Trail Maker consumer audit (2026-10-21) [mod integration]
 
 The same native and managed hashes were checked again. The integrated BugfixesAndQoL
 recovery can expose a non-null restart object with a null selectedHeader to Trail Maker.

@@ -1,4 +1,4 @@
-# Lobby chat layout
+# Lobby chat layout [Scope: Vanilla + mod integration]
 
 Observed 2026-10-26 against installed native SHA-256
 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`
@@ -44,7 +44,7 @@ All five XAML displays already use a wrapping TextBlock. Their two-line named-ro
 layout is generated in managed code and cannot be removed by a XAML-only edit.
 No gameplay authority is derived from this layout; a compact preference is local.
 
-## Safe compact presentation boundary
+## Safe compact presentation boundary [mod integration]
 
 BugfixesAndQoL transforms the built inline sequence before the first final
 ScrollToBottom call. The foreach enumerator exits with leave to that boundary;

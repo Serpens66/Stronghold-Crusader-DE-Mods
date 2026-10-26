@@ -1,4 +1,4 @@
-# Tannery building animation transparency
+# Tannery building animation transparency [Scope: Vanilla + mod integration]
 
 This audit applies to installed `CrusaderDE.dll` SHA-256
 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.

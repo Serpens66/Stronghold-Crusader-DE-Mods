@@ -1,4 +1,4 @@
-# Farm construction preview
+# Farm construction preview [Scope: Vanilla + mod integration]
 
 Native SHA-256: FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2. Static audit on 2026-10-13; first-stage red ground marking accepted by the user in-game; expanded counts and shared tooltip layout subsequently accepted by the user.
 

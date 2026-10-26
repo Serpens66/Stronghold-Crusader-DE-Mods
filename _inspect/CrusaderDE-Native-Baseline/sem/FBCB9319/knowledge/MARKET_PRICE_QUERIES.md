@@ -1,4 +1,4 @@
-# Native market price query contract
+# Native market price query contract [Scope: Vanilla + mod integration]
 
 Audited 2026-10-10 against CURRENT native SHA-256
 FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.

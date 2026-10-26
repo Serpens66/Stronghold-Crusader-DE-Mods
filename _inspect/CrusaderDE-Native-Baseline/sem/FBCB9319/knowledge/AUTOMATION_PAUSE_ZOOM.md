@@ -1,4 +1,4 @@
-# Pause and zoom automation boundaries
+# Pause and zoom automation boundaries [Scope: Vanilla + mod integration]
 
 Static audit 2026-10-20. Installed native SHA-256 FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2 and managed SHA-256 BC8B6A395F01D48557DB413600C8DD8D1FDFD3ABDF97BFBBB68A3C56B04FD789 match CURRENT.json / DATABASE_INFO.json. Source-based multiplayer/zoom integration observations refer to the current workspace, not an assertion that its mods are installed.
 

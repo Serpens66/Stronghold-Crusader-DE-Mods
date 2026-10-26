@@ -1,4 +1,4 @@
-# Dry mixed-group admission before order mutation
+# Dry mixed-group admission before order mutation [Scope: Vanilla + mod integration]
 
 Observed 2026-10-26; installed native SHA-256
 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
@@ -55,7 +55,7 @@ tile ID. If they differ it rewrites both current and next coordinates and enters
 18BE50. Such incoherent records remain unsupported by the filter; it neither
 executes normalization as a probe nor predicts the post-normalization route.
 
-## Region proof and integration
+## Region proof and integration [mod integration]
 
 E2610(player, source, destination, signed native mode) has no tile path search.
 Its complete body/write contract remains in UNIT_COMMAND_PROBE_SCRATCH.md:

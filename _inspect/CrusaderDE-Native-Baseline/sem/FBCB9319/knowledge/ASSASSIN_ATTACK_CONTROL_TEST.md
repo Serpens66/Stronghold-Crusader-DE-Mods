@@ -1,10 +1,10 @@
-# Assassin attack control test
+# Assassin attack control test [Scope: Mod work, not Vanilla]
 
 The 2026-10-08 search implementation below is historical and superseded by the captured-gate-only simplification on 2026-10-11.
 
 Native hash: FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2 (CURRENT.json and installed DLL checked). Full feature audit combines existing Assassin direct-gatehouse/path/execution/capture contracts with 23 complete bodies retained in _inspect/AssassinAttackControlAudit/native-flow.txt. Canonical Fixes 1.25.1 source and current Script Extender APIs were checked; no changes to either project.
 
-## Native contracts
+## Native contracts [Vanilla facts]
 
 - Assassin-only dispatcher 16CD70 reads current one-based game unit ID from 9302C4. The selected-entry table used by 182B00 supplies this handler. Two incoming data references point to 16CD70; no recorded incoming edge targets the ten-byte prologue interior. Prologue is two five-byte MOV stores, 48895C240848896C2410; Indirect-only continuation is 16CD7A. No competing owner was found in Script Extender, Fixes or current workspace runtimes.
 - State 101 uses 188340 then 193DE0 adjacency/facing checks to enter 107. State 107 calls 7EB00 at 16D54D (wall damage 10, building damage 70 or class-specific 6). These paths do not check captured-gate ownership. Gate capture does not replace original building owner.

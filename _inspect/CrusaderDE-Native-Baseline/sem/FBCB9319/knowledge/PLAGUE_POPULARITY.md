@@ -1,4 +1,4 @@
-# Plague popularity: scheduling and identity contract
+# Plague popularity: scheduling and identity contract [Scope: Vanilla + mod integration]
 
 Audited installed Native SHA256:
 FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
@@ -58,7 +58,7 @@ and current managed APIs. Generic native role names are not confirmed symbols.
 No gameplay timing, FPS gain or multiplayer acceptance is inferred from this audit.
 The optimization leaves hook addresses, displacement and backend unchanged.
 
-## Watchdog opportunity audit (2026-10-23)
+## Watchdog opportunity audit (2026-10-23) [mod integration]
 
 Rechecked against the same installed native SHA256 above. The Extender's existing
 OnPlayerCalculatePopularity Pre publisher replaces the calculation span at

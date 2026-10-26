@@ -1,4 +1,4 @@
-# Recruit Transformation and Rally Tracking
+# Recruit Transformation and Rally Tracking [Scope: Vanilla + mod integration]
 
 ## Provenance
 
@@ -16,7 +16,7 @@
 - Unit update orchestrator RVA `0x182B00` processes AliveState `4` through RVA `0x195D10`. That function restores AliveState `2`, restores the queued AI state, and calls RVA `0x19A240` with the value from `+0x922`.
 - RVA `0x19A240` initializes the requested target type in the same unit slot by writing `+0x6E6` and the target type's dependent fields. There is no successor-ID handoff.
 
-## Consumer contract
+## Consumer contract [mod integration]
 
 - Per-unit consumers that formerly had an outer `AliveState == 2` gate must skip all feature logic while the slot is in State `4` without invalidating identity or feature-owned tracking. Unit deletion remains a separate event/state transition.
 - BugfixesAndQoL rally tracking is therefore keyed by the unchanged one-based unit ID plus GlobalId and owner. Its native cadence fastpath must replay Vanilla for every non-alive state and resume validation when the same slot returns to AliveState `2`.

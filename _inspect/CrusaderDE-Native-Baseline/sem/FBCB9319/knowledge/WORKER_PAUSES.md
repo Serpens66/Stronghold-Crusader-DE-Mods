@@ -1,4 +1,4 @@
-# Civilian worker breaks after production
+# Civilian worker breaks after production [Scope: Vanilla + mod integration]
 
 Reference native library SHA-256: `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`. Evidence is the installed `CrusaderDE.dll`, the semantic decompiler export, and the unit-update function table at image file offset `0x3202B0` (pointer index equals the Script Extender `UnitFunctionsVTable` field index). These are native unit-slot indices, not 1-based game unit IDs.
 

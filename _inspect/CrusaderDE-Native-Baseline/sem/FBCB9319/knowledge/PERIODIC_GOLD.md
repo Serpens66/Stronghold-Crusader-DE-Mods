@@ -1,4 +1,4 @@
-# Incoming gold and periodic ExtraFeatures amounts
+# Incoming gold and periodic ExtraFeatures amounts [Scope: Vanilla + mod integration]
 
 Native SHA-256: `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2` (installed canonical DLL rechecked on 2026-10-25). This is a static machine-code finding; in-game and multiplayer acceptance remain separate.
 

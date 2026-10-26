@@ -1,4 +1,4 @@
-# Managed presentation access under the engine lock
+# Managed presentation access under the engine lock [Scope: Vanilla + mod integration]
 
 Audit observation: 2026-10-23. Native canonical installed DLL SHA-256
 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`;
@@ -59,7 +59,7 @@ copy/deserialization, before buffer publication. Native time includes
 Extender/mod callbacks. No event observer is assumed to survive as a Unity
 component: static Harmony/lifecycle roots retain the bridge after startup cleanup.
 
-## Existing direction-filter adapter liveness
+## Existing direction-filter adapter liveness [mod integration]
 
 The eleven original byte spans remain in EnemyGatePathfindingNativeDefinition.
 At F33F5, RCX remains the module base until its original MOVZX reads

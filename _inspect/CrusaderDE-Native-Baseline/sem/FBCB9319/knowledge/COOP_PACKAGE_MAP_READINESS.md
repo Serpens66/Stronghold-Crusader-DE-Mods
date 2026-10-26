@@ -1,4 +1,4 @@
-# Packaged Coop maps and Ready admission
+# Packaged Coop maps and Ready admission [Scope: Vanilla + mod integration]
 
 Observed 2026-10-26 against native SHA-256
 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`
@@ -32,7 +32,7 @@ not record the private map-valid flag. No native RVA or patch is required.
   comparison and transport semantics. A matching CRC alone does not establish
   package integrity: the content provider must independently validate its package.
 
-## Package consequence and correction boundary
+## Package consequence and correction boundary [mod integration]
 
 The inspected Suffer of the antler package contains 40 bundled map references,
 each under `Assets/<mission>/map.map`. Direct package loading can succeed while

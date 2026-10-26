@@ -1,4 +1,4 @@
-# Editor terrain changes and stale path regions
+# Editor terrain changes and stale path regions [Scope: Vanilla + mod integration]
 
 Observation: 2026-10-26. Native SHA-256
 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
@@ -42,7 +42,7 @@ the UInt16 PCL grid, component counts and gate-related processing. Equal stale
 nonzero PCLs immediately succeed in the confirmed query 0xE2610. Do not replace
 that valid fast path; repair the publication of the input regions instead.
 
-## Safe consumer boundary and limits
+## Safe consumer boundary and limits [mod integration]
 
 The real public `EditorDirector.preDLLCallActions(ref int, ref int)` is called
 exactly once inside `EngineInterface.run(bool)`'s existing private threadLock,
@@ -62,7 +62,7 @@ No second native detour is installed. A changed generation since the latest edit
 plus clean dirty marker proves Vanilla completed the pending batch; a clean marker
 alone or a rebuild preceding a later unmarked edit does not.
 
-## Release batching (2026-10-26)
+## Release batching (2026-10-26) [mod integration]
 
 The user confirmed the initial editor correction works. The follow-up efficiency
 change defers its own dirty request as well as its forced rebuild until Mouse0 is

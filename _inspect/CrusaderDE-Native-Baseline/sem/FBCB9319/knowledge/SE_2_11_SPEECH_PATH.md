@@ -1,4 +1,4 @@
-# Script Extender 2.11.0 speech-path hook
+# Script Extender 2.11.0 speech-path hook [Scope: External component]
 
 Scope: `CrusaderDE.dll` SHA-256 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`; Script Extender commit `48fd239dc56300d9e3acacaa26a8cd87de0c6464`, tree `d9a8f9637987151c243818ddda747e91ea3d4a69`.
 

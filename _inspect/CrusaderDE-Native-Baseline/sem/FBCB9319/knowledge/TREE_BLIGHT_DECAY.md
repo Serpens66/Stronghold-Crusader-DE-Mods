@@ -1,4 +1,4 @@
-# Tree Blight and woodland decay
+# Tree Blight and woodland decay [Scope: Vanilla + mod integration]
 
 Audit date: 2026-10-25. Canonical CrusaderDE.dll SHA-256:
 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
@@ -56,7 +56,7 @@ can survive the event, explaining residual damage/felled state; clearing worker
 fields or replenishing health/resources would change unrelated behavior. Building
 placement still uses occupancy until Vanilla deletion; no overbuilding is enabled.
 
-## Permanent interception contract
+## Permanent interception contract [mod integration]
 
 Native record base is `manager + nativeID * 0x9C`. Fields are alive UInt16 `+0x68`,
 type UInt16 `+0x6A`, health/max UInt16 `+0x96/+0x98`, felled UInt16 `+0x9A`,
@@ -103,7 +103,7 @@ The static runtime retains hooks, transaction, native state and registration unt
 process exit. After commit, even verification failure only clears the enabled flag;
 settings, map transitions and startup cleanup never undo published hooks.
 
-## Consumer and verification boundary
+## Consumer and verification boundary [mod integration]
 
 BugfixesAndQoL's host-only EnableTreeBlightDecayFix defaults/resets true and is
 Recommended under Host / Economy / Fixes. The normal host master switch and option

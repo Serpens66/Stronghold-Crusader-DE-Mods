@@ -1,4 +1,4 @@
-# Automatic gate closing: query pass per engine run
+# Automatic gate closing: query pass per engine run [Scope: Vanilla]
 
 Audit observation: 2026-10-23. Native canonical installed DLL SHA-256
 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`

@@ -1,4 +1,4 @@
-# Cursor dispatcher: verified boundary and embedded tables
+# Cursor dispatcher: verified boundary and embedded tables [Scope: Vanilla]
 
 Native SHA256: FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
 

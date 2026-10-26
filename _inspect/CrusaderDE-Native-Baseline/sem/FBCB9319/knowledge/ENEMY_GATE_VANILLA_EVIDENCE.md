@@ -1,4 +1,4 @@
-# Gatehouse policy: native baseline and evidence limits (2026-10-13)
+# Gatehouse policy: native baseline and evidence limits (2026-10-13) [Scope: Vanilla + mod integration]
 
 Native SHA256: FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
 The completed feature audit was reconfirmed against the installed image: 60 complete search/climb bodies, 16,960 instruction ranges, 21 planning/output bodies, plus the previously inspected topology, strategic planning and Maceman update bodies. Evidence remains in EnemyGateBuildingContextAudit/native-assassin-publication-evidence.txt, bridge-virtual-evidence.txt, bridge-decision-evidence.txt and macemen-native-update-evidence.txt. No new native addresses or hooks are introduced.
@@ -17,13 +17,13 @@ The mod retains its player-specific gatehouse boundary masks, early capturer com
 
 The October1 capturer-adapter correction repaired our own flags transport. A successful game run afterwards proves a regression outcome; it alone does not prove a change from unmodified Vanilla. Older aiDetour/vanillaDetour counters meant a successful query with rejected edges, not an observed counterfactual detour. Older PASS observation verdicts certified activity only. Historical logs remain unchanged.
 
-## Diagnostic contract
+## Diagnostic contract [mod integration]
 
 Observation is OBSERVED; PASS/FAIL is reserved for checked integrity or explicit functional invariants. Negative searches with/without rejected edges and incomplete calls are separate. Local native comparison preservation/change is measurable, but an original-call result under active hooks is not pristine Vanilla.
 
 Synchronous order evidence distinguishes early comparison changes from individual-route filtering. Equal PCLs are labeled a shortcut only when actually seen in the region call. No region callback means unobserved: it does not identify a skipped caller branch or cache. Packed output with unknown movement stays unproven. No extra searches, native hooks, artificial orders or retained unit histories are added.
 
-## 2026-10-13: controlled comparison and actionable setup
+## 2026-10-13: controlled comparison and actionable setup [mod integration]
 
 Added TARGETED_TESTS.md with a deterministic ordinary-soldier ground order across a gate in a long freestanding wall, with open ends as a real alternative. Identical saves/mainmod settings with and without the gate mod isolate its effect. This is a route test, not AI-order acceptance or an unconditional claim that Vanilla will use the gate. If the control already goes around, stop and report that result instead of repeating random attacks. The existing normal gate-attack scenario is not requested again.
 
@@ -31,7 +31,7 @@ Detailed topology publication now emits TEMP_GATE_ROUTE_ACCEPTANCE test-setup ro
 
 The real installed-RedBird harness now explicitly compares identical native memory with an empty versus registered policy: owner1/capturer3/query2 accepts without policy and rejects with policy at both graph/builder sites; query3 remains accepted. This is a local comparison proof, not full AI behavior. Policy tests:66,834 assertions, plus the actual correlation/scope fixture. Gatepolicy, climbing, commands, version0.1.6, dependencies, README and saves unchanged.
 
-## 2026-10-13: observed AI detour with test_gates_around
+## 2026-10-13: observed AI detour with test_gates_around [mod integration]
 
 Source: BepInEx/LogOutput.log, SHA256 83e26a4e8c48b228ae704c9bc1fb353b61cf7f1af86a9807b6efff479d9bb0ec. The first process created test_gates_around.sav around14:15; it did not load that save by name. The second process loaded it at14:16:55.522; gate epoch1 ran14:16:57.171--14:17:32.313. User observed AI units choosing the open gatehouse passage without the gate mod and the longer real outside path with the gate mod. This is an observed successful AI route comparison, not merely the earlier proposed human-order fixture.
 
@@ -47,7 +47,7 @@ Acceptance: AI uses a genuine alternative instead of a hostile gatehouse ground 
 
 Full native audit reconfirmed:60complete search/climb bodies,16,960installed instruction ranges,21planning/output bodies. No runtime code, hook, interface, mod version, minimum dependency, README or save changed. Local DetailedDiagnostics=false and MacemenDiagnostics=false restore standard logging on next game start; optional observer implementations remain available. No build is required for documentation/configuration only.
 
-## 2026-10-13: finalization gate, completion correction and search-path audit
+## 2026-10-13: finalization gate, completion correction and search-path audit [mod integration]
 
 MAINMOD INTEGRATION BLOCKED: testmod functionality is not yet fully accepted. The observed test_gates_around detour remains passed. Missing following Raid routes, ambiguous native Assassin transitions, original-owner recapture use and insufficiently attributed upstream-only decisions remain explicit limitations. Do not integrate the gate provider while these relevant cases remain unresolved; earlier suggestions to prepare integration are superseded.
 
@@ -67,7 +67,7 @@ No behavior correction was justified beyond the four diagnostic completion flags
 
 Build completion13.10.2026 14:45:15: elevated BugfixesAndQoL/build.bat /nopause finished exit0 and installed successfully. Runtime package version remains1.0.187, minimum SE2.14.0. Installed/local DLL SHA256=60f7a7875fe106b25a6b1ff94fb92cb8f1260df921289d06e3618d15dae20ea4. Final runtime compilation:0errors,27warnings (including existing constant-disabled diagnostic branches); fixture builds additionally report dependency-version warnings. No warning is treated as an in-game success proof. Full driver log: _inspect/EnemyGateBuildingContextAudit/gate-completion-main-build.log. Post-check:66,834Gate assertions and30actual correlation/scope checks passed again. Both local gate diagnostic options remain false; no APIShared/Gate build or gatepolicy integration occurred. Next user action is only TARGETED_TESTS.md step1, with DetailedDiagnostics deliberately enabled before restart; report the actual path before capture. Later Raid/recapture checks stay staged until that result is evaluated.
 
-## 2026-10-13 14:52 editor acceptance observation
+## 2026-10-13 14:52 editor acceptance observation [mod integration]
 
 Source LogOutput.log SHA256=f4b4fdde5c49bd822931b38dfb3244bbdb07d9b980cc4506f65612d7087cc908; third process, one editor epoch14:52:17--14:53:51. DetailedDiagnostics=True,MacemenDiagnostics=False; SE2.14.1/APIShared0.8.0/Main1.0.187/Fixes1.26.4/Gate0.1.6. No separate bridge/Assassin testmod loaded. User reports the tested in-game behavior matched expectations. No exact open/closed command-by-command observation was supplied; do not invent that mapping.
 
@@ -81,7 +81,7 @@ Gate1/global1,owner1,no bridge: published capturer2 at14:53:20.643,back to0 at14
 
 Assessment: useful editor regression passed by user observation with supporting route evidence. Integration remains blocked by the previously documented limits. No gameplay change or repeat of this editor scenario is justified by these logs. Next technical task: reuse the proven exact-publication association for packed diagnosis without granting arbitrary native outputs a climb verdict; clarify allowed= as ground-mask permission (it is not the final climb decision). Keep the genuine mode94 native output and Raid/upstream gaps separate. No code/configuration/build changes in this log analysis.
 
-## 2026-10-13: preserve validated exact weighted publication evidence (diagnostic format 9)
+## 2026-10-13: preserve validated exact weighted publication evidence (diagnostic format 9) [mod integration]
 
 The optional final-output observer now retains masked transition decisions from the already executed post-native weighted-route validation. Each record belongs only to the synchronous publication report, keyed by directed edge and checked against player/from/to/direction. A new validation clears the prior evidence. Only successful full validation followed by the actual exact-weighted handoff publication enables its use during the existing final buffer inspection. Native output, including mode94 fallback, does not inherit a prepared route's classification. Missing/mismatched evidence remains movement-unproven; current snapshot and live gate identity checks still apply at observer completion.
 
@@ -93,7 +93,7 @@ Verification: full native audit60search/climb bodies,16960instruction ranges,21p
 
 Build completion 2026-10-13: elevated BugfixesAndQoL/build.bat /nopause completed15:29:52 exit0; EnemyGatePathfindingTest/build.bat completed15:30:30 exit0 (gate runtime zero warnings). APIShared was neither edited nor built. Installed/local DLL hashes match: main3d668a644d43c05e51edc2db4f200c42f4f93140ffaef0c2c39b72b249ba2152; gateb84dbbfa99c5932bf20be4b97f84b9cd729e8886c1877dd85a9971482518f7fc. Final build logs: _inspect/EnemyGateBuildingContextAudit/weighted-publication-main-final-build.log and weighted-publication-gate-build.log. Both drivers completed all prescribed test stages. This diagnostic work item is complete; it does not close the remaining overall acceptance gaps.
 
-## 2026-10-13: consolidated technical review after quarry acceptance
+## 2026-10-13: consolidated technical review after quarry acceptance [mod integration]
 
 Full installed-native audit passed again: 60 search/climb bodies, 16,960 instruction ranges and 21 planning/output bodies, hash FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2. Entire DA020, 123090 and DBC60 bodies reviewed against the source wrappers. DA020 creates coarse approach candidates. 123090 executes DA590 (ordinary), D9C40 (Assassin), or DB650 for its alternative variant, replaces unreachable scores with 10,000,000 and removes them before the command9 first-building-field guard. Same-PCL acceptance in DA020 is therefore not proof that an unreachable ordinary approach survives the consumer.
 
@@ -105,7 +105,7 @@ Verification: 273 actual Raid-chain assertions and 756 actual observer assertion
 
 Format10 evidence is retained from Log_313 / original LogOutput SHA256 d3790c7eb99a2d20f5d423770d1eb0ab16893d7a18831159a5410840f1681ec0. No new functional defect was reproduced. Historical native output486 (Log_311) stays movement-unproven; exact weighted output782 has its separately validated transition evidence. No route or command semantics, hooks, public interfaces, versions, README or saves changed. No production build is required for these documentation/configuration changes.
 
-## 2026-10-13: large gatehouse footprint correction (game acceptance pending)
+## 2026-10-13: large gatehouse footprint correction (game acceptance pending) [mod integration]
 
 The 17:08:53-17:12:00 editor evidence diagnosed small gate1 (25 cells,60 restrictions) versus large gate2/global3 (door-only fallback,zero restrictions). Technical integrity did not establish mask coverage. This is a confirmed missing ground mask, not an Assassin-specific verdict. Weighted search was active; this run does not complete the earlier native-only Assassin check.
 
@@ -121,7 +121,7 @@ Regression suite:67,263 assertions including production mask generation, all fou
 
 Next: TARGETED_TESTS.md large-gate regression. Stored weighted Assassin search=true,direct gatehouse climb=true; DetailedDiagnostics=true,MacemenDiagnostics=false. Check effective options after loading presets. Mainmod integration remains withheld until the large-gate in-game result is confirmed; historical unknown native Assassin routes remain unknown.
 
-## 2026-10-13: both gate sizes accepted in editor; native-only Assassin comparison next
+## 2026-10-13: both gate sizes accepted in editor; native-only Assassin comparison next [mod integration]
 
 Evidence: LogOutput.log SHA256 edbcd431de8816489afb0ec86e691a352472db40f4c11a1afd723150a32390ed, editor epoch1 17:41:43.984--17:43:30.939. Gate1/global1 has60 directed restrictions; gate2/global3 has84. Current and peak missingRequiredMasks=0; ambiguousPassages=0. User explicitly confirms both gates behaved as desired. The large-gate correction is therefore an observed passed game regression; no repeat of that weighted-mode test is requested.
 
@@ -132,7 +132,7 @@ Loaded APIShared0.8.0, BugfixesAndQoL1.0.187, Fixes1.26.4 and Gate0.1.6. Weighte
 With game stopped, prepared next test: EnableImprovedAssassinPathfinding=false, EnableAssassinGatehouseClimbFix=true, DetailedDiagnostics=true, MacemenDiagnostics=false. Parsed102 local MessagePack fields and changed exactly one boolean byte; all other bytes preserved. Settings SHA256 after=979421d0f3e6679d59d3e4ff17c10a85be0d8a7d1f48b98870ff12861e70c75f. Bridge remains off as in accepted run; presets/lobby overrides must be checked after loading. No runtime code, binaries, public API, version, README or save changed; no build required.
 
 Only remaining requested game comparison: one hostile Assassin, fresh ground order behind each open uncaptured gate, then reload initial state and repeat with gates closed. Keep direct climbing enabled. Observe first access before capture; subsequent permitted ground passage is not a violation. See TARGETED_TESTS.md. Successful Raid/quarry, real detour, recapture and both gate-size regressions remain accepted and are not requested again. Historical native outputs are not retroactively cleared. Integration remains withheld until native-output evidence is evaluated; +0x94 is only covered when specifically established.
-## 2026-10-13: native test preparation corrected for authoritative schema3 working state
+## 2026-10-13: native test preparation corrected for authoritative schema3 working state [mod integration]
 
 Editor17:58:05--17:59:10 again behaved correctly according to the user. Full LogOutput SHA256 at evaluation=54a6c702ae437b368f476256b42783dd988bd5f2a03c6ebfc1ae969ae39384cd (includes previous starts; latest process selected by BepInEx start marker). Both masks60/84 and current/peak missing masks0. No Error/Fatal, scope, exception or snapshot failures; paired group/unit events6/6 each. Six checked route observations, no confirmed violations; two additional native mask overlaps remain movement-unproven. Those two outputs have secondaryGroundFlag94=0/0, no observed secondary-ground pass. User observation supports correct behavior; it does not prove the branch of each historical route.
 

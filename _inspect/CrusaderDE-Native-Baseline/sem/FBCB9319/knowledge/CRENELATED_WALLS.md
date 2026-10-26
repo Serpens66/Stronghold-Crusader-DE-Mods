@@ -1,4 +1,4 @@
-# Crenelated wall construction and sticky high pieces
+# Crenelated wall construction and sticky high pieces [Scope: Vanilla + mod integration]
 
 Native SHA-256 FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2; managed BC8B6A395F01D48557DB413600C8DD8D1FDFD3ABDF97BFBBB68A3C56B04FD789. Installed SE 2.14.1 hash E5D78FDF2EA9701336C398F7D29410F206D141FC01AA8099F30C824E6AB8A0B3, fork commit 5908e1f12437deb7ef5f5b1dc2d64e301178fba3, tree c238441ea12db35ee36c5c5668d3c8fce0897295. Fixes source v1.26.4. Audit date 2026-10-14. Findings are confirmed static data/control flow for these identities, not observed game execution; internal FUN names are not exported APIs.
 
@@ -26,7 +26,7 @@ High is not cosmetic only. 0x6B530 adds 10 for a low crenel and 20 for a high pi
 
 The older consolidated opcode-25 row's proposed six Int32 fields/24-byte size is not the contract of this build. 0x11B50 declares nominal payload size 12 and copies fields of sizes 2,2,2,2,1,2 through 0x1F5F0. Their consumed offsets are beginX 0, beginY 2, endX 4, endY 6, mapper 8 and signed build maximum 9. The four coordinates are zero-initialized before their low words are read. The sender comes from the decoded Chore slot, not a payload field. 0x1F5F0 advances its cursor by the literal copy size, hence these fields consume 11 bytes; the meaning/content of the remaining nominal byte is not interpreted by this handler. This current static audit supersedes that historical proposed row. The raw/consolidated artifacts and SQLite publication are preserved rather than silently relabeled during unrelated ongoing baseline work.
 
-## Consumer contract and validation
+## Consumer contract and validation [mod integration]
 
 SE's existing `OnBuildWall` publisher is process-lived. Its Pre inputs are mutable; the wrapper ignores `SkipOriginalFunction` and always calls Vanilla with the effective inputs. Post is reconstructed from original inputs and has no usable success result. Setting maximum zero is a supported native no-placement input, but a runtime before/after check remains necessary. The debug mirror tool calls native originals before Pre and is outside this interception boundary.
 

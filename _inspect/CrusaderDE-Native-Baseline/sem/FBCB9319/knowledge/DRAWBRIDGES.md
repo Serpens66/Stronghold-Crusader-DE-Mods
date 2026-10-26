@@ -1,4 +1,4 @@
-# Drawbridges: curated native contracts
+# Drawbridges: curated native contracts [Scope: Vanilla + mod integration]
 
 Native SHA-256: `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
 Date: 2026-09-17. Static contracts were checked against the canonical DLL; the resulting ExtraFeatures behavior was also verified in game. Editor placement and editor lifecycle are outside this document.
@@ -34,7 +34,7 @@ Detailed implementation history, failed approaches and live-process methodology:
 - Vanilla stores current elevation at unit-slot anchor `+0x712` and vertical correction at `+0x714`. For elevated drawbridges the correction is `buildingHeight - currentElevation`; the resulting surface is therefore the same building height used by all rigid drawbridge parts. Low drawbridges retain Vanilla `8-currentElevation`.
 - Type-2 sprite producers at RVAs `0x43EF3` and `0x44346` consume this correction. Type-52 interpolation forwards the already computed height at RVA `0x1A22C4`; separate movement, interpolation or sorting hooks are not required.
 
-## Hook backend contract
+## Hook backend contract [mod integration]
 
 - Installed RedBird.X64 is `1.1.0`; installed Iced is `1.21.0`.
 - RedBird's requested hook size is a minimum. The verified displaced byte counts for the six drawbridge hooks are `17`, `15`, `19`, `17`, `16`, and `19` bytes in the order creation, lowering, special renderer, animated renderer, static renderer, and unit correction.
@@ -44,7 +44,7 @@ Detailed implementation history, failed approaches and live-process methodology:
 
 These contracts establish runtime drawbridge height, rendering, unit placement, refresh and restoration behavior for the stated binary hash. They do not establish editor-mode placement permissions or editor lifecycle behavior.
 
-## Blueprint view contract (2026-10-07)
+## Blueprint view contract (2026-10-07) [mod integration]
 
 Installed native and managed hashes were rechecked: native `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`, managed `BC8B6A395F01D48557DB413600C8DD8D1FDFD3ABDF97BFBBB68A3C56B04FD789`. The following is a static rendering audit and asset inspection. On 2026-10-07 the user confirmed that the installed correction works in game; this confirmation does not establish which camera/terrain combinations were individually exercised.
 

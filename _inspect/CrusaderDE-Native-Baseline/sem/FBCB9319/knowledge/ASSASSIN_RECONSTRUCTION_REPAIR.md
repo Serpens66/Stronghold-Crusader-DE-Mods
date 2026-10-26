@@ -1,4 +1,4 @@
-# Assassin route reconstruction failure and full-map repair
+# Assassin route reconstruction failure and full-map repair [Scope: Vanilla + mod integration]
 
 Native hash `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2` (installed DLL, 2026-10-20).
 Evidence: disassembly of the listed functions plus a runtime replay of the descent on the live field
@@ -31,7 +31,7 @@ Counts per 60 s on `test_8lordsmiddle` (PerfFixTest native counter `manager+0x78
 Script Extender only 10; BugfixesAndQoL with direct gatehouse climbing 112 (the AI then sends
 Assassin groups out of their gatehouse far more often); same with the APIShared rule below 3.
 
-## Correction (APIShared `AssassinPathAPI`, site 0xE19C0/14)
+## Correction (APIShared `AssassinPathAPI`, site 0xE19C0/14) [mod integration]
 
 While policy flag 1 (weighted reconstruction) or 2 (direct gatehouse climbing) is set, mode 3 also
 accepts `conn[neighbor] & mask[(dir + 4) & 7]`, i.e. exactly the edge D9C40 used. Stamp/distance checks,

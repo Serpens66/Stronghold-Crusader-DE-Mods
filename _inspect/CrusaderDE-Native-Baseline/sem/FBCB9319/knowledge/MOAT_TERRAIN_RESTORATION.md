@@ -1,4 +1,4 @@
-# Moat terrain restoration
+# Moat terrain restoration [Scope: Vanilla + mod integration]
 
 Observation: 2026-10-25. Canonical native SHA-256
 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
@@ -63,7 +63,7 @@ replacement path, and vegetation creation/update `0x108320/0x109930` can clear m
 state after allocating or updating vegetation. Their committed replacement branches
 invalidate history rather than repainting the new object.
 
-## Ownership, persistence and evidence
+## Ownership, persistence and evidence [mod integration]
 
 BugfixesAndQoL's private native stubs own only the disjoint soil/capture spans listed
 in its `MoatTerrain/NativeDefinition.cs`. ExtraFeatures retains its height hooks;

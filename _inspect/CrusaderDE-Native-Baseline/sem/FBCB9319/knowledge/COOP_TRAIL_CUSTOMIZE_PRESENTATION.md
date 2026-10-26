@@ -1,4 +1,4 @@
-# Coop Trail Customize presentation
+# Coop Trail Customize presentation [Scope: Vanilla + mod integration]
 
 Static audit: 2026-10-21. Native SHA-256
 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`;
@@ -51,7 +51,7 @@ installed assembly's reflection/direct-access signatures. Adapter tests execute
 production source against boundary doubles; they do not prove Noesis rendering
 or live host/client synchronization. In-game visual acceptance remains pending.
 
-## Custom partner keep assignment, 2026-10-25
+## Custom partner keep assignment, 2026-10-25 [mod integration]
 
 Reverified the installed native and managed SHA-256 values above. This is a
 managed lobby-state defect; no new native hook or structure offset is needed.

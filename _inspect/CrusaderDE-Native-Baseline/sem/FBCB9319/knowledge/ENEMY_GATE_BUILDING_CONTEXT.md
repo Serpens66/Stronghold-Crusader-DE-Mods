@@ -1,4 +1,4 @@
-# GebÃ¤ude-AnnÃ¤herung: Suchspieler und bewegender Spieler
+# GebÃ¤ude-AnnÃ¤herung: Suchspieler und bewegender Spieler [Scope: Vanilla + mod integration]
 
 Audit: 02.10.2026. Native SHA-256:
 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
@@ -112,7 +112,7 @@ Auftrag und der gespeicherte Raid-Zielbezug beweist keinen erfolgreichen Weg.
 Siehe ergÃ¤nzend RAID_RETARGET.md fÃ¼r Sentinel, Unittypen und den bestehenden
 BugfixesAndQoL-Raidfix.
 
-## Konsequenz fÃ¼r den Testmod und verbleibende Grenze
+## Konsequenz fÃ¼r den Testmod und verbleibende Grenze [mod integration]
 
 Die bisherige Gleichheitsannahme des GebÃ¤ude-Resolvers ist zu streng:
 Ein Suchwert 2 gegenÃ¼ber Tribe-Besitzer 5 kann im Planer regulÃ¤r sein. Sie
@@ -136,7 +136,7 @@ pauschal durch den Tribe-Besitzer ersetzt werden. Erwartbare Rollenunterschiede
 dÃ¼rfen erst bei belegter Herkunft aus der dauerhaften Fehlerwertung herausfallen;
 IdentitÃ¤tsfehler, unklare Herkunft und echte Scope-Konflikte bleiben getrennt.
 
-## Reproduzierbare PrÃ¼fung und Regressionen
+## Reproduzierbare PrÃ¼fung und Regressionen [mod integration]
 
 Unter `_inspect/EnemyGateBuildingContextAudit` liegen `audit.py`,
 `installed-layout.ps1` und der vollstÃ¤ndige Decompiler-/Maschinencodebeleg
@@ -153,7 +153,7 @@ echter Umweg sowie BugfixesAndQoL/APIShared ohne Testmod. Keine neue Spielabnahm
 oder Build wird durch die vorliegende reine Vertragsdokumentation behauptet.
 
 
-## Umsetzung des Bewegungsscopes, 02.10.2026
+## Umsetzung des Bewegungsscopes, 02.10.2026 [mod integration]
 
 Der Testmod bindet jetzt beide DA020-Einstiege an denselben Resolver. Er
 validiert Snapshot-/Live-TribeidentitÃ¤t und AnfÃ¼hrerkontrolle und ordnet den
@@ -181,7 +181,7 @@ SHA-256 69C349B4892F3B2850CDB351F21BA5DD3AD173CF7D01FDC2F5700B7832F57BB0.
 Hauptmod/APIShared-DLLs blieben identisch. Spielabnahme ausstehend.
 
 
-## Diagnosebereinigung und Spielbefunde, 02.10.2026
+## Diagnosebereinigung und Spielbefunde, 02.10.2026 [mod integration]
 
 Die neue GebÃ¤ude-Scope-Fassung wurde in drei aktiven test_gates.sav-Epochen
 beobachtet: 13:35:51.837â€“13:36:47.889 (KI-ZÃ¤hler 11100, Rollenunterschiede 13),

@@ -1,4 +1,4 @@
-# Move-stager data anchors
+# Move-stager data anchors [Scope: Vanilla + mod integration]
 
 ## Scope and provenance
 

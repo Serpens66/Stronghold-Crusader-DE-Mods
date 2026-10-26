@@ -1,4 +1,4 @@
-# Gate routing migration, 2026-10-13
+# Gate routing migration, 2026-10-13 [Scope: Mod work, not Vanilla]
 
 Native SHA256: FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2
 

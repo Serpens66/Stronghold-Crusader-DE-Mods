@@ -1,4 +1,4 @@
-# Vanilla Peace-Time Gameplay
+# Vanilla Peace-Time Gameplay [Scope: Vanilla + mod integration]
 
 ## Provenance
 
@@ -33,7 +33,7 @@ Fourteen are mode-independent state, scheduler, timer-function, checksum, or per
 
 The other 22 are gameplay consumers in the audited predicate/dispatcher functions. Their mode-0/mode-99 bypasses are located in functions `0x89F40`, `0x8C5F0`, `0xABB90`, `0xC70B0`, `0xCDB20`, `0x105510`, `0x124B90`, `0x1256A0`, `0x1259D0`, `0x156DC0`, `0x17F2F0`, and `0x1867A0`, plus the starting-troop dispatcher `0x119050`.
 
-## Mode-gate patch contract
+## Mode-gate patch contract [mod integration]
 
 The corrected 28 single-instruction spans are:
 
@@ -61,7 +61,7 @@ RedBird 1.3.2 displaces exactly 16 bytes for this requested minimum. Ghidra's di
 
 Static control/data-flow confidence is high for the current hash. Runtime validation must still cover countdown expiry, damage/targeting, AI military resumption, and start-troop cadence in modes 0, 1, and 99. No conclusion here applies to another native hash without a fresh audit.
 
-## Wildlife regression and Peace-Time guard (2026-10-07)
+## Wildlife regression and Peace-Time guard (2026-10-07) [mod integration]
 
 The original audit incorrectly treated `1869A7` as exclusively peace-owned. The full 533-byte predicate `1867A0..1869B5` also reaches that shared JNE from `1868DE`, with flags produced by the classification-byte comparison at `1868D6`. Turning it into JMP returns exclusion=1 for valid lion/hyena versus troop contacts even when the active flag is zero. Original exclusion=0 admits the target. The erroneous assumption in the earlier mode-gate contract is superseded by the corrected contract above.
 

@@ -1,4 +1,4 @@
-# Keep Main-Flag Rotation Audit
+# Keep Main-Flag Rotation Audit [Scope: Vanilla]
 
 ## Provenance
 

@@ -1,4 +1,4 @@
-# Read-only manual unit path probes
+# Read-only manual unit path probes [Scope: Vanilla + mod integration]
 
 Verified native hash: FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
 Review date: 2026-10-07.

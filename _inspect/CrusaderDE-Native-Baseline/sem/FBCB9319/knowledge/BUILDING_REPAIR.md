@@ -1,4 +1,4 @@
-# Building repair contract (CrusaderDE.dll FBCB9319…F2831E2)
+# Building repair contract (CrusaderDE.dll FBCB9319…F2831E2) [Scope: Vanilla + mod integration]
 
 The installed `CrusaderDE.dll` has SHA-256 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
 

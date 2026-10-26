@@ -1,4 +1,4 @@
-# AI woodcutter construction gate
+# AI woodcutter construction gate [Scope: Vanilla + mod integration]
 
 Native SHA-256: `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`. Evidence: installed `CrusaderDE.dll`, direct Rizin disassembly, and `exports/semantic-decompiled-functions.c` plus `exports/semantic-functions.jsonl` for RVAs `0x51540`, `0x58020`, `0x58950`, `0x58BE0`, and `0xC3BF0`. The 29 September 2026 re-audit corrected the earlier conflation of `0x58950` and `0x58BE0`.
 
@@ -153,7 +153,7 @@ The source chain was rechecked at RVAs `0x50720` (full and running coarse update
 
 If no such producer-side representation is proved, the narrow next hypothesis is a wood-only candidate guard at `0x58950`'s existing acceptance point: after Vanilla's coarse gates and before returning a candidate, reject the candidate if its fixed anchor has PCL 0 or any of its nine footprint tiles has parcel bit `0x4`. Continue the same native FIFO traversal and leave `0x58020`, `0xC3BF0`, `0x6D580` and other searches untouched. This is a design candidate, not an installed fix: the exact instruction boundary, register/flag liveness, hook backend and behavior for missing tile data require a separate audit before code. Positive anchor PCL is not itself proof of route or placement success; both Vanilla checks remain authoritative.
 
-### Candidate-acceptance patch boundary audit
+### Candidate-acceptance patch boundary audit [mod integration]
 
 At the same installed hash, direct disassembly of `0x58950` shows the last coarse gate at VA `0x180058B1D` (`cmp byte [rdx+0x5B838],r14b`), followed by `jg 0x180058B2E`, `test bl,bl` at `0x180058B26`, and `je 0x180058BAE` at `0x180058B28`. `BL` holds the signed foreign count loaded at `0x180058AD2`. The success block at `0x180058BAE` stores `r11d/r10d` as coarse X/Y and returns; the fallback at `0x180058B2E` queues this same candidate for further FIFO traversal. Earlier gate failures also enter `0x180058B2E`.
 
@@ -171,7 +171,7 @@ Evidence is `BepInEx/logs/Log_199.log` containing only `test_canari_nowoodcutter
 
 The separate AICoarsePathComponentFixTest contains an opt-in wood-only guard at RVA `0x58B26`. A full Iced decode of the installed `0x58950` function (656 bytes) found 20 direct branches and no branch target within the overwritten eight-byte interior; the other incoming branches still enter the untouched fallback at `0x58B2E`. A copied-buffer stub assembled and fully decoded to 112 bytes, with two local branches, one success jump to `0x58BAE` and two fallback jumps to `0x58B2E`. It saves the live general-purpose volatile registers and flags, then calls a guarded managed predicate; the audited `0x58950` path has no live SIMD use across this point. The predicate rejects only a component-0 anchor or parcel bit `0x4` in the fixed 3-by-3 footprint, and fails open on absent context or unreadable or divergent tile views. Installation validates the installed DLL hash and exact live eight bytes. The patch is permanent for the process, while mission activation is limited by settings to named test scenarios. The old nearby-grid overlay is checked and must be disabled. The following runs replace the earlier static-only status; general-map compatibility remains open.
 
-### First active guard game runs, 30 September 2026
+### First active guard game runs, 30 September 2026 [mod integration]
 
 The first disposable Canari-copy run (`BepInEx/logs/Log_200.log`) loaded the guard with `CopyOnly`, no old nearby-grid overlay and no coarse writes. Player 6 made five wood attempts; each passed the route and produced a new hut (building IDs beginning at 138). The guard recorded five component-0 anchors and ten parcel-blocked candidates. The diagnostic reported zero materialized wall-tile changes. This confirms the active in-search branch can avoid the known Canari failure on that copy; it does not establish safety for unrelated maps or original saves.
 
@@ -203,7 +203,7 @@ The subsequent process loaded the Rat seed, original Canari save, and byte-ident
 
 The original `test_canari_nowoodcutters.sav` was loaded alone in a fresh process with `WoodSiteGuard.Scope=OriginalCanariOnly`, `Decision=Reject`, isolation mode 0, and `AIBuildDiagnoseTest` disabled (`BepInEx/LogOutput.log`, 00:42:55–00:45:11). The test observer's first-tick census found player 6 had zero woodsman huts and six apple farms, matching the prior byte-identical probe run. The guard became active for this original save. In five wood attempts it skipped `(69,97)` for a zero-component anchor and `(70,97)` plus `(70,96)` for parcel bit `0x4`; Vanilla then accepted `(71,96)`, `(71,97)`, `(69,95)`, `(70,95)` and `(71,95)`. `OnBuildingSpawn` post events with positive building IDs independently confirm five new player-6 huts at `(355,480)`, `(355,485)`, `(345,475)`, `(350,475)` and `(355,475)` by tick 4236. The run ended at tick 8086 with `examined=20`, `applied=15`, `unavailable=0`, and `traceDropped=0`. The always-on observer counted 1840 `OnAIBuildWall` post calls but zero wall event state changes and zero created, removed or owner-changed wall tiles in the periodic 320,800-tile scans; it reported no omitted events, omitted wall details or failed reads. The original save's SHA-256 remained `17BAB0CA7C73F1254765CEC0DD6BCFEDBA73343D74DE1D7F35DD6715C3EAC31A` after the run. **Conclusion limited to this run:** the guard produces huts without the diagnostic mod and no wall-layer anomaly was measured through tick 8086. It does not yet establish general-map compatibility; the no-diagnostic Rat seed remains the next control.
 
-### Rat seed with active guard and no diagnostic observer, 1 October 2026
+### Rat seed with active guard and no diagnostic observer, 1 October 2026 [mod integration]
 
 The unchanged `rat_wood_guard_control_probe.sav` (SHA-256 `9CE228735067734138E450CD91902C6F8F28FE75634F0952AC5F0643E20D378E`) ran in a fresh process with `Scope=RatSaveOnly`, `Decision=Reject`, isolation mode 0 and `AIBuildDiagnoseTest` disabled (`BepInEx/LogOutput.log`, 00:47:04–00:49:05). The first-tick census reported no existing huts or farms. By the agreed tick 11000, all seven Rat AI players 2–8 had independently spawned both structures: 39 huts and 48 apple farms. The guard had rejected eight wood candidates (two zero-component anchors and six parcel-bit-4 footprints), with no unavailable tile reads or dropped candidate traces. Through tick 11000 the 50-tick wall-layer scans found no created, removed or owner-changed wall tiles.
 

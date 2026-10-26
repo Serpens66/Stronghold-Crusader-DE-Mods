@@ -1,4 +1,4 @@
-# Keep and campground ground: verified records
+# Keep and campground ground: verified records [Scope: Vanilla]
 
 ## Provenance
 

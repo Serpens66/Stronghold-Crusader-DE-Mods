@@ -1,4 +1,4 @@
-# Raid target selection and attack access (FBCB9319)
+# Raid target selection and attack access (FBCB9319) [Scope: Vanilla + mod integration]
 
 Native DLL SHA-256: `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`. The addresses below are RVAs for this binary only.
 
@@ -59,7 +59,7 @@ The final summary matches the physical log-prefix counts (68 attacks, twelve ret
 
 The same granary identity `387/1372033`, rejected at ticks 9577, 42470 and 48331, later receives a confirmed valid first melee pair at tick 66353 from the same player-4 tribe `4360/1374531`. Player-4 damage is recorded and deletion occurs at tick 68994. This verifies that rejection is temporary and an accessible granary remains eligible. The log does not establish what changed its attack access.
 
-## Hauptmod-Integration 1.0.174 (2026-10-01)
+## Hauptmod-Integration 1.0.174 (2026-10-01) [mod integration]
 
 Der finale Algorithmus wird jetzt von BugfixesAndQoL/AiRaidRetargetFixRuntime besessen. Standardaktive Hostoption EnableAiRaidRetargetFix mit SyncHostOnly, Hauptschalter UND Option, dieselbe Simulation auf allen Peers. Lebensdauer und Modus kommen aus APIShared über Shared.GameplaySessionLifecycle; IsReplay ist lediglich erneut zugestellte Lifecycle-Nachricht und kein Ausschluss einer aktiven Partie. Editor bleibt ausgeschlossen. Permanenter Beobachtungshook nach integrierter MoatMove-Initialisierung; keine weiteren Builder-/Filterdetours. Abschalten/Kartenende verwirft logische Zustände, nie veröffentlichte Hooks. Logs: Verfügbarkeit, langlebiger Tick/Suchnachweis, erster erfolgreicher Retry je Sitzung, einmalige Warnursachen und Abschlusszähler. Kein normaler Angriffs-, Bewegungs- oder Schadenslog.
 
@@ -67,18 +67,18 @@ Vollständiger Integrationsvertrag, RVA-/Feldinventar, Native-Hash, API- und Bac
 
 Integrationsprüfung abgeschlossen: eigene build.bat erfolgreich, alle bestehenden Hauptmod-Buildregressionen und vollständige Shared-Host-/Client-Preset-/Modustests bestanden; zusätzlich 1945 Auswertungs-, 89 Suchnachweis-/Assembler-/Backend- und 13 Runtime-/Lifecycle-/Logtests. Simulierter Strom (34001 Operationen): 440 Byte, kein Laufzeit-/20-Minuten-Beleg. 48 Paketdateien lokal/installiert hashgleich, DLL 1.0.174.0 und Manifeste 1.0.174, kompiliertes SyncHostOnly bestätigt. Keine aktive Raid-Testmod-DLL war vorhanden, daher keine Archivverschiebung erforderlich. Ingame-/MP-Nachweis der Integration bleibt offen.
 
-## Managed Absicherung 2026-10-02
+## Managed Absicherung 2026-10-02 [mod integration]
 
 Native-Hash, vollständiger Vanilla-Audit und Beobachtungshook bleiben unverändert. Der aktuelle Extender-Befehlswrapper sendet bei finalem Pre.SkipOriginalFunction kein Post. Die Runtime hält deshalb das originale Pre-Ereignis im Rahmen und entfernt übersprungene obere Rahmen ausschließlich vor Such-/Post-Zuordnung; ein neues Pre darf noch laufende äußere Subscriber nicht verwerfen. Auch ungültige Tribe-IDs erhalten neutrale Rahmen ohne native Kandidaten-/Context-Lektüre. SkipOriginalFunction ist im bisherigen Mindesttag 2.10.4 öffentlich; keine Mindestversionsänderung.
 
 Die isoliert reproduzierte Aktivierung initialized=False/active=True wurde durch gemeinsame Initialisierungsfreigabe unter der Runtime-Sperre und initialized-Guard beim APIShared-Sitzungsstart beseitigt. Callbacks prüfen active erneut innerhalb der Sperre. Abgelaufene Abweisungen werden alle 200 Simulationsticks bereinigt, leere Gruppenablagen entfernt; Ablehnungsdauer weiterhin exakt 300 Ticks. Initialisierungsausfall, Disable und Tick-Rücksprung bleiben ohne Hookteardown. 35 neue Runtime-Helfer-/Thread-/Ablauf-Regressionen ergänzen die bestehenden 2047 Raid-Prüfungen. Vollständiger Vertrag steht in BugfixesAndQoL/UpdateToNewDLL.md. Keine neuen Ingame-/MP-Belege; Version 1.0.174 und README unverändert.
-### Hardening verification completed (2026-10-02)
+### Hardening verification completed (2026-10-02) [mod integration]
 
 All 2,082 raid assertions (2,047 existing plus 35 managed hardening checks) and the complete mainmod build regression suite passed. Runtime/API/JSON/lifecycle/permanent-hook/Fixes/MoatMove/XAML/version/diff/CRLF gates passed before the own build.bat was run once with the game stopped. No native-access, eligibility, identity or replacement algorithm was changed: comparison of all 14 relevant method bodies against the pre-hardening source is identical. Native observer/backend hashes and the validated 17-byte span remain unchanged.
 
 Build and installation succeeded with the known dependency-unification warning and no compiler errors. All 48 package files match the installation by SHA-256; installed assembly is 1.0.174.0 and the compiled EnableAiRaidRetargetFix property retains SyncHostOnly. Installed DLL SHA-256: 0CCF91D597E287CA5512FD7D7EAE59A123113ABAEA920182AC2DE65D6FB6377A. No active standalone RaidRetargetDiagnostic DLL is installed. Active version remains 1.0.174; README is unchanged. Evidence: .inspect/RaidRetargetEvaluation/MainmodHardeningBuild-2026-10-02.log and .release-output/local/BugfixesAndQoL/latest.provenance.json. Actual integrated startup/autonomous raid and real host/client gameplay acceptance remain pending; synthetic tests and standalone testmod logs do not establish that runtime evidence.
 
-## 2026-10-13: Raid/Gate chain reviewed; user confirmations close editor questions
+## 2026-10-13: Raid/Gate chain reviewed; user confirmations close editor questions [mod integration]
 
 User explicitly confirms visible Assassin roof ascent before capture and real recapture by units followed by a NEW ground order for ordinary soldiers of the original owner. Both observed cases are PASSED; do not request them again. The test_gates_around AI detour remains passed. Historical unassigned native output records remain unresolved individually.
 
@@ -90,7 +90,7 @@ Log_292 has a genuine test_Raid_Retarget_Delay start01:30:35.545 and summary01:3
 
 Integration remains blocked pending concrete Raid/native-path evidence, not the now-confirmed editor recapture/climb. No runtime/API/README/version/save changes and no build. Local DetailedDiagnostics=true, MacemenDiagnostics=false verified. Next user action: inspect test_Raid_Retarget_Delay paused and provide its geometry/target overview so an appropriate short test can be specified; do not rerun the completed editor cases or start a long random match.
 
-## 2026-10-13 16:09 Raid gate run
+## 2026-10-13 16:09 Raid gate run [mod integration]
 
 LogOutput.log SHA256=82cdf782c2bfaeb53a9fd0f36862f8cb1117e425ce5216c1d3618243538df270. Latest process, actual test_Raid_Retarget_Delay load16:09:12.135, MissionEnd16:12:46. Gate0.1.6/Main1.0.187/APIShared0.8.0, detailed observer active. User observed knights did not approach the quarries or traverse the open gate.
 
@@ -103,7 +103,7 @@ Gate178/global29170 belongs to player1,uncaptured,no bridge,entryExitPcl2/197. S
 Two Extender Error lines are GameAIManagerAPI.TryGetVideoAndAudio lord not found [] at16:11:02.889; their caller/cause is not proven. They are not gate integrity errors and not resource-player-index errors.
 
 Next controlled comparison: same starting save AND same gate/quarry geometry, only EnemyGatePathfindingTest disabled; preserve main Raid fix, Fixes and other settings, keep bridge test off. Observe a similar short interval then leave map. Compare actual Raid candidate/retry evidence; do not claim causality from random target counts alone. No runtime/config/save edits or build performed for this analysis.
-## 2026-10-13 16:31:36--16:34:10: format10 quarry result
+## 2026-10-13 16:31:36--16:34:10: format10 quarry result [mod integration]
 
 Latest LogOutput SHA256=d3790c7eb99a2d20f5d423770d1eb0ab16893d7a18831159a5410840f1681ec0. Actual test_Raid_Retarget_Delay load16:31:36.205, gate epoch2. Earlier epoch16:30:49--16:31:32 has no Raid/AI query evidence and is excluded. User confirms no visible knight attack on either quarry.
 
@@ -114,7 +114,7 @@ Entire Raid session:20original building attacks,4valid/16negative/0unknown;16ret
 This closes the narrow observation question: quarry attacks are requested internally but fail before an approach is assigned; the current combined configuration avoids a repeated failed movement series. It does not establish that the gate testmod caused those negative candidates or that knights would execute a successful quarry approach without the Raid fix. Six Extender TryGetVideoAndAudio lord-not-found error lines, no proven origin in the gate observer. Native60/21 full audit and16960instruction ranges rechecked.
 
 No further identical quarry run required for this evidence. No runtime/configuration/build changes. Integration remains withheld pending the distinct outstanding acceptance limits; this case is documented as compatible original/replacement rejection with observed clean Raid routes, not an exclusive Vanilla improvement claim.
-## 2026-10-13: consolidated technical review after quarry acceptance
+## 2026-10-13: consolidated technical review after quarry acceptance [mod integration]
 
 Full installed-native audit passed again: 60 search/climb bodies, 16,960 instruction ranges and 21 planning/output bodies, hash FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2. Entire DA020, 123090 and DBC60 bodies reviewed against the source wrappers. DA020 creates coarse approach candidates. 123090 executes DA590 (ordinary), D9C40 (Assassin), or DB650 for its alternative variant, replaces unreachable scores with 10,000,000 and removes them before the command9 first-building-field guard. Same-PCL acceptance in DA020 is therefore not proof that an unreachable ordinary approach survives the consumer.
 
@@ -126,7 +126,7 @@ Verification: 273 actual Raid-chain assertions and 756 actual observer assertion
 
 Format10 evidence is retained from Log_313 / original LogOutput SHA256 d3790c7eb99a2d20f5d423770d1eb0ab16893d7a18831159a5410840f1681ec0. No new functional defect was reproduced. Historical native output486 (Log_311) stays movement-unproven; exact weighted output782 has its separately validated transition evidence. No route or command semantics, hooks, public interfaces, versions, README or saves changed. No production build is required for these documentation/configuration changes.
 
-## 2026-10-19: Missing search completion and diagnostic severity
+## 2026-10-19: Missing search completion and diagnostic severity [mod integration]
 
 The installed native DLL was rechecked against CURRENT.json: SHA-256 FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2. The retained complete raid audit, NativeSearchAudit.txt and CommandDisassembly.txt were compared with the current command-frame, observer and evaluator sources on develop 386089baf.
 

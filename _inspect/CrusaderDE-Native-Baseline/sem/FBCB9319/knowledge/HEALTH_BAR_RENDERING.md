@@ -1,4 +1,4 @@
-# Vanilla health-bar rendering (FBCB9319)
+# Vanilla health-bar rendering (FBCB9319) [Scope: Vanilla]
 
 This static audit applies to `CrusaderDE.dll` SHA-256 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`. Runtime behavior of the proposed mod is not yet tested.
 

@@ -1,4 +1,4 @@
-# Gatehouse damage and premature drawbridge destruction
+# Gatehouse damage and premature drawbridge destruction [Scope: Vanilla + mod integration]
 
 Native SHA-256: FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2. Static audit: 2026-10-13. Semantic function names remain candidate-level; the following byte/data flows were checked directly against this installed binary. This is not an in-game fix confirmation.
 
@@ -22,13 +22,13 @@ The later lethal gate branch already repeats coupled-bridge removal before gate 
 
 0xC60F0 processes removal state 3 through 0xB8310. Removal releases workers/auxiliary state, calls tile restoration 0x61FC0, clears the record and invalidates pathfinding. Drawbridge-specific 0x622D0 clears bridge tile occupancy and restores moat/support representation; 0x61EF0 clears footprint properties/effects. Regular refresh/terrain semantics remain authoritative.
 
-## Minimal correction boundary
+## Minimal correction boundary [mod integration]
 
 The test correction inserts an additional positive-health guard before early removal, restricted to direct attacks on the two stone gate types. It keeps normal damage, notifications, lethal removal, area damage and demolition unchanged. Hook starts 0x7EE6B and displaces 4+6+5=15 bytes, continues at 0x7EE7A or skips to 0x7EF87. Full-function direct branches and exported incoming xrefs contain no target inside this span. Installed RedBird X64InlineHook uses max(minimum,14) and rounds to whole instructions; production generator is assembled/decoded and tested on private native fixtures.
 
 Last observed save run: test_gates_v2.sav, 2026-10-13 15:27, recorded gate 163/global2560900 losing 6 HP (1000 to 994). Existing log alone does not prove which bridge removal was caused by this hit. At that point dedicated acceptance was pending; see the subsequent acceptance sections and historical documents retained under _inspect/DrawbridgeDestructionIntegration.
 
-## First editor smoke test, 2026-10-13
+## First editor smoke test, 2026-10-13 [mod integration]
 
 Process start section begins at LogOutput.log line 6667 (version-independent BepInEx start marker). Installed testmod 0.1.0 reports matching native hash, reference-rva resolution and 15-byte span at 16:30:35.979. Other mission consumers identify a new EditorCreated/MapEditor session at 16:30:49.251..397. At editor unload 16:31:32.352, the testmod reports entered=167, suppressed=166, diagnosticErrors=0. The user reports the fix behaved correctly in the editor. Native counters establish actual guard execution after startup; they count branch decisions, not individual bridges saved. The one unprotected entry is consistent with a lethal hit but cannot be classified from these counters alone.
 
@@ -36,7 +36,7 @@ Diagnostic coverage is incomplete: this editor session has no MAP, HOOK_CONFIRME
 
 The existing APIShared mission lifecycle covers EditorCreated and EditorLoaded through EditorDirector operation wrappers, native-load evidence and managed completion, with owner-bound observer registration. Prefer that public capability for diagnostic session activation; no new native fix or competing lifecycle hook is needed. This is a source/log diagnosis, not an implemented observer correction. Testmod runtime code remains unchanged after this review.
 
-## Diagnostic revision 2 implemented, 2026-10-13
+## Diagnostic revision 2 implemented, 2026-10-13 [mod integration]
 
 The independent testmod remains 0.1.0. Its native contract/generator and fix semantics are unchanged. The editor coverage gap is corrected in source by an owner-bound APIShared mission lifecycle observer; registration replay and Current are deduplicated by monotonic SessionId. End publications only retire the matching active session. Native counters are reported as session deltas, with Pre/Post pairing, gate capture counts and pending/confirmation coverage. Runtime lifetime still uses static rooting, the permanent native hook and the durable OnTick publisher.
 
@@ -44,7 +44,7 @@ Diagnostics now use value frames and two fixed bridge snapshots. Footprint geome
 
 Automated fixtures compiled from production observer/session sources pass EditorCreated, EditorLoaded, LoadedSave, duplicate/retired replay, duplicate/stale End, quota reset, nested pairing, counter wrap and per-session marker reset. After warmup, 10,000 exhausted-budget damage Pre/Post pairs plus empty ticks allocate 0 bytes on the executing .NET Framework test thread. This does not establish detailed logging/live-query allocation cost or an FPS improvement. The existing 150 native execution cases also pass, including actual RedBird displacement=15. The prescribed elevated build.bat completed without compiler warnings and installed the updated testmod at 16:54:49. In-game validation of diagnostic revision 2 remains pending; earlier editor counters do not retroactively supply missing bridge snapshots.
 
-## Revision 2 editor acceptance and main-mod integration, 2026-10-13
+## Revision 2 editor acceptance and main-mod integration, 2026-10-13 [mod integration]
 
 The subsequent EditorCreated session (16:57:44..16:59:25; process start
 16:57:23) confirms the revised observer: 668 paired damage calls, 665 protected

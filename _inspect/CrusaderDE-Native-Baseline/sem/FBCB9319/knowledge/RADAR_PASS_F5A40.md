@@ -1,4 +1,4 @@
-# Minimap (radar) pass 0xF5A40 (FBCB9319)
+# Minimap (radar) pass 0xF5A40 (FBCB9319) [Scope: Vanilla]
 
 Native DLL SHA-256: `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2` (verified against the installed DLL on 2026-10-23). The addresses below are RVAs/VAs for this binary only.
 

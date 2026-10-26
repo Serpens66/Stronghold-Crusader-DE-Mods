@@ -1,4 +1,4 @@
-# Trail Maker custom AIC export and confirmation overlay
+# Trail Maker custom AIC export and confirmation overlay [Scope: Vanilla + mod integration]
 
 Verified 2026-10-08. Native baseline FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
 Installed Assembly-CSharp SHA-256 BC8B6A395F01D48557DB413600C8DD8D1FDFD3ABDF97BFBBB68A3C56B04FD789 matches managed/BC8B6A39/decompiled.

@@ -1,4 +1,4 @@
-# Paired planning and command: effective counts and normal flood input
+# Paired planning and command: effective counts and normal flood input [Scope: Mod work, not Vanilla]
 
 Date: 2026-10-13. Behavior fix remains disabled. No new hooks or public APIs.
 
