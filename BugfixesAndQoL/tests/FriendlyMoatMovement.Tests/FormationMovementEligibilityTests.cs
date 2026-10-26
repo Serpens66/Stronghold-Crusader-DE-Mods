@@ -15,7 +15,7 @@ internal static class FormationMovementEligibilityTests
         string[] methods = { "OnUnitMoveHere", "PruneUnitAssignmentFrames",
             "ClearUnitAssignmentFrames", "TryGetMatchingUnit", "FinishUnitAssignmentFrame",
             "RunUnitFallbacks", "LogFormationOrderResult", "OnTribeIssueOrderMoveHere",
-            "ComputeSelectionHash", "ResolveAdmittedRows", "CombineAdmissionPlanHash", "ComputePlanHash" };
+            "ComputeSelectionHash", "CombineAdmissionPlanHash", "ComputePlanHash" };
         string[] types = { "ActiveFormationCommand", "UnitAssignmentFrame", "NativeDestination",
             "UnitFallbackAttempt", "UnitFallbackRequest", "UnitFallbackSummary", "SelectionIdentity" };
         string members = string.Join("\n", syntax.DescendantNodes()
@@ -50,7 +50,7 @@ namespace APIShared {
 }
 // This fixture asserts the enabled compact fallback summary, so its logging boundary
 // explicitly opts in; the actual logger's disabled path is covered separately.
-namespace Shared { public static class DebugLogHelper { public static bool DiagnosticsEnabled => true; } }
+namespace Shared { public static class DevDiag { public static void Log(Func<string> m) {} } public static class DebugLogHelper { public static bool DiagnosticsEnabled => true; public static void LogWarningLimited(object l,string k,string m) {} } }
 namespace SHCDESE.API {
     public class GameUnitManagerAPI {
         public static GameUnitManagerAPI Instance=new GameUnitManagerAPI();
@@ -62,11 +62,11 @@ namespace BugfixesAndQoL.UnitCommands {
     using SHCDESE.EventAPI.Tribes;
     internal static class UnitCommandPathAPI {internal static Commands Runtime=new Commands();}
     internal sealed class Commands {internal bool TryRejectPreparedFormationWithoutSlots(TribeIssueOrderMoveHereEventArgs args){args.SkipOriginalFunction=true;args.ReturnValue=0;return true;}
-        internal int Blocked;
+        internal void RejectPreparedMove(TribeIssueOrderMoveHereEventArgs args) { args.SkipOriginalFunction=true;args.ReturnValue=0; } internal int Blocked;
         internal FormationUnit[] AdmitFormationMembers(FormationUnit[] units,int tribe,int x,int y)=>units.Where(u=>u.UnitId>Blocked).ToArray();
     }
     public unsafe class EligibilityFixture {
-        private readonly object stateSync=new object();private bool Enabled=true;private Commands commandRuntime=UnitCommandPathAPI.Runtime;
+        private object log; private readonly object stateSync=new object();private bool Enabled=true;private Commands commandRuntime=UnitCommandPathAPI.Runtime;
         private ActiveFormationCommand activeCommand;private UnitAssignmentFrame unitAssignmentFrame;
         private UnitFallbackAttempt unitFallbackAttempt;
         private PendingFormationCommand pendingCommand;
@@ -86,7 +86,7 @@ namespace BugfixesAndQoL.UnitCommands {
         private void LogWarningNoThrow(string text)=>Logs.Add(text);
         private void DisableAfterNativeFailure(string contract,Exception e)=>throw new Exception(contract,e);
         private class FormationOrderPacket {public int TribeId=415,TargetX=562,TargetY=360,IsNewOrder=1,OperationId=12;
-            public int Formation,Density=2,UnitCount,DirectionSector,Rows=2,Width=3,PlacementMode;public ulong PlanHash,SelectionHash;}
+            public int Formation,Density=2,UnitCount,DirectionSector,RequestedRows=2,PlacementMode;public ulong SelectionHash;}
         private class PendingFormationCommand {
             public FormationOrderPacket Packet=new FormationOrderPacket();public string Source="fixture";
             public bool NativeDispatchObserved;
@@ -167,12 +167,12 @@ namespace BugfixesAndQoL.UnitCommands {
                 current=new EligibilityFixture();
                 current.ordered=Enumerable.Range(1,6).Select(id=>new FormationUnit(id,(uint)(id+100),22,FormationRole.Neutral)).ToArray();
                 current.pendingCommand=new PendingFormationCommand();var packet=current.pendingCommand.Packet;
-                packet.Formation=(int)FormationKind.Line;packet.UnitCount=6;packet.SelectionHash=ComputeSelectionHash(current.ordered);packet.PlanHash=0;
+                packet.Formation=(int)FormationKind.Line;packet.UnitCount=6;packet.SelectionHash=ComputeSelectionHash(current.ordered);
                 current.availableSlots=6-blocked;UnitCommandPathAPI.Runtime.Blocked=blocked;
                 current.OnTribeIssueOrderMoveHere(new TribeIssueOrderMoveHereEventArgs{Phase=EventHookPhase.Pre});
                 Check(current.plannedCount==6-blocked && current.activeCommand.ExpectedCount==6-blocked,
                     "only admitted members occupy formation slots on a small island");
-                Check(current.plannedRows==Math.Max(1,(6-blocked+2)/3),"formation retains intended width for the admitted subset");
+                Check(current.plannedRows==Math.Min(2,6-blocked),"formation retains requested rows for the admitted subset");
                 Check(current.activeCommand.ExecutionPlanHash!=0,"execution hash includes full selection and admitted mask");
             }
             current=new EligibilityFixture();current.pendingCommand=new PendingFormationCommand();

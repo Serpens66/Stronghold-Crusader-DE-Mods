@@ -6,5 +6,9 @@ $worker = $null -ne $assembly.GetType('BetterPathfindingTest.DiagnosticRuntime',
 $capture = $null -ne $assembly.GetType('BetterPathfindingTest.SnapshotCapture', $false)
 $expected = $DiagnosticMode -eq 'true'
 if ($marker -ne $expected -or $worker -ne $expected -or $capture -ne $expected) { throw "Binary diagnostic boundary mismatch: marker=$marker worker=$worker capture=$capture expected=$expected" }
+foreach ($name in @('ManagedEvidence','ManagedContracts','CaptureState')) { if (($null -ne $assembly.GetType('BetterPathfindingTest.' + $name, $false)) -ne $expected) { throw "Diagnostic helper boundary mismatch: $name" } }
+$manifest = Get-Content -LiteralPath (Join-Path (Split-Path -Parent $AssemblyPath) 'info.json') -Raw | ConvertFrom-Json
+$binaryVersion = $assembly.GetName().Version
+if ([version]$manifest.Version -ne [version]("{0}.{1}.{2}" -f $binaryVersion.Major,$binaryVersion.Minor,$binaryVersion.Build)) { throw 'Manifest/assembly version mismatch.' }
 if (@($assembly.GetReferencedAssemblies() | Where-Object { $_.Name -in @('BugfixesAndQoL','MoatMove','Newtonsoft.Json','System.Text.Json') }).Count) { throw 'Forbidden runtime dependency.' }
 Write-Host "PASS: binary diagnostic boundary; devdiag=$expected; no consumer/oracle assembly dependency."

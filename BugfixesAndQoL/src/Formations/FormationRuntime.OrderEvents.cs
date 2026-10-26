@@ -51,23 +51,21 @@ namespace BugfixesAndQoL.UnitCommands
                     FormationKind kind = FormationModel.NormalizeKind(packet.Formation);
                     int density = FormationModel.NormalizeDensity(packet.Density);
                     FormationUnit[] units = CaptureOrderedGroupUnits(packet.TribeId);
-                    if (units.Length == 0)
-                        throw new InvalidOperationException(
-                            "The commanded tribe has no active units at dispatch.");
-                    if (units.Length != packet.UnitCount)
+                    if (units.Length != packet.UnitCount || ComputeSelectionHash(units) != packet.SelectionHash)
                     {
-                        throw new InvalidOperationException(
-                            $"Formation unit count changed: packet={packet.UnitCount}, " +
-                            $"current={units.Length}.");
+                        commandRuntime.RejectPreparedMove(args);
+                        lock (stateSync) if (ReferenceEquals(pendingCommand, pending)) pendingCommand = null;
+                        return;
                     }
-
-                    if (ComputeSelectionHash(units) != packet.SelectionHash)
-                        throw new InvalidOperationException("Formation selection identities changed before dispatch.");
                     FormationUnit[] selected = units;
                     units = UnitCommandPathAPI.Runtime?.AdmitFormationMembers(units, packet.TribeId, packet.TargetX, packet.TargetY) ?? units;
-                    if (units.Length == 0) return;
-                    bool filtered = units.Length != selected.Length;
-                    int rows = filtered ? ResolveAdmittedRows(kind, units.Length, packet.Width) : packet.Rows;
+                    if (units.Length == 0)
+                    {
+                        commandRuntime.RejectPreparedMove(args);
+                        lock (stateSync) if (ReferenceEquals(pendingCommand, pending)) pendingCommand = null;
+                        return;
+                    }
+                    int rows = FormationModel.ResolveGeometryRows(kind, units.Length, packet.RequestedRows);
 
                     NativeDestination[] destinations = BuildManagedDestinations(
                         packet.TargetX,
@@ -92,15 +90,6 @@ namespace BugfixesAndQoL.UnitCommands
                     ulong actualPlanHash = ComputePlanHash(
                         units, destinations,
                         FormationModel.NormalizePlacementMode(packet.PlacementMode), rows);
-                    // The selection identity is mandatory. A filtered plan is derived
-                    // from synchronized simulation state on every peer, never a UI cache.
-                    if (!filtered && packet.PlanHash != 0 && actualPlanHash != packet.PlanHash)
-                    {
-                        throw new InvalidOperationException(
-                            $"Formation plan hash mismatch: packet=0x{packet.PlanHash:X16}, " +
-                            $"current=0x{actualPlanHash:X16}.");
-                    }
-
                     ActiveFormationCommand active = new ActiveFormationCommand(
                         pending, kind, density, units, destinations);
                     active.ExecutionPlanHash = CombineAdmissionPlanHash(actualPlanHash, packet.SelectionHash, selected, units);
@@ -122,10 +111,9 @@ namespace BugfixesAndQoL.UnitCommands
                         activeCommand = null;
                         commonGroupCommand = null;
                     }
-                    LogWarningNoThrow(
-                        $"FORMATION_ORDER_FELL_BACK_TO_VANILLA: source={pending.Source}, " +
-                        $"operation={pending.Packet.OperationId}, reason=preparation-failed, " +
-                        $"error={exception.Message}.");
+                    Shared.DebugLogHelper.LogWarningLimited(log, "formation-preparation-failed",
+                        $"FORMATION_ORDER_FELL_BACK_TO_VANILLA: reason=preparation-failed, error={exception.GetType().Name}.");
+                    Shared.DevDiag.Log(() => $"Formation preparation: source={pending.Source}, operation={pending.Packet.OperationId}, error={exception}");
                 }
                 return;
             }

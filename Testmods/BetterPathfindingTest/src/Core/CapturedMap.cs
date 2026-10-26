@@ -36,22 +36,29 @@ namespace BetterPathfindingTest.Core
         public UnitSeed[] Units = new UnitSeed[0];
         public double CopyMilliseconds, LockWaitMilliseconds;
         public long BufferBytes
-        { get { long n = 1024; foreach (Array a in new Array[] { Available, Heights, NativeEdges, MoatOwner, Flags, Rows, Structures, Organisms, BuildingTypes, StructureHeights, VegetationStates, LowWalls, Allied, Players }) if (a != null) n += BufferSize(a); foreach (byte[] mask in GateMasks) if (mask != null) n += mask.Length + 24; return n + Units.Length * 128L; } }
+        { get { long n = 1024; foreach (Array a in new Array[] { Available, Heights, NativeEdges, MoatOwner, Flags, Rows, Structures, Organisms, BuildingTypes, StructureHeights, VegetationStates, LowWalls, Allied, Players }) if (a != null) n += BufferSize(a); if (GateMasks != null) foreach (byte[] mask in GateMasks) if (mask != null) n += mask.Length + 24; return n + (Units?.Length ?? 0) * 128L; } }
         private static long BufferSize(Array a) => System.Buffer.ByteLength(a) + 32L;
         public void Validate()
         {
-            int count = checked(Width * Height);
-            if (Width < 1 || Height < 1 || count > 640000 || Available == null || Available.Length != count || Rows == null || Rows.Length != Height * 3 || Flags == null || Flags.Length > 320800 || Heights.Length != Flags.Length || NativeEdges.Length != Flags.Length || MoatOwner.Length != Flags.Length || Structures.Length != Flags.Length || Organisms.Length != Flags.Length || Allied.Length != 81) throw new ArgumentException("Incomplete captured arrays.");
-            foreach (int player in Players) if (player < 1 || player > 8 || (GateMasks[player] != null && GateMasks[player].Length != Flags.Length)) throw new ArgumentException("Player/mask snapshot.");
+            long count = (long)Width * Height;
+            if (Width < 1 || Height < 1 || count > 640000 || Available == null || Available.Length != count || Rows == null || Rows.Length != Height * 3 || Flags == null || Flags.Length == 0 || Flags.Length > 320800 || Heights == null || NativeEdges == null || MoatOwner == null || Structures == null || Organisms == null || Heights.Length != Flags.Length || NativeEdges.Length != Flags.Length || MoatOwner.Length != Flags.Length || Structures.Length != Flags.Length || Organisms.Length != Flags.Length || Allied == null || Allied.Length != 81) throw new ArgumentException("Incomplete captured arrays.");
+            if (BuildingTypes == null || StructureHeights == null || LowWalls == null || BuildingTypes.Length == 0 || BuildingTypes.Length > 10001 || StructureHeights.Length != BuildingTypes.Length || LowWalls.Length != BuildingTypes.Length || VegetationStates == null || VegetationStates.Length > 65536 || Players == null || Players.Length == 0 || Players.Length > 8 || GateMasks == null || GateMasks.Length != 9 || Units == null || Units.Length > 10000) throw new ArgumentException("Incomplete captured contexts.");
+            var players = new HashSet<int>();
+            foreach (int player in Players) if (player < 1 || player > 8 || !players.Add(player)) throw new ArgumentException("Player snapshot.");
+            foreach (byte[] mask in GateMasks) if (mask != null && mask.Length != Flags.Length) throw new ArgumentException("Gate mask capacity.");
+            foreach (UnitSeed unit in Units) if (unit == null || unit.Player < 1 || unit.Player > 8 || unit.Node < 0 || unit.Node >= count || unit.Target < -1 || unit.Target >= count) throw new ArgumentException("Unit snapshot.");
+            for (int n = 0; n < count; n++) if (Available[n] != 0 && ((long)Rows[n / Width * 3] + n % Width < 0 || (long)Rows[n / Width * 3] + n % Width >= Flags.Length)) throw new ArgumentException("Available coordinate outside packed storage.");
         }
         // These masks are native machine contracts from the audited DAFD0/Precise predicate,
         // not independent game-domain IDs. Building classes are converted using SE enums.
-        public GridSnapshot Build(int player, bool groundOnly = false)
+        public GridSnapshot Build(int player, bool groundOnly = false, WorkBudget budget = null)
         {
+            if (player < 1 || player > 8) throw new ArgumentOutOfRangeException(nameof(player));
             Validate(); var valid = new byte[Width * Height]; var words = new uint[valid.Length];
-            for (int n = 0; n < valid.Length; n++) { int tile = Tile(n); if (Available[n] != 0 && (uint)tile < Flags.Length) valid[n] = 1; }
+            for (int n = 0; n < valid.Length; n++) { if ((n & 4095) == 0) budget?.Check(); int tile = Tile(n); if (Available[n] != 0 && (uint)tile < Flags.Length) valid[n] = 1; }
             for (int node = 0; node < valid.Length; node++)
             {
+                if ((node & 1023) == 0) budget?.Check();
                 if (valid[node] == 0) continue;
                 int x = node % Width, y = node / Width, a = Tile(node);
                 for (int d = 0; d < 8; d++)

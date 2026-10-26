@@ -40,7 +40,7 @@ namespace BugfixesAndQoL.UnitCommands
                 unitFallbackAttempt = null;
             }
             ClearPreview();
-            menuViewModel.CloseMenu();
+            Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(menuViewModel.CloseMenu);
         }
 
         private bool ValidateActiveDrag(ActiveDrag state) =>
@@ -54,12 +54,12 @@ namespace BugfixesAndQoL.UnitCommands
 
         private void AbortDrag(string reason)
         {
-            groundFrameObserver?.SetActive(false);
             ActiveDrag state;
             lock (stateSync)
             {
                 state = drag;
                 drag = null;
+                RefreshNativeObserverDemand();
             }
             if (state == null)
                 return;
@@ -95,7 +95,7 @@ namespace BugfixesAndQoL.UnitCommands
             }
             // Fail-open must reach Vanilla even if a presentation or logger also fails.
             try { ClearPreview(); } catch { }
-            try { menuViewModel.CloseMenu(); } catch { }
+            try { Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(menuViewModel.CloseMenu); } catch { }
             try { Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(menuViewModel.RefreshHostState); } catch { }
             try
             {
@@ -106,9 +106,16 @@ namespace BugfixesAndQoL.UnitCommands
 
         private void ClearPreview()
         {
-            lock (stateSync) if (drag != null) drag.DisplayedAuthorization = false;
-            markerRenderer?.ClearPreviewMarkerTiles();
-            menuViewModel.ClearPreview();
+            long version;
+            lock (stateSync)
+            {
+                if (drag != null) drag.DisplayedAuthorization = false;
+                version = ++previewPublicationVersion;
+                markerRenderer?.ClearPreviewMarkerTiles();
+            }
+            Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(() => {
+                lock (stateSync) if (version == previewPublicationVersion) menuViewModel.ClearPreview();
+            });
         }
     }
 }

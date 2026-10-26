@@ -1,0 +1,155 @@
+using System;using System.Linq;using System.Collections.Generic;using System.Runtime.InteropServices;
+using SHCDESE.API;using SHCDESE.Interop;using SHCDESE.Interop.Enums;using SHCDESE.EventAPI;
+using SHCDESE.EventAPI.Units;using SHCDESE.EventAPI.Tribes;
+namespace Shared {
+ public static class DevDiag { public static void Count(string n,int v=1) {} public static void Log(Func<string> m) {} }
+ public static class DebugLogHelper { public static bool DiagnosticsEnabled=>false;
+  public static void LogWarningLimited(object l,string k,string m) {} public static void LogErrorLimited(object l,string k,string m) {} }
+}
+namespace APIShared.Internal { public enum GroundMovePreviewRejection { None } }
+namespace SHCDESE.EventAPI { public enum EventHookPhase {Pre,Post} }
+namespace SHCDESE.Interop.Enums { public enum TribeMoveType {NoChange=0,DefaultInSync=1,Fast=-255} }
+namespace SHCDESE.EventAPI.Tribes { public class TribeIssueOrderMoveHereEventArgs {
+ public EventHookPhase Phase; public bool SkipOriginalFunction,IsNewOrder;public long ReturnValue;
+ public int TribeId,TileX,TileY;public short IsPatrolPath;public TribeMoveType MoveType;
+} }
+namespace SHCDESE.EventAPI.Units { public class UnitMoveHereEventArgs {
+ public EventHookPhase Phase;public int UnitId,TileX,TileY,Unknown;public bool SkipOriginalFunction;public long ReturnValue;
+} }
+namespace SHCDESE.Interop {
+ public enum eChimps {CHIMP_TYPE_ARAB_ASSASIN=73}
+ public struct GameUnit { public uint r_GlobalId;public int r_TribeId;public bool Alive;
+  public ushort r_TargetTilePositionX,r_TargetTilePositionY,r_AttackMoveToTargetTileX,r_AttackMoveToTargetTileY;
+  public ulong PackedPath;public int Progress,State;
+ }
+ public class GameTileManagerView {
+  public byte[] PathEdgeMaskGrid=Enumerable.Repeat((byte)255,800*800).ToArray();
+  public ushort[] PathConnectionGrid=Enumerable.Repeat((ushort)1,800*800).ToArray();public int[] LogicGrid=new int[800*800];
+ }
+}
+namespace SHCDESE.API {
+ public class GameTileManagerAPI { public static GameTileManagerAPI Instance=new();public GameTileManagerView TileManager=new();
+  public long Reads;public int GetTileId(int x,int y) { Reads++;return x+y*800; } }
+ public class GameTribeManagerAPI { public static GameTribeManagerAPI Instance=new();public Func<int,int,int,int,TribeMoveType,bool> Move;public int Calls;
+  public bool IssueMoveHereCommand(int t,int x,int y,bool isPatrolPath,int bIsNewOrder,TribeMoveType tribeMoveType) { Calls++;return Move(t,x,y,bIsNewOrder,tribeMoveType); } }
+ public class GameUnitManagerAPI { public static GameUnitManagerAPI Instance=new();public void MoveToTile(int id,int x,int y,int u)=>throw new Exception("Unexpected individual retry"); }
+}
+namespace APIShared { public static unsafe class UnitAccess {
+ public static GameUnit* Units;public static int Count;
+ public static bool TryGetById(int id,out GameUnit* unit,out int index) { index=id-1;unit=id>0&&id<=Count?Units+index:null;return unit!=null; }
+ public static bool IsReallyAlive(GameUnit* u)=>u->Alive;
+} }
+namespace BugfixesAndQoL.UnitCommands {
+ internal class FormationMoveAuthorization {}
+ internal static class FormationPreviewMarkerModel {internal const int MaximumMarkers=10000;}
+ internal static class UnitCommandPathAPI {internal static Commands Runtime=new();}
+ internal sealed class Commands {
+  internal int Blocked,Queries;internal readonly ManualRegionAdmissionBatch Batch=new();
+  internal FormationUnit[] AdmitFormationMembers(FormationUnit[] units,int tribe,int x,int y) {
+   Batch.Reset(Batch.Generation+1);
+   foreach(var u in units)Batch.Add(u.UnitId,u.GlobalId,u.UnitId<=Blocked?2:1,1,true,true);
+   Batch.Evaluate(1,1,(p,s,t,m)=>{Queries++;return 0;});Batch.Publish(IntPtr.Zero,IntPtr.Zero);
+   return units.Where(u=>!Batch.IsExcluded(u.UnitId,u.GlobalId)).ToArray();
+  }
+  internal void RejectPreparedMove(TribeIssueOrderMoveHereEventArgs a){a.SkipOriginalFunction=true;a.ReturnValue=0;}
+  internal bool TryRejectPreparedFormationWithoutSlots(TribeIssueOrderMoveHereEventArgs a){RejectPreparedMove(a);return true;}
+ }
+ public unsafe class PipelineFixture {
+  private readonly object speechEngineLock=new();private readonly object stateSync=new();private object log;private bool Enabled=true;private int dispatchDepth,nextOperationId;
+  private PendingFormationCommand pendingCommand;private ActiveFormationCommand activeCommand,commonGroupCommand;
+  private UnitAssignmentFrame unitAssignmentFrame;private UnitFallbackAttempt unitFallbackAttempt;
+  private Commands commandRuntime=UnitCommandPathAPI.Runtime;private FormationUnit[] ordered;
+  private byte* movementTargetAvailability;
+  private FormationUnit[] CaptureOrderedGroupUnits(int t)=>ordered;
+  private APIShared.Internal.GroundMovePreviewRejection EvaluateCommandMode()=>APIShared.Internal.GroundMovePreviewRejection.None;
+  private void DetectUnexpectedSecondOrder(TribeIssueOrderMoveHereEventArgs a,PendingFormationCommand p){}
+  private void LogErrorNoThrow(string m){}private void LogWarningNoThrow(string m){}private void LogDebugNoThrow(string m){}
+  private void DisableAfterNativeFailure(string c,Exception e)=>throw e;
+  __MEMBERS__
+  static void Check(bool value,string reason){if(!value)throw new Exception(reason);}
+  private bool Issue(int tribe,int x,int y,int newOrder,TribeMoveType mode) {
+   var a=new TribeIssueOrderMoveHereEventArgs{Phase=EventHookPhase.Pre,TribeId=tribe,TileX=x,TileY=y,IsNewOrder=newOrder!=0,MoveType=mode};
+   OnTribeIssueOrderMoveHere(a);
+   if(!a.SkipOriginalFunction && activeCommand!=null) foreach(var u in ordered) {
+    if(commandRuntime.Batch.IsExcluded(u.UnitId,u.GlobalId))continue; // Native mask boundary, separately machine-tested.
+    var e=new UnitMoveHereEventArgs{Phase=EventHookPhase.Pre,UnitId=u.UnitId,TileX=x,TileY=y};OnUnitMoveHere(e);
+    if(!e.SkipOriginalFunction){var unit=APIShared.UnitAccess.Units+u.UnitId-1;unit->r_TargetTilePositionX=(ushort)e.TileX;unit->r_TargetTilePositionY=(ushort)e.TileY;
+     unit->PackedPath=0;unit->Progress=0;unit->State=2;e.Phase=EventHookPhase.Post;e.ReturnValue=1;OnUnitMoveHere(e);}
+   }
+   a.Phase=EventHookPhase.Post;OnTribeIssueOrderMoveHere(a);return !a.SkipOriginalFunction;
+  }
+  private static FormationOrderPacket Wire(FormationOrderPacket p) {
+   var bytes=new System.Buffers.ArrayBufferWriter<byte>();var writer=new MessagePack.MessagePackWriter(bytes);
+   var formatter=new FormationOrderPacketFormatter();formatter.Serialize(ref writer,p,MessagePack.MessagePackSerializerOptions.Standard);writer.Flush();
+   var reader=new MessagePack.MessagePackReader(bytes.WrittenMemory);return formatter.Deserialize(ref reader,MessagePack.MessagePackSerializerOptions.Standard);
+  }
+  public static void Run() {
+   var f=new PipelineFixture();f.movementTargetAvailability=(byte*)Marshal.AllocHGlobal(800*800);
+   new Span<byte>(f.movementTargetAvailability,800*800).Fill(1);APIShared.UnitAccess.Units=(GameUnit*)Marshal.AllocHGlobal(sizeof(GameUnit)*1300);
+   try {
+    foreach(int count in new[]{100,200,550,1000,1300}) foreach(FormationKind kind in Enum.GetValues<FormationKind>())
+    foreach(int density in new[]{1,2,3,4}) foreach(int requested in new[]{0,7}) {
+     bool fixedShape=kind==FormationKind.Circle||kind==FormationKind.Vanilla;int intent=fixedShape?0:requested;
+     f.ordered=Enumerable.Range(1,count).Select(id=>new FormationUnit(id,(uint)id,22,(FormationRole)(id%4))).ToArray();
+     APIShared.UnitAccess.Count=count;
+     var selection=f.ordered.Select(u=>new SelectionIdentity(u.UnitId,u.GlobalId,u.UnitType,1,1)).ToArray();
+     foreach(int admitted in new[]{0,1,count/2,count}) {
+      for(int i=0;i<count;i++)APIShared.UnitAccess.Units[i]=new GameUnit{Alive=true,r_TribeId=415,r_GlobalId=(uint)(i+1),
+       r_TargetTilePositionX=12,r_TargetTilePositionY=13,PackedPath=0x123456789ABCDEF0,Progress=17,State=9};
+      var gesture=new ActiveDrag(1,415,new GroundTarget(400,400),selection,kind,density,RangedPlacementMode.Rear,intent);
+      gesture.Geometry=gesture.Geometry.WithCount(Math.Max(1,count/2)); // Preview can differ from execution.
+      Check(f.TryCreatePacket(gesture,out var packet),"production packet construction");packet=Wire(packet);
+      Check(ValidatePacket(packet,out var why),"mixed preview packet rejected: "+why);
+      Check(packet.UnitCount==count&&packet.RequestedRows==intent,"full identity / row intent lost");
+      f.commandRuntime.Blocked=count-admitted;f.commandRuntime.Queries=0;
+      GameTribeManagerAPI.Instance.Calls=0;GameTribeManagerAPI.Instance.Move=f.Issue;
+      Check(f.ApplyPacket(packet,"pipeline"),"accepted native dispatch replayed");
+      Check(GameTribeManagerAPI.Instance.Calls==1&&f.commandRuntime.Queries==(admitted==count?0:1),"dispatch or region query budget");
+      for(int i=0;i<count-admitted;i++) {
+       GameUnit u=APIShared.UnitAccess.Units[i];Check(u.r_TargetTilePositionX==12&&u.r_TargetTilePositionY==13&&
+        u.PackedPath==0x123456789ABCDEF0&&u.Progress==17&&u.State==9,"excluded moving order changed");
+      }
+      Check(f.pendingCommand==null&&f.activeCommand==null&&f.dispatchDepth==0,"context leaked");
+      if(admitted>1)Check(Enumerable.Range(count-admitted,admitted).Select(i=>(APIShared.UnitAccess.Units[i].r_TargetTilePositionX,
+       APIShared.UnitAccess.Units[i].r_TargetTilePositionY)).Distinct().Count()>1,"one-point collapse");
+     }
+    }
+    // Malformed/stale packets are consumed without a native move or release replay.
+    var good=new ActiveDrag(1,415,new GroundTarget(400,400),f.ordered.Select(u=>new SelectionIdentity(u.UnitId,u.GlobalId,u.UnitType,1,1)).ToArray(),FormationKind.Line,1,RangedPlacementMode.Off,3);
+    foreach(string fault in new[]{"protocol","rows","identity"}) {
+     f.TryCreatePacket(good,out var p);if(fault=="protocol")p.ProtocolVersion--;if(fault=="rows")p.RequestedRows=ushort.MaxValue;if(fault=="identity")p.SelectionHash++;
+     GameTribeManagerAPI.Instance.Calls=0;var before=APIShared.UnitAccess.Units[0];Check(f.ApplyPacket(Wire(p),"invalid"),"rejection must consume gesture");
+     Check(GameTribeManagerAPI.Instance.Calls==(fault=="identity"?1:0)&&APIShared.UnitAccess.Units[0].State==before.State,"invalid command mutated units");
+    }
+    foreach(FormationKind kind in Enum.GetValues<FormationKind>()) foreach(bool noSpace in new[]{false,true}) {
+     new Span<byte>(f.movementTargetAvailability,800*800).Clear();
+     if(!noSpace)f.movementTargetAvailability[400+400*800]=1;
+     var g=new ActiveDrag(1,415,new GroundTarget(400,400),good.Selection,kind,1,RangedPlacementMode.Off,0);
+     f.commandRuntime.Blocked=0;f.TryCreatePacket(g,out var p);
+     for(int i=0;i<f.ordered.Length;i++){APIShared.UnitAccess.Units[i].State=9;APIShared.UnitAccess.Units[i].PackedPath=123;}
+     Check(f.ApplyPacket(Wire(p),"shortage"),"slot shortage lost accepted gesture");
+     Check(Enumerable.Range(0,f.ordered.Length).All(i=>APIShared.UnitAccess.Units[i].State==(noSpace?9:2)),"empty/partial placement changed wrong orders");
+     if(noSpace)Check(Enumerable.Range(0,f.ordered.Length).All(i=>APIShared.UnitAccess.Units[i].PackedPath==123),"no slots discarded old paths");
+    }
+    new Span<byte>(f.movementTargetAvailability,800*800).Fill(1);
+    f.TryCreatePacket(good,out var nestedPacket);
+    var outer=new PendingFormationCommand(nestedPacket,"outer");f.pendingCommand=outer;
+    bool childIsolated=false;
+    GameTribeManagerAPI.Instance.Move=(t,x,y,n,m)=>{
+     childIsolated=f.pendingCommand==null&&f.activeCommand==null;
+     f.OnTribeIssueOrderMoveHere(new TribeIssueOrderMoveHereEventArgs{Phase=EventHookPhase.Pre,TribeId=t,TileX=x,TileY=y,IsNewOrder=n!=0,MoveType=m});
+     Check(f.activeCommand==null,"nested identical command borrowed outer formation");return false;
+    };
+    Check(f.ApplyPacket(nestedPacket,"nested")&&childIsolated&&ReferenceEquals(f.pendingCommand,outer)&&f.dispatchDepth==0,"nested context not restored");
+    GameTribeManagerAPI.Instance.Move=(t,x,y,n,m)=>throw new InvalidOperationException("native failure");
+    try{f.ApplyPacket(nestedPacket,"nested-error");throw new Exception("expected native error");}
+    catch(InvalidOperationException){Check(ReferenceEquals(f.pendingCommand,outer)&&f.dispatchDepth==0,"nested error lost outer scope");}
+    f.pendingCommand=null;GameTribeManagerAPI.Instance.Move=f.Issue;
+    // Distant requested slots must not turn a partial placement into a map flood.
+    var far=new[]{new FormationPoint(300,300,0,0)};GameTileManagerAPI.Instance.Reads=0;
+    var slots=f.CaptureReachableCandidates(400,400,8192,false,far);
+    Check(slots.Count==4001&&GameTileManagerAPI.Instance.Reads<4001*9+20,"shared target search exceeded 4001 expansions");
+   } finally {Marshal.FreeHGlobal((IntPtr)f.movementTargetAvailability);Marshal.FreeHGlobal((IntPtr)APIShared.UnitAccess.Units);Marshal.FreeHGlobal(f.commandRuntime.Batch.NativeState);}
+  }
+ }
+}

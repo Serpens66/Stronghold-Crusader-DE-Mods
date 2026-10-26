@@ -109,9 +109,10 @@ namespace BetterPathfindingTest.Core
         public long Bytes { get; private set; }
         public long PeakBytes { get; private set; }
         public long Expanded { get; private set; }
+        internal Action Checkpoint { get; set; }
         public WorkBudget(long maximumBytes = 256L * 1024 * 1024, double maximumSeconds = 120, CancellationToken cancellation = default(CancellationToken))
         { MaximumBytes = maximumBytes; seconds = maximumSeconds; this.cancellation = cancellation; }
-        public void Check() { cancellation.ThrowIfCancellationRequested(); if (watch.Elapsed.TotalSeconds >= seconds) throw new SearchBudgetException("time-budget"); }
+        public void Check() { cancellation.ThrowIfCancellationRequested(); if (watch.Elapsed.TotalSeconds >= seconds) throw new SearchBudgetException("time-budget"); Checkpoint?.Invoke(); }
         public void Step() { Expanded++; if ((Expanded & 255) == 0) Check(); }
         public void Reserve(long bytes) { Check(); if (bytes < 0 || bytes > MaximumBytes - Bytes) throw new SearchBudgetException("memory-budget"); Bytes += bytes; PeakBytes = Math.Max(PeakBytes, Bytes); }
         public void Release(long bytes) { Bytes -= bytes; if (Bytes < 0) throw new InvalidOperationException("Navigation accounting underflow."); }

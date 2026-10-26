@@ -7,6 +7,7 @@
     <ExtenderDir>E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese</ExtenderDir>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="MessagePack"><HintPath>$(ExtenderDir)\MessagePack.dll</HintPath></Reference>
     <Compile Remove="ManualHarness.cs" />
     <Compile Remove="ManualRejectHarness.cs" />
     <Compile Remove="ManualGroundHarness.cs" />

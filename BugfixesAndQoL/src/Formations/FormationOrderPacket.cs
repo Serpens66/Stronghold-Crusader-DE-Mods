@@ -18,10 +18,9 @@ namespace BugfixesAndQoL.UnitCommands
         [Key(8)] public byte Density;
         [Key(9)] public byte PlacementMode;
         [Key(10)] public byte DirectionSector;
-        [Key(11)] public ushort Width;
         [Key(12)] public ushort UnitCount;
-        [Key(13)] public ulong PlanHash;
-        [Key(14)] public ushort Rows;
+        // Keys 11 and 13 are reserved: dimensions and preview hashes are not command intent.
+        [Key(14)] public ushort RequestedRows;
         [Key(15)] public ulong SelectionHash;
     }
 
@@ -55,10 +54,10 @@ namespace BugfixesAndQoL.UnitCommands
             writer.Write(value.Density);
             writer.Write(value.PlacementMode);
             writer.Write(value.DirectionSector);
-            writer.Write(value.Width);
+            writer.WriteNil();
             writer.Write(value.UnitCount);
-            writer.Write(value.PlanHash);
-            writer.Write(value.Rows);
+            writer.WriteNil();
+            writer.Write(value.RequestedRows);
             writer.Write(value.SelectionHash);
         }
 
@@ -86,10 +85,10 @@ namespace BugfixesAndQoL.UnitCommands
                     case 8: packet.Density = reader.ReadByte(); break;
                     case 9: packet.PlacementMode = reader.ReadByte(); break;
                     case 10: packet.DirectionSector = reader.ReadByte(); break;
-                    case 11: packet.Width = reader.ReadUInt16(); break;
+                    case 11: reader.Skip(); break;
                     case 12: packet.UnitCount = reader.ReadUInt16(); break;
-                    case 13: packet.PlanHash = reader.ReadUInt64(); break;
-                    case 14: packet.Rows = reader.ReadUInt16(); break;
+                    case 13: reader.Skip(); break;
+                    case 14: packet.RequestedRows = reader.ReadUInt16(); break;
                     case 15: packet.SelectionHash = reader.ReadUInt64(); break;
                     default: reader.Skip(); break;
                 }

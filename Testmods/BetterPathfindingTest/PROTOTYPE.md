@@ -1,4 +1,4 @@
-# BetterPathfindingTest 0.1.0
+# BetterPathfindingTest 0.1.1
 
 Eigenständiger, ausschließlich beobachtender Testmod. Keine Spielbefehle, keine
 Pfadpuffer-Schreibzugriffe, keine Traversal-Registrierung und keine eigenen nativen
@@ -23,6 +23,19 @@ genau eine Sitzung. Das gilt für neue Spiele, Save-Laden und beide Editor-Start
 Zehn Sekunden nach der ersten Erfassung wird eine zweite Erfassung angefordert.
 Ein Kartenwechsel bricht die alte Arbeit logisch ab. Das Spiel wird vom Build nicht
 gestartet; Spiel- und Modkonfigurationen werden nicht geändert.
+
+Version 0.1.1 ermittelt den installierten Spielassembly-Pfad ausdrücklich aus dem
+Spielverzeichnis. Eine aus Speicher geladene Assembly benötigt keine `Location`.
+Geladener Name/MVID und installierter Dateihash stehen getrennt im Bericht;
+optionale Dateimetadaten können als nicht verfügbar erscheinen. Der geladene
+Engine-IL-Vertrag und die verbindlichen Native-/Layoutprüfungen bleiben erforderlich.
+
+Eine Erfassung wartet höchstens 30 Sekunden auf die Engine-Sperre beziehungsweise
+eine aktuelle Torveröffentlichung. Das Warten blockiert den Main-Thread nicht.
+Kartenbezogene Fehler erzeugen `INCOMPLETE`; ein neuer Kartenstart kann wieder
+testen. Unbekannte grundlegende Verträge stoppen den Beobachter weiterhin mit
+`UNSUPPORTED`. Fehlende Berichtsdateien sind bei Schreibfehlern möglich; dann enthält
+das Log `phase=report-failed`. Die Bereinigung läuft auch in diesem Fall.
 
 Diagnosen entstehen unter dem Spielverzeichnis in
 `BepInEx/cache/BetterPathfindingTest_Serp/<UTC-Zeit>-s<Sitzung>/`:
@@ -76,6 +89,11 @@ Zeugen, Felder und Suchzustände. Es gibt keine unbegrenzte LRU-Umgehung des Lim
 Zeit-/Speichererschöpfung ergibt `INCOMPLETE`, niemals `Unreachable`. Der gemessene
 verwaltete Heap und tatsächlich verfügbare Thread-Allokationszähler werden zusätzlich
 ausgewiesen. Reservierte Puffer sind keine Zusicherung über den gesamten Unity-Heap.
+Ein nicht unterstützter Allokationszähler liefert `-1` für nicht verfügbar und
+beendet keine Vergleiche. Während längerer Workerphasen entsteht höchstens alle
+fünf Sekunden ein Fortschrittsmarker mit Sitzung, Snapshot, Phase und Fallzahl.
+Beim zweiten Snapshot hat der echte Änderungsvergleich Vorrang vor den großen
+Gruppenbenchmarks. Nicht ausgeführte Phasen und Anfragen bleiben kenntlich gemacht.
 
 ## Erfassung und geprüfte Verträge
 
@@ -87,6 +105,10 @@ privaten `EngineInterface.threadLock`; bei Konkurrenz wird auf einen späteren F
 verschoben. Ein echter Assembly-Test prüft den Monitor-Abschnitt um `DLL_RunTick`
 und nicht blockierenden Zugriff bei einer zweiten besitzenden Test-Threadinstanz.
 Er ruft keine native Spielmethode auf.
+Der Framework-Test läuft in getrennten Prozessen mit Datei- und Speicherladung,
+prüft die echte geladene Engine sowie die SDK-Layouts und führt den echten Worker
+mit kleinen eigenen Kartendaten aus. Fehler an den Datei-I/O-Grenzen werden injiziert,
+um Bereinigung und einen folgenden Lauf nachzuweisen.
 
 Unter der Sperre werden Layer und rohe Merkmale kopiert. Graphaufbau, abgeleitete
 Strukturhöhen, Policy-Materialisierung, Suchen, Vergleiche und Datei-I/O laufen auf

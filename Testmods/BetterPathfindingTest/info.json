@@ -3,7 +3,7 @@
   "Author": "Serpens66",
   "Name": "BetterPathfindingTest",
   "Description": "Read-only exact directed navigation hierarchy prototype. Automatic comparisons in explicitly built DEVDIAG packages only.",
-  "Version": "0.1.0",
+  "Version": "0.1.1",
   "MinimumScriptExtenderVersion": "2.14.3",
   "MaximumScriptExtenderVersion": "",
   "Dependencies": [{ "GUID": "APIShared_Serp", "MinimumVersion": "0.16.3" }],

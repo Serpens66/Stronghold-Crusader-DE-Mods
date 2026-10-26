@@ -168,9 +168,9 @@ namespace BugfixesAndQoL.UnitCommands
                     if (wheel != 0f && lastWheelFrame != frame)
                     {
                         lastWheelFrame = frame;
-                        int oldRows = state.Rows;
+                        int oldRows = state.Geometry.RequestedRows;
                         state.Geometry.ApplyWheel(wheel, frame);
-                        if (state.Rows != oldRows) changedRows = state.Rows;
+                        if (state.Geometry.RequestedRows != oldRows) changedRows = state.Geometry.RequestedRows;
                     }
 
                     if (TryCaptureTarget(out GroundTarget endpoint))
@@ -179,14 +179,14 @@ namespace BugfixesAndQoL.UnitCommands
                             endpoint.NativeX - state.Target.NativeX,
                             endpoint.NativeY - state.Target.NativeY, MinimumDragTileDistance);
                     }
-                    PublishPreview(state, force: false);
                 }
             }
             if (abort)
                 AbortDrag("state-changed");
-            else if (changedRows != 0)
+            else
             {
-                menuViewModel.RememberSelectedRows(state.Kind, changedRows);
+                PublishPreview(state, force: false);
+                if (changedRows != 0) menuViewModel.RememberSelectedRows(state.Kind, changedRows);
             }
         }
 
@@ -231,7 +231,7 @@ namespace BugfixesAndQoL.UnitCommands
             state.PreviewUnits = previewUnits;
             state.Authorization = new FormationMoveAuthorization(
                 state.PlayerId, tribeId, selection.Length,
-                target.NativeX, target.NativeY, nativeFeedbackGeneration);
+                target.NativeX, target.NativeY, System.Threading.Interlocked.Read(ref nativeFeedbackGeneration));
             menuViewModel.SetPreviewAuthorization(false);
             state.PreviewAuthorization = () => state.Authorization.IsConfirmed;
             ResolveDirectionAndWidth(state, out int direction, out int width);
@@ -242,9 +242,8 @@ namespace BugfixesAndQoL.UnitCommands
                 releaseConsumptionWatch = null;
                 drag = state;
                 groundFrameObserver.SetActive(true);
-                CapturePreviewAdmission(state);
-                PublishPreview(state, force: true);
             }
+            PublishPreview(state, force: true);
         }
 
         private static bool IsShiftHeld()

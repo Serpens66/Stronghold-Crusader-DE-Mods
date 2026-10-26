@@ -68,6 +68,7 @@ namespace BugfixesAndQoL.UnitCommands
             try
             {
                 mainThreadId = Environment.CurrentManagedThreadId;
+                InitializeEngineSynchronization();
                 ulong libraryBase = unchecked((ulong)libraryContext.ModuleHandle.ToInt64());
                 ValidateNativeContracts(libraryContext.Memory);
                 commandModeReader = new APIShared.Internal.NativeTroopCommandModeReader(

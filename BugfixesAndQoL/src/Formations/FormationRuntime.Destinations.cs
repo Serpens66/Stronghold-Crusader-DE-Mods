@@ -90,8 +90,7 @@ namespace BugfixesAndQoL.UnitCommands
                     anchorX, anchorY, Math.Min(MaximumPreviewCandidates,
                         Math.Max(256, units.Length * 16)), assassinOnly, slots);
                 if (candidates.Count == 0)
-                    throw new InvalidOperationException(
-                        "No reachable formation destination exists.");
+                    return Array.Empty<NativeDestination>();
                 snapped = SnapSlots(anchorX, anchorY, slots, candidates);
             }
             directionIndicator = BuildDirectionIndicator(
@@ -347,7 +346,9 @@ namespace BugfixesAndQoL.UnitCommands
                 visited[anchorTile] = true;
                 queue.Enqueue(new NativeDestination(
                     anchorTile, anchorX, anchorY, FormationRole.Neutral));
-                while (queue.Count != 0 && (result.Count < requestedCount || pending.Count != 0))
+                int examined = 0;
+                while (queue.Count != 0 && examined++ < MaximumVanillaSelectorCandidates &&
+                    (result.Count < requestedCount || pending.Count != 0))
                 {
                     NativeDestination current = queue.Dequeue();
                     bool available = movementTargetAvailability[
@@ -482,11 +483,6 @@ namespace BugfixesAndQoL.UnitCommands
             }
             return hash;
         }
-
-        private static int ResolveAdmittedRows(FormationKind kind, int count, int width) =>
-            kind == FormationKind.Vanilla || kind == FormationKind.Circle
-                ? FormationModel.ResolveAutomaticRows(kind, count)
-                : Math.Max(1, (count + Math.Max(1, width) - 1) / Math.Max(1, width));
 
         private static ulong ComputeSelectionHash(IReadOnlyList<FormationUnit> units)
         {

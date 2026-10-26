@@ -28,9 +28,23 @@ namespace BugfixesAndQoL.UnitCommands
     {
         private void PublishPreview(ActiveDrag state, bool force)
         {
+            bool taken = false;
+            try
+            {
+                if (speechEngineLock == null) return;
+                System.Threading.Monitor.TryEnter(speechEngineLock, 0, ref taken);
+                if (!taken) return;
+                lock (stateSync)
+                    if (ReferenceEquals(drag, state)) PublishPreviewLocked(state, force);
+            }
+            finally { if (taken) System.Threading.Monitor.Exit(speechEngineLock); }
+        }
+
+        private void PublishPreviewLocked(ActiveDrag state, bool force)
+        {
             if (!state.PreviewAdmissionCaptured || state.PreviewAdmissionRevision != commandRuntime.placementRevision)
             {
-                state.HasPreviewPlan = false; state.PreviewPlanHash = 0;
+                state.HasPreviewPlan = false;
                 ClearPreview();
                 return;
             }
@@ -47,7 +61,6 @@ namespace BugfixesAndQoL.UnitCommands
             if (targetRejection != APIShared.Internal.GroundMovePreviewRejection.None)
             {
                 state.HasPreviewPlan = false;
-                state.PreviewPlanHash = 0UL;
                 ClearPreview();
                 return;
             }
@@ -70,7 +83,6 @@ namespace BugfixesAndQoL.UnitCommands
             state.LastPreviewKey = previewKey;
             state.HasLastPreviewKey = true;
             state.HasPreviewPlan = false;
-            state.PreviewPlanHash = 0UL;
 
             FormationUnit[] units = state.PreviewUnits;
             if (units == null || units.Length == 0 || state.PreviewAdmissionRevision != commandRuntime.placementRevision)
@@ -101,9 +113,6 @@ namespace BugfixesAndQoL.UnitCommands
                         destinations[index].Y,
                         destinations[index].Role);
                 }
-                // A filtered UI snapshot cannot constrain later synchronized admission.
-                state.PreviewPlanHash = units.Length == state.Selection.Length ? ComputePlanHash(
-                    units, destinations, state.PlacementMode, state.Rows) : 0UL;
                 state.HasPreviewPlan = destinations.Length == units.Length;
                 var markerTiles = new int[destinations.Length];
                 for (int index = 0; index < destinations.Length; index++)
@@ -114,6 +123,7 @@ namespace BugfixesAndQoL.UnitCommands
                     menuViewModel.ClearPreview();
                     return;
                 }
+                ++previewPublicationVersion;
                 menuViewModel.PublishPreview(points, directionIndicator);
             }
             catch (Exception exception)
@@ -170,27 +180,25 @@ namespace BugfixesAndQoL.UnitCommands
 
         private void ObserveNativeGroundFeedback()
         {
+            if (!nativeFeedbackRunActive || speechEngineLock == null ||
+                !System.Threading.Monitor.IsEntered(speechEngineLock)) return;
+            FormationNativeRunContext.MarkRender(this);
             ActiveDrag state;
             lock (stateSync) state = nativeFeedbackRunActive ? drag : null;
             if (state == null) return;
             AuthorizePreview(state);
             bool captured;
             lock (stateSync) captured = ReferenceEquals(drag, state) && CapturePreviewAdmission(state);
-            if (captured) Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(() => {
-                lock (stateSync) if (ReferenceEquals(drag, state) && ValidateActiveDrag(state)) PublishPreview(state, true);
-            });
+            if (captured) Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(() => PublishPreview(state, true));
         }
 
         private bool CapturePreviewAdmission(ActiveDrag state)
         {
-            if (state.PreviewAdmissionCaptured || speechEngineLock == null) return false;
-            bool taken = false;
+            if (state.PreviewAdmissionCaptured || speechEngineLock == null ||
+                !System.Threading.Monitor.IsEntered(speechEngineLock)) return false;
             try
             {
-                // UI never waits for simulation. If busy, the next native render entry
-                // captures once under the same validated engine lock, before presentation.
-                System.Threading.Monitor.TryEnter(speechEngineLock, 0, ref taken);
-                if (!taken) return false;
+                // Exactly once at native render entry, already under the engine lock.
                 state.PreviewAdmissionCaptured = true;
                 state.PreviewUnits = commandRuntime.CapturePreviewFormationAdmission(state.PreviewUnits,
                     state.TribeId, state.Target.NativeX, state.Target.NativeY, out state.PreviewAdmissionRevision);
@@ -203,7 +211,6 @@ namespace BugfixesAndQoL.UnitCommands
                 Shared.DevDiag.Count("manual.preview.admissionFailure");
                 return true;
             }
-            finally { if (taken) System.Threading.Monitor.Exit(speechEngineLock); }
         }
 
         private sealed class ActiveDrag
@@ -266,7 +273,6 @@ namespace BugfixesAndQoL.UnitCommands
             internal bool HasLastPreviewKey { get; set; }
             internal FormationPreviewKey LastPreviewKey { get; set; }
             internal bool HasPreviewPlan { get; set; }
-            internal ulong PreviewPlanHash { get; set; }
         }
 
         private enum DispatchDisposition

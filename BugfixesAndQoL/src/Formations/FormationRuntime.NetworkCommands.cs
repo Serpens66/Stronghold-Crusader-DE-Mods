@@ -31,9 +31,7 @@ namespace BugfixesAndQoL.UnitCommands
             packet = null;
             if (EvaluateCommandMode() != APIShared.Internal.GroundMovePreviewRejection.None)
                 return false;
-            ResolveDirectionAndWidth(state, out int direction, out int width);
-            if (state.TribeId <= 0 || state.TribeId >= MaximumTribeCount ||
-                width <= 0 || width > ushort.MaxValue)
+            if (state.TribeId <= 0 || state.TribeId >= MaximumTribeCount)
                 return false;
             packet = new FormationOrderPacket
             {
@@ -47,11 +45,9 @@ namespace BugfixesAndQoL.UnitCommands
                 Formation = (byte)state.Kind,
                 Density = (byte)FormationModel.NormalizeDensity(state.Density),
                 PlacementMode = (byte)state.PlacementMode,
-                DirectionSector = (byte)direction,
-                Width = (ushort)width,
-                Rows = checked((ushort)state.Rows),
+                DirectionSector = (byte)state.Geometry.Direction,
+                RequestedRows = checked((ushort)Math.Min(state.Selection.Length, state.Geometry.RequestedRows)),
                 UnitCount = checked((ushort)state.Selection.Length),
-                PlanHash = state.PreviewPlanHash,
                 SelectionHash = ComputeSelectionHash(state.Selection)
             };
             // A preview slot shortage must not cancel a move for its reachable subset.
@@ -116,13 +112,22 @@ namespace BugfixesAndQoL.UnitCommands
 
         private bool ApplyPacket(FormationOrderPacket packet, string source)
         {
-            if (!Enabled)
-                return TryIssuePacketVanillaFallback(packet, source, "feature-disabled");
+            // Local release dispatch precedes EngineInterface.run's own lock. Received
+            // Chores already hold it; both paths must plan from one synchronous state.
+            lock (speechEngineLock) return ApplyPacketLocked(packet, source);
+        }
+
+        private bool ApplyPacketLocked(FormationOrderPacket packet, string source)
+        {
             if (!ValidatePacket(packet, out string rejection))
             {
-                LogErrorNoThrow($"Rejected Formation Chore: {rejection}.");
-                return TryIssuePacketVanillaFallback(packet, source, rejection);
+                Shared.DebugLogHelper.LogErrorLimited(log, "formation-packet-" + rejection,
+                    $"Rejected Formation Chore: {rejection}.");
+                // Consumed rejection: never restore the release or move a different selection.
+                return true;
             }
+            if (!Enabled)
+                return TryIssuePacketVanillaFallback(packet, source, "feature-disabled");
 
             var command = new PendingFormationCommand(packet, source);
 
@@ -151,9 +156,9 @@ namespace BugfixesAndQoL.UnitCommands
                     tribeMoveType: (TribeMoveType)packet.MoveType);
                 if (!issued)
                 {
-                    LogWarningNoThrow(
-                        $"FORMATION_ORDER_FELL_BACK_TO_VANILLA: source={source}, " +
-                        $"operation={packet.OperationId}, reason=move-command-rejected.");
+                    if (command.NativeDispatchObserved) return true;
+                    Shared.DebugLogHelper.LogWarningLimited(log, "formation-dispatch-unobserved",
+                        "Formation move command rejected before native dispatch.");
                     return command.NativeDispatchObserved;
                 }
                 return true;
@@ -170,9 +175,8 @@ namespace BugfixesAndQoL.UnitCommands
                         ClearUnitAssignmentFrames(activeCommand);
                         activeCommand = null;
                         commonGroupCommand = null;
-                        LogWarningNoThrow(
-                            $"FORMATION_ORDER_FELL_BACK_TO_VANILLA: source={source}, " +
-                            $"operation={packet.OperationId}, reason=missing-post-event.");
+                        Shared.DebugLogHelper.LogWarningLimited(log, "formation-missing-post",
+                            "Formation command completed without its native Post event.");
                     }
                 }
             }
@@ -183,15 +187,25 @@ namespace BugfixesAndQoL.UnitCommands
             string source,
             string reason)
         {
-            if (packet == null || packet.TribeId <= 0 ||
-                packet.TribeId >= MaximumTribeCount ||
-                (uint)packet.TargetX >= MapWidth || (uint)packet.TargetY >= MapWidth ||
-                (packet.IsNewOrder != 0 && packet.IsNewOrder != 1) ||
-                (packet.MoveType != (int)TribeMoveType.DefaultInSync &&
-                 packet.MoveType != (int)TribeMoveType.Fast))
-                return false;
+            if (!ValidatePacket(packet, out _)) return true;
+            FormationUnit[] selection = CaptureOrderedGroupUnits(packet.TribeId);
+            if (selection.Length != packet.UnitCount || ComputeSelectionHash(selection) != packet.SelectionHash)
+                return true;
             bool issued;
-            lock (stateSync) dispatchDepth++;
+            PendingFormationCommand outerPending;
+            ActiveFormationCommand outerActive, outerCommon;
+            UnitAssignmentFrame outerFrame;
+            UnitFallbackAttempt outerAttempt;
+            lock (stateSync)
+            {
+                outerPending = pendingCommand; outerActive = activeCommand; outerCommon = commonGroupCommand;
+                outerFrame = unitAssignmentFrame; outerAttempt = unitFallbackAttempt;
+                // A nested identical tribe/anchor must not borrow the outer plan or
+                // complete its unit frame. The native admission runtime owns its own stack.
+                pendingCommand = null; activeCommand = commonGroupCommand = null;
+                unitAssignmentFrame = null; unitFallbackAttempt = null;
+                dispatchDepth++;
+            }
             try
             {
                 issued = GameTribeManagerAPI.Instance.IssueMoveHereCommand(
@@ -199,10 +213,18 @@ namespace BugfixesAndQoL.UnitCommands
                     isPatrolPath: false, bIsNewOrder: packet.IsNewOrder,
                     tribeMoveType: (TribeMoveType)packet.MoveType);
             }
-            finally { lock (stateSync) dispatchDepth--; }
-            LogWarningNoThrow(
-                $"FORMATION_ORDER_FELL_BACK_TO_VANILLA: source={source}, " +
-                $"operation={packet.OperationId}, reason={reason}, issued={issued}.");
+            finally
+            {
+                lock (stateSync)
+                {
+                    ClearUnitAssignmentFrames(null);
+                    pendingCommand = outerPending; activeCommand = outerActive; commonGroupCommand = outerCommon;
+                    unitAssignmentFrame = outerFrame; unitFallbackAttempt = outerAttempt;
+                    dispatchDepth--;
+                }
+            }
+            Shared.DebugLogHelper.LogWarningLimited(log, "formation-fallback-" + reason,
+                $"FORMATION_ORDER_FELL_BACK_TO_VANILLA: reason={reason}, issued={issued}.");
             // The native command was already submitted. A negative movement result
             // must not replay the original release as a second whole-group order.
             return true;
@@ -228,19 +250,14 @@ namespace BugfixesAndQoL.UnitCommands
                 rejection = "invalid ranged placement mode";
             else if (packet.DirectionSector > 7)
                 rejection = "invalid direction";
-            else if (packet.Width == 0 || packet.Width > MaximumUnitCount)
-                rejection = "invalid width";
             else if (packet.UnitCount < 2 ||
                      packet.UnitCount > FormationPreviewMarkerModel.MaximumMarkers)
                 rejection = "invalid unit count";
-            else if (packet.Rows == 0 || packet.Rows > packet.UnitCount ||
+            else if (packet.RequestedRows > packet.UnitCount ||
                      (((FormationKind)packet.Formation == FormationKind.Circle ||
                        (FormationKind)packet.Formation == FormationKind.Vanilla) &&
-                      packet.Rows != FormationModel.ResolveAutomaticRows((FormationKind)packet.Formation, packet.UnitCount)))
+                      packet.RequestedRows != 0))
                 rejection = "invalid rows";
-            else if (packet.Width != FormationModel.ResolveWidthForRows(
-                         (FormationKind)packet.Formation, packet.UnitCount, packet.Rows))
-                rejection = "width does not match rows";
             else if (packet.SelectionHash == 0UL)
                 rejection = "managed formation packet has no selection identity hash";
             else if (packet.IsNewOrder != 0 && packet.IsNewOrder != 1)

@@ -103,7 +103,7 @@ namespace BugfixesAndQoL.UnitCommands
                     if (releaseClaimed)
                     {
                         drag = null;
-                        groundFrameObserver.SetActive(false);
+                        RefreshNativeObserverDemand();
                     }
                 }
                 if (!releaseClaimed)
@@ -116,7 +116,7 @@ namespace BugfixesAndQoL.UnitCommands
                 if (!TryCreatePacket(state, out FormationOrderPacket packet))
                     return RunOriginalOnce(mpFrameSkip, ref originalEntered);
 
-                FormationSpeechRequest speechRequest = CaptureSpeech(state);
+                FormationSpeechRequest speechRequest = CaptureSpeech(state, (TribeMoveType)packet.MoveType);
                 DispatchDisposition disposition = TryDispatch(packet, out string rejection);
                 if (disposition != DispatchDisposition.Accepted)
                 {
@@ -177,9 +177,11 @@ namespace BugfixesAndQoL.UnitCommands
 
             try
             {
-                formationConfig.Value = state.Kind;
-                densityConfig.Value = FormationModel.NormalizeDensity(state.Density);
-                placementModeConfig.Value = state.PlacementMode;
+                Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(() => {
+                    formationConfig.Value = state.Kind;
+                    densityConfig.Value = FormationModel.NormalizeDensity(state.Density);
+                    placementModeConfig.Value = state.PlacementMode;
+                });
             }
             catch (Exception exception)
             {
@@ -200,27 +202,17 @@ namespace BugfixesAndQoL.UnitCommands
                 throw new InvalidOperationException(
                     "EngineInterface.run original was entered more than once for one hook invocation.");
             originalEntered = true;
-            lock (stateSync)
-            {
-                nativeFeedbackRunGeneration = nativeFeedbackGeneration + 1;
-                nativeFeedbackRunActive = true;
-            }
+            var previous = FormationNativeRunContext.Enter(this,
+                System.Threading.Interlocked.Increment(ref nativeFeedbackGeneration));
             try
             {
-                int result = engineRunOriginal(mpFrameSkip);
-                // The render-entry observer runs inside DLL_RunTick. It
-                // uses this run's generation immediately, before the render
-                // tail clears cursor kind. No-buffer runs never reach it and
-                // return zero, so they do not publish a completed generation.
-                if (result > 0)
-                {
-                    lock (stateSync) nativeFeedbackGeneration = nativeFeedbackRunGeneration;
-                }
-                return result;
+                // Only a real native render entry can confirm input or emit speech.
+                // A no-buffer managed run cannot manufacture that proof.
+                return engineRunOriginal(mpFrameSkip);
             }
             finally
             {
-                lock (stateSync) nativeFeedbackRunActive = false;
+                FormationNativeRunContext.Restore(previous);
             }
         }
 

@@ -107,3 +107,39 @@ Abkürzungen bleiben Pflichtfälle. Dieser Folgeschritt ist nicht in diesem
 Prototyp implementiert; der aktuelle Mod liefert die unabhängige Vergleichs- und
 Replay-Infrastruktur dafür. Kein positives Ergebnis eines fremden A*/Flowfield-
 Systems wird als Leistungsnachweis für diesen Code verwendet.
+
+## Nachtrag: Laufzeitkorrektur 0.1.1 vom 26.10.2026
+
+Die ersten echten Spielstarts um 14:34 und 15:29 Uhr erreichten den Render-Callback,
+brachen jedoch vor der ersten Erfassung ab. `Assembly.Location` war für die aus
+Speicher geladene Spielassembly leer. Beide `unsupported-*.json`-Berichte enthalten
+diese Ursache; es gab zu diesem Zeitpunkt keine Rohsnapshots oder Ingame-Suchvergleiche.
+Dieser Initialisierungsfehler war im ursprünglichen Framework-Test nicht abgedeckt.
+
+Die Korrektur bestimmt den installierten Dateipfad aus dem Spielverzeichnis.
+Geladener Assemblyname und MVID werden getrennt vom optionalen installierten
+Dateihash erfasst. Der Engine-IL-Vertrag und die Native-/Layoutprüfungen bleiben
+verbindlich. Die nach dem bisherigen Abbruch folgenden Layout-/Enumprüfungen sind
+jetzt Bestandteil des Tests mit der tatsächlich installierten SDK-Assembly.
+
+Der erweiterte Framework-Test läuft in zwei getrennten Prozessen: Dateiladung und
+`Assembly.Load(byte[])` mit nachweislich leerer `Location`. Beide bestehen. Er prüft
+auch Erfassungstimeout mit kontrollierter Uhr, doppelte Starts, Kartenwechsel,
+Sitzungsfehler und Wiederanlauf, fehlende/veraltete/falsch zugeordnete Tor-Snapshots,
+optionale Metadaten- und Allokationsfehler sowie Fortschrittsdrosselung.
+
+Zusätzlich führt er den echten Worker mit kleinen eigenen Kartendaten aus und
+bestätigt 1.346 vollständig verglichene Anfragen. Injizierte Schreib- und
+Verzeichnisfehler prüfen dessen Ressourcenfreigabe sowie einen nachfolgenden Lauf.
+Diese Tests rufen keine nativen Spielmethoden auf und ersetzen keine Ingame-Abnahme.
+Der echte Änderungsvergleich hat beim zweiten Snapshot jetzt Vorrang vor den
+Gruppenbenchmarks. Graphaufbau und Policy-Materialisierung beachten Abbruch/Budget;
+ein nicht unterstützter Allokationszähler beendet keine Vergleiche.
+
+Version 0.1.1 ist für einen erneuten regulären Spielstart bestimmt. Die
+Performancebewertung der obigen historischen Messserie und die 60 offenen
+Richtungsabweichungen bleiben bestehen. Die Grenzen bleiben 256 MiB und 120 Sekunden
+je Vergleichslauf; für ausstehende Erfassungen gelten 30 Sekunden ohne blockierendes
+Warten. Suchalgorithmus, vorhandene Mods und gemeinsam genutzte Quellen wurden für
+diese Korrektur nicht geändert. Die neue Ingame-Erfassung ist nach Installation
+noch gesondert nachzuweisen.

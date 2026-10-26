@@ -6,7 +6,7 @@ using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 namespace CrusaderDE { }
 public static class EngineInterface { private static object threadLock=new();internal static object Lock=>threadLock; }
-namespace SHCDESE.Interop.Enums { public enum AliveState { IsAlive=2 } }
+namespace SHCDESE.Interop.Enums { public enum AliveState { IsAlive=2 } public enum TribeMoveType {NoChange=0,DefaultInSync=1,Fast=-255} }
 namespace SHCDESE.Interop {
  public struct GameUnit { public bool Alive;public ushort r_ControllableForPlayerId,r_TribeId,r_CurrentTilePositionX,r_CurrentTilePositionY,N000000C4;public uint r_CurrentPositionTileId;public eChimps r_UnitChimp; }
  public struct GameTribe { public ushort r_PlayerIdOwner,r_LeaderUnitId;public uint r_GlobalId;public AliveState r_AliveState; }
@@ -34,7 +34,7 @@ namespace APIShared.Internal {
  public enum GroundMovePreviewRejection { None,Other }
  public static class DebugLogHelper { public static void LogInfo(object log,string message) {} }
 }
-namespace Shared { public static class DebugLogHelper {
+namespace Shared { public static class UnityMainThreadDispatch { public static bool TryRunInlineOrEnqueue(Action a) { a();return true; } } public static class DebugLogHelper {
  public static int Errors;
  public static bool DiagnosticsEnabled => false;
  public static void LogInfo(object log,string message) {}
@@ -60,12 +60,12 @@ namespace BugfixesAndQoL.UnitCommands {
   public int TribeId=2,MapEpoch=4,PlayerId=1,CommandButton=1,Kind,Density=1,PlacementMode;
   public Gate ReleaseGate=new();public Authorization Authorization=new();public Target Target=new();
  }
- internal class FormationOrderPacket { public int OperationId=1; }
+ internal class FormationOrderPacket { public int OperationId=1,MoveType=1; }
  internal enum DispatchDisposition { Accepted,Rejected }
  internal class ReleaseConsumptionWatch { public ReleaseConsumptionWatch(int a,int b,int c,int d) {} }
  internal static class FormationModel { internal static int NormalizeDensity(int n)=>n;internal static int NormalizePlacementMode(int n)=>n; }
  internal class Config { public int Value; }
- internal class FrameObserver { internal void SetActive(bool active) {} }
+ internal class FrameObserver { internal bool Active; internal void SetActive(bool active) { Active=active; } }
  internal sealed class Renderer {
   internal Action NativeFrameCompleted { private get; set; }
   internal class Hook { public Action<IntPtr> Original; }
@@ -78,19 +78,20 @@ namespace BugfixesAndQoL.UnitCommands {
   __RENDERER__
  }
  internal class FakeNative : IFormationSpeechNative {
-  public int Emitted, Captured;public bool ThrowCapture,ThrowAudio,Busy;
+  public int Emitted, Captured,EmitThread;public bool ThrowCapture,ThrowAudio,Busy;
   public FormationSpeechRequest Last;public eChimps Voice=eChimps.CHIMP_TYPE_SWORDSMAN;
   public int CaptureVoice(IntPtr manager,int tribe) { Captured++;if(ThrowCapture)throw new Exception("capture");return (int)Voice; }
   public int CaptureRepresentative()=>1;
-  public void Emit(FormationSpeechRequest request) { if(ThrowAudio)throw new Exception("audio");if(!Busy){Emitted++;Last=request;} }
+  public void Emit(FormationSpeechRequest request) { if(ThrowAudio)throw new Exception("audio");if(!Busy){Emitted++;Last=request;EmitThread=Environment.CurrentManagedThreadId;} }
  }
  internal sealed unsafe partial class FormationRuntime {
   private readonly object stateSync=new();private object log;
   private bool initialized=true,startupConfirmed=true,localFailed,enabled=true,mapValid=true,accept=true,buffer=true;
   private bool LocalInputEnabled=>enabled&&!localFailed;
   private bool Enabled=>enabled;
-  private long nativeFeedbackGeneration,nativeFeedbackRunGeneration;
-  private bool nativeFeedbackRunActive;
+  private long nativeFeedbackGeneration;
+  private long nativeFeedbackRunGeneration=>FormationNativeRunContext.Generation(this);
+  private bool nativeFeedbackRunActive=>FormationNativeRunContext.IsActive(this);
   private int mainThreadId=Environment.CurrentManagedThreadId,originalRuns,moves;
   private FrameObserver groundFrameObserver=new();
   private Commands commandRuntime=new();private Renderer markerRenderer=new();private NativeContext libraryContext=new();
@@ -119,6 +120,11 @@ namespace BugfixesAndQoL.UnitCommands {
    return accept?DispatchDisposition.Accepted:DispatchDisposition.Rejected;
   }
   __ENGINE__
+  private void Tick() {
+   Exception error=null;
+   var worker=new Thread(()=> { try { EngineRunHook(false); }catch(Exception e){error=e;} });
+   worker.Start();worker.Join();if(error!=null)throw error;
+  }
   private FakeNative Setup() {
    GameTribeManagerAPI.Instance.Tribe=(GameTribe*)Marshal.AllocHGlobal(sizeof(GameTribe));
    *GameTribeManagerAPI.Instance.Tribe=new GameTribe{r_PlayerIdOwner=1,r_GlobalId=3,r_LeaderUnitId=1,r_AliveState=AliveState.IsAlive};
@@ -129,7 +135,7 @@ namespace BugfixesAndQoL.UnitCommands {
    var native=new FakeNative();speechNative=native;
    speechEngineLock=EngineInterface.Lock;
    markerRenderer.NativeFrameCompleted=OnSpeechNativeFrame;
-   engineRunOriginal=_=> { originalRuns++;if(buffer)lock(speechEngineLock)markerRenderer.Render();return buffer?1:0; };
+   engineRunOriginal=_=> { originalRuns++;if(buffer)lock(speechEngineLock) { if(groundFrameObserver.Active)FormationNativeRunContext.MarkRender(this); markerRenderer.Render(); }return buffer?1:0; };
    return native;
   }
   private void Free() { Marshal.FreeHGlobal((IntPtr)GameTribeManagerAPI.Instance.Tribe);Marshal.FreeHGlobal((IntPtr)APIShared.UnitAccess.Units); }
@@ -137,10 +143,10 @@ namespace BugfixesAndQoL.UnitCommands {
   public static void Run() {
    foreach(int button in new[]{0,1}) {
     var r=new FormationRuntime();var n=r.Setup();try {
-     r.drag.CommandButton=button;r.EngineRunHook(false);
-     Check(n.Captured==1&&n.Emitted==1&&n.Last.Response==6,"Captured pre-dispatch near voice");
+     r.drag.CommandButton=button;r.Tick();
+     Check(n.Captured==1&&n.Emitted==1&&n.Last.Response==6&&n.EmitThread!=r.mainThreadId,"Captured pre-dispatch near voice on simulation thread");
      Check(r.moves==1&&r.originalRuns==1&&EditorDirector.instance.Consumed,"Exactly one move and consumed release");
-     r.EngineRunHook(false);Check(n.Emitted==1&&r.moves==1&&r.originalRuns==2,"Next run cannot repeat accepted order");
+     r.Tick();Check(n.Emitted==1&&r.moves==1&&r.originalRuns==2,"Next run cannot repeat accepted order");
      Check(r.markerRenderer.failures==0,"Marker renderer remains active");
     } finally { r.Free(); }
    }
@@ -150,13 +156,13 @@ namespace BugfixesAndQoL.UnitCommands {
      if(scenario=="capture-error")n.ThrowCapture=true;
      if(scenario=="audio-error")n.ThrowAudio=true;
      if(scenario=="busy")n.Busy=true;
-     if(scenario=="excluded")n.Voice=eChimps.CHIMP_TYPE_CATAPULT;
+     if(scenario=="excluded")n.Voice=eChimps.CHIMP_TYPE_TREBUCHET;
      if(scenario=="engineer") { APIShared.UnitAccess.Units->r_UnitChimp=eChimps.CHIMP_TYPE_ENGINEER;APIShared.UnitAccess.Units->N000000C4=1; }
      if(scenario=="embedded")GameTileManagerAPI.Instance.TileManager.LogicGrid[0]=0x40000000;
      if(scenario=="far")r.drag.Target.NativeX=73;
      bool delayed=scenario=="no-buffer"||scenario=="map-change"||scenario=="disabled"||scenario=="remote-player"||scenario=="reused-group"||scenario=="native-outside-run";
      if(delayed)r.buffer=false;
-     r.EngineRunHook(false);
+     r.Tick();
      Check(r.moves==1&&r.originalRuns==1&&!r.localFailed,scenario+": failure isolated from engine/movement");
      if(scenario=="rejected")Check(!EditorDirector.instance.Consumed&&n.Emitted==0,"Rejected input left to Vanilla");
      else Check(EditorDirector.instance.Consumed,"Accepted input remains consumed");
@@ -167,30 +173,44 @@ namespace BugfixesAndQoL.UnitCommands {
       if(scenario=="remote-player")GamePlayerManagerAPI.Instance.Player=2;
       if(scenario=="reused-group")GameTribeManagerAPI.Instance.Tribe->r_GlobalId++;
       if(scenario=="native-outside-run") { r.markerRenderer.Render();Check(n.Emitted==0,"Unrelated render cannot consume feedback"); }
-      r.buffer=true;r.EngineRunHook(false);
+      r.buffer=true;r.Tick();
       Check(n.Emitted==((scenario=="no-buffer"||scenario=="native-outside-run")?1:0),scenario+": context gate");
      }
-     if(scenario=="busy") { n.Busy=false;r.EngineRunHook(false);Check(n.Emitted==0,"Suppression not replayed"); }
+     if(scenario=="busy") { n.Busy=false;r.Tick();Check(n.Emitted==0,"Suppression not replayed"); }
      if(scenario=="audio-error")Check(r.speechNative==null&&r.markerRenderer.failures==0,"Audio-only disable");
      if(scenario=="far")Check(n.Last.Response==10&&n.Last.TargetTileId==0,"Far voice");
-     if(scenario=="successive") { r.drag=new ActiveDrag();r.EngineRunHook(false);Check(r.moves==2&&n.Emitted==2,"Two gestures, two responses"); }
+     if(scenario=="successive") { r.drag=new ActiveDrag();r.Tick();Check(r.moves==2&&n.Emitted==2,"Two gestures, two responses"); }
      if(scenario=="engineer"||scenario=="embedded"||scenario=="excluded"||scenario=="capture-error")Check(n.Emitted==0,scenario+": exclusion");
     } finally { r.Free(); }
    }
    // Received simulation orders never pass the local release handoff.
-   var remote=new FormationRuntime();var rn=remote.Setup();try { remote.TryDispatch(new(),out _);remote.drag=null;remote.EngineRunHook(false);Check(rn.Emitted==0,"Remote execution has no local feedback"); } finally {remote.Free();}
+   var remote=new FormationRuntime();var rn=remote.Setup();try { remote.TryDispatch(new(),out _);remote.drag=null;remote.Tick();Check(rn.Emitted==0,"Remote execution has no local feedback"); } finally {remote.Free();}
    var locked=new FormationRuntime();var ln=locked.Setup();try {
-    using var entered=new ManualResetEventSlim();using var release=new ManualResetEventSlim();
-    var worker=new Thread(()=> { lock(locked.speechEngineLock){entered.Set();release.Wait();} });worker.Start();entered.Wait();
-    try { Check(locked.CaptureSpeech(locked.drag)==null&&ln.Captured==0,"Busy engine skips native query without blocking"); }
-    finally { release.Set();worker.Join(); }
-    locked.speechQueue.Enqueue(locked.CaptureSpeech(locked.drag));locked.nativeFeedbackRunActive=true;
-    locked.markerRenderer.Render();Check(ln.Emitted==0,"Unprotected native callback cannot emit");
-    lock(locked.speechEngineLock)locked.markerRenderer.Render();Check(ln.Emitted==1,"Protected native callback emits once");
+    locked.speechQueue.Enqueue(locked.CaptureSpeech(locked.drag,TribeMoveType.DefaultInSync));
+    var previous=FormationNativeRunContext.Enter(locked,77);
+    try {
+     locked.markerRenderer.Render();Check(ln.Emitted==0,"Unprotected native callback cannot emit");
+     lock(locked.speechEngineLock) {
+      locked.markerRenderer.Render();Check(ln.Emitted==0,"Reset without render entry cannot emit");
+      FormationNativeRunContext.MarkRender(locked);
+      locked.markerRenderer.Render();Check(ln.Emitted==1,"Protected native callback emits once");
+     }
+     var child=FormationNativeRunContext.Enter(new object(),78);
+     Check(!FormationNativeRunContext.IsActive(locked),"Nested owner isolated");
+     FormationNativeRunContext.Restore(child);
+     Check(FormationNativeRunContext.Generation(locked)==77&&FormationNativeRunContext.HasRender(locked),"Parent frame restored");
+     bool foreign=true;var other=new Thread(()=>foreign=FormationNativeRunContext.IsActive(locked));other.Start();other.Join();
+     Check(!foreign,"Concurrent thread cannot borrow frame proof");
+     for(int i=0;i<100;i++){var idle=FormationNativeRunContext.Enter(locked,i);FormationNativeRunContext.Restore(idle);}
+     long allocated=GC.GetAllocatedBytesForCurrentThread();
+     for(int i=0;i<10000;i++){var idle=FormationNativeRunContext.Enter(locked,i);FormationNativeRunContext.Restore(idle);}
+     Check(GC.GetAllocatedBytesForCurrentThread()==allocated,"Idle native scopes allocate managed memory");
+    } finally { FormationNativeRunContext.Restore(previous); }
+    Check(!FormationNativeRunContext.IsActive(locked),"Frame cleaned after scope");
    } finally { locked.Free(); }
    var unavailable=new FormationRuntime();unavailable.Setup();try {
     unavailable.InitializeSpeech();Check(unavailable.speechNative==null&&!unavailable.localFailed,"Adapter init failure is audio-only");
-    unavailable.EngineRunHook(false);Check(unavailable.moves==1&&unavailable.originalRuns==1&&unavailable.markerRenderer.failures==0,"Formation survives unavailable adapter");
+    unavailable.Tick();Check(unavailable.moves==1&&unavailable.originalRuns==1&&unavailable.markerRenderer.failures==0,"Formation survives unavailable adapter");
    } finally { unavailable.Free(); }
    var renderer=new Renderer();renderer.NativeFrameCompleted=()=>throw new Exception("unexpected callback failure");
    renderer.Render();Check(renderer.resets==1&&renderer.failures==0,"Unexpected feedback exception cannot repeat reset or disable markers");

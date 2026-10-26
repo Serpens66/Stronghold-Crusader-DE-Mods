@@ -270,3 +270,29 @@ a linear disassembler byte total is not a valid whole-function coverage check.
 Evidence: `.work/a/island-targets/001/audit.py` and `native-audit.json`;
 production entry/demand machine execution in `GroundFrameMachineTests.cs`.
 These are static/machine contracts, not an in-game frame-time measurement.
+
+## Confirmed simulation-thread speech contract (2026-10-26)
+
+Same native SHA-256 as above; real Assembly-CSharp SHA-256
+BC8B6A395F01D48557DB413600C8DD8D1FDFD3ABDF97BFBBB68A3C56B04FD789.
+Director.Awake starts `Stronghold1Engine`; runSimTickTest calls EngineInterface.run
+on this simulation thread. Its private threadLock covers native RunTick and
+PlayState copying. The main thread later plays exported speech through GameMap
+case18 / SFXManager. Requiring the initialization/main thread at native reset
+therefore suppresses valid local acknowledgement.
+
+Correction to the older shorthand "default move type": the conditional exclusion
+in 195E30 is parameter6 == 0, matching installed TribeMoveType.NoChange. Actual
+DefaultInSync is 1, Fast is -255. Types22/23/39 are excluded only for zero;
+types40/41/61 are always excluded, type38 is the explicit debug exception.
+The audited 3BC0 special-type branch 0x4F can query DF120 with radius4. This is
+a bounded local tile/nearby-unit query using shared scratch, not a full route.
+Preserve native Busy/duplicate/special handling under the engine lock; do not
+call 195E30 again for audio because it stages another Chore and can reach DB650.
+11C650 owns additional rate-limited group Foley; this correction does not add it.
+
+The existing render entry41D60 stamps the owning thread-local run scope, reset
+41D10 consumes local pending speech before dialogue41C0 / export19D960. No-buffer
+runs and unrelated reset calls cannot provide that render proof. Production-code
+two-thread fixtures and native adapter tests verify sequencing and scratch restore;
+audible gameplay, actual Mono behavior and host/client remain separate acceptance.

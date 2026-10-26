@@ -60,7 +60,7 @@ internal static class Program
             TargetX = 399, TargetY = 398, IsNewOrder = 1, MoveType = -255,
             Formation = (byte)FormationKind.Wedge, Density = 4,
             PlacementMode = (byte)RangedPlacementMode.Rear, DirectionSector = 7,
-            Rows = 20, Width = 200, UnitCount = 4000, PlanHash = ulong.MaxValue, SelectionHash = 0xDEADBEEF12345678
+            RequestedRows = 20, UnitCount = 4000, SelectionHash = 0xDEADBEEF12345678
         };
         byte[] wire = MessagePack.MessagePackSerializer.Serialize(packet);
         FormationOrderPacket restored = MessagePack.MessagePackSerializer.Deserialize<FormationOrderPacket>(wire);
@@ -70,7 +70,7 @@ internal static class Program
             restored.IsNewOrder == packet.IsNewOrder && restored.MoveType == packet.MoveType &&
             restored.Formation == packet.Formation && restored.Density == packet.Density &&
             restored.PlacementMode == packet.PlacementMode && restored.DirectionSector == packet.DirectionSector &&
-            restored.Rows == packet.Rows && restored.Width == packet.Width && restored.UnitCount == packet.UnitCount && restored.PlanHash == packet.PlanHash && restored.SelectionHash == packet.SelectionHash,
+            restored.RequestedRows == packet.RequestedRows && restored.UnitCount == packet.UnitCount && restored.SelectionHash == packet.SelectionHash,
             "all selection and order fields round-trip using the installed MessagePack resolver");
     }
 

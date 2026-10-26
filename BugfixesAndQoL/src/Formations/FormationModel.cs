@@ -286,7 +286,9 @@ namespace BugfixesAndQoL.UnitCommands
                     Math.Max(Math.Abs(centerY), Math.Abs(height - 1 - centerY)));
                 long bestDistance = long.MaxValue;
                 int best = -1;
-                for (int ring = 0; ring <= maxRing; ring++)
+                int firstRing = Math.Max(Math.Max(0, Math.Max(-centerX, centerX - width + 1)),
+                    Math.Max(0, Math.Max(-centerY, centerY - height + 1)));
+                for (int ring = firstRing; ring <= maxRing; ring++)
                 {
                     // Every tile of a ring-r bucket lies at least (r - 1) * BucketSize + 1 tiles away along
                     // one axis. Equal distances still matter for the tile-ID tie break, so only a strictly
@@ -296,12 +298,13 @@ namespace BugfixesAndQoL.UnitCommands
                         long bound = (long)(ring - 1) * BucketSize + 1;
                         if (bound * bound > bestDistance) break;
                     }
-                    for (int by = centerY - ring; by <= centerY + ring; by++)
+                    for (int by = Math.Max(0, centerY - ring); by <= Math.Min(height - 1, centerY + ring); by++)
                     {
-                        if (by < 0 || by >= height) continue;
                         bool edgeRow = by == centerY - ring || by == centerY + ring;
                         int step = edgeRow || ring == 0 ? 1 : 2 * ring;
-                        for (int bx = centerX - ring; bx <= centerX + ring; bx += step)
+                        int left = edgeRow ? Math.Max(0, centerX - ring) : centerX - ring;
+                        int right = edgeRow ? Math.Min(width - 1, centerX + ring) : centerX + ring;
+                        for (int bx = left; bx <= right; bx += step)
                         {
                             if (bx < 0 || bx >= width) continue;
                             int bucket = by * width + bx;
@@ -337,26 +340,23 @@ namespace BugfixesAndQoL.UnitCommands
         private readonly int count;
         private double wheelRemainder;
         private int lastWheelFrame = -1;
-        private bool rowsExplicit;
         internal FormationGestureState(FormationKind kind, int count, int direction, int rememberedRows = 0)
         {
             this.kind = kind;
             this.count = count;
             int selectedRows = FormationModel.NormalizeRememberedRows(rememberedRows);
-            rowsExplicit = selectedRows != 0;
-            Rows = kind == FormationKind.Circle || kind == FormationKind.Vanilla || selectedRows == 0
-                ? FormationModel.ResolveAutomaticRows(kind, count)
-                : FormationModel.NormalizeRows(selectedRows, count);
+            RequestedRows = kind == FormationKind.Circle || kind == FormationKind.Vanilla ? 0 : selectedRows;
             Direction = direction & 7;
         }
-        internal int Rows { get; private set; }
+        internal int RequestedRows { get; private set; }
+        internal int Rows => FormationModel.ResolveGeometryRows(kind, count, RequestedRows);
         internal int Direction { get; private set; }
         internal bool ExplicitDirection { get; private set; }
         internal FormationGestureState WithCount(int admittedCount)
         {
-            return new FormationGestureState(kind, Math.Max(1, admittedCount), Direction, rowsExplicit ? Rows : 0) {
+            return new FormationGestureState(kind, Math.Max(1, admittedCount), Direction, RequestedRows) {
                 wheelRemainder = this.wheelRemainder, lastWheelFrame = this.lastWheelFrame,
-                ExplicitDirection = this.ExplicitDirection, rowsExplicit = this.rowsExplicit
+                ExplicitDirection = this.ExplicitDirection
             };
         }
         internal void ApplyWheel(float delta, int frame)
@@ -367,8 +367,7 @@ namespace BugfixesAndQoL.UnitCommands
             wheelRemainder += delta;
             double steps = Math.Truncate(wheelRemainder);
             wheelRemainder -= steps;
-            if (steps != 0) rowsExplicit = true;
-            Rows = (int)Math.Max(1, Math.Min(count, Rows - steps));
+            if (steps != 0) RequestedRows = (int)Math.Max(1, Math.Min(count, Rows - steps));
         }
         internal void UpdateDirection(int deltaX, int deltaY, int threshold)
         {
@@ -380,6 +379,11 @@ namespace BugfixesAndQoL.UnitCommands
 
     internal static class FormationModel
     {
+        // Carry intent across temporary admission clamps; never infer rows from a stale width.
+        internal static int ResolveGeometryRows(FormationKind kind, int count, int requestedRows) =>
+            kind == FormationKind.Circle || kind == FormationKind.Vanilla || requestedRows == 0
+                ? ResolveAutomaticRows(kind, count) : NormalizeRows(requestedRows, count);
+
         private static readonly int[] ForwardX = { 0, 1, 1, 1, 0, -1, -1, -1 };
         private static readonly int[] ForwardY = { -1, -1, 0, 1, 1, 1, 0, -1 };
 

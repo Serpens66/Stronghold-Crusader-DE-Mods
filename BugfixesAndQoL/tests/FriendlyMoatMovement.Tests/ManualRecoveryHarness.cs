@@ -60,6 +60,17 @@ namespace CommandFixture
                         return 0;
                     };
                 }
+                Setup(1300,650);
+                var originalGroupLookup=getGroupUnitId;int aiMemberReads=0;
+                getGroupUnitId=(m,t,i)=>{aiMemberReads++;return originalGroupLookup(m,t,i);};
+                GamePlayerManagerAPI.Instance.Ai=true;
+                for(int lord=0;lord<8;lord++) {
+                    var parent=BeginManualGroupAdmission(new TribeIssueOrderMoveHereEventArgs());
+                    Check(manualAdmission==null&&aiMemberReads==0&&queries==0&&probes==0,
+                        "Eight AI lords must bypass admission before any member scan or search");
+                    EndManualGroupAdmission(parent);
+                }
+                GamePlayerManagerAPI.Instance.Ai=false;getGroupUnitId=originalGroupLookup;
                 foreach(int count in new[]{100,200,550,1000,1300})
                 foreach(int blocked in new[]{0,count/2,count})
                 {

@@ -14,7 +14,7 @@ internal static class FormationMoveRuntimeTests
             "EvaluateFormationTargetBounds", "IsTargetInsideNativeMap", "EvaluateCommandMode",
             "ValidateActiveDrag", "SelectionMatches", "AuthorizePreview", "ObserveNativeGroundFeedback", "CapturePreviewAdmission", "EngineRunHook",
             "RunOriginalOnce", "RunOriginalAfterReleaseConsumed", "UpdateGesture",
-            "OnKeyHeld", "OnKeyUp", "PublishPreview", "ResolveDirectionAndWidth",
+            "OnKeyHeld", "OnKeyUp", "PublishPreview", "PublishPreviewLocked", "ResolveDirectionAndWidth",
             "HasExplicitDirection", "ClearPreview" };
         string[] types = { "ActiveDrag", "GroundTarget", "SelectionIdentity", "NativeDestination",
             "DispatchDisposition", "ReleaseConsumptionWatch" };
@@ -26,8 +26,9 @@ internal static class FormationMoveRuntimeTests
         var proofs = authorization.DescendantNodes().OfType<BaseTypeDeclarationSyntax>()
             .Where(t => t.Identifier.Text != "NativeGroundMoveFeedbackReader");
         string fixture = """
-using System; using System.Linq; using System.Collections.Generic;
+using System; using System.Linq; using System.Collections.Generic; using SHCDESE.Interop.Enums;
 using UnityEngine; using SHCDESE.API; using SHCDESE.Interop; using SHCDESE.EventAPI;
+namespace SHCDESE.Interop.Enums { internal enum TribeMoveType {NoChange=0,DefaultInSync=1,Fast=-255} }
 namespace UnityEngine {
     public struct Vector3 {public float x,y;public static Vector3 zero=>default;}
     public struct Vector3Int {public int x,y;public static Vector3Int zero=>default;}
@@ -73,7 +74,7 @@ public class EditorDirector {
     public int Left;public bool RightDown,RightUp,StateRead,UpPending;
     public void clearMouseStateForEngine() {Left=0;StateRead=true;UpPending=false;}
 }
-namespace Shared { public static class DevDiag {public static void Count(string name){}} public static class UnityMainThreadDispatch {public static void TryRunInlineOrEnqueue(Action action)=>action();} public static class DebugLogHelper { public static bool DiagnosticsEnabled => true;  public static void LogDebugLimited(object log,string site,params object[] parts) { APIShared.Internal.DebugLogHelper.LogDebug(log,System.String.Concat(parts)); } public static void LogWarningLimited(object log,string site,params object[] parts) { APIShared.Internal.DebugLogHelper.LogWarning(log,System.String.Concat(parts)); } } }
+namespace Shared { public static class DevDiag {public static void Count(string name){}} public static class UnityMainThreadDispatch {public static bool Deferred;public static readonly Queue<Action> Pending=new();public static void TryRunInlineOrEnqueue(Action action){if(Deferred)Pending.Enqueue(action);else action();}} public static class DebugLogHelper { public static bool DiagnosticsEnabled => true;  public static void LogDebugLimited(object log,string site,params object[] parts) { APIShared.Internal.DebugLogHelper.LogDebug(log,System.String.Concat(parts)); } public static void LogWarningLimited(object log,string site,params object[] parts) { APIShared.Internal.DebugLogHelper.LogWarning(log,System.String.Concat(parts)); } } }
 namespace APIShared.Internal {
     public class NativeTroopCommandModeReader {public int Mode=1;public int Read()=>Mode;}
     public static class DebugLogHelper { public static bool DiagnosticsEnabled => true; public static void LogDebugLimited(object l, string site, params object[] parts) { LogDebug(l, System.String.Concat(parts)); } public static void LogDebug(object l,string m) {} public static void LogWarningLimited(object l, string site, params object[] parts) { LogWarning(l, System.String.Concat(parts)); } public static void LogWarning(object l,string m) {}}
@@ -107,7 +108,7 @@ namespace BugfixesAndQoL.UnitCommands {
             Reads++;revision=placementRevision;return Allowed<0?units:units.Take(Allowed).ToArray();
         }}
     internal struct FormationOrderPacket {
-        internal int OperationId,TribeId,TargetX,TargetY,Formation,Density,PlacementMode,DirectionSector,Width,Rows,UnitCount;
+        internal int OperationId,TribeId,TargetX,TargetY,Formation,Density,PlacementMode,DirectionSector,Width,Rows,UnitCount,MoveType;
         internal ulong PlanHash;
     }
     public unsafe class RuntimeFixture {
@@ -121,7 +122,7 @@ namespace BugfixesAndQoL.UnitCommands {
         private FrameObserver groundFrameObserver=new FrameObserver();
         private Marker markerRenderer=new Marker();private Menu menuViewModel=new Menu();
         private Commands commandRuntime=new Commands();private long nativeFeedbackGeneration;
-        private long nativeFeedbackRunGeneration;private bool nativeFeedbackRunActive;
+        private long previewPublicationVersion; private long nativeFeedbackRunGeneration=>FormationNativeRunContext.Generation(this);private bool nativeFeedbackRunActive=>FormationNativeRunContext.IsActive(this);
         private NativeGroundMoveFeedbackReader groundFeedbackReader=new NativeGroundMoveFeedbackReader();
         private APIShared.Internal.NativeTroopCommandModeReader commandModeReader=new APIShared.Internal.NativeTroopCommandModeReader();
         private Entry<FormationKind> formationConfig=new Entry<FormationKind>(FormationKind.Line);
@@ -145,7 +146,7 @@ namespace BugfixesAndQoL.UnitCommands {
         // Speech is an independent side effect in this movement fixture. Its
         // production capture/frame/queue/error paths execute in FormationSpeech.Tests.
         private sealed class FormationSpeechRequest {}
-        private FormationSpeechRequest CaptureSpeech(ActiveDrag state)=>null;
+        private FormationSpeechRequest CaptureSpeech(ActiveDrag state,TribeMoveType mode)=>null; private void RefreshNativeObserverDemand()=>groundFrameObserver.SetActive(drag!=null);
         private void QueueSpeech(FormationSpeechRequest request) {}
         private void AgeReleaseConsumptionWatch() {}
         private void LogDebugNoThrow(string text) {} private void LogWarningNoThrow(string text) {}
@@ -215,7 +216,7 @@ namespace BugfixesAndQoL.UnitCommands {
                 Check(f.Dispatched==1&&f.VanillaReleases==0&&f.LastPacket.TargetX==10,"Preview failure moved anchor to release");
                 Check(!f.groundFrameObserver.Active,"Released gesture left native demand armed");
             }
-            var admitted=Fresh(count:1000);admitted.commandRuntime.Allowed=500;admitted.TryStartDrag(1);
+            var admitted=Fresh(count:1000);admitted.commandRuntime.Allowed=500;admitted.TryStartDrag(1);admitted.Tick();
             Check(admitted.drag.PreviewUnits.Length==500&&admitted.menuViewModel.Points.Length==500,"Preview used full blocked selection");
             admitted.Tick();admitted.Tick();admitted.OnKeyHeld(new UnityInputEventArgs{Key=KeyCode.Mouse1});
             Check(admitted.commandRuntime.Reads==1,"Preview repeated regional classification per frame");
@@ -229,6 +230,11 @@ namespace BugfixesAndQoL.UnitCommands {
             Check(deferred.commandRuntime.Reads==1&&deferred.drag.PreviewUnits.Length==500,"Busy UI capture did not defer once to native engine-lock scope");
             Check(deferred.drag.Geometry.ExplicitDirection&&deferred.drag.Geometry.Direction==manualDirection&&deferred.drag.Rows==Math.Min(manualRows,500),"Deferred admission lost explicit facing/rows");
             deferred.Release();Check(deferred.Dispatched==1,"Deferred preview broke gesture dispatch");
+            var delayedClear=Fresh();delayedClear.TryStartDrag(1);delayedClear.Tick();
+            Shared.UnityMainThreadDispatch.Deferred=true;delayedClear.ClearPreview();Shared.UnityMainThreadDispatch.Deferred=false;
+            delayedClear.PublishPreview(delayedClear.drag,true);
+            while(Shared.UnityMainThreadDispatch.Pending.Count>0)Shared.UnityMainThreadDispatch.Pending.Dequeue()();
+            Check(delayedClear.menuViewModel.Points!=null,"Delayed clear erased a newer preview");
             var pending=Fresh();pending.TryStartDrag(1);pending.Release();
             Check(pending.Dispatched==0&&pending.VanillaReleases==1,"Unconfirmed fast click replaced Vanilla");
             var nested=Fresh();nested.RenderInsideOriginal=true;nested.TryStartDrag(1);nested.Tick();
@@ -281,7 +287,7 @@ namespace BugfixesAndQoL.UnitCommands {
             .Replace("__PROOFS__", string.Join("\n", proofs.Select(p => p.ToFullString())));
         string[] paths = { "BugfixesAndQoL/src/Formations/FormationModel.cs",
             "BugfixesAndQoL/src/Formations/FormationPresentation.cs",
-            "BugfixesAndQoL/src/Formations/FormationReleaseStateModel.cs" };
+            "BugfixesAndQoL/src/Formations/FormationNativeRunContext.cs", "BugfixesAndQoL/src/Formations/FormationReleaseStateModel.cs" };
         var trees = paths.Select(p => CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,p))))
             .Append(CSharpSyntaxTree.ParseText(fixture));
         var references = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!).Split(Path.PathSeparator)

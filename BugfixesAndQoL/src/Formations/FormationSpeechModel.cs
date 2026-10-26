@@ -1,6 +1,7 @@
 using System;
-using System.Collections.Generic;
+using System.Diagnostics;
 using SHCDESE.Interop;
+using SHCDESE.Interop.Enums;
 
 namespace BugfixesAndQoL.UnitCommands
 {
@@ -22,36 +23,46 @@ namespace BugfixesAndQoL.UnitCommands
             TargetTileId = Response == 6 ? targetTileId : 0;
         }
 
-        internal static bool AllowsVoice(eChimps voice)
+        internal static bool AllowsVoice(eChimps voice, TribeMoveType moveType)
         {
-            // DefaultInSync exclusions in 195E30; Archer_debug is deliberately allowed.
-            return voice != eChimps.CHIMP_TYPE_ARCHER && voice != eChimps.CHIMP_TYPE_XBOWMAN &&
-                voice != eChimps.CHIMP_TYPE_CATAPULT && voice != eChimps.CHIMP_TYPE_TREBUCHET &&
-                voice != eChimps.CHIMP_TYPE_MANGONEL && voice != eChimps.CHIMP_TYPE_BALLISTA;
+            // 195E30: only mode zero excludes these mobile voices; debug archer remains allowed.
+            return !(moveType == TribeMoveType.NoChange &&
+                    (voice == eChimps.CHIMP_TYPE_ARCHER || voice == eChimps.CHIMP_TYPE_XBOWMAN ||
+                     voice == eChimps.CHIMP_TYPE_CATAPULT)) &&
+                voice != eChimps.CHIMP_TYPE_TREBUCHET && voice != eChimps.CHIMP_TYPE_MANGONEL &&
+                voice != eChimps.CHIMP_TYPE_BALLISTA;
         }
     }
 
     internal sealed class FormationSpeechQueue
     {
-        private readonly Queue<FormationSpeechRequest> pending = new Queue<FormationSpeechRequest>();
-        internal void Clear() => pending.Clear();
+        private volatile FormationSpeechRequest pending;
+        private long capturedAt;
+        private readonly Func<long> clock;
+        private readonly long lifetime;
+        internal FormationSpeechQueue(Func<long> clock = null, long frequency = 0)
+        {
+            this.clock = clock ?? Stopwatch.GetTimestamp;
+            lifetime = frequency > 0 ? frequency : Stopwatch.Frequency;
+        }
+        internal bool HasPending => pending != null;
+        internal void Clear() => pending = null;
         internal void Enqueue(FormationSpeechRequest request)
         {
-            if (request != null) pending.Enqueue(request);
+            // Latest accepted gesture wins, including an ineligible (null) response.
+            pending = request;
+            if (request != null) capturedAt = clock();
         }
 
         internal void OnNativeFrame(bool activeRun, Func<FormationSpeechRequest, bool> valid,
             Action<FormationSpeechRequest> emit, Action<Exception> failed)
         {
             if (!activeRun) return;
-            // Consume before validation/call: suppression and exceptions must never retry a voice.
-            int count = pending.Count;
-            while (count-- > 0 && pending.Count != 0)
-            {
-                FormationSpeechRequest request = pending.Dequeue();
-                try { if (valid(request)) emit(request); }
-                catch (Exception exception) { failed(exception); }
-            }
+            FormationSpeechRequest request = pending;
+            pending = null; // Consume before any callback: failures and Busy never retry.
+            if (request == null || clock() - capturedAt >= lifetime) return;
+            try { if (valid(request)) emit(request); }
+            catch (Exception exception) { failed(exception); }
         }
     }
 }

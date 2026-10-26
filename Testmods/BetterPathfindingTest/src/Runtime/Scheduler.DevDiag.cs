@@ -34,6 +34,7 @@ namespace BetterPathfindingTest
         private EngineGate engine;
         private SnapshotCapture capture;
         private SessionWork session;
+        private readonly CaptureState schedule = new CaptureState(() => Stopwatch.GetTimestamp() / (double)Stopwatch.Frequency);
         private int frame = -1;
         internal DiagnosticRuntime()
         {
@@ -48,14 +49,27 @@ namespace BetterPathfindingTest
             {
                 if (note.Kind == MissionLifecycleKind.Start)
                 {
-                    if (session != null && session.Id == note.Context.SessionId) return;
-                    session?.Cancel.Cancel();
+                    if (!schedule.Start(note.Context.SessionId)) return;
+                    RetireSession();
                     session = new SessionWork(note.Context.SessionId, note.Context.StartKind + "; " + note.Context.MapName + "; " + note.Context.Mode, output);
                     Shared.DevDiag.Log(() => "map-start session=" + session.Id + "; capture queued; post-startup lifecycle active.");
                 }
                 else if (note.IsBeforeInitialization || note.Kind == MissionLifecycleKind.End && session != null && session.Id == note.Context.SessionId)
-                { session?.Cancel.Cancel(); session = null; }
+                { if (session != null) schedule.Retire(session.Id); RetireSession(); }
             }
+        }
+        private void RetireSession()
+        {
+            SessionWork old = session; session = null;
+            if (old == null) return;
+            old.Cancel.Cancel(); Queue(old.Release);
+        }
+        private void FailSession(Exception error)
+        {
+            schedule.Fail(); SessionWork current = session;
+            if (current == null) return;
+            Shared.DevDiag.Log(() => "phase=capture-failed session=" + current.Id + " ordinal=" + (schedule.Captures + 1) + " status=INCOMPLETE error=" + error);
+            current.Cancel.Cancel(); Queue(current.FailureJob(error, schedule.Captures + 1)); Queue(current.Release);
         }
         internal void Frame()
         {
@@ -63,42 +77,41 @@ namespace BetterPathfindingTest
             lock (sync)
             {
                 if (failed) return;
-                try
+                if (!registered)
                 {
-                    if (!registered)
+                    if (!hasLibrary || api == null) return;
+                    try
                     {
-                        if (!hasLibrary || api == null) return;
                         engine = new EngineGate(); capture = new SnapshotCapture(library);
                         if (!ApiShared.ForMod(Plugin.PluginGuid).TryGetMissionLifecycle(out IMissionLifecycleCapability missions, out NativeCapabilityDiagnostic diagnostic) ||
                             !missions.TryRegisterObserver("automatic-comparison", Observe, Observe, Observe, out diagnostic)) throw new NotSupportedException("Mission lifecycle unavailable: " + diagnostic);
                         registered = true;
                         Shared.DevDiag.Log(() => "READY; engine Monitor contract validated against installed assembly; render callback survives startup cleanup; reports=" + output);
                     }
-                    SessionWork current = session;
-                    if (current == null || current.Captures >= 2 || current.Cancel.IsCancellationRequested || Stopwatch.GetTimestamp() < current.Due) return;
-                    if (current.Attempt == 0) current.Attempt = Stopwatch.GetTimestamp();
-                    // No Monitor.Enter/wait on the Unity thread: retry on a later rendered frame.
-                    if (!engine.TryEnter()) return;
-                    CaptureEnvelope envelope;
-                    try
+                    catch (Exception ex)
                     {
-                        if (current.Cancel.IsCancellationRequested) return;
-                        double wait = (Stopwatch.GetTimestamp() - current.Attempt) * 1000.0 / Stopwatch.Frequency;
-                        envelope = capture.Copy(current.Id, current.Context, wait);
+                        failed = true; RetireSession();
+                        string reportOutput = output;
+                        Queue(() => SessionWork.Unsupported(reportOutput, ex));
+                        Shared.DevDiag.Log(() => "UNSUPPORTED initialization contract; observer stopped: " + ex); return;
                     }
-                    finally { engine.Exit(); }
-                    int ordinal = ++current.Captures; current.Attempt = 0;
-                    current.Due = Stopwatch.GetTimestamp() + Stopwatch.Frequency * 10;
+                }
+                SessionWork current = session;
+                if (current == null || current.Cancel.IsCancellationRequested || !schedule.Pending) return;
+                if (schedule.Expired) { FailSession(new TimeoutException("Capture timeout after 30 seconds: " + schedule.WaitingReason)); return; }
+                schedule.WaitingReason = "engine-lock";
+                // No Monitor.Enter/wait on the Unity thread: retry on a later rendered frame.
+                if (!engine.TryEnter()) return;
+                try
+                {
+                    CaptureEnvelope envelope = capture.Copy(current.Id, current.Context, schedule.WaitMilliseconds);
+                    schedule.Captured(); int ordinal = schedule.Captures;
                     Queue(current.Job(envelope, ordinal));
                     Shared.DevDiag.Log(() => "snapshot-copied session=" + current.Id + " ordinal=" + ordinal + " copyMs=" + envelope.Map.CopyMilliseconds.ToString("F3") + "; post-startup render active.");
                 }
-                catch (Exception ex)
-                {
-                    failed = true; session?.Cancel.Cancel();
-                    string reportOutput = output;
-                    Queue(() => SessionWork.Unsupported(reportOutput, ex));
-                    Shared.DevDiag.Log(() => "UNSUPPORTED capture contract; observer stopped: " + ex);
-                }
+                catch (CaptureNotReadyException ex) { schedule.WaitingReason = ex.Message; }
+                catch (Exception ex) { FailSession(ex); }
+                finally { engine.Exit(); }
             }
         }
     }

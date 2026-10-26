@@ -15,15 +15,19 @@ namespace BugfixesAndQoL.UnitCommands
         private object speechEngineLock;
         private readonly FormationSpeechQueue speechQueue = new FormationSpeechQueue();
 
+        private void InitializeEngineSynchronization()
+        {
+            FieldInfo engineLock = typeof(EngineInterface).GetField("threadLock",
+                BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
+            if (engineLock == null || !engineLock.IsPrivate || engineLock.FieldType != typeof(object) ||
+                (speechEngineLock = engineLock.GetValue(null)) == null)
+                throw new InvalidOperationException("Native engine lock contract changed.");
+        }
+
         private void InitializeSpeech()
         {
             try
             {
-                FieldInfo engineLock = typeof(EngineInterface).GetField("threadLock",
-                    BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
-                if (engineLock == null || !engineLock.IsPrivate || engineLock.FieldType != typeof(object) ||
-                    (speechEngineLock = engineLock.GetValue(null)) == null)
-                    throw new InvalidOperationException("Native engine lock contract changed.");
                 if (Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.N000000C4)).ToInt32() != 0x388)
                     throw new InvalidOperationException("Engineer speech exclusion field layout changed.");
                 speechNative = new FormationSpeechNative(libraryContext.ModuleHandle, libraryContext.Memory,
@@ -33,23 +37,22 @@ namespace BugfixesAndQoL.UnitCommands
             catch (Exception exception) { DisableSpeech(exception); }
         }
 
-        private FormationSpeechRequest CaptureSpeech(ActiveDrag state)
+        private FormationSpeechRequest CaptureSpeech(ActiveDrag state, TribeMoveType moveType)
         {
             if (speechNative == null) return null;
             bool taken = false;
             try
             {
-                // Never race the simulation's current-unit scratch cursor. A busy engine
-                // skips this optional response without blocking or changing command dispatch.
+                // Called on command release from EngineInterface.run, outside stateSync.
+                // Acquire in Engine -> state order; input/preview never waits here.
                 if (speechEngineLock == null) return null;
-                Monitor.TryEnter(speechEngineLock, 0, ref taken);
-                if (!taken) return null;
+                Monitor.Enter(speechEngineLock, ref taken);
                 if (!GameTribeManagerAPI.Instance.TryGetTribeById(state.TribeId, out GameTribe* tribe) ||
                     tribe == null || tribe->r_PlayerIdOwner != state.PlayerId || tribe->r_GlobalId == 0 ||
                     !APIShared.UnitAccess.TryGetById(tribe->r_LeaderUnitId, out GameUnit* leader, out _) ||
                     leader == null || !APIShared.UnitAccess.IsReallyAlive(leader)) return null;
                 eChimps voice = (eChimps)speechNative.CaptureVoice(nativeTribeManager, state.TribeId);
-                if (!FormationSpeechRequest.AllowsVoice(voice)) return null;
+                if (!FormationSpeechRequest.AllowsVoice(voice, moveType)) return null;
                 int representativeId = speechNative.CaptureRepresentative();
                 if (!APIShared.UnitAccess.TryGetById(representativeId, out GameUnit* selected, out _) ||
                     selected == null || !APIShared.UnitAccess.IsReallyAlive(selected) ||
@@ -71,6 +74,7 @@ namespace BugfixesAndQoL.UnitCommands
 
         private void OnSpeechNativeFrame()
         {
+            if (!speechQueue.HasPending) return;
             // Render end is inside DLL_RunTick, after current audio inputs and before its audio export.
             // A no-buffer managed run never reaches this callback, so pending feedback survives it.
             // Runs every render pass; the callbacks are created once instead of per frame.
@@ -82,9 +86,10 @@ namespace BugfixesAndQoL.UnitCommands
             }
             lock (stateSync)
                 speechQueue.OnNativeFrame(nativeFeedbackRunActive &&
-                    Environment.CurrentManagedThreadId == mainThreadId &&
+                    FormationNativeRunContext.HasRender(this) &&
                     speechEngineLock != null && Monitor.IsEntered(speechEngineLock),
                     speechAcceptCallback, speechEmitCallback, speechDisableCallback);
+            RefreshNativeObserverDemand();
         }
 
         private Func<FormationSpeechRequest, bool> speechAcceptCallback;
@@ -101,18 +106,22 @@ namespace BugfixesAndQoL.UnitCommands
 
         private void QueueSpeech(FormationSpeechRequest request)
         {
-            try { lock (stateSync) speechQueue.Enqueue(request); }
+            try { lock (stateSync) { speechQueue.Enqueue(request); RefreshNativeObserverDemand(); } }
             catch (Exception exception) { DisableSpeech(exception); }
         }
 
         private void DisableSpeech(Exception exception)
         {
-            speechNative = null;
-            speechQueue.Clear();
+            lock (stateSync) { speechNative = null; speechQueue.Clear(); RefreshNativeObserverDemand(); }
             // Isolated from the movement/marker error paths: never restore an accepted input edge.
             try { Shared.DebugLogHelper.LogErrorLimited(log, "FormationSpeech",
                 "Formation speech unavailable; movement remains active: " + exception.Message); }
             catch { }
+        }
+
+        private void RefreshNativeObserverDemand()
+        {
+            lock (stateSync) groundFrameObserver?.SetActive(drag != null || speechQueue.HasPending);
         }
     }
 }

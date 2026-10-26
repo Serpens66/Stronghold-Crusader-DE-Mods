@@ -31,6 +31,8 @@
     <Compile Include="src\Core\*.cs" />
     <Compile Include="src\Runtime\Plugin.cs" />
     <Compile Include="src\Runtime\EngineGate.cs" Condition="'$(SerpDevDiagnostics)' == 'true'" />
+    <Compile Include="src\Runtime\ManagedContracts.cs" Condition="'$(SerpDevDiagnostics)' == 'true'" />
+    <Compile Include="src\Runtime\CaptureState.cs" Condition="'$(SerpDevDiagnostics)' == 'true'" />
     <Compile Include="src\Runtime\*.DevDiag.cs" Condition="'$(SerpDevDiagnostics)' == 'true'" />
     <Compile Include="..\..\Shared\Runtime\Diagnostics\DebugLogHelper.cs"><Link>Shared\Runtime\Diagnostics\DebugLogHelper.cs</Link></Compile>
     <Compile Include="..\..\Shared\Runtime\Diagnostics\DevDiag.cs"><Link>Shared\Runtime\Diagnostics\DevDiag.cs</Link></Compile>

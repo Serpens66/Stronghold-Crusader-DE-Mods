@@ -723,7 +723,7 @@ mod-internal callable adapter, not a hook or a replacement movement command.
   Dialogue manager RVA 0x64C4490. Response 6 is used when both leader/anchor axis
   differences are <=72; response 10 otherwise. Response 6 receives GetTileId(anchor),
   response 10 receives zero. Capture leader position before dispatch; never derive
-  the voice from a delayed multiplayer receiver. DefaultInSync excludes Archer,
+  the voice from a delayed multiplayer receiver. NoChange (native zero) excludes Archer,
   Crossbowman and Catapult; Trebuchet, Mangonel and Ballista are always excluded.
   Archer_debug remains allowed. Native 0x3BC0 owns selection, duplicate suppression
   and special-type branches; 0x3770/0x38A0 and 0xEDF0 remain untouched.
@@ -741,11 +741,13 @@ after its original. Full flow: DLL_RunTick 0x86680 updates channels, render 0x41
 ends at 0x41D10, then dialogue 0x41C0 and sound/export paths run. 0xEDF0 writes
 channel flags/path and emits a sound-volume record; the managed EngineInterface
 reads speechFileName from returned play-state data. Callback exceptions cannot
-repeat the original reset or disable markers. Only a matching main-thread
-EngineInterface.run can consume pending feedback. No-buffer runs retain it; stale
+repeat the original reset or disable markers. Only a matching thread-local
+EngineInterface.run scope, held engine lock and observed render entry can consume
+pending feedback on the simulation thread. No-buffer runs retain only the latest
+request for at most one monotonic second; stale
 map/player/tribe-global identities and feature disable discard it. Consume before
 checking busy channels or emitting, so suppression/errors never replay a response.
-Packet protocol and synchronized simulation execution remain unchanged.
+This feedback remains local and does not change synchronized movement success.
 
 Offline verification: tests/FormationSpeech.Tests executes production engine and
 speech methods with boundary doubles, and checks real installed enum/layout,
@@ -753,14 +755,24 @@ canonical binary signatures, complete instruction spans and ambiguous/fallback
 resolution. Audible output, Mono execution and real Host/Client acceptance still
 require an in-game test; no installation is performed by the Issue 6 build.
 
-Capture acquires the real private static object EngineInterface.threadLock by
-validated reflection and nonblocking Monitor.TryEnter. A busy engine omits only
-that optional response. Both the temporary 18D460 scratch write and its restore
+Engine synchronization is initialized independently of optional audio through the
+validated private static object EngineInterface.threadLock. Release-side capture
+acquires it before stateSync; UI preview uses only nonblocking acquisition.
+Both the temporary 18D460 scratch write and its restore
 are inside this lock. The render-end emitter also requires Monitor.IsEntered
 on the same object. EngineInterface.run holds it around preDLLCallActions,
 DLL_RunTick and play-state copying; no new native call races the simulation.
 The offline test checks this field against the real Assembly-CSharp metadata,
-not a publicized assembly, and exercises busy/unprotected/protected cases.
+not a publicized assembly, and exercises separate input/simulation threads,
+unprotected/protected callbacks, nested scopes, bounded pending feedback and idle
+scope allocations. Native move types are NoChange=0, DefaultInSync=1, Fast=-255.
+
+2026-10-26 integration correction: internal protocol 9 transmits requested rows
+(zero = automatic), full selection count/hash and command intent. Wire fields 11
+and 13 are reserved nil values. Preview width/hash never authorize or reject a
+command; authoritative admitted members determine geometry and the execution hash.
+Both shared destination collections stop after 4001 examined tiles; shortages
+reuse valid slots deterministically, empty ordinary plans preserve previous orders.
 
 ## Modsettings activation dispatches (1.0.196)
 

@@ -39,7 +39,7 @@ namespace BetterPathfindingTest.Core
     public static class Benchmark
     {
         // Mono may not expose allocation totals. Never label retained-heap deltas as allocations.
-        private static readonly Func<long> Allocations = CreateAllocationCounter();
+        private static readonly AllocationCounter Allocations = new AllocationCounter(CreateAllocationCounter);
         private static Func<long> CreateAllocationCounter()
         { var method = typeof(GC).GetMethod("GetAllocatedBytesForCurrentThread", Type.EmptyTypes); return method == null ? null : (Func<long>)Delegate.CreateDelegate(typeof(Func<long>), method); }
         private static long Fingerprint(byte[] bytes) { ulong hash = 14695981039346656037UL; foreach (byte b in bytes) hash = unchecked((hash ^ b) * 1099511628211UL); return unchecked((long)hash); }
@@ -60,12 +60,12 @@ namespace BetterPathfindingTest.Core
                         {
                             budget.Check(); RouteQuery query = queries[i];
                             if (i % 16 == 0) progress?.Invoke("queries=" + i + "/" + queries.Count + " expanded=" + budget.Expanded + " buffers=" + budget.Bytes);
-                            long memoryBefore = GC.GetTotalMemory(false), allocationBefore = Allocations?.Invoke() ?? -1;
+                            long memoryBefore = GC.GetTotalMemory(false), allocationBefore = Allocations.Read();
                             watch.Restart(); RouteResult cold = navigator.FindPath(query); double coldMs = watch.Elapsed.TotalMilliseconds; report.ColdMs += coldMs;
                             watch.Restart(); RouteResult warm = navigator.FindPath(query); double warmMs = watch.Elapsed.TotalMilliseconds; report.WarmMs += warmMs;
                             watch.Restart(); RouteResult reference = ReferenceSearch.Find(map, query, budget); double referenceMs = watch.Elapsed.TotalMilliseconds; report.ReferenceMs += referenceMs;
                             if (cold.Status == SearchStatus.Inconclusive || warm.Status == SearchStatus.Inconclusive || reference.Status == SearchStatus.Inconclusive)
-                            { report.Incomplete++; report.Limitation = cold.Reason ?? warm.Reason ?? reference.Reason; report.Cases.Add(new Dictionary<string, object> { ["index"] = i, ["status"] = "Inconclusive", ["reason"] = report.Limitation }); break; }
+                            { report.Incomplete++; report.Limitation = cold.Status == SearchStatus.Inconclusive ? cold.Reason : warm.Status == SearchStatus.Inconclusive ? warm.Reason : reference.Reason; report.Cases.Add(new Dictionary<string, object> { ["index"] = i, ["status"] = "Inconclusive", ["reason"] = report.Limitation }); break; }
                             bool matches = Same(cold, reference) && Same(warm, reference); report.Completed++;
                             if (!matches) report.Mismatches++;
                             bool tie = cold.Status == SearchStatus.Found && Same(cold, reference) && Fingerprint(cold.Directions) != Fingerprint(reference.Directions);
@@ -84,12 +84,13 @@ namespace BetterPathfindingTest.Core
                                 if (map.Describe(query, cold.Directions).Status != SearchStatus.Found) report.Mismatches++;
                                 report.OutputMs += watch.Elapsed.TotalMilliseconds;
                             }
+                            long allocationAfter = Allocations.Read();
                             var record = new Dictionary<string, object> {
                                 ["index"] = i, ["start"] = query.Start, ["target"] = query.Target, ["groundCost"] = query.GroundCost, ["moatCost"] = query.MoatCost,
                                 ["requireMoat"] = query.RequireMoat, ["excludeStructures"] = query.ExcludeStructures, ["boundCount"] = query.Bounds.Length,
                                 ["status"] = cold.Status.ToString(), ["cost"] = cold.Cost, ["groundEdges"] = cold.Ground, ["moatEdges"] = cold.Moat, ["privateEncodedBytes"] = encodedBytes,
                                 ["referenceStatus"] = reference.Status.ToString(), ["referenceCost"] = reference.Cost, ["coldMs"] = coldMs, ["warmMs"] = warmMs, ["referenceMs"] = referenceMs,
-                                ["managedHeapDelta"] = GC.GetTotalMemory(false) - memoryBefore, ["threadAllocatedBytes"] = allocationBefore < 0 ? -1 : Allocations() - allocationBefore, ["pathFingerprint"] = Fingerprint(cold.Directions).ToString("X16"), ["equalCostDirectionDifference"] = tie, ["productionEqualCostDirectionDifference"] = productionTie,
+                                ["managedHeapDelta"] = GC.GetTotalMemory(false) - memoryBefore, ["threadAllocatedBytes"] = allocationBefore < 0 || allocationAfter < 0 ? -1 : allocationAfter - allocationBefore, ["pathFingerprint"] = Fingerprint(cold.Directions).ToString("X16"), ["equalCostDirectionDifference"] = tie, ["productionEqualCostDirectionDifference"] = productionTie,
                                 ["productionStatus"] = old?.Status.ToString() ?? "offline-only", ["productionCost"] = old?.Cost ?? -1
                             };
                             if (!matches || tie || productionTie || (old != null && !Same(old, reference))) { record["newDirectionsBase64"] = Convert.ToBase64String(cold.Directions); record["referenceDirectionsBase64"] = Convert.ToBase64String(reference.Directions); if (old != null) record["productionDirectionsBase64"] = Convert.ToBase64String(old.Directions); }
