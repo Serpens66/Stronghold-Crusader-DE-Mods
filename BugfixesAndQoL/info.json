@@ -3,7 +3,7 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.205",
+  "Version": "1.0.206",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.0",
   "MaximumScriptExtenderVersion": "",
@@ -16,6 +16,14 @@
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.206",
+      "Changes": [
+        "Keep Patrol commands on the Vanilla input and movement path while LineUp is enabled, including HUD/hotkey activation, delayed gestures and exactly one handoff of a deferred release.",
+        "Add bounded formation rejection and handoff diagnostics with operation/input phase, patrol state, selection/group identity and release handling.",
+        "Report concrete AI retargeting exclusions and unresolved saved AIV/AIC references with available identities, paths and the fallback used; limit repetitions and retain Vanilla decisions."
+      ]
+    },
     {
       "Version": "1.0.205",
       "Changes": [

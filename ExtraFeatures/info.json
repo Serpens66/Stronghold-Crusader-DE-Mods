@@ -3,7 +3,7 @@
   "Author": "Serpens66",
   "Name": "Extra Features",
   "Description": "Optional gameplay additions and economy customization for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.122",
+  "Version": "1.0.123",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.0",
   "MaximumScriptExtenderVersion": "",
@@ -16,6 +16,13 @@
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.123",
+      "Changes": [
+        "Recognize an already effective requested market price as satisfied without claiming ownership or reporting a conflicting-price warning; continue to protect differing direct prices and preserve rounding, factor changes and restoration.",
+        "Log bounded market-price decisions with the good, buy/sell direction, base/current/requested prices, factor and ownership state without attributing an observed difference to a specific mod."
+      ]
+    },
     {
       "Version": "1.0.122",
       "Changes": [

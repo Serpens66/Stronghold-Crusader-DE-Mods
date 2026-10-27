@@ -3,7 +3,7 @@
   "Author": "Serpens66",
   "Name": "Random Events",
   "Description": "Runs configurable Vanilla scenario events in skirmishes, Trail missions, and multiplayer games.",
-  "Version": "1.0.55",
+  "Version": "1.0.56",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.0",
   "MaximumScriptExtenderVersion": "",
@@ -16,6 +16,13 @@
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.56",
+      "Changes": [
+        "Distinguish failed bandit lookups, replaced global identities and units that are no longer alive; include available owner/group context and activation timing.",
+        "Summarize group failures with bounded examples and suppression counts, using existing reads without adding polling or diagnostic world lookups; classify ordinary exclusions as informational."
+      ]
+    },
     {
       "Version": "1.0.55",
       "Changes": [

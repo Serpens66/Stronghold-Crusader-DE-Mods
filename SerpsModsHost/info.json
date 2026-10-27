@@ -3,19 +3,28 @@
     "Author":  "Serpens66",
     "Name":  "Serps Mods - Fully Customizable Collection",
     "Description":  "APIShared must be subscribed separately in the Steam Workshop! / APIShared muss separat im Steam Workshop abonniert werden!\n\nMultiplayer: all players need the same versions of this modpack and APIShared. / Mehrspieler: Alle Spieler brauchen dieselbe Version dieses Modpacks und von APIShared.\n\nAll included mods can be freely configured in the in-game Mod Settings.\n\nIncluded mods:\n- Bugfixes and QoL\n- Building Costs\n- Building Limit\n- Extra Features\n- Random Events\n- CastlePlanner\n- Start Conditions\n- Unit Costs\n- Unit Limit\n- Extended Data",
-    "Version":  "1.0.32",
+    "Version":  "1.0.33",
     "Website":  "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods",
     "MinimumScriptExtenderVersion":  "2.3.0",
     "MaximumScriptExtenderVersion":  "",
     "Dependencies":  [
                          {
                              "GUID":  "APIShared_Serp",
-                             "MinimumVersion":  "0.16.3"
+                             "MinimumVersion":  "0.16.4"
                          }
                      ],
     "Manifest":  1,
     "NetworkMode":  1,
     "SerpChangelog":  [
+                          {
+                              "Version":  "1.0.33",
+                              "Changes":  [
+                                              "Include the LineUp Patrol passthrough fix, preserved Map/Trail working settings, the already-satisfied market-price correction and more specific bounded support logs for settings, formations, prices, bandits and AI/AIV/AIC decisions.",
+                                              "Add Personal Settings to the shared reset dropdown for all compatible mods while retaining the active Map/Trail context and personal storage.",
+                                              "Clarify the visible shared-reset label as Reset ALL modsettings to: (German: ALLE Modsettings zurücksetzen auf:) while retaining the existing tooltip and confirmation.",
+                                              "Require APIShared 0.16.4 or newer; include ExtendedData 1.0.21 Personal Settings source support."
+                                          ]
+                          },
                           {
                               "Version":  "1.0.32",
                               "Changes":  [

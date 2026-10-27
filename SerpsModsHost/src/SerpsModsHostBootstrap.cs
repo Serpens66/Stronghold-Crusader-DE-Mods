@@ -14,6 +14,10 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Windows.Input;
 
+[assembly: AssemblyVersion(SerpsModsHost.SerpsModsHostPlugin.PluginVersion)]
+[assembly: AssemblyFileVersion(SerpsModsHost.SerpsModsHostPlugin.PluginVersion)]
+[assembly: AssemblyInformationalVersion(SerpsModsHost.SerpsModsHostPlugin.PluginVersion)]
+
 namespace SerpsModsHost
 {
     // This entry type intentionally has no APIShared fields, attributes or method
@@ -26,7 +30,7 @@ namespace SerpsModsHost
     {
         public const string PluginGuid = "SerpsMods_Serp";
         public const string PluginName = "Serps Mods";
-        public const string PluginVersion = "1.0.32";
+        public const string PluginVersion = "1.0.33";
         public const bool ExtendedDataModSettingsOptOut = true;
         internal ManualLogSource HostLogger => Logger;
         private static object runtime;
