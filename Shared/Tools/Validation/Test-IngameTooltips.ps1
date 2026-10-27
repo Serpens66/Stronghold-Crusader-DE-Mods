@@ -8,6 +8,7 @@ function Assert-OwnStyle([Xml.XmlElement]$style, [string]$location) {
     $values = @{}
     $chain = @($style)
     $base = $style.GetAttribute('BasedOn')
+    if ($style.LocalName -eq 'ToolTip') { $base = $style.GetAttribute('Style') }
     while ($base -match '^\{StaticResource ([^}]+)\}$') {
         $parentStyle = $style.OwnerDocument.SelectSingleNode("//*[local-name()='Style'][@*[local-name()='Key']='" + $Matches[1] + "']")
         if (-not $parentStyle -or $chain -contains $parentStyle) { break }
@@ -42,7 +43,7 @@ foreach ($directory in $directories) {
     if ($requireShared) {
         $popupFiles = @(Get-ChildItem -LiteralPath $patches,(Join-Path $directory.FullName 'Override') -Recurse -File -Filter '*.xaml')
         $runtime = [IO.File]::ReadAllText((Join-Path $directory.FullName 'src/SpectatorRuntime.Hud.cs'))
-        if ($runtime -notmatch 'new ToolTip \{ Style = style, Content = text \}' -or $runtime -notmatch 'SetShowDuration\(button, 60000\)') { $failures.Add('Player tooltips must use the checked own style and duration.') }
+        if ($runtime -notmatch 'new ToolTip \{ Style = style, Content = (?:text|content) \}' -or $runtime -notmatch 'SetShowDuration\(button, 60000\)') { $failures.Add('Player tooltips must use the checked own style and duration.') }
     }
     foreach ($file in $popupFiles) {
         [xml]$document = [IO.File]::ReadAllText($file.FullName)

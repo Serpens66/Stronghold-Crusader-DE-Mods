@@ -14,7 +14,11 @@ namespace Spectator
         private readonly Action<string> execute;
         private readonly Func<bool> canExecute;
         private string amount = "0", status = "", selectedGood = "", selectedPlayer = "", selectedTarget = "";
-        private bool expanded, goods, orders, powerFlag, force, hasRecipient;
+        private readonly ToolbarMenuState menu = new ToolbarMenuState();
+        private bool powerFlag, force, hasRecipient;
+        private bool expanded => menu.Expanded;
+        private bool goods => menu.View == "Goods";
+        private bool orders => menu.View == "Orders";
         private ToolPower[] powerItems = InitialPowers();
         private static ToolPower[] InitialPowers()
         {
@@ -31,14 +35,18 @@ namespace Spectator
         public string Amount { get => amount; set { if (amount == value || !CreditInput.IsEditable(value)) return; amount = value; Changed(nameof(Amount)); Changed(nameof(CanCredit)); } }
         public string Status { get => status; internal set { if (status == value) return; status = value; Changed(nameof(Status)); Changed(nameof(StatusVisibility)); } }
         public string SelectedGood { get => selectedGood; internal set { if (selectedGood == value) return; selectedGood = value; Changed(nameof(SelectedGood)); } }
+        private Brush playerColour, targetColour;
+        public Brush SelectedPlayerColour { get => playerColour; internal set { if (ReferenceEquals(playerColour, value)) return; playerColour = value; Changed(nameof(SelectedPlayerColour)); } }
+        public Brush SelectedTargetColour { get => targetColour; internal set { if (ReferenceEquals(targetColour, value)) return; targetColour = value; Changed(nameof(SelectedTargetColour)); } }
         public string SelectedPlayer { get => selectedPlayer; internal set { if (selectedPlayer == value) return; selectedPlayer = value; Changed(nameof(SelectedPlayer)); } }
         public string SelectedTarget { get => selectedTarget; internal set { if (selectedTarget == value) return; selectedTarget = value; Changed(nameof(SelectedTarget)); } }
         public bool ForceAcceptance { get => force; set { force = value; Changed(nameof(ForceAcceptance)); } }
         public Visibility ExpandedVisibility => expanded ? Visibility.Visible : Visibility.Collapsed;
         public Visibility GoodsVisibility => expanded && goods ? Visibility.Visible : Visibility.Collapsed;
         public Visibility OrdersVisibility => expanded && orders ? Visibility.Visible : Visibility.Collapsed;
-        public Visibility PlacementVisibility => expanded && !goods && !orders ? Visibility.Visible : Visibility.Collapsed;
-        public string ActiveViewKey => goods ? "Goods" : orders ? "Orders" : "Placement";
+        private bool placementActive;
+        public bool PlacementActive { get => placementActive; internal set { if (placementActive == value) return; placementActive = value; Changed(nameof(PlacementActive)); } }
+        public string ActiveViewKey => menu.View;
         public ToolPower[] Powers => powerItems;
         public bool PowersEnabled { get => powerFlag; set { if (value != powerFlag) execute(value ? "EnablePowers" : "DisablePowers"); } }
         internal void RefreshPowerFlag(bool value)
@@ -91,10 +99,10 @@ namespace Spectator
             if (!canExecute()) return;
             switch (value)
             {
-                case "Collapse": expanded = !expanded; RefreshViews(); execute("CancelPower"); return;
-                case "Goods": expanded = goods = true; orders = false; RefreshViews(); execute("StopCursor"); return;
-                case "Orders": expanded = orders = true; goods = false; RefreshViews(); execute("StopCursor"); return;
-                case "Placement": expanded = true; goods = orders = false; RefreshViews(); execute("CancelPower"); return;
+                case "Collapse": menu.ToggleExpanded(); RefreshViews(); execute("CancelPower"); return;
+                case "Goods": menu.ToggleView("Goods"); RefreshViews(); execute("StopCursor"); return;
+                case "Orders": menu.ToggleView("Orders"); RefreshViews(); execute("StopCursor"); return;
+                case "Placement": menu.Placement(); RefreshViews(); execute("Placement"); return;
                 case "Credit": if (!CanCredit) return; break;
                 case "Attack": if (!CanAttack) return; break;
                 case "Defend": if (!CanDefend) return; break;
@@ -125,7 +133,7 @@ namespace Spectator
         private void RefreshViews()
         {
             Changed(nameof(ExpandedVisibility)); Changed(nameof(GoodsVisibility));
-            Changed(nameof(OrdersVisibility)); Changed(nameof(PlacementVisibility));
+            Changed(nameof(OrdersVisibility)); Changed(nameof(PlacementActive));
             Changed(nameof(ExpandLabel)); Changed(nameof(ActiveViewKey)); Changed(nameof(StatusVisibility));
         }
 

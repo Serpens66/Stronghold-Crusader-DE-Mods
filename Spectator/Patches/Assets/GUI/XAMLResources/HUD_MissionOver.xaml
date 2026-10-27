@@ -10,12 +10,11 @@
             VerticalAlignment="Center"
             Visibility="{Binding StatisticsPreviewControlsVisibility}">
         <Grid.Resources>
-    <Style TargetType="{x:Type ToolTip}">
+    <Style TargetType="{x:Type ToolTip}" x:Key="SpectatorPopupStyle">
       <Setter Property="Background" Value="#FF1D1710"/>
       <Setter Property="Foreground" Value="White"/>
-      <Setter Property="apiui:SharedToolTipSizing.Enabled" Value="True"/>
+      <Setter Property="apiui:SharedToolTipSizing.Enabled" Value="True"/><Setter Property="FontSize" Value="{x:Static apiui:ToolTipPresentation.AutomaticFontSize}"/><Setter Property="MaxWidth" Value="{x:Static apiui:ToolTipPresentation.AutomaticMaximumWidth}"/><Setter Property="Padding" Value="24,18"/><Setter Property="BorderThickness" Value="4.5"/>
       <Setter Property="BorderBrush" Value="#FFF2D48A"/>
-      <Setter Property="BorderThickness" Value="1"/>
       <Setter Property="Template">
         <Setter.Value>
           <ControlTemplate TargetType="{x:Type ToolTip}">
@@ -35,10 +34,10 @@
                 local:PropEx.TextLeft=""
                 local:PropEx.TextRight=""
                 Command="{Binding RefreshStatisticsCommand}"
-                ToolTip="{Binding RefreshStatisticsButtonHelpText}"
+
                 ToolTipService.ShowDuration="60000"
                 MouseEnter="CommonRedButtonEnter"
-                Style="{StaticResource BTN_SH_GlowSDisable}" />
+                Style="{StaticResource BTN_SH_GlowSDisable}" ><Button.ToolTip><ToolTip Style="{StaticResource SpectatorPopupStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding RefreshStatisticsButtonHelpText}"/></Button.ToolTip></Button>
       </Grid>
     </Content>
   </Operation>

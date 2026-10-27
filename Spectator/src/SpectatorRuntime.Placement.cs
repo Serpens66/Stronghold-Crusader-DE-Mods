@@ -270,6 +270,10 @@ namespace Spectator
 
         private static void AfterGetMouseStateForEngine(ref int __result, ref bool rightDown, ref bool rightUp)
         {
+            // Empty map areas may have no Noesis hit target, so their native input notification
+            // complements the root preview event. It neither consumes nor replays the click.
+            if ((__result == 1 || rightDown) && EditorDirector.instance != null && !EditorDirector.instance.overUI())
+                ReleaseAmountForMapClick();
             try { ObserveToolMouse(ref __result, ref rightDown, ref rightUp); }
             catch (Exception error) { CancelPowerSelection(); LogOnce("TEST_POWER_INPUT_ERROR: " + error); }
             lastEditorMouseState = __result;

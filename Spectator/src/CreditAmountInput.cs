@@ -11,7 +11,12 @@ namespace Spectator
         private string validText;
         private int validStart, validLength;
         private bool restoring;
-        private bool ownsKeyboard, previousKeyboard;
+        private volatile bool ownsKeyboard;
+        private bool previousKeyboard;
+        internal bool OwnsKeyboard => ownsKeyboard;
+
+        internal void OutsidePointerDown(bool insideMenu)
+        { if (!insideMenu && ownsKeyboard) EndEditing(); }
 
         internal CreditAmountInput(TextBox control, TestToolsViewModel model)
         {

@@ -77,6 +77,11 @@ namespace Spectator
             Check(FatControler.instance.NoesisHasKeyboard, "focus enables keyboard and suppresses game keys");
             control.Select(0, 1); control.Type("4120");
             Check(control.Text == "4120" && model.Amount == "4120", "typing reaches amount model");
+            input.OutsidePointerDown(true);
+            Check(control.IsKeyboardFocused, "inside menu keeps typing focus");
+            input.OutsidePointerDown(false);
+            Check(!control.IsKeyboardFocused && !FatControler.instance.NoesisHasKeyboard && model.Amount == "4120", "outside map click restores hotkeys and retains amount");
+            keyboard.Focus(control);
             control.Select(0, 4); control.Type("x"); Check(control.Text == "4120", "invalid typing rejected");
             control.Text = "12bad"; Check(control.Text == "4120", "invalid paste rolls back entire input");
             control.Text = "2147483648"; Check(control.Text == "4120", "overflow paste rolls back");
@@ -98,6 +103,8 @@ namespace Spectator
             Check(!FatControler.instance.NoesisHasKeyboard, "game keyboard restored");
             keyboard.Focus(control); keyboard.Focus(new Noesis.TextBox(keyboard));
             Check(FatControler.instance.NoesisHasKeyboard, "other text field retains keyboard");
+            input.OutsidePointerDown(false);
+            Check(FatControler.instance.NoesisHasKeyboard, "outside event cannot revoke another input's keyboard");
             keyboard.ClearFocus(); FatControler.instance.NoesisHasKeyboard = false;
             keyboard.Focus(control); control.Hide();
             Check(!control.IsKeyboardFocused && !FatControler.instance.NoesisHasKeyboard, "hidden input releases focus");

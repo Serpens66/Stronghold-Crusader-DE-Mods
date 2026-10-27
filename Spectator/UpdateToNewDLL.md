@@ -297,3 +297,22 @@ Spectator statistics use the existing menu Close path (pause restoration), refre
 inside MissionOver, and the MissionOverEvents preview-exit contract. The Spectator
 placement freeze exemption is scoped to active placement; report access independently
 requires its enabled spectator perspective. BFQ retains no spectator report hook.
+
+## Live AI order presentation (managed snapshot)
+
+The toolbar reads the same public `EngineInterface.PlayState` arrays as Vanilla
+`HUD_AlliesPanel.UpdateAllies`: `skirmish_order`, `skirmish_order_player`, and
+`skirmish_order_from_player`. Managed player slots are 1..8 (the managed converter
+copies native slot i to managed i+1). Mode 1 displays the attack target; mode 2
+displays the requester/protected player. Mode 0 removes the marker. Unknown modes
+or missing arrays must not index a player slot. The existing D7580 audit above
+covers acceptance and cancellation; 2F670 also clears invalid requests and 3D020
+can abandon protection. The UI follows subsequent snapshots, not a cached click.
+`MainViewModel.getAlliesGoodsIcon(-3/-4)` supplies Vanilla's attack/defend markers.
+There is no new native read, hook or mutation in this presentation path.
+
+The existing EditorDirector mouse-state notification additionally releases owned
+amount-field keyboard focus for map presses with no Noesis hit target. This is a
+read-only observation of the original result/rightDown; original clicks remain
+unchanged. UI cleanup is performed on the main thread, and deferred cleanup checks
+both session and input-instance identity.

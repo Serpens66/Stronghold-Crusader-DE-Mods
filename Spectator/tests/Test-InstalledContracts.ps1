@@ -19,6 +19,7 @@ try {
     foreach ($entry in @(
         @('CrusaderDE.MainViewModel','viewModelLoaded','field'),
         @('CrusaderDE.MainViewModel','getAIFace','method'),
+        @('CrusaderDE.MainViewModel','getAlliesGoodsIcon','method'),
         @('CrusaderDE.MainViewModel','SetNoesisKeyboardState','method'),
         @('FatControler','get_NoesisHasKeyboard','method'),
         @('FatControler','SetNoesisKeyboardState','method'),
@@ -48,7 +49,7 @@ try {
     $nameResolver = @($assembly.MainModule.GetType('OnScreenText').Methods | Where-Object { $_.Name -eq 'getComputerName' -and $_.IsPublic -and $_.IsStatic -and $_.Parameters.Count -eq 2 -and $_.ReturnType.FullName -eq 'System.String' })
     if ($nameResolver.Count -ne 1 -or @($nameResolver[0].Parameters | Where-Object { $_.ParameterType.FullName -ne 'System.Int32' }).Count) { throw 'Computer-name resolver contract changed.' }
     $state = $assembly.MainModule.GetType('EngineInterface/PlayState')
-    foreach ($name in @('computer_names','computer_register')) {
+    foreach ($name in @('computer_names','computer_register','skirmish_order','skirmish_order_player','skirmish_order_from_player')) {
         if (-not @($state.Fields | Where-Object { $_.Name -eq $name -and $_.IsPublic }).Count) { throw "Missing public snapshot field: $name" }
     }
 } finally { $assembly.Dispose() }

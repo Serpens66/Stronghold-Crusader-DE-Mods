@@ -20,8 +20,18 @@ namespace Spectator
         private static void CacheToolbarElements(IngameUIScreens screen)
         {
             toolbarRoot = screen.FindName("TestToolsRoot") as Grid;
+            statusText = screen.FindName("ToolsStatus") as TextBlock;
+            CaptureTooltips(humanPanel); CaptureTooltips(humanDetails);
+            var attackIcon = screen.FindName("AttackActionIcon") as Image;
+            if (attackIcon != null) attackIcon.Source = MainViewModel.Instance.getAlliesGoodsIcon(-3);
+            currentOrderIcon = screen.FindName("CurrentOrderIcon") as Image;
+            currentOrderText = screen.FindName("CurrentOrderText") as TextBlock;
+            currentOrderTarget = screen.FindName("CurrentOrderTarget") as TextBlock;
+            if (currentOrderIcon == null || currentOrderText == null || currentOrderTarget == null) throw new MissingMemberException("Order presentation missing.");
             for (int player = 1; player <= 8; player++)
             {
+                ownerOrderIcons[player] = screen.FindName("OwnerOrder" + player) as Image;
+                if (ownerOrderIcons[player] == null) throw new MissingMemberException("Order pip missing.");
                 quickButtons[player] = screen.FindName("SpectatorQuickOwner" + player) as Button;
                 quickNumbers[player] = screen.FindName("SpectatorQuickNumber" + player) as TextBlock;
                 if (quickButtons[player] == null || quickNumbers[player] == null) throw new MissingMemberException("Spectator quick selection is incomplete.");
@@ -40,6 +50,7 @@ namespace Spectator
             var state = GameData.Instance?.lastGameState;
             if (state == null || ReferenceEquals(state, rosterState)) return;
             rosterState = state;
+            RefreshOrderPresentation();
             long value = 17;
             unchecked
             {

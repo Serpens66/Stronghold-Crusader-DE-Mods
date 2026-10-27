@@ -505,3 +505,35 @@ Installation; Fortsetzung später.** Parallel bearbeitetes APIShared änderte si
 nach den Builds; vor späterer Auslieferung den SDK-Stand erneut abgleichen. Jetzt
 ist kein neuer Ingame-Test nötig. Übergabestand und alle Nachweise stehen im
 [Testmod-Ergebnisbericht](Testmods/BetterPathfindingTest/RESULTS.md).
+
+## 18. Offline-Vorabtest Gruppenplanung (GroupPathProbe, 27.10.2026)
+
+Separater, rein offline laufender Testmod [GroupPathProbe](Testmods/GroupPathProbe/GROUP.md), getrennt von BetterPathfindingTest (dort parallele Arbeit). Kein Plugin, keine Installation, keine Runtime-Änderung.
+
+**Anlass:** Die bisherigen Lasten enthielten keinen Gruppenbefehl von A nach B. `formation`/`distributed` streuen die Starts im 8.192-Knoten-Ball um das Ziel (Wege ≤ 131 Schritte); `global-ground` besteht aus unabhängigen Zufallspaaren. Neue Lasten: kompakter Startcluster um echte Einheitenpositionen → kompakte Formation um einen fernen Anker (≥ 200 Kacheln). Dazu Arbeiterwege zu 8 festen Zielen und eine synthetische 800er-Karte mit Grabenstreifen, Mauer und Bodenlücke (gemischte Graben-Entscheidungen).
+
+**Verglichen** gegen den aktuellen unveränderten Precise-Kern (jede Anfrage einzeln):
+- **A – exakte Spuren:** bis zu 64 Formationsplätze in einer bitparallelen Rückwärts-Dial-Suche, exakte Kosten je Einheit.
+- **B – Anker + exakte Endstücke:** ein exaktes Feld zum Formationsanker, ab Eintritt in das Formationsrechteck ein exaktes Endstück zum eigenen Platz. Nicht garantiert optimal.
+
+Maßgeblicher Lauf [group-20261027-210235-273](Testmods/GroupPathProbe/results/group-20261027-210235-273/results.json), kalt, .NET 10 + C++ (MSVC, `/O2`), Kartenmitschnitt `20261027-182413-691-s1`, kein Unity/Mono:
+
+| Last | Einheiten | A exakt | B Anker | Precise |
+|---|---:|---:|---:|---:|
+| 1 Gruppe à 64 | 64 | 66 ms | 5,5 ms | 356 ms |
+| 1 Gruppe à 1.024 | 1.024 | 1.508 ms | 29 ms | 4.099 ms |
+| 40 Gruppen à 250, Profile 1/7 und 3/9 | 10.000 | 13.714 ms | 525 ms | 51.236 ms |
+| Arbeiterwege, 8 Ziele | 10.000 | 156 ms | 162 ms | 373 ms |
+| Grabenkarte, 40 Gruppen à 250 | 10.000 | 32.463 ms | 643 ms | 165.501 ms |
+
+**Korrektheit:** 1.364 unabhängige Vertragsvergleiche (gerichtete Zufallsgitter mit Graben, Blockteilung, 2.000-Schritt-Grenze, gemischte Graben-Entscheidungen) bestehen. In allen 31.360 Messfällen sind die Wege kantenweise gültig, A ist kostengleich mit Precise, und je Last bestehen drei unabhängige Referenzproben.
+
+**Qualität von B:** Bis zu 42 % der Einheiten in Gruppenlasten bekommen einen teureren Weg. Im Mittel sind das 2–4 Kosteneinheiten, im p95 höchstens 3,3 %, im Maximum 9 %. Bei Arbeiterwegen gibt es keine Abweichung. **Die Graben-Entscheidung (Weg mit oder ohne Grabenschritte) weicht in keinem Fall vom exakten Ergebnis ab**, auch auf der Grabenkarte nicht. Die 40-Tick-Regel wurde nicht angewendet.
+
+**Bewertung:**
+- A ist exakt, aber nur 3,7–5,1× schneller als Precise. Je 64er-Block fallen trotz kompakter 8×8-Bündelung mehrere Feldkosten an. Für exakte Einzelwege zu vielen verschiedenen Plätzen bleibt kein Weg zu ≈ 100 ms erkennbar.
+- B ist 97–257× schneller als Precise, verfehlt aber mit 525/643 ms ebenfalls das Ziel von ≈ 100 ms für 10.000. Der Hauptanteil sind die 40 Ankerfelder (≈ 6,7 ms je Feld auf dem Mitschnitt, ≈ 15 ms auf der vollen 800er-Karte). Die übrigen ≈ 220 ms im Mitschnitt verursachen 100 Einheiten, deren Platz im Formationsrechteck nicht erreichbar war und die deshalb exakt berechnet wurden.
+- Noch nicht versucht: Ankerfelder unabhängiger Gruppen parallel auf Worker-Threads (unveränderliche Kartenkopie), billigerer Ersatzweg statt Vollsuche, gemeinsame Felder für nahe Anker.
+- B lockert die bisher verbindliche Vorgabe „optimale Kosten je Einheit“. Eine Verwendung braucht deshalb eine ausdrückliche Entscheidung.
+
+Nicht abgedeckt: Grabenpflicht, Profilgrenzen, terminale Ausnahmen, Strukturfilter, dynamische Änderungen, Bewegung und Multiplayer.

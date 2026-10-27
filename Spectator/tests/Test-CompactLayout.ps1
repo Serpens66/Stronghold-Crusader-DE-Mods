@@ -21,7 +21,7 @@ foreach ($removed in @('Reports','Allies','Statistics','RefreshStatistics','Clos
     if ($xml.SelectSingleNode('//Button[@CommandParameter="' + $removed + '"]')) { throw ('Redundant toolbar action: ' + $removed) }
 }
 $panel = Named 'SpectatorEditorHumanPanel'
-if ($panel.Width -ne '318' -or $panel.HasAttribute('Height')) { throw 'Minimized panel must measure its content.' }
+if ($panel.Width -ne '318' -or $panel.HasAttribute('Height') -or (Named 'SpectatorDetails').ParentNode -ne $panel.ParentNode) { throw 'Minimized panel must measure its content.' }
 $amount = Named 'TestToolsAmount'
 if ($amount.Text -ne '0' -or $amount.HasAttribute('MaxLength')) { throw 'Amount must start at zero without truncating pasted values.' }
 $credit = $xml.SelectSingleNode('//Button[@CommandParameter="Credit"]')
@@ -39,7 +39,7 @@ if (-not $toggle -or $toggle.ParentNode -ne (Named 'SpectatorEditorHumanOwners')
 if (@($commands | Where-Object { $_ -match '^(?:X[+-]|Prev|Next)' }).Count) { throw 'Obsolete amount or paging buttons remain.' }
 $model = [IO.File]::ReadAllText((Join-Path $root 'src\TestToolsViewModel.cs'))
 $hud = [IO.File]::ReadAllText((Join-Path $root 'src\SpectatorRuntime.Hud.cs'))
-if ($model -match 'private bool expanded\s*=' -or $model -match 'OwnerPage|TargetPage|CreditMath.Adjust') { throw 'Default expansion or obsolete model state remains.' }
+if ($model -match 'private bool expanded\s*=\s*true' -or $model -match 'OwnerPage|TargetPage|CreditMath.Adjust') { throw 'Default expansion or obsolete model state remains.' }
 if ($hud -notmatch 'button.Visibility = available \? Visibility.Visible : Visibility.Collapsed' -or $hud -notmatch 'target.Visibility = targetAvailable \? Visibility.Visible : Visibility.Collapsed') { throw 'Unavailable cards must collapse and reflow.' }
 Write-Host 'PASS: compact layout structure, all eight slots, 1/4/8-slot row geometry, inline action and zero default.'
 

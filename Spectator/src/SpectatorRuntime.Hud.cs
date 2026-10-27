@@ -33,6 +33,9 @@ namespace Spectator
     internal static partial class SpectatorRuntime
     {
         private static CreditAmountInput amountInput;
+        private static Border humanDetails;
+        private static bool detailsRight;
+        private static UIElement inputRoot;
         private static readonly Dictionary<Button, string> playerTooltipTexts = new Dictionary<Button, string>();
         private static void EnsureHumanControls()
         {
@@ -61,8 +64,9 @@ namespace Spectator
             Button toggle = screen.FindName("SpectatorEditorHumanToggle") as Button;
             TextBlock toggleText = screen.FindName("SpectatorEditorHumanToggleText") as TextBlock;
             Panel owners = screen.FindName("SpectatorEditorHumanOwners") as Panel;
+            Border details = screen.FindName("SpectatorDetails") as Border;
             if (canvas == null || panel == null || dragHandle == null || toggle == null ||
-                toggleText == null || owners == null)
+                toggleText == null || owners == null || details == null)
                 return;
             var found = new Button[9];
             var numbers = new TextBlock[9];
@@ -76,6 +80,7 @@ namespace Spectator
             humanBoundHud = hud;
             humanCanvas = canvas;
             humanPanel = panel;
+            humanDetails = details;
             humanDragHandle = dragHandle;
             humanToggle = toggle;
             humanToggleText = toggleText;
@@ -83,6 +88,7 @@ namespace Spectator
             toolsModel = new TestToolsViewModel(ExecuteToolsCommand, IsToolbarSession);
             toolsModel.PropertyChanged += (sender, args) => toolbarDirty = true;
             panel.DataContext = toolsModel;
+            humanDetails.DataContext = toolsModel;
             CacheToolbarElements(screen);
             toolbarDirty = true;
             SpectatorPerspectiveRuntime.OnHudAvailable();
@@ -91,7 +97,10 @@ namespace Spectator
             if (amount == null) throw new MissingMemberException("Test tools amount field missing.");
             amountInput = new CreditAmountInput(amount, toolsModel);
             panel.SizeChanged += OnHumanPanelSizeChanged;
-            toggle.Click += ToggleHumanMode;
+            // Listen at the whole Noesis view root, including non-focusable map surfaces.
+            inputRoot = screen;
+            while (VisualTreeHelper.GetParent(inputRoot) is UIElement parent) inputRoot = parent;
+            inputRoot.PreviewMouseDown += OnToolbarOutsideClick;
             dragHandle.MouseLeftButtonDown += OnHumanDragDown;
             dragHandle.MouseMove += OnHumanDragMove;
             dragHandle.MouseLeftButtonUp += OnHumanDragUp;
@@ -118,13 +127,18 @@ namespace Spectator
                 quickButtons[owner].PreviewMouseDown += humanJumpHandlers[owner];
             }
             humanPositioned = false;
-            humanUserMoved = false;
             log.LogInfo("SPECTATOR_EDITOR_HUMAN_CONTROLS_READY");
         }
 
         private static void DetachHumanControls()
         {
             toolbarDirty = true;
+            // The same IngameUIScreens can survive a map transition. Hide before dropping references.
+            if (humanPanel != null) { humanPanel.Visibility = Visibility.Collapsed; humanPanel.DataContext = null; }
+            if (humanDetails != null) { humanDetails.Visibility = Visibility.Collapsed; humanDetails.DataContext = null; }
+            ClosePlayerTooltips();
+            foreach (var button in playerTooltipTexts.Keys)
+                if (ToolTipService.GetToolTip(button) is ToolTip tip) { tip.Opened -= OnPlayerTooltipOpened; ToolTipService.SetToolTip(button, null); }
             SpectatorPerspectiveRuntime.OnHudUnavailable();
             RestoreVanillaPowerToolbar(true);
             CancelPowerSelection();
@@ -133,9 +147,11 @@ namespace Spectator
             observedGate = null;
             amountInput?.Detach();
             amountInput = null;
-            playerTooltipTexts.Clear();
+            foreach (var tooltip in ownedTooltips) tooltip.Opened -= OnPlayerTooltipOpened;
+            playerTooltipTexts.Clear(); ownedTooltips.Clear(); statusText = null;
             if (humanPanel != null) humanPanel.SizeChanged -= OnHumanPanelSizeChanged;
-            if (humanToggle != null) humanToggle.Click -= ToggleHumanMode;
+            if (inputRoot != null) inputRoot.PreviewMouseDown -= OnToolbarOutsideClick;
+            inputRoot = null;
             if (humanDragHandle != null)
             {
                 humanDragHandle.MouseLeftButtonDown -= OnHumanDragDown;
@@ -165,8 +181,8 @@ namespace Spectator
             }
             humanDragging = false;
             humanPositioned = false;
-            humanUserMoved = false;
             humanPanel = null;
+            humanDetails = null;
             humanDragHandle = null;
             humanCanvas = null;
             humanToggle = null;
@@ -175,6 +191,10 @@ namespace Spectator
             humanScreen = null;
             humanBoundHud = null;
             toolbarRoot = null;
+            currentOrderIcon = null; currentOrderText = currentOrderTarget = null;
+            shownOrderActor = -1; shownOrderLocale = null;
+            Array.Clear(ownerOrderIcons, 0, ownerOrderIcons.Length);
+            Array.Clear(shownOrders, 0, shownOrders.Length);
             Array.Clear(targetButtons, 0, targetButtons.Length);
             Array.Clear(targetLabels, 0, targetLabels.Length);
             Array.Clear(ownerFaces, 0, ownerFaces.Length);
@@ -187,8 +207,10 @@ namespace Spectator
             if (humanPanel == null || toolsModel == null) return;
             bool show = eligible && MainViewModel.Instance.UIVisible && MainViewModel.Instance.Show_InGameUI &&
                 !MainViewModel.Instance.Show_HUD_Briefing && (!MainViewModel.Instance.Show_HUD_MissionOver || Statistics?.Active == true);
+            bool wasShown = humanPanel.Visibility == Visibility.Visible;
             humanPanel.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
-            if (!show) { amountInput?.EndEditing(); return; }
+            humanDetails.Visibility = show && toolsModel.Expanded ? Visibility.Visible : Visibility.Collapsed;
+            if (!show) { if (amountInput?.OwnsKeyboard == true) amountInput.EndEditing(); if (wasShown) ClosePlayerTooltips(); return; }
             string currentLocale = SerpLocalization.GetActiveLocale();
             if (currentLocale != toolbarLocale) { toolbarLocale = currentLocale; toolbarDirty = true; }
             if (!toolbarDirty) return;
@@ -202,26 +224,26 @@ namespace Spectator
                 Button button = humanOwnerButtons[owner];
                 button.Visibility = available ? Visibility.Visible : Visibility.Collapsed;
                 quickButtons[owner].Visibility = button.Visibility;
-                quickButtons[owner].Background = owner == humanSelectedOwner ? ownerSelectedBrush : ownerNormalBrush;
+                MarkOwnerButton(quickButtons[owner], owner == humanSelectedOwner);
                 if (available)
                 {
                     occupiedCount++;
                     RefreshHumanOwnerColour(owner);
                     quickNumbers[owner].Foreground = humanOwnerNumbers[owner].Foreground;
-                    SetPlayerTooltip(quickButtons[owner], PlayerLabel(owner));
+                    SetPlayerTooltip(quickButtons[owner], PlayerLabel(owner), owner);
                 }
                 if (available && toolsModel.Expanded)
                 {
                     RefreshHumanOwnerColour(owner);
                     string label = PlayerLabel(owner);
                     humanOwnerNumbers[owner].Text = label;
-                    SetPlayerTooltip(button, label);
+                    SetPlayerTooltip(button, label, owner);
                     RefreshPlayerFace("OwnerFace" + owner, owner);
                 }
                 var target = targetButtons[owner];
                 bool targetAvailable = IsToolsPlayer(owner, false);
                 target.Visibility = targetAvailable ? Visibility.Visible : Visibility.Collapsed;
-                target.Background = owner == toolsModel.Target ? ownerSelectedBrush : ownerNormalBrush;
+                MarkOwnerButton(target, owner == toolsModel.Target);
                 if (targetAvailable && toolsModel.ActiveViewKey == "Orders" && toolsModel.Expanded)
                 {
                     string label = PlayerLabel(owner);
@@ -229,7 +251,7 @@ namespace Spectator
                     targetText.Text = label;
                     RefreshHumanOwnerColour(owner);
                     targetText.Foreground = humanOwnerNumbers[owner].Foreground;
-                    SetPlayerTooltip(target, label);
+                    SetPlayerTooltip(target, label, owner);
                     RefreshPlayerFace("TargetFace" + owner, owner);
                 }
             }
@@ -237,38 +259,57 @@ namespace Spectator
             { initialSelectionChosen = true; ApplyHumanAi(firstAi); }
             else if (!IsSelectableView(humanSelectedOwner)) ApplyHumanAi(-1);
             for (int owner = 1; owner <= 8; owner++)
-                humanOwnerButtons[owner].Background = owner == humanSelectedOwner ? ownerSelectedBrush : ownerNormalBrush;
+                MarkOwnerButton(humanOwnerButtons[owner], owner == humanSelectedOwner);
             toolsModel.SetRecipientAvailable(IsSelectableAi(humanSelectedOwner));
             toolsModel.SetAvailability(IsToolsSession());
             RefreshOrderAvailability();
-            humanToggle.IsEnabled = humanPlacementMode || IsSelectableAi(humanSelectedOwner);
+            humanToggle.IsEnabled = IsToolsSession() && (humanPlacementMode || IsSelectableAi(humanSelectedOwner));
+            toolsModel.PlacementActive = humanPlacementMode;
             humanToggleText.Text = SerpLocalization.Get(humanPlacementMode ? "Tools.StopPlacement" : "Tools.Placement");
             humanOwners.Visibility = toolsModel.Expanded ? Visibility.Visible : Visibility.Collapsed;
             toolsModel.SelectedPlayer = SerpLocalization.Get("Tools.Actor") + ": " +
                 (humanSelectedOwner > 0 ? PlayerLabel(humanSelectedOwner) : SerpLocalization.Get("Tools.NoAi"));
             toolsModel.SelectedTarget = SerpLocalization.Get("Tools.Target") + ": " +
                 (IsToolsPlayer(toolsModel.Target, false) ? PlayerLabel(toolsModel.Target) : SerpLocalization.Get("Tools.SelectTarget"));
-            humanPanel.Width = Math.Min(toolsModel.Expanded ? 640f : 46f + occupiedCount * 34f, Math.Max(120f, humanCanvas.ActualWidth - 20f));
-            toolbarRoot.Width = Math.Max(100f, humanPanel.Width - 2f);
-            humanOwners.Width = Math.Max(152f, Math.Min(608f, humanPanel.Width - 24f));
+            toolsModel.SelectedPlayerColour = PlayerBrush(humanSelectedOwner);
+            toolsModel.SelectedTargetColour = PlayerBrush(toolsModel.Target);
+            humanPanel.Width = Math.Min(46f + occupiedCount * 34f, Math.Max(120f, humanCanvas.ActualWidth - 20f));
+            toolbarRoot.Width = Math.Max(100f, humanPanel.Width - 4f);
+            humanOwners.Width = Math.Max(152f, Math.Min(608f, ToolbarGeometry.DetailWidth(humanCanvas.ActualWidth) - 24f));
             // Height is measured from the actual visible tool page, not from a fixed canvas.
             humanPanel.Height = float.NaN;
             humanPanel.MaxHeight = Math.Max(36f, humanCanvas.ActualHeight - 20f);
             PositionHumanPanel();
+            RefreshOrderPresentation(true);
+            RefreshColouredStatus();
         }
 
-        private static void SetPlayerTooltip(Button button, string label)
+        private static void SetPlayerTooltip(Button button, string label, int player)
         {
             string text = label + " — " + SerpLocalization.Get("Tools.SelectHelp");
-            if (playerTooltipTexts.TryGetValue(button, out string previous) && previous == text) return;
-            var style = humanPanel.TryFindResource("ToolsTooltip") as Style;
+            if (playerTooltipTexts.TryGetValue(button, out string previous) && previous == text + "|" + PlayerBrush(player).ToString()) return;
+            var style = humanPanel.TryFindResource("PlayerTooltip") as Style;
             if (style == null) throw new MissingMemberException("Test tools popup style missing.");
-            ToolTipService.SetToolTip(button, new ToolTip { Style = style, Content = text });
+            var content = new TextBlock { FontSize = APIShared.ModSettings.ToolTipPresentation.AutomaticFontSize,
+                Foreground = neutralPlayerBrush, TextWrapping = TextWrapping.Wrap,
+                MaxWidth = APIShared.ModSettings.ToolTipPresentation.AutomaticMaximumWidth - 60 };
+            content.Inlines.Add(new Run { Text = label, Foreground = PlayerBrush(player) });
+            content.Inlines.Add(new Run { Text = " — " + SerpLocalization.Get("Tools.SelectHelp") });
+            var tip = new ToolTip { Style = style, Content = content };
+            tip.Opened += OnPlayerTooltipOpened;
+            // Explicit initialization also covers programmatic ToolTips before their first opening.
+            tip.FontSize = APIShared.ModSettings.ToolTipPresentation.AutomaticFontSize;
+            tip.MaxWidth = APIShared.ModSettings.ToolTipPresentation.AutomaticMaximumWidth;
+            tip.Padding = new Thickness(24, 18, 24, 18);
+            tip.BorderThickness = new Thickness(4.5f);
+            APIShared.ModSettings.SharedToolTipSizing.SetEnabled(tip, true);
+            if (ToolTipService.GetToolTip(button) is ToolTip previousTip) { previousTip.IsOpen = false; previousTip.Opened -= OnPlayerTooltipOpened; }
+            ToolTipService.SetToolTip(button, tip);
             ToolTipService.SetShowDuration(button, 60000);
-            playerTooltipTexts[button] = text;
+            playerTooltipTexts[button] = text + "|" + PlayerBrush(player).ToString();
         }
 
-        private static void OnHumanPanelSizeChanged(object sender, SizeChangedEventArgs args) => ClampHumanPanel();
+        private static void OnHumanPanelSizeChanged(object sender, SizeChangedEventArgs args) => PositionHumanDetails();
 
         private static void RefreshPlayerFace(string element, int owner)
         {
@@ -301,6 +342,7 @@ namespace Spectator
             if (command == "CancelPower") { CancelPowerSelection(); return; }
             if (command == "EnablePowers" || command == "DisablePowers")
             { QueueTestAction(new TestAction { Kind = TestActionKind.PowerToggle, Actor = humanSelectedOwner, Force = command == "EnablePowers" }); return; }
+            if (command == "Placement") { ToggleHumanMode(null, null); return; }
             if (command == "ResetAmount") { amountInput?.ResetAmount(); return; }
             if (command == "Credit") { QueueCredit(toolsModel.Good, toolsModel.Amount); return; }
             if (command == "Attack") { QueueOrder(TestActionKind.Attack, toolsModel.Target, toolsModel.ForceAcceptance); return; }
@@ -334,14 +376,15 @@ namespace Spectator
         {
             if (humanCanvas == null || humanPanel == null ||
                 humanCanvas.ActualWidth <= 0f || humanCanvas.ActualHeight <= 0f) return;
-            if (!humanPositioned || !humanUserMoved)
+            if (!humanPositioned)
             {
                 Canvas.SetLeft(humanPanel,
                     Math.Max(0f, humanCanvas.ActualWidth - humanPanel.Width - 52f));
                 Canvas.SetTop(humanPanel, 54f);
                 humanPositioned = true;
+                detailsRight = true;
             }
-            ClampHumanPanel();
+            PositionHumanDetails();
         }
 
         private static void ClampHumanPanel()
@@ -361,7 +404,6 @@ namespace Spectator
             humanDragOriginLeft = (float)Canvas.GetLeft(humanPanel);
             humanDragOriginTop = (float)Canvas.GetTop(humanPanel);
             humanDragging = humanDragHandle.CaptureMouse();
-            if (humanDragging) humanUserMoved = true;
             args.Handled = true;
         }
 
@@ -374,12 +416,16 @@ namespace Spectator
             Canvas.SetTop(humanPanel,
                 humanDragOriginTop + (float)(current.Y - humanDragStart.Y));
             ClampHumanPanel();
+            PositionHumanDetails();
             args.Handled = true;
         }
 
         private static void OnHumanDragUp(object sender, MouseButtonEventArgs args)
         {
             humanDragging = false;
+            if (humanPanel != null && humanCanvas != null)
+                detailsRight = Canvas.GetLeft(humanPanel) + humanPanel.Width / 2 > humanCanvas.ActualWidth / 2;
+            PositionHumanDetails();
             if (humanDragHandle != null && humanDragHandle.IsMouseCaptured)
                 humanDragHandle.ReleaseMouseCapture();
             args.Handled = true;
@@ -389,7 +435,7 @@ namespace Spectator
             humanDragging = false;
 
         private static void OnHumanCanvasSizeChanged(object sender, SizeChangedEventArgs args)
-        { toolbarDirty = true; PositionHumanPanel(); }
+        { toolbarDirty = true; ClampHumanPanel(); PositionHumanPanel(); }
 
         private static RadioButton[] NormalTabs(HUD_Main hud) => new[] {
             hud.RefTabBuildCastle, hud.RefTabBuildIndustry, hud.RefTabBuildFarms,
@@ -402,6 +448,7 @@ namespace Spectator
             SyncSpectatorSelection();
             if (!humanPlacementMode && !IsSelectableAi(humanSelectedOwner)) return;
             CancelPowerSelection();
+            toolbarDirty = true;
             amountInput?.EndEditing();
             HUD_Main hud = MainViewModel.Instance.HUDmain;
             if (hud == null || MainControls.instance == null) return;

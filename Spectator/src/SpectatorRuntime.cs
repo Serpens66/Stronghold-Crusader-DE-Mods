@@ -120,14 +120,14 @@ namespace Spectator
         private static readonly RoutedEventHandler[] humanOwnerHandlers = new RoutedEventHandler[9];
         private static readonly MouseButtonEventHandler[] humanJumpHandlers = new MouseButtonEventHandler[9];
         private static readonly int[] humanDisplayedColours = new int[9];
-        private static bool humanDragging, humanPositioned, humanUserMoved;
+        private static bool humanDragging, humanPositioned;
         private static bool humanCameraFailureLogged;
         private static Point humanDragStart;
         private static float humanDragOriginLeft, humanDragOriginTop;
         private static readonly SolidColorBrush ownerNormalBrush =
-            new SolidColorBrush(Noesis.Color.FromArgb(160, 38, 23, 16));
+            new SolidColorBrush(Noesis.Color.FromArgb(120, 15, 12, 10));
         private static readonly SolidColorBrush ownerSelectedBrush =
-            new SolidColorBrush(Noesis.Color.FromArgb(220, 135, 71, 25));
+            new SolidColorBrush(Noesis.Color.FromArgb(160, 74, 37, 24));
 
         private const string NativeSha256 = "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2";
         private const int AvailabilityRva = 0xCC420;

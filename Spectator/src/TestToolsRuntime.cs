@@ -226,7 +226,7 @@ namespace Spectator
             bool accepted = resources->r_AIAllyOrderMode == expected &&
                 (expected == 0 || resources->r_AIAllyOrderRequesterPlayerId == action.Requester) &&
                 (action.Kind != TestActionKind.Attack || resources->r_AIRequestedAttackTargetPlayerId == action.Target);
-            return SerpLocalization.Get(accepted ? "Tools.OrderAccepted" : "Tools.OrderRejected");
+            return SerpLocalization.Get(accepted ? (action.Kind == TestActionKind.Cancel ? "Tools.OrderCancelled" : "Tools.OrderAccepted") : "Tools.OrderRejected");
         }
 
         private static void ResetTestActions(long session)
