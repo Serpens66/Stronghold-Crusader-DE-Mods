@@ -21,7 +21,8 @@
       "Changes": [
         "Update to APIShared 0.16.3 with localized lobby launch-status diagnostics, packaged Coop map lookup, safe pre-start host-settings delivery and current Fixes wheat-sale startup compatibility.",
         "Include compact lobby chat, editor region refresh, formation/movement fixes and borderless resolution preservation in Bugfixes and QoL; separate periodic Human/AI gold in ExtraFeatures; Blueprint and Keep rotation corrections in CastlePlanner; Coop/Lord readiness fixes in ExtendedData.",
-        "All multiplayer participants need matching modpack and APIShared versions. Preserve existing presets, configuration, published plugin identities and delivered package paths."
+        "All multiplayer participants need matching modpack and APIShared versions. Preserve existing presets, configuration, published plugin identities and delivered package paths.",
+        "Verify localized Workshop publisher assets in subdirectories with strict relative-path, hash and complete runtime/resource inventory checks."
       ]
     },
                           {

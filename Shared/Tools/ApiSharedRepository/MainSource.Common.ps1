@@ -142,13 +142,25 @@ function Get-ApiMainPublisherOutputs([string]$Root) {
     $outputs=@($proof.Outputs)
     foreach($output in $outputs){
         $name=[string]$output.Name
-        if(-not $name -or [IO.Path]::GetFileName($name) -cne $name -or $name.Contains(':') -or $output.Sha256 -cnotmatch '^[0-9a-f]{64}$' -or -not $known.Add($name)){throw 'Unsafe or duplicate publisher output identity.'}
-        $file=Join-Path $directory $name;Assert-ApiMainUnlinkedPath $file
+        # Publisher proofs use portable relative paths, including localized assets.
+        # Reject aliases/traversal before hashing; duplicate identity is case-insensitive on Windows.
+        if($name -cnotmatch '^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$' -or
+            @($name.Split('/')|Where-Object {$_ -in @('.','..') -or $_.EndsWith('.') -or
+                ($_ -split '\.')[0] -match '^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])$'}).Count -or
+            $output.Sha256 -cnotmatch '^[0-9a-f]{64}$' -or -not $known.Add($name)){throw 'Unsafe or duplicate publisher output identity.'}
+        $file=[IO.Path]::GetFullPath((Join-Path $directory $name))
+        if(-not $file.StartsWith([IO.Path]::GetFullPath($directory).TrimEnd('\')+'\',[StringComparison]::OrdinalIgnoreCase)){throw 'Publisher output escapes its directory.'}
+        Assert-ApiMainUnlinkedPath $file
         if((Get-ApiRepositoryHash $file) -cne $output.Sha256){throw 'Publisher output differs from prepared build.'}
     }
     if(-not $known.Contains('WorkshopUploader.exe')){throw 'Publisher proof must own WorkshopUploader.exe.'}
-    foreach($file in Get-ChildItem -LiteralPath $directory -File | Where-Object {$_.Extension -in @('.exe','.dll','.config','.bat','.sh')}) {
-        if(-not $known.Contains($file.Name)){throw 'Undeclared publisher runtime file.'}
+    foreach($file in Get-ChildItem -LiteralPath $directory -Recurse -File) {
+        Assert-ApiMainUnlinkedPath $file.FullName
+        $relative=$file.FullName.Substring($directory.TrimEnd('\').Length+1).Replace('\','/')
+        if(($file.Extension -in @('.exe','.dll','.config','.bat','.sh','.ps1') -or
+            $relative.StartsWith('Locales/',[StringComparison]::OrdinalIgnoreCase)) -and -not $known.Contains($relative)){
+            throw 'Undeclared publisher runtime or localization file.'
+        }
     }
     return @($outputs|Sort-Object Name|ForEach-Object {[ordered]@{Name=[string]$_.Name;Sha256=[string]$_.Sha256}})
 }

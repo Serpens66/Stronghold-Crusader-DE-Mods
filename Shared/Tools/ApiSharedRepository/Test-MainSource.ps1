@@ -112,6 +112,41 @@ try{$hash=([BitConverter]::ToString($sha.ComputeHash($stream))).Replace('-','').
     $mainPublisher=Join-Path $selected.Root '.local/WorkshopUploader/WorkshopUploader.exe'
     [IO.File]::WriteAllText($mainPublisher,'tampered');Reject {Assert-ApiMainDeliveryIdentity $root $delivery}
     [IO.File]::WriteAllText($mainPublisher,'main publisher')
+    # Actual publisher outputs can include nested Locales paths. This is an inventory/
+    # filesystem boundary fixture; the independent APIShared tests validate the publisher binary.
+    $publisherDirectory=Split-Path -Parent $mainPublisher
+    $publisherProofPath=Join-Path $publisherDirectory 'build-proof.json'
+    $originalPublisherProof=[IO.File]::ReadAllText($publisherProofPath)
+    $publisherProof=$originalPublisherProof|ConvertFrom-Json
+    $locale=Join-Path $publisherDirectory 'Locales/en-US.txt'
+    Write-Fixture $locale 'Fixture.Caption=Publisher'
+    $localeHash=Get-ApiRepositoryHash $locale
+    $publisherProof.Outputs=@($publisherProof.Outputs)+@([pscustomobject]@{Name='Locales/en-US.txt';Sha256=$localeHash})
+    $nestedPublisherProof=$publisherProof|ConvertTo-Json -Depth 6
+    Write-Fixture $publisherProofPath $nestedPublisherProof
+    $nestedDelivery=Get-ApiMainDeliveryIdentity $root
+    Check (@($nestedDelivery.PublisherOutputs|Where-Object Name -ceq 'Locales/en-US.txt').Count -eq 1) 'Nested locale output was not preserved.'
+    $null=Assert-ApiMainDeliveryIdentity $root $nestedDelivery
+    Write-Fixture $locale 'Fixture.Caption=Tampered'
+    Reject {Assert-ApiMainDeliveryIdentity $root $nestedDelivery}
+    Write-Fixture $locale 'Fixture.Caption=Publisher'
+    foreach($invalidName in @('../escape.dll','Locales/../escape.txt','/absolute.dll','C:/absolute.dll',
+        'Locales\en-US.txt','Locales//extra.txt','Locales/./extra.txt','Locales/NUL.txt','Locales/name.','locales/en-us.txt')){
+        $invalidProof=$nestedPublisherProof|ConvertFrom-Json
+        $invalidProof.Outputs=@($invalidProof.Outputs)+@([pscustomobject]@{Name=$invalidName;Sha256=$localeHash})
+        Write-Fixture $publisherProofPath ($invalidProof|ConvertTo-Json -Depth 6)
+        Reject {Get-ApiMainPublisherOutputs $selected.Root}
+    }
+    Write-Fixture $publisherProofPath $nestedPublisherProof
+    foreach($unexpected in @('Locales/unlisted.txt','nested/unlisted.dll','nested/unlisted.ps1')){
+        $path=Join-Path $publisherDirectory $unexpected
+        Write-Fixture $path 'undeclared'
+        Reject {Get-ApiMainPublisherOutputs $selected.Root}
+        Remove-Item -LiteralPath $path
+    }
+    Remove-Item -LiteralPath $locale
+    [IO.File]::WriteAllText($publisherProofPath,$originalPublisherProof,[Text.UTF8Encoding]::new($false))
+    $null=Assert-ApiMainDeliveryIdentity $root $delivery
     Write-Fixture (Join-Path $selected.Root 'unexpected.txt') 'preserve me'
     Reject {Resolve-ApiMainSelection $root}
     Check (Test-Path -LiteralPath (Join-Path $selected.Root 'unexpected.txt')) 'Changed worktree was overwritten.'
