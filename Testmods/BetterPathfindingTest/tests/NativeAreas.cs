@@ -73,6 +73,14 @@ internal static partial class Program
             RouteResult recovered = nav.FindPath(batch[0]); Check(recovered.Status == SearchStatus.Found && recovered.Moat > 0, "An interrupted field must be discarded, then rebuilt correctly.");
         }
         Check(smallBudget.Bytes == 0, "Failed batches must release all counted buffers.");
+        using (var nav = new AreaNavigator(shared, new WorkBudget()))
+        {
+            var shuffled = new List<RouteQuery>();
+            for (int i = 0; i < 128; i++) shuffled.Add(new RouteQuery { Start = shared.Width * (i % 20 + 1) + 1, Target = shared.Width * (i % 6 + 2) + shared.Width - 2, RequireMoat = true });
+            RouteResult[] reordered = nav.FindPaths(shuffled);
+            for (int i = 0; i < reordered.Length; i++) Check(shared.Describe(shuffled[i], reordered[i].Directions).Status == SearchStatus.Found, "Cohort scheduling changed request/path identity.");
+            Check(nav.Stats.Fields <= 6, "Alternating targets must be grouped before field construction.");
+        }
         var allWet = Grid(17, 13, (a, b, d) => (1U << d) | (1U << (8 + d)));
         foreach (GridSnapshot localMap in new[] { allWet, shared })
         using (var nav = new AreaNavigator(localMap, new WorkBudget()))
@@ -85,6 +93,12 @@ internal static partial class Program
         }
         var structured = Grid(5, 5, (a, b, d) => (1U << d) | (1U << (16 + d)));
         using (var nav = new AreaNavigator(structured, new WorkBudget())) Compare(nav, structured, new RouteQuery { Start = 12, Target = 12, ExcludeStructures = true });
+        var bigBounds = Grid(3, 1);
+        using (var nav = new AreaNavigator(bigBounds, new WorkBudget()))
+        {
+            Compare(nav, bigBounds, new RouteQuery { Start = 0, Target = 1, Bounds = new[] { new CostBound(long.MaxValue, long.MaxValue, long.MaxValue) } });
+            Compare(nav, bigBounds, new RouteQuery { Start = 0, Target = 2, Bounds = new[] { new CostBound(long.MaxValue, long.MaxValue, long.MaxValue) } });
+        }
         foreach (string family in new[] { "shared-goal", "formation", "distributed-profiles", "moat-required" })
         {
             var queries = Workloads.Create(shared, new UnitSeed[0], 32, family);

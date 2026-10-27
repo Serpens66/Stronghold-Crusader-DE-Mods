@@ -19,6 +19,7 @@ using i64 = int64_t;
 constexpr i64 inf = std::numeric_limits<i64>::max();
 constexpr int dx[8] = {0,1,1,1,0,-1,-1,-1}, dy[8] = {-1,-1,0,1,1,1,0,-1};
 struct Exhausted {};
+struct SliceLimit {};
 struct Budget {
     i64 limit, bytes = 65536, peak = 65536, allocatedTotal=0, allocationCalls=0;
     explicit Budget(i64 maximum) : limit(maximum) { if (maximum < bytes) throw Exhausted(); }
@@ -30,8 +31,8 @@ template<class T> struct Alloc {
     Budget* budget;
     explicit Alloc(Budget* b = nullptr) : budget(b) {}
     template<class U> Alloc(const Alloc<U>& a) : budget(a.budget) {}
-    T* allocate(size_t n) { if (n > size_t(-1)/sizeof(T)) throw Exhausted(); budget->take(n*sizeof(T)); try { auto p=static_cast<T*>(::operator new(n*sizeof(T)));budget->allocatedTotal+=i64(n*sizeof(T));++budget->allocationCalls;return p; } catch (...) { budget->give(n*sizeof(T)); throw; } }
-    void deallocate(T* p, size_t n) { ::operator delete(p); budget->give(n*sizeof(T)); }
+    T* allocate(size_t n) { if (n > (size_t(-1)-32)/sizeof(T)) throw Exhausted(); budget->take(n*sizeof(T)+32); try { auto p=static_cast<T*>(::operator new(n*sizeof(T)));budget->allocatedTotal+=i64(n*sizeof(T));++budget->allocationCalls;return p; } catch (...) { budget->give(n*sizeof(T)+32); throw; } }
+    void deallocate(T* p, size_t n) { ::operator delete(p); budget->give(n*sizeof(T)+32); }
     template<class U> bool operator==(const Alloc<U>& a) const { return budget == a.budget; }
     template<class U> bool operator!=(const Alloc<U>& a) const { return !(*this == a); }
 };
@@ -56,11 +57,12 @@ struct Field {
     int target; i64 ground, moat; bool requireWet, exclude, complete = false;
     Vec<i64> distance; Vec<int> next, position, heap; Vec<uint8_t> kind;
     std::unique_ptr<Field> local; int localRegion=-1;
+    Vec<uint32_t> stamps; Vec<i64> priorities; uint32_t generation=0; bool forward=false;
     Field(Budget* b, int count, const Request& q) : target(q.target), ground(q.ground), moat(q.moat), requireWet(q.requireWet != 0), exclude(q.exclude != 0),
-        distance(Alloc<i64>(b)), next(Alloc<int>(b)), position(Alloc<int>(b)), heap(Alloc<int>(b)), kind(Alloc<uint8_t>(b)) {
+        distance(Alloc<i64>(b)), next(Alloc<int>(b)), position(Alloc<int>(b)), heap(Alloc<int>(b)), kind(Alloc<uint8_t>(b)),stamps(Alloc<uint32_t>(b)),priorities(Alloc<i64>(b)) {
         int n = count * (requireWet ? 2 : 1); distance.assign(n, inf); next.assign(n, -1); position.assign(n, -1); kind.assign(n, 0); heap.reserve(n);
     }
-    bool less(int a, int b) const { return distance[a] != distance[b] ? distance[a] < distance[b] : a < b; }
+    bool less(int a, int b) const { i64 ca=forward?priorities[a]:distance[a],cb=forward?priorities[b]:distance[b];return ca!=cb?ca<cb:a<b; }
     void put(int id) {
         int at = position[id]; if (at < 0) { at = int(heap.size()); heap.push_back(id); }
         while (at) { int p = (at-1)/2; if (!less(id,heap[p])) break; heap[at] = heap[p]; position[heap[at]] = at; at = p; }
@@ -71,7 +73,8 @@ struct Field {
         if (!heap.empty()) { int at = 0; while (at*2+1 < int(heap.size())) { int child = at*2+1; if (child+1 < int(heap.size()) && less(heap[child+1],heap[child])) ++child; if (!less(heap[child],last)) break; heap[at]=heap[child]; position[heap[at]]=at; at=child; } heap[at]=last; position[last]=at; }
         return result;
     }
-    void seed(int state, i64 cost, int following, uint8_t k) { if (cost < distance[state]) { distance[state]=cost; next[state]=following; kind[state]=k; put(state); } }
+    void seed(int state, i64 cost, int following, uint8_t k,i64 heuristic=0) { if(forward&&stamps[state]!=generation){stamps[state]=generation;distance[state]=inf;position[state]=-1;}if (cost < distance[state]) { distance[state]=cost;if(forward)priorities[state]=cost+heuristic; next[state]=following; kind[state]=k; put(state); } }
+    void resetForward() { if(stamps.empty()){stamps.assign(distance.size(),0);priorities.resize(distance.size());}forward=true;heap.clear();if(++generation==0){std::fill(stamps.begin(),stamps.end(),0);generation=1;} }
     void releaseFrontier() { Vec<int>(heap.get_allocator()).swap(heap); Vec<int>(position.get_allocator()).swap(position); complete=true; }
 };
 struct Label { int node, ground, moat, parent, direction, next; i64 cost, priority; bool dead; };
@@ -89,11 +92,14 @@ struct Context {
     std::array<std::unique_ptr<Field>,4> cache; Field* active = nullptr;
     Vec<Request> requests; Vec<Bound> bounds; Vec<Terminal> terminals; Vec<Result> results; Vec<uint8_t> output, path;
     std::unique_ptr<Refine> refinement;
+    std::unique_ptr<Field> forwardSearch; bool forwardActive=false;
     std::map<Key,int,std::less<Key>,Alloc<std::pair<const Key,int>>> groups;
-    int cursor=0; bool aborted=false; i64 fields=0,hits=0,macros=0,expanded=0,refinements=0,evictions=0,localFields=0,localHits=0;
+    int cursor=0; bool aborted=false; i64 fields=0,hits=0,macros=0,expanded=0,refinements=0,evictions=0,localFields=0,localHits=0,forwardCount=0,analyticCount=0;
     Key key(const Request& q) const { return {q.target,q.ground,q.moat,q.requireWet,q.exclude,region[q.start]}; }
-    void discardIncompleteSearch() { active=nullptr; refinement.reset(); for(auto& entry:cache)entry.reset(); aborted=true; }
+    Key goalKey(const Request& q) const { return {q.target,q.ground,q.moat,q.requireWet,q.exclude,-1}; }
+    void discardIncompleteSearch() { active=nullptr; refinement.reset();forwardSearch.reset();forwardActive=false; for(auto& entry:cache)entry.reset(); aborted=true; }
     std::chrono::steady_clock::time_point started;
+    std::chrono::steady_clock::time_point sliceDeadline;
     Context(int w,int h,const uint8_t* v,const uint32_t* e,i64 maximum) : budget(maximum),width(w),height(h),count(w*h),
         valid(v,v+count,Alloc<uint8_t>(&budget)),edges(e,e+count,Alloc<uint32_t>(&budget)),region(count,-1,Alloc<int>(&budget)),vertex(count,-1,Alloc<int>(&budget)),nodes(Alloc<int>(&budget)),rectangles(Alloc<Rect>(&budget)),
         requests(Alloc<Request>(&budget)),bounds(Alloc<Bound>(&budget)),terminals(Alloc<Terminal>(&budget)),results(Alloc<Result>(&budget)),output(Alloc<uint8_t>(&budget)),path(Alloc<uint8_t>(&budget)),groups(std::less<Key>(),Alloc<std::pair<const Key,int>>(&budget)) { build(); }
@@ -158,12 +164,9 @@ struct Context {
     }
     // RSR-style fan and diagonal macro edges, generated on demand. Their lengths
     // use SHCDE's Chebyshev step metric, NOT the paper's octile metric.
-    void expand(Field& f,int state) {
-        int vi=state%int(nodes.size()),node=nodes[vi];const auto& r=rectangles[region[node]];
-        Request q{};q.exclude=f.exclude;
-        for(int d=0;d<8;++d){int from=neighbor(node,(d+4)&7),to;bool wet;if(!isValid(from)||vertex[from]<0||!edge(from,d,q,to,wet))continue;relax(f,vertex[from],state,1,wet,0);}
-        if(r.type<0||(f.exclude&&(r.type&2)))return;
-        auto macro=[&](int n){if(n==node)return;++macros;relax(f,vertex[n],state,length(n,node),(r.type&1)!=0,1);};
+    template<class F> void macroEdges(int node,bool exclude,bool loops,F emit) {
+        const auto& r=rectangles[region[node]];if(r.type<0||(exclude&&(r.type&2)))return;
+        auto macro=[&](int n){if(n==node)return;++macros;emit(n,length(n,node),(r.type&1)!=0,uint8_t(1));};
         int x=node%width,y=node/width,right=r.x+r.w-1,bottom=r.y+r.h-1;
         if(r.w>2&&r.h>2){
             if(x==r.x||x==right){int xx=x==r.x?right:r.x,span=r.w-1;for(int yy=std::max(r.y,y-span);yy<=std::min(bottom,y+span);++yy)macro(yy*width+xx);}
@@ -172,13 +175,53 @@ struct Context {
         }
         // Preserve a positive wet excursion when a resource state requires a moat
         // visit but the optimal local walk returns to the same boundary vertex.
-        if(f.requireWet&&(r.type&1))for(int d=0;d<8;++d){int n=neighbor(node,d);if(isValid(n)&&region[n]==region[node]){relax(f,vi,state,2,true,2);break;}}
+        if(loops&&(r.type&1))for(int d=0;d<8;++d){int n=neighbor(node,d);if(isValid(n)&&region[n]==region[node]){emit(node,2,true,uint8_t(2));break;}}
+    }
+    void expand(Field& f,int state) {
+        int vi=state%int(nodes.size()),node=nodes[vi];Request q{};q.exclude=f.exclude;
+        for(int d=0;d<8;++d){int from=neighbor(node,(d+4)&7),to;bool wet;if(!isValid(from)||vertex[from]<0||!edge(from,d,q,to,wet))continue;relax(f,vertex[from],state,1,wet,0);}
+        macroEdges(node,f.exclude,f.requireWet,[&](int pred,int steps,bool wet,uint8_t kind){relax(f,vertex[pred],state,steps,wet,kind);});
+    }
+    int coordinate(int id,const Request& q) const { int i=id%(int(nodes.size())+2);return i<int(nodes.size())?nodes[i]:i==int(nodes.size())?q.start:q.target; }
+    int sourceVertex(const Request& q) const { return vertex[q.start]>=0?vertex[q.start]:int(nodes.size()); }
+    int targetVertex(const Request& q) const { return vertex[q.target]>=0?vertex[q.target]:int(nodes.size())+1; }
+    void startForward(const Request& q) {
+        if(!forwardSearch){Request doubled=q;doubled.requireWet=1;forwardSearch=std::make_unique<Field>(&budget,int(nodes.size())+2,doubled);}
+        forwardSearch->resetForward();forwardActive=true;++forwardCount;
+        forwardSearch->seed(sourceVertex(q),0,-1,0,i64(length(q.start,q.target))*std::min(q.ground,q.moat));
+    }
+    void forwardEdge(const Request& q,int from,int node,int steps,bool wet,uint8_t kind) {
+        int base=int(nodes.size())+2;bool seen=q.requireWet&&(from>=base||wet&&steps>0);int to=node+(seen?base:0);
+        i64 increment=i64(steps)*(wet?q.moat:q.ground);auto& f=*forwardSearch;if(f.distance[from]>inf-increment)return;
+        f.seed(to,f.distance[from]+increment,from,kind,i64(length(coordinate(node,q),q.target))*std::min(q.ground,q.moat));
+    }
+    void expandForward(const Request& q,int state) {
+        int id=state%(int(nodes.size())+2),node=coordinate(state,q);const auto& r=rectangles[region[node]];
+        bool internal=r.type>=0&&(!q.exclude||!(r.type&2));
+        if(id<int(nodes.size())){
+            for(int d=0;d<8;++d){int to;bool wet;if(edge(node,d,q,to,wet)&&vertex[to]>=0)forwardEdge(q,state,vertex[to],1,wet,0);}
+            macroEdges(node,q.exclude!=0,q.requireWet!=0,[&](int to,int steps,bool wet,uint8_t kind){forwardEdge(q,state,vertex[to],steps,wet,kind);});
+        }else if(internal){perimeter(r,[&](int to){forwardEdge(q,state,vertex[to],length(node,to),(r.type&1)!=0,1);});}
+        if(internal&&region[node]==region[q.target]){
+            int steps=length(node,q.target);forwardEdge(q,state,targetVertex(q),steps,steps>0&&(r.type&1),1);
+            if(q.requireWet&&node==q.target&&(r.type&1)&&r.w*r.h>1)forwardEdge(q,state,targetVertex(q),2,true,2);
+        }
+    }
+    bool traceForward(const Request& q,int goal,Result& result) {
+        auto& f=*forwardSearch;Vec<int> chain{Alloc<int>(&budget)};int guard=int(f.distance.size())+1;
+        for(int i=goal;f.next[i]>=0;i=f.next[i]){if(--guard==0)throw std::logic_error("forward parent cycle");chain.push_back(i);}
+        path.clear();int from=q.start;
+        for(auto i=chain.rbegin();i!=chain.rend();++i){int to=coordinate(*i,q);if(f.kind[*i]==2)wetLoop(from);else line(from,to);from=to;if(path.size()>size_t(q.maximum))return false;}
+        return validate(q,result);
     }
     Field& getField(const Request& q) {
         for(size_t i=0;i<cache.size();++i)if(cache[i]&&cache[i]->target==q.target&&cache[i]->ground==q.ground&&cache[i]->moat==q.moat&&cache[i]->requireWet==(q.requireWet!=0)&&cache[i]->exclude==(q.exclude!=0)){
             ++hits;auto found=std::move(cache[i]);for(size_t j=i;j>0;--j)cache[j]=std::move(cache[j-1]);cache[0]=std::move(found);return *cache[0];}
         if(cache.back()){cache.back().reset();++evictions;}for(size_t i=cache.size()-1;i>0;--i)cache[i]=std::move(cache[i-1]);
         cache[0]=std::make_unique<Field>(&budget,int(nodes.size()),q);++fields;initialize(*cache[0]);return *cache[0];
+    }
+    bool hasField(const Request& q) const {
+        for(const auto& f:cache)if(f&&f->target==q.target&&f->ground==q.ground&&f->moat==q.moat&&f->requireWet==(q.requireWet!=0)&&f->exclude==(q.exclude!=0))return true;return false;
     }
     void wetLoop(int node) {
         for(int d=0;d<8;++d){int n=neighbor(node,d);if(isValid(n)&&region[n]==region[node]){path.push_back(uint8_t(d));path.push_back(uint8_t((d+4)&7));return;}}
@@ -235,25 +278,36 @@ struct Context {
         if(!allows(q,g,m))return;int remaining=length(node,q.target);
         for(int i=0;i<q.boundCount;++i){const auto& b=bounds[q.boundOffset+i];i64 used=i64(g)*b.ground+i64(m)*b.moat;if(remaining>(b.maximum-used)/std::min(b.ground,b.moat))return;}
         auto& s=*refinement;int head=s.heads[node];
-        for(int i=head;i>=0;i=s.labels[i].next){const auto& old=s.labels[i];if(!old.dead&&((old.moat>0)==(m>0))&&old.ground<=g&&old.moat<=m)return;}
-        for(int i=head;i>=0;i=s.labels[i].next){auto& old=s.labels[i];if(((old.moat>0)==(m>0))&&g<=old.ground&&m<=old.moat)old.dead=true;}
+        int checks=0;
+        for(int i=head;i>=0;i=s.labels[i].next){if((++checks&255)==0&&std::chrono::steady_clock::now()>sliceDeadline)throw SliceLimit();const auto& old=s.labels[i];if(!old.dead&&((old.moat>0)==(m>0))&&old.ground<=g&&old.moat<=m)return;}
+        for(int i=head;i>=0;i=s.labels[i].next){if((++checks&255)==0&&std::chrono::steady_clock::now()>sliceDeadline)throw SliceLimit();auto& old=s.labels[i];if(((old.moat>0)==(m>0))&&g<=old.ground&&m<=old.moat)old.dead=true;}
         i64 cost=i64(g)*q.ground+i64(m)*q.moat;int id=int(s.labels.size());s.labels.push_back({node,g,m,parent,direction,head,cost,cost+remaining*std::min(q.ground,q.moat),false});s.heads[node]=id;s.push(id);
     }
     void finish(Result& result) {
         result.index=requests[cursor].reserved;
         result.offset=int(output.size());if(result.status==0){result.length=int(path.size());output.insert(output.end(),path.begin(),path.end());}
-        result.completedMs=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-started).count();results.push_back(result);++cursor;active=nullptr;refinement.reset();path.clear();
+        result.completedMs=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-started).count();results.push_back(result);++cursor;active=nullptr;forwardActive=false;refinement.reset();path.clear();
     }
     int step(int allowance) {
+        sliceDeadline=std::chrono::steady_clock::now()+std::chrono::milliseconds(50);
         while(cursor<int(requests.size())&&allowance>0){const auto& q=requests[cursor];Result result;
-            if(!active&&!refinement){if(direct(q,result)){finish(result);--allowance;continue;}
-                if(q.terminalCount){refinement=std::make_unique<Refine>(&budget,count);++refinements;addLabel(q,q.start,0,0,-1,-1);}else active=&getField(q);}
+            if(!active&&!refinement&&!forwardActive){if(direct(q,result)){++analyticCount;finish(result);--allowance;continue;}
+                if(q.terminalCount){refinement=std::make_unique<Refine>(&budget,count);++refinements;addLabel(q,q.start,0,0,-1,-1);}else if(groups[goalKey(q)]>=32||hasField(q))active=&getField(q);else startForward(q);}
+            if(forwardActive){auto& f=*forwardSearch;
+                while(!f.heap.empty()&&allowance>0){int state=f.pop();--allowance;++expanded;
+                    if(state%(int(nodes.size())+2)==targetVertex(q)&&(!q.requireWet||state>=int(nodes.size())+2)){
+                        if(traceForward(q,state,result)){finish(result);break;}
+                        forwardActive=false;refinement=std::make_unique<Refine>(&budget,count);++refinements;addLabel(q,q.start,0,0,-1,-1);break;}
+                    expandForward(q,state);
+                }
+                if(forwardActive){if(!f.heap.empty())return 1;path.clear();result.status=1;finish(result);}if(!refinement)continue;
+            }
             if(active){while(!active->heap.empty()&&allowance>0){int state=active->pop();expand(*active,state);++expanded;--allowance;}if(!active->heap.empty())return 1;if(!active->complete)active->releaseFrontier();
                 if(!prepareLocal(*active,q,allowance))return 1;
                 if(trace(*active,q,result)){finish(result);--allowance;continue;}
                 refinement=std::make_unique<Refine>(&budget,count);++refinements;active=nullptr;addLabel(q,q.start,0,0,-1,-1);}
             auto& s=*refinement;
-            while(!s.heap.empty()&&allowance>0){int id=s.pop();Label current=s.labels[id];if(current.dead)continue;--allowance;++expanded;
+            while(!s.heap.empty()&&allowance>0){int id=s.pop();--allowance;Label current=s.labels[id];if(current.dead)continue;++expanded;
                 if(current.node==q.target&&(!q.requireWet||current.moat>0)){path.clear();for(int i=id;s.labels[i].parent>=0;i=s.labels[i].parent)path.push_back(uint8_t(s.labels[i].direction));std::reverse(path.begin(),path.end());if(!validate(q,result))throw std::logic_error("refinement contract");finish(result);break;}
                 for(int d=0;d<8;++d){int to;bool wet;if(edge(current.node,d,q,to,wet))addLabel(q,to,current.ground+!wet,current.moat+wet,id,d);}
             }
@@ -263,12 +317,13 @@ struct Context {
     }
     void begin(const Request* qs,int n,const Bound* bs,int bn,const Terminal* ts,int tn) {
         if(aborted){Vec<uint8_t>(Alloc<uint8_t>(&budget)).swap(output);Vec<uint8_t>(Alloc<uint8_t>(&budget)).swap(path);Vec<Result>(Alloc<Result>(&budget)).swap(results);Vec<Request>(Alloc<Request>(&budget)).swap(requests);}
-        requests.assign(qs,qs+n);if(bn)bounds.assign(bs,bs+bn);else bounds.clear();if(tn)terminals.assign(ts,ts+tn);else terminals.clear();results.clear();output.clear();path.clear();cursor=0;aborted=false;active=nullptr;refinement.reset();started=std::chrono::steady_clock::now();
+        requests.assign(qs,qs+n);if(bn)bounds.assign(bs,bs+bn);else bounds.clear();if(tn)terminals.assign(ts,ts+tn);else terminals.clear();results.clear();output.clear();path.clear();cursor=0;aborted=false;active=nullptr;forwardActive=false;refinement.reset();started=std::chrono::steady_clock::now();
         groups.clear();Vec<uint8_t> indices(n,0,Alloc<uint8_t>(&budget));
         for(const auto& q:requests){if(!isValid(q.start)||!isValid(q.target)||q.maximum<0||q.maximum>2000000||q.ground<=0||q.moat<=0||q.ground>inf/4000001||q.moat>inf/4000001||q.boundCount<0||q.boundCount>32||q.terminalCount<0||q.terminalCount>64||q.boundOffset<0||q.boundOffset>bn-q.boundCount||q.terminalOffset<0||q.terminalOffset>tn-q.terminalCount)throw std::invalid_argument("request");
             ++groups[key(q)];
+            ++groups[goalKey(q)];
             if(q.reserved<0||q.reserved>=n||indices[q.reserved])throw std::invalid_argument("request identity");indices[q.reserved]=1;
-            for(int i=0;i<q.boundCount;++i){const auto& b=bounds[q.boundOffset+i];if(b.ground<=0||b.moat<=0||b.maximum<0||b.ground>inf/4000001||b.moat>inf/4000001)throw std::invalid_argument("bound");}
+            for(int i=0;i<q.boundCount;++i){const auto& b=bounds[q.boundOffset+i];if(b.ground<=0||b.moat<=0||b.maximum<0)throw std::invalid_argument("bound");}
             for(int i=0;i<q.terminalCount;++i){const auto& t=terminals[q.terminalOffset+i];if(t.to!=q.target||!isValid(t.from)||length(t.from,t.to)!=1)throw std::invalid_argument("terminal");}}
         // Cohort scheduling avoids cache thrashing for alternating formation goals.
         // Stable request identities, not scheduling position, bind returned paths.
@@ -279,7 +334,7 @@ struct Context {
 
 #define API extern "C" __declspec(dllexport)
 using namespace bpf;
-API int bpf_contract() { return 0x02003828; } // ABI 2, request 56, result 40; diagnostic-only library.
+API int bpf_contract() { return 0x03003828; } // ABI 3, request 56, result 40; diagnostic-only library.
 API int bpf_create(int w,int h,const uint8_t* valid,const uint32_t* words,i64 bytes,void** output) noexcept {
     if(!output)return 3;*output=nullptr;if(!valid||!words||w<1||h<1||i64(w)*h>640000)return 3;
     try{*output=new Context(w,h,valid,words,bytes);return 0;}catch(const Exhausted&){return 2;}catch(const std::bad_alloc&){return 2;}catch(...){return 4;}
@@ -287,13 +342,14 @@ API int bpf_create(int w,int h,const uint8_t* valid,const uint32_t* words,i64 by
 API void bpf_destroy(void* handle) noexcept { delete static_cast<Context*>(handle); }
 API int bpf_set_limit(void* handle,i64 bytes) noexcept { if(!handle)return 3;auto& c=*static_cast<Context*>(handle);if(bytes<c.budget.bytes)return 2;c.budget.limit=bytes;return 0; }
 API int bpf_allocations(void* handle,i64* bytes,i64* calls) noexcept { if(!handle||!bytes||!calls)return 3;auto& c=*static_cast<Context*>(handle);*bytes=c.budget.allocatedTotal;*calls=c.budget.allocationCalls;return 0; }
+API int bpf_query_counts(void* handle,i64* forward,i64* analytic) noexcept { if(!handle||!forward||!analytic)return 3;auto& c=*static_cast<Context*>(handle);*forward=c.forwardCount;*analytic=c.analyticCount;return 0; }
 API int bpf_begin(void* handle,const Request* requests,int count,const Bound* bounds,int bn,const Terminal* terminals,int tn) noexcept {
     if(!handle||!requests||count<1||count>10000||bn<0||tn<0||bn>320000||tn>640000||(bn&&!bounds)||(tn&&!terminals))return 3;
     try{static_cast<Context*>(handle)->begin(requests,count,bounds,bn,terminals,tn);return 0;}catch(const Exhausted&){return 2;}catch(const std::bad_alloc&){return 2;}catch(const std::invalid_argument&){return 3;}catch(...){return 4;}
 }
 API int bpf_step(void* handle,int operations) noexcept {
     if(!handle||operations<1)return 3;auto& c=*static_cast<Context*>(handle);
-    try{return c.step(operations);}catch(const Exhausted&){c.discardIncompleteSearch();return 2;}catch(const std::bad_alloc&){c.discardIncompleteSearch();return 2;}catch(...){c.discardIncompleteSearch();return 4;}
+    try{return c.step(operations);}catch(const Exhausted&){c.discardIncompleteSearch();return 2;}catch(const SliceLimit&){c.discardIncompleteSearch();return 5;}catch(const std::bad_alloc&){c.discardIncompleteSearch();return 2;}catch(...){c.discardIncompleteSearch();return 4;}
 }
 API int bpf_copy(void* handle,Result* results,int count,uint8_t* bytes,int capacity,int* needed) noexcept {
     if(!handle||!needed)return 3;auto& c=*static_cast<Context*>(handle);*needed=int(c.output.size());if(count<int(c.results.size())||capacity<*needed||(!results&&!c.results.empty())||(!bytes&&*needed))return 3;

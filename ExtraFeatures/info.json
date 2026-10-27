@@ -3,7 +3,7 @@
   "Author": "Serpens66",
   "Name": "Extra Features",
   "Description": "Optional gameplay additions and economy customization for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.124",
+  "Version": "1.0.125",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.0",
   "MaximumScriptExtenderVersion": "",
@@ -16,6 +16,14 @@
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.125",
+      "Changes": [
+        "Fix severe victory-loot slider lag: use the standard individual-value update, persistence and host synchronization path instead of applying and publishing all host settings on every step. Unchanged values do no work.",
+        "Migrate old No Kill Reward values when loading profiles, confirmed presets and mission working copies; preserve independent later edits, personal client settings and read-only Trail sources, including after host takeover.",
+        "Fix the out-of-module award-statistic address that caused exceptions and Vanilla fallback on Lord death. Derive the address from validated native instructions and reject invalid player ranges or non-writable data before publishing the existing hooks."
+      ]
+    },
     {
       "Version": "1.0.124",
       "Changes": [

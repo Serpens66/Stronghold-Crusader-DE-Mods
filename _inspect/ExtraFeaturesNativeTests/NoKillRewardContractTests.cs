@@ -16,6 +16,7 @@ namespace ExtraFeatures
         internal static void Run(byte[] image)
         {
             NoKillRewardHook.VerifyResourceContract(image);
+            CheckStatisticLayout(image);
             CheckTransfer();
             CheckBytes(image, 0x15C4EA, new byte[] {
                 0x4C, 0x69, 0xD5, 0x0F, 0x16, 0x00, 0x00,
@@ -32,6 +33,47 @@ namespace ExtraFeatures
             CheckGoldMessageStub();
             ExecuteGoldMessageStub();
             ExecuteRewardBranches();
+        }
+
+        private static void CheckStatisticLayout(byte[] image)
+        {
+            int rva = NoKillRewardHook.ResolveAwardStatisticsRva(image);
+            // Independent value from the canonical DLL disassembly, not the production decoder.
+            if (rva != 0x087EED98) throw new Exception("Wrong award statistic RVA resolved from installed instructions.");
+            foreach (long invalid in new[] { 0x887EED98L, image.LongLength - 4, 0x15C988L, -4L })
+            {
+                bool rejected = false;
+                try { NoKillRewardHook.VerifyWritablePlayerStatistics(image, invalid); }
+                catch (InvalidOperationException) { rejected = true; }
+                if (!rejected) throw new Exception("Invalid statistic range accepted: " + invalid.ToString("X"));
+            }
+            byte original = image[0x15C997];
+            try
+            {
+                image[0x15C997] = 0x90;
+                bool rejected = false;
+                try { NoKillRewardHook.ResolveAwardStatisticsRva(image); }
+                catch (InvalidOperationException) { rejected = true; }
+                if (!rejected) throw new Exception("Changed statistic anchor was accepted.");
+            }
+            finally { image[0x15C997] = original; }
+            // Use the actual mapped PE image, including the enormous BSS data section.
+            // Separate local struct fixtures cannot expose a wrong module-relative pointer.
+            fixed (byte* pointer = image)
+            {
+                for (int player = 1; player <= 8; player++)
+                {
+                    var winner = (GamePlayerResources*)(pointer + NoKillRewardHook.ResourcesZeroRva + player * 0x583C);
+                    var defeated = (GamePlayerResources*)(pointer + NoKillRewardHook.ResourcesZeroRva + (player == 8 ? 1 : 8) * 0x583C);
+                    int* statistic = NoKillRewardHook.AwardStatistic((ulong)pointer, rva, player);
+                    if ((byte*)statistic != pointer + 0x087EED98 + player * 4)
+                        throw new Exception("Production pointer does not address the actual player statistic.");
+                    winner->r_TotalGoodsGold = 100; defeated->r_TotalGoodsGold = 12345; *statistic = int.MaxValue - 3;
+                    int gold = NoKillRewardHook.ApplyReward(winner, defeated, statistic, 100, 0, int.MaxValue);
+                    if (gold != 3 || winner->r_TotalGoodsGold != 103 || *statistic != int.MaxValue - 3)
+                        throw new Exception("Mapped-module statistic headroom or credit is incorrect.");
+                }
+            }
         }
 
         private static void CheckTransfer()

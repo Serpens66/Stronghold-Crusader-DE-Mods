@@ -23,6 +23,16 @@ $inputs = @{}
 foreach ($folder in @('000shcdese','APIShared_Serp')) {
     foreach ($file in Get-ChildItem -LiteralPath (Join-Path $game "BepInEx\plugins\$folder") -File -Recurse) { $inputs[$file.FullName] = Get-ApiFileHash $file.FullName }
 }
+function Get-PrototypeSourceHashes {
+    $hashes = @{}
+    foreach ($folder in @('src','tests','native')) {
+        foreach ($file in Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot $folder) -Recurse -File | Where-Object { $_.FullName -notmatch '[\\/](bin|obj)[\\/]' -and $_.Extension -in @('.cs','.cpp','.ps1','.csproj') }) { $hashes[$file.FullName] = Get-ApiFileHash $file.FullName }
+    }
+    foreach ($name in @('BetterPathfindingTest.csproj','Build.ps1','build.bat','info.json')) { $p = Join-Path $PSScriptRoot $name; $hashes[$p] = Get-ApiFileHash $p }
+    foreach ($relative in @('Movement\WeightedGridSearchKernel.cs','Movement\WeightedMoatRoutePlanner.cs','Moat\MoatCandidateField.cs','Runtime\UnitCommandContracts.cs')) { $p=Join-Path $workspace "BugfixesAndQoL\src\UnitCommands\$relative"; $hashes[$p]=Get-ApiFileHash $p }
+    return $hashes
+}
+$sourceInputs = Get-PrototypeSourceHashes
 $project = Join-Path $PSScriptRoot 'BetterPathfindingTest.csproj'
 & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'native\Build-Native.ps1')
 if ($LASTEXITCODE) { throw 'Private native backend build failed.' }
@@ -46,6 +56,7 @@ $nativeDll = Join-Path $package 'BetterPathfindingNative.dll'
 if (-not $devdiag) { Remove-Item -LiteralPath $nativeDll -Force }
 & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'tests\Test-Artifact.ps1') -AssemblyPath $dll -DiagnosticMode $($devdiag.ToString().ToLowerInvariant())
 if ($LASTEXITCODE) { throw 'Artifact boundary check failed.' }
+foreach ($path in $sourceInputs.Keys) { if ((Get-ApiFileHash $path) -cne $sourceInputs[$path]) { throw "Prototype/oracle source changed during build: $path" } }
 if ($install) {
     if (Get-Process -Name 'Stronghold Crusader Definitive Edition' -ErrorAction SilentlyContinue) { throw 'Close the game before replacing the test package.' }
     $destination = Join-Path $game 'BepInEx\plugins\BetterPathfindingTest_Serp'
@@ -53,9 +64,10 @@ if ($install) {
     $packageNames = @('BetterPathfindingTest.dll','BetterPathfindingTest.pdb','info.json'); if ($devdiag) { $packageNames += 'BetterPathfindingNative.dll' }
     foreach ($name in $packageNames) { Copy-Item -LiteralPath (Join-Path $package $name) -Destination (Join-Path $destination $name) -Force }
     foreach ($name in $packageNames) { if ((Get-ApiFileHash (Join-Path $package $name)) -cne (Get-ApiFileHash (Join-Path $destination $name))) { throw "Installed package hash mismatch: $name" } }
+    if (-not $devdiag) { $oldNative=Join-Path $destination 'BetterPathfindingNative.dll'; if (Test-Path -LiteralPath $oldNative) { Remove-Item -LiteralPath $oldNative -Force } }
     if ((Get-ApiFileHash $dll) -cne (Get-ApiFileHash (Join-Path $destination 'BetterPathfindingTest.dll'))) { throw 'Installed test DLL hash mismatch.' }
 }
-$sources = @{}
+$sources = $sourceInputs
 foreach ($file in Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot 'src'),(Join-Path $PSScriptRoot 'tests') -Recurse -File -Filter '*.cs' | Where-Object { $_.FullName -notmatch '[\\/](bin|obj)[\\/]' }) { $sources[$file.FullName] = Get-ApiFileHash $file.FullName }
 foreach ($relative in @('Movement\WeightedGridSearchKernel.cs','Movement\WeightedMoatRoutePlanner.cs','Moat\MoatCandidateField.cs','Runtime\UnitCommandContracts.cs')) { $path = Join-Path $workspace "BugfixesAndQoL\src\UnitCommands\$relative"; $sources[$path] = Get-ApiFileHash $path }
 $nativeHash = if ($devdiag) { Get-ApiFileHash $nativeDll } else { $null }

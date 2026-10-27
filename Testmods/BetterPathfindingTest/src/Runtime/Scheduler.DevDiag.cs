@@ -63,7 +63,7 @@ namespace BetterPathfindingTest
         {
             SessionWork old = session; session = null;
             if (old == null) return;
-            old.Cancel.Cancel(); Queue(old.Release);
+            old.Cancel.Cancel(); Queue(old.RetireJob());
         }
         private void FailSession(Exception error)
         {

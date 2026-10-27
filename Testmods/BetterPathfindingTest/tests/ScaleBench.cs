@@ -8,7 +8,7 @@ internal static class ScaleBench
     internal static int Run()
     {
         string output = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../results/areas-" + DateTime.UtcNow.ToString("yyyyMMdd-HHmmss")));
-        Directory.CreateDirectory(output); bool failed = false;
+        Directory.CreateDirectory(output); BackendEvidence.Save(output); bool failed = false;
         foreach (bool wet in new[] { false, true })
         {
             var watch = Stopwatch.StartNew(); GridSnapshot map = Workloads.Synthetic(800, wet); double mapMs = watch.Elapsed.TotalMilliseconds;

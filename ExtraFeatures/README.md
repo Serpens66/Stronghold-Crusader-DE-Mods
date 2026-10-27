@@ -64,7 +64,9 @@ Both percentage sliders range from -1 to 100 in steps of 1. All six settings def
 
 Percentages are rounded down, separately for each goods type. A percentage of 0 gives no reward of that kind. The gold limit applies after calculating the gold share, including when the share is left at Vanilla: a limit below 500 overrides the Vanilla minimum, and a larger limit can allow rewards above 100,000. Goods have no separate loot limit. Gold is credited immediately; goods enter the incoming-goods queue. The victory message remains even when both shares are 0.
 
-Existing profiles and Trails that enabled **No Kill Reward** automatically use 0% for both gold and goods for the affected winner role. Human and AI settings remain independent, and subsequent changes are preserved in presets and multiplayer synchronization.
+Existing profiles and Trails that enabled **No Kill Reward** automatically use 0% for both gold and goods for the affected winner role. Migration happens when settings are loaded, before editing. Human and AI settings remain independent, and subsequent changes are preserved in presets and multiplayer synchronization.
+
+Version 1.0.125 fixes excessive work while moving these sliders and a native statistic-address error that caused exceptions and Vanilla loot fallback when a Lord died.
 
 ### Gold every 400 ticks
 Set separate whole-number gold amounts for human and AI players in the Economy settings. Both default to 0; positive and negative values are supported. The host chooses these settings between matches, and they are included in presets and multiplayer synchronization. The Active/Inactive search filter treats 0 as inactive and either sign as active.

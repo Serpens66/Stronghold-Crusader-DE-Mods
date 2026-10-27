@@ -6,7 +6,7 @@ using System.Runtime.InteropServices;
 namespace BetterPathfindingTest.Core
 {
     // Private owned-data ABI. No game pointers, commands or native path buffers.
-    public sealed class AreaNavigator : IDisposable
+    internal sealed class AreaNavigator : IDisposable
     {
         [StructLayout(LayoutKind.Sequential)] private struct Request
         { internal int Start, Target, Maximum, RequireWet, Exclude, BoundOffset, BoundCount, TerminalOffset, TerminalCount, Reserved; internal long Ground, Moat; }
@@ -19,6 +19,7 @@ namespace BetterPathfindingTest.Core
         private const string Library = "BetterPathfindingNative.dll";
         private static readonly object LibraryLock = new object();
         private static IntPtr module;
+        private static bool validated;
         [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)] private static extern IntPtr LoadLibraryEx(string file, IntPtr reserved, uint flags);
         [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern int bpf_contract();
         [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern int bpf_create(int width, int height, byte[] valid, uint[] words, long bytes, out IntPtr context);
@@ -29,11 +30,12 @@ namespace BetterPathfindingTest.Core
         [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern int bpf_stats(IntPtr context, out Statistics statistics);
         [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern int bpf_set_limit(IntPtr context, long bytes);
         [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern int bpf_allocations(IntPtr context, out long bytes, out long calls);
+        [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern int bpf_query_counts(IntPtr context, out long forward, out long analytic);
         public static void InitializeLibrary(string absolutePath = null)
         {
             lock (LibraryLock)
             {
-                if (module != IntPtr.Zero) return;
+                if (validated) return;
                 if (IntPtr.Size != 8) throw new NotSupportedException("Native area navigation requires a 64-bit process.");
                 if (absolutePath == null)
                 {
@@ -41,10 +43,11 @@ namespace BetterPathfindingTest.Core
                     if (!File.Exists(absolutePath)) absolutePath = Path.GetFullPath(Path.Combine(Environment.CurrentDirectory, "Testmods/BetterPathfindingTest/BepInEx/plugins/BetterPathfindingTest_Serp", Library));
                 }
                 if (!Path.IsPathRooted(absolutePath) || !File.Exists(absolutePath)) throw new NotSupportedException("Private native backend missing: " + absolutePath);
-                module = LoadLibraryEx(absolutePath, IntPtr.Zero, 8);
+                if (module == IntPtr.Zero) module = LoadLibraryEx(absolutePath, IntPtr.Zero, 8);
                 if (module == IntPtr.Zero) throw new NotSupportedException("Cannot load x64 navigation backend; Win32=" + Marshal.GetLastWin32Error());
-                if (bpf_contract() != 0x02003828 || Marshal.SizeOf(typeof(Request)) != 56 || Marshal.SizeOf(typeof(Result)) != 40 || Marshal.SizeOf(typeof(Statistics)) != 128)
+                if (bpf_contract() != 0x03003828 || Marshal.SizeOf(typeof(Request)) != 56 || Marshal.SizeOf(typeof(Result)) != 40 || Marshal.SizeOf(typeof(Statistics)) != 128)
                     throw new NotSupportedException("Private native navigation ABI mismatch.");
+                validated = true;
                 // Process-owned module; no unload while queued jobs might execute it.
             }
         }
@@ -59,6 +62,8 @@ namespace BetterPathfindingTest.Core
         public double MaximumSliceMs { get; private set; }
         public long NativeAllocatedBytes { get; private set; }
         public long NativeAllocationCalls { get; private set; }
+        public long ForwardSearches { get; private set; }
+        public long AnalyticRoutes { get; private set; }
         public AreaNavigator(GridSnapshot map, WorkBudget budget)
         {
             this.map = map; Budget = budget; InitializeLibrary();
@@ -66,7 +71,7 @@ namespace BetterPathfindingTest.Core
             try { Create(); } catch { Dispose(); throw; }
         }
         private static void CheckCode(int code)
-        { if (code == 2) throw new SearchBudgetException("native-memory-budget"); if (code == 3) throw new ArgumentException("Native snapshot/request/ABI contract rejected."); if (code != 0) throw new InvalidOperationException("Native navigation backend failed; code=" + code); }
+        { if (code == 2) throw new SearchBudgetException("native-memory-budget"); if (code == 5) throw new SearchBudgetException("native-resource-slice-limit"); if (code == 3) throw new ArgumentException("Native snapshot/request/ABI contract rejected."); if (code != 0) throw new InvalidOperationException("Native navigation backend failed; code=" + code); }
         private void Create()
         {
             Budget.Check(); byte[] valid = map.CopyValidity(); uint[] words = map.CopyEdges();
@@ -77,11 +82,12 @@ namespace BetterPathfindingTest.Core
             if (context == IntPtr.Zero) return;
             CheckCode(bpf_stats(context, out Statistics stats)); Stats = stats;
             CheckCode(bpf_allocations(context, out long allocated, out long allocationCalls)); NativeAllocatedBytes = allocated; NativeAllocationCalls = allocationCalls;
+            CheckCode(bpf_query_counts(context, out long forward, out long analytic)); ForwardSearches = forward; AnalyticRoutes = analytic;
             long difference = stats.Bytes - nativeOwned;
-            if (difference > 0) Budget.Reserve(difference); else if (difference < 0) Budget.Release(-difference);
+            if (difference > 0) Budget.ReserveUnchecked(difference); else if (difference < 0) Budget.Release(-difference);
             nativeOwned = stats.Bytes;
             long transient = stats.Peak - stats.Bytes;
-            if (transient > 0) { Budget.Reserve(transient); Budget.Release(transient); }
+            if (transient > 0) Budget.ObserveExternalPeak(transient);
         }
         public RouteResult FindPath(RouteQuery query) => FindPaths(new[] { query })[0];
         public RouteResult[] FindPaths(IList<RouteQuery> queries)
@@ -128,7 +134,7 @@ namespace BetterPathfindingTest.Core
             }
             catch (SearchBudgetException ex)
             { var results = new RouteResult[queries.Count]; for (int i = 0; i < results.Length; i++) results[i] = RouteResult.Failed(SearchStatus.Inconclusive, ex.Message); return results; }
-            finally { if (owned != 0) Budget.Release(owned); }
+            finally { if (owned != 0) Budget.Release(owned); Synchronize(); }
         }
         public bool CanReach(RouteQuery query, out SearchStatus status)
         { RouteQuery q = query.Copy(); q.MaximumEdges = 2000000; q.RequireMoat = false; q.Bounds = new CostBound[0]; RouteResult result = FindPath(q); status = result.Status; return status == SearchStatus.Found; }

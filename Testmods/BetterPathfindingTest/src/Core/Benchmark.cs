@@ -8,22 +8,22 @@ namespace BetterPathfindingTest.Core
     public sealed class BenchmarkResult
     {
         public int Planned, Completed, Mismatches, Ties, Incomplete, ProductionDifferences, ProductionTies;
-        public int Found, Unreachable, ReferenceCompared, ReferencePlanned, MoatPaths;
+        public int Found, Unreachable, ReferenceCompared, ReferencePlanned, MoatPaths, NativeCompleted;
         public double PreparationMs, ColdMs, WarmMs, ReferenceMs, ProductionMs, OutputMs, MaximumSliceMs, P95CompletionMs, MaximumCompletionMs;
         public long PeakBytes, Regions, Vertices, Pruned, Fields, FieldHits, Expanded, Macros, Refinements, LocalFields, LocalHits;
-        public long ManagedSolverAllocatedBytes = -1, NativeAllocatedBytes, NativeAllocationCalls, NativePeakBytes;
+        public long ManagedSolverAllocatedBytes = -1, NativeAllocatedBytes, NativeAllocationCalls, NativePeakBytes, ForwardSearches, AnalyticRoutes;
         public string Limitation = "";
         public readonly List<object> Cases = new List<object>();
         public Dictionary<string, object> Data() => new Dictionary<string, object> {
             ["planned"] = Planned, ["completed"] = Completed, ["found"] = Found, ["unreachable"] = Unreachable, ["moatPaths"] = MoatPaths,
             ["mismatches"] = Mismatches, ["equalCostDirectionDifferences"] = Ties, ["productionCostOrStatusDifferences"] = ProductionDifferences,
             ["productionEqualCostDirectionDifferences"] = ProductionTies, ["incomplete"] = Incomplete, ["limitation"] = Limitation,
-            ["referenceCompared"] = ReferenceCompared, ["referencePlanned"] = ReferencePlanned, ["referenceScope"] = ReferencePlanned == Planned ? "exhaustive" : "deterministic sample; all returned paths edge/contract-validated",
+            ["nativeColdCompleted"] = NativeCompleted, ["referenceCompared"] = ReferenceCompared, ["referencePlanned"] = ReferencePlanned, ["referenceScope"] = ReferencePlanned == Planned ? "exhaustive" : "deterministic sample; all returned paths edge/contract-validated",
             ["fieldPreparationMs"] = PreparationMs, ["coldSearchMs"] = ColdMs, ["warmSearchMs"] = WarmMs, ["referenceMs"] = ReferenceMs, ["productionMs"] = ProductionMs,
             ["privatePathEncodingAndValidationMs"] = OutputMs, ["navigationPeakBytes"] = PeakBytes, ["regions"] = Regions, ["vertices"] = Vertices, ["prunedInteriorCells"] = Pruned,
             ["localFieldsBuilt"] = LocalFields, ["localFieldHits"] = LocalHits, ["fieldsBuilt"] = Fields, ["fieldHits"] = FieldHits, ["expanded"] = Expanded, ["macroRelaxations"] = Macros, ["refinements"] = Refinements,
             ["maximumNativeSliceMs"] = MaximumSliceMs, ["p95BatchCompletionMs"] = P95CompletionMs, ["maximumBatchCompletionMs"] = MaximumCompletionMs,
-            ["managedSolverThreadAllocatedBytes"] = ManagedSolverAllocatedBytes, ["nativeAllocatedBytes"] = NativeAllocatedBytes, ["nativeAllocationCalls"] = NativeAllocationCalls, ["nativePeakBytes"] = NativePeakBytes, ["reactionTargetMs"] = 100, ["privatePlanningAndValidationMs"] = PreparationMs + ColdMs + OutputMs, ["reactionTargetMet"] = PreparationMs + ColdMs + OutputMs <= 100 && Completed == Planned, ["cases"] = Cases
+            ["managedSolverThreadAllocatedBytes"] = ManagedSolverAllocatedBytes, ["nativeAllocatedBytes"] = NativeAllocatedBytes, ["nativeAllocationCalls"] = NativeAllocationCalls, ["nativePeakBytes"] = NativePeakBytes, ["forwardAreaSearches"] = ForwardSearches, ["analyticRoutes"] = AnalyticRoutes, ["reactionTargetMs"] = 100, ["privatePlanningAndValidationMs"] = PreparationMs + ColdMs + OutputMs, ["reactionTargetMet"] = PreparationMs + ColdMs + OutputMs <= 100 && Completed == Planned, ["cases"] = Cases
         };
         public string Markdown(string title, string runtime)
         {
@@ -65,6 +65,8 @@ namespace BetterPathfindingTest.Core
                     r.PreparationMs = clock.Elapsed.TotalMilliseconds;
                     clock.Restart(); RouteResult[] cold = nav.FindPaths(queries); r.ColdMs = clock.Elapsed.TotalMilliseconds;
                     clock.Restart(); RouteResult[] warm = nav.FindPaths(queries); r.WarmMs = clock.Elapsed.TotalMilliseconds;
+                    foreach (RouteResult result in cold) if (result.Status != SearchStatus.Inconclusive) r.NativeCompleted++;
+                    CaptureStatistics(r, nav);
                     long allocatedAfter = Allocations.Read(); if (allocatedBefore >= 0 && allocatedAfter >= 0) r.ManagedSolverAllocatedBytes = allocatedAfter - allocatedBefore;
                     var times = new List<double>();
                     for (int i = 0; i < queries.Count; i++)
@@ -88,7 +90,7 @@ namespace BetterPathfindingTest.Core
                         bool referenceCase = r.ReferencePlanned == queries.Count || i < r.ReferencePlanned;
                         if (referenceCase)
                         {
-                            clock.Restart(); reference = ReferenceSearch.Find(map, q, new WorkBudget(budget.MaximumBytes, 10)); r.ReferenceMs += clock.Elapsed.TotalMilliseconds;
+                            clock.Restart(); reference = ReferenceSearch.Find(map, q, new WorkBudget(budget.MaximumBytes, 10, budget.Cancellation)); r.ReferenceMs += clock.Elapsed.TotalMilliseconds;
                             if (reference.Status == SearchStatus.Inconclusive) { r.Incomplete++; r.Limitation = "independent-reference: " + reference.Reason; }
                             else { r.ReferenceCompared++; match &= Same(a, reference); if (a.Status == SearchStatus.Found && Same(a, reference) && !SamePath(a, reference)) r.Ties++; }
                         }
@@ -103,14 +105,18 @@ namespace BetterPathfindingTest.Core
                         r.Cases.Add(data);
                     }
                     if (times.Count != 0) { times.Sort(); r.P95CompletionMs = times[(int)Math.Ceiling(times.Count * .95) - 1]; r.MaximumCompletionMs = times[times.Count - 1]; }
-                    AreaNavigator.Statistics s = nav.Stats; r.Regions = s.Regions; r.Vertices = s.Vertices; r.Pruned = s.Pruned; r.Fields = s.Fields; r.FieldHits = s.Hits; r.Expanded = s.Expanded; r.Macros = s.Macros; r.Refinements = s.Refinements; r.MaximumSliceMs = nav.MaximumSliceMs; r.LocalFields = s.LocalFields; r.LocalHits = s.LocalHits; r.NativeAllocatedBytes = nav.NativeAllocatedBytes; r.NativeAllocationCalls = nav.NativeAllocationCalls; r.NativePeakBytes = s.Peak;
+                    CaptureStatistics(r, nav);
                 }
             }
             catch (SearchBudgetException ex) { r.Incomplete++; r.Limitation = ex.Message; }
             r.PeakBytes = budget.PeakBytes; return r;
         }
-        // Historical generator retained only until Workloads provides reachable,
-        // connected formations. Its output is explicitly distributed endpoints.
+        private static void CaptureStatistics(BenchmarkResult r, AreaNavigator nav)
+        {
+            AreaNavigator.Statistics s = nav.Stats; r.Regions = s.Regions; r.Vertices = s.Vertices; r.Pruned = s.Pruned; r.Fields = s.Fields; r.FieldHits = s.Hits; r.Expanded = s.Expanded; r.Macros = s.Macros; r.Refinements = s.Refinements; r.MaximumSliceMs = nav.MaximumSliceMs; r.LocalFields = s.LocalFields; r.LocalHits = s.LocalHits; r.NativeAllocatedBytes = nav.NativeAllocatedBytes; r.NativeAllocationCalls = nav.NativeAllocationCalls; r.NativePeakBytes = s.Peak; r.ForwardSearches = nav.ForwardSearches; r.AnalyticRoutes = nav.AnalyticRoutes;
+        }
+        // Convenience adapter; workloads explicitly distinguish coherent formations from
+        // distributed targets. No captured-unit-count claim follows from request count.
         public static List<RouteQuery> Workload(GridSnapshot map, UnitSeed[] units, int count, bool formation, uint seed = 731902)
             => Workloads.Create(map, units, count, formation ? "distributed-profiles" : "shared-goal", seed);
     }

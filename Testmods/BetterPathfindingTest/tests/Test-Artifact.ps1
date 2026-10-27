@@ -21,6 +21,6 @@ if ($expected) {
     if ([BitConverter]::ToUInt16($bytes, $pe + 4) -ne 0x8664) { throw 'Native backend must be x64.' }
     $escapedPath = $nativePath.Replace('"', '""')
     Add-Type -TypeDefinition ('using System.Runtime.InteropServices; public static class PrivateNativeBoundary { [DllImport(@"' + $escapedPath + '", CallingConvention=CallingConvention.Cdecl)] public static extern int bpf_contract(); }')
-    if ([PrivateNativeBoundary]::bpf_contract() -ne 0x02003828) { throw 'Private native ABI contract mismatch.' }
+    if ([PrivateNativeBoundary]::bpf_contract() -ne 0x03003828) { throw 'Private native ABI contract mismatch.' }
 }
 Write-Host 'PASS: private native package boundary and x64 ABI.'

@@ -29,10 +29,28 @@ Cleanup begins at `0x15C980` and requires RCX=image+`0x366C210`, R11, RBX and
 R12D. Its zero writes clear the defeated player's **incoming table**, from
 `0x46C` through `0x4CC` (25 entries including gold), not the total-goods source
 table. This sharpens the older audit's generic loser-goods-cleanup description.
-At `0x15C997`, R12D is added to image+`0x887EED98`+winnerId*4. The following mode
+At `0x15C997`, R12D is added to image+`0x087EED98`+winnerId*4. The following mode
 guards affect notification visibility; they do not undo the credited reward.
 The type-8 victory message precedes the type-1 gold message. The follow-up at
 `0x15CA9B` remains reachable when only the gold message is omitted.
+
+## Statistic-address correction [2026-10-27 corrective audit]
+
+The canonical DLL hash above was verified again. The actual instructions are
+`4C 8D 2D 91 79 41 08` at `0x15C988` (LEA R13,[RIP+0x08417991]) and
+`45 01 A4 AD 78 AA 27 00` at `0x15C997` (ADD [R13+RBP*4+0x27AA78],R12D).
+Thus `0x15C98F + 0x08417991 + 0x0027AA78 = 0x087EED98` (VA `0x1887EED98`).
+SizeOfImage is `0x08903000`; `.data` begins at `0x00240000` with virtual size
+`0x086AD624` and writable initialized-data characteristics. Slots zero through
+eight fit in this section and image. The earlier `0x887EED98` exceeds the image;
+it was a transcription error, not an alternative native layout. Original raw
+evidence in `.work/a/kill-reward/001` remains historical and unmodified.
+
+Production now derives the RVA from both validated operands, validates the full
+player range and writable non-executable data section before publishing hooks,
+and verifies the live anchors before commit. Native regressions reject the old
+bad value and exercise the production pointer/credit path inside the actual
+mapped DLL layout, rather than only separate local struct buffers.
 
 ## Gold message capacity [Vanilla facts]
 

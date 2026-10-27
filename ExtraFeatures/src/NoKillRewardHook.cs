@@ -26,7 +26,6 @@ namespace ExtraFeatures
         internal const int ResourceBaseRva = 0x366C210;
         // Hash-bound native contracts: player zero precedes Extender's one-based resource view.
         internal const int ResourcesZeroRva = 0x379ADD0;
-        internal const uint AwardStatisticsRva = 0x887EED98;
         internal const int GoodsNotificationOffset = 0x3C;
         internal static readonly eGoods[] RewardGoods = {
             eGoods.STORED_MACES, eGoods.STORED_SWORDS, eGoods.STORED_METAL_ARMOUR, eGoods.STORED_CROSSBOWS,
@@ -45,6 +44,7 @@ namespace ExtraFeatures
         private readonly HookHandle<X64InlineHook> goldMessageHandle = new HookHandle<X64InlineHook>();
         private HookTransaction transaction;
         private ulong moduleBase;
+        private int awardStatisticsRva;
         private KillRewardConfiguration configuration = KillRewardConfiguration.Vanilla;
         private bool installed;
 
@@ -79,6 +79,7 @@ namespace ExtraFeatures
 
             moduleBase = unchecked((ulong)context.ModuleHandle.ToInt64());
             VerifyResourceContract(memory);
+            awardStatisticsRva = ResolveAwardStatisticsRva(memory);
             Probe(memory, RewardRva, RewardLength, (probe, copiedAddress) =>
                 NoKillRewardStubContract.VerifyReward(
                     probe, SuppressForSelectedWinner,
@@ -159,6 +160,58 @@ namespace ExtraFeatures
                     throw new InvalidOperationException("The Vanilla defeat-loot goods table changed.");
         }
 
+        internal static int ResolveAwardStatisticsRva(ReadOnlySpan<byte> image)
+        {
+            // LEA R13,[RIP+disp32], then ADD [R13+RBP*4+disp32],R12D.
+            // Decode both operands instead of copying an absolute VA into an RVA constant.
+            if (image.Length < 0x15C99F ||
+                !image.Slice(0x15C988, 3).SequenceEqual(new byte[] { 0x4C, 0x8D, 0x2D }) ||
+                !image.Slice(0x15C997, 4).SequenceEqual(new byte[] { 0x45, 0x01, 0xA4, 0xAD }))
+                throw new InvalidOperationException("The native award statistic anchor instructions changed.");
+            long rva = 0x15C98FL + ReadInt32(image, 0x15C98B) + ReadInt32(image, 0x15C99B);
+            VerifyWritablePlayerStatistics(image, rva);
+            return checked((int)rva);
+        }
+
+        internal static void VerifyWritablePlayerStatistics(ReadOnlySpan<byte> image, long rva)
+        {
+            // Validate the entire one-based player view (including its zero slot) against
+            // both the loaded image and a writable PE data section before publishing hooks.
+            long end = rva + ((long)GamePlayerManagerAPI.MAX_PLAYERS + 1) * sizeof(int);
+            if (rva < 0 || (rva & 3) != 0 || end < rva || end > image.Length || image.Length < 64 ||
+                image[0] != 'M' || image[1] != 'Z')
+                throw new InvalidOperationException("The native award statistic range is outside the loaded image.");
+            int pe = ReadInt32(image, 0x3C);
+            if (pe < 0 || pe > image.Length - 24 || ReadInt32(image, pe) != 0x4550)
+                throw new InvalidOperationException("The native PE header is invalid.");
+            int optionalSize = ReadUInt16(image, pe + 20);
+            int optional = pe + 24;
+            if (optionalSize < 60 || optionalSize > image.Length - optional ||
+                ReadUInt16(image, optional) != 0x20B || end > (uint)ReadInt32(image, optional + 56))
+                throw new InvalidOperationException("The native award statistic range exceeds SizeOfImage.");
+            int sections = ReadUInt16(image, pe + 6), table = optional + optionalSize;
+            if (sections > (image.Length - table) / 40)
+                throw new InvalidOperationException("The native section table is invalid.");
+            for (int index = 0; index < sections; index++)
+            {
+                int section = table + index * 40;
+                long start = (uint)ReadInt32(image, section + 12);
+                long sectionEnd = start + (uint)ReadInt32(image, section + 8);
+                uint flags = (uint)ReadInt32(image, section + 36);
+                if (rva >= start && end <= sectionEnd && (flags & 0x80000040U) == 0x80000040U &&
+                    (flags & 0x20000000U) == 0) return;
+            }
+            throw new InvalidOperationException("The native award statistic range is not in writable data.");
+        }
+
+        private static int ReadInt32(ReadOnlySpan<byte> image, int offset) =>
+            BitConverter.ToInt32(image.Slice(offset, 4).ToArray(), 0);
+        private static int ReadUInt16(ReadOnlySpan<byte> image, int offset) =>
+            image[offset] | (image[offset + 1] << 8);
+
+        internal static int* AwardStatistic(ulong imageBase, int resolvedRva, int winnerId) =>
+            (int*)(imageBase + (ulong)resolvedRva + (ulong)winnerId * sizeof(int));
+
         private static void Probe(ReadOnlySpan<byte> memory, int rva, int length,
             Action<X64InlineHook, ulong> verify)
         {
@@ -184,6 +237,8 @@ namespace ExtraFeatures
         {
             VerifyLiveSpan(snapshot, RewardRva, RewardLength);
             VerifyLiveSpan(snapshot, GoldMessageRva, GoldMessageLength);
+            VerifyLiveSpan(snapshot, 0x15C988, 7);
+            VerifyLiveSpan(snapshot, 0x15C997, 8);
         }
 
         private void VerifyLiveSpan(ReadOnlySpan<byte> snapshot, int rva, int length)
@@ -262,7 +317,7 @@ namespace ExtraFeatures
                     (ulong)defeated != moduleBase + ResourcesZeroRva + (ulong)defeatedId * 0x583C)
                     throw new InvalidOperationException("The Extender resource pointers do not match the audited victory-loot layout.");
 
-                int* statistic = (int*)(moduleBase + AwardStatisticsRva + (ulong)winnerId * sizeof(int));
+                int* statistic = AwardStatistic(moduleBase, awardStatisticsRva, winnerId);
                 // Validate and stage everything before the first native write. No throwing API
                 // calls occur after crediting, so fail-open cannot award the Vanilla loot twice.
                 int gold = ApplyReward(winner, defeated, statistic, isAI ? current.AIGold : current.HumanGold,

@@ -31,6 +31,13 @@ namespace BetterPathfindingTest
         private static void WriteFile(string path, string text) => File.WriteAllText(path, text.Replace("\r\n", "\n").Replace("\n", "\r\n"), new UTF8Encoding(false));
         private void WriteJson(string path, object data) => writeText(path, Shared.DependencyFreeJson.Serialize(data));
         internal void Release() { first = null; firstEvidence = null; }
+        internal Action RetireJob() => () =>
+        {
+            Exception failure = RunGuard.Execute(() => {
+                if (first != null && Cancel.IsCancellationRequested) WriteJson(Path.Combine(directory, "session.json"), new Dictionary<string, object> { ["status"] = "INCOMPLETE", ["phase"] = "pairing", ["session"] = Id, ["cancelledByLifecycle"] = true, ["missingPhases"] = "Second capture/comparisons did not complete before session end." });
+            }, Release);
+            if (failure != null) Shared.DevDiag.Log(() => "phase=report-failed session=" + Id + " retirement error=" + failure);
+        };
         internal Action FailureJob(Exception error, int ordinal) => () =>
         {
             Exception failure = RunGuard.Execute(() => {
@@ -81,23 +88,43 @@ namespace BetterPathfindingTest
             var controlled = UpdateComparison.Controlled(budget);
             update["wallMs"] = updateClock.Elapsed.TotalMilliseconds;
             update["coverage"] = updateQueries.Count == 0 ? "NO_POSITIVE_INPUTS" : (long)update["changedCoordinates"] == 0 ? "unchanged pair; no real-change acceptance" : "changed snapshot pair";
+            if (updateQueries.Count != 8) update["incomplete"] = true;
             WriteJson(Path.Combine(directory, "updates.json"), new Dictionary<string, object> { ["session"] = Id, ["real"] = update, ["controlled"] = controlled });
             Shared.DevDiag.Log(() => "phase=updates-finished session=" + Id + " ordinal=2 cases=" + update["compared"] + " differences=" + update["differences"]);
-            CompareSnapshot(first, firstEvidence, before, 1, update, controlled);
-            CompareSnapshot(envelope.Map, envelope.Evidence, after, 2, update, controlled);
+            var synthetic = SyntheticWorkloads(budget);
+            CompareSnapshot(first, firstEvidence, before, 1, update, controlled, synthetic);
+            CompareSnapshot(envelope.Map, envelope.Evidence, after, 2, update, controlled, synthetic);
         }
-        private void CompareSnapshot(CapturedMap raw, ManagedEvidence evidence, GridSnapshot graph, int ordinal, object update, object controlled)
+        private Dictionary<string, object> SyntheticWorkloads(WorkBudget overall)
+        {
+            int errors = 0, incomplete = 0, found = 0;
+            foreach (bool wet in new[] { false, true })
+            {
+                overall.Check(); string name = wet ? "private-moat-96" : "private-ground-96";
+                Shared.DevDiag.Log(() => "phase=" + name + " session=" + Id + " ordinal=2 cases=128 scope=private-synthetic");
+                GridSnapshot map = Workloads.Synthetic(96, wet); var queries = Workloads.SyntheticBatch(map, 128, wet);
+                SnapshotCodec.WriteQueries(Path.Combine(directory, name + ".bpf.gz"), map, queries);
+                var budget = new WorkBudget(MaximumBytes - overall.Bytes, 15, Cancel.Token); budget.Checkpoint = () => overall.Check();
+                BenchmarkResult result = Benchmark.Run(map, queries, budget);
+                var data = result.Data(); data["scope"] = "private synthetic 96x96 graph, not native terrain/game units";
+                WriteJson(Path.Combine(directory, name + ".json"), data); writeText(Path.Combine(directory, name + ".md"), result.Markdown(name, "Unity/Mono + private C++"));
+                overall.ObserveExternalPeak(budget.PeakBytes); errors += result.Mismatches; incomplete += result.Incomplete; found += result.Found;
+            }
+            return new Dictionary<string, object> { ["errors"] = errors, ["incomplete"] = incomplete, ["found"] = found, ["scope"] = "private synthetic controls" };
+        }
+        private void CompareSnapshot(CapturedMap raw, ManagedEvidence evidence, GridSnapshot graph, int ordinal, Dictionary<string, object> update, Dictionary<string, object> controlled, Dictionary<string, object> synthetic)
         {
             var total = Stopwatch.StartNew(); string prefix = "snapshot-" + ordinal;
             var summary = new Dictionary<string, object> {
                 ["session"] = Id, ["ordinal"] = ordinal, ["context"] = Context, ["runtime"] = "Unity/Mono + private C++ area backend",
+                ["limitBytes"] = MaximumBytes, ["secondsPerSnapshot"] = 120, ["secondsPerWorkload"] = 15, ["oracleBudgetScope"] = "Separate bounded correctness buffers; not counted as resident solver buffers",
                 ["snapshotCopyMs"] = raw.CopyMilliseconds, ["nonblockingLockRetryMs"] = raw.LockWaitMilliseconds, ["snapshotBuffers"] = raw.BufferBytes,
                 ["managedEvidence"] = evidence.Data(), ["gateCoverage"] = raw.GateCoverage, ["nativeHash"] = raw.NativeHash, ["testedPlayer"] = graph.Player,
-                ["capturedPlayers"] = raw.Players, ["realUpdates"] = update, ["controlledUpdates"] = controlled,
+                ["capturedPlayers"] = raw.Players, ["capturedUnitCount"] = raw.Units.Length, ["syntheticWorkloads"] = synthetic, ["realUpdates"] = update, ["controlledUpdates"] = controlled,
                 ["missingCoverage"] = "Only first player tested; game movement/10,000 captured units not integrated. Terminal/cadence/profile-limit contracts are offline. Precise oracle is offline only. Large-map independent references are sampled."
             };
             var details = new List<object>(); summary["workloads"] = details;
-            int compared = 0, planned = 0, found = 0, errors = 0, incomplete = 0, skipped = 0;
+            int compared = 0, planned = 0, found = 0, errors = (int)update["differences"] + ((bool)controlled["passed"] ? 0 : 1) + (int)synthetic["errors"], incomplete = ((bool)update["incomplete"] ? 1 : 0) + ((bool)controlled["incomplete"] ? 1 : 0) + (int)synthetic["incomplete"], skipped = 0;
             var budget = new WorkBudget(MaximumBytes, 120, Cancel.Token);
             var pulse = new ProgressPulse(() => total.Elapsed.TotalSeconds, message => Shared.DevDiag.Log(() => "session=" + Id + " ordinal=" + ordinal + " " + message + " cases=" + compared + "/" + planned));
             budget.Checkpoint = pulse.Check;
@@ -115,10 +142,13 @@ namespace BetterPathfindingTest
                         double inputMs = inputClock.Elapsed.TotalMilliseconds;
                         SnapshotCodec.WriteQueries(Path.Combine(directory, prefix + "-" + name + ".bpf.gz"), graph, queries);
                         Shared.DevDiag.Log(() => "phase=" + name + " session=" + Id + " ordinal=" + ordinal + " cases=" + queries.Count);
-                        BenchmarkResult result = Benchmark.Run(graph, queries, budget);
+                        var cohortBudget = new WorkBudget(MaximumBytes - budget.Bytes, 15, Cancel.Token);
+                        cohortBudget.Checkpoint = () => budget.Check();
+                        BenchmarkResult result = Benchmark.Run(graph, queries, cohortBudget);
                         if (queries.Count != count) { result.Incomplete++; result.Limitation = "No known positive inputs for this family; missing coverage."; }
                         compared += result.Completed; found += result.Found; errors += result.Mismatches; incomplete += result.Incomplete;
-                        var data = result.Data(); data["inputGenerationMs"] = inputMs; data["requestCountIsUnitCount"] = false;
+                        var data = result.Data(); data["inputGenerationMs"] = inputMs;
+                        var starts = new HashSet<int>(); var targets = new HashSet<int>(); foreach (RouteQuery q in queries) { starts.Add(q.Start); targets.Add(q.Target); } data["distinctStarts"] = starts.Count; data["distinctTargets"] = targets.Count; data["requestCountIsUnitCount"] = false; data["profileSource"] = family == "distributed-profiles" ? "synthetic varied cost profiles" : "synthetic 1/7 cost profile"; budget.ObserveExternalPeak(cohortBudget.PeakBytes);
                         details.Add(new Dictionary<string, object> { ["family"] = name, ["result"] = data });
                         writeText(Path.Combine(directory, prefix + "-" + name + ".md"), result.Markdown(name, "Unity/Mono + native x64"));
                         WriteJson(Path.Combine(directory, prefix + ".progress.json"), new Dictionary<string, object> { ["session"] = Id, ["ordinal"] = ordinal, ["phase"] = name, ["compared"] = compared, ["found"] = found, ["elapsedMs"] = total.Elapsed.TotalMilliseconds });

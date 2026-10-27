@@ -8,7 +8,7 @@ Gesucht ist ein grundsätzlich neues Navigationssystem für **10.000 Einheiten a
 
 **Aktuelle Empfehlung:** ein eigenständiger Navigationsdienst mit diskretem Flächen-/Portalnetz, gemeinsamer Gruppenplanung und wiederverwendbaren Bewegungsfeldern. Für den Endzustand ist ein kompakter C++-Kern mit gebündelter Anbindung vorgesehen. Große homogene Flächen sollen als zusammenhängende Bereiche behandelt werden; die spätere Integration muss native Sucharbeit tatsächlich ersetzen. MoatMove bleibt ein geeigneter erster Verbraucher. Einzelheiten und Nachweisfolge stehen in den Abschnitten 13 und 14.
 
-Der ursprüngliche Kandidat vom 26.10.2026 wurde als lesender Testmod [BetterPathfindingTest](Testmods/BetterPathfindingTest/PROTOTYPE.md) implementiert und inzwischen offline sowie unter Unity/Mono gemessen. **Die konkrete 32×32-/128×128-Hierarchie mit vollständigen Grenzknoten-Distanzzeilen ist als Architekturversuch gescheitert**; Abschnitt 12 fasst die Nachweise zusammen. Der jetzt empfohlene Neuaufbau ist noch nicht implementiert. Seine Skalierung und die angestrebten Reaktionszeiten sind Entwicklungsziele, keine gemessenen Eigenschaften.
+Der ursprüngliche Kandidat vom 26.10.2026 wurde als lesender Testmod [BetterPathfindingTest](Testmods/BetterPathfindingTest/PROTOTYPE.md) implementiert und inzwischen offline sowie unter Unity/Mono gemessen. **Die konkrete 32×32-/128×128-Hierarchie mit vollständigen Grenzknoten-Distanzzeilen ist als Architekturversuch gescheitert**; Abschnitt 12 fasst die Nachweise zusammen. Der Neuaufbau ist inzwischen als isolierter C++-Prototyp **0.2.0** implementiert und offline geprüft; Abschnitt 15 beschreibt diesen späteren Stand. Die Abnahme unter Unity/Mono sowie 10.000 tatsächlich bewegte Einheiten und die angestrebte Größenordnung der Beschleunigung bleiben offen.
 
 Erreichbarkeit, optimale Kosten und alle Precise-Zusatzbedingungen bleiben verbindlich. Gemäß der Präzisierung vom 27.10.2026 werden gleich teure Richtungsabweichungen dokumentiert und vor einer Verbraucherintegration gesondert bewertet; eine identische Richtungsfolge ist keine Vorbedingung für die Untersuchung des nächsten Prototyps.
 
@@ -316,7 +316,7 @@ Die [Offline-Nachweise vom 26.10.2026](Testmods/BetterPathfindingTest/RESULTS.md
 
 Das Limit beträgt **256 MiB = 268.435.456 Bytes** und betrifft konservativ erfasste Navigationspuffer einschließlich reservierter Arbeitsbereiche. Erschöpfung ergibt `INCOMPLETE`, niemals einen Unerreichbarkeitsbeweis. Der gesamte verwaltete Heap lag am Ende bei **1.004.785.664 Bytes, etwa 958 MiB**. Er enthält Spiel und andere Mods sowie noch nicht eingesammelte Objekte und ist kein gemessener Speicherverbrauch dieses Testmods. Die reservierten Navigationsbytes sind umgekehrt keine harte Obergrenze für den gesamten Unity-Prozess.
 
-Die Hauptursache liegt in der konkreten [Hierarchie](Testmods/BetterPathfindingTest/src/Core/Hierarchy.cs): Pro Eintrittsknoten entstehen lokale Distanzzeilen mit vielen Grenzknotenverbindungen und vollständigen Teilwegen. Die zweite Ebene vervielfacht diese Arbeit. Ein lokales Zielfeld benötigt zudem globale Fortsetzungskosten, die im aktuellen Aufbau durch weitere globale Suchen beschafft werden. Auf offenen großen Flächen wird dadurch viel Arbeit materialisiert, bevor die erste Anfrage beantwortet ist.
+Die Hauptursache lag in der konkreten Hierarchie von 0.1.1 (damals `src/Core/Hierarchy.cs`, im Neuaufbau ersetzt): Pro Eintrittsknoten entstanden lokale Distanzzeilen mit vielen Grenzknotenverbindungen und vollständigen Teilwegen. Die zweite Ebene vervielfachte diese Arbeit. Ein lokales Zielfeld benötigte zudem globale Fortsetzungskosten, die durch weitere globale Suchen beschafft wurden. Auf offenen großen Flächen wurde dadurch viel Arbeit materialisiert, bevor die erste Anfrage beantwortet war.
 
 Die [Teststeuerung](Testmods/BetterPathfindingTest/src/Runtime/Run.DevDiag.cs) startet für jede Arbeitslast einen neuen Navigator und wiederholt dadurch bereits gescheiterte Großaufbauten. Ihre zeitliche Aneinanderreihung verdrängte die Auswertung des zweiten Snapshots. Gemeldete warme Zeiten unvollständiger Anfragen sind kein Leistungsnachweis. Ebenso ist ein über den gesamten Snapshot geführter Speicherhöchststand kein isolierter Höchststand einer späteren kleinen Arbeitslast.
 
@@ -367,9 +367,56 @@ Der nächste Implementierungsauftrag sollte den Neuaufbau zunächst wieder isoli
 
 Gemessen werden Gesamtplanung einschließlich Vorbereitung, Aktualisierung und Wegausgabe, gesamte CPU-Arbeit, Speicher und Allokationen, Feld-/Graphgröße, tatsächlich geteilte Arbeit, Reaktionszeiten sowie zusätzliche Frame-/Tickspitzen. Kalte und warme Abfragen sowie Aufbau beim Kartenstart werden getrennt und zusätzlich in der Gesamtbilanz gezeigt. Für Reaktionszeiten sind p50/p95/p99, Maximum, ausstehende Aufträge und Überschreitungen des ungefähr 100-ms-Ziels auszuweisen. Vergleichsläufe verwenden dieselben Karten, Regeln, Einheiten und Einstellungen und werden abwechselnd wiederholt.
 
-Vor weiteren Messungen ist die **Teststeuerung** anzupassen: Beide Snapshots früh persistieren; den tatsächlichen Änderungsvergleich priorisieren; Arbeit so aufteilen, dass lange Benchmarks nachfolgende Erfassungen und Berichte nicht verdrängen; bereits gescheiterte Großaufbauten nicht ohne neue Erkenntnis für größere Gruppen wiederholen. Referenzen erhalten unabhängige Arbeitsbudgets. Arbeitslastbezogene Speicherhöchststände, tatsächlicher Gesamtheap und Allokationen werden getrennt gemessen. Fehlende Phasen, fehlende positive Fälle, Schreibfehler, Budget- und Lifecycleabbrüche bleiben ausdrücklich unvollständig. Diese Anpassungen sind hier geplant, nicht implementiert.
+Vor weiteren Messungen war die **Teststeuerung** anzupassen: Beide Snapshots früh persistieren; den tatsächlichen Änderungsvergleich priorisieren; Arbeit so aufteilen, dass lange Benchmarks nachfolgende Erfassungen und Berichte nicht verdrängen; bereits gescheiterte Großaufbauten nicht ohne neue Erkenntnis für größere Gruppen wiederholen. Referenzen erhalten unabhängige Arbeitsbudgets. Arbeitslastbezogene Speicherhöchststände, tatsächlicher Gesamtheap und Allokationen werden getrennt gemessen. Fehlende Phasen, fehlende positive Fälle, Schreibfehler, Budget- und Lifecycleabbrüche bleiben ausdrücklich unvollständig. Beim ursprünglichen Dokumentationsnachtrag waren diese Anpassungen geplant; ihre spätere Umsetzung in 0.2.0 ist in Abschnitt 15 eingeordnet.
 
 **Grenze der Zusage:** Ziel ist, die zusätzlichen Navigationskosten für 10.000 Einheiten mit erweiterten Regeln beherrschbar zu machen. Ob SHCDE insgesamt 10.000 Einheiten flüssig simulieren und darstellen kann, ist eine andere Frage. Für beliebige gleichzeitige Kartenänderungen, völlig unabhängige Ziele und beliebig komplexe Ressourcenbedingungen ist keine konstante Antwortzeit bewiesen. Werden die gewünschten Reaktionszeiten oder die Gesamtperformance unter repräsentativer Last verfehlt, ist das ein negatives Ergebnis; es wird nicht durch gelockerte Regeln, ausgeblendete Vorarbeit oder ausschließlich günstige Teilmessungen verdeckt.
 
-Der Nachtrag vom **27.10.2026** aktualisiert ausschließlich diese Dokumentation anhand vorhandener Quellen und Artefakte. Er enthält keine neue Solverimplementierung, keine Runtime-Änderung, keinen Build, keine Installation und keinen neu gestarteten Spieltest. Historische Messungen bleiben in ihren ursprünglichen Dateien erhalten.
+Der ursprüngliche Nachtrag vom **27.10.2026**, Abschnitte 12 bis 14, aktualisierte ausschließlich diese Dokumentation anhand vorhandener Quellen und Artefakte. Er enthielt keine neue Solverimplementierung, keine Runtime-Änderung, keinen Build, keine Installation und keinen neu gestarteten Spieltest. Die anschließende Umsetzung folgt gesondert in Abschnitt 15. Historische Messungen bleiben in ihren ursprünglichen Dateien erhalten.
+## 15. Umgesetzter isolierter Neuaufbau 0.2.0 am 27.10.2026
 
+Nach dem Dokumentationsauftrag wurde ein neuer Implementierungsauftrag ausgeführt.
+Der Testmod enthält jetzt einen eigenen C++-Flächengraphen mit impliziten Makroübergängen,
+A* für einzelne Ziele sowie gemeinsam verwendeten globalen und lokalen Feldern für
+passende Gruppen. Er ersetzt die gescheiterte Hierarchie vollständig. Gerichtete
+Ausnahmen bleiben explizit; Ressourcenbedingungen werden bei Bedarf mit exakter
+Mehrzustandssuche erfüllt. Es gibt keine Spielbefehle, Spielhooks oder Verbraucher.
+RSR, Flow Field Tiles und Subgoal Graphs wurden mit ihren jeweiligen Grenzen verwendet;
+Anpassung und Quellen stehen in [native/SOURCES.md](Testmods/BetterPathfindingTest/native/SOURCES.md).
+
+Der abschließende Testlauf besteht mit **39.963 Assertions, 5.938 unabhängigen
+Vergleichen, 0 Precise-Kosten-/Statusfehlern und 196 offenen gleich teuren
+Richtungsabweichungen**. Framework-Hosts mit Datei- und Speicherladung bestehen.
+Die Teststeuerung speichert nun beide Rohsnapshots vor großen Vergleichen, priorisiert
+Änderungen und weist fehlende positive Szenarien ausdrücklich als unvollständig aus.
+Normales und Diagnosepaket sind binär geprüft; installierte SDK-Dateien bleiben unverändert.
+
+Die ersten positiven großen Offline-Lasten liefern folgenden Stand (.NET 10 plus C++,
+**kein neuer Unity-/Mono-Spieltest**):
+
+- Auf dem alten realen Capture: 10.000 Anfragen zu einem gemeinsamen Ziel in **48,56 ms
+  kalt / 12,57 ms warm**, zusätzlich 13,84 ms Aufbau und 21,21 ms für die verwaltete
+  Prüfung beider Batches; aktueller Precise-Oracle 86,66 ms. Nur 53.793 von 317.604
+  gültigen Koordinaten werden verdichtet. Anfragezahl ist keine erfasste Einheitenzahl.
+- Auf synthetischen 800×800-Karten: 10.000 lange Bodenwege **77,16 ms kalt**, mit
+  Grabenpflicht **134,48 ms kalt**. Konservative Summe aus Aufbau, kalter Berechnung
+  und zusätzlicher Prüfung etwa **161 bzw. 218 ms**; eigene Navigationspuffer etwa
+  **48,42 bzw. 52,62 MiB**. Der frühere Speicherabbruch tritt hier nicht mehr auf.
+- Echte zusammenhängende Formation und verteilte Ziele/Profile mit jeweils 128
+  Anfragen auf dem Capture: etwa **11,5 ms kalt**, ohne deutlichen Vorteil gegenüber
+  Precise. Im Capture fehlt eine geeignete reale Grabenpflicht-Last; sie bleibt
+  unvollständig. Synthetische Querungen gelten nur als getrennte Vertragsfälle.
+
+Alle zurückgegebenen Wege werden geprüft. Große Lasten verwenden drei feste
+unabhängige Vollsuch-Stichproben plus den aktuellen Precise-Oracle für alle Anfragen;
+das ist kein vollständiger unabhängiger Optimalitätsnachweis der gesamten Last.
+Compiler-/Quell-/Binäridentitäten und Eingaben sind gespeichert. Ausführliche
+Messwerte, Prüfungsumfang und Einschränkungen stehen im datierten Nachtrag in
+[RESULTS.md](Testmods/BetterPathfindingTest/RESULTS.md).
+
+**Aktuelle Entscheidung:** 0.2.0 ist eine brauchbare erste Testbasis, keine erfüllte
+100-fach- oder 10.000-Einheiten-Zusage. Nächster Nachweis ist der automatische
+Unity-/Mono-Lauf auf regulär geladener Stresskarte und einer Karte mit tatsächlich
+notwendiger freundlicher Grabenquerung. Dauerhafte Live-Invalidierung, inkrementelle
+Reparatur, viele unterschiedliche Ziele/Regelkontexte und günstiger Konsum gemeinsamer
+nächster Schritte bleiben offene Entwicklungsarbeit. Verbraucher werden weiterhin
+nicht angeschlossen.

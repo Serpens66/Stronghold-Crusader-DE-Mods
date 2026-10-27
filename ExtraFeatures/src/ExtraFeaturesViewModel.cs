@@ -39,6 +39,7 @@ namespace ExtraFeatures
         {
             if (args.PropertyName == nameof(CanEditHostSettings))
             {
+                NormalizeOwnedKillReward();
                 OnPropertyChanged(nameof(CanConfigurePeriodicGold));
                 OnPropertyChanged(nameof(CanConfigureKillReward));
             }

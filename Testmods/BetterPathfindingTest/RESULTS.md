@@ -1,5 +1,8 @@
 # Ergebnisstand vom 26.10.2026
 
+Aktueller Stand: siehe den Nachtrag **Neuaufbau 0.2.0 vom 27.10.2026** weiter unten.
+Die folgenden älteren Abschnitte bleiben historische Nachweise der abgelösten Hierarchie.
+
 ## Einordnung
 
 Der Prototyp implementiert eine eigene exakte Navigationshierarchie. Die bisherige
@@ -149,3 +152,149 @@ Spätere Beobachtung am selben Tag: Der Spielstart mit 0.1.1 meldete um 16:10:03
 belegt. Für diesen Lauf liegen weiterhin keine Kartensnapshots oder abgeschlossenen
 Ingame-Suchvergleiche vor. Eine abschließende Ergänzung klassifiziert abweichende
 SDK-Layerkapazitäten dauerhaft als `UNSUPPORTED`; Kartenfehler bleiben sitzungsbezogen.
+## Neuaufbau 0.2.0 vom 27.10.2026: C++-Flächengraph und gemeinsame Felder
+
+Dieser Nachtrag ersetzt die aktuelle Implementierung, nicht die historischen
+Messungen oben. Die alte Hierarchie wurde entfernt. Der neue private C++-Kern
+verdichtet homogene Rechtecke, erzeugt Makroübergänge implizit und rekonstruiert
+Wege ohne gespeicherte Grenzknotenmatrizen. Seltene Ziele verwenden A* auf dem
+reduzierten Graphen; passende Gruppen ab 32 Anfragen teilen Rückwärtsfelder und
+gegebenenfalls lokale Felder mit exakten globalen Randkosten. Eine ausschließlich
+auf vollständige Zielfelder setzende Zwischenversion war bei verteilten Zielen zu
+teuer; der gemessene Endstand verwendet deshalb diesen Hybrid.
+
+Die Umsetzung ist eigenständig. RSR, Flow Field Tiles und Subgoal Graphs liefern
+Prinzipien, keinen übernommenen Code oder fremden Leistungsnachweis. Die Anpassung
+an gleich teure diskrete Diagonalschritte, gerichtete Ausnahmen und Ressourcen-
+bedingungen ist in [native/SOURCES.md](native/SOURCES.md) beschrieben. Bei verletzten
+Ressourcengrenzen des skalaren Optimums folgt exakte Mehrzustandssuche. Es gibt keine
+feste kleine Obergrenze nicht dominierter Alternativen. Abbruch bleibt unvollständig.
+
+### Fachliche und technische Prüfung
+
+Der abschließende Buildlauf besteht mit **39.963 Assertions und 5.938 Vergleichen
+gegen die unabhängige Vollreferenz**. Dabei wurden **0 Precise-Kosten-/Statusfehler**
+und **196 gleich teure Precise-Richtungsabweichungen** beobachtet. Die Abweichungen
+bleiben offen. Ihre Replays speichern getrennt die Precise-Historie und die nativen
+Batchgrenzen einschließlich Cache-Vorbereitung; ein erneuter Replay mit einer
+32er-Vorbereitungsgruppe reproduzierte die Richtungsabweichung ohne Kostenfehler.
+Nachweise: [abschließende Offline-Fixtures](results/offline-20261027-180420-223/).
+
+Geprüft werden unter anderem Rechteck-Innenpunkte und Grenzpunkte, gerichtete
+Nähte/Diagonalen, gemischte Boden-/Graben-/Strukturklassen, Grabenpflicht samt
+positivem Rückkehrzyklus, billigere Grabenschritte, mehrere Ressourcenprofile,
+terminale Ausnahmen, Schrittgrenzen, lokale Felder, Umordnung von Anfragen,
+Cache-Verdrängung und unveränderte Karten. Sperrungen und neue Abkürzungen werden
+mit vollständigem Neuaufbau verglichen. Der eigene Graph wird bei Änderungen derzeit
+konservativ vollständig ersetzt; inkrementelle Reparatur ist noch nicht umgesetzt.
+Speicherabbruch und anschließender erfolgreicher kleiner Lauf sind ebenfalls geprüft.
+
+Der x64-Framework-Host besteht in getrennten Prozessen mit Dateiladung und echter
+`Assembly.Load(byte[])`-Ladung mit leerer `Location`. Er prüft weiterhin den installierten
+verwalteten Enginevertrag ohne native Spielmethoden. Sein tatsächlicher Worker führt
+jeweils **2.019 positive Kartenanfragen** auf einer kleinen privaten Bodenfixture aus;
+fehlende reale Grabenabdeckung bleibt ausdrücklich unvollständig. Frühes Speichern
+beider Rohsnapshots, Vorrang des Änderungsvergleichs, Kartenwechsel, Abbruch,
+Schreibfehler, Datenfreigabe und erfolgreicher Wiederanlauf werden geprüft.
+
+Scoped Abhängigkeits-, Shared-, Lifecycle-, Capture- und Diagnoseprüfungen bestehen.
+Ein normaler Build enthält binär geprüft weder automatische Diagnose noch native
+Diagnose-DLL. Der `/devdiag`-Build enthält die Markierung und das private x64-ABI 3.
+Buildnachweise: [.local/build-20261027-175619-675.json](.local/build-20261027-175619-675.json)
+(normal) und [.local/build-20261027-180422-971.json](.local/build-20261027-180422-971.json)
+(Diagnose). Alle **282 installierten Abhängigkeitsdateien** wurden unverändert bestätigt.
+
+### Messungen des neuen Kerns
+
+**Diese Messungen sind .NET 10.0.11 plus optimiertem x64-C++, keine Unity-/Mono-
+Messungen.** MSVC 14.41.34120, Windows SDK 10.0.22621.0, statische CRT und ABI 3.
+Eingaben, Compiler-/Quell-/Binäridentität und Hostidentität liegen jeweils neben den
+Berichten. Die Zahlen stammen aus einer Messserie; sie sind keine statistisch
+abgesicherte Obergrenze. Frühere Zwischenstände bleiben in ihren Ergebnisordnern.
+
+Zeiten in ms. Aufbau meint den privaten nativen Flächengraphen; die kalte und warme
+Batchzeit enthalten die private Wegrekonstruktion und die verwaltete Batchübergabe.
+"Prüfung" enthält die zusätzliche verwaltete Kanten-/Vertragsprüfung beider Batches
+und das testweise Packen kalter Wege. Keine dieser Spalten enthält eine Veröffentlichung
+von Wegen an das Spiel. Die Precise-Spalte umfasst alle Anfragen mit dessen vorhandener
+Wiederverwendung sowie der unveränderten Offline-Adapterkonvertierung/-prüfung.
+Kartenmaterialisierung, Oracle-Vorbereitung und unabhängige Referenz sind gesondert
+in den JSON-Berichten ausgewiesen. Ein Quotient nur aus den Suchspalten wäre kein
+Ende-zu-Ende-Beschleunigungsnachweis.
+
+Synthetische 800×800-Karten mit langen positiven Wegen; "Graben" verlangt die Querung
+eines Grabenstreifens. Alle acht Lasten sind vollständig beantwortet, ohne beobachtete
+Kosten-/Statusfehler. Bei mehr als drei Anfragen prüft die unabhängige Vollreferenz drei
+feste Stichproben; der Precise-Oracle und die Kantenprüfung laufen für sämtliche Anfragen.
+
+| Karte | Anfragen | Aufbau | Kalt | Warm | Prüfung | Precise |
+|---|---:|---:|---:|---:|---:|---:|
+| Boden | 1 | 13,23 | 4,34 | 0,76 | 0,41 | 4,67 |
+| Boden | 128 | 10,58 | 3,19 | 1,57 | 14,19 | 49,80 |
+| Boden | 512 | 10,69 | 3,85 | 3,59 | 4,07 | 111,80 |
+| Boden | 10.000 | 11,58 | 77,16 | 60,14 | 72,36 | 301,00 |
+| Graben | 1 | 11,65 | 7,06 | 6,96 | 0,02 | 57,53 |
+| Graben | 128 | 11,81 | 68,35 | 2,41 | 1,01 | 73,19 |
+| Graben | 512 | 11,64 | 71,32 | 4,79 | 3,75 | 97,62 |
+| Graben | 10.000 | 11,82 | 134,48 | 63,91 | 72,06 | 285,87 |
+
+Nachweise: [800er-Serie](results/areas-20261027-174928/), insbesondere
+[Boden, 10.000](results/areas-20261027-174928/ground-800-10000.md) und
+[Graben, 10.000](results/areas-20261027-174928/moat-800-10000.md).
+Die konservativ bilanzierten eigenen verwalteten und nativen Navigationspuffer
+liegen bei den 10.000er-Lasten bei **48,42 bzw. 52,62 MiB**. Das ist kein isolierter
+Gesamtprozessspeicher einschließlich der separat budgetierten Referenzsuche.
+
+Zusätzlich wurde der bereits aufgenommene reale 800×800-Graph mit 317.604 gültigen
+Koordinaten erneut offline verarbeitet. Nur **53.793 innere Koordinaten** lassen sich
+hier entfernen; die Verdichtung ist deutlich geringer als im offenen synthetischen
+Gitter. Positive Eingaben stammen aus einer tatsächlich verbundenen Komponente;
+10.000 Anfragen sind keine 10.000 verschiedenen erfassten Spieleinheiten.
+
+| Last | Vollständig / gefunden | Aufbau | Kalt | Warm | Prüfung | Precise |
+|---|---:|---:|---:|---:|---:|---:|
+| Gemeinsames Ziel | 10.000 / 10.000 | 13,84 | 48,56 | 12,57 | 21,21 | 86,66 |
+| Zusammenhängende Formation | 128 / 128 | 9,96 | 11,49 | 9,24 | 0,33 | 11,44 |
+| Verteilte Ziele/Profile | 128 / 128 | 10,67 | 11,42 | 9,25 | 13,52 | 13,54 |
+
+Nachweise: [Capture-Replay](results/captured-20261027-174927/).
+Alle zurückgegebenen kalten und warmen Wege sind kantenweise geprüft; drei feste
+Fälle pro Last wurden zusätzlich unabhängig optimal geprüft und alle mit Precise
+verglichen. Kosten-/Statusfehler: 0. Gleich teure Richtungsabweichungen sind häufig,
+beim gemeinsamen Ziel beispielsweise 6.760; das ist keine akzeptierte Wegtreue.
+Die Eingabenerzeugung fand in diesem Capture **keine geeignete reale Last mit
+Grabenpflicht**. Deren Bericht bleibt `INCOMPLETE`, und das Capture-Werkzeug beendet
+sich deshalb mit Exitcode 2. Synthetische Grabenfälle ersetzen diesen Nachweis nicht.
+
+### Bewertung und nächster Ingame-Test
+
+Der Neuaufbau beseitigt den vorherigen 256-MiB-Abbruch der großen offenen Lasten und
+liefert erstmals umfangreiche positive Wege auf dem aufgenommenen Graphen. Er ist
+als weitere Testbasis brauchbar. **Das Entwicklungsziel ist noch nicht erreicht:**
+Eine 100-fache Verbesserung gegenüber Precise ist nicht nachgewiesen. Bei 10.000
+langen synthetischen Wegen ergeben Aufbau, kalter Batch und zusätzliche Prüfung
+konservativ etwa **161 ms auf Boden und 218 ms mit Grabenpflicht**. Die kalte Graben-
+Berechnung alleine überschreitet 100 ms. Unterschiedliche Ziele sind im Capture
+nicht deutlich schneller als Precise. Vorbereitung, Aktualisierung und vollständige
+Wegausgabe dürfen daher nicht aus der Gesamtbewertung verschwinden.
+
+Für die nächste Architekturentscheidung sind echte Grabenquerungen unter den
+veröffentlichten Zugriffsregeln, größere zusammenhängende Formationen, viele eigene
+Ziele und Profile, Änderungen unter Belagerung sowie längerer Dauerbetrieb erforderlich.
+Ressourcenbedingt nötige Mehrzustandssuchen und vollständige Wegpuffer pro Einheit
+bleiben potenziell teuer. Ein späterer Verbraucher sollte gemeinsame vorbereitete
+nächste Schritte konsumieren; diese Bewegungsanbindung ist noch nicht implementiert.
+
+**Für 0.2.0 liegt noch kein Ingame-Lauf unter Unity/Mono vor.** Nach Installation eine
+reguläre Karte oder einen Save laden, vorzugsweise die bisherige Stresskarte und
+zusätzlich eine Karte mit freundlichem Graben samt erreichbarer Gegenseite. Der Test
+startet automatisch, speichert zwei Rohsnapshots im Abstand von mindestens zehn
+Sekunden und führt zuerst die Änderungsvergleiche aus. Für die Gruppenläufe einige
+Minuten offen lassen; 120 Sekunden pro Snapshot und 15 Sekunden pro Einzellast
+bleiben diagnostische Grenzen. Beenden oder Kartenwechsel ergibt gegebenenfalls
+einen unvollständigen Lauf. Bestehende Bewegung wird durch diesen Mod nicht ersetzt.
+
+Das geprüfte **0.2.0-/devdiag-Paket ist installiert**. Vier Paketdateien wurden per
+Hash bestätigt; alle 282 installierten Abhängigkeitsdateien sind davor und danach
+unverändert. Das Spiel wurde nicht gestartet. Installationsnachweis:
+[.local/installed.json](.local/installed.json).

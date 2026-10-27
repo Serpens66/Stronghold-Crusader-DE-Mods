@@ -38,13 +38,14 @@ namespace BetterPathfindingTest.Core
             if (family == "formation" || family == "distributed-profiles")
             {
                 var visited = new HashSet<int> { target }; var open = new Queue<int>(); open.Enqueue(target);
-                while (open.Count != 0 && targets.Count < (family == "formation" ? 289 : 2048))
+                int radiusLimit = family == "formation" ? Math.Max(2, (int)Math.Ceiling(Math.Sqrt(count) / 2)) : 100;
+                while (open.Count != 0 && targets.Count < (family == "formation" ? count : 2048))
                 {
                     int node = open.Dequeue();
                     for (int d = 0; d < 8; d++) if (map.Edge(node, d, template, out int next, out _, out _) && map.IsValid(next) && visited.Add(next))
                     {
                         int radius = Math.Max(Math.Abs(next % map.Width - target % map.Width), Math.Abs(next / map.Width - target / map.Width));
-                        if (radius > (family == "formation" ? 8 : 100)) continue;
+                        if (radius > radiusLimit) continue;
                         targets.Add(next); open.Enqueue(next);
                     }
                 }

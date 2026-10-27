@@ -19,7 +19,7 @@ namespace BetterPathfindingTest.Core
                     {
                         watch.Restart(); RouteResult a = updated.FindPath(query); double incrementalMs = watch.Elapsed.TotalMilliseconds;
                         watch.Restart(); RouteResult b = fresh.FindPath(query); double rebuildQueryMs = watch.Elapsed.TotalMilliseconds;
-                        RouteResult c = ReferenceSearch.Find(after, query, new WorkBudget(budget.MaximumBytes, 10));
+                        RouteResult c = ReferenceSearch.Find(after, query, new WorkBudget(budget.MaximumBytes, 10, budget.Cancellation));
                         if (a.Status == SearchStatus.Inconclusive || b.Status == SearchStatus.Inconclusive || c.Status == SearchStatus.Inconclusive) { incomplete = true; break; }
                         compared++; bool same = a.Status == b.Status && a.Status == c.Status && (a.Status != SearchStatus.Found || a.Cost == b.Cost && a.Cost == c.Cost);
                         if (!same) differences++;

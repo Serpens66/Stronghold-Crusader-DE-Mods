@@ -6,6 +6,9 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.ComponentModel;
+using System.Reflection;
+using SHCDESE.API.Components.Network;
 
 internal static class KillRewardTests
 {
@@ -32,7 +35,8 @@ internal static class KillRewardTests
             string plugin = Path.Combine(fixture, "ExtraFeatures.dll");
             Func<ExtraFeaturesViewModel> prepare = () => {
                 var result = new ExtraFeaturesViewModel(false);
-                result.PreparePresets(null, plugin, "KillReward"); result.ActivatePresets(); return result;
+                result.PreparePresets(null, plugin, "KillReward"); result.ActivatePresets();
+                result.CompleteKillRewardRegistration(); return result;
             };
             var settings = prepare();
             check(settings.KillRewardGoldHuman == -1 && settings.KillRewardGoldAI == -1 &&
@@ -51,6 +55,38 @@ internal static class KillRewardTests
             }
             settings.KillRewardGoldMaximumAI = int.MaxValue;
             check(prepare().KillRewardGoldMaximumAI == int.MaxValue, "Int32 cap persists");
+            // Observe the production notification boundary, including snapshot publication.
+            // A whole-model application used to emit every unrelated host property here.
+            var hostChanges = new List<string>(); var runtimeChanges = new List<string>();
+            var textChanges = new List<string>();
+            GameNetworkAPI.Networked = true;
+            GameXAMLManagerAPI.Instance.RegisterLobbyModSettings(null, "Reward regression", settings, "", false);
+            PropertyChangedEventHandler changed = (sender, args) => {
+                if (!args.PropertyName.StartsWith("System_", StringComparison.Ordinal) && args.PropertyName.EndsWith("Text", StringComparison.Ordinal)) textChanges.Add(args.PropertyName);
+                if (settings.GetType().GetProperty(args.PropertyName)?.GetCustomAttribute<SyncHostOnlyAttribute>() != null)
+                    hostChanges.Add(args.PropertyName);
+            };
+            ((INotifyPropertyChanged)settings).PropertyChanged += changed;
+            settings.SettingChanged += runtimeChanges.Add;
+            foreach (string name in new[] { "KillRewardGoldHuman", "KillRewardGoldAI", "KillRewardGoodsHuman", "KillRewardGoodsAI", "KillRewardGoldMaximumHuman", "KillRewardGoldMaximumAI", "CampfirePeasantsLimit" })
+            {
+                hostChanges.Clear(); runtimeChanges.Clear(); textChanges.Clear();
+                GameXAMLManagerAPI.Instance.ResetRoutingCounts();
+                PropertyInfo property = settings.GetType().GetProperty(name);
+                int value = (int)property.GetValue(settings) == 47 ? 48 : 47;
+                property.SetValue(settings, value);
+                check(hostChanges.SequenceEqual(new[] { name }) && runtimeChanges.SequenceEqual(new[] { name }), "Single-value slider path: " + name);
+                check(textChanges.SequenceEqual(new[] { name + "Text" }) && GameXAMLManagerAPI.Instance.BroadcastCount == 1,
+                    "One display and one host publication: " + name + " (" + string.Join(",", textChanges) + "; broadcasts=" + GameXAMLManagerAPI.Instance.BroadcastCount + ")");
+                hostChanges.Clear(); runtimeChanges.Clear(); textChanges.Clear();
+                GameXAMLManagerAPI.Instance.ResetRoutingCounts(); property.SetValue(settings, value);
+                check(hostChanges.Count == 0 && runtimeChanges.Count == 0 && textChanges.Count == 0 &&
+                    GameXAMLManagerAPI.Instance.BroadcastCount == 0, "Unchanged slider does no work: " + name);
+            }
+            ((INotifyPropertyChanged)settings).PropertyChanged -= changed;
+            settings.SettingChanged -= runtimeChanges.Add;
+            GameNetworkAPI.Networked = false;
+            GameXAMLManagerAPI.Instance.ResetRoutingProbe();
             settings.System_LoadModDefaults();
             // Actual legacy file, without any new properties: local-load migration must not
             // depend on property enumeration order or the presence of an active game.
@@ -63,6 +99,9 @@ internal static class KillRewardTests
             settings = prepare();
             check(settings.KillRewardGoldHuman == 0 && settings.KillRewardGoodsHuman == 0 &&
                 settings.KillRewardGoldAI == -1 && settings.KillRewardGoodsAI == -1, "Legacy Human-only profile migrates");
+            var migrated = MessagePackSerializer.Deserialize<Dictionary<string, byte[]>>(File.ReadAllBytes(storage));
+            check(!MessagePackSerializer.Deserialize<bool>(migrated["NoKillRewardHuman"]) &&
+                MessagePackSerializer.Deserialize<int>(migrated["KillRewardGoodsHuman"]) == 0, "Personal migration is persisted before the first slider edit");
             IModSettingsWorkingCopyEndpoint endpoint = settings;
             var exported = endpoint.System_CreatePlayerMissionPresetSnapshot();
             check(!MessagePackSerializer.Deserialize<bool>(exported["NoKillRewardHuman"]) &&
@@ -94,6 +133,33 @@ internal static class KillRewardTests
                 MessagePackSerializer.Deserialize<int>(trailExport["KillRewardGoodsAI"]) == 0, "Trail export canonicalizes without rewriting source");
             restored.System_ExitMissionPreset();
             check(restored.KillRewardGoldHuman == 37 && restored.KillRewardGoldAI == -1, "Leaving Trail restores own values");
+            endpoint = restored;
+            endpoint.System_EnterMissionPreset(null, "Unconfigured Trail", false);
+            check(restored.KillRewardGoldHuman == -1 && restored.KillRewardGoodsHuman == -1, "Null mission snapshot retains the default-source contract");
+            endpoint.System_ExitMissionPreset();
+
+            // Legacy named presets can contain only the retired property. Capture that
+            // real file shape through the same confirmed-selection override as the UI.
+            restored.System_SavePersonalPreset("old", "Old", "", new[] {
+                new PresetSaveSelection { PropertyName = "NoKillRewardAI", Mode = PublishedPresetValueMode.Fixed }
+            }, false);
+            var oldPreset = restored.System_TestPublishedPresets.Single(p => p.Id == "old");
+            oldPreset.Settings["NoKillRewardAI"].Value = true;
+            restored.System_TestLoadPreset(oldPreset.StableId);
+            check(prepare().KillRewardGoodsAI == 0, "Old named preset is migrated and saved immediately");
+            restored.KillRewardGoldAI = 61;
+            check(prepare().KillRewardGoldAI == 61 && prepare().KillRewardGoodsAI == 0, "Named-preset migration survives independent edits and restart");
+            endpoint = restored;
+            endpoint.System_EnterMissionPreset(trail, "Editable old Trail", true);
+            check(MessagePackSerializer.Deserialize<bool>(trail["NoKillRewardAI"]), "Loading leaves caller-owned Trail data unchanged");
+            restored.System_TestLoadPreset(oldPreset.StableId);
+            restored.KillRewardGoldAI = 62;
+            var editable = endpoint.System_CreateCurrentWorkingSnapshot();
+            check(!MessagePackSerializer.Deserialize<bool>(editable["NoKillRewardAI"]) &&
+                MessagePackSerializer.Deserialize<int>(editable["KillRewardGoldAI"]) == 62 &&
+                MessagePackSerializer.Deserialize<int>(editable["KillRewardGoodsAI"]) == 0, "Named legacy preset inside editable Trail retires aliases before edits");
+            endpoint.System_ExitMissionPreset();
+            restored.KillRewardGoldAI = restored.KillRewardGoodsAI = -1;
 
             restored.SetKillRewardMissionLocked(true); restored.KillRewardGoldHuman = 50; restored.KillRewardGoldMaximumAIText = "10";
             check(restored.KillRewardGoldHuman == 37 && restored.KillRewardGoldMaximumAI == -1 && !restored.CanConfigureKillReward, "Mission locks every input");
@@ -110,6 +176,35 @@ internal static class KillRewardTests
             restored.System_RefreshSettingsAccess();
             restored.ResetToDefaultCommand.Execute(null);
             check(restored.KillRewardGoldHuman == -1 && restored.KillRewardGoodsAI == -1 && restored.KillRewardGoldMaximumHuman == -1, "Reset restores Vanilla");
+
+            legacy["NoKillRewardAI"] = MessagePackSerializer.Serialize(true);
+            string clientFixture = TestWorkDirectory.New("KillRewardClient");
+            PersonalSettingsPaths.TestDocumentsDirectory = _ => clientFixture;
+            prepare();
+            storage = Directory.GetFiles(clientFixture, "settings.msgpack", SearchOption.AllDirectories).Single();
+            File.WriteAllBytes(storage, MessagePackSerializer.Serialize(legacy));
+            GameNetworkAPI.LocalHost = false; GameNetworkAPI.Networked = true; GameNetworkAPI.MultiplayerGame = true;
+            var client = prepare();
+            // APIShared may upgrade the storage envelope during registration. Afterwards,
+            // remote and Trail values must leave those owned bytes completely unchanged.
+            byte[] clientProfile = File.ReadAllBytes(storage);
+            GameXAMLManagerAPI.Instance.ApplyNetworkSync(client, () => { client.KillRewardGoldHuman = 83; client.KillRewardGoodsAI = 7; });
+            IModSettingsWorkingCopyEndpoint clientEndpoint = client;
+            clientEndpoint.System_EnterMissionPreset(trail, "Client Trail", false);
+            clientEndpoint.System_ExitMissionPreset();
+            check(File.ReadAllBytes(storage).SequenceEqual(clientProfile), "Client sync and Trail return leave owned personal bytes untouched");
+            GameNetworkAPI.LocalHost = true; GameNetworkAPI.Networked = false; GameNetworkAPI.MultiplayerGame = false;
+            client.System_RefreshSettingsAccess();
+            var takeover = MessagePackSerializer.Deserialize<Dictionary<string, byte[]>>(File.ReadAllBytes(storage));
+            check(!MessagePackSerializer.Deserialize<bool>(takeover["NoKillRewardHuman"]) &&
+                !MessagePackSerializer.Deserialize<bool>(takeover["NoKillRewardAI"]), "Host takeover persists retired legacy switches immediately");
+            check(client.KillRewardGoldHuman == 0 && client.KillRewardGoodsHuman == 0 && client.KillRewardGoldAI == 0 && client.KillRewardGoodsAI == 0,
+                "Later host takeover restores and migrates the owned profile for both roles");
+            client.KillRewardGoldHuman = 19; client.KillRewardGoodsAI = 23;
+            var hostRestart = prepare();
+            check(hostRestart.KillRewardGoldHuman == 19 && hostRestart.KillRewardGoodsHuman == 0 &&
+                hostRestart.KillRewardGoldAI == 0 && hostRestart.KillRewardGoodsAI == 23, "Host takeover migration persists independent changes without foreign values: " +
+                string.Join(",", hostRestart.KillRewardGoldHuman, hostRestart.KillRewardGoodsHuman, hostRestart.KillRewardGoldAI, hostRestart.KillRewardGoodsAI));
         }
         finally
         {

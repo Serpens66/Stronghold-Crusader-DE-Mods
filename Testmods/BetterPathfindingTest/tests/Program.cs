@@ -7,7 +7,7 @@ using BetterPathfindingTest.Core;
 internal static partial class Program
 {
     private static int assertions, comparisons, productionDifferences, ties;
-    private static readonly string Evidence = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../results/offline-" + DateTime.UtcNow.ToString("yyyyMMdd-HHmmss")));
+    private static readonly string Evidence = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../results/offline-" + DateTime.UtcNow.ToString("yyyyMMdd-HHmmss-fff")));
     private static void Check(bool value, string message) { assertions++; if (!value) throw new InvalidOperationException(message); }
     internal static GridSnapshot Grid(int width, int height, Func<int, int, int, uint> edge = null)
     {
@@ -17,6 +17,7 @@ internal static partial class Program
     }
     private static void Compare(AreaNavigator nav, GridSnapshot map, RouteQuery query, ProductionOracle oracle = null)
     {
+        TraceTape.Record(nav, map, new[] { query });
         RouteResult actual = nav.FindPath(query), expected = ReferenceSearch.Find(map, query, new WorkBudget(128L * 1024 * 1024, 15)); comparisons++;
         Check(expected.Status != SearchStatus.Inconclusive, "Reference budget: " + expected.Reason);
         Check(actual.Status == expected.Status, "Status mismatch " + actual.Status + "/" + expected.Status + " " + actual.Reason);
@@ -31,11 +32,11 @@ internal static partial class Program
             if (old.Status != expected.Status || (old.Status == SearchStatus.Found && old.Cost != expected.Cost))
             {
                 productionDifferences++; Directory.CreateDirectory(Evidence);
-                SnapshotCodec.WriteQueries(Path.Combine(Evidence, "precise-difference-" + productionDifferences + ".bpf.gz"), map, oracle.History);
+                TraceTape.Save(Path.Combine(Evidence, "precise-difference-" + productionDifferences + ".bpf.gz"), nav, map, oracle.History, actual, old);
                 if (productionDifferences <= 3) Console.WriteLine("PRECISE_REVIEW case=" + comparisons + " start=" + query.Start + " target=" + query.Target + " requireMoat=" + query.RequireMoat + " bounds=" + query.Bounds.Length + " original=" + old.Status + "/" + old.Cost + " exact=" + expected.Status + "/" + expected.Cost);
             }
             else if (old.Status == SearchStatus.Found && Convert.ToBase64String(old.Directions) != Convert.ToBase64String(actual.Directions))
-            { ties++; Directory.CreateDirectory(Evidence); SnapshotCodec.WriteQueries(Path.Combine(Evidence, "precise-tie-" + ties + ".bpf.gz"), map, oracle.History); }
+            { ties++; Directory.CreateDirectory(Evidence); TraceTape.Save(Path.Combine(Evidence, "precise-tie-" + ties + ".bpf.gz"), nav, map, oracle.History, actual, old); }
         }
     }
     private static void RandomDirected()
@@ -64,7 +65,7 @@ internal static partial class Program
             Check(nav.Stats.Pruned > 0 && nav.Stats.Macros > 0, "Rectangle reduction and macro transitions must execute.");
             var batch = new List<RouteQuery>();
             for (int i = 0; i < 32; i++) { var q = query.Copy(); q.Start = (i % 5) * 133 + 1 + i % 24; batch.Add(q); }
-            nav.FindPaths(batch); foreach (RouteQuery q in batch) Compare(nav, map, q, oracle);
+            TraceTape.Record(nav, map, batch); nav.FindPaths(batch); foreach (RouteQuery q in batch) Compare(nav, map, q, oracle);
             Check(nav.Stats.Fields > 0 && nav.Stats.Hits >= 32, "Actual shared goal fields must be reused.");
             uint[] words = map.CopyEdges(); int cut = 2 * 133 + 60; words[cut] = 0;
             GridSnapshot next = new GridSnapshot(133, 5, map.CopyValidity(), words); nav.Update(next);
@@ -109,10 +110,11 @@ internal static partial class Program
             if (args.Length != 0 && args[0] == "--replay") return Replay.Run(args);
             if (args.Length != 0 && args[0] == "--bench") return OfflineBench.Run();
             if (args.Length != 0 && args[0] == "--scale") return ScaleBench.Run();
+            if (args.Length != 0 && args[0] == "--captured") return CapturedBench.Run(args);
             var watch = Stopwatch.StartNew(); Contracts(); RandomDirected(); AreasAndFields(); AdvancedContracts(); NativeAreaContracts();
             Console.WriteLine("PASS assertions=" + assertions + " referenceComparisons=" + comparisons + " productionCostOrStatusDifferences=" + productionDifferences + " productionTiePathDifferences=" + ties + " elapsedMs=" + watch.ElapsedMilliseconds);
             if (productionDifferences != 0) Console.WriteLine("PRECISE_PARITY_REVIEW differences=" + productionDifferences + "; evidence=" + Evidence + "; no consumer acceptance claimed.");
-            return 0;
+            return productionDifferences == 0 ? 0 : 1;
         }
         catch (Exception ex) { Console.Error.WriteLine(ex); return 1; }
     }

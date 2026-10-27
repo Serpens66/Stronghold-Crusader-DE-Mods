@@ -17,6 +17,7 @@ namespace ExtraFeatures
         private int killRewardGoldMaximumHuman = -1, killRewardGoldMaximumAI = -1;
         private bool legacyKillRewardHuman, legacyKillRewardAI;
         private bool killRewardPresetsReady;
+        private bool normalizingKillReward;
         private volatile bool killRewardMissionLocked;
         public bool CanConfigureKillReward => CanEditHostSettings && !killRewardMissionLocked;
         public string KillRewardTitle => SerpLocalization.Get("ExtraFeatures.KillReward.Title");
@@ -34,7 +35,7 @@ namespace ExtraFeatures
         [SyncHostOnly] public int KillRewardGoldMaximumHuman { get => killRewardGoldMaximumHuman; set => SetKillReward(ref killRewardGoldMaximumHuman, value, nameof(KillRewardGoldMaximumHuman), true); }
         [SyncHostOnly] public int KillRewardGoldMaximumAI { get => killRewardGoldMaximumAI; set => SetKillReward(ref killRewardGoldMaximumAI, value, nameof(KillRewardGoldMaximumAI), true); }
 
-        // Read compatibility only. Canonical exports and new changes always retire these flags.
+        // Read compatibility only. Loading and canonical exports retire these flags.
         [SyncHostOnly] public bool NoKillRewardHuman { get => legacyKillRewardHuman; set => ReceiveLegacyKillReward(value, false); }
         [SyncHostOnly] public bool NoKillRewardAI { get => legacyKillRewardAI; set => ReceiveLegacyKillReward(value, true); }
 
@@ -60,22 +61,10 @@ namespace ExtraFeatures
 
         private void SetKillReward(ref int field, int value, string name, bool maximum = false)
         {
-            if ((killRewardMissionLocked && !IsApplyingSettingsSnapshot) || !CanMutateSetting(name)) return;
+            if (killRewardMissionLocked && !IsApplyingSettingsSnapshot) return;
             if (maximum && value != -1 && value <= 0) return;
-            int normalized = maximum ? value : Math.Max(-1, Math.Min(100, value));
-            if (field == normalized) return;
-            field = normalized;
-            // A snapshot is normalized only after all setters, independently of property order.
-            if (!IsApplyingSettingsSnapshot)
-            {
-                legacyKillRewardHuman = false; legacyKillRewardAI = false;
-                if (CommitKillRewardGroup()) return;
-            }
-            // Capture the complete group, including the other migrated zero and retired aliases.
-            // Received host values use the existing origin/authority scope and never reach own storage.
-            foreach (string property in KillRewardProperties) OnPropertyChanged(property);
-            RaiseKillRewardText();
-            SettingChanged?.Invoke(name);
+            if (field == (maximum ? value : Math.Max(-1, Math.Min(100, value)))) return;
+            SetIntSetting(ref field, value, -1, maximum ? int.MaxValue : 100, name, name + "Text");
         }
 
         private void ReceiveLegacyKillReward(bool value, bool ai)
@@ -86,7 +75,6 @@ namespace ExtraFeatures
             if (!IsApplyingSettingsSnapshot)
             {
                 ApplyLegacyKillReward();
-                if (CommitKillRewardGroup()) return;
                 RaiseKillRewardProperties();
                 SettingChanged?.Invoke(name);
             }
@@ -95,7 +83,6 @@ namespace ExtraFeatures
         protected override void OnSettingsSnapshotApplied()
         {
             base.OnSettingsSnapshotApplied();
-            killRewardPresetsReady = true;
             ApplyLegacyKillReward();
             RaiseKillRewardProperties();
             SettingChanged?.Invoke(nameof(KillRewardGoldHuman));
@@ -108,25 +95,31 @@ namespace ExtraFeatures
             legacyKillRewardHuman = legacyKillRewardAI = false;
         }
 
-        private bool CommitKillRewardGroup()
+        // Cold entry points only: store the complete migrated group once, before any edit.
+        // Read the selected serialized working copy, never live remote getters. An editable
+        // mission stays transient; a read-only source or client cannot enter this path.
+        internal void CompleteKillRewardRegistration()
         {
-            if (!killRewardPresetsReady ||
-                GameXAMLManagerAPI.Instance.CurrentLobbyModSettingsChangeOrigin != LobbyModSettingsChangeOrigin.Local)
-                return false;
-            // One existing controller transaction/atomic file replacement, not eight
-            // independent property writes with a crash window for a stale legacy flag.
-            var snapshot = new Dictionary<string, byte[]> {
-                [nameof(KillRewardGoldHuman)] = MessagePackSerializer.Serialize(killRewardGoldHuman),
-                [nameof(KillRewardGoldAI)] = MessagePackSerializer.Serialize(killRewardGoldAI),
-                [nameof(KillRewardGoodsHuman)] = MessagePackSerializer.Serialize(killRewardGoodsHuman),
-                [nameof(KillRewardGoodsAI)] = MessagePackSerializer.Serialize(killRewardGoodsAI),
-                [nameof(KillRewardGoldMaximumHuman)] = MessagePackSerializer.Serialize(killRewardGoldMaximumHuman),
-                [nameof(KillRewardGoldMaximumAI)] = MessagePackSerializer.Serialize(killRewardGoldMaximumAI),
-                [nameof(NoKillRewardHuman)] = MessagePackSerializer.Serialize(false),
-                [nameof(NoKillRewardAI)] = MessagePackSerializer.Serialize(false)
-            };
-            base.System_ApplyWorkingSnapshot(snapshot);
-            return true;
+            killRewardPresetsReady = true;
+            NormalizeOwnedKillReward();
+        }
+
+        private void NormalizeOwnedKillReward()
+        {
+            if (!killRewardPresetsReady || normalizingKillReward ||
+                !CanEditHostSettings || IsApplyingSettingsSnapshot ||
+                GameXAMLManagerAPI.Instance.CurrentLobbyModSettingsChangeOrigin != LobbyModSettingsChangeOrigin.Local) return;
+            var owned = IsMissionPresetSelected ? base.System_CreateCurrentWorkingSnapshot() : base.System_CreatePlayerMissionPresetSnapshot();
+            if (!HasLegacyKillReward(owned)) return;
+            normalizingKillReward = true;
+            try { base.System_ApplyWorkingSnapshot(CanonicalKillRewardSnapshot(owned)); }
+            finally { normalizingKillReward = false; }
+        }
+
+        protected override void ApplyConfirmedPresetSelection(PublishedModSettingsPreset preset)
+        {
+            base.ApplyConfirmedPresetSelection(preset);
+            NormalizeOwnedKillReward();
         }
 
         private void RaiseKillRewardProperties()
@@ -163,19 +156,37 @@ namespace ExtraFeatures
         public new Dictionary<string, byte[]> System_CreateCurrentMissionPresetSnapshot() => CanonicalKillRewardSnapshot(base.System_CreateCurrentMissionPresetSnapshot());
         public new Dictionary<string, byte[]> System_CreatePlayerMissionPresetSnapshot() => CanonicalKillRewardSnapshot(base.System_CreatePlayerMissionPresetSnapshot());
 
+        public new void System_ApplyWorkingSnapshot(Dictionary<string, byte[]> snapshot) =>
+            base.System_ApplyWorkingSnapshot(CanonicalKillRewardSnapshot(snapshot));
+        public new void System_ApplyMissionPresetSnapshot(Dictionary<string, byte[]> snapshot, string label) =>
+            base.System_ApplyMissionPresetSnapshot(CanonicalKillRewardSnapshot(snapshot), label);
+        public new void System_EnterMissionPreset(Dictionary<string, byte[]> snapshot, string label, bool editable) =>
+            base.System_EnterMissionPreset(snapshot == null ? null : CanonicalKillRewardSnapshot(snapshot), label, editable);
+        public new void System_ExitMissionPreset()
+        {
+            base.System_ExitMissionPreset();
+            NormalizeOwnedKillReward();
+        }
+
+        private static bool LegacyKillReward(Dictionary<string, byte[]> snapshot, string name)
+        {
+            if (snapshot.TryGetValue(name, out byte[] bytes) && bytes != null)
+                try { return MessagePackSerializer.Deserialize<bool>(bytes); }
+                catch (MessagePackSerializationException) { }
+            return false;
+        }
+
+        private static bool HasLegacyKillReward(Dictionary<string, byte[]> snapshot) =>
+            LegacyKillReward(snapshot, nameof(NoKillRewardHuman)) || LegacyKillReward(snapshot, nameof(NoKillRewardAI));
+
         private static Dictionary<string, byte[]> CanonicalKillRewardSnapshot(Dictionary<string, byte[]> snapshot)
         {
+            if (snapshot == null) throw new ArgumentNullException(nameof(snapshot));
+            snapshot = new Dictionary<string, byte[]>(snapshot, StringComparer.Ordinal);
             foreach (string role in new[] { "Human", "AI" })
             {
                 string legacy = "NoKillReward" + role;
-                bool suppress = false;
-                if (snapshot.TryGetValue(legacy, out byte[] bytes) && bytes != null)
-                {
-                    // Match the preset controller's fallback for a corrupt retired value.
-                    // Keep this detached projection pure; never repair a remote/Trail source.
-                    try { suppress = MessagePackSerializer.Deserialize<bool>(bytes); }
-                    catch (MessagePackSerializationException) { }
-                }
+                bool suppress = LegacyKillReward(snapshot, legacy);
                 if (suppress)
                 {
                     snapshot["KillRewardGold" + role] = MessagePackSerializer.Serialize(0);
