@@ -18,6 +18,9 @@
     <ExtenderDir Condition="'$(ExtenderDir)' == ''">$(GameDir)\BepInEx\plugins\000shcdese</ExtenderDir>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="../../APIShared/src/Localization/TextCatalog.cs" Link="Localization/TextCatalog.cs" />
+    <Compile Include="../../APIShared/src/Localization/UiText.cs" Link="Localization/UiText.cs" />
+    <EmbeddedResource Include="../../APIShared/Locales/en-US.txt"><LogicalName>APIShared.Locales.en-US.txt</LogicalName></EmbeddedResource>
     <Compile Include="..\..\APIShared\src\Missions\MissionLifecycleContracts.cs" />
     <Compile Include="..\..\APIShared\src\Missions\MissionLifecycleState.cs" />
     <Reference Include="R3">

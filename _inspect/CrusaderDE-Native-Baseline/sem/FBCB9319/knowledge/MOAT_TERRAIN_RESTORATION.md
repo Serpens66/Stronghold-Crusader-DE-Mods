@@ -90,3 +90,11 @@ instruction-aligned spans, incoming interior xrefs and own overlap. Fixtures exe
 the production operations/emitter and use the installed RedBird backend on private
 memory; external refresh/call destinations are explicit fixture boundaries.
 Game visuals, actual farm placement and real multiplayer remain untested.
+
+Release ownership review, 2026-10-27 [mod integration]: the installed RedBird
+transaction activates patches during its default Commit and disposes owned hooks
+on Dispose. The terrain owner now explicitly prepares without activation, retains
+its buffer after save registration or the first attempted Enable, and publishes
+readiness only after all installed-span checks. Initialization failures after either
+publication boundary keep the feature logically disabled and retain all resources.
+This changes no Vanilla bytes, native spans or terrain/persistence semantics above.

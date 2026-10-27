@@ -35,11 +35,11 @@ namespace BugfixesAndQoL.MoatTerrain
         private object engineGate;
         private long nativeTileManager;
         private int reportedMarkers;
-        private bool published;
+        private readonly TerrainPublication publication = new TerrainPublication();
 
         internal TerrainRuntime(ManualLogSource log, BugfixesAndQoLViewModel settings)
         { this.log = log; this.settings = settings; }
-        private bool Enabled => settings.EnableMod && settings.EnableMoatTerrainRestoration;
+        private bool Enabled => publication.IsReady && settings.EnableMod && settings.EnableMoatTerrainRestoration;
 
         internal void Install(CrusaderLibraryLoadContext context, bool referenceHashMatches)
         {
@@ -79,7 +79,7 @@ namespace BugfixesAndQoL.MoatTerrain
                 buffer = Marshal.AllocHGlobal(TerrainState.BufferBytes);
                 history = new TerrainHistory(buffer);
                 ulong state = unchecked((ulong)buffer.ToInt64());
-                transaction = BugfixesHookInfrastructure.CreateOwnedTransaction(context.Region);
+                transaction = BugfixesHookInfrastructure.CreateOwnedTransaction(context.Region, installOnCommit: false);
                 foreach (NativeDefinition.Site site in NativeDefinition.Sites)
                 {
                     var handle = new HookHandle<X64InlineHook>();
@@ -93,44 +93,58 @@ namespace BugfixesAndQoL.MoatTerrain
                 for (int i = 0; i < hooks.Count; i++)
                 {
                     var site = NativeDefinition.Sites[i]; var handle = hooks[i];
-                    if (!handle.Success || handle.Hook.TargetAddress != image + (uint)site.Rva || handle.Hook.DisplacedByteCount != site.Length)
-                        throw new InvalidOperationException("Committed moat terrain span differs: " + site.Kind);
-                    byte* live = (byte*)(image + (uint)site.Rva);
-                    if (live[0] != 0xFF || live[1] != 0x25 || *(uint*)(live + 2) != 0 ||
-                        *(ulong*)(live + 6) != unchecked((ulong)handle.Hook.StubAddress.ToInt64()))
-                        throw new InvalidOperationException("Committed moat terrain jump differs: " + site.Kind);
-                    for (int n = 14; n < site.Length; n++) if (live[n] != 0x90)
-                        throw new InvalidOperationException("Committed moat terrain padding differs: " + site.Kind);
-                    Info($"MOAT_TERRAIN_HOOK kind={site.Kind}; rva=0x{site.Rva:X}; end=0x{site.Rva + site.Length:X}; span={site.Length}.");
+                    if (!handle.Success || handle.Hook.IsInstalled || handle.Hook.TargetAddress != image + (uint)site.Rva ||
+                        handle.Hook.DisplacedByteCount != site.Length)
+                        throw new InvalidOperationException("Prepared moat terrain span differs: " + site.Kind);
                 }
                 var registration = CreateSaveRegistration();
                 if (!VersionedSaveData.TryRegister(registration, out _, out string reason)) throw new InvalidOperationException(reason);
-                // Registration cannot be withdrawn: all later errors retain these disabled hooks/buffer.
-                published = true;
+                publication.RetainRegisteredResources();
                 Shared.MissionEvents.SetOwner(BugfixesAndQoLPlugin.PluginGuid);
                 subscriptions.Add(Shared.MissionEvents.Initialization.Subscribe(OnInitialization));
                 subscriptions.Add(Shared.MissionEvents.Ended.Subscribe(OnEnd));
                 subscriptions.Add(Shared.MissionEvents.Started.Subscribe(OnStart));
+                publication.Enable(() =>
+                {
+                    foreach (var hook in result.Installed) hook.Enable();
+                }, () => ValidateInstalledHooks(image));
                 Info("MOAT_TERRAIN_READY: 14 permanent native sites; native-only tile work; save schema 1; awaiting mission.");
             }
             catch
             {
-                if (history != null) history.SetEnabled(false);
-                if (!published)
+                publication.Fail(() => history?.SetEnabled(false), () =>
                 {
                     transaction?.Dispose(); // Only an unpublished initialization candidate.
                     if (buffer != IntPtr.Zero) Marshal.FreeHGlobal(buffer);
                     buffer = IntPtr.Zero;
                     NativeSiteRegistry.Unregister(BugfixesAndQoLPlugin.PluginGuid, SiteName);
-                }
+                });
                 throw;
             }
         }
 
         internal void Refresh()
         {
-            if (!published) return;
+            if (!publication.IsReady) return;
             lock (engineGate) history.SetEnabled(Enabled);
+        }
+
+        private void ValidateInstalledHooks(ulong image)
+        {
+            for (int i = 0; i < hooks.Count; i++)
+            {
+                var site = NativeDefinition.Sites[i]; var handle = hooks[i];
+                if (!handle.Success || !handle.Hook.IsInstalled || handle.Hook.TargetAddress != image + (uint)site.Rva ||
+                    handle.Hook.DisplacedByteCount != site.Length)
+                    throw new InvalidOperationException("Installed moat terrain span differs: " + site.Kind);
+                byte* live = (byte*)(image + (uint)site.Rva);
+                if (live[0] != 0xFF || live[1] != 0x25 || *(uint*)(live + 2) != 0 ||
+                    *(ulong*)(live + 6) != unchecked((ulong)handle.Hook.StubAddress.ToInt64()))
+                    throw new InvalidOperationException("Installed moat terrain jump differs: " + site.Kind);
+                for (int n = 14; n < site.Length; n++) if (live[n] != 0x90)
+                    throw new InvalidOperationException("Installed moat terrain padding differs: " + site.Kind);
+                Info($"MOAT_TERRAIN_HOOK kind={site.Kind}; rva=0x{site.Rva:X}; end=0x{site.Rva + site.Length:X}; span={site.Length}.");
+            }
         }
 
         // Keep the archive boundary declarative and independently inspectable. No registration

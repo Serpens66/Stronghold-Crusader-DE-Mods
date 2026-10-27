@@ -19,7 +19,13 @@
     {
       "Version": "1.0.203",
       "Changes": [
-        "Add Compact lobby chat, an enabled-by-default local QoL preference: display shield, sender and message on one line in the multiplayer skirmish lobby and all four Coop Trail chats, with automatic wrapping for long messages. Each player chooses independently of the host; switching restores the existing history without changing chat transport or gameplay."
+        "Add Compact lobby chat, an enabled-by-default local QoL preference: display shield, sender and message on one line in the multiplayer skirmish lobby and all four Coop Trail chats, with automatic wrapping for long messages. Each player chooses independently of the host; switching restores the existing history without changing chat transport or gameplay.",
+        "Keep formation preview, authoritative placement and movement admission consistent for mixed reachable/unreachable selections. Preserve the rejected-drag anchor and surviving unit identities, bound shared placement work, and dispatch formation speech through the simulation path.",
+        "Reuse proven unreachable cursor regions and admit manual group movement before mutating orders, preserving moving units, queues, moat commands and native fallback semantics.",
+        "Refresh editor pathing regions at the audited engine boundary and retain pending work across terrain changes.",
+        "Preserve configured borderless render dimensions even when the monitor exclusive-fullscreen mode list does not contain them.",
+        "Formation network protocol is now 10; every multiplayer participant must use this mod version.",
+        "Prepare moat-terrain hooks before activation and keep registered or partially published resources alive on initialization failure; failed features remain logically disabled and cannot be reactivated by settings changes."
       ]
     },
     {

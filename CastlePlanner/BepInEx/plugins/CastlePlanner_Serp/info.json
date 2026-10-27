@@ -12,7 +12,10 @@
   "SerpChangelog": [
     {
       "Version": "0.8.47",
-      "Changes": ["Skip castle flags, braziers and siege engines on water and impassable terrain while preserving walkable stone resources and placements on fortifications."]
+      "Changes": ["Skip castle flags, braziers and siege engines on water and impassable terrain while preserving walkable stone resources and placements on fortifications.",
+        "Allow ordinary local Blueprints without a selected spawn castle while retaining the selection requirement during an active free-castle preview.",
+        "Add an unchanged Keep rotation choice, preserve inherited Keep orientation for castle spawns, and retain existing Fixes rotation values unless the player explicitly selects a new direction.",
+        "Validate host rotation/content permissions and synchronized inherited orientation with free-castle protocol 6; every multiplayer participant needs this version."]
     },
     {
       "Version": "0.8.46",

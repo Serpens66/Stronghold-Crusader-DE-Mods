@@ -3,7 +3,7 @@
   "Author": "Serpens66",
   "Name": "Extended Data",
   "Description": "Adds portable Custom and Coop Trail data plus complete Script Extender Custom Lord Workshop packages.",
-  "Version": "1.0.19",
+  "Version": "1.0.20",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.4.0",
   "MaximumScriptExtenderVersion": "",
@@ -16,6 +16,17 @@
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.20",
+      "Changes": [
+        "Resolve embedded Coop package maps through APIShared exact-name/CRC lookup and report missing, conflicting or unready content before Ready/Start without replacing Vanilla launch decisions.",
+        "Distinguish pending Lord selections from missing or invalid packages, compare the actual Lord configuration identity, and preserve useful mission-preparation failure reasons.",
+        "Publish localized, deduplicated lobby launch blockers and loading states through APIShared, including host/client scope and rejected-command details.",
+        "Keep host Lord snapshots, mission settings and load/save transitions consistent across Coop mission changes; retain host authority, acknowledgements and existing serialized compatibility checks.",
+        "Move detailed development timing and synchronization traces behind compile-time diagnostics while retaining actionable warnings and errors.",
+        "Require APIShared 0.16.3 or newer; all multiplayer participants need matching mod versions."
+      ]
+    },
     {
       "Version": "1.0.19",
       "Changes": [

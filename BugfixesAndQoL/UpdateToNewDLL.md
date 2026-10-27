@@ -982,9 +982,18 @@ ExtraFeatures height spans end adjacent to, or outside, these sites, including
 `[0x694BD,0x694D3)` and `[0xEDA77,0xEDA8C)`. Their hooks and the command runtime's
 entry detours are not relocated or replaced. The immutable load snapshot is used
 for semantic validation; only our actual live spans are required to be pristine.
-NativeSiteRegistry claims the complete group before one atomic hook transaction.
+NativeSiteRegistry claims the complete group before the hook transaction.
 Published hooks, memory and registrations remain rooted until process exit;
 settings/load/end only change data and the native activation gate.
+
+Release review 2026-10-27: prepare with `InstallOnCommit=false`, validate all prepared
+handles, retain resources as soon as the save registration succeeds, then enable
+the hooks and validate every installed span before publishing readiness. A throwing
+first/partial Enable or post-write verification failure never reaches rollback or
+buffer release. Failed publication remains logically inactive across settings and
+mission changes. Only a candidate with neither registrations nor attempted patch
+activation can dispose its transaction and free its buffer. The existing production
+publication fixture covers these failure boundaries separately from native-byte tests.
 
 Native-only per-tile work uses a fixed 641664-byte state allocation (64-byte header
 and 320800 ushorts), bounded tile access and no searches, allocations, logging or

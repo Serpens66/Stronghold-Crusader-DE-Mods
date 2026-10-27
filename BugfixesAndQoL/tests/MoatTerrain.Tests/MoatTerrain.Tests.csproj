@@ -33,6 +33,7 @@
     <Compile Include="Program.cs" />
     <Compile Include="..\..\src\MoatTerrain\TerrainState.cs" />
     <Compile Include="..\..\src\MoatTerrain\TerrainHistory.cs" />
+    <Compile Include="..\..\src\MoatTerrain\TerrainPublication.cs" />
     <Compile Include="..\..\src\MoatTerrain\NativeDefinition.cs" />
     <Compile Include="..\..\src\MoatTerrain\NativeCode.cs" />
   </ItemGroup>
