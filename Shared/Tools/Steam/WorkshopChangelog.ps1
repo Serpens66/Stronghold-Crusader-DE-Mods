@@ -1,3 +1,21 @@
+function Get-PackReleaseChangelog {
+    param([string]$PackageFolder, $HostInfo, [AllowEmptyString()][string]$PreviousVersion, $Mods, $PreviousMods)
+    $sections=[Collections.Generic.List[string]]::new()
+    $hostText=Get-SerpChangelogSince $HostInfo.SerpChangelog $HostInfo.Version $PreviousVersion 'SerpsMods'
+    if($hostText){$sections.Add("## SerpsMods v$($HostInfo.Version)`r`n`r`n$hostText")}
+    $previous=@{}
+    foreach($mod in @($PreviousMods|Where-Object {$_.State -ceq 'Active'})){
+        if($previous.ContainsKey([string]$mod.Guid)){throw 'Duplicate previous mod changelog identity.'}
+        $previous[[string]$mod.Guid]=[string]$mod.Version
+    }
+    foreach($mod in @($Mods|Where-Object {$_.State -ceq 'Active'}|Sort-Object Name)){
+        $old=if($previous.ContainsKey([string]$mod.Guid)){$previous[[string]$mod.Guid]}else{''}
+        $changes=Get-PayloadChangelogBody $PackageFolder $mod $old
+        if($changes.Text){$sections.Add("## $($mod.Name) v$($mod.Version)`r`n`r`n$($changes.Text)")}
+    }
+    return $sections -join "`r`n`r`n"
+}
+
 function Get-PayloadChangelogBody {
     param([string]$PackageFolder, $Mod, [AllowEmptyString()][string]$PreviousVersion)
     $relative = [string]$Mod.RelativePath

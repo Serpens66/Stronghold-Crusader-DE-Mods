@@ -15,6 +15,9 @@ if(-not $ValidateOnly){
     $folder=Get-WorkshopFolder $config $config.SerpsMods $test
     $manifest=[IO.File]::ReadAllText((Join-Path $folder 'apishared-workshop.json'))|ConvertFrom-Json
     $reference=[IO.File]::ReadAllText((Join-Path (Get-WorkshopStateRoot $config $test) 'references/SerpsMods.provenance.json'))|ConvertFrom-Json
-    $commit=[string]$reference.Commit
-    $null=Write-WorkshopPreparation $config $config.SerpsMods $test $manifest.Version $commit $(if($test){'SerpsMods/test/v'+$manifest.Version+'-'+$commit.Substring(0,12)}else{'SerpsMods/v'+$manifest.Version})
+    $releaseCommit=[string]$reference.Commit
+    # A verified release can be reused after tooling-only commits. Freeze the selected
+    # checkout separately; the immutable release provenance retains its original commit.
+    $commit=if($env:SHCDE_MODPACK_BRANCH){((Invoke-ApiRepositoryGit $config.Root @('rev-parse','HEAD')) -join '').Trim()}else{$releaseCommit}
+    $null=Write-WorkshopPreparation $config $config.SerpsMods $test $manifest.Version $commit $(if($test){'SerpsMods/test/v'+$manifest.Version+'-'+$releaseCommit.Substring(0,12)}else{'SerpsMods/v'+$manifest.Version})
 }

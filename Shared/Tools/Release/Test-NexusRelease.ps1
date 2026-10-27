@@ -22,6 +22,8 @@ Assert-True ([regex]::Matches($updaterSource, '/changelogs').Count -eq 1) 'Der a
 $releaseSource = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'Release-Mod.ps1'))
 Assert-True ($releaseSource -match 'Thin APIShared consumer contains private runtime DLLs') 'Thin-Releases muessen private API-Laufzeitkopien ablehnen.'
 Assert-True ($releaseSource -notmatch 'with-APIShared' -and $releaseSource -notmatch "Profile = 'Bundle'") 'Release-Mod darf keine Bundle-Artefakte mehr erzeugen.'
+Assert-True ($releaseSource -notmatch 'APIShared is already included|already includes APIShared' -and
+    $releaseSource -match 'requires the separate APIShared Workshop item') 'Releasehinweise muessen die separate APIShared-Workshop-Abhaengigkeit korrekt beschreiben.'
 $steamSource = [IO.File]::ReadAllText((Join-Path $root 'Shared\Tools\Steam\Create-SteamModPack.ps1'))
 # APIShared ships as its own Workshop item: the pack rejects any bundled copy, and the separate
 # release package must contain exactly one APIShared.dll.
