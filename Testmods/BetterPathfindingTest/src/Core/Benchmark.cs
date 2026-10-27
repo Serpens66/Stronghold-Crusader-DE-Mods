@@ -8,121 +8,110 @@ namespace BetterPathfindingTest.Core
     public sealed class BenchmarkResult
     {
         public int Planned, Completed, Mismatches, Ties, Incomplete, ProductionDifferences, ProductionTies;
-        public double PreparationMs, ColdMs, WarmMs, ReferenceMs, ProductionMs, OutputMs;
-        public long PeakBytes, Rows32, Rows128, RowHits, Fields, FieldHits, Expanded;
+        public int Found, Unreachable, ReferenceCompared, ReferencePlanned, MoatPaths;
+        public double PreparationMs, ColdMs, WarmMs, ReferenceMs, ProductionMs, OutputMs, MaximumSliceMs, P95CompletionMs, MaximumCompletionMs;
+        public long PeakBytes, Regions, Vertices, Pruned, Fields, FieldHits, Expanded, Macros, Refinements, LocalFields, LocalHits;
+        public long ManagedSolverAllocatedBytes = -1, NativeAllocatedBytes, NativeAllocationCalls, NativePeakBytes;
         public string Limitation = "";
         public readonly List<object> Cases = new List<object>();
         public Dictionary<string, object> Data() => new Dictionary<string, object> {
-            ["planned"] = Planned, ["completed"] = Completed, ["mismatches"] = Mismatches, ["equalCostDirectionDifferences"] = Ties,
-            ["productionCostOrStatusDifferences"] = ProductionDifferences, ["productionEqualCostDirectionDifferences"] = ProductionTies, ["incomplete"] = Incomplete, ["limitation"] = Limitation,
-            ["fieldPreparationMs"] = PreparationMs, ["coldSearchMs"] = ColdMs, ["warmSearchMs"] = WarmMs, ["referenceMs"] = ReferenceMs, ["productionMs"] = ProductionMs, ["privatePathEncodingAndValidationMs"] = OutputMs,
-            ["navigationPeakBytes"] = PeakBytes, ["rows32"] = Rows32, ["rows128"] = Rows128, ["rowHits"] = RowHits, ["fieldsBuilt"] = Fields, ["fieldHits"] = FieldHits, ["expanded"] = Expanded, ["cases"] = Cases
+            ["planned"] = Planned, ["completed"] = Completed, ["found"] = Found, ["unreachable"] = Unreachable, ["moatPaths"] = MoatPaths,
+            ["mismatches"] = Mismatches, ["equalCostDirectionDifferences"] = Ties, ["productionCostOrStatusDifferences"] = ProductionDifferences,
+            ["productionEqualCostDirectionDifferences"] = ProductionTies, ["incomplete"] = Incomplete, ["limitation"] = Limitation,
+            ["referenceCompared"] = ReferenceCompared, ["referencePlanned"] = ReferencePlanned, ["referenceScope"] = ReferencePlanned == Planned ? "exhaustive" : "deterministic sample; all returned paths edge/contract-validated",
+            ["fieldPreparationMs"] = PreparationMs, ["coldSearchMs"] = ColdMs, ["warmSearchMs"] = WarmMs, ["referenceMs"] = ReferenceMs, ["productionMs"] = ProductionMs,
+            ["privatePathEncodingAndValidationMs"] = OutputMs, ["navigationPeakBytes"] = PeakBytes, ["regions"] = Regions, ["vertices"] = Vertices, ["prunedInteriorCells"] = Pruned,
+            ["localFieldsBuilt"] = LocalFields, ["localFieldHits"] = LocalHits, ["fieldsBuilt"] = Fields, ["fieldHits"] = FieldHits, ["expanded"] = Expanded, ["macroRelaxations"] = Macros, ["refinements"] = Refinements,
+            ["maximumNativeSliceMs"] = MaximumSliceMs, ["p95BatchCompletionMs"] = P95CompletionMs, ["maximumBatchCompletionMs"] = MaximumCompletionMs,
+            ["managedSolverThreadAllocatedBytes"] = ManagedSolverAllocatedBytes, ["nativeAllocatedBytes"] = NativeAllocatedBytes, ["nativeAllocationCalls"] = NativeAllocationCalls, ["nativePeakBytes"] = NativePeakBytes, ["reactionTargetMs"] = 100, ["privatePlanningAndValidationMs"] = PreparationMs + ColdMs + OutputMs, ["reactionTargetMet"] = PreparationMs + ColdMs + OutputMs <= 100 && Completed == Planned, ["cases"] = Cases
         };
         public string Markdown(string title, string runtime)
         {
-            var text = new StringBuilder(); text.AppendLine("# " + title).AppendLine().AppendLine("Runtime: " + runtime).AppendLine();
-            text.AppendLine("| Planned | Compared | Cost/status errors | Equal-cost direction differences | Incomplete |")
-                .AppendLine("|---:|---:|---:|---:|---:|").AppendLine("| " + Planned + " | " + Completed + " | " + Mismatches + " | " + Ties + " | " + Incomplete + " |").AppendLine();
-            text.AppendLine("- Field preparation: " + PreparationMs.ToString("F3", System.Globalization.CultureInfo.InvariantCulture) + " ms")
-                .AppendLine("- Cold / warm searches: " + ColdMs.ToString("F3", System.Globalization.CultureInfo.InvariantCulture) + " / " + WarmMs.ToString("F3", System.Globalization.CultureInfo.InvariantCulture) + " ms")
-                .AppendLine("- Independent full-grid reference: " + ReferenceMs.ToString("F3", System.Globalization.CultureInfo.InvariantCulture) + " ms")
-                .AppendLine("- Private path encoding/validation: " + OutputMs.ToString("F3", System.Globalization.CultureInfo.InvariantCulture) + " ms (no native buffer write)")
-                .AppendLine("- Current Precise reference (offline only): " + ProductionMs.ToString("F3", System.Globalization.CultureInfo.InvariantCulture) + " ms; cost/status differences: " + ProductionDifferences + "; equal-cost direction differences: " + ProductionTies)
-                .AppendLine("- Tracked navigation peak: " + PeakBytes + " bytes; 32/128 rows: " + Rows32 + "/" + Rows128 + "; field hits: " + FieldHits).AppendLine();
-            text.AppendLine("Result: " + (Mismatches != 0 ? "FAILED" : Incomplete != 0 || Completed != Planned ? "INCOMPLETE" : "COST/REACHABILITY COMPARISON PASSED") + ".").AppendLine();
-            if (Limitation.Length != 0) text.AppendLine("Limitation: " + Limitation).AppendLine();
-            text.AppendLine("The first-search time follows field preparation; it is not an isolated cold-start total. Add preparation and graph/snapshot costs. Equal-cost path differences require separate review. A passed search comparison does not certify native movement, cadence qualification or multiplayer integration. No game orders or path buffers were modified.");
-            text.AppendLine().AppendLine("The 10x target concerns comparable search workloads. Preparation, snapshot capture and updates must be included when judging total benefit; a low warm time alone is insufficient.");
-            return text.ToString().Replace("\r\n", "\n").Replace("\n", "\r\n");
+            var t = new StringBuilder(); t.AppendLine("# " + title).AppendLine().AppendLine("Runtime: " + runtime).AppendLine();
+            t.AppendLine("| Requests | Completed | Found | Unreachable | Errors | Incomplete | Reference checked |")
+             .AppendLine("|---:|---:|---:|---:|---:|---:|---:|")
+             .AppendLine("| " + Planned + " | " + Completed + " | " + Found + " | " + Unreachable + " | " + Mismatches + " | " + Incomplete + " | " + ReferenceCompared + "/" + ReferencePlanned + " |").AppendLine();
+            t.AppendLine("- Native map/reduction build: " + F(PreparationMs) + " ms")
+             .AppendLine("- Cold / warm native batches (includes private path output): " + F(ColdMs) + " / " + F(WarmMs) + " ms")
+             .AppendLine("- Additional managed encoding/validation: " + F(OutputMs) + " ms")
+             .AppendLine("- Independent reference: " + F(ReferenceMs) + " ms; scope: " + (ReferencePlanned == Planned ? "exhaustive" : "sampled"))
+             .AppendLine("- Current Precise oracle (offline only): " + F(ProductionMs) + " ms; cost/status errors " + ProductionDifferences + "; direction differences " + ProductionTies)
+             .AppendLine("- Regions / boundary vertices / pruned cells: " + Regions + " / " + Vertices + " / " + Pruned)
+             .AppendLine("- Fields / hits / macro relaxations / resource refinements: " + Fields + " / " + FieldHits + " / " + Macros + " / " + Refinements)
+             .AppendLine("- Tracked managed + native peak: " + PeakBytes + " bytes")
+             .AppendLine("- Native completion p95 / maximum (before managed result availability): " + F(P95CompletionMs) + " / " + F(MaximumCompletionMs) + " ms; target ~100 ms")
+             .AppendLine("- Maximum native worker slice: " + F(MaximumSliceMs) + " ms").AppendLine();
+            string status = Mismatches != 0 || ProductionDifferences != 0 ? "FAILED" : Incomplete != 0 || Completed != Planned || ReferenceCompared != ReferencePlanned ? "INCOMPLETE" : Found == 0 ? "NEGATIVE CASES ONLY; no successful-route acceptance" : "CHECKED CASES PASSED; coverage and direction review required";
+            t.AppendLine("Result: " + status + ".").AppendLine(); if (Limitation.Length != 0) t.AppendLine("Limitation: " + Limitation).AppendLine();
+            t.AppendLine("This is a read-only architecture experiment, not a game-movement or 10,000-unit acceptance. Requests are not necessarily distinct captured units. Preparation, updates and all output costs belong in the total comparison. Reference samples do not certify every request's optimal cost. Equal-cost direction differences remain reviewable. No native commands, paths or settings were changed.");
+            return t.ToString().Replace("\r\n", "\n").Replace("\n", "\r\n");
         }
+        private static string F(double n) => n.ToString("F3", System.Globalization.CultureInfo.InvariantCulture);
     }
     public static class Benchmark
     {
-        // Mono may not expose allocation totals. Never label retained-heap deltas as allocations.
-        private static readonly AllocationCounter Allocations = new AllocationCounter(CreateAllocationCounter);
-        private static Func<long> CreateAllocationCounter()
-        { var method = typeof(GC).GetMethod("GetAllocatedBytesForCurrentThread", Type.EmptyTypes); return method == null ? null : (Func<long>)Delegate.CreateDelegate(typeof(Func<long>), method); }
-        private static long Fingerprint(byte[] bytes) { ulong hash = 14695981039346656037UL; foreach (byte b in bytes) hash = unchecked((hash ^ b) * 1099511628211UL); return unchecked((long)hash); }
+        private static readonly AllocationCounter Allocations = new AllocationCounter(() => { var method = typeof(GC).GetMethod("GetAllocatedBytesForCurrentThread", Type.EmptyTypes); return method == null ? null : (Func<long>)Delegate.CreateDelegate(typeof(Func<long>), method); });
         private static bool Same(RouteResult a, RouteResult b) => a.Status == b.Status && (a.Status != SearchStatus.Found || a.Cost == b.Cost);
+        private static bool SamePath(RouteResult a, RouteResult b) => Convert.ToBase64String(a.Directions) == Convert.ToBase64String(b.Directions);
         public static BenchmarkResult Run(GridSnapshot map, IList<RouteQuery> queries, WorkBudget budget,
             Func<RouteQuery, RouteResult> production = null, Action<string> progress = null)
         {
-            var report = new BenchmarkResult { Planned = queries.Count };
+            var r = new BenchmarkResult { Planned = queries.Count, ReferencePlanned = map.Count <= 4096 ? queries.Count : Math.Min(3, queries.Count) };
             try
             {
-                using (var navigator = new HierarchicalNavigator(map, budget))
+                long allocatedBefore = Allocations.Read(); var clock = Stopwatch.StartNew();
+                using (var nav = new AreaNavigator(map, budget))
                 {
-                    try
+                    r.PreparationMs = clock.Elapsed.TotalMilliseconds;
+                    clock.Restart(); RouteResult[] cold = nav.FindPaths(queries); r.ColdMs = clock.Elapsed.TotalMilliseconds;
+                    clock.Restart(); RouteResult[] warm = nav.FindPaths(queries); r.WarmMs = clock.Elapsed.TotalMilliseconds;
+                    long allocatedAfter = Allocations.Read(); if (allocatedBefore >= 0 && allocatedAfter >= 0) r.ManagedSolverAllocatedBytes = allocatedAfter - allocatedBefore;
+                    var times = new List<double>();
+                    for (int i = 0; i < queries.Count; i++)
                     {
-                        var watch = Stopwatch.StartNew();
-                        navigator.PrepareBatch(queries); report.PreparationMs = watch.Elapsed.TotalMilliseconds;
-                        for (int i = 0; i < queries.Count; i++)
+                        budget.Check(); RouteQuery q = queries[i]; RouteResult a = cold[i], b = warm[i];
+                        if (i % 64 == 0) progress?.Invoke("checked=" + i + "/" + queries.Count);
+                        if (a.Status == SearchStatus.Inconclusive || b.Status == SearchStatus.Inconclusive) { r.Incomplete++; r.Limitation = a.Status == SearchStatus.Inconclusive ? a.Reason : b.Reason; continue; }
+                        r.Completed++; if (a.Status == SearchStatus.Found) { r.Found++; if (a.Moat != 0) r.MoatPaths++; } else r.Unreachable++;
+                        times.Add(a.CompletionMs);
+                        bool match = Same(a, b); clock.Restart();
+                        if (a.Status == SearchStatus.Found)
                         {
-                            budget.Check(); RouteQuery query = queries[i];
-                            if (i % 16 == 0) progress?.Invoke("queries=" + i + "/" + queries.Count + " expanded=" + budget.Expanded + " buffers=" + budget.Bytes);
-                            long memoryBefore = GC.GetTotalMemory(false), allocationBefore = Allocations.Read();
-                            watch.Restart(); RouteResult cold = navigator.FindPath(query); double coldMs = watch.Elapsed.TotalMilliseconds; report.ColdMs += coldMs;
-                            watch.Restart(); RouteResult warm = navigator.FindPath(query); double warmMs = watch.Elapsed.TotalMilliseconds; report.WarmMs += warmMs;
-                            watch.Restart(); RouteResult reference = ReferenceSearch.Find(map, query, budget); double referenceMs = watch.Elapsed.TotalMilliseconds; report.ReferenceMs += referenceMs;
-                            if (cold.Status == SearchStatus.Inconclusive || warm.Status == SearchStatus.Inconclusive || reference.Status == SearchStatus.Inconclusive)
-                            { report.Incomplete++; report.Limitation = cold.Status == SearchStatus.Inconclusive ? cold.Reason : warm.Status == SearchStatus.Inconclusive ? warm.Reason : reference.Reason; report.Cases.Add(new Dictionary<string, object> { ["index"] = i, ["status"] = "Inconclusive", ["reason"] = report.Limitation }); break; }
-                            bool matches = Same(cold, reference) && Same(warm, reference); report.Completed++;
-                            if (!matches) report.Mismatches++;
-                            bool tie = cold.Status == SearchStatus.Found && Same(cold, reference) && Fingerprint(cold.Directions) != Fingerprint(reference.Directions);
-                            if (tie) report.Ties++;
-                            RouteResult old = null;
-                            if (production != null)
-                            { watch.Restart(); old = production(query); report.ProductionMs += watch.Elapsed.TotalMilliseconds; if (!Same(old, reference)) report.ProductionDifferences++; }
-                            bool productionTie = old != null && old.Status == SearchStatus.Found && Same(old, cold) && Fingerprint(old.Directions) != Fingerprint(cold.Directions);
-                            if (productionTie) report.ProductionTies++;
-                            int encodedBytes = 0;
-                            if (cold.Status == SearchStatus.Found)
-                            {
-                                watch.Restart(); byte[] encoded = new byte[(cold.Directions.Length + 1) / 2];
-                                for (int step = 0; step < cold.Directions.Length; step++) encoded[step >> 1] |= (byte)(cold.Directions[step] << ((step & 1) * 4));
-                                encodedBytes = encoded.Length;
-                                if (map.Describe(query, cold.Directions).Status != SearchStatus.Found) report.Mismatches++;
-                                report.OutputMs += watch.Elapsed.TotalMilliseconds;
-                            }
-                            long allocationAfter = Allocations.Read();
-                            var record = new Dictionary<string, object> {
-                                ["index"] = i, ["start"] = query.Start, ["target"] = query.Target, ["groundCost"] = query.GroundCost, ["moatCost"] = query.MoatCost,
-                                ["requireMoat"] = query.RequireMoat, ["excludeStructures"] = query.ExcludeStructures, ["boundCount"] = query.Bounds.Length,
-                                ["status"] = cold.Status.ToString(), ["cost"] = cold.Cost, ["groundEdges"] = cold.Ground, ["moatEdges"] = cold.Moat, ["privateEncodedBytes"] = encodedBytes,
-                                ["referenceStatus"] = reference.Status.ToString(), ["referenceCost"] = reference.Cost, ["coldMs"] = coldMs, ["warmMs"] = warmMs, ["referenceMs"] = referenceMs,
-                                ["managedHeapDelta"] = GC.GetTotalMemory(false) - memoryBefore, ["threadAllocatedBytes"] = allocationBefore < 0 || allocationAfter < 0 ? -1 : allocationAfter - allocationBefore, ["pathFingerprint"] = Fingerprint(cold.Directions).ToString("X16"), ["equalCostDirectionDifference"] = tie, ["productionEqualCostDirectionDifference"] = productionTie,
-                                ["productionStatus"] = old?.Status.ToString() ?? "offline-only", ["productionCost"] = old?.Cost ?? -1
-                            };
-                            if (!matches || tie || productionTie || (old != null && !Same(old, reference))) { record["newDirectionsBase64"] = Convert.ToBase64String(cold.Directions); record["referenceDirectionsBase64"] = Convert.ToBase64String(reference.Directions); if (old != null) record["productionDirectionsBase64"] = Convert.ToBase64String(old.Directions); }
-                            report.Cases.Add(record);
+                            RouteResult described = map.Describe(q, a.Directions);
+                            RouteResult warmDescription = map.Describe(q, b.Directions);
+                            if (described.Status != SearchStatus.Found || described.Cost != a.Cost || described.Ground != a.Ground || described.Moat != a.Moat || warmDescription.Status != SearchStatus.Found || warmDescription.Cost != b.Cost) match = false;
+                            var packed = new byte[(a.Directions.Length + 1) / 2]; for (int step = 0; step < a.Directions.Length; step++) packed[step >> 1] |= (byte)(a.Directions[step] << ((step & 1) * 4));
                         }
+                        r.OutputMs += clock.Elapsed.TotalMilliseconds;
+                        // Independent budgets: exhausted solver caches cannot starve the oracle.
+                        RouteResult reference = null;
+                        bool referenceCase = r.ReferencePlanned == queries.Count || i < r.ReferencePlanned;
+                        if (referenceCase)
+                        {
+                            clock.Restart(); reference = ReferenceSearch.Find(map, q, new WorkBudget(budget.MaximumBytes, 10)); r.ReferenceMs += clock.Elapsed.TotalMilliseconds;
+                            if (reference.Status == SearchStatus.Inconclusive) { r.Incomplete++; r.Limitation = "independent-reference: " + reference.Reason; }
+                            else { r.ReferenceCompared++; match &= Same(a, reference); if (a.Status == SearchStatus.Found && Same(a, reference) && !SamePath(a, reference)) r.Ties++; }
+                        }
+                        RouteResult old = null;
+                        if (production != null) { clock.Restart(); old = production(q); r.ProductionMs += clock.Elapsed.TotalMilliseconds; if (!Same(a, old)) r.ProductionDifferences++; if (old.Status == SearchStatus.Found && Same(a, old) && !SamePath(a, old)) r.ProductionTies++; }
+                        if (!match) r.Mismatches++;
+                        var data = new Dictionary<string, object> { ["index"] = i, ["start"] = q.Start, ["target"] = q.Target, ["groundCost"] = q.GroundCost, ["moatCost"] = q.MoatCost,
+                            ["requireMoat"] = q.RequireMoat, ["boundCount"] = q.Bounds.Length, ["status"] = a.Status.ToString(), ["cost"] = a.Cost, ["groundEdges"] = a.Ground, ["moatEdges"] = a.Moat,
+                            ["completionMs"] = a.CompletionMs, ["referenceStatus"] = reference?.Status.ToString() ?? "NOT_SAMPLED", ["referenceCost"] = reference?.Cost ?? -1,
+                            ["productionStatus"] = old?.Status.ToString() ?? "offline-only", ["productionCost"] = old?.Cost ?? -1 };
+                        if (!match || r.Cases.Count < 16 && (old != null && !SamePath(a, old) || reference != null && !SamePath(a, reference))) { data["newDirectionsBase64"] = Convert.ToBase64String(a.Directions); if (reference != null) data["referenceDirectionsBase64"] = Convert.ToBase64String(reference.Directions); if (old != null) data["productionDirectionsBase64"] = Convert.ToBase64String(old.Directions); }
+                        r.Cases.Add(data);
                     }
-                    finally { report.Rows32 = navigator.RowsBuilt32; report.Rows128 = navigator.RowsBuilt128; report.RowHits = navigator.RowHits; report.Fields = navigator.FieldsBuilt; report.FieldHits = navigator.FieldHits; }
+                    if (times.Count != 0) { times.Sort(); r.P95CompletionMs = times[(int)Math.Ceiling(times.Count * .95) - 1]; r.MaximumCompletionMs = times[times.Count - 1]; }
+                    AreaNavigator.Statistics s = nav.Stats; r.Regions = s.Regions; r.Vertices = s.Vertices; r.Pruned = s.Pruned; r.Fields = s.Fields; r.FieldHits = s.Hits; r.Expanded = s.Expanded; r.Macros = s.Macros; r.Refinements = s.Refinements; r.MaximumSliceMs = nav.MaximumSliceMs; r.LocalFields = s.LocalFields; r.LocalHits = s.LocalHits; r.NativeAllocatedBytes = nav.NativeAllocatedBytes; r.NativeAllocationCalls = nav.NativeAllocationCalls; r.NativePeakBytes = s.Peak;
                 }
             }
-            catch (SearchBudgetException ex) { report.Incomplete++; report.Limitation = ex.Message; }
-            report.PeakBytes = budget.PeakBytes; report.Expanded = budget.Expanded;
-            return report;
+            catch (SearchBudgetException ex) { r.Incomplete++; r.Limitation = ex.Message; }
+            r.PeakBytes = budget.PeakBytes; return r;
         }
+        // Historical generator retained only until Workloads provides reachable,
+        // connected formations. Its output is explicitly distributed endpoints.
         public static List<RouteQuery> Workload(GridSnapshot map, UnitSeed[] units, int count, bool formation, uint seed = 731902)
-        {
-            var nodes = new List<int>(); for (int n = 0; n < map.Count; n++) if (map.IsValid(n)) nodes.Add(n);
-            var queries = new List<RouteQuery>(); if (nodes.Count == 0) return queries;
-            var starts = new List<UnitSeed>(); foreach (UnitSeed unit in units) if (unit.Player == map.Player && map.IsValid(unit.Node)) starts.Add(unit);
-            int sharedTarget = nodes[nodes.Count * 3 / 4];
-            for (int i = 0; i < count; i++)
-            {
-                seed ^= seed << 13; seed ^= seed >> 17; seed ^= seed << 5;
-                int start = starts.Count == 0 ? nodes[(int)(seed % (uint)nodes.Count)] : starts[i % starts.Count].Node;
-                long ground = 1, moat = 7; int progress;
-                if (starts.Count != 0 && starts[i % starts.Count].TryProfile(out long g, out long m, out progress)) { ground = g; moat = m; }
-                // Shared groups use an identical profile; a separate family varies it.
-                if (!formation) { ground = 1; moat = 7; }
-                var q = new RouteQuery { Start = start, Target = formation ? nodes[(nodes.Count * 3 / 4 + i) % nodes.Count] : sharedTarget, GroundCost = ground, MoatCost = moat };
-                if (formation && i % 4 == 0) { q.RequireMoat = true; q.ExcludeStructures = true; q.Bounds = new[] { new CostBound(ground, moat, (long)(map.Width + map.Height) * moat * 2), new CostBound(moat, ground, (long)(map.Width + map.Height) * moat * 2) }; }
-                queries.Add(q);
-            }
-            return queries;
-        }
+            => Workloads.Create(map, units, count, formation ? "distributed-profiles" : "shared-goal", seed);
     }
 }

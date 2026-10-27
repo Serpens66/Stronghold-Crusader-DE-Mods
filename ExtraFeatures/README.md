@@ -3,9 +3,6 @@ ExtraFeatures adds configurable gameplay, economy, building, and AI options to S
 
 ## Convenience and unit features
 
-### No Kill Reward
-Separate host checkboxes disable gold and goods rewards when human or AI players defeat an enemy Lord. The victory message remains; both options are disabled by default.
-
 ### Disable fear-factor effects on soldiers
 An optional host setting removes both the fear-factor damage bonus and penalty for all human and AI soldiers. Fear values, popularity and productivity effects remain unchanged. Disabled by default; also works in the map editor when ExtraFeatures and this option are enabled.
 
@@ -53,6 +50,21 @@ Goods inside a granary, stockpile, or armory are returned as incoming goods when
 Set separate Singleplayer and Multiplayer enemy-exclusion radii for human and AI building actions. Human values apply to normal building placement, repair, and demolition; the demolition cursor from BugfixesAndQoL reads the same active range. AI values apply only to safely classified repairs of damaged defenses and walls and to rebuilding previously built towers and gatehouses, while initial placements and unclassified AI building calls remain unchanged.
 
 ## Economy features
+
+### Customize victory loot
+The host can configure gold and goods percentages and an absolute gold limit independently for human and AI winners. The settings apply when the winner defeats an enemy Lord and can be changed between matches.
+
+Both percentage sliders range from -1 to 100 in steps of 1. All six settings default to -1, preserving Vanilla rewards:
+
+| Setting | -1: Vanilla | Custom value |
+|---|---|---|
+| Gold share | 25% of the defeated player's gold, at least 500 before applying the gold limit | 0-100% of the defeated player's gold, without a minimum |
+| Goods share | 25% of each eligible goods stock | 0-100% of each eligible goods stock |
+| Gold limit | At most 100,000 gold per defeated Lord | Any positive whole number sets the absolute limit |
+
+Percentages are rounded down, separately for each goods type. A percentage of 0 gives no reward of that kind. The gold limit applies after calculating the gold share, including when the share is left at Vanilla: a limit below 500 overrides the Vanilla minimum, and a larger limit can allow rewards above 100,000. Goods have no separate loot limit. Gold is credited immediately; goods enter the incoming-goods queue. The victory message remains even when both shares are 0.
+
+Existing profiles and Trails that enabled **No Kill Reward** automatically use 0% for both gold and goods for the affected winner role. Human and AI settings remain independent, and subsequent changes are preserved in presets and multiplayer synchronization.
 
 ### Gold every 400 ticks
 Set separate whole-number gold amounts for human and AI players in the Economy settings. Both default to 0; positive and negative values are supported. The host chooses these settings between matches, and they are included in presets and multiplayer synchronization. The Active/Inactive search filter treats 0 as inactive and either sign as active.

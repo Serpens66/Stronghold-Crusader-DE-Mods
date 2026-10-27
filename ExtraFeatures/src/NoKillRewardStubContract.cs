@@ -66,12 +66,31 @@ namespace ExtraFeatures
                 original[3].Mnemonic != Mnemonic.Call || original[3].Length != 5)
                 throw new InvalidOperationException("The displaced Vanilla gold-message call changed.");
 
-            // Vanilla's reward is at least 500. R12D=0 uniquely marks our
-            // human-winner path; the kill message has already been queued.
+            // R12D is the total award before Vanilla's remainder subtraction. Its
+            // signed-short message payload cannot encode the full Int32 range.
+            // Split only presentation; crediting and statistics still happen once.
             assembler.test(r12d, r12d);
             assembler.je(returnAddress);
-            foreach (Instruction instruction in original)
-                assembler.AddInstruction(instruction);
+            var next = assembler.CreateLabel();
+            assembler.Label(ref next);
+            assembler.mov(eax, r12d);
+            assembler.mov(r10d, NoKillRewardPolicy.MaximumMessageChunk);
+            assembler.cmp(eax, r10d);
+            assembler.cmovg(eax, r10d);
+            assembler.sub(r12d, eax);
+            assembler.xor(edx, edx);
+            assembler.mov(r10d, 30000); // Vanilla message base; both words stay <= 30000.
+            assembler.div(r10d);
+            assembler.mov(__dword_ptr[rsp + 0x28], eax);
+            assembler.mov(__dword_ptr[rsp + 0x20], edx);
+            assembler.xor(r9d, r9d);
+            assembler.mov(r8d, ebp);
+            assembler.mov(edx, esi);
+            assembler.mov(rcx, r13);
+            assembler.call(original[3].NearBranchTarget);
+            assembler.test(r12d, r12d);
+            assembler.jne(next);
+            assembler.jmp(returnAddress);
         }
 
         internal static void VerifyReward(X64InlineHook probe, ContextHookDelegate callback,
@@ -119,24 +138,28 @@ namespace ExtraFeatures
         internal static void VerifyGoldMessageEmitted(X64InlineHook probe, ulong returnAddress)
         {
             Instruction[] instructions = DecodeStub(probe);
-            for (int i = 0; i < instructions.Length - 6; i++)
+            for (int i = 0; i < instructions.Length - 19; i++)
             {
                 if (!IsTest(instructions[i], Register.R12D))
                     continue;
                 if (instructions[i + 1].Mnemonic != Mnemonic.Je ||
                     instructions[i + 1].NearBranchTarget != returnAddress ||
                     instructions[i + 2].Mnemonic != Mnemonic.Mov ||
-                    instructions[i + 2].Op0Register != Register.EDX ||
-                    instructions[i + 3].Mnemonic != Mnemonic.Sub ||
-                    instructions[i + 3].Op0Register != Register.R12D ||
-                    instructions[i + 4].Mnemonic != Mnemonic.Mov ||
-                    instructions[i + 5].Mnemonic != Mnemonic.Call ||
-                    instructions[i + 5].NearBranchTarget !=
+                    instructions[i + 2].Op0Register != Register.EAX ||
+                    instructions[i + 5].Mnemonic != Mnemonic.Cmovg ||
+                    instructions[i + 6].Mnemonic != Mnemonic.Sub ||
+                    instructions[i + 6].Op0Register != Register.R12D ||
+                    instructions[i + 9].Mnemonic != Mnemonic.Div ||
+                    instructions[i + 16].Mnemonic != Mnemonic.Call ||
+                    instructions[i + 16].NearBranchTarget !=
                         unchecked((ulong)((long)returnAddress - 0x1401A4L)) ||
-                    !IsJumpTo(instructions[i + 6], returnAddress))
+                    !IsTest(instructions[i + 17], Register.R12D) ||
+                    instructions[i + 18].Mnemonic != Mnemonic.Jne ||
+                    instructions[i + 18].NearBranchTarget != instructions[i + 2].IP ||
+                    !IsJumpTo(instructions[i + 19], returnAddress))
                     throw new InvalidOperationException(
                         "The generated gold-message stub changed its Vanilla continuation: " +
-                        Describe(instructions, i, 8) +
+                        Describe(instructions, i, 20) +
                         " expected return=0x" + returnAddress.ToString("X"));
                 return;
             }

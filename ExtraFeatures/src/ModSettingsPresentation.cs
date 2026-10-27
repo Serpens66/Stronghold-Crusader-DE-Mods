@@ -49,7 +49,7 @@ namespace ExtraFeatures
         public SettingsGroupPresentation EnemyMultiplayerOptions { get; } = new SettingsGroupPresentation("human-enemy-proximity-multiplayer", "ai-enemy-proximity-multiplayer");
         public SettingsGroupPresentation AiRebuildOptions { get; } = new SettingsGroupPresentation("ai-tower-gate-rebuild-delay");
         public SettingsGroupPresentation PopulationOptions { get; } = new SettingsGroupPresentation("extra-church-priests", "campfire-peasants");
-        public SettingsGroupPresentation KillRewardOptions { get; } = new SettingsGroupPresentation("no-kill-reward");
+        public SettingsGroupPresentation KillRewardOptions { get; } = new SettingsGroupPresentation("kill-reward-gold", "kill-reward-goods", "kill-reward-maximum");
         public SettingsGroupPresentation EconomyBonusOptions { get; } = new SettingsGroupPresentation("multiply-goods-gain", "multiply-goods-as-money");
         public SettingsGroupPresentation PeriodicGoldOptions { get; } = new SettingsGroupPresentation("periodic-gold-human", "periodic-gold-ai");
         public SettingsGroupPresentation RefundOptions { get; } = new SettingsGroupPresentation("wood-refund", "stone-refund", "iron-refund", "pitch-refund", "gold-refund");

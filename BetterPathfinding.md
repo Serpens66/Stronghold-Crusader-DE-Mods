@@ -1,18 +1,20 @@
 # Better Pathfinding für SHCDE
 
-Stand und erneute Quellenprüfung: **26.10.2026**.
+Aktueller Ergebnis- und Entwurfsstand: **27.10.2026**. Ursprüngliche Analyse und Quellenprüfung: **26.10.2026**. Historische Befunde bleiben datiert erhalten; die aktuelle Empfehlung steht in Abschnitt 13.
 
 ## 1. Ziel und Ergebnis
 
-Gesucht ist ein grundsätzlich besseres Navigationssystem für große Karten und hunderte Einheiten. Der Schwerpunkt liegt ausdrücklich auf einer neuen Architektur, nicht auf weiteren Mikrooptimierungen des bestehenden Suchkerns. MoatMove soll dabei möglichst das heutige **Precise-Verhalten einschließlich der konkreten Wegwahl** behalten. Die spätere Integration und der endgültige Funktionsumfang sind noch nicht entschieden.
+Gesucht ist ein grundsätzlich neues Navigationssystem für **10.000 Einheiten auf 800×800 großen Karten**, auf denen zusätzliche Bewegungsregeln wie MoatMove Precise dauerhaft gelten können, ohne spürbare zusätzliche Suchspitzen. Neue Aufträge sollen normalerweise innerhalb von ungefähr **100 ms** reagieren. Faktor 100 beschreibt die Größenordnung des angestrebten Fortschritts, keine zugesagte Beschleunigung jeder Einzelanfrage. Weitere Mikrooptimierungen des bestehenden Suchkerns erfüllen diesen Auftrag nicht.
 
-**Stärkster Kandidat:** ein eigenständiger Navigationsdienst mit dauerhaftem gerichtetem Kartenmodell, exakter mehrstufiger Regionshierarchie und gemeinsam verwendbaren lokalen gewichteten Distanzfeldern. Erreichbarkeit, Entfernungen, Kandidatenbewertung und konkrete Wege werden aus derselben Grundlage beantwortet. MoatMove wäre ein geeigneter erster Verbraucher; Assassinen sowie Angriffs- und Arbeitszielsuche wären weitere mögliche Verbraucher.
+**Aktuelle Empfehlung:** ein eigenständiger Navigationsdienst mit diskretem Flächen-/Portalnetz, gemeinsamer Gruppenplanung und wiederverwendbaren Bewegungsfeldern. Für den Endzustand ist ein kompakter C++-Kern mit gebündelter Anbindung vorgesehen. Große homogene Flächen sollen als zusammenhängende Bereiche behandelt werden; die spätere Integration muss native Sucharbeit tatsächlich ersetzen. MoatMove bleibt ein geeigneter erster Verbraucher. Einzelheiten und Nachweisfolge stehen in den Abschnitten 13 und 14.
 
-Das ist ein Entwurf mit begründeten Lösungswegen. Ein neuer Solver wurde weder implementiert noch im Spiel gemessen. Konkrete Beschleunigungsfaktoren, Speicherbedarf und ausreichende Reaktionszeiten sind deshalb noch nicht nachgewiesen.
+Der ursprüngliche Kandidat vom 26.10.2026 wurde als lesender Testmod [BetterPathfindingTest](Testmods/BetterPathfindingTest/PROTOTYPE.md) implementiert und inzwischen offline sowie unter Unity/Mono gemessen. **Die konkrete 32×32-/128×128-Hierarchie mit vollständigen Grenzknoten-Distanzzeilen ist als Architekturversuch gescheitert**; Abschnitt 12 fasst die Nachweise zusammen. Der jetzt empfohlene Neuaufbau ist noch nicht implementiert. Seine Skalierung und die angestrebten Reaktionszeiten sind Entwicklungsziele, keine gemessenen Eigenschaften.
 
-## 2. Prüfstand und Nachweisgrenzen
+Erreichbarkeit, optimale Kosten und alle Precise-Zusatzbedingungen bleiben verbindlich. Gemäß der Präzisierung vom 27.10.2026 werden gleich teure Richtungsabweichungen dokumentiert und vor einer Verbraucherintegration gesondert bewertet; eine identische Richtungsfolge ist keine Vorbedingung für die Untersuchung des nächsten Prototyps.
 
-Der Mod-Workspace war vor dieser Dokumentationsänderung sauber:
+## 2. Historischer Prüfstand und Nachweisgrenzen vom 26.10.2026
+
+Der Mod-Workspace war vor der ursprünglichen Dokumentationsänderung am 26.10.2026 sauber:
 
 - Branch: `develop`.
 - HEAD: `46c1619b0771a5e07f814e61e9fc61e20197502c`.
@@ -121,11 +123,11 @@ Das neue System muss daher bei relevanten Anfragen zusätzliche Zustände oder n
 
 Die ersten beiden Ebenen sind mit einer passend aufgebauten exakten Hierarchie grundsätzlich vereinbar. Ebene 3 folgt daraus nicht. Der heutige Vorwärtskern verwendet bei Gleichstand Einfügereihenfolge, der Rückwärtskern Knotennummern und eine am ersten Start orientierte Priorität. Bereits vorhandene Felder können ebenfalls die Auswahl beeinflussen.
 
-Der Nutzerwunsch bleibt „möglichst identischer Weg“. Abweichungen müssen deshalb gesondert gemessen und erklärt werden. Es ist keine pauschale Erlaubnis erteilt, beliebige gleich teure Wege zu wählen.
+Die ursprüngliche Präferenz vom 26.10.2026 war „möglichst identischer Weg“. Für den nächsten Prototyp wurde am 27.10.2026 präzisiert: Bewegungsregeln, optimale Kosten und Zusatzbedingungen bleiben exakt; gleich teure Richtungsabweichungen werden reproduzierbar dokumentiert und vor der Verbraucherintegration bewertet. Ein bestandener Kostenvergleich ist weiterhin keine pauschale Abnahme der konkreten Wegwahl.
 
-## 6. Lösungsweg A: Exakter Navigationsgraph mit lokalen Distanzfeldern
+## 6. Ursprünglicher Lösungsweg A vom 26.10.2026: Exakte Hierarchie mit lokalen Distanzfeldern
 
-Dies ist die bevorzugte Untersuchungsrichtung. Die konkrete Ausgestaltung ist noch keine beschlossene Implementierung.
+Dieser Abschnitt beschreibt den damaligen Entwurf. Seine konkrete Umsetzung mit 32×32-/128×128-Regionen wurde untersucht und negativ bewertet; sie ist nicht mehr die bevorzugte Fortsetzung. Die Hinweise zu gerichteten Kanten, korrekten Fortsetzungskosten und Zustandsgrenzen bleiben fachlich relevant. Ergebnisse und neue Empfehlung stehen in den Abschnitten 12 bis 14.
 
 ### 6.1 Dauerhaftes Modell und getrennte Daten
 
@@ -175,7 +177,7 @@ Die vollständige Erfassung der Writer ist eine zentrale offene Integrationsaufg
 
 | Weg | Stärke | Wesentliche Grenze für SHCDE |
 |---|---|---|
-| **A: Exakte Hierarchie plus lokale Felder** | Weniger Suchraum und wiederholte Arbeit bei erhaltbaren Kanten-/Kostenregeln | Anspruchsvolle Ressourcenbedingungen, Aktualisierung und Gleichstands-Wegtreue |
+| **A: Exakte Hierarchie plus lokale Felder** | Ursprünglich erwartete Reduktion von Suchraum und wiederholter Arbeit | Konkreter Prototyp scheitert an Aufbau und Speicher; keine Fortsetzung der vollständigen Grenzknoten-Distanzzeilen empfohlen |
 | **B: Polygonales Navmesh plus A*/Flow** | Starke Verdichtung großer offener Flächen | Kontinuierliche Geometrie und Glättung ändern diskrete Wege; Höhen, Einbahnkanten, Grabenränder und dynamische Belagerung brauchen besondere Modellierung |
 | **C: Vollständig eigene Wegausführung und Ausweichsteuerung** | Kann auch individuelle vollständige Pfadpuffer und häufige native Neuplanung ersetzen | Zusätzlich Eingriffe in Bewegung, Belegung, Formation, Kampf, Arbeit, Save-Zustände und Multiplayer |
 | **D: Approximative Hierarchie, etwa übliches HPA*** | Einfacherer Weg zu hoher Suchgeschwindigkeit | Optimale Kosten und konkrete Precise-Wege sind nicht generell erhalten |
@@ -234,11 +236,11 @@ Es bleiben:
 
 Damit sind deutliche Gewinne plausibel. Eine bestimmte maximale Einheitenzahl, durchgehend konstante Anfragekosten oder ein fester FPS-/Tickgewinn sind nicht belegt.
 
-Zum [GitHub-Profil von JiuyeAyan](https://github.com/JiuyeAyan): Die erneut abrufbare öffentliche Profilansicht nennt drei Repositories: SCDE-Mod-Manager, JiuyeAyan-Fog-of-War und JiuyeAyan-Advanced-Control. Ein Navigationsprojekt war dort nicht sichtbar. Die Ansicht ist gecacht; das ist kein Nachweis gegen private oder inzwischen anders veröffentlichte Arbeit. Die vom Nutzer zitierte Aussage über hunderttausende Einheiten ist technisch plausibel, aber für diesen Bericht kein unabhängig geprüfter Benchmark und keine Leistungszusage für SHCDE.
+Zum [GitHub-Profil von JiuyeAyan](https://github.com/JiuyeAyan): Bei der Quellenprüfung vom 26.10.2026 nannte die gelieferte öffentliche Profilansicht drei Repositories: SCDE-Mod-Manager, JiuyeAyan-Fog-of-War und JiuyeAyan-Advanced-Control. Ein Navigationsprojekt war dort nicht sichtbar. Die Ansicht war gecacht; das ist kein Nachweis gegen private oder inzwischen anders veröffentlichte Arbeit. Die vom Nutzer zitierte Aussage über hunderttausende Einheiten ist technisch plausibel, aber für diesen Bericht kein unabhängig geprüfter Benchmark und keine Leistungszusage für SHCDE. Diese Profilprüfung wurde für den Nachtrag vom 27.10.2026 nicht wiederholt.
 
-## 10. Sinnvoller Nachweis vor einer Integrationsentscheidung
+## 10. Ursprüngliche Nachweisfolge vom 26.10.2026
 
-Ein erster Prototyp sollte die Architektur prüfen, ohne bereits die gesamte Bewegung neu zu schreiben:
+Der erste Prototyp sollte die Architektur prüfen, ohne bereits die gesamte Bewegung neu zu schreiben. Die folgende ursprüngliche Prüfliste bleibt als Historie erhalten; die aktuelle Nachweisfolge steht in Abschnitt 14:
 
 1. Echte Kartensnapshots einschließlich gerichteter Kanten, Kosten und relevanter Kontextdaten gewinnen; Snapshot-Erzeugung selbst messen.
 2. Exakte skalare Hierarchie und lokale Felder gegen eine unabhängige Referenz prüfen.
@@ -262,9 +264,9 @@ Dafür vorhandene sinnvolle Tests erweitern. Neue Fixtures nur für konkret zus�
 
 Erfassen: kalte/warme Anfrage, gesamte CPU-Zeit, p50/p95/p99 und Maximum, Knoten-/Kantenarbeit, Vorberechnung, Invalidierung, Speicher, Allokationen, Wegausgabe, Weg-/Kostenabweichungen sowie native Reparaturen. Spielvergleiche mit gleichen Einstellungen und abwechselnden Läufen durchführen. Vorbereitungsarbeit und Wartezeit gehören in die Gesamtbilanz.
 
-Offen bleiben die konkrete Partitionierung, Umfang der Mehrzustandsdarstellung, Managed-/Native-Ausführung, Integrationsort, benötigtes Speicherbudget und der Umgang mit verbleibenden gleichwertigen Wegabweichungen. Diese Entscheidungen sollen aus Nachweisen und Nutzerpräferenzen folgen.
+Zum damaligen Stand blieben die konkrete Partitionierung, Umfang der Mehrzustandsdarstellung, Managed-/Native-Ausführung, Integrationsort, benötigtes Speicherbudget und der Umgang mit verbleibenden gleichwertigen Wegabweichungen offen. Die Präzisierungen vom 27.10.2026 und der vorgesehene native Endzustand stehen in den Abschnitten 1, 13 und 14. Ein konkreter Integrationsvertrag und ein belastbarer Speichernachweis stehen weiterhin aus.
 
-## 11. Ergebnis der erneuten Quellenprüfung
+## 11. Ergebnis der erneuten Quellenprüfung vom 26.10.2026
 
 | Quelle | Erneuter Abgleich |
 |---|---|
@@ -276,5 +278,98 @@ Offen bleiben die konkrete Partitionierung, Umfang der Mehrzustandsdarstellung, 
 | HPA*-Originalarbeit | Annähernd optimale Auslegung erneut durch Originaltext im Archiv und Suchindex bestätigt; direkter Hochschul-PDF-Abruf wurde umgeleitet und war nicht zuverlässig verfügbar. |
 | JiuyeAyan | Kein Navigationsrepository in der erneut gelieferten öffentlichen Profilansicht; Implementierung und Skalierungsbehauptung nicht unabhängig geprüft. |
 
-Die Empfehlung bleibt Lösungsweg A. Seine Eignung für ein wesentlich schnelleres Precise muss der beschriebene Prototyp unter Einrechnung sämtlicher Aufbereitungs-, Aktualisierungs- und Übergabekosten nachweisen.
+Die damalige Empfehlung war Lösungsweg A. Der anschließend durchgeführte Prototyp hat die erhoffte Eignung nicht nachgewiesen. Die folgende Auswertung ersetzt diese Empfehlung, ohne die historischen Quellen- und Messbefunde umzuschreiben.
+
+## 12. Auswertung von BetterPathfindingTest am 27.10.2026
+
+### 12.1 Bezug und tatsächlicher Laufumfang
+
+Ausgewertet wurde das installierte Diagnosepaket **0.1.1** auf der geladenen Karte „Back to Back“ (`test_stresstest4.sav`). Der Lauf beginnt im mod-eigenen Log um **16:40:48.775 Uhr**. Sein Diagnoseordner heißt `20261027-154048-775-s1`; der Ordnername enthält UTC, die genannten Logzeiten sind lokale Zeiten. Der Kartenvertrag umfasst 800×800 Koordinaten, aber im erfassten Graphen nur **317.604 gültige Koordinaten**. Das ist kein Test mit 10.000 unabhängig bewegten Einheiten.
+
+| Nachweis | Ergebnis |
+|---|---|
+| Snapshot 1 / Snapshot 2 kopiert | **4,0448 / 1,248 ms**; beide Post-Startup-Callbacks ausgeführt |
+| Graphaufbau für Snapshot 1 | **61,1095 ms**; Rohsnapshot-Puffer **4.273.521 Bytes** |
+| Torregeln | `captured-immutable-published-policy`; Spieler 1 getestet, Spieler 1 bis 8 erfasst |
+| Erste Anfrage mit gemeinsamem Ziel | Nach **17.108,7962 ms** mit `memory-budget` unvollständig |
+| Unabhängige Vollreferenz desselben Falls | **140,6134 ms**; kein gültiger Speedup-Vergleich zu einer abgebrochenen Suche |
+| Bis dahin aufgebaute Distanzzeilen | **9.672** für 32er- und **1.379** für 128er-Regionen; kein fertiges lokales Feld |
+| Gruppen mit gemeinsamem Ziel: 1 / 32 / 128 / 512 | Alle am Speicherlimit gescheitert; jeweils **0 vollständig verglichene Anfragen** |
+| Gesamter ausgewerteter Snapshot | **7/1.346** Anfragen verglichen, **0 gefundene Wege**, 7-mal `Unreachable`; Status `INCOMPLETE` |
+| Ende | Nach **116,33 s**; `WM_CLOSE`/`Application_quitting` um 16:42:44, danach `ThreadAbortException` im Worker |
+
+Primärnachweise: [Snapshot-1-Ergebnis mit Einzelfällen](<E:/ProgrammeE/Steam/steamapps/common/Stronghold Crusader Definitive Edition/BepInEx/cache/BetterPathfindingTest_Serp/20261027-154048-775-s1/snapshot-1.json>), [erster Suchfall](<E:/ProgrammeE/Steam/steamapps/common/Stronghold Crusader Definitive Edition/BepInEx/cache/BetterPathfindingTest_Serp/20261027-154048-775-s1/snapshot-1-shared-goal-1.md>) und [BepInEx-Log](<E:/ProgrammeE/Steam/steamapps/common/Stronghold Crusader Definitive Edition/BepInEx/LogOutput.log>). Die Pfade sind lokale Nachweise dieser Installation; das BepInEx-Log ist eine fortlaufend ergänzte Datei. Die Messdaten werden durch diese Dokumentationsänderung nicht verändert.
+
+Der zweite Snapshot wurde um **16:41:00.245 Uhr** kopiert und eingereiht, aber vor dem Spielende nicht im Worker verarbeitet oder als Rohsnapshot gespeichert. Damit gibt es für diesen Lauf weder einen zweiten Abschlussbericht noch einen tatsächlichen Änderungsvergleich. Die 120-Sekunden-Grenze war beim Spielende noch nicht erreicht. Der beobachtete Threadabbruch fällt mit dem Herunterfahren zusammen; er belegt keinen unabhängig davon aufgetretenen Suchkernfehler.
+
+### 12.2 Was bisherige Erfolgsmeldungen nicht nachweisen
+
+Der [ältere Bericht vom 26.10.2026, Ordner `20261026-151328-021-s2`, Snapshot 1](<E:/ProgrammeE/Steam/steamapps/common/Stronghold Crusader Definitive Edition/BepInEx/cache/BetterPathfindingTest_Serp/20261026-151328-021-s2/snapshot-1.json>) meldet 1.346 bestandene Vergleiche. Die Einzelfälle enthalten jedoch **1.346-mal `Unreachable` und keinen gefundenen Weg**. Er bestätigt Übereinstimmung bei diesen negativen Fällen, keine erfolgreiche Ingame-Wegausgabe. Auch die sieben abgeschlossenen Fälle des neuesten Laufs sind ausschließlich negative Antworten. Der damalige Gesamtstatus ist daher keine positive Abnahme des Navigationssystems.
+
+Der [zweite Snapshot desselben älteren Laufs](<E:/ProgrammeE/Steam/steamapps/common/Stronghold Crusader Definitive Edition/BepInEx/cache/BetterPathfindingTest_Serp/20261026-151328-021-s2/snapshot-2.json>) enthält acht übereinstimmende Änderungsvergleiche, aber **0 geänderte Koordinaten und 0 invalidierte Zeilen**. Das prüft einen unveränderten Zustand, keine Aktualisierung nach Bau, Abriss oder neuer Abkürzung. Der kontrollierte synthetische Test auf privaten Kopien bestand dagegen: Eine außerhalb des alten Weges geöffnete Verbindung senkte die Kosten von 925 auf 133; die anschließende Sperrung wurde erkannt. Diese beiden Nachweisarten bleiben getrennt.
+
+Die bisher als `formation-profiles-*` bezeichnete Last wird hier als **verteilte Zielmenge mit Profilen** eingeordnet. Die gespeicherte 512er-Last des aktuellen Laufs enthält 512 Ziele über 18 verschiedene 32×32-Zielblöcke, 62 unterschiedliche Startkoordinaten und fünf rohe Kostenprofile. Das ist keine räumlich zusammenhängende Formation und kein Beleg für 512 unterschiedliche Einheiten. Quellstand und historische Dateinamen bleiben unverändert; künftige Prüfungen brauchen echte Formationen zusätzlich zu solchen verteilten Zielen.
+
+Die [Offline-Nachweise vom 26.10.2026](Testmods/BetterPathfindingTest/RESULTS.md) bleiben gültige, gesonderte Befunde: 6.827 Assertions, 295 Referenzvergleiche, keine dort beobachteten Precise-Kosten-/Statusabweichungen und 60 offene gleich teure Richtungsabweichungen. Sie ersetzen weder positive Ingame-Fälle noch eine Skalierungsabnahme.
+
+### 12.3 Speicher, Kostenursache und Bewertung
+
+Das Limit beträgt **256 MiB = 268.435.456 Bytes** und betrifft konservativ erfasste Navigationspuffer einschließlich reservierter Arbeitsbereiche. Erschöpfung ergibt `INCOMPLETE`, niemals einen Unerreichbarkeitsbeweis. Der gesamte verwaltete Heap lag am Ende bei **1.004.785.664 Bytes, etwa 958 MiB**. Er enthält Spiel und andere Mods sowie noch nicht eingesammelte Objekte und ist kein gemessener Speicherverbrauch dieses Testmods. Die reservierten Navigationsbytes sind umgekehrt keine harte Obergrenze für den gesamten Unity-Prozess.
+
+Die Hauptursache liegt in der konkreten [Hierarchie](Testmods/BetterPathfindingTest/src/Core/Hierarchy.cs): Pro Eintrittsknoten entstehen lokale Distanzzeilen mit vielen Grenzknotenverbindungen und vollständigen Teilwegen. Die zweite Ebene vervielfacht diese Arbeit. Ein lokales Zielfeld benötigt zudem globale Fortsetzungskosten, die im aktuellen Aufbau durch weitere globale Suchen beschafft werden. Auf offenen großen Flächen wird dadurch viel Arbeit materialisiert, bevor die erste Anfrage beantwortet ist.
+
+Die [Teststeuerung](Testmods/BetterPathfindingTest/src/Runtime/Run.DevDiag.cs) startet für jede Arbeitslast einen neuen Navigator und wiederholt dadurch bereits gescheiterte Großaufbauten. Ihre zeitliche Aneinanderreihung verdrängte die Auswertung des zweiten Snapshots. Gemeldete warme Zeiten unvollständiger Anfragen sind kein Leistungsnachweis. Ebenso ist ein über den gesamten Snapshot geführter Speicherhöchststand kein isolierter Höchststand einer späteren kleinen Arbeitslast.
+
+**Bewertung:** Die konkrete vollständige Grenzknoten-Hierarchie ist als Architekturversuch gescheitert. Eine höhere Speichergrenze oder weitere Optimierung ihrer Distanzzeilen ist keine empfohlene Fortsetzung. Snapshot-Erfassung und Replay-/Vergleichsinfrastruktur sind weiterhin nutzbar. Der Neuaufbau muss die grundlegende Darstellung und gemeinsame Verarbeitung ändern; ein anderer Heap, C++ allein oder ein weiterer Rückwärtsfeld-Cache genügt nicht. Der aktuelle Precise-Kern besitzt bereits eigene Rückwärtsfelder und Wiederverwendung.
+
+## 13. Neuer Systementwurf für 10.000 Einheiten
+
+Empfohlen wird ein **eigenständiger Navigationsdienst mit diskretem Flächen-/Portalnetz, gemeinsamer Gruppenplanung und wiederverwendbaren Bewegungsfeldern**. Dies ist ein grundlegender Neuaufbau mit noch ausstehendem Exaktheits- und Leistungsnachweis.
+
+### 13.1 Weniger Arbeit durch ein anderes Karten- und Auftragsmodell
+
+- **Homogene Flächen verdichten:** Große zusammenhängende Bereiche werden kompakt repräsentiert. Hindernisse, Grabenränder, Höhenwechsel, Strukturen und gerichtete Sonderübergänge bleiben ausdrücklich modelliert. Innerhalb geeigneter Flächen ersetzen kompakte Wegprimitive wiederholte Kachelsuchen. Deren Kosten, Boden-/Grabenschritte und Rekonstruktion müssen zur diskreten SHCDE-Metrik passen; kontinuierliche Luftlinien oder geglättete Navmesh-Wege sind kein Exaktheitsnachweis. Nicht nachweisbar verdichtbare Bereiche bleiben ausdrücklich dargestellt.
+- **Keine vollständigen Grenzknotenmatrizen:** Übergänge speichern Topologie und kompakte Rekonstruktionsinformationen. Vollständige Teilwege zwischen sämtlichen Bereichseintritten werden nicht vorgehalten. Zu untersuchen sind implizite Flächendurchquerung und gemeinsam integrierte Randwerte, statt die gescheiterten Distanzzeilen nur in einer anderen Sprache nachzubauen.
+- **Gruppen gemeinsam planen:** Äquivalente Ziel-, Rechte- und Kostenkontexte teilen Fernplanung und lokale Bewegungsfelder. Gleicher Einheitentyp oder gleiches Team genügt nicht als Freigabe für Wiederverwendung. Formationsplätze behalten ihre eigenen Ziele; ein gemeinsamer Anker mit angehängten Endstücken darf keine optimalen Einzelwege vortäuschen. Unterschiedliche Profile und räumlich verteilte Ziele werden gesondert gemessen.
+- **Precise exakt erhalten:** Skalare Felder beantworten geeignete Fälle und liefern untere Kostenschranken. Grabenpflicht, Strukturfilter, mehrere Profilgrenzen, terminale Ausnahmen und Schrittgrenzen benötigen bei Bedarf zusätzliche Zustände beziehungsweise nicht dominierte Alternativen. Eine willkürlich feste Alternativenzahl darf keine gültigen Wege abschneiden. Die 40-Tick-Qualifikation und die 2.000-Schritt-Publikationsgrenze bleiben erhalten; längere Erreichbarkeit und publizierbare Wege bleiben verschiedene Abfragen.
+- **Kartenwissen dauerhaft nutzen:** Ergebnisse gehören zu nachgewiesenen Topologie-, Rechte- und Kostengenerationen. Eine Ticknummer allein invalidiert keine unveränderten Daten. Änderungen müssen auch neue Abkürzungen außerhalb bestehender Wege berücksichtigen. Sind Abhängigkeiten noch nicht sicher erfasst, wird konservativ invalidiert; bloße Gültigkeit des alten Weges beweist keine unveränderte Optimalität.
+
+### 13.2 Günstige Bewegung und kontrollierte Ausführung
+
+Langfristig sollen Einheiten gemeinsame Routeninformationen und vorbereitete nächste Schritte konsumieren. Es soll keine vollständige Suche pro Einheit und Bewegungsschritt entstehen. Regeländerungen werden möglichst einmal pro betroffenem Kontext oder Bereich aufbereitet. Vollständige individuelle Wege ständig neu zu berechnen oder zusätzliche Planung nach Vanilla auszuführen würde das Skalierungsziel verfehlen.
+
+Planung läuft unterbrechbar auf eigenen unveränderlichen Daten. Neue Aufträge sollen normalerweise innerhalb von ungefähr **100 ms** reagieren. Während einer Neuberechnung kann ein weiterhin zulässiger bestehender Weg genutzt werden; andernfalls wartet die Einheit kurz. Ungültige Kanten dürfen nicht wegen einer ausstehenden Berechnung benutzt werden. `Pending`, Budgetabbruch und Unerreichbarkeit bleiben unterscheidbar. Überschrittene Reaktionsziele werden ausgewiesen; ein Zeitlimit macht weder einen ungeprüften Weg optimal noch eine offene Suche unerreichbar.
+
+Für den Endzustand ist ein **kompakter C++-Kern mit gebündelter Schnittstelle** vorgesehen, mit kompakten Puffern und Wiederverwendung statt Objektallokationen je Suchzustand. Übergänge zwischen nativer und verwalteter Ausführung dürfen nicht pro Einheit oder Suchkante erforderlich werden. C++ ist dabei eine Ausführungsentscheidung für die neue Architektur, kein eigenständiger Beschleunigungsnachweis. Verwaltete und native Navigationspuffer müssen künftig gemeinsam bilanziert werden; die bisherigen 256 MiB sind kein nachgewiesenes Budget für den Endzustand.
+
+Die spätere Bewegungsanbindung benötigt einen eigenen vollständigen Integrationsaudit. Sie muss passende native Sucharbeit tatsächlich ersetzen und Belegung, Bewegung, Kampf, Arbeit, Kartenwechsel und gespeicherte Zustände konsistent behandeln. Bestehende Hookbesitzer bleiben maßgeblich. Für Multiplayer sind deterministische Übernahmezeitpunkte erforderlich; zufälliges Worker-Fertigwerden oder verstrichene Echtzeit dürfen keine abweichenden Spielentscheidungen erzeugen. Eine öffentliche Mod-API wird mit diesem Entwurf noch nicht festgelegt.
+
+### 13.3 Fachquellen und Grenzen der Übertragung
+
+| Quelle | Nutzbares Prinzip | Grenze für diesen Entwurf |
+|---|---|---|
+| [Emerson: Flow Field Tiles](https://www.gameaipro.com/GameAIPro/GameAIPro_Chapter23_Crowd_Pathfinding_and_Steering_Using_Flow_Field_Tiles.pdf) | Gemeinsame Bewegungsfelder, Portalgraph und örtlicher Cache statt wiederholter individueller Planung | Portalmitten und Steuerung sind kein Beweis für optimale diskrete Precise-Wege oder dessen Ressourcenbedingungen |
+| [Harabor/Botea/Kilby: Rectangular Symmetry Reduction](https://pathfinding.ai/pdf/harabor-botea-kilby-sara11.pdf) | Homogene freie Flächen verdichten und über Makroübergänge exakt durchqueren | Untersucht ungerichtete Gitter mit einheitlichen Kosten und eigener Bewegungsmetrik; SHCDEs gerichtete Regeln und Profilgrenzen benötigen einen neuen Nachweis |
+| [Uras/Koenig/Hernández: Subgoal Graphs](https://ojs.aaai.org/index.php/ICAPS/article/view/13568) | Suchgraph auf relevante Hindernis-/Verbindungsstellen konzentrieren | Die Exaktheit des dort behandelten Acht-Nachbar-Gitters deckt dynamische Grabenrechte, terminale Ausnahmen und Mehrprofilbedingungen nicht automatisch ab |
+
+Diese Primärquellen wurden für den Entwurf vom 27.10.2026 herangezogen. Ihre Ergebnisse begründen die Forschungsrichtung, keine Leistungszusage für SHCDE. Keine der Arbeiten beweist unmittelbar die benötigte Kombination aller Regeln. Die konkrete Partitionierung, Makroübergänge und Reparaturstrategie müssen deshalb vor einer Integration nachgewiesen werden.
+
+## 14. Entwicklungsfolge und Abnahmekriterien
+
+Der nächste Implementierungsauftrag sollte den Neuaufbau zunächst wieder isoliert prüfen. Bestehende Mods werden erst nach Bewertung dieses Prototyps angeschlossen. Folgende Nachweise werden getrennt geführt:
+
+1. **Verdichtung beweisen:** Gerichtete Kanten, homogene und gemischte Flächen, Diagonalen, Start/Ziel im Flächeninneren, unterschiedliche Profile und alle Precise-Zusatzbedingungen gegen die unabhängige Vollsuche prüfen. Gleiche optimale Kosten und ausschließlich zulässige ausgegebene Kanten sind Pflicht. Gleich teure Richtungsabweichungen werden mit reproduzierbaren Anfragen gespeichert und vor der Verbraucherintegration bewertet.
+2. **Gruppenplanung messen:** Gemeinsame Ziele, räumlich zusammenhängende Formationen und verteilte Einzelziele getrennt mit 128, 512 und 10.000 Anfragen prüfen. Erreichbare reine Bodenwege, tatsächlich notwendige Grabenquerungen, wegen Zusatzbedingungen verworfene Wege und unerreichbare Ziele müssen jeweils vertreten sein. Anfragezahl und Zahl unterschiedlicher Einheiten werden getrennt ausgewiesen. Ein ausschließlich negativer Datensatz ist keine positive Gesamt-Abnahme.
+3. **Dauerbetrieb prüfen:** Wiederholte Befehle, kalte und warme Kontexte, unterschiedliche Profile, Cache-Verdrängung, Kartenänderungen und neue Abkürzungen außerhalb alter Wege messen. Aktualisierte Antworten müssen mit einem unabhängigen vollständigen Neuaufbau übereinstimmen. Tatsächliche Änderungen, unveränderte Snapshots und synthetische Änderungen auf privaten Kopien bleiben getrennte Nachweise.
+4. **Erst danach Bewegung anbinden:** Verbraucher einzeln integrieren und nachweisen, welche native Sucharbeit entfällt. Bereits vorhandene Bewegungs-, Kollisions-, KI- und Darstellungsarbeit separat erfassen. Der reine Suchtest erteilt weder eine Bewegungs- noch eine Multiplayer-Freigabe.
+
+**Vergleichsmaßstab ist der aktuelle unveränderte Precise-Kern**, einschließlich seiner vorhandenen Felder, Caches und Wiederverwendung. Eine Beschleunigung nur gegenüber der unabhängigen, auf Korrektheit ausgelegten Vollreferenz genügt nicht. Quellen und Eingaben werden je Messserie festgehalten; Offline-.NET, nativer Prüfhost und Unity/Mono bleiben getrennte Laufzeitnachweise.
+
+Gemessen werden Gesamtplanung einschließlich Vorbereitung, Aktualisierung und Wegausgabe, gesamte CPU-Arbeit, Speicher und Allokationen, Feld-/Graphgröße, tatsächlich geteilte Arbeit, Reaktionszeiten sowie zusätzliche Frame-/Tickspitzen. Kalte und warme Abfragen sowie Aufbau beim Kartenstart werden getrennt und zusätzlich in der Gesamtbilanz gezeigt. Für Reaktionszeiten sind p50/p95/p99, Maximum, ausstehende Aufträge und Überschreitungen des ungefähr 100-ms-Ziels auszuweisen. Vergleichsläufe verwenden dieselben Karten, Regeln, Einheiten und Einstellungen und werden abwechselnd wiederholt.
+
+Vor weiteren Messungen ist die **Teststeuerung** anzupassen: Beide Snapshots früh persistieren; den tatsächlichen Änderungsvergleich priorisieren; Arbeit so aufteilen, dass lange Benchmarks nachfolgende Erfassungen und Berichte nicht verdrängen; bereits gescheiterte Großaufbauten nicht ohne neue Erkenntnis für größere Gruppen wiederholen. Referenzen erhalten unabhängige Arbeitsbudgets. Arbeitslastbezogene Speicherhöchststände, tatsächlicher Gesamtheap und Allokationen werden getrennt gemessen. Fehlende Phasen, fehlende positive Fälle, Schreibfehler, Budget- und Lifecycleabbrüche bleiben ausdrücklich unvollständig. Diese Anpassungen sind hier geplant, nicht implementiert.
+
+**Grenze der Zusage:** Ziel ist, die zusätzlichen Navigationskosten für 10.000 Einheiten mit erweiterten Regeln beherrschbar zu machen. Ob SHCDE insgesamt 10.000 Einheiten flüssig simulieren und darstellen kann, ist eine andere Frage. Für beliebige gleichzeitige Kartenänderungen, völlig unabhängige Ziele und beliebig komplexe Ressourcenbedingungen ist keine konstante Antwortzeit bewiesen. Werden die gewünschten Reaktionszeiten oder die Gesamtperformance unter repräsentativer Last verfehlt, ist das ein negatives Ergebnis; es wird nicht durch gelockerte Regeln, ausgeblendete Vorarbeit oder ausschließlich günstige Teilmessungen verdeckt.
+
+Der Nachtrag vom **27.10.2026** aktualisiert ausschließlich diese Dokumentation anhand vorhandener Quellen und Artefakte. Er enthält keine neue Solverimplementierung, keine Runtime-Änderung, keinen Build, keine Installation und keinen neu gestarteten Spieltest. Historische Messungen bleiben in ihren ursprünglichen Dateien erhalten.
 

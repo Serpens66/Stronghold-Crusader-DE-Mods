@@ -107,7 +107,7 @@ namespace ExtraFeatures
                   !runtime.Contains("plagueApothecarySearchRangePatch = null"),
                 "apothecary enable-disable-enable retains the same published hook");
             Check(noKillReward.Contains("rootedPublishedInstance = this;") &&
-                  noKillReward.Contains("Volatile.Write(ref suppressionMask") &&
+                  noKillReward.Contains("Volatile.Write(ref configuration") &&
                   noKillReward.Contains("if (!published)"),
                 "No Kill Reward source guardrail retains rooted hooks and atomic logical settings");
             int finalLiveCheck = noKillReward.LastIndexOf("VerifyLiveSpans(memory);", StringComparison.Ordinal);

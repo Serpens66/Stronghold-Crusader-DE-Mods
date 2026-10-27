@@ -203,6 +203,13 @@ internal static class Program
                 return 0;
             }
 
+            if (args != null && args.Length == 1 && args[0] == "kill-reward")
+            {
+                TestNoKillRewardHostSettings();
+                Console.WriteLine("PASS: ExtraFeatures victory-loot host classifications, XAML and permanent-hook integration.");
+                return 0;
+            }
+
             FearFactorPresetTests.Run();
             AssassinCapturedGatePresetTests.Run();
             EnemyGateRoutingPresetTests.Run();
@@ -1753,25 +1760,22 @@ internal static class Program
 
     private static void TestNoKillRewardHostSettings()
     {
+        // Limited integration guardrail. Production behavior, migration and persistence
+        // execute in ExtraFeatures.PresetTests; generated native stubs execute separately.
         string root = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", ".."));
-        string viewModel = File.ReadAllText(Path.Combine(root, "ExtraFeatures", "src", "ExtraFeaturesViewModel.cs"));
+        string viewModel = File.ReadAllText(Path.Combine(root, "ExtraFeatures", "src", "ExtraFeaturesViewModel.KillReward.cs"));
         string runtime = File.ReadAllText(Path.Combine(root, "ExtraFeatures", "src", "ExtraFeaturesRuntime.cs"));
         string xaml = File.ReadAllText(Path.Combine(root, "ExtraFeatures", "Override", "ScriptExtenderUI", "ExtraFeaturesSettings.xaml"));
         foreach (string role in new[] { "Human", "AI" })
+        foreach (string kind in new[] { "Gold", "Goods", "GoldMaximum" })
         {
-            string property = "NoKillReward" + role;
-            Check(viewModel.Contains("[SyncHostOnly] public bool " + property), property + " is not host synchronized");
-            Check(viewModel.Contains(property + " = false;"), property + " does not reset to Vanilla");
-            Check(xaml.Contains("IsChecked=\"{Binding " + property + ", Mode=TwoWay}\""), property + " is not bound in the UI");
-            Check(xaml.Contains("ToolTip=\"{Binding " + property + "HelpText}\""), property + " has no role-specific tooltip");
-            Check(runtime.Contains("settings." + property), property + " does not reach the runtime");
+            string property = "KillReward" + kind + role;
+            Check(viewModel.Contains("[SyncHostOnly] public int " + property), property + " is host synchronized");
+            Check(xaml.Contains("{Binding " + property + (kind == "GoldMaximum" ? "Text" : "") + ", Mode=TwoWay"), property + " is bound in the table");
+            Check(runtime.Contains("settings." + property), property + " reaches the permanent hook");
         }
-        Check(runtime.Contains("ApplyNoKillRewardSetting();") &&
-              runtime.Contains("noKillRewardHook.SetEnabled("),
-            "No Kill Reward settings do not update the permanent hook");
-        Check(viewModel.Contains("NoKillRewardSearchHelpText => NoKillRewardHumanHelpText + \" \" + NoKillRewardAIHelpText") &&
-              xaml.Contains("shared:ModSettingsSearch.ToolTipText=\"{Binding NoKillRewardSearchHelpText}\""),
-            "No Kill Reward search does not include both role tooltips");
+        Check(runtime.Contains("noKillRewardHook.Configure("), "Victory loot updates permanent hook configuration");
+        Check(xaml.Contains("{Binding CanConfigureKillReward}"), "Victory loot respects mission and host editor locking");
     }
 
     private static void TestP2aMigrationContracts()

@@ -38,7 +38,10 @@ namespace ExtraFeatures
         private void OnSettingsPresentationPropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs args)
         {
             if (args.PropertyName == nameof(CanEditHostSettings))
+            {
                 OnPropertyChanged(nameof(CanConfigurePeriodicGold));
+                OnPropertyChanged(nameof(CanConfigureKillReward));
+            }
             if (args.PropertyName == nameof(System_ModSettingsSearchText) ||
                 args.PropertyName == nameof(System_ModSettingsSearchIncludeToolTips) ||
                 args.PropertyName == nameof(System_ModSettingsSearchExactKey) ||
@@ -109,8 +112,6 @@ namespace ExtraFeatures
         private bool enableFearFactorNeutralization;
         private bool allowElevatedMoatAI = true;
         private bool allowElevatedMoatHuman;
-        private bool noKillRewardHuman;
-        private bool noKillRewardAI;
         private bool healCivilianTargets;
         private bool healSiegeTargets;
         private bool enableKnightDismount = true;
@@ -165,10 +166,6 @@ namespace ExtraFeatures
         public string EnableFearFactorNeutralizationHelpText => SerpLocalization.Get(SerpLocalization.EnableFearFactorNeutralizationHelp);
         public string AllowElevatedMoatText => SerpLocalization.Get("SomeSettings.AllowElevatedMoat");
         public string AllowElevatedMoatHelpText => SerpLocalization.Get("SomeSettings.AllowElevatedMoatHelp");
-        public string NoKillRewardText => SerpLocalization.Get("SomeSettings.NoKillReward");
-        public string NoKillRewardHumanHelpText => SerpLocalization.Get("SomeSettings.NoKillRewardHumanHelp");
-        public string NoKillRewardAIHelpText => SerpLocalization.Get("SomeSettings.NoKillRewardAIHelp");
-        public string NoKillRewardSearchHelpText => NoKillRewardHumanHelpText + " " + NoKillRewardAIHelpText;
         public string HealerTargetsText => SerpLocalization.Get("ExtraFeatures.HealerTargets");
         public string HealerTargetsCivilianText => SerpLocalization.Get("ExtraFeatures.HealerTargetsCivilian");
         public string HealerTargetsSiegeText => SerpLocalization.Get("ExtraFeatures.HealerTargetsSiege");
@@ -311,8 +308,6 @@ namespace ExtraFeatures
         [SyncHostOnly] public bool EnableFearFactorNeutralization { get => enableFearFactorNeutralization; set => SetSetting(ref enableFearFactorNeutralization, value, nameof(EnableFearFactorNeutralization)); }
         [SyncHostOnly] public bool AllowElevatedMoatAI { get => allowElevatedMoatAI; set => SetSetting(ref allowElevatedMoatAI, value, nameof(AllowElevatedMoatAI)); }
         [SyncHostOnly] public bool AllowElevatedMoatHuman { get => allowElevatedMoatHuman; set => SetSetting(ref allowElevatedMoatHuman, value, nameof(AllowElevatedMoatHuman)); }
-        [SyncHostOnly] public bool NoKillRewardHuman { get => noKillRewardHuman; set => SetSetting(ref noKillRewardHuman, value, nameof(NoKillRewardHuman)); }
-        [SyncHostOnly] public bool NoKillRewardAI { get => noKillRewardAI; set => SetSetting(ref noKillRewardAI, value, nameof(NoKillRewardAI)); }
         [SyncHostOnly] public bool HealCivilianTargets { get => healCivilianTargets; set => SetSetting(ref healCivilianTargets, value, nameof(HealCivilianTargets)); }
         [SyncHostOnly] public bool HealSiegeTargets { get => healSiegeTargets; set => SetSetting(ref healSiegeTargets, value, nameof(HealSiegeTargets)); }
         [SyncHostOnly] public bool EnableMonksAlwaysRun { get => enableMonksAlwaysRun; set => SetSetting(ref enableMonksAlwaysRun, value, nameof(EnableMonksAlwaysRun)); }
@@ -427,8 +422,7 @@ namespace ExtraFeatures
                 EnableFearFactorNeutralization = false;
                 AllowElevatedMoatAI = true;
                 AllowElevatedMoatHuman = false;
-                NoKillRewardHuman = false;
-                NoKillRewardAI = false;
+                ResetKillRewardDefaults();
                 HealCivilianTargets = false;
                 HealSiegeTargets = false;
                 EnableKnightDismount = true;

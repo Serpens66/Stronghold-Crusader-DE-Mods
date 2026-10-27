@@ -119,6 +119,9 @@
   <ItemGroup>
     <Compile Include="../src/ExtraFeaturesViewModel.Popularity.cs" />
     <Compile Include="../src/ExtraFeaturesViewModel.PeriodicGold.cs" />
+    <Compile Include="../src/ExtraFeaturesViewModel.KillReward.cs" />
+    <Compile Include="../src/NoKillRewardPolicy.cs" />
+    <Compile Include="KillRewardTests.cs" />
     <Compile Include="../src/PeriodicGoldRuntime.cs" />
     <Compile Include="PeriodicGoldTests.cs" />
     <Compile Include="../src/IndependentFeatureRegistration.cs" />

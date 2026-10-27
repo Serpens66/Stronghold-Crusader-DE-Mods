@@ -413,9 +413,10 @@ namespace ExtraFeatures
         private void ApplyNoKillRewardSetting()
         {
             bool enabled = Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod);
-            noKillRewardHook.SetEnabled(
-                enabled && settings.NoKillRewardHuman,
-                enabled && settings.NoKillRewardAI);
+            noKillRewardHook.Configure(enabled
+                ? new KillRewardConfiguration(settings.KillRewardGoldHuman, settings.KillRewardGoodsHuman, settings.KillRewardGoldMaximumHuman,
+                    settings.KillRewardGoldAI, settings.KillRewardGoodsAI, settings.KillRewardGoldMaximumAI)
+                : KillRewardConfiguration.Vanilla);
         }
 
         private void ApplyHealerTargetsSetting()
@@ -533,7 +534,8 @@ namespace ExtraFeatures
                 return;
             }
 
-            if (propertyName == nameof(ExtraFeaturesViewModel.NoKillRewardHuman) ||
+            if (propertyName.StartsWith("KillReward", StringComparison.Ordinal) ||
+                propertyName == nameof(ExtraFeaturesViewModel.NoKillRewardHuman) ||
                 propertyName == nameof(ExtraFeaturesViewModel.NoKillRewardAI))
             {
                 ApplyNoKillRewardSetting();
@@ -617,6 +619,7 @@ namespace ExtraFeatures
         // Shared by gate closure and the permanent mission-end subscription; idempotent.
         private void ResetMapSession()
         {
+            settings.SetKillRewardMissionLocked(false);
             mapActive = false;
             aiMarketVanillaPriceHook?.SetSessionOverride(false);
             lordHealthRuntime.ResetMapState();
@@ -690,6 +693,7 @@ namespace ExtraFeatures
 
         private void OnSessionStarted(Shared.GameplaySessionStartedContext context)
         {
+            settings.SetKillRewardMissionLocked(true);
             // The subscription is process-permanent; only enabled sessions are initialized,
             // exactly as when it was part of the toggled feature subscriptions.
             if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod))

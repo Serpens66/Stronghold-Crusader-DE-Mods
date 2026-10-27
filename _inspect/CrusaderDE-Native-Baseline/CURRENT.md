@@ -100,6 +100,7 @@ Vanilla audits that also contain mod-specific parts; see the `[mod integration]`
 - [Lobby save loading and Skirmish load-button visibility](./sem/FBCB9319/knowledge/LOBBY_SAVE_LOADING.md): solo-host eligibility, absent-human removal, persistent frontend path and consumer acceptance limits.
 - [Long simulation ticks from AI group movement (FBCB9319)](./sem/FBCB9319/knowledge/SIM_TICK_SPIKE_PATHING.md)
 - [Lord defeat loot audit](./sem/FBCB9319/knowledge/DEFEAT_LOOT.md): winner attribution, direct gold and incoming-goods awards, and the native skip branch.
+- [Lord defeat percentages and message capacity](./sem/FBCB9319/knowledge/KILL_REWARD_PERCENT.md): exact goods/cleanup fields, signed-short gold messages, bounded transfer and existing-span integration.
 - [Lord AIC slots and optional media lookup](./sem/FBCB9319/knowledge/LORD_MEDIA_LOOKUP.md): Vanilla AIC-slot remapping, normal media fallback and independently reachable SE registration failures.
 - [Minimap last-frame HD speech wait](./sem/FBCB9319/knowledge/NOTIFICATION_LAST_FRAME.md): native presentation ordering, archived HD last-frame/20-second bound, managed completion safeguards and isolated regression limits.
 - [Moat terrain restoration](./sem/FBCB9319/knowledge/MOAT_TERRAIN_RESTORATION.md): confirmed soil-zero writer, direct placement ordering, bridge conversion/removal, explicit replacement boundaries and private native fixture evidence; in-game acceptance pending.

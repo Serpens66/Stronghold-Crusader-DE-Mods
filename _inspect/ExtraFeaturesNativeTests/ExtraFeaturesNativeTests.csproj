@@ -9,13 +9,15 @@
     <RootNamespace>ExtraFeatures</RootNamespace>
     <AssemblyName>ExtraFeaturesNativeTests</AssemblyName>
     <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
-    <LangVersion>latest</LangVersion>
+    <LangVersion>latest</LangVersion><AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <OutputPath>bin\</OutputPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(GameDir)' == ''"><GameDir>E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition</GameDir></PropertyGroup>
   <PropertyGroup Condition="'$(ExtenderDir)' == ''"><ExtenderDir>$(GameDir)\BepInEx\plugins\000shcdese</ExtenderDir></PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
+    <Reference Include="SHCDESE"><HintPath>$(ExtenderDir)\SHCDESE.dll</HintPath></Reference>
+    <Reference Include="R3"><HintPath>$(ExtenderDir)\R3.dll</HintPath></Reference>
     <Reference Include="System.Core" />
     <Reference Include="BepInEx"><HintPath>$(GameDir)\BepInEx\core\BepInEx.dll</HintPath></Reference>
     <Reference Include="System.Memory"><HintPath>$(ExtenderDir)\System.Memory.dll</HintPath></Reference>
@@ -29,6 +31,7 @@
   <ItemGroup>
     <Compile Include="Program.cs" />
     <Compile Include="NoKillRewardContractTests.cs" />
+    <Compile Include="..\..\ExtraFeatures\src\NoKillRewardHook.cs" />
     <Compile Include="HealerTargetsContractTests.cs" />
     <Compile Include="FearFactorStubTests.cs" />
     <Compile Include="..\..\ExtraFeatures\src\FearFactorNativeDefinition.cs"><Link>FearFactorNativeDefinition.cs</Link></Compile>

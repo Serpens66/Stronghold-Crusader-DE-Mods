@@ -21,6 +21,12 @@
   },
   "documents": [
     {
+      "file": "KILL_REWARD_PERCENT.md",
+      "scope": "vanilla+integration",
+      "components": ["ExtraFeatures"],
+      "integrationSections": ["ExtraFeatures integration"]
+    },
+    {
       "file": "LINEUP_MARKERS.md",
       "scope": "vanilla+integration",
       "components": ["BugfixesAndQoL"],

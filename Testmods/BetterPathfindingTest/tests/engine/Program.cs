@@ -24,7 +24,7 @@ internal static class EngineContract
             }
             return null;
         };
-        try { Run(); Evidence(args[0], args[1]); RuntimeFailures(args[0]); Console.WriteLine("PASS: loader=" + args[1] + "; installed managed/native-layout contracts, capture state and worker failures; no native method called."); return 0; }
+        try { Run(); Evidence(args[0], args[1]); RuntimeFailures(args[0]); Console.WriteLine("PASS: loader=" + args[1] + "; installed managed/native-layout contracts, capture state and worker failures; no native game method called."); return 0; }
         catch (Exception ex) { Console.Error.WriteLine(ex); return 1; }
     }
     private static void Run()
@@ -108,15 +108,27 @@ internal static class EngineContract
     private static void WorkerFailure(string root)
     {
         string output = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "../../../results/worker-" + Guid.NewGuid().ToString("N").Substring(0, 8)));
-        bool deny = false; int reports = 0, complete = 0;
+        bool deny = false, updatesWritten = false; int reports = 0, complete = 0, positive = 0;
         var worker = new SessionWork(1, "fixture", output, (path, text) => {
             if (deny) throw new IOException("fixture write denied"); reports++;
+            if (path.EndsWith("updates.json", StringComparison.Ordinal)) updatesWritten = true;
             if (path.EndsWith("snapshot-1.json", StringComparison.Ordinal))
-            { var data = (Dictionary<string, object>)Shared.DependencyFreeJson.Parse(text); Check(Convert.ToInt32(data["incomplete"]) == 0 && Convert.ToInt32(data["errors"]) == 0, "Worker comparison incomplete/failed."); complete = Convert.ToInt32(data["compared"]); }
+            {
+                var data = (Dictionary<string, object>)Shared.DependencyFreeJson.Parse(text);
+                Check(File.Exists(Path.Combine(Path.GetDirectoryName(path), "snapshot-1.raw.gz")), "Capture manifest written before durable raw data.");
+                if (data.ContainsKey("compared"))
+                {
+                    Check(updatesWritten && File.Exists(Path.Combine(Path.GetDirectoryName(path), "snapshot-2.raw.gz")), "Group comparison ran before paired capture/update persistence.");
+                    Check(Convert.ToInt32(data["errors"]) == 0, "Worker comparison failed."); complete = Convert.ToInt32(data["compared"]); positive = Convert.ToInt32(data["found"]);
+                    Check(Convert.ToInt32(data["incomplete"]) > 0, "Missing real moat coverage was silently accepted.");
+                }
+            }
         }, path => Directory.CreateDirectory(path));
-        worker.Process(Raw(root), 1); Check(worker.HasPreviousCapture && reports > 0, "First valid snapshot not retained.");
-        Check(complete == 1346, "Worker did not exercise every workload.");
-        deny = true; worker.Process(Raw(root), 2); Check(!worker.HasPreviousCapture, "Report failure retained paired snapshots.");
+        worker.Process(Raw(root), 1); Check(worker.HasPreviousCapture && reports > 0 && complete == 0, "First capture must persist and wait, without group benchmarks.");
+        worker.Process(Raw(root), 2); Check(worker.LastFailure == null, "Paired worker failed: " + worker.LastFailure); Check(!worker.HasPreviousCapture, "Completed pair retained raw snapshots.");
+        Check(complete == 2019 && positive == complete, "Ground fixture expected 2019 positive requests; completed=" + complete + " found=" + positive);
+        var failing = new SessionWork(9, "fixture", output, (path, text) => { if (deny) throw new IOException("fixture write denied"); }, path => Directory.CreateDirectory(path));
+        failing.Process(Raw(root), 1); deny = true; failing.Process(Raw(root), 2); Check(!failing.HasPreviousCapture, "Report failure retained paired snapshots.");
         int recoveredReports = 0; var next = new SessionWork(2, "fixture", output, (path, text) => recoveredReports++, path => Directory.CreateDirectory(path)); next.Process(Raw(root), 1); Check(next.HasPreviousCapture && recoveredReports > 0, "Later session did not recover."); next.Release();
         var blocked = new SessionWork(3, "fixture", output, (path, text) => { throw new IOException(); }, path => { throw new IOException(); }); blocked.Process(Raw(root), 1); blocked.FailureJob(new IOException("capture fixture"), 1)(); Check(!blocked.HasPreviousCapture, "Directory failure retained snapshot.");
         CapturedMap malformed = Raw(root).Map; malformed.Heights = null; bool invalid = false;

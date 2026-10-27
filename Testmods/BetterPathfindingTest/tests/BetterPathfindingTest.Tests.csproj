@@ -15,4 +15,5 @@
     <Compile Include="../../../BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandContracts.cs" Link="Oracle/UnitCommandContracts.cs" />
     <Reference Include="APIShared"><HintPath>$(ApiSharedDir)\APIShared.dll</HintPath></Reference>
   </ItemGroup>
+  <ItemGroup><None Include="../BepInEx/plugins/BetterPathfindingTest_Serp/BetterPathfindingNative.dll" Link="BetterPathfindingNative.dll" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
 </Project>

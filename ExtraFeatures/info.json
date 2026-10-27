@@ -3,7 +3,7 @@
   "Author": "Serpens66",
   "Name": "Extra Features",
   "Description": "Optional gameplay additions and economy customization for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.123",
+  "Version": "1.0.124",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.0",
   "MaximumScriptExtenderVersion": "",
@@ -16,6 +16,14 @@
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.124",
+      "Changes": [
+        "Replace victory-loot suppression checkboxes with independent Human/AI gold and goods percentage sliders (-1 for Vanilla, 0-100 percent) and positive absolute gold limits (-1 retains 100,000). Preserve Vanilla defaults, rounding, victory messages and cleanup.",
+        "Default all six settings to -1: Vanilla awards 25 percent gold with a minimum of 500 and a limit of 100,000, plus 25 percent of each eligible goods stock. Custom percentages have no minimum; 0 gives no reward of that kind. Apply the selected gold limit afterwards, allowing it to replace either Vanilla gold bound.",
+        "Migrate previous No Kill Reward profile and Trail settings to zero gold and goods; keep canonical exports, atomic grouped edits, host authority and mission locking. Bound native credits safely and split very large gold announcements into representable messages."
+      ]
+    },
     {
       "Version": "1.0.123",
       "Changes": [

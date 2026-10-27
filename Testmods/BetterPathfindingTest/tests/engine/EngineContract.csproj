@@ -1,7 +1,7 @@
 <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup><ImportDirectoryBuildTargets>false</ImportDirectoryBuildTargets></PropertyGroup>
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" />
-  <PropertyGroup><OutputType>Exe</OutputType><AssemblyName>EngineContract</AssemblyName><TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion><LangVersion>latest</LangVersion><OutputPath>bin\</OutputPath><AllowUnsafeBlocks>true</AllowUnsafeBlocks><DefineConstants>SERP_DEVDIAG</DefineConstants></PropertyGroup>
+  <PropertyGroup><OutputType>Exe</OutputType><PlatformTarget>x64</PlatformTarget><Prefer32Bit>false</Prefer32Bit><AssemblyName>EngineContract</AssemblyName><TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion><LangVersion>latest</LangVersion><OutputPath>bin\</OutputPath><AllowUnsafeBlocks>true</AllowUnsafeBlocks><DefineConstants>SERP_DEVDIAG</DefineConstants></PropertyGroup>
   <ItemGroup><Reference Include="System" /><Reference Include="System.Core" /><Reference Include="Assembly-CSharp"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\Assembly-CSharp.dll</HintPath><Private>false</Private></Reference></ItemGroup>
   <ItemGroup><Compile Include="Program.cs" /><Compile Include="..\..\src\Runtime\EngineGate.cs" /></ItemGroup>
   <ItemGroup>
@@ -18,5 +18,6 @@
     <Reference Include="RedBird.Core"><HintPath>$(GameDir)\BepInEx\plugins\000shcdese\RedBird.Core.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.CoreModule"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.CoreModule.dll</HintPath><Private>false</Private></Reference>
   </ItemGroup>
+  <ItemGroup><None Include="..\..\BepInEx\plugins\BetterPathfindingTest_Serp\BetterPathfindingNative.dll"><Link>BetterPathfindingNative.dll</Link><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None></ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

@@ -574,8 +574,9 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}"
             </Grid>
           </StackPanel>
           <StackPanel Grid.IsSharedSizeScope="True">
-            <StackPanel Visibility="{Binding SettingsPresentation.KillRewardOptions.Visibility}">
-              <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.no-kill-reward" shared:ModSettingsSearch.Title="{Binding NoKillRewardText}" shared:ModSettingsSearch.ToolTipText="{Binding NoKillRewardSearchHelpText}">
+            <StackPanel Visibility="{Binding SettingsPresentation.KillRewardOptions.Visibility}" IsEnabled="{Binding CanConfigureKillReward}">
+              <TextBlock Text="{Binding KillRewardTitle}" Style="{StaticResource CompactSettingLabel}" FontWeight="Bold" Margin="0,4,0,6" />
+              <Grid HorizontalAlignment="Left" Margin="0,0,0,6">
                 <Grid.ColumnDefinitions>
                   <ColumnDefinition Width="Auto" SharedSizeGroup="SettingLabel" MaxWidth="220" />
                   <ColumnDefinition Width="16" />
@@ -583,9 +584,60 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}"
                   <ColumnDefinition Width="24" />
                   <ColumnDefinition Width="Auto" SharedSizeGroup="RoleEditor" MinWidth="192" />
                 </Grid.ColumnDefinitions>
-                <TextBlock Text="{Binding NoKillRewardText}" Style="{StaticResource CompactSettingLabel}" Grid.Column="0" />
-                <CheckBox Content="{Binding HumanText}" IsChecked="{Binding NoKillRewardHuman, Mode=TwoWay}" Foreground="White" VerticalAlignment="Center" Margin="0" ToolTipService.ShowDuration="60000" ToolTip="{Binding NoKillRewardHumanHelpText}" MinHeight="28" Grid.Column="2" />
-                <CheckBox Content="{Binding AiText}" IsChecked="{Binding NoKillRewardAI, Mode=TwoWay}" Foreground="White" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding NoKillRewardAIHelpText}" Margin="0" MinHeight="28" Grid.Column="4" />
+                <TextBlock Text="{Binding HumanText}" Style="{StaticResource CompactSettingLabel}" Grid.Column="2" FontWeight="Bold" />
+                <TextBlock Text="{Binding AiText}" Style="{StaticResource CompactSettingLabel}" Grid.Column="4" FontWeight="Bold" />
+              </Grid>
+              <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.kill-reward-gold" shared:ModSettingsSearch.Title="{Binding KillRewardGoldTitle}" shared:ModSettingsSearch.ToolTipText="{Binding KillRewardGoldHelp}">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="Auto" SharedSizeGroup="SettingLabel" MaxWidth="220" />
+                  <ColumnDefinition Width="16" />
+                  <ColumnDefinition Width="Auto" SharedSizeGroup="RoleEditor" MinWidth="192" />
+                  <ColumnDefinition Width="24" />
+                  <ColumnDefinition Width="Auto" SharedSizeGroup="RoleEditor" MinWidth="192" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="{Binding KillRewardGoldTitle}" Style="{StaticResource CompactSettingLabel}" Grid.Column="0" />
+                <Grid HorizontalAlignment="Left" Grid.Column="2">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="120" /><ColumnDefinition Width="8" /><ColumnDefinition Width="64" /></Grid.ColumnDefinitions>
+                  <Slider Minimum="-1" Maximum="100" Value="{Binding KillRewardGoldHuman, Mode=TwoWay}" TickFrequency="1" SmallChange="1" LargeChange="10" IsSnapToTickEnabled="True" shared:ModSettingsSearch.InactiveValues="-1" ToolTipService.ShowDuration="60000" ToolTip="{Binding KillRewardGoldHelp}" Width="120" MinHeight="28" Margin="0" VerticalAlignment="Center" />
+                  <TextBlock Text="{Binding KillRewardGoldHumanText}" Foreground="White" VerticalAlignment="Center" TextAlignment="Center" Grid.Column="2" />
+                </Grid>
+                <Grid HorizontalAlignment="Left" Grid.Column="4">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="120" /><ColumnDefinition Width="8" /><ColumnDefinition Width="64" /></Grid.ColumnDefinitions>
+                  <Slider Minimum="-1" Maximum="100" Value="{Binding KillRewardGoldAI, Mode=TwoWay}" TickFrequency="1" SmallChange="1" LargeChange="10" IsSnapToTickEnabled="True" shared:ModSettingsSearch.InactiveValues="-1" ToolTipService.ShowDuration="60000" ToolTip="{Binding KillRewardGoldHelp}" Width="120" MinHeight="28" Margin="0" VerticalAlignment="Center" />
+                  <TextBlock Text="{Binding KillRewardGoldAIText}" Foreground="White" VerticalAlignment="Center" TextAlignment="Center" Grid.Column="2" />
+                </Grid>
+              </Grid>
+              <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.kill-reward-goods" shared:ModSettingsSearch.Title="{Binding KillRewardGoodsTitle}" shared:ModSettingsSearch.ToolTipText="{Binding KillRewardGoodsHelp}">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="Auto" SharedSizeGroup="SettingLabel" MaxWidth="220" />
+                  <ColumnDefinition Width="16" />
+                  <ColumnDefinition Width="Auto" SharedSizeGroup="RoleEditor" MinWidth="192" />
+                  <ColumnDefinition Width="24" />
+                  <ColumnDefinition Width="Auto" SharedSizeGroup="RoleEditor" MinWidth="192" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="{Binding KillRewardGoodsTitle}" Style="{StaticResource CompactSettingLabel}" Grid.Column="0" />
+                <Grid HorizontalAlignment="Left" Grid.Column="2">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="120" /><ColumnDefinition Width="8" /><ColumnDefinition Width="64" /></Grid.ColumnDefinitions>
+                  <Slider Minimum="-1" Maximum="100" Value="{Binding KillRewardGoodsHuman, Mode=TwoWay}" TickFrequency="1" SmallChange="1" LargeChange="10" IsSnapToTickEnabled="True" shared:ModSettingsSearch.InactiveValues="-1" ToolTipService.ShowDuration="60000" ToolTip="{Binding KillRewardGoodsHelp}" Width="120" MinHeight="28" Margin="0" VerticalAlignment="Center" />
+                  <TextBlock Text="{Binding KillRewardGoodsHumanText}" Foreground="White" VerticalAlignment="Center" TextAlignment="Center" Grid.Column="2" />
+                </Grid>
+                <Grid HorizontalAlignment="Left" Grid.Column="4">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="120" /><ColumnDefinition Width="8" /><ColumnDefinition Width="64" /></Grid.ColumnDefinitions>
+                  <Slider Minimum="-1" Maximum="100" Value="{Binding KillRewardGoodsAI, Mode=TwoWay}" TickFrequency="1" SmallChange="1" LargeChange="10" IsSnapToTickEnabled="True" shared:ModSettingsSearch.InactiveValues="-1" ToolTipService.ShowDuration="60000" ToolTip="{Binding KillRewardGoodsHelp}" Width="120" MinHeight="28" Margin="0" VerticalAlignment="Center" />
+                  <TextBlock Text="{Binding KillRewardGoodsAIText}" Foreground="White" VerticalAlignment="Center" TextAlignment="Center" Grid.Column="2" />
+                </Grid>
+              </Grid>
+              <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.kill-reward-maximum" shared:ModSettingsSearch.Title="{Binding KillRewardGoldMaximumTitle}" shared:ModSettingsSearch.ToolTipText="{Binding KillRewardGoldMaximumHelp}">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="Auto" SharedSizeGroup="SettingLabel" MaxWidth="220" />
+                  <ColumnDefinition Width="16" />
+                  <ColumnDefinition Width="Auto" SharedSizeGroup="RoleEditor" MinWidth="192" />
+                  <ColumnDefinition Width="24" />
+                  <ColumnDefinition Width="Auto" SharedSizeGroup="RoleEditor" MinWidth="192" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="{Binding KillRewardGoldMaximumTitle}" Style="{StaticResource CompactSettingLabel}" Grid.Column="0" />
+                <TextBox ui:KeyboardCaptureBinding.Enabled="True" Text="{Binding KillRewardGoldMaximumHumanText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" shared:ModSettingsSearch.StateValue="{Binding KillRewardGoldMaximumHuman}" shared:ModSettingsSearch.InactiveValues="-1" Foreground="White" HorizontalAlignment="Left" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding KillRewardGoldMaximumHelp}" Width="192" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1" Margin="0" MinHeight="28" Grid.Column="2" />
+                <TextBox ui:KeyboardCaptureBinding.Enabled="True" Text="{Binding KillRewardGoldMaximumAIText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" shared:ModSettingsSearch.StateValue="{Binding KillRewardGoldMaximumAI}" shared:ModSettingsSearch.InactiveValues="-1" Foreground="White" HorizontalAlignment="Left" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding KillRewardGoldMaximumHelp}" Width="192" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1" Margin="0" MinHeight="28" Grid.Column="4" />
               </Grid>
             </StackPanel>
             <StackPanel Visibility="{Binding SettingsPresentation.PeriodicGoldOptions.Visibility}" IsEnabled="{Binding CanConfigurePeriodicGold}">

@@ -49,7 +49,7 @@ namespace BetterPathfindingTest.Core
     public sealed class RouteResult
     {
         public SearchStatus Status; public string Reason;
-        public int Ground, Moat; public long Cost, Expanded;
+        public int Ground, Moat; public long Cost, Expanded; public double CompletionMs;
         public byte[] Directions = new byte[0];
         public static RouteResult Failed(SearchStatus status, string reason) => new RouteResult { Status = status, Reason = reason };
     }

@@ -21,7 +21,7 @@ public static class SettingsPresentationTests
         { "Units", new[] { "fear-factor-neutralization", "monks-always-run", "knight-dismount", "instant-horse", "knight-transform-gold", "knight-transform-delay", "lord-health" } },
         { "Gatehouses", new[] { "elevated-moat", "human-gate-reopen-delay", "ai-gate-reopen-delay", "human-gate-closing-distance", "ai-gate-closing-distance" } },
         { "Building", new[] { "building-repair", "keep-build-range", "human-enemy-proximity-singleplayer", "ai-enemy-proximity-singleplayer", "human-enemy-proximity-multiplayer", "ai-enemy-proximity-multiplayer", "ai-tower-gate-rebuild-delay" } },
-        { "Economy", new[] { "extra-church-priests", "campfire-peasants", "no-kill-reward", "periodic-gold-human", "periodic-gold-ai", "multiply-goods-gain", "multiply-goods-as-money" } },
+        { "Economy", new[] { "extra-church-priests", "campfire-peasants", "kill-reward-gold", "kill-reward-goods", "kill-reward-maximum", "periodic-gold-human", "periodic-gold-ai", "multiply-goods-gain", "multiply-goods-as-money" } },
         { "Demolition", new[] { "keep-storage-content", "wood-refund", "stone-refund", "iron-refund", "pitch-refund", "gold-refund" } },
         { "Plague", new[] { "plague-damage-walls", "plague-damage-gates", "plague-damage-towers", "plague-damage-keeps", "plague-duration", "apothecary-plague-search-distance", "healer-targets" } },
         { "Market", new[] { "market-prices-also-ai", "market-buy-price-multiplier", "market-sell-price-multiplier" } }
@@ -87,6 +87,18 @@ public static class SettingsPresentationTests
             Check(Ancestors(node).Any(n => Search(n, "Key") != null), "editor retains an explicit setting key");
         }
         XmlNode items = nodes.Single(n => n.LocalName == "ItemsControl" && n.Attributes["ItemsSource"] != null && n.Attributes["ItemsSource"].Value == "{Binding MarketGoodPriceItems}");
+        foreach (string kind in new[] { "gold", "goods", "maximum" })
+        {
+            XmlNode row = nodes.Single(n => Search(n, "Key") == "extra.kill-reward-" + kind);
+            Check(Ancestors(row).Any(n => n.Attributes["IsEnabled"] != null && n.Attributes["IsEnabled"].Value == "{Binding CanConfigureKillReward}"), "reward group uses the mission/authority guard");
+            if (kind == "maximum")
+                Check(row.SelectNodes(".//*[local-name()='TextBox']").Count == 2, "one gold limit input per role");
+            else
+            {
+                var sliders = row.SelectNodes(".//*[local-name()='Slider']").Cast<XmlNode>().ToArray();
+                Check(sliders.Length == 2 && sliders.All(n => n.Attributes["Minimum"].Value == "-1" && n.Attributes["Maximum"].Value == "100" && n.Attributes["TickFrequency"].Value == "1" && n.Attributes["SmallChange"].Value == "1"), "reward percent range and every-step keyboard control");
+            }
+        }
         foreach (string role in new[] { "Human", "AI" })
         {
             XmlNode cell = nodes.Single(n => Search(n, "Key") == "extra.periodic-gold-" + role.ToLowerInvariant());
@@ -174,7 +186,7 @@ public static class SettingsPresentationTests
             Check(texts[0].Attributes["Text"].Value == "{Binding HumanText}" && texts[0].Attributes["Grid.Column"].Value == "2" &&
                 texts[1].Attributes["Text"].Value == "{Binding AiText}" && texts[1].Attributes["Grid.Column"].Value == "4", "human-first role headers");
         }
-        foreach (string name in new[] { "AllowElevatedMoatHuman", "NoKillRewardHuman", "MultiplyGoodsGainHuman", "MultiplyGoodsGainInMoneyHuman", "HumanLordHealthPercent" })
+        foreach (string name in new[] { "AllowElevatedMoatHuman", "KillRewardGoldHuman", "MultiplyGoodsGainHuman", "MultiplyGoodsGainInMoneyHuman", "HumanLordHealthPercent" })
         {
             XmlNode editor = nodes.Single(n => n.Attributes["IsChecked"] != null && n.Attributes["IsChecked"].Value == "{Binding " + name + ", Mode=TwoWay}" ||
                 n.LocalName == "Slider" && n.Attributes["Value"] != null && n.Attributes["Value"].Value == "{Binding " + name + ", Mode=TwoWay}");
@@ -354,6 +366,16 @@ public static class SettingsPresentationTests
         fixture.GetType().GetProperty("RationsHumanEnabled").SetValue(fixture,false,null);
         search("",false,"");
         Type stateType = catalog.Assembly.GetType("APIShared.ModSettings.ModSettingsSearchStateFilter", true);
+        foreach (string key in new[] { "gold", "goods", "maximum" })
+        {
+            string property = key == "gold" ? "KillRewardGoldHuman" : key == "goods" ? "KillRewardGoodsHuman" : "KillRewardGoldMaximumHuman";
+            fixture.GetType().GetProperty(property).SetValue(fixture, key == "maximum" ? 1 : 0, null);
+            refresh.Invoke(presentation, new object[] { "", false, "extra.kill-reward-" + key, entries, Enum.ToObject(stateType, 1), fixture });
+            Check(Visible(Get(presentation, "KillRewardOptions"), "Visibility"), "zero reward / positive limit is active in search");
+            fixture.GetType().GetProperty(property).SetValue(fixture, -1, null);
+            refresh.Invoke(presentation, new object[] { "", false, "extra.kill-reward-" + key, entries, Enum.ToObject(stateType, 1), fixture });
+            Check(!Visible(Get(presentation, "KillRewardOptions"), "Visibility"), "Vanilla reward is inactive in search");
+        }
         ((SettingsSearchFixtureBase)fixture).PeriodicGoldHuman = -25;
         refresh.Invoke(presentation, new object[] { "", false, "extra.periodic-gold-human", entries, Enum.ToObject(stateType, 1), fixture });
         Check(Visible(Get(presentation, "PeriodicGoldOptions"), "Visibility"), "negative gold is active in state-filtered searches");
@@ -445,7 +467,18 @@ public static class SettingsPresentationTests
 
 public class SettingsSearchFixtureBase
 {
-    public SettingsSearchFixtureBase() { PeriodicGoldHumanValueText = "0"; PeriodicGoldAIValueText = "0"; }
+    public int KillRewardGoldHuman { get; set; }
+    public int KillRewardGoldAI { get; set; }
+    public int KillRewardGoodsHuman { get; set; }
+    public int KillRewardGoodsAI { get; set; }
+    public int KillRewardGoldMaximumHuman { get; set; }
+    public int KillRewardGoldMaximumAI { get; set; }
+    public SettingsSearchFixtureBase()
+    {
+        PeriodicGoldHumanValueText = "0"; PeriodicGoldAIValueText = "0";
+        KillRewardGoldHuman = KillRewardGoldAI = KillRewardGoodsHuman = KillRewardGoodsAI = -1;
+        KillRewardGoldMaximumHuman = KillRewardGoldMaximumAI = -1;
+    }
     public int PeriodicGoldHuman { get; set; }
     public int PeriodicGoldAI { get; set; }
     public string PeriodicGoldHumanValueText { get; set; }

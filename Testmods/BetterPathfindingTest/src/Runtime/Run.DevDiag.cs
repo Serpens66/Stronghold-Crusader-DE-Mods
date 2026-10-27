@@ -16,116 +16,127 @@ namespace BetterPathfindingTest
         internal readonly CancellationTokenSource Cancel = new CancellationTokenSource();
         private readonly string directory;
         private CapturedMap first;
+        private ManagedEvidence firstEvidence;
         private readonly Action<string, string> writeText;
         private readonly Action<string> createDirectory;
         internal bool HasPreviousCapture => first != null;
+        internal Exception LastFailure { get; private set; }
         private const long MaximumBytes = 256L * 1024 * 1024;
         internal Action Job(CaptureEnvelope envelope, int ordinal) => () => Process(envelope, ordinal);
+        internal SessionWork(long id, string context, string output, Action<string, string> writeText = null, Action<string> createDirectory = null)
+        {
+            Id = id; Context = context; this.writeText = writeText ?? WriteFile; this.createDirectory = createDirectory ?? (path => Directory.CreateDirectory(path));
+            directory = Path.Combine(output, DateTime.UtcNow.ToString("yyyyMMdd-HHmmss-fff") + "-s" + id);
+        }
+        private static void WriteFile(string path, string text) => File.WriteAllText(path, text.Replace("\r\n", "\n").Replace("\n", "\r\n"), new UTF8Encoding(false));
+        private void WriteJson(string path, object data) => writeText(path, Shared.DependencyFreeJson.Serialize(data));
+        internal void Release() { first = null; firstEvidence = null; }
         internal Action FailureJob(Exception error, int ordinal) => () =>
         {
             Exception failure = RunGuard.Execute(() => {
-                createDirectory(directory);
-                WriteJson(Path.Combine(directory, "snapshot-" + ordinal + ".json"), new Dictionary<string, object> { ["status"] = "INCOMPLETE", ["session"] = Id, ["ordinal"] = ordinal, ["phase"] = "capture", ["error"] = error.ToString() });
-                writeText(Path.Combine(directory, "snapshot-" + ordinal + ".md"), "# BetterPathfindingTest\r\n\r\nINCOMPLETE: capture failed: " + error.Message + "\r\n");
+                createDirectory(directory); WriteJson(Path.Combine(directory, "snapshot-" + ordinal + ".json"), new Dictionary<string, object> { ["status"] = "INCOMPLETE", ["session"] = Id, ["ordinal"] = ordinal, ["phase"] = "capture", ["error"] = error.ToString() });
+                writeText(Path.Combine(directory, "snapshot-" + ordinal + ".md"), "# BetterPathfindingTest\r\n\r\nINCOMPLETE: " + error.Message + "\r\n");
             }, Release);
             if (failure != null) Shared.DevDiag.Log(() => "phase=report-failed session=" + Id + " ordinal=" + ordinal + " error=" + failure);
         };
-        internal void Release() { first = null; }
-        internal SessionWork(long id, string context, string output, Action<string, string> writeText = null, Action<string> createDirectory = null)
-        {
-            Id = id; Context = context;
-            this.writeText = writeText ?? WriteFile;
-            this.createDirectory = createDirectory ?? (path => Directory.CreateDirectory(path));
-            directory = Path.Combine(output, DateTime.UtcNow.ToString("yyyyMMdd-HHmmss-fff") + "-s" + id);
-        }
-        private static void Json(string path, object data) => File.WriteAllText(path, Shared.DependencyFreeJson.Serialize(data), new UTF8Encoding(false));
-        private static void WriteFile(string path, string text) => File.WriteAllText(path, text.Replace("\r\n", "\n").Replace("\n", "\r\n"), new UTF8Encoding(false));
-        private void WriteJson(string path, object data) => writeText(path, Shared.DependencyFreeJson.Serialize(data));
         internal static void Unsupported(string output, Exception error)
         {
             Exception failure = RunGuard.Execute(() => {
                 Directory.CreateDirectory(output); string path = Path.Combine(output, "unsupported-" + DateTime.UtcNow.ToString("yyyyMMdd-HHmmss-fff"));
-                Json(path + ".json", new Dictionary<string, object> { ["status"] = "UNSUPPORTED", ["phase"] = error is CaptureContractException ? "capture-contract" : "initialization", ["error"] = error.ToString(), ["runtime"] = "Unity/Mono" });
-                File.WriteAllText(path + ".md", "# BetterPathfindingTest\r\n\r\nUNSUPPORTED: " + error.Message + "\r\n\r\nNo snapshot/search comparison was accepted.\r\n");
+                WriteFile(path + ".json", Shared.DependencyFreeJson.Serialize(new Dictionary<string, object> { ["status"] = "UNSUPPORTED", ["phase"] = error is CaptureContractException ? "capture-contract" : "initialization", ["error"] = error.ToString(), ["runtime"] = "Unity/Mono + private x64 backend" }));
+                WriteFile(path + ".md", "# BetterPathfindingTest\r\n\r\nUNSUPPORTED: " + error.Message + "\r\n");
             }, () => { });
             if (failure != null) Shared.DevDiag.Log(() => "phase=report-failed initialization error=" + failure);
         }
         internal void Process(CaptureEnvelope envelope, int ordinal)
         {
             if (Cancel.IsCancellationRequested) return;
-            Exception failure = RunGuard.Execute(() => ProcessCore(envelope, ordinal), () => { if (ordinal == 2 || Cancel.IsCancellationRequested) Release(); });
+            bool succeeded = false;
+            Exception failure = RunGuard.Execute(() => { PersistAndCompare(envelope, ordinal); succeeded = true; }, () => { if (!succeeded || ordinal == 2 || Cancel.IsCancellationRequested) Release(); });
+            LastFailure = failure;
             if (failure != null) Shared.DevDiag.Log(() => "phase=report-failed session=" + Id + " ordinal=" + ordinal + " status=INCOMPLETE error=" + failure);
         }
-        private void ProcessCore(CaptureEnvelope envelope, int ordinal)
+        private void PersistAndCompare(CaptureEnvelope envelope, int ordinal)
         {
-            var total = Stopwatch.StartNew(); var raw = envelope.Map;
+            var budget = new WorkBudget(MaximumBytes, 120, Cancel.Token); var captureWatch = Stopwatch.StartNew();
+            budget.Reserve(envelope.Map.BufferBytes + (first?.BufferBytes ?? 0) + 16L * 1024 * 1024);
+            createDirectory(directory); envelope.MaterializeGates(budget); envelope.Map.Validate();
             string prefix = "snapshot-" + ordinal;
-            var summary = new Dictionary<string, object> { ["session"] = Id, ["context"] = Context, ["runtime"] = "Unity/Mono (not .NET offline)", ["nativeHash"] = raw.NativeHash, ["managedHash"] = raw.ManagedHash, ["gateCoverage"] = raw.GateCoverage, ["snapshotCopyMs"] = raw.CopyMilliseconds, ["nonblockingLockRetryMs"] = raw.LockWaitMilliseconds, ["snapshotBuffers"] = raw.BufferBytes, ["limitBytes"] = MaximumBytes, ["limitSeconds"] = 120 };
+            SnapshotCodec.WriteCaptured(Path.Combine(directory, prefix + ".raw.gz"), envelope.Map);
+            WriteJson(Path.Combine(directory, prefix + ".json"), new Dictionary<string, object> {
+                ["status"] = "CAPTURED; comparison pending", ["session"] = Id, ["ordinal"] = ordinal, ["context"] = Context,
+                ["snapshotCopyMs"] = envelope.Map.CopyMilliseconds, ["snapshotBuffers"] = envelope.Map.BufferBytes, ["managedEvidence"] = envelope.Evidence.Data(),
+                ["missingPhases"] = ordinal == 1 ? "awaiting second snapshot; updates; all workload comparisons" : "updates; all workload comparisons" });
+            Shared.DevDiag.Log(() => "phase=snapshot-persisted session=" + Id + " ordinal=" + ordinal + " elapsedMs=" + captureWatch.ElapsedMilliseconds + " comparison=pending");
+            if (ordinal == 1) { first = envelope.Map; firstEvidence = envelope.Evidence; return; }
+            // No large group work runs before BOTH raw captures are on disk.
+            if (first == null) throw new InvalidOperationException("Paired comparison lacks first snapshot.");
+            int player = first.Players[0]; budget.Check();
+            GridSnapshot before = first.Build(player, budget: budget), after = envelope.Map.Build(player, budget: budget);
+            var updateClock = Stopwatch.StartNew();
+            Shared.DevDiag.Log(() => "phase=real-updates session=" + Id + " ordinal=2 cases=8");
+            var updateQueries = Workloads.Create(after, envelope.Map.Units, 8, "shared-goal");
+            SnapshotCodec.WriteQueries(Path.Combine(directory, "snapshot-2-update.bpf.gz"), after, updateQueries);
+            var update = UpdateComparison.Compare(before, after, updateQueries, budget);
+            var controlled = UpdateComparison.Controlled(budget);
+            update["wallMs"] = updateClock.Elapsed.TotalMilliseconds;
+            update["coverage"] = updateQueries.Count == 0 ? "NO_POSITIVE_INPUTS" : (long)update["changedCoordinates"] == 0 ? "unchanged pair; no real-change acceptance" : "changed snapshot pair";
+            WriteJson(Path.Combine(directory, "updates.json"), new Dictionary<string, object> { ["session"] = Id, ["real"] = update, ["controlled"] = controlled });
+            Shared.DevDiag.Log(() => "phase=updates-finished session=" + Id + " ordinal=2 cases=" + update["compared"] + " differences=" + update["differences"]);
+            CompareSnapshot(first, firstEvidence, before, 1, update, controlled);
+            CompareSnapshot(envelope.Map, envelope.Evidence, after, 2, update, controlled);
+        }
+        private void CompareSnapshot(CapturedMap raw, ManagedEvidence evidence, GridSnapshot graph, int ordinal, object update, object controlled)
+        {
+            var total = Stopwatch.StartNew(); string prefix = "snapshot-" + ordinal;
+            var summary = new Dictionary<string, object> {
+                ["session"] = Id, ["ordinal"] = ordinal, ["context"] = Context, ["runtime"] = "Unity/Mono + private C++ area backend",
+                ["snapshotCopyMs"] = raw.CopyMilliseconds, ["nonblockingLockRetryMs"] = raw.LockWaitMilliseconds, ["snapshotBuffers"] = raw.BufferBytes,
+                ["managedEvidence"] = evidence.Data(), ["gateCoverage"] = raw.GateCoverage, ["nativeHash"] = raw.NativeHash, ["testedPlayer"] = graph.Player,
+                ["capturedPlayers"] = raw.Players, ["realUpdates"] = update, ["controlledUpdates"] = controlled,
+                ["missingCoverage"] = "Only first player tested; game movement/10,000 captured units not integrated. Terminal/cadence/profile-limit contracts are offline. Precise oracle is offline only. Large-map independent references are sampled."
+            };
             var details = new List<object>(); summary["workloads"] = details;
-            summary["ordinal"] = ordinal; summary["managedEvidence"] = envelope.Evidence.Data();
-            summary["controlledUpdates"] = "NOT_RUN"; summary["realUpdates"] = ordinal == 1 ? "Awaiting second snapshot" : "NOT_RUN";
-            var markdown = new StringBuilder("# BetterPathfindingTest automatic comparison\r\n\r\n");
-            markdown.AppendLine("Session " + Id + "; snapshot " + ordinal + "; " + Context).AppendLine();
+            int compared = 0, planned = 0, found = 0, errors = 0, incomplete = 0, skipped = 0;
             var budget = new WorkBudget(MaximumBytes, 120, Cancel.Token);
-            int errors = 0, incomplete = 0, planned = 2 * (1 + 32 + 128 + 512), completed = 0;
-            var pulse = new ProgressPulse(() => total.Elapsed.TotalSeconds, message => Shared.DevDiag.Log(() => "session=" + Id + " ordinal=" + ordinal + " " + message + " cases=" + completed + "/" + planned));
+            var pulse = new ProgressPulse(() => total.Elapsed.TotalSeconds, message => Shared.DevDiag.Log(() => "session=" + Id + " ordinal=" + ordinal + " " + message + " cases=" + compared + "/" + planned));
             budget.Checkpoint = pulse.Check;
             try
             {
-                pulse.Phase = "snapshot-write"; createDirectory(directory);
-                // Accounts for both retained raw captures and graph-construction/copy/output headroom.
-                budget.Reserve(raw.BufferBytes + (first?.BufferBytes ?? 0) + 16L * 1024 * 1024);
-                CapturedMap previousRaw = first;
-                pulse.Phase = "policy-materialization"; envelope.MaterializeGates(budget); raw.Validate();
-                if (ordinal == 1) first = raw;
-                pulse.Phase = "snapshot-write"; SnapshotCodec.WriteCaptured(Path.Combine(directory, prefix + ".raw.gz"), raw); budget.Check();
-                pulse.Phase = "graph-build";
-                var graphWatch = Stopwatch.StartNew(); GridSnapshot graph = raw.Build(previousRaw == null ? raw.Players[0] : previousRaw.Players[0], budget: budget);
-                summary["graphBuildMs"] = graphWatch.Elapsed.TotalMilliseconds; summary["graphFingerprint"] = graph.Fingerprint().ToString("X16");
-                summary["testedPlayer"] = graph.Player; summary["capturedPlayers"] = raw.Players;
-                summary["missingCoverage"] = "Only first captured player's access context is exercised per run. Native reservation/terminal queries, alternate cadence profiles and 40-tick qualification use offline synthetic contracts. No assassin/native movement integration. Precise production oracle is offline only.";
-                if (ordinal == 2 && previousRaw == null) { incomplete++; summary["realUpdates"] = "NOT_RUN: no usable first capture"; }
-                RunPhases.Execute(previousRaw != null, () => {
-                    pulse.Phase = "controlled-updates";
-                    var controlled = UpdateComparison.Controlled(budget); summary["controlledUpdates"] = controlled;
-                    if ((bool)controlled["incomplete"]) incomplete++; else if (!(bool)controlled["passed"]) errors++;
-                }, () => {
-                    pulse.Phase = "real-updates";
-                    graphWatch.Restart(); GridSnapshot previous = previousRaw.Build(graph.Player, budget: budget); summary["previousGraphRebuildMs"] = graphWatch.Elapsed.TotalMilliseconds;
-                    var updateQueries = Benchmark.Workload(graph, raw.Units, 8, false);
-                    SnapshotCodec.WriteQueries(Path.Combine(directory, prefix + "-update.bpf.gz"), graph, updateQueries);
-                    var update = UpdateComparison.Compare(previous, graph, updateQueries, budget); summary["realUpdates"] = update;
-                    errors += (int)update["differences"]; if ((bool)update["incomplete"]) incomplete++;
-                }, () => {
-                  foreach (bool formation in new[] { false, true }) foreach (int count in new[] { 1, 32, 128, 512 })
+                budget.Reserve(raw.BufferBytes + (first?.BufferBytes ?? 0) + graph.BufferBytes + 16L * 1024 * 1024);
+                foreach (string family in new[] { "shared-goal", "formation", "distributed-profiles", "moat-required" })
                 {
-                    string family = (formation ? "formation-profiles-" : "shared-goal-") + count;
-                    pulse.Phase = family;
-                    List<RouteQuery> queries = Benchmark.Workload(graph, raw.Units, count, formation);
-                    SnapshotCodec.WriteQueries(Path.Combine(directory, prefix + "-" + family + ".bpf.gz"), graph, queries);
-                    Shared.DevDiag.Log(() => "phase=" + family + " session=" + Id + " ordinal=" + ordinal + " elapsedMs=" + total.ElapsedMilliseconds + " cases=" + queries.Count);
-                    BenchmarkResult result = Benchmark.Run(graph, queries, budget);
-                    if (queries.Count != count) { result.Incomplete++; result.Limitation = "No captured valid coordinates for planned cohort."; }
-                    completed += result.Completed; errors += result.Mismatches; incomplete += result.Incomplete;
-                    details.Add(new Dictionary<string, object> { ["family"] = family, ["result"] = result.Data() });
-                    writeText(Path.Combine(directory, prefix + "-" + family + ".md"), result.Markdown(family, "Unity/Mono"));
+                    bool failedPreparation = false;
+                    foreach (int count in graph.Count <= 4096 ? new[] { 1, 32, 128, 512 } : new[] { 1, 32, 128, 512, 10000 })
+                    {
+                        planned += count; if (failedPreparation) { skipped += count; incomplete++; continue; }
+                        budget.Check(); string name = family + "-" + count; pulse.Phase = name;
+                        var inputClock = Stopwatch.StartNew(); List<RouteQuery> queries = Workloads.Create(graph, raw.Units, count, family);
+                        double inputMs = inputClock.Elapsed.TotalMilliseconds;
+                        SnapshotCodec.WriteQueries(Path.Combine(directory, prefix + "-" + name + ".bpf.gz"), graph, queries);
+                        Shared.DevDiag.Log(() => "phase=" + name + " session=" + Id + " ordinal=" + ordinal + " cases=" + queries.Count);
+                        BenchmarkResult result = Benchmark.Run(graph, queries, budget);
+                        if (queries.Count != count) { result.Incomplete++; result.Limitation = "No known positive inputs for this family; missing coverage."; }
+                        compared += result.Completed; found += result.Found; errors += result.Mismatches; incomplete += result.Incomplete;
+                        var data = result.Data(); data["inputGenerationMs"] = inputMs; data["requestCountIsUnitCount"] = false;
+                        details.Add(new Dictionary<string, object> { ["family"] = name, ["result"] = data });
+                        writeText(Path.Combine(directory, prefix + "-" + name + ".md"), result.Markdown(name, "Unity/Mono + native x64"));
+                        WriteJson(Path.Combine(directory, prefix + ".progress.json"), new Dictionary<string, object> { ["session"] = Id, ["ordinal"] = ordinal, ["phase"] = name, ["compared"] = compared, ["found"] = found, ["elapsedMs"] = total.Elapsed.TotalMilliseconds });
+                        failedPreparation = queries.Count == 0 || result.Incomplete != 0 && result.Completed == 0;
+                    }
                 }
-                });
             }
             catch (SearchBudgetException ex) { incomplete++; summary["budgetAbort"] = ex.Message; }
             catch (Exception ex) { incomplete++; summary["error"] = ex.ToString(); }
             finally
             {
                 if (Cancel.IsCancellationRequested) { incomplete++; summary["cancelledByLifecycle"] = true; }
-                string status = errors != 0 ? "FAILED" : incomplete != 0 || completed != planned ? "INCOMPLETE" : "SEARCH COMPARISONS PASSED; path-fidelity review outstanding";
-                summary["lastPhase"] = pulse.Phase; summary["skippedRequests"] = planned - completed;
-                summary["status"] = status; summary["compared"] = completed; summary["planned"] = planned; summary["errors"] = errors; summary["incomplete"] = incomplete; summary["elapsedMs"] = total.Elapsed.TotalMilliseconds; summary["navigationPeakBytes"] = budget.PeakBytes; summary["managedHeapAtEnd"] = GC.GetTotalMemory(false);
-                markdown.AppendLine("Result: " + status).AppendLine().AppendLine("Compared " + completed + "/" + planned + "; errors " + errors + "; incomplete " + incomplete + ". Elapsed " + total.ElapsedMilliseconds + " ms.").AppendLine();
-                markdown.AppendLine("Snapshot copy: " + raw.CopyMilliseconds.ToString("F3") + " ms; lock retries: " + raw.LockWaitMilliseconds.ToString("F3") + " ms. Tracked peak: " + budget.PeakBytes + " bytes.").AppendLine();
-                markdown.AppendLine("See adjacent JSON for phases, hash identities, update evidence and missing coverage; workload Markdown files include search timing and direction differences. Production Precise comparisons require offline replay of each .bpf.gz file. Shared profiles 1/7 are synthetic; formation profiles use captured cadence only when unambiguous. Unreachable and long-route coverage is guaranteed by offline contracts, not claimed for every real map.").AppendLine();
-                markdown.AppendLine("No orders, traversal provider, native hooks, path buffers or game settings were changed. Cost parity alone does not accept direction parity or native movement. No consumer integration is approved. Managed heap deltas are retained heap observations, not allocation totals; .NET offline allocation measurements are separate.");
-                WriteJson(Path.Combine(directory, prefix + ".json"), summary); writeText(Path.Combine(directory, prefix + ".md"), markdown.ToString());
-                Shared.DevDiag.Log(() => "phase=finished session=" + Id + " ordinal=" + ordinal + " status=" + status + " elapsedMs=" + total.ElapsedMilliseconds + " cases=" + completed + "/" + planned + " report=" + directory);
+                string status = errors != 0 ? "FAILED" : incomplete != 0 || compared != planned ? "INCOMPLETE" : found == 0 ? "NEGATIVE CASES ONLY" : "CHECKED CASES PASSED; coverage/directions/game movement outstanding";
+                summary["status"] = status; summary["compared"] = compared; summary["planned"] = planned; summary["found"] = found; summary["errors"] = errors; summary["incomplete"] = incomplete;
+                summary["skippedRequests"] = skipped; summary["elapsedMs"] = total.Elapsed.TotalMilliseconds; summary["lastPhase"] = pulse.Phase; summary["navigationPeakBytes"] = budget.PeakBytes; summary["managedHeapAtEnd"] = GC.GetTotalMemory(false);
+                WriteJson(Path.Combine(directory, prefix + ".json"), summary);
+                writeText(Path.Combine(directory, prefix + ".md"), "# BetterPathfindingTest area-navigation prototype\r\n\r\nResult: " + status + "\r\n\r\nCompleted " + compared + "/" + planned + "; found " + found + "; errors " + errors + "; incomplete " + incomplete + ".\r\n\r\nSee adjacent JSON/workload reports. Positive-query and sampled-reference coverage are explicit. This does not certify game movement or 10,000 actual game units. No orders, native hooks, settings or path buffers were changed.\r\n");
+                Shared.DevDiag.Log(() => "phase=finished session=" + Id + " ordinal=" + ordinal + " status=" + status + " elapsedMs=" + total.ElapsedMilliseconds + " cases=" + compared + "/" + planned + " found=" + found + " report=" + directory);
             }
         }
     }

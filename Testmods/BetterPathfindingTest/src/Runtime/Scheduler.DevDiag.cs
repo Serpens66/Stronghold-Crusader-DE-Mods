@@ -90,6 +90,7 @@ namespace BetterPathfindingTest
                     if (!hasLibrary || api == null) return;
                     try
                     {
+                        BetterPathfindingTest.Core.AreaNavigator.InitializeLibrary(System.IO.Path.Combine(BepInEx.Paths.PluginPath, Plugin.PluginGuid, "BetterPathfindingNative.dll"));
                         engine = new EngineGate(); capture = new SnapshotCapture(library);
                         if (!ApiShared.ForMod(Plugin.PluginGuid).TryGetMissionLifecycle(out IMissionLifecycleCapability missions, out NativeCapabilityDiagnostic diagnostic) ||
                             !missions.TryRegisterObserver("automatic-comparison", Observe, Observe, Observe, out diagnostic)) throw new NotSupportedException("Mission lifecycle unavailable: " + diagnostic);
