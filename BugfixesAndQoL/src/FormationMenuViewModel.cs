@@ -23,8 +23,8 @@ namespace BugfixesAndQoL
         private readonly ConfigEntry<int> density;
         private readonly ConfigEntry<RangedPlacementMode> placementMode;
         private readonly ConfigEntry<bool> showRoleMarkers;
-        private readonly ConfigEntry<bool> rememberRows;
-        private readonly ConfigEntry<int>[] rememberedRows;
+        private readonly ConfigEntry<bool> rememberAspect;
+        private readonly ConfigEntry<string>[] rememberedAspects;
         private MainViewModel subscribedMainViewModel;
         private bool menuVisible;
         private bool rolloverVisible;
@@ -37,8 +37,8 @@ namespace BugfixesAndQoL
             ConfigEntry<int> density,
             ConfigEntry<RangedPlacementMode> placementMode,
             ConfigEntry<bool> showRoleMarkers,
-            ConfigEntry<bool> rememberRows,
-            ConfigEntry<int>[] rememberedRows)
+            ConfigEntry<bool> rememberAspect,
+            ConfigEntry<string>[] rememberedAspects)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.configFile = configFile ?? throw new ArgumentNullException(nameof(configFile));
@@ -47,8 +47,8 @@ namespace BugfixesAndQoL
             this.placementMode = placementMode ?? throw new ArgumentNullException(nameof(placementMode));
             this.showRoleMarkers = showRoleMarkers ?? throw new ArgumentNullException(nameof(showRoleMarkers));
 
-            this.rememberRows = rememberRows ?? throw new ArgumentNullException(nameof(rememberRows));
-            this.rememberedRows = rememberedRows ?? throw new ArgumentNullException(nameof(rememberedRows));
+            this.rememberAspect = rememberAspect ?? throw new ArgumentNullException(nameof(rememberAspect));
+            this.rememberedAspects = rememberedAspects ?? throw new ArgumentNullException(nameof(rememberedAspects));
 
             ToggleMenuCommand = new ParameterCommand(_ => ToggleMenu());
             SelectFormationCommand = new ParameterCommand(SelectFormation);
@@ -62,7 +62,7 @@ namespace BugfixesAndQoL
             density.SettingChanged += ConfigurationChanged;
             placementMode.SettingChanged += ConfigurationChanged;
             showRoleMarkers.SettingChanged += ConfigurationChanged;
-            rememberRows.SettingChanged += ConfigurationChanged;
+            rememberAspect.SettingChanged += ConfigurationChanged;
         }
 
         public string RememberRowsText => SerpLocalization.Get("BugfixesAndQoL.RememberRows");
@@ -79,33 +79,34 @@ namespace BugfixesAndQoL
         public string CenterText => SerpLocalization.Get("BugfixesAndQoL.LineupCenter");
         public string RoleMarkersText => SerpLocalization.Get("BugfixesAndQoL.LineupRoleMarkers");
         public string OnText => SerpLocalization.Get("BugfixesAndQoL.LineupOn");
-        public bool RememberRows
+        public bool RememberAspectRatio
         {
-            get => rememberRows.Value;
+            get => rememberAspect.Value;
             set => Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(() =>
             {
-                if (!FeatureAvailable || rememberRows.Value == value) return;
-                try { rememberRows.Value = value; SaveConfiguration("rememberRows", value.ToString()); }
+                if (!FeatureAvailable || rememberAspect.Value == value) return;
+                try { rememberAspect.Value = value; SaveConfiguration("rememberAspect", value.ToString()); }
                 catch (Exception ex) { Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/FormationMenuViewModel.cs:77", "Arrangement preference save failed: " + ex.Message); }
             });
         }
 
-        public int GetRememberedRows(FormationKind kind)
+        public FormationAspectRatio GetRememberedAspect(FormationKind kind)
         {
             int index = (int)kind;
-            return rememberRows.Value && index >= (int)FormationKind.Block && index <= (int)FormationKind.Wedge
-                ? FormationModel.NormalizeRememberedRows(rememberedRows[index].Value) : 0;
+            if (rememberAspect.Value && index >= (int)FormationKind.Block && index <= (int)FormationKind.Wedge &&
+                FormationAspectRatio.TryParse(rememberedAspects[index].Value, out FormationAspectRatio aspect)) return aspect;
+            return default;
         }
 
-        public void RememberSelectedRows(FormationKind kind, int rows)
+        public void RememberSelectedAspect(FormationKind kind, FormationAspectRatio aspect)
         {
             int index = (int)kind;
-            int selectedRows = FormationModel.NormalizeRememberedRows(rows);
-            if (!rememberRows.Value || index < (int)FormationKind.Block || index > (int)FormationKind.Wedge || selectedRows == 0) return;
+            if (!rememberAspect.Value || index < (int)FormationKind.Block || index > (int)FormationKind.Wedge || aspect.IsAutomatic) return;
+            string selectedAspect = aspect.ToString();
             Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(() =>
             {
-                if (!rememberRows.Value || rememberedRows[index].Value == selectedRows) return;
-                try { rememberedRows[index].Value = selectedRows; SaveConfiguration("remembered" + kind + "Rows", selectedRows.ToString()); }
+                if (!rememberAspect.Value || rememberedAspects[index].Value == selectedAspect) return;
+                try { rememberedAspects[index].Value = selectedAspect; SaveConfiguration("remembered" + kind + "Aspect", selectedAspect); }
                 catch (Exception ex) { Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/FormationMenuViewModel.cs:97", "Arrangement preference save failed: " + ex.Message); }
             });
         }
@@ -353,7 +354,7 @@ namespace BugfixesAndQoL
 
         private void NotifySelectionsChanged()
         {
-            OnChanged(nameof(RememberRows));
+            OnChanged(nameof(RememberAspectRatio));
             OnChanged(nameof(IsVanilla));
             OnChanged(nameof(IsBlock));
             OnChanged(nameof(IsLine));

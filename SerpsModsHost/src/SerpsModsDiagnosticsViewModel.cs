@@ -165,6 +165,7 @@ namespace SerpsModsHost
             {
                 if (source.Kind == ModSettingsWorkingSourceKind.Trail) source.DisplayName = SerpLocalization.Get("Common.SettingsSourceTrail");
                 if (source.Kind == ModSettingsWorkingSourceKind.Map) source.DisplayName = SerpLocalization.Get("Common.SettingsSourceMap");
+                if (source.Kind == ModSettingsWorkingSourceKind.Personal) source.DisplayName = SerpLocalization.Get("Common.SettingsSourcePersonal");
                 globalSources.Add(source);
             }
             ModSettingsWorkingSource preferredSource = globalSources.FirstOrDefault(item => item.IsPreferred) ??

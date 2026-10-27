@@ -117,6 +117,26 @@ internal static class RestartSettingsTests
             "runtime upgrade still staged restoration instead of applying personal values");
         vm.Source.NetworkClient = false;
         Console.WriteLine("PASS: personal versus desired sources, unchanged personal persistence and network-owned client admission");
+        // A personal reset keeps the mission identity even when personal startup
+        // values differ from both the active process and the current mission draft.
+        vm.Source.Options[0].RequiresRestart = true;
+        vm.Source.Own["startup"] = 4L;
+        vm.Source.Own["live"] = 5L;
+        vm.Source.Active["startup"] = 8L;
+        vm.Source.Working["startup"] = 9L;
+        vm.Source.Working["live"] = 10L;
+        vm.System_EnterMissionPreset(vm.System_CreateCurrentWorkingSnapshot(), "Map", true);
+        vm.System_ApplyMissionPresetSnapshot(vm.System_CreatePlayerMissionPresetSnapshot(), "Personal Settings");
+        Check(vm.IsMissionPresetActive && (long)vm.Source.Working["startup"] == 4L && (long)vm.Source.Working["live"] == 5L,
+            "personal mission reset used desired/active values or exited its context");
+        Check(vm.System_ApplyConfiguration("map:personal-reset", true) && vm.Source.PendingContext == "map:personal-reset" &&
+              (long)vm.Source.Pending["startup"] == 4L && (long)vm.Source.Active["startup"] == 8L && (long)vm.Source.Own["startup"] == 4L,
+            "personal reset failed to stage the owning mission or changed active/personal values");
+        vm.Source.Restart();
+        Check((long)vm.Source.Active["startup"] == 4L && vm.Source.ActiveContextId == "map:personal-reset",
+            "personal reset restart lost its configuration or mission identity");
+        vm.System_ExitMissionPreset();
+        Console.WriteLine("PASS: temporary personal reset uses backend own values and retains mission restart identity");
     }
     private static void Check(bool condition, string message) { if (!condition) throw new Exception(message); }
     private sealed class Attributed { [RequiresRestart] public long Startup { get; set; } }

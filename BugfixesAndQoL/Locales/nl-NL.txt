@@ -389,8 +389,8 @@ BugfixesAndQoL.EnableAssassinGatehouseClimbFixHelp=Allows humans and AI to choos
 BugfixesAndQoL.EnableAssassinCapturedGateProtectionFix=AI Assassins no longer attack captured gatehouses
 BugfixesAndQoL.EnableAssassinCapturedGateProtectionFixHelp=Prevents AI Assassins from attacking stone gatehouses captured by themselves or an ally. Vanilla or Fixes selects further targets. Human commands remain unchanged.
 
-BugfixesAndQoL.RememberRows=Rijen onthouden
-BugfixesAndQoL.RememberRowsHelp=Gebruik het muiswiel tijdens een ingedrukt bewegingsbevel om breedte/lengte te wijzigen. Onthoudt rijen per opstelling na herstarten. Kleinere groepen beperken rijen tijdelijk. Uit of geen opgeslagen waarde: automatische rijen. Geldt niet voor Cirkel en Standaard.
+BugfixesAndQoL.RememberRows=Remember width/depth ratio
+BugfixesAndQoL.RememberRowsHelp=Mouse wheel while holding a move command: adjust rows. Remembers each arrangement's width-to-depth ratio across restarts and adapts it to the reachable unit count. Off or no saved ratio: automatic proportions. Does not apply to Circle or Vanilla.
 BugfixesAndQoL.ArrangementTooltip=Opstelling
 BugfixesAndQoL.EnableGatehouseTargetMarkerHeightFix=Doelmarkeringen op poortgebouwen corrigeren
 BugfixesAndQoL.EnableGatehouseTargetMarkerHeightFixHelp=Corrigeert de hoogte van groene bewegingsdoelmarkeringen op poortgebouwen, inclusief formatievoorbeelden. Torens en donjons blijven ongewijzigd. Deze instelling is lokaal en wordt niet gesynchroniseerd.

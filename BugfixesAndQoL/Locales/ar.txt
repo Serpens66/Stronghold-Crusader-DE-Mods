@@ -389,8 +389,8 @@ BugfixesAndQoL.EnableAssassinGatehouseClimbFixHelp=Allows humans and AI to choos
 BugfixesAndQoL.EnableAssassinCapturedGateProtectionFix=AI Assassins no longer attack captured gatehouses
 BugfixesAndQoL.EnableAssassinCapturedGateProtectionFixHelp=Prevents AI Assassins from attacking stone gatehouses captured by themselves or an ally. Vanilla or Fixes selects further targets. Human commands remain unchanged.
 
-BugfixesAndQoL.RememberRows=تذكر الصفوف
-BugfixesAndQoL.RememberRowsHelp=استخدم عجلة الفأرة مع الاستمرار في أمر الحركة لتغيير العرض والطول. يتذكر الصفوف لكل تموضع بعد إعادة التشغيل. المجموعات الصغيرة تحد الصفوف مؤقتاً. عند الإيقاف أو عدم وجود قيمة محفوظة: صفوف تلقائية. لا يشمل الدائرة والافتراضي.
+BugfixesAndQoL.RememberRows=Remember width/depth ratio
+BugfixesAndQoL.RememberRowsHelp=Mouse wheel while holding a move command: adjust rows. Remembers each arrangement's width-to-depth ratio across restarts and adapts it to the reachable unit count. Off or no saved ratio: automatic proportions. Does not apply to Circle or Vanilla.
 BugfixesAndQoL.ArrangementTooltip=التموضع
 BugfixesAndQoL.EnableGatehouseTargetMarkerHeightFix=تصحيح علامات الهدف على أبراج البوابات
 BugfixesAndQoL.EnableGatehouseTargetMarkerHeightFixHelp=يصحح ارتفاع علامات وجهة الحركة الخضراء على أبراج البوابات، بما في ذلك معاينات التشكيلات. لا تتغير الأبراج والقلاع الرئيسية. هذا الإعداد محلي ولا تتم مزامنته.

@@ -78,6 +78,10 @@ namespace ExtendedData
         private string activeMapPath = string.Empty;
         private uint activeMapCrc;
         private string activeJson = string.Empty;
+        private string activeDraftIdentity = string.Empty;
+        private ModSettingsDefinition activeDocument;
+        private readonly CoopSettingsDraftState mapDraft = new CoopSettingsDraftState();
+        private Dictionary<string, Dictionary<string, byte[]>> workingSnapshots;
         private short packetId;
         private bool saveHandlerRegistered;
         private ulong? lastLobbyId;
@@ -177,16 +181,44 @@ namespace ExtendedData
                     ModSettingsApplication.ConfirmStarted();
                 }
             }));
-            subscriptions.Add(MissionEvents.Ended.Subscribe(notification =>
-            {
-                if (notification.ReplacementContext?.RestartedFromSessionId == notification.Context.SessionId)
-                    return;
-                if (mapMissionActive)
-                    ExitMapContext(broadcast: false, "mission ended");
-            }));
+            subscriptions.Add(MissionEvents.Ended.Subscribe(HandleMissionEnded));
+            subscriptions.Add(MissionEvents.Initialization.Subscribe(HandleMissionInitialization));
 
             RegisterLobbyObserver();
             Shared.DevDiag.Log(() => "Map mod-settings coordinator initialized.");
+        }
+
+        private void HandleMissionEnded(MissionLifecycleNotification notification)
+        {
+            if (notification.ReplacementContext?.RestartedFromSessionId == notification.Context.SessionId)
+                return;
+            if (mapMissionActive || (mapContextActive && workingSnapshots != null))
+            {
+                if (notification.EndReason == MissionEndReason.ApplicationExit ||
+                    notification.ReplacementContext != null)
+                    ExitMapContext(broadcast: false, "mission replaced or application exited");
+                else
+                {
+                    // Restore personal settings immediately. Keep only the detached
+                    // setup draft; a later concrete matching selection may reopen it.
+                    if (IsMapContextCurrent()) settingsCoordinator.ExitContext(force: true);
+                    mapMissionActive = false;
+                    LogMapContext("suspended", "mission ended; personal settings restored", notification.Context.SessionId);
+                }
+            }
+        }
+
+        private void HandleMissionInitialization(MissionLifecycleNotification notification)
+        {
+            // Remote starts need not use this peer's skirmish Play button. Use the
+            // existing common checkpoint, before native gameplay, to capture late sync.
+            if (notification.Phase != MissionInitializationPhase.BeforeNativeStart ||
+                notification.Context.IsEditor || !IsMapContextCurrent() || MissionRestart.IsInProgress)
+                return;
+            mapDraft.Prepare(activeDraftIdentity, true, false, true,
+                () => throw new InvalidOperationException("Map source changed during native initialization."),
+                FreezeMapDraft, ReopenMapDraft);
+            LogMapContext("frozen", "native initialization", notification.Context.SessionId);
         }
 
         internal void SetActivation(ExtendedDataFeatureActivation value)
@@ -267,12 +299,10 @@ namespace ExtendedData
             {
                 if (launchInProgress && !MissionRestart.IsInProgress)
                 {
-                    settingsCoordinator.EnterStrict(
-                        settingsCoordinator.CaptureCurrentDocument(),
-                        editable: false,
-                        source: "Map launch working copy",
-                        presetLabel: "Map",
-                        materializeCurrentValues: true);
+                    mapDraft.Prepare(activeDraftIdentity, true, false, true,
+                        () => throw new InvalidOperationException("Map source changed during launch."),
+                        FreezeMapDraft, ReopenMapDraft);
+                    LogMapContext("frozen", "launch preparation");
                 }
                 if (!settingsCoordinator.TryPrepareRestartSettings()) return;
                 startSkirmishGameOriginal(self, restartInfo);
@@ -504,10 +534,14 @@ namespace ExtendedData
         private void OnMapSelectionChanged(FRONT_Multiplayer lobby)
         {
             FileHeader selected = GetSelectedHeader(lobby);
+            // A null row is a transient list rebuild, not a new source selection.
+            if (selected == null) return;
             // Vanilla clears the selection transiently while rebuilding the same map list.
             // Only a new, concrete map identity counts as a map change.
             if (mapContextActive && selected != null && !MatchesActiveMap(selected))
                 ExitMapContext(broadcast: IsHostLobby(lobby), "selected map changed");
+            if (mapContextActive && MatchesActiveMap(selected) && IsMapContextCurrent())
+                return;
             if (enabled && selected != null &&
                 TryReadDocument(selected, out ModSettingsDefinition document, out _, logFailure: false))
             {
@@ -558,11 +592,15 @@ namespace ExtendedData
             try
             {
                 settingsCoordinator.SetMapSourceDocument(document, selected.filePath);
-                missing = settingsCoordinator.EnterStrict(
-                document,
-                editable: true,
-                source: "selected Map",
-                presetLabel: "Map");
+                missing = Array.Empty<string>();
+                string identity = NormalizePath(selected.filePath) + ":" + selected.crc;
+                // A live draft whose shared context was explicitly left is no longer
+                // resumable. Only a frozen mission draft owns detached snapshots.
+                if (!IsMapContextCurrent() && !mapDraft.IsFrozen) { mapDraft.Reset(); workingSnapshots = null; }
+                mapDraft.Prepare(identity, true, true, false,
+                    () => missing = settingsCoordinator.EnterStrict(document, editable: true,
+                        source: "selected Map", presetLabel: "Map"),
+                    FreezeMapDraft, ReopenMapDraft);
             }
             catch (Exception exception)
             {
@@ -578,8 +616,9 @@ namespace ExtendedData
             activeMapPath = NormalizePath(selected.filePath);
             activeMapCrc = selected.crc;
             activeJson = json;
-            Shared.DebugLogHelper.LogInfo(log, "Applied Map mod settings from [" + selected.filePath + "]; mentioned=[" +
-                    string.Join(", ", document.Mods.Keys) + "].");
+            activeDraftIdentity = NormalizePath(selected.filePath) + ":" + selected.crc;
+            activeDocument = document;
+            LogMapContext("editable", "selected map; existing draft preserved when identity matches");
             if (missing.Length != 0)
             {
                 ShowMessage(
@@ -632,6 +671,11 @@ namespace ExtendedData
             bool wasCurrent = IsMapContextCurrent();
             string clearedMapFileName = activeMapFileName;
             uint clearedMapCrc = activeMapCrc;
+            // A failed restoration must remain owned and retryable.
+            if (wasCurrent) settingsCoordinator.ExitContext(force: true);
+            LogMapContext("left", reason);
+            mapDraft.Reset();
+            workingSnapshots = null;
             mapContextActive = false;
             mapMissionActive = false;
             launchInProgress = false;
@@ -639,8 +683,8 @@ namespace ExtendedData
             activeMapPath = string.Empty;
             activeMapCrc = 0;
             activeJson = string.Empty;
-            if (wasCurrent)
-                settingsCoordinator.ExitContext(force: true);
+            activeDraftIdentity = string.Empty;
+            activeDocument = null;
             if (broadcast)
                 BroadcastCurrentState(
                     apply: false,
@@ -648,6 +692,32 @@ namespace ExtendedData
                     mapCrc: clearedMapCrc);
             Shared.DevDiag.Log(() => "Cleared Map mod-settings context: " + reason + ".");
         }
+
+        private void FreezeMapDraft()
+        {
+            workingSnapshots = settingsCoordinator.CaptureWorkingDraft();
+            try { settingsCoordinator.ApplyWorkingDraft(workingSnapshots, "Map", editable: false, source: activeDocument); }
+            catch (Exception failure)
+            {
+                try { ReopenMapDraft(); }
+                catch (Exception recovery) { throw new AggregateException("Map draft preparation and recovery failed.", failure, recovery); }
+                throw;
+            }
+        }
+
+        private void ReopenMapDraft()
+        {
+            if (workingSnapshots == null)
+                throw new InvalidOperationException("Map working draft has no captured settings.");
+            settingsCoordinator.ApplyWorkingDraft(workingSnapshots, "Map", editable: true, source: activeDocument);
+        }
+
+        private void LogMapContext(string state, string reason, long session = 0) =>
+            Shared.DebugLogHelper.LogInfo(log,
+                $"MAP_SETTINGS_CONTEXT: state={state}, reason={reason}, session={session}, " +
+                $"path={activeMapPath}, file={activeMapFileName}, crc={activeMapCrc}, " +
+                $"hasDraft={mapDraft.HasDraft}, snapshotMods={workingSnapshots?.Count ?? 0}, " +
+                $"missionActive={mapMissionActive}, launchInProgress={launchInProgress}; personalStorage=unchanged.");
 
         private void OnMapSettingsPacket(ReceiveCustomPacketEventArgs<MapModSettingsPacket> args)
         {
@@ -724,18 +794,26 @@ namespace ExtendedData
             try
             {
                 ModSettingsDefinition document = ModSettingsJson.ParseObject(packet.Json ?? string.Empty);
+                // The CRC identifies the map, not a changed authenticated settings
+                // document for that map. Replace the old draft when the source changes.
+                if (!string.Equals(activeJson, packet.Json, StringComparison.Ordinal)) mapDraft.Reset();
                 settingsCoordinator.SetMapSourceDocument(document, packet.MapFileName + ":" + packet.MapCrc);
-                string[] missing = settingsCoordinator.EnterStrict(
-                    document,
-                    editable: true,
-                    source: "authenticated host Map",
-                    presetLabel: "Map");
+                string identity = "host:" + packet.MapFileName + ":" + packet.MapCrc;
+                string[] missing = Array.Empty<string>();
+                if (!IsMapContextCurrent() && !mapDraft.IsFrozen) { mapDraft.Reset(); workingSnapshots = null; }
+                mapDraft.Prepare(identity, true, true, false,
+                    () => missing = settingsCoordinator.EnterStrict(document, editable: true,
+                        source: "authenticated host Map", presetLabel: "Map"),
+                    FreezeMapDraft, ReopenMapDraft);
                 mapContextActive = true;
                 mapMissionActive = false;
                 activeMapFileName = packet.MapFileName;
                 activeMapPath = string.Empty;
                 activeMapCrc = packet.MapCrc;
                 activeJson = packet.Json;
+                activeDraftIdentity = identity;
+                activeDocument = document;
+                LogMapContext("editable", "authenticated host map source");
                 if (missing.Length != 0)
                 {
                     ShowMessage(

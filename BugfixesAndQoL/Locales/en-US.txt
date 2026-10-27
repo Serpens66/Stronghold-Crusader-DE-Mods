@@ -389,8 +389,8 @@ BugfixesAndQoL.EnableAssassinGatehouseClimbFixHelp=Allows humans and AI to choos
 BugfixesAndQoL.EnableAssassinCapturedGateProtectionFix=AI Assassins no longer attack captured gatehouses
 BugfixesAndQoL.EnableAssassinCapturedGateProtectionFixHelp=Prevents AI Assassins from attacking stone gatehouses captured by themselves or an ally. Vanilla or Fixes selects further targets. Human commands remain unchanged.
 
-BugfixesAndQoL.RememberRows=Remember rows
-BugfixesAndQoL.RememberRowsHelp=Use the mouse wheel while holding a move command to change width/length. Remembers rows per lineup across restarts. Smaller groups temporarily limit rows. Off or no saved value: automatic rows. Excludes Circle and Default.
+BugfixesAndQoL.RememberRows=Remember width/depth ratio
+BugfixesAndQoL.RememberRowsHelp=Mouse wheel while holding a move command: adjust rows. Remembers each arrangement's width-to-depth ratio across restarts and adapts it to the reachable unit count. Off or no saved ratio: automatic proportions. Does not apply to Circle or Vanilla.
 BugfixesAndQoL.ArrangementTooltip=Lineup
 BugfixesAndQoL.DeleteTrail=Delete Trail
 BugfixesAndQoL.DeleteTrailConfirmTitle=Delete Trail

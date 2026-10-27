@@ -554,11 +554,10 @@ namespace ExtendedData
 
             private void FreezeWorkingDraft()
             {
-                customizeDraftSnapshots = CaptureCurrentSnapshots(FindCompatibleViewModels());
+                customizeDraftSnapshots = CaptureWorkingDraft();
                 try
                 {
-                    ApplyDocument(CaptureDocument(), editable: false,
-                        materializeCurrentValues: true, preserveEditorModes: true);
+                    ApplyWorkingDraft(customizeDraftSnapshots, activeContextLabel, editable: false);
                 }
                 catch (Exception failure)
                 {
@@ -568,9 +567,21 @@ namespace ExtendedData
                 }
             }
 
-            private void ReopenWorkingDraft() => ApplyDocument(ModSettingsDefinition.CreateModDefaults(),
-                editable: true, preserveCurrentValues: true, startingSnapshots: customizeDraftSnapshots,
-                preserveEditorModes: true);
+            private void ReopenWorkingDraft() => ApplyWorkingDraft(customizeDraftSnapshots, activeContextLabel, editable: true);
+
+            // Map and Coop drafts use the same endpoint/session materialization. The
+            // caller owns the detached draft while personal settings are restored.
+            internal Dictionary<string, Dictionary<string, byte[]>> CaptureWorkingDraft() =>
+                CaptureCurrentSnapshots(FindCompatibleViewModels());
+
+            internal void ApplyWorkingDraft(Dictionary<string, Dictionary<string, byte[]>> snapshots,
+                string label, bool editable, ModSettingsDefinition source = null)
+            {
+                if (source != null) activeCreatorDocument = CloneDocument(source);
+                ApplyDocument(ModSettingsDefinition.CreateModDefaults(),
+                    editable: editable, presetLabel: label, preserveCurrentValues: editable,
+                    startingSnapshots: snapshots, materializeCurrentValues: !editable, preserveEditorModes: true);
+            }
 
             internal Dictionary<string, Dictionary<string, TrailCreatorRule>> CaptureCreatorRulesForActiveTrail()
             {
@@ -604,6 +615,8 @@ namespace ExtendedData
                     result.Add(new ModSettingsWorkingSource { Id = ModSettingsWorkingSourceRegistry.TrailId, Kind = ModSettingsWorkingSourceKind.Trail, DisplayName = "Trail settings", IsPreferred = true, PreferenceContextId = preferenceContext });
                 if (mapSourceDocument != null)
                     result.Add(new ModSettingsWorkingSource { Id = ModSettingsWorkingSourceRegistry.MapId, Kind = ModSettingsWorkingSourceKind.Map, DisplayName = "Map settings", IsPreferred = !trailSource.IsAvailable, PreferenceContextId = preferenceContext });
+                if (result.Count != 0)
+                    result.Insert(0, new ModSettingsWorkingSource { Id = ModSettingsWorkingSourceRegistry.PersonalSettingsId, Kind = ModSettingsWorkingSourceKind.Personal, DisplayName = "Personal Settings" });
                 return result;
             }
 
@@ -613,7 +626,10 @@ namespace ExtendedData
             {
                 if (!trailContext || !workingContextEditable)
                     throw new InvalidOperationException("Mission ModSettings are not currently editable.");
-                ModSettingsDefinition source = ResolveWorkingSource(sourceId);
+                bool personal = string.Equals(sourceId, ModSettingsWorkingSourceRegistry.PersonalSettingsId, StringComparison.Ordinal);
+                if (personal && !trailSource.IsAvailable && mapSourceDocument == null)
+                    throw new InvalidOperationException("The selected reset source is unavailable.");
+                ModSettingsDefinition source = personal ? null : ResolveWorkingSource(sourceId);
                 Dictionary<string, IModSettingsPresetEndpoint> participants = FindCompatibleViewModels();
                 string[] ids = (targetGuids ?? Enumerable.Empty<string>()).Where(participants.ContainsKey).Distinct(StringComparer.Ordinal).ToArray();
                 var workingEndpoints = new Dictionary<string, IModSettingsWorkingCopyEndpoint>(StringComparer.Ordinal);
@@ -623,30 +639,73 @@ namespace ExtendedData
                 {
                     if (!(participants[id] is IModSettingsWorkingCopyEndpoint endpoint))
                         throw new InvalidOperationException("The selected mod does not support editable mission working sources: " + id);
+                    if (personal && (!endpoint.IsMissionPresetActive ||
+                        (endpoint is PresetLobbyModSettingsViewModel settings && !settings.MissionPresetEditable)))
+                        throw new InvalidOperationException("Mission ModSettings are not currently editable: " + id);
                     workingEndpoints[id] = endpoint;
                     rollback[id] = endpoint.System_CreateCurrentMissionPresetSnapshot();
-                    prepared[id] = MaterializeSource(id, endpoint, source,
+                    prepared[id] = personal ? CopyPersonalSnapshot(endpoint) : MaterializeSource(id, endpoint, source,
                         string.Equals(sourceId, ModSettingsWorkingSourceRegistry.TrailId, StringComparison.Ordinal));
                 }
-                ModSettingsDefinition oldModes = CaptureDocument();
+                ModSettingsDefinition oldModes = personal ? null : CaptureDocument();
+                var attempted = new HashSet<string>(StringComparer.Ordinal);
+                var committed = new HashSet<string>(StringComparer.Ordinal);
                 try
                 {
                     foreach (string id in ids)
                     {
-                        applyEditorModesForMod?.Invoke(id, source);
+                        if (!personal) applyEditorModesForMod?.Invoke(id, source);
+                        if (personal) attempted.Add(id);
                         workingEndpoints[id].System_ApplyMissionPresetSnapshot(prepared[id], DescribeWorkingSource(sourceId));
                     }
+                    // Commit here for both single and global personal reset. The UI must not
+                    // pre-refresh the desired configuration or commit the same source twice.
+                    if (personal)
+                        foreach (string id in ids)
+                        {
+                            CommitPersonalSource(id, workingEndpoints[id]);
+                            committed.Add(id);
+                        }
                 }
                 catch
                 {
                     foreach (string id in ids)
                     {
-                        try { workingEndpoints[id].System_ApplyMissionPresetSnapshot(rollback[id], activeContextLabel); }
+                        if (personal && !attempted.Contains(id)) continue;
+                        try
+                        {
+                            workingEndpoints[id].System_ApplyMissionPresetSnapshot(rollback[id], activeContextLabel);
+                        }
                         catch (Exception rollbackException) { Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:630", "Could not roll back source application for [" + id + "]: " + rollbackException); }
                     }
-                    applyEditorModes?.Invoke(oldModes, false);
+                    // Restore all desired snapshots before any backend/journal commit. Do
+                    // not apply untouched backends or replace a failed backend's old package.
+                    if (personal)
+                        foreach (string id in ids.Where(committed.Contains))
+                        {
+                            try { CommitPersonalSource(id, workingEndpoints[id]); }
+                            catch (Exception rollbackException) { Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/personal-reset-backend-rollback", "Could not restore applied configuration for [" + id + "]: " + rollbackException); }
+                        }
+                    if (!personal) applyEditorModes?.Invoke(oldModes, false);
                     throw;
                 }
+            }
+
+            private static Dictionary<string, byte[]> CopyPersonalSnapshot(IModSettingsWorkingCopyEndpoint endpoint)
+            {
+                // Backends own their personal configuration; the visible mission values are
+                // intentionally not used. Detach every buffer before any participant changes.
+                var snapshot = endpoint.System_CreatePlayerMissionPresetSnapshot();
+                if (snapshot == null) throw new InvalidDataException("The personal settings snapshot is unavailable.");
+                return snapshot.ToDictionary(entry => entry.Key,
+                    entry => entry.Value == null ? throw new InvalidDataException("Invalid personal setting: " + entry.Key)
+                        : (byte[])entry.Value.Clone(), StringComparer.Ordinal);
+            }
+
+            private static void CommitPersonalSource(string id, IModSettingsWorkingCopyEndpoint endpoint)
+            {
+                if (endpoint is PresetLobbyModSettingsViewModel settings) settings.System_CommitConfiguration();
+                else ModSettingsApplication.Commit(id);
             }
 
             private ModSettingsDefinition ResolveWorkingSource(string sourceId)
@@ -675,6 +734,7 @@ namespace ExtendedData
                 new MissionModSettingsEntry { PlayerSettings = entry.PlayerSettings, Overrides = entry.Overrides };
 
             private static string DescribeWorkingSource(string sourceId) =>
+                string.Equals(sourceId, ModSettingsWorkingSourceRegistry.PersonalSettingsId, StringComparison.Ordinal) ? "Personal Settings" :
                 string.Equals(sourceId, ModSettingsWorkingSourceRegistry.TrailId, StringComparison.Ordinal) ? "Trail" :
                 string.Equals(sourceId, ModSettingsWorkingSourceRegistry.MapId, StringComparison.Ordinal) ? "Map" : "Mod defaults";
 
@@ -2310,7 +2370,9 @@ namespace ExtendedData
                 }
                 if (!trailMaker)
                     ClearTrailMakerAuthoringState();
-                if (!trailMaker && !preserve)
+                // Rebuilding an already selected Map page must not discard its working
+                // settings. The map coordinator owns concrete selection/leave transitions.
+                if (!trailMaker && !preserve && !IsContextActive("Map"))
                 {
                     ExtendedDataLaunchOriginApi.Clear();
                     if (enabled)

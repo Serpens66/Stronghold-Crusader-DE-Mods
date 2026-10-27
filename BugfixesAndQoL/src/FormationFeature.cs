@@ -27,6 +27,7 @@ namespace BugfixesAndQoL
             var existing = FormationSelectionMigration.ReadFormationSection(ReadConfig(config.ConfigFilePath));
             var legacy = FormationSelectionMigration.ReadFormationSection(
                 ReadConfig(Path.Combine(Paths.ConfigPath, "FormationTest_Serp.cfg")));
+            ConfigureAspectMemory(config, existing, out var rememberAspect, out var rememberedAspects);
             kind = config.Bind("Formation", "Kind",
                 FormationSelectionMigration.ResolveKind(existing, legacy),
                 "Local formation selection; sent with each synchronized move command.");
@@ -37,18 +38,8 @@ namespace BugfixesAndQoL
                 "Local placement of ranged, siege, healer, shield and support units.");
             var roles = config.Bind("Formation", "ShowRoleMarkers",
                 FormationSelectionMigration.ResolveRoleMarkers(existing, legacy), "Show colored roles over the green formation preview.");
-            var rememberRows = config.Bind("Formation", "RememberRows", true,
-                "Remember wheel-selected row counts separately for each arrangement across restarts.");
-            var rememberedRows = new ConfigEntry<int>[6];
-            foreach (FormationKind rowKind in new[] { FormationKind.Block, FormationKind.Line, FormationKind.Column, FormationKind.Wedge })
-            {
-                var entry = config.Bind("Formation", "Remembered" + rowKind + "Rows", 0,
-                    "Local remembered row count; 0 selects automatic rows. Valid range: 1..10000.");
-                entry.Value = FormationModel.NormalizeRememberedRows(entry.Value);
-                rememberedRows[(int)rowKind] = entry;
-            }
             FormationPreviewOverlay.Initialize(log, roles.Value);
-            menu = new FormationMenuViewModel(log, config, kind, density, placement, roles, rememberRows, rememberedRows);
+            menu = new FormationMenuViewModel(log, config, kind, density, placement, roles, rememberAspect, rememberedAspects);
             menu.Enabled = () => runtime != null && runtime.LocalInputEnabled;
             RegisterPresentationBindings();
             FormationHudButton.Configure(menu, log);
@@ -57,6 +48,45 @@ namespace BugfixesAndQoL
                 if (!settings.EnableMod || !settings.EnableMoveFormationEnhancements)
                 { runtime?.ResetTransientState(); menu.CloseMenu(); FormationPreviewOverlay.Clear(); }
             };
+        }
+
+        private static void ConfigureAspectMemory(ConfigFile config,
+            System.Collections.Generic.Dictionary<string, string> existing,
+            out ConfigEntry<bool> enabled, out ConfigEntry<string>[] aspects)
+        {
+            bool autoSave = config.SaveOnConfigSet;
+            config.SaveOnConfigSet = false;
+            try
+            {
+                bool initial = true;
+                if (!existing.ContainsKey("RememberAspectRatio") && existing.TryGetValue("RememberRows", out string old) &&
+                    bool.TryParse(old, out bool oldEnabled)) initial = oldEnabled;
+                enabled = config.Bind("Formation", "RememberAspectRatio", initial,
+                    "Remember wheel-selected width/depth ratios separately for each arrangement across restarts.");
+                aspects = new ConfigEntry<string>[6];
+                foreach (FormationKind kind in new[] { FormationKind.Block, FormationKind.Line, FormationKind.Column, FormationKind.Wedge })
+                {
+                    var entry = config.Bind("Formation", "Remembered" + kind + "AspectRatio", "auto",
+                        "Local width:depth ratio; auto keeps this arrangement's automatic proportions. Each positive component is at most 10000.");
+                    FormationAspectRatio.TryParse(entry.Value, out FormationAspectRatio aspect);
+                    entry.Value = aspect.ToString();
+                    aspects[(int)kind] = entry;
+                    string key = "Remembered" + kind + "Rows";
+                    if (existing.ContainsKey(key))
+                    {
+                        // Bind consumes BepInEx's orphaned entry; Remove then retires
+                        // only that known key. Its old selection size was not stored.
+                        config.Bind("Formation", key, 0, "Obsolete absolute row preference.");
+                        config.Remove(new ConfigDefinition("Formation", key));
+                    }
+                }
+                if (existing.ContainsKey("RememberRows"))
+                {
+                    config.Bind("Formation", "RememberRows", true, "Obsolete memory switch.");
+                    config.Remove(new ConfigDefinition("Formation", "RememberRows"));
+                }
+            }
+            finally { config.SaveOnConfigSet = autoSave; }
         }
 
         private static void RegisterPresentationBindings()

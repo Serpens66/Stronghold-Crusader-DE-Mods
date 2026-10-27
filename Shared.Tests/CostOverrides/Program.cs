@@ -23,6 +23,7 @@ internal static class Program
             Run("overrides rebase on foreign writes and do not claim equal values", Rebase);
             Run("market directions respect foreign absolute prices independently", ForeignMarket);
             Run("repeated price application and factor changes never compound", RepeatedMarket);
+            Run("already effective external prices succeed without acquiring ownership", AlreadyEffectiveMarket);
             Run("return to neutral preserves foreign cells", MarketReset);
             Run("combined neutral and rounding retain existing arithmetic", Arithmetic);
             Run("mission end releases ownership for new maps and loaded saves", Sessions);
@@ -121,6 +122,21 @@ internal static class Program
         Equal(false, f.Market.Apply(Good, true, 2)); Equal(true, f.Market.Apply(Good, false, 2));
         Equal(111, f.Price.BuyPrice); Equal(100, f.Price.SellPrice); Equal(1, f.Writes);
         f.End(); Equal(111, f.Price.BuyPrice); Equal(50, f.Price.SellPrice);
+    }
+
+    private static void AlreadyEffectiveMarket()
+    {
+        var f = new Fixture { Price = new PackedGoodPrice(200, 50) };
+        Equal(true, f.Market.Apply(Good, true, 2, out MarketPriceApplication result));
+        Equal(100, result.Baseline); Equal(200, result.Current); Equal(200, result.Desired);
+        Equal(false, result.Owned); Equal(0, f.Writes);
+        f.Market.Apply(Good, true, 1); Equal(200, f.Price.BuyPrice); Equal(0, f.Writes);
+        Equal(false, f.Market.Apply(Good, true, 3, out result));
+        Equal(200, result.Current); Equal(300, result.Desired);
+        f.End(); Equal(200, f.Price.BuyPrice); Equal(0, f.Writes);
+        var owned = new Fixture(); owned.Market.Apply(Good, true, 2);
+        Equal(true, owned.Market.Apply(Good, true, 2, out result)); Equal(true, result.Owned);
+        owned.End(); Equal(100, owned.Price.BuyPrice);
     }
 
     private static void RepeatedMarket()

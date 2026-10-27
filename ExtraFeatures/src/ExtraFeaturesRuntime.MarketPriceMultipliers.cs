@@ -41,11 +41,15 @@ namespace ExtraFeatures
             string cell = good + (buying ? "/buy" : "/sell");
             try
             {
-                if (marketPriceOverrides.Apply(good, buying, multiplier))
+                if (marketPriceOverrides.Apply(good, buying, multiplier, out MarketPriceApplication result))
                     return;
                 if (marketPriceConflicts.Add(cell))
                     Shared.DebugLogHelper.LogWarning(log,
-                        $"Market price {cell}: a different direct value is active; ExtraFeatures leaves it unchanged and skips its multiplier.");
+                        $"MARKET_PRICE_CONFLICT: good={good}, direction={(buying ? "buy" : "sell")}, " +
+                        $"baseline={result.Baseline}, current={result.Current}, desired={result.Desired}, " +
+                        $"multiplier={multiplier.ToString("R", System.Globalization.CultureInfo.InvariantCulture)}, " +
+                        $"previousValueOwned={result.Owned}, mapActive={mapActive}; action=preserve-current; " +
+                        "writer=not-observed; independent price cells continue.");
             }
             catch (Exception ex)
             {

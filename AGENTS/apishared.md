@@ -1,6 +1,6 @@
 # APIShared, Shared-Quellen und Mod-Abhängigkeiten
 
-**Lesen, wenn:** APIShared genutzt, erweitert, getestet oder veröffentlicht wird, Dateien unter `Shared/` betroffen sind oder Mod-Abhängigkeiten/Mindestversionen geändert werden. Im APIShared-Checkout gelten zusätzlich dessen `AGENTS.md` und `CONTRIBUTING.md`. Gilt zusätzlich zur Root-`AGENTS.md`.
+**Lesen, wenn:** APIShared genutzt, erweitert, installiert, aktualisiert, getestet oder veröffentlicht wird, Dateien unter `Shared/` betroffen sind oder Mod-Abhängigkeiten/Mindestversionen geändert werden. Im APIShared-Checkout gelten zusätzlich dessen `AGENTS.md` und `CONTRIBUTING.md`. Gilt zusätzlich zur Root-`AGENTS.md`.
 
 Buildbezogene Abläufe und Prüfungslisten in diesen Anweisungen sind Empfehlungen und Standardverhalten, keine unveränderlichen Buildregeln. Der ausdrückliche Nutzerauftrag bestimmt Quellstand, Branch, SDK, Prüfungsumfang, Buildweg und Installation. Auftragsbezogene Einschränkungen nie als allgemeine Verbote übernehmen. Technische Voraussetzungen und gültige Pfade bleiben erforderlich.
 
@@ -15,6 +15,7 @@ Buildbezogene Abläufe und Prüfungslisten in diesen Anweisungen sind Empfehlung
 
 ## APIShared nutzen
 
+- Bei jeder Installation oder Aktualisierung von APIShared müssen die zugehörigen Dateien sowohl unter `BepInEx/plugins` als auch unter `BepInEx/patchers` aus demselben gewählten Build beziehungsweise Paket aktualisiert werden. Nur den Plugins-Ordner zu aktualisieren genügt nicht.
 - Vor Implementierungsentscheidungen [API-Katalog](../APIShared/docs/API_CATALOG.md), [Integrationsleitfaden](../APIShared/docs/THIRD_PARTY_GUIDE.md) und [Architektur](../APIShared/ARCHITECTURE.md) (Abschnitt „Finding and extending a feature“) prüfen. Passende Extender-Ereignisse zuerst nutzen. Von APIShared koordinierte Stellen nur über dessen Capability oder Registrierungsbroker erweitern; kein konkurrierender Hook, keine Kopie der Implementierung.
 - Verbraucher referenzieren die öffentliche `APIShared.dll` mit `Private=false`, deklarieren die benötigte Mindestversion konsistent in Plugin und Manifest und liefern keine eigene APIShared-DLL mit. Capability-Zugriffe über `ApiShared.ForMod` mit eigener stabiler Mod-GUID; statische Broker mit eigener GUID und stabiler owner-lokaler Registrierungs-ID. Verfügbarkeit und Registrierungsdiagnostik prüfen; native Dienste erst nach deren Initialisierung. `WhenReady` ist kein Thread-Dispatcher und keine Verfügbarkeitsgarantie.
 - Registrierungen und Hooks bleiben prozessweit verwurzelt; Features über logischen Aktivierungszustand steuern. Reihenfolge, Thread, privaten `State`, Abbruch, Fehler und Pre/Accepted/Post gemäß Vertrag behandeln. Ein verwalteter Post-Aufruf beweist keine native Befehlsausführung oder erfolgreiche Rekrutierung. HUD-Ersetzungen erst nach allen Pre-Callbacks, damit spätere Teilnehmer abbrechen können. MP-Autorisierung und deterministische Featureentscheidungen bleiben beim Verbraucher.

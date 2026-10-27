@@ -65,7 +65,8 @@ namespace BugfixesAndQoL.UnitCommands
                         lock (stateSync) if (ReferenceEquals(pendingCommand, pending)) pendingCommand = null;
                         return;
                     }
-                    int rows = FormationModel.ResolveGeometryRows(kind, units.Length, packet.RequestedRows);
+                    int rows = FormationModel.ResolveGeometryRows(kind, units.Length,
+                        FormationAspectRatio.Create(packet.AspectWidth, packet.AspectDepth));
 
                     NativeDestination[] destinations = BuildManagedDestinations(
                         packet.TargetX,

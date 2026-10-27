@@ -389,8 +389,8 @@ BugfixesAndQoL.EnableAssassinGatehouseClimbFixHelp=Allows humans and AI to choos
 BugfixesAndQoL.EnableAssassinCapturedGateProtectionFix=AI Assassins no longer attack captured gatehouses
 BugfixesAndQoL.EnableAssassinCapturedGateProtectionFixHelp=Prevents AI Assassins from attacking stone gatehouses captured by themselves or an ally. Vanilla or Fixes selects further targets. Human commands remain unchanged.
 
-BugfixesAndQoL.RememberRows=记住行数
-BugfixesAndQoL.RememberRowsHelp=按住移动命令时用滚轮改变宽度和长度。记住各排列的行数，重启后仍保留。较小部队会暂时限制行数。关闭或没有保存值时自动设置行数。不适用于圆形和默认。
+BugfixesAndQoL.RememberRows=Remember width/depth ratio
+BugfixesAndQoL.RememberRowsHelp=Mouse wheel while holding a move command: adjust rows. Remembers each arrangement's width-to-depth ratio across restarts and adapts it to the reachable unit count. Off or no saved ratio: automatic proportions. Does not apply to Circle or Vanilla.
 BugfixesAndQoL.ArrangementTooltip=排列
 BugfixesAndQoL.EnableGatehouseTargetMarkerHeightFix=修正城门楼上的目标标记
 BugfixesAndQoL.EnableGatehouseTargetMarkerHeightFixHelp=修正城门楼上绿色移动目标标记的高度，包括阵型预览。不改变塔楼和主堡。此设置仅在本地生效，不会同步。

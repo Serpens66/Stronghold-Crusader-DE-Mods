@@ -39,6 +39,7 @@ namespace RandomEvents
         private const int PeaceTimeActiveFlagRva = 0x38722DC;
 
         private readonly ManualLogSource log;
+        private readonly Shared.LogRateGate banditActivationLogGate = new Shared.LogRateGate();
         private readonly RandomEventsSettingsViewModel settings;
         private readonly RandomEventsChatAnnouncements chatAnnouncements = new RandomEventsChatAnnouncements();
         private readonly Action drainChatAnnouncements;
@@ -2144,31 +2145,53 @@ namespace RandomEvents
 
             BanditMoveTarget target = pending.Target;
             GameBuildingManagerAPI buildings = GameBuildingManagerAPI.Instance;
-            if (!buildings.TryGetBuildingById(target.BuildingId, out GameBuilding* building) ||
-                building == null ||
-                building->r_GlobalId != target.BuildingGlobalId ||
-                building->r_AliveState != AliveState.IsAlive ||
-                building->r_PlayerIdOwner != pending.TargetPlayerId ||
-                !BanditTargetEligibility.IsEligibleStructureType(building->r_BuildingType))
+            bool targetFound = buildings.TryGetBuildingById(target.BuildingId, out GameBuilding* building) && building != null;
+            uint actualTargetGlobal = targetFound ? building->r_GlobalId : 0;
+            bool targetIdentityMatches = targetFound && actualTargetGlobal == target.BuildingGlobalId;
+            AliveState? targetLife = targetIdentityMatches ? building->r_AliveState : (AliveState?)null;
+            int? targetOwner = targetLife == AliveState.IsAlive ? building->r_PlayerIdOwner : (int?)null;
+            eStructs? targetType = targetOwner == pending.TargetPlayerId ? building->r_BuildingType : (eStructs?)null;
+            if (!targetType.HasValue || !BanditTargetEligibility.IsEligibleStructureType(targetType.Value))
             {
-                LogWarning(
-                    $"Bandit group activation skipped: ownerPlayerId={pending.OwnerPlayerId}, " +
-                    $"targetBuildingId={target.BuildingId}, reason=target building is no longer valid.");
+                string reason = !targetFound ? "target-lookup-failed" : !targetIdentityMatches ? "target-identity-changed" :
+                    targetLife != AliveState.IsAlive ? "target-not-alive" : targetOwner != pending.TargetPlayerId ? "target-owner-changed" : "target-type-excluded";
+                if (banditActivationLogGate.TryReserve(reason, 30, out long suppressed))
+                    LogSupportInfo($"BANDIT_ACTIVATION_SKIPPED: session={currentSessionId}, reason={reason}, " +
+                        $"owner={pending.OwnerPlayerId}, target={target.BuildingId}, expectedGlobal={target.BuildingGlobalId}, " +
+                        $"actualGlobal={actualTargetGlobal}, expectedTargetPlayer={pending.TargetPlayerId}, " +
+                        $"life={targetLife}, actualOwner={targetOwner}, type={targetType}, scheduledTick={pending.ExecuteAtMapTick}, " +
+                        $"suppressedGroups={suppressed}; unread dependent fields are empty; action=skip-group.");
                 return;
             }
 
             GameUnitManagerAPI units = GameUnitManagerAPI.Instance;
             List<int> livingUnitIds = new List<int>(pending.Units.Length);
+            System.Text.StringBuilder omittedDetails = null;
+            int omittedCount = 0, lookupFailures = 0;
+            bool reportOmissions = false;
+            long suppressedGroups = 0;
             foreach (BanditUnitReference unitReference in pending.Units)
             {
-                if (!APIShared.UnitAccess.TryGetById(units, unitReference.UnitId, out GameUnit* unit, out _) ||
-                    unit == null ||
-                    unit->r_GlobalId != unitReference.GlobalId ||
-                    !APIShared.UnitAccess.IsReallyAlive(unit))
+                bool found = APIShared.UnitAccess.TryGetById(units, unitReference.UnitId,
+                    out GameUnit* unit, out APIShared.UnitLookupFailure lookup);
+                uint actualGlobalId = found ? unit->r_GlobalId : 0;
+                bool identityMatches = found && actualGlobalId == unitReference.GlobalId;
+                bool living = identityMatches && APIShared.UnitAccess.IsReallyAlive(unit);
+                if (!living)
                 {
-                    LogWarning(
-                        $"Bandit omitted from delayed group activation: unitId={unitReference.UnitId}, " +
-                        $"expectedGlobalId={unitReference.GlobalId}, reason=unit is no longer the expected living spawn.");
+                    omittedCount++;
+                    if (omittedCount == 1)
+                        reportOmissions = banditActivationLogGate.TryReserve("bandit-activation-omitted", 30, out suppressedGroups);
+                    if (!found) lookupFailures++;
+                    // Capture only decision inputs; never resolve another unit or inspect a
+                    // replaced slot's unrelated life/owner fields for diagnostics.
+                    if (reportOmissions && omittedCount <= 4)
+                    {
+                        if (omittedDetails == null) omittedDetails = new System.Text.StringBuilder();
+                        omittedDetails.Append($"unit={unitReference.UnitId}, expectedGlobal={unitReference.GlobalId}, " +
+                            $"actualGlobal={actualGlobalId}, lookup={lookup}, identityMatches={identityMatches}, " +
+                            $"liveness={(identityMatches ? "not-living" : "not-evaluated-after-identity-rejection")}; ");
+                    }
                     continue;
                 }
                 if (unit->r_ControllableForPlayerId != pending.OwnerPlayerId ||
@@ -2182,11 +2205,18 @@ namespace RandomEvents
                 }
                 livingUnitIds.Add(unitReference.UnitId);
             }
+            if (reportOmissions)
+            {
+                string report = $"BANDIT_ACTIVATION: session={currentSessionId}, owner={pending.OwnerPlayerId}, " +
+                    $"targetPlayer={pending.TargetPlayerId}, target={target.BuildingId}/{target.BuildingGlobalId}, " +
+                    $"scheduledTick={pending.ExecuteAtMapTick}, scheduled={pending.Units.Length}, living={livingUnitIds.Count}, " +
+                    $"omitted={omittedCount}, lookupFailures={lookupFailures}, details=[{omittedDetails}], " +
+                    $"additionalOmitted={Math.Max(0, omittedCount - 4)}, suppressedGroups={suppressedGroups}; action=activate-survivors-only.";
+                if (lookupFailures != 0) LogWarning(report);
+                else LogSupportInfo(report);
+            }
             if (livingUnitIds.Count == 0)
             {
-                LogWarning(
-                    $"Bandit group activation had no effect: ownerPlayerId={pending.OwnerPlayerId}, " +
-                    "reason=no scheduled unit remained alive.");
                 return;
             }
 
@@ -2714,6 +2744,8 @@ namespace RandomEvents
         private void LogWarning(string message, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0) =>
             Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
                 () => Shared.DebugLogHelper.LogWarningLimited(log, callerFile + ":" + callerLine, message));
+        private void LogSupportInfo(string message) => Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
+            () => Shared.DebugLogHelper.LogInfo(log, message));
         private void LogError(string message, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0) =>
             Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
                 () => Shared.DebugLogHelper.LogErrorLimited(log, callerFile + ":" + callerLine, message));

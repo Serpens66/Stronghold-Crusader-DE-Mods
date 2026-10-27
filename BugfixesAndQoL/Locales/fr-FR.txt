@@ -389,8 +389,8 @@ BugfixesAndQoL.EnableAssassinGatehouseClimbFixHelp=Allows humans and AI to choos
 BugfixesAndQoL.EnableAssassinCapturedGateProtectionFix=AI Assassins no longer attack captured gatehouses
 BugfixesAndQoL.EnableAssassinCapturedGateProtectionFixHelp=Prevents AI Assassins from attacking stone gatehouses captured by themselves or an ally. Vanilla or Fixes selects further targets. Human commands remain unchanged.
 
-BugfixesAndQoL.RememberRows=Mémoriser les rangs
-BugfixesAndQoL.RememberRowsHelp=Utilisez la molette pendant un ordre de déplacement maintenu pour changer la largeur/longueur. Mémorise les rangs par disposition entre les redémarrages. Les petits groupes limitent temporairement les rangs. Désactivé ou sans valeur mémorisée : rangs automatiques. Exclut Cercle et Par défaut.
+BugfixesAndQoL.RememberRows=Remember width/depth ratio
+BugfixesAndQoL.RememberRowsHelp=Mouse wheel while holding a move command: adjust rows. Remembers each arrangement's width-to-depth ratio across restarts and adapts it to the reachable unit count. Off or no saved ratio: automatic proportions. Does not apply to Circle or Vanilla.
 BugfixesAndQoL.ArrangementTooltip=Disposition
 BugfixesAndQoL.EnableGatehouseTargetMarkerHeightFix=Corriger les marqueurs sur les corps de garde
 BugfixesAndQoL.EnableGatehouseTargetMarkerHeightFixHelp=Corrige la hauteur des marqueurs verts de déplacement sur les corps de garde, y compris les aperçus de formation. Les tours et donjons restent inchangés. Ce réglage est local et non synchronisé.

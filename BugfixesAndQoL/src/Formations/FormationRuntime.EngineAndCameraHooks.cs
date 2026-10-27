@@ -108,8 +108,19 @@ namespace BugfixesAndQoL.UnitCommands
             FormationMouseState input, out FormationOrderPacket packet, out FormationSpeechRequest speech)
         {
             packet = null; speech = null;
-            if (!ValidateActiveDrag(state) ||
-                EvaluateCommandMode() != APIShared.Internal.GroundMovePreviewRejection.None ||
+            bool validContext = ValidateActiveDrag(state);
+            if (!validContext && (state.MapEpoch != commandRuntime.mapEpoch || !HasValidMap()))
+            {
+                AbortDrag("release-context-changed");
+                return FormationReleaseDisposition.Vanilla;
+            }
+            var commandRejection = EvaluateCommandMode();
+            if (commandRejection != APIShared.Internal.GroundMovePreviewRejection.None)
+            {
+                AbortCommandMode("engine-release-command", commandRejection);
+                return FormationReleaseDisposition.Vanilla;
+            }
+            if (!validContext ||
                 EvaluateFormationTargetBounds(state.Target) != APIShared.Internal.GroundMovePreviewRejection.None)
             {
                 AbortDrag("release-context-changed");
@@ -158,10 +169,22 @@ namespace BugfixesAndQoL.UnitCommands
             speech = CaptureSpeech(state, (TribeMoveType)packet.MoveType);
             if (TryDispatch(packet, out string rejection) == DispatchDisposition.Accepted)
                 return FormationReleaseDisposition.Accepted;
-            Shared.DebugLogHelper.LogWarningLimited(log, "formation-anchored-dispatch",
-                $"Anchored formation dispatch rejected: {rejection}.");
+            LogDispatchRejected(state, packet, rejection);
             // Ownership is already established; a technical rejection cannot retarget the release.
             return FormationReleaseDisposition.Cancelled;
+        }
+
+        private void LogDispatchRejected(ActiveDrag state, FormationOrderPacket packet, string rejection)
+        {
+            string category = rejection == "Vanilla rejected the synchronized move command" ? "native-refusal" :
+                rejection == "packet hook is unavailable" ? "packet-hook-unavailable" :
+                rejection == "Chore manager is unavailable" ? "chore-manager-unavailable" : "transport-rejected";
+            if (!formationSupportLogGate.TryReserve(category, 30, out long suppressed)) return;
+            LogWarningNoThrow(
+                $"FORMATION_DISPATCH_REJECTED: category={category}, reason={rejection}, operation={packet.OperationId}, " +
+                $"attempt={inputAttempt}, mapEpoch={state.MapEpoch}, player={state.PlayerId}, tribe={state.TribeId}, " +
+                $"selection={state.Selection.Length}, target=({packet.TargetX},{packet.TargetY}), " +
+                $"button={state.CommandButton}, patrol=0, releaseClaimed=true, suppressed={suppressed}; action=consume-owned-release.");
         }
 
         private void ConsumeGestureRelease(ActiveDrag state, EditorDirector director, int operationId)
@@ -176,6 +199,7 @@ namespace BugfixesAndQoL.UnitCommands
         private int RunOriginalWithDeferredRelease(ActiveDrag state, EditorDirector director, FormationMouseState input,
             bool mpFrameSkip, ref bool originalEntered)
         {
+            long deferredAttempt = inputAttempt;
             ApplyMouseState(director, FormationReleaseStateModel.Consume());
             try { return RunOriginalOnce(mpFrameSkip, ref originalEntered); }
             finally
@@ -183,7 +207,17 @@ namespace BugfixesAndQoL.UnitCommands
                 // No command accepted: retry this edge only while the same gesture
                 // still owns it. An abort/new press during the native run must not revive it.
                 lock (stateSync)
-                    if (ReferenceEquals(drag, state) && state.ReleaseDeferred) ApplyMouseState(director, input);
+                {
+                    if (state.ReleasePassThrough)
+                    {
+                        if (inputAttempt == deferredAttempt && drag == null && pendingStart == null &&
+                            LocalInputEnabled && state.MapEpoch == commandRuntime.mapEpoch && HasValidMap())
+                            ApplyMouseState(director, FormationReleaseStateModel.RestoreDeferredForVanilla(
+                                CaptureMouseState(director), input, state.CommandButton));
+                        state.ReleaseDeferred = false;
+                    }
+                    else if (ReferenceEquals(drag, state) && state.ReleaseDeferred) ApplyMouseState(director, input);
+                }
             }
         }
 

@@ -123,8 +123,11 @@ namespace BugfixesAndQoL.UnitCommands
         {
             if (commandModeReader == null)
                 return APIShared.Internal.GroundMovePreviewRejection.NonMoveCommandMode;
-            return APIShared.Internal.GroundMovePreviewEligibility.EvaluateCommandMode(
-                commandModeReader.Read());
+            var manager = GameTribeManagerAPI.Instance.GetTribeManager();
+            if (manager.Pointer == null)
+                return APIShared.Internal.GroundMovePreviewRejection.NonMoveCommandMode;
+            return APIShared.Internal.GroundMovePreviewEligibility.EvaluateFormationCommandMode(
+                commandModeReader.Read(), manager.Pointer->r_TroopsPatrolMode);
         }
 
         private APIShared.Internal.GroundMovePreviewRejection EvaluateFormationTargetBounds(

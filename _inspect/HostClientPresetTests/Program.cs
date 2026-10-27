@@ -4840,13 +4840,19 @@ internal static class Program
             vm.System_TestLoadPreset(external.StableId);
             Check(vm.HostValue == 503 && vm.ClientValue == 611 && vm.LocalValue == 301,
                 "Customize load did not resolve player values from the suspended normal working state");
-            Check(vm.System_TestPresetStatusText == "Based on: Same name · External presets: External Provider",
-                "loading a preset into editable Trail did not show its actual source");
+            Check(vm.System_TestPresetStatusText == "Trail · Based on: Same name · External presets: External Provider",
+                "loading a preset into editable Trail lost its mission context or actual preset source");
             Check(normalWorkingFile.SequenceEqual(File.ReadAllBytes(new PersonalSettingsPaths(pluginPath, targetGuid).SettingsFile)),
                 "loading a preset into editable Trail changed the normal working-state file");
             vm.HostValue = 777;
-            Check(vm.System_TestPresetStatusText == "Based on: Same name · External presets: External Provider (modified)",
+            Check(vm.System_TestPresetStatusText == "Trail · Based on: Same name · External presets: External Provider (modified)",
                 "editing the loaded Trail working copy did not mark its preset source modified");
+            vm.System_ApplyMissionPresetSnapshot(vm.System_CreatePlayerMissionPresetSnapshot(), "Personal Settings");
+            Check(vm.HostValue == 505 && vm.ClientValue == 611 && vm.LocalValue == 301 && vm.IsMissionPresetActive,
+                "personal reset used the published/mission values or left the mission context");
+            Check(vm.System_TestPresetStatusText == "Trail · Based on: Personal Settings" &&
+                  normalWorkingFile.SequenceEqual(File.ReadAllBytes(new PersonalSettingsPaths(pluginPath, targetGuid).SettingsFile)),
+                "personal reset changed personal storage or lost source attribution");
             vm.System_ApplyMissionPresetSnapshot(
                 new Dictionary<string, byte[]> { [nameof(MixedViewModel.HostValue)] = MessagePackSerializer.Serialize(900) },
                 "Trail");
@@ -4855,10 +4861,10 @@ internal static class Program
             Check(vm.System_TestPresetStatusText == "Trail",
                 "resetting to Trail did not restore the Trail source label");
             vm.System_ApplyMissionPresetSnapshot(new Dictionary<string, byte[]>(), "Map");
-            Check(vm.System_TestPresetStatusText == "Map",
+            Check(vm.System_TestPresetStatusText == "Trail · Based on: Map",
                 "resetting to Map retained the previous published preset source");
             vm.System_ApplyMissionPresetSnapshot(new Dictionary<string, byte[]>(), "Mod defaults");
-            Check(vm.System_TestPresetStatusText == "Mod defaults",
+            Check(vm.System_TestPresetStatusText == "Trail · Based on: Mod defaults",
                 "resetting to Mod defaults retained the previous published preset source");
             Check(normalWorkingFile.SequenceEqual(File.ReadAllBytes(new PersonalSettingsPaths(pluginPath, targetGuid).SettingsFile)),
                 "editing or resetting the Trail working copy changed the normal working-state file");

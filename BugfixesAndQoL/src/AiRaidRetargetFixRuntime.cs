@@ -326,16 +326,24 @@ namespace BugfixesAndQoL
                     args.TribeId, tribeGlobalId, failedBuilding->r_PlayerIdOwner,
                     args.TargetValue1, targetGlobalId, priorityTableRva, lastTick);
             }
-            else if (result == AttackResult.Unknown)
-                LogRepeated($"uncertain:{freshness}:{validation}:{raidPlayer}/{raidGroup}",
+            else if (result == AttackResult.Unknown && Shared.DebugLogHelper.DiagnosticsEnabled &&
+                ShouldLogRepeated($"uncertain:{freshness}:{validation}"))
+                Info(
                     $"AI_RAID_UNCERTAIN: session={sessionId}, tick={lastTick}, " +
                     $"tribe={args.TribeId}/{tribeGlobalId}, target={args.TargetValue1}/{targetGlobalId}, " +
-                    $"freshness={freshness}, validation={validation}; vanillaPreserved=true.", false);
+                    $"freshness={freshness}, validation={validation}; vanillaPreserved=true.");
             else if (result == AttackResult.NoAttackPoint)
-                LogRepeated($"uncertain:{eligibilityReason}:{raidPlayer}/{raidGroup}",
-                    $"AI_RAID_UNCERTAIN: session={sessionId}, tick={lastTick}, " +
+            {
+                string reason = eligible ? "priorityOrBuildingUnavailable" : eligibilityReason;
+                if (!ShouldLogRepeated("composition:" + reason)) return;
+                string message = $"AI_RAID_SKIPPED: session={sessionId}, tick={lastTick}, player={raidPlayer}, role={raidGroup}, " +
                     $"tribe={args.TribeId}/{tribeGlobalId}, target={args.TargetValue1}/{targetGlobalId}, " +
-                    $"reason={(eligible ? "priorityOrBuildingUnavailable" : eligibilityReason)}; vanillaPreserved=true.", true);
+                    $"reason={reason}; action=preserve-vanilla; correctionApplied=false.";
+                if (reason.StartsWith("knownExcludedUnit:", StringComparison.Ordinal) ||
+                    reason.StartsWith("buildingCapableSiegeUnit:", StringComparison.Ordinal) || reason == "noMeleeAttackers")
+                    SupportInfo(message);
+                else Warn(message);
+            }
         }
         internal void OnSearchObserved(int tribeId, int buildingId, IntPtr context)
         {
@@ -536,6 +544,10 @@ namespace BugfixesAndQoL
                     case eChimps.CHIMP_TYPE_BATTERING_RAM:
                         reason = $"buildingCapableSiegeUnit:{unit->r_UnitChimp}";
                         return false;
+                    case eChimps.CHIMP_TYPE_PEASANT:
+                    case eChimps.CHIMP_TYPE_BEDOUIN_SKIRMISHER:
+                        reason = $"knownExcludedUnit:{unit->r_UnitChimp}";
+                        return false; // Same conservative exclusion; this is not an unknown enum/layout.
                     default:
                         reason = $"unknownOrSpecialUnit:{unit->r_UnitChimp}";
                         return false;
@@ -898,9 +910,12 @@ namespace BugfixesAndQoL
                     string reasonKey = outcome.StartsWith("candidateListUncertain:", StringComparison.Ordinal)
                         ? "candidateList:" + outcome.Split(':')[1].Split(';')[0]
                         : "retry:" + DetailReason(fallbackDetails, "freshness=") + ":" + DetailReason(fallbackDetails, "validation=");
-                    LogRepeated(reasonKey,
-                        $"AI_RAID_RETRY_ABORT: session={sessionId}, tick={lastTick}, player={retry.PlayerId}, role={retry.Group}, tribe={retry.TribeId}/{retry.TribeGlobalId}, " +
-                        $"original={retry.OriginalFailedId}/{retry.OriginalFailedGlobalId}, stored={storedId}/{storedGlobalId}, attempts=[{String.Join(";", retry.Attempts)}], reason={outcome}.", true);
+                    if (!ShouldLogRepeated(reasonKey)) return;
+                    string message = $"AI_RAID_RETRY_ABORT: session={sessionId}, tick={lastTick}, player={retry.PlayerId}, role={retry.Group}, tribe={retry.TribeId}/{retry.TribeGlobalId}, " +
+                        $"original={retry.OriginalFailedId}/{retry.OriginalFailedGlobalId}, targetPlayerExpected={retry.TargetPlayerId}, " +
+                        $"stored={storedId}/{storedGlobalId}, attempts=[{String.Join(";", retry.Attempts)}], reason={outcome}; action=preserve-vanilla.";
+                    if (outcome.StartsWith("candidateListUncertain:nativeTargetPlayerMismatch:", StringComparison.Ordinal)) SupportInfo(message);
+                    else Warn(message);
                 }
             }
         }
@@ -914,17 +929,27 @@ namespace BugfixesAndQoL
 
         private void LogRepeated(string key, string message, bool warning)
         {
-            // Once per reason/session, rather than per changing group or target ID.
-            string[] parts = key.Split(':');
-            key = parts[0] + (parts.Length > 1 ? ":" + parts[1] : "") + (parts.Length > 2 ? ":" + parts[2] : "");
-            if (!warningReasons.Add(key)) { suppressedMessageCount++; return; }
+            if (!ShouldLogRepeated(key)) return;
             if (warning) Warn(message);
             else Info(message);
         }
 
+        private bool ShouldLogRepeated(string key)
+        {
+            // Once per reason/session, rather than per changing group or target ID.
+            string[] parts = key.Split(':');
+            key = parts[0] + (parts.Length > 1 ? ":" + parts[1] : "") + (parts.Length > 2 ? ":" + parts[2] : "");
+            if (!warningReasons.Add(key)) { suppressedMessageCount++; return false; }
+            return true;
+        }
+
+        private void SupportInfo(string message) => Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
+            () => Shared.DebugLogHelper.LogInfo(log, message));
+
         private void LogSummary(string reason)
         {
-            Info($"AI_RAID_SUMMARY: session={sessionId}, tick={lastTick}, reason={reason}, attacks={attackCommandCount}, valid={validCount}, negative={negativeCount}, unknown={unknownCount}, " +
+            if (suppressedMessageCount == 0 && !Shared.DebugLogHelper.IsDebugEnabled()) return;
+            SupportInfo($"AI_RAID_SUMMARY: session={sessionId}, tick={lastTick}, reason={reason}, attacks={attackCommandCount}, valid={validCount}, negative={negativeCount}, unknown={unknownCount}, " +
                 $"retries={retryCount}, selected={selectedCount}, aborted={abortedCount}, pending={pendingRaidRetries.Count}, suppressedWarnings={suppressedMessageCount}.");
         }
 

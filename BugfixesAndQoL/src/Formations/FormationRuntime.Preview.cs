@@ -244,6 +244,7 @@ namespace BugfixesAndQoL.UnitCommands
             internal bool PreviewDirty;
             internal bool UseVanillaFallback;
             internal bool ReleaseDeferred;
+            internal volatile bool ReleasePassThrough;
             internal readonly SelectionIdentity[] OriginalSelection;
             internal readonly SelectionIdentity[] SelectionScratch;
             internal readonly bool[] RemainingOriginals, SeenSurvivors;
@@ -256,7 +257,7 @@ namespace BugfixesAndQoL.UnitCommands
                 FormationKind kind,
                 int density,
                 RangedPlacementMode placementMode,
-                int rememberedRows)
+                FormationAspectRatio rememberedAspect)
             {
                 CommandButton = commandButton;
                 TribeId = tribeId;
@@ -289,7 +290,7 @@ namespace BugfixesAndQoL.UnitCommands
                     target.NativeX - centerX,
                     target.NativeY - centerY,
                     0);
-                Geometry = new FormationGestureState(kind, selection.Length, DefaultDirectionSector, rememberedRows);
+                Geometry = new FormationGestureState(kind, selection.Length, DefaultDirectionSector, rememberedAspect);
             }
 
             internal int CommandButton { get; }

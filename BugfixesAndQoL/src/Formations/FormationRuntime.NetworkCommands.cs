@@ -47,7 +47,8 @@ namespace BugfixesAndQoL.UnitCommands
                 Density = (byte)(vanilla ? 1 : FormationModel.NormalizeDensity(state.Density)),
                 PlacementMode = (byte)(vanilla ? RangedPlacementMode.Off : state.PlacementMode),
                 DirectionSector = (byte)state.Geometry.Direction,
-                RequestedRows = vanilla ? (ushort)0 : checked((ushort)Math.Min(state.Selection.Length, state.Geometry.RequestedRows)),
+                AspectWidth = vanilla ? (ushort)0 : checked((ushort)state.Geometry.Aspect.Width),
+                AspectDepth = vanilla ? (ushort)0 : checked((ushort)state.Geometry.Aspect.Depth),
                 UnitCount = checked((ushort)state.Selection.Length),
                 SelectionHash = ComputeSelectionHash(state.Selection)
             };
@@ -254,11 +255,11 @@ namespace BugfixesAndQoL.UnitCommands
             else if (packet.UnitCount < 1 ||
                      packet.UnitCount > MaximumUnitCount)
                 rejection = "invalid unit count";
-            else if (packet.RequestedRows > packet.UnitCount ||
+            else if (!FormationAspectRatio.IsValidPair(packet.AspectWidth, packet.AspectDepth) ||
                      (((FormationKind)packet.Formation == FormationKind.Circle ||
                        (FormationKind)packet.Formation == FormationKind.Vanilla) &&
-                      packet.RequestedRows != 0))
-                rejection = "invalid rows";
+                      (packet.AspectWidth != 0 || packet.AspectDepth != 0)))
+                rejection = "invalid aspect ratio";
             else if (packet.SelectionHash == 0UL)
                 rejection = "managed formation packet has no selection identity hash";
             else if (packet.IsNewOrder != 0 && packet.IsNewOrder != 1)

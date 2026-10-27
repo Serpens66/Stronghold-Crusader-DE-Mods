@@ -13,7 +13,7 @@ internal static class FormationMoveRuntimeTests
         string[] methods = { "TryStartDrag", "CompleteDragStart", "TryCompletePendingStart", "TryCaptureCommandTarget", "TryCaptureTarget",
             "EvaluateFormationTargetBounds", "IsTargetInsideNativeMap", "EvaluateCommandMode",
             "ValidateActiveDrag", "RefreshGestureSelection", "RefreshGestureSelectionLocked", "AuthorizePreview", "ObserveNativeGroundFeedback", "CapturePreviewAdmission", "EngineRunHook",
-            "RunOriginalOnce", "RunOriginalAfterReleaseConsumed", "DiscardDeferredRelease", "AbortDrag", "OnKeyDown", "TryGetMouseButton", "PrepareFormationRelease", "RunOriginalWithDeferredRelease", "ConsumeGestureRelease", "UpdateGesture",
+            "RunOriginalOnce", "RunOriginalAfterReleaseConsumed", "DiscardDeferredRelease", "AbortDrag", "AbortCommandMode", "LogCommandHandoff", "EmitCommandHandoff", "LogDispatchRejected", "OnKeyDown", "TryGetMouseButton", "PrepareFormationRelease", "RunOriginalWithDeferredRelease", "ConsumeGestureRelease", "UpdateGesture",
             "OnKeyHeld", "OnKeyUp", "PublishPreview", "PublishPreviewLocked", "ResolveDirectionAndWidth",
             "HasExplicitDirection", "ClearPreview", "FailOpen", "TryCreatePacket", "ValidatePacket", "ComputeSelectionHash" };
         string[] types = { "ActiveDrag", "PendingDragStart", "GroundTarget", "SelectionIdentity", "NativeDestination",
@@ -25,6 +25,10 @@ internal static class FormationMoveRuntimeTests
             "BugfixesAndQoL/src/UnitCommands/Cursor/GroundMovePreviewAuthorization.cs"))).GetRoot();
         var proofs = authorization.DescendantNodes().OfType<BaseTypeDeclarationSyntax>()
             .Where(t => t.Identifier.Text != "NativeGroundMoveFeedbackReader");
+        var eligibility = CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,
+            "BugfixesAndQoL/src/UnitCommands/Cursor/GroundMovePreviewEligibility.cs"))).GetRoot()
+            .DescendantNodes().OfType<BaseTypeDeclarationSyntax>()
+            .Where(t => t.Identifier.Text != "NativeTroopCommandModeReader");
         string fixture = """
 using System; using System.Linq; using System.Collections.Generic; using SHCDESE.Interop.Enums;
 using UnityEngine; using SHCDESE.API; using SHCDESE.Interop; using SHCDESE.EventAPI;
@@ -44,6 +48,7 @@ namespace SHCDESE.Interop {
     public enum eChimps {Unit}
     public struct GameUnit {public uint r_GlobalId;public int r_TribeId,r_ControllableForPlayerId;public eChimps r_UnitChimp;public ushort r_CurrentTilePositionX,r_CurrentTilePositionY;public bool Alive;public ushort DeathMarker;public int TargetX,TargetY,PathProgress,MovementState;public ulong PackedPath;}
     public struct GameTribe {public int r_PlayerIdOwner;public SHCDESE.Interop.Enums.AliveState r_AliveState;}
+    public struct GameTribeManager {public uint r_TroopsPatrolMode;}
     public struct GameCursorManager {public uint r_IsCursorInGame,r_MouseTileX,r_MouseTileY;}
     public class GameTileManagerView {
         public int[] TileUnitIdGrid=new int[10000],StructureGrid=new int[10000];
@@ -73,6 +78,9 @@ namespace APIShared {
 namespace SHCDESE.API {
     public unsafe class GameTribeManagerAPI {
         public static GameTribeManagerAPI Instance=new();public bool Ready=true;
+        public GameTribeManager* Manager=(GameTribeManager*)System.Runtime.InteropServices.Marshal.AllocHGlobal(sizeof(GameTribeManager));
+        public ManagerView GetTribeManager()=>new ManagerView {Pointer=Ready?Manager:null};
+        public unsafe struct ManagerView {public GameTribeManager* Pointer;public bool IsValid()=>Pointer!=null;}
         private GameTribe* tribe=(GameTribe*)System.Runtime.InteropServices.Marshal.AllocHGlobal(sizeof(GameTribe));
         public bool TryGetTribeById(int id,out GameTribe* p){*tribe=new GameTribe{r_PlayerIdOwner=1,r_AliveState=AliveState.IsAlive};p=Ready?tribe:null;return Ready&&id>0;}
     }
@@ -102,14 +110,11 @@ public class EditorDirector {
     public int Left;public bool RightDown,RightUp,StateRead,UpPending;
     public void clearMouseStateForEngine() {Left=0;StateRead=true;UpPending=false;}
 }
-namespace Shared { public static class DevDiag {public static void Count(string name){}} public static class UnityMainThreadDispatch {public static bool Deferred;public static readonly Queue<Action> Pending=new();public static void TryRunInlineOrEnqueue(Action action){if(Deferred)Pending.Enqueue(action);else action();}} public static class DebugLogHelper { public static bool DiagnosticsEnabled => true; public static void LogErrorLimited(object log,string site,string message) {} public static void LogDebugLimited(object log,string site,params object[] parts) { APIShared.Internal.DebugLogHelper.LogDebug(log,System.String.Concat(parts)); } public static void LogWarningLimited(object log,string site,params object[] parts) { APIShared.Internal.DebugLogHelper.LogWarning(log,System.String.Concat(parts)); } } }
+namespace Shared { public class LogRateGate {public bool TryReserve(string s,int seconds,out long suppressed){suppressed=0;return true;}} public static class DevDiag {public static void Count(string name){}} public static class UnityMainThreadDispatch {public static bool Deferred;public static readonly Queue<Action> Pending=new();public static void TryRunInlineOrEnqueue(Action action){if(Deferred)Pending.Enqueue(action);else action();}} public static class DebugLogHelper { public static bool DiagnosticsEnabled => true; public static void LogErrorLimited(object log,string site,string message) {} public static void LogDebugLimited(object log,string site,params object[] parts) { APIShared.Internal.DebugLogHelper.LogDebug(log,System.String.Concat(parts)); } public static void LogWarningLimited(object log,string site,params object[] parts) { APIShared.Internal.DebugLogHelper.LogWarning(log,System.String.Concat(parts)); } } }
 namespace APIShared.Internal {
     public class NativeTroopCommandModeReader {public int Mode=1;public int Read()=>Mode;}
     public static class DebugLogHelper { public static bool DiagnosticsEnabled => true; public static void LogDebugLimited(object l, string site, params object[] parts) { LogDebug(l, System.String.Concat(parts)); } public static void LogDebug(object l,string m) {} public static void LogWarningLimited(object l, string site, params object[] parts) { LogWarning(l, System.String.Concat(parts)); } public static void LogWarning(object l,string m) {}}
-    public static class GroundMovePreviewEligibility {
-        public static GroundMovePreviewRejection EvaluateCommandMode(int mode)=>mode==1?GroundMovePreviewRejection.None:GroundMovePreviewRejection.NonMoveCommandMode;
-    }
-    public enum GroundMovePreviewRejection {None,OutsideMap,NonMoveCommandMode}
+    __ELIGIBILITY__
 }
 namespace BugfixesAndQoL.UnitCommands {
     __PROOFS__
@@ -123,12 +128,12 @@ namespace BugfixesAndQoL.UnitCommands {
     }
     internal sealed class Menu {
         internal bool Allowed;internal int Remembers;internal FormationPreviewPoint[] Points;
-        internal void CloseMenu() {} internal int GetRememberedRows(FormationKind kind)=>0;
+        internal void CloseMenu() {} internal FormationAspectRatio GetRememberedAspect(FormationKind kind)=>default;
         internal void RefreshHostState() {}
         internal void SetPreviewAuthorization(bool value)=>Allowed=value;
         internal void PublishPreview(FormationPreviewPoint[] points,FormationDirectionIndicator d)=>Points=points;
         internal void ClearPreview() {Allowed=false;Points=null;}
-        internal void RememberSelectedRows(FormationKind kind,int rows) {Remembers++;}
+        internal void RememberSelectedAspect(FormationKind kind,FormationAspectRatio aspect) {Remembers++;}
     }
     internal sealed class Entry<T> {internal T Value;internal Entry(T value) {Value=value;}}
     internal sealed class FrameObserver {internal bool Active;internal void SetActive(bool active)=>Active=active;}
@@ -143,6 +148,7 @@ namespace BugfixesAndQoL.UnitCommands {
         // below are compiled directly from the production runtime.
         private object speechEngineLock=new object();
         private object log=new object();private readonly object stateSync=new object();
+        private readonly Shared.LogRateGate formationSupportLogGate=new();
         private const int MapWidth=100,MinimumDragTileDistance=2,MaximumTribeCount=4500,MaximumUnitCount=10000;__PROTOCOL__private int nextOperationId;
         private readonly FormationFailurePolicy inputFailures=new(),cameraFailures=new();
         private long inputAttempt,cameraAttempt;private bool failed,localInputFailed;
@@ -162,6 +168,7 @@ namespace BugfixesAndQoL.UnitCommands {
         private static SelectionIdentity[] selection;private static bool mapValid=true,shift;private static int button,selectionTribe=2;
         private int Originals,VanillaReleases,Dispatched;private int OriginalResult=1;private bool RejectPacket,RenderInsideOriginal;private bool PreviewFails;private bool ThrowAfterAccept,AbortInOriginal,BecomeReadyInsideOriginal;
         private FormationOrderPacket LastPacket;
+        private bool PatrolInOriginal, ConsumeVanillaRelease, NewPressAfterPatrol, MapChangeAfterPatrol;
         private bool HasValidMap()=>mapValid;
         private bool IsShiftHeld()=>shift;
         private int GetCommandMouseButton()=>button;
@@ -181,7 +188,7 @@ namespace BugfixesAndQoL.UnitCommands {
         private string ToRejectionReason(APIShared.Internal.GroundMovePreviewRejection r)=>r.ToString();
         private FormationMouseState CaptureMouseState(EditorDirector d)=>new FormationMouseState(d.Left,d.RightDown,d.RightUp,d.StateRead,d.UpPending);
         private void ApplyMouseState(EditorDirector d,FormationMouseState s) {d.Left=s.LeftState;d.RightDown=s.RightDown;d.RightUp=s.RightUp;d.StateRead=s.StateRead;d.UpPending=s.UpPending;}
-        private int engineRunOriginal(bool skip) {Originals++;if(BecomeReadyInsideOriginal){BecomeReadyInsideOriginal=false;APIShared.LocalSelectionAPI.Ready=true;Kill(1);}if(FormationReleaseStateModel.HasCommandRelease(CaptureMouseState(EditorDirector.instance),button)){VanillaReleases++;MutateNativeOrder(GameMap.instance.X,GameMap.instance.Y);}if(OriginalResult>0&&groundFrameObserver.Active)lock(speechEngineLock)ObserveNativeGroundFeedback();if(RenderInsideOriginal&&OriginalResult>0)Render();if(AbortInOriginal)AbortDrag("fixture-mid-run");return OriginalResult;}
+        private int engineRunOriginal(bool skip) {Originals++;if(BecomeReadyInsideOriginal){BecomeReadyInsideOriginal=false;APIShared.LocalSelectionAPI.Ready=true;Kill(1);}if(FormationReleaseStateModel.HasCommandRelease(CaptureMouseState(EditorDirector.instance),button)){VanillaReleases++;MutateNativeOrder(GameMap.instance.X,GameMap.instance.Y);if(ConsumeVanillaRelease)ApplyMouseState(EditorDirector.instance,FormationReleaseStateModel.Consume());}if(OriginalResult>0&&groundFrameObserver.Active)lock(speechEngineLock)ObserveNativeGroundFeedback();if(RenderInsideOriginal&&OriginalResult>0)Render();if(AbortInOriginal)AbortDrag("fixture-mid-run");if(PatrolInOriginal){PatrolInOriginal=false;GameTribeManagerAPI.Instance.Manager->r_TroopsPatrolMode=1;OnKeyUp(new UnityInputEventArgs{Key=ToKeyCode(button)});if(NewPressAfterPatrol){NewPressAfterPatrol=false;if(button==0)EditorDirector.instance.Left=1;else EditorDirector.instance.RightDown=true;OnKeyDown(new UnityInputEventArgs{Key=ToKeyCode(button)});ApplyMouseState(EditorDirector.instance,FormationReleaseStateModel.Consume());}if(MapChangeAfterPatrol){MapChangeAfterPatrol=false;commandRuntime.mapEpoch++;}}return OriginalResult;}
         private DispatchDisposition TryDispatch(FormationOrderPacket p,out string rejection) {
             Check(ValidatePacket(p,out rejection),"Actual packet rejected: "+rejection);
             if(RejectPacket)return DispatchDisposition.Rejected;
@@ -204,7 +211,7 @@ namespace BugfixesAndQoL.UnitCommands {
         private static RuntimeFixture Fresh(int commandButton=1,int count=31) {
             button=commandButton;selectionTribe=2;shift=false;mapValid=true;selection=Enumerable.Range(1,count).Select(i=>new SelectionIdentity(i,(uint)i,0,1,1)).ToArray();
             APIShared.UnitAccess.Ready=true;Array.Clear(APIShared.UnitAccess.Missing);APIShared.LocalSelectionAPI.Ready=true;
-            GameTribeManagerAPI.Instance.Ready=true;
+            GameTribeManagerAPI.Instance.Ready=true;*GameTribeManagerAPI.Instance.Manager=default;
             for(int i=1;i<=count;i++)APIShared.UnitAccess.Units[i]=new GameUnit {r_GlobalId=(uint)i,r_TribeId=2,r_ControllableForPlayerId=1,Alive=true,TargetX=2,TargetY=3,PackedPath=12345,PathProgress=7,MovementState=9};
             APIShared.LocalSelectionAPI.Count=()=>selection?.Length??0;APIShared.LocalSelectionAPI.Id=i=>selection[i].UnitId;
             GameMap.instance=new GameMap();FatControler.instance=new FatControler();EditorDirector.instance=new EditorDirector();
@@ -225,6 +232,48 @@ namespace BugfixesAndQoL.UnitCommands {
             if(removed)APIShared.UnitAccess.Missing[id]=true;
         }
         public static void Run() {
+            foreach(int control in new[]{0,1}) {
+                // HUD and hotkey share this native patrol field. Exercise the
+                // production gates and the hidden-release finally path.
+                var before=Fresh(control);before.ConsumeVanillaRelease=true;
+                GameTribeManagerAPI.Instance.Manager->r_TroopsPatrolMode=1;
+                before.TryStartDrag(control);before.Release();before.Tick();
+                Check(before.drag==null&&before.Dispatched==0&&before.VanillaReleases==1,"Patrol start consumed or duplicated input");
+                foreach(string phase in new[]{"held","up","engine","hidden"}) {
+                    var f=Fresh(control,6);f.ConsumeVanillaRelease=true;f.TryStartDrag(control);f.Tick();
+                    Check(f.drag!=null,"Patrol setup failed");
+                    if(phase=="hidden") {APIShared.LocalSelectionAPI.Ready=false;f.PatrolInOriginal=true;}
+                    else {
+                        GameTribeManagerAPI.Instance.Manager->r_TroopsPatrolMode=1;
+                        if(phase=="held")f.OnKeyHeld(new UnityInputEventArgs{Key=f.ToKeyCode(control)});
+                    }
+                    if(phase=="engine") {
+                        if(control==0)EditorDirector.instance.Left=3;else EditorDirector.instance.RightUp=true;
+                        f.Tick();
+                    } else f.Release();
+                    f.Tick();f.Tick();
+                    Check(f.drag==null&&f.Dispatched==0&&f.VanillaReleases==1,"Patrol handoff lost/duplicated release: "+phase+" control="+control);
+                }
+                var pendingPatrol=Fresh(control);APIShared.LocalSelectionAPI.Ready=false;pendingPatrol.TryStartDrag(control);
+                GameTribeManagerAPI.Instance.Manager->r_TroopsPatrolMode=1;
+                APIShared.LocalSelectionAPI.Ready=true;pendingPatrol.Tick();
+                Check(pendingPatrol.drag==null&&pendingPatrol.Dispatched==0,"Delayed patrol start captured");
+                foreach(bool newPress in new[]{true,false}) {
+                    var superseded=Fresh(control,6);superseded.ConsumeVanillaRelease=true;superseded.TryStartDrag(control);superseded.Tick();
+                    APIShared.LocalSelectionAPI.Ready=false;superseded.PatrolInOriginal=true;
+                    superseded.NewPressAfterPatrol=newPress;superseded.MapChangeAfterPatrol=!newPress;
+                    superseded.Release();superseded.Tick();
+                    Check(superseded.VanillaReleases==0&&superseded.Dispatched==0,"Handoff revived a release after a new press/map change");
+                }
+                var stalePatrol=Fresh(control,6);stalePatrol.ConsumeVanillaRelease=true;stalePatrol.TryStartDrag(control);stalePatrol.Tick();
+                APIShared.LocalSelectionAPI.Ready=false;stalePatrol.Release();
+                GameTribeManagerAPI.Instance.Manager->r_TroopsPatrolMode=1;stalePatrol.commandRuntime.mapEpoch++;stalePatrol.Tick();
+                Check(stalePatrol.VanillaReleases==0&&stalePatrol.drag==null,"Patrol revived a previously deferred edge in another map epoch");
+                var deferredState=new FormationMouseState(3,false,true,false,true);
+                var newer=control==0?new FormationMouseState(1,false,true,false,false):new FormationMouseState(3,true,false,false,true);
+                var restored=FormationReleaseStateModel.RestoreDeferredForVanilla(newer,deferredState,control);
+                Check(!FormationReleaseStateModel.HasCommandRelease(restored,control),"Old release superseded a new press");
+            }
             foreach(int commandButton in new[]{0,1}) {
                 var f=Fresh(commandButton);GameTileManagerAPI.Instance.TileManager.TileUnitIdGrid[2010]=42;
                 GameTileManagerAPI.Instance.TileManager.StructureGrid[2010]=9;
@@ -266,10 +315,11 @@ namespace BugfixesAndQoL.UnitCommands {
             admitted.Release();Check(admitted.Dispatched==1,"Preview invalidation blocked authoritative dispatch");
             var deferred=Fresh(count:1000);deferred.commandRuntime.Allowed=500;
             deferred.TryStartDrag(1);deferred.drag.Geometry.UpdateDirection(20,0,2);deferred.drag.Geometry.ApplyWheel(-2,54321);
-            int manualRows=deferred.drag.Rows;int manualDirection=deferred.drag.Geometry.Direction;
+            var manualAspect=deferred.drag.Geometry.Aspect;int manualDirection=deferred.drag.Geometry.Direction;
             deferred.speechEngineLock=new object();deferred.Tick();
             Check(deferred.commandRuntime.Reads==1&&deferred.drag.PreviewUnits.Length==500,"Busy UI capture did not defer once to native engine-lock scope");
-            Check(deferred.drag.Geometry.ExplicitDirection&&deferred.drag.Geometry.Direction==manualDirection&&deferred.drag.Rows==Math.Min(manualRows,500),"Deferred admission lost explicit facing/rows");
+            Check(deferred.drag.Geometry.ExplicitDirection&&deferred.drag.Geometry.Direction==manualDirection&&deferred.drag.Geometry.Aspect==manualAspect&&
+                deferred.drag.Rows==FormationModel.ResolveGeometryRows(deferred.drag.Kind,500,manualAspect),"Deferred admission lost explicit facing/aspect");
             deferred.Release();Check(deferred.Dispatched==1,"Deferred preview broke gesture dispatch");
             // A press during a running tick must neither wait for the engine lock nor lose the
             // formation: the next engine run completes the start under the lock it holds.
@@ -353,7 +403,7 @@ namespace BugfixesAndQoL.UnitCommands {
                     var f=Fresh(commandButton,scenario=="single"?2:6);f.TryStartDrag(commandButton);
                     if(scenario!="before-proof")f.Tick();
                     int desiredRows=3;f.drag.Geometry.ApplyWheel(f.drag.Rows-desiredRows,986);
-                    int requested=f.drag.Geometry.RequestedRows;
+                    FormationAspectRatio requested=f.drag.Geometry.Aspect;
                     Kill(scenario=="during"?6:1,keepSnapshot:scenario=="corpse"||scenario=="cleared",removed:scenario=="removed",animation:scenario=="corpse");
                     if(scenario=="cleared")APIShared.UnitAccess.Units[1].r_GlobalId=0;
                     if(scenario=="leader-group") {
@@ -370,7 +420,7 @@ namespace BugfixesAndQoL.UnitCommands {
                     int dead=scenario=="during"?6:1;Check(APIShared.UnitAccess.Units[dead].TargetX==2&&APIShared.UnitAccess.Units[dead].PackedPath==12345,"Dead original received new order");
                     bool vanilla=scenario=="removed"||scenario=="cleared"||scenario=="leader-group";
                     Check(f.LastPacket.Formation==(byte)(vanilla?FormationKind.Vanilla:FormationKind.Line)&&
-                        f.LastPacket.RequestedRows==(vanilla?0:Math.Min(requested,f.LastPacket.UnitCount)),"Survivor formation/fallback intent lost: "+scenario);
+                        FormationAspectRatio.Create(f.LastPacket.AspectWidth,f.LastPacket.AspectDepth)==(vanilla?default:requested),"Survivor formation/fallback intent lost: "+scenario);
                     if(vanilla)Check(f.LastPacket.Density==1&&f.LastPacket.PlacementMode==0,"Vanilla fallback must use native standard placement");
                     f.Tick();Check(f.Dispatched==1,"Survivor command repeated");
                 }
@@ -427,6 +477,13 @@ namespace BugfixesAndQoL.UnitCommands {
             var limits=Fresh();limits.TryStartDrag(1);limits.Tick();limits.TryCreatePacket(limits.drag,out var largePacket);
             foreach(ushort size in new ushort[]{4000,4001,10000}){largePacket.UnitCount=size;Check(ValidatePacket(largePacket,out _),"Large selection rejected by marker budget");}
             largePacket.UnitCount=10001;Check(!ValidatePacket(largePacket,out _),"Selection beyond native unit capacity accepted");
+            largePacket.UnitCount=2;largePacket.Formation=(byte)FormationKind.Line;
+            foreach(var ratio in new[]{(0,0,true),(1,10000,true),(10000,1,true),(0,1,false),(1,0,false),(10001,1,false),(1,10001,false)}) {
+                largePacket.AspectWidth=(ushort)ratio.Item1;largePacket.AspectDepth=(ushort)ratio.Item2;
+                Check(ValidatePacket(largePacket,out _)==ratio.Item3,"Ratio validation must preserve large desired proportions for a small group");
+            }
+            largePacket.Formation=(byte)FormationKind.Circle;largePacket.AspectWidth=1;largePacket.AspectDepth=1;
+            Check(!ValidatePacket(largePacket,out _),"Circle accepted a manual ratio");
             foreach(int count in new[]{100,200,550,1000,1300}) {
                 var f=Fresh(count:count);f.TryStartDrag(1);f.Tick();Kill(1);f.Tick();
                 Check(f.drag.Selection.Length==count-1&&f.commandRuntime.Reads==1,"Death triggered another regional preview classification");
@@ -437,6 +494,15 @@ namespace BugfixesAndQoL.UnitCommands {
                 Check(GC.GetAllocatedBytesForCurrentThread()==before,"Unchanged active survivor pass allocated managed buffers");
                 }
                 f.Release();Check(f.Dispatched==1,"Large survivor command rejected");
+            }
+            var modeProbe=Fresh();
+            foreach(uint patrol in new uint[]{0,1,uint.MaxValue}) {
+                GameTribeManagerAPI.Instance.Manager->r_TroopsPatrolMode=patrol;
+                for(int warm=0;warm<100;warm++)modeProbe.EvaluateCommandMode();
+                long before=GC.GetAllocatedBytesForCurrentThread();
+                for(int pass=0;pass<5000;pass++)
+                    Check(modeProbe.EvaluateCommandMode()==(patrol==0?APIShared.Internal.GroundMovePreviewRejection.None:APIShared.Internal.GroundMovePreviewRejection.PatrolCommandMode),"Patrol mode decision changed");
+                Check(GC.GetAllocatedBytesForCurrentThread()==before,"Formation command-mode guard allocated");
             }
             // Strict legacy authorization remains object-free, while Formation
             // accepts only known coherent terminal Move pairs.
@@ -454,6 +520,8 @@ namespace BugfixesAndQoL.UnitCommands {
 """;
         fixture = fixture.Replace("__PROTOCOL__", runtime.Members.OfType<FieldDeclarationSyntax>().Single(f=>f.Declaration.Variables.Any(v=>v.Identifier.Text=="ProtocolVersion")).ToFullString()).Replace("__MEMBERS__", string.Join("\n", members.Select(m => m.ToFullString())))
             .Replace("__PROOFS__", string.Join("\n", proofs.Select(p => p.ToFullString())));
+        fixture = fixture.Replace("__ELIGIBILITY__", string.Join("\n", eligibility.Select(p => p.ToFullString())))
+            .Replace("public static bool DiagnosticsEnabled => true;", "public static void LogInfo(object log,string message) {} public static bool DiagnosticsEnabled => true;");
         string[] paths = { "BugfixesAndQoL/src/Formations/FormationModel.cs", "BugfixesAndQoL/src/Formations/FormationOrderPacket.cs",
             "BugfixesAndQoL/src/Formations/FormationPresentation.cs",
             "BugfixesAndQoL/src/Formations/FormationNativeRunContext.cs", "BugfixesAndQoL/src/Formations/FormationReleaseStateModel.cs",

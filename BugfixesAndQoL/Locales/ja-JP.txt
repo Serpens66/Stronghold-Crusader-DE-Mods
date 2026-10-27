@@ -389,8 +389,8 @@ BugfixesAndQoL.EnableAssassinGatehouseClimbFixHelp=Allows humans and AI to choos
 BugfixesAndQoL.EnableAssassinCapturedGateProtectionFix=AI Assassins no longer attack captured gatehouses
 BugfixesAndQoL.EnableAssassinCapturedGateProtectionFixHelp=Prevents AI Assassins from attacking stone gatehouses captured by themselves or an ally. Vanilla or Fixes selects further targets. Human commands remain unchanged.
 
-BugfixesAndQoL.RememberRows=列数を記憶
-BugfixesAndQoL.RememberRowsHelp=移動ボタンを押したままホイールで幅と奥行きを変えます。配置ごとの列数を再起動後も記憶します。少人数の部隊では列数を一時的に制限します。オフまたは保存値がない場合は自動設定です。円と既定は対象外です。
+BugfixesAndQoL.RememberRows=Remember width/depth ratio
+BugfixesAndQoL.RememberRowsHelp=Mouse wheel while holding a move command: adjust rows. Remembers each arrangement's width-to-depth ratio across restarts and adapts it to the reachable unit count. Off or no saved ratio: automatic proportions. Does not apply to Circle or Vanilla.
 BugfixesAndQoL.ArrangementTooltip=配置
 BugfixesAndQoL.EnableGatehouseTargetMarkerHeightFix=城門上の目標マーカーを修正
 BugfixesAndQoL.EnableGatehouseTargetMarkerHeightFixHelp=陣形プレビューを含め、城門上の緑色の移動目標マーカーの高さを修正します。塔や天守は変更しません。この設定はローカルで、同期されません。

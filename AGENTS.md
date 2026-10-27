@@ -18,7 +18,7 @@ Sobald ein Auslöser zutrifft, die genannte Datei **vor** dem ersten fachlichen 
 | Modsettings, Presets, Modsettings-XAML, Tooltips, Locales | [AGENTS/modsettings-ui.md](AGENTS/modsettings-ui.md) |
 | Custom-Pakete, Chores, `[SyncPerPlayer]`, Netzwerkautorität, Spielmodus-Freigaben, MP-Tests | [AGENTS/multiplayer-network.md](AGENTS/multiplayer-network.md) |
 | Kartenstart, Save-Laden, Editor-Start, Missionsende, verzögerte Aktionen, Timeline | [AGENTS/mission-lifecycle.md](AGENTS/mission-lifecycle.md) |
-| APIShared nutzen/erweitern/veröffentlichen, Dateien unter `Shared/`, Mod-Abhängigkeiten | [AGENTS/apishared.md](AGENTS/apishared.md) |
+| APIShared nutzen/erweitern/installieren/aktualisieren/veröffentlichen, Dateien unter `Shared/`, Mod-Abhängigkeiten | [AGENTS/apishared.md](AGENTS/apishared.md) |
 | Fehler in Script Extender oder Fixes-Mod; Fixes-bezogene Präferenzen, Presets, Belagerung | [AGENTS/external-components.md](AGENTS/external-components.md) |
 | Build, CRLF-Konvertierung, Versionsänderung, Release, Steam-Modpack | [AGENTS/build-release.md](AGENTS/build-release.md) |
 | PowerShell-/CMD-/BAT-Befehle oder -Skripte, Sandbox-/Berechtigungsfehler | [AGENTS/shell-windows.md](AGENTS/shell-windows.md) |

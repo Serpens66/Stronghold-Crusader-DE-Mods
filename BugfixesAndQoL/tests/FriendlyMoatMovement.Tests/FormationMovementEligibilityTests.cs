@@ -86,7 +86,7 @@ namespace BugfixesAndQoL.UnitCommands {
         private void LogWarningNoThrow(string text)=>Logs.Add(text);
         private void DisableAfterNativeFailure(string contract,Exception e)=>throw new Exception(contract,e);
         private class FormationOrderPacket {public int TribeId=415,TargetX=562,TargetY=360,IsNewOrder=1,OperationId=12;
-            public int Formation,Density=2,UnitCount,DirectionSector,RequestedRows=2,PlacementMode;public ulong SelectionHash;}
+            public int Formation,Density=2,UnitCount,DirectionSector,AspectWidth=3,AspectDepth=2,PlacementMode;public ulong SelectionHash;}
         private class PendingFormationCommand {
             public FormationOrderPacket Packet=new FormationOrderPacket();public string Source="fixture";
             public bool NativeDispatchObserved;

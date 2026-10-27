@@ -389,8 +389,8 @@ BugfixesAndQoL.EnableAssassinGatehouseClimbFixHelp=Allows humans and AI to choos
 BugfixesAndQoL.EnableAssassinCapturedGateProtectionFix=AI Assassins no longer attack captured gatehouses
 BugfixesAndQoL.EnableAssassinCapturedGateProtectionFixHelp=Prevents AI Assassins from attacking stone gatehouses captured by themselves or an ally. Vanilla or Fixes selects further targets. Human commands remain unchanged.
 
-BugfixesAndQoL.RememberRows=Αποθήκευση σειρών
-BugfixesAndQoL.RememberRowsHelp=Χρησιμοποιήστε τη ροδέλα ενώ κρατάτε εντολή κίνησης για αλλαγή πλάτους/μήκους. Αποθηκεύει σειρές ανά διάταξη και μετά την επανεκκίνηση. Μικρότερες ομάδες περιορίζουν προσωρινά τις σειρές. Ανενεργό ή χωρίς αποθήκευση: αυτόματες σειρές. Εξαιρούνται Κύκλος και Προεπιλογή.
+BugfixesAndQoL.RememberRows=Remember width/depth ratio
+BugfixesAndQoL.RememberRowsHelp=Mouse wheel while holding a move command: adjust rows. Remembers each arrangement's width-to-depth ratio across restarts and adapts it to the reachable unit count. Off or no saved ratio: automatic proportions. Does not apply to Circle or Vanilla.
 BugfixesAndQoL.ArrangementTooltip=Διάταξη
 BugfixesAndQoL.EnableGatehouseTargetMarkerHeightFix=Διόρθωση δεικτών στόχου στις πύλες
 BugfixesAndQoL.EnableGatehouseTargetMarkerHeightFixHelp=Διορθώνει το ύψος των πράσινων δεικτών προορισμού στις πύλες, μαζί με τις προεπισκοπήσεις σχηματισμών. Οι πύργοι και τα φρούρια παραμένουν αμετάβλητα. Η ρύθμιση είναι τοπική και δεν συγχρονίζεται.

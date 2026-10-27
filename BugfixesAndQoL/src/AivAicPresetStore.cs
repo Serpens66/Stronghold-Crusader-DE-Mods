@@ -341,6 +341,14 @@ namespace BugfixesAndQoL
                     Shared.AtomicFileReplacement.Replace(temporaryPath, storePath);
                 else
                     File.Move(temporaryPath, storePath);
+                Shared.DebugLogHelper.LogInfo(log,
+                    $"AIV_AIC_STORAGE: result=published, path={storePath}, lordGroups={presetsByLord.Count}; scope=personal.");
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogErrorLimited(log, "aiv-aic-storage-write",
+                    $"AIV_AIC_STORAGE: result=failed, path={storePath}, exception={ex.GetType().FullName}, hresult=0x{ex.HResult:X8}: {ex}");
+                throw;
             }
             finally
             {

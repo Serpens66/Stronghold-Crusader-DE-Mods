@@ -59,6 +59,12 @@ namespace BugfixesAndQoL.UnitCommands {
   private PendingFormationCommand pendingCommand;private ActiveFormationCommand activeCommand,commonGroupCommand;
   private UnitAssignmentFrame unitAssignmentFrame;private UnitFallbackAttempt unitFallbackAttempt;
   private Commands commandRuntime=UnitCommandPathAPI.Runtime;private FormationUnit[] ordered;
+  // Local preference boundary: synchronized reception must never consult it.
+  private sealed class LocalPreferences {
+   internal FormationAspectRatio Aspect;
+   public FormationAspectRatio GetRememberedAspect(FormationKind kind)=>throw new Exception("Receiver consulted local aspect " + Aspect);
+  }
+  private LocalPreferences menuViewModel;
   private byte* movementTargetAvailability;
   private FormationUnit[] CaptureOrderedGroupUnits(int t)=>ordered;
   private APIShared.Internal.GroundMovePreviewRejection EvaluateCommandMode()=>APIShared.Internal.GroundMovePreviewRejection.None;
@@ -90,7 +96,7 @@ namespace BugfixesAndQoL.UnitCommands {
     foreach(int count in new[]{100,200,550,1000,1300,4001,10000}) foreach(FormationKind kind in Enum.GetValues<FormationKind>())
     foreach(int density in new[]{1,2,3,4}) foreach(int requested in new[]{0,7}) {
      if(count>1300&&(kind!=FormationKind.Line||density!=1||requested!=7))continue;
-     bool fixedShape=kind==FormationKind.Circle||kind==FormationKind.Vanilla;int intent=fixedShape?0:requested;
+     bool fixedShape=kind==FormationKind.Circle||kind==FormationKind.Vanilla;FormationAspectRatio intent=fixedShape||requested==0?default:FormationAspectRatio.Create(3,2);
      f.ordered=Enumerable.Range(1,count).Select(id=>new FormationUnit(id,(uint)id,22,(FormationRole)(id%4))).ToArray();
      APIShared.UnitAccess.Count=count;
      var selection=f.ordered.Select(u=>new SelectionIdentity(u.UnitId,u.GlobalId,u.UnitType,1,1)).ToArray();
@@ -101,7 +107,7 @@ namespace BugfixesAndQoL.UnitCommands {
       gesture.Geometry=gesture.Geometry.WithCount(Math.Max(1,count/2)); // Preview can differ from execution.
       Check(f.TryCreatePacket(gesture,out var packet),"production packet construction");packet=Wire(packet);
       Check(ValidatePacket(packet,out var why),"mixed preview packet rejected: "+why);
-      Check(packet.UnitCount==count&&packet.RequestedRows==intent,"full identity / row intent lost");
+      Check(packet.UnitCount==count&&FormationAspectRatio.Create(packet.AspectWidth,packet.AspectDepth)==intent,"full identity / row intent lost");
       f.commandRuntime.Blocked=count-admitted;f.commandRuntime.Queries=0;
       GameTribeManagerAPI.Instance.Calls=0;GameTribeManagerAPI.Instance.Move=f.Issue;
       Check(f.ApplyPacket(packet,"pipeline"),"accepted native dispatch replayed");
@@ -115,17 +121,35 @@ namespace BugfixesAndQoL.UnitCommands {
        APIShared.UnitAccess.Units[i].r_TargetTilePositionY)).Distinct().Count()>1,"one-point collapse");
      }
     }
+    // Two receivers with opposite local wishes must execute identical destinations
+    // from the transmitted intent, after the same partial island admission.
+    f.ordered=Enumerable.Range(1,100).Select(id=>new FormationUnit(id,(uint)id,22,FormationRole.Neutral)).ToArray();
+    APIShared.UnitAccess.Count=100;
+    var peerSelection=f.ordered.Select(u=>new SelectionIdentity(u.UnitId,u.GlobalId,u.UnitType,1,1)).ToArray();
+    var peerGesture=new ActiveDrag(1,415,new GroundTarget(400,400),peerSelection,FormationKind.Wedge,1,RangedPlacementMode.Off,FormationAspectRatio.Create(3,2));
+    f.TryCreatePacket(peerGesture,out var peerPacket);
+    (ushort,ushort)[] firstDestinations=null;
+    foreach(var local in new[]{FormationAspectRatio.Create(1,10000),FormationAspectRatio.Create(10000,1)}) {
+     var peer=new PipelineFixture{ordered=f.ordered,movementTargetAvailability=f.movementTargetAvailability,menuViewModel=new LocalPreferences{Aspect=local}};
+     peer.commandRuntime.Blocked=40;
+     for(int i=0;i<100;i++)APIShared.UnitAccess.Units[i]=new GameUnit{Alive=true,r_TribeId=415,r_GlobalId=(uint)(i+1),State=9};
+     GameTribeManagerAPI.Instance.Move=peer.Issue;
+     Check(peer.ApplyPacket(Wire(peerPacket),"peer"),"receiver dispatch failed");
+     var destinations=Enumerable.Range(0,100).Select(i=>(APIShared.UnitAccess.Units[i].r_TargetTilePositionX,APIShared.UnitAccess.Units[i].r_TargetTilePositionY)).ToArray();
+     if(firstDestinations==null)firstDestinations=destinations;else Check(firstDestinations.SequenceEqual(destinations),"local preferences changed synchronized destinations");
+    }
+    GameTribeManagerAPI.Instance.Move=f.Issue;
     // Malformed/stale packets are consumed without a native move or release replay.
-    var good=new ActiveDrag(1,415,new GroundTarget(400,400),f.ordered.Select(u=>new SelectionIdentity(u.UnitId,u.GlobalId,u.UnitType,1,1)).ToArray(),FormationKind.Line,1,RangedPlacementMode.Off,3);
-    foreach(string fault in new[]{"protocol","rows","identity"}) {
-     f.TryCreatePacket(good,out var p);if(fault=="protocol")p.ProtocolVersion--;if(fault=="rows")p.RequestedRows=ushort.MaxValue;if(fault=="identity")p.SelectionHash++;
+    var good=new ActiveDrag(1,415,new GroundTarget(400,400),f.ordered.Select(u=>new SelectionIdentity(u.UnitId,u.GlobalId,u.UnitType,1,1)).ToArray(),FormationKind.Line,1,RangedPlacementMode.Off,FormationAspectRatio.Create(3,2));
+    foreach(string fault in new[]{"protocol","aspect","identity"}) {
+     f.TryCreatePacket(good,out var p);if(fault=="protocol")p.ProtocolVersion--;if(fault=="aspect")p.AspectWidth=ushort.MaxValue;if(fault=="identity")p.SelectionHash++;
      GameTribeManagerAPI.Instance.Calls=0;var before=APIShared.UnitAccess.Units[0];Check(f.ApplyPacket(Wire(p),"invalid"),"rejection must consume gesture");
      Check(GameTribeManagerAPI.Instance.Calls==(fault=="identity"?1:0)&&APIShared.UnitAccess.Units[0].State==before.State,"invalid command mutated units");
     }
     foreach(FormationKind kind in Enum.GetValues<FormationKind>()) foreach(bool noSpace in new[]{false,true}) {
      new Span<byte>(f.movementTargetAvailability,800*800).Clear();
      if(!noSpace)f.movementTargetAvailability[400+400*800]=1;
-     var g=new ActiveDrag(1,415,new GroundTarget(400,400),good.Selection,kind,1,RangedPlacementMode.Off,0);
+     var g=new ActiveDrag(1,415,new GroundTarget(400,400),good.Selection,kind,1,RangedPlacementMode.Off,default);
      f.commandRuntime.Blocked=0;f.TryCreatePacket(g,out var p);
      for(int i=0;i<f.ordered.Length;i++){APIShared.UnitAccess.Units[i].State=9;APIShared.UnitAccess.Units[i].PackedPath=123;}
      Check(f.ApplyPacket(Wire(p),"shortage"),"slot shortage lost accepted gesture");
@@ -154,7 +178,7 @@ namespace BugfixesAndQoL.UnitCommands {
     foreach(bool nativeFallback in new[]{false,true}) {
      APIShared.UnitAccess.Units[0].Alive=false;APIShared.UnitAccess.Units[0].PackedPath=789;
      APIShared.UnitAccess.Units[1]=new GameUnit{Alive=true,r_TribeId=415,r_GlobalId=2,State=9,PackedPath=123};
-     var survivor=new ActiveDrag(1,415,new GroundTarget(400,400),original,FormationKind.Line,2,RangedPlacementMode.Rear,2);
+     var survivor=new ActiveDrag(1,415,new GroundTarget(400,400),original,FormationKind.Line,2,RangedPlacementMode.Rear,FormationAspectRatio.Create(1,1));
      survivor.Selection=original.Skip(1).ToArray();survivor.UseVanillaFallback=nativeFallback;
      f.TryCreatePacket(survivor,out var packet);Check(ValidatePacket(packet,out _),"single survivor packet validation");
      Check(f.ApplyPacket(Wire(packet),"single-survivor"),"single survivor not dispatched");

@@ -389,8 +389,8 @@ BugfixesAndQoL.EnableAssassinGatehouseClimbFixHelp=Allows humans and AI to choos
 BugfixesAndQoL.EnableAssassinCapturedGateProtectionFix=AI Assassins no longer attack captured gatehouses
 BugfixesAndQoL.EnableAssassinCapturedGateProtectionFixHelp=Prevents AI Assassins from attacking stone gatehouses captured by themselves or an ally. Vanilla or Fixes selects further targets. Human commands remain unchanged.
 
-BugfixesAndQoL.RememberRows=Ricorda le file
-BugfixesAndQoL.RememberRowsHelp=Usa la rotella durante un ordine di movimento tenuto premuto per cambiare larghezza/lunghezza. Ricorda le file per disposizione anche dopo il riavvio. I gruppi piccoli limitano temporaneamente le file. Disattivato o senza valore salvato: file automatiche. Esclude Cerchio e Predefinita.
+BugfixesAndQoL.RememberRows=Remember width/depth ratio
+BugfixesAndQoL.RememberRowsHelp=Mouse wheel while holding a move command: adjust rows. Remembers each arrangement's width-to-depth ratio across restarts and adapts it to the reachable unit count. Off or no saved ratio: automatic proportions. Does not apply to Circle or Vanilla.
 BugfixesAndQoL.ArrangementTooltip=Disposizione
 BugfixesAndQoL.EnableGatehouseTargetMarkerHeightFix=Correggi gli indicatori sulle porte fortificate
 BugfixesAndQoL.EnableGatehouseTargetMarkerHeightFixHelp=Corregge l’altezza degli indicatori verdi di destinazione sulle porte fortificate, incluse le anteprime delle formazioni. Torri e fortezze restano invariate. Questa impostazione è locale e non viene sincronizzata.

@@ -389,8 +389,8 @@ BugfixesAndQoL.EnableAssassinGatehouseClimbFixHelp=Allows humans and AI to choos
 BugfixesAndQoL.EnableAssassinCapturedGateProtectionFix=AI Assassins no longer attack captured gatehouses
 BugfixesAndQoL.EnableAssassinCapturedGateProtectionFixHelp=Prevents AI Assassins from attacking stone gatehouses captured by themselves or an ally. Vanilla or Fixes selects further targets. Human commands remain unchanged.
 
-BugfixesAndQoL.RememberRows=Запам'ятати ряди
-BugfixesAndQoL.RememberRowsHelp=Колесо під час утримання наказу руху змінює ширину/довжину. Запам'ятовує ряди для кожного шикування після перезапуску. Малі групи тимчасово обмежують ряди. Вимкнено або немає збереженого значення: автоматичні ряди. Не діє для Кола й Типового.
+BugfixesAndQoL.RememberRows=Remember width/depth ratio
+BugfixesAndQoL.RememberRowsHelp=Mouse wheel while holding a move command: adjust rows. Remembers each arrangement's width-to-depth ratio across restarts and adapts it to the reachable unit count. Off or no saved ratio: automatic proportions. Does not apply to Circle or Vanilla.
 BugfixesAndQoL.ArrangementTooltip=Шикування
 BugfixesAndQoL.EnableGatehouseTargetMarkerHeightFix=Виправляти маркери цілі на брамах
 BugfixesAndQoL.EnableGatehouseTargetMarkerHeightFixHelp=Виправляє висоту зелених маркерів цілі руху на брамах, зокрема в попередньому перегляді шикування. Вежі й донжони не змінюються. Налаштування локальне та не синхронізується.

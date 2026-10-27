@@ -19,7 +19,8 @@ namespace APIShared.Internal
         TileOccupiedByBuilding,
         TargetUnavailable,
         MissingPathComponent,
-        NonMoveCommandMode
+        NonMoveCommandMode,
+        PatrolCommandMode
     }
 
     internal readonly struct GroundMovePreviewSnapshot
@@ -72,6 +73,10 @@ namespace APIShared.Internal
             nativeCommandMode == OrdinaryMoveCommandMode
                 ? GroundMovePreviewRejection.None
                 : GroundMovePreviewRejection.NonMoveCommandMode;
+
+        internal static GroundMovePreviewRejection EvaluateFormationCommandMode(int nativeCommandMode, uint patrolMode) =>
+            nativeCommandMode != OrdinaryMoveCommandMode ? GroundMovePreviewRejection.NonMoveCommandMode :
+            patrolMode != 0 ? GroundMovePreviewRejection.PatrolCommandMode : GroundMovePreviewRejection.None;
 
         internal static GroundMovePreviewRejection EvaluateInitial(
             GroundMovePreviewSnapshot snapshot)

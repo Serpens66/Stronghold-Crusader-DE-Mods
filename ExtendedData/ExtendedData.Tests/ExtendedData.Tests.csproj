@@ -10,6 +10,8 @@
     <Nullable>disable</Nullable>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="Microsoft.CodeAnalysis"><HintPath>$(MSBuildSDKsPath)\..\Roslyn\bincore\Microsoft.CodeAnalysis.dll</HintPath></Reference>
+    <Reference Include="Microsoft.CodeAnalysis.CSharp"><HintPath>$(MSBuildSDKsPath)\..\Roslyn\bincore\Microsoft.CodeAnalysis.CSharp.dll</HintPath></Reference>
     <ProjectReference Include="..\ExtendedData.Core\ExtendedData.Core.csproj" />
     <Compile Include="..\..\Shared\Runtime\Workshop\WorkshopUploadStaging.cs" Link="WorkshopUploadStaging.cs" />
     <Compile Include="..\src\TrailLordPackageRuntime.cs" Link="TrailLordPackageRuntime.cs" />

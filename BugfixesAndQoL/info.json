@@ -3,7 +3,7 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.204",
+  "Version": "1.0.205",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.0",
   "MaximumScriptExtenderVersion": "",
@@ -16,6 +16,14 @@
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.205",
+      "Changes": [
+        "Remember width/depth proportions independently for Block, Line, Column and Wedge instead of an absolute row count. Resolve the formation again for its reachable group size without changing the saved wish after casualties, island filtering or terrain adjustment.",
+        "Migrate the previous memory switch and retire absolute row preferences; each formation starts with its existing automatic proportions until manually adjusted. Update the in-game setting and help in every locale.",
+        "Send proportion intent in formation protocol 12; receivers resolve rows after synchronized admission independently of their local preferences. All multiplayer participants must use matching builds."
+      ]
+    },
     {
       "Version": "1.0.204",
       "Changes": [

@@ -63,6 +63,7 @@ namespace BugfixesAndQoL
             FindMethod(typeof(FRONT_Multiplayer), "UpdateRandomAIButtons");
 
         private readonly ManualLogSource log;
+        private readonly Shared.LogRateGate missingAssetLogGate = new Shared.LogRateGate();
         private readonly BugfixesAndQoLViewModel settings;
         private readonly Dictionary<string, string> storedSelections =
             new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -1147,15 +1148,17 @@ namespace BugfixesAndQoL
                     target,
                     availableAivs,
                     availableAics);
-                if (result.MissingAivs > 0 || result.MissingAic)
+                if ((result.MissingAivs > 0 || result.MissingAic || result.UsedBuiltInFallback) &&
+                    missingAssetLogGate.TryReserve("remembered-ai-missing-assets", 30, out long suppressed))
                 {
                     Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/SkirmishAiSelectionMemoryHook.cs:1162", $"Bugfixes and QoL restored AI selection for {key} with missing current files: " +
-                        $"missingAivs={result.MissingAivs}, missingAic={result.MissingAic}.");
-                }
-                if (result.UsedBuiltInFallback)
-                {
-                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/SkirmishAiSelectionMemoryHook.cs:1169", $"Bugfixes and QoL normalized unusable stored AI selection for {key} " +
-                        "to Vanilla's built-in AIV so the skirmish remains startable.");
+                        $"missingAivs={result.MissingAivs}, missingAic={result.MissingAic}, " +
+                        $"references=[{DescribeMissingAsset(result.MissingAiv1)}; {DescribeMissingAsset(result.MissingAiv2)}; " +
+                        $"{DescribeMissingAsset(result.MissingAiv3)}; {DescribeMissingAsset(result.MissingAiv4)}], " +
+                        $"additionalMissingAivs={Math.Max(0, result.MissingAivs - 4)}, suppressed={suppressed}, " +
+                        $"aic={DescribeMissingAsset(result.MissingAicReference)}, builtInFallback={result.UsedBuiltInFallback}; " +
+                        $"reason={(result.MissingAivs > 0 ? "saved-aiv-not-resolved" : result.MissingAic ? "saved-aic-not-resolved" : "empty-custom-aiv-selection")}; " +
+                        "action=use-available-files-or-built-in-fallback; remembered selection retained.");
                 }
                 applied = true;
                 if (Shared.DebugLogHelper.DiagnosticsEnabled)
@@ -1174,6 +1177,10 @@ namespace BugfixesAndQoL
 
             return applied;
         }
+
+        private static string DescribeMissingAsset(AivAicAssetReference reference) => reference == null ? "none" :
+            $"name={reference.Name}, path={reference.Path}, checksum={reference.Checksum}, " +
+            $"builtIn={reference.BuiltIn}, workshop={reference.Workshop}, lordType={reference.LordType}";
 
         private Dictionary<int, string> CaptureAiSlotKeys(FRONT_Multiplayer parent)
         {

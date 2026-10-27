@@ -9,6 +9,7 @@ using System.Text.Json;
 
 var tests = new (string Name, Action Run)[]
 {
+    ("Map production draft transitions retain edits through lobby rebuilds and repeated missions", MapDraftRuntimeTests.Run),
     ("Coop menu mirrors authoritative selection, catalog refresh and edit permissions", CoopTrailMenuTests.Selection),
     ("Coop menu consumes dismissal through release and resets recreated views", CoopTrailMenuTests.Input),
     ("Coop menu hover follows clipped popup hits, scroll, recycling and view lifetime", CoopTrailMenuTests.Hover),
@@ -16,6 +17,7 @@ var tests = new (string Name, Action Run)[]
     ("Coop Customize drafts survive ready, repeated start, rejection and mission replacement", CoopDraftTests.Run),
     ("Maker embedded maps retain original data and publish validated immutable cache entries", TrailMakerEmbeddedMapTests.Run),
     ("Trail reset sources retain authored rules and replace or clear mission identity", TrailSetupTests.Sources),
+    ("Personal reset executes provider, individual selector and global confirmation without replacing source rules", PersonalResetRuntimeTests.Run),
     ("Coop Customize refreshes setup, map, team and radar presentation on hosts and clients", TrailSetupTests.Presentation),
     ("legacy mission-settings adapter preserves aliases, mutation and wire contracts", MissionSettingsAdapterTests.Run),
     ("shared mod-data source preserves host authority, local provenance, reset and cleanup", ModDataSourceTests.Run),
