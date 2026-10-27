@@ -55414,6 +55414,111 @@
   },
   {
     "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\a\\release-1032\\001\\redbird-transaction.cs",
+    "relativePath": ".work/a/release-1032/001/redbird-transaction.cs",
+    "sha256": "7300DC9D9EB3384CE2B48D504495115164CE63790BE10A470FA7238E5299AB7C",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 79,
+        "text": "public DetourHandle<TFunction> AddDetour<TFunction>(DetourHandle<TFunction> handle, HookTarget target, TFunction callback, [CallerArgumentExpression(\"handle\")] string name = \"\") where TFunction : Delegate",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 87,
+        "text": "public DetourHandle<TFunction> AddDetour<TFunction>(HookTarget target, TFunction callback, [CallerArgumentExpression(\"callback\")] string name = \"\") where TFunction : Delegate",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 89,
+        "text": "return AddDetour(new DetourHandle<TFunction>(), target, callback, name);",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 92,
+        "text": "public DetourHandle<TFunction> AddDetour<TFunction>(DetourHandle<TFunction> handle, HookTarget target, TFunction callback, IDetourIntermediaryFactory intermediaryFactory, [CallerArgumentExpression(\"handle\")] string name = \"\") where TFunction : Delegate",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 101,
+        "text": "public DetourHandle<TFunction> AddDetour<TFunction>(HookTarget target, TFunction callback, IDetourIntermediaryFactory intermediaryFactory, [CallerArgumentExpression(\"callback\")] string name = \"\") where TFunction : Delegate",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 103,
+        "text": "return AddDetour(new DetourHandle<TFunction>(), target, callback, intermediaryFactory, name);",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 106,
+        "text": "public HookHandle<X64InlineHook> AddInline(HookHandle<X64InlineHook> handle, HookTarget target, InlineHookGenerator generator, int hookSize = 14, [CallerArgumentExpression(\"handle\")] string name = \"\")",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 114,
+        "text": "public HookHandle<X64AssemblyPatch> AddAssemblyPatch(HookHandle<X64AssemblyPatch> handle, HookTarget target, AssemblyPatchGenerator generator, int maxByteCount = 0, [CallerArgumentExpression(\"handle\")] string name = \"\")",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 122,
+        "text": "public HookHandle<X64AssemblyPatch> AddAssemblyPatch(HookTarget target, AssemblyPatchGenerator generator, int maxByteCount = 0, [CallerArgumentExpression(\"generator\")] string name = \"\")",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 127,
+        "text": "public HookHandle<X64AssemblyPatch> AddBytePatch(HookHandle<X64AssemblyPatch> handle, HookTarget target, ReadOnlySpan<byte> bytes, int maxByteCount = 0, [CallerArgumentExpression(\"handle\")] string name = \"\")",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 141,
+        "text": "public HookHandle<X64InlineHook> AddContextHook(HookHandle<X64InlineHook> handle, HookTarget target, ContextHookDelegate callback, ContextHookOptions? options = null, [CallerArgumentExpression(\"handle\")] string name = \"\")",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 145,
+        "text": "Register(new ContextHookDescriptor(name, target, handle, callback, options ?? ContextHookOptions.Default), handle, name);",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 149,
+        "text": "public HookHandle<X64InlineHook> AddContextHook(HookTarget target, ContextHookDelegate callback, ContextHookOptions? options = null, [CallerArgumentExpression(\"callback\")] string name = \"\")",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 151,
+        "text": "return AddContextHook(new HookHandle<X64InlineHook>(), target, callback, options, name);",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 154,
+        "text": "public HookHandle<X64FunctionCloneHook> AddCloneHook(HookHandle<X64FunctionCloneHook> handle, HookTarget target, IEnumerable<FunctionClonePatch> patches, [CallerArgumentExpression(\"handle\")] string name = \"\")",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 271,
+        "text": "throw new ArgumentNullException(\"handle\", \"Detour handle \" + text + \" is null. Initialize the field with new DetourHandle<\" + typeof(TFunction).Name + \">(), or call the overload which starts with HookTarget and use its returned handle. Registration validates the handle before resolving the target, so an export target has not been looked up yet.\");",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
     "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\a\\settings-state\\001\\noesis-metadata.cs",
     "relativePath": ".work/a/settings-state/001/noesis-metadata.cs",
     "sha256": "85F951F617F18ECEAC9415066573BF1904BA94340985FD6CECA00E0FFF654E37",
@@ -59493,6 +59598,2044 @@
   },
   {
     "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\examples\\ThirdPartyMod\\HudExample.cs",
+    "relativePath": ".work/b/api-main/003/examples/ThirdPartyMod/HudExample.cs",
+    "sha256": "0EE8BFD85171548EA3965E22AE1D32E7C225F6254131CD9677E5323855E80F19",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 50,
+        "text": "public event System.EventHandler CanExecuteChanged { add { } remove { } }",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\examples\\ThirdPartyMod\\WorkshopExample.cs",
+    "relativePath": ".work/b/api-main/003/examples/ThirdPartyMod/WorkshopExample.cs",
+    "sha256": "EB09C3715BA8FAA92AC41731BEBE09CE061EE3E13E33526961A786DAAE9AABC9",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 8,
+        "text": "// Invoke from a Unity-thread UI/event after Steam initialized. This does not depend on native API readiness.",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\Audio\\SoundClips.cs",
+    "relativePath": ".work/b/api-main/003/src/Audio/SoundClips.cs",
+    "sha256": "FED77F4D0E28C35AF754862E1359097E44217662FB7334C508BCC3FA4FBEF4B8",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 61,
+        "text": "MapLoaderR3EventHooks.OnUnloadMap.Observable.Subscribe(MapBoundary),",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 62,
+        "text": "MapLoaderR3EventHooks.OnLoadMap.Observable.Subscribe(MapBoundary),",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 63,
+        "text": "MapLoaderR3EventHooks.OnLoadSave.Observable.Subscribe(MapBoundary),",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 64,
+        "text": "MapLoaderR3EventHooks.OnStartMap.Observable.Subscribe(MapBoundary)",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\Audio\\SoundContracts.cs",
+    "relativePath": ".work/b/api-main/003/src/Audio/SoundContracts.cs",
+    "sha256": "607565729C3D0FCC0A72B2C9A624CA2F0F3B3EF2EC73A7FBBA5B7AF6DD06D12A",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 135,
+        "text": "/// <summary>Synchronous Unity playback Pre. Mutations freeze afterward; owner-private State follows the shared event contract.</summary>",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\Audio\\SoundReturnFilter.cs",
+    "relativePath": ".work/b/api-main/003/src/Audio/SoundReturnFilter.cs",
+    "sha256": "235F2E440769EDB6BBC5A7CCEC268C4F31EDE282CFC07F73E3C40D41AEC14D6A",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 41,
+        "text": "if (rva <= 0) throw new InvalidOperationException(\"Invalid audio return RVA.\");",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\Audio\\SoundRuntime.cs",
+    "relativePath": ".work/b/api-main/003/src/Audio/SoundRuntime.cs",
+    "sha256": "B632D957073AF8E3CEC570CDA51C6F926B6E841F7DBEA63840C0137F3DA0E3E0",
+    "entryCandidates": [
+      "0x2990",
+      "0x2960",
+      "0x1A41E0"
+    ],
+    "observations": [
+      {
+        "line": 281,
+        "text": "// A source-event replacement leaves the record unmarked: its effect is no longer the audited one.",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\Buildings\\Gatehouse\\GatehouseAutomationNativeState.cs",
+    "relativePath": ".work/b/api-main/003/src/Buildings/Gatehouse/GatehouseAutomationNativeState.cs",
+    "sha256": "332608F16F1F6AA78F8C02FEAF8D4F38B0255238AF53BCBB7D861C6371D95CEA",
+    "entryCandidates": [
+      "0xC5300",
+      "0xD5810",
+      "0xB73D0"
+    ],
+    "observations": [
+      {
+        "line": 60,
+        "text": "private readonly HookHandle<X64InlineHook>[] hooks =",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 62,
+        "text": "new HookHandle<X64InlineHook>(), new HookHandle<X64InlineHook>(),",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 63,
+        "text": "new HookHandle<X64InlineHook>(), new HookHandle<X64InlineHook>(),",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 64,
+        "text": "new HookHandle<X64InlineHook>(), new HookHandle<X64InlineHook>()",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 179,
+        "text": "transaction.AddInline(hooks[site], HookTarget.FromAddress(moduleBase + (ulong)HookRvas[site]),",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\Buildings\\Gatehouse\\GatehousePermanentRuntimeState.cs",
+    "relativePath": ".work/b/api-main/003/src/Buildings/Gatehouse/GatehousePermanentRuntimeState.cs",
+    "sha256": "17C2A103D160765F60298A2F303CEA9B895C5301CC2690E820E8C5DD45865A87",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 40,
+        "text": "private readonly HookHandle<X64InlineHook> distanceHook = new HookHandle<X64InlineHook>();",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 41,
+        "text": "private readonly HookHandle<X64InlineHook> decisionHook = new HookHandle<X64InlineHook>();",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 81,
+        "text": "HookTarget.FromAddress(moduleBase + DistanceHookRva),",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 90,
+        "text": "HookTarget.FromAddress(moduleBase + DecisionHookRva),",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\Buildings\\Gatehouse\\GatehouseTimingCapability.cs",
+    "relativePath": ".work/b/api-main/003/src/Buildings/Gatehouse/GatehouseTimingCapability.cs",
+    "sha256": "0A72C80316BBDF7F08ADCB2CC9477C6C7F6863A1E1C4E59358978EE98A586AC8",
+    "entryCandidates": [
+      "0xB73D0"
+    ],
+    "observations": [
+      {
+        "line": 456,
+        "text": "$\"Validated gatehouse handler RVA 0x{target.FunctionRva:X}-0x{target.FunctionEndRva:X} with function SHA-256 {target.FunctionHash}.\");",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\Buildings\\Repair\\BuildingRepairCapability.cs",
+    "relativePath": ".work/b/api-main/003/src/Buildings/Repair/BuildingRepairCapability.cs",
+    "sha256": "440D106CC05A6BB1C04C3330AD1E681A6759230BA4C95B909AD8205DD5A4854D",
+    "entryCandidates": [
+      "0xD51A0"
+    ],
+    "observations": [
+      {
+        "line": 112,
+        "text": ".Method(typeof(global::SHCDESE.API.GameBuildingManagerAPI), \"GetBuildingManager\", typeof(global::RedBird.Core.Memory.NativePointer<global::SHCDESE.Interop.GameBuildingManager>))",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 171,
+        "text": "candidateSubscription = BuildingR3EventHooks.OnBuildingRepair.Observable.Subscribe(candidate.OnBuildingRepair);",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 350,
+        "text": "RecordError(\"Building repair event had an invalid building identity or state; native repair skipped.\");",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 561,
+        "text": "public event PropertyChangedEventHandler PropertyChanged;",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\Compatibility\\FixesWheatAnalysis.cs",
+    "relativePath": ".work/b/api-main/003/src/Compatibility/FixesWheatAnalysis.cs",
+    "sha256": "8102B7903C60CB90795D88A83B57049CDDBAAFF5C3203F3A51281C5043A7C65C",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 13,
+        "text": "// file hash, a version or a fixed RVA: the hook site comes from Fixes' own hook handle, the seller frame",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\Compatibility\\FixesWheatContract.cs",
+    "relativePath": ".work/b/api-main/003/src/Compatibility/FixesWheatContract.cs",
+    "sha256": "892ECAB4D993FBE48C7DF6315D34829B3FB2F9D96ED47DC42FF98A796273B302",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 4,
+        "text": "// code by FixesWheatAnalysis; no binary hash, version or fixed RVA is part of it.",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\Compatibility\\FixesWheatMemory.cs",
+    "relativePath": ".work/b/api-main/003/src/Compatibility/FixesWheatMemory.cs",
+    "sha256": "848FB859D91B8C47F2619EC983274FCF2CAA24B4AD81738F11B0BB8DDC905533",
+    "entryCandidates": [
+      "0x1000"
+    ],
+    "observations": [
+      {
+        "line": 18,
+        "text": "[DllImport(\"kernel32.dll\", SetLastError = true)]",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 20,
+        "text": "[DllImport(\"kernel32.dll\", SetLastError = true)]",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 23,
+        "text": "[DllImport(\"kernel32.dll\", SetLastError = true)]",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 26,
+        "text": "[DllImport(\"kernel32.dll\")]",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\Compatibility\\FixesWheatStartup.cs",
+    "relativePath": ".work/b/api-main/003/src/Compatibility/FixesWheatStartup.cs",
+    "sha256": "7A0743FD705AC1DEACB4A364A86293D538429FFB02F626B97A26C2F3DF9401FC",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 25,
+        "text": "[DllImport(\"kernel32.dll\", CharSet = CharSet.Unicode)]",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 27,
+        "text": "[DllImport(\"kernel32.dll\", CharSet = CharSet.Unicode, SetLastError = true)]",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 123,
+        "text": "var handle = ReadField<HookHandle<X64InlineHook>>(owner, \"c_game_ai_sell_item_handler_hook\");",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 132,
+        "text": "X64InlineHook hook = handle.Hook;",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 143,
+        "text": "byte[] original = (byte[])typeof(X64InlineHook).GetField(\"_originalBytesBackup\",",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 205,
+        "text": "foreach (Assembly backend in new[] { typeof(Chainloader).Assembly, typeof(X64InlineHook).Assembly,",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 206,
+        "text": "typeof(HookHandle<X64InlineHook>).Assembly, typeof(NativeFlagArray).Assembly,",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\Core\\APISharedPlugin.cs",
+    "relativePath": ".work/b/api-main/003/src/Core/APISharedPlugin.cs",
+    "sha256": "AF38AFE864F18C9B98ABF16D70EC71B0D5FCD6ACC9ECDD6CBC8F45401DA89E9F",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 49,
+        "text": "// The Script Extender event roots this plugin's native initialization after BepInEx",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 107,
+        "text": "new NativeInitializationStep(\"interpolate event reuse\", () => ScriptExtenderFixes.InterpolateEventReuseRuntime.Initialize(Config, RuntimeLogger)),",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\Core\\ApiSharedRuntime.cs",
+    "relativePath": ".work/b/api-main/003/src/Core/ApiSharedRuntime.cs",
+    "sha256": "5FA5ECCFF89F3D96228F77FE2E301848F95FFCE4605331523F69D2C5E535F025",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 83,
+        "text": "NativeApiLog.Error(logger, \"Shared event callback failed: \" + registration + \": \" + error);",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\Core\\Events\\InterceptionEvent.cs",
+    "relativePath": ".work/b/api-main/003/src/Core/Events/InterceptionEvent.cs",
+    "sha256": "25700A635B79FC14836407AF25326CEA3B6F72CEAAB19930E7E6281AF6B16E78",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 31,
+        "text": "// One registry per named interception point. Immutable snapshots prevent registration during",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\Core\\Events\\ManagedInterceptionHook.cs",
+    "relativePath": ".work/b/api-main/003/src/Core/Events/ManagedInterceptionHook.cs",
+    "sha256": "45747C06FF4C37BC2950823BEF36161805A2FFDDF5CAA40CE01392E65EF6B646",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 7,
+        "text": "// The static event publisher roots each installed hook. No release/disposal path is exposed.",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\Core\\Internal\\Native\\NativeOwnershipRegistry.cs",
+    "relativePath": ".work/b/api-main/003/src/Core/Internal/Native/NativeOwnershipRegistry.cs",
+    "sha256": "E6C65F0174E9A88BF6CE8D8A9316AE280A747A6535677C48C211EF8B06E8A2D9",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 33,
+        "text": "// - Sites, in CrusaderDE.dll RVA space: who writes, chains, calls or observes which bytes.",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 63,
+        "text": "// checks and the RVA view of absolute capability reservations. Later calls are ignored.",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 363,
+        "text": "return $\"Span {span} has a negative RVA.\";",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 367,
+        "text": "return $\"Span {span} exceeds the 32-bit RVA range.\";",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 414,
+        "text": "// Absolute capability intervals become RVAs once the module is bound. An unbound registry (an",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 415,
+        "text": "// isolated test runtime) publishes values that already fit the RVA range unchanged.",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\Core\\Internal\\Native\\UniquePatternSearch.cs",
+    "relativePath": ".work/b/api-main/003/src/Core/Internal/Native/UniquePatternSearch.cs",
+    "sha256": "2675FC216114B5B5A18128248189DC47EA887EC8C08858C9E4D390128FA882E9",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 46,
+        "text": "// For callers already bound to an audited binary hash: a match at the audited reference RVA",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\Core\\Internal\\UnityMainThreadDispatch.cs",
+    "relativePath": ".work/b/api-main/003/src/Core/Internal/UnityMainThreadDispatch.cs",
+    "sha256": "84C6CCA409C86462C236B80620483FCADB50C1871C0ECBB5847A06FD2DF0AD7E",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 123,
+        "text": "// SynchronizationContext and prevent later queued work.",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\Core\\NativeSites\\NativeSiteContracts.cs",
+    "relativePath": ".work/b/api-main/003/src/Core/NativeSites/NativeSiteContracts.cs",
+    "sha256": "95EF9627B09419BB55D0C1FED59FBEADAC8CC79A87860C55266948C956A48A00",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 7,
+        "text": "/// How a registrant uses a span of the loaded CrusaderDE.dll image. Spans are RVAs relative to",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 24,
+        "text": "/// same start RVA and with <see cref=\"CallOnly\"/> callers. An allowed chain only means the",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 46,
+        "text": "/// <summary>Both are chainable entry detours: they coexist only when both spans start at the same RVA.",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 74,
+        "text": "/// <param name=\"rva\">Start RVA inside CrusaderDE.dll.</param>",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 90,
+        "text": "/// <summary>Start RVA inside CrusaderDE.dll.</summary>",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 127,
+        "text": "/// <summary>Start RVA inside CrusaderDE.dll.</summary>",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 131,
+        "text": "/// <summary>Exclusive end RVA.</summary>",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\Core\\NativeSites\\NativeSiteRegistry.cs",
+    "relativePath": ".work/b/api-main/003/src/Core/NativeSites/NativeSiteRegistry.cs",
+    "sha256": "20FA706F9B3B16ECE1743D35A0D807FC0D29AFF32C94BAA0178378C87EF2A466",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 21,
+        "text": "/// <para>Address space: RVAs relative to the loaded CrusaderDE.dll, half-open spans. Rules between",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 74,
+        "text": "/// <param name=\"rva\">Start RVA.</param>",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\Diagnostics\\AivBuildStepCapability.cs",
+    "relativePath": ".work/b/api-main/003/src/Diagnostics/AivBuildStepCapability.cs",
+    "sha256": "7E32E9511BA8B4E39697FCA4C9AD9AD073C1A66CD221FA3EE5D6B875F36AA23E",
+    "entryCandidates": [
+      "0x51790"
+    ],
+    "observations": [
+      {
+        "line": 127,
+        "text": "pending.AddDetour(",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 129,
+        "text": "HookTarget.FromAddress(unchecked((ulong)moduleBase) + FunctionRva),",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 146,
+        "text": "$\"AIV ExecuteBuildStep is owned by APIShared at RVA 0x{FunctionRva:X}; function SHA-256={FunctionHash}.\");",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\Economy\\AiMarketSellAssembly.cs",
+    "relativePath": ".work/b/api-main/003/src/Economy/AiMarketSellAssembly.cs",
+    "sha256": "E7BC0247CF9F08B1848621AEBAB8364EA779C8D5DDBA891521DEC80646927C47",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 108,
+        "text": "throw new InvalidOperationException($\"AI sell native contract differs at RVA=0x{Sites[i]:X}.\");",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 111,
+        "text": "throw new InvalidOperationException($\"AI sell native contract differs at RVA=0x{BoundaryRvas[i]:X}.\");",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\Economy\\AiMarketSellNativeRuntime.cs",
+    "relativePath": ".work/b/api-main/003/src/Economy/AiMarketSellNativeRuntime.cs",
+    "sha256": "C3D24540DF54BA218822E205B0540D1C89BF69F8140C466E566098EBFB4BDA1B",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 36,
+        "text": "private readonly HookHandle<X64InlineHook>[] handles = new HookHandle<X64InlineHook>[2];",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 106,
+        "text": "using (var probe = new X64InlineHook(image + (uint)AiMarketSellAssembly.Sites[i], 15))",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 121,
+        "text": "int index = i; handles[i] = new HookHandle<X64InlineHook>();",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 122,
+        "text": "transaction.AddInline(handles[i], HookTarget.FromAddress(image + (uint)AiMarketSellAssembly.Sites[i]),",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 158,
+        "text": "throw new InvalidOperationException($\"AI sell site RVA=0x{rva:X} is occupied or changed.\");",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 164,
+        "text": "throw new InvalidOperationException($\"AI sell native boundary differs live at RVA=0x{rva:X}.\");",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 166,
+        "text": "private void ValidateStub(int index, X64InlineHook hook)",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\Economy\\FearPopularityIl.cs",
+    "relativePath": ".work/b/api-main/003/src/Economy/FearPopularityIl.cs",
+    "sha256": "63BABDBE1C0F1BC9CF29222D882B011EBEEFEDD9590833D7FB0312371243FA88",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 358,
+        "text": "!(argument.ParameterType is GenericInstanceType generic)||generic.ElementType.FullName!=\"RedBird.Core.Memory.NativePointer`1\"||",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\Economy\\MarketPriceNativeRuntime.cs",
+    "relativePath": ".work/b/api-main/003/src/Economy/MarketPriceNativeRuntime.cs",
+    "sha256": "9DD586C0B469DA9EB3017CFCA15C82CC8222EBC5E6213C82B79D16F7382FAD09",
+    "entryCandidates": [
+      "0xCEB10",
+      "0xCEB90"
+    ],
+    "observations": [
+      {
+        "line": 95,
+        "text": "pending.AddDetour(buy, HookTarget.FromAddress(unchecked((ulong)(module + BuyRva).ToInt64())), (PriceCall)Buy);",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 96,
+        "text": "pending.AddDetour(sell, HookTarget.FromAddress(unchecked((ulong)(module + SellRva).ToInt64())), (PriceCall)Sell);",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\GameModes\\GameplayModeGate.cs",
+    "relativePath": ".work/b/api-main/003/src/GameModes/GameplayModeGate.cs",
+    "sha256": "EB41AC6F7B9EB6277B265F8A78480D1B61891709EE3AFF051B5E7A8C5E44200D",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 30,
+        "text": "/// <summary>Raised after an allowed/blocked transition on the Update caller thread. Each listener is isolated; exceptions cannot prevent other listeners or alter the published decision.</summary>",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 31,
+        "text": "public event Action<bool> StateChanged;",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\Lobby\\LobbyStateCapability.cs",
+    "relativePath": ".work/b/api-main/003/src/Lobby/LobbyStateCapability.cs",
+    "sha256": "387541E7426AF9338DD3314FC9D94C7AD39638FE67918FD8DB1E2B31EAF0962C",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 149,
+        "text": ".Subscribe(_ => OnMapStarting());",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 151,
+        "text": ".Subscribe(_ => OnMapUnloaded());",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\Missions\\Internal\\MissionEventRelay.cs",
+    "relativePath": ".work/b/api-main/003/src/Missions/Internal/MissionEventRelay.cs",
+    "sha256": "8D66F9055644237D580E6E8FA2CA3A31E45540ED0CF43BD4504BA1607E0C5924",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 136,
+        "text": "var start = MissionEvents.Started.Subscribe(e =>",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 142,
+        "text": "var end = MissionEvents.Ended.Subscribe(_ =>",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\Missions\\MissionLifecycleCapability.cs",
+    "relativePath": ".work/b/api-main/003/src/Missions/MissionLifecycleCapability.cs",
+    "sha256": "4EB921E738F5C1AFD6680BA8684BF34DD839C06866F028A702D0E3F9AC581568",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 124,
+        "text": "candidate.Subscribe();",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 237,
+        "text": "private void Subscribe()",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 240,
+        "text": "subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable.Subscribe(e => Safe(() =>",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 242,
+        "text": "subscriptions.Add(MapLoaderR3EventHooks.OnStartMap.Observable.Subscribe(e => Safe(() =>",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 405,
+        "text": "catch { /* Failure reporting must not prevent the lifecycle transition. */ }",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\Missions\\MissionLifecycleState.cs",
+    "relativePath": ".work/b/api-main/003/src/Missions/MissionLifecycleState.cs",
+    "sha256": "65C369DFBD9F4B7B8343A49FA92F0AC7940E81045D599D096FA9A73E9B1B1237",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 6,
+        "text": "// Pure state machine: no game objects, native pointers, or mutable event arguments escape.",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\ModSettings\\Internal\\AtomicFileReplacement.cs",
+    "relativePath": ".work/b/api-main/003/src/ModSettings/Internal/AtomicFileReplacement.cs",
+    "sha256": "3686B422D289A5EBC4BFC84895DFE875D0F08468FF011D5717E4BD50EB4060C6",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 31,
+        "text": "[DllImport(",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\ModSettings\\Lobby\\LobbySettingsReceiveRuntime.cs",
+    "relativePath": ".work/b/api-main/003/src/ModSettings/Lobby/LobbySettingsReceiveRuntime.cs",
+    "sha256": "96D91ACFF665D4D364E0993043DBD67051206F64CEC3181F3E1AEC577AE4F4DE",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 58,
+        "text": "if (missionEnded == null) missionEnded = MissionEvents.Ended.Subscribe(_ => RefreshContext());",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\ModSettings\\Lobby\\PerPlayerLobbySettings.cs",
+    "relativePath": ".work/b/api-main/003/src/ModSettings/Lobby/PerPlayerLobbySettings.cs",
+    "sha256": "4FCD345DB20D4F65C883BA73509511CEBB48AC6F95846DD98BD56A93EDAF2690",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 148,
+        "text": "mapStartSubscription = APIShared.Internal.MissionEvents.NativeStart.Subscribe(args =>",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\ModSettings\\ModSettingsApplication.cs",
+    "relativePath": ".work/b/api-main/003/src/ModSettings/ModSettingsApplication.cs",
+    "sha256": "7F11E3BBA9AB5D8A197BB97A31D552E270308A782FEF9C2A3129BC075651DC53",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 21,
+        "text": "public static event Action PreparationChanged;",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\ModSettings\\Presets\\LobbyModSettingsPresetRegistration.cs",
+    "relativePath": ".work/b/api-main/003/src/ModSettings/Presets/LobbyModSettingsPresetRegistration.cs",
+    "sha256": "C279C47EC89370ABA1B210F3D0471AD6DAFB79B9633A277E475C57AB65AC2439",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 107,
+        "text": "/// <summary>Registers the plugin-owned settings model and XAML page on the Unity thread. Uses plugin metadata for GUID/version and Documents for personal storage; validates settings before publishing and retains event handlers. This overload leaves scroll diagnostics disabled.</summary>",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 124,
+        "text": "/// <summary>Registers the plugin-owned settings model and XAML page on the Unity thread. Uses plugin metadata for GUID/version and Documents for personal storage; validates settings before publishing and retains event handlers. This overload leaves scroll diagnostics disabled.</summary>",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 138,
+        "text": "/// <remarks>Register on the Unity thread. Diagnostics use the supplied logger and mod name; no plugin GUID is inspected. Registrations and UI event handlers remain rooted for the process lifetime.</remarks>",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\ModSettings\\Presets\\ModSettingsWorkingSources.cs",
+    "relativePath": ".work/b/api-main/003/src/ModSettings/Presets/ModSettingsWorkingSources.cs",
+    "sha256": "E45C4C3B50D1F57BB9E9C6033F0DBCD80DE46600F4264D5807905AA19A8E8363",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 38,
+        "text": "event Action SourcesChanged;",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 59,
+        "text": "public static event Action SourcesChanged;",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\ModSettings\\Presets\\PresetDialogModels.cs",
+    "relativePath": ".work/b/api-main/003/src/ModSettings/Presets/PresetDialogModels.cs",
+    "sha256": "60235B1AF2A40E64885F09942B4CA5E781B3BCAC6BEDC418B1799FFCF64EA56C",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 68,
+        "text": "public event PropertyChangedEventHandler PropertyChanged;",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\ModSettings\\Presets\\PresetLobbyModSettingsViewModel.cs",
+    "relativePath": ".work/b/api-main/003/src/ModSettings/Presets/PresetLobbyModSettingsViewModel.cs",
+    "sha256": "505A535D340E2AAAC26F10250B6389DC1DD153D1B28DD8F47753BA3495143CC7",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 1160,
+        "text": "/// <summary>Notifies the Extender and coordinates persistence/publication for changed participant properties. Invoke after a real value change; snapshot guards prevent partial reentrant saves.</summary>",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\ModSettings\\UI\\ModSettingsModeAvailability.cs",
+    "relativePath": ".work/b/api-main/003/src/ModSettings/UI/ModSettingsModeAvailability.cs",
+    "sha256": "352CF411AB638A5952BABBA2ED3F48A145ADAD16565FB945332DA10EBDEF3D34",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 29,
+        "text": "public event PropertyChangedEventHandler PropertyChanged;",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 51,
+        "text": "public event PropertyChangedEventHandler PropertyChanged;",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\ModSettings\\UI\\ModSettingsSearchCatalog.cs",
+    "relativePath": ".work/b/api-main/003/src/ModSettings/UI/ModSettingsSearchCatalog.cs",
+    "sha256": "35AB626141807875B4DD44A74A0E58F054FC1BDDBE56E3ED4AA8871ADAEC6A3B",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 24,
+        "text": "public static event Action<object> SourceChanged;",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 27,
+        "text": "public static event Action<object> StateChanged;",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\NativeKnowledge\\NativeFieldCatalog.Data.cs",
+    "relativePath": ".work/b/api-main/003/src/NativeKnowledge/NativeFieldCatalog.Data.cs",
+    "sha256": "F080F087916E4CCC6AC642D73CAFCA4CCB53DC52415BEDA86C863557CDBD36A0",
+    "entryCandidates": [
+      "0x2210",
+      "0x19A240",
+      "0xCDE60",
+      "0xC3C80",
+      "0x199110",
+      "0xB8F40",
+      "0x1D160"
+    ],
+    "observations": [
+      {
+        "line": 46,
+        "text": "new NativeFieldMeaning[] { new NativeFieldMeaning(\"SharedBuildingLinkWord\", NativeMeaningConfidence.Probable, \"Nonzero dword links compound building parts for accessibility propagation; siege-only interpretation is too narrow. Source/header historical names can refer to neighboring storage.\", new NativeFieldEvidence(NativeEvidenceKind.NativeAudit, \"baseline/sem/FBCB9319/knowledge/AI_ECONOMY_OBSERVATION.md\", \"CFD031DF36644C48AB3BB7963AF5A7AA548843000FBF119646C6EEC94F03554B\", 20, 27, \"Feature audit establishes only the scoped description; gameplay acceptance is independent.\"), new NativeFieldEvidence(NativeEvidenceKind.ExtenderSource, \"extender/src/SHCDESE.BepInEx/Interop/GameBuilding.cs\", \"2EADBC2EE4D8A42914B526969430FA88C4E93875B983C6188C9C1C37CF00C3D4\", 219, 219, \"Current declaration captured separately from native semantics.\")) },",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 47,
+        "text": "new NativeFieldBinding[] { new NativeFieldBinding(CapturedNativeHash, 812, 0x2A8, NativeScalarType.UInt32, 1, 4, true, \"Audited bounded raw read; no gameplay outcome or pointer-validity guarantee.\", new NativeFieldEvidence(NativeEvidenceKind.NativeAudit, \"baseline/sem/FBCB9319/knowledge/AI_ECONOMY_OBSERVATION.md\", \"CFD031DF36644C48AB3BB7963AF5A7AA548843000FBF119646C6EEC94F03554B\", 20, 27, \"Feature audit establishes only the scoped description; gameplay acceptance is independent.\"), new NativeFieldEvidence(NativeEvidenceKind.ExtenderSource, \"extender/src/SHCDESE.BepInEx/Interop/GameBuilding.cs\", \"2EADBC2EE4D8A42914B526969430FA88C4E93875B983C6188C9C1C37CF00C3D4\", 219, 219, \"Current declaration captured separately from native semantics.\")) });",
+        "coordinates": [
+          "0x2A8"
+        ],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\Networking\\ChoreChannel.cs",
+    "relativePath": ".work/b/api-main/003/src/Networking/ChoreChannel.cs",
+    "sha256": "5BA71294D3A16DD3F0147E409D4E5CC2BF6BC7F614D95553CCA289D3A0EC45C2",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 26,
+        "text": "subscription = hook.GetBaseHook().Observable.Subscribe(args =>",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\Networking\\MessageChannel.cs",
+    "relativePath": ".work/b/api-main/003/src/Networking/MessageChannel.cs",
+    "sha256": "F36D752E28FADB5A4DA020654C5C3EAF35C191A1EC46BF772657F8891C7C864E",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 34,
+        "text": "subscription = hook.GetBaseHook().Observable.Subscribe(args =>",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\Pathfinding\\Assassin\\AssassinAttackControlAPI.cs",
+    "relativePath": ".work/b/api-main/003/src/Pathfinding/Assassin/AssassinAttackControlAPI.cs",
+    "sha256": "0AC23EEB20B410282FDA0B785F34AE3F1ECB9AF1B62A3F74D43655CAD726BE77",
+    "entryCandidates": [
+      "0x122800",
+      "0x16CD70"
+    ],
+    "observations": [
+      {
+        "line": 140,
+        "text": "pending.AddDetour(candidate, HookTarget.FromAddress(unchecked((ulong)target.ToInt64())), (AssassinAttackNativeContract.UpdateDelegate)DispatchAssassinUpdate);",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 159,
+        "text": "try { log?.LogInfo(\"Assassin attack guard installed; APIShared owner, RVA=0x16CD70, Indirect/10, continuation=0x16CD7A.\"); } catch { }",
+        "coordinates": [
+          "0x16CD70",
+          "0x16CD7A"
+        ],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\Pathfinding\\Assassin\\AssassinPathAPI.cs",
+    "relativePath": ".work/b/api-main/003/src/Pathfinding/Assassin/AssassinPathAPI.cs",
+    "sha256": "29F0FA0A7DACFB42D105CF529AE25D6FC62F6DF4A1B50191D0B72CF47F262240",
+    "entryCandidates": [
+      "0xD9C40"
+    ],
+    "observations": [
+      {
+        "line": 43,
+        "text": "private static HookHandle<X64InlineHook>[] endpointHooks;",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 393,
+        "text": "var pendingEndpoints = new HookHandle<X64InlineHook>[AssassinPathNativeDefinition.Sites.Length];",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 406,
+        "text": "pendingEndpoints[index] = new HookHandle<X64InlineHook>();",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 408,
+        "text": "HookTarget.FromAddress(nativeBase + (uint)AssassinPathNativeDefinition.Sites[index]),",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 419,
+        "text": "pending.AddDetour(pendingBuilder, HookTarget.FromAddress(nativeBase + 0xD9C40), (AssassinPathBuilder)Build);",
+        "coordinates": [
+          "0xD9C40"
+        ],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\Pathfinding\\GateRoutes\\Native\\EnemyGatePathfindingNativeDefinition.cs",
+    "relativePath": ".work/b/api-main/003/src/Pathfinding/GateRoutes/Native/EnemyGatePathfindingNativeDefinition.cs",
+    "sha256": "CAC5BC2D371FD5D4249E19B1F2BCB212913C879C82599BE778F232D5A28C4A3F",
+    "entryCandidates": [
+      "0xE2610",
+      "0xDA020",
+      "0x195E30",
+      "0xDB650",
+      "0xDBC60",
+      "0x123090",
+      "0x1232E0",
+      "0xF4930",
+      "0xDC3C0",
+      "0x113BC0"
+    ],
+    "observations": [
+      {
+        "line": 310,
+        "text": "$\"{name} differs at RVA 0x{rva + index:X}: \" +",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\Pathfinding\\GateRoutes\\Native\\GateNativeSearchScopes.cs",
+    "relativePath": ".work/b/api-main/003/src/Pathfinding/GateRoutes/Native/GateNativeSearchScopes.cs",
+    "sha256": "839CD185AB8897145626C4591184D5776A493C882B2527B51B313AE609AF60C3",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 13,
+        "text": "[DllImport(\"kernel32.dll\")] private static extern uint GetCurrentThreadId();",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\Pathfinding\\GateRoutes\\Native\\GateRoutingNativeHooks.cs",
+    "relativePath": ".work/b/api-main/003/src/Pathfinding/GateRoutes/Native/GateRoutingNativeHooks.cs",
+    "sha256": "5951CEE0F2094203928CCC623A67772F4A124D177D8B4696D822F26D9D9CEF0F",
+    "entryCandidates": [
+      "0x1000"
+    ],
+    "observations": [
+      {
+        "line": 90,
+        "text": "private readonly HookHandle<X64InlineHook> directCursorHook = new HookHandle<X64InlineHook>();",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 91,
+        "text": "private readonly HookHandle<X64InlineHook> cursorPclDecisionHook = new HookHandle<X64InlineHook>();",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 92,
+        "text": "private readonly HookHandle<X64InlineHook>[] edgeHooks = new HookHandle<X64InlineHook>[EnemyGatePathfindingNativeDefinition.DirectionFilterRvas.Length];",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 93,
+        "text": "private readonly HookHandle<X64InlineHook>[] tacticalEdgeHooks = new HookHandle<X64InlineHook>[EnemyGatePathfindingNativeDefinition.AiTacticalFilterRvas.Length];",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 180,
+        "text": "private DetourCandidate<T> AddDetour<T>(int rva, T callback, ulong libraryBase) where T : Delegate",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 185,
+        "text": "transaction.AddDetour(candidate.Handle, HookTarget.FromAddress(address), callback);",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 197,
+        "text": "alternateConsumer = AddDetour<BuildingConsumerDelegate>(",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 204,
+        "text": "candidateSearch = AddDetour<CandidateSearchDelegate>(",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 211,
+        "text": "aiTacticalTarget = AddDetour<AiTacticalTargetDelegate>(",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 224,
+        "text": "using (var probe = new X64InlineHook(",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 233,
+        "text": "HookTarget.FromAddress(libraryBase +",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 244,
+        "text": "using (var probe = new X64InlineHook(",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 253,
+        "text": "HookTarget.FromAddress(libraryBase +",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 260,
+        "text": "edgeHooks[index] = new HookHandle<X64InlineHook>();",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 269,
+        "text": "using (var probe = new X64InlineHook(libraryBase + unchecked((ulong)rva), 14))",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 274,
+        "text": "HookTarget.FromAddress(libraryBase + unchecked((ulong)rva)),",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 280,
+        "text": "tacticalEdgeHooks[index] = new HookHandle<X64InlineHook>();",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 291,
+        "text": "using (var probe = new X64InlineHook(libraryBase + unchecked((ulong)rva), length))",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 297,
+        "text": "HookTarget.FromAddress(libraryBase + unchecked((ulong)rva)),",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 356,
+        "text": "private readonly HookHandle<X64InlineHook> pclGraphCapturedByFilterHook=new HookHandle<X64InlineHook>();",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 357,
+        "text": "private readonly HookHandle<X64InlineHook> builderPrecheckCapturedByFilterHook=new HookHandle<X64InlineHook>();",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 408,
+        "text": "HookTarget.FromAddress(libraryBase + unchecked((ulong)pclGraphFilterRva)),",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 413,
+        "text": "HookTarget.FromAddress(libraryBase + unchecked((ulong)builderPrecheckFilterRva)),",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 457,
+        "text": "var hook=new HookHandle<X64InlineHook>();",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 463,
+        "text": "using (var probe = new X64InlineHook(module + Site, Length))",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 477,
+        "text": "transaction.AddInline(hook, HookTarget.FromAddress(module + Site), (a, original, ret) =>",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\Pathfinding\\GateRoutes\\Native\\GateRoutingNativeLayout.cs",
+    "relativePath": ".work/b/api-main/003/src/Pathfinding/GateRoutes/Native/GateRoutingNativeLayout.cs",
+    "sha256": "2E98B90C20CA99E3EB6F18DC65B59EFD9051414394CA9CF4A080FED7811AD39A",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 10,
+        "text": "/// succeeded or the Validate methods passed for the loaded image; they never prove a different DLL. RVAs are",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\Pathfinding\\GateRoutes\\TemporaryGateRouteAcceptanceBridge.cs",
+    "relativePath": ".work/b/api-main/003/src/Pathfinding/GateRoutes/TemporaryGateRouteAcceptanceBridge.cs",
+    "sha256": "5495A9FEAB2573EA23D33967F7A4336769CEDE916F9A00FD3188634B2DF4E854",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 69,
+        "text": "/// <summary>Counts a diagnostic failure without retaining exceptions or an event history.</summary>",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\Pathfinding\\Moat\\ElevatedMoatAiState.cs",
+    "relativePath": ".work/b/api-main/003/src/Pathfinding/Moat/ElevatedMoatAiState.cs",
+    "sha256": "9007A8228458309DBF5689393995964F9D509C6E4FD12E05486CBFA4B3045192",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 28,
+        "text": "public static event Action<ElevatedMoatAiState> Changed;",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\Pathfinding\\Routes\\RouteSearchContracts.cs",
+    "relativePath": ".work/b/api-main/003/src/Pathfinding/Routes/RouteSearchContracts.cs",
+    "sha256": "E6389C4509C522B35A69BC8BCCFBE3C83D422710EB163596CECEEDF1B997AA25",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 56,
+        "text": "/// <summary>Largest permitted preference cost, bounded by the publisher to prevent path-sum overflow.</summary>",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\Players\\PlayerPerspectiveAPI.cs",
+    "relativePath": ".work/b/api-main/003/src/Players/PlayerPerspectiveAPI.cs",
+    "sha256": "F25D02AF4469C1D7F529C04D9D152918984009A8E13FB2EF03B1C021EF7A7E3E",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 31,
+        "text": "Action<PlayerPerspectiveChange> callback) => changes.Subscribe(ownerGuid, registrationId, callback);",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\Players\\PlayerPerspectiveChanges.cs",
+    "relativePath": ".work/b/api-main/003/src/Players/PlayerPerspectiveChanges.cs",
+    "sha256": "0DE1F742C7D82F956A808493D9216A6BF404A70D4A302A3FB8D3957F9EDC92FB",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 43,
+        "text": "internal IDisposable Subscribe(string owner, string id, Action<PlayerPerspectiveChange> callback)",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\Presentation\\BuildingTooltip\\BuildingTooltipPresentation.cs",
+    "relativePath": ".work/b/api-main/003/src/Presentation/BuildingTooltip/BuildingTooltipPresentation.cs",
+    "sha256": "26B26E66851EEE8C763F5210A22F98A93F6D79139DBCC4DC807093E921F9753E",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 103,
+        "text": "public event PropertyChangedEventHandler PropertyChanged;",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\Presentation\\HudExtras\\HudExtrasButtonsService.cs",
+    "relativePath": ".work/b/api-main/003/src/Presentation/HudExtras/HudExtrasButtonsService.cs",
+    "sha256": "D04AF93E52E09EE42605BD889B10F1AC27533690B14291D10E84EE28AEA57B5E",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 258,
+        "text": "public event System.EventHandler CanExecuteChanged { add { } remove { } }",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\Presentation\\Tooltips\\TooltipPresentation.cs",
+    "relativePath": ".work/b/api-main/003/src/Presentation/Tooltips/TooltipPresentation.cs",
+    "sha256": "3318A33346749DFB87204560B25CAB7538BF065F9E2BA1D56B256BF1283FE7FF",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 53,
+        "text": "if (!Subscribe(targets, out reason)) return false;",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 74,
+        "text": "private static bool Subscribe(TooltipTarget requested, out string reason)",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 178,
+        "text": "if ((!installed[0] || !installed[1] || !lifecycleSubscribed) && !Subscribe(TooltipTarget.Repair, out string reason)) Report(\"repair registration\", new InvalidOperationException(reason));",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\Presentation\\Tooltips\\TooltipProviderAdapters.cs",
+    "relativePath": ".work/b/api-main/003/src/Presentation/Tooltips/TooltipProviderAdapters.cs",
+    "sha256": "62EE0CA0674EF958A210F64D8A0D330555CC5B7D6BFD060A6D8F2413755C3E17",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 6,
+        "text": "// Separate target caches prevent inactive alternatives from invalidating active text each GUI pass.",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\Presentation\\UnitHud\\UnitHudPresentationService.ActionButtons.cs",
+    "relativePath": ".work/b/api-main/003/src/Presentation/UnitHud/UnitHudPresentationService.ActionButtons.cs",
+    "sha256": "7AB945218F20E1E39922EB8E4924C48507C844D747B62F2C9247E9F7771466BE",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 179,
+        "text": "// Vanilla's transparent rectangles prevent world clicks; they do not reserve button space.",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 338,
+        "text": "public event System.EventHandler CanExecuteChanged { add { } remove { } }",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\Presentation\\UnitHud\\UnitHudPresentationService.Hooks.cs",
+    "relativePath": ".work/b/api-main/003/src/Presentation/UnitHud/UnitHudPresentationService.Hooks.cs",
+    "sha256": "52CF2A80B30B57F140B9E6F00EE1C90702D51AC35983A7CB48D5492F1809A0EE",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 126,
+        "text": "mapUnloadSubscription = APIShared.Internal.MissionEvents.Ended.Subscribe(_ => {",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\Projectiles\\PlagueHeightRuntime.cs",
+    "relativePath": ".work/b/api-main/003/src/Projectiles/PlagueHeightRuntime.cs",
+    "sha256": "DF7C8E34EDE37BF48FC8423156B729D113474778032E95256409562A152BEA9E",
+    "entryCandidates": [
+      "0xC07C0"
+    ],
+    "observations": [
+      {
+        "line": 25,
+        "text": "private readonly HookHandle<X64InlineHook>[] hooks = new HookHandle<X64InlineHook>[4];",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 61,
+        "text": "throw new InvalidOperationException($\"Live hook bytes differ: RVA=0x{site:X}.\");",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 62,
+        "text": "using (var probe = new X64InlineHook(module + (uint)site, length))",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 83,
+        "text": "int index = i; hooks[i] = new HookHandle<X64InlineHook>();",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 84,
+        "text": "transaction.AddInline(hooks[i], HookTarget.FromAddress(module + (uint)PlagueHeightAssembly.Sites[i]),",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 100,
+        "text": "NativeApiLog.Info(log, \"hook confirmed: PlagueHeight RVAs=9FDB8/192809/9CB6F/9CC3D; spans=32/26/26/26; initially inactive; owner-configured standing tolerance.\");",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 162,
+        "text": "private void ValidateStub(int index, X64InlineHook hook, ulong module, ulong helper)",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\Projectiles\\PlagueNativeCode.cs",
+    "relativePath": ".work/b/api-main/003/src/Projectiles/PlagueNativeCode.cs",
+    "sha256": "E9B0A1FF1D5E5B90124443E6EFB346A30AF36F175FFC07D1AEDF4BDC3BFF4656",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 36,
+        "text": "[DllImport(\"kernel32\", SetLastError = true)] private static extern IntPtr VirtualAlloc(IntPtr address, UIntPtr size, uint allocation, uint protection);",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 37,
+        "text": "[DllImport(\"kernel32\", SetLastError = true)] private static extern bool VirtualProtect(IntPtr address, UIntPtr size, uint protection, out uint previous);",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 38,
+        "text": "[DllImport(\"kernel32\", SetLastError = true)] private static extern bool VirtualFree(IntPtr address, UIntPtr size, uint freeType);",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 39,
+        "text": "[DllImport(\"kernel32\")] private static extern IntPtr GetCurrentProcess();",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 40,
+        "text": "[DllImport(\"kernel32\", SetLastError = true)] private static extern bool FlushInstructionCache(IntPtr process, IntPtr address, UIntPtr size);",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\Savegames\\SavegameLoadOptions.cs",
+    "relativePath": ".work/b/api-main/003/src/Savegames/SavegameLoadOptions.cs",
+    "sha256": "6D6DB54E97C3B83E704B77E5E241DD9119BD6A859C960F89AD6AC8B089AFEF29",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 14,
+        "text": "public event PropertyChangedEventHandler PropertyChanged;",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\Savegames\\SavegameModSettings.cs",
+    "relativePath": ".work/b/api-main/003/src/Savegames/SavegameModSettings.cs",
+    "sha256": "95F4A5C0DADE712F73EC7182E0932B2D30DAA34086410111AECAF9576E06A523",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 62,
+        "text": "missionEndSubscription = APIShared.Internal.MissionEvents.Ended.Subscribe(OnMissionEnded);",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\Savegames\\VersionedSaveDataRuntime.cs",
+    "relativePath": ".work/b/api-main/003/src/Savegames/VersionedSaveDataRuntime.cs",
+    "sha256": "2DC0B1DDE1547351CCC5964FBB7E0CF55DEB04951D5032B968E26BEBCD0B23E8",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 91,
+        "text": "if (subscriptions == null && !TrySubscribe(out reason))",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 128,
+        "text": "private static bool TrySubscribe(out string reason)",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 133,
+        "text": "created.Add(MapLoaderR3EventHooks.OnLoadSave.Observable.Subscribe(OnLoadSave));",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 134,
+        "text": "created.Add(MapLoaderR3EventHooks.OnLoadMap.Observable.Subscribe(OnLoadMap));",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 135,
+        "text": "created.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable.Subscribe(OnUnloadMap));",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 188,
+        "text": "try { NativeApiLog.Error(log, \"Versioned save data load event failed: \" + error); } catch { }",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\ScriptExtenderFixes\\ImGuiShutdownCompiler.cs",
+    "relativePath": ".work/b/api-main/003/src/ScriptExtenderFixes/ImGuiShutdownCompiler.cs",
+    "sha256": "A1657BE897A6DC6DF2EF9C58FF5FCFCBE8643A38DDF4DF9C1417BC48DF6A796E",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 39,
+        "text": "ImGuiShutdownIl.NormalizeNativePointerLocals(il, source);",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\ScriptExtenderFixes\\ImGuiShutdownIl.cs",
+    "relativePath": ".work/b/api-main/003/src/ScriptExtenderFixes/ImGuiShutdownIl.cs",
+    "sha256": "A0A2A32970E74084DEC9F7DD394D3CF0AA7376E919A91E5FB41910F800E806B4",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 13,
+        "text": "internal static void NormalizeNativePointerLocals(ILContext il, MethodInfo source)",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\ScriptExtenderFixes\\InterpolateEvent\\InterpolateEventDelivery.cs",
+    "relativePath": ".work/b/api-main/003/src/ScriptExtenderFixes/InterpolateEvent/InterpolateEventDelivery.cs",
+    "sha256": "BD000947E2DDB511CE965F6F6D494338D0173BC6B4605202CFE592DC3AF14CD6",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 15,
+        "text": "// Unknown observers receive an independently owned event object before any callback runs.",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\ScriptExtenderFixes\\InterpolateEvent\\InterpolateEventReuseRuntime.cs",
+    "relativePath": ".work/b/api-main/003/src/ScriptExtenderFixes/InterpolateEvent/InterpolateEventReuseRuntime.cs",
+    "sha256": "36E72695A72071A55CDB2225C655AFF73C6F0C924ED73CC0AFCFB80BE8CEB84F",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 62,
+        "text": "Write(\"installed: per-observer delivery guard; unknown/retaining observers receive fresh event arguments\");",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 82,
+        "text": "throw new InvalidOperationException(\"expected one directly consumed event allocation and one Raise\");",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 111,
+        "text": "throw new InvalidOperationException(\"the interpolate event subject is null\");",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\ScriptExtenderFixes\\InterpolateEvent\\TransientHandlerAnalysis.cs",
+    "relativePath": ".work/b/api-main/003/src/ScriptExtenderFixes/InterpolateEvent/TransientHandlerAnalysis.cs",
+    "sha256": "FE6EDE09AA3041A90393EA1323BAEFED08C6E6F32E43BCDE3F41B7AD1EF21A4B",
+    "entryCandidates": [
+      "0xFE00"
+    ],
+    "observations": [
+      {
+        "line": 8,
+        "text": "// Conservative IL proof that an event handler cannot retain or forward its event-args object.",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\ScriptExtenderFixes\\LordMedia\\LordMediaResolverRuntime.cs",
+    "relativePath": ".work/b/api-main/003/src/ScriptExtenderFixes/LordMedia/LordMediaResolverRuntime.cs",
+    "sha256": "842BCF8FB694A023B6A969851C3C5BB7A0A5F0FAC479FC704CEE5DAE4071FF39",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 119,
+        "text": "catch { /* Diagnostics must never prevent the original native enqueue. */ }",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\ScriptExtenderFixes\\ScriptExtenderFixesRuntime.cs",
+    "relativePath": ".work/b/api-main/003/src/ScriptExtenderFixes/ScriptExtenderFixesRuntime.cs",
+    "sha256": "F593C58663C5952411D67E9C7760315B283556480F236A6D09E9FB34CEF9A910",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 104,
+        "text": "ImGuiShutdownIl.NormalizeNativePointerLocals(il, edit.Item1);",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 201,
+        "text": "[DllImport(\"user32.dll\", EntryPoint = \"GetWindowLongPtrW\")]",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 203,
+        "text": "[DllImport(\"user32.dll\", EntryPoint = \"CallWindowProcW\")]",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\ScriptExtenderReplacements\\PathfindingTables.cs",
+    "relativePath": ".work/b/api-main/003/src/ScriptExtenderReplacements/PathfindingTables.cs",
+    "sha256": "4BF156F99E5B3FD9D48F9984718774B77ABFC4B6A40DECADE7A0CB0F812F6CA6",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 29,
+        "text": "// Native 181E00 uses (class * 0x5A + type) * 4 from class-zero RVA 32BC48.",
+        "coordinates": [
+          "0x5A"
+        ],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 30,
+        "text": "// Profile readers 18E1E0, 196280 and 198ED0 index Int32s from RVA 322540.",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 91,
+        "text": "globals.PathfindingProfilesUnitTableRVA, globals.PathfindingConnectionClassesUnitTableVA);",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\Units\\Settled\\UnitSettledContracts.cs",
+    "relativePath": ".work/b/api-main/003/src/Units/Settled/UnitSettledContracts.cs",
+    "sha256": "603732FAE41E2FDBB8D60FBA0169BB2E16198DF354DD6F15265E478CD8672A80",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 5,
+        "text": "/// <summary>The Script Extender event that started tracking a unit until it settled.</summary>",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 57,
+        "text": "/// <summary>Gets the Script Extender event that started tracking this unit.</summary>",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\Units\\Settled\\UnitSettledEvents.cs",
+    "relativePath": ".work/b/api-main/003/src/Units/Settled/UnitSettledEvents.cs",
+    "sha256": "0AFD204224218868FB45AD8F968B8E9FE716DB3949816D5FB2A6737B5A42ACF1",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 20,
+        "text": "/// slot many simulation ticks after the purchase; at the transition event the slot still has its old type.</para>",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\Units\\Settled\\UnitSettledScriptExtenderSource.cs",
+    "relativePath": ".work/b/api-main/003/src/Units/Settled/UnitSettledScriptExtenderSource.cs",
+    "sha256": "9F9A1AF9A1EF3F971F9E08B7E4DF19AB8D591F5D2DD8528D79C517CCD67B0630",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 17,
+        "text": "//   disband code (BulkUnitDetours.cs:752-821); no completion event exists.",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 39,
+        "text": "if (unloadMap == null) unloadMap = MapLoaderR3EventHooks.OnUnloadMap.Observable.Subscribe(OnUnloadMap);",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 40,
+        "text": "if (loadMap == null) loadMap = MapLoaderR3EventHooks.OnLoadMap.Observable.Subscribe(OnLoadMap);",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 41,
+        "text": "if (loadSave == null) loadSave = MapLoaderR3EventHooks.OnLoadSave.Observable.Subscribe(OnLoadSave);",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 42,
+        "text": "if (created == null) created = UnitR3EventHooks.OnUnitCreate.Observable.Subscribe(OnUnitCreate);",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 43,
+        "text": "if (transitions == null) transitions = UnitR3EventHooks.OnUnitTransition.Observable.Subscribe(OnUnitTransition);",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 77,
+        "text": "try { Internal.RuntimeHealth.Failure(Log, \"unit-settled:\" + handler, true, \"Unit-settled source handler failed; event skipped: \" + ex); }",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\Workshop\\WorkshopContracts.cs",
+    "relativePath": ".work/b/api-main/003/src/Workshop/WorkshopContracts.cs",
+    "sha256": "450546A189CBCF9E797325DEAA30B950248C92EF6AEBFE4DD21DB4AD6163323A",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 180,
+        "text": "public event Action<WorkshopOperation> Changed;",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\Workshop\\WorkshopRuntime.cs",
+    "relativePath": ".work/b/api-main/003/src/Workshop/WorkshopRuntime.cs",
+    "sha256": "55B98D7D4391D5AA57C6A787898E671CD6F05412C08314BF86A4E0F532D8F9A0",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 38,
+        "text": "steamSubscription = SteamworksR3EventHooks.OnSteamworksInitialized.Observable.Subscribe(e => {",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\Workshop\\WorkshopStartup.cs",
+    "relativePath": ".work/b/api-main/003/src/Workshop/WorkshopStartup.cs",
+    "sha256": "2C6D78BFC54FFFE2223E7C559392B7606FBC8523BAEBE04BBA2AA35B808353A3",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 17,
+        "text": "[DllImport(\"user32.dll\", CharSet = CharSet.Unicode, SetLastError = true)]",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\src\\Workshop\\WorkshopUpdaterLauncher.cs",
+    "relativePath": ".work/b/api-main/003/src/Workshop/WorkshopUpdaterLauncher.cs",
+    "sha256": "DDD5DE6DB128A0EB1AAA3CE0643C14DEB18A7284BCCE501AE9E8CFE87A6465EA",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 11,
+        "text": "[DllImport(\"kernel32.dll\", CharSet = CharSet.Unicode)] private static extern IntPtr GetModuleHandle(string name);",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 12,
+        "text": "[DllImport(\"kernel32.dll\", CharSet = CharSet.Ansi)] private static extern IntPtr GetProcAddress(IntPtr module, string name);",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\api-main\\003\\tools\\SourceContracts\\SourceModel.cs",
+    "relativePath": ".work/b/api-main/003/tools/SourceContracts/SourceModel.cs",
+    "sha256": "7DD80B201B70B476B4F03DDA7CA5EA88A50B1A47339A79F55AD54714EC9CBC50",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 270,
+        "text": "protectionGate.Statement.DescendantNodesAndSelf().OfType<ThrowStatementSyntax>().Any(), \"Denied protection does not prevent writing.\");",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
     "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\modpack-main\\001\\.release-output\\SerpsMods\\v1.0.31\\Workshop.bootstrap-source\\Plugin.cs",
     "relativePath": ".work/b/modpack-main/001/.release-output/SerpsMods/v1.0.31/Workshop.bootstrap-source/Plugin.cs",
     "sha256": "39A578067A5BF582F3A9B9B5830EED6433988BFE6E7BAC0E95232C07A1BD1EEC",
@@ -59508,8 +61651,38 @@
   },
   {
     "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\modpack-main\\001\\.release-output\\SerpsMods\\v1.0.32\\Workshop.bootstrap-source\\Plugin.cs",
+    "relativePath": ".work/b/modpack-main/001/.release-output/SerpsMods/v1.0.32/Workshop.bootstrap-source/Plugin.cs",
+    "sha256": "33759C7454B68CC35E8578D97EF1E5799F8AFD817AF2E023EAA41C7989967131",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 18,
+        "text": "[DllImport(\"user32.dll\", CharSet = CharSet.Unicode)] private static extern int MessageBoxW(IntPtr window, string text, string caption, uint type);",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
     "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\modpack-main\\001\\.work\\t\\arabian-setting\\001\\Fixture.cs",
     "relativePath": ".work/b/modpack-main/001/.work/t/arabian-setting/001/Fixture.cs",
+    "sha256": "3BCE77284103E7296D7E706BEE2E71F979592C2031F07BDEE12D5CF0E0E64389",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 26,
+        "text": "} public event Action<string> SettingChanged; public string ArabianIdleSoundVolumeValueText => ArabianIdleSoundVolumePercent.ToString(); public bool Allowed = true; public int Notifications; bool CanMutateSettingWithDependents(string a,string b) => Allowed; void OnPropertyChanged(string name) { Notifications++; } }",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\modpack-main\\001\\.work\\t\\arabian-setting\\002\\Fixture.cs",
+    "relativePath": ".work/b/modpack-main/001/.work/t/arabian-setting/002/Fixture.cs",
     "sha256": "3BCE77284103E7296D7E706BEE2E71F979592C2031F07BDEE12D5CF0E0E64389",
     "entryCandidates": [],
     "observations": [
@@ -59765,11 +61938,11 @@
     "owner": "workspace",
     "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\modpack-main\\001\\APIShared\\src\\Compatibility\\FixesWheatAnalysis.cs",
     "relativePath": ".work/b/modpack-main/001/APIShared/src/Compatibility/FixesWheatAnalysis.cs",
-    "sha256": "1DCB4D9A50CC69359F684E1B4DDA7EB10E9429D1CE5BA9C54EEDE0CE3B92F709",
+    "sha256": "8102B7903C60CB90795D88A83B57049CDDBAAFF5C3203F3A51281C5043A7C65C",
     "entryCandidates": [],
     "observations": [
       {
-        "line": 8,
+        "line": 13,
         "text": "// file hash, a version or a fixed RVA: the hook site comes from Fixes' own hook handle, the seller frame",
         "coordinates": [],
         "classification": "source-discovery-only"
@@ -59795,7 +61968,7 @@
     "owner": "workspace",
     "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\modpack-main\\001\\APIShared\\src\\Compatibility\\FixesWheatMemory.cs",
     "relativePath": ".work/b/modpack-main/001/APIShared/src/Compatibility/FixesWheatMemory.cs",
-    "sha256": "D73588C3CF153758643B3E572BF3769D7A5C01304BE06444C2EEED4F553701D4",
+    "sha256": "848FB859D91B8C47F2619EC983274FCF2CAA24B4AD81738F11B0BB8DDC905533",
     "entryCandidates": [
       "0x1000"
     ],
@@ -59830,7 +62003,7 @@
     "owner": "workspace",
     "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\modpack-main\\001\\APIShared\\src\\Compatibility\\FixesWheatStartup.cs",
     "relativePath": ".work/b/modpack-main/001/APIShared/src/Compatibility/FixesWheatStartup.cs",
-    "sha256": "0BAE7E17DF5B1F0D7F70304F814F08747CAEB9BE3E558EB43EB71B54AA396570",
+    "sha256": "7A0743FD705AC1DEACB4A364A86293D538429FFB02F626B97A26C2F3DF9401FC",
     "entryCandidates": [],
     "observations": [
       {
@@ -59846,31 +62019,31 @@
         "classification": "source-discovery-only"
       },
       {
-        "line": 122,
+        "line": 123,
         "text": "var handle = ReadField<HookHandle<X64InlineHook>>(owner, \"c_game_ai_sell_item_handler_hook\");",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 131,
+        "line": 132,
         "text": "X64InlineHook hook = handle.Hook;",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 142,
+        "line": 143,
         "text": "byte[] original = (byte[])typeof(X64InlineHook).GetField(\"_originalBytesBackup\",",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 203,
+        "line": 205,
         "text": "foreach (Assembly backend in new[] { typeof(Chainloader).Assembly, typeof(X64InlineHook).Assembly,",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 204,
+        "line": 206,
         "text": "typeof(HookHandle<X64InlineHook>).Assembly, typeof(NativeFlagArray).Assembly,",
         "coordinates": [],
         "classification": "source-discovery-only"
@@ -59881,17 +62054,17 @@
     "owner": "workspace",
     "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\modpack-main\\001\\APIShared\\src\\Core\\APISharedPlugin.cs",
     "relativePath": ".work/b/modpack-main/001/APIShared/src/Core/APISharedPlugin.cs",
-    "sha256": "88E6B10345D032870CF65BD215F8F1C4BFB46CE296FE6E12A4626CAE74630A13",
+    "sha256": "AF38AFE864F18C9B98ABF16D70EC71B0D5FCD6ACC9ECDD6CBC8F45401DA89E9F",
     "entryCandidates": [],
     "observations": [
       {
-        "line": 43,
+        "line": 49,
         "text": "// The Script Extender event roots this plugin's native initialization after BepInEx",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 98,
+        "line": 107,
         "text": "new NativeInitializationStep(\"interpolate event reuse\", () => ScriptExtenderFixes.InterpolateEventReuseRuntime.Initialize(Config, RuntimeLogger)),",
         "coordinates": [],
         "classification": "source-discovery-only"
@@ -60297,7 +62470,7 @@
     "owner": "workspace",
     "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\modpack-main\\001\\APIShared\\src\\Missions\\MissionLifecycleCapability.cs",
     "relativePath": ".work/b/modpack-main/001/APIShared/src/Missions/MissionLifecycleCapability.cs",
-    "sha256": "88F8ACC4BFB14EE964EA738B5547B4D5150884131AFF07DCEFCFBA1488922B5E",
+    "sha256": "4EB921E738F5C1AFD6680BA8684BF34DD839C06866F028A702D0E3F9AC581568",
     "entryCandidates": [],
     "observations": [
       {
@@ -60307,25 +62480,25 @@
         "classification": "source-discovery-only"
       },
       {
-        "line": 234,
+        "line": 237,
         "text": "private void Subscribe()",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 237,
+        "line": 240,
         "text": "subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable.Subscribe(e => Safe(() =>",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 239,
+        "line": 242,
         "text": "subscriptions.Add(MapLoaderR3EventHooks.OnStartMap.Observable.Subscribe(e => Safe(() =>",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 402,
+        "line": 405,
         "text": "catch { /* Failure reporting must not prevent the lifecycle transition. */ }",
         "coordinates": [],
         "classification": "source-discovery-only"
@@ -60357,6 +62530,21 @@
       {
         "line": 31,
         "text": "[DllImport(",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\modpack-main\\001\\APIShared\\src\\ModSettings\\Lobby\\LobbySettingsReceiveRuntime.cs",
+    "relativePath": ".work/b/modpack-main/001/APIShared/src/ModSettings/Lobby/LobbySettingsReceiveRuntime.cs",
+    "sha256": "96D91ACFF665D4D364E0993043DBD67051206F64CEC3181F3E1AEC577AE4F4DE",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 58,
+        "text": "if (missionEnded == null) missionEnded = MissionEvents.Ended.Subscribe(_ => RefreshContext());",
         "coordinates": [],
         "classification": "source-discovery-only"
       }
@@ -60459,11 +62647,11 @@
     "owner": "workspace",
     "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\modpack-main\\001\\APIShared\\src\\ModSettings\\Presets\\PresetLobbyModSettingsViewModel.cs",
     "relativePath": ".work/b/modpack-main/001/APIShared/src/ModSettings/Presets/PresetLobbyModSettingsViewModel.cs",
-    "sha256": "B26F99EF7F792C48A29794314848B4435166148222697CF9B7307E8ADB5571E7",
+    "sha256": "505A535D340E2AAAC26F10250B6389DC1DD153D1B28DD8F47753BA3495143CC7",
     "entryCandidates": [],
     "observations": [
       {
-        "line": 1218,
+        "line": 1160,
         "text": "/// <summary>Notifies the Extender and coordinates persistence/publication for changed participant properties. Invoke after a real value change; snapshot guards prevent partial reentrant saves.</summary>",
         "coordinates": [],
         "classification": "source-discovery-only"
@@ -60495,7 +62683,7 @@
     "owner": "workspace",
     "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\modpack-main\\001\\APIShared\\src\\ModSettings\\UI\\ModSettingsSearchCatalog.cs",
     "relativePath": ".work/b/modpack-main/001/APIShared/src/ModSettings/UI/ModSettingsSearchCatalog.cs",
-    "sha256": "1E0EEB7F46886A769D0589DB1045829A58FEDAB8AB0DE7A42C5A7E336BF084FC",
+    "sha256": "35AB626141807875B4DD44A74A0E58F054FC1BDDBE56E3ED4AA8871ADAEC6A3B",
     "entryCandidates": [],
     "observations": [
       {
@@ -61053,50 +63241,50 @@
     "owner": "workspace",
     "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\modpack-main\\001\\APIShared\\src\\Projectiles\\PlagueHeightRuntime.cs",
     "relativePath": ".work/b/modpack-main/001/APIShared/src/Projectiles/PlagueHeightRuntime.cs",
-    "sha256": "E02AA521C5E917CB925FBE23ED4FDBD573C48566E23BDAFFE15C00B331F61615",
+    "sha256": "DF7C8E34EDE37BF48FC8423156B729D113474778032E95256409562A152BEA9E",
     "entryCandidates": [
       "0xC07C0"
     ],
     "observations": [
       {
-        "line": 27,
+        "line": 25,
         "text": "private readonly HookHandle<X64InlineHook>[] hooks = new HookHandle<X64InlineHook>[4];",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 64,
+        "line": 61,
         "text": "throw new InvalidOperationException($\"Live hook bytes differ: RVA=0x{site:X}.\");",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 65,
+        "line": 62,
         "text": "using (var probe = new X64InlineHook(module + (uint)site, length))",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 86,
+        "line": 83,
         "text": "int index = i; hooks[i] = new HookHandle<X64InlineHook>();",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 87,
+        "line": 84,
         "text": "transaction.AddInline(hooks[i], HookTarget.FromAddress(module + (uint)PlagueHeightAssembly.Sites[i]),",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 99,
+        "line": 100,
         "text": "NativeApiLog.Info(log, \"hook confirmed: PlagueHeight RVAs=9FDB8/192809/9CB6F/9CC3D; spans=32/26/26/26; initially inactive; owner-configured standing tolerance.\");",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 163,
-        "text": "new[] { typeof(X64InlineHook).Assembly.Location, \"E085B83B2B87B5D2142C980090D8D9EC616A90A443BD125C17B41E0BB47A44EB\" },",
+        "line": 162,
+        "text": "private void ValidateStub(int index, X64InlineHook hook, ulong module, ulong helper)",
         "coordinates": [],
         "classification": "source-discovery-only"
       }
@@ -61145,7 +63333,7 @@
     "owner": "workspace",
     "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\modpack-main\\001\\APIShared\\src\\Savegames\\SavegameLoadOptions.cs",
     "relativePath": ".work/b/modpack-main/001/APIShared/src/Savegames/SavegameLoadOptions.cs",
-    "sha256": "71B72962191452C87E0D5B65BED37309BE6846DAF01CA6441DD7E7BE6A8A806B",
+    "sha256": "6D6DB54E97C3B83E704B77E5E241DD9119BD6A859C960F89AD6AC8B089AFEF29",
     "entryCandidates": [],
     "observations": [
       {
@@ -61160,7 +63348,7 @@
     "owner": "workspace",
     "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\modpack-main\\001\\APIShared\\src\\Savegames\\SavegameModSettings.cs",
     "relativePath": ".work/b/modpack-main/001/APIShared/src/Savegames/SavegameModSettings.cs",
-    "sha256": "A3866D8F26421CAAD12BF015C774E36425C435E382353C82748FA203515DC14A",
+    "sha256": "95F4A5C0DADE712F73EC7182E0932B2D30DAA34086410111AECAF9576E06A523",
     "entryCandidates": [],
     "observations": [
       {
@@ -61482,7 +63670,7 @@
     "owner": "workspace",
     "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\modpack-main\\001\\APIShared\\src\\Workshop\\WorkshopRuntime.cs",
     "relativePath": ".work/b/modpack-main/001/APIShared/src/Workshop/WorkshopRuntime.cs",
-    "sha256": "058E93DBB56D113F0F12100318EBF89AC49333AAB2E84927F88B5DF5536C0AE0",
+    "sha256": "55B98D7D4391D5AA57C6A787898E671CD6F05412C08314BF86A4E0F532D8F9A0",
     "entryCandidates": [],
     "observations": [
       {
@@ -61497,11 +63685,11 @@
     "owner": "workspace",
     "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\modpack-main\\001\\APIShared\\src\\Workshop\\WorkshopStartup.cs",
     "relativePath": ".work/b/modpack-main/001/APIShared/src/Workshop/WorkshopStartup.cs",
-    "sha256": "715DF0241C8CD5C6783C1C9D929FEBA06FDA4471B15F7DEAA96D477C844B5C6F",
+    "sha256": "2C6D78BFC54FFFE2223E7C559392B7606FBC8523BAEBE04BBA2AA35B808353A3",
     "entryCandidates": [],
     "observations": [
       {
-        "line": 22,
+        "line": 17,
         "text": "[DllImport(\"user32.dll\", CharSet = CharSet.Unicode, SetLastError = true)]",
         "coordinates": [],
         "classification": "source-discovery-only"
@@ -61533,12 +63721,12 @@
     "owner": "workspace",
     "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\modpack-main\\001\\APIShared\\tools\\SourceContracts\\SourceModel.cs",
     "relativePath": ".work/b/modpack-main/001/APIShared/tools/SourceContracts/SourceModel.cs",
-    "sha256": "E2953E5B508A9597B0DC0A143F889EB450F6D85C1694CBB2D8DBAEE58E2AAE38",
+    "sha256": "7DD80B201B70B476B4F03DDA7CA5EA88A50B1A47339A79F55AD54714EC9CBC50",
     "entryCandidates": [],
     "observations": [
       {
-        "line": 261,
-        "text": "protectionGate.Statement.DescendantNodesAndSelf().OfType<ThrowStatementSyntax>().Any(), \"Denied memory protection does not prevent the write.\");",
+        "line": 270,
+        "text": "protectionGate.Statement.DescendantNodesAndSelf().OfType<ThrowStatementSyntax>().Any(), \"Denied protection does not prevent writing.\");",
         "coordinates": [],
         "classification": "source-discovery-only"
       }
@@ -62756,7 +64944,7 @@
     "owner": "workspace",
     "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\modpack-main\\001\\BugfixesAndQoL\\src\\BugfixesAndQoLPlugin.cs",
     "relativePath": ".work/b/modpack-main/001/BugfixesAndQoL/src/BugfixesAndQoLPlugin.cs",
-    "sha256": "B15D85EF660D33CE65275734242EFCEDE2F10919C6D088A7AA62AD2E88FD1B16",
+    "sha256": "123542B8098A51CB22175BFDA223E549E96F0B79EDB66A331D6906BBA2D5D805",
     "entryCandidates": [],
     "observations": [
       {
@@ -62771,29 +64959,29 @@
     "owner": "workspace",
     "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\modpack-main\\001\\BugfixesAndQoL\\src\\BugfixesAndQoLRuntime.cs",
     "relativePath": ".work/b/modpack-main/001/BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
-    "sha256": "7D5F6BC6B11ABA0D80C6B19DB2EB2B0B3F345463B3AC37ACE4448BD6BE10C728",
+    "sha256": "E8C32739D160B397D82C01FCBC1418C61D8D886105D0746A4934C862A0E0EAAC",
     "entryCandidates": [],
     "observations": [
       {
-        "line": 115,
+        "line": 120,
         "text": "public static event Action AiEconomyOverlayRestored;",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 252,
+        "line": 257,
         "text": "PlayerR3EventHooks.OnPlayerMarketInteraction.Observable.Subscribe(OnPlayerMarketInteraction));",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 269,
+        "line": 274,
         "text": ".Subscribe(_ => EndGameplaySession()));",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 453,
+        "line": 458,
         "text": "// one feature must not prevent unrelated fixes from installing.",
         "coordinates": [],
         "classification": "source-discovery-only"
@@ -62804,7 +64992,7 @@
     "owner": "workspace",
     "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\modpack-main\\001\\BugfixesAndQoL\\src\\BugfixesAndQoLViewModel.cs",
     "relativePath": ".work/b/modpack-main/001/BugfixesAndQoL/src/BugfixesAndQoLViewModel.cs",
-    "sha256": "0914EE02F234172242A34FD635C043870C2C68841FB45FA607DBB5EF0068198B",
+    "sha256": "6CDECD8BD6073B44281D147732E750C738361415BB00A99CF9CD58C49C4546EF",
     "entryCandidates": [],
     "observations": [
       {
@@ -62814,7 +65002,7 @@
         "classification": "source-discovery-only"
       },
       {
-        "line": 1852,
+        "line": 1886,
         "text": "public event System.EventHandler CanExecuteChanged { add { } remove { } }",
         "coordinates": [],
         "classification": "source-discovery-only"
@@ -62825,83 +65013,83 @@
     "owner": "workspace",
     "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\modpack-main\\001\\BugfixesAndQoL\\src\\BugfixesHookInfrastructure.cs",
     "relativePath": ".work/b/modpack-main/001/BugfixesAndQoL/src/BugfixesHookInfrastructure.cs",
-    "sha256": "95E996A4E0FC6434D67391F6FB7C31C1FE447EF3A2113A9D14BA65ED557BC405",
+    "sha256": "48A643FE18D8F77A888EABBFD9A3163F259B36E98A8709DD427877321D2F0842",
     "entryCandidates": [],
     "observations": [
       {
-        "line": 28,
+        "line": 29,
         "text": "// See DemandGatedContextHook: hot-loop context hook behind a native demand byte.",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 29,
+        "line": 30,
         "text": "internal static X64InlineHook CreateDemandGatedContextHook(",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 31,
+        "line": 32,
         "text": "int minimumHookSize,",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 32,
+        "line": 33,
         "text": "ContextHookDelegate callback,",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 33,
+        "line": 34,
         "text": "ContextHookOptions options,",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 36,
+        "line": 37,
         "text": "DemandGatedContextHook.Create(address, minimumHookSize, callback, options, demand, name,",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 39,
+        "line": 40,
         "text": "internal static void AddContextHook(",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 41,
+        "line": 42,
         "text": "HookHandle<X64InlineHook> handle,",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 43,
+        "line": 44,
         "text": "ContextHookDelegate callback,",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 49,
+        "line": 50,
         "text": "transaction.AddContextHook(",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 51,
+        "line": 52,
         "text": "HookTarget.FromAddress(address),",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 53,
+        "line": 54,
         "text": "new ContextHookOptions",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 56,
+        "line": 57,
         "text": "HookSize = hookSize,",
         "coordinates": [],
         "classification": "source-discovery-only"
@@ -63296,9 +65484,84 @@
   },
   {
     "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\modpack-main\\001\\BugfixesAndQoL\\src\\EditorRegions\\EditorRegionRefreshRuntime.cs",
+    "relativePath": ".work/b/modpack-main/001/BugfixesAndQoL/src/EditorRegions/EditorRegionRefreshRuntime.cs",
+    "sha256": "ED989CAFAB1C31D6B6A7A1601DA636F30D8EE5B16CF1E3DC325915D89D154701",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 63,
+        "text": "runtime.Subscribe(MapEditorR3EventHooks.OnSetTileType);",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 64,
+        "text": "runtime.Subscribe(MapEditorR3EventHooks.OnSetTileTypeToNone);",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 65,
+        "text": "runtime.Subscribe(MapEditorR3EventHooks.OnSetTileHeightToPreset);",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 66,
+        "text": "runtime.Subscribe(MapEditorR3EventHooks.OnSetTileHeightToNumber);",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 67,
+        "text": "runtime.Subscribe(MapEditorR3EventHooks.OnRaiseTileHeight);",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 68,
+        "text": "runtime.Subscribe(MapEditorR3EventHooks.OnEvenTileHeight);",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 69,
+        "text": "runtime.Subscribe(MapEditorR3EventHooks.OnDelete);",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 70,
+        "text": "runtime.Subscribe(MapEditorR3EventHooks.OnVegetationPlace);",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 81,
+        "text": "subscriptions.Add(Shared.MissionEvents.Started.Subscribe(Started));",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 82,
+        "text": "subscriptions.Add(Shared.MissionEvents.Ended.Subscribe(Ended));",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 86,
+        "text": "subscriptions.Add(hook.Observable.Subscribe(Edited));",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
     "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\modpack-main\\001\\BugfixesAndQoL\\src\\ExtendedShiftCommandQueueRuntime.cs",
     "relativePath": ".work/b/modpack-main/001/BugfixesAndQoL/src/ExtendedShiftCommandQueueRuntime.cs",
-    "sha256": "9253984F978481335734E094F5336B173F072E607C4D44EE65073A3BA6687439",
+    "sha256": "CB86078F2364D32F988FD0E9297E17FA92397F7B28E7F2AE04AB26DB498810DE",
     "entryCandidates": [
       "0x417A0",
       "0x11C3A0",
@@ -63337,79 +65600,79 @@
         "classification": "source-discovery-only"
       },
       {
-        "line": 322,
+        "line": 323,
         "text": ".Subscribe(OnTribeAssignUnit));",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 324,
+        "line": 325,
         "text": ".Subscribe(OnTribeCreate));",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 326,
+        "line": 327,
         "text": ".Subscribe(args => { if (args.Context.IsSave) RefreshMapContext(); else OnMapStart(); }));",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 329,
+        "line": 330,
         "text": ".Subscribe(args => ResetMapState()));",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 331,
+        "line": 332,
         "text": ".Subscribe(args => ResetMapState()));",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 388,
+        "line": 389,
         "text": "throw new InvalidOperationException(\"Move Chore handler resolved at an unexpected RVA.\");",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 410,
+        "line": 411,
         "text": "multiplayerTransaction.AddDetour(",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 412,
+        "line": 413,
         "text": "HookTarget.FromAddress(libraryBase + QueueNativeContract.MoveChoreHandlerRva),",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 607,
+        "line": 608,
         "text": "throw new InvalidOperationException($\"Draw submission resolved at unexpected RVA 0x{resolution.Rva:X}.\");",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 613,
+        "line": 614,
         "text": "drawFilterTransaction.AddDetour(",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 615,
+        "line": 616,
         "text": "HookTarget.FromAddress(libraryBase + ReferenceDrawSubmissionRva),",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 670,
+        "line": 671,
         "text": "// This event also carries routine AI and non-Shift orders. Only actual queue",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 1180,
+        "line": 1194,
         "text": "// case this is the authoritative insertion and the later event is deduplicated.",
         "coordinates": [],
         "classification": "source-discovery-only"
@@ -63480,29 +65743,29 @@
     "owner": "workspace",
     "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\modpack-main\\001\\BugfixesAndQoL\\src\\Formations\\FormationRuntime.Initialization.cs",
     "relativePath": ".work/b/modpack-main/001/BugfixesAndQoL/src/Formations/FormationRuntime.Initialization.cs",
-    "sha256": "AD65D1FF9398F5249BFE86A83BE621CF3EDEEACA1EC936148B026AFBC6FC1479",
+    "sha256": "9DDE2E39192B14658B8E8D9A11F287240B2826F9201BC40D50F5F84F7E4CB3B4",
     "entryCandidates": [],
     "observations": [
       {
-        "line": 114,
+        "line": 121,
         "text": "pendingPacket = packetHook.GetBaseHook().Observable.Subscribe(OnPacketReceived);",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 115,
+        "line": 122,
         "text": "pendingKeyDown = InputR3EventHooks.OnKeyDown.Observable.Subscribe(OnKeyDown);",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 116,
+        "line": 123,
         "text": "pendingKeyHeld = InputR3EventHooks.OnKey.Observable.Subscribe(OnKeyHeld);",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 117,
+        "line": 124,
         "text": "pendingKeyUp = InputR3EventHooks.OnKeyUp.Observable.Subscribe(OnKeyUp);",
         "coordinates": [],
         "classification": "source-discovery-only"
@@ -63513,7 +65776,7 @@
     "owner": "workspace",
     "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\modpack-main\\001\\BugfixesAndQoL\\src\\Formations\\FormationRuntime.Input.cs",
     "relativePath": ".work/b/modpack-main/001/BugfixesAndQoL/src/Formations/FormationRuntime.Input.cs",
-    "sha256": "BA6FD01E49EB53986DCDC28E67FB2B10A91ED61057300BEF1F1ADEA51846D914",
+    "sha256": "8285646C83E07447126020D9F9B57450E6120EE7D6AA7546BFB5B402F411C8ED",
     "entryCandidates": [],
     "observations": [
       {
@@ -63560,6 +65823,41 @@
       {
         "line": 54,
         "text": "resolved($\"Formation speech target 0x{ReferenceRvas[index]:X}: {method}, RVA=0x{rva:X}.\");",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\modpack-main\\001\\BugfixesAndQoL\\src\\Formations\\GroundMoveFrameObserver.cs",
+    "relativePath": ".work/b/modpack-main/001/BugfixesAndQoL/src/Formations/GroundMoveFrameObserver.cs",
+    "sha256": "63F09BFC82B3722F99EED8BE9A6A0506FC2F9F218505140CF6EB5708CA61B2B6",
+    "entryCandidates": [
+      "0x41D60"
+    ],
+    "observations": [
+      {
+        "line": 22,
+        "text": "private X64InlineHook hook;",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 41,
+        "text": "hook = BugfixesHookInfrastructure.CreateDemandGatedContextHook(",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 43,
+        "text": "new ContextHookOptions { Registers = X64SmartCPUContextRegs.All, HookSize = 14,",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 59,
+        "text": "private void OnFrame(NativePointer<X64SmartCPUContext> context) => observe();",
         "coordinates": [],
         "classification": "source-discovery-only"
       }
@@ -64023,6 +66321,57 @@
       {
         "line": 41,
         "text": "private void OnKeyDown(UnityInputEventArgs args)",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\modpack-main\\001\\BugfixesAndQoL\\src\\MoatTerrain\\TerrainRuntime.cs",
+    "relativePath": ".work/b/modpack-main/001/BugfixesAndQoL/src/MoatTerrain/TerrainRuntime.cs",
+    "sha256": "976B55276C152E54B1D6FBBC2EB2E6ACEFA97E2ED27D3AFA0D5EAF239EE680AA",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 31,
+        "text": "private readonly List<HookHandle<X64InlineHook>> hooks = new List<HookHandle<X64InlineHook>>();",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 69,
+        "text": "using (var probe = new X64InlineHook(image + (uint)site.Rva, site.Length))",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 85,
+        "text": "var handle = new HookHandle<X64InlineHook>();",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 87,
+        "text": "transaction.AddInline(handle, HookTarget.FromAddress(image + (uint)site.Rva),",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 104,
+        "text": "subscriptions.Add(Shared.MissionEvents.Initialization.Subscribe(OnInitialization));",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 105,
+        "text": "subscriptions.Add(Shared.MissionEvents.Ended.Subscribe(OnEnd));",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 106,
+        "text": "subscriptions.Add(Shared.MissionEvents.Started.Subscribe(OnStart));",
         "coordinates": [],
         "classification": "source-discovery-only"
       }
@@ -65149,6 +67498,33 @@
   },
   {
     "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\modpack-main\\001\\BugfixesAndQoL\\src\\TreeBlightDecay\\FixRuntime.cs",
+    "relativePath": ".work/b/modpack-main/001/BugfixesAndQoL/src/TreeBlightDecay/FixRuntime.cs",
+    "sha256": "1CF10BC47D1EF0AD1D23B46FE41DB53F3120A33C487AA34DF47B3C8E5E917B92",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 22,
+        "text": "private readonly HookHandle<X64InlineHook>[] handles = { new HookHandle<X64InlineHook>(), new HookHandle<X64InlineHook>() };",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 52,
+        "text": "using (var probe = new X64InlineHook(image + (uint)site, NativeCode.Span))",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 79,
+        "text": "transaction.AddInline(handles[i], HookTarget.FromAddress(address),",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
     "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\modpack-main\\001\\BugfixesAndQoL\\src\\TroopMovementFix3Runtime.cs",
     "relativePath": ".work/b/modpack-main/001/BugfixesAndQoL/src/TroopMovementFix3Runtime.cs",
     "sha256": "1B43251B0F1A5458C0C494490C87764CDC68B00378568A97DD64A545C7C917E0",
@@ -65421,7 +67797,7 @@
     "owner": "workspace",
     "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\modpack-main\\001\\BugfixesAndQoL\\src\\UnitCommands\\Moat\\MoatPlacement.cs",
     "relativePath": ".work/b/modpack-main/001/BugfixesAndQoL/src/UnitCommands/Moat/MoatPlacement.cs",
-    "sha256": "033B06150291373821E07ED39C5934D54756E3BB04BA81CB621C6865D6054914",
+    "sha256": "90B1F1BA297AA9231A16602D4D6E375CD5C8B81AF0C7F4A7F5DFE5E8649B28BD",
     "entryCandidates": [
       "0x118E00",
       "0xF03C0",
@@ -65475,7 +67851,7 @@
     "owner": "workspace",
     "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\modpack-main\\001\\BugfixesAndQoL\\src\\UnitCommands\\Movement\\NativeMovementRecovery.cs",
     "relativePath": ".work/b/modpack-main/001/BugfixesAndQoL/src/UnitCommands/Movement/NativeMovementRecovery.cs",
-    "sha256": "6AFA0FF69E8E82EAEBA1D3E1CFA71B66013FFFA10BF54FF08483112B27740443",
+    "sha256": "99C5F17521C05AC7AFF6D69F2F7B7C7DBC0378E672D0D131B297F92C2F77AFA9",
     "entryCandidates": [
       "0x59210",
       "0xD90D0",
@@ -65629,118 +68005,139 @@
   },
   {
     "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\modpack-main\\001\\BugfixesAndQoL\\src\\UnitCommands\\Runtime\\ManualGroupAdmission.cs",
+    "relativePath": ".work/b/modpack-main/001/BugfixesAndQoL/src/UnitCommands/Runtime/ManualGroupAdmission.cs",
+    "sha256": "80B04426942377C1860E17661493AB461F47E96E6E938855FA16757436CB46B4",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 31,
+        "text": "private readonly HookHandle<X64InlineHook> manualAdmissionGate = new HookHandle<X64InlineHook>();",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 65,
+        "text": "candidate.AddInline(manualAdmissionGate, HookTarget.FromAddress(libraryBase + ManualGroupAdmissionGate.Rva),",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
     "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\modpack-main\\001\\BugfixesAndQoL\\src\\UnitCommands\\Runtime\\UnitCommandPathRuntime.Initialization.cs",
     "relativePath": ".work/b/modpack-main/001/BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.Initialization.cs",
-    "sha256": "790D3CE2D4876C70AD13859BFCCF994BF5A7E5DE7E8A2A4E0441E54A91301284",
+    "sha256": "299B82687BA1F0E43D53AE594764FC59D53C0419834A1EBA5D9CE4E9F457B774",
     "entryCandidates": [
       "0x196280",
       "0xE32B0"
     ],
     "observations": [
       {
-        "line": 483,
+        "line": 485,
         "text": "pendingPlanDetour = AddDetour(pendingTransaction,",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 486,
+        "line": 488,
         "text": "pendingCombatFinishResume = AddDetour(pendingTransaction,",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 489,
+        "line": 491,
         "text": "pendingCursorMoveStager = AddDetour(pendingTransaction,",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 492,
+        "line": 494,
         "text": "pendingBuilder = AddDetour(pendingTransaction,",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 495,
+        "line": 497,
         "text": "pendingReconstruction = AddDetour(",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 497,
+        "line": 499,
         "text": "pendingFlood = AddDetour(",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 501,
+        "line": 503,
         "text": "pendingGroupMoat = AddDetour(pendingTransaction,",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 504,
+        "line": 506,
         "text": "pendingMode = AddDetour(",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 509,
+        "line": 511,
         "text": "pendingRegion = AddDetour(",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 513,
+        "line": 515,
         "text": "pendingCursor = AddDetour(",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 518,
+        "line": 520,
         "text": "pendingCursorTilePair = AddDetour(pendingTransaction,",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 521,
+        "line": 523,
         "text": "pendingCursorRegion = AddDetour(",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 587,
+        "line": 589,
         "text": "tribeMoveSubscription = TribeR3EventHooks.OnTribeIssueOrderMoveHere.Observable.Subscribe(DispatchMoveEvent);",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 588,
+        "line": 590,
         "text": "unitMoveSubscription = UnitR3EventHooks.OnUnitMoveHere.Observable.Subscribe(DispatchUnitMoveEvent);",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 589,
+        "line": 591,
         "text": "tribeTargetSubscription = TribeR3EventHooks.OnTribeIssueOrderWithTarget.Observable.Subscribe(DispatchTargetEvent);",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 590,
+        "line": 592,
         "text": "mapLoadSubscription = Shared.MissionEvents.Loading.Subscribe(_ => ResetMapState());",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 592,
+        "line": 594,
         "text": "mapStartSubscription = Shared.MissionEvents.NativeStart.Subscribe(_ => ResetMapState());",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 593,
+        "line": 595,
         "text": "mapUnloadSubscription = Shared.MissionEvents.Ended.Subscribe(_ => ResetMapState());",
         "coordinates": [],
         "classification": "source-discovery-only"
@@ -65804,17 +68201,17 @@
     "owner": "workspace",
     "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\modpack-main\\001\\BugfixesAndQoL\\src\\VanillaPerformance\\EnginePresentationBridge.cs",
     "relativePath": ".work/b/modpack-main/001/BugfixesAndQoL/src/VanillaPerformance/EnginePresentationBridge.cs",
-    "sha256": "EBBB5069F32C56EFC460C1CF533E8C3CF6A06C56C29F396F553119258F2DB736",
+    "sha256": "AC92F267CA1FA92FE516619ACB804B0FC14EC70EFAAFCB7064BEAE75D54692E9",
     "entryCandidates": [],
     "observations": [
       {
-        "line": 49,
+        "line": 50,
         "text": "Shared.MissionEvents.Loading.Subscribe(_ => Retire());",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 50,
+        "line": 51,
         "text": "Shared.MissionEvents.Ended.Subscribe(_ => Retire());",
         "coordinates": [],
         "classification": "source-discovery-only"
@@ -66185,19 +68582,19 @@
     "owner": "workspace",
     "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\modpack-main\\001\\CastlePlanner\\AIVPlacement.Tests\\Program.cs",
     "relativePath": ".work/b/modpack-main/001/CastlePlanner/AIVPlacement.Tests/Program.cs",
-    "sha256": "0EB631A03818E4CBC28772F64CDB345918DF24B223BB304EC9E3B7CCBBF7E3E6",
+    "sha256": "9BD6BC1DCA3FA0999FCE8D4100D1B7F09252CB8EDC20086E584E44C0C6BB105D",
     "entryCandidates": [
       "0x1000"
     ],
     "observations": [
       {
-        "line": 900,
+        "line": 933,
         "text": "\"human Keep hook signature differs at audited RVA\");",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 1133,
+        "line": 1295,
         "text": "throw new InvalidOperationException($\"RVA 0x{rva:X} is not in a PE section.\");",
         "coordinates": [],
         "classification": "source-discovery-only"
@@ -66208,23 +68605,23 @@
     "owner": "workspace",
     "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\modpack-main\\001\\CastlePlanner\\AIVPlacement.Tests\\SupplementalSpawnTests.cs",
     "relativePath": ".work/b/modpack-main/001/CastlePlanner/AIVPlacement.Tests/SupplementalSpawnTests.cs",
-    "sha256": "D377B5F442793FDE8913645A5DE1D8F5106FAF42FBDFFD286340F7831247574C",
+    "sha256": "18786AE13542714C2729DAED2EFD8D6B100B6F1746193E7CB1B1057F996B98BC",
     "entryCandidates": [],
     "observations": [
       {
-        "line": 71,
+        "line": 72,
         "text": "}, Lookup, out _) < 0, \"invalid event ID rejected before lookup\");",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 74,
+        "line": 75,
         "text": "}, Lookup, out _) < 0, \"foreign event cannot fulfill request\");",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 82,
+        "line": 83,
         "text": "}, Lookup, out _) < 0, \"inner event cannot fulfill identical outer request\");",
         "coordinates": [],
         "classification": "source-discovery-only"
@@ -66271,7 +68668,7 @@
     "owner": "workspace",
     "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\modpack-main\\001\\CastlePlanner\\src\\BlueprintHudViewModel.cs",
     "relativePath": ".work/b/modpack-main/001/CastlePlanner/src/BlueprintHudViewModel.cs",
-    "sha256": "D6DFC18427B78EEF2190E03768207035F8213845EA118EDE2B4DDC19B831073D",
+    "sha256": "D8A206969E00675E39399FB778AB6DBDF562054D1C8E23BA9C3DDE79CA82C0E7",
     "entryCandidates": [],
     "observations": [
       {
@@ -66287,7 +68684,7 @@
         "classification": "source-discovery-only"
       },
       {
-        "line": 1333,
+        "line": 1340,
         "text": "public event EventHandler CanExecuteChanged",
         "coordinates": [],
         "classification": "source-discovery-only"
@@ -66298,7 +68695,7 @@
     "owner": "workspace",
     "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\modpack-main\\001\\CastlePlanner\\src\\BlueprintRuntimeController.cs",
     "relativePath": ".work/b/modpack-main/001/CastlePlanner/src/BlueprintRuntimeController.cs",
-    "sha256": "BDABB33F93A4E246B7DAD49B78A275C5B8266E8691AB5FE208804C62E48F9EB3",
+    "sha256": "C4C5799E47E8428C17A650295B3262DC0E703782203FBCAAB37AC497EBE57AA6",
     "entryCandidates": [],
     "observations": [
       {
@@ -66343,7 +68740,7 @@
     "owner": "workspace",
     "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\modpack-main\\001\\CastlePlanner\\src\\CastlePlannerRuntime.cs",
     "relativePath": ".work/b/modpack-main/001/CastlePlanner/src/CastlePlannerRuntime.cs",
-    "sha256": "92104FBC253B68C125DA2AB7EC16321B1C499291880653519EC6E358E50AC364",
+    "sha256": "01A047BCBE3DD484F164295A031D55BE6CA747B7030A33F33787FDF0E4F7DC35",
     "entryCandidates": [
       "0x50680",
       "0x53D00",
@@ -66407,43 +68804,43 @@
         "classification": "source-discovery-only"
       },
       {
-        "line": 1626,
+        "line": 1640,
         "text": "using (var probe = new X64InlineHook(",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 1651,
+        "line": 1665,
         "text": "pending.AddContextHook(",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 1653,
+        "line": 1667,
         "text": "HookTarget.FromAddress(libraryBase + unchecked((ulong)humanStartHookRva)),",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 1655,
+        "line": 1669,
         "text": "new ContextHookOptions",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 1658,
+        "line": 1672,
         "text": "HookSize = expectedDisplacedByteCount,",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 1690,
+        "line": 1704,
         "text": "NativePointer<X64SmartCPUContext> context)",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 1736,
+        "line": 1752,
         "text": "// RVA 0x95B3C is the first read of the human Keep coordinates. Updating",
         "coordinates": [
           "0x95B3C"
@@ -66456,35 +68853,35 @@
     "owner": "workspace",
     "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\modpack-main\\001\\CastlePlanner\\src\\CastlePlannerSettingsViewModel.cs",
     "relativePath": ".work/b/modpack-main/001/CastlePlanner/src/CastlePlannerSettingsViewModel.cs",
-    "sha256": "420AE4DE88E328B1EA96241BE7F4795254841DA1AEAECB98E5F762A4C8808540",
+    "sha256": "F886F77B64D1900B162EB7302E158C45B7F038729CAFEF33CCA324B381CAB889",
     "entryCandidates": [],
     "observations": [
       {
-        "line": 130,
+        "line": 132,
         "text": "internal event Action SettingsChanged;",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 131,
+        "line": 133,
         "text": "internal event Action BlueprintVisualSettingsChanged;",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 132,
+        "line": 134,
         "text": "internal event Action BlueprintContentSettingsChanged;",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 133,
+        "line": 135,
         "text": "internal event Action HotkeyCaptureRequested;",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 1219,
+        "line": 1238,
         "text": "public event System.EventHandler CanExecuteChanged",
         "coordinates": [],
         "classification": "source-discovery-only"
@@ -66495,11 +68892,11 @@
     "owner": "workspace",
     "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\modpack-main\\001\\CastlePlanner\\src\\CastleRotationOptions.cs",
     "relativePath": ".work/b/modpack-main/001/CastlePlanner/src/CastleRotationOptions.cs",
-    "sha256": "E62D5CCDEA16FB1E3465DFA8197C646B68EE63379C1D8E826DAF28D8D568D172",
+    "sha256": "8B4EC668832F0EFC34274C66811B0553A395847A5666C44CD668EAAE2A194451",
     "entryCandidates": [],
     "observations": [
       {
-        "line": 117,
+        "line": 142,
         "text": "// Translation availability must not prevent castle selection.",
         "coordinates": [],
         "classification": "source-discovery-only"
@@ -66510,47 +68907,47 @@
     "owner": "workspace",
     "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\modpack-main\\001\\CastlePlanner\\src\\FreeCastlePreviewRuntime.cs",
     "relativePath": ".work/b/modpack-main/001/CastlePlanner/src/FreeCastlePreviewRuntime.cs",
-    "sha256": "F71BC56B580D6587AB528D9BF58ED82DAF69618F1684FF29B5ECE08C9F83E2C8",
+    "sha256": "B721D124AE0D5FEE021AC2D406E883A5616403B792D2F9260FD9D509CC27CE89",
     "entryCandidates": [],
     "observations": [
       {
-        "line": 142,
+        "line": 145,
         "text": "public event PropertyChangedEventHandler PropertyChanged;",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 230,
+        "line": 253,
         "text": "public event Action SelectionVisualChanged;",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 256,
+        "line": 279,
         "text": "packetSubscription = packetHook.GetBaseHook().Observable.Subscribe(OnPacket);",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 258,
+        "line": 281,
         "text": "mapStartSubscription = Shared.MissionEvents.NativeStart.Subscribe(OnStartMap);",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 259,
+        "line": 282,
         "text": "mapReadySubscription = Shared.MissionEvents.Started.Subscribe(OnMissionReady);",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 261,
+        "line": 284,
         "text": ".Subscribe(OnUnloadMap);",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 1704,
+        "line": 1787,
         "text": "public event EventHandler CanExecuteChanged;",
         "coordinates": [],
         "classification": "source-discovery-only"
@@ -66723,24 +69120,18 @@
     "owner": "workspace",
     "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\modpack-main\\001\\ExtendedData\\src\\ExtendedDataRuntime.cs",
     "relativePath": ".work/b/modpack-main/001/ExtendedData/src/ExtendedDataRuntime.cs",
-    "sha256": "B428A61579638FA10DC0146717BEF02C1DE86538CFF656D936938C3381E023DF",
+    "sha256": "762B03DB70ADA2D5E19E29F2D5599E77F403E6D592A82559E33182494FB7A319",
     "entryCandidates": [],
     "observations": [
       {
-        "line": 281,
+        "line": 286,
         "text": "subscriptions.Add(Shared.MissionEvents.Ended.Subscribe(OnMissionEnded));",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 282,
+        "line": 287,
         "text": "subscriptions.Add(Shared.MissionEvents.Started.Subscribe(notification =>",
-        "coordinates": [],
-        "classification": "source-discovery-only"
-      },
-      {
-        "line": 288,
-        "text": "subscriptions.Add(NetworkR3EventHooks.OnReceiveLobbyChatMessage.Observable.Subscribe(notification =>",
         "coordinates": [],
         "classification": "source-discovery-only"
       }
@@ -66750,7 +69141,7 @@
     "owner": "workspace",
     "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\modpack-main\\001\\ExtendedData\\src\\ExtendedDataSettingsViewModel.cs",
     "relativePath": ".work/b/modpack-main/001/ExtendedData/src/ExtendedDataSettingsViewModel.cs",
-    "sha256": "243FB8B3738B1EF7335A03970B5150FC3EBA21AEBB664FF43617D0AC101C050F",
+    "sha256": "A4F9AFB1B3E0EF5FF2041154706D3A5CCE2931F6AE1327811CDCF27E29B5210A",
     "entryCandidates": [],
     "observations": [
       {
@@ -66813,23 +69204,23 @@
     "owner": "workspace",
     "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\modpack-main\\001\\ExtendedData\\src\\LordDataSyncCoordinator.cs",
     "relativePath": ".work/b/modpack-main/001/ExtendedData/src/LordDataSyncCoordinator.cs",
-    "sha256": "85C44C64A94A2DFB77D5C860C83BF0F44A18C3216995DD5BA3D69A659209AA51",
+    "sha256": "F138EBDBF2E237819542AE99A43C8CF9D58450A974EF546E7D31EC5D83B1E5D3",
     "entryCandidates": [],
     "observations": [
       {
-        "line": 153,
+        "line": 146,
         "text": "subscriptions.Add(MissionEvents.Initialization.Subscribe(notification =>",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 235,
+        "line": 223,
         "text": "subscriptions.Add(MissionEvents.Started.Subscribe(notification =>",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 248,
+        "line": 236,
         "text": "subscriptions.Add(MissionEvents.Ended.Subscribe(_ =>",
         "coordinates": [],
         "classification": "source-discovery-only"
@@ -66840,7 +69231,7 @@
     "owner": "workspace",
     "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\modpack-main\\001\\ExtendedData\\src\\LordUpload\\CustomLordPopupPatchVerifier.cs",
     "relativePath": ".work/b/modpack-main/001/ExtendedData/src/LordUpload/CustomLordPopupPatchVerifier.cs",
-    "sha256": "43B1F5F7294A055EEB0398D2D62BB3EEFA054FBFBAA644384B87863D5A149D71",
+    "sha256": "C241A6822650AA2B6EEF6FC3D776E97D2EAE104C05EFBC15F468EC2A307EC6D2",
     "entryCandidates": [],
     "observations": [
       {
@@ -66855,7 +69246,7 @@
     "owner": "workspace",
     "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\modpack-main\\001\\ExtendedData\\src\\MapModSettingsCoordinator.cs",
     "relativePath": ".work/b/modpack-main/001/ExtendedData/src/MapModSettingsCoordinator.cs",
-    "sha256": "F1A4F66463DB8A4760620A80010BBC5F77C41B320757910B9D5FDD9B8F8B8283",
+    "sha256": "F1CC769CF8DB8047C975DC0F8E482FED2FE94E838779EBF38A8625C48E1FB7CF",
     "entryCandidates": [],
     "observations": [
       {
@@ -66882,7 +69273,7 @@
     "owner": "workspace",
     "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\modpack-main\\001\\ExtendedData\\src\\TrailMissionSettingsCoordinator.cs",
     "relativePath": ".work/b/modpack-main/001/ExtendedData/src/TrailMissionSettingsCoordinator.cs",
-    "sha256": "634F3152F18F370AFEE41C152216D4DC9CD4E676D7B31A84EE7A25753662EEF3",
+    "sha256": "26DE5A3A2674F98745C1F192EBFCCA0BB9104DE007D79701FF398D0AF9906694",
     "entryCandidates": [],
     "observations": [
       {
@@ -66898,61 +69289,61 @@
         "classification": "source-discovery-only"
       },
       {
-        "line": 196,
+        "line": 207,
         "text": "public event Action CoopSetupOpened;",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 197,
+        "line": 208,
         "text": "public event Action<int, int> CoopLaunchReceived;",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 198,
+        "line": 209,
         "text": "public event Action<FRONT_Multiplayer> LobbyOpened;",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 199,
+        "line": 210,
         "text": "public event Func<FRONT_Multiplayer, bool> SinglePlayerCoopStarting;",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 200,
+        "line": 211,
         "text": "public event Func<FRONT_Multiplayer, string> SinglePlayerCoopLaunchValidating;",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 201,
+        "line": 212,
         "text": "public event Action SinglePlayerCoopStartRejected;",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 202,
+        "line": 213,
         "text": "public event Action SourcesChanged;",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 356,
+        "line": 364,
         "text": "hooks.Add(packetHook.GetBaseHook().Observable.Subscribe(OnCoopCustomizePacket));",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 360,
+        "line": 368,
         "text": "hooks.Add(builtInOriginPacketHook.GetBaseHook().Observable.Subscribe(OnBuiltInCustomizeOriginPacket));",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 2756,
+        "line": 2753,
         "text": "// event instead of treating this normal first phase as a feature failure.",
         "coordinates": [],
         "classification": "source-discovery-only"
@@ -66963,11 +69354,11 @@
     "owner": "workspace",
     "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\modpack-main\\001\\ExtendedData\\src\\TrailModSelectionItem.cs",
     "relativePath": ".work/b/modpack-main/001/ExtendedData/src/TrailModSelectionItem.cs",
-    "sha256": "226AC804A11B13C09BFFA00664E018805C65B7F7FC2A27BE8485E6E793FDBD7F",
+    "sha256": "A6F63B3E41B5F0412D61CC18C94ECC0C083D1E8700FA65AB52778CA937871B9C",
     "entryCandidates": [],
     "observations": [
       {
-        "line": 50,
+        "line": 49,
         "text": "public event PropertyChangedEventHandler PropertyChanged;",
         "coordinates": [],
         "classification": "source-discovery-only"
@@ -67851,7 +70242,7 @@
     "owner": "workspace",
     "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\modpack-main\\001\\ExtraFeatures\\src\\ExtraFeaturesRuntime.cs",
     "relativePath": ".work/b/modpack-main/001/ExtraFeatures/src/ExtraFeaturesRuntime.cs",
-    "sha256": "8D2B88B6EB2FC38165D706BE9367E4D60FD20B52FF556EC158D031B8CF700DD9",
+    "sha256": "EE6A0C0FA17E91064F2AC387F66E378597D586B5FED4209513E871918EFE4A58",
     "entryCandidates": [],
     "observations": [
       {
@@ -67861,55 +70252,55 @@
         "classification": "source-discovery-only"
       },
       {
-        "line": 169,
+        "line": 177,
         "text": "lifecycleSubscriptions.Add(Shared.MissionEvents.Ended.Subscribe(OnUnloadMap));",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 251,
+        "line": 259,
         "text": "TryRunFeature(\"shared event hooks\", SubscribeHooks);",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 321,
+        "line": 329,
         "text": "BuildingR3EventHooks.OnBuildingBulldoze.Observable.Subscribe(OnBuildingBulldoze));",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 323,
+        "line": 331,
         "text": "BuildingR3EventHooks.OnBuildingRefund.Observable.Subscribe(OnBuildingRefund));",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 325,
+        "line": 333,
         "text": "BuildingR3EventHooks.OnGoodsyardAddGood.Observable.Subscribe(OnGoodsyardAddGood));",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 327,
+        "line": 335,
         "text": "PlayerR3EventHooks.OnPlayerMarketInteraction.Observable.Subscribe(OnPlayerMarketInteraction));",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 329,
+        "line": 337,
         "text": "BuildingR3EventHooks.OnBuildingSpawn.Observable.Subscribe(churchPriestCountRuntime.ApplySpawnedBuilding));",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 339,
+        "line": 347,
         "text": "TryRunFeature(\"event subscription cleanup\", subscription.Dispose);",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 944,
+        "line": 956,
         "text": "// Same identity as the former \"player:good\" text key, without per-event allocation.",
         "coordinates": [],
         "classification": "source-discovery-only"
@@ -67935,7 +70326,7 @@
     "owner": "workspace",
     "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\modpack-main\\001\\ExtraFeatures\\src\\ExtraFeaturesViewModel.cs",
     "relativePath": ".work/b/modpack-main/001/ExtraFeatures/src/ExtraFeaturesViewModel.cs",
-    "sha256": "A7A1104D8338C010D88320CA1313BD2D4CE5A41F7EC5FEC389AA00F241F4CB0F",
+    "sha256": "38DD25C4FC3D841845105538A073DBD8BF7F499C3AE4EE0AD05637B39EC4B462",
     "entryCandidates": [],
     "observations": [
       {
@@ -68153,7 +70544,7 @@
     "owner": "workspace",
     "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\modpack-main\\001\\ExtraFeatures\\src\\ModSettingsPresentation.cs",
     "relativePath": ".work/b/modpack-main/001/ExtraFeatures/src/ModSettingsPresentation.cs",
-    "sha256": "4FEAA171FFD85AE65862B13F555979FA77E509DE35C3240E46F28C9AB0B397F6",
+    "sha256": "168F685EBABF6C69A0D1B570F39E80A113E112F2AB9656A23C506192F107F686",
     "entryCandidates": [],
     "observations": [
       {
@@ -68163,19 +70554,19 @@
         "classification": "source-discovery-only"
       },
       {
-        "line": 113,
+        "line": 114,
         "text": "public event PropertyChangedEventHandler PropertyChanged;",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 136,
+        "line": 137,
         "text": "public event PropertyChangedEventHandler PropertyChanged;",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 177,
+        "line": 178,
         "text": "public event System.EventHandler CanExecuteChanged { add { } remove { } }",
         "coordinates": [],
         "classification": "source-discovery-only"
@@ -68398,6 +70789,54 @@
       {
         "line": 174,
         "text": "private static Instruction[] DecodeStub(X64InlineHook probe)",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\modpack-main\\001\\ExtraFeatures\\src\\PeriodicGoldGameWorld.cs",
+    "relativePath": ".work/b/modpack-main/001/ExtraFeatures/src/PeriodicGoldGameWorld.cs",
+    "sha256": "C520DA848E72FC4E70C32AE963BE41AF5B4849735BBA72C8BC6183998C159AD0",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 10,
+        "text": "public event Action<int> Tick",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      }
+    ]
+  },
+  {
+    "owner": "workspace",
+    "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\modpack-main\\001\\ExtraFeatures\\src\\PeriodicGoldRuntime.cs",
+    "relativePath": ".work/b/modpack-main/001/ExtraFeatures/src/PeriodicGoldRuntime.cs",
+    "sha256": "556692EA72E188F8C944A4DCDE5AD84F5043630007B2DEFA57B6F31F7143BC57",
+    "entryCandidates": [],
+    "observations": [
+      {
+        "line": 13,
+        "text": "event Action<int> Tick;",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 44,
+        "text": "subscriptions.Add(Shared.MissionEvents.Initialization.Subscribe(Initializing));",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 45,
+        "text": "subscriptions.Add(Shared.MissionEvents.Started.Subscribe(Started));",
+        "coordinates": [],
+        "classification": "source-discovery-only"
+      },
+      {
+        "line": 46,
+        "text": "subscriptions.Add(Shared.MissionEvents.Ended.Subscribe(Ended));",
         "coordinates": [],
         "classification": "source-discovery-only"
       }
@@ -70173,7 +72612,7 @@
     "owner": "workspace",
     "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\b\\modpack-main\\001\\SerpsModsHost\\src\\SerpsModsHostBootstrap.cs",
     "relativePath": ".work/b/modpack-main/001/SerpsModsHost/src/SerpsModsHostBootstrap.cs",
-    "sha256": "0A9F51777348546EBEEF1B7EE9AF9474997A0C14DCC4FC9EF6F677647ABF1724",
+    "sha256": "B173412E6C53ED899244B7433740AD27361B0DBEF828FBA3C34540EE98F12CEE",
     "entryCandidates": [],
     "observations": [
       {
@@ -106239,83 +108678,83 @@
     "owner": "workspace",
     "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\BugfixesAndQoL\\src\\BugfixesHookInfrastructure.cs",
     "relativePath": "BugfixesAndQoL/src/BugfixesHookInfrastructure.cs",
-    "sha256": "95E996A4E0FC6434D67391F6FB7C31C1FE447EF3A2113A9D14BA65ED557BC405",
+    "sha256": "48A643FE18D8F77A888EABBFD9A3163F259B36E98A8709DD427877321D2F0842",
     "entryCandidates": [],
     "observations": [
       {
-        "line": 28,
+        "line": 29,
         "text": "// See DemandGatedContextHook: hot-loop context hook behind a native demand byte.",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 29,
+        "line": 30,
         "text": "internal static X64InlineHook CreateDemandGatedContextHook(",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 31,
+        "line": 32,
         "text": "int minimumHookSize,",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 32,
+        "line": 33,
         "text": "ContextHookDelegate callback,",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 33,
+        "line": 34,
         "text": "ContextHookOptions options,",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 36,
+        "line": 37,
         "text": "DemandGatedContextHook.Create(address, minimumHookSize, callback, options, demand, name,",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 39,
+        "line": 40,
         "text": "internal static void AddContextHook(",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 41,
+        "line": 42,
         "text": "HookHandle<X64InlineHook> handle,",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 43,
+        "line": 44,
         "text": "ContextHookDelegate callback,",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 49,
+        "line": 50,
         "text": "transaction.AddContextHook(",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 51,
+        "line": 52,
         "text": "HookTarget.FromAddress(address),",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 53,
+        "line": 54,
         "text": "new ContextHookOptions",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 56,
+        "line": 57,
         "text": "HookSize = hookSize,",
         "coordinates": [],
         "classification": "source-discovery-only"
@@ -107556,7 +109995,7 @@
     "owner": "workspace",
     "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\BugfixesAndQoL\\src\\MoatTerrain\\TerrainRuntime.cs",
     "relativePath": "BugfixesAndQoL/src/MoatTerrain/TerrainRuntime.cs",
-    "sha256": "B45F501130FA23137BB57139A0BFEA1FDAAD43830B71E7779425BFBDD937E7E4",
+    "sha256": "976B55276C152E54B1D6FBBC2EB2E6ACEFA97E2ED27D3AFA0D5EAF239EE680AA",
     "entryCandidates": [],
     "observations": [
       {
@@ -107584,19 +110023,19 @@
         "classification": "source-discovery-only"
       },
       {
-        "line": 111,
+        "line": 104,
         "text": "subscriptions.Add(Shared.MissionEvents.Initialization.Subscribe(OnInitialization));",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 112,
+        "line": 105,
         "text": "subscriptions.Add(Shared.MissionEvents.Ended.Subscribe(OnEnd));",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 113,
+        "line": 106,
         "text": "subscriptions.Add(Shared.MissionEvents.Started.Subscribe(OnStart));",
         "coordinates": [],
         "classification": "source-discovery-only"
@@ -109808,19 +112247,19 @@
     "owner": "workspace",
     "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\CastlePlanner\\AIVPlacement.Tests\\Program.cs",
     "relativePath": "CastlePlanner/AIVPlacement.Tests/Program.cs",
-    "sha256": "400EF104318A48D9143499CAC02A3DCE4FD1815CFB52CFF7FC76FB40C6484756",
+    "sha256": "9BD6BC1DCA3FA0999FCE8D4100D1B7F09252CB8EDC20086E584E44C0C6BB105D",
     "entryCandidates": [
       "0x1000"
     ],
     "observations": [
       {
-        "line": 931,
+        "line": 933,
         "text": "\"human Keep hook signature differs at audited RVA\");",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 1243,
+        "line": 1295,
         "text": "throw new InvalidOperationException($\"RVA 0x{rva:X} is not in a PE section.\");",
         "coordinates": [],
         "classification": "source-discovery-only"
@@ -109894,7 +112333,7 @@
     "owner": "workspace",
     "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\CastlePlanner\\src\\BlueprintHudViewModel.cs",
     "relativePath": "CastlePlanner/src/BlueprintHudViewModel.cs",
-    "sha256": "99048C62A5F79C0F6EA8A3CCA0BBB1CCE80642227D13A97BB58B47E474D9FCE7",
+    "sha256": "D8A206969E00675E39399FB778AB6DBDF562054D1C8E23BA9C3DDE79CA82C0E7",
     "entryCandidates": [],
     "observations": [
       {
@@ -109910,7 +112349,7 @@
         "classification": "source-discovery-only"
       },
       {
-        "line": 1336,
+        "line": 1340,
         "text": "public event EventHandler CanExecuteChanged",
         "coordinates": [],
         "classification": "source-discovery-only"
@@ -109966,7 +112405,7 @@
     "owner": "workspace",
     "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\CastlePlanner\\src\\CastlePlannerRuntime.cs",
     "relativePath": "CastlePlanner/src/CastlePlannerRuntime.cs",
-    "sha256": "640804086C95261BF5BBC3A9C4B2F39C15F474E4C7766E67BDC17454766F6A02",
+    "sha256": "01A047BCBE3DD484F164295A031D55BE6CA747B7030A33F33787FDF0E4F7DC35",
     "entryCandidates": [
       "0x50680",
       "0x53D00",
@@ -110118,11 +112557,11 @@
     "owner": "workspace",
     "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\CastlePlanner\\src\\CastleRotationOptions.cs",
     "relativePath": "CastlePlanner/src/CastleRotationOptions.cs",
-    "sha256": "A769E01A84DFE27438288BA20DF73AA55E1A81AB29CC3A897BB2E446F28EE24E",
+    "sha256": "8B4EC668832F0EFC34274C66811B0553A395847A5666C44CD668EAAE2A194451",
     "entryCandidates": [],
     "observations": [
       {
-        "line": 121,
+        "line": 142,
         "text": "// Translation availability must not prevent castle selection.",
         "coordinates": [],
         "classification": "source-discovery-only"
@@ -110133,7 +112572,7 @@
     "owner": "workspace",
     "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\CastlePlanner\\src\\FreeCastlePreviewRuntime.cs",
     "relativePath": "CastlePlanner/src/FreeCastlePreviewRuntime.cs",
-    "sha256": "07338AAFEC9607C5FD30B2C527FE5C63A418635676465353F5B5CA8FD33709B2",
+    "sha256": "B721D124AE0D5FEE021AC2D406E883A5616403B792D2F9260FD9D509CC27CE89",
     "entryCandidates": [],
     "observations": [
       {
@@ -110143,37 +112582,37 @@
         "classification": "source-discovery-only"
       },
       {
-        "line": 254,
+        "line": 253,
         "text": "public event Action SelectionVisualChanged;",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 280,
+        "line": 279,
         "text": "packetSubscription = packetHook.GetBaseHook().Observable.Subscribe(OnPacket);",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 282,
+        "line": 281,
         "text": "mapStartSubscription = Shared.MissionEvents.NativeStart.Subscribe(OnStartMap);",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 283,
+        "line": 282,
         "text": "mapReadySubscription = Shared.MissionEvents.Started.Subscribe(OnMissionReady);",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 285,
+        "line": 284,
         "text": ".Subscribe(OnUnloadMap);",
         "coordinates": [],
         "classification": "source-discovery-only"
       },
       {
-        "line": 1773,
+        "line": 1787,
         "text": "public event EventHandler CanExecuteChanged;",
         "coordinates": [],
         "classification": "source-discovery-only"
@@ -113838,7 +116277,7 @@
     "owner": "workspace",
     "path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\SerpsModsHost\\src\\SerpsModsHostBootstrap.cs",
     "relativePath": "SerpsModsHost/src/SerpsModsHostBootstrap.cs",
-    "sha256": "0A9F51777348546EBEEF1B7EE9AF9474997A0C14DCC4FC9EF6F677647ABF1724",
+    "sha256": "B173412E6C53ED899244B7433740AD27361B0DBEF828FBA3C34540EE98F12CEE",
     "entryCandidates": [],
     "observations": [
       {

@@ -46,3 +46,7 @@ The declared `GameTribe` layout remains sequential, pack 1, size 1672 (`0x688`).
 `IDENTITY.json`, `SEMANTIC_INFO.md`, `DATABASE_INFO.json`, the SQLite index, generated source/header knowledge, Ghidra projects and exports retain their previous generation provenance. Their absence of the new names must not be interpreted as evidence against this later source supplement. Use this note alongside those records; it does not assert that the generated database or Ghidra types have been updated to 2.14.3.
 
 No mod source, version, dependency minimum, build output or installed file was changed. No extender/mod build, installation, game start, database rebuild or Ghidra export was performed for this supplement.
+
+## Baseline refresh, 2026-10-27
+
+`Build-SemanticBaseline.ps1 UpdateForScriptExtender` moved the generated baseline from v2.14.2 (`10628df8…`) to v2.14.3 (`4014ca67c96974a5e6d697665baf5351cbfebde6`, tree `372b43a9e9d614075c3b827d3df2a2346ec356fa`). The only changed Ghidra input was the sanitized header (`N00004115` → `r_AILastStandPhase`, `0x38F0`, unchanged type), so the current semantic Ghidra project was re-applied and exported. Analysis generation `g72CA4AA9715C` was then published and accepted. The statements above remain the dated record of the source supplement.

@@ -115,7 +115,7 @@ The external Dat2XAML copy has two documented container fixes: it stops before a
 
 ## Search database
 
-`CrusaderDE-semantic.sqlite` is a read-only-oriented SQLite/FTS5 index. It is a reproducible local artifact and is intentionally excluded from Git together with its SQLite sidecars. `DATABASE_INFO.json` retains its reference SHA-256, size, SQLite/schema version, identities, logical counts and the hashes of every required tracked input. Its principal counts are:
+`CrusaderDE-semantic.sqlite` is a read-only-oriented SQLite/FTS5 index. It is a reproducible local artifact and is intentionally excluded from Git together with its SQLite sidecars. `DATABASE_INFO.json` retains its reference SHA-256, size, SQLite/schema version, identities, logical counts and the hashes of every required tracked input. Its principal counts are listed below as recorded at creation; they are a dated snapshot, and `DATABASE_INFO.json` holds the current database, counts and input hashes:
 
 | Table/domain | Records |
 |---|---:|

@@ -171,6 +171,10 @@ files. All queries retain hash-bound observations while reporting stale source
 snapshots. Features and summaries describe captured evidence; changed mod sources
 do not disable them. Hook checks retain machine results and recorded conflicts,
 but report incomplete current ownership when the source inventory has changed.
+A changed installed Script Extender assembly (`SHCDESE.dll`) is likewise a
+snapshot change: no machine fact, backend contract or hook span is derived from
+it, and `UpdateForScriptExtender` refreshes the Extender knowledge. Changes to the
+native DLL, Iced or the RedBird backends still withhold all analysis results.
 Mods need not be final or frozen. Publication records source drift as snapshot
 metadata rather than rejecting valid Vanilla analyses. Document inventories and
 reference exports are still checked to preserve concurrent baseline knowledge.

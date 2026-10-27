@@ -6155,6 +6155,11 @@
       },
       {
         "owner": "workspace",
+        "path": ".work/b/api-main/003/src/Economy/MarketPriceNativeRuntime.cs",
+        "observations": []
+      },
+      {
+        "owner": "workspace",
         "path": ".work/b/modpack-main/001/APIShared/src/Economy/MarketPriceNativeRuntime.cs",
         "observations": []
       },
@@ -9447,6 +9452,11 @@
       {
         "owner": "workspace",
         "path": ".work/b/api-main/002/src/Economy/MarketPriceNativeRuntime.cs",
+        "observations": []
+      },
+      {
+        "owner": "workspace",
+        "path": ".work/b/api-main/003/src/Economy/MarketPriceNativeRuntime.cs",
         "observations": []
       },
       {
@@ -14353,6 +14363,26 @@
       },
       {
         "owner": "workspace",
+        "path": ".work/b/api-main/003/src/Compatibility/FixesWheatMemory.cs",
+        "observations": []
+      },
+      {
+        "owner": "workspace",
+        "path": ".work/b/api-main/003/src/Diagnostics/AivBuildStepCapability.cs",
+        "observations": []
+      },
+      {
+        "owner": "workspace",
+        "path": ".work/b/api-main/003/src/Pathfinding/GateRoutes/Native/EnemyGatePathfindingNativeDefinition.cs",
+        "observations": []
+      },
+      {
+        "owner": "workspace",
+        "path": ".work/b/api-main/003/src/Pathfinding/GateRoutes/Native/GateRoutingNativeHooks.cs",
+        "observations": []
+      },
+      {
+        "owner": "workspace",
         "path": ".work/b/modpack-main/001/APIShared/src/Compatibility/FixesWheatMemory.cs",
         "observations": []
       },
@@ -19183,6 +19213,11 @@
       {
         "owner": "workspace",
         "path": ".work/b/api-main/002/src/Diagnostics/AivBuildStepCapability.cs",
+        "observations": []
+      },
+      {
+        "owner": "workspace",
+        "path": ".work/b/api-main/003/src/Diagnostics/AivBuildStepCapability.cs",
         "observations": []
       },
       {
@@ -24298,6 +24333,11 @@
       {
         "owner": "workspace",
         "path": ".work/b/api-main/002/src/Diagnostics/AivBuildStepCapability.cs",
+        "observations": []
+      },
+      {
+        "owner": "workspace",
+        "path": ".work/b/api-main/003/src/Diagnostics/AivBuildStepCapability.cs",
         "observations": []
       },
       {
@@ -29685,6 +29725,40 @@
       },
       {
         "owner": "workspace",
+        "path": ".work/b/api-main/003/src/Pathfinding/Assassin/AssassinAttackControlAPI.cs",
+        "observations": [
+          {
+            "line": 159,
+            "text": "try { log?.LogInfo(\"Assassin attack guard installed; APIShared owner, RVA=0x16CD70, Indirect/10, continuation=0x16CD7A.\"); } catch { }",
+            "coordinates": [
+              "0x16CD70",
+              "0x16CD7A"
+            ],
+            "classification": "source-discovery-only"
+          }
+        ]
+      },
+      {
+        "owner": "workspace",
+        "path": ".work/b/api-main/003/src/Pathfinding/Assassin/AssassinPathAPI.cs",
+        "observations": [
+          {
+            "line": 419,
+            "text": "pending.AddDetour(pendingBuilder, HookTarget.FromAddress(nativeBase + 0xD9C40), (AssassinPathBuilder)Build);",
+            "coordinates": [
+              "0xD9C40"
+            ],
+            "classification": "source-discovery-only"
+          }
+        ]
+      },
+      {
+        "owner": "workspace",
+        "path": ".work/b/api-main/003/src/Pathfinding/GateRoutes/Native/EnemyGatePathfindingNativeDefinition.cs",
+        "observations": []
+      },
+      {
+        "owner": "workspace",
         "path": ".work/b/modpack-main/001/APIShared/src/Pathfinding/Assassin/AssassinAttackControlAPI.cs",
         "observations": [
           {
@@ -34059,6 +34133,25 @@
       },
       {
         "owner": "workspace",
+        "path": ".work/b/api-main/003/src/Pathfinding/Assassin/AssassinPathAPI.cs",
+        "observations": [
+          {
+            "line": 419,
+            "text": "pending.AddDetour(pendingBuilder, HookTarget.FromAddress(nativeBase + 0xD9C40), (AssassinPathBuilder)Build);",
+            "coordinates": [
+              "0xD9C40"
+            ],
+            "classification": "source-discovery-only"
+          }
+        ]
+      },
+      {
+        "owner": "workspace",
+        "path": ".work/b/api-main/003/src/Pathfinding/GateRoutes/Native/EnemyGatePathfindingNativeDefinition.cs",
+        "observations": []
+      },
+      {
+        "owner": "workspace",
         "path": ".work/b/modpack-main/001/APIShared/src/Pathfinding/Assassin/AssassinPathAPI.cs",
         "observations": [
           {
@@ -37986,6 +38079,35 @@
       {
         "owner": "workspace",
         "path": ".work/b/api-main/002/src/Pathfinding/GateRoutes/Native/GateRoutingNativeHooks.cs",
+        "observations": []
+      },
+      {
+        "owner": "workspace",
+        "path": ".work/b/api-main/003/src/Compatibility/FixesWheatMemory.cs",
+        "observations": []
+      },
+      {
+        "owner": "workspace",
+        "path": ".work/b/api-main/003/src/Pathfinding/Assassin/AssassinPathAPI.cs",
+        "observations": [
+          {
+            "line": 419,
+            "text": "pending.AddDetour(pendingBuilder, HookTarget.FromAddress(nativeBase + 0xD9C40), (AssassinPathBuilder)Build);",
+            "coordinates": [
+              "0xD9C40"
+            ],
+            "classification": "source-discovery-only"
+          }
+        ]
+      },
+      {
+        "owner": "workspace",
+        "path": ".work/b/api-main/003/src/Pathfinding/GateRoutes/Native/EnemyGatePathfindingNativeDefinition.cs",
+        "observations": []
+      },
+      {
+        "owner": "workspace",
+        "path": ".work/b/api-main/003/src/Pathfinding/GateRoutes/Native/GateRoutingNativeHooks.cs",
         "observations": []
       },
       {
@@ -41960,6 +42082,11 @@
       {
         "owner": "workspace",
         "path": ".work/b/api-main/002/src/NativeKnowledge/NativeFieldCatalog.Data.cs",
+        "observations": []
+      },
+      {
+        "owner": "workspace",
+        "path": ".work/b/api-main/003/src/NativeKnowledge/NativeFieldCatalog.Data.cs",
         "observations": []
       },
       {
@@ -48074,6 +48201,11 @@
       {
         "owner": "workspace",
         "path": ".work/b/api-main/002/src/Buildings/Repair/BuildingRepairCapability.cs",
+        "observations": []
+      },
+      {
+        "owner": "workspace",
+        "path": ".work/b/api-main/003/src/Buildings/Repair/BuildingRepairCapability.cs",
         "observations": []
       },
       {
@@ -67334,12 +67466,27 @@
       },
       {
         "owner": "workspace",
+        "path": ".work/b/api-main/003/src/Diagnostics/AivBuildStepCapability.cs",
+        "observations": []
+      },
+      {
+        "owner": "workspace",
+        "path": ".work/b/api-main/003/src/NativeKnowledge/NativeFieldCatalog.Data.cs",
+        "observations": []
+      },
+      {
+        "owner": "workspace",
         "path": ".work/b/modpack-main/001/APIShared/src/Diagnostics/AivBuildStepCapability.cs",
         "observations": []
       },
       {
         "owner": "workspace",
         "path": ".work/b/modpack-main/001/APIShared/src/NativeKnowledge/NativeFieldCatalog.Data.cs",
+        "observations": []
+      },
+      {
+        "owner": "workspace",
+        "path": ".work/b/modpack-main/001/BugfixesAndQoL/src/Formations/GroundMoveFrameObserver.cs",
         "observations": []
       },
       {
@@ -79026,6 +79173,11 @@
       },
       {
         "owner": "workspace",
+        "path": ".work/b/modpack-main/001/BugfixesAndQoL/src/Formations/GroundMoveFrameObserver.cs",
+        "observations": []
+      },
+      {
+        "owner": "workspace",
         "path": ".work/b/modpack-main/001/BugfixesAndQoL/src/Formations/Markers/LargeMoveTargetMarkerRenderer.cs",
         "observations": []
       },
@@ -86350,6 +86502,11 @@
       {
         "owner": "workspace",
         "path": ".work/b/api-main/002/src/Pathfinding/GateRoutes/Native/EnemyGatePathfindingNativeDefinition.cs",
+        "observations": []
+      },
+      {
+        "owner": "workspace",
+        "path": ".work/b/api-main/003/src/Pathfinding/GateRoutes/Native/EnemyGatePathfindingNativeDefinition.cs",
         "observations": []
       },
       {
@@ -93942,6 +94099,30 @@
       },
       {
         "owner": "workspace",
+        "path": ".work/b/api-main/003/src/NativeKnowledge/NativeFieldCatalog.Data.cs",
+        "observations": []
+      },
+      {
+        "owner": "workspace",
+        "path": ".work/b/api-main/003/src/Pathfinding/Assassin/AssassinPathAPI.cs",
+        "observations": [
+          {
+            "line": 419,
+            "text": "pending.AddDetour(pendingBuilder, HookTarget.FromAddress(nativeBase + 0xD9C40), (AssassinPathBuilder)Build);",
+            "coordinates": [
+              "0xD9C40"
+            ],
+            "classification": "source-discovery-only"
+          }
+        ]
+      },
+      {
+        "owner": "workspace",
+        "path": ".work/b/api-main/003/src/Pathfinding/GateRoutes/Native/EnemyGatePathfindingNativeDefinition.cs",
+        "observations": []
+      },
+      {
+        "owner": "workspace",
         "path": ".work/b/modpack-main/001/APIShared/src/NativeKnowledge/NativeFieldCatalog.Data.cs",
         "observations": []
       },
@@ -97228,6 +97409,11 @@
       {
         "owner": "workspace",
         "path": ".work/b/api-main/002/src/Pathfinding/GateRoutes/Native/EnemyGatePathfindingNativeDefinition.cs",
+        "observations": []
+      },
+      {
+        "owner": "workspace",
+        "path": ".work/b/api-main/003/src/Pathfinding/GateRoutes/Native/EnemyGatePathfindingNativeDefinition.cs",
         "observations": []
       },
       {
@@ -103706,6 +103892,11 @@
       },
       {
         "owner": "workspace",
+        "path": ".work/b/api-main/003/src/NativeKnowledge/NativeFieldCatalog.Data.cs",
+        "observations": []
+      },
+      {
+        "owner": "workspace",
         "path": ".work/b/modpack-main/001/APIShared/src/NativeKnowledge/NativeFieldCatalog.Data.cs",
         "observations": []
       },
@@ -107343,6 +107534,11 @@
       },
       {
         "owner": "workspace",
+        "path": ".work/b/modpack-main/001/BugfixesAndQoL/src/Formations/GroundMoveFrameObserver.cs",
+        "observations": []
+      },
+      {
+        "owner": "workspace",
         "path": ".work/b/modpack-main/001/BugfixesAndQoL/src/Formations/Markers/LargeMoveTargetMarkerRenderer.cs",
         "observations": []
       },
@@ -110672,6 +110868,11 @@
       {
         "owner": "workspace",
         "path": ".work/b/api-main/002/src/NativeKnowledge/NativeFieldCatalog.Data.cs",
+        "observations": []
+      },
+      {
+        "owner": "workspace",
+        "path": ".work/b/api-main/003/src/NativeKnowledge/NativeFieldCatalog.Data.cs",
         "observations": []
       },
       {
@@ -114686,6 +114887,11 @@
       {
         "owner": "workspace",
         "path": ".work/b/api-main/002/src/Diagnostics/AivBuildStepCapability.cs",
+        "observations": []
+      },
+      {
+        "owner": "workspace",
+        "path": ".work/b/api-main/003/src/Diagnostics/AivBuildStepCapability.cs",
         "observations": []
       },
       {
@@ -121768,7 +121974,17 @@
       },
       {
         "owner": "workspace",
+        "path": ".work/b/api-main/003/src/NativeKnowledge/NativeFieldCatalog.Data.cs",
+        "observations": []
+      },
+      {
+        "owner": "workspace",
         "path": ".work/b/modpack-main/001/APIShared/src/NativeKnowledge/NativeFieldCatalog.Data.cs",
+        "observations": []
+      },
+      {
+        "owner": "workspace",
+        "path": ".work/b/modpack-main/001/BugfixesAndQoL/src/Formations/GroundMoveFrameObserver.cs",
         "observations": []
       },
       {
@@ -125078,6 +125294,11 @@
       },
       {
         "owner": "workspace",
+        "path": ".work/b/api-main/003/src/Pathfinding/GateRoutes/Native/EnemyGatePathfindingNativeDefinition.cs",
+        "observations": []
+      },
+      {
+        "owner": "workspace",
         "path": ".work/b/modpack-main/001/APIShared/src/Pathfinding/GateRoutes/Native/EnemyGatePathfindingNativeDefinition.cs",
         "observations": []
       },
@@ -128258,6 +128479,11 @@
       {
         "owner": "workspace",
         "path": ".work/b/api-main/002/src/NativeKnowledge/NativeFieldCatalog.Data.cs",
+        "observations": []
+      },
+      {
+        "owner": "workspace",
+        "path": ".work/b/api-main/003/src/NativeKnowledge/NativeFieldCatalog.Data.cs",
         "observations": []
       },
       {
@@ -132301,6 +132527,21 @@
       {
         "owner": "workspace",
         "path": ".work/b/api-main/002/src/NativeKnowledge/NativeFieldCatalog.Data.cs",
+        "observations": []
+      },
+      {
+        "owner": "workspace",
+        "path": ".work/b/api-main/003/src/Buildings/Gatehouse/GatehouseAutomationNativeState.cs",
+        "observations": []
+      },
+      {
+        "owner": "workspace",
+        "path": ".work/b/api-main/003/src/Buildings/Gatehouse/GatehouseTimingCapability.cs",
+        "observations": []
+      },
+      {
+        "owner": "workspace",
+        "path": ".work/b/api-main/003/src/NativeKnowledge/NativeFieldCatalog.Data.cs",
         "observations": []
       },
       {
@@ -136474,12 +136715,22 @@
       },
       {
         "owner": "workspace",
+        "path": ".work/b/api-main/003/src/Projectiles/PlagueHeightRuntime.cs",
+        "observations": []
+      },
+      {
+        "owner": "workspace",
         "path": ".work/b/modpack-main/001/APIShared/src/Projectiles/PlagueHeightRuntime.cs",
         "observations": []
       },
       {
         "owner": "workspace",
         "path": ".work/b/modpack-main/001/BugfixesAndQoL/src/ExtendedShiftCommandQueueRuntime.cs",
+        "observations": []
+      },
+      {
+        "owner": "workspace",
+        "path": ".work/b/modpack-main/001/BugfixesAndQoL/src/Formations/GroundMoveFrameObserver.cs",
         "observations": []
       },
       {
@@ -140044,7 +140295,17 @@
       },
       {
         "owner": "workspace",
+        "path": ".work/b/api-main/003/src/NativeKnowledge/NativeFieldCatalog.Data.cs",
+        "observations": []
+      },
+      {
+        "owner": "workspace",
         "path": ".work/b/modpack-main/001/APIShared/src/NativeKnowledge/NativeFieldCatalog.Data.cs",
+        "observations": []
+      },
+      {
+        "owner": "workspace",
+        "path": ".work/b/modpack-main/001/BugfixesAndQoL/src/Formations/GroundMoveFrameObserver.cs",
         "observations": []
       },
       {
@@ -147275,6 +147536,11 @@
       },
       {
         "owner": "workspace",
+        "path": ".work/b/api-main/003/src/NativeKnowledge/NativeFieldCatalog.Data.cs",
+        "observations": []
+      },
+      {
+        "owner": "workspace",
         "path": ".work/b/modpack-main/001/APIShared/src/NativeKnowledge/NativeFieldCatalog.Data.cs",
         "observations": []
       },
@@ -147370,7 +147636,7 @@
     "title": "Keep Main-Flag Rotation Audit [Scope: Vanilla]",
     "binaryHash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
     "source": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/KEEP_FLAG_ROTATION.md",
-    "sourceSha256": "1347E85B83A77167F7D1C1ED6ADEA7ADD5C6BDBB567DC3D0A874774E8B730F40",
+    "sourceSha256": "28FEF8E45F7DC0A11348127343CE985F89CBCEA33CB38CA7A114BF3C011B3AB4",
     "declaredHashes": [
       "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2"
     ],
@@ -147380,12 +147646,13 @@
       "0x9B2B0"
     ],
     "coordinateCandidates": [
+      "0x32C",
       "0x94350",
       "0x9B2B0"
     ],
     "claims": [],
     "hookSpans": [],
-    "document": "# Keep Main-Flag Rotation Audit [Scope: Vanilla]\r\n\r\n## Provenance\r\n\r\n- Native SHA-256: `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`\r\n- Primary keep-start function: `FUN_180094350`, VA `0x180094350`, RVA `0x94350`\r\n- Projectile allocator reached by the keep path: `FUN_18009B2B0`, RVA `0x9B2B0`\r\n- Runtime confirmation: Script Extender `2.8.0`, commit `5b4d48e732e9b6e2e93c135f0b28ce5b9d8bcd33`\r\n\r\n## Native coordinate contract\r\n\r\nThe main Keep `Flag3` is spawned with identical source and target position and elevation. Its tile corner remains the north-east tile of the unrotated Keep footprint, but its micro-coordinate depends on the global map/view rotation in `DAT_1860ad40c`:\r\n\r\n| View value | Micro X | Micro Y |\r\n| --- | ---: | ---: |\r\n| `0` or fallback | 7 | 0 |\r\n| `2` | 7 | 7 |\r\n| `4` | 0 | 7 |\r\n| `6` | 0 | 0 |\r\n\r\nThe Keep orientation delivered to `BuildStructure(Pre)` is a separate value with the cardinal contract `0=South`, `2=East`, `4=North`, `6=West`; sentinel `15` is the default South orientation.\r\n\r\nTo preserve the flag's position relative to the Keep entrance for every view rotation, rotate the complete observed Vanilla micro-position around the square footprint. For local coordinates and `last = scale * 8 - 1`:\r\n\r\n- `0`: `(x, y)`\r\n- `2`: `(y, last - x)`\r\n- `4`: `(last - x, last - y)`\r\n- `6`: `(last - y, x)`\r\n\r\nAccept only the four native micro-coordinate pairs on the north-east footprint tile and require stationary source/target equality. Any other Flag3 position remains fail-closed.\r\n\r\n## Runtime observations\r\n\r\n- `Crater Lake.map` produced micro `(7,0)` and was corrected and verified for all eight players.\r\n- `The Ford Across the River.map` produced micro `(0,7)`, matching the native view-value-4 branch.\r\n- A CastlePlanner restart with human orientation `2` and AI orientation `6` produced micro `(7,0)`; both corrected projectiles were found by their direct projectile array IDs and verified after initialization.\r\n\r\nProjectile IDs are direct indices into `GameProjectileManagerAPI.GetProjectilesAsSpan()` with slot `0` reserved. `SourceWorldTileX/Y` and `TargetWorldTileX/Y` use micro-coordinates; `CurrentTileX/Y` use ordinary tile coordinates.\r\n",
+    "document": "# Keep Main-Flag Rotation Audit [Scope: Vanilla]\r\n\r\n## Provenance\r\n\r\n- Native SHA-256: `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`\r\n- Primary keep-start function: `FUN_180094350`, VA `0x180094350`, RVA `0x94350`\r\n- Projectile allocator reached by the keep path: `FUN_18009B2B0`, RVA `0x9B2B0`\r\n- Runtime confirmation: Script Extender `2.8.0`, commit `5b4d48e732e9b6e2e93c135f0b28ce5b9d8bcd33`\r\n\r\n## Native coordinate contract\r\n\r\nThe main Keep `Flag3` is spawned with identical source and target position and elevation. Its tile corner remains the north-east tile of the unrotated Keep footprint, but its micro-coordinate depends on the global map/view rotation in `DAT_1860ad40c`:\r\n\r\n| View value | Micro X | Micro Y |\r\n| --- | ---: | ---: |\r\n| `0` or fallback | 7 | 0 |\r\n| `2` | 7 | 7 |\r\n| `4` | 0 | 7 |\r\n| `6` | 0 | 0 |\r\n\r\nThe Keep orientation delivered to `BuildStructure(Pre)` is a separate value with the cardinal contract `0=South`, `2=East`, `4=North`, `6=West`; sentinel `15` is the default South orientation.\r\n\r\nTo preserve the flag's position relative to the Keep entrance for every view rotation, rotate the complete observed Vanilla micro-position around the square footprint. For local coordinates and `last = scale * 8 - 1`:\r\n\r\n- `0`: `(x, y)`\r\n- `2`: `(y, last - x)`\r\n- `4`: `(last - x, last - y)`\r\n- `6`: `(last - y, x)`\r\n\r\nAccept only the four native micro-coordinate pairs on the north-east footprint tile and require stationary source/target equality. Any other Flag3 position remains fail-closed.\r\n\r\n## Runtime observations\r\n\r\n- `Crater Lake.map` produced micro `(7,0)` and was corrected and verified for all eight players.\r\n- `The Ford Across the River.map` produced micro `(0,7)`, matching the native view-value-4 branch.\r\n- A CastlePlanner restart with human orientation `2` and AI orientation `6` produced micro `(7,0)`; both corrected projectiles were found by their direct projectile array IDs and verified after initialization.\r\n\r\nProjectile IDs are direct indices into `GameProjectileManagerAPI.GetProjectilesAsSpan()` with slot `0` reserved. `SourceWorldTileX/Y` and `TargetWorldTileX/Y` use micro-coordinates; `CurrentTileX/Y` use ordinary tile coordinates.\r\n\r\n## Stored Keep direction (2026-10-27, static Vanilla evidence)\r\n\r\nThe unchanged canonical hash above was verified again. In the human branch of\r\n94350, orientation 15 is passed to BuildStructure (6D580), whose Keep switch\r\nreaches constructor 74DA0. The constructor writes its effective seventh argument\r\nto `DAT_1864ccc9e + buildingId * 0x32c`, exposed by the installed Extender as\r\n`GameBuilding.r_SpriteVariationIndex`. It uses 0 for geometry when that argument\r\nis 15; otherwise it uses the supplied cardinal direction. D0630 reads the same\r\nstored value for the Keep's access coordinates, treating values other than\r\n2/4/6 as the South branch. Reading a live root Keep therefore observes the\r\nconstructor's effective direction; camera rotation is a different input.\r\n\r\nThis confirms the stored-field and 15-to-0 geometry contract from the native\r\ndecompiler exports. It does not establish that arbitrary unknown variation\r\nvalues are supported rotations or prove a mod's runtime integration.\r\n",
     "status": "indexed-existing-audit",
     "semanticReview": "not-promoted",
     "openQuestions": [
@@ -147414,6 +147681,30 @@
       {
         "line": 38,
         "statement": "Projectile IDs are direct indices into `GameProjectileManagerAPI.GetProjectilesAsSpan()` with slot `0` reserved. `SourceWorldTileX/Y` and `TargetWorldTileX/Y` use micro-coordinates; `CurrentTileX/Y` use ordinary tile coordinates.",
+        "authority": "existing-audit-text",
+        "interpretation": "verbatim evidence; no automatic semantic promotion"
+      },
+      {
+        "line": 42,
+        "statement": "The unchanged canonical hash above was verified again. In the human branch of",
+        "authority": "existing-audit-text",
+        "interpretation": "verbatim evidence; no automatic semantic promotion"
+      },
+      {
+        "line": 44,
+        "statement": "reaches constructor 74DA0. The constructor writes its effective seventh argument",
+        "authority": "existing-audit-text",
+        "interpretation": "verbatim evidence; no automatic semantic promotion"
+      },
+      {
+        "line": 49,
+        "statement": "2/4/6 as the South branch. Reading a live root Keep therefore observes the",
+        "authority": "existing-audit-text",
+        "interpretation": "verbatim evidence; no automatic semantic promotion"
+      },
+      {
+        "line": 52,
+        "statement": "This confirms the stored-field and 15-to-0 geometry contract from the native",
         "authority": "existing-audit-text",
         "interpretation": "verbatim evidence; no automatic semantic promotion"
       }
@@ -161235,6 +161526,11 @@
       },
       {
         "owner": "workspace",
+        "path": ".work/b/api-main/003/src/Economy/MarketPriceNativeRuntime.cs",
+        "observations": []
+      },
+      {
+        "owner": "workspace",
         "path": ".work/b/modpack-main/001/APIShared/src/Economy/MarketPriceNativeRuntime.cs",
         "observations": []
       },
@@ -164727,7 +165023,7 @@
     "title": "Moat terrain restoration [Scope: Vanilla + mod integration]",
     "binaryHash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
     "source": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/MOAT_TERRAIN_RESTORATION.md",
-    "sourceSha256": "BE43382B27912E30853A059C6F1C54709E6B84AE389169E2DECEF056EBBDE9A8",
+    "sourceSha256": "E97EC70A56DBFCB9C6B9E4EC28C3F723841E6AF0301039F422254C1003FCF28A",
     "declaredHashes": [
       "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2"
     ],
@@ -164784,7 +165080,7 @@
     ],
     "claims": [],
     "hookSpans": [],
-    "document": "# Moat terrain restoration [Scope: Vanilla + mod integration]\r\n\r\nObservation: 2026-10-25. Canonical native SHA-256\r\n`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.\r\nThe function names in the database remain candidate symbols; the following particular\r\nmachine writes, branches and register contracts are confirmed statically against the\r\ninstalled image. This is not in-game or multiplayer acceptance.\r\n\r\n## Soil and terminal states\r\n\r\nThe native tile manager is at module `+0x405EDB0`. Its `Logic2Grid` is a byte per\r\npacked tile at manager `+0x9D2500`, separate from logic flags `+0x898400`, height\r\n`+0xD7E5A0`, default height `+0xDCCAC0` and structure IDs `+0xB0BCA0`. The physical\r\ncapacity is 320800. `TileType.OasisGrass` is bit `0x10`; the complete original byte\r\nmust be retained, rather than inferring grass from neighboring cells or recording\r\nonly that bit. Native readers also distinguish foliage, sand, height-edge and stone bits.\r\n\r\n`0x639C0(manager, taskIndex)` increments the byte progress of a 16-byte moat record.\r\nOnly its completed branch (progress >=4) reaches `0x63A4E`: task state becomes 0x0204,\r\nheight becomes zero, planned/pitch flags are cleared, completed moat is set, and\r\n`0x63A9F` explicitly writes soil zero. Task-index callers from all ten audited unit\r\nhandlers share this branch. `0x69470(manager, taskIndex)` decrements progress; positive\r\nprogress returns without removal. At <=0 it restores height 8, clears completed moat,\r\ninvalidates/rebuilds path data and removes the task through `0x61E70`. It never restores\r\nthe original soil. A resource-visual update can follow if a building occupies the tile.\r\n\r\n`0x6FE90` iterates accepted brush cells. Its moat operation numbers are 0 plan,\r\n1 cancel plan, 2 immediate completed placement, 3 direct removal. Modes 2/3 pass the\r\nsoil-zero writer `0x705BF`; mode 2 allocates through `0x59210` afterwards, so a hook\r\nonly on task creation would already observe the erased byte. `0x70940` is reached\r\nafter the accepted mutation and before the unchanged 3x3 update call. It is also used\r\nby non-moat terrain operations; these represent explicit replacement, not restoration.\r\nSome texture-only paints skip that update block, and require the accepted texture\r\ncommit at `0x7082E`. The editor's `0x7AE50` clear operation deliberately replaces soil\r\nwith zero/height-edge bits and must invalidate history, including when invoked as\r\npreparation for another paint by `0x6FE90`.\r\n\r\n## Bridges and replacement\r\n\r\n`0x6D580` validates a building request before iterating its footprint. At `0x6D8DF`,\r\n`RBX=tileManager`, `ESI=packed tile`, `R12D=native building struct type` (drawbridge 0x31).\r\nIt deletes prior moat tasks and clears the moat/planned bits before dispatching to\r\ndrawbridge creation `0x739C0`. That function writes the bridge occupancy and recreates\r\ntasks with `0x59210`. Therefore capture/preservation has to precede the cleanup, and\r\nthe later allocation must not replace the retained origin with the current dirt.\r\nThe native bridge mapper selects its underlying moat cells; other footprint cells\r\nalso need origins because bridge removal ORs soil bit 2 on non-moat footprint cells.\r\n\r\n`0x622D0` may remove a bridge while keeping a completed moat underneath. Its later\r\nsoil OR-2 path follows the existing height-restoration block. `0x6240E` is after the\r\nlast soil write but before structure occupancy is cleared. Remaining completed moat\r\nretains its origin. `0x6CA30` purges the bridge footprint and its `0x6CADD` block is\r\nafter task/flag cleanup. `0xED2E0` area removal reaches `0xEDA8C` after the moat flag\r\nand height writers and before later region/3x3 publication.\r\n\r\nFilling a moat under a surviving bridge can finish before the bridge disappears.\r\nRestoring soil at filling completion must retain the bridge's origin until a later\r\nbridge demolition, otherwise the OR-2 writer can again change the restored soil.\r\nAn old untracked moat or lowered bridge is not a source of historical information.\r\n\r\nOrdinary building preparation invalidates history. `0x5D740` is another accepted\r\nreplacement path, and vegetation creation/update `0x108320/0x109930` can clear moat\r\nstate after allocating or updating vegetation. Their committed replacement branches\r\ninvalidate history rather than repainting the new object.\r\n\r\n## Ownership, persistence and evidence [mod integration]\r\n\r\nBugfixesAndQoL's private native stubs own only the disjoint soil/capture spans listed\r\nin its `MoatTerrain/NativeDefinition.cs`. ExtraFeatures retains its height hooks;\r\ncommand-runtime task entry detours remain authoritative. The native-site registry\r\nrecords the new exclusive spans. No new APIShared interception API is introduced.\r\n\r\nThe map-scoped ushort buffer is mod memory: planned, dug, bridge and transient direct\r\nplacement states are distinct. It never occupies spare Vanilla record fields. Only\r\npersistent, still-relevant entries reach schema-1 `BugfixesAndQoL.MoatTerrain` via\r\nAPIShared VersionedSaveData, with map/save scope and simulation-relevant comparison.\r\nDisabled loading discards known history. Unknown future records retain APIShared's\r\nopaque preservation rules and cannot activate this mission's restoration.\r\n\r\nThe real `EngineInterface.SaveSaveGame` holds its private static `threadLock` around\r\n`DLL_SaveSaveGame` (also for map saves). The mod resolves this existing object once by\r\nvalidated reflection for lifecycle/save coordination; it adds no lock in native tile\r\npaths. Missions arm after managed initialization and retire/reset through APIShared.\r\n\r\nRetained evidence: `.work/a/moat-terrain/001` (18 complete instruction streams,\r\ncanonical byte comparisons and feature bodies); compiled-site audit and executable\r\nproduction tests in `BugfixesAndQoL/tests/MoatTerrain.Tests`. The audit resolves\r\nCURRENT.json and the current database manifest, checks whole function bytes,\r\ninstruction-aligned spans, incoming interior xrefs and own overlap. Fixtures execute\r\nthe production operations/emitter and use the installed RedBird backend on private\r\nmemory; external refresh/call destinations are explicit fixture boundaries.\r\nGame visuals, actual farm placement and real multiplayer remain untested.\r\n",
+    "document": "# Moat terrain restoration [Scope: Vanilla + mod integration]\r\n\r\nObservation: 2026-10-25. Canonical native SHA-256\r\n`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.\r\nThe function names in the database remain candidate symbols; the following particular\r\nmachine writes, branches and register contracts are confirmed statically against the\r\ninstalled image. This is not in-game or multiplayer acceptance.\r\n\r\n## Soil and terminal states\r\n\r\nThe native tile manager is at module `+0x405EDB0`. Its `Logic2Grid` is a byte per\r\npacked tile at manager `+0x9D2500`, separate from logic flags `+0x898400`, height\r\n`+0xD7E5A0`, default height `+0xDCCAC0` and structure IDs `+0xB0BCA0`. The physical\r\ncapacity is 320800. `TileType.OasisGrass` is bit `0x10`; the complete original byte\r\nmust be retained, rather than inferring grass from neighboring cells or recording\r\nonly that bit. Native readers also distinguish foliage, sand, height-edge and stone bits.\r\n\r\n`0x639C0(manager, taskIndex)` increments the byte progress of a 16-byte moat record.\r\nOnly its completed branch (progress >=4) reaches `0x63A4E`: task state becomes 0x0204,\r\nheight becomes zero, planned/pitch flags are cleared, completed moat is set, and\r\n`0x63A9F` explicitly writes soil zero. Task-index callers from all ten audited unit\r\nhandlers share this branch. `0x69470(manager, taskIndex)` decrements progress; positive\r\nprogress returns without removal. At <=0 it restores height 8, clears completed moat,\r\ninvalidates/rebuilds path data and removes the task through `0x61E70`. It never restores\r\nthe original soil. A resource-visual update can follow if a building occupies the tile.\r\n\r\n`0x6FE90` iterates accepted brush cells. Its moat operation numbers are 0 plan,\r\n1 cancel plan, 2 immediate completed placement, 3 direct removal. Modes 2/3 pass the\r\nsoil-zero writer `0x705BF`; mode 2 allocates through `0x59210` afterwards, so a hook\r\nonly on task creation would already observe the erased byte. `0x70940` is reached\r\nafter the accepted mutation and before the unchanged 3x3 update call. It is also used\r\nby non-moat terrain operations; these represent explicit replacement, not restoration.\r\nSome texture-only paints skip that update block, and require the accepted texture\r\ncommit at `0x7082E`. The editor's `0x7AE50` clear operation deliberately replaces soil\r\nwith zero/height-edge bits and must invalidate history, including when invoked as\r\npreparation for another paint by `0x6FE90`.\r\n\r\n## Bridges and replacement\r\n\r\n`0x6D580` validates a building request before iterating its footprint. At `0x6D8DF`,\r\n`RBX=tileManager`, `ESI=packed tile`, `R12D=native building struct type` (drawbridge 0x31).\r\nIt deletes prior moat tasks and clears the moat/planned bits before dispatching to\r\ndrawbridge creation `0x739C0`. That function writes the bridge occupancy and recreates\r\ntasks with `0x59210`. Therefore capture/preservation has to precede the cleanup, and\r\nthe later allocation must not replace the retained origin with the current dirt.\r\nThe native bridge mapper selects its underlying moat cells; other footprint cells\r\nalso need origins because bridge removal ORs soil bit 2 on non-moat footprint cells.\r\n\r\n`0x622D0` may remove a bridge while keeping a completed moat underneath. Its later\r\nsoil OR-2 path follows the existing height-restoration block. `0x6240E` is after the\r\nlast soil write but before structure occupancy is cleared. Remaining completed moat\r\nretains its origin. `0x6CA30` purges the bridge footprint and its `0x6CADD` block is\r\nafter task/flag cleanup. `0xED2E0` area removal reaches `0xEDA8C` after the moat flag\r\nand height writers and before later region/3x3 publication.\r\n\r\nFilling a moat under a surviving bridge can finish before the bridge disappears.\r\nRestoring soil at filling completion must retain the bridge's origin until a later\r\nbridge demolition, otherwise the OR-2 writer can again change the restored soil.\r\nAn old untracked moat or lowered bridge is not a source of historical information.\r\n\r\nOrdinary building preparation invalidates history. `0x5D740` is another accepted\r\nreplacement path, and vegetation creation/update `0x108320/0x109930` can clear moat\r\nstate after allocating or updating vegetation. Their committed replacement branches\r\ninvalidate history rather than repainting the new object.\r\n\r\n## Ownership, persistence and evidence [mod integration]\r\n\r\nBugfixesAndQoL's private native stubs own only the disjoint soil/capture spans listed\r\nin its `MoatTerrain/NativeDefinition.cs`. ExtraFeatures retains its height hooks;\r\ncommand-runtime task entry detours remain authoritative. The native-site registry\r\nrecords the new exclusive spans. No new APIShared interception API is introduced.\r\n\r\nThe map-scoped ushort buffer is mod memory: planned, dug, bridge and transient direct\r\nplacement states are distinct. It never occupies spare Vanilla record fields. Only\r\npersistent, still-relevant entries reach schema-1 `BugfixesAndQoL.MoatTerrain` via\r\nAPIShared VersionedSaveData, with map/save scope and simulation-relevant comparison.\r\nDisabled loading discards known history. Unknown future records retain APIShared's\r\nopaque preservation rules and cannot activate this mission's restoration.\r\n\r\nThe real `EngineInterface.SaveSaveGame` holds its private static `threadLock` around\r\n`DLL_SaveSaveGame` (also for map saves). The mod resolves this existing object once by\r\nvalidated reflection for lifecycle/save coordination; it adds no lock in native tile\r\npaths. Missions arm after managed initialization and retire/reset through APIShared.\r\n\r\nRetained evidence: `.work/a/moat-terrain/001` (18 complete instruction streams,\r\ncanonical byte comparisons and feature bodies); compiled-site audit and executable\r\nproduction tests in `BugfixesAndQoL/tests/MoatTerrain.Tests`. The audit resolves\r\nCURRENT.json and the current database manifest, checks whole function bytes,\r\ninstruction-aligned spans, incoming interior xrefs and own overlap. Fixtures execute\r\nthe production operations/emitter and use the installed RedBird backend on private\r\nmemory; external refresh/call destinations are explicit fixture boundaries.\r\nGame visuals, actual farm placement and real multiplayer remain untested.\r\n\r\nRelease ownership review, 2026-10-27 [mod integration]: the installed RedBird\r\ntransaction activates patches during its default Commit and disposes owned hooks\r\non Dispose. The terrain owner now explicitly prepares without activation, retains\r\nits buffer after save registration or the first attempted Enable, and publishes\r\nreadiness only after all installed-span checks. Initialization failures after either\r\npublication boundary keep the feature logically disabled and retain all resources.\r\nThis changes no Vanilla bytes, native spans or terrain/persistence semantics above.\r\n",
     "status": "indexed-existing-audit",
     "semanticReview": "not-promoted",
     "openQuestions": [
@@ -164873,6 +165169,24 @@
       {
         "line": 89,
         "statement": "instruction-aligned spans, incoming interior xrefs and own overlap. Fixtures execute",
+        "authority": "existing-audit-text",
+        "interpretation": "verbatim evidence; no automatic semantic promotion"
+      },
+      {
+        "line": 95,
+        "statement": "transaction activates patches during its default Commit and disposes owned hooks",
+        "authority": "existing-audit-text",
+        "interpretation": "verbatim evidence; no automatic semantic promotion"
+      },
+      {
+        "line": 98,
+        "statement": "readiness only after all installed-span checks. Initialization failures after either",
+        "authority": "existing-audit-text",
+        "interpretation": "verbatim evidence; no automatic semantic promotion"
+      },
+      {
+        "line": 100,
+        "statement": "This changes no Vanilla bytes, native spans or terrain/persistence semantics above.",
         "authority": "existing-audit-text",
         "interpretation": "verbatim evidence; no automatic semantic promotion"
       }
@@ -172377,6 +172691,11 @@
       },
       {
         "owner": "workspace",
+        "path": ".work/b/api-main/003/src/Pathfinding/GateRoutes/Native/EnemyGatePathfindingNativeDefinition.cs",
+        "observations": []
+      },
+      {
+        "owner": "workspace",
         "path": ".work/b/modpack-main/001/APIShared/src/Pathfinding/GateRoutes/Native/EnemyGatePathfindingNativeDefinition.cs",
         "observations": []
       },
@@ -175670,6 +175989,11 @@
       {
         "owner": "workspace",
         "path": ".work/b/api-main/002/src/Pathfinding/GateRoutes/Native/EnemyGatePathfindingNativeDefinition.cs",
+        "observations": []
+      },
+      {
+        "owner": "workspace",
+        "path": ".work/b/api-main/003/src/Pathfinding/GateRoutes/Native/EnemyGatePathfindingNativeDefinition.cs",
         "observations": []
       },
       {
@@ -183021,6 +183345,11 @@
       {
         "owner": "workspace",
         "path": ".work/b/api-main/002/src/NativeKnowledge/NativeFieldCatalog.Data.cs",
+        "observations": []
+      },
+      {
+        "owner": "workspace",
+        "path": ".work/b/api-main/003/src/NativeKnowledge/NativeFieldCatalog.Data.cs",
         "observations": []
       },
       {
@@ -193416,6 +193745,11 @@
       },
       {
         "owner": "workspace",
+        "path": ".work/b/api-main/003/src/NativeKnowledge/NativeFieldCatalog.Data.cs",
+        "observations": []
+      },
+      {
+        "owner": "workspace",
         "path": ".work/b/modpack-main/001/APIShared/src/NativeKnowledge/NativeFieldCatalog.Data.cs",
         "observations": []
       },
@@ -197172,6 +197506,11 @@
       },
       {
         "owner": "workspace",
+        "path": ".work/b/api-main/003/src/NativeKnowledge/NativeFieldCatalog.Data.cs",
+        "observations": []
+      },
+      {
+        "owner": "workspace",
         "path": ".work/b/modpack-main/001/APIShared/src/NativeKnowledge/NativeFieldCatalog.Data.cs",
         "observations": []
       },
@@ -200816,6 +201155,11 @@
       {
         "owner": "workspace",
         "path": ".work/b/api-main/002/src/Diagnostics/AivBuildStepCapability.cs",
+        "observations": []
+      },
+      {
+        "owner": "workspace",
+        "path": ".work/b/api-main/003/src/Diagnostics/AivBuildStepCapability.cs",
         "observations": []
       },
       {
@@ -204465,6 +204809,11 @@
     "integrationCandidates": [
       {
         "owner": "workspace",
+        "path": ".work/b/modpack-main/001/BugfixesAndQoL/src/Formations/GroundMoveFrameObserver.cs",
+        "observations": []
+      },
+      {
+        "owner": "workspace",
         "path": ".work/b/modpack-main/001/BugfixesAndQoL/src/Formations/Markers/LargeMoveTargetMarkerRenderer.cs",
         "observations": []
       },
@@ -207993,6 +208342,11 @@
       {
         "owner": "workspace",
         "path": ".work/b/api-main/002/src/Pathfinding/GateRoutes/Native/EnemyGatePathfindingNativeDefinition.cs",
+        "observations": []
+      },
+      {
+        "owner": "workspace",
+        "path": ".work/b/api-main/003/src/Pathfinding/GateRoutes/Native/EnemyGatePathfindingNativeDefinition.cs",
         "observations": []
       },
       {
@@ -211584,6 +211938,11 @@
       },
       {
         "owner": "workspace",
+        "path": ".work/b/api-main/003/src/NativeKnowledge/NativeFieldCatalog.Data.cs",
+        "observations": []
+      },
+      {
+        "owner": "workspace",
         "path": ".work/b/modpack-main/001/APIShared/src/NativeKnowledge/NativeFieldCatalog.Data.cs",
         "observations": []
       },
@@ -214848,6 +215207,11 @@
       {
         "owner": "workspace",
         "path": ".work/b/api-main/002/src/NativeKnowledge/NativeFieldCatalog.Data.cs",
+        "observations": []
+      },
+      {
+        "owner": "workspace",
+        "path": ".work/b/api-main/003/src/NativeKnowledge/NativeFieldCatalog.Data.cs",
         "observations": []
       },
       {
@@ -234121,6 +234485,25 @@
       },
       {
         "owner": "workspace",
+        "path": ".work/b/api-main/003/src/Pathfinding/Assassin/AssassinPathAPI.cs",
+        "observations": [
+          {
+            "line": 419,
+            "text": "pending.AddDetour(pendingBuilder, HookTarget.FromAddress(nativeBase + 0xD9C40), (AssassinPathBuilder)Build);",
+            "coordinates": [
+              "0xD9C40"
+            ],
+            "classification": "source-discovery-only"
+          }
+        ]
+      },
+      {
+        "owner": "workspace",
+        "path": ".work/b/api-main/003/src/Pathfinding/GateRoutes/Native/EnemyGatePathfindingNativeDefinition.cs",
+        "observations": []
+      },
+      {
+        "owner": "workspace",
         "path": ".work/b/modpack-main/001/APIShared/src/Pathfinding/Assassin/AssassinPathAPI.cs",
         "observations": [
           {
@@ -234146,6 +234529,11 @@
       {
         "owner": "workspace",
         "path": ".work/b/modpack-main/001/BugfixesAndQoL/src/AssassinPathfindingRuntime.cs",
+        "observations": []
+      },
+      {
+        "owner": "workspace",
+        "path": ".work/b/modpack-main/001/BugfixesAndQoL/src/Formations/GroundMoveFrameObserver.cs",
         "observations": []
       },
       {
@@ -238106,6 +238494,11 @@
       {
         "owner": "workspace",
         "path": ".work/b/api-main/002/src/Audio/SoundRuntime.cs",
+        "observations": []
+      },
+      {
+        "owner": "workspace",
+        "path": ".work/b/api-main/003/src/Audio/SoundRuntime.cs",
         "observations": []
       },
       {
@@ -252826,6 +253219,11 @@
       },
       {
         "owner": "workspace",
+        "path": ".work/b/api-main/003/src/NativeKnowledge/NativeFieldCatalog.Data.cs",
+        "observations": []
+      },
+      {
+        "owner": "workspace",
         "path": ".work/b/modpack-main/001/APIShared/src/NativeKnowledge/NativeFieldCatalog.Data.cs",
         "observations": []
       },
@@ -256474,6 +256872,11 @@
       },
       {
         "owner": "workspace",
+        "path": ".work/b/api-main/003/src/NativeKnowledge/NativeFieldCatalog.Data.cs",
+        "observations": []
+      },
+      {
+        "owner": "workspace",
         "path": ".work/b/modpack-main/001/APIShared/src/NativeKnowledge/NativeFieldCatalog.Data.cs",
         "observations": []
       },
@@ -259544,6 +259947,11 @@
       {
         "owner": "workspace",
         "path": ".work/b/api-main/002/src/Pathfinding/GateRoutes/Native/EnemyGatePathfindingNativeDefinition.cs",
+        "observations": []
+      },
+      {
+        "owner": "workspace",
+        "path": ".work/b/api-main/003/src/Pathfinding/GateRoutes/Native/EnemyGatePathfindingNativeDefinition.cs",
         "observations": []
       },
       {
@@ -271080,6 +271488,11 @@
       },
       {
         "owner": "workspace",
+        "path": ".work/b/api-main/003/src/NativeKnowledge/NativeFieldCatalog.Data.cs",
+        "observations": []
+      },
+      {
+        "owner": "workspace",
         "path": ".work/b/modpack-main/001/APIShared/src/NativeKnowledge/NativeFieldCatalog.Data.cs",
         "observations": []
       },
@@ -277981,6 +278394,11 @@
       {
         "owner": "workspace",
         "path": ".work/b/api-main/002/src/NativeKnowledge/NativeFieldCatalog.Data.cs",
+        "observations": []
+      },
+      {
+        "owner": "workspace",
+        "path": ".work/b/api-main/003/src/NativeKnowledge/NativeFieldCatalog.Data.cs",
         "observations": []
       },
       {
