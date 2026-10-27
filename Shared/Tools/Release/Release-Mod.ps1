@@ -232,13 +232,13 @@ try {
         '## Requirements',
         '',
         "Requires [APIShared v$apiSharedMinimum or newer]($([string]$apiSharedRelease.Url)). Install APIShared separately before this mod.",
-        'APIShared is already included in the complete Serps Mods Workshop pack; do not install a separate copy beside that pack.'
+        'The Serps Mods Workshop pack also requires the separate APIShared Workshop item. Keep exactly one APIShared installation.'
     ) } elseif ($ModName -ceq 'APIShared') { @(
         '',
         '## Installation',
         '',
         'APIShared is a shared dependency required by most Serps mods and is installed once as its own BepInEx plugin.',
-        'The complete Serps Mods Workshop pack already includes APIShared; do not install this standalone archive beside that pack.'
+        'The Serps Mods Workshop pack also requires the separate APIShared Workshop item. Keep exactly one APIShared installation.'
     ) } else { @() }
     $noteLines = @(
         "# $($metadata.Manifest.Name) v$($metadata.Version)",
