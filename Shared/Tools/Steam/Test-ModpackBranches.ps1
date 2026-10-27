@@ -24,6 +24,9 @@ foreach($relative in @('Shared/Tools/Paths/WorkPaths.ps1','Shared/Tools/ApiShare
  'Shared/Tools/Steam/PublishedModpack.Common.ps1','Shared/Tools/Steam/ReleaseAssetCache.ps1','Shared/Tools/Steam/ApiSharedSdkPolicy.ps1',
  'CreateSteamModPack.bat','UploadWorkshop.bat')){Put $relative ([IO.File]::ReadAllText((Join-Path $workspace $relative)))}
 Put 'SerpsModsHost/BepInEx/plugins/SerpsMods_Serp/SerpsModsHost.dll' 'original fixture build'
+Put 'SerpsModsHost/Locales/en-US.txt' 'new localized host text'
+Put 'SerpsModsHost/BepInEx/plugins/SerpsMods_Serp/Locales/en-US.txt' 'old localized host text'
+Put 'ExtendedData/Patches/Assets/GUI/XAML/FrontendMenus.xaml' '<Patch />'
 Put '.gitignore' ".work/`r`n.release-output/`r`nAPIShared/`r`nSerpsMods/`r`nAPISharedWorkshop/`r`n*.previous-*/`r`n"
 # External SDK/publisher services are inert fixtures; routing, policy, proofs, Git, BAT and PS children are real.
 $apiHelper=Join-Path $root 'Shared/Tools/ApiSharedRepository/MainSource.Common.ps1'
@@ -271,4 +274,18 @@ Invoke-ApiRepositoryGit $releaseFolder @('checkout','--','.gitignore')|Out-Null
 Invoke-ApiRepositoryGit $releaseFolder @('-c','user.name=Fixture','-c','user.email=fixture@example.invalid','-c','commit.gpgsign=false','commit','--quiet','--allow-empty','-m','unpushed')|Out-Null
 Reject {Remove-ModpackReleaseWorktree $root ([pscustomobject]@{Root=$releaseFolder;Branch='release'})}
 Check (Test-Path -LiteralPath $releaseFolder) 'Release folder with unpushed commits was removed'
+# New tracked resources and untracked build copies must be source-identical and frozen.
+Put 'SerpsModsHost/BepInEx/plugins/SerpsMods_Serp/Locales/en-US.txt' 'new localized host text'
+Put 'ExtendedData/BepInEx/plugins/ExtendedData_Serp/Patches/Assets/GUI/XAML/FrontendMenus.xaml' '<Patch />'
+$outputs=@(Get-ModpackDirtyOutputs $root)
+Check (@($outputs|Where-Object {$_.Path -like '*Locales/en-US.txt' -or $_.Path -like '*FrontendMenus.xaml'}).Count -eq 2) 'Source-identical generated resources were not captured'
+Assert-ModpackPreparedOutputs $root $outputs
+Put 'ExtendedData/BepInEx/plugins/ExtendedData_Serp/Patches/Assets/GUI/XAML/FrontendMenus.xaml' '<Tampered />'
+Reject {Get-ModpackDirtyOutputs $root}
+Put 'ExtendedData/BepInEx/plugins/ExtendedData_Serp/Patches/Assets/GUI/XAML/FrontendMenus.xaml' '<Patch />'
+Put 'SerpsModsHost/BepInEx/plugins/SerpsMods_Serp/Locales/en-US.txt' 'tampered locale'
+Reject {Assert-ModpackPreparedOutputs $root $outputs}
+Put 'SerpsModsHost/BepInEx/plugins/SerpsMods_Serp/Locales/en-US.txt' 'new localized host text'
+Put 'unexpected.txt' 'unrelated untracked file'
+Reject {Get-ModpackDirtyOutputs $root}
 Write-Host "PASS: $checks modpack branch/menu/worktree/proof/ID checks with real BAT and PowerShell children. Fixtures: $fixture"

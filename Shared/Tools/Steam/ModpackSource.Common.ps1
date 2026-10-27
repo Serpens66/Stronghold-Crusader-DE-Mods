@@ -80,8 +80,8 @@ function Remove-ModpackReleaseWorktree([string]$Workspace,$Source) {
     Invoke-ApiRepositoryGit $root @('fetch','--no-tags','origin',("+refs/heads/{0}:refs/remotes/origin/{0}" -f $branch))|Out-Null
     $head=((Invoke-ApiRepositoryGit $root @('rev-parse','HEAD')) -join '').Trim()
     if((Invoke-ApiRepositoryProcess 'git' @('-C',$root,'merge-base','--is-ancestor',$head,"refs/remotes/origin/$branch")).ExitCode -ne 0){throw "local $branch in $root has unpushed commits."}
-    $allowed=@(Get-ModpackGeneratedOutputPaths)
-    foreach($line in @(Invoke-ApiRepositoryGit $root @('-c','core.quotepath=false','status','--porcelain=v1','--untracked-files=normal'))){
+    $allowed=@(Get-ModpackGeneratedOutputPaths $root)
+    foreach($line in @(Invoke-ApiRepositoryGit $root @('-c','core.quotepath=false','status','--porcelain=v1','--untracked-files=all'))){
         if($line.Substring(3) -cnotin $allowed){throw "unexpected change in ${root}: $line"}
     }
     $nested=Join-Path $root 'APIShared'
@@ -128,20 +128,36 @@ function Get-PreparedModpackUploadSource([string]$Workspace,[bool]$Test,[string]
 
 # The host driver refreshes tracked output after the source commit. Freeze only these
 # known build products; every source edit or unrelated dirty path remains forbidden.
-function Get-ModpackGeneratedOutputPaths {
+function Get-ModpackCopiedOutputMap([string]$Root) {
+    $map=@{}
+    foreach($path in @(Invoke-ApiRepositoryGit $Root @('ls-files','--','SerpsModsHost/Locales','SerpsModsHost/Override','ExtendedData/Patches'))){
+        if($path.StartsWith('SerpsModsHost/')){$output=$path.Replace('SerpsModsHost/','SerpsModsHost/BepInEx/plugins/SerpsMods_Serp/')}
+        else{$output=$path.Replace('ExtendedData/','ExtendedData/BepInEx/plugins/ExtendedData_Serp/')}
+        $map[$output]=$path
+    }
+    return $map
+}
+function Get-ModpackGeneratedOutputPaths([string]$Root) {
     return @('SerpsModsHost/BepInEx/plugins/SerpsMods_Serp/SerpsModsHost.dll',
         'SerpsModsHost/BepInEx/plugins/SerpsMods_Serp/SerpsModsHost.pdb',
         'SerpsModsHost/BepInEx/plugins/SerpsMods_Serp/info.json',
-        'SerpsModsHost/BepInEx/plugins/SerpsMods_Serp/serps-modpack.json')
+        'SerpsModsHost/BepInEx/plugins/SerpsMods_Serp/serps-modpack.json') + @((Get-ModpackCopiedOutputMap $Root).Keys)
 }
 function Get-ModpackDirtyOutputs([string]$Root) {
-    if(@(Invoke-ApiRepositoryGit $Root @('diff','--cached','--name-only')).Count -or
-       @(Invoke-ApiRepositoryGit $Root @('ls-files','--others','--exclude-standard')).Count){throw 'Unexpected staged/untracked changes after preparation.'}
-    $allowed=@(Get-ModpackGeneratedOutputPaths)
-    $records=@(foreach($path in @(Invoke-ApiRepositoryGit $Root @('-c','core.quotepath=false','diff','--no-renames','--name-only'))){
+    if(@(Invoke-ApiRepositoryGit $Root @('diff','--cached','--name-only')).Count){throw 'Unexpected staged changes after preparation.'}
+    $copied=Get-ModpackCopiedOutputMap $Root
+    $allowed=@(Get-ModpackGeneratedOutputPaths $Root)
+    $paths=@(Invoke-ApiRepositoryGit $Root @('-c','core.quotepath=false','diff','--no-renames','--name-only')) +
+        @(Invoke-ApiRepositoryGit $Root @('-c','core.quotepath=false','ls-files','--others','--exclude-standard'))
+    $records=@(foreach($path in $paths){
         if($path -cnotin $allowed){throw "Unexpected source change after preparation: $path"}
         $file=Join-Path $Root $path;Assert-ApiMainUnlinkedPath $file
-        [ordered]@{Path=$path;Sha256=(Get-ApiRepositoryHash $file)}
+        $hash=Get-ApiRepositoryHash $file
+        if($copied.ContainsKey($path)){
+            $source=Join-Path $Root $copied[$path];Assert-ApiMainUnlinkedPath $source
+            if((Get-ApiRepositoryHash $source) -cne $hash){throw "Generated copy differs from its source: $path"}
+        }
+        [ordered]@{Path=$path;Sha256=$hash}
     })
     return @($records|Sort-Object {$_.Path})
 }
@@ -154,7 +170,7 @@ function Get-ModpackPreparationSource([string]$Root,[string]$Branch,[string]$Com
 function Assert-ModpackPreparedOutputs([string]$Root,$Outputs) {
     $seen=[Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
     foreach($output in @($Outputs)){
-        if($output.Path -cnotin @(Get-ModpackGeneratedOutputPaths) -or $output.Sha256 -cnotmatch '^[0-9a-f]{64}$' -or
+        if($output.Path -cnotin @(Get-ModpackGeneratedOutputPaths $Root) -or $output.Sha256 -cnotmatch '^[0-9a-f]{64}$' -or
            -not $seen.Add([string]$output.Path)){throw 'Invalid generated-output identity.'}
     }
     $actual=@(Get-ModpackDirtyOutputs $Root)

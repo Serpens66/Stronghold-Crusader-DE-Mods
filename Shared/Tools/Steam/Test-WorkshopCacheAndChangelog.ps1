@@ -157,6 +157,11 @@ $body = Get-PayloadChangelogBody $payload $mod '1.0.1'
 Check ($body.Text -ceq "### v1.0.4`r`n`r`n- version bump`r`n`r`n### v1.0.2`r`n`r`n- Keep punctuation, casing and  double spaces.") 'Original English text/order changed.'
 Check ([regex]::Matches((Get-PayloadChangelogBody $payload $mod '').Text,'### v').Count -eq 3) 'New mod lost historical sections.'
 Check ((Get-PayloadChangelogBody $payload $mod '1.0.4').Text -ceq '') 'Unchanged version emitted duplicate changes.'
+$packHost=[pscustomobject]@{Version='2.0.1';SerpChangelog=@([pscustomobject]@{Version='2.0.1';Changes=@('Host release change.')})}
+$active=[pscustomobject]@{Guid=$mod.Guid;Name=$mod.Name;Version=$mod.Version;Files=$mod.Files;RelativePath=$mod.RelativePath;State='Active'}
+$packNote=Get-PackReleaseChangelog $payload $packHost '2.0.0' @($active) @([pscustomobject]@{Guid=$mod.Guid;Version='1.0.1';State='Active'})
+Check ($packNote.Contains('Host release change.') -and $packNote.Contains($body.Text)) 'Pack release notes must contain host changes and every unpublished child version.'
+Check ((Get-PackReleaseChangelog $payload $packHost '2.0.1' @($active) @([pscustomobject]@{Guid=$mod.Guid;Version='1.0.4';State='Active'})) -ceq '') 'Unchanged pack components emitted repeated changes.'
 Reject { Get-PayloadChangelogBody $payload $mod '1.0.5' }
 [IO.File]::AppendAllText($infoPath,' '); Reject { Get-PayloadChangelogBody $payload $mod '1.0.1' }
 $info.SerpChangelog += @{Version='1.0.2';Changes=@('Duplicate')}; Write-SteamWorkshopJson $infoPath $info

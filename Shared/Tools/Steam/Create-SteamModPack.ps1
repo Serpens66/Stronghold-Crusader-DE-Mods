@@ -39,6 +39,7 @@ if (-not $env:SHCDE_NATIVE_BASELINE_ROOT) {
 . (Join-Path $PSScriptRoot 'WorkshopWorkflow.Common.ps1')
 . (Join-Path $PSScriptRoot 'WorkshopConfiguration.ps1')
 . (Join-Path $PSScriptRoot 'ReleaseAssetCache.ps1')
+. (Join-Path $PSScriptRoot 'WorkshopChangelog.ps1')
 . (Join-Path $script:ApiMainRoot 'tools/WorkshopPackage.ps1')
 
 class SteamPackFailure : System.Exception {
@@ -1893,7 +1894,10 @@ try {
     }
     Write-JsonCrLf -Path $provenancePath -Value $provenance
     $notesPath = Join-Path $runRoot 'release-notes.md'
-    $noteLines = @("# $PackName v$packVersion",'', "**APIShared must be subscribed separately / APIShared muss separat abonniert werden:** https://steamcommunity.com/sharedfiles/filedetails/?id=$ApiSharedWorkshopItemId", '', '## Included mods','') + @($mods | Sort-Object Name | ForEach-Object { "- $($_.Name) v$($_.TargetVersion)" }) + @(
+    $previousMods=if($previousPack){@($previousPack.Provenance.Mods)}else{@()}
+    $releaseHostInfo=[IO.File]::ReadAllText((Join-Path $workshop.Directory "Payload/BepInEx/plugins/$PackGuid/info.json"))|ConvertFrom-Json
+    $releaseChanges=Get-PackReleaseChangelog $workshop.Directory $releaseHostInfo $previousVersion $packRecords $previousMods
+    $noteLines = @("# $PackName v$packVersion",'', "**APIShared must be subscribed separately / APIShared muss separat abonniert werden:** https://steamcommunity.com/sharedfiles/filedetails/?id=$ApiSharedWorkshopItemId", '', $releaseChanges, '', '## Included mods','') + @($mods | Sort-Object Name | ForEach-Object { "- $($_.Name) v$($_.TargetVersion)" }) + @(
         '',
         '## Download and verification',
         '',
