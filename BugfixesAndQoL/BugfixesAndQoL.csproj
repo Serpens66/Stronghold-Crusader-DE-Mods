@@ -344,12 +344,7 @@
     <Compile Include="src\ShiftRepairAllBuildingsHook.cs" />
     <Compile Include="src\ShiftRepairAllBuildingsPolicy.cs" />
     <Compile Include="src\SurrenderFeature.cs" />
-    <Compile Include="src\SpectatorPerspectiveRuntime.cs" />
-    <Compile Include="src\SpectatorPerspectiveHud.cs" />
-    <Compile Include="src\SpectatorReportHooks.cs" />
-    <Compile Include="src\SpectatorAllyHooks.cs" />
-    <Compile Include="src\SpectatorSavePolicy.cs" />
-    <Compile Include="src\SpectatorSaveMarker.cs" />
+    <Compile Include="src\StatisticsTeamBadges.cs" />
     <Compile Include="src\SurrenderSelectionCleanup.cs" />
     <Compile Include="src\SurrenderPackets.cs" />
     <Compile Include="src\SurrenderPolicy.cs" />

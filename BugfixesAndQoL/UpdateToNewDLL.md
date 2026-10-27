@@ -1202,9 +1202,10 @@ Real game/editor latency and host/client results remain independent acceptance.
 Owner: Improved Manual Commands / Formation Enhancements. Reference native SHA-256:
 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
 
-The new permanent demand-gated context hook enters `41D60` before its first
-instruction. NativeX64 inline/context minimum 14 displaces exactly three 5-byte
-nonvolatile saves (`48895C2410 48896C2418 4889742420`), resumes at `41D6F`.
+APIShared VisibleMapRenderEvents now owns the permanent demand-gated entry at
+`41D60`; BFQ registers its preparation callback there. The former BFQ context hook
+is removed. The shared Indirect/10 publication displaces the first two 5-byte saves
+(`48895C2410 48896C2418`) and resumes at `41D6A`; see the shared contract below.
 The complete renderer range is `41D60..4580E` (exclusive end), body SHA-256
 `3EF71AC141815F4AAD74E1A20B6991425175728DA09EC4F07E2C813DF8533FFF`.
 `DLL_RunTick` calls cursor selection at `86920 -> 8C5F0`, then renderer at
@@ -1343,3 +1344,32 @@ freezes held controls. Released/deferred previews cannot republish markers.
 The original input contract is documented in MOVE_COMMAND_RELEASE.md. Two-thread
 speech, actual gesture/packet/formatter/dispatcher/slot/unit-state fixtures and
 native mask/entry machines remain separate from actual editor/host-client acceptance.
+
+## Endansicht nach der Zuschauer-Auslagerung (2026-10-27)
+
+Die verwalteten Einstiegspunkte `HUD_MissionOver.ButtonClicked(string)`,
+`GameData.Scenarios.setGameOverState(int,int,int)` und
+`OnScreenText.addOSTEntry(eOnScreenText,int,int,int,int,int)` besitzen genau einen
+APIShared-Hook je Stelle. Keine direkten Hooks der beiden Verbraucher mehr.
+Bei einem Spielupdate Signaturen und Reihenfolge erneut prüfen: Spielende-OST
+bereitet den Lobbyersatz vor dem Abbau der Teilnehmer vor; positive Endzustände
+verwerfen eine Statistikvorschau vor dem Vanilla-Aufbau. Vorschau-Exit unterdrückt
+Vanilla und Lobby-Deferral unabhängig von der Registrierungsreihenfolge.
+Verzögerte Originalfortsetzungen sind an Aufrufthread, Sitzung und Ansicht gebunden.
+
+Spectator besitzt Perspektive, Berichte/Verbündete, Save-Herkunft, Statistikvorschau
+und den synchronisierten Zuschauerwechsel nach Ausscheiden. BugfixesAndQoL behält
+Aufgeben, Lobby-Rückkehr und allgemeine Statistikabzeichen. Die native Niederlage
+bleibt beim vorhandenen PlayerDefeat-Dienst; keine neue native Eingriffsstelle.
+
+## Shared presentation ownership, 2026-10-27
+
+APIShared 0.18.0 now owns the `0x41D60` visible-map entry. This mod registers its
+render observer and toggles demand; it no longer installs a competing frame hook.
+The original parameters and execution remain unchanged. Native contract and ABI
+coverage are maintained in APIShared/UpdateToNewDLL.md and VisibleMapRenderTests.
+Pause-menu extras use IngameMenuActions; Vanilla Quit keeps its original command.
+Spectator statistics use the existing menu Close path (pause restoration), refresh
+inside MissionOver, and the MissionOverEvents preview-exit contract. The Spectator
+placement freeze exemption is scoped to active placement; report access independently
+requires its enabled spectator perspective. BFQ retains no spectator report hook.

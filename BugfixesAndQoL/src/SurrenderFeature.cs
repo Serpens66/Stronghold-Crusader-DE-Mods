@@ -1,5 +1,5 @@
 using APIShared.GameModes;
-// Feature: Confirmed surrender and reversible spectator statistics.
+// Confirmed surrender. Spectator presentation is owned by Spectator_Serp.
 using APIShared;
 using BepInEx.Logging;
 using CrusaderDE;
@@ -20,707 +20,124 @@ using System.Reflection;
 using System.Threading;
 using Steamworks;
 
+using APIShared.Presentation;
+
 namespace BugfixesAndQoL
 {
-    internal sealed class SurrenderAndStatisticsViewModel : LobbyModSettingsBaseViewModel
+    internal sealed class SurrenderViewModel : LobbyModSettingsBaseViewModel
     {
-        private Visibility surrenderButtonVisibility = Visibility.Collapsed;
-        private Visibility statisticsButtonVisibility = Visibility.Collapsed;
-        private Visibility statisticsPreviewControlsVisibility = Visibility.Collapsed;
-        private bool surrenderButtonEnabled;
-        private bool statisticsButtonEnabled;
-
-        internal SurrenderAndStatisticsViewModel(
-            Action surrender,
-            Action showStatistics,
-            Action refreshStatistics,
-            Action quitMission)
-        {
-            SurrenderCommand = new RelayCommand(surrender ?? throw new ArgumentNullException(nameof(surrender)));
-            StatisticsCommand = new RelayCommand(showStatistics ?? throw new ArgumentNullException(nameof(showStatistics)));
-            RefreshStatisticsCommand = new RelayCommand(refreshStatistics ?? throw new ArgumentNullException(nameof(refreshStatistics)));
-            QuitMissionCommand = new RelayCommand(quitMission ?? throw new ArgumentNullException(nameof(quitMission)));
-        }
-
-        public RelayCommand SurrenderCommand { get; }
-        public RelayCommand StatisticsCommand { get; }
-        public RelayCommand RefreshStatisticsCommand { get; }
-        public RelayCommand QuitMissionCommand { get; }
+        private Visibility visibility = Visibility.Collapsed;
+        private bool enabled;
         public string SurrenderButtonText => SerpLocalization.Get("BugfixesAndQoL.SurrenderButton");
-        public string StatisticsButtonText => SerpLocalization.Get("BugfixesAndQoL.StatisticsButton");
-        public string RefreshStatisticsButtonText => SerpLocalization.Get("BugfixesAndQoL.RefreshStatisticsButton");
-        public string RefreshStatisticsButtonHelpText => SerpLocalization.Get("BugfixesAndQoL.RefreshStatisticsButtonHelp");
-        // A binding getter must never construct MainViewModel early through its factory getter.
-        public string QuitButtonText => MainViewModel.viewModelLoaded
-            ? MainViewModel.Instance?.IngameMessageQuitButtonText ?? string.Empty
-            : string.Empty;
-
-        public Visibility SurrenderButtonVisibility
+        public Visibility SurrenderButtonVisibility => visibility;
+        public bool SurrenderButtonEnabled => enabled;
+        internal void SetMenuState(bool visible, bool available)
         {
-            get => surrenderButtonVisibility;
-            private set
-            {
-                if (surrenderButtonVisibility == value)
-                    return;
-
-                surrenderButtonVisibility = value;
-                OnPropertyChanged(nameof(SurrenderButtonVisibility));
-                OnPropertyChanged(nameof(QuitButtonWidth));
-                OnPropertyChanged(nameof(QuitButtonHorizontalAlignment));
-            }
+            var next = visible ? Visibility.Visible : Visibility.Collapsed;
+            if (visibility != next) { visibility = next; OnPropertyChanged(nameof(SurrenderButtonVisibility)); }
+            bool nextEnabled = visible && available;
+            if (enabled != nextEnabled) { enabled = nextEnabled; OnPropertyChanged(nameof(SurrenderButtonEnabled)); }
         }
-
-        public Visibility StatisticsButtonVisibility
-        {
-            get => statisticsButtonVisibility;
-            private set
-            {
-                if (statisticsButtonVisibility == value)
-                    return;
-
-                statisticsButtonVisibility = value;
-                OnPropertyChanged(nameof(StatisticsButtonVisibility));
-                OnPropertyChanged(nameof(QuitButtonWidth));
-                OnPropertyChanged(nameof(QuitButtonHorizontalAlignment));
-            }
-        }
-
-        public Visibility StatisticsPreviewControlsVisibility
-        {
-            get => statisticsPreviewControlsVisibility;
-            private set
-            {
-                if (statisticsPreviewControlsVisibility == value)
-                    return;
-
-                statisticsPreviewControlsVisibility = value;
-                OnPropertyChanged(nameof(StatisticsPreviewControlsVisibility));
-            }
-        }
-
-        public bool SurrenderButtonEnabled
-        {
-            get => surrenderButtonEnabled;
-            private set
-            {
-                if (surrenderButtonEnabled == value)
-                    return;
-
-                surrenderButtonEnabled = value;
-                OnPropertyChanged(nameof(SurrenderButtonEnabled));
-            }
-        }
-
-        public bool StatisticsButtonEnabled
-        {
-            get => statisticsButtonEnabled;
-            private set
-            {
-                if (statisticsButtonEnabled == value)
-                    return;
-
-                statisticsButtonEnabled = value;
-                OnPropertyChanged(nameof(StatisticsButtonEnabled));
-            }
-        }
-
-        public double QuitButtonWidth =>
-            SurrenderButtonVisibility == Visibility.Visible || StatisticsButtonVisibility == Visibility.Visible
-                ? 181.25
-                : 300.0;
-
-        public HorizontalAlignment QuitButtonHorizontalAlignment =>
-            SurrenderButtonVisibility == Visibility.Visible || StatisticsButtonVisibility == Visibility.Visible
-                ? HorizontalAlignment.Right
-                : HorizontalAlignment.Center;
-
-        internal void SetMenuState(
-            bool surrenderVisible,
-            bool surrenderEnabled,
-            bool statisticsVisible,
-            bool statisticsEnabled)
-        {
-            SurrenderButtonVisibility = surrenderVisible ? Visibility.Visible : Visibility.Collapsed;
-            SurrenderButtonEnabled = surrenderVisible && surrenderEnabled;
-            StatisticsButtonVisibility = statisticsVisible ? Visibility.Visible : Visibility.Collapsed;
-            StatisticsButtonEnabled = statisticsVisible && statisticsEnabled;
-        }
-
-        internal void SetStatisticsPreviewActive(bool active)
-        {
-            StatisticsPreviewControlsVisibility = active ? Visibility.Visible : Visibility.Collapsed;
-        }
-
-        internal void RefreshText()
-        {
-            OnPropertyChanged(nameof(SurrenderButtonText));
-            OnPropertyChanged(nameof(StatisticsButtonText));
-            OnPropertyChanged(nameof(RefreshStatisticsButtonText));
-            OnPropertyChanged(nameof(RefreshStatisticsButtonHelpText));
-            OnPropertyChanged(nameof(QuitButtonText));
-        }
+        internal void RefreshText() { OnPropertyChanged(nameof(SurrenderButtonText)); }
     }
-
     internal sealed unsafe class SurrenderFeature : IDisposable
     {
         private const int RequestProtocolVersion = 1;
-        private delegate void IngameMenuInitDelegate(HUD_IngameMenu self);
-        private delegate void AddOnScreenTextEntryDelegate(
-            OnScreenText self,
-            Enums.eOnScreenText ostID,
-            int data1,
-            int data2,
-            int data3,
-            int data4,
-            int data5);
-        private delegate void MissionOverButtonClickedDelegate(HUD_MissionOver self, string parameter);
-        private delegate void SetGameOverStateDelegate(GameData.Scenarios self, int state, int screen, int skirmishDate);
-
         private readonly ManualLogSource log;
         private readonly BugfixesAndQoLViewModel settings;
-        private int statisticsBadgeModeSnapshot;
-        private int statisticsBadgeClearPending;
         private readonly MultiplayerLobbyReturnFeature lobbyReturnFeature;
-        private readonly SurrenderAndStatisticsViewModel buttonViewModel;
+        private readonly SurrenderViewModel buttonViewModel;
         private readonly HashSet<string> acceptedRequests = new HashSet<string>(StringComparer.Ordinal);
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
-
-        private Hook ingameMenuInitHook;
-        private IngameMenuInitDelegate ingameMenuInitOriginal;
-        private Hook missionOverButtonHook;
-        private MissionOverButtonClickedDelegate missionOverButtonOriginal;
-        private Hook addOnScreenTextEntryHook;
-        private AddOnScreenTextEntryDelegate addOnScreenTextEntryOriginal;
-        private Hook setGameOverStateHook;
-        private SetGameOverStateDelegate setGameOverStateOriginal;
-        private MethodInfo prepMpScoresMethod;
-        private MethodInfo showMpScoreMethod;
-        private MethodInfo updateHelpTextMethod;
-        private MethodInfo clearWeaselTextMethod;
-        private FieldInfo lastStatsField;
-        private FieldInfo mpSortTypeField;
-        private FieldInfo sortReversedField;
-        private FieldInfo rankingField;
-        private FieldInfo individualRankingField;
-        private FieldInfo missionOverInstance1Field;
-        private FieldInfo missionOverInstance2Field;
         private R3PacketEventHook<SurrenderRequestPacket> requestPacketHook;
         private R3PacketEventHook<SurrenderExecutionPacket> executionPacketHook;
-        private R3PacketEventHook<EliminatedPlayerSpectatorPacket> spectatorPacketHook;
-        private IDisposable requestPacketSubscription;
-        private IDisposable executionPacketSubscription;
-        private IDisposable spectatorPacketSubscription;
-        private int nextRequestId;
-        private long confirmationSequence;
-        private long confirmationOpenedFromMenuSequence;
-        private HUD_MissionOver statisticsPreviewView;
-        private bool statisticsReady;
-        private bool statisticsPreviewActive;
-        private bool statisticsTeamBadgesReady;
-        private bool statisticsTeamBadgeErrorLogged;
-        private HUD_MissionOver statisticsTeamBadgeView;
-        private EngineInterface.MPScoreData statisticsTeamBadgeSnapshot;
-        private Grid[,] statisticsTeamBadgeHosts;
-        private Image[,] statisticsTeamBadgeVanillaIcons;
-        private Grid[,] statisticsTeamBadgeEasyReadIcons;
-        private Path[,] statisticsTeamBadgeShields;
-        private TextBlock[,] statisticsTeamBadgeNumbers;
-        private readonly SolidColorBrush[] statisticsTeamBadgeFillBrushes = new SolidColorBrush[5];
-        private SolidColorBrush statisticsTeamBadgeLightTextBrush;
-        private SolidColorBrush statisticsTeamBadgeDarkTextBrush;
-        private int statisticsTeamBadgeSortType = int.MinValue;
-        private bool statisticsTeamBadgeSortReversed;
-        private int statisticsTeamBadgeMode = int.MinValue;
-        private readonly int[] statisticsTeamBadgeRowPlayerIds = new int[8];
-        private readonly long[] lordDeathSessionIds = new long[9];
-        private readonly int[] lordDeathSimulationTicks = new int[9];
-        private readonly bool[] spectatorChoreQueuedPlayers = new bool[9];
-        private readonly bool[] spectatorChoreExecutedPlayers = new bool[9];
-        private long activeSessionId;
-        private bool localPlayerLordDeathObserved;
-        private int localPlayerLordDeathPlayerId = -1;
-        private bool spectatorPromotionChoreExpected;
-        private bool spectatorPromotionActivated;
-        private bool spectatorPromotionConfirmed;
-        private bool spectatorPromotionErrorLogged;
-        private bool spectatorPromotionRejectionLogged;
-        private bool gameOverStateCorrectionLogged;
-        private int spectatorPromotionPlayerId = -1;
-        private string spectatorPromotionGameMode = string.Empty;
-        private int lastSpectatorPromotionFrame = -1;
-        private bool initialized;
-        private bool disposed;
-
+        private IDisposable requestPacketSubscription, executionPacketSubscription;
+        private int nextRequestId, lastFrame = -1;
+        private long confirmationSequence, confirmationOpenedFromMenuSequence, presentationGeneration;
+        private bool initialized, disposed;
         internal SurrenderFeature(ManualLogSource log, BugfixesAndQoLViewModel settings)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
             lobbyReturnFeature = new MultiplayerLobbyReturnFeature(log, settings);
-            buttonViewModel = new SurrenderAndStatisticsViewModel(
-                OnSurrenderCommand,
-                OnStatisticsCommand,
-                OnRefreshStatisticsCommand,
-                OnQuitMissionCommand);
+            buttonViewModel = new SurrenderViewModel();
         }
-
-        internal SurrenderAndStatisticsViewModel ButtonViewModel => buttonViewModel;
-
+        private bool FeatureEnabled => !disposed && settings.EnableMod && settings.EnableSurrenderAndStatistics;
         internal void Initialize()
         {
-            if (initialized)
-                return;
-
-            // Packet types are registered unconditionally and in a stable order on every peer.
+            if (initialized) return;
             requestPacketHook = GameNetworkAPI.Instance.GetPacketEventFor<SurrenderRequestPacket>();
             requestPacketSubscription = requestPacketHook.GetBaseHook().Observable.Subscribe(OnRequestReceived);
             executionPacketHook = GameNetworkAPI.Instance.GetPacketEventFor<SurrenderExecutionPacket>();
             executionPacketSubscription = executionPacketHook.GetBaseHook().Observable.Subscribe(OnExecutionReceived);
-            spectatorPacketHook = GameNetworkAPI.Instance.GetPacketEventFor<EliminatedPlayerSpectatorPacket>();
-            spectatorPacketSubscription = spectatorPacketHook.GetBaseHook().Observable.Subscribe(OnSpectatorPacketReceived);
-
-            MethodInfo initMethod = typeof(HUD_IngameMenu).GetMethod(
-                nameof(HUD_IngameMenu.Init),
-                BindingFlags.Instance | BindingFlags.Public,
-                null,
-                Type.EmptyTypes,
-                null);
-            if (initMethod == null || initMethod.ReturnType != typeof(void))
-                throw new MissingMethodException(typeof(HUD_IngameMenu).FullName, nameof(HUD_IngameMenu.Init));
-
-            ingameMenuInitHook = new Hook(initMethod, (IngameMenuInitDelegate)IngameMenuInitHook);
-            ingameMenuInitOriginal = ingameMenuInitHook.GenerateTrampoline<IngameMenuInitDelegate>();
-
-            // The post-game lobby feature shares these Vanilla hooks so hook order cannot
-            // change the surrender/statistics behavior.
-            InitializeMissionOverHooks();
+            if (!IngameMenuActions.TryRegister(BugfixesAndQoLPlugin.PluginGuid, "surrender",
+                () => { RefreshButtonState(); return new IngameMenuActionState(buttonViewModel.SurrenderButtonText,
+                    buttonViewModel.SurrenderButtonVisibility == Visibility.Visible, buttonViewModel.SurrenderButtonEnabled); },
+                OnSurrenderCommand, out string menuReason)) throw new InvalidOperationException(menuReason);
             lobbyReturnFeature.Initialize();
-
-            try
+            try { RegisterEndPresentation(); }
+            catch (Exception error)
             {
-                InitializeStatisticsPreview();
-                statisticsReady = true;
+                lobbyReturnFeature.Dispose();
+                Shared.DebugLogHelper.LogErrorLimited(log, "lobby-presentation-contract",
+                    "Post-game lobby integration unavailable; surrender remains active: " + error);
             }
-            catch (Exception ex)
-            {
-                statisticsReady = false;
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:303", $"Bugfixes and QoL spectator statistics initialization failed closed; surrender remains available: {ex}");
-            }
-            try
-            {
-                InitializeStatisticsTeamBadges();
-                statisticsTeamBadgesReady = true;
-            }
-            catch (Exception ex)
-            {
-                statisticsTeamBadgesReady = false;
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:315", $"Bugfixes and QoL statistics team-badge initialization failed closed; Vanilla statistics remain available: {ex}");
-            }
-            subscriptions.Add(Shared.GameplaySessionLifecycle.SubscribeStarted(
-                log,
-                context =>
-                {
-                    ResetSession("session-start:" + context.Kind);
-                    activeSessionId = context.SessionId;
-                }));
-            subscriptions.Add(Shared.MissionEvents.Ended.Subscribe(_ => ResetSession("mission-end")));
-            RegisterPlayerDefeatObserver();
-            settings.SettingChanged += OnPresentationSettingChanged;
-            PublishStatisticsBadgeMode();
+            subscriptions.Add(Shared.GameplaySessionLifecycle.SubscribeStarted(log, _ => ResetSession("start")));
+            subscriptions.Add(Shared.MissionEvents.Ended.Subscribe(_ => ResetSession("end")));
             UnityEngine.Application.onBeforeRender += OnBeforeRender;
-
             initialized = true;
-            if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                Shared.DebugLogHelper.LogDebug(
-                    log,
-                    $"Bugfixes and QoL surrender/statistics initialized: requestPacketId={requestPacketHook.GetPacketId()}, executionPacketId={executionPacketHook.GetPacketId()}, spectatorPacketId={spectatorPacketHook.GetPacketId()}, requestProtocolVersion={RequestProtocolVersion}, statisticsReady={statisticsReady}, statisticsTeamBadgesReady={statisticsTeamBadgesReady}.");
         }
-
+        private void RegisterEndPresentation()
+        {
+            if (!MissionOverEvents.TryRegister(MissionOverOperation.Button, BugfixesAndQoLPlugin.PluginGuid, "lobby-exit",
+                args => {
+                    if (disposed || args.Button != "Exit" || !lobbyReturnFeature.CanHandleMissionOverExit) return;
+                    long generation = presentationGeneration;
+                    HUD_MissionOver view = args.View;
+                    Func<bool> isCurrent = () => !disposed && generation == presentationGeneration &&
+                        MainViewModel.viewModelLoaded && ReferenceEquals(MainViewModel.Instance.HUDMissionOver, view) && view.IsVisible;
+                    args.DeferOriginal(continuation => {
+                        if (!lobbyReturnFeature.TryHandleMissionOverExit(() => continuation.TryInvoke(), isCurrent)) continuation.TryInvoke();
+                    }, isCurrent);
+                }, null, out string reason)) throw new InvalidOperationException(reason);
+            if (!MissionOverEvents.TryRegister(MissionOverOperation.State, BugfixesAndQoLPlugin.PluginGuid, "lobby-game-over",
+                null, null, out reason, accepted: args => { if (!disposed) lobbyReturnFeature.OnGameOverState(args.Result); }))
+                throw new InvalidOperationException(reason);
+            if (!MissionOverEvents.TryRegister(MissionOverOperation.Text, BugfixesAndQoLPlugin.PluginGuid, "lobby-game-over-text",
+                null, args => { if (!disposed && args.OriginalCompleted) lobbyReturnFeature.OnGameOverPresentation(); }, out reason))
+                throw new InvalidOperationException(reason);
+        }
         internal void RefreshButtonState()
         {
+            if (!MainViewModel.viewModelLoaded) return;
             try
             {
-                int localPlayerId = GamePlayerManagerAPI.Instance.GetLocalPlayerId();
-                SurrenderLordSnapshot lord = CaptureLord(localPlayerId);
-                bool mapEditor = IsMapEditor();
-                bool startSpectator = IsStartSpectator();
-                bool statisticsViewer = SurrenderPolicy.IsStatisticsViewer(
-                    startSpectator,
-                    localPlayerId,
-                    lord);
-                bool activeMatch = IsActiveMatch();
-                bool realMultiplayer = APIShared.GameModes.GameModeHelper.IsRealMultiplayer();
-                bool surrenderVisible = SurrenderPolicy.CanShowButton(
-                    FeatureEnabled,
-                    activeMatch,
-                    mapEditor,
-                    startSpectator,
-                    lord);
-                bool surrenderEnabled = SurrenderPolicy.CanEnableButton(
-                    surrenderVisible,
-                    realMultiplayer,
-                    IsChoreTransportReady());
-                bool statisticsVisible = SurrenderPolicy.CanShowStatisticsButton(
-                    FeatureEnabled,
-                    activeMatch,
-                    mapEditor,
-                    statisticsViewer,
-                    IsStatisticsGameMode(),
-                    statisticsReady);
-
-                if (statisticsPreviewActive && !statisticsVisible)
-                    CloseStatisticsPreview("availability-changed");
-
-                buttonViewModel.SetMenuState(
-                    surrenderVisible,
-                    surrenderEnabled,
-                    statisticsVisible,
-                    statisticsVisible);
+                int player = GamePlayerManagerAPI.Instance.GetLocalPlayerId();
+                bool visible = SurrenderPolicy.CanShowButton(FeatureEnabled, IsActiveMatch(), IsMapEditor(), IsStartSpectator(), CaptureLord(player));
+                buttonViewModel.SetMenuState(visible, SurrenderPolicy.CanEnableButton(visible, GameModeHelper.IsRealMultiplayer(), IsChoreTransportReady()));
                 buttonViewModel.RefreshText();
             }
-            catch (Exception ex)
-            {
-                if (statisticsPreviewActive)
-                    CloseStatisticsPreview("button-refresh-error");
-                buttonViewModel.SetMenuState(false, false, false, false);
-                buttonViewModel.RefreshText();
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:386", $"Bugfixes and QoL surrender/statistics button refresh failed closed: {ex}");
-            }
+            catch (Exception error) { buttonViewModel.SetMenuState(false, false); Shared.DebugLogHelper.LogErrorLimited(log, "surrender-menu", "Surrender menu unavailable: " + error); }
         }
-
-        public void Dispose()
-        {
-            if (disposed)
-                return;
-
-            disposed = true;
-            CloseStatisticsPreview("dispose");
-            ClearStatisticsTeamBadges();
-            ingameMenuInitHook?.Undo();
-            ingameMenuInitHook?.Dispose();
-            missionOverButtonHook?.Undo();
-            missionOverButtonHook?.Dispose();
-            addOnScreenTextEntryHook?.Undo();
-            addOnScreenTextEntryHook?.Dispose();
-            setGameOverStateHook?.Undo();
-            setGameOverStateHook?.Dispose();
-            requestPacketSubscription?.Dispose();
-            executionPacketSubscription?.Dispose();
-            spectatorPacketSubscription?.Dispose();
-            lobbyReturnFeature.Dispose();
-            settings.SettingChanged -= OnPresentationSettingChanged;
-            UnityEngine.Application.onBeforeRender -= OnBeforeRender;
-            foreach (IDisposable subscription in subscriptions)
-                subscription.Dispose();
-            subscriptions.Clear();
-            buttonViewModel.SetMenuState(false, false, false, false);
-            buttonViewModel.SetStatisticsPreviewActive(false);
-        }
-
-        private bool FeatureEnabled => settings.EnableMod && settings.EnableSurrenderAndStatistics;
-
-        private bool StatisticsTeamBadgesEnabled => settings.EnableClientFeatures;
-
-        private bool EliminatedPlayerSpectatorEnabled =>
-            settings.EnableMod && settings.EnableEliminatedPlayersBecomeSpectators;
-
-        private void OnPresentationSettingChanged(string propertyName)
-        {
-            if (propertyName == nameof(BugfixesAndQoLViewModel.EnableClientFeatures) ||
-                propertyName == nameof(BugfixesAndQoLViewModel.StatisticsTeamBadgeMode)) PublishStatisticsBadgeMode();
-        }
-
-        private void PublishStatisticsBadgeMode()
-        {
-            int next = StatisticsTeamBadgesEnabled
-                ? SurrenderPolicy.NormalizeStatisticsTeamBadgeMode(settings.StatisticsTeamBadgeMode)
-                : SurrenderPolicy.StatisticsTeamBadgesOff;
-            int previous = Interlocked.Exchange(ref statisticsBadgeModeSnapshot, next);
-            if (previous != next && next == SurrenderPolicy.StatisticsTeamBadgesOff)
-                Interlocked.Exchange(ref statisticsBadgeClearPending, 1);
-        }
-
         private void OnBeforeRender()
         {
-            if (disposed || lastSpectatorPromotionFrame == UnityEngine.Time.frameCount)
-                return;
-
-            lastSpectatorPromotionFrame = UnityEngine.Time.frameCount;
-            try
-            {
-                lobbyReturnFeature.OnBeforeRender();
-                if (spectatorPromotionActivated && !spectatorPromotionConfirmed) ConfirmSpectatorPromotion();
-            }
-            catch (Exception ex)
-            {
-                if (!spectatorPromotionErrorLogged)
-                {
-                    spectatorPromotionErrorLogged = true;
-                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:459", $"Bugfixes and QoL could not activate local spectator features for the eliminated player; Vanilla behavior remains active: {ex}");
-                }
-            }
-
-            try
-            {
-                // Per-frame path: read first so the common idle case performs no atomic write.
-                if (Volatile.Read(ref statisticsBadgeClearPending) != 0 &&
-                    Interlocked.Exchange(ref statisticsBadgeClearPending, 0) != 0)
-                    ClearStatisticsTeamBadges();
-                if (statisticsTeamBadgesReady && Volatile.Read(ref statisticsBadgeModeSnapshot) != SurrenderPolicy.StatisticsTeamBadgesOff)
-                    UpdateStatisticsTeamBadges();
-            }
-            catch (Exception ex)
-            {
-                ClearStatisticsTeamBadges();
-                statisticsTeamBadgesReady = false;
-                if (!statisticsTeamBadgeErrorLogged)
-                {
-                    statisticsTeamBadgeErrorLogged = true;
-                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:479", $"Bugfixes and QoL statistics team badges failed closed; Vanilla statistics remain available: {ex}");
-                }
-            }
+            if (disposed || lastFrame == UnityEngine.Time.frameCount) return;
+            lastFrame = UnityEngine.Time.frameCount;
+            lobbyReturnFeature.OnBeforeRender();
         }
-
-        private void ConfirmSpectatorPromotion()
+        public void Dispose()
         {
-            if (!spectatorPromotionActivated || spectatorPromotionConfirmed || !IsStartSpectator())
-                return;
-
-            int currentLocalPlayerId = PlayerPerspectiveAPI.GetRawNativeViewPlayerId();
-            int managedLocalPlayerId = EditorDirector.instance?.ActivePlayerID ?? -1;
-            if (currentLocalPlayerId != spectatorPromotionPlayerId ||
-                managedLocalPlayerId != spectatorPromotionPlayerId)
-            {
-                if (!spectatorPromotionErrorLogged)
-                {
-                    spectatorPromotionErrorLogged = true;
-                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:499", $"Vanilla spectator mode changed the local player identity unexpectedly: expected={spectatorPromotionPlayerId}, native={currentLocalPlayerId}, managed={managedLocalPlayerId}, mode={spectatorPromotionGameMode}.");
-                }
-                return;
-            }
-
-            spectatorPromotionConfirmed = true;
-            if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:507", $"Vanilla spectator mode confirmed for eliminated local player {spectatorPromotionPlayerId}; local identity remained unchanged and omniscient visibility/AI information are active: mode={spectatorPromotionGameMode}.");
+            disposed = true; presentationGeneration++;
+            requestPacketSubscription?.Dispose(); executionPacketSubscription?.Dispose();
+            lobbyReturnFeature.Dispose(); UnityEngine.Application.onBeforeRender -= OnBeforeRender;
+            foreach (IDisposable subscription in subscriptions) subscription.Dispose();
+            subscriptions.Clear(); buttonViewModel.SetMenuState(false, false);
         }
-
-        private void RegisterPlayerDefeatObserver()
+        private void ResetSession(string reason)
         {
-            if (!ApiShared.Current.TryGetPlayerDefeat(
-                    BugfixesAndQoLPlugin.PluginGuid,
-                    out IPlayerDefeatCapability capability,
-                    out NativeCapabilityDiagnostic diagnostic))
-            {
-                LogPlayerDefeatRegistrationFailure(diagnostic);
-                return;
-            }
-
-            if (!capability.TryRegisterObserver(
-                    "eliminated-player-spectator",
-                    OnPlayerLordDied,
-                    null,
-                    out diagnostic))
-                LogPlayerDefeatRegistrationFailure(diagnostic);
-        }
-
-        private void LogPlayerDefeatRegistrationFailure(NativeCapabilityDiagnostic diagnostic) =>
-            Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:532", $"Eliminated-player spectator promotion is unavailable because the APIShared player-defeat observer could not be registered: state={diagnostic?.State}, reason={diagnostic?.Reason}");
-
-        private void OnPlayerLordDied(PlayerLordDeathNotification notification)
-        {
-            if (disposed || notification == null)
-                return;
-
-            int playerId = notification.PlayerId;
-            if (playerId < 1 || playerId > 8 ||
-                activeSessionId <= 0 || notification.SessionId != activeSessionId)
-            {
-                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:545", $"Ignored stale or invalid APIShared lord-death notification: activeSessionId={activeSessionId}, notificationSessionId={notification.SessionId}, playerId={playerId}, simulationTick={notification.SimulationTick}.");
-                return;
-            }
-
-            if (lordDeathSessionIds[playerId] == notification.SessionId)
-                return;
-
-            lordDeathSessionIds[playerId] = notification.SessionId;
-            lordDeathSimulationTicks[playerId] = notification.SimulationTick;
-
-            int localPlayerId = PlayerPerspectiveAPI.GetControlledPlayerId();
-            bool localLordDied = SurrenderPolicy.ShouldLatchPlayerLordDeath(playerId, localPlayerId);
-            if (localLordDied)
-            {
-                localPlayerLordDeathObserved = true;
-                localPlayerLordDeathPlayerId = playerId;
-            }
-
-            if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:565", $"Observed lord death through APIShared: sessionId={notification.SessionId}, playerId={playerId}, lordUnitId={notification.LordUnitId}, lordGlobalId={notification.LordGlobalId}, simulationTick={notification.SimulationTick}, localPlayerId={localPlayerId}.");
-
-            APIShared.GameModes.GameModeSnapshot gameMode = APIShared.GameModes.GameModeHelper.Capture();
-            if (!gameMode.IsRealMultiplayer)
-            {
-                if (localLordDied)
-                    TryActivateLocalSpectator(playerId, gameMode, "APIShared singleplayer lord-death event");
-                return;
-            }
-
-            if (localLordDied && EliminatedPlayerSpectatorEnabled)
-                spectatorPromotionChoreExpected = true;
-
-            if (GameNetworkAPI.IsLocalHost())
-                TryQueueSpectatorChore(notification, gameMode);
-        }
-
-        private void TryQueueSpectatorChore(
-            PlayerLordDeathNotification notification,
-            APIShared.GameModes.GameModeSnapshot gameMode)
-        {
-            int playerId = notification.PlayerId;
-            Platform_Multiplayer.MPGameMember member = Platform_Multiplayer.Instance?.getPlayer(playerId);
-            if (!EliminatedPlayerSpectatorEnabled ||
-                !IsActiveMatch() || !gameMode.IsRealMultiplayer || IsMapEditor() ||
-                notification.SessionId != activeSessionId ||
-                !IsHumanMember(member) || spectatorChoreQueuedPlayers[playerId])
-            {
-                return;
-            }
-
-            var packet = new EliminatedPlayerSpectatorPacket { PlayerId = playerId };
-            short packetId = spectatorPacketHook?.GetPacketId() ?? (short)0;
-            if (!APIShared.Networking.ChoreTransport.TrySend(
-                    packet,
-                    packetId,
-                    initialized && spectatorPacketHook != null,
-                    out byte[] body,
-                    out string rejectionReason))
-            {
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:607", $"Eliminated-player spectator Chore was not queued; no unsynchronized fallback was applied: sessionId={notification.SessionId}, playerId={playerId}, lordDeathTick={notification.SimulationTick}, reason={rejectionReason}.");
-                return;
-            }
-
-            spectatorChoreQueuedPlayers[playerId] = true;
-            int queueTick = GameTimeManagerAPI.Instance.GetElapsedMapTicks();
-            if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:615", $"Eliminated-player spectator Chore queued: sessionId={notification.SessionId}, playerId={playerId}, lordDeathTick={notification.SimulationTick}, queueTick={queueTick}, packetId={packetId}, bodyBytes={body.Length}, bodyHex={ToCompactHex(body)}.");
-        }
-
-        private void OnSpectatorPacketReceived(
-            ReceiveCustomPacketEventArgs<EliminatedPlayerSpectatorPacket> args)
-        {
-            EliminatedPlayerSpectatorPacket packet = args?.Packet;
-            try
-            {
-                int playerId = packet?.PlayerId ?? 0;
-                Platform_Multiplayer.MPGameMember member = Platform_Multiplayer.Instance?.getPlayer(playerId);
-                if (packet == null || args.SenderSteamId.HasValue ||
-                    playerId < 1 || playerId > 8 ||
-                    !EliminatedPlayerSpectatorEnabled || !IsActiveMatch() ||
-                    !APIShared.GameModes.GameModeHelper.IsRealMultiplayer() || IsMapEditor() ||
-                    activeSessionId <= 0 || lordDeathSessionIds[playerId] != activeSessionId ||
-                    !IsHumanMember(member))
-                {
-                    LogPacketWarning(
-                        $"Rejected stale or invalid eliminated-player spectator Chore: playerId={playerId}, hasSteamSender={args?.SenderSteamId.HasValue}, activeSessionId={activeSessionId}, observedLordDeathSessionId={(playerId >= 1 && playerId <= 8 ? lordDeathSessionIds[playerId] : 0)}.");
-                    return;
-                }
-
-                if (spectatorChoreExecutedPlayers[playerId])
-                    return;
-
-                spectatorChoreExecutedPlayers[playerId] = true;
-                int localPlayerId = GamePlayerManagerAPI.Instance?.GetLocalPlayerId() ?? -1;
-                int executionTick = GameTimeManagerAPI.Instance.GetElapsedMapTicks();
-                LogPacketInfo(
-                    $"Eliminated-player spectator Chore executed: sessionId={activeSessionId}, playerId={playerId}, lordDeathTick={lordDeathSimulationTicks[playerId]}, executionTick={executionTick}, localPlayerId={localPlayerId}.");
-
-                if (localPlayerId != playerId)
-                    return;
-
-                spectatorPromotionChoreExpected = false;
-                long sessionSnapshot = activeSessionId;
-                APIShared.GameModes.GameModeSnapshot gameModeSnapshot = APIShared.GameModes.GameModeHelper.Capture();
-                Shared.UnityMainThreadDispatch.TryEnqueue(() =>
-                {
-                    if (activeSessionId != sessionSnapshot ||
-                        lordDeathSessionIds[playerId] != sessionSnapshot)
-                        return;
-                    TryActivateLocalSpectator(
-                        playerId,
-                        gameModeSnapshot,
-                        "synchronized eliminated-player spectator Chore");
-                });
-            }
-            catch (Exception ex)
-            {
-                LogPacketError($"Eliminated-player spectator Chore failed closed: {ex}");
-            }
-        }
-
-        private void TryActivateLocalSpectator(
-            int localPlayerId,
-            APIShared.GameModes.GameModeSnapshot gameMode,
-            string source)
-        {
-            bool supportedGameMode =
-                gameMode.IsRealMultiplayer || gameMode.IsSingleplayerSkirmishMode;
-            bool validLocalParticipant =
-                IsValidLocalSpectatorPromotionParticipant(localPlayerId, gameMode.IsRealMultiplayer);
-            bool lordDeathObserved =
-                localPlayerLordDeathObserved && localPlayerLordDeathPlayerId == localPlayerId;
-            if (spectatorPromotionActivated ||
-                !SurrenderPolicy.CanPromoteEliminatedPlayerToSpectator(
-                    EliminatedPlayerSpectatorEnabled,
-                    IsActiveMatch(),
-                    IsMapEditor(),
-                    IsStartSpectator(),
-                    supportedGameMode,
-                    validLocalParticipant,
-                    lordDeathObserved,
-                    localPlayerId))
-            {
-                if (EliminatedPlayerSpectatorEnabled && lordDeathObserved &&
-                    (!supportedGameMode || !validLocalParticipant) &&
-                    !spectatorPromotionRejectionLogged)
-                {
-                    spectatorPromotionRejectionLogged = true;
-                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:699", $"Eliminated-player spectator activation was rejected fail-closed: playerId={localPlayerId}, source={source}, supportedGameMode={supportedGameMode}, validLocalParticipant={validLocalParticipant}, mode={gameMode.ToDiagnosticString()}.");
-                }
-                return;
-            }
-
-            EngineInterface.GameAction(Enums.GameActionCommand.SpectatorMode, 0, 0);
-            spectatorPromotionActivated = true;
-            spectatorPromotionPlayerId = localPlayerId;
-            spectatorPromotionGameMode = gameMode.ToDiagnosticString();
-            if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:710", $"Activated Vanilla spectator mode for eliminated local player {localPlayerId}: source={source}, mode={spectatorPromotionGameMode}.");
-        }
-
-        private static bool IsValidLocalSpectatorPromotionParticipant(
-            int localPlayerId,
-            bool realMultiplayer)
-        {
-            if (localPlayerId < 1 || localPlayerId > 8 ||
-                EditorDirector.instance == null ||
-                EditorDirector.instance.ActivePlayerID != localPlayerId)
-            {
-                return false;
-            }
-
-            if (!realMultiplayer)
-                return true;
-
-            Platform_Multiplayer multiplayer = Platform_Multiplayer.Instance;
-            Platform_Multiplayer.MPGameMember localMember = multiplayer?.getPlayer(localPlayerId);
-            CSteamID localSteamId = SteamUser.GetSteamID();
-            return IsHumanMember(localMember) &&
-                localSteamId.m_SteamID > 1000 &&
-                localMember.steamID == localSteamId.m_SteamID;
-        }
-
-        private void IngameMenuInitHook(HUD_IngameMenu self)
-        {
-            ingameMenuInitOriginal(self);
-            RefreshButtonState();
+            presentationGeneration++; acceptedRequests.Clear(); nextRequestId = 0;
+            confirmationSequence++; confirmationOpenedFromMenuSequence = 0;
+            Shared.UnityMainThreadDispatch.TryEnqueue(() => { if (!disposed) buttonViewModel.SetMenuState(false, false); });
         }
 
         private void OnSurrenderCommand()
@@ -778,714 +195,6 @@ namespace BugfixesAndQoL
                 SerpLocalization.Get("BugfixesAndQoL.SurrenderConfirmationMessage"));
             if (Shared.DebugLogHelper.DiagnosticsEnabled)
                 Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:798", $"Displayed surrender confirmation: source={(openedFromIngameMenu ? "ingame-menu" : "lord-disband")}, sequence={sequence}.");
-        }
-
-        private static void OnQuitMissionCommand()
-        {
-            // Keep Vanilla's existing mission-leave path and confirmation unchanged.
-            MainViewModel.Instance?.HUDIngameMenu?.ButtonIngameMenuFunction(6);
-        }
-
-        private void OnStatisticsCommand()
-        {
-            try
-            {
-                RefreshButtonState();
-                if (buttonViewModel.StatisticsButtonVisibility != Visibility.Visible ||
-                    !buttonViewModel.StatisticsButtonEnabled)
-                {
-                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:817", "Bugfixes and QoL spectator-statistics click was rejected because the action is unavailable.");
-                    return;
-                }
-
-                // Close restores Vanilla's pre-menu pause state so the observed match keeps running.
-                MainViewModel.Instance?.HUDIngameMenu?.Close();
-                if (!TryOpenStatisticsPreview())
-                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:824", "Bugfixes and QoL spectator statistics could not be opened; the match remains unchanged.");
-            }
-            catch (Exception ex)
-            {
-                CloseStatisticsPreview("open-error");
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:829", $"Bugfixes and QoL spectator-statistics opening failed closed: {ex}");
-            }
-        }
-
-        private void OnRefreshStatisticsCommand()
-        {
-            if (!statisticsPreviewActive || statisticsPreviewView == null)
-                return;
-
-            try
-            {
-                if (!CanUseStatisticsPreview())
-                {
-                    CloseStatisticsPreview("refresh-unavailable");
-                    return;
-                }
-
-                EngineInterface.MPScoreData snapshot = EngineInterface.GetMPScoreData();
-                if (!ValidateStatisticsSnapshot(snapshot))
-                {
-                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:849", "Bugfixes and QoL rejected an invalid spectator-statistics refresh snapshot; the previous snapshot remains visible.");
-                    return;
-                }
-
-                if (!TryApplyStatisticsSnapshot(statisticsPreviewView, snapshot, initializeView: false))
-                    return;
-
-                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:856", "Spectator statistics refreshed from the current local simulation snapshot.");
-            }
-            catch (Exception ex)
-            {
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:860", $"Bugfixes and QoL spectator-statistics refresh failed; the previous snapshot remains selected: {ex}");
-            }
-        }
-
-        private void InitializeStatisticsPreview()
-        {
-            prepMpScoresMethod = FindRequiredMethod(
-                typeof(HUD_MissionOver),
-                "prepMPScores",
-                BindingFlags.Instance | BindingFlags.NonPublic,
-                typeof(EngineInterface.MPScoreData));
-            showMpScoreMethod = FindRequiredMethod(
-                typeof(HUD_MissionOver),
-                "ShowMPScore",
-                BindingFlags.Instance | BindingFlags.NonPublic,
-                typeof(EngineInterface.MPScoreData),
-                typeof(bool),
-                typeof(bool));
-            updateHelpTextMethod = FindRequiredMethod(
-                typeof(HUD_MissionOver),
-                "UpdateHelpText",
-                BindingFlags.Instance | BindingFlags.NonPublic,
-                typeof(int));
-            clearWeaselTextMethod = FindRequiredMethod(
-                typeof(HUD_MissionOver),
-                "ClearWeaselText",
-                BindingFlags.Instance | BindingFlags.NonPublic);
-            lastStatsField = FindRequiredField(typeof(HUD_MissionOver), "last_stats", BindingFlags.Instance | BindingFlags.NonPublic);
-            mpSortTypeField = FindRequiredField(typeof(HUD_MissionOver), "mp_sortType", BindingFlags.Instance | BindingFlags.NonPublic);
-            sortReversedField = FindRequiredField(typeof(HUD_MissionOver), "sortReversed", BindingFlags.Instance | BindingFlags.NonPublic);
-            missionOverInstance1Field = FindRequiredField(typeof(HUD_MissionOver), "instance1", BindingFlags.Static | BindingFlags.NonPublic);
-            missionOverInstance2Field = FindRequiredField(typeof(HUD_MissionOver), "instance2", BindingFlags.Static | BindingFlags.NonPublic);
-
-        }
-
-        private void InitializeStatisticsTeamBadges()
-        {
-            lastStatsField = FindRequiredField(typeof(HUD_MissionOver), "last_stats", BindingFlags.Instance | BindingFlags.NonPublic);
-            mpSortTypeField = FindRequiredField(typeof(HUD_MissionOver), "mp_sortType", BindingFlags.Instance | BindingFlags.NonPublic);
-            sortReversedField = FindRequiredField(typeof(HUD_MissionOver), "sortReversed", BindingFlags.Instance | BindingFlags.NonPublic);
-            rankingField = FindRequiredField(typeof(HUD_MissionOver), "ranking", BindingFlags.Instance | BindingFlags.NonPublic);
-            individualRankingField = FindRequiredField(typeof(HUD_MissionOver), "individual_ranking", BindingFlags.Instance | BindingFlags.NonPublic);
-            missionOverInstance1Field = FindRequiredField(typeof(HUD_MissionOver), "instance1", BindingFlags.Static | BindingFlags.NonPublic);
-            missionOverInstance2Field = FindRequiredField(typeof(HUD_MissionOver), "instance2", BindingFlags.Static | BindingFlags.NonPublic);
-
-            for (int teamId = 1; teamId <= 4; teamId++)
-            {
-                if (!SurrenderPolicy.TryResolveStatisticsTeamBadgeStyle(
-                        teamId,
-                        out StatisticsTeamBadgeStyle style))
-                {
-                    throw new InvalidOperationException($"Statistics team-badge style {teamId} is unavailable.");
-                }
-
-                statisticsTeamBadgeFillBrushes[teamId] = new SolidColorBrush(
-                    Noesis.Color.FromArgb(byte.MaxValue, style.Red, style.Green, style.Blue));
-            }
-
-            statisticsTeamBadgeLightTextBrush = new SolidColorBrush(
-                Noesis.Color.FromArgb(byte.MaxValue, byte.MaxValue, byte.MaxValue, byte.MaxValue));
-            statisticsTeamBadgeDarkTextBrush = new SolidColorBrush(
-                Noesis.Color.FromArgb(byte.MaxValue, 20, 16, 10));
-        }
-
-        private void InitializeMissionOverHooks()
-        {
-            MethodInfo buttonClickedMethod = FindRequiredMethod(
-                typeof(HUD_MissionOver),
-                nameof(HUD_MissionOver.ButtonClicked),
-                BindingFlags.Instance | BindingFlags.Public,
-                typeof(string));
-            MethodInfo gameOverStateMethod = FindRequiredMethod(
-                typeof(GameData.Scenarios),
-                "setGameOverState",
-                BindingFlags.Instance | BindingFlags.Public,
-                typeof(int),
-                typeof(int),
-                typeof(int));
-            MethodInfo addOnScreenTextEntryMethod = FindRequiredMethod(
-                typeof(OnScreenText),
-                nameof(OnScreenText.addOSTEntry),
-                BindingFlags.Instance | BindingFlags.Public,
-                typeof(Enums.eOnScreenText),
-                typeof(int),
-                typeof(int),
-                typeof(int),
-                typeof(int),
-                typeof(int));
-
-            Hook newButtonHook = null;
-            Hook newGameOverHook = null;
-            Hook newOnScreenTextHook = null;
-            try
-            {
-                newButtonHook = new Hook(buttonClickedMethod, (MissionOverButtonClickedDelegate)MissionOverButtonClickedHook);
-                MissionOverButtonClickedDelegate newButtonOriginal =
-                    newButtonHook.GenerateTrampoline<MissionOverButtonClickedDelegate>();
-                newGameOverHook = new Hook(gameOverStateMethod, (SetGameOverStateDelegate)SetGameOverStateHook);
-                SetGameOverStateDelegate newGameOverOriginal =
-                    newGameOverHook.GenerateTrampoline<SetGameOverStateDelegate>();
-                newOnScreenTextHook = new Hook(
-                    addOnScreenTextEntryMethod,
-                    (AddOnScreenTextEntryDelegate)AddOnScreenTextEntryHook);
-                AddOnScreenTextEntryDelegate newOnScreenTextOriginal =
-                    newOnScreenTextHook.GenerateTrampoline<AddOnScreenTextEntryDelegate>();
-
-                missionOverButtonHook = newButtonHook;
-                missionOverButtonOriginal = newButtonOriginal;
-                setGameOverStateHook = newGameOverHook;
-                setGameOverStateOriginal = newGameOverOriginal;
-                addOnScreenTextEntryHook = newOnScreenTextHook;
-                addOnScreenTextEntryOriginal = newOnScreenTextOriginal;
-            }
-            catch
-            {
-                newOnScreenTextHook?.Undo();
-                newOnScreenTextHook?.Dispose();
-                newGameOverHook?.Undo();
-                newGameOverHook?.Dispose();
-                newButtonHook?.Undo();
-                newButtonHook?.Dispose();
-                throw;
-            }
-        }
-
-        private void AddOnScreenTextEntryHook(
-            OnScreenText self,
-            Enums.eOnScreenText ostID,
-            int data1,
-            int data2,
-            int data3,
-            int data4,
-            int data5)
-        {
-            int presentedData1 = ostID == Enums.eOnScreenText.OST_MP_GAME_OVER
-                ? SurrenderPolicy.ResolvePresentedGameOverState(data1, SpectatorPromotionPendingOrActive)
-                : data1;
-
-            // Preserve Vanilla's record and all auxiliary data. Only the result consumed by
-            // the game-over text, video and sound is corrected for our eliminated spectator.
-            addOnScreenTextEntryOriginal(self, ostID, presentedData1, data2, data3, data4, data5);
-            if (ostID != Enums.eOnScreenText.OST_MP_GAME_OVER)
-                return;
-
-            try
-            {
-                LogGameOverStateCorrectionOnce(data1, presentedData1, "OST_MP_GAME_OVER");
-                lobbyReturnFeature.OnGameOverPresentation();
-            }
-            catch (Exception ex)
-            {
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:1011", $"Bugfixes and QoL early post-game lobby preparation failed; the later Game-over fallback remains available: {ex}");
-            }
-        }
-
-        private void LogGameOverStateCorrectionOnce(
-            int originalState,
-            int presentedState,
-            string source)
-        {
-            if (presentedState == originalState || gameOverStateCorrectionLogged)
-                return;
-
-            gameOverStateCorrectionLogged = true;
-            if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:1026", $"Corrected Vanilla spectator game-over result for eliminated local player {spectatorPromotionPlayerId}: source={source}, originalState={originalState}, presentedState={presentedState}.");
-        }
-
-        private void MissionOverButtonClickedHook(HUD_MissionOver self, string parameter)
-        {
-            if (statisticsPreviewActive && string.Equals(parameter, "Exit", StringComparison.Ordinal))
-            {
-                CloseStatisticsPreview("exit");
-                return;
-            }
-
-            if (string.Equals(parameter, "Exit", StringComparison.Ordinal) &&
-                lobbyReturnFeature.TryHandleMissionOverExit(
-                    () => missionOverButtonOriginal(self, parameter)))
-            {
-                return;
-            }
-
-            missionOverButtonOriginal(self, parameter);
-        }
-
-        private void SetGameOverStateHook(GameData.Scenarios self, int state, int screen, int skirmishDate)
-        {
-            int presentedState = SurrenderPolicy.ResolvePresentedGameOverState(
-                state,
-                SpectatorPromotionPendingOrActive);
-            try
-            {
-                LogGameOverStateCorrectionOnce(state, presentedState, "setGameOverState");
-                lobbyReturnFeature.OnGameOverState(presentedState);
-                if (presentedState > 0 && statisticsPreviewActive)
-                    CloseStatisticsPreview("vanilla-game-over");
-            }
-            catch (Exception ex)
-            {
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:1063", $"Bugfixes and QoL pre-game-over handling failed; Vanilla game over still runs: {ex}");
-            }
-
-            // Vanilla must run exactly once even if preview cleanup failed.
-            setGameOverStateOriginal(self, presentedState, screen, skirmishDate);
-        }
-
-        private bool TryOpenStatisticsPreview()
-        {
-            if (!CanUseStatisticsPreview())
-                return false;
-
-            EngineInterface.MPScoreData snapshot = EngineInterface.GetMPScoreData();
-            if (!ValidateStatisticsSnapshot(snapshot))
-            {
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:1078", "Bugfixes and QoL rejected an invalid spectator-statistics snapshot.");
-                return false;
-            }
-
-            MainViewModel viewModel = MainViewModel.Instance;
-            viewModel.Show_HUD_MissionOver_Video = false;
-            viewModel.Show_HUD_MissionOver_SandsBackground = false;
-            viewModel.Show_HUD_MissionOver = true;
-
-            HUD_MissionOver view = ResolveVisibleMissionOverView();
-            if (view == null)
-            {
-                viewModel.Show_HUD_MissionOver = false;
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:1091", "Bugfixes and QoL could not resolve exactly one visible in-game statistics view.");
-                return false;
-            }
-
-            viewModel.HUDMissionOver = view;
-            if (!TryApplyStatisticsSnapshot(view, snapshot, initializeView: true))
-            {
-                viewModel.Show_HUD_MissionOver = false;
-                return false;
-            }
-
-            statisticsPreviewView = view;
-            statisticsPreviewActive = true;
-            buttonViewModel.SetStatisticsPreviewActive(true);
-            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:1105", "Opened spectator statistics from the current local simulation snapshot without entering Vanilla game over.");
-            return true;
-        }
-
-        private bool TryApplyStatisticsSnapshot(
-            HUD_MissionOver view,
-            EngineInterface.MPScoreData snapshot,
-            bool initializeView)
-        {
-            EngineInterface.MPScoreData previousSnapshot =
-                lastStatsField.GetValue(view) as EngineInterface.MPScoreData;
-
-            try
-            {
-                ApplyStatisticsSnapshot(view, snapshot, initializeView);
-                return true;
-            }
-            catch (Exception ex)
-            {
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:1124", $"Bugfixes and QoL could not apply the spectator-statistics snapshot: {ex}");
-                if (!initializeView && ValidateStatisticsSnapshot(previousSnapshot))
-                {
-                    try
-                    {
-                        ApplyStatisticsSnapshot(view, previousSnapshot, initializeView: false);
-                    }
-                    catch (Exception rollbackEx)
-                    {
-                        Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:1133", $"Bugfixes and QoL could not restore the previous spectator-statistics snapshot: {rollbackEx}");
-                    }
-                }
-                return false;
-            }
-        }
-
-        private void ApplyStatisticsSnapshot(
-            HUD_MissionOver view,
-            EngineInterface.MPScoreData snapshot,
-            bool initializeView)
-        {
-            prepMpScoresMethod.Invoke(view, new object[] { snapshot });
-            lastStatsField.SetValue(view, snapshot);
-
-            MainViewModel viewModel = MainViewModel.Instance;
-            if (initializeView)
-            {
-                // Start spectators never pass through Vanilla's victory/defeat loaders, so
-                // dismiss the default Coop "Congratulations" overlay before showing scores.
-                clearWeaselTextMethod.Invoke(view, null);
-                mpSortTypeField.SetValue(view, 0);
-                sortReversedField.SetValue(view, false);
-                viewModel.MO_ShowPage1 = Visibility.Visible;
-                viewModel.MO_ShowPage2 = Visibility.Collapsed;
-                if (view.refRankButton1 == null || view.refRankButton2 == null)
-                    throw new InvalidOperationException("Vanilla statistics page selectors are unavailable.");
-                view.refRankButton1.IsChecked = true;
-                view.refRankButton2.IsChecked = false;
-            }
-
-            showMpScoreMethod.Invoke(view, new object[] { snapshot, false, false });
-            updateHelpTextMethod.Invoke(view, new object[] { (int)mpSortTypeField.GetValue(view) });
-
-            viewModel.MO_SP_Score = false;
-            viewModel.MO_SandsOutro1 = Visibility.Hidden;
-            viewModel.MO_MP_Score = Visibility.Visible;
-            viewModel.MO_MP_Victory = Visibility.Collapsed;
-            viewModel.MO_MP_Defeat = Visibility.Collapsed;
-            viewModel.Show_HUD_MissionOver_Video = false;
-            viewModel.Show_HUD_MissionOver_SandsBackground = false;
-        }
-
-        private HUD_MissionOver ResolveVisibleMissionOverView()
-        {
-            HUD_MissionOver first = missionOverInstance1Field.GetValue(null) as HUD_MissionOver;
-            HUD_MissionOver second = missionOverInstance2Field.GetValue(null) as HUD_MissionOver;
-            HUD_MissionOver resolved = null;
-            int visibleCount = 0;
-
-            if (first != null && first.IsVisible)
-            {
-                resolved = first;
-                visibleCount++;
-            }
-            if (second != null && !ReferenceEquals(second, first) && second.IsVisible)
-            {
-                resolved = second;
-                visibleCount++;
-            }
-
-            return visibleCount == 1 ? resolved : null;
-        }
-
-        private void UpdateStatisticsTeamBadges()
-        {
-            int badgeMode = Volatile.Read(ref statisticsBadgeModeSnapshot);
-            if (badgeMode == SurrenderPolicy.StatisticsTeamBadgesOff) return;
-            MainViewModel viewModel = MainViewModel.Instance;
-            if (!statisticsTeamBadgesReady ||
-                !StatisticsTeamBadgesEnabled ||
-                badgeMode == SurrenderPolicy.StatisticsTeamBadgesOff ||
-                viewModel == null ||
-                !viewModel.Show_HUD_MissionOver ||
-                viewModel.MO_MP_Score != Visibility.Visible)
-            {
-                ClearStatisticsTeamBadges();
-                return;
-            }
-
-            HUD_MissionOver view = ResolveVisibleMissionOverView();
-            EngineInterface.MPScoreData snapshot =
-                view == null ? null : lastStatsField.GetValue(view) as EngineInterface.MPScoreData;
-            if (view == null || !ValidateStatisticsSnapshot(snapshot))
-            {
-                ClearStatisticsTeamBadges();
-                return;
-            }
-
-            int sortType = (int)mpSortTypeField.GetValue(view);
-            bool sortReversed = (bool)sortReversedField.GetValue(view);
-            if (ReferenceEquals(view, statisticsTeamBadgeView) &&
-                ReferenceEquals(snapshot, statisticsTeamBadgeSnapshot) &&
-                sortType == statisticsTeamBadgeSortType &&
-                sortReversed == statisticsTeamBadgeSortReversed &&
-                badgeMode == statisticsTeamBadgeMode)
-            {
-                return;
-            }
-
-            EnsureStatisticsTeamBadgeElements(view);
-            int[] ranking = rankingField.GetValue(view) as int[];
-            int[][] individualRanking = individualRankingField.GetValue(view) as int[][];
-            if (!SurrenderPolicy.TryBuildStatisticsRowPlayerIds(
-                    snapshot.valid,
-                    ranking,
-                    individualRanking,
-                    sortType,
-                    sortReversed,
-                    statisticsTeamBadgeRowPlayerIds))
-            {
-                ClearStatisticsTeamBadgeElements();
-            }
-            else
-            {
-                for (int row = 0; row < 8; row++)
-                {
-                    int teamId = SurrenderPolicy.ResolveStatisticsTeamShield(
-                        statisticsTeamBadgeRowPlayerIds[row],
-                        snapshot.team_shield);
-                    ApplyStatisticsTeamBadge(0, row, teamId, badgeMode, viewModel);
-                    ApplyStatisticsTeamBadge(1, row, teamId, badgeMode, viewModel);
-                }
-            }
-
-            statisticsTeamBadgeSnapshot = snapshot;
-            statisticsTeamBadgeSortType = sortType;
-            statisticsTeamBadgeSortReversed = sortReversed;
-            statisticsTeamBadgeMode = badgeMode;
-            statisticsTeamBadgeErrorLogged = false;
-        }
-
-        private void EnsureStatisticsTeamBadgeElements(HUD_MissionOver view)
-        {
-            if (ReferenceEquals(view, statisticsTeamBadgeView) &&
-                statisticsTeamBadgeHosts != null)
-            {
-                return;
-            }
-
-            ClearStatisticsTeamBadges();
-            var hosts = new Grid[2, 8];
-            var vanillaIcons = new Image[2, 8];
-            var easyReadIcons = new Grid[2, 8];
-            var shields = new Path[2, 8];
-            var numbers = new TextBlock[2, 8];
-            for (int page = 0; page < 2; page++)
-            {
-                for (int row = 0; row < 8; row++)
-                {
-                    string prefix = $"BugfixesAndQoLTeamBadgePage{page + 1}Row{row + 1}";
-                    hosts[page, row] = view.FindName(prefix) as Grid;
-                    vanillaIcons[page, row] = view.FindName(prefix + "VanillaIcon") as Image;
-                    easyReadIcons[page, row] = view.FindName(prefix + "EasyReadIcon") as Grid;
-                    shields[page, row] = view.FindName(prefix + "Shield") as Path;
-                    numbers[page, row] = view.FindName(prefix + "Number") as TextBlock;
-                    if (hosts[page, row] == null ||
-                        vanillaIcons[page, row] == null ||
-                        easyReadIcons[page, row] == null ||
-                        shields[page, row] == null ||
-                        numbers[page, row] == null)
-                    {
-                        throw new InvalidOperationException(
-                            $"HUD_MissionOver team-badge elements for '{prefix}' were not found.");
-                    }
-                }
-            }
-
-            statisticsTeamBadgeView = view;
-            statisticsTeamBadgeHosts = hosts;
-            statisticsTeamBadgeVanillaIcons = vanillaIcons;
-            statisticsTeamBadgeEasyReadIcons = easyReadIcons;
-            statisticsTeamBadgeShields = shields;
-            statisticsTeamBadgeNumbers = numbers;
-        }
-
-        private void ApplyStatisticsTeamBadge(
-            int page,
-            int row,
-            int teamId,
-            int badgeMode,
-            MainViewModel viewModel)
-        {
-            Grid host = statisticsTeamBadgeHosts[page, row];
-            if (!SurrenderPolicy.TryResolveStatisticsTeamBadgeStyle(
-                    teamId,
-                    out StatisticsTeamBadgeStyle style))
-            {
-                statisticsTeamBadgeVanillaIcons[page, row].Source = null;
-                statisticsTeamBadgeVanillaIcons[page, row].Visibility = Visibility.Collapsed;
-                statisticsTeamBadgeEasyReadIcons[page, row].Visibility = Visibility.Collapsed;
-                host.Visibility = Visibility.Collapsed;
-                return;
-            }
-
-            if (badgeMode == SurrenderPolicy.StatisticsTeamBadgesVanillaIcons)
-            {
-                Image vanillaIcon = statisticsTeamBadgeVanillaIcons[page, row];
-                vanillaIcon.Source = viewModel.getTeamAlliesShield(teamId, large: false);
-                vanillaIcon.Visibility = vanillaIcon.Source == null
-                    ? Visibility.Collapsed
-                    : Visibility.Visible;
-                statisticsTeamBadgeEasyReadIcons[page, row].Visibility = Visibility.Collapsed;
-                host.Visibility = vanillaIcon.Source == null
-                    ? Visibility.Collapsed
-                    : Visibility.Visible;
-                return;
-            }
-
-            statisticsTeamBadgeVanillaIcons[page, row].Source = null;
-            statisticsTeamBadgeVanillaIcons[page, row].Visibility = Visibility.Collapsed;
-            statisticsTeamBadgeShields[page, row].Fill = statisticsTeamBadgeFillBrushes[teamId];
-            TextBlock number = statisticsTeamBadgeNumbers[page, row];
-            number.Text = teamId.ToString();
-            number.Foreground = style.UseDarkText
-                ? statisticsTeamBadgeDarkTextBrush
-                : statisticsTeamBadgeLightTextBrush;
-            statisticsTeamBadgeEasyReadIcons[page, row].Visibility = Visibility.Visible;
-            host.Visibility = Visibility.Visible;
-        }
-
-        private void ClearStatisticsTeamBadgeElements()
-        {
-            if (statisticsTeamBadgeHosts == null)
-                return;
-
-            for (int page = 0; page < 2; page++)
-            {
-                for (int row = 0; row < 8; row++)
-                {
-                    try
-                    {
-                        statisticsTeamBadgeHosts[page, row].Visibility = Visibility.Collapsed;
-                        statisticsTeamBadgeVanillaIcons[page, row].Source = null;
-                        statisticsTeamBadgeVanillaIcons[page, row].Visibility = Visibility.Collapsed;
-                        statisticsTeamBadgeEasyReadIcons[page, row].Visibility = Visibility.Collapsed;
-                        statisticsTeamBadgeShields[page, row].Fill = null;
-                        statisticsTeamBadgeNumbers[page, row].Text = string.Empty;
-                    }
-                    catch
-                    {
-                        // Badge cleanup must never interfere with the Vanilla statistics view.
-                    }
-                }
-            }
-        }
-
-        private void ClearStatisticsTeamBadges()
-        {
-            ClearStatisticsTeamBadgeElements();
-            statisticsTeamBadgeView = null;
-            statisticsTeamBadgeHosts = null;
-            statisticsTeamBadgeVanillaIcons = null;
-            statisticsTeamBadgeEasyReadIcons = null;
-            statisticsTeamBadgeShields = null;
-            statisticsTeamBadgeNumbers = null;
-            statisticsTeamBadgeSnapshot = null;
-            statisticsTeamBadgeSortType = int.MinValue;
-            statisticsTeamBadgeSortReversed = false;
-            statisticsTeamBadgeMode = int.MinValue;
-        }
-
-        private void CloseStatisticsPreview(string reason)
-        {
-            HUD_MissionOver view = statisticsPreviewView;
-            if (!statisticsPreviewActive && view == null)
-            {
-                buttonViewModel.SetStatisticsPreviewActive(false);
-                return;
-            }
-
-            statisticsPreviewActive = false;
-            statisticsPreviewView = null;
-            buttonViewModel.SetStatisticsPreviewActive(false);
-
-            try
-            {
-                view?.PlayBackgroundVideo(false);
-            }
-            catch (Exception ex)
-            {
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:1414", $"Bugfixes and QoL spectator-statistics video cleanup failed: {ex}");
-            }
-
-            MainViewModel viewModel = MainViewModel.Instance;
-            if (viewModel != null)
-            {
-                viewModel.Show_HUD_MissionOver_Video = false;
-                viewModel.Show_HUD_MissionOver_SandsBackground = false;
-                viewModel.Show_HUD_MissionOver = false;
-            }
-
-            if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:1425", $"Closed spectator statistics preview: reason={reason}.");
-        }
-
-        private bool CanUseStatisticsPreview() =>
-            SurrenderPolicy.CanShowStatisticsButton(
-                FeatureEnabled,
-                IsActiveMatch(),
-                IsMapEditor(),
-                IsStatisticsViewer(),
-                IsStatisticsGameMode(),
-                statisticsReady);
-
-        private static bool IsStatisticsGameMode() =>
-            APIShared.GameModes.GameModeHelper.IsRealMultiplayer() ||
-            APIShared.GameModes.GameModeHelper.IsSingleplayerSkirmishMode();
-
-        private static bool ValidateStatisticsSnapshot(EngineInterface.MPScoreData snapshot)
-        {
-            if (snapshot == null ||
-                !HasLength(snapshot.valid, 9) ||
-                !HasLength(snapshot.gold_acquired, 9) ||
-                !HasLength(snapshot.max_population, 9) ||
-                !HasLength(snapshot.fearfactor, 9) ||
-                !HasLength(snapshot.time_deceased, 9) ||
-                !HasLength(snapshot.who_killed_who, 81) ||
-                !HasLength(snapshot.enemy_buildings_destroyed, 9) ||
-                !HasLength(snapshot.food_produced, 9) ||
-                !HasLength(snapshot.iron_produced, 9) ||
-                !HasLength(snapshot.stone_produced, 9) ||
-                !HasLength(snapshot.wood_produced, 9) ||
-                !HasLength(snapshot.pitch_produced, 9) ||
-                !HasLength(snapshot.minfearfactor, 9) ||
-                !HasLength(snapshot.winners, 9) ||
-                !HasLength(snapshot.troop_points_killed, 9) ||
-                !HasLength(snapshot.enemy_buildings_razed_points, 9) ||
-                !HasLength(snapshot.troops_produced, 9) ||
-                !HasLength(snapshot.goods_received, 9) ||
-                !HasLength(snapshot.goods_sent, 9) ||
-                !HasLength(snapshot.notable_victories, 9) ||
-                !HasLength(snapshot.notable_defeats, 9) ||
-                !HasLength(snapshot.time_lord_killed, 9) ||
-                !HasLength(snapshot.blank2, 9) ||
-                !HasLength(snapshot.blank3, 9) ||
-                !HasLength(snapshot.blank4, 9) ||
-                !HasLength(snapshot.weapons_produced, 9) ||
-                !HasLength(snapshot.buildings_lost, 9) ||
-                !HasLength(snapshot.lords_killed, 9) ||
-                !HasLength(snapshot.team_shield, 9) ||
-                !HasLength(snapshot.teams, 9) ||
-                !HasLength(snapshot.computer_register, 9) ||
-                !HasLength(snapshot.playerName, 9) ||
-                !HasLength(snapshot.colourMap1, 9) ||
-                !HasLength(snapshot.colourMap2, 9))
-            {
-                return false;
-            }
-
-            return true;
-        }
-
-        private static bool HasLength(Array array, int minimumLength) =>
-            array != null && array.Length >= minimumLength;
-
-        private static MethodInfo FindRequiredMethod(
-            Type type,
-            string methodName,
-            BindingFlags bindingFlags,
-            params Type[] parameterTypes)
-        {
-            MethodInfo method = type.GetMethod(
-                methodName,
-                bindingFlags,
-                null,
-                parameterTypes,
-                null);
-            if (method == null || method.ReturnType != typeof(void))
-                throw new MissingMethodException(type.FullName, methodName);
-            return method;
-        }
-
-        private static FieldInfo FindRequiredField(Type type, string fieldName, BindingFlags bindingFlags)
-        {
-            FieldInfo field = type.GetField(fieldName, bindingFlags);
-            if (field == null)
-                throw new MissingFieldException(type.FullName, fieldName);
-            return field;
         }
 
         private void ConfirmSurrender(long sequence)
@@ -1577,8 +286,11 @@ namespace BugfixesAndQoL
                 RequestId = source.RequestId
             };
             ulong senderSteamId = args.SenderSteamId.Value.m_SteamID;
-            Shared.UnityMainThreadDispatch.TryEnqueue(
-                () => ProcessRequest(request, new CSteamID(senderSteamId)));
+            long sessionSnapshot = Interlocked.Read(ref presentationGeneration);
+            Shared.UnityMainThreadDispatch.TryEnqueue(() => {
+                if (!disposed && sessionSnapshot == Interlocked.Read(ref presentationGeneration))
+                    ProcessRequest(request, new CSteamID(senderSteamId));
+            });
         }
 
         private void ProcessRequest(SurrenderRequestPacket request, CSteamID senderSteamId)
@@ -1809,22 +521,6 @@ namespace BugfixesAndQoL
 
         private static bool IsMapEditor() => APIShared.GameModes.GameModeHelper.IsMapEditor();
 
-        private bool SpectatorPromotionPendingOrActive =>
-            spectatorPromotionChoreExpected || spectatorPromotionActivated;
-
-        private bool IsStatisticsViewer()
-        {
-            GamePlayerManagerAPI playerManager = GamePlayerManagerAPI.Instance;
-            if (playerManager == null)
-                return IsStartSpectator();
-
-            int localPlayerId = playerManager.GetLocalPlayerId();
-            return SurrenderPolicy.IsStatisticsViewer(
-                IsStartSpectator(),
-                localPlayerId,
-                CaptureLord(localPlayerId));
-        }
-
         private static bool IsStartSpectator() =>
             GameData.Instance?.lastGameState != null && GameData.Instance.lastGameState.spectatorMode != 0;
 
@@ -1876,38 +572,9 @@ namespace BugfixesAndQoL
             return value;
         }
 
-        private void ResetSession(string reason)
-        {
-            CloseStatisticsPreview(reason);
-            ClearStatisticsTeamBadges();
-            acceptedRequests.Clear();
-            nextRequestId = 0;
-            activeSessionId = 0;
-            Array.Clear(lordDeathSessionIds, 0, lordDeathSessionIds.Length);
-            Array.Clear(lordDeathSimulationTicks, 0, lordDeathSimulationTicks.Length);
-            Array.Clear(spectatorChoreQueuedPlayers, 0, spectatorChoreQueuedPlayers.Length);
-            Array.Clear(spectatorChoreExecutedPlayers, 0, spectatorChoreExecutedPlayers.Length);
-            localPlayerLordDeathObserved = false;
-            localPlayerLordDeathPlayerId = -1;
-            spectatorPromotionChoreExpected = false;
-            spectatorPromotionActivated = false;
-            spectatorPromotionConfirmed = false;
-            spectatorPromotionErrorLogged = false;
-            spectatorPromotionRejectionLogged = false;
-            gameOverStateCorrectionLogged = false;
-            spectatorPromotionPlayerId = -1;
-            spectatorPromotionGameMode = string.Empty;
-            lastSpectatorPromotionFrame = -1;
-            confirmationSequence++;
-            buttonViewModel.SetMenuState(false, false, false, false);
-            if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:1930", $"Reset surrender/statistics session state: reason={reason}.");
-        }
-
         private static void ReopenIngameMenu()
         {
             if (MainViewModel.Instance != null)
                 MainViewModel.Instance.Show_HUD_IngameMenu = true;
-        }
-    }
+        }    }
 }

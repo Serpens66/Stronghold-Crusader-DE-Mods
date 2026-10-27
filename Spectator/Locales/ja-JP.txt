@@ -89,16 +89,10 @@ Tools.GateFixed=Gate set to manual control.
 Tools.PowerCancelled=Power action cancelled.
 
 Tools.ResetAmountHelp=Reset the amount to 0.
-Tools.Reports=Reports
-Tools.ReportsHelp=Open reports for the selected spectator perspective.
-Tools.Allies=Allies
-Tools.AlliesHelp=Open the selected player’s allies panel. Multiplayer spectators cannot issue orders.
 Tools.Statistics=Statistics
 Tools.StatisticsHelp=View current statistics without ending the match.
 Tools.RefreshStatistics=Refresh
 Tools.RefreshStatisticsHelp=Refresh the statistics from the current simulation.
-Tools.CloseStatistics=Close statistics
-Tools.CloseStatisticsHelp=Return to the running match.
 Tools.PerspectiveSetting=Spectator perspectives
 Tools.PerspectiveSettingHelp=Allow original spectators to select player perspectives, reports and allies.
 Tools.StatisticsSetting=Live spectator statistics

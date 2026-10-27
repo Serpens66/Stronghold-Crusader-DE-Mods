@@ -65,8 +65,6 @@ namespace BugfixesAndQoL
         public SettingsOptionPresentation MultiplayerGameSpeedMaximum => options["MultiplayerGameSpeedMaximum"];
         public SettingsOptionPresentation EnableShiftGameSpeedSteps => options["EnableShiftGameSpeedSteps"];
         public SettingsOptionPresentation EnableSurrenderAndStatistics => options["EnableSurrenderAndStatistics"];
-        public SettingsOptionPresentation EnableEliminatedPlayersBecomeSpectators => options["EnableEliminatedPlayersBecomeSpectators"];
-        public SettingsOptionPresentation EnableSpectatorPerspective => options["EnableSpectatorPerspective"];
         public SettingsOptionPresentation EnableRandomOpponentSelectionEnhancements => options["EnableRandomOpponentSelectionEnhancements"];
         public SettingsOptionPresentation EnableAiStoneReserveFix => options["EnableAiStoneReserveFix"];
         public SettingsOptionPresentation EnableAiDefensePatrolFix => options["EnableAiDefensePatrolFix"];
@@ -184,8 +182,6 @@ namespace BugfixesAndQoL
             AddOption("EnableShiftGameSpeedSteps", "bugfixes.enable-shift-game-speed-steps", SettingsCategory.Qol, HostSetup);
             AddOption("EnableMinimapRefreshThrottle", "bugfixes.minimap-refresh-throttle", SettingsCategory.Fixes, HostSetup);
             AddOption("EnableSurrenderAndStatistics", "bugfixes.enable-surrender-and-statistics", SettingsCategory.Qol, HostSetup);
-            AddOption("EnableEliminatedPlayersBecomeSpectators", "bugfixes.enable-eliminated-players-become-spectators", SettingsCategory.Qol, HostSetup);
-            AddOption("EnableSpectatorPerspective", "bugfixes.enable-spectator-perspective", SettingsCategory.Qol, HostSetup);
             AddOption("EnableRandomOpponentSelectionEnhancements", "bugfixes.enable-random-opponent-selection-enhancements", SettingsCategory.Qol, HostSetup);
             HostAi = AddTopic("HostAi", "bugfixes.topic.host-ai", true);
             AddOption("EnableAiStoneReserveFix", "bugfixes.enable-ai-stone-reserve-fix", SettingsCategory.Fixes, HostAi);

@@ -1,0 +1,11 @@
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <!-- Reuse the real preset controller and boundary doubles, independently of other mod settings. -->
+  <Import Project="HostClientPresetTests.csproj"/>
+  <PropertyGroup><AssemblyName>SpectatorPresetTests</AssemblyName><StartupObject>SpectatorPresetTests</StartupObject></PropertyGroup>
+  <ItemGroup>
+    <Compile Include="..\..\Spectator\tests\SpectatorPresetTests.cs"/>
+    <Compile Include="..\..\Spectator\src\SpectatorViewModel.cs"/>
+    <Compile Include="..\..\Spectator\src\SpectatorFeatureActivation.cs"/>
+    <Compile Include="..\..\Spectator\src\ToolsText.cs"/>
+  </ItemGroup>
+</Project>

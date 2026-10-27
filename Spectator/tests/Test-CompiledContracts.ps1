@@ -21,7 +21,7 @@ try {
     }
     $base = $api.MainModule.GetType('APIShared.ModSettings.PresetLobbyModSettingsViewModel')
     $items = @('ModeOptions','PropertyName','ScopeText','SelectedModeIndex','Title','Description','DisplayName','Name')
-    foreach ($view in @(@('Patches/Assets/GUI/XAML/IngameUIScreens.xaml','Spectator.TestToolsViewModel'),@('Override/ScriptExtenderUI/SpectatorSettings.xaml','Spectator.SpectatorViewModel'))) {
+    foreach ($view in @(@('Patches/Assets/GUI/XAML/IngameUIScreens.xaml','Spectator.TestToolsViewModel'),@('Override/ScriptExtenderUI/SpectatorSettings.xaml','Spectator.SpectatorViewModel'),@('Patches/Assets/GUI/XAMLResources/HUD_MissionOver.xaml','Spectator.StatisticsControlsViewModel'))) {
         $text = [IO.File]::ReadAllText((Join-Path $root $view[0]))
         $properties = @($mod.MainModule.GetType($view[1]).Properties.Name) + @($base.Properties.Name)
         foreach ($match in [regex]::Matches($text,'\{Binding ([\w]+)(?:[,}\[])')) {
@@ -32,6 +32,12 @@ try {
             if ($english -notmatch ('(?m)^Tools\.'+[regex]::Escape($match.Groups[1].Value)+'=')) { throw "Missing tool text: $($match.Value)" }
         }
     }
+    [xml]$settingsXaml = [IO.File]::ReadAllText((Join-Path $root 'Override/ScriptExtenderUI/SpectatorSettings.xaml'))
+    $hostContent = $settingsXaml.SelectSingleNode('//*[@IsEnabled="{Binding CanEditHostSettings}"]')
+    if ($hostContent.Opacity -ne '{Binding HostSettingsOpacity}') { throw 'Host content must use the shared dimming contract.' }
+    $runtime = $mod.MainModule.GetType('Spectator.SpectatorRuntime')
+    $renderCalls = @($runtime.Methods | Where-Object HasBody | ForEach-Object { $_.Body.Instructions } | Where-Object { $_.Operand -is [Mono.Cecil.MethodReference] -and $_.Operand.DeclaringType.FullName -eq 'APIShared.Presentation.VisibleMapRenderEvents' })
+    if ($renderCalls.Count -eq 0) { throw 'Missing shared render registration.' }
     $dependencies = @($mod.MainModule.GetType('Spectator.SpectatorPlugin').CustomAttributes | Where-Object { $_.AttributeType.Name -eq 'BepInDependency' })
     if ($dependencies.Count -lt 2) { throw 'Missing runtime dependencies.' }
     if (@($dependencies | Where-Object { $_.ConstructorArguments[0].Value -match 'BugfixesAndQoL|SpectatorEditorBuildTest' }).Count) { throw 'Migration dependencies are not permitted.' }

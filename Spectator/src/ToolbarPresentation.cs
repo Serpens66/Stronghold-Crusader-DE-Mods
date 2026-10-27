@@ -7,6 +7,8 @@ namespace Spectator
     internal static partial class SpectatorRuntime
     {
         private static Grid toolbarRoot;
+        private static readonly Button[] quickButtons = new Button[9];
+        private static readonly TextBlock[] quickNumbers = new TextBlock[9];
         private static readonly Button[] targetButtons = new Button[9];
         private static readonly TextBlock[] targetLabels = new TextBlock[9];
         private static readonly Image[] ownerFaces = new Image[9], targetFaces = new Image[9];
@@ -20,6 +22,9 @@ namespace Spectator
             toolbarRoot = screen.FindName("TestToolsRoot") as Grid;
             for (int player = 1; player <= 8; player++)
             {
+                quickButtons[player] = screen.FindName("SpectatorQuickOwner" + player) as Button;
+                quickNumbers[player] = screen.FindName("SpectatorQuickNumber" + player) as TextBlock;
+                if (quickButtons[player] == null || quickNumbers[player] == null) throw new MissingMemberException("Spectator quick selection is incomplete.");
                 targetButtons[player] = screen.FindName("TestTarget" + player) as Button;
                 targetLabels[player] = screen.FindName("TestTargetText" + player) as TextBlock;
                 ownerFaces[player] = screen.FindName("OwnerFace" + player) as Image;

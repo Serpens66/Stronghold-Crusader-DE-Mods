@@ -19,4 +19,4 @@ if ($LASTEXITCODE) { throw 'Native navigation compilation failed.' }
 Write-Host 'PASS: private x64 native navigation backend built; static CRT; no game imports.'
 
 if ((Get-ApiFileHash $sourcePath) -cne $sourceHash) { throw 'Native source changed during compilation.' }
-@{ timestampUtc=[DateTime]::UtcNow.ToString('o'); sourcePath=$sourcePath; sourceSha256=$sourceHash; dllSha256=(Get-ApiFileHash (Join-Path $OutputDirectory 'BetterPathfindingNative.dll')); compiler=$compilerRoot; windowsSdk=$sdk.Name; diagnostic=$true; flags='/std:c++17 /O2 /Ob2 /EHsc /MT /W4 /LD'; abi='0x03003828' } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $objects 'build.json') -Encoding UTF8
+@{ timestampUtc=[DateTime]::UtcNow.ToString('o'); sourcePath=$sourcePath; sourceSha256=$sourceHash; dllSha256=(Get-ApiFileHash (Join-Path $OutputDirectory 'BetterPathfindingNative.dll')); compiler=$compilerRoot; windowsSdk=$sdk.Name; diagnostic=$true; flags='/std:c++17 /O2 /Ob2 /EHsc /MT /W4 /LD'; abi='0x04003828' } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $objects 'build.json') -Encoding UTF8

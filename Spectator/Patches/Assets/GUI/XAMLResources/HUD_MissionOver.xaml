@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Patch xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:local="clr-namespace:CrusaderDE" xmlns:seui="clr-namespace:SHCDESE.UI;assembly=SHCDESE" xmlns:apiui="clr-namespace:APIShared.ModSettings;assembly=APIShared">
+  <Operation Type="Add" XPath="//n:StackPanel[@Name='RowStackMP']/n:Grid[n:Button[@CommandParameter='Exit']]">
+    <Content>
+      <Grid x:Name="SpectatorStatisticsRefreshHost"
+            Width="300"
+            Height="60"
+            Margin="50,0,0,0"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Center"
+            Visibility="{Binding StatisticsPreviewControlsVisibility}">
+        <Grid.Resources>
+    <Style TargetType="{x:Type ToolTip}">
+      <Setter Property="Background" Value="#FF1D1710"/>
+      <Setter Property="Foreground" Value="White"/>
+      <Setter Property="apiui:SharedToolTipSizing.Enabled" Value="True"/>
+      <Setter Property="BorderBrush" Value="#FFF2D48A"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="{x:Type ToolTip}">
+            <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="2" Padding="{TemplateBinding Padding}" MaxWidth="{TemplateBinding MaxWidth}">
+              <TextBlock Text="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}" FontSize="{TemplateBinding FontSize}" TextWrapping="Wrap"/>
+            </Border>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+        </Grid.Resources>
+        <Button Width="300"
+                Height="60"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                local:PropEx.TextCentre="{Binding RefreshStatisticsButtonText}"
+                local:PropEx.TextLeft=""
+                local:PropEx.TextRight=""
+                Command="{Binding RefreshStatisticsCommand}"
+                ToolTip="{Binding RefreshStatisticsButtonHelpText}"
+                ToolTipService.ShowDuration="60000"
+                MouseEnter="CommonRedButtonEnter"
+                Style="{StaticResource BTN_SH_GlowSDisable}" />
+      </Grid>
+    </Content>
+  </Operation>
+</Patch>

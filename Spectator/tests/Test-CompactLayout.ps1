@@ -13,12 +13,15 @@ foreach ($name in @('SpectatorEditorHumanOwners','TestToolsTargets')) {
         if ($card.Width -ne '148' -or $card.Height -ne '42' -or -not $card.SelectSingleNode('.//TextBlock[@TextTrimming="CharacterEllipsis"]')) { throw 'Portrait size or long-name trimming changed.' }
     }
 }
-foreach ($count in @(1,4,8)) {
-    $rows = [Math]::Ceiling($count / 4.0)
-    if ($rows -ne $(if ($count -le 4) { 1 } else { 2 })) { throw 'Portrait reflow calculation failed.' }
+foreach ($slot in 1..8) {
+    $quick = Named ('SpectatorQuickOwner' + $slot)
+    if (-not $quick -or $quick.Width -ne '32' -or $quick.Height -ne '28') { throw 'Missing compact one-click player button.' }
+}
+foreach ($removed in @('Reports','Allies','Statistics','RefreshStatistics','CloseStatistics')) {
+    if ($xml.SelectSingleNode('//Button[@CommandParameter="' + $removed + '"]')) { throw ('Redundant toolbar action: ' + $removed) }
 }
 $panel = Named 'SpectatorEditorHumanPanel'
-if ($panel.Width -ne '240' -or $panel.HasAttribute('Height')) { throw 'Minimized panel must measure its content.' }
+if ($panel.Width -ne '318' -or $panel.HasAttribute('Height')) { throw 'Minimized panel must measure its content.' }
 $amount = Named 'TestToolsAmount'
 if ($amount.Text -ne '0' -or $amount.HasAttribute('MaxLength')) { throw 'Amount must start at zero without truncating pasted values.' }
 $credit = $xml.SelectSingleNode('//Button[@CommandParameter="Credit"]')

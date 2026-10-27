@@ -45,9 +45,9 @@ Forced acceptance does not bypass life, team, path, troop or objective validity.
 ## Existing placement and presentation contracts
 
 The original placement behavior remains hash-bound. The native availability hook
-owns 0xCC420 (10 displaced bytes, NativeX64 Indirect). Visual hooks own 0x65830,
-0x41D60 and 0x6E620; their prologues, exact displacement and installed backend are
-validated in `SpectatorPlugin.Native.cs`. Published hooks remain
+owns 0xCC420 (10 displaced bytes, NativeX64 Indirect). The mod owns visual hooks at 0x65830 and 0x6E620; their prologues, exact displacement
+and installed backend are validated in `SpectatorRuntime.Native.cs`. The 0x41D60
+frame boundary is owned exclusively by APIShared VisibleMapRenderEvents. Published hooks remain
 installed until process exit. RedBird's audited assembly version is 1.5.0.0.
 
 The visual spectator flag is at RVA 0x3666080. Placement also reads the Chore kind
@@ -260,3 +260,40 @@ The development package is not on the main-mod release whitelist. Build via buil
 with the verified SDK selected through SHCDE_API_SHARED_DIR; /noinstall preserves the
 current game installation. Automated tests do not establish in-game delivery, effects,
 layout at different resolutions or interoperability after the user cleans BugfixesAndQoL.
+
+## Endansicht nach der Zuschauer-Auslagerung (2026-10-27)
+
+Die verwalteten Einstiegspunkte `HUD_MissionOver.ButtonClicked(string)`,
+`GameData.Scenarios.setGameOverState(int,int,int)` und
+`OnScreenText.addOSTEntry(eOnScreenText,int,int,int,int,int)` besitzen genau einen
+APIShared-Hook je Stelle. Keine direkten Hooks der beiden Verbraucher mehr.
+Bei einem Spielupdate Signaturen und Reihenfolge erneut prüfen: Spielende-OST
+bereitet den Lobbyersatz vor dem Abbau der Teilnehmer vor; positive Endzustände
+verwerfen eine Statistikvorschau vor dem Vanilla-Aufbau. Vorschau-Exit unterdrückt
+Vanilla und Lobby-Deferral unabhängig von der Registrierungsreihenfolge.
+Verzögerte Originalfortsetzungen sind an Aufrufthread, Sitzung und Ansicht gebunden.
+
+Spectator besitzt Perspektive, Berichte/Verbündete, Save-Herkunft, Statistikvorschau
+und den synchronisierten Zuschauerwechsel nach Ausscheiden. BugfixesAndQoL behält
+Aufgeben, Lobby-Rückkehr und allgemeine Statistikabzeichen. Die native Niederlage
+bleibt beim vorhandenen PlayerDefeat-Dienst; keine neue native Eingriffsstelle.
+
+ExtraFeatures wird anhand der tatsächlich benötigten Methoden, Signaturen und
+ViewModel-Member geprüft, unabhängig von seiner Versionsnummer. Eigentümer und
+Gebäude-Global-ID werden vor jeder Automatikänderung erneut geprüft; Speicherung
+und Automatikzustand verbleiben beim Anbieter. Fehlende oder abweichende Verträge
+schalten nur diese optionale Integration ab. Die historischen Hinweise vom
+21.10.2026 zur noch ausstehenden BugfixesAndQoL-Bereinigung beschreiben den damaligen
+Stand und werden durch diese Zuständigkeitsbeschreibung abgelöst.
+
+## Shared presentation ownership, 2026-10-27
+
+APIShared 0.18.0 now owns the `0x41D60` visible-map entry. This mod registers its
+render observer and toggles demand; it no longer installs a competing frame hook.
+The original parameters and execution remain unchanged. Native contract and ABI
+coverage are maintained in APIShared/UpdateToNewDLL.md and VisibleMapRenderTests.
+Pause-menu extras use IngameMenuActions; Vanilla Quit keeps its original command.
+Spectator statistics use the existing menu Close path (pause restoration), refresh
+inside MissionOver, and the MissionOverEvents preview-exit contract. The Spectator
+placement freeze exemption is scoped to active placement; report access independently
+requires its enabled spectator perspective. BFQ retains no spectator report hook.

@@ -1,169 +1,160 @@
-# BetterPathfindingTest 0.2.0
+# BetterPathfindingTest 0.3.0
 
-Eigenständiger lesender Testmod mit privatem C++-Suchkern. Keine Spielbefehle,
-Pfadpuffer-Schreibzugriffe, Traversal-Registrierung oder nativen Spielhooks.
-`NetworkMode=0` beschreibt diese lokale Beobachtung. Es werden keine Verbraucher
-angeschlossen und keine Spiel- oder Modkonfigurationen verändert.
+Stand: 27.10.2026. Lesender, experimenteller Navigationsdienst für normale Bodenwege.
+Der Nutzer hat nach dem negativen CCH-Tor ausdrücklich entschieden, zuerst das
+Grundsystem und seine API fertigzustellen und den Suchkern später auszutauschen.
+Die Performance-Abnahme bleibt offen. Keine Spielbefehle, Bewegungseinbindung,
+Pfadpuffer-Schreibzugriffe, Traversal-Anbieter oder eigenen nativen Spielhooks.
 
-## Aufbau
+## Dauerhafter Dienst
 
-Die gescheiterte 32×32-/128×128-Hierarchie wurde ersetzt. Der neue Kern in
-`native/Navigation.cpp` arbeitet ausschließlich auf eigenen Snapshot-Kopien:
+- Ein statisch verwurzelter Dienst und ein Hintergrundworker mit niedriger Priorität
+  leben über Kartenwechsel hinweg. Pro Missionssitzung wird genau einmal begonnen;
+  neue Karte, Save und Editor verwenden den bestehenden Missionslifecycle.
+- Der lokale Spieler wird automatisch vorbereitet. Weitere Perspektiven werden über
+  die API angefordert. Nur exakt gleiche gerichtete Graphen teilen einen Backend-
+  Kontext; unterschiedliche Rechte bleiben getrennt.
+- Main-Thread-Erfassung unter der validierten, nicht blockierend betretenen Engine-
+  Sperre. Auf dem Worker liegen ausschließlich eigene Arrays und unveränderliche
+  Tor-Policy-Snapshots. Dateiausgabe und Graphaufbau erfolgen außerhalb der Sperre.
+- Alle 500 ms wird eine kohärente Aufnahme angefordert. Öffentliche Gebäude-,
+  Vegetations- und Editorereignisse liefern zusätzliche Hinweise; sie ersetzen kein
+  vollständiges Änderungsjournal. Hinweise führen frühestens nach 250 ms zur Aufnahme.
+- Neuere wartende Aufnahmen werden zusammengefasst. `Ready` wird erst veröffentlicht,
+  wenn der Kontext den neuesten bereits angebotenen Snapshot verarbeitet hat.
+  Unveränderte Navigationsdaten behalten Generation, Index und Zielfelder. Die Tick-
+  nummer allein invalidiert nichts.
+- Änderungen führen zu `Updating`, neuer Generation und vollständiger Ersetzung des
+  betroffenen nativen Kontexts. Dadurch werden auch neue Abkürzungen außerhalb alter
+  Wege erfasst. **Inkrementelle Reparatur ist noch nicht implementiert.**
+- Initialisierung höchstens 300 s je angefordertem Kontext; einzelne Arbeitsaufträge
+  einschließlich Warteschlange höchstens 120 s. Fehler und Budgets liefern niemals
+  vermeintliche Unerreichbarkeit. Belegte Sperren werden ohne blockierendes Warten
+  erneut versucht; eine einzelne überfällige Erfassung endet nach 30 s unvollständig.
 
-- Homogene Rechteckflächen werden verdichtet. Ihre inneren Knoten entfallen im
-  Fernsuchgraphen; Makroübergänge entstehen implizit und speichern keine vollständigen
-  Teilwege. Richtungs-/Kosten-/Strukturausnahmen bleiben explizit.
-- Die Anpassung verwendet diskrete Chebyshev-Schritte. Einheiten benutzen weiterhin
-  acht Richtungen; es gibt keine kontinuierliche Navmesh-Glättung.
-- Seltene oder unterschiedliche Ziele verwenden exaktes A* auf dem Flächengraphen.
-  Ein generationengestempelter Arbeitsbereich vermeidet eine vollständige neue
-  Arrayinitialisierung pro Anfrage.
-- Ab 32 Anfragen zum selben Ziel/Kosten-/Zugriffskontext wird ein gemeinsames
-  Rückwärtsfeld verwendet. Vorhandene Felder werden auch bei Einzelanfragen genutzt.
-  Die vier Einträge des Caches sind nach Bedarf verdrängbar.
-- Größere Gruppen im selben Startbereich verwenden zusätzlich echte lokale Felder.
-  Deren Randwerte sind die bereits ermittelten globalen Fortsetzungskosten. Es
-  entstehen keine separaten globalen Suchen für jeden Grenzknoten.
-- Anfragen werden nach Kontext gebündelt; eine stabile Anfrage-ID bindet Ergebnisse
-  nach dieser internen Umordnung wieder an die ursprüngliche Anfragefolge.
-- Ein zusätzliches Wet-Visit-Bit erhält Grabenpflicht einschließlich positiver
-  Rückkehrzyklen. Verletzt das skalare Optimum Ressourcen- oder Schrittgrenzen,
-  folgt eine exakte native Mehrzustandssuche auf dem ursprünglichen Gitter.
-  Terminale Endpunktausnahmen verwenden diese explizite Suche ebenfalls.
+`Ready` bedeutet ausschließlich: für diese Spielerperspektive und erfasste Generation
+vollständig vorbereitet. Es bestätigt weder aktuelle Bewegungssicherheit zwischen
+Aufnahmen noch 100-ms-Latenz, Faktor 100 oder flüssige Simulation von 10.000 Einheiten.
+`PerformanceAccepted` bleibt deshalb ausdrücklich `false`.
 
-Grundlagen, Anpassungsgrenzen und Exaktheitsargument stehen in
-[native/SOURCES.md](native/SOURCES.md). Eine feste kleine Zahl nicht dominierter
-Alternativen wird nicht als vollständige Lösung ausgegeben. Erschöpfung bedeutet
-`Inconclusive`, niemals `Unreachable`. Der alte Solver bleibt nicht als Runtime-
-Fallback erhalten. Der aktuelle unveränderte Precise-Kern ist nur Offline-Oracle.
+## Öffentliche experimentelle API
 
-Die konservative Grenze von **256 MiB** umfasst jetzt eigene verwaltete und native
-Navigationspuffer. Der C++-Allocator zählt Reservierungen, Höchststand und Allokationen.
-Eigene zurückgegebene Wegpuffer bleiben bis zur Freigabe des Navigators bilanziert.
-Unabhängige Korrektheitsreferenzen haben eigene begrenzte Budgets; der Gesamtprozess
-und dessen verwalteter Heap sind keine isolierte Speichergröße des Navigators.
+Namespace `BetterPathfindingTest.Api`, Vertragsversion 1, direkt aus der Testmod-
+Assembly referenzierbar. Vollständiger Ablauf und Besitzregeln: [API.md](API.md).
 
-Native Arbeit läuft auf einem einzigen Worker mit niedriger Priorität. Suchläufe
-geben nach begrenzten Operationspaketen die Kontrolle zurück. Lange Dominanzketten
-besitzen zusätzlich einen diagnostischen Abbruchschutz. Diese Echtzeitgrenzen sind
-keine Multiplayer-Übernahmeentscheidung und garantieren keinen optimalen Weg bei
-Abbruch. Graphersetzung verwirft derzeit alle Zielfelder des betroffenen Kontexts,
-auch für neue Abkürzungen außerhalb alter Wege. Inkrementelle Graphreparatur ist noch
-nicht implementiert; unveränderte Graphen behalten ihre Felder.
+Bereitschaft, Sitzungs-/Generationskontext, asynchrone Batches bis 10.000 Paare,
+stabile Anfrage-IDs, Kosten, Schrittzahl, Routenhandles und erste acht Richtungen
+sind verfügbar. Weitere Schritte und vollständige Wege werden gebündelt abgeholt.
+Abbruch, Freigabe und veraltete Handles sind ausdrücklich definiert. Öffentliche
+Typen enthalten keine Unity-Objekte oder nativen Pointer.
 
-## Bauen und installieren
+Es gelten einheitliche positive Schrittkosten auf dem gerichteten trockenen Teil des
+bereits auditierten Precise-Snapshotgraphen. Freundliche Grabentraversierung,
+Assassinen, Profil-/Ressourcengrenzen und terminale Sonderübergänge werden über diese
+API noch nicht angeboten. Die bisherigen Offline-Spezialtests bleiben erhalten.
 
-`build.bat /nopause /source:working /devdiag` prüft, baut und installiert ausschließlich
-`BepInEx/plugins/BetterPathfindingTest_Serp`. `/noinstall` lässt das Spielverzeichnis
-unverändert. Die installierten Extender-/APIShared-Dateien werden gehasht und weder
-neu gebaut noch ersetzt. Ein laufendes Spiel verhindert die Installation.
+## Austauschbarer Suchkern und Speicher
 
-Benötigt werden der vorhandene Visual-Studio-x64-C++-Compiler, Windows SDK, MSBuild
-und .NET. Der native Kern wird optimiert mit statischer CRT kompiliert; es ist keine
-zusätzliche VC-Runtime-Installation erforderlich. Das Diagnosepaket enthält:
+`Service/ResidentBackend.cs` trennt Dienst und Suchkern. Aktuell wird der vorhandene
+exakte C++-Flächen-/A*- und Rückwärtsfeldkern verwendet. Er verdichtet geeignete
+Rechtecke, hält Sonderkanten explizit und teilt Zielfelder. Seine Grundlagen und
+Grenzen stehen in [native/SOURCES.md](native/SOURCES.md). Der CCH-Kandidat bleibt
+**ausschließlich offline**; es gibt keinen stillen Runtime-Fallback auf CCH.
 
-- `BetterPathfindingTest.dll` und `.pdb`;
-- `BetterPathfindingNative.dll`, privates x64-C-ABI 3;
-- `info.json`, Version 0.2.0.
+Die API liefert kompakte Präfixe, der derzeitige Backend-Adapter berechnet intern
+jedoch bereits vollständige Wege. Nachträgliche Wegabholung misst zusätzliche Kopien,
+keine erst dann erfolgende vollständige Entfaltung. Auch dies bleibt Arbeit für den
+späteren Suchkernaustausch.
 
-Ein normaler Build ist inaktiv und enthält weder automatische Runtime noch native
-Diagnose-DLL. Diagnosecode wird ausschließlich mit `/devdiag` aktiv. Binärprüfungen
-kontrollieren diese Grenze sowie x64-Architektur, ABI und konsistente Modversion.
-Der native Kernel selbst verweigert Kompilierung ohne Diagnosesymbol.
+Speicherbudget: Minimum aus 1 GiB und einem Viertel des bei Initialisierung verfügbaren
+physischen RAM, ermittelt über `GlobalMemoryStatusEx`. Bei fehlender Ermittlung gilt
+256 MiB; unter 256 MiB startet der Dienst nicht. Konservative Quell-/Clientpools plus
+Backend-Puffer und behaltene Wegpuffer werden gemeinsam bilanziert. Ergebnisse werden
+mit `Release` freigegeben; nach Kartenwechsel/Fehler werden eigene Daten bereinigt.
+Vom Aufrufer nach Freigabe weiter behaltene Ergebnisobjekte sowie Spiel-/Modheap sind
+nicht dem Dienst zurechenbar. Ein dauerhaft null meldender Allokationszähler gilt als
+nicht verfügbar, nicht als Nachweis fehlender Allokationen.
 
-## Automatischer Ingame-Test
+Native Sucharbeit wird in Operationspakete zerlegt. Das angestrebte 2-ms-Paket ist
+keine harte Garantie: der aktuelle Replay maß maximal 2,66 ms. Native Kontextanlage
+und -ersetzung sind noch zusammenhängende Aufrufe; die gesamte Vorbereitungszeit
+wird separat gemessen. Die API ruft keine Suche auf dem Spielthread auf.
 
-Nach einem regulären abgeschlossenen Kartenstart, Save-Laden oder Editor-Start
-wird genau eine Sitzung angelegt. Die Erfassung kopiert unter der validierten
-Engine-Sperre nur Rohdaten. Eine belegte Sperre oder kurzzeitig fehlende Tor-Snapshots
-werden ohne blockierendes Warten höchstens 30 Sekunden lang erneut versucht.
+## Bauen und nächster Ingame-Test
 
-Der erste Rohsnapshot wird **sofort gespeichert**. Große Benchmarks warten auf den
-zweiten Snapshot, der zehn Sekunden nach dem ersten angefordert wird. Auch dieser
-wird vor den Vergleichen gespeichert. Zuerst folgen tatsächlicher Änderungsvergleich
-und kontrollierte private Änderungen, dann kleine synthetische Positivlasten und
-schließlich die großen Karten-Arbeitslasten. Kartenwechsel brechen alte Arbeit logisch
-ab; ein vorzeitig beendetes Snapshot-Paar bleibt ausdrücklich unvollständig.
+    build.bat /nopause /source:working /devdiag
 
-Die Kartenlasten enthalten gemeinsame Ziele, räumlich zusammenhängende Formationen,
-verteilte Ziele/Profilvarianten und erforderliche Grabenquerungen. Positive Eingaben
-werden über tatsächliche gerichtete Verbindungen gewonnen. Anfragen sind dabei
-**keine 10.000 aufgenommenen Spieleinheiten oder aufgezeichneten Befehle**. Fehlende
-Grabenfälle werden als fehlende Abdeckung ausgewiesen, nicht künstlich bestanden.
-Die Kostenprofile dieser Lasten sind ausdrücklich synthetisch; reale Rohprofile
-bleiben für die separaten Profilprüfungen im Snapshot erhalten.
+`/noinstall` unterdrückt die Installation. Ausschließlich das eigene Testpaket wird
+gebaut/installiert; installierte Extender-/APIShared-Abhängigkeiten werden davor und
+danach gehasht und weder gebaut noch ersetzt. Ein laufendes Spiel verhindert die
+Installation. Diagnosepaket: `BetterPathfindingTest.dll`, `.pdb`,
+`BetterPathfindingNative.dll` (privates x64-ABI 4), `info.json`, Version 0.3.0.
 
-Pro Kartenlast werden 1/32/128/512/10.000 Anfragen untersucht; kleine Framework-
-Fixtures bleiben bei 1/32/128/512. Einzelne Lasten haben 15 Sekunden, ein Snapshot-
-Vergleich 120 Sekunden. Bereits ohne beantwortete Anfrage gescheiterte Aufbauten
-werden nicht für größere Gruppen unverändert wiederholt. Referenzprüfungen auf
-Karten über 4.096 Koordinaten sind auf drei feste Fälle pro Last beschränkt. Alle
-zurückgegebenen kalten und warmen Wege werden zusätzlich kantenweise geprüft.
-Stichproben beweisen keine vollständige Kostenparität aller Anfragen.
+Ein normaler Build enthält die API, meldet jedoch ausdrücklich `Unsupported` und
+enthält weder Dienst noch automatische Erfassung oder native Diagnose-DLL. Die
+Binärprüfung kompiliert einen getrennten Framework-Verbraucher dagegen. Diagnose-
+Code wird ausschließlich mit `/devdiag` eingebaut. Keine Konfiguration wird umgestellt.
 
-Die Diagnose kann den Rechner belasten. Sie ist kein Beleg für Spielflüssigkeit oder
-bereits erreichte 100-ms-Reaktionszeit. Aufbau, private Wegausgabe, verwaltete Prüfung,
-Aktualisierung und spätere echte Wegpublikation gehören in die Gesamtbewertung.
+Zum Testen genügt ein regulärer Karten-/Save-/Editorstart. Erst einige Sekunden ruhig
+laufen lassen, dann normale Bau-/Abriss- oder Editoränderungen vornehmen und noch
+mindestens 15 Sekunden laufen lassen. Das Spiel wird vom Build nicht gestartet.
+Ein späterer Kartenwechsel soll erneut initialisieren. Sichtbare Bewegung bleibt
+vollständig vom bestehenden Spielsystem bestimmt.
 
-## Berichte und Offline-Prüfung
+Unter `BepInEx/cache/BetterPathfindingTest_Serp/<UTC>-s<ID>/` entstehen:
 
-Die Dateien liegen unter `BepInEx/cache/BetterPathfindingTest_Serp/<UTC-Zeit>-s<ID>/`:
+- `snapshot-1.raw.gz` und Metadaten früh im Lauf; eine zweite Rohaufnahme frühestens
+  zehn Sekunden später. Der Dienst erfasst danach weiterhin, speichert aber nicht
+  jede halbe Sekunde die ganze Karte.
+- `resident.json/.md`: letzter Zustand, Alter, Speicher, Zähler und Zeitmessungen;
+  `resident-ready.json` bewahrt einen erreichten Bereitschaftsnachweis auch nach Ende.
+- `api-requests.json`, `api-probe.bpf.gz`, `api-probe.json`: reproduzierbare 32er-Probe
+  über denselben API-Auftragsweg, mit passendem eigenem Graphen und Anfrage-IDs.
+- `unsupported-*.json/.md`: nicht unterstützter Engine-/Layoutvertrag.
 
-- `snapshot-N.raw.gz`: früh persistierter Rohsnapshot;
-- `snapshot-N.json/.md`: zunächst ausstehende, später zusammengefasste Vergleiche;
-- `snapshot-N-*.bpf.gz` und Arbeitslastberichte: Eingaben, Ergebnisse, gefundene Wege,
-  Referenzumfang, Richtungsabweichungen und Kosten;
-- `updates.json`: tatsächliche und kontrollierte Änderungen getrennt;
-- `private-*.json/.md/.bpf.gz`: ausdrücklich synthetische Positivlasten;
-- `snapshot-N.progress.json`: zuletzt abgeschlossene Last;
-- `session.json`: gegebenenfalls vorzeitig beendetes Snapshot-Paar;
-- `unsupported-*.json/.md`: nicht unterstützter Initialisierungs-/Capturevertrag.
+Ein Schreibfehler stoppt keine gültige Navigation; fehlende Nachweisdateien bleiben
+fehlende Abdeckung. Fortschrittsmarker werden während langer Workerarbeit höchstens
+alle fünf Sekunden ausgegeben. Frühere paarweise 120-s-Runtime-Großbenchmarks wurden
+durch den dauerhaften Dienst ersetzt; aktuelle Skalierungsmessungen laufen offline.
 
-Logmarker nennen Sitzung, Snapshot, Phase und Fallzahlen. Fortschrittsmarker während
-längerer Phasen erscheinen höchstens alle fünf Sekunden. Schreibfehler werden
-protokolliert; Cleanup und spätere Sitzungen bleiben möglich.
+## Prüfungen und Ergebnisse
 
-`dotnet run --project tests/BetterPathfindingTest.Tests.csproj -c Release` führt die
-Verhaltenstests aus. Vorher `native/Build-Native.ps1` ausführen oder den Buildtreiber
-verwenden. Der Framework-Testhost läuft in getrennten x64-Prozessen mit dateibasierter
-und tatsächlicher Speicherladung der installierten Spielassembly. Er ruft private
-native Berechnungen auf, aber keine nativen Spielmethoden.
+Der Build führt scoped Abhängigkeits-, Lifecycle-, Diagnose- und Quellprüfungen,
+getrennte Framework-Prozesse mit Datei-/Byte-Ladung der echten Spielassembly,
+Offline-Such-/Replay-/Aktualisierungsverträge und einen unabhängig kompilierten
+API-Verbraucher auf einem echten Hintergrundthread aus. Keine native Spielmethode
+wird durch diese Tests aufgerufen. Der vorhandene unveränderte Precise-Kern bleibt
+nur Offline-Oracle, keine harte Runtime-Abhängigkeit.
 
-Offline-Optionen nach `--`:
+    dotnet run --project tests/BetterPathfindingTest.Tests.csproj -c Release
+    powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests/Test-ServiceApi.ps1
+    dotnet run --project tests/BetterPathfindingTest.Tests.csproj -c Release -- --resident-bench <erstes.raw.gz> <zweites.raw.gz>
 
-- `--replay <Datei.bpf.gz>`: gespeicherte Anfragefolge vergleichen;
-- `--scale`: 800×800, Boden und erforderliche Grabenquerung, 1/128/512/10.000 Anfragen;
-- `--captured <snapshot.raw.gz>`: positive Lasten aus einem aufgenommenen Kartengraphen;
-- `--bench`: ergänzende offene Gitter 32×32/128×128/800×800.
+Datierte Ergebnisse, negative Befunde und historische Nachweise stehen vollständig
+in [RESULTS.md](RESULTS.md), aktuelle Replay-Dateien unter
+[results/resident-20261027-201635-923/](results/resident-20261027-201635-923/).
 
-Die Referenz ist eine unabhängige Vorwärts-Dijkstra-Suche auf dem ursprünglichen
-Gitter mit eigener Zustandsverwaltung. Ein zulässiges skalares Optimum wird direkt
-verwendet; sonst prüft eine unabhängige Pareto-Suche die Ressourcenbedingungen.
-Der Precise-Oracle kompiliert aktuelle Workspace-Quellen unverändert. Seine
-Messzeiten enthalten die ausdrücklich ausgewiesene Adapterkonvertierung und Prüfung.
-Größentests und Capture-Replays speichern native Compiler-/Quell-/Binäridentität.
+Der CCH-Versuch vom 27.10.2026 bleibt in `native/CchProbe.cpp`, seinen Offline-Tests
+und [results/cch-20261027-191740-311/](results/cch-20261027-191740-311/) erhalten.
+12.408 unabhängige Vertragsvergleiche bestanden; die vielen unterschiedlichen Ziele
+verfehlten das Ziel deutlich. Der damalige Stopp vor Dienst/API beschreibt den
+Zeitpunkt **vor** der anschließenden Nutzerentscheidung, diese Teile zuerst zu bauen.
+Quellenprüfung: [native/SOURCES.md](native/SOURCES.md). Eigene lesende Spielverträge
+und Updatevorgehen: [UpdateToNewDLL.md](UpdateToNewDLL.md).
 
-Gleiche optimale Kosten, korrekte Erreichbarkeit und erfüllte Nebenbedingungen sind
-Pflicht. Gleich teure Richtungsabweichungen bleiben vor einer Integration zu bewerten.
-Nur negative Antworten ergeben keine positive Abnahme. Kosten- und Statusfehler
-führen zu Exitcode 1; unvollständige Replays zu Exitcode 2.
+Weiter offen: Unity-/Mono-Abnahme von 0.3.0, Dauerlast während realer Belagerung,
+zusätzliche Main-Thread-/Framekosten der periodischen Erfassung, optimaler Suchkern
+für sehr viele verschiedene Ziele, inkrementelle Reparatur und echte Bewegung.
+Verbraucher werden weiterhin nicht angeschlossen.
 
-## Capturevertrag und Grenzen
+Wenn der Editor keinen lokalen Simulationsspieler meldet, wird Perspektive 1
+automatisch als Diagnosekontext vorbereitet; der Status nennt diese Spieler-ID.
+Die rohe Metadatei bewahrt die tatsächlich gemeldete lokale ID.
 
-Der installierte Assemblypfad stammt aus dem BepInEx-Spielverzeichnis; geladener
-Name/MVID und optionaler Dateihash sind getrennt. Eine leere `Assembly.Location`
-verhindert die Erfassung nicht. Der geladene Engine-IL-Vertrag und die verbindlichen
-Native-/Layoutprüfungen bleiben erhalten. Der statisch verwurzelte Missions-/Render-
-Beobachter überlebt SHCDEs Startup-Cleanup; er verwendet keine Plugin-Update-Schleife.
-
-Die vorhandene lesende Native-Sicht bleibt hashgebunden. Sie und die Updateprüfung
-stehen in [UpdateToNewDLL.md](UpdateToNewDLL.md). Vorhandene Torregeln werden über
-`EnemyGatePathPolicyBridge.Current`, `IEnemyGatePathPolicy` und unveränderliche
-`IEnemyGateRoutePolicySnapshot` erfasst. Ein vorhandener veröffentlichter Provider
-ohne aktuelle passende Snapshots wird niemals durch uneingeschränkte Traversierung
-ersetzt. BugfixesAndQoL und MoatMove bleiben optionale Laufzeitumgebung.
-
-Nicht umgesetzt sind echte Bewegungsübernahme, Assassinenintegration, eine öffentliche
-Mod-API, vollständiger Regel-/Writer-Audit für dauerhafte Live-Caches und Multiplayer-
-Übernahme. Dauerbetrieb mit 10.000 echten Spieleinheiten sowie zusätzliche Frame-/
-Tickkosten sind noch nicht abgenommen. Datierte Ergebnisse: [RESULTS.md](RESULTS.md).
+Auslieferungsstand am Ende dieses Arbeitsgangs (27.10.2026): **0.3.0 gebaut und
+geprüft, auf anschließenden Nutzerwunsch nicht installiert**. APIShared wird parallel
+weiterentwickelt und änderte sich nach den Builds; vor einer späteren Installation
+ist der aktuelle SDK-Abgleich zu erneuern. Der historische Installationsnachweis
+für 0.2.0 bestätigt keine aktuelle Installation; der damalige Zielordner war beim
+abschließenden Leseabgleich nicht vorhanden. Für jetzt ist kein Ingame-Test nötig.
+Übergabe und offene Punkte: [RESULTS.md](RESULTS.md).

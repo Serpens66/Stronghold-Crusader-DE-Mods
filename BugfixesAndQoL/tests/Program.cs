@@ -40,6 +40,16 @@ namespace BugfixesAndQoL
 
         private static int Main(string[] args)
         {
+            if (args.Length == 1 && args[0] == "--spectator-migration")
+            {
+                TestSurrenderSelectionCleanup();
+                TestStatisticsTeamBadgePolicy();
+                TestStatisticsTeamBadgeIntegration(File.ReadAllText(Path.Combine(FindProjectDirectory(), "src", "StatisticsTeamBadges.cs")));
+                TestMultiplayerLobbyReturnIntegration();
+                TestPacketThreadMarshallingContracts();
+                Console.WriteLine("Surrender, lobby, statistics badges and packet dispatch: failures=" + failures);
+                return failures == 0 ? 0 : 1;
+            }
             if (args.Length == 1 && args[0] == "--coop-ai")
             {
                 TestCoopCustomLordSelectionPolicy();
@@ -53,7 +63,7 @@ namespace BugfixesAndQoL
                 TestTimerCountdownMigration();
                 TestWaterboyTargetReservationIntegration();
                 TestKeepFlagRotationIntegration();
-                TestStatisticsTeamBadgeIntegration(File.ReadAllText(Path.Combine(FindProjectDirectory(), "src", "SurrenderFeature.cs")));
+                TestStatisticsTeamBadgeIntegration(File.ReadAllText(Path.Combine(FindProjectDirectory(), "src", "StatisticsTeamBadges.cs")));
                 TestPlacementCancelMoveSuppressionIntegration();
                 TestNotificationSkipIntegration();
                 TestResolutionAwareZoomIntegration();
@@ -80,7 +90,6 @@ namespace BugfixesAndQoL
                 Console.WriteLine("Notification policy and integration checks: failures=" + failures);
                 return failures == 0 ? 0 : 1;
             }
-            TestSurrenderGameOverPolicy();
             TestSurrenderSelectionCleanup();
             TestCoopCustomLordSelectionPolicy();
             TestCustomCoopAivSyncPolicy();
@@ -569,10 +578,10 @@ namespace BugfixesAndQoL
                     gameSpeed.Contains("OnScreenText.Instance?.addOSTEntry"),
                 "game-speed direct and Chore transports retain distinct thread contracts");
             Check(surrender.Contains("new SurrenderRequestPacket") &&
-                    surrender.Contains("() => ProcessRequest(request, new CSteamID(senderSteamId))") &&
+                    surrender.Contains("ProcessRequest(request, new CSteamID(senderSteamId))") &&
                     surrender.Contains("sessionSnapshot") &&
                     surrender.Contains("UnityMainThreadDispatch.TryEnqueue(() =>"),
-                "surrender requests and spectator UI are deferred with copied state");
+                "surrender requests are deferred with copied payload and session validation");
             Check(trail.Contains("TryRunInlineOrEnqueue") &&
                     trail.Contains("new TrailCustomizationPacket") &&
                     trail.Contains("ProcessPacket(packet, new CSteamID(senderSteamId))"),
@@ -663,104 +672,6 @@ namespace BugfixesAndQoL
                 "both Surrender paths clean selection after the single kill; cancellation does not and HUD clearing stays local");
         }
 
-        private static void TestSurrenderGameOverPolicy()
-        {
-            Check(SurrenderPolicy.ShouldLatchPlayerLordDeath(3, 3) &&
-                    !SurrenderPolicy.ShouldLatchPlayerLordDeath(3, 2) &&
-                    !SurrenderPolicy.ShouldLatchPlayerLordDeath(0, 0) &&
-                    !SurrenderPolicy.ShouldLatchPlayerLordDeath(9, 9),
-                "only a valid local-player lord event sets the spectator latch");
-            Check(SurrenderPolicy.CanPromoteEliminatedPlayerToSpectator(
-                    true, true, false, false, true, true, true, 3) &&
-                    !SurrenderPolicy.CanPromoteEliminatedPlayerToSpectator(
-                        false, true, false, false, true, true, true, 3) &&
-                    !SurrenderPolicy.CanPromoteEliminatedPlayerToSpectator(
-                        true, true, false, false, true, true, false, 3) &&
-                    !SurrenderPolicy.CanPromoteEliminatedPlayerToSpectator(
-                        true, true, false, false, true, false, true, 3),
-                "spectator promotion remains fail-closed and requires the defeat-event latch");
-            Check(SurrenderPolicy.ResolvePresentedGameOverState(1, true) == 2,
-                "eliminated-player spectator promotion presents Vanilla victory as defeat");
-            Check(SurrenderPolicy.ResolvePresentedGameOverState(2, true) == 2,
-                "eliminated-player spectator promotion preserves an existing defeat");
-            Check(SurrenderPolicy.ResolvePresentedGameOverState(0, true) == 0 &&
-                    SurrenderPolicy.ResolvePresentedGameOverState(7, true) == 7,
-                "spectator promotion preserves running and unknown game-over states");
-            Check(SurrenderPolicy.ResolvePresentedGameOverState(1, false) == 1,
-                "ordinary victory and initial spectators retain Vanilla presentation");
-
-            string featureSource = File.ReadAllText(Path.Combine("src", "SurrenderFeature.cs"));
-            int renderStart = featureSource.IndexOf(
-                "private void OnBeforeRender()",
-                StringComparison.Ordinal);
-            int renderEnd = featureSource.IndexOf(
-                "private void RegisterPlayerDefeatObserver()",
-                renderStart,
-                StringComparison.Ordinal);
-            string renderSource = featureSource.Substring(renderStart, renderEnd - renderStart);
-            int activationStart = featureSource.IndexOf(
-                "private void TryActivateLocalSpectator(",
-                StringComparison.Ordinal);
-            int activationEnd = featureSource.IndexOf(
-                "private static bool IsValidLocalSpectatorPromotionParticipant(",
-                activationStart,
-                StringComparison.Ordinal);
-            string activationSource = featureSource.Substring(
-                activationStart,
-                activationEnd - activationStart);
-            Check(featureSource.Contains("TryGetPlayerDefeat(") &&
-                    featureSource.Contains("OnPlayerLordDied") &&
-                    featureSource.Contains("OnSpectatorPacketReceived") &&
-                    featureSource.Contains("GameNetworkAPI.IsLocalHost()") &&
-                    featureSource.Contains("APIShared.Networking.ChoreTransport.TrySend(") &&
-                    featureSource.IndexOf("GameTimeManagerAPI.Instance.OnTick", StringComparison.Ordinal) < 0 &&
-                    renderSource.IndexOf("GameAction(Enums.GameActionCommand.SpectatorMode", StringComparison.Ordinal) < 0 &&
-                    activationSource.Split(new[] { "GameAction(Enums.GameActionCommand.SpectatorMode" },
-                        StringSplitOptions.None).Length - 1 == 1,
-                "spectator promotion consumes APIShared lord deaths and activates Vanilla spectator mode only through the synchronized path in multiplayer");
-
-            string packetSource = File.ReadAllText(Path.Combine("src", "SurrenderPackets.cs"));
-            Check(packetSource.Contains("internal sealed class EliminatedPlayerSpectatorPacket") &&
-                    packetSource.Contains("writer.Write(value.PlayerId);") &&
-                    !packetSource.Contains("[Key(0)] public long SessionId;"),
-                "spectator Chore uses only the stable scalar player slot and validates session state locally");
-            const string correctedOriginalCall =
-                "setGameOverStateOriginal(self, presentedState, screen, skirmishDate);";
-            int correctedOriginalCallCount = featureSource.Split(
-                new[] { correctedOriginalCall },
-                StringSplitOptions.None).Length - 1;
-            Check(featureSource.Contains(
-                        "lobbyReturnFeature.OnGameOverState(presentedState);") &&
-                    correctedOriginalCallCount == 1 &&
-                    !featureSource.Contains(
-                        "setGameOverStateOriginal(self, state, screen, skirmishDate);"),
-                "game-over hook forwards the corrected state once and preserves screen and date");
-
-            const string correctedOstOriginalCall =
-                "addOnScreenTextEntryOriginal(self, ostID, presentedData1, data2, data3, data4, data5);";
-            int correctedOstOriginalCallCount = featureSource.Split(
-                new[] { correctedOstOriginalCall },
-                StringSplitOptions.None).Length - 1;
-            Check(featureSource.Contains(
-                        "int presentedData1 = ostID == Enums.eOnScreenText.OST_MP_GAME_OVER") &&
-                    featureSource.Contains(
-                        "SurrenderPolicy.ResolvePresentedGameOverState(data1, SpectatorPromotionPendingOrActive)") &&
-                    correctedOstOriginalCallCount == 1 &&
-                    !featureSource.Contains(
-                        "addOnScreenTextEntryOriginal(self, ostID, data1, data2, data3, data4, data5);"),
-                "OST hook corrects only the game-over result and forwards all auxiliary data once");
-
-            Check(featureSource.Contains(
-                        "LogGameOverStateCorrectionOnce(data1, presentedData1, \"OST_MP_GAME_OVER\");") &&
-                    featureSource.Contains(
-                        "LogGameOverStateCorrectionOnce(state, presentedState, \"setGameOverState\");") &&
-                    featureSource.Contains(
-                        "if (presentedState == originalState || gameOverStateCorrectionLogged)"),
-                "both presentation boundaries share the one-shot correction diagnostic");
-
-            TestStatisticsTeamBadgePolicy();
-            TestStatisticsTeamBadgeIntegration(featureSource);
-        }
 
         private static void TestStatisticsTeamBadgePolicy()
         {

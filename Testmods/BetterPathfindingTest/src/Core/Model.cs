@@ -105,7 +105,7 @@ namespace BetterPathfindingTest.Core
         private readonly Stopwatch watch = Stopwatch.StartNew();
         private readonly CancellationToken cancellation;
         private readonly double seconds;
-        public readonly long MaximumBytes;
+        public long MaximumBytes { get; private set; }
         public long Bytes { get; private set; }
         public long PeakBytes { get; private set; }
         public long Expanded { get; private set; }
@@ -118,6 +118,8 @@ namespace BetterPathfindingTest.Core
         public void Reserve(long bytes) { Check(); ReserveUnchecked(bytes); }
         internal void ReserveUnchecked(long bytes) { if (bytes < 0 || bytes > MaximumBytes - Bytes) throw new SearchBudgetException("memory-budget"); Bytes += bytes; PeakBytes = Math.Max(PeakBytes, Bytes); }
         public void Release(long bytes) { Bytes -= bytes; if (Bytes < 0) throw new InvalidOperationException("Navigation accounting underflow."); }
+        internal void SetMemoryCeiling(long maximum) { if (maximum < Bytes) throw new SearchBudgetException("memory-budget"); MaximumBytes = maximum; }
+        internal void ResetPeak() { PeakBytes = Bytes; }
         internal void ObserveExternalPeak(long bytes) { if (bytes < 0 || bytes > MaximumBytes - Bytes) throw new SearchBudgetException("memory-budget"); PeakBytes = Math.Max(PeakBytes, Bytes + bytes); }
     }
     internal sealed class MinHeap<T>

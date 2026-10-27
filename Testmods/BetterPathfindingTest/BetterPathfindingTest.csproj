@@ -29,6 +29,8 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="src\Core\*.cs" />
+    <Compile Include="src\Api\*.cs" />
+    <Compile Include="src\Service\*.cs" Condition="'$(SerpDevDiagnostics)' == 'true'" />
     <Compile Include="src\Runtime\Plugin.cs" />
     <Compile Include="src\Runtime\EngineGate.cs" Condition="'$(SerpDevDiagnostics)' == 'true'" />
     <Compile Include="src\Runtime\ManagedContracts.cs" Condition="'$(SerpDevDiagnostics)' == 'true'" />

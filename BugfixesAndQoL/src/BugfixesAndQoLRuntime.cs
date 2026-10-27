@@ -177,7 +177,6 @@ namespace BugfixesAndQoL
             settingsSubscribed = true;
         }
 
-        public object SurrenderAndStatisticsUi => surrenderFeature?.ButtonViewModel;
         public object SelectedUnitHealthUi => selectedUnitHealthFeature?.ViewModel;
         public object AllyGoodsAmountDisplay => processAllyGoodsAmountModifierHook;
         public object MultiplayerAivSyncUi => multiplayerAivSyncRuntime;

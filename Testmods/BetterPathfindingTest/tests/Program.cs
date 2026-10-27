@@ -107,11 +107,14 @@ internal static partial class Program
     {
         try
         {
+            if (args.Length != 0 && args[0] == "--external-client") return ExternalClient(args[1]);
+            if (args.Length != 0 && args[0] == "--resident-bench") return ResidentBench(args);
+            if (args.Length != 0 && args[0] == "--cch-gate") return CchGate.Run(args);
             if (args.Length != 0 && args[0] == "--replay") return Replay.Run(args);
             if (args.Length != 0 && args[0] == "--bench") return OfflineBench.Run();
             if (args.Length != 0 && args[0] == "--scale") return ScaleBench.Run();
             if (args.Length != 0 && args[0] == "--captured") return CapturedBench.Run(args);
-            var watch = Stopwatch.StartNew(); Contracts(); RandomDirected(); AreasAndFields(); AdvancedContracts(); NativeAreaContracts();
+            var watch = Stopwatch.StartNew(); Contracts(); RandomDirected(); AreasAndFields(); AdvancedContracts(); NativeAreaContracts(); ResidentContracts();
             Console.WriteLine("PASS assertions=" + assertions + " referenceComparisons=" + comparisons + " productionCostOrStatusDifferences=" + productionDifferences + " productionTiePathDifferences=" + ties + " elapsedMs=" + watch.ElapsedMilliseconds);
             if (productionDifferences != 0) Console.WriteLine("PRECISE_PARITY_REVIEW differences=" + productionDifferences + "; evidence=" + Evidence + "; no consumer acceptance claimed.");
             return productionDifferences == 0 ? 0 : 1;

@@ -30,10 +30,12 @@ immutable per-player snapshots and must pass identity/currentness checks.
 ## Private navigation backend
 
 `BetterPathfindingNative.dll` contains only owned-data algorithms. It imports no
-game methods, uses no game RVAs and never receives a game pointer. ABI 3 is identified
-by `bpf_contract() == 0x03003828`; request/result/statistics sizes are 56/40/128 bytes
+game methods, uses no game RVAs and never receives a game pointer. ABI 4 is identified
+by `bpf_contract() == 0x04003828`; request/result/statistics sizes are 56/40/128 bytes
 on x64. Original request identities survive internal cohort scheduling. The native
 compiler proof records source hash, output hash, compiler, Windows SDK and flags.
+ABI 4 adds an owned allocator peak-reset operation for resident per-job accounting;
+it does not change the search algorithm or acquire a game execution path.
 
 An ABI mismatch or missing backend is explicitly unsupported. C++ exceptions do not
 cross the ABI. Memory/slice exhaustion never becomes unreachable; incomplete fields

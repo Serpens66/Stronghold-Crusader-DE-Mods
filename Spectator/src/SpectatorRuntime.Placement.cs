@@ -95,9 +95,27 @@ namespace Spectator
             return false;
         }
 
+        private static MainViewModel placementFreezeView;
+        private static long placementFreezeSession;
+        private static void RememberPlacementFreeze()
+        {
+            placementFreezeView = MainViewModel.Instance;
+            placementFreezeSession = CurrentSessionId;
+        }
+        private static void RestorePlacementFreeze()
+        {
+            var previous = placementFreezeView;
+            long session = placementFreezeSession;
+            placementFreezeView = null;
+            placementFreezeSession = 0;
+            if (previous != null && MainViewModel.viewModelLoaded && ReferenceEquals(previous, MainViewModel.Instance) &&
+                IsCurrentSession(session) && IsSpectatorSession()) previous.buildControlsFreeze(true);
+        }
+
         private static bool BeforeBuildControlsFreeze(bool Mode)
         {
-            if (!Mode || !IsSpectatorSession()) return true;
+            if (!Mode || !IsSpectatorSession() || !IsPlacementSession()) return true;
+            RememberPlacementFreeze();
             if (++suppressedFreezeCalls <= 3)
                 log.LogInfo("SPECTATOR_EDITOR_FREEZE_SUPPRESSED frozen=" +
                     MainViewModel.Instance.FreezeMainControls);

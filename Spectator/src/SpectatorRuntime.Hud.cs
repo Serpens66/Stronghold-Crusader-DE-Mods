@@ -43,7 +43,8 @@ namespace Spectator
             {
                 MainControls.instance?.StopAllPlacement();
                 humanPlacementMode = false;
-                Interlocked.Exchange(ref revealHiddenActive, 0);
+                RestorePlacementFreeze();
+                SetRevealHidden(0);
                 ApplyHumanAi(-1);
                 humanSavedTabs = null;
                 activeWall = null;
@@ -104,6 +105,7 @@ namespace Spectator
                 humanDisplayedColours[owner] = -1;
                 humanOwnerHandlers[owner] = (sender, args) => SelectHumanAi(selected);
                 found[owner].Click += humanOwnerHandlers[owner];
+                quickButtons[owner].Click += humanOwnerHandlers[owner];
                 humanJumpHandlers[owner] = (sender, args) =>
                 {
                     if (args.ChangedButton != MouseButton.Right &&
@@ -113,6 +115,7 @@ namespace Spectator
                     JumpToHumanAi(selected, args.ChangedButton);
                 };
                 found[owner].PreviewMouseDown += humanJumpHandlers[owner];
+                quickButtons[owner].PreviewMouseDown += humanJumpHandlers[owner];
             }
             humanPositioned = false;
             humanUserMoved = false;
@@ -148,6 +151,12 @@ namespace Spectator
                     humanOwnerButtons[owner].Click -= humanOwnerHandlers[owner];
                 if (humanOwnerButtons[owner] != null && humanJumpHandlers[owner] != null)
                     humanOwnerButtons[owner].PreviewMouseDown -= humanJumpHandlers[owner];
+                if (quickButtons[owner] != null)
+                {
+                    quickButtons[owner].Click -= humanOwnerHandlers[owner];
+                    quickButtons[owner].PreviewMouseDown -= humanJumpHandlers[owner];
+                }
+                quickButtons[owner] = null; quickNumbers[owner] = null;
                 humanOwnerButtons[owner] = null;
                 humanOwnerNumbers[owner] = null;
                 humanOwnerHandlers[owner] = null;
@@ -185,13 +194,22 @@ namespace Spectator
             if (!toolbarDirty) return;
             toolbarDirty = false;
             toolsModel.RefreshLocale();
-            int firstAi = -1;
+            int firstAi = -1, occupiedCount = 0;
             for (int owner = 1; owner <= 8; owner++)
             {
                 bool available = IsSelectableView(owner);
                 if (available && firstAi < 0) firstAi = owner;
                 Button button = humanOwnerButtons[owner];
                 button.Visibility = available ? Visibility.Visible : Visibility.Collapsed;
+                quickButtons[owner].Visibility = button.Visibility;
+                quickButtons[owner].Background = owner == humanSelectedOwner ? ownerSelectedBrush : ownerNormalBrush;
+                if (available)
+                {
+                    occupiedCount++;
+                    RefreshHumanOwnerColour(owner);
+                    quickNumbers[owner].Foreground = humanOwnerNumbers[owner].Foreground;
+                    SetPlayerTooltip(quickButtons[owner], PlayerLabel(owner));
+                }
                 if (available && toolsModel.Expanded)
                 {
                     RefreshHumanOwnerColour(owner);
@@ -221,7 +239,7 @@ namespace Spectator
             for (int owner = 1; owner <= 8; owner++)
                 humanOwnerButtons[owner].Background = owner == humanSelectedOwner ? ownerSelectedBrush : ownerNormalBrush;
             toolsModel.SetRecipientAvailable(IsSelectableAi(humanSelectedOwner));
-            toolsModel.SetAvailability(IsToolsSession(), SpectatorPerspectiveRuntime.IsActiveSpectator(), Statistics?.Available == true, Statistics?.Active == true);
+            toolsModel.SetAvailability(IsToolsSession());
             RefreshOrderAvailability();
             humanToggle.IsEnabled = humanPlacementMode || IsSelectableAi(humanSelectedOwner);
             humanToggleText.Text = SerpLocalization.Get(humanPlacementMode ? "Tools.StopPlacement" : "Tools.Placement");
@@ -230,7 +248,7 @@ namespace Spectator
                 (humanSelectedOwner > 0 ? PlayerLabel(humanSelectedOwner) : SerpLocalization.Get("Tools.NoAi"));
             toolsModel.SelectedTarget = SerpLocalization.Get("Tools.Target") + ": " +
                 (IsToolsPlayer(toolsModel.Target, false) ? PlayerLabel(toolsModel.Target) : SerpLocalization.Get("Tools.SelectTarget"));
-            humanPanel.Width = Math.Min(toolsModel.Expanded ? 640f : 300f, Math.Max(120f, humanCanvas.ActualWidth - 20f));
+            humanPanel.Width = Math.Min(toolsModel.Expanded ? 640f : 46f + occupiedCount * 34f, Math.Max(120f, humanCanvas.ActualWidth - 20f));
             toolbarRoot.Width = Math.Max(100f, humanPanel.Width - 2f);
             humanOwners.Width = Math.Max(152f, Math.Min(608f, humanPanel.Width - 24f));
             // Height is measured from the actual visible tool page, not from a fixed canvas.
@@ -276,13 +294,6 @@ namespace Spectator
         {
             if (!IsToolbarSession() || toolsModel == null) return;
             toolbarDirty = true;
-            if (command == "Statistics") { Statistics?.Open(); return; }
-            if (command == "RefreshStatistics") { Statistics?.Refresh(); return; }
-            if (command == "CloseStatistics") { Statistics?.Close(); return; }
-            if (command == "Reports" && SpectatorPerspectiveRuntime.IsActiveSpectator())
-            { AccessTools.Method(typeof(MainViewModel), "ButtonReports", new[] { typeof(object) }).Invoke(MainViewModel.Instance, new object[] { "0" }); return; }
-            if (command == "Allies" && SpectatorPerspectiveRuntime.IsActiveSpectator())
-            { HUD_AlliesPanel.Open(true); return; }
             if (!IsToolsSession()) return;
             SyncSpectatorSelection();
             if (command == "StopCursor" || command == "CancelPower") amountInput?.EndEditing();
@@ -399,14 +410,15 @@ namespace Spectator
                 EnterPlacementHud(MainViewModel.Instance);
                 MainControls.instance.StopAllPlacement();
                 humanPlacementMode = !humanPlacementMode;
-                Interlocked.Exchange(ref revealHiddenActive, 0);
+                SetRevealHidden(0);
                 RefreshHumanControls(true);
                 return;
             }
             if (humanPlacementMode)
             {
                 humanPlacementMode = false;
-                Interlocked.Exchange(ref revealHiddenActive, 0);
+                RestorePlacementFreeze();
+                SetRevealHidden(0);
                 MainControls.instance.StopAllPlacement();
                 activeWall = null;
                 activeSpecial = null;
@@ -441,8 +453,8 @@ namespace Spectator
                 MainControls.instance.StopAllPlacement();
                 if (!IsSelectableAi(humanSelectedOwner)) humanSelectedOwner = firstAi;
                 humanPlacementMode = true;
-                Interlocked.Exchange(ref revealHiddenActive,
-                    visualMapDetour != null && visualFrameDetour != null &&
+                SetRevealHidden(
+                    visualMapDetour != null && visualFrameRegistration != null &&
                     visualResourceDetour != null ? 1 : 0);
                 if (Volatile.Read(ref revealHiddenActive) == 0)
                     log.LogWarning("SPECTATOR_EDITOR_VISUAL_UNAVAILABLE: audited native hooks are not installed");
@@ -522,11 +534,13 @@ namespace Spectator
             if (!MainViewModel.viewModelLoaded) return;
             try
             {
+                SpectatorDefeat.ObservePresentedState();
+                Statistics?.ObserveAvailability();
                 ObserveRoster();
                 bool humanEligible = IsHumanSingleplayerSession();
-                Interlocked.Exchange(ref revealHiddenActive,
+                SetRevealHidden(
                     humanEligible && humanPlacementMode && !IsEditorToolsSession() && visualMapDetour != null &&
-                    visualFrameDetour != null && visualResourceDetour != null ? 1 : 0);
+                    visualFrameRegistration != null && visualResourceDetour != null ? 1 : 0);
                 bool toolbarEligible = IsToolbarSession();
                 if (toolbarEligible) EnsureHumanControls();
                 SyncSpectatorSelection();
@@ -536,6 +550,7 @@ namespace Spectator
                 DrainTestActions();
                 if (!IsPlacementSession())
                 {
+                    RestorePlacementFreeze();
                     RestoreDateLayout();
                     activeHud = null;
                     initialLayoutLoggedHud = null;
@@ -564,6 +579,7 @@ namespace Spectator
                 }
                 if (IsSpectatorSession() && view.FreezeMainControls)
                 {
+                    RememberPlacementFreeze();
                     view.buildControlsFreeze(false);
                     log.LogInfo("SPECTATOR_EDITOR_FREEZE_RECOVERED");
                 }

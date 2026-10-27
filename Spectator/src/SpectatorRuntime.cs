@@ -79,10 +79,10 @@ namespace Spectator
         private static IDisposable pitchBuildSubscription;
         private static NativeDetour<BuildAvailabilityDelegate> availabilityDetour;
         private static NativeDetour<VisualMapDelegate> visualMapDetour;
-        private static NativeDetour<VisualFrameDelegate> visualFrameDetour;
+        private static APIShared.Presentation.VisibleMapRenderRegistration visualFrameRegistration;
         private static NativeDetour<VisualResourceDelegate> visualResourceDetour;
         private static int revealHiddenActive;
-        private static int visualMapLogged, visualFrameLogged, visualResourceLogged;
+        private static int visualMapLogged, visualResourceLogged;
         private static ulong nativeImageBase;
         private static int wallPreviewDiagnostics;
         private static int wallInputDiagnostics;
@@ -133,13 +133,9 @@ namespace Spectator
         private const int AvailabilityRva = 0xCC420;
         private const int SpectatorFlagRva = 0x3666080;
         private const int VisualMapRva = 0x65830;
-        private const int VisualFrameRva = 0x41D60;
         private const int VisualResourceRva = 0x6E620;
         private static readonly byte[] VisualMapEntry = {
             0x4C, 0x8B, 0xDC, 0x53, 0x55, 0x48, 0x81, 0xEC, 0x88, 0x00, 0x00, 0x00
-        };
-        private static readonly byte[] VisualFrameEntry = {
-            0x48, 0x89, 0x5C, 0x24, 0x10, 0x48, 0x89, 0x6C, 0x24, 0x18
         };
         private static readonly byte[] VisualResourceEntry = {
             0x48, 0x89, 0x5C, 0x24, 0x18, 0x55
@@ -151,9 +147,6 @@ namespace Spectator
         private delegate int BuildAvailabilityDelegate(IntPtr manager, int mapper, int owner, int showMessage);
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private delegate void VisualMapDelegate(IntPtr tileManager);
-        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        private delegate void VisualFrameDelegate(IntPtr map, int left, int right,
-            int top, int bottom, int zoom);
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private delegate byte VisualResourceDelegate(IntPtr tileManager, int buildingId);
 

@@ -10,7 +10,7 @@
   "Dependencies": [
     {
       "GUID": "APIShared_Serp",
-      "MinimumVersion": "0.16.0"
+      "MinimumVersion": "0.18.0"
     }
   ],
   "Manifest": 1,

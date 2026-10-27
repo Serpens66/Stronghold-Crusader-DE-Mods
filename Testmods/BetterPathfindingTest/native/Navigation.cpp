@@ -334,7 +334,8 @@ struct Context {
 
 #define API extern "C" __declspec(dllexport)
 using namespace bpf;
-API int bpf_contract() { return 0x03003828; } // ABI 3, request 56, result 40; diagnostic-only library.
+API int bpf_contract() { return 0x04003828; } // ABI 4 adds per-operation memory peaks for the resident owner.
+API int bpf_reset_peak(void* handle) noexcept { if(!handle)return 3;auto& c=*static_cast<Context*>(handle);c.budget.peak=c.budget.bytes;return 0; }
 API int bpf_create(int w,int h,const uint8_t* valid,const uint32_t* words,i64 bytes,void** output) noexcept {
     if(!output)return 3;*output=nullptr;if(!valid||!words||w<1||h<1||i64(w)*h>640000)return 3;
     try{*output=new Context(w,h,valid,words,bytes);return 0;}catch(const Exhausted&){return 2;}catch(const std::bad_alloc&){return 2;}catch(...){return 4;}

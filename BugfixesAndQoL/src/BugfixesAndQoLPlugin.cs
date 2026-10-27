@@ -12,7 +12,7 @@ using System.Reflection;
 namespace BugfixesAndQoL
 {
     [BepInDependency(ScriptExtenderGuid, "2.14.0")]
-    [BepInDependency(ApiSharedGuid, "0.16.0")]
+    [BepInDependency(ApiSharedGuid, "0.18.0")]
     [BepInDependency("ActiveAIVDetector_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("ExtraFeatures_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency(LegacySomeSettingsGuid, BepInDependency.DependencyFlags.SoftDependency)]
@@ -61,6 +61,7 @@ namespace BugfixesAndQoL
         private static NoDogsNativePatch noDogsNativePatch;
         private static bool skirmishGameOptionsCompatible;
         private BugfixesAndQoLRuntime runtime;
+        private static StatisticsTeamBadges statisticsTeamBadges;
         private bool marketGoodsVisualRefreshFailureLogged;
 
         public BugfixesAndQoLViewModel Settings { get; private set; }
@@ -261,12 +262,10 @@ namespace BugfixesAndQoL
 
             try
             {
-                SpectatorPerspectiveRuntime.Initialize(Logger, Settings);
+                statisticsTeamBadges = new StatisticsTeamBadges(Logger, Settings);
+                statisticsTeamBadges.Initialize();
             }
-            catch (Exception ex)
-            {
-                Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/src/BugfixesAndQoLPlugin.cs:266", "Bugfixes and QoL spectator perspective could not initialize; other features remain available: " + ex);
-            }
+            catch (Exception error) { Shared.DebugLogHelper.LogErrorLimited(Logger, "statistics-badges-init", "Statistics team badges unavailable: " + error); }
 
             try
             {
@@ -307,16 +306,10 @@ namespace BugfixesAndQoL
             try
             {
                 runtime.InitializeSurrenderFeature();
-                GameXAMLManagerAPI.Instance.RegisterBinding(
-                    "BugfixesAndQoLSurrenderButtonHost",
-                    runtime.SurrenderAndStatisticsUi);
-                GameXAMLManagerAPI.Instance.RegisterBinding(
-                    "BugfixesAndQoLSpectatorStatisticsRefreshHost",
-                    runtime.SurrenderAndStatisticsUi);
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/src/BugfixesAndQoLPlugin.cs:324", $"Bugfixes and QoL surrender/statistics UI/network initialization failed; both buttons remain inactive: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/src/BugfixesAndQoLPlugin.cs:324", $"Bugfixes and QoL surrender UI/network initialization failed; surrender remains inactive: {ex}");
             }
 
             try

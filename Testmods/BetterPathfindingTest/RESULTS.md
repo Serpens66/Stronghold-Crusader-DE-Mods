@@ -1,6 +1,6 @@
 # Ergebnisstand vom 26.10.2026
 
-Aktueller Stand: siehe den Nachtrag **Neuaufbau 0.2.0 vom 27.10.2026** weiter unten.
+Aktueller Entwicklungsstand: siehe das **CCH-Entscheidungstor vom 27.10.2026** weiter unten. Installiert bleibt 0.2.0.
 Die folgenden älteren Abschnitte bleiben historische Nachweise der abgelösten Hierarchie.
 
 ## Einordnung
@@ -298,3 +298,296 @@ Das geprüfte **0.2.0-/devdiag-Paket ist installiert**. Vier Paketdateien wurden
 Hash bestätigt; alle 282 installierten Abhängigkeitsdateien sind davor und danach
 unverändert. Das Spiel wurde nicht gestartet. Installationsnachweis:
 [.local/installed.json](.local/installed.json).
+
+## CCH-Entscheidungstor vom 27.10.2026: Stopp vor Runtime-Integration
+
+### Bezug und Umsetzung
+
+Der anschließende Auftrag erlaubt bis zu fünf Minuten Hintergrundvorbereitung und
+bei ausreichend freiem RAM bis zu 1 GiB. Er verlangt vor weiterer Runtime-Integration
+ein Offline-Entscheidungstor. Dieses wurde mit einem eigenen C++-CCH-Kandidaten
+umgesetzt. Die öffentliche Bereitschafts-API und der dauerhafte Live-Dienst sind
+**noch nicht implementiert**, weil der Kandidat dieses Tor nicht besteht.
+
+Der Kern bereitet die volle Potenzialtopologie von 640.000 Koordinaten mit acht
+Nachbarn, geometrischer Nested Dissection und symbolischer Elimination vor.
+Die gerichteten aktuellen Kanten erhalten Kosten 1 oder unendlich. Teilwege werden
+über Shortcut-Zeugen rekonstruiert. Es gibt keine vollständige Start-Ziel-Matrix.
+Die abschließende Fassung enthält gemeinsame Rückwärtsfelder, wiederverwendbare
+Zielsuchdaten und exakte gecachte Vorwärtssuchdaten identischer Starts. Stabile
+Anfrage-IDs erhalten nach interner Umordnung die Ergebniszuordnung.
+
+Compiler: MSVC 14.41.34120, Windows SDK 10.0.22621.0, C++17, optimiert, statische CRT.
+Ausführung: .NET 10 plus eigene C++-Probe, **kein neuer Unity-/Mono-Lauf**.
+Die Bodenmetrik ist einheitlich; unterschiedliche Kostenprofile und Precise-
+Ressourcenbedingungen gehören nicht zur Freigabe dieses Kandidaten. Deren bisherige
+Tests wurden weder entfernt noch gelockert.
+
+### Fachliche Nachweise
+
+- **12.408 unabhängige Vertragsvergleiche** bestehen: gerichtete Zufallsgraphen,
+  Nested-Dissection-Grenzen, ungültige Koordinaten, isolierte Ziele, gerichtete
+  schmale Karten, lange Wege und die 2.000-Schritt-Grenze, kompakte Präfixe,
+  Ziel-/Startwiederverwendung sowie erneute Metrikberechnung.
+- Eine neue Öffnung außerhalb des bisherigen Weges senkt die Kosten. Aktualisierte
+  Antworten stimmen mit Vollsuche und unabhängig vorbereitetem neuen Index überein.
+  Die symbolische Topologie bleibt erhalten. Das prüft vollständige neue
+  Customization, **noch keine inkrementelle Reparatur**.
+- Auf dem gespeicherten realen Graphen wurden **42.560 Anfragen** vollständig
+  beantwortet, alle mit gefundenem Weg. Alle vollständigen Wege sind kantenweise
+  geprüft, kompakte Ergebnisse stimmen mit Kosten und ersten acht Schritten überein.
+- Der aktuelle unveränderte Precise-Oracle wurde für sämtliche Anfragen verglichen;
+  zusätzlich bestanden **384 unabhängige Vollsuchvergleiche** auf diesem Capture.
+  Es wurden keine Kosten-/Statusfehler beobachtet. Das ist kein vollständiger
+  unabhängiger Optimalitätsnachweis aller 42.560 Fälle und keine Wegtreue-Abnahme.
+- Die bestehende Suite bleibt grün: **39.963 Assertions, 5.938 unabhängige Vergleiche,
+  0 Precise-Kosten-/Statusfehler und 196 offene gleich teure Richtungsabweichungen**.
+  Die begrenzten passiven Quellprüfungen und scoped Shared-/Lifecycle-/Abhängigkeits-
+  Guardrails bestehen ebenfalls.
+
+### Gemessene Skalierung
+
+Maßgebliche Serie: [cch-20261027-191740-311](results/cch-20261027-191740-311/),
+[maschinenlesbare Entscheidung](results/cch-20261027-191740-311/decision.json) und
+[abschließende Einordnung](results/cch-20261027-191740-311/review.json).
+Rohsnapshot, reproduzierbare Eingaben, Native-Quell-/Binärhash, Compiler und
+Testhostidentität liegen im selben Ordner. Der Input stammt aus dem 0.2.0-Lauf
+`20261027-182413-691-s1`, Snapshot 1, Spieler 1, 317.604 gültige Koordinaten.
+
+Vorbereitung: **27,81 s**, **34.724.180 Shortcut-/Grundkanten** im Index und rund
+**4,926 Milliarden** durchlaufene Dreieckskombinationen. Der native Pufferstand
+nach Aufbau beträgt **697,16 MiB**, der höchste native Stand während der gesamten
+Serie **782,34 MiB**. Zusätzlicher verwalteter Testspeicher ist darin nicht vollständig
+erfasst; eine gemeinsame residentenbezogene Speicherabnahme liegt deshalb nicht vor.
+Der längste gemessene native Arbeitsabschnitt einschließlich Aufbau lag bei
+**49,11 ms**. Die angestrebten 2-ms-Pakete sind noch nicht durchgängig erreicht.
+
+Zeiten je 10.000 Anfragen in ms, nach Indexvorbereitung:
+
+| Last | Kompakte Antwort | Wiederholung | Vollständige Wege | Precise, volle Ausgabe |
+|---|---:|---:|---:|---:|
+| Gemeinsames Ziel, Feld bereits vorbereitet | 3,96 | 3,51 | 4,25 | 58,25 |
+| Zusammenhängende Formationsziele | 6.551,29 | 4.711,31 | 5.111,19 | 487,79 |
+| Verteilte individuelle Ziele | 2.444,59 | 2.206,67 | 2.201,38 | 335,73 |
+| Kartenübergreifende Start-/Zielpaare | 18.012,98 | 24.895,30 | 24.845,58 | 83.562,77 |
+
+Kompakte Antworten enthalten Kosten und bis zu acht Richtungen, keine öffentlichen
+Routenhandles. Die Zeiten enthalten native Such-/Ausgabearbeit und die verwaltete
+Batchanpassung. Der Index und zuvor aufgebaute Suchdaten bleiben zwischen den Lasten
+erhalten; diese Serie ist nicht für jede Zeile vollständig kalt. Das erste gemeinsame
+Zielfeld wurde in der 128er-Last aufgebaut; diese Last dauerte 6,09 ms. Der schnelle
+10.000er-Gemeinzielwert ist daher kein kalter CCH-Abfragewert. Die Cachezähler belegen
+tatsächliche Feld- und Startdatenwiederverwendung. Lange Fälle enthalten Wege bis
+705 Schritte; einzelne kürzere Fälle bleiben in der global verteilten Stichprobe.
+
+Die vorangegangene Fassung ohne diese gemeinsame Vorbereitung scheiterte ebenfalls:
+[erste Capture-Serie](results/cch-20261027-190631-797/). Die ursprüngliche offene
+800er-Messung in [cch-20261027-190231-365](results/cch-20261027-190231-365/) ist ein
+historischer Zwischenstand: Ihre Abfragen verwendeten ausschließlich kantenweise
+geprüfte direkte kürzeste Wege, nicht den CCH-Suchgraphen. Sie belegt keine schnelle
+CCH-Navigation um Hindernisse. Frühe Exitcodes beschreiben dort nur den damaligen
+fachlichen Prüfumfang; die aktuelle CLI gibt bei verfehltem Reaktionsziel Exitcode 2.
+
+Dies sind Einzelmessserien mit erheblichen Laufzeitunterschieden, keine statistisch
+abgesicherten Latenzgrenzen. Eine Beschleunigung um Faktor 100 ist nicht nachgewiesen.
+Der große Abstand zu 100 ms ist auch ohne eine solche Zusage ein negatives Ergebnis.
+
+### Architekturentscheidung und unveränderte Installation
+
+**Stopp vor Runtime-Integration.** Die breite, hindernisunabhängige Potenzialtopologie
+verursacht starke symbolische Auffüllung. Für viele verschiedene Ziele bleiben die
+aufsteigenden Suchräume trotz Vorbereitung und Wiederverwendung teuer. Gemeinsame
+Ziele profitieren vom Rückwärtsfeld; dessen schnelle Antworten benötigen den großen
+CCH-Index nicht. Zusätzlicher RAM oder längeres Warten beim Laden beheben diesen
+Unterschied nicht. Die allgemeine CCH-Verfahrensfamilie wird damit nicht widerlegt;
+geometrische Ordnung, Topologie und Abfrageverfahren sind konkrete Grenzen dieses
+Versuchs. Ein anderes Pruning oder eine andere Verdichtung ist nicht automatisch
+als bereits geprüft anzusehen.
+
+Die im Plan folgenden Schritte sind damit ausdrücklich offen: öffentlicher
+Bereitschaftsvertrag, asynchroner dauerhafter Dienst, automatische RAM-Auswahl,
+Aufholen laufender Änderungen, partielle CCH-Reparatur, Runtime-Generationen,
+Routenhandles und die Ingame-Abnahme. Der Bereitschaftsdienst wird gemäß dem vorgeschalteten Entscheidungstor erst nach
+einem tragfähigen Suchkern-Nachweis weiter umgesetzt.
+
+Nur Offline-Probe, Adapter, gezielte Tests und Dokumentation wurden ergänzt. Es gab
+keinen neuen Runtime-Build, keinen Versionssprung und keine Installation. Die vier
+installierten Paketdateien von **0.2.0** und 17 bisherige Runtime-/Native-Quellinputs
+wurden gegen den alten Buildnachweis unverändert bestätigt. Das Spiel wurde nicht
+gestartet und keine Konfiguration wurde geändert. Gegen den historischen 0.2.0-
+Abhängigkeitsnachweis sind acht APIShared-Dateihashes inzwischen anders; diese Arbeit
+hat keine Abhängigkeit gebaut, installiert oder zurückgesetzt. Der Abgleich ist als
+Momentaufnahme in `review.json` festgehalten und kein behaupteter Vorher-/Nachher-
+Nachweis dieses Tasks.
+
+Für die Einordnung des vorhandenen 0.2.0-Pakets bleibt der zwischenzeitliche echte
+Unity-/Mono-Lauf um 19:24 Uhr maßgeblich: zwei gespeicherte Snapshots, insgesamt
+64.038 positive Anfragen, keine dort gemeldeten Vergleichsfehler, 925 geänderte
+Graphkoordinaten und acht übereinstimmende Änderungsantworten. Die reale Grabenlast
+war unvollständig; das blockiert die Bodenbewertung nicht. Auch dort verfehlten
+viele unterschiedliche Ziele das Reaktionsziel. Der ältere Satz „noch kein Ingame-
+Lauf von 0.2.0“ beschreibt den Zeitpunkt vor diesem späteren Lauf.
+### Anschließende Nutzerentscheidung: Grundsystem und API zuerst
+
+Nach Sichtung des negativen CCH-Tores wurde ausdrücklich entschieden, zuerst den
+dauerhaften Dienst und die Bereitschafts-API auf dem vorhandenen korrekten Suchkern
+aufzubauen. Der Suchkern wird austauschbar gehalten; seine unzureichende Performance
+bleibt offen und wird getrennt von funktionaler Bereitschaft ausgewiesen. Der CCH-
+Kandidat bleibt ausschließlich als dokumentierter Offline-Versuch erhalten. Der
+oben dokumentierte Stopp beschreibt den Zustand vor dieser anschließenden Entscheidung.
+Die Umsetzung des residenten Grundsystems wird jetzt fortgesetzt.
+
+## 27.10.2026: Dauerhafter Dienst und öffentliche Test-API, Version 0.3.0
+
+Die anschließende ausdrückliche Nutzerentscheidung wurde umgesetzt: Grundsystem und
+API zuerst, Austausch des zu langsamen Suchkerns später. Der CCH-Offlineversuch wird
+nicht in die Runtime integriert. Der resident verwendete Flächen-/Feldkern bleibt
+algorithmisch unverändert; sein privates ABI 4 ergänzt nur die Speicher-Spitzenmessung.
+
+### Funktionaler Stand und Grenzen
+
+- Prozessweit verwurzelter Dienst mit einem Hintergrundworker; Vorbereitung des
+  lokalen Spielers automatisch, weitere Perspektiven auf Anfrage. Kontextfreigabe
+  pro Sitzung/Generation; nur vollständig gleiche Graphen teilen einen Backendkontext.
+- Öffentliche experimentelle API für Bereitschaft, asynchrone Batches bis 10.000,
+  stabile Anfrage-IDs, Kosten, Schrittzahl, erste acht Richtungen und Routenhandles.
+  Weitere Schritte/volle Wege, Abbruch, Freigabe und veraltete Handles sind definiert.
+  Dokumentation: [API.md](API.md), Betrieb: [PROTOTYPE.md](PROTOTYPE.md).
+- Kohärente Aufnahmen im Abstand von 500 ms; öffentliche Änderungsereignisse liefern
+  zusätzliche Hinweise. Neuere Aufnahmen werden während Arbeit zusammengefasst.
+  Unveränderte Graphen behalten Generation und Felder. Änderungen ersetzen derzeit
+  den gesamten betroffenen Kontext; keine inkrementelle Reparatur behauptet.
+- Initialisierung bis 300 s, Auftrag einschließlich Warteschlange bis 120 s;
+  konservatives gemeinsames Speicherbudget bis 1 GiB beziehungsweise ein Viertel
+  freien physischen RAM. Fallback 256 MiB, Ablehnung bei weniger als 256 MiB.
+- `Ready` belegt nur den vollständig vorbereiteten aufgenommenen Stand.
+  `PerformanceAccepted=false` bleibt fest. Normale Builds enthalten die API, melden
+  jedoch `Unsupported`; Dienst/Erfassung/native Diagnose-DLL fehlen dort vollständig.
+- Kein Verbraucher, kein nativer Spielhook, keine Bewegung, keine Konfigurationsänderung.
+  Bodenwege verwenden gleiche Schrittkosten; Spezialregeln bleiben außerhalb der API.
+
+Die API überträgt kompakte Präfixe, der vorhandene Adapter erzeugt intern aber bereits
+volle Wege. Zusätzliche volle Ausgabe misst Kopieren, keine aufgeschobene Entfaltung.
+Native Suchpakete werden begrenzt; Kontextanlage/-ersetzung bleibt ein zusammenhängender
+nativer Aufruf. Ein harter 2-ms-Nachweis für sämtliche Workerabschnitte fehlt.
+
+### Offline-Nachweise
+
+Die aktuelle Standardtestsuite besteht mit **40.214 Assertions**, **5.938 unabhängigen
+Suchvergleichen**, keinen Kosten-/Statusabweichungen zum aktuellen Precise und
+**196 gleich teuren Richtungsabweichungen**. Diese Zahl gehört zur kleinen
+Standardtestsuite; die größere Replay-Serie zählt Abweichungen gesondert.
+
+Gezielt geprüft sind nicht bereite Kontexte, unabhängige Spielerperspektiven,
+Eingabekopien, unveränderliche Antworten, Wegabschnitte, volle Wege, wiederholte
+Freigabe ohne Speicherakkumulation, begrenzte Warteschlange, Freigabe wartender
+Closures, Abbruch, Wartedeadline, Öffnungen/Sperren, neue Generationen, Nachholen
+während Initialisierung, Kartenwechsel während Aufbau, Fehler und Wiederanlauf.
+Ein unabhängig kompilierter Verbraucher verwendet dieselbe öffentliche API auf einem
+echten Hintergrundworker. Separate Framework-Prozesse prüfen Datei- und tatsächliche
+Byte-Ladung der installierten Spielassembly mit leerer `Location`, Engine-IL,
+verwaltete Layouts/Enums, periodische Erfassung, fehlerhafte Tor-Snapshots,
+Schreibfehler und nachfolgenden Sitzungsstart. Native **Spielmethoden** werden dabei
+nicht aufgerufen. Ein dauerhaft null meldender Allokationszähler gilt als unverfügbar.
+
+### 800×800-Replay auf dem residenten Dienst
+
+Nachweis: [result.json](results/resident-20261027-201635-923/result.json), passende
+Rohaufnahmen, neun reproduzierbare `.bpf.gz`-Lasten, `progress.json`, Native-Buildproof,
+Hostidentität sowie archivierter Replay-Host und eigener nativer Backend-Binärstand
+im selben Ergebnisordner. Laufzeit: **.NET 10.0.11**, kein Unity-/Mono-Lauf.
+
+Vorbereitung **64,03 ms** einschließlich eigener Kopien/Graphprojektion und Kontextanlage;
+925 tatsächlich geänderte Graphkoordinaten, Aktualisierung **59,03 ms** und **128**
+übereinstimmende Antworten gegen vollständigen unabhängigen Kontextneuaufbau.
+Konservativer Speicherhöchststand **210,89 MiB** bei explizitem 1-GiB-Testbudget;
+keine am Schluss behaltenen Client-/Routenleases. Die Rohaufnahmen stammen aus dem
+historischen 0.2.0-Spieltest, nicht aus einem neuen 0.3.0-Ingame-Lauf.
+
+| Last, jeweils 10.000 | API-Berechnung ms | Wiederholung ms | Zusätzliche volle Ausgabe ms | Aktueller Precise ms |
+|---|---:|---:|---:|---:|
+| Gemeinsames Ziel | 26,00 | 15,19 | 2,94 | 52,39 |
+| Zusammenhängende Formationsziele | 857,35 | 1.240,59 | 1,15 | 478,25 |
+| Verteilte individuelle Ziele | 1.007,79 | 1.000,18 | 8,01 | 486,86 |
+
+Die 128er-/512er-Lasten stehen vollständig in `result.json`. Insgesamt **31.920**
+erste Antworten plus ebenso viele Wiederholungsantworten; alle ersten Antworten
+wurden gegen aktuellen unveränderten Precise geprüft, **27** zusätzlich gegen
+unabhängige Vollsuche. Jede erste volle API-Wegausgabe wurde kantenweise validiert.
+Alle diese Eingaben waren erreichbar; Negativfälle sind separat in den kleinen
+Vertragstests vorhanden. Auch diese Lasten repräsentieren erzeugte regionale
+Anfragen und keine Aufzeichnung von 10.000 verschiedenen Einheitenbefehlen.
+Kartenübergreifende Dauerlast ist damit nicht neu nachgewiesen.
+
+Die Lasten laufen auf demselben residenten Index in Serie. Das gemeinsame Zielfeld
+wurde bereits in der ersten 128er-Last aufgebaut; der 10.000er-Wert ist deshalb
+**kein vollständig kalter Indexwert**. Beide Systeme dürfen vorhandene Wiederverwendung
+nutzen; Precise erhält pro Last einen eigenen aktuellen Oracle. API-Zeiten enthalten
+Backend, Validierung, vollständige interne Wegerzeugung und Ergebnisaufbau; Queuezeit
+ist separat erfasst. Referenz-Stichproben liegen außerhalb der Precise-Zeit.
+Die verteilte Last verwendet für diesen API-Vertrag ausschließlich Schrittkosten 1,
+keine unterschiedlichen Profile. Reproduzierbare gleich teure Richtungsabweichungen
+werden je Last gezählt; daraus folgt keine Freigabe ihrer Wegtreue für Verbraucher.
+
+Maximales gemessenes natives Suchpaket **2,66 ms**, angestrebt 2 ms. Die Serie ist
+eine Einzelmessung, keine Latenzgarantie. Die Formations-/Einzelziellasten verfehlen
+100 ms deutlich und sind hier sogar langsamer als Precise. **Performance-Abnahme
+negativ; Faktor 100 nicht nachgewiesen.** Das funktionale Grundsystem wird dadurch
+nicht als erfolgreicher neuer Suchkern ausgegeben.
+
+### Nächster Runtime-Nachweis
+
+Beim nächsten regulären Karten-/Save-/Editorstart soll der Dienst initialisieren,
+32 reproduzierbare API-Proben beantworten und bei weiteren Aufnahmen Änderungen
+verarbeiten. `resident.json/.md`, `resident-ready.json`, `api-requests.json`,
+`api-probe.bpf.gz`, `api-probe.json` und zwei frühe Rohaufnahmen werden erwartet.
+Der Dienst läuft danach weiter; die Speicherung ganzer Rohkarten bleibt auf zwei
+begrenzt. Fehlende oder fehlgeschlagene Phasen gelten nicht als bestanden.
+
+Offen bleiben Unity/Mono 0.3.0, fünfminütige Initialisierung unter repräsentativen
+Stressbedingungen, Main-Thread-/Framekosten der 500-ms-Erfassung, Änderungen während
+Belagerungen und Cache-/Mehrspieler-Dauerlast. Die spätere Suchkernentwicklung muss
+insbesondere viele unterschiedliche Ziele günstiger machen. Freundliche Gräben und
+andere Spezialfälle bleiben eigene Ausbaustufen und blockieren diesen Bodenversuch
+nicht. Build- und Installationsnachweise werden nach den abschließenden Prüfungen
+in `.local/build-*.json` beziehungsweise `.local/installed.json` festgehalten.
+
+### Abschluss- und Übergabestand: auf Nutzerwunsch keine Installation
+
+Normal- und Diagnose-Build von **0.3.0** bestanden, zuletzt erneut gegen die zu diesem
+Zeitpunkt installierte APIShared **0.18.0**. Nachweise: `.local/normal-current-sdk.log`,
+`.local/diagnostic-current-sdk.log`, datierte `.local/build-*.json` und
+[maschinenlesbarer Übergabestand](.local/handoff-0.3.0.json). Die aktuelle Suite
+besteht mit **40.214 Assertions**; der separat wiederholte CCH-Vertragslauf bestand
+mit 12.408 unabhängigen Vergleichen. Die normale Assembly enthält eine explizit
+inaktive API, die Diagnose-Assembly den residenten Dienst; beide Binärgrenzen und
+getrennt kompilierte öffentliche Verbraucher wurden geprüft.
+
+Die erste Framework-Verbraucherprüfung kollidierte mit den Net10-Zwischendateien
+im gemeinsamen `obj`-Verzeichnis. Getrennte Framework-Zwischenpfade beheben dies;
+die danach erfolgreichen Prüfungen sind in den Buildlogs enthalten. Das RAM-Budget
+wird bei jedem abgeschlossenen Kartenstart neu gewählt. Im Editor ohne gültigen
+lokalen Spieler wird ausdrücklich Diagnoseperspektive 1 vorbereitet.
+
+APIShared wird parallel durch einen anderen Chat bearbeitet. Nach beiden zunächst
+bestandenen Buildständen änderten sich installierte Abhängigkeitshashes erneut,
+auch die APIShared-DLL. Zwei Installationsversuche stoppten **vor dem Kopieren**.
+Diese Arbeit hat keine SDK-Datei gebaut, installiert oder zurückgesetzt. Die
+Buildprüfung kontrolliert Abhängigkeiten jetzt zusätzlich nach der Binärprüfung
+und vor ihrem Abschluss. Drift-Nachweise bleiben in `.local/dependency-drift-*.json`.
+
+Der Nutzer entschied anschließend ausdrücklich: **aktuell keine Installation und
+später weiterarbeiten**. Deshalb wurde 0.3.0 nicht installiert, das Spiel nicht
+gestartet und keine Konfiguration geändert. Beim abschließenden Leseabgleich war
+der historische Zielordner `BepInEx/plugins/BetterPathfindingTest_Serp` nicht mehr
+vorhanden; der alte `.local/installed.json`-Nachweis für 0.2.0 ist damit ausdrücklich
+historisch und keine Bestätigung der aktuellen Installation. Diese Arbeit hat
+keinen installierten Testmod entfernt.
+
+Für jetzt ist **kein neuer Ingame-Test nötig**. Beim Fortsetzen zunächst den dann
+aktuellen installierten SDK-Stand abgleichen, betroffene Prüfungen/Build erneuern
+und erst nach Installation den residenten Dienst unter Unity/Mono beobachten:
+Bereitschaft, 32er-Probe über die öffentliche API, fortlaufende Aufnahmen, echte
+Bau-/Abrissänderungen und Kartenwechsel. Ergebnisse bleiben im Testmod-Ordner;
+eine zusätzliche README wurde auf Nutzerwunsch nicht angelegt. Die dokumentierten
+negativen Performance-Ergebnisse und offenen Richtungsabweichungen bleiben bestehen.

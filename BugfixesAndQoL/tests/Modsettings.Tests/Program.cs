@@ -67,6 +67,11 @@ internal static partial class Program
                 foreach(string dir in dirs){if(string.IsNullOrWhiteSpace(dir))continue;string path=Path.Combine(dir,name);if(File.Exists(path))return (name=="BepInEx.dll" || name.StartsWith("Mono.",StringComparison.Ordinal) || name.StartsWith("MonoMod.",StringComparison.Ordinal))?Assembly.Load(File.ReadAllBytes(path)):Assembly.LoadFrom(path);}return null;
             };
             mod=Assembly.LoadFrom(dll);modelType=mod.GetType("BugfixesAndQoL.BugfixesAndQoLViewModel",true);
+            object presetModel = FormatterServices.GetUninitializedObject(modelType);
+            var retired = modelType.GetMethod("IsRetiredPresetProperty", All);
+            foreach (string key in new[] { "EnableSpectatorPerspective", "EnableEliminatedPlayersBecomeSpectators" })
+                Check((bool)retired.Invoke(presetModel, new object[] { key }), "known removed spectator preference is retired: " + key);
+            Check(!(bool)retired.Invoke(presetModel, new object[] { "UnknownSpectatorPreference" }), "unknown properties still fail preset validation");
             string manifest=File.ReadAllText(Path.Combine(workspace,"BugfixesAndQoL/info.json"));
             string version=System.Text.RegularExpressions.Regex.Match(manifest,"\"Version\"\\s*:\\s*\"([^\"]+)\"").Groups[1].Value;
             Check(mod.GetName().Version.ToString()==version+".0","built assembly version matches manifest");
@@ -113,7 +118,7 @@ internal static partial class Program
                 Check(!Bool(runtime,"PeaceAvailable"),"failed native capability never exposes a usable peace setting");
             }
             foreach(bool h in new[]{false,true})foreach(bool c in new[]{false,true})
-                Check(Bool(Feature("SurrenderFeature",Model(h,c,null,false)),"StatisticsTeamBadgesEnabled")==c,"real independent badge snapshot gate");
+                Check(Bool(Feature("StatisticsTeamBadges",Model(h,c,null,false)),"StatisticsTeamBadgesEnabled")==c,"real independent badge snapshot gate");
             foreach(bool h in new[]{false,true})foreach(bool c in new[]{false,true})foreach(bool selection in new[]{false,true})foreach(bool presentation in new[]{false,true})
             {
                 object vm=Model(h,c,"EnableCustomLordListEnhancements",selection);Set(vm,"EnableLordAndMapListEnhancements",presentation);

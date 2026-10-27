@@ -3,7 +3,7 @@
       xmlns:ui="clr-namespace:SHCDESE.UI;assembly=SHCDESE"
       xmlns:sys="clr-namespace:System;assembly=mscorlib"
       xmlns:shared="clr-namespace:Shared;assembly=APIShared"
-      xmlns:seui="clr-namespace:SHCDESE.UI;assembly=SHCDESE"
+      xmlns:apiui="clr-namespace:APIShared.ModSettings;assembly=APIShared" xmlns:seui="clr-namespace:SHCDESE.UI;assembly=SHCDESE"
       shared:ModSettingsMode.Availability="{Binding System_ModeAvailability}"
             shared:ModSettingsSearch.SourceModel="{Binding}"
       shared:ModSettingsSearch.StateFilter="{Binding System_ModSettingsSearchStateFilter}"
@@ -12,7 +12,7 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}"
       shared:ModSettingsSearch.IncludeToolTips="{Binding System_ModSettingsSearchIncludeToolTips}"
       shared:ModSettingsSearch.ExactKey="{Binding System_ModSettingsSearchExactKey}">
   <Grid.Resources>
-    <Style TargetType="{x:Type ToolTip}"><Setter Property="Background" Value="#FF1D1710"/><Setter Property="Foreground" Value="White"/><Setter Property="seui:ToolTipResolutionScale.Enabled" Value="True"/><Setter Property="BorderBrush" Value="#FFF2D48A"/><Setter Property="BorderThickness" Value="1"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="{x:Type ToolTip}"><Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="2" Padding="{TemplateBinding Padding}" MaxWidth="{TemplateBinding MaxWidth}"><TextBlock Text="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}" FontSize="{TemplateBinding FontSize}" TextWrapping="Wrap"/></Border></ControlTemplate></Setter.Value></Setter></Style>
+    <Style TargetType="{x:Type ToolTip}"><Setter Property="Background" Value="#FF1D1710"/><Setter Property="Foreground" Value="White"/><Setter Property="apiui:SharedToolTipSizing.Enabled" Value="True"/><Setter Property="BorderBrush" Value="#FFF2D48A"/><Setter Property="BorderThickness" Value="1"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="{x:Type ToolTip}"><Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="2" Padding="{TemplateBinding Padding}" MaxWidth="{TemplateBinding MaxWidth}"><TextBlock Text="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}" FontSize="{TemplateBinding FontSize}" TextWrapping="Wrap"/></Border></ControlTemplate></Setter.Value></Setter></Style>
     <Style x:Key="HostRoleHeader" TargetType="{x:Type TextBlock}"><Setter Property="Background" Value="#332F5F9F"/><Setter Property="Foreground" Value="#77AAFF"/><Setter Property="FontWeight" Value="Bold"/></Style>
     <Style x:Key="ClientRoleHeader" TargetType="{x:Type TextBlock}"><Setter Property="Background" Value="#33306950"/><Setter Property="Foreground" Value="#66CC99"/><Setter Property="FontWeight" Value="Bold"/></Style>
     <Style x:Key="SectionHeader" TargetType="{x:Type TextBlock}"><Setter Property="Foreground" Value="#CCCCCC"/><Setter Property="FontWeight" Value="Bold"/></Style>
@@ -122,7 +122,7 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}"
       <TextBlock Text="{Binding System_TrailSourceNoticeText}" Visibility="{Binding System_TrailSourceNoticeVisibility}" Foreground="#FFCC66" FontWeight="Bold" TextWrapping="Wrap" Margin="0,0,0,8"/>
       <TextBlock Text="{Binding HostReadOnlyNoticeText}" Visibility="{Binding HostReadOnlyNoticeVisibility}" Foreground="#FFCC66" FontWeight="Bold" Margin="0,0,0,8"/>
       <TextBlock Text="{Binding HostOptionsText}" Style="{StaticResource HostRoleHeader}" Margin="0,12,0,6"/>
-      <StackPanel IsEnabled="{Binding CanEditHostSettings}">
+      <StackPanel IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
         <CheckBox IsChecked="{Binding EnableSpectatorPerspective, Mode=TwoWay}" Content="{Binding Text[PerspectiveSetting]}" ToolTip="{Binding Text[PerspectiveSettingHelp]}" ToolTipService.ShowDuration="60000" Foreground="White" Margin="0,4"/>
         <CheckBox IsChecked="{Binding EnableStatistics, Mode=TwoWay}" Content="{Binding Text[StatisticsSetting]}" ToolTip="{Binding Text[StatisticsSettingHelp]}" ToolTipService.ShowDuration="60000" Foreground="White" Margin="0,4"/>
         <CheckBox IsChecked="{Binding EnableEliminatedPlayersBecomeSpectators, Mode=TwoWay}" Content="{Binding Text[DefeatSetting]}" ToolTip="{Binding Text[DefeatSettingHelp]}" ToolTipService.ShowDuration="60000" Foreground="White" Margin="0,4"/>

@@ -75,8 +75,11 @@ namespace Fixture
                 Expect(errors==1&&model.Shows==calls+1,"broken provider is invoked and reported only once across 1000 frames");
                 Expect(!adapter.Ready&&!model.Visible,"failed optional button hidden and commands disabled");
                 plugin.Metadata.Version=new Version(1,0,115);Expect(new OptionalGateAutomation(()=>{}).Model != null,"audited 1.0.115 shape accepted");
-                plugin.Metadata.Version=new Version(9,0,0);rejected=false;try{new OptionalGateAutomation(()=>{});}catch(NotSupportedException){rejected=true;}
-                Expect(rejected,"unknown internal version rejected");
+                plugin.Metadata.Version=new Version(9,0,0);
+                Expect(new OptionalGateAutomation(()=>{}).Model != null,"compatible future version accepted");
+                plugin.Instance = new object(); rejected=false;
+                try { new OptionalGateAutomation(()=>{}); } catch(MissingMemberException) { rejected=true; }
+                Expect(rejected,"incompatible contract rejected independently of version");
                 Console.WriteLine("PASS: "+checks+" production ExtraFeatures adapter checks.");return 0;
             }
             catch(Exception e){Console.Error.WriteLine(e);return 1;}

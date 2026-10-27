@@ -38,3 +38,22 @@ The installed native hash remains `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A67
 - `HUD_AlliesPanel.ButtonClicked` sends `Ally_Orders` through `Ally_CancelOrders` (`1061..1066`) to `EngineInterface.GameAction`. `DLL_GameAction` at RVA `0x81870` (confirmed export) uses the current native view index `DAT_1888e3d70` as the ally-command sender. Order/cancel/confirm branches enqueue opcode `113`; send/request-goods branches check or use sender resources before enqueuing. The producer for orders at RVA `0xD7520` is candidate by generic function name but its argument flow and caller are statically traced.
 - The opcode `113` handler at RVA `0x1A6F0` (candidate function label, confirmed static producer/handler association) decodes a 16-bit operation and four 32-bit values. Its branches at RVAs `0xD7580`, `0xD78C0`, `0xD7AD0`, `0xD7450`, `0xD7360`, and `0xD77D0` update ally orders, resources, requests and notifications. `DLL_RunTick` at RVA `0x86680` (confirmed) restores the chosen index after suppressing spectator map input, so the ally UI's direct `GameAction` path can still enqueue these commands.
 - The managed ally menu has no multiplayer-specific command implementation. The native Chore scheduler at RVA `0x23990` takes different local/network timing branches, but the same ally payload handler is used. Static analysis does not establish whether a spectator-origin packet is accepted and remains synchronized on every peer; this requires a host/client runtime test.
+
+## Report access versus temporary build controls, 2026-10-27 [mod integration]
+
+For the native and managed hashes above, `MainViewModel.ButtonReports` reads
+`FreezeMainControls` once to choose the forced Army page. `FatControler` freezes
+build controls for a nonpositive active player. Therefore a placement-only mod
+that suppresses this freeze also unintentionally changes report access unless it
+separately preserves that report decision. Spectator now restricts the build
+exemption to an explicitly active placement session and restores a suppressed
+freeze only for its current session/view. Its report predicate independently
+requires spectator-perspective permission, including when test tools alone are
+active. BugfixesAndQoL contains no remaining report hook after the migration.
+The production predicate is covered by the Spectator controller activation matrix;
+actual book navigation and snapshot freshness remain an in-game check.
+
+The shared render entry at `0x41D60` is now owned by APIShared 0.18.0, with BFQ
+marker observation before Spectator's temporary visibility scope. This changes
+hook ownership, not Vanilla input/order semantics. The exact Indirect/10 ABI and
+native demand-bridge tests are documented in APIShared/UpdateToNewDLL.md.

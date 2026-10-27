@@ -73,55 +73,6 @@ namespace BugfixesAndQoL
         internal static bool CanEnableButton(bool visible, bool realMultiplayer, bool choreReady) =>
             visible && (!realMultiplayer || choreReady);
 
-        internal static bool IsStatisticsViewer(
-            bool startSpectator,
-            int localPlayerId,
-            SurrenderLordSnapshot lord) =>
-            startSpectator ||
-            (localPlayerId >= 1 && localPlayerId <= 8 && !IsValidLord(lord));
-
-        internal static bool CanShowStatisticsButton(
-            bool featureEnabled,
-            bool activeMatch,
-            bool mapEditor,
-            bool spectator,
-            bool supportedGameMode,
-            bool statisticsReady) =>
-            featureEnabled &&
-            activeMatch &&
-            !mapEditor &&
-            spectator &&
-            supportedGameMode &&
-            statisticsReady;
-
-        internal static bool CanPromoteEliminatedPlayerToSpectator(
-            bool featureEnabled,
-            bool activeMatch,
-            bool mapEditor,
-            bool alreadySpectator,
-            bool supportedGameMode,
-            bool validLocalParticipant,
-            bool lordDeathObserved,
-            int localPlayerId) =>
-            featureEnabled &&
-            activeMatch &&
-            !mapEditor &&
-            !alreadySpectator &&
-            supportedGameMode &&
-            validLocalParticipant &&
-            lordDeathObserved &&
-            localPlayerId >= 1 && localPlayerId <= 8;
-
-        internal static int ResolvePresentedGameOverState(
-            int state,
-            bool spectatorPromotionRequested) =>
-            state == 1 && spectatorPromotionRequested ? 2 : state;
-
-        internal static bool ShouldLatchPlayerLordDeath(int notificationPlayerId, int localPlayerId) =>
-            notificationPlayerId >= 1 &&
-            notificationPlayerId <= 8 &&
-            notificationPlayerId == localPlayerId;
-
         internal static bool TryBuildStatisticsRowPlayerIds(
             int[] validPlayers,
             int[] ranking,

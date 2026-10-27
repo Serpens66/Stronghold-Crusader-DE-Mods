@@ -1,6 +1,6 @@
 # Better Pathfinding für SHCDE
 
-Aktueller Ergebnis- und Entwurfsstand: **27.10.2026**. Ursprüngliche Analyse und Quellenprüfung: **26.10.2026**. Historische Befunde bleiben datiert erhalten; die aktuelle Empfehlung steht in Abschnitt 13.
+Aktueller Ergebnis- und Entwurfsstand: **27.10.2026**. Ursprüngliche Analyse und Quellenprüfung: **26.10.2026**. Historische Befunde bleiben datiert erhalten. Empfehlung: Abschnitt 13; negativer CCH-Nachweis: Abschnitt 16; anschließende Nutzerentscheidung und dauerhafter Dienst mit experimenteller API: Abschnitt 17. Die ausführlichen Ergebnisse liegen direkt im [Testmod-Ordner](Testmods/BetterPathfindingTest/RESULTS.md).
 
 ## 1. Ziel und Ergebnis
 
@@ -8,7 +8,7 @@ Gesucht ist ein grundsätzlich neues Navigationssystem für **10.000 Einheiten a
 
 **Aktuelle Empfehlung:** ein eigenständiger Navigationsdienst mit diskretem Flächen-/Portalnetz, gemeinsamer Gruppenplanung und wiederverwendbaren Bewegungsfeldern. Für den Endzustand ist ein kompakter C++-Kern mit gebündelter Anbindung vorgesehen. Große homogene Flächen sollen als zusammenhängende Bereiche behandelt werden; die spätere Integration muss native Sucharbeit tatsächlich ersetzen. MoatMove bleibt ein geeigneter erster Verbraucher. Einzelheiten und Nachweisfolge stehen in den Abschnitten 13 und 14.
 
-Der ursprüngliche Kandidat vom 26.10.2026 wurde als lesender Testmod [BetterPathfindingTest](Testmods/BetterPathfindingTest/PROTOTYPE.md) implementiert und inzwischen offline sowie unter Unity/Mono gemessen. **Die konkrete 32×32-/128×128-Hierarchie mit vollständigen Grenzknoten-Distanzzeilen ist als Architekturversuch gescheitert**; Abschnitt 12 fasst die Nachweise zusammen. Der Neuaufbau ist inzwischen als isolierter C++-Prototyp **0.2.0** implementiert und offline geprüft; Abschnitt 15 beschreibt diesen späteren Stand. Die Abnahme unter Unity/Mono sowie 10.000 tatsächlich bewegte Einheiten und die angestrebte Größenordnung der Beschleunigung bleiben offen.
+Der ursprüngliche Kandidat vom 26.10.2026 wurde als lesender Testmod [BetterPathfindingTest](Testmods/BetterPathfindingTest/PROTOTYPE.md) implementiert und inzwischen offline sowie unter Unity/Mono gemessen. **Die konkrete 32×32-/128×128-Hierarchie mit vollständigen Grenzknoten-Distanzzeilen ist als Architekturversuch gescheitert**; Abschnitt 12 fasst die Nachweise zusammen. Der C++-Neuaufbau **0.2.0** wurde anschließend offline und im Spiel geprüft; sein dauerhafter Dienst mit Test-API **0.3.0** steht in Abschnitt 17. Für diesen neuesten Stand fehlen noch Unity-/Mono-Abnahme, 10.000 tatsächlich bewegte Einheiten und die angestrebte Größenordnung der Beschleunigung.
 
 Erreichbarkeit, optimale Kosten und alle Precise-Zusatzbedingungen bleiben verbindlich. Gemäß der Präzisierung vom 27.10.2026 werden gleich teure Richtungsabweichungen dokumentiert und vor einer Verbraucherintegration gesondert bewertet; eine identische Richtungsfolge ist keine Vorbedingung für die Untersuchung des nächsten Prototyps.
 
@@ -420,3 +420,88 @@ notwendiger freundlicher Grabenquerung. Dauerhafte Live-Invalidierung, inkrement
 Reparatur, viele unterschiedliche Ziele/Regelkontexte und günstiger Konsum gemeinsamer
 nächster Schritte bleiben offene Entwicklungsarbeit. Verbraucher werden weiterhin
 nicht angeschlossen.
+
+## 16. CCH-Entscheidungstor am 27.10.2026: keine Runtime-Freigabe
+
+Der nachfolgende Implementierungsauftrag wurde bis zum vorgeschalteten Offline-Tor
+ausgeführt. Ein eigener C++-Kandidat bereitet eine stabile Acht-Nachbar-Potenzialtopologie
+mit geometrischer Nested Dissection und gerichteter CCH-Customization vor. Die
+abschließende Variante verwendet außerdem gemeinsame Zielfelder, wiederverwendbare
+Zielsuchdaten und exakte gecachte Suchdaten identischer Starts. Die Initialisierung
+bleibt mit **27,81 Sekunden** innerhalb der erlaubten fünf Minuten. Der Index enthält
+jedoch **34,72 Millionen Kanten**; der native Pufferhöchststand erreicht **782,34 MiB**.
+Eine vollständige gemeinsame Bilanz aller verwalteten Testpuffer ist noch offen.
+
+**Das Performance-Tor fällt negativ aus.** Auf dem aufgenommenen realen Graphen
+benötigen 10.000 Formationsanfragen **6,55 Sekunden**, verteilte Ziele **2,44 Sekunden**
+und kartenübergreifende Paare **18,01 Sekunden** für kompakte Antworten. Wiederholungen
+lösen das Problem nicht. Bereits vorbereitete gemeinsame Ziele sind mit **3,96 ms**
+schnell; diese Antworten stammen aus dem gemeinsamen Rückwärtsfeld und benötigen
+den großen CCH-Index nicht. Auch die ältere Variante ohne Wiederverwendung verfehlte
+das Ziel. Ein schneller offener Gitterfall mit ausschließlich direkten kürzesten
+Wegen wird nicht als CCH-Erfolg um Hindernisse gewertet.
+
+Fachlich bestehen **12.408 unabhängige Vertragsvergleiche** und **384 unabhängige
+Capture-Vergleiche**. Alle **42.560 Capture-Anfragen** liefern positive Wege und
+stimmen mit dem aktuellen unveränderten Precise-Oracle überein. Kompakte Präfixe,
+volle Wegausgabe, gerichtete Hindernisse, Schrittgrenzen und neue Öffnungen außerhalb
+alter Wege sind geprüft. Die bisherigen Spezialtests bleiben erhalten. Die Probe
+prüft noch keine partielle Live-Reparatur oder öffentliche Dienst-API.
+
+Gemäß dem ersten Entscheidungstor wurde **keine Runtime-Integration vorgenommen**.
+Der dauerhafte Dienst, `BetterPathfindingTest.Api`, Bereitschafts-/Generationslogik
+und Live-Aktualisierung sind weiterhin offen. Version und installiertes Testpaket
+bleiben 0.2.0. Der CCH-Kandidat bleibt als reproduzierbarer Offline-Nachweis erhalten;
+er ist kein zusätzlicher Runtime-Fallback. Der Befund betrifft diese konkrete
+Topologie, Ordnung und Abfrageimplementierung, nicht sämtliche CCH-Verfahren.
+
+Die nächste Architekturentscheidung muss die teuren Suchräume bei unterschiedlichen
+Zielen selbst beseitigen. Ein Bereitschaftsschalter, längere Ladezeit oder mehr RAM
+allein erfüllen dieses Ziel nicht. Vollständige Messwerte, Quell-/Binäridentitäten,
+Prüfgrenzen und Umsetzungslücken stehen im datierten Nachtrag in
+[RESULTS.md](Testmods/BetterPathfindingTest/RESULTS.md) und in
+[review.json](Testmods/BetterPathfindingTest/results/cch-20261027-191740-311/review.json).
+
+## 17. Anschließende Nutzerentscheidung: Grundsystem und API zuerst (27.10.2026)
+
+Nach dem negativen CCH-Tor wurde ausdrücklich entschieden, den dauerhaften Dienst
+und die Bereitschafts-API auf dem vorhandenen korrekten Flächen-/Feldkern aufzubauen.
+Der Suchkern soll später ersetzt werden; seine unzureichende Performance bleibt
+ausdrücklich offen. Der Stopp in Abschnitt 16 beschreibt den Zeitpunkt vor dieser
+anschließenden Entscheidung. CCH bleibt ausschließlich ein Offline-Versuch.
+
+**0.3.0 implementiert** den sitzungsübergreifenden Dienst, öffentliche experimentelle
+Bereitschaft pro Spieler/Generation, asynchrone Batches bis 10.000, Routenhandles,
+Präfixe, weitere Schritte, Abbruch/Freigabe und automatische RAM-Auswahl. Der lokale
+Spieler wird automatisch vorbereitet. Kohärente 500-ms-Aufnahmen und zusätzliche
+öffentliche Ereignishinweise erfassen Änderungen; während Vorbereitung werden neuere
+Aufnahmen zusammengefasst. Unveränderte Graphen behalten Felder und Generation.
+Geänderte Kontexte werden vollständig ersetzt; inkrementelle Reparatur bleibt offen.
+`Ready` bestätigt einen erfassten vorbereiteten Stand, keine Performance-Abnahme
+oder native Bewegungsfreigabe. Normale Builds melden ausdrücklich `Unsupported`.
+
+Der residente Offline-Replay auf den bestehenden 800×800-Aufnahmen besteht: 31.920
+Antworten gegen den aktuellen unveränderten Precise, 27 unabhängige Vollsuchproben,
+geprüfte vollständige API-Wege und 128 übereinstimmende Aktualisierungsantworten bei
+925 geänderten Koordinaten. Vorbereitung rund 64 ms, Aktualisierung rund 59 ms,
+konservativer Speicherhöchststand rund 211 MiB. 10.000 bereits gemeinsam vorbereitete
+Zielanfragen benötigen rund 26 ms, Formationsziele aber 857 ms und verteilte Ziele
+1.008 ms. **100-ms-Ziel für unterschiedliche Ziele verfehlt; Faktor 100 weiterhin
+nicht nachgewiesen.** Der Dienst allein ersetzt diesen notwendigen Architekturfortschritt
+nicht. Der aktuelle Adapter erzeugt intern bereits volle Wege, obwohl die API nur
+Präfixe liefert. Echte Bewegung wird weiterhin nicht angeschlossen.
+
+Ergebnisse, Grenzen, historische Messungen und noch ausstehende Unity-/Mono-Abnahme
+werden direkt im Testmod-Ordner dokumentiert: [RESULTS.md](Testmods/BetterPathfindingTest/RESULTS.md),
+[Betrieb und Aufbau](Testmods/BetterPathfindingTest/PROTOTYPE.md),
+[öffentliche Test-API](Testmods/BetterPathfindingTest/API.md) und
+[residenter Replay-Nachweis](Testmods/BetterPathfindingTest/results/resident-20261027-201635-923/result.json).
+Spezialregeln bleiben spätere Ausbaustufen. Die bisherigen positiven 0.2.0-Ingame-
+Nachweise ersetzen keinen neuen 0.3.0-Ingame-Lauf.
+
+Abschluss dieses Arbeitsgangs: Normal- und Diagnose-Build von 0.3.0 sowie die
+Offline-/API-Prüfungen bestanden. **Auf anschließenden Nutzerwunsch aktuell keine
+Installation; Fortsetzung später.** Parallel bearbeitetes APIShared änderte sich
+nach den Builds; vor späterer Auslieferung den SDK-Stand erneut abgleichen. Jetzt
+ist kein neuer Ingame-Test nötig. Übergabestand und alle Nachweise stehen im
+[Testmod-Ergebnisbericht](Testmods/BetterPathfindingTest/RESULTS.md).

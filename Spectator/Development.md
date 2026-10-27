@@ -11,11 +11,13 @@
 - `CreditAmountInput`, die Aktionsrichtlinien und optionale Anbieteradapter kapseln
   Eingabevalidierung, Einmaligkeit und modabhängige Verträge.
 
-Die Modversion ist ein Entwicklungsstand. Es gibt weder Anwesenheitssperren noch
-Übergangsadapter für BugfixesAndQoL oder den früheren Testmod. Überschneidende
-Zuschauerfunktionen werden vor einem gemeinsamen Ingame-Test vom Nutzer bereinigt.
-Der Hauptmod-Release bleibt ohne Spectator; Releasekonfiguration und andere Modquellen
-wurden dafür nicht umgestellt. Das allgemeine fremde Truppen-HUD verbleibt dort.
+Die Modversion ist ein Entwicklungsstand. Es gibt keine Anwesenheitssperre für
+BugfixesAndQoL oder den früheren Testmod. BugfixesAndQoL enthält nach der Auslagerung
+keine Zuschauer-Auswahl, Berichte, Save-Wiederherstellung, Statistikvorschau oder
+Ausscheidensübergänge mehr. Aufgeben, Lobby-Rückkehr, allgemeines fremdes Truppen-HUD
+und Statistikabzeichen bleiben dort. Beide Mods nutzen APIShareds gemeinsame
+Endansicht-Ereignisse. Der alte Testmod gehört nicht zur gemeinsamen Testinstallation.
+Die Releaseauswahl bleibt unverändert; Spectator ist weiterhin ein Entwicklungsmod.
 
 ## Build
 

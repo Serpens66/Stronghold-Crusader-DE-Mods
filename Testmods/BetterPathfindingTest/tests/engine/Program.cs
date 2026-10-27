@@ -7,6 +7,8 @@ using System.Security.Cryptography;
 using APIShared;
 using BetterPathfindingTest;
 using BetterPathfindingTest.Core;
+using BetterPathfindingTest.Api;
+using BetterPathfindingTest.Service;
 
 internal static class EngineContract
 {
@@ -83,8 +85,8 @@ internal static class EngineContract
         time = 39.999; Check(!state.Expired && state.Captures == 0, "Busy lock must leave capture pending.");
         time = 40; Check(state.Expired, "Capture deadline."); state.Fail(); Check(!state.Pending, "Failed session still retries.");
         Check(!state.Start(1) && state.Start(2), "New session cannot recover."); state.Captured(); Check(!state.Pending, "Second capture too early.");
-        time += 10; Check(state.Pending && state.Captures == 1, "Second capture not due."); state.Retire(1); Check(state.Pending, "Stale retirement killed new session."); state.Retire(2); Check(!state.Pending, "Map retirement ignored.");
-        Check(state.Start(3), "Next map cannot start."); state.Captured(); time += 10; state.Captured(); Check(!state.Pending && state.Captures == 2, "More than two captures.");
+        time += 0.5; Check(state.Pending && state.Captures == 1, "Periodic capture not due."); state.Retire(1); Check(state.Pending, "Stale retirement killed new session."); state.Retire(2); Check(!state.Pending, "Map retirement ignored.");
+        Check(state.Start(3), "Next map cannot start."); state.Captured(); time += 0.5; state.Captured(); Check(!state.Pending && state.Captures == 2, "Periodic capture interval."); time += 0.5; Check(state.Pending, "Resident capture stopped after two snapshots."); state.Captured(); time += 0.1; state.Hint(); Check(!state.Pending, "Hint ignored minimum spacing."); time += 0.15; Check(state.Pending, "Event hint did not accelerate capture.");
         Check(GateCapture.Read(null)[1] == null, "Standalone policy path.");
         Check(GateCapture.Read(new Policy())[1].PlayerId == 1, "Valid gate publication.");
         foreach (var policy in new[] { new Policy { MissingPlayer = 2 }, new Policy { StalePlayer = 3 }, new Policy { BecomesStale = 1 } })
@@ -93,7 +95,8 @@ internal static class EngineContract
         int calls = 0; var counter = new AllocationCounter(() => () => { calls++; throw new NotImplementedException(); });
         Check(counter.Read() == -1 && counter.Read() == -1 && calls == 1, "Unsupported Mono allocation counter keeps failing.");
         Check(new AllocationCounter(() => { throw new NotSupportedException(); }).Read() == -1, "Allocation discovery failure propagated.");
-        var order = new List<string>(); RunPhases.Execute(true, () => order.Add("controlled"), () => order.Add("update"), () => order.Add("workloads")); Check(string.Join(",", order) == "controlled,update,workloads", "Updates lost their budget priority.");
+        Check(new AllocationCounter(() => () => 0).Read() == -1, "Mono zero counter was treated as allocation-free.");
+        long selectedMemory = NavigationMemory.SelectBudget(); Check(selectedMemory >= 0 && selectedMemory <= 1024L * 1024 * 1024, "Windows physical-memory budget outside limits.");
         double tick = 0; int pulses = 0; var pulse = new ProgressPulse(() => tick, message => pulses++); for (int i = 0; i < 100; i++) pulse.Check(); Check(pulses == 0, "Heartbeat flood."); tick = 5; pulse.Check(); pulse.Check(); tick = 10; pulse.Check(); Check(pulses == 2, "Heartbeat interval.");
         bool cleaned = false; var error = RunGuard.Execute(() => { throw new IOException(); }, () => cleaned = true); Check(cleaned && error is IOException, "I/O failure bypassed cleanup.");
         WorkerFailure(root);
@@ -108,29 +111,30 @@ internal static class EngineContract
     private static void WorkerFailure(string root)
     {
         string output = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "../../../results/worker-" + Guid.NewGuid().ToString("N").Substring(0, 8)));
-        bool deny = false, updatesWritten = false; int reports = 0, complete = 0, positive = 0;
-        var worker = new SessionWork(1, "fixture", output, (path, text) => {
-            if (deny) throw new IOException("fixture write denied"); reports++;
-            if (path.EndsWith("updates.json", StringComparison.Ordinal)) updatesWritten = true;
-            if (path.EndsWith("snapshot-1.json", StringComparison.Ordinal))
-            {
-                var data = (Dictionary<string, object>)Shared.DependencyFreeJson.Parse(text);
-                Check(File.Exists(Path.Combine(Path.GetDirectoryName(path), "snapshot-1.raw.gz")), "Capture manifest written before durable raw data.");
-                if (data.ContainsKey("compared"))
-                {
-                    Check(updatesWritten && File.Exists(Path.Combine(Path.GetDirectoryName(path), "snapshot-2.raw.gz")), "Group comparison ran before paired capture/update persistence.");
-                    Check(Convert.ToInt32(data["errors"]) == 0, "Worker comparison failed."); complete = Convert.ToInt32(data["compared"]); positive = Convert.ToInt32(data["found"]);
-                    Check(Convert.ToInt32(data["incomplete"]) > 0, "Missing real moat coverage was silently accepted.");
-                }
-            }
-        }, path => Directory.CreateDirectory(path));
-        worker.Process(Raw(root), 1); Check(worker.HasPreviousCapture && reports > 0 && complete == 0, "First capture must persist and wait, without group benchmarks.");
-        worker.Process(Raw(root), 2); Check(worker.LastFailure == null, "Paired worker failed: " + worker.LastFailure); Check(!worker.HasPreviousCapture, "Completed pair retained raw snapshots.");
-        Check(complete == 2019 && positive == complete, "Ground fixture expected 2019 positive requests; completed=" + complete + " found=" + positive);
-        var failing = new SessionWork(9, "fixture", output, (path, text) => { if (deny) throw new IOException("fixture write denied"); }, path => Directory.CreateDirectory(path));
-        failing.Process(Raw(root), 1); deny = true; failing.Process(Raw(root), 2); Check(!failing.HasPreviousCapture, "Report failure retained paired snapshots.");
-        int recoveredReports = 0; var next = new SessionWork(2, "fixture", output, (path, text) => recoveredReports++, path => Directory.CreateDirectory(path)); next.Process(Raw(root), 1); Check(next.HasPreviousCapture && recoveredReports > 0, "Later session did not recover."); next.Cancel.Cancel(); next.RetireJob()(); Check(!next.HasPreviousCapture, "Retirement retained pending raw data.");
-        var blocked = new SessionWork(3, "fixture", output, (path, text) => { throw new IOException(); }, path => { throw new IOException(); }); blocked.Process(Raw(root), 1); blocked.FailureJob(new IOException("capture fixture"), 1)(); Check(!blocked.HasPreviousCapture, "Directory failure retained snapshot.");
+        var jobs = new Queue<Action>(); Action drain = () => { int count = 0; while (jobs.Count != 0) { if (++count > 1000) throw new Exception("Worker did not drain."); jobs.Dequeue()(); } };
+        double time = 0; bool deny = false; int reports = 0;
+        var writer = new ResidentReports(output, 1, (path, text) => { if (deny) throw new IOException("fixture denied"); reports++; }, path => Directory.CreateDirectory(path));
+        var service = new ResidentNavigation(jobs.Enqueue, 256L * 1024 * 1024, () => time);
+        Action<double> submit = at => {
+            CaptureEnvelope envelope = Raw(root); envelope.Map.Session = 1; envelope.LocalPlayer = 1;
+            service.Offer(new OwnedNavigationSnapshot { Session = 1, LocalPlayer = 1, Width = envelope.Map.Width, Height = envelope.Map.Height,
+                CapturedAt = at, Bytes = envelope.Map.BufferBytes + 4096, Prepare = b => envelope.MaterializeGates(b),
+                BuildGround = (player,b) => envelope.Map.Build(player, budget:b), Persist = () => writer.Persist(envelope, at) });
+        };
+        service.Begin(1, 1); submit(0); drain();
+        Check(service.GetStatus(1).IsReady && reports > 0 && File.Exists(Path.Combine(writer.DirectoryPath, "snapshot-1.raw.gz")), "Initial resident capture/readiness.");
+        var status = service.GetStatus(1);
+        writer.Status(status, service.PeakBytes, service.Metrics());
+        var probeInput = service.ProbeInputs(1, new UnitSeed[0], 4, out GridSnapshot probeGraph);
+        writer.Requests(status.Context, probeGraph, probeInput); Check(File.Exists(Path.Combine(writer.DirectoryPath, "api-probe.bpf.gz")), "API replay input not persisted.");
+        Check(service.Submit(status.Context, new[] { new NavigationRequest(17, 0, 0, 3, 2) }, out NavigationTicket ticket) == NavigationSubmission.Queued, "Framework API queue.");
+        drain(); Check(service.Poll(ticket).State == NavigationBatchState.Completed && service.Poll(ticket).Routes[0].State == NavigationRouteState.Found, "Framework private native/API positive path."); service.Release(ticket);
+        deny = true; time = 10; submit(time); drain(); Check(service.GetStatus(1).IsReady, "Reporting failure stopped valid resident data.");
+        deny = false; time = 11; submit(time); drain(); Check(File.Exists(Path.Combine(writer.DirectoryPath, "snapshot-2.raw.gz")), "Second raw capture missing.");
+        service.End(1); drain(); Check(service.SourceBytes == 0 && service.ClientBytes == 0 && service.GetStatus(1).State == NavigationState.NotLoaded, "Resident map cleanup.");
+        service.Begin(2, 1); var raw = Raw(root); raw.Map.Session = 2;
+        service.Offer(new OwnedNavigationSnapshot { Session = 2, LocalPlayer = 1, Width = 4, Height = 3, Bytes = 8192, BuildGround = (p,b) => raw.Map.Build(p, budget:b), Persist = () => { throw new IOException("directory fixture"); } }); drain();
+        Check(service.GetStatus(1).IsReady, "Later session failed after report errors."); service.End(2); drain();
         CapturedMap malformed = Raw(root).Map; malformed.Heights = null; bool invalid = false;
         try { malformed.Validate(); } catch (ArgumentException) { invalid = true; } Check(invalid, "Missing array did not fail with a validation diagnostic.");
         malformed = Raw(root).Map; malformed.GateMasks[8] = new byte[1]; invalid = false;

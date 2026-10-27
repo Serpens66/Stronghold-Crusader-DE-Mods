@@ -2,6 +2,11 @@ namespace Spectator
 {
     internal static class SpectatorDefeatPolicy
     {
+        internal static bool IsStatisticsViewer(bool spectator, int player, bool validLord) =>
+            spectator || (player >= 1 && player <= 8 && !validLord);
+        internal static bool ConfirmIdentity(int expected, int nativePlayer, int managedPlayer) =>
+            expected >= 1 && expected <= 8 && expected == nativePlayer && expected == managedPlayer;
+
         internal static bool CanPromoteEliminatedPlayerToSpectator(
             bool featureEnabled,
             bool activeMatch,

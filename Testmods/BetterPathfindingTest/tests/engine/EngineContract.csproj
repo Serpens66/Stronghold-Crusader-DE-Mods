@@ -6,6 +6,7 @@
   <ItemGroup><Compile Include="Program.cs" /><Compile Include="..\..\src\Runtime\EngineGate.cs" /></ItemGroup>
   <ItemGroup>
     <Compile Include="..\..\src\Core\*.cs" />
+    <Compile Include="..\..\src\Api\*.cs" /><Compile Include="..\..\src\Service\*.cs" />
     <Compile Include="..\..\src\Runtime\ManagedContracts.cs" /><Compile Include="..\..\src\Runtime\CaptureState.cs" />
     <Compile Include="..\..\src\Runtime\Capture.DevDiag.cs" /><Compile Include="..\..\src\Runtime\Run.DevDiag.cs" />
     <Compile Include="..\..\..\..\Shared\Runtime\Diagnostics\DebugLogHelper.cs" /><Compile Include="..\..\..\..\Shared\Runtime\Diagnostics\DevDiag.cs" /><Compile Include="..\..\..\..\Shared\Runtime\Persistence\DependencyFreeJson.cs" />

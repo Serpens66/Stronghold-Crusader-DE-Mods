@@ -6,14 +6,27 @@ if (-not $Workspace) { $Workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptR
 $checked = 0; $disabled = 0; $failures = [Collections.Generic.List[string]]::new()
 function Assert-OwnStyle([Xml.XmlElement]$style, [string]$location) {
     $values = @{}
+    $chain = @($style)
+    $base = $style.GetAttribute('BasedOn')
+    while ($base -match '^\{StaticResource ([^}]+)\}$') {
+        $parentStyle = $style.OwnerDocument.SelectSingleNode("//*[local-name()='Style'][@*[local-name()='Key']='" + $Matches[1] + "']")
+        if (-not $parentStyle -or $chain -contains $parentStyle) { break }
+        $chain = @($parentStyle) + $chain
+        $base = $parentStyle.GetAttribute('BasedOn')
+    }
+    $template = $null
+    foreach ($part in $chain) {
+        foreach ($setter in $part.SelectNodes("./*[local-name()='Setter'][@Property and @Value]")) { $values[$setter.GetAttribute('Property')] = $setter.GetAttribute('Value') }
+        if ($part.SelectSingleNode(".//*[local-name()='ControlTemplate']//*[local-name()='TextBlock'][@TextWrapping='Wrap']")) { $template = $part }
+    }
     foreach ($setter in $style.SelectNodes("./*[local-name()='Setter'][@Property and @Value]")) { $values[$setter.GetAttribute('Property')] = $setter.GetAttribute('Value') }
     foreach ($name in @('Background','Foreground','BorderBrush')) {
         if ($style.HasAttribute($name)) { $values[$name] = $style.GetAttribute($name) }
     }
     if ($style.GetAttribute('seui:ToolTipResolutionScale.Enabled') -eq 'True') { $values['seui:ToolTipResolutionScale.Enabled'] = 'True' }
     if ($values['Background'] -ne '#FF1D1710' -or $values['Foreground'] -ne 'White' -or
-        $values['BorderBrush'] -ne '#FFF2D48A' -or $values['seui:ToolTipResolutionScale.Enabled'] -ne 'True' -or
-        -not $style.SelectSingleNode(".//*[local-name()='ControlTemplate']//*[local-name()='TextBlock'][@TextWrapping='Wrap']")) {
+        $values['BorderBrush'] -ne '#FFF2D48A' -or ($values['seui:ToolTipResolutionScale.Enabled'] -ne 'True' -and $values['apiui:SharedToolTipSizing.Enabled'] -ne 'True') -or
+        -not $template -or ($requireShared -and ($values['apiui:SharedToolTipSizing.Enabled'] -ne 'True' -or $values['seui:ToolTipResolutionScale.Enabled'] -eq 'True'))) {
         $failures.Add("Nonstandard mod popup template: $location")
     }
 }
@@ -24,7 +37,14 @@ foreach ($directory in $directories) {
     if ($directory.Name -match '^\.|^_|^(Shared|Testmods|shcde-script-extender)$') { continue }
     $patches = Join-Path $directory.FullName 'Patches'
     if (-not (Test-Path -LiteralPath $patches)) { continue }
-    foreach ($file in Get-ChildItem -LiteralPath $patches -Recurse -File -Filter 'HUD_*.xaml') {
+    $requireShared = $directory.Name -eq 'Spectator'
+    $popupFiles = @(Get-ChildItem -LiteralPath $patches -Recurse -File -Filter 'HUD_*.xaml')
+    if ($requireShared) {
+        $popupFiles = @(Get-ChildItem -LiteralPath $patches,(Join-Path $directory.FullName 'Override') -Recurse -File -Filter '*.xaml')
+        $runtime = [IO.File]::ReadAllText((Join-Path $directory.FullName 'src/SpectatorRuntime.Hud.cs'))
+        if ($runtime -notmatch 'new ToolTip \{ Style = style, Content = text \}' -or $runtime -notmatch 'SetShowDuration\(button, 60000\)') { $failures.Add('Player tooltips must use the checked own style and duration.') }
+    }
+    foreach ($file in $popupFiles) {
         [xml]$document = [IO.File]::ReadAllText($file.FullName)
         foreach ($node in $document.SelectNodes('//*[@ToolTip]')) {
             if ($node.GetAttribute('ToolTipService.IsEnabled') -eq 'False') { $disabled++; continue }

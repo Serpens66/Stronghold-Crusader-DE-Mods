@@ -28,3 +28,35 @@ arbitrary future movement rules.
 Uniform rectangle interiors have a single ground/moat and structure class. A shortest interior walk has `max(abs(dx),abs(dy))` steps. Replacing a longer such walk reduces every positive profile cost and the step count. The wet-visit state is retained, including positive two-step wet excursions. Nonuniform or directed regions retain the original directed edges. Terminal overrides and scalar optima violating resource bounds use a separately implemented native multi-label A* on the original snapshot. They never invoke the former hierarchy or the production solver.
 
 The C ABI accepts only private snapshot arrays. Exceptions cannot cross the ABI. Calls are worker-only, use a counted allocator, and expose bounded stepping and incomplete results. There are no imports from the game, no native hooks and no command/path-buffer writes. Normal release packages do not include this diagnostic backend.
+
+## Subsequent offline CCH decision gate, 2026-10-27
+
+`CchProbe.cpp` is a separate original implementation of the first decision gate,
+not a replacement already loaded by the installed mod. It builds geometric nested-
+dissection ranks, an elimination tree and symbolic fill for the full eight-neighbor
+coordinate potential graph. Directed basic customization introduces blocked arcs
+as infinity; finite ground arcs have unit cost. Shortcut witnesses reconstruct
+original directed steps. It uses the principles in Dibbelt/Strasser/Wagner,
+[Customizable Contraction Hierarchies](https://ben-strasser.net/paper/customizable_contraction_hierarchies_arxiv_preprint.pdf).
+No third-party code or library is copied or linked.
+
+The tested variants include full elimination-tree queries and a subsequent variant
+with cached target search data, reusable exact source labels, request identity after
+cohort sorting, and shared reverse ground fields. Compact output reconstructs only
+the first eight directions; full output is measured separately. Direct geometric
+walks are accepted only after every original edge is verified and their length
+reaches the Chebyshev lower bound. An open-grid direct hit is not a CCH speedup.
+
+The private probe ABI is separate from the runtime ABI: `0x02001020`, pair 16 bytes,
+result 32 bytes and 16 Int64 statistics. `Build-CchProbe.ps1` builds only
+`.local/cch/CchProbe.dll`. It is not copied to BepInEx. The CCH step interface requests
+2 ms work packets, but measured larger packets remain an explicit limitation.
+Metric replacement currently performs full basic customization while retaining
+symbolic topology; partial dependency propagation is not implemented in this gate.
+
+The final captured-map measurements fail the reaction target even with sharing.
+See [RESULTS.md](../RESULTS.md) and the immutable per-run compiler, binary, host,
+input and decision records. The negative result concerns this full-potential-grid,
+geometric-order implementation; it does not refute every CCH ordering, metric-
+specific pruning method or routing architecture. It does not authorize silently
+replacing the current runtime solver or claiming a resident public service exists.

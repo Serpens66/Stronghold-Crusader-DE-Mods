@@ -112,6 +112,13 @@ internal static class Program
         };
         try
         {
+            if (args != null && args.Length == 1 && args[0] == "spectator-migration")
+            {
+                TestSurrenderAndStatisticsSettingAndPolicy();
+                TestMultiplayerLobbyReturnPolicy();
+                Console.WriteLine("PASS: retained surrender preference, host authority, packet contracts and lobby policy.");
+                return 0;
+            }
             if (args != null && args.Length == 1 && args[0] == "plague-height") { PlagueHeightPresetTests.Run(); return 0; }
             if (args != null && args.Length == 1 && args[0] == "castle-rotation")
             {
@@ -1998,63 +2005,6 @@ internal static class Program
         Check(SurrenderPolicy.CanEnableButton(true, false, false),
             "singleplayer surrender incorrectly required Chore transport");
 
-        Check(SurrenderPolicy.IsStatisticsViewer(true, 0, missingLord),
-            "start spectator was not accepted as a statistics viewer");
-        Check(SurrenderPolicy.IsStatisticsViewer(false, 2, deadLord),
-            "eliminated player with a dead lord was not accepted as a statistics viewer");
-        Check(SurrenderPolicy.IsStatisticsViewer(false, 2, missingLord),
-            "eliminated player without a lord was not accepted as a statistics viewer");
-        Check(!SurrenderPolicy.IsStatisticsViewer(false, 2, validLord),
-            "active player with a living lord was accepted as a statistics viewer");
-        Check(!SurrenderPolicy.IsStatisticsViewer(false, 0, missingLord),
-            "non-spectator without a player slot was accepted as a statistics viewer");
-
-        Check(SurrenderPolicy.CanShowStatisticsButton(true, true, false, true, true, true),
-            "spectator statistics rejected a valid spectator");
-        Check(!SurrenderPolicy.CanShowStatisticsButton(false, true, false, true, true, true),
-            "disabled shared setting exposed spectator statistics");
-        Check(!SurrenderPolicy.CanShowStatisticsButton(true, false, false, true, true, true),
-            "spectator statistics appeared outside an active match");
-        Check(!SurrenderPolicy.CanShowStatisticsButton(true, true, true, true, true, true),
-            "spectator statistics appeared in the map editor");
-        Check(!SurrenderPolicy.CanShowStatisticsButton(true, true, false, false, true, true),
-            "spectator statistics appeared for an active player");
-        Check(!SurrenderPolicy.CanShowStatisticsButton(true, true, false, true, false, true),
-            "spectator statistics accepted an unsupported game mode");
-        Check(!SurrenderPolicy.CanShowStatisticsButton(true, true, false, true, true, false),
-            "spectator statistics appeared without a validated runtime");
-
-        Check(SurrenderPolicy.CanPromoteEliminatedPlayerToSpectator(
-                true, true, false, false, true, true, true, 2),
-            "eligible eliminated player was not promoted to spectator");
-        Check(!SurrenderPolicy.CanPromoteEliminatedPlayerToSpectator(
-                false, true, false, false, true, true, true, 2),
-            "disabled eliminated-player spectator setting still promoted a player");
-        Check(!SurrenderPolicy.CanPromoteEliminatedPlayerToSpectator(
-                true, false, false, false, true, true, true, 2),
-            "player outside an active match was promoted to spectator");
-        Check(!SurrenderPolicy.CanPromoteEliminatedPlayerToSpectator(
-                true, true, true, false, true, true, true, 2),
-            "map-editor player was promoted to spectator");
-        Check(!SurrenderPolicy.CanPromoteEliminatedPlayerToSpectator(
-                true, true, false, true, true, true, true, 2),
-            "existing spectator was promoted again");
-        Check(!SurrenderPolicy.CanPromoteEliminatedPlayerToSpectator(
-                true, true, false, false, true, true, false, 2),
-            "player without a previously validated living lord was promoted during initialization");
-        Check(!SurrenderPolicy.CanPromoteEliminatedPlayerToSpectator(
-                true, true, false, false, true, true, true, 0),
-            "invalid local player slot was promoted to spectator");
-        Check(!SurrenderPolicy.CanPromoteEliminatedPlayerToSpectator(
-                true, true, false, false, true, true, true, 9),
-            "out-of-range local player slot was promoted to spectator");
-        Check(!SurrenderPolicy.CanPromoteEliminatedPlayerToSpectator(
-                true, true, false, false, false, true, true, 2),
-            "unsupported campaign/tutorial mode promoted an eliminated player");
-        Check(!SurrenderPolicy.CanPromoteEliminatedPlayerToSpectator(
-                true, true, false, false, true, false, true, 2),
-            "unverified local multiplayer participant was promoted to spectator");
-
         Check(SurrenderPolicy.CanAcceptRequest(true, true, true, true, true, validLord),
             "host rejected an authenticated human surrender request");
         Check(!SurrenderPolicy.CanAcceptRequest(true, true, true, false, true, validLord),
@@ -2122,8 +2072,6 @@ internal static class Program
         Check(setting.EnableAiFixes, "EnableAiFixes did not default to true");
         Check(setting.EnableSurrenderAndStatistics, "EnableSurrenderAndStatistics did not default to true");
         Check(setting.EnableLordUnitControls, "EnableLordUnitControls did not default to true");
-        Check(setting.EnableEliminatedPlayersBecomeSpectators,
-            "EnableEliminatedPlayersBecomeSpectators did not default to true");
         Check(setting.EnableAbruptHostMigrationFix,
             "EnableAbruptHostMigrationFix did not default to true");
         Check(setting.EnableReturnToMultiplayerLobby,
@@ -2139,7 +2087,6 @@ internal static class Program
         setting.EnableAiFixes = false;
         setting.EnableSurrenderAndStatistics = false;
         setting.EnableLordUnitControls = false;
-        setting.EnableEliminatedPlayersBecomeSpectators = false;
         setting.EnableAbruptHostMigrationFix = false;
         setting.EnableReturnToMultiplayerLobby = false;
         setting.AllowFullAiMultiplayerLobby = false;
@@ -2150,8 +2097,6 @@ internal static class Program
         Check(!setting.EnableAiFixes, "EnableAiFixes did not round-trip through presets");
         Check(!setting.EnableSurrenderAndStatistics, "shared host value did not round-trip through presets");
         Check(!setting.EnableLordUnitControls, "Lord-controls host value did not round-trip through presets");
-        Check(!setting.EnableEliminatedPlayersBecomeSpectators,
-            "spectator-promotion host value did not round-trip through presets");
         Check(!setting.EnableAbruptHostMigrationFix,
             "abrupt host-migration value did not round-trip through presets");
         Check(!setting.EnableReturnToMultiplayerLobby,
@@ -2317,7 +2262,6 @@ internal static class Program
         setting.EnableAiFixes = true;
         setting.EnableSurrenderAndStatistics = true;
         setting.EnableLordUnitControls = true;
-        setting.EnableEliminatedPlayersBecomeSpectators = true;
         setting.EnableAbruptHostMigrationFix = true;
         setting.EnableReturnToMultiplayerLobby = true;
         setting.AllowFullAiMultiplayerLobby = true;
@@ -2326,8 +2270,6 @@ internal static class Program
             "client EnableAiFixes mutation changed the local preset file");
         Check(!setting.EnableSurrenderAndStatistics, "client mutated the host-only EnableSurrenderAndStatistics setting");
         Check(!setting.EnableLordUnitControls, "client mutated the host-only EnableLordUnitControls setting");
-        Check(!setting.EnableEliminatedPlayersBecomeSpectators,
-            "client mutated the host-only EnableEliminatedPlayersBecomeSpectators setting");
         Check(!setting.EnableAbruptHostMigrationFix,
             "client mutated the host-only EnableAbruptHostMigrationFix setting");
         Check(!setting.EnableReturnToMultiplayerLobby,
@@ -2351,7 +2293,6 @@ internal static class Program
             setting.EnableAiFixes = true;
             setting.EnableSurrenderAndStatistics = true;
             setting.EnableLordUnitControls = true;
-            setting.EnableEliminatedPlayersBecomeSpectators = true;
             setting.EnableAbruptHostMigrationFix = true;
             setting.EnableReturnToMultiplayerLobby = true;
             setting.AllowFullAiMultiplayerLobby = true;
@@ -2371,8 +2312,6 @@ internal static class Program
         Check(setting.EnableAiFixes, "authoritative host sync did not update EnableAiFixes");
         Check(setting.EnableSurrenderAndStatistics, "authoritative host sync did not update EnableSurrenderAndStatistics");
         Check(setting.EnableLordUnitControls, "authoritative host sync did not update EnableLordUnitControls");
-        Check(setting.EnableEliminatedPlayersBecomeSpectators,
-            "authoritative host sync did not update EnableEliminatedPlayersBecomeSpectators");
         Check(setting.EnableAbruptHostMigrationFix,
             "authoritative host sync did not update EnableAbruptHostMigrationFix");
         Check(setting.EnableReturnToMultiplayerLobby,
@@ -2388,7 +2327,6 @@ internal static class Program
                 [nameof(setting.EnableAiFixes)] = MessagePackSerializer.Serialize(false),
                 [nameof(setting.EnableSurrenderAndStatistics)] = MessagePackSerializer.Serialize(false),
                 [nameof(setting.EnableLordUnitControls)] = MessagePackSerializer.Serialize(false),
-                [nameof(setting.EnableEliminatedPlayersBecomeSpectators)] = MessagePackSerializer.Serialize(false),
                 [nameof(setting.EnableAbruptHostMigrationFix)] = MessagePackSerializer.Serialize(false),
                 [nameof(setting.EnableReturnToMultiplayerLobby)] = MessagePackSerializer.Serialize(false),
                 [nameof(setting.AllowFullAiMultiplayerLobby)] = MessagePackSerializer.Serialize(false)
@@ -2406,8 +2344,6 @@ internal static class Program
         Check(!setting.EnableSurrenderAndStatistics && !setting.CanEditHostSettings,
             "read-only Trail did not apply and lock EnableSurrenderAndStatistics");
         Check(!setting.EnableLordUnitControls, "read-only Trail did not apply EnableLordUnitControls");
-        Check(!setting.EnableEliminatedPlayersBecomeSpectators,
-            "read-only Trail did not apply EnableEliminatedPlayersBecomeSpectators");
         Check(!setting.EnableAbruptHostMigrationFix,
             "read-only Trail did not apply EnableAbruptHostMigrationFix");
         Check(!setting.EnableReturnToMultiplayerLobby,
@@ -2417,15 +2353,12 @@ internal static class Program
         setting.EnableAiFixes = true;
         setting.EnableSurrenderAndStatistics = true;
         setting.EnableLordUnitControls = true;
-        setting.EnableEliminatedPlayersBecomeSpectators = true;
         setting.EnableAbruptHostMigrationFix = true;
         setting.EnableReturnToMultiplayerLobby = true;
         setting.AllowFullAiMultiplayerLobby = true;
         Check(!setting.EnableAiFixes, "client changed EnableAiFixes inside a read-only Trail");
         Check(!setting.EnableSurrenderAndStatistics, "client changed EnableSurrenderAndStatistics inside a read-only Trail");
         Check(!setting.EnableLordUnitControls, "client changed EnableLordUnitControls inside a read-only Trail");
-        Check(!setting.EnableEliminatedPlayersBecomeSpectators,
-            "client changed EnableEliminatedPlayersBecomeSpectators inside a read-only Trail");
         Check(!setting.EnableAbruptHostMigrationFix,
             "client changed EnableAbruptHostMigrationFix inside a read-only Trail");
         Check(!setting.EnableReturnToMultiplayerLobby,
@@ -2440,8 +2373,6 @@ internal static class Program
         Check(setting.EnableAiFixes, "EnableAiFixes reset value was not true");
         Check(setting.EnableSurrenderAndStatistics, "EnableSurrenderAndStatistics reset value was not true");
         Check(setting.EnableLordUnitControls, "EnableLordUnitControls reset value was not true");
-        Check(setting.EnableEliminatedPlayersBecomeSpectators,
-            "EnableEliminatedPlayersBecomeSpectators reset value was not true");
         Check(setting.EnableAbruptHostMigrationFix,
             "EnableAbruptHostMigrationFix reset value was not true");
         Check(setting.EnableReturnToMultiplayerLobby,
@@ -6029,7 +5960,6 @@ internal sealed class SurrenderAndStatisticsSettingViewModel : PresetLobbyModSet
     private bool enableAssassinGatehouseClimbFix = true;
     private bool enableSurrenderAndStatistics = true;
     private bool enableLordUnitControls = true;
-    private bool enableEliminatedPlayersBecomeSpectators = true;
     private bool enableAbruptHostMigrationFix = true;
     private bool enableReturnToMultiplayerLobby = true;
     private bool allowFullAiMultiplayerLobby = true;
@@ -6126,22 +6056,6 @@ internal sealed class SurrenderAndStatisticsSettingViewModel : PresetLobbyModSet
     }
 
     [SyncHostOnly]
-    public bool EnableEliminatedPlayersBecomeSpectators
-    {
-        get => enableEliminatedPlayersBecomeSpectators;
-        set
-        {
-            if (!CanMutateSetting(nameof(EnableEliminatedPlayersBecomeSpectators)) ||
-                enableEliminatedPlayersBecomeSpectators == value)
-            {
-                return;
-            }
-            enableEliminatedPlayersBecomeSpectators = value;
-            OnPropertyChanged(nameof(EnableEliminatedPlayersBecomeSpectators));
-        }
-    }
-
-    [SyncHostOnly]
     public bool EnableAbruptHostMigrationFix
     {
         get => enableAbruptHostMigrationFix;
@@ -6196,7 +6110,6 @@ internal sealed class SurrenderAndStatisticsSettingViewModel : PresetLobbyModSet
         EnableAiFixes = true;
         EnableSurrenderAndStatistics = true;
         EnableLordUnitControls = true;
-        EnableEliminatedPlayersBecomeSpectators = true;
         EnableAbruptHostMigrationFix = true;
         EnableReturnToMultiplayerLobby = true;
         AllowFullAiMultiplayerLobby = true;

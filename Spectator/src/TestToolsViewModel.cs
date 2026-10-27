@@ -59,23 +59,15 @@ namespace Spectator
         public Visibility StatusVisibility => expanded && !string.IsNullOrEmpty(status) ? Visibility.Visible : Visibility.Collapsed;
         internal void SetRecipientAvailable(bool available)
         { if (hasRecipient == available) return; hasRecipient = available; Changed(nameof(CanCredit)); }
-        private bool toolsAvailable, reportsAvailable, statisticsAvailable, statisticsActive, canAttack, canDefend, canCancel;
+        private bool toolsAvailable, canAttack, canDefend, canCancel;
         private string orderAvailability = "";
         public bool ToolsAvailable => toolsAvailable;
-        public bool ReportsAvailable => reportsAvailable;
-        public bool StatisticsAvailable => statisticsAvailable;
         public bool CanAttack => canAttack;
         public bool CanDefend => canDefend;
         public bool CanCancel => canCancel;
         public string OrderAvailability => orderAvailability;
-        public Visibility StatisticsControlsVisibility => statisticsActive ? Visibility.Visible : Visibility.Collapsed;
-        internal void SetAvailability(bool tools, bool reports, bool statistics, bool active)
-        {
-            if (toolsAvailable != tools) { toolsAvailable = tools; Changed(nameof(ToolsAvailable)); Changed(nameof(CanCredit)); }
-            if (reportsAvailable != reports) { reportsAvailable = reports; Changed(nameof(ReportsAvailable)); }
-            if (statisticsAvailable != statistics) { statisticsAvailable = statistics; Changed(nameof(StatisticsAvailable)); }
-            if (statisticsActive != active) { statisticsActive = active; Changed(nameof(StatisticsControlsVisibility)); }
-        }
+        internal void SetAvailability(bool tools)
+        { if (toolsAvailable != tools) { toolsAvailable = tools; Changed(nameof(ToolsAvailable)); Changed(nameof(CanCredit)); } }
         internal void SetOrderAvailability(bool attack, bool defend, bool cancel, string reason)
         {
             if (canAttack != attack) { canAttack = attack; Changed(nameof(CanAttack)); }

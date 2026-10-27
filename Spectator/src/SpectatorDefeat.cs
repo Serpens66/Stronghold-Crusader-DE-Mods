@@ -3,23 +3,15 @@ using APIShared.GameModes;
 using APIShared;
 using BepInEx.Logging;
 using CrusaderDE;
-using MonoMod.RuntimeDetour;
-using Noesis;
 using R3;
 using SHCDESE.API;
 using SHCDESE.API.Components.Network;
 using SHCDESE.EventAPI;
 using SHCDESE.EventAPI.Network;
-using SHCDESE.Interop;
-using SHCDESE.Interop.Enums;
-using SHCDESE.NoesisUtil;
 using SHCDESE.ViewModels;
 using System;
-using System.Collections.Generic;
-using System.Reflection;
-using System.Threading;
 using Steamworks;
-using HarmonyLib;
+using APIShared.Presentation;
 
 namespace Spectator
 {
@@ -38,7 +30,7 @@ namespace Spectator
         private int localPlayerLordDeathPlayerId = -1, spectatorPromotionPlayerId = -1;
         private string spectatorPromotionGameMode;
         private static SpectatorDefeat instance;
-        private readonly Harmony hooks = new Harmony("Spectator_Serp.Defeat");
+        private bool promotionConfirmed, promotionIdentityError;
         // Host state is independent of the local toolbar activation setting.
         private bool EliminatedPlayerSpectatorEnabled => settings.Activation.Defeat;
         internal SpectatorDefeat(ManualLogSource log, SpectatorViewModel settings) { this.log = log; this.settings = settings; }
@@ -51,24 +43,41 @@ namespace Spectator
                 !lifecycle.TryRegisterObserver("defeat-spectator", n => Reset(n.Context.SessionId), n => Reset(0), null, out diagnostic))
                 throw new InvalidOperationException("Defeat lifecycle unavailable: " + diagnostic?.Reason);
             RegisterPlayerDefeatObserver();
-            hooks.Patch(AccessTools.Method(typeof(GameData.Scenarios), "setGameOverState"),
-                prefix: new HarmonyMethod(typeof(SpectatorDefeat), nameof(BeforeGameOver)));
-            hooks.Patch(AccessTools.Method(typeof(OnScreenText), nameof(OnScreenText.addOSTEntry)),
-                prefix: new HarmonyMethod(typeof(SpectatorDefeat), nameof(BeforeGameOverText)));
+            foreach (var operation in new[] { MissionOverOperation.State, MissionOverOperation.Text })
+                if (!MissionOverEvents.TryRegister(operation, SpectatorPlugin.PluginGuid, "eliminated-player-result",
+                    args => { if (initialized) args.Result = SpectatorDefeatPolicy.ResolvePresentedGameOverState(args.Result,
+                        spectatorPromotionChoreExpected || spectatorPromotionActivated); }, null, out string reason))
+                    throw new InvalidOperationException(reason);
             initialized = true;
         }
         private void Reset(long session)
         {
             activeSessionId = session;
+            promotionConfirmed = promotionIdentityError = false;
             Array.Clear(lordDeathSessionIds, 0, 9); Array.Clear(lordDeathSimulationTicks, 0, 9);
             Array.Clear(spectatorChoreQueuedPlayers, 0, 9); Array.Clear(spectatorChoreExecutedPlayers, 0, 9);
             localPlayerLordDeathObserved = spectatorPromotionChoreExpected = spectatorPromotionActivated = spectatorPromotionRejectionLogged = false;
             localPlayerLordDeathPlayerId = spectatorPromotionPlayerId = -1;
         }
-        private static void BeforeGameOver(ref int __0) => __0 = SpectatorDefeatPolicy.ResolvePresentedGameOverState(__0,
-            instance != null && (instance.spectatorPromotionChoreExpected || instance.spectatorPromotionActivated));
-        private static void BeforeGameOverText(Enums.eOnScreenText __0, ref int __1)
-        { if (__0 == Enums.eOnScreenText.OST_MP_GAME_OVER) BeforeGameOver(ref __1); }
+        internal static void ObservePresentedState()
+        {
+            var current = instance;
+            if (current == null || !current.spectatorPromotionActivated || current.promotionConfirmed ||
+                current.promotionIdentityError || !IsStartSpectator()) return;
+            int native = PlayerPerspectiveAPI.GetRawNativeViewPlayerId();
+            int managed = EditorDirector.instance?.ActivePlayerID ?? -1;
+            if (!SpectatorDefeatPolicy.ConfirmIdentity(current.spectatorPromotionPlayerId, native, managed))
+            {
+                current.promotionIdentityError = true;
+                Shared.DebugLogHelper.LogErrorLimited(current.log, "spectator-promotion-identity",
+                    $"Spectator promotion identity mismatch: expected={current.spectatorPromotionPlayerId}, native={native}, managed={managed}.");
+                return;
+            }
+            current.promotionConfirmed = true;
+            SpectatorRuntime.InvalidateToolbar();
+            Shared.DebugLogHelper.LogDebugLimited(current.log, "spectator-promotion-confirmed",
+                $"Spectator promotion confirmed: player={managed}; controlled identity preserved.");
+        }
         private static bool IsMapEditor() => GameModeHelper.IsMapEditor();
         private static bool IsStartSpectator() => GameData.Instance?.lastGameState != null && GameData.Instance.lastGameState.spectatorMode != 0;
         private static bool IsHumanMember(Platform_Multiplayer.MPGameMember member) => member != null && member.playerID >= 1 &&
@@ -100,7 +109,7 @@ namespace Spectator
 
         private void OnPlayerLordDied(PlayerLordDeathNotification notification)
         {
-            if (notification == null)
+            if (!initialized || notification == null)
                 return;
 
             int playerId = notification.PlayerId;
@@ -128,15 +137,20 @@ namespace Spectator
             Shared.DebugLogHelper.LogDebugLimited(log, "Spectator/src/SpectatorDefeat.cs:565", $"Observed lord death through APIShared: sessionId={notification.SessionId}, playerId={playerId}, lordUnitId={notification.LordUnitId}, lordGlobalId={notification.LordGlobalId}, simulationTick={notification.SimulationTick}, localPlayerId={localPlayerId}.");
 
             APIShared.GameModes.GameModeSnapshot gameMode = APIShared.GameModes.GameModeHelper.Capture();
+            if (localLordDied && EliminatedPlayerSpectatorEnabled &&
+                (gameMode.IsRealMultiplayer || gameMode.IsSingleplayerSkirmishMode))
+                spectatorPromotionChoreExpected = true;
             if (!gameMode.IsRealMultiplayer)
             {
                 if (localLordDied)
+                {
+                    // Preserve the pre-tick activation timing. SpectatorMode only sets Vanilla's
+                    // local native flag under EngineInterface.threadLock; its return is zero, so
+                    // this GameAction has no managed UI branch. Confirmation remains on the UI thread.
                     TryActivateLocalSpectator(playerId, gameMode, "APIShared singleplayer lord-death event");
+                }
                 return;
             }
-
-            if (localLordDied && EliminatedPlayerSpectatorEnabled)
-                spectatorPromotionChoreExpected = true;
 
             if (GameNetworkAPI.IsLocalHost())
                 TryQueueSpectatorChore(notification, gameMode);
@@ -177,6 +191,7 @@ namespace Spectator
         private void OnSpectatorPacketReceived(
             ReceiveCustomPacketEventArgs<EliminatedPlayerSpectatorPacket> args)
         {
+            if (!initialized) return;
             EliminatedPlayerSpectatorPacket packet = args?.Packet;
             try
             {
@@ -206,7 +221,6 @@ namespace Spectator
                 if (localPlayerId != playerId)
                     return;
 
-                spectatorPromotionChoreExpected = false;
                 long sessionSnapshot = activeSessionId;
                 APIShared.GameModes.GameModeSnapshot gameModeSnapshot = APIShared.GameModes.GameModeHelper.Capture();
                 Shared.UnityMainThreadDispatch.TryEnqueue(() =>
@@ -260,6 +274,7 @@ namespace Spectator
 
             EngineInterface.GameAction(Enums.GameActionCommand.SpectatorMode, 0, 0);
             spectatorPromotionActivated = true;
+            spectatorPromotionChoreExpected = false;
             spectatorPromotionPlayerId = localPlayerId;
             spectatorPromotionGameMode = gameMode.ToDiagnosticString();
             Shared.DebugLogHelper.LogDebugLimited(log, "Spectator/src/SpectatorDefeat.cs:710", $"Activated Vanilla spectator mode for eliminated local player {localPlayerId}: source={source}, mode={spectatorPromotionGameMode}.");

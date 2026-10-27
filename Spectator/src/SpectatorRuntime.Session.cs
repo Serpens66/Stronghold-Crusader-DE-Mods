@@ -78,9 +78,10 @@ namespace Spectator
         private static void ResetSessionState()
         {
             ResetTestActions(0);
-            Interlocked.Exchange(ref revealHiddenActive, 0);
+            SetRevealHidden(0);
             DetachHumanControls();
             humanPlacementMode = false;
+            RestorePlacementFreeze();
             ApplyHumanAi(-1);
             initialSelectionChosen = false;
             toolbarDirty = true;

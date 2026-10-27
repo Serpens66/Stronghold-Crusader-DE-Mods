@@ -103,7 +103,7 @@ catch(TargetInvocationException e){System.Runtime.ExceptionServices.ExceptionDis
 MoatModeFlagContract.Validate();
 NativeCommandDetourContract.Validate(root);
 ManualAdmissionMachineTests.Validate();
-GroundFrameMachineTests.Validate(root);
+// Shared render ABI/dormant-gate coverage now executes APIShared VisibleMapRenderBridge.
 CursorPermissionNativeTests.Validate(root);
 MovementLifeGeneratorTests.Validate(root);
 RallyTerrainGeneratorTests.Validate(root);

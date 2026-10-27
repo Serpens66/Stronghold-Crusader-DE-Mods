@@ -31,6 +31,7 @@ namespace BetterPathfindingTest.Core
         [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern int bpf_set_limit(IntPtr context, long bytes);
         [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern int bpf_allocations(IntPtr context, out long bytes, out long calls);
         [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern int bpf_query_counts(IntPtr context, out long forward, out long analytic);
+        [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern int bpf_reset_peak(IntPtr context);
         public static void InitializeLibrary(string absolutePath = null)
         {
             lock (LibraryLock)
@@ -45,7 +46,7 @@ namespace BetterPathfindingTest.Core
                 if (!Path.IsPathRooted(absolutePath) || !File.Exists(absolutePath)) throw new NotSupportedException("Private native backend missing: " + absolutePath);
                 if (module == IntPtr.Zero) module = LoadLibraryEx(absolutePath, IntPtr.Zero, 8);
                 if (module == IntPtr.Zero) throw new NotSupportedException("Cannot load x64 navigation backend; Win32=" + Marshal.GetLastWin32Error());
-                if (bpf_contract() != 0x03003828 || Marshal.SizeOf(typeof(Request)) != 56 || Marshal.SizeOf(typeof(Result)) != 40 || Marshal.SizeOf(typeof(Statistics)) != 128)
+                if (bpf_contract() != 0x04003828 || Marshal.SizeOf(typeof(Request)) != 56 || Marshal.SizeOf(typeof(Result)) != 40 || Marshal.SizeOf(typeof(Statistics)) != 128)
                     throw new NotSupportedException("Private native navigation ABI mismatch.");
                 validated = true;
                 // Process-owned module; no unload while queued jobs might execute it.
@@ -53,6 +54,7 @@ namespace BetterPathfindingTest.Core
         }
         private IntPtr context;
         private long nativeOwned, fixedBytes, returnedBuffers;
+        private readonly Dictionary<RouteResult[], long> returnedLeases = new Dictionary<RouteResult[], long>();
         private GridSnapshot map;
         public GridSnapshot Map => map;
         public readonly WorkBudget Budget;
@@ -130,6 +132,7 @@ namespace BetterPathfindingTest.Core
                     byte[] path = new byte[r.Length]; if (r.Length != 0) Array.Copy(directions, r.Offset, path, 0, r.Length);
                     results[r.Index] = new RouteResult { Status = (SearchStatus)r.Status, Cost = r.Cost, Ground = r.Ground, Moat = r.Moat, Directions = path, CompletionMs = r.CompletedMs, Reason = r.Status == 1 ? "area-field-unreachable" : "" };
                 }
+                returnedLeases.Add(results, returned);
                 return results;
             }
             catch (SearchBudgetException ex)
@@ -138,6 +141,15 @@ namespace BetterPathfindingTest.Core
         }
         public bool CanReach(RouteQuery query, out SearchStatus status)
         { RouteQuery q = query.Copy(); q.MaximumEdges = 2000000; q.RequireMoat = false; q.Bounds = new CostBound[0]; RouteResult result = FindPath(q); status = result.Status; return status == SearchStatus.Found; }
+        // The resident owner takes responsibility for these buffers, rather than
+        // charging every historical batch until the navigator is destroyed.
+        internal long TransferReturnedBuffers(RouteResult[] results)
+        {
+            if (!returnedLeases.TryGetValue(results, out long bytes)) return 0;
+            returnedLeases.Remove(results); returnedBuffers -= bytes; Budget.Release(bytes); return bytes;
+        }
+        internal void BeginOperation(long maximum)
+        { Budget.SetMemoryCeiling(maximum); CheckCode(bpf_reset_peak(context)); Budget.ResetPeak(); }
         public RouteResult[] EvaluateCandidates(RouteQuery template, int[] candidates)
         { var queries = new List<RouteQuery>(); foreach (int candidate in candidates) { RouteQuery q = template.Copy(); q.Target = candidate; var terminal = new List<TerminalEdge>(); foreach (TerminalEdge edge in template.Terminals) if (edge.To == candidate) terminal.Add(edge); q.Terminals = terminal.ToArray(); queries.Add(q); } return FindPaths(queries); }
         public void Update(GridSnapshot next)
@@ -152,6 +164,6 @@ namespace BetterPathfindingTest.Core
             bpf_destroy(context); context = IntPtr.Zero; Budget.Release(nativeOwned); nativeOwned = 0; map = next; Create();
         }
         public void Dispose()
-        { if (context != IntPtr.Zero) { bpf_destroy(context); context = IntPtr.Zero; } if (nativeOwned != 0) { Budget.Release(nativeOwned); nativeOwned = 0; } if (returnedBuffers != 0) { Budget.Release(returnedBuffers); returnedBuffers = 0; } if (fixedBytes != 0) { Budget.Release(fixedBytes); fixedBytes = 0; } }
+        { if (context != IntPtr.Zero) { bpf_destroy(context); context = IntPtr.Zero; } if (nativeOwned != 0) { Budget.Release(nativeOwned); nativeOwned = 0; } if (returnedBuffers != 0) { Budget.Release(returnedBuffers); returnedBuffers = 0; } returnedLeases.Clear(); if (fixedBytes != 0) { Budget.Release(fixedBytes); fixedBytes = 0; } }
     }
 }

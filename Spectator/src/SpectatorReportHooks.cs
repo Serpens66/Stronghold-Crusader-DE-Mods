@@ -42,7 +42,9 @@ namespace Spectator
 
         private static bool ShouldForceArmy(MainViewModel viewModel)
         {
-            return viewModel.FreezeMainControls && !SpectatorPerspectiveRuntime.IsActiveSpectator();
+            // Test placement can temporarily unlock build tabs, never information rights.
+            return SpectatorFeatureActivation.ForceArmyReport(viewModel.FreezeMainControls,
+                SpectatorPerspectiveRuntime.IsOriginalSpectator(), SpectatorPerspectiveRuntime.IsActiveSpectator());
         }
 
         private static IEnumerable<CodeInstruction> ReportTranspiler(IEnumerable<CodeInstruction> instructions)

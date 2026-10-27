@@ -40,6 +40,7 @@ namespace BugfixesAndQoL
         private LobbySnapshot snapshot;
         private Platform_Multiplayer.MPLobby hostLobby;
         private Action pendingVanillaExit;
+        private Func<bool> pendingExitIsCurrent;
         private bool supportedSession;
         private bool gameOverObserved;
         private bool creationRequested;
@@ -146,7 +147,9 @@ namespace BugfixesAndQoL
             }
         }
 
-        internal bool TryHandleMissionOverExit(Action vanillaExit)
+        internal bool CanHandleMissionOverExit => !disposed && supportedSession && gameOverObserved && !transitionStarted;
+
+        internal bool TryHandleMissionOverExit(Action vanillaExit, Func<bool> isCurrent)
         {
             if (!supportedSession || !gameOverObserved || transitionStarted)
                 return false;
@@ -166,6 +169,7 @@ namespace BugfixesAndQoL
             if (pendingVanillaExit == null)
             {
                 pendingVanillaExit = vanillaExit;
+                pendingExitIsCurrent = isCurrent;
                 exitWaitStartedAt = Stopwatch.GetTimestamp();
                 Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/MultiplayerLobbyReturnFeature.cs:178", "Post-game Exit is waiting for the host's replacement lobby ID.");
             }
@@ -178,6 +182,12 @@ namespace BugfixesAndQoL
                 return;
 
             lastFrame = UnityEngine.Time.frameCount;
+            // A delayed lobby handoff must not replace a newer mission or view either.
+            if (pendingExitIsCurrent == null || !pendingExitIsCurrent())
+            {
+                ClearPendingExit();
+                return;
+            }
             try
             {
                 if (TryTransitionToLobby())
@@ -537,6 +547,7 @@ namespace BugfixesAndQoL
         private void ClearPendingExit()
         {
             pendingVanillaExit = null;
+            pendingExitIsCurrent = null;
         }
 
         private static int ParseBoundedInt(string text, int fallback, int minimum, int maximum)

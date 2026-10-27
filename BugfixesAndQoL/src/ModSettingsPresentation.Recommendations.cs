@@ -60,8 +60,6 @@ namespace BugfixesAndQoL
             options["MultiplayerGameSpeedMaximum"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.MultiplayerGameSpeedMaximum");
             options["EnableShiftGameSpeedSteps"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableShiftGameSpeedSteps");
             options["EnableSurrenderAndStatistics"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableSurrenderAndStatistics");
-            options["EnableEliminatedPlayersBecomeSpectators"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableEliminatedPlayersBecomeSpectators");
-            options["EnableSpectatorPerspective"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableSpectatorPerspective");
             options["EnableRandomOpponentSelectionEnhancements"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableRandomOpponentSelectionEnhancements");
             options["EnableAiStoneReserveFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableAiStoneReserveFix");
             options["EnableAiDefensePatrolFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableAiDefensePatrolFix");

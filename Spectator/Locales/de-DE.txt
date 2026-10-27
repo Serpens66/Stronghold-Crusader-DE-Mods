@@ -89,16 +89,10 @@ Tools.GateFixed=Tor auf manuelle Steuerung gesetzt.
 Tools.PowerCancelled=Kraftaktion abgebrochen.
 
 Tools.ResetAmountHelp=Menge auf 0 zur�cksetzen.
-Tools.Reports=Berichte
-Tools.ReportsHelp=Berichte der gewählten Zuschauerperspektive öffnen.
-Tools.Allies=Verbündete
-Tools.AlliesHelp=Verbündetenansicht des gewählten Spielers öffnen. Multiplayer-Zuschauer können keine Befehle erteilen.
 Tools.Statistics=Statistik
 Tools.StatisticsHelp=Aktuelle Statistik ansehen, ohne die Partie zu beenden.
 Tools.RefreshStatistics=Aktualisieren
 Tools.RefreshStatisticsHelp=Statistik aus der laufenden Simulation aktualisieren.
-Tools.CloseStatistics=Statistik schließen
-Tools.CloseStatisticsHelp=Zur laufenden Partie zurückkehren.
 Tools.PerspectiveSetting=Zuschauerperspektiven
 Tools.PerspectiveSettingHelp=Ursprünglichen Zuschauern die Auswahl von Spielerperspektiven, Berichten und Verbündeten erlauben.
 Tools.StatisticsSetting=Laufende Zuschauerstatistik

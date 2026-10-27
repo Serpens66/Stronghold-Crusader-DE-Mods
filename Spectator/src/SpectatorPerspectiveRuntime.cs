@@ -377,7 +377,7 @@ namespace Spectator
         internal static bool IsSpectatorActionRestricted() => featureReady &&
             (recoveryIdentityApplied || IsActiveSpectator() || IsOriginalSpectator());
 
-        private static bool IsOriginalSpectator()
+        internal static bool IsOriginalSpectator()
         {
             var state = GameData.Instance?.lastGameState;
             return mapReady && state != null && state.game_type == (int)eGameTypeModes.GAMETYPE_MULTIPLAYER && state.spectatorMode != 0 &&
