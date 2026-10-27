@@ -135,7 +135,8 @@ string enumSource = "namespace SHCDESE.Interop { public enum eChimps : ushort {"
 string fixture = Read("BugfixesAndQoL/tests/FormationSpeech.Tests/RuntimeFixture.cs.txt")
     .Replace("__ENGINE__", engineMethods).Replace("__RENDERER__", rendererMethod);
 string[] sources = { fixture, enumSource, Read("BugfixesAndQoL/src/Formations/FormationRuntime.Speech.cs"),
-    Read("BugfixesAndQoL/src/Formations/FormationSpeechModel.cs"), Read("BugfixesAndQoL/src/Formations/FormationNativeRunContext.cs"), Read("BugfixesAndQoL/src/Formations/FormationSpeechNative.cs") };
+    Read("BugfixesAndQoL/src/Formations/FormationSpeechModel.cs"), Read("BugfixesAndQoL/src/Formations/FormationNativeRunContext.cs"), Read("BugfixesAndQoL/src/Formations/FormationSpeechNative.cs"),
+    Read("BugfixesAndQoL/src/Formations/FormationFailurePolicy.cs") };
 var references = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")).Split(Path.PathSeparator)
     .Where(p => Path.GetDirectoryName(p) == Path.GetDirectoryName(typeof(object).Assembly.Location))
     .Select(p => MetadataReference.CreateFromFile(p));

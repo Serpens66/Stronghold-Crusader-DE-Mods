@@ -91,10 +91,17 @@ namespace BugfixesAndQoL.UnitCommands
         private void FailOpen(string contract, Exception exception)
         {
             groundFrameObserver?.SetActive(false);
-            localInputFailed = true;
             ActiveDrag abandoned;
+            bool permanent;
+            int failures;
             lock (stateSync)
             {
+                bool camera = contract == "camera-presentation";
+                FormationFailurePolicy policy = camera ? cameraFailures : inputFailures;
+                permanent = policy.RecordFailure(contract, exception,
+                    camera ? cameraAttempt : inputAttempt, critical: failed);
+                failures = policy.ConsecutiveFailures;
+                localInputFailed |= permanent;
                 speechQueue.Clear();
                 abandoned = drag;
                 drag = null;
@@ -108,7 +115,8 @@ namespace BugfixesAndQoL.UnitCommands
             try { Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(menuViewModel.RefreshHostState); } catch { }
             try
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/Formations/FormationRuntime.Activation.cs:88", $"FORMATION_DISABLED: contract={contract}; Vanilla remains active; {exception}");
+                LogErrorNoThrow($"FORMATION_{(permanent ? "DISABLED" : "GESTURE_ABORTED")}: " +
+                    $"contract={contract}; failures={failures}; Vanilla remains active; {exception}");
             }
             catch { }
         }

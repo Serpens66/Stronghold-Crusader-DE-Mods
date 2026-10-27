@@ -6,6 +6,39 @@ namespace BugfixesAndQoL.Formations.Tests;
 public class MoveTargetOverflowTests
 {
     [TestMethod]
+    public void FailureStreakCountsIndependentAttemptsAndRecoversAfterSuccess()
+    {
+        var policy = new FormationFailurePolicy();
+        var error = new InvalidOperationException("temporary preview failure");
+        Assert.IsFalse(policy.RecordFailure("preview", error, 1));
+        Assert.IsFalse(policy.RecordFailure("preview", error, 1));
+        policy.RecordSuccess(1);
+        Assert.AreEqual(1, policy.ConsecutiveFailures);
+        policy.RecordSuccess(2);
+        Assert.AreEqual(0, policy.ConsecutiveFailures);
+        Assert.IsFalse(policy.RecordFailure("preview", error, 3));
+        Assert.IsFalse(policy.RecordFailure("preview", error, 4));
+        Assert.IsTrue(policy.RecordFailure("preview", error, 5));
+        Assert.IsTrue(new FormationFailurePolicy().RecordFailure("native",
+            new FormationNativeContractException("invalid hook contract"), 1));
+        Assert.IsFalse(policy.RecordFailure("other-stage", error, 6));
+    }
+
+    [TestMethod]
+    public void AddReportsTheActualRejectionAndAFullBufferStillAcceptsDuplicates()
+    {
+        var buffer = new LargeMoveTargetOverflowBuffer();
+        Assert.AreEqual(MoveMarkerAddResult.InvalidTile, buffer.Add(107, 82, 12, 6, -1, 2));
+        Assert.AreEqual(MoveMarkerAddResult.Added, buffer.Add(107, 82, 12, 6, 0, 2));
+        for (int tile = 1; tile < LargeMoveTargetOverflowModel.MaximumOverflowMarkers; tile++)
+            buffer.Add(107, 82, 12, 6, tile, 2);
+        Assert.AreEqual(MoveMarkerAddResult.CapacityReached, buffer.Add(107, 82, 12, 6, 5000, 2));
+        Assert.AreEqual(MoveMarkerAddResult.Duplicate, buffer.Add(107, 82, 12, 6, 0, 2));
+        buffer.Clear();
+        Assert.AreEqual(MoveMarkerAddResult.Added, buffer.Add(107, 82, 12, 6, 5000, 2));
+    }
+
+    [TestMethod]
     public void NativeDrawBoundaryLeavesTheReservedRecordUntouched()
     {
         Assert.IsFalse(LargeMoveTargetOverflowModel.IsRejectedByFullVanillaList(249));

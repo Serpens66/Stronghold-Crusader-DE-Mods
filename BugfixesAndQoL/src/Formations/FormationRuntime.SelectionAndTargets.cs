@@ -42,7 +42,7 @@ namespace BugfixesAndQoL.UnitCommands
                 return false;
             }
             if (!APIShared.LocalSelectionAPI.TryCapture(playerId, out APIShared.LocalSelectionSnapshot selected) ||
-                selected.Count < 2 || selected.Count > FormationPreviewMarkerModel.MaximumMarkers)
+                selected.Count < 2 || selected.Count > MaximumUnitCount)
             {
                 identities = Array.Empty<SelectionIdentity>();
                 tribeId = 0;

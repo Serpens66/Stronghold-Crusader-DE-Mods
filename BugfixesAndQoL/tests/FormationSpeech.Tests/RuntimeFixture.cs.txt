@@ -72,6 +72,8 @@ namespace BugfixesAndQoL.UnitCommands {
   internal class Hook { public Action<IntPtr> Original; }
   internal Hook resetDrawListHook=new();internal object log;
   internal int resets,failures;
+  private readonly object stateRoot=new();private readonly FormationFailurePolicy renderFailures=new();
+  private bool frameFailed,failed,frameHadDrawAttempt;private long renderAttempt;
   internal Renderer() { resetDrawListHook.Original=_=>resets++; }
   private void OnVanillaDrawListReset() {}
   private void FailOpen(Exception e) { failures++; }
@@ -87,6 +89,7 @@ namespace BugfixesAndQoL.UnitCommands {
  }
  internal sealed unsafe partial class FormationRuntime {
   private readonly object stateSync=new();private object log;
+  private readonly FormationFailurePolicy inputFailures=new();private long inputAttempt;
   private bool initialized=true,startupConfirmed=true,localFailed,enabled=true,mapValid=true,accept=true,buffer=true;
   private bool LocalInputEnabled=>enabled&&!localFailed;
   private bool Enabled=>enabled;

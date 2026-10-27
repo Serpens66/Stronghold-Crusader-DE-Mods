@@ -88,6 +88,7 @@ Vanilla audits that also contain mod-specific parts; see the `[mod integration]`
 - [Foreign troop HUD player colors](./sem/FBCB9319/knowledge/FOREIGN_TROOP_PLAYER_COLORS.md): current owner mapping, loaded-player remapping, material tint versus UI portrait order, and pending in-game acceptance.
 - [Foreign troop HUD skins](./sem/FBCB9319/knowledge/FOREIGN_TROOP_SKINS.md): current unit material, Monk/Temple Guard render flow, colored portrait variants and isolated view regression coverage; in-game visual acceptance remains separate.
 - [Formation fallback and native movement permission](./sem/FBCB9319/knowledge/FORMATION_MOVEMENT_PERMISSION.md)
+- [Selected movement marker records](./sem/FBCB9319/knowledge/LINEUP_MARKERS.md): native sprite/category order, bounded marker identities, frame reset and isolated LineUp recovery.
 - [Gatehouse capture and true unit life](./sem/FBCB9319/knowledge/GATEHOUSE_LIVING_CAPTURE.md): complete capture/death/removal flow, low-word death marker, combat predicate and permanent capture-filter boundary.
 - [Gatehouse damage and drawbridge destruction](./sem/FBCB9319/knowledge/DRAWBRIDGE_DESTRUCTION.md): native bridge damage immunity, premature direct-hit removal, lethal/demolition paths and pending standalone fix acceptance.
 - [Gatehouse policy: native baseline and evidence limits (2026-10-13)](./sem/FBCB9319/knowledge/ENEMY_GATE_VANILLA_EVIDENCE.md)
@@ -99,6 +100,7 @@ Vanilla audits that also contain mod-specific parts; see the `[mod integration]`
 - [Lobby save loading and Skirmish load-button visibility](./sem/FBCB9319/knowledge/LOBBY_SAVE_LOADING.md): solo-host eligibility, absent-human removal, persistent frontend path and consumer acceptance limits.
 - [Long simulation ticks from AI group movement (FBCB9319)](./sem/FBCB9319/knowledge/SIM_TICK_SPIKE_PATHING.md)
 - [Lord defeat loot audit](./sem/FBCB9319/knowledge/DEFEAT_LOOT.md): winner attribution, direct gold and incoming-goods awards, and the native skip branch.
+- [Lord AIC slots and optional media lookup](./sem/FBCB9319/knowledge/LORD_MEDIA_LOOKUP.md): Vanilla AIC-slot remapping, normal media fallback and independently reachable SE registration failures.
 - [Minimap last-frame HD speech wait](./sem/FBCB9319/knowledge/NOTIFICATION_LAST_FRAME.md): native presentation ordering, archived HD last-frame/20-second bound, managed completion safeguards and isolated regression limits.
 - [Moat terrain restoration](./sem/FBCB9319/knowledge/MOAT_TERRAIN_RESTORATION.md): confirmed soil-zero writer, direct placement ordering, bridge conversion/removal, explicit replacement boundaries and private native fixture evidence; in-game acceptance pending.
 - [Modsettings activation: peace time and No Dogs](./sem/FBCB9319/knowledge/MODSETTINGS_ACTIVATION.md)

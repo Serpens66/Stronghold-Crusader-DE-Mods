@@ -21,6 +21,18 @@
   },
   "documents": [
     {
+      "file": "LINEUP_MARKERS.md",
+      "scope": "vanilla+integration",
+      "components": ["BugfixesAndQoL"],
+      "integrationSections": ["Renderer recovery"]
+    },
+    {
+      "file": "LORD_MEDIA_LOOKUP.md",
+      "scope": "vanilla+integration",
+      "components": ["APIShared", "Script Extender"],
+      "integrationSections": ["Script Extender and APIShared"]
+    },
+    {
       "file": "AIV_BUILD_RANGE.md",
       "scope": "vanilla+integration",
       "components": [

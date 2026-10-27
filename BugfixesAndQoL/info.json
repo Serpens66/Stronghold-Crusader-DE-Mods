@@ -3,7 +3,7 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.203",
+  "Version": "1.0.204",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.0",
   "MaximumScriptExtenderVersion": "",
@@ -16,6 +16,14 @@
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.204",
+      "Changes": [
+        "Keep LineUp available after invalid movement marker tiles or an exhausted additional-marker budget; correct native marker duplicate recognition and recover from isolated presentation or gesture failures. Stop the affected path only for critical contracts or three consecutive independent failures with the same cause.",
+        "Separate the 10000-unit formation command limit from the safe 4000 additional-marker limit, and retain bounded shared placement for large selections. Formation protocol is now 11; all multiplayer participants must use this mod version.",
+        "Apply manual movement and preview reachability filtering to all eight editor players regardless of saved AI flags; preserve excluded units' existing orders and regular game AI behavior."
+      ]
+    },
     {
       "Version": "1.0.203",
       "Changes": [

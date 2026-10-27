@@ -96,7 +96,8 @@ namespace BugfixesAndQoL.UnitCommands
                 movementTargetAvailability[args.TileY * MapWidth + args.TileX] == 0 ||
                 !GameTribeManagerAPI.Instance.TryGetTribeById(args.TribeId, out GameTribe* tribe) || tribe == null ||
                 !GamePlayerManagerAPI.Instance.IsPlayerIdValid(tribe->r_PlayerIdOwner) ||
-                GamePlayerManagerAPI.Instance.IsAIPlayer(tribe->r_PlayerIdOwner)) return parent;
+                (!APIShared.GameModes.GameModeHelper.IsMapEditor() &&
+                 GamePlayerManagerAPI.Instance.IsAIPlayer(tribe->r_PlayerIdOwner))) return parent;
             if (!APIShared.UnitAccess.TryGetById(tribe->r_LeaderUnitId, out GameUnit* leader, out _) ||
                 leader == null || !APIShared.UnitAccess.IsReallyAlive(leader) || leader->r_TribeId != args.TribeId ||
                 leader->r_ControllableForPlayerId != tribe->r_PlayerIdOwner) return parent;
@@ -168,7 +169,8 @@ namespace BugfixesAndQoL.UnitCommands
                 movementTargetAvailability[y * MapWidth + x] == 0 ||
                 !GameTribeManagerAPI.Instance.TryGetTribeById(tribeId, out GameTribe* tribe) || tribe == null ||
                 !GamePlayerManagerAPI.Instance.IsPlayerIdValid(tribe->r_PlayerIdOwner) ||
-                GamePlayerManagerAPI.Instance.IsAIPlayer(tribe->r_PlayerIdOwner)) return units;
+                (!APIShared.GameModes.GameModeHelper.IsMapEditor() &&
+                 GamePlayerManagerAPI.Instance.IsAIPlayer(tribe->r_PlayerIdOwner))) return units;
             int tile = GameTileManagerAPI.Instance.GetTileId(x, y);
             if (!IsValidTileId(tile) || IsCompletedMoatTile(tile) ||
                 (tileFlags[tile] & (CursorSpecialStructureTileFlagMask | 0x30u)) != 0 ||

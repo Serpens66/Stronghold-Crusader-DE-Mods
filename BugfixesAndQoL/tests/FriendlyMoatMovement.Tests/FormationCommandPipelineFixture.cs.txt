@@ -85,10 +85,11 @@ namespace BugfixesAndQoL.UnitCommands {
   }
   public static void Run() {
    var f=new PipelineFixture();f.movementTargetAvailability=(byte*)Marshal.AllocHGlobal(800*800);
-   new Span<byte>(f.movementTargetAvailability,800*800).Fill(1);APIShared.UnitAccess.Units=(GameUnit*)Marshal.AllocHGlobal(sizeof(GameUnit)*1300);
+   new Span<byte>(f.movementTargetAvailability,800*800).Fill(1);APIShared.UnitAccess.Units=(GameUnit*)Marshal.AllocHGlobal(sizeof(GameUnit)*10000);
    try {
-    foreach(int count in new[]{100,200,550,1000,1300}) foreach(FormationKind kind in Enum.GetValues<FormationKind>())
+    foreach(int count in new[]{100,200,550,1000,1300,4001,10000}) foreach(FormationKind kind in Enum.GetValues<FormationKind>())
     foreach(int density in new[]{1,2,3,4}) foreach(int requested in new[]{0,7}) {
+     if(count>1300&&(kind!=FormationKind.Line||density!=1||requested!=7))continue;
      bool fixedShape=kind==FormationKind.Circle||kind==FormationKind.Vanilla;int intent=fixedShape?0:requested;
      f.ordered=Enumerable.Range(1,count).Select(id=>new FormationUnit(id,(uint)id,22,(FormationRole)(id%4))).ToArray();
      APIShared.UnitAccess.Count=count;

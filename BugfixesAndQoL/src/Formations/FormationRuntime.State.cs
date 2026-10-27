@@ -27,7 +27,7 @@ namespace BugfixesAndQoL.UnitCommands
 {
     internal sealed unsafe partial class FormationRuntime : IFormationCommandHandler
     {
-        private const int ProtocolVersion = 10;
+        private const int ProtocolVersion = 11;
         private const int MapWidth = 800;
         private const int MaximumUnitCount = 10000;
         private const int MaximumTribeCount = 4500;
@@ -113,6 +113,9 @@ namespace BugfixesAndQoL.UnitCommands
         private bool nativeFeedbackRunActive => FormationNativeRunContext.IsActive(this);
         private bool startupConfirmed;
         private long previewPublicationVersion;
+        private readonly FormationFailurePolicy inputFailures = new FormationFailurePolicy();
+        private readonly FormationFailurePolicy cameraFailures = new FormationFailurePolicy();
+        private long inputAttempt, cameraAttempt;
         // Gates synchronized command execution on every peer; only shared settings and
         // simulation-side contract failures may change it.
         internal bool Enabled => initialized && !failed && settings.EnableMod && settings.EnableMoveFormationEnhancements;

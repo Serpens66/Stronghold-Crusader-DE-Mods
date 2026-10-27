@@ -79,7 +79,7 @@ var slotMembers=destinationSyntax.GetRoot().DescendantNodes().OfType<ClassDeclar
     FieldDeclarationSyntax field=>field.Declaration.Variables.Any(v=>slotNames.Contains(v.Identifier.Text)),_=>false});
 var modelSyntax=CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"BugfixesAndQoL/src/Formations/FormationModel.cs")));
 var slotModel=modelSyntax.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Where(m=>new[]{"NormalizeDensity","IsNativeVanillaSlotCandidate"}.Contains(m.Identifier.Text));
-trees.Add(CSharpSyntaxTree.ParseText("using System;using System.Collections.Generic;using BugfixesAndQoL.UnitCommands;namespace BugfixesAndQoL.UnitCommands {internal enum FormationRole { Neutral }} namespace CommandFixture {internal static class FormationModel {"+string.Join("\n",slotModel.Select(m=>m.ToFullString()))+"} internal unsafe sealed partial class FormationRuntime {private const int MapWidth=800,MaximumVanillaSelectorCandidates=4001;"+string.Join("\n",slotMembers.Select(m=>m.ToFullString()))+"}}",options));
+trees.Add(CSharpSyntaxTree.ParseText("using System;using System.Collections.Generic;using BugfixesAndQoL.UnitCommands;namespace BugfixesAndQoL.UnitCommands {internal enum FormationRole { Neutral }} namespace CommandFixture {internal static class FormationModel {"+string.Join("\n",slotModel.Select(m=>m.ToFullString()))+"} internal unsafe sealed partial class FormationRuntime {private const int MapWidth=800,MaximumVanillaSelectorCandidates=4001,MaximumUnitCount=10000;"+string.Join("\n",slotMembers.Select(m=>m.ToFullString()))+"}}",options));
 trees.Add(CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"BugfixesAndQoL/src/UnitCommands/Cursor/CursorRegionRejectPool.cs")), options));
 trees.Add(CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"BugfixesAndQoL/src/UnitCommands/Cursor/CursorGroundRejectProof.cs")), options));
 trees.Add(CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"BugfixesAndQoL/tests/FriendlyMoatMovement.Tests/ManualRejectHarness.cs")), options));
@@ -110,6 +110,7 @@ RallyTerrainGeneratorTests.Validate(root);
 CadenceSnapshotTests.Validate(root);
 FormationStartupTests.Validate(root);
 FormationMoveRuntimeTests.Validate(root);
+MoveMarkerRendererTests.Validate(root);
 FormationMarkerFallbackTests.Validate(root);
 CircleProjectionTests.Validate(root);
 FormationMovementEligibilityTests.Validate(root);

@@ -37,6 +37,8 @@ namespace BugfixesAndQoL.UnitCommands
                 RequireMainThread("input-down");
                 if (args.Phase != EventHookPhase.Post)
                     return;
+                if (args.Key == ToKeyCode(GetCommandMouseButton()))
+                    lock (stateSync) inputAttempt++;
                 ActiveDrag state;
                 lock (stateSync)
                     state = drag;
@@ -58,7 +60,9 @@ namespace BugfixesAndQoL.UnitCommands
 
                 int commandButton = GetCommandMouseButton();
                 if (args.Key == ToKeyCode(commandButton))
+                {
                     TryStartDrag(commandButton);
+                }
             }
             catch (Exception exception)
             {

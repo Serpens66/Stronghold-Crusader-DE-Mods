@@ -77,6 +77,7 @@ namespace BugfixesAndQoL.UnitCommands
                     ConsumeGestureRelease(state, director, 0);
                     QueueSpeech(null);
                     ClearPreview();
+                    lock (stateSync) inputFailures.RecordSuccess(inputAttempt);
                     return RunOriginalOnce(mpFrameSkip, ref originalEntered);
                 }
                 if (disposition != FormationReleaseDisposition.Accepted)
@@ -206,6 +207,7 @@ namespace BugfixesAndQoL.UnitCommands
             ConsumeGestureRelease(state, director, packet.OperationId);
             ClearPreview();
             QueueSpeech(speechRequest);
+            lock (stateSync) inputFailures.RecordSuccess(inputAttempt);
 
             try
             {
@@ -256,10 +258,13 @@ namespace BugfixesAndQoL.UnitCommands
             if (LocalInputEnabled && state != null && state.Authorization.IsConfirmed)
                 self.AllowZoom = false;
             cameraUpdateOriginal(self);
+            if (!LocalInputEnabled) return;
+            lock (stateSync) cameraAttempt++;
             try
             {
                 menuViewModel.RefreshHostState();
                 menuViewModel.RefreshPreview();
+                lock (stateSync) cameraFailures.RecordSuccess(cameraAttempt);
             }
             catch (Exception ex) { FailOpen("camera-presentation", ex); }
         }

@@ -252,7 +252,7 @@ namespace BugfixesAndQoL.UnitCommands
             else if (packet.DirectionSector > 7)
                 rejection = "invalid direction";
             else if (packet.UnitCount < 1 ||
-                     packet.UnitCount > FormationPreviewMarkerModel.MaximumMarkers)
+                     packet.UnitCount > MaximumUnitCount)
                 rejection = "invalid unit count";
             else if (packet.RequestedRows > packet.UnitCount ||
                      (((FormationKind)packet.Formation == FormationKind.Circle ||
