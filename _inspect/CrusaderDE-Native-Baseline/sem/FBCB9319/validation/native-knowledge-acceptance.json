@@ -1,0 +1,46 @@
+{
+  "observedUtc": "2026-10-25T20:00:24.716882+00:00",
+  "status": "accepted-with-historical-derived-cache-byte-difference",
+  "nativeHash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+  "fields": 88,
+  "ownedGhidraTypes": 141,
+  "originalExportedTypesPreserved": 305,
+  "sourceFilesUnchanged": 7,
+  "snapshots": {
+    "raw": {
+      "files": 34,
+      "differences": []
+    },
+    "analysis": {
+      "files": 232,
+      "differences": [
+        "sem/FBCB9319/analysis/g1E2FBFF53E33/index-50932c3d7459.sqlite"
+      ]
+    }
+  },
+  "idempotentImport": true,
+  "freshReadOnlyVerification": true,
+  "wrongImageRefused": true,
+  "manualAnnotationChangeRefused": true,
+  "activeDatabase": "sem/FBCB9319/CrusaderDE-knowledge.sqlite",
+  "activeDatabasePhysicalMatch": true,
+  "historicalDerivedCache": {
+    "path": "sem/FBCB9319/analysis/g1E2FBFF53E33/index-50932c3d7459.sqlite",
+    "originalSha256": "92686962E214B0654EC2EA4312351AD82169D653B106D52528C4739BFAFA0AD8",
+    "reconstructedSha256": "5E5A43047DB43BC315E91A4A9DA926AA9E4C8CE2DB4D6BB2BE12EFE1BF9D5DFA",
+    "logicalReconstruction": true,
+    "originalByteIdentityRestored": false,
+    "baseSha256": "984501035B341F1A8668CE8F481993F16F9901513F63F4D0C3090AA28E644775",
+    "meaning": "An early index refresh mistakenly replaced this ignored derived cache. Reconstructed from the byte-identical retained base and unchanged published machine facts; original physical byte hash was not recovered. All other 231 analysis files and all 34 raw files are byte-identical to the initial snapshot."
+  },
+  "tests": {
+    "transferRegressionCases": 4,
+    "existingCuratedCases": 5,
+    "existingChoreCases": 5
+  },
+  "limitations": [
+    "Metadata transfer, no new native semantic audit or game acceptance.",
+    "No automatic function, pointer or memory retyping.",
+    "Historical SQLite cache is logically reconstructed, not byte-identical."
+  ]
+}

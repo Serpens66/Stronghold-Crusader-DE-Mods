@@ -37,7 +37,7 @@ namespace BugfixesAndQoL.UnitCommands
                 unitFallbackAttempt = null;
                 failed = true;
             }
-            try { menuViewModel.CloseMenu(); } catch { }
+            try { Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(menuViewModel.CloseMenu); } catch { }
             try { Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(menuViewModel.RefreshHostState); } catch { }
             try
             {

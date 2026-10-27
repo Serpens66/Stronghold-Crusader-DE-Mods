@@ -1,4 +1,4 @@
-# HUD presentation scheduling audit
+# HUD presentation scheduling audit [Scope: Vanilla + mod integration]
 
 ## Provenance
 
@@ -28,13 +28,13 @@ Managed path: `EngineInterface.run` -> `DLL_RunTick` -> `CopyPlayStateStruct` ->
 - `UpdateUITroopSprites` writes the image slots owned by registered image overrides. With valid context, deactivate by applying the original sprite update followed by remaining active overrides. After map unload, without a usable player context, conditionally restore captured originals only where the exact mod image is still present.
 - `HUD_Troops` and `HUD_Buildings` initialize named controls in their constructors and publish themselves to MainViewModel. Cache controls by panel identity and only publish complete successful resolutions. `viewModelLoaded` precedes `HUDmain` readiness.
 
-## Limits and safe optimization boundary
+## Limits and safe optimization boundary [mod integration]
 
 No complete change event for arbitrary mod-provided category matchers or image/text resolvers was established. Visible active categories must continue to be evaluated at their existing render cadence. Explicit owner/registration activation is a separate managed contract, not inferred from whether a matcher currently returns false. Recruitment ticket expiry is maintenance work and must continue while the panel is hidden or its owner is inactive. Rendering, native IDs, public immutable snapshots and command handling remain independent.
 
 The allocation comparison in `_inspect/Verify-HudResources.ps1` uses the previous/current production tint methods with managed Noesis stand-ins; it does not measure Unity frame time. Actual Noesis presentation across pause, panel recreation and map transitions still requires an in-game verification.
 
-## Shared managed publishers audited 2026-10-10
+## Shared managed publishers audited 2026-10-10 [mod integration]
 
 Real Assembly-CSharp hash BC8B6A395F01D48557DB413600C8DD8D1FDFD3ABDF97BFBBB68A3C56B04FD789:
 APIShared 0.6 owns GUI checks, HUD_Main.UpdateRollover and MainViewModel recruitment/

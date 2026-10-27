@@ -39,6 +39,7 @@ namespace BugfixesAndQoL
         public SettingsOptionPresentation ShowLoadSaveDialogControls => options["ShowLoadSaveDialogControls"];
         public SettingsOptionPresentation EnableSoloMultiplayerSaveLoading => options["EnableSoloMultiplayerSaveLoading"];
         public SettingsOptionPresentation FixSkirmishLoadButtonVisibility => options["FixSkirmishLoadButtonVisibility"];
+        public SettingsOptionPresentation EnableCompactLobbyChat => options["EnableCompactLobbyChat"];
         public SettingsOptionPresentation ImproveYellowLobbyContrast => options["ImproveYellowLobbyContrast"];
         public SettingsOptionPresentation EnableBriefingNoStartingGoldFix => options["EnableBriefingNoStartingGoldFix"];
         public SettingsOptionPresentation EnableIngameSteamInvitePrompt => options["EnableIngameSteamInvitePrompt"];
@@ -104,8 +105,10 @@ namespace BugfixesAndQoL
         public SettingsOptionPresentation EnableQuarryPileRelocation => options["EnableQuarryPileRelocation"];
         public SettingsOptionPresentation EnableCtrlSingleMarketTrade => options["EnableCtrlSingleMarketTrade"];
         public SettingsOptionPresentation EnableBakerMillerBreaks => options["EnableBakerMillerBreaks"];
+        public SettingsOptionPresentation EnableTreeBlightDecayFix => options["EnableTreeBlightDecayFix"];
         public SettingsOptionPresentation EnableWorkshopIdleDelayFix => options["EnableWorkshopIdleDelayFix"];
         public SettingsOptionPresentation EnableGatehouseLivingCaptureFix => options["EnableGatehouseLivingCaptureFix"];
+        public SettingsOptionPresentation EnableMoatTerrainRestoration => options["EnableMoatTerrainRestoration"];
         public SettingsOptionPresentation EnableDrawbridgeDestructionFix => options["EnableDrawbridgeDestructionFix"];
         public SettingsOptionPresentation EnableAssassinGatehouseClimbFix => options["EnableAssassinGatehouseClimbFix"];
         public SettingsOptionPresentation EnableTunnelPlacementDistanceFix => options["EnableTunnelPlacementDistanceFix"];
@@ -152,6 +155,7 @@ namespace BugfixesAndQoL
             AddOption("ShowLoadSaveDialogControls", "bugfixes.show-vanilla-maps-in-editor", SettingsCategory.Qol, ClientMenus);
             AddOption("EnableSoloMultiplayerSaveLoading", "bugfixes.solo-multiplayer-save-loading", SettingsCategory.Qol, ClientMenus);
             AddOption("FixSkirmishLoadButtonVisibility", "bugfixes.skirmish-load-button-visibility", SettingsCategory.Qol, ClientMenus);
+            AddOption("EnableCompactLobbyChat", "bugfixes.compact-lobby-chat", SettingsCategory.Qol, ClientMenus);
             AddOption("ImproveYellowLobbyContrast", "bugfixes.improve-yellow-lobby-contrast", SettingsCategory.Qol, ClientMenus);
             AddOption("EnableBriefingNoStartingGoldFix", "bugfixes.briefing-no-starting-gold", SettingsCategory.Qol, ClientMenus);
             AddOption("EnableIngameSteamInvitePrompt", "bugfixes.enable-ingame-steam-invite-prompt", SettingsCategory.Qol, ClientMenus);
@@ -211,6 +215,7 @@ namespace BugfixesAndQoL
             AddOption("EnableRallyTerrainSlowdownFix", "bugfixes.rally-terrain", SettingsCategory.Qol, HostTroops);
             AddOption("EnableLordUnitControls", "bugfixes.enable-lord-unit-controls", SettingsCategory.Qol, HostTroops);
             HostEconomy = AddTopic("HostEconomy", "bugfixes.topic.host-economy", true);
+            AddOption("EnableTreeBlightDecayFix", "bugfixes.enable-tree-blight-decay-fix", SettingsCategory.Fixes, HostEconomy);
             AddOption("EnableKeepFlagRotationFix", "bugfixes.enable-keep-flag-rotation-fix", SettingsCategory.Fixes, HostEconomy);
             AddOption("EnableTanneryAnimationFix", "bugfixes.enable-tannery-animation-fix", SettingsCategory.Fixes, HostEconomy);
             AddOption("EnablePlaguePopularityFix", "bugfixes.enable-plague-popularity-fix", SettingsCategory.Fixes, HostEconomy);
@@ -227,6 +232,7 @@ namespace BugfixesAndQoL
             HostSiege = AddTopic("HostSiege", "bugfixes.topic.host-siege", true);
             AddOption("EnableGatehouseLivingCaptureFix", "bugfixes.enable-gatehouse-living-capture-fix", SettingsCategory.Fixes, HostSiege);
             AddOption("EnableDrawbridgeDestructionFix", "bugfixes.enable-drawbridge-destruction-fix", SettingsCategory.Fixes, HostSiege);
+            AddOption("EnableMoatTerrainRestoration", "bugfixes.moat-terrain-restoration", SettingsCategory.Fixes, HostSiege);
             AddOption("EnableAssassinGatehouseClimbFix", "bugfixes.enable-assassin-gatehouse-climb-fix", SettingsCategory.Fixes, HostSiege);
             AddOption("EnableTunnelPlacementDistanceFix", "bugfixes.enable-tunnel-placement-distance-fix", SettingsCategory.Fixes, HostSiege);
             AddOption("EnableCenteredGatehouseDistanceFix", "bugfixes.centered-gatehouse-distance", SettingsCategory.Qol, HostSiege);

@@ -64,7 +64,7 @@ internal static partial class Program
                 string name=new AssemblyName(e.Name).Name+".dll";
                 // The explicit BepInEx reference can retain Windows download-zone metadata.
                 // Keep game/Noesis load-context identity; do not change installed files.
-                foreach(string dir in dirs){if(string.IsNullOrWhiteSpace(dir))continue;string path=Path.Combine(dir,name);if(File.Exists(path))return name=="BepInEx.dll"?Assembly.Load(File.ReadAllBytes(path)):Assembly.LoadFrom(path);}return null;
+                foreach(string dir in dirs){if(string.IsNullOrWhiteSpace(dir))continue;string path=Path.Combine(dir,name);if(File.Exists(path))return (name=="BepInEx.dll" || name.StartsWith("Mono.",StringComparison.Ordinal) || name.StartsWith("MonoMod.",StringComparison.Ordinal))?Assembly.Load(File.ReadAllBytes(path)):Assembly.LoadFrom(path);}return null;
             };
             mod=Assembly.LoadFrom(dll);modelType=mod.GetType("BugfixesAndQoL.BugfixesAndQoLViewModel",true);
             string manifest=File.ReadAllText(Path.Combine(workspace,"BugfixesAndQoL/info.json"));
@@ -82,6 +82,7 @@ internal static partial class Program
             var metadata=Assembly.ReflectionOnlyLoad(File.ReadAllBytes(dll));
             Check((string)metadata.GetType("BugfixesAndQoL.BugfixesAndQoLPlugin").GetField("PluginVersion",All).GetRawConstantValue()==version,"plugin version matches package manifest");
             foreach(var test in new[]{
+                new[]{"CompactLobbyChatFeature","IsActive","EnableCompactLobbyChat"},
                 new[]{"LobbyYellowContrastFeature","IsActive","ImproveYellowLobbyContrast"},
                 new[]{"DamagedHealthBarsRuntime","FeatureEnabled","EnableDamagedHealthBars"},
                 new[]{"NotificationSkipFeature","Enabled","EnableCompleteNotificationSkipOnClick"},
@@ -121,6 +122,25 @@ internal static partial class Program
                 if(h&&selection)
                     Check((int)dialog.GetType().GetMethod("GetActiveAivLimit",All).Invoke(dialog,new object[]{null})==50,"personal display off preserves the allowed host candidate capacity");
             }
+            Type treeRuntime = mod.GetType("BugfixesAndQoL.TreeBlightDecay.FixRuntime", true);
+            treeRuntime.GetMethod("ValidateLayout", All).Invoke(null, null);
+            var treeGate = treeRuntime.GetMethod("IsEnabled", All);
+            foreach(bool host in new[]{false,true}) foreach(bool option in new[]{false,true})
+                Check((bool)treeGate.Invoke(null,new object[]{host,option}) == (host && option), "tree decay uses host activation and synchronized option");
+            IntPtr treeState = System.Runtime.InteropServices.Marshal.AllocHGlobal(32);
+            try
+            {
+                object tree = FormatterServices.GetUninitializedObject(treeRuntime);
+                treeRuntime.GetField("state", All).SetValue(tree, treeState);
+                foreach(bool ready in new[]{false,true}) foreach(bool host in new[]{false,true}) foreach(bool option in new[]{false,true})
+                {
+                    treeRuntime.GetField("ready", All).SetValue(tree, ready);
+                    treeRuntime.GetMethod("SetEnabled", All).Invoke(tree, new object[]{host,option});
+                    Check(System.Runtime.InteropServices.Marshal.ReadInt32(treeState) == (ready && host && option ? 1 : 0),
+                        "tree decay native flag cannot activate after failed validation");
+                }
+            }
+            finally { System.Runtime.InteropServices.Marshal.FreeHGlobal(treeState); }
             Policies();
             object protectedMap=Feature("VanillaMapEditorHook",Model(false,false,"ShowLoadSaveDialogControls",false));
             Check(!Bool(protectedMap,"OriginalMapProtectionEnabled"),"unused map protection has no hidden feature activation");
@@ -128,6 +148,7 @@ internal static partial class Program
             Check(Bool(protectedMap,"OriginalMapProtectionEnabled") && !Bool(protectedMap,"FeatureEnabled"),"already exposed original stays protected while optional dialogs are off");
             Metadata(workspace);
             SettingsPresentationTests(workspace);
+            CompactLobbyChatTests(workspace, game);
             CallerGates();
             Traversal();
             Console.WriteLine("PASS: built production DLL settings matrices, independent AI-list capacity, callers, classifications/defaults/XAML: "+checks+" checks.");return 0;
@@ -172,7 +193,7 @@ internal static partial class Program
     }
     private static void Metadata(string workspace)
     {
-        var scopes=new Dictionary<string,bool>{{"EnableLordAndMapListEnhancements",false},{"EnableMissingMapSaveRecovery",false},{"EnableRandomOpponentSelectionEnhancements",true},{"EnableMultiplayerStartupStateFix",true},{"EnablePeaceTimeGameplayFixes",true}};
+        var scopes=new Dictionary<string,bool>{{"EnableCompactLobbyChat",false},{"EnableLordAndMapListEnhancements",false},{"EnableMissingMapSaveRecovery",false},{"EnableRandomOpponentSelectionEnhancements",true},{"EnableMultiplayerStartupStateFix",true},{"EnablePeaceTimeGameplayFixes",true},{"EnableTreeBlightDecayFix",true}};
         MethodBase ctor=modelType.GetConstructors(All).Single();
         List<Tuple<OpCode,object>> body=Instructions(ctor);
         var xaml=new XmlDocument();xaml.Load(Path.Combine(workspace,"BugfixesAndQoL/Override/ScriptExtenderUI/BugfixesAndQoLSettings.xaml"));

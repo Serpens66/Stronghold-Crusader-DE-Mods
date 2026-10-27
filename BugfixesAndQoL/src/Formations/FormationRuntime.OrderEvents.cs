@@ -42,21 +42,30 @@ namespace BugfixesAndQoL.UnitCommands
                 if (pending == null || !pending.Matches(args))
                     return;
 
+                pending.NativeDispatchObserved = true;
+                if (args.SkipOriginalFunction) return;
+
                 try
                 {
                     FormationOrderPacket packet = pending.Packet;
                     FormationKind kind = FormationModel.NormalizeKind(packet.Formation);
                     int density = FormationModel.NormalizeDensity(packet.Density);
                     FormationUnit[] units = CaptureOrderedGroupUnits(packet.TribeId);
-                    if (units.Length == 0)
-                        throw new InvalidOperationException(
-                            "The commanded tribe has no active units at dispatch.");
-                    if (units.Length != packet.UnitCount)
+                    if (units.Length != packet.UnitCount || ComputeSelectionHash(units) != packet.SelectionHash)
                     {
-                        throw new InvalidOperationException(
-                            $"Formation unit count changed: packet={packet.UnitCount}, " +
-                            $"current={units.Length}.");
+                        commandRuntime.RejectPreparedMove(args);
+                        lock (stateSync) if (ReferenceEquals(pendingCommand, pending)) pendingCommand = null;
+                        return;
                     }
+                    FormationUnit[] selected = units;
+                    units = UnitCommandPathAPI.Runtime?.AdmitFormationMembers(units, packet.TribeId, packet.TargetX, packet.TargetY) ?? units;
+                    if (units.Length == 0)
+                    {
+                        commandRuntime.RejectPreparedMove(args);
+                        lock (stateSync) if (ReferenceEquals(pendingCommand, pending)) pendingCommand = null;
+                        return;
+                    }
+                    int rows = FormationModel.ResolveGeometryRows(kind, units.Length, packet.RequestedRows);
 
                     NativeDestination[] destinations = BuildManagedDestinations(
                         packet.TargetX,
@@ -64,23 +73,26 @@ namespace BugfixesAndQoL.UnitCommands
                         kind,
                         density,
                         packet.DirectionSector,
-                        packet.Rows,
+                        rows,
                         FormationModel.NormalizePlacementMode(packet.PlacementMode),
                         units,
                         explicitDirection: false,
                         out _);
+                    if (destinations.Length == 0)
+                    {
+                        // Ordinary slot failure can reject before mutations. Special moat,
+                        // structure and Assassin paths retain their prior native fallback.
+                        if (!commandRuntime.TryRejectPreparedFormationWithoutSlots(args))
+                            throw new InvalidOperationException("No ordinary formation slots; retain the special native command path.");
+                        lock (stateSync) if (ReferenceEquals(pendingCommand, pending)) pendingCommand = null;
+                        return;
+                    }
                     ulong actualPlanHash = ComputePlanHash(
                         units, destinations,
-                        FormationModel.NormalizePlacementMode(packet.PlacementMode), packet.Rows);
-                    if (actualPlanHash != packet.PlanHash)
-                    {
-                        throw new InvalidOperationException(
-                            $"Formation plan hash mismatch: packet=0x{packet.PlanHash:X16}, " +
-                            $"current=0x{actualPlanHash:X16}.");
-                    }
-
+                        FormationModel.NormalizePlacementMode(packet.PlacementMode), rows);
                     ActiveFormationCommand active = new ActiveFormationCommand(
                         pending, kind, density, units, destinations);
+                    active.ExecutionPlanHash = CombineAdmissionPlanHash(actualPlanHash, packet.SelectionHash, selected, units);
                     lock (stateSync)
                     {
                         if (!ReferenceEquals(pendingCommand, pending) || activeCommand != null)
@@ -99,10 +111,9 @@ namespace BugfixesAndQoL.UnitCommands
                         activeCommand = null;
                         commonGroupCommand = null;
                     }
-                    LogWarningNoThrow(
-                        $"FORMATION_ORDER_FELL_BACK_TO_VANILLA: source={pending.Source}, " +
-                        $"operation={pending.Packet.OperationId}, reason=preparation-failed, " +
-                        $"error={exception.Message}.");
+                    Shared.DebugLogHelper.LogWarningLimited(log, "formation-preparation-failed",
+                        $"FORMATION_ORDER_FELL_BACK_TO_VANILLA: reason=preparation-failed, error={exception.GetType().Name}.");
+                    Shared.DevDiag.Log(() => $"Formation preparation: source={pending.Source}, operation={pending.Packet.OperationId}, error={exception}");
                 }
                 return;
             }
@@ -273,6 +284,7 @@ namespace BugfixesAndQoL.UnitCommands
 
             internal FormationOrderPacket Packet { get; }
             internal string Source { get; }
+            internal bool NativeDispatchObserved;
 
             internal bool Matches(TribeIssueOrderMoveHereEventArgs args) =>
                 args != null && FormationOrderMatchModel.Matches(
@@ -334,6 +346,7 @@ namespace BugfixesAndQoL.UnitCommands
             }
 
             internal PendingFormationCommand Pending { get; }
+            internal ulong ExecutionPlanHash { get; set; }
             internal FormationKind Kind { get; }
             internal int TribeId => Pending.Packet.TribeId;
             internal int TargetX => Pending.Packet.TargetX;

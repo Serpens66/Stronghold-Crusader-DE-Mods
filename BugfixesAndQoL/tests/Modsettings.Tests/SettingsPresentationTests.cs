@@ -198,6 +198,28 @@ internal static partial class Program
             SearchAttribute(keepRow, "Key") == "bugfixes.remove-ai-keep-range-limit" &&
             keepEditor.Node.Attributes?["IsChecked"]?.Value == "{Binding RemoveAIKeepRangeLimit, Mode=TwoWay}",
             "AI keep range is recommended and appears once at the end of AI fixes with its original binding and search identity");
+        object treeDecay = options.Single(o => (string)Get(o, "PropertyName") == "EnableTreeBlightDecayFix");
+        var treeEditor = editors.Single(e => e.Property == "EnableTreeBlightDecayFix");
+        XmlNode treeRow = Ancestors(treeEditor.Node).First(a => SearchAttribute(a, "Key") != null);
+        Check(Get(treeDecay, "Category").ToString() == "Fixes" && (string)Get(treeDecay, "Symbol") == "★" &&
+            !(bool)Get(treeDecay, "IsPreference") &&
+            treeRow.ParentNode.Attributes?["Visibility"]?.Value == "{Binding SettingsPresentation.HostEconomy.FixesVisibility}",
+            "tree decay is Recommended in Host Economy Fixes");
+        object moatTerrain = options.Single(o => (string)Get(o, "PropertyName") == "EnableMoatTerrainRestoration");
+        var moatEditor = editors.Single(e => e.Property == "EnableMoatTerrainRestoration");
+        Check(Get(moatTerrain, "Category").ToString() == "Fixes" && (bool)Get(moatTerrain, "IsPreference") &&
+            (string)Get(moatTerrain, "Symbol") == "" &&
+            moatEditor.Node.SelectSingleNode("ancestor::*[@IsEnabled='{Binding CanEditHostSettings}']") != null,
+            "moat terrain is a host-controlled fix classified as a personal preference");
+        Check(modelType.GetProperty("EnableMoatTerrainRestoration").GetCustomAttributesData()
+            .Any(a => a.AttributeType.Name == "SyncHostOnlyAttribute"), "moat terrain is synchronized by the host");
+        Type terrainType = mod.GetType("BugfixesAndQoL.MoatTerrain.TerrainRuntime", true);
+        object terrainRuntime = System.Runtime.Serialization.FormatterServices.GetUninitializedObject(terrainType);
+        object saveRegistration = terrainType.GetMethod("CreateSaveRegistration", All).Invoke(terrainRuntime, null);
+        Check((bool)Get(saveRegistration, "SimulationRelevant") && Get(saveRegistration, "Scope").ToString() == "SaveGamesAndMaps" &&
+            (string)Get(saveRegistration, "SaveDataIdentifier") == "BugfixesAndQoL.MoatTerrain" &&
+            (int)Get(saveRegistration, "CurrentVersion") == 1 && (int)Get(saveRegistration, "MinimumReaderVersion") == 1,
+            "production moat record participates in multiplayer comparison and map/save persistence with schema 1");
         Check(options.All(o => o.GetType().GetProperties().All(p => p.GetCustomAttributesData().All(a =>
             !a.AttributeType.Name.StartsWith("Sync") && a.AttributeType.Name != "PresetLocalAttribute"))), "view metadata is not a setting");
         Check(modelType.GetProperty("SettingsPresentation").SetMethod == null &&

@@ -1,0 +1,32 @@
+{
+  "binaryHash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+  "functions": 4478,
+  "selected": 2755,
+  "flowStatuses": {
+    "complete": 2752,
+    "not-selected": 1723,
+    "failed": 3
+  },
+  "decoderDisagreements": 0,
+  "instructions": 436211,
+  "features": 99,
+  "advanced": {
+    "layouts": 932,
+    "memoryAccesses": 79169,
+    "associatedMemoryAccesses": 4702,
+    "contracts": 4478,
+    "staleModels": []
+  },
+  "history": {
+    "comparisons": 3818,
+    "coverage": {
+      "selected-static-observations": 2465,
+      "partial": 1353
+    },
+    "historicalHash": "17F8DD4A92FF6125BD6A3A70ABC80C727682E489696C218D146A7EA6D2F88BF4"
+  },
+  "limitations": [
+    "Static analysis is not runtime evidence.",
+    "Feature roots and source coordinates are discovery evidence unless separately audited."
+  ]
+}

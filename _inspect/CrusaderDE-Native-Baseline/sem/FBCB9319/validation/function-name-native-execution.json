@@ -1,0 +1,46 @@
+{
+  "status": "ok",
+  "binaryHash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+  "checks": 115546,
+  "functions": [
+    {
+      "rva": "0xC0700",
+      "size": 110,
+      "rawHash": "506559938819C1E14EE2D38C0D117A50A240043741027EF5A83CCE812BC0CCAE",
+      "instructions": 30
+    },
+    {
+      "rva": "0xC07C0",
+      "size": 112,
+      "rawHash": "8F8E30DD29FD0E83F835A077EA16E98D45169BE6E3F727224616D47B5A98CD84",
+      "instructions": 32
+    },
+    {
+      "rva": "0x184FD0",
+      "size": 437,
+      "rawHash": "D0E6CD911C2150EC892A2131A02641EDE59C81DC4F213579D7A468C9E6AC7B33",
+      "instructions": 88
+    },
+    {
+      "rva": "0xCEB10",
+      "size": 31,
+      "rawHash": "5B45784D8B227D4BEB1AA822E6B12523BD9A0825EFA17764909A037E613C6C6A",
+      "instructions": 10
+    },
+    {
+      "rva": "0xCEB90",
+      "size": 31,
+      "rawHash": "D428FAE5C2A3BED0B48195B2661F56550E5B53F6E8EE9A603FADA56DAEE8F670",
+      "instructions": 10
+    },
+    {
+      "rva": "0x3B1D0",
+      "size": 160,
+      "rawHash": "AC37E9A8205EDA52D0591BAB84A4DC0FD4BF389B3DB2A768786FC42A7FD6E3AC",
+      "instructions": 40
+    }
+  ],
+  "method": "Pristine copied machine code in private synthetic memory, no game hooks or game acceptance.",
+  "reviewedBranches": "Every roof-type word; standing-height flag precedence, restoration, signed thresholds, both helpers and independent final signed addition; full manager buffer compared.",
+  "checkerSha256": "171E7EF5E16CE8DA168710A102273A420739671B110BE9A6E72EEB21576E0175"
+}

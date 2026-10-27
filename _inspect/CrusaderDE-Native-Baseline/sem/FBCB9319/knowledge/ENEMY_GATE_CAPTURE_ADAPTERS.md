@@ -1,4 +1,4 @@
-# Enemy gate capture adapter contract
+# Enemy gate capture adapter contract [Scope: Mod work, not Vanilla]
 
 ## Korrektur der Capture-Adapter am 01.10.2026
 

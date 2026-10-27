@@ -21,6 +21,9 @@ namespace BugfixesAndQoL.UnitCommands
         internal int BuildPathWithCompletedMoatRouteVariant(
             IntPtr pathManager, int movementClass, int movementProfile)
         {
+#if SERP_DEVDIAG
+            long freeze = FreezeBuilder(pathManager);
+#endif
             IEnemyGatePathPolicy gate = BeginEnemyGateSearch(
                 movementClass, EnemyGateSearchKind.Builder, out object gateScope);
             object bridgeSearch = EnemyBridgeDiagnosticBridge.BeginSearch("builder", movementClass);
@@ -48,6 +51,8 @@ namespace BugfixesAndQoL.UnitCommands
 
                 try { result = assassinRoute.Complete(result); }
                 catch (Exception ex) { TryLogDiagnosticFailure("assassin-route-publication", ex); }
+                try { ObserveCursorGroundBuilder(pathManager, movementClass, movementProfile, result); }
+                catch (Exception ex) { TryLogDiagnosticFailure("cursor-ground-reject-capture", ex); }
                 completed = true;
                 return result;
             }
@@ -61,6 +66,9 @@ namespace BugfixesAndQoL.UnitCommands
                 EndEnemyGateSearch(gate, gateScope, EnemyGateSearchKind.Builder,
                     completed, result > 0);
                 EnemyBridgeDiagnosticBridge.EndSearch(bridgeSearch, completed, result);
+#if SERP_DEVDIAG
+                GateAttackFreezeCapture.Leave(freeze, result, completed);
+#endif
             }
         }
 

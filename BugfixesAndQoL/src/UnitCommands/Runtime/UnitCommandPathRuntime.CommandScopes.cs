@@ -236,6 +236,9 @@ namespace BugfixesAndQoL.UnitCommands
 
         internal sealed class UnitMoveFrame
         {
+#if SERP_DEVDIAG
+            internal long FreezeToken;
+#endif
             internal readonly MovementOptionsSnapshot Options;
             public UnitMoveFrame(UnitMoveHereEventArgs args, UnitMoveFrame parent,
                 int mapEpoch, int tick, MoveCommandScope command,

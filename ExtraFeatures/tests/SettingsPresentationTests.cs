@@ -21,7 +21,7 @@ public static class SettingsPresentationTests
         { "Units", new[] { "fear-factor-neutralization", "monks-always-run", "knight-dismount", "instant-horse", "knight-transform-gold", "knight-transform-delay", "lord-health" } },
         { "Gatehouses", new[] { "elevated-moat", "human-gate-reopen-delay", "ai-gate-reopen-delay", "human-gate-closing-distance", "ai-gate-closing-distance" } },
         { "Building", new[] { "building-repair", "keep-build-range", "human-enemy-proximity-singleplayer", "ai-enemy-proximity-singleplayer", "human-enemy-proximity-multiplayer", "ai-enemy-proximity-multiplayer", "ai-tower-gate-rebuild-delay" } },
-        { "Economy", new[] { "extra-church-priests", "campfire-peasants", "no-kill-reward", "multiply-goods-gain", "multiply-goods-as-money" } },
+        { "Economy", new[] { "extra-church-priests", "campfire-peasants", "no-kill-reward", "periodic-gold-human", "periodic-gold-ai", "multiply-goods-gain", "multiply-goods-as-money" } },
         { "Demolition", new[] { "keep-storage-content", "wood-refund", "stone-refund", "iron-refund", "pitch-refund", "gold-refund" } },
         { "Plague", new[] { "plague-damage-walls", "plague-damage-gates", "plague-damage-towers", "plague-damage-keeps", "plague-duration", "apothecary-plague-search-distance", "healer-targets" } },
         { "Market", new[] { "market-prices-also-ai", "market-buy-price-multiplier", "market-sell-price-multiplier" } }
@@ -87,6 +87,16 @@ public static class SettingsPresentationTests
             Check(Ancestors(node).Any(n => Search(n, "Key") != null), "editor retains an explicit setting key");
         }
         XmlNode items = nodes.Single(n => n.LocalName == "ItemsControl" && n.Attributes["ItemsSource"] != null && n.Attributes["ItemsSource"].Value == "{Binding MarketGoodPriceItems}");
+        foreach (string role in new[] { "Human", "AI" })
+        {
+            XmlNode cell = nodes.Single(n => Search(n, "Key") == "extra.periodic-gold-" + role.ToLowerInvariant());
+            Check(cell.SelectNodes(".//*[local-name()='Image' and @Source='{Binding GoldRefundIcon}']").Count == 1,
+                "each periodic gold field retains its money icon");
+            Check(cell.SelectNodes(".//*[local-name()='TextBox']").Cast<XmlNode>().Single().Attributes["Text"].Value ==
+                "{Binding PeriodicGold" + role + "ValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}", "gold field uses its own signed text setter");
+            Check(Ancestors(cell).Any(n => n.Attributes != null && n.Attributes["IsEnabled"] != null &&
+                n.Attributes["IsEnabled"].Value == "{Binding CanConfigurePeriodicGold}"), "gold editors are locked during missions");
+        }
         Check(items.Attributes["Width"] == null && items.Attributes["HorizontalAlignment"].Value == "Stretch" &&
             items.SelectNodes(".//*[local-name()='WrapPanel']").Cast<XmlNode>().All(n => n.Attributes["Width"] == null), "goods wrap to the finite available width");
         Check(nodes.Any(n => n.LocalName == "ScrollViewer" && n.Attributes["HorizontalScrollBarVisibility"].Value == "Auto" &&
@@ -282,6 +292,13 @@ public static class SettingsPresentationTests
         search("", false, "extra.plague-duration");
         Check(Visible(Get(presentation, "PlagueOptions"), "Visibility") && !Visible(Get(presentation, "PlagueSurfacesOptions"), "Visibility") &&
             !Visible(Get(presentation, "HealerOptions"), "Visibility"), "duration search does not leave a detached plague-surface explanation");
+        foreach (string role in new[] { "human", "ai" })
+        {
+            search("", false, "extra.periodic-gold-" + role);
+            Check(Visible(Get(presentation, "Economy"), "ContentVisibility") &&
+                Visible(Get(presentation, "PeriodicGoldOptions"), "Visibility") &&
+                !Visible(Get(presentation, "EconomyBonusOptions"), "Visibility"), "gold role search retains its row and Economy topic");
+        }
         search("", false, (string)Get(market, "Key"));
         Check(Visible(market, "ContentVisibility"), "exact section navigation");
         search("Topic.Plague", false, "");
@@ -337,6 +354,12 @@ public static class SettingsPresentationTests
         fixture.GetType().GetProperty("RationsHumanEnabled").SetValue(fixture,false,null);
         search("",false,"");
         Type stateType = catalog.Assembly.GetType("APIShared.ModSettings.ModSettingsSearchStateFilter", true);
+        ((SettingsSearchFixtureBase)fixture).PeriodicGoldHuman = -25;
+        refresh.Invoke(presentation, new object[] { "", false, "extra.periodic-gold-human", entries, Enum.ToObject(stateType, 1), fixture });
+        Check(Visible(Get(presentation, "PeriodicGoldOptions"), "Visibility"), "negative gold is active in state-filtered searches");
+        ((SettingsSearchFixtureBase)fixture).PeriodicGoldHuman = 0;
+        refresh.Invoke(presentation, new object[] { "", false, "extra.periodic-gold-human", entries, Enum.ToObject(stateType, 1), fixture });
+        Check(!Visible(Get(presentation, "PeriodicGoldOptions"), "Visibility"), "zero gold is inactive in state-filtered searches");
         refresh.Invoke(presentation, new object[] { "", false, "", entries, Enum.ToObject(stateType, 1), fixture });
         Check(topics.All(t => !Visible(t, "Visibility")), "unknown and unchecked values cannot create active topics");
         ((SettingsSearchFixtureBase)fixture).EnableFearFactorNeutralization = true;
@@ -422,6 +445,11 @@ public static class SettingsPresentationTests
 
 public class SettingsSearchFixtureBase
 {
+    public SettingsSearchFixtureBase() { PeriodicGoldHumanValueText = "0"; PeriodicGoldAIValueText = "0"; }
+    public int PeriodicGoldHuman { get; set; }
+    public int PeriodicGoldAI { get; set; }
+    public string PeriodicGoldHumanValueText { get; set; }
+    public string PeriodicGoldAIValueText { get; set; }
     public bool EnableFearFactorNeutralization { get; set; }
     public bool RationsHumanEnabled { get; set; }
     private int rationPoints = -8;

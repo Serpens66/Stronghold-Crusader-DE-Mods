@@ -124,6 +124,11 @@ namespace BugfixesAndQoL.UnitCommands
         {
             PlacementBatch previous = placementBatch;
             PlacementBatch batch = null;
+            IntPtr previousAdmission = manualAdmissionSlot == IntPtr.Zero ? IntPtr.Zero : Marshal.ReadIntPtr(manualAdmissionSlot);
+            bool admit = manager == nativeTribeManager && IsMixedManualGroup(tribe, x, y);
+            if (admit) manualAdmission.CommonEntered = true;
+            if (manualAdmissionSlot != IntPtr.Zero)
+                Marshal.WriteIntPtr(manualAdmissionSlot, admit ? manualAdmission.NativeState : IntPtr.Zero);
             long started = (DetailedDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0L);
             try
             {
@@ -170,6 +175,8 @@ namespace BugfixesAndQoL.UnitCommands
             }
             finally
             {
+                if (manualAdmissionSlot != IntPtr.Zero)
+                    Marshal.WriteIntPtr(manualAdmissionSlot, CanRestoreManualAdmission(previousAdmission) ? previousAdmission : IntPtr.Zero);
                 if (batch != null)
                 {
                     foreach (PlacementUnit pending in batch.Pending) FinishPlacement(pending, false);
@@ -215,6 +222,9 @@ namespace BugfixesAndQoL.UnitCommands
 
         internal bool CanReachNativePlacement(GameUnit* unit, int unitId, int x, int y)
         {
+#if SERP_DEVDIAG
+            using var probeOperation = ManualProbeCapture.BeginOperation(ManualProbeCapture.Placement);
+#endif
             if (ProbeNativeManualPath(unitId, x, y)) return true;
             if (!TraversalEnabled || !CanDigMoat(unit)) return false;
             return Traversal.CanReachPlacementThroughFriendlyMoatTraversal(unitId, x, y);

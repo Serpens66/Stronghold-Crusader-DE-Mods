@@ -16,6 +16,9 @@ namespace ExtendedData
             if (args.Length == 2 && args[0] == "--expect-unsafe-package")
                 return ExpectUnsafePackage(args[1]);
 
+            Run("Coop launch blocks remain visible without diagnostics", TestCoopLaunchBlockLogs);
+            Run("Coop block logs retain reasons beyond the shared detail limit", TestLongCoopBlockLog);
+            Run("Coop package messages classify players and keep technical errors out of chat", TestCoopPackageMessages);
             Run("complete package and retry", TestCompletePackageAndRetry);
             Run("upload allowlist and excluded gameplay gate", TestUploadAllowlistAndExcludedWarning);
             Run("local and Workshop Lord source selection", TestLordSourceSelection);
@@ -43,6 +46,150 @@ namespace ExtendedData
                 ? "All CustomLordUpload tests passed."
                 : failures + " CustomLordUpload test(s) failed.");
             return failures == 0 ? 0 : 1;
+        }
+
+        private static void TestCoopLaunchBlockLogs()
+        {
+            Assert(!Shared.DebugLogHelper.DiagnosticsEnabled, "fixture requires default-disabled diagnostics");
+            using (var log = new ManualLogSource("coop-block-fixture"))
+            {
+                var messages = new List<LogEventArgs>();
+                log.LogEvent += (_, args) => messages.Add(args);
+                string context = "role=host, lobby=12, package=test, fingerprint=ABC, mission=Trail1/2, localStatus=OK|test|ABC";
+                string[] reasons = { "Restart the game", "Package differs", "Required Lord files missing", "Preparation failed" };
+                foreach (string reason in reasons)
+                    CoopLaunchBlockDiagnostics.ReportLocal(log, "Ready", reason, context);
+                Assert(messages.Count == reasons.Length && messages.All(item => item.Level == LogLevel.Error),
+                    "local block logs were hidden or had the wrong severity");
+                for (int index = 0; index < reasons.Length; index++)
+                    Assert(messages[index].Data.ToString().Contains(reasons[index]) &&
+                        messages[index].Data.ToString().Contains(context), "block reason or context lost");
+                CoopLaunchBlockDiagnostics.ReportLocal(log, "Ready", reasons[0], context);
+                Assert(messages.Count == reasons.Length, "identical blocks were not throttled");
+                string longReason = new string('x', 350) + " FULL_REASON_END";
+                CoopLaunchBlockDiagnostics.ReportLocal(log, "COOP_START", longReason, context,
+                    "Player Two[playerId=2, status=mismatch, reported=OK|other|DEF]; sync missing");
+                string local = messages.Last().Data.ToString();
+                Assert(local.Contains(longReason) && local.Contains("Player Two") && local.Contains("sync missing"),
+                    "local log was shortened to chat length or lost participant details");
+                Assert(messages.All(item => System.Text.RegularExpressions.Regex.IsMatch(item.Data.ToString(),
+                    @"^\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}\]")), "millisecond timestamp missing");
+            }
+        }
+
+        private static void TestLongCoopBlockLog()
+        {
+            using (var log = new ManualLogSource("long-coop-block-fixture"))
+            {
+                var messages = new List<string>();
+                log.LogEvent += (_, args) => messages.Add(args.Data.ToString());
+                string reason = new string('x', 8000) + " complete final reason";
+                CoopLaunchBlockDiagnostics.ReportLocal(log, "Ready", reason, "package and mission context");
+                Assert(messages.Count > 1 && messages.Last().Contains("complete final reason") &&
+                    messages.Last().Contains("package and mission context"), "shared ledger truncated a long block report");
+            }
+        }
+
+        private static void TestCoopPackageMessages()
+        {
+            var cultures = new[] { "de-DE", "en-US" };
+            foreach (string culture in cultures)
+            {
+                var catalog = File.ReadAllLines(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Locales", culture + ".txt"))
+                    .Where(line => line.StartsWith("ExtendedData.", StringComparison.Ordinal) && line.Contains("="))
+                    .ToDictionary(line => line.Substring(0, line.IndexOf('=')), line => line.Substring(line.IndexOf('=') + 1));
+                SerpLocalization.Overrides = catalog;
+                try
+                {
+                    const string expected = "OK|package|host-fingerprint|1/2/mission-digest/lord-selection";
+                    const string technical = "contentFingerprint does not match; C:/private-path/package";
+                    var cases = new[] {
+                        new KeyValuePair<string, string>(CoopPackageStatusCodes.Missing, "ErrorParticipantsMissing"),
+                        new KeyValuePair<string, string>(CoopPackageStatusCodes.Mismatch, "ErrorParticipantsMismatch"),
+                        new KeyValuePair<string, string>("OK|package|old-fingerprint", "ErrorParticipantsMismatch"),
+                        // Another package ID means the player has not applied the host selection yet (2026-10-26 logs: OK|VANILLA).
+                        new KeyValuePair<string, string>("OK|other-package|host-fingerprint", "ErrorParticipantsNotReady"),
+                        new KeyValuePair<string, string>("OK|VANILLA", "ErrorParticipantsNotReady"),
+                        new KeyValuePair<string, string>("OK|package|host-fingerprint", "ErrorParticipantsSelectionNotReady"),
+                        new KeyValuePair<string, string>("OK|package|host-fingerprint|1/1/mission-digest/lord-selection", "ErrorParticipantsSelectionNotReady"),
+                        new KeyValuePair<string, string>("OK|package|host-fingerprint|1/2/mission-digest/other-lords", "ErrorParticipantsSelectionNotReady"),
+                        new KeyValuePair<string, string>(CoopPackageStatusCodes.InvalidPrefix + technical, "ErrorParticipantsInvalid"),
+                        new KeyValuePair<string, string>(CoopPackageStatusCodes.Disabled, "ErrorParticipantsDisabled"),
+                        new KeyValuePair<string, string>(CoopPackageStatusCodes.Waiting, "ErrorParticipantsNotReady"),
+                        new KeyValuePair<string, string>(null, "ErrorParticipantsNotReady"),
+                    };
+                    foreach (var item in cases)
+                    {
+                        string message = CoopPackageBlockMessages.Participants(new[] {
+                            new KeyValuePair<string, string>("Guest", item.Key),
+                            new KeyValuePair<string, string>("Ready player", expected),
+                        }, expected);
+                        Assert(message == catalog["ExtendedData." + item.Value].Replace("{Players}", "Guest"),
+                            "wrong category or player attribution: " + culture + " " + item.Key);
+                        Assert(!message.Contains(technical) && !message.Contains("Ready player"),
+                            "chat leaked technical status or blamed a ready player");
+                    }
+                    string missing = CoopPackageBlockMessages.LocalLoadFailure(true, "selected-package");
+                    string invalid = CoopPackageBlockMessages.LocalLoadFailure(false, "selected-package");
+                    Assert(missing == catalog["ExtendedData.ErrorPackageMissingHelp"].Replace("{Package}", "selected-package"),
+                        "missing package was reported as invalid");
+                    Assert(invalid == catalog["ExtendedData.ErrorPackageValidationFailed"], "invalid package help missing");
+                    var mixedReports = new[] {
+                        new KeyValuePair<string, string>("First guest", CoopPackageStatusCodes.Mismatch),
+                        new KeyValuePair<string, string>("Second guest", "OK|package|old-fingerprint"),
+                        new KeyValuePair<string, string>("Pending guest", CoopPackageStatusCodes.Waiting),
+                    };
+                    string reason = CoopPackageBlockMessages.Participants(mixedReports, expected);
+                    Assert(reason.Contains("First guest, Second guest") && reason.Contains("Pending guest"),
+                        "combined report lost players or their groups");
+                    Assert(CoopPackageBlockMessages.Participants(mixedReports.Reverse(), expected) == reason,
+                        "roster ordering changed the cause and bypassed announcement deduplication");
+                    Assert(CoopPackageBlockMessages.Participants(new[] {
+                        new KeyValuePair<string, string>("Guest", "OK|package|host-fingerprint|stale-selection"),
+                    }, "OK|package|host-fingerprint") == catalog["ExtendedData.ErrorParticipantsSelectionNotReady"].Replace("{Players}", "Guest"),
+                        "an outdated selection suffix was reported as different package files");
+                    CoopPackageBlockMessages.ParticipantStatus(new[] {
+                        new KeyValuePair<string, string>("Missing guest", CoopPackageStatusCodes.Missing),
+                        new KeyValuePair<string, string>("Joining guest", "OK|VANILLA"),
+                        new KeyValuePair<string, string>("Syncing guest", "OK|package|host-fingerprint|1/1/old/old"),
+                        new KeyValuePair<string, string>("Unreported guest", null),
+                        new KeyValuePair<string, string>("Ready player", expected),
+                    }, expected, out string blocking, out string loading);
+                    Assert(blocking == catalog["ExtendedData.ErrorParticipantsMissing"].Replace("{Players}", "Missing guest"),
+                        "a joining player was reported as a blocking problem: " + culture);
+                    Assert(loading == catalog["ExtendedData.LoadingParticipants"].Replace("{Players}", "Joining guest, Syncing guest, Unreported guest"),
+                        "loading players were not listed in one wait hint: " + culture);
+                    CoopPackageBlockMessages.ParticipantStatus(new[] { new KeyValuePair<string, string>("Ready player", expected) },
+                        expected, out blocking, out loading);
+                    Assert(blocking.Length == 0 && loading.Length == 0, "a ready lobby reported a status");
+                    var failures = new Dictionary<Exception, string> {
+                        [new MissionAssetException(MissionAssetException.MapMissing, "Antler map", "technical")] =
+                            catalog["ExtendedData.ErrorMissionMapMissing"].Replace("{Map}", "Antler map"),
+                        [new MissionAssetException(MissionAssetException.LordUnresolved, "Saladin+", "technical")] =
+                            catalog["ExtendedData.ErrorMissionLordMissing"].Replace("{Lord}", "Saladin+"),
+                        [new MissionAssetException(MissionAssetException.AivMissing, "Saladin+ (castle)", "technical")] =
+                            catalog["ExtendedData.ErrorMissionLordMissing"].Replace("{Lord}", "Saladin+ (castle)"),
+                        [new MissionRetryException("technical")] = catalog["ExtendedData.ErrorMissionRetry"],
+                        [new MissionAssetException(MissionAssetException.MapUnreadable, "C:/private-path/map.map", "technical")] = invalid,
+                        [new InvalidDataException("technical")] = invalid,
+                        [new InvalidOperationException("technical")] = catalog["ExtendedData.ErrorCoopPreparationFailed"],
+                    };
+                    foreach (var failure in failures)
+                    {
+                        string text = CoopPackageBlockMessages.MissionPreparationFailure(failure.Key);
+                        Assert(text == failure.Value && !text.Contains("technical") && !text.Contains("private-path"),
+                            "wrong mission preparation message for " + failure.Key.GetType().Name + ": " + culture);
+                    }
+                    using (var log = new ManualLogSource("coop-package-message-" + culture))
+                    {
+                        var entries = new List<string>();
+                        log.LogEvent += (_, args) => entries.Add(args.Data.ToString());
+                        CoopLaunchBlockDiagnostics.ReportLocal(log, "Ready", invalid, "role=client; package=selected-package", technical);
+                        Assert(entries.Single().Contains(technical), "friendly message removed technical log detail");
+                    }
+                }
+                finally { SerpLocalization.Overrides = null; }
+            }
         }
 
         private static void TestCompletePackageAndRetry()

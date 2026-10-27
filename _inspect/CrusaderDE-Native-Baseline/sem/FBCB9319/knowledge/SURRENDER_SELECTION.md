@@ -1,4 +1,4 @@
-# Surrender selection and multiplayer checksum audit
+# Surrender selection and multiplayer checksum audit [Scope: Vanilla]
 
 Native build SHA-256: `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`. The installed Script Extender inspected for the managed path was `2.10.1.0` (local fork commit `a8ba202f6ec7966bd115b59a6088a0077ce727a0`). Addresses below are RVAs for this build; none is used as a runtime call target by the Surrender fix.
 

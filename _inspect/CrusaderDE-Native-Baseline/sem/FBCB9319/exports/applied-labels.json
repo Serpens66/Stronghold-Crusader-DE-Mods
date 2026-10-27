@@ -1,5 +1,7 @@
 {"records":[
   {"address":"18003b1d0","rva":"0x3B1D0","oldName":"c_game_ai_delete_hovel","name":"c_game_ai_delete_hovel","confidence":"confirmed","matchAddress":"18003b1d0","source":"fn-ai-delete-hovel:0"},
   {"address":"1800ceb10","rva":"0xCEB10","oldName":"c_game_ai_get_buy_price","name":"c_game_ai_get_buy_price","confidence":"confirmed","matchAddress":"1800ceb10","source":"fn-ai-get-buy-price:0"},
-  {"address":"1800ceb90","rva":"0xCEB90","oldName":"c_game_ai_get_sell_price","name":"c_game_ai_get_sell_price","confidence":"confirmed","matchAddress":"1800ceb90","source":"fn-ai-get-sell-price:0"}
+  {"address":"1800ceb90","rva":"0xCEB90","oldName":"c_game_ai_get_sell_price","name":"c_game_ai_get_sell_price","confidence":"confirmed","matchAddress":"1800ceb90","source":"fn-ai-get-sell-price:0"},
+  {"address":"1800c07c0","rva":"0xC07C0","oldName":"c_game_building_get_type_height_offset","name":"c_game_building_get_type_height_offset","confidence":"confirmed","matchAddress":"1800c07c0","source":"fn-building-get-type-height-offset:0"},
+  {"address":"180184fd0","rva":"0x184FD0","oldName":"c_game_unit_update_standing_height","name":"c_game_unit_update_standing_height","confidence":"confirmed","matchAddress":"180184fd0","source":"fn-unit-update-standing-height:0"}
 ]}

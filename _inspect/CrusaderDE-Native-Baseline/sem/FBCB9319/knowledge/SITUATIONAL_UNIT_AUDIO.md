@@ -1,4 +1,4 @@
-# Situational unit audio: Arabian idle sword draw
+# Situational unit audio: Arabian idle sword draw [Scope: Vanilla + mod integration]
 
 Audit date: 2026-10-11. Native SHA256 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`; installed DLL matches CURRENT.json. Managed Assembly-CSharp SHA256 `BC8B6A395F01D48557DB413600C8DD8D1FDFD3ABDF97BFBBB68A3C56B04FD789`. Script Extender local v2.14.1, commit `5908e1f12437deb7ef5f5b1dc2d64e301178fba3`, tree `c238441ea12db35ee36c5c5668d3c8fce0897295`. Installed NativeX64 SHA256 `0843DD4C381A3E77DD6D8B51D5CCF95465B3FB49BFDF2980F39A212D774AADB0`.
 
@@ -18,7 +18,7 @@ GameMap.processTestMap case16 reads volume[11],pan[12],flag[13]. Only BOTH volum
 
 Actual public SFXManager.playSound signature is `(int soundID, float volumeOfset, float pan, bool unstoppable)`; the last optional argument is still present in IL even though the decompiler omits it at these calls. Preserve it. Both call sites in processTestMap carry the computed volume/pan. Downstream selection/throttling, clip base volume, 20-channel policy, and MyAudioManager.playSFX global SFX/master multiplication are unchanged. Multiplying only the marked per-play volume by0.25 avoids changing global sound-ID properties or clip assets.
 
-## Hook and compatibility contract
+## Hook and compatibility contract [mod integration]
 
 Installed NativeX64 Absolute detour needs14 bytes rounded to complete instructions. Handler entry span15 bytes (5+5+5), continuation0x16F59F push rdi; emitter entry span14 (4+3+4+3), continuation0x1A41EE coordinate write. Displaced blocks have no branches or RIP-relative operands. Full-function direct calls/jumps and semantic xrefs contain no incoming interior edges. The actual production backend is tested on complete private function copies before/after publication, including scheme, displacement, target, zero PointerSlot, hook/trampoline addresses, Absolute FF25 pointer patch and NOP padding.
 
@@ -32,7 +32,7 @@ Reusable implementation/update contract: Testmods/ArabianIdleSoundTest/UpdateToN
 
 These static/isolated tests establish the transformation and binary contracts. Audible reduction, actual Unity Mono hook execution after startup cleanup, mission/load transitions and large-army listening remain unconfirmed until an in-game test. No runtime sound-ID match by itself establishes idle context.
 
-## 2026-10-11 startup failure and repair
+## 2026-10-11 startup failure and repair [mod integration]
 
 The user's first listening test left the sound unchanged. The local BepInEx startup at 14:55:06.456 records `ArgumentException: Invalid path` in SoundRuntime.Install line37. Enabled=true was present, but initialization failed before native or managed hook publication. The later "waiting" log was emitted after a synchronously replayed LibraryLoaded callback, so it did not establish an active runtime.
 
@@ -42,7 +42,7 @@ Both immediate unit lookups now use APIShared.UnitAccess.TryGetById with consume
 
 The shared build preflight now invokes Test-UnitAccess with the selected mod scope. Scanner fixtures cover guarded calls, the central owner, forbidden SDK calls and ignored results. Exact production gate execution checks scope forwarding and nonzero-exit propagation; 18 existing build drivers no longer repeat the same check. A full workspace scan passed for 1074 runtime sources. The revised isolated audio tests passed 113 checks. Actual post-cleanup hook callbacks and reduced audible playback still require the next Unity game test.
 
-## 2026-10-12 shared audio integration
+## 2026-10-12 shared audio integration [mod integration]
 
 The local Unity run on 2026-10-11 installed the repaired hooks at16:53:59.180,
 confirmed native invocation after startup cleanup at16:56:03.873 and submitted
@@ -61,7 +61,7 @@ Generic managed interception survives native-context unavailability. Unknown
 contexts carry no unit or player identity. The migrated integration still
 requires a new in-game hearing/activation/map-transition acceptance test.
 
-## Completed integration review (2026-10-12)
+## Completed integration review (2026-10-12) [mod integration]
 
 The shared integration passed a second focused code review before final
 installation. Audio and gatehouse reservations share the process composition
@@ -88,7 +88,7 @@ This is build/install evidence, not a new Unity listening test. New shared
 hook lifetime, Enabled comparison, optional replacement/suppression/pan probes,
 movement/combat and map transitions still require in-game acceptance.
 
-## Latest Unity log evidence (2026-10-12)
+## Latest Unity log evidence (2026-10-12) [mod integration]
 
 The local LogOutput.log run initializes shared managed playback at23:16:14.313,
 publishes both native context hooks at23:16:14.656, and registers the consumer
@@ -101,7 +101,7 @@ lifetime, not yet the Arabian context capture or25-percent shared rule.
 All188 error lines are SHCDE-SE TryGetPlayerResourcesById range failures;
 they do not identify the caller and are not audio failure markers.
 
-## Shared Arabian playback confirmed (2026-10-12)
+## Shared Arabian playback confirmed (2026-10-12) [mod integration]
 
 The newer local startup installed shared audio at23:43:49.978/23:43:50.321,
 registered Volume25 at23:43:51.487 and reached the actual Arabian callback
@@ -117,7 +117,7 @@ The consumer is being equipped with PresetLocal ingame settings to switch its
 logical enablement/probe without reinstalling or repatching. Every settings
 change resets its next-dispatch marker. Native/IL contracts remain unchanged.
 
-## Live settings replacement evidence (reviewed 2026-10-13)
+## Live settings replacement evidence (reviewed 2026-10-13) [mod integration]
 
 Latest local startup at2026-10-12 23:57 successfully registers the ingame
 settings page and the shared rule. At23:58:25.867 its callback reports
@@ -132,7 +132,7 @@ fx/sheathout_01 and fx/sheathout_02 (FX_SHEATH_OUT). The replacement is therefor
 sword sheathing, not a categorically distinct test cue. The user reports no
 noticeable audible difference; distinguish dispatch proof from listening.
 
-## User listening acceptance (2026-10-13)
+## User listening acceptance (2026-10-13) [mod integration]
 
 The user reports testing the available hearing modes. Suppress produced no
 idle sword-draw sound, as intended: audible suppression is confirmed. With the
@@ -146,7 +146,7 @@ The user cannot test stereo panorama. PanLeft remains covered by isolated
 contract tests only; presumed operation is not in-game acceptance evidence.
 No runtime/code change or version promotion follows from this report alone.
 
-## Additional live-mode log confirmation (2026-10-13)
+## Additional live-mode log confirmation (2026-10-13) [mod integration]
 
 The same local startup now extends through00:02:35. In addition to replacement179
 at23:58:25.867, it reports Suppress at00:01:56.339 with suppressed=True and
@@ -157,7 +157,7 @@ not print final panorama; stereo audibility remains untested. There are zero
 Error/Fatal lines in the latest startup section. These entries establish live
 settings-mode transitions without a new startup or hook publication.
 
-## Soldier source and custom clip expansion (2026-10-13)
+## Soldier source and custom clip expansion (2026-10-13) [mod integration]
 
 All 91 direct wrapper callsites from 28 soldier/military-support handlers are
 inventoried in SOLDIER_AUDIO_SOURCES.json. Full pseudocode and disassembly are
@@ -207,7 +207,7 @@ callbacks isolate errors so the Extender cannot repeat Vanilla on an exception.
 Map-lifetime failure closes map clips only and is exposed by MapDiagnostic;
 process clips and generic events remain independent.
 
-### Abschließende Zweitprüfung der Clip-/Soldaten-Erweiterung (2026-10-13)
+### Abschließende Zweitprüfung der Clip-/Soldaten-Erweiterung (2026-10-13) [mod integration]
 
 - Release: 104 API-Tests bestanden, einschließlich vollständig kopierter Wrapperkörper, echter NativeX64-Intermediärbrücken, IL-Transformation, 91 Herkunftseinträge und Clip-Lebensdauer. Weitere bestehende Core-/Preset-Prüfungen werden vom abschließenden BAT-Build erneut ausgeführt.
 - Frischer Windows-PowerShell-Präflight gegen echte installierte Assemblies bestanden; gemeinsamer Präflight einschließlich UnitAccess-Scanner und permanenten Hooks bestanden. Verbrauchertests prüfen zusätzlich den fertigen Custom-Zielvertrag, einen noch nicht verfügbaren Clip und die Live-Situationsauswahl.
@@ -217,7 +217,7 @@ process clips and generic events remain independent.
 
 Abschluss: APIShared und ArabianIdleSoundTest jeweils einmal über ihre erhöhte build.bat gebaut und installiert (Exit 0). Der finale Release-Build besteht 152 Core-, 104 API- und 21 Preset-Tests. 24 API-/Publisher-Dateien und 27 Verbrauchermod-Dateien stimmen per gemeinsamem .NET-SHA-256-Helfer mit den installierten Ausgaben überein; private Test-WAV vorhanden, APIShared nicht im Verbraucher gebündelt. Veraltete Hörtest-Hilfetexte korrigiert und Verbraucherpräflight danach erneut bestanden. Versionen bleiben APIShared 0.7.2 und Testmod 0.1.0. Kein neuer Spieltest aus dieser Sitzung.
 
-### Spieltest und Freigabe 0.8.0 (2026-10-13)
+### Spieltest und Freigabe 0.8.0 (2026-10-13) [mod integration]
 
 Der neueste lokale Startabschnitt (ab Logzeile 4047; eigene Zeitmarker 01:33:05 bis 01:34:37) bestätigt AUDIO_PLAYBACK_READY, AUDIO_CONTEXT_READY und den nach Startup-Cleanup ausgeführten nativen und verwalteten Callback. AUDIO_TEST_CLIP meldet Ready. CustomClip wurde für Unit75.Source04 (ArabianIdleSwordDraw), Unit70.Source01 und Unit22.Source03 (RangedWeaponFire) an die Clipwiedergabe übergeben. Die beiden Fernkampfaufträge liegen nach dem Save-Load-Abschluss um 01:34:23; der Prozessclip bleibt verfügbar. Keine Audiofehler, AUDIO_SOURCE_REJECTED oder AUDIO_MAP_CLIPS_DISABLED in diesem Startabschnitt.
 
@@ -225,7 +225,7 @@ Der Nutzer bestätigt hörbare Wiedergabe des neuen Testtons. Das belegt den Cus
 
 APIShared wird mit den dokumentierten Audioverträgen als 0.8.0 geführt. Native Hookstellen, Binärverträge und Runtimeverhalten bleiben gegenüber dem erfolgreich getesteten Stand unverändert.
 
-### Nachfrage-/Dispatch-Optimierung (2026-10-13)
+### Nachfrage-/Dispatch-Optimierung (2026-10-13) [mod integration]
 
 Vor dem Eingriff wurden native, verwaltete und NativeX64-Dateiidentitäten erneut
 gegen den vollständigen 91-Quellen-Audit geprüft: alle unverändert. Wrapper-

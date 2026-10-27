@@ -13,6 +13,7 @@ namespace BugfixesAndQoL.UnitCommands
     internal interface IFormationCommandHandler
     {
         bool IsDispatching { get; }
+        bool HasPreparedFormation(TribeIssueOrderMoveHereEventArgs args);
         bool TryChooseStandardFormationSlot(IntPtr manager, int spacing, int x, int y);
         bool TryChooseAssassinFormationSlot(IntPtr manager, int spacing, int x, int y, out int tileId);
         long CommonGroupMoveHook(IntPtr manager, int tribeId, short x, short y,

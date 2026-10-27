@@ -4,6 +4,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using SHCDESE.Interop;
+using SHCDESE.Interop.Enums;
 using System.Reflection;
 using System.Reflection.PortableExecutable;
 using System.Reflection.Metadata;
@@ -25,9 +26,19 @@ foreach (int y in new[] { -73, -72, 0, 72, 73 })
 Check(Request(int.MinValue).Response == 10, "Distance overflow");
 foreach (var type in new[] { eChimps.CHIMP_TYPE_ARCHER, eChimps.CHIMP_TYPE_XBOWMAN,
     eChimps.CHIMP_TYPE_CATAPULT, eChimps.CHIMP_TYPE_TREBUCHET, eChimps.CHIMP_TYPE_MANGONEL, eChimps.CHIMP_TYPE_BALLISTA })
-    Check(!FormationSpeechRequest.AllowsVoice(type), "Native exclusion " + type);
-Check(FormationSpeechRequest.AllowsVoice(eChimps.CHIMP_TYPE_ARCHER_debug), "Vanilla debug archer exception");
-Check(FormationSpeechRequest.AllowsVoice(eChimps.CHIMP_TYPE_SWORDSMAN), "Swordsman allowed");
+    Check(!FormationSpeechRequest.AllowsVoice(type, TribeMoveType.NoChange), "Native exclusion " + type);
+Check(FormationSpeechRequest.AllowsVoice(eChimps.CHIMP_TYPE_ARCHER_debug, TribeMoveType.NoChange), "Vanilla debug archer exception");
+Check(FormationSpeechRequest.AllowsVoice(eChimps.CHIMP_TYPE_SWORDSMAN, TribeMoveType.DefaultInSync), "Swordsman allowed");
+Check((int)TribeMoveType.NoChange == 0 && (int)TribeMoveType.DefaultInSync == 1 &&
+    (int)TribeMoveType.Fast == -255, "Installed movement mode contract");
+foreach (eChimps voice in Enum.GetValues<eChimps>())
+foreach (TribeMoveType mode in new[] { TribeMoveType.NoChange, TribeMoveType.DefaultInSync, TribeMoveType.Fast })
+{
+    int v = (int)voice;
+    bool expected = v != 40 && v != 41 && v != 61 &&
+        !(mode == TribeMoveType.NoChange && (v == 22 || v == 23 || v == 39));
+    Check(FormationSpeechRequest.AllowsVoice(voice, mode) == expected, "Native voice/mode matrix");
+}
 Check(System.Runtime.InteropServices.Marshal.OffsetOf<GameUnit>(nameof(GameUnit.N000000C4)).ToInt32() == 0x388,
     "Installed engineer exclusion field");
 // These values are an audited machine contract, verified against the real referenced Extender enum.
@@ -52,6 +63,16 @@ queue.OnNativeFrame(true, _ => true, _ => throw new Exception("audio"), _ => { f
 Check(failures == 1, "Audio disable clears remaining entries without another dequeue");
 queue.Enqueue(Request()); queue.Clear(); queue.OnNativeFrame(true, _ => true, _ => emitted++, _ => failures++);
 Check(emitted == 1, "Mission reset discards pending feedback");
+long now = 0;
+var latest = new FormationSpeechQueue(() => now, 1000);
+for (int i = 0; i < 1300; i++) latest.Enqueue(Request(i, 0));
+latest.OnNativeFrame(true, _ => true, r => Check(r.Response == 10, "Latest gesture retained"), _ => failures++);
+Check(!latest.HasPending, "No backlog after rapid commands");
+latest.Enqueue(Request()); now = 1000;
+latest.OnNativeFrame(true, _ => true, _ => throw new Exception("Expired voice emitted"), _ => failures++);
+Check(failures == 1 && !latest.HasPending, "One-second monotonic expiry");
+latest.Enqueue(Request()); latest.Enqueue(null);
+Check(!latest.HasPending, "Ineligible new gesture clears old cue");
 
 string nativePath = @"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Plugins\x86_64\CrusaderDE.dll";
 byte[] raw = File.ReadAllBytes(nativePath);
@@ -104,10 +125,9 @@ NativeAdapterTests.Run(image, Check);
 // This exercises sequencing and failure isolation, rather than matching source strings.
 string Read(string path) => File.ReadAllText(Path.Combine(root, path));
 string Methods(string file, params string[] names) => string.Join("\n",
-    CSharpSyntaxTree.ParseText(Read(file)).GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>()
-        .Where(m => names.Contains(m.Identifier.Text)).Select(m => m.ToFullString()));
+    CSharpSyntaxTree.ParseText(Read(file)).GetRoot().DescendantNodes().Where(m => m is MethodDeclarationSyntax method && names.Contains(method.Identifier.Text) || m is EnumDeclarationSyntax type && names.Contains(type.Identifier.Text)).Select(m => m.ToFullString()));
 string engineMethods = Methods("BugfixesAndQoL/src/Formations/FormationRuntime.EngineAndCameraHooks.cs",
-    "EngineRunHook", "RunOriginalAfterReleaseConsumed", "RunOriginalOnce");
+    "EngineRunHook", "RunOriginalAfterReleaseConsumed", "RunOriginalOnce", "PrepareFormationRelease", "ConsumeGestureRelease", "RunOriginalWithDeferredRelease", "FormationReleaseDisposition", "DiscardDeferredRelease");
 string rendererMethod = Methods("BugfixesAndQoL/src/Formations/Markers/LargeMoveTargetMarkerRenderer.cs", "ResetDrawList");
 Type enumType = typeof(eChimps);
 string enumSource = "namespace SHCDESE.Interop { public enum eChimps : ushort {" +
@@ -115,7 +135,7 @@ string enumSource = "namespace SHCDESE.Interop { public enum eChimps : ushort {"
 string fixture = Read("BugfixesAndQoL/tests/FormationSpeech.Tests/RuntimeFixture.cs.txt")
     .Replace("__ENGINE__", engineMethods).Replace("__RENDERER__", rendererMethod);
 string[] sources = { fixture, enumSource, Read("BugfixesAndQoL/src/Formations/FormationRuntime.Speech.cs"),
-    Read("BugfixesAndQoL/src/Formations/FormationSpeechModel.cs"), Read("BugfixesAndQoL/src/Formations/FormationSpeechNative.cs") };
+    Read("BugfixesAndQoL/src/Formations/FormationSpeechModel.cs"), Read("BugfixesAndQoL/src/Formations/FormationNativeRunContext.cs"), Read("BugfixesAndQoL/src/Formations/FormationSpeechNative.cs") };
 var references = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")).Split(Path.PathSeparator)
     .Where(p => Path.GetDirectoryName(p) == Path.GetDirectoryName(typeof(object).Assembly.Location))
     .Select(p => MetadataReference.CreateFromFile(p));

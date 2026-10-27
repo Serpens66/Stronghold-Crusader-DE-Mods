@@ -26,6 +26,7 @@ import ghidra.program.model.data.DataType;
 import ghidra.program.model.data.Enum;
 import ghidra.program.model.data.StringDataInstance;
 import ghidra.program.model.data.Structure;
+import ghidra.program.model.data.Union;
 import ghidra.program.model.listing.Data;
 import ghidra.program.model.listing.Function;
 import ghidra.program.model.listing.FunctionIterator;
@@ -44,15 +45,20 @@ public class ExportCrusaderSemantics extends GhidraScript {
     @Override
     protected void run() throws Exception {
         String[] args = getScriptArgs();
-        if (args.length != 2) throw new IllegalArgumentException("Expected export-dir binary-hash");
+        if (args.length < 2 || args.length > 3 || (args.length == 3 && !Set.of("types-only","metadata-only").contains(args[2]))) throw new IllegalArgumentException("Expected export-dir binary-hash [types-only|metadata-only]");
         File output = new File(args[0]);
         if (!output.isDirectory()) throw new IllegalArgumentException("Missing output directory " + output);
         binaryHash = args[1].toUpperCase();
         imageBase = currentProgram.getImageBase();
+        if (args.length == 3 && args[2].equals("types-only")) {
+            exportTypes(new File(output, "data-types.jsonl"));
+            return;
+        }
         exportFunctions(new File(output, "semantic-functions.jsonl"));
         exportGlobals(new File(output, "globals.jsonl"));
         exportTypes(new File(output, "data-types.jsonl"));
         exportRtti(new File(output, "rtti-vtables.jsonl"));
+        if (args.length == 3) return;
         exportDecompilation(new File(output, "semantic-decompiled-functions.c"), new File(output, "semantic-decompile-status.jsonl"));
         println("SEMANTIC_EXPORT_COMPLETE directory=" + output);
     }
@@ -162,10 +168,13 @@ public class ExportCrusaderSemantics extends GhidraScript {
             Iterator<DataType> iterator = currentProgram.getDataTypeManager().getAllDataTypes();
             while (iterator.hasNext() && !monitor.isCancelled()) {
                 DataType type = iterator.next();
-                if (!(type instanceof Structure) && !(type instanceof Enum)) continue;
+                if (!(type instanceof Structure) && !(type instanceof Union) && !(type instanceof Enum)) continue;
+                String declaration = type.toString();
+                if (type.getCategoryPath().getPath().startsWith("/NativeKnowledge/"))
+                    declaration = type.getDescription() + "\n" + declaration;
                 writeLine(writer, "{\"binaryHash\":" + quote(binaryHash) + ",\"name\":" + quote(type.getName()) +
                     ",\"kind\":" + quote(type.getClass().getSimpleName()) + ",\"length\":" + type.getLength() +
-                    ",\"category\":" + quote(type.getCategoryPath().getPath()) + ",\"declaration\":" + quote(type.toString()) +
+                    ",\"category\":" + quote(type.getCategoryPath().getPath()) + ",\"declaration\":" + quote(declaration) +
                     ",\"sourcePath\":null}");
                 count++;
             }

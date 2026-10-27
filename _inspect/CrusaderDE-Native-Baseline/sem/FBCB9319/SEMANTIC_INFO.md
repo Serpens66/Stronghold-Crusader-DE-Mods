@@ -2,11 +2,11 @@
 
 ## Identity and scope
 
-- Created: 2026-09-01; Script Extender knowledge refreshed for 2.14.2 on 2026-10-17, Europe/Berlin
+- Created: 2026-09-01; Script Extender knowledge refreshed for 2.14.3 on 2026-10-27, Europe/Berlin
 - Current native DLL SHA-256: `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`
 - Current `Assembly-CSharp.dll` SHA-256: `BC8B6A395F01D48557DB413600C8DD8D1FDFD3ABDF97BFBBB68A3C56B04FD789`
 - Historical native DLL SHA-256: `17F8DD4A92FF6125BD6A3A70ABC80C727682E489696C218D146A7EA6D2F88BF4`
-- Script Extender commit: `10628df85cd432184742a50a1dee3969a66cf89e` (`v2.14.2`), Git tree `a612b537010c88e2837bb8895c9657e730365423`
+- Script Extender commit: `4014ca67c96974a5e6d697665baf5351cbfebde6` (`v2.14.3`), Git tree `372b43a9e9d614075c3b827d3df2a2346ec356fa`
 - PE image base for both native DLLs: `0x180000000`
 - PDB GUID and missing Jenkins PDB path are documented in the parent `SCAN_INFO.md`.
 
@@ -235,6 +235,47 @@ The final fail-closed validation confirms:
 The machine-readable result is `validation/validation-report.json`. Individual Ghidra logs and process timings remain under `logs/` and the comparison `logs/` directory.
 
 The text audit found 13,837 literal backslash-r/backslash-n escape sequences in 17 files. They are intentional: 13,768 encode preserved Roslyn source declarations/contexts inside JSON strings, while the remaining 69 occur in raw extracted strings, documentation and newline-handling literals in the reusable C#, Java and Python tools. They are not file line endings. Details are retained in `validation/text-audit.json`.
+
+## NativeKnowledge enrichment, 25 October 2026
+
+The maintained semantic project now also contains 141 owned NativeKnowledge types:
+88 field-identity views, five record views, eleven unions with 33 alternative
+views, three documentation carriers and `START_HERE`. Open Data Type Manager →
+`NativeKnowledge/FBCB9319`. The complete APIShared catalog, meanings, aliases,
+relationships, independent storage permissions and evidence remain visible in type
+descriptions and component comments. Historical split storage is retained. Types
+without verified storage use undefined bytes and preserve their recorded scalar
+interpretation in comments; the manager view does not claim a full record extent.
+
+This is metadata transfer, not a promotion of candidate semantics or a new native
+audit. No code bytes, function signatures, pointer types or memory definitions
+were changed. Existing header types remain independent. Only the semantic type
+export and its SQLite/manifest representation were refreshed; function/pseudocode
+exports, raw reference projects and versioned historical machine-analysis inputs
+stay unchanged. Earlier counts and hashes above describe their recorded generations.
+An early refresh mistakenly replaced the ignored historical SQLite cache; its
+logical contents were reconstructed, but its original physical SHA-256 was not
+recovered. The maintained index now lives outside historical generations. See
+[acceptance details](validation/native-knowledge-acceptance.json).
+
+The capture records all seven NativeKnowledge source-file hashes. Two evidence
+documents were resolved to matching historical Git bytes; the captured overlong
+line range remains explicitly disclosed. Fresh Ghidra read-only verification
+compares all 88 entries, including exact comments and member layouts. Reimport
+is idempotent; wrong-image and manual-annotation protection are tested separately.
+See [operation, provenance and reproduction](../../tools/semantic/NATIVE_KNOWLEDGE.md).
+
+## Reviewed function names, 25 October 2026
+
+The subsequent function-name review on 25 October adds two confirmed reconstructed
+roles (`c_game_building_get_type_height_offset` and
+`c_game_unit_update_standing_height`) and mirrors the two existing AI price helpers
+into APIShared's offline NativeKnowledge function reference. Both new roles passed
+full static review and a second pristine-code replay (115,546 comparisons).
+There are now 29 curated claims, five confirmed curated labels and 142 owned
+NativeKnowledge types. Function prototypes and historical machine facts are unchanged;
+30 affected functions/callers were freshly decompiled. See
+`validation/function-name-native-execution.json` and APIShared's `FUNKTIONEN.md`.
 
 ## Known limits
 

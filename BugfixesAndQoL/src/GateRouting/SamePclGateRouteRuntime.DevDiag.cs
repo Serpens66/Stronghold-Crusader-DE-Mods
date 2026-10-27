@@ -56,6 +56,13 @@ namespace BugfixesAndQoL.GateRouting
 
         partial void DiagBuildingContext(BuildingSearchPlayerContext context)
         {
+            if (context.Failure != null)
+                GateAttackFreezeCapture.ScopeFailure(new GateAttackFreezeCapture.Mismatch {
+                    Reason = context.Failure, Role = context.ArgumentRole, Tribe = context.TribeId,
+                    RawPlayer = context.RawSearchPlayer, SnapshotOwner = context.SnapshotOwner,
+                    SnapshotGlobal = context.SnapshotGlobal, LiveOwner = context.LiveOwner, LiveGlobal = context.LiveGlobal,
+                    Leader = context.LeaderId, LeaderGlobal = context.LeaderGlobal, Control = context.NativeLeaderControl,
+                    Planning = context.PlanningPlayer });
             try { attackOrderDiagnostics?.ObserveBuildingContext(context); }
             catch { CountIntegrityError(ref exceptions); }
         }
@@ -81,6 +88,7 @@ namespace BugfixesAndQoL.GateRouting
         partial void DiagCompleteSharedSearch(EnemyGateSearchKind kind, int playerId, SearchDiagnosticContext diagnostic,
             bool completed, bool success, long touched, ulong fingerprint)
         {
+            GateAttackFreezeCapture.GateEdges(touched);
             MacemenDiagnostics?.EndSearch(completed, success, touched);
             if (kind != EnemyGateSearchKind.Builder) return;
             try { attackOrderDiagnostics?.ObserveBuilder(playerId, diagnostic, completed, success, touched, fingerprint); }
@@ -108,6 +116,8 @@ namespace BugfixesAndQoL.GateRouting
 
         partial void DiagScopeMismatch(string source, int nativePlayer, int tribePlayer)
         {
+            GateAttackFreezeCapture.ScopeFailure(new GateAttackFreezeCapture.Mismatch {
+                Reason = "explicit-player-mismatch", Role = source, RawPlayer = nativePlayer, SnapshotOwner = tribePlayer });
             try { attackOrderDiagnostics?.ObserveScopeMismatch(source, nativePlayer, tribePlayer); }
             catch { CountIntegrityError(ref exceptions); }
         }

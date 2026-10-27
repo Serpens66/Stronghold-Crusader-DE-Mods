@@ -65,6 +65,7 @@ namespace BugfixesAndQoL.UnitCommands
             {
                 TryLogDiagnosticFailure("enemy-gate-region-observer", ex);
             }
+            ObserveCursorRegionReject(pathManager, movementClass, sourceRegion, targetRegion, routeKind, result);
             return result;
         }
 

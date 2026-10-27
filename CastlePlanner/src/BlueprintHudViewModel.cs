@@ -106,7 +106,7 @@ namespace CastlePlanner
             preview.RotationChoices;
         public bool CanConfirmCastle => preview.CanConfirm;
         public bool CanSelectCastle => !PreviewVisible || preview.CanConfirm;
-        public bool CanSelectRotation => preview.CanConfirm && preview.HasRotatableSelection;
+        public bool CanSelectRotation => settings.AllowRotation && preview.CanConfirm && preview.HasRotatableSelection;
         public double PanelWidth => ClampPanelExtent(
             DesiredPanelWidth,
             viewportWidth);
@@ -1185,6 +1185,10 @@ namespace CastlePlanner
                 case nameof(CastlePlannerSettingsViewModel.SelectedCastle):
                     OnPropertyChanged(nameof(SelectedCastle));
                     break;
+                case nameof(CastlePlannerSettingsViewModel.AllowRotation):
+                    OnPropertyChanged(nameof(CanSelectRotation));
+                    OnPropertyChanged(nameof(SelectedRotation));
+                    break;
                 case nameof(CastlePlannerSettingsViewModel.BlueprintIconScale):
                 case nameof(CastlePlannerSettingsViewModel.BlueprintIconScaleText):
                     OnPropertyChanged(args.PropertyName);
@@ -1251,6 +1255,9 @@ namespace CastlePlanner
                     break;
                 case nameof(FreeCastlePreviewRuntime.SelectedRotation):
                     OnPropertyChanged(nameof(SelectedRotation));
+                    break;
+                case nameof(FreeCastlePreviewRuntime.RotationChoices):
+                    OnPropertyChanged(nameof(RotationOptions));
                     break;
             }
         }

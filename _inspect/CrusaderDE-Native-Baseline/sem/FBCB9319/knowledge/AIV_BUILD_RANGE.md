@@ -1,6 +1,6 @@
-# AIV tower and gate construction range
+# AIV tower and gate construction range [Scope: Vanilla + mod integration]
 
-## Follow-up: copied-entry probe allocation failure
+## Follow-up: copied-entry probe allocation failure [mod integration]
 
 The 2026-10-05 18:51 startup logged a BugfixesAndQoL probe failure at heap address
 0x2D00FCCD100: RedBird could not allocate a 65536-byte slab in its nearby window.
@@ -125,7 +125,7 @@ The inclusive <= comparison accepts that bound. A Euclidean diagonal bound
 is unnecessary. ExtraFeatures/tests/KeepBuildRangeTests.cs enumerates all Keep
 anchors and four orientations against the raster's extremal corners.
 
-### ExtraFeatures API integration
+### ExtraFeatures API integration [mod integration]
 
 KeepBuildRange is a host setting, default -1, integer -1..500. Nonpositive
 settings release only this feature's override; positive values use the existing
@@ -161,7 +161,7 @@ The independent mod policy BetterAIOverbuildPolicy currently does use Manhattan;
 that is a code/native discrepancy requiring a separate scoped review, not a
 reason to silently alter the mod during this Lord-file diagnosis.
 
-## AI-only distance experiment and settings-flow review (2026-10-05)
+## AI-only distance experiment and settings-flow review (2026-10-05) [mod integration]
 
 Testmods/AIKeepRangeLimitTest targets the complete EEF90 function, including its
 7A3B0 and EE320 callers, not only AIV 51790. Procedural economy construction
@@ -190,7 +190,7 @@ Automated backend tests execute the installed NativeX64 detour/trampoline using
 the audited prologue and a synthetic continuation. Actual Baibars/testmod,
 prebuild, rebuild, economic placement, save/load and multiplayer acceptance remain
 pending. The user's successful 500x500 comparison predates both mod changes.
-## Integration into BugfixesAndQoL
+## Integration into BugfixesAndQoL [mod integration]
 
 The AI-only EEF90 feature is now owned by BugfixesAndQoL, setting
 RemoveAIKeepRangeLimit (SyncHostOnly, default/reset true), under Fixes?.
@@ -211,7 +211,7 @@ marker; classification errors are reported once and keep the feature disabled
 until restart. The old testmod is detected before installation to prevent a
 duplicate hook. Its source/installed folders are removed after build verification;
 _inspect/AIKeepRangeLimit evidence is retained.
-## CastlePlanner lobby practice range audit (2026-10-05)
+## CastlePlanner lobby practice range audit (2026-10-05) [mod integration]
 
 For native SHA256 FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2,
 CastlePlanner mirrors the prepared raster (55320 last writer, 53D00 first surviving

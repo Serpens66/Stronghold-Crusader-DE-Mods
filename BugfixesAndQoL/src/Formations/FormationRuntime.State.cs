@@ -27,7 +27,7 @@ namespace BugfixesAndQoL.UnitCommands
 {
     internal sealed unsafe partial class FormationRuntime : IFormationCommandHandler
     {
-        private const int ProtocolVersion = 6;
+        private const int ProtocolVersion = 10;
         private const int MapWidth = 800;
         private const int MaximumUnitCount = 10000;
         private const int MaximumTribeCount = 4500;
@@ -42,7 +42,7 @@ namespace BugfixesAndQoL.UnitCommands
         private const int NativeTribeManagerRva = 0x7CC6720;
         private const int MovementTargetAvailabilityRva = 0x3A11EA4;
         private const int ExpectedUnitMoveTargetAuditBytes = 14;
-        private const int MaximumPreviewCandidates = 8192;
+        private const int MaximumPreviewCandidates = 4001;
         private const int MaximumVanillaSelectorCandidates = 4001;
         private const int MinimumDragTileDistance = 2;
 
@@ -107,16 +107,18 @@ namespace BugfixesAndQoL.UnitCommands
         private readonly IUnitCommandSettings settings;
         private readonly UnitCommandPathRuntime commandRuntime;
         private NativeGroundMoveFeedbackReader groundFeedbackReader;
+        private GroundMoveFrameObserver groundFrameObserver;
         private long nativeFeedbackGeneration;
-        private long nativeFeedbackRunGeneration;
-        private bool nativeFeedbackRunActive;
+        private long nativeFeedbackRunGeneration => FormationNativeRunContext.Generation(this);
+        private bool nativeFeedbackRunActive => FormationNativeRunContext.IsActive(this);
         private bool startupConfirmed;
+        private long previewPublicationVersion;
         // Gates synchronized command execution on every peer; only shared settings and
         // simulation-side contract failures may change it.
         internal bool Enabled => initialized && !failed && settings.EnableMod && settings.EnableMoveFormationEnhancements;
         // Gates local input, preview and presentation. A local UI failure must not make
         // this peer execute received formation packets differently from the other peers.
-        internal bool LocalInputEnabled => Enabled && !localInputFailed;
+        internal bool LocalInputEnabled => Enabled && !localInputFailed && speechEngineLock != null;
         private int dispatchDepth;
         internal bool IsDispatching { get { lock (stateSync) return dispatchDepth > 0; } }
 
@@ -141,6 +143,7 @@ namespace BugfixesAndQoL.UnitCommands
         private byte* movementTargetAvailability;
         private GetGroupUnitIdDelegate getGroupUnitId;
         private ActiveDrag drag;
+        private PendingDragStart pendingStart; // Written under stateSync; read lock-free per engine run.
         private PendingFormationCommand pendingCommand;
         private ActiveFormationCommand activeCommand;
         private ActiveFormationCommand commonGroupCommand;

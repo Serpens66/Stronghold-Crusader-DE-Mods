@@ -6,6 +6,8 @@ using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using System.Reflection.PortableExecutable;
 using System.Security.Cryptography;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 internal static class NativeCommandDetourContract
 {
@@ -24,6 +26,7 @@ internal static class NativeCommandDetourContract
         }
         using var native=File.OpenRead(Path.Combine(game,"Stronghold Crusader Definitive Edition_Data/Plugins/x86_64/CrusaderDE.dll"));
         using var pe=new PEReader(native);
+        VerifyManualGroupRecovery(pe,root);
         string table=File.ReadAllText(Path.Combine(root,"BugfixesAndQoL/src/UnitCommands/Native/NativeDetourContracts.cs"));
         // Complete function entries used by the shared command transactions. The
         // mode helper additionally has an executable EAX/ZF test in its own fixture.
@@ -61,6 +64,33 @@ internal static class NativeCommandDetourContract
                 throw new Exception("NativeX64 installed patch/slot/callback contract "+rva.ToString("X"));
         }
         Console.WriteLine($"PASS: {targets.Length} actual NativeX64 Indirect detours; displaced boundaries, trampoline continuations, slots and published callbacks.");
+    }
+    private static void VerifyManualGroupRecovery(PEReader pe,string root)
+    {
+        // This entire machine body is the audited 12-byte scratch-write contract,
+        // not a fingerprint of our C# implementation. A changed DLL needs a new audit.
+        var body=pe.GetSectionData(0xE2610).GetContent(0,1589).ToArray();
+        if(Convert.ToHexString(SHA256.HashData(body))!="7F875ED003B5E0A047F394632F0F2F952D4364DCC9DD8C9A62D179441B39A0ED")
+            throw new Exception("Native macro-region write closure requires re-audit");
+
+        var common=pe.GetSectionData(0x118E00).GetContent(0,0x1F1).ToArray();
+        if(Convert.ToHexString(SHA256.HashData(common))!="FE838B2718364376F36321E32940F4418AF6678151501D17A74E0F4B0E897A39")
+            throw new Exception("Common-group permissions/order-write closure requires re-audit");
+        var decoder=Decoder.Create(64,new ByteArrayCodeReader(common));decoder.IP=0x118E00;
+        while(decoder.IP<0x118FF1){var i=decoder.Decode();if(i.FlowControl is FlowControl.ConditionalBranch or FlowControl.UnconditionalBranch &&
+            i.NearBranchTarget>0x118F50 && i.NearBranchTarget<0x118F5E)throw new Exception("Incoming branch inside admission span");}
+
+        // Preparation must precede queue and formation mutations. State behavior
+        // and the actual generated member gate have separate executable tests.
+        var syntax=CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,
+            "BugfixesAndQoL/src/UnitCommands/Native/PermanentCommandHooks.cs"))).GetRoot();
+        var method=syntax.DescendantNodes().OfType<MethodDeclarationSyntax>()
+            .Single(m=>m.Identifier.Text=="DispatchMoveEvent");
+        string text=method.ToString();
+        if(text.IndexOf("BeginManualGroupAdmission",StringComparison.Ordinal)>text.IndexOf("formationRuntime?",StringComparison.Ordinal) ||
+            text.IndexOf("BeginManualGroupAdmission",StringComparison.Ordinal)>text.IndexOf("queueMoveEvent?",StringComparison.Ordinal))
+            throw new Exception("Admission must precede original queue/formation mutation");
+        Console.WriteLine("PASS: complete native region/common machine contracts and admission-before-mutation integration.");
     }
     private static void VerifyContinuation(NativeDetour<Probe> hook,ulong expected)
     {

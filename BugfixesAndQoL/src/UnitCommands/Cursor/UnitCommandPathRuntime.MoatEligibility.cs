@@ -336,8 +336,17 @@ namespace BugfixesAndQoL.UnitCommands
                         fallbackKind = CursorPairFallbackKind.UnitApproach;
                 }
 
+                int friendlyId = 0;
+                uint friendlyGlobal = 0;
+                int commandMode = manualGroundCommandMode?.Read() ?? -1;
+                bool ordinaryGround = validPair && callSiteRva == 0x8F325 && nativeGroundPermission != 0 &&
+                    commandMode == APIShared.Internal.GroundMovePreviewEligibility.OrdinaryMoveCommandMode &&
+                    !hostileUnitTarget && !hostileBuildingTarget && !wallTarget;
+                bool friendlyGround = validPair && TryBindFriendlyGroundCursor(playerId, rawHoverUnitId, targetTileId,
+                    callSiteRva, nativeGroundPermission, commandMode,
+                    hostileUnitTarget || hostileBuildingTarget || wallTarget, out friendlyId, out friendlyGlobal);
                 AttackCursorPairScope candidateScope = validPair &&
-                    (!occupiedByLivingUnit || hostileUnitTarget || hostileBuildingTarget ||
+                    (!occupiedByLivingUnit || friendlyGround || hostileUnitTarget || hostileBuildingTarget ||
                      (tileFlags[targetTileId] & CursorSpecialStructureTileFlagMask) != 0)
                     ? new AttackCursorPairScope(
                         mapEpoch, unitId, playerId, startX, startY, startTileId,
@@ -346,6 +355,13 @@ namespace BugfixesAndQoL.UnitCommands
                         buildingTarget.OwnerId, buildingTarget.BuildingType,
                         buildingTarget.HoverTileId)
                     : null;
+                if (candidateScope != null) candidateScope.OrdinaryGroundMove = ordinaryGround;
+                if (candidateScope != null && friendlyGround)
+                {
+                    candidateScope.FriendlyGroundMove = true;
+                    candidateScope.FriendlyUnitId = friendlyId;
+                    candidateScope.FriendlyUnitGlobalId = friendlyGlobal;
+                }
                 if (candidateScope != null && hostileUnitTarget)
                 {
                     candidateScope.TargetUnitId = hostileUnitId;
@@ -516,6 +532,10 @@ namespace BugfixesAndQoL.UnitCommands
             public int HoverBuildingTileId { get; }
             public int CursorPairTargetTileId { get; set; }
             public bool GroupCursorAuthorized { get; set; }
+            public bool FriendlyGroundMove { get; set; }
+            public bool OrdinaryGroundMove { get; set; }
+            public int FriendlyUnitId { get; set; }
+            public uint FriendlyUnitGlobalId { get; set; }
             public string GroupSelectionSignature { get; set; }
             public int TargetUnitId { get; set; } = -1;
             public uint TargetUnitGlobalId { get; set; }

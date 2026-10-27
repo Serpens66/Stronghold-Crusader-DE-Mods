@@ -1,4 +1,4 @@
-# Independent manual gatehouse and drawbridge control
+# Independent manual gatehouse and drawbridge control [Scope: Vanilla + mod integration]
 
 Native SHA-256: `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
 Audit date: 2026-10-05. Static control/data-flow evidence; the new gameplay combinations still require an in-game acceptance run.
@@ -15,7 +15,7 @@ Native manager base RVA `64CCBB0`: gate state/command at slot-relative `2FE/2FF`
 
 `A5E20` contains bridge animation and command consumption, with no enemy scan. States 0/1/2/3 are lowered/raising/raised/lowering; commands 10/11 initiate raising/lowering when allowed by native state. `6C3B0` checks occupied relevant bridge cells before raising. `645C0` and `64460` perform moat flags/state, visual refresh, connection rebuilding, region invalidation and dirty publication. Existing elevated-moat hooks stay authoritative. An already accepted transition finishes normally when the automation preference changes.
 
-## Hook ownership and machine contracts
+## Hook ownership and machine contracts [mod integration]
 
 Fixes owns `B7C39` (farmer recovery); APIShared's existing decision generator routes manual gates BEFORE that target. It must not invoke Fixes merely because an automatic bridge is closing. Script Extender's candidate span and APIShared's distance/decision spans are disjoint from the four new spans:
 
@@ -30,9 +30,9 @@ Full parent-function decoding and baseline xrefs show no incoming interior targe
 
 Complete coupling body hash (519 bytes at C5300): `71652656B8970E86BBBAE5E3EC95C422489F9B5DE4B020ACEC4C01BA044612A1`. Some historical baseline rows also use RVA C5300: always filter by binary hash.
 
-## Validation and remaining runtime evidence
+## Validation and remaining runtime evidence [mod integration]
 
-### 2026-10-06: direct-close timer correction
+### 2026-10-06: direct-close timer correction [mod integration]
 
 Full D5810 (96 bytes, hash `93BFC31E3B3FF25DBECFCF9624EE26A1AAA1A1A169ADDAD0ED1233201B811504`) validates Global-ID, writes the command, then unconditionally clears the reopen timer before coupling. This explains immediate bridge reopening when a manually controlled gate is closed without enemies. Separately, B79E2 stores the decremented timer, and B79EA..B79FD clears it early when the native enemy list is empty. Setting a delay only in the direct command is insufficient.
 

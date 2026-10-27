@@ -44,7 +44,7 @@ namespace BugfixesAndQoL
 
         public const string PluginGuid = "BugfixesAndQoL_Serp";
         public const string PluginName = "Bugfixes and QoL";
-        public const string PluginVersion = "1.0.201";
+        public const string PluginVersion = "1.0.203";
 
         private static DisplayResolutionPersistenceHook displayResolutionPersistenceHook;
         private static DamagedHealthBarsRuntime damagedHealthBarsRuntime;
@@ -344,6 +344,14 @@ namespace BugfixesAndQoL
             // Keep UI registration independent so one native feature cannot hide the whole mod.
             BuildPreview.BuildPreviewRuntime.Install(context);
             GatehouseTargetMarkerHeightHook.Install(context, Logger, Settings);
+            try
+            {
+                EditorRegions.EditorRegionRefreshRuntime.Install(context, Logger, Settings);
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(Logger, "EDITOR_REGIONS_INSTALL_FAILED: Vanilla behavior retained; " + ex);
+            }
             try
             {
                 VanillaPerformance.VanillaPerformanceFeature.Install(Logger, Settings, context);

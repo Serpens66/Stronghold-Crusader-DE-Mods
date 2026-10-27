@@ -1,4 +1,4 @@
-# Foreign troop HUD skin selection
+# Foreign troop HUD skin selection [Scope: Vanilla + mod integration]
 
 ## Provenance (2026-10-23)
 
@@ -52,7 +52,7 @@ UI-Colour1Atlas and UI-Colour2Atlas. Other K-series unit portraits in this metho
 have no culture-specific alternate. Native sound selection at `0xD6030` also has
 separate Monk/TempleGuard branches, but is not used as the HUD skin source.
 
-## Consumer contract and validation
+## Consumer contract and validation [mod integration]
 
 Foreign HUD grouping remains owner/type. Each refresh captures the first matching
 living marked unit's material for each group; the view uses the Temple Guard key

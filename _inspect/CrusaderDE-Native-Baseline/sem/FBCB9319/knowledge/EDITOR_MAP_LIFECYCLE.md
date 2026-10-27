@@ -1,4 +1,4 @@
-# Editor map lifecycle audit
+# Editor map lifecycle audit [Scope: Vanilla + mod integration]
 
 Native SHA-256: FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
 Managed SHA-256: BC8B6A395F01D48557DB413600C8DD8D1FDFD3ABDF97BFBBB68A3C56B04FD789.
@@ -15,7 +15,7 @@ tree 9cfb59b7b531553b23709b90b3cc3f10b0615cc1. Installed assembly independently 
 - MainViewModel.InitNewScene(MapEditor) sets IsMapEditorMode and calls GoToScreen(ActualMainGame). Options return before changing screens. Other scene transitions can leave IsMapEditorMode stale: actual screen and flag must be considered together. Native editor preinit alone, a mode-flag edge, and simulation start alone do not establish a complete interactive editor session.
 - The first GameData.lastGameState arrives later through setGameState; it is explicitly cleared inside editor initialization. Complete managed initialization does not imply first PlayState/render/building readiness.
 
-## Workspace integration
+## Workspace integration [mod integration]
 
 The editor-only public contract below is historical. It has been superseded by the [unified mission lifecycle](MISSION_LIFECYCLE.md); the native/editor findings above remain applicable.
 

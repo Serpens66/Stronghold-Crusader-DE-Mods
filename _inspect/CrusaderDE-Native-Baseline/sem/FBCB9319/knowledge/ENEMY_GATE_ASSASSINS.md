@@ -1,4 +1,4 @@
-# Assassin gate-policy diagnostic contract (2026-10-02)
+# Assassin gate-policy diagnostic contract (2026-10-02) [Scope: Mod work, not Vanilla]
 
 ## Confirmed weighted-route bypass and compatibility correction
 

@@ -158,8 +158,7 @@ namespace ExtendedData
             }
             if (previous != ExtendedDataLaunchOriginKind.None)
                 {
-                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                        Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/src/ExtendedDataLaunchOriginApi.cs:160", $"Cleared customized launch origin: previous={previous}.");
+                    Shared.DevDiag.Log(() => $"Cleared customized launch origin: previous={previous}.");
                 }
         }
 
@@ -269,8 +268,7 @@ namespace ExtendedData
                     data.TrailId,
                     data.MissionId,
                     restored: true);
-                if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/src/ExtendedDataLaunchOriginApi.cs:227", $"Restored customized launch origin from save: origin={data.Origin}, trailId={data.TrailId}, missionId={data.MissionId}.");
+                Shared.DebugLogHelper.LogInfo(log, $"Restored customized launch origin from save: origin={data.Origin}, trailId={data.TrailId}, missionId={data.MissionId}.");
             }
             catch (Exception exception)
             {
@@ -320,8 +318,7 @@ namespace ExtendedData
                 launchPending = true;
                 missionSessionId = null;
             }
-            if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                Shared.DebugLogHelper.LogDebugLimited(log, "ExtendedData/src/ExtendedDataLaunchOriginApi.cs:278", $"Set customized launch origin: origin={originValue}, trailType={trailTypeValue}, " +
+            Shared.DevDiag.Log(() => $"Set customized launch origin: origin={originValue}, trailType={trailTypeValue}, " +
                     $"trailId={trailIdValue}, missionId={missionIdValue}, restored={restored}.");
         }
 

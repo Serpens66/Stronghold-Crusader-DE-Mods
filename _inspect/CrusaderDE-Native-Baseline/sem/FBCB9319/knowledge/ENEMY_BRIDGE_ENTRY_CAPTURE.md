@@ -1,4 +1,4 @@
-# Own military entry capture contract
+# Own military entry capture contract [Scope: Mod work, not Vanilla]
 
 Native SHA256 FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
 Complete feature122 audit and additional75 full bodies/instructions retained in

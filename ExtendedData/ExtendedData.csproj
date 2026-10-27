@@ -78,7 +78,10 @@
     <Compile Include="src\ExtendedDataFeatureActivation.cs" />
     <Compile Include="src\TrailModSelectionItem.cs" />
     <Compile Include="src\ExtendedDataRuntime.cs" />
+    <Compile Include="src\CoopLaunchBlockDiagnostics.cs" />
+    <Compile Include="src\CoopPackageBlockMessages.cs" />
     <Compile Include="src\ExtendedDataRuntime.CoopCache.cs" />
+    <Compile Include="src\ExtendedDataRuntime.LaunchReadiness.cs" />
     <Compile Include="src\CoopMissionDataCopies.cs" />
     <Compile Include="src\ExtendedDataRuntime.CoopAiStart.cs" />
     <Compile Include="..\Shared\Runtime\Gameplay\CoopAiSelectionRules.cs"><Link>Shared\Runtime\Gameplay\CoopAiSelectionRules.cs</Link></Compile>
@@ -90,6 +93,7 @@
     <Compile Include="src\TypedPreferenceSnapshotCodec.cs" />
     <Compile Include="src\LordDataSyncCoordinator.cs" />
     <Compile Include="src\LordDataSyncDiagnostics.cs" />
+    <Compile Include="src\LordSnapshotSlotSelection.cs" />
     <Compile Include="src\TrailLordPackageRuntime.cs" />
     <Compile Include="src\TrailLordRequirementSource.cs" />
     <Compile Include="src\TrailLordSourceSelector.cs" />

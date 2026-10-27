@@ -204,12 +204,15 @@ namespace ExtendedData
                 ? CustomisationFileManager.Instance.getLordAIVList(baseLordId)
                 : CustomisationFileManager.Instance.getLordAIVList(-1, installedLordName);
             if (list == null)
-                throw new InvalidDataException("AIV catalogue was not found for " + installedLordName + ".");
+                throw new MissionAssetException(MissionAssetException.AivMissing, installedLordName,
+                    "AIV catalogue was not found for " + installedLordName + ".");
             CustomisationFileManager.CustomAIV aiv = reference.Id.HasValue
                 ? (reference.Id.Value >= 0 && reference.Id.Value < list.Count ? list[reference.Id.Value] : null)
                 : list.FirstOrDefault(item => string.Equals(item.AIVName, reference.Name, StringComparison.OrdinalIgnoreCase));
             if (aiv == null)
-                throw new InvalidDataException("AIV was not found: " + (reference.Name ?? reference.Id?.ToString()) + ".");
+                throw new MissionAssetException(MissionAssetException.AivMissing,
+                    installedLordName + " (" + (reference.Name ?? reference.Id?.ToString()) + ")",
+                    "AIV was not found: " + (reference.Name ?? reference.Id?.ToString()) + ".");
             return aiv;
         }
 

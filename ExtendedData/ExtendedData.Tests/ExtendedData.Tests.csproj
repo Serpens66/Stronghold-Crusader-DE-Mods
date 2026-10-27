@@ -16,6 +16,7 @@
     <Compile Include="..\src\TrailLordRequirementSource.cs" Link="TrailLordRequirementSource.cs" />
     <Compile Include="..\src\TrailLordSourceSelector.cs" Link="TrailLordSourceSelector.cs" />
     <Compile Include="..\src\TrailModSelectionItem.cs" Link="TrailModSelectionItem.cs" />
+    <Compile Include="..\..\Shared\Runtime\Diagnostics\DevDiag.cs" Link="DevDiag.cs" />
     <Compile Include="..\src\TrailSettingsSourceState.cs" Link="TrailSettingsSourceState.cs" />
     <Compile Include="..\src\CoopSettingsDraftState.cs" Link="CoopSettingsDraftState.cs" />
     <Compile Include="..\src\CoopTrailMenuViewModel.cs" Link="CoopTrailMenuViewModel.cs" />
@@ -29,6 +30,7 @@
     <Compile Include="..\src\FixesLordPreferencesBridge.cs" Link="FixesLordPreferencesBridge.cs" />
     <Compile Include="..\src\TypedPreferenceSnapshotCodec.cs" Link="TypedPreferenceSnapshotCodec.cs" />
     <Compile Include="..\src\LordDataSyncDiagnostics.cs" Link="LordDataSyncDiagnostics.cs" />
+    <Compile Include="..\src\LordSnapshotSlotSelection.cs" Link="LordSnapshotSlotSelection.cs" />
     <Compile Include="..\src\BuiltInCustomizeOriginPacket.cs" Link="BuiltInCustomizeOriginPacket.cs" />
     <Compile Include="..\src\MapModSettingsPacket.cs" Link="MapModSettingsPacket.cs" />
     <Compile Include="..\src\MissionPresetLifecycleState.cs" Link="MissionPresetLifecycleState.cs" />

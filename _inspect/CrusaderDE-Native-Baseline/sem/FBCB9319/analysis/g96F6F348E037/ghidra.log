@@ -1,0 +1,233 @@
+2026-10-27 00:13:22 INFO  (LoggingInitialization) Using log config file: jar:file:/D:/CDesktopLink/Unterlagen/Mods/Stronghold%20Crusader%20DE/Meine%20Mods/.tools/ghidra-12.1.3/ghidra_12.1.3_PUBLIC/Ghidra/Framework/Generic/lib/Generic.jar!/generic.log4j.xml  
+2026-10-27 00:13:22 INFO  (LoggingInitialization) Using log file: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\sem\FBCB9319\analysis\g96F6F348E037\ghidra.log  
+2026-10-27 00:13:22 DEBUG (GhidraObjectInputFilter) Including serial input filter: FileSystem/data/client.rmi.serial.filter  
+2026-10-27 00:13:22 INFO  (Preferences) Loading user preferences: C:\Users\Serpens66\AppData\Roaming\ghidra\ghidra_12.1.3_PUBLIC\preferences  
+2026-10-27 00:13:22 INFO  (ClassSearcher) Searching for classes...  
+2026-10-27 00:13:23 INFO  (ClassSearcher) Class search complete (674 ms)  
+2026-10-27 00:13:23 INFO  (DefaultSSLContextInitializer) Initializing SSL Context  
+2026-10-27 00:13:23 INFO  (SecureRandomFactory) Initializing Random Number Generator...  
+2026-10-27 00:13:23 INFO  (SecureRandomFactory) Random Number Generator initialization complete: SHA1PRNG  
+2026-10-27 00:13:23 INFO  (DefaultTrustManagerFactory) Trust manager disabled, cacerts have not been set  
+2026-10-27 00:13:24 INFO  (AnalyzeHeadless) Headless startup complete (1787 ms)  
+2026-10-27 00:13:24 INFO  (ClassSearcher) Class searcher loaded 59 extension points (20 false positives)  
+2026-10-27 00:13:24 INFO  (HeadlessAnalyzer) HEADLESS Script Paths:
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Processors\PIC\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\GnuDemangler\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Processors\Atmel\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Processors\DATA\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\BytePatterns\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\Decompiler\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Debug\Debugger-rmi-trace\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\Base\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\PDB\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\WildcardAssembler\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\BSim\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\FunctionID\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\VersionTracking\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\tools\semantic
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\FileFormats\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\DecompilerDependent\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\SwiftDemangler\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Debug\Debugger\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\SystemEmulation\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Processors\8051\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\PyGhidra\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Processors\JVM\ghidra_scripts
+    D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.tools\ghidra-12.1.3\ghidra_12.1.3_PUBLIC\Ghidra\Features\MicrosoftCodeAnalyzer\ghidra_scripts  
+2026-10-27 00:13:24 INFO  (HeadlessAnalyzer) HEADLESS: execution starts  
+2026-10-27 00:13:24 INFO  (HeadlessAnalyzer) Opening existing project: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\sem\FBCB9319\ghidra\CrusaderDE-Semantic  
+2026-10-27 00:13:24 INFO  (HeadlessProject) Opening project: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\sem\FBCB9319\ghidra\CrusaderDE-Semantic  
+2026-10-27 00:13:25 INFO  (HeadlessAnalyzer) REPORT: Processing read-only project file: /CrusaderDE.dll  
+2026-10-27 00:13:25 INFO  (HeadlessAnalyzer) REPORT: Execute script: ExportNativeAnalysis.java 'D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\sem\FBCB9319\analysis\g96F6F348E037\work' 'FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2' 'D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\sem\FBCB9319\analysis\g96F6F348E037\selection.txt' 'FAE33674214A17C6EE3EBA14ED76D1725EA03BC92F84459F79DAEBDC0398F4E7'   
+2026-10-27 00:13:25 INFO  (HeadlessAnalyzer) SCRIPT: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\tools\semantic\ExportNativeAnalysis.java  
+2026-10-27 00:13:26 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 25/4478 reused=0 flows=3 rva=0x1360  
+2026-10-27 00:13:27 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 50/4478 reused=0 flows=14 rva=0x2120  
+2026-10-27 00:13:27 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 75/4478 reused=0 flows=37 rva=0x41F0  
+2026-10-27 00:13:28 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 100/4478 reused=0 flows=49 rva=0x4DC0  
+2026-10-27 00:13:28 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 125/4478 reused=0 flows=64 rva=0x73A0  
+2026-10-27 00:13:28 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 150/4478 reused=0 flows=85 rva=0x8060  
+2026-10-27 00:13:30 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 175/4478 reused=0 flows=104 rva=0xA850  
+2026-10-27 00:13:31 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 200/4478 reused=0 flows=121 rva=0xD860  
+2026-10-27 00:13:31 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 225/4478 reused=0 flows=140 rva=0xEDF0  
+2026-10-27 00:13:32 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 250/4478 reused=0 flows=162 rva=0x10960  
+2026-10-27 00:13:32 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 275/4478 reused=0 flows=187 rva=0x138D0  
+2026-10-27 00:13:33 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 300/4478 reused=0 flows=210 rva=0x17120  
+2026-10-27 00:13:34 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 325/4478 reused=0 flows=232 rva=0x19220  
+2026-10-27 00:13:34 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 350/4478 reused=0 flows=256 rva=0x1B840  
+2026-10-27 00:13:34 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 375/4478 reused=0 flows=270 rva=0x1CC70  
+2026-10-27 00:13:35 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 400/4478 reused=0 flows=294 rva=0x20AB0  
+2026-10-27 00:13:36 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 425/4478 reused=0 flows=315 rva=0x26BE0  
+2026-10-27 00:13:37 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 450/4478 reused=0 flows=337 rva=0x294B0  
+2026-10-27 00:13:37 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 475/4478 reused=0 flows=362 rva=0x2B6C0  
+2026-10-27 00:13:38 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 500/4478 reused=0 flows=387 rva=0x2CC10  
+2026-10-27 00:13:38 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 525/4478 reused=0 flows=412 rva=0x2EAC0  
+2026-10-27 00:13:39 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 550/4478 reused=0 flows=433 rva=0x32170  
+2026-10-27 00:13:39 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 575/4478 reused=0 flows=433 rva=0x3A6F0  
+2026-10-27 00:13:40 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 600/4478 reused=0 flows=457 rva=0x3D3E0  
+2026-10-27 00:13:40 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 625/4478 reused=0 flows=481 rva=0x3F4F0  
+2026-10-27 00:13:41 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 650/4478 reused=0 flows=506 rva=0x40F00  
+2026-10-27 00:13:45 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 675/4478 reused=0 flows=529 rva=0x48750  
+2026-10-27 00:13:46 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 700/4478 reused=0 flows=553 rva=0x50E00  
+2026-10-27 00:13:47 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 725/4478 reused=0 flows=577 rva=0x55FE0  
+2026-10-27 00:13:48 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 750/4478 reused=0 flows=599 rva=0x5AE70  
+2026-10-27 00:13:48 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 775/4478 reused=0 flows=623 rva=0x5D740  
+2026-10-27 00:13:50 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 800/4478 reused=0 flows=648 rva=0x62EB0  
+2026-10-27 00:13:52 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 825/4478 reused=0 flows=673 rva=0x69560  
+2026-10-27 00:13:52 WARN  (DecompileCallback) Decompiling 18006a190: Unable to read bytes at ram:18e0e0000  
+2026-10-27 00:13:52 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 850/4478 reused=0 flows=698 rva=0x6BD80  
+2026-10-27 00:13:53 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 875/4478 reused=0 flows=723 rva=0x6FC40  
+2026-10-27 00:13:54 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 900/4478 reused=0 flows=748 rva=0x72770  
+2026-10-27 00:13:54 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 925/4478 reused=0 flows=773 rva=0x76D40  
+2026-10-27 00:13:55 WARN  (DecompileCallback) Decompiling 180077e60: Unable to read bytes at ram:24ccccc02  
+2026-10-27 00:14:08 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 950/4478 reused=0 flows=797 rva=0x7C0A0  
+2026-10-27 00:14:09 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 975/4478 reused=0 flows=822 rva=0x804C0  
+2026-10-27 00:14:11 WARN  (DecompileCallback) Decompiling 180084130: Unable to read bytes at ram:18e0e0000  
+2026-10-27 00:14:11 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 1000/4478 reused=0 flows=844 rva=0x84130  
+2026-10-27 00:14:12 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 1025/4478 reused=0 flows=869 rva=0x86120  
+2026-10-27 00:14:12 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 1050/4478 reused=0 flows=894 rva=0x878B0  
+2026-10-27 00:14:13 WARN  (DecompileCallback) Decompiling 1800898b0: Unable to read bytes at ram:18e0e0000  
+2026-10-27 00:14:13 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 1075/4478 reused=0 flows=919 rva=0x8AC50  
+2026-10-27 00:14:24 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 1100/4478 reused=0 flows=944 rva=0x97C70  
+2026-10-27 00:14:24 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 1125/4478 reused=0 flows=967 rva=0x9A8E0  
+2026-10-27 00:14:24 WARN  (DecompileCallback) Decompiling 18009b2b0: Unable to read bytes at ram:24ccc0000  
+2026-10-27 00:14:24 WARN  (DecompileCallback) Decompiling 18009b2b0, pcode error at 180000158: Unable to resolve constructor at 180000158  
+2026-10-27 00:14:37 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 1150/4478 reused=0 flows=989 rva=0x9F490  
+2026-10-27 00:14:38 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 1175/4478 reused=0 flows=1014 rva=0xA13E0  
+2026-10-27 00:14:38 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 1200/4478 reused=0 flows=1039 rva=0xA4E70  
+2026-10-27 00:14:39 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 1225/4478 reused=0 flows=1064 rva=0xAA030  
+2026-10-27 00:14:39 WARN  (DecompileCallback) Decompiling 1800abb90: Unable to read bytes at ram:24c000404  
+2026-10-27 00:14:52 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 1250/4478 reused=0 flows=1088 rva=0xAFF10  
+2026-10-27 00:14:53 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 1275/4478 reused=0 flows=1112 rva=0xB62D0  
+2026-10-27 00:14:54 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 1300/4478 reused=0 flows=1137 rva=0xB8ED0  
+2026-10-27 00:14:54 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 1325/4478 reused=0 flows=1162 rva=0xBC3F0  
+2026-10-27 00:14:55 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 1350/4478 reused=0 flows=1186 rva=0xBF510  
+2026-10-27 00:14:55 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 1375/4478 reused=0 flows=1208 rva=0xC2150  
+2026-10-27 00:14:56 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 1400/4478 reused=0 flows=1232 rva=0xC43A0  
+2026-10-27 00:14:56 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 1425/4478 reused=0 flows=1255 rva=0xC6810  
+2026-10-27 00:14:56 WARN  (DecompileCallback) Decompiling 1800c77c0: Unable to read bytes at ram:1dd5d5d00  
+2026-10-27 00:14:57 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 1450/4478 reused=0 flows=1280 rva=0xC95D0  
+2026-10-27 00:14:57 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 1475/4478 reused=0 flows=1304 rva=0xCA740  
+2026-10-27 00:14:58 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 1500/4478 reused=0 flows=1329 rva=0xCC7D0  
+2026-10-27 00:14:58 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 1525/4478 reused=0 flows=1354 rva=0xCEB00  
+2026-10-27 00:14:58 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 1550/4478 reused=0 flows=1379 rva=0xCF8D0  
+2026-10-27 00:14:59 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 1575/4478 reused=0 flows=1403 rva=0xD1AD0  
+2026-10-27 00:15:00 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 1600/4478 reused=0 flows=1428 rva=0xD51A0  
+2026-10-27 00:15:00 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 1625/4478 reused=0 flows=1453 rva=0xD6BF0  
+2026-10-27 00:15:01 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 1650/4478 reused=0 flows=1477 rva=0xDAAC0  
+2026-10-27 00:15:02 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 1675/4478 reused=0 flows=1502 rva=0xE0880  
+2026-10-27 00:15:03 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 1700/4478 reused=0 flows=1527 rva=0xE4E90  
+2026-10-27 00:15:04 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 1725/4478 reused=0 flows=1551 rva=0xEA3D0  
+2026-10-27 00:15:04 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 1750/4478 reused=0 flows=1576 rva=0xEFA30  
+2026-10-27 00:15:05 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 1775/4478 reused=0 flows=1601 rva=0xF4C90  
+2026-10-27 00:15:09 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 1800/4478 reused=0 flows=1623 rva=0xFCDA0  
+2026-10-27 00:15:12 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 1825/4478 reused=0 flows=1644 rva=0x103290  
+2026-10-27 00:15:12 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 1850/4478 reused=0 flows=1664 rva=0x107D10  
+2026-10-27 00:15:13 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 1875/4478 reused=0 flows=1687 rva=0x109690  
+2026-10-27 00:15:13 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 1900/4478 reused=0 flows=1701 rva=0x10C5E0  
+2026-10-27 00:15:14 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 1925/4478 reused=0 flows=1725 rva=0x110700  
+2026-10-27 00:15:14 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 1950/4478 reused=0 flows=1750 rva=0x112450  
+2026-10-27 00:15:15 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 1975/4478 reused=0 flows=1775 rva=0x113BC0  
+2026-10-27 00:15:15 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 2000/4478 reused=0 flows=1800 rva=0x115B10  
+2026-10-27 00:15:16 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 2025/4478 reused=0 flows=1824 rva=0x117D20  
+2026-10-27 00:15:16 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 2050/4478 reused=0 flows=1849 rva=0x11A1B0  
+2026-10-27 00:15:17 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 2075/4478 reused=0 flows=1873 rva=0x11CA70  
+2026-10-27 00:15:19 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 2100/4478 reused=0 flows=1898 rva=0x122B40  
+2026-10-27 00:15:19 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 2125/4478 reused=0 flows=1923 rva=0x125290  
+2026-10-27 00:15:20 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 2150/4478 reused=0 flows=1947 rva=0x127DC0  
+2026-10-27 00:15:23 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 2175/4478 reused=0 flows=1971 rva=0x13BDD0  
+2026-10-27 00:15:27 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 2200/4478 reused=0 flows=1995 rva=0x156DC0  
+2026-10-27 00:15:32 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 2225/4478 reused=0 flows=2019 rva=0x16E440  
+2026-10-27 00:15:35 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 2250/4478 reused=0 flows=2043 rva=0x180A80  
+2026-10-27 00:15:38 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 2275/4478 reused=0 flows=2068 rva=0x1860E0  
+2026-10-27 00:15:38 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 2300/4478 reused=0 flows=2093 rva=0x187E20  
+2026-10-27 00:15:39 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 2325/4478 reused=0 flows=2116 rva=0x18B880  
+2026-10-27 00:15:40 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 2350/4478 reused=0 flows=2141 rva=0x18E4B0  
+2026-10-27 00:15:40 WARN  (DecompileCallback) Decompiling 180190010: Unable to read bytes at ram:1b3455340  
+2026-10-27 00:15:40 WARN  (DecompileCallback) Decompiling 180190010: Unable to read bytes at ram:1b3455340  
+2026-10-27 00:15:40 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 2375/4478 reused=0 flows=2166 rva=0x191DC0  
+2026-10-27 00:15:41 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 2400/4478 reused=0 flows=2188 rva=0x194D70  
+2026-10-27 00:15:41 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 2425/4478 reused=0 flows=2212 rva=0x196C50  
+2026-10-27 00:15:42 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 2450/4478 reused=0 flows=2237 rva=0x198780  
+2026-10-27 00:15:42 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 2475/4478 reused=0 flows=2262 rva=0x19A5D0  
+2026-10-27 00:15:42 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 2500/4478 reused=0 flows=2287 rva=0x19C450  
+2026-10-27 00:15:54 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 2525/4478 reused=0 flows=2309 rva=0x1A2850  
+2026-10-27 00:15:54 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 2550/4478 reused=0 flows=2334 rva=0x1A49F0  
+2026-10-27 00:15:55 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 2575/4478 reused=0 flows=2351 rva=0x1A5CB8  
+2026-10-27 00:15:55 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 2600/4478 reused=0 flows=2352 rva=0x1A63E8  
+2026-10-27 00:15:55 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 2625/4478 reused=0 flows=2358 rva=0x1A69EC  
+2026-10-27 00:15:55 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 2650/4478 reused=0 flows=2370 rva=0x1A76BC  
+2026-10-27 00:15:55 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 2675/4478 reused=0 flows=2371 rva=0x1A8030  
+2026-10-27 00:15:56 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 2700/4478 reused=0 flows=2375 rva=0x1A9568  
+2026-10-27 00:15:56 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 2725/4478 reused=0 flows=2378 rva=0x1A9D58  
+2026-10-27 00:15:56 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 2750/4478 reused=0 flows=2382 rva=0x1AA60C  
+2026-10-27 00:15:56 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 2775/4478 reused=0 flows=2382 rva=0x1ACBA4  
+2026-10-27 00:15:56 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 2800/4478 reused=0 flows=2382 rva=0x1AD8FC  
+2026-10-27 00:15:57 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 2825/4478 reused=0 flows=2400 rva=0x1AE414  
+2026-10-27 00:15:57 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 2850/4478 reused=0 flows=2419 rva=0x1AFF4C  
+2026-10-27 00:15:57 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 2875/4478 reused=0 flows=2434 rva=0x1B2654  
+2026-10-27 00:15:58 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 2900/4478 reused=0 flows=2449 rva=0x1B4458  
+2026-10-27 00:15:58 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 2925/4478 reused=0 flows=2466 rva=0x1B61CC  
+2026-10-27 00:15:58 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 2950/4478 reused=0 flows=2470 rva=0x1B6EC8  
+2026-10-27 00:15:59 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 2975/4478 reused=0 flows=2471 rva=0x1B7ED4  
+2026-10-27 00:15:59 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 3000/4478 reused=0 flows=2473 rva=0x1B9C4C  
+2026-10-27 00:15:59 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 3025/4478 reused=0 flows=2473 rva=0x1BB940  
+2026-10-27 00:15:59 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 3050/4478 reused=0 flows=2478 rva=0x1BE97C  
+2026-10-27 00:16:00 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 3075/4478 reused=0 flows=2484 rva=0x1C1D88  
+2026-10-27 00:16:00 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 3100/4478 reused=0 flows=2491 rva=0x1C2F48  
+2026-10-27 00:16:00 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 3125/4478 reused=0 flows=2497 rva=0x1C3CB0  
+2026-10-27 00:16:00 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 3150/4478 reused=0 flows=2503 rva=0x1C4CD4  
+2026-10-27 00:16:00 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 3175/4478 reused=0 flows=2503 rva=0x1C5B34  
+2026-10-27 00:16:00 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 3200/4478 reused=0 flows=2505 rva=0x1C701C  
+2026-10-27 00:16:01 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 3225/4478 reused=0 flows=2510 rva=0x1CA200  
+2026-10-27 00:16:01 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 3250/4478 reused=0 flows=2511 rva=0x1CC594  
+2026-10-27 00:16:01 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 3275/4478 reused=0 flows=2516 rva=0x1D0068  
+2026-10-27 00:16:01 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 3300/4478 reused=0 flows=2522 rva=0x1D2918  
+2026-10-27 00:16:02 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 3325/4478 reused=0 flows=2528 rva=0x1D4A54  
+2026-10-27 00:16:02 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 3350/4478 reused=0 flows=2533 rva=0x1D5D18  
+2026-10-27 00:16:02 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 3375/4478 reused=0 flows=2534 rva=0x1D72D4  
+2026-10-27 00:16:02 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 3400/4478 reused=0 flows=2534 rva=0x1D887C  
+2026-10-27 00:16:02 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 3425/4478 reused=0 flows=2544 rva=0x1DA47C  
+2026-10-27 00:16:02 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 3450/4478 reused=0 flows=2545 rva=0x1DB350  
+2026-10-27 00:16:03 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 3475/4478 reused=0 flows=2557 rva=0x1DC534  
+2026-10-27 00:16:03 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 3500/4478 reused=0 flows=2568 rva=0x1DE804  
+2026-10-27 00:16:03 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 3525/4478 reused=0 flows=2580 rva=0x1DF2E4  
+2026-10-27 00:16:04 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 3550/4478 reused=0 flows=2582 rva=0x1E142C  
+2026-10-27 00:16:04 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 3575/4478 reused=0 flows=2596 rva=0x1E36A0  
+2026-10-27 00:16:04 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 3600/4478 reused=0 flows=2602 rva=0x1E4310  
+2026-10-27 00:16:04 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 3625/4478 reused=0 flows=2602 rva=0x1E5038  
+2026-10-27 00:16:04 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 3650/4478 reused=0 flows=2609 rva=0x1E5990  
+2026-10-27 00:16:05 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 3675/4478 reused=0 flows=2621 rva=0x1E5F18  
+2026-10-27 00:16:05 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 3700/4478 reused=0 flows=2639 rva=0x1E84AC  
+2026-10-27 00:16:05 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 3725/4478 reused=0 flows=2641 rva=0x1E90A8  
+2026-10-27 00:16:05 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 3750/4478 reused=0 flows=2647 rva=0x1E9D68  
+2026-10-27 00:16:05 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 3775/4478 reused=0 flows=2647 rva=0x1EA69C  
+2026-10-27 00:16:06 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 3800/4478 reused=0 flows=2647 rva=0x1EC0C8  
+2026-10-27 00:16:06 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 3825/4478 reused=0 flows=2650 rva=0x1ED544  
+2026-10-27 00:16:06 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 3850/4478 reused=0 flows=2652 rva=0x1EDF08  
+2026-10-27 00:16:06 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 3875/4478 reused=0 flows=2656 rva=0x1EEC20  
+2026-10-27 00:16:06 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 3900/4478 reused=0 flows=2661 rva=0x1EFE98  
+2026-10-27 00:16:06 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 3925/4478 reused=0 flows=2661 rva=0x1F0FDC  
+2026-10-27 00:16:07 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 3950/4478 reused=0 flows=2677 rva=0x1F2094  
+2026-10-27 00:16:07 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 3975/4478 reused=0 flows=2684 rva=0x1F348C  
+2026-10-27 00:16:07 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 4000/4478 reused=0 flows=2684 rva=0x1F43B0  
+2026-10-27 00:16:07 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 4025/4478 reused=0 flows=2688 rva=0x1F56B4  
+2026-10-27 00:16:08 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 4050/4478 reused=0 flows=2695 rva=0x1F6968  
+2026-10-27 00:16:08 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 4075/4478 reused=0 flows=2704 rva=0x1F75E8  
+2026-10-27 00:16:09 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 4100/4478 reused=0 flows=2714 rva=0x1FB198  
+2026-10-27 00:16:09 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 4125/4478 reused=0 flows=2718 rva=0x1FCBC8  
+2026-10-27 00:16:09 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 4150/4478 reused=0 flows=2720 rva=0x1FE088  
+2026-10-27 00:16:09 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 4175/4478 reused=0 flows=2722 rva=0x1FF704  
+2026-10-27 00:16:09 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 4200/4478 reused=0 flows=2724 rva=0x20075C  
+2026-10-27 00:16:09 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 4225/4478 reused=0 flows=2724 rva=0x2019BC  
+2026-10-27 00:16:09 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 4250/4478 reused=0 flows=2730 rva=0x202CBA  
+2026-10-27 00:16:10 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 4275/4478 reused=0 flows=2735 rva=0x2043D4  
+2026-10-27 00:16:10 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 4300/4478 reused=0 flows=2745 rva=0x205D74  
+2026-10-27 00:16:10 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 4325/4478 reused=0 flows=2745 rva=0x206268  
+2026-10-27 00:16:10 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 4350/4478 reused=0 flows=2745 rva=0x207660  
+2026-10-27 00:16:10 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 4375/4478 reused=0 flows=2749 rva=0x208794  
+2026-10-27 00:16:10 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 4400/4478 reused=0 flows=2752 rva=0x20933D  
+2026-10-27 00:16:11 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 4425/4478 reused=0 flows=2752 rva=0x209828  
+2026-10-27 00:16:11 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 4450/4478 reused=0 flows=2752 rva=0x209AF6  
+2026-10-27 00:16:11 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 4475/4478 reused=0 flows=2752 rva=0x209DA0  
+2026-10-27 00:16:11 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_PROGRESS 4478/4478 reused=0 flows=2752 rva=0x209ED0  
+2026-10-27 00:16:11 INFO  (GhidraScript) ExportNativeAnalysis.java> ANALYSIS_COMPLETE functions=4478 reused=0  

@@ -24,6 +24,7 @@
     <Compile Include="..\src\BlueprintLayout.cs" Link="Blueprint\BlueprintLayout.cs" />
     <Compile Include="..\src\BlueprintBuildingIconCatalog.cs" Link="Blueprint\BlueprintBuildingIconCatalog.cs" />
     <Compile Include="..\src\CastleRotationOptions.cs" Link="Protocol\CastleRotationOptions.cs" />
+    <Compile Include="..\src\CastleSpawnContentPolicy.cs" Link="Protocol\CastleSpawnContentPolicy.cs" />
     <Compile Include="..\src\CoalescedSynchronizationContextQueue.cs" Link="Protocol\CoalescedSynchronizationContextQueue.cs" />
     <Compile Include="..\src\SupplementalPrefabSpawner.cs" />
     <Compile Include="..\src\SupplementalPrefabVisualPolicy.cs" />

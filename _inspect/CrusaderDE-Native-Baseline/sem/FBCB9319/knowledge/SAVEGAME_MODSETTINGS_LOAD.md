@@ -1,4 +1,4 @@
-# Savegame settings load boundaries
+# Savegame settings load boundaries [Scope: Vanilla + mod integration]
 
 Native SHA-256: FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
 Managed SHA-256: BC8B6A395F01D48557DB413600C8DD8D1FDFD3ABDF97BFBBB68A3C56B04FD789.
@@ -26,7 +26,7 @@ Installed Script Extender: 2.14.1; source provenance in the current database man
   IDs are decremented once by CoopMissionChanged. Save retData is authoritative
   for the actual loaded mission; the selected lobby mission is not a substitute.
 
-## Managed mismatch and ownership
+## Managed mismatch and ownership [mod integration]
 
 The installed Extender OnLoadMap sets its archive IsSaveFile to false even with
 MultiplayerSave set. Its LoadContext therefore cannot by itself distinguish a
@@ -38,7 +38,7 @@ APIShared metadata is written only by the multiplayer host. A client save can
 legitimately lack that entry. Vanilla matches save names plus its play checksum/time
 evidence; whole-file SHA equality between different peers is not established.
 
-## Managed requester timing (2026-10-19 audit)
+## Managed requester timing (2026-10-19 audit) [mod integration]
 
 The installed native and managed hashes were rechecked against the identities above.
 The real public `HUD_LoadSaveRequester.OpenLoadSaveRequester` selects the visible

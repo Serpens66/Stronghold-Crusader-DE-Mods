@@ -1,4 +1,4 @@
-# Outposts: curated static observations
+# Outposts: curated static observations [Scope: Vanilla + mod integration]
 
 Native SHA-256: `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
 Managed SHA-256: `BC8B6A395F01D48557DB413600C8DD8D1FDFD3ABDF97BFBBB68A3C56B04FD789`.
@@ -58,7 +58,7 @@ Target is (10+RNG%10)*(size+1). Positive +310 delay decrements before production
 
 The incremental OutpostTest implementation is intentionally Macemen-only and uses independent bounded random draws plus saturation against acceleration short overflow; it does not claim an identical vanilla RNG stream. Save/load and owner/deletion behavior of that new implementation require their own live acceptance tests.
 
-## Rally implementation contracts (2026-09-17)
+## Rally implementation contracts (2026-09-17) [mod integration]
 
 Reverified canonical hash remains FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2. The installed Extender Create-tribe pattern has a single relative call at 0x11E17C resolving to 0x119C00. Unlike the dedicated outpost allocator's owner-strided scan, it scans 1..4499 and initializes Alive=2; the false third argument leaves selected tribe unchanged. Human per-unit groups can therefore use the public Create(owner,false) wrapper without a new raw allocator adapter.
 

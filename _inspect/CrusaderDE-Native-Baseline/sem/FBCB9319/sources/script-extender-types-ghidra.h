@@ -9327,7 +9327,7 @@ typedef struct PlayerResources
 	uint32_t N00005337; //0x38E4
 	uint32_t N00004114; //0x38E8
 	uint32_t N00005339; //0x38EC
-	uint32_t N00004115; //0x38F0
+	uint32_t r_AILastStandPhase; //0x38F0 (0 = inactive, enters at 8 and falls to 1 while the threat persists)
 	uint32_t N0000533B; //0x38F4
 	uint32_t N00004116; //0x38F8
 	uint32_t N0000533D; //0x38FC
@@ -11697,6 +11697,7 @@ typedef enum ProjectileType
     ProjectileType_UnkInfo4 = 0x2B,
     ProjectileType_Condor = 0x31
 } ProjectileType;
+
 
 /* Derived from AIDefensivePositionClass.h; C++ syntax normalized for Ghidra CParser. */
 typedef enum AIDefensivePositionClass
@@ -18238,7 +18239,7 @@ typedef struct PlayerResources
 	uint32_t N00005337; //0x38E4
 	uint32_t N00004114; //0x38E8
 	uint32_t N00005339; //0x38EC
-	uint32_t N00004115; //0x38F0
+	uint32_t r_AILastStandPhase; //0x38F0 (0 = inactive, enters at 8 and falls to 1 while the threat persists)
 	uint32_t N0000533B; //0x38F4
 	uint32_t N00004116; //0x38F8
 	uint32_t N0000533D; //0x38FC
@@ -19794,6 +19795,7 @@ typedef struct PlayerResources
 	uint32_t N00003966; //0x5834
 	uint32_t N00005B0C; //0x5838
 }; //Size: 0x583C
+
 
 /* Derived from PlayerManagerAndPathfindingContext.h; C++ syntax normalized for Ghidra CParser. */
 struct CrusaderDE_PlayerBuildingIndexCache

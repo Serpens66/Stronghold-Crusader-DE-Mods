@@ -106,6 +106,11 @@ def main():
             "chores": rows(connection.execute(
                 "SELECT domain,record_id,binary_hashes,status,snippet(chore_search,4,'[',']',' … ',20) AS excerpt "
                 "FROM chore_search WHERE chore_search MATCH ? LIMIT 100", (query,))),
+            "types": rows(connection.execute(
+                "SELECT name,kind,length,category,"
+                "substr(declaration,max(1,instr(lower(declaration),lower(?))-120),900) AS excerpt "
+                "FROM data_types WHERE instr(lower(name || ' ' || category || ' ' || declaration),lower(?))>0 "
+                "ORDER BY name LIMIT 100", (args.text, args.text))),
         })
     elif args.command == "function":
         found = resolve_function(connection, args.value)

@@ -1,4 +1,4 @@
-# Modsettings activation: peace time and No Dogs
+# Modsettings activation: peace time and No Dogs [Scope: Vanilla + mod integration]
 
 Observation: 2026-10-22. Native SHA-256:
 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
@@ -56,7 +56,7 @@ All native callers of `FFC70` were inspected: the export, `C2030` (mapper IDs
 `60`/`61`, so it does not take the dog branch), and state producer `19D960`.
 Preserve native restrictions and state production outside the narrow extension.
 
-## Permanent logical dispatch feasibility
+## Permanent logical dispatch feasibility [mod integration]
 
 A six-byte indirect jump at `FFD94` can replace exactly the complete CMP/JE pair.
 Dormant execution replays both instructions, preserving the branch to `FFDCB`;

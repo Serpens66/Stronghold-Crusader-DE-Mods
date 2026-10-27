@@ -16,6 +16,9 @@ namespace BugfixesAndQoL.UnitCommands
             MoatWorkSelectionScope scope, int targetX, int targetY,
             out RouteProbeSummary summary)
         {
+#if SERP_DEVDIAG
+            using var probeOperation = ManualProbeCapture.BeginOperation(ManualProbeCapture.MoatWork);
+#endif
             summary = default;
             if (scope == null || !scope.Matches(mapEpoch, GameTileManagerAPI.Instance.GetTileManager()) ||
                 scope.CapturedTick != CaptureCurrentGameTick() ||

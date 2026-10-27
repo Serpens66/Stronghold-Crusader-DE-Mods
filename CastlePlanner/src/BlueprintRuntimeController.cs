@@ -704,24 +704,15 @@ namespace CastlePlanner
             int keepY,
             string reason)
         {
-            bool previewHasNoCastle =
-                preview.IsPreviewActive && !preview.HasSelectedCastle;
-            bool committedPlayerHasNoCastle = false;
-            if (preview.IsSpawnMapPass)
-            {
-                committedPlayerHasNoCastle =
-                    !preview.TryGetCommittedSelection(
-                        GetControlledPlayerId(),
-                        out FreeCastleSelection committed) ||
-                    !committed.HasCastle;
-            }
-            if (previewHasNoCastle || committedPlayerHasNoCastle)
+            if (!BlueprintLayoutPolicy.CanPrepare(
+                    preview.IsPreviewActive,
+                    preview.HasSelectedCastle))
             {
                 layout = null;
                 layoutKeepX = int.MinValue;
                 layoutKeepY = int.MinValue;
                 renderer.Clear();
-                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/BlueprintRuntimeController.cs:737", () => "Blueprint hidden because the start selection contains no castle.");
+                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/BlueprintRuntimeController.cs:737", () => "Blueprint hidden during the active start preview because no castle is selected.");
                 return false;
             }
 
@@ -755,7 +746,8 @@ namespace CastlePlanner
                 AivJsonDocument filteredDocument = AivSpawnPlan.Filter(
                     document,
                     displayOptions);
-                AIVParser.Core.AivRotation castleRotation = GetPreviewRotation();
+                if (!TryGetPreviewRotation(out AIVParser.Core.AivRotation castleRotation))
+                    throw new InvalidOperationException("The Keep has no supported Blueprint rotation.");
                 layout = BlueprintLayoutBuilder.Build(
                     filteredDocument,
                     keepX,
@@ -830,30 +822,29 @@ namespace CastlePlanner
             return false;
         }
 
-        private AIVParser.Core.AivRotation GetPreviewRotation()
+        private bool TryGetPreviewRotation(out AIVParser.Core.AivRotation rotation)
         {
-            int nativeRotation = 0;
-            if (preview != null)
+            rotation = AIVParser.Core.AivRotation.Degrees0;
+            int nativeRotation;
+            if (preview?.IsPreviewActive == true)
             {
-                if (preview.IsPreviewActive)
-                {
-                    nativeRotation = preview.SelectedNativeRotation;
-                }
-                else if (preview.IsSpawnMapPass)
-                {
-                    preview.TryGetCommittedRotation(
-                        GetControlledPlayerId(),
-                        out nativeRotation);
-                }
+                if (!preview.TryGetSelectedNativeRotation(out nativeRotation))
+                    return false;
+            }
+            else if (preview == null || !preview.TryGetCommittedRotation(
+                GetControlledPlayerId(), out nativeRotation))
+            {
+                if (!FreeCastlePreviewRuntime.TryReadKeepRotation(GetControlledPlayerId(), out nativeRotation))
+                    return false;
             }
 
             switch (nativeRotation)
             {
-                case 2: return AIVParser.Core.AivRotation.Degrees90;
-                case 4: return AIVParser.Core.AivRotation.Degrees180;
-                case 6: return AIVParser.Core.AivRotation.Degrees270;
-                default: return AIVParser.Core.AivRotation.Degrees0;
+                case 2: rotation = AIVParser.Core.AivRotation.Degrees90; break;
+                case 4: rotation = AIVParser.Core.AivRotation.Degrees180; break;
+                case 6: rotation = AIVParser.Core.AivRotation.Degrees270; break;
             }
+            return true;
         }
 
         private void ToggleBlueprint()
@@ -890,7 +881,13 @@ namespace CastlePlanner
 
             preparePending = false;
             showAfterPrepare = false;
-            AIVParser.Core.AivRotation castleRotation = GetPreviewRotation();
+            if (!TryGetPreviewRotation(out AIVParser.Core.AivRotation castleRotation))
+            {
+                renderer.Clear();
+                layout = null;
+                RefreshHud();
+                return;
+            }
             if (layout == null ||
                 layoutKeepX != keepX ||
                 layoutKeepY != keepY ||

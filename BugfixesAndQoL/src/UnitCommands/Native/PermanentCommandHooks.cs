@@ -42,6 +42,7 @@ namespace BugfixesAndQoL.UnitCommands
         internal FastAppendDelegate queueAppendProvider;
         internal FastChoreDelegate queueTargetProvider;
         internal Action<SHCDESE.EventAPI.Tribes.TribeIssueOrderMoveHereEventArgs> queueMoveEvent;
+        internal Func<SHCDESE.EventAPI.Tribes.TribeIssueOrderMoveHereEventArgs, bool> queueDefersMove;
         internal Action<SHCDESE.EventAPI.Tribes.TribeIssueOrderWithTargetEventArgs> queueTargetEvent;
         private FastAppendDelegate traversalAppendProvider;
         private FastChoreDelegate traversalTargetProvider;
@@ -58,6 +59,10 @@ namespace BugfixesAndQoL.UnitCommands
         private void DispatchPlayerMove(IntPtr manager, int tribe, int x, int y, int patrol, int flags)
         {
             long entries = playerMoveEntries;
+            ManualPlayerMoveFrame parentPlayerMove = manualPlayerMove;
+            bool preserve = manualAdmissionReady && manager == nativeTribeManager && tribe > 0 && tribe < MaximumTribeCount;
+            ushort previousMode = preserve ? *(ushort*)((byte*)manager + tribe * TribeRecordSize + 0x56C) : (ushort)0;
+            manualPlayerMove = new ManualPlayerMoveFrame { Valid = preserve, Tribe = tribe };
             try
             {
                 if (TraversalEnabled && traversalMoveProvider != null) traversalMoveProvider(manager, tribe, x, y, patrol, flags);
@@ -70,25 +75,44 @@ namespace BugfixesAndQoL.UnitCommands
                 try { nativePlayerMove(manager, tribe, x, y, patrol, flags); }
                 catch (Exception fallback) { ReportNativeDetourBarrier("196100-player-move-fallback", fallback); }
             }
+            finally
+            {
+                // 196100 updates this group flag before the 11B520 event. A fully
+                // rejected order must preserve that earlier write as well.
+                if (preserve && manualPlayerMove.Rejected)
+                    *(ushort*)((byte*)manager + tribe * TribeRecordSize + 0x56C) = previousMode;
+                manualPlayerMove = parentPlayerMove;
+            }
         }
         private FastAppendDelegate nativeAppend;
         private FastChoreDelegate nativeTarget;
 
         [ThreadStatic] private static Stack<bool> moveEventObservers;
         [ThreadStatic] private static Stack<int> moveEventDepths;
+        [ThreadStatic] private static Stack<ManualRegionAdmissionBatch> moveAdmissionParents;
         [ThreadStatic] private static Stack<Action> targetCommandParents;
         [ThreadStatic] private static Stack<bool> targetEventObservers;
         internal void DispatchMoveEvent(SHCDESE.EventAPI.Tribes.TribeIssueOrderMoveHereEventArgs args)
         {
             if (args.Phase == SHCDESE.EventAPI.EventHookPhase.Pre)
             {
-                formationRuntime?.OnTribeIssueOrderMoveHere(args);
+                ManualRegionAdmissionBatch admissionParent = BeginManualGroupAdmission(args);
+                if (moveAdmissionParents == null) moveAdmissionParents = new Stack<ManualRegionAdmissionBatch>();
+                moveAdmissionParents.Push(admissionParent);
                 int depth = manualCommandContexts?.Count ?? 0;
                 if (moveEventObservers == null) moveEventObservers = new Stack<bool>();
                 if (moveEventDepths == null) moveEventDepths = new Stack<int>();
                 moveEventObservers.Push(false); moveEventDepths.Push(depth);
                 try
                 {
+                    formationRuntime?.OnTribeIssueOrderMoveHere(args);
+                    PrepareDefaultGroupDestinations(args);
+                    if (args.SkipOriginalFunction)
+                    {
+                        moveEventObservers.Pop(); moveEventDepths.Pop();
+                        EndManualGroupAdmission(moveAdmissionParents.Pop());
+                        return;
+                    }
                     queueMoveEvent?.Invoke(args);
                     if (!args.SkipOriginalFunction)
                     {
@@ -98,7 +122,7 @@ namespace BugfixesAndQoL.UnitCommands
                     else
                     {
                         moveEventObservers.Pop(); moveEventDepths.Pop();
-
+                        EndManualGroupAdmission(moveAdmissionParents.Pop());
                     }
                 }
                 catch
@@ -107,7 +131,7 @@ namespace BugfixesAndQoL.UnitCommands
                     if (args.SkipOriginalFunction)
                     {
                         moveEventObservers.Pop(); moveEventDepths.Pop();
-
+                        EndManualGroupAdmission(moveAdmissionParents.Pop());
                     }
                     throw;
                 }
@@ -120,7 +144,8 @@ namespace BugfixesAndQoL.UnitCommands
                 finally
                 {
                     while ((manualCommandContexts?.Count ?? 0) > depth) RestoreManualCommandContext();
-                    formationRuntime?.OnTribeIssueOrderMoveHere(args);
+                    try { formationRuntime?.OnTribeIssueOrderMoveHere(args); }
+                    finally { if (moveAdmissionParents?.Count > 0) EndManualGroupAdmission(moveAdmissionParents.Pop()); }
                 }
             }
         }

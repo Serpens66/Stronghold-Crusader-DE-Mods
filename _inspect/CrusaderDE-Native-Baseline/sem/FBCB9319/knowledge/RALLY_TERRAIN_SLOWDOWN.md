@@ -1,4 +1,4 @@
-# Rally-point terrain slowdown audit (2026-10-08)
+# Rally-point terrain slowdown audit (2026-10-08) [Scope: Vanilla + mod integration]
 
 Native SHA256: FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
 Installed managed SHA256: BC8B6A395F01D48557DB413600C8DD8D1FDFD3ABDF97BFBBB68A3C56B04FD789.
@@ -45,7 +45,7 @@ adjustments. The old mod hook at 0x19B506 copied the base delay before
 terrain checks and erased the already calculated elevation adjustment.
 The terrain setting bypasses only that additional reset.
 
-## Hook and lifecycle contract
+## Hook and lifecycle contract [mod integration]
 
 BugfixesAndQoL captures the effective delay before the original handler,
 then restores it at the shared cadence hook before Vanilla loads it.
@@ -79,7 +79,7 @@ owners, original call/registers/flags, death, identity/state changes,
 epoch rejection and single consumption. These are isolated execution
 tests; real in-game terrain routes and save loading still require playtest.
 
-## Startup interaction: immutable static analysis (2026-10-08)
+## Startup interaction: immutable static analysis (2026-10-08) [mod integration]
 
 The 18:36 start log confirms the process-owned rally capture was installed at
 RVA 0x18410C before the cadence resolver ran. Reading the original dispatch

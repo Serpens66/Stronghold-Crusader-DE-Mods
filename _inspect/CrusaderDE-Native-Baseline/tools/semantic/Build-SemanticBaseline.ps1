@@ -1,9 +1,11 @@
 param(
-    [ValidateSet('Analysis', 'Validate', 'ValidateFast', 'UpdateForScriptExtender', 'Knowledge', 'Curated', 'Resources', 'GhidraCurrent', 'GhidraHistorical', 'GhidraExports', 'Index', 'RestoreDatabase', 'All')]
+    [ValidateSet('NativeKnowledge', 'Analysis', 'Validate', 'ValidateFast', 'UpdateForScriptExtender', 'Knowledge', 'Curated', 'Resources', 'GhidraCurrent', 'GhidraHistorical', 'GhidraExports', 'Index', 'RestoreDatabase', 'All')]
     [string]$Stage = 'Validate',
     [string]$ScriptExtenderCommit,
     [string]$PreviousScriptExtenderCommit,
-    [switch]$RequireUnchangedGhidraInputs
+    [switch]$RequireUnchangedGhidraInputs,
+    [string]$NativeKnowledgeSourceDirectory,
+    [string]$NativeKnowledgeRunDirectory
 )
 
 $ErrorActionPreference = 'Stop'
@@ -192,6 +194,34 @@ function Invoke-DatabaseManifest([string]$Command) {
 }
 
 Set-Location -LiteralPath $workspace
+if ($Stage -eq 'NativeKnowledge') {
+    Assert-Hash $native $currentHash
+    $knowledgeManifestBefore = Get-SteamPackFileSha256 -Path $databaseManifest
+    $knowledgePointerBefore = Get-SteamPackFileSha256 -Path $currentIndex
+    # Published analysis directories are immutable, including their derived index.
+    # Maintained semantic type enrichment uses its own reproducible database.
+    $database = Join-Path $semantic 'CrusaderDE-knowledge.sqlite'
+    Invoke-CuratedKnowledgeValidation
+    if (-not $NativeKnowledgeRunDirectory) {
+        . (Join-Path $workspace 'Shared\Tools\Paths\WorkPaths.ps1')
+        $NativeKnowledgeRunDirectory = New-ShortWorkDirectory -Root $workspace -Kind a -Name 'native-knowledge' -Identity $currentHash
+    }
+    & (Join-Path $toolDirectory 'Run-NativeKnowledge.ps1') -SourceDirectory $NativeKnowledgeSourceDirectory -RunDirectory $NativeKnowledgeRunDirectory
+    if ((Get-SteamPackFileSha256 -Path $databaseManifest) -ne $knowledgeManifestBefore -or (Get-SteamPackFileSha256 -Path $currentIndex) -ne $knowledgePointerBefore) { throw 'Baseline selection changed during NativeKnowledge import; publication refused.' }
+    # A type-only enrichment retains the captured Extender provenance, function exports,
+    # historical comparisons and immutable machine-analysis generations.
+    $seCommit = $referenceManifest.identities.scriptExtenderCommit
+    $seTree = $referenceManifest.identities.scriptExtenderTree
+    $currentBinary = $referenceManifest.binaries | Where-Object role -eq 'current-native'
+    $oldBinary = $referenceManifest.binaries | Where-Object role -eq 'historical-native'
+    $managedBinary = $referenceManifest.binaries | Where-Object role -eq 'current-managed'
+    Invoke-DatabaseBuild $currentBinary.size $oldBinary.size $managedBinary.size $currentBinary.sourcePath $oldBinary.sourcePath $managedBinary.sourcePath
+    if ((Get-SteamPackFileSha256 -Path $databaseManifest) -ne $knowledgeManifestBefore -or (Get-SteamPackFileSha256 -Path $currentIndex) -ne $knowledgePointerBefore) { throw 'Baseline selection changed during NativeKnowledge indexing; publication refused.' }
+    & $python $databaseManifestTool create --baseline-root $baselineRoot --semantic $semantic --comparison $comparison --database $database --manifest $databaseManifest --raw-root $rawHashRoot --managed-dir $managedDirectory --current-hash $currentHash --managed-hash $managedHash --old-hash $oldHash --se-commit $seCommit --se-tree $seTree --current-index $currentIndex
+    Assert-LastExitCode 'NativeKnowledge manifest refresh'
+    Invoke-DatabaseManifest 'validate'
+    exit 0
+}
 if ($Stage -eq 'Analysis') {
     & (Join-Path $toolDirectory 'Run-NativeAnalysis.ps1')
     exit $LASTEXITCODE
@@ -331,6 +361,19 @@ if ($runGhidraCurrent) {
     Assert-LastExitCode 'Current semantic Ghidra apply'
     if (-not (Test-Path -LiteralPath $appliedLabels -PathType Leaf)) {
         throw 'Current semantic Ghidra apply did not produce applied-labels.json; type, prototype, or label application failed.'
+    }
+    $nativeKnowledgePlan = Join-Path $semantic 'knowledge\native-field-ghidra.json'
+    if (Test-Path -LiteralPath $nativeKnowledgePlan) {
+        $knowledgeReport = Join-Path $semantic 'validation\native-knowledge-reapply.json'
+        Remove-Item -LiteralPath $knowledgeReport -Force -ErrorAction SilentlyContinue
+        & $ghidra $currentProject 'CrusaderDE-Semantic' -process 'CrusaderDE.dll' -noanalysis -scriptPath $toolDirectory -postScript ImportNativeKnowledge.java $nativeKnowledgePlan apply $knowledgeReport
+        Assert-LastExitCode 'NativeKnowledge reapply'
+        if (-not (Test-Path -LiteralPath $knowledgeReport)) { throw 'NativeKnowledge reapply did not complete.' }
+        $functionReport = Join-Path $semantic 'validation\native-functions-reapply.json'
+        Remove-Item -LiteralPath $functionReport -Force -ErrorAction SilentlyContinue
+        & $ghidra $currentProject 'CrusaderDE-Semantic' -process 'CrusaderDE.dll' -noanalysis -scriptPath $toolDirectory -postScript ImportNativeFunctionNames.java $nativeKnowledgePlan apply $functionReport
+        Assert-LastExitCode 'Native function-name reapply'
+        if (-not (Test-Path -LiteralPath $functionReport)) { throw 'Native function-name reapply did not complete.' }
     }
     Normalize-GeneratedText (Join-Path $semantic 'sources\CrusaderDE-ScriptExtender.gdt_CParser.out')
     & $ghidra $currentProject 'CrusaderDE-Semantic' -process 'CrusaderDE.dll' -noanalysis -scriptPath $toolDirectory -postScript ExportCrusaderSemantics.java $currentExports $currentHash

@@ -1,5 +1,27 @@
 # Updating CastlePlanner for a new CrusaderDE.dll
 
+## Preserve existing Keep rotation (2026-10-27)
+
+For native SHA256 FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2,
+the human branch in 94350 passes orientation 15 through 6D580 to 74DA0.
+74DA0 stores its effective seventh argument in the root Keep's sprite-variation
+field and uses 0 for geometry when that argument is 15. D0630 consumes the
+stored direction for Keep access coordinates. Fixes may replace the constructor
+argument; observe the resulting root Keep, not merely BuildStructure's argument.
+
+Unchanged selections carry a separate PreserveKeepRotation flag and a resolved
+cardinal layout direction in protocol 6. The existing 95B3C hook still prepares
+the AIV anchor but leaves [RSP+30] untouched for these selections. Fixes' per-player
+rotation array is overridden only for explicit rotations. Pre validates the raw
+argument captured at the existing hook; Post validates the actual root Keep's
+normalized direction before executing the prepared AIV. No new native site or
+layout is introduced. On DLL/Extender updates, recheck the stored variation and
+sentinel interpretation as well as the existing hook and AIV placement contract.
+
+Native field reads use the installed Extender's public GameBuilding field
+r_SpriteVariationIndex. Unknown values fail closed; 15 is normalized to 0 only
+for cardinal layout calculations, never supplied as an explicit AIV rotation.
+
 ## Type-zero AIV frames (2026-10-05)
 
 For native hash FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2,

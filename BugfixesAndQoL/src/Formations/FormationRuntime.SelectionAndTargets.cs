@@ -87,22 +87,6 @@ namespace BugfixesAndQoL.UnitCommands
             return true;
         }
 
-        private static bool SelectionMatches(SelectionIdentity[] expected, int expectedTribeId)
-        {
-            if (!TryCaptureSelection(out SelectionIdentity[] current, out int currentTribeId) ||
-                currentTribeId != expectedTribeId ||
-                current.Length != expected.Length)
-                return false;
-            for (int index = 0; index < current.Length; index++)
-            {
-                if (current[index].UnitId != expected[index].UnitId ||
-                    current[index].GlobalId != expected[index].GlobalId ||
-                    current[index].UnitType != expected[index].UnitType)
-                    return false;
-            }
-            return true;
-        }
-
         private static bool TryCaptureTarget(out GroundTarget target)
         {
             target = default;

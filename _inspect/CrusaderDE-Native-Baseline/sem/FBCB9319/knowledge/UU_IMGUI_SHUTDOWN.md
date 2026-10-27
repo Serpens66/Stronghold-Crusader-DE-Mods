@@ -1,4 +1,4 @@
-# UU-ImGUI shutdown audit (2026-10-10)
+# UU-ImGUI shutdown audit (2026-10-10) [Scope: External component]
 
 Native game baseline: FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
 Audited installed Script Extender assembly: 2.14.1.0. Bundled UU-ImGUI: 1.6.7.

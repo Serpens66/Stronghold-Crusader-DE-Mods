@@ -1,4 +1,4 @@
-# Popularity contribution parameters
+# Popularity contribution parameters [Scope: Vanilla + mod integration]
 
 Audit: 2026-10-16. Installed Native SHA-256:
 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
@@ -117,7 +117,7 @@ checks also run paused. No new native hook ownership is introduced.
 
 Runtime acceptance of the correction, including multiplayer, remains pending.
 
-## Transfer to APIShared (2026-10-17)
+## Transfer to APIShared (2026-10-17) [mod integration]
 
 The user confirmed the original PopularityTest correction working in-game. The
 reusable calculator and presentation adapter now live in APIShared ScriptExtenderFixes.
@@ -203,7 +203,7 @@ The Extender's configurable multiplier directly exposes Vanilla's constant 25; t
 is a technical explanation, not evidence of the author's personal design motivation.
 Actual game, report/preview and real host/client acceptance remain separate.
 
-## Human/AI targeting feasibility (2026-10-25)
+## Human/AI targeting feasibility (2026-10-25) [mod integration]
 
 Canonical native SHA-256 was rechecked and remains
 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
@@ -245,7 +245,7 @@ existing public PlayerPerspectiveAPI.GetViewedPlayerId is the relevant identity
 boundary, including uncertainty handling. No targeting behavior, lifecycle roster
 timing or real multiplayer execution was implemented or runtime-tested in this check.
 
-## Targeted policy implementation audit (2026-10-25)
+## Targeted policy implementation audit (2026-10-25) [mod integration]
 
 This is an additional dated implementation observation, retaining the preceding
 feasibility snapshot. Native SHA-256 remains

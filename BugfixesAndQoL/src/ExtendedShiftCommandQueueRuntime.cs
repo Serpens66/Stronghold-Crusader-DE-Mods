@@ -318,6 +318,7 @@ namespace BugfixesAndQoL
                 referenceHashMatches);
             sharedCommands.queueTargetEvent = OnTargetOrder;
             sharedCommands.queueMoveEvent = OnMoveOrder;
+            sharedCommands.queueDefersMove = DefersMoveOrder;
             subscriptions.Add(TribeR3EventHooks.OnTribeAssignUnit.Observable
                 .Subscribe(OnTribeAssignUnit));
             subscriptions.Add(TribeR3EventHooks.OnTribeCreate.Observable
@@ -801,6 +802,19 @@ namespace BugfixesAndQoL
             // Both phases fire for ordinary AI movement as well. Queue actions are recorded
             // centrally after they have passed the local/Shift/marker classification.
             OnMoveOrderCore(args);
+        }
+
+        // Read-only classification before the shared command filter. A queued
+        // waypoint is checked when executed, not against its insertion-time start.
+        private bool DefersMoveOrder(TribeIssueOrderMoveHereEventArgs args)
+        {
+            if (!installed || !FeatureEnabled || internalDispatch || args.IsPatrolPath != 0 ||
+                IsAiOwnedAliveTribe(args.TribeId)) return false;
+            if (IsRealMultiplayer())
+                return multiplayerSynchronizationReady &&
+                    QueueNativeContract.TryDecodeQueuedMoveType((int)args.MoveType, out _);
+            return IsShiftPressed() && !UnitCommandPathAPI.FormationDispatchActive &&
+                IsLocalSelectedTribe(args.TribeId, out _);
         }
 
         private void OnTribeAssignUnit(TribeAssignUnitEventArgs args)

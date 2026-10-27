@@ -59,6 +59,7 @@ namespace CastlePlanner
         private bool spawnSiegeEngines =
             CastleSpawnContentPolicy.DefaultSiegeEngines;
         private bool spawnBraziersAndFlags;
+        private bool allowRotation = CastleSpawnContentPolicy.DefaultAllowRotation;
         private string selectedCastle;
         private bool castleCatalogLoaded;
         private Task<CatalogLoadResult> castleCatalogTask;
@@ -90,7 +91,8 @@ namespace CastlePlanner
                     spawnDefensiveGroundFeatures,
                     spawnFearFactorBuildings,
                     spawnSiegeEngines,
-                    spawnBraziersAndFlags))
+                    spawnBraziersAndFlags,
+                    allowRotation))
             {
                 return;
             }
@@ -187,7 +189,7 @@ namespace CastlePlanner
                 return;
             }
 
-            if ((!IsBlueprintMode && !IsSpawnMode) ||
+            if ((!IsBlueprintMode && !(IsSpawnMode && HasSpawnContent)) ||
                 DateTime.UtcNow < nextCatalogRetryUtc ||
                 !Shared.WorkshopContentPaths.IsSteamworksReady())
             {
@@ -318,6 +320,8 @@ namespace CastlePlanner
         public string SpawnSiegeEnginesHelpText => SerpLocalization.Get("CastlePlanner.SpawnSiegeEnginesHelp");
         public string SpawnBraziersAndFlagsText => SerpLocalization.Get("CastlePlanner.SpawnBraziersAndFlags");
         public string SpawnBraziersAndFlagsHelpText => SerpLocalization.Get("CastlePlanner.SpawnBraziersAndFlagsHelp");
+        public string AllowRotationText => SerpLocalization.Get("CastlePlanner.AllowRotation");
+        public string AllowRotationHelpText => SerpLocalization.Get("CastlePlanner.AllowRotationHelp");
         public string HotkeyText => SerpLocalization.Get("CastlePlanner.Hotkey");
         public string HotkeyHelpText => SerpLocalization.Get("CastlePlanner.HotkeyHelp");
         public string ClearText => SerpLocalization.Get("Common.Clear");
@@ -542,6 +546,13 @@ namespace CastlePlanner
                 nameof(SpawnBraziersAndFlags));
         }
 
+        [SyncHostOnly]
+        public bool AllowRotation
+        {
+            get => allowRotation;
+            set => SetHostSpawnOption(ref allowRotation, value, nameof(AllowRotation));
+        }
+
         [APIShared.ModSettings.PresetLocal]
         public string SelectedCastle
         {
@@ -623,6 +634,9 @@ namespace CastlePlanner
         public bool IsCapturingHotkey => isCapturingHotkey;
         public bool IsBlueprintMode => enableClientFeatures && blueprints;
         public bool IsSpawnMode => enableMod && spawnCastle;
+        internal bool HasSpawnContent => CastleSpawnContentPolicy.HasAnyEnabled(
+            spawnFortifications, spawnBuildings, spawnDefensiveGroundFeatures,
+            spawnFearFactorBuildings, spawnSiegeEngines, spawnBraziersAndFlags);
         internal KeyCode BlueprintHotkeyCode => (KeyCode)(blueprintHotkey & HotkeyKeyMask);
         internal bool BlueprintHotkeyAlt => (blueprintHotkey & HotkeyAltMask) != 0;
         internal bool BlueprintHotkeyControl => (blueprintHotkey & HotkeyControlMask) != 0;
@@ -706,8 +720,9 @@ namespace CastlePlanner
                     ? value
                     : spawnBraziersAndFlags;
 
-            // Publish SpawnCastle=false before the last content option. Clients
-            // therefore never observe an enabled spawn with an empty castle.
+            bool projectedAllowRotation = propertyName == nameof(AllowRotation)
+                ? value : allowRotation;
+            // A rotation-only start remains valid even without any AIV content.
             if (CastleSpawnContentPolicy.ShouldDisableBeforeContentChange(
                     spawnCastle,
                     CanEditHostSettings && !IsApplyingSettingsSnapshot,
@@ -716,13 +731,16 @@ namespace CastlePlanner
                     projectedDefensiveGroundFeatures,
                     projectedFearFactorBuildings,
                     projectedSiegeEngines,
-                    projectedBraziersAndFlags))
+                    projectedBraziersAndFlags,
+                    projectedAllowRotation))
             {
                 SpawnCastle = false;
             }
 
             field = value;
             OnPropertyChanged(propertyName);
+            OnPropertyChanged(nameof(HasSpawnContent));
+            PumpCastleCatalogLoad();
             if (Shared.DebugLogHelper.DiagnosticsEnabled)
                 Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerSettingsViewModel.cs:741", $"CastlePlanner host {propertyName} changed to {value}.");
             SettingsChanged?.Invoke();
@@ -730,6 +748,7 @@ namespace CastlePlanner
 
         private void ResetHostSpawnContentToDefaults()
         {
+            AllowRotation = CastleSpawnContentPolicy.DefaultAllowRotation;
             SpawnFortifications = CastleSpawnContentPolicy.DefaultFortifications;
             SpawnBuildings = CastleSpawnContentPolicy.DefaultBuildings;
             SpawnDefensiveGroundFeatures =

@@ -1,0 +1,33 @@
+{
+  "observedUtc": "2026-10-25T20:35:34.735600+00:00",
+  "status": "ok",
+  "nativeHash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+  "functions": 4,
+  "newNames": [
+    {
+      "rva": "0xC07C0",
+      "name": "c_game_building_get_type_height_offset"
+    },
+    {
+      "rva": "0x184FD0",
+      "name": "c_game_unit_update_standing_height"
+    }
+  ],
+  "firstReview": "Complete scoped data/control flow and all relevant branch/side-effect paths.",
+  "secondReview": "Independent original-byte replay: 115546 private native execution comparisons.",
+  "rawBaselineFilesUnchanged": 34,
+  "historicalAnalysisFilesUnchanged": 232,
+  "existingFunctionBytesAndSignaturesUnchanged": 4478,
+  "fieldIdentities": 88,
+  "decompiledFunctionsRefreshed": 30,
+  "otherDecompilerBlocksUnchanged": true,
+  "repeatImportChanged": 0,
+  "freshReadOnlyVerified": true,
+  "manualFunctionAnnotationsProtected": true,
+  "wrongImageBytesAndNameCollisionRefused": true,
+  "apiSharedRuntimeSourcesUnchanged": true,
+  "apiSharedFunctionMetadata": "src/NativeKnowledge/functions.json",
+  "validation": "15 Python regression cases; NativeKnowledge Core.Tests 1/1; 671 documentation links.",
+  "historicalCacheNote": "The prior task historical-cache reconstruction byte difference remains documented; this task changed no historical analysis file.",
+  "limits": "Reconstructed names, no PDB recovery, no invocation API or game/multiplayer acceptance."
+}

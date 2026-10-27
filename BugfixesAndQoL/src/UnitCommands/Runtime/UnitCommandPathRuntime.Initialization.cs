@@ -364,6 +364,7 @@ namespace BugfixesAndQoL.UnitCommands
                 },
                 "MoveHere moat-path mode persistence contract");
             ValidateGameUnitFieldOffset(nameof(GameUnit.r_PathPlanRelated1), 0xF0);
+            InitializeCursorRejectContract(memory);
             ValidateGameUnitFieldOffset(nameof(GameUnit.r_TargetTilePositionX2), 0xE8);
             ValidateGameUnitFieldOffset(nameof(GameUnit.r_TargetTilePositionY2), 0xEA);
             ValidateGameUnitFieldOffset(nameof(GameUnit.r_AIState), 0x2BC);
@@ -407,6 +408,7 @@ namespace BugfixesAndQoL.UnitCommands
             nativePathManager = (IntPtr)(libraryBase + NativePathManagerRva);
             nativeProbeGrid = (byte*)(libraryBase + 0x5225B10);
             nativeProbeRectangle = (byte*)(libraryBase + 0x34A9F50);
+            InitializeCursorGroundContract(memory, libraryBase);
             nativeTribeManager = (IntPtr)(libraryBase + NativeTribeManagerRva);
             nativeSpecialStructureContext =
                 (IntPtr)(libraryBase + NativeSpecialStructureContextRva);
@@ -624,6 +626,7 @@ namespace BugfixesAndQoL.UnitCommands
                 TryInstallAttackApproachDiagnostics(memory, libraryBase);
                 TryInstallMoatWorkTargetSelection(memory, libraryBase);
                 InstallConnectivityAndRecovery(memory, libraryBase);
+                InstallManualGroupAdmission(memory, libraryBase);
 #if SERP_DEVDIAG
                 UnityEngine.Application.onBeforeRender += ObserveCursorPerformance;
 #endif

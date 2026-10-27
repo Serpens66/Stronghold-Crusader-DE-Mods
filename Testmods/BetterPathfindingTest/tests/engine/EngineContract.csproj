@@ -1,0 +1,22 @@
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup><ImportDirectoryBuildTargets>false</ImportDirectoryBuildTargets></PropertyGroup>
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" />
+  <PropertyGroup><OutputType>Exe</OutputType><AssemblyName>EngineContract</AssemblyName><TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion><LangVersion>latest</LangVersion><OutputPath>bin\</OutputPath><AllowUnsafeBlocks>true</AllowUnsafeBlocks><DefineConstants>SERP_DEVDIAG</DefineConstants></PropertyGroup>
+  <ItemGroup><Reference Include="System" /><Reference Include="System.Core" /><Reference Include="Assembly-CSharp"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\Assembly-CSharp.dll</HintPath><Private>false</Private></Reference></ItemGroup>
+  <ItemGroup><Compile Include="Program.cs" /><Compile Include="..\..\src\Runtime\EngineGate.cs" /></ItemGroup>
+  <ItemGroup>
+    <Compile Include="..\..\src\Core\*.cs" />
+    <Compile Include="..\..\src\Runtime\ManagedContracts.cs" /><Compile Include="..\..\src\Runtime\CaptureState.cs" />
+    <Compile Include="..\..\src\Runtime\Capture.DevDiag.cs" /><Compile Include="..\..\src\Runtime\Run.DevDiag.cs" />
+    <Compile Include="..\..\..\..\Shared\Runtime\Diagnostics\DebugLogHelper.cs" /><Compile Include="..\..\..\..\Shared\Runtime\Diagnostics\DevDiag.cs" /><Compile Include="..\..\..\..\Shared\Runtime\Persistence\DependencyFreeJson.cs" />
+    <Reference Include="System.IO.Compression" />
+    <Reference Include="BepInEx"><HintPath>$(GameDir)\BepInEx\core\BepInEx.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="SHCDESE"><HintPath>$(GameDir)\BepInEx\plugins\000shcdese\SHCDESE.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="APIShared"><HintPath>$(GameDir)\BepInEx\plugins\APIShared_Serp\APIShared.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="System.Memory"><HintPath>$(GameDir)\BepInEx\plugins\000shcdese\System.Memory.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="R3"><HintPath>$(GameDir)\BepInEx\plugins\000shcdese\R3.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="RedBird.Core"><HintPath>$(GameDir)\BepInEx\plugins\000shcdese\RedBird.Core.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.CoreModule"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.CoreModule.dll</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>

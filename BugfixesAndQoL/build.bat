@@ -136,6 +136,15 @@ set /a CHECK_SCOPES=NOTIFICATION_CHECKS+GATEHOUSE_CHECKS+FOREIGN_HUD_CHECKS+SETT
 if %CHECK_SCOPES% GTR 1 goto build_failed
 pushd "%PROJECT_DIR%"
 if "%BUILD_TEST_MODE%"=="none" goto foreign_hud_checks_completed
+rem Exercise the linked production display hook in every checked build, including quick mode.
+call :step_start "tests" "display-DisplayResolutionFocusGuardTests.csproj"
+"%MSBUILD%" "%PROJECT_DIR%..\_inspect\DisplayResolutionFocusGuardTests\DisplayResolutionFocusGuardTests.csproj" /p:Configuration=Release /nologo /verbosity:minimal
+call :step_end %ERRORLEVEL%
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+call :step_start "tests" "display-DisplayResolutionFocusGuardTests.exe"
+"%PROJECT_DIR%..\_inspect\DisplayResolutionFocusGuardTests\bin\DisplayResolutionFocusGuardTests.exe"
+call :step_end %ERRORLEVEL%
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 rem Shared Coop selection validation is part of every checked build of both consumers.
 dotnet build "%PROJECT_DIR%..\Shared\Tests\CoopAiStart.Tests\Shared.CoopAiStart.Tests.csproj" -c Release "-p:GameDir=%GAME_DIR%" "-p:ExtenderDir=%EXTENDER_DIR%"
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
@@ -165,6 +174,14 @@ if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 echo [%date% %time%] PowerShell checks / build step
 call :step_start "tests" "10-Test-DrawbridgeDestructionFix.ps1"
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-DrawbridgeDestructionFix.ps1" -RunTests
+call :step_end %ERRORLEVEL%
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+call :step_start "tests" "10b-Test-MoatTerrain.ps1"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-MoatTerrain.ps1" -RunTests
+call :step_end %ERRORLEVEL%
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+call :step_start "tests" "10c-Test-EditorRegions.ps1"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-EditorRegions.ps1" -RunTests
 call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 call :step_start "tests" "11-Test-GatehouseLivingCapturePreflight.ps1"
@@ -315,6 +332,15 @@ call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 call :step_start "tests" "41-WorkshopIdleDelay.Tests.exe"
 "%PROJECT_DIR%tests\WorkshopIdleDelay.Tests\bin\WorkshopIdleDelay.Tests.exe" "%GAME_DIR%\Stronghold Crusader Definitive Edition_Data\Plugins\x86_64\CrusaderDE.dll"
+call :step_end %ERRORLEVEL%
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+echo [%date% %time%] Tree-blight native regression
+call :step_start "tests" "TreeBlightDecay.Tests build"
+"%MSBUILD%" tests\TreeBlightDecay.Tests\TreeBlightDecay.Tests.csproj /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
+call :step_end %ERRORLEVEL%
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+call :step_start "tests" "TreeBlightDecay.Tests execution"
+"%PROJECT_DIR%tests\TreeBlightDecay.Tests\bin\TreeBlightDecay.Tests.exe" "%GAME_DIR%\Stronghold Crusader Definitive Edition_Data\Plugins\x86_64\CrusaderDE.dll"
 call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 echo [%date% %time%] Compile projects

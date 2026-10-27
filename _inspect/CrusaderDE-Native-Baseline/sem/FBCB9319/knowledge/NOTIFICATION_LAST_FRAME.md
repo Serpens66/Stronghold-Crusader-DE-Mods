@@ -1,4 +1,4 @@
-# Minimap last-frame speech ownership
+# Minimap last-frame speech ownership [Scope: Vanilla + mod integration]
 
 Native SHA-256: FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
 The installed DLL matched CURRENT.json during this investigation. Native function
@@ -33,7 +33,7 @@ output-record flows are visible in the exported pseudocode.
   and promotes the next queued entry when present. The native age gate therefore
   does not limit an incorrectly retained managed video.
 
-## Consumer defect and correction
+## Consumer defect and correction [mod integration]
 
 NotificationLastFrameFeature formerly forced binkWaitForSpeech=true based on any
 channel-1 occupant and retained no voice identity. An unrelated replacement could
@@ -64,7 +64,7 @@ speech replacements, repeated filenames, rejected requests, pauses, source/HUD
 replacement, disabled behavior, stale asynchronous loads and mission reset.
 A real-game reproduction and live acceptance remain unavailable; these tests do
 not validate decoder timing or prove the historical user's precise trigger.
-## Current text-owned presentation, 2026-10-18
+## Current text-owned presentation, 2026-10-18 [mod integration]
 
 This supersedes the consumer's speech-generation completion policy above; the
 historical audit and its verification limits remain unchanged. Native SHA-256 is
@@ -158,7 +158,7 @@ and opens a read-only program; Ghidra rejects `.work` as a project path element.
 The export includes both video paths, the binding writes and the exact timeout
 assembler. The original archive and DE raw baseline were not modified.
 
-### DE implementation contract
+### DE implementation contract [mod integration]
 
 - `NotificationLastFrameFeature` uses nonlooping `**` sources for accepted
   nonlooping minimap videos and captures Vanilla's wait request plus the current
@@ -190,7 +190,7 @@ mission end, logical disable, and decoder Pause failure. These isolated adapters
 validate the consumer, not live Noesis decoder timing. Actual game acceptance is
 still required; this task requests no game installation.
 
-## Diagnostic refinement (2026-10-23)
+## Diagnostic refinement (2026-10-23) [mod integration]
 
 The fixed 20-second bound above does not by itself establish behavioral parity
 with HD. The retained HD export confirms that VA 00479A60 queries the actual
@@ -227,7 +227,7 @@ records are retained in `.work/a/lastframe-diag/001`; the native DLL still match
 CURRENT.json. These observations supplement, rather than replace, the archived
 HD/DE audit above.
 
-## Confirmed URI rejection and consumer correction (2026-10-23)
+## Confirmed URI rejection and consumer correction (2026-10-23) [mod integration]
 
 The complete diagnostic run from 21:15:31 through 21:17:05 confirms the cause
 for `wf_taunt2.webm`, video request 1 / speech request 5. At 21:16:04.800 the

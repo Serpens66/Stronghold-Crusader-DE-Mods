@@ -3,19 +3,27 @@
   "Author": "Serpens66",
   "Name": "Extra Features",
   "Description": "Optional gameplay additions and economy customization for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.121",
+  "Version": "1.0.122",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.0",
   "MaximumScriptExtenderVersion": "",
   "Dependencies": [
     {
       "GUID": "APIShared_Serp",
-      "MinimumVersion": "0.16.0"
+      "MinimumVersion": "0.16.1"
     }
   ],
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.122",
+      "Changes": [
+        "Configure separate signed whole-number gold amounts for Human and AI players every 400 simulation ticks; both default to zero. Positive amounts queue incoming gold, while negative amounts debit the current balance down to zero and preserve pending gold.",
+        "Keep the saved game-tick phase across loading, skip already completed boundaries, and detach the ticker entirely when disabled or both amounts are zero. Apply deterministically to living players in allowed gameplay/editor sessions through existing Extender events.",
+        "Integrate host-authoritative presets, strict integer validation, mission locking, money icons and localized text/state search. Bound credits safely at the signed Int32 capacity."
+      ]
+    },
     {
       "Version": "1.0.121",
       "Changes": [

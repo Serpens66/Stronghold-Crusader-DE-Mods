@@ -32,6 +32,14 @@ namespace BugfixesAndQoL.UnitCommands
 
         internal static FormationMouseState Consume() =>
             new FormationMouseState(0, false, false, true, false);
+
+        // Remove only the old command edge; a new down or the opposite button
+        // may already have been published by Unity when the deferred gesture aborts.
+        internal static FormationMouseState DiscardDeferred(FormationMouseState state, int commandButton) =>
+            commandButton == 0
+                ? new FormationMouseState(state.LeftState == 3 ? 0 : state.LeftState,
+                    state.RightDown, state.RightUp, state.LeftState == 3 || state.StateRead, false)
+                : new FormationMouseState(state.LeftState, state.RightDown, false, state.StateRead, state.UpPending);
     }
 
     internal sealed class FormationReleaseGate

@@ -1,4 +1,4 @@
-# Weighted Assassin search cost after loading (2026-10-23)
+# Weighted Assassin search cost after loading (2026-10-23) [Scope: Vanilla + mod integration]
 
 Native hash `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2` (installed DLL, verified 2026-10-23).
 Evidence: decompiled `0xD9C40` (baseline database), BugfixesAndQoL DEVDIAG request counters and
@@ -28,7 +28,7 @@ per-search lines on `test_stresstest4.sav` (8 AI lords, largest map), runs L2BFQ
 - A reversed-edge search from those targets (same edge predicate) visited only 1–11 tiles; for every
   reachable target it visited ~244,000 tiles and met the start. No contradiction to the A* result.
 
-## Consequences in BugfixesAndQoL (managed only, no native change)
+## Consequences in BugfixesAndQoL (managed only, no native change) [mod integration]
 
 - `ProvesTargetUnreachable`: bounded (512 tiles) reversed-edge proof before the A* and existence
   searches; skipped when Vanilla's builder already reached the target. Exactly the forward predicates,

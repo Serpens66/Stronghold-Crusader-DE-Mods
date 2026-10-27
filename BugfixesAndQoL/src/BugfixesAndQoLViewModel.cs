@@ -52,6 +52,7 @@ namespace BugfixesAndQoL
         private bool enableMod = true;
         private bool enableLordAndMapListEnhancements = true;
         private bool enableMissingMapSaveRecovery = true;
+        private bool enableCompactLobbyChat = true;
         private bool enableRandomOpponentSelectionEnhancements = true;
         private bool enableMultiplayerStartupStateFix = true;
         private bool enablePeaceTimeGameplayFixes = true;
@@ -64,7 +65,9 @@ namespace BugfixesAndQoL
         private bool enableAiDefensePatrolFix = true;
         private bool enableAiRaidRetargetFix = true;
         private bool enableEnemyGatePathfindingFix = true;
+        private bool enableMoatTerrainRestoration = true;
         private bool enableDrawbridgeDestructionFix = true;
+        private bool enableTreeBlightDecayFix = true;
         private bool enableGatehouseLivingCaptureFix = true;
         private bool enableAssassinGatehouseClimbFix = true;
         private bool enableAssassinCapturedGateProtectionFix = true;
@@ -270,6 +273,15 @@ namespace BugfixesAndQoL
             steamInviteBlacklist.Changed += OnSteamInviteBlacklistChanged;
         }
 
+        public string EnableCompactLobbyChatText => SerpLocalization.Get("BugfixesAndQoL.EnableCompactLobbyChat");
+        public string EnableCompactLobbyChatHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableCompactLobbyChatHelp");
+        [APIShared.ModSettings.PresetLocal]
+        public bool EnableCompactLobbyChat
+        {
+            get => enableCompactLobbyChat;
+            set => SetSetting(ref enableCompactLobbyChat, value, nameof(EnableCompactLobbyChat));
+        }
+
         public string EnableLordAndMapListEnhancementsText => SerpLocalization.Get("BugfixesAndQoL.EnableLordAndMapListEnhancements");
         public string EnableLordAndMapListEnhancementsHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableLordAndMapListEnhancementsHelp");
         [APIShared.ModSettings.PresetLocal]
@@ -332,6 +344,11 @@ namespace BugfixesAndQoL
         public string EnableHostFeaturesHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableHostFeaturesHelp");
         public string ResetToDefaultText => SerpLocalization.Get(SerpLocalization.ResetToDefault);
         public string QolTitleText => SerpLocalization.Get("BugfixesAndQoL.QolTitle");
+        public string EnableMoatTerrainRestorationText => SerpLocalization.Get("BugfixesAndQoL.EnableMoatTerrainRestoration");
+        public string EnableMoatTerrainRestorationHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableMoatTerrainRestorationHelp");
+        public string EnableTreeBlightDecayFixText => SerpLocalization.Get("BugfixesAndQoL.EnableTreeBlightDecayFix");
+        public string EnableTreeBlightDecayFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableTreeBlightDecayFixHelp");
+
         public string EnableDrawbridgeDestructionFixText => SerpLocalization.Get("BugfixesAndQoL.EnableDrawbridgeDestructionFix");
         public string EnableDrawbridgeDestructionFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableDrawbridgeDestructionFixHelp");
         public string EnableGatehouseLivingCaptureFixText => SerpLocalization.Get("BugfixesAndQoL.EnableGatehouseLivingCaptureFix");
@@ -1133,6 +1150,20 @@ namespace BugfixesAndQoL
         }
 
         [SyncHostOnly]
+        public bool EnableMoatTerrainRestoration
+        {
+            get => enableMoatTerrainRestoration;
+            set => SetSetting(ref enableMoatTerrainRestoration, value, nameof(EnableMoatTerrainRestoration));
+        }
+
+        [SyncHostOnly]
+        public bool EnableTreeBlightDecayFix
+        {
+            get => enableTreeBlightDecayFix;
+            set => SetSetting(ref enableTreeBlightDecayFix, value, nameof(EnableTreeBlightDecayFix));
+        }
+
+        [SyncHostOnly]
         public bool EnableDrawbridgeDestructionFix
         {
             get => enableDrawbridgeDestructionFix;
@@ -1639,7 +1670,9 @@ namespace BugfixesAndQoL
                 EnableAiDefensePatrolFix = true;
                 EnableAiRaidRetargetFix = true;
                 EnableEnemyGatePathfindingFix = true;
+                EnableMoatTerrainRestoration = true;
                 EnableDrawbridgeDestructionFix = true;
+                EnableTreeBlightDecayFix = true;
                 EnableGatehouseLivingCaptureFix = true;
                 EnableAssassinGatehouseClimbFix = true;
                 EnableAssassinCapturedGateProtectionFix = true;
@@ -1710,6 +1743,7 @@ namespace BugfixesAndQoL
             EnableClientFeatures = true;
             EnableLordAndMapListEnhancements = true;
             EnableMissingMapSaveRecovery = true;
+            EnableCompactLobbyChat = true;
             AllowMinimapWhilePlacingBuilding = true;
             PreventMoveOrderOnPlacementCancel = true;
             AllowCameraMovementWithModifiers = true;

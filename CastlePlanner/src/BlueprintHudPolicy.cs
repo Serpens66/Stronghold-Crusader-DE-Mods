@@ -1,5 +1,15 @@
 namespace CastlePlanner
 {
+    internal static class BlueprintLayoutPolicy
+    {
+        public static bool CanPrepare(bool previewActive, bool previewHasSelectedCastle)
+        {
+            // Only the active spawn preview needs a castle selection; normal
+            // local Blueprints are independent of whether a castle was spawned.
+            return !previewActive || previewHasSelectedCastle;
+        }
+    }
+
     internal enum BlueprintHudDisplayState
     {
         Unavailable,

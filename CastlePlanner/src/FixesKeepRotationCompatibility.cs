@@ -54,7 +54,7 @@ namespace CastlePlanner
                 foreach (FreeCastleSelection selection in selections)
                 {
                     FreeCastleProtocol.ValidateSelection(selection);
-                    if (selection.Mode == FreeCastleSelectionMode.Nothing)
+                    if (selection.Mode == FreeCastleSelectionMode.Nothing || selection.PreserveKeepRotation)
                         continue;
                     if (selection.PlayerId >= data.Length)
                     {
@@ -88,7 +88,7 @@ namespace CastlePlanner
             foreach (FreeCastleSelection selection in selections)
             {
                 if (selection != null &&
-                    selection.Mode != FreeCastleSelectionMode.Nothing)
+                    selection.Mode != FreeCastleSelectionMode.Nothing && !selection.PreserveKeepRotation)
                 {
                     return true;
                 }

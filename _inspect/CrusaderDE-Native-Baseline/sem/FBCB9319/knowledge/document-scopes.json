@@ -1,0 +1,1053 @@
+{
+  "schemaVersion": 1,
+  "purpose": "Separates Vanilla knowledge from mod, testmod and external-component knowledge in this directory.",
+  "scopes": {
+    "vanilla": "Only Vanilla CrusaderDE.dll / Assembly-CSharp behavior; Script Extender names are vocabulary only.",
+    "vanilla+integration": "Vanilla audit with mod-specific parts; headings tagged [mod integration] or listed in integrationSections/note.",
+    "mod": "Design, diagnosis, acceptance or migration of our mods/testmods; not Vanilla evidence. Headings tagged [Vanilla facts] hold reusable Vanilla facts.",
+    "external": "Script Extender, Fixes or other third-party components; not Vanilla evidence by itself."
+  },
+  "markers": {
+    "documentTitle": "H1 line suffix [Scope: ...]",
+    "section": "heading suffix [mod integration] or [Vanilla facts]",
+    "lineStability": "Markers are appended to existing lines so line-number evidence stays valid.",
+    "untagged": [
+      "CHORE_SYSTEM.md (pinned by DATABASE_INFO.json input and chore-evidence.jsonl)",
+      "BUILDING_SLEEP_SELECTION.md (pinned by chore-evidence.jsonl)",
+      "MARKET_PRICE_QUERIES.md (pinned by tools/semantic/audited-models.json)",
+      "WORKSHOP_IDLE_DELAY.md (pinned by tools/semantic/audited-models.json)"
+    ],
+    "untaggedReason": "Their exact bytes are pinned by validators that do not resolve Git history; their scope is recorded only here and in CURRENT.md."
+  },
+  "documents": [
+    {
+      "file": "AIV_BUILD_RANGE.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "BugfixesAndQoL",
+        "ExtraFeatures",
+        "CastlePlanner"
+      ],
+      "integrationSections": [
+        "Follow-up: copied-entry probe allocation failure",
+        "ExtraFeatures API integration",
+        "AI-only distance experiment and settings-flow review (2026-10-05)",
+        "Integration into BugfixesAndQoL",
+        "CastlePlanner lobby practice range audit (2026-10-05)"
+      ]
+    },
+    {
+      "file": "AIV_LOBBY_SELECTION.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "CastlePlanner",
+        "AIVPlacement",
+        "BugfixesAndQoL"
+      ],
+      "integrationSections": [],
+      "note": "Dated runtime observations use mod diagnostics throughout."
+    },
+    {
+      "file": "AI_ECONOMY_OBSERVATION.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "APIShared",
+        "BugfixesAndQoL",
+        "AIBuildDiagnoseTest"
+      ],
+      "integrationSections": [],
+      "note": "Mod references inline."
+    },
+    {
+      "file": "AI_RESOURCE_RESERVE.md",
+      "scope": "vanilla",
+      "components": [],
+      "integrationSections": []
+    },
+    {
+      "file": "AI_SELL_THRESHOLDS.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "APIShared",
+        "AISellThresholdFixTest",
+        "Fixes"
+      ],
+      "integrationSections": [],
+      "note": "Mod references inline."
+    },
+    {
+      "file": "AI_WOODCUTTER_BUILD.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "BugfixesAndQoL"
+      ],
+      "integrationSections": [
+        "Candidate-acceptance patch boundary audit",
+        "First active guard game runs, 30 September 2026",
+        "Rat seed with active guard and no diagnostic observer, 1 October 2026"
+      ],
+      "note": "Dated investigation; diagnostics and guard runs throughout."
+    },
+    {
+      "file": "ASSASSIN_ATTACK_CONTROL_TEST.md",
+      "scope": "mod",
+      "components": [
+        "AssassinAttackControlTest",
+        "APIShared",
+        "BugfixesAndQoL"
+      ],
+      "vanillaSections": [
+        "Native contracts"
+      ]
+    },
+    {
+      "file": "ASSASSIN_DIRECT_GATEHOUSE_CLIMB.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "BugfixesAndQoL",
+        "APIShared",
+        "Fixes"
+      ],
+      "integrationSections": [
+        "Workspace and Fixes compatibility",
+        "Shared implementation decision (2026-10-07)",
+        "First human acceptance (2026-10-07)",
+        "Coordinated review and installation completed (2026-10-07)",
+        "Exact weighted single-unit route publication (2026-10-07)",
+        "Performance diagnostics default off (2026-10-08 follow-up)",
+        "Main-mod integration, 2026-10-08"
+      ]
+    },
+    {
+      "file": "ASSASSIN_RECONSTRUCTION_REPAIR.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "APIShared",
+        "BugfixesAndQoL"
+      ],
+      "integrationSections": [
+        "Correction (APIShared `AssassinPathAPI`, site 0xE19C0/14)"
+      ]
+    },
+    {
+      "file": "ASSASSIN_WEIGHTED_SEARCH_COST.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "BugfixesAndQoL"
+      ],
+      "integrationSections": [
+        "Consequences in BugfixesAndQoL (managed only, no native change)"
+      ]
+    },
+    {
+      "file": "AUTOMATION_PAUSE_ZOOM.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "BugfixesAndQoL"
+      ],
+      "integrationSections": [],
+      "note": "Mod references inline."
+    },
+    {
+      "file": "BEDOUIN_HEALER_TARGETS.md",
+      "scope": "vanilla",
+      "components": [],
+      "integrationSections": []
+    },
+    {
+      "file": "BUILDING_REPAIR.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "APIShared"
+      ],
+      "integrationSections": [],
+      "note": "Mod references inline."
+    },
+    {
+      "file": "BUILDING_SLEEP_SELECTION.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "Fixes"
+      ],
+      "integrationSections": [],
+      "note": "Fixes patch references inline. Not tagged in file: bytes are pinned by chore-evidence.jsonl."
+    },
+    {
+      "file": "CASTLE_VISUAL_OBSERVATION.md",
+      "scope": "mod",
+      "components": [
+        "CastlePlanner",
+        "APIShared"
+      ],
+      "vanillaSections": [
+        "Relevant audited boundaries"
+      ]
+    },
+    {
+      "file": "CHORE_SYSTEM.md",
+      "scope": "vanilla",
+      "components": [],
+      "integrationSections": [],
+      "note": "Database manifest input; not edited. Not tagged in file: bytes are pinned by DATABASE_INFO.json input and chore-evidence.jsonl."
+    },
+    {
+      "file": "COOP_PACKAGE_MAP_READINESS.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "APIShared"
+      ],
+      "integrationSections": [
+        "Package consequence and correction boundary"
+      ]
+    },
+    {
+      "file": "COOP_TRAIL_CUSTOMIZE_PRESENTATION.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "BugfixesAndQoL",
+        "ExtendedData"
+      ],
+      "integrationSections": [
+        "Custom partner keep assignment, 2026-10-25"
+      ]
+    },
+    {
+      "file": "CRENELATED_WALLS.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "CrenelatedWallTest",
+        "APIShared"
+      ],
+      "integrationSections": [
+        "Consumer contract and validation"
+      ]
+    },
+    {
+      "file": "DEFEAT_LOOT.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "testmod"
+      ],
+      "integrationSections": [],
+      "note": "Testmod hook design inline."
+    },
+    {
+      "file": "DRAWBRIDGES.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "ExtraFeatures",
+        "CastlePlanner"
+      ],
+      "integrationSections": [
+        "Hook backend contract",
+        "Blueprint view contract (2026-10-07)"
+      ]
+    },
+    {
+      "file": "DRAWBRIDGE_AI_DECISIONS.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "BugfixesAndQoL",
+        "APIShared"
+      ],
+      "integrationSections": [
+        "Gate policy and hook ownership",
+        "Instrumentation contract and open questions"
+      ]
+    },
+    {
+      "file": "DRAWBRIDGE_DESTRUCTION.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "BugfixesAndQoL",
+        "APIShared",
+        "testmod"
+      ],
+      "integrationSections": [
+        "Minimal correction boundary",
+        "First editor smoke test, 2026-10-13",
+        "Diagnostic revision 2 implemented, 2026-10-13",
+        "Revision 2 editor acceptance and main-mod integration, 2026-10-13"
+      ]
+    },
+    {
+      "file": "EDITOR_MAP_LIFECYCLE.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "APIShared"
+      ],
+      "integrationSections": [
+        "Workspace integration"
+      ]
+    },
+    {
+      "file": "EDITOR_REGION_REFRESH.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "APIShared",
+        "BugfixesAndQoL"
+      ],
+      "integrationSections": [
+        "Safe consumer boundary and limits",
+        "Release batching (2026-10-26)"
+      ]
+    },
+    {
+      "file": "ENEMY_BRIDGE_COUNT_INPUTS.md",
+      "scope": "mod",
+      "components": [
+        "EnemyBridgePathTest",
+        "Fixes"
+      ],
+      "vanillaSections": []
+    },
+    {
+      "file": "ENEMY_BRIDGE_ENTRY_CAPTURE.md",
+      "scope": "mod",
+      "components": [
+        "EnemyBridgePathTest"
+      ],
+      "vanillaSections": []
+    },
+    {
+      "file": "ENEMY_BRIDGE_GENERAL_DIAGNOSIS.md",
+      "scope": "mod",
+      "components": [
+        "EnemyBridgePathTest",
+        "APIShared"
+      ],
+      "vanillaSections": []
+    },
+    {
+      "file": "ENEMY_BRIDGE_PAIR_INPUTS.md",
+      "scope": "mod",
+      "components": [
+        "EnemyBridgePathTest",
+        "Fixes"
+      ],
+      "vanillaSections": []
+    },
+    {
+      "file": "ENEMY_GATE_ASSASSINS.md",
+      "scope": "mod",
+      "components": [
+        "EnemyGatePathfindingTest",
+        "BugfixesAndQoL",
+        "APIShared"
+      ],
+      "vanillaSections": []
+    },
+    {
+      "file": "ENEMY_GATE_BUILDING_CONTEXT.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "EnemyGatePathfindingTest",
+        "BugfixesAndQoL"
+      ],
+      "integrationSections": [
+        "Konsequenz fÃ¼r den Testmod und verbleibende Grenze",
+        "Reproduzierbare PrÃ¼fung und Regressionen",
+        "Umsetzung des Bewegungsscopes, 02.10.2026",
+        "Diagnosebereinigung und Spielbefunde, 02.10.2026"
+      ]
+    },
+    {
+      "file": "ENEMY_GATE_CAPTURE_ADAPTERS.md",
+      "scope": "mod",
+      "components": [
+        "EnemyGatePathfindingTest"
+      ],
+      "vanillaSections": []
+    },
+    {
+      "file": "ENEMY_GATE_DRAWBRIDGE_POLICY.md",
+      "scope": "mod",
+      "components": [
+        "EnemyGatePathfindingTest",
+        "EnemyBridgePathTest",
+        "BugfixesAndQoL",
+        "APIShared"
+      ],
+      "vanillaSections": [
+        "Confirmed native contract"
+      ]
+    },
+    {
+      "file": "ENEMY_GATE_VANILLA_EVIDENCE.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "EnemyGatePathfindingTest",
+        "BugfixesAndQoL",
+        "APIShared"
+      ],
+      "integrationSections": [
+        "Diagnostic contract",
+        "2026-10-13: controlled comparison and actionable setup",
+        "2026-10-13: observed AI detour with test_gates_around",
+        "2026-10-13: finalization gate, completion correction and search-path audit",
+        "2026-10-13 14:52 editor acceptance observation",
+        "2026-10-13: preserve validated exact weighted publication evidence (diagnostic format 9)",
+        "2026-10-13: consolidated technical review after quarry acceptance",
+        "2026-10-13: large gatehouse footprint correction (game acceptance pending)",
+        "2026-10-13: both gate sizes accepted in editor; native-only Assassin comparison next",
+        "2026-10-13: native test preparation corrected for authoritative schema3 working state"
+      ],
+      "note": "All dated 2026-10-13 sections are diagnostic runs."
+    },
+    {
+      "file": "ENGINE_PRESENTATION_BRIDGE.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "APIShared"
+      ],
+      "integrationSections": [
+        "Existing direction-filter adapter liveness"
+      ]
+    },
+    {
+      "file": "EXTRAFEATURES_SESSION_CALLBACKS.md",
+      "scope": "mod",
+      "components": [
+        "ExtraFeatures"
+      ],
+      "vanillaSections": []
+    },
+    {
+      "file": "FARM_BUILD_PREVIEW.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "BugfixesAndQoL",
+        "APIShared"
+      ],
+      "integrationSections": [],
+      "note": "Mod ownership inline."
+    },
+    {
+      "file": "FIREMAN_TARGETING.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "ExtraFeatures"
+      ],
+      "integrationSections": [
+        "Per-player nearest-owner handoff contract",
+        "Detour contract"
+      ]
+    },
+    {
+      "file": "FIXES_COMPATIBILITY.md",
+      "scope": "external",
+      "components": [
+        "Fixes",
+        "BugfixesAndQoL",
+        "APIShared",
+        "ExtendedData"
+      ],
+      "vanillaSections": [
+        "Native siege/search contracts"
+      ]
+    },
+    {
+      "file": "FIXES_WHEAT_STARTUP.md",
+      "scope": "external",
+      "components": [
+        "Fixes",
+        "BugfixesAndQoL"
+      ],
+      "vanillaSections": []
+    },
+    {
+      "file": "FOREIGN_TROOP_PLAYER_COLORS.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "BugfixesAndQoL"
+      ],
+      "integrationSections": [
+        "BugfixesAndQoL consumer"
+      ]
+    },
+    {
+      "file": "FOREIGN_TROOP_SKINS.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "BugfixesAndQoL"
+      ],
+      "integrationSections": [
+        "Consumer contract and validation"
+      ]
+    },
+    {
+      "file": "FORMATION_MOVEMENT_PERMISSION.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "BugfixesAndQoL"
+      ],
+      "integrationSections": [
+        "Managed defect and correction"
+      ]
+    },
+    {
+      "file": "GATEHOUSE_LIVING_CAPTURE.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "BugfixesAndQoL",
+        "APIShared",
+        "Fixes"
+      ],
+      "integrationSections": [
+        "Capture filter boundary and compatibility",
+        "Gameplay log evidence, 2026-10-07",
+        "Main-mod integration, 2026-10-07"
+      ]
+    },
+    {
+      "file": "GATEHOUSE_QUERY_PASS.md",
+      "scope": "vanilla",
+      "components": [],
+      "integrationSections": []
+    },
+    {
+      "file": "GATEHOUSE_TARGET_MARKER_HEIGHT.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "BugfixesAndQoL",
+        "APIShared"
+      ],
+      "integrationSections": [
+        "Consumer implementation and compatibility"
+      ]
+    },
+    {
+      "file": "GATE_BRIDGE_AUTOMATION.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "APIShared",
+        "Fixes"
+      ],
+      "integrationSections": [
+        "Hook ownership and machine contracts",
+        "Validation and remaining runtime evidence",
+        "2026-10-06: direct-close timer correction"
+      ]
+    },
+    {
+      "file": "GATE_ROUTING_MIGRATION.md",
+      "scope": "mod",
+      "components": [
+        "APIShared",
+        "BugfixesAndQoL"
+      ],
+      "vanillaSections": []
+    },
+    {
+      "file": "HEALTH_BAR_RENDERING.md",
+      "scope": "vanilla",
+      "components": [],
+      "integrationSections": []
+    },
+    {
+      "file": "HUD_PRESENTATION.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "APIShared"
+      ],
+      "integrationSections": [
+        "Limits and safe optimization boundary",
+        "Shared managed publishers audited 2026-10-10"
+      ]
+    },
+    {
+      "file": "KEEP_CAMPGROUND_GROUND.md",
+      "scope": "vanilla",
+      "components": [],
+      "integrationSections": []
+    },
+    {
+      "file": "KEEP_FLAG_ROTATION.md",
+      "scope": "vanilla",
+      "components": [],
+      "integrationSections": [],
+      "note": "Runtime observations were made with CastlePlanner."
+    },
+    {
+      "file": "LOBBY_CHAT_LAYOUT.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "BugfixesAndQoL",
+        "APIShared"
+      ],
+      "integrationSections": [
+        "Safe compact presentation boundary"
+      ]
+    },
+    {
+      "file": "LOBBY_SAVE_LOADING.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "APIShared",
+        "BugfixesAndQoL"
+      ],
+      "integrationSections": [
+        "Consumer implementation and acceptance limits"
+      ]
+    },
+    {
+      "file": "LORD_SLOT_REMAP.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "BugfixesAndQoL"
+      ],
+      "integrationSections": [],
+      "note": "Managed workaround inline."
+    },
+    {
+      "file": "MANUAL_GROUP_ADMISSION.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "BugfixesAndQoL"
+      ],
+      "integrationSections": [
+        "Region proof and integration"
+      ]
+    },
+    {
+      "file": "MANUAL_GROUP_REGION_RECOVERY.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "BugfixesAndQoL"
+      ],
+      "integrationSections": [
+        "Consumer ordering and limits"
+      ]
+    },
+    {
+      "file": "MARKET_PRICE_QUERIES.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "APIShared"
+      ],
+      "integrationSections": [],
+      "note": "Mod ownership inline. Not tagged in file: bytes are pinned by tools/semantic/audited-models.json."
+    },
+    {
+      "file": "MISSION_LIFECYCLE.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "APIShared"
+      ],
+      "integrationSections": [
+        "Managed completion and retirement",
+        "Public and Shared contract"
+      ]
+    },
+    {
+      "file": "MOAT_TERRAIN_RESTORATION.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "BugfixesAndQoL",
+        "ExtraFeatures"
+      ],
+      "integrationSections": [
+        "Ownership, persistence and evidence"
+      ]
+    },
+    {
+      "file": "MODSETTINGS_ACTIVATION.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "BugfixesAndQoL"
+      ],
+      "integrationSections": [
+        "Permanent logical dispatch feasibility"
+      ]
+    },
+    {
+      "file": "MOVE_COMMAND_RELEASE.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "BugfixesAndQoL"
+      ],
+      "integrationSections": [],
+      "note": "Integration sections (not marked in file): 2026-10-02 formation preview; 2026-10-08 formation Move classification; 2026-10-17 patrol/Shift queue; 2026-10-17 formation speech; 2026-10-26 formation drag start."
+    },
+    {
+      "file": "MOVE_STAGER_DATA_ANCHORS.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "BugfixesAndQoL",
+        "APIShared"
+      ],
+      "integrationSections": [],
+      "note": "Native anchors; dependent mod runtime inline."
+    },
+    {
+      "file": "NOTIFICATION_LAST_FRAME.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "BugfixesAndQoL",
+        "APIShared"
+      ],
+      "integrationSections": [
+        "Consumer defect and correction",
+        "Current text-owned presentation, 2026-10-18",
+        "DE implementation contract",
+        "Diagnostic refinement (2026-10-23)",
+        "Confirmed URI rejection and consumer correction (2026-10-23)"
+      ]
+    },
+    {
+      "file": "OUTPOSTS.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "OutpostTest"
+      ],
+      "integrationSections": [
+        "Rally implementation contracts (2026-09-17)"
+      ]
+    },
+    {
+      "file": "PATHFINDING_TABLE_REPLACEMENTS.md",
+      "scope": "mod",
+      "components": [
+        "APIShared",
+        "Script Extender"
+      ],
+      "vanillaSections": [],
+      "note": "Section 'Confirmed native and SE contracts' holds the native/SE facts."
+    },
+    {
+      "file": "PERIODIC_GOLD.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "ExtraFeatures"
+      ],
+      "integrationSections": [],
+      "note": "Mod usage inline."
+    },
+    {
+      "file": "PLAGUE_HEIGHT.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "PlagueHeightTest",
+        "BugfixesAndQoL"
+      ],
+      "integrationSections": [
+        "Testmod evidence and limits",
+        "Integration observation, 2026-10-23"
+      ]
+    },
+    {
+      "file": "PLAGUE_POPULARITY.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "BugfixesAndQoL"
+      ],
+      "integrationSections": [
+        "Watchdog opportunity audit (2026-10-23)"
+      ]
+    },
+    {
+      "file": "PLAYER_DEFEAT.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "APIShared"
+      ],
+      "integrationSections": [],
+      "note": "Mod observer inline."
+    },
+    {
+      "file": "POPULARITY_PARAMETERS.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "APIShared",
+        "BugfixesAndQoL"
+      ],
+      "integrationSections": [
+        "Transfer to APIShared (2026-10-17)",
+        "Human/AI targeting feasibility (2026-10-25)",
+        "Targeted policy implementation audit (2026-10-25)"
+      ]
+    },
+    {
+      "file": "PREBUILT_WORKSHOP_BOTH.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "testmod"
+      ],
+      "integrationSections": [
+        "Diagnostic boundary",
+        "Frederick correction trace, 2026-09-27"
+      ]
+    },
+    {
+      "file": "RADAR_PASS_F5A40.md",
+      "scope": "vanilla",
+      "components": [],
+      "integrationSections": []
+    },
+    {
+      "file": "RAID_RETARGET.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "BugfixesAndQoL",
+        "EnemyGatePathfindingTest"
+      ],
+      "integrationSections": [
+        "Hauptmod-Integration 1.0.174 (2026-10-01)",
+        "Managed Absicherung 2026-10-02",
+        "Hardening verification completed (2026-10-02)",
+        "2026-10-13: Raid/Gate chain reviewed; user confirmations close editor questions",
+        "2026-10-13 16:09 Raid gate run",
+        "2026-10-13 16:31:36--16:34:10: format10 quarry result",
+        "2026-10-13: consolidated technical review after quarry acceptance",
+        "2026-10-19: Missing search completion and diagnostic severity"
+      ]
+    },
+    {
+      "file": "RALLY_TERRAIN_SLOWDOWN.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "BugfixesAndQoL"
+      ],
+      "integrationSections": [
+        "Hook and lifecycle contract",
+        "Startup interaction: immutable static analysis (2026-10-08)"
+      ]
+    },
+    {
+      "file": "RECRUIT_TRANSFORMATION.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "BugfixesAndQoL"
+      ],
+      "integrationSections": [
+        "Consumer contract"
+      ]
+    },
+    {
+      "file": "SAVEGAME_MISSING_MAP_METADATA.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "SavegameMissingMapFixTest",
+        "BugfixesAndQoL"
+      ],
+      "integrationSections": [
+        "Trail Maker consumer audit (2026-10-21)"
+      ]
+    },
+    {
+      "file": "SAVEGAME_MODSETTINGS_LOAD.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "APIShared"
+      ],
+      "integrationSections": [
+        "Managed mismatch and ownership",
+        "Managed requester timing (2026-10-19 audit)"
+      ]
+    },
+    {
+      "file": "SE210_RANGE_HOOKS.md",
+      "scope": "external",
+      "components": [
+        "Script Extender"
+      ],
+      "vanillaSections": []
+    },
+    {
+      "file": "SE_2_11_SPEECH_PATH.md",
+      "scope": "external",
+      "components": [
+        "Script Extender"
+      ],
+      "vanillaSections": []
+    },
+    {
+      "file": "SE_2_14_1_ENGAGE_RANGE.md",
+      "scope": "external",
+      "components": [
+        "Script Extender"
+      ],
+      "vanillaSections": []
+    },
+    {
+      "file": "SE_2_14_3_INTEROP_ADDITIONS.md",
+      "scope": "external",
+      "components": [
+        "Script Extender"
+      ],
+      "vanillaSections": []
+    },
+    {
+      "file": "SIM_TICK_SPIKE_PATHING.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "PerfProbe"
+      ],
+      "integrationSections": [],
+      "note": "Measured with the PerfProbe testmod."
+    },
+    {
+      "file": "SITUATIONAL_UNIT_AUDIO.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "ArabianIdleSoundTest",
+        "BugfixesAndQoL",
+        "APIShared"
+      ],
+      "integrationSections": [
+        "Hook and compatibility contract",
+        "2026-10-11 startup failure and repair",
+        "2026-10-12 shared audio integration",
+        "Completed integration review (2026-10-12)",
+        "Latest Unity log evidence (2026-10-12)",
+        "Shared Arabian playback confirmed (2026-10-12)",
+        "Live settings replacement evidence (reviewed 2026-10-13)",
+        "User listening acceptance (2026-10-13)",
+        "Additional live-mode log confirmation (2026-10-13)",
+        "Soldier source and custom clip expansion (2026-10-13)",
+        "Abschließende Zweitprüfung der Clip-/Soldaten-Erweiterung (2026-10-13)",
+        "Spieltest und Freigabe 0.8.0 (2026-10-13)",
+        "Nachfrage-/Dispatch-Optimierung (2026-10-13)"
+      ]
+    },
+    {
+      "file": "SPECTATOR_BUILD_PLACEMENT.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "spectator testmod"
+      ],
+      "integrationSections": [],
+      "note": "Testmod references inline."
+    },
+    {
+      "file": "SPECTATOR_REPORTS.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "spectator testmod"
+      ],
+      "integrationSections": [],
+      "note": "Testmod references inline."
+    },
+    {
+      "file": "SPECTATOR_TEST_TOOLS.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "SpectatorEditorBuildTest",
+        "BugfixesAndQoL"
+      ],
+      "integrationSections": [],
+      "note": "Testmod design inline."
+    },
+    {
+      "file": "SURRENDER_SELECTION.md",
+      "scope": "vanilla",
+      "components": [],
+      "integrationSections": []
+    },
+    {
+      "file": "TANNER_ALPHA.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "testmod"
+      ],
+      "integrationSections": [],
+      "note": "Testmod hook history inline."
+    },
+    {
+      "file": "TEMP_GATE_ROUTE_ACCEPTANCE.md",
+      "scope": "mod",
+      "components": [
+        "EnemyGatePathfindingTest",
+        "APIShared",
+        "BugfixesAndQoL"
+      ],
+      "vanillaSections": []
+    },
+    {
+      "file": "TRAIL_CUSTOM_AIC_EXPORT.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "ExtendedData"
+      ],
+      "integrationSections": [],
+      "note": "Mod usage inline."
+    },
+    {
+      "file": "TRAIL_IMPORT_DELETION.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "BugfixesAndQoL"
+      ],
+      "integrationSections": [],
+      "note": "Mod usage inline."
+    },
+    {
+      "file": "TREE_BLIGHT_DECAY.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "APIShared",
+        "RandomEvents"
+      ],
+      "integrationSections": [
+        "Permanent interception contract",
+        "Consumer and verification boundary"
+      ]
+    },
+    {
+      "file": "UNIT_COMMAND_CURSOR_BOUNDARY.md",
+      "scope": "vanilla",
+      "components": [],
+      "integrationSections": []
+    },
+    {
+      "file": "UNIT_COMMAND_PROBE_SCRATCH.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "BugfixesAndQoL"
+      ],
+      "integrationSections": [],
+      "note": "Native probes for a mod optimization."
+    },
+    {
+      "file": "UU_IMGUI_SHUTDOWN.md",
+      "scope": "external",
+      "components": [
+        "UU-ImGUI",
+        "Script Extender",
+        "APIShared"
+      ],
+      "vanillaSections": []
+    },
+    {
+      "file": "VANILLA_PEACE_TIME.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "BugfixesAndQoL"
+      ],
+      "integrationSections": [
+        "Mode-gate patch contract",
+        "Wildlife regression and Peace-Time guard (2026-10-07)"
+      ]
+    },
+    {
+      "file": "WORKER_PAUSES.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "BugfixesAndQoL"
+      ],
+      "integrationSections": [],
+      "note": "Mod hook note inline (baker/miller branches)."
+    },
+    {
+      "file": "WORKSHOP_IDLE_DELAY.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "BugfixesAndQoL"
+      ],
+      "integrationSections": [
+        "Optional poleturner/tanner workshop idle delay"
+      ],
+      "note": "Not tagged in file: bytes are pinned by tools/semantic/audited-models.json."
+    }
+  ]
+}

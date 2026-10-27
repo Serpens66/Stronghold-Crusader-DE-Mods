@@ -1,4 +1,4 @@
-# Temporary Raid / Assassin gate acceptance, 2026-10-07
+# Temporary Raid / Assassin gate acceptance, 2026-10-07 [Scope: Mod work, not Vanilla]
 
 Implementation and attachment-removal contract: `Testmods/EnemyGatePathfindingTest/TEMP_GATE_ROUTE_ACCEPTANCE.md`.
 

@@ -56,7 +56,10 @@ var tests = new (string Name, Action Run)[]
     ("package fingerprint detects content changes", TestPackageFingerprint),
     ("streaming package fingerprint retains the byte contract across buffers", TestStreamingFingerprint),
     ("package discovery reads manifests without opening mission assets", TestPackageDiscovery),
+    ("Maker menus discover twenty forty-mission packages without opening their contents", TestMakerPackageDiscovery),
+    ("Maker metadata preserves replicas, conflicts, legacy sources and refreshes", TestMakerPackageMetadata),
     ("selected package session reuses and invalidates validated data", TestPackageSession),
+    ("author re-export diverges from the subscribed package only after publication", TestAuthorExportCompatibility),
     ("lazy mission cache resolves only selected slots and retries failures", TestLazyMissionCache),
     ("mission dependencies detect catalog, map and external file changes", TestMissionDependencies),
     ("mission table restoration protects templates and foreign entries", TestMissionTableRestoration),
@@ -100,6 +103,7 @@ var tests = new (string Name, Action Run)[]
     ("Fixes preference snapshots retain every current and future property", TestFixesPreferenceCodec),
     ("Fixes preference snapshots reject incompatible schemas and lossy values", TestFixesPreferenceIncompatibility),
     ("Lord sync diagnostics identify state without logging JSON values", TestLordSyncDiagnostics),
+    ("embedded unnamed Lord slots require exact prepared and published configurations", TestEmbeddedLordSlotReadiness),
     ("deferred Lord confirmations reject stale lobby and selection", TestDeferredLordPublication),
     ("Lord sync accepts a confirmed lobby before game mode becomes multiplayer", TestLordSyncLobbyGate),
     ("selected Lord fingerprint ignores media and detects gameplay files", TestLordPackageFingerprint),
@@ -724,6 +728,92 @@ static void TestLordSyncLobbyGate()
         LordDataSyncDiagnostics.MatchesSelectedSlots(selected, new[] { 3 }) &&
         !LordDataSyncDiagnostics.MatchesSelectedSlots(selected, new[] { 4 }),
         "an empty or stale snapshot was accepted for a selected Custom Lord");
+}
+
+static void TestEmbeddedLordSlotReadiness()
+{
+    // Self-contained equivalent of a portable eight-player Trail: two humans and six
+    // unnamed Custom AICs. No installed paths or media providers are available.
+    var infos = new CrusaderDE.FRONT_Multiplayer.MPAIVInfo[8];
+    var slots = new List<LordDataSlot>();
+    for (int index = 0; index < infos.Length; index++)
+    {
+        int playerId = index + 1;
+        infos[index] = new CrusaderDE.FRONT_Multiplayer.MPAIVInfo
+        {
+            builtInLord = index < 2, lordName = string.Empty, lordType = index,
+            lordConfig = index < 2 ? null : new CustomisationFileManager.CustomLordConfig
+            { lordType = index, name = "embedded-aic-" + playerId, checksum = (ulong)(100 + playerId) },
+        };
+        if (index < 2) continue;
+        infos[index].aivs.Add(new CustomisationFileManager.CustomAIV { checksum = (ulong)playerId, data = new short[4] });
+        slots.Add(new LordDataSlot { PlayerId = playerId, LordType = index, LordName = "Author Lord " + playerId,
+            ConfigName = infos[index].lordConfig.name, ConfigChecksum = infos[index].lordConfig.checksum.ToString() });
+    }
+    var embedded = new HashSet<int>(Enumerable.Range(3, 6));
+    Func<int, bool> activeAi = playerId => playerId >= 3;
+    LordDataSnapshot original = LordDataSnapshot.Create("lobby", false, slots);
+    LordDataSnapshot snapshot = original, prepared = original;
+    LordSnapshotSlotSelection Inspect() => LordSnapshotSlotSelection.Inspect(snapshot, infos, activeAi, embedded, prepared);
+    Assert(Inspect().Matches, "six valid embedded AICs required installed Lord names or files");
+
+    snapshot = LordDataSnapshot.Create("lobby", false, slots.Where(slot => slot.PlayerId != 3));
+    LordSnapshotSlotSelection missing = Inspect();
+    Assert(!missing.Matches && missing.MissingPlayers.SequenceEqual(new[] { 3 }) &&
+        missing.AffectedPlayers.Contains(3) && missing.Diagnostic.Contains("missing=[3]", StringComparison.Ordinal),
+        "snapshot omitted an embedded Lord without identifying its player slot");
+    snapshot = LordDataSnapshot.Create("lobby", false, slots.Concat(new[] {
+        new LordDataSlot { PlayerId = 1, LordType = 0, LordName = "human stale data", ConfigName = "old", ConfigChecksum = "1" },
+    }));
+    Assert(!Inspect().Matches && Inspect().ExtraPlayers.SequenceEqual(new[] { 1 }),
+        "snapshot with an extra human slot passed");
+    snapshot = original;
+    prepared = LordDataSnapshot.Create("lobby", false, slots.Where(slot => slot.PlayerId != 3));
+    Assert(!Inspect().Matches && Inspect().InvalidPlayers.Contains(3), "unprepared unnamed slot was accepted");
+    prepared = original;
+    infos[2].lordConfig.checksum++;
+    LordSnapshotSlotSelection changed = Inspect();
+    Assert(!changed.Matches && changed.InvalidPlayers.Contains(3) &&
+        changed.Diagnostic.Contains("configChecksum=104", StringComparison.Ordinal) &&
+        changed.Diagnostic.Contains("preparedChecksum=103", StringComparison.Ordinal) &&
+        changed.Diagnostic.Contains("embedded=True", StringComparison.Ordinal), "changed configuration passed or lost diagnostic identities");
+    infos[2].lordConfig.checksum--;
+    infos[2].lordConfig.name = "other-aic";
+    Assert(!Inspect().Matches, "different configuration name was accepted as embedded");
+    infos[2].lordConfig.name = slots[0].ConfigName;
+    infos[2].lordConfig.lordType++;
+    Assert(!Inspect().Matches, "different configuration type was accepted as embedded");
+    infos[2].lordConfig.lordType--;
+    var savedConfig = infos[2].lordConfig;
+    infos[2].lordConfig = null;
+    Assert(!Inspect().Matches, "missing AIC was accepted");
+    infos[2].lordConfig = savedConfig;
+    var savedInfo = infos[2];
+    infos[2] = null;
+    Assert(!Inspect().Matches, "missing active Lord selection was accepted");
+    infos[2] = savedInfo;
+    infos[2].lordName = "optional-media-alias";
+    Assert(Inspect().Matches, "optional media alias changed a valid embedded binding");
+    infos[2].lordName = string.Empty;
+    embedded.Remove(3);
+    Assert(!Inspect().Matches, "an unnamed slot without an embedded binding was accepted");
+    infos[2].lordName = slots[0].LordName;
+    Assert(Inspect().Matches, "ordinary named Custom Lord was rejected");
+    infos[2].lordConfig.checksum++;
+    Assert(!Inspect().Matches, "named Custom Lord configuration differed from the published snapshot");
+    infos[2].lordConfig.checksum--;
+
+    activeAi = playerId => playerId >= 4;
+    Assert(!Inspect().Matches && Inspect().ExtraPlayers.Contains(3), "inactive or human slot remained in the snapshot");
+    snapshot = LordDataSnapshot.Create("lobby", false, slots.Skip(1));
+    Assert(Inspect().Matches, "inactive or human selection was included as an AI");
+    activeAi = playerId => playerId >= 3;
+    infos[2].builtInLord = true;
+    Assert(Inspect().Matches, "ordinary Vanilla Lord required a Custom Lord snapshot entry");
+    embedded.Add(3);
+    Assert(!Inspect().Matches, "a Vanilla Lord was accepted as a claimed embedded Custom AIC");
+    Assert(!LordSnapshotSlotSelection.Inspect(snapshot, null, activeAi, embedded, prepared).Matches,
+        "absent lobby selection was accepted");
 }
 
 static void TestDeferredLordPublication()
@@ -1908,6 +1998,118 @@ static void TestPackageDiscovery()
     Assert(catalog.Discover(new[] { root }).Count == 1, "discovery included a staging package");
 }
 
+static void TestMakerPackageDiscovery()
+{
+    using Fixture fixture = Fixture.Create();
+    string local = Path.Combine(fixture.Root, "CustomTrails");
+    string workshop = Path.Combine(fixture.Root, "Workshop");
+    var packages = new List<string>();
+    var locks = new List<(string Package, FileStream Stream)>();
+    string workingTrail = Path.Combine(fixture.Root, "active-maker.trail");
+    File.WriteAllText(workingTrail, "keep current authoring work");
+    try
+    {
+        for (int index = 0; index < 20; index++)
+        {
+            string package = CreatePackage(fixture, index < 10 ? local : workshop, "Trail" + index.ToString("00"), 40);
+            packages.Add(package);
+            string sources = Path.Combine(package, CoopTrailPackagePublication.TrailMakerSourceDirectory);
+            Directory.CreateDirectory(sources);
+            for (int mission = 1; mission <= 40; mission++)
+            {
+                File.WriteAllText(Path.Combine(sources, "Trail_Mission_" + mission + ".trail"), "editable mission");
+                File.WriteAllText(Path.Combine(sources, "Trail_Mission_" + mission + ".modtrail.json"), "editable sidecar");
+            }
+            // Real exclusive locks cover missions, assets, sidecars and editable sources.
+            // A regression to full package loading cannot silently pass this boundary.
+            foreach (string file in Directory.GetFiles(package, "*", SearchOption.AllDirectories))
+                if (!string.Equals(file, Path.Combine(package, "cooptrail.json"), StringComparison.OrdinalIgnoreCase))
+                    locks.Add((package, File.Open(file, FileMode.Open, FileAccess.ReadWrite, FileShare.None)));
+        }
+        var catalog = new CoopTrailMakerSources();
+        var errors = new List<string>();
+        var sourcesFound = catalog.Discover(new[] { local, workshop, local }, local, errors.Add);
+        Assert(errors.Count == 0 && sourcesFound.Count == 20, "Maker menus read locked mission contents or lost packages");
+        Assert(sourcesFound.All(item => item.MissionCount == 40 && item.Manifest.MissionCount == 40), "mission counts changed");
+        Assert(sourcesFound.Count(item => item.Workshop) == 10 && sourcesFound.Count(item => !item.Workshop) == 10,
+            "local and Workshop origins were confused");
+        Assert(sourcesFound.First().SelectionName == "Trail00" &&
+            sourcesFound.Last().SelectionName == "Trail19 [Steam Workshop]", "selection names or sorting changed");
+        Assert(catalog.Discover(new[] { local }, local, errors.Add).Count == 10, "local-only menus included subscriptions");
+
+        string selected = packages[0];
+        foreach (var item in locks.Where(item => item.Package == selected)) item.Stream.Dispose();
+        locks.RemoveAll(item => item.Package == selected);
+        int confirmations = 0;
+        int rejections = 0;
+        Action confirmation = () => { confirmations++; File.WriteAllText(workingTrail, "confirmation reached"); };
+        Action<Exception> rejected = _ => rejections++;
+        CoopTrailMakerSources.RequestImport(selected, confirmation, rejected);
+        Assert(confirmations == 1 && rejections == 0, "selected import accessed another locked package");
+
+        File.WriteAllText(workingTrail, "keep current authoring work");
+        File.AppendAllText(Path.Combine(selected, "CoopMissions", "map.map"), "corrupted");
+        Assert(catalog.Discover(new[] { local, workshop }, local, errors.Add).Count == 20,
+            "metadata discovery validated damaged mission contents");
+        CoopTrailMakerSources.RequestImport(selected, confirmation, rejected);
+        Assert(confirmations == 1 && rejections == 1 && File.ReadAllText(workingTrail) == "keep current authoring work",
+            "invalid import reached Vanilla confirmation or changed current work");
+        File.Delete(Path.Combine(selected, "cooptrail.json"));
+        CoopTrailMakerSources.RequestImport(selected, confirmation, rejected);
+        Assert(confirmations == 1 && rejections == 2, "removed selection reached confirmation");
+    }
+    finally
+    {
+        foreach (var item in locks) item.Stream.Dispose();
+    }
+}
+
+static void TestMakerPackageMetadata()
+{
+    using Fixture fixture = Fixture.Create();
+    string local = Path.Combine(fixture.Root, "CustomTrails");
+    string workshop = Path.Combine(fixture.Root, "Workshop");
+    string package = CreatePackage(fixture, local, "Replica", 1);
+    // Legacy root-level sources remain importable. Count editable filenames independently
+    // of the gameplay manifest, which is what the existing Maker import actually copies.
+    File.WriteAllText(Path.Combine(package, "Trail_Mission_1.trail"), "source one");
+    File.WriteAllText(Path.Combine(package, "Trail_Mission_2.trail"), "source two");
+    CopyTree(package, Path.Combine(workshop, "Replica"));
+    var catalog = new CoopTrailMakerSources();
+    var errors = new List<string>();
+    var sources = catalog.Discover(new[] { local, workshop }, local + Path.DirectorySeparatorChar, errors.Add);
+    Assert(errors.Count == 0 && sources.Count == 1 && sources[0].PackageRoot == package && !sources[0].Workshop,
+        "identical replicas did not prefer the local source");
+    Assert(sources[0].MissionCount == 2 && sources[0].Manifest.MissionCount == 1, "editable count used the gameplay count");
+
+    string conflict = CreatePackage(fixture, local, "Conflict", 1, sources[0].Manifest.PackageId);
+    File.WriteAllText(Path.Combine(conflict, "Trail_Mission_1.trail"), "conflict");
+    Assert(catalog.Discover(new[] { local, workshop }, local, errors.Add).Count == 0 &&
+        errors.Any(message => message.Contains("duplicate", StringComparison.OrdinalIgnoreCase)), "conflicting IDs remained selectable");
+
+    string invalid = Path.Combine(local, "Invalid");
+    Directory.CreateDirectory(invalid);
+    File.WriteAllText(Path.Combine(invalid, "cooptrail.json"), "{}");
+    var manifest = CoopTrailPackageManifestJson.Read(Path.Combine(conflict, "cooptrail.json"));
+    manifest.PackageId = Guid.NewGuid().ToString("D");
+    manifest.DisplayName = "Updated";
+    CoopTrailPackageManifestJson.WriteAtomic(Path.Combine(conflict, "cooptrail.json"), manifest);
+    File.Delete(Path.Combine(conflict, "Trail_Mission_1.trail"));
+    sources = catalog.Discover(new[] { local, workshop }, local, errors.Add);
+    Assert(sources.Count == 1 && errors.Any(message => message.Contains("manifest", StringComparison.OrdinalIgnoreCase)),
+        "invalid manifests or removed editable sources were retained");
+    bool confirmed = false;
+    bool rejected = false;
+    CoopTrailMakerSources.RequestImport(conflict, () => confirmed = true, _ => rejected = true);
+    Assert(!confirmed && rejected, "an empty editable source reached destructive import");
+    File.WriteAllText(Path.Combine(conflict, "Trail_Mission_1.trail"), "repaired source");
+    sources = catalog.Discover(new[] { local }, local, errors.Add);
+    Assert(sources.Count == 2 && sources.Last().Manifest.DisplayName == "Updated", "metadata did not refresh after a repair");
+    AssertThrows<InvalidOperationException>(() => CoopTrailMakerSources.RequestImport(conflict,
+        () => throw new InvalidOperationException("Vanilla failure"), _ => throw new Exception("misreported UI failure")),
+        "Vanilla confirmation failure was swallowed as package corruption");
+}
+
 static void TestPackageSession()
 {
     using Fixture fixture = Fixture.Create();
@@ -1957,6 +2159,47 @@ static void TestPackageSession()
     Assert(!hit, "explicit export invalidation did not clear the session");
     Directory.Delete(path, recursive: true);
     ExpectFailure(() => session.GetOrLoad(catalog.Discover(new[] { root }), id, out _), "removed package remained available");
+}
+
+static void TestAuthorExportCompatibility()
+{
+    using Fixture fixture = Fixture.Create();
+    string localRoot = Path.Combine(fixture.Root, "CustomTrails");
+    string workshopRoot = Path.Combine(fixture.Root, "WorkshopItem");
+    string local = CreatePackage(fixture, localRoot, "Author", 1);
+    string subscribed = Path.Combine(workshopRoot, "Subscribed");
+    CopyTree(local, subscribed);
+    var catalog = new CoopTrailPackageCatalog();
+    string id = CoopTrailPackageCatalog.Load(local).Manifest.PackageId;
+    var author = new CoopTrailPackageSession();
+    var guest = new CoopTrailPackageSession();
+    CoopTrailPackage oldExport = author.GetOrLoad(catalog.Discover(new[] { localRoot }), id, out _);
+    CoopTrailPackage workshop = guest.GetOrLoad(catalog.Discover(new[] { workshopRoot }), id, out _);
+    Assert(oldExport.Manifest.ContentFingerprint == workshop.Manifest.ContentFingerprint,
+        "identical author/Workshop packages differed because of origin or directory names");
+
+    string makerSource = Path.Combine(local, "TrailMakerSource", "01.trail");
+    Directory.CreateDirectory(Path.GetDirectoryName(makerSource));
+    File.WriteAllText(makerSource, "unpublished Maker changes");
+    CoopTrailPackage stillOld = author.GetOrLoad(catalog.Discover(new[] { localRoot }), id, out _, forceValidation: true);
+    Assert(ReferenceEquals(stillOld, oldExport) && stillOld.Manifest.ContentFingerprint == workshop.Manifest.ContentFingerprint,
+        "editing Maker sources changed the playable export without publishing it");
+
+    // The export boundary supplies new mission bytes and a matching manifest. The game-facing
+    // exporter owns that encoding; this test exercises the real package/session boundary it publishes.
+    string map = Path.Combine(local, "CoopMissions", "map.map");
+    File.AppendAllText(map, "newly exported map content");
+    RehashTestPackage(local);
+    author.Clear(); // OnCoopPackagesExported retires the previous session before applying the export.
+    CoopTrailPackage updated = author.GetOrLoad(catalog.Discover(new[] { localRoot }), id, out bool hit);
+    Assert(!hit && !ReferenceEquals(updated, oldExport) && updated.Manifest.PackageId == workshop.Manifest.PackageId &&
+        updated.Manifest.ContentFingerprint != workshop.Manifest.ContentFingerprint,
+        "new export was cached, lost its package identity or matched the old Workshop contents");
+    Assert(guest.GetOrLoad(catalog.Discover(new[] { workshopRoot }), id, out _).Manifest.ContentFingerprint ==
+        workshop.Manifest.ContentFingerprint, "local re-export changed the subscribed copy");
+    File.AppendAllText(map, "unverified direct edit");
+    ExpectFailure(() => author.GetOrLoad(catalog.Discover(new[] { localRoot }), id, out _),
+        "directly changed export was accepted without a matching fingerprint");
 }
 
 static void RehashTestPackage(string root)
@@ -2541,6 +2784,8 @@ namespace BepInEx.Logging
 {
     public sealed class ManualLogSource
     {
+        // Target of the linked Shared.DevDiag writer in /devdiag builds; these tests do not inspect its output.
+        public void LogMessage(object value) { }
     }
 }
 

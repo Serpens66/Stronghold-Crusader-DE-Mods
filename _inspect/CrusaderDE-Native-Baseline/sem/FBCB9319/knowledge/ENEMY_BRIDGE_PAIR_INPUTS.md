@@ -1,4 +1,4 @@
-# Own command / military frame observations
+# Own command / military frame observations [Scope: Mod work, not Vanilla]
 
 Native SHA256FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
 Complete feature122 plus79 additional bodies match installed code. Evidence is

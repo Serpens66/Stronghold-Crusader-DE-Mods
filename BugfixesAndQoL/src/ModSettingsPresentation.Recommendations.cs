@@ -6,6 +6,7 @@ namespace BugfixesAndQoL
         // no locale lookup at plugin startup and no runtime Markdown parsing.
         private void ApplyApprovedRecommendations()
         {
+            options["EnableMoatTerrainRestoration"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableMoatTerrainRestoration");
             options["PreserveDisplayResolution"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.PreserveDisplayResolution");
             options["EnableGatehouseTargetMarkerHeightFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableGatehouseTargetMarkerHeightFix");
             options["EnableVanillaPerformanceOptimizations"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableVanillaPerformanceOptimizations");
@@ -33,6 +34,7 @@ namespace BugfixesAndQoL
             options["ShowLoadSaveDialogControls"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.ShowLoadSaveDialogControls");
             options["EnableSoloMultiplayerSaveLoading"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableSoloMultiplayerSaveLoading");
             options["FixSkirmishLoadButtonVisibility"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.FixSkirmishLoadButtonVisibility");
+            options["EnableCompactLobbyChat"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableCompactLobbyChat");
             options["ImproveYellowLobbyContrast"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.ImproveYellowLobbyContrast");
             options["EnableBriefingNoStartingGoldFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableBriefingNoStartingGoldFix");
             options["EnableIngameSteamInvitePrompt"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableIngameSteamInvitePrompt");
@@ -100,6 +102,7 @@ namespace BugfixesAndQoL
             options["EnableBakerMillerBreaks"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableBakerMillerBreaks");
             options["EnableWorkshopIdleDelayFix"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableWorkshopIdleDelayFix");
             options["EnableGatehouseLivingCaptureFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableGatehouseLivingCaptureFix");
+            options["EnableTreeBlightDecayFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableTreeBlightDecayFix");
             options["EnableDrawbridgeDestructionFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableDrawbridgeDestructionFix");
             options["EnableAssassinGatehouseClimbFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableAssassinGatehouseClimbFix");
             options["EnableTunnelPlacementDistanceFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableTunnelPlacementDistanceFix");

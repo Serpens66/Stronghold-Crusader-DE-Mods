@@ -33,6 +33,11 @@ namespace BugfixesAndQoL.UnitCommands
             boundScope = null; group = default;
             if (!ExtensionsEnabled || template == null || !TryCaptureSelectedGroup(template.PlayerId, out int[] ids, out string token)) return false;
             group.SelectionSignature = token;
+            if (ManualCommandsEnabled && TryQualifySameRegionSelection(template, ids, token, out boundScope, out group))
+                return true;
+            // This newly supported hover must not start a full path probe for every member.
+            // Other cursor kinds keep their existing exact and traversal-specific checks.
+            if (template.FriendlyGroundMove) return group.SelectedUnits > 0;
             if (ManualCommandsEnabled && TryQualifyNativeSelection(template, ids, token, out boundScope, out group) && group.AllowFallback)
                 return true;
             if (!TraversalEnabled) return group.SelectedUnits > 0;
@@ -61,6 +66,10 @@ namespace BugfixesAndQoL.UnitCommands
             scope.TargetUnitId = template.TargetUnitId;
             scope.TargetUnitGlobalId = template.TargetUnitGlobalId;
             scope.CursorPairTargetTileId = template.CursorPairTargetTileId;
+            scope.FriendlyGroundMove = template.FriendlyGroundMove;
+            scope.OrdinaryGroundMove = template.OrdinaryGroundMove;
+            scope.FriendlyUnitId = template.FriendlyUnitId;
+            scope.FriendlyUnitGlobalId = template.FriendlyUnitGlobalId;
             return scope;
         }
 
@@ -70,6 +79,11 @@ namespace BugfixesAndQoL.UnitCommands
 
         internal bool CursorScopeMatchesTargetTile(AttackCursorPairScope scope, int targetTileId)
         {
+            if (scope.FriendlyGroundMove &&
+                (!APIShared.UnitAccess.TryGetById(scope.FriendlyUnitId, out GameUnit* friendly, out _) ||
+                 friendly == null || !APIShared.UnitAccess.IsReallyAlive(friendly) ||
+                 friendly->r_GlobalId != scope.FriendlyUnitGlobalId ||
+                 friendly->r_ControllableForPlayerId != scope.PlayerId)) return false;
             if (scope.FallbackKind == CursorPairFallbackKind.UnitApproach)
             {
                 return (scope.CursorPairTargetTileId == targetTileId ||
@@ -89,6 +103,79 @@ namespace BugfixesAndQoL.UnitCommands
                     targetUnit->r_CurrentTilePositionX == scope.TargetX && targetUnit->r_CurrentTilePositionY == scope.TargetY;
             }
             return scope.TargetTileId == targetTileId;
+        }
+
+        private bool TryQualifySameRegionSelection(AttackCursorPairScope template, int[] ids, string token,
+            out AttackCursorPairScope bound, out CursorGroupRouteSummary group)
+        {
+            bound = null; group = default; group.SelectionSignature = token;
+            int target = template.TargetTileId;
+            if (!template.OrdinaryGroundMove || template.FallbackKind != CursorPairFallbackKind.DirectTile || !cursorGroundContractReady ||
+                !IsValidTileId(target) || IsCompletedMoatTile(target) ||
+                (tileFlags[target] & CursorSpecialStructureTileFlagMask) != 0 ||
+                unchecked((short)pathRegionGrid[target]) <= 0) return false;
+            foreach (int id in ids)
+            {
+                if (!APIShared.UnitAccess.TryGetById(id, out GameUnit* unit, out _) || unit == null ||
+                    !APIShared.UnitAccess.IsReallyAlive(unit) || unit->r_ControllableForPlayerId != template.PlayerId)
+                    continue;
+                group.SelectedUnits++;
+                if (CanDigMoat(unit)) group.DiggerUnits++;
+                int type = (int)unit->r_UnitChimp;
+                if (unit->N000000DB == 0 || type == (int)SHCDESE.Interop.eChimps.CHIMP_TYPE_ARAB_ASSASIN ||
+                    type == (int)SHCDESE.Interop.eChimps.CHIMP_TYPE_TREBUCHET ||
+                    type == (int)SHCDESE.Interop.eChimps.CHIMP_TYPE_MANGONEL ||
+                    type == (int)SHCDESE.Interop.eChimps.CHIMP_TYPE_BALLISTA ||
+                    TryRejectCursorNativeTarget(unit, template.TargetX, template.TargetY)) continue;
+                int current = unchecked((int)unit->r_CurrentPositionTileId);
+                if ((uint)unit->r_CurrentTilePositionX >= MapWidth || (uint)unit->r_CurrentTilePositionY >= MapWidth ||
+                    !IsValidTileId(current) || IsCompletedMoatTile(current) ||
+                    (tileFlags[current] & CursorSpecialStructureTileFlagMask) != 0 ||
+                    current != GameTileManagerAPI.Instance.GetTileId(unit->r_CurrentTilePositionX, unit->r_CurrentTilePositionY) ||
+                    pathRegionGrid[current] != pathRegionGrid[target]) continue;
+                GetNativeMovementStart(unit, out int x, out int y);
+                if ((uint)x >= MapWidth || (uint)y >= MapWidth) continue;
+                int source = GameTileManagerAPI.Instance.GetTileId(x, y);
+                if (!IsValidTileId(source) || IsCompletedMoatTile(source) ||
+                    (tileFlags[source] & CursorSpecialStructureTileFlagMask) != 0 ||
+                    pathRegionGrid[source] != pathRegionGrid[target]) continue;
+                // E2CA0 itself accepts equal PCLs without a tile search. Only positive,
+                // ordinary regions are used here; this never authorizes dispatch.
+                var snapshot = new SelectedCursorUnitSnapshot(id, x, y, source, CanDigMoat(unit));
+                bound = CreateCursorScopeForSnapshot(template, snapshot);
+                bound.GroupCursorAuthorized = true; bound.GroupSelectionSignature = token;
+                group.AllowFallback = true; group.LegallyReachableUnits = 1;
+                group.RepresentativeUnitId = id; group.RepresentativeStartX = x;
+                group.RepresentativeStartY = y; group.RepresentativeStartTileId = source;
+                group.RepresentativeCanDig = snapshot.CanDig;
+                Shared.DevDiag.Count("manual.cursor.sameRegionWitness");
+                return true;
+            }
+            return false;
+        }
+
+        private bool TryGetOwnCursorUnit(int player, uint rawId, int targetTile, out int id, out uint globalId)
+        {
+            id = rawId > 0 && rawId <= ManualRegionAdmissionBatch.Capacity ? (int)rawId :
+                GameTileManagerAPI.Instance.GetTileUnitId(targetTile);
+            globalId = 0;
+            if (id <= 0 || !APIShared.UnitAccess.TryGetById(id, out GameUnit* unit, out _) || unit == null ||
+                !APIShared.UnitAccess.IsReallyAlive(unit) || unit->r_ControllableForPlayerId != player) return false;
+            globalId = unit->r_GlobalId;
+            return globalId != 0;
+        }
+
+        private bool TryBindFriendlyGroundCursor(int player, uint rawId, int targetTile, int callSite,
+            int nativePermission, int commandMode, bool otherInteraction, out int id, out uint globalId)
+        {
+            id = 0; globalId = 0;
+            bool accepted = callSite == 0x8F325 && nativePermission != 0 &&
+                commandMode == APIShared.Internal.GroundMovePreviewEligibility.OrdinaryMoveCommandMode && !otherInteraction &&
+                IsValidTileId(targetTile) && !IsCompletedMoatTile(targetTile) &&
+                (tileFlags[targetTile] & CursorSpecialStructureTileFlagMask) == 0 &&
+                TryGetOwnCursorUnit(player, rawId, targetTile, out id, out globalId);
+            Shared.DevDiag.Count(accepted ? "manual.cursor.friendlyCandidate" : "manual.cursor.friendlyRejected");
+            return accepted;
         }
 
         internal bool CursorStartMatchesBoundSelection(

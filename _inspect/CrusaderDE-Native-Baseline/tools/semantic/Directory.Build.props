@@ -1,4 +1,8 @@
 <Project>
+  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'KnowledgeExport'">
+    <BaseOutputPath>$(MSBuildThisFileDirectory)..\..\..\..\.tools\native-knowledge\bin\</BaseOutputPath>
+    <BaseIntermediateOutputPath>$(MSBuildThisFileDirectory)..\..\..\..\.tools\native-knowledge\obj\</BaseIntermediateOutputPath>
+  </PropertyGroup>
   <PropertyGroup Condition="'$(MSBuildProjectName)' == 'NativeFacts' Or '$(MSBuildProjectName)' == 'NativeFacts.Tests'">
     <BaseOutputPath>$(MSBuildThisFileDirectory)..\..\..\..\.tools\native-analysis\$(MSBuildProjectName)\</BaseOutputPath>
     <BaseIntermediateOutputPath>$(MSBuildThisFileDirectory)..\..\..\..\.tools\native-analysis\$(MSBuildProjectName)-obj\</BaseIntermediateOutputPath>

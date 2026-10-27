@@ -1,4 +1,4 @@
-# Fixes wheat-sale crash and startup correction audit
+# Fixes wheat-sale crash and startup correction audit [Scope: External component]
 
 Date: 2026-10-16. Native SHA-256:
 FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
@@ -129,3 +129,57 @@ MonoMod.RuntimeDetour/Utils hashes are respectively
 Tests accept either audited player displacement, including no write when already
 corrected, and reject an unregistered generated loader copy. This supersedes the
 earlier whole-managed-binary refusal policy without changing native byte safety.
+
+## Fixes 1.29.1 review and bounded startup repair, 2026-10-26
+
+Native SHA-256 remains
+FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
+Canonical external source tag v1.29.1/main was verified against GitLab commit
+ce1ec8094775b8dd069e41c49bcc8b9a4b781704. The productive source diff from
+v1.29.0 changes only the wheat emitter. Installed fixes.dll 1.29.1 was inspected
+independently through its actual private emitter; external sources remain unchanged.
+
+Confirmed instruction/data-flow chain: scheduler 0x2AE40 passes EDX player to
+controller 0x3F270; market/phase branches select seller 0x3EE10. Its home slot
+and frame retain the earlier audited contract. At 0x3EE27 R9 is initially
+player*0x583C, but each goods iteration overwrites R9D at 0x3F0E3 and 0x3F1FA.
+The backedge 0x3F215 returns to 0x3F0C3 without recomputing R9. The 20-entry
+goods/category table at 0x2CEC90 places raw pitch (good 7) immediately before
+wheat (good 9). If the loop reaches wheat, R9 holds the pitch stock, not a player
+offset. A prior successful sale leaves the loop through 0x29700 instead.
+
+The 1.29.1 emitter moves R9 into RAX, clears RDX and divides by the 0x583C
+GamePlayerResources size. DIV leaves quotient in RAX and remainder in RDX;
+the flag helper indexes [flags+RDX]. A stock of 100 therefore indexes flag 100,
+outside the nine-byte array. This is a confirmed possible invalid index, not a
+reproduced game crash. Finally, POP RCX restores the Food category saved before
+MOV ECX,Resource; the category fix cannot survive to the reserve branches.
+These three findings are independent. Helper disassembly confirms it neither
+bounds nor transforms the supplied 64-bit index and preserves only its scratch.
+
+The complete supported prefix is now compared with a newly assembled instruction
+contract using actual flags, frame and Extender domain/layout values. Merely
+finding one stack load and a matching flag reference is no longer sufficient.
+The user authorized the narrow startup exception to cover one existing prefix
+replacement, retaining all synchronous-start/engine-lock/provenance checks.
+For the observed 94-byte complete stub, only its first 61 bytes change: a 47-byte
+stack-load/bounds/flag/category body plus 14 NOPs. The 19 displaced bytes at +61
+and 14-byte absolute return at +80 retain their exact positions and bytes.
+Legacy wrong/correct stack variants retain one-byte/no-write behavior.
+
+Existing private native fixtures execute the historical and actual installed
+emitters after the production correction, including independent R9 stocks/old
+stack values, player flags, non-wheat, stack/GPR/XMM state and bounded invalid
+indices. Existing memory fixtures cover exact ranges, preimage races, region
+crossings, denied protection and restoration/cache/read-back failures. This is
+offline execution evidence; fresh Unity startup, repeated saves, editor, actual
+AI sales and real host/client acceptance remain pending until separately recorded.
+No new game hook, native allocation, simulation callback or config mutation is
+introduced. Historical audit sections above retain their original observations.
+
+The final review also tightened the seller-home proof: exact-address-only checks
+would miss a wider stack store overlapping the four-byte player value. The full
+write width is now checked; indexed stack writes and stack-address LEAs are
+refused instead of assuming no alias. A dedicated synthetic-function case in the
+existing analysis suite covers partial overlaps and aliases. The current native
+seller contains none of these newly refused forms.

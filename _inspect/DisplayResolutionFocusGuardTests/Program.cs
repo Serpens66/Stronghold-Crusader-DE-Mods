@@ -21,6 +21,7 @@ namespace BugfixesAndQoL.FocusGuardTests
                 DisabledAndInvalidStatesRemainInactive();
                 UnfocusedStartupCanArmProtection();
                 RecoveryTimeoutStopsFrameWorkButKeepsSaveProtection();
+                ProductionHookTests.Run();
                 Console.WriteLine("PASS: focused and unfocused startup, focus loss, protected save, recovery, manual Apply, disabled, invalid, and timeout states.");
                 return 0;
             }

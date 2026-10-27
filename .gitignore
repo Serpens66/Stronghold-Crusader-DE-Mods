@@ -32,6 +32,7 @@
 /_inspect/CrusaderDE-Native-Baseline/sem/*/CrusaderDE-semantic.sqlite-shm
 /_inspect/CrusaderDE-Native-Baseline/sem/*/CrusaderDE-semantic.sqlite-journal
 /_inspect/CrusaderDE-Native-Baseline/sem/*/CrusaderDE-semantic.sqlite-building
+/_inspect/CrusaderDE-Native-Baseline/sem/*/CrusaderDE-knowledge.sqlite*
 /_inspect/CrusaderDE-Native-Baseline/sem/*/analysis/*/work/
 /_inspect/CrusaderDE-Native-Baseline/sem/*/analysis/*/historical/work/
 /_inspect/CrusaderDE-Native-Baseline/sem/*/analysis/*/index.sqlite*

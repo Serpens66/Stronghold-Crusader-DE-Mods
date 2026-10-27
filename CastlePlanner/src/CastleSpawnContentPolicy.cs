@@ -7,6 +7,19 @@ namespace CastlePlanner
         internal const bool DefaultDefensiveGroundFeatures = true;
         internal const bool DefaultFearFactorBuildings = false;
         internal const bool DefaultSiegeEngines = false;
+        internal const bool DefaultAllowRotation = true;
+
+        internal static System.Collections.Generic.IEnumerable<string> GetChoices(
+            bool hasSpawnContent, bool allowRotation, string nothing, string keepOnly,
+            System.Collections.Generic.IEnumerable<string> castles)
+        {
+            yield return nothing;
+            if (allowRotation)
+                yield return keepOnly;
+            if (hasSpawnContent)
+                foreach (string castle in castles)
+                    yield return castle;
+        }
 
         internal static bool ShouldResetBeforeEnabling(
             bool currentSpawnCastle,
@@ -26,11 +39,12 @@ namespace CastlePlanner
             bool defensiveGroundFeatures,
             bool fearFactorBuildings,
             bool siegeEngines,
-            bool braziersAndFlags)
+            bool braziersAndFlags,
+            bool allowRotation = false)
         {
             return currentSpawnCastle &&
                 canEditHostSettings &&
-                !HasAnyEnabled(
+                !allowRotation && !HasAnyEnabled(
                     fortifications,
                     buildings,
                     defensiveGroundFeatures,

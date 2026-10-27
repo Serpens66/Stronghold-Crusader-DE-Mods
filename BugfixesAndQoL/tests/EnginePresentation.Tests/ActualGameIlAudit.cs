@@ -12,6 +12,9 @@ namespace BugfixesAndQoL.VanillaPerformance
     internal static partial class EnginePresentationBridge
     {
         private static bool runValid, saveValid;
+#if SERP_DEVDIAG
+        static partial void DiagInstallFreeze(BepInEx.Logging.ManualLogSource logger);
+#endif
         private static void EnteredRun() { }
         private static void BeforePublish() { }
         private static void BeforeSave() { }
@@ -45,6 +48,17 @@ namespace BugfixesAndQoL.VanillaPerformance
                     !original.Select((i,n)=>i.labels.SequenceEqual(labels[n])&&i.blocks.SequenceEqual(boundaries[n])).All(x=>x))
                     throw new Exception("Original IL metadata or callback count differs");
                 Console.WriteLine("PASS installed game IL: "+method+"; original instructions="+original.Count+", labels/EH preserved");
+#if SERP_DEVDIAG
+                if (name == "run")
+                {
+                    var measured = GateAttackFreezeRun.Transpile(result, method).ToList();
+                    if (!GateAttackFreezeRun.Instrumented || measured.Count != result.Count + 2 ||
+                        measured.Sum(i=>i.labels.Count) != result.Sum(i=>i.labels.Count) ||
+                        measured.Sum(i=>i.blocks.Count) != result.Sum(i=>i.blocks.Count))
+                        throw new Exception("Actual installed freeze phase instrumentation rejected");
+                    Console.WriteLine("PASS installed game freeze phases: exact Monitor overload, native and publication anchors; labels/EH preserved; no game execution.");
+                }
+#endif
             }
             ValidateLockedCall(typeof(EngineInterface).GetMethod("GetMeritData"),"DLL_GetMeritData");
             ValidateLockedCall(typeof(EngineInterface).GetMethod("SetAchData"),"DLL_SetAchValues");

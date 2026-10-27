@@ -1,4 +1,4 @@
-# Spectator building and wall placement
+# Spectator building and wall placement [Scope: Vanilla + mod integration]
 
 Native baseline SHA-256: `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
 These findings are static; the spectator testmod still requires in-game confirmation.

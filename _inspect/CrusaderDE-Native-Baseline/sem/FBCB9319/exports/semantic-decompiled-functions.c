@@ -39000,7 +39000,8 @@ LAB_1800436d7:
                   }
                   else {
                     local_a8 = (ulonglong)(uint)(int)(short)(&DAT_184b6aa50)[uVar25];
-                    iVar11 = FUN_1800c07c0(&DAT_1864ccbb0,(int)(short)(&DAT_184b6aa50)[uVar25]);
+                    iVar11 = c_game_building_get_type_height_offset
+                                       (&DAT_1864ccbb0,(int)(short)(&DAT_184b6aa50)[uVar25]);
                     iVar41 = iVar41 + iVar11;
                   }
                 }
@@ -39097,7 +39098,7 @@ LAB_1800436d7:
                       }
                       else {
                         uVar38 = (ulonglong)(uint)(int)(short)(&DAT_184b6aa50)[uVar25];
-                        iVar31 = FUN_1800c07c0(&DAT_1864ccbb0,uVar38);
+                        iVar31 = c_game_building_get_type_height_offset(&DAT_1864ccbb0,uVar38);
                         iVar41 = iVar41 + iVar31;
                       }
                       FUN_1801a13c0(&DAT_180a98820,iVar15 + 10000,
@@ -39654,7 +39655,8 @@ LAB_1800446f5:
                   }
                 }
                 else {
-                  iVar11 = FUN_1800c07c0(&DAT_1864ccbb0,(int)(short)(&DAT_184b6aa50)[lVar43]);
+                  iVar11 = c_game_building_get_type_height_offset
+                                     (&DAT_1864ccbb0,(int)(short)(&DAT_184b6aa50)[lVar43]);
                   iVar41 = iVar41 + iVar11;
                 }
               }
@@ -61393,7 +61395,7 @@ undefined8 FUN_1800698e0(longlong param_1,uint param_2,uint param_3,uint param_4
     uVar7 = (uint)bVar1;
     if (*(short *)(param_1 + 0xb0bca0 + (longlong)(int)((&DAT_18402ff2c)[uVar9 * 3] + param_4) * 2)
         != 0) {
-      iVar3 = FUN_1800c07c0(&DAT_1864ccbb0);
+      iVar3 = c_game_building_get_type_height_offset(&DAT_1864ccbb0);
       uVar7 = (uint)bVar1 + iVar3;
     }
     uVar8 = 0xffffffff;
@@ -61407,7 +61409,7 @@ undefined8 FUN_1800698e0(longlong param_1,uint param_2,uint param_3,uint param_4
         bVar1 = *(byte *)(lVar5 + 0xd7e5a0 + param_1);
         uVar8 = (uint)bVar1;
         if (*(short *)(param_1 + 0xb0bca0 + lVar5 * 2) != 0) {
-          iVar4 = FUN_1800c07c0(&DAT_1864ccbb0);
+          iVar4 = c_game_building_get_type_height_offset(&DAT_1864ccbb0);
           uVar8 = (uint)bVar1 + iVar4;
         }
         if (((int)uVar8 < (int)(uVar7 + 0x10)) && ((int)(uVar7 - 0x10) < (int)uVar8)) {
@@ -62047,12 +62049,12 @@ LAB_18006a8d5:
       iVar12 = (int)*(short *)(param_1 + 0xb0bca0 + lVar11 * 2);
       iVar6 = FUN_1800c2150(&DAT_1864ccbb0,iVar12);
       if (iVar6 == 0) {
-        iVar6 = FUN_1800c07c0(&DAT_1864ccbb0,iVar12);
+        iVar6 = c_game_building_get_type_height_offset(&DAT_1864ccbb0,iVar12);
         if (iVar6 < 0x10) {
           iVar6 = 0x10;
         }
         else {
-          iVar6 = FUN_1800c07c0(&DAT_1864ccbb0,iVar12);
+          iVar6 = c_game_building_get_type_height_offset(&DAT_1864ccbb0,iVar12);
         }
         uVar8 = (ulonglong)((uint)*(byte *)(lVar11 + 0xd7e5a0 + param_1) + iVar6);
       }
@@ -62116,12 +62118,12 @@ LAB_18006a8d5:
     else {
       iVar7 = FUN_1800c2150(&DAT_1864ccbb0);
       if (iVar7 == 0) {
-        iVar7 = FUN_1800c07c0(&DAT_1864ccbb0);
+        iVar7 = c_game_building_get_type_height_offset(&DAT_1864ccbb0);
         if (iVar7 < 0x10) {
           iVar7 = 0x10;
         }
         else {
-          iVar7 = FUN_1800c07c0(&DAT_1864ccbb0);
+          iVar7 = c_game_building_get_type_height_offset(&DAT_1864ccbb0);
         }
         uVar8 = (ulonglong)((uint)*(byte *)(lVar11 + 0xd7e5a0 + param_1) + iVar7);
       }
@@ -62176,12 +62178,12 @@ LAB_18006a8d5:
     else {
       iVar12 = FUN_1800c2150(&DAT_1864ccbb0);
       if (iVar12 == 0) {
-        iVar12 = FUN_1800c07c0(&DAT_1864ccbb0);
+        iVar12 = c_game_building_get_type_height_offset(&DAT_1864ccbb0);
         if (iVar12 < 0x10) {
           iVar12 = 0x10;
         }
         else {
-          iVar12 = FUN_1800c07c0(&DAT_1864ccbb0);
+          iVar12 = c_game_building_get_type_height_offset(&DAT_1864ccbb0);
         }
         uVar8 = (ulonglong)((uint)*(byte *)(lVar11 + 0xd7e5a0 + param_1) + iVar12);
       }
@@ -62240,12 +62242,12 @@ LAB_18006a8d5:
         iVar6 = FUN_1800c2150(&DAT_1864ccbb0,iVar12);
         uVar5 = uVar9;
         if (iVar6 == 0) {
-          iVar6 = FUN_1800c07c0(&DAT_1864ccbb0,iVar12);
+          iVar6 = c_game_building_get_type_height_offset(&DAT_1864ccbb0,iVar12);
           if (iVar6 < 0x10) {
             iVar6 = 0x10;
           }
           else {
-            iVar6 = FUN_1800c07c0(&DAT_1864ccbb0,iVar12);
+            iVar6 = c_game_building_get_type_height_offset(&DAT_1864ccbb0,iVar12);
           }
           uVar5 = (uint)*(byte *)(lVar11 + 0xd7e5a0 + param_1) + iVar6;
         }
@@ -62639,7 +62641,7 @@ uint FUN_18006b530(longlong param_1,int param_2,int param_3)
       case 0x2a:
       case 0x2b:
       case 0x2c:
-        uVar3 = FUN_1800c07c0(&DAT_1864ccbb0);
+        uVar3 = c_game_building_get_type_height_offset(&DAT_1864ccbb0);
         uVar9 = 0;
         if ((&DAT_1864cccde)[lVar5 * 0x196] != 0x28) {
           piVar4 = (int *)(&DAT_18405edb0 + (longlong)(short)(&DAT_183aae2a4)[lVar8] * 0x20);
@@ -62653,7 +62655,7 @@ uint FUN_18006b530(longlong param_1,int param_2,int param_3)
         break;
       case 0x2d:
       case 0x2e:
-        uVar3 = FUN_1800c07c0(&DAT_1864ccbb0);
+        uVar3 = c_game_building_get_type_height_offset(&DAT_1864ccbb0);
         uVar9 = 1;
         break;
       default:
@@ -62666,7 +62668,7 @@ uint FUN_18006b530(longlong param_1,int param_2,int param_3)
       case 0x4c:
       case 0x4d:
       case 0x4e:
-        iVar2 = FUN_1800c07c0(&DAT_1864ccbb0);
+        iVar2 = c_game_building_get_type_height_offset(&DAT_1864ccbb0);
         uVar3 = iVar2 + 0x14;
 LAB_18006b660:
         uVar9 = 1;
@@ -62680,7 +62682,7 @@ LAB_18006b660:
   }
   else {
     iVar2 = (int)*(short *)(param_1 + 0xb0bca0 + lVar8 * 2);
-    uVar3 = FUN_1800c07c0(&DAT_1864ccbb0,iVar2);
+    uVar3 = c_game_building_get_type_height_offset(&DAT_1864ccbb0,iVar2);
     piVar4 = (int *)(&DAT_18405edb0 + (longlong)(short)(&DAT_183aae2a4)[lVar8] * 0x20);
     do {
       if (*(short *)(param_1 + 0xb0bca0 + (longlong)(*piVar4 + param_2) * 2) != iVar2) {
@@ -62726,10 +62728,10 @@ uint FUN_18006b910(longlong param_1,int param_2)
   }
   if (((&DAT_1864cccde)[(longlong)sVar1 * 0x196] != 0x2d) &&
      ((&DAT_1864cccde)[(longlong)sVar1 * 0x196] != 0x2e)) {
-    iVar2 = FUN_1800c07c0();
+    iVar2 = c_game_building_get_type_height_offset();
     return iVar2 + (uint)*(byte *)(param_1 + 0xd7e5a0);
   }
-  iVar2 = FUN_1800c07c0();
+  iVar2 = c_game_building_get_type_height_offset();
   return iVar2 + (uint)*(byte *)(param_1 + 0xdccac0);
 }
 
@@ -62781,7 +62783,7 @@ int FUN_18006b990(longlong param_1,int param_2,int param_3)
       case 0x2a:
       case 0x2b:
       case 0x2c:
-        iVar3 = FUN_1800c07c0(&DAT_1864ccbb0);
+        iVar3 = c_game_building_get_type_height_offset(&DAT_1864ccbb0);
         break;
       case 0x2d:
       case 0x2e:
@@ -62791,13 +62793,14 @@ int FUN_18006b990(longlong param_1,int param_2,int param_3)
       case 0x4c:
       case 0x4d:
       case 0x4e:
-        iVar4 = FUN_1800c07c0(&DAT_1864ccbb0);
+        iVar4 = c_game_building_get_type_height_offset(&DAT_1864ccbb0);
         iVar3 = iVar4 + 10;
       }
     }
   }
   else {
-    iVar3 = FUN_1800c07c0(&DAT_1864ccbb0,(int)*(short *)(param_1 + 0xb0bca0 + lVar5 * 2));
+    iVar3 = c_game_building_get_type_height_offset
+                      (&DAT_1864ccbb0,(int)*(short *)(param_1 + 0xb0bca0 + lVar5 * 2));
   }
   return (uint)*(byte *)(lVar5 + 0xd7e5a0 + param_1) + iVar3;
 }
@@ -105163,7 +105166,8 @@ undefined8 FUN_1800b70c0(longlong param_1,int param_2,int param_3)
         bVar3 = (&DAT_184ddd350)[iVar14];
         uVar16 = (uint)bVar3;
         if ((&DAT_184b6aa50)[iVar14] != 0) {
-          iVar9 = FUN_1800c07c0(&DAT_1864ccbb0,(int)(short)(&DAT_184b6aa50)[iVar14]);
+          iVar9 = c_game_building_get_type_height_offset
+                            (&DAT_1864ccbb0,(int)(short)(&DAT_184b6aa50)[iVar14]);
           uVar16 = (uint)bVar3 + iVar9;
         }
         uVar12 = (int)(bVar2 - uVar16) >> 0x1f;
@@ -107405,7 +107409,8 @@ FUN_1800bad50(longlong param_1,int param_2,int param_3,int param_4,int param_5,i
       bVar5 = (&DAT_184ddd350)[iVar20];
       uVar17 = (uint)bVar5;
       if ((&DAT_184b6aa50)[iVar20] != 0) {
-        iVar11 = FUN_1800c07c0(&DAT_1864ccbb0,(int)(short)(&DAT_184b6aa50)[iVar20]);
+        iVar11 = c_game_building_get_type_height_offset
+                           (&DAT_1864ccbb0,(int)(short)(&DAT_184b6aa50)[iVar20]);
         uVar17 = (uint)bVar5 + iVar11;
       }
       if ((((((&DAT_1848f71b0)[iVar20] & 0x50501481) == 0) ||
@@ -107444,7 +107449,8 @@ FUN_1800bad50(longlong param_1,int param_2,int param_3,int param_4,int param_5,i
       bVar5 = (&DAT_184ddd350)[iVar20];
       uVar17 = (uint)bVar5;
       if ((&DAT_184b6aa50)[iVar20] != 0) {
-        iVar11 = FUN_1800c07c0(&DAT_1864ccbb0,(int)(short)(&DAT_184b6aa50)[iVar20]);
+        iVar11 = c_game_building_get_type_height_offset
+                           (&DAT_1864ccbb0,(int)(short)(&DAT_184b6aa50)[iVar20]);
         uVar17 = (uint)bVar5 + iVar11;
       }
       if ((((((&DAT_1848f71b0)[iVar20] & 0x50501481) == 0) ||
@@ -107484,7 +107490,8 @@ FUN_1800bad50(longlong param_1,int param_2,int param_3,int param_4,int param_5,i
       bVar5 = (&DAT_184ddd350)[iVar18];
       uVar17 = (uint)bVar5;
       if ((&DAT_184b6aa50)[iVar18] != 0) {
-        iVar20 = FUN_1800c07c0(&DAT_1864ccbb0,(int)(short)(&DAT_184b6aa50)[iVar18]);
+        iVar20 = c_game_building_get_type_height_offset
+                           (&DAT_1864ccbb0,(int)(short)(&DAT_184b6aa50)[iVar18]);
         uVar17 = (uint)bVar5 + iVar20;
       }
       if ((((((&DAT_1848f71b0)[iVar18] & 0x50501481) == 0) ||
@@ -107573,7 +107580,8 @@ undefined8 FUN_1800bb3d0(longlong param_1,int param_2,int param_3,int param_4)
       bVar5 = (&DAT_184ddd350)[iVar19];
       uVar17 = (uint)bVar5;
       if ((&DAT_184b6aa50)[iVar19] != 0) {
-        iVar11 = FUN_1800c07c0(&DAT_1864ccbb0,(int)(short)(&DAT_184b6aa50)[iVar19]);
+        iVar11 = c_game_building_get_type_height_offset
+                           (&DAT_1864ccbb0,(int)(short)(&DAT_184b6aa50)[iVar19]);
         uVar17 = (uint)bVar5 + iVar11;
       }
       if (((((((&DAT_1848f71b0)[iVar19] & 0x50501481) == 0) ||
@@ -107612,7 +107620,8 @@ undefined8 FUN_1800bb3d0(longlong param_1,int param_2,int param_3,int param_4)
       bVar5 = (&DAT_184ddd350)[iVar19];
       uVar17 = (uint)bVar5;
       if ((&DAT_184b6aa50)[iVar19] != 0) {
-        iVar11 = FUN_1800c07c0(&DAT_1864ccbb0,(int)(short)(&DAT_184b6aa50)[iVar19]);
+        iVar11 = c_game_building_get_type_height_offset
+                           (&DAT_1864ccbb0,(int)(short)(&DAT_184b6aa50)[iVar19]);
         uVar17 = (uint)bVar5 + iVar11;
       }
       if ((((((&DAT_1848f71b0)[iVar19] & 0x50501481) == 0) ||
@@ -107652,7 +107661,8 @@ undefined8 FUN_1800bb3d0(longlong param_1,int param_2,int param_3,int param_4)
       bVar5 = (&DAT_184ddd350)[iVar18];
       uVar17 = (uint)bVar5;
       if ((&DAT_184b6aa50)[iVar18] != 0) {
-        iVar19 = FUN_1800c07c0(&DAT_1864ccbb0,(int)(short)(&DAT_184b6aa50)[iVar18]);
+        iVar19 = c_game_building_get_type_height_offset
+                           (&DAT_1864ccbb0,(int)(short)(&DAT_184b6aa50)[iVar18]);
         uVar17 = (uint)bVar5 + iVar19;
       }
       if (((((&DAT_1848f71b0)[iVar18] & 0x50501481) == 0) ||
@@ -110546,9 +110556,84 @@ undefined8 FUN_1800c0700(longlong param_1,int param_2)
 
 
 
-/* FUNCTION FUN_1800c07c0 VA=0x1800C07C0 RVA=0xC07C0 */
+/* FUNCTION c_game_building_get_type_height_offset VA=0x1800C07C0 RVA=0xC07C0 */
 
-undefined8 FUN_1800c07c0(longlong param_1,int param_2)
+/* [NativeKnowledge:function nkfn-000003]
+   [semantic:confirmed] Evidence curated:confirmed:native-knowledge-double-review from
+   fn-building-get-type-height-offset:0; matched 1800c07c0
+   {
+     "schemaVersion": 1,
+     "claimId": "fn-building-get-type-height-offset",
+     "binaryHash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+     "address": "0x1800C07C0",
+     "functionRva": "0xC07C0",
+     "functionEndRva": "0xC0830",
+     "functionRawHash": "8F8E30DD29FD0E83F835A077EA16E98D45169BE6E3F727224616D47B5A98CD84",
+     "canonicalName": "c_game_building_get_type_height_offset",
+     "nameOrigin": "native-knowledge-double-review",
+     "identityConfidence": "confirmed",
+     "semanticConfidence": "confirmed",
+     "abiConfidence": "candidate",
+     "signature": null,
+     "parameters": [],
+     "fieldAccesses": [],
+     "sideEffects": [
+       "Read-only type-dependent building height offset; not absolute height, slot validation or a
+   universal standing-plane query."
+     ],
+     "flowReview": "complete",
+     "callerObservations": [],
+     "evidence": [
+       {
+         "id": "complete-flow",
+         "chain": "complete-function-data-flow",
+         "kind": "data-flow",
+         "strength": "strong",
+         "source": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/PLAGUE_HEIGHT.md",
+         "sourceFileHash": "97A692C541E487116E36966FA0DD63446F936752A60B27A49BFF34FA61771FAD",
+         "rva": "0xC07C0",
+         "summary": "Read-only type-dependent building height offset; not absolute height, slot
+   validation or a universal standing-plane query. Full containing function and both helper leaves
+   re-reviewed against original bytes."
+       },
+       {
+         "id": "caller-context",
+         "chain": "independent-native-callgraph",
+         "kind": "callgraph",
+         "strength": "strong",
+         "source":
+   "_inspect/CrusaderDE-Native-Baseline/FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2/exports/xrefs.jsonl",
+         "sourceFileHash": "1F642B432B26D255323D40C8E8CAC1706774727E639468D0847DE9D8E1D9D72D",
+         "rva": "0xC07C0",
+         "summary": "Immutable original call/data xrefs: all direct call sites verified; additional
+   data references to 184FD0 are retained, not claimed as proven indirect callers."
+       },
+       {
+         "id": "native-replay",
+         "chain": "isolated-original-machine-execution",
+         "kind": "runtime",
+         "strength": "strong",
+         "source":
+   "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/validation/function-name-native-execution.json",
+         "sourceFileHash": "A770E6D82FDACE535542EEB29183FB2FFF2ED014F019667E000694555196537F",
+         "rva": "0xC07C0",
+         "summary": "115546 isolated original-code comparisons; all raw type words and relevant
+   standing-height branches. No game or multiplayer acceptance."
+       }
+     ],
+     "counterEvidence": [],
+     "verifiedBy": [
+       "Full static control/data flow review",
+       "Isolated pristine-byte native replay"
+     ],
+     "return": null,
+     "id": "nkfn-000003",
+     "knowledgeNote": "Offline naming/evidence metadata; no callable or automatically resolved
+   runtime address."
+   }
+   [/NativeKnowledge:function nkfn-000003] */
+
+undefined8 c_game_building_get_type_height_offset(longlong param_1,int param_2)
 
 {
   switch(*(undefined2 *)((longlong)param_2 * 0x32c + 0x12e + param_1)) {
@@ -115841,7 +115926,8 @@ undefined8 FUN_1800c90e0(longlong param_1,int param_2,undefined4 param_3)
     bVar2 = (&DAT_184ddd350)[iVar10];
     uVar11 = (uint)bVar2;
     if ((&DAT_184b6aa50)[iVar10] != 0) {
-      iVar7 = FUN_1800c07c0(&DAT_1864ccbb0,(int)(short)(&DAT_184b6aa50)[iVar10]);
+      iVar7 = c_game_building_get_type_height_offset
+                        (&DAT_1864ccbb0,(int)(short)(&DAT_184b6aa50)[iVar10]);
       uVar11 = (uint)bVar2 + iVar7;
     }
     bVar5 = (int)(bVar1 + 0x10) < (int)uVar11 || (int)(uVar11 + 0x10) < (int)(uint)bVar1;
@@ -115913,7 +115999,8 @@ undefined8 FUN_1800c9310(longlong param_1,int param_2,undefined4 param_3,int par
     bVar2 = (&DAT_184ddd350)[iVar10];
     uVar11 = (uint)bVar2;
     if ((&DAT_184b6aa50)[iVar10] != 0) {
-      iVar7 = FUN_1800c07c0(&DAT_1864ccbb0,(int)(short)(&DAT_184b6aa50)[iVar10]);
+      iVar7 = c_game_building_get_type_height_offset
+                        (&DAT_1864ccbb0,(int)(short)(&DAT_184b6aa50)[iVar10]);
       uVar11 = (uint)bVar2 + iVar7;
     }
     bVar5 = (int)(bVar1 + 0x10) < (int)uVar11 || (int)(uVar11 + 0x10) < (int)(uint)bVar1;
@@ -120026,7 +120113,129 @@ undefined4 FUN_1800ceb00(longlong param_1,undefined8 param_2,int param_3)
 /* FUNCTION c_game_ai_get_buy_price VA=0x1800CEB10 RVA=0xCEB10 */
 
 /* [semantic:confirmed] Evidence curated:confirmed:semantic-reconstruction from
-   fn-ai-get-buy-price:0; matched 1800ceb10 */
+   fn-ai-get-buy-price:0; matched 1800ceb10
+   [NativeKnowledge:function nkfn-000001]
+   [semantic:confirmed] Evidence curated:confirmed:semantic-reconstruction from
+   fn-ai-get-buy-price:0; matched 1800ceb10
+   {
+     "schemaVersion": 1,
+     "claimId": "fn-ai-get-buy-price",
+     "binaryHash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+     "address": "0x1800CEB10",
+     "functionRva": "0xCEB10",
+     "functionEndRva": "0xCEB2F",
+     "functionRawHash": "5B45784D8B227D4BEB1AA822E6B12523BD9A0825EFA17764909A037E613C6C6A",
+     "canonicalName": "c_game_ai_get_buy_price",
+     "nameOrigin": "semantic-reconstruction",
+     "identityConfidence": "confirmed",
+     "semanticConfidence": "confirmed",
+     "abiConfidence": "confirmed",
+     "signature": "int (void* playerManager, int playerId, int good, int amount)",
+     "parameters": [
+       {
+         "ordinal": 0,
+         "location": "RCX",
+         "type": "void*",
+         "role": "playerManager",
+         "confidence": "confirmed"
+       },
+       {
+         "ordinal": 1,
+         "location": "EDX",
+         "type": "int",
+         "role": "playerId",
+         "confidence": "confirmed"
+       },
+       {
+         "ordinal": 2,
+         "location": "R8D",
+         "type": "int",
+         "role": "good",
+         "confidence": "confirmed"
+       },
+       {
+         "ordinal": 3,
+         "location": "R9D",
+         "type": "int",
+         "role": "amount",
+         "confidence": "confirmed"
+       }
+     ],
+     "return": {
+       "location": "EAX",
+       "type": "int",
+       "meaning": "signed total AI purchase price",
+       "range": "Int32 with unchecked overflow",
+       "confidence": "confirmed"
+     },
+     "fieldAccesses": [
+       {
+         "type": "player manager",
+         "offset": "0x1817B8",
+         "access": "read indexed by good",
+         "confidence": "confirmed"
+       }
+     ],
+     "sideEffects": [],
+     "flowReview": "complete",
+     "callerObservations": [
+       {
+         "callerRva": "0x3E000",
+         "callSiteRva": "0x3ED72",
+         "signature": "int (void* playerManager, int playerId, int good, int amount)"
+       },
+       {
+         "callerRva": "0x29000",
+         "callSiteRva": "0x29684",
+         "signature": "int (void* playerManager, int playerId, int good, int amount)"
+       }
+     ],
+     "evidence": [
+       {
+         "id": "buy-price-flow",
+         "chain": "complete-function-data-flow",
+         "kind": "data-flow",
+         "strength": "strong",
+         "source": "ExtraFeatures/src/AIMarketVanillaPriceHook.cs",
+         "sourceFileHash": "0BDD93736CB91F7671AA10F7239A069D74DD0444C4BA364DEBCE0D6F03780807",
+         "rva": "0xCEB10",
+         "summary": "The complete 31-byte function indexes the buy-price table, divides by five
+   toward zero, multiplies by amount, and returns EAX."
+       },
+       {
+         "id": "buy-price-callers",
+         "chain": "transaction-callgraph",
+         "kind": "callgraph",
+         "strength": "strong",
+         "source": "ExtraFeatures/UpdateToNewDLL.md",
+         "sourceFileHash": "979F3D9EC115D3E77AFAEF31AFD8564BC3754172C8C0200D13AC78372BECB9D4",
+         "rva": "0xCEB10",
+         "summary": "Callers cover both the AI affordability decision and the actual purchase
+   transaction."
+       },
+       {
+         "id": "buy-price-version",
+         "chain": "cross-version-audit",
+         "kind": "version",
+         "strength": "strong",
+         "source": "ExtraFeatures/UpdateToNewDLL.md",
+         "sourceFileHash": "979F3D9EC115D3E77AFAEF31AFD8564BC3754172C8C0200D13AC78372BECB9D4",
+         "rva": "0xCEB10",
+         "summary": "Complete bytes, ABI, detour span, incoming edges, and arithmetic were
+   revalidated across audited builds."
+       }
+     ],
+     "counterEvidence": [],
+     "verifiedBy": [
+       "query.ps1 function 0xCEB10",
+       "query.ps1 callers 0xCEB10",
+       "ExtraFeatures native hook self-validation"
+     ],
+     "id": "nkfn-000001",
+     "knowledgeNote": "Offline naming/evidence metadata; no callable or automatically resolved
+   runtime address."
+   }
+   [/NativeKnowledge:function nkfn-000001] */
 
 int c_game_ai_get_buy_price(longlong param_1,undefined8 param_2,int param_3,int param_4)
 
@@ -120062,7 +120271,124 @@ int FUN_1800ceb50(longlong param_1,undefined8 param_2,int param_3)
 /* FUNCTION c_game_ai_get_sell_price VA=0x1800CEB90 RVA=0xCEB90 */
 
 /* [semantic:confirmed] Evidence curated:confirmed:semantic-reconstruction from
-   fn-ai-get-sell-price:0; matched 1800ceb90 */
+   fn-ai-get-sell-price:0; matched 1800ceb90
+   [NativeKnowledge:function nkfn-000002]
+   [semantic:confirmed] Evidence curated:confirmed:semantic-reconstruction from
+   fn-ai-get-sell-price:0; matched 1800ceb90
+   {
+     "schemaVersion": 1,
+     "claimId": "fn-ai-get-sell-price",
+     "binaryHash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+     "address": "0x1800CEB90",
+     "functionRva": "0xCEB90",
+     "functionEndRva": "0xCEBAF",
+     "functionRawHash": "D428FAE5C2A3BED0B48195B2661F56550E5B53F6E8EE9A603FADA56DAEE8F670",
+     "canonicalName": "c_game_ai_get_sell_price",
+     "nameOrigin": "semantic-reconstruction",
+     "identityConfidence": "confirmed",
+     "semanticConfidence": "confirmed",
+     "abiConfidence": "confirmed",
+     "signature": "int (void* playerManager, int playerId, int good, int amount)",
+     "parameters": [
+       {
+         "ordinal": 0,
+         "location": "RCX",
+         "type": "void*",
+         "role": "playerManager",
+         "confidence": "confirmed"
+       },
+       {
+         "ordinal": 1,
+         "location": "EDX",
+         "type": "int",
+         "role": "playerId",
+         "confidence": "confirmed"
+       },
+       {
+         "ordinal": 2,
+         "location": "R8D",
+         "type": "int",
+         "role": "good",
+         "confidence": "confirmed"
+       },
+       {
+         "ordinal": 3,
+         "location": "R9D",
+         "type": "int",
+         "role": "amount",
+         "confidence": "confirmed"
+       }
+     ],
+     "return": {
+       "location": "EAX",
+       "type": "int",
+       "meaning": "signed total AI sale proceeds",
+       "range": "Int32 with unchecked overflow",
+       "confidence": "confirmed"
+     },
+     "fieldAccesses": [
+       {
+         "type": "player manager",
+         "offset": "0x1817BC",
+         "access": "read indexed by good",
+         "confidence": "confirmed"
+       }
+     ],
+     "sideEffects": [],
+     "flowReview": "complete",
+     "callerObservations": [
+       {
+         "callerRva": "0x29000",
+         "callSiteRva": "0x29732",
+         "signature": "int (void* playerManager, int playerId, int good, int amount)"
+       }
+     ],
+     "evidence": [
+       {
+         "id": "sell-price-flow",
+         "chain": "complete-function-data-flow",
+         "kind": "data-flow",
+         "strength": "strong",
+         "source": "ExtraFeatures/src/AIMarketVanillaPriceHook.cs",
+         "sourceFileHash": "0BDD93736CB91F7671AA10F7239A069D74DD0444C4BA364DEBCE0D6F03780807",
+         "rva": "0xCEB90",
+         "summary": "The complete 31-byte function indexes the sell-price table, divides by five
+   toward zero, multiplies by amount, and returns EAX."
+       },
+       {
+         "id": "sell-price-callers",
+         "chain": "transaction-callgraph",
+         "kind": "callgraph",
+         "strength": "strong",
+         "source": "ExtraFeatures/UpdateToNewDLL.md",
+         "sourceFileHash": "979F3D9EC115D3E77AFAEF31AFD8564BC3754172C8C0200D13AC78372BECB9D4",
+         "rva": "0xCEB90",
+         "summary": "The sale transaction consumes this helper result as the proceeds credited to AI
+   gold."
+       },
+       {
+         "id": "sell-price-version",
+         "chain": "cross-version-audit",
+         "kind": "version",
+         "strength": "strong",
+         "source": "ExtraFeatures/UpdateToNewDLL.md",
+         "sourceFileHash": "979F3D9EC115D3E77AFAEF31AFD8564BC3754172C8C0200D13AC78372BECB9D4",
+         "rva": "0xCEB90",
+         "summary": "Complete bytes, ABI, detour span, incoming edges, and arithmetic were
+   revalidated across audited builds."
+       }
+     ],
+     "counterEvidence": [],
+     "verifiedBy": [
+       "query.ps1 function 0xCEB90",
+       "query.ps1 callers 0xCEB90",
+       "ExtraFeatures native hook self-validation"
+     ],
+     "id": "nkfn-000002",
+     "knowledgeNote": "Offline naming/evidence metadata; no callable or automatically resolved
+   runtime address."
+   }
+   [/NativeKnowledge:function nkfn-000002] */
 
 int c_game_ai_get_sell_price(longlong param_1,undefined8 param_2,int param_3,int param_4)
 
@@ -125890,7 +126216,7 @@ ulonglong FUN_1800d86f0(longlong param_1,int param_2,uint param_3)
   local_b8 = param_3;
   local_78 = param_1;
   if ((uVar6 & 0x10000000) != 0) {
-    iVar5 = FUN_1800c07c0(&DAT_1864ccbb0,(longlong)sVar1 & 0xffffffff);
+    iVar5 = c_game_building_get_type_height_offset(&DAT_1864ccbb0,(longlong)sVar1 & 0xffffffff);
     local_90 = (uint)bVar8 + iVar5 + -0x10;
     local_8c = (uint)bVar8 + iVar5 + 0x10;
   }
@@ -127435,7 +127761,7 @@ LAB_1800db424:
                     bVar2 = (&DAT_184ddd350)[lVar13];
                     uVar14 = (uint)bVar2;
                     if (((&DAT_1848f71b0)[lVar13] & 0x10000000) != 0) {
-                      iVar10 = FUN_1800c07c0(&DAT_1864ccbb0);
+                      iVar10 = c_game_building_get_type_height_offset(&DAT_1864ccbb0);
                       uVar14 = (uint)bVar2 + iVar10;
                     }
                     if (((int)(uVar14 + 0x10) < (int)uVar15) || ((int)uVar15 < (int)(uVar14 - 0x10))
@@ -127872,7 +128198,8 @@ LAB_1800dbfdb:
       bVar1 = (&DAT_184ddd350)[lVar19];
       uVar13 = (uint)bVar1;
       if (((&DAT_1848f71b0)[lVar19] & 0x10000000) != 0) {
-        iVar10 = FUN_1800c07c0(&DAT_1864ccbb0,(int)(short)(&DAT_184b6aa50)[lVar19]);
+        iVar10 = c_game_building_get_type_height_offset
+                           (&DAT_1864ccbb0,(int)(short)(&DAT_184b6aa50)[lVar19]);
         iVar6 = *(int *)(param_1 + 0x155f3c);
         uVar13 = (uint)bVar1 + iVar10;
       }
@@ -127880,7 +128207,8 @@ LAB_1800dbfdb:
       bVar1 = (&DAT_184ddd350)[iVar10];
       uVar11 = (uint)bVar1;
       if (((&DAT_1848f71b0)[iVar10] & 0x10000000) != 0) {
-        iVar10 = FUN_1800c07c0(&DAT_1864ccbb0,(int)(short)(&DAT_184b6aa50)[iVar10]);
+        iVar10 = c_game_building_get_type_height_offset
+                           (&DAT_1864ccbb0,(int)(short)(&DAT_184b6aa50)[iVar10]);
         iVar6 = *(int *)(param_1 + 0x155f3c);
         uVar11 = (uint)bVar1 + iVar10;
       }
@@ -127918,7 +128246,8 @@ LAB_1800dbfdb:
       bVar1 = (&DAT_184ddd350)[lVar19];
       uVar13 = (uint)bVar1;
       if (((&DAT_1848f71b0)[lVar19] & 0x10000000) != 0) {
-        iVar10 = FUN_1800c07c0(&DAT_1864ccbb0,(int)(short)(&DAT_184b6aa50)[lVar19]);
+        iVar10 = c_game_building_get_type_height_offset
+                           (&DAT_1864ccbb0,(int)(short)(&DAT_184b6aa50)[lVar19]);
         iVar6 = *(int *)(param_1 + 0x155f3c);
         uVar13 = (uint)bVar1 + iVar10;
       }
@@ -127926,7 +128255,8 @@ LAB_1800dbfdb:
       bVar1 = (&DAT_184ddd350)[iVar10];
       uVar11 = (uint)bVar1;
       if (((&DAT_1848f71b0)[iVar10] & 0x10000000) != 0) {
-        iVar10 = FUN_1800c07c0(&DAT_1864ccbb0,(int)(short)(&DAT_184b6aa50)[iVar10]);
+        iVar10 = c_game_building_get_type_height_offset
+                           (&DAT_1864ccbb0,(int)(short)(&DAT_184b6aa50)[iVar10]);
         iVar6 = *(int *)(param_1 + 0x155f3c);
         uVar11 = (uint)bVar1 + iVar10;
       }
@@ -130477,7 +130807,8 @@ FUN_1800e0c20(longlong param_1,undefined4 param_2,uint param_3,uint param_4,uint
     local_48 = 0;
     local_44 = 1000;
     if ((&DAT_184b6aa50)[iVar8] != 0) {
-      iVar3 = FUN_1800c07c0(&DAT_1864ccbb0,(int)(short)(&DAT_184b6aa50)[iVar8]);
+      iVar3 = c_game_building_get_type_height_offset
+                        (&DAT_1864ccbb0,(int)(short)(&DAT_184b6aa50)[iVar8]);
       uVar10 = (uint)bVar1 + iVar3;
     }
     piVar5 = (int *)&DAT_1802d2e54;
@@ -130490,7 +130821,8 @@ FUN_1800e0c20(longlong param_1,undefined4 param_2,uint param_3,uint param_4,uint
         bVar1 = (&DAT_184ddd350)[iVar3];
         uVar7 = (uint)bVar1;
         if ((&DAT_184b6aa50)[iVar3] != 0) {
-          iVar3 = FUN_1800c07c0(&DAT_1864ccbb0,(int)(short)(&DAT_184b6aa50)[iVar3]);
+          iVar3 = c_game_building_get_type_height_offset
+                            (&DAT_1864ccbb0,(int)(short)(&DAT_184b6aa50)[iVar3]);
           uVar7 = (uint)bVar1 + iVar3;
         }
         if ((((int)uVar10 <= (int)(uVar7 + 0x10)) && ((int)(uVar7 - 0x10) <= (int)uVar10)) &&
@@ -130542,7 +130874,8 @@ undefined4 FUN_1800e0eb0(longlong param_1,uint param_2,uint param_3,uint param_4
     bVar1 = (&DAT_184ddd350)[iVar9];
     uVar6 = (uint)bVar1;
     if ((&DAT_184b6aa50)[iVar9] != 0) {
-      iVar3 = FUN_1800c07c0(&DAT_1864ccbb0,(int)(short)(&DAT_184b6aa50)[iVar9]);
+      iVar3 = c_game_building_get_type_height_offset
+                        (&DAT_1864ccbb0,(int)(short)(&DAT_184b6aa50)[iVar9]);
       uVar6 = (uint)bVar1 + iVar3;
     }
     uVar4 = 0;
@@ -130554,7 +130887,8 @@ undefined4 FUN_1800e0eb0(longlong param_1,uint param_2,uint param_3,uint param_4
         bVar1 = (&DAT_184ddd350)[iVar3];
         uVar8 = (uint)bVar1;
         if ((&DAT_184b6aa50)[iVar3] != 0) {
-          iVar3 = FUN_1800c07c0(&DAT_1864ccbb0,(int)(short)(&DAT_184b6aa50)[iVar3]);
+          iVar3 = c_game_building_get_type_height_offset
+                            (&DAT_1864ccbb0,(int)(short)(&DAT_184b6aa50)[iVar3]);
           uVar8 = (uint)bVar1 + iVar3;
         }
         uVar4 = local_44;
@@ -139531,7 +139865,7 @@ LAB_1800f1270:
               else if (((&DAT_184b6aa50)[lVar15] != 0) &&
                       ((short)(&DAT_1864ccce2)[(longlong)(short)(&DAT_184b6aa50)[lVar15] * 0x196] ==
                        param_8)) {
-                uVar11 = FUN_1800c07c0(&DAT_1864ccbb0);
+                uVar11 = c_game_building_get_type_height_offset(&DAT_1864ccbb0);
                 goto LAB_1800f1270;
               }
             }
@@ -152281,7 +152615,8 @@ int FUN_180107e00(longlong param_1,undefined4 param_2,uint param_3,uint param_4)
               bVar2 = (&DAT_184ddd350)[iVar5];
               uVar8 = (uint)bVar2;
               if ((&DAT_184b6aa50)[iVar5] != 0) {
-                iVar6 = FUN_1800c07c0(&DAT_1864ccbb0,(int)(short)(&DAT_184b6aa50)[iVar5]);
+                iVar6 = c_game_building_get_type_height_offset
+                                  (&DAT_1864ccbb0,(int)(short)(&DAT_184b6aa50)[iVar5]);
                 uVar8 = (uint)bVar2 + iVar6;
               }
               if ((((int)(uint)bVar1 <= (int)(uVar8 + 0x10)) &&
@@ -155880,11 +156215,11 @@ void FUN_18010df60(undefined8 param_1,uint param_2,int param_3)
       uVar12 = (longlong)sVar4 & 0xffffffff;
       if (((&DAT_1864cccde)[(longlong)sVar4 * 0x196] == 0x2d) ||
          ((&DAT_1864cccde)[(longlong)sVar4 * 0x196] == 0x2e)) {
-        iVar8 = FUN_1800c07c0(&DAT_1864ccbb0,uVar12);
+        iVar8 = c_game_building_get_type_height_offset(&DAT_1864ccbb0,uVar12);
         uVar17 = (uint)(byte)(&DAT_184e2b870)[local_50] + iVar8;
       }
       else {
-        iVar8 = FUN_1800c07c0(&DAT_1864ccbb0,uVar12);
+        iVar8 = c_game_building_get_type_height_offset(&DAT_1864ccbb0,uVar12);
         uVar17 = (uint)(byte)(&DAT_184ddd350)[local_50] + iVar8;
       }
     }
@@ -217283,7 +217618,7 @@ void FUN_180180a80(longlong param_1,int param_2)
   *(ushort *)(lVar4 + 0x712) = (ushort)(byte)(&DAT_184ddd350)[sVar1 + iVar3];
   FUN_180180230(param_1,param_2);
   FUN_18018be50(param_1,param_2);
-  FUN_180184fd0(param_1,param_2);
+  c_game_unit_update_standing_height(param_1,param_2);
   return;
 }
 
@@ -219277,7 +219612,7 @@ LAB_180183089:
                                               (longlong)param_1),0);
         if (iVar16 == 0) {
           FUN_18019b260(param_1,DAT_1809302c4,0);
-          FUN_180184fd0(param_1,DAT_1809302c4);
+          c_game_unit_update_standing_height(param_1,DAT_1809302c4);
         }
         else {
           lVar30 = (longlong)(int)DAT_1809302c4 * 0x490;
@@ -219314,7 +219649,7 @@ LAB_180183089:
             *(undefined2 *)(param_1 + (longlong)(int)DAT_1809302c4 * 0x124 + 0x2a0) = 0;
           }
           FUN_18019b260(param_1,DAT_1809302c4,0);
-          FUN_180184fd0(param_1,DAT_1809302c4);
+          c_game_unit_update_standing_height(param_1,DAT_1809302c4);
           uVar27 = DAT_1809302c4;
           piVar33 = param_1 + (longlong)(int)DAT_1809302c4 * 0x124;
           iVar16 = (int)(char)piVar33[0x1b2];
@@ -219421,7 +219756,7 @@ LAB_180183089:
               uVar28 = (ulonglong)DAT_1809302c4;
             }
             FUN_18019b260(param_1,uVar28,1);
-            FUN_180184fd0(param_1,DAT_1809302c4);
+            c_game_unit_update_standing_height(param_1,DAT_1809302c4);
             *(undefined1 *)((longlong)param_1 + (longlong)(int)DAT_1809302c4 * 0x12 + 0xb23f58) = 1;
             *(undefined2 *)((longlong)param_1 + (longlong)(int)DAT_1809302c4 * 0x12 + 0xb23f64) = 0;
             lVar30 = (longlong)(int)DAT_1809302c4;
@@ -219572,7 +219907,7 @@ LAB_180183089:
         FUN_18019ab10(param_1);
         uVar28 = (ulonglong)DAT_1809302c4;
 LAB_1801849b0:
-        FUN_180184fd0(param_1,uVar28);
+        c_game_unit_update_standing_height(param_1,uVar28);
       }
       switch(param_1[(longlong)(int)DAT_1809302c4 * 0x124 + 0x1a2]) {
       case 8:
@@ -219750,9 +220085,97 @@ LAB_180184e68:
 
 
 
-/* FUNCTION FUN_180184fd0 VA=0x180184FD0 RVA=0x184FD0 */
+/* FUNCTION c_game_unit_update_standing_height VA=0x180184FD0 RVA=0x184FD0 */
 
-void FUN_180184fd0(longlong param_1,int param_2)
+/* [NativeKnowledge:function nkfn-000004]
+   [semantic:confirmed] Evidence curated:confirmed:native-knowledge-double-review from
+   fn-unit-update-standing-height:0; matched 180184fd0
+   {
+     "schemaVersion": 1,
+     "claimId": "fn-unit-update-standing-height",
+     "binaryHash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+     "address": "0x180184FD0",
+     "functionRva": "0x184FD0",
+     "functionEndRva": "0x185185",
+     "functionRawHash": "D0E6CD911C2150EC892A2131A02641EDE59C81DC4F213579D7A468C9E6AC7B33",
+     "canonicalName": "c_game_unit_update_standing_height",
+     "nameOrigin": "native-knowledge-double-review",
+     "identityConfidence": "confirmed",
+     "semanticConfidence": "confirmed",
+     "abiConfidence": "candidate",
+     "signature": null,
+     "parameters": [],
+     "fieldAccesses": [
+       {
+         "type": "GameUnit",
+         "offset": "0xB6",
+         "access": "read-write",
+         "confidence": "confirmed"
+       },
+       {
+         "type": "GameUnit",
+         "offset": "0xB8",
+         "access": "write",
+         "confidence": "confirmed"
+       }
+     ],
+     "sideEffects": [
+       "Updates base standing elevation, signed correction, auxiliary word and transition state;
+   includes independent selected-unit addition. Not a read-only getter."
+     ],
+     "flowReview": "complete",
+     "callerObservations": [],
+     "evidence": [
+       {
+         "id": "complete-flow",
+         "chain": "complete-function-data-flow",
+         "kind": "data-flow",
+         "strength": "strong",
+         "source": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/PLAGUE_HEIGHT.md",
+         "sourceFileHash": "97A692C541E487116E36966FA0DD63446F936752A60B27A49BFF34FA61771FAD",
+         "rva": "0x184FD0",
+         "summary": "Updates base standing elevation, signed correction, auxiliary word and
+   transition state; includes independent selected-unit addition. Not a read-only getter. Full
+   containing function and both helper leaves re-reviewed against original bytes."
+       },
+       {
+         "id": "caller-context",
+         "chain": "independent-native-callgraph",
+         "kind": "callgraph",
+         "strength": "strong",
+         "source":
+   "_inspect/CrusaderDE-Native-Baseline/FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2/exports/xrefs.jsonl",
+         "sourceFileHash": "1F642B432B26D255323D40C8E8CAC1706774727E639468D0847DE9D8E1D9D72D",
+         "rva": "0x184FD0",
+         "summary": "Immutable original call/data xrefs: all direct call sites verified; additional
+   data references to 184FD0 are retained, not claimed as proven indirect callers."
+       },
+       {
+         "id": "native-replay",
+         "chain": "isolated-original-machine-execution",
+         "kind": "runtime",
+         "strength": "strong",
+         "source":
+   "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/validation/function-name-native-execution.json",
+         "sourceFileHash": "A770E6D82FDACE535542EEB29183FB2FFF2ED014F019667E000694555196537F",
+         "rva": "0x184FD0",
+         "summary": "115546 isolated original-code comparisons; all raw type words and relevant
+   standing-height branches. No game or multiplayer acceptance."
+       }
+     ],
+     "counterEvidence": [],
+     "verifiedBy": [
+       "Full static control/data flow review",
+       "Isolated pristine-byte native replay"
+     ],
+     "return": null,
+     "id": "nkfn-000004",
+     "knowledgeNote": "Offline naming/evidence metadata; no callable or automatically resolved
+   runtime address."
+   }
+   [/NativeKnowledge:function nkfn-000004] */
+
+void c_game_unit_update_standing_height(longlong param_1,int param_2)
 
 {
   short sVar1;
@@ -219806,7 +220229,7 @@ void FUN_180184fd0(longlong param_1,int param_2)
     }
     if ((uVar3 >> 0x1c & 1) == 0) goto LAB_18018514e;
     if ((*(char *)(param_1 + 0xa5a) == '\0') && (*(short *)(param_1 + 0x6e6) != 0x3a)) {
-      uVar4 = FUN_1800c07c0(&DAT_1864ccbb0,uVar6 & 0xffffffff);
+      uVar4 = c_game_building_get_type_height_offset(&DAT_1864ccbb0,uVar6 & 0xffffffff);
       *(undefined2 *)(param_1 + 0x714) = uVar4;
     }
     uVar4 = FUN_1800c0700(&DAT_1864ccbb0,uVar6 & 0xffffffff);

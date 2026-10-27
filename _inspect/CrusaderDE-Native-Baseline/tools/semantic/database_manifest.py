@@ -110,6 +110,10 @@ def input_paths(args):
         semantic / "resources" / "xaml-managed-links.jsonl",
     ]
     active_manifest = semantic / 'DATABASE_INFO.json'
+    for name in ['native-field-catalog.json', 'native-field-ghidra.json']:
+        artifact = semantic / 'knowledge' / name
+        if artifact.exists():
+            paths.append(artifact)
     if active_manifest.exists():
         previous = json.loads(active_manifest.read_text(encoding='utf-8'))
         generation = previous.get('analysis', {}).get('generation')

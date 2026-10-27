@@ -6,6 +6,10 @@ Settings are grouped into collapsible topics with search and recommendation mark
 
 ## Fixes
 
+### Fix Tree Blight decay
+
+This enabled-by-default, Recommended host fix starts woodland trees killed by Tree Blight at the beginning of their normal dead phase and lets them decay even if they were previously damaged or felled. It covers both Vanilla events and events triggered by RandomEvents, and repairs stalled dead trees from existing saves during normal simulation updates. The trees stop blocking construction when they disappear; they cannot be built over before then. The setting is under **Host → Economy → Fixes**.
+
 ### Restore terrain slowdown on the way to rally points
 
 The enabled-by-default **Fix Rally Point Terrain Slowdown** setting preserves Vanilla slowdown in swamps, fords and while climbing. Vanilla's rally movement state otherwise overwrites the terrain-adjusted movement delay with the unit's base delay before moving. The fix applies to all affected troop types, human and AI players, and units restored from saved games.
@@ -292,6 +296,9 @@ Adds more zoom levels (with game setting Extra Zoom enabled) which allows the sa
 
 ### Team Markers in Statistic
 On Statistic screen you will now see team markers next to the colour-shield.  
+
+### Compact lobby chat
+The enabled-by-default local **Compact lobby chat** QoL option shows the shield, sender and message on the same line in multiplayer Skirmish lobbies and all four Coop Trail chats. Long messages wrap automatically. Each player chooses the layout independently of the host; switching the option preserves the current history. Find it under local client options, Menus/Lobby. The in-game chat is unchanged.
 
 ### Customize trails
 Adds "Customize" Button to custom and coop trails. Allows to use custom AI as Ally in Coop Trails.

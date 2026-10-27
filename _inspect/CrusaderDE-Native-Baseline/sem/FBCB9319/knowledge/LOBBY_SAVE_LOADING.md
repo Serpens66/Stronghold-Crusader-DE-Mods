@@ -1,4 +1,4 @@
-# Lobby save loading and Skirmish load-button visibility
+# Lobby save loading and Skirmish load-button visibility [Scope: Vanilla + mod integration]
 
 Static audit date: 2026-10-14. Native SHA-256
 FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2;
@@ -113,7 +113,7 @@ humans joined the lobby. The missing human's slot follows the removal path. The
 same existing mechanism applies to a solo host; no new save format or remapping
 algorithm is required.
 
-## Consumer implementation and acceptance limits
+## Consumer implementation and acceptance limits [mod integration]
 
 BugfixesAndQoL owns separate default-on PresetLocal options
 EnableSoloMultiplayerSaveLoading and FixSkirmishLoadButtonVisibility. A permanent

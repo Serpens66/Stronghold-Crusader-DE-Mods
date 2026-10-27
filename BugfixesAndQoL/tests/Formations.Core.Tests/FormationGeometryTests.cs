@@ -7,6 +7,51 @@ namespace BugfixesAndQoL.Formations.Tests;
 public class FormationGeometryTests
 {
     [TestMethod]
+    public void DistantSlotsMatchNearestCandidateReference()
+    {
+        var random = new Random(3421);
+        for (int trial = 0; trial < 30; trial++)
+        {
+            var candidates = Enumerable.Range(0, 60).Select(i => new FormationPoint(
+                i % 10 * 3, i / 10 * 3, 0, 0)).ToArray();
+            var tiles = candidates.Select((p, i) => 1000 - i).ToArray();
+            var slots = Enumerable.Range(0, 80).Select(i => new FormationPoint(
+                random.Next(-10000, 10000), random.Next(-10000, 10000), 0, 0)).ToArray();
+            var expected = new int[slots.Length];
+            var used = new HashSet<int>();
+            for (int i = 0; i < slots.Length; i++)
+            {
+                int candidate = Enumerable.Range(0, candidates.Length).Where(c => !used.Contains(c))
+                    .OrderBy(c => (long)(candidates[c].X - slots[i].X) * (candidates[c].X - slots[i].X) +
+                        (long)(candidates[c].Y - slots[i].Y) * (candidates[c].Y - slots[i].Y))
+                    .ThenBy(c => tiles[c]).ThenBy(c => c).DefaultIfEmpty(-1).First();
+                expected[i] = candidate < 0 ? i % candidates.Length : candidate;
+                used.Add(expected[i]);
+            }
+            CollectionAssert.AreEqual(expected, FormationPlacementModel.SelectCandidates(0, 0, slots, candidates, tiles));
+        }
+    }
+
+    [TestMethod]
+    public void AdmissionClampPreservesIntentAndWheelState()
+    {
+        foreach (FormationKind kind in Enum.GetValues<FormationKind>())
+        {
+            bool fixedShape = kind == FormationKind.Vanilla || kind == FormationKind.Circle;
+            var gesture = new FormationGestureState(kind, 1300, 0, 37);
+            gesture.UpdateDirection(20, 0, 2);
+            gesture.ApplyWheel(-0.5f, 1);
+            gesture = gesture.WithCount(3);
+            Assert.AreEqual(fixedShape ? 0 : 37, gesture.RequestedRows);
+            gesture = gesture.WithCount(650);
+            Assert.AreEqual(fixedShape ? FormationModel.ResolveAutomaticRows(kind, 650) : 37, gesture.Rows);
+            Assert.IsTrue(gesture.ExplicitDirection);
+            gesture.ApplyWheel(-0.5f, 2);
+            Assert.AreEqual(fixedShape ? 0 : 38, gesture.RequestedRows);
+        }
+    }
+
+    [TestMethod]
     public void CircleFootprintAndSpacingAreIndependentOfFacing()
     {
         foreach (int count in new[] { 1, 2, 3, 30, 31, 41, 75, 76, 77, 100, 1000 })

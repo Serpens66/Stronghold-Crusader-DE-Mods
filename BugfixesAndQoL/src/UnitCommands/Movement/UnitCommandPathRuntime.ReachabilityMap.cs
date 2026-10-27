@@ -36,6 +36,7 @@ namespace BugfixesAndQoL.UnitCommands
 
         internal void ResetMapState()
         {
+            ResetManualGroupAdmission();
             // TEMP_GATE_ROUTE_ACCEPTANCE: maps never retain an unfinished order association.
 #if SERP_DEVDIAG
             if (temporaryAssassinScope != null)
@@ -44,6 +45,9 @@ namespace BugfixesAndQoL.UnitCommands
 #endif
             manualCommandContexts?.Clear(); targetCommandParents?.Clear();
             moveEventObservers?.Clear(); moveEventDepths?.Clear(); targetEventObservers?.Clear();
+#if SERP_DEVDIAG
+            ManualProbeCapture.Invalidate(false, false, true);
+#endif
             nativeCursorAnswers.Clear(); nativeCursorAnswerTick = int.MinValue;
             ResetMapStep("fast-moat-metrics", LogAndResetFastMoatMetrics);
             ResetMapStep("unit-move-frames", ClearUnitMoveFrames);

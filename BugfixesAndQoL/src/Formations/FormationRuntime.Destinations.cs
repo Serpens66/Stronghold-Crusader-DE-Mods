@@ -71,6 +71,14 @@ namespace BugfixesAndQoL.UnitCommands
             {
                 snapped = CaptureVanillaDestinations(
                     anchorX, anchorY, units.Length, density, assassinOnly);
+                if (snapped.Length == 0) return Array.Empty<NativeDestination>();
+                if (snapped.Length < units.Length)
+                {
+                    var repeated = new NativeDestination[units.Length];
+                    for (int i = 0; i < repeated.Length; i++) repeated[i] = snapped[i % snapped.Length];
+                    Shared.DevDiag.Count("manual.slots.shortage");
+                    snapped = repeated;
+                }
                 slots = BuildVanillaSlotMetadata(
                     anchorX, anchorY, snapped, direction);
             }
@@ -82,8 +90,7 @@ namespace BugfixesAndQoL.UnitCommands
                     anchorX, anchorY, Math.Min(MaximumPreviewCandidates,
                         Math.Max(256, units.Length * 16)), assassinOnly, slots);
                 if (candidates.Count == 0)
-                    throw new InvalidOperationException(
-                        "No reachable formation destination exists.");
+                    return Array.Empty<NativeDestination>();
                 snapped = SnapSlots(anchorX, anchorY, slots, candidates);
             }
             directionIndicator = BuildDirectionIndicator(
@@ -149,6 +156,12 @@ namespace BugfixesAndQoL.UnitCommands
             int density,
             bool assassinOnly)
         {
+            return CaptureGroundSlots(anchorX, anchorY, requiredCount, density, assassinOnly, movementTargetAvailability);
+        }
+
+        internal static NativeDestination[] CaptureGroundSlots(int anchorX, int anchorY, int requiredCount,
+            int density, bool assassinOnly, byte* movementTargetAvailability)
+        {
             GameTileManagerView tileManager = GameTileManagerAPI.Instance.TileManager ??
                 throw new InvalidOperationException("Native tile manager is unavailable.");
             Span<byte> edges = tileManager.PathEdgeMaskGrid;
@@ -172,59 +185,67 @@ namespace BugfixesAndQoL.UnitCommands
             int normalizedDensity = FormationModel.NormalizeDensity(density);
             int capacity = Math.Min(components.Length, MapWidth * MapWidth);
             bool[] visited = RentVisited(capacity);
-            var queue = new Queue<VanillaSearchNode>();
-            var result = new List<NativeDestination>(requiredCount);
-            ushort component = components[anchorTile];
-            visited[anchorTile] = true;
-            queue.Enqueue(new VanillaSearchNode(anchorTile, anchorX, anchorY, 1));
-            int inspected = 0;
-            while (queue.Count != 0 &&
-                   inspected < MaximumVanillaSelectorCandidates &&
-                   result.Count < requiredCount)
+            Queue<VanillaSearchNode> queue = vanillaQueueScratch;
+            vanillaQueueScratch = null;
+            try
             {
-                VanillaSearchNode current = queue.Dequeue();
-                inspected++;
-                int logicFlags = (uint)current.TileId < (uint)logic.Length
-                    ? logic[current.TileId]
-                    : 0x10000100;
-                if (FormationModel.IsNativeVanillaSlotCandidate(
-                        current.X - anchorX,
-                        current.Y - anchorY,
-                        current.PathDistance,
-                        logicFlags,
-                        normalizedDensity,
-                        assassinOnly))
+                if (queue == null) queue = new Queue<VanillaSearchNode>();
+                var result = new List<NativeDestination>(requiredCount);
+                ushort component = components[anchorTile];
+                visited[anchorTile] = true;
+                queue.Enqueue(new VanillaSearchNode(anchorTile, anchorX, anchorY, 1));
+                int inspected = 0;
+                while (queue.Count != 0 &&
+                       inspected < MaximumVanillaSelectorCandidates &&
+                       result.Count < requiredCount)
                 {
-                    result.Add(new NativeDestination(
-                        current.TileId, current.X, current.Y, FormationRole.Neutral));
-                }
+                    VanillaSearchNode current = queue.Dequeue();
+                    inspected++;
+                    int logicFlags = (uint)current.TileId < (uint)logic.Length
+                        ? logic[current.TileId]
+                        : 0x10000100;
+                    if (FormationModel.IsNativeVanillaSlotCandidate(
+                            current.X - anchorX,
+                            current.Y - anchorY,
+                            current.PathDistance,
+                            logicFlags,
+                            normalizedDensity,
+                            assassinOnly))
+                    {
+                        result.Add(new NativeDestination(
+                            current.TileId, current.X, current.Y, FormationRole.Neutral));
+                    }
 
-                byte mask = edges[current.TileId];
-                TryEnqueueVanillaCandidate(current.X - 1, current.Y, 0x40, mask,
-                    current.PathDistance + 1, component, edges, components, visited, queue);
-                TryEnqueueVanillaCandidate(current.X + 1, current.Y, 0x04, mask,
-                    current.PathDistance + 1, component, edges, components, visited, queue);
-                TryEnqueueVanillaCandidate(current.X, current.Y - 1, 0x01, mask,
-                    current.PathDistance + 1, component, edges, components, visited, queue);
-                TryEnqueueVanillaCandidate(current.X - 1, current.Y - 1, 0x80, mask,
-                    current.PathDistance + 2, component, edges, components, visited, queue);
-                TryEnqueueVanillaCandidate(current.X + 1, current.Y - 1, 0x02, mask,
-                    current.PathDistance + 2, component, edges, components, visited, queue);
-                TryEnqueueVanillaCandidate(current.X, current.Y + 1, 0x10, mask,
-                    current.PathDistance + 1, component, edges, components, visited, queue);
-                TryEnqueueVanillaCandidate(current.X - 1, current.Y + 1, 0x20, mask,
-                    current.PathDistance + 2, component, edges, components, visited, queue);
-                TryEnqueueVanillaCandidate(current.X + 1, current.Y + 1, 0x08, mask,
-                    current.PathDistance + 2, component, edges, components, visited, queue);
+                    byte mask = edges[current.TileId];
+                    TryEnqueueVanillaCandidate(current.X - 1, current.Y, 0x40, mask,
+                        current.PathDistance + 1, component, edges, components, visited, queue);
+                    TryEnqueueVanillaCandidate(current.X + 1, current.Y, 0x04, mask,
+                        current.PathDistance + 1, component, edges, components, visited, queue);
+                    TryEnqueueVanillaCandidate(current.X, current.Y - 1, 0x01, mask,
+                        current.PathDistance + 1, component, edges, components, visited, queue);
+                    TryEnqueueVanillaCandidate(current.X - 1, current.Y - 1, 0x80, mask,
+                        current.PathDistance + 2, component, edges, components, visited, queue);
+                    TryEnqueueVanillaCandidate(current.X + 1, current.Y - 1, 0x02, mask,
+                        current.PathDistance + 2, component, edges, components, visited, queue);
+                    TryEnqueueVanillaCandidate(current.X, current.Y + 1, 0x10, mask,
+                        current.PathDistance + 1, component, edges, components, visited, queue);
+                    TryEnqueueVanillaCandidate(current.X - 1, current.Y + 1, 0x20, mask,
+                        current.PathDistance + 2, component, edges, components, visited, queue);
+                    TryEnqueueVanillaCandidate(current.X + 1, current.Y + 1, 0x08, mask,
+                        current.PathDistance + 2, component, edges, components, visited, queue);
+                }
+                Shared.DevDiag.Count("manual.slots.inspected", inspected);
+                Shared.DevDiag.Count("manual.slots.available", result.Count);
+                return result.ToArray();
             }
-            if (result.Count != requiredCount)
+            finally
             {
-                throw new InvalidOperationException(
-                    $"Vanilla supplied {result.Count} of {requiredCount} required slots.");
+                if (queue != null) { queue.Clear(); vanillaQueueScratch = queue; }
+                ReturnVisited(visited);
             }
-            ReturnVisited(visited);
-            return result.ToArray();
         }
+
+        [ThreadStatic] private static Queue<VanillaSearchNode> vanillaQueueScratch;
 
         private static List<FormationPoint> BuildVanillaSlotMetadata(
             int anchorX,
@@ -305,55 +326,60 @@ namespace BugfixesAndQoL.UnitCommands
 
             int capacity = Math.Min(components.Length, MapWidth * MapWidth);
             bool[] visited = RentVisited(capacity);
-            var queue = new Queue<NativeDestination>();
-            var result = new List<NativeDestination>(requestedCount);
-            ushort component = components[anchorTile];
-            var pending = new HashSet<int>();
-            foreach (FormationPoint slot in FormationPlacementModel.EnumerateReachabilityProbes(desiredSlots))
+            try
             {
-                int x = anchorX + slot.X, y = anchorY + slot.Y;
-                if ((uint)x >= MapWidth || (uint)y >= MapWidth ||
-                    movementTargetAvailability[y * MapWidth + x] == 0) continue;
-                int tile = GameTileManagerAPI.Instance.GetTileId(x, y);
-                if ((uint)tile < (uint)capacity && (uint)tile < (uint)edges.Length &&
-                    components[tile] == component && (!assassinOnly ||
-                    ((uint)tile < (uint)logic.Length && (logic[tile] & 0x10000100) == 0)))
-                    pending.Add(tile);
+                var queue = new Queue<NativeDestination>();
+                var result = new List<NativeDestination>(requestedCount);
+                ushort component = components[anchorTile];
+                var pending = new HashSet<int>();
+                foreach (FormationPoint slot in FormationPlacementModel.EnumerateReachabilityProbes(desiredSlots))
+                {
+                    int x = anchorX + slot.X, y = anchorY + slot.Y;
+                    if ((uint)x >= MapWidth || (uint)y >= MapWidth ||
+                        movementTargetAvailability[y * MapWidth + x] == 0) continue;
+                    int tile = GameTileManagerAPI.Instance.GetTileId(x, y);
+                    if ((uint)tile < (uint)capacity && (uint)tile < (uint)edges.Length &&
+                        components[tile] == component && (!assassinOnly ||
+                        ((uint)tile < (uint)logic.Length && (logic[tile] & 0x10000100) == 0)))
+                        pending.Add(tile);
+                }
+                visited[anchorTile] = true;
+                queue.Enqueue(new NativeDestination(
+                    anchorTile, anchorX, anchorY, FormationRole.Neutral));
+                int examined = 0;
+                while (queue.Count != 0 && examined++ < MaximumVanillaSelectorCandidates &&
+                    (result.Count < requestedCount || pending.Count != 0))
+                {
+                    NativeDestination current = queue.Dequeue();
+                    bool available = movementTargetAvailability[
+                        current.Y * MapWidth + current.X] != 0;
+                    bool assassinAllowed = !assassinOnly ||
+                        ((uint)current.TileId < (uint)logic.Length &&
+                         (logic[current.TileId] & 0x10000100) == 0);
+                    bool desired = pending.Remove(current.TileId);
+                    if (available && assassinAllowed && (result.Count < requestedCount || desired))
+                        result.Add(current);
+                    byte mask = edges[current.TileId];
+                    TryEnqueueCandidate(current.X - 1, current.Y, 0x40, mask,
+                        component, edges, components, visited, queue);
+                    TryEnqueueCandidate(current.X + 1, current.Y, 0x04, mask,
+                        component, edges, components, visited, queue);
+                    TryEnqueueCandidate(current.X, current.Y - 1, 0x01, mask,
+                        component, edges, components, visited, queue);
+                    TryEnqueueCandidate(current.X - 1, current.Y - 1, 0x80, mask,
+                        component, edges, components, visited, queue);
+                    TryEnqueueCandidate(current.X + 1, current.Y - 1, 0x02, mask,
+                        component, edges, components, visited, queue);
+                    TryEnqueueCandidate(current.X, current.Y + 1, 0x10, mask,
+                        component, edges, components, visited, queue);
+                    TryEnqueueCandidate(current.X - 1, current.Y + 1, 0x20, mask,
+                        component, edges, components, visited, queue);
+                    TryEnqueueCandidate(current.X + 1, current.Y + 1, 0x08, mask,
+                        component, edges, components, visited, queue);
+                }
+                return result;
             }
-            visited[anchorTile] = true;
-            queue.Enqueue(new NativeDestination(
-                anchorTile, anchorX, anchorY, FormationRole.Neutral));
-            while (queue.Count != 0 && (result.Count < requestedCount || pending.Count != 0))
-            {
-                NativeDestination current = queue.Dequeue();
-                bool available = movementTargetAvailability[
-                    current.Y * MapWidth + current.X] != 0;
-                bool assassinAllowed = !assassinOnly ||
-                    ((uint)current.TileId < (uint)logic.Length &&
-                     (logic[current.TileId] & 0x10000100) == 0);
-                bool desired = pending.Remove(current.TileId);
-                if (available && assassinAllowed && (result.Count < requestedCount || desired))
-                    result.Add(current);
-                byte mask = edges[current.TileId];
-                TryEnqueueCandidate(current.X - 1, current.Y, 0x40, mask,
-                    component, edges, components, visited, queue);
-                TryEnqueueCandidate(current.X + 1, current.Y, 0x04, mask,
-                    component, edges, components, visited, queue);
-                TryEnqueueCandidate(current.X, current.Y - 1, 0x01, mask,
-                    component, edges, components, visited, queue);
-                TryEnqueueCandidate(current.X - 1, current.Y - 1, 0x80, mask,
-                    component, edges, components, visited, queue);
-                TryEnqueueCandidate(current.X + 1, current.Y - 1, 0x02, mask,
-                    component, edges, components, visited, queue);
-                TryEnqueueCandidate(current.X, current.Y + 1, 0x10, mask,
-                    component, edges, components, visited, queue);
-                TryEnqueueCandidate(current.X - 1, current.Y + 1, 0x20, mask,
-                    component, edges, components, visited, queue);
-                TryEnqueueCandidate(current.X + 1, current.Y + 1, 0x08, mask,
-                    component, edges, components, visited, queue);
-            }
-            ReturnVisited(visited);
-            return result;
+            finally { ReturnVisited(visited); }
         }
 
         // Preview rebuilds run repeatedly while a formation is dragged; reuse the large visited
@@ -458,6 +484,46 @@ namespace BugfixesAndQoL.UnitCommands
             return hash;
         }
 
+        private static ulong ComputeSelectionHash(IReadOnlyList<FormationUnit> units)
+        {
+            ulong hash = 14695981039346656037UL;
+            for (int i = 0; i < units.Count; i++)
+            {
+                hash = unchecked((hash ^ (uint)units[i].UnitId) * 1099511628211UL);
+                hash = unchecked((hash ^ units[i].GlobalId) * 1099511628211UL);
+            }
+            return hash == 0 ? 1UL : hash;
+        }
+
+        private static ulong ComputeSelectionHash(IReadOnlyList<SelectionIdentity> units)
+        {
+            // CaptureOrderedGroupUnits uses ascending native IDs as its stable order.
+            var ordered = new SelectionIdentity[units.Count];
+            for (int i = 0; i < units.Count; i++) ordered[i] = units[i];
+            Array.Sort(ordered, (a, b) => a.UnitId.CompareTo(b.UnitId));
+            ulong hash = 14695981039346656037UL;
+            for (int i = 0; i < ordered.Length; i++)
+            {
+                hash = unchecked((hash ^ (uint)ordered[i].UnitId) * 1099511628211UL);
+                hash = unchecked((hash ^ ordered[i].GlobalId) * 1099511628211UL);
+            }
+            return hash == 0 ? 1UL : hash;
+        }
+
+        private static ulong CombineAdmissionPlanHash(ulong plan, ulong selection,
+            FormationUnit[] selected, FormationUnit[] movers)
+        {
+            ulong hash = unchecked((plan ^ selection) * 1099511628211UL);
+            int cursor = 0;
+            foreach (FormationUnit unit in selected)
+            {
+                bool admitted = cursor < movers.Length && movers[cursor].UnitId == unit.UnitId;
+                if (admitted) cursor++;
+                hash = unchecked((hash ^ (admitted ? 1UL : 0UL)) * 1099511628211UL);
+            }
+            return hash;
+        }
+
         private static FormationRole Classify(eChimps type)
         {
             switch (type)
@@ -512,7 +578,7 @@ namespace BugfixesAndQoL.UnitCommands
             }
         }
 
-        private readonly struct NativeDestination
+        internal readonly struct NativeDestination
         {
             internal NativeDestination(
                 int tileId, int x, int y, FormationRole role)

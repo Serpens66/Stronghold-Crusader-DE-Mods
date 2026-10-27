@@ -28,18 +28,23 @@ namespace BugfixesAndQoL.UnitCommands
     {
         internal void ResetTransientState()
         {
+            groundFrameObserver?.SetActive(false);
+            ActiveDrag abandoned;
             lock (stateSync)
             {
                 speechQueue.Clear();
+                pendingStart = null;
                 if (drag == null && pendingCommand == null && activeCommand == null) return;
+                abandoned = drag;
                 drag = null;
                 pendingCommand = null;
                 activeCommand = commonGroupCommand = null;
                 ClearUnitAssignmentFrames(null);
                 unitFallbackAttempt = null;
             }
+            DiscardDeferredRelease(abandoned);
             ClearPreview();
-            menuViewModel.CloseMenu();
+            Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(menuViewModel.CloseMenu);
         }
 
         private bool ValidateActiveDrag(ActiveDrag state) =>
@@ -48,8 +53,7 @@ namespace BugfixesAndQoL.UnitCommands
             state.MapEpoch == commandRuntime.mapEpoch &&
             state.PlayerId == GamePlayerManagerAPI.Instance.GetLocalPlayerId() &&
             (FatControler.instance == null || !FatControler.instance.overNoesisGUI()) &&
-            GetCommandMouseButton() == state.CommandButton &&
-            SelectionMatches(state.Selection, state.TribeId);
+            GetCommandMouseButton() == state.CommandButton;
 
         private void AbortDrag(string reason)
         {
@@ -58,9 +62,12 @@ namespace BugfixesAndQoL.UnitCommands
             {
                 state = drag;
                 drag = null;
+                pendingStart = null;
+                RefreshNativeObserverDemand();
             }
             if (state == null)
                 return;
+            DiscardDeferredRelease(state);
             ClearPreview();
         }
 
@@ -83,16 +90,21 @@ namespace BugfixesAndQoL.UnitCommands
         // Vanilla. Received packets keep the synchronized formation path on every peer.
         private void FailOpen(string contract, Exception exception)
         {
+            groundFrameObserver?.SetActive(false);
             localInputFailed = true;
+            ActiveDrag abandoned;
             lock (stateSync)
             {
                 speechQueue.Clear();
+                abandoned = drag;
                 drag = null;
+                pendingStart = null;
                 releaseConsumptionWatch = null;
             }
+            try { DiscardDeferredRelease(abandoned); } catch { }
             // Fail-open must reach Vanilla even if a presentation or logger also fails.
             try { ClearPreview(); } catch { }
-            try { menuViewModel.CloseMenu(); } catch { }
+            try { Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(menuViewModel.CloseMenu); } catch { }
             try { Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(menuViewModel.RefreshHostState); } catch { }
             try
             {
@@ -103,8 +115,16 @@ namespace BugfixesAndQoL.UnitCommands
 
         private void ClearPreview()
         {
-            markerRenderer?.ClearPreviewMarkerTiles();
-            menuViewModel.ClearPreview();
+            long version;
+            lock (stateSync)
+            {
+                if (drag != null) drag.DisplayedAuthorization = false;
+                version = ++previewPublicationVersion;
+                markerRenderer?.ClearPreviewMarkerTiles();
+            }
+            Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(() => {
+                lock (stateSync) if (version == previewPublicationVersion) menuViewModel.ClearPreview();
+            });
         }
     }
 }

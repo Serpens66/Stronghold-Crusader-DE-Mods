@@ -1,4 +1,4 @@
-# Script Extender 2.10.1 unit and projectile hook audit
+# Script Extender 2.10.1 unit and projectile hook audit [Scope: External component]
 
 Native input: installed `CrusaderDE.dll`, SHA-256 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`. Extender input: tag `v2.10.1`, commit `a8ba202f6ec7966bd115b59a6088a0077ce727a0`, tree `1cc818b1b844b5e121054f2dc2edd731206b8c7b`. This record describes this exact pair only. Function names below remain candidate interpretations unless explicitly identified as exports or confirmed in another baseline record.
 

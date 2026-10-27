@@ -670,7 +670,7 @@ internal static class Program
         // Validate the runtime's exact feedback contracts against installed PE bytes.
         byte[] mappedFeedbackCode = new byte[0x90740];
         foreach (var block in new[] { (0x8F3DA,10), (0x8F3EA,10), (0x8F3FE,10),
-            (0x9002D,13), (0x90729,20), (0x8D323,11) })
+            (0x9002D,13), (0x90054,10), (0x90729,20), (0x8D323,11) })
             image.AsSpan(RvaToRawOffset(image, block.Item1), block.Item2)
                 .CopyTo(mappedFeedbackCode.AsSpan(block.Item1));
         NativeGroundMoveFeedbackReader.ValidateContract(mappedFeedbackCode);

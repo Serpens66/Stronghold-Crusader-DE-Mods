@@ -1,4 +1,4 @@
-# Drawbridge AI decision audit
+# Drawbridge AI decision audit [Scope: Vanilla + mod integration]
 
 Native full SHA-256: FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2
 
@@ -24,13 +24,13 @@ Native full SHA-256: FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2
 
 11B520 skips ordinary regions for identical PCLs or Assassin-only117820; otherwise117C70 supplies the fifth mode argument toE2610. Failed regions can reach E9D90/E9FF0 structure/exit checks, not a presumed leader check. E2610 itself also accepts equal regions before gate policy. 11E960 command7 invokes E7F60 if leader PCL nonzero: failure returns early; success chooses a frontier with reachable neighboring region and closest squared Euclidean leader distance, then falls through command6 and nested11B520. Leader PCL0 skips the selector. Output writes and subsequent issued command/context values are separate from actual execution.
 
-## Gate policy and hook ownership
+## Gate policy and hook ownership [mod integration]
 
 Gate uses validated player context, owner/allied/capturer policy and both early/tactical and late direction/search filters. The bridge test records these roles without publishing a mask. Bridge parent ID can be0; unique same-owner adjacent footprint is only a candidate. Building ID + GlobalId distinguishes reuse. Equal-PCL bridge crossings explain why gate connection filtering alone does not cover the deck.
 
 BugfixesAndQoL owns E2610,F4930,DBC60,DA020,123090,195E30,D9C40 observations; reuse APIShared observer registrations. Gate owns113BC0 and its direction/tactical/capture sites. Mainmod AiWallTargetingFix patches10ECC3..10ECD1 inside10DF60, beyond the diagnostic entry. Canonical local Fixes patches rebuild internalsE4AA3/E4B61/E4DF4 and10F1B3..10F1CE target component logic, beyond entry span10F150..10F164; therefore function outputs with Fixes enabled are effective outputs, not pristine Vanilla. Existing extended component-count behavior must be compared with each active setup. SE attack-evaluation events are diplomatic requests, not the common strategic planner; no suitable event replaces these probes.
 
-## Instrumentation contract and open questions
+## Instrumentation contract and open questions [mod integration]
 
 30 entries are complete instruction spans at least14 bytes, with no known DB xref into their displaced interiors. Full functions and continuation are retained; runtime checks live bytes/backend hash, restricts Absolute, exact length, target, entry/trampoline and pointer slot, then verifies installed patch form. Actual backend copied-byte tests validate the same schema. Ordinary function ABI preserves originals/returns; no context-hook flags assumptions. Published hooks have process lifetime and no teardown.
 

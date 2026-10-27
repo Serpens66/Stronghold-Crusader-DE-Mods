@@ -1,4 +1,4 @@
-# Move-command release contract
+# Move-command release contract [Scope: Vanilla + mod integration]
 
 ## Scope and provenance
 
@@ -141,10 +141,10 @@ depending on the cleared `KeyManager` state.
 
 Revalidated installed native SHA-256 FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2
 and real managed SHA-256 BC8B6A395F01D48557DB413600C8DD8D1FDFD3ABDF97BFBBB68A3C56B04FD789.
-Feature audit covers RunTick 86680 â†’ 8B7E0 â†’ 8C5F0; representative selection
+Feature audit covers RunTick 86680 Ã¢â€ â€™ 8B7E0 Ã¢â€ â€™ 8C5F0; representative selection
 18D460 / route mode 18DC40; E7C40, E2610, DB650 and the E2CA0/E9D90/E9FF0
 fallbacks; terminal cursor dispatch; renderer 41D60/436DE/41D10; command staging
-195E30 â†’ chore17/10AE0 â†’ 196100 â†’ 11B520 â†’ 196280/F4930.
+195E30 Ã¢â€ â€™ chore17/10AE0 Ã¢â€ â€™ 196100 Ã¢â€ â€™ 11B520 Ã¢â€ â€™ 196280/F4930.
 
 Ground reject 8F3DA writes detail -10 at 60AD560, image 41 at 60AD548,
 file AC at 60AD54C and command 11 at 60AD55C. Final cursor dispatch table
@@ -180,16 +180,16 @@ No new hook spans/owners, SE/Fixes conflicts or public APIShared interfaces.
 
 
 Buildnachweis 02.10.2026: Beide betroffenen build.bat-Treiber abgeschlossen,
-DLLs lokal/installiert SHA-256-identisch. Testmod: 1.699 Assertions einschlieÃŸlich
+DLLs lokal/installiert SHA-256-identisch. Testmod: 1.699 Assertions einschlieÃƒÅ¸lich
 beider installierten RedBird-Maschinentests, 0 Warnungen/Fehler. Hauptmod:
-9.228 Formations-/Queue-Checks und vollstÃ¤ndige Treiber-Regressionen bestanden;
-0 Fehler, 1 MSB3277-Warnung fÃ¼r MonoMod.Utils-Referenzversionen. Der alte
-Quelltexttest im Hauptmod-Nativeharness wurde auf die atomare VerÃ¶ffentlichung
+9.228 Formations-/Queue-Checks und vollstÃƒÂ¤ndige Treiber-Regressionen bestanden;
+0 Fehler, 1 MSB3277-Warnung fÃƒÂ¼r MonoMod.Utils-Referenzversionen. Der alte
+Quelltexttest im Hauptmod-Nativeharness wurde auf die atomare VerÃƒÂ¶ffentlichung
 von Markerkacheln und Autorisierungsdelegate aktualisiert; der erneute komplette
-Treiber bestand. JSON-/Lifecycle-/Hookmutations-/XAML-/CRLF-VorprÃ¼fungen bestanden.
+Treiber bestand. JSON-/Lifecycle-/Hookmutations-/XAML-/CRLF-VorprÃƒÂ¼fungen bestanden.
 Testmod DLL: 19C3DAB31C0B5CEE3054E771CBEA98BB5A20F11FA00DA354EEA97322AC0056B6.
 BugfixesAndQoL DLL: 4CD2567C4565FAA0E916561B40092A78A593DD897EDBC4117E6397BF00A36036.
-APIShared unverÃ¤ndert; keine VersionserhÃ¶hung. Spielabnahme weiterhin offen.
+APIShared unverÃƒÂ¤ndert; keine VersionserhÃƒÂ¶hung. Spielabnahme weiterhin offen.
 
 
 ## 2026-10-08: formation Move classification over units
@@ -251,3 +251,88 @@ on the same object. EngineInterface.run holds it around preDLLCallActions,
 DLL_RunTick and play-state copying; no new native call races the simulation.
 The offline test checks this field against the real Assembly-CSharp metadata,
 not a publicized assembly, and exercises busy/unprotected/protected cases.
+
+## Formation drag start under a busy engine lock (2026-10-26)
+
+Managed SHA-256 `BC8B6A39...`: `Director.runSimTickTest` runs `EngineInterface.run`
+on the separate `Stronghold1Engine` thread; a `System.Threading.Timer` queues ticks at
+game speed, and `run` holds `threadLock` for the complete tick. Vanilla blocks the
+main thread on that lock only for discrete inputs (`KeyManager` hotkeys and HUD
+buttons through `GameAction`); `TroopSelection` and building placement run inside
+`preDLLCallActions` on the engine thread. The Formation press therefore captures
+its Unity target on the main thread and its native selection only under the lock:
+when `TryEnter(0)` fails, the next `EngineInterface.run` hook completes the start
+before Vanilla's preparation. A blocking wait was rejected (one frame stall per
+command click, up to a long AI tick); dropping to Vanilla was rejected (the
+formation is lost under load). A click released before completion remains Vanilla.
+
+## Confirmed render-time cursor lifetime (2026-10-26)
+
+Native SHA-256: FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
+`DLL_RunTick` (`86680`) calls `8C5F0` at `86920`, then the visible renderer
+`41D60` at `86A68`. Renderer range `41D60..4580E`, exclusive end; native body
+SHA-256 3EF71AC141815F4AAD74E1A20B6991425175728DA09EC4F07E2C813DF8533FFF.
+Its first three instructions save RBX/RBP/RSI at `[rsp+10/18/20]`, 5 bytes each.
+Cursor kind is cleared to -1 at `45702`, before the `41D10` draw-list reset call
+at `4570C`. Consequently reset-completion feedback is too late for a fresh Move
+proof. Six integer/pointer ABI arguments are preserved by an entry observer.
+
+The prologue span has no direct interior targets across executable sections and
+no interior exception-function entry. Inline/context minimum 14 therefore rounds
+to 15 bytes, continuation `41D6F`. The function includes embedded switch data;
+a linear disassembler byte total is not a valid whole-function coverage check.
+Evidence: `.work/a/island-targets/001/audit.py` and `native-audit.json`;
+production entry/demand machine execution in `GroundFrameMachineTests.cs`.
+These are static/machine contracts, not an in-game frame-time measurement.
+
+## Confirmed simulation-thread speech contract (2026-10-26)
+
+Same native SHA-256 as above; real Assembly-CSharp SHA-256
+BC8B6A395F01D48557DB413600C8DD8D1FDFD3ABDF97BFBBB68A3C56B04FD789.
+Director.Awake starts `Stronghold1Engine`; runSimTickTest calls EngineInterface.run
+on this simulation thread. Its private threadLock covers native RunTick and
+PlayState copying. The main thread later plays exported speech through GameMap
+case18 / SFXManager. Requiring the initialization/main thread at native reset
+therefore suppresses valid local acknowledgement.
+
+Correction to the older shorthand "default move type": the conditional exclusion
+in 195E30 is parameter6 == 0, matching installed TribeMoveType.NoChange. Actual
+DefaultInSync is 1, Fast is -255. Types22/23/39 are excluded only for zero;
+types40/41/61 are always excluded, type38 is the explicit debug exception.
+The audited 3BC0 special-type branch 0x4F can query DF120 with radius4. This is
+a bounded local tile/nearby-unit query using shared scratch, not a full route.
+Preserve native Busy/duplicate/special handling under the engine lock; do not
+call 195E30 again for audio because it stages another Chore and can reach DB650.
+11C650 owns additional rate-limited group Foley; this correction does not add it.
+
+The existing render entry41D60 stamps the owning thread-local run scope, reset
+41D10 consumes local pending speech before dialogue41C0 / export19D960. No-buffer
+runs and unrelated reset calls cannot provide that render proof. Production-code
+two-thread fixtures and native adapter tests verify sequencing and scratch restore;
+audible gameplay, actual Mono behavior and host/client remain separate acceptance.
+
+
+## Anchored rejected gestures and death snapshots (2026-10-26)
+
+Same canonical native SHA-256 as above. The ordinary-ground failed-route producer
+8F3DA..8F45E writes command17/detail-10, fileAC/image41, local cursor kind4 which
+the terminal renderer dispatch publishes as kind5. Object/structure branches
+share rejection imagery, so ownership additionally requires native mode1 and no
+hovered unit/building/wall. Details1/3 of command9 are interactions, not a general
+ground-denied proof. A fresh result at the captured press tile can own cancellation;
+it is never positive movement authorization. Do not consume unclassified input.
+
+The native mode1 release branch at 8F64D handles detail-10 separately (optional
+reject sound through 109EF0), while ordinary accepted movement calls 195E30 with
+current 3A11E2C/3A11E30. Passing a rejected drag back to Vanilla after moving the
+mouse therefore allows a different release target. Consuming the managed release
+before the original run prevents that retarget without a new native hook.
+
+LocalSelectionAPI reads a completed PlayState, whereas UnitAccess reads live
+native metadata. A selected ID can still be present in that snapshot after its
+native death marker is set. UnitAccess.IsReallyAlive (AliveState plus WORD29C)
+is the existing audited predicate, including melee writer199110; do not infer
+life from health, animation or AliveState alone. Filtering those original stable
+identities under the engine lock requires no new death-event hooks or path probes.
+The neutral-run/exact-restore input contract above applies only before acceptance;
+restoration after cancellation, acceptance or gesture replacement is invalid.

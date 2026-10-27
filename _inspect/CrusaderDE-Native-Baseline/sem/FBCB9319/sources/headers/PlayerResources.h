@@ -3656,7 +3656,7 @@ public:
 	uint32_t N00005337; //0x38E4
 	uint32_t N00004114; //0x38E8
 	uint32_t N00005339; //0x38EC
-	uint32_t N00004115; //0x38F0
+	uint32_t r_AILastStandPhase; //0x38F0 (0 = inactive, enters at 8 and falls to 1 while the threat persists)
 	uint32_t N0000533B; //0x38F4
 	uint32_t N00004116; //0x38F8
 	uint32_t N0000533D; //0x38FC

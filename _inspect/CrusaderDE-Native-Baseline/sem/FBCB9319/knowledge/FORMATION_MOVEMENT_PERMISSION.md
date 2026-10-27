@@ -1,4 +1,4 @@
-# Formation fallback and native movement permission
+# Formation fallback and native movement permission [Scope: Vanilla + mod integration]
 
 Native SHA-256: `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
 Installed hash rechecked on 2026-10-11. Semantic function names remain candidate;
@@ -31,7 +31,7 @@ returns 0 and may enter 0x199CD0's structure-exit state. Neither entry repeats
 0x11B520's stationary-type exclusions. A positive path probe therefore does not
 authorize a direct manual move of a native-skipped member.
 
-## Managed defect and correction
+## Managed defect and correction [mod integration]
 
 GameUnitManagerAPI.MoveToTile calls the Extender's terminal move implementation
 directly. Its Pre may mutate/veto; Post occurs only after the original and carries

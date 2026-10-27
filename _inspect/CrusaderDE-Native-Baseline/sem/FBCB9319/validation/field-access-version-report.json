@@ -121,5 +121,26 @@
       "manager+buildingId*0x32C+0x31A r_OnFireTicks (GameBuilding view +0x2BE)",
       "GameUnit target identity at +0x39A/+0x39C"
     ]
+  },
+  {
+    "claimId": "fn-unit-update-standing-height",
+    "currentRva": "0x184FD0",
+    "historicalRva": "0x184010",
+    "versionMatchConfidence": "confirmed",
+    "functionChanged": true,
+    "fieldAccesses": [
+      {
+        "type": "GameUnit",
+        "offset": "0xB6",
+        "access": "read-write",
+        "confidence": "confirmed"
+      },
+      {
+        "type": "GameUnit",
+        "offset": "0xB8",
+        "access": "write",
+        "confidence": "confirmed"
+      }
+    ]
   }
 ]

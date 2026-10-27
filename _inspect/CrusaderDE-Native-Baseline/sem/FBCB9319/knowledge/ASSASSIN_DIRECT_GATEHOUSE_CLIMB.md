@@ -1,4 +1,4 @@
-# Assassin direct gatehouse climb: native audit
+# Assassin direct gatehouse climb: native audit [Scope: Vanilla + mod integration]
 
 Audit date: 2026-10-07. Installed CrusaderDE.dll SHA-256:
 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
@@ -97,7 +97,7 @@ runtime behavior of the proposed change remains untested.
   movement or attack context is not evidence that states 126/127 occurred.
   A runtime test must observe command, route, physical climb state and arrival.
 
-## Workspace and Fixes compatibility
+## Workspace and Fixes compatibility [mod integration]
 
 - BugfixesAndQoL AssassinPathfindingRuntime owns the 0xD9C40 function replacement.
   AssassinPathReconstructionPatch owns the 0xE19D8 / 0xE19F9 reconstruction guards.
@@ -117,7 +117,7 @@ runtime behavior of the proposed change remains untested.
   A testmod must preserve Fixes' captured-gate/ally decisions, not replace its
   complete gate selection action.
 
-## Shared implementation decision (2026-10-07)
+## Shared implementation decision (2026-10-07) [mod integration]
 
 The user authorized central ownership in APIShared. AssassinPathAPI owns the
 D9C40 detour and all four building-ID guard adapters. BugfixesAndQoL registers
@@ -132,10 +132,10 @@ tests execute the productive assembler, decode it completely, validate actual
 installed RedBird displacement and detour pointer-slot contracts, and exercise
 active/inactive gate eligibility. See `_inspect/AssassinGateClimb`.
 
-## First human acceptance (2026-10-07)
+## First human acceptance (2026-10-07) [mod integration]
 
 18:32:20-18:36:50 editor run with both testmods, weighted improvement and Fixes 1.25.1: seven completed ascents and two descent sequences; user confirms commands worked. Cursor, formation and physical climb code remain unchanged in the subsequent gate-safety step. This confirms the human experiment, not yet all AI, switches or mainmod regressions. See ENEMY_GATE_ASSASSINS.md for the shared classifier and conservative distance-field guard.
-## Coordinated review and installation completed (2026-10-07)
+## Coordinated review and installation completed (2026-10-07) [mod integration]
 
 After the parallel APIShared work finished, the installed APIShared was verified current (package/install SHA256 equality and new public contract present); no redundant APIShared build was needed. The final review also required a weighted diagnostic climb endpoint to match the exact gate responsible for the blocked edge, rather than a neighboring gate. Actual diagnostic runtime tests now pass 46 assertions. The main movement test fixture was adapted to the parallel UnitAccess.IsReallyAlive addition (enum alias and low-word death-marker field); production UnitAccess was preserved.
 
@@ -143,7 +143,7 @@ All pre-build Native/Interop, compatibility, JSON, Lifecycle, permanent-hook, XA
 
 AssassinGatehouseClimbTest is unchanged and needs no rebuild. Versions and README files remain unchanged. No new native hooks or changes to cursor, formation or physical climb execution were introduced. In-game acceptance remains pending: Assassin commands to the roof and behind open/closed enemy gates, ordinary soldiers denied the ground passage, improvement enabled/disabled, and AI behavior at the same setup. Bridges remain outside this acceptance. Native-only historical mask overlaps are not retroactively marked resolved.
 
-## Exact weighted single-unit route publication (2026-10-07)
+## Exact weighted single-unit route publication (2026-10-07) [mod integration]
 
 Native reference hash: FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
 E1640 reconstructs from step distances, with a mutable best distance inside its direction loop.
@@ -284,7 +284,7 @@ over sufficiently large reachable regions could overflow the previous diagnostic
 Int32 sums. Per-search counters, budgets and route selection stay unchanged; the
 overflow regression exercises the actual accumulator methods.
 
-### Performance diagnostics default off (2026-10-08 follow-up)
+### Performance diagnostics default off (2026-10-08 follow-up) [mod integration]
 
 BugfixesAndQoL now uses the compile-time `PerformanceDiagnosticsEnabled=false`
 switch independently of gameplay and testmod policy observers. Disabled active
@@ -296,7 +296,7 @@ remain unchanged. Both switch states pass the source-linked Dijkstra, publicatio
 and prior Git contract regressions (16,229 assertions). Detailed measurements and
 limitations are recorded in `_inspect/AssassinPerf/RESULTS.md` and the diagnostic
 switch CSV. No new game acceptance or measured native Vanilla timing is claimed.
-## Main-mod integration, 2026-10-08
+## Main-mod integration, 2026-10-08 [mod integration]
 
 BugfixesAndQoL 1.0.177 now owns the existing APIShared gatehouse activation rule through its PluginGuid. EnableAssassinGatehouseClimbFix is a SyncHostOnly setting in Fixes, initialized and reset to true. Its effective flag is EnableMod && EnableAssassinGatehouseClimbFix. Native initialization and existing settings publishers call the same isolated activation method. APIShared retains all hook ownership; disabling changes data only and does not abort active physical climb states. No new native/managed hook, unit scan, coroutine or teardown is introduced. Existing weighted-route cache keys and publication validators include the gatehouse flag.
 

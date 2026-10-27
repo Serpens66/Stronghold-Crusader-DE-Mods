@@ -38,7 +38,12 @@ class CuratedKnowledgeTests(unittest.TestCase):
             self.claims, self.functions, CURRENT_HASH, self.image_base, WORKSPACE)
         CURATED.validate_hook_spans(self.spans, self.claims, CURRENT_HASH, self.image)
         CURATED.validate_contracts(self.contracts, CURRENT_HASH)
-        self.assertEqual(3, len(labels))
+        # Catalog growth is intentional; the contract is that exactly the
+        # explicitly confirmed semantic identities enter the Ghidra label stream.
+        expected = {(row['functionRva'], row['canonicalName'], row['claimId'])
+                    for row in self.claims if row['semanticConfidence'] == 'confirmed'}
+        self.assertSetEqual(expected, {tuple(row[:3]) for row in labels})
+        self.assertEqual(len(expected), len(labels), 'No duplicate label entries')
 
     def test_hook_byte_mutation_fails_closed(self):
         spans = copy.deepcopy(self.spans)

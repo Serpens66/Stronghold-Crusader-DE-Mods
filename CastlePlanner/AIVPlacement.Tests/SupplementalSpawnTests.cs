@@ -11,6 +11,7 @@ internal static class SupplementalSpawnTests
 
     internal static void Run()
     {
+        CheckMiscPlacement();
         int mapper = (int)eMappers.MAPPER_STORES;
         int size = AivMapperCatalog.Resolve(mapper).FootprintSize.Value;
         foreach (AivRotation rotation in Enum.GetValues<AivRotation>())
@@ -131,5 +132,57 @@ internal static class SupplementalSpawnTests
         for (int index = 0; index < 50; index++) report.Add("river", "object " + index);
         Check(report.Count == 50 && report.ToString().Contains("river=50") &&
             !report.ToString().Contains("object 5:"), "skips are aggregated with bounded examples");
+    }
+
+    private static void CheckMiscPlacement()
+    {
+        var blocked = new[] { TilePropertyFlag.Sea, TilePropertyFlag.River,
+            TilePropertyFlag.Ford, TilePropertyFlag.IsMoat, TilePropertyFlag.ImpassableEdge,
+            TilePropertyFlag.IsLand | TilePropertyFlag.ImpassableEdge,
+            TilePropertyFlag.HasStone | TilePropertyFlag.ImpassableEdge };
+        var allowed = new[] { TilePropertyFlag.IsLand, TilePropertyFlag.StoneResource,
+            TilePropertyFlag.NormalWall, TilePropertyFlag.CrenelatedWall,
+            TilePropertyFlag.Stairs, TilePropertyFlag.ElevatedPosition,
+            TilePropertyFlag.IsWall | TilePropertyFlag.ImpassableEdge,
+            TilePropertyFlag.IsElevated | TilePropertyFlag.ImpassableEdge };
+        foreach (TilePropertyFlag flags in allowed)
+            Check(SupplementalPlacementPolicy.CheckMiscTerrain(flags) == "", "valid misc terrain: " + flags);
+        foreach (TilePropertyFlag water in new[] { TilePropertyFlag.Sea, TilePropertyFlag.River,
+            TilePropertyFlag.Ford, TilePropertyFlag.IsMoat })
+            foreach (TilePropertyFlag surface in allowed)
+                Check(SupplementalPlacementPolicy.CheckMiscTerrain(water | surface) == "water-terrain",
+                    "fortification/resource flags cannot override water: " + (water | surface));
+
+        foreach (AivMiscItemType type in new[] { AivMiscItemType.Flag, AivMiscItemType.Brazier,
+            AivMiscItemType.Mangonel, AivMiscItemType.TowerMountedBallista,
+            AivMiscItemType.Trebuchet, AivMiscItemType.FireBallista })
+        foreach (int encoding in new[] { (int)type, (int)type + 9000 })
+        foreach (AivRotation rotation in Enum.GetValues<AivRotation>())
+        {
+            AivMiscSpawnCategory expected = type == AivMiscItemType.Flag || type == AivMiscItemType.Brazier
+                ? AivMiscSpawnCategory.Decoration : AivMiscSpawnCategory.SiegeEngine;
+            Check(AivSpawnPlan.ClassifyMisc(encoding) == expected, "supplemental category: " + encoding);
+            AivWorldTile projected = AivWorldTransform.ProjectNativeFit(new AivGridPoint(3057), 200, 200, rotation);
+            foreach (TilePropertyFlag flags in blocked.Concat(allowed))
+            {
+                int lookups = 0;
+                bool accepted = SupplementalPlacementPolicy.TryResolveMiscTile(3057, 200, 200, rotation,
+                    tile => {
+                        lookups++;
+                        Check(tile.Equals(projected), "terrain checked at rotated spawn tile");
+                        return SupplementalPlacementPolicy.CheckMiscTerrain(flags);
+                    }, out AivWorldTile resolved, out string reason);
+                Check(accepted == allowed.Contains(flags) && accepted == string.IsNullOrEmpty(reason),
+                    "misc terrain admission: " + type + "/" + rotation + "/" + flags);
+                Check(lookups == 1 && resolved.Equals(projected), "single target lookup without relocation");
+            }
+            foreach (int anchor in new[] { -1, AivGridPoint.GridSize * AivGridPoint.GridSize })
+                Check(!SupplementalPlacementPolicy.TryResolveMiscTile(anchor, 200, 200, rotation,
+                    _ => throw new Exception("invalid misc source reached map lookup"), out _, out string reason) &&
+                    reason == "source-anchor-out-of-bounds", "misc source rejected before lookup");
+            foreach (string failure in new[] { "out-of-bounds", "invalid-map-tile" })
+                Check(!SupplementalPlacementPolicy.TryResolveMiscTile(3057, 200, 200, rotation,
+                    _ => failure, out _, out string reason) && reason == failure, "map rejection prevents misc admission");
+        }
     }
 }

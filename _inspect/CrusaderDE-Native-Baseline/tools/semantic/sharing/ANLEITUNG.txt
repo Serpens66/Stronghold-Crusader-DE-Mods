@@ -1,0 +1,56 @@
+CrusaderDE: semantische Ghidra-Baseline und NativeKnowledge
+
+Dieses ZIP enthaelt Annotationen, Typen und Importwerkzeuge. Zum Aufbau des
+Ghidra-Projekts wird die eigene passende CrusaderDE.dll benoetigt. Ein Download
+des Repositorys ist nicht erforderlich. Das Paket ist kein Runtime-Mod.
+
+Voraussetzungen:
+- Ghidra 12.1.3 und dessen Java-Voraussetzungen (JDK 21).
+- Windows PowerShell 5.1 oder neuer.
+- Eigene installierte CrusaderDE.dll mit SHA-256:
+  FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2
+  Typischer Ort im Spielordner:
+  Stronghold Crusader Definitive Edition_Data\Plugins\x86_64\CrusaderDE.dll
+
+Benutzung:
+1. ZIP vollstaendig entpacken, z. B. nach D:\Ghidra\Annotations.
+2. START.cmd starten. Ghidra-Installationsordner, eigene DLL und einen NEUEN
+   Projektordner angeben. Kurze Pfade ohne Punktverzeichnisse verwenden.
+3. Nach erfolgreicher Pruefung die angezeigte CrusaderDE-Knowledge.gpr in
+   Ghidra oeffnen und CrusaderDE.dll mit dem CodeBrowser oeffnen.
+4. Data Type Manager -> CrusaderDE.dll -> NativeKnowledge -> FBCB9319.
+   Mit START_HERE beginnen. Typen per Rechtsklick -> Edit ansehen; dort stehen
+   Typbeschreibungen und Feldkommentare. Kommentare ggf. im Editor vergroessern.
+5. Im Symbol Tree oder per Go To nach den Funktionsnamen suchen, z. B.
+   c_game_unit_update_standing_height. Die Funktionskommentare enthalten Evidenz,
+   Vertrauensstufen und Grenzen.
+
+Alternativ aus einer PowerShell ohne Profil:
+  powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Create-GhidraProject.ps1 -GhidraDirectory "D:\Tools\ghidra_12.1.3_PUBLIC" -NativeDll "D:\Spiel\CrusaderDE.dll" -OutputDirectory "D:\Ghidra\CrusaderDE-Knowledge"
+
+Inhalt und Grenzen:
+- Die gepflegte semantische Baseline inklusive aller 88 NativeKnowledge-
+  Feldidentitaeten und vier ausfuehrlich dokumentierten Funktionen.
+- Kandidaten, historische Deutungen und unsichere Speichervertraege behalten
+  ihre Kennzeichnung. Wissensansichten sind keine Freigabe fuer Speicherzugriffe.
+- Namen sind rekonstruierte Analyseergebnisse; keine originalen Debugsymbole.
+- Keine automatische Zuordnung der Wissensstrukturen zu beliebigen Pointern.
+- Die eigene DLL liefert die Speicherbytes. Das Paket liefert keine vollstaendige
+  Spiel-DLL, keinen GZF-Programmdump und keinen Decompiler-Gesamtexport.
+- Das neue Projekt ist ein wieder aufgebauter Analysestand, keine byteidentische
+  Kopie der urspruenglichen Ghidra-Datenbank. Bei einzelnen automatisch erkannten
+  __thiscall-Signaturen verwendet der Import explizite Register-/Stackzuordnungen,
+  um die vorhandenen Parameternamen, Typen und Speicherorte exakt zu bewahren.
+- Der ergaenzende XML-Import stellt nicht alle automatisch erzeugten RTTI-
+  Datenmarkierungen und synthetischen Analyse-Speicherbereiche wieder her.
+  Die geprueften Typdefinitionen und Funktionsannotationen sowie saemtliche
+  NativeKnowledge-Felder und -Funktionskommentare bleiben davon unabhaengig.
+- Quellenangaben koennen auf externe Repositories oder nicht mitgelieferte
+  historische Nachweise verweisen. Der Informationsstand ist an den DLL-Hash
+  gebunden; er wird auf anderen Spielversionen nicht angewendet.
+- Bestehende Projekte werden vom Startskript nicht veraendert. Es muss ein neuer
+  Zielordner gewaehlt werden. Logs und Pruefberichte verbleiben im Zielordner.
+- PACKAGE.json nennt Zeitpunkt, Quellstand und SHA-256 der Paketdateien.
+
+Ghidra: https://github.com/NationalSecurityAgency/ghidra/releases
+APIShared: https://github.com/SHCDE-APIShared/APIShared

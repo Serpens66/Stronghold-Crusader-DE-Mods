@@ -190,6 +190,7 @@ namespace BugfixesAndQoL.UnitCommands
         internal void InvalidateMovementSearchData()
         {
             placementRevision++;
+            InvalidateManualGroupAdmission();
             InvalidateFastMoatData();
             weightedMoatRoutePlanner.SetSearchSession(null, -1, mapEpoch, CaptureCurrentGameTick());
             nativeGroundDecisions.Clear(); activeMoveCommand?.TargetedRouteDecisions.Clear();

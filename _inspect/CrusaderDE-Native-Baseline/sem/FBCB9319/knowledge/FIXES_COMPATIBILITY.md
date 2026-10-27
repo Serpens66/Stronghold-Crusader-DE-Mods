@@ -1,4 +1,4 @@
-# Fixes 1.25.1 compatibility
+# Fixes 1.25.1 compatibility [Scope: External component]
 
 For the installed 1.26.4.0 wheat-sale crash, see the separate
 [wheat startup audit](FIXES_WHEAT_STARTUP.md). Its confirmed wrong stack slot and
@@ -39,7 +39,7 @@ This describes the reviewed source/data flow, not a gameplay validation of the i
 
 A live entry to the separate neighbor-search routines 0x10DCB0 and 0x114760 is not established. The known chain to 0x10DCB0 is 0x40180 -> 0x114680 -> 0x10DCB0; references to 0x114760 in .rdata are unwind metadata. Do not infer dormant status for 0x10F150 from those separate routines: its recorded callers are 0x10C1C0,0x10D9F0 and 0x1102D0. Any new adapter to a native routine needs a complete active caller-chain audit.
 
-## Native siege/search contracts
+## Native siege/search contracts [Vanilla facts]
 
 - 0x2B080 processes up to eight configured machines in one call; machine IDs 39/40/58/59/60/77 map to crew 2/3/4/4/1/2 and mappers 190/191/192/193/194/358 through tables 2C80B0/2C80C8/2C8098. It detaches the total required crew from its siege-engineer tribe first, then calls 0x2C1B0 per machine.
 - 0x2C1B0 scans unit game IDs 1..<native total>, requiring alive 2, native ushort owner==player, unit type 30, low word at GameUnit+29C==0, role+426==10, tribe+2D4==0 and AIstate+2BC!=8. GameUnit record size 490; the manager sentinel precedes the API's 0-based span.

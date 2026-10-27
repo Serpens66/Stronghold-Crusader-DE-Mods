@@ -559,3 +559,7 @@ ExtraFeatures.Popularity.PositiveFear.Human.Title=Positive fear levels — Human
 ExtraFeatures.Popularity.PositiveFear.Human.Help=Enables the five fixed contributions on this side of the fear factor. When disabled, existing game/Extender calculation is retained and entered values remain saved. Level 0 stays neutral. Buildings, productivity and combat effects are unchanged. Applies only to Human players.
 ExtraFeatures.Popularity.PositiveFear.AI.Title=Positive fear levels — AI
 ExtraFeatures.Popularity.PositiveFear.AI.Help=Enables the five fixed contributions on this side of the fear factor. When disabled, existing game/Extender calculation is retained and entered values remain saved. Level 0 stays neutral. Buildings, productivity and combat effects are unchanged. Applies only to AI players.
+ExtraFeatures.PeriodicGold.Title=Gold every 400 ticks
+ExtraFeatures.PeriodicGold.Human.Title=Gold every 400 ticks - Human
+ExtraFeatures.PeriodicGold.AI.Title=Gold every 400 ticks - AI
+ExtraFeatures.PeriodicGold.Help=Applies the configured whole-number amount to each living player of this type every 400 simulation ticks (about 10 seconds at game speed 40). Positive amounts are queued as incoming gold and delivered gradually by the game. Negative amounts are deducted directly from the gold balance, down to 0; pending incoming gold is preserved. 0 disables this player type; when both values are 0, the ticker is off. The rhythm follows the saved game tick. Change this setting between missions only.

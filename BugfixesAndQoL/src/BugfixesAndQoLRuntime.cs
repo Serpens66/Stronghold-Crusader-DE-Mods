@@ -33,6 +33,7 @@ namespace BugfixesAndQoL
         private readonly CoopCustomLordSelectionFeature coopCustomLordSelectionFeature;
         private static PlacementCancelMoveSuppressionFeature processPlacementCancelMoveSuppressionFeature;
         private static LobbyYellowContrastFeature processLobbyYellowContrastFeature;
+        private static CompactLobbyChatFeature processCompactLobbyChatFeature;
         private static BriefingNoStartingGoldFixRegistration processBriefingNoStartingGoldFixRegistration;
         private ExtendedShiftCommandQueueRuntime extendedShiftCommandQueueRuntime;
         private static ExtendedShiftCommandQueueRuntime processExtendedShiftCommandQueueRuntime;
@@ -90,7 +91,11 @@ namespace BugfixesAndQoL
         private bool aiKeepRangeInitializationAttempted;
         private static WorkerBreakPauseHook processWorkerBreakPauseHook;
         private static WorkshopIdleDelayHook processWorkshopIdleDelayHook;
+        private static MoatTerrain.TerrainRuntime processMoatTerrainRuntime;
+        private static bool moatTerrainInitializationAttempted;
         private static DrawbridgeDestructionFix.FixRuntime processDrawbridgeDestructionFixRuntime;
+        private static TreeBlightDecay.FixRuntime processTreeBlightDecayRuntime;
+        private static bool treeBlightDecayInitializationAttempted;
         private static bool drawbridgeDestructionFixInitializationAttempted;
         private static GatehouseLivingCapture.CaptureRuntime processGatehouseLivingCaptureRuntime;
         private static bool gatehouseLivingCaptureInitializationAttempted;
@@ -470,6 +475,21 @@ namespace BugfixesAndQoL
                 GateRouting.AssassinGatehouseDescentFeature.Initialize(context, log, settings, isFixedLayoutHashValidated));
             TryInitializePersistentFeature("Assassin gatehouse climb", ApplyAssassinGatehouseClimbFix);
             TryInitializePersistentFeature("enemy gate routing", () => GateRouting.GateRoutingFeature.Initialize(context,isFixedLayoutHashValidated));
+            TryInitializePersistentFeature("moat terrain restoration", () =>
+            {
+                if (moatTerrainInitializationAttempted) return;
+                moatTerrainInitializationAttempted = true;
+                processMoatTerrainRuntime = new MoatTerrain.TerrainRuntime(log, settings);
+                processMoatTerrainRuntime.Install(context, isFixedLayoutHashValidated);
+            });
+            TryInitializePersistentFeature("tree-blight decay fix", () =>
+            {
+                if (treeBlightDecayInitializationAttempted) return;
+                treeBlightDecayInitializationAttempted = true;
+                processTreeBlightDecayRuntime = new TreeBlightDecay.FixRuntime(log);
+                processTreeBlightDecayRuntime.Install(context, isFixedLayoutHashValidated);
+                processTreeBlightDecayRuntime.SetEnabled(settings.EnableMod, settings.EnableTreeBlightDecayFix);
+            });
             TryInitializePersistentFeature("drawbridge destruction fix", () =>
             {
                 if (drawbridgeDestructionFixInitializationAttempted) return;
@@ -566,6 +586,8 @@ namespace BugfixesAndQoL
             TryApplyFeature("Assassin gatehouse climb", ApplyAssassinGatehouseClimbFix);
             processGatehouseLivingCaptureRuntime?.SetEnabled(settings.EnableMod, settings.EnableGatehouseLivingCaptureFix);
             processDrawbridgeDestructionFixRuntime?.SetEnabled(settings.EnableMod, settings.EnableDrawbridgeDestructionFix);
+            processTreeBlightDecayRuntime?.SetEnabled(settings.EnableMod, settings.EnableTreeBlightDecayFix);
+            TryApplyFeature("moat terrain restoration", () => processMoatTerrainRuntime?.Refresh());
             processAIKeepRangeRuntime?.Refresh();
             TryApplyFeature("AI melee raid retarget fix", () => processAiRaidRetargetFixRuntime?.SetEnabled(
                 settings.EnableMod && settings.EnableAiRaidRetargetFix));
@@ -604,6 +626,15 @@ namespace BugfixesAndQoL
             TryApplyFeature(
                 "high-contrast yellow presentation",
                 () => processLobbyYellowContrastFeature?.ApplySetting());
+            // Retried on each settings change while unconstructed. Rejected (2026-10-26): a
+            // one-shot "attempted" flag. Retries cost only after a failure, the health ledger
+            // coalesces their reports, and a retry recovers a start off the Unity thread.
+            TryInitializePersistentFeature("compact lobby chat", () =>
+            {
+                if (processCompactLobbyChatFeature == null)
+                    processCompactLobbyChatFeature = new CompactLobbyChatFeature(log, settings);
+            });
+            TryApplyFeature("compact lobby chat", () => processCompactLobbyChatFeature?.ApplySetting());
             TryInitializeFeature("AI castle/settings list enhancements", EnsureAiCastleSettingsListEnhancementHook);
             TryApplyFeature("AI castle/settings list enhancements", () => aiCastleSettingsListEnhancementHook?.ApplySetting());
             TryInitializeFeature("map-origin sorting", EnsureMapOriginSortHook);

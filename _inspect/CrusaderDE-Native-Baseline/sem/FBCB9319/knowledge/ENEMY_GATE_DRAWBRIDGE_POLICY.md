@@ -1,10 +1,10 @@
-# Enemy gate policy: lateral drawbridge access (2026-10-02)
+# Enemy gate policy: lateral drawbridge access (2026-10-02) [Scope: Mod work, not Vanilla]
 
 Native SHA-256: `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
 Installed SE SHA-256: `DE5B88749C18A257E5F6A6E246F685300BF8DF970969DF1E6EA35C8C95F2A4AF`.
 SE provenance remains commit `f8d51730fcb54b25af43d3c9348d57db058e077f`, tree `657af449e1397c58e6c5ec054977d83198b68e66`.
 
-## Confirmed native contract
+## Confirmed native contract [Vanilla facts]
 
 - Drawbridge type is 49 (`0x31`). Do not confuse stair handler `E0770` (type `0x45`) or gate handler `D8CE0` with a bridge-specific graph builder.
 - Creation `739C0` stores occupied tile IDs in the same iteration order used by the 25-cell mapper. `69850` supplies each footprint coordinate; occupancy index zero remains a missing cell, never an inferred neighboring ID.

@@ -114,7 +114,12 @@ namespace BugfixesAndQoL.UnitCommands
                     return;
                 ActiveDrag state;
                 lock (stateSync)
+                {
                     state = drag;
+                    // A click released before its deferred start completed stays Vanilla.
+                    if (state == null && pendingStart != null && args.Key == ToKeyCode(pendingStart.CommandButton))
+                        pendingStart = null;
+                }
                 if (state == null || args.Key != ToKeyCode(state.CommandButton))
                     return;
                 if (FatControler.instance != null &&
@@ -168,9 +173,9 @@ namespace BugfixesAndQoL.UnitCommands
                     if (wheel != 0f && lastWheelFrame != frame)
                     {
                         lastWheelFrame = frame;
-                        int oldRows = state.Rows;
+                        int oldRows = state.Geometry.RequestedRows;
                         state.Geometry.ApplyWheel(wheel, frame);
-                        if (state.Rows != oldRows) changedRows = state.Rows;
+                        if (state.Geometry.RequestedRows != oldRows) changedRows = state.Geometry.RequestedRows;
                     }
 
                     if (TryCaptureTarget(out GroundTarget endpoint))
@@ -179,14 +184,14 @@ namespace BugfixesAndQoL.UnitCommands
                             endpoint.NativeX - state.Target.NativeX,
                             endpoint.NativeY - state.Target.NativeY, MinimumDragTileDistance);
                     }
-                    PublishPreview(state, force: false);
                 }
             }
             if (abort)
                 AbortDrag("state-changed");
-            else if (changedRows != 0)
+            else
             {
-                menuViewModel.RememberSelectedRows(state.Kind, changedRows);
+                PublishPreview(state, force: false);
+                if (changedRows != 0) menuViewModel.RememberSelectedRows(state.Kind, changedRows);
             }
         }
 
@@ -204,31 +209,68 @@ namespace BugfixesAndQoL.UnitCommands
                 return;
 
             menuViewModel.CloseMenu();
-            if (!TryCaptureSelection(out SelectionIdentity[] selection, out int tribeId))
+            // Unity mouse/map state is main-thread data; only the native selection needs the engine lock.
+            if (speechEngineLock == null || !TryCaptureCommandTarget(out GroundTarget target, out _))
                 return;
-            if (!TryCaptureCommandTarget(
-                    out GroundTarget target,
-                    out _))
+            FormationKind kind = FormationModel.NormalizeKind((int)formationConfig.Value);
+            var start = new PendingDragStart
             {
-                return;
+                CommandButton = commandButton,
+                MapEpoch = commandRuntime.mapEpoch,
+                PlayerId = GamePlayerManagerAPI.Instance.GetLocalPlayerId(),
+                Target = target,
+                Kind = kind,
+                Density = FormationModel.NormalizeDensity(densityConfig.Value),
+                PlacementMode = FormationModel.NormalizePlacementMode((int)placementModeConfig.Value),
+                RememberedRows = menuViewModel.GetRememberedRows(kind)
+            };
+            SelectionIdentity[] selection;
+            int tribeId;
+            bool taken = false;
+            try
+            {
+                System.Threading.Monitor.TryEnter(speechEngineLock, 0, ref taken);
+                if (!taken)
+                {
+                    // Never stall the frame for a running tick: the next EngineInterface.run
+                    // hook completes this start under the lock it already holds.
+                    // Rejected (2026-10-26): blocking Monitor.Enter stalls every command click
+                    // until the tick ends (long AI ticks: hundreds of ms); dropping to Vanilla
+                    // loses the formation under load.
+                    lock (stateSync) pendingStart = start;
+                    Shared.DevDiag.Count("manual.gesture.deferredStart");
+                    return;
+                }
+                if (!TryCaptureSelection(out selection, out tribeId)) return;
             }
+            finally { if (taken) System.Threading.Monitor.Exit(speechEngineLock); }
+            CompleteDragStart(start, selection, tribeId);
+        }
 
+        // Runs on the main thread (free lock) or inside the engine-run hook (deferred start).
+        private void CompleteDragStart(PendingDragStart start, SelectionIdentity[] selection, int tribeId)
+        {
             var state = new ActiveDrag(
-                commandButton,
+                start.CommandButton,
                 tribeId,
-                target,
+                start.Target,
                 selection,
-                FormationModel.NormalizeKind((int)formationConfig.Value),
-                FormationModel.NormalizeDensity(densityConfig.Value),
-                FormationModel.NormalizePlacementMode((int)placementModeConfig.Value),
-                menuViewModel.GetRememberedRows(FormationModel.NormalizeKind((int)formationConfig.Value)));
-            state.MapEpoch = commandRuntime.mapEpoch;
-            state.PlayerId = GamePlayerManagerAPI.Instance.GetLocalPlayerId();
+                start.Kind,
+                start.Density,
+                start.PlacementMode,
+                start.RememberedRows);
+            state.MapEpoch = start.MapEpoch;
+            state.PlayerId = start.PlayerId;
+            var previewUnits = new FormationUnit[selection.Length];
+            for (int i = 0; i < previewUnits.Length; i++)
+                previewUnits[i] = new FormationUnit(selection[i].UnitId, selection[i].GlobalId,
+                    selection[i].UnitType, Classify((eChimps)selection[i].UnitType));
+            state.PreviewUnits = previewUnits;
             state.Authorization = new FormationMoveAuthorization(
                 state.PlayerId, tribeId, selection.Length,
-                target.NativeX, target.NativeY, nativeFeedbackGeneration);
-            menuViewModel.SetPreviewAuthorization(false);
-            state.PreviewAuthorization = () => AuthorizePreview(state);
+                start.Target.NativeX, start.Target.NativeY, System.Threading.Interlocked.Read(ref nativeFeedbackGeneration));
+            Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(() => menuViewModel.SetPreviewAuthorization(false));
+            state.PreviewAuthorization = () => state.Authorization.IsConfirmed;
             ResolveDirectionAndWidth(state, out int direction, out int width);
             state.DirectionSector = direction;
             state.Width = width;
@@ -236,8 +278,39 @@ namespace BugfixesAndQoL.UnitCommands
             {
                 releaseConsumptionWatch = null;
                 drag = state;
-                PublishPreview(state, force: true);
+                groundFrameObserver.SetActive(true);
             }
+            Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(() => PublishPreview(state, force: true));
+        }
+
+        // Engine thread, lock not yet held: complete a start deferred by a busy engine lock.
+        private ActiveDrag TryCompletePendingStart()
+        {
+            lock (speechEngineLock)
+            {
+                PendingDragStart start;
+                lock (stateSync)
+                {
+                    start = pendingStart;
+                    pendingStart = null;
+                    if (start == null || drag != null) return drag;
+                }
+                if (start.MapEpoch != commandRuntime.mapEpoch ||
+                    start.PlayerId != GamePlayerManagerAPI.Instance.GetLocalPlayerId() ||
+                    EvaluateCommandMode() != APIShared.Internal.GroundMovePreviewRejection.None ||
+                    !TryCaptureSelection(out SelectionIdentity[] selection, out int tribeId))
+                    return null;
+                CompleteDragStart(start, selection, tribeId);
+                lock (stateSync) return drag;
+            }
+        }
+
+        private sealed class PendingDragStart
+        {
+            internal int CommandButton, MapEpoch, PlayerId, Density, RememberedRows;
+            internal GroundTarget Target;
+            internal FormationKind Kind;
+            internal RangedPlacementMode PlacementMode;
         }
 
         private static bool IsShiftHeld()

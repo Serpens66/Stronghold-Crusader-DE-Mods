@@ -1,4 +1,4 @@
-# Trail Maker custom AIC export and confirmation overlay
+# Trail Maker custom AIC export and confirmation overlay [Scope: Vanilla + mod integration]
 
 Verified 2026-10-08. Native baseline FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
 Installed Assembly-CSharp SHA-256 BC8B6A395F01D48557DB413600C8DD8D1FDFD3ABDF97BFBBB68A3C56B04FD789 matches managed/BC8B6A39/decompiled.
@@ -32,3 +32,31 @@ Fault injection against the original publication body proved that a failed backu
 A fully embedded Lord with RequiresInstalledPackage=false must not require any installed configuration. Installed-candidate type, registration and gameplay digest remain mandatory only for RequiresInstalledPackage=true; optional media absence or ambiguity cannot block embedded gameplay data. Production TryResolve is source-linked into tests, including missing and mismatching mandatory packages. Existing Fixes snapshot compatibility checks are retained.
 
 Coop turns the first two occupied saved slots into humans. Resolve author sources only for the remaining original player IDs, before Capture, both for playable Coop missions and the later TrailMakerSource Lord sidecars. Those editable sidecars retain original IDs; playable Coop sidecars remap to compact player IDs. The ordinary Custom Trail export still captures all relevant AI slots. These are automated managed-contract checks, not an in-game acceptance result.
+
+## Unnamed embedded Lords and live snapshot membership (2026-10-26)
+
+Reverified the installed native and managed hashes against the identities above. The
+closed path is managed: RestartSkirmishMapInfo.encode/decode preserves builtInLord=false,
+the complete AIC/AIV data and an empty lordName; ResolveEmbedded and CopyLord retain
+that selection. PrepareTrail builds authoritative slots from the verified requirements,
+using their author-facing names when no optional installed media provider is found.
+CaptureLobby includes these prepared embedded slots. An installed media name is not
+evidence of gameplay validity and its absence cannot remove a verified embedded slot.
+
+The subscribed Suffer of the antler package (packageId
+fca8c817-579d-48dc-93e9-3e78a9ebfdbc, content fingerprint
+b37597cbafb5e8fb6f789dfd7bc409ac66cf5b81c1b58a4f7affbf6b23028afb) passes the
+production loader's complete 40-mission validation. Direct inspection of mission 1's
+bundled restart data found empty names and complete custom AIC/castle data at slots
+3 through 8; its six Lord requirements all have RequiresInstalledPackage=false.
+The prior IsReadyToLaunch filter omitted these slots solely for their empty names,
+while the snapshot included them. The installed production slot comparator rejects
+that empty selection list and accepts the complete six-slot list. Host log
+2026-10-26 16:48:59.742 reports this exact slot-mismatch gate; the client receives it.
+
+Live membership must include active embedded Custom AICs whose type, configuration
+name and checksum still match their prepared data, regardless of local media. Exact
+snapshot membership, current configuration binding, required external packages and
+participant acknowledgements remain separate launch requirements. Saved-snapshot
+reconstruction retains its existing path. No native address or hook changes here;
+new two-peer gameplay acceptance is still required after the managed correction.

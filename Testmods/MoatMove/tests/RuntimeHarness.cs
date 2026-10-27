@@ -124,10 +124,25 @@ namespace MoatMove
         private void ResetFastCommandMap() {}
 
         private bool IsNativeManualGroupFlood(IntPtr manager,int p,int r,int x,int y)=>false;
+        // The addon fixture exercises its existing placement provider with the
+        // optional dry-command admission owner inactive. That owner's generated
+        // native gate and scoped decisions run in FriendlyMoatMovement.Tests.
+        private IntPtr manualAdmissionSlot;
+        private sealed class DryAdmissionBoundary { internal bool CommonEntered; internal IntPtr NativeState; internal int Tribe,X,Y,Player; }
+        private DryAdmissionBoundary manualAdmission;
+        private bool IsMixedManualGroup(int tribe,int x,int y)=>false;
+        private bool CanRestoreManualAdmission(IntPtr state)=>state==IntPtr.Zero;
+        private void InvalidateManualGroupAdmission(){}
         private bool TryQualifyNativeMoatStart(PlanScope p,out RouteProbeSummary s) { s=default; return false; }
         private Func<int,int,int,bool> nativeManualPathProbe;
         private bool ProbeNativeManualPath(int id,int x,int y)=>nativeManualPathProbe?.Invoke(id,x,y)==true;
         private bool ProbeNativeCursorConnectivity(int p,int a,int b,out RouteProbeSummary s) { s=default;return false; }
+        // The ordinary manual-cursor family executes in FriendlyMoatMovement.Tests;
+        // this fixture isolates the existing traversal provider, like its exact-probe seam below.
+        private sealed class ManualCommandMode { internal int Read()=>1; }
+        private ManualCommandMode manualGroundCommandMode=new();
+        private bool TryBindFriendlyGroundCursor(int p,uint raw,int tile,int site,int permission,int mode,bool interaction,out int id,out uint global) {id=0;global=0;return false;}
+        private bool TryQualifySameRegionSelection(AttackCursorPairScope p,int[] ids,string token,out AttackCursorPairScope b,out CursorGroupRouteSummary s) {b=null;s=default;return false;}
         private bool TryQualifyNativeSelection(AttackCursorPairScope p,int[] ids,string token,out AttackCursorPairScope b,out CursorGroupRouteSummary s) { b=null;s=default;return false; }
 
         private static int tick = 10;
@@ -292,6 +307,8 @@ namespace MoatMove
         private void RecordFallbackContractRejection(PlanScope p, string reason = "retry-contract", IntPtr m = default)
         { if (activeMoveCommand != null) activeMoveCommand.FallbackContractRejections++; }
         private static void TryLogDiagnosticFailure(string s, Exception e) { }
+        // No active cursor batch in this traversal fixture; covered by ManualHarness.
+        private void ObserveCursorGroundBuilder(IntPtr manager, int player, int profile, int result) { }
         private static void StartOrRefreshMoatMoveTracker(PlanScope p, RouteProbeSummary s, int r) { }
         private static bool IsPublishedWalkableBuildingApproach(int unitId, int tileId) => false;
         private bool occupied { get => GameTileManagerAPI.Instance.ForceOccupied; set => GameTileManagerAPI.Instance.ForceOccupied=value; }
@@ -1326,3 +1343,6 @@ namespace Shared {
   [System.Diagnostics.Conditional("SERP_DEVDIAG")] internal static void StopSpike(ref long timestamp,string name,long threshold,System.Func<string> details=null) {}
  }
 }
+
+// Ordinary Move mode is the validated external cursor command contract.
+namespace APIShared.Internal { internal static class GroundMovePreviewEligibility {internal const int OrdinaryMoveCommandMode=1;} }

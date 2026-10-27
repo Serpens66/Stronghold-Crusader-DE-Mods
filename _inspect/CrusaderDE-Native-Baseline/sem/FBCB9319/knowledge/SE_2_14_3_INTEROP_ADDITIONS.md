@@ -1,4 +1,4 @@
-# Script Extender 2.14.3 interop additions
+# Script Extender 2.14.3 interop additions [Scope: External component]
 
 Recorded on 2026-10-19 (Europe/Berlin). This is an additive source-knowledge supplement to the existing baseline, not a regenerated baseline or an installed-binary/runtime acceptance record.
 

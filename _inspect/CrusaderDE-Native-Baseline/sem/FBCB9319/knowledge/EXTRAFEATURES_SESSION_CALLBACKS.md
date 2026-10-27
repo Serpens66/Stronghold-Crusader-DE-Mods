@@ -1,4 +1,4 @@
-# ExtraFeatures session callback findings
+# ExtraFeatures session callback findings [Scope: Mod work, not Vanilla]
 
 Native SHA-256: FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
 Script Extender 2.6.0, source commit 2cee24e33b5a5d81d1c275efabc714ac59917b7b.

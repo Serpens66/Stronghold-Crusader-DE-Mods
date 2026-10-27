@@ -1,4 +1,4 @@
-# Gatehouse capture and true unit life
+# Gatehouse capture and true unit life [Scope: Vanilla + mod integration]
 
 Native SHA-256: `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
 Evidence: semantic SQLite function/call/xref exports, complete native handler disassembly, installed SE GameUnit metadata and installed RedBird implementation. Function role names below are probable; byte offsets and shown branch/data relationships are confirmed statically. Gameplay consequences remain unverified until an actual game test.
@@ -18,14 +18,14 @@ GameUnit record size `490`; API arrays are zero-based and lookup IDs are one-bas
 
 Current installed SE 2.14.1 exposes public `r_AliveState : AliveState` (signed Int16, +0x88) and `r_IsKilledByProjectile : UInt16` (+0x29C), verified against assembly SHA-256 E5D78FDF2EA9701336C398F7D29410F206D141FC01AA8099F30C824E6AB8A0B3. Historical `N0000019A : UInt32` combined this WORD and the adjacent unrelated WORD; only the low 16 bits were tested natively. Current access uses the dedicated UInt16 field. The appended 2.14.0 migration audit remains historical provenance. APIShared.UnitAccess.IsReallyAlive mirrors this conjunction for reference and pointer views, null false. Health, animation, ownership, slot identity and applicability remain separate concerns.
 
-## Capture filter boundary and compatibility
+## Capture filter boundary and compatibility [mod integration]
 
 `B7540..B7552`: CDQE/IMUL/CMP lengths 2/7/9. `JE B75B7` remains outside. Complete handler branches and semantic xrefs include the `B75C2 -> B7540` backedge, no entry inside the span. RAX carries the extended unit ID, RDI the required slot displacement, R13 the module base, R14W the zero comparison. Both outgoing paths overwrite flags other than ZF before consuming them. All GPRs and volatile XMM0..5 must survive the managed call; TEST after wrapper cleanup drives the retained native JE.
 
 SE scoring/capture hooks at `B757A/B790B`, Fixes farmer hook at `B7C39`, and APIShared later distance/timing/automation spans do not overlap. Canonical local Fixes source reviewed at commit `226e2e6960ad6f5992d4f5410d701161bb1cdc77`. Baseline SE provenance remains recorded in DATABASE_INFO.json; current fork/installed assembly are checked separately and not assumed equal to that older provenance.
 
 Runtime installation is native-hash/layout/byte/backend guarded. Offline native and machine tests now belong to BugfixesAndQoL/tests/GatehouseLivingCapture.Tests; actual gatehouse, save/load and real multiplayer acceptance require gameplay evidence and must not be inferred from successful installation.
-## Gameplay log evidence, 2026-10-07
+## Gameplay log evidence, 2026-10-07 [mod integration]
 
 The user reports successful in-game capture testing. The relevant BepInEx session ran approximately 22:28-22:33 with Fixes 1.25.1.0 loaded, in MapEditor. A later 22:34-22:36 session contains no GatehouseLivingCaptureTest markers and is not evidence for this hook.
 
@@ -38,7 +38,7 @@ The user reports successful in-game capture testing. The relevant BepInEx sessio
 
 This establishes execution and exclusion of a death-marked IsAlive unit alongside Fixes, together with the user's positive visual test. It does not independently establish every gatehouse variant, save/load or real multiplayer acceptance. Previous statements that gameplay/Fixes acceptance remained wholly unperformed are superseded by this limited evidence.
 
-## Main-mod integration, 2026-10-07
+## Main-mod integration, 2026-10-07 [mod integration]
 
 The tested capture filter is integrated into BugfixesAndQoL with default-enabled host setting EnableGatehouseLivingCaptureFix, gated by EnableMod. Static runtime/delegate/transaction roots survive startup cleanup. LibraryLoaded installs once; settings update an atomic data flag, preserving Vanilla when inactive. No timer, scan, hook repatch or normal teardown is introduced. Emitter/native definition/decision and installation/callback error boundaries were compared directly with the testmod before removal; only namespace, activation and diagnostics change. The integrated production sources pass the same 648 actual RedBird machine cases and additional activation/reactivation checks. Host/preset tests cover missing keys, stored false, client lock and host synchronization; reset and UI placement are statically checked. One execution confirmation remains at Info; installation details are Debug-only; per-unit logs are removed. In-game acceptance of this integration and real multiplayer are still pending, independently of the successful original testmod gameplay evidence above.
 
