@@ -43,6 +43,7 @@ internal static unsafe class Program
             if (code == IntPtr.Zero) throw new Exception("Private fixture VirtualAlloc failed.");
             new Span<byte>((void*)manager, ManagerSize).Clear();
             CodecAndLifecycle();
+            PublicationFailures();
             Console.WriteLine("PASS: codec and lifecycle.");
             Operations();
             Console.WriteLine("PASS: native operations, register/flags/stack and bounds.");
@@ -57,6 +58,53 @@ internal static unsafe class Program
             if (code != IntPtr.Zero) VirtualFree(code, UIntPtr.Zero, 0x8000);
             foreach (IntPtr p in new[] { manager, state, obj, output }) if (p != IntPtr.Zero) Marshal.FreeHGlobal(p);
         }
+    }
+
+    private static void PublicationFailures()
+    {
+        var pending = new TerrainPublication();
+        int disables = 0, rollbacks = 0;
+        pending.Fail(() => disables++, () => rollbacks++);
+        Check(disables == 1 && rollbacks == 1 && !pending.IsReady, "unpublished candidate rolls back");
+        pending.Fail(() => disables++, () => rollbacks++);
+        Check(disables == 1 && rollbacks == 1, "failed candidate cleanup is idempotent");
+        foreach (int failurePoint in new[] { 0, 1, 2, 3 })
+        {
+            var publication = new TerrainPublication();
+            bool bufferFreed = false, active = false, wrote = false;
+            var expected = new InvalidOperationException("fixture publication failure");
+            try
+            {
+                if (failurePoint == 0)
+                {
+                    publication.RetainRegisteredResources();
+                    throw expected; // Save registration owns a buffer callback before patch activation.
+                }
+                publication.Enable(() =>
+                {
+                    Check(!publication.IsReady, "publishing is not ready");
+                    if (failurePoint == 1) throw expected;
+                    wrote = true; active = true;
+                    if (failurePoint == 2) throw expected; // A backend can write before throwing.
+                }, () => { throw expected; }); // Post-write verification failed.
+                throw new Exception("Fixture did not reject publication.");
+            }
+            catch (InvalidOperationException error)
+            {
+                Check(ReferenceEquals(error, expected), "publication failure remains visible");
+                publication.Fail(() => active = false, () => bufferFreed = true);
+            }
+            Check(!publication.IsReady && !active && !bufferFreed, "registered or published failure retains disabled buffer");
+            Check(wrote == (failurePoint >= 2), "fixture reached the intended patch-write boundary");
+            bool retried = false;
+            try { publication.Enable(() => retried = true, () => { }); } catch (InvalidOperationException) { }
+            Check(!retried, "failed publication cannot be retried or reactivated");
+        }
+        var complete = new TerrainPublication();
+        bool installed = false, validated = false;
+        complete.Enable(() => installed = true, () => { Check(installed && !complete.IsReady, "validate before readiness"); validated = true; });
+        Check(validated && complete.IsReady, "whole-feature validation publishes readiness");
+        Console.WriteLine("PASS: production publication cleanup, registration retention, first/partial write and post-write failures.");
     }
 
     private static void WriteAudit(string path)

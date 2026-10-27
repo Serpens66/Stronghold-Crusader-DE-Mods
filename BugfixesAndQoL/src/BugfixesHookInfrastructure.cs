@@ -12,7 +12,7 @@ namespace BugfixesAndQoL
 {
     internal static class BugfixesHookInfrastructure
     {
-        internal static HookTransaction CreateOwnedTransaction(ScanRegion region) =>
+        internal static HookTransaction CreateOwnedTransaction(ScanRegion region, bool installOnCommit = true) =>
             new HookTransaction(
                 region,
                 SHCDESE.BepInEx.Bootstrap.Plugin.Instance.LoggerFactory,
@@ -22,6 +22,7 @@ namespace BugfixesAndQoL
                     // Ownership is retained for process lifetime after publication. Disposal is
                     // reserved for rolling back an unpublished initialization candidate.
                     OwnsHooks = true,
+                    InstallOnCommit = installOnCommit,
                     Backend = HookInstallPhase.Backend()
                 });
 

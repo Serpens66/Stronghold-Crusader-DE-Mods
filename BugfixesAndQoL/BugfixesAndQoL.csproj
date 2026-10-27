@@ -51,6 +51,7 @@
     <Compile Include="src\MoatTerrain\NativeCode.cs" />
     <Compile Include="src\MoatTerrain\NativeDefinition.cs" />
     <Compile Include="src\MoatTerrain\TerrainRuntime.cs" />
+    <Compile Include="src\MoatTerrain\TerrainPublication.cs" />
     <Compile Include="src\DrawbridgeDestructionFix\NativeContract.cs" />
     <Compile Include="src\DrawbridgeDestructionFix\FixRuntime.cs" />
     <Reference Include="System" /><Reference Include="System.Core" /><Reference Include="System.Numerics" /><Reference Include="System.Xml" /><Reference Include="System.Xml.Linq" />
