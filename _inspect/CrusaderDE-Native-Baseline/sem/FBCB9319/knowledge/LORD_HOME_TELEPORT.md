@@ -152,3 +152,19 @@ Executed normal/diagnostic native regressions, built-assembly activation/UI chec
 preset tests are recorded in .work/a/lord-bfqol/001. Existing testmod runtime records are preserved.
 The user reported the revised testmod still works; no new integrated game/editor/save/real-MP run
 has yet been observed. This is distinct from the successful offline integration checks.
+
+## Integrated gameplay report and diagnosis cleanup 2026-10-28 [mod integration]
+
+After installation of BugfixesAndQoL 1.0.207, the user reported that the integrated fix works.
+This is a user-reported gameplay observation, without a fresh captured log or explicit editor,
+save/load, AI-rescue or real two-peer multiplayer acceptance. Earlier testmod and integration
+build/log evidence is preserved unchanged.
+
+The completed diagnostic implementation is removed: native trace emission/storage/counters,
+per-teleport records/context, READY/RUNTIME_ALIVE success dumps and the diagnostic-only tick
+observer. The process-static feature root still retains the permanent hook and activation flag.
+Logging now retains only the existing shared native address-resolution line and one explicit
+initialization failure explaining that the feature is unavailable. No gameplay/settings/version
+change is made. Normal emitter/restore equivalence and existing normal/diagnostic machine tests
+are recorded separately under .work/a/lord-clean/001. Normal and /devdiag builds now use the same
+Lord predicate; other BugfixesAndQoL diagnostic features retain their own compile-time gates.

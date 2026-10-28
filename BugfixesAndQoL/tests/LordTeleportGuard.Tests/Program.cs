@@ -72,12 +72,11 @@ internal static class Program
                 f.Reset();
                 for (int i = 0; i < 500; i++)
                 {
-                    f.SetId(1); // Restore the exterior position without clearing the bounded trace.
+                    f.SetId(1); // Restore the exterior position for each independent request.
                     f.Expect(i % 2 == 0, "repeated return/rescue request " + i, route: i % 2 + 1);
                 }
-                f.CheckTraceBound();
             }
-            Console.WriteLine("PASS: native guard execution, actual RedBird installation, pristine caller blocks, ABI/flags/XMM, no-position-write and bounded diagnostic checks=" + checks);
+            Console.WriteLine("PASS: native guard execution, actual RedBird installation, pristine caller blocks, ABI/flags/XMM, no-position-write checks=" + checks);
             return 0;
         }
         catch (Exception error) { Console.Error.WriteLine(error); return 1; }
@@ -182,7 +181,7 @@ internal static class Program
 
     private sealed class Fixture : IDisposable
     {
-        private readonly IntPtr image, flag, trace, results;
+        private readonly IntPtr image, flag, results;
         private readonly int imageSize;
         private readonly X64InlineHook hook;
         private readonly byte[] installedPatch;
@@ -203,7 +202,7 @@ internal static class Program
                 if (count > 0) Marshal.Copy(file, BitConverter.ToInt32(file, h + 20), IntPtr.Add(image, BitConverter.ToInt32(file, h + 12)), count);
             }
             units = Base + LordTeleportNative.UnitsRva; lineup = Base + LordTeleportNative.AiLineUpRva; cleanup = Base + 0x2C00;
-            flag = Marshal.AllocHGlobal(4); trace = Marshal.AllocHGlobal(LordTeleportNative.TraceBytes); results = Marshal.AllocHGlobal(256);
+            flag = Marshal.AllocHGlobal(4); results = Marshal.AllocHGlobal(256);
             // Populate only the map-validity/row tables consumed by the real teleport helper.
             byte[] valid = Enumerable.Repeat((byte)1, 800 * 800).ToArray(); Marshal.Copy(valid, 0, Ptr(Base + 0x3A11EA4), valid.Length);
             for (int y = 0; y < 800; y++) Marshal.WriteInt32(Ptr(Base + 0x402FF2C + (uint)y * 12), y * 400);
@@ -217,7 +216,7 @@ internal static class Program
             Check(hook.DisplacedByteCount == 16 && !hook.IsInstalled, "actual backend decode");
             hook.Generate((asm, original, resume) => {
                 LordTeleportNative.ValidateInstructions(original, resume);
-                LordTeleportNative.Emit(asm, original, Address(flag), units, lineup, Address(trace)); });
+                LordTeleportNative.Emit(asm, original, Address(flag), units, lineup); });
             hook.Enable(); Check(hook.IsInstalled, "actual backend installed on PRIVATE image only");
             byte[] patch = new byte[16]; Marshal.Copy(Ptr(Base + LordTeleportNative.EntryRva), patch, 0, patch.Length);
             installedPatch = patch;
@@ -226,7 +225,6 @@ internal static class Program
         internal void Reset()
         {
             UnitId = 1; TargetX = TargetY = 20;
-            Marshal.Copy(new byte[LordTeleportNative.TraceBytes], 0, trace, LordTeleportNative.TraceBytes);
             Marshal.Copy(new byte[256], 0, results, 256);
             Marshal.Copy(new byte[36], 0, Ptr(lineup), 36);
             Active(true); SetId(1);
@@ -249,7 +247,7 @@ internal static class Program
         internal void Expect(bool blocked, string label, int route = 0, bool abi = false)
         {
             Marshal.Copy(new byte[256], 0, results, 256);
-            byte[] before = Snapshot(); long traceBefore = Marshal.ReadInt64(trace, 8);
+            byte[] before = Snapshot();
             BuildWrapper(route);
             Check(FlushInstructionCache(GetCurrentProcess(), image, (UIntPtr)(uint)imageSize), "fixture instruction-cache flush");
             ((RunCode)Marshal.GetDelegateForFunctionPointer(Ptr(Base + 0x2000), typeof(RunCode)))();
@@ -268,16 +266,6 @@ internal static class Program
                 for (int i = 128; i < 160; i += 8) Check(Marshal.ReadInt64(results, i) == 0x12345678, "XMM0/XMM5 unchanged: " + label);
                 Check(Marshal.ReadInt64(results, 176) == 0x12345678 && Marshal.ReadInt64(results, 184) == 0x12345678, "XMM6 unchanged: " + label);
             }
-#if SERP_DEVDIAG
-            Check(Marshal.ReadInt64(trace, 8) == traceBefore + (blocked ? 1 : 0), "diagnostic decision count: " + label);
-            if (blocked && route != 0 && Marshal.ReadInt32(trace) < LordTeleportNative.TraceCapacity)
-            {
-                int offset = LordTeleportNative.TraceHeader + (Marshal.ReadInt32(trace) - 1) * LordTeleportNative.TraceStride;
-                Check(Marshal.ReadInt64(trace, offset + 24) == unchecked((long)(Base + (route == 1 ? 0x15ABD6UL : 0x183014UL))), "actual caller identity: " + label);
-            }
-#else
-            Check(Marshal.ReadInt64(trace, 8) == 0, "normal build has no native diagnostic writes: " + label);
-#endif
         }
         internal void ExpectRescueTransparency()
         {
@@ -301,14 +289,6 @@ internal static class Program
             Check(actual.SequenceEqual(installedPatch), "logical activation preserves published executable bytes");
         }
 
-        internal void CheckTraceBound()
-        {
-#if SERP_DEVDIAG
-            Check(Marshal.ReadInt32(trace) == 32 && Marshal.ReadInt32(trace, 4) == 218 && Marshal.ReadInt64(trace, 8) == 250, "bounded trace invariant");
-#else
-            Check(Marshal.ReadInt32(trace) == 0, "normal trace absent");
-#endif
-        }
         private void BuildWrapper(int route)
         {
             var a = new Assembler(64);
@@ -358,7 +338,7 @@ internal static class Program
         {
             // PRIVATE executable fixtures only. No running-game hook is ever uninstalled.
             hook.Dispose(); VirtualFree(image, UIntPtr.Zero, 0x8000);
-            Marshal.FreeHGlobal(flag); Marshal.FreeHGlobal(trace); Marshal.FreeHGlobal(results);
+            Marshal.FreeHGlobal(flag); Marshal.FreeHGlobal(results);
         }
     }
 }

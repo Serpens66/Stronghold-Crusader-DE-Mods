@@ -18,8 +18,6 @@ namespace BugfixesAndQoL.LordTeleportGuard
         internal const int StandingRescueCallRva = 0x18300F, StandingRescueReturnRva = StandingRescueCallRva + 5;
         internal const int UnitsRva = 0x67E8400, AiLineUpRva = 0x8574C44;
         internal const int RecordOrigin = 0x65C, Stride = GameUnitManager.UnitRecordByteSize;
-        internal const int TraceCapacity = 32, TraceHeader = 16, TraceStride = 40;
-        internal const int TraceBytes = TraceHeader + TraceCapacity * TraceStride;
         internal static readonly byte[] EntryBytes = {
             0x48,0x89,0x6C,0x24,0x18,0x56,0x57,0x41,0x56,0x48,0x83,0xEC,0x20,0x49,0x63,0xF0 };
         // Longer than the overwritten span; used only for executable-section uniqueness evidence.
@@ -92,7 +90,7 @@ namespace BugfixesAndQoL.LordTeleportGuard
         }
 
         internal static void Emit(Assembler a, ReadOnlySpan<Instruction> original,
-            ulong enabled, ulong units, ulong aiLineUp, ulong trace)
+            ulong enabled, ulong units, ulong aiLineUp)
         {
             Label vanilla = a.CreateLabel();
             // No calls or SIMD operations. Both exits restore every scratch register and the flags.
@@ -112,9 +110,6 @@ namespace BugfixesAndQoL.LordTeleportGuard
             a.mov(r10, aiLineUp); a.cmp(__dword_ptr[r10 + r11 * 4], (int)AILords.SK_NULL); a.jne(vanilla);
             a.movsx(r10d, __word_ptr[rax + 0x992]); a.cmp(r8d, r10d); a.jne(vanilla);
             a.movsx(r10d, __word_ptr[rax + 0x994]); a.cmp(r9d, r10d); a.jne(vanilla);
-#if SERP_DEVDIAG
-            if (trace != 0) EmitTrace(a, trace);
-#endif
             Restore(a); a.ret(); // Void function: skip all position and occupancy writes.
             a.Label(ref vanilla);
             Restore(a);
@@ -127,27 +122,6 @@ namespace BugfixesAndQoL.LordTeleportGuard
             a.pop(r11); a.pop(r10); a.pop(rax); a.popfq();
         }
 
-#if SERP_DEVDIAG
-        private static void EmitTrace(Assembler a, ulong trace)
-        {
-            Label full = a.CreateLabel(), done = a.CreateLabel();
-            a.mov(r10, trace); a.inc(__qword_ptr[r10 + 8]);
-            a.mov(r11d, __dword_ptr[r10]); a.cmp(r11d, TraceCapacity); a.jae(full);
-            a.inc(__dword_ptr[r10]);
-            a.lea(r11, __[r11 + r11 * 4]); a.lea(r10, __[r10 + r11 * 8 + TraceHeader]);
-            a.mov(__dword_ptr[r10], edx);
-            a.mov(r11d, __dword_ptr[rax + 0x6F0]); a.mov(__dword_ptr[r10 + 4], r11d);
-            a.movzx(r11d, __word_ptr[rax + 0x6EE]); a.mov(__dword_ptr[r10 + 8], r11d);
-            a.mov(r11d, __dword_ptr[rax + 0x71C]); a.mov(__dword_ptr[r10 + 12], r11d);
-            a.mov(__dword_ptr[r10 + 16], r8d); a.mov(__dword_ptr[r10 + 20], r9d);
-            a.mov(r11, __qword_ptr[rsp + 32]); a.mov(__qword_ptr[r10 + 24], r11);
-            a.movzx(r11d, __word_ptr[rax + 0x918]); a.mov(__dword_ptr[r10 + 32], r11d);
-            a.movzx(r11d, __word_ptr[rax + 0x712]); a.mov(__dword_ptr[r10 + 36], r11d);
-            a.jmp(done);
-            a.Label(ref full); a.inc(__dword_ptr[r10 + 4]);
-            a.Label(ref done); a.nop();
-        }
-#endif
 
         internal static byte[] Assemble(Assembler a, ulong address)
         {

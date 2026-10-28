@@ -6,6 +6,10 @@ Settings are grouped into collapsible topics with search and recommendation mark
 
 ## Fixes
 
+### Prevent Lord teleport exploits
+
+This enabled-by-default host fix prevents human-controlled Lords from teleporting back to their Keep when their return path is blocked. AI Lords and rescue from invalid terrain remain unchanged.
+
 ### Fix Tree Blight decay
 
 This enabled-by-default, Recommended host fix starts woodland trees killed by Tree Blight at the beginning of their normal dead phase and lets them decay even if they were previously damaged or felled. It covers both Vanilla events and events triggered by RandomEvents, and repairs stalled dead trees from existing saves during normal simulation updates. The trees stop blocking construction when they disappear; they cannot be built over before then. The setting is under **Host → Economy → Fixes**.

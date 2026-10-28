@@ -1395,7 +1395,7 @@ No neighboring foreign hook is bypassed: the normal branch resumes at the live c
 
 The hook is installed in LibraryLoaded even with the option disabled. Its logical flag is published as
 installed && EnableMod && EnableLordReturnTeleportFix and is refreshed through ApplySettings.
-Its runtime, hook, flag and optional trace storage are process-rooted. There is no OnDestroy/OnDisable,
+Its runtime, hook and activation flag are process-rooted. There is no OnDestroy/OnDisable,
 map-change disposal, live unpatch or delayed installation. Settings change only the atomic data flag. Only unpublished failure candidates
 can roll back. A failed rollback retains storage and ownership with flag zero.
 
@@ -1429,7 +1429,7 @@ requested coordinates equal to its stored home coordinates. It does not use loca
 identity, a managed roster, AI portrait or wall/tile searches. It changes no caller state or route result.
 The blocked exit restores scratch registers and incoming flags before RET; the pass-through exit restores
 them before replaying the original prologue and its normal flag effects. No XMM instruction or managed call
-exists in the production predicate. The optional diagnostic path is compile-time-only and bounded to 32 rows.
+exists in the production predicate. Completed trace buffers, counters and per-teleport diagnostics have been removed.
 
 ### Address and layout map
 
@@ -1443,10 +1443,10 @@ exists in the production predicate. The optional diagnostic path is compile-time
 | Life/type/control/global | GameUnit `+0x88/+0x8A/+0x92/+0x94` | Manager working offsets `0x6E4/0x6E6/0x6EE/0x6F0`; layout checked against installed SHCDESE.dll. |
 | Home X/Y | GameUnit `+0x336/+0x338` | Working offsets `0x992/0x994`; periodically written by `0xC23C0` from Keep position (Y-1 except Keep type `0x28`). |
 | Current X/Y/height | GameUnit `+0xC0/+0xC2/+0xB6` | Working offsets `0x71C/0x71E/0x712`; actual native relocation writer and installed layout. |
-| AI state | GameUnit `+0x2BC` | Working offset `0x918`; diagnostic only; caller writes checked by executed fixture. |
+| AI state | GameUnit `+0x2BC` | Working offset `0x918`; layout validation and test fixture only; caller writes checked by executed fixture. |
 
 All current direct/derived RVAs used by runtime code are listed above. The standing-rescue CALL/return
-is a validated gameplay exemption; other CALL/return addresses are diagnostic labels, not hook targets. Test-only native fixture references are the documented callees and caller blocks,
+is a validated gameplay exemption; other CALL/return addresses describe audited call flow and are not hook targets. Test-only native fixture references are the documented callees and caller blocks,
 map validity `0x3A11EA4`, row-offset table `0x402FF2C`, tile height `0x4DDD350`, current-unit context `0x9302C4`,
 route builder `0x196280`, completion query `0x188340`, Lord exit `0x15D3C5` and dispatcher continuation `0x183041`.
 These fixture addresses never address the game process and are bound to the full reference file hash.
@@ -1460,6 +1460,10 @@ before changing the hash, including zero/nonzero mode and human idle behavior. D
 Migrated production sources: src/LordTeleportGuard; native execution suite: tests/LordTeleportGuard.Tests.
 NativeSiteRegistry owner is BugfixesAndQoL_Serp, registration Lord.HomeTeleportGuard.
 The host-only EnableLordReturnTeleportFix defaults and resets to true; the client UI switch is unrelated.
-No managed call or setting lookup is introduced in the native stub. A static feature root and static
-OnTick handler survive Unity cleanup. BepInIncompatibility rejects LordTeleportGuardTest_Serp.
-Historical testmod logs remain historical; the integrated artifact requires its own game/editor/save/MP acceptance.
+No managed call or setting lookup is introduced in the native stub. The static feature root retains
+its published hook independently of Unity cleanup; no tick observer is required. BepInIncompatibility
+rejects LordTeleportGuardTest_Serp. Runtime logging keeps the shared once-only native address resolution
+and the single LORD_TELEPORT_GUARD_UNAVAILABLE initialization failure; there is no success dump,
+heartbeat, teleport trace, trace allocation or counter, including in /devdiag builds.
+The user confirmed the integrated fix works on 2026-10-28. This is user-reported gameplay acceptance;
+no additional editor, save/load or real host/client acceptance is inferred. Historical records remain unchanged.

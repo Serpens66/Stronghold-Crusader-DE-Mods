@@ -12,22 +12,20 @@ using System.Threading;
 
 namespace BugfixesAndQoL.LordTeleportGuard
 {
-    internal sealed unsafe partial class LordTeleportGuardRuntime
+    internal sealed unsafe class LordTeleportGuardRuntime
     {
         private const string Site = "Lord.HomeTeleportGuard";
-        private readonly ManualLogSource log;
+        // Keep the published hook and its executable storage alive until process exit.
         private readonly X64InlineHook hook;
         private readonly IntPtr enabled;
-        private readonly IntPtr trace = IntPtr.Zero;
         private readonly ulong image;
-        private bool runtimeLogged;
         private bool ready;
         // Retain an unpublished candidate if rollback cannot prove that no code still enters it.
         private static object retainedFailedCandidate;
 
         internal LordTeleportGuardRuntime(ManualLogSource logger, CrusaderLibraryLoadContext context, bool modEnabled, bool optionEnabled)
         {
-            log = logger ?? throw new ArgumentNullException(nameof(logger));
+            var log = logger ?? throw new ArgumentNullException(nameof(logger));
             if (context == null) throw new ArgumentNullException(nameof(context));
             image = unchecked((ulong)context.ModuleHandle.ToInt64());
             if (image == 0 || Shared.DebugLogHelper.CurrentNativeSha256 != LordTeleportNative.NativeHash)
@@ -42,10 +40,6 @@ namespace BugfixesAndQoL.LordTeleportGuard
             ulong entry = image + LordTeleportNative.EntryRva;
             CheckLive(entry, LordTeleportNative.EntryBytes);
             enabled = Marshal.AllocHGlobal(4); Marshal.WriteInt32(enabled, 0);
-#if SERP_DEVDIAG
-            trace = Marshal.AllocHGlobal(LordTeleportNative.TraceBytes);
-            Marshal.Copy(new byte[LordTeleportNative.TraceBytes], 0, trace, LordTeleportNative.TraceBytes);
-#endif
             X64InlineHook candidate = null;
             bool claimed = false;
             try
@@ -57,12 +51,12 @@ namespace BugfixesAndQoL.LordTeleportGuard
                 {
                     LordTeleportNative.ValidateInstructions(original, resume);
                     LordTeleportNative.Emit(a, original, Address(enabled),
-                        image + LordTeleportNative.UnitsRva, image + LordTeleportNative.AiLineUpRva, Address(trace));
+                        image + LordTeleportNative.UnitsRva, image + LordTeleportNative.AiLineUpRva);
                 });
                 // Compare the actual installed-backend generator, including its one automatic continuation.
                 var assembler = new Assembler(64);
                 LordTeleportNative.Emit(assembler, LordTeleportNative.Decode(entry), Address(enabled),
-                    image + LordTeleportNative.UnitsRva, image + LordTeleportNative.AiLineUpRva, Address(trace));
+                    image + LordTeleportNative.UnitsRva, image + LordTeleportNative.AiLineUpRva);
                 assembler.AddUnrestrictedJmp(image + LordTeleportNative.ResumeRva);
                 CheckLive(Address(candidate.StubAddress), LordTeleportNative.Assemble(assembler, Address(candidate.StubAddress)));
                 string bytesHash;
@@ -96,42 +90,17 @@ namespace BugfixesAndQoL.LordTeleportGuard
                 {
                     if (claimed) NativeSiteRegistry.Unregister(BugfixesAndQoLPlugin.PluginGuid, Site);
                     Marshal.FreeHGlobal(enabled);
-                    if (trace != IntPtr.Zero) Marshal.FreeHGlobal(trace);
                 }
-                else retainedFailedCandidate = new object[] { candidate, enabled, trace };
+                else retainedFailedCandidate = new object[] { candidate, enabled };
                 throw;
             }
         }
-
-        internal ManualLogSource LogSource => log;
 
         internal void SetEnabled(bool modEnabled, bool optionEnabled)
         {
             if (enabled != IntPtr.Zero)
                 Volatile.Write(ref *(int*)enabled, LordTeleportNative.ShouldEnable(ready, modEnabled, optionEnabled) ? 1 : 0);
         }
-
-        internal void ReportInstalled()
-        {
-            Shared.DebugLogHelper.LogInfo(log,
-                "LORD_TELEPORT_GUARD_READY: rva=0x19BA40; span=[0x19BA40,0x19BA50); displaced=16; " +
-                "permanent=True; nativePredicate=True; humanControl=AILineUp; allModes=True; standingTileRescue=Vanilla; " +
-                "unitManager=0x67E8400; unitHeader=0x65C; stride=0x490; ids=1..9999; " +
-                "homeOffsets=0x336/0x338; nativeHash=" + LordTeleportNative.NativeHash);
-        }
-
-        internal void OnTick(int tick)
-        {
-            if (!runtimeLogged)
-            {
-                runtimeLogged = true;
-                Shared.DebugLogHelper.LogInfo(log, "LORD_TELEPORT_GUARD_RUNTIME_ALIVE: tick=" + tick +
-                    "; nativeHook=" + hook.IsInstalled + "; startupCleanupIndependent=True.");
-            }
-            FlushDiagnostics(tick);
-        }
-
-        partial void FlushDiagnostics(int tick);
 
         private void ValidateAnchors(ReadOnlySpan<byte> memory)
         {
