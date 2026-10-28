@@ -8,7 +8,7 @@ function Check([string]$file, [string[]]$arguments = @()) {
 $workspace = Split-Path -Parent $PSScriptRoot
 Check (Join-Path $workspace 'Shared/Tools/Validation/Test-SharedBoundaries.ps1') @('-ModDirectory','Spectator','-ConsumerOnly')
 Check (Join-Path $workspace 'Shared/Tools/Validation/Test-IngameTooltips.ps1') @('-Workspace',$workspace,'-ModDirectories',$PSScriptRoot)
-foreach ($name in @('Presets','ActionPolicy','SpectatorSelection','SpectatorControllers','SavePolicy','CreditFocus','OptionalGates','OptionalPowers','CompactLayout','DockLayout','NativeActions','NativeOrderContract','NativePowerContext','InstalledContracts')) {
+foreach ($name in @('Presets','Allies','ActionPolicy','SpectatorSelection','SpectatorControllers','SavePolicy','CreditFocus','OptionalGates','OptionalPowers','CompactLayout','DockLayout','NativeActions','NativeOrderContract','NativePowerContext','InstalledContracts')) {
     Write-Host "[Spectator] $name"
     Check (Join-Path $PSScriptRoot "tests/Test-$name.ps1")
 }

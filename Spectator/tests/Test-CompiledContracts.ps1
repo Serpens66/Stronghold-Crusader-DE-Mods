@@ -21,8 +21,13 @@ try {
     }
     $base = $api.MainModule.GetType('APIShared.ModSettings.PresetLobbyModSettingsViewModel')
     $items = @('ModeOptions','PropertyName','ScopeText','SelectedModeIndex','Title','Description','DisplayName','Name')
-    foreach ($view in @(@('Patches/Assets/GUI/XAML/IngameUIScreens.xaml','Spectator.TestToolsViewModel'),@('Patches/Assets/GUI/XAMLResources/HUD_Main.xaml','Spectator.TestToolsViewModel'),@('Override/ScriptExtenderUI/SpectatorSettings.xaml','Spectator.SpectatorViewModel'),@('Patches/Assets/GUI/XAMLResources/HUD_MissionOver.xaml','Spectator.StatisticsControlsViewModel'))) {
+    foreach ($view in @(@('Patches/Assets/GUI/XAML/IngameUIScreens.xaml','Spectator.TestToolsViewModel'),@('Patches/Assets/GUI/XAMLResources/HUD_Main.xaml','Spectator.TestToolsViewModel'),@('Patches/Assets/GUI/XAMLResources/HUD_AlliesPanel.xaml','Spectator.AllyTestViewModel'),@('Override/ScriptExtenderUI/SpectatorSettings.xaml','Spectator.SpectatorViewModel'),@('Patches/Assets/GUI/XAMLResources/HUD_MissionOver.xaml','Spectator.StatisticsControlsViewModel'))) {
         $text = [IO.File]::ReadAllText((Join-Path $root $view[0]))
+        if ($view[1] -eq 'Spectator.AllyTestViewModel') {
+            [xml]$alliesXaml = $text
+            # SetAttribute selectors name existing Vanilla bindings; only our added subtree uses this VM.
+            $text = ($alliesXaml.SelectNodes('//Operation[@Type="Add"]/Content') | ForEach-Object { $_.OuterXml }) -join " "
+        }
         $properties = @($mod.MainModule.GetType($view[1]).Properties.Name) + @($base.Properties.Name)
         foreach ($match in [regex]::Matches($text,'\{Binding ([\w]+)(?:[,}\[])')) {
             if ($match.Groups[1].Value -notin $properties -and $match.Groups[1].Value -notin $items) { throw "Unresolved binding: $($view[0]) $($match.Value)" }

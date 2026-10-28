@@ -59,7 +59,8 @@ foreach ($directory in $directories) {
     foreach ($file in $popupFiles) {
         $menuRelative = $requireShared -and $file.FullName -in @(
             (Join-Path $directory.FullName 'Patches\Assets\GUI\XAML\IngameUIScreens.xaml'),
-            (Join-Path $directory.FullName 'Patches\Assets\GUI\XAMLResources\HUD_Main.xaml'))
+            (Join-Path $directory.FullName 'Patches\Assets\GUI\XAMLResources\HUD_Main.xaml'),
+            (Join-Path $directory.FullName 'Patches\Assets\GUI\XAMLResources\HUD_AlliesPanel.xaml'))
         [xml]$document = [IO.File]::ReadAllText($file.FullName)
         foreach ($node in $document.SelectNodes('//*[@ToolTip]')) {
             if ($node.GetAttribute('ToolTipService.IsEnabled') -eq 'False') { $disabled++; continue }

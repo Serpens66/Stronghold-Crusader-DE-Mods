@@ -380,3 +380,31 @@ as successful transactions. Future native updates must re-audit these branches a
 The production transaction tests substitute only API boundaries; the real XAML patcher tests
 prove mask sibling ordering and unchanged Vanilla XML, not rendered hit testing. Full Noesis
 input/rendering and physical storage visuals still require in-game acceptance.
+
+## Allies test-mode presentation (managed contract)
+
+The existing `HUD_AlliesPanel` is retained, including its root Visibility binding to
+`MainViewModel.AlliesPanelVisible`. Perspective refresh never writes this property.
+Close, session replacement and HUD replacement invalidate the pending refresh;
+report refresh borrows only opacity/input properties and restores bindings, leaving
+newer foreign values alone.
+
+The independent eight-player roster does not modify Vanilla's six-slot ally/enemy
+arrays. Only the original goods page is shared. `selectedGoods` and
+`selectedGoodsAmount` are private Int32 fields; `UpdateGoods()` is a private void
+method without parameters, checked against the real installed managed assembly.
+The original amount commands, including BFQ's installed detour and its modifier
+labels, remain the execution path. An amount-command wrapper forwards exactly once
+and saturates Vanilla Int32 wraparound; no second modifier calculation is installed.
+Test confirmation buttons enqueue explicit actor/good/amount snapshots and never
+invoke `ConfirmGoods`, `Ally_SendGoods` or `Ally_RequestGoods`. The existing action
+guard vetoes all ordinary ally actions while this test mode is enabled.
+
+Credit permits a live human or AI recipient; orders still require an AI. Test-mode
+attack/cancel requester is the ordered AI; defense requester is the protected
+player. The existing audited native call and validation remain unchanged. The other
+two tool views retain their separate selection and requester behavior.
+
+Only named footer/back-button Visibility, amount-button Command and goods-counter
+Text properties are borrowed; their original bindings are restored on mode exit or
+HUD teardown. No host DataContext, global identity, alliances or native hook changes.

@@ -43,9 +43,10 @@ namespace Spectator
         private static EngineInterface.PlayState reportStateBeforeSwitch;
         private static EngineInterface.PlayState alliesStateBeforeSwitch;
         private static Noesis.Grid hiddenReportPanel;
-        private static Visibility reportPanelVisibility;
+        private static PanelInputLease reportPanelLease;
         private static HUD_AlliesPanel hiddenAlliesPanel;
-        private static Visibility alliesPanelVisibility;
+        private static readonly PanelRefreshState alliesRefresh = new PanelRefreshState();
+        internal static bool AlliesRefreshing => alliesRefresh.Pending;
         private static Noesis.Grid guardedFoodPanel;
         private static readonly Button[] guardedFoodButtons = new Button[4];
         private static readonly bool[] foodButtonHitTestBeforeGuard = new bool[4];
@@ -407,7 +408,7 @@ namespace Spectator
         internal static bool CanInteractWithAllies()
         {
             var state = GameData.Instance?.lastGameState;
-            return IsActiveSpectator() && !GameModeHelper.IsRealMultiplayer() && state != null &&
+            return !AlliesRefreshing && IsActiveSpectator() && !GameModeHelper.IsRealMultiplayer() && state != null &&
                    state.is_skirmish_player(selectedPlayer) && !state.is_valid_player(selectedPlayer) &&
                    EngineInterface.GetMeritData()[selectedPlayer, 1] >= 0;
         }
@@ -457,9 +458,8 @@ namespace Spectator
             if (hiddenReportPanel == null)
             {
                 hiddenReportPanel = panel;
-                reportPanelVisibility = panel.Visibility;
+                reportPanelLease = new PanelInputLease(panel, true);
             }
-            panel.Visibility = Visibility.Hidden;
             ArmRenderIfNeeded();
         }
 
@@ -477,14 +477,14 @@ namespace Spectator
 
         private static void RestoreReportPanel()
         {
-            if (hiddenReportPanel != null) hiddenReportPanel.Visibility = reportPanelVisibility;
+            reportPanelLease?.Restore(); reportPanelLease = null;
             hiddenReportPanel = null;
             reportStateBeforeSwitch = null;
         }
 
         private static void WaitForFreshAllies(EngineInterface.PlayState oldState)
         {
-            if (MainViewModel.Instance?.AlliesPanelVisible != true) return;
+            if (MainViewModel.Instance?.AlliesPanelVisible != true || SpectatorRuntime.IsAllyTestMode) return;
             var panel = MainViewModel.Instance.HUDAlliesPanel;
             if (panel == null) return;
             if (hiddenAlliesPanel != null && !ReferenceEquals(hiddenAlliesPanel, panel)) RestoreAllyPanel();
@@ -493,21 +493,23 @@ namespace Spectator
             if (hiddenAlliesPanel == null)
             {
                 hiddenAlliesPanel = panel;
-                alliesPanelVisibility = panel.Visibility;
+                panel.IsVisibleChanged += OnPendingAllyVisibilityChanged;
             }
-            panel.Visibility = Visibility.Hidden;
+            alliesRefresh.Begin(preparedSessionId, panel, oldState);
+            SpectatorAllyHooks.RefreshControlState();
             ArmRenderIfNeeded();
         }
 
         private static void RefreshPendingAllies(EngineInterface.PlayState state)
         {
             if (alliesStateBeforeSwitch == null) return;
-            if (!mapReady || MainViewModel.Instance?.AlliesPanelVisible != true)
+            if (!mapReady || !alliesRefresh.IsCurrent(preparedSessionId,
+                MainViewModel.Instance?.HUDAlliesPanel, MainViewModel.Instance?.AlliesPanelVisible == true))
             {
                 RestoreAllyPanel();
                 return;
             }
-            if (ReferenceEquals(state, alliesStateBeforeSwitch)) return;
+            if (!alliesRefresh.HasFreshState(state)) return;
             try { SpectatorAllyHooks.RefreshOpenPanel(); }
             finally { RestoreAllyPanel(); }
         }
@@ -519,11 +521,18 @@ namespace Spectator
             RestoreAllyPanel();
         }
 
+        internal static void CancelAllyRefresh() => RestoreAllyPanel();
+        private static void OnPendingAllyVisibilityChanged(object sender, DependencyPropertyChangedEventArgs args)
+        {
+            if (hiddenAlliesPanel?.IsVisible != true) RestoreAllyPanel();
+        }
         private static void RestoreAllyPanel()
         {
-            if (hiddenAlliesPanel != null) hiddenAlliesPanel.Visibility = alliesPanelVisibility;
+            if (hiddenAlliesPanel != null) hiddenAlliesPanel.IsVisibleChanged -= OnPendingAllyVisibilityChanged;
+            alliesRefresh.Cancel();
             hiddenAlliesPanel = null;
             alliesStateBeforeSwitch = null;
+            if (MainViewModel.viewModelLoaded) SpectatorAllyHooks.RefreshControlState();
         }
 
         private static void GuardFoodControls()

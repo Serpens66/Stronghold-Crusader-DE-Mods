@@ -38,7 +38,8 @@ namespace Spectator
             harmony.Patch(open, postfix: new HarmonyMethod(typeof(SpectatorAllyHooks), nameof(AfterOpen)));
             if (!GameActionEvents.TryRegister(SpectatorPlugin.PluginGuid, "SpectatorAllySafety", args => {
                 if (args.Command < Enums.GameActionCommand.Ally_Orders || args.Command > Enums.GameActionCommand.Ally_CancelOrders) return;
-                if (SpectatorPerspectiveRuntime.IsNetworkSpectator() || (SpectatorPerspectiveRuntime.IsSpectatorActionRestricted() &&
+                // Test-mode buttons use the explicit-actor queue; no normal transfer/request may escape it.
+                if (SpectatorRuntime.IsAllyTestMode || SpectatorPerspectiveRuntime.IsNetworkSpectator() || (SpectatorPerspectiveRuntime.IsSpectatorActionRestricted() &&
                     !SpectatorPerspectiveRuntime.CanIssueAllyAction(args.Command, args.StructureId, args.ActionState, args.Value2)))
                     args.SkipOriginalFunction = true;
             }, null, out string reason)) throw new InvalidOperationException(reason);
@@ -74,6 +75,7 @@ namespace Spectator
         {
             bool active = SpectatorPerspectiveRuntime.IsSpectatorActionRestricted() ||
                 SpectatorPerspectiveRuntime.IsNetworkSpectator();
+            if (!state) SpectatorRuntime.OnAllyPanelClosed();
             if (state && active) RefreshControlState();
             else if (!active) RestoreControls();
         }
@@ -83,6 +85,7 @@ namespace Spectator
             if (!SpectatorPerspectiveRuntime.IsActiveSpectator() || MainViewModel.Instance?.AlliesPanelVisible != true) return;
             var panel = MainViewModel.Instance.HUDAlliesPanel;
             if (panel == null) return;
+            if (SpectatorRuntime.IsAllyTestMode) return;
             panelOpen.Invoke(panel, null);
             RefreshControlState();
         }
@@ -97,9 +100,11 @@ namespace Spectator
                 guardedPanel = panel;
             }
             if (originalButtonStates.Count < 12) FindActionButtons(panel);
-            bool enabled = SpectatorPerspectiveRuntime.CanInteractWithAllies();
+            bool enabled = !SpectatorPerspectiveRuntime.AlliesRefreshing && SpectatorPerspectiveRuntime.CanInteractWithAllies();
             foreach (var entry in originalButtonStates)
             {
+                // The original footer buttons have mode-specific, independently validated commands.
+                if (SpectatorRuntime.IsAllyTestMode && (Equals(entry.Key.CommandParameter, "Credit") || Equals(entry.Key.CommandParameter, "Reset"))) continue;
                 bool shouldEnable = enabled && entry.Value;
                 if (entry.Key.IsEnabled != shouldEnable) entry.Key.IsEnabled = shouldEnable;
             }
@@ -107,6 +112,7 @@ namespace Spectator
 
         private static void FindActionButtons(DependencyObject root)
         {
+            if (root is FrameworkElement element && element.Name == "SpectatorAllyTest") return;
             if (root is Button button && IsActionButton(button.CommandParameter as string) &&
                 !originalButtonStates.ContainsKey(button))
                 originalButtonStates.Add(button, button.IsEnabled);

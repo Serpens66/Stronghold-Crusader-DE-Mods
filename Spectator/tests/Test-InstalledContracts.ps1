@@ -25,6 +25,13 @@ try {
         @('CrusaderDE.MainViewModel','get_MeritPanelVisible','method'),
         @('CrusaderDE.MainViewModel','get_MPChatVisible','method'),
         @('CrusaderDE.MainViewModel','getAIFace','method'),
+        @('CrusaderDE.MainViewModel','getAIFaceBackground','method'),
+        @('Platform_Multiplayer','GetUserAvatar','method'),
+        @('Platform_Multiplayer','getPlayerSteamID','method'),
+        @('CrusaderDE.PropEx','SetSprite1','method'),
+        @('CrusaderDE.PropEx','SetSprite2','method'),
+        @('CrusaderDE.PropEx','SetSprite3','method'),
+        @('CrusaderDE.PropEx','SetSprite4','method'),
         @('CrusaderDE.MainViewModel','getAlliesGoodsIcon','method'),
         @('CrusaderDE.MainViewModel','SetNoesisKeyboardState','method'),
         @('FatControler','get_NoesisHasKeyboard','method'),
@@ -49,6 +56,14 @@ try {
         if ($member.Count -eq 0) { throw "Missing public game member: $($entry -join '.')" }
         $member | ForEach-Object { Write-Host ('Validated public member: ' + $_.FullName) }
     }
+    $allies = $assembly.MainModule.GetType('CrusaderDE.HUD_AlliesPanel')
+    foreach ($name in @('selectedGoods','selectedGoodsAmount')) {
+        $fields = @($allies.Fields | Where-Object { $_.Name -eq $name -and $_.IsPrivate -and $_.FieldType.FullName -eq 'System.Int32' })
+        if ($fields.Count -ne 1) { throw "Allies private Int32 contract changed: $name" }
+    }
+    $refresh = @($allies.Methods | Where-Object { $_.Name -eq 'UpdateGoods' -and $_.IsPrivate -and $_.ReturnType.FullName -eq 'System.Void' -and $_.Parameters.Count -eq 0 })
+    if ($refresh.Count -ne 1) { throw 'Allies private refresh contract changed.' }
+    Write-Host 'PASS: real-assembly private Allies fields and refresh accessed only via checked reflection.'
     $monitor = @($assembly.MainModule.GetType('EngineInterface').Fields | Where-Object Name -eq 'threadLock')
     if ($monitor.Count -ne 1 -or -not $monitor[0].IsStatic -or -not $monitor[0].IsPrivate -or $monitor[0].FieldType.FullName -ne 'System.Object') { throw 'Vanilla monitor reflection contract changed.' }
     Write-Host 'Validated private static object EngineInterface.threadLock (encapsulated reflection).'

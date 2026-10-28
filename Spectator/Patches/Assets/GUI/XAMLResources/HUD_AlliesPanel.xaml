@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Patch xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:local="clr-namespace:CrusaderDE" xmlns:specui="clr-namespace:Spectator;assembly=Spectator" xmlns:seui="clr-namespace:SHCDESE.UI;assembly=SHCDESE">
+<Operation Type="AddNamespace" AttributeName="specui" Value="clr-namespace:Spectator;assembly=Spectator"/>
+<Operation Type="AddNamespace" AttributeName="seui" Value="clr-namespace:SHCDESE.UI;assembly=SHCDESE"/>
+<Operation Type="SetAttribute" XPath="//n:Grid[@Visibility='{Binding Allies_GoodsViewVis, Converter={StaticResource booleanToVisibilityConverter}}']" AttributeName="x:Name" Value="AllyVanillaGoods"/>
+<Operation Type="SetAttribute" XPath="//n:Grid[n:Button[@CommandParameter='ConfirmGoods']]" AttributeName="x:Name" Value="AllyVanillaGoodsFooter"/>
+<Operation Type="SetAttribute" XPath="//n:Grid[@Visibility='{Binding Allies_GoodsViewVis, Converter={StaticResource booleanToVisibilityConverter}}']/n:Button[@CommandParameter='Back']" AttributeName="x:Name" Value="AllyVanillaGoodsBack"/>
+<Operation Type="SetAttribute" XPath="//n:TextBlock[@Text='{Binding AllStoredGoods[2]}']" AttributeName="x:Name" Value="AllyStock2"/>
+<Operation Type="SetAttribute" XPath="//n:TextBlock[@Text='{Binding AllStoredGoods[3]}']" AttributeName="x:Name" Value="AllyStock3"/>
+<Operation Type="SetAttribute" XPath="//n:TextBlock[@Text='{Binding AllStoredGoods[4]}']" AttributeName="x:Name" Value="AllyStock4"/>
+<Operation Type="SetAttribute" XPath="//n:TextBlock[@Text='{Binding AllStoredGoods[6]}']" AttributeName="x:Name" Value="AllyStock6"/>
+<Operation Type="SetAttribute" XPath="//n:TextBlock[@Text='{Binding AllStoredGoods[7]}']" AttributeName="x:Name" Value="AllyStock7"/>
+<Operation Type="SetAttribute" XPath="//n:TextBlock[@Text='{Binding AllStoredGoods[9]}']" AttributeName="x:Name" Value="AllyStock9"/>
+<Operation Type="SetAttribute" XPath="//n:TextBlock[@Text='{Binding AllStoredGoods[10]}']" AttributeName="x:Name" Value="AllyStock10"/>
+<Operation Type="SetAttribute" XPath="//n:TextBlock[@Text='{Binding AllStoredGoods[11]}']" AttributeName="x:Name" Value="AllyStock11"/>
+<Operation Type="SetAttribute" XPath="//n:TextBlock[@Text='{Binding AllStoredGoods[12]}']" AttributeName="x:Name" Value="AllyStock12"/>
+<Operation Type="SetAttribute" XPath="//n:TextBlock[@Text='{Binding AllStoredGoods[13]}']" AttributeName="x:Name" Value="AllyStock13"/>
+<Operation Type="SetAttribute" XPath="//n:TextBlock[@Text='{Binding AllStoredGoods[14]}']" AttributeName="x:Name" Value="AllyStock14"/>
+<Operation Type="SetAttribute" XPath="//n:TextBlock[@Text='{Binding AllStoredGoods[15]}']" AttributeName="x:Name" Value="AllyStock15"/>
+<Operation Type="SetAttribute" XPath="//n:TextBlock[@Text='{Binding AllStoredGoods[16]}']" AttributeName="x:Name" Value="AllyStock16"/>
+<Operation Type="SetAttribute" XPath="//n:TextBlock[@Text='{Binding AllStoredGoods[17]}']" AttributeName="x:Name" Value="AllyStock17"/>
+<Operation Type="SetAttribute" XPath="//n:TextBlock[@Text='{Binding AllStoredGoods[18]}']" AttributeName="x:Name" Value="AllyStock18"/>
+<Operation Type="SetAttribute" XPath="//n:TextBlock[@Text='{Binding AllStoredGoods[19]}']" AttributeName="x:Name" Value="AllyStock19"/>
+<Operation Type="SetAttribute" XPath="//n:TextBlock[@Text='{Binding AllStoredGoods[20]}']" AttributeName="x:Name" Value="AllyStock20"/>
+<Operation Type="SetAttribute" XPath="//n:TextBlock[@Text='{Binding AllStoredGoods[21]}']" AttributeName="x:Name" Value="AllyStock21"/>
+<Operation Type="SetAttribute" XPath="//n:TextBlock[@Text='{Binding AllStoredGoods[22]}']" AttributeName="x:Name" Value="AllyStock22"/>
+<Operation Type="SetAttribute" XPath="//n:TextBlock[@Text='{Binding AllStoredGoods[23]}']" AttributeName="x:Name" Value="AllyStock23"/>
+<Operation Type="SetAttribute" XPath="//n:TextBlock[@Text='{Binding AllStoredGoods[24]}']" AttributeName="x:Name" Value="AllyStock24"/>
+<Operation Type="SetAttribute" XPath="//n:Grid[n:Button[@CommandParameter='ConfirmGoods']]/n:Button[@CommandParameter='ConfirmGoods']" AttributeName="x:Name" Value="AllyVanillaCredit"/>
+<Operation Type="SetAttribute" XPath="//n:Grid[n:Button[@CommandParameter='ConfirmGoods']]/n:Button[@CommandParameter='CancelGoods']" AttributeName="x:Name" Value="AllyVanillaReset"/>
+<Operation Type="SetAttribute" XPath="//n:TextBlock[@Text='{Binding AlliesGoods_Info}']" AttributeName="x:Name" Value="AllyVanillaSummary"/>
+<Operation Type="Add" XPath="//n:Grid[n:Button[@CommandParameter='ConfirmGoods']]"><Content>
+<Grid x:Name="AllyTestFooterExtras" Visibility="Collapsed" IsHitTestVisible="True">
+<Button x:Name="AllyTestDebit" Width="35" Height="35" Margin="0,0,140,0" HorizontalAlignment="Right" VerticalAlignment="Center" local:PropEx.Sprite1="{StaticResource UI-Buttons S035}" local:PropEx.Sprite2="{StaticResource UI-Buttons S036}" local:PropEx.Sprite3="{StaticResource UI-Buttons S036}" local:PropEx.Sprite4="{StaticResource UI-Buttons S035}" Style="{StaticResource BTN_Image}" Command="{Binding Command}" CommandParameter="Debit"/>
+<TextBlock Text="−" Width="35" Margin="0,0,140,0" HorizontalAlignment="Right" VerticalAlignment="Center" TextAlignment="Center" FontSize="24" Foreground="White" IsHitTestVisible="False"/>
+<TextBlock x:Name="AllyTestStatus" Text="{Binding Status}" Margin="75,0,180,5" VerticalAlignment="Bottom" FontSize="12" Foreground="#FFEFF3C6" TextTrimming="CharacterEllipsis"/>
+</Grid></Content></Operation>
+<Operation Type="Add" XPath="/n:UserControl/n:Grid[@x:Name='LayoutRoot']"><Content>
+<Grid x:Name="SpectatorAllyTest" Panel.ZIndex="20" Visibility="Collapsed"><Grid.Resources>
+<Style x:Key="AllyTooltip" TargetType="{x:Type ToolTip}">
+            <Setter Property="Background" Value="#FF1D1710" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="BorderBrush" Value="#FFF2D48A" />
+            <Setter Property="specui:MenuToolTipSizing.Enabled" Value="True" />
+            <Setter Property="seui:ToolTipResolutionScale.Enabled" Value="False" />
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="MaxWidth" Value="420" />
+            <Setter Property="Padding" Value="10,8" />
+            <Setter Property="BorderThickness" Value="1.5" />
+            <Setter Property="Template">
+              <Setter.Value>
+                <ControlTemplate TargetType="{x:Type ToolTip}">
+                  <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" Padding="{TemplateBinding Padding}" MaxWidth="{TemplateBinding MaxWidth}">
+                    <TextBlock Text="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}" FontSize="{TemplateBinding FontSize}" TextWrapping="Wrap" />
+                  </Border>
+                </ControlTemplate>
+              </Setter.Value>
+            </Setter>
+          </Style>
+</Grid.Resources>
+<Grid x:Name="AllyTestBody" Visibility="Collapsed">
+<Button x:Name="AllyTestFrame" Style="{StaticResource BDR_SH1DE60}" IsHitTestVisible="False"/>
+<TextBlock x:Name="AllyTestTitle" Margin="20,15,220,0" VerticalAlignment="Top" FontSize="22" Foreground="#FFEFF3C6"/>
+<Grid x:Name="AllyTestSlot1" Width="72" Height="72" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="60,60,0,0">
+<Image x:Name="AllyTestFace1" IsHitTestVisible="False"/>
+<Button x:Name="AllyTestPlayer1" Width="72" Height="72" Command="{Binding Command}" CommandParameter="Player1" Style="{StaticResource BTN_Image}" ToolTipService.ShowDuration="60000"><Button.ToolTip><ToolTip Style="{StaticResource AllyTooltip}" Content="{Binding Help}"/></Button.ToolTip></Button>
+<Image x:Name="AllyTestHuman1" Source="{StaticResource Face Border}" IsHitTestVisible="False" Visibility="Collapsed"/>
+</Grid>
+<Grid x:Name="AllyTestSlot2" Width="72" Height="72" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="160,60,0,0">
+<Image x:Name="AllyTestFace2" IsHitTestVisible="False"/>
+<Button x:Name="AllyTestPlayer2" Width="72" Height="72" Command="{Binding Command}" CommandParameter="Player2" Style="{StaticResource BTN_Image}" ToolTipService.ShowDuration="60000"><Button.ToolTip><ToolTip Style="{StaticResource AllyTooltip}" Content="{Binding Help}"/></Button.ToolTip></Button>
+<Image x:Name="AllyTestHuman2" Source="{StaticResource Face Border}" IsHitTestVisible="False" Visibility="Collapsed"/>
+</Grid>
+<Grid x:Name="AllyTestSlot3" Width="72" Height="72" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="260,60,0,0">
+<Image x:Name="AllyTestFace3" IsHitTestVisible="False"/>
+<Button x:Name="AllyTestPlayer3" Width="72" Height="72" Command="{Binding Command}" CommandParameter="Player3" Style="{StaticResource BTN_Image}" ToolTipService.ShowDuration="60000"><Button.ToolTip><ToolTip Style="{StaticResource AllyTooltip}" Content="{Binding Help}"/></Button.ToolTip></Button>
+<Image x:Name="AllyTestHuman3" Source="{StaticResource Face Border}" IsHitTestVisible="False" Visibility="Collapsed"/>
+</Grid>
+<Grid x:Name="AllyTestSlot4" Width="72" Height="72" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="360,60,0,0">
+<Image x:Name="AllyTestFace4" IsHitTestVisible="False"/>
+<Button x:Name="AllyTestPlayer4" Width="72" Height="72" Command="{Binding Command}" CommandParameter="Player4" Style="{StaticResource BTN_Image}" ToolTipService.ShowDuration="60000"><Button.ToolTip><ToolTip Style="{StaticResource AllyTooltip}" Content="{Binding Help}"/></Button.ToolTip></Button>
+<Image x:Name="AllyTestHuman4" Source="{StaticResource Face Border}" IsHitTestVisible="False" Visibility="Collapsed"/>
+</Grid>
+<Grid x:Name="AllyTestSlot5" Width="72" Height="72" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="460,60,0,0">
+<Image x:Name="AllyTestFace5" IsHitTestVisible="False"/>
+<Button x:Name="AllyTestPlayer5" Width="72" Height="72" Command="{Binding Command}" CommandParameter="Player5" Style="{StaticResource BTN_Image}" ToolTipService.ShowDuration="60000"><Button.ToolTip><ToolTip Style="{StaticResource AllyTooltip}" Content="{Binding Help}"/></Button.ToolTip></Button>
+<Image x:Name="AllyTestHuman5" Source="{StaticResource Face Border}" IsHitTestVisible="False" Visibility="Collapsed"/>
+</Grid>
+<Grid x:Name="AllyTestSlot6" Width="72" Height="72" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="560,60,0,0">
+<Image x:Name="AllyTestFace6" IsHitTestVisible="False"/>
+<Button x:Name="AllyTestPlayer6" Width="72" Height="72" Command="{Binding Command}" CommandParameter="Player6" Style="{StaticResource BTN_Image}" ToolTipService.ShowDuration="60000"><Button.ToolTip><ToolTip Style="{StaticResource AllyTooltip}" Content="{Binding Help}"/></Button.ToolTip></Button>
+<Image x:Name="AllyTestHuman6" Source="{StaticResource Face Border}" IsHitTestVisible="False" Visibility="Collapsed"/>
+</Grid>
+<Grid x:Name="AllyTestSlot7" Width="72" Height="72" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="660,60,0,0">
+<Image x:Name="AllyTestFace7" IsHitTestVisible="False"/>
+<Button x:Name="AllyTestPlayer7" Width="72" Height="72" Command="{Binding Command}" CommandParameter="Player7" Style="{StaticResource BTN_Image}" ToolTipService.ShowDuration="60000"><Button.ToolTip><ToolTip Style="{StaticResource AllyTooltip}" Content="{Binding Help}"/></Button.ToolTip></Button>
+<Image x:Name="AllyTestHuman7" Source="{StaticResource Face Border}" IsHitTestVisible="False" Visibility="Collapsed"/>
+</Grid>
+<Grid x:Name="AllyTestSlot8" Width="72" Height="72" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="760,60,0,0">
+<Image x:Name="AllyTestFace8" IsHitTestVisible="False"/>
+<Button x:Name="AllyTestPlayer8" Width="72" Height="72" Command="{Binding Command}" CommandParameter="Player8" Style="{StaticResource BTN_Image}" ToolTipService.ShowDuration="60000"><Button.ToolTip><ToolTip Style="{StaticResource AllyTooltip}" Content="{Binding Help}"/></Button.ToolTip></Button>
+<Image x:Name="AllyTestHuman8" Source="{StaticResource Face Border}" IsHitTestVisible="False" Visibility="Collapsed"/>
+</Grid>
+<Grid x:Name="AllyTestInfo" Margin="20,170,20,20">
+<Button Style="{StaticResource BDR_SH1DEe}" IsHitTestVisible="False"/>
+<TextBlock x:Name="AllyTestActor" Margin="20,10,20,0" VerticalAlignment="Top" FontSize="22" TextTrimming="CharacterEllipsis"><TextBlock.Effect><DropShadowEffect ShadowDepth="2" Direction="315" Color="#CC000000" BlurRadius="0"/></TextBlock.Effect></TextBlock>
+<Image x:Name="AllyTestOrderIcon" Width="24" Height="24" Margin="20,70,0,0" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+<TextBlock x:Name="AllyTestOrderLabel" Margin="50,70,260,0" VerticalAlignment="Top" FontSize="18" Foreground="#FFEFF3C6" TextTrimming="CharacterEllipsis"/>
+<TextBlock Text="{Binding Status}" Margin="20,0,20,6" VerticalAlignment="Bottom" FontSize="12" Foreground="#FFEFF3C6" TextTrimming="CharacterEllipsis"/>
+<Grid x:Name="AllyTestHomeActions" HorizontalAlignment="Right" Width="260"><Button x:Name="AllyTestOrders" Command="{Binding Command}" CommandParameter="Orders" Width="49" Height="69" Margin="40,42,0,0" HorizontalAlignment="Left" VerticalAlignment="Top" local:PropEx.Sprite1="{StaticResource UI-Buttons S024}" local:PropEx.Sprite2="{StaticResource UI-Buttons S025}" local:PropEx.Sprite3="{StaticResource UI-Buttons S025}" local:PropEx.Sprite4="{StaticResource UI-Buttons S024}" Style="{StaticResource BTN_Image}" ToolTipService.ShowDuration="60000"><Button.ToolTip><ToolTip Style="{StaticResource AllyTooltip}" Content="{Binding Help}"/></Button.ToolTip></Button><Button x:Name="AllyTestGoods" Command="{Binding Command}" CommandParameter="Goods" Width="79" Height="56" Margin="150,48,0,0" HorizontalAlignment="Left" VerticalAlignment="Top" local:PropEx.Sprite1="{StaticResource UI-Buttons S026}" local:PropEx.Sprite2="{StaticResource UI-Buttons S027}" local:PropEx.Sprite3="{StaticResource UI-Buttons S027}" local:PropEx.Sprite4="{StaticResource UI-Buttons S028}" Style="{StaticResource BTN_Image}" ToolTipService.ShowDuration="60000"><Button.ToolTip><ToolTip Style="{StaticResource AllyTooltip}" Content="{Binding Help}"/></Button.ToolTip></Button></Grid></Grid><Grid x:Name="AllyTestOrderActions"><Button x:Name="AllyTestCancel" Command="{Binding Command}" CommandParameter="Cancel" Width="50" Height="69" Margin="30,60,0,0" HorizontalAlignment="Left" VerticalAlignment="Top" local:PropEx.Sprite1="{StaticResource UI-Buttons S031}" local:PropEx.Sprite2="{StaticResource UI-Buttons S032}" local:PropEx.Sprite3="{StaticResource UI-Buttons S032}" local:PropEx.Sprite4="{StaticResource UI-Buttons S031}" Style="{StaticResource BTN_Image}" ToolTipService.ShowDuration="60000"><Button.ToolTip><ToolTip Style="{StaticResource AllyTooltip}" Content="{Binding Help}"/></Button.ToolTip></Button><Button x:Name="AllyTestDefend" Command="{Binding Command}" CommandParameter="Protect" Width="50" Height="61" Margin="100,64,0,0" HorizontalAlignment="Left" VerticalAlignment="Top" local:PropEx.Sprite1="{StaticResource UI-Buttons S033}" local:PropEx.Sprite2="{StaticResource UI-Buttons S034}" local:PropEx.Sprite3="{StaticResource UI-Buttons S034}" local:PropEx.Sprite4="{StaticResource UI-Buttons S033}" Style="{StaticResource BTN_Image}" ToolTipService.ShowDuration="60000"><Button.ToolTip><ToolTip Style="{StaticResource AllyTooltip}" Content="{Binding Help}"/></Button.ToolTip></Button></Grid>
+<CheckBox x:Name="AllyTestForce" Content="{Binding ForceText}" IsChecked="{Binding Force, Mode=TwoWay}" Margin="20,0,20,12" VerticalAlignment="Bottom" HorizontalAlignment="Left" Foreground="#FFEFF3C6" FontSize="14" ToolTipService.ShowDuration="60000"><CheckBox.ToolTip><ToolTip Style="{StaticResource AllyTooltip}" Content="{Binding Help}"/></CheckBox.ToolTip></CheckBox>
+</Grid>
+<CheckBox x:Name="AllyTestToggle" Content="{Binding ToggleText}" IsChecked="{Binding Enabled, Mode=TwoWay}" Margin="445,19,45,0" HorizontalAlignment="Right" VerticalAlignment="Top" FontSize="16" Foreground="#FFEFF3C6" ToolTipService.ShowDuration="60000"><CheckBox.ToolTip><ToolTip Style="{StaticResource AllyTooltip}" Content="{Binding Help}"/></CheckBox.ToolTip></CheckBox>
+<Button x:Name="AllyTestClose" Command="{Binding Command}" CommandParameter="Exit" Width="29" Height="29" Margin="661,10,0,0" HorizontalAlignment="Left" VerticalAlignment="Top" local:PropEx.Sprite1="{StaticResource UI-Buttons S043}" local:PropEx.Sprite2="{StaticResource UI-Buttons S044}" local:PropEx.Sprite3="{StaticResource UI-Buttons S044}" local:PropEx.Sprite4="{StaticResource UI-Buttons S043}" Style="{StaticResource BTN_Image}" ToolTipService.ShowDuration="60000"><Button.ToolTip><ToolTip Style="{StaticResource AllyTooltip}" Content="{Binding Help}"/></Button.ToolTip></Button><Button x:Name="AllyTestBack" Command="{Binding Command}" CommandParameter="Back" Width="29" Height="29" Margin="661,10,0,0" HorizontalAlignment="Left" VerticalAlignment="Top" local:PropEx.Sprite1="{StaticResource UI-Buttons L005}" local:PropEx.Sprite2="{StaticResource UI-Buttons L006}" local:PropEx.Sprite3="{StaticResource UI-Buttons L006}" local:PropEx.Sprite4="{StaticResource UI-Buttons L005}" Style="{StaticResource BTN_Image}" ToolTipService.ShowDuration="60000"><Button.ToolTip><ToolTip Style="{StaticResource AllyTooltip}" Content="{Binding Help}"/></Button.ToolTip></Button></Grid></Content></Operation></Patch>

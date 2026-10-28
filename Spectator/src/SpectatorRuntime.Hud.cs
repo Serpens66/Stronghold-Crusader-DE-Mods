@@ -137,6 +137,7 @@ namespace Spectator
         private static void DetachHumanControls()
         {
             toolbarDirty = true;
+            DetachAllyTestControls();
             DetachDockControls();
             dockFailed = false;
             // The same IngameUIScreens can survive a map transition. Hide before dropping references.
@@ -595,6 +596,7 @@ namespace Spectator
                 SyncSpectatorSelection();
                 RefreshHumanControls(toolbarEligible);
                 RefreshDockControlsSafely(toolbarEligible);
+                RefreshAllyTestControlsSafely();
                 if (humanEligible) { RefreshPowers(); RefreshVanillaPowerToolbar(); RefreshGateState(); }
                 else { RestoreVanillaPowerToolbar(false); CancelPowerSelection(); ClearGateSelection(); }
                 DrainTestActions();

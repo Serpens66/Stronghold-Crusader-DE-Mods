@@ -37,6 +37,7 @@ namespace Spectator
             internal ToolPower Power;
             internal int Tile;
             internal GateSelection Gate;
+            internal AllyTestViewModel AllyReply;
         }
 
         private static void RegisterTestActions()
@@ -123,13 +124,19 @@ namespace Spectator
 
         private static void QueueTestAction(TestAction action)
         {
-            if (!IsToolsSession() || (action.Kind != TestActionKind.PowerToggle && !IsToolsPlayer(action.Actor, true)))
-            { if (toolsModel != null) toolsModel.SetActionStatus(action.Kind, SerpLocalization.Get("Tools.InvalidTarget")); return; }
+            if (!IsToolsSession() || (action.Kind != TestActionKind.PowerToggle && !IsToolsPlayer(action.Actor, action.Kind != TestActionKind.Credit)))
+            { ReportTestAction(action, SerpLocalization.Get("Tools.InvalidTarget")); return; }
             action.Session = CurrentSessionId;
             action.PowerGeneration = powerGeneration;
             action.Operation = Interlocked.Increment(ref nextTestAction);
             testActions.Enqueue(action);
-            toolsModel.SetActionStatus(action.Kind, SerpLocalization.Get("Tools.Queued"));
+            ReportTestAction(action, SerpLocalization.Get("Tools.Queued"));
+        }
+
+        private static void ReportTestAction(TestAction action, string message)
+        {
+            if (action.AllyReply != null) { action.AllyReply.Status = message; allyTestDirty = true; }
+            else toolsModel?.SetActionStatus(action.Kind, message);
         }
 
         private static void DrainTestActions()
@@ -144,7 +151,7 @@ namespace Spectator
                     {
                         if (!IsToolsSession() || !IsCurrentSession(action.Session) ||
                             !actionLedger.TryBegin(action.Session, action.Operation) ||
-                            (action.Kind != TestActionKind.PowerToggle && !IsToolsPlayer(action.Actor, true)))
+                            (action.Kind != TestActionKind.PowerToggle && !IsToolsPlayer(action.Actor, action.Kind != TestActionKind.Credit)))
                             continue;
                         switch (action.Kind)
                         {
@@ -165,13 +172,13 @@ namespace Spectator
                             default: result = ExecuteOrder(action); break;
                         }
                     }
-                    if (toolsModel != null) toolsModel.SetActionStatus(action.Kind, result);
+                    ReportTestAction(action, result);
                     log.LogInfo("TEST_ACTION session=" + action.Session + " operation=" + action.Operation +
                         " kind=" + action.Kind + " actor=" + action.Actor + " target=" + action.Target +
                         " force=" + action.Force + " amount=" + action.Amount + " good=" + action.Good +
                         " power=" + action.Power?.Id + " tile=" + action.Tile + " building=" + action.Gate?.Id + " result=" + result);
                 }
-                catch (Exception error) { LogOnce("TEST_ACTION_ERROR: " + error); if (toolsModel != null) toolsModel.SetActionStatus(action.Kind, SerpLocalization.Get("Tools.Failed")); }
+                catch (Exception error) { LogOnce("TEST_ACTION_ERROR: " + error); ReportTestAction(action, SerpLocalization.Get("Tools.Failed")); }
             }
         }
 
