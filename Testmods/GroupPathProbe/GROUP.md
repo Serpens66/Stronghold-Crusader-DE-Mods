@@ -45,6 +45,8 @@ Vom Workspace-Root:
 
 `--capture` misst beide B-Varianten mit Rand 2 bei 1, 4 und 8 Threads sowie mit Rand 8 bei 4 Threads. `--with-exact` misst zusätzlich Variante A, `--only name,name` nur die genannten Lasten (gleiche Eingaben). Je Last und Rand stehen die acht größten Umwege mit Graphabständen zum Anker in `results.json`. Der Lauf dauert mehrere Minuten, weil Precise jede Anfrage einzeln rechnet. Ergebnisse liegen in `results/group-<UTC>/` (`results.json`, Eingaben als `.bpf.gz`, Build- und Hostnachweis). Exitcode 0 = alles geprüft, 1 = Vertrags- oder Vergleichsfehler, 2 = Last nicht bildbar.
 
+`--anchor-core` prüft den nativen Kern des geplanten MoatMove-Modus `anchor` (`../MoatMove/native/MoatMoveAnchor.cpp`, vorher mit `../MoatMove/native/Build-MoatMoveAnchor.ps1` bauen). `--anchor-core <raw.gz>` misst ihn zusätzlich auf dem Mitschnitt; Ergebnisse unter `results/core-<UTC>/`.
+
 Die Eingabe `input/capture-20261027-182413-691-s1.raw.gz` ist eine Kopie des Mitschnitts aus `BetterPathfindingTest/results/cch-20261027-191740-311/input.raw.gz` (0.2.0-Lauf `20261027-182413-691-s1`, Snapshot 1).
 
 ## Prüfumfang

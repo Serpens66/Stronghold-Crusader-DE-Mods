@@ -69,6 +69,28 @@ Aus GroupPathProbe abgeleitet, eigene C-ABI, im Plugin-Ordner ausgeliefert, per 
   - Unterschiedliche Threadzahlen zwischen MP-Spielern sind unkritisch, weil die Ergebnisse gleich bleiben.
 - **Speicher:** gezählter Allokator mit fester Obergrenze. Bei Erschöpfung gilt ein Befehl als unvollständig und wartet, nie als unerreichbar.
 
+**Ergebnis 28.10.2026:** umgesetzt als [native/MoatMoveAnchor.cpp](native/MoatMoveAnchor.cpp), gebaut mit [native/Build-MoatMoveAnchor.ps1](native/Build-MoatMoveAnchor.ps1) nur nach `.local/anchor/`. Noch nicht eingebunden oder installiert.
+- **Offline-Verträge** in GroupPathProbe (`--anchor-core`): 1.475 unabhängige Vergleiche bestehen. Geprüft werden:
+  - Masken stückweise mit 1 Thread und in einem Stück mit 4 Threads, byte-gleich;
+  - Pending → Ready, Stale nach Kartenänderung, nach Neustart die neue Abkürzung;
+  - freigegebene Aufgaben antworten nicht mehr;
+  - ferne Plätze mit genau einem gemeinsamen Feld, 2.000-Schritt-Grenze, Speicherbudget.
+- **Messung** [core-20261028-172304-117](../GroupPathProbe/results/core-20261028-172304-117/results.json), eine Aufgabe je Gruppe, Rand 8, 10.000 Einheiten in 40 Gruppen:
+
+  | | Mitschnitt | → 4 Ziele | verstreut | Arbeiterwege | Grabenkarte |
+  |---|---:|---:|---:|---:|---:|
+  | Felder, 8 Threads | 62 ms | 39 ms | 49 ms | 26 ms | 88 ms |
+  | Felder, 1 Thread | 192 ms | 136 ms | 213 ms | 49 ms | 414 ms |
+  | Abfragen gesamt (seriell) | 155 ms | 158 ms | 147 ms | 103 ms | 142 ms |
+  | davon Felder für ferne Plätze | 26 ms | 36 ms | 18 ms | 0 | 0 |
+  | je Einheit ohne diese Felder | 13 µs | 12 µs | 13 µs | 10 µs | 14 µs |
+  | Mehrkosten p95 | 3,2 % | 5,6 % | 4,3 % | 0 % | 2,0 % |
+
+- Die Qualität entspricht Phase 0 mit Rand 8. Die Graben-Entscheidung weicht nie ab.
+- Das Schreiben der vollständigen Maske kostet im Kern 6–10 ms. Der Aufwand des verwalteten Prädikats ist darin nicht enthalten und wird in Phase 2 gemessen.
+- Höchster Speicherstand mit 8 Threads 77–199 MiB.
+- **Neuer Engpass:** die seriellen Abfragen bei der Ausführung, etwa 13 µs je Einheit (ein Befehl mit 250 Einheiten ≈ 3–4 ms im Ausführungstick). Die Felder vorab sind mit 8 Threads billiger als die Abfragen.
+
 ### Phase 2 – verwaltete Anbindung in MoatMove
 
 - `MoatMoveOptions`: neuer Wert `anchor`, `RequiredOnly`-Verhalten wie Fast.

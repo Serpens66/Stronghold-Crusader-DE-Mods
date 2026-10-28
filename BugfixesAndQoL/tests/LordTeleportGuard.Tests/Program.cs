@@ -1,4 +1,4 @@
-using LordTeleportGuardTest;
+using BugfixesAndQoL.LordTeleportGuard;
 using Iced.Intel;
 using RedBird.X64.Extensions;
 using RedBird.X64.Hooks;
@@ -59,6 +59,15 @@ internal static class Program
                     f.Reset(); f.Ai(1, 4); f.Expect(false, "native caller AI " + route, route);
                     f.Reset(); f.Active(false); f.Expect(false, "native caller inactive " + route, route);
                 }
+                foreach (bool installed in new[] { false, true })
+                    foreach (bool main in new[] { false, true })
+                        foreach (bool option in new[] { false, true })
+                        {
+                            f.Reset();
+                            f.Active(LordTeleportNative.ShouldEnable(installed, main, option));
+                            f.Expect(installed && main && option, "installed/main/option activation matrix", route: 1);
+                            f.CheckPermanentCode();
+                        }
                 f.ExpectRescueTransparency();
                 f.Reset();
                 for (int i = 0; i < 500; i++)
@@ -78,7 +87,7 @@ internal static class Program
     {
         using (var assembly = Mono.Cecil.AssemblyDefinition.ReadAssembly(path))
         {
-            Check(assembly.Name.Version.ToString() == "0.1.0.0", "testmod assembly version");
+            Check(assembly.Name.Name == "BugfixesAndQoL", "integrated artifact identity");
             bool marker = assembly.CustomAttributes.Any(a => a.AttributeType.FullName == "System.Reflection.AssemblyMetadataAttribute" &&
                 (string)a.ConstructorArguments[0].Value == "SerpDevDiagnostics" && (string)a.ConstructorArguments[1].Value == "true");
             bool runtime = assembly.MainModule.Types.Any(t => t.FullName == "Shared.DevDiagRuntime");
@@ -89,8 +98,20 @@ internal static class Program
 #endif
             var plugin = assembly.MainModule.Types.Single(t => t.BaseType?.FullName == "BepInEx.BaseUnityPlugin");
             var identity = plugin.CustomAttributes.Single(a => a.AttributeType.FullName == "BepInEx.BepInPlugin");
-            Check((string)identity.ConstructorArguments[0].Value == "LordTeleportGuardTest_Serp" &&
-                (string)identity.ConstructorArguments[2].Value == "0.1.0", "compiled plugin identity");
+            Check((string)identity.ConstructorArguments[0].Value == "BugfixesAndQoL_Serp" &&
+                (string)identity.ConstructorArguments[2].Value + ".0" == assembly.Name.Version.ToString(), "compiled plugin and assembly versions agree");
+            Check(plugin.CustomAttributes.Any(a => a.AttributeType.FullName == "BepInEx.BepInIncompatibility" &&
+                (string)a.ConstructorArguments[0].Value == "LordTeleportGuardTest_Serp"), "old testmod explicitly incompatible");
+            var model = assembly.MainModule.Types.Single(t => t.Name == "BugfixesAndQoLViewModel");
+            var option = model.Properties.Single(p => p.Name == "EnableLordReturnTeleportFix");
+            Check(option.CustomAttributes.Any(a => a.AttributeType.Name == "SyncHostOnlyAttribute"), "production setting is host synchronized");
+            Check(option.SetMethod.Body.Instructions.Any(i => i.Operand is Mono.Cecil.MethodReference m && m.Name == "SetSetting"), "production setter uses central access/preset path");
+            Check(model.Methods.Where(m => m.IsConstructor && !m.IsStatic).Any(m => m.Body.Instructions.Any(i =>
+                i.Operand is Mono.Cecil.FieldReference f && f.Name == "enableLordReturnTeleportFix" &&
+                i.OpCode.Code == Mono.Cecil.Cil.Code.Stfld && i.Previous.OpCode.Code == Mono.Cecil.Cil.Code.Ldc_I4_1)), "compiled production initializer defaults to true");
+            Check(model.Methods.Single(m => m.Name == "ResetToDefault").Body.Instructions.Any(i =>
+                i.Operand is Mono.Cecil.MethodReference m && m.Name == "set_EnableLordReturnTeleportFix" &&
+                i.Previous.OpCode.Code == Mono.Cecil.Cil.Code.Ldc_I4_1), "compiled reset assigns true");
             Check(!plugin.Methods.Any(m => new[] { "Update", "LateUpdate", "FixedUpdate", "OnDestroy", "OnDisable" }.Contains(m.Name)), "plugin has no short-lived worker or teardown");
             Check(!assembly.MainModule.AssemblyReferences.Any(r => new[] { "Newtonsoft.Json", "System.Text.Json", "System.Web.Extensions", "BugfixesAndQoL" }.Contains(r.Name)), "standalone dependency boundary");
         }
@@ -164,6 +185,7 @@ internal static class Program
         private readonly IntPtr image, flag, trace, results;
         private readonly int imageSize;
         private readonly X64InlineHook hook;
+        private readonly byte[] installedPatch;
         private readonly ulong units, lineup, cleanup;
         internal int UnitId = 1, TargetX = 20, TargetY = 20;
         private ulong Base => Address(image);
@@ -198,6 +220,7 @@ internal static class Program
                 LordTeleportNative.Emit(asm, original, Address(flag), units, lineup, Address(trace)); });
             hook.Enable(); Check(hook.IsInstalled, "actual backend installed on PRIVATE image only");
             byte[] patch = new byte[16]; Marshal.Copy(Ptr(Base + LordTeleportNative.EntryRva), patch, 0, patch.Length);
+            installedPatch = patch;
             Check(patch[0] == 0xFF && patch[1] == 0x25 && BitConverter.ToUInt64(patch, 6) == Address(hook.StubAddress) && patch[14] == 0x90 && patch[15] == 0x90, "actual patch shape and destination");
         }
         internal void Reset()
@@ -270,6 +293,12 @@ internal static class Program
             Check((BitConverter.ToInt64(activeRegisters, 120) & 0x8C5) == (BitConverter.ToInt64(inactiveRegisters, 120) & 0x8C5), "rescue flag transparency");
             foreach (int i in new[] { 128, 136, 144, 152, 176, 184 })
                 Check(BitConverter.ToInt64(activeRegisters, i) == BitConverter.ToInt64(inactiveRegisters, i), "rescue XMM transparency " + i);
+        }
+
+        internal void CheckPermanentCode()
+        {
+            byte[] actual = new byte[16]; Marshal.Copy(Ptr(Base + LordTeleportNative.EntryRva), actual, 0, 16);
+            Check(actual.SequenceEqual(installedPatch), "logical activation preserves published executable bytes");
         }
 
         internal void CheckTraceBound()

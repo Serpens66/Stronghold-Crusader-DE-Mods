@@ -607,3 +607,6 @@ BugfixesAndQoL.SettingsRework.Reason.EnableTreeBlightDecayFix=Corrects persisten
 BugfixesAndQoL.EnableCompactLobbyChat=Compact lobby chat
 BugfixesAndQoL.EnableCompactLobbyChatHelp=Shows the shield, sender and message on the same line in the Coop Trail and multiplayer skirmish lobby chat. Long messages wrap automatically. Affects only your own display and can be chosen independently of the host. Enabled by default.
 BugfixesAndQoL.SettingsRework.Reason.EnableCompactLobbyChat=The compact layout fits more messages in the same space. The preferred chat layout is a personal preference.
+BugfixesAndQoL.EnableLordReturnTeleportFix=Prevent Lord teleport when the return path is blocked
+BugfixesAndQoL.EnableLordReturnTeleportFixHelp=Prevents the teleport exploit that returns human-controlled Lords to the Keep when their return path fails. AI Lords and rescue from invalid standing tiles are unchanged.
+BugfixesAndQoL.SettingsRework.Reason.EnableLordReturnTeleportFix=Closes the return-path teleport exploit for human Lords while preserving invalid-tile rescue and AI behavior.

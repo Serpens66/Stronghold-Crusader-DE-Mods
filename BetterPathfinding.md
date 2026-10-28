@@ -628,3 +628,19 @@ Mittel und max in Kosteneinheiten. Die Graben-Entscheidung weicht in keinem Fall
 - Mit **Rand 8** erreicht die Variante je Einheit auf Mitschnitt und verstreuten Starts die Qualität des Gruppen-B (gleich oder leicht besser). Bei einer einzigen großen Formation mit 1.024 Einheiten bleibt sie schlechter (p95 3,8 % statt 2,7 %), weil jedes Einzelrechteck schmaler ist als das Gruppenrechteck.
 - Die Abfrage je Einheit liegt mit 3–14 µs im Mikrosekundenbereich.
 - Das Erfolgskriterium aus Phase 0 ist damit überwiegend erfüllt. Ausnahmen sind sehr große Einzelformationen und die seriellen Felder für ferne Plätze. In MoatMove fielen diese Felder in den Ausführungstick eines Befehls.
+
+### 18.4 Phase 1: nativer Kern für MoatMove (28.10.2026)
+
+Der Kern `Testmods/MoatMove/native/MoatMoveAnchor.cpp` ist gebaut und offline geprüft, aber noch nicht eingebunden. Seine Bausteine:
+- Masken je Spieler im Wortformat von `FastTraversalCache`, stückweise beschreibbar.
+- Feldaufgaben je Befehl, verteilt auf einen festen Thread-Pool, den der Simulationsthread jeweils abwartet.
+- Wegabfrage je Einheit.
+- Zustände Pending/Stale.
+- Automatische Thread-Anzahl: physische Kerne − 2, 1–8, auf dem Testrechner 8.
+
+1.475 unabhängige Vertragsvergleiche bestehen. Messung: [core-20261028-172304-117](Testmods/GroupPathProbe/results/core-20261028-172304-117/results.json).
+- Bei 10.000 Einheiten in 40 Gruppen kosten die Felder vorab 26–88 ms (8 Threads) bzw. 49–414 ms (1 Thread).
+- Die seriellen Abfragen kosten 103–158 ms, davon 0–36 ms für Felder ferner Plätze, sonst 10–14 µs je Einheit.
+- Die Qualität entspricht §18.3 mit Rand 8. Die Graben-Entscheidung weicht nie ab.
+
+Nächster Engpass sind die Abfragen im Ausführungstick. Einzelheiten stehen in [ANCHOR_MODE_PLAN.md](Testmods/MoatMove/ANCHOR_MODE_PLAN.md).

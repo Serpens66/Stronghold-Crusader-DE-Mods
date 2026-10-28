@@ -481,6 +481,7 @@ namespace BugfixesAndQoL
                 processMoatTerrainRuntime = new MoatTerrain.TerrainRuntime(log, settings);
                 processMoatTerrainRuntime.Install(context, isFixedLayoutHashValidated);
             });
+            TryInitializePersistentFeature("human Lord return teleport guard", () => InitializeLordTeleportGuard(context));
             TryInitializePersistentFeature("tree-blight decay fix", () =>
             {
                 if (treeBlightDecayInitializationAttempted) return;
@@ -586,6 +587,7 @@ namespace BugfixesAndQoL
             processGatehouseLivingCaptureRuntime?.SetEnabled(settings.EnableMod, settings.EnableGatehouseLivingCaptureFix);
             processDrawbridgeDestructionFixRuntime?.SetEnabled(settings.EnableMod, settings.EnableDrawbridgeDestructionFix);
             processTreeBlightDecayRuntime?.SetEnabled(settings.EnableMod, settings.EnableTreeBlightDecayFix);
+            processLordTeleportGuard?.SetEnabled(settings.EnableMod, settings.EnableLordReturnTeleportFix);
             TryApplyFeature("moat terrain restoration", () => processMoatTerrainRuntime?.Refresh());
             processAIKeepRangeRuntime?.Refresh();
             TryApplyFeature("AI melee raid retarget fix", () => processAiRaidRetargetFixRuntime?.SetEnabled(

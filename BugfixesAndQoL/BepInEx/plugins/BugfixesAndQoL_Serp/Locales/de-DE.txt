@@ -607,3 +607,6 @@ BugfixesAndQoL.SettingsRework.Reason.EnableTreeBlightDecayFix=Behebt dauerhafte 
 BugfixesAndQoL.EnableCompactLobbyChat=Kompakter Lobbychat
 BugfixesAndQoL.EnableCompactLobbyChatHelp=Zeigt im Coop-Trail- und Multiplayer-Skirmish-Lobbychat Schild, Absender und Nachricht in derselben Zeile. Lange Nachrichten umbrechen automatisch. Gilt nur für deine eigene Anzeige und kann unabhängig vom Host gewählt werden. Standardmäßig aktiv.
 BugfixesAndQoL.SettingsRework.Reason.EnableCompactLobbyChat=Die kompakte Darstellung zeigt mehr Nachrichten auf derselben Fläche. Das gewünschte Chatlayout ist eine persönliche Präferenz.
+BugfixesAndQoL.EnableLordReturnTeleportFix=Lord-Teleport bei blockiertem Rückweg verhindern
+BugfixesAndQoL.EnableLordReturnTeleportFixHelp=Verhindert den Teleport-Exploit, bei dem menschlich kontrollierte Lords bei einem gescheiterten Rückweg zum Bergfried teleportiert werden. KI-Lords und die Rettung von ungültigen Standkacheln bleiben unverändert.
+BugfixesAndQoL.SettingsRework.Reason.EnableLordReturnTeleportFix=Schließt den Rückweg-Teleport-Exploit für menschliche Lords und erhält die Rettung von ungültigen Standkacheln sowie das KI-Verhalten.

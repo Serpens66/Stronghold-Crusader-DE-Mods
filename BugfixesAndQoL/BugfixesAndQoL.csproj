@@ -8,8 +8,8 @@
     <OutputType>Library</OutputType>
     <RootNamespace>BugfixesAndQoL</RootNamespace>
     <AssemblyName>BugfixesAndQoL</AssemblyName>
-    <AssemblyVersion>1.0.206.0</AssemblyVersion>
-    <FileVersion>1.0.206.0</FileVersion>
+    <AssemblyVersion>1.0.207.0</AssemblyVersion>
+    <FileVersion>1.0.207.0</FileVersion>
     <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
     <LangVersion>latest</LangVersion>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
@@ -430,4 +430,9 @@
 <ItemGroup><Compile Include="src\GateRouting\GateRoutingFeature.cs" /><Compile Include="src\GateRouting\GateDiagnosticConfiguration.cs" /></ItemGroup>
 <ItemGroup><Compile Include="src\Assassins\AssassinGatehouseDescentFeature.cs" /></ItemGroup>
   <ItemGroup><Compile Include="src\PermanentNativeSwitch.cs"/><Compile Include="src\NativeSwitchCatalog.cs"/></ItemGroup>
+  <ItemGroup>
+    <Compile Include="src\LordTeleportGuard\LordTeleportNative.cs" />
+    <Compile Include="src\LordTeleportGuard\LordTeleportGuardRuntime.cs" />
+    <Compile Include="src\BugfixesAndQoLRuntime.LordTeleport.cs" />
+  </ItemGroup>
 </Project>

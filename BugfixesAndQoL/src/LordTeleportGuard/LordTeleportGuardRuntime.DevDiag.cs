@@ -1,7 +1,7 @@
 using System;
 using System.Runtime.InteropServices;
 
-namespace LordTeleportGuardTest
+namespace BugfixesAndQoL.LordTeleportGuard
 {
     internal sealed unsafe partial class LordTeleportGuardRuntime
     {
@@ -22,7 +22,7 @@ namespace LordTeleportGuardTest
                 if (!missionLookupAttempted)
                 {
                     missionLookupAttempted = true;
-                    APIShared.ApiShared.Current.TryGetMissionLifecycle(LordTeleportGuardPlugin.Guid, out diagnosticMission, out _);
+                    APIShared.ApiShared.Current.TryGetMissionLifecycle(BugfixesAndQoLPlugin.PluginGuid, out diagnosticMission, out _);
                 }
                 // Observation context only; early native loading may precede a ready mission.
                 string session = diagnosticMission?.Current?.SessionId.ToString() ?? "unknown";

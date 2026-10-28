@@ -279,6 +279,10 @@ call :step_start "tests" "30-HostClientPresetTests.exe"
 "%PROJECT_DIR%..\_inspect\HostClientPresetTests\bin\HostClientPresetTests.exe"
 call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+call :step_start "tests" "Lord return teleport host/client presets"
+"%PROJECT_DIR%..\_inspect\HostClientPresetTests\bin\HostClientPresetTests.exe" lord-teleport
+call :step_end %ERRORLEVEL%
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 echo [%date% %time%] Run tests
 call :step_start "tests" "31-Formations.Core.Tests.csproj"
 dotnet test tests\Formations.Core.Tests\Formations.Core.Tests.csproj --configuration Release --logger trx --results-directory tests\Formations.Core.Tests\TestResults
@@ -531,6 +535,15 @@ call :step_start "tests" "73-Test-Modsettings.ps1"
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-Modsettings.ps1" -AssemblyPath "%LOCAL_PLUGIN_DIR%\BugfixesAndQoL.dll" -ApiSharedDir "%API_SHARED_DIR%" -ExtenderDir "%EXTENDER_DIR%" %MODSETTINGS_NATIVE_OPTION%
 call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+call :step_start "tests" "LordTeleportGuard.Tests build"
+"%MSBUILD%" "%PROJECT_DIR%tests\LordTeleportGuard.Tests\LordTeleportGuard.Tests.csproj" /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
+call :step_end %ERRORLEVEL%
+if not "%ERRORLEVEL%"=="0" goto build_failed
+call :step_start "tests" "LordTeleportGuard.Tests execution"
+"%PROJECT_DIR%tests\LordTeleportGuard.Tests\bin\LordTeleportGuard.Tests.exe" "%GAME_DIR%\Stronghold Crusader Definitive Edition_Data\Plugins\x86_64\CrusaderDE.dll" "%LOCAL_PLUGIN_DIR%\BugfixesAndQoL.dll"
+call :step_end %ERRORLEVEL%
+if not "%ERRORLEVEL%"=="0" goto build_failed
+
 :artifact_tests_completed
 popd
 

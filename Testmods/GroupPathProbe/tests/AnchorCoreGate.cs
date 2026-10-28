@@ -1,0 +1,198 @@
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
+using System.Linq;
+using System.Security.Cryptography;
+using System.Text.Json;
+using GroupPathProbe.Core;
+
+// Phase 1 contracts and measurement for the MoatMove anchor core (MoatMoveAnchor.dll).
+// One task per group (as one command in MoatMove), queries in group order.
+internal static class AnchorCoreGate
+{
+    private static int comparisons;
+    private const int Margin = 8, Player = 1;
+    private static RouteResult[] Solve(AnchorCoreInterop core, GroupLoad load, int threads, out int[] tasks)
+    {
+        tasks = new int[load.Groups];
+        for (int g = 0; g < load.Groups; g++)
+        {
+            int first = load.GroupOf.IndexOf(g); RouteQuery q = load.Queries[first];
+            int[] starts = Enumerable.Range(0, load.Queries.Count).Where(i => load.GroupOf[i] == g).Select(i => load.Queries[i].Start).ToArray();
+            tasks[g] = core.CreateTask(Player, load.Anchors[g], q.GroundCost, q.MoatCost, starts);
+        }
+        core.Step(int.MaxValue, threads);
+        var results = new RouteResult[load.Queries.Count];
+        for (int i = 0; i < results.Length; i++) results[i] = core.Query(tasks[load.GroupOf[i]], load.Queries[i].Start, load.Queries[i].Target, Margin);
+        return results;
+    }
+    private static void Same(RouteResult[] a, RouteResult[] b, string name)
+    {
+        for (int i = 0; i < a.Length; i++)
+            if (a[i].Status != b[i].Status || a[i].Reason != b[i].Reason || a[i].Cost != b[i].Cost || !a[i].Directions.SequenceEqual(b[i].Directions)) throw new InvalidOperationException(name + ": result depends on threads/mask chunking; case=" + i);
+    }
+    // Legal, never below the optimum, same reachability as the independent reference.
+    private static void Check(GroupLoad load, RouteResult[] results)
+    {
+        for (int i = 0; i < results.Length; i++)
+        {
+            RouteQuery q = load.Queries[i]; RouteResult r = results[i];
+            RouteResult reference = ReferenceSearch.Find(load.Map, q, new WorkBudget(256L * 1024 * 1024, 30)); comparisons++;
+            if (r.Status == SearchStatus.Inconclusive && r.Reason == "over-2000-steps") continue;
+            if (r.Status != reference.Status) throw new InvalidOperationException(load.Name + ": status mismatch case=" + i + " " + r.Status + "/" + reference.Status + " " + r.Reason);
+            if (r.Status != SearchStatus.Found) continue;
+            RouteResult described = load.Map.Describe(q, r.Directions);
+            if (described.Status != SearchStatus.Found || described.Cost != r.Cost || described.Ground != r.Ground || described.Moat != r.Moat) throw new InvalidOperationException(load.Name + ": illegal path/cost case=" + i);
+            if (r.Cost < reference.Cost) throw new InvalidOperationException(load.Name + ": below optimum case=" + i);
+        }
+    }
+    private static GroupLoad RandomLoad(Random random, int sample)
+    {
+        var profiles = new[] { (1L, 7L), (2L, 3L), (5L, 5L) };
+        var validity = new bool[23 * 19]; for (int i = 0; i < validity.Length; i++) validity[i] = sample == 0 || random.Next(100) < 85;
+        GridSnapshot map = GroupGate.Grid(23, 19, (a, b, d) => random.Next(100) < 67 ? (1U << d) | (random.Next(100) < 25 ? 1U << (8 + d) : 0U) : 0U, n => validity[n]);
+        var nodes = Enumerable.Range(0, map.Count).Where(map.IsValid).ToArray();
+        var load = new GroupLoad { Name = "core-random", Map = map };
+        for (int group = 0; group < 3; group++)
+        {
+            var (ground, moat) = profiles[(sample + group) % profiles.Length];
+            int size = 1 + random.Next(group == 2 ? 90 : 20); load.Anchors.Add(-1);
+            for (int i = 0; i < size; i++) { load.Queries.Add(new RouteQuery { Start = nodes[random.Next(nodes.Length)], Target = nodes[random.Next(nodes.Length)], GroundCost = ground, MoatCost = moat }); load.GroupOf.Add(group); }
+            load.Anchors[group] = load.Queries[load.Queries.Count - 1].Target;
+        }
+        return load;
+    }
+    internal static void Contracts()
+    {
+        AnchorCoreInterop.Load();
+        int recommended = AnchorCoreInterop.mma_recommended_threads();
+        if (recommended < 1 || recommended > 8) throw new InvalidOperationException("Recommended thread count outside 1..8: " + recommended);
+        var random = new Random(918273);
+        // Random directed grids: chunked mask + 1 thread equals one-piece mask + 4 threads.
+        for (int sample = 0; sample < 24; sample++)
+        {
+            GroupLoad load = RandomLoad(random, sample);
+            RouteResult[] a, b;
+            using (var core = new AnchorCoreInterop(load.Map.Width, load.Map.Height, 128L * 1024 * 1024)) { core.WriteWholeMask(Player, load.Map, 37); a = Solve(core, load, 1, out _); }
+            using (var core = new AnchorCoreInterop(load.Map.Width, load.Map.Height, 128L * 1024 * 1024)) { core.WriteWholeMask(Player, load.Map, load.Map.Count); b = Solve(core, load, 4, out _); }
+            Same(a, b, load.Name + "#" + sample); Check(load, a);
+        }
+        // Pending until the mask is complete; stale after a later change; restart recovers.
+        {
+            // Wall at x=20 with a single gap 50 rows below the route; later the wall disappears.
+            GridSnapshot open = GroupGate.Grid(41, 61);
+            GridSnapshot walled = GroupGate.Grid(41, 61, null, n => n % 41 != 20 || n / 41 == 60);
+            var load = new GroupLoad { Name = "core-lifecycle", Map = walled }; load.Anchors.Add(10 * 41 + 39);
+            load.Queries.Add(new RouteQuery { Start = 10 * 41 + 1, Target = 10 * 41 + 39, GroundCost = 1, MoatCost = 7 }); load.GroupOf.Add(0);
+            using var core = new AnchorCoreInterop(41, 61, 128L * 1024 * 1024);
+            core.BeginMask(Player); core.WriteMask(Player, walled, 0, walled.Count - 1);
+            int task = core.CreateTask(Player, load.Anchors[0], 1, 7, new[] { load.Queries[0].Start });
+            if (core.Step(8, 2) != 0 || core.TaskStatus(task) != AnchorCoreInterop.Pending || core.Query(task, load.Queries[0].Start, load.Queries[0].Target, Margin).Reason != "pending") throw new InvalidOperationException("Incomplete mask did not keep the task pending.");
+            core.WriteMask(Player, walled, walled.Count - 1, 1);
+            if (core.Step(8, 2) != 1 || core.TaskStatus(task) != AnchorCoreInterop.Ready) throw new InvalidOperationException("Complete mask did not compute the task.");
+            RouteResult before = core.Query(task, load.Queries[0].Start, load.Queries[0].Target, Margin); Check(load, new[] { before });
+            // Open the wall far from the old route: the old answer becomes stale.
+            var changedNodes = new List<int>();
+            for (int n = 0; n < open.Count; n++) if (walled.Word(n) != open.Word(n)) changedNodes.Add(n);
+            GridSnapshot opened = open;
+            if (core.UpdateMask(Player, opened, changedNodes) == 0 || core.TaskStatus(task) != AnchorCoreInterop.Stale || core.Query(task, load.Queries[0].Start, load.Queries[0].Target, Margin).Reason != "stale") throw new InvalidOperationException("Mask change did not mark the task stale.");
+            core.Restart(task); core.Step(8, 2);
+            var reopened = new GroupLoad { Name = "core-lifecycle-opened", Map = opened }; reopened.Anchors.Add(load.Anchors[0]); reopened.Queries.Add(load.Queries[0]); reopened.GroupOf.Add(0);
+            RouteResult after = core.Query(task, load.Queries[0].Start, load.Queries[0].Target, Margin); Check(reopened, new[] { after });
+            if (after.Cost >= before.Cost) throw new InvalidOperationException("Opened shortcut was not used after restart.");
+            core.Release(task);
+            if (core.TaskStatus(task) != AnchorCoreInterop.Invalid) throw new InvalidOperationException("Released task still answers.");
+        }
+        // Far slots behind a wall: one shared sub-anchor, at most 2 above the optimum.
+        {
+            GridSnapshot map = GroupGate.Grid(60, 60, null, n => n % 60 != 34 || n / 60 == 59);
+            var load = new GroupLoad { Name = "core-far-slots", Map = map }; load.Anchors.Add(30 * 60 + 30);
+            foreach (int slot in new[] { 30 * 60 + 30, 30 * 60 + 31, 30 * 60 + 36, 30 * 60 + 37 }) { load.Queries.Add(new RouteQuery { Start = 10 * 60 + 50 + load.Queries.Count, Target = slot, GroundCost = 1, MoatCost = 7 }); load.GroupOf.Add(0); }
+            using var core = new AnchorCoreInterop(60, 60, 128L * 1024 * 1024); core.WriteWholeMask(Player, map, 500);
+            RouteResult[] r = Solve(core, load, 2, out _); Check(load, r);
+            if (core.Stats()[AnchorCoreInterop.Stat("subAnchors")] != 1) throw new InvalidOperationException("Far slots did not share one sub-anchor.");
+            for (int i = 2; i < 4; i++) { var reference = ReferenceSearch.Find(map, load.Queries[i], new WorkBudget(64L * 1024 * 1024, 10)); if (r[i].Cost > reference.Cost + 2) throw new InvalidOperationException("Far-slot unit still detours; case=" + i); }
+        }
+        // Directed snake longer than 2,000 steps: never returned as a route.
+        {
+            GridSnapshot map = GroupGate.Grid(800, 4, (a, b, d) => ((a / 800) % 2 == 0 ? d == 2 : d == 6) && a / 800 == b / 800 || d == 4 && a % 800 == ((a / 800) % 2 == 0 ? 799 : 0) ? 1U << d : 0);
+            using var core = new AnchorCoreInterop(800, 4, 128L * 1024 * 1024); core.WriteWholeMask(Player, map, 4096);
+            int task = core.CreateTask(Player, 2400, 1, 7, new[] { 0 }); core.Step(1, 1);
+            if (core.Query(task, 0, 2400, Margin).Reason != "over-2000-steps") throw new InvalidOperationException("Over-limit route was returned.");
+        }
+        // A budget that cannot hold the worker fields fails cleanly, without a crash.
+        {
+            GridSnapshot map = GroupGate.Grid(800, 800);
+            using var core = new AnchorCoreInterop(800, 800, 64L * 1024 * 1024); core.WriteWholeMask(Player, map, 65536);
+            int task = core.CreateTask(Player, 400 * 800 + 400, 1, 7, new[] { 10 });
+            int code = core.StepCode(1, 8);
+            if (code != AnchorCoreInterop.NoMemory && core.TaskStatus(task) != AnchorCoreInterop.Failed) throw new InvalidOperationException("Exhausted budget was not reported.");
+        }
+        Console.WriteLine("PASS anchor core contracts independentComparisons=" + comparisons + " recommendedThreads=" + recommended);
+    }
+    private static double Percentile(List<long> values, double p) { if (values.Count == 0) return 0; values.Sort(); return values[Math.Min(values.Count - 1, (int)Math.Ceiling(p * values.Count) - 1)]; }
+    private static object Measure(GroupLoad load, int recommended)
+    {
+        var rows = new Dictionary<string, object>(); RouteResult[] reference = null; double maskMs = 0;
+        foreach (int threads in new[] { 1, recommended })
+        {
+            using var core = new AnchorCoreInterop(load.Map.Width, load.Map.Height);
+            var watch = Stopwatch.StartNew(); core.WriteWholeMask(Player, load.Map, 16384); maskMs = watch.Elapsed.TotalMilliseconds;
+            core.Stats(true);
+            var results = Solve(core, load, threads, out _); long[] stats = core.Stats();
+            if (reference == null) reference = results; else Same(reference, results, load.Name + " threads=" + threads);
+            double stepMs = stats[AnchorCoreInterop.Stat("stepNs")] / 1e6, queryMs = stats[AnchorCoreInterop.Stat("queryNs")] / 1e6, subMs = stats[AnchorCoreInterop.Stat("subNs")] / 1e6;
+            var named = new Dictionary<string, long>(); for (int i = 0; i < stats.Length; i++) named[AnchorCoreInterop.StatNames[i]] = stats[i];
+            rows["threads-" + threads] = new { stepMs, queryMs, subAnchorMs = subMs, queryMicrosecondsPerUnit = (queryMs - subMs) * 1000 / load.Queries.Count, stats = named };
+            Console.WriteLine("  core threads=" + threads + " step=" + stepMs.ToString("F1") + " ms queries=" + queryMs.ToString("F1") + " ms (sub-anchors " + subMs.ToString("F1") + " ms, " + stats[AnchorCoreInterop.Stat("subAnchors")] + ") via=" + stats[AnchorCoreInterop.Stat("viaChosen")] + " peakMiB=" + stats[AnchorCoreInterop.Stat("peakBytes")] / 1048576);
+        }
+        var oracle = new PreciseOracle(load.Map); var extra = new List<long>(); var relative = new List<long>(); int mismatch = 0, worse = 0;
+        var pw = Stopwatch.StartNew(); double next = 5;
+        for (int i = 0; i < load.Queries.Count; i++)
+        {
+            RouteQuery q = load.Queries[i]; RouteResult p = oracle.Find(q), r = reference[i];
+            if (pw.Elapsed.TotalSeconds >= next) { Console.WriteLine("  PROGRESS Precise " + (i + 1) + "/" + load.Queries.Count); next = pw.Elapsed.TotalSeconds + 5; }
+            if (p.Status != SearchStatus.Found || r.Status != SearchStatus.Found) throw new InvalidOperationException(load.Name + ": positive case not found case=" + i + " precise=" + p.Status + " core=" + r.Status + " " + r.Reason);
+            RouteResult described = load.Map.Describe(q, r.Directions);
+            if (described.Status != SearchStatus.Found || described.Cost != r.Cost) throw new InvalidOperationException(load.Name + ": illegal path case=" + i);
+            if (r.Cost < p.Cost) throw new InvalidOperationException(load.Name + ": below optimum case=" + i);
+            extra.Add(r.Cost - p.Cost); relative.Add((r.Cost - p.Cost) * 10000 / Math.Max(1, p.Cost)); if (r.Cost > p.Cost) worse++;
+            if ((r.Moat > 0) != (p.Moat > 0)) mismatch++;
+        }
+        Console.WriteLine("  Precise total=" + pw.ElapsedMilliseconds + " ms");
+        return new
+        {
+            kind = "anchor-core", name = load.Name, units = load.Queries.Count, groups = load.Groups, maskWriteMs = maskMs, results = rows,
+            preciseMs = pw.Elapsed.TotalMilliseconds,
+            quality = new { worseThanOptimum = worse, extraCostMean = extra.Average(), extraCostP95 = Percentile(extra, 0.95), extraCostMax = extra.Max(), extraPercentP95 = Percentile(relative, 0.95) / 100.0, extraPercentMax = relative.Max() / 100.0, moatDecisionMismatches = mismatch },
+            scope = "one task per group, queries in group order, margin " + Margin + "; every path legal and compared with Precise; identical for 1 and recommended threads"
+        };
+    }
+    internal static int Run(string capture)
+    {
+        string root = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../.."));
+        string output = Path.Combine(root, "results", "core-" + DateTime.UtcNow.ToString("yyyyMMdd-HHmmss-fff"));
+        Directory.CreateDirectory(output);
+        string nativeDir = Path.GetFullPath(Path.Combine(root, "../MoatMove/.local/anchor"));
+        File.Copy(Path.Combine(nativeDir, "build.json"), Path.Combine(output, "native-build.json"));
+        using (JsonDocument proof = JsonDocument.Parse(File.ReadAllText(Path.Combine(output, "native-build.json"))))
+            if (!string.Equals(Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(Path.Combine(nativeDir, "MoatMoveAnchor.dll")))), proof.RootElement.GetProperty("dllSha256").GetString(), StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException("Anchor core binary/proof mismatch");
+        var rows = new List<object>(); int exit = 0;
+        try
+        {
+            Contracts(); rows.Add(new { kind = "contracts", passed = true, independentComparisons = comparisons });
+            int recommended = AnchorCoreInterop.mma_recommended_threads();
+            CapturedMap raw = SnapshotCodec.ReadCaptured(capture);
+            var loads = GroupWorkloads.Captured(raw.Build(raw.Players[0]), raw.Units); loads.Add(GroupWorkloads.MoatMix(GroupWorkloads.MoatMap()));
+            foreach (GroupLoad load in loads.Where(l => l.Queries.Count >= 1024))
+            {
+                Console.WriteLine("BEGIN " + load.Name + " units=" + load.Queries.Count + " groups=" + load.Groups);
+                rows.Add(Measure(load, recommended)); File.WriteAllText(Path.Combine(output, "progress.json"), JsonSerializer.Serialize(rows, new JsonSerializerOptions { WriteIndented = true }));
+            }
+        }
+        catch (Exception ex) { rows.Add(new { kind = "incomplete", error = ex.ToString() }); Console.WriteLine(ex); exit = 1; }
+        File.WriteAllText(Path.Combine(output, "results.json"), JsonSerializer.Serialize(rows, new JsonSerializerOptions { WriteIndented = true }).Replace("\r\n", "\n").Replace("\n", "\r\n"));
+        Console.WriteLine("ANCHOR CORE exit=" + exit + "; evidence=" + output); return exit;
+    }
+}

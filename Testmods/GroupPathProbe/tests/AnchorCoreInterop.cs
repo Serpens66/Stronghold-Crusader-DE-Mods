@@ -1,0 +1,89 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Runtime.InteropServices;
+using GroupPathProbe.Core;
+
+// Offline adapter for Testmods/MoatMove/native/MoatMoveAnchor.cpp (anchor mode, phase 1).
+internal sealed class AnchorCoreInterop : IDisposable
+{
+    [StructLayout(LayoutKind.Sequential)] private struct QueryResult { internal int Status, Ground, Moat, Length, Flags, Reserved; internal long Cost; }
+    private const string Library = "MoatMoveAnchor.dll";
+    [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern int mma_contract();
+    [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern int mma_recommended_threads();
+    [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern int mma_create(int width, int height, long limit, out IntPtr context);
+    [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern void mma_destroy(IntPtr context);
+    [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern int mma_mask_begin(IntPtr context, int player);
+    [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern int mma_mask_write(IntPtr context, int player, int first, int count, uint[] words, out int changed);
+    [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern int mma_mask_update(IntPtr context, int player, int[] nodes, uint[] words, int count, out int changed);
+    [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern int mma_mask_state(IntPtr context, int player, out long written, out ulong revision);
+    [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern int mma_task_create(IntPtr context, int player, int anchor, int ground, int moat, int[] starts, int count, out int id);
+    [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern int mma_task_restart(IntPtr context, int id);
+    [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern int mma_task_release(IntPtr context, int id);
+    [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern int mma_task_status(IntPtr context, int id);
+    [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern int mma_step(IntPtr context, int maxTasks, int threads, out int computed);
+    [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern int mma_query(IntPtr context, int id, int start, int slot, int margin, [Out] byte[] bytes, int capacity, out QueryResult result);
+    [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern int mma_stats(IntPtr context, [Out] long[] data, int count, int reset);
+    internal static readonly string[] StatNames = { "tasksComputed", "tasksFailed", "settleEvents", "entries", "queries", "viaChosen", "subAnchors", "subCapped", "stepNs", "queryNs", "subNs", "maskWrites", "maskChanges", "peakBytes", "allocations", "workers" };
+    internal static int Stat(string name) => Array.IndexOf(StatNames, name);
+    internal const int Found = 0, Unreachable = 1, OverLimit = 2, Pending = 3, Stale = 4, Invalid = 5, Failed = 6, Ready = 0;
+    internal const int NoMemory = 2;
+    private static IntPtr library;
+    private IntPtr context;
+    private readonly byte[] buffer = new byte[2000];
+    internal int LastFlags;
+    internal int Width { get; }
+    internal static void Load()
+    {
+        if (library != IntPtr.Zero) return;
+        library = NativeLibrary.Load(Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../MoatMove/.local/anchor/MoatMoveAnchor.dll")));
+        if (mma_contract() != 0x04000001 || Marshal.SizeOf<QueryResult>() != 32) throw new InvalidOperationException("Anchor core ABI");
+    }
+    internal AnchorCoreInterop(int width, int height, long limit = 512L * 1024 * 1024)
+    {
+        Load(); Width = width;
+        int code = mma_create(width, height, limit, out context);
+        if (code == NoMemory) throw new SearchBudgetException("anchor-core-memory");
+        Code(code);
+    }
+    private static void Code(int value) { if (value == NoMemory) throw new SearchBudgetException("anchor-core-memory"); if (value != 0) throw new InvalidOperationException("Anchor core error=" + value); }
+    // GridSnapshot words (allowed 0..7, moat 8..15) to the FastTraversalCache layout used
+    // by MoatMove (friendly 0..7, wet 16..23).
+    internal static uint FastWord(uint snapshotWord) => (snapshotWord & 0xFFU) | (((snapshotWord >> 8) & 0xFFU) << 16);
+    internal void BeginMask(int player) => Code(mma_mask_begin(context, player));
+    internal int WriteMask(int player, GridSnapshot map, int first, int count)
+    {
+        var words = new uint[count]; for (int i = 0; i < count; i++) words[i] = FastWord(map.Word(first + i));
+        Code(mma_mask_write(context, player, first, count, words, out int changed)); return changed;
+    }
+    internal void WriteWholeMask(int player, GridSnapshot map, int chunk)
+    {
+        BeginMask(player);
+        for (int first = 0; first < map.Count; first += chunk) WriteMask(player, map, first, Math.Min(chunk, map.Count - first));
+    }
+    internal int UpdateMask(int player, GridSnapshot map, IList<int> nodes)
+    {
+        var ids = new int[nodes.Count]; var words = new uint[nodes.Count];
+        for (int i = 0; i < ids.Length; i++) { ids[i] = nodes[i]; words[i] = FastWord(map.Word(nodes[i])); }
+        Code(mma_mask_update(context, player, ids, words, ids.Length, out int changed)); return changed;
+    }
+    internal bool MaskReady(int player) => mma_mask_state(context, player, out _, out _) == 0;
+    internal int CreateTask(int player, int anchor, long ground, long moat, int[] starts)
+    { Code(mma_task_create(context, player, anchor, checked((int)ground), checked((int)moat), starts, starts.Length, out int id)); return id; }
+    internal int Step(int maxTasks, int threads) { int code = mma_step(context, maxTasks, threads, out int computed); Code(code); return computed; }
+    internal int StepCode(int maxTasks, int threads) => mma_step(context, maxTasks, threads, out _);
+    internal int TaskStatus(int id) => mma_task_status(context, id);
+    internal void Restart(int id) => Code(mma_task_restart(context, id));
+    internal void Release(int id) => Code(mma_task_release(context, id));
+    // Native status mapped onto RouteResult; Pending/Stale/Failed become Inconclusive with a reason.
+    internal RouteResult Query(int id, int start, int slot, int margin)
+    {
+        Code(mma_query(context, id, start, slot, margin, buffer, buffer.Length, out QueryResult r));
+        LastFlags = r.Flags;
+        if (r.Status == Found) { var path = new byte[r.Length]; Array.Copy(buffer, path, r.Length); return new RouteResult { Status = SearchStatus.Found, Ground = r.Ground, Moat = r.Moat, Cost = r.Cost, Directions = path }; }
+        if (r.Status == Unreachable) return RouteResult.Failed(SearchStatus.Unreachable, "anchor-unreachable");
+        return RouteResult.Failed(SearchStatus.Inconclusive, r.Status == OverLimit ? "over-2000-steps" : r.Status == Pending ? "pending" : r.Status == Stale ? "stale" : r.Status == Failed ? "failed" : "invalid");
+    }
+    internal long[] Stats(bool reset = false) { var data = new long[StatNames.Length]; Code(mma_stats(context, data, data.Length, reset ? 1 : 0)); return data; }
+    public void Dispose() { if (context != IntPtr.Zero) { mma_destroy(context); context = IntPtr.Zero; } }
+}

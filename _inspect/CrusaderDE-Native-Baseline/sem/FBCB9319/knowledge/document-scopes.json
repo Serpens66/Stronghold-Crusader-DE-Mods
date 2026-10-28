@@ -23,8 +23,8 @@
     {
       "file": "LORD_HOME_TELEPORT.md",
       "scope": "vanilla+integration",
-      "components": ["LordTeleportGuardTest"],
-      "integrationSections": ["Selective prototype", "Runtime acceptance 2026-10-28", "Rescue policy revision 2026-10-28"]
+      "components": ["BugfixesAndQoL", "LordTeleportGuardTest (historical)"],
+      "integrationSections": ["Selective prototype", "Runtime acceptance 2026-10-28", "Rescue policy revision 2026-10-28", "BugfixesAndQoL integration 2026-10-28"]
     },
     {
       "file": "KILL_REWARD_PERCENT.md",

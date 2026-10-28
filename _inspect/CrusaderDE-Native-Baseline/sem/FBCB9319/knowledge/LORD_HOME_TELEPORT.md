@@ -53,13 +53,13 @@ a disconnected castle. Other unit types take different recovery/removal paths.
 
 ## Selective prototype [mod integration]
 
-LordTeleportGuardTest owns the 16-byte entry span at `0x19BA40` and blocks only a live Lord controlled
+BugfixesAndQoL now owns the 16-byte entry span at `0x19BA40` (migrated from LordTeleportGuardTest) and blocks only a live Lord controlled
 by a player whose native lineup entry is zero, when both requested coordinates equal the stored home
 point. Lineup RVA `0x8574C44` is independently identified by LEA at `0x28A7D` and SE GetAILord/IsAIPlayer.
 The current native predicate exempts the invalid-standing-component caller (return 0x183014), retaining
 Vanilla terrain rescue for humans as well as AI. The remaining home predicate still covers Lord-update
 function copies that call the common helper, without intercepting unrelated unit relocations. No local-player or managed-roster decision is used.
-See the testmod's UpdateToNewDLL.md for complete spans, data contracts, fixture boundaries and limits.
+See BugfixesAndQoL/UpdateToNewDLL.md for the current owner, spans, data contracts and fixture boundaries.
 Actual game, editor, save-loading and real host/client acceptance remain pending until separately observed.
 
 ## Runtime acceptance 2026-10-28 [mod integration]
@@ -136,3 +136,19 @@ Normal and DEVDIAG execution fixtures must observe real position, height and occ
 this caller for all eight human slots, while the return-path-failure caller remains blocked. Historical
 build 004 and its four singleplayer blocked calls above remain evidence for that earlier artifact;
 current build and gameplay acceptance are recorded separately in the local work index.
+
+## BugfixesAndQoL integration 2026-10-28 [mod integration]
+
+The user authorized migration to BugfixesAndQoL and deletion of the unpublished standalone testmod.
+EnableLordReturnTeleportFix is a default-true/reset-true SyncHostOnly option in HostTroops/Fixes.
+The permanent helper hook is installed in LibraryLoaded even when disabled, using the same audited
+native predicate and standing-rescue exemption. Its atomic data flag is installed && EnableMod &&
+EnableLordReturnTeleportFix; ApplySettings reconciles local and received host/preset changes.
+NativeSiteRegistry owner is BugfixesAndQoL_Serp and BepInIncompatibility names the retired test GUID.
+The native emitter and its assembly helpers are text-identical to the last tested testmod version;
+only namespace and the managed activation policy were added. Static feature/tick roots survive Unity
+cleanup; no per-unit managed call, additional search or live unpatch is introduced.
+Executed normal/diagnostic native regressions, built-assembly activation/UI checks and scoped shared
+preset tests are recorded in .work/a/lord-bfqol/001. Existing testmod runtime records are preserved.
+The user reported the revised testmod still works; no new integrated game/editor/save/real-MP run
+has yet been observed. This is distinct from the successful offline integration checks.

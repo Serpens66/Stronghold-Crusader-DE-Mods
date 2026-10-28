@@ -81,6 +81,7 @@ namespace BugfixesAndQoL
             options["EnableMountedStockpileMovementFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableMountedStockpileMovementFix");
             options["EnableHealerAttackCommandFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableHealerAttackCommandFix");
             options["EnableAssassinCombatResumeFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableAssassinCombatResumeFix");
+            options["EnableLordReturnTeleportFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableLordReturnTeleportFix");
             options["EnableAssemblyPointPlacementFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableAssemblyPointPlacementFix");
             options["EnableExtendedShiftCommandQueue"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableExtendedShiftCommandQueue");
             options["EnableFastRecruitRallyMovement"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableFastRecruitRallyMovement");

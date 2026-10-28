@@ -137,6 +137,7 @@ internal static class Program
                 return 0;
             }
             if (args != null && args.Length == 1 && args[0] == "ai-sell-threshold") { AiSellThresholdPresetTests.Run(); return 0; }
+            if (args != null && args.Length == 1 && args[0] == "lord-teleport") { LordReturnTeleportPresetTests.Run(); return 0; }
             if (args != null && args.Length == 1 && args[0] == "settings-opacity")
             {
                 TestSettingsOpacity();

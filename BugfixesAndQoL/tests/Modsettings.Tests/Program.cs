@@ -146,6 +146,21 @@ internal static partial class Program
                 }
             }
             finally { System.Runtime.InteropServices.Marshal.FreeHGlobal(treeState); }
+            Type lordRuntime = mod.GetType("BugfixesAndQoL.LordTeleportGuard.LordTeleportGuardRuntime", true);
+            IntPtr lordFlag = System.Runtime.InteropServices.Marshal.AllocHGlobal(4);
+            try
+            {
+                object lord = FormatterServices.GetUninitializedObject(lordRuntime);
+                lordRuntime.GetField("enabled", All).SetValue(lord, lordFlag);
+                foreach(bool ready in new[]{false,true}) foreach(bool main in new[]{false,true}) foreach(bool option in new[]{false,true})
+                {
+                    lordRuntime.GetField("ready", All).SetValue(lord, ready);
+                    lordRuntime.GetMethod("SetEnabled", All).Invoke(lord,new object[]{main,option});
+                    Check(System.Runtime.InteropServices.Marshal.ReadInt32(lordFlag) == (ready && main && option ? 1 : 0),
+                        "integrated Lord native flag follows readiness/main/host option");
+                }
+            }
+            finally { System.Runtime.InteropServices.Marshal.FreeHGlobal(lordFlag); }
             Policies();
             object protectedMap=Feature("VanillaMapEditorHook",Model(false,false,"ShowLoadSaveDialogControls",false));
             Check(!Bool(protectedMap,"OriginalMapProtectionEnabled"),"unused map protection has no hidden feature activation");

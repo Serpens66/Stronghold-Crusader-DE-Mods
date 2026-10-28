@@ -8,7 +8,7 @@ using System.IO;
 using System.Runtime.InteropServices;
 using static Iced.Intel.AssemblerRegisters;
 
-namespace LordTeleportGuardTest
+namespace BugfixesAndQoL.LordTeleportGuard
 {
     // All offsets are manager-relative, including reserved unit slot zero.
     internal static class LordTeleportNative
@@ -26,6 +26,9 @@ namespace LordTeleportGuardTest
         internal static readonly byte[] EntrySignature = {
             0x48,0x89,0x6C,0x24,0x18,0x56,0x57,0x41,0x56,0x48,0x83,0xEC,0x20,0x49,0x63,0xF0,
             0x4C,0x8B,0xF1,0x49,0x63,0xF9,0x48,0x63,0xEA,0x81,0xFE,0x1F,0x03,0,0 };
+
+        internal static bool ShouldEnable(bool installed, bool modEnabled, bool optionEnabled) =>
+            installed && modEnabled && optionEnabled;
 
         internal static Instruction[] Decode(ulong address)
         {

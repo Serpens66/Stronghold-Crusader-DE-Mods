@@ -62,7 +62,7 @@ Only Vanilla behavior; Script Extender names appear only as vocabulary.
 
 Vanilla audits that also contain mod-specific parts; see the `[mod integration]` headings and `document-scopes.json`.
 
-- [Lord home relocation](./sem/FBCB9319/knowledge/LORD_HOME_TELEPORT.md): failed return paths, building-attack target-loss trigger and deliberately preserved invalid-component rescue; human return-path suppression confirmed by four real blocked calls in singleplayer, other gameplay/MP cases pending.
+- [Lord home relocation](./sem/FBCB9319/knowledge/LORD_HOME_TELEPORT.md): failed return paths, building-attack target-loss trigger and deliberately preserved invalid-component rescue, now integrated into BugfixesAndQoL with a default-enabled host option; human return-path suppression confirmed by four real blocked calls in singleplayer, other gameplay/MP cases pending.
 - [AI economy observation boundaries](./sem/FBCB9319/knowledge/AI_ECONOMY_OBSERVATION.md): tax settlement ABI, Pre-only tax notifications, separate AI trade execution and accessibility-group/removal evidence; static audit, runtime acceptance pending.
 - [AI negative sell thresholds](./sem/FBCB9319/knowledge/AI_SELL_THRESHOLDS.md): phantom-credit cause, all eight categories, native decision/transaction guards and original-function execution evidence; in-game acceptance pending.
 - [AI woodcutter construction gate](./sem/FBCB9319/knowledge/AI_WOODCUTTER_BUILD.md)

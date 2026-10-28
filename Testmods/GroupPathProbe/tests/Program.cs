@@ -21,6 +21,9 @@ internal static class Program
                 }
                 return GroupGate.Run(Path.GetFullPath(args[1]), withExact, only);
             }
+            // MoatMove anchor core (phase 1): contracts, or contracts plus capture measurement.
+            if (args.Length == 1 && args[0] == "--anchor-core") { AnchorCoreGate.Contracts(); return 0; }
+            if (args.Length == 2 && args[0] == "--anchor-core") return AnchorCoreGate.Run(Path.GetFullPath(args[1]));
             if (args.Length == 0 || args.Length == 1 && args[0] == "--contracts") { GroupGate.Contracts(); return 0; }
             Console.WriteLine("Usage: [--contracts] | --capture <snapshot.raw.gz> [--with-exact] [--only name,name]"); return 64;
         }

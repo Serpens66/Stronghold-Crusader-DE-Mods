@@ -10,7 +10,7 @@ using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Threading;
 
-namespace LordTeleportGuardTest
+namespace BugfixesAndQoL.LordTeleportGuard
 {
     internal sealed unsafe partial class LordTeleportGuardRuntime
     {
@@ -21,10 +21,11 @@ namespace LordTeleportGuardTest
         private readonly IntPtr trace = IntPtr.Zero;
         private readonly ulong image;
         private bool runtimeLogged;
+        private bool ready;
         // Retain an unpublished candidate if rollback cannot prove that no code still enters it.
         private static object retainedFailedCandidate;
 
-        internal LordTeleportGuardRuntime(ManualLogSource logger, CrusaderLibraryLoadContext context)
+        internal LordTeleportGuardRuntime(ManualLogSource logger, CrusaderLibraryLoadContext context, bool modEnabled, bool optionEnabled)
         {
             log = logger ?? throw new ArgumentNullException(nameof(logger));
             if (context == null) throw new ArgumentNullException(nameof(context));
@@ -49,7 +50,7 @@ namespace LordTeleportGuardTest
             bool claimed = false;
             try
             {
-                candidate = new X64InlineHook(entry, 14, name: "LordTeleportGuardTest.HomeTeleport");
+                candidate = new X64InlineHook(entry, 14, name: "BugfixesAndQoL.LordHomeTeleport");
                 if (candidate.DisplacedByteCount != LordTeleportNative.DisplacedLength || candidate.IsInstalled)
                     throw new InvalidOperationException("Installed RedBird inline span differs from 16 bytes.");
                 candidate.Generate((a, original, resume) =>
@@ -66,7 +67,7 @@ namespace LordTeleportGuardTest
                 CheckLive(Address(candidate.StubAddress), LordTeleportNative.Assemble(assembler, Address(candidate.StubAddress)));
                 string bytesHash;
                 using (var sha = SHA256.Create()) bytesHash = BitConverter.ToString(sha.ComputeHash(LordTeleportNative.EntryBytes)).Replace("-", "");
-                var result = NativeSiteRegistry.Register(LordTeleportGuardPlugin.Guid, Site,
+                var result = NativeSiteRegistry.Register(BugfixesAndQoLPlugin.PluginGuid, Site,
                     new[] {
                         new NativeSiteSpan(LordTeleportNative.EntryRva, 16, NativeSiteMode.Exclusive, bytesHash),
                         new NativeSiteSpan(0x15AB83, 7, NativeSiteMode.Observe),
@@ -84,7 +85,8 @@ namespace LordTeleportGuardTest
                     throw new InvalidOperationException("Published backend contract mismatch.");
                 hook = candidate;
                 // Publication is the last operation that can affect the hook. Never dispose it afterwards.
-                Volatile.Write(ref *(int*)enabled, 1);
+                ready = true;
+                SetEnabled(modEnabled, optionEnabled);
             }
             catch
             {
@@ -92,13 +94,21 @@ namespace LordTeleportGuardTest
                 candidate?.Dispose(); // Unpublished initialization candidate only.
                 if (Matches(entry, LordTeleportNative.EntryBytes))
                 {
-                    if (claimed) NativeSiteRegistry.Unregister(LordTeleportGuardPlugin.Guid, Site);
+                    if (claimed) NativeSiteRegistry.Unregister(BugfixesAndQoLPlugin.PluginGuid, Site);
                     Marshal.FreeHGlobal(enabled);
                     if (trace != IntPtr.Zero) Marshal.FreeHGlobal(trace);
                 }
                 else retainedFailedCandidate = new object[] { candidate, enabled, trace };
                 throw;
             }
+        }
+
+        internal ManualLogSource LogSource => log;
+
+        internal void SetEnabled(bool modEnabled, bool optionEnabled)
+        {
+            if (enabled != IntPtr.Zero)
+                Volatile.Write(ref *(int*)enabled, LordTeleportNative.ShouldEnable(ready, modEnabled, optionEnabled) ? 1 : 0);
         }
 
         internal void ReportInstalled()

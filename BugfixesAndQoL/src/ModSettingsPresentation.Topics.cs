@@ -85,6 +85,7 @@ namespace BugfixesAndQoL
         public SettingsOptionPresentation EnableTroopMovementFix => options["EnableTroopMovementFix"];
         public SettingsOptionPresentation EnableMountedStockpileMovementFix => options["EnableMountedStockpileMovementFix"];
         public SettingsOptionPresentation EnableHealerAttackCommandFix => options["EnableHealerAttackCommandFix"];
+        public SettingsOptionPresentation EnableLordReturnTeleportFix => options["EnableLordReturnTeleportFix"];
         public SettingsOptionPresentation EnableAssassinCombatResumeFix => options["EnableAssassinCombatResumeFix"];
         public SettingsOptionPresentation EnableAssemblyPointPlacementFix => options["EnableAssemblyPointPlacementFix"];
         public SettingsOptionPresentation EnableExtendedShiftCommandQueue => options["EnableExtendedShiftCommandQueue"];
@@ -205,6 +206,7 @@ namespace BugfixesAndQoL
             AddOption("EnableMountedStockpileMovementFix", "bugfixes.enable-mounted-stockpile-movement-fix", SettingsCategory.Fixes, HostTroops);
             AddOption("EnableHealerAttackCommandFix", "bugfixes.enable-healer-attack-command-fix", SettingsCategory.Fixes, HostTroops);
             AddOption("EnableAssassinCombatResumeFix", "bugfixes.enable-assassin-combat-resume-fix", SettingsCategory.Fixes, HostTroops);
+            AddOption("EnableLordReturnTeleportFix", "bugfixes.lord-return-teleport-fix", SettingsCategory.Fixes, HostTroops);
             AddOption("EnableAssemblyPointPlacementFix", "bugfixes.enable-assembly-point-placement-fix", SettingsCategory.Fixes, HostTroops);
             AddOption("EnableExtendedShiftCommandQueue", "bugfixes.enable-extended-shift-command-queue", SettingsCategory.Qol, HostTroops);
             AddOption("EnableFastRecruitRallyMovement", "bugfixes.fast-recruit-rally", SettingsCategory.Qol, HostTroops);

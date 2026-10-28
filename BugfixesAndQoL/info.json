@@ -3,7 +3,7 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.206",
+  "Version": "1.0.207",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.0",
   "MaximumScriptExtenderVersion": "",
@@ -16,6 +16,13 @@
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.207",
+      "Changes": [
+        "Add a default-enabled host option preventing human Lord return-to-Keep teleport exploits while preserving invalid-standing-tile rescue and AI behavior.",
+        "Integrate the native guard and its executed machine-code regressions; retire the standalone LordTeleportGuardTest."
+      ]
+    },
     {
       "Version": "1.0.206",
       "Changes": [

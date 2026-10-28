@@ -95,6 +95,7 @@ namespace BugfixesAndQoL
         private bool enableImprovedAssassinPathfinding = true;
         private bool enableImprovedAssassinPathfindingAI = true;
         private bool enableAssassinCombatResumeFix = true;
+        private bool enableLordReturnTeleportFix = true;
         private bool enablePlaguePopularityFix = true;
         private bool enablePlagueCloudRemovalFix = true;
         private bool enableStuckApothecaryFix = true;
@@ -1442,6 +1443,15 @@ namespace BugfixesAndQoL
             set => SetSetting(ref enableImprovedAssassinPathfindingAI, value, nameof(EnableImprovedAssassinPathfindingAI));
         }
 
+        public string EnableLordReturnTeleportFixText => SerpLocalization.Get("BugfixesAndQoL.EnableLordReturnTeleportFix");
+        public string EnableLordReturnTeleportFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableLordReturnTeleportFixHelp");
+        [SyncHostOnly]
+        public bool EnableLordReturnTeleportFix
+        {
+            get => enableLordReturnTeleportFix;
+            set => SetSetting(ref enableLordReturnTeleportFix, value, nameof(EnableLordReturnTeleportFix));
+        }
+
         [SyncHostOnly]
         public bool EnableAssassinCombatResumeFix
         {
@@ -1693,6 +1703,7 @@ namespace BugfixesAndQoL
                 EnableImprovedAssassinPathfinding = true;
                 EnableImprovedAssassinPathfindingAI = true;
                 EnableAssassinCombatResumeFix = true;
+                EnableLordReturnTeleportFix = true;
                 EnablePlaguePopularityFix = true;
                 EnablePlagueCloudRemovalFix = true;
                 EnableStuckApothecaryFix = true;
