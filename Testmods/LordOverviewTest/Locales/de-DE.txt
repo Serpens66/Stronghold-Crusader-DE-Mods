@@ -1,0 +1,5 @@
+Title=Lord-Übersicht
+Gold=Gold
+Army=Aktuelle Armee
+Player=Spielernummer
+Sort=Klicken: absteigend, erneut aufsteigend.

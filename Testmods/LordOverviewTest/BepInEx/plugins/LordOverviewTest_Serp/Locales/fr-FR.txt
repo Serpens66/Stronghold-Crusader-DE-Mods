@@ -1,0 +1,5 @@
+Title=Lord overview
+Gold=Gold
+Army=Current army
+Player=Player number
+Sort=Click: descending, then ascending.

@@ -25,6 +25,8 @@ namespace PerfProbe
             // Director/GUI spans duplicate a frame or EngineInterface spike; keep their event
             // lines, but request stack slices only for frames, simulation and engine calls.
             if (name == "main:Director.Update(total)" || name == "main:FatControler.NoesisGUIUpdateChecksInGame") return;
+            // The map-tick gap duplicates the OnTick gap window once Extender ticks arrive.
+            if (name == "tick:mapGap" && PerfProbeTickMonitor.TicksObserved) return;
             if (Interlocked.Increment(ref pendingSpikes) > 16)
             {
                 Interlocked.Decrement(ref pendingSpikes); Interlocked.Increment(ref suppressedSpikes); return;

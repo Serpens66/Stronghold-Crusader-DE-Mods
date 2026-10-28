@@ -37,7 +37,7 @@ internal sealed class AnchorCoreInterop : IDisposable
     {
         if (library != IntPtr.Zero) return;
         library = NativeLibrary.Load(Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../MoatMove/.local/anchor/MoatMoveAnchor.dll")));
-        if (mma_contract() != 0x04000001 || Marshal.SizeOf<QueryResult>() != 32) throw new InvalidOperationException("Anchor core ABI");
+        if (mma_contract() != 0x04000002 || Marshal.SizeOf<QueryResult>() != 32) throw new InvalidOperationException("Anchor core ABI");
     }
     internal AnchorCoreInterop(int width, int height, long limit = 512L * 1024 * 1024)
     {

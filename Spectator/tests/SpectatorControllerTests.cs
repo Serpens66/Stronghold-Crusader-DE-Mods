@@ -74,6 +74,12 @@ namespace Spectator {
    Check(PresentedAiOrder.Read(-1,modes,targets,requesters).Mode==0);
    Check(PresentedAiOrder.Read(8,new short[2],null,null).Mode==0);
    Check(!SpectatorFeatureActivation.HasToolbar(false,false,false));
+   foreach(bool toolbarTools in new[]{false,true})
+   foreach(bool toolbarPerspective in new[]{false,true})
+   foreach(bool toolbarStatistics in new[]{false,true}) {
+    Check(!SpectatorFeatureActivation.HasToolbar(toolbarTools,toolbarPerspective,toolbarStatistics,true),"editor never exposes spectator toolbar or its command context");
+    Check(SpectatorFeatureActivation.HasToolbar(toolbarTools,toolbarPerspective,toolbarStatistics,false)==(toolbarTools||toolbarPerspective||toolbarStatistics),"normal toolbar activation stays unchanged");
+   }
    foreach (bool host in new[] { false, true })
    foreach (bool client in new[] { false, true })
    foreach (bool perspective in new[] { false, true })

@@ -124,11 +124,15 @@ internal static class GroupWorkloads
     // Open 800x800 field split by a moat strip; the strip becomes a wall near the bottom
     // with one ground gap. Northern groups profit from crossing the moat, southern ones
     // from the gap, so moat decisions differ inside some groups.
-    internal static GridSnapshot MoatMap()
+    internal static GridSnapshot MoatMap() => MoatMap(false);
+    // bridges: two additional dry crossings of the moat strip (rows 195..205 and 495..505),
+    // so most units have a ground route of moderate length next to the moat crossing.
+    internal static GridSnapshot MoatMap(bool bridges)
     {
         const int size = 800; var valid = new byte[size * size]; var words = new uint[valid.Length];
-        bool Strip(int x) => x >= 396 && x <= 404;
-        bool Wall(int x, int y) => Strip(x) && y >= 700 && (y < 780 || y > 790);
+        bool Bridge(int y) => bridges && (y >= 195 && y <= 205 || y >= 495 && y <= 505);
+        bool Strip(int x, int y) => x >= 396 && x <= 404 && !Bridge(y);
+        bool Wall(int x, int y) => Strip(x, y) && y >= 700 && (y < 780 || y > 790);
         for (int n = 0; n < valid.Length; n++) valid[n] = Wall(n % size, n / size) ? (byte)0 : (byte)1;
         for (int n = 0; n < valid.Length; n++)
         {
@@ -137,16 +141,17 @@ internal static class GroupWorkloads
             {
                 int nx = x + GridSnapshot.Dx[d], ny = y + GridSnapshot.Dy[d];
                 if ((uint)nx >= size || (uint)ny >= size || valid[ny * size + nx] == 0) continue;
-                bool wet = (Strip(x) && y < 700) || (Strip(nx) && ny < 700);
+                bool wet = (Strip(x, y) && y < 700) || (Strip(nx, ny) && ny < 700);
                 words[n] |= (1U << d) | (wet ? 1U << (8 + d) : 0U);
             }
         }
         return new GridSnapshot(size, size, valid, words, 1);
     }
-    internal static GroupLoad MoatMix(GridSnapshot map)
+    internal static GroupLoad MoatMix(GridSnapshot map) => MoatMix(map, "moat-group-mix-10000", 10000, 77013);
+    internal static GroupLoad MoatMix(GridSnapshot map, string name, int units, int seed)
     {
-        var load = new GroupLoad { Name = "moat-group-mix-10000", Map = map }; var random = new Random(77013);
-        while (load.Queries.Count < 10000)
+        var load = new GroupLoad { Name = name, Map = map }; var random = new Random(seed);
+        while (load.Queries.Count < units)
         {
             int center = (50 + random.Next(700)) * map.Width + 50 + random.Next(250);
             int anchor = (50 + random.Next(700)) * map.Width + 500 + random.Next(250);

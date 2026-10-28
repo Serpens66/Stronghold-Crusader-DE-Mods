@@ -10,6 +10,16 @@ using System.Collections.Concurrent;
 
 internal static class Program
 {
+    private static void TestsBlueprintSpectator()
+    {
+        Assert(BlueprintSpectatorPolicy.IsSpectator(true,false,true,true,0), "original spectator must use automatic AI plans");
+        Assert(BlueprintSpectatorPolicy.IsSpectator(true,false,true,true,-1), "eliminated spectator must use automatic AI plans");
+        Assert(!BlueprintSpectatorPolicy.IsSpectator(true,false,true,true,1), "controlled player keeps Blueprints");
+        Assert(!BlueprintSpectatorPolicy.IsSpectator(true,false,true,false,0), "a changed viewpoint does not grant spectator identity");
+        Assert(!BlueprintSpectatorPolicy.IsSpectator(true,true,true,true,0), "editor tools remain available");
+        Assert(!BlueprintSpectatorPolicy.IsSpectator(false,false,true,true,0), "stale map state does not count");
+        Assert(!BlueprintSpectatorPolicy.IsSpectator(true,false,false,true,0), "unconfirmed game type does not count");
+    }
     private static int Main(string[] args)
     {
         if (args.Length == 3 && string.Equals(args[0], "--integration", StringComparison.Ordinal))
@@ -33,6 +43,8 @@ internal static class Program
             ("resolves Vanilla map-facing start rotations", ResolvesMapFacingRotations),
             ("tracks retained starts in native player order", TracksRetainedStartsInNativePlayerOrder),
             ("keeps archived native start interactions conservative", KeepsArchivedNativeStartInteractionsConservative),
+            ("recognizes confirmed spectators independently of the view", TestsBlueprintSpectator),
+            ("projects prepared AI plans without a second rotation", SpectatorBlueprintTests.Run),
             ("evaluates AI starts sequentially", EvaluatesAiStartsSequentially),
             ("reuses multiplayer tie choice for sequential starts", ReusesTieChoiceForSequentialStarts),
             ("propagates a certain start rotation across an uncertain AIV choice", PropagatesCertainRotationAcrossTie),

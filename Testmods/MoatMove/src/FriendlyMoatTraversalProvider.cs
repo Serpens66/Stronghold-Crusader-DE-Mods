@@ -29,6 +29,7 @@ namespace MoatMove
                 if (settings.NativeFast) FastNativeKernel.Get(800, 800);
                 enabled = true;
                 InstallFastCommandRuntime(context.Memory, unchecked((ulong)context.ModuleHandle.ToInt64()));
+                InitializeAnchor();
             }
             catch { enabled = false; throw; }
         }

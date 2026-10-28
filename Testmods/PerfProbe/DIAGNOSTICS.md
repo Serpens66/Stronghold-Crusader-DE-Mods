@@ -1,5 +1,165 @@
 # Diagnose kurzer Lags ab 100 ms
 
+## Spielzeit-Stillstand, Lag-Arten und Marker (Quellstand 28.10.2026)
+
+Auslöser: Editor, ca. 1350 Einheiten, Bewegungsbefehl (Log
+`Testmods/MoatMove/.local/ingame-perfprobe-2.log`, 23:04–23:05). Die Spielwelt
+stand sichtbar still, PerfProbe meldete nichts: 150–180 FPS, `run` gleichmäßig
+55/s mit höchstens 21 ms. Spieltick-Lücken zählte nur die Automation
+(`tickstats`), ohne Zeitstempel und ohne Sampler.
+
+Stand: am 28.10.2026 um 23:30 als DEVDIAG-Build des Arbeitsstands (Basis
+`6ef09c570`, Buildrecord `.work/b/working/575.build.json`) gebaut und
+installiert.
+
+Ingame-Nachweis 28.10.2026, 23:35 (Editor, ca. 1350 Einheiten, Log
+`Testmods/PerfProbe/.local/manual-tickgap-1.log`, nicht versioniert): Auf vier
+von fünf Rechtsklick-Markern folgt nach 87–108 ms ein `tick:gap` von 526, 121,
+513 bzw. 455 ms. Bild und Main-Thread laufen
+normal weiter (80–93 Frames je Lücke, Main-Stacks: Rendern/Warten). Im Fenster
+gibt es genau zwei kurze Runs, einen an jeder Grenze (`runCallsDuring=1`,
+`simBusyShare` 0,01–0,04, kein langer `run`, `lockHistory` 448–522 ms ohne
+bekannten Besitzer). Jeder Run brachte genau einen Spieltick
+(`runsWithoutTick=0`). Die Simulation wurde also etwa 0,5 s lang nicht
+aufgerufen oder hing vor PerfProbes `run`-Prefix. Zwei BFQoL-Diagnoseprefixe
+(`GatehouseDiagnostic`, `GateFreeze`) laufen vor PerfProbes Prefix; ihre Zeit
+ist bisher unsichtbar. Offen und nächster Messschritt ist Erweiterung 1
+(Simulationstakt), ergänzt um eine `run`-Zeitmessung außerhalb aller fremden
+Prefixe.
+
+### Simulationstakt (Erweiterung 1, Quellstand 28.10.2026 nach dem Messlauf)
+
+- Prefix auf `Director.MyFixedUpdate(object)` (Threadpool-Timer, privat; zur
+  Laufzeit gegen Signatur und `FramesToProcess:int` geprüft, sonst
+  `timerProbe unavailable`, nur diese Messung entfällt). Er zählt Aufrufe,
+  misst Abstände und liest `FramesToProcess` vor Vanillas Erhöhung.
+- `tick:gap` ergänzt `timerCallsDuring`, `timerMaxIntervalMs` (einschließlich
+  des offenen Intervalls), `expectedTimerMs` (`EngineFrameTime` / Low-FPS-Stufe),
+  `framesToProcessMax`, `framesToProcessAtEnd` sowie die Threadpool-Belegung
+  beim Schreiben der Zeile (nicht während der Lücke). `tickCounters` ergänzt
+  `timerCalls` und `maxTimerIntervalMs`.
+- Deutung in der Auswertung: fehlende Timer-Aufrufe → Timer/Threadpool
+  ausgehungert oder Prozessstopp, Vanilla hat keine Frames angefordert.
+  Steigt `FramesToProcess` ohne `run`, hängt der Sim-Thread vor `run`.
+- PerfProbes `run`-Prefix läuft jetzt zuerst, Postfix und Finalizer zuletzt
+  (`Priority.First`/`Last`). Damit enthalten `sim:EngineInterface.run`,
+  `simBusyMs` und das Sim-Sampling die Prefixe anderer Mods. `preBodyMs` nennt
+  die Zeit vor dem Originalkörper.
+- `[Sampler] SimOutsideRun` (Standard `false`) tastet den Sim-Thread auch
+  zwischen den `run`-Aufrufen ab, also in Vanillas Director-Schleife. Das
+  kostet im Leerlauf etwa 1000 Suspendierungen/s; nur für gezielte Läufe.
+
+Zweiter Ingame-Lauf 28.10.2026, 23:49 (gleiche Szene, `SimOutsideRun=true`, Log
+`Testmods/PerfProbe/.local/manual-tickgap-2.log`): Auf drei von vier
+Rechtsklicks folgen `tick:gap` von 617, 476 und 541 ms. Der Timer lief normal
+(`timerMaxIntervalMs` ≤ 21, 26–34 Aufrufe je Lücke); `framesToProcessMax`
+stieg auf 24–32. Vanilla forderte die Simulationsschritte also an, der
+Sim-Thread arbeitete sie nicht ab. Er war beschäftigt: 65–80 % der Sim-Stichproben in
+`CDE:0xDA5EF` unter BFQoLs Hülle um Vanillas Pfad-Builder F4930
+(`InstallNativeOriginalEntryCounters>b__1`; native Zeit des Originals, kein
+Overhead der Hülle). Kleinere Anteile: Hook-Stubs (`dyn@`), MoatMove
+`FastLiveEdge`, BFQoL `TryGetTraversalEdge`. In den 2‑s‑Fenstern sind die
+Einstiege MoatMove `ProcessFastCommands` (über `OnTick`), BFQoL
+`PathBuilderBarrier`/`BuildPathWithCompletedMoatRouteVariant` und ein
+MonoMod-`Hook<EngineInterface::run>` (`FormationRuntime:EngineRunHook`,
+APIShared `MarkedUnitSelectionAPI:OnRun`). Der Nutzer beobachtete den Lag auch
+mit „SCDE Vanilla.bat“ (ohne Messung).
+
+**Messgrenze:** MonoMod-Hooks um `run` liegen außerhalb der Harmony-Kette.
+Ihre Zeit fehlt in `sim:EngineInterface.run`, `simBusyMs` und `preBodyMs`
+(längster gemessener `run` in diesem Lauf: 58 ms). Die Lücke selbst und
+die Sim-Stacks erfassen sie trotzdem. Offen: Zuordnung von `CDE:0xDA5EF`
+über die Native-Baseline sowie eine PerfProbe-Basismessung nur mit SE.
+
+### Welche Lag-Art PerfProbe erkennt
+
+| Lag-Art | Erkennung | Zeilen/Felder |
+|---|---|---|
+| Bild steht (Frame-Lücke) | Intervall der Render-Callbacks | `frame:interval` |
+| Langer Sim-Aufruf | `run`-Zeitmessung mit Phasen | `sim:EngineInterface.run`, neu `gameTicksDuring` |
+| **Spielzeit steht, Bild läuft** | **neu:** Extender-`OnTick` und nativer Kartentickzähler | `tick:gap`, `tick:mapGap`, `tickCounters` |
+| Simulation nicht eingeplant oder leerlaufend | **neu:** Run-/Native-Aufrufe, Sim-Busy-Zeit im Lückenfenster | Felder der `tick:gap`-Zeile |
+| Run ohne Spielfortschritt | **neu:** Ticks bzw. Kartenticks pro Run | `runsWithoutTick`, `runsWithoutMapTick`, `maxTicksPerRun` |
+| Low-FPS-Ausgleich von Vanilla | **neu:** `run(true)` | `runCounters skipCalls`, `skipRunsDuring` |
+| Langer Main-Thread-Aufruf | Director, GUI, `processTestMap`, Engine-Wrapper | `main:*` |
+| Main-Thread wartet auf `threadLock` | Monitor-Messung nur an auditierten Wrappern, Frame-Akkumulator, `lockHistory` | `lockWaitMs`, `engineFrameLockWaitMs` |
+| GC | Zähler und Heapdifferenz | `gcDuring`, `gc`, `allocThreads`; **keine Pausendauer** |
+| Laden/Kartenstart | `LoadSaveFile`-Spike, `loadSpan`; Automation `startup` | neu: Stillstand direkt nach Laden/Pause als `afterHalt=True` |
+| Lag nach Befehl | **neu:** Klick-/Tastenmarker | `inputMark` |
+
+### Spieltick-Lücken (`tick:gap`)
+
+- Quelle 1: `GameTimeManagerAPI.OnTick`. Der Extender löst es aus einem
+  nativen Hook in der Tickschleife innerhalb von `DLL_RunTick` aus, nicht bei
+  lokaler Pause. Quelle 2: der vom Extender gefundene native Kartentickzähler
+  (`gCurrentGameTick`), gelesen nach jedem abgeschlossenen `run`. `tick:mapGap`
+  bekommt nur Stackauszüge, solange keine `OnTick`-Ticks ankommen.
+- Grenze: `[Spikes] TickGapMs` (Standard 100, 0 = Monitor aus) plus erwartetes
+  Tickintervall der Spielgeschwindigkeit (`Director.EngineFrameTime`).
+- Pausen und Laden: Der Main-Thread prüft pro Frame `Director.instance`,
+  `SimRunning`, `Paused` und die lokale native Pause. Zeit bis zum letzten
+  angehaltenen Frame zählt nicht (`haltedMs`). Ein Stillstand direkt danach
+  wird trotzdem gemeldet (`afterHalt=True`, `haltKind`). Lücken, die nur durch
+  Pause oder Laden lang sind, zählen als `haltedGapsExcluded`. Ein kleinerer
+  Tickwert (neue Mission) beendet das Intervall ohne Meldung.
+- Die Zeile enthält Start-/Endstempel, Tick davor/danach, `runCallsDuring`,
+  `nativeCallsDuring`, `skipRunsDuring`, `noBufferDuring`, `simBusyMs`,
+  `simBusyShare`, `framesDuring`, `mapTicksDuring` und `lowFpsLevel`. Sie wird
+  einen Frame später auf dem Main-Thread geschrieben; `emittedAfterMs` nennt
+  die Verschiebung der Uhrzeit, die Stempel sind exakt. Für das Fenster werden
+  Main- und Sim-Stacks über den vorhandenen Spike-Sampler angefordert.
+- Die Busy-Zeit enthält den Run, in dem der erste Tick des Intervalls lag.
+- `tickCounters` (alle 5 s): Ticks/s, Lücken über der Grenze, größte aktive
+  Lücke, ausgeschlossene Lücken, Kartenticks, Runs ohne Tick, mit mehreren
+  Ticks und ohne Kartentick.
+
+### Sim-Sampler außerhalb von `run`: nicht nötig
+
+Audit des verwalteten Vanilla-Pfads (`Director.runSimTickTest`, Assembly-CSharp
+BC8B6A39): Ein Threadpool-Timer (`MyFixedUpdate`) erhöht `FramesToProcess`
+im Takt der Spielgeschwindigkeit, außer bei Pause. Der Sim-Thread ruft pro
+Eintrag `run(skip)` auf, danach nur `EditorDirector.updateTick()` (ein
+Zählerinkrement); sonst `Thread.Sleep(1)`. Außerhalb von `run` gibt es also
+keine Arbeit mit Stack-Information. Ob die Simulation in einer Lücke arbeitet
+oder leerläuft, zeigen `runCallsDuring`, `nativeCallsDuring` und
+`simBusyShare` ohne zusätzliche Suspendierungen. `simOnlyWhileRunActive`
+bleibt deshalb unverändert.
+
+### Eingabemarker (`inputMark`)
+
+`[Markers] Keys` (Standard `Mouse0,Mouse1,ScrollLock`; leer = aus) loggt jeden
+Druck dieser Tasten mit Stempel über `InputR3EventHooks.OnKeyDown`. Der
+Extender meldet dort alle Unity-`KeyCode`s einschließlich Maustasten; es gibt
+kein Polling. Rechtsklick = Bewegungsbefehl, `ScrollLock` = freier Marker für
+manuelle Läufe.
+
+### Offline-Auswertung
+
+`tools/Analyze-Spikes.ps1` beginnt mit einer Lauf-Zusammenfassung: Ereignisse
+nach Art und Phase (Anzahl, Summe, Maximum), aufsummierte `tickCounters`,
+Marker und Ereignisse bis 5 s nach einem Marker. Neue Ereignisart
+`game-time-stall` (Spielzeit steht, kein Frame-Lag), Phase
+`after-pause-or-load`. Hinweise kennzeichnen eine leerlaufende oder nicht
+eingeplante Simulation, Runs ohne Kartentick und ein weiterlaufendes Bild. Je
+Ereignis wird der letzte vorhergehende Marker als Zeitbezug genannt; das ist
+kein Ursachennachweis. `tools/Run-Automation.ps1` gibt dieselbe Zusammenfassung
+nach jedem Lauf aus. `tests/Test-SpikeAnalysis.ps1` prüft den echten Parser;
+`tests/TickGapTests.cs` (über `Test-DiagnosticHelpers.ps1`) führt die
+produktive Lückenklassifikation und die Sim→Main-Übergabe aus.
+
+### Weitere Erweiterungen, nach Nutzen geordnet (nicht umgesetzt)
+
+1. **Takt der Simulation:** nach dem Messlauf vom 28.10.2026 umgesetzt
+   (Abschnitt „Simulationstakt“).
+2. **Prozessweite Stopps (GC):** Mono liefert keine Pausendauer. Näherung:
+   Weckverspätung des Sampler-Threads (`maxWakeLateUs`) als eigene Spikezeile
+   ab etwa 50 ms.
+3. **Native Arbeit ohne Tick:** Zeigt `tick:gap` viele native Runs ohne
+   Kartentick, die Sim-Stacks des Fensters auswerten und erst danach gezielte
+   native Zähler ergänzen.
+4. **Render-Thread/GPU je Frame-Spike:** CPU-/GPU-Zeit aus
+   `FrameTimingManager` in die `frame:interval`-Zeile.
+
 ## Entlastete Messung (Quellstand 23.10.2026)
 
 Noch kein Mod-Build und keine Installation dieser Überarbeitung. Der Sampler

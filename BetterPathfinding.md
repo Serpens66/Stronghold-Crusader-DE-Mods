@@ -644,3 +644,46 @@ Der Kern `Testmods/MoatMove/native/MoatMoveAnchor.cpp` ist gebaut und offline ge
 - Die Qualität entspricht §18.3 mit Rand 8. Die Graben-Entscheidung weicht nie ab.
 
 Nächster Engpass sind die Abfragen im Ausführungstick. Einzelheiten stehen in [ANCHOR_MODE_PLAN.md](Testmods/MoatMove/ANCHOR_MODE_PLAN.md).
+
+### 18.5 Kostenminimierung als Graben-Entscheidung (28.10.2026)
+
+**Machbarkeit (statischer Code-Audit):**
+- Die Regel „Graben nur ohne Bodenweg“ (Fast, BFQoL-Modus `RequiredOnly`) steckt in MoatMove: `TryFindFastRequiredRoute` liefert keinen Grabenweg, sobald `FastGroundReachable` einen Bodenweg findet.
+- BugfixesAndQoL fragt diese Entscheidung an allen relevanten Stellen über den Provider ab: Wegaufbau je Einheit (`MovementPathPublication`), Gruppenprüfung (`RegionEligibility`, `RequiredRoutes`), nach Kämpfen (`Planning`) und bei der Wiederherstellung (`NativeMovementRecovery`).
+- `RequiredOnly` schaltet in BugfixesAndQoL nur Teilsysteme um (Kandidatenerfassung, Caches, Precise-Schattensuche). `VanillaFailureProven` wird nur gesetzt und kopiert, nicht ausgewertet.
+- **Ergebnis:** Kostenminimierung lässt sich voraussichtlich allein in MoatMove umsetzen, ohne Umbau von BugfixesAndQoL. Die `RequiredOnly`-Zweige von MoatMove für Angriffe, Arbeit und Cursor bleiben in einer ersten Stufe bei „Boden zuerst“.
+- Das ist nicht im Spiel nachgewiesen.
+
+**Messung** [costmin-20261028-180314-518](Testmods/GroupPathProbe/results/costmin-20261028-180314-518/results.json): zwei synthetische Grabenkarten mit je 5.000 Einheiten in 20 Gruppen, Profil 1/7, 8 Threads.
+- Auf beiden Karten gibt es immer einen Bodenweg: einmal nur über eine ferne Lücke (Mauer), einmal zusätzlich über zwei Brücken.
+- Referenzen: exaktes gewichtetes Optimum mit Graben (F*) und nur auf Boden (G*), beide über den unveränderten Precise-Kern.
+- Bodenentscheidungen zählen mit G*. Das ist optimistisch, weil Vanillas eigener Weg nicht immer optimal ist.
+- „Precise≈“ verwendet 40 Kosteneinheiten statt Ticks und Profile.
+
+| Entscheidung | Mauer: Graben gewählt / falsch / Gesamtkosten über Optimum | Brücken: Graben gewählt / falsch / Gesamtkosten über Optimum |
+|---|---|---|
+| exakte Kostenminimierung | 5.000 / 0 / 0 % | 515 / 0 / 0 % |
+| Fast (Graben nur ohne Bodenweg) | 0 / 5.000 / **+86,5 %** (bis 829 Mehrkosten) | 0 / 515 / +0,69 % |
+| Precise≈ (≥ 40 Ersparnis) | 5.000 / 0 / 0 % | 149 / 366 / +0,41 % |
+| Anker, ein Feld je Befehl | 5.000 / 0 / +0,46 % | 500 / 15 / +0,05 % |
+| Anker mit zusätzlichem Bodenfeld | 5.000 / 0 / +0,46 % | 500 / 15 / +0,05 % |
+
+**Effizienz:**
+- Ein zusätzliches Bodenfeld verbessert keine Entscheidung. Kostenminimierung braucht also nur **ein** gewichtetes Feld je Befehl: 49–58 ms Felder plus 68–71 ms Abfragen je 5.000 Einheiten.
+- Ein Bodenfeld, wie es die Fast-Regel benötigt, kostet 36–45 ms plus 70–83 ms Abfragen.
+- Gegenüber der Fast-Regel kostet Kostenminimierung also etwa ein Viertel mehr Feldzeit. Die Abfragezeit ist gleich.
+- Die 15 falschen Entscheidungen auf der Brückenkarte sind knappe Fälle: Der Graben wäre minimal günstiger, B hat aber keinen Grabenweg gefunden. Der Gesamtverlust beträgt 0,05 %.
+
+**Bewertung:** Kostenminimierung ist umsetzbar und kaum teurer als die Fast-Regel. Sie vermeidet deren große Umwege (bis +86 % auf der Mauerkarte). Einheiten mit Bodenentscheidung bleiben bei Vanilla, dessen eigene Suche dafür weiterläuft. Ein späterer Schritt könnte auch diese Bodenwege aus B veröffentlichen und so Vanillas Suche einsparen; das wäre eine eigene Verhaltensänderung.
+
+### 18.6 Phase 2: MoatMove-Modus `anchor` eingebunden (28.10.2026)
+
+MoatMove hat den zusätzlichen Modus `[Movement] Mode = anchor`. Er nutzt Fasts verzögerten Befehlsablauf und entscheidet Bewegungsbefehle per Kostenminimierung. Alle anderen Wege behalten die Fast-Regel.
+
+Gebaut wurde nur lokal per MSBuild; die vorhandenen MoatMove-Tests und die Kern-Verträge bestehen. `build.bat`-Integration, Installation und Ingame-Test fehlen noch (Phase 3).
+
+**Korrektur zu §18.5 (28.10.2026, abends):** Der Wegaufbau je Einheit in MoatMoves RequiredOnly-Ablauf ist strikt „Vanilla zuerst“. Der Provider wird nur nach einem Vanilla-Fehlschlag gefragt, nicht für über Boden erreichbare Ziele. Die Aussage „an allen relevanten Stellen“ gilt für diesen Fall nicht. Der Anker-Modus entscheidet deshalb bisher nur für Einheiten ohne Bodenweg. Echte Kostenminimierung braucht eine Änderung dieses Ablaufs mit Native-Audit. Einzelheiten: [ANCHOR_MODE_PLAN.md](Testmods/MoatMove/ANCHOR_MODE_PLAN.md), Abschnitt „Robustheit nach dem ersten Ingame-Test“.
+
+**Nachtrag Phase 3 (28.10.2026, 20:18):** `build.bat` baut jetzt auch `MoatMoveAnchor.dll` und installiert sie mit. Der Lauf `build.bat /nopause` war vollständig erfolgreich; die Hashes im Spielordner stimmen. Der Ingame-Test steht noch aus (`Mode = anchor` in `MoatMove_Serp.cfg`).
+
+Einzelheiten stehen in [ANCHOR_MODE_PLAN.md](Testmods/MoatMove/ANCHOR_MODE_PLAN.md).

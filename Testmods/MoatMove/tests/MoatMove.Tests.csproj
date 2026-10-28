@@ -14,6 +14,7 @@
     <Compile Remove="RouteSearchEventIntegrationTests.cs" />
     <Compile Remove="CursorTests.cs" />
     <Compile Remove="PlacementTests.cs" />
+    <Compile Remove="AnchorIntegrationTests.cs" />
     <Compile Remove="SearchKernelTests.cs" />
     <Compile Remove="FastRouteFieldTests.cs" />
     <Compile Remove="FastStateTests.cs" />

@@ -42,6 +42,8 @@ function Get-PerfProbeAnalysis {
         $end=[TimeSpan]::ParseExact($m.Groups['end'].Value,'hh\:mm\:ss\.fff',$culture).TotalMilliseconds
         if($end+$day -lt $lastEnd-43200000){$day+=86400000}
         $end+=$day;$lastEnd=$end;$start=$end-$ms;$detail=$m.Groups['detail'].Value;$stamped=$false
+        # Deferred lines (tick gaps) carry their write delay; the wall clock is corrected before calibration.
+        if($detail -match '\bemittedAfterMs=([0-9.]+)'){$end-=[double]::Parse($Matches[1],$culture);$start=$end-$ms}
         if($frequency -gt 0 -and $detail -match '\bstartStamp=(\d+) endStamp=(\d+)'){
             $a=[double]$Matches[1];$b=[double]$Matches[2]
             if($null -eq $clockOffset){$clockOffset=$end-$b*1000/$frequency}
@@ -57,7 +59,7 @@ function Get-PerfProbeAnalysis {
     foreach($root in $roots){
         $group=if($groups.Count){$groups[$groups.Count-1]}else{$null}
         if($null -eq $group -or $root.StartMs -ge $group.EndMs-0.001){
-            $group=[pscustomobject]@{StartMs=$root.StartMs;EndMs=$root.EndMs;Phase='gameplay-or-unknown';Kind='long-call';FrameLagRecorded=$false;Members=@();Samples=@();LockHistory=@();Analysis=@();NativeStubSamples=@();Evidence=@();Hints=@()}
+            $group=[pscustomobject]@{StartMs=$root.StartMs;EndMs=$root.EndMs;Phase='gameplay-or-unknown';Kind='long-call';FrameLagRecorded=$false;GameTimeStall=$false;Members=@();Samples=@();LockHistory=@();Analysis=@();NativeStubSamples=@();Evidence=@();Hints=@()}
             $groups.Add($group)
         }else{$group.EndMs=[Math]::Max($group.EndMs,$root.EndMs)}
     }
@@ -71,10 +73,30 @@ function Get-PerfProbeAnalysis {
     foreach($group in $groups){
         $group.Members=@($spikes|Where-Object{$_.StartMs -lt $group.EndMs -and $_.EndMs -gt $group.StartMs})
         $group.FrameLagRecorded=@($group.Members|Where-Object{$_.Name -eq 'frame:interval' -and $_.Ms -ge $ThresholdMs -and $_.Source -match '^Perf ?Probe$'}).Count -gt 0
+        $stalls=@($group.Members|Where-Object{$_.Name -in @('tick:gap','tick:mapGap') -and $_.Source -match '^Perf ?Probe$'})
+        $group.GameTimeStall=$stalls.Count -gt 0
         if($group.FrameLagRecorded){$group.Kind='recorded-frame-gap'}
+        elseif($group.GameTimeStall){$group.Kind='game-time-stall'}
         elseif(@($group.Members|Where-Object{$_.Name -in @('sim:EngineInterface.run','bfqol.gatehouse.run') -and $_.Ms -ge $ThresholdMs}).Count){$group.Kind='long-run-call'}
         if(@($loads|Where-Object{$_.StartMs -lt $group.EndMs -and $_.EndMs -gt $group.StartMs}).Count){$group.Phase='load-wrapper-overlap'}
         elseif($null -ne $firstLoad -and $group.EndMs -le $firstLoad){$group.Phase='startup-before-first-save-load'}
+        elseif(@($stalls|Where-Object{$_.Detail -match '\bafterHalt=True\b'}).Count){$group.Phase='after-pause-or-load'}
+        foreach($stall in $stalls){
+            $f=@{};foreach($pair in [regex]::Matches($stall.Detail,'(\w+)=(\S+)')){$f[$pair.Groups[1].Value]=$pair.Groups[2].Value}
+            $group.Evidence+=('game time stalled {0:F1} ms ({1}): runCalls={2} nativeCalls={3} skipRuns={4} simBusyMs={5} share={6} frames={7} mapTicks={8}' -f
+                $stall.Ms,$f['source'],$f['runCallsDuring'],$f['nativeCallsDuring'],$f['skipRunsDuring'],$f['simBusyMs'],$f['simBusyShare'],$f['framesDuring'],$f['mapTicksDuring'])
+            if($f.ContainsKey('runCallsDuring') -and $f['runCallsDuring'] -eq '0'){$group.Hints+='no run call during the stall: the simulation was not scheduled (Vanilla timer/FramesToProcess) or blocked before run'}
+            elseif($f.ContainsKey('simBusyShare') -and [double]::Parse($f['simBusyShare'],$culture) -lt 0.5){$group.Hints+='simulation thread mostly idle during the stall: look at run pacing and per-run game ticks, not only at long native work'}
+            if($f['nativeCallsDuring'] -match '^[1-9]' -and $f['mapTicksDuring'] -eq '0'){$group.Hints+='native run calls completed without advancing the map tick counter'}
+            if($f['timerProbe'] -eq 'True'){
+                $group.Evidence+=('Vanilla pacing: timerCalls={0} timerMaxIntervalMs={1} expectedTimerMs={2} framesToProcessMax={3} atEnd={4}' -f
+                    $f['timerCallsDuring'],$f['timerMaxIntervalMs'],$f['expectedTimerMs'],$f['framesToProcessMax'],$f['framesToProcessAtEnd'])
+                $interval=[double]::Parse($f['timerMaxIntervalMs'],$culture)
+                if($interval -ge [Math]::Max(100,0.5*$stall.Ms)){$group.Hints+='Vanilla simulation timer callbacks were missing (thread-pool/timer starvation or process-wide stop): no frames were requested'}
+                elseif([int]$f['framesToProcessMax'] -ge 2 -and [int]$f['runCallsDuring'] -le 1){$group.Hints+='the timer requested engine frames, but no run call followed: the simulation thread was held before run'}
+            }
+            if(-not $group.FrameLagRecorded -and $f['framesDuring'] -match '^[1-9]'){$group.Hints+='frames kept rendering: visible as frozen world, not as frame lag'}
+        }
         foreach($member in $group.Members){
             $detail=$member.Detail
             if($detail -match '\blockMeasured=True\b' -and $detail -match '\blockWaitMs=([0-9.]+)'){$group.Evidence+=('measured lock wait: '+$member.Name+' '+$Matches[1]+' ms')}
@@ -114,6 +136,52 @@ function Get-PerfProbeAnalysis {
         }
         $group.Evidence=@($group.Evidence|Select-Object -Unique);$group.Hints=@($group.Hints|Select-Object -Unique)
     }
+    # Input markers (clicks/marker key): each slow event gets the latest marker up to 5 s before its start
+    # or inside it. A marker is a time reference, not proof that the input caused the event.
+    $marks=@(if($frequency -gt 0 -and $null -ne $clockOffset){foreach($line in $current){
+        if($line -match 'DEVDIAG: inputMark key=(?<key>\S+) mark=(?<mark>\d+) stamp=(?<stamp>\d+)'){
+            [pscustomobject]@{Key=$Matches['key'];Mark=[int]$Matches['mark'];Ms=[double]$Matches['stamp']*1000/$frequency+$clockOffset}
+        }
+    }})
+    foreach($group in $groups){
+        $before=@($marks|Where-Object{$_.Ms -ge $group.StartMs-5000 -and $_.Ms -le $group.EndMs}|Sort-Object Ms)
+        $group|Add-Member -NotePropertyName PrecedingInput -NotePropertyValue $(if($before.Count){$last=$before[$before.Count-1]
+            [pscustomobject]@{Key=$last.Key;Mark=$last.Mark;OffsetMs=$last.Ms-$group.StartMs}}else{$null})
+    }
+    # Per-run summary: slow events by kind/phase plus the 5 s tick counters (sums; max for maxima).
+    $kinds=@(foreach($set in @($groups.ToArray()|Group-Object Kind,Phase)){
+        $spans=@($set.Group|ForEach-Object{$_.EndMs-$_.StartMs})
+        [pscustomobject]@{Kind=$set.Group[0].Kind;Phase=$set.Group[0].Phase;Count=$set.Count;
+            TotalMs=($spans|Measure-Object -Sum).Sum;MaxMs=($spans|Measure-Object -Maximum).Maximum}
+    })
+    $tickTotals=[ordered]@{windows=0;ticks=0;gapsOverThreshold=0;haltedGapsExcluded=0;mapTicks=0;nativeRunsCounted=0;runsWithoutTick=0;runsMultiTick=0;runsWithoutMapTick=0;maxTicksPerRun=0;maxActiveGapMs=0.0;gapQueueDropped=0;timerCalls=0;maxTimerIntervalMs=0.0}
+    foreach($line in $current){
+        if($line -notmatch 'DEVDIAG: tickCounters (?<body>.*)$'){continue}
+        $tickTotals.windows++
+        foreach($pair in [regex]::Matches($Matches['body'],'(\w+)=([0-9.]+)\b')){
+            $key=$pair.Groups[1].Value;if(-not $tickTotals.Contains($key) -or $key -eq 'windows'){continue}
+            $value=[double]::Parse($pair.Groups[2].Value,$culture)
+            if($key -in @('maxTicksPerRun','maxActiveGapMs','gapQueueDropped','maxTimerIntervalMs')){$tickTotals[$key]=[Math]::Max([double]$tickTotals[$key],$value)}else{$tickTotals[$key]+=$value}
+        }
+    }
     [pscustomobject]@{LastStartLine=$lastStart+1;ClockFrequency=$frequency;FrequencyEstimated=$estimated;PerfProbeState=$probeState;HasSamples=$hasSamples;Warnings=$warnings;Spikes=@($spikes.ToArray());Groups=@($groups.ToArray());
-        Context=@($current|Where-Object{$_ -match 'DEVDIAG: (runContext|runPlugin|patchOwners|loadSpan|gatehouseWindow|runCounters|samplerCapture)'})}
+        Summary=[pscustomobject]@{Kinds=$kinds;TickCounters=[pscustomobject]$tickTotals;InputMarks=$marks.Count;
+            EventsAfterInput=@($groups.ToArray()|Where-Object{$null -ne $_.PrecedingInput}).Count};
+        Context=@($current|Where-Object{$_ -match 'DEVDIAG: (runContext|runPlugin|patchOwners|loadSpan|gatehouseWindow|runCounters|tickCounters|tickMonitor|inputMarks|samplerCapture)'})}
+}
+
+# Short per-run overview for Analyze-Spikes.ps1 and Run-Automation.ps1.
+function Format-PerfProbeSummary {
+    param([Parameter(Mandatory)]$Analysis)
+    "PerfProbe=$($Analysis.PerfProbeState) samples=$($Analysis.HasSamples) slowEvents=$($Analysis.Groups.Count)"
+    foreach($kind in $Analysis.Summary.Kinds|Sort-Object TotalMs -Descending){
+        '  {0,-20} phase={1,-30} count={2,4} totalMs={3,9:F1} maxMs={4,8:F1}' -f $kind.Kind,$kind.Phase,$kind.Count,$kind.TotalMs,$kind.MaxMs
+    }
+    $t=$Analysis.Summary.TickCounters
+    if($t.windows -gt 0){
+        '  ticks={0} gapsOverThreshold={1} maxActiveGapMs={2:F1} haltedGapsExcluded={3} runsWithoutTick={4}/{5} runsMultiTick={6} maxTicksPerRun={7} mapTicks={8} runsWithoutMapTick={9} gapQueueDropped={10} timerCalls={11} maxTimerIntervalMs={12:F1}' -f
+            $t.ticks,$t.gapsOverThreshold,$t.maxActiveGapMs,$t.haltedGapsExcluded,$t.runsWithoutTick,$t.nativeRunsCounted,$t.runsMultiTick,$t.maxTicksPerRun,$t.mapTicks,$t.runsWithoutMapTick,$t.gapQueueDropped,$t.timerCalls,$t.maxTimerIntervalMs
+    }else{'  tick monitor: no tickCounters lines (older PerfProbe, AutomationOnly or TickGapMs=0)'}
+    '  inputMarks={0} slowEventsWithin5sAfterMark={1}' -f $Analysis.Summary.InputMarks,$Analysis.Summary.EventsAfterInput
+    foreach($warning in $Analysis.Warnings){"  LIMIT: $warning"}
 }

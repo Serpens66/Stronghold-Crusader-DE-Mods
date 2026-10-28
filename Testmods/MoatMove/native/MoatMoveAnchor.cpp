@@ -36,7 +36,7 @@ using i64 = int64_t;
 using u64 = uint64_t;
 using u32 = uint32_t;
 constexpr int dx[8] = {0,1,1,1,0,-1,-1,-1}, dy[8] = {-1,-1,0,1,1,1,0,-1};
-constexpr int MaxSteps = 2000, MaxPlayers = 8, MaxSubAnchors = 16, MaxCost = 63;
+constexpr int MaxSteps = 2000, MaxPlayers = 8, MaxSubAnchors = 16, MaxCost = 255;
 constexpr u32 Unset = 0xFFFFFFFFu;
 struct Exhausted {};
 
@@ -278,7 +278,7 @@ template<class F> static int Guard(F body) {
 
 using namespace mma;
 extern "C" {
-__declspec(dllexport) int mma_contract() { return 0x04000001; }
+__declspec(dllexport) int mma_contract() { return 0x04000002; }
 // Physical cores minus two (Unity main thread plus simulation/render), within 1..8.
 __declspec(dllexport) int mma_recommended_threads() {
     DWORD length = 0; GetLogicalProcessorInformationEx(RelationProcessorCore, nullptr, &length);

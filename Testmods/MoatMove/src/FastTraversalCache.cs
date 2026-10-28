@@ -39,6 +39,23 @@ namespace MoatMove
             return (word & (1U << ((ground ? 8 : 0) + direction))) != 0;
         }
 
+        // Complete cached word of a node (anchor-mode mask export); read once like Edge().
+        internal uint Word(int node)
+        {
+            if ((uint)node >= words.Length) return 0;
+            if (known[node] == 0) { words[node] = Read(node); known[node] = 1; knownNodes.Add(node); }
+            return words[node];
+        }
+
+        // Fresh live word of one node (anchor-mode chunked resweep after access changes).
+        internal uint Reread(int node)
+        {
+            if ((uint)node >= words.Length) return 0;
+            words[node] = Read(node);
+            if (known[node] == 0) { known[node] = 1; knownNodes.Add(node); }
+            return words[node];
+        }
+
         private uint Read(int from)
         {
             uint word = 0; int x = from % width, y = from / width;

@@ -9,6 +9,9 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="..\src\BlueprintSpectatorPolicy.cs" Link="Blueprint\BlueprintSpectatorPolicy.cs" />
+    <Compile Include="..\src\BlueprintLivePlan.cs" Link="Blueprint\BlueprintLivePlan.cs" />
+    <Compile Include="..\src\BlueprintAivNames.cs" Link="Blueprint\BlueprintAivNames.cs" />
     <ProjectReference Include="..\AIVPlacement.Core\CastlePlanner.AIVPlacement.Core.csproj" />
     <Compile Include="..\src\AivCandidateFilePolicy.cs" Link="Blueprint\AivCandidateFilePolicy.cs" />
     <Compile Include="..\src\AivJsonModels.cs" Link="SpawnPlan\AivJsonModels.cs" />

@@ -1,0 +1,21 @@
+{
+  "GUID": "LordOverviewTest_Serp",
+  "Author": "Serpens66",
+  "Name": "Lord Overview Test",
+  "Description": "Sortable Vanilla gold and army overview.",
+  "Version": "0.1.0",
+  "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
+  "MinimumScriptExtenderVersion": "2.14.0",
+  "MaximumScriptExtenderVersion": "",
+  "Dependencies": [
+    {
+      "GUID": "APIShared_Serp",
+      "MinimumVersion": "0.18.0"
+    }
+  ],
+  "Manifest": 1,
+  "NetworkMode": 0,
+  "SupportedGameVersions": [
+    "2.8.0.2"
+  ]
+}

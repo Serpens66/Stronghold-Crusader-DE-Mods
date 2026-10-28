@@ -10,14 +10,19 @@ namespace MoatMove
         internal MoatMoveOptions(string value)
         {
             NativeFast = string.Equals(value, "FastNative", System.StringComparison.OrdinalIgnoreCase);
-            if (NativeFast || string.Equals(value, "fast", System.StringComparison.OrdinalIgnoreCase))
+            // Anchor uses Fast's deferred flow (RequiredOnly) with the native anchor core.
+            Anchor = string.Equals(value, "anchor", System.StringComparison.OrdinalIgnoreCase);
+            if (NativeFast || Anchor || string.Equals(value, "fast", System.StringComparison.OrdinalIgnoreCase))
                 mode = MoatMove.FriendlyMoatMovementMode.RequiredOnly;
             else if (string.Equals(value, "precise", System.StringComparison.OrdinalIgnoreCase))
                 mode = MoatMove.FriendlyMoatMovementMode.Exact;
-            else throw new System.ArgumentException("Movement mode must be precise, fast or FastNative.", nameof(value));
+            else throw new System.ArgumentException("Movement mode must be precise, fast, FastNative or anchor.", nameof(value));
         }
         internal bool NativeFast { get; }
-        internal string ModeName => NativeFast ? "FastNative" : mode == MoatMove.FriendlyMoatMovementMode.RequiredOnly ? "fast" : "precise";
+        internal bool Anchor { get; }
+        // Plugin folder; the anchor core DLL ships next to the mod assembly.
+        internal string PluginDirectory { get; set; }
+        internal string ModeName => NativeFast ? "FastNative" : Anchor ? "anchor" : mode == MoatMove.FriendlyMoatMovementMode.RequiredOnly ? "fast" : "precise";
         public bool EnableMod => true;
         public bool EnableImprovedMoatFilling => false;
         public bool EnableLadderAttackPathfindingFix => false;

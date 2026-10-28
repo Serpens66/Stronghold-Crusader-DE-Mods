@@ -169,3 +169,9 @@ CastlePlanner.KeepRangeUnknown=The Keep build range cannot yet be reliably evalu
 CastlePlanner.AllowRotation=Allow Rotation
 CastlePlanner.AllowRotationHelp=Allow choosing a Keep and castle direction at game start. When disabled, preserve the existing Keep direction; castle placement may still change its position. With only this option enabled, offer only Nothing and Only Rotate.
 CastlePlanner.Preview.Unchanged=Unchanged
+
+CastlePlanner.Hud.AiPlan=Castle plan of {Lord}
+
+CastlePlanner.Hud.AiPlanUnavailable=No prepared AI castle plan available.
+CastlePlanner.Hud.AiPlanFile=AIVJSON: {File}
+CastlePlanner.Hud.AiPlanFileUnknown=Filename unavailable

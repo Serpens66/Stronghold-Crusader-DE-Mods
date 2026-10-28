@@ -169,3 +169,9 @@ CastlePlanner.KeepRangeUnknown=Die Keep-Baureichweite kann für diese Burg noch 
 CastlePlanner.AllowRotation=Drehung erlauben
 CastlePlanner.AllowRotationHelp=Erlaubt die Wahl einer Bergfried- und Burgausrichtung beim Start. Ohne diese Freigabe bleibt die vorhandene Bergfriedrichtung erhalten; die Burgplatzierung kann seine Position trotzdem verändern. Ist nur diese Option aktiv, werden nur Nichts und Nur Bergfried drehen angeboten.
 CastlePlanner.Preview.Unchanged=Unverändert
+
+CastlePlanner.Hud.AiPlan=Bauplan von {Lord}
+
+CastlePlanner.Hud.AiPlanUnavailable=Keine vorbereitete KI-Burg verfügbar.
+CastlePlanner.Hud.AiPlanFile=AIVJSON: {File}
+CastlePlanner.Hud.AiPlanFileUnknown=Dateiname nicht verfügbar

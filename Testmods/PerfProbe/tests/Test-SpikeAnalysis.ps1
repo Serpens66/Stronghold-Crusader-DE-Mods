@@ -73,3 +73,35 @@ Assert ($r.Groups[0].NativeStubSamples[0].Resolution -eq 'unknown-or-ambiguous')
 $r=Get-PerfProbeAnalysis -Lines ($stubLines+@('[Message:RedBird] [12:00:00.000] ["overlap"] compiled stub at 0x1040, size: 32 bytes (target: 0x3000)'))
 Assert ($r.Groups[0].NativeStubSamples[0].Resolution -eq 'unknown-or-ambiguous') 'Overlapping stub ranges were resolved without evidence.'
 'PASS: exact native stub boundaries, legacy ambiguity, overlapping ranges and degraded sampling cadence.'
+# Game-time stalls with smooth frames (trigger 2026-10-28), deferred write delay, resume phase and run summary.
+$tickLines=@'
+[Message:   BepInEx] BepInEx version - Stronghold Crusader Definitive Edition
+[Message:Perf Probe] [12:59:58.000] DEVDIAG: runContext schema=2 stopwatchFrequency=1000
+[Message:Perf Probe] [12:59:58.900] DEVDIAG: inputMark key=ScrollLock mark=1 stamp=900 frame=10 lastTickAgeMs=5.0 simRunActive=False
+[Message:Perf Probe] [13:00:00.000] DEVDIAG: inputMark key=Mouse1 mark=2 stamp=2000 frame=99 lastTickAgeMs=5.0 simRunActive=False
+[Message:Perf Probe] [13:00:01.010] DEVDIAG spike: tick:gap ms=800.0 start=13:00:00.210 end=13:00:01.010 thread=1 source=onTick tickBefore=10 tickAfter=11 gapMs=800.0 haltedMs=0.0 afterHalt=False haltKind=none expectedTickMs=18.2 runCallsDuring=44 nativeCallsDuring=44 skipRunsDuring=0 noBufferDuring=0 simBusyMs=200.0 simBusyShare=0.25 framesDuring=130 mapTicksDuring=0 lowFpsLevel=1 emittedAfterMs=10.0 timerProbe=True timerCallsDuring=1 timerMaxIntervalMs=780.0 expectedTimerMs=18.2 framesToProcessMax=1 framesToProcessAtEnd=0 threadPoolBusyWorkersAtEmit=2 threadPoolBusyIoAtEmit=0 freeze=true event=2 startStamp=2200 endStamp=3000
+[Message:Perf Probe] [13:00:01.020] DEVDIAG: spikeSample event=2 name=tick:gap thread=sim samples=200 maxSampleGapMs=2 self: CDE:0x41D60=150(75.0%)
+[Message:Perf Probe] [13:00:04.305] DEVDIAG spike: tick:gap ms=300.0 start=13:00:04.005 end=13:00:04.305 thread=1 source=onTick tickBefore=11 tickAfter=12 gapMs=2300.0 haltedMs=2000.0 afterHalt=True haltKind=paused expectedTickMs=18.2 runCallsDuring=0 nativeCallsDuring=0 skipRunsDuring=0 noBufferDuring=0 simBusyMs=0.0 simBusyShare=0.00 framesDuring=400 mapTicksDuring=0 lowFpsLevel=1 emittedAfterMs=5.0 timerProbe=True timerCallsDuring=16 timerMaxIntervalMs=19.0 expectedTimerMs=18.2 framesToProcessMax=16 framesToProcessAtEnd=15 threadPoolBusyWorkersAtEmit=0 threadPoolBusyIoAtEmit=0 event=3 startStamp=6000 endStamp=6300
+[Message:Perf Probe] [13:00:05.000] DEVDIAG: tickCounters windowS=5.0 subscribed=True ticks=200 ticksPerS=40.0 gapsOverThreshold=1 maxActiveGapMs=800.0 haltedGapsExcluded=2 mapTicks=150 mapTicksAvailable=True nativeRunsCounted=250 runsWithoutTick=50 runsMultiTick=0 maxTicksPerRun=1 runsWithoutMapTick=60 gapQueueDropped=0 lastTick=12
+[Message:Perf Probe] [13:00:10.000] DEVDIAG: tickCounters windowS=5.0 subscribed=True ticks=200 ticksPerS=40.0 gapsOverThreshold=1 maxActiveGapMs=300.0 haltedGapsExcluded=0 mapTicks=200 mapTicksAvailable=True nativeRunsCounted=200 runsWithoutTick=0 runsMultiTick=3 maxTicksPerRun=2 runsWithoutMapTick=0 gapQueueDropped=0 lastTick=400
+'@ -split '\r?\n'
+$r=Get-PerfProbeAnalysis -Lines $tickLines
+Assert ($r.Groups.Count -eq 2 -and $r.Groups[0].Kind -eq 'game-time-stall' -and $r.Groups[0].GameTimeStall -and -not $r.Groups[0].FrameLagRecorded) 'Game-time stall with smooth frames not classified.'
+Assert ([Math]::Abs($r.Groups[0].EndMs-[TimeSpan]::Parse('13:00:01').TotalMilliseconds) -lt 0.01) 'Deferred write delay distorted the stamp clock calibration.'
+Assert ($r.Groups[0].Samples.Count -eq 1 -and $r.Groups[0].Evidence.Count -ge 1) 'Stall stack slice/evidence not correlated.'
+$hints=$r.Groups[0].Hints -join ';'
+Assert ($hints -match 'mostly idle' -and $hints -match 'map tick' -and $hints -match 'frames kept rendering') 'Stall hints (idle simulation, no map tick, smooth frames) missing.'
+Assert ($r.Groups[1].Phase -eq 'after-pause-or-load' -and ($r.Groups[1].Hints -join ';') -match 'no run call') 'Stall after unpausing not separated or unscheduled simulation not reported.'
+# Pacing separates a starved Vanilla timer (no frames requested) from a sim thread held before run.
+Assert ($hints -match 'timer callbacks were missing' -and $hints -notmatch 'held before run') 'Missing timer callbacks not identified.'
+$held=$r.Groups[1].Hints -join ';'
+Assert ($held -match 'held before run' -and $held -notmatch 'timer callbacks were missing' -and ($r.Groups[1].Evidence -join ';') -match 'framesToProcessMax=16') 'Requested but unrun engine frames not identified.'
+$t=$r.Summary.TickCounters
+Assert ($t.windows -eq 2 -and $t.ticks -eq 400 -and $t.gapsOverThreshold -eq 2 -and $t.maxActiveGapMs -eq 800 -and $t.maxTicksPerRun -eq 2 -and $t.runsWithoutTick -eq 50) 'Tick counters were not summed/maximized per run.'
+$text=(Format-PerfProbeSummary -Analysis $r) -join "`n"
+Assert ($r.Summary.Kinds.Count -eq 2 -and $text -match 'game-time-stall' -and $text -match 'after-pause-or-load' -and $text -match 'runsWithoutTick=50/450') 'Run summary incomplete.'
+Assert ($r.Groups[0].PrecedingInput.Key -eq 'Mouse1' -and [Math]::Abs($r.Groups[0].PrecedingInput.OffsetMs+200) -lt 0.01) 'Latest preceding click not linked to the stall.'
+Assert ($r.Summary.InputMarks -eq 2 -and $r.Summary.EventsAfterInput -eq 2 -and $text -match 'inputMarks=2') 'Input marker summary incomplete.'
+$r=Get-PerfProbeAnalysis -Lines @($tickLines|Where-Object{$_ -notmatch 'inputMark key=Mouse1'})
+Assert ($r.Groups[1].PrecedingInput -eq $null -and $r.Groups[0].PrecedingInput.Key -eq 'ScrollLock') 'Markers older than 5 s or the latest earlier marker were mislinked.'
+'PASS: game-time stalls: smooth-frame classification, deferred line clock, resume phase, idle/unscheduled hints, Vanilla pacing (timer starvation vs. held sim thread), input markers and per-run tick summary.'

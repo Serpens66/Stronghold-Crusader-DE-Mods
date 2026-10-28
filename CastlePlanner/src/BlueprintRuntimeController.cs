@@ -21,7 +21,7 @@ using UnityEngine;
 
 namespace CastlePlanner
 {
-    internal sealed class BlueprintRuntimeController
+    internal sealed partial class BlueprintRuntimeController
     {
         private delegate void CameraUpdateDelegate(CameraControls2D self);
         private delegate void EditorPlayerActionDelegate(EditorDirector self, int playerId);
@@ -103,6 +103,7 @@ namespace CastlePlanner
                 buildingImageLibrary);
             Hud = new BlueprintHudViewModel(ToggleBlueprint, settings, preview);
             RegisterHudExtrasButton();
+            InitializeSpectatorBlueprints();
             InstallEditorPlayerHook();
             InstallCameraWheelGuard();
 
@@ -186,7 +187,7 @@ namespace CastlePlanner
                             PropEx.SetSprite1(button, normal); PropEx.SetSprite2(button, highlight);
                             PropEx.SetSprite3(button, highlight); PropEx.SetSprite4(button, normal);
                             return button;
-                        });
+                        }, order: 100);
                     if (!buttons.TryRegisterButton(definition, out hudExtrasRegistration, out diagnostic))
                         throw new InvalidOperationException(diagnostic.Reason);
                     hudExtrasRegistration.SetVisible(Hud.HudVisible);
@@ -201,8 +202,42 @@ namespace CastlePlanner
                 hudExtrasRegistration?.SetVisible(Hud.HudVisible);
         }
 
+        private bool spectatorSuppressed;
+        private bool HasSpectatorIdentity
+        {
+            get
+            {
+                if (!mapActive || editorSessionActive) return false;
+                var state = GameData.Instance?.lastGameState;
+                var director = EditorDirector.instance;
+                return state != null && director != null && BlueprintSpectatorPolicy.IsSpectator(true, false,
+                    state.game_type == (int)eGameTypeModes.GAMETYPE_MULTIPLAYER,
+                    state.spectatorMode != 0, director.ActivePlayerID);
+            }
+        }
         private void OnBeforeRender()
         {
+            // Reuse the existing frame path: only cached identity fields, no native query.
+            try
+            {
+                bool spectator = HasSpectatorIdentity;
+                if (spectator != spectatorSuppressed)
+                {
+                    spectatorSuppressed = spectator;
+                    bool wanted = blueprintVisible;
+                    ResetSpectatorBlueprints();
+                    renderer?.Clear(); layout = null; blueprintVisible = false;
+                    if (spectator) { spectatorRequested = wanted; RefreshSpectatorIdentity(true); }
+                    else if (EffectiveBlueprintMode) SchedulePrepare(false);
+                    RefreshHud();
+                }
+            }
+            catch (Exception error)
+            {
+                Shared.DebugLogHelper.LogErrorLimited(log, "BlueprintSpectatorIdentity", "Blueprint spectator transition failed: " + error);
+            }
+            spectatorSampling = HasSpectatorIdentity && EffectiveBlueprintMode && (spectatorRequested || Hud.SettingsPanelVisible);
+            if (HasSpectatorIdentity && System.Threading.Volatile.Read(ref spectatorDirty) != 0) UpdateSpectatorBlueprint();
             // A hidden projection has no frame-dependent work after its one-time preparation.
             if (!blueprintVisible && !hotkeyCapturePending && !depthLoadReady &&
                 !(mapActive && buildingImageLibrary.HasCompletedDepthRead) &&
@@ -382,6 +417,7 @@ namespace CastlePlanner
         private void OnLoadSave(APIShared.MissionLifecycleNotification args)
         {
             ResetMapState();
+            spectatorSaveLoaded = true;
             editorSessionActive = false;
             editorControlledPlayerId = -1;
             mapActive = true;
@@ -634,6 +670,7 @@ namespace CastlePlanner
 
         private void TryPrepareBlueprint()
         {
+            if (HasSpectatorIdentity) { preparePending = false; System.Threading.Interlocked.Exchange(ref spectatorDirty, 1); UpdateSpectatorBlueprint(); return; }
             if (!TryFindControlledKeep(out int keepX, out int keepY))
             {
                 if (controlledKeepAvailable)
@@ -849,6 +886,7 @@ namespace CastlePlanner
 
         private void ToggleBlueprint()
         {
+            if (HasSpectatorIdentity && EffectiveBlueprintMode) { ToggleSpectatorBlueprint(); return; }
             if (!EffectiveBlueprintMode || !mapActive)
             {
                 Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner/src/BlueprintRuntimeController.cs:876", "Blueprint toggle ignored because Blueprint mode or the map is inactive.");
@@ -1037,6 +1075,8 @@ namespace CastlePlanner
 
         private void ResetMapState()
         {
+            spectatorSaveLoaded = false;
+            ResetSpectatorBlueprints();
             if (observedHudViewModel != null)
                 observedHudViewModel.PropertyChanged -= OnHudPropertyChanged;
             observedHudViewModel = null;
@@ -1095,7 +1135,17 @@ namespace CastlePlanner
 
         private void RefreshHud()
         {
-            Hud?.Update(
+            if (Hud == null) return;
+            bool spectator = HasSpectatorIdentity;
+            string name = spectator && spectatorPlayer >= 1 && spectatorPlayer <= 8 ? Platform_Multiplayer.Instance.getSkirmishName(spectatorPlayer) : "";
+            Noesis.Brush colour = Noesis.Brushes.White;
+            if (spectator && spectatorPlayer >= 1 && spectatorPlayer <= 8 && OnScreenText.Instance != null)
+            {
+                var c = GameMap.Lighten(OnScreenText.Instance.MPTeamColours[SpriteMapping.remapColours[SpriteMapping.RemapMPLoadedColour(spectatorPlayer)]], 0.3f);
+                colour = new Noesis.SolidColorBrush(Noesis.Color.FromArgb(255,(byte)(c.r*255),(byte)(c.g*255),(byte)(c.b*255)));
+            }
+            Hud.SetSpectatorContext(spectator, name, colour, spectatorAivFileName);
+            Hud.Update(
                 EffectiveBlueprintMode,
                 mapActive,
                 controlledKeepAvailable,

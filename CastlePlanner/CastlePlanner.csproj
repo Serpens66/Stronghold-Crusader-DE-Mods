@@ -230,6 +230,11 @@
     <Compile Include="src\BlueprintRenderer.cs" />
     <Compile Include="src\BlueprintSortingPolicy.cs" />
     <Compile Include="src\BlueprintRuntimeController.cs" />
+    <Compile Include="src\BlueprintSpectatorPolicy.cs" />
+    <Compile Include="src\BlueprintLivePlan.cs" />
+    <Compile Include="src\BlueprintAivNames.cs" />
+    <Compile Include="src\BlueprintRuntimeController.AivNames.cs" />
+    <Compile Include="src\BlueprintRuntimeController.Spectator.cs" />
     <Compile Include="src\CastlePlannerPlugin.cs" />
     <Compile Include="src\CastleRotationOptions.cs" />
     <Compile Include="src\CastleSpawnContentPolicy.cs" />

@@ -136,6 +136,7 @@ namespace MoatMove
                     int node = y * MapWidth + x;
                     if (fastSimulationRouting != null) foreach (var map in fastSimulationRouting.Maps.Values) map.Mark(node);
                     if (fastCursorRouting != null) foreach (var map in fastCursorRouting.Maps.Values) map.Mark(node);
+                    foreach (var map in anchorMaps) map?.Mark(node);
                 }
         }
 
@@ -143,6 +144,7 @@ namespace MoatMove
         {
             if (fastSimulationRouting != null) foreach (var map in fastSimulationRouting.Maps.Values) map.MarkAll();
             if (fastCursorRouting != null) foreach (var map in fastCursorRouting.Maps.Values) map.MarkAll();
+            ResweepAnchorMasks();
         }
 
         private FastRouteStatus AdvanceFastField(FastFieldLease lease, int start, int budget, int maximumEdges = 2000)
@@ -180,25 +182,33 @@ namespace MoatMove
                 if (lease.Field.WritePacked(start, bytes, out int written) != FastRouteStatus.Found) return false;
                 if (suffix != null) foreach (byte direction in suffix)
                 { bytes[written >> 1] |= (byte)(direction << ((written & 1) * 4)); written++; }
-                int node = start, moat = 0, structures = 0, diagonal = 0, changes = 0, previous = -1;
-                ulong fingerprint = 14695981039346656037UL;
-                for (int i = 0; i < written; i++)
-                {
-                    int direction = (bytes[i >> 1] >> ((i & 1) * 4)) & 15;
-                    int next = node + WeightedMoatRoutePlanner.DirectionY[direction] * MapWidth + WeightedMoatRoutePlanner.DirectionX[direction];
-                    if (!FastLiveEdge(player, node, next, direction, groundOnly, out bool wet, out bool structure))
-                    { MarkFastTopologyAll(); summary = WeightedMoatRouteSummary.Failed("fast-live-edge-changed", 0); return false; }
-                    if (wet) moat++; if (structure) structures++; if ((direction & 1) != 0) diagonal++;
-                    if (previous >= 0 && previous != direction) changes++;
-                    previous = direction; fingerprint = unchecked((fingerprint ^ (byte)direction) * 1099511628211UL);
-                    node = next;
-                }
-                if (node != requestedTarget) { summary = WeightedMoatRouteSummary.Failed("fast-endpoint-mismatch", 0); return false; }
-                summary = WeightedMoatRouteSummary.Succeeded(written, written - moat, moat, structures,
-                    diagonal, changes, fingerprint, 0, 0, lease.Field.Expanded);
-                route = new WeightedMoatEncodedRoute(bytes, written);
-                return true;
+                return TryFinishFastEncoded(player, start, requestedTarget, bytes, written, groundOnly, lease.Field.Expanded, out summary, out route);
             }
+        }
+
+        // Live audit of a packed route (low nibble first): every transition, endpoint and summary.
+        private bool TryFinishFastEncoded(int player, int start, int requestedTarget, byte[] bytes, int written, bool groundOnly,
+            int expanded, out WeightedMoatRouteSummary summary, out WeightedMoatEncodedRoute route)
+        {
+            route = default;
+            int node = start, moat = 0, structures = 0, diagonal = 0, changes = 0, previous = -1;
+            ulong fingerprint = 14695981039346656037UL;
+            for (int i = 0; i < written; i++)
+            {
+                int direction = (bytes[i >> 1] >> ((i & 1) * 4)) & 15;
+                int next = node + WeightedMoatRoutePlanner.DirectionY[direction] * MapWidth + WeightedMoatRoutePlanner.DirectionX[direction];
+                if (!FastLiveEdge(player, node, next, direction, groundOnly, out bool wet, out bool structure))
+                { MarkFastTopologyAll(); summary = WeightedMoatRouteSummary.Failed("fast-live-edge-changed", 0); return false; }
+                if (wet) moat++; if (structure) structures++; if ((direction & 1) != 0) diagonal++;
+                if (previous >= 0 && previous != direction) changes++;
+                previous = direction; fingerprint = unchecked((fingerprint ^ (byte)direction) * 1099511628211UL);
+                node = next;
+            }
+            if (node != requestedTarget) { summary = WeightedMoatRouteSummary.Failed("fast-endpoint-mismatch", 0); return false; }
+            summary = WeightedMoatRouteSummary.Succeeded(written, written - moat, moat, structures,
+                diagonal, changes, fingerprint, 0, 0, expanded);
+            route = new WeightedMoatEncodedRoute(bytes, written);
+            return true;
         }
 
         internal override bool TryBuildMovementReachabilityEncoded(int player, int sx, int sy, int tx, int ty, bool reserved,
@@ -268,6 +278,8 @@ namespace MoatMove
             if ((uint)sx >= MapWidth || (uint)sy >= MapWidth) return false;
             int start = sy * MapWidth + sx, target = plan.TargetY * MapWidth + plan.TargetX;
             FastRoutingState state = GetFastRouting(false); RefreshFastRouting(state); fastNewQueries++;
+            // Anchor mode: the cheaper weighted route decides; otherwise Fast's ground-first rule.
+            if (TryAnchorRequiredRoute(plan, reserved, sx, sy, out summary, out bool anchorMoat)) return anchorMoat;
             bool ground = FastGroundReachable(state, plan.PlayerId, start, target, plan.UnitId);
             plan.QualifiedRoute = null;
             plan.QualifiedTerminalRoute = default;

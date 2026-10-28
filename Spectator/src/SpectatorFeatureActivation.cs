@@ -18,7 +18,7 @@ namespace Spectator
         // Information rights are independent from temporarily unfrozen placement controls.
         internal static bool ForceArmyReport(bool vanillaFrozen, bool originalSpectator, bool perspectiveAllowed) =>
             originalSpectator ? !perspectiveAllowed : vanillaFrozen;
-        internal static bool HasToolbar(bool tools, bool perspective, bool statistics) =>
-            tools || perspective || statistics;
+        internal static bool HasToolbar(bool tools, bool perspective, bool statistics, bool editor = false) =>
+            !editor && (tools || perspective || statistics);
     }
 }

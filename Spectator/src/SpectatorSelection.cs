@@ -33,7 +33,8 @@ namespace Spectator
         private static bool IsToolbarSession() => IsCurrentSession(CurrentSessionId) &&
             MainViewModel.viewModelLoaded && GameData.Instance?.lastGameState != null &&
             SpectatorFeatureActivation.HasToolbar(IsToolsSession(),
-                SpectatorPerspectiveRuntime.IsActiveSpectator(), Statistics?.Available == true);
+                SpectatorPerspectiveRuntime.IsActiveSpectator(), Statistics?.Available == true,
+                APIShared.GameModes.GameModeHelper.IsMapEditor());
 
         private static bool IsSelectableView(int player) => player >= 1 && player <= 8 &&
             (SpectatorPerspectiveRuntime.IsActiveSpectator()

@@ -13,7 +13,8 @@ $installedDir = [IO.Path]::GetFullPath((Join-Path $gameRoot 'BepInEx\plugins\Moa
 if (-not $localDir.StartsWith($modDir + '\', [StringComparison]::OrdinalIgnoreCase) -or $installedDir -ne ($gameRoot + '\BepInEx\plugins\MoatMove_Serp')) { throw 'Invalid package target.' }
 if (Get-Process -Name 'Stronghold Crusader Definitive Edition' -ErrorAction SilentlyContinue) { throw 'Game is running; installation aborted.' }
 Copy-Item -LiteralPath (Join-Path $modDir 'info.json') -Destination (Join-Path $localDir 'info.json') -Force
-$files = @('MoatMove.dll','MoatMove.pdb','info.json')
+# MoatMoveAnchor.dll: native core of the experimental anchor mode (built by build.bat).
+$files = @('MoatMove.dll','MoatMove.pdb','MoatMoveAnchor.dll','info.json')
 foreach ($name in $files) { if (-not (Test-Path -LiteralPath (Join-Path $localDir $name) -PathType Leaf)) { throw "Package missing $name" } }
 $version = [Reflection.AssemblyName]::GetAssemblyName((Join-Path $localDir 'MoatMove.dll')).Version
 $manifest = Get-Content -LiteralPath (Join-Path $modDir 'info.json') -Raw | ConvertFrom-Json
@@ -30,7 +31,7 @@ $configPath = [IO.Path]::GetFullPath((Join-Path $configDir 'MoatMove_Serp.cfg'))
 if ($configPath -ne ($gameRoot + '\BepInEx\config\MoatMove_Serp.cfg')) { throw 'Invalid config target.' }
 if (-not [IO.File]::Exists($configPath)) {
     [IO.Directory]::CreateDirectory($configDir) | Out-Null
-    $defaultConfig = "# MoatMove: restart the game after changing Mode. Use the same mode on all peers.`r`n[Movement]`r`n# precise: weighted routes; fast: moat only when no ground alternative exists.`r`nMode = precise`r`n"
+    $defaultConfig = "# MoatMove: restart the game after changing Mode. Use the same mode on all peers.`r`n[Movement]`r`n# precise: weighted routes; fast: moat only when no ground alternative exists; anchor (experimental): moat when cheaper, native group fields.`r`nMode = precise`r`n"
     $configBytes = [Text.UTF8Encoding]::new($false).GetBytes($defaultConfig)
     $stream = [IO.File]::Open($configPath, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::None)
     try { $stream.Write($configBytes, 0, $configBytes.Length) } finally { $stream.Dispose() }

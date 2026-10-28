@@ -80,6 +80,9 @@ if (args.Contains("--standalone-only"))
     InstalledRedBirdContract.Validate();
     return;
 }
+// The anchor integration test loads the real native core; build.bat compiles it here first.
+if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("MOAT_TEST_ANCHOR_DIR")))
+    Environment.SetEnvironmentVariable("MOAT_TEST_ANCHOR_DIR", Path.Combine(root, "Testmods", "MoatMove", ".local", "anchor"));
 string apiSharedPath=Environment.GetEnvironmentVariable("MOAT_TEST_API_SHARED_DLL") ??
     Path.Combine(root,"APIShared","BepInEx","plugins","APIShared_Serp","APIShared.dll");
 if (!File.Exists(apiSharedPath))
@@ -88,7 +91,7 @@ string[] runtimeSourceNames =
 {
     "AssassinSelectionAdapters.cs",
     "CursorConnectivity.cs", "CursorRegionGraph.cs", "DirectMoatCommandScopes.cs",
-    "FastIntegration.cs", "DigWorkFallback.cs", "IFastRouteField.cs", "FastRouteField.cs", "FastCommandQueue.cs", "FastRoutePool.cs", "FastTraversalCache.cs",
+    "AnchorRouting.cs", "FastIntegration.cs", "DigWorkFallback.cs", "IFastRouteField.cs", "FastRouteField.cs", "FastCommandQueue.cs", "FastRoutePool.cs", "FastTraversalCache.cs",
     "FastMoatRouting.cs", "FastMovementScheduler.cs", "FastGroupDistribution.cs", "FillWeightedRoutes.cs", "FriendlyMoatMovementPolicy.cs",
     "FriendlyMoatMovementRuntime.cs",
     "MoatPlacement.cs", "MoatPlacementSearch.cs",
@@ -280,6 +283,7 @@ var compilation = CSharpCompilation.Create("Assembly-CSharp", new[] {
     CSharpSyntaxTree.ParseText(RuntimeSource("FastMoatRouting.cs").Replace("using SHCDESE.API;", "").Replace("using SHCDESE.Interop;", "")),
     CSharpSyntaxTree.ParseText(RuntimeSource("FastGroupDistribution.cs").Replace("using SHCDESE.API;", "")),
     CSharpSyntaxTree.ParseText(RuntimeSource("FastIntegration.cs").Replace("using SHCDESE.API;", "")),
+    CSharpSyntaxTree.ParseText(RuntimeSource("AnchorRouting.cs").Replace("using SHCDESE.API;", "").Replace("using SHCDESE.Interop;", "")),
     CSharpSyntaxTree.ParseText(RuntimeSource("TraversalCommandState.cs")),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared/src/Pathfinding/GateRoutes/EnemyBridgeDiagnosticBridge.cs"))),
     CSharpSyntaxTree.ParseText(RuntimeSource("EnemyGatePolicyIntegration.cs")),
@@ -294,6 +298,7 @@ var compilation = CSharpCompilation.Create("Assembly-CSharp", new[] {
     CSharpSyntaxTree.ParseText(RuntimeSource("CursorConnectivity.cs").Replace("using SHCDESE.API;", "").Replace("using SHCDESE.Interop;", "").Replace("using SHCDESE.Interop.Enums;", "")),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "CursorTests.cs"))),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "PlacementTests.cs"))),
+    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "AnchorIntegrationTests.cs"))),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "FormationBoundaryFixture.cs"))),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "FillFormationTests.cs"))),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "DigWorkFallbackTests.cs"))),

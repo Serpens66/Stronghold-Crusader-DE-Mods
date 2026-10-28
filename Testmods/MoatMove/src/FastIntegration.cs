@@ -95,6 +95,7 @@ namespace MoatMove
 
         internal override void LogAndResetFastMoatMetrics()
         {
+            LogAndResetAnchorMetrics();
             if (settings.NativeFast)
             {
                 long maskBytes = (fastCandidateField as FastNativeRouteField)?.PreparationMaskBytes ?? 0;

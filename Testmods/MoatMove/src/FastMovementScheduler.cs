@@ -93,7 +93,7 @@ namespace MoatMove
         }
 
         private void ReleaseFastPendingSearch(FastPendingCommand command)
-        { (command.SearchState as FastPendingSearch)?.Dispose(); command.SearchState = null; }
+        { (command.SearchState as IDisposable)?.Dispose(); command.SearchState = null; }
 
         private byte[] CaptureFastSave()
         {
@@ -141,6 +141,8 @@ namespace MoatMove
                 return false;
             List<FastUnitIdentity> members = CaptureFastMembers(tribeId);
             if (members.Count == 0) return false;
+            // Every player move order (simulation-deterministic) may start that player's mask.
+            RequestAnchorMask(tribe->r_PlayerIdOwner);
             fastCommands.Supersede(members);
             bool ordinary = patrol == 0;
             int target = GameTileManagerAPI.Instance.GetTileId(x, y);
@@ -220,6 +222,8 @@ namespace MoatMove
                     foreach (var identity in new List<FastUnitIdentity>(fastUnitDistributions.Keys))
                         if (!TryGetFastMember(identity, fastUnitDistributions[identity].Player, out _))
                             fastUnitDistributions.Remove(identity);
+                // Anchor mode prepares masks and computes queued tasks even without new commands.
+                if (RequiredOnlyMode && runtime.TraversalEnabled) AnchorTick(tick);
                 if (fastCommands.Commands.Count == 0) return;
                 if (!RequiredOnlyMode || !runtime.TraversalEnabled)
                 {
@@ -230,8 +234,10 @@ namespace MoatMove
                 RefreshFastRouting(GetFastRouting(false));
                 int budget = 8192;
                 var active = new List<FastPendingCommand>();
+                // Anchor tasks hold no Fast pool leases, so more commands can wait at once.
+                int capacity = settings.NativeFast ? GetFastRouting(false).Pool.PendingGroupCapacity : anchorAvailable ? 64 : 4;
                 foreach (FastPendingCommand command in fastCommands.Commands)
-                { active.Add(command); if (active.Count == (settings.NativeFast ? GetFastRouting(false).Pool.PendingGroupCapacity : 4)) break; }
+                { active.Add(command); if (active.Count == capacity) break; }
                 int idle = 0;
                 while (budget > 0 && active.Count != 0 && idle < active.Count)
                 {
@@ -257,6 +263,8 @@ namespace MoatMove
             command.Members.RemoveAll(member => !TryGetFastMember(member, command.Player, out _));
             if (command.Members.Count == 0) { fastCommands.Remove(command); return true; }
             if (command.IsWaypoint) return !fastCommands.HasPredecessor(command.Members, command.Sequence);
+            bool? anchorReady = AdvanceAnchorCommand(command);
+            if (anchorReady.HasValue) return anchorReady.Value;
             var search = command.SearchState as FastPendingSearch;
             if (search == null) command.SearchState = search = new FastPendingSearch();
             FastRoutingState state = GetFastRouting(false);
@@ -292,6 +300,47 @@ namespace MoatMove
             return !pending;
         }
 
+        // Anchor mode (AnchorRouting.cs). null: this command uses the Fast path; true: ready to dispatch; false: waiting.
+        private bool? AdvanceAnchorCommand(FastPendingCommand command)
+        {
+            if (!anchorAvailable || command.IsWaypoint) return null;
+            var search = command.SearchState as AnchorSearch;
+            if (search == null)
+            {
+                if (command.SearchState != null) return null;
+                RequestAnchorMask(command.Player);
+                if (!AnchorReady(command.Player)) return null;
+                int[] starts = AnchorStartBuffer(command.Members.Count); int count = 0; long ground = 0, moat = 0;
+                foreach (FastUnitIdentity member in command.Members)
+                {
+                    if (!TryGetFastMember(member, command.Player, out GameUnit* unit) || !runtime.CanDigMoat(unit)) continue;
+                    GetNativeMovementStart(unit, out int x, out int y);
+                    if ((uint)x >= MapWidth || (uint)y >= MapWidth) continue;
+                    starts[count++] = y * MapWidth + x;
+                    // The first capable member defines the group profile (deterministic order).
+                    if (ground == 0 && runtime.TryCaptureWeightedMovementCostProfile(unit, out WeightedMovementCostProfile profile, out _))
+                    { ground = profile.GetEdgeFixedCost(false); moat = profile.GetEdgeFixedCost(true); }
+                }
+                if (count == 0 || ground <= 0 || moat <= 0) return null;
+                long divisor = Gcd(ground, moat); ground /= divisor; moat /= divisor;
+                if (ground > AnchorMaxCost || moat > AnchorMaxCost) return null;
+                if ((uint)command.X >= MapWidth || (uint)command.Y >= MapWidth ||
+                    AnchorNative.mma_task_create(anchorContext, command.Player, command.Y * MapWidth + command.X,
+                        (int)ground, (int)moat, starts, count, out int task) != 0) return null;
+                anchorLiveTasks.Add(task); anchorTasks++;
+                command.SearchState = search = new AnchorSearch { Owner = this, Task = task };
+                // Compute it in this tick when the tick's task budget allows; no extra tick delay.
+                StepAnchorTasks();
+            }
+            int status = AnchorNative.mma_task_status(anchorContext, search.Task);
+            if (status == AnchorNative.Ready) return true;
+            if (status == AnchorNative.Pending) return false;
+            if (status == AnchorNative.Stale && TryRestartAnchorTask(search)) return false;
+            // Failed or released: this command continues on the Fast path.
+            search.Dispose(); command.SearchState = null; anchorFallbacks++;
+            return null;
+        }
+
         private bool DispatchFastCommand(FastPendingCommand command)
         {
             command.Members.RemoveAll(member => !TryGetFastMember(member, command.Player, out _));
@@ -305,6 +354,9 @@ namespace MoatMove
                 list.Add(member);
             }
             bool previous = fastDispatching; fastDispatching = true;
+            // Unit decisions inside this Vanilla dispatch query the command's anchor task.
+            int previousAnchorTask = anchorDispatchTask;
+            anchorDispatchTask = (command.SearchState as AnchorSearch)?.Task ?? 0;
             try
             {
                 foreach (var group in groups)
@@ -326,7 +378,7 @@ namespace MoatMove
                     Math.Max(0L, (long)CaptureCurrentGameTick() - command.EnqueuedTick));
                 fastCommands.Remove(command); fastExecutedCommands++; return true;
             }
-            finally { fastDispatching = previous; }
+            finally { fastDispatching = previous; anchorDispatchTask = previousAnchorTask; }
         }
 
         private bool TryBindFastDispatchGroup(int player, int originalId, List<FastUnitIdentity> members, out int tribeId)
@@ -451,6 +503,7 @@ namespace MoatMove
         private void ResetFastCommandMap()
         {
             fastCommands.Clear(); fastLastTick = int.MinValue; fastRoundRobin = 0;
+            ResetAnchorMap();
             fastSimulationRouting?.Pool.Clear(); fastCursorRouting?.Pool.Clear();
             fastSimulationRouting = fastCursorRouting = null;
             fastDistribution = null;
