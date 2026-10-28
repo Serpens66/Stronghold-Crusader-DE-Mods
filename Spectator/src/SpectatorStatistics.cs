@@ -27,6 +27,8 @@ namespace Spectator
         private object engineLock;
         private long session;
         private StatisticsControlsViewModel controls;
+        private IngameMenuActionRegistration menuRegistration;
+        private IDisposable menuPerspectiveSubscription;
         internal bool Active => statisticsPreviewActive;
         internal bool Available => ready && !preview.VanillaEnded && session > 0 && settings.Activation.Statistics &&
             MainViewModel.viewModelLoaded && GameData.Instance?.lastGameState != null && statisticsViewer &&
@@ -39,8 +41,12 @@ namespace Spectator
             controls = new StatisticsControlsViewModel(() => Active, Refresh);
             GameXAMLManagerAPI.Instance.RegisterBinding("SpectatorStatisticsRefreshHost", controls);
             if (!IngameMenuActions.TryRegister(SpectatorPlugin.PluginGuid, "statistics",
-                () => new IngameMenuActionState(SerpLocalization.Get("Tools.Statistics"), Available, Available),
-                Open, out string menuReason)) throw new InvalidOperationException(menuReason);
+                () => { ObserveAvailability(true); return new IngameMenuActionState(SerpLocalization.Get("Tools.Statistics"), Available, Available); },
+                Open, new IngameMenuActionOptions(IngameMenuRow.QuitMission, IngameMenuSlot.Left,
+                    replaceExisting: true), out menuRegistration, out string menuReason)) throw new InvalidOperationException(menuReason);
+            settings.PropertyChanged += (sender, args) => InvalidateMenu();
+            menuPerspectiveSubscription = PlayerPerspectiveAPI.SubscribeChanges(SpectatorPlugin.PluginGuid,
+                "statistics-menu", _ => InvalidateMenu());
             if (!MissionOverEvents.TryRegister(MissionOverOperation.Button, SpectatorPlugin.PluginGuid, "statistics-close",
                 args => { if (statisticsPreviewActive && ReferenceEquals(statisticsPreviewView, args.View) && args.Button == "Exit")
                     { args.State = preview.Generation; args.SkipOriginalFunction = true; } },
@@ -49,19 +55,23 @@ namespace Spectator
             if (!MissionOverEvents.TryRegister(MissionOverOperation.State, SpectatorPlugin.PluginGuid, "statistics-vanilla-end",
                 null, null, out reason, accepted: args => {
                     if (args.Result <= 0) return;
+                    bool wasEnded = preview.VanillaEnded;
                     preview.EndVanilla(); // Invalidate ownership before Vanilla replaces the same view instance.
+                    if (!wasEnded) InvalidateMenu();
                     SpectatorRuntime.PostPresentation(() => { controls?.Refresh(); SpectatorRuntime.InvalidateToolbar(); });
                 })) throw new InvalidOperationException(reason);
             if (!ApiShared.Current.TryGetMissionLifecycle(SpectatorPlugin.PluginGuid, out var lifecycle, out var diagnostic) ||
-                !lifecycle.TryRegisterObserver("statistics", n => { session = n.Context.SessionId; long expected = session; SpectatorRuntime.PostPresentation(() => { if (session == expected) { preview.Start(expected); observedState = null; statisticsViewer = false; SpectatorRuntime.InvalidateToolbar(); } }); },
-                    n => { session = 0; long generation = preview.Generation; SpectatorRuntime.PostPresentation(() => { if (generation == preview.Generation) CloseStatisticsPreview("session-ended"); }); }, null, out diagnostic))
+                !lifecycle.TryRegisterObserver("statistics", n => { session = n.Context.SessionId; long expected = session; SpectatorRuntime.PostPresentation(() => { if (session == expected) { preview.Start(expected); observedState = null; statisticsViewer = false; SpectatorRuntime.InvalidateToolbar(); InvalidateMenu(); } }); },
+                    n => { session = 0; InvalidateMenu(); long generation = preview.Generation; SpectatorRuntime.PostPresentation(() => { if (generation == preview.Generation) CloseStatisticsPreview("session-ended"); }); }, null, out diagnostic))
                 throw new InvalidOperationException("Statistics lifecycle unavailable: " + diagnostic?.Reason);
             ready = true;
+            InvalidateMenu();
         }
-        internal unsafe void ObserveAvailability()
+        internal void InvalidateMenu() => menuRegistration?.Invalidate();
+        internal unsafe void ObserveAvailability(bool force = false)
         {
             var state = GameData.Instance?.lastGameState;
-            if (!ReferenceEquals(state, observedState))
+            if (force || !ReferenceEquals(state, observedState))
             {
                 observedState = state;
                 bool validLord = true;

@@ -1093,30 +1093,6 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}" sha
                 </CheckBox>
               </Grid>
             </Grid>
-            <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-eliminated-players-become-spectators" shared:ModSettingsSearch.Title="{Binding EnableEliminatedPlayersBecomeSpectatorsText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableEliminatedPlayersBecomeSpectatorsHelpText}">
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="28"/>
-                <ColumnDefinition Width="*"/>
-              </Grid.ColumnDefinitions>
-              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableEliminatedPlayersBecomeSpectators}"/>
-              <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
-                <CheckBox IsChecked="{Binding EnableEliminatedPlayersBecomeSpectators, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableEliminatedPlayersBecomeSpectatorsHelpText}" Margin="0,0,14,8">
-                  <TextBlock Text="{Binding EnableEliminatedPlayersBecomeSpectatorsText}" Foreground="White" TextWrapping="Wrap"/>
-                </CheckBox>
-              </Grid>
-            </Grid>
-            <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-spectator-perspective" shared:ModSettingsSearch.Title="{Binding EnableSpectatorPerspectiveText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableSpectatorPerspectiveHelpText}">
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="28"/>
-                <ColumnDefinition Width="*"/>
-              </Grid.ColumnDefinitions>
-              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableSpectatorPerspective}"/>
-              <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
-                <CheckBox IsChecked="{Binding EnableSpectatorPerspective, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableSpectatorPerspectiveHelpText}" Margin="0,0,14,8">
-                  <TextBlock Text="{Binding EnableSpectatorPerspectiveText}" Foreground="White" TextWrapping="Wrap"/>
-                </CheckBox>
-              </Grid>
-            </Grid>
             <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-random-opponent-selection-enhancements" shared:ModSettingsSearch.Title="{Binding EnableRandomOpponentSelectionEnhancementsText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableRandomOpponentSelectionEnhancementsHelpText}">
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="28"/>

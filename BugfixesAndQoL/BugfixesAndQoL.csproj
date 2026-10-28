@@ -367,12 +367,9 @@
     <Compile Include="src\TunnelPlacementDistancePolicy.cs" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="Locales\*.txt"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
-    <Content Include="Patches\Assets\GUI\XAMLResources\HUD_Buildings.xaml"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
-    <Content Include="Patches\Assets\GUI\XAMLResources\HUD_Objectives.xaml"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
-    <Content Include="Patches\Assets\GUI\XAMLResources\HUD_Briefing.xaml"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
-    <Content Include="Patches\Assets\GUI\XAMLResources\OST_StartingGoods.xaml"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
-    <Content Include="Patches\Assets\GUI\XAML\IngameUIScreens.xaml"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <!-- Published neutral replacements are package content too. Always replace stale outputs,
+         even when checkout timestamps are older than a previously generated package. -->
+    <Content Include="Patches\**\*;Override\**\*;Locales\**\*;info.json"><CopyToOutputDirectory>Always</CopyToOutputDirectory></Content>
   </ItemGroup>
   <ItemGroup>
     <Reference Include="MessagePack"><HintPath>$(ExtenderDir)\MessagePack.dll</HintPath><Private>false</Private></Reference>
@@ -387,6 +384,9 @@
     <Compile Include="..\Shared\Runtime\UI\ToolTipPresentation.cs"><Link>Shared\Runtime\UI\ToolTipPresentation.cs</Link></Compile>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <Target Name="VerifyPackageResources" AfterTargets="Build" Condition="'$(DesignTimeBuild)' != 'true'">
+    <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\Test-PackageResources.ps1&quot; -SourceDirectory &quot;$(MSBuildProjectDirectory)&quot; -PackageDirectory &quot;$(TargetDir).&quot;" />
+  </Target>
   <ItemGroup>
     <Compile Include="src\AIKeepRangeRuntime.cs" />
     <Compile Include="src\AIKeepRangeNativeContract.cs" />

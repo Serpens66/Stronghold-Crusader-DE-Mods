@@ -19,7 +19,7 @@ if ($LASTEXITCODE -ne 0) { throw 'Spectator validation failed.' }
 & $msbuild (Join-Path $PSScriptRoot 'Spectator.csproj') /t:Rebuild /p:Configuration=Release "/p:GameDir=$game" "/p:ExtenderDir=$extender" "/p:ApiSharedDir=$ApiSharedDir" /verbosity:minimal
 if ($LASTEXITCODE -ne 0) { throw 'Spectator compilation failed.' }
 $package = Join-Path $PSScriptRoot 'BepInEx/plugins/Spectator_Serp'
-foreach ($file in @('Spectator.dll','info.json','Override/ScriptExtenderUI/SpectatorSettings.xaml','Patches/Assets/GUI/XAML/IngameUIScreens.xaml')) {
+foreach ($file in @('Spectator.dll','info.json','Override/ScriptExtenderUI/SpectatorSettings.xaml','Patches/Assets/GUI/XAML/IngameUIScreens.xaml','Patches/Assets/GUI/XAMLResources/HUD_Main.xaml')) {
  if (-not (Test-Path -LiteralPath (Join-Path $package $file))) { throw "Missing package file: $file" }
 }
 & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'tests/Test-CompiledContracts.ps1') -AssemblyPath (Join-Path $package 'Spectator.dll') -ApiSharedDir $ApiSharedDir -GameDir $game

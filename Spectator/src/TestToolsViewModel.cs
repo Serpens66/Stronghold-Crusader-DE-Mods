@@ -13,8 +13,14 @@ namespace Spectator
     {
         private readonly Action<string> execute;
         private readonly Func<bool> canExecute;
-        private string amount = "0", status = "", selectedGood = "", selectedPlayer = "", selectedTarget = "";
+        private string amount = "0", status = "", selectedGood = "", selectedTarget = "";
         private readonly ToolbarMenuState menu = new ToolbarMenuState();
+        private readonly DockMenuState dock = new DockMenuState();
+        public Visibility DockHomeVisibility => dock.Page == "" ? Visibility.Visible : Visibility.Collapsed;
+        public Visibility DockGoodsVisibility => dock.Page == "Goods" ? Visibility.Visible : Visibility.Collapsed;
+        public Visibility DockOrdersVisibility => dock.Page == "Orders" ? Visibility.Visible : Visibility.Collapsed;
+        public Visibility DockBackVisibility => dock.Page != "" ? Visibility.Visible : Visibility.Collapsed;
+        internal string DockPage => dock.Page;
         private bool powerFlag, force, hasRecipient;
         private bool expanded => menu.Expanded;
         private bool goods => menu.View == "Goods";
@@ -33,12 +39,24 @@ namespace Spectator
         public ToolsText Text { get; } = new ToolsText();
         public ICommand ActionCommand { get; }
         public string Amount { get => amount; set { if (amount == value || !CreditInput.IsEditable(value)) return; amount = value; Changed(nameof(Amount)); Changed(nameof(CanCredit)); } }
-        public string Status { get => status; internal set { if (status == value) return; status = value; Changed(nameof(Status)); Changed(nameof(StatusVisibility)); } }
+        private string statusPage;
+        internal void SetActionStatus(TestActionKind kind, string value)
+        {
+            SetStatus(value, kind == TestActionKind.Credit ? "Goods" :
+                kind == TestActionKind.Attack || kind == TestActionKind.Defend || kind == TestActionKind.Cancel ? "Orders" : "");
+        }
+        private void SetStatus(string value, string page)
+        {
+            if (status == value && statusPage == page) return;
+            status = value; statusPage = page;
+            Changed(nameof(Status)); Changed(nameof(StatusVisibility)); Changed(nameof(DockStatusVisibility));
+        }
+        internal string StatusForPage(string page) => statusPage == null || statusPage == page ? status : "";
+        public Visibility DockStatusVisibility => !string.IsNullOrEmpty(StatusForPage(dock.Page)) ? Visibility.Visible : Visibility.Collapsed;
+        public string Status { get => status; internal set => SetStatus(value, null); }
         public string SelectedGood { get => selectedGood; internal set { if (selectedGood == value) return; selectedGood = value; Changed(nameof(SelectedGood)); } }
-        private Brush playerColour, targetColour;
-        public Brush SelectedPlayerColour { get => playerColour; internal set { if (ReferenceEquals(playerColour, value)) return; playerColour = value; Changed(nameof(SelectedPlayerColour)); } }
+        private Brush targetColour;
         public Brush SelectedTargetColour { get => targetColour; internal set { if (ReferenceEquals(targetColour, value)) return; targetColour = value; Changed(nameof(SelectedTargetColour)); } }
-        public string SelectedPlayer { get => selectedPlayer; internal set { if (selectedPlayer == value) return; selectedPlayer = value; Changed(nameof(SelectedPlayer)); } }
         public string SelectedTarget { get => selectedTarget; internal set { if (selectedTarget == value) return; selectedTarget = value; Changed(nameof(SelectedTarget)); } }
         public bool ForceAcceptance { get => force; set { force = value; Changed(nameof(ForceAcceptance)); } }
         public Visibility ExpandedVisibility => expanded ? Visibility.Visible : Visibility.Collapsed;
@@ -48,9 +66,10 @@ namespace Spectator
         public bool PlacementActive { get => placementActive; internal set { if (placementActive == value) return; placementActive = value; Changed(nameof(PlacementActive)); } }
         public string ActiveViewKey => menu.View;
         public ToolPower[] Powers => powerItems;
-        public bool PowersEnabled { get => powerFlag; set { if (value != powerFlag) execute(value ? "EnablePowers" : "DisablePowers"); } }
+        public bool PowersEnabled => powerFlag;
+        public string PowersToggleLabel => SerpLocalization.Get(powerFlag ? "Tools.PowersSwitchOn" : "Tools.PowersSwitchOff");
         internal void RefreshPowerFlag(bool value)
-        { if (value == powerFlag) return; powerFlag = value; Changed(nameof(PowersEnabled)); }
+        { if (value == powerFlag) return; powerFlag = value; Changed(nameof(PowersEnabled)); Changed(nameof(PowersToggleLabel)); }
         internal void SetPowers(ToolPower[] value)
         {
             bool changed = value.Length != powerItems.Length;
@@ -64,7 +83,7 @@ namespace Spectator
         public string SelectedGoodKey => "G" + ((int)good).ToString("00", CultureInfo.InvariantCulture);
         public string ExpandLabel => expanded ? "−" : "+";
         public bool CanCredit => toolsAvailable && hasRecipient && CreditMath.TryParse(amount, out _) && canExecute();
-        public Visibility StatusVisibility => expanded && !string.IsNullOrEmpty(status) ? Visibility.Visible : Visibility.Collapsed;
+        public Visibility StatusVisibility => expanded && !string.IsNullOrEmpty(StatusForPage(menu.View)) ? Visibility.Visible : Visibility.Collapsed;
         internal void SetRecipientAvailable(bool available)
         { if (hasRecipient == available) return; hasRecipient = available; Changed(nameof(CanCredit)); }
         private bool toolsAvailable, canAttack, canDefend, canCancel;
@@ -97,12 +116,21 @@ namespace Spectator
         private void Invoke(string value)
         {
             if (!canExecute()) return;
+            if (value == "DockPlacement") { execute("Placement"); return; }
+            if (value == "DockHome" || value == "DockGoods" || value == "DockOrders")
+            {
+                dock.Open(value == "DockGoods" ? "Goods" : value == "DockOrders" ? "Orders" : "");
+                Changed(nameof(DockHomeVisibility)); Changed(nameof(DockGoodsVisibility));
+                Changed(nameof(DockOrdersVisibility)); Changed(nameof(DockBackVisibility)); Changed(nameof(DockStatusVisibility));
+                execute("StopCursor"); return;
+            }
             switch (value)
             {
                 case "Collapse": menu.ToggleExpanded(); RefreshViews(); execute("CancelPower"); return;
                 case "Goods": menu.ToggleView("Goods"); RefreshViews(); execute("StopCursor"); return;
                 case "Orders": menu.ToggleView("Orders"); RefreshViews(); execute("StopCursor"); return;
                 case "Placement": menu.Placement(); RefreshViews(); execute("Placement"); return;
+                case "TogglePowers": if (ToolsAvailable) execute(powerFlag ? "DisablePowers" : "EnablePowers"); return;
                 case "Credit": if (!CanCredit) return; break;
                 case "Attack": if (!CanAttack) return; break;
                 case "Defend": if (!CanDefend) return; break;
@@ -126,7 +154,7 @@ namespace Spectator
             string current = SerpLocalization.GetActiveLocale();
             if (current == locale) return;
             locale = current;
-            Changed(nameof(Text));
+            Changed(nameof(Text)); Changed(nameof(PowersToggleLabel));
             SelectGood(good);
         }
 

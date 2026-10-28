@@ -125,6 +125,7 @@ namespace Spectator
 
             lordDeathSessionIds[playerId] = notification.SessionId;
             lordDeathSimulationTicks[playerId] = notification.SimulationTick;
+            SpectatorRuntime.Statistics?.InvalidateMenu(); // Existing defeat notification; no additional simulation observer.
 
             int localPlayerId = PlayerPerspectiveAPI.GetControlledPlayerId();
             bool localLordDied = SpectatorDefeatPolicy.ShouldLatchPlayerLordDeath(playerId, localPlayerId);

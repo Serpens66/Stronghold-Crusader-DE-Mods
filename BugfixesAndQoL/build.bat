@@ -509,6 +509,12 @@ call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 
 :foreign_hud_checks_completed
+if not "%BUILD_TEST_MODE%"=="full" goto resource_package_checks_completed
+call :step_start "tests" "resource-packaging-regression"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%tests\Test-PackageResources.ps1" -ApiSharedDir "%API_SHARED_DIR%" -MSBuild "%MSBUILD%"
+call :step_end %ERRORLEVEL%
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+:resource_package_checks_completed
 popd
 
 if exist "%LOCAL_PLUGIN_DIR%\" rmdir /S /Q "%LOCAL_PLUGIN_DIR%"
@@ -528,12 +534,7 @@ if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 :artifact_tests_completed
 popd
 
-echo [%date% %time%] Copy package files
-copy /Y "%PROJECT_DIR%info.json" "%LOCAL_PLUGIN_DIR%\info.json" >nul
-echo [%date% %time%] Copy package files
-xcopy "%PROJECT_DIR%Override" "%LOCAL_PLUGIN_DIR%\Override\" /E /I /Q /Y >nul
-echo [%date% %time%] Copy package files
-xcopy "%PROJECT_DIR%Patches" "%LOCAL_PLUGIN_DIR%\Patches\" /E /I /Q /Y >nul
+rem The project copies every resource and hash-verifies the package, including neutral patches.
 if not exist "%LOCAL_PLUGIN_DIR%\BugfixesAndQoL.dll" goto package_failed
 if not exist "%LOCAL_PLUGIN_DIR%\info.json" goto package_failed
 
@@ -561,6 +562,10 @@ if exist "%GAME_PLUGIN_DIR%\" (
 )
 echo [%date% %time%] Copy package files
 xcopy "%LOCAL_PLUGIN_DIR%" "%GAME_PLUGIN_DIR%\" /E /I /Q /Y >nul
+if not "%ERRORLEVEL%"=="0" goto copy_failed
+call :step_start "package" "installed-resource-hashes"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-PackageResources.ps1" -PackageDirectory "%GAME_PLUGIN_DIR%" -ReferencePackage "%LOCAL_PLUGIN_DIR%" -Installed
+call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto copy_failed
 echo [%date% %time%] PowerShell checks / build step
 call :step_start "package" "75-Write-LocalBuildManifest.ps1"

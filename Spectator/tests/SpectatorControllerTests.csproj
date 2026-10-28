@@ -1,5 +1,5 @@
 <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
 <PropertyGroup><TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion><OutputType>Exe</OutputType><AssemblyName>SpectatorControllerTests</AssemblyName><LangVersion>latest</LangVersion></PropertyGroup>
-<ItemGroup><Reference Include="System"/><Reference Include="System.Core"/><Compile Include="SpectatorControllerTests.cs"/><Compile Include="..\src\ToolbarState.cs"/><Compile Include="..\src\SpectatorFeatureActivation.cs"/><Compile Include="..\src\ToolSessionPolicy.cs"/><Compile Include="..\src\SpectatorDefeatPolicy.cs"/><Compile Include="..\src\StatisticsPreviewController.cs"/></ItemGroup>
+<ItemGroup><Reference Include="System"/><Reference Include="System.Core"/><Compile Include="SpectatorControllerTests.cs"/><Compile Include="MenuToolTipTests.cs"/><Compile Include="..\src\MenuToolTipSizing.cs"/><Compile Include="..\src\ToolbarState.cs"/><Compile Include="..\src\DockHudPolicy.cs"/><Compile Include="..\src\SpectatorFeatureActivation.cs"/><Compile Include="..\src\ToolSessionPolicy.cs"/><Compile Include="..\src\SpectatorDefeatPolicy.cs"/><Compile Include="..\src\StatisticsPreviewController.cs"/></ItemGroup>
 <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets"/>
 </Project>

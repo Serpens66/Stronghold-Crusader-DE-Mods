@@ -7,6 +7,8 @@ namespace Spectator
     internal static partial class SpectatorRuntime
     {
         private static Grid toolbarRoot;
+        private static Border detailsHeader;
+        private static ScrollViewer detailsScroll;
         private static readonly Button[] quickButtons = new Button[9];
         private static readonly TextBlock[] quickNumbers = new TextBlock[9];
         private static readonly Button[] targetButtons = new Button[9];
@@ -21,7 +23,10 @@ namespace Spectator
         {
             toolbarRoot = screen.FindName("TestToolsRoot") as Grid;
             statusText = screen.FindName("ToolsStatus") as TextBlock;
-            CaptureTooltips(humanPanel); CaptureTooltips(humanDetails);
+            detailsHeader = screen.FindName("SpectatorDetailsHeader") as Border;
+            detailsScroll = screen.FindName("SpectatorDetailsScroll") as ScrollViewer;
+            if (detailsHeader == null || detailsScroll == null) throw new MissingMemberException("Toolbar header/scroll host missing.");
+            MenuToolTipSizing.SetReference(humanPanel, humanCanvas);
             var attackIcon = screen.FindName("AttackActionIcon") as Image;
             if (attackIcon != null) attackIcon.Source = MainViewModel.Instance.getAlliesGoodsIcon(-3);
             currentOrderIcon = screen.FindName("CurrentOrderIcon") as Image;
@@ -61,12 +66,15 @@ namespace Spectator
                     value = value * 31 + state.teams[player];
                     value = value * 31 + (state.computer_names?[player].GetHashCode() ?? 0);
                     value = value * 31 + (SpriteMapping.remapColours?[player] ?? 0);
+                    // Defeat can invalidate a recipient without changing its roster slot/name.
+                    value = value * 31 + (IsToolsPlayer(player, false) ? 1 : 0);
                 }
             }
             if (value != rosterFingerprint) { rosterFingerprint = value; toolbarDirty = true; }
             // Availability can change on defeat while roster membership remains unchanged.
             if (!spectatorSelectionLinked && humanSelectedOwner > 0 && !IsSelectableAi(humanSelectedOwner)) ApplyHumanAi(-1);
-            if (toolsModel?.Expanded == true && toolsModel.ActiveViewKey == "Orders") RefreshOrderAvailability();
+            if ((toolsModel?.Expanded == true && toolsModel.ActiveViewKey == "Orders") ||
+                (dockDisplay == DockHudDisplay.Tools && toolsModel?.DockPage == "Orders")) RefreshOrderAvailability();
         }
 
         private static void RefreshOrderAvailability()

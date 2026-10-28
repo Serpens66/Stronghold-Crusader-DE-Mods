@@ -4,7 +4,7 @@ $ErrorActionPreference = 'Stop'
 # Windows PowerShell 5.1 leaves $PSScriptRoot empty inside parameter defaults.
 if (-not $Workspace) { $Workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\..')) }
 $checked = 0; $disabled = 0; $failures = [Collections.Generic.List[string]]::new()
-function Assert-OwnStyle([Xml.XmlElement]$style, [string]$location) {
+function Assert-OwnStyle([Xml.XmlElement]$style, [string]$location, [switch]$MenuPixels) {
     $values = @{}
     $chain = @($style)
     $base = $style.GetAttribute('BasedOn')
@@ -25,9 +25,20 @@ function Assert-OwnStyle([Xml.XmlElement]$style, [string]$location) {
         if ($style.HasAttribute($name)) { $values[$name] = $style.GetAttribute($name) }
     }
     if ($style.GetAttribute('seui:ToolTipResolutionScale.Enabled') -eq 'True') { $values['seui:ToolTipResolutionScale.Enabled'] = 'True' }
+    # Spectator's in-game toolbar deliberately matches its rendered menu font. Other
+    # owned popups retain the established resolution scaler; colors/template remain common.
+    $menuSizing = $menuRelative -and $values['specui:MenuToolTipSizing.Enabled'] -eq 'True' -and $values['seui:ToolTipResolutionScale.Enabled'] -eq 'False' -and
+        $values['apiui:SharedToolTipSizing.Enabled'] -ne 'True' -and $values['FontSize'] -eq '14' -and $values['MaxWidth'] -eq '420'
+    $sharedSizing = $values['apiui:SharedToolTipSizing.Enabled'] -eq 'True' -and $values['seui:ToolTipResolutionScale.Enabled'] -ne 'True'
+    # The ESC renderer owns its popup/button pixel ratio directly; behavior tests execute
+    # that production helper. This style check only guards its fallback and exclusive opt-in.
+    $escSizing = $MenuPixels -and $values['seui:ToolTipResolutionScale.Enabled'] -eq 'False' -and
+        $values['apiui:SharedToolTipSizing.Enabled'] -ne 'True' -and $values['FontSize'] -eq '16' -and $values['MaxWidth'] -eq '420'
+    $validSizing = if ($MenuPixels) { $escSizing } elseif ($menuRelative) { $menuSizing } elseif ($requireShared) { $sharedSizing } else {
+        $values['seui:ToolTipResolutionScale.Enabled'] -eq 'True' -or $sharedSizing
+    }
     if ($values['Background'] -ne '#FF1D1710' -or $values['Foreground'] -ne 'White' -or
-        $values['BorderBrush'] -ne '#FFF2D48A' -or ($values['seui:ToolTipResolutionScale.Enabled'] -ne 'True' -and $values['apiui:SharedToolTipSizing.Enabled'] -ne 'True') -or
-        -not $template -or ($requireShared -and ($values['apiui:SharedToolTipSizing.Enabled'] -ne 'True' -or $values['seui:ToolTipResolutionScale.Enabled'] -eq 'True'))) {
+        $values['BorderBrush'] -ne '#FFF2D48A' -or -not $template -or -not $validSizing) {
         $failures.Add("Nonstandard mod popup template: $location")
     }
 }
@@ -46,6 +57,9 @@ foreach ($directory in $directories) {
         if ($runtime -notmatch 'new ToolTip \{ Style = style, Content = (?:text|content) \}' -or $runtime -notmatch 'SetShowDuration\(button, 60000\)') { $failures.Add('Player tooltips must use the checked own style and duration.') }
     }
     foreach ($file in $popupFiles) {
+        $menuRelative = $requireShared -and $file.FullName -in @(
+            (Join-Path $directory.FullName 'Patches\Assets\GUI\XAML\IngameUIScreens.xaml'),
+            (Join-Path $directory.FullName 'Patches\Assets\GUI\XAMLResources\HUD_Main.xaml'))
         [xml]$document = [IO.File]::ReadAllText($file.FullName)
         foreach ($node in $document.SelectNodes('//*[@ToolTip]')) {
             if ($node.GetAttribute('ToolTipService.IsEnabled') -eq 'False') { $disabled++; continue }
@@ -64,6 +78,7 @@ foreach ($directory in $directories) {
         }
     }
 }
+$menuRelative = $false; $requireShared = $false
 # Provider implementation guardrails run only when APIShared itself is selected.
 # A DLL dependency does not make its unrelated HUD implementation a consumer check.
 $apiRoot = [IO.Path]::GetFullPath((Join-Path $Workspace 'APIShared')).TrimEnd('\','/')
@@ -82,6 +97,11 @@ $extrasPatch = Join-Path $Workspace 'APIShared\Patches\Assets\GUI\XAML\IngameUIS
 $extrasStyle = $extrasDocument.SelectSingleNode("//*[local-name()='Style'][@*[local-name()='Key']='APISharedHudExtrasTooltipStyle']")
 if (-not $extrasStyle) { $failures.Add('Missing side-HUD default tooltip style.') }
 else { Assert-OwnStyle $extrasStyle $extrasPatch; $checked++ }
+$escPatch = Join-Path $apiRoot 'Patches/Assets/GUI/XAMLResources/HUD_IngameMenu.xaml'
+[xml]$escDocument = [IO.File]::ReadAllText($escPatch)
+$escStyle = $escDocument.SelectSingleNode("//*[local-name()='Style'][@*[local-name()='Key']='APISharedMenuTooltipStyle']")
+if (-not $escStyle) { $failures.Add('Missing ESC tooltip style.') }
+else { Assert-OwnStyle $escStyle $escPatch -MenuPixels; $checked++ }
 $extrasSource = [IO.File]::ReadAllText((Join-Path $Workspace 'APIShared\src\Presentation\HudExtras\HudExtrasButtonsService.cs'))
 if ($extrasSource -notmatch 'RequireStyle\("APISharedHudExtrasTooltipStyle"\)' -or
     $extrasSource -notmatch 'SetShowDuration\(visual.Button, 60000\)' -or

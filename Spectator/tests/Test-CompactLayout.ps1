@@ -6,7 +6,10 @@ $ns.AddNamespace('x', 'http://schemas.microsoft.com/winfx/2006/xaml')
 function Named($name) { $xml.SelectSingleNode('//*[@x:Name="' + $name + '"]', $ns) }
 foreach ($name in @('SpectatorEditorHumanOwners','TestToolsTargets')) {
     $panel = Named $name
-    if (-not $panel -or $panel.LocalName -ne 'WrapPanel' -or $panel.Width -ne '608' -or $panel.ItemWidth -ne '152' -or $panel.ItemHeight -ne '46') { throw "Four-column portrait layout changed: $name" }
+    if (-not $panel -or $panel.LocalName -ne 'Grid' -or $panel.Width -ne '608') { throw "Four-column portrait layout changed: $name" }
+    # Auto rows collapse completely when no visible card is assigned to them.
+    if (@($panel.SelectNodes('./Grid.RowDefinitions/RowDefinition[@Height="Auto"]')).Count -ne 2 -or
+        @($panel.SelectNodes('./Grid.ColumnDefinitions/ColumnDefinition[@Width="152"]')).Count -ne 4) { throw 'Portrait rows must measure only visible content.' }
     $cards = @($panel.SelectNodes('./Button'))
     if ($cards.Count -ne 8) { throw "All eight slots must exist: $name" }
     foreach ($card in $cards) {
@@ -29,19 +32,24 @@ if ($credit.IsEnabled -ne '{Binding CanCredit}' -or $amount.ParentNode -ne $cred
 $goods = @($xml.SelectNodes('//Button[starts-with(@CommandParameter,"G") and @CommandParameter != "Goods"]'))
 if ($goods.Count -ne 21 -or @($goods | Where-Object { $_.ParentNode.ParentNode.LocalName -ne 'WrapPanel' }).Count) { throw 'All Vanilla goods must share the compact icon panel.' }
 $commands = @($xml.SelectNodes('//Button/@CommandParameter') | ForEach-Object Value)
-foreach ($view in @('Placement','Goods','Orders')) {
+foreach ($view in @('Placement','Goods','Orders','TogglePowers')) {
     $tab = $xml.SelectSingleNode('//Button[@CommandParameter="' + $view + '"]')
-    if (-not $tab -or $tab.Width -ne '196') { throw "Three equal compact tabs required: $view" }
+    if (-not $tab -or $tab.Width -ne '148' -or $tab.Height -ne '36') { throw "Four equal compact tool buttons required: $view" }
 }
 if (@($commands | Where-Object { $_ -match '^Power' }).Count) { throw 'Own power menu must be absent.' }
-$toggle = $xml.SelectSingleNode('//CheckBox[@IsChecked="{Binding PowersEnabled, Mode=TwoWay}"]')
-if (-not $toggle -or $toggle.ParentNode -ne (Named 'SpectatorEditorHumanOwners').ParentNode) { throw 'Power toggle must be in the common AI area.' }
+$toggle = $xml.SelectSingleNode('//Button[@CommandParameter="TogglePowers"]')
+$placement = $xml.SelectSingleNode('//Button[@CommandParameter="Placement"]')
+if ($toggle.ParentNode -ne $placement.ParentNode -or $toggle.IsEnabled -ne '{Binding ToolsAvailable}') { throw 'Power switch must share the tool row and retain availability.' }
+if ($xml.SelectSingleNode('//*[@Text="{Binding SelectedPlayer}"]') -or
+    $xml.SelectSingleNode('//CheckBox[@IsChecked="{Binding PowersEnabled, Mode=TwoWay}"]')) { throw 'Redundant heading or power checkbox remains.' }
+if (-not (Named 'SpectatorDetailsHeader') -or (Named 'SpectatorDetailsScroll').GetAttribute('Grid.Row') -ne '1' -or
+    $panel.GetAttribute('Panel.ZIndex') -ne '1') { throw 'Fixed quick bar must overlay the common header above scrollable content.' }
 if (@($commands | Where-Object { $_ -match '^(?:X[+-]|Prev|Next)' }).Count) { throw 'Obsolete amount or paging buttons remain.' }
 $model = [IO.File]::ReadAllText((Join-Path $root 'src\TestToolsViewModel.cs'))
 $hud = [IO.File]::ReadAllText((Join-Path $root 'src\SpectatorRuntime.Hud.cs'))
 if ($model -match 'private bool expanded\s*=\s*true' -or $model -match 'OwnerPage|TargetPage|CreditMath.Adjust') { throw 'Default expansion or obsolete model state remains.' }
 if ($hud -notmatch 'button.Visibility = available \? Visibility.Visible : Visibility.Collapsed' -or $hud -notmatch 'target.Visibility = targetAvailable \? Visibility.Visible : Visibility.Collapsed') { throw 'Unavailable cards must collapse and reflow.' }
-Write-Host 'PASS: compact layout structure, all eight slots, 1/4/8-slot row geometry, inline action and zero default.'
+Write-Host 'PASS: compact layout structure, all eight slots, auto-row portrait structure (runtime packing is tested separately), inline action and zero default.'
 
 $reset = $xml.SelectSingleNode('//Button[@CommandParameter="ResetAmount"]')
 if ($credit.Width -ne '120' -or $reset.Width -ne '36' -or $reset.Content -ne '0' -or $reset.ParentNode -ne $credit.ParentNode) { throw 'Send/reset layout contract changed.' }

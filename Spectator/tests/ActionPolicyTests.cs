@@ -50,7 +50,7 @@ namespace Spectator
             Expect(hud.ObservePresentation(false, true, false, false) && !hud.TryConsume(61, true), "replacement HUD rejects old intent before rendering");
             hud.Release();
             int amount;
-            foreach (string invalid in new[] { null, "", "0", "-1", "+1", "1.5", "1,000", " 1", "2147483648" })
+            foreach (string invalid in new[] { null, "", "0", "-", "-0", "-2147483649", "+1", "1.5", "1,000", " 1", "2147483648" })
                 Expect(!CreditMath.TryParse(invalid, out amount), "reject invalid amount " + invalid);
             Expect(CreditMath.TryParse("1", out amount) && amount == 1, "smallest credit");
             Expect(CreditMath.TryParse("2147483647", out amount) && amount == int.MaxValue, "largest credit");
@@ -62,7 +62,7 @@ namespace Spectator
             Expect(CreditInput.IsEditable(""), "empty editing state");
             Expect(CreditInput.IsEditable("0"), "zero editing state");
             Expect(CreditInput.IsEditable("2147483647"), "maximum input");
-            foreach (string invalid in new[] { null, "abc", "100abc", "+1", "-1", "1.0", "1,000", " 100", "100\n", "١٢٣", "１２３", "2147483648", "100000000000" })
+            foreach (string invalid in new[] { null, "abc", "100abc", "+1", "--1", "1-2", "-2147483649", "1.0", "1,000", " 100", "100\n", "١٢٣", "１２３", "2147483648", "100000000000" })
                 Expect(!CreditInput.IsEditable(invalid), "reject full invalid edit or paste " + invalid);
             string candidate;
             Expect(CreditInput.TryReplace("0", 0, 1, "4120", out candidate) && candidate == "4120", "paste replaces selection");
@@ -75,6 +75,35 @@ namespace Spectator
             Expect(CreditInput.Normalize("") == "0", "empty on blur becomes zero");
             Expect(CreditInput.Normalize("00041") == "41", "leading zeros normalized on blur");
             Expect(CreditInput.Normalize("2147483647") == "2147483647", "maximum remains intact");
+            Expect(CreditMath.TryParse("-2147483648", out amount) && amount == int.MinValue, "minimum signed amount");
+            Expect(CreditInput.IsEditable("-") && !CreditMath.TryParse("-", out amount), "minus is edit-only");
+            Expect(CreditInput.Normalize("-") == "0" && CreditInput.Normalize("-0005") == "-5", "signed normalization");
+            Expect(CreditInput.TryReplace("10", 0, 0, "-", out candidate) && candidate == "-10", "prefix minus");
+            Expect(!CreditInput.TryReplace("10", 1, 0, "-", out candidate), "interior minus rejected");
+            int stored = 7, incoming = 5, removalCalls = 0, reserveCalls = 0;
+            System.Func<GoodsBalance> read = () => new GoodsBalance(stored, incoming);
+            System.Action<int> remove = value => { removalCalls++; stored -= value; };
+            System.Action<int> reserve = value => { reserveCalls++; incoming -= value; };
+            Expect(CreditDebit.Execute(-9, false, read, remove, reserve) == 9 && stored == 0 && incoming == 3, "debit storage then reserve");
+            Expect(removalCalls == 1 && reserveCalls == 1, "one call per required account");
+            Expect(CreditDebit.Execute(int.MinValue, false, read, remove, reserve) == 3 && incoming == 0, "minimum integer capped at available balance");
+            Expect(CreditDebit.Execute(-1, false, read, remove, reserve) == 0, "empty accounts remain zero");
+            stored = int.MaxValue; incoming = int.MaxValue;
+            Expect(CreditDebit.Execute(int.MinValue, false, read, remove, reserve) == 2147483648L && stored == 0 && incoming == int.MaxValue - 1, "combined accounts do not overflow");
+            stored = 10; incoming = 4;
+            Expect(CreditDebit.Execute(-12, false, read, value => { }, reserve) == 4 && stored == 10, "cancelled native subtraction reported as partial; reserve remains removable");
+            stored = 10; incoming = 4;
+            Expect(CreditDebit.Execute(-12, false, read, value => stored -= 2, reserve) == 6, "modified native amount reported accurately");
+            stored = 10; incoming = 4; reserveCalls = 0;
+            Expect(CreditDebit.Execute(-12, true, read, value => incoming -= value, reserve) == 4 && stored == 10 && reserveCalls == 0, "mode six native reserve is never debited twice");
+            incoming = 4;
+            Expect(CreditDebit.Execute(-12, true, read, value => { }, reserve) == 0 && incoming == 4 && reserveCalls == 0, "mode six cancellation is not bypassed by reserve fallback");
+            incoming = -1; bool rejectedBalance = false;
+            try { CreditDebit.Execute(-1, false, read, remove, reserve); } catch (System.InvalidOperationException) { rejectedBalance = true; }
+            Expect(rejectedBalance, "corrupt balance is rejected before mutation");
+            stored = 10; incoming = 0; bool rejectedOverride = false;
+            try { CreditDebit.Execute(-1, false, read, value => stored -= 2, reserve); } catch (System.InvalidOperationException) { rejectedOverride = true; }
+            Expect(rejectedOverride, "out-of-contract provider debit cannot be reported as success");
             var ledger = new TestActionLedger();
             ledger.Reset(10);
             int balance = 0;

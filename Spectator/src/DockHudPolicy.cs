@@ -1,0 +1,23 @@
+namespace Spectator
+{
+    internal enum DockHudDisplay { Hidden, Tools, Placement }
+
+    internal sealed class DockMenuState
+    {
+        internal string Page { get; private set; } = "";
+        internal void Open(string page) { if (page == "" || page == "Goods" || page == "Orders") Page = page; }
+    }
+
+    internal static class DockHudPolicy
+    {
+        // Managed HUD_Main contract: NewBuildScreenBlank selects page 22. It has no build icons.
+        internal const int BlankBuildScreen = 22;
+        internal static DockHudDisplay Evaluate(bool eligible, bool uiVisible, bool main,
+            bool occupied, bool editorTerrain, bool placement, int buildScreen)
+        {
+            if (!eligible || !uiVisible || !main || occupied || editorTerrain) return DockHudDisplay.Hidden;
+            if (placement) return DockHudDisplay.Placement;
+            return buildScreen == BlankBuildScreen ? DockHudDisplay.Tools : DockHudDisplay.Hidden;
+        }
+    }
+}

@@ -18,6 +18,12 @@ $assembly = [Mono.Cecil.AssemblyDefinition]::ReadAssembly($managed)
 try {
     foreach ($entry in @(
         @('CrusaderDE.MainViewModel','viewModelLoaded','field'),
+        @('CrusaderDE.MainViewModel','buildScreenID','field'),
+        @('CrusaderDE.MainViewModel','get_MEMode','method'),
+        @('CrusaderDE.HUD_Main','NewBuildScreenBlank','method'),
+        @('CrusaderDE.MainViewModel','get_AlliesPanelVisible','method'),
+        @('CrusaderDE.MainViewModel','get_MeritPanelVisible','method'),
+        @('CrusaderDE.MainViewModel','get_MPChatVisible','method'),
         @('CrusaderDE.MainViewModel','getAIFace','method'),
         @('CrusaderDE.MainViewModel','getAlliesGoodsIcon','method'),
         @('CrusaderDE.MainViewModel','SetNoesisKeyboardState','method'),
@@ -66,14 +72,14 @@ try {
     if (-not @($binding.Properties | Where-Object { $_.Name -eq 'Source' -and $_.GetMethod.IsPublic -and $_.SetMethod.IsPublic }).Count -or
         -not @($binding.Methods | Where-Object { $_.IsConstructor -and $_.IsPublic -and $_.Parameters.Count -eq 1 -and $_.Parameters[0].ParameterType.FullName -eq 'System.String' }).Count) { throw 'Missing public explicit-source Binding contract.' }
     Write-Host 'PASS: Noesis input, paste rollback, focus and explicit-source binding contracts.'
-    foreach ($entry in @(@('Noesis.BindingOperations','GetBindingBase'),@('Noesis.BindingOperations','SetBinding'),@('Noesis.DependencyObject','ReadLocalValue'),@('Noesis.Keyboard','ClearFocus'),@('Noesis.Keyboard','get_FocusedElement'),@('Noesis.VisualTreeHelper','GetChild'),@('Noesis.VisualTreeHelper','GetChildrenCount'))) {
+    foreach ($entry in @(@('Noesis.BindingOperations','GetBindingBase'),@('Noesis.BindingOperations','SetBinding'),@('Noesis.DependencyObject','ReadLocalValue'),@('Noesis.Keyboard','ClearFocus'),@('Noesis.Keyboard','get_FocusedElement'),@('Noesis.VisualTreeHelper','GetChild'),@('Noesis.VisualTreeHelper','GetChildrenCount'),@('Noesis.Visual','PointToScreen'),@('Noesis.Grid','SetRow'),@('Noesis.Grid','SetColumn'),@('Noesis.FrameworkElement','add_Loaded'),@('Noesis.FrameworkElement','add_SizeChanged'),@('Noesis.ToolTip','add_Opened'),@('Noesis.ToolTip','add_Closed'),@('Noesis.ToolTip','get_PlacementTarget'))) {
         if (-not @($noesis.MainModule.GetType($entry[0]).Methods | Where-Object { $_.Name -eq $entry[1] -and $_.IsPublic }).Count) { throw "Missing public toolbar/focus member: $($entry -join '.')" }
     }
 } finally { $noesis.Dispose() }
 $extender = [Mono.Cecil.AssemblyDefinition]::ReadAssembly((Join-Path $gameDirectory 'BepInEx\plugins\000shcdese\SHCDESE.dll'))
 try {
     $player = $extender.MainModule.GetType('SHCDESE.API.GamePlayerManagerAPI')
-    foreach ($name in @('AddIncomingGood','AddPlayerGold','GetPlayerGold','TryGetPlayerResourcesById','SetLocalPlayerExtremePowersEnabled','IsLocalPlayerExtremePowersEnabled','GetLordUnitId','GetLordUnitGlobalId')) {
+    foreach ($name in @('SubtractIncomingGood','RemoveGood','GetCurrentGameTypeMode','AddIncomingGood','AddPlayerGold','GetPlayerGold','TryGetPlayerResourcesById','SetLocalPlayerExtremePowersEnabled','IsLocalPlayerExtremePowersEnabled','GetLordUnitId','GetLordUnitGlobalId')) {
         $method = @($player.Methods | Where-Object { $_.Name -eq $name -and $_.IsPublic })
         if ($method.Count -ne 1) { throw "Missing or ambiguous Extender player API: $name" }
         Write-Host ('Validated Extender API: ' + $method[0].FullName)

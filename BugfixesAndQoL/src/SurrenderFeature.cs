@@ -47,6 +47,8 @@ namespace BugfixesAndQoL
         private readonly BugfixesAndQoLViewModel settings;
         private readonly MultiplayerLobbyReturnFeature lobbyReturnFeature;
         private readonly SurrenderViewModel buttonViewModel;
+        private IngameMenuActionRegistration menuRegistration;
+        private int lastMenuGameOverState;
         private readonly HashSet<string> acceptedRequests = new HashSet<string>(StringComparer.Ordinal);
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
         private R3PacketEventHook<SurrenderRequestPacket> requestPacketHook;
@@ -73,7 +75,14 @@ namespace BugfixesAndQoL
             if (!IngameMenuActions.TryRegister(BugfixesAndQoLPlugin.PluginGuid, "surrender",
                 () => { RefreshButtonState(); return new IngameMenuActionState(buttonViewModel.SurrenderButtonText,
                     buttonViewModel.SurrenderButtonVisibility == Visibility.Visible, buttonViewModel.SurrenderButtonEnabled); },
-                OnSurrenderCommand, out string menuReason)) throw new InvalidOperationException(menuReason);
+                OnSurrenderCommand, new IngameMenuActionOptions(IngameMenuRow.QuitMission, IngameMenuSlot.Left,
+                    replaceExisting: true), out menuRegistration, out string menuReason)) throw new InvalidOperationException(menuReason);
+            settings.PropertyChanged += (sender, args) => {
+                if (string.IsNullOrEmpty(args.PropertyName) || args.PropertyName == nameof(settings.EnableMod) ||
+                    args.PropertyName == nameof(settings.EnableSurrenderAndStatistics)) menuRegistration.Invalidate();
+            };
+            subscriptions.Add(PlayerPerspectiveAPI.SubscribeChanges(BugfixesAndQoLPlugin.PluginGuid,
+                "surrender-menu", _ => menuRegistration.Invalidate()));
             lobbyReturnFeature.Initialize();
             try { RegisterEndPresentation(); }
             catch (Exception error)
@@ -86,6 +95,7 @@ namespace BugfixesAndQoL
             subscriptions.Add(Shared.MissionEvents.Ended.Subscribe(_ => ResetSession("end")));
             UnityEngine.Application.onBeforeRender += OnBeforeRender;
             initialized = true;
+            menuRegistration.Invalidate();
         }
         private void RegisterEndPresentation()
         {
@@ -101,7 +111,11 @@ namespace BugfixesAndQoL
                     }, isCurrent);
                 }, null, out string reason)) throw new InvalidOperationException(reason);
             if (!MissionOverEvents.TryRegister(MissionOverOperation.State, BugfixesAndQoLPlugin.PluginGuid, "lobby-game-over",
-                null, null, out reason, accepted: args => { if (!disposed) lobbyReturnFeature.OnGameOverState(args.Result); }))
+                null, null, out reason, accepted: args => {
+                    if (!disposed) lobbyReturnFeature.OnGameOverState(args.Result);
+                    if (lastMenuGameOverState != args.Result)
+                    { lastMenuGameOverState = args.Result; menuRegistration.Invalidate(); }
+                }))
                 throw new InvalidOperationException(reason);
             if (!MissionOverEvents.TryRegister(MissionOverOperation.Text, BugfixesAndQoLPlugin.PluginGuid, "lobby-game-over-text",
                 null, args => { if (!disposed && args.OriginalCompleted) lobbyReturnFeature.OnGameOverPresentation(); }, out reason))
@@ -132,11 +146,13 @@ namespace BugfixesAndQoL
             lobbyReturnFeature.Dispose(); UnityEngine.Application.onBeforeRender -= OnBeforeRender;
             foreach (IDisposable subscription in subscriptions) subscription.Dispose();
             subscriptions.Clear(); buttonViewModel.SetMenuState(false, false);
+            menuRegistration?.Invalidate();
         }
         private void ResetSession(string reason)
         {
             presentationGeneration++; acceptedRequests.Clear(); nextRequestId = 0;
             confirmationSequence++; confirmationOpenedFromMenuSequence = 0;
+            menuRegistration?.Invalidate();
             Shared.UnityMainThreadDispatch.TryEnqueue(() => { if (!disposed) buttonViewModel.SetMenuState(false, false); });
         }
 

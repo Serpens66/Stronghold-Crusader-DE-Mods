@@ -316,3 +316,67 @@ amount-field keyboard focus for map presses with no Noesis hit target. This is a
 read-only observation of the original result/rightDown; original clicks remain
 unchanged. UI cleanup is performed on the main thread, and deferred cleanup checks
 both session and input-instance identity.
+
+## Additional idle-HUD presentation (2026-10-28)
+
+This is a managed/XAML addition; no new native hook or mutation is introduced.
+Audited against native SHA-256 FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2
+and managed SHA-256 BC8B6A395F01D48557DB413600C8DD8D1FDFD3ABDF97BFBBB68A3C56B04FD789.
+`HUD_Main.NewBuildScreenBlank` selects build page 22 and submode 48; `FatControler`
+requests it for Vanilla's blank spectator/build-control cases. Normal construction
+and editor terrain pages are not empty merely because a player cannot use them.
+`MainViewModel`'s normal building/report and troop transitions own their own HUD
+containers. BFQ's foreign troop view can leave Show_HUD_Main set while clipping
+its centre; Show_HUD_Troops is therefore an explicit veto, alongside building,
+briefing, end, allies, merits and chat presentations. The new content remains inside
+HUD_Main's LayoutRoot and respects its inherited clip and visibility.
+
+Only our additional AlignmentGrid child and the separate placement header are shown/hidden. Neither restores
+Vanilla bindings, clipping, build-control freezes or DataContexts. The placement
+header uses the existing selection/cancellation path and remembers page 22 as a
+valid return destination. No delayed UI transition is enqueued by this view.
+HUD identity and current session/eligibility are checked before display; deferred
+map-focus cleanup additionally checks its input instance. Detached controls have
+their bindings, focus and event handlers released before references are discarded.
+
+Revalidate the blank-page contract, HUD_Main AlignmentGrid/frame dimensions and
+the public members in Test-InstalledContracts on game updates. Test-DockLayout
+executes the current Extender patcher against the selected Vanilla XAML export;
+it verifies the host, namespaces and unchanged original visual tree. It does not
+claim to test Noesis rendering or in-game input routing.
+
+## Dock hit routing and signed resource removal (2026-10-28)
+
+Reference native SHA-256: FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
+No new native hook, direct call address or public API is introduced.
+HUD_Main.LayoutRoot contains transparent top-edge mask siblings after AlignmentGrid.
+Their Ignore/IgnoreNotME tags affect FatControler.overNoesisGUI, not Noesis event targeting.
+The placement header is now a separately hidden, content-width LayoutRoot child above those
+masks, anchored to the same HUD edge. Vanilla masks remain unchanged. Check the real patched
+tree and full button hit areas after game updates; child-only ZIndex cannot solve this overlap.
+The header shares the guarded tools model, selection and camera handlers, and explicitly
+releases its own DataContext on teardown. No fullscreen overlay is introduced.
+
+Extender RemoveGood calls the existing OnPlayerSubtractResource pre/original/post dispatcher
+at native RVA 0xB7D80. The audited normal branch maps goods via 0xBFD30, drains eligible live
+storage buildings and updates resource visuals (0xC05B0, 0x6E620) and totals (0xC1CE0).
+Native game mode 6 instead subtracts from incoming goods directly; its operation is bounded
+by incoming quantity, not the storage total. This is the explicit
+eGameTypeModes.GAMETYPE_SIEGE_THAT_BUILDER contract, not a general editor-mode assumption.
+GetCurrentGameTypeMode supplies that native mode. Storage removal and reserve subtraction
+are not a single combined Vanilla command. SubtractIncomingGood changes only the named reserve.
+Gold uses AddPlayerGold with a bounded negative delta, then SubtractIncomingGood for pending gold;
+StartConditions similarly distinguishes reserve clearing from setting the current gold balance.
+
+CreditDebit reads both accounts before/after the existing API calls under EngineInterface's
+monitor. Signed Int32 input is negated in Int64, every call is capped by its actual account,
+and results describe measured removal rather than the requested amount. The mode-6 native
+path is invoked only once, with no direct-reserve retry that would bypass an event cancellation.
+Any physical stock remaining in that special native mode is reported through the partial result;
+the mod does not change game mode or manually rewrite storage objects. Provider changes beyond
+the requested debit or negative account states are rejected as contract failures, never reported
+as successful transactions. Future native updates must re-audit these branches and accounting.
+
+The production transaction tests substitute only API boundaries; the real XAML patcher tests
+prove mask sibling ordering and unchanged Vanilla XML, not rendered hit testing. Full Noesis
+input/rendering and physical storage visuals still require in-game acceptance.

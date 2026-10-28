@@ -85,8 +85,12 @@ namespace Spectator
             humanToggle = toggle;
             humanToggleText = toggleText;
             humanOwners = owners;
-            toolsModel = new TestToolsViewModel(ExecuteToolsCommand, IsToolbarSession);
-            toolsModel.PropertyChanged += (sender, args) => toolbarDirty = true;
+            long boundSession = CurrentSessionId;
+            TestToolsViewModel boundModel = null;
+            boundModel = new TestToolsViewModel(ExecuteToolsCommand, () =>
+                ReferenceEquals(toolsModel, boundModel) && IsCurrentSession(boundSession) && IsToolbarSession());
+            toolsModel = boundModel;
+            toolsModel.PropertyChanged += OnToolsModelChanged;
             panel.DataContext = toolsModel;
             humanDetails.DataContext = toolsModel;
             CacheToolbarElements(screen);
@@ -133,12 +137,14 @@ namespace Spectator
         private static void DetachHumanControls()
         {
             toolbarDirty = true;
+            DetachDockControls();
+            dockFailed = false;
             // The same IngameUIScreens can survive a map transition. Hide before dropping references.
             if (humanPanel != null) { humanPanel.Visibility = Visibility.Collapsed; humanPanel.DataContext = null; }
             if (humanDetails != null) { humanDetails.Visibility = Visibility.Collapsed; humanDetails.DataContext = null; }
             ClosePlayerTooltips();
             foreach (var button in playerTooltipTexts.Keys)
-                if (ToolTipService.GetToolTip(button) is ToolTip tip) { tip.Opened -= OnPlayerTooltipOpened; ToolTipService.SetToolTip(button, null); }
+                if (ToolTipService.GetToolTip(button) is ToolTip tip) { MenuToolTipSizing.SetEnabled(tip, false); ToolTipService.SetToolTip(button, null); }
             SpectatorPerspectiveRuntime.OnHudUnavailable();
             RestoreVanillaPowerToolbar(true);
             CancelPowerSelection();
@@ -147,8 +153,8 @@ namespace Spectator
             observedGate = null;
             amountInput?.Detach();
             amountInput = null;
-            foreach (var tooltip in ownedTooltips) tooltip.Opened -= OnPlayerTooltipOpened;
-            playerTooltipTexts.Clear(); ownedTooltips.Clear(); statusText = null;
+            MenuToolTipSizing.SetReference(null);
+            playerTooltipTexts.Clear(); statusText = null;
             if (humanPanel != null) humanPanel.SizeChanged -= OnHumanPanelSizeChanged;
             if (inputRoot != null) inputRoot.PreviewMouseDown -= OnToolbarOutsideClick;
             inputRoot = null;
@@ -190,7 +196,7 @@ namespace Spectator
             humanOwners = null;
             humanScreen = null;
             humanBoundHud = null;
-            toolbarRoot = null;
+            toolbarRoot = null; detailsHeader = null; detailsScroll = null;
             currentOrderIcon = null; currentOrderText = currentOrderTarget = null;
             shownOrderActor = -1; shownOrderLocale = null;
             Array.Clear(ownerOrderIcons, 0, ownerOrderIcons.Length);
@@ -199,6 +205,7 @@ namespace Spectator
             Array.Clear(targetLabels, 0, targetLabels.Length);
             Array.Clear(ownerFaces, 0, ownerFaces.Length);
             Array.Clear(targetFaces, 0, targetFaces.Length);
+            if (toolsModel != null) toolsModel.PropertyChanged -= OnToolsModelChanged;
             toolsModel = null;
         }
 
@@ -267,15 +274,13 @@ namespace Spectator
             toolsModel.PlacementActive = humanPlacementMode;
             humanToggleText.Text = SerpLocalization.Get(humanPlacementMode ? "Tools.StopPlacement" : "Tools.Placement");
             humanOwners.Visibility = toolsModel.Expanded ? Visibility.Visible : Visibility.Collapsed;
-            toolsModel.SelectedPlayer = SerpLocalization.Get("Tools.Actor") + ": " +
-                (humanSelectedOwner > 0 ? PlayerLabel(humanSelectedOwner) : SerpLocalization.Get("Tools.NoAi"));
             toolsModel.SelectedTarget = SerpLocalization.Get("Tools.Target") + ": " +
                 (IsToolsPlayer(toolsModel.Target, false) ? PlayerLabel(toolsModel.Target) : SerpLocalization.Get("Tools.SelectTarget"));
-            toolsModel.SelectedPlayerColour = PlayerBrush(humanSelectedOwner);
             toolsModel.SelectedTargetColour = PlayerBrush(toolsModel.Target);
             humanPanel.Width = Math.Min(46f + occupiedCount * 34f, Math.Max(120f, humanCanvas.ActualWidth - 20f));
-            toolbarRoot.Width = Math.Max(100f, humanPanel.Width - 4f);
-            humanOwners.Width = Math.Max(152f, Math.Min(608f, ToolbarGeometry.DetailWidth(humanCanvas.ActualWidth) - 24f));
+            toolbarRoot.Width = Math.Max(0f, humanPanel.Width - 10f);
+            PackPortraitCards(humanOwnerButtons);
+            PackPortraitCards(targetButtons);
             // Height is measured from the actual visible tool page, not from a fixed canvas.
             humanPanel.Height = float.NaN;
             humanPanel.MaxHeight = Math.Max(36f, humanCanvas.ActualHeight - 20f);
@@ -290,20 +295,14 @@ namespace Spectator
             if (playerTooltipTexts.TryGetValue(button, out string previous) && previous == text + "|" + PlayerBrush(player).ToString()) return;
             var style = humanPanel.TryFindResource("PlayerTooltip") as Style;
             if (style == null) throw new MissingMemberException("Test tools popup style missing.");
-            var content = new TextBlock { FontSize = APIShared.ModSettings.ToolTipPresentation.AutomaticFontSize,
+            var content = new TextBlock { FontSize = ToolbarGeometry.MenuFontSize,
                 Foreground = neutralPlayerBrush, TextWrapping = TextWrapping.Wrap,
-                MaxWidth = APIShared.ModSettings.ToolTipPresentation.AutomaticMaximumWidth - 60 };
+                MaxWidth = 400 };
             content.Inlines.Add(new Run { Text = label, Foreground = PlayerBrush(player) });
             content.Inlines.Add(new Run { Text = " — " + SerpLocalization.Get("Tools.SelectHelp") });
             var tip = new ToolTip { Style = style, Content = content };
-            tip.Opened += OnPlayerTooltipOpened;
-            // Explicit initialization also covers programmatic ToolTips before their first opening.
-            tip.FontSize = APIShared.ModSettings.ToolTipPresentation.AutomaticFontSize;
-            tip.MaxWidth = APIShared.ModSettings.ToolTipPresentation.AutomaticMaximumWidth;
-            tip.Padding = new Thickness(24, 18, 24, 18);
-            tip.BorderThickness = new Thickness(4.5f);
-            APIShared.ModSettings.SharedToolTipSizing.SetEnabled(tip, true);
-            if (ToolTipService.GetToolTip(button) is ToolTip previousTip) { previousTip.IsOpen = false; previousTip.Opened -= OnPlayerTooltipOpened; }
+            MenuToolTipSizing.SetEnabled(tip, true);
+            if (ToolTipService.GetToolTip(button) is ToolTip previousTip) { previousTip.IsOpen = false; MenuToolTipSizing.SetEnabled(previousTip, false); }
             ToolTipService.SetToolTip(button, tip);
             ToolTipService.SetShowDuration(button, 60000);
             playerTooltipTexts[button] = text + "|" + PlayerBrush(player).ToString();
@@ -337,13 +336,14 @@ namespace Spectator
             toolbarDirty = true;
             if (!IsToolsSession()) return;
             SyncSpectatorSelection();
-            if (command == "StopCursor" || command == "CancelPower") amountInput?.EndEditing();
+            if (command == "StopCursor" || command == "CancelPower") { amountInput?.EndEditing(); dockAmountInput?.EndEditing(); }
             if (command == "StopCursor") { CancelPowerSelection(); if (humanPlacementMode) ToggleHumanMode(null, null); else MainControls.instance?.StopAllPlacement(); return; }
             if (command == "CancelPower") { CancelPowerSelection(); return; }
             if (command == "EnablePowers" || command == "DisablePowers")
             { QueueTestAction(new TestAction { Kind = TestActionKind.PowerToggle, Actor = humanSelectedOwner, Force = command == "EnablePowers" }); return; }
             if (command == "Placement") { ToggleHumanMode(null, null); return; }
-            if (command == "ResetAmount") { amountInput?.ResetAmount(); return; }
+            if (command == "DockStop") { StopDockPlacement(); return; }
+            if (command == "ResetAmount") { amountInput?.ResetAmount(); dockAmountInput?.ResetAmount(); return; }
             if (command == "Credit") { QueueCredit(toolsModel.Good, toolsModel.Amount); return; }
             if (command == "Attack") { QueueOrder(TestActionKind.Attack, toolsModel.Target, toolsModel.ForceAcceptance); return; }
             if (command == "Defend") { QueueOrder(TestActionKind.Defend, toolsModel.Target, toolsModel.ForceAcceptance); return; }
@@ -450,6 +450,7 @@ namespace Spectator
             CancelPowerSelection();
             toolbarDirty = true;
             amountInput?.EndEditing();
+            dockAmountInput?.EndEditing();
             HUD_Main hud = MainViewModel.Instance.HUDmain;
             if (hud == null || MainControls.instance == null) return;
             if (IsEditorToolsSession())
@@ -473,7 +474,8 @@ namespace Spectator
                 MainViewModel.Instance.SubMode = humanSavedSubMode;
                 hud.SetupNewBuildScreen(-1000);
                 EnterPlacementHud(MainViewModel.Instance);
-                hud.SetupNewBuildScreen(GateHudLifecycle.IsBuildScreen(humanSavedScreen) ? humanSavedScreen : 1);
+                if (humanSavedScreen == DockHudPolicy.BlankBuildScreen) hud.NewBuildScreenBlank();
+                else hud.SetupNewBuildScreen(GateHudLifecycle.IsBuildScreen(humanSavedScreen) ? humanSavedScreen : 1);
                 hud.StartScrollSwish();
                 RadioButton[] tabs = NormalTabs(hud);
                 if (humanSavedTabs != null)
@@ -491,7 +493,7 @@ namespace Spectator
                     if (IsSelectableAi(owner)) { firstAi = owner; break; }
                 if (firstAi < 0) return;
                 humanSavedScreen = MainViewModel.Instance.buildScreenID;
-                if (!GateHudLifecycle.IsBuildScreen(humanSavedScreen)) humanSavedScreen = 1;
+                if (!GateHudLifecycle.IsBuildScreen(humanSavedScreen) && humanSavedScreen != DockHudPolicy.BlankBuildScreen) humanSavedScreen = 1;
                 humanSavedSubMode = MainViewModel.Instance.SubMode;
                 RadioButton[] tabs = NormalTabs(hud);
                 humanSavedTabs = new bool?[tabs.Length];
@@ -592,6 +594,7 @@ namespace Spectator
                 if (toolbarEligible) EnsureHumanControls();
                 SyncSpectatorSelection();
                 RefreshHumanControls(toolbarEligible);
+                RefreshDockControlsSafely(toolbarEligible);
                 if (humanEligible) { RefreshPowers(); RefreshVanillaPowerToolbar(); RefreshGateState(); }
                 else { RestoreVanillaPowerToolbar(false); CancelPowerSelection(); ClearGateSelection(); }
                 DrainTestActions();

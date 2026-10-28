@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using CrusaderDE;
 using Noesis;
 
@@ -18,14 +17,14 @@ namespace Spectator
         private static int shownOrderActor = -1;
         private static string shownOrderLocale;
         private static TextBlock statusText;
-        private static readonly List<ToolTip> ownedTooltips = new List<ToolTip>();
-
-        private static void CaptureTooltips(DependencyObject root)
+        private static void OnToolsModelChanged(object sender, System.ComponentModel.PropertyChangedEventArgs args)
         {
-            if (root is FrameworkElement element && ToolTipService.GetToolTip(element) is ToolTip tip)
-                ownedTooltips.Add(tip);
-            for (int i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
-                CaptureTooltips(VisualTreeHelper.GetChild(root, i));
+            toolbarDirty = true;
+            dockDirty = true;
+            if (args.PropertyName == nameof(TestToolsViewModel.DockGoodsVisibility) && toolsModel?.DockPage != "Goods")
+                dockAmountInput?.EndEditing();
+            if (args.PropertyName == nameof(TestToolsViewModel.ExpandedVisibility) && toolsModel?.Expanded != true)
+            { ClosePlayerTooltips(); amountInput?.EndEditing(); }
         }
 
         private static Brush PlayerBrush(int player) => player > 0 && player < humanOwnerNumbers.Length
@@ -35,7 +34,10 @@ namespace Spectator
         {
             if (!humanPositioned || humanPanel == null || humanCanvas == null || humanDetails == null) return;
             float width = ToolbarGeometry.DetailWidth(humanCanvas.ActualWidth);
-            float top = (float)Canvas.GetTop(humanPanel) + humanPanel.ActualHeight + 2;
+            float top = (float)Canvas.GetTop(humanPanel);
+            float header = Math.Max(0, humanPanel.ActualHeight - 8);
+            detailsHeader.Height = header;
+            detailsScroll.MaxHeight = Math.Max(0, ToolbarGeometry.DetailHeight(humanCanvas.ActualHeight, top) - header - 8);
             humanDetails.Width = width;
             humanDetails.MaxHeight = ToolbarGeometry.DetailHeight(humanCanvas.ActualHeight, top);
             Canvas.SetLeft(humanDetails, ToolbarGeometry.DetailLeft((float)Canvas.GetLeft(humanPanel),
@@ -54,10 +56,12 @@ namespace Spectator
         {
             // Preview runs before a different text input takes focus; leave the original click untouched.
             amountInput?.OutsidePointerDown(HitPanel(humanPanel, args) || HitPanel(humanDetails, args));
+            dockAmountInput?.OutsidePointerDown(HitPanel(dockMenu, args));
         }
 
         private static void ReleaseAmountForMapClick()
         {
+            ReleaseDockAmountForMapClick();
             var input = amountInput;
             if (input == null || !input.OwnsKeyboard) return;
             long session = CurrentSessionId;
@@ -67,31 +71,27 @@ namespace Spectator
             });
         }
 
-        private static void ClosePlayerTooltips()
-        {
-            foreach (var tooltip in ownedTooltips) tooltip.IsOpen = false;
-            foreach (var button in playerTooltipTexts.Keys)
-                if (ToolTipService.GetToolTip(button) is ToolTip tip) tip.IsOpen = false;
-        }
+        private static void ClosePlayerTooltips() => MenuToolTipSizing.CloseAll();
 
-        private static void OnPlayerTooltipOpened(object sender, RoutedEventArgs args)
+        private static void PackPortraitCards(Button[] buttons)
         {
-            var tip = (ToolTip)sender;
-            float font = APIShared.ModSettings.ToolTipPresentation.AutomaticFontSize;
-            tip.FontSize = font;
-            tip.MaxWidth = APIShared.ModSettings.ToolTipPresentation.AutomaticMaximumWidth;
-            if (tip.Content is TextBlock text)
+            int mask = 0;
+            for (int player = 1; player <= 8; player++)
+                if (buttons[player].Visibility == Visibility.Visible) mask |= 1 << (player - 1);
+            var positions = ToolbarGeometry.PortraitPositions(mask);
+            for (int player = 1; player <= 8; player++)
             {
-                text.FontSize = font;
-                text.MaxWidth = Math.Max(1, tip.MaxWidth - (float)tip.Padding.Left - (float)tip.Padding.Right - 12);
+                if (positions[player] < 0) continue;
+                Grid.SetRow(buttons[player], positions[player] / 4);
+                Grid.SetColumn(buttons[player], positions[player] % 4);
             }
         }
 
-        private static void RefreshColouredStatus()
+        private static void RefreshColouredStatus(TextBlock target = null)
         {
-            var text = statusText;
+            var text = target ?? statusText;
             if (text == null || toolsModel == null) return;
-            string value = toolsModel.Status ?? "";
+            string value = toolsModel.StatusForPage(target == dockStatus ? toolsModel.DockPage : toolsModel.ActiveViewKey) ?? "";
             text.Inlines.Clear();
             int offset = 0;
             while (offset < value.Length)
@@ -108,6 +108,7 @@ namespace Spectator
                 if (match < 0) { text.Inlines.Add(new Run { Text = value.Substring(offset) }); break; }
                 if (match > offset) text.Inlines.Add(new Run { Text = value.Substring(offset, match - offset) });
                 text.Inlines.Add(new Run { Text = labelMatch, Foreground = PlayerBrush(playerMatch) });
+                if (text == dockStatus) SetDockContrast(text, playerMatch);
                 offset = match + labelMatch.Length;
             }
             if (ToolTipService.GetToolTip(text) is ToolTip tip)
@@ -117,9 +118,7 @@ namespace Spectator
                     if (inline is Run run) rich.Inlines.Add(new Run { Text = run.Text, Foreground = run.Foreground });
                 tip.Style = humanPanel.TryFindResource("PlayerTooltip") as Style;
                 tip.Content = rich;
-                tip.Opened -= OnPlayerTooltipOpened;
-                tip.Opened += OnPlayerTooltipOpened;
-                OnPlayerTooltipOpened(tip, null);
+                MenuToolTipSizing.SetEnabled(tip, true);
             }
         }
 
