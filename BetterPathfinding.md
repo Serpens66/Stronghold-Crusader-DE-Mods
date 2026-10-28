@@ -537,3 +537,94 @@ Maßgeblicher Lauf [group-20261027-210235-273](Testmods/GroupPathProbe/results/g
 - B lockert die bisher verbindliche Vorgabe „optimale Kosten je Einheit“. Eine Verwendung braucht deshalb eine ausdrückliche Entscheidung.
 
 Nicht abgedeckt: Grabenpflicht, Profilgrenzen, terminale Ausnahmen, Strukturfilter, dynamische Änderungen, Bewegung und Multiplayer.
+
+### 18.1 Optimierte Variante B (28.10.2026)
+
+Umbau nur in `GroupPathProbe`, weiterhin offline:
+- Gerichtete Nachbarschaft als vorab berechnete Bitmaske.
+- Ankerfelder parallel auf Worker-Threads. Die Ergebnisse sind unabhängig von der Thread-Anzahl, das ist byte-weise geprüft.
+- Ein gemeinsames Feld für Gruppen mit gleichem Anker und Profil.
+- Neuer Ersatzweg Start → Anker → Platz (zwei Felder je Gruppe) statt der exakten Vollsuche.
+
+Neue Lasten: 40 Gruppen zu 4 gemeinsamen Zielen sowie 40 Gruppen mit über die Karte verstreuten Starts. Variante A wurde nicht erneut gemessen.
+
+Maßgeblicher Lauf [group-20261028-154338-396](Testmods/GroupPathProbe/results/group-20261028-154338-396/results.json), kalt, Rand 2, gleiche Maschine und Eingabe wie in Abschnitt 18:
+
+| Last (10.000 Einheiten) | Felder | B 1 Thread | B 4 Threads | B 8 Threads | Precise | vorher (§18) |
+|---|---:|---:|---:|---:|---:|---:|
+| 40 Gruppen, Mitschnitt | 40 | 267 ms | 104 ms | 97 ms | 52.117 ms | 525 ms |
+| 40 Gruppen → 4 Ziele | 8 | 126 ms | 71 ms | 56 ms | 19.818 ms | – |
+| 40 Gruppen, verstreute Starts | 40 | 277 ms | 125 ms | 102 ms | 29.011 ms | – |
+| Arbeiterwege, 8 Ziele | 8 | 89 ms | 41 ms | 26 ms | 387 ms | 162 ms |
+| Grabenkarte, 40 Gruppen | 40 | 412 ms | 174 ms | 125 ms | 157.910 ms | 643 ms |
+
+Einzelgruppen: 64 Einheiten ≈ 4 ms, 1.024 Einheiten ≈ 20 ms. Höchster nativer Zählerstand 117–185 MiB, abhängig von der Thread-Anzahl; die Präfixpuffer sind darin nicht enthalten.
+
+Was die Zeit bestimmt (8 Threads, 40 Gruppen auf dem Mitschnitt):
+- Ankerfelder 37 ms.
+- Exakte Endstücke 33 ms, noch seriell.
+- Ersatzwege 10 ms für 100 Einheiten; vorher etwa 220 ms.
+
+Von 4 auf 8 Threads bringt es deshalb nur noch wenig. Rand 8 verringert die Mehrkosten kaum, verdoppelt aber die Zeit für die Endstücke; Rand 2 bleibt der bessere Standard.
+
+**Qualität (Rand 2):**
+- p95-Mehrkosten 2,0–6,0 %, im Mittel 2–5 Kosteneinheiten.
+- Arbeiterwege weiterhin ohne Abweichung.
+- **Graben-Entscheidung in keinem Fall abweichend.**
+- Die Ausreißer sind größer geworden: bis 24 % auf dem Mitschnitt, bis 58 % bei kurzen Wegen der Zielkonvergenz- und Streulast (höchstens 129 Kosteneinheiten). Die Zielkonvergenzlast hatte keine Ersatzwege. Wahrscheinlich entstehen solche Ausreißer deshalb vor allem durch die Beschränkung des Endstücks auf das Rechteck: Hindernisse darin erzwingen dort einen Umweg, obwohl außerhalb ein kürzerer Weg läge. Das ist nicht einzeln nachgewiesen.
+- Ein möglicher Schutz: Je Einheit zusätzlich den Weg Start → Anker → Platz bewerten und den günstigeren nehmen. Das kostet ein Vorwärtsfeld je Feldaufgabe.
+
+**Bewertung:** Mit 4–8 Worker-Threads erreicht B für 10.000 Einheiten in 40 Gruppen etwa das Ziel von 100 ms (97–125 ms), bei gemeinsamen Zielen deutlich darunter. Das gilt offline, ohne Spiellast auf denselben Kernen. Im Spiel konkurrieren Simulations- und Render-Thread um die CPU; die tatsächlich verfügbare Thread-Zahl und der Ablauf (pro Tick fertig oder über mehrere Ticks verteilt) sind offen. Der verbleibende serielle Anteil (Endstücke) wäre der nächste Hebel. Dafür bräuchte jeder Worker einen eigenen, auf das Rechteck begrenzten Arbeitsbereich. Weiterhin gilt: B ist „fast optimal“ und braucht deshalb eine ausdrückliche Freigabe.
+
+### 18.2 Ausreißer in Variante B begrenzt (28.10.2026)
+
+**Ursache:** Die Ursache wurde an den acht schlimmsten Einzelfällen je Last gegen die unabhängige Referenzsuche bestimmt. Betroffen waren Formationsplätze, die räumlich nur 6–10 Kacheln vom Anker entfernt liegen, über das Wegenetz aber 90–163 Kosteneinheiten (hinter einer Mauer). Das Ankerfeld führte diese Einheiten auf die falsche Seite der Mauer. Die zuvor vermutete Ursache, die Beschränkung des Endstücks auf das Rechteck, war es nicht: Ein zusätzlich eingebauter Vergleich mit dem Weg Start → Anker → Platz griff in keinem einzigen Fall.
+
+**Lösung:**
+- Ein Vorwärtsfeld vom Anker liefert jedem Platz seine Wegkosten. Diese Felder stoppen früh und laufen parallel.
+- Liegen die Wegkosten über `Bodenkosten × (2 × Chebyshev-Abstand + 8)`, gilt der Platz als fern. Ferne Plätze einer Gruppe bilden einen Unterplan mit eigenem Anker, nämlich dem fernen Platz mit der kleinsten Chebyshev-Summe zu den übrigen.
+- Das wiederholt sich bis zu drei Ebenen tief, sodass Plätze hinter verschiedenen Hindernissen getrennt werden. Eine einzige Ebene hatte auf dem Mitschnitt den schlimmsten Fall sogar auf 191 verschlechtert.
+- Jede Einheit behält die Wege über alle Anker ihrer Planfolge als Obergrenze und erhält den günstigsten.
+
+Maßgeblicher Lauf [group-20261028-161619-849](Testmods/GroupPathProbe/results/group-20261028-161619-849/results.json), kalt, Rand 2:
+
+| Last (10.000 Einheiten) | Felder | 1 Thread | 8 Threads | Mehrkosten p95 | schlimmster Fall vorher → jetzt |
+|---|---:|---:|---:|---:|---:|
+| 40 Gruppen, Mitschnitt | 46 | 273 ms | 99 ms | 3,3 % | 117 (24 %) → 51 (9,0 %) |
+| 40 Gruppen → 4 Ziele | 10 | 99 ms | 54 ms | 5,6 % | 129 (58 %) → 48 (33 %) |
+| verstreute Starts | 43 | 258 ms | 92 ms | 4,4 % | 83 (57 %) → 17 (20 %) |
+| Arbeiterwege | 8 | 72 ms | 26 ms | 0 % | 0 → 0 |
+| Grabenkarte | 40 | 409 ms | 124 ms | 2,0 % | 15 (4,4 %) → 15 (4,4 %) |
+
+Die hohen Prozentwerte der übrigen Ausreißer betreffen kurze Wege: 48 Kosteneinheiten bei Profil 3/9 sind 16 Kacheln, 17 bei Profil 1/7 sind 17 Kacheln. Die verbleibenden größten Fälle auf dem Mitschnitt sind gewöhnliche Randplätze ohne Mauer-Effekt; der Weg vom Anker zum Platz entspricht dort etwa dem räumlichen Abstand. Die Graben-Entscheidung weicht weiterhin in keinem Fall ab. Keine Einheit benötigte die exakte Vollsuche. Die Unterpläne kosten 2–6 zusätzliche Felder je 40 Gruppen.
+
+Verträge: 1.858 unabhängige Vergleiche, darunter der neue Fall „zwei Plätze hinter einer Mauer, Einheiten von deren Rückseite“. Er muss genau einen Unterplan bilden, und die Einheiten dürfen höchstens 2 Kosteneinheiten über dem Optimum liegen. Die Erwartung des älteren Vertrags „Platz hinter Mauer“ wurde bewusst erweitert: Die Garantie (gültig, ohne Vollsuche) bleibt, erfüllt wird sie jetzt über den Unterplan oder den Ersatzweg.
+
+Die Schwelle `2 × Abstand + 8` ist eine Heuristik dieses Vorabtests, kein Vertrag. Die Lasten stammen aus einem eigenen Generator, der Plätze nach räumlicher Nähe ohne Rücksicht auf Mauern wählt. Ob die Vanilla-Formation solche Plätze vergibt, ist nicht untersucht.
+
+### 18.3 Phase 0 des MoatMove-Plans: B je Einheit (28.10.2026)
+
+Grundlage ist der Plan [ANCHOR_MODE_PLAN.md](Testmods/MoatMove/ANCHOR_MODE_PLAN.md). In MoatMove stehen die Formationsplätze (BFQoL-Formation/LineUp, Assassinen- oder Vanilla-Wähler) erst beim Ausführen fest. Deshalb wurde eine Variante gemessen, die jede Einheit einzeln beantwortet:
+- **Vorab, parallel:** ein gewichtetes Ankerfeld je Anker und Profil.
+- **Danach seriell je Einheit:** Abstieg im Ankerfeld bis zum Rechteck aus Anker und eigenem Platz plus Rand. Darin eine kleine exakte Suche, verglichen mit dem Weg über den Anker.
+- **Ferne Plätze:** Ist der Platz im Rechteck vom Anker zu weit entfernt, entsteht einmal ein Feld an diesem Platz, das spätere Einheiten derselben Feldaufgabe mitnutzen.
+
+Maßgebliche Läufe:
+- [group-20261028-165858-216](Testmods/GroupPathProbe/results/group-20261028-165858-216/results.json): alle Lasten, Rand 2.
+- [group-20261028-170431-863](Testmods/GroupPathProbe/results/group-20261028-170431-863/results.json): Zusatzlauf mit Rand 8 auf drei Lasten.
+
+| Last | Gruppen-B (§18.2) Mittel / p95 / max | je Einheit Rand 2 | je Einheit Rand 8 | Abfragezeit je Einheit (Rand 2 / 8) |
+|---|---|---|---|---:|
+| 1 Gruppe à 1.024 | 2,6 / 2,7 % / 24 | 6,9 / 4,0 % / 31 | 5,1 / 3,8 % / 31 | 10 / 14 µs |
+| 40 Gruppen, Mitschnitt | 4,5 / 3,3 % / 51 | 5,5 / 3,5 % / 72 | 4,3 / 3,2 % / 54 | 4,4 / 10,4 µs |
+| 40 Gruppen → 4 Ziele | 4,6 / 5,6 % / 48 | 5,1 / 6,3 % / 48 | – | 4,7 µs |
+| verstreute Starts | 2,3 / 4,4 % / 17 | 2,9 / 4,9 % / 30 | 2,2 / 4,3 % / 18 | 5,0 / 11,5 µs |
+| Arbeiterwege | 0 / 0 / 0 | 0 / 0 / 0 | – | 2,7 µs |
+| Grabenkarte | 2,2 / 2,0 % / 15 | 2,4 / 2,0 % / 15 | – | 5,0 µs |
+
+Mittel und max in Kosteneinheiten. Die Graben-Entscheidung weicht in keinem Fall ab. Die Ankerfelder kosten bei 8 Threads 11–108 ms je 10.000 Einheiten, ähnlich wie beim Gruppen-B. Zusätzlich entstehen seriell 1–11 Felder für ferne Plätze, zusammen 16–46 ms.
+
+**Bewertung:**
+- Mit **Rand 8** erreicht die Variante je Einheit auf Mitschnitt und verstreuten Starts die Qualität des Gruppen-B (gleich oder leicht besser). Bei einer einzigen großen Formation mit 1.024 Einheiten bleibt sie schlechter (p95 3,8 % statt 2,7 %), weil jedes Einzelrechteck schmaler ist als das Gruppenrechteck.
+- Die Abfrage je Einheit liegt mit 3–14 µs im Mikrosekundenbereich.
+- Das Erfolgskriterium aus Phase 0 ist damit überwiegend erfüllt. Ausnahmen sind sehr große Einzelformationen und die seriellen Felder für ferne Plätze. In MoatMove fielen diese Felder in den Ausführungstick eines Befehls.

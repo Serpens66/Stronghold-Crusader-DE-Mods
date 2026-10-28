@@ -40,6 +40,20 @@ internal static class GroupGate
             if (b.Status == SearchStatus.Found && b.Cost < reference.Cost) throw new InvalidOperationException("Anchor below optimum; case=" + i);
         }
     }
+    // Variant B must not depend on the worker count: compare 1 and 4 threads byte-wise.
+    private static RouteResult[] AnchorChecked(GroupProbeInterop probe, GroupLoad load, int margin = 2, int mode = GroupProbeInterop.Anchor)
+    {
+        var single = probe.Run(mode, load.Queries, load.GroupOf.ToArray(), load.Anchors.ToArray(), margin, 1);
+        var parallel = probe.Run(mode, load.Queries, load.GroupOf.ToArray(), load.Anchors.ToArray(), margin, 4);
+        Same(single, parallel, load.Name);
+        return single;
+    }
+    private static RouteResult[] PerUnitChecked(GroupProbeInterop probe, GroupLoad load) => AnchorChecked(probe, load, 2, GroupProbeInterop.PerUnit);
+    private static void Same(RouteResult[] a, RouteResult[] b, string name)
+    {
+        for (int i = 0; i < a.Length; i++)
+            if (a[i].Status != b[i].Status || a[i].Cost != b[i].Cost || !a[i].Directions.SequenceEqual(b[i].Directions)) throw new InvalidOperationException(name + ": anchor result depends on thread count; case=" + i);
+    }
     internal static void Contracts()
     {
         var random = new Random(610447);
@@ -57,8 +71,13 @@ internal static class GroupGate
                 for (int i = 0; i < size; i++) { load.Queries.Add(new RouteQuery { Start = nodes[random.Next(nodes.Length)], Target = nodes[random.Next(nodes.Length)], GroundCost = ground, MoatCost = moat }); load.GroupOf.Add(group); }
                 load.Anchors[group] = load.Queries[load.Queries.Count - 1].Target;
             }
+            // Group 3 shares anchor and profile with group 0, so both use one field.
+            load.Anchors.Add(load.Anchors[0]);
+            for (int i = 0; i < 12; i++) { load.Queries.Add(new RouteQuery { Start = nodes[random.Next(nodes.Length)], Target = nodes[random.Next(nodes.Length)], GroundCost = load.Queries[0].GroundCost, MoatCost = load.Queries[0].MoatCost }); load.GroupOf.Add(3); }
             using var probe = new GroupProbeInterop(map, 256L * 1024 * 1024);
-            Check(load, probe.Run(GroupProbeInterop.Exact, load.Queries, load.GroupOf.ToArray(), load.Anchors.ToArray()), probe.Run(GroupProbeInterop.Anchor, load.Queries, load.GroupOf.ToArray(), load.Anchors.ToArray()));
+            var exact = probe.Run(GroupProbeInterop.Exact, load.Queries, load.GroupOf.ToArray(), load.Anchors.ToArray());
+            Check(load, exact, AnchorChecked(probe, load));
+            Check(load, exact, PerUnitChecked(probe, load));
         }
         // Two slots that are neighbors across a wall but ~400 steps apart: lane spread
         // exceeds the 8-bit offset, so the block must split and stay exact.
@@ -70,7 +89,8 @@ internal static class GroupGate
             using var probe = new GroupProbeInterop(map, 256L * 1024 * 1024);
             var exact = probe.Run(GroupProbeInterop.Exact, load.Queries, load.GroupOf.ToArray(), load.Anchors.ToArray());
             if (probe.Stats[3] == 0) throw new InvalidOperationException("Large lane spread did not split the block.");
-            Check(load, exact, probe.Run(GroupProbeInterop.Anchor, load.Queries, load.GroupOf.ToArray(), load.Anchors.ToArray()));
+            Check(load, exact, AnchorChecked(probe, load));
+            Check(load, exact, PerUnitChecked(probe, load));
         }
         // Directed snake longer than 2,000 steps: reported over the limit, never as a route.
         {
@@ -78,7 +98,7 @@ internal static class GroupGate
             var load = new GroupLoad { Name = "snake", Map = map }; load.Anchors.Add(2400);
             load.Queries.Add(new RouteQuery { Start = 0, Target = 2400, GroundCost = 1, MoatCost = 7 }); load.GroupOf.Add(0);
             using var probe = new GroupProbeInterop(map, 256L * 1024 * 1024);
-            foreach (int mode in new[] { GroupProbeInterop.Exact, GroupProbeInterop.Anchor })
+            foreach (int mode in new[] { GroupProbeInterop.Exact, GroupProbeInterop.Anchor, GroupProbeInterop.PerUnit })
                 if (probe.Run(mode, load.Queries, load.GroupOf.ToArray(), load.Anchors.ToArray())[0].Status != SearchStatus.Inconclusive) throw new InvalidOperationException("Over-limit route was not reported as inconclusive.");
         }
         // Moat decision inside one group: exact lanes must equal the reference per unit.
@@ -88,25 +108,100 @@ internal static class GroupGate
             for (int y = 2; y < 40; y += 3) { load.Queries.Add(new RouteQuery { Start = y * 60 + 5, Target = Math.Min(39, y + 1) * 60 + 50, GroundCost = 1, MoatCost = 7 }); load.GroupOf.Add(0); }
             using var probe = new GroupProbeInterop(map, 256L * 1024 * 1024);
             var exact = probe.Run(GroupProbeInterop.Exact, load.Queries, load.GroupOf.ToArray(), load.Anchors.ToArray());
-            Check(load, exact, probe.Run(GroupProbeInterop.Anchor, load.Queries, load.GroupOf.ToArray(), load.Anchors.ToArray()));
+            Check(load, exact, AnchorChecked(probe, load));
+            Check(load, exact, PerUnitChecked(probe, load));
             if (!exact.Any(r => r.Moat > 0) || !exact.Any(r => r.Status == SearchStatus.Found && r.Moat == 0)) throw new InvalidOperationException("Moat fixture lacks mixed decisions.");
+        }
+        // Slot behind a wall whose only opening lies outside both ending boxes: B must stay
+        // legal without the full solver, either through a far-slot sub-plan (current rule:
+        // graph distance from the anchor far above the spatial one) or the via-anchor route.
+        {
+            GridSnapshot map = Grid(60, 60, null, n => n / 60 != 33 || n % 60 == 59);
+            var load = new GroupLoad { Name = "via-anchor", Map = map }; load.Anchors.Add(30 * 60 + 30);
+            for (int x = 20; x < 40; x += 4) { load.Queries.Add(new RouteQuery { Start = 5 * 60 + x, Target = 36 * 60 + 30, GroundCost = 1, MoatCost = 7 }); load.GroupOf.Add(0); }
+            using var probe = new GroupProbeInterop(map, 256L * 1024 * 1024);
+            var exact = probe.Run(GroupProbeInterop.Exact, load.Queries, load.GroupOf.ToArray(), load.Anchors.ToArray());
+            var anchor = AnchorChecked(probe, load);
+            long[] stats = probe.Stats;
+            if (stats[GroupProbeInterop.Stat("fallbacks")] + stats[GroupProbeInterop.Stat("subPlans")] == 0 || stats[GroupProbeInterop.Stat("exactFallbacks")] != 0) throw new InvalidOperationException("Walled slot was not served without the full solver.");
+            Check(load, exact, anchor);
+            Check(load, exact, PerUnitChecked(probe, load));
+        }
+        // Two slots spatially next to the anchor but behind a wall (opening far south); the
+        // units come from the wall's far side. They must get a sub-plan with its own anchor
+        // instead of walking around the wall to the original anchor.
+        {
+            GridSnapshot map = Grid(60, 60, null, n => n % 60 != 34 || n / 60 == 59);
+            var load = new GroupLoad { Name = "far-slots", Map = map }; load.Anchors.Add(30 * 60 + 30);
+            foreach (int slot in new[] { 30 * 60 + 30, 30 * 60 + 31, 30 * 60 + 36, 30 * 60 + 37 }) { load.Queries.Add(new RouteQuery { Start = 10 * 60 + 50 + load.Queries.Count, Target = slot, GroundCost = 1, MoatCost = 7 }); load.GroupOf.Add(0); }
+            using var probe = new GroupProbeInterop(map, 256L * 1024 * 1024);
+            var exact = probe.Run(GroupProbeInterop.Exact, load.Queries, load.GroupOf.ToArray(), load.Anchors.ToArray());
+            var anchor = AnchorChecked(probe, load);
+            long[] stats = probe.Stats;
+            if (stats[GroupProbeInterop.Stat("subPlans")] != 1 || stats[GroupProbeInterop.Stat("farUnits")] != 2) throw new InvalidOperationException("Far slots did not form one sub-plan.");
+            Check(load, exact, anchor);
+            for (int i = 2; i < 4; i++) if (anchor[i].Cost > exact[i].Cost + 2) throw new InvalidOperationException("Far-slot unit still detours; case=" + i + " " + anchor[i].Cost + "/" + exact[i].Cost);
+            // Per-unit variant: the first far unit creates one sub-anchor, the second reuses it.
+            var perUnit = PerUnitChecked(probe, load); stats = probe.Stats;
+            if (stats[GroupProbeInterop.Stat("subPlans")] != 1) throw new InvalidOperationException("Per-unit far slots did not share one sub-anchor.");
+            Check(load, exact, perUnit);
+            for (int i = 2; i < 4; i++) if (perUnit[i].Cost > exact[i].Cost + 2) throw new InvalidOperationException("Per-unit far-slot unit still detours; case=" + i + " " + perUnit[i].Cost + "/" + exact[i].Cost);
         }
         Console.WriteLine("PASS group contracts independentComparisons=" + comparisons);
     }
     private static double Percentile(List<long> values, double p) { if (values.Count == 0) return 0; values.Sort(); return values[Math.Min(values.Count - 1, (int)Math.Ceiling(p * values.Count) - 1)]; }
-    private static object Measure(GroupLoad load, GroupProbeInterop probe)
+    private static Dictionary<string, long> Named(long[] stats) { var named = new Dictionary<string, long>(); for (int i = 0; i < stats.Length; i++) named[GroupProbeInterop.StatNames[i]] = stats[i]; return named; }
+    private static object Quality(GroupLoad load, RouteResult[] precise, RouteResult[] b)
+    {
+        var extra = new List<long>(); var relative = new List<long>(); int worse = 0, decisionMismatch = 0;
+        for (int i = 0; i < precise.Length; i++)
+        {
+            RouteResult p = precise[i];
+            if (b[i].Status != SearchStatus.Found) throw new InvalidOperationException(load.Name + ": anchor did not find positive case " + i + " status=" + b[i].Status);
+            RouteResult described = load.Map.Describe(load.Queries[i], b[i].Directions);
+            if (described.Status != SearchStatus.Found || described.Cost != b[i].Cost) throw new InvalidOperationException(load.Name + ": illegal anchor path/cost case=" + i);
+            if (b[i].Cost < p.Cost) throw new InvalidOperationException(load.Name + ": anchor below optimum case=" + i);
+            extra.Add(b[i].Cost - p.Cost); relative.Add(p.Cost == 0 ? 0 : (b[i].Cost - p.Cost) * 10000 / p.Cost);
+            if (b[i].Cost > p.Cost) worse++;
+            if ((b[i].Moat > 0) != (p.Moat > 0)) decisionMismatch++;
+        }
+        // The eight largest detours with graph distances around the anchor, for diagnosis.
+        var outliers = new List<object>(); GridSnapshot map = load.Map;
+        foreach (int i in Enumerable.Range(0, precise.Length).OrderByDescending(i => b[i].Cost - precise[i].Cost).ThenBy(i => i).Take(8))
+        {
+            RouteQuery q = load.Queries[i]; int anchor = load.Anchors[load.GroupOf[i]];
+            long Graph(int from, int to) { var r = ReferenceSearch.Find(map, new RouteQuery { Start = from, Target = to, GroundCost = q.GroundCost, MoatCost = q.MoatCost }, new WorkBudget(512L * 1024 * 1024, 60)); comparisons++; return r.Status == SearchStatus.Found ? r.Cost : -1; }
+            int Cheb(int a, int c) => Math.Max(Math.Abs(a % map.Width - c % map.Width), Math.Abs(a / map.Width - c / map.Width));
+            outliers.Add(new { unit = i, group = load.GroupOf[i], profile = q.GroundCost + "/" + q.MoatCost, start = new[] { q.Start % map.Width, q.Start / map.Width }, slot = new[] { q.Target % map.Width, q.Target / map.Width }, anchor = new[] { anchor % map.Width, anchor / map.Width }, optimum = precise[i].Cost, anchorRoute = b[i].Cost, startToAnchor = Graph(q.Start, anchor), anchorToSlot = Graph(anchor, q.Target), slotToAnchor = Graph(q.Target, anchor), chebyshevAnchorSlot = Cheb(anchor, q.Target), chebyshevStartSlot = Cheb(q.Start, q.Target) });
+        }
+        return new { worseThanOptimum = worse, extraCostMean = extra.Average(), extraCostP95 = Percentile(extra, 0.95), extraCostMax = extra.Max(), extraPercentP95 = Percentile(relative, 0.95) / 100.0, extraPercentMax = relative.Max() / 100.0, moatDecisionMismatches = decisionMismatch, outliers };
+    }
+    // B configurations: group endings (mode 1) with margin 2 at 1/4/8 worker threads and
+    // margin 8 at 4 threads; per-unit endings (mode 2) with margin 2 at 1/4/8 threads and
+    // margin 8 at 4 threads.
+    private static readonly (int Mode, int Margin, int Threads)[] AnchorConfigurations =
+        { (1, 2, 1), (1, 2, 4), (1, 2, 8), (1, 8, 4), (2, 2, 1), (2, 2, 4), (2, 2, 8), (2, 8, 4) };
+    private static object Measure(GroupLoad load, GroupProbeInterop probe, bool withExact)
     {
         int[] groupOf = load.GroupOf.ToArray(), anchors = load.Anchors.ToArray(); int count = load.Queries.Count;
-        var rows = new Dictionary<string, object>();
-        RouteResult[] exact = null, anchor = null;
-        foreach (int mode in new[] { GroupProbeInterop.Exact, GroupProbeInterop.Anchor })
+        var rows = new Dictionary<string, object>(); RouteResult[] exact = null;
+        var anchorResults = new Dictionary<string, RouteResult[]>();
+        if (withExact)
         {
-            var cold = probe.Run(mode, load.Queries, groupOf, anchors); double coldMs = probe.LastMilliseconds; long[] stats = probe.Stats;
-            probe.Run(mode, load.Queries, groupOf, anchors); double warmMs = probe.LastMilliseconds;
-            if (mode == GroupProbeInterop.Exact) exact = cold; else anchor = cold;
-            var named = new Dictionary<string, long>(); for (int i = 0; i < stats.Length; i++) named[GroupProbeInterop.StatNames[i]] = stats[i];
-            rows[mode == 0 ? "exactLanes" : "anchorEndings"] = new { coldMs, warmMs, perUnitMicroseconds = coldMs * 1000 / count, found = cold.Count(r => r.Status == SearchStatus.Found), overLimit = cold.Count(r => r.Status == SearchStatus.Inconclusive), stats = named };
-            Console.WriteLine("  " + (mode == 0 ? "A exact lanes " : "B anchor      ") + " cold=" + coldMs.ToString("F1") + " ms warm=" + warmMs.ToString("F1") + " ms blocks=" + stats[2] + " splits=" + stats[3] + " fallbacks=" + stats[4] + " peakMiB=" + (stats[8] / 1048576));
+            exact = probe.Run(GroupProbeInterop.Exact, load.Queries, groupOf, anchors); double coldMs = probe.LastMilliseconds; long[] stats = probe.Stats;
+            rows["exactLanes"] = new { coldMs, perUnitMicroseconds = coldMs * 1000 / count, stats = Named(stats) };
+            Console.WriteLine("  A exact lanes            cold=" + coldMs.ToString("F1") + " ms");
+        }
+        foreach (var (mode, margin, threads) in AnchorConfigurations)
+        {
+            string key = (mode == GroupProbeInterop.PerUnit ? "unit" : "group") + "-margin" + margin;
+            var cold = probe.Run(mode, load.Queries, groupOf, anchors, margin, threads); double coldMs = probe.LastMilliseconds; long[] stats = probe.Stats;
+            probe.Run(mode, load.Queries, groupOf, anchors, margin, threads); double warmMs = probe.LastMilliseconds;
+            // Same results for every worker count, compared against the first configuration.
+            if (!anchorResults.TryGetValue(key, out RouteResult[] first)) anchorResults[key] = cold;
+            else Same(first, cold, load.Name + " " + key + " threads=" + threads);
+            rows[key + "-t" + threads] = new { coldMs, warmMs, perUnitMicroseconds = coldMs * 1000 / count, stats = Named(stats) };
+            Console.WriteLine("  B " + key + " threads=" + threads + "  cold=" + coldMs.ToString("F1") + " ms warm=" + warmMs.ToString("F1") + " ms fields=" + stats[GroupProbeInterop.Stat("fieldTasks")] + " anchorMs=" + (stats[GroupProbeInterop.Stat("anchorNs")] / 1e6).ToString("F1") + " localMs=" + (stats[GroupProbeInterop.Stat("localNs")] / 1e6).ToString("F1") + " fallbackMs=" + (stats[GroupProbeInterop.Stat("fallbackNs")] / 1e6).ToString("F1") + " fallbacks=" + stats[GroupProbeInterop.Stat("fallbacks")] + "/" + stats[GroupProbeInterop.Stat("exactFallbacks")] + " viaChosen=" + stats[GroupProbeInterop.Stat("viaChosen")] + " far=" + stats[GroupProbeInterop.Stat("farUnits")] + "/" + stats[GroupProbeInterop.Stat("subPlans")] + " peakMiB=" + (stats[GroupProbeInterop.Stat("peakBytes")] / 1048576));
         }
         var oracle = new PreciseOracle(load.Map); var precise = new RouteResult[count]; var watch = Stopwatch.StartNew(); double next = 5;
         for (int i = 0; i < count; i++)
@@ -115,40 +210,35 @@ internal static class GroupGate
             if (watch.Elapsed.TotalSeconds >= next) { Console.WriteLine("  PROGRESS Precise " + (i + 1) + "/" + count + " elapsedMs=" + watch.ElapsedMilliseconds); next = watch.Elapsed.TotalSeconds + 5; }
         }
         double preciseMs = watch.Elapsed.TotalMilliseconds;
-        Console.WriteLine("  Precise       total=" + preciseMs.ToString("F1") + " ms");
-        var extra = new List<long>(); var relative = new List<long>(); int worse = 0, decisionMismatch = 0, steps = 0, longest = 0;
+        Console.WriteLine("  Precise                  total=" + preciseMs.ToString("F1") + " ms");
+        int steps = 0, longest = 0;
         for (int i = 0; i < count; i++)
         {
-            RouteQuery q = load.Queries[i]; RouteResult p = precise[i], a = exact[i], b = anchor[i];
+            RouteResult p = precise[i];
             if (p.Status != SearchStatus.Found) throw new InvalidOperationException(load.Name + ": positive workload case not found by Precise; case=" + i + " " + p.Reason);
-            foreach (RouteResult r in new[] { a, b })
+            if (exact != null)
             {
-                if (r.Status != SearchStatus.Found) throw new InvalidOperationException(load.Name + ": probe did not find positive case " + i + " status=" + r.Status);
-                RouteResult described = load.Map.Describe(q, r.Directions);
-                if (described.Status != SearchStatus.Found || described.Cost != r.Cost) throw new InvalidOperationException(load.Name + ": illegal path/cost case=" + i);
+                RouteResult described = load.Map.Describe(load.Queries[i], exact[i].Directions);
+                if (exact[i].Status != SearchStatus.Found || described.Status != SearchStatus.Found || described.Cost != exact[i].Cost || exact[i].Cost != p.Cost) throw new InvalidOperationException(load.Name + ": exact lanes differ from Precise case=" + i);
             }
-            if (a.Cost != p.Cost) throw new InvalidOperationException(load.Name + ": exact lanes differ from Precise case=" + i + " " + a.Cost + "/" + p.Cost);
-            if (b.Cost < p.Cost) throw new InvalidOperationException(load.Name + ": anchor below optimum case=" + i);
-            extra.Add(b.Cost - p.Cost); relative.Add(p.Cost == 0 ? 0 : (b.Cost - p.Cost) * 10000 / p.Cost);
-            if (b.Cost > p.Cost) worse++;
-            if ((b.Moat > 0) != (p.Moat > 0)) decisionMismatch++;
             steps += p.Ground + p.Moat; longest = Math.Max(longest, p.Ground + p.Moat);
         }
         foreach (int i in new[] { 0, count / 2, count - 1 })
         {
             RouteResult reference = ReferenceSearch.Find(load.Map, load.Queries[i], new WorkBudget(512L * 1024 * 1024, 60)); comparisons++;
-            if (reference.Status != SearchStatus.Found || reference.Cost != exact[i].Cost) throw new InvalidOperationException(load.Name + ": independent reference mismatch case=" + i);
+            if (reference.Status != SearchStatus.Found || reference.Cost != precise[i].Cost) throw new InvalidOperationException(load.Name + ": independent reference mismatch case=" + i);
         }
+        var quality = new Dictionary<string, object>(); foreach (var entry in anchorResults) quality[entry.Key] = Quality(load, precise, entry.Value);
         return new
         {
-            kind = "workload", name = load.Name, units = count, groups = load.Groups, distinctSlots = load.Queries.Select(q => q.Target).Distinct().Count(),
+            kind = "workload", name = load.Name, units = count, groups = load.Groups, distinctAnchors = load.Anchors.Distinct().Count(), distinctSlots = load.Queries.Select(q => q.Target).Distinct().Count(),
             averageSteps = (double)steps / count, longestSteps = longest, results = rows,
             precise = new { totalMs = preciseMs, perUnitMicroseconds = preciseMs * 1000 / count },
-            anchorQuality = new { worseThanOptimum = worse, extraCostMean = extra.Average(), extraCostP95 = Percentile(extra, 0.95), extraCostMax = extra.Max(), extraPercentP95 = Percentile(relative, 0.95) / 100.0, extraPercentMax = relative.Max() / 100.0, moatDecisionMismatches = decisionMismatch },
-            scope = "exact lanes compared with Precise for every unit plus three independent references; anchor endings checked for legality and >= optimum"
+            anchorQuality = quality,
+            scope = "Precise for every unit plus three independent references; anchor results legal, >= optimum and identical across worker counts" + (exact != null ? "; exact lanes equal Precise for every unit" : "")
         };
     }
-    internal static int Run(string capture)
+    internal static int Run(string capture, bool withExact, string[] only = null)
     {
         string root = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../.."));
         string output = Path.Combine(root, "results", "group-" + DateTime.UtcNow.ToString("yyyyMMdd-HHmmss-fff"));
@@ -164,6 +254,8 @@ internal static class GroupGate
             CapturedMap raw = SnapshotCodec.ReadCaptured(capture);
             GridSnapshot captured = raw.Build(raw.Players[0]);
             var loads = GroupWorkloads.Captured(captured, raw.Units); GridSnapshot moatMap = GroupWorkloads.MoatMap(); loads.Add(GroupWorkloads.MoatMix(moatMap));
+            // --only keeps the generated inputs identical and merely skips other loads.
+            if (only != null) loads = loads.Where(l => only.Contains(l.Name)).ToList();
             GroupProbeInterop probe = null; GridSnapshot probeMap = null;
             try
             {
@@ -173,7 +265,7 @@ internal static class GroupGate
                     if (!ReferenceEquals(probeMap, load.Map)) { probe?.Dispose(); probe = new GroupProbeInterop(load.Map); probeMap = load.Map; }
                     Console.WriteLine("BEGIN " + load.Name + " units=" + load.Queries.Count + " groups=" + load.Groups);
                     SnapshotCodec.WriteQueries(Path.Combine(output, load.Name + ".bpf.gz"), load.Map, load.Queries);
-                    rows.Add(Measure(load, probe)); Save(Path.Combine(output, "progress.json"), rows);
+                    rows.Add(Measure(load, probe, withExact)); Save(Path.Combine(output, "progress.json"), rows);
                 }
             }
             finally { probe?.Dispose(); }

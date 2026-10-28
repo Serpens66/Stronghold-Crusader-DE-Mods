@@ -15,11 +15,13 @@ internal sealed class GroupProbeInterop : IDisposable
     [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern int gp_contract();
     [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern int gp_create(int width, int height, byte[] valid, uint[] edges, long limit, out IntPtr context);
     [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern void gp_destroy(IntPtr context);
-    [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern int gp_run(IntPtr context, int mode, Unit[] units, int count, Group[] groups, int groupCount, int margin, out int outputBytes);
+    [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern int gp_run(IntPtr context, int mode, Unit[] units, int count, Group[] groups, int groupCount, int margin, int threads, out int outputBytes);
     [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern int gp_copy(IntPtr context, [Out] Result[] results, int count, [Out] byte[] bytes, int capacity);
     [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern int gp_stats(IntPtr context, [Out] long[] data, int count);
-    internal static readonly string[] StatNames = { "settleEvents", "entries", "blocks", "splits", "fallbacks", "fieldNs", "extractNs", "maxGroupNs", "peakBytes", "allocations", "localNs", "anchorNs" };
-    internal const int Exact = 0, Anchor = 1, OverLimit = 2;
+    internal static readonly string[] StatNames = { "settleEvents", "entries", "blocks", "splits", "fallbacks", "exactFallbacks", "fieldTasks", "laneNs", "extractNs", "maxGroupNs", "maxTaskNs", "anchorNs", "localNs", "fallbackNs", "peakBytes", "allocations", "threads", "viaChosen", "farUnits", "subPlans" };
+    internal static int Stat(string name) => Array.IndexOf(StatNames, name);
+    internal const int Exact = 0, Anchor = 1, PerUnit = 2; // run modes
+    internal const int OverLimit = 2; // native result status
     private static IntPtr library;
     private IntPtr context;
     internal GridSnapshot Map { get; }
@@ -30,12 +32,12 @@ internal sealed class GroupProbeInterop : IDisposable
     {
         Map = map;
         if (library == IntPtr.Zero) library = NativeLibrary.Load(Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../.local/native/GroupProbe.dll")));
-        if (gp_contract() != 0x03001016 || Marshal.SizeOf<Unit>() != 16 || Marshal.SizeOf<Group>() != 16 || Marshal.SizeOf<Result>() != 32) throw new InvalidOperationException("Group probe ABI");
+        if (gp_contract() != 0x0300101B || Marshal.SizeOf<Unit>() != 16 || Marshal.SizeOf<Group>() != 16 || Marshal.SizeOf<Result>() != 32) throw new InvalidOperationException("Group probe ABI");
         Code(gp_create(map.Width, map.Height, map.CopyValidity(), map.CopyEdges(), bytes, out context));
     }
     private static void Code(int value) { if (value == 2) throw new SearchBudgetException("group-probe-memory-budget"); if (value != 0) throw new InvalidOperationException("Group probe error=" + value); }
     // Every query belongs to one group; a group shares anchor and cost profile.
-    internal RouteResult[] Run(int mode, IList<RouteQuery> queries, int[] groupOf, int[] anchors, int margin = 2)
+    internal RouteResult[] Run(int mode, IList<RouteQuery> queries, int[] groupOf, int[] anchors, int margin = 2, int threads = 1)
     {
         var units = new Unit[queries.Count]; var groups = new Group[anchors.Length];
         for (int g = 0; g < anchors.Length; g++) groups[g].Anchor = anchors[g];
@@ -48,7 +50,7 @@ internal sealed class GroupProbeInterop : IDisposable
             units[i] = new Unit { Start = q.Start, Slot = q.Target, Group = g, Index = i };
         }
         var clock = Stopwatch.StartNew();
-        Code(gp_run(context, mode, units, units.Length, groups, groups.Length, margin, out int bytes));
+        Code(gp_run(context, mode, units, units.Length, groups, groups.Length, margin, threads, out int bytes));
         var native = new Result[units.Length]; var buffer = new byte[bytes];
         Code(gp_copy(context, native, native.Length, buffer, buffer.Length));
         var results = new RouteResult[units.Length]; LastStatus = new int[units.Length];

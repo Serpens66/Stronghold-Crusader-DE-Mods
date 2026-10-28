@@ -45,12 +45,19 @@ internal static class GroupWorkloads
     }
     private static int Chebyshev(GridSnapshot map, int a, int b) => Math.Max(Math.Abs(a % map.Width - b % map.Width), Math.Abs(a / map.Width - b / map.Width));
     // Adds one group; returns false when the requested group cannot be formed.
-    internal static bool AddGroup(GroupLoad load, int center, int anchor, int size, long ground, long moat)
+    // scatter != null: starts are drawn from the whole reachable map instead of a cluster.
+    internal static bool AddGroup(GroupLoad load, int center, int anchor, int size, long ground, long moat, Random scatter = null)
     {
         GridSnapshot map = load.Map;
         bool[] toAnchor = Reach(map, anchor, true), fromAnchor = Reach(map, anchor, false);
         if (!toAnchor[center]) return false;
-        List<int> starts = Cluster(map, center, size, n => toAnchor[n]);
+        List<int> starts;
+        if (scatter == null) starts = Cluster(map, center, size, n => toAnchor[n]);
+        else
+        {
+            var pool = new List<int>(); for (int n = 0; n < map.Count; n++) if (toAnchor[n] && Chebyshev(map, n, anchor) >= 100) pool.Add(n);
+            starts = new List<int>(); if (pool.Count >= size) for (int i = 0; i < size; i++) starts.Add(pool[scatter.Next(pool.Count)]);
+        }
         List<int> slots = Cluster(map, anchor, size, n => toAnchor[n] && fromAnchor[n]);
         if (starts.Count < size || slots.Count < size) return false;
         int group = load.Anchors.Count; load.Anchors.Add(anchor);
@@ -89,6 +96,18 @@ internal static class GroupWorkloads
         var mix = new GroupLoad { Name = "group-mix-10000", Map = map };
         while (mix.Queries.Count < 10000 && cursor < centers.Count) { int c = centers[cursor++]; bool odd = (mix.Groups & 1) != 0; AddGroup(mix, c, FarAnchor(map, c, random), 250, odd ? 3 : 1, odd ? 9 : 7); }
         loads.Add(mix);
+        // Several groups ordered to the same target (e.g. AI attack): 4 anchors x 10 groups.
+        var converging = new GroupLoad { Name = "converging-groups-10000", Map = map };
+        var targets = new List<int>();
+        for (int guard = 0; targets.Count < 4 && cursor < centers.Count && guard < 64; guard++) targets.Add(FarAnchor(map, centers[cursor++], random));
+        for (int t = 0; t < targets.Count; t++)
+            for (int made = 0; made < 10 && cursor < centers.Count; cursor++)
+                if (AddGroup(converging, centers[cursor], targets[t], 250, (made & 1) != 0 ? 3 : 1, (made & 1) != 0 ? 9 : 7)) made++;
+        loads.Add(converging);
+        // Formations whose members start anywhere on the map (>= 100 tiles away).
+        var scattered = new GroupLoad { Name = "scattered-group-mix-10000", Map = map };
+        while (scattered.Queries.Count < 10000 && cursor < centers.Count) { int c = centers[cursor++]; AddGroup(scattered, c, FarAnchor(map, c, random), 250, 1, 7, random); }
+        loads.Add(scattered);
         // Worker trips: few shared goals, many scattered starts (one group per goal).
         var trips = new GroupLoad { Name = "worker-trips-10000", Map = map };
         for (int goal = 0; goal < 8 && cursor < centers.Count; cursor++)
