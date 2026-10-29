@@ -95,6 +95,7 @@ Vanilla audits that also contain mod-specific parts; see the `[mod integration]`
 - [Gatehouse policy: native baseline and evidence limits (2026-10-13)](./sem/FBCB9319/knowledge/ENEMY_GATE_VANILLA_EVIDENCE.md)
 - [Gatehouse target marker height](./sem/FBCB9319/knowledge/GATEHOUSE_TARGET_MARKER_HEIGHT.md): complete marker render path, gate wall-height discrepancy, tower/keep counterchecks and managed consumer correction.
 - [Ground route builders F4930, DAAC0 and DA590](./sem/FBCB9319/knowledge/GROUND_ROUTE_BUILDERS.md): region gate, builder order, breadth-first edge rules of the direction table, unreported direction byte changes.
+- [Fire on the ground: effect records, pitch ignition and unit route storage](./sem/FBCB9319/knowledge/FIRE_EFFECTS.md): type-9 effect records and tile lists, pitch OnFire as ignition only, stored route start versus next tile while moving.
 - [HUD presentation scheduling audit](./sem/FBCB9319/knowledge/HUD_PRESENTATION.md): Vanilla writers, render-state flow, visibility and active-consumer boundaries.
 - [Incoming gold and periodic amounts](./sem/FBCB9319/knowledge/PERIODIC_GOLD.md): signed positive-only delivery, pending versus direct debit, overflow limits and static evidence.
 - [Independent manual gatehouse and drawbridge control](./sem/FBCB9319/knowledge/GATE_BRIDGE_AUTOMATION.md)

@@ -902,6 +902,16 @@
       "vanillaSections": []
     },
     {
+      "file": "FIRE_EFFECTS.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "MoatMove"
+      ],
+      "integrationSections": [
+        "Mod integration [mod integration]"
+      ]
+    },
+    {
       "file": "GROUND_ROUTE_BUILDERS.md",
       "scope": "vanilla+integration",
       "components": [

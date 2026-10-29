@@ -74,8 +74,8 @@ internal static partial class Program
             "heuristic caps an expensive diagonal at two cardinal steps");
         Check(AssassinAStarPolicy.ComesBefore(10, 8, 4, 11, 1, 0),
             "priority compares estimated total cost first");
-        Check(AssassinAStarPolicy.ComesBefore(10, 7, 9, 10, 8, 0),
-            "equal estimates compare actual cost second");
+        Check(AssassinAStarPolicy.ComesBefore(10, 8, 9, 10, 7, 0) && !AssassinAStarPolicy.ComesBefore(10, 7, 0, 10, 8, 9),
+            "equal estimates prefer the deeper node (larger actual cost)");
         Check(AssassinAStarPolicy.ComesBefore(10, 7, 2, 10, 7, 3),
             "equal estimates and costs preserve insertion order");
 

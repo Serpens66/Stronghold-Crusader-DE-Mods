@@ -38,6 +38,10 @@ namespace BugfixesAndQoL
             return left + right;
         }
 
+        // Estimated total first; on equal estimates the deeper node (larger cost, smaller remaining
+        // estimate) first, so ties dive towards the target instead of widening over all equally short
+        // routes (a breadth-first tie order expanded ~25,000 nodes per found route, pf-iter-23). Any
+        // tie order keeps the optimal cost; only which of several equally cheap routes is found changes.
         public static bool ComesBefore(
             int leftEstimatedTotal,
             int leftCost,
@@ -48,7 +52,7 @@ namespace BugfixesAndQoL
         {
             return leftEstimatedTotal < rightEstimatedTotal ||
                 (leftEstimatedTotal == rightEstimatedTotal &&
-                 (leftCost < rightCost ||
+                 (leftCost > rightCost ||
                   (leftCost == rightCost && leftInsertionOrder < rightInsertionOrder)));
         }
     }

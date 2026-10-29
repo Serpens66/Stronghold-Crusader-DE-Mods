@@ -1884,23 +1884,24 @@ private bool StagePreparedRouteWithDiagnostics(IntPtr context, RouteCacheKey key
             heapPositions[tile] = position;
         }
 
-        // Same order as AssassinAStarPolicy.ComesBefore (estimated total, then cost, then insertion
-        // order) with the first two levels in one unsigned comparison; see HeapKey.
+        // Same order as AssassinAStarPolicy.ComesBefore (estimated total, then the larger cost, then
+        // insertion order) with the first two levels in one unsigned comparison; see HeapKey.
         private static bool ComesBefore(in HeapKey left, in HeapKey right) =>
             left.Primary < right.Primary ||
             (left.Primary == right.Primary && left.InsertionOrder < right.InsertionOrder);
 
         private readonly struct HeapKey
         {
-            // Estimated total in the high and cost in the low 32 bits. Both are non-negative ints
-            // (costs start at 0 and only grow by saturating additions of non-negative edge and
-            // heuristic values), so the unsigned 64-bit order equals the lexicographic int order.
+            // Estimated total in the high and int.MaxValue - cost in the low 32 bits. Both are
+            // non-negative ints (costs start at 0 and only grow by saturating additions of
+            // non-negative edge and heuristic values), so the unsigned 64-bit order is estimated
+            // total ascending, then cost descending.
             internal readonly ulong Primary;
             internal readonly int InsertionOrder;
 
             internal HeapKey(int estimatedTotal, int cost, int insertionOrder)
             {
-                Primary = ((ulong)(uint)estimatedTotal << 32) | (uint)cost;
+                Primary = ((ulong)(uint)estimatedTotal << 32) | (uint)(int.MaxValue - cost);
                 InsertionOrder = insertionOrder;
             }
         }
