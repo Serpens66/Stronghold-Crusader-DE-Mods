@@ -20,6 +20,8 @@ namespace MoatMove
         }
         internal bool NativeFast { get; }
         internal bool Anchor { get; }
+        // Anchor mode only: single-unit ground moves through the core's resumable fields as well.
+        internal bool AnchorSingleMoves { get; set; }
         // Plugin folder; the anchor core DLL ships next to the mod assembly.
         internal string PluginDirectory { get; set; }
         internal string ModeName => NativeFast ? "FastNative" : Anchor ? "anchor" : mode == MoatMove.FriendlyMoatMovementMode.RequiredOnly ? "fast" : "precise";

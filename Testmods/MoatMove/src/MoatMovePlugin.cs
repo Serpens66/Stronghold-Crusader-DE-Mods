@@ -43,7 +43,9 @@ namespace MoatMove
             string mode = Config.Bind("Movement", "Mode", "precise",
                 new ConfigDescription(
                     "precise: weighted friendly/allied moat routes. fast: moat only when no ground alternative exists, shared group calculations, no extra moat cost. FastNative: Fast rules with a private native shared field. anchor (experimental): Fast's deferred move commands with native group fields; moves cross the moat when the weighted route is cheaper. Restart the game after changing this setting. Use the same mode on all multiplayer peers.")).Value;
-            options = new MoatMoveOptions(mode) { PluginDirectory = System.IO.Path.GetDirectoryName(Info.Location) };
+            bool singleMoves = Config.Bind("Movement", "AnchorSingleMoves", false,
+                new ConfigDescription("anchor mode only (experimental): single-unit ground moves outside group commands also use the native core (exact cheapest routes, route tile rules) instead of Vanilla's per-unit search. Routes can differ from Vanilla's. Restart the game after changing this setting. Use the same value on all multiplayer peers.")).Value;
+            options = new MoatMoveOptions(mode) { PluginDirectory = System.IO.Path.GetDirectoryName(Info.Location), AnchorSingleMoves = singleMoves };
             Shared.DebugLogHelper.LogInfo(persistentLog,
                 $"MoatMove {PluginVersion} loaded; mode={options.ModeName}, commandPolicy=BugfixesAndQoL, hookOwner=BugfixesAndQoL; awaiting native library.");
             CrusaderLibrary.Instance.LibraryLoaded += OnLibraryLoaded;

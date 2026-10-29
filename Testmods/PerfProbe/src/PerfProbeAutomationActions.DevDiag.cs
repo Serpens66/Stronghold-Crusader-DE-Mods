@@ -29,7 +29,11 @@ namespace PerfProbe
         private delegate void NativeOrderCall(int attackTarget, int orderedAi, int requester, int order);
         [DllImport("kernel32.dll", CharSet = CharSet.Unicode)] private static extern IntPtr GetModuleHandle(string name);
 
-        private sealed class ScriptedOrder { internal double At; internal int Actor, Target; internal bool Force, Done; }
+        private sealed class ScriptedOrder { internal double At; internal int Actor, Target; internal bool Force, Done, Ignite; }
+        // IgnitePitch probe: direction bytes (0x51890D0) of the ignited tiles before and 3 s after.
+        private const int DirectionTableRva = 0x51890D0;
+        private static readonly List<KeyValuePair<int, byte>> ignitedTiles = new List<KeyValuePair<int, byte>>();
+        private static double ignitedAt = -1;
         private static readonly List<ScriptedOrder> orders = new List<ScriptedOrder>();
         private static NativeOrderCall nativeOrder;
         private static object engineLock;
@@ -44,6 +48,9 @@ namespace PerfProbe
             foreach (string entry in text.Split(new[] { '|' }, StringSplitOptions.RemoveEmptyEntries))
             {
                 string[] part = entry.Trim().Split(':');
+                if (part.Length == 2 && part[1] == "IgnitePitch" &&
+                    double.TryParse(part[0], NumberStyles.Float, CultureInfo.InvariantCulture, out double igniteAt))
+                { orders.Add(new ScriptedOrder { At = igniteAt, Ignite = true }); continue; }
                 if (part.Length < 4 || part[1] != "Attack" ||
                     !double.TryParse(part[0], NumberStyles.Float, CultureInfo.InvariantCulture, out double at) ||
                     !int.TryParse(part[2], out int actor) || !int.TryParse(part[3], out int target) ||
@@ -103,10 +110,12 @@ namespace PerfProbe
         internal static void Step(double runSeconds)
         {
             if (nativeOrder == null) return;
+            if (ignitedAt >= 0 && runSeconds >= ignitedAt + 3) ReportIgnitedTiles();
             foreach (ScriptedOrder order in orders)
             {
                 if (order.Done || order.At > runSeconds) continue;
                 order.Done = true;
+                if (order.Ignite) { IgnitePitch(runSeconds); continue; }
                 string result;
                 try
                 {
@@ -128,6 +137,42 @@ namespace PerfProbe
                 Log("action at=" + order.At.ToString("0.0", CultureInfo.InvariantCulture) + "s kind=Attack actor=" + order.Actor +
                     " target=" + order.Target + " force=" + order.Force + " result=" + result);
             }
+        }
+
+        // Sets every dormant pitch ditch on fire (Extender pitch API, under the engine lock) and records
+        // the direction bytes of their tiles.
+        private static void IgnitePitch(double runSeconds)
+        {
+            int ignited = 0;
+            IntPtr table = new IntPtr(GetModuleHandle("CrusaderDE.dll").ToInt64() + DirectionTableRva);
+            lock (engineLock)
+            {
+                var pitches = GamePitchManagerAPI.Instance.GetPitchArrayAsSpan();
+                for (int id = 0; id < pitches.Length; id++)
+                {
+                    ref var pitch = ref pitches[id];
+                    if (!pitch.IsAlive || pitch.State != SHCDESE.Interop.Enums.PitchState.Dormant) continue;
+                    pitch.State = SHCDESE.Interop.Enums.PitchState.OnFire; ignited++;
+                    int tile = GameTileManagerAPI.Instance.GetTileId(pitch.TileX, pitch.TileY);
+                    if (tile >= 0 && ignitedTiles.Count < 512) ignitedTiles.Add(new KeyValuePair<int, byte>(tile, Marshal.ReadByte(table, tile)));
+                }
+            }
+            ignitedAt = runSeconds;
+            Log("action at=" + runSeconds.ToString("0.0", CultureInfo.InvariantCulture) + "s kind=IgnitePitch ignited=" + ignited + " sampled=" + ignitedTiles.Count);
+        }
+        private static void ReportIgnitedTiles()
+        {
+            ignitedAt = -1;
+            IntPtr table = new IntPtr(GetModuleHandle("CrusaderDE.dll").ToInt64() + DirectionTableRva);
+            int changed = 0, cleared = 0; var sample = new System.Text.StringBuilder();
+            foreach (var entry in ignitedTiles)
+            {
+                byte now = Marshal.ReadByte(table, entry.Key);
+                if (now == entry.Value) continue;
+                changed++; if (now == 0) cleared++;
+                if (sample.Length < 400) sample.Append(' ').Append(entry.Key).Append(':').Append(entry.Value.ToString("X2")).Append("->").Append(now.ToString("X2"));
+            }
+            Log("pitch-fire direction bytes after 3s: tiles=" + ignitedTiles.Count + " changed=" + changed + " cleared=" + cleared + " sample=[" + sample.ToString().Trim() + "]");
         }
 
         private static void Log(string text) =>

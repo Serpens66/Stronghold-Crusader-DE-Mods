@@ -1302,6 +1302,7 @@ namespace MoatMove {
   internal int RouteMode=1;
   internal bool NativeFast;
   internal bool Anchor;
+  internal bool AnchorSingleMoves;
   internal string PluginDirectory;
  }
 }
