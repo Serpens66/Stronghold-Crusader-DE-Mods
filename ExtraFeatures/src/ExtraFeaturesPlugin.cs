@@ -25,7 +25,7 @@ namespace ExtraFeatures
 
         public const string PluginGuid = "ExtraFeatures_Serp";
         public const string PluginName = "Extra Features";
-        public const string PluginVersion = "1.0.125";
+        public const string PluginVersion = "1.0.126";
 
         private ExtraFeaturesRuntime runtime;
         private bool marketGoodPriceVisualRefreshFailureLogged;
@@ -97,6 +97,7 @@ namespace ExtraFeatures
             try
             {
                 Shared.DirectLaunchSettingsNotice.Configure(Settings, PluginGuid);
+                Settings.CaptureEnemyProximityStartup(Info.Location, PluginGuid, PluginGuid);
                 APIShared.ModSettings.LobbyModSettingsPresetRegistration.Register(
                     this,
                     Shared.DebugLogHelper.ForExternalCode(Logger),

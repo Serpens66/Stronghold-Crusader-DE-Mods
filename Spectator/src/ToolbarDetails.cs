@@ -104,7 +104,9 @@ namespace Spectator
             currentOrderText.Text = SerpLocalization.Get("Tools.CurrentOrder") + ": " + SerpLocalization.Get(
                 selected.Mode == 1 ? "Tools.Attack" : selected.Mode == 2 ? "Tools.Defend" : "Tools.NoOrder");
             currentOrderTarget.Text = selected.Mode == 0 ? "" : selected.Target > 0
-                ? PlayerLabel(selected.Target) : SerpLocalization.Get("Tools.UnknownTarget");
+                ? selected.Target.ToString(System.Globalization.CultureInfo.InvariantCulture) : "?";
+            if (ToolTipService.GetToolTip(currentOrderTarget) is ToolTip tip)
+                tip.Content = selected.Target > 0 ? PlayerLabel(selected.Target) : SerpLocalization.Get("Tools.UnknownTarget");
             currentOrderTarget.Foreground = PlayerBrush(selected.Target);
         }
 

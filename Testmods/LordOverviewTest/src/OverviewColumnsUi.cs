@@ -48,21 +48,22 @@ namespace LordOverviewTest {
    });
   }
   private static void AttachColumnsPopup(){
-   popupAnchor=new Border {Width=380,Height=1,HorizontalAlignment=HorizontalAlignment.Left,VerticalAlignment=VerticalAlignment.Bottom,IsHitTestVisible=false};parent.Children.Add(popupAnchor);
+   popupAnchor=new Border {Width=380,Height=1,HorizontalAlignment=HorizontalAlignment.Left,VerticalAlignment=VerticalAlignment.Bottom,IsHitTestVisible=false};overlay.Children.Add(popupAnchor);
    columnsPopup=new Popup {PlacementTarget=popupAnchor,Placement=PlacementMode.Top,StaysOpen=true};
-   columnsPopup.Closed+=OnColumnsClosed;parent.Children.Add(columnsPopup);
+   columnsPopup.Closed+=OnColumnsClosed;overlay.Children.Add(columnsPopup);
    inputRoot=parent;while(VisualTreeHelper.GetParent(inputRoot) is UIElement ancestor)inputRoot=ancestor;
    inputRoot.PreviewMouseDown+=OnColumnsOutsideClick;
    inputRoot.PreviewKeyDown+=OnHeaderKeyDown;
   }
   private static bool ContainsClick(FrameworkElement element,MouseButtonEventArgs args){if(element==null || !element.IsVisible)return false;var point=args.GetPosition(element);return point.X>=0 && point.Y>=0 && point.X<element.ActualWidth && point.Y<element.ActualHeight;}
   private static void OnColumnsOutsideClick(object sender,MouseButtonEventArgs args){
-   if(columnsPopup?.IsOpen==true && !ContainsClick(columnsPopup.Child as FrameworkElement,args) && !ContainsClick(gearButton,args))CloseColumnsPopup();
+   if(columnsPopup?.IsOpen==true && !ContainsClick(columnsPopup.Child as FrameworkElement,args) && !ContainsClick(gearButton,args) && !ContainsHeaderClick(args))CloseColumnsPopup();
    // Never mark the preview event handled: the original map/HUD action must still receive it.
   }
-  private static void OnColumnsClosed(object sender,Noesis.EventArgs args){if(metricScroll!=null && !restoringScroll)menuState.Remember(metricScroll.VerticalOffset);if(columnsPopup?.Child!=null)CloseTips(columnsPopup.Child);}
-  private static void CloseColumnsPopup(){if(columnsPopup==null)return;if(columnsPopup.Child!=null)CloseTips(columnsPopup.Child);columnsPopup.IsOpen=false;}
-  private static void DetachColumnsPopup(){if(inputRoot!=null){inputRoot.PreviewMouseDown-=OnColumnsOutsideClick;inputRoot.PreviewKeyDown-=OnHeaderKeyDown;}inputRoot=null;gearButton=null;metricChecks.Clear();metricPages.Clear();categoryTabs.Clear();metricScroll=null;columnCount=null;restoringScroll=false;if(popupAnchor!=null)parent?.Children.Remove(popupAnchor);popupAnchor=null;if(columnsPopup==null)return;columnsPopup.Closed-=OnColumnsClosed;parent?.Children.Remove(columnsPopup);columnsPopup.Child=null;columnsPopup.PlacementTarget=null;columnsPopup=null;}
+  private static bool ContainsHeaderClick(MouseButtonEventArgs args){if(!Editing || tableHeader==null)return false;var point=args.GetPosition(tableHeader);return point.X>=0 && point.X<tableHeader.ActualWidth && point.Y>=0 && point.Y<tableHeader.RowDefinitions[0].ActualHeight;}
+  private static void OnColumnsClosed(object sender,Noesis.EventArgs args){UpdateHeaderEditing();if(metricScroll!=null && !restoringScroll)menuState.Remember(metricScroll.VerticalOffset);if(columnsPopup?.Child!=null)CloseTips(columnsPopup.Child);}
+  private static void CloseColumnsPopup(){if(columnsPopup==null)return;if(columnsPopup.Child!=null)CloseTips(columnsPopup.Child);columnsPopup.IsOpen=false;UpdateHeaderEditing();}
+  private static void DetachColumnsPopup(){if(inputRoot!=null){inputRoot.PreviewMouseDown-=OnColumnsOutsideClick;inputRoot.PreviewKeyDown-=OnHeaderKeyDown;}inputRoot=null;gearButton=null;metricChecks.Clear();metricPages.Clear();categoryTabs.Clear();metricScroll=null;columnCount=null;restoringScroll=false;if(popupAnchor!=null)overlay?.Children.Remove(popupAnchor);popupAnchor=null;if(columnsPopup==null)return;columnsPopup.Closed-=OnColumnsClosed;overlay?.Children.Remove(columnsPopup);columnsPopup.Child=null;columnsPopup.PlacementTarget=null;columnsPopup=null;}
   private static string MetricHelp(Metric metric)=>providers.TryGetValue(metric,out var provider)?provider.GetTooltip():((int)metric<0?Metrics.Key(metric)+" — "+Text("Unavailable"):Text(metric.ToString())+(Metrics.Get(metric).Historical?" — "+Text("SinceStart"):" — "+Text(metric==Metric.Fear?"FearHelp":"CurrentValue")));
   private static Button ActionButton(string title,string help,Action action,bool enabled=true){
    var button=new Button {Style=buttonStyle,Content=Label(title),IsEnabled=enabled,Opacity=enabled?1:0.4f,Padding=new Thickness(3)};
@@ -142,9 +143,9 @@ namespace LordOverviewTest {
   private static void OpenColumnsPopup(){
    if(columnsPopup==null)return;BuildColumnsPopup();UpdateColumnsPopup();float height=parent.ActualHeight;
    bool above=height-panel.ActualHeight>=270;columnsPopup.Placement=above?PlacementMode.Top:PlacementMode.Right;
-   popupAnchor.Width=above?380:1;popupAnchor.Margin=new Thickness(above?40:40+panel.ActualWidth,(float)0,0,panel.ActualHeight+2);
+   popupAnchor.Width=above?380:1;Canvas.SetLeft(popupAnchor,above?40:40+panel.ActualWidth);Canvas.SetBottom(popupAnchor,panel.ActualHeight+2);
    metricScroll.Height=Math.Max(60,Math.Min(240,(above?height-panel.ActualHeight:height)-160));
-   columnsPopup.IsOpen=true;ShowCategory();
+   columnsPopup.IsOpen=true;UpdateHeaderEditing();ShowCategory();
   }
   private static FrameworkElement GearIcon(){
    string teeth="";for(int angle=0;angle<360;angle+=45)teeth+="<Rectangle Canvas.Left='8' Canvas.Top='0' Width='2' Height='4' Fill='#FFF2D48A'><Rectangle.RenderTransform><RotateTransform Angle='"+angle+"' CenterX='1' CenterY='9'/></Rectangle.RenderTransform></Rectangle>";

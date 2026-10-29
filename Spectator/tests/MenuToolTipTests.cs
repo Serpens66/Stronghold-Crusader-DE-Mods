@@ -16,15 +16,25 @@ namespace Noesis
     }
     public class DependencyProperty
     {
+        public static readonly object UnsetValue = new object();
         internal PropertyMetadata Metadata;
         public static DependencyProperty RegisterAttached(string name, Type type, Type owner, PropertyMetadata metadata) => new DependencyProperty { Metadata = metadata };
     }
     public class DependencyObject
     {
         private readonly Dictionary<DependencyProperty, object> values = new Dictionary<DependencyProperty, object>();
-        public object GetValue(DependencyProperty p) => values.TryGetValue(p, out var value) ? value : p.Metadata.Default;
+        internal readonly Dictionary<DependencyProperty, BindingBase> Bindings = new Dictionary<DependencyProperty, BindingBase>();
+        public object ReadLocalValue(DependencyProperty p) => values.TryGetValue(p, out var value) ? value : DependencyProperty.UnsetValue;
+        public void ClearValue(DependencyProperty p) { values.Remove(p); Bindings.Remove(p); }
+        public object GetValue(DependencyProperty p) => Bindings.TryGetValue(p, out var binding) ? binding.Value : values.TryGetValue(p, out var value) ? value : p.Metadata.Default;
         public void SetValue(DependencyProperty p, object value)
-        { if (Equals(GetValue(p), value)) return; values[p] = value; p.Metadata.Changed(this, new DependencyPropertyChangedEventArgs { NewValue = value }); }
+        { Bindings.Remove(p); if (Equals(GetValue(p), value)) return; values[p] = value; p.Metadata.Changed?.Invoke(this, new DependencyPropertyChangedEventArgs { NewValue = value }); }
+    }
+    public class BindingBase { public object Value; }
+    public static class BindingOperations
+    {
+        public static BindingBase GetBindingBase(DependencyObject target, DependencyProperty property) => target.Bindings.TryGetValue(property, out var binding) ? binding : null;
+        public static void SetBinding(DependencyObject target, DependencyProperty property, BindingBase binding) { target.SetValue(property, binding.Value); target.Bindings[property] = binding; }
     }
     public struct Point { public float X, Y; public Point(float x, float y) { X = x; Y = y; } }
     public struct Thickness

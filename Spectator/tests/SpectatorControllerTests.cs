@@ -24,7 +24,7 @@ namespace Spectator {
    Check(!menu.Expanded, "placement from compact restores compact");
    menu.ToggleView("Goods"); menu.ToggleView("Goods"); Check(menu.View == "Goods" && menu.Expanded);
    menu.ToggleView("unknown"); Check(menu.View == "Goods", "unknown navigation leaves a usable page");
-   ToolbarLayoutTests.Run(Check);
+   ToolbarLayoutTests.Run(Check); SpectatorRuntime.TestToolbarProperty(Check);
    foreach(float menuScale in new[]{1f,1.333333f,2f,2.75f})
    foreach(float popupScale in new[]{1f,1.5f,2f}) {
     Check(ToolbarGeometry.TryTooltipScale(menuScale,menuScale,popupScale,popupScale,out float sx,out float sy));

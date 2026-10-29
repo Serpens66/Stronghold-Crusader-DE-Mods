@@ -8,38 +8,55 @@ internal static class ToolbarLayoutTests
     {
         foreach (float viewport in new[] { 960f, 1920f, 2560f, 3840f })
         {
-            var parts = new List<ToolbarRect> { new ToolbarRect(0, 0, 300, 32) };
-            var obstacles = new List<ToolbarRect> { new ToolbarRect(200, 600, 450, 80) };
-            check(ToolbarLayout.TryPlace(240, 620, 300, 32, viewport, 1080, parts, obstacles, out var moved),
-                "A visible tooltip has room for the complete player/stop bar.");
-            check(!moved.Intersects(obstacles[0]), "The bar must avoid all actual tooltip rows.");
-            obstacles.Clear();
-            check(ToolbarLayout.TryPlace(240, 620, 300, 32, viewport, 1080, parts, obstacles, out var restored) &&
-                restored.X == 240 && restored.Y == 620, "Removing hover restores requested, not avoidance, coordinates.");
-            check(ToolbarLayout.TryPlace(viewport + 50, -30, 300, 32, viewport, 1080, parts, obstacles, out var clamped) &&
-                clamped.X >= 0 && clamped.Right <= viewport && clamped.Y >= 0, "Dragging/resizing keeps controls on screen.");
-            obstacles.Add(new ToolbarRect(0, 100, viewport, 230));
-            obstacles.Add(new ToolbarRect(0, 330, viewport, 280));
-            check(ToolbarLayout.TryPlace(200, 300, 300, 32, viewport, 1080, parts, obstacles, out moved) &&
-                !moved.Intersects(obstacles[0]) && !moved.Intersects(obstacles[1]), "Avoid adjoining multiline hosts together.");
+            var dock = ToolbarLayout.Dock(new ToolbarRect(viewport - 914, 1080 - 166, 914, 166));
+            check(dock.Y == 1080 - 123, "Every mode stays below both Vanilla info hosts, including the bottom-125 detailed host.");
+            var fixedPosition = ToolbarLayout.Clamp(dock.X, dock.Y, dock.Width, dock.Height, viewport, 1080);
+            // Hovers have no input into placement. Reopening them cannot accumulate displacement.
+            for (int hover = 0; hover < 20; hover++)
+            {
+                var same = ToolbarLayout.Clamp(dock.X, dock.Y, dock.Width, dock.Height, viewport, 1080);
+                check(same.X == fixedPosition.X && same.Y == fixedPosition.Y, "Fixed position is independent of hover state.");
+            }
+            var clamped = ToolbarLayout.Clamp(viewport + 50, -30, 496, 114, viewport, 1080);
+            check(clamped.X >= 0 && clamped.Right <= viewport && clamped.Y == 0, "Resize/drag stays inside the viewport.");
+            foreach (float scale in new[] { 1f, 1.5f, 2f, 3f })
+            {
+                check(ToolbarLayout.Snap(dock.X + 9.999f / scale, dock.Y, dock, scale, scale, false), "Acquire at ten rendered pixels.");
+                check(!ToolbarLayout.Snap(dock.X + 10.1f / scale, dock.Y, dock, scale, scale, false), "Never acquire beyond ten rendered pixels.");
+                check(ToolbarLayout.Snap(dock.X + 13.9f / scale, dock.Y, dock, scale, scale, true), "Hold until fourteen rendered pixels.");
+                check(!ToolbarLayout.Snap(dock.X + 14.1f / scale, dock.Y, dock, scale, scale, true), "Release beyond fourteen rendered pixels.");
+                check(!ToolbarLayout.Snap(dock.X + 8 / scale, dock.Y + 8 / scale, dock, scale, scale, false), "Snap radius is circular, not a square.");
+            }
         }
-        var controls = new List<ToolbarRect> {
-            new ToolbarRect(260,100,100,26), // date
-            new ToolbarRect(450,94,35,40)   // active button
-        };
+        check(8 * (ToolbarLayout.Portrait + 2) + 8 + 24 + 2 + 222 == 496,
+            "Eight larger portraits leave 222 units for all four actions in one header.");
+        check(2 * 26 + 4 == ToolbarLayout.Body, "Both target/order rows and goods rows fit without scrolling.");
+        foreach (float scale in new[] { .75f, 1f, 1.5f, 2f })
+        {
+            var dock = ToolbarLayout.Dock(new ToolbarRect(300,400,914*scale,166*scale));
+            check(Math.Abs(dock.X-(300+130*scale)) < .001f && Math.Abs(dock.Y-(400+43*scale)) < .001f && dock.Width == 496*scale,
+                "Dock follows the actual native HUD scale, including a differently scaled overlay canvas.");
+        }
+        var controls = new List<ToolbarRect> { new ToolbarRect(260,100,100,26), new ToolbarRect(450,94,35,40) };
         var band = new ToolbarRect(0,100,500,26);
         ToolbarLayout.Wings(band, controls, out var left, out var right);
-        check(left.Width > 230 && right.Width > 0, "Usable content continues on both sides of the date.");
+        check(left.Width > 230 && right.Width > 0, "Content continues in genuine free regions around date and buttons.");
         foreach (var control in controls)
-            check(!left.Intersects(control) && !right.Intersects(control), "Neither painted wing covers an original control.");
-        var pieces = new List<ToolbarRect> { new ToolbarRect(0,0,500,90), left, right };
-        check(ToolbarLayout.Fits(0,0,500,126,960,1080,pieces,controls), "Open notch must not repel a correctly docked panel.");
-        controls.Add(new ToolbarRect(240,70,180,22));
-        check(!ToolbarLayout.Fits(0,0,500,126,960,1080,pieces,controls), "A real body overlap cannot be mistaken for the notch.");
-        var noSpace = new List<ToolbarRect> { new ToolbarRect(0,0,960,1080) };
-        check(!ToolbarLayout.TryPlace(0,0,500,126,960,1080,pieces,noSpace,out _), "No-space layouts fail explicitly, not with negative coordinates.");
+            check(!left.Intersects(control) && !right.Intersects(control), "Footer input never covers an original control.");
         var adjacent = new List<ToolbarRect> { new ToolbarRect(100,100,90,30),new ToolbarRect(140,100,110,30),new ToolbarRect(240,100,60,30) };
         ToolbarLayout.Wings(band,adjacent,out left,out right);
-        foreach(var item in adjacent) check(!left.Intersects(item) && !right.Intersects(item), "Overlapping reserved intervals form one exclusion.");
+        foreach (var item in adjacent) check(!left.Intersects(item) && !right.Intersects(item), "Merge overlapping reserved intervals.");
+        // Includes tall buildings with negative top margins and wide unit/submenu rows.
+        foreach (var source in new[] { new ToolbarRect(-125,-12,480,106), new ToolbarRect(-115,-8,430,98),
+            new ToolbarRect(-120,0,490,90), new ToolbarRect(0,-24,95,124) })
+        {
+            var target = new ToolbarRect(130,72,496,52);
+            var fit = ToolbarLayout.FitRaster(source,target);
+            float scale = ToolbarLayout.RasterScale(source,target);
+            check(fit.X >= target.X && fit.Y >= target.Y && fit.Right <= target.Right + .001f && fit.Bottom <= target.Bottom + .001f,
+                "Tall sprites and their complete input rectangles fit below the portrait reservation.");
+            check(Math.Abs(fit.Width / source.Width - scale) < .001f && Math.Abs(fit.Height / source.Height - scale) < .001f,
+                "One proportional ancestor transform scales image and hit area together.");
+        }
     }
 }

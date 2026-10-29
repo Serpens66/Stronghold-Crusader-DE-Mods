@@ -110,7 +110,6 @@ namespace Spectator
             buildingWall = null;
             placingUnitOwner = 0;
             rawMouseReleasePending = false;
-            RestoreDateLayout();
             activeHud = null;
             initialLayoutLoggedHud = null;
             lastOwner = int.MinValue;

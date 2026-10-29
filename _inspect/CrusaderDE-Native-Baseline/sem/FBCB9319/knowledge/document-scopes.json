@@ -21,6 +21,12 @@
   },
   "documents": [
     {
+      "file": "ENEMY_BUILD_PROXIMITY.md",
+      "scope": "vanilla+integration",
+      "components": ["ExtraFeatures"],
+      "integrationSections": ["ExtraFeatures integration"]
+    },
+    {
       "file": "LORD_HOME_TELEPORT.md",
       "scope": "vanilla+integration",
       "components": ["BugfixesAndQoL", "LordTeleportGuardTest (historical)"],

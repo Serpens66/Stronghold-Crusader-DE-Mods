@@ -20,7 +20,7 @@ public static class SettingsPresentationTests
     {
         { "Units", new[] { "fear-factor-neutralization", "monks-always-run", "knight-dismount", "instant-horse", "knight-transform-gold", "knight-transform-delay", "lord-health" } },
         { "Gatehouses", new[] { "elevated-moat", "human-gate-reopen-delay", "ai-gate-reopen-delay", "human-gate-closing-distance", "ai-gate-closing-distance" } },
-        { "Building", new[] { "building-repair", "keep-build-range", "human-enemy-proximity-singleplayer", "ai-enemy-proximity-singleplayer", "human-enemy-proximity-multiplayer", "ai-enemy-proximity-multiplayer", "ai-tower-gate-rebuild-delay" } },
+        { "Building", new[] { "building-repair", "keep-build-range", "human-civilian-enemy-proximity-singleplayer", "ai-civilian-enemy-proximity-singleplayer", "human-military-enemy-proximity-singleplayer", "ai-military-enemy-proximity-singleplayer", "human-civilian-enemy-proximity-multiplayer", "ai-civilian-enemy-proximity-multiplayer", "human-military-enemy-proximity-multiplayer", "ai-military-enemy-proximity-multiplayer", "ai-tower-gate-rebuild-delay" } },
         { "Economy", new[] { "extra-church-priests", "campfire-peasants", "kill-reward-gold", "kill-reward-goods", "kill-reward-maximum", "periodic-gold-human", "periodic-gold-ai", "multiply-goods-gain", "multiply-goods-as-money" } },
         { "Demolition", new[] { "keep-storage-content", "wood-refund", "stone-refund", "iron-refund", "pitch-refund", "gold-refund" } },
         { "Plague", new[] { "plague-damage-walls", "plague-damage-gates", "plague-damage-towers", "plague-damage-keeps", "plague-duration", "apothecary-plague-search-distance", "healer-targets" } },
@@ -290,10 +290,19 @@ public static class SettingsPresentationTests
         Execute(presentation, "CollapseAllCommand"); Execute(presentation, "ExpandAllCommand"); Execute(market, "ToggleCommand"); Execute(topics[0], "ToggleCommand");
         search("", false, "");
         Check(Visible(topics[0], "ContentVisibility") && !Visible(market, "ContentVisibility") && topics.Skip(1).All(t => !Visible(t, "ContentVisibility")), "search and commands preserve manual state");
-        search("", false, "extra.human-enemy-proximity-singleplayer");
+        search("", false, "extra.human-civilian-enemy-proximity-singleplayer");
         Check(Visible(Get(presentation, "EnemyProximityOptions"), "Visibility") && Visible(Get(presentation, "EnemySingleplayerOptions"), "Visibility") &&
             !Visible(Get(presentation, "EnemyMultiplayerOptions"), "Visibility") && !Visible(Get(presentation, "BuildingOptions"), "Visibility") &&
             !Visible(Get(presentation, "AiRebuildOptions"), "Visibility"), "single enemy-distance hit retains only its context and table row");
+        foreach (string role in new[] { "human", "ai" })
+        foreach (string category in new[] { "civilian", "military" })
+        foreach (string mode in new[] { "singleplayer", "multiplayer" })
+        {
+            search("", false, "extra." + role + "-" + category + "-enemy-proximity-" + mode);
+            Check(Visible(Get(presentation, "EnemyProximityOptions"), "Visibility") &&
+                Visible(Get(presentation, mode == "singleplayer" ? "EnemySingleplayerOptions" : "EnemyMultiplayerOptions"), "Visibility"),
+                "Every category/mode/role search retains its context");
+        }
         search("Text.EnemyProximityTitleText", false, "");
         Check(Visible(Get(presentation, "EnemySingleplayerOptions"), "Visibility") && Visible(Get(presentation, "EnemyMultiplayerOptions"), "Visibility"), "contextual search titles find all enemy-distance role/mode values");
         search("", false, "extra.instant-horse");
@@ -491,10 +500,14 @@ public class SettingsSearchFixtureBase
     public static SettingsSearchGood[] Goods;
     public SettingsSearchLabels SettingsPresentation { get { return Labels; } }
     public SettingsSearchGood[] MarketGoodPriceItems { get { return Goods; } }
-    public string HumanEnemyProximitySingleplayerSearchTitle { get { return "Text.EnemyProximityTitleText - Text.HumanEnemyProximitySingleplayerText"; } }
-    public string HumanEnemyProximityMultiplayerSearchTitle { get { return "Text.EnemyProximityTitleText - Text.HumanEnemyProximityMultiplayerText"; } }
-    public string AIEnemyProximitySingleplayerSearchTitle { get { return "Text.EnemyProximityTitleText - Text.AIEnemyProximitySingleplayerText"; } }
-    public string AIEnemyProximityMultiplayerSearchTitle { get { return "Text.EnemyProximityTitleText - Text.AIEnemyProximityMultiplayerText"; } }
+    public string HumanCivilianEnemyProximitySingleplayerSearchTitle { get { return "Text.EnemyProximityTitleText - Text.HumanCivilianEnemyProximitySingleplayerText"; } }
+    public string HumanMilitaryEnemyProximitySingleplayerSearchTitle { get { return "Text.EnemyProximityTitleText - Text.HumanMilitaryEnemyProximitySingleplayerText"; } }
+    public string HumanCivilianEnemyProximityMultiplayerSearchTitle { get { return "Text.EnemyProximityTitleText - Text.HumanCivilianEnemyProximityMultiplayerText"; } }
+    public string HumanMilitaryEnemyProximityMultiplayerSearchTitle { get { return "Text.EnemyProximityTitleText - Text.HumanMilitaryEnemyProximityMultiplayerText"; } }
+    public string AICivilianEnemyProximitySingleplayerSearchTitle { get { return "Text.EnemyProximityTitleText - Text.AICivilianEnemyProximitySingleplayerText"; } }
+    public string AIMilitaryEnemyProximitySingleplayerSearchTitle { get { return "Text.EnemyProximityTitleText - Text.AIMilitaryEnemyProximitySingleplayerText"; } }
+    public string AICivilianEnemyProximityMultiplayerSearchTitle { get { return "Text.EnemyProximityTitleText - Text.AICivilianEnemyProximityMultiplayerText"; } }
+    public string AIMilitaryEnemyProximityMultiplayerSearchTitle { get { return "Text.EnemyProximityTitleText - Text.AIMilitaryEnemyProximityMultiplayerText"; } }
 }
 public class SettingsSearchTopicLabel { public string Title { get; set; } }
 public class SettingsSearchLabels

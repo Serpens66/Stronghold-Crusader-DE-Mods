@@ -109,16 +109,21 @@ namespace ExtraFeatures
             if (!killRewardPresetsReady || normalizingKillReward ||
                 !CanEditHostSettings || IsApplyingSettingsSnapshot ||
                 GameXAMLManagerAPI.Instance.CurrentLobbyModSettingsChangeOrigin != LobbyModSettingsChangeOrigin.Local) return;
-            var owned = IsMissionPresetSelected ? base.System_CreateCurrentWorkingSnapshot() : base.System_CreatePlayerMissionPresetSnapshot();
-            if (!HasLegacyKillReward(owned)) return;
             normalizingKillReward = true;
-            try { base.System_ApplyWorkingSnapshot(CanonicalKillRewardSnapshot(owned)); }
+            try
+            {
+                ApplyStartupEnemyProximity();
+                var owned = IsMissionPresetSelected ? base.System_CreateCurrentWorkingSnapshot() : base.System_CreatePlayerMissionPresetSnapshot();
+                if (HasLegacyKillReward(owned)) base.System_ApplyWorkingSnapshot(CanonicalKillRewardSnapshot(owned));
+            }
             finally { normalizingKillReward = false; }
         }
 
         protected override void ApplyConfirmedPresetSelection(PublishedModSettingsPreset preset)
         {
             base.ApplyConfirmedPresetSelection(preset);
+            var proximity = EnemyProximityPresetPatch(preset);
+            if (proximity != null) base.System_ApplyWorkingSnapshot(proximity);
             NormalizeOwnedKillReward();
         }
 
@@ -139,8 +144,8 @@ namespace ExtraFeatures
         {
             if (killRewardMissionLocked == locked) return;
             killRewardMissionLocked = locked;
-            if (Thread.CurrentThread.ManagedThreadId == uiThread) OnPropertyChanged(nameof(CanConfigureKillReward));
-            else if (uiContext != null) uiContext.Post(_ => OnPropertyChanged(nameof(CanConfigureKillReward)), null);
+            if (Thread.CurrentThread.ManagedThreadId == uiThread) { OnPropertyChanged(nameof(CanConfigureKillReward)); OnPropertyChanged(nameof(CanConfigureEnemyProximity)); }
+            else if (uiContext != null) uiContext.Post(_ => { OnPropertyChanged(nameof(CanConfigureKillReward)); OnPropertyChanged(nameof(CanConfigureEnemyProximity)); }, null);
         }
 
         private void ResetKillRewardDefaults()
@@ -177,12 +182,12 @@ namespace ExtraFeatures
         }
 
         private static bool HasLegacyKillReward(Dictionary<string, byte[]> snapshot) =>
-            LegacyKillReward(snapshot, nameof(NoKillRewardHuman)) || LegacyKillReward(snapshot, nameof(NoKillRewardAI));
+            HasLegacyEnemyProximity(snapshot) || LegacyKillReward(snapshot, nameof(NoKillRewardHuman)) || LegacyKillReward(snapshot, nameof(NoKillRewardAI));
 
         private static Dictionary<string, byte[]> CanonicalKillRewardSnapshot(Dictionary<string, byte[]> snapshot)
         {
             if (snapshot == null) throw new ArgumentNullException(nameof(snapshot));
-            snapshot = new Dictionary<string, byte[]>(snapshot, StringComparer.Ordinal);
+            snapshot = CanonicalEnemyProximitySnapshot(snapshot);
             foreach (string role in new[] { "Human", "AI" })
             {
                 string legacy = "NoKillReward" + role;

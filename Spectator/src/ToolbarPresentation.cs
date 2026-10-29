@@ -7,7 +7,6 @@ namespace Spectator
     internal static partial class SpectatorRuntime
     {
         private static Grid toolbarRoot;
-        private static ScrollViewer detailsScroll;
         private static readonly Button[] targetButtons = new Button[9];
         private static readonly TextBlock[] targetLabels = new TextBlock[9];
         private static readonly Image[] ownerFaces = new Image[9], targetFaces = new Image[9];
@@ -20,8 +19,6 @@ namespace Spectator
         {
             toolbarRoot = screen.FindName("TestToolsRoot") as Grid;
             statusText = screen.FindName("ToolsStatus") as TextBlock;
-            detailsScroll = screen.FindName("SpectatorDetailsScroll") as ScrollViewer;
-            if (detailsScroll == null) throw new MissingMemberException("Toolbar header/scroll host missing.");
             MenuToolTipSizing.SetReference(humanPanel, humanCanvas);
             var attackIcon = screen.FindName("AttackActionIcon") as Image;
             if (attackIcon != null) attackIcon.Source = MainViewModel.Instance.getAlliesGoodsIcon(-3);

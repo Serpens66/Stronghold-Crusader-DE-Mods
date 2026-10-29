@@ -10,11 +10,6 @@ $mod = [Mono.Cecil.AssemblyDefinition]::ReadAssembly($AssemblyPath,$reader)
 $api = [Mono.Cecil.AssemblyDefinition]::ReadAssembly((Join-Path $ApiSharedDir 'APIShared.dll'))
 $root = Split-Path -Parent $PSScriptRoot
 try {
-    $anchor = $api.MainModule.GetType('APIShared.Presentation.TooltipAnchor')
-    $readAnchor = @($anchor.Methods | Where-Object { $_.Name -eq 'GetAnchor' -and $_.IsPublic -and $_.IsStatic -and
-        $_.ReturnType.FullName -eq 'System.String' -and $_.Parameters.Count -eq 1 -and
-        $_.Parameters[0].ParameterType.FullName -eq 'Noesis.DependencyObject' })
-    if (-not $anchor.IsPublic -or $readAnchor.Count -ne 1) { throw 'Missing public read-only tooltip layout anchor contract.' }
     $settings = $mod.MainModule.GetType('Spectator.SpectatorViewModel')
     foreach ($name in @('EnableMod','EnableSpectatorPerspective','EnableStatistics','EnableEliminatedPlayersBecomeSpectators')) {
         $property = $settings.Properties | Where-Object Name -eq $name

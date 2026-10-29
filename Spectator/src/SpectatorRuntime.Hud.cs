@@ -51,7 +51,6 @@ namespace Spectator
                 humanSavedTabs = null;
                 activeWall = null;
                 activeSpecial = null;
-                RestoreDateLayout();
                 activeHud = null;
                 DetachHumanControls();
                 log.LogInfo("SPECTATOR_EDITOR_HUMAN_HUD_CHANGED");
@@ -183,7 +182,7 @@ namespace Spectator
             humanToggleText = null;
             humanScreen = null;
             humanBoundHud = null;
-            toolbarRoot = null; detailsScroll = null;
+            toolbarRoot = null;
             currentOrderIcon = null; currentOrderText = currentOrderTarget = null;
             shownOrderActor = -1; shownOrderLocale = null;
             Array.Clear(targetButtons, 0, targetButtons.Length);
@@ -202,7 +201,7 @@ namespace Spectator
                 !view.Show_HUD_Briefing && (!view.Show_HUD_MissionOver || Statistics?.Active == true);
             bool wasShown = humanPanel.Visibility == Visibility.Visible;
             humanPanel.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
-            if (!show) { amountInput?.EndEditing(); if (wasShown) ClosePlayerTooltips(); return; }
+            if (!show) { RestorePlacementRaster(); amountInput?.EndEditing(); if (wasShown) ClosePlayerTooltips(); return; }
             toolsModel.PlacementActive = humanPlacementMode;
             var state = GameData.Instance.lastGameState;
             bool occupied = view.Show_HUD_Troops || view.Show_HUD_Building || view.Show_HUD_Briefing ||
@@ -263,7 +262,7 @@ namespace Spectator
 
         private static void SetPlayerTooltip(Button button, string label, int player)
         {
-            string text = label + " — " + SerpLocalization.Get("Tools.SelectHelp");
+            string text = label + " â€” " + SerpLocalization.Get("Tools.SelectHelp");
             if (playerTooltipTexts.TryGetValue(button, out string previous) && previous == text + "|" + PlayerBrush(player).ToString()) return;
             var style = humanPanel.TryFindResource("PlayerTooltip") as Style;
             if (style == null) throw new MissingMemberException("Test tools popup style missing.");
@@ -271,7 +270,7 @@ namespace Spectator
                 Foreground = neutralPlayerBrush, TextWrapping = TextWrapping.Wrap,
                 MaxWidth = 400 };
             content.Inlines.Add(new Run { Text = label, Foreground = PlayerBrush(player) });
-            content.Inlines.Add(new Run { Text = " — " + SerpLocalization.Get("Tools.SelectHelp") });
+            content.Inlines.Add(new Run { Text = " â€” " + SerpLocalization.Get("Tools.SelectHelp") });
             var tip = new ToolTip { Style = style, Content = content };
             MenuToolTipSizing.SetEnabled(tip, true);
             if (ToolTipService.GetToolTip(button) is ToolTip previousTip) { previousTip.IsOpen = false; MenuToolTipSizing.SetEnabled(previousTip, false); }
@@ -351,6 +350,8 @@ namespace Spectator
             humanDragOriginLeft = (float)Canvas.GetLeft(humanPanel);
             humanDragOriginTop = (float)Canvas.GetTop(humanPanel);
             humanDragging = humanDragHandle.CaptureMouse();
+            toolbarLayoutDirty = true;
+            PositionToolbar();
             args.Handled = true;
         }
 
@@ -358,10 +359,8 @@ namespace Spectator
         {
             if (!humanDragging || humanCanvas == null || humanPanel == null) return;
             Point current = args.GetPosition(humanCanvas);
-            toolbarMoved = true;
-            toolbarDesiredX = humanDragOriginLeft + (float)(current.X - humanDragStart.X);
-            toolbarDesiredY = humanDragOriginTop + (float)(current.Y - humanDragStart.Y);
-            toolbarLayoutDirty = true;
+            SnapToolbarDrag(humanDragOriginLeft + (float)(current.X - humanDragStart.X),
+                humanDragOriginTop + (float)(current.Y - humanDragStart.Y));
             PositionToolbar();
             args.Handled = true;
         }
@@ -369,11 +368,14 @@ namespace Spectator
         private static void OnHumanDragUp(object sender, MouseButtonEventArgs args)
         {
             humanDragging = false;
+            toolbarLayoutDirty = true;
+            PositionToolbar();
             if (humanDragHandle != null && humanDragHandle.IsMouseCaptured) humanDragHandle.ReleaseMouseCapture();
             args.Handled = true;
         }
 
-        private static void OnHumanLostCapture(object sender, MouseEventArgs args) => humanDragging = false;
+        private static void OnHumanLostCapture(object sender, MouseEventArgs args)
+        { humanDragging = false; toolbarLayoutDirty = true; PositionToolbar(); }
         private static void OnHumanCanvasSizeChanged(object sender, SizeChangedEventArgs args)
         { toolbarDirty = true; toolbarLayoutDirty = true; }
 
@@ -409,7 +411,6 @@ namespace Spectator
                 MainControls.instance.StopAllPlacement();
                 activeWall = null;
                 activeSpecial = null;
-                RestoreDateLayout();
                 MainViewModel.Instance.SubMode = humanSavedSubMode;
                 hud.SetupNewBuildScreen(-1000);
                 EnterPlacementHud(MainViewModel.Instance);
@@ -539,7 +540,6 @@ namespace Spectator
                 if (!IsPlacementSession())
                 {
                     RestorePlacementFreeze();
-                    RestoreDateLayout();
                     activeHud = null;
                     initialLayoutLoggedHud = null;
                     lastOwner = int.MinValue;
@@ -595,99 +595,11 @@ namespace Spectator
                     pendingVisibilityHud = null;
                     pendingVisibilityAt = DateTime.MaxValue;
                 }
-                PositionDate(hud);
                 PositionToolbar();
             }
             catch (Exception error)
             {
                 LogOnce("SPECTATOR_EDITOR_HUD_ERROR: " + error);
-            }
-        }
-
-        private static void PositionDate(HUD_Main hud)
-        {
-            var date = hud.FindName("OST_Date") as TextBlock;
-            var lastTab = hud.FindName("RadioButtonMEBedouin") as FrameworkElement;
-            var allies = hud.FindName("ButtonAllies") as FrameworkElement;
-            var merit = hud.FindName("ButtonMerit") as FrameworkElement;
-            if (date == null || lastTab == null || merit == null) return;
-            if (dateLayout == null || !ReferenceEquals(dateLayout.Hud, hud) ||
-                !ReferenceEquals(dateLayout.Date, date))
-            {
-                RestoreDateLayout();
-                var group = date.RenderTransform as TransformGroup;
-                var translate = group != null && group.Children.Count > 0
-                    ? group.Children[0] as TranslateTransform : null;
-                if (translate == null)
-                    throw new MissingMemberException("HUD_Main", "OST_Date translation");
-                dateLayout = new DateLayoutState { Hud = hud, Date = date,
-                    Translate = translate, OriginalX = translate.X,
-                    OriginalFontSize = date.FontSize,
-                    OriginalHitTest = date.IsHitTestVisible };
-            }
-            date.IsHitTestVisible = false;
-            if (!lastTab.IsVisible || lastTab.ActualWidth <= 0) return;
-            double left = lastTab.TranslatePoint(new Point(lastTab.ActualWidth, 0), hud).X;
-            double right = allies != null && allies.IsVisible
-                ? allies.TranslatePoint(new Point(0, 0), hud).X
-                : merit.TranslatePoint(new Point(0, 0), hud).X;
-            if (right <= left + 8) return;
-            DateLayoutState state = dateLayout;
-            string text = date.Text ?? "";
-            if (state.LastLeft == left && state.LastRight == right &&
-                state.LastHudWidth == hud.ActualWidth && state.LastText == text &&
-                state.LastTranslation == state.Translate.X &&
-                state.LastFontSize == date.FontSize)
-                return;
-
-            state.Translate.X = 0;
-            if (date.FontSize != state.OriginalFontSize)
-                date.FontSize = state.OriginalFontSize;
-            date.UpdateLayout();
-            double available = right - left - 8;
-            double naturalWidth = date.ActualWidth;
-            if (naturalWidth <= 0) return;
-            if (naturalWidth > available)
-            {
-                date.FontSize = (float)Math.Max(1,
-                    state.OriginalFontSize * available / naturalWidth);
-                date.UpdateLayout();
-                if (date.ActualWidth > available)
-                {
-                    date.FontSize *= (float)(available / date.ActualWidth);
-                    date.UpdateLayout();
-                }
-            }
-            double baseX = date.TranslatePoint(new Point(0, 0), hud).X;
-            double targetX = left + 4 + (available - date.ActualWidth) / 2;
-            state.Translate.X = (float)(targetX - baseX);
-            state.LastLeft = left;
-            state.LastRight = right;
-            state.LastHudWidth = hud.ActualWidth;
-            state.LastText = text;
-            state.LastTranslation = state.Translate.X;
-            state.LastFontSize = date.FontSize;
-            if (dateLayoutDiagnostics++ < 24)
-                log.LogInfo("SPECTATOR_EDITOR_DATE_LAYOUT left=" + left +
-                    " right=" + right + " textWidth=" + date.ActualWidth +
-                    " font=" + date.FontSize + " target=" + targetX +
-                    " translation=" + state.Translate.X + " text=" + text);
-        }
-
-        private static void RestoreDateLayout()
-        {
-            DateLayoutState state = dateLayout;
-            dateLayout = null;
-            if (state == null) return;
-            try
-            {
-                state.Translate.X = state.OriginalX;
-                state.Date.FontSize = state.OriginalFontSize;
-                state.Date.IsHitTestVisible = state.OriginalHitTest;
-            }
-            catch (Exception error)
-            {
-                LogOnce("SPECTATOR_EDITOR_DATE_RESTORE_ERROR: " + error);
             }
         }
 

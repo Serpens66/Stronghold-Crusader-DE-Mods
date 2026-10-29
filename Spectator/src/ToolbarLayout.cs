@@ -12,7 +12,6 @@ namespace Spectator
         internal float Right => X + Width;
         internal float Bottom => Y + Height;
         internal bool Empty => Width <= 0 || Height <= 0;
-        internal ToolbarRect Move(float x, float y) => new ToolbarRect(x, y, Width, Height);
         internal bool Intersects(ToolbarRect other) => !Empty && !other.Empty &&
             X < other.Right && Right > other.X && Y < other.Bottom && Bottom > other.Y;
     }
@@ -20,18 +19,38 @@ namespace Spectator
     internal static class ToolbarLayout
     {
         internal const float Gap = 4;
-        // The paper's existing usable centre, relative to Vanilla's AlignmentGrid.
-        // Read-only placement, matching the previous additive dock. No Vanilla layout is written.
-        internal static ToolbarRect Dock(ToolbarRect alignment) =>
-            new ToolbarRect(alignment.X + 130, alignment.Y + 28, 496, 130);
-
-        internal static float ContentBottom(ToolbarRect dock, IList<ToolbarRect> controls)
+        internal const float Portrait = 28, Header = 32, Body = 56, Footer = 26;
+        // Vanilla's detailed info host ends 125 units above the viewport bottom
+        // (compact: 130). Keep a two-unit gap below both, in every toolbar mode.
+        internal static ToolbarRect Dock(ToolbarRect alignment)
         {
-            float bottom = dock.Bottom - 26;
-            foreach (var item in controls)
-                if (!item.Empty && item.X < dock.Right && item.Right > dock.X && item.Y > dock.Y)
-                    bottom = Math.Min(bottom, item.Y - Gap);
-            return bottom;
+            float scale = alignment.Width / 914;
+            return new ToolbarRect(alignment.X + 130 * scale, alignment.Y + 43 * scale,
+                496 * scale, (Header + Body + Footer) * scale);
+        }
+
+        internal static ToolbarRect Clamp(float x, float y, float width, float height,
+            float viewportWidth, float viewportHeight) => new ToolbarRect(
+                Math.Max(0, Math.Min(Math.Max(0, viewportWidth - width), x)),
+                Math.Max(0, Math.Min(Math.Max(0, viewportHeight - height), y)), width, height);
+
+        internal static bool Snap(float x, float y, ToolbarRect dock, float scaleX, float scaleY, bool attached)
+        {
+            double dx = (x - dock.X) * Math.Abs(scaleX), dy = (y - dock.Y) * Math.Abs(scaleY);
+            float radius = attached ? 14 : 10;
+            return dx * dx + dy * dy <= radius * radius;
+        }
+
+        // Uniform fit preserves sprite aspect ratios and transforms input with the same matrix.
+        internal static float RasterScale(ToolbarRect source, ToolbarRect target) => source.Empty || target.Empty
+            ? 1 : Math.Min(1, Math.Min(target.Width / source.Width, target.Height / source.Height));
+
+        internal static ToolbarRect FitRaster(ToolbarRect source, ToolbarRect target)
+        {
+            float scale = RasterScale(source, target);
+            return new ToolbarRect(target.X + (target.Width - source.Width * scale) / 2,
+                target.Y + (target.Height - source.Height * scale) / 2,
+                source.Width * scale, source.Height * scale);
         }
 
         // Find the two largest usable footer intervals. The gaps have no visual or hit surface.
@@ -59,43 +78,5 @@ namespace Spectator
             if (right.Width > 0 && left.X > right.X) { var swap = left; left = right; right = swap; }
         }
 
-        // Test the actual painted pieces, not their enclosing rectangle: the date notch stays open.
-        internal static bool Fits(float x, float y, float width, float height, float viewportWidth,
-            float viewportHeight, IList<ToolbarRect> pieces, IList<ToolbarRect> obstacles)
-        {
-            if (x < 0 || y < 0 || x + width > viewportWidth || y + height > viewportHeight) return false;
-            foreach (var piece in pieces)
-                foreach (var obstacle in obstacles)
-                    if (piece.Move(x + piece.X, y + piece.Y).Intersects(obstacle)) return false;
-            return true;
-        }
-
-        internal static bool TryPlace(float desiredX, float desiredY, float width, float height,
-            float viewportWidth, float viewportHeight, IList<ToolbarRect> pieces,
-            IList<ToolbarRect> obstacles, out ToolbarRect result)
-        {
-            float x = Math.Max(0, Math.Min(Math.Max(0, viewportWidth - width), desiredX));
-            float y = Math.Max(0, Math.Min(Math.Max(0, viewportHeight - height), desiredY));
-            result = new ToolbarRect(x, y, width, height);
-            if (Fits(x, y, width, height, viewportWidth, viewportHeight, pieces, obstacles)) return true;
-            // Called only for changed layout. Candidate edges cover multi-obstacle corners as well.
-            var xs = new List<float> { x, 0, viewportWidth - width };
-            var ys = new List<float> { y, 0, viewportHeight - height };
-            foreach (var obstacle in obstacles)
-                foreach (var piece in pieces)
-                {
-                    xs.Add(obstacle.X - piece.Right - Gap); xs.Add(obstacle.Right - piece.X + Gap);
-                    ys.Add(obstacle.Y - piece.Bottom - Gap); ys.Add(obstacle.Bottom - piece.Y + Gap);
-                }
-            double best = double.MaxValue;
-            foreach (float cx in xs)
-                foreach (float cy in ys)
-                {
-                    double score = (cx - x) * (cx - x) + (cy - y) * (cy - y);
-                    if (score >= best || !Fits(cx, cy, width, height, viewportWidth, viewportHeight, pieces, obstacles)) continue;
-                    result = new ToolbarRect(cx, cy, width, height); best = score;
-                }
-            return best != double.MaxValue;
-        }
     }
 }

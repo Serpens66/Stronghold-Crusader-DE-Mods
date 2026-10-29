@@ -29,7 +29,7 @@
     <Reference Include="RedBird.X64"><HintPath>$(ExtenderDir)\RedBird.X64.dll</HintPath></Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Program.cs" />
+    <Compile Include="Program.cs" /><Compile Include="EnemyProximityNativeTests.cs" /><Compile Include="..\..\ExtraFeatures\src\EnemyProximityQuery.cs" />
     <Compile Include="NoKillRewardContractTests.cs" />
     <Compile Include="..\..\ExtraFeatures\src\NoKillRewardHook.cs" />
     <Compile Include="HealerTargetsContractTests.cs" />

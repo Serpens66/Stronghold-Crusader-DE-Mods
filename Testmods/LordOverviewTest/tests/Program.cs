@@ -16,7 +16,7 @@ internal static class Program {
   state.Select(null);state.Select(null);Check(state.Sort(rows)[0].Player==1,"ID ascending restored");
   var values=new long?[]{1,2,3,4,5};var five=new LordRow(8,true,values);values[4]=0;
   state.Select(Metric.GoldAcquired);Check(five.Values[4]==5 && state.Sort(new[]{five})[0].Player==8,"immutable metric snapshot");
-  TestColumns();TestExternalColumns();TestInformation();TestValues();TestMenuAndGestures();
+  TestColumns();TestExternalColumns();TestInformation();TestValues();TestMenuAndGestures();TestPassiveHover();
   var gate=new RefreshGate();for(int i=0;i<39;i++)Check(!gate.Tick(true),"no query on intermediate ticks");Check(gate.Tick(true),"query at tick forty");
   for(int i=0;i<120;i++)Check(!gate.Tick(false),"hidden never samples");
   for(int i=0;i<39;i++)Check(!gate.Tick(true),"hidden resets interval");Check(gate.Tick(true),"one full interval after hidden");
@@ -47,6 +47,26 @@ internal static class Program {
   var sort=new OverviewState();sort.Select(id);Check(sort.Sort(new[]{a,b,c})[0].Player==1,"decimal descending sort uses numbers, not units");sort.Select(id);Check(sort.Sort(new[]{a,b,c}).Select(r=>r.Player).SequenceEqual(new[]{2,1,3}),"decimal ascending keeps unknown last");
   Check(Metrics.Get(id).Format(a.Get(id))=="1.25 m","decimal formatting retains optional units");
   var local=new ColumnSelection();local.Load("Gold,foreign.mod/units");local.MoveTo(id,0);Check(Metrics.Serialize(local.Columns)=="foreign.mod/units,Gold","external ID reorder is stable");
+ }
+ static void TestPassiveHover(){
+  var hover=new OverviewHoverState();
+  Check(!hover.Update("player/1",1,.4,60),"passive portrait respects initial hover delay");
+  Check(!hover.Update("player/1",1.2,.4,60),"pointer staying within a portrait does not open too early");
+  Check(hover.Update("player/1",1.5,.4,60),"passive portrait opens after delay");
+  for(int i=0;i<40;i++)Check(hover.Update("player/1",2+i,.4,60),"data refresh with stable identity does not restart hover");
+  Check(!hover.Update("metric/Fear",43,.4,60),"moving to a header starts a new delay");
+  Check(hover.Update("metric/Fear",43.5,.4,60),"header tooltip becomes visible");
+  Check(!hover.Update(null,44,.4,60),"values and empty table areas close hover");
+  Check(!hover.Update("player/2",45,.4,60),"same screen coordinates with another row reset delay");
+  Check(hover.Update("player/2",45.5,.4,60),"replacement hover target opens");
+  Check(!hover.Update("player/2",106,.4,60) && !hover.Update("player/2",107,.4,60),"sixty-second duration does not immediately reopen");
+  hover.Update(null,108,.4,60);hover.Update("player/2",109,.4,60);Check(hover.Update("player/2",109.5,.4,60),"leaving and reentering permits a new tooltip");
+  hover.Reset();Check(!hover.Update("player/2",110,.4,60),"HUD/menu/focus cleanup invalidates the previous hover");
+  Check(!hover.Update("player/2",.1,.4,60),"clock reset cannot reuse prior timer");
+  Check(TableInteraction.CanEdit(true,true,5,5,2,2),"open menu permits header actions");
+  Check(!TableInteraction.CanEdit(false,true,5,5,2,2),"closed menu cannot sort or reorder");
+  Check(!TableInteraction.CanEdit(true,false,5,5,2,2) && !TableInteraction.CanEdit(true,true,6,5,2,2),"hidden or replaced HUD rejects pending action");
+  Check(!TableInteraction.CanEdit(true,true,5,5,4,2),"closing and reopening menu rejects stale queued sort");
  }
  static void TestInformation(){
   foreach(var metric in Metrics.All){

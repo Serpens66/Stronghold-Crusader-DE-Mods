@@ -54,3 +54,29 @@ All owned statistics popups opt into SharedToolTipSizing with reference element 
 Templates bind every sized property. Settings popups use the same public scaler's preset mode.
 No new native contract, hook, perspective write, serializer or game data source is introduced.
 Actual Noesis rendering and viewport-scale acceptance remain separate from CLI validation.
+
+## Passive viewport table (2026-10-29)
+
+Managed UI audit: the APIShared side-button host belongs to Vanilla's HUD_ObjectivesPanel
+(width 440) in the full IngameUIScreens Grid. The table now owns a separate Canvas sibling,
+spanning that Grid's rows/columns at the same presentation layer, with an explicit binding to
+the extras container's visibility. It does not change that container, its width, clipping or
+Vanilla input state. Canvas measures the table at natural width; only viewport rendering clips.
+
+NoesisView.ProcessEvent consumes MouseDown/MouseUp after a nonempty visual HitTest before
+routed handlers decide Handled. Therefore Background, row identities/cells, lines, symbols
+and closed-mode header buttons are non-hit-testable. No synthetic clicks, input rewriting or
+native hooks are used. The gear shares the identity header; editable headers exist only while
+the column popup is open. A menu epoch additionally rejects queued sorts after close/reopen.
+
+Passive portrait/symbol/gear popups are manually opened ToolTips with PlacementTarget and
+IsHitTestVisible=false, using public SharedToolTipSizing. APIShared PresentationEvents.GuiChecks
+Post supplies the existing Unity-thread cadence, once per frame and dormant when hidden.
+Its work is pointer state, cached screen bounds and hover delay, never statistical data.
+Statistics remain opening/40-tick samples; cells update in place and never reset hover solely
+because a numeric value changed. The original popup service remains on menu controls/crown.
+
+Real unmodified assemblies verified at compilation: Noesis Canvas/Grid spans, PointToScreen /
+PointFromScreen, ToolTip placement and public Unity InputLegacyModule accesses. No publicized
+assembly or new native DLL contract. Native tooltip display, click-through, foreign popup
+occlusion and screen-edge clipping still require actual game acceptance at the three resolutions.
