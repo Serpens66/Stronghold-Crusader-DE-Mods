@@ -91,13 +91,13 @@ Ziel: Mods definieren zusätzliche Wegfindungsregeln (Feuer ausweichen, Gefahren
     - Prüfung: je Tick jede 40. Einheiten-ID, für 8 Ticks nach neuen Regelkacheln jede 8., dazu eine heiße Liste für Einheiten mit Regelkachel weiter voraus. Je Prüfung höchstens 40 Wegschritte gegen eine Bitkarte; ohne Regelkacheln kehrt der Wächter sofort zurück.
     - Umweg: `196280` zum unveränderten Ziel (dieselbe Grundfunktion, die Vanillas Einheitenzustände nutzen; Befehl und Zustand bleiben). Der neue Weg gilt, wenn er erlaubt lang ist und in den nächsten 40 Schritten keine Regelkachel hat.
     - Sonst Halt auf der nächsten Kachel. Gruppenmitglieder (gleicher Stamm, Ziel in derselben 16×16-Zelle) übernehmen eine Warteentscheidung ohne eigene Suche. Alle 40 Ticks prüft der Kern, ob ein freier Weg existiert; nach der Wartezeit läuft die Einheit weiter. Ein neuer Befehl beendet das Warten.
-  - Verbraucher `FireRouteRules` (Option `AvoidFire`): brennende Pechkacheln (`PitchState.OnFire`) als Aufschlag 254 für alle Spieler, Regel 3 / 50 % / 10 Schritte / 400 Ticks.
+  - Verbraucher `FireRouteRules` (Option `AvoidFire`): Kacheln mit Vanillas Feuer-Effekt (Typ 9 im Effektmanager, Baseline `FIRE_EFFECTS.md`; deckt Pech, Brandgeschosse und brennende Gebäude ab) als Aufschlag 254 für alle Spieler, Regel 3 / 50 % / 10 Schritte / 400 Ticks. `PitchState.OnFire` ist nur der Zündauslöser (pf-fire-2: nach 1,5 s verschwunden).
+  - pf-fire-3 (Pech gezündet bei 15 s, dazu zwei Assassinen-Angriffe): bis zu 65 Feuerkacheln über etwa 13 s; 31 Auslösungen, 10 Umwege, 21 Halte (9 davon aus der Truppentscheidung übernommen), 3 Weiterläufe bei freiem Weg, 4 nach Ablauf, 13 durch neue KI-Befehle beendet. Kosten 7–23 ms je 1,5-s-Fenster, höchstens 2,2 ms in einem Tick. Der Restweg ab der nächsten Kachel endete in etwa 98 % von rund 100.000 Prüfungen beim Bewegungsziel.
   - Integrationstest gegen den echten Kern mit Gegenprobe (Umweg, Halt, Weiterlaufen, Ruhe ohne Regeln).
 - Offen:
-  - Brennende Gebäudegrundflächen (Brandzähler `r_OnFireTicks`), nach einem Vanilla-Audit, ob Einheiten neben brennenden Gebäuden Schaden nehmen.
   - Wartende Einheiten werden nicht im Spielstand gespeichert: Nach dem Laden bleiben sie stehen, bis ein Befehl kommt (KI-Einheiten planen selbst neu).
   - Ausnahme „Ziel liegt auf verbotener Kachel“: heute unerreichbar, dann Vanilla.
-  - Ingame-Prüfung mit einer echten Regel (pf-fire-2).
+  - Sichtprüfung durch den Nutzer: Halt und Weiterlaufen sehen im Spiel natürlich aus (kein Ruckeln beim Halt mitten im Schritt).
 
 ## Regeln (gemeinsam für alle Suchen)
 
