@@ -156,6 +156,7 @@ namespace MoatMove
                 // as VisitNeighbour (110-150 ms gaps were per-neighbour lookups, pf-iter-11).
                 FastTraversalCache words = cacheIncludesEnemyRoutes || DisableWordReachability ? null : ReachabilityWords(runtime.cachePlayerId);
                 int[] tileOf = words != null ? AnchorNodeTiles() : null;
+                if (words != null && targetCell >= 0 && ProvesUnreachedByExhaustedSearch(words, targetCell)) return;
                 // A discovered ground route is already a conclusive negative answer to
                 // "requires moat". Otherwise exhaust the frontier before returning no route.
                 while (reachabilityQueueHead < reachabilityQueueTail &&
@@ -186,6 +187,7 @@ namespace MoatMove
                 }
                 cachedReachabilityExpandedNodes = reachabilityQueueHead;
                 runtime.cachedRouteSummary.TraversedRegionCount = runtime.cachedTraversedRegionCount;
+                if (words != null && reachabilityQueueHead >= reachabilityQueueTail) KeepExhaustedSearch(words);
             }
             catch { runtime.cacheMapEpoch = -1; throw; }
             finally
@@ -260,6 +262,50 @@ namespace MoatMove
                 return;
             }
             EnqueueNeighbour(nextCell, nextTileId, currentState, edgeKind, structuralEdge, currentDistance, ref queueTail);
+        }
+
+        // The last FriendlyOnly search per player that ran out: everything reachable from its start.
+        // A later start it visited in ground state reaches a subset (any path from there extends a
+        // path from the old start with the same state changes), so a target it never visited in any
+        // state is unreachable without exhausting a new search. AI diggers asked for the same
+        // unreachable moat target every few ticks from nearby starts, each search 16-57 ms over
+        // 236k-473k cells (pf-iter-19). Only a word change at a visited cell can enlarge the set, so
+        // such a change (or dropped words) discards the entry.
+        private sealed class ExhaustedReachability { internal long Forgets; internal ulong[] Ground, Any; }
+        private readonly ExhaustedReachability[] exhaustedReachability = new ExhaustedReachability[9];
+        internal long ExhaustedReachabilityHits, ExhaustedReachabilityKept;
+        private static bool Has(ulong[] bits, int cell) => (bits[cell >> 6] & (1UL << (cell & 63))) != 0;
+        private bool ProvesUnreachedByExhaustedSearch(FastTraversalCache words, int target)
+        {
+            int player = runtime.cachePlayerId, start = runtime.cacheStartY * MapWidth + runtime.cacheStartX;
+            ExhaustedReachability kept = (uint)player <= 8 ? exhaustedReachability[player] : null;
+            if (kept == null || kept.Forgets != words.Forgets || (uint)target >= (uint)MapCellCount || (uint)start >= (uint)MapCellCount ||
+                visitedWithoutMoat[start] != gridGeneration || !Has(kept.Ground, start) || Has(kept.Any, target)) return false;
+            ExhaustedReachabilityHits++;
+            return true;
+        }
+        private void KeepExhaustedSearch(FastTraversalCache words)
+        {
+            int player = runtime.cachePlayerId;
+            if ((uint)player > 8) return;
+            ExhaustedReachability kept = exhaustedReachability[player] ?? (exhaustedReachability[player] = new ExhaustedReachability
+            { Ground = new ulong[(MapCellCount + 63) / 64], Any = new ulong[(MapCellCount + 63) / 64] });
+            Array.Clear(kept.Ground, 0, kept.Ground.Length); Array.Clear(kept.Any, 0, kept.Any.Length);
+            for (int i = 0; i < reachabilityQueueTail; i++)
+            {
+                int cell = queue[i] & RouteCellMask;
+                kept.Any[cell >> 6] |= 1UL << (cell & 63);
+                if ((queue[i] >> RouteStateShift) == GroundRouteState) kept.Ground[cell >> 6] |= 1UL << (cell & 63);
+            }
+            kept.Forgets = words.Forgets; ExhaustedReachabilityKept++;
+        }
+        // Changed reachability words of a player: an entry whose search visited a changed cell is discarded.
+        private void InvalidateExhaustedReachability(int player, IReadOnlyCollection<int> changed)
+        {
+            ExhaustedReachability kept = (uint)player <= 8 ? exhaustedReachability[player] : null;
+            if (kept == null || changed.Count == 0) return;
+            foreach (int cell in changed)
+                if ((uint)cell < (uint)MapCellCount && Has(kept.Any, cell)) { exhaustedReachability[player] = null; return; }
         }
 
         // Test hook: the per-neighbour path also for FriendlyOnly searches (equality test).

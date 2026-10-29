@@ -199,6 +199,9 @@ namespace MoatMove
         private int gridGeneration, cacheMapEpoch = -1, cachePlayerId, cacheStartX, cacheStartY;
         private bool cacheIncludesEnemyRoutes;
         internal bool DisableWordReachability;
+        private sealed class ExhaustedReachability { internal long Forgets; internal ulong[] Ground, Any; }
+        private readonly ExhaustedReachability[] exhaustedReachability = new ExhaustedReachability[9];
+        internal long ExhaustedReachabilityHits, ExhaustedReachabilityKept;
         private int reachabilityQueueHead, reachabilityQueueTail, reachabilityTick;
         private object reachabilityOwner;
         private readonly Dictionary<long, bool> nativeGroundDecisions = new Dictionary<long, bool>();

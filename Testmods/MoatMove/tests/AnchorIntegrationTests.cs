@@ -339,6 +339,22 @@ namespace MoatMove
                 }
                 string slowSearch = ReachabilitySnapshot(true), fastSearch = ReachabilitySnapshot(false);
                 Check(slowSearch.Split(' ').Length > 100 && fastSearch == slowSearch, "the word-based reachability search differs from the per-neighbour search");
+                // An exhausted search answers later starts it visited: a target it never reached is
+                // unreachable without a second exhaustive search; a reachable target is still searched;
+                // a word change at a visited cell discards it.
+                EnsureReachabilityMap(1, 10, 10); AdvanceReachabilityMap();
+                long hits = ExhaustedReachabilityHits;
+                EnsureReachabilityMap(1, 11, 10, deferTraversal: true);
+                AdvanceReachabilityMap(targetCell: 10 * MapWidth + 190);
+                Check(ExhaustedReachabilityHits == hits + 1 && reachabilityQueueHead < reachabilityQueueTail && visitedWithoutMoat[10 * MapWidth + 190] != gridGeneration,
+                    "an unreachable target is searched again from a start the exhausted search visited");
+                AdvanceReachabilityMap(targetCell: 10 * MapWidth + 150);
+                Check(ExhaustedReachabilityHits == hits + 1 && (visitedWithMoat[10 * MapWidth + 150] == gridGeneration || visitedWithoutMoat[10 * MapWidth + 150] == gridGeneration),
+                    "a reachable target was answered unreachable from the exhausted search");
+                int visitedTile = api.GetTileId(170, 10);
+                nativeMovementMasks[visitedTile] = 0x40; MarkFastTopologyTile(visitedTile); AdvanceFastMarkEpoch(); RefreshReachabilityWords(1);
+                Check(exhaustedReachability[1] == null, "a word change at a visited cell keeps the exhausted search");
+                nativeMovementMasks[visitedTile] = 0x44; MarkFastTopologyTile(visitedTile); AdvanceFastMarkEpoch(); RefreshReachabilityWords(1);
 
                 // A resweep request during a running round extends it from the cursor instead of
                 // restarting at node 0, so frequent requests still reach every node.
