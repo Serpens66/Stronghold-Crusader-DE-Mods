@@ -79,11 +79,21 @@ namespace MoatMove
         // Managed reachability searches per owner kind: advances, expanded cells, time, longest advance.
         private string reachabilityOwnerKind = "unscoped";
         private readonly Dictionary<string, long[]> reachabilityByOwner = new Dictionary<string, long[]>();
-        private void RecordReachabilityAdvance(long elapsed, int expanded)
+        private int reachabilitySlowLogs, reachabilitySlowTick = -1, reachabilitySlowInTick;
+        private void RecordReachabilityAdvance(long elapsed, int expanded, int targetCell, int targetRegion, bool requireMoat, bool exhausted)
         {
             if (!reachabilityByOwner.TryGetValue(reachabilityOwnerKind, out long[] row))
             { if (reachabilityByOwner.Count >= 16) return; reachabilityByOwner[reachabilityOwnerKind] = row = new long[4]; }
             row[0]++; row[1] += expanded; row[2] += elapsed; row[3] = Math.Max(row[3], elapsed);
+            // Slow advances (> 15 ms), bounded per map: query shape and whether the frontier ran out.
+            if (elapsed * 1000 < 15 * System.Diagnostics.Stopwatch.Frequency || reachabilitySlowLogs >= 40) return;
+            int tick = CaptureCurrentGameTick();
+            if (tick != reachabilitySlowTick) { reachabilitySlowTick = tick; reachabilitySlowInTick = 0; }
+            reachabilitySlowLogs++; reachabilitySlowInTick++;
+            Shared.DebugLogHelper.LogInfo(log, $"MoatMove reachability-slow owner={reachabilityOwnerKind} player={runtime.cachePlayerId} " +
+                $"start={runtime.cacheStartX},{runtime.cacheStartY} ms={AnchorMs(elapsed)} expanded={expanded} totalExpanded={reachabilityQueueHead} " +
+                $"targetCell={(targetCell < 0 ? "none" : (targetCell % MapWidth) + "," + (targetCell / MapWidth))} targetRegion={targetRegion} requireMoat={requireMoat} " +
+                $"exhausted={exhausted} tick={tick} slowInTick={reachabilitySlowInTick}.");
         }
         private string FormatReachabilityByOwner()
         {
@@ -233,7 +243,7 @@ namespace MoatMove
             Array.Clear(anchorMaps, 0, anchorMaps.Length); anchorAccessKnown = false; anchorShared = null; anchorBlockedUnion.Clear();
             Array.Clear(reachWords, 0, reachWords.Length);
             anchorWatchTiles = null; anchorWatchBytes = null;
-            anchorPlayersRequested = false; anchorUnreachedLogs = 0; anchorUnreachableLogs = 0; anchorEndedUnreached = 0; anchorPortalCount = -1;
+            anchorPlayersRequested = false; anchorUnreachedLogs = 0; anchorUnreachableLogs = 0; reachabilitySlowLogs = 0; anchorEndedUnreached = 0; anchorPortalCount = -1;
             for (int p = 0; p < anchorMaskNext.Length; p++) { anchorMaskNext[p] = -1; anchorBlocked[p]?.Clear(); }
             anchorSweepCursor = -1; anchorSweepLeft = 0; anchorSweepRequestStart = anchorSweptSinceRequest = 0;
         }

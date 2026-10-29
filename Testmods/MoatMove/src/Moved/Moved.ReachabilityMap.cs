@@ -191,7 +191,8 @@ namespace MoatMove
             finally
             {
                 runtime.weightedMoatRoutePlanner.EndReachabilityProbe();
-                RecordReachabilityAdvance(System.Diagnostics.Stopwatch.GetTimestamp() - advanceStarted, reachabilityQueueHead - headBefore);
+                RecordReachabilityAdvance(System.Diagnostics.Stopwatch.GetTimestamp() - advanceStarted, reachabilityQueueHead - headBefore,
+                    targetCell, targetRegion, requireMoat, reachabilityQueueHead >= reachabilityQueueTail);
             }
         }
         internal void EnsureReachabilityStorage()
