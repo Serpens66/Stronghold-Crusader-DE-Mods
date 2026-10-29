@@ -926,6 +926,21 @@ namespace MoatMove
         // path), Vanilla's ground mode, the unit's own target and plans without special endpoints; the
         // route passes the same live audit and buffer publication as anchor ground routes.
         private long anchorSingleRoutes, anchorSingleAssassinRoutes, anchorSingleUnreachable, anchorSingleRejects, anchorSingleTicks;
+
+        // Whether F4930 (FBCB9319) would start this builder call with a plain ground search the core's ground
+        // profile reproduces: ground mode (+0x84, +0x88 clear), or the Assassin profile (+0x88) with +0x80 and
+        // +0x94 clear and start and target in one path region, where F4930 runs DA590's ground breadth-first
+        // search first (Vanilla audit 30.10.2026, PathfindingRoadmap.md; ~110 ms per attack burst in
+        // pf-iter-31). Without a core route the caller keeps Vanilla's DA590 -> D9C40 chain and the weighted
+        // climb search unchanged; +0x94 (second pass through DB650) and different regions always keep Vanilla.
+        private bool AnchorSingleSearchReplaceable(byte* manager, int startTile, int targetTile)
+        {
+            if (*(int*)(manager + 0x84) != 0) return false;
+            if (*(int*)(manager + 0x88) == 0) return true;
+            return *(int*)(manager + 0x80) == 0 && *(int*)(manager + 0x94) == 0 &&
+                IsValidTileId(startTile) && IsValidTileId(targetTile) &&
+                runtime.pathRegionGrid[startTile] == runtime.pathRegionGrid[targetTile];
+        }
         private bool TryPublishAnchorSingle(IntPtr pathManager, PlanScope plan, bool reconstruction, out int published)
         {
             published = 0;
@@ -933,19 +948,12 @@ namespace MoatMove
             if (!settings.AnchorSingleMoves || !anchorAvailable || reconstruction || frame == null || !runtime.RequiredOnlyMode ||
                 pathManager != runtime.nativePathManager) return false;
             byte* manager = (byte*)pathManager.ToPointer();
-            if (*(int*)(manager + 0x84) != 0) return false;
             int startX = *(int*)(manager + 0x08), startY = *(int*)(manager + 0x0C), targetX = *(int*)(manager + 0x10), targetY = *(int*)(manager + 0x14);
             if (targetX != frame.Args.TileX || targetY != frame.Args.TileY ||
                 (uint)startX >= MapWidth || (uint)startY >= MapWidth || (uint)targetX >= MapWidth || (uint)targetY >= MapWidth) return false;
-            // Assassin profile (+0x88): with +0x80 and +0x94 clear and start and target in one path region,
-            // F4930's first search is DA590's ground breadth-first search (FBCB9319; Vanilla audit
-            // 30.10.2026, PathfindingRoadmap.md), the same ground edges as the core's ground profile.
-            // A core ground route replaces it (DA590 cost ~110 ms per attack burst, pf-iter-31); without
-            // one, Vanilla's DA590 -> D9C40 chain and the weighted climb search run unchanged.
             bool assassin = *(int*)(manager + 0x88) != 0;
-            if (assassin && (*(int*)(manager + 0x80) != 0 || *(int*)(manager + 0x94) != 0 ||
-                runtime.pathRegionGrid[GameTileManagerAPI.Instance.GetTileId(startX, startY)] !=
-                runtime.pathRegionGrid[GameTileManagerAPI.Instance.GetTileId(targetX, targetY)])) return false;
+            if (!AnchorSingleSearchReplaceable(manager, GameTileManagerAPI.Instance.GetTileId(startX, startY),
+                GameTileManagerAPI.Instance.GetTileId(targetX, targetY))) return false;
             if (plan != null && (plan.ExactRouteEndpoints || plan.MoatWorkMovement || plan.AttackMovementQualified ||
                 (plan.ModeObserved && plan.VanillaModeDetected))) return false;
             int unitId = frame.Args.UnitId;

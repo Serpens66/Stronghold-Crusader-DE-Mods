@@ -77,6 +77,27 @@ namespace MoatMove
             }
         }
 
+        // Which builder calls the core may answer (F4930's first search is a plain ground search): ground
+        // mode, and Assassins only within one path region with +0x80 and +0x94 clear. Corridor regions:
+        // x < 13 is region 1, x > 135 region 2.
+        private void SingleSearchReplaceableTests()
+        {
+            var api = GameTileManagerAPI.Instance;
+            int west = api.GetTileId(11, 10), east = api.GetTileId(140, 10), eastFar = api.GetTileId(170, 10);
+            byte* manager = stackalloc byte[0x100];
+            for (int i = 0; i < 0x100; i++) manager[i] = 0;
+            Check(AnchorSingleSearchReplaceable(manager, west, east), "a ground-mode builder call is not replaceable");
+            *(int*)(manager + 0x84) = 1;
+            Check(!AnchorSingleSearchReplaceable(manager, east, eastFar), "Vanilla's moat mode was replaced");
+            *(int*)(manager + 0x84) = 0; *(int*)(manager + 0x88) = 1;
+            Check(AnchorSingleSearchReplaceable(manager, east, eastFar), "an Assassin request within one region is not replaceable");
+            Check(!AnchorSingleSearchReplaceable(manager, west, east), "an Assassin request across regions (D9C40 first) was replaced");
+            *(int*)(manager + 0x94) = 1;
+            Check(!AnchorSingleSearchReplaceable(manager, east, eastFar), "an Assassin request with the DB650 second pass was replaced");
+            *(int*)(manager + 0x94) = 0; *(int*)(manager + 0x80) = 1;
+            Check(!AnchorSingleSearchReplaceable(manager, east, eastFar), "an Assassin request with +0x80 was replaced");
+        }
+
         // Writes a stored route starting at (x,y) and the move target into unit id's record and buffer.
         private void Route(int id, int x, int y, int[] steps, int targetX, int targetY)
         {
@@ -421,6 +442,7 @@ namespace MoatMove
                 Check(AnchorNative.mma_task_status(anchorContext, penaltyTask) == AnchorNative.Stale, "a removed Penalty rule stays in the core");
                 ReleaseAnchorTask(penaltyTask);
                 ReplanWatchTests(ref ticks);
+                SingleSearchReplaceableTests();
 
                 // The word-based reachability search (cached words, node tile table) visits the same
                 // cells with the same distances and summary as the per-neighbour search.
