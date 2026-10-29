@@ -25,8 +25,17 @@ Native DLL SHA-256: `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2
 
 - `0x51890D0` is referenced by more than 40 native functions (most often `0xD8CE0`, `0xE0530`, `0xE6330`). Observation `pf-iter-10`: next to a castle gate (tile 153,501, buildings 67/37) the byte changed from `0xF1` to `0xF5` without a call of the tile update `0xD90D0`. The writer is not identified.
 
+## 0xDAA50 and 0xD86F0: direction byte rebuild
+
+- `0xDAA50(manager)` clears `manager+0x155F34` and calls `0xD86F0(manager, *(short*)(0x3AAE2A4 + 2*i), i)` for `i` from 0 to `0x4E51F` (320,800 entries). It then sets `0x67E6424 = 1` and calls `0xE04B0(manager)` when `manager+0x155F34 > 0`.
+- Callers: `0x5BC70`, `0x71670`, `0x87460`, `0x87D10`, `0xE1110` and `0xE1640`. `0xE1640` is the route finishing step of `0xF4930`.
+- `0xD86F0` first stores 0 into the tile's direction byte `0x51890D0[tile]`. It derives the new byte from the tile tables `0x4DDD350`, `0x48F71B0`, `0x4B6AA50` (building, via `c_game_building_get_type_height_offset`) and `0x5001730`, plus the neighbours' entries, and stores the final byte at the end.
+- In some branches it appends the tile to the manager list at `+0x1CAB4` and increments `+0x155F34`. It writes no other table.
+- Consequence: a call of `0xDAA50` changes only direction bytes (and the follow-up of `0xE04B0`, not audited here). It does not change height, building or moat data.
+
 ## Consequences in MoatMove anchor mode [mod integration]
 
 - Ground-only profiles of the anchor core use the ground directions (FastTraversalCache bits 8..15). These are BugfixesAndQoL's edge rules without the moat-mode height correction, which DAFD0's rules require only for moat routes. Before this change, keep, tower and wall tiles had no ground edges (`pf-iter-7`: rule `height` with native byte `0xFF`), and 4,974 units per run fell back to Vanilla's builder.
 - The ground rules correspond to `0xDA590`. `0xDAAC0`'s extra tile test is not applied. Published routes are a subset of `0xDA590`'s graph and each is audited live.
 - A chunked watch compares `0x51890D0` with a copy (40,000 tiles per simulation tick) and marks changed tiles like a tile report.
+- Once the watch has recorded every byte, BugfixesAndQoL's `0xDAA50` observer no longer forces a full mask resweep. It reports "direction bytes only" (`InvalidateFastMoatDirections`), and the watch picks up the changes within one round.

@@ -11,18 +11,24 @@ Stand 29.10.2026. Ziel des Nutzers: alle Wegfindungen der Mods schneller und mit
 
 Save `test_stresstest4.sav`, 180 s Lauf nach Warmup, `tools/Run-PathfindingIteration.ps1` und `tools/Analyze-PathfindingRun.ps1` (Lücken = Simulationstick > 100 ms nach dem Kartenstart, ohne Pausen). Logs unter `Testmods/MoatMove/.local/runs/`.
 
-| Lauf | Lücken | davon ≥ 200 ms | Maximum | Behobene Hauptursache für den nächsten Lauf |
-|---|---|---|---|---|
-| pf-base-1 | 16 | – | 647 ms | – |
-| pf-iter-2 | 51 | 12 | 533 ms | kachelgenaue Markierung, gebündelte Abfragen, Grundmaske |
-| pf-iter-3 | 41 | 8 | 510 ms | Erreichbarkeitswörter, begrenzter Refresh |
-| pf-iter-4 | 19 | 4 | 628 ms (Ladetick) | Closure je Aufruf in `ReachabilityWords`/`AnchorTraversal` (GC 24 %), erschöpfte Unteranker beweisen Unerreichbarkeit |
-| pf-iter-5 | 10 | 4 | 521 ms (Ladetick) | Unteranker dünn gespeichert statt Vollkarten-Kopie (Abfragezeit 4,1 s → 0,24 s) |
-| pf-iter-6 | 10 | 5 | 478 ms (Ladetick) | nur Diagnose |
+| Lauf | Lücken | im Spiel (> 5 s nach Kartenstart) | davon ≥ 200 ms | größte im Spiel | Danach behobene Hauptursache |
+|---|---|---|---|---|---|
+| pf-base-1 | 16 | 12 | 9 | 647 ms | – |
+| pf-iter-2 | 51 | 48 | 11 | 343 ms | kachelgenaue Markierung, gebündelte Abfragen, Grundmaske |
+| pf-iter-3 | 41 | 38 | 7 | 333 ms | Erreichbarkeitswörter, begrenzter Refresh |
+| pf-iter-4 | 19 | 16 | 3 | 325 ms | Closure je Aufruf in `ReachabilityWords`/`AnchorTraversal` (GC 24 %), erschöpfte Unteranker beweisen Unerreichbarkeit |
+| pf-iter-5 | 10 | 7 | 3 | 347 ms | Unteranker dünn gespeichert statt Vollkarten-Kopie (Abfragezeit 4,1 s → 0,24 s) |
+| pf-iter-6 | 10 | 7 | 3 | 410 ms | nur Diagnose (Vanilla nach „unerreichbar“) |
+| pf-iter-7 | 9 | 6 | 3 | 332 ms | Boden-Profile mit `DA590`-Kanten statt Grabenmodus-Höhenregel; Gräber weichen auf die Bodenaufgabe aus |
+| pf-iter-8 | 9 | 6 | 1 | 216 ms | Erreichbarkeitswörter aus der Ankermaske; Refresh ohne Sortierung |
+| pf-iter-9 | 8 | 5 | 1 | 235 ms | nur Diagnose (Vanillas Route gegen die Maske) |
+| pf-iter-10 | 7 | 4 | 1 | 218 ms | Wächter für native Richtungsbytes (unbemeldete Torwechsel) |
+| pf-iter-11 | 10 | 7 | 0 | 152 ms | 3×3-Markierung je Bytewechsel; wortbasierte Erreichbarkeitssuche |
+| pf-iter-12 | 5 | 2 | 0 | 119 ms | Hauptfeld-Cache im Kern (Maskenrevision) |
 
 Die größte Lücke liegt seit pf-iter-4 im ersten Tick nach dem Laden (Erstinitialisierung aller Mods, ohne Wegfindungs-Samples); sie ist ein Kartenstart-Thema.
 
-Befund pf-iter-6: Die verbleibenden Spitzen von 285–410 ms bestehen aus Vanillas Builder (`F4930` → `DA590`) und Hauptfeldern (`mma_step`). Alle 4.974 Einheiten, die der Kern als unerreichbar meldete, bekamen von Vanilla eine Route zum selben Ziel. Start oder Zielplatz hatten dabei keine Kante in der Ankermaske (Wort `0xFF000000`): Bergfried/Lagerplatz, Türme, Mauern. `DA590` sucht nur über die Richtungsbits von `0x51890D0`; das BFQoL-Prädikat prüft zusätzlich Höhe, Torrichtlinie und Grabenbesitz. Die Ursache je Richtung wird in pf-iter-7 gemessen (`anchor-unreachable-found`).
+Befund pf-iter-6: Die verbleibenden Spitzen von 285–410 ms bestehen aus Vanillas Builder (`F4930` → `DA590`) und Hauptfeldern (`mma_step`). Alle 4.974 Einheiten, die der Kern als unerreichbar meldete, bekamen von Vanilla eine Route zum selben Ziel. Start oder Zielplatz hatten dabei keine Kante in der Ankermaske (Wort `0xFF000000`): Bergfried/Lagerplatz, Türme, Mauern. `DA590` sucht nur über die Richtungsbits von `0x51890D0`; das BFQoL-Prädikat prüft zusätzlich Höhe, Torrichtlinie und Grabenbesitz. Ergebnis pf-iter-7: In allen Stichproben lehnte die Höhenkorrektur des Grabenmodus (`DAFD0`) die Kante ab, obwohl das native Byte `0xFF` war. Seit pf-iter-8 nutzen Boden-Profile die Boden-Bits mit `DA590`-Regeln (Vanilla-Builder in Anker-Bewegungen 5.028 → 466). pf-iter-10: Die restlichen Fälle waren veraltete Wörter an Burgtoren, deren Richtungsbyte ohne Kachelmeldung wechselt; der Bytewächter senkte sie auf 39 je Lauf. Details zu `F4930`/`DAAC0`/`DA590` in der Native-Baseline (`GROUND_ROUTE_BUILDERS.md`).
 
 ## Kandidaten, nach Nutzen geordnet
 
