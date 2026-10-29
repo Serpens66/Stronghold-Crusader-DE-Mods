@@ -83,6 +83,24 @@ namespace MoatMove
                             Check(cached == live && (!live || wet == (kind != MoatTraversalEdgeKind.Ground) && structure == liveStructure),
                                 $"reachability word differs from the live predicate at {x},{y} direction {d}");
                         }
+                // Seeded from the anchor mask: the same answers, also next to a gate the mask closes.
+                nativeBuildingLayer[gateTile] = 4242;
+                anchorBlocked[2] = new System.Collections.Generic.HashSet<int> { 4242 };
+                anchorMaps[2] = PlayerCache(2, false);
+                for (int y = 8; y <= 12; y++) for (int x = 8; x <= 182; x++) anchorMaps[2].Word(y * MapWidth + x);
+                FastTraversalCache seededReach = ReachabilityWords(2);
+                for (int y = 9; y <= 11; y++)
+                    for (int x = 9; x <= 181; x++)
+                        for (int d = 0; d < 8; d++)
+                        {
+                            int nx = x + WeightedMoatRoutePlanner.DirectionX[d], ny = y + WeightedMoatRoutePlanner.DirectionY[d];
+                            bool live = weightedMoatRoutePlanner.TryGetTraversalEdge(2, x, y, api.GetTileId(x, y), nx, ny, api.GetTileId(nx, ny), d,
+                                false, false, MoatTraversalPolicy.FriendlyOnly, out _, out _);
+                            Check(seededReach.Edge(y * MapWidth + x, ny * MapWidth + nx, d, false, out _, out _) == live,
+                                $"seeded reachability word differs from the live predicate at {x},{y} direction {d}");
+                        }
+                Check(seededReach.Seeded > 0, "no reachability word was taken from the anchor mask");
+                nativeBuildingLayer[gateTile] = (ushort)savedLayer; anchorBlocked[2] = null; anchorMaps[2] = null; reachWords[2] = null;
                 ResetAnchorMap();
                 // The scheduler scans unit owners on the first tick and every 256 ticks.
                 Check(AnchorPlayerScanDue(1), "first anchor tick does not scan unit owners");

@@ -200,7 +200,29 @@ namespace MoatMove
         private FastTraversalCache CreateReachabilityWords(int player) =>
             reachWords[player] = new FastTraversalCache(MapWidth, MapWidth,
                 (int a, int b, int direction, bool ground, out bool wet, out bool structure) =>
-                    LiveEdge(player, a, b, direction, ground, null, out wet, out structure), GroundEqualsFriendly);
+                    LiveEdge(player, a, b, direction, ground, null, out wet, out structure), GroundEqualsFriendly)
+            { Seed = (int node, out uint word) => SeedReachabilityWord(player, node, out word) };
+
+        // The anchor mask evaluates the same LiveEdge and additionally closes the player's blocked
+        // gate buildings; away from those its clean word is the reachability word. A first search
+        // over a whole component otherwise read every node live (216 ms gap, pf-iter-8).
+        private bool SeedReachabilityWord(int player, int node, out uint word)
+        {
+            word = 0;
+            FastTraversalCache anchor = anchorMaps[player];
+            if (anchor == null || !anchor.TryGetClean(node, out word)) return false;
+            HashSet<int> blocked = anchorBlocked[player];
+            if (blocked == null || blocked.Count == 0) return true;
+            int x = node % MapWidth, y = node / MapWidth;
+            GameTileManagerAPI tiles = GameTileManagerAPI.Instance;
+            for (int ny = Math.Max(0, y - 1); ny <= Math.Min(MapWidth - 1, y + 1); ny++)
+                for (int nx = Math.Max(0, x - 1); nx <= Math.Min(MapWidth - 1, x + 1); nx++)
+                {
+                    int tile = tiles.GetTileId(nx, ny);
+                    if (IsValidTileId(tile) && blocked.Contains(runtime.nativeBuildingLayer[tile])) return false;
+                }
+            return true;
+        }
         private void RefreshReachabilityWords(int player)
         {
             FastTraversalCache map = ReachabilityWords(player);

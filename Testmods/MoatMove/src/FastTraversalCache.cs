@@ -8,6 +8,8 @@ namespace MoatMove
     // True when the GroundOnly answer of an edge equals its FriendlyOnly answer (no completed
     // moat on either endpoint or, for diagonals, on either corner tile).
     internal delegate bool FastGroundEqualsFriendly(int from, int to, int direction);
+    // A word another cache already holds for the same predicate (first read of a node only).
+    internal delegate bool FastWordSeed(int node, out uint word);
     // True when a node's complete word is the same for every player (see FastSharedWords).
     internal delegate bool FastPlayerNeutral(int node);
 
@@ -42,8 +44,9 @@ namespace MoatMove
         private readonly uint[] words;
         private readonly byte[] known;
         private readonly List<int> knownNodes = new List<int>();
-        // Dirty nodes: a flag per node and an insertion list, sorted once per Refresh (same
-        // ascending order as before). Bursts of tile reports mark the same nodes many times; a
+        // Dirty nodes: a flag per node and an insertion list, re-read in marking order (deterministic;
+        // no consumer depends on node order; the sort was a visible part of a 113 ms tile-burst tick, pf-iter-8).
+        // Bursts of tile reports mark the same nodes many times; a
         // sorted set paid a tree insert and an allocation per mark (2.2 s stall, 29.10.2026).
         private readonly byte[] dirtyFlags;
         private readonly List<int> dirty = new List<int>();
@@ -57,13 +60,28 @@ namespace MoatMove
         }
         internal long Revision { get; private set; }
         internal long EdgeEvaluations { get; private set; }
+        internal long Seeded { get; private set; }
+        // Optional source for a node's first word; refreshes of marked nodes always read live.
+        internal FastWordSeed Seed { get; set; }
+
+        // The current word of a node this cache holds and has not marked for a re-read.
+        internal bool TryGetClean(int node, out uint word)
+        {
+            word = 0;
+            if ((uint)node >= words.Length || known[node] == 0 || allDirty || dirtyFlags[node] != 0) return false;
+            word = words[node]; return true;
+        }
 
         internal bool Edge(int from, int to, int direction, bool ground, out bool wet, out bool structure)
         {
             wet = structure = false;
             if ((uint)from >= words.Length || (uint)to >= words.Length || (uint)direction >= 8) return false;
             if (known[from] == 0)
-            { words[from] = Read(from); known[from] = 1; knownNodes.Add(from); }
+            {
+                FastWordSeed seed = Seed;
+                if (seed != null && seed(from, out uint seeded)) { words[from] = seeded; Seeded++; } else words[from] = Read(from);
+                known[from] = 1; knownNodes.Add(from);
+            }
             uint word = words[from];
             wet = (word & (1U << (16 + direction))) != 0;
             structure = (word & (1U << (24 + direction))) != 0;
@@ -139,13 +157,12 @@ namespace MoatMove
 
         internal int DirtyCount => dirty.Count;
 
-        // maximum > 0 re-reads at most that many marked nodes (lowest first); the others stay marked
+        // maximum > 0 re-reads at most that many marked nodes (earliest marked first); the others stay marked
         // for the next call. A full mark (MarkAll) is always processed completely.
         internal IReadOnlyCollection<int> Refresh(int maximum = 0)
         {
             if (!allDirty && dirty.Count == 0) return Array.Empty<int>();
             var changed = new List<int>();
-            if (!allDirty) dirty.Sort();
             List<int> candidates = allDirty ? knownNodes : dirty;
             int count = allDirty || maximum <= 0 ? candidates.Count : Math.Min(maximum, candidates.Count);
             for (int i = 0; i < count; i++)
