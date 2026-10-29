@@ -136,7 +136,7 @@ var methods = new HashSet<string>(new[] {
     "TryFindRequiredFriendlyCompletedMoatRouteForPlan", "TryGetCachedRequiredFriendlyRouteForPlan",
     "EnsureMoatWorkReachability", "TryGetMoatWorkRoute",
     "TryFindRequiredFriendlyCompletedMoatRouteToFillEndpoint",
-    "EnsureReachabilityMap", "AdvanceReachabilityMap", "EnsureReachabilityStorage", "VisitNeighbour", "EnqueueNeighbour", "ProvesReachabilityTargetUnreachable",
+    "EnsureReachabilityMap", "AdvanceReachabilityMap", "EnsureReachabilityStorage", "VisitNeighbour", "EnqueueNeighbour", "ProvesReachabilityTargetUnreachable", "BuildReachabilityClosure", "InvalidateReachabilityClosures",
     "GetRouteVisitedMap", "GetRouteDistanceMap", "GetRouteDistance", "ObserveTraversedRegion",
     "GetCachedRouteSummaryForTarget", "GetCachedRouteSummaryForRegion"
 });
