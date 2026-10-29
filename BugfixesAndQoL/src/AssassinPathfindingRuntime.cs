@@ -666,7 +666,8 @@ namespace BugfixesAndQoL
             bool allowWalkableReservedClimbEndpoints,
             AssassinCommandScope command,
             IEnemyGateRoutePolicySnapshot gatePolicy,
-            out RouteSearchSummary routeSummary)
+            out RouteSearchSummary routeSummary,
+            bool allowBuckets = true)
         {
             long searchStarted = (PerformanceDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0);
             routeSummary = default;
@@ -698,16 +699,21 @@ namespace BugfixesAndQoL
                 EstimateRemainingTicks(
                     startX, startY, targetX, targetY,
                     cardinalTicks, diagonalTicks, suffixCosts, startNode));
-            Push(startNode);
+            // Bucket queue for the plain octile estimate (consistent, integer ticks, bounded edges);
+            // suffix estimates and out-of-ring keys keep or fall back to the heap (see BucketPush).
+            bool buckets = allowBuckets && suffixCosts == null && diagonalTicks <= MaximumBucketStepTicks;
+            if (buckets) BucketStart(startNode); else Push(startNode);
             int expanded = 0;
             int nodeLimit = Math.Max(1, Math.Min(maximumNodes, TileCount));
 
-            while (heapCount > 0 && expanded < nodeLimit)
+            while ((buckets ? bucketCount > 0 : heapCount > 0) && expanded < nodeLimit)
             {
-                int currentNode = Pop();
+                int currentNode = buckets ? BucketPop() : Pop();
+                if (currentNode < 0) break;
                 expanded++;
                 if (currentNode == targetNode)
                 {
+                    if (buckets) BucketClear();
                     Shared.DevDiag.Count("bfqol.assassin.astar.expanded.found", expanded);
                     long reconstructionStarted = (PerformanceDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0);
                     if (!PrepareRoute(startNode, targetNode, costs[targetNode], expanded,
@@ -806,9 +812,19 @@ namespace BugfixesAndQoL
             RememberTemporaryParent(nextTile);
 #endif
 
-                    PushOrDecrease(nextNode);
+                    if (buckets) BucketPush(nextNode); else PushOrDecrease(nextNode);
                 }
+                if (bucketOverflow) break;
             }
+            if (buckets && bucketOverflow)
+            {
+                // A key outside the ring (never seen with the octile estimate): the same search on the heap.
+                BucketClear();
+                Shared.DevDiag.Count("bfqol.assassin.astar.bucketFallback");
+                return TryBuildWeightedRoute(startX, startY, targetX, targetY, maximumNodes, speedDelay, allowClimbing,
+                    allowWalkableReservedClimbEndpoints, command, gatePolicy, out routeSummary, allowBuckets: false);
+            }
+            if (buckets) BucketClear();
 
             if (PerformanceDiagnosticsEnabled) command?.RecordFailedSearch(
                 (PerformanceDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0) - searchStarted, expanded, heapOperations);
@@ -1816,6 +1832,59 @@ private bool StagePreparedRouteWithDiagnostics(IntPtr context, RouteCacheKey key
         // every comparison sees the same values as reading the node arrays would.
         private HeapKey KeyOf(int tile) =>
             new HeapKey(estimatedTotalCosts[tile], costs[tile], insertionOrder[tile]);
+
+        // Dial bucket queue of the exact A* (TryBuildWeightedRoute). With the consistent octile estimate
+        // and integer ticks, a pushed key lies in [current, current + 2 x largest edge]: the largest edge is
+        // a diagonal step plus a climb over the full byte height range ((255 * 400 + 45) / 90 = 1,134 ticks),
+        // so 4,096 buckets cover diagonal steps up to MaximumBucketStepTicks. Keys pop in nondecreasing
+        // order like the heap's, so costs stay optimal; ties pop last-in first (the found route may be a
+        // different one of equal cost). The heap's log factor was most of the search time (pf-iter-32).
+        private const int BucketRing = 4096, MaximumClimbEdgeTicks = 1134;
+        private const int MaximumBucketStepTicks = BucketRing / 2 - 1 - MaximumClimbEdgeTicks;
+        private readonly List<int>[] buckets = new List<int>[BucketRing];
+        private int bucketCount, bucketCurrent;
+        private bool bucketOverflow;
+
+        private void BucketStart(int start)
+        {
+            bucketCount = 0; bucketOverflow = false; bucketCurrent = estimatedTotalCosts[start];
+            BucketPush(start);
+        }
+
+        private void BucketPush(int tile)
+        {
+            if (PerformanceDiagnosticsEnabled) heapOperations++;
+            int key = estimatedTotalCosts[tile];
+            if (key < bucketCurrent || key - bucketCurrent >= BucketRing) { bucketOverflow = true; return; }
+            List<int> list = buckets[key & (BucketRing - 1)] ?? (buckets[key & (BucketRing - 1)] = new List<int>());
+            list.Add(tile); bucketCount++;
+        }
+
+        // Next node at the smallest key; stale entries (a later decrease) and expanded nodes are skipped.
+        private int BucketPop()
+        {
+            while (bucketCount > 0)
+            {
+                List<int> list = buckets[bucketCurrent & (BucketRing - 1)];
+                while (list != null && list.Count > 0)
+                {
+                    int tile = list[list.Count - 1]; list.RemoveAt(list.Count - 1); bucketCount--;
+                    if (heapPositions[tile] == -2 || estimatedTotalCosts[tile] != bucketCurrent) continue;
+                    if (PerformanceDiagnosticsEnabled) heapOperations++;
+                    heapPositions[tile] = -2;
+                    return tile;
+                }
+                bucketCurrent++;
+            }
+            return -1;
+        }
+
+        private void BucketClear()
+        {
+            if (bucketCount != 0)
+                foreach (List<int> list in buckets) list?.Clear();
+            bucketCount = 0;
+        }
 
         private void Push(int tile)
         {
