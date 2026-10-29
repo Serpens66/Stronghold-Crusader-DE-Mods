@@ -436,11 +436,14 @@ namespace MoatMove
                 var front = new int[diggers]; Array.Copy(starts, front, diggers);
                 digger = new AnchorTaskSpec { Player = player, Anchor = anchor, Ground = groundCost, Moat = moat, Starts = front };
             }
-            if (others != 0)
+            if (others != 0 || diggers != 0)
             {
                 // The tail holds the others in reverse member order; the spec keeps member order.
-                var back = new int[others];
+                // Diggers follow: a digger the moat task cannot route (DAFD0's height rule on a
+                // keep, tower or wall) takes the ground task's DA590 route instead of Vanilla's.
+                var back = new int[others + diggers];
                 for (int i = 0; i < others; i++) back[i] = starts[starts.Length - 1 - i];
+                Array.Copy(starts, 0, back, others, diggers);
                 ground = new AnchorTaskSpec { Player = player, Anchor = anchor, Ground = 1, Moat = 0, Starts = back };
             }
             if (digger != null || ground != null) { if (ai) anchorAiMoves++; else anchorHumanMoves++; }

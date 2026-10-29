@@ -39,7 +39,7 @@ internal sealed class AnchorCoreInterop : IDisposable
     {
         if (library != IntPtr.Zero) return;
         library = NativeLibrary.Load(Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../MoatMove/.local/anchor/MoatMoveAnchor.dll")));
-        if (mma_contract() != 0x04000006 || Marshal.SizeOf<QueryResult>() != 32) throw new InvalidOperationException("Anchor core ABI");
+        if (mma_contract() != 0x04000007 || Marshal.SizeOf<QueryResult>() != 32) throw new InvalidOperationException("Anchor core ABI");
     }
     internal AnchorCoreInterop(int width, int height, long limit = 512L * 1024 * 1024)
     {
@@ -50,9 +50,12 @@ internal sealed class AnchorCoreInterop : IDisposable
     }
     private static void Code(int value) { if (value == NoMemory) throw new SearchBudgetException("anchor-core-memory"); if (value != 0) throw new InvalidOperationException("Anchor core error=" + value); }
     // GridSnapshot words (allowed 0..7, moat 8..15) to the FastTraversalCache layout used
-    // by MoatMove (friendly 0..7, wet 16..23).
-    internal static uint FastWord(uint snapshotWord) => (snapshotWord & 0xFFU) | (((snapshotWord >> 8) & 0xFFU) << 16);
+    // by MoatMove (friendly 0..7, ground 8..15, wet 16..23). Snapshot words have one edge
+    // set: its dry edges are the ground edges.
+    internal static uint FastWord(uint snapshotWord) =>
+        (snapshotWord & 0xFFU) | ((snapshotWord & ~(snapshotWord >> 8) & 0xFFU) << 8) | (((snapshotWord >> 8) & 0xFFU) << 16);
     internal void BeginMask(int player) => Code(mma_mask_begin(context, player));
+    internal void WriteWords(int player, int first, uint[] words) => Code(mma_mask_write(context, player, first, words.Length, words, out _));
     internal int WriteMask(int player, GridSnapshot map, int first, int count)
     {
         var words = new uint[count]; for (int i = 0; i < count; i++) words[i] = FastWord(map.Word(first + i));

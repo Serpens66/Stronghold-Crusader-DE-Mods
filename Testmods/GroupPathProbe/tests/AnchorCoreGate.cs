@@ -172,6 +172,21 @@ internal static class AnchorCoreGate
             if (core.Stats()[AnchorCoreInterop.Stat("subAnchors")] != 1) throw new InvalidOperationException("Unreachable slots built one sub-anchor each: " + core.Stats()[AnchorCoreInterop.Stat("subAnchors")]);
             using (var batchCore = new AnchorCoreInterop(60, 60, 128L * 1024 * 1024)) { batchCore.WriteWholeMask(Player, map, 500); Same(r, SolveBatch(batchCore, load, 4), "core-unreachable-slots-batch"); }
         }
+        // Ground-only profiles use the ground directions (bits 8..15, Vanilla's DA590 rules),
+        // moat profiles the friendly directions (DAFD0 rules with the height correction): an
+        // edge present only as ground direction (a keep or tower step) serves ground units only.
+        {
+            const uint West = 1U << 6, WestGround = 1U << 14;
+            var words = new uint[5];
+            for (int n = 1; n < 5; n++) words[n] = West | WestGround;
+            words[2] = WestGround;
+            using var core = new AnchorCoreInterop(5, 1, 64L * 1024 * 1024); core.BeginMask(Player); core.WriteWords(Player, 0, words);
+            int groundTask = core.CreateTask(Player, 0, 1, 0, new[] { 4 }), moatTask = core.CreateTask(Player, 0, 1, 7, new[] { 4 });
+            core.Step(8, 1);
+            RouteResult ground = core.Query(groundTask, 4, 0, Margin), moat = core.Query(moatTask, 4, 0, Margin);
+            if (ground.Status != SearchStatus.Found || ground.Cost != 4) throw new InvalidOperationException("Ground profile ignored a ground-only direction: " + ground.Status + "/" + ground.Reason);
+            if (moat.Status == SearchStatus.Found) throw new InvalidOperationException("Moat profile used a ground-only direction.");
+        }
         // Directed snake longer than 2,000 steps: never returned as a route.
         {
             GridSnapshot map = GroupGate.Grid(800, 4, (a, b, d) => ((a / 800) % 2 == 0 ? d == 2 : d == 6) && a / 800 == b / 800 || d == 4 && a % 800 == ((a / 800) % 2 == 0 ? 799 : 0) ? 1U << d : 0);

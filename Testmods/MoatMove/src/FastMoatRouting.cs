@@ -96,10 +96,16 @@ namespace MoatMove
             if (!IsValidTileId(a) || !IsValidTileId(b)) return false;
             if (blocked != null && blocked.Count != 0 &&
                 (blocked.Contains(runtime.nativeBuildingLayer[a]) || blocked.Contains(runtime.nativeBuildingLayer[b]))) return false;
-            bool allowed = runtime.weightedMoatRoutePlanner.TryGetTraversalEdge(player, x, y, a, nx, ny, b,
+            WeightedMoatRoutePlanner planner = runtime.weightedMoatRoutePlanner;
+            bool allowed = planner.TryGetTraversalEdge(player, x, y, a, nx, ny, b,
                 direction, false, false, ground ? MoatTraversalPolicy.GroundOnly : MoatTraversalPolicy.FriendlyOnly,
                 out MoatTraversalEdgeKind kind, out structure);
             wet = kind != MoatTraversalEdgeKind.Ground;
+            // Ground edges follow Vanilla's ground search DA590: the native direction byte alone.
+            // The height correction is DAFD0's (moat mode); GroundOnly reaches it only for an edge
+            // that passed every other rule. Without this, keeps, towers and walls had no ground
+            // edges and their units fell back to Vanilla (pf-iter-7).
+            if (!allowed && ground && planner.edgeRejectionRule == "height") { allowed = true; wet = false; }
             return allowed;
         }
 

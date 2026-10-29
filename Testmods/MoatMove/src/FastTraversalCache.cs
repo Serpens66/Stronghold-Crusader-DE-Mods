@@ -116,9 +116,10 @@ namespace MoatMove
                 if ((uint)nx >= width || (uint)ny >= height) continue;
                 int to = ny * width + nx;
                 bool friendly = live(from, to, direction, false, out bool wet, out bool structure);
-                // Away from moats both policies decide the same edge; one live evaluation suffices.
-                bool same = sameGround != null && sameGround(from, to, direction);
-                bool ground = same ? friendly : live(from, to, direction, true, out _, out _);
+                // Away from moats an edge allowed for the friendly policy is allowed on the ground
+                // too; a rejected one is evaluated again (ground edges skip moat mode's height rule).
+                bool same = friendly && sameGround != null && sameGround(from, to, direction);
+                bool ground = same || live(from, to, direction, true, out _, out _);
                 EdgeEvaluations += same ? 1 : 2;
                 if (friendly) word |= 1U << direction;
                 if (ground) word |= 1U << (8 + direction);

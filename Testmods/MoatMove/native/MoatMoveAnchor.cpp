@@ -5,10 +5,12 @@
 // Contract summary (mirrored by the managed adapter):
 // - Per player one traversal mask, written by the managed side from the same predicate
 //   as MoatMove Fast. Words use the FastTraversalCache layout: bits 0..7 = friendly
-//   allowed directions, bits 16..23 = wet (moat) directions. Masks are written in
-//   chunks; a mask is usable once every node was written since mask_begin.
+//   allowed directions (moat mode), bits 8..15 = ground directions, bits 16..23 = wet
+//   (moat) directions. Masks are written in chunks; a mask is usable once every node
+//   was written since mask_begin.
 // - A task is one command: anchor, cost profile and the start set. A moat cost of 0 is
-//   a ground-only profile: wet edges are never used (units that cannot enter moats).
+//   a ground-only profile on the ground directions (units that cannot enter moats and
+//   ground decisions); other profiles use the friendly directions.
 //   mma_step computes
 //   pending tasks with a fork-join over worker threads. Each task writes only itself,
 //   so results never depend on thread count or scheduling.
@@ -85,29 +87,38 @@ struct Map {
     int chebyshev(int a, int b) const { return std::max(std::abs(a % width - b % width), std::abs(a / width - b / width)); }
 };
 
-// Directed adjacency of one player: outgoing and incoming direction bits, wet bits.
+// Directed adjacency of one player: outgoing and incoming direction bits, wet bits, and the
+// dry edges of ground-only profiles. A word carries the moat-mode edges in bits 0..7 (DAFD0
+// rules, wet in 16..23) and the ground edges in bits 8..15 (DA590 rules: Vanilla's ground
+// search follows the native direction byte without DAFD0's height correction; keeps, towers
+// and walls differ, pf-iter-7).
 struct Mask {
-    Vec<uint8_t> out, outWet, in, inWet, written; i64 writtenCount = 0; u64 revision = 1;
-    explicit Mask(Memory* m, int n) : out(size_t(n), 0, Alloc<uint8_t>(m)), outWet(size_t(n), 0, Alloc<uint8_t>(m)), in(size_t(n), 0, Alloc<uint8_t>(m)),
-        inWet(size_t(n), 0, Alloc<uint8_t>(m)), written(size_t(n), 0, Alloc<uint8_t>(m)) {}
+    Vec<uint8_t> out, outWet, outDry, in, inWet, inDry, written; i64 writtenCount = 0; u64 revision = 1;
+    explicit Mask(Memory* m, int n) : out(size_t(n), 0, Alloc<uint8_t>(m)), outWet(size_t(n), 0, Alloc<uint8_t>(m)), outDry(size_t(n), 0, Alloc<uint8_t>(m)),
+        in(size_t(n), 0, Alloc<uint8_t>(m)), inWet(size_t(n), 0, Alloc<uint8_t>(m)), inDry(size_t(n), 0, Alloc<uint8_t>(m)), written(size_t(n), 0, Alloc<uint8_t>(m)) {}
+    uint8_t outgoing(int v, int moat) const { return moat ? out[v] : outDry[v]; }
+    uint8_t incoming(int v, int moat) const { return moat ? in[v] : inDry[v]; }
     bool ready(int n) const { return writtenCount == n; }
     // Returns true when the stored edges of the node changed.
     bool set(const Map& map, int node, u32 word) {
-        int x = node % map.width, y = node / map.width; uint8_t o = 0, w = 0;
+        int x = node % map.width, y = node / map.width; uint8_t o = 0, w = 0, g = 0;
         for (int d = 0; d < 8; ++d) {
             int nx = x + dx[d], ny = y + dy[d];
-            if ((unsigned)nx >= unsigned(map.width) || (unsigned)ny >= unsigned(map.height) || !(word & (1u << d))) continue;
-            o |= uint8_t(1u << d); if (word & (1u << (16 + d))) w |= uint8_t(1u << d);
+            if ((unsigned)nx >= unsigned(map.width) || (unsigned)ny >= unsigned(map.height)) continue;
+            if (word & (1u << d)) { o |= uint8_t(1u << d); if (word & (1u << (16 + d))) w |= uint8_t(1u << d); }
+            // A ground edge is never wet (moat tiles are not ground).
+            if ((word & (1u << (8 + d))) && !(word & (1u << (16 + d)))) g |= uint8_t(1u << d);
         }
         if (!written[node]) { written[node] = 1; ++writtenCount; }
-        if (o == out[node] && w == outWet[node]) return false;
+        if (o == out[node] && w == outWet[node] && g == outDry[node]) return false;
         for (int d = 0; d < 8; ++d) {
             int nx = x + dx[d], ny = y + dy[d];
             if ((unsigned)nx >= unsigned(map.width) || (unsigned)ny >= unsigned(map.height)) continue;
             int t = ny * map.width + nx; uint8_t bit = uint8_t(1u << d);
             in[t] = uint8_t((in[t] & ~bit) | (o & bit)); inWet[t] = uint8_t((inWet[t] & ~bit) | (w & bit));
+            inDry[t] = uint8_t((inDry[t] & ~bit) | (g & bit));
         }
-        out[node] = o; outWet[node] = w; return true;
+        out[node] = o; outWet[node] = w; outDry[node] = g; return true;
     }
 };
 
@@ -154,8 +165,8 @@ struct Field {
                 done[v] = 1; ++settles;
                 if (needGen[v] == generation) { needGen[v] = 0; --remaining; }
                 // Incoming edge u -> v in direction d: u lies at v - (dx, dy).
-                for (u32 m = moat ? u32(mask.in[v]) : u32(mask.in[v] & ~mask.inWet[v] & 0xFF); m; m &= m - 1) {
-                    int d = Ctz(m); relax(v - map.off[d], vx - dx[d], vy - dy[d], g + u32((mask.inWet[v] >> d) & 1 ? moat : ground));
+                for (u32 m = mask.incoming(v, moat); m; m &= m - 1) {
+                    int d = Ctz(m); relax(v - map.off[d], vx - dx[d], vy - dy[d], g + u32(moat && ((mask.inWet[v] >> d) & 1) ? moat : ground));
                 }
             }
             list.clear();
@@ -182,8 +193,8 @@ struct Field {
                 done[v] = 1; ++settles; settled.push_back(v);
                 if (needGen[v] == generation) { needGen[v] = 0; --remaining; }
                 // moat == 0: ground-only profile, wet (moat) edges are not traversable.
-                if (forward) { for (u32 m = moat ? u32(mask.out[v]) : u32(mask.out[v] & ~mask.outWet[v] & 0xFF); m; m &= m - 1) { int d = Ctz(m); relax(v + map.off[d], bucket + u32((mask.outWet[v] >> d) & 1 ? moat : ground)); } }
-                else { for (u32 m = moat ? u32(mask.in[v]) : u32(mask.in[v] & ~mask.inWet[v] & 0xFF); m; m &= m - 1) { int d = Ctz(m); relax(v - map.off[d], bucket + u32((mask.inWet[v] >> d) & 1 ? moat : ground)); } }
+                if (forward) { for (u32 m = mask.outgoing(v, moat); m; m &= m - 1) { int d = Ctz(m); relax(v + map.off[d], bucket + u32(moat && ((mask.outWet[v] >> d) & 1) ? moat : ground)); } }
+                else { for (u32 m = mask.incoming(v, moat); m; m &= m - 1) { int d = Ctz(m); relax(v - map.off[d], bucket + u32(moat && ((mask.inWet[v] >> d) & 1) ? moat : ground)); } }
             }
             list.clear();
         }
@@ -221,7 +232,7 @@ template<class Dist, class Stop> static int Descend(const Map& map, const Mask& 
     int x = node % map.width, y = node / map.width;
     while (!stop(node, x, y)) {
         u32 here = distance(node); int next = -1;
-        for (u32 m = moat ? u32(mask.out[node]) : u32(mask.out[node] & ~mask.outWet[node] & 0xFF); m && next < 0; m &= m - 1) {
+        for (u32 m = mask.outgoing(node, moat); m && next < 0; m &= m - 1) {
             int d = Ctz(m), u = node + map.off[d]; u32 there = distance(u); if (there == Unset) continue;
             bool wet = ((mask.outWet[node] >> d) & 1) != 0;
             if (there + u32(wet ? moat : ground) != here) continue;
@@ -389,7 +400,7 @@ template<class F> static int Guard(F body) {
 
 using namespace mma;
 extern "C" {
-__declspec(dllexport) int mma_contract() { return 0x04000006; }
+__declspec(dllexport) int mma_contract() { return 0x04000007; }
 // Physical cores minus two (Unity main thread plus simulation/render), within 1..8.
 __declspec(dllexport) int mma_recommended_threads() {
     DWORD length = 0; GetLogicalProcessorInformationEx(RelationProcessorCore, nullptr, &length);

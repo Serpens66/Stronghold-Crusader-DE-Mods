@@ -19,12 +19,12 @@ namespace MoatMove
     // queries keep Fast's rules. Until a player's mask is complete, Fast applies.
     internal sealed unsafe partial class FriendlyMoatTraversalProvider
     {
-        // Private C ABI of native/MoatMoveAnchor.cpp (contract 0x04000006). The DLL is loaded
+        // Private C ABI of native/MoatMoveAnchor.cpp (contract 0x04000007). The DLL is loaded
         // once by full path from the plugin folder and stays loaded for the process.
         private static class AnchorNative
         {
             internal const string Library = "MoatMoveAnchor.dll";
-            internal const int Contract = 0x04000006, Ready = 0, Unreachable = 1, OverLimit = 2, Pending = 3, Stale = 4, Invalid = 5, Failed = 6;
+            internal const int Contract = 0x04000007, Ready = 0, Unreachable = 1, OverLimit = 2, Pending = 3, Stale = 4, Invalid = 5, Failed = 6;
             [StructLayout(LayoutKind.Sequential)] internal struct QueryResult { internal int Status, Ground, Moat, Length, Flags, Reserved; internal long Cost; }
             [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)] private static extern IntPtr LoadLibraryEx(string file, IntPtr reserved, uint flags);
             [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern int mma_contract();
@@ -75,7 +75,7 @@ namespace MoatMove
         // (reuse candidates; several AI groups sent to one rally point).
         private readonly HashSet<long> anchorTickTaskKeys = new HashSet<long>();
         private int anchorTickTaskKeysTick = -1;
-        private long anchorSameTickTasks, anchorSameTickTaskTicks;
+        private long anchorSameTickTasks, anchorSameTickTaskTicks, anchorDiggerGroundRoutes;
         private int anchorUnreachableUnit, anchorUnreachableStart, anchorUnreachableTarget, anchorUnreachableTask, anchorUnreachableLogs;
         private const long AnchorMemoryLimit = 768L * 1024 * 1024;
         private IntPtr anchorContext;
@@ -698,7 +698,14 @@ namespace MoatMove
             // Same tick, start, target and identity as the mode probe's ground decision: no second query.
             QualifiedMovementRoute decided = runtime.GetReusableQualifiedRoute(plan, unit);
             if (decided != null && decided.Summary.MoatEdges == 0) { anchorRouteReuses++; return true; }
-            if (!TryAnchorRequiredRoute(plan, false, sx, sy, out _, out bool moat, ResolveAnchorTask(!digger), publishGround: true)) return false;
+            bool answered = TryAnchorRequiredRoute(plan, false, sx, sy, out _, out bool moat, ResolveAnchorTask(!digger), publishGround: true);
+            // Exactly unreachable for the moat task: the ground task decides with Vanilla's ground rules.
+            if (!answered && digger && anchorUnreachableUnit == plan.UnitId)
+            {
+                answered = TryAnchorRequiredRoute(plan, false, sx, sy, out _, out moat, ResolveAnchorTask(true), publishGround: true);
+                if (answered) anchorDiggerGroundRoutes++;
+            }
+            if (!answered) return false;
             // A moat answer here belongs to the mode probe; this builder call stays Vanilla.
             if (moat) { plan.QualifiedRoute = null; return false; }
             return plan.QualifiedRoute != null;
@@ -925,7 +932,7 @@ namespace MoatMove
                 $"members={anchorMembers} unreachedMembers={anchorUnreachedUnits} movesWithUnreached={anchorMovesWithUnreached} " +
                 $"vanilla(vanillaCalls={anchorVanillaCalls} vanillaFails={anchorVanillaFails} vanillaMs={AnchorMs(anchorVanillaTicks)} vanillaFailMs={AnchorMs(anchorVanillaFailTicks)} " +
                 $"afterUnreachable={anchorVanillaAfterUnreachable} afterUnreachableMs={AnchorMs(anchorVanillaAfterUnreachableTicks)} " +
-                $"foundAfterUnreachable={anchorVanillaFoundAfterUnreachable}) sameTickTasks={anchorSameTickTasks} sameTickTaskMs={AnchorMs(anchorSameTickTaskTicks)} " +
+                $"foundAfterUnreachable={anchorVanillaFoundAfterUnreachable}) sameTickTasks={anchorSameTickTasks} sameTickTaskMs={AnchorMs(anchorSameTickTaskTicks)} diggerGroundRoutes={anchorDiggerGroundRoutes} " +
                 $"tick(refreshMs={AnchorMs(anchorRefreshTicks)} refreshNodes={anchorRefreshNodes} buildMs={AnchorMs(anchorBuildTicks)} " +
                 $"buildNodes={anchorBuildNodes} sweepMs={AnchorMs(anchorSweepTicks)} sweepNodes={anchorSweepNodes} resweeps={anchorResweeps} " +
                 $"accessChanges={anchorAccessChanges} gateRefreshes={anchorGateRefreshes} sharedReuses={anchorShared?.Reuses ?? 0} " +
@@ -942,7 +949,7 @@ namespace MoatMove
                 anchorSweepTicks = anchorSweepNodes = anchorResweeps = anchorAccessChanges = anchorGateRefreshes = anchorLazyTasks = anchorUnusedMoves = anchorAuditSkips = anchorBatchCalls = anchorBatchUnits = anchorBatchHits = anchorBatchTicks =
                 anchorResweepDiplomacy = anchorResweepPortals = anchorResweepFootprint = anchorResweepGlobal = anchorRefreshBacklog =
                 anchorVanillaCalls = anchorVanillaFails = anchorVanillaTicks = anchorVanillaFailTicks = anchorVanillaAfterUnreachable =
-                anchorVanillaAfterUnreachableTicks = anchorVanillaFoundAfterUnreachable = anchorSameTickTasks = anchorSameTickTaskTicks = 0;
+                anchorVanillaAfterUnreachableTicks = anchorVanillaFoundAfterUnreachable = anchorSameTickTasks = anchorSameTickTaskTicks = anchorDiggerGroundRoutes = 0;
             Array.Clear(anchorQueryStatus, 0, anchorQueryStatus.Length); anchorPublishReasons.Clear();
         }
     }
