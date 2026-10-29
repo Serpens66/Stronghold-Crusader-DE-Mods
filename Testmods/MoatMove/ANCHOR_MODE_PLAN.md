@@ -198,13 +198,153 @@ Neu geprüft wurde die verwaltete Verzweigung in MoatMove:
 3. Unverändert bleiben: Angriffe, Arbeit, Wegpunkte, Cursor, Assassinen, BFQoL-Formation/LineUp (Plätze stehen beim Dispatch fest), alle nativen Hooks und Adressen. Neue native Adressen gibt es nicht.
 4. Kosten: ein Ankerfeld je übernommenem Befehl, synchron im Sim-Tick (gemessen offline 26–88 ms für 10.000 Einheiten mit 8 Threads). Dazu kommen höchstens die Ticks bis zur Berechnung.
 
-**Teil B – Bodenwege aus dem Anker veröffentlichen (erst nach PerfProbe-Befund):** Auch Bodenentscheidungen würden über `TryReplaceUnsafeFallbackPath(requireMoat: false)` veröffentlicht, und `F4930` entfiele für alle übernommenen Einheiten. Das hilft nur, wenn der Lag tatsächlich die Suche je Einheit in `196280` ist. Das eigene Gruppenfeld von `11B520` (Flood bis 400.000 Knoten) und die Formationswahl `E1D30` blieben native. Die neue PerfProbe-Takt-Messung muss zuerst zeigen, welche Funktionen während des Stillstands laufen.
+**Teil B – Bodenwege aus dem Anker veröffentlichen:** Auch Bodenentscheidungen würden über `TryReplaceUnsafeFallbackPath(requireMoat: false)` veröffentlicht, und `F4930` entfiele für alle übernommenen Einheiten. Das eigene Gruppenfeld von `11B520` und die Formationswahl `E1D30` blieben native.
+
+**PerfProbe-Befund (Lauf 28.10.2026, 23:49, Log `Testmods/PerfProbe/.local/manual-tickgap-2.log`, Auswertung in `Testmods/PerfProbe/DIAGNOSTICS.md`):**
+- Je Bewegungsbefehl mit etwa 1350 Einheiten steht die Simulation 476–617 ms still, bei 24–32 wartenden Simulationsschritten. Der Timer läuft normal.
+- 65–80 % der Sim-Stichproben liegen in `CDE:0xDA5EF`, also in `DA590` (Größe 1212 Byte ab RVA `0xDA590`, Native-Hash wie oben). Das ist die BFS-Flutsuche mit +1 gerade und +2 diagonal, die im normalen Fallback bis 400.000 Knoten expandiert.
+- Aufgerufen wird sie unter Vanillas Pfad-Builder `F4930` in der Hülle je Einheit; die Zeit gehört dem Vanilla-Original.
+- Der Nutzer sieht denselben Lag mit reinem Vanilla. Teil B zielt damit direkt auf den gemessenen Engpass und ist der eigentliche Hebel gegen den Lag.
+
+**Zusätzlich offen für Teil B:**
+- Einheiten ohne Grabenfähigkeit (`CanDigMoat` falsch) laufen nicht durch MoatMoves Hooks und behielten `F4930`. Für sie bräuchte es ein reines Bodenfeld im Kern.
+- Vanillas BFS wertet Diagonalen mit 2, der Anker gewichtet nach Profil. Gleich teure Wege können anders aussehen; das wird dokumentiert und ingame bewertet.
+- Ziele ohne Weg: Vanilla expandiert dann bis zur Grenze. Der Anker meldet „unerreichbar“; dann läuft die bisherige Kette weiter, und hier bleibt die Vanilla-Last bestehen.
 
 **Offene Punkte und Unsicherheiten:**
 - Ob die Moduserkennung für jede Einheit eines Gruppenbefehls aufgerufen wird oder nur in bestimmten `196280`-Zweigen. Statisch nicht abschließend geklärt; die Zähler `ModeCalls` und `BuilderCalls` je Befehl müssen im DEVDIAG-Lauf der Einheitenzahl entsprechen.
 - Abfragen im Kern müssen in deterministischer Reihenfolge kommen (Unteranker-Cache je Aufgabe). Die Reihenfolge der `196280`-Aufrufe aus `11B520` ist nativ fest; Zwischenziele (`region intermediate`) bekommen eine eigene Abfrage.
 - Vanillas Ziel kann bei Regionsübergängen ein Zwischenziel sein (`BuilderIntermediateTargets`); der Anker antwortet dann für das tatsächliche Builder-Ziel.
 - Multiplayer: Alle Entscheidungen hängen nur von Simulationszustand und Tick ab. Ein echter Host-/Clientlauf ist trotzdem Pflicht.
+
+**Umsetzungsstand (29.10.2026):** A und B gemeinsam umgesetzt, noch nicht im Spiel geprüft.
+- Vorfilter (`TryCaptureFastPlayerMove`): Übernommen wird jeder normale Bewegungsbefehl mit mindestens einer grabenfähigen Einheit, sobald die Spielermaske fertig ist. Die geplante Erfassung der Grabenkanten entfällt, weil Teil B auch reine Bodenbefehle lohnt.
+- Moduserkennung (`Moved.UnitMovementContext.cs`, `TryAnchorQualifiesMoat`): Während eines Anker-Dispatch fragt sie direkt den Kern, nicht die Provider-Kette. Antwortet der Kern nicht, rechnet deshalb kein synchrones Fast-Feld je Einheit, sondern die bisherige Vanilla-zuerst-Kette läuft unverändert. Ein Grabenweg qualifiziert wie nach einem Vanilla-Fehlschlag.
+- Builder (`Moved.MovementPathPublication.cs`, `TryPrepareAnchorGround`): Bodenentscheidungen werden über `TryReplaceUnsafeFallbackPath(requireMoat: false)` samt Live-Prüfung veröffentlicht, ohne `F4930`. Ausgenommen sind Zwischenziele (`ExactRouteEndpoints`), Arbeit, Angriffe und Vanillas eigener Grabenmodus (`VanillaModeDetected`). Bei Ablehnung wird der Puffer zurückgesetzt und Vanillas Builder läuft unverändert.
+- Neue Messzahl `groundRoutes` in `stage=anchor-performance`. Erwartung im Spiel: `moatRoutes + groundRoutes` liegt nahe an der Zahl der grabenfähigen Einheiten je Befehl.
+- Harness: Die Moduserkennung qualifiziert die Grabenroute des Kerns, der Builder erhält bei einer Bodenentscheidung die Bodenroute, und die vier Ausnahmen greifen. Die Kostenentscheidung selbst prüfen die Kernverträge und `GroupPathProbe --cost-min`; ein Harness-Fixture mit Bodenumweg fehlt noch.
+
+**Einstieg korrigiert (29.10.2026, nach drei Ingame-Läufen):**
+- Befund: In keinem Lauf wurde ein Befehl übernommen (`captureCalls=0`).
+- BFQoLs Formations-Feature führt jeden Gruppenbefehl selbst aus. Es baut ein eigenes `FormationOrderPacket`, wendet es im Einzelspieler direkt im `EngineRunHook` vor `EngineInterface.run` an und im Multiplayer über einen Chore. Beides ruft `GameTribeManagerAPI.IssueMoveHereCommand` und damit die Hook-Implementierung des Extenders für `11B520` auf.
+- Auch der Befehl mit Ziel (Chore 36, `12BF0 → 199C70 → 11E960`) erreicht `11B520` ohne `196100`.
+- Fasts Aufschub an `196100` (Chore 17) sieht diese Wege nie. Die Annahme aus Phase 2, alle Spielerbewegungen kämen über `196100`, war falsch.
+- Neuer Einstieg: `TribeR3EventHooks.OnTribeIssueOrderMoveHere` (Pre/Post um `11B520`, im installierten SHCDESE vorhanden).
+  - Pre: Für lebende menschliche Spieler mit fertiger Maske werden die grabenfähigen Mitglieder erfasst und die Aufgabe synchron berechnet (`TryComputeAnchorTask`). Während des Aufrufs ist `anchorDispatchTask` gesetzt.
+  - Post: Die Aufgabe wird freigegeben.
+  - Verschachtelte Aufrufe bilden einen Stapel. Übersprungene Originale (kein Post) werden vom umgebenden Post oder im nächsten Tick abgeräumt.
+  - Nur auf dem Sim-Thread (`anchorSimThread` aus dem Tick).
+- Der Aufschub an `196100` ist im Anker-Modus abgeschaltet (Ablehnungsgrund `anchorMode`). `AdvanceAnchorCommand`, Neustart-Grenze und Tickbudget sind entfernt; Fast bleibt unverändert.
+- Neue Messzahlen in `anchor-performance`: `maskPendingMoves`, `fieldMs`, `maxFieldMs`.
+
+**Erster Ingame-Lauf mit synchronem Einstieg (29.10.2026, 11:23, Log `.local/ingame-sync-1.log`):** Editorkarte `test_moatmove`, rund 1350 Einheiten, BFQoL-Formation aktiv, sechs Rechtsklick-Befehle.
+- Stillstände über 100 ms: nur einer, 142,7 ms beim ersten Befehl. Bei den fünf weiteren gab es keinen. Vorher lagen alle Befehle bei 490–660 ms.
+- `anchor-performance`: sechs Aufgaben, je Befehl 1350–1352 veröffentlichte Routen (`moatRoutes` bzw. `groundRoutes`), `fallbacks=0`, `maxFieldMs` 2,0–10,7.
+- Fasts synchrone Felder entfallen: `expanded=0`, `maxSynchronousMs` ≤ 1,0. BFQoLs Gruppenprüfung `uc.groupMoat` erscheint nicht mehr als Spike.
+- Der Maskenaufbau für alle acht im Editor „lebenden“ Spieler kostete im ersten Fenster zusammen etwa 5 s CPU, verteilt auf rund 1250 Ticks (etwa 4 ms je Tick).
+- Noch offen: sichtbares Verhalten der Einheiten, Kampf- und Arbeitsbefehle, Multiplayer.
+
+**Einheiten ohne Grabenfähigkeit (29.10.2026, nicht im Spiel geprüft):**
+- Befund: BFQoLs `GetUnitMovePlan` legt für sie keinen Plan an, und MoatMoves Builder-Hook rief deshalb immer Vanillas `F4930` auf. Den Bewegungsrahmen (`UnitMoveFrame` mit Einheiten-ID und Ziel) legt BFQoL dagegen für jede Einheit an.
+- Kern, Vertrag `0x04000003`: Grabenkosten `0` bedeuten ein reines Bodenfeld; nasse Kanten werden in Feldaufbau und Abstieg nicht verwendet. Die Kernverträge von GroupPathProbe (`--anchor-core`, 1475 Vergleiche) bestehen weiter.
+- Je Gruppenbefehl entstehen zwei Aufgaben: gewichtet für grabenfähige Mitglieder (`anchorDispatchTask`) und rein für den Boden für alle übrigen (`anchorGroundTask`).
+- Ein verschachtelter Befehl verdeckt jetzt die Aufgaben des äußeren, auch wenn er selbst keine hat.
+- Builder (`TryPublishAnchorGroundWithoutPlan`): Hat die Einheit keinen BFQoL-Plan und keine Grabenfähigkeit, wird die Route der reinen Bodenaufgabe veröffentlicht, mit derselben Puffer-, Identitäts- und Live-Prüfung. Das gilt nur, wenn das Builder-Ziel dem Ziel des Bewegungsrahmens entspricht; Zwischenziele bleiben bei Vanilla.
+- Neue Messzahl `nonDiggerRoutes`.
+- Harness: Die reine Bodenaufgabe sperrt den Weg durch den Graben, öffnet den Bodenteil und wird von grabenfähigen Einheiten nicht benutzt.
+
+**KI-Gruppenbefehle und sparsamere Masken (29.10.2026, nicht im Spiel geprüft):**
+- KI: Gruppenbefehle von KI-Spielern laufen jetzt ebenfalls über den synchronen Einstieg. Das ändert das KI-Verhalten: KI-Einheiten können eigene Gräben queren, wenn das günstiger ist, und Nicht-Gräber erhalten Bodenrouten aus dem Kern. Neue Messzahl `aiMoves`. Ein Lauf mit KI-Lords und ein Multiplayer-Lauf stehen aus.
+- Masken: Statt für alle „lebenden“ Spieler (im Editor alle acht) entstehen sie nur für Spieler, die lebende Einheiten steuern. Geprüft wird beim ersten Anker-Tick und alle 256 Ticks (`ScanAnchorPlayers` über `UnitAccess.GetAllReallyAliveUnits`), dazu bei jedem Gruppenbefehl. Die Prüfung hängt nur von Tick und Simulationszustand ab und ist damit auf allen Peers gleich.
+
+**Ingame-Lauf gemischte Armee und KI (29.10.2026, 12:09–12:12, Log `.local/ingame-mixed-ai-1.log`):**
+- Editor mit Reitern: `nonDiggerRoutes` 21–871 je Fenster, 1371–1373 Routen je Befehl, `fallbacks=0`. Bei fünf Befehlen lagen die Stillstände bei 139–229 ms, bei den übrigen unter 100 ms. Ein Teil davon war Fasts synchrones Feld in der Gruppenprüfung (`uc.groupMoat`, 49–60 ms).
+- KI (`test_stresstest4.sav`): 39 Stillstände von 350–1050 ms bei einer Baseline von 10–11 ms je Tick.
+  - Hauptursache: Fasts synchrones Ersatzfeld außerhalb des Ankers (`uc.combatResume` und `uc.groupMoat` je 21×, `maxSynchronousMs` bis 930, bis 2,8 Mio. Knoten je Fenster).
+  - `AnchorTick` kostete etwa 4–6 ms je Tick. Masken für KI-Spieler wurden kaum fertig (Spieler 2 nach 56 s, 3–8 nie), wahrscheinlich weil Resweeps fertiger Masken das Budget aufbrauchten.
+- Der Fall „neuer Befehl hebt den alten nicht für alle Einheiten auf“ (Nutzerbild) ist aus dem Log nicht erklärbar: Jede Einheit bekam je Befehl eine Route. Offen; Gegenprobe mit `Mode = fast` bzw. ohne MoatMove.
+
+**Korrekturen danach (29.10.2026, nicht im Spiel geprüft):**
+- Im Anker-Modus läuft außerhalb des Ankers kein synchrones Fast-Feld mehr (`TryFindFastRequiredRouteCore`, Zähler `anchorSkips`). Es gilt dann Vanillas Ergebnis. Ausnahme ist Grabenarbeit (`MoatWorkMovement`), die für Graben- und Auffüllziele Fast behält. Folge: Ohne Anker-Antwort (Kampffortsetzung, KI vor fertiger Maske) quert eine Einheit keinen Graben, wenn Vanilla keinen Bodenweg findet.
+- Anker-Aufgaben enthalten je Mitglied die native Startkachel und zusätzlich die aktuelle Kachel. Die Gruppenprüfung in `11B520` fragt mit der aktuellen Kachel; ohne sie meldete der Kern „unerreichbar“, und Fast sprang ein.
+- Maskenaufbau: Unfertige Masken kommen zuerst an die Reihe, menschliche Spieler vor KI. Resweeps nutzen nur das verbleibende Budget.
+
+**Zweiter Lauf gemischte Armee und KI (29.10.2026, 12:32–12:36, Log `.local/ingame-mixed-ai-2.log`):**
+- Editor, 1352 Gräber und 950 Reiter: rund 2300 Routen je Befehl, `nonDiggerRoutes=950`, `anchorSkips=0`, kein Fast-Feld (`expanded=0`), `maxFieldMs` 1–2. Stillstand je Befehl weiterhin 140–220 ms bei geringer Sim-Last. Er liegt also außerhalb von `run`, im Einzelspieler-Formationsablauf von BFQoL; die genaue Aufteilung ist ungemessen.
+- KI: Alle acht Masken waren nach 16 s fertig. Die Stillstände lagen meist bei 110–230 ms (vorher durchgehend 350–1050); Fast höchstens 7 ms je Abfrage; bis 48 KI-Befehle je Fenster über den Anker.
+- Ein Ausreißer von 4,5 s um 12:34:45: 91 % der Stichproben in `mma_query`. Ursache: Starts, die den Anker nicht erreichen (KI hinter Mauern), sowie volle Zusatzanker. Beide bauten je Abfrage ein ungecachtes Feld über die ganze Karte.
+- `AnchorTick` kostete auch mit fertigen Masken etwa 5 ms je Tick, durch Resweeps nach Tor- und Zugangsänderungen.
+
+**Korrekturen danach (29.10.2026, nicht im Spiel geprüft):**
+- Kern, Vertrag `0x04000004`:
+  - Erreicht das Hauptfeld nicht alle Starts (erschöpft) und enthält es das Ziel, aber nicht den Start, meldet die Abfrage sofort „unerreichbar“. Das ist exakt: Im gerichteten Graphen erreicht der Start dann auch das Ziel nicht.
+  - Sind alle 16 Zusatzanker belegt, meldet die Abfrage „über der Grenze“ statt ein Wegwerf-Feld zu bauen; die Einheit behält Vanilla.
+  - Die GroupPathProbe-Kernverträge bestehen.
+- Resweeps fertiger Masken nutzen höchstens 1024 Knoten je Tick. Veraltete Maskenteile erzeugen keine unsicheren Routen, weil jede Route live geprüft wird.
+
+**Messausbau und Wiederverwendung vor dem nächsten Sammellauf (29.10.2026, Build 13:01, nicht im Spiel geprüft):**
+- Neue Logzeile `stage=anchor-breakdown` je Messfenster, direkt nach `anchor-performance`:
+  - `moveMs`/`maxMoveMs`: Zeit von Pre bis Post der Gruppenbewegung (`11B520`), nur für Bewegungen mit Anker-Aufgabe. `preMs`: Mitgliedererfassung und Feldberechnung im Pre. `queryMs`, `encodeMs`, `publishMs`: Kernabfragen, Live-Prüfung der Route und Pufferveröffentlichung je Einheit. Was `moveMs` darüber hinaus enthält, ist Vanillas eigene Arbeit innerhalb von `11B520`. Ein Stillstand außerhalb von `moveMs` liegt außerhalb der Gruppenbewegung (z. B. BFQoL-Formation).
+  - Ablehnungen: `queryStatus(...)` nach Kernstatus, `encodeRejects` (Live-Prüfung), `publishRejects` (Veröffentlichung).
+  - `routeReuses`: Der Builder übernimmt die Bodenroute der Modusprobe derselben Einheit im selben Tick, statt den Kern ein zweites Mal zu fragen.
+  - `members`, `unreachedMembers`, `movesWithUnreached`: Gruppenmitglieder, die Vanilla in der Gruppenbewegung nicht neu geplant hat (`OnUnitMoveHere`, `196280`). Je Karte höchstens 40 Zeilen `anchor-move-unreached` mit bis zu acht Einheiten (Typ, Kachel, Stamm, Spieler, Lebenszustand). Damit ist der Bildfall „alter Befehl bleibt für einige Einheiten“ messbar.
+  - `tick(...)`: Kosten von `AnchorTick` nach Refresh, Maskenaufbau und Resweep mit Knotenzahlen, Zahl der Resweeps und Zugangsänderungen.
+  - `core(...)`: Zähler des Kerns (`mma_stats`, je Fenster zurückgesetzt): Abfragen, Zusatzanker, volle Zusatzanker, Schritt-, Abfrage- und Zusatzankerzeit, Speicherhöchststand.
+- Die Modusprobe behält ihre Bodenroute auf dem Plan (`publishGround`). Harness: Wiederverwendung ohne zweite Abfrage und Zählung nicht neu geplanter Mitglieder.
+- PerfProbe für den Sammellauf: `[Sampler] Enabled = true`, `SimOutsideRun = true`; nach der Auswertung wieder aus.
+
+**Sammellauf (29.10.2026, 13:09–13:20, Log `.local/ingame-breakdown-1.log`):**
+- Editor, 1350 Gräber und 1050 Reiter (2400 Mitglieder je Befehl), 15 Befehle:
+  - Stillstand je Befehl 134–241 ms (PerfProbe `tick:gap`). Davon entfallen 100–200 ms auf `moveMs`, also auf MoatMoves Arbeit je Einheit innerhalb von `11B520`. Die frühere Vermutung, der Rest liege in BFQoLs Formationsablauf, ist damit widerlegt; `FormationRuntime.ApplyPacketLocked` hat nur etwa 5 % der Stichproben.
+  - Bodenbefehl (13:10:14): `queryMs` 60, `publishMs` 33, `encodeMs` 5, `preMs` 4,5. Grabenbefehl (13:11:05): `queryMs` 66, `encodeMs` 34, `publishMs` 102. `publishMs` enthält bei Nicht-Gräbern deren Abfrage mit.
+  - Stichproben aller 15 Lücken: `mma_query` 38 %, nativ `0x119F90` (Vanilla) 11 %, Live-Prüfungen (`TryGetTraversalEdge`, `HasCompatibleNativeHeight`, `FastLiveEdge`, `TryAuditFallbackPathCore`) etwa 10 %, `IsWalkableBuildingApproachEndpoint` 2–3 %.
+  - Eine Abfrage kostet etwa 23 µs. Ursache ist das lokale exakte Feld je Einheit (`local.solve` über die Box aus Anker und Platz ± 8); bei breiten Formationen deckt diese Box Tausende Kacheln ab.
+  - `routeReuses` greift: genau eine Kernabfrage je Einheit. `unreachedMembers=0` bei allen menschlichen Befehlen.
+  - In einem Fenster (13:10:39) meldeten 5364 Abfragen „über der Grenze“ (alle 16 Zusatzanker belegt). Etwa 2700 Einheiten eines Befehls blieben dadurch bei Vanilla.
+- KI (`test_stresstest4.sav`, etwa 9 Minuten):
+  - 36 Lücken über 100 ms, davon 32 bei 100–150 ms und die größte bei 264 ms. Vorher waren es Lücken von 350–1050 ms sowie ein Ausreißer von 4,5 s. Kein Fast-Feld (`anchorSkips` 4522, `maxSynchronousMs` 0,1).
+  - Die Stichproben der Lücken verteilen sich gemischt: GC und Warten (ntdll, mono) etwa 50 %, Cursor-Graph-Neubau nach Gebäudeänderungen (BFQoL `CursorRegionGraph..ctor`, MoatMove `DirtyCursorBuilding`) etwa 20 %, Vanillas BFS (`DA5EF`) 7 %, `mma_step` 7 %.
+  - 84 % der Mitglieder von KI-Gruppenbewegungen plant Vanilla nicht neu (63540 von 75896), vor allem Einheiten, die schon am Sammelpunkt stehen. Ihre Felder (`preMs` 3,8 s) sind überwiegend umsonst gerechnet.
+  - `AnchorTick` kostete 37 s in etwa 9 Minuten (etwa 7 %):
+    - Refresh 11 s ohne einen einzigen geänderten Knoten. `EnsureCursorTopology`/`RefreshCursorPortals` liest dabei je Tick und Spieler 200 Portale.
+    - Resweep 19 s: 166557 Resweep-Anforderungen bei nur 11 Zugangsänderungen. `MarkFastTopologyAll` (aus `InvalidateMovementSearchData` und aus jeder fehlgeschlagenen Live-Prüfung) setzt den Durchlauf jedes Mal auf 0 zurück. Er wird deshalb nie fertig und läuft dauerhaft mit 1024 Knoten je Tick.
+  - Abgelehnt wurden 1038 Routen in der Live-Prüfung und 3658 bei der Veröffentlichung. Wahrscheinliche Ursache der Prüfablehnungen sind veraltete Maskenteile hinter dem nie fertigen Resweep. Gründe für die Veröffentlichungsablehnungen sind nicht erfasst.
+  - Zusatzbefund: `MarkFastTopologyTile` hat keinen Aufrufer. Lokale Geländeänderungen erreichen MoatMove nur über `InvalidateFastMoatData()` ohne Kachel (BFQoL: `InvalidateMovementSearchData` bei jeder Kachel-, Graben- und Maskenänderung). Für die Anker-Masken bedeutet das stets einen vollen Resweep. Außerdem legte `AnchorTick` nach jedem `cursorTopologies.Clear()` (Maskenneubau `DAA50`) für alle acht Spieler neue Cursor-Topologien mit je drei großen Graphen an; das sind die `CursorRegionGraph..ctor`-Stichproben.
+
+**Korrekturen danach (29.10.2026, nicht im Spiel geprüft):**
+- Resweep:
+  - Eine neue Anforderung verlängert die laufende Runde ab dem aktuellen Stand auf eine volle Karte (`anchorSweepLeft`), statt bei Knoten 0 neu zu beginnen. Jeder Knoten wird so spätestens nach einer vollen Runde neu gelesen; bei 1024 Knoten je Tick sind das auf 800×800 etwa 625 Ticks.
+  - Eine fehlgeschlagene Live-Prüfung einer Anker-Route liest nur noch das 5×5-Umfeld des veralteten Knotens neu (`MarkAnchorArea`), statt alle Masken neu abzugleichen. Fasts eigene Caches verhalten sich unverändert.
+  - Offen: Kachelgenaue Meldungen bräuchten eine Erweiterung des BFQoL-Vertrags (`InvalidateFastMoatData` mit Kachel). Das ist erst nach Abschluss und in einer Kopie vorgesehen.
+- Tore: Die Anker-Masken führen eine eigene Liste gesperrter Torgebäude je Spieler (`RefreshAnchorBlocked`, gleiche Regel wie `RefreshCursorPortals`). Sie wird nur bei einer Änderung des Zugangs-Fingerabdrucks neu gelesen. `AnchorTick` und die Anker-Masken legen keine Cursor-Topologien mehr an. Die Live-Prüfung von Anker-Routen nutzt dieselbe Liste (`TryFinishFastEncoded(..., anchor: true)`).
+- Felder bei Bedarf: Das Pre der Gruppenbewegung erfasst nur Starts und Profil (`AnchorTaskSpec`). Das Feld wird bei der ersten Abfrage eines Mitglieds berechnet (`ResolveAnchorTask`). Die Reihenfolge der Abfragen ist Vanillas deterministische Einheitenreihenfolge, daher rechnen alle Peers an derselben Stelle. Neue Zähler: `lazyTasks`, `unusedMoves`.
+- Veröffentlichung:
+  - Ablehnungen werden nach Art und Prüfdetail gezählt (`publishReasons`, Arten `qualified`, `ground`, `reconstruction`, `nonDigger`).
+  - Nicht-Gräber ohne Kernantwort zählen nicht mehr als Ablehnung.
+  - Die Gebäudezugangs-Abfrage der Veröffentlichungsprüfung läuft nur noch für die letzte Kante. BFQoLs `TryGetTraversalEdge` wertet den Parameter derzeit gar nicht aus.
+- Kern, Vertrag `0x04000005`:
+  - Das lokale Feld je Abfrage nutzt eine zielgerichtete exakte Suche (A* mit Chebyshev-Schranke zum näheren Ziel, Abbruch, sobald Anker und Eintrittspunkt feststehen). Der Abstieg darf berührte Knoten nutzen; das bleibt exakt, siehe Kommentar in `Field::solveTowards`.
+  - Box-Test und Heuristik rechnen mit mitgeführten Koordinaten statt mit Divisionen. Abfragepuffer werden wiederverwendet.
+  - Bis zu 48 statt 16 Zusatzanker je Aufgabe.
+  - Neue Zähler, warum ein Anker eine Abfrage nicht beantwortet: `anchorMiss(noStart,noEntry,unreached,tooFar)`.
+  - GroupPathProbe: Kernverträge bestehen (1475 unabhängige Vergleiche).
+
+**Zweiter Sammellauf (29.10.2026, 14:09–14:14, Log `.local/ingame-breakdown-2.log`):**
+- Editor, 1650 Gräber und 900 Reiter (2550 Mitglieder), 8 Befehle:
+  - Stillstand je Bodenbefehl 127–160 ms; ein Befehl blieb unter der 100-ms-Schwelle. Vorher waren es 133–148 ms bei 2400 Mitgliedern.
+  - Stillstand je Grabenbefehl 168–181 ms, vorher 215–241 ms.
+  - `moveMs`: Boden 78–97 ms (vorher 98–110), Graben 131–143 ms (vorher 174–200).
+  - Kernabfrage etwa 14 µs je Einheit (vorher etwa 23 µs). `queryMs` liegt bei 35–46 ms je Befehl, der Kern selbst bei 29–40 ms.
+  - Bei Grabenbefehlen sind die beiden Live-Prüfungen jetzt der größte Posten: `encodeMs` 26–29 ms und `publishMs` 60–69 ms, letzteres einschließlich der 900 Nicht-Gräber-Abfragen.
+  - `IsWalkableBuildingApproachEndpoint` ist aus den Stichproben verschwunden. `unreachedMembers=0`, keine Ablehnungen, `anchorMiss` 0.
+- KI (`test_stresstest4.sav`, etwa 3 Minuten bei durchschnittlich 108 Ticks/s, also mehrfacher Spielgeschwindigkeit):
+  - 13 Lücken über 100 ms: 9 bei 100–150 ms, 3 bei 150–260 ms und eine bei 1187 ms.
+  - Die 1187-ms-Lücke um 14:14:31 folgte auf einen über Spectator erzwungenen KI-Angriff. Ursache sind Vanillas Assassinen-Suche `D9C40` (38 %) und BFQoLs `AssassinPathfindingRuntime` (etwa 35 %), nicht MoatMove; siehe Native-Baseline „Weighted Assassin search cost“.
+  - `preMs` 56 ms gesamt (vorher 3,8 s in 9 Minuten). `lazyTasks` 1415 bei 1726 KI-Bewegungen, `unusedMoves` 343.
+  - `refreshMs` 85 ms (vorher 11 s in 9 Minuten). Keine Veröffentlichungsablehnung mehr. `encodeRejects` 403; das sind veraltete Maskenteile, die die Prüfung abfängt.
+  - Resweep bleibt der größte Dauerposten: 19,9 s in 3 Minuten, etwa 0,85 ms je Tick und etwa 1 µs je Knoten. Auslöser sind 101513 Anforderungen bei 13 Zugangsänderungen. Ursache ist BFQoLs `InvalidateMovementSearchData` ohne Kachelangabe bei jeder Kachel- oder Grabenänderung.
+  - Zusatzanker: 1297 angelegt, `subMs` 1,0 s, in einem Fenster 244 ms. `anchorMiss.noStart` 14291 (Starts außerhalb des Hauptfelds, etwa KI hinter Mauern).
+ Die Wegqualität gegen Precise ist identisch mit der Messung vom 28.10. Abfragezeit je Einheit bei 8 Threads (`results/core-20261029-124523-008` gegen `core-20261028-172304-117`): `group-1024` 16,8 → 10,6 µs, `group-mix-10000` 12,9 → 7,5 µs, `converging-groups-10000` 12,2 → 7,1 µs, `scattered-group-mix-10000` 12,9 → 8,6 µs, `worker-trips-10000` 10,3 → 7,2 µs, `moat-group-mix-10000` 14,2 → 10,8 µs.
 
 **Prüfung für Teil A:**
 - Harness: Ein Fixture mit Bodenumweg und günstigerem Graben (Mauer-Muster aus §18.5) zeigt Grabenwahl im Anker-Modus und Bodenwahl in Fast.

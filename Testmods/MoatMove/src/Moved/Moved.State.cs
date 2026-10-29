@@ -65,5 +65,14 @@ namespace MoatMove
         internal object reachabilityOwner;
         internal int reachabilityTick;
         internal const int RouteStateShift = 20;
+#if SERP_DEVDIAG
+
+        // Log dedupe owned here: BugfixesAndQoL declares these only in its own DEVDIAG build,
+        // while MoatMove compiles against its normal assembly. Signatures carry the map epoch.
+        internal readonly Dictionary<int, string> lastUnscopedAttackModes = new Dictionary<int, string>();
+        internal readonly Dictionary<int, string> lastAttackCommandCandidates = new Dictionary<int, string>();
+        internal readonly HashSet<string> loggedDiggerDecisions = new HashSet<string>(StringComparer.Ordinal);
+        internal int loggedDiggerDecisionsMapEpoch = int.MinValue;
+#endif
     }
 }

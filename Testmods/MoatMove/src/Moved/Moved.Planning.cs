@@ -140,7 +140,7 @@ namespace MoatMove
                 ? "native-unit-approach-endpoint"
                 : "friendly-moat-required";
 #if SERP_DEVDIAG
-            GetOrCreateAttackTracker(scope, unitId);
+            runtime.GetOrCreateAttackTracker(scope, unitId);
 #endif
 
             return true;

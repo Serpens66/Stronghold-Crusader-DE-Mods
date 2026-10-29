@@ -7,7 +7,9 @@
 //   as MoatMove Fast. Words use the FastTraversalCache layout: bits 0..7 = friendly
 //   allowed directions, bits 16..23 = wet (moat) directions. Masks are written in
 //   chunks; a mask is usable once every node was written since mask_begin.
-// - A task is one command: anchor, cost profile and the start set. mma_step computes
+// - A task is one command: anchor, cost profile and the start set. A moat cost of 0 is
+//   a ground-only profile: wet edges are never used (units that cannot enter moats).
+//   mma_step computes
 //   pending tasks with a fork-join over worker threads. Each task writes only itself,
 //   so results never depend on thread count or scheduling.
 // - Queries answer one unit (start, slot) in caller order. Sub-anchor fields for far
@@ -36,7 +38,8 @@ using i64 = int64_t;
 using u64 = uint64_t;
 using u32 = uint32_t;
 constexpr int dx[8] = {0,1,1,1,0,-1,-1,-1}, dy[8] = {-1,-1,0,1,1,1,0,-1};
-constexpr int MaxSteps = 2000, MaxPlayers = 8, MaxSubAnchors = 16, MaxCost = 255;
+// 48 sub-anchors (about 2.5 MiB each on 800x800) serve wide formations around blocked anchors.
+constexpr int MaxSteps = 2000, MaxPlayers = 8, MaxSubAnchors = 48, MaxCost = 255;
 constexpr u32 Unset = 0xFFFFFFFFu;
 struct Exhausted {};
 
@@ -65,7 +68,9 @@ enum Status { Found = 0, Unreachable = 1, OverLimit = 2, Pending = 3, Stale = 4,
 constexpr int Ready = Found; // task status: field computed and current
 enum Flags { ViaAnchor = 1, SubAnchor = 2, NewSubAnchor = 4, Uncached = 8 };
 enum Code { Ok = 0, NoMemory = 2, BadArgument = 3, Internal = 4 };
-enum StatIndex { TasksComputed, TasksFailed, SettleEvents, Entries, Queries, ViaChosen, SubAnchors, SubCapped, StepNs, QueryNs, SubNs, MaskWrites, MaskChanges, PeakBytes, Allocations, Workers, StatCount };
+// AnchorNoStart..AnchorTooFar: why an anchor (main or sub) could not answer a query.
+enum StatIndex { TasksComputed, TasksFailed, SettleEvents, Entries, Queries, ViaChosen, SubAnchors, SubCapped, StepNs, QueryNs, SubNs, MaskWrites, MaskChanges, PeakBytes, Allocations, Workers,
+    AnchorNoStart, AnchorNoEntry, AnchorUnreached, AnchorTooFar, StatCount };
 
 struct Box { int x0 = 0, y0 = 0, x1 = -1, y1 = -1; };
 static int Ctz(u32 m) { unsigned long i; _BitScanForward(&i, m); return int(i); }
@@ -108,10 +113,52 @@ struct Mask {
 // first pop at its current tentative distance is final.
 struct Field {
     Vec<u32> gen, dist, needGen; Vec<uint8_t> done; Vec<Vec<int>> ring;
-    u32 generation = 0; i64 settles = 0, entries = 0;
-    Field(Memory* m, int n) : gen(size_t(n), 0u, Alloc<u32>(m)), dist(size_t(n), 0u, Alloc<u32>(m)), needGen(size_t(n), 0u, Alloc<u32>(m)),
-        done(size_t(n), 0, Alloc<uint8_t>(m)), ring(Alloc<Vec<int>>(m)) { for (int i = 0; i <= MaxCost; ++i) ring.emplace_back(Alloc<int>(m)); }
+    u32 generation = 0; i64 settles = 0, entries = 0; bool exhausted = false;
+    Field(Memory* m, int n, int buckets = MaxCost + 1) : gen(size_t(n), 0u, Alloc<u32>(m)), dist(size_t(n), 0u, Alloc<u32>(m)), needGen(size_t(n), 0u, Alloc<u32>(m)),
+        done(size_t(n), 0, Alloc<uint8_t>(m)), ring(Alloc<Vec<int>>(m)) { for (int i = 0; i < buckets; ++i) ring.emplace_back(Alloc<int>(m)); }
     bool reached(int v) const { return gen[v] == generation && done[v]; }
+    // Touched in the last search: dist is an upper bound, exact for settled nodes.
+    bool touched(int v) const { return gen[v] == generation; }
+    // Backward A* from source towards two targets inside a box, stopping once both are settled.
+    // h = cheapest step cost x Chebyshev distance to the nearer target is consistent, so settled
+    // distances are exact. Keys g + h of queued nodes stay within cost + cheapest step of the
+    // current key, which needs more than 2 x MaxCost buckets (local field only). A descent over
+    // touched nodes is exact too: a neighbour whose bound plus the step cost equals the exact
+    // distance of the current node has that bound as its exact distance.
+    void solveTowards(const Map& map, const Mask& mask, int source, int a, int b, int ground, int moat, const Box& box) {
+        if (++generation == 0) { std::fill(gen.begin(), gen.end(), 0u); std::fill(needGen.begin(), needGen.end(), 0u); generation = 1; }
+        const int size = int(ring.size()), w = map.width; const u32 step = u32(moat ? std::min(ground, moat) : ground);
+        const int ax = a % w, ay = a / w, bx = b % w, by = b / w;
+        auto h = [&](int x, int y) { return step * u32(std::min(std::max(std::abs(x - ax), std::abs(y - ay)), std::max(std::abs(x - bx), std::abs(y - by)))); };
+        i64 pending = 0, remaining = 0;
+        for (int t : {a, b}) if (needGen[t] != generation) { needGen[t] = generation; ++remaining; }
+        auto relax = [&](int u, int x, int y, u32 value) {
+            if (x < box.x0 || x > box.x1 || y < box.y0 || y > box.y1) return;
+            if (gen[u] != generation) { gen[u] = generation; done[u] = 0; }
+            else if (done[u] || dist[u] <= value) return;
+            dist[u] = value; ring[(value + h(x, y)) % size].push_back(u); ++pending; ++entries;
+        };
+        const int sx = source % w, sy = source / w;
+        relax(source, sx, sy, 0);
+        for (u32 key = h(sx, sy); pending > 0 && remaining > 0; ++key) {
+            Vec<int>& list = ring[key % size];
+            for (size_t i = 0; i < list.size() && remaining > 0; ++i) {
+                int v = list[i]; --pending;
+                if (done[v]) continue;
+                const int vx = v % w, vy = v / w; const u32 g = dist[v];
+                if (g + h(vx, vy) != key) continue;
+                done[v] = 1; ++settles;
+                if (needGen[v] == generation) { needGen[v] = 0; --remaining; }
+                // Incoming edge u -> v in direction d: u lies at v - (dx, dy).
+                for (u32 m = moat ? u32(mask.in[v]) : u32(mask.in[v] & ~mask.inWet[v] & 0xFF); m; m &= m - 1) {
+                    int d = Ctz(m); relax(v - map.off[d], vx - dx[d], vy - dy[d], g + u32((mask.inWet[v] >> d) & 1 ? moat : ground));
+                }
+            }
+            list.clear();
+        }
+        exhausted = remaining > 0;
+        for (auto& l : ring) l.clear();
+    }
     void solve(const Map& map, const Mask& mask, int source, bool forward, const std::vector<int>& targets, int ground, int moat, const Box* box = nullptr) {
         if (++generation == 0) { std::fill(gen.begin(), gen.end(), 0u); std::fill(needGen.begin(), needGen.end(), 0u); generation = 1; }
         const int size = int(ring.size()); i64 pending = 0, remaining = 0;
@@ -130,11 +177,14 @@ struct Field {
                 if (done[v] || dist[v] != bucket) continue;
                 done[v] = 1; ++settles;
                 if (needGen[v] == generation) { needGen[v] = 0; --remaining; }
-                if (forward) { for (u32 m = mask.out[v]; m; m &= m - 1) { int d = Ctz(m); relax(v + map.off[d], bucket + u32((mask.outWet[v] >> d) & 1 ? moat : ground)); } }
-                else { for (u32 m = mask.in[v]; m; m &= m - 1) { int d = Ctz(m); relax(v - map.off[d], bucket + u32((mask.inWet[v] >> d) & 1 ? moat : ground)); } }
+                // moat == 0: ground-only profile, wet (moat) edges are not traversable.
+                if (forward) { for (u32 m = moat ? u32(mask.out[v]) : u32(mask.out[v] & ~mask.outWet[v] & 0xFF); m; m &= m - 1) { int d = Ctz(m); relax(v + map.off[d], bucket + u32((mask.outWet[v] >> d) & 1 ? moat : ground)); } }
+                else { for (u32 m = moat ? u32(mask.in[v]) : u32(mask.in[v] & ~mask.inWet[v] & 0xFF); m; m &= m - 1) { int d = Ctz(m); relax(v - map.off[d], bucket + u32((mask.inWet[v] >> d) & 1 ? moat : ground)); } }
             }
             list.clear();
         }
+        // Exhausted: every node that reaches the source is settled (some target was not).
+        exhausted = remaining > 0;
         for (auto& l : ring) l.clear();
     }
 };
@@ -145,15 +195,17 @@ struct Stored {
     explicit Stored(Memory* m) : dist(Alloc<u32>(m)) {}
     void take(const Map& map, const Field& f, int a) { anchor = a; dist.assign(size_t(map.n), Unset); for (int v = 0; v < map.n; ++v) if (f.reached(v)) dist[v] = f.dist[v]; }
 };
-// Deterministic descent (lowest direction first) along a backward cost function.
+// Deterministic descent (lowest direction first) along a backward cost function. The stop
+// test also gets the node's coordinates, tracked per step instead of divided per test.
 template<class Dist, class Stop> static int Descend(const Map& map, const Mask& mask, Dist distance, int node, int ground, int moat, std::vector<uint8_t>& path, int& g, int& w, Stop stop) {
-    while (!stop(node)) {
+    int x = node % map.width, y = node / map.width;
+    while (!stop(node, x, y)) {
         u32 here = distance(node); int next = -1;
-        for (u32 m = mask.out[node]; m && next < 0; m &= m - 1) {
+        for (u32 m = moat ? u32(mask.out[node]) : u32(mask.out[node] & ~mask.outWet[node] & 0xFF); m && next < 0; m &= m - 1) {
             int d = Ctz(m), u = node + map.off[d]; u32 there = distance(u); if (there == Unset) continue;
             bool wet = ((mask.outWet[node] >> d) & 1) != 0;
             if (there + u32(wet ? moat : ground) != here) continue;
-            next = u; path.push_back(uint8_t(d)); if (wet) ++w; else ++g;
+            next = u; x += dx[d]; y += dy[d]; path.push_back(uint8_t(d)); if (wet) ++w; else ++g;
         }
         if (next < 0 || int(path.size()) > MaxSteps * 4) return -1;
         node = next;
@@ -162,7 +214,7 @@ template<class Dist, class Stop> static int Descend(const Map& map, const Mask& 
 }
 
 struct Task {
-    int id = 0, player = 0, anchor = 0, ground = 1, moat = 1, status = Pending; u64 revision = 0;
+    int id = 0, player = 0, anchor = 0, ground = 1, moat = 1, status = Pending; u64 revision = 0; bool exhausted = false;
     std::vector<int> starts; std::unique_ptr<Stored> main; std::vector<std::unique_ptr<Stored>> subs;
 };
 
@@ -205,11 +257,13 @@ struct Context {
     std::unique_ptr<Mask> masks[MaxPlayers + 1];
     std::map<int, std::unique_ptr<Task>> tasks; int nextId = 1;
     std::vector<std::unique_ptr<Field>> fields; std::unique_ptr<Field> local;
+    // Query scratch (queries run on the simulation thread only).
+    std::vector<uint8_t> path, rest; std::vector<int> targets;
     Pool pool; i64 stats[StatCount] = {};
     Context(int w, int h, i64 limit) {
         memory.maximum = limit; map.width = w; map.height = h; map.n = w * h;
         for (int d = 0; d < 8; ++d) map.off[d] = dy[d] * w + dx[d];
-        local = std::make_unique<Field>(&memory, map.n);
+        local = std::make_unique<Field>(&memory, map.n, 2 * MaxCost + 2);
     }
     ~Context() { pool.stop(); }
     Mask* mask(int player) { return player >= 1 && player <= MaxPlayers ? masks[player].get() : nullptr; }
@@ -223,50 +277,58 @@ static bool ValidNode(const Context& c, int node) { return node >= 0 && node < c
 // at the slot is created once (sub-anchor) and reused by later queries of this task.
 static int Query(Context& c, Task& t, int start, int slot, int margin, uint8_t* bytes, int capacity, QueryResult& r) {
     const Map& map = c.map; const Mask& mask = *c.mask(t.player); Field& local = *c.local;
-    std::vector<uint8_t> path; std::vector<uint8_t> rest;
+    std::vector<uint8_t>& path = c.path; std::vector<uint8_t>& rest = c.rest;
     auto finish = [&](int g, int w, int flags) {
         r.flags = flags; r.ground = g; r.moat = w; r.cost = i64(g) * t.ground + i64(w) * t.moat; r.length = int(path.size());
         if (int(path.size()) > MaxSteps || int(path.size()) > capacity) { r.status = OverLimit; r.length = 0; return; }
         std::copy(path.begin(), path.end(), bytes); r.status = Found;
     };
+    // The main field ran out before reaching every start: a start it never settled cannot reach
+    // the anchor, so it cannot reach any slot that does (directed graph). Answer that exactly
+    // instead of building a full-map sub-anchor per query (AI units behind walls, 29.10.2026).
+    if (t.exhausted && t.main->dist[start] == Unset && t.main->dist[slot] != Unset) { r.status = Unreachable; r.flags = 0; return Ok; }
     for (size_t a = 0; a <= t.subs.size(); ++a) {
         const Stored& s = a == 0 ? *t.main : *t.subs[a - 1];
-        if (s.dist[start] == Unset) continue;
+        if (s.dist[start] == Unset) { ++c.stats[AnchorNoStart]; continue; }
         Box box;
         box.x0 = std::max(0, std::min(s.anchor % map.width, slot % map.width) - margin); box.x1 = std::min(map.width - 1, std::max(s.anchor % map.width, slot % map.width) + margin);
         box.y0 = std::max(0, std::min(s.anchor / map.width, slot / map.width) - margin); box.y1 = std::min(map.height - 1, std::max(s.anchor / map.width, slot / map.width) + margin);
         auto stored = [&](int v) { return s.dist[v]; };
         path.clear(); int gH = 0, wH = 0;
-        int entry = Descend(map, mask, stored, start, t.ground, t.moat, path, gH, wH, [&](int v) { return map.inside(box, v); });
-        if (entry < 0) continue;
-        local.solve(map, mask, slot, false, std::vector<int>{s.anchor, entry}, t.ground, t.moat, &box);
-        if (!local.reached(s.anchor) || local.dist[s.anchor] > u32(t.ground) * u32(2 * map.chebyshev(s.anchor, slot) + 8)) continue;
-        auto localDistance = [&](int v) { return local.reached(v) ? local.dist[v] : Unset; };
+        int entry = Descend(map, mask, stored, start, t.ground, t.moat, path, gH, wH, [&](int, int x, int y) { return x >= box.x0 && x <= box.x1 && y >= box.y0 && y <= box.y1; });
+        if (entry < 0) { ++c.stats[AnchorNoEntry]; continue; }
+        local.solveTowards(map, mask, slot, s.anchor, entry, t.ground, t.moat, box);
+        if (!local.reached(s.anchor)) { ++c.stats[AnchorUnreached]; continue; }
+        if (local.dist[s.anchor] > u32(t.ground) * u32(2 * map.chebyshev(s.anchor, slot) + 8)) { ++c.stats[AnchorTooFar]; continue; }
+        auto localDistance = [&](int v) { return local.touched(v) ? local.dist[v] : Unset; };
         i64 boxCost = local.reached(entry) ? i64(gH) * t.ground + i64(wH) * t.moat + local.dist[entry] : -1;
         i64 viaCost = i64(s.dist[start]) + local.dist[s.anchor];
         int g = gH, w = wH, flags = a > 0 ? SubAnchor : 0;
         if (boxCost >= 0 && boxCost <= viaCost) {
-            rest.clear(); if (Descend(map, mask, localDistance, entry, t.ground, t.moat, rest, g, w, [&](int v) { return v == slot; }) < 0) continue;
+            rest.clear(); if (Descend(map, mask, localDistance, entry, t.ground, t.moat, rest, g, w, [&](int v, int, int) { return v == slot; }) < 0) continue;
         } else {
             ++c.stats[ViaChosen]; flags |= ViaAnchor;
-            if (Descend(map, mask, stored, entry, t.ground, t.moat, path, g, w, [&](int v) { return v == s.anchor; }) < 0) continue;
-            rest.clear(); if (Descend(map, mask, localDistance, s.anchor, t.ground, t.moat, rest, g, w, [&](int v) { return v == slot; }) < 0) continue;
+            if (Descend(map, mask, stored, entry, t.ground, t.moat, path, g, w, [&](int v, int, int) { return v == s.anchor; }) < 0) continue;
+            rest.clear(); if (Descend(map, mask, localDistance, s.anchor, t.ground, t.moat, rest, g, w, [&](int v, int, int) { return v == slot; }) < 0) continue;
         }
         path.insert(path.end(), rest.begin(), rest.end());
         finish(g, w, flags); return Ok;
     }
-    // No usable anchor: an exact field at the slot, cached as a sub-anchor while allowed.
+    // No usable anchor: an exact field at the slot, cached as a sub-anchor while allowed. With
+    // every sub-anchor slot used the query is not answered (the caller keeps Vanilla) rather
+    // than building an uncached full-map field per query.
+    if (int(t.subs.size()) >= MaxSubAnchors) { r.status = OverLimit; r.flags = Uncached; ++c.stats[SubCapped]; return Ok; }
     auto t0 = Clock::now();
-    std::vector<int> targets(t.starts); targets.push_back(start);
+    std::vector<int>& targets = c.targets; targets.assign(t.starts.begin(), t.starts.end()); targets.push_back(start);
     local.solve(map, mask, slot, false, targets, t.ground, t.moat);
-    int flags = NewSubAnchor | SubAnchor; const Stored* s = nullptr; std::unique_ptr<Stored> scratch;
-    if (int(t.subs.size()) < MaxSubAnchors) { t.subs.push_back(std::make_unique<Stored>(&c.memory)); t.subs.back()->take(map, local, slot); s = t.subs.back().get(); ++c.stats[SubAnchors]; }
-    else { scratch = std::make_unique<Stored>(&c.memory); scratch->take(map, local, slot); s = scratch.get(); flags = Uncached; ++c.stats[SubCapped]; }
+    int flags = NewSubAnchor | SubAnchor;
+    t.subs.push_back(std::make_unique<Stored>(&c.memory)); t.subs.back()->take(map, local, slot);
+    const Stored* s = t.subs.back().get(); ++c.stats[SubAnchors];
     c.stats[SubNs] += Ns(t0);
     path.clear(); int g = 0, w = 0;
     if (s->dist[start] == Unset) { r.status = Unreachable; r.flags = flags; return Ok; }
     auto stored = [&](int v) { return s->dist[v]; };
-    if (Descend(map, mask, stored, start, t.ground, t.moat, path, g, w, [&](int v) { return v == slot; }) < 0) { r.status = OverLimit; r.flags = flags; return Ok; }
+    if (Descend(map, mask, stored, start, t.ground, t.moat, path, g, w, [&](int v, int, int) { return v == slot; }) < 0) { r.status = OverLimit; r.flags = flags; return Ok; }
     finish(g, w, flags); return Ok;
 }
 
@@ -278,7 +340,7 @@ template<class F> static int Guard(F body) {
 
 using namespace mma;
 extern "C" {
-__declspec(dllexport) int mma_contract() { return 0x04000002; }
+__declspec(dllexport) int mma_contract() { return 0x04000005; }
 // Physical cores minus two (Unity main thread plus simulation/render), within 1..8.
 __declspec(dllexport) int mma_recommended_threads() {
     DWORD length = 0; GetLogicalProcessorInformationEx(RelationProcessorCore, nullptr, &length);
@@ -332,7 +394,7 @@ __declspec(dllexport) int mma_mask_state(Context* c, int player, i64* written, u
     return m && m->ready(c->map.n) ? Ok : Pending;
 }
 __declspec(dllexport) int mma_task_create(Context* c, int player, int anchor, int ground, int moat, const int* starts, int count, int* id) {
-    if (!c || !id || player < 1 || player > MaxPlayers || !ValidNode(*c, anchor) || ground < 1 || moat < 1 || ground > MaxCost || moat > MaxCost || count < 0 || (count && !starts)) return BadArgument;
+    if (!c || !id || player < 1 || player > MaxPlayers || !ValidNode(*c, anchor) || ground < 1 || moat < 0 || ground > MaxCost || moat > MaxCost || count < 0 || (count && !starts)) return BadArgument;
     for (int i = 0; i < count; ++i) if (!ValidNode(*c, starts[i])) return BadArgument;
     return Guard([&] {
         auto t = std::make_unique<Task>(); t->id = c->nextId++; t->player = player; t->anchor = anchor; t->ground = ground; t->moat = moat;
@@ -376,7 +438,7 @@ __declspec(dllexport) int mma_step(Context* c, int maxTasks, int threads, int* c
                 try {
                     f.solve(c->map, *c->mask(t.player), t.anchor, false, t.starts, t.ground, t.moat);
                     auto s = std::make_unique<Stored>(&c->memory); s->take(c->map, f, t.anchor);
-                    t.main = std::move(s); t.subs.clear(); t.revision = c->mask(t.player)->revision; t.status = Ready;
+                    t.main = std::move(s); t.subs.clear(); t.exhausted = f.exhausted; t.revision = c->mask(t.player)->revision; t.status = Ready;
                 }
                 catch (...) { t.main.reset(); t.status = Failed; }
             }

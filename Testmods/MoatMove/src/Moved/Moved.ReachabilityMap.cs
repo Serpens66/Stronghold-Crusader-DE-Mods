@@ -404,7 +404,7 @@ namespace MoatMove
                 return;
             }
 
-            string signature = $"{mapEpoch}:{(uint)command}:{unit->r_AIState}:" +
+            string signature = $"{runtime.mapEpoch}:{(uint)command}:{unit->r_AIState}:" +
                 $"{unit->r_CurrentTilePositionX}:{unit->r_CurrentTilePositionY}:" +
                 $"{unit->r_AttackMoveToTargetTileX}:{unit->r_AttackMoveToTargetTileY}:" +
                 $"{unit->r_AI_ContextTargetUnitId}:{unit->r_AI_ContextTargetUnitGlobalId}:" +
@@ -417,7 +417,7 @@ namespace MoatMove
             }
 
             lastUnscopedAttackModes[unitId] = signature;
-            LogDetailedInfo(
+            runtime.LogDetailedInfo(
                 $"Bugfixes and QoL stage=friendly-moat-movement-attack-mode-unscoped unit={unitId} " +
                 $"player={unit->r_ControllableForPlayerId} command={command}({(uint)command}) " +
                 $"aiState={unit->r_AIState} current=({unit->r_CurrentTilePositionX}," +

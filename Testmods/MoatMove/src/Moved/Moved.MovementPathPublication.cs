@@ -38,6 +38,11 @@ namespace MoatMove
                 try { return EnemyBridgeDiagnosticBridge.NativeResult(runtime.originalPathBuilder(pathManager, movementClass, movementProfile)); }
                 finally { *runtime.moatPathMode = inheritedMode; }
             }
+            // Anchor dispatch: units that cannot enter moats have no BugfixesAndQoL plan; their
+            // ground route comes from the group's ground-only task instead of Vanilla's search.
+            if (plan == null && !reconstruction && !runtime.disposed &&
+                TryPublishAnchorGroundWithoutPlan(pathManager, frame, out int anchorPublished))
+            { RecordBuilderResult(command, anchorPublished); return anchorPublished; }
             if (runtime.disposed || pathManager != runtime.nativePathManager || plan == null ||
                 !APIShared.UnitAccess.TryGetById(plan.UnitId, out GameUnit* unit, out _) ||
                 unit == null || !runtime.CanDigMoat(unit))
@@ -58,12 +63,18 @@ namespace MoatMove
                 groundReconstruction = TryPrepareGroundReconstruction(plan, unit);
 
             }
-            if (runtime.RequiredOnlyMode && owned && (qualified || groundReconstruction) && (originalVariant == 0 || originalVariant == 1))
+            // Anchor dispatch, ground decision: the core's ground route replaces Vanilla's search.
+            bool anchorGround = runtime.RequiredOnlyMode && !reconstruction && !qualified && owned &&
+                (originalVariant == 0 || originalVariant == 1) && TryPrepareAnchorGround(plan, unit);
+            if (runtime.RequiredOnlyMode && owned && (qualified || groundReconstruction || anchorGround) && (originalVariant == 0 || originalVariant == 1))
             {
                 // 196280 has already bound its real unit buffer. A ready shared field
                 // supplies the route without running F4930 again for this member.
-                if (TryReplaceUnsafeFallbackPath(pathManager, path, backup, beforeLength, plan, unit,
-                    out int ready, out _, requireMoat: !groundReconstruction))
+                long publishStarted = System.Diagnostics.Stopwatch.GetTimestamp();
+                bool replaced = TryReplaceUnsafeFallbackPath(pathManager, path, backup, beforeLength, plan, unit,
+                    out int ready, out string publishDetails, requireMoat: !groundReconstruction && !anchorGround);
+                RecordAnchorPublish(publishStarted, replaced, anchorGround ? "ground" : groundReconstruction ? "reconstruction" : "qualified", publishDetails);
+                if (replaced)
                 {
                     // Same terminal publication state as the shared fallback below:
                     // the native consumer latches this mode after the builder returns.
@@ -83,6 +94,13 @@ namespace MoatMove
                     RestoreFallbackPathBuffer(pathManager, path, backup, beforeLength);
                     *variant = originalVariant; *runtime.moatPathMode = mode;
                     RecordBuilderResult(command, 0); return 0;
+                }
+                if (anchorGround)
+                {
+                    // Rejected anchor route: restore and let Vanilla's builder run unchanged.
+                    RestoreFallbackPathBuffer(pathManager, path, backup, beforeLength);
+                    *variant = originalVariant; *runtime.moatPathMode = mode;
+                    plan.QualifiedRoute = null;
                 }
             }
             int vanilla;
@@ -407,7 +425,8 @@ namespace MoatMove
                     !runtime.weightedMoatRoutePlanner.TryGetTraversalEdge(
                         playerId, x, y, tileId, nextX, nextY, nextTileId,
                         direction, nodeIndex == result - 1,
-                        runtime.IsPublishedWalkableBuildingApproach(plan.UnitId, nextTileId),
+                        // A reserved target concerns only the final edge (once per route, not per step).
+                        nodeIndex == result - 1 && runtime.IsPublishedWalkableBuildingApproach(plan.UnitId, nextTileId),
                         MoatTraversalPolicy.AllowEnemyForDiagnostic,
                         out MoatTraversalEdgeKind edgeKind, out _))
                 {

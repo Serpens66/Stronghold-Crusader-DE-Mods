@@ -65,6 +65,12 @@ namespace MoatMove
         }
 
         private bool FastLiveEdge(int player, int from, int to, int direction, bool ground,
+            out bool wet, out bool structure) =>
+            LiveEdge(player, from, to, direction, ground,
+                runtime.cursorTopologies.TryGetValue(player, out CursorTopology topology) ? topology.BlockedBuildings : null, out wet, out structure);
+
+        // Shared live predicate; blocked: gate buildings closed to the player (null: none known).
+        private bool LiveEdge(int player, int from, int to, int direction, bool ground, HashSet<int> blocked,
             out bool wet, out bool structure)
         {
             wet = structure = false;
@@ -72,9 +78,8 @@ namespace MoatMove
             int x = from % MapWidth, y = from / MapWidth, nx = to % MapWidth, ny = to / MapWidth;
             int a = GameTileManagerAPI.Instance.GetTileId(x, y), b = GameTileManagerAPI.Instance.GetTileId(nx, ny);
             if (!IsValidTileId(a) || !IsValidTileId(b)) return false;
-            if (runtime.cursorTopologies.TryGetValue(player, out CursorTopology topology) &&
-                (topology.BlockedBuildings.Contains(runtime.nativeBuildingLayer[a]) ||
-                 topology.BlockedBuildings.Contains(runtime.nativeBuildingLayer[b]))) return false;
+            if (blocked != null && blocked.Count != 0 &&
+                (blocked.Contains(runtime.nativeBuildingLayer[a]) || blocked.Contains(runtime.nativeBuildingLayer[b]))) return false;
             bool allowed = runtime.weightedMoatRoutePlanner.TryGetTraversalEdge(player, x, y, a, nx, ny, b,
                 direction, false, false, ground ? MoatTraversalPolicy.GroundOnly : MoatTraversalPolicy.FriendlyOnly,
                 out MoatTraversalEdgeKind kind, out structure);
@@ -140,11 +145,11 @@ namespace MoatMove
                 }
         }
 
-        private void MarkFastTopologyAll()
+        private void MarkFastTopologyAll(bool anchorMasks = true)
         {
             if (fastSimulationRouting != null) foreach (var map in fastSimulationRouting.Maps.Values) map.MarkAll();
             if (fastCursorRouting != null) foreach (var map in fastCursorRouting.Maps.Values) map.MarkAll();
-            ResweepAnchorMasks();
+            if (anchorMasks) ResweepAnchorMasks();
         }
 
         private FastRouteStatus AdvanceFastField(FastFieldLease lease, int start, int budget, int maximumEdges = 2000)
@@ -187,8 +192,10 @@ namespace MoatMove
         }
 
         // Live audit of a packed route (low nibble first): every transition, endpoint and summary.
+        // anchor: the route comes from an anchor mask, audited with the anchor's gate rule; a
+        // failed edge re-reads only the area of the stale node instead of every anchor mask.
         private bool TryFinishFastEncoded(int player, int start, int requestedTarget, byte[] bytes, int written, bool groundOnly,
-            int expanded, out WeightedMoatRouteSummary summary, out WeightedMoatEncodedRoute route)
+            int expanded, out WeightedMoatRouteSummary summary, out WeightedMoatEncodedRoute route, bool anchor = false)
         {
             route = default;
             int node = start, moat = 0, structures = 0, diagonal = 0, changes = 0, previous = -1;
@@ -197,8 +204,13 @@ namespace MoatMove
             {
                 int direction = (bytes[i >> 1] >> ((i & 1) * 4)) & 15;
                 int next = node + WeightedMoatRoutePlanner.DirectionY[direction] * MapWidth + WeightedMoatRoutePlanner.DirectionX[direction];
-                if (!FastLiveEdge(player, node, next, direction, groundOnly, out bool wet, out bool structure))
-                { MarkFastTopologyAll(); summary = WeightedMoatRouteSummary.Failed("fast-live-edge-changed", 0); return false; }
+                bool live = anchor ? AnchorLiveEdge(player, node, next, direction, groundOnly, out bool wet, out bool structure)
+                    : FastLiveEdge(player, node, next, direction, groundOnly, out wet, out structure);
+                if (!live)
+                {
+                    MarkFastTopologyAll(anchorMasks: false); MarkAnchorArea(node);
+                    summary = WeightedMoatRouteSummary.Failed("fast-live-edge-changed", 0); return false;
+                }
                 if (wet) moat++; if (structure) structures++; if ((direction & 1) != 0) diagonal++;
                 if (previous >= 0 && previous != direction) changes++;
                 previous = direction; fingerprint = unchecked((fingerprint ^ (byte)direction) * 1099511628211UL);
@@ -277,9 +289,19 @@ namespace MoatMove
             if (plan.RouteStartX >= 0) { sx = plan.RouteStartX; sy = plan.RouteStartY; }
             if ((uint)sx >= MapWidth || (uint)sy >= MapWidth) return false;
             int start = sy * MapWidth + sx, target = plan.TargetY * MapWidth + plan.TargetX;
-            FastRoutingState state = GetFastRouting(false); RefreshFastRouting(state); fastNewQueries++;
+            fastNewQueries++;
             // Anchor mode: the cheaper weighted route decides; otherwise Fast's ground-first rule.
-            if (TryAnchorRequiredRoute(plan, reserved, sx, sy, out summary, out bool anchorMoat)) return anchorMoat;
+            if (TryAnchorRequiredRoute(plan, reserved, sx, sy, out summary, out bool anchorMoat, ResolveAnchorTask(false))) return anchorMoat;
+            // Anchor mode without a core answer (outside group moves: combat resume, AI orders
+            // before their mask is ready) keeps Vanilla's result instead of a synchronous Fast
+            // field (up to 930 ms per query with AI armies, 29.10.2026). Moat work keeps Fast.
+            if (anchorAvailable && !plan.MoatWorkMovement)
+            {
+                fastAnchorSkips++;
+                summary = FastSummary(plan.PlayerId, sx, sy, plan.TargetX, plan.TargetY, false, default);
+                return false;
+            }
+            FastRoutingState state = GetFastRouting(false); RefreshFastRouting(state);
             bool ground = FastGroundReachable(state, plan.PlayerId, start, target, plan.UnitId);
             plan.QualifiedRoute = null;
             plan.QualifiedTerminalRoute = default;

@@ -56,6 +56,15 @@ namespace MoatMove
                 // not evidence that the command needs a friendly-moat route; the validated
                 // pre-builder failure adapter or an earlier failed group/work gate supplies
                 // that evidence later.
+                // Anchor dispatch asks the core first: a cheaper moat route qualifies exactly as
+                // after a Vanilla failure; a ground decision keeps the Vanilla-first state below.
+                if (runtime.RequiredOnlyMode && !plannerQualified && requestPlan != null && anchorDispatchTask != 0 &&
+                    TryAnchorQualifiesMoat(requestPlan, unit))
+                {
+                    requestPlan.FriendlyRouteQualified = true;
+                    plan = requestPlan;
+                    plannerQualified = true;
+                }
                 if (runtime.RequiredOnlyMode && !plannerQualified && requestPlan != null)
                 {
                     requestPlan.ModeObserved = true;

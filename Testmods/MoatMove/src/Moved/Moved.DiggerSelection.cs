@@ -36,11 +36,17 @@ namespace MoatMove
 #if SERP_DEVDIAG
             if (unit == null)
                 return;
-            string key = $"{mapEpoch}:{source}:{unit->r_UnitChimp}:{unit->r_AI_LastIssuedTribeCommand}:" +
+            // BugfixesAndQoL cleared its copy on map reset; keep the provider-owned set bounded alike.
+            if (loggedDiggerDecisionsMapEpoch != runtime.mapEpoch)
+            {
+                loggedDiggerDecisions.Clear();
+                loggedDiggerDecisionsMapEpoch = runtime.mapEpoch;
+            }
+            string key = $"{runtime.mapEpoch}:{source}:{unit->r_UnitChimp}:{unit->r_AI_LastIssuedTribeCommand}:" +
                 $"{targetX}:{targetY}:{accepted}:{friendlyMoatRequired}";
             if (!loggedDiggerDecisions.Add(key))
                 return;
-            LogCommandDiagnostic(
+            runtime.LogCommandDiagnostic(
                 $"stage=vanilla-digger source={source} unit={unitId} " +
                 $"type={unit->r_UnitChimp} command=" +
                 $"{(TribeAICommand)unit->r_AI_LastIssuedTribeCommand} " +

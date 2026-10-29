@@ -41,9 +41,9 @@ namespace MoatMove
                     return;
                 }
 
-                if (trackedMoatMoves.TryGetValue(
+                if (runtime.trackedMoatMoves.TryGetValue(
                         plan.UnitId, out MoatMoveTracker existing) &&
-                    existing.MapEpoch == mapEpoch &&
+                    existing.MapEpoch == runtime.mapEpoch &&
                     existing.TargetX == plan.TargetX &&
                     existing.TargetY == plan.TargetY)
                 {
@@ -54,10 +54,10 @@ namespace MoatMove
                 }
 
                 bool requiredOnly = activeMoveCommand?.Options.RequiredOnly ??
-                    activeAttackCommand?.Options.RequiredOnly ?? CurrentOptions.RequiredOnly;
+                    activeAttackCommand?.Options.RequiredOnly ?? runtime.CurrentOptions.RequiredOnly;
                 bool explicitCommand = activeMoveCommand != null || activeAttackCommand != null;
-                requiredBackgroundTrackedUnitIds.Remove(plan.UnitId);
-                trackedMoatMoves.Remove(plan.UnitId);
+                runtime.requiredBackgroundTrackedUnitIds.Remove(plan.UnitId);
+                runtime.trackedMoatMoves.Remove(plan.UnitId);
                 RequiredRouteMetrics requiredMetrics = requiredOnly
                     ? activeMoveCommand?.Required ?? activeAttackCommand?.Required
                     : null;
@@ -65,17 +65,17 @@ namespace MoatMove
                 {
                     bool selected = explicitCommand
                         ? requiredMetrics?.TryTrackUnit(plan.UnitId) ?? false
-                        : requiredBackgroundTrackedUnitIds.Contains(plan.UnitId) ||
-                          requiredBackgroundTrackedUnitIds.Count < 8;
+                        : runtime.requiredBackgroundTrackedUnitIds.Contains(plan.UnitId) ||
+                          runtime.requiredBackgroundTrackedUnitIds.Count < 8;
                     if (!selected)
                         return;
-                    if (!explicitCommand) requiredBackgroundTrackedUnitIds.Add(plan.UnitId);
+                    if (!explicitCommand) runtime.requiredBackgroundTrackedUnitIds.Add(plan.UnitId);
                 }
-                ResolveCommandDiagnosticContext(
+                runtime.ResolveCommandDiagnosticContext(
                     plan.UnitId, unit, out TribeAICommand command, out string commandContext,
                     out int commandSequence);
                 var tracker = new MoatMoveTracker(
-                    mapEpoch,
+                    runtime.mapEpoch,
                     plan.UnitId,
                     unit->r_TribeId,
                     unit->r_UnitChimp,
@@ -86,7 +86,7 @@ namespace MoatMove
                     unit->r_CurrentTilePositionX,
                     unit->r_CurrentTilePositionY,
                     unit->r_CurrentPathPlanIndex,
-                    IsCompletedMoatTile(unchecked((int)unit->r_CurrentPositionTileId)),
+                    runtime.IsCompletedMoatTile(unchecked((int)unit->r_CurrentPositionTileId)),
                     ReadUnitMoatPathConsumptionMode(unit),
                     CaptureCurrentGameTick());
                 tracker.WeightedCommand = command;
@@ -94,18 +94,18 @@ namespace MoatMove
                 tracker.WeightedCommandSequence = commandSequence;
                 tracker.RequiredOnlyAtPublication = requiredOnly;
                 tracker.WorkTargetMoatTileId = plan.MoatWorkTargetTileId;
-                trackedMoatMoves[plan.UnitId] = tracker;
-                LogCommandDiagnostic(
+                runtime.trackedMoatMoves[plan.UnitId] = tracker;
+                runtime.LogCommandDiagnostic(
                     $"stage=move-track-start unit={plan.UnitId} type={unit->r_UnitChimp} " +
                     $"player={unit->r_ControllableForPlayerId} tribe={unit->r_TribeId} " +
                     $"target=({plan.TargetX},{plan.TargetY}) command={command} " +
-                    $"commandContext={commandContext} canDig={CanDigMoat(unit)} " +
+                    $"commandContext={commandContext} canDig={runtime.CanDigMoat(unit)} " +
                     $"builderResult={builderResult} " +
                     summary.ToLogFields());
             }
             catch (Exception ex)
             {
-                TryLogDiagnosticFailure("move-track-start", ex);
+                runtime.TryLogDiagnosticFailure("move-track-start", ex);
             }
 #endif
         }

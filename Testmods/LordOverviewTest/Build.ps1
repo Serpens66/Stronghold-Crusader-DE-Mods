@@ -11,6 +11,8 @@ if($LASTEXITCODE){throw 'APIShared package validation failed.'}
 if($LASTEXITCODE){throw 'Runtime boundary checks failed.'}
 & dotnet run --project (Join-Path $PSScriptRoot 'tests/Tests.csproj') -c Release
 if($LASTEXITCODE){throw 'Controller tests failed.'}
+& powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'tests/Test-Presets.ps1')
+if($LASTEXITCODE){throw 'Mod-specific preset tests failed.'}
 $msbuild='C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\MSBuild.exe'
 $diagnosticProperty=if($DevDiag){'/p:SerpDevDiagnostics=true'}else{'/p:SerpDevDiagnostics=false'}
 & $msbuild (Join-Path $PSScriptRoot 'LordOverviewTest.csproj') /t:Rebuild /p:Configuration=Release "/p:ApiSharedDir=$sdk" $diagnosticProperty /v:minimal

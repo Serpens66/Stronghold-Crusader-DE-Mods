@@ -46,6 +46,6 @@
   <ItemGroup><Compile Include="src\*.cs" /></ItemGroup>
   <ItemGroup><Compile Include="..\..\Shared\Runtime\Diagnostics\DevDiag.cs"><Link>Shared\DevDiag.cs</Link></Compile></ItemGroup>
   <ItemGroup><Compile Include="..\..\Shared\Runtime\Diagnostics\DebugLogHelper.cs"><Link>Shared\DebugLogHelper.cs</Link></Compile><Compile Include="..\..\Shared\Runtime\Localization\SerpLocalization.cs"><Link>Shared\SerpLocalization.cs</Link></Compile></ItemGroup>
-  <ItemGroup><Content Include="Locales\*.txt"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content><Content Include="Override\**\*.png"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content><Content Include="info.json"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content></ItemGroup>
+  <ItemGroup><Content Include="Locales\*.txt"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content><Content Include="Override\**\*.png"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content><Content Include="Override\**\*.xaml"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content><Content Include="info.json"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content></ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

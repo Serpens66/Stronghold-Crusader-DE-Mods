@@ -25,5 +25,45 @@ try {
  $calls=@($method.Body.Instructions | Where-Object {$_.Operand -is [Mono.Cecil.MethodReference]} | ForEach-Object {$_.Operand.Name})
  foreach($name in @('SetSprite1','SetSprite2','SetSprite3','SetSprite4')){if($name -notin $calls){throw "Missing Vanilla sprite assignment: $name"}}
  if($assembly.MainModule.GetType('LordOverviewTest.OverviewCrownButton')){throw 'Obsolete custom crown-template path remains.'}
+ $metrics=@($assembly.MainModule.GetType('LordOverviewTest.Metric').Fields | Where-Object IsLiteral | ForEach-Object Name)
+ $settings=$assembly.MainModule.GetType('LordOverviewTest.OverviewSettings')
+ foreach($name in @('EnableMod','AllowEnemyDetails','Columns')){
+  $property=$settings.Properties | Where-Object Name -eq $name
+  $scope=if($name -eq 'AllowEnemyDetails'){'SyncHostOnlyAttribute'}else{'PresetLocalAttribute'}
+  if(-not $property -or -not ($property.CustomAttributes | Where-Object {$_.AttributeType.Name -eq $scope})){throw "Wrong settings ownership: $name"}
+ }
 } finally {$assembly.Dispose()}
-Write-Host 'PASS: packaged crown PNGs, alpha corners, three distinct states and compiled Vanilla sprite assignments (actual rendering still requires in-game validation).'
+$localeRoot=Join-Path $root 'Locales'
+$reference=$null
+foreach($file in Get-ChildItem -LiteralPath $localeRoot -Filter '*.txt'){
+ $keys=[Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+ foreach($line in [IO.File]::ReadAllLines($file.FullName)){
+  if(-not $line.Trim() -or $line.StartsWith('#')){continue}
+  $pair=$line -split '=',2
+  if($pair.Count -ne 2 -or -not $pair[1].Trim() -or -not $keys.Add($pair[0])){throw "Invalid/duplicate locale entry in $($file.Name): $line"}
+ }
+ foreach($metric in $metrics){if(-not $keys.Contains($metric)){throw "Missing metric label $metric in $($file.Name)"}}
+ if($reference -and -not $reference.SetEquals($keys)){throw "Locale key parity failed: $($file.Name)"}
+ $reference=$keys
+}
+[xml]$view=[IO.File]::ReadAllText((Join-Path $root 'Override/ScriptExtenderUI/LordOverviewTestSettings.xaml'))
+foreach($control in $view.SelectNodes("//*[local-name()='Button' or local-name()='CheckBox' or local-name()='ComboBox' or local-name()='TextBox']")){
+ if(-not $control.GetAttribute('ToolTip') -or $control.GetAttribute('ToolTipService.ShowDuration') -ne '60000'){throw 'Settings control lost its tooltip/duration.'}
+}
+# Verify the real unmodified game/SE boundary, not only a successful compile against a publicized assembly.
+$gameAssembly=[Mono.Cecil.AssemblyDefinition]::ReadAssembly((Join-Path $GameDirectory 'Stronghold Crusader Definitive Edition_Data/Managed/Assembly-CSharp.dll'))
+$extender=[Mono.Cecil.AssemblyDefinition]::ReadAssembly((Join-Path $GameDirectory 'BepInEx/plugins/000shcdese/SHCDESE.dll'))
+try {
+ $engine=$gameAssembly.MainModule.GetType('EngineInterface')
+ $lock=$engine.Fields | Where-Object Name -eq 'threadLock'
+ if(-not $lock.IsStatic -or $lock.IsPublic -or $lock.FieldType.FullName -ne 'System.Object'){throw 'Engine lock reflection contract changed.'}
+ foreach($name in @('GetMeritData','GetMPScoreData')){if(-not ($engine.Methods | Where-Object {$_.Name -eq $name -and $_.IsPublic -and $_.IsStatic})){throw "Vanilla public snapshot unavailable: $name"}}
+ $resources=$extender.MainModule.GetType('SHCDESE.Interop.GamePlayerResources')
+ foreach($pair in @(@('r_CurrentPopularity','System.UInt32'),@('r_GoodBadThingBoost','System.Int32'))){
+  $field=$resources.Fields | Where-Object Name -eq $pair[0]
+  if(-not $field.IsPublic -or $field.FieldType.FullName -ne $pair[1]){throw "SE resource contract changed: $($pair[0])"}
+ }
+ $origin=$extender.MainModule.GetType('SHCDESE.API.GameXAMLManagerAPI').Properties | Where-Object Name -eq 'CurrentLobbyModSettingsChangeOrigin'
+ if(-not $origin.GetMethod.IsPublic){throw 'Settings change-origin contract unavailable.'}
+} finally {$gameAssembly.Dispose();$extender.Dispose()}
+Write-Host 'PASS: packaged crown states, metric locales, settings/tooltips and real Vanilla/SE access contracts (actual rendering still requires in-game validation).'

@@ -9,6 +9,7 @@ using RedBird.X64.Hooks.Transaction;
 using SHCDESE.API;
 using SHCDESE.EventAPI;
 using SHCDESE.EventAPI.Tribes;
+using SHCDESE.EventAPI.Units;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 
@@ -22,7 +23,7 @@ namespace MoatMove
         private readonly FastCommandQueue fastCommands = new FastCommandQueue();
         private readonly List<Delegate> fastCommandDelegates = new List<Delegate>();
         private HookTransaction fastCommandHooks;
-        private IDisposable fastCancelSubscription, fastLoadSubscription;
+        private IDisposable fastCancelSubscription, fastLoadSubscription, anchorMoveSubscription, anchorUnitMoveSubscription;
         private bool fastSchedulerInitialized, fastDispatching, fastLoadReady, fastSaveLoading;
         private int fastPlayerActionDepth, fastLastTick = int.MinValue, fastRoundRobin;
         private IntPtr fastChoreMode;
@@ -61,6 +62,13 @@ namespace MoatMove
                 }
                 fastCommands.Removed += ReleaseFastPendingSearch;
                 fastCancelSubscription = TribeR3EventHooks.OnTribeIssueOrderWithTarget.Observable.Subscribe(CancelFastPlayerTarget);
+                // Rooted by the Extender's process-lived event; the handler idles until the core is ready.
+                if (settings.Anchor)
+                {
+                    anchorMoveSubscription = TribeR3EventHooks.OnTribeIssueOrderMoveHere.Observable.Subscribe(OnAnchorMoveHere);
+                    // Which group members Vanilla re-plans (196280) inside a group move.
+                    anchorUnitMoveSubscription = UnitR3EventHooks.OnUnitMoveHere.Observable.Subscribe(ObserveAnchorUnitMove);
+                }
                 fastLoadSubscription = Shared.MissionEvents.SaveLoading.Subscribe(args =>
                 {
                     if (args.IsBeforeInitialization)
@@ -85,7 +93,7 @@ namespace MoatMove
                 // Only a failed initialization candidate reaches this rollback.
                 if (tickRegistered) GameTimeManagerAPI.Instance.OnTick -= ProcessFastCommands;
                 if (registered) ModSaveDataAPI.Instance.UnregisterModDataHandler("MoatMove_Serp");
-                fastCancelSubscription?.Dispose(); fastLoadSubscription?.Dispose();
+                fastCancelSubscription?.Dispose(); fastLoadSubscription?.Dispose(); anchorMoveSubscription?.Dispose(); anchorUnitMoveSubscription?.Dispose();
                 fastCommands.Removed -= ReleaseFastPendingSearch;
                 // Native hooks belong to APIShared and survive failed provider initialization.
                 throw;
@@ -125,37 +133,49 @@ namespace MoatMove
         private void CaptureFastPlayerMove(IntPtr manager, int tribeId, int x, int y, int patrol, int flags)
         {
             try { if (TryCaptureFastPlayerMove(tribeId, x, y, patrol, flags)) return; }
-            catch (Exception ex) { runtime.TryLogDiagnosticFailure("fast-capture", ex); }
+            catch (Exception ex) { fastCaptureCounts[12]++; runtime.TryLogDiagnosticFailure("fast-capture", ex); }
             // No catch around Original: a failing native invocation must never be replayed.
             originalFastPlayerMove(manager, tribeId, x, y, patrol, flags);
         }
 
+        private bool RejectFastCapture(int reason) { fastCaptureCounts[reason]++; return false; }
+
         private bool TryCaptureFastPlayerMove(int tribeId, int x, int y, int patrol, int flags)
         {
-            if (!Enabled || !runtime.TraversalEnabled || !fastSchedulerInitialized || fastDispatching || !RequiredOnlyMode ||
-                QueueNativeContract.TryDecodeQueuedMoveType(flags, out _) || (uint)x >= MapWidth || (uint)y >= MapWidth ||
-                !GameTribeManagerAPI.Instance.TryGetTribeById(tribeId, out GameTribe* tribe) || tribe == null ||
-                tribe->r_AliveState != AliveState.IsAlive ||
-                !GamePlayerManagerAPI.Instance.IsPlayerIdValid(tribe->r_PlayerIdOwner) ||
+            // Support metric (fast-performance line): calls, captures and the first failing condition.
+            fastCaptureCounts[0]++;
+            if (!Enabled || !runtime.TraversalEnabled || !fastSchedulerInitialized || fastDispatching || !RequiredOnlyMode)
+                return RejectFastCapture(2);
+            // Anchor mode serves group moves synchronously at 11B520 (OnAnchorMoveHere); no deferral.
+            if (anchorAvailable) return RejectFastCapture(11);
+            if (QueueNativeContract.TryDecodeQueuedMoveType(flags, out _))
+                return RejectFastCapture(3);
+            if ((uint)x >= MapWidth || (uint)y >= MapWidth)
+                return RejectFastCapture(4);
+            if (!GameTribeManagerAPI.Instance.TryGetTribeById(tribeId, out GameTribe* tribe) || tribe == null ||
+                tribe->r_AliveState != AliveState.IsAlive)
+                return RejectFastCapture(5);
+            if (!GamePlayerManagerAPI.Instance.IsPlayerIdValid(tribe->r_PlayerIdOwner) ||
                 GamePlayerManagerAPI.Instance.IsAIPlayer(tribe->r_PlayerIdOwner))
-                return false;
+                return RejectFastCapture(6);
             List<FastUnitIdentity> members = CaptureFastMembers(tribeId);
-            if (members.Count == 0) return false;
-            // Every player move order (simulation-deterministic) may start that player's mask.
-            RequestAnchorMask(tribe->r_PlayerIdOwner);
+            if (members.Count == 0) return RejectFastCapture(7);
             fastCommands.Supersede(members);
             bool ordinary = patrol == 0;
             int target = GameTileManagerAPI.Instance.GetTileId(x, y);
-            bool needsSearch = false;
+            bool needsSearch = false, capable = false;
             foreach (FastUnitIdentity member in members)
             {
                 if (!TryGetFastMember(member, tribe->r_PlayerIdOwner, out GameUnit* unit) || !runtime.CanDigMoat(unit)) continue;
+                capable = true;
                 GetNativeMovementStart(unit, out int sx, out int sy);
                 if ((uint)sx >= MapWidth || (uint)sy >= MapWidth ||
                     !IsSamePositiveGroundRegion(GameTileManagerAPI.Instance.GetTileId(sx, sy), target)) needsSearch = true;
             }
-            if (!ordinary || !needsSearch)
-                return false;
+            if (!ordinary) return RejectFastCapture(8);
+            if (!capable) return RejectFastCapture(9);
+            if (!needsSearch) return RejectFastCapture(10);
+            fastCaptureCounts[1]++;
             fastCommands.Enqueue(tribe->r_PlayerIdOwner, tribeId, tribe->r_GlobalId,
                 x, y, patrol, flags, CaptureCurrentGameTick(), members);
             fastQueuedCommands++;
@@ -223,7 +243,12 @@ namespace MoatMove
                         if (!TryGetFastMember(identity, fastUnitDistributions[identity].Player, out _))
                             fastUnitDistributions.Remove(identity);
                 // Anchor mode prepares masks and computes queued tasks even without new commands.
-                if (RequiredOnlyMode && runtime.TraversalEnabled) AnchorTick(tick);
+                if (RequiredOnlyMode && runtime.TraversalEnabled)
+                {
+                    // Tick-based and from simulation state only, so every peer requests alike.
+                    if (AnchorPlayerScanDue(tick)) RequestAnchorMasksForPlayers(ScanAnchorPlayers());
+                    AnchorTick(tick);
+                }
                 if (fastCommands.Commands.Count == 0) return;
                 if (!RequiredOnlyMode || !runtime.TraversalEnabled)
                 {
@@ -234,8 +259,7 @@ namespace MoatMove
                 RefreshFastRouting(GetFastRouting(false));
                 int budget = 8192;
                 var active = new List<FastPendingCommand>();
-                // Anchor tasks hold no Fast pool leases, so more commands can wait at once.
-                int capacity = settings.NativeFast ? GetFastRouting(false).Pool.PendingGroupCapacity : anchorAvailable ? 64 : 4;
+                int capacity = settings.NativeFast ? GetFastRouting(false).Pool.PendingGroupCapacity : 4;
                 foreach (FastPendingCommand command in fastCommands.Commands)
                 { active.Add(command); if (active.Count == capacity) break; }
                 int idle = 0;
@@ -263,8 +287,6 @@ namespace MoatMove
             command.Members.RemoveAll(member => !TryGetFastMember(member, command.Player, out _));
             if (command.Members.Count == 0) { fastCommands.Remove(command); return true; }
             if (command.IsWaypoint) return !fastCommands.HasPredecessor(command.Members, command.Sequence);
-            bool? anchorReady = AdvanceAnchorCommand(command);
-            if (anchorReady.HasValue) return anchorReady.Value;
             var search = command.SearchState as FastPendingSearch;
             if (search == null) command.SearchState = search = new FastPendingSearch();
             FastRoutingState state = GetFastRouting(false);
@@ -300,45 +322,128 @@ namespace MoatMove
             return !pending;
         }
 
-        // Anchor mode (AnchorRouting.cs). null: this command uses the Fast path; true: ready to dispatch; false: waiting.
-        private bool? AdvanceAnchorCommand(FastPendingCommand command)
+        // Anchor mode (AnchorRouting.cs): Pre/Post of the Extender's 11B520 event. Group moves of
+        // human and AI players with a complete mask get tasks, computed at the first unit query.
+        private void OnAnchorMoveHere(TribeIssueOrderMoveHereEventArgs args)
         {
-            if (!anchorAvailable || command.IsWaypoint) return null;
-            var search = command.SearchState as AnchorSearch;
-            if (search == null)
+            if (!anchorAvailable) return;
+            try
             {
-                if (command.SearchState != null) return null;
-                RequestAnchorMask(command.Player);
-                if (!AnchorReady(command.Player)) return null;
-                int[] starts = AnchorStartBuffer(command.Members.Count); int count = 0; long ground = 0, moat = 0;
-                foreach (FastUnitIdentity member in command.Members)
+                if (args.Phase != EventHookPhase.Pre)
                 {
-                    if (!TryGetFastMember(member, command.Player, out GameUnit* unit) || !runtime.CanDigMoat(unit)) continue;
-                    GetNativeMovementStart(unit, out int x, out int y);
-                    if ((uint)x >= MapWidth || (uint)y >= MapWidth) continue;
-                    starts[count++] = y * MapWidth + x;
-                    // The first capable member defines the group profile (deterministic order).
-                    if (ground == 0 && runtime.TryCaptureWeightedMovementCostProfile(unit, out WeightedMovementCostProfile profile, out _))
-                    { ground = profile.GetEdgeFixedCost(false); moat = profile.GetEdgeFixedCost(true); }
+                    EndAnchorFrame(args.TribeId);
+                    if (anchorEndedUnreached != 0) LogAnchorUnreached();
+                    return;
                 }
-                if (count == 0 || ground <= 0 || moat <= 0) return null;
-                long divisor = Gcd(ground, moat); ground /= divisor; moat /= divisor;
-                if (ground > AnchorMaxCost || moat > AnchorMaxCost) return null;
-                if ((uint)command.X >= MapWidth || (uint)command.Y >= MapWidth ||
-                    AnchorNative.mma_task_create(anchorContext, command.Player, command.Y * MapWidth + command.X,
-                        (int)ground, (int)moat, starts, count, out int task) != 0) return null;
-                anchorLiveTasks.Add(task); anchorTasks++;
-                command.SearchState = search = new AnchorSearch { Owner = this, Task = task };
-                // Compute it in this tick when the tick's task budget allows; no extra tick delay.
-                StepAnchorTasks();
+                // A skipped original raises no Post; other threads (UI probes) keep Vanilla.
+                AnchorTaskSpec digger = null, ground = null; int[] memberIds = null;
+                if (!args.SkipOriginalFunction && Enabled && runtime.TraversalEnabled && RequiredOnlyMode &&
+                    Environment.CurrentManagedThreadId == anchorSimThread)
+                {
+                    long started = System.Diagnostics.Stopwatch.GetTimestamp();
+                    TryCaptureAnchorMoveSpecs(args.TribeId, args.TileX, args.TileY, out digger, out ground, out memberIds);
+                    long elapsed = System.Diagnostics.Stopwatch.GetTimestamp() - started;
+                    if (digger != null || ground != null) { anchorPreTicks += elapsed; anchorPreMaxTicks = Math.Max(anchorPreMaxTicks, elapsed); }
+                }
+                BeginAnchorFrame(args.TribeId, 0, 0, memberIds, digger, ground);
             }
-            int status = AnchorNative.mma_task_status(anchorContext, search.Task);
-            if (status == AnchorNative.Ready) return true;
-            if (status == AnchorNative.Pending) return false;
-            if (status == AnchorNative.Stale && TryRestartAnchorTask(search)) return false;
-            // Failed or released: this command continues on the Fast path.
-            search.Dispose(); command.SearchState = null; anchorFallbacks++;
-            return null;
+            catch (Exception ex) { runtime.TryLogDiagnosticFailure("anchor-move", ex); }
+        }
+
+        private void ObserveAnchorUnitMove(UnitMoveHereEventArgs args)
+        {
+            if (args.Phase == EventHookPhase.Pre) MarkAnchorUnit(args.UnitId);
+        }
+
+        // Members a group move never re-planned keep their previous order; bounded per map.
+        private void LogAnchorUnreached()
+        {
+            int unreached = anchorEndedUnreached; anchorEndedUnreached = 0;
+            if (anchorUnreachedLogs >= 40) return;
+            anchorUnreachedLogs++;
+            var sample = new System.Text.StringBuilder();
+            for (int i = 0; i < Math.Min(unreached, anchorUnreachedSample.Length); i++)
+            {
+                int id = anchorUnreachedSample[i];
+                sample.Append(' ').Append(id);
+                if (!APIShared.UnitAccess.TryGetById(id, out GameUnit* unit, out _) || unit == null) { sample.Append(":missing"); continue; }
+                sample.Append(':').Append(unit->r_UnitChimp).Append('@').Append(unit->r_CurrentTilePositionX).Append(',')
+                    .Append(unit->r_CurrentTilePositionY).Append("/tribe=").Append(unit->r_TribeId)
+                    .Append("/player=").Append(unit->r_ControllableForPlayerId).Append("/alive=").Append((int)unit->r_AliveState);
+            }
+            Shared.DebugLogHelper.LogInfo(log, $"MoatMove anchor-move-unreached tribe={anchorEndedTribe} members={anchorEndedMembers} " +
+                $"unreached={unreached} sample=[{sample.ToString().Trim()}].");
+        }
+
+        // Bit p is set when player p controls at least one living unit.
+        private int ScanAnchorPlayers()
+        {
+            int mask = 0;
+            foreach (int id in APIShared.UnitAccess.GetAllReallyAliveUnits())
+                if (APIShared.UnitAccess.TryGetById(id, out GameUnit* unit, out _) && unit != null)
+                {
+                    int player = unit->r_ControllableForPlayerId;
+                    if (player >= 1 && player <= 8) mask |= 1 << player;
+                }
+            return mask;
+        }
+
+        // One weighted task for moat-capable members and one ground-only task for the others.
+        // Only the starts and the profile are captured here; ResolveAnchorTask computes a field
+        // once the first member asks.
+        private void TryCaptureAnchorMoveSpecs(int tribeId, int x, int y, out AnchorTaskSpec digger, out AnchorTaskSpec ground, out int[] memberIds)
+        {
+            digger = ground = null; memberIds = null;
+            if ((uint)x >= MapWidth || (uint)y >= MapWidth ||
+                !GameTribeManagerAPI.Instance.TryGetTribeById(tribeId, out GameTribe* tribe) || tribe == null ||
+                tribe->r_AliveState != AliveState.IsAlive) return;
+            int player = tribe->r_PlayerIdOwner;
+            if (!GamePlayerManagerAPI.Instance.IsPlayerIdValid(player)) return;
+            // Human and AI group moves alike; every group move (simulation-deterministic)
+            // may start that player's mask.
+            bool ai = GamePlayerManagerAPI.Instance.IsAIPlayer(player);
+            RequestAnchorMask(player);
+            if (!AnchorReady(player)) { anchorMaskPendingMoves++; return; }
+            List<FastUnitIdentity> members = CaptureFastMembers(tribeId);
+            memberIds = new int[members.Count];
+            for (int i = 0; i < members.Count; i++) memberIds[i] = members[i].Id;
+            // Diggers fill the buffer from the front, all other members from the back.
+            // Two starts per member: the native start (current or next tile) used by the unit's
+            // own route and the current tile used by the group moat probe inside 11B520.
+            int[] starts = AnchorStartBuffer(members.Count * 2); int diggers = 0, others = 0; long groundCost = 0, moat = 0;
+            foreach (FastUnitIdentity member in members)
+            {
+                if (!TryGetFastMember(member, player, out GameUnit* unit)) continue;
+                GetNativeMovementStart(unit, out int sx, out int sy);
+                if ((uint)sx >= MapWidth || (uint)sy >= MapWidth) continue;
+                int native = sy * MapWidth + sx, cx = unit->r_CurrentTilePositionX, cy = unit->r_CurrentTilePositionY;
+                int current = (uint)cx < MapWidth && (uint)cy < MapWidth ? cy * MapWidth + cx : native;
+                if (!runtime.CanDigMoat(unit))
+                {
+                    starts[starts.Length - 1 - others++] = native;
+                    if (current != native) starts[starts.Length - 1 - others++] = current;
+                    continue;
+                }
+                starts[diggers++] = native;
+                if (current != native) starts[diggers++] = current;
+                // The first capable member defines the group profile (deterministic order).
+                if (groundCost == 0 && runtime.TryCaptureWeightedMovementCostProfile(unit, out WeightedMovementCostProfile profile, out _))
+                { groundCost = profile.GetEdgeFixedCost(false); moat = profile.GetEdgeFixedCost(true); }
+            }
+            int anchor = y * MapWidth + x;
+            if (diggers != 0 && groundCost > 0)
+            {
+                var front = new int[diggers]; Array.Copy(starts, front, diggers);
+                digger = new AnchorTaskSpec { Player = player, Anchor = anchor, Ground = groundCost, Moat = moat, Starts = front };
+            }
+            if (others != 0)
+            {
+                // The tail holds the others in reverse member order; the spec keeps member order.
+                var back = new int[others];
+                for (int i = 0; i < others; i++) back[i] = starts[starts.Length - 1 - i];
+                ground = new AnchorTaskSpec { Player = player, Anchor = anchor, Ground = 1, Moat = 0, Starts = back };
+            }
+            if (digger != null || ground != null) { if (ai) anchorAiMoves++; else anchorHumanMoves++; }
         }
 
         private bool DispatchFastCommand(FastPendingCommand command)
@@ -354,9 +459,6 @@ namespace MoatMove
                 list.Add(member);
             }
             bool previous = fastDispatching; fastDispatching = true;
-            // Unit decisions inside this Vanilla dispatch query the command's anchor task.
-            int previousAnchorTask = anchorDispatchTask;
-            anchorDispatchTask = (command.SearchState as AnchorSearch)?.Task ?? 0;
             try
             {
                 foreach (var group in groups)
@@ -378,7 +480,7 @@ namespace MoatMove
                     Math.Max(0L, (long)CaptureCurrentGameTick() - command.EnqueuedTick));
                 fastCommands.Remove(command); fastExecutedCommands++; return true;
             }
-            finally { fastDispatching = previous; anchorDispatchTask = previousAnchorTask; }
+            finally { fastDispatching = previous; }
         }
 
         private bool TryBindFastDispatchGroup(int player, int originalId, List<FastUnitIdentity> members, out int tribeId)

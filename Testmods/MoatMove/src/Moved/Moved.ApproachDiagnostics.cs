@@ -46,7 +46,7 @@ namespace MoatMove
                 else
                     producerApproachOnly++;
             }
-            LogCommandDiagnostic(
+            runtime.LogCommandDiagnostic(
                 $"stage=building-consumer-candidates commandSeq={scope.CommandSequence} " +
                 $"building={scope.OwnerCommand.TargetValue1}/{scope.OwnerCommand.TargetValue2} " +
                 $"producerRaw={before.Length} producerPairs={producerPairs} " +
@@ -62,7 +62,7 @@ namespace MoatMove
                 $"finalPairs={scope.After.UsableResultCount} " +
                 $"finalFirst={scope.After.FirstResultTile}/" +
                 $"{scope.After.FirstCompanionTile}/{scope.After.FirstScore}.");
-            LogCommandDiagnostic(
+            runtime.LogCommandDiagnostic(
                 $"stage=building-consumer-fallback commandSeq={scope.CommandSequence} " +
                 $"building={scope.OwnerCommand.TargetValue1}/{scope.OwnerCommand.TargetValue2} " +
                 $"applied={fallback.WasApplied} reason={fallback.Reason} " +
@@ -85,7 +85,7 @@ namespace MoatMove
             if (performance == null)
                 return;
 
-            LogCommandDiagnostic(
+            runtime.LogCommandDiagnostic(
                 $"stage=building-consumer-performance " +
                 $"commandSeq={performance.CommandSequence} building={performance.BuildingId} " +
                 $"vanillaMs={performance.VanillaMilliseconds:F3} " +
@@ -114,7 +114,7 @@ namespace MoatMove
             double estimatedVanillaMilliseconds = Math.Max(
                 0.0,
                 performance.TotalMilliseconds - performance.RegionFallbackMilliseconds);
-            LogCommandDiagnostic(
+            runtime.LogCommandDiagnostic(
                 $"stage=building-approach-performance " +
                 $"commandSeq={performance.CommandSequence} building={performance.BuildingId} " +
                 $"totalMs={performance.TotalMilliseconds:F3} " +
@@ -145,7 +145,7 @@ namespace MoatMove
                 return;
             }
 
-            LogCommandDiagnostic(
+            runtime.LogCommandDiagnostic(
                 $"stage=attack-approach kind={scope.Kind} commandSeq={scope.CommandSequence} " +
                 $"command={scope.Command} tribe={scope.TribeId} unit={scope.UnitId} " +
                 $"type={scope.UnitType} player={scope.PlayerId} targetContext={scope.TargetContext} " +

@@ -684,6 +684,8 @@ Gebaut wurde nur lokal per MSBuild; die vorhandenen MoatMove-Tests und die Kern-
 
 **Korrektur zu §18.5 (28.10.2026, abends):** Der Wegaufbau je Einheit in MoatMoves RequiredOnly-Ablauf ist strikt „Vanilla zuerst“. Der Provider wird nur nach einem Vanilla-Fehlschlag gefragt, nicht für über Boden erreichbare Ziele. Die Aussage „an allen relevanten Stellen“ gilt für diesen Fall nicht. Der Anker-Modus entscheidet deshalb bisher nur für Einheiten ohne Bodenweg. Echte Kostenminimierung braucht eine Änderung dieses Ablaufs mit Native-Audit. Einzelheiten: [ANCHOR_MODE_PLAN.md](Testmods/MoatMove/ANCHOR_MODE_PLAN.md), Abschnitt „Robustheit nach dem ersten Ingame-Test“.
 
+**Nachtrag Phase 4 (29.10.2026, 11:23):** Der Anker-Modus greift synchron am Gruppenbefehl `11B520` (Extender-Ereignis `OnTribeIssueOrderMoveHere`) und veröffentlicht Graben- und Bodenrouten statt Vanillas Suche je Einheit (`F4930`/`DA590`). Im Editor mit rund 1350 Einheiten und BFQoL-Formation sank der Stillstand je Gruppenbefehl von 490–660 ms auf 142,7 ms beim ersten und unter 100 ms bei den fünf folgenden Befehlen. Das Ankerfeld kostete höchstens 10,7 ms. Einzelheiten: [ANCHOR_MODE_PLAN.md](Testmods/MoatMove/ANCHOR_MODE_PLAN.md), Phase 4.
+
 **Nachtrag Phase 3 (28.10.2026, 20:18):** `build.bat` baut jetzt auch `MoatMoveAnchor.dll` und installiert sie mit. Der Lauf `build.bat /nopause` war vollständig erfolgreich; die Hashes im Spielordner stimmen. Der Ingame-Test steht noch aus (`Mode = anchor` in `MoatMove_Serp.cfg`).
 
 Einzelheiten stehen in [ANCHOR_MODE_PLAN.md](Testmods/MoatMove/ANCHOR_MODE_PLAN.md).

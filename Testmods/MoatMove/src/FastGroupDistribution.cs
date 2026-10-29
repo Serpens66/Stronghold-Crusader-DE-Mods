@@ -37,7 +37,7 @@ namespace MoatMove
         {
             tile = 0;
             // Anchor mode answers any slot per unit; BFQoL formation or Vanilla selects slots.
-            if (anchorDispatchTask != 0) return false;
+            if (anchorDispatchTask != 0 || anchorGroundTask != 0) return false;
             if (!RequiredOnlyMode || !runtime.IsScopedPureMoveFormationCall(manager, x, y, activeMoveCommand)) return false;
             MoveCommandScope command = activeMoveCommand;
             runtime.EnsureMoveCommandGroupSummary(command);

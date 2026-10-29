@@ -76,7 +76,6 @@ namespace MoatMove
         public CursorPointer GetCursorManager() => new CursorPointer { Pointer=Cursor };
         public bool IsAIPlayer(int id) => false;
         public bool IsPlayerIdValid(int id) => id > 0 && id <= 8;
-        public int[] GetAlivePlayerIds() => new[] { 1 };
         public bool IsPlayerAlliedTo(int a, int b) => a == b;
         public int GetLocalPlayerId() => 1;
         public SelectedUnitInfo[] GetSelectedChimps()

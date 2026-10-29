@@ -57,7 +57,7 @@ namespace MoatMove
 
                         if (scope.OwnerCommand.AttackApproachDiagnosticSignatures.Add(logSignature))
                         {
-                            LogCommandDiagnostic(
+                            runtime.LogCommandDiagnostic(
                                 $"stage=attack-unit-region-fallback " +
                                 $"commandSeq={scope.CommandSequence} unit={scope.UnitId} " +
                                 $"player={scope.PlayerId} targetContext={scope.TargetContext} " +
@@ -112,7 +112,7 @@ namespace MoatMove
 
                         if (scope.OwnerCommand.AttackApproachDiagnosticSignatures.Add(logSignature))
                         {
-                            LogCommandDiagnostic(
+                            runtime.LogCommandDiagnostic(
                                 $"stage=building-approach-region-fallback " +
                                 $"commandSeq={scope.CommandSequence} building=" +
                                 $"{scope.OwnerCommand.TargetValue1}/{scope.OwnerCommand.TargetValue2} " +

@@ -26,6 +26,38 @@ def sprite(name, expected):
         raise RuntimeError('Reference sprite dimensions changed: '+name)
     return atlas.crop((x,y,x+w,y+h))
 
+def background(highlight):
+    # These different Vanilla icons share the same parchment. Agreement of three
+    # sprites recovers actual background pixels without enlarging a bright edge.
+    indices = (1,3,5,7,9,11,13,17,19)
+    frames = [sprite('UI-Buildings A%03d' % (i + int(highlight)), (68,68)) for i in indices]
+    result = frames[0].copy()
+    known = {}
+    missing = []
+    for y in range(8,60):
+        for x in range(8,60):
+            samples = [frame.getpixel((x,y)) for frame in frames]
+            minimum_red = 140 if 12 <= x < 56 and 14 <= y < 54 else 80
+            # Atlas compression gives the same parchment slightly different RGB
+            # values beside different icons. Match a tight cluster, keep an original pixel.
+            candidates = [(sum(max(abs(a-b) for a,b in zip(pixel[:3],other[:3])) <= 14 for other in samples),pixel)
+                          for pixel in samples if pixel[0] >= pixel[1] >= pixel[2] and pixel[0] > minimum_red]
+            candidates = [(count,pixel) for count,pixel in candidates if count >= 3]
+            if candidates:
+                pixel = max(candidates)[1]
+                known[x,y] = pixel
+                result.putpixel((x,y),pixel)
+            else:
+                missing.append((x,y))
+    if len(known) < 2000:
+        raise RuntimeError('Shared Vanilla button background contract changed: recovered %d of 2704 pixels' % len(known))
+    # The few places covered by every icon inherit nearby verified parchment grain.
+    for x,y in missing:
+        neighbour = min(known, key=lambda point: (point[0]-x)**2 + (point[1]-y)**2)
+        result.putpixel((x,y),known[neighbour])
+    print('background', 'hover' if highlight else 'normal', 'verified pixels', len(known), 'reconstructed', len(missing))
+    return result
+
 crown = sprite('UI-Buttons A056',(60,70)).crop((12,19,48,39))
 mask = Image.new('L', crown.size)
 draw = ImageDraw.Draw(mask)
@@ -36,13 +68,9 @@ crown.putalpha(mask)
 crown = crown.resize((51,28), Image.Resampling.LANCZOS)
 output = Path(__file__).resolve().parents[1] / 'Override/Assets/GUI/Sprites'
 output.mkdir(parents=True, exist_ok=True)
+backgrounds = [background(False), background(True)]
 for state,key,offset in [('Normal','UI-Buildings A001',0),('Hover','UI-Buildings A002',0),('Pressed','UI-Buildings A002',1)]:
-    frame = sprite(key,(68,68))
-    button = Image.new('RGBA',(68,68))
-    for row,(y,h) in enumerate([(0,8),(8,52),(60,8)]):
-        for col,(x,w) in enumerate([(0,8),(8,52),(60,8)]):
-            part = frame.crop((8,9,16,17)) if row==col==1 else frame.crop((x,y,x+w,y+h))
-            button.paste(part.resize((w,h),Image.Resampling.BILINEAR),(x,y))
+    button = backgrounds[int(state != 'Normal')].copy()
     # Shadow and outline are separate layers: the frame and parchment are never tinted.
     shadow = Image.new('RGBA',crown.size,(41,27,12,0))
     shadow.putalpha(crown.getchannel('A').filter(ImageFilter.GaussianBlur(1.2)))

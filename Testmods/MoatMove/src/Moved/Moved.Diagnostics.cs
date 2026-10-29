@@ -45,14 +45,14 @@ namespace MoatMove
                 }
 
                 alive++;
-                if (!CanDigMoat(unit))
+                if (!runtime.CanDigMoat(unit))
                     continue;
                 diggers++;
                 var plan = new PlanScope(unitId, command.TargetX, command.TargetY)
                 {
                     PlayerId = unit->r_ControllableForPlayerId
                 };
-                if (TryGetCachedRequiredFriendlyRouteForPlan(
+                if (runtime.TryGetCachedRequiredFriendlyRouteForPlan(
                         plan, out RouteProbeSummary summary))
                 {
                     requiredFriendly++;
@@ -69,13 +69,13 @@ namespace MoatMove
         internal void LogModeContext(PlanScope plan, GameUnit* unit, int vanillaResult)
         {
 #if SERP_DEVDIAG
-            if (!ShouldLogUnitPipeline)
+            if (!runtime.ShouldLogUnitPipeline)
                 return;
             int startX = unit->r_CurrentTilePositionX;
             int startY = unit->r_CurrentTilePositionY;
             int startTileId = GameTileManagerAPI.Instance.GetTileId(startX, startY);
-            int startRegion = IsValidTileId(startTileId) ? pathRegionGrid[startTileId] : 0;
-            uint startFlags = IsValidTileId(startTileId) ? tileFlags[startTileId] : 0;
+            int startRegion = IsValidTileId(startTileId) ? runtime.pathRegionGrid[startTileId] : 0;
+            uint startFlags = IsValidTileId(startTileId) ? runtime.tileFlags[startTileId] : 0;
 
             bool targetInBounds = plan.TargetX >= 0 && plan.TargetX < MapWidth &&
                 plan.TargetY >= 0 && plan.TargetY < MapWidth;
@@ -83,12 +83,12 @@ namespace MoatMove
             int targetTileId = targetInBounds
                 ? GameTileManagerAPI.Instance.GetTileId(plan.TargetX, plan.TargetY)
                 : -1;
-            int targetRegion = IsValidTileId(targetTileId) ? pathRegionGrid[targetTileId] : 0;
-            uint targetFlags = IsValidTileId(targetTileId) ? tileFlags[targetTileId] : 0;
-            int targetAvailability = targetCell >= 0 ? movementTargetAvailability[targetCell] : -1;
+            int targetRegion = IsValidTileId(targetTileId) ? runtime.pathRegionGrid[targetTileId] : 0;
+            uint targetFlags = IsValidTileId(targetTileId) ? runtime.tileFlags[targetTileId] : 0;
+            int targetAvailability = targetCell >= 0 ? runtime.movementTargetAvailability[targetCell] : -1;
             string source = ReferenceEquals(activePlan, plan) ? "central-planner" : "movehere-direct";
 
-            LogCommandDiagnostic(
+            runtime.LogCommandDiagnostic(
                 $"stage=mode-context unit={plan.UnitId} player={plan.PlayerId} source={source} " +
                 $"start=({startX},{startY}) target=({plan.TargetX},{plan.TargetY}) " +
                 $"sameTile={startX == plan.TargetX && startY == plan.TargetY} " +
