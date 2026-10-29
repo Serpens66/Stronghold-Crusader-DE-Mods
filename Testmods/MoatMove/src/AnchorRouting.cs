@@ -779,7 +779,34 @@ namespace MoatMove
             Shared.DebugLogHelper.LogInfo(log, $"MoatMove anchor-unreachable-found unit={unitId} {unitText} start={sx},{sy} slot={tx},{ty} " +
                 $"builderTarget={builderX},{builderY} sameTarget={builderX == tx && builderY == ty} vanillaLength={length} " +
                 $"task={anchorUnreachableTask} groundTask={anchorUnreachableTask == anchorGroundTask} " +
-                $"startWord=0x{startWord:X8} slotWord=0x{targetWord:X8}.");
+                $"startWord=0x{startWord:X8} slotWord=0x{targetWord:X8} " +
+                $"startEdges=[{DescribeAnchorNode(unit, anchorUnreachableStart, false)}] slotEdges=[{DescribeAnchorNode(unit, anchorUnreachableTarget, true)}].");
+        }
+
+        // Native DA590 direction byte of a node and, per direction, the anchor mask's live verdict
+        // with BugfixesAndQoL's rejection rule (incoming edges for a slot, outgoing for a start).
+        private string DescribeAnchorNode(GameUnit* unit, int node, bool incoming)
+        {
+            if (unit == null || (uint)node >= (uint)(MapWidth * MapWidth)) return "none";
+            int player = unit->r_ControllableForPlayerId, x = node % MapWidth, y = node / MapWidth;
+            int tile = GameTileManagerAPI.Instance.GetTileId(x, y);
+            var text = new System.Text.StringBuilder();
+            text.Append("native=0x").Append(IsValidTileId(tile) ? runtime.nativeMovementMasks[tile].ToString("X2") : "--")
+                .Append(" building=").Append(IsValidTileId(tile) ? runtime.nativeBuildingLayer[tile] : -1);
+            for (int d = 0; d < 8; d++)
+            {
+                int ox = x + WeightedMoatRoutePlanner.DirectionX[d], oy = y + WeightedMoatRoutePlanner.DirectionY[d];
+                if ((uint)ox >= MapWidth || (uint)oy >= MapWidth) continue;
+                int other = oy * MapWidth + ox;
+                // Incoming edge other -> node runs in the opposite direction.
+                int from = incoming ? other : node, to = incoming ? node : other, direction = incoming ? (d + 4) & 7 : d;
+                // LiveEdge returns before the planner (which resets the rule) for blocked gates and invalid tiles.
+                runtime.weightedMoatRoutePlanner.edgeRejectionRule = "anchor-blocked-or-invalid";
+                bool ok = LiveEdge(player, from, to, direction, !runtime.CanDigMoat(unit), anchorBlocked[player], out _, out bool structure);
+                text.Append(' ').Append(d).Append(':').Append(ok ? "ok" : runtime.weightedMoatRoutePlanner.edgeRejectionRule ?? "blocked")
+                    .Append(structure ? "/s" : "");
+            }
+            return text.ToString();
         }
 
         internal bool IsAnchorAuditedRoute(QualifiedMovementRoute route)
