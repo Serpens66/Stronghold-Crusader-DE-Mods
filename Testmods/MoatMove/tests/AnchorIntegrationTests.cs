@@ -88,6 +88,13 @@ namespace MoatMove
                 anchorBlocked[2] = new System.Collections.Generic.HashSet<int> { 4242 };
                 anchorMaps[2] = PlayerCache(2, false);
                 for (int y = 8; y <= 12; y++) for (int x = 8; x <= 182; x++) anchorMaps[2].Word(y * MapWidth + x);
+                // A pending resweep round has not re-read these words yet: they are not seeded.
+                ResweepAnchorMasks(); reachWords[2] = null;
+                FastTraversalCache pendingReach = ReachabilityWords(2);
+                pendingReach.Edge(10 * MapWidth + 20, 10 * MapWidth + 21, 2, false, out _, out _);
+                Check(pendingReach.Seeded == 0, "a word not yet re-read by a pending resweep round was seeded");
+                // The round finished: every clean anchor word is current.
+                anchorSweepCursor = -1; anchorSweepLeft = 0; reachWords[2] = null;
                 FastTraversalCache seededReach = ReachabilityWords(2);
                 for (int y = 9; y <= 11; y++)
                     for (int x = 9; x <= 181; x++)

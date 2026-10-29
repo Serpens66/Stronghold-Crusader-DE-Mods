@@ -138,6 +138,9 @@ namespace MoatMove
         // One cursor for all ready masks: a player-neutral node is read live once per step and
         // adopted by the other players' masks.
         private int anchorSweepCursor = -1, anchorSweepLeft;
+        // Position and progress of the running round since its latest request: a node the round
+        // re-read since then holds a word that already reflects the requesting change.
+        private int anchorSweepRequestStart, anchorSweptSinceRequest;
         private readonly uint[][] anchorSweepWords = new uint[9][];
         // Gate buildings closed to a player (same rule as the cursor portals), refreshed only when
         // the access fingerprint changes; anchor masks never need a cursor topology.
@@ -212,7 +215,7 @@ namespace MoatMove
             anchorWatchTiles = null; anchorWatchBytes = null;
             anchorPlayersRequested = false; anchorUnreachedLogs = 0; anchorUnreachableLogs = 0; anchorEndedUnreached = 0; anchorPortalCount = -1;
             for (int p = 0; p < anchorMaskNext.Length; p++) { anchorMaskNext[p] = -1; anchorBlocked[p]?.Clear(); }
-            anchorSweepCursor = -1; anchorSweepLeft = 0;
+            anchorSweepCursor = -1; anchorSweepLeft = 0; anchorSweepRequestStart = anchorSweptSinceRequest = 0;
         }
 
         private bool AnchorReady(int player) =>
@@ -538,6 +541,14 @@ namespace MoatMove
         private const int AnchorWatchNodesPerTick = 40000;
         private int[] anchorWatchTiles; private byte[] anchorWatchBytes;
         private int anchorWatchCursor, anchorWatchPrimed; private long anchorWatchChanges;
+        // Whether the node's anchor words already reflect the latest resweep request.
+        private bool AnchorSweptSinceRequest(int node)
+        {
+            if (anchorSweepCursor < 0) return true;
+            int total = MapWidth * MapWidth;
+            return ((node - anchorSweepRequestStart) % total + total) % total < anchorSweptSinceRequest;
+        }
+
         // Tile id of every node once the watch's first pass completed, else null (ids are fixed per map).
         private int[] AnchorNodeTiles() =>
             anchorWatchTiles != null && anchorWatchPrimed >= MapWidth * MapWidth ? anchorWatchTiles : null;
@@ -575,10 +586,13 @@ namespace MoatMove
         private void ResweepAnchorMasks()
         {
             anchorResweeps++;
-            // The reachability words follow the same access/global invalidations.
-            foreach (var map in reachWords) map?.MarkAll();
+            // The reachability words follow the same access/global invalidations. They are dropped
+            // rather than re-read in full at the next search (a 184 ms gap, pf-iter-15) and seeded
+            // again from anchor words this round has re-read (SeedReachabilityWord).
+            foreach (var map in reachWords) map?.Forget();
             if (anchorSweepCursor < 0) anchorSweepCursor = 0;
             anchorSweepLeft = MapWidth * MapWidth;
+            anchorSweepRequestStart = anchorSweepCursor; anchorSweptSinceRequest = 0;
         }
 
         // A failed live audit names the stale node: its area is re-read at the next tick.
@@ -682,7 +696,7 @@ namespace MoatMove
                 for (int p = 1; p <= 8; p++)
                     if (anchorMaskNext[p] >= total && anchorSweepWords[p] != null)
                         AnchorNative.mma_mask_write(anchorContext, p, sweep, count, anchorSweepWords[p], out _);
-                anchorSweepLeft -= count;
+                anchorSweepLeft -= count; anchorSweptSinceRequest += count;
                 anchorSweepCursor = anchorSweepLeft <= 0 ? -1 : (sweep + count) % total;
             }
             long ended = System.Diagnostics.Stopwatch.GetTimestamp();

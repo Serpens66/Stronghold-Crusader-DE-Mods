@@ -219,7 +219,7 @@ namespace MoatMove
         {
             word = 0;
             FastTraversalCache anchor = anchorMaps[player];
-            if (anchor == null || !anchor.TryGetClean(node, out word)) return false;
+            if (anchor == null || !anchor.TryGetClean(node, out word) || !AnchorSweptSinceRequest(node)) return false;
             HashSet<int> blocked = anchorBlocked[player];
             if (blocked == null || blocked.Count == 0) return true;
             int x = node % MapWidth, y = node / MapWidth;
@@ -240,11 +240,12 @@ namespace MoatMove
             map.Refresh(); AdvanceFastMarkEpoch();
         }
 
+        // anchorMasks == false (a failed live audit): the caller marks the stale area of the anchor
+        // masks and reachability words itself; only Fast's own caches are marked completely.
         private void MarkFastTopologyAll(bool anchorMasks = true)
         {
             if (fastSimulationRouting != null) foreach (var map in fastSimulationRouting.Maps.Values) map.MarkAll();
             if (fastCursorRouting != null) foreach (var map in fastCursorRouting.Maps.Values) map.MarkAll();
-            foreach (var map in reachWords) map?.MarkAll();
             if (anchorMasks) { anchorResweepGlobal++; ResweepAnchorMasks(); }
         }
 

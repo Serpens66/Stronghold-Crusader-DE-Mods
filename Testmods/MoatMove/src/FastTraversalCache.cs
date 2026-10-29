@@ -162,6 +162,14 @@ namespace MoatMove
         }
         internal void MarkAll() { allDirty = true; }
 
+        // Drops every word instead of re-reading all of them at the next Refresh; later reads
+        // evaluate (or seed) only the nodes a search actually visits.
+        internal void Forget()
+        {
+            foreach (int node in knownNodes) { known[node] = 0; dirtyFlags[node] = 0; }
+            knownNodes.Clear(); dirty.Clear(); allDirty = false; Revision++;
+        }
+
         internal int DirtyCount => dirty.Count;
 
         // maximum > 0 re-reads at most that many marked nodes (earliest marked first); the others stay marked
