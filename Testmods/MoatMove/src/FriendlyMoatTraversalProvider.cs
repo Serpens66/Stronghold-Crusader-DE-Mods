@@ -30,7 +30,7 @@ namespace MoatMove
                 enabled = true;
                 InstallFastCommandRuntime(context.Memory, unchecked((ulong)context.ModuleHandle.ToInt64()));
                 InitializeAnchor();
-                RegisterFireRouteRules();
+                RegisterFireRouteRules(context.Memory, unchecked((ulong)context.ModuleHandle.ToInt64()));
             }
             catch { enabled = false; throw; }
         }

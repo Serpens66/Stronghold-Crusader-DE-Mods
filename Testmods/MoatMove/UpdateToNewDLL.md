@@ -192,3 +192,22 @@ and inline-expression rows supplement named constants.
 | Inline expression / observer / address array | `0xDAA50` | NativeMovementRecovery.cs:75 |
 | failureRva | `0x19664B` | NativeMovementRecovery.cs:82 |
 | Module-relative expression | `0x196585` | NativeMovementRecovery.cs:143 |
+
+## Fire effects (option AvoidFire, `src/FireRouteRules.cs`)
+
+Feature owner: MoatMove fire route rules. Reference SHA-256 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`
+(audit 29.10.2026). Read-only: the scan never writes native memory.
+
+| Entry | Reference RVA | Pattern and derivation |
+|---|---|---|
+| Effect removal pass | `0xA2E60` | `RemovalPattern` (48 bytes, displacements wildcarded). `lea rdi,[rip+d32]` at +0x0F gives the effect manager (`0x2F7A680`); the pattern also pins `imul rcx,rax,0E8h` (record size) and `cmp word [rcx+rdi+3Ch],2` (state field). |
+| Fire of a tile | `0xA02D0` | `LookupPattern` (50 bytes). `lea rdx,[rip+d32]` at +3 gives the per-tile effect list heads (`0x4CF23F0`, after the records); the pattern pins `imul r8,rdx,0E8h`, type `cmp word [..+3Eh],9` and the list link `movsx eax,word [..+32h]`. |
+
+Record layout used: slots 1..5999 (`0xA2D80` relinks 0x19..5999, `0xA2E60` purges 1..0x18), state +0x3C (0 = free,
+2 = removed in the same pass), type +0x3E (9 = fire, written by `0x9C120`, `0x9C450`, `0x9DCF0` through
+`0x9B2B0`), native tile id +0x60 (int; `0x9F5B0` unlinks by it). Tile ids convert to coordinates with the
+Extender's `GetTileVectorFromId` and are checked back with `GetTileId`. Both entries resolve through
+`Shared.NativePatternResolver` (reference RVA first, unique executable-section pattern fallback); the derived
+manager must lie before the tile heads by at least 6000 records. Any failure logs an error and registers no
+fire rules; movement keeps working. The record layout has no second semantic source beyond these anchors, so
+the feature stays hash-gated with the rest of MoatMove.

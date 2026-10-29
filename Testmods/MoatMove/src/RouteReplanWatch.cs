@@ -40,7 +40,7 @@ namespace MoatMove
         private readonly Dictionary<long, ReplanGroupWait> replanGroupWaits = new Dictionary<long, ReplanGroupWait>();
         private readonly byte[] replanRoute = new byte[2000];
         private long replanChecks, replanTriggers, replanDetours, replanWaitsStarted, replanResumed, replanExpired, replanEnded, replanKept,
-            replanGroupShared, replanUnreadable, replanCursorMismatches, replanTicks, replanMaxTicks;
+            replanGroupShared, replanUnreadable, replanCursorMatches, replanCursorMismatches, replanTicks, replanMaxTicks;
 
         // A journaled rule tile: whether any set with a replan policy now holds it for some player.
         private void NoteReplanTile(int x, int y)
@@ -141,7 +141,7 @@ namespace MoatMove
             node = -1;
             byte* path = runtime.nativeUnitManager + NativeUnitPathBufferOffset + id * NativeUnitPathBufferStride;
             int x = unit->r_NextTilePositionX2, y = unit->r_NextTilePositionY2;
-            ValidateReplanCursor(unit, path, cursor, x, y);
+            ValidateReplanCursor(unit, path, cursor, length, x, y);
             int end = Math.Min(length, cursor + lookahead);
             for (int i = cursor; i < end; i++)
             {
@@ -155,19 +155,22 @@ namespace MoatMove
             return -1;
         }
 
-        // Development check of the cursor contract: the stored start plus the first cursor steps is
-        // the next tile. Release builds drop the call.
+        // Development check of the cursor contract: the remaining steps from the next tile end at the
+        // move target (196280 stores the current tile as the route start, so the stored start is no
+        // reference while a step is in progress; region intermediates also count as mismatches).
+        // Release builds drop the call.
         [System.Diagnostics.Conditional("SERP_DEVDIAG")]
-        private void ValidateReplanCursor(GameUnit* unit, byte* path, int cursor, int nextX, int nextY)
+        private void ValidateReplanCursor(GameUnit* unit, byte* path, int cursor, int length, int nextX, int nextY)
         {
-            int x = unit->r_PreviousTilePositionX, y = unit->r_PreviousTilePositionY;
-            for (int i = 0; i < cursor; i++)
+            int x = nextX, y = nextY;
+            for (int i = cursor; i < length; i++)
             {
                 int d = (path[i >> 1] >> ((i & 1) << 2)) & 15;
                 if (d > 7) { replanCursorMismatches++; return; }
                 x += FastNativeRouteField.Dx[d]; y += FastNativeRouteField.Dy[d];
             }
-            if (x != nextX || y != nextY) replanCursorMismatches++;
+            if (x == unit->r_TargetTilePositionX2 && y == unit->r_TargetTilePositionY2) replanCursorMatches++;
+            else replanCursorMismatches++;
         }
 
         // One group command: the same tribe and a move target in the same 16 x 16 cell (formation
@@ -283,11 +286,11 @@ namespace MoatMove
         private string FormatReplanWatch() =>
             $"replan(tiles={replanTileCount} hot={replanHot.Count} waiting={replanWaits.Count} checks={replanChecks} triggers={replanTriggers} " +
             $"detours={replanDetours} waits={replanWaitsStarted} groupShared={replanGroupShared} resumed={replanResumed} expired={replanExpired} " +
-            $"ended={replanEnded} kept={replanKept} unreadable={replanUnreadable} cursorMismatches={replanCursorMismatches} " +
+            $"ended={replanEnded} kept={replanKept} unreadable={replanUnreadable} cursor(matches={replanCursorMatches} mismatches={replanCursorMismatches}) " +
             $"ms={AnchorMs(replanTicks)} maxMs={AnchorMs(replanMaxTicks)})";
 
         private void ResetReplanMetrics() =>
             replanChecks = replanTriggers = replanDetours = replanWaitsStarted = replanGroupShared = replanResumed = replanExpired = replanEnded =
-                replanKept = replanUnreadable = replanCursorMismatches = replanTicks = replanMaxTicks = 0;
+                replanKept = replanUnreadable = replanCursorMatches = replanCursorMismatches = replanTicks = replanMaxTicks = 0;
     }
 }

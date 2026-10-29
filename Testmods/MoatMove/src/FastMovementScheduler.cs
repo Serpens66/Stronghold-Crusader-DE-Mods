@@ -102,11 +102,12 @@ namespace MoatMove
         }
 
         // After InitializeAnchor; anchor mode only: the core is the engine that reads the fire rules.
-        private void RegisterFireRouteRules()
+        private void RegisterFireRouteRules(ReadOnlySpan<byte> memory, ulong moduleBase)
         {
             if (!settings.AvoidFire || !anchorAvailable || fireRules != null) return;
             var fire = new FireRouteRules();
-            if (fire.TryRegister(MoatMovePlugin.PluginGuid, out string reason))
+            // Fail-closed for this feature only: without validated effect anchors no rule is registered.
+            if (fire.TryBind(memory, moduleBase, log, out string reason) && fire.TryRegister(MoatMovePlugin.PluginGuid, out reason))
             {
                 fireRules = fire;
                 Shared.DebugLogHelper.LogInfo(log, "MoatMove fire route rules registered; replanning=" + settings.AnchorSingleMoves + ".");

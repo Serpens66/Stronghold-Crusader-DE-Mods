@@ -33,6 +33,13 @@ Save `test_stresstest4.sav`, 180 s Lauf nach Warmup, `tools/Run-PathfindingItera
 | pf-iter-18 | 9 | 6 | 1 | 206 ms | Diagnose der langsamen Erreichbarkeitssuchen (`reachability-slow`) |
 | pf-iter-19 | 7 | 4 | 1 | 222 ms | Rückwärtsbeweis je Ziel (in pf-iter-20/21 schlechter: 307 bzw. 559 ms, zurückgenommen) |
 | pf-iter-22b | 11 | 7 | 1 | 216 ms | Erschöpfte Suche beantwortet spätere Starts (222.272 Treffer); Lauf mit Videolast, 260 s |
+| pf-iter-23 | 10 | 7 | 0 | 188 ms | nur Diagnose (BFQoL-DEVDIAG, Assassinen-Häufung) |
+| pf-iter-24 | 10 | 8 | 0 | 185 ms | Hauptfelder als A* zur Startbox (Gruppen 2–3× schneller, gleiche Qualität) |
+| pf-iter-25 | 8 | 5 | 1 | 244 ms | KI-Angriffsbefehle per PerfProbe (`Automation.Actions`), ab hier alle Läufe mit zwei Assassinen-Angriffen |
+| pf-iter-26 | 10 | 7 | 1 | 225 ms | Messung der Builder-Aufrufe außerhalb von Gruppenbefehlen (`outsideBuilds`) |
+| pf-iter-27 | 16 | 13 | 2 | 219 ms | Einzelwege über fortsetzbare Felder je Ziel (Option `AnchorSingleMoves`): 17,8 s statt 7,2 s Vanilla, verworfen |
+| pf-iter-28 | 8 | 5 | 1 | 258 ms | Einzelwege als A* vom Ziel zum Start: 82 µs je Weg, gleichauf mit Vanilla |
+| pf-iter-29 | 7 | 4 | 1 | 228 ms | Gleichstände im A* zuletzt eingefügt zuerst: 65 µs je Weg (Vanilla ~81 µs), 902 statt 1.377 Knoten |
 
 Ab pf-iter-15 verhalten sich die KI-Lords anders (34.000 statt 29.000 Ticks, 51–94 statt 16 Torwechsel je Lauf), seit mehr Einheiten Anker-Routen bekommen; die Läufe sind deshalb nur eingeschränkt mit den früheren vergleichbar.
 
@@ -78,10 +85,19 @@ Ziel: Mods definieren zusätzliche Wegfindungsregeln (Feuer ausweichen, Gefahren
   - `Forbidden` im Kantenprädikat (Masken, Erreichbarkeit, Live-Audit), Journal-Leser im Anker-Tick (Kachel und Nachbarn neu lesen, bei Verlust volle Neuabtastung).
   - `Penalty` als Eintrittskosten im Kern (Vertrag `0x04000009`, `mma_penalty_update`), geschrieben bei Journaländerungen und in jedem Masken-Abschnitt.
   - Tests mit Gegenproben: Wirkung nur für die gewählten Spieler, Verlassen bleibt möglich, Aufgaben werden veraltet, Umweg um bestrafte Kacheln, Batch gleich Einzelabfrage.
+- Umplanen bereits laufender Einheiten (29.10.2026, Nutzervorgabe „Abstand 3, Umweg ≤ 50 %“):
+  - APIShared: `RouteReplanPolicy` je Regelsatz (Auslöseabstand, erlaubter Umweg in Prozent und Mindestschritten, Wartezeit), `RouteTileRules.GetReplanPolicy`, `HasReplanRules`; additiv, mit Core-Test.
+  - MoatMove `RouteReplanWatch` (nur mit `AnchorSingleMoves`):
+    - Prüfung: je Tick jede 40. Einheiten-ID, für 8 Ticks nach neuen Regelkacheln jede 8., dazu eine heiße Liste für Einheiten mit Regelkachel weiter voraus. Je Prüfung höchstens 40 Wegschritte gegen eine Bitkarte; ohne Regelkacheln kehrt der Wächter sofort zurück.
+    - Umweg: `196280` zum unveränderten Ziel (dieselbe Grundfunktion, die Vanillas Einheitenzustände nutzen; Befehl und Zustand bleiben). Der neue Weg gilt, wenn er erlaubt lang ist und in den nächsten 40 Schritten keine Regelkachel hat.
+    - Sonst Halt auf der nächsten Kachel. Gruppenmitglieder (gleicher Stamm, Ziel in derselben 16×16-Zelle) übernehmen eine Warteentscheidung ohne eigene Suche. Alle 40 Ticks prüft der Kern, ob ein freier Weg existiert; nach der Wartezeit läuft die Einheit weiter. Ein neuer Befehl beendet das Warten.
+  - Verbraucher `FireRouteRules` (Option `AvoidFire`): brennende Pechkacheln (`PitchState.OnFire`) als Aufschlag 254 für alle Spieler, Regel 3 / 50 % / 10 Schritte / 400 Ticks.
+  - Integrationstest gegen den echten Kern mit Gegenprobe (Umweg, Halt, Weiterlaufen, Ruhe ohne Regeln).
 - Offen:
-  - Beispielregel „Feuer ausweichen“ nach einem Vanilla-Audit des Brandzustands.
+  - Brennende Gebäudegrundflächen (Brandzähler `r_OnFireTicks`), nach einem Vanilla-Audit, ob Einheiten neben brennenden Gebäuden Schaden nehmen.
+  - Wartende Einheiten werden nicht im Spielstand gespeichert: Nach dem Laden bleiben sie stehen, bis ein Befehl kommt (KI-Einheiten planen selbst neu).
   - Ausnahme „Ziel liegt auf verbotener Kachel“: heute unerreichbar, dann Vanilla.
-  - Ingame-Prüfung mit einer echten Regel.
+  - Ingame-Prüfung mit einer echten Regel (pf-fire-2).
 
 ## Regeln (gemeinsam für alle Suchen)
 
