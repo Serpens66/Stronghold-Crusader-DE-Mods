@@ -114,6 +114,22 @@ internal static class AnchorCoreGate
             if (core.Stats()[AnchorCoreInterop.Stat("subAnchors")] != 1) throw new InvalidOperationException("Far slots did not share one sub-anchor.");
             for (int i = 2; i < 4; i++) { var reference = ReferenceSearch.Find(map, load.Queries[i], new WorkBudget(64L * 1024 * 1024, 10)); if (r[i].Cost > reference.Cost + 2) throw new InvalidOperationException("Far-slot unit still detours; case=" + i); }
         }
+        // Group split by a closed wall (AI members behind walls): the main field cannot reach the
+        // right-hand starts. A sub-anchor for right-hand slots targets only right-hand starts, so
+        // it stops near the slots instead of exhausting the right component; answers stay exact.
+        {
+            GridSnapshot map = GroupGate.Grid(60, 60, null, n => n % 60 != 30);
+            var load = new GroupLoad { Name = "core-split-group", Map = map }; load.Anchors.Add(30 * 60 + 10);
+            foreach (var (start, slot) in new[] { (26 * 60 + 8, 30 * 60 + 10), (26 * 60 + 9, 30 * 60 + 11), (26 * 60 + 44, 30 * 60 + 45), (26 * 60 + 45, 30 * 60 + 46), (26 * 60 + 46, 30 * 60 + 45) })
+            { load.Queries.Add(new RouteQuery { Start = start, Target = slot, GroundCost = 1, MoatCost = 7 }); load.GroupOf.Add(0); }
+            using var core = new AnchorCoreInterop(60, 60, 128L * 1024 * 1024); core.WriteWholeMask(Player, map, 500);
+            RouteResult[] r = Solve(core, load, 2, out _); Check(load, r);
+            long[] stats = core.Stats();
+            if (stats[AnchorCoreInterop.Stat("subAnchors")] != 1) throw new InvalidOperationException("Right-hand slots did not share one sub-anchor.");
+            // Main field: the whole left component (30 x 60 nodes). A sub-anchor that also targeted the
+            // unreachable left-hand starts would settle the whole right component (29 x 60) as well.
+            if (stats[AnchorCoreInterop.Stat("settleEvents")] >= 30 * 60 + 29 * 60) throw new InvalidOperationException("Sub-anchor exhausted the right component: settles=" + stats[AnchorCoreInterop.Stat("settleEvents")]);
+        }
         // Directed snake longer than 2,000 steps: never returned as a route.
         {
             GridSnapshot map = GroupGate.Grid(800, 4, (a, b, d) => ((a / 800) % 2 == 0 ? d == 2 : d == 6) && a / 800 == b / 800 || d == 4 && a % 800 == ((a / 800) % 2 == 0 ? 799 : 0) ? 1U << d : 0);

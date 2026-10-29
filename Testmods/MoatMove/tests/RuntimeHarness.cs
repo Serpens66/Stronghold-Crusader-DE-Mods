@@ -963,6 +963,8 @@ namespace MoatMove
             enemyTiles.Add(1013);
             Check(!TryAuditFallbackPath(nativePathManager, Buffer(1), 7, new PlanScope(1, 17, 10), units + 1, out _),
                 "actual audit rejects enemy crossing despite valid direction bytes");
+            Check(!TryAuditFallbackPath(nativePathManager, Buffer(1), 7, new PlanScope(1, 17, 10), units + 1, out _, edgesAudited: true),
+                "an anchor-audited route skips the owner check, not only the edge check");
             enemyPlayerId = 1;
             SetBuilder(2, 17);
             for (int i = 0; i < 4; i++) Buffer(2)[i] = 0x22;

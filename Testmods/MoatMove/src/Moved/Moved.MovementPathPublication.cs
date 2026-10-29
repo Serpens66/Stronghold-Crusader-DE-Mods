@@ -308,20 +308,23 @@ namespace MoatMove
             return length < 0 || length > WeightedMoatRoutePlanner.MaximumRouteEdges ? "length" : "retry-contract";
         }
 
+        // edgesAudited: the route bytes passed the anchor core's live edge audit in this tick and
+        // placement revision under a stricter policy (FriendlyOnly/GroundOnly reject every edge
+        // AllowEnemyForDiagnostic rejects); only the per-edge traversal check is skipped then.
         internal bool TryAuditFallbackPath(
             IntPtr pathManager,
             byte* path,
             int result,
             PlanScope plan,
             GameUnit* unit,
-            out string details)
+            out string details, bool edgesAudited = false)
         {
             AttackCommandScope command = activeAttackCommand;
             long started = (DetailedDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0L);
             try
             {
                 return TryAuditFallbackPathCore(
-                    pathManager, path, result, plan, unit, out details);
+                    pathManager, path, result, plan, unit, out details, edgesAudited);
             }
             finally
             {
@@ -347,7 +350,7 @@ namespace MoatMove
             int result,
             PlanScope plan,
             GameUnit* unit,
-            out string details)
+            out string details, bool edgesAudited = false)
         {
             details = "invalid-contract";
             if (pathManager == IntPtr.Zero || path == null || result <= 0 ||
@@ -421,8 +424,18 @@ namespace MoatMove
                     (runtime.IsCompletedEnemyMoatForPlayer(playerId, GameTileManagerAPI.Instance.GetTileId(nextX, y)) ||
                      runtime.IsCompletedEnemyMoatForPlayer(playerId, GameTileManagerAPI.Instance.GetTileId(x, nextY))))
                 { details = "enemy-moat-diagonal-corner"; return false; }
-                if (!IsValidTileId(nextTileId) ||
-                    !runtime.weightedMoatRoutePlanner.TryGetTraversalEdge(
+                if (!IsValidTileId(nextTileId))
+                {
+                    details = "native-edge-invalid";
+                    return false;
+                }
+                if (edgesAudited)
+                {
+                    x = nextX;
+                    y = nextY;
+                    continue;
+                }
+                if (!runtime.weightedMoatRoutePlanner.TryGetTraversalEdge(
                         playerId, x, y, tileId, nextX, nextY, nextTileId,
                         direction, nodeIndex == result - 1,
                         // A reserved target concerns only the final edge (once per route, not per step).
@@ -501,6 +514,7 @@ namespace MoatMove
             WeightedMoatEncodedRoute route = plan.QualifiedTerminalRoute;
             QualifiedMovementRoute reusable = runtime.GetReusableQualifiedRoute(plan, unit);
             if (reusable != null) { route = reusable.Route; summary = reusable.Summary; }
+            bool edgesAudited = reusable != null && IsAnchorAuditedRoute(reusable);
             targetedRouteProbeBusy = true;
             try
             {
@@ -534,7 +548,7 @@ namespace MoatMove
                 *(int*)(manager + PathManagerOutputLengthOffset) = route.DirectionCount;
                 if (!TryAuditFallbackPath(
                         pathManager, path, route.DirectionCount, plan, unit,
-                        out string audit))
+                        out string audit, edgesAudited))
                 {
                     throw new InvalidOperationException(
                         $"Owner-safe replacement failed roundtrip audit: {audit}");

@@ -319,7 +319,14 @@ static int Query(Context& c, Task& t, int start, int slot, int margin, uint8_t* 
     // than building an uncached full-map field per query.
     if (int(t.subs.size()) >= MaxSubAnchors) { r.status = OverLimit; r.flags = Uncached; ++c.stats[SubCapped]; return Ok; }
     auto t0 = Clock::now();
-    std::vector<int>& targets = c.targets; targets.assign(t.starts.begin(), t.starts.end()); targets.push_back(start);
+    // An exhausted main field splits the starts: those it settled reach the anchor, the others
+    // cannot. A sub-anchor targets only starts of the querying start's class; the other class
+    // usually lies in another component and would force a search over this whole component.
+    // Answers stay exact: a later query uses a sub-anchor only where it settled that start.
+    std::vector<int>& targets = c.targets; targets.clear();
+    const bool startInMain = t.main->dist[start] != Unset;
+    for (int s : t.starts) if (!t.exhausted || (t.main->dist[s] != Unset) == startInMain) targets.push_back(s);
+    targets.push_back(start);
     local.solve(map, mask, slot, false, targets, t.ground, t.moat);
     int flags = NewSubAnchor | SubAnchor;
     t.subs.push_back(std::make_unique<Stored>(&c.memory)); t.subs.back()->take(map, local, slot);

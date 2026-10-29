@@ -57,6 +57,11 @@ namespace MoatMove
                 long routes = anchorMoatRoutes;
                 Check(TryAnchorRequiredRoute(plan, false, 10, 10, out _, out bool moat, task) && moat &&
                     plan.QualifiedRoute != null && anchorMoatRoutes == routes + 1, "moat route not published through the live audit");
+                // Publication skips its second per-edge check only for routes audited in this tick.
+                Check(IsAnchorAuditedRoute(plan.QualifiedRoute) && !IsAnchorAuditedRoute(new QualifiedMovementRoute(10, 10, 150, 10, 1,
+                    mapEpoch, CaptureCurrentGameTick(), placementRevision, plan.QualifiedRoute.Route, plan.QualifiedRoute.Summary, default, false)),
+                    "only the audited route object is marked for publication");
+                QualifiedMovementRoute audited = plan.QualifiedRoute;
 
                 // Phase 4 A: the mode probe qualifies the core's moat route. B: a ground decision
                 // carries the core's ground route to the builder instead of Vanilla's search.
@@ -124,6 +129,7 @@ namespace MoatMove
                 int blocked = api.GetTileId(140, 10);
                 nativeMovementMasks[blocked] = 0; MarkFastTopologyTile(blocked); AnchorTick(++ticks);
                 Check(AnchorNative.mma_task_status(anchorContext, task) == AnchorNative.Stale, "terrain change leaves the task fresh");
+                Check(!IsAnchorAuditedRoute(audited), "an audit mark survives its tick");
                 Check(!TryAnchorRequiredRoute(new PlanScope(1, 150, 10) { PlayerId = 1 }, false, 10, 10, out _, out _, task),
                     "stale task still answers");
                 nativeMovementMasks[blocked] = 0x44; MarkFastTopologyTile(blocked); AnchorTick(++ticks);

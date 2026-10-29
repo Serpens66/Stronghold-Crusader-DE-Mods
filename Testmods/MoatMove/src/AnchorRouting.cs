@@ -115,6 +115,11 @@ namespace MoatMove
             anchorResweeps, anchorAccessChanges, anchorLazyTasks, anchorUnusedMoves;
         // Publication rejections by audit detail (support log; few distinct keys).
         private readonly Dictionary<string, long> anchorPublishReasons = new Dictionary<string, long>();
+        // Routes of this tick that passed the live edge audit (reference identity); publication
+        // skips its second per-edge check for exactly these (GetReusableQualifiedRoute also
+        // requires the same tick, placement revision, start, target and unit identity).
+        private readonly HashSet<QualifiedMovementRoute> anchorAuditedRoutes = new HashSet<QualifiedMovementRoute>();
+        private long anchorAuditSkips;
         private readonly long[] anchorQueryStatus = new long[8];
         private readonly long[] anchorCoreStats = new long[AnchorNative.StatCount];
 
@@ -149,7 +154,7 @@ namespace MoatMove
         {
             if (!anchorAvailable) return;
             foreach (int task in anchorLiveTasks) AnchorNative.mma_task_release(anchorContext, task);
-            anchorLiveTasks.Clear(); anchorFrames.Clear(); anchorDispatchTask = anchorGroundTask = 0;
+            anchorLiveTasks.Clear(); anchorFrames.Clear(); anchorDispatchTask = anchorGroundTask = 0; anchorAuditedRoutes.Clear();
             Array.Clear(anchorMaps, 0, anchorMaps.Length); anchorAccessKnown = false;
             anchorPlayersRequested = false; anchorUnreachedLogs = 0; anchorEndedUnreached = 0;
             for (int p = 0; p < anchorMaskNext.Length; p++) { anchorMaskNext[p] = -1; anchorSweep[p] = -1; anchorSweepLeft[p] = 0; anchorBlocked[p]?.Clear(); }
@@ -344,6 +349,7 @@ namespace MoatMove
             long started = System.Diagnostics.Stopwatch.GetTimestamp();
             anchorSimThread = Environment.CurrentManagedThreadId;
             if (anchorFrames.Count != 0) ClearAnchorFrames();
+            if (anchorAuditedRoutes.Count != 0) anchorAuditedRoutes.Clear();
             ulong access = ReadFastAccessFingerprint();
             if (anchorAccessKnown && access != anchorAccess)
             {
@@ -500,6 +506,13 @@ namespace MoatMove
             return false;
         }
 
+        internal bool IsAnchorAuditedRoute(QualifiedMovementRoute route)
+        {
+            if (route == null || !anchorAuditedRoutes.Contains(route)) return false;
+            anchorAuditSkips++;
+            return true;
+        }
+
         // Builder publication inside an anchor group move (time includes the live audit).
         // Rejections are counted per route kind and audit detail.
         private void RecordAnchorPublish(long started, bool published, string kind, string details)
@@ -548,6 +561,7 @@ namespace MoatMove
             if (!encoded) { anchorEncodeRejects++; return false; }
             plan.QualifiedRoute = new QualifiedMovementRoute(sx, sy, plan.TargetX, plan.TargetY, plan.PlayerId,
                 runtime.mapEpoch, CaptureCurrentGameTick(), runtime.placementRevision, route, found, default, false);
+            anchorAuditedRoutes.Add(plan.QualifiedRoute);
             summary = FastSummary(plan.PlayerId, sx, sy, plan.TargetX, plan.TargetY, found.MoatEdges == 0, found);
             moatRoute = found.MoatEdges > 0;
             if (moatRoute) anchorMoatRoutes++; else anchorGroundRoutes++;
@@ -588,7 +602,7 @@ namespace MoatMove
                 $"preMs={AnchorMs(anchorPreTicks)} maxPreMs={AnchorMs(anchorPreMaxTicks)} queryMs={AnchorMs(anchorQueryTicks)} " +
                 $"encodeMs={AnchorMs(anchorEncodeTicks)} publishMs={AnchorMs(anchorPublishTicks)} published={anchorPublished} " +
                 $"publishRejects={anchorPublishRejects} encodeRejects={anchorEncodeRejects} routeReuses={anchorRouteReuses} " +
-                $"lazyTasks={anchorLazyTasks} unusedMoves={anchorUnusedMoves} publishReasons=[{FormatAnchorReasons()}] " +
+                $"lazyTasks={anchorLazyTasks} unusedMoves={anchorUnusedMoves} auditSkips={anchorAuditSkips} publishReasons=[{FormatAnchorReasons()}] " +
                 $"queryStatus(ready,unreachable,overLimit,pending,stale,invalid,failed,error)={string.Join(",", anchorQueryStatus)} " +
                 $"members={anchorMembers} unreachedMembers={anchorUnreachedUnits} movesWithUnreached={anchorMovesWithUnreached} " +
                 $"tick(refreshMs={AnchorMs(anchorRefreshTicks)} refreshNodes={anchorRefreshNodes} buildMs={AnchorMs(anchorBuildTicks)} " +
@@ -602,7 +616,7 @@ namespace MoatMove
             anchorHumanMoves = anchorMoveTicks = anchorMoveMaxTicks = anchorPreTicks = anchorPreMaxTicks = anchorQueryTicks = anchorEncodeTicks =
                 anchorPublishTicks = anchorPublished = anchorPublishRejects = anchorEncodeRejects = anchorRouteReuses = anchorMembers =
                 anchorUnreachedUnits = anchorMovesWithUnreached = anchorRefreshTicks = anchorRefreshNodes = anchorBuildTicks = anchorBuildNodes =
-                anchorSweepTicks = anchorSweepNodes = anchorResweeps = anchorAccessChanges = anchorLazyTasks = anchorUnusedMoves = 0;
+                anchorSweepTicks = anchorSweepNodes = anchorResweeps = anchorAccessChanges = anchorLazyTasks = anchorUnusedMoves = anchorAuditSkips = 0;
             Array.Clear(anchorQueryStatus, 0, anchorQueryStatus.Length); anchorPublishReasons.Clear();
         }
     }
