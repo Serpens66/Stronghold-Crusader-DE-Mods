@@ -21,6 +21,14 @@ namespace MoatMove
         {
             if (RequiredOnlyMode && IsValidTileId(tile)) MarkFastTopologyTile(tile); else MarkFastTopologyAll();
         }
+        // A native mask rebuild changes only direction bytes: the anchor byte watch marks every
+        // changed tile within one round (16 ticks), so no global resweep is needed once it has
+        // recorded all bytes (pf-iter-16: rebuild resweeps forced live searches of 150-190 ms).
+        internal override void InvalidateFastMoatDirections()
+        {
+            if (RequiredOnlyMode && AnchorNodeTiles() != null) { anchorRebuildsWatched++; return; }
+            MarkFastTopologyAll();
+        }
         internal override void ResetMapState()
         {
             deferredMoves.Clear();

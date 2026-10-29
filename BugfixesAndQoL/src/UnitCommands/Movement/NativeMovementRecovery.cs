@@ -82,7 +82,7 @@ namespace BugfixesAndQoL.UnitCommands
                     (MaskRebuildDelegate)(manager => {
                         if (nativeManualProbe) return;
                         originalMaskRebuild(manager);
-                        try { InvalidateMovementSearchData(); cursorTopologies.Clear(); } catch (Exception ex) { InvalidateConnectivity(ex); }
+                        try { InvalidateMovementSearchData(directionsOnly: true); cursorTopologies.Clear(); } catch (Exception ex) { InvalidateConnectivity(ex); }
                     }));
 
                 InstallManualProbeRepairGuards(pendingTransaction, libraryBase);
@@ -193,13 +193,15 @@ namespace BugfixesAndQoL.UnitCommands
 
         // tile >= 0: a native tile or moat update of that tile (3x3 area); the traversal provider
         // refreshes only that area. terrain == false: no terrain changed (a nested unit move),
-        // so the provider's terrain caches stay valid.
-        internal void InvalidateMovementSearchData(int tile = -1, bool terrain = true)
+        // so the provider's terrain caches stay valid. directionsOnly: a native mask rebuild that
+        // rewrote only the direction bytes (see InvalidateFastMoatDirections).
+        internal void InvalidateMovementSearchData(int tile = -1, bool terrain = true, bool directionsOnly = false)
         {
             placementRevision++;
             InvalidateManualGroupAdmission();
             if (!terrain) { }
             else if (tile >= 0 && IsValidTileId(tile)) InvalidateFastMoatTile(tile);
+            else if (directionsOnly) InvalidateFastMoatDirections();
             else InvalidateFastMoatData();
             weightedMoatRoutePlanner.SetSearchSession(null, -1, mapEpoch, CaptureCurrentGameTick());
             nativeGroundDecisions.Clear(); activeMoveCommand?.TargetedRouteDecisions.Clear();
