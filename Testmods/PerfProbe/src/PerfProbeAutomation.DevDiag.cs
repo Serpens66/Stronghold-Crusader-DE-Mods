@@ -68,6 +68,8 @@ namespace PerfProbe
             quitWhenDone = config.Bind("Automation", "QuitWhenDone", true, "Quit the game after PASS or FAIL.").Value;
             screenshotDir = config.Bind("Automation", "ScreenshotDir", "BepInEx/PerfProbe_shots",
                 "Folder (relative to the game root or absolute) for the paused-scene screenshot used for pixel comparison; empty disables it.").Value;
+            PerfProbeAutomationActions.Parse(config.Bind("Automation", "Actions", "",
+                "Scripted AI orders in the run phase: 'seconds:Attack:actor:target[:force]' entries separated by '|' (empty: none).").Value, logger);
             if (!enabled) return;
             phase = Phase.WaitMenu;
             startStamp = phaseStamp = Stopwatch.GetTimestamp();
@@ -218,6 +220,7 @@ namespace PerfProbe
             gcAtRunStart = GC.CollectionCount(0);
             heapAtRunStart = GC.GetTotalMemory(false);
             Log("nativecounters phase=run-start " + NativePathCounters());
+            PerfProbeAutomationActions.Prepare();
             Enter(Phase.RunHold, "unpaused zoom=" + Zoom());
         }
 
@@ -229,6 +232,7 @@ namespace PerfProbe
                 Log("phase=run-resumed ticks=" + (Interlocked.Read(ref ticks) - ticksAtPhase) + " after " + Seconds(phaseStamp).ToString("0.0", C) + "s");
             }
             if (!resumeConfirmed && Seconds(phaseStamp) > 5) { Fail("no simulation ticks after unpause"); return; }
+            if (resumeConfirmed) PerfProbeAutomationActions.Step(Seconds(phaseStamp));
             if (Seconds(phaseStamp) < runSeconds) return;
             recordTickGaps = false;
             double ran = Seconds(phaseStamp);

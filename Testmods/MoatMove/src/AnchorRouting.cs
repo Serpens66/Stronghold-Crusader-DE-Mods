@@ -97,6 +97,17 @@ namespace MoatMove
                 $"targetCell={(targetCell < 0 ? "none" : (targetCell % MapWidth) + "," + (targetCell / MapWidth))} targetRegion={targetRegion} requireMoat={requireMoat} " +
                 $"exhausted={exhausted} tick={tick} slowInTick={reachabilitySlowInTick}.");
         }
+        private string FormatOutsideBuilds()
+        {
+            var text = new System.Text.StringBuilder();
+            foreach (var entry in anchorOutsideBuilds)
+            {
+                if (text.Length != 0) text.Append(',');
+                text.Append(entry.Key).Append(':').Append(entry.Value[0]).Append('/').Append(AnchorMs(entry.Value[1])).Append('/').Append(AnchorMs(entry.Value[2]));
+            }
+            return text.ToString();
+        }
+
         private string FormatReachabilityByOwner()
         {
             var text = new System.Text.StringBuilder();
@@ -905,10 +916,25 @@ namespace MoatMove
             status == AnchorNative.Stale ? "stale" : status == AnchorNative.Invalid ? "invalid" : status == AnchorNative.Failed ? "failed" : "other";
 
         // Vanilla's builder, timed while an anchor group move is open (see anchorVanillaCalls).
-        private int CallVanillaBuilderTimed(IntPtr pathManager, int movementClass, int movementProfile, bool reconstruction, int unitId)
+        // Builder calls outside anchor group moves, per search mode and plan kind: calls/time.
+        private readonly Dictionary<string, long[]> anchorOutsideBuilds = new Dictionary<string, long[]>();
+        private int CallVanillaBuilderTimed(IntPtr pathManager, int movementClass, int movementProfile, bool reconstruction, int unitId, PlanScope plan = null)
         {
             if (anchorDispatchTask == 0 && anchorGroundTask == 0)
-                return runtime.CallVanillaBuilder(pathManager, movementClass, movementProfile, reconstruction);
+            {
+                if (!anchorAvailable || pathManager == IntPtr.Zero) return runtime.CallVanillaBuilder(pathManager, movementClass, movementProfile, reconstruction);
+                long outsideStarted = System.Diagnostics.Stopwatch.GetTimestamp();
+                int outside = runtime.CallVanillaBuilder(pathManager, movementClass, movementProfile, reconstruction);
+                long outsideElapsed = System.Diagnostics.Stopwatch.GetTimestamp() - outsideStarted;
+                byte* manager = (byte*)pathManager.ToPointer();
+                string kind = (*(int*)(manager + 0x88) != 0 ? "assassin" : *(int*)(manager + 0x84) != 0 ? "moatMode" : "ground") + "/" +
+                    (reconstruction ? "reconstruction" : plan == null ? "noPlan" : plan.AttackMovementQualified ? "attack" :
+                     plan.MoatWorkMovement ? "moatWork" : plan.ExactRouteEndpoints ? "exactEndpoints" : "plain");
+                if (!anchorOutsideBuilds.TryGetValue(kind, out long[] row))
+                { if (anchorOutsideBuilds.Count >= 24) return outside; anchorOutsideBuilds[kind] = row = new long[3]; }
+                row[0]++; row[1] += outsideElapsed; row[2] = Math.Max(row[2], outsideElapsed);
+                return outside;
+            }
             long started = System.Diagnostics.Stopwatch.GetTimestamp();
             int result = runtime.CallVanillaBuilder(pathManager, movementClass, movementProfile, reconstruction);
             long elapsed = System.Diagnostics.Stopwatch.GetTimestamp() - started;
@@ -1131,7 +1157,7 @@ namespace MoatMove
                 $"members={anchorMembers} unreachedMembers={anchorUnreachedUnits} movesWithUnreached={anchorMovesWithUnreached} " +
                 $"vanilla(vanillaCalls={anchorVanillaCalls} vanillaFails={anchorVanillaFails} vanillaMs={AnchorMs(anchorVanillaTicks)} vanillaFailMs={AnchorMs(anchorVanillaFailTicks)} " +
                 $"afterUnreachable={anchorVanillaAfterUnreachable} afterUnreachableMs={AnchorMs(anchorVanillaAfterUnreachableTicks)} " +
-                $"foundAfterUnreachable={anchorVanillaFoundAfterUnreachable}) vanillaWhy=[{FormatAnchorReasons(anchorVanillaWhy)}] sameTickTasks={anchorSameTickTasks} sameTickTaskMs={AnchorMs(anchorSameTickTaskTicks)} diggerGroundRoutes={anchorDiggerGroundRoutes} nativeByteChanges={anchorWatchChanges} rebuildsWatched={anchorRebuildsWatched} tileRuleChanges={routeTileRuleChanges} aliveUnits={anchorAliveUnits} exhaustedReach(kept={ExhaustedReachabilityKept} hits={ExhaustedReachabilityHits}) reach(advances/expanded/ms/maxMs)=[{FormatReachabilityByOwner()}] " +
+                $"foundAfterUnreachable={anchorVanillaFoundAfterUnreachable}) vanillaWhy=[{FormatAnchorReasons(anchorVanillaWhy)}] sameTickTasks={anchorSameTickTasks} sameTickTaskMs={AnchorMs(anchorSameTickTaskTicks)} diggerGroundRoutes={anchorDiggerGroundRoutes} nativeByteChanges={anchorWatchChanges} rebuildsWatched={anchorRebuildsWatched} tileRuleChanges={routeTileRuleChanges} aliveUnits={anchorAliveUnits} outsideBuilds(calls/ms/maxMs)=[{FormatOutsideBuilds()}] exhaustedReach(kept={ExhaustedReachabilityKept} hits={ExhaustedReachabilityHits}) reach(advances/expanded/ms/maxMs)=[{FormatReachabilityByOwner()}] " +
                 $"tick(refreshMs={AnchorMs(anchorRefreshTicks)} refreshNodes={anchorRefreshNodes} buildMs={AnchorMs(anchorBuildTicks)} " +
                 $"buildNodes={anchorBuildNodes} sweepMs={AnchorMs(anchorSweepTicks)} sweepNodes={anchorSweepNodes} resweeps={anchorResweeps} " +
                 $"accessChanges={anchorAccessChanges} gateRefreshes={anchorGateRefreshes} sharedReuses={anchorShared?.Reuses ?? 0} " +
@@ -1149,7 +1175,7 @@ namespace MoatMove
                 anchorResweepDiplomacy = anchorResweepPortals = anchorResweepFootprint = anchorResweepGlobal = anchorRefreshBacklog =
                 anchorVanillaCalls = anchorVanillaFails = anchorVanillaTicks = anchorVanillaFailTicks = anchorVanillaAfterUnreachable =
                 anchorVanillaAfterUnreachableTicks = anchorVanillaFoundAfterUnreachable = anchorSameTickTasks = anchorSameTickTaskTicks = anchorDiggerGroundRoutes = anchorWatchChanges = anchorRebuildsWatched = 0;
-            Array.Clear(anchorQueryStatus, 0, anchorQueryStatus.Length); anchorPublishReasons.Clear(); anchorVanillaWhy.Clear(); reachabilityByOwner.Clear();
+            Array.Clear(anchorQueryStatus, 0, anchorQueryStatus.Length); anchorPublishReasons.Clear(); anchorVanillaWhy.Clear(); reachabilityByOwner.Clear(); anchorOutsideBuilds.Clear();
         }
     }
 }
