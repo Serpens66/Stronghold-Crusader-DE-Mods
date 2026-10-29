@@ -217,11 +217,12 @@ namespace MoatMove
             HashSet<int> blocked = anchorBlocked[player];
             if (blocked == null || blocked.Count == 0) return true;
             int x = node % MapWidth, y = node / MapWidth;
-            GameTileManagerAPI tiles = GameTileManagerAPI.Instance;
+            int[] tileOf = AnchorNodeTiles();
+            GameTileManagerAPI tiles = tileOf == null ? GameTileManagerAPI.Instance : null;
             for (int ny = Math.Max(0, y - 1); ny <= Math.Min(MapWidth - 1, y + 1); ny++)
                 for (int nx = Math.Max(0, x - 1); nx <= Math.Min(MapWidth - 1, x + 1); nx++)
                 {
-                    int tile = tiles.GetTileId(nx, ny);
+                    int tile = tileOf != null ? tileOf[ny * MapWidth + nx] : tiles.GetTileId(nx, ny);
                     if (IsValidTileId(tile) && blocked.Contains(runtime.nativeBuildingLayer[tile])) return false;
                 }
             return true;

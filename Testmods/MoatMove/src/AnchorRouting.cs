@@ -76,6 +76,10 @@ namespace MoatMove
         private readonly HashSet<long> anchorTickTaskKeys = new HashSet<long>();
         private int anchorTickTaskKeysTick = -1;
         private long anchorSameTickTasks, anchorSameTickTaskTicks, anchorDiggerGroundRoutes;
+        // Why the anchor left the current builder call to Vanilla (set at each decline point,
+        // counted per Vanilla call inside an anchor move as vanillaWhy).
+        private string anchorDecline = "none";
+        private readonly Dictionary<string, long> anchorVanillaWhy = new Dictionary<string, long>();
         private int anchorUnreachableUnit, anchorUnreachableStart, anchorUnreachableTarget, anchorUnreachableTask, anchorUnreachableLogs;
         private const long AnchorMemoryLimit = 768L * 1024 * 1024;
         private IntPtr anchorContext;
@@ -731,6 +735,9 @@ namespace MoatMove
         internal bool TryPrepareAnchorGround(PlanScope plan, GameUnit* unit)
         {
             bool digger = unit != null && runtime.CanDigMoat(unit);
+            anchorDecline = plan == null || unit == null ? "prepare:noPlan" : (digger ? anchorDispatchTask : anchorGroundTask) == 0 ? "prepare:noTask" :
+                plan.ExactRouteEndpoints ? "prepare:exactEndpoints" : plan.MoatWorkMovement ? "prepare:moatWork" :
+                plan.AttackMovementQualified ? "prepare:attack" : plan.ModeObserved && plan.VanillaModeDetected ? "prepare:vanillaMode" : "prepare:identity";
             if (!anchorAvailable || (digger ? anchorDispatchTask : anchorGroundTask) == 0 || plan == null || unit == null ||
                 plan.ExactRouteEndpoints || plan.MoatWorkMovement || plan.AttackMovementQualified ||
                 // Vanilla's own moat mode (e.g. a start on the moat) keeps Vanilla's route.
@@ -742,6 +749,7 @@ namespace MoatMove
             // Same tick, start, target and identity as the mode probe's ground decision: no second query.
             QualifiedMovementRoute decided = runtime.GetReusableQualifiedRoute(plan, unit);
             if (decided != null && decided.Summary.MoatEdges == 0) { anchorRouteReuses++; return true; }
+            anchorDecline = "prepare:bounds";
             bool answered = TryAnchorRequiredRoute(plan, false, sx, sy, out _, out bool moat, ResolveAnchorTask(!digger), publishGround: true);
             // Exactly unreachable for the moat task: the ground task decides with Vanilla's ground rules.
             if (!answered && digger && anchorUnreachableUnit == plan.UnitId)
@@ -750,6 +758,7 @@ namespace MoatMove
                 if (answered) anchorDiggerGroundRoutes++;
             }
             if (!answered) return false;
+            anchorDecline = moat ? "prepare:moatAnswer" : "prepare:noRoute";
             // A moat answer here belongs to the mode probe; this builder call stays Vanilla.
             if (moat) { plan.QualifiedRoute = null; return false; }
             return plan.QualifiedRoute != null;
@@ -761,18 +770,23 @@ namespace MoatMove
         private bool TryPublishAnchorGroundWithoutPlan(IntPtr pathManager, UnitMoveFrame frame, out int published)
         {
             published = 0;
+            anchorDecline = "noPlan:noGroundTask";
             if (anchorGroundTask == 0 || frame == null || pathManager != runtime.nativePathManager || !runtime.RequiredOnlyMode) return false;
+            anchorDecline = "noPlan:unit";
             int unitId = frame.Args.UnitId;
             if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) || unit == null ||
                 !APIShared.UnitAccess.IsReallyAlive(unit) || runtime.CanDigMoat(unit)) return false;
             byte* manager = (byte*)pathManager.ToPointer();
             int targetX = *(int*)(manager + 0x10), targetY = *(int*)(manager + 0x14);
             // Region intermediates keep Vanilla; only the unit's own move target is published.
+            anchorDecline = "noPlan:intermediateTarget";
             if (targetX != frame.Args.TileX || targetY != frame.Args.TileY) return false;
+            anchorDecline = "noPlan:variant";
             int* variant = (int*)(manager + PathManagerRouteVariantOffset);
             int originalVariant = *variant, mode = *runtime.moatPathMode;
             if (originalVariant != 0 && originalVariant != 1) return false;
             var plan = new PlanScope(unitId, targetX, targetY);
+            anchorDecline = "noPlan:buffer";
             if (!TryCaptureUnitFallbackPathBuffer(pathManager, plan, unit, out byte* path, out int before, out byte[] backup)) return false;
             long publishStarted = System.Diagnostics.Stopwatch.GetTimestamp(); int ready = 0;
             // Without a core route nothing is attempted (counted as a missing answer, not a rejection).
@@ -780,6 +794,7 @@ namespace MoatMove
             bool replaced = prepared &&
                 TryReplaceUnsafeFallbackPath(pathManager, path, backup, before, plan, unit, out ready, out details, requireMoat: false);
             if (prepared) RecordAnchorPublish(publishStarted, replaced, "nonDigger", details);
+            if (prepared && !replaced) anchorDecline = "noPlan:publishReject";
             if (replaced)
             {
                 // Same terminal state as the ground publication of moat-capable members.
@@ -791,6 +806,10 @@ namespace MoatMove
             return false;
         }
 
+        private static string AnchorStatusName(int status) =>
+            status == AnchorNative.Unreachable ? "unreachable" : status == AnchorNative.OverLimit ? "overLimit" : status == AnchorNative.Pending ? "pending" :
+            status == AnchorNative.Stale ? "stale" : status == AnchorNative.Invalid ? "invalid" : status == AnchorNative.Failed ? "failed" : "other";
+
         // Vanilla's builder, timed while an anchor group move is open (see anchorVanillaCalls).
         private int CallVanillaBuilderTimed(IntPtr pathManager, int movementClass, int movementProfile, bool reconstruction, int unitId)
         {
@@ -800,6 +819,8 @@ namespace MoatMove
             int result = runtime.CallVanillaBuilder(pathManager, movementClass, movementProfile, reconstruction);
             long elapsed = System.Diagnostics.Stopwatch.GetTimestamp() - started;
             anchorVanillaCalls++; anchorVanillaTicks += elapsed;
+            if (anchorVanillaWhy.Count < 32 || anchorVanillaWhy.ContainsKey(anchorDecline))
+                anchorVanillaWhy[anchorDecline] = anchorVanillaWhy.TryGetValue(anchorDecline, out long seen) ? seen + 1 : 1;
             if (result <= 0) { anchorVanillaFails++; anchorVanillaFailTicks += elapsed; }
             if (unitId != 0 && unitId == anchorUnreachableUnit)
             {
@@ -947,7 +968,11 @@ namespace MoatMove
             if (code == 0 && result.Status == AnchorNative.Unreachable)
             { anchorUnreachableUnit = plan.UnitId; anchorUnreachableStart = start; anchorUnreachableTarget = target; anchorUnreachableTask = task; }
             else if (anchorUnreachableUnit == plan.UnitId) anchorUnreachableUnit = 0;
-            if (code != 0 || result.Status != AnchorNative.Ready) return false;
+            if (code != 0 || result.Status != AnchorNative.Ready)
+            {
+                anchorDecline = code != 0 ? "query:error" : "query:" + AnchorStatusName(result.Status);
+                return false;
+            }
             plan.QualifiedRoute = null; plan.QualifiedTerminalRoute = default; plan.QualifiedTerminalSummary = default;
             if (result.Moat == 0 && !publishGround)
             {
@@ -962,7 +987,7 @@ namespace MoatMove
             bool encoded = TryFinishFastEncoded(plan.PlayerId, start, target, bytes, result.Length, result.Moat == 0, 0,
                 out WeightedMoatRouteSummary found, out WeightedMoatEncodedRoute route, anchor: true);
             anchorEncodeTicks += System.Diagnostics.Stopwatch.GetTimestamp() - answered;
-            if (!encoded) { anchorEncodeRejects++; return false; }
+            if (!encoded) { anchorEncodeRejects++; anchorDecline = "query:auditReject"; return false; }
             plan.QualifiedRoute = new QualifiedMovementRoute(sx, sy, plan.TargetX, plan.TargetY, plan.PlayerId,
                 runtime.mapEpoch, CaptureCurrentGameTick(), runtime.placementRevision, route, found, default, false);
             anchorAuditedRoutes.Add(plan.QualifiedRoute);
@@ -985,10 +1010,10 @@ namespace MoatMove
             LogAndResetAnchorBreakdown();
         }
 
-        private string FormatAnchorReasons()
+        private string FormatAnchorReasons(Dictionary<string, long> reasons = null)
         {
             var text = new System.Text.StringBuilder();
-            foreach (var entry in anchorPublishReasons) { if (text.Length != 0) text.Append(','); text.Append(entry.Key).Append('=').Append(entry.Value); }
+            foreach (var entry in reasons ?? anchorPublishReasons) { if (text.Length != 0) text.Append(','); text.Append(entry.Key).Append('=').Append(entry.Value); }
             return text.ToString();
         }
 
@@ -1012,7 +1037,7 @@ namespace MoatMove
                 $"members={anchorMembers} unreachedMembers={anchorUnreachedUnits} movesWithUnreached={anchorMovesWithUnreached} " +
                 $"vanilla(vanillaCalls={anchorVanillaCalls} vanillaFails={anchorVanillaFails} vanillaMs={AnchorMs(anchorVanillaTicks)} vanillaFailMs={AnchorMs(anchorVanillaFailTicks)} " +
                 $"afterUnreachable={anchorVanillaAfterUnreachable} afterUnreachableMs={AnchorMs(anchorVanillaAfterUnreachableTicks)} " +
-                $"foundAfterUnreachable={anchorVanillaFoundAfterUnreachable}) sameTickTasks={anchorSameTickTasks} sameTickTaskMs={AnchorMs(anchorSameTickTaskTicks)} diggerGroundRoutes={anchorDiggerGroundRoutes} nativeByteChanges={anchorWatchChanges} " +
+                $"foundAfterUnreachable={anchorVanillaFoundAfterUnreachable}) vanillaWhy=[{FormatAnchorReasons(anchorVanillaWhy)}] sameTickTasks={anchorSameTickTasks} sameTickTaskMs={AnchorMs(anchorSameTickTaskTicks)} diggerGroundRoutes={anchorDiggerGroundRoutes} nativeByteChanges={anchorWatchChanges} " +
                 $"tick(refreshMs={AnchorMs(anchorRefreshTicks)} refreshNodes={anchorRefreshNodes} buildMs={AnchorMs(anchorBuildTicks)} " +
                 $"buildNodes={anchorBuildNodes} sweepMs={AnchorMs(anchorSweepTicks)} sweepNodes={anchorSweepNodes} resweeps={anchorResweeps} " +
                 $"accessChanges={anchorAccessChanges} gateRefreshes={anchorGateRefreshes} sharedReuses={anchorShared?.Reuses ?? 0} " +
@@ -1030,7 +1055,7 @@ namespace MoatMove
                 anchorResweepDiplomacy = anchorResweepPortals = anchorResweepFootprint = anchorResweepGlobal = anchorRefreshBacklog =
                 anchorVanillaCalls = anchorVanillaFails = anchorVanillaTicks = anchorVanillaFailTicks = anchorVanillaAfterUnreachable =
                 anchorVanillaAfterUnreachableTicks = anchorVanillaFoundAfterUnreachable = anchorSameTickTasks = anchorSameTickTaskTicks = anchorDiggerGroundRoutes = anchorWatchChanges = 0;
-            Array.Clear(anchorQueryStatus, 0, anchorQueryStatus.Length); anchorPublishReasons.Clear();
+            Array.Clear(anchorQueryStatus, 0, anchorQueryStatus.Length); anchorPublishReasons.Clear(); anchorVanillaWhy.Clear();
         }
     }
 }

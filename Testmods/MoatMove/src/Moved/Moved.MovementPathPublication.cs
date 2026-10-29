@@ -43,6 +43,7 @@ namespace MoatMove
             if (plan == null && !reconstruction && !runtime.disposed &&
                 TryPublishAnchorGroundWithoutPlan(pathManager, frame, out int anchorPublished))
             { RecordBuilderResult(command, anchorPublished); return anchorPublished; }
+            if (plan != null) anchorDecline = "builder:noDiggerOrManager";
             if (runtime.disposed || pathManager != runtime.nativePathManager || plan == null ||
                 !APIShared.UnitAccess.TryGetById(plan.UnitId, out GameUnit* unit, out _) ||
                 unit == null || !runtime.CanDigMoat(unit))
@@ -63,6 +64,8 @@ namespace MoatMove
                 groundReconstruction = TryPrepareGroundReconstruction(plan, unit);
 
             }
+            anchorDecline = reconstruction ? "builder:reconstruction" : qualified ? "builder:qualifiedMoat" : !owned ? "builder:buffer" :
+                originalVariant != 0 && originalVariant != 1 ? "builder:variant" : "builder:notRequiredMode";
             // Anchor dispatch, ground decision: the core's ground route replaces Vanilla's search.
             bool anchorGround = runtime.RequiredOnlyMode && !reconstruction && !qualified && owned &&
                 (originalVariant == 0 || originalVariant == 1) && TryPrepareAnchorGround(plan, unit);
@@ -98,6 +101,7 @@ namespace MoatMove
                 if (anchorGround)
                 {
                     // Rejected anchor route: restore and let Vanilla's builder run unchanged.
+                    anchorDecline = "builder:publishReject";
                     RestoreFallbackPathBuffer(pathManager, path, backup, beforeLength);
                     *variant = originalVariant; *runtime.moatPathMode = mode;
                     plan.QualifiedRoute = null;
