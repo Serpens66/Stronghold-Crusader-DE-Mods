@@ -149,6 +149,11 @@ namespace MoatMove
             runtime.weightedMoatRoutePlanner.BeginReachabilityProbe();
             try
             {
+                // FriendlyOnly searches in anchor mode read one cached word per cell and take tile
+                // ids from the byte watch's node table; the same edges in the same direction order
+                // as VisitNeighbour (110-150 ms gaps were per-neighbour lookups, pf-iter-11).
+                FastTraversalCache words = cacheIncludesEnemyRoutes || DisableWordReachability ? null : ReachabilityWords(runtime.cachePlayerId);
+                int[] tileOf = words != null ? AnchorNodeTiles() : null;
                 // A discovered ground route is already a conclusive negative answer to
                 // "requires moat". Otherwise exhaust the frontier before returning no route.
                 while (reachabilityQueueHead < reachabilityQueueTail &&
@@ -159,6 +164,20 @@ namespace MoatMove
                     int state = encoded >> RouteStateShift, cell = encoded & RouteCellMask;
                     int y = cell / MapWidth, x = cell % MapWidth;
                     int distance = GetRouteDistance(state, cell);
+                    if (tileOf != null)
+                    {
+                        uint word = words.EdgeWord(cell);
+                        for (int d = 0; d < 8; d++)
+                        {
+                            if ((word & (1U << d)) == 0) continue;
+                            int nextCell = cell + WeightedMoatRoutePlanner.DirectionY[d] * MapWidth + WeightedMoatRoutePlanner.DirectionX[d];
+                            int nextTile = tileOf[nextCell];
+                            if (nextTile < 0) continue;
+                            EnqueueNeighbour(nextCell, nextTile, state, (word & (1U << (16 + d))) != 0 ? MoatTraversalEdgeKind.FriendlyMoat : MoatTraversalEdgeKind.Ground,
+                                (word & (1U << (24 + d))) != 0, distance, ref reachabilityQueueTail);
+                        }
+                        continue;
+                    }
                     for (int d = 0; d < WeightedMoatRoutePlanner.DirectionX.Length; d++)
                         VisitNeighbour(runtime.cachePlayerId, x, y, x + WeightedMoatRoutePlanner.DirectionX[d],
                             y + WeightedMoatRoutePlanner.DirectionY[d], d, state, distance, ref reachabilityQueueTail);
@@ -233,7 +252,16 @@ namespace MoatMove
             {
                 return;
             }
+            EnqueueNeighbour(nextCell, nextTileId, currentState, edgeKind, structuralEdge, currentDistance, ref queueTail);
+        }
 
+        // Test hook: the per-neighbour path also for FriendlyOnly searches (equality test).
+        internal bool DisableWordReachability;
+
+        // An allowed edge into nextCell: state transition, visit, summary and queue.
+        private void EnqueueNeighbour(int nextCell, int nextTileId, int currentState, MoatTraversalEdgeKind edgeKind,
+            bool structuralEdge, int currentDistance, ref int queueTail)
+        {
             if (structuralEdge)
                 runtime.cachedRouteSummary.StructuralEdgesObserved++;
 

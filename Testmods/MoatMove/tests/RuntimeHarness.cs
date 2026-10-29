@@ -198,6 +198,7 @@ namespace MoatMove
         private int[] observedRouteRegions, reachedGroundRegions, reachedFriendlyMoatRegions, reachedEnemyMoatRegions;
         private int gridGeneration, cacheMapEpoch = -1, cachePlayerId, cacheStartX, cacheStartY;
         private bool cacheIncludesEnemyRoutes;
+        internal bool DisableWordReachability;
         private int reachabilityQueueHead, reachabilityQueueTail, reachabilityTick;
         private object reachabilityOwner;
         private readonly Dictionary<long, bool> nativeGroundDecisions = new Dictionary<long, bool>();

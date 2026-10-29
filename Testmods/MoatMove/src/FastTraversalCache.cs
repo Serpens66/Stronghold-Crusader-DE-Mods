@@ -76,16 +76,23 @@ namespace MoatMove
         {
             wet = structure = false;
             if ((uint)from >= words.Length || (uint)to >= words.Length || (uint)direction >= 8) return false;
+            uint word = EdgeWord(from);
+            wet = (word & (1U << (16 + direction))) != 0;
+            structure = (word & (1U << (24 + direction))) != 0;
+            return (word & (1U << ((ground ? 8 : 0) + direction))) != 0;
+        }
+
+        // The word Edge() answers from: seeded or read live on first use. A direction never set
+        // for a neighbour outside the map. Caller checks the node range.
+        internal uint EdgeWord(int from)
+        {
             if (known[from] == 0)
             {
                 FastWordSeed seed = Seed;
                 if (seed != null && seed(from, out uint seeded)) { words[from] = seeded; Seeded++; } else words[from] = Read(from);
                 known[from] = 1; knownNodes.Add(from);
             }
-            uint word = words[from];
-            wet = (word & (1U << (16 + direction))) != 0;
-            structure = (word & (1U << (24 + direction))) != 0;
-            return (word & (1U << ((ground ? 8 : 0) + direction))) != 0;
+            return words[from];
         }
 
         // Complete cached word of a node (anchor-mode mask export); read once like Edge().

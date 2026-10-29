@@ -308,6 +308,31 @@ namespace MoatMove
                 for (int i = 0; i < watchTicks + 1; i++) AnchorTick(++ticks);
                 ReleaseAnchorTask(watchTask);
 
+                // The word-based reachability search (cached words, node tile table) visits the same
+                // cells with the same distances and summary as the per-neighbour search.
+                Check(AnchorNodeTiles() != null, "the byte watch provides no node tile table after a full round");
+                string ReachabilitySnapshot(bool disable)
+                {
+                    DisableWordReachability = disable;
+                    try
+                    {
+                        EnsureReachabilityMap(1, 10, 10);
+                        AdvanceReachabilityMap();
+                        var text = new System.Text.StringBuilder();
+                        for (int cell = 0; cell < MapWidth * MapWidth; cell++)
+                        {
+                            if (visitedWithoutMoat[cell] == gridGeneration) text.Append('g').Append(cell).Append(':').Append(distanceWithoutMoat[cell]).Append(' ');
+                            if (visitedWithMoat[cell] == gridGeneration) text.Append('m').Append(cell).Append(':').Append(distanceWithMoat[cell]).Append(' ');
+                        }
+                        RouteProbeSummary summary = cachedRouteSummary;
+                        return text.Append("expanded=").Append(cachedReachabilityExpandedNodes).Append(" moatTiles=").Append(summary.FriendlyMoatTiles)
+                            .Append(" structural=").Append(summary.StructuralEdgesObserved).Append(" regions=").Append(cachedTraversedRegionCount).ToString();
+                    }
+                    finally { DisableWordReachability = false; }
+                }
+                string slowSearch = ReachabilitySnapshot(true), fastSearch = ReachabilitySnapshot(false);
+                Check(slowSearch.Split(' ').Length > 100 && fastSearch == slowSearch, "the word-based reachability search differs from the per-neighbour search");
+
                 // A resweep request during a running round extends it from the cursor instead of
                 // restarting at node 0, so frequent requests still reach every node.
                 ResweepAnchorMasks(); AnchorTick(++ticks); AnchorTick(++ticks);

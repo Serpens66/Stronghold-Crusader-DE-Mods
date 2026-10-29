@@ -161,7 +161,10 @@ namespace MoatMove
         private int[] fastTileMarkEpochs;
         private void AdvanceFastMarkEpoch() { if (++fastMarkEpoch == int.MaxValue) { fastMarkEpoch = 1; if (fastTileMarkEpochs != null) Array.Clear(fastTileMarkEpochs, 0, fastTileMarkEpochs.Length); } }
 
-        private void MarkFastTopologyTile(int tile)
+        // radius 2: a reported tile update (D90D0 rewrites its 3x3 area, whose words also read
+        // their neighbours). radius 1: one changed direction byte (MoatMove's byte watch); the
+        // byte feeds its own node's edges and the diagonal/moat checks of direct neighbours.
+        private void MarkFastTopologyTile(int tile, int radius = 2)
         {
             if (!RequiredOnlyMode || !IsValidTileId(tile)) return;
             var position = GameTileManagerAPI.Instance.GetTileVectorFromId(tile);
@@ -172,8 +175,8 @@ namespace MoatMove
                 if (fastTileMarkEpochs[center] == fastMarkEpoch) return;
                 fastTileMarkEpochs[center] = fastMarkEpoch;
             }
-            for (int y = Math.Max(0, position.Y - 2); y <= Math.Min(MapWidth - 1, position.Y + 2); y++)
-                for (int x = Math.Max(0, position.X - 2); x <= Math.Min(MapWidth - 1, position.X + 2); x++)
+            for (int y = Math.Max(0, position.Y - radius); y <= Math.Min(MapWidth - 1, position.Y + radius); y++)
+                for (int x = Math.Max(0, position.X - radius); x <= Math.Min(MapWidth - 1, position.X + radius); x++)
                 {
                     int node = y * MapWidth + x;
                     if (fastSimulationRouting != null) foreach (var map in fastSimulationRouting.Maps.Values) map.Mark(node);

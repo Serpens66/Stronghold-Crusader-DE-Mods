@@ -534,6 +534,10 @@ namespace MoatMove
         private const int AnchorWatchNodesPerTick = 40000;
         private int[] anchorWatchTiles; private byte[] anchorWatchBytes;
         private int anchorWatchCursor, anchorWatchPrimed; private long anchorWatchChanges;
+        // Tile id of every node once the watch's first pass completed, else null (ids are fixed per map).
+        private int[] AnchorNodeTiles() =>
+            anchorWatchTiles != null && anchorWatchPrimed >= MapWidth * MapWidth ? anchorWatchTiles : null;
+
         private void WatchNativeDirections()
         {
             byte* masks = runtime.nativeMovementMasks;
@@ -557,7 +561,7 @@ namespace MoatMove
                 byte current = masks[tile];
                 if (current == anchorWatchBytes[node]) continue;
                 anchorWatchBytes[node] = current; anchorWatchChanges++;
-                MarkFastTopologyTile(tile);
+                MarkFastTopologyTile(tile, 1);
             }
             if (end > anchorWatchPrimed) anchorWatchPrimed = end;
             anchorWatchCursor = end >= total ? 0 : end;
