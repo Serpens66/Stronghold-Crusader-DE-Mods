@@ -30,7 +30,9 @@ Save `test_stresstest4.sav`, 180 s Lauf nach Warmup, `tools/Run-PathfindingItera
 | pf-iter-15 | 8 | 5 | 0 | 185 ms | Erreichbarkeitswörter bei Neuabtastung vergessen statt voll neu lesen |
 | pf-iter-16 | 9 | 6 | 0 | 193 ms | Masken-Neuaufbau `DAA50` meldet nur Richtungsbytes (Byte-Wächter statt Neuabtastung) |
 | pf-iter-17 | 9 | 6 | 0 | 189 ms | Diagnose der Erreichbarkeitssuchen je Aufrufer |
-| pf-iter-18 | 9 | 6 | 1 | 206 ms | – |
+| pf-iter-18 | 9 | 6 | 1 | 206 ms | Diagnose der langsamen Erreichbarkeitssuchen (`reachability-slow`) |
+| pf-iter-19 | 7 | 4 | 1 | 222 ms | Rückwärtsbeweis je Ziel (in pf-iter-20/21 schlechter: 307 bzw. 559 ms, zurückgenommen) |
+| pf-iter-22b | 11 | 7 | 1 | 216 ms | Erschöpfte Suche beantwortet spätere Starts (222.272 Treffer); Lauf mit Videolast, 260 s |
 
 Ab pf-iter-15 verhalten sich die KI-Lords anders (34.000 statt 29.000 Ticks, 51–94 statt 16 Torwechsel je Lauf), seit mehr Einheiten Anker-Routen bekommen; die Läufe sind deshalb nur eingeschränkt mit den früheren vergleichbar.
 
@@ -52,6 +54,22 @@ Befund pf-iter-6: Die verbleibenden Spitzen von 285–410 ms bestehen aus Vanill
 4. **Assassinen:** Startfeld je Tick für gleiche Startkacheln (Plan in `BugfixesAndQoL/Findings/ASSASSIN_PATHFINDING_PLAN.md`). Erwartung im Angriffs-Burst: Mod-Anteil etwa 70 statt 1450 ms.
 5. **Torrouting und Torhaus-Abfragen** (BFQoL `RouteTilePolicySnapshot.IsDirectionAllowed`, `ReachableEnemyGatehouseRuntime`, ExtraFeatures `GatehouseAutomationRuntime`) zusammen etwa 2 % der Sim-Zeit im KI-Lauf: auf doppelte Abfragen je Tick prüfen.
 6. **Unbekannte heiße Simulationsfunktionen** `0x18C160` (14 %) und `0xF5A40` (6 %): vor jeder Maßnahme ein featurebezogener Vanilla-Audit, um festzustellen, ob sie Wegfindung betreffen.
+
+## Regelschicht (Entscheidung des Nutzers 29.10.2026: Vertrag in APIShared, Engine in MoatMove)
+
+Ziel: Mods definieren zusätzliche Wegfindungsregeln (Feuer ausweichen, Gefahrenzonen, gesperrte Bereiche, Kostenaufschläge), ohne eigene Suchen und ohne Lags. Vanilla bleibt unverändert, solange keine Engine installiert ist.
+
+- **APIShared (additiv, `APIShared.Pathfinding`):** passive Kachelregeln nach dem Muster von `GateAccessRules`.
+  - Registrierung je Besitzer-GUID und Registrierungs-ID; prozessweit.
+  - Je Kachel und Spielermaske ein Effekt: `Forbidden` (nicht betreten, außer als Start oder Ziel) oder `Penalty` (Aufschlag 1–255 in Bodenschritt-Einheiten beim Betreten).
+  - Änderungsjournal mit monotoner Version, damit Engines nur geänderte Kacheln neu lesen.
+  - Vertrag: Aufrufe nur auf dem Simulationsthread, aus deterministischem Spielzustand. Mehrspieler-Gleichheit der Regel-Mods liegt beim Verbraucher (`NetworkMode=1`). Regeln schränken nur ein oder verteuern, sie erlauben nie eine Kante, die Vanilla verbietet. Ohne Engine haben sie keine Wirkung.
+- **Engine (MoatMove-Anker):**
+  - `Forbidden` entfernt die eingehenden Kanten einer Kachel aus den Masken; markiert werden die Kachel und ihre acht Nachbarn.
+  - `Penalty` wird zur Kantenkostenbeigabe je Zielknoten im Kern (Byte-Feld je Spieler, Summe begrenzt auf `MaxCost`).
+  - Jede veröffentlichte Route wird weiter live geprüft, die Regeln eingeschlossen.
+  - Vanilla-Befehle und Vanillas eigene Suchen bleiben unverändert.
+- **Beispielregel „Feuer ausweichen“:** Aufschlag auf brennende Gebäudegrundflächen ±1. Bekannte Bausteine: Brandzähler der Gebäude (`0xC4D30`, `0xC60F0`, `0xC3C80`, siehe `FIREMAN_TARGETING.md`). Vor der Umsetzung ist ein Vanilla-Audit des Brandzustands nötig; Pechgräben sind in der Baseline noch nicht belegt.
 
 ## Regeln (gemeinsam für alle Suchen)
 
