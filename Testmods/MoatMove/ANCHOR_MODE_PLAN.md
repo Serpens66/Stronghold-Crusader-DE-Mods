@@ -356,6 +356,21 @@ Neu geprüft wurde die verwaltete Verzweigung in MoatMove:
   - Eine Prüfung statt zwei: Routen, die die Live-Prüfung des Ankers in diesem Tick bestanden haben (`anchorAuditedRoutes`, Objektidentität), überspringen bei der Veröffentlichung die zweite Kantenprüfung je Schritt (`TryAuditFallbackPath(..., edgesAudited)`). Grund: `FriendlyOnly`/`GroundOnly` lehnen jede Kante ab, die `AllowEnemyForDiagnostic` ablehnt (Feindgraben, Ecken, Tor-Richtlinie, Höhe, Grabenrand). Puffer-, Start-, Identitäts-, Eigentümer- und Endpunktprüfung bleiben. `GetReusableQualifiedRoute` verlangt denselben Tick, dieselbe Platzierungsrevision, denselben Start, dasselbe Ziel und dieselbe Einheit. Neuer Zähler `auditSkips`. Tests: Markierung nur für das geprüfte Objekt und nur im selben Tick; die Eigentümerprüfung lehnt auch mit `edgesAudited` eine Feindquerung ab.
   - Zusatzanker nur mit Starts derselben Klasse: Bei erschöpftem Hauptfeld zielt ein Zusatzanker nur auf Starts derselben Hauptfeld-Erreichbarkeit wie der abfragende Start. Antworten bleiben exakt. GroupPathProbe-Vertrag `core-split-group`: Der alte Stand kommt auf 3646 statt höchstens 3540 Knoten (Gegenprobe), der neue besteht.
   - Assassinen-Analyse mit Plan: `BugfixesAndQoL/Findings/ASSASSIN_PATHFINDING_PLAN.md`.
+
+**Dritter Sammellauf (29.10.2026, 15:19–15:24, Log `Testmods/MoatMove/.local/ingame-breakdown-3.log` in der Kopie; Spiel lief beim Sichern noch):**
+- Editor (2350 Mitglieder):
+  - Grabenbefehle: Stillstand 141–169 ms (vorher 168–181), `moveMs` 104–132 (vorher 131–143), `publishMs` 36–58 (vorher 60–69).
+  - `auditSkips` 2350 je Befehl, also jede Route nur einmal geprüft.
+  - Bodenbefehl: 154 ms Stillstand bei 95 ms `moveMs`.
+- KI (`test_stresstest4.sav`, etwa 4 Minuten bei etwa 119 Ticks/s):
+  - Rückschritt: 7 Lücken über 500 ms, die größte 2233 ms. `FastTraversalCache.Mark` hatte 33 % der Lücken-Stichproben, in der größten Lücke 72 %. Ursache: Die kachelgenaue Meldung markiert je Kachelereignis 25 Knoten in allen Caches, und `SortedSet.Add` legt dabei je Eintrag Speicher an. KI-Bau, Graben und brennende Gebäude erzeugen Bursts solcher Ereignisse.
+  - Resweep-Anforderungen sanken von 101513 auf 34. Der Resweep lief trotzdem fast durchgehend (25 s, 23,4 Mio. Knoten), weil jede der 13 Zugangsänderungen alle acht Masken voll neu abgleicht.
+  - `refreshMs` 3,6 s bei 130785 geänderten Knoten.
+  - Vanillas BFS `DA5EF` nur 0,9 % der Sim-Zeit; Anker-Kern 0,5 %. Die heißesten nativen Funktionen sind allgemeine Simulation (`0x18C160` 14 %, Tile-Renderer `0x41D60` 9 %, Einheitenbewegung `0x182B00` 8 %, `0xF5A40` 6 %).
+- Korrekturen danach (Commit `ee35a37f4`, nicht im Spiel geprüft):
+  - `FastTraversalCache` markiert mit Merkerfeld und Liste, sortiert einmal je Refresh. Reihenfolge und Ergebnis bleiben gleich; Test: 1000 Markierungen eines Knotens führen zu einem Neulesen.
+  - Zugangsänderungen lesen nur die Grundflächen (±2) von Torgebäuden mit geändertem Portaleintrag. Bündnisse, Portalzahl oder eine unbekannte Grundfläche lösen weiterhin einen vollen Resweep aus. Neuer Zähler `gateRefreshes`.
+  - Beim Neulesen wird `GroundOnly` nur noch nahe fertigen Gräben eigens geprüft (Endpunkte oder Diagonalecken). Sonst entscheidet `TryGetTraversalEdge` beide Regeln gleich. Gleichheitstest über den Graben-Korridor; die Suite erkennt eine falsche Abkürzung.
  Die Wegqualität gegen Precise ist identisch mit der Messung vom 28.10. Abfragezeit je Einheit bei 8 Threads (`results/core-20261029-124523-008` gegen `core-20261028-172304-117`): `group-1024` 16,8 → 10,6 µs, `group-mix-10000` 12,9 → 7,5 µs, `converging-groups-10000` 12,2 → 7,1 µs, `scattered-group-mix-10000` 12,9 → 8,6 µs, `worker-trips-10000` 10,3 → 7,2 µs, `moat-group-mix-10000` 14,2 → 10,8 µs.
 
 **Prüfung für Teil A:**
