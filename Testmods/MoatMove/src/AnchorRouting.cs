@@ -71,7 +71,12 @@ namespace MoatMove
         // follow an exact core "unreachable" for the same unit (found: Vanilla had a route anyway).
         private long anchorVanillaCalls, anchorVanillaFails, anchorVanillaTicks, anchorVanillaFailTicks,
             anchorVanillaAfterUnreachable, anchorVanillaAfterUnreachableTicks, anchorVanillaFoundAfterUnreachable;
-        private int anchorUnreachableUnit;
+        // Fields computed again in the same tick for the same player, anchor and cost profile
+        // (reuse candidates; several AI groups sent to one rally point).
+        private readonly HashSet<long> anchorTickTaskKeys = new HashSet<long>();
+        private int anchorTickTaskKeysTick = -1;
+        private long anchorSameTickTasks, anchorSameTickTaskTicks;
+        private int anchorUnreachableUnit, anchorUnreachableStart, anchorUnreachableTarget, anchorUnreachableTask, anchorUnreachableLogs;
         private const long AnchorMemoryLimit = 768L * 1024 * 1024;
         private IntPtr anchorContext;
         private bool anchorAvailable, anchorPlayersRequested;
@@ -200,7 +205,7 @@ namespace MoatMove
             anchorBatchIndex.Clear(); anchorPendingFormationTribe = -1; anchorPendingFormation = null;
             Array.Clear(anchorMaps, 0, anchorMaps.Length); anchorAccessKnown = false; anchorShared = null; anchorBlockedUnion.Clear();
             Array.Clear(reachWords, 0, reachWords.Length);
-            anchorPlayersRequested = false; anchorUnreachedLogs = 0; anchorEndedUnreached = 0; anchorPortalCount = -1;
+            anchorPlayersRequested = false; anchorUnreachedLogs = 0; anchorUnreachableLogs = 0; anchorEndedUnreached = 0; anchorPortalCount = -1;
             for (int p = 0; p < anchorMaskNext.Length; p++) { anchorMaskNext[p] = -1; anchorBlocked[p]?.Clear(); }
             anchorSweepCursor = -1; anchorSweepLeft = 0;
         }
@@ -247,9 +252,13 @@ namespace MoatMove
             if (ground > AnchorMaxCost || moat > AnchorMaxCost) return 0;
             if (AnchorNative.mma_task_create(anchorContext, player, anchor, (int)ground, (int)moat, starts, count, out int task) != 0) return 0;
             anchorLiveTasks.Add(task); anchorTasks++;
+            int tick = CaptureCurrentGameTick();
+            if (tick != anchorTickTaskKeysTick) { anchorTickTaskKeys.Clear(); anchorTickTaskKeysTick = tick; }
+            bool repeated = !anchorTickTaskKeys.Add(((long)player << 56) | ((long)ground << 48) | ((long)moat << 40) | (uint)anchor);
             long started = System.Diagnostics.Stopwatch.GetTimestamp();
             int code = AnchorNative.mma_step(anchorContext, anchorLiveTasks.Count, anchorThreads, out _);
             long elapsed = System.Diagnostics.Stopwatch.GetTimestamp() - started;
+            if (repeated) { anchorSameTickTasks++; anchorSameTickTaskTicks += elapsed; }
             anchorFieldTicks += elapsed; anchorFieldMaxTicks = Math.Max(anchorFieldMaxTicks, elapsed);
             if (code == 0 && AnchorNative.mma_task_status(anchorContext, task) == AnchorNative.Ready) return task;
             ReleaseAnchorTask(task); anchorFallbacks++;
@@ -744,9 +753,33 @@ namespace MoatMove
             if (unitId != 0 && unitId == anchorUnreachableUnit)
             {
                 anchorVanillaAfterUnreachable++; anchorVanillaAfterUnreachableTicks += elapsed;
-                if (result > 0) anchorVanillaFoundAfterUnreachable++;
+                if (result > 0) { anchorVanillaFoundAfterUnreachable++; LogAnchorUnreachableFound(pathManager, unitId, result); }
             }
             return result;
+        }
+
+        // Vanilla built a route for a unit the core answered unreachable; bounded per map. Shows
+        // whether the builder searched another target (region intermediate) or the mask lacks edges.
+        private void LogAnchorUnreachableFound(IntPtr pathManager, int unitId, int length)
+        {
+            if (anchorUnreachableLogs >= 40) return;
+            anchorUnreachableLogs++;
+            byte* manager = (byte*)pathManager.ToPointer();
+            int builderX = *(int*)(manager + 0x10), builderY = *(int*)(manager + 0x14);
+            int sx = anchorUnreachableStart % MapWidth, sy = anchorUnreachableStart / MapWidth;
+            int tx = anchorUnreachableTarget % MapWidth, ty = anchorUnreachableTarget / MapWidth;
+            string unitText = "missing"; uint startWord = 0, targetWord = 0;
+            if (APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) && unit != null)
+            {
+                int player = unit->r_ControllableForPlayerId;
+                unitText = $"{unit->r_UnitChimp}/player={player}/digger={runtime.CanDigMoat(unit)}/at={unit->r_CurrentTilePositionX},{unit->r_CurrentTilePositionY}";
+                if (player >= 1 && player <= 8 && anchorMaps[player] != null)
+                { startWord = anchorMaps[player].Word(anchorUnreachableStart); targetWord = anchorMaps[player].Word(anchorUnreachableTarget); }
+            }
+            Shared.DebugLogHelper.LogInfo(log, $"MoatMove anchor-unreachable-found unit={unitId} {unitText} start={sx},{sy} slot={tx},{ty} " +
+                $"builderTarget={builderX},{builderY} sameTarget={builderX == tx && builderY == ty} vanillaLength={length} " +
+                $"task={anchorUnreachableTask} groundTask={anchorUnreachableTask == anchorGroundTask} " +
+                $"startWord=0x{startWord:X8} slotWord=0x{targetWord:X8}.");
         }
 
         internal bool IsAnchorAuditedRoute(QualifiedMovementRoute route)
@@ -797,7 +830,8 @@ namespace MoatMove
             long answered = System.Diagnostics.Stopwatch.GetTimestamp();
             anchorQueryTicks += answered - queried;
             anchorQueryStatus[code != 0 ? 7 : Math.Min(Math.Max(result.Status, 0), 6)]++;
-            if (code == 0 && result.Status == AnchorNative.Unreachable) anchorUnreachableUnit = plan.UnitId;
+            if (code == 0 && result.Status == AnchorNative.Unreachable)
+            { anchorUnreachableUnit = plan.UnitId; anchorUnreachableStart = start; anchorUnreachableTarget = target; anchorUnreachableTask = task; }
             else if (anchorUnreachableUnit == plan.UnitId) anchorUnreachableUnit = 0;
             if (code != 0 || result.Status != AnchorNative.Ready) return false;
             plan.QualifiedRoute = null; plan.QualifiedTerminalRoute = default; plan.QualifiedTerminalSummary = default;
@@ -864,7 +898,7 @@ namespace MoatMove
                 $"members={anchorMembers} unreachedMembers={anchorUnreachedUnits} movesWithUnreached={anchorMovesWithUnreached} " +
                 $"vanilla(vanillaCalls={anchorVanillaCalls} vanillaFails={anchorVanillaFails} vanillaMs={AnchorMs(anchorVanillaTicks)} vanillaFailMs={AnchorMs(anchorVanillaFailTicks)} " +
                 $"afterUnreachable={anchorVanillaAfterUnreachable} afterUnreachableMs={AnchorMs(anchorVanillaAfterUnreachableTicks)} " +
-                $"foundAfterUnreachable={anchorVanillaFoundAfterUnreachable}) " +
+                $"foundAfterUnreachable={anchorVanillaFoundAfterUnreachable}) sameTickTasks={anchorSameTickTasks} sameTickTaskMs={AnchorMs(anchorSameTickTaskTicks)} " +
                 $"tick(refreshMs={AnchorMs(anchorRefreshTicks)} refreshNodes={anchorRefreshNodes} buildMs={AnchorMs(anchorBuildTicks)} " +
                 $"buildNodes={anchorBuildNodes} sweepMs={AnchorMs(anchorSweepTicks)} sweepNodes={anchorSweepNodes} resweeps={anchorResweeps} " +
                 $"accessChanges={anchorAccessChanges} gateRefreshes={anchorGateRefreshes} sharedReuses={anchorShared?.Reuses ?? 0} " +
@@ -881,7 +915,7 @@ namespace MoatMove
                 anchorSweepTicks = anchorSweepNodes = anchorResweeps = anchorAccessChanges = anchorGateRefreshes = anchorLazyTasks = anchorUnusedMoves = anchorAuditSkips = anchorBatchCalls = anchorBatchUnits = anchorBatchHits = anchorBatchTicks =
                 anchorResweepDiplomacy = anchorResweepPortals = anchorResweepFootprint = anchorResweepGlobal = anchorRefreshBacklog =
                 anchorVanillaCalls = anchorVanillaFails = anchorVanillaTicks = anchorVanillaFailTicks = anchorVanillaAfterUnreachable =
-                anchorVanillaAfterUnreachableTicks = anchorVanillaFoundAfterUnreachable = 0;
+                anchorVanillaAfterUnreachableTicks = anchorVanillaFoundAfterUnreachable = anchorSameTickTasks = anchorSameTickTaskTicks = 0;
             Array.Clear(anchorQueryStatus, 0, anchorQueryStatus.Length); anchorPublishReasons.Clear();
         }
     }
