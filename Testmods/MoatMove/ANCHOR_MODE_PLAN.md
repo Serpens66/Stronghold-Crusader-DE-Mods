@@ -344,6 +344,14 @@ Neu geprüft wurde die verwaltete Verzweigung in MoatMove:
   - `refreshMs` 85 ms (vorher 11 s in 9 Minuten). Keine Veröffentlichungsablehnung mehr. `encodeRejects` 403; das sind veraltete Maskenteile, die die Prüfung abfängt.
   - Resweep bleibt der größte Dauerposten: 19,9 s in 3 Minuten, etwa 0,85 ms je Tick und etwa 1 µs je Knoten. Auslöser sind 101513 Anforderungen bei 13 Zugangsänderungen. Ursache ist BFQoLs `InvalidateMovementSearchData` ohne Kachelangabe bei jeder Kachel- oder Grabenänderung.
   - Zusatzanker: 1297 angelegt, `subMs` 1,0 s, in einem Fenster 244 ms. `anchorMiss.noStart` 14291 (Starts außerhalb des Hauptfelds, etwa KI hinter Mauern).
+
+**Testlinie `dev/pathfinding` (ab 29.10.2026, Worktree `.work/a/pathfind/001`):**
+- Zweck: Pathfinding-Optimierungen über die Mods hinweg (Anker-Modus, BFQoL-Invalidierung, später Assassinen-Suche). BFQoL-Änderungen bleiben auf diesem Branch, bis der Nutzer sie annimmt. `develop` im Hauptordner bleibt für andere Arbeit frei, Verwerfen heißt Branch löschen.
+- Kachelgenaue Invalidierung (Commit `89f471d23`, nicht im Spiel geprüft):
+  - BFQoL übergibt bei Kachel-, Grabenschreib- und Grabenlöschänderungen die Kachel an `UnitCommandTraversalProvider.InvalidateFastMoatTile(int)`. Ohne Override fällt der Aufruf auf die globale Invalidierung zurück.
+  - Verschachtelte Einheitenbewegungen invalidieren keine Gelände-Caches mehr (`InvalidateMovementSearchData(terrain: false)`).
+  - MoatMove liest dann nur das ±2-Umfeld neu (`MarkFastTopologyTile`), für Fast-Caches und Anker-Masken. Ein voller Resweep bleibt für Zugangsänderungen, den Maskenneubau `DAA50` und Kartenstarts.
+  - Tests: BFQoL-Dispatch-Harness (Kachelmeldung bei deaktivierter Policy), MoatMove-Anker-Harness (Kachelmeldung macht die Aufgabe veraltet ohne Resweep, verschachtelte Bewegung ohne Resweep).
  Die Wegqualität gegen Precise ist identisch mit der Messung vom 28.10. Abfragezeit je Einheit bei 8 Threads (`results/core-20261029-124523-008` gegen `core-20261028-172304-117`): `group-1024` 16,8 → 10,6 µs, `group-mix-10000` 12,9 → 7,5 µs, `converging-groups-10000` 12,2 → 7,1 µs, `scattered-group-mix-10000` 12,9 → 8,6 µs, `worker-trips-10000` 10,3 → 7,2 µs, `moat-group-mix-10000` 14,2 → 10,8 µs.
 
 **Prüfung für Teil A:**
