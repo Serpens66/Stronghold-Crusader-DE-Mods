@@ -199,6 +199,11 @@ namespace MoatMove
         private int gridGeneration, cacheMapEpoch = -1, cachePlayerId, cacheStartX, cacheStartY;
         private bool cacheIncludesEnemyRoutes;
         internal bool DisableWordReachability;
+        private const int ReachabilityProofLimit = 4096;
+        private int[] reachabilityProofStamps, reachabilityProofQueue;
+        private int reachabilityProofStamp, reachabilityProofGeneration = -1;
+        private readonly System.Collections.Generic.HashSet<int> reachabilityProvenTargets = new System.Collections.Generic.HashSet<int>();
+        internal long ReachabilityProofs;
         private int reachabilityQueueHead, reachabilityQueueTail, reachabilityTick;
         private object reachabilityOwner;
         private readonly Dictionary<long, bool> nativeGroundDecisions = new Dictionary<long, bool>();

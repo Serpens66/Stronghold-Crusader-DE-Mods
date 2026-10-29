@@ -338,6 +338,17 @@ namespace MoatMove
                     finally { DisableWordReachability = false; }
                 }
                 string slowSearch = ReachabilitySnapshot(true), fastSearch = ReachabilitySnapshot(false);
+                // An unreachable target in a closed backward component is proven without exhausting the
+                // forward search; a reachable one is still found by the search itself.
+                long proofs = ReachabilityProofs;
+                EnsureReachabilityMap(1, 10, 10, deferTraversal: true);
+                AdvanceReachabilityMap(targetCell: 30 * MapWidth + 60);
+                Check(ReachabilityProofs == proofs + 1 && reachabilityQueueHead < reachabilityQueueTail &&
+                    visitedWithoutMoat[30 * MapWidth + 60] != gridGeneration && visitedWithMoat[30 * MapWidth + 60] != gridGeneration,
+                    "an unreachable target in a closed backward component exhausted the forward search");
+                AdvanceReachabilityMap(targetCell: 10 * MapWidth + 150);
+                Check(ReachabilityProofs == proofs + 1 && (visitedWithMoat[10 * MapWidth + 150] == gridGeneration || visitedWithoutMoat[10 * MapWidth + 150] == gridGeneration),
+                    "a reachable target was proven unreachable");
                 Check(slowSearch.Split(' ').Length > 100 && fastSearch == slowSearch, "the word-based reachability search differs from the per-neighbour search");
 
                 // A resweep request during a running round extends it from the cursor instead of

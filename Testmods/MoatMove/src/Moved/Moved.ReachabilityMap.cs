@@ -156,6 +156,10 @@ namespace MoatMove
                 // as VisitNeighbour (110-150 ms gaps were per-neighbour lookups, pf-iter-11).
                 FastTraversalCache words = cacheIncludesEnemyRoutes || DisableWordReachability ? null : ReachabilityWords(runtime.cachePlayerId);
                 int[] tileOf = words != null ? AnchorNodeTiles() : null;
+                // A target in a small closed backward component cannot be reached in any state: answer
+                // without exhausting the forward frontier (AI diggers asked for the same unreachable
+                // moat target every few ticks, each search 16-57 ms over 236k-473k cells, pf-iter-19).
+                if (words != null && targetCell >= 0 && ProvesReachabilityTargetUnreachable(words, targetCell)) return;
                 // A discovered ground route is already a conclusive negative answer to
                 // "requires moat". Otherwise exhaust the frontier before returning no route.
                 while (reachabilityQueueHead < reachabilityQueueTail &&
@@ -260,6 +264,44 @@ namespace MoatMove
                 return;
             }
             EnqueueNeighbour(nextCell, nextTileId, currentState, edgeKind, structuralEdge, currentDistance, ref queueTail);
+        }
+
+        // Bounded backward search from the target over allowed (FriendlyOnly word) edges. True only
+        // when it runs out within the bound without meeting a cell the forward search has visited in
+        // any state (its start included): no path exists, so the forward search never visits the
+        // target. Proofs are kept for the current search generation.
+        private const int ReachabilityProofLimit = 4096;
+        private int[] reachabilityProofStamps, reachabilityProofQueue;
+        private int reachabilityProofStamp, reachabilityProofGeneration = -1;
+        private readonly HashSet<int> reachabilityProvenTargets = new HashSet<int>();
+        internal long ReachabilityProofs;
+        private bool ProvesReachabilityTargetUnreachable(FastTraversalCache words, int target)
+        {
+            if ((uint)target >= (uint)MapCellCount || visitedWithoutMoat[target] == gridGeneration ||
+                visitedWithMoat[target] == gridGeneration || visitedWithEnemyMoat[target] == gridGeneration) return false;
+            if (reachabilityProofGeneration != gridGeneration) { reachabilityProvenTargets.Clear(); reachabilityProofGeneration = gridGeneration; }
+            if (reachabilityProvenTargets.Contains(target)) return true;
+            if (reachabilityProofStamps == null) { reachabilityProofStamps = new int[MapCellCount]; reachabilityProofQueue = new int[ReachabilityProofLimit]; }
+            if (++reachabilityProofStamp == int.MaxValue) { Array.Clear(reachabilityProofStamps, 0, reachabilityProofStamps.Length); reachabilityProofStamp = 1; }
+            int head = 0, tail = 0, stamp = reachabilityProofStamp;
+            reachabilityProofStamps[target] = stamp; reachabilityProofQueue[tail++] = target;
+            while (head < tail)
+            {
+                int node = reachabilityProofQueue[head++], x = node % MapWidth, y = node / MapWidth;
+                for (int d = 0; d < 8; d++)
+                {
+                    // Incoming edge u -> node in direction d: u lies at node - (dx, dy).
+                    int ux = x - WeightedMoatRoutePlanner.DirectionX[d], uy = y - WeightedMoatRoutePlanner.DirectionY[d];
+                    if ((uint)ux >= MapWidth || (uint)uy >= MapWidth) continue;
+                    int u = uy * MapWidth + ux;
+                    if (reachabilityProofStamps[u] == stamp || (words.EdgeWord(u) & (1U << d)) == 0) continue;
+                    if (visitedWithoutMoat[u] == gridGeneration || visitedWithMoat[u] == gridGeneration ||
+                        visitedWithEnemyMoat[u] == gridGeneration || tail >= ReachabilityProofLimit) return false;
+                    reachabilityProofStamps[u] = stamp; reachabilityProofQueue[tail++] = u;
+                }
+            }
+            reachabilityProvenTargets.Add(target); ReachabilityProofs++;
+            return true;
         }
 
         // Test hook: the per-neighbour path also for FriendlyOnly searches (equality test).
