@@ -173,14 +173,37 @@ namespace MoatMove
                     if (fastSimulationRouting != null) foreach (var map in fastSimulationRouting.Maps.Values) map.Mark(node);
                     if (fastCursorRouting != null) foreach (var map in fastCursorRouting.Maps.Values) map.Mark(node);
                     foreach (var map in anchorMaps) map?.Mark(node);
+                    foreach (var map in reachWords) map?.Mark(node);
                 }
+        }
+
+        // Cached FriendlyOnly words for the managed reachability search (dig and moat work scopes):
+        // exactly VisitNeighbour's live predicate (no gate-building exclusion, unlike anchor masks),
+        // marked like the other caches and refreshed before each new search. AI diggers otherwise
+        // evaluated every edge of whole components live on every selection (236 ms gaps, pf-iter-2).
+        private readonly FastTraversalCache[] reachWords = new FastTraversalCache[9];
+        // Anchor mode only: AnchorTick keeps access changes (gate footprints, alliances) marked; other
+        // modes keep the live predicate.
+        private FastTraversalCache ReachabilityWords(int player)
+        {
+            if (player < 1 || player > 8 || !anchorAvailable || !settings.Anchor) return null;
+            return reachWords[player] ?? (reachWords[player] = new FastTraversalCache(MapWidth, MapWidth,
+                (int a, int b, int direction, bool ground, out bool wet, out bool structure) =>
+                    LiveEdge(player, a, b, direction, ground, null, out wet, out structure), GroundEqualsFriendly));
+        }
+        private void RefreshReachabilityWords(int player)
+        {
+            FastTraversalCache map = ReachabilityWords(player);
+            if (map == null) return;
+            map.Refresh(); AdvanceFastMarkEpoch();
         }
 
         private void MarkFastTopologyAll(bool anchorMasks = true)
         {
             if (fastSimulationRouting != null) foreach (var map in fastSimulationRouting.Maps.Values) map.MarkAll();
             if (fastCursorRouting != null) foreach (var map in fastCursorRouting.Maps.Values) map.MarkAll();
-            if (anchorMasks) ResweepAnchorMasks();
+            foreach (var map in reachWords) map?.MarkAll();
+            if (anchorMasks) { anchorResweepGlobal++; ResweepAnchorMasks(); }
         }
 
         private FastRouteStatus AdvanceFastField(FastFieldLease lease, int start, int budget, int maximumEdges = 2000)

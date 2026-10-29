@@ -136,19 +136,33 @@ namespace MoatMove
         }
         internal void MarkAll() { allDirty = true; }
 
-        internal IReadOnlyCollection<int> Refresh()
+        internal int DirtyCount => dirty.Count;
+
+        // maximum > 0 re-reads at most that many marked nodes (lowest first); the others stay marked
+        // for the next call. A full mark (MarkAll) is always processed completely.
+        internal IReadOnlyCollection<int> Refresh(int maximum = 0)
         {
             if (!allDirty && dirty.Count == 0) return Array.Empty<int>();
             var changed = new List<int>();
             if (!allDirty) dirty.Sort();
             List<int> candidates = allDirty ? knownNodes : dirty;
-            foreach (int node in candidates)
+            int count = allDirty || maximum <= 0 ? candidates.Count : Math.Min(maximum, candidates.Count);
+            for (int i = 0; i < count; i++)
             {
+                int node = candidates[i];
                 uint updated = allDirty ? Read(node) : ReadShared(node);
                 if (updated != words[node]) { words[node] = updated; changed.Add(node); }
             }
-            foreach (int node in dirty) dirtyFlags[node] = 0;
-            dirty.Clear(); allDirty = false;
+            if (allDirty || count == dirty.Count)
+            {
+                foreach (int node in dirty) dirtyFlags[node] = 0;
+                dirty.Clear(); allDirty = false;
+            }
+            else
+            {
+                for (int i = 0; i < count; i++) dirtyFlags[dirty[i]] = 0;
+                dirty.RemoveRange(0, count);
+            }
             if (changed.Count != 0) Revision++;
             return changed;
         }

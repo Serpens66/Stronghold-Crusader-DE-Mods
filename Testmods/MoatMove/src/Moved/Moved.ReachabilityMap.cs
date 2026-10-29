@@ -88,6 +88,8 @@ namespace MoatMove
             reachabilityOwner = scopeOwner;
             reachabilityTick = currentTick;
             cacheIncludesEnemyRoutes = includeEnemyRoutes;
+            // Terrain reported since the last search is re-read before the cached words answer.
+            if (!includeEnemyRoutes) RefreshReachabilityWords(playerId);
             cachedReachabilityExpandedNodes = 0;
             runtime.cachePlayerId = playerId;
             runtime.cacheStartX = startX;
@@ -205,7 +207,15 @@ namespace MoatMove
             if (!IsValidTileId(currentTileId) || !IsValidTileId(nextTileId))
                 return;
 
-            if (!runtime.weightedMoatRoutePlanner.TryGetTraversalEdge(
+            MoatTraversalEdgeKind edgeKind; bool structuralEdge;
+            FastTraversalCache words = cacheIncludesEnemyRoutes ? null : ReachabilityWords(playerId);
+            if (words != null)
+            {
+                // FriendlyOnly answers come from the cached words (same predicate, see ReachabilityWords).
+                if (!words.Edge(currentY * MapWidth + currentX, nextCell, direction, false, out bool wet, out structuralEdge)) return;
+                edgeKind = wet ? MoatTraversalEdgeKind.FriendlyMoat : MoatTraversalEdgeKind.Ground;
+            }
+            else if (!runtime.weightedMoatRoutePlanner.TryGetTraversalEdge(
                     playerId,
                     currentX,
                     currentY,
@@ -216,11 +226,9 @@ namespace MoatMove
                     direction,
                     false,
                     false,
-                    cacheIncludesEnemyRoutes
-                        ? MoatTraversalPolicy.AllowEnemyForDiagnostic
-                        : MoatTraversalPolicy.FriendlyOnly,
-                    out MoatTraversalEdgeKind edgeKind,
-                    out bool structuralEdge))
+                    MoatTraversalPolicy.AllowEnemyForDiagnostic,
+                    out edgeKind,
+                    out structuralEdge))
             {
                 return;
             }

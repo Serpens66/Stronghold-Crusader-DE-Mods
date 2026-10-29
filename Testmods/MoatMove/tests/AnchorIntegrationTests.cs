@@ -67,6 +67,22 @@ namespace MoatMove
 
                 InitializeAnchor();
                 Check(anchorAvailable, "anchor core does not load from the plugin directory");
+
+                // Reachability words (anchor mode): every corridor edge answers exactly like the live
+                // FriendlyOnly predicate VisitNeighbour used before (allowed, moat kind, structure).
+                FastTraversalCache reach = ReachabilityWords(1);
+                Check(reach != null, "anchor mode provides no reachability words");
+                for (int y = 9; y <= 11; y++)
+                    for (int x = 9; x <= 181; x++)
+                        for (int d = 0; d < 8; d++)
+                        {
+                            int nx = x + WeightedMoatRoutePlanner.DirectionX[d], ny = y + WeightedMoatRoutePlanner.DirectionY[d];
+                            bool live = weightedMoatRoutePlanner.TryGetTraversalEdge(1, x, y, api.GetTileId(x, y), nx, ny, api.GetTileId(nx, ny), d,
+                                false, false, MoatTraversalPolicy.FriendlyOnly, out MoatTraversalEdgeKind kind, out bool liveStructure);
+                            bool cached = reach.Edge(y * MapWidth + x, ny * MapWidth + nx, d, false, out bool wet, out bool structure);
+                            Check(cached == live && (!live || wet == (kind != MoatTraversalEdgeKind.Ground) && structure == liveStructure),
+                                $"reachability word differs from the live predicate at {x},{y} direction {d}");
+                        }
                 ResetAnchorMap();
                 // The scheduler scans unit owners on the first tick and every 256 ticks.
                 Check(AnchorPlayerScanDue(1), "first anchor tick does not scan unit owners");

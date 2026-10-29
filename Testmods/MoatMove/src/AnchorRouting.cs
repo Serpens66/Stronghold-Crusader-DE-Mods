@@ -63,6 +63,10 @@ namespace MoatMove
         // seconds, and a full resweep of eight masks would otherwise cost ~5 ms every tick. Stale
         // mask parts never publish anything unsafe, because every route passes the live audit.
         private const int AnchorMaskNodesPerTick = 4096, AnchorResweepNodesPerTick = 1024, AnchorMargin = 8, AnchorMaxCost = 255;
+        // Marked nodes re-read per player and tick; large terrain bursts finish over later ticks
+        // (stale words are caught by the live audit of every published route).
+        private const int AnchorRefreshNodesPerTick = 2048;
+        private long anchorResweepDiplomacy, anchorResweepPortals, anchorResweepFootprint, anchorResweepGlobal, anchorRefreshBacklog;
         private const long AnchorMemoryLimit = 768L * 1024 * 1024;
         private IntPtr anchorContext;
         private bool anchorAvailable, anchorPlayersRequested;
@@ -190,6 +194,7 @@ namespace MoatMove
             anchorLiveTasks.Clear(); anchorFrames.Clear(); anchorDispatchTask = anchorGroundTask = 0; anchorAuditedRoutes.Clear();
             anchorBatchIndex.Clear(); anchorPendingFormationTribe = -1; anchorPendingFormation = null;
             Array.Clear(anchorMaps, 0, anchorMaps.Length); anchorAccessKnown = false; anchorShared = null; anchorBlockedUnion.Clear();
+            Array.Clear(reachWords, 0, reachWords.Length);
             anchorPlayersRequested = false; anchorUnreachedLogs = 0; anchorEndedUnreached = 0; anchorPortalCount = -1;
             for (int p = 0; p < anchorMaskNext.Length; p++) { anchorMaskNext[p] = -1; anchorBlocked[p]?.Clear(); }
             anchorSweepCursor = -1; anchorSweepLeft = 0;
@@ -499,7 +504,7 @@ namespace MoatMove
                         !Shared.GameBuildingFootprint.TryGetBounds(record, out Shared.GameBuildingFootprintBounds bounds)) return false;
                     for (int y = Math.Max(0, bounds.MinY - 2); y <= Math.Min(MapWidth - 1, bounds.MaxY + 2); y++)
                         for (int x = Math.Max(0, bounds.MinX - 2); x <= Math.Min(MapWidth - 1, bounds.MaxX + 2); x++)
-                            foreach (var map in anchorMaps) map?.Mark(y * MapWidth + x);
+                        { foreach (var map in anchorMaps) map?.Mark(y * MapWidth + x); foreach (var map in reachWords) map?.Mark(y * MapWidth + x); }
                     anchorGateRefreshes++;
                 }
             }
@@ -510,6 +515,8 @@ namespace MoatMove
         private void ResweepAnchorMasks()
         {
             anchorResweeps++;
+            // The reachability words follow the same access/global invalidations.
+            foreach (var map in reachWords) map?.MarkAll();
             if (anchorSweepCursor < 0) anchorSweepCursor = 0;
             anchorSweepLeft = MapWidth * MapWidth;
         }
@@ -521,7 +528,7 @@ namespace MoatMove
             int cx = node % MapWidth, cy = node / MapWidth;
             for (int y = Math.Max(0, cy - 2); y <= Math.Min(MapWidth - 1, cy + 2); y++)
                 for (int x = Math.Max(0, cx - 2); x <= Math.Min(MapWidth - 1, cx + 2); x++)
-                    foreach (var map in anchorMaps) map?.Mark(y * MapWidth + x);
+                    { foreach (var map in anchorMaps) map?.Mark(y * MapWidth + x); foreach (var map in reachWords) map?.Mark(y * MapWidth + x); }
         }
 
         // Called once per simulation tick before Fast's command loop.
@@ -543,7 +550,9 @@ namespace MoatMove
                     anchorAccessChanges++;
                     for (int p = 1; p <= 8; p++) if (anchorMaps[p] != null) RefreshAnchorBlocked(p);
                     // Alliances or the portal table layout changed: every mask may differ.
-                    if (diplomacy != anchorDiplomacy || count != anchorPortalCount || !MarkChangedGates(count)) ResweepAnchorMasks();
+                    if (diplomacy != anchorDiplomacy) { anchorResweepDiplomacy++; ResweepAnchorMasks(); }
+                    else if (count != anchorPortalCount) { anchorResweepPortals++; ResweepAnchorMasks(); }
+                    else if (!MarkChangedGates(count)) { anchorResweepFootprint++; ResweepAnchorMasks(); }
                 }
                 Array.Copy(anchorPortalsNext, anchorPortals, anchorPortals.Length);
                 anchorPortalCount = count; anchorDiplomacy = diplomacy;
@@ -555,7 +564,8 @@ namespace MoatMove
             {
                 FastTraversalCache map = anchorMaps[p];
                 if (map == null) continue;
-                IReadOnlyCollection<int> changed = map.Refresh();
+                IReadOnlyCollection<int> changed = map.Refresh(AnchorRefreshNodesPerTick);
+                anchorRefreshBacklog = Math.Max(anchorRefreshBacklog, map.DirtyCount);
                 anchorRefreshNodes += changed.Count;
                 AnchorMaskChanged(p, changed, map);
             }
@@ -830,7 +840,9 @@ namespace MoatMove
                 $"members={anchorMembers} unreachedMembers={anchorUnreachedUnits} movesWithUnreached={anchorMovesWithUnreached} " +
                 $"tick(refreshMs={AnchorMs(anchorRefreshTicks)} refreshNodes={anchorRefreshNodes} buildMs={AnchorMs(anchorBuildTicks)} " +
                 $"buildNodes={anchorBuildNodes} sweepMs={AnchorMs(anchorSweepTicks)} sweepNodes={anchorSweepNodes} resweeps={anchorResweeps} " +
-                $"accessChanges={anchorAccessChanges} gateRefreshes={anchorGateRefreshes} sharedReuses={anchorShared?.Reuses ?? 0}) core(queries={anchorCoreStats[AnchorNative.StatQueries]} " +
+                $"accessChanges={anchorAccessChanges} gateRefreshes={anchorGateRefreshes} sharedReuses={anchorShared?.Reuses ?? 0} " +
+                $"resweepWhy(diplomacy={anchorResweepDiplomacy} portals={anchorResweepPortals} footprint={anchorResweepFootprint} global={anchorResweepGlobal}) " +
+                $"refreshBacklog={anchorRefreshBacklog}) core(queries={anchorCoreStats[AnchorNative.StatQueries]} " +
                 $"subAnchors={anchorCoreStats[AnchorNative.StatSubAnchors]} subCapped={anchorCoreStats[AnchorNative.StatSubCapped]} " +
                 $"stepMs={anchorCoreStats[AnchorNative.StatStepNs] / 1e6:F3} queryMs={anchorCoreStats[AnchorNative.StatQueryNs] / 1e6:F3} " +
                 $"subMs={anchorCoreStats[AnchorNative.StatSubNs] / 1e6:F3} settles={anchorCoreStats[AnchorNative.StatSettles]} via={anchorCoreStats[AnchorNative.StatViaChosen]} " +
@@ -839,7 +851,8 @@ namespace MoatMove
             anchorHumanMoves = anchorMoveTicks = anchorMoveMaxTicks = anchorPreTicks = anchorPreMaxTicks = anchorQueryTicks = anchorEncodeTicks =
                 anchorPublishTicks = anchorPublished = anchorPublishRejects = anchorEncodeRejects = anchorRouteReuses = anchorMembers =
                 anchorUnreachedUnits = anchorMovesWithUnreached = anchorRefreshTicks = anchorRefreshNodes = anchorBuildTicks = anchorBuildNodes =
-                anchorSweepTicks = anchorSweepNodes = anchorResweeps = anchorAccessChanges = anchorGateRefreshes = anchorLazyTasks = anchorUnusedMoves = anchorAuditSkips = anchorBatchCalls = anchorBatchUnits = anchorBatchHits = anchorBatchTicks = 0;
+                anchorSweepTicks = anchorSweepNodes = anchorResweeps = anchorAccessChanges = anchorGateRefreshes = anchorLazyTasks = anchorUnusedMoves = anchorAuditSkips = anchorBatchCalls = anchorBatchUnits = anchorBatchHits = anchorBatchTicks =
+                anchorResweepDiplomacy = anchorResweepPortals = anchorResweepFootprint = anchorResweepGlobal = anchorRefreshBacklog = 0;
             Array.Clear(anchorQueryStatus, 0, anchorQueryStatus.Length); anchorPublishReasons.Clear();
         }
     }

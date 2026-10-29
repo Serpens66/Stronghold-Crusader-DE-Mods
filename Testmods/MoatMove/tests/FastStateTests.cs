@@ -92,6 +92,12 @@ namespace MoatMove
             Check(cache.EdgeEvaluations - evaluations == 6, $"a node marked 1000 times was re-read {(cache.EdgeEvaluations - evaluations) / 6.0} times");
             open = true; cache.Mark(0);
             Check(cache.Refresh().Count == 1 && cache.Edge(0, 1, 2, false, out _, out _), "a node marked after a refresh is not re-read");
+            // A bounded refresh re-reads the lowest marked nodes and keeps the rest marked.
+            for (int node = 1; node <= 3; node++) cache.Edge(node, node - 1, 6, false, out _, out _);
+            open = false; cache.Mark(3); cache.Mark(1); cache.Mark(2);
+            Check(cache.Refresh(2).Count == 2 && cache.DirtyCount == 1, "a bounded refresh does not keep the remaining marks");
+            Check(cache.Refresh(2).Count == 1 && cache.DirtyCount == 0 && !cache.Edge(3, 2, 6, false, out _, out _), "the remaining mark is lost");
+            open = true;
 
             allow = true;
             var field = new FastRouteField(20, 20, Edge); field.Reset(399);
