@@ -74,7 +74,7 @@ enum Flags { ViaAnchor = 1, SubAnchor = 2, NewSubAnchor = 4, Uncached = 8 };
 enum Code { Ok = 0, NoMemory = 2, BadArgument = 3, Internal = 4 };
 // AnchorNoStart..AnchorTooFar: why an anchor (main or sub) could not answer a query.
 enum StatIndex { TasksComputed, TasksFailed, SettleEvents, Entries, Queries, ViaChosen, SubAnchors, SubCapped, StepNs, QueryNs, SubNs, MaskWrites, MaskChanges, PeakBytes, Allocations, Workers,
-    AnchorNoStart, AnchorNoEntry, AnchorUnreached, AnchorTooFar, FieldReuses, SingleQueries, SingleSettles, SingleRestarts, SingleNs, StatCount };
+    AnchorNoStart, AnchorNoEntry, AnchorUnreached, AnchorTooFar, FieldReuses, SingleQueries, SingleSettles, SingleNs, StatCount };
 
 struct Box { int x0 = 0, y0 = 0, x1 = -1, y1 = -1; };
 static int Ctz(u32 m) { unsigned long i; _BitScanForward(&i, m); return int(i); }
@@ -347,19 +347,8 @@ struct Scratch {
     Scratch(Memory* m, int n) : local(std::make_unique<Field>(m, n, 2 * MaxCost + 2)) {}
 };
 
-// Single-unit routes: a backward Dial field to one target that is continued, not restarted, for
-// each further start until that start is settled (exact: settled distances never change). Many
-// units sent to one target (an attack, a stockpile) share one search instead of one each.
-// Restarted when the player's mask changes (revision) or evicted (least recently used).
-struct ResumableField {
-    int player = 0, target = -1, ground = 0, moat = 0; u64 revision = 0, used = 0;
-    std::unique_ptr<Field> field; u32 bucket = 0; size_t index = 0; i64 pending = 0; bool started = false;
-};
-constexpr int ResumableFields = 4;
-
 struct Context {
     Memory memory; Map map;
-    std::vector<ResumableField> singles; u64 singleClock = 0;
     std::unique_ptr<Mask> masks[MaxPlayers + 1];
     std::map<int, std::unique_ptr<Task>> tasks; int nextId = 1;
     std::vector<CachedField> fieldCache; u64 fieldCacheClock = 0;
@@ -472,7 +461,7 @@ template<class F> static int Guard(F body) {
 
 using namespace mma;
 extern "C" {
-__declspec(dllexport) int mma_contract() { return 0x0400000A; }
+__declspec(dllexport) int mma_contract() { return 0x0400000B; }
 // Physical cores minus two (Unity main thread plus simulation/render), within 1..8.
 __declspec(dllexport) int mma_recommended_threads() {
     DWORD length = 0; GetLogicalProcessorInformationEx(RelationProcessorCore, nullptr, &length);
@@ -623,39 +612,11 @@ __declspec(dllexport) int mma_step(Context* c, int maxTasks, int threads, int* c
         return Ok;
     });
 }
-// Continues f's Dial until node is settled or the frontier is empty; returns whether it is settled.
-static bool Continue(const Map& map, const Mask& mask, ResumableField& r, int node, i64& settles) {
-    Field& f = *r.field; const int size = int(f.ring.size());
-    auto relax = [&](int u, u32 value) {
-        if (f.gen[u] != f.generation) { f.gen[u] = f.generation; f.done[u] = 0; }
-        else if (f.done[u] || f.dist[u] <= value) return;
-        f.dist[u] = value; f.ring[value % size].push_back(u); ++r.pending;
-    };
-    if (!r.started) {
-        if (++f.generation == 0) { std::fill(f.gen.begin(), f.gen.end(), 0u); f.generation = 1; }
-        for (auto& l : f.ring) l.clear();
-        r.bucket = 0; r.index = 0; r.pending = 0; r.started = true;
-        relax(r.target, 0);
-    }
-    while (!f.reached(node) && r.pending > 0) {
-        Vec<int>& list = f.ring[r.bucket % size];
-        while (r.index < list.size()) {
-            int v = list[r.index++]; --r.pending;
-            if (f.done[v] || f.dist[v] != r.bucket) continue;
-            f.done[v] = 1; ++settles;
-            for (u32 m = mask.incoming(v, r.moat); m; m &= m - 1) {
-                int d = Ctz(m); relax(v - map.off[d], r.bucket + mask.cost(v, ((mask.inWet[v] >> d) & 1) != 0, r.ground, r.moat));
-            }
-            if (v == node) return true;
-        }
-        list.clear(); r.index = 0; ++r.bucket;
-    }
-    return f.reached(node);
-}
-
-// Route of one unit from start to target (ground/moat profile like a task). Found: the packed
-// directions are written as for mma_query; Unreachable when the target's whole backward component
-// was settled without start. Exact optimal cost; deterministic for equal inputs and call order.
+// Route of one unit from start to target (ground/moat profile like a task): backward A* from the
+// target towards the start over the whole map (solveTowards; Chebyshev heuristic), so a trip
+// explores a corridor instead of the disc of a full field. Found: packed directions as for
+// mma_query; Unreachable when the target's backward component was settled without the start.
+// Exact optimal cost; deterministic for equal inputs.
 __declspec(dllexport) int mma_single_route(Context* c, int player, int target, int ground, int moat, int start, uint8_t* bytes, int capacity, QueryResult* result) {
     if (!c || !result || !bytes || capacity < 0 || ground < 1 || ground > MaxCost || moat < 0 || moat > MaxCost) return BadArgument;
     *result = QueryResult{}; result->status = Invalid;
@@ -664,31 +625,19 @@ __declspec(dllexport) int mma_single_route(Context* c, int player, int target, i
     if (!mask || !mask->ready(c->map.n)) { result->status = Pending; return Ok; }
     return Guard([&] {
         auto t0 = Clock::now(); ++c->stats[SingleQueries];
-        ResumableField* r = nullptr;
-        for (ResumableField& e : c->singles)
-            if (e.player == player && e.target == target && e.ground == ground && e.moat == moat) { r = &e; break; }
-        if (!r && int(c->singles.size()) < ResumableFields) { c->singles.emplace_back(); r = &c->singles.back(); }
-        if (!r) { r = &c->singles[0]; for (ResumableField& e : c->singles) if (e.used < r->used) r = &e; }
-        if (!r->field) r->field = std::make_unique<Field>(&c->memory, c->map.n);
-        if (r->player != player || r->target != target || r->ground != ground || r->moat != moat || r->revision != mask->revision)
-        {
-            if (r->started) ++c->stats[SingleRestarts];
-            r->player = player; r->target = target; r->ground = ground; r->moat = moat; r->revision = mask->revision; r->started = false;
-        }
-        r->used = ++c->singleClock;
-        i64 settles = 0;
-        bool reached = Continue(c->map, *mask, *r, start, settles);
-        c->stats[SingleSettles] += settles;
-        if (!reached) { result->status = Unreachable; c->stats[SingleNs] += Ns(t0); return Ok; }
-        const Field& f = *r->field;
+        Field& local = *c->scratch->local; const i64 before = local.settles;
+        Box all; all.x0 = 0; all.y0 = 0; all.x1 = c->map.width - 1; all.y1 = c->map.height - 1;
+        local.solveTowards(c->map, *mask, target, start, start, ground, moat, all);
+        c->stats[SingleSettles] += local.settles - before; local.settles = before;
+        if (!local.reached(start)) { result->status = Unreachable; c->stats[SingleNs] += Ns(t0); return Ok; }
         std::vector<uint8_t>& path = c->scratch->path; path.clear(); int g = 0, w = 0;
-        auto settled = [&](int v) { return f.reached(v) ? f.dist[v] : Unset; };
-        if (Descend(c->map, *mask, settled, start, ground, moat, path, g, w, [&](int v, int, int) { return v == target; }) < 0 ||
+        auto touched = [&](int v) { return local.touched(v) ? local.dist[v] : Unset; };
+        if (Descend(c->map, *mask, touched, start, ground, moat, path, g, w, [&](int v, int, int) { return v == target; }) < 0 ||
             int(path.size()) > MaxSteps || int(path.size()) > capacity)
         { result->status = OverLimit; c->stats[SingleNs] += Ns(t0); return Ok; }
         std::copy(path.begin(), path.end(), bytes);
         result->status = Found; result->ground = g; result->moat = w; result->length = int(path.size());
-        result->cost = i64(f.dist[start]);
+        result->cost = i64(local.dist[start]);
         c->stats[SingleNs] += Ns(t0);
         return Ok;
     });

@@ -28,7 +28,7 @@ internal sealed class AnchorCoreInterop : IDisposable
     [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern int mma_stats(IntPtr context, [Out] long[] data, int count, int reset);
     [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern int mma_query_batch(IntPtr context, int id, int[] starts, int[] slots, int count, int margin, int threads, [Out] byte[] bytes, int stride, [Out] QueryResult[] results);
     internal static readonly string[] StatNames = { "tasksComputed", "tasksFailed", "settleEvents", "entries", "queries", "viaChosen", "subAnchors", "subCapped", "stepNs", "queryNs", "subNs", "maskWrites", "maskChanges", "peakBytes", "allocations", "workers",
-        "anchorNoStart", "anchorNoEntry", "anchorUnreached", "anchorTooFar", "fieldReuses", "singleQueries", "singleSettles", "singleRestarts", "singleNs" };
+        "anchorNoStart", "anchorNoEntry", "anchorUnreached", "anchorTooFar", "fieldReuses", "singleQueries", "singleSettles", "singleNs" };
     internal static int Stat(string name) => Array.IndexOf(StatNames, name);
     internal const int Found = 0, Unreachable = 1, OverLimit = 2, Pending = 3, Stale = 4, Invalid = 5, Failed = 6, Ready = 0;
     internal const int NoMemory = 2;
@@ -41,7 +41,7 @@ internal sealed class AnchorCoreInterop : IDisposable
     {
         if (library != IntPtr.Zero) return;
         library = NativeLibrary.Load(Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../MoatMove/.local/anchor/MoatMoveAnchor.dll")));
-        if (mma_contract() != 0x0400000A || Marshal.SizeOf<QueryResult>() != 32) throw new InvalidOperationException("Anchor core ABI");
+        if (mma_contract() != 0x0400000B || Marshal.SizeOf<QueryResult>() != 32) throw new InvalidOperationException("Anchor core ABI");
     }
     internal AnchorCoreInterop(int width, int height, long limit = 512L * 1024 * 1024)
     {
@@ -92,7 +92,7 @@ internal sealed class AnchorCoreInterop : IDisposable
         if (r.Status == Unreachable) return RouteResult.Failed(SearchStatus.Unreachable, "anchor-unreachable");
         return RouteResult.Failed(SearchStatus.Inconclusive, r.Status == OverLimit ? "over-2000-steps" : r.Status == Pending ? "pending" : r.Status == Stale ? "stale" : r.Status == Failed ? "failed" : "invalid");
     }
-    // One unit's exact route through the resumable single-target fields.
+    // One unit's exact route (backward A* from the target).
     internal RouteResult SingleRoute(int player, int target, long ground, long moat, int start)
     {
         Code(mma_single_route(context, player, target, (int)ground, (int)moat, start, buffer, buffer.Length, out QueryResult r));

@@ -97,7 +97,7 @@ internal static class AnchorCoreGate
             using (var core = new AnchorCoreInterop(load.Map.Width, load.Map.Height, 128L * 1024 * 1024)) { core.WriteWholeMask(Player, load.Map, 37); a = Solve(core, load, 1, out _); }
             using (var core = new AnchorCoreInterop(load.Map.Width, load.Map.Height, 128L * 1024 * 1024)) { core.WriteWholeMask(Player, load.Map, load.Map.Count); b = Solve(core, load, 4, out _); }
             Same(a, b, load.Name + "#" + sample); Check(load, a);
-            // Single-unit routes (resumable fields per target) are exactly optimal.
+            // Single-unit routes are exactly optimal.
             using (var core = new AnchorCoreInterop(load.Map.Width, load.Map.Height, 128L * 1024 * 1024))
             {
                 core.WriteWholeMask(Player, load.Map, load.Map.Count);
@@ -250,26 +250,14 @@ internal static class AnchorCoreGate
                 if (batched.Status != SearchStatus.Found || !batched.Directions.SequenceEqual(around.Directions)) throw new InvalidOperationException("Batch route differs under penalties.");
             }
         }
-        // Resumable single fields: further starts to one target continue the same search (fewer
-        // settles than fresh searches, no restart); a mask change restarts it.
+        // Single routes search a corridor: far fewer settles than the full Dial disc of the distance.
         {
             GridSnapshot map = GroupGate.Grid(60, 60);
-            int target = 30 * 60 + 30;
-            var starts = new[] { 30 * 60 + 32, 30 * 60 + 40, 10 * 60 + 10, 55 * 60 + 50 };
-            using var shared = new AnchorCoreInterop(60, 60, 128L * 1024 * 1024); shared.WriteWholeMask(Player, map, 500);
-            foreach (int s in starts) if (shared.SingleRoute(Player, target, 1, 7, s).Status != SearchStatus.Found) throw new InvalidOperationException("Open-grid single route missing.");
-            long sharedSettles = shared.Stats()[AnchorCoreInterop.Stat("singleSettles")];
-            long freshSettles = 0;
-            foreach (int s in starts)
-            {
-                using var fresh = new AnchorCoreInterop(60, 60, 128L * 1024 * 1024); fresh.WriteWholeMask(Player, map, 500);
-                fresh.SingleRoute(Player, target, 1, 7, s); freshSettles += fresh.Stats()[AnchorCoreInterop.Stat("singleSettles")];
-            }
-            if (shared.Stats()[AnchorCoreInterop.Stat("singleRestarts")] != 0 || sharedSettles >= freshSettles)
-                throw new InvalidOperationException($"Single fields are not resumed: shared={sharedSettles} fresh={freshSettles}");
-            shared.UpdateMask(Player, GroupGate.Grid(60, 60, null, n => n != 31 * 60 + 31), new[] { 31 * 60 + 31 });
-            shared.SingleRoute(Player, target, 1, 7, starts[0]);
-            if (shared.Stats()[AnchorCoreInterop.Stat("singleRestarts")] != 1) throw new InvalidOperationException("A mask change did not restart the single field.");
+            using var core = new AnchorCoreInterop(60, 60, 128L * 1024 * 1024); core.WriteWholeMask(Player, map, 500);
+            RouteResult route = core.SingleRoute(Player, 30 * 60 + 10, 1, 7, 30 * 60 + 40);
+            long settles = core.Stats()[AnchorCoreInterop.Stat("singleSettles")];
+            if (route.Status != SearchStatus.Found || route.Cost != 30 || settles >= 61 * 60 / 2)
+                throw new InvalidOperationException($"Single route is not a corridor search: status={route.Status} cost={route.Cost} settles={settles}");
         }
         // Directed snake longer than 2,000 steps: never returned as a route.
         {
