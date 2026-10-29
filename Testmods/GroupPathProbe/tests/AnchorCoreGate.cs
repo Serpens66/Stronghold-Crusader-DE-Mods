@@ -250,13 +250,15 @@ internal static class AnchorCoreGate
                 if (batched.Status != SearchStatus.Found || !batched.Directions.SequenceEqual(around.Directions)) throw new InvalidOperationException("Batch route differs under penalties.");
             }
         }
-        // Single routes search a corridor: far fewer settles than the full Dial disc of the distance.
+        // Single routes search a corridor: on open ground ties dive towards the start instead of
+        // settling the diamond of equally short routes (about distance^2 / 4 nodes), so a straight
+        // trip settles a few nodes per step.
         {
             GridSnapshot map = GroupGate.Grid(60, 60);
             using var core = new AnchorCoreInterop(60, 60, 128L * 1024 * 1024); core.WriteWholeMask(Player, map, 500);
             RouteResult route = core.SingleRoute(Player, 30 * 60 + 10, 1, 7, 30 * 60 + 40);
             long settles = core.Stats()[AnchorCoreInterop.Stat("singleSettles")];
-            if (route.Status != SearchStatus.Found || route.Cost != 30 || settles >= 61 * 60 / 2)
+            if (route.Status != SearchStatus.Found || route.Cost != 30 || settles > 4 * 30)
                 throw new InvalidOperationException($"Single route is not a corridor search: status={route.Status} cost={route.Cost} settles={settles}");
         }
         // Directed snake longer than 2,000 steps: never returned as a route.

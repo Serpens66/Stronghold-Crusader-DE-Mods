@@ -164,8 +164,11 @@ struct Field {
         relax(source, sx, sy, 0);
         for (u32 key = h(sx, sy); pending > 0 && remaining > 0; ++key) {
             Vec<int>& list = ring[key % size];
-            for (size_t i = 0; i < list.size() && remaining > 0; ++i) {
-                int v = list[i]; --pending;
+            // LIFO within a key: a node pushed at the current key lies deeper on a tie, so ties dive
+            // towards the targets. FIFO filled the whole diamond of equally short open-ground routes
+            // (1,377 settles per single route in pf-iter-28). Any order of equal keys stays exact.
+            while (!list.empty() && remaining > 0) {
+                int v = list.back(); list.pop_back(); --pending;
                 if (done[v]) continue;
                 const int vx = v % w, vy = v / w; const u32 g = dist[v];
                 if (g + h(vx, vy) != key) continue;
@@ -176,7 +179,6 @@ struct Field {
                     int d = Ctz(m); relax(v - map.off[d], vx - dx[d], vy - dy[d], g + mask.cost(v, ((mask.inWet[v] >> d) & 1) != 0, ground, moat));
                 }
             }
-            list.clear();
         }
         exhausted = remaining > 0;
         for (auto& l : ring) l.clear();
