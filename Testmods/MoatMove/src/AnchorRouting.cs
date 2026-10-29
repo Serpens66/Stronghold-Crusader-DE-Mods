@@ -925,7 +925,7 @@ namespace MoatMove
         // full fields per target restarted on 95 % of the calls in pf-iter-27 and were replaced). Only unit moves with a frame (196280, the publication contract of the group
         // path), Vanilla's ground mode, the unit's own target and plans without special endpoints; the
         // route passes the same live audit and buffer publication as anchor ground routes.
-        private long anchorSingleRoutes, anchorSingleUnreachable, anchorSingleRejects, anchorSingleTicks;
+        private long anchorSingleRoutes, anchorSingleAssassinRoutes, anchorSingleUnreachable, anchorSingleRejects, anchorSingleTicks;
         private bool TryPublishAnchorSingle(IntPtr pathManager, PlanScope plan, bool reconstruction, out int published)
         {
             published = 0;
@@ -933,10 +933,19 @@ namespace MoatMove
             if (!settings.AnchorSingleMoves || !anchorAvailable || reconstruction || frame == null || !runtime.RequiredOnlyMode ||
                 pathManager != runtime.nativePathManager) return false;
             byte* manager = (byte*)pathManager.ToPointer();
-            if (*(int*)(manager + 0x84) != 0 || *(int*)(manager + 0x88) != 0) return false;
+            if (*(int*)(manager + 0x84) != 0) return false;
             int startX = *(int*)(manager + 0x08), startY = *(int*)(manager + 0x0C), targetX = *(int*)(manager + 0x10), targetY = *(int*)(manager + 0x14);
             if (targetX != frame.Args.TileX || targetY != frame.Args.TileY ||
                 (uint)startX >= MapWidth || (uint)startY >= MapWidth || (uint)targetX >= MapWidth || (uint)targetY >= MapWidth) return false;
+            // Assassin profile (+0x88): with +0x80 and +0x94 clear and start and target in one path region,
+            // F4930's first search is DA590's ground breadth-first search (FBCB9319; Vanilla audit
+            // 30.10.2026, PathfindingRoadmap.md), the same ground edges as the core's ground profile.
+            // A core ground route replaces it (DA590 cost ~110 ms per attack burst, pf-iter-31); without
+            // one, Vanilla's DA590 -> D9C40 chain and the weighted climb search run unchanged.
+            bool assassin = *(int*)(manager + 0x88) != 0;
+            if (assassin && (*(int*)(manager + 0x80) != 0 || *(int*)(manager + 0x94) != 0 ||
+                runtime.pathRegionGrid[GameTileManagerAPI.Instance.GetTileId(startX, startY)] !=
+                runtime.pathRegionGrid[GameTileManagerAPI.Instance.GetTileId(targetX, targetY)])) return false;
             if (plan != null && (plan.ExactRouteEndpoints || plan.MoatWorkMovement || plan.AttackMovementQualified ||
                 (plan.ModeObserved && plan.VanillaModeDetected))) return false;
             int unitId = frame.Args.UnitId;
@@ -966,6 +975,7 @@ namespace MoatMove
                 if (TryReplaceUnsafeFallbackPath(pathManager, path, backup, before, owner, unit, out int ready, out _, requireMoat: false))
                 {
                     *variant = 0; *runtime.moatPathMode = 0; published = ready; anchorSingleRoutes++;
+                    if (assassin) anchorSingleAssassinRoutes++;
                     return true;
                 }
                 anchorSingleRejects++;
@@ -1219,7 +1229,7 @@ namespace MoatMove
                 $"members={anchorMembers} unreachedMembers={anchorUnreachedUnits} movesWithUnreached={anchorMovesWithUnreached} " +
                 $"vanilla(vanillaCalls={anchorVanillaCalls} vanillaFails={anchorVanillaFails} vanillaMs={AnchorMs(anchorVanillaTicks)} vanillaFailMs={AnchorMs(anchorVanillaFailTicks)} " +
                 $"afterUnreachable={anchorVanillaAfterUnreachable} afterUnreachableMs={AnchorMs(anchorVanillaAfterUnreachableTicks)} " +
-                $"foundAfterUnreachable={anchorVanillaFoundAfterUnreachable}) vanillaWhy=[{FormatAnchorReasons(anchorVanillaWhy)}] sameTickTasks={anchorSameTickTasks} sameTickTaskMs={AnchorMs(anchorSameTickTaskTicks)} diggerGroundRoutes={anchorDiggerGroundRoutes} nativeByteChanges={anchorWatchChanges} rebuildsWatched={anchorRebuildsWatched} tileRuleChanges={routeTileRuleChanges} aliveUnits={anchorAliveUnits} single(routes={anchorSingleRoutes} unreachable={anchorSingleUnreachable} rejects={anchorSingleRejects} ms={AnchorMs(anchorSingleTicks)} queries={anchorCoreStats[AnchorNative.StatSingleQueries]} settles={anchorCoreStats[AnchorNative.StatSingleSettles]} coreMs={anchorCoreStats[AnchorNative.StatSingleNs] / 1e6:F1}) {FormatReplanWatch()} outsideBuilds(calls/ms/maxMs)=[{FormatOutsideBuilds()}] exhaustedReach(kept={ExhaustedReachabilityKept} hits={ExhaustedReachabilityHits}) reach(advances/expanded/ms/maxMs)=[{FormatReachabilityByOwner()}] " +
+                $"foundAfterUnreachable={anchorVanillaFoundAfterUnreachable}) vanillaWhy=[{FormatAnchorReasons(anchorVanillaWhy)}] sameTickTasks={anchorSameTickTasks} sameTickTaskMs={AnchorMs(anchorSameTickTaskTicks)} diggerGroundRoutes={anchorDiggerGroundRoutes} nativeByteChanges={anchorWatchChanges} rebuildsWatched={anchorRebuildsWatched} tileRuleChanges={routeTileRuleChanges} aliveUnits={anchorAliveUnits} single(routes={anchorSingleRoutes} assassin={anchorSingleAssassinRoutes} unreachable={anchorSingleUnreachable} rejects={anchorSingleRejects} ms={AnchorMs(anchorSingleTicks)} queries={anchorCoreStats[AnchorNative.StatSingleQueries]} settles={anchorCoreStats[AnchorNative.StatSingleSettles]} coreMs={anchorCoreStats[AnchorNative.StatSingleNs] / 1e6:F1}) {FormatReplanWatch()} outsideBuilds(calls/ms/maxMs)=[{FormatOutsideBuilds()}] exhaustedReach(kept={ExhaustedReachabilityKept} hits={ExhaustedReachabilityHits}) reach(advances/expanded/ms/maxMs)=[{FormatReachabilityByOwner()}] " +
                 $"tick(refreshMs={AnchorMs(anchorRefreshTicks)} refreshNodes={anchorRefreshNodes} buildMs={AnchorMs(anchorBuildTicks)} " +
                 $"buildNodes={anchorBuildNodes} sweepMs={AnchorMs(anchorSweepTicks)} sweepNodes={anchorSweepNodes} resweeps={anchorResweeps} " +
                 $"accessChanges={anchorAccessChanges} gateRefreshes={anchorGateRefreshes} sharedReuses={anchorShared?.Reuses ?? 0} " +
@@ -1236,7 +1246,7 @@ namespace MoatMove
                 anchorSweepTicks = anchorSweepNodes = anchorResweeps = anchorAccessChanges = anchorGateRefreshes = anchorLazyTasks = anchorUnusedMoves = anchorAuditSkips = anchorBatchCalls = anchorBatchUnits = anchorBatchHits = anchorBatchTicks =
                 anchorResweepDiplomacy = anchorResweepPortals = anchorResweepFootprint = anchorResweepGlobal = anchorRefreshBacklog =
                 anchorVanillaCalls = anchorVanillaFails = anchorVanillaTicks = anchorVanillaFailTicks = anchorVanillaAfterUnreachable =
-                anchorVanillaAfterUnreachableTicks = anchorVanillaFoundAfterUnreachable = anchorSameTickTasks = anchorSameTickTaskTicks = anchorDiggerGroundRoutes = anchorWatchChanges = anchorRebuildsWatched = anchorSingleRoutes = anchorSingleUnreachable = anchorSingleRejects = anchorSingleTicks = 0;
+                anchorVanillaAfterUnreachableTicks = anchorVanillaFoundAfterUnreachable = anchorSameTickTasks = anchorSameTickTaskTicks = anchorDiggerGroundRoutes = anchorWatchChanges = anchorRebuildsWatched = anchorSingleRoutes = anchorSingleAssassinRoutes = anchorSingleUnreachable = anchorSingleRejects = anchorSingleTicks = 0;
             Array.Clear(anchorQueryStatus, 0, anchorQueryStatus.Length); anchorPublishReasons.Clear(); anchorVanillaWhy.Clear(); reachabilityByOwner.Clear(); anchorOutsideBuilds.Clear();
             ResetReplanMetrics();
         }

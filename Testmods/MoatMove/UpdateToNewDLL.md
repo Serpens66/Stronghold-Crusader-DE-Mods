@@ -211,3 +211,12 @@ Extender's `GetTileVectorFromId` and are checked back with `GetTileId`. Both ent
 manager must lie before the tile heads by at least 6000 records. Any failure logs an error and registers no
 fire rules; movement keeps working. The record layout has no second semantic source beyond these anchors, so
 the feature stays hash-gated with the rest of MoatMove.
+## Assassin single routes through the anchor core (`src/AnchorRouting.cs`, `TryPublishAnchorSingle`)
+
+Reference SHA-256 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2` (audit 30.10.2026, summary in
+PathfindingRoadmap.md). No new RVA: the decision reads path-manager fields of the builder call already validated
+for anchor publication (`+0x80`, `+0x84`, `+0x88`, `+0x94`) and the path region grid (`0x50EC690`, through
+BugfixesAndQoL's `pathRegionGrid`). In `0xF4930`, an Assassin request (`+0x88 != 0`, `+0x80 == 0`) with start and
+target in one region runs `0xDA590` first; only its failure reaches `0xD9C40`. The core's ground route replaces
+exactly that first search; `+0x94 != 0` (second pass through `0xDB650`) and different regions keep Vanilla. Recheck
+this branch order and the four fields on a new DLL; the feature stays hash-gated with MoatMove.
