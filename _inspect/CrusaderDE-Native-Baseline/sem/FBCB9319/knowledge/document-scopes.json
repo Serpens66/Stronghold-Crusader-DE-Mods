@@ -902,6 +902,17 @@
       "vanillaSections": []
     },
     {
+      "file": "GROUND_ROUTE_BUILDERS.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "MoatMove"
+      ],
+      "integrationSections": [
+        "Consequences in MoatMove anchor mode [mod integration]"
+      ],
+      "note": "Runtime samples from the MoatMove anchor diagnosis."
+    },
+    {
       "file": "SIM_TICK_SPIKE_PATHING.md",
       "scope": "vanilla+integration",
       "components": [
