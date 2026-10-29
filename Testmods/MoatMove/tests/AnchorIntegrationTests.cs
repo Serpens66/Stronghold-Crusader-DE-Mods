@@ -295,6 +295,19 @@ namespace MoatMove
                 InvalidateMovementSearchData(blocked); AnchorTick(++ticks);
                 ReleaseAnchorTask(tileTask);
 
+                // A direction byte changed without any report (gates, neighbouring buildings): the
+                // native byte watch marks it within one watch round; no resweep.
+                int watchTask = TryComputeAnchorTask(1, anchor, 1, 7, new[] { start }, 1);
+                long watchResweeps = anchorResweeps;
+                nativeMovementMasks[blocked] = 0;
+                int watchTicks = (MapWidth * MapWidth + AnchorWatchNodesPerTick - 1) / AnchorWatchNodesPerTick;
+                for (int i = 0; i < watchTicks + 1; i++) AnchorTick(++ticks);
+                Check(AnchorNative.mma_task_status(anchorContext, watchTask) == AnchorNative.Stale &&
+                    anchorResweeps == watchResweeps, "an unreported direction byte change is not mirrored into the mask");
+                nativeMovementMasks[blocked] = 0x44;
+                for (int i = 0; i < watchTicks + 1; i++) AnchorTick(++ticks);
+                ReleaseAnchorTask(watchTask);
+
                 // A resweep request during a running round extends it from the cursor instead of
                 // restarting at node 0, so frequent requests still reach every node.
                 ResweepAnchorMasks(); AnchorTick(++ticks); AnchorTick(++ticks);

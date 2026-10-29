@@ -205,6 +205,7 @@ namespace MoatMove
             anchorBatchIndex.Clear(); anchorPendingFormationTribe = -1; anchorPendingFormation = null;
             Array.Clear(anchorMaps, 0, anchorMaps.Length); anchorAccessKnown = false; anchorShared = null; anchorBlockedUnion.Clear();
             Array.Clear(reachWords, 0, reachWords.Length);
+            anchorWatchTiles = null; anchorWatchBytes = null;
             anchorPlayersRequested = false; anchorUnreachedLogs = 0; anchorUnreachableLogs = 0; anchorEndedUnreached = 0; anchorPortalCount = -1;
             for (int p = 0; p < anchorMaskNext.Length; p++) { anchorMaskNext[p] = -1; anchorBlocked[p]?.Clear(); }
             anchorSweepCursor = -1; anchorSweepLeft = 0;
@@ -524,6 +525,44 @@ namespace MoatMove
             return true;
         }
 
+        // Vanilla's direction bytes (0x51890D0, FBCB9319) also change without a tile report: next
+        // to a castle gate a cached word stayed closed while the live edge was open (pf-iter-10;
+        // dozens of native functions reference the table). A fixed chunk per tick is compared
+        // with a copy and every changed tile is marked like a tile report. The first pass only
+        // records (tile ids and bytes), so no tick pays the whole map. Same chunk order on every
+        // peer, so the marks are deterministic.
+        private const int AnchorWatchNodesPerTick = 40000;
+        private int[] anchorWatchTiles; private byte[] anchorWatchBytes;
+        private int anchorWatchCursor, anchorWatchPrimed; private long anchorWatchChanges;
+        private void WatchNativeDirections()
+        {
+            byte* masks = runtime.nativeMovementMasks;
+            int total = MapWidth * MapWidth;
+            if (masks == null || total <= 0) return;
+            if (anchorWatchTiles == null || anchorWatchTiles.Length != total)
+            { anchorWatchTiles = new int[total]; anchorWatchBytes = new byte[total]; anchorWatchCursor = anchorWatchPrimed = 0; }
+            int end = Math.Min(total, anchorWatchCursor + AnchorWatchNodesPerTick);
+            GameTileManagerAPI tiles = GameTileManagerAPI.Instance;
+            for (int node = anchorWatchCursor; node < end; node++)
+            {
+                if (node >= anchorWatchPrimed)
+                {
+                    int id = tiles.GetTileId(node % MapWidth, node / MapWidth);
+                    anchorWatchTiles[node] = IsValidTileId(id) ? id : -1;
+                    anchorWatchBytes[node] = IsValidTileId(id) ? masks[id] : (byte)0;
+                    continue;
+                }
+                int tile = anchorWatchTiles[node];
+                if (tile < 0) continue;
+                byte current = masks[tile];
+                if (current == anchorWatchBytes[node]) continue;
+                anchorWatchBytes[node] = current; anchorWatchChanges++;
+                MarkFastTopologyTile(tile);
+            }
+            if (end > anchorWatchPrimed) anchorWatchPrimed = end;
+            anchorWatchCursor = end >= total ? 0 : end;
+        }
+
         // Access/gate changes and global invalidations: re-read every prepared mask in chunks.
         private void ResweepAnchorMasks()
         {
@@ -571,7 +610,8 @@ namespace MoatMove
                 anchorPortalCount = count; anchorDiplomacy = diplomacy;
             }
             anchorAccess = access; anchorAccessKnown = true;
-            // Marked nodes (tile reports, gate footprints, failed live audits).
+            WatchNativeDirections();
+            // Marked nodes (tile reports, gate footprints, failed live audits, native byte changes).
             AdvanceFastMarkEpoch();
             for (int p = 1; p <= 8; p++)
             {
@@ -968,7 +1008,7 @@ namespace MoatMove
                 $"members={anchorMembers} unreachedMembers={anchorUnreachedUnits} movesWithUnreached={anchorMovesWithUnreached} " +
                 $"vanilla(vanillaCalls={anchorVanillaCalls} vanillaFails={anchorVanillaFails} vanillaMs={AnchorMs(anchorVanillaTicks)} vanillaFailMs={AnchorMs(anchorVanillaFailTicks)} " +
                 $"afterUnreachable={anchorVanillaAfterUnreachable} afterUnreachableMs={AnchorMs(anchorVanillaAfterUnreachableTicks)} " +
-                $"foundAfterUnreachable={anchorVanillaFoundAfterUnreachable}) sameTickTasks={anchorSameTickTasks} sameTickTaskMs={AnchorMs(anchorSameTickTaskTicks)} diggerGroundRoutes={anchorDiggerGroundRoutes} " +
+                $"foundAfterUnreachable={anchorVanillaFoundAfterUnreachable}) sameTickTasks={anchorSameTickTasks} sameTickTaskMs={AnchorMs(anchorSameTickTaskTicks)} diggerGroundRoutes={anchorDiggerGroundRoutes} nativeByteChanges={anchorWatchChanges} " +
                 $"tick(refreshMs={AnchorMs(anchorRefreshTicks)} refreshNodes={anchorRefreshNodes} buildMs={AnchorMs(anchorBuildTicks)} " +
                 $"buildNodes={anchorBuildNodes} sweepMs={AnchorMs(anchorSweepTicks)} sweepNodes={anchorSweepNodes} resweeps={anchorResweeps} " +
                 $"accessChanges={anchorAccessChanges} gateRefreshes={anchorGateRefreshes} sharedReuses={anchorShared?.Reuses ?? 0} " +
@@ -985,7 +1025,7 @@ namespace MoatMove
                 anchorSweepTicks = anchorSweepNodes = anchorResweeps = anchorAccessChanges = anchorGateRefreshes = anchorLazyTasks = anchorUnusedMoves = anchorAuditSkips = anchorBatchCalls = anchorBatchUnits = anchorBatchHits = anchorBatchTicks =
                 anchorResweepDiplomacy = anchorResweepPortals = anchorResweepFootprint = anchorResweepGlobal = anchorRefreshBacklog =
                 anchorVanillaCalls = anchorVanillaFails = anchorVanillaTicks = anchorVanillaFailTicks = anchorVanillaAfterUnreachable =
-                anchorVanillaAfterUnreachableTicks = anchorVanillaFoundAfterUnreachable = anchorSameTickTasks = anchorSameTickTaskTicks = anchorDiggerGroundRoutes = 0;
+                anchorVanillaAfterUnreachableTicks = anchorVanillaFoundAfterUnreachable = anchorSameTickTasks = anchorSameTickTaskTicks = anchorDiggerGroundRoutes = anchorWatchChanges = 0;
             Array.Clear(anchorQueryStatus, 0, anchorQueryStatus.Length); anchorPublishReasons.Clear();
         }
     }
