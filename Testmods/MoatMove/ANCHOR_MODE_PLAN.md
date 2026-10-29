@@ -371,6 +371,27 @@ Neu geprüft wurde die verwaltete Verzweigung in MoatMove:
   - `FastTraversalCache` markiert mit Merkerfeld und Liste, sortiert einmal je Refresh. Reihenfolge und Ergebnis bleiben gleich; Test: 1000 Markierungen eines Knotens führen zu einem Neulesen.
   - Zugangsänderungen lesen nur die Grundflächen (±2) von Torgebäuden mit geändertem Portaleintrag. Bündnisse, Portalzahl oder eine unbekannte Grundfläche lösen weiterhin einen vollen Resweep aus. Neuer Zähler `gateRefreshes`.
   - Beim Neulesen wird `GroundOnly` nur noch nahe fertigen Gräben eigens geprüft (Endpunkte oder Diagonalecken). Sonst entscheidet `TryGetTraversalEdge` beide Regeln gleich. Gleichheitstest über den Graben-Korridor; die Suite erkennt eine falsche Abkürzung.
+
+**Gebündelte Abfragen und gemeinsame Grundmaske (29.10.2026, Commits `f791f6f69`/`9cebbaa4c`, installiert 15:50, nicht im Spiel geprüft):**
+- Kern, Vertrag `0x04000006`, `mma_query_batch`:
+  - Ein paralleler Durchgang über die vorhandenen Anker, je Worker mit eigenem Arbeitsspeicher (lokales Feld, Pfadpuffer, Zähler); die Aufgabe wird dabei nur gelesen.
+  - Abfragen, die einen neuen Zusatzanker bräuchten, gelten als zurückgestellt und laufen danach in Aufrufreihenfolge mit den gewohnten Regeln. Die Antworten sind daher identisch mit Einzelabfragen in derselben Reihenfolge, unabhängig von der Thread-Zahl.
+  - GroupPathProbe-Verträge: 24 Zufallslasten, entfernte Plätze und getrennte Gruppe, jeweils mit 1 und 4 Threads gegen Einzelabfragen (Status, Kosten, Wegbytes).
+  - Last (8 Threads, `results/core-20261029-143906-221` in der Kopie), Abfragezeit einzeln → gebündelt:
+    - `moat-group-mix-10000` 78 → 22 ms, `worker-trips-10000` 52 → 18 ms, `converging-groups-10000` 118 → 75 ms.
+    - `group-mix-10000` 114 → 65 ms, darin 33 ms Zusatzanker in der geordneten Phase.
+    - `group-1024` 12 → 12 ms: Hier fällt die einmalige Anlage der Worker-Speicher an (etwa 8 MiB je Worker, im Spiel einmal je Prozess).
+- BFQoL: Formationen melden ihre Einheitenziele im Pre von `11B520` an den Traversal-Provider (`UnitCommandTraversalProvider.ObserveFormationDestinations`, Standard: keine Aktion). Test in `FormationMovementEligibilityTests`: Die Meldung kommt genau einmal mit dem Platz jeder zugelassenen Einheit.
+- MoatMove:
+  - Die Meldung hängt am Frame derselben Gruppenbewegung, unabhängig von der Reihenfolge der Event-Handler.
+  - Bei der ersten Abfrage (`ResolveAnchorTask`) werden alle Mitglieder der Aufgabenklasse mit Ziel gebündelt beantwortet. Die Einzelabfrage findet ihre Antwort über (Aufgabe, native Startkachel, Ziel).
+  - Zwei wiederverwendete Puffersätze (Graben-/Bodenaufgabe) mit Aufgabenkennung, damit verschachtelte Bewegungen keine fremden Antworten liefern.
+  - Zähler: `batch(calls,units,hits,ms)`. Ohne Formation (Vanillas eigene Verteilung, KI) bleibt es bei Einzelabfragen.
+  - Test: Batch-Antwort bytegleich zur Einzelabfrage; eine Meldung für einen anderen Stamm hängt sich nicht an.
+- Gemeinsame Grundmaske:
+  - Spielermasken teilen die Wörter spielerunabhängiger Knoten (`FastSharedWords`, `AnchorPlayerNeutral`): kein fertiger Graben am Knoten oder an seinen Nachbarn, kein für irgendeinen Spieler gesperrtes Torgebäude darauf, gleiche Richtungsmaske der Torrichtlinie für alle Spieler mit Maske.
+  - Markierungen machen geteilte Wörter ungültig; der Resweep liest immer live und teilt das Ergebnis.
+  - Test: zwei Spieler mit unterschiedlich gesperrtem Tor im Korridor, geteilte Wörter gleich den ungeteilten Spielermasken; die Gegenprobe „alles neutral“ schlägt bei Kachel 59,10 fehl. Zähler `sharedReuses`.
  Die Wegqualität gegen Precise ist identisch mit der Messung vom 28.10. Abfragezeit je Einheit bei 8 Threads (`results/core-20261029-124523-008` gegen `core-20261028-172304-117`): `group-1024` 16,8 → 10,6 µs, `group-mix-10000` 12,9 → 7,5 µs, `converging-groups-10000` 12,2 → 7,1 µs, `scattered-group-mix-10000` 12,9 → 8,6 µs, `worker-trips-10000` 10,3 → 7,2 µs, `moat-group-mix-10000` 14,2 → 10,8 µs.
 
 **Prüfung für Teil A:**
