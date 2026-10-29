@@ -342,31 +342,13 @@ namespace MoatMove
                 // forward search; a reachable one is still found by the search itself.
                 long proofs = ReachabilityProofs;
                 EnsureReachabilityMap(1, 10, 10, deferTraversal: true);
-                AdvanceReachabilityMap(targetCell: 10 * MapWidth + 190);
+                AdvanceReachabilityMap(targetCell: 30 * MapWidth + 60);
                 Check(ReachabilityProofs == proofs + 1 && reachabilityQueueHead < reachabilityQueueTail &&
-                    visitedWithoutMoat[10 * MapWidth + 190] != gridGeneration && visitedWithMoat[10 * MapWidth + 190] != gridGeneration,
+                    visitedWithoutMoat[30 * MapWidth + 60] != gridGeneration && visitedWithMoat[30 * MapWidth + 60] != gridGeneration,
                     "an unreachable target in a closed backward component exhausted the forward search");
                 AdvanceReachabilityMap(targetCell: 10 * MapWidth + 150);
                 Check(ReachabilityProofs == proofs + 1 && (visitedWithMoat[10 * MapWidth + 150] == gridGeneration || visitedWithoutMoat[10 * MapWidth + 150] == gridGeneration),
                     "a reachable target was proven unreachable");
-                // A word change next to a cached closure drops it: a new incoming edge joins the closure.
-                int islandTarget = 10 * MapWidth + 190, newPredecessor = 10 * MapWidth + 189, predecessorTile = api.GetTileId(189, 10);
-                long closureKey = (1L << 32) | (uint)islandTarget;
-                Check(reachabilityClosures.TryGetValue(closureKey, out ReachabilityClosure island) && island.Closed && !island.Cells.Contains(newPredecessor),
-                    "the island target has no cached closed closure");
-                int islandTile = api.GetTileId(190, 10);
-                byte savedMask = nativeMovementMasks[predecessorTile];
-                uint savedFlags = tileFlags[predecessorTile], savedIslandFlags = tileFlags[islandTile];
-                // Same walkable ground as the corridor (only row 10 is valid here); the predecessor gets an edge east into the target.
-                tileFlags[predecessorTile] = tileFlags[islandTile] = 0x8000; nativeHeightLayer[predecessorTile] = nativeHeightLayer[islandTile] = 0;
-                nativeMovementMasks[predecessorTile] = 0x04; MarkFastTopologyTile(predecessorTile); AdvanceFastMarkEpoch();
-                RefreshReachabilityWords(1);
-                Check(!reachabilityClosures.ContainsKey(closureKey), "a closure survives a new incoming edge");
-                EnsureReachabilityMap(1, 10, 10, deferTraversal: true);
-                AdvanceReachabilityMap(targetCell: islandTarget);
-                Check(reachabilityClosures.TryGetValue(closureKey, out island) && island.Cells.Contains(newPredecessor), "the rebuilt closure lacks the new predecessor");
-                nativeMovementMasks[predecessorTile] = savedMask; tileFlags[predecessorTile] = savedFlags; tileFlags[islandTile] = savedIslandFlags;
-                MarkFastTopologyTile(predecessorTile); AdvanceFastMarkEpoch(); RefreshReachabilityWords(1);
                 Check(slowSearch.Split(' ').Length > 100 && fastSearch == slowSearch, "the word-based reachability search differs from the per-neighbour search");
 
                 // A resweep request during a running round extends it from the cursor instead of

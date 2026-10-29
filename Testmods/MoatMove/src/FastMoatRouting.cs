@@ -237,7 +237,7 @@ namespace MoatMove
         {
             FastTraversalCache map = ReachabilityWords(player);
             if (map == null) return;
-            InvalidateReachabilityClosures(player, map.Refresh()); AdvanceFastMarkEpoch();
+            map.Refresh(); AdvanceFastMarkEpoch();
         }
 
         // anchorMasks == false (a failed live audit): the caller marks the stale area of the anchor

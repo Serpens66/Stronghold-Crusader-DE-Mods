@@ -167,9 +167,8 @@ namespace MoatMove
         internal void Forget()
         {
             foreach (int node in knownNodes) { known[node] = 0; dirtyFlags[node] = 0; }
-            knownNodes.Clear(); dirty.Clear(); allDirty = false; Revision++; Forgets++;
+            knownNodes.Clear(); dirty.Clear(); allDirty = false; Revision++;
         }
-        internal long Forgets { get; private set; }
 
         internal int DirtyCount => dirty.Count;
 

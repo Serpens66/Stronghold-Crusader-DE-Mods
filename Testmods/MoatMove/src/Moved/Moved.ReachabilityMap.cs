@@ -266,73 +266,42 @@ namespace MoatMove
             EnqueueNeighbour(nextCell, nextTileId, currentState, edgeKind, structuralEdge, currentDistance, ref queueTail);
         }
 
-        // Backward closure of a target over allowed (FriendlyOnly word) edges: every cell with a path
-        // to the target, if that set is closed within the bound. It depends only on the words, not on
-        // the start, so it is cached per player and target until a word change touches it or the
-        // words are dropped. A start outside a closed closure cannot reach the target in any state,
-        // so the forward search need not run out (AI diggers asked for the same unreachable moat
-        // target every few ticks, each search 16-57 ms over 236k-473k cells, pf-iter-19).
-        private const int ReachabilityClosureLimit = 16384, ReachabilityClosureEntries = 64;
-        private sealed class ReachabilityClosure { internal int Player; internal long Forgets; internal bool Closed; internal HashSet<int> Cells; }
-        private readonly Dictionary<long, ReachabilityClosure> reachabilityClosures = new Dictionary<long, ReachabilityClosure>();
-        private int[] reachabilityProofQueue;
-        internal long ReachabilityProofs, ReachabilityClosuresBuilt;
+        // Bounded backward search from the target over allowed (FriendlyOnly word) edges. True only
+        // when it runs out within the bound without meeting a cell the forward search has visited in
+        // any state (its start included): no path exists, so the forward search never visits the
+        // target. Proofs are kept for the current search generation.
+        private const int ReachabilityProofLimit = 4096;
+        private int[] reachabilityProofStamps, reachabilityProofQueue;
+        private int reachabilityProofStamp, reachabilityProofGeneration = -1;
+        private readonly HashSet<int> reachabilityProvenTargets = new HashSet<int>();
+        internal long ReachabilityProofs;
         private bool ProvesReachabilityTargetUnreachable(FastTraversalCache words, int target)
         {
-            int player = runtime.cachePlayerId, start = runtime.cacheStartY * MapWidth + runtime.cacheStartX;
-            if ((uint)target >= (uint)MapCellCount || (uint)start >= (uint)MapCellCount) return false;
-            long key = ((long)player << 32) | (uint)target;
-            if (!reachabilityClosures.TryGetValue(key, out ReachabilityClosure closure) || closure.Forgets != words.Forgets)
+            if ((uint)target >= (uint)MapCellCount || visitedWithoutMoat[target] == gridGeneration ||
+                visitedWithMoat[target] == gridGeneration || visitedWithEnemyMoat[target] == gridGeneration) return false;
+            if (reachabilityProofGeneration != gridGeneration) { reachabilityProvenTargets.Clear(); reachabilityProofGeneration = gridGeneration; }
+            if (reachabilityProvenTargets.Contains(target)) return true;
+            if (reachabilityProofStamps == null) { reachabilityProofStamps = new int[MapCellCount]; reachabilityProofQueue = new int[ReachabilityProofLimit]; }
+            if (++reachabilityProofStamp == int.MaxValue) { Array.Clear(reachabilityProofStamps, 0, reachabilityProofStamps.Length); reachabilityProofStamp = 1; }
+            int head = 0, tail = 0, stamp = reachabilityProofStamp;
+            reachabilityProofStamps[target] = stamp; reachabilityProofQueue[tail++] = target;
+            while (head < tail)
             {
-                if (reachabilityClosures.Count >= ReachabilityClosureEntries) reachabilityClosures.Clear();
-                reachabilityClosures[key] = closure = BuildReachabilityClosure(words, player, target);
-            }
-            if (!closure.Closed || closure.Cells.Contains(start)) return false;
-            ReachabilityProofs++;
-            return true;
-        }
-        private ReachabilityClosure BuildReachabilityClosure(FastTraversalCache words, int player, int target)
-        {
-            ReachabilityClosuresBuilt++;
-            var cells = new HashSet<int> { target };
-            int[] queue = reachabilityProofQueue ?? (reachabilityProofQueue = new int[ReachabilityClosureLimit]);
-            int head = 0, tail = 0; queue[tail++] = target;
-            bool closed = true;
-            while (head < tail && closed)
-            {
-                int node = queue[head++], x = node % MapWidth, y = node / MapWidth;
+                int node = reachabilityProofQueue[head++], x = node % MapWidth, y = node / MapWidth;
                 for (int d = 0; d < 8; d++)
                 {
                     // Incoming edge u -> node in direction d: u lies at node - (dx, dy).
                     int ux = x - WeightedMoatRoutePlanner.DirectionX[d], uy = y - WeightedMoatRoutePlanner.DirectionY[d];
                     if ((uint)ux >= MapWidth || (uint)uy >= MapWidth) continue;
                     int u = uy * MapWidth + ux;
-                    if (cells.Contains(u) || (words.EdgeWord(u) & (1U << d)) == 0) continue;
-                    if (tail >= ReachabilityClosureLimit) { closed = false; break; }
-                    cells.Add(u); queue[tail++] = u;
+                    if (reachabilityProofStamps[u] == stamp || (words.EdgeWord(u) & (1U << d)) == 0) continue;
+                    if (visitedWithoutMoat[u] == gridGeneration || visitedWithMoat[u] == gridGeneration ||
+                        visitedWithEnemyMoat[u] == gridGeneration || tail >= ReachabilityProofLimit) return false;
+                    reachabilityProofStamps[u] = stamp; reachabilityProofQueue[tail++] = u;
                 }
             }
-            return new ReachabilityClosure { Player = player, Forgets = words.Forgets, Closed = closed, Cells = cells };
-        }
-        // Changed words (a refresh of the player's reachability words): drop every closure of that
-        // player that contains a changed cell or one of its neighbours (a new or removed incoming edge).
-        private void InvalidateReachabilityClosures(int player, IReadOnlyCollection<int> changed)
-        {
-            if (changed.Count == 0 || reachabilityClosures.Count == 0) return;
-            List<long> stale = null;
-            foreach (var entry in reachabilityClosures)
-            {
-                if (entry.Value.Player != player) continue;
-                foreach (int node in changed)
-                {
-                    int x = node % MapWidth, y = node / MapWidth; bool touched = false;
-                    for (int ny = Math.Max(0, y - 1); ny <= Math.Min(MapWidth - 1, y + 1) && !touched; ny++)
-                        for (int nx = Math.Max(0, x - 1); nx <= Math.Min(MapWidth - 1, x + 1) && !touched; nx++)
-                            touched = entry.Value.Cells.Contains(ny * MapWidth + nx);
-                    if (touched) { (stale ?? (stale = new List<long>())).Add(entry.Key); break; }
-                }
-            }
-            if (stale != null) foreach (long key in stale) reachabilityClosures.Remove(key);
+            reachabilityProvenTargets.Add(target); ReachabilityProofs++;
+            return true;
         }
 
         // Test hook: the per-neighbour path also for FriendlyOnly searches (equality test).
