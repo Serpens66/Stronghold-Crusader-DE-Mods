@@ -57,7 +57,7 @@ namespace MoatMove
                 EnsureCursorTopology(player, false);
                 map = new FastTraversalCache(MapWidth, MapWidth,
                     (int a, int b, int direction, bool ground, out bool wet, out bool structure) =>
-                        FastLiveEdge(player, a, b, direction, ground, out wet, out structure));
+                        FastLiveEdge(player, a, b, direction, ground, out wet, out structure), GroundEqualsFriendly);
                 state.Maps.Add(player, map);
             }
             return (int a, int b, int direction, out bool wet, out bool structure) =>
@@ -68,6 +68,22 @@ namespace MoatMove
             out bool wet, out bool structure) =>
             LiveEdge(player, from, to, direction, ground,
                 runtime.cursorTopologies.TryGetValue(player, out CursorTopology topology) ? topology.BlockedBuildings : null, out wet, out structure);
+
+        // WeightedMoatRoutePlanner.TryGetTraversalEdge treats GroundOnly and FriendlyOnly alike unless
+        // an endpoint is a completed moat (moat entry/owner/ground-only rules) or, for a diagonal, a
+        // corner tile is one (FriendlyOnly corner-owner rule). Same planner moat predicate and tile ids.
+        private bool GroundEqualsFriendly(int from, int to, int direction)
+        {
+            if ((uint)from >= MapWidth * MapWidth || (uint)to >= MapWidth * MapWidth) return false;
+            int x = from % MapWidth, y = from / MapWidth, nx = to % MapWidth, ny = to / MapWidth;
+            WeightedMoatRoutePlanner planner = runtime.weightedMoatRoutePlanner;
+            // Endpoints as FastLiveEdge passes them; corners as the planner derives them.
+            int a = GameTileManagerAPI.Instance.GetTileId(x, y), b = GameTileManagerAPI.Instance.GetTileId(nx, ny);
+            if (!IsValidTileId(a) || !IsValidTileId(b) || planner.IsCompletedMoat(a) || planner.IsCompletedMoat(b)) return false;
+            if ((direction & 1) == 0) return true;
+            int first = planner.GetTileId(nx, y), second = planner.GetTileId(x, ny);
+            return IsValidTileId(first) && IsValidTileId(second) && !planner.IsCompletedMoat(first) && !planner.IsCompletedMoat(second);
+        }
 
         // Shared live predicate; blocked: gate buildings closed to the player (null: none known).
         private bool LiveEdge(int player, int from, int to, int direction, bool ground, HashSet<int> blocked,

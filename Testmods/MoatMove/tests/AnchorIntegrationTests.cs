@@ -32,6 +32,18 @@ namespace MoatMove
                 cursorTopologies.Clear(); placementRevision++; MarkFastTopologyAll(); tick++;
                 EnsureCursorTopology(1);
 
+                // Ground shortcut: away from moats one live evaluation decides both policies. Words
+                // equal a cache that evaluates both policies for every edge (moat corridor, its rims
+                // and diagonal corners).
+                var bothPolicies = new FastTraversalCache(MapWidth, MapWidth,
+                    (int a, int b, int d, bool g, out bool w, out bool s) => AnchorLiveEdge(1, a, b, d, g, out w, out s));
+                var shortcut = new FastTraversalCache(MapWidth, MapWidth,
+                    (int a, int b, int d, bool g, out bool w, out bool s) => AnchorLiveEdge(1, a, b, d, g, out w, out s), GroundEqualsFriendly);
+                for (int y = 8; y <= 12; y++)
+                    for (int x = 8; x <= 182; x++)
+                        Check(bothPolicies.Word(y * MapWidth + x) == shortcut.Word(y * MapWidth + x), $"ground shortcut changes the word of {x},{y}");
+                Check(shortcut.EdgeEvaluations < bothPolicies.EdgeEvaluations, "ground shortcut saves no live evaluation");
+
                 InitializeAnchor();
                 Check(anchorAvailable, "anchor core does not load from the plugin directory");
                 ResetAnchorMap();
@@ -213,6 +225,25 @@ namespace MoatMove
                 Check(anchorSweep[1] == cursor && anchorSweepLeft[1] == total, "a resweep request restarts the running round");
                 for (int i = 0; i < (total + AnchorResweepNodesPerTick - 1) / AnchorResweepNodesPerTick; i++) AnchorTick(++ticks);
                 Check(anchorSweep[1] == -1 && anchorSweepLeft[1] == 0, "an extended resweep round does not finish after one full map");
+
+                // Gate changes: an unchanged access snapshot requests nothing; a changed portal entry
+                // without a building marks nothing and needs no resweep; one whose building footprint
+                // is unknown falls back to a resweep, as does a changed portal table size.
+                int* portal = (int*)nativePathManager;
+                int savedCount = portal[0], gate = 0x81, savedState = portal[gate + 0x809], savedBuilding = portal[gate + 0x80C], savedOpen = portal[gate + 0x80F];
+                AnchorTick(++ticks); long gateSweeps = anchorResweeps;
+                AnchorTick(++ticks);
+                Check(anchorResweeps == gateSweeps, "an unchanged access snapshot requests a resweep");
+                portal[0] = 2; AnchorTick(++ticks);
+                Check(anchorResweeps == gateSweeps + (savedCount == 2 ? 0 : 1), "a changed portal table size does not resweep");
+                gateSweeps = anchorResweeps;
+                portal[gate + 0x80F] = savedOpen == 0 ? 1 : 0; portal[gate + 0x80C] = 0; AnchorTick(++ticks);
+                Check(anchorResweeps == gateSweeps, "a changed portal without building forces a resweep");
+                portal[gate + 0x809] = 1; portal[gate + 0x80C] = 9999; AnchorTick(++ticks);
+                Check(anchorResweeps == gateSweeps + 1, "a gate with unknown footprint does not fall back to a resweep");
+                portal[0] = savedCount; portal[gate + 0x809] = savedState; portal[gate + 0x80C] = savedBuilding; portal[gate + 0x80F] = savedOpen;
+                AnchorTick(++ticks);
+                for (int i = 0; i < (total + AnchorResweepNodesPerTick - 1) / AnchorResweepNodesPerTick * 2; i++) AnchorTick(++ticks);
 
                 // Steady state: no terrain change, no task work, not a player-request tick.
                 AnchorTick(++ticks);

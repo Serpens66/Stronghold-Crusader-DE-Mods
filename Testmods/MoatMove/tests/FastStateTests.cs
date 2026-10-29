@@ -85,6 +85,13 @@ namespace MoatMove
             open = false; cache.Mark(0);
             Check(cache.Refresh().Count == 1 && cache.Revision == 1, "real change not observed");
             Check(!cache.Edge(0, 1, 2, false, out _, out _), "stale edge survives change");
+            // Repeated marks of one node (tile report bursts) re-read it once; a later mark works again.
+            long evaluations = cache.EdgeEvaluations;
+            for (int i = 0; i < 1000; i++) cache.Mark(0);
+            cache.Refresh();
+            Check(cache.EdgeEvaluations - evaluations == 6, $"a node marked 1000 times was re-read {(cache.EdgeEvaluations - evaluations) / 6.0} times");
+            open = true; cache.Mark(0);
+            Check(cache.Refresh().Count == 1 && cache.Edge(0, 1, 2, false, out _, out _), "a node marked after a refresh is not re-read");
 
             allow = true;
             var field = new FastRouteField(20, 20, Edge); field.Reset(399);

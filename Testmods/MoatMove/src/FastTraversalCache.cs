@@ -5,6 +5,9 @@ namespace MoatMove
 {
     internal delegate bool FastLiveTraversal(int from, int to, int direction, bool ground,
         out bool wet, out bool structure);
+    // True when the GroundOnly answer of an edge equals its FriendlyOnly answer (no completed
+    // moat on either endpoint or, for diagonals, on either corner tile).
+    internal delegate bool FastGroundEqualsFriendly(int from, int to, int direction);
 
     // Only logical walkability is retained. Native search stamps, unit positions and
     // transient search buffers are never dependencies of this cache.
@@ -14,15 +17,20 @@ namespace MoatMove
         private static readonly int[] Dy = { -1, -1, 0, 1, 1, 1, 0, -1 };
         private readonly int width, height;
         private readonly FastLiveTraversal live;
+        private readonly FastGroundEqualsFriendly sameGround;
         private readonly uint[] words;
         private readonly byte[] known;
         private readonly List<int> knownNodes = new List<int>();
-        private readonly SortedSet<int> dirty = new SortedSet<int>();
+        // Dirty nodes: a flag per node and an insertion list, sorted once per Refresh (same
+        // ascending order as before). Bursts of tile reports mark the same nodes many times; a
+        // sorted set paid a tree insert and an allocation per mark (2.2 s stall, 29.10.2026).
+        private readonly byte[] dirtyFlags;
+        private readonly List<int> dirty = new List<int>();
         private bool allDirty;
-        internal FastTraversalCache(int width, int height, FastLiveTraversal live)
+        internal FastTraversalCache(int width, int height, FastLiveTraversal live, FastGroundEqualsFriendly sameGround = null)
         {
-            this.width = width; this.height = height; this.live = live;
-            words = new uint[checked(width * height)]; known = new byte[words.Length];
+            this.width = width; this.height = height; this.live = live; this.sameGround = sameGround;
+            words = new uint[checked(width * height)]; known = new byte[words.Length]; dirtyFlags = new byte[words.Length];
         }
         internal long Revision { get; private set; }
         internal long EdgeEvaluations { get; private set; }
@@ -65,8 +73,10 @@ namespace MoatMove
                 if ((uint)nx >= width || (uint)ny >= height) continue;
                 int to = ny * width + nx;
                 bool friendly = live(from, to, direction, false, out bool wet, out bool structure);
-                bool ground = live(from, to, direction, true, out _, out _);
-                EdgeEvaluations += 2;
+                // Away from moats both policies decide the same edge; one live evaluation suffices.
+                bool same = sameGround != null && sameGround(from, to, direction);
+                bool ground = same ? friendly : live(from, to, direction, true, out _, out _);
+                EdgeEvaluations += same ? 1 : 2;
                 if (friendly) word |= 1U << direction;
                 if (ground) word |= 1U << (8 + direction);
                 if (wet) word |= 1U << (16 + direction);
@@ -76,19 +86,23 @@ namespace MoatMove
         }
 
         internal void Mark(int node)
-        { if ((uint)node < words.Length && known[node] != 0) dirty.Add(node); }
+        {
+            if ((uint)node < words.Length && known[node] != 0 && dirtyFlags[node] == 0) { dirtyFlags[node] = 1; dirty.Add(node); }
+        }
         internal void MarkAll() { allDirty = true; }
 
         internal IReadOnlyCollection<int> Refresh()
         {
             if (!allDirty && dirty.Count == 0) return Array.Empty<int>();
             var changed = new List<int>();
-            IEnumerable<int> candidates = allDirty ? (IEnumerable<int>)knownNodes : dirty;
+            if (!allDirty) dirty.Sort();
+            List<int> candidates = allDirty ? knownNodes : dirty;
             foreach (int node in candidates)
             {
                 uint updated = Read(node);
                 if (updated != words[node]) { words[node] = updated; changed.Add(node); }
             }
+            foreach (int node in dirty) dirtyFlags[node] = 0;
             dirty.Clear(); allDirty = false;
             if (changed.Count != 0) Revision++;
             return changed;

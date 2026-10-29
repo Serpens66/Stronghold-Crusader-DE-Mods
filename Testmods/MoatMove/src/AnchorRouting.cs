@@ -100,6 +100,12 @@ namespace MoatMove
         // Gate buildings closed to a player (same rule as the cursor portals), refreshed only when
         // the access fingerprint changes; anchor masks never need a cursor topology.
         private readonly HashSet<int>[] anchorBlocked = new HashSet<int>[9];
+        // Access snapshot of the last tick: alliance matrix and the portal fields the access
+        // fingerprint hashes, so a gate change re-reads only the changed gate buildings.
+        private const int AnchorPortalFields = 6;
+        private readonly int[] anchorPortals = new int[200 * AnchorPortalFields], anchorPortalsNext = new int[200 * AnchorPortalFields];
+        private int anchorPortalCount = -1; private ulong anchorDiplomacy;
+        private long anchorGateRefreshes;
         // Own traversal caches: Fast's caches re-read all known nodes synchronously on access
         // changes, which would stall a tick once the whole map is known.
         private readonly FastTraversalCache[] anchorMaps = new FastTraversalCache[9];
@@ -156,7 +162,7 @@ namespace MoatMove
             foreach (int task in anchorLiveTasks) AnchorNative.mma_task_release(anchorContext, task);
             anchorLiveTasks.Clear(); anchorFrames.Clear(); anchorDispatchTask = anchorGroundTask = 0; anchorAuditedRoutes.Clear();
             Array.Clear(anchorMaps, 0, anchorMaps.Length); anchorAccessKnown = false;
-            anchorPlayersRequested = false; anchorUnreachedLogs = 0; anchorEndedUnreached = 0;
+            anchorPlayersRequested = false; anchorUnreachedLogs = 0; anchorEndedUnreached = 0; anchorPortalCount = -1;
             for (int p = 0; p < anchorMaskNext.Length; p++) { anchorMaskNext[p] = -1; anchorSweep[p] = -1; anchorSweepLeft[p] = 0; anchorBlocked[p]?.Clear(); }
         }
 
@@ -294,7 +300,7 @@ namespace MoatMove
                 RefreshAnchorBlocked(player);
                 map = anchorMaps[player] = new FastTraversalCache(MapWidth, MapWidth,
                     (int a, int b, int direction, bool ground, out bool wet, out bool structure) =>
-                        AnchorLiveEdge(player, a, b, direction, ground, out wet, out structure));
+                        AnchorLiveEdge(player, a, b, direction, ground, out wet, out structure), GroundEqualsFriendly);
             }
             return map;
         }
@@ -324,6 +330,52 @@ namespace MoatMove
             }
         }
 
+        // Same inputs as ReadFastAccessFingerprint: alliances (returned) and per portal its
+        // stable access fields plus the gate state of its building.
+        private ulong ReadAnchorAccess(int[] portals, out int count)
+        {
+            ulong diplomacy = 0;
+            for (int a = 1; a <= 8; a++) for (int b = 1; b <= 8; b++)
+                if (GamePlayerManagerAPI.Instance.IsPlayerAlliedTo(a, b)) diplomacy |= 1UL << ((a - 1) * 8 + b - 1);
+            Array.Clear(portals, 0, portals.Length); count = 0;
+            if (runtime.nativePathManager == IntPtr.Zero) return diplomacy;
+            int* context = (int*)runtime.nativePathManager;
+            count = Math.Min(Math.Max(context[0], 1), 200);
+            for (int id = 1; id < count; id++)
+            {
+                int offset = id * 0x81, at = id * AnchorPortalFields, building = context[offset + 0x80C];
+                portals[at] = context[offset + 0x809]; portals[at + 1] = context[offset + 0x80A]; portals[at + 2] = context[offset + 0x80F];
+                portals[at + 3] = context[offset + 0x882]; portals[at + 4] = building;
+                portals[at + 5] = runtime.nativePortalGateStates != null && building > 0 && building <= 10000
+                    ? *(short*)(runtime.nativePortalGateStates + building * 0x32C) : 0;
+            }
+            return diplomacy;
+        }
+
+        // Marks the footprint (+-2 tiles) of every gate building whose portal entry changed, old
+        // and new building alike. False when a footprint is unknown; the caller then resweeps.
+        private bool MarkChangedGates(int count)
+        {
+            for (int id = 1; id < count; id++)
+            {
+                int at = id * AnchorPortalFields; bool same = true;
+                for (int f = 0; f < AnchorPortalFields; f++) if (anchorPortals[at + f] != anchorPortalsNext[at + f]) { same = false; break; }
+                if (same) continue;
+                for (int k = 0; k < 2; k++)
+                {
+                    int building = k == 0 ? anchorPortals[at + 4] : anchorPortalsNext[at + 4];
+                    if (building <= 0 || k == 1 && building == anchorPortals[at + 4]) continue;
+                    if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(building, out GameBuilding* record) || record == null ||
+                        !Shared.GameBuildingFootprint.TryGetBounds(record, out Shared.GameBuildingFootprintBounds bounds)) return false;
+                    for (int y = Math.Max(0, bounds.MinY - 2); y <= Math.Min(MapWidth - 1, bounds.MaxY + 2); y++)
+                        for (int x = Math.Max(0, bounds.MinX - 2); x <= Math.Min(MapWidth - 1, bounds.MaxX + 2); x++)
+                            foreach (var map in anchorMaps) map?.Mark(y * MapWidth + x);
+                    anchorGateRefreshes++;
+                }
+            }
+            return true;
+        }
+
         // Access/gate changes and global invalidations: re-read every prepared mask in chunks.
         private void ResweepAnchorMasks()
         {
@@ -351,11 +403,18 @@ namespace MoatMove
             if (anchorFrames.Count != 0) ClearAnchorFrames();
             if (anchorAuditedRoutes.Count != 0) anchorAuditedRoutes.Clear();
             ulong access = ReadFastAccessFingerprint();
-            if (anchorAccessKnown && access != anchorAccess)
+            if (!anchorAccessKnown || access != anchorAccess)
             {
-                anchorAccessChanges++;
-                for (int p = 1; p <= 8; p++) if (anchorMaps[p] != null) RefreshAnchorBlocked(p);
-                ResweepAnchorMasks();
+                ulong diplomacy = ReadAnchorAccess(anchorPortalsNext, out int count);
+                if (anchorAccessKnown)
+                {
+                    anchorAccessChanges++;
+                    for (int p = 1; p <= 8; p++) if (anchorMaps[p] != null) RefreshAnchorBlocked(p);
+                    // Alliances or the portal table layout changed: every mask may differ.
+                    if (diplomacy != anchorDiplomacy || count != anchorPortalCount || !MarkChangedGates(count)) ResweepAnchorMasks();
+                }
+                Array.Copy(anchorPortalsNext, anchorPortals, anchorPortals.Length);
+                anchorPortalCount = count; anchorDiplomacy = diplomacy;
             }
             anchorAccess = access; anchorAccessKnown = true;
             // Nodes marked after failed live audits (small sets).
@@ -607,7 +666,7 @@ namespace MoatMove
                 $"members={anchorMembers} unreachedMembers={anchorUnreachedUnits} movesWithUnreached={anchorMovesWithUnreached} " +
                 $"tick(refreshMs={AnchorMs(anchorRefreshTicks)} refreshNodes={anchorRefreshNodes} buildMs={AnchorMs(anchorBuildTicks)} " +
                 $"buildNodes={anchorBuildNodes} sweepMs={AnchorMs(anchorSweepTicks)} sweepNodes={anchorSweepNodes} resweeps={anchorResweeps} " +
-                $"accessChanges={anchorAccessChanges}) core(queries={anchorCoreStats[AnchorNative.StatQueries]} " +
+                $"accessChanges={anchorAccessChanges} gateRefreshes={anchorGateRefreshes}) core(queries={anchorCoreStats[AnchorNative.StatQueries]} " +
                 $"subAnchors={anchorCoreStats[AnchorNative.StatSubAnchors]} subCapped={anchorCoreStats[AnchorNative.StatSubCapped]} " +
                 $"stepMs={anchorCoreStats[AnchorNative.StatStepNs] / 1e6:F3} queryMs={anchorCoreStats[AnchorNative.StatQueryNs] / 1e6:F3} " +
                 $"subMs={anchorCoreStats[AnchorNative.StatSubNs] / 1e6:F3} settles={anchorCoreStats[AnchorNative.StatSettles]} via={anchorCoreStats[AnchorNative.StatViaChosen]} " +
@@ -616,7 +675,7 @@ namespace MoatMove
             anchorHumanMoves = anchorMoveTicks = anchorMoveMaxTicks = anchorPreTicks = anchorPreMaxTicks = anchorQueryTicks = anchorEncodeTicks =
                 anchorPublishTicks = anchorPublished = anchorPublishRejects = anchorEncodeRejects = anchorRouteReuses = anchorMembers =
                 anchorUnreachedUnits = anchorMovesWithUnreached = anchorRefreshTicks = anchorRefreshNodes = anchorBuildTicks = anchorBuildNodes =
-                anchorSweepTicks = anchorSweepNodes = anchorResweeps = anchorAccessChanges = anchorLazyTasks = anchorUnusedMoves = anchorAuditSkips = 0;
+                anchorSweepTicks = anchorSweepNodes = anchorResweeps = anchorAccessChanges = anchorGateRefreshes = anchorLazyTasks = anchorUnusedMoves = anchorAuditSkips = 0;
             Array.Clear(anchorQueryStatus, 0, anchorQueryStatus.Length); anchorPublishReasons.Clear();
         }
     }
