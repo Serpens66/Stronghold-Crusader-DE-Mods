@@ -19,7 +19,7 @@ var names=new HashSet<string> {"nativeManualProbe","manualCommandContexts","Manu
     "nativeProbeBatchDepth","nativeProbeBatchSnapshot","BeginNativeProbeBatch","EndNativeProbeBatch",
     "PrepareNativeManualGroup","IsNativeManualGroupFlood","CaptureTargetCommandContext",
     "moveEventObservers","moveEventDepths","targetCommandParents","targetEventObservers",
-    "DispatchMoveEvent","DispatchTargetEvent","InvalidateFastMoatData","LogAndResetFastMoatMetrics","ClearDeferredFastMoveScope"};
+    "DispatchMoveEvent","DispatchTargetEvent","InvalidateFastMoatData","InvalidateFastMoatTile","LogAndResetFastMoatMetrics","ClearDeferredFastMoveScope"};
 var permanent=CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"BugfixesAndQoL/src/UnitCommands/Native/PermanentCommandHooks.cs")));
 var traversal=CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"BugfixesAndQoL/src/UnitCommands/Movement/TraversalDispatch.cs")));
 var adapter=CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"BugfixesAndQoL/src/UnitCommands/Runtime/GateAttackFreezeRuntime.DevDiag.cs")), options);

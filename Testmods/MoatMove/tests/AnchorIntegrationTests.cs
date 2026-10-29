@@ -186,6 +186,18 @@ namespace MoatMove
                 nativeMovementMasks[blocked] = 0x44; MarkAnchorArea(10 * MapWidth + 140); AnchorTick(++ticks);
                 ReleaseAnchorTask(auditTask);
 
+                // BFQoL's tile hooks report the changed tile: only its area is re-read (no
+                // resweep). A nested unit move (terrain: false) leaves the masks untouched.
+                int tileTask = TryComputeAnchorTask(1, anchor, 1, 7, new[] { start }, 1);
+                long tileResweeps = anchorResweeps;
+                nativeMovementMasks[blocked] = 0; InvalidateMovementSearchData(blocked); AnchorTick(++ticks);
+                Check(AnchorNative.mma_task_status(anchorContext, tileTask) == AnchorNative.Stale && anchorResweeps == tileResweeps && anchorSweep[1] == -1,
+                    "a reported tile change does not refresh just its area");
+                nativeMovementMasks[blocked] = 0x44; InvalidateMovementSearchData(terrain: false); AnchorTick(++ticks);
+                Check(anchorResweeps == tileResweeps, "a nested unit move requests a terrain resweep");
+                InvalidateMovementSearchData(blocked); AnchorTick(++ticks);
+                ReleaseAnchorTask(tileTask);
+
                 // A resweep request during a running round extends it from the cursor instead of
                 // restarting at node 0, so frequent requests still reach every node.
                 ResweepAnchorMasks(); AnchorTick(++ticks); AnchorTick(++ticks);

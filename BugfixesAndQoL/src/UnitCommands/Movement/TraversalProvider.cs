@@ -61,6 +61,9 @@ namespace BugfixesAndQoL.UnitCommands
         internal abstract bool Enabled { get; }
         internal abstract IMoatSearchKernel CreateKernel(int width, int height, MoatSearchEdge edge);
         internal abstract void InvalidateFastMoatData();
+        // Terrain changed around one tile (native 3x3 tile/moat update): a provider may refresh
+        // only the affected area. The default keeps the global invalidation.
+        internal virtual void InvalidateFastMoatTile(int tile) => InvalidateFastMoatData();
         internal abstract void LogAndResetFastMoatMetrics();
         internal abstract bool HasFastFriendlyMoatBridge(int playerId, int startTileId, int targetTileId);
         internal abstract void ClearDeferredFastMoveScope();

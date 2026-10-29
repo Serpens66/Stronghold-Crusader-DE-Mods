@@ -13,6 +13,12 @@ namespace MoatMove
         private readonly Dictionary<FastUnitIdentity, MoveCommandScope> deferredMoves =
             new Dictionary<FastUnitIdentity, MoveCommandScope>();
         internal override void InvalidateFastMoatData() => MarkFastTopologyAll();
+        // Native 3x3 tile or moat update: only that area (+-2 tiles, the edges it can change) is
+        // re-read, so AI building activity no longer forces full anchor mask resweeps.
+        internal override void InvalidateFastMoatTile(int tile)
+        {
+            if (RequiredOnlyMode && IsValidTileId(tile)) MarkFastTopologyTile(tile); else MarkFastTopologyAll();
+        }
         internal override void ResetMapState()
         {
             deferredMoves.Clear();
