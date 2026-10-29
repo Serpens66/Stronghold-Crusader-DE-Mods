@@ -19,12 +19,12 @@ namespace MoatMove
     // queries keep Fast's rules. Until a player's mask is complete, Fast applies.
     internal sealed unsafe partial class FriendlyMoatTraversalProvider
     {
-        // Private C ABI of native/MoatMoveAnchor.cpp (contract 0x04000007). The DLL is loaded
+        // Private C ABI of native/MoatMoveAnchor.cpp (contract 0x04000008). The DLL is loaded
         // once by full path from the plugin folder and stays loaded for the process.
         private static class AnchorNative
         {
             internal const string Library = "MoatMoveAnchor.dll";
-            internal const int Contract = 0x04000007, Ready = 0, Unreachable = 1, OverLimit = 2, Pending = 3, Stale = 4, Invalid = 5, Failed = 6;
+            internal const int Contract = 0x04000008, Ready = 0, Unreachable = 1, OverLimit = 2, Pending = 3, Stale = 4, Invalid = 5, Failed = 6;
             [StructLayout(LayoutKind.Sequential)] internal struct QueryResult { internal int Status, Ground, Moat, Length, Flags, Reserved; internal long Cost; }
             [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)] private static extern IntPtr LoadLibraryEx(string file, IntPtr reserved, uint flags);
             [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern int mma_contract();
@@ -44,7 +44,7 @@ namespace MoatMove
             [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern int mma_query_batch(IntPtr context, int id, int[] starts, int[] slots, int count, int margin, int threads,
                 [Out] byte[] bytes, int stride, [Out] QueryResult[] results);
             // Core counters (StatIndex order of MoatMoveAnchor.cpp); reset after each read.
-            internal const int StatCount = 20, StatQueries = 4, StatViaChosen = 5, StatSubAnchors = 6, StatSubCapped = 7, StatStepNs = 8, StatQueryNs = 9, StatSubNs = 10,
+            internal const int StatCount = 21, StatFieldReuses = 20, StatQueries = 4, StatViaChosen = 5, StatSubAnchors = 6, StatSubCapped = 7, StatStepNs = 8, StatQueryNs = 9, StatSubNs = 10,
                 StatSettles = 2, StatPeakBytes = 13, StatAnchorNoStart = 16, StatAnchorNoEntry = 17, StatAnchorUnreached = 18, StatAnchorTooFar = 19;
             [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern int mma_stats(IntPtr context, [Out] long[] data, int count, int reset);
             // Throws when the file is missing or another core version is installed.
@@ -1022,7 +1022,7 @@ namespace MoatMove
                 $"stepMs={anchorCoreStats[AnchorNative.StatStepNs] / 1e6:F3} queryMs={anchorCoreStats[AnchorNative.StatQueryNs] / 1e6:F3} " +
                 $"subMs={anchorCoreStats[AnchorNative.StatSubNs] / 1e6:F3} settles={anchorCoreStats[AnchorNative.StatSettles]} via={anchorCoreStats[AnchorNative.StatViaChosen]} " +
                 $"anchorMiss(noStart,noEntry,unreached,tooFar)={anchorCoreStats[AnchorNative.StatAnchorNoStart]},{anchorCoreStats[AnchorNative.StatAnchorNoEntry]}," +
-                $"{anchorCoreStats[AnchorNative.StatAnchorUnreached]},{anchorCoreStats[AnchorNative.StatAnchorTooFar]} peakMiB={anchorCoreStats[AnchorNative.StatPeakBytes] >> 20}).");
+                $"{anchorCoreStats[AnchorNative.StatAnchorUnreached]},{anchorCoreStats[AnchorNative.StatAnchorTooFar]} peakMiB={anchorCoreStats[AnchorNative.StatPeakBytes] >> 20} fieldReuses={anchorCoreStats[AnchorNative.StatFieldReuses]}).");
             anchorHumanMoves = anchorMoveTicks = anchorMoveMaxTicks = anchorPreTicks = anchorPreMaxTicks = anchorQueryTicks = anchorEncodeTicks =
                 anchorPublishTicks = anchorPublished = anchorPublishRejects = anchorEncodeRejects = anchorRouteReuses = anchorMembers =
                 anchorUnreachedUnits = anchorMovesWithUnreached = anchorRefreshTicks = anchorRefreshNodes = anchorBuildTicks = anchorBuildNodes =

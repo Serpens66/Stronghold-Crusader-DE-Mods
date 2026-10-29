@@ -187,6 +187,30 @@ internal static class AnchorCoreGate
             if (ground.Status != SearchStatus.Found || ground.Cost != 4) throw new InvalidOperationException("Ground profile ignored a ground-only direction: " + ground.Status + "/" + ground.Reason);
             if (moat.Status == SearchStatus.Found) throw new InvalidOperationException("Moat profile used a ground-only direction.");
         }
+        // Field cache: a second task with the same player, anchor and profile whose starts the first
+        // field settled reuses that field and answers exactly like a fresh core; a mask change or
+        // an unsettled start computes a new field.
+        {
+            GridSnapshot map = GroupGate.Grid(60, 60, null, n => n % 60 != 30 || n / 60 == 50);
+            int anchorNode = 10 * 60 + 10, near = 12 * 60 + 15, far = 55 * 60 + 50;
+            using var core = new AnchorCoreInterop(60, 60, 128L * 1024 * 1024); core.WriteWholeMask(Player, map, 500);
+            int first = core.CreateTask(Player, anchorNode, 1, 7, new[] { near, far }); core.Step(8, 1);
+            int second = core.CreateTask(Player, anchorNode, 1, 7, new[] { near }); core.Step(8, 1);
+            if (core.Stats()[AnchorCoreInterop.Stat("fieldReuses")] != 1) throw new InvalidOperationException("A covered task did not reuse the cached field.");
+            using var fresh = new AnchorCoreInterop(60, 60, 128L * 1024 * 1024); fresh.WriteWholeMask(Player, map, 500);
+            int alone = fresh.CreateTask(Player, anchorNode, 1, 7, new[] { near }); fresh.Step(8, 1);
+            foreach (int slot in new[] { anchorNode, anchorNode + 1, anchorNode + 61 })
+            {
+                RouteResult cached = core.Query(second, near, slot, Margin), own = fresh.Query(alone, near, slot, Margin);
+                if (cached.Status != own.Status || cached.Cost != own.Cost) throw new InvalidOperationException($"Reused field answers differently: slot={slot} {cached.Status}/{cached.Cost} vs {own.Status}/{own.Cost}");
+            }
+            int third = core.CreateTask(Player, anchorNode, 1, 7, new[] { 59 * 60 + 59 }); core.Step(8, 1);
+            if (core.Stats()[AnchorCoreInterop.Stat("fieldReuses")] != 1) throw new InvalidOperationException("A task with an unsettled start reused the cached field.");
+            core.UpdateMask(Player, GroupGate.Grid(60, 60, null, n => n % 60 != 30), new[] { 50 * 60 + 30 });
+            int fourth = core.CreateTask(Player, anchorNode, 1, 7, new[] { near }); core.Step(8, 1);
+            if (core.Stats()[AnchorCoreInterop.Stat("fieldReuses")] != 1) throw new InvalidOperationException("A field of an older mask revision was reused.");
+            core.Release(first); core.Release(second); core.Release(third); core.Release(fourth);
+        }
         // Directed snake longer than 2,000 steps: never returned as a route.
         {
             GridSnapshot map = GroupGate.Grid(800, 4, (a, b, d) => ((a / 800) % 2 == 0 ? d == 2 : d == 6) && a / 800 == b / 800 || d == 4 && a % 800 == ((a / 800) % 2 == 0 ? 799 : 0) ? 1U << d : 0);

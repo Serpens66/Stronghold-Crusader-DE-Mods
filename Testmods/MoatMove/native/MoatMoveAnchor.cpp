@@ -74,7 +74,7 @@ enum Flags { ViaAnchor = 1, SubAnchor = 2, NewSubAnchor = 4, Uncached = 8 };
 enum Code { Ok = 0, NoMemory = 2, BadArgument = 3, Internal = 4 };
 // AnchorNoStart..AnchorTooFar: why an anchor (main or sub) could not answer a query.
 enum StatIndex { TasksComputed, TasksFailed, SettleEvents, Entries, Queries, ViaChosen, SubAnchors, SubCapped, StepNs, QueryNs, SubNs, MaskWrites, MaskChanges, PeakBytes, Allocations, Workers,
-    AnchorNoStart, AnchorNoEntry, AnchorUnreached, AnchorTooFar, StatCount };
+    AnchorNoStart, AnchorNoEntry, AnchorUnreached, AnchorTooFar, FieldReuses, StatCount };
 
 struct Box { int x0 = 0, y0 = 0, x1 = -1, y1 = -1; };
 static int Ctz(u32 m) { unsigned long i; _BitScanForward(&i, m); return int(i); }
@@ -246,8 +246,16 @@ template<class Dist, class Stop> static int Descend(const Map& map, const Mask& 
 
 struct Task {
     int id = 0, player = 0, anchor = 0, ground = 1, moat = 1, status = Pending; u64 revision = 0; bool exhausted = false;
-    std::vector<int> starts; std::unique_ptr<Stored> main; std::vector<std::unique_ptr<Stored>> subs;
+    std::vector<int> starts; std::shared_ptr<Stored> main; std::vector<std::unique_ptr<Stored>> subs;
 };
+
+// Recently computed main fields. A field depends only on player mask (revision), anchor and
+// cost profile; its settled nodes are a prefix of one deterministic settle order, so a field
+// that settled every start of a new task (or ran out, settling everything that reaches the
+// anchor) holds exactly the distances a new solve would compute. Several AI groups sent to one
+// rally point in a tick then share one field (pf-iter-12: 624 repeated fields per run).
+struct CachedField { int player = 0, anchor = 0, ground = 0, moat = 0; u64 revision = 0, used = 0; std::shared_ptr<Stored> field; };
+constexpr int FieldCacheSize = 8;
 
 // Persistent fork-join pool: workers sleep between steps; the caller is worker 0.
 struct Pool {
@@ -293,6 +301,7 @@ struct Context {
     Memory memory; Map map;
     std::unique_ptr<Mask> masks[MaxPlayers + 1];
     std::map<int, std::unique_ptr<Task>> tasks; int nextId = 1;
+    std::vector<CachedField> fieldCache; u64 fieldCacheClock = 0;
     std::vector<std::unique_ptr<Field>> fields;
     // Simulation-thread scratch (single queries, ordered batch pass) and one per batch worker.
     std::unique_ptr<Scratch> scratch; std::vector<std::unique_ptr<Scratch>> workers;
@@ -400,7 +409,7 @@ template<class F> static int Guard(F body) {
 
 using namespace mma;
 extern "C" {
-__declspec(dllexport) int mma_contract() { return 0x04000007; }
+__declspec(dllexport) int mma_contract() { return 0x04000008; }
 // Physical cores minus two (Unity main thread plus simulation/render), within 1..8.
 __declspec(dllexport) int mma_recommended_threads() {
     DWORD length = 0; GetLogicalProcessorInformationEx(RelationProcessorCore, nullptr, &length);
@@ -482,7 +491,17 @@ __declspec(dllexport) int mma_step(Context* c, int maxTasks, int threads, int* c
         for (auto& entry : c->tasks) {
             Task& t = *entry.second; Mask* m = c->mask(t.player);
             if (int(work.size()) >= maxTasks) break;
-            if (t.status == Pending && m && m->ready(c->map.n)) work.push_back(&t);
+            if (t.status != Pending || !m || !m->ready(c->map.n)) continue;
+            bool reused = false;
+            for (CachedField& e : c->fieldCache) {
+                if (e.player != t.player || e.anchor != t.anchor || e.ground != t.ground || e.moat != t.moat || e.revision != m->revision) continue;
+                bool covers = e.field->exhausted;
+                if (!covers) { covers = true; for (int s : t.starts) if (e.field->at(s) == Unset) { covers = false; break; } }
+                if (!covers) break;
+                t.main = e.field; t.subs.clear(); t.exhausted = e.field->exhausted; t.revision = m->revision; t.status = Ready;
+                e.used = ++c->fieldCacheClock; ++c->stats[FieldReuses]; reused = true; break;
+            }
+            if (!reused) work.push_back(&t);
         }
         // A fixed worker count keeps one persistent pool; idle workers find no task.
         int workers = threads;
@@ -497,14 +516,24 @@ __declspec(dllexport) int mma_step(Context* c, int maxTasks, int threads, int* c
                 Task& t = *work[i];
                 try {
                     f.solve(c->map, *c->mask(t.player), t.anchor, false, t.starts, t.ground, t.moat);
-                    auto s = std::make_unique<Stored>(&c->memory); s->take(c->map, f, t.anchor);
+                    auto s = std::make_shared<Stored>(&c->memory); s->take(c->map, f, t.anchor);
                     t.main = std::move(s); t.subs.clear(); t.exhausted = f.exhausted; t.revision = c->mask(t.player)->revision; t.status = Ready;
                 }
                 catch (...) { t.main.reset(); t.status = Failed; }
             }
         };
         if (!work.empty()) c->pool.run(job);
-        for (Task* t : work) { if (t->status == Ready) ++c->stats[TasksComputed]; else ++c->stats[TasksFailed]; }
+        for (Task* t : work) {
+            if (t->status != Ready) { ++c->stats[TasksFailed]; continue; }
+            ++c->stats[TasksComputed];
+            // Same key replaces its entry; otherwise the least recently used one is evicted.
+            CachedField* slot = nullptr;
+            for (CachedField& e : c->fieldCache) if (e.player == t->player && e.anchor == t->anchor && e.ground == t->ground && e.moat == t->moat) { slot = &e; break; }
+            if (!slot && int(c->fieldCache.size()) < FieldCacheSize) { c->fieldCache.emplace_back(); slot = &c->fieldCache.back(); }
+            if (!slot) { slot = &c->fieldCache[0]; for (CachedField& e : c->fieldCache) if (e.used < slot->used) slot = &e; }
+            slot->player = t->player; slot->anchor = t->anchor; slot->ground = t->ground; slot->moat = t->moat;
+            slot->revision = t->revision; slot->field = t->main; slot->used = ++c->fieldCacheClock;
+        }
         for (auto& f : c->fields) { c->stats[SettleEvents] += f->settles; c->stats[Entries] += f->entries; f->settles = f->entries = 0; }
         if (computed) *computed = int(work.size());
         c->stats[StepNs] += Ns(t0);
