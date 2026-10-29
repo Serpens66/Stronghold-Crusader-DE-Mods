@@ -11,6 +11,7 @@ Stand: 20.10.2026. Untersucht wurden die installierten Spielassemblies, der loka
 | Multiplayer pausieren/entpausieren | Bestehende Paketwege in `MultiplayerGameSpeedRuntime` | Implementierung vorhanden, aber die Request-Methoden sind privat; ein unabhängiger Testmod braucht noch einen expliziten Zugriff über eine kleine öffentliche Brücke. |
 | Kamera hinein-/herauszoomen | `PerfectPixelWithZoom.instance.adjustZoom(...)` | Öffentliche Spielmethode; positive Schritte zoomen hinein, negative heraus. |
 | Kameraskalierung unmittelbar setzen | `PerfectPixelWithZoom.instance.SetZoomImmediate(scale)` | Öffentlich, aber mit Grenzen und internem Zoomzustand zu beachten; siehe unten. |
+| Geskriptete Ereignisse im Messlauf (DEVDIAG-PerfProbe) | `Automation.Actions`, Einträge durch `\|` getrennt, Sekunden nach Beginn der Laufphase: `20:Attack:6:2:force` (KI 6 greift Spieler 2 an, über `0xD7580`), `15:IgnitePitch` (alle ruhenden Pechgräben zünden), `10:Spawn:3:600:CHIMP_TYPE_SPEARMAN` (600 Einheiten eines `eChimps`-Typs an der Keep-Tür von Spieler 3) | `Testmods/PerfProbe/src/PerfProbeAutomationActions.DevDiag.cs`; Angriff und Zündung am 29.10.2026 im Stress-Save geprüft, `Spawn` neu und noch ungeprüft. Ergebnisse stehen als `AUTOMATION action ...` im Log. |
 
 Für diese Aktionen ist keine Mausautomation erforderlich. Dieses Dokument fügt keine neue Runtime-Funktion hinzu. Insbesondere bleibt AutoLoadSave beim einmaligen Laden des konfigurierten Saves.
 

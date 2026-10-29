@@ -29,7 +29,11 @@ namespace PerfProbe
         private delegate void NativeOrderCall(int attackTarget, int orderedAi, int requester, int order);
         [DllImport("kernel32.dll", CharSet = CharSet.Unicode)] private static extern IntPtr GetModuleHandle(string name);
 
-        private sealed class ScriptedOrder { internal double At; internal int Actor, Target; internal bool Force, Done, Ignite; }
+        private sealed class ScriptedOrder
+        {
+            internal double At; internal int Actor, Target, SpawnCount; internal bool Force, Done, Ignite;
+            internal SHCDESE.Interop.eChimps SpawnType;
+        }
         // IgnitePitch probe: direction bytes (0x51890D0) of the ignited tiles before and 3 s after.
         private const int DirectionTableRva = 0x51890D0;
         private static readonly List<KeyValuePair<int, byte>> ignitedTiles = new List<KeyValuePair<int, byte>>();
@@ -51,6 +55,14 @@ namespace PerfProbe
                 if (part.Length == 2 && part[1] == "IgnitePitch" &&
                     double.TryParse(part[0], NumberStyles.Float, CultureInfo.InvariantCulture, out double igniteAt))
                 { orders.Add(new ScriptedOrder { At = igniteAt, Ignite = true }); continue; }
+                // "seconds:Spawn:player:count:type": soldiers of an eChimps type next to the player's keep
+                // (load scenarios beyond the save's unit count; AI lords adopt them into their armies).
+                if (part.Length == 5 && part[1] == "Spawn" &&
+                    double.TryParse(part[0], NumberStyles.Float, CultureInfo.InvariantCulture, out double spawnAt) &&
+                    int.TryParse(part[2], out int owner) && owner >= 1 && owner <= 8 &&
+                    int.TryParse(part[3], out int spawnCount) && spawnCount > 0 && spawnCount <= 5000 &&
+                    Enum.TryParse(part[4], true, out SHCDESE.Interop.eChimps spawnType))
+                { orders.Add(new ScriptedOrder { At = spawnAt, Actor = owner, SpawnCount = spawnCount, SpawnType = spawnType }); continue; }
                 if (part.Length < 4 || part[1] != "Attack" ||
                     !double.TryParse(part[0], NumberStyles.Float, CultureInfo.InvariantCulture, out double at) ||
                     !int.TryParse(part[2], out int actor) || !int.TryParse(part[3], out int target) ||
@@ -116,6 +128,7 @@ namespace PerfProbe
                 if (order.Done || order.At > runSeconds) continue;
                 order.Done = true;
                 if (order.Ignite) { IgnitePitch(runSeconds); continue; }
+                if (order.SpawnCount > 0) { Spawn(order); continue; }
                 string result;
                 try
                 {
@@ -137,6 +150,33 @@ namespace PerfProbe
                 Log("action at=" + order.At.ToString("0.0", CultureInfo.InvariantCulture) + "s kind=Attack actor=" + order.Actor +
                     " target=" + order.Target + " force=" + order.Force + " result=" + result);
             }
+        }
+
+        // Creates the units around the keep door (a 25 x 25 offset grid, each on the nearest walkable
+        // unoccupied tile of its offset) under the engine lock; logs created and failed counts.
+        private static void Spawn(ScriptedOrder order)
+        {
+            int created = 0, failed = 0;
+            try
+            {
+                lock (engineLock)
+                {
+                    var tiles = GameTileManagerAPI.Instance;
+                    var door = GamePlayerManagerAPI.Instance.GetPlayerKeepDoorPosition(order.Actor);
+                    for (int i = 0; i < order.SpawnCount; i++)
+                    {
+                        int x = door.X + i % 25 - 12, y = door.Y + i / 25 % 25 - 12;
+                        var position = tiles.GetNearestUnoccupiedTile(x, y, 12);
+                        int tile = tiles.GetTileId(position.X, position.Y);
+                        if (!tiles.IsValidTileId(tile) || !tiles.IsTileWalkableAndUnoccupied(tile)) { failed++; continue; }
+                        long id = GameUnitManagerAPI.Instance.CreateUnitLocal(order.Actor, order.Actor, position.X, position.Y, tiles.GetTileHeight(tile), order.SpawnType);
+                        if (id > 0) created++; else failed++;
+                    }
+                }
+            }
+            catch (Exception error) { Log("SPAWN_ERROR " + error.Message); }
+            Log("action at=" + order.At.ToString("0.0", CultureInfo.InvariantCulture) + "s kind=Spawn player=" + order.Actor +
+                " type=" + order.SpawnType + " requested=" + order.SpawnCount + " created=" + created + " failed=" + failed);
         }
 
         // Sets every dormant pitch ditch on fire (Extender pitch API, under the engine lock) and records

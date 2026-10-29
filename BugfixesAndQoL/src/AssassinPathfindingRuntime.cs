@@ -498,6 +498,9 @@ namespace BugfixesAndQoL
                 }
                 if (PerformanceDiagnosticsEnabled) command?.RecordResolution((PerformanceDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0) - resolutionStarted);
                 if (activeObservation != null) activeObservation.Player = playerId;
+#if SERP_DEVDIAG
+                CountRequestSharing(playerId, startX, startY, targetX, targetY);
+#endif
                 // Separate host settings for human players and AI lords; same snapshot as the command.
                 bool aiPlayer = IsAIPlayer(playerId);
                 Shared.DevDiag.Count(aiPlayer ? "bfqol.assassin.req.aiPlayer" : "bfqol.assassin.req.humanPlayer");
@@ -812,6 +815,23 @@ namespace BugfixesAndQoL
             Shared.DevDiag.Count(expanded >= nodeLimit ? "bfqol.assassin.astar.expanded.nodeLimit" : "bfqol.assassin.astar.expanded.exhausted", expanded);
             return false;
         }
+
+#if SERP_DEVDIAG
+        // DEVDIAG: how often the requests of one map tick repeat a start, a target or a target's 8 x 8
+        // cell of the same player. Decides whether one field per tick (from a shared start, or to a
+        // shared target area) would replace per-request searches.
+        private int diagShareTick = -1;
+        private readonly HashSet<long> diagShareStarts = new HashSet<long>(), diagShareTargets = new HashSet<long>(), diagShareCells = new HashSet<long>();
+        private void CountRequestSharing(int playerId, int startX, int startY, int targetX, int targetY)
+        {
+            int tick = GameTimeManagerAPI.Instance.GetElapsedMapTicks();
+            if (tick != diagShareTick) { diagShareTick = tick; diagShareStarts.Clear(); diagShareTargets.Clear(); diagShareCells.Clear(); }
+            long player = (long)playerId << 32;
+            Shared.DevDiag.Count(diagShareStarts.Add(player | (uint)GetCoordinateIndex(startX, startY)) ? "bfqol.assassin.share.newStart" : "bfqol.assassin.share.repeatStart");
+            Shared.DevDiag.Count(diagShareTargets.Add(player | (uint)GetCoordinateIndex(targetX, targetY)) ? "bfqol.assassin.share.newTarget" : "bfqol.assassin.share.repeatTarget");
+            Shared.DevDiag.Count(diagShareCells.Add(player | (uint)((targetY >> 3) * (MapWidth >> 3) + (targetX >> 3))) ? "bfqol.assassin.share.newTargetCell" : "bfqol.assassin.share.repeatTargetCell");
+        }
+#endif
 
         private enum RouteExistence { Undecided, Exists, None }
 
@@ -1884,24 +1904,23 @@ private bool StagePreparedRouteWithDiagnostics(IntPtr context, RouteCacheKey key
             heapPositions[tile] = position;
         }
 
-        // Same order as AssassinAStarPolicy.ComesBefore (estimated total, then the larger cost, then
-        // insertion order) with the first two levels in one unsigned comparison; see HeapKey.
+        // Same order as AssassinAStarPolicy.ComesBefore (estimated total, then cost, then insertion
+        // order) with the first two levels in one unsigned comparison; see HeapKey.
         private static bool ComesBefore(in HeapKey left, in HeapKey right) =>
             left.Primary < right.Primary ||
             (left.Primary == right.Primary && left.InsertionOrder < right.InsertionOrder);
 
         private readonly struct HeapKey
         {
-            // Estimated total in the high and int.MaxValue - cost in the low 32 bits. Both are
-            // non-negative ints (costs start at 0 and only grow by saturating additions of
-            // non-negative edge and heuristic values), so the unsigned 64-bit order is estimated
-            // total ascending, then cost descending.
+            // Estimated total in the high and cost in the low 32 bits. Both are non-negative ints
+            // (costs start at 0 and only grow by saturating additions of non-negative edge and
+            // heuristic values), so the unsigned 64-bit order equals the lexicographic int order.
             internal readonly ulong Primary;
             internal readonly int InsertionOrder;
 
             internal HeapKey(int estimatedTotal, int cost, int insertionOrder)
             {
-                Primary = ((ulong)(uint)estimatedTotal << 32) | (uint)(int.MaxValue - cost);
+                Primary = ((ulong)(uint)estimatedTotal << 32) | (uint)cost;
                 InsertionOrder = insertionOrder;
             }
         }
