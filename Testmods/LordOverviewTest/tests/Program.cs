@@ -16,7 +16,7 @@ internal static class Program {
   state.Select(null);state.Select(null);Check(state.Sort(rows)[0].Player==1,"ID ascending restored");
   var values=new long?[]{1,2,3,4,5};var five=new LordRow(8,true,values);values[4]=0;
   state.Select(Metric.GoldAcquired);Check(five.Values[4]==5 && state.Sort(new[]{five})[0].Player==8,"immutable metric snapshot");
-  TestColumns();TestInformation();TestValues();TestMenuAndGestures();
+  TestColumns();TestExternalColumns();TestInformation();TestValues();TestMenuAndGestures();
   var gate=new RefreshGate();for(int i=0;i<39;i++)Check(!gate.Tick(true),"no query on intermediate ticks");Check(gate.Tick(true),"query at tick forty");
   for(int i=0;i<120;i++)Check(!gate.Tick(false),"hidden never samples");
   for(int i=0;i<39;i++)Check(!gate.Tick(true),"hidden resets interval");Check(gate.Tick(true),"one full interval after hidden");
@@ -26,17 +26,27 @@ internal static class Program {
  static void TestColumns(){
   var selection=new ColumnSelection();Check(selection.Columns.SequenceEqual(Metrics.Defaults),"default four columns");
   Check(selection.Toggle(Metric.LordsKilled) && selection.Columns.Length==5,"fifth column allowed");
-  Check(!selection.Toggle(Metric.GoldAcquired) && selection.Columns.Length==5,"sixth column rejected");
+  Check(selection.Toggle(Metric.GoldAcquired) && selection.Columns.Length==6,"sixth column allowed");selection.Toggle(Metric.GoldAcquired);
   Check(selection.MoveTo(Metric.LordsKilled,3) && selection.Columns[3]==Metric.LordsKilled,"reorder selected value");
   var sort=new OverviewState();sort.Select(Metric.LordsKilled);sort.Reconcile(selection.Columns);Check(sort.Column==Metric.LordsKilled,"sort follows metric after reorder");
   selection.Toggle(Metric.LordsKilled);sort.Reconcile(selection.Columns);Check(sort.Column==null && !sort.Descending,"removed sort resets ID ascending");
   foreach(var metric in new[]{Metric.Fear,Metric.Popularity,Metric.Army})Check(selection.Toggle(metric),"deselect column");
   Check(!selection.Toggle(Metric.Gold) && selection.Columns.Length==1,"last metric cannot be removed");
   Check(!selection.MoveTo(Metric.Gold,-1) && !selection.MoveTo(Metric.Gold,1),"reorder bounds");
-  foreach(var metric in Metrics.All){selection.Load(metric.Id.ToString());Check(selection.Columns.Single()==metric.Id,"every metric persists by identifier");}
+  foreach(var metric in Metrics.Builtins){selection.Load(metric.Id.ToString());Check(selection.Columns.Single()==metric.Id,"every metric persists by identifier");}
   selection.Load("TroopsLost,Gold,Popularity");var saved=Metrics.Serialize(selection.Columns);selection.Load(saved);Check(Metrics.Serialize(selection.Columns)==saved,"order round trip");
   selection.Load("0,Unknown");Check(selection.Columns.SequenceEqual(Metrics.Defaults),"invalid persisted identifiers safe default");
   selection.Load("Gold,Gold,Army");Check(selection.Columns.SequenceEqual(new[]{Metric.Gold,Metric.Army}),"duplicate identifiers normalized");
+ }
+ static void TestExternalColumns(){
+  var selection=new ColumnSelection();selection.Load(Metrics.Serialize(Metrics.Builtins.Select(d=>d.Id)));Check(selection.Columns.Length==20,"all builtin columns permitted");
+  selection.Load("Gold,foreign.mod/units,Army");var missing=selection.Columns[1];Check(Metrics.Key(missing)=="foreign.mod/units","missing provider selection retained");
+  var id=Metrics.RegisterExternal("foreign.mod/units","Military",v=>v.ToString("0.00",System.Globalization.CultureInfo.InvariantCulture)+" m");Check(id==missing,"late provider recovers the same identity");
+  Check(Metrics.Parse(Metrics.Serialize(selection.Columns)).SequenceEqual(selection.Columns),"qualified keys and order round trip without provider");
+  var a=new LordRow(1,true,1);var b=new LordRow(2,true,2);var c=new LordRow(3,true,3);a.SetExtra(id,1.25m);b.SetExtra(id,-3.1m);c.SetExtra(id,null);
+  var sort=new OverviewState();sort.Select(id);Check(sort.Sort(new[]{a,b,c})[0].Player==1,"decimal descending sort uses numbers, not units");sort.Select(id);Check(sort.Sort(new[]{a,b,c}).Select(r=>r.Player).SequenceEqual(new[]{2,1,3}),"decimal ascending keeps unknown last");
+  Check(Metrics.Get(id).Format(a.Get(id))=="1.25 m","decimal formatting retains optional units");
+  var local=new ColumnSelection();local.Load("Gold,foreign.mod/units");local.MoveTo(id,0);Check(Metrics.Serialize(local.Columns)=="foreign.mod/units,Gold","external ID reorder is stable");
  }
  static void TestInformation(){
   foreach(var metric in Metrics.All){
@@ -71,7 +81,7 @@ internal static class Program {
  static void TestMenuAndGestures(){
   Check(Metrics.All.Where(d=>d.Group=="PopulationMood").Select(d=>d.Id).OrderBy(x=>x).SequenceEqual(new[]{Metric.Popularity,Metric.Fear,Metric.MaxPopulation}),"population and mood are thematic, not a default-values group");
   var military=new[]{Metric.Army,Metric.TroopsProduced,Metric.TroopsKilled,Metric.TroopsLost,Metric.BuildingsDestroyed,Metric.BuildingsLost,Metric.LordsKilled};
-  Check(Metrics.All.Where(d=>d.Group=="Military").Select(d=>d.Id).SequenceEqual(military),"current and cumulative military values grouped together");
+  Check(Metrics.Builtins.Where(d=>d.Group=="Military").Select(d=>d.Id).SequenceEqual(military),"current and cumulative military values grouped together");
   Check(Metrics.All.All(d=>Metrics.Groups.Contains(d.Group)) && Metrics.All.Count(d=>d.Group=="Economy")==10,"every metric belongs to one of three complete themes");
   var menu=new ColumnMenuState();menu.Select("Military",42);menu.Remember(17);var columns=new ColumnSelection();columns.Toggle(Metric.WoodProduced);
   Check(menu.Group=="Military" && menu.Offset==17,"checkbox changes preserve category and offset");
@@ -93,11 +103,15 @@ internal static class Program {
   gesture.Begin(Metric.Army,0,0,10,2);gesture.Update(100,0,0);gesture.Cancel();Check(!gesture.Active && gesture.End(true,10,2,out metric,out index)==HeaderGestureResult.Cancel,"escape/focus/capture cancellation cannot commit later");
   var sort=new OverviewState();sort.Select(Metric.Gold);sort.Reconcile(columns.Columns);Check(sort.Column==Metric.Gold,"header reorder preserves selected statistic sort");
   double boundary;int destination;var widths=new double[]{50,40,32};
-  Check(!HeaderDropGeometry.TryTarget(45,10,25,widths,0,out destination,out boundary),"player-number header is not a drop target");
-  Check(HeaderDropGeometry.TryTarget(46,10,25,widths,2,out destination,out boundary) && destination==0 && boundary==46,"last metric moves to first boundary");
-  Check(HeaderDropGeometry.TryTarget(167,10,25,widths,0,out destination,out boundary) && destination==2 && boundary==168,"first metric moves to last boundary");
-  Check(!HeaderDropGeometry.TryTarget(168,10,25,widths,0,out destination,out boundary),"gear area excluded from target");
-  Check(!HeaderDropGeometry.TryTarget(80,25,25,widths,0,out destination,out boundary) && !HeaderDropGeometry.TryTarget(80,-1,25,widths,0,out destination,out boundary),"vertical header bounds enforced");
-  Check(!HeaderDropGeometry.TryTarget(80,10,25,new double[]{0},0,out destination,out boundary) && !HeaderDropGeometry.TryTarget(double.NaN,10,25,widths,0,out destination,out boundary),"unarranged or invalid pointer geometry cancels");
+  Check(!HeaderDropGeometry.TryTarget(45,10,25,46,widths,0,out destination,out boundary),"player-number header is not a drop target");
+  Check(HeaderDropGeometry.TryTarget(46,10,25,46,widths,2,out destination,out boundary) && destination==0 && boundary==46,"last metric moves to first boundary");
+  Check(HeaderDropGeometry.TryTarget(167,10,25,46,widths,0,out destination,out boundary) && destination==2 && boundary==168,"first metric moves to last boundary");
+  Check(!HeaderDropGeometry.TryTarget(168,10,25,46,widths,0,out destination,out boundary),"outside realized value columns excluded from target");
+  Check(!HeaderDropGeometry.TryTarget(80,25,25,46,widths,0,out destination,out boundary) && !HeaderDropGeometry.TryTarget(80,-1,25,46,widths,0,out destination,out boundary),"vertical header bounds enforced");
+  foreach(double start in new[]{0d,11.25d,110d}){
+   Check(HeaderDropGeometry.TryTarget(start+1,3,20,start,new[]{32d,51.75d,110d},2,out destination,out boundary) && destination==0 && boundary==start,"drag uses actual identity/gear widths, including fractional layouts");
+   Check(HeaderDropGeometry.TryTarget(start+190,3,20,start,new[]{32d,51.75d,110d},0,out destination,out boundary) && destination==2,"variable metric widths retain insertion target");
+  }
+  Check(!HeaderDropGeometry.TryTarget(80,10,25,46,new double[]{0},0,out destination,out boundary) && !HeaderDropGeometry.TryTarget(double.NaN,10,25,46,widths,0,out destination,out boundary),"unarranged or invalid pointer geometry cancels");
  }
 }

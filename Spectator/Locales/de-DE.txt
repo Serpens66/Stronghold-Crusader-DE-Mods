@@ -112,11 +112,7 @@ Tools.Back=Zurück zur Werkzeugübersicht.
 Tools.GoldRemoved={Amount} von angeforderten {Requested} Gold bei {Player} abgezogen (einschließlich Lieferreserve).
 Tools.GoodsRemoved={Amount} von angeforderten {Requested} Gütern bei {Player} abgezogen (Lager und Lieferreserve).
 Tools.TargetShort=Ziel
-AlliesTest.Mode=Testmodus
-AlliesTest.Help=Güter erzeugen oder entfernen und KI-Aufträge unabhängig von Bündnissen erteilen.
-AlliesTest.Credit=Gutschreiben
-AlliesTest.Debit=Abziehen
-AlliesTest.Balance=Bestand: {Stored} · Lieferreserve: {Incoming}
-AlliesTest.Back=Zurück zur Spielerauswahl
-AlliesTest.Close=Verbündetenansicht schließen
-AlliesTest.Reset=Ausgewählte Ware und Menge zurücksetzen.
+
+Tools.PlacementShort=Platzieren
+Tools.PowersShortOn=Kräfte: An
+Tools.PowersShortOff=Kräfte: Aus

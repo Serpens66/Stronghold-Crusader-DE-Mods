@@ -6,15 +6,15 @@ namespace LordOverviewTest {
  // Stable persisted metric identifiers never depend on translated labels or column positions.
  internal enum Metric { Gold, Army, Popularity, Fear, GoldAcquired, MaxPopulation, FoodProduced, WoodProduced, StoneProduced, IronProduced, PitchProduced, WeaponsProduced, GoodsReceived, GoodsSent, TroopsProduced, TroopsKilled, TroopsLost, BuildingsDestroyed, BuildingsLost, LordsKilled }
  internal sealed class MetricDefinition {
-  internal readonly Metric Id; internal readonly string Group; internal readonly string Key; internal Func<decimal,string> Formatter;
+  internal readonly Metric Id; internal string Group; internal readonly string Key; internal Func<decimal,string> Formatter;
   internal bool Historical => (int)Id>=0 && Id>=Metric.GoldAcquired;
-  internal MetricDefinition(Metric id,string group,int width=56){Id=id;Group=group;Key=id.ToString();}
+  internal MetricDefinition(Metric id,string group){Id=id;Group=group;Key=id.ToString();}
   internal MetricDefinition(Metric id,string key,string group){Id=id;Key=key;Group=group;}
   internal string Format(decimal? value)=>!value.HasValue?"?":Formatter!=null?Formatter(value.Value):Id==Metric.Fear?value.Value.ToString("+0;-0;+0",CultureInfo.InvariantCulture):value.Value.ToString(CultureInfo.InvariantCulture);
  }
  internal static class Metrics {
   internal static readonly string[] Groups={"Economy","Military","PopulationMood","OtherMods"};
-  internal static readonly MetricDefinition[] Builtins=Enum.GetValues(typeof(Metric)).Cast<Metric>().Select(m=>new MetricDefinition(m,Group(m),m==Metric.Popularity?40:m==Metric.Fear?32:56)).ToArray();
+  internal static readonly MetricDefinition[] Builtins=Enum.GetValues(typeof(Metric)).Cast<Metric>().Select(m=>new MetricDefinition(m,Group(m))).ToArray();
   private static string Group(Metric metric){switch(metric){
    case Metric.Popularity:case Metric.Fear:case Metric.MaxPopulation:return "PopulationMood";
    case Metric.Army:case Metric.TroopsProduced:case Metric.TroopsKilled:case Metric.TroopsLost:case Metric.BuildingsDestroyed:case Metric.BuildingsLost:case Metric.LordsKilled:return "Military";
@@ -24,7 +24,7 @@ namespace LordOverviewTest {
   internal static MetricDefinition[] All=>Builtins.Concat(extras.Values).ToArray();
   internal static MetricDefinition Get(Metric id)=>(int)id>=0?Builtins[(int)id]:extras[id];
   internal static Metric RegisterExternal(string key,string group="OtherMods",Func<decimal,string> formatter=null){
-   var found=extras.Values.FirstOrDefault(d=>d.Key==key);if(found!=null){found.Formatter=formatter;return found.Id;}
+   var found=extras.Values.FirstOrDefault(d=>d.Key==key);if(found!=null){found.Formatter=formatter;found.Group=group;return found.Id;}
    var id=(Metric)(-extras.Count-1);extras[id]=new MetricDefinition(id,key,group){Formatter=formatter};return id;
   }
   internal static bool IsExternalKey(string key)=>!string.IsNullOrWhiteSpace(key) && key.Count(c=>c=='/')==1 && !key.Contains(",") && key.Split('/').All(p=>p.Length>0);
@@ -33,7 +33,7 @@ namespace LordOverviewTest {
   internal static string Serialize(IEnumerable<Metric> columns)=>string.Join(",",columns.Select(Key));
   internal static Metric[] Parse(string text){var columns=new List<Metric>();foreach(string key in (text??"").Split(',')){
    Metric id;if(Enum.TryParse(key,out id) && Enum.IsDefined(typeof(Metric),id) && key==id.ToString()){}
-   else if(IsExternalKey(key))id=RegisterExternal(key);else continue;
+   else if(IsExternalKey(key))id=extras.Values.FirstOrDefault(d=>d.Key==key)?.Id??RegisterExternal(key);else continue;
    if(!columns.Contains(id))columns.Add(id);
   }return columns.Count<1?(Metric[])Defaults.Clone():columns.ToArray();}
  }
@@ -56,7 +56,7 @@ namespace LordOverviewTest {
  internal static class HeaderDropGeometry {
   internal static bool TryTarget(double x,double y,double height,double start,double[] widths,int source,out int target,out double boundary){
    target=-1;boundary=start;
-   if(widths==null || source<0 || source>=widths.Length || double.IsNaN(x) || double.IsNaN(y) || y<0 || y>=height || widths.Any(w=>w<=0 || double.IsNaN(w) || double.IsInfinity(w)))return false;
+   if(double.IsNaN(start) || double.IsInfinity(start) || start<0 || double.IsNaN(height) || height<=0 || widths==null || source<0 || source>=widths.Length || double.IsNaN(x) || double.IsNaN(y) || y<0 || y>=height || widths.Any(w=>w<=0 || double.IsNaN(w) || double.IsInfinity(w)))return false;
    double end=start+widths.Sum();if(x<start || x>=end)return false;
    int insertion=widths.Length;boundary=end;double left=start;
    for(int i=0;i<widths.Length;i++){if(x<left+widths[i]/2){insertion=i;boundary=left;break;}left+=widths[i];}
@@ -87,7 +87,7 @@ namespace LordOverviewTest {
   internal readonly int Player; internal readonly bool Alive; internal readonly long?[] Values;
   internal LordRow(int player,bool alive,params long?[] values) {Player=player;Alive=alive;Values=(long?[])values.Clone();}
   private readonly Dictionary<Metric,decimal?> extra=new Dictionary<Metric,decimal?>();
-  internal bool ExtendedAllowed;
+  internal bool ExtendedAllowed {get;set;}
   internal decimal? Get(Metric metric)=>(int)metric>=0?((int)metric<Values.Length?(decimal?)Values[(int)metric]:null):(extra.TryGetValue(metric,out var value)?value:null);
   internal void SetExtra(Metric metric,decimal? value){extra[metric]=value;}
   internal string ValueSignature=>string.Join(";",Values)+"/"+string.Join(";",extra.OrderBy(p=>p.Key).Select(p=>p.Key+"="+p.Value));

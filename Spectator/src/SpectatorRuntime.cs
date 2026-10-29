@@ -114,13 +114,12 @@ namespace Spectator
         private static Border humanDragHandle;
         private static Button humanToggle;
         private static TextBlock humanToggleText;
-        private static Panel humanOwners;
         private static readonly Button[] humanOwnerButtons = new Button[9];
         private static readonly TextBlock[] humanOwnerNumbers = new TextBlock[9];
         private static readonly RoutedEventHandler[] humanOwnerHandlers = new RoutedEventHandler[9];
         private static readonly MouseButtonEventHandler[] humanJumpHandlers = new MouseButtonEventHandler[9];
         private static readonly int[] humanDisplayedColours = new int[9];
-        private static bool humanDragging, humanPositioned;
+        private static bool humanDragging;
         private static bool humanCameraFailureLogged;
         private static Point humanDragStart;
         private static float humanDragOriginLeft, humanDragOriginTop;

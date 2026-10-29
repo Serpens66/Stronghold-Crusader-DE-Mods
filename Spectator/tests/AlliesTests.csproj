@@ -1,10 +1,7 @@
 <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup><TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion><OutputType>Exe</OutputType><AssemblyName>AlliesTests</AssemblyName><LangVersion>latest</LangVersion></PropertyGroup>
   <ItemGroup><Reference Include="System"/><Reference Include="System.Core"/><Reference Include="System.Xml"/><Reference Include="System.Xml.Linq"/>
-    <Compile Include="AlliesTests.cs"/><Compile Include="PanelInputLeaseTests.cs"/><Compile Include="..\src\PanelInputLease.cs"/><Compile Include="..\src\CheckedAllyAmountCommand.cs"/><Compile Include="..\src\AllyTestState.cs"/><Compile Include="..\src\PanelRefreshState.cs"/>
-    <Compile Include="..\..\shcde-script-extender\src\SHCDESE.BepInEx\API\Components\Noesis\XAML\XamlPatcher.cs"/>
-    <Compile Include="..\..\shcde-script-extender\src\SHCDESE.BepInEx\API\Components\Noesis\XAML\XmlPatchOperation.cs"/>
-    <Compile Include="..\..\shcde-script-extender\src\SHCDESE.BepInEx\API\Components\Noesis\XAML\XmlPatchType.cs"/>
+    <Compile Include="AlliesTests.cs"/><Compile Include="PanelInputLeaseTests.cs"/><Compile Include="..\src\PanelInputLease.cs"/><Compile Include="..\src\PanelRefreshState.cs"/>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets"/>
 </Project>

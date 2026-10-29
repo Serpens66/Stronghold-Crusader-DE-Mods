@@ -38,6 +38,7 @@ namespace LordOverviewTest {
    UnityEngine.Application.focusChanged+=OnOverviewFocusChanged;
    TooltipProbeStartup.Start(logger);
    ApiShared.ForMod("LordOverviewTest_Serp").WhenReady(client=>{
+    StartExtensions();
     if(!client.TryGetLobbyState(out var lobby,out var lobbyReason) || !lobby.TryRegisterObserver("overview-permission",settings.ObserveLobby,out lobbyReason))throw new InvalidOperationException(lobbyReason.Reason);
     if(!client.TryGetMissionLifecycle(out var lifecycle,out var reason)){Error(new Exception(reason.Reason));return;}
     if(!lifecycle.TryRegisterObserver("overview",n=>{
@@ -48,7 +49,7 @@ namespace LordOverviewTest {
     var definition=new HudExtrasButtonDefinition("overview",new Command(Toggle),Text("Title"),context=>{
      Attach(context.Hud);
      return OverviewAppearance.CreateButton(context.Hud);
-    });
+    },tooltipFactory:context=>CreateTip(Text("Title"),context.Hud));
     if(!buttons.TryRegisterButton(definition,out registration,out reason)){Error(new Exception(reason.Reason));return;}
     registration.SetVisible(Interlocked.Read(ref session)>0 && settings.EnableMod);
     GameTimeManagerAPI.Instance.OnTick+=OnTick;
@@ -71,9 +72,10 @@ namespace LordOverviewTest {
    panel=new Grid {HorizontalAlignment=HorizontalAlignment.Left,VerticalAlignment=VerticalAlignment.Bottom,Margin=new Thickness(40,0,0,0),Visibility=Visibility.Collapsed,Background=new SolidColorBrush(Noesis.Color.FromRgb(96,96,96)){Opacity=0.5f}};
    Panel.SetZIndex(panel,15);parent.Children.Add(panel);panel.IsVisibleChanged+=OnPanelVisibility;
    buttonStyle=GUI.ParseXaml("<Style xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation' TargetType='{x:Type Button}' xmlns:x='http://schemas.microsoft.com/winfx/2006/xaml'><Setter Property='Template'><Setter.Value><ControlTemplate TargetType='{x:Type Button}'><Border Background='Transparent' Padding='3'><ContentPresenter/></Border></ControlTemplate></Setter.Value></Setter></Style>") as Style;
-   tipStyle=host.TryFindResource("APISharedHudExtrasTooltipStyle") as Style;
-   if(tipStyle==null)throw new InvalidOperationException("Shared tooltip style unavailable.");
-   TooltipProbeStartup.Observe(ref tipStyle,"LordOverviewTest.HUD");
+   tipStyle=GUI.ParseXaml(@"<Style xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation' xmlns:x='http://schemas.microsoft.com/winfx/2006/xaml' TargetType='{x:Type ToolTip}'>
+    <Setter Property='Background' Value='#FF1D1710'/><Setter Property='Foreground' Value='White'/><Setter Property='BorderBrush' Value='#FFF2D48A'/>
+    <Setter Property='Template'><Setter.Value><ControlTemplate TargetType='{x:Type ToolTip}'><Border Background='{TemplateBinding Background}' BorderBrush='{TemplateBinding BorderBrush}' BorderThickness='{TemplateBinding BorderThickness}' Padding='{TemplateBinding Padding}'><TextBlock Text='{TemplateBinding Content}' FontSize='{TemplateBinding FontSize}' Foreground='{TemplateBinding Foreground}' MaxWidth='{TemplateBinding MaxWidth}' TextWrapping='Wrap'/></Border></ControlTemplate></Setter.Value></Setter>
+   </Style>") as Style;
    AttachColumnsPopup();
   }
   private static void OnPanelVisibility(object sender,DependencyPropertyChangedEventArgs e){bool visible=panel?.IsVisible==true;Volatile.Write(ref shown,visible?1:0);if(!visible){CancelHeaderGesture();CloseColumnsPopup();}}
@@ -93,39 +95,46 @@ namespace LordOverviewTest {
   private static void Refresh() {
    if(panel==null || !panel.IsLoaded || !panel.IsVisible || GameData.Instance?.lastGameState==null)return;
    rows=OverviewData.Capture(selection.Columns,settings,mode);
+   long expected=Interlocked.Read(ref session);ReadExtensions(expected);if(expected<=0 || expected!=Interlocked.Read(ref session) || panel?.IsVisible!=true)return;
    long id=Interlocked.Read(ref session);if(lastSampleSession!=id){lastSampleSession=id;Message("FIRST_SAMPLE session="+id+" players="+rows.Count);}
    Render();
   }
   private static void Render() {
    if(headerGesture.Active)return;
-   var columns=selection.Columns;state.Reconcile(columns);widths=new double[columns.Length];
+   var columns=selection.Columns;state.Reconcile(columns);
    var ordered=state.Sort(rows);
-   for(int i=0;i<columns.Length;i++){var metric=Metrics.Get(columns[i]);widths[i]=Math.Max(metric.MinimumWidth,ordered.Count==0?metric.MinimumWidth:ordered.Max(r=>metric.Format(r.Get(metric.Id)).Length)*8.5+14);}
-   var colors = ordered.ToDictionary(r=>r.Player, r=>ResolvePlayerColor(r.Player));
-   string next=Metrics.Serialize(columns)+"/"+string.Join(";",ordered.Select(r=>r.Player+"="+colors[r.Player].ToString()))+"/"+state.Column+"/"+state.Descending+"/"+string.Join(";",ordered.Select(r=>r.Player+":"+r.Alive+":"+string.Join(",",r.Values)));
+   var colors=ordered.ToDictionary(r=>r.Player,r=>ResolvePlayerColor(r.Player));
+   string next=Metrics.Serialize(columns)+"/"+catalogRevision+"/"+string.Join(";",ordered.Select(r=>r.Player+"="+colors[r.Player]))+"/"+state.Column+"/"+state.Descending+"/"+string.Join(";",ordered.Select(r=>r.Player+":"+r.Alive+":"+r.ValueSignature));
    if(next==signature)return;signature=next;
-   string layout=Metrics.Serialize(columns)+"/"+state.Column+"/"+state.Descending+"/"+string.Join(",",widths);
-   if(tableHeader!=null && headerLayout==layout && panel.Children.Count>0){
-    // Keep hovered/clicked header controls alive across routine statistic updates.
-    while(panel.Children.Count>1){int last=panel.Children.Count-1;CloseTips(panel.Children[last]);panel.Children.RemoveAt(last);}
-    while(panel.RowDefinitions.Count>1)panel.RowDefinitions.RemoveAt(panel.RowDefinitions.Count-1);
+   string layout=Metrics.Serialize(columns)+"/"+catalogRevision+"/"+state.Column+"/"+state.Descending;
+   Grid table=tableHeader;
+   if(table!=null && headerLayout==layout && panel.Children.Count>0){
+    // Keep actual header controls and hover state. Auto columns measure the replacement cells.
+    for(int i=table.Children.Count-1;i>=0;i--)if(Grid.GetRow(table.Children[i])>0){CloseTips(table.Children[i]);table.Children.RemoveAt(i);}
+    while(table.RowDefinitions.Count>1)table.RowDefinitions.RemoveAt(table.RowDefinitions.Count-1);
    }else{
-    CloseTips(panel);metricHeaders.Clear();headerHighlights.Clear();panel.Children.Clear();panel.RowDefinitions.Clear();
-    panel.RowDefinitions.Add(new RowDefinition {Height=GridLength.Auto});
-    var header=Line();AddHeader(header,0,null,Text("Player"),null);
-    for(int col=0;col<columns.Length;col++)AddHeader(header,col+1,columns[col],MetricHelp(columns[col]),MetricIcon(columns[col]));
-    var gear=ActionButton("",Text("ColumnsHelp"),()=>{if(columnsPopup.IsOpen)CloseColumnsPopup();else OpenColumnsPopup();});gear.Content=GearIcon();gearButton=gear;
-    Grid.SetColumn(gear,columns.Length+1);header.Children.Add(gear);AttachHeaderMarker(header);AddRow(header,0,true);headerLayout=layout;
+    CloseTips(panel);metricHeaders.Clear();headerHighlights.Clear();panel.Children.Clear();
+    table=new Grid {Margin=new Thickness(5,2,5,2)};
+    for(int i=0;i<columns.Length+2;i++)table.ColumnDefinitions.Add(new ColumnDefinition {Width=GridLength.Auto});
+    table.RowDefinitions.Add(new RowDefinition {Height=GridLength.Auto});
+    var gear=ActionButton("",Text("ColumnsHelp"),()=>{if(columnsPopup.IsOpen)CloseColumnsPopup();else OpenColumnsPopup();});gear.Content=GearIcon();gearButton=gear;table.Children.Add(gear);
+    AddHeader(table,1,null,Text("Player"),null);
+    for(int col=0;col<columns.Length;col++)AddHeader(table,col+2,columns[col],MetricHelp(columns[col]),MetricIcon(columns[col]));
+    AttachHeaderMarker(table);panel.Children.Add(table);headerLayout=layout;AddDivider(table,0,true);
    }
    int index=1;
-   foreach(var row in ordered){panel.RowDefinitions.Add(new RowDefinition {Height=GridLength.Auto});var line=Line();line.Opacity=row.Alive?1:0.45f;Grid.SetRow(line,index++);
-    var identity=new StackPanel {Orientation=Orientation.Horizontal};var snapshot=GameData.Instance.lastGameState;
+   foreach(var row in ordered){
+    table.RowDefinitions.Add(new RowDefinition {Height=GridLength.Auto});float opacity=row.Alive?1:0.45f;
+    var identity=new StackPanel {Orientation=Orientation.Horizontal,Opacity=opacity,Margin=new Thickness(2,2,2,2)};var snapshot=GameData.Instance.lastGameState;
     var face=snapshot.is_skirmish_player(row.Player)?main.getAIFace(snapshot.computer_register[row.Player],true):Platform_Multiplayer.Instance.GetUserAvatar(Platform_Multiplayer.Instance.getPlayerSteamID(row.Player));
-    identity.Children.Add(OverviewAppearance.Portrait(face));
-    var color=new SolidColorBrush(colors[row.Player]);
+    identity.Children.Add(OverviewAppearance.Portrait(face));var color=new SolidColorBrush(colors[row.Player]);
     var number=OverviewAppearance.PlayerText(row.Player.ToString(),color);number.Margin=new Thickness(5,0,3,0);identity.Children.Add(number);
-    Tip(identity,Platform_Multiplayer.Instance.getSkirmishName(row.Player));line.Children.Add(identity);
-    for(int col=0;col<columns.Length;col++){var metric=Metrics.Get(columns[col]);long? numberValue=row.Get(metric.Id);var value=OverviewAppearance.PlayerText(metric.Format(numberValue),color);value.Background=new SolidColorBrush(Color.FromArgb(0,0,0,0));value.HorizontalAlignment=HorizontalAlignment.Right;value.Margin=new Thickness(8,0,6,0);Tip(value,MetricHelp(metric.Id)+(numberValue.HasValue?"": " — "+Text("Unavailable")));Grid.SetColumn(value,col+1);line.Children.Add(value);}AddRow(line,index-1,false);
+    Tip(identity,Platform_Multiplayer.Instance.getSkirmishName(row.Player));Grid.SetColumn(identity,1);Grid.SetRow(identity,index);table.Children.Add(identity);
+    for(int col=0;col<columns.Length;col++){
+     var metric=Metrics.Get(columns[col]);decimal? numberValue=row.Get(metric.Id);var value=OverviewAppearance.PlayerText(metric.Format(numberValue),color);
+     value.Opacity=opacity;value.Background=new SolidColorBrush(Color.FromArgb(0,0,0,0));value.HorizontalAlignment=HorizontalAlignment.Right;value.Margin=new Thickness(6,2,6,2);
+     Tip(value,MetricHelp(metric.Id)+(numberValue.HasValue?"":" — "+Text("Unavailable")));Grid.SetColumn(value,col+2);Grid.SetRow(value,index);table.Children.Add(value);
+    }AddDivider(table,index,false);index++;
    }
   }
   private static Noesis.Color ResolvePlayerColor(int player) {
@@ -136,15 +145,16 @@ namespace LordOverviewTest {
    spriteLoader.instance.GetGMMaterial(global::Enums.GM.GM_BODY_ARCHER,index,0,out color,0);
    return Noesis.Color.FromRgb((byte)(color.r*255f),(byte)(color.g*255f),(byte)(color.b*255f));
   }
-  private static void AddRow(Grid content,int row,bool header){
-   Grid.SetRow(content,0);var border=new Border {Child=content,BorderThickness=new Thickness(0,0,0,1),BorderBrush=new SolidColorBrush(Noesis.Color.FromArgb((byte)(header?100:45),220,220,220))};Grid.SetRow(border,row);panel.Children.Add(border);
-  }
-  private static Grid Line(){var g=new Grid {Margin=new Thickness(5,2,5,2)};g.ColumnDefinitions.Add(new ColumnDefinition {Width=new GridLength(46)});foreach(var width in widths)g.ColumnDefinitions.Add(new ColumnDefinition {Width=new GridLength((float)width)});g.ColumnDefinitions.Add(new ColumnDefinition {Width=new GridLength(24)});return g;}
+  private static void AddDivider(Grid table,int row,bool header){var line=new Border {Height=1,VerticalAlignment=VerticalAlignment.Bottom,IsHitTestVisible=false,Background=new SolidColorBrush(Color.FromArgb((byte)(header?100:45),220,220,220))};Grid.SetRow(line,row);Grid.SetColumnSpan(line,table.ColumnDefinitions.Count);table.Children.Add(line);}
   private static TextBlock Label(string text)=>new TextBlock {Text=text,FontSize=16,Foreground=new SolidColorBrush(Noesis.Color.FromArgb(255,255,240,191)),VerticalAlignment=VerticalAlignment.Center,Effect=new DropShadowEffect {ShadowDepth=1,BlurRadius=1,Color=Noesis.Color.FromArgb(255,0,0,0)}};
-  private static void AddHeader(Grid line,int column,Metric? sort,string text,FrameworkElement icon){var content=new StackPanel {Orientation=Orientation.Horizontal,HorizontalAlignment=HorizontalAlignment.Right};if(icon!=null)content.Children.Add(icon);else content.Children.Add(Label("#"));if(state.Column==sort){var arrow=Label(state.Descending?"▼":"▲");arrow.FontSize=9;content.Children.Add(arrow);}var highlight=new Border {Child=content,Background=new SolidColorBrush(Color.FromArgb(0,0,0,0))};var button=new Button {Style=buttonStyle,Content=highlight,HorizontalAlignment=HorizontalAlignment.Stretch};
+  private static void AddHeader(Grid line,int column,Metric? sort,string text,FrameworkElement icon){var content=new Grid {HorizontalAlignment=HorizontalAlignment.Center,Margin=new Thickness(4,0,4,0)};
+   content.ColumnDefinitions.Add(new ColumnDefinition {Width=new GridLength(9)});content.ColumnDefinitions.Add(new ColumnDefinition {Width=GridLength.Auto});content.ColumnDefinitions.Add(new ColumnDefinition {Width=new GridLength(9)});
+   var symbol=icon??Label("#");Grid.SetColumn(symbol,1);content.Children.Add(symbol);
+   if(state.Column==sort){var arrow=Label(state.Descending?"▼":"▲");arrow.FontSize=9;Grid.SetColumn(arrow,2);content.Children.Add(arrow);}
+   var highlight=new Border {Child=content,Background=new SolidColorBrush(Color.FromArgb(0,0,0,0))};var button=new Button {Style=buttonStyle,Content=highlight,HorizontalAlignment=HorizontalAlignment.Stretch};
    if(sort.HasValue)BindMetricHeader(button,sort.Value,highlight);else{var execute=UiAction(()=>{state.Select(null);signature="";Render();});button.Click+=(_,__)=>execute();}
    Tip(button,text+" — "+Text("Sort")+(sort.HasValue?" — "+Text("HeaderDragHint"):""));Grid.SetColumn(button,column);line.Children.Add(button);}
-  private static void Tip(DependencyObject element,string text){ToolTipService.SetToolTip(element,new ToolTip {Style=tipStyle,Content=text});ToolTipService.SetShowDuration(element,60000);ToolTipService.SetShowOnDisabled(element,true);}
+  private static void Tip(DependencyObject element,string text){ToolTipService.SetToolTip(element,CreateTip(text,element as FrameworkElement??sourceHost));ToolTipService.SetShowDuration(element,60000);ToolTipService.SetShowOnDisabled(element,true);}
   private static void Message(string text)=>log.LogInfo("["+DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")+"] LORD_OVERVIEW_"+text);
   private static void Error(Exception e){if(Interlocked.Increment(ref errors)>3)return;log.LogError("["+DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")+"] LORD_OVERVIEW: "+e);}
   private sealed class Command:ICommand {private readonly Action run;internal Command(Action action){run=action;}public bool CanExecute(object value)=>Interlocked.Read(ref session)>0;public void Execute(object value)=>run();public event System.EventHandler CanExecuteChanged {add{} remove{}}}

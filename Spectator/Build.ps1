@@ -19,7 +19,14 @@ if ($LASTEXITCODE -ne 0) { throw 'Spectator validation failed.' }
 & $msbuild (Join-Path $PSScriptRoot 'Spectator.csproj') /t:Rebuild /p:Configuration=Release "/p:GameDir=$game" "/p:ExtenderDir=$extender" "/p:ApiSharedDir=$ApiSharedDir" /verbosity:minimal
 if ($LASTEXITCODE -ne 0) { throw 'Spectator compilation failed.' }
 $package = Join-Path $PSScriptRoot 'BepInEx/plugins/Spectator_Serp'
-foreach ($file in @('Spectator.dll','info.json','Override/ScriptExtenderUI/SpectatorSettings.xaml','Patches/Assets/GUI/XAML/IngameUIScreens.xaml','Patches/Assets/GUI/XAMLResources/HUD_Main.xaml','Patches/Assets/GUI/XAMLResources/HUD_AlliesPanel.xaml')) {
+function Remove-RetiredSpectatorPatches([string]$PackageRoot) {
+ foreach ($relative in @('Patches/Assets/GUI/XAMLResources/HUD_Main.xaml','Patches/Assets/GUI/XAMLResources/HUD_AlliesPanel.xaml')) {
+  $retired = Join-Path $PackageRoot $relative
+  if (Test-Path -LiteralPath $retired) { Remove-Item -LiteralPath $retired -Force }
+ }
+}
+Remove-RetiredSpectatorPatches $package
+foreach ($file in @('Spectator.dll','info.json','Override/ScriptExtenderUI/SpectatorSettings.xaml','Patches/Assets/GUI/XAML/IngameUIScreens.xaml','Patches/Assets/GUI/XAMLResources/HUD_MissionOver.xaml')) {
  if (-not (Test-Path -LiteralPath (Join-Path $package $file))) { throw "Missing package file: $file" }
 }
 & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'tests/Test-CompiledContracts.ps1') -AssemblyPath (Join-Path $package 'Spectator.dll') -ApiSharedDir $ApiSharedDir -GameDir $game
@@ -31,6 +38,7 @@ $proof = [ordered]@{ BuiltUtc=[DateTime]::UtcNow.ToString('o'); Version='0.1.0';
 if ($NoInstall -eq 0) {
  $destination = Join-Path $game 'BepInEx/plugins/Spectator_Serp'
  [void](New-Item -ItemType Directory -Path $destination -Force)
+ Remove-RetiredSpectatorPatches $destination
  Get-ChildItem -LiteralPath $package | Copy-Item -Destination $destination -Recurse -Force
  Write-Host '[Spectator] Built and installed.'
 } else { Write-Host '[Spectator] Development package built; installation skipped.' }

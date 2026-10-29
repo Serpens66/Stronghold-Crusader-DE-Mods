@@ -25,6 +25,17 @@ try {
  $calls=@($method.Body.Instructions | Where-Object {$_.Operand -is [Mono.Cecil.MethodReference]} | ForEach-Object {$_.Operand.Name})
  foreach($name in @('SetSprite1','SetSprite2','SetSprite3','SetSprite4')){if($name -notin $calls){throw "Missing Vanilla sprite assignment: $name"}}
  if($assembly.MainModule.GetType('LordOverviewTest.OverviewCrownButton')){throw 'Obsolete custom crown-template path remains.'}
+ # Guard the consumer's actual compiled opt-in. This does not prove Noesis rendering, but catches
+ # the previous failure class where only an inherited Extender tooltip style owned the size.
+ $runtime=$assembly.MainModule.GetType('LordOverviewTest.OverviewRuntime')
+ $tipFactory=$runtime.Methods | Where-Object Name -eq 'CreateTip'
+ $sizingCalls=@($tipFactory.Body.Instructions | Where-Object {$_.Operand -is [Mono.Cecil.MethodReference] -and $_.Operand.DeclaringType.FullName -eq 'APIShared.ModSettings.SharedToolTipSizing'} | ForEach-Object {$_.Operand.Name})
+ foreach($name in @('SetReferenceElement','SetReferenceFontSize','SetEnabled')){if($name -notin $sizingCalls){throw "Owned statistics tooltips lost their public sizing opt-in: $name"}}
+ $attach=$runtime.Methods | Where-Object Name -eq 'Attach'
+ $templates=@($attach.Body.Instructions | Where-Object {$_.OpCode.Name -eq 'ldstr' -and $_.Operand -match "TargetType='\{x:Type ToolTip\}'"} | ForEach-Object {$_.Operand})
+ if($templates.Count -ne 1){throw 'Expected one explicit statistics popup style.'}
+ [xml]$template=$templates[0]
+ foreach($name in @('FontSize','MaxWidth','Padding','BorderThickness')){if($templates[0] -notmatch "\{TemplateBinding $name\}"){throw "Tooltip template does not honor its size owner: $name"}}
  $metrics=@($assembly.MainModule.GetType('LordOverviewTest.Metric').Fields | Where-Object IsLiteral | ForEach-Object Name)
  $settings=$assembly.MainModule.GetType('LordOverviewTest.OverviewSettings')
  foreach($name in @('EnableMod','AllowEnemyDetails','Columns')){

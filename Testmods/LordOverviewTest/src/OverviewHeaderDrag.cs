@@ -28,12 +28,12 @@ namespace LordOverviewTest {
    if(args.ChangedButton!=MouseButton.Left || !(sender is Button button) || Interlocked.Read(ref session)<=0 || panel?.IsVisible!=true || !settings.EnableMod || tableHeader==null)return;
    var match=metricHeaders.FirstOrDefault(pair=>ReferenceEquals(pair.Value,button));if(match.Value==null)return;
    CancelHeaderGesture();button.Focus();var point=args.GetPosition(tableHeader);pointerSession=Interlocked.Read(ref session);pointerGeneration=Volatile.Read(ref generation);
-   headerGesture.Begin(match.Key,point.X,point.Y,pointerSession,pointerGeneration);pressedHeader=button;
+   widths=tableHeader.ColumnDefinitions.Skip(2).Select(c=>(double)c.ActualWidth).ToArray();headerGesture.Begin(match.Key,point.X,point.Y,pointerSession,pointerGeneration);pressedHeader=button;
    if(!button.CaptureMouse()){CancelHeaderGesture();return;}args.Handled=true;
   }
   private static void TrackHeader(MouseEventArgs args){
    if(!headerGesture.Active || tableHeader==null)return;var point=args.GetPosition(tableHeader);var columns=selection.Columns;
-   bool inside=HeaderDropGeometry.TryTarget(point.X,point.Y,tableHeader.ActualHeight,widths,Array.IndexOf(columns,headerGesture.Metric),out int target,out double boundary);
+   bool inside=HeaderDropGeometry.TryTarget(point.X,point.Y,tableHeader.RowDefinitions[0].ActualHeight,tableHeader.ColumnDefinitions.Take(2).Sum(c=>(double)c.ActualWidth),widths,Array.IndexOf(columns,headerGesture.Metric),out int target,out double boundary);
    headerGesture.Update(point.X,point.Y,target);
    if(headerHighlights.TryGetValue(headerGesture.Metric,out var highlight))highlight.Background=new SolidColorBrush(headerGesture.Dragging?Color.FromArgb(100,200,150,50):Color.FromArgb(0,0,0,0));
    if(insertionMarker!=null){insertionMarker.Visibility=headerGesture.Dragging && inside?Visibility.Visible:Visibility.Collapsed;insertionMarker.Margin=new Thickness((float)boundary-1,0,0,0);}

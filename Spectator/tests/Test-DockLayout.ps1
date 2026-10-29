@@ -4,9 +4,9 @@ $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
 $baseline = Join-Path $workspace '_inspect/CrusaderDE-Native-Baseline'
 if ($env:SHCDE_NATIVE_BASELINE_ROOT) { $baseline = $env:SHCDE_NATIVE_BASELINE_ROOT }
 $current = Get-Content -LiteralPath (Join-Path $baseline 'CURRENT.json') -Raw | ConvertFrom-Json
-$vanilla = Join-Path (Join-Path $baseline $current.semanticDirectory) 'resources/xaml/Assets/GUI/XAMLResources/HUD_Main.xaml'
+$vanilla = Join-Path (Join-Path $baseline $current.semanticDirectory) 'resources/xaml/Assets/GUI/XAML/IngameUIScreens.xaml'
 $output = New-ShortWorkDirectory -Root $workspace -Kind t -Name 'SpectatorDock'
 & dotnet msbuild (Join-Path $PSScriptRoot 'DockLayoutTests.csproj') /t:Build /verbosity:quiet "/p:OutputPath=$output/" "/p:IntermediateOutputPath=$output/obj/"
 if ($LASTEXITCODE -ne 0) { throw 'Dock layout harness compilation failed.' }
-& (Join-Path $output 'DockLayoutTests.exe') $vanilla (Join-Path $PSScriptRoot '../Patches/Assets/GUI/XAMLResources/HUD_Main.xaml')
+& (Join-Path $output 'DockLayoutTests.exe') $vanilla (Join-Path $PSScriptRoot '../Patches/Assets/GUI/XAML/IngameUIScreens.xaml')
 if ($LASTEXITCODE -ne 0) { throw 'Dock patch integration failed.' }

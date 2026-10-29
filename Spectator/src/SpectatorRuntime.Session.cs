@@ -81,6 +81,8 @@ namespace Spectator
             SetRevealHidden(0);
             DetachHumanControls();
             humanPlacementMode = false;
+            toolbarMoved = false;
+            toolbarDesiredX = toolbarDesiredY = 0;
             RestorePlacementFreeze();
             ApplyHumanAi(-1);
             initialSelectionChosen = false;

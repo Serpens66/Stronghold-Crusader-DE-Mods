@@ -2,28 +2,21 @@ using System;
 
 namespace Spectator
 {
-    // Shared by the view model and its behavior tests; submenu visibility is independent of placement.
+    // One navigation state for the floating and HUD-anchored presentation.
     internal sealed class ToolbarMenuState
     {
         internal bool Expanded { get; private set; }
-        internal string View { get; private set; } = "";
+        internal string View { get; private set; } = "Goods";
+        internal bool Placing { get; private set; }
         internal void ToggleExpanded() { Expanded = !Expanded; }
-        internal void ToggleView(string view) { Expanded = true; View = View == view ? "" : view; }
-        internal void Placement() { View = ""; }
+        internal void ToggleView(string view) { if (view == "Goods" || view == "Orders") { Expanded = true; View = view; } }
+        internal void SetPlacement(bool value) { Placing = value; }
+        internal bool ShowDetails => Expanded && !Placing;
     }
 
     internal static class ToolbarGeometry
     {
         internal const float MenuFontSize = 14;
-        // A compact rank for each occupied slot; absent slots never consume a row/cell.
-        internal static int[] PortraitPositions(int mask)
-        {
-            var result = new int[9]; result[0] = -1;
-            int position = 0;
-            for (int player = 1; player <= 8; player++)
-                result[player] = (mask & (1 << (player - 1))) != 0 ? position++ : -1;
-            return result;
-        }
         internal static bool TryTooltipScale(float menuX, float menuY, float popupX, float popupY, out float x, out float y)
         {
             x = y = 0;
@@ -31,11 +24,7 @@ namespace Spectator
             x = menuX / popupX; y = menuY / popupY;
             return !float.IsInfinity(x) && !float.IsInfinity(y) && x > 0 && y > 0;
         }
-        // Only the detail rectangle is fitted. Opening it must never relocate the compact bar.
-        internal static float DetailLeft(float barLeft, float barWidth, float width, float canvasWidth, bool right) =>
-            Math.Max(0, Math.Min(Math.Max(0, canvasWidth - width), right ? barLeft + barWidth - width : barLeft));
-        internal static float DetailWidth(float canvasWidth) => Math.Max(1, Math.Min(640, canvasWidth - 20));
-        internal static float DetailHeight(float canvasHeight, float top) => Math.Max(0, canvasHeight - top - 10);
+
     }
 
     internal readonly struct PresentedAiOrder : IEquatable<PresentedAiOrder>
