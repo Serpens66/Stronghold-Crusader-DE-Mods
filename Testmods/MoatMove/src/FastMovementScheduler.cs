@@ -28,6 +28,7 @@ namespace MoatMove
         private int fastPlayerActionDepth, fastLastTick = int.MinValue, fastRoundRobin;
         private IntPtr fastChoreMode;
         private byte[] fastLoadedCommands;
+        private FireRouteRules fireRules;
         private long fastQueuedCommands, fastExecutedCommands, fastCommandRetries;
 
         private sealed class FastPendingSearch : IDisposable
@@ -98,6 +99,19 @@ namespace MoatMove
                 // Native hooks belong to APIShared and survive failed provider initialization.
                 throw;
             }
+        }
+
+        // After InitializeAnchor; anchor mode only: the core is the engine that reads the fire rules.
+        private void RegisterFireRouteRules()
+        {
+            if (!settings.AvoidFire || !anchorAvailable || fireRules != null) return;
+            var fire = new FireRouteRules();
+            if (fire.TryRegister(MoatMovePlugin.PluginGuid, out string reason))
+            {
+                fireRules = fire;
+                Shared.DebugLogHelper.LogInfo(log, "MoatMove fire route rules registered; replanning=" + settings.AnchorSingleMoves + ".");
+            }
+            else Shared.DebugLogHelper.LogError(log, "MoatMove fire route rules unavailable: " + reason);
         }
 
         private void ReleaseFastPendingSearch(FastPendingCommand command)
@@ -248,6 +262,10 @@ namespace MoatMove
                     // Tick-based and from simulation state only, so every peer requests alike.
                     if (AnchorPlayerScanDue(tick)) RequestAnchorMasksForPlayers(ScanAnchorPlayers());
                     AnchorTick(tick);
+                    ReplanTick(tick);
+                    // After AnchorTick: this tick's fire changes are read at the next tick, also on a
+                    // new map, where AnchorTick starts following the journal from its current end.
+                    fireRules?.Tick(tick);
                 }
                 if (fastCommands.Commands.Count == 0) return;
                 if (!RequiredOnlyMode || !runtime.TraversalEnabled)
@@ -611,6 +629,7 @@ namespace MoatMove
         private void ResetFastCommandMap()
         {
             fastCommands.Clear(); fastLastTick = int.MinValue; fastRoundRobin = 0;
+            fireRules?.Reset();
             ResetAnchorMap();
             fastSimulationRouting?.Pool.Clear(); fastCursorRouting?.Pool.Clear();
             fastSimulationRouting = fastCursorRouting = null;

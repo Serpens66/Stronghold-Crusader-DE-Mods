@@ -34,6 +34,7 @@ namespace MoatMove
         public ushort r_AttackMoveToTargetTileX, r_AttackMoveToTargetTileY;
         public int r_ControllableForPlayerId, r_CurrentTilePositionX, r_CurrentTilePositionY;
         public int r_NextTilePositionX2, r_NextTilePositionY2, r_PathPlanStateBitFlags, r_MovementSubstep;
+        public int r_CurrentPathPlanIndex, r_PathPlanLength, r_TargetTilePositionX2, r_TargetTilePositionY2, r_PreviousTilePositionX, r_PreviousTilePositionY;
         public int r_AI_LastIssuedTribeCommand;
         public int r_AIState;
         public AliveState r_AliveState;
@@ -70,6 +71,11 @@ namespace MoatMove
         public bool IsValidId(int id) => id > 0 && id < 1025;
         public bool TryGetUnitById(int id, out GameUnit* unit)
         { LookupCalls++; unit = id > 0 && id < 1025 ? Units + id : null; return unit != null; }
+        // Extender MoveToTile (196280): calls are recorded; MoveHandler plays the native result.
+        public readonly System.Collections.Generic.List<int[]> Moves = new System.Collections.Generic.List<int[]>();
+        public System.Action<int, int, int> MoveHandler;
+        public void MoveToTile(int unitId, int tileX, int tileY, int unknown = 0)
+        { Moves.Add(new[] { unitId, tileX, tileY }); MoveHandler?.Invoke(unitId, tileX, tileY); }
     }
     internal unsafe class GamePlayerManagerAPI
     {

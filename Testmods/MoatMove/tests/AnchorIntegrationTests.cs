@@ -9,6 +9,87 @@ namespace MoatMove
         // before the tests): masks start for alive human players only and complete in a fixed
         // number of ticks, a moat route passes the live audit, a terrain change on the route
         // makes the task stale, stale restarts are bounded, and a steady tick allocates nothing.
+        // Replan watch (RouteReplanPolicy with AnchorSingleMoves) on the anchor corridor (ground east of
+        // x 136, player 1's mask ready): a walking unit 3 steps before a new rule tile re-plans to its
+        // unchanged target and keeps an allowed detour; a detour beyond the policy stops it on its next
+        // tile; once the core finds a clear route the unit resumes its target. Unit 7 walks east from
+        // (140,10) to (160,10); MoveHandler plays 196280's result.
+        private void ReplanWatchTests(ref int ticks)
+        {
+            bool singleBefore = settings.AnchorSingleMoves; settings.AnchorSingleMoves = true;
+            GameUnitManagerAPI units = GameUnitManagerAPI.Instance;
+            GameUnit* walker = units.Units + 7;
+            GameUnit saved = *walker;
+            Check(APIShared.Pathfinding.RouteTileRules.TryRegister("tests.moatmove", "replan", out APIShared.Pathfinding.RouteTileRuleSet fire, out _),
+                "replan rule registration failed");
+            fire.ReplanPolicy = new APIShared.Pathfinding.RouteReplanPolicy(3, 50, 10, 400);
+            int[] Steps(int first, int east, int last)
+            {
+                var steps = new System.Collections.Generic.List<int>();
+                if (first >= 0) steps.Add(first);
+                for (int i = 0; i < east; i++) steps.Add(2);
+                if (last >= 0) steps.Add(last);
+                return steps.ToArray();
+            }
+            int[] straight = Steps(-1, 20, -1), detour = Steps(1, 18, 3), tooLong = Steps(1, 38, 3);
+            int[] answer = detour;
+            units.MoveHandler = (id, x, y) =>
+            {
+                if (x == 160 && y == 10) Route(id, 140, 10, answer, x, y);
+                else Route(id, x, y, new int[0], x, y);
+            };
+            try
+            {
+                walker->r_GlobalId = 9007; walker->r_ControllableForPlayerId = 1; walker->r_AliveState = AliveState.IsAlive; walker->r_TribeId = 0;
+                walker->r_IsKilledByProjectile = 0; walker->r_MovementSubstep = 0;
+                Route(7, 140, 10, straight, 160, 10);
+                units.Moves.Clear();
+                long detours = replanDetours, waits = replanWaitsStarted, resumed = replanResumed;
+                Check(fire.Set(143, 10, APIShared.Pathfinding.RouteTileEffect.Penalty, 254), "fire rule rejected");
+                AnchorTick(++ticks);
+                Check(replanTileCount == 1, "the replan tile set misses the new rule tile");
+                // New rule tiles check every 8th unit for 8 ticks: unit 7 is decided within them.
+                for (int i = 0; i < 8; i++) ReplanTick(++ticks);
+                Check(replanDetours == detours + 1 && units.Moves.Count == 1 && units.Moves[0][0] == 7 && units.Moves[0][1] == 160 && units.Moves[0][2] == 10,
+                    $"an allowed detour was not taken (moves={units.Moves.Count} detours={replanDetours - detours})");
+
+                // The same situation with a 40-step answer (allowed: 20 + 10): the unit stops on its next tile.
+                Route(7, 140, 10, straight, 160, 10); answer = tooLong; units.Moves.Clear();
+                for (int i = 0; i < 40 && replanWaitsStarted == waits; i++) ReplanTick(++ticks);
+                Check(replanWaitsStarted == waits + 1 && replanWaits.ContainsKey(7) && units.Moves.Count == 2 &&
+                    units.Moves[1][1] == 140 && units.Moves[1][2] == 10 && walker->r_PathPlanStateBitFlags == 0,
+                    $"a detour beyond the policy did not stop the unit (moves={units.Moves.Count})");
+
+                // The fire goes out: the next probe finds the clear core route and the unit resumes.
+                fire.ClearAll(); AnchorTick(++ticks); answer = straight; units.Moves.Clear();
+                for (int i = 0; i < 64 && replanResumed == resumed; i++) ReplanTick(++ticks);
+                Check(replanResumed == resumed + 1 && !replanWaits.ContainsKey(7) && units.Moves.Count == 1 && units.Moves[0][1] == 160,
+                    $"a waiting unit did not resume once its route was clear (moves={units.Moves.Count})");
+                // Without rule tiles or waits the watch returns at once.
+                long checks = replanChecks;
+                for (int i = 0; i < 40; i++) ReplanTick(++ticks);
+                Check(replanChecks == checks, "the replan watch checks units without rule tiles");
+            }
+            finally
+            {
+                units.MoveHandler = null; units.Moves.Clear(); fire.ClearAll(); fire.ReplanPolicy = null; AnchorTick(++ticks);
+                *walker = saved; ResetReplanWatch(); settings.AnchorSingleMoves = singleBefore;
+            }
+        }
+
+        // Writes a stored route starting at (x,y) and the move target into unit id's record and buffer.
+        private void Route(int id, int x, int y, int[] steps, int targetX, int targetY)
+        {
+            GameUnit* unit = GameUnitManagerAPI.Instance.Units + id;
+            byte* path = nativeUnitManager + NativeUnitPathBufferOffset + id * NativeUnitPathBufferStride;
+            for (int i = 0; i < NativeUnitPathBufferStride; i++) path[i] = 0;
+            for (int i = 0; i < steps.Length; i++) path[i >> 1] |= (byte)(steps[i] << ((i & 1) * 4));
+            unit->r_PreviousTilePositionX = unit->r_NextTilePositionX2 = unit->r_CurrentTilePositionX = x;
+            unit->r_PreviousTilePositionY = unit->r_NextTilePositionY2 = unit->r_CurrentTilePositionY = y;
+            unit->r_CurrentPathPlanIndex = 0; unit->r_PathPlanLength = steps.Length; unit->r_PathPlanStateBitFlags = steps.Length > 0 ? 2 : 0;
+            unit->r_TargetTilePositionX2 = targetX; unit->r_TargetTilePositionY2 = targetY;
+        }
+
         private void AnchorIntegrationTests()
         {
             string directory = Environment.GetEnvironmentVariable("MOAT_TEST_ANCHOR_DIR");
@@ -339,6 +420,7 @@ namespace MoatMove
                 tileRules.ClearAll(); AnchorTick(++ticks);
                 Check(AnchorNative.mma_task_status(anchorContext, penaltyTask) == AnchorNative.Stale, "a removed Penalty rule stays in the core");
                 ReleaseAnchorTask(penaltyTask);
+                ReplanWatchTests(ref ticks);
 
                 // The word-based reachability search (cached words, node tile table) visits the same
                 // cells with the same distances and summary as the per-neighbour search.

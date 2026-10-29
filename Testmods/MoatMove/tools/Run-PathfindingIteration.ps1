@@ -7,6 +7,8 @@ param(
     # With -BuildBugfixes: a DEVDIAG build of BugfixesAndQoL (its Shared.DevDiag counters and spikes).
     [switch]$BugfixesDevDiag,
     [switch]$SkipMoatMove,
+    # A DEVDIAG build of MoatMove (development checks such as the replan cursor contract).
+    [switch]$MoatMoveDevDiag,
     [int]$RunSeconds = 180,
     [string]$SavePath = 'test_stresstest4.sav',
     [string]$ExtraConfig = ''
@@ -39,7 +41,7 @@ if ($BuildBugfixes) {
     & git -C $root diff --cached --quiet
     if ($LASTEXITCODE -ne 0) { & git -C $root commit -q -m "Pathfinding dev: BugfixesAndQoL build for $Label`n`nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>" }
 }
-if (-not $SkipMoatMove) { Invoke-Build (Join-Path $root 'Testmods\MoatMove\build.bat') '/source:working /nopause' "$Label-moat-build.log" }
+if (-not $SkipMoatMove) { Invoke-Build (Join-Path $root 'Testmods\MoatMove\build.bat') ('/source:working /nopause' + $(if ($MoatMoveDevDiag) { ' /devdiag' } else { '' })) "$Label-moat-build.log" }
 
 $config = 'Automation.PauseSeconds=1;Automation.RunSeconds=' + $RunSeconds + ';Automation.TimeoutSeconds=' + ($RunSeconds + 420) +
     ';Automation.SettleSeconds=2;Sampler.Enabled=true;Sampler.SimOutsideRun=true;Spikes.Enabled=true'
