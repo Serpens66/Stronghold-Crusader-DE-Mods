@@ -159,6 +159,19 @@ internal static class AnchorCoreGate
             // unreachable left-hand starts would settle the whole right component (29 x 60) as well.
             if (stats[AnchorCoreInterop.Stat("settleEvents")] >= 30 * 60 + 29 * 60) throw new InvalidOperationException("Sub-anchor exhausted the right component: settles=" + stats[AnchorCoreInterop.Stat("settleEvents")]);
         }
+        // Anchor, starts and slots in three closed components (an AI group ordered into an
+        // enclosure, pf-iter-3): the first slot's exhausted sub-anchor proves every start
+        // unreachable for the slots it settled, so the other slots build no sub-anchor of their own.
+        {
+            GridSnapshot map = GroupGate.Grid(60, 60, null, n => n % 60 != 20 && n % 60 != 40);
+            var load = new GroupLoad { Name = "core-unreachable-slots", Map = map }; load.Anchors.Add(30 * 60 + 10);
+            for (int i = 0; i < 8; i++) { load.Queries.Add(new RouteQuery { Start = (20 + i) * 60 + 30, Target = 30 * 60 + 45 + i, GroundCost = 1, MoatCost = 7 }); load.GroupOf.Add(0); }
+            using var core = new AnchorCoreInterop(60, 60, 128L * 1024 * 1024); core.WriteWholeMask(Player, map, 500);
+            RouteResult[] r = Solve(core, load, 2, out _); Check(load, r);
+            if (r.Any(x => x.Status != SearchStatus.Unreachable)) throw new InvalidOperationException("A slot in a closed component was not answered unreachable.");
+            if (core.Stats()[AnchorCoreInterop.Stat("subAnchors")] != 1) throw new InvalidOperationException("Unreachable slots built one sub-anchor each: " + core.Stats()[AnchorCoreInterop.Stat("subAnchors")]);
+            using (var batchCore = new AnchorCoreInterop(60, 60, 128L * 1024 * 1024)) { batchCore.WriteWholeMask(Player, map, 500); Same(r, SolveBatch(batchCore, load, 4), "core-unreachable-slots-batch"); }
+        }
         // Directed snake longer than 2,000 steps: never returned as a route.
         {
             GridSnapshot map = GroupGate.Grid(800, 4, (a, b, d) => ((a / 800) % 2 == 0 ? d == 2 : d == 6) && a / 800 == b / 800 || d == 4 && a % 800 == ((a / 800) % 2 == 0 ? 799 : 0) ? 1U << d : 0);

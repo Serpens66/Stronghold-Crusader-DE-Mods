@@ -386,19 +386,18 @@ namespace MoatMove
             anchorDispatchTask = anchorGroundTask = 0;
         }
 
-        private FastTraversalCache AnchorTraversal(int player)
+        private FastTraversalCache AnchorTraversal(int player) => anchorMaps[player] ?? CreateAnchorTraversal(player);
+
+        // Own method so the lambda's closure is allocated only here, not on every AnchorTraversal
+        // call (the resweep calls it per node and player).
+        private FastTraversalCache CreateAnchorTraversal(int player)
         {
-            FastTraversalCache map = anchorMaps[player];
-            if (map == null)
-            {
-                RefreshAnchorBlocked(player);
-                anchorShared = anchorShared ?? new FastSharedWords(MapWidth * MapWidth);
-                map = anchorMaps[player] = new FastTraversalCache(MapWidth, MapWidth,
-                    (int a, int b, int direction, bool ground, out bool wet, out bool structure) =>
-                        AnchorLiveEdge(player, a, b, direction, ground, out wet, out structure), GroundEqualsFriendly,
-                    anchorShared, AnchorPlayerNeutral);
-            }
-            return map;
+            RefreshAnchorBlocked(player);
+            anchorShared = anchorShared ?? new FastSharedWords(MapWidth * MapWidth);
+            return anchorMaps[player] = new FastTraversalCache(MapWidth, MapWidth,
+                (int a, int b, int direction, bool ground, out bool wet, out bool structure) =>
+                    AnchorLiveEdge(player, a, b, direction, ground, out wet, out structure), GroundEqualsFriendly,
+                anchorShared, AnchorPlayerNeutral);
         }
 
         private bool AnchorLiveEdge(int player, int from, int to, int direction, bool ground, out bool wet, out bool structure) =>

@@ -193,9 +193,9 @@ struct Field {
 
 // Compact backward field to an anchor: exact cost per settled node, Unset otherwise.
 struct Stored {
-    int anchor = -1; Vec<u32> dist;
+    int anchor = -1; bool exhausted = false; Vec<u32> dist;
     explicit Stored(Memory* m) : dist(Alloc<u32>(m)) {}
-    void take(const Map& map, const Field& f, int a) { anchor = a; dist.assign(size_t(map.n), Unset); for (int v = 0; v < map.n; ++v) if (f.reached(v)) dist[v] = f.dist[v]; }
+    void take(const Map& map, const Field& f, int a) { anchor = a; exhausted = f.exhausted; dist.assign(size_t(map.n), Unset); for (int v = 0; v < map.n; ++v) if (f.reached(v)) dist[v] = f.dist[v]; }
 };
 // Deterministic descent (lowest direction first) along a backward cost function. The stop
 // test also gets the node's coordinates, tracked per step instead of divided per test.
@@ -294,10 +294,15 @@ static int Query(Context& c, Task& t, Scratch& sc, int start, int slot, int marg
         if (int(path.size()) > MaxSteps || int(path.size()) > capacity) { r.status = OverLimit; r.length = 0; return; }
         std::copy(path.begin(), path.end(), bytes); r.status = Found;
     };
-    // The main field ran out before reaching every start: a start it never settled cannot reach
-    // the anchor, so it cannot reach any slot that does (directed graph). Answer that exactly
-    // instead of building a full-map sub-anchor per query (AI units behind walls, 29.10.2026).
-    if (t.exhausted && t.main->dist[start] == Unset && t.main->dist[slot] != Unset) { r.status = Unreachable; r.flags = 0; return Ok; }
+    // A field that ran out before reaching every target settled every node that reaches its
+    // anchor: a start it never settled cannot reach the anchor, so it cannot reach any slot that
+    // does (directed graph). Answer that exactly instead of building a full-map sub-anchor per
+    // query (AI units behind walls, 29.10.2026). Sub-anchors count too: the slots of a group whose
+    // starts lie in another component then cost one exhausted sub-anchor, not one each (pf-iter-3).
+    for (size_t a = 0; a <= t.subs.size(); ++a) {
+        const Stored& s = a == 0 ? *t.main : *t.subs[a - 1];
+        if (s.exhausted && s.dist[start] == Unset && s.dist[slot] != Unset) { r.status = Unreachable; r.flags = 0; return Ok; }
+    }
     for (size_t a = 0; a <= t.subs.size(); ++a) {
         const Stored& s = a == 0 ? *t.main : *t.subs[a - 1];
         if (s.dist[start] == Unset) { ++stats[AnchorNoStart]; continue; }
