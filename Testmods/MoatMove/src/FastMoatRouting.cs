@@ -108,6 +108,10 @@ namespace MoatMove
             if (!allowed && ground && planner.edgeRejectionRule == "height") { allowed = true; wet = false; }
             // The publication audit rejects a diagonal past an enemy moat corner; GroundOnly does not
             // check corners (FriendlyOnly does), so ground edges apply the audit's rule themselves.
+            // APIShared route tile rules: a Forbidden tile has no incoming edges (leaving stays possible).
+            if (allowed && APIShared.Pathfinding.RouteTileRules.HasRules &&
+                APIShared.Pathfinding.RouteTileRules.GetEffect(nx, ny, player, out _) == APIShared.Pathfinding.RouteTileEffect.Forbidden)
+                return false;
             if (allowed && ground && (direction & 1) != 0 &&
                 (runtime.IsCompletedEnemyMoatForPlayer(player, GameTileManagerAPI.Instance.GetTileId(nx, y)) ||
                  runtime.IsCompletedEnemyMoatForPlayer(player, GameTileManagerAPI.Instance.GetTileId(x, ny))))

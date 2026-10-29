@@ -242,7 +242,7 @@ namespace MoatMove
             anchorBatchIndex.Clear(); anchorPendingFormationTribe = -1; anchorPendingFormation = null;
             Array.Clear(anchorMaps, 0, anchorMaps.Length); anchorAccessKnown = false; anchorShared = null; anchorBlockedUnion.Clear();
             Array.Clear(reachWords, 0, reachWords.Length); Array.Clear(exhaustedReachability, 0, exhaustedReachability.Length);
-            anchorWatchTiles = null; anchorWatchBytes = null;
+            anchorWatchTiles = null; anchorWatchBytes = null; routeTileRuleCursor = -1;
             anchorPlayersRequested = false; anchorUnreachedLogs = 0; anchorUnreachableLogs = 0; reachabilitySlowLogs = 0; anchorEndedUnreached = 0; anchorPortalCount = -1;
             for (int p = 0; p < anchorMaskNext.Length; p++) { anchorMaskNext[p] = -1; anchorBlocked[p]?.Clear(); }
             anchorSweepCursor = -1; anchorSweepLeft = 0; anchorSweepRequestStart = anchorSweptSinceRequest = 0;
@@ -579,6 +579,27 @@ namespace MoatMove
             return ((node - anchorSweepRequestStart) % total + total) % total < anchorSweptSinceRequest;
         }
 
+        // APIShared route tile rules changed since the last tick: a changed tile's incoming edges
+        // belong to its neighbours' words, so the tile and its eight neighbours are re-read. Lost
+        // changes (journal overflow) re-read every mask.
+        private long routeTileRuleCursor = -1, routeTileRuleChanges;
+        private readonly int[] routeTileRuleBuffer = new int[4096];
+        private void ReadRouteTileRuleChanges()
+        {
+            // A new map's masks read the current rules while they are built; follow from here.
+            if (routeTileRuleCursor < 0) { routeTileRuleCursor = APIShared.Pathfinding.RouteTileRules.Version; return; }
+            if (routeTileRuleCursor == APIShared.Pathfinding.RouteTileRules.Version) return;
+            int count = APIShared.Pathfinding.RouteTileRules.ReadChanges(ref routeTileRuleCursor, routeTileRuleBuffer);
+            if (count < 0) { MarkFastTopologyAll(); return; }
+            for (int i = 0; i < count; i++)
+            {
+                int x = routeTileRuleBuffer[i] % APIShared.Pathfinding.RouteTileRules.MapSize, y = routeTileRuleBuffer[i] / APIShared.Pathfinding.RouteTileRules.MapSize;
+                if ((uint)x >= MapWidth || (uint)y >= MapWidth) continue;
+                int tile = GameTileManagerAPI.Instance.GetTileId(x, y);
+                if (IsValidTileId(tile)) { MarkFastTopologyTile(tile, 1); routeTileRuleChanges++; }
+            }
+        }
+
         // Tile id of every node once the watch's first pass completed, else null (ids are fixed per map).
         private int[] AnchorNodeTiles() =>
             anchorWatchTiles != null && anchorWatchPrimed >= MapWidth * MapWidth ? anchorWatchTiles : null;
@@ -663,6 +684,7 @@ namespace MoatMove
             }
             anchorAccess = access; anchorAccessKnown = true;
             WatchNativeDirections();
+            ReadRouteTileRuleChanges();
             // Marked nodes (tile reports, gate footprints, failed live audits, native byte changes).
             AdvanceFastMarkEpoch();
             for (int p = 1; p <= 8; p++)
@@ -1081,7 +1103,7 @@ namespace MoatMove
                 $"members={anchorMembers} unreachedMembers={anchorUnreachedUnits} movesWithUnreached={anchorMovesWithUnreached} " +
                 $"vanilla(vanillaCalls={anchorVanillaCalls} vanillaFails={anchorVanillaFails} vanillaMs={AnchorMs(anchorVanillaTicks)} vanillaFailMs={AnchorMs(anchorVanillaFailTicks)} " +
                 $"afterUnreachable={anchorVanillaAfterUnreachable} afterUnreachableMs={AnchorMs(anchorVanillaAfterUnreachableTicks)} " +
-                $"foundAfterUnreachable={anchorVanillaFoundAfterUnreachable}) vanillaWhy=[{FormatAnchorReasons(anchorVanillaWhy)}] sameTickTasks={anchorSameTickTasks} sameTickTaskMs={AnchorMs(anchorSameTickTaskTicks)} diggerGroundRoutes={anchorDiggerGroundRoutes} nativeByteChanges={anchorWatchChanges} rebuildsWatched={anchorRebuildsWatched} exhaustedReach(kept={ExhaustedReachabilityKept} hits={ExhaustedReachabilityHits}) reach(advances/expanded/ms/maxMs)=[{FormatReachabilityByOwner()}] " +
+                $"foundAfterUnreachable={anchorVanillaFoundAfterUnreachable}) vanillaWhy=[{FormatAnchorReasons(anchorVanillaWhy)}] sameTickTasks={anchorSameTickTasks} sameTickTaskMs={AnchorMs(anchorSameTickTaskTicks)} diggerGroundRoutes={anchorDiggerGroundRoutes} nativeByteChanges={anchorWatchChanges} rebuildsWatched={anchorRebuildsWatched} tileRuleChanges={routeTileRuleChanges} exhaustedReach(kept={ExhaustedReachabilityKept} hits={ExhaustedReachabilityHits}) reach(advances/expanded/ms/maxMs)=[{FormatReachabilityByOwner()}] " +
                 $"tick(refreshMs={AnchorMs(anchorRefreshTicks)} refreshNodes={anchorRefreshNodes} buildMs={AnchorMs(anchorBuildTicks)} " +
                 $"buildNodes={anchorBuildNodes} sweepMs={AnchorMs(anchorSweepTicks)} sweepNodes={anchorSweepNodes} resweeps={anchorResweeps} " +
                 $"accessChanges={anchorAccessChanges} gateRefreshes={anchorGateRefreshes} sharedReuses={anchorShared?.Reuses ?? 0} " +

@@ -315,6 +315,21 @@ namespace MoatMove
                 for (int i = 0; i < watchTicks + 1; i++) AnchorTick(++ticks);
                 ReleaseAnchorTask(watchTask);
 
+                // APIShared route tile rules: a Forbidden tile loses its incoming edges for the selected
+                // players only (the anchor mask follows within one tick); clearing the rule restores them.
+                Check(APIShared.Pathfinding.RouteTileRules.TryRegister("tests.moatmove", "forbidden", out APIShared.Pathfinding.RouteTileRuleSet tileRules, out _),
+                    "tile rule registration failed");
+                int ruleFrom = 10 * MapWidth + 149, ruleTo = 10 * MapWidth + 150;
+                Check(LiveEdge(1, ruleFrom, ruleTo, 2, false, null, out _, out _), "the corridor edge is closed before the rule");
+                Check(tileRules.Set(150, 10, APIShared.Pathfinding.RouteTileEffect.Forbidden, 0, 1U << 1), "rule rejected");
+                AnchorTick(++ticks);
+                Check(!LiveEdge(1, ruleFrom, ruleTo, 2, false, null, out _, out _) && LiveEdge(2, ruleFrom, ruleTo, 2, false, null, out _, out _),
+                    "a Forbidden tile rule does not close the edge for exactly its players");
+                Check((anchorMaps[1].Word(ruleFrom) & (1U << 2)) == 0, "the anchor mask keeps an edge into a Forbidden tile");
+                Check(LiveEdge(1, ruleTo, ruleFrom, 6, false, null, out _, out _), "a unit on a Forbidden tile cannot leave it");
+                tileRules.ClearAll(); AnchorTick(++ticks);
+                Check((anchorMaps[1].Word(ruleFrom) & (1U << 2)) != 0, "clearing the tile rule does not restore the edge");
+
                 // The word-based reachability search (cached words, node tile table) visits the same
                 // cells with the same distances and summary as the per-neighbour search.
                 Check(AnchorNodeTiles() != null, "the byte watch provides no node tile table after a full round");

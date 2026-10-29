@@ -245,6 +245,7 @@ var comparisonPlannerTree = CSharpSyntaxTree.ParseText("using APIShared; using S
 var compilation = CSharpCompilation.Create("Assembly-CSharp", new[] {
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared/src/Pathfinding/Routes/RouteSearchContracts.cs"))),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared/src/Pathfinding/Routes/RouteSearchEvents.cs"))),
+    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared/src/Pathfinding/Routes/RouteTileRules.cs"))),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "RouteSearchEventIntegrationTests.cs"))),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared", "src", "Units", "UnitAccess.cs"))
         .Replace("using SHCDESE.API;", "using GameUnitManagerAPI = MoatMove.GameUnitManagerAPI;")
