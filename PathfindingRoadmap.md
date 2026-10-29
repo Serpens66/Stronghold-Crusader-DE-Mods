@@ -40,6 +40,7 @@ Verbleibende Spitzen (pf-iter-18, je Lauf 6 Lücken von 105–206 ms):
 - **Grabenarbeits-Auswahl der KI-Gräber** (`MoatWorkSelectionScope`): 42 verwaltete Erreichbarkeitssuchen je Lauf, im Mittel 390.000 Zellen und 27 ms, höchstens 62 ms; mehrere Gräber im selben Tick ergeben bis zu 206 ms.
 - **Vanillas Builder außerhalb von Anker-Gruppenbefehlen** (Einzel- und Angriffsbefehle): 143–168 ms.
 - **Gewichtete Assassinen-Suche** (BFQoL `TryBuildWeightedRoute`): 105–115 ms.
+  - pf-iter-23 (BFQoL-DEVDIAG): Einzelanfragen höchstens 35 ms. Die Lücken entstehen durch Häufung (stärkstes 5-s-Fenster: 13 Anfragen/s, 404 ms; davon 9/s gewichtete A*-Treffer, für die Vanilla keine Route fand, je ~10 ms). Vor dem Startfeld je Tick ist zu messen, ob die Anfragen eines Ticks Startkacheln teilen.
 - **Hauptfelder vieler Gruppenbefehle in einem Tick** (`mma_step`): rund 65 ms Anteil.
 
 Die größte Lücke liegt seit pf-iter-4 im ersten Tick nach dem Laden (Erstinitialisierung aller Mods, ohne Wegfindungs-Samples); sie ist ein Kartenstart-Thema.
@@ -70,6 +71,17 @@ Ziel: Mods definieren zusätzliche Wegfindungsregeln (Feuer ausweichen, Gefahren
   - Jede veröffentlichte Route wird weiter live geprüft, die Regeln eingeschlossen.
   - Vanilla-Befehle und Vanillas eigene Suchen bleiben unverändert.
 - **Beispielregel „Feuer ausweichen“:** Aufschlag auf brennende Gebäudegrundflächen ±1. Bekannte Bausteine: Brandzähler der Gebäude (`0xC4D30`, `0xC60F0`, `0xC3C80`, siehe `FIREMAN_TARGETING.md`). Vor der Umsetzung ist ein Vanilla-Audit des Brandzustands nötig; Pechgräben sind in der Baseline noch nicht belegt.
+
+**Umsetzungsstand (29.10.2026, Testlinie):**
+- APIShared (`pathfinding-pin`): `APIShared.Pathfinding.RouteTileRules`, `RouteTileRuleSet`, `RouteTileEffect`, mit Core-Test, API-Basis (nur Ergänzungen), Katalogabschnitt „Route tile rules“ und Beispiel `examples/ThirdPartyMod/RouteTileRulesExample.cs`.
+- MoatMove:
+  - `Forbidden` im Kantenprädikat (Masken, Erreichbarkeit, Live-Audit), Journal-Leser im Anker-Tick (Kachel und Nachbarn neu lesen, bei Verlust volle Neuabtastung).
+  - `Penalty` als Eintrittskosten im Kern (Vertrag `0x04000009`, `mma_penalty_update`), geschrieben bei Journaländerungen und in jedem Masken-Abschnitt.
+  - Tests mit Gegenproben: Wirkung nur für die gewählten Spieler, Verlassen bleibt möglich, Aufgaben werden veraltet, Umweg um bestrafte Kacheln, Batch gleich Einzelabfrage.
+- Offen:
+  - Beispielregel „Feuer ausweichen“ nach einem Vanilla-Audit des Brandzustands.
+  - Ausnahme „Ziel liegt auf verbotener Kachel“: heute unerreichbar, dann Vanilla.
+  - Ingame-Prüfung mit einer echten Regel.
 
 ## Regeln (gemeinsam für alle Suchen)
 
