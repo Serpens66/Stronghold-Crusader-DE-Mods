@@ -16,6 +16,7 @@ internal sealed class AnchorCoreInterop : IDisposable
     [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern int mma_mask_begin(IntPtr context, int player);
     [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern int mma_mask_write(IntPtr context, int player, int first, int count, uint[] words, out int changed);
     [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern int mma_mask_update(IntPtr context, int player, int[] nodes, uint[] words, int count, out int changed);
+    [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern int mma_penalty_update(IntPtr context, int player, int[] nodes, byte[] values, int count, out int changed);
     [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern int mma_mask_state(IntPtr context, int player, out long written, out ulong revision);
     [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern int mma_task_create(IntPtr context, int player, int anchor, int ground, int moat, int[] starts, int count, out int id);
     [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern int mma_task_restart(IntPtr context, int id);
@@ -39,7 +40,7 @@ internal sealed class AnchorCoreInterop : IDisposable
     {
         if (library != IntPtr.Zero) return;
         library = NativeLibrary.Load(Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../MoatMove/.local/anchor/MoatMoveAnchor.dll")));
-        if (mma_contract() != 0x04000008 || Marshal.SizeOf<QueryResult>() != 32) throw new InvalidOperationException("Anchor core ABI");
+        if (mma_contract() != 0x04000009 || Marshal.SizeOf<QueryResult>() != 32) throw new InvalidOperationException("Anchor core ABI");
     }
     internal AnchorCoreInterop(int width, int height, long limit = 512L * 1024 * 1024)
     {
@@ -73,6 +74,7 @@ internal sealed class AnchorCoreInterop : IDisposable
         Code(mma_mask_update(context, player, ids, words, ids.Length, out int changed)); return changed;
     }
     internal bool MaskReady(int player) => mma_mask_state(context, player, out _, out _) == 0;
+    internal int UpdatePenalties(int player, int[] nodes, byte[] values) { Code(mma_penalty_update(context, player, nodes, values, nodes.Length, out int changed)); return changed; }
     internal int CreateTask(int player, int anchor, long ground, long moat, int[] starts)
     { Code(mma_task_create(context, player, anchor, checked((int)ground), checked((int)moat), starts, starts.Length, out int id)); return id; }
     internal int Step(int maxTasks, int threads) { int code = mma_step(context, maxTasks, threads, out int computed); Code(code); return computed; }

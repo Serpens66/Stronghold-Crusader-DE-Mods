@@ -93,9 +93,16 @@ struct Map {
 // search follows the native direction byte without DAFD0's height correction; keeps, towers
 // and walls differ, pf-iter-7).
 struct Mask {
-    Vec<uint8_t> out, outWet, outDry, in, inWet, inDry, written; i64 writtenCount = 0; u64 revision = 1;
+    // penalty: extra cost (in ground steps of the task) for entering a node (APIShared route tile rules).
+    Vec<uint8_t> out, outWet, outDry, in, inWet, inDry, written, penalty; i64 writtenCount = 0; u64 revision = 1;
     explicit Mask(Memory* m, int n) : out(size_t(n), 0, Alloc<uint8_t>(m)), outWet(size_t(n), 0, Alloc<uint8_t>(m)), outDry(size_t(n), 0, Alloc<uint8_t>(m)),
-        in(size_t(n), 0, Alloc<uint8_t>(m)), inWet(size_t(n), 0, Alloc<uint8_t>(m)), inDry(size_t(n), 0, Alloc<uint8_t>(m)), written(size_t(n), 0, Alloc<uint8_t>(m)) {}
+        in(size_t(n), 0, Alloc<uint8_t>(m)), inWet(size_t(n), 0, Alloc<uint8_t>(m)), inDry(size_t(n), 0, Alloc<uint8_t>(m)), written(size_t(n), 0, Alloc<uint8_t>(m)),
+        penalty(size_t(n), 0, Alloc<uint8_t>(m)) {}
+    // Cost of an edge that enters node v: the profile's step cost plus v's penalty, saturating at MaxCost.
+    u32 cost(int v, bool wet, int ground, int moat) const {
+        u32 c = u32(moat && wet ? moat : ground) + u32(penalty[v]) * u32(ground);
+        return c > u32(MaxCost) ? u32(MaxCost) : c;
+    }
     uint8_t outgoing(int v, int moat) const { return moat ? out[v] : outDry[v]; }
     uint8_t incoming(int v, int moat) const { return moat ? in[v] : inDry[v]; }
     bool ready(int n) const { return writtenCount == n; }
@@ -166,7 +173,7 @@ struct Field {
                 if (needGen[v] == generation) { needGen[v] = 0; --remaining; }
                 // Incoming edge u -> v in direction d: u lies at v - (dx, dy).
                 for (u32 m = mask.incoming(v, moat); m; m &= m - 1) {
-                    int d = Ctz(m); relax(v - map.off[d], vx - dx[d], vy - dy[d], g + u32(moat && ((mask.inWet[v] >> d) & 1) ? moat : ground));
+                    int d = Ctz(m); relax(v - map.off[d], vx - dx[d], vy - dy[d], g + mask.cost(v, ((mask.inWet[v] >> d) & 1) != 0, ground, moat));
                 }
             }
             list.clear();
@@ -193,8 +200,8 @@ struct Field {
                 done[v] = 1; ++settles; settled.push_back(v);
                 if (needGen[v] == generation) { needGen[v] = 0; --remaining; }
                 // moat == 0: ground-only profile, wet (moat) edges are not traversable.
-                if (forward) { for (u32 m = mask.outgoing(v, moat); m; m &= m - 1) { int d = Ctz(m); relax(v + map.off[d], bucket + u32(moat && ((mask.outWet[v] >> d) & 1) ? moat : ground)); } }
-                else { for (u32 m = mask.incoming(v, moat); m; m &= m - 1) { int d = Ctz(m); relax(v - map.off[d], bucket + u32(moat && ((mask.inWet[v] >> d) & 1) ? moat : ground)); } }
+                if (forward) { for (u32 m = mask.outgoing(v, moat); m; m &= m - 1) { int d = Ctz(m); relax(v + map.off[d], bucket + mask.cost(v + map.off[d], ((mask.outWet[v] >> d) & 1) != 0, ground, moat)); } }
+                else { for (u32 m = mask.incoming(v, moat); m; m &= m - 1) { int d = Ctz(m); relax(v - map.off[d], bucket + mask.cost(v, ((mask.inWet[v] >> d) & 1) != 0, ground, moat)); } }
             }
             list.clear();
         }
@@ -235,7 +242,7 @@ template<class Dist, class Stop> static int Descend(const Map& map, const Mask& 
         for (u32 m = mask.outgoing(node, moat); m && next < 0; m &= m - 1) {
             int d = Ctz(m), u = node + map.off[d]; u32 there = distance(u); if (there == Unset) continue;
             bool wet = ((mask.outWet[node] >> d) & 1) != 0;
-            if (there + u32(wet ? moat : ground) != here) continue;
+            if (there + mask.cost(u, wet, ground, moat) != here) continue;
             next = u; x += dx[d]; y += dy[d]; path.push_back(uint8_t(d)); if (wet) ++w; else ++g;
         }
         if (next < 0 || int(path.size()) > MaxSteps * 4) return -1;
@@ -356,7 +363,9 @@ static int Query(Context& c, Task& t, Scratch& sc, int start, int slot, int marg
         if (!local.reached(s.anchor)) { ++stats[AnchorUnreached]; continue; }
         if (local.dist[s.anchor] > u32(t.ground) * u32(2 * map.chebyshev(s.anchor, slot) + 8)) { ++stats[AnchorTooFar]; continue; }
         auto localDistance = [&](int v) { return local.touched(v) ? local.dist[v] : Unset; };
-        i64 boxCost = local.reached(entry) ? i64(gH) * t.ground + i64(wH) * t.moat + local.dist[entry] : -1;
+        // The descent to the entry follows the stored field exactly: its cost is the distance drop
+        // (penalties included; equal to gH * ground + wH * moat without them).
+        i64 boxCost = local.reached(entry) ? i64(startDistance) - i64(s.at(entry)) + local.dist[entry] : -1;
         i64 viaCost = i64(startDistance) + local.dist[s.anchor];
         int g = gH, w = wH, flags = a > 0 ? SubAnchor : 0;
         if (boxCost >= 0 && boxCost <= viaCost) {
@@ -409,7 +418,7 @@ template<class F> static int Guard(F body) {
 
 using namespace mma;
 extern "C" {
-__declspec(dllexport) int mma_contract() { return 0x04000008; }
+__declspec(dllexport) int mma_contract() { return 0x04000009; }
 // Physical cores minus two (Unity main thread plus simulation/render), within 1..8.
 __declspec(dllexport) int mma_recommended_threads() {
     DWORD length = 0; GetLogicalProcessorInformationEx(RelationProcessorCore, nullptr, &length);
@@ -447,6 +456,16 @@ __declspec(dllexport) int mma_mask_write(Context* c, int player, int first, int 
     if (changed) *changed = n; return Ok;
 }
 // Rewrites arbitrary nodes (incremental update after terrain or access changes).
+// Per-node entry penalties (0..255 ground steps) of one player's mask; a change makes its tasks stale.
+__declspec(dllexport) int mma_penalty_update(Context* c, int player, const int* nodes, const uint8_t* values, int count, int* changed) {
+    if (!c || !nodes || !values || !c->mask(player) || count < 0) return BadArgument;
+    Mask& m = *c->mask(player); bool ready = m.ready(c->map.n); int n = 0;
+    for (int i = 0; i < count; ++i) { if (!ValidNode(*c, nodes[i])) return BadArgument; }
+    for (int i = 0; i < count; ++i) if (m.penalty[nodes[i]] != values[i]) { m.penalty[nodes[i]] = values[i]; ++n; }
+    if (ready && n) ++m.revision;
+    if (changed) *changed = n;
+    return Ok;
+}
 __declspec(dllexport) int mma_mask_update(Context* c, int player, const int* nodes, const u32* words, int count, int* changed) {
     if (!c || !nodes || !words || !c->mask(player) || count < 0) return BadArgument;
     for (int i = 0; i < count; ++i) if (!ValidNode(*c, nodes[i])) return BadArgument;

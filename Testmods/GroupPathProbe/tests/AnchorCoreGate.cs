@@ -211,6 +211,35 @@ internal static class AnchorCoreGate
             if (core.Stats()[AnchorCoreInterop.Stat("fieldReuses")] != 1) throw new InvalidOperationException("A field of an older mask revision was reused.");
             core.Release(first); core.Release(second); core.Release(third); core.Release(fourth);
         }
+        // Entry penalties (APIShared route tile rules): a penalized column is crossed at its one
+        // unpenalized tile, which the unpenalized route (lowest direction first) does not use.
+        {
+            GridSnapshot map = GroupGate.Grid(20, 5);
+            int start = 2 * 20 + 0, slot = 2 * 20 + 19;
+            using var core = new AnchorCoreInterop(20, 5, 64L * 1024 * 1024); core.WriteWholeMask(Player, map, 100);
+            int plain = core.CreateTask(Player, slot, 1, 7, new[] { start }); core.Step(8, 1);
+            int CrossingRow(RouteResult route)
+            {
+                int node = start;
+                foreach (byte d in route.Directions) { node += GridSnapshot.Dy[d] * 20 + GridSnapshot.Dx[d]; if (node % 20 == 10) return node / 20; }
+                return -1;
+            }
+            RouteResult straight = core.Query(plain, start, slot, Margin);
+            if (straight.Status != SearchStatus.Found || CrossingRow(straight) == 4) throw new InvalidOperationException("Unpenalized route already crosses at the open row.");
+            var column = new[] { 0 * 20 + 10, 1 * 20 + 10, 2 * 20 + 10, 3 * 20 + 10 };
+            if (core.UpdatePenalties(Player, column, new byte[] { 50, 50, 50, 50 }) != 4 || core.TaskStatus(plain) != AnchorCoreInterop.Stale)
+                throw new InvalidOperationException("A penalty change did not make the task stale.");
+            int penalized = core.CreateTask(Player, slot, 1, 7, new[] { start }); core.Step(8, 1);
+            RouteResult around = core.Query(penalized, start, slot, Margin);
+            if (around.Status != SearchStatus.Found || CrossingRow(around) != 4) throw new InvalidOperationException("The route crosses a penalized tile: row " + CrossingRow(around));
+            using (var batchCore = new AnchorCoreInterop(20, 5, 64L * 1024 * 1024))
+            {
+                batchCore.WriteWholeMask(Player, map, 100); batchCore.UpdatePenalties(Player, column, new byte[] { 50, 50, 50, 50 });
+                int batchTask = batchCore.CreateTask(Player, slot, 1, 7, new[] { start }); batchCore.Step(8, 1);
+                RouteResult batched = batchCore.QueryBatch(batchTask, new[] { start }, new[] { slot }, Margin, 2)[0];
+                if (batched.Status != SearchStatus.Found || !batched.Directions.SequenceEqual(around.Directions)) throw new InvalidOperationException("Batch route differs under penalties.");
+            }
+        }
         // Directed snake longer than 2,000 steps: never returned as a route.
         {
             GridSnapshot map = GroupGate.Grid(800, 4, (a, b, d) => ((a / 800) % 2 == 0 ? d == 2 : d == 6) && a / 800 == b / 800 || d == 4 && a % 800 == ((a / 800) % 2 == 0 ? 799 : 0) ? 1U << d : 0);

@@ -19,12 +19,12 @@ namespace MoatMove
     // queries keep Fast's rules. Until a player's mask is complete, Fast applies.
     internal sealed unsafe partial class FriendlyMoatTraversalProvider
     {
-        // Private C ABI of native/MoatMoveAnchor.cpp (contract 0x04000008). The DLL is loaded
+        // Private C ABI of native/MoatMoveAnchor.cpp (contract 0x04000009). The DLL is loaded
         // once by full path from the plugin folder and stays loaded for the process.
         private static class AnchorNative
         {
             internal const string Library = "MoatMoveAnchor.dll";
-            internal const int Contract = 0x04000008, Ready = 0, Unreachable = 1, OverLimit = 2, Pending = 3, Stale = 4, Invalid = 5, Failed = 6;
+            internal const int Contract = 0x04000009, Ready = 0, Unreachable = 1, OverLimit = 2, Pending = 3, Stale = 4, Invalid = 5, Failed = 6;
             [StructLayout(LayoutKind.Sequential)] internal struct QueryResult { internal int Status, Ground, Moat, Length, Flags, Reserved; internal long Cost; }
             [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)] private static extern IntPtr LoadLibraryEx(string file, IntPtr reserved, uint flags);
             [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern int mma_contract();
@@ -33,6 +33,7 @@ namespace MoatMove
             [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern int mma_mask_begin(IntPtr context, int player);
             [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern int mma_mask_write(IntPtr context, int player, int first, int count, uint[] words, out int changed);
             [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern int mma_mask_update(IntPtr context, int player, int[] nodes, uint[] words, int count, out int changed);
+            [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern int mma_penalty_update(IntPtr context, int player, int[] nodes, byte[] values, int count, out int changed);
             [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern int mma_task_create(IntPtr context, int player, int anchor, int ground, int moat, int[] starts, int count, out int id);
             [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern int mma_task_restart(IntPtr context, int id);
             [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern int mma_task_release(IntPtr context, int id);
@@ -242,7 +243,7 @@ namespace MoatMove
             anchorBatchIndex.Clear(); anchorPendingFormationTribe = -1; anchorPendingFormation = null;
             Array.Clear(anchorMaps, 0, anchorMaps.Length); anchorAccessKnown = false; anchorShared = null; anchorBlockedUnion.Clear();
             Array.Clear(reachWords, 0, reachWords.Length); Array.Clear(exhaustedReachability, 0, exhaustedReachability.Length);
-            anchorWatchTiles = null; anchorWatchBytes = null; routeTileRuleCursor = -1;
+            anchorWatchTiles = null; anchorWatchBytes = null; routeTileRuleCursor = -1; anchorPenaltiesWritten = false;
             anchorPlayersRequested = false; anchorUnreachedLogs = 0; anchorUnreachableLogs = 0; reachabilitySlowLogs = 0; anchorEndedUnreached = 0; anchorPortalCount = -1;
             for (int p = 0; p < anchorMaskNext.Length; p++) { anchorMaskNext[p] = -1; anchorBlocked[p]?.Clear(); }
             anchorSweepCursor = -1; anchorSweepLeft = 0; anchorSweepRequestStart = anchorSweptSinceRequest = 0;
@@ -596,8 +597,34 @@ namespace MoatMove
                 int x = routeTileRuleBuffer[i] % APIShared.Pathfinding.RouteTileRules.MapSize, y = routeTileRuleBuffer[i] / APIShared.Pathfinding.RouteTileRules.MapSize;
                 if ((uint)x >= MapWidth || (uint)y >= MapWidth) continue;
                 int tile = GameTileManagerAPI.Instance.GetTileId(x, y);
-                if (IsValidTileId(tile)) { MarkFastTopologyTile(tile, 1); routeTileRuleChanges++; }
+                if (!IsValidTileId(tile)) continue;
+                MarkFastTopologyTile(tile, 1); routeTileRuleChanges++;
+                for (int p = 1; p <= 8; p++) if (anchorMaskNext[p] >= 0) WriteAnchorPenalties(p, y * MapWidth + x, 1);
             }
+        }
+
+        // Entry penalties of route tile rules for a node range of one player's core mask. Once any
+        // penalty was written the ranges keep being written (zeros clear penalties of removed rules).
+        private bool anchorPenaltiesWritten;
+        private readonly int[] anchorPenaltyNodes = new int[AnchorMaskNodesPerTick];
+        private readonly byte[] anchorPenaltyValues = new byte[AnchorMaskNodesPerTick];
+        private bool WriteAnchorPenalties(int player, int first, int count)
+        {
+            if (!APIShared.Pathfinding.RouteTileRules.HasRules && !anchorPenaltiesWritten) return true;
+            anchorPenaltiesWritten = true;
+            for (int start = 0; start < count; start += anchorPenaltyNodes.Length)
+            {
+                int n = Math.Min(anchorPenaltyNodes.Length, count - start);
+                for (int i = 0; i < n; i++)
+                {
+                    int node = first + start + i;
+                    anchorPenaltyNodes[i] = node;
+                    anchorPenaltyValues[i] = APIShared.Pathfinding.RouteTileRules.GetEffect(node % MapWidth, node / MapWidth, player, out int penalty) ==
+                        APIShared.Pathfinding.RouteTileEffect.Penalty ? (byte)penalty : (byte)0;
+                }
+                if (AnchorNative.mma_penalty_update(anchorContext, player, anchorPenaltyNodes, anchorPenaltyValues, n, out _) != 0) return false;
+            }
+            return true;
         }
 
         // Tile id of every node once the watch's first pass completed, else null (ids are fixed per map).
@@ -709,7 +736,7 @@ namespace MoatMove
                 FastTraversalCache map = AnchorTraversal(p);
                 int count = Math.Min(budget, total - next);
                 for (int i = 0; i < count; i++) anchorWords[i] = map.Word(next + i);
-                if (AnchorNative.mma_mask_write(anchorContext, p, next, count, anchorWords, out _) != 0)
+                if (AnchorNative.mma_mask_write(anchorContext, p, next, count, anchorWords, out _) != 0 || !WriteAnchorPenalties(p, next, count))
                 {
                     anchorMaskNext[p] = -2;
                     Shared.DebugLogHelper.LogError(log, $"MoatMove anchor mask write failed; player={p} keeps Fast rules for this map.");
@@ -747,7 +774,7 @@ namespace MoatMove
                 }
                 for (int p = 1; p <= 8; p++)
                     if (anchorMaskNext[p] >= total && anchorSweepWords[p] != null)
-                        AnchorNative.mma_mask_write(anchorContext, p, sweep, count, anchorSweepWords[p], out _);
+                    { AnchorNative.mma_mask_write(anchorContext, p, sweep, count, anchorSweepWords[p], out _); WriteAnchorPenalties(p, sweep, count); }
                 anchorSweepLeft -= count; anchorSweptSinceRequest += count;
                 anchorSweepCursor = anchorSweepLeft <= 0 ? -1 : (sweep + count) % total;
             }

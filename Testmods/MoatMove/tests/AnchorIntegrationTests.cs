@@ -329,6 +329,16 @@ namespace MoatMove
                 Check(LiveEdge(1, ruleTo, ruleFrom, 6, false, null, out _, out _), "a unit on a Forbidden tile cannot leave it");
                 tileRules.ClearAll(); AnchorTick(++ticks);
                 Check((anchorMaps[1].Word(ruleFrom) & (1U << 2)) != 0, "clearing the tile rule does not restore the edge");
+                // A Penalty rule reaches the core: the player's tasks become stale, also when it is removed.
+                int penaltyTask = TryComputeAnchorTask(1, anchor, 1, 7, new[] { start }, 1);
+                Check(tileRules.Set(150, 10, APIShared.Pathfinding.RouteTileEffect.Penalty, 30, 1U << 1), "penalty rule rejected");
+                AnchorTick(++ticks);
+                Check(AnchorNative.mma_task_status(anchorContext, penaltyTask) == AnchorNative.Stale, "a Penalty rule does not reach the core");
+                ReleaseAnchorTask(penaltyTask);
+                penaltyTask = TryComputeAnchorTask(1, anchor, 1, 7, new[] { start }, 1);
+                tileRules.ClearAll(); AnchorTick(++ticks);
+                Check(AnchorNative.mma_task_status(anchorContext, penaltyTask) == AnchorNative.Stale, "a removed Penalty rule stays in the core");
+                ReleaseAnchorTask(penaltyTask);
 
                 // The word-based reachability search (cached words, node tile table) visits the same
                 // cells with the same distances and summary as the per-neighbour search.
