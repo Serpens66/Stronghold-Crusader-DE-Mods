@@ -76,6 +76,26 @@ namespace MoatMove
         private readonly HashSet<long> anchorTickTaskKeys = new HashSet<long>();
         private int anchorTickTaskKeysTick = -1;
         private long anchorSameTickTasks, anchorSameTickTaskTicks, anchorDiggerGroundRoutes, anchorRebuildsWatched;
+        // Managed reachability searches per owner kind: advances, expanded cells, time, longest advance.
+        private string reachabilityOwnerKind = "unscoped";
+        private readonly Dictionary<string, long[]> reachabilityByOwner = new Dictionary<string, long[]>();
+        private void RecordReachabilityAdvance(long elapsed, int expanded)
+        {
+            if (!reachabilityByOwner.TryGetValue(reachabilityOwnerKind, out long[] row))
+            { if (reachabilityByOwner.Count >= 16) return; reachabilityByOwner[reachabilityOwnerKind] = row = new long[4]; }
+            row[0]++; row[1] += expanded; row[2] += elapsed; row[3] = Math.Max(row[3], elapsed);
+        }
+        private string FormatReachabilityByOwner()
+        {
+            var text = new System.Text.StringBuilder();
+            foreach (var entry in reachabilityByOwner)
+            {
+                if (text.Length != 0) text.Append(',');
+                text.Append(entry.Key).Append(':').Append(entry.Value[0]).Append('/').Append(entry.Value[1]).Append('/')
+                    .Append(AnchorMs(entry.Value[2])).Append('/').Append(AnchorMs(entry.Value[3]));
+            }
+            return text.ToString();
+        }
         // Why the anchor left the current builder call to Vanilla (set at each decline point,
         // counted per Vanilla call inside an anchor move as vanillaWhy).
         private string anchorDecline = "none";
@@ -1051,7 +1071,7 @@ namespace MoatMove
                 $"members={anchorMembers} unreachedMembers={anchorUnreachedUnits} movesWithUnreached={anchorMovesWithUnreached} " +
                 $"vanilla(vanillaCalls={anchorVanillaCalls} vanillaFails={anchorVanillaFails} vanillaMs={AnchorMs(anchorVanillaTicks)} vanillaFailMs={AnchorMs(anchorVanillaFailTicks)} " +
                 $"afterUnreachable={anchorVanillaAfterUnreachable} afterUnreachableMs={AnchorMs(anchorVanillaAfterUnreachableTicks)} " +
-                $"foundAfterUnreachable={anchorVanillaFoundAfterUnreachable}) vanillaWhy=[{FormatAnchorReasons(anchorVanillaWhy)}] sameTickTasks={anchorSameTickTasks} sameTickTaskMs={AnchorMs(anchorSameTickTaskTicks)} diggerGroundRoutes={anchorDiggerGroundRoutes} nativeByteChanges={anchorWatchChanges} rebuildsWatched={anchorRebuildsWatched} " +
+                $"foundAfterUnreachable={anchorVanillaFoundAfterUnreachable}) vanillaWhy=[{FormatAnchorReasons(anchorVanillaWhy)}] sameTickTasks={anchorSameTickTasks} sameTickTaskMs={AnchorMs(anchorSameTickTaskTicks)} diggerGroundRoutes={anchorDiggerGroundRoutes} nativeByteChanges={anchorWatchChanges} rebuildsWatched={anchorRebuildsWatched} reach(advances/expanded/ms/maxMs)=[{FormatReachabilityByOwner()}] " +
                 $"tick(refreshMs={AnchorMs(anchorRefreshTicks)} refreshNodes={anchorRefreshNodes} buildMs={AnchorMs(anchorBuildTicks)} " +
                 $"buildNodes={anchorBuildNodes} sweepMs={AnchorMs(anchorSweepTicks)} sweepNodes={anchorSweepNodes} resweeps={anchorResweeps} " +
                 $"accessChanges={anchorAccessChanges} gateRefreshes={anchorGateRefreshes} sharedReuses={anchorShared?.Reuses ?? 0} " +
@@ -1069,7 +1089,7 @@ namespace MoatMove
                 anchorResweepDiplomacy = anchorResweepPortals = anchorResweepFootprint = anchorResweepGlobal = anchorRefreshBacklog =
                 anchorVanillaCalls = anchorVanillaFails = anchorVanillaTicks = anchorVanillaFailTicks = anchorVanillaAfterUnreachable =
                 anchorVanillaAfterUnreachableTicks = anchorVanillaFoundAfterUnreachable = anchorSameTickTasks = anchorSameTickTaskTicks = anchorDiggerGroundRoutes = anchorWatchChanges = anchorRebuildsWatched = 0;
-            Array.Clear(anchorQueryStatus, 0, anchorQueryStatus.Length); anchorPublishReasons.Clear(); anchorVanillaWhy.Clear();
+            Array.Clear(anchorQueryStatus, 0, anchorQueryStatus.Length); anchorPublishReasons.Clear(); anchorVanillaWhy.Clear(); reachabilityByOwner.Clear();
         }
     }
 }

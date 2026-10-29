@@ -37,6 +37,7 @@ namespace MoatMove
             EnsureReachabilityStorage();
             object scopeOwner = owner ?? (object)activeMoatWorkSelection ?? activeMoveCommand ??
                 (object)activeBuildingConsumerPerformance ?? activeBuildingApproachPerformance;
+            reachabilityOwnerKind = scopeOwner?.GetType().Name ?? (includeEnemyRoutes ? "enemyDiagnostic" : "unscoped");
             int currentTick = CaptureCurrentGameTick();
             if (!GamePlayerManagerAPI.Instance.IsPlayerIdValid(playerId) ||
                 startX < 0 || startX >= MapWidth ||
@@ -146,6 +147,7 @@ namespace MoatMove
         internal void AdvanceReachabilityMap(int targetCell = -1, int targetRegion = 0, bool requireMoat = false)
         {
             if (runtime.cacheMapEpoch != runtime.mapEpoch || reachabilityQueueHead >= reachabilityQueueTail) return;
+            long advanceStarted = System.Diagnostics.Stopwatch.GetTimestamp(); int headBefore = reachabilityQueueHead;
             runtime.weightedMoatRoutePlanner.BeginReachabilityProbe();
             try
             {
@@ -186,7 +188,11 @@ namespace MoatMove
                 runtime.cachedRouteSummary.TraversedRegionCount = runtime.cachedTraversedRegionCount;
             }
             catch { runtime.cacheMapEpoch = -1; throw; }
-            finally { runtime.weightedMoatRoutePlanner.EndReachabilityProbe(); }
+            finally
+            {
+                runtime.weightedMoatRoutePlanner.EndReachabilityProbe();
+                RecordReachabilityAdvance(System.Diagnostics.Stopwatch.GetTimestamp() - advanceStarted, reachabilityQueueHead - headBefore);
+            }
         }
         internal void EnsureReachabilityStorage()
         {
