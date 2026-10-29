@@ -787,7 +787,43 @@ namespace MoatMove
                 $"builderTarget={builderX},{builderY} sameTarget={builderX == tx && builderY == ty} vanillaLength={length} " +
                 $"task={anchorUnreachableTask} groundTask={anchorUnreachableTask == anchorGroundTask} " +
                 $"startWord=0x{startWord:X8} slotWord=0x{targetWord:X8} " +
-                $"startEdges=[{DescribeAnchorNode(unit, anchorUnreachableStart, false)}] slotEdges=[{DescribeAnchorNode(unit, anchorUnreachableTarget, true)}].");
+                $"startEdges=[{DescribeAnchorNode(unit, anchorUnreachableStart, false)}] slotEdges=[{DescribeAnchorNode(unit, anchorUnreachableTarget, true)}] " +
+                $"vanillaRoute=[{DescribeFirstMissingEdge(manager, unit, anchorUnreachableTask == anchorGroundTask)}].");
+        }
+
+        // Walks Vanilla's packed route (low nibble first, from the manager's start) over the
+        // player's cached anchor words and reports the first step the mask lacks: cached word,
+        // live verdict with rule, native direction byte and buildings of both tiles.
+        private string DescribeFirstMissingEdge(byte* manager, GameUnit* unit, bool ground)
+        {
+            if (unit == null) return "none";
+            int player = unit->r_ControllableForPlayerId;
+            FastTraversalCache map = player >= 1 && player <= 8 ? anchorMaps[player] : null;
+            byte* path = *(byte**)(manager + PathManagerOutputBufferOffset);
+            int length = *(int*)(manager + PathManagerOutputLengthOffset), x = *(int*)(manager + 0x08), y = *(int*)(manager + 0x0C);
+            if (map == null || path == null || length <= 0 || length > WeightedMoatRoutePlanner.MaximumRouteEdges) return "unavailable";
+            for (int i = 0; i < length; i++)
+            {
+                int d = (path[i >> 1] >> ((i & 1) * 4)) & 0x0F;
+                if (d >= 8) return $"invalid-direction@{i}";
+                int nx = x + WeightedMoatRoutePlanner.DirectionX[d], ny = y + WeightedMoatRoutePlanner.DirectionY[d];
+                if ((uint)x >= MapWidth || (uint)y >= MapWidth || (uint)nx >= MapWidth || (uint)ny >= MapWidth) return $"outside@{i}";
+                int node = y * MapWidth + x, next = ny * MapWidth + nx;
+                uint word = map.Word(node);
+                if ((word & (1U << ((ground ? 8 : 0) + d))) == 0)
+                {
+                    runtime.weightedMoatRoutePlanner.edgeRejectionRule = "anchor-blocked-or-invalid";
+                    bool live = LiveEdge(player, node, next, d, ground, anchorBlocked[player], out _, out _);
+                    string rule = live ? "ok" : runtime.weightedMoatRoutePlanner.edgeRejectionRule;
+                    int a = GameTileManagerAPI.Instance.GetTileId(x, y), b = GameTileManagerAPI.Instance.GetTileId(nx, ny);
+                    return $"missing@{i}/{length} {x},{y}->{nx},{ny} d={d} word=0x{word:X8} live={rule} " +
+                        $"native=0x{(IsValidTileId(a) ? runtime.nativeMovementMasks[a] : 0):X2} " +
+                        $"buildings={(IsValidTileId(a) ? runtime.nativeBuildingLayer[a] : -1)},{(IsValidTileId(b) ? runtime.nativeBuildingLayer[b] : -1)} " +
+                        $"blocked={(IsValidTileId(a) && anchorBlocked[player]?.Contains(runtime.nativeBuildingLayer[a]) == true) || (IsValidTileId(b) && anchorBlocked[player]?.Contains(runtime.nativeBuildingLayer[b]) == true)}";
+                }
+                x = nx; y = ny;
+            }
+            return $"complete/{length} end={x},{y}";
         }
 
         // Native DA590 direction byte of a node and, per direction, the anchor mask's live verdict
