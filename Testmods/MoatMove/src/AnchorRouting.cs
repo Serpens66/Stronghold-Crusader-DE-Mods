@@ -67,6 +67,11 @@ namespace MoatMove
         // (stale words are caught by the live audit of every published route).
         private const int AnchorRefreshNodesPerTick = 2048;
         private long anchorResweepDiplomacy, anchorResweepPortals, anchorResweepFootprint, anchorResweepGlobal, anchorRefreshBacklog;
+        // Vanilla builder calls inside anchor group moves: count, failures and time, and those that
+        // follow an exact core "unreachable" for the same unit (found: Vanilla had a route anyway).
+        private long anchorVanillaCalls, anchorVanillaFails, anchorVanillaTicks, anchorVanillaFailTicks,
+            anchorVanillaAfterUnreachable, anchorVanillaAfterUnreachableTicks, anchorVanillaFoundAfterUnreachable;
+        private int anchorUnreachableUnit;
         private const long AnchorMemoryLimit = 768L * 1024 * 1024;
         private IntPtr anchorContext;
         private bool anchorAvailable, anchorPlayersRequested;
@@ -726,6 +731,24 @@ namespace MoatMove
             return false;
         }
 
+        // Vanilla's builder, timed while an anchor group move is open (see anchorVanillaCalls).
+        private int CallVanillaBuilderTimed(IntPtr pathManager, int movementClass, int movementProfile, bool reconstruction, int unitId)
+        {
+            if (anchorDispatchTask == 0 && anchorGroundTask == 0)
+                return runtime.CallVanillaBuilder(pathManager, movementClass, movementProfile, reconstruction);
+            long started = System.Diagnostics.Stopwatch.GetTimestamp();
+            int result = runtime.CallVanillaBuilder(pathManager, movementClass, movementProfile, reconstruction);
+            long elapsed = System.Diagnostics.Stopwatch.GetTimestamp() - started;
+            anchorVanillaCalls++; anchorVanillaTicks += elapsed;
+            if (result <= 0) { anchorVanillaFails++; anchorVanillaFailTicks += elapsed; }
+            if (unitId != 0 && unitId == anchorUnreachableUnit)
+            {
+                anchorVanillaAfterUnreachable++; anchorVanillaAfterUnreachableTicks += elapsed;
+                if (result > 0) anchorVanillaFoundAfterUnreachable++;
+            }
+            return result;
+        }
+
         internal bool IsAnchorAuditedRoute(QualifiedMovementRoute route)
         {
             if (route == null || !anchorAuditedRoutes.Contains(route)) return false;
@@ -774,6 +797,8 @@ namespace MoatMove
             long answered = System.Diagnostics.Stopwatch.GetTimestamp();
             anchorQueryTicks += answered - queried;
             anchorQueryStatus[code != 0 ? 7 : Math.Min(Math.Max(result.Status, 0), 6)]++;
+            if (code == 0 && result.Status == AnchorNative.Unreachable) anchorUnreachableUnit = plan.UnitId;
+            else if (anchorUnreachableUnit == plan.UnitId) anchorUnreachableUnit = 0;
             if (code != 0 || result.Status != AnchorNative.Ready) return false;
             plan.QualifiedRoute = null; plan.QualifiedTerminalRoute = default; plan.QualifiedTerminalSummary = default;
             if (result.Moat == 0 && !publishGround)
@@ -837,6 +862,9 @@ namespace MoatMove
                 $"batch(calls={anchorBatchCalls} units={anchorBatchUnits} hits={anchorBatchHits} ms={AnchorMs(anchorBatchTicks)}) " +
                 $"queryStatus(ready,unreachable,overLimit,pending,stale,invalid,failed,error)={string.Join(",", anchorQueryStatus)} " +
                 $"members={anchorMembers} unreachedMembers={anchorUnreachedUnits} movesWithUnreached={anchorMovesWithUnreached} " +
+                $"vanilla(vanillaCalls={anchorVanillaCalls} vanillaFails={anchorVanillaFails} vanillaMs={AnchorMs(anchorVanillaTicks)} vanillaFailMs={AnchorMs(anchorVanillaFailTicks)} " +
+                $"afterUnreachable={anchorVanillaAfterUnreachable} afterUnreachableMs={AnchorMs(anchorVanillaAfterUnreachableTicks)} " +
+                $"foundAfterUnreachable={anchorVanillaFoundAfterUnreachable}) " +
                 $"tick(refreshMs={AnchorMs(anchorRefreshTicks)} refreshNodes={anchorRefreshNodes} buildMs={AnchorMs(anchorBuildTicks)} " +
                 $"buildNodes={anchorBuildNodes} sweepMs={AnchorMs(anchorSweepTicks)} sweepNodes={anchorSweepNodes} resweeps={anchorResweeps} " +
                 $"accessChanges={anchorAccessChanges} gateRefreshes={anchorGateRefreshes} sharedReuses={anchorShared?.Reuses ?? 0} " +
@@ -851,7 +879,9 @@ namespace MoatMove
                 anchorPublishTicks = anchorPublished = anchorPublishRejects = anchorEncodeRejects = anchorRouteReuses = anchorMembers =
                 anchorUnreachedUnits = anchorMovesWithUnreached = anchorRefreshTicks = anchorRefreshNodes = anchorBuildTicks = anchorBuildNodes =
                 anchorSweepTicks = anchorSweepNodes = anchorResweeps = anchorAccessChanges = anchorGateRefreshes = anchorLazyTasks = anchorUnusedMoves = anchorAuditSkips = anchorBatchCalls = anchorBatchUnits = anchorBatchHits = anchorBatchTicks =
-                anchorResweepDiplomacy = anchorResweepPortals = anchorResweepFootprint = anchorResweepGlobal = anchorRefreshBacklog = 0;
+                anchorResweepDiplomacy = anchorResweepPortals = anchorResweepFootprint = anchorResweepGlobal = anchorRefreshBacklog =
+                anchorVanillaCalls = anchorVanillaFails = anchorVanillaTicks = anchorVanillaFailTicks = anchorVanillaAfterUnreachable =
+                anchorVanillaAfterUnreachableTicks = anchorVanillaFoundAfterUnreachable = 0;
             Array.Clear(anchorQueryStatus, 0, anchorQueryStatus.Length); anchorPublishReasons.Clear();
         }
     }

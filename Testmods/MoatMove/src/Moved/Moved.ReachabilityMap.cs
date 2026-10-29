@@ -202,9 +202,9 @@ namespace MoatMove
                 return;
 
             int nextCell = (nextY * MapWidth) + nextX;
-            int currentTileId = GameTileManagerAPI.Instance.GetTileId(currentX, currentY);
-            int nextTileId = GameTileManagerAPI.Instance.GetTileId(nextX, nextY);
-            if (!IsValidTileId(currentTileId) || !IsValidTileId(nextTileId))
+            GameTileManagerAPI tiles = GameTileManagerAPI.Instance;
+            int nextTileId = tiles.GetTileId(nextX, nextY);
+            if (!IsValidTileId(nextTileId))
                 return;
 
             MoatTraversalEdgeKind edgeKind; bool structuralEdge;
@@ -212,6 +212,7 @@ namespace MoatMove
             if (words != null)
             {
                 // FriendlyOnly answers come from the cached words (same predicate, see ReachabilityWords).
+                // The current cell's tile is valid: it was checked when the cell was queued.
                 if (!words.Edge(currentY * MapWidth + currentX, nextCell, direction, false, out bool wet, out structuralEdge)) return;
                 edgeKind = wet ? MoatTraversalEdgeKind.FriendlyMoat : MoatTraversalEdgeKind.Ground;
             }
@@ -219,7 +220,7 @@ namespace MoatMove
                     playerId,
                     currentX,
                     currentY,
-                    currentTileId,
+                    tiles.GetTileId(currentX, currentY),
                     nextX,
                     nextY,
                     nextTileId,

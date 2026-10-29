@@ -46,7 +46,7 @@ namespace MoatMove
             if (runtime.disposed || pathManager != runtime.nativePathManager || plan == null ||
                 !APIShared.UnitAccess.TryGetById(plan.UnitId, out GameUnit* unit, out _) ||
                 unit == null || !runtime.CanDigMoat(unit))
-                return runtime.CallVanillaBuilder(pathManager, movementClass, movementProfile, reconstruction);
+                return CallVanillaBuilderTimed(pathManager, movementClass, movementProfile, reconstruction, plan?.UnitId ?? frame?.Args.UnitId ?? 0);
 
             if (command != null) { command.BuilderCalls++; command.BuilderReached = true; }
             runtime.PrepareMovementSearch(plan, unit->r_ControllableForPlayerId);
@@ -107,7 +107,7 @@ namespace MoatMove
             if (plan.ModeObserved) *runtime.moatPathMode = plan.VanillaModeDetected ? 1 : 0;
             AttackCommandScope measuredBuilderCommand = activeAttackCommand;
             long nativeBuilderStarted = (DetailedDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0L);
-            try { vanilla = runtime.CallVanillaBuilder(pathManager, movementClass, movementProfile, reconstruction); }
+            try { vanilla = CallVanillaBuilderTimed(pathManager, movementClass, movementProfile, reconstruction, plan.UnitId); }
             finally
             {
                 *runtime.moatPathMode = mode;

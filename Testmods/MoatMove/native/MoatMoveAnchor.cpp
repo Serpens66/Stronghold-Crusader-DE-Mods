@@ -115,9 +115,11 @@ struct Mask {
 // first pop at its current tentative distance is final.
 struct Field {
     Vec<u32> gen, dist, needGen; Vec<uint8_t> done; Vec<Vec<int>> ring;
+    // Nodes settled by the last solve(), in settle order (Stored::take copies only these).
+    Vec<int> settled;
     u32 generation = 0; i64 settles = 0, entries = 0; bool exhausted = false;
     Field(Memory* m, int n, int buckets = MaxCost + 1) : gen(size_t(n), 0u, Alloc<u32>(m)), dist(size_t(n), 0u, Alloc<u32>(m)), needGen(size_t(n), 0u, Alloc<u32>(m)),
-        done(size_t(n), 0, Alloc<uint8_t>(m)), ring(Alloc<Vec<int>>(m)) { for (int i = 0; i < buckets; ++i) ring.emplace_back(Alloc<int>(m)); }
+        done(size_t(n), 0, Alloc<uint8_t>(m)), ring(Alloc<Vec<int>>(m)), settled(Alloc<int>(m)) { for (int i = 0; i < buckets; ++i) ring.emplace_back(Alloc<int>(m)); }
     bool reached(int v) const { return gen[v] == generation && done[v]; }
     // Touched in the last search: dist is an upper bound, exact for settled nodes.
     bool touched(int v) const { return gen[v] == generation; }
@@ -163,7 +165,7 @@ struct Field {
     }
     void solve(const Map& map, const Mask& mask, int source, bool forward, const std::vector<int>& targets, int ground, int moat, const Box* box = nullptr) {
         if (++generation == 0) { std::fill(gen.begin(), gen.end(), 0u); std::fill(needGen.begin(), needGen.end(), 0u); generation = 1; }
-        const int size = int(ring.size()); i64 pending = 0, remaining = 0;
+        const int size = int(ring.size()); i64 pending = 0, remaining = 0; settled.clear();
         for (int t : targets) if (needGen[t] != generation) { needGen[t] = generation; ++remaining; }
         auto relax = [&](int u, u32 value) {
             if (box && !map.inside(*box, u)) return;
@@ -177,7 +179,7 @@ struct Field {
             for (size_t i = 0; i < list.size() && remaining > 0; ++i) {
                 int v = list[i]; --pending;
                 if (done[v] || dist[v] != bucket) continue;
-                done[v] = 1; ++settles;
+                done[v] = 1; ++settles; settled.push_back(v);
                 if (needGen[v] == generation) { needGen[v] = 0; --remaining; }
                 // moat == 0: ground-only profile, wet (moat) edges are not traversable.
                 if (forward) { for (u32 m = moat ? u32(mask.out[v]) : u32(mask.out[v] & ~mask.outWet[v] & 0xFF); m; m &= m - 1) { int d = Ctz(m); relax(v + map.off[d], bucket + u32((mask.outWet[v] >> d) & 1 ? moat : ground)); } }
@@ -193,9 +195,25 @@ struct Field {
 
 // Compact backward field to an anchor: exact cost per settled node, Unset otherwise.
 struct Stored {
-    int anchor = -1; bool exhausted = false; Vec<u32> dist;
-    explicit Stored(Memory* m) : dist(Alloc<u32>(m)) {}
-    void take(const Map& map, const Field& f, int a) { anchor = a; exhausted = f.exhausted; dist.assign(size_t(map.n), Unset); for (int v = 0; v < map.n; ++v) if (f.reached(v)) dist[v] = f.dist[v]; }
+    int anchor = -1; bool exhausted = false, sparse = false; u32 mask = 0; Vec<u32> dist, values; Vec<int> keys;
+    explicit Stored(Memory* m) : dist(Alloc<u32>(m)), values(Alloc<u32>(m)), keys(Alloc<int>(m)) {}
+    static u32 Hash(int v) { u32 h = u32(v) * 0x9E3779B1u; return h ^ (h >> 16); }
+    // Takes the settled distances of the field's last solve(). A small field (a sub-anchor that
+    // stopped near its slot) goes into an open-addressing table: a full-map array per sub-anchor
+    // cost ~0.75 ms each and dominated moves of unreachable groups (pf-iter-4, ~100 per move).
+    void take(const Map& map, const Field& f, int a) {
+        anchor = a; exhausted = f.exhausted; sparse = f.settled.size() * 8 < size_t(map.n);
+        if (sparse) {
+            size_t capacity = 16; while (capacity < f.settled.size() * 2) capacity <<= 1;
+            dist.clear(); keys.assign(capacity, -1); values.assign(capacity, Unset); mask = u32(capacity - 1);
+            for (int v : f.settled) { u32 h = Hash(v) & mask; while (keys[h] >= 0) h = (h + 1) & mask; keys[h] = v; values[h] = f.dist[v]; }
+        }
+        else { keys.clear(); values.clear(); dist.assign(size_t(map.n), Unset); for (int v : f.settled) dist[v] = f.dist[v]; }
+    }
+    u32 at(int v) const {
+        if (!sparse) return dist[v];
+        for (u32 h = Hash(v) & mask;; h = (h + 1) & mask) { int k = keys[h]; if (k == v) return values[h]; if (k < 0) return Unset; }
+    }
 };
 // Deterministic descent (lowest direction first) along a backward cost function. The stop
 // test also gets the node's coordinates, tracked per step instead of divided per test.
@@ -301,15 +319,16 @@ static int Query(Context& c, Task& t, Scratch& sc, int start, int slot, int marg
     // starts lie in another component then cost one exhausted sub-anchor, not one each (pf-iter-3).
     for (size_t a = 0; a <= t.subs.size(); ++a) {
         const Stored& s = a == 0 ? *t.main : *t.subs[a - 1];
-        if (s.exhausted && s.dist[start] == Unset && s.dist[slot] != Unset) { r.status = Unreachable; r.flags = 0; return Ok; }
+        if (s.exhausted && s.at(start) == Unset && s.at(slot) != Unset) { r.status = Unreachable; r.flags = 0; return Ok; }
     }
     for (size_t a = 0; a <= t.subs.size(); ++a) {
         const Stored& s = a == 0 ? *t.main : *t.subs[a - 1];
-        if (s.dist[start] == Unset) { ++stats[AnchorNoStart]; continue; }
+        const u32 startDistance = s.at(start);
+        if (startDistance == Unset) { ++stats[AnchorNoStart]; continue; }
         Box box;
         box.x0 = std::max(0, std::min(s.anchor % map.width, slot % map.width) - margin); box.x1 = std::min(map.width - 1, std::max(s.anchor % map.width, slot % map.width) + margin);
         box.y0 = std::max(0, std::min(s.anchor / map.width, slot / map.width) - margin); box.y1 = std::min(map.height - 1, std::max(s.anchor / map.width, slot / map.width) + margin);
-        auto stored = [&](int v) { return s.dist[v]; };
+        auto stored = [&](int v) { return s.at(v); };
         path.clear(); int gH = 0, wH = 0;
         int entry = Descend(map, mask, stored, start, t.ground, t.moat, path, gH, wH, [&](int, int x, int y) { return x >= box.x0 && x <= box.x1 && y >= box.y0 && y <= box.y1; });
         if (entry < 0) { ++stats[AnchorNoEntry]; continue; }
@@ -318,7 +337,7 @@ static int Query(Context& c, Task& t, Scratch& sc, int start, int slot, int marg
         if (local.dist[s.anchor] > u32(t.ground) * u32(2 * map.chebyshev(s.anchor, slot) + 8)) { ++stats[AnchorTooFar]; continue; }
         auto localDistance = [&](int v) { return local.touched(v) ? local.dist[v] : Unset; };
         i64 boxCost = local.reached(entry) ? i64(gH) * t.ground + i64(wH) * t.moat + local.dist[entry] : -1;
-        i64 viaCost = i64(s.dist[start]) + local.dist[s.anchor];
+        i64 viaCost = i64(startDistance) + local.dist[s.anchor];
         int g = gH, w = wH, flags = a > 0 ? SubAnchor : 0;
         if (boxCost >= 0 && boxCost <= viaCost) {
             rest.clear(); if (Descend(map, mask, localDistance, entry, t.ground, t.moat, rest, g, w, [&](int v, int, int) { return v == slot; }) < 0) continue;
@@ -341,8 +360,8 @@ static int Query(Context& c, Task& t, Scratch& sc, int start, int slot, int marg
     // usually lies in another component and would force a search over this whole component.
     // Answers stay exact: a later query uses a sub-anchor only where it settled that start.
     std::vector<int>& targets = sc.targets; targets.clear();
-    const bool startInMain = t.main->dist[start] != Unset;
-    for (int s : t.starts) if (!t.exhausted || (t.main->dist[s] != Unset) == startInMain) targets.push_back(s);
+    const bool startInMain = t.main->at(start) != Unset;
+    for (int s : t.starts) if (!t.exhausted || (t.main->at(s) != Unset) == startInMain) targets.push_back(s);
     targets.push_back(start);
     local.solve(map, mask, slot, false, targets, t.ground, t.moat);
     int flags = NewSubAnchor | SubAnchor;
@@ -350,8 +369,8 @@ static int Query(Context& c, Task& t, Scratch& sc, int start, int slot, int marg
     const Stored* s = t.subs.back().get(); ++stats[SubAnchors];
     stats[SubNs] += Ns(t0);
     path.clear(); int g = 0, w = 0;
-    if (s->dist[start] == Unset) { r.status = Unreachable; r.flags = flags; return Ok; }
-    auto stored = [&](int v) { return s->dist[v]; };
+    if (s->at(start) == Unset) { r.status = Unreachable; r.flags = flags; return Ok; }
+    auto stored = [&](int v) { return s->at(v); };
     if (Descend(map, mask, stored, start, t.ground, t.moat, path, g, w, [&](int v, int, int) { return v == slot; }) < 0) { r.status = OverLimit; r.flags = flags; return Ok; }
     finish(g, w, flags); return Ok;
 }

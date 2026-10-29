@@ -44,6 +44,6 @@ foreach ($line in ($run | Where-Object { $_ -like '*:  MoatMove] *' -and $_ -mat
     }
 }
 '  anchor: ' + (('moveMs', 'maxMoveMs', 'queryMs', 'publishMs', 'fieldMs', 'tickMs', 'refreshMs', 'buildMs', 'sweepMs', 'sweepNodes', 'resweeps', 'accessChanges',
-    'gateRefreshes', 'sharedReuses', 'hits', 'units', 'lazyTasks', 'aiMoves', 'humanMoves', 'encodeRejects', 'auditSkips', 'subAnchors', 'subMs') |
+    'gateRefreshes', 'sharedReuses', 'hits', 'units', 'lazyTasks', 'aiMoves', 'humanMoves', 'encodeRejects', 'auditSkips', 'subAnchors', 'subMs', 'vanillaCalls', 'vanillaFails', 'vanillaMs', 'vanillaFailMs', 'afterUnreachable', 'afterUnreachableMs', 'foundAfterUnreachable') |
     ForEach-Object { "$_=" + [math]::Round([double]$sums[$_], 1) }) -join ' '
 $run | Where-Object { $_ -match 'AUTOMATION .*(framestats phase=run|result)' } | ForEach-Object { '  ' + ($_ -replace '^.*AUTOMATION ', '') }
