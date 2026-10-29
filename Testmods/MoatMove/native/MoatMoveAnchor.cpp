@@ -209,11 +209,54 @@ struct Field {
         exhausted = remaining > 0;
         for (auto& l : ring) l.clear();
     }
+    // Backward A* from source towards the box around all targets (a group's starts). h = cheapest
+    // step x Chebyshev distance to the box is consistent and 0 inside it, so a target's key is its
+    // exact cost. The search continues through the key of the last target: every node on an
+    // optimal route of any target then has key <= that cost and is settled with its exact
+    // distance, which is all descents and queries read. A group far from its anchor settles an
+    // ellipse instead of a full disc (main fields were 70-90 ms per busy tick, pf-iter-24).
+    // Needs more than 2 x MaxCost buckets, like solveTowards.
+    void solveToBox(const Map& map, const Mask& mask, int source, const std::vector<int>& targets, int ground, int moat, const Box& box) {
+        if (++generation == 0) { std::fill(gen.begin(), gen.end(), 0u); std::fill(needGen.begin(), needGen.end(), 0u); generation = 1; }
+        const int size = int(ring.size()), w = map.width; const u32 step = u32(moat ? std::min(ground, moat) : ground);
+        auto h = [&](int x, int y) {
+            int ox = std::max(0, std::max(box.x0 - x, x - box.x1)), oy = std::max(0, std::max(box.y0 - y, y - box.y1));
+            return step * u32(std::max(ox, oy));
+        };
+        i64 pending = 0, remaining = 0; settled.clear();
+        for (int t : targets) if (needGen[t] != generation) { needGen[t] = generation; ++remaining; }
+        auto relax = [&](int u, int x, int y, u32 value) {
+            if (gen[u] != generation) { gen[u] = generation; done[u] = 0; }
+            else if (done[u] || dist[u] <= value) return;
+            dist[u] = value; ring[(value + h(x, y)) % size].push_back(u); ++pending; ++entries;
+        };
+        relax(source, source % w, source / w, 0);
+        u32 limit = ~0u;
+        for (u32 key = h(source % w, source / w); pending > 0 && key <= limit; ++key) {
+            Vec<int>& list = ring[key % size];
+            for (size_t i = 0; i < list.size(); ++i) {
+                int v = list[i]; --pending;
+                if (done[v]) continue;
+                const int vx = v % w, vy = v / w; const u32 g = dist[v];
+                if (g + h(vx, vy) != key) continue;
+                done[v] = 1; ++settles; settled.push_back(v);
+                if (needGen[v] == generation) { needGen[v] = 0; if (--remaining == 0) limit = key; }
+                for (u32 m = mask.incoming(v, moat); m; m &= m - 1) {
+                    int d = Ctz(m); relax(v - map.off[d], vx - dx[d], vy - dy[d], g + mask.cost(v, ((mask.inWet[v] >> d) & 1) != 0, ground, moat));
+                }
+            }
+            list.clear();
+        }
+        exhausted = remaining > 0;
+        for (auto& l : ring) l.clear();
+    }
 };
 
 // Compact backward field to an anchor: exact cost per settled node, Unset otherwise.
 struct Stored {
-    int anchor = -1; bool exhausted = false, sparse = false; u32 mask = 0; Vec<u32> dist, values; Vec<int> keys;
+    // box: the target box of a solveToBox field (every node on an optimal route from a cell inside
+    // it to the anchor is settled when that cell is); boxed == false for full fields.
+    int anchor = -1; bool exhausted = false, sparse = false, boxed = false; Box box; u32 mask = 0; Vec<u32> dist, values; Vec<int> keys;
     explicit Stored(Memory* m) : dist(Alloc<u32>(m)), values(Alloc<u32>(m)), keys(Alloc<int>(m)) {}
     static u32 Hash(int v) { u32 h = u32(v) * 0x9E3779B1u; return h ^ (h >> 16); }
     // Takes the settled distances of the field's last solve(). A small field (a sub-anchor that
@@ -515,7 +558,12 @@ __declspec(dllexport) int mma_step(Context* c, int maxTasks, int threads, int* c
             for (CachedField& e : c->fieldCache) {
                 if (e.player != t.player || e.anchor != t.anchor || e.ground != t.ground || e.moat != t.moat || e.revision != m->revision) continue;
                 bool covers = e.field->exhausted;
-                if (!covers) { covers = true; for (int s : t.starts) if (e.field->at(s) == Unset) { covers = false; break; } }
+                if (!covers)
+                {
+                    covers = true;
+                    for (int s : t.starts)
+                        if (e.field->at(s) == Unset || (e.field->boxed && !c->map.inside(e.field->box, s))) { covers = false; break; }
+                }
                 if (!covers) break;
                 t.main = e.field; t.subs.clear(); t.exhausted = e.field->exhausted; t.revision = m->revision; t.status = Ready;
                 e.used = ++c->fieldCacheClock; ++c->stats[FieldReuses]; reused = true; break;
@@ -524,7 +572,7 @@ __declspec(dllexport) int mma_step(Context* c, int maxTasks, int threads, int* c
         }
         // A fixed worker count keeps one persistent pool; idle workers find no task.
         int workers = threads;
-        while (int(c->fields.size()) < workers) c->fields.push_back(std::make_unique<Field>(&c->memory, c->map.n));
+        while (int(c->fields.size()) < workers) c->fields.push_back(std::make_unique<Field>(&c->memory, c->map.n, 2 * MaxCost + 2));
         c->pool.resize(workers); c->stats[Workers] = workers;
         std::atomic<int> next{0};
         // Allocation failures stay with their task; the task is reported Failed.
@@ -534,8 +582,13 @@ __declspec(dllexport) int mma_step(Context* c, int maxTasks, int threads, int* c
                 int i = next.fetch_add(1); if (i >= int(work.size())) break;
                 Task& t = *work[i];
                 try {
-                    f.solve(c->map, *c->mask(t.player), t.anchor, false, t.starts, t.ground, t.moat);
-                    auto s = std::make_shared<Stored>(&c->memory); s->take(c->map, f, t.anchor);
+                    Box box; box.x0 = box.y0 = INT32_MAX; box.x1 = box.y1 = -1;
+                    for (int s : t.starts) { int x = s % c->map.width, y = s / c->map.width; box.x0 = std::min(box.x0, x); box.x1 = std::max(box.x1, x); box.y0 = std::min(box.y0, y); box.y1 = std::max(box.y1, y); }
+                    // Scattered starts (a box over most of the map) gain nothing from the heuristic: full field.
+                    bool boxed = std::max(box.x1 - box.x0, box.y1 - box.y0) <= c->map.width / 4;
+                    if (boxed) f.solveToBox(c->map, *c->mask(t.player), t.anchor, t.starts, t.ground, t.moat, box);
+                    else f.solve(c->map, *c->mask(t.player), t.anchor, false, t.starts, t.ground, t.moat);
+                    auto s = std::make_shared<Stored>(&c->memory); s->take(c->map, f, t.anchor); s->boxed = boxed; s->box = box;
                     t.main = std::move(s); t.subs.clear(); t.exhausted = f.exhausted; t.revision = c->mask(t.player)->revision; t.status = Ready;
                 }
                 catch (...) { t.main.reset(); t.status = Failed; }

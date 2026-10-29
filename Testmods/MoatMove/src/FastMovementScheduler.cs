@@ -378,13 +378,16 @@ namespace MoatMove
         // Bit p is set when player p controls at least one living unit.
         private int ScanAnchorPlayers()
         {
-            int mask = 0;
+            int mask = 0, alive = 0;
             foreach (int id in APIShared.UnitAccess.GetAllReallyAliveUnits())
                 if (APIShared.UnitAccess.TryGetById(id, out GameUnit* unit, out _) && unit != null)
                 {
+                    alive++;
                     int player = unit->r_ControllableForPlayerId;
                     if (player >= 1 && player <= 8) mask |= 1 << player;
                 }
+            // Load of the scenario, for the anchor breakdown (largest scan of the window).
+            anchorAliveUnits = Math.Max(anchorAliveUnits, alive);
             return mask;
         }
 
