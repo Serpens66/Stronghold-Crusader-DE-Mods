@@ -24,6 +24,8 @@ namespace MoatMove
     internal struct UnmanagedVector2<T> { public T X, Y; }
     internal struct SelectedUnitInfo { public int UnitId, UnitType; }
     internal enum AttackPipelineStage { Mode, Builder }
+    // BugfixesAndQoL RouteTilePolicySnapshot.cs contract (not compiled into this harness).
+    internal static class GatePolicyNeutrality { internal static System.Func<int, bool> Current; }
     [StructLayout(LayoutKind.Sequential, Size = 0x490)]
     internal unsafe struct GameUnit
     {

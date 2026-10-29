@@ -133,6 +133,7 @@ namespace MoatMove
             ulong access = ReadFastAccessFingerprint();
             bool changed = state.AccessKnown && access != state.Access;
             state.Access = access; state.AccessKnown = true;
+            AdvanceFastMarkEpoch();
             foreach (var pair in state.Maps)
             {
                 EnsureCursorTopology(pair.Key, false);
@@ -147,10 +148,24 @@ namespace MoatMove
             }
         }
 
+        // Tile reports repeat (one per native 3x3 update, bursts while AI builds, digs or buildings
+        // burn). Marks are idempotent until a cache refresh consumes them, so a tile already marked
+        // in the current refresh epoch is skipped; every refresh starts a new epoch.
+        private int fastMarkEpoch = 1;
+        private int[] fastTileMarkEpochs;
+        private void AdvanceFastMarkEpoch() { if (++fastMarkEpoch == int.MaxValue) { fastMarkEpoch = 1; if (fastTileMarkEpochs != null) Array.Clear(fastTileMarkEpochs, 0, fastTileMarkEpochs.Length); } }
+
         private void MarkFastTopologyTile(int tile)
         {
             if (!RequiredOnlyMode || !IsValidTileId(tile)) return;
             var position = GameTileManagerAPI.Instance.GetTileVectorFromId(tile);
+            if ((uint)position.X < MapWidth && (uint)position.Y < MapWidth)
+            {
+                if (fastTileMarkEpochs == null || fastTileMarkEpochs.Length != MapWidth * MapWidth) fastTileMarkEpochs = new int[MapWidth * MapWidth];
+                int center = position.Y * MapWidth + position.X;
+                if (fastTileMarkEpochs[center] == fastMarkEpoch) return;
+                fastTileMarkEpochs[center] = fastMarkEpoch;
+            }
             for (int y = Math.Max(0, position.Y - 2); y <= Math.Min(MapWidth - 1, position.Y + 2); y++)
                 for (int x = Math.Max(0, position.X - 2); x <= Math.Min(MapWidth - 1, position.X + 2); x++)
                 {

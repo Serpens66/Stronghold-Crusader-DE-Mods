@@ -443,6 +443,9 @@ namespace MoatMove
                 }
             APIShared.IEnemyGatePathPolicy policy = APIShared.EnemyGatePathPolicyBridge.Current;
             if (policy == null || !policy.HasPublishedMask) return true;
+            // BugfixesAndQoL's gate routing answers from a per-snapshot table (one byte per tile).
+            System.Func<int, bool> table = GatePolicyNeutrality.Current;
+            if (table != null) return table(from);
             int first = 0;
             for (int p = 1; p <= 8; p++)
             {
@@ -543,7 +546,8 @@ namespace MoatMove
                 anchorPortalCount = count; anchorDiplomacy = diplomacy;
             }
             anchorAccess = access; anchorAccessKnown = true;
-            // Nodes marked after failed live audits (small sets).
+            // Marked nodes (tile reports, gate footprints, failed live audits).
+            AdvanceFastMarkEpoch();
             for (int p = 1; p <= 8; p++)
             {
                 FastTraversalCache map = anchorMaps[p];
