@@ -40,6 +40,9 @@ Save `test_stresstest4.sav`, 180 s Lauf nach Warmup, `tools/Run-PathfindingItera
 | pf-iter-27 | 16 | 13 | 2 | 219 ms | Einzelwege über fortsetzbare Felder je Ziel (Option `AnchorSingleMoves`): 17,8 s statt 7,2 s Vanilla, verworfen |
 | pf-iter-28 | 8 | 5 | 1 | 258 ms | Einzelwege als A* vom Ziel zum Start: 82 µs je Weg, gleichauf mit Vanilla |
 | pf-iter-29 | 7 | 4 | 1 | 228 ms | Gleichstände im A* zuletzt eingefügt zuerst: 65 µs je Weg (Vanilla ~81 µs), 902 statt 1.377 Knoten |
+| pf-fire-3 | 8 | 5 | 1 | 287 ms | Feuerregeln und Umplanen (Pech gezündet); Lücke nach dem Feuer: 189 Assassinen-Builder-Aufrufe in einem Fenster |
+| pf-iter-30 | 8 | 5 | 1 | 226 ms | Assassinen-A* tiefer zuerst bei Gleichstand: weiter ~25.000 Knoten je Weg, zurückgenommen |
+| pf-iter-31 | 13 | 10 | 1 | 217 ms | **10.000-Einheiten-Lauf:** 8 × 600 Soldaten per `Spawn` (bis 9.929 lebende Einheiten), Feuer und Angriffe; 18.409 statt ~35.000 Ticks (Vanillas Einheitenkosten). Größte Lücken: Assassinen-Schub (147 Aufrufe, 183 ms; etwa je zur Hälfte Vanillas Builder und BFQoLs A*), Vanillas Grabenmodus-Einzelwege nach dem Spawn (131 Aufrufe, 254 ms im Fenster) |
 
 Ab pf-iter-15 verhalten sich die KI-Lords anders (34.000 statt 29.000 Ticks, 51–94 statt 16 Torwechsel je Lauf), seit mehr Einheiten Anker-Routen bekommen; die Läufe sind deshalb nur eingeschränkt mit den früheren vergleichbar.
 
