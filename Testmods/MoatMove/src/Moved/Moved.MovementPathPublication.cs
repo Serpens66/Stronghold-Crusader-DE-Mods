@@ -545,6 +545,7 @@ namespace MoatMove
                 targetedRouteProbeBusy = false;
             }
 
+            string audit = null;
             try
             {
                 for (int index = 0; index < NativeUnitPathBufferStride; index++)
@@ -552,7 +553,7 @@ namespace MoatMove
                 *(int*)(manager + PathManagerOutputLengthOffset) = route.DirectionCount;
                 if (!TryAuditFallbackPath(
                         pathManager, path, route.DirectionCount, plan, unit,
-                        out string audit, edgesAudited))
+                        out audit, edgesAudited))
                 {
                     throw new InvalidOperationException(
                         $"Owner-safe replacement failed roundtrip audit: {audit}");
@@ -566,7 +567,8 @@ namespace MoatMove
             catch (Exception ex)
             {
                 RestoreFallbackPathBuffer(pathManager, path, backup, originalLength);
-                details = $"replacement-rollback:{ex.GetType().Name}";
+                // The audit's own reason when the roundtrip audit rejected the route.
+                details = $"replacement-rollback:{(audit != null && ex is InvalidOperationException ? audit + (edgesAudited ? "/edgesAudited" : "/edgesLive") : ex.GetType().Name)}";
                 try
                 {
                     Shared.DebugLogHelper.LogWarningLimited(runtime.log, "BugfixesAndQoL/src/UnitCommands/Movement/MovementPathPublication.cs:812", $"Bugfixes and QoL stage=friendly-moat-movement-replacement-rollback unit={plan?.UnitId ?? 0} " +

@@ -106,6 +106,12 @@ namespace MoatMove
             // that passed every other rule. Without this, keeps, towers and walls had no ground
             // edges and their units fell back to Vanilla (pf-iter-7).
             if (!allowed && ground && planner.edgeRejectionRule == "height") { allowed = true; wet = false; }
+            // The publication audit rejects a diagonal past an enemy moat corner; GroundOnly does not
+            // check corners (FriendlyOnly does), so ground edges apply the audit's rule themselves.
+            if (allowed && ground && (direction & 1) != 0 &&
+                (runtime.IsCompletedEnemyMoatForPlayer(player, GameTileManagerAPI.Instance.GetTileId(nx, y)) ||
+                 runtime.IsCompletedEnemyMoatForPlayer(player, GameTileManagerAPI.Instance.GetTileId(x, ny))))
+                allowed = false;
             return allowed;
         }
 
