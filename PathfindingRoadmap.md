@@ -25,6 +25,20 @@ Save `test_stresstest4.sav`, 180 s Lauf nach Warmup, `tools/Run-PathfindingItera
 | pf-iter-10 | 7 | 4 | 1 | 218 ms | Wächter für native Richtungsbytes (unbemeldete Torwechsel) |
 | pf-iter-11 | 10 | 7 | 0 | 152 ms | 3×3-Markierung je Bytewechsel; wortbasierte Erreichbarkeitssuche |
 | pf-iter-12 | 5 | 2 | 0 | 119 ms | Hauptfeld-Cache im Kern (Maskenrevision) |
+| pf-iter-13 | 7 | 4 | 0 | 116 ms | Diagnose der Vanilla-Rückfälle (`vanillaWhy`) |
+| pf-iter-14 | 7 | 4 | 0 | 120 ms | Bodenkanten übernehmen die Eckregel des Audits (424 abgelehnte Veröffentlichungen je Lauf) |
+| pf-iter-15 | 8 | 5 | 0 | 185 ms | Erreichbarkeitswörter bei Neuabtastung vergessen statt voll neu lesen |
+| pf-iter-16 | 9 | 6 | 0 | 193 ms | Masken-Neuaufbau `DAA50` meldet nur Richtungsbytes (Byte-Wächter statt Neuabtastung) |
+| pf-iter-17 | 9 | 6 | 0 | 189 ms | Diagnose der Erreichbarkeitssuchen je Aufrufer |
+| pf-iter-18 | 9 | 6 | 1 | 206 ms | – |
+
+Ab pf-iter-15 verhalten sich die KI-Lords anders (34.000 statt 29.000 Ticks, 51–94 statt 16 Torwechsel je Lauf), seit mehr Einheiten Anker-Routen bekommen; die Läufe sind deshalb nur eingeschränkt mit den früheren vergleichbar.
+
+Verbleibende Spitzen (pf-iter-18, je Lauf 6 Lücken von 105–206 ms):
+- **Grabenarbeits-Auswahl der KI-Gräber** (`MoatWorkSelectionScope`): 42 verwaltete Erreichbarkeitssuchen je Lauf, im Mittel 390.000 Zellen und 27 ms, höchstens 62 ms; mehrere Gräber im selben Tick ergeben bis zu 206 ms.
+- **Vanillas Builder außerhalb von Anker-Gruppenbefehlen** (Einzel- und Angriffsbefehle): 143–168 ms.
+- **Gewichtete Assassinen-Suche** (BFQoL `TryBuildWeightedRoute`): 105–115 ms.
+- **Hauptfelder vieler Gruppenbefehle in einem Tick** (`mma_step`): rund 65 ms Anteil.
 
 Die größte Lücke liegt seit pf-iter-4 im ersten Tick nach dem Laden (Erstinitialisierung aller Mods, ohne Wegfindungs-Samples); sie ist ein Kartenstart-Thema.
 
