@@ -499,7 +499,7 @@ namespace BugfixesAndQoL
                 if (PerformanceDiagnosticsEnabled) command?.RecordResolution((PerformanceDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0) - resolutionStarted);
                 if (activeObservation != null) activeObservation.Player = playerId;
 #if SERP_DEVDIAG
-                CountRequestSharing(playerId, startX, startY, targetX, targetY);
+                CountRequestSharing(command, playerId, startX, startY, targetX, targetY);
 #endif
                 // Separate host settings for human players and AI lords; same snapshot as the command.
                 bool aiPlayer = IsAIPlayer(playerId);
@@ -817,15 +817,15 @@ namespace BugfixesAndQoL
         }
 
 #if SERP_DEVDIAG
-        // DEVDIAG: how often the requests of one map tick repeat a start, a target or a target's 8 x 8
-        // cell of the same player. Decides whether one field per tick (from a shared start, or to a
-        // shared target area) would replace per-request searches.
-        private int diagShareTick = -1;
+        // DEVDIAG: how often the requests of one command scope (a group order; requests outside a scope
+        // share one bucket until the next scope) repeat a start, a target or a target's 8 x 8 cell of the
+        // same player. Decides whether one shared field per order would replace per-request searches.
+        private int diagShareScope = -1;
         private readonly HashSet<long> diagShareStarts = new HashSet<long>(), diagShareTargets = new HashSet<long>(), diagShareCells = new HashSet<long>();
-        private void CountRequestSharing(int playerId, int startX, int startY, int targetX, int targetY)
+        private void CountRequestSharing(AssassinCommandScope command, int playerId, int startX, int startY, int targetX, int targetY)
         {
-            int tick = GameTimeManagerAPI.Instance.GetElapsedMapTicks();
-            if (tick != diagShareTick) { diagShareTick = tick; diagShareStarts.Clear(); diagShareTargets.Clear(); diagShareCells.Clear(); }
+            int scope = command?.Sequence ?? 0;
+            if (scope != diagShareScope) { diagShareScope = scope; diagShareStarts.Clear(); diagShareTargets.Clear(); diagShareCells.Clear(); }
             long player = (long)playerId << 32;
             Shared.DevDiag.Count(diagShareStarts.Add(player | (uint)GetCoordinateIndex(startX, startY)) ? "bfqol.assassin.share.newStart" : "bfqol.assassin.share.repeatStart");
             Shared.DevDiag.Count(diagShareTargets.Add(player | (uint)GetCoordinateIndex(targetX, targetY)) ? "bfqol.assassin.share.newTarget" : "bfqol.assassin.share.repeatTarget");
