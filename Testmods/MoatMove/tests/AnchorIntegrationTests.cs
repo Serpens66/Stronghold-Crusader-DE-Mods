@@ -244,7 +244,7 @@ namespace MoatMove
                 Check(!TryAnchorRequiredRoute(new PlanScope(1, 150, 10) { PlayerId = 1 }, false, 10, 10, out _, out _, auditTask) &&
                     anchorEncodeRejects == rejects + 1, "a route over an unreported terrain change passes the live audit");
                 AnchorTick(++ticks);
-                Check(AnchorNative.mma_task_status(anchorContext, auditTask) == AnchorNative.Stale && anchorResweeps == resweeps && anchorSweep[1] == -1,
+                Check(AnchorNative.mma_task_status(anchorContext, auditTask) == AnchorNative.Stale && anchorResweeps == resweeps && anchorSweepCursor == -1,
                     "a failed audit does not refresh just its stale area");
                 nativeMovementMasks[blocked] = 0x44; MarkAnchorArea(10 * MapWidth + 140); AnchorTick(++ticks);
                 ReleaseAnchorTask(auditTask);
@@ -254,7 +254,7 @@ namespace MoatMove
                 int tileTask = TryComputeAnchorTask(1, anchor, 1, 7, new[] { start }, 1);
                 long tileResweeps = anchorResweeps;
                 nativeMovementMasks[blocked] = 0; InvalidateMovementSearchData(blocked); AnchorTick(++ticks);
-                Check(AnchorNative.mma_task_status(anchorContext, tileTask) == AnchorNative.Stale && anchorResweeps == tileResweeps && anchorSweep[1] == -1,
+                Check(AnchorNative.mma_task_status(anchorContext, tileTask) == AnchorNative.Stale && anchorResweeps == tileResweeps && anchorSweepCursor == -1,
                     "a reported tile change does not refresh just its area");
                 nativeMovementMasks[blocked] = 0x44; InvalidateMovementSearchData(terrain: false); AnchorTick(++ticks);
                 Check(anchorResweeps == tileResweeps, "a nested unit move requests a terrain resweep");
@@ -264,12 +264,12 @@ namespace MoatMove
                 // A resweep request during a running round extends it from the cursor instead of
                 // restarting at node 0, so frequent requests still reach every node.
                 ResweepAnchorMasks(); AnchorTick(++ticks); AnchorTick(++ticks);
-                int cursor = anchorSweep[1];
+                int cursor = anchorSweepCursor;
                 Check(cursor == 2 * AnchorResweepNodesPerTick, $"resweep cursor {cursor} after two ticks");
                 ResweepAnchorMasks();
-                Check(anchorSweep[1] == cursor && anchorSweepLeft[1] == total, "a resweep request restarts the running round");
+                Check(anchorSweepCursor == cursor && anchorSweepLeft == total, "a resweep request restarts the running round");
                 for (int i = 0; i < (total + AnchorResweepNodesPerTick - 1) / AnchorResweepNodesPerTick; i++) AnchorTick(++ticks);
-                Check(anchorSweep[1] == -1 && anchorSweepLeft[1] == 0, "an extended resweep round does not finish after one full map");
+                Check(anchorSweepCursor == -1 && anchorSweepLeft == 0, "an extended resweep round does not finish after one full map");
 
                 // Gate changes: an unchanged access snapshot requests nothing; a changed portal entry
                 // without a building marks nothing and needs no resweep; one whose building footprint

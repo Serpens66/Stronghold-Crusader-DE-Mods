@@ -87,6 +87,15 @@ namespace MoatMove
             word = Read(node); shared.Set(node, word); return word;
         }
 
+        // Takes a word evaluated live for another player (player-neutral node, same sweep step).
+        internal uint Adopt(int node, uint word)
+        {
+            if ((uint)node >= words.Length) return 0;
+            words[node] = word;
+            if (known[node] == 0) { known[node] = 1; knownNodes.Add(node); }
+            return word;
+        }
+
         // Fresh live word of one node (anchor-mode chunked resweep after access changes).
         internal uint Reread(int node)
         {

@@ -117,8 +117,10 @@ namespace MoatMove
         // A new request extends the running round to a full map from the cursor instead of
         // restarting at node 0, so frequent requests (AI games) still reach every node.
         // The mask stays usable; publication still audits every transition live.
-        private readonly int[] anchorSweep = { -1, -1, -1, -1, -1, -1, -1, -1, -1 };
-        private readonly int[] anchorSweepLeft = new int[9];
+        // One cursor for all ready masks: a player-neutral node is read live once per step and
+        // adopted by the other players' masks.
+        private int anchorSweepCursor = -1, anchorSweepLeft;
+        private readonly uint[][] anchorSweepWords = new uint[9][];
         // Gate buildings closed to a player (same rule as the cursor portals), refreshed only when
         // the access fingerprint changes; anchor masks never need a cursor topology.
         private readonly HashSet<int>[] anchorBlocked = new HashSet<int>[9];
@@ -189,7 +191,8 @@ namespace MoatMove
             anchorBatchIndex.Clear(); anchorPendingFormationTribe = -1; anchorPendingFormation = null;
             Array.Clear(anchorMaps, 0, anchorMaps.Length); anchorAccessKnown = false; anchorShared = null; anchorBlockedUnion.Clear();
             anchorPlayersRequested = false; anchorUnreachedLogs = 0; anchorEndedUnreached = 0; anchorPortalCount = -1;
-            for (int p = 0; p < anchorMaskNext.Length; p++) { anchorMaskNext[p] = -1; anchorSweep[p] = -1; anchorSweepLeft[p] = 0; anchorBlocked[p]?.Clear(); }
+            for (int p = 0; p < anchorMaskNext.Length; p++) { anchorMaskNext[p] = -1; anchorBlocked[p]?.Clear(); }
+            anchorSweepCursor = -1; anchorSweepLeft = 0;
         }
 
         private bool AnchorReady(int player) =>
@@ -507,8 +510,8 @@ namespace MoatMove
         private void ResweepAnchorMasks()
         {
             anchorResweeps++;
-            for (int p = 1; p <= 8; p++)
-                if (anchorMaskNext[p] >= 0) { if (anchorSweep[p] < 0) anchorSweep[p] = 0; anchorSweepLeft[p] = MapWidth * MapWidth; }
+            if (anchorSweepCursor < 0) anchorSweepCursor = 0;
+            anchorSweepLeft = MapWidth * MapWidth;
         }
 
         // A failed live audit names the stale node: its area is re-read at the next tick.
@@ -576,21 +579,40 @@ namespace MoatMove
                     continue;
                 }
                 anchorMaskNext[p] = next + count; budget -= count; anchorBuildNodes += count;
-                if (anchorMaskNext[p] >= total) Shared.DebugLogHelper.LogInfo(log, $"MoatMove anchor mask ready; player={p}.");
+                if (anchorMaskNext[p] >= total)
+                {
+                    Shared.DebugLogHelper.LogInfo(log, $"MoatMove anchor mask ready; player={p}.");
+                    // Its earlier chunks predate a running round's request: extend the round.
+                    if (anchorSweepCursor >= 0) ResweepAnchorMasks();
+                }
             }
             long built = System.Diagnostics.Stopwatch.GetTimestamp();
             anchorBuildTicks += built - phase;
             budget = Math.Min(budget, AnchorResweepNodesPerTick);
-            for (int p = 1; p <= 8 && budget > 0; p++)
+            if (anchorSweepCursor >= 0 && budget > 0)
             {
-                int sweep = anchorSweep[p];
-                if (sweep < 0 || anchorMaskNext[p] < total) continue;
-                FastTraversalCache map = AnchorTraversal(p);
-                int count = Math.Min(Math.Min(budget, anchorSweepLeft[p]), total - sweep);
-                for (int i = 0; i < count; i++) anchorWords[i] = map.Reread(sweep + i);
-                AnchorNative.mma_mask_write(anchorContext, p, sweep, count, anchorWords, out _);
-                anchorSweepLeft[p] -= count; budget -= count; anchorSweepNodes += count;
-                anchorSweep[p] = anchorSweepLeft[p] <= 0 ? -1 : (sweep + count) % total;
+                int sweep = anchorSweepCursor, count = Math.Min(Math.Min(budget, anchorSweepLeft), total - sweep);
+                for (int i = 0; i < count; i++)
+                {
+                    int node = sweep + i; bool neutral = anchorShared != null && AnchorPlayerNeutral(node), have = false; uint word = 0;
+                    for (int p = 1; p <= 8; p++)
+                    {
+                        if (anchorMaskNext[p] < total) continue;
+                        FastTraversalCache map = AnchorTraversal(p);
+                        uint[] words = anchorSweepWords[p] ?? (anchorSweepWords[p] = new uint[AnchorMaskNodesPerTick]);
+                        if (neutral && have) words[i] = map.Adopt(node, word);
+                        else
+                        {
+                            words[i] = map.Reread(node); anchorSweepNodes++;
+                            if (neutral) { word = words[i]; have = true; }
+                        }
+                    }
+                }
+                for (int p = 1; p <= 8; p++)
+                    if (anchorMaskNext[p] >= total && anchorSweepWords[p] != null)
+                        AnchorNative.mma_mask_write(anchorContext, p, sweep, count, anchorSweepWords[p], out _);
+                anchorSweepLeft -= count;
+                anchorSweepCursor = anchorSweepLeft <= 0 ? -1 : (sweep + count) % total;
             }
             long ended = System.Diagnostics.Stopwatch.GetTimestamp();
             anchorSweepTicks += ended - built; anchorMaskTicks += ended - started;
