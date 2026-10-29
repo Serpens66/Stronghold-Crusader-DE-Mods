@@ -65,6 +65,8 @@ template<class T> using Vec = std::vector<T, Alloc<T>>;
 struct QueryResult { int status, ground, moat, length, flags, reserved; i64 cost; };
 static_assert(sizeof(QueryResult) == 32, "anchor core ABI");
 enum Status { Found = 0, Unreachable = 1, OverLimit = 2, Pending = 3, Stale = 4, Invalid = 5, Failed = 6 };
+// Internal only: a batch query that needs a new sub-anchor is answered in the ordered pass.
+constexpr int Deferred = 7;
 constexpr int Ready = Found; // task status: field computed and current
 enum Flags { ViaAnchor = 1, SubAnchor = 2, NewSubAnchor = 4, Uncached = 8 };
 enum Code { Ok = 0, NoMemory = 2, BadArgument = 3, Internal = 4 };
@@ -252,18 +254,24 @@ struct Pool {
     ~Pool() { stop(); }
 };
 
+// Per-thread query workspace: the local A* field (doubled ring) and path buffers.
+struct Scratch {
+    std::unique_ptr<Field> local; std::vector<uint8_t> path, rest; std::vector<int> targets; i64 stats[StatCount] = {};
+    Scratch(Memory* m, int n) : local(std::make_unique<Field>(m, n, 2 * MaxCost + 2)) {}
+};
+
 struct Context {
     Memory memory; Map map;
     std::unique_ptr<Mask> masks[MaxPlayers + 1];
     std::map<int, std::unique_ptr<Task>> tasks; int nextId = 1;
-    std::vector<std::unique_ptr<Field>> fields; std::unique_ptr<Field> local;
-    // Query scratch (queries run on the simulation thread only).
-    std::vector<uint8_t> path, rest; std::vector<int> targets;
+    std::vector<std::unique_ptr<Field>> fields;
+    // Simulation-thread scratch (single queries, ordered batch pass) and one per batch worker.
+    std::unique_ptr<Scratch> scratch; std::vector<std::unique_ptr<Scratch>> workers;
     Pool pool; i64 stats[StatCount] = {};
     Context(int w, int h, i64 limit) {
         memory.maximum = limit; map.width = w; map.height = h; map.n = w * h;
         for (int d = 0; d < 8; ++d) map.off[d] = dy[d] * w + dx[d];
-        local = std::make_unique<Field>(&memory, map.n, 2 * MaxCost + 2);
+        scratch = std::make_unique<Scratch>(&memory, map.n);
     }
     ~Context() { pool.stop(); }
     Mask* mask(int player) { return player >= 1 && player <= MaxPlayers ? masks[player].get() : nullptr; }
@@ -275,9 +283,12 @@ static bool ValidNode(const Context& c, int node) { return node >= 0 && node < c
 // Answers one unit. Anchors are tried in creation order (main anchor first). An anchor is
 // usable when the slot is graph-near to it inside the anchor-slot box; otherwise a field
 // at the slot is created once (sub-anchor) and reused by later queries of this task.
-static int Query(Context& c, Task& t, int start, int slot, int margin, uint8_t* bytes, int capacity, QueryResult& r) {
-    const Map& map = c.map; const Mask& mask = *c.mask(t.player); Field& local = *c.local;
-    std::vector<uint8_t>& path = c.path; std::vector<uint8_t>& rest = c.rest;
+// mayCreate == false (parallel batch pass): the task is only read; a query that would create
+// a sub-anchor returns Deferred and is answered later in caller order, so results equal a
+// sequential run exactly.
+static int Query(Context& c, Task& t, Scratch& sc, int start, int slot, int margin, uint8_t* bytes, int capacity, QueryResult& r, bool mayCreate = true) {
+    const Map& map = c.map; const Mask& mask = *c.mask(t.player); Field& local = *sc.local; i64* stats = sc.stats;
+    std::vector<uint8_t>& path = sc.path; std::vector<uint8_t>& rest = sc.rest;
     auto finish = [&](int g, int w, int flags) {
         r.flags = flags; r.ground = g; r.moat = w; r.cost = i64(g) * t.ground + i64(w) * t.moat; r.length = int(path.size());
         if (int(path.size()) > MaxSteps || int(path.size()) > capacity) { r.status = OverLimit; r.length = 0; return; }
@@ -289,17 +300,17 @@ static int Query(Context& c, Task& t, int start, int slot, int margin, uint8_t* 
     if (t.exhausted && t.main->dist[start] == Unset && t.main->dist[slot] != Unset) { r.status = Unreachable; r.flags = 0; return Ok; }
     for (size_t a = 0; a <= t.subs.size(); ++a) {
         const Stored& s = a == 0 ? *t.main : *t.subs[a - 1];
-        if (s.dist[start] == Unset) { ++c.stats[AnchorNoStart]; continue; }
+        if (s.dist[start] == Unset) { ++stats[AnchorNoStart]; continue; }
         Box box;
         box.x0 = std::max(0, std::min(s.anchor % map.width, slot % map.width) - margin); box.x1 = std::min(map.width - 1, std::max(s.anchor % map.width, slot % map.width) + margin);
         box.y0 = std::max(0, std::min(s.anchor / map.width, slot / map.width) - margin); box.y1 = std::min(map.height - 1, std::max(s.anchor / map.width, slot / map.width) + margin);
         auto stored = [&](int v) { return s.dist[v]; };
         path.clear(); int gH = 0, wH = 0;
         int entry = Descend(map, mask, stored, start, t.ground, t.moat, path, gH, wH, [&](int, int x, int y) { return x >= box.x0 && x <= box.x1 && y >= box.y0 && y <= box.y1; });
-        if (entry < 0) { ++c.stats[AnchorNoEntry]; continue; }
+        if (entry < 0) { ++stats[AnchorNoEntry]; continue; }
         local.solveTowards(map, mask, slot, s.anchor, entry, t.ground, t.moat, box);
-        if (!local.reached(s.anchor)) { ++c.stats[AnchorUnreached]; continue; }
-        if (local.dist[s.anchor] > u32(t.ground) * u32(2 * map.chebyshev(s.anchor, slot) + 8)) { ++c.stats[AnchorTooFar]; continue; }
+        if (!local.reached(s.anchor)) { ++stats[AnchorUnreached]; continue; }
+        if (local.dist[s.anchor] > u32(t.ground) * u32(2 * map.chebyshev(s.anchor, slot) + 8)) { ++stats[AnchorTooFar]; continue; }
         auto localDistance = [&](int v) { return local.touched(v) ? local.dist[v] : Unset; };
         i64 boxCost = local.reached(entry) ? i64(gH) * t.ground + i64(wH) * t.moat + local.dist[entry] : -1;
         i64 viaCost = i64(s.dist[start]) + local.dist[s.anchor];
@@ -307,7 +318,7 @@ static int Query(Context& c, Task& t, int start, int slot, int margin, uint8_t* 
         if (boxCost >= 0 && boxCost <= viaCost) {
             rest.clear(); if (Descend(map, mask, localDistance, entry, t.ground, t.moat, rest, g, w, [&](int v, int, int) { return v == slot; }) < 0) continue;
         } else {
-            ++c.stats[ViaChosen]; flags |= ViaAnchor;
+            ++stats[ViaChosen]; flags |= ViaAnchor;
             if (Descend(map, mask, stored, entry, t.ground, t.moat, path, g, w, [&](int v, int, int) { return v == s.anchor; }) < 0) continue;
             rest.clear(); if (Descend(map, mask, localDistance, s.anchor, t.ground, t.moat, rest, g, w, [&](int v, int, int) { return v == slot; }) < 0) continue;
         }
@@ -317,26 +328,33 @@ static int Query(Context& c, Task& t, int start, int slot, int margin, uint8_t* 
     // No usable anchor: an exact field at the slot, cached as a sub-anchor while allowed. With
     // every sub-anchor slot used the query is not answered (the caller keeps Vanilla) rather
     // than building an uncached full-map field per query.
-    if (int(t.subs.size()) >= MaxSubAnchors) { r.status = OverLimit; r.flags = Uncached; ++c.stats[SubCapped]; return Ok; }
+    if (int(t.subs.size()) >= MaxSubAnchors) { r.status = OverLimit; r.flags = Uncached; ++stats[SubCapped]; return Ok; }
+    if (!mayCreate) { r.status = Deferred; r.flags = 0; return Ok; }
     auto t0 = Clock::now();
     // An exhausted main field splits the starts: those it settled reach the anchor, the others
     // cannot. A sub-anchor targets only starts of the querying start's class; the other class
     // usually lies in another component and would force a search over this whole component.
     // Answers stay exact: a later query uses a sub-anchor only where it settled that start.
-    std::vector<int>& targets = c.targets; targets.clear();
+    std::vector<int>& targets = sc.targets; targets.clear();
     const bool startInMain = t.main->dist[start] != Unset;
     for (int s : t.starts) if (!t.exhausted || (t.main->dist[s] != Unset) == startInMain) targets.push_back(s);
     targets.push_back(start);
     local.solve(map, mask, slot, false, targets, t.ground, t.moat);
     int flags = NewSubAnchor | SubAnchor;
     t.subs.push_back(std::make_unique<Stored>(&c.memory)); t.subs.back()->take(map, local, slot);
-    const Stored* s = t.subs.back().get(); ++c.stats[SubAnchors];
-    c.stats[SubNs] += Ns(t0);
+    const Stored* s = t.subs.back().get(); ++stats[SubAnchors];
+    stats[SubNs] += Ns(t0);
     path.clear(); int g = 0, w = 0;
     if (s->dist[start] == Unset) { r.status = Unreachable; r.flags = flags; return Ok; }
     auto stored = [&](int v) { return s->dist[v]; };
     if (Descend(map, mask, stored, start, t.ground, t.moat, path, g, w, [&](int v, int, int) { return v == slot; }) < 0) { r.status = OverLimit; r.flags = flags; return Ok; }
     finish(g, w, flags); return Ok;
+}
+
+// Moves a scratch's counters and its local field's settle/entry counts into the context.
+static void MergeScratch(Context& c, Scratch& sc) {
+    for (int i = 0; i < StatCount; ++i) { c.stats[i] += sc.stats[i]; sc.stats[i] = 0; }
+    c.stats[SettleEvents] += sc.local->settles; c.stats[Entries] += sc.local->entries; sc.local->settles = sc.local->entries = 0;
 }
 
 template<class F> static int Guard(F body) {
@@ -347,7 +365,7 @@ template<class F> static int Guard(F body) {
 
 using namespace mma;
 extern "C" {
-__declspec(dllexport) int mma_contract() { return 0x04000005; }
+__declspec(dllexport) int mma_contract() { return 0x04000006; }
 // Physical cores minus two (Unity main thread plus simulation/render), within 1..8.
 __declspec(dllexport) int mma_recommended_threads() {
     DWORD length = 0; GetLogicalProcessorInformationEx(RelationProcessorCore, nullptr, &length);
@@ -467,9 +485,48 @@ __declspec(dllexport) int mma_query(Context* c, int id, int start, int slot, int
     if (!c->fresh(t)) { result->status = Stale; return Ok; }
     return Guard([&] {
         auto t0 = Clock::now(); ++c->stats[Queries];
-        int code = Query(*c, t, start, slot, margin, bytes, capacity, *result);
-        c->stats[SettleEvents] += c->local->settles; c->stats[Entries] += c->local->entries; c->local->settles = c->local->entries = 0;
+        Scratch& sc = *c->scratch;
+        int code = Query(*c, t, sc, start, slot, margin, bytes, capacity, *result);
+        MergeScratch(*c, sc);
         c->stats[QueryNs] += Ns(t0); return code;
+    });
+}
+// Answers count units of one task: a parallel pass over existing anchors (each worker with
+// its own scratch, the task read-only), then the deferred queries in caller order with the
+// ordinary sub-anchor rules. Unit i writes its steps to bytes + i * stride. Results equal
+// count single queries in the same order, independent of the thread count.
+__declspec(dllexport) int mma_query_batch(Context* c, int id, const int* starts, const int* slots, int count, int margin, int threads,
+    uint8_t* bytes, int stride, QueryResult* results) {
+    if (!c || !starts || !slots || !bytes || !results || count < 0 || margin < 0 || stride < 0 || threads < 1 || threads > 64) return BadArgument;
+    if (!c->tasks.count(id)) return BadArgument;
+    for (int i = 0; i < count; ++i) if (!ValidNode(*c, starts[i]) || !ValidNode(*c, slots[i])) return BadArgument;
+    Task& t = *c->tasks[id];
+    for (int i = 0; i < count; ++i) { results[i] = QueryResult{}; results[i].status = Invalid; }
+    if (t.status != Ready || !c->fresh(t)) { for (int i = 0; i < count; ++i) results[i].status = t.status != Ready ? t.status : int(Stale); return Ok; }
+    return Guard([&] {
+        auto t0 = Clock::now();
+        while (int(c->workers.size()) < threads) c->workers.push_back(std::make_unique<Scratch>(&c->memory, c->map.n));
+        c->pool.resize(threads);
+        std::atomic<int> next{0}; std::atomic<int> failure{Ok};
+        auto job = [&](int worker) {
+            Scratch& sc = *c->workers[worker];
+            for (;;) {
+                int i = next.fetch_add(1); if (i >= count) break;
+                try { Query(*c, t, sc, starts[i], slots[i], margin, bytes + size_t(i) * size_t(stride), stride, results[i], false); }
+                catch (Exhausted&) { failure = NoMemory; results[i].status = Failed; }
+                catch (std::bad_alloc&) { failure = NoMemory; results[i].status = Failed; }
+                catch (...) { failure = Internal; results[i].status = Failed; }
+            }
+        };
+        if (count > 0) c->pool.run(job);
+        for (int w = 0; w < threads; ++w) MergeScratch(*c, *c->workers[w]);
+        if (failure != Ok) return int(failure);
+        Scratch& sc = *c->scratch;
+        for (int i = 0; i < count; ++i)
+            if (results[i].status == Deferred) Query(*c, t, sc, starts[i], slots[i], margin, bytes + size_t(i) * size_t(stride), stride, results[i], true);
+        MergeScratch(*c, sc);
+        c->stats[Queries] += count; c->stats[QueryNs] += Ns(t0);
+        return int(Ok);
     });
 }
 __declspec(dllexport) int mma_stats(Context* c, i64* data, int count, int reset) {

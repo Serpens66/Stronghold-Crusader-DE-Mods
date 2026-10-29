@@ -15,7 +15,7 @@ internal static class FormationMovementEligibilityTests
         string[] methods = { "OnUnitMoveHere", "PruneUnitAssignmentFrames",
             "ClearUnitAssignmentFrames", "TryGetMatchingUnit", "FinishUnitAssignmentFrame",
             "RunUnitFallbacks", "LogFormationOrderResult", "OnTribeIssueOrderMoveHere",
-            "ComputeSelectionHash", "CombineAdmissionPlanHash", "ComputePlanHash" };
+            "ComputeSelectionHash", "CombineAdmissionPlanHash", "ComputePlanHash", "PublishFormationDestinations" };
         string[] types = { "ActiveFormationCommand", "UnitAssignmentFrame", "NativeDestination",
             "UnitFallbackAttempt", "UnitFallbackRequest", "UnitFallbackSummary", "SelectionIdentity" };
         string members = string.Join("\n", syntax.DescendantNodes()
@@ -60,7 +60,8 @@ namespace SHCDESE.API {
 }
 namespace BugfixesAndQoL.UnitCommands {
     using SHCDESE.EventAPI.Tribes;
-    internal static class UnitCommandPathAPI {internal static Commands Runtime=new Commands();}
+    internal static class UnitCommandPathAPI {internal static Commands Runtime=new Commands();internal static UnitCommandTraversalProvider Traversal;}
+    internal class UnitCommandTraversalProvider {internal int Plans,Tribe;internal int[] Ids,Xs;internal virtual void ObserveFormationDestinations(int tribeId,int[] unitIds,uint[] globalIds,int[] targetX,int[] targetY){Plans++;Tribe=tribeId;Ids=unitIds;Xs=targetX;}}
     internal sealed class Commands {internal bool TryRejectPreparedFormationWithoutSlots(TribeIssueOrderMoveHereEventArgs args){args.SkipOriginalFunction=true;args.ReturnValue=0;return true;}
         internal void RejectPreparedMove(TribeIssueOrderMoveHereEventArgs args) { args.SkipOriginalFunction=true;args.ReturnValue=0; } internal int Blocked;
         internal FormationUnit[] AdmitFormationMembers(FormationUnit[] units,int tribe,int x,int y)=>units.Where(u=>u.UnitId>Blocked).ToArray();
@@ -175,6 +176,18 @@ namespace BugfixesAndQoL.UnitCommands {
                 Check(current.plannedRows==Math.Min(2,6-blocked),"formation retains requested rows for the admitted subset");
                 Check(current.activeCommand.ExecutionPlanHash!=0,"execution hash includes full selection and admitted mask");
             }
+            // The traversal provider receives the admitted plan once: every planned unit with its slot.
+            var provider=new UnitCommandTraversalProvider();UnitCommandPathAPI.Traversal=provider;
+            current=new EligibilityFixture();
+            current.ordered=Enumerable.Range(1,6).Select(id=>new FormationUnit(id,(uint)(id+100),22,FormationRole.Neutral)).ToArray();
+            current.pendingCommand=new PendingFormationCommand();var planPacket=current.pendingCommand.Packet;
+            planPacket.Formation=(int)FormationKind.Line;planPacket.UnitCount=6;planPacket.SelectionHash=ComputeSelectionHash(current.ordered);
+            current.availableSlots=6;UnitCommandPathAPI.Runtime.Blocked=0;
+            current.OnTribeIssueOrderMoveHere(new TribeIssueOrderMoveHereEventArgs{Phase=EventHookPhase.Pre});
+            Check(provider.Plans==1&&provider.Ids.Length==current.activeCommand.ExpectedCount&&
+                provider.Ids.All(id=>current.activeCommand.TryGetUnitDestination(id,out NativeDestination d,out _)&&provider.Xs[Array.IndexOf(provider.Ids,id)]==d.X),
+                "the formation plan does not reach the traversal provider exactly once with each unit's slot");
+            UnitCommandPathAPI.Traversal=null;
             current=new EligibilityFixture();current.pendingCommand=new PendingFormationCommand();
             var consumed=current.pendingCommand;
             current.OnTribeIssueOrderMoveHere(new TribeIssueOrderMoveHereEventArgs{Phase=EventHookPhase.Pre,SkipOriginalFunction=true});

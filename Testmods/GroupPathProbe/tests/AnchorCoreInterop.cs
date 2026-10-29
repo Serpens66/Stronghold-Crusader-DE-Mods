@@ -24,6 +24,7 @@ internal sealed class AnchorCoreInterop : IDisposable
     [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern int mma_step(IntPtr context, int maxTasks, int threads, out int computed);
     [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern int mma_query(IntPtr context, int id, int start, int slot, int margin, [Out] byte[] bytes, int capacity, out QueryResult result);
     [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern int mma_stats(IntPtr context, [Out] long[] data, int count, int reset);
+    [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern int mma_query_batch(IntPtr context, int id, int[] starts, int[] slots, int count, int margin, int threads, [Out] byte[] bytes, int stride, [Out] QueryResult[] results);
     internal static readonly string[] StatNames = { "tasksComputed", "tasksFailed", "settleEvents", "entries", "queries", "viaChosen", "subAnchors", "subCapped", "stepNs", "queryNs", "subNs", "maskWrites", "maskChanges", "peakBytes", "allocations", "workers",
         "anchorNoStart", "anchorNoEntry", "anchorUnreached", "anchorTooFar" };
     internal static int Stat(string name) => Array.IndexOf(StatNames, name);
@@ -38,7 +39,7 @@ internal sealed class AnchorCoreInterop : IDisposable
     {
         if (library != IntPtr.Zero) return;
         library = NativeLibrary.Load(Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../MoatMove/.local/anchor/MoatMoveAnchor.dll")));
-        if (mma_contract() != 0x04000005 || Marshal.SizeOf<QueryResult>() != 32) throw new InvalidOperationException("Anchor core ABI");
+        if (mma_contract() != 0x04000006 || Marshal.SizeOf<QueryResult>() != 32) throw new InvalidOperationException("Anchor core ABI");
     }
     internal AnchorCoreInterop(int width, int height, long limit = 512L * 1024 * 1024)
     {
@@ -82,6 +83,22 @@ internal sealed class AnchorCoreInterop : IDisposable
         Code(mma_query(context, id, start, slot, margin, buffer, buffer.Length, out QueryResult r));
         LastFlags = r.Flags;
         if (r.Status == Found) { var path = new byte[r.Length]; Array.Copy(buffer, path, r.Length); return new RouteResult { Status = SearchStatus.Found, Ground = r.Ground, Moat = r.Moat, Cost = r.Cost, Directions = path }; }
+        if (r.Status == Unreachable) return RouteResult.Failed(SearchStatus.Unreachable, "anchor-unreachable");
+        return RouteResult.Failed(SearchStatus.Inconclusive, r.Status == OverLimit ? "over-2000-steps" : r.Status == Pending ? "pending" : r.Status == Stale ? "stale" : r.Status == Failed ? "failed" : "invalid");
+    }
+    // All units of one task at once (parallel pass, then deferred sub-anchor queries in order).
+    internal RouteResult[] QueryBatch(int id, int[] starts, int[] slots, int margin, int threads)
+    {
+        const int stride = 2000;
+        var bytes = new byte[Math.Max(1, starts.Length) * stride]; var raw = new QueryResult[starts.Length];
+        Code(mma_query_batch(context, id, starts, slots, starts.Length, margin, threads, bytes, stride, raw));
+        var results = new RouteResult[starts.Length];
+        for (int i = 0; i < raw.Length; i++) results[i] = Convert(raw[i], bytes, i * stride);
+        return results;
+    }
+    private static RouteResult Convert(QueryResult r, byte[] bytes, int offset)
+    {
+        if (r.Status == Found) { var path = new byte[r.Length]; Array.Copy(bytes, offset, path, 0, r.Length); return new RouteResult { Status = SearchStatus.Found, Ground = r.Ground, Moat = r.Moat, Cost = r.Cost, Directions = path }; }
         if (r.Status == Unreachable) return RouteResult.Failed(SearchStatus.Unreachable, "anchor-unreachable");
         return RouteResult.Failed(SearchStatus.Inconclusive, r.Status == OverLimit ? "over-2000-steps" : r.Status == Pending ? "pending" : r.Status == Stale ? "stale" : r.Status == Failed ? "failed" : "invalid");
     }

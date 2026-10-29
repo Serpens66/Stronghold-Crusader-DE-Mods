@@ -27,6 +27,26 @@ internal static class AnchorCoreGate
         for (int i = 0; i < results.Length; i++) results[i] = core.Query(tasks[load.GroupOf[i]], load.Queries[i].Start, load.Queries[i].Target, Margin);
         return results;
     }
+    // Same tasks as Solve, answered with one batch per group (caller order within the group).
+    private static RouteResult[] SolveBatch(AnchorCoreInterop core, GroupLoad load, int threads)
+    {
+        var tasks = new int[load.Groups];
+        for (int g = 0; g < load.Groups; g++)
+        {
+            int first = load.GroupOf.IndexOf(g); RouteQuery q = load.Queries[first];
+            int[] starts = Enumerable.Range(0, load.Queries.Count).Where(i => load.GroupOf[i] == g).Select(i => load.Queries[i].Start).ToArray();
+            tasks[g] = core.CreateTask(Player, load.Anchors[g], q.GroundCost, q.MoatCost, starts);
+        }
+        core.Step(int.MaxValue, threads);
+        var results = new RouteResult[load.Queries.Count];
+        for (int g = 0; g < load.Groups; g++)
+        {
+            int[] members = Enumerable.Range(0, load.Queries.Count).Where(i => load.GroupOf[i] == g).ToArray();
+            RouteResult[] answers = core.QueryBatch(tasks[g], members.Select(i => load.Queries[i].Start).ToArray(), members.Select(i => load.Queries[i].Target).ToArray(), Margin, threads);
+            for (int k = 0; k < members.Length; k++) results[members[k]] = answers[k];
+        }
+        return results;
+    }
     private static void Same(RouteResult[] a, RouteResult[] b, string name)
     {
         for (int i = 0; i < a.Length; i++)
@@ -77,6 +97,13 @@ internal static class AnchorCoreGate
             using (var core = new AnchorCoreInterop(load.Map.Width, load.Map.Height, 128L * 1024 * 1024)) { core.WriteWholeMask(Player, load.Map, 37); a = Solve(core, load, 1, out _); }
             using (var core = new AnchorCoreInterop(load.Map.Width, load.Map.Height, 128L * 1024 * 1024)) { core.WriteWholeMask(Player, load.Map, load.Map.Count); b = Solve(core, load, 4, out _); }
             Same(a, b, load.Name + "#" + sample); Check(load, a);
+            // Batch answers equal single queries in caller order, for one and several threads.
+            foreach (int threads in new[] { 1, 4 })
+            {
+                RouteResult[] batch;
+                using (var core = new AnchorCoreInterop(load.Map.Width, load.Map.Height, 128L * 1024 * 1024)) { core.WriteWholeMask(Player, load.Map, load.Map.Count); batch = SolveBatch(core, load, threads); }
+                Same(a, batch, load.Name + "#" + sample + "-batch" + threads);
+            }
         }
         // Pending until the mask is complete; stale after a later change; restart recovers.
         {
@@ -112,6 +139,7 @@ internal static class AnchorCoreGate
             using var core = new AnchorCoreInterop(60, 60, 128L * 1024 * 1024); core.WriteWholeMask(Player, map, 500);
             RouteResult[] r = Solve(core, load, 2, out _); Check(load, r);
             if (core.Stats()[AnchorCoreInterop.Stat("subAnchors")] != 1) throw new InvalidOperationException("Far slots did not share one sub-anchor.");
+            using (var batchCore = new AnchorCoreInterop(60, 60, 128L * 1024 * 1024)) { batchCore.WriteWholeMask(Player, map, 500); Same(r, SolveBatch(batchCore, load, 4), "core-far-slots-batch"); if (batchCore.Stats()[AnchorCoreInterop.Stat("subAnchors")] != 1) throw new InvalidOperationException("Batch far slots did not share one sub-anchor."); }
             for (int i = 2; i < 4; i++) { var reference = ReferenceSearch.Find(map, load.Queries[i], new WorkBudget(64L * 1024 * 1024, 10)); if (r[i].Cost > reference.Cost + 2) throw new InvalidOperationException("Far-slot unit still detours; case=" + i); }
         }
         // Group split by a closed wall (AI members behind walls): the main field cannot reach the
@@ -126,6 +154,7 @@ internal static class AnchorCoreGate
             RouteResult[] r = Solve(core, load, 2, out _); Check(load, r);
             long[] stats = core.Stats();
             if (stats[AnchorCoreInterop.Stat("subAnchors")] != 1) throw new InvalidOperationException("Right-hand slots did not share one sub-anchor.");
+            using (var batchCore = new AnchorCoreInterop(60, 60, 128L * 1024 * 1024)) { batchCore.WriteWholeMask(Player, map, 500); Same(r, SolveBatch(batchCore, load, 4), "core-split-group-batch"); }
             // Main field: the whole left component (30 x 60 nodes). A sub-anchor that also targeted the
             // unreachable left-hand starts would settle the whole right component (29 x 60) as well.
             if (stats[AnchorCoreInterop.Stat("settleEvents")] >= 30 * 60 + 29 * 60) throw new InvalidOperationException("Sub-anchor exhausted the right component: settles=" + stats[AnchorCoreInterop.Stat("settleEvents")]);
@@ -162,6 +191,18 @@ internal static class AnchorCoreGate
             var named = new Dictionary<string, long>(); for (int i = 0; i < stats.Length; i++) named[AnchorCoreInterop.StatNames[i]] = stats[i];
             rows["threads-" + threads] = new { stepMs, queryMs, subAnchorMs = subMs, queryMicrosecondsPerUnit = (queryMs - subMs) * 1000 / load.Queries.Count, stats = named };
             Console.WriteLine("  core threads=" + threads + " step=" + stepMs.ToString("F1") + " ms queries=" + queryMs.ToString("F1") + " ms (sub-anchors " + subMs.ToString("F1") + " ms, " + stats[AnchorCoreInterop.Stat("subAnchors")] + ") via=" + stats[AnchorCoreInterop.Stat("viaChosen")] + " peakMiB=" + stats[AnchorCoreInterop.Stat("peakBytes")] / 1048576);
+        }
+        // Batch queries (one call per group, parallel pass plus ordered deferred pass): identical
+        // answers, timed like the single queries above.
+        foreach (int threads in new[] { 1, recommended })
+        {
+            using var core = new AnchorCoreInterop(load.Map.Width, load.Map.Height);
+            core.WriteWholeMask(Player, load.Map, 16384); core.Stats(true);
+            var results = SolveBatch(core, load, threads); long[] stats = core.Stats();
+            Same(reference, results, load.Name + " batch threads=" + threads);
+            double queryMs = stats[AnchorCoreInterop.Stat("queryNs")] / 1e6, subMs = stats[AnchorCoreInterop.Stat("subNs")] / 1e6;
+            rows["batch-threads-" + threads] = new { queryMs, subAnchorMs = subMs, queryMicrosecondsPerUnit = queryMs * 1000 / load.Queries.Count };
+            Console.WriteLine("  batch threads=" + threads + " queries=" + queryMs.ToString("F1") + " ms (sub-anchors " + subMs.ToString("F1") + " ms)");
         }
         var oracle = new PreciseOracle(load.Map); var extra = new List<long>(); var relative = new List<long>(); int mismatch = 0, worse = 0;
         var pw = Stopwatch.StartNew(); double next = 5;

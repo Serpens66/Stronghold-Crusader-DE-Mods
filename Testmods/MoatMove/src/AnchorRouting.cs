@@ -19,12 +19,12 @@ namespace MoatMove
     // queries keep Fast's rules. Until a player's mask is complete, Fast applies.
     internal sealed unsafe partial class FriendlyMoatTraversalProvider
     {
-        // Private C ABI of native/MoatMoveAnchor.cpp (contract 0x04000005). The DLL is loaded
+        // Private C ABI of native/MoatMoveAnchor.cpp (contract 0x04000006). The DLL is loaded
         // once by full path from the plugin folder and stays loaded for the process.
         private static class AnchorNative
         {
             internal const string Library = "MoatMoveAnchor.dll";
-            internal const int Contract = 0x04000005, Ready = 0, Unreachable = 1, OverLimit = 2, Pending = 3, Stale = 4, Invalid = 5, Failed = 6;
+            internal const int Contract = 0x04000006, Ready = 0, Unreachable = 1, OverLimit = 2, Pending = 3, Stale = 4, Invalid = 5, Failed = 6;
             [StructLayout(LayoutKind.Sequential)] internal struct QueryResult { internal int Status, Ground, Moat, Length, Flags, Reserved; internal long Cost; }
             [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)] private static extern IntPtr LoadLibraryEx(string file, IntPtr reserved, uint flags);
             [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern int mma_contract();
@@ -39,6 +39,10 @@ namespace MoatMove
             [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern int mma_task_status(IntPtr context, int id);
             [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern int mma_step(IntPtr context, int maxTasks, int threads, out int computed);
             [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern int mma_query(IntPtr context, int id, int start, int slot, int margin, [Out] byte[] bytes, int capacity, out QueryResult result);
+            // count units of one task: parallel pass, then deferred sub-anchor queries in caller order;
+            // unit i writes its steps to bytes[i * stride]. Same answers as count single queries.
+            [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern int mma_query_batch(IntPtr context, int id, int[] starts, int[] slots, int count, int margin, int threads,
+                [Out] byte[] bytes, int stride, [Out] QueryResult[] results);
             // Core counters (StatIndex order of MoatMoveAnchor.cpp); reset after each read.
             internal const int StatCount = 20, StatQueries = 4, StatViaChosen = 5, StatSubAnchors = 6, StatSubCapped = 7, StatStepNs = 8, StatQueryNs = 9, StatSubNs = 10,
                 StatSettles = 2, StatPeakBytes = 13, StatAnchorNoStart = 16, StatAnchorNoEntry = 17, StatAnchorUnreached = 18, StatAnchorTooFar = 19;
@@ -76,7 +80,25 @@ namespace MoatMove
         {
             internal int Tribe, Task, GroundTask, Previous, PreviousGround, Stamp; internal long Started; internal int[] Members;
             internal AnchorTaskSpec DiggerSpec, GroundSpec;
+            // Formation plan of this move (unit id -> target node); null for Vanilla's own spreading.
+            internal Dictionary<int, int> Targets;
         }
+        // Formation plan delivered by BugfixesAndQoL before its move frame exists (handler order).
+        private int anchorPendingFormationTribe = -1;
+        private Dictionary<int, int> anchorPendingFormation;
+        // Batched answers: one reusable set for the moat-capable task (0) and one for the ground-only
+        // task (1). Key (task, start, target) -> set << 24 | unit index; a set answers only for the
+        // task it was filled for, so a nested move that refills it never leaks foreign answers.
+        private const int AnchorBatchStride = 2000;
+        private sealed class AnchorBatchSet
+        {
+            internal int Task; internal AnchorNative.QueryResult[] Results = new AnchorNative.QueryResult[0];
+            internal byte[] Bytes = new byte[0]; internal int[] Starts = new int[0], Slots = new int[0];
+        }
+        private readonly AnchorBatchSet[] anchorBatchSets = { new AnchorBatchSet(), new AnchorBatchSet() };
+        private readonly Dictionary<long, int> anchorBatchIndex = new Dictionary<long, int>();
+        private long anchorBatchCalls, anchorBatchUnits, anchorBatchHits, anchorBatchTicks;
+        private static long AnchorBatchKey(int task, int start, int target) => ((long)task << 40) | ((long)start << 20) | (uint)target;
         internal sealed class AnchorTaskSpec { internal int Player, Anchor; internal long Ground, Moat; internal int[] Starts; }
         private const int AnchorPendingTask = -1;
         private readonly List<AnchorDispatchFrame> anchorFrames = new List<AnchorDispatchFrame>();
@@ -100,6 +122,9 @@ namespace MoatMove
         // Gate buildings closed to a player (same rule as the cursor portals), refreshed only when
         // the access fingerprint changes; anchor masks never need a cursor topology.
         private readonly HashSet<int>[] anchorBlocked = new HashSet<int>[9];
+        // Union of all players' closed gate buildings and the words shared by the player masks.
+        private readonly HashSet<int> anchorBlockedUnion = new HashSet<int>();
+        private FastSharedWords anchorShared;
         // Access snapshot of the last tick: alliance matrix and the portal fields the access
         // fingerprint hashes, so a gate change re-reads only the changed gate buildings.
         private const int AnchorPortalFields = 6;
@@ -161,7 +186,8 @@ namespace MoatMove
             if (!anchorAvailable) return;
             foreach (int task in anchorLiveTasks) AnchorNative.mma_task_release(anchorContext, task);
             anchorLiveTasks.Clear(); anchorFrames.Clear(); anchorDispatchTask = anchorGroundTask = 0; anchorAuditedRoutes.Clear();
-            Array.Clear(anchorMaps, 0, anchorMaps.Length); anchorAccessKnown = false;
+            anchorBatchIndex.Clear(); anchorPendingFormationTribe = -1; anchorPendingFormation = null;
+            Array.Clear(anchorMaps, 0, anchorMaps.Length); anchorAccessKnown = false; anchorShared = null; anchorBlockedUnion.Clear();
             anchorPlayersRequested = false; anchorUnreachedLogs = 0; anchorEndedUnreached = 0; anchorPortalCount = -1;
             for (int p = 0; p < anchorMaskNext.Length; p++) { anchorMaskNext[p] = -1; anchorSweep[p] = -1; anchorSweepLeft[p] = 0; anchorBlocked[p]?.Clear(); }
         }
@@ -224,9 +250,11 @@ namespace MoatMove
         {
             if (diggerSpec != null) task = AnchorPendingTask;
             if (groundSpec != null) groundTask = AnchorPendingTask;
+            Dictionary<int, int> targets = null;
+            if (anchorPendingFormationTribe == tribe) { targets = anchorPendingFormation; anchorPendingFormationTribe = -1; anchorPendingFormation = null; }
             anchorFrames.Add(new AnchorDispatchFrame { Tribe = tribe, Task = task, GroundTask = groundTask,
                 Previous = anchorDispatchTask, PreviousGround = anchorGroundTask, Stamp = ++anchorStampCounter,
-                Started = System.Diagnostics.Stopwatch.GetTimestamp(), Members = members, DiggerSpec = diggerSpec, GroundSpec = groundSpec });
+                Started = System.Diagnostics.Stopwatch.GetTimestamp(), Members = members, DiggerSpec = diggerSpec, GroundSpec = groundSpec, Targets = targets });
             // A move without tasks (unsupported owner, pending mask) hides an enclosing move's tasks.
             anchorDispatchTask = task; anchorGroundTask = groundTask;
         }
@@ -245,7 +273,65 @@ namespace MoatMove
             if (task != 0) anchorLazyTasks++;
             if (ground) { frame.GroundTask = task; anchorGroundTask = task; } else { frame.Task = task; anchorDispatchTask = task; }
             anchorFrames[top] = frame;
+            if (task != 0 && frame.Targets != null && frame.Members != null) BatchAnchorQueries(task, ground, spec.Player, frame);
             return task;
+        }
+
+        // BugfixesAndQoL's formation plan (11B520 Pre). Attached to this tribe's open move frame, or
+        // kept until that frame begins; dropped at the next tick.
+        private void ObserveAnchorFormation(int tribeId, int[] unitIds, uint[] globalIds, int[] targetX, int[] targetY)
+        {
+            if (!anchorAvailable || unitIds == null || targetX == null || targetY == null) return;
+            var targets = new Dictionary<int, int>(unitIds.Length);
+            for (int i = 0; i < unitIds.Length && i < targetX.Length && i < targetY.Length; i++)
+                if ((uint)targetX[i] < MapWidth && (uint)targetY[i] < MapWidth) targets[unitIds[i]] = targetY[i] * MapWidth + targetX[i];
+            int top = anchorFrames.Count - 1;
+            if (top >= 0 && anchorFrames[top].Tribe == tribeId && anchorFrames[top].Targets == null)
+            {
+                AnchorDispatchFrame frame = anchorFrames[top]; frame.Targets = targets; anchorFrames[top] = frame;
+                return;
+            }
+            anchorPendingFormationTribe = tribeId; anchorPendingFormation = targets;
+        }
+
+        // All members of the task's class with a planned target, answered at once on the core's
+        // worker threads. Members iterate in capture order, so every peer computes the same answers;
+        // a unit later finds its answer by (task, native start, target), anything else asks singly.
+        private void BatchAnchorQueries(int task, bool ground, int player, in AnchorDispatchFrame frame)
+        {
+            AnchorBatchSet set = anchorBatchSets[ground ? 1 : 0];
+            int capacity = frame.Members.Length, count = 0;
+            if (set.Starts.Length < capacity)
+            {
+                int size = Math.Max(capacity, set.Starts.Length * 2);
+                set.Starts = new int[size]; set.Slots = new int[size];
+                set.Results = new AnchorNative.QueryResult[size]; set.Bytes = new byte[size * AnchorBatchStride];
+            }
+            foreach (int id in frame.Members)
+            {
+                if (!frame.Targets.TryGetValue(id, out int target) ||
+                    !APIShared.UnitAccess.TryGetById(id, out GameUnit* unit, out _) || unit == null ||
+                    !APIShared.UnitAccess.IsReallyAlive(unit) || unit->r_ControllableForPlayerId != player ||
+                    runtime.CanDigMoat(unit) == ground) continue;
+                GetNativeMovementStart(unit, out int sx, out int sy);
+                if ((uint)sx >= MapWidth || (uint)sy >= MapWidth) continue;
+                set.Starts[count] = sy * MapWidth + sx; set.Slots[count] = target; count++;
+            }
+            set.Task = 0;
+            if (count == 0) return;
+            long started = System.Diagnostics.Stopwatch.GetTimestamp();
+            int code = AnchorNative.mma_query_batch(anchorContext, task, set.Starts, set.Slots, count, AnchorMargin, anchorThreads,
+                set.Bytes, AnchorBatchStride, set.Results);
+            long elapsed = System.Diagnostics.Stopwatch.GetTimestamp() - started;
+            anchorBatchTicks += elapsed; anchorQueryTicks += elapsed; anchorBatchCalls++;
+            if (code != 0) return;
+            set.Task = task; anchorBatchUnits += count;
+            int tag = (ground ? 1 : 0) << 24;
+            for (int i = 0; i < count; i++)
+            {
+                long key = AnchorBatchKey(task, set.Starts[i], set.Slots[i]);
+                if (!anchorBatchIndex.ContainsKey(key)) anchorBatchIndex[key] = tag | i;
+            }
         }
 
         // OnUnitMoveHere: Vanilla re-plans this unit inside the innermost group move.
@@ -298,9 +384,11 @@ namespace MoatMove
             if (map == null)
             {
                 RefreshAnchorBlocked(player);
+                anchorShared = anchorShared ?? new FastSharedWords(MapWidth * MapWidth);
                 map = anchorMaps[player] = new FastTraversalCache(MapWidth, MapWidth,
                     (int a, int b, int direction, bool ground, out bool wet, out bool structure) =>
-                        AnchorLiveEdge(player, a, b, direction, ground, out wet, out structure), GroundEqualsFriendly);
+                        AnchorLiveEdge(player, a, b, direction, ground, out wet, out structure), GroundEqualsFriendly,
+                    anchorShared, AnchorPlayerNeutral);
             }
             return map;
         }
@@ -328,6 +416,42 @@ namespace MoatMove
                 bool allowed = context[offset + 0x80A] != 1 && context[offset + 0x80F] != 0 && (friendly || open);
                 if (!allowed && building > 0) blocked.Add(building);
             }
+            anchorBlockedUnion.Clear();
+            foreach (HashSet<int> set in anchorBlocked) if (set != null) anchorBlockedUnion.UnionWith(set);
+        }
+
+        // A node's mask word is the same for every player unless the node or a neighbour is a
+        // completed moat (ownership, corner and moat-entry rules), a gate building closed to some
+        // player lies on them (LiveEdge), or the gate route policy's direction mask of the node
+        // differs between players with a mask (TryGetTraversalEdge reads it for the from-tile).
+        private bool AnchorPlayerNeutral(int node)
+        {
+            if ((uint)node >= (uint)(MapWidth * MapWidth)) return false;
+            int x = node % MapWidth, y = node / MapWidth;
+            WeightedMoatRoutePlanner planner = runtime.weightedMoatRoutePlanner;
+            int from = GameTileManagerAPI.Instance.GetTileId(x, y);
+            if (!IsValidTileId(from)) return false;
+            for (int dy = -1; dy <= 1; dy++)
+                for (int dx = -1; dx <= 1; dx++)
+                {
+                    int nx = x + dx, ny = y + dy;
+                    if ((uint)nx >= MapWidth || (uint)ny >= MapWidth) continue;
+                    int tile = GameTileManagerAPI.Instance.GetTileId(nx, ny), planned = planner.GetTileId(nx, ny);
+                    if (IsValidTileId(tile) && (planner.IsCompletedMoat(tile) || anchorBlockedUnion.Count != 0 && anchorBlockedUnion.Contains(runtime.nativeBuildingLayer[tile])))
+                        return false;
+                    if (IsValidTileId(planned) && planner.IsCompletedMoat(planned)) return false;
+                }
+            APIShared.IEnemyGatePathPolicy policy = APIShared.EnemyGatePathPolicyBridge.Current;
+            if (policy == null || !policy.HasPublishedMask) return true;
+            int first = 0;
+            for (int p = 1; p <= 8; p++)
+            {
+                if (anchorMaps[p] == null) continue;
+                if (first == 0) { first = p; continue; }
+                for (int d = 0; d < 8; d++)
+                    if (policy.IsDirectionAllowed(first, from, d) != policy.IsDirectionAllowed(p, from, d)) return false;
+            }
+            return true;
         }
 
         // Same inputs as ReadFastAccessFingerprint: alliances (returned) and per portal its
@@ -402,6 +526,8 @@ namespace MoatMove
             anchorSimThread = Environment.CurrentManagedThreadId;
             if (anchorFrames.Count != 0) ClearAnchorFrames();
             if (anchorAuditedRoutes.Count != 0) anchorAuditedRoutes.Clear();
+            if (anchorBatchIndex.Count != 0) anchorBatchIndex.Clear();
+            anchorPendingFormationTribe = -1; anchorPendingFormation = null;
             ulong access = ReadFastAccessFingerprint();
             if (!anchorAccessKnown || access != anchorAccess)
             {
@@ -597,8 +723,19 @@ namespace MoatMove
             int start = sy * MapWidth + sx, target = plan.TargetY * MapWidth + plan.TargetX;
             anchorQueries++;
             long queried = System.Diagnostics.Stopwatch.GetTimestamp();
-            int code = AnchorNative.mma_query(anchorContext, task, start, target, AnchorMargin,
-                anchorBuffer, anchorBuffer.Length, out AnchorNative.QueryResult result);
+            int code; AnchorNative.QueryResult result;
+            AnchorBatchSet batch = null; int batched = 0;
+            if (anchorBatchIndex.TryGetValue(AnchorBatchKey(task, start, target), out int entry))
+            { batch = anchorBatchSets[entry >> 24]; batched = entry & 0xFFFFFF; if (batch.Task != task) batch = null; }
+            if (batch != null)
+            {
+                // Answered by this move's batch: the same core answer, no second query.
+                code = 0; result = batch.Results[batched]; anchorBatchHits++;
+                if (result.Status == AnchorNative.Ready && result.Length > 0)
+                    Buffer.BlockCopy(batch.Bytes, batched * AnchorBatchStride, anchorBuffer, 0, Math.Min(result.Length, anchorBuffer.Length));
+            }
+            else
+                code = AnchorNative.mma_query(anchorContext, task, start, target, AnchorMargin, anchorBuffer, anchorBuffer.Length, out result);
             long answered = System.Diagnostics.Stopwatch.GetTimestamp();
             anchorQueryTicks += answered - queried;
             anchorQueryStatus[code != 0 ? 7 : Math.Min(Math.Max(result.Status, 0), 6)]++;
@@ -662,11 +799,12 @@ namespace MoatMove
                 $"encodeMs={AnchorMs(anchorEncodeTicks)} publishMs={AnchorMs(anchorPublishTicks)} published={anchorPublished} " +
                 $"publishRejects={anchorPublishRejects} encodeRejects={anchorEncodeRejects} routeReuses={anchorRouteReuses} " +
                 $"lazyTasks={anchorLazyTasks} unusedMoves={anchorUnusedMoves} auditSkips={anchorAuditSkips} publishReasons=[{FormatAnchorReasons()}] " +
+                $"batch(calls={anchorBatchCalls} units={anchorBatchUnits} hits={anchorBatchHits} ms={AnchorMs(anchorBatchTicks)}) " +
                 $"queryStatus(ready,unreachable,overLimit,pending,stale,invalid,failed,error)={string.Join(",", anchorQueryStatus)} " +
                 $"members={anchorMembers} unreachedMembers={anchorUnreachedUnits} movesWithUnreached={anchorMovesWithUnreached} " +
                 $"tick(refreshMs={AnchorMs(anchorRefreshTicks)} refreshNodes={anchorRefreshNodes} buildMs={AnchorMs(anchorBuildTicks)} " +
                 $"buildNodes={anchorBuildNodes} sweepMs={AnchorMs(anchorSweepTicks)} sweepNodes={anchorSweepNodes} resweeps={anchorResweeps} " +
-                $"accessChanges={anchorAccessChanges} gateRefreshes={anchorGateRefreshes}) core(queries={anchorCoreStats[AnchorNative.StatQueries]} " +
+                $"accessChanges={anchorAccessChanges} gateRefreshes={anchorGateRefreshes} sharedReuses={anchorShared?.Reuses ?? 0}) core(queries={anchorCoreStats[AnchorNative.StatQueries]} " +
                 $"subAnchors={anchorCoreStats[AnchorNative.StatSubAnchors]} subCapped={anchorCoreStats[AnchorNative.StatSubCapped]} " +
                 $"stepMs={anchorCoreStats[AnchorNative.StatStepNs] / 1e6:F3} queryMs={anchorCoreStats[AnchorNative.StatQueryNs] / 1e6:F3} " +
                 $"subMs={anchorCoreStats[AnchorNative.StatSubNs] / 1e6:F3} settles={anchorCoreStats[AnchorNative.StatSettles]} via={anchorCoreStats[AnchorNative.StatViaChosen]} " +
@@ -675,7 +813,7 @@ namespace MoatMove
             anchorHumanMoves = anchorMoveTicks = anchorMoveMaxTicks = anchorPreTicks = anchorPreMaxTicks = anchorQueryTicks = anchorEncodeTicks =
                 anchorPublishTicks = anchorPublished = anchorPublishRejects = anchorEncodeRejects = anchorRouteReuses = anchorMembers =
                 anchorUnreachedUnits = anchorMovesWithUnreached = anchorRefreshTicks = anchorRefreshNodes = anchorBuildTicks = anchorBuildNodes =
-                anchorSweepTicks = anchorSweepNodes = anchorResweeps = anchorAccessChanges = anchorGateRefreshes = anchorLazyTasks = anchorUnusedMoves = anchorAuditSkips = 0;
+                anchorSweepTicks = anchorSweepNodes = anchorResweeps = anchorAccessChanges = anchorGateRefreshes = anchorLazyTasks = anchorUnusedMoves = anchorAuditSkips = anchorBatchCalls = anchorBatchUnits = anchorBatchHits = anchorBatchTicks = 0;
             Array.Clear(anchorQueryStatus, 0, anchorQueryStatus.Length); anchorPublishReasons.Clear();
         }
     }

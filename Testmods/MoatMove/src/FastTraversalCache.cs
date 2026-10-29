@@ -8,6 +8,25 @@ namespace MoatMove
     // True when the GroundOnly answer of an edge equals its FriendlyOnly answer (no completed
     // moat on either endpoint or, for diagonals, on either corner tile).
     internal delegate bool FastGroundEqualsFriendly(int from, int to, int direction);
+    // True when a node's complete word is the same for every player (see FastSharedWords).
+    internal delegate bool FastPlayerNeutral(int node);
+
+    // Words shared by the per-player caches of one map: a player-neutral node is evaluated once
+    // and reused by the other players until a mark of any sharing cache invalidates it. Same
+    // validity as each cache's own words (last value read, refreshed after every mark).
+    internal sealed class FastSharedWords
+    {
+        private readonly uint[] words; private readonly byte[] valid;
+        internal FastSharedWords(int count) { words = new uint[count]; valid = new byte[count]; }
+        internal long Reuses { get; private set; }
+        internal bool TryGet(int node, out uint word)
+        {
+            if (valid[node] != 0) { word = words[node]; Reuses++; return true; }
+            word = 0; return false;
+        }
+        internal void Set(int node, uint word) { words[node] = word; valid[node] = 1; }
+        internal void Invalidate(int node) { if ((uint)node < valid.Length) valid[node] = 0; }
+    }
 
     // Only logical walkability is retained. Native search stamps, unit positions and
     // transient search buffers are never dependencies of this cache.
@@ -18,6 +37,8 @@ namespace MoatMove
         private readonly int width, height;
         private readonly FastLiveTraversal live;
         private readonly FastGroundEqualsFriendly sameGround;
+        private readonly FastSharedWords shared;
+        private readonly FastPlayerNeutral neutral;
         private readonly uint[] words;
         private readonly byte[] known;
         private readonly List<int> knownNodes = new List<int>();
@@ -27,9 +48,11 @@ namespace MoatMove
         private readonly byte[] dirtyFlags;
         private readonly List<int> dirty = new List<int>();
         private bool allDirty;
-        internal FastTraversalCache(int width, int height, FastLiveTraversal live, FastGroundEqualsFriendly sameGround = null)
+        internal FastTraversalCache(int width, int height, FastLiveTraversal live, FastGroundEqualsFriendly sameGround = null,
+            FastSharedWords shared = null, FastPlayerNeutral neutral = null)
         {
             this.width = width; this.height = height; this.live = live; this.sameGround = sameGround;
+            this.shared = neutral != null ? shared : null; this.neutral = neutral;
             words = new uint[checked(width * height)]; known = new byte[words.Length]; dirtyFlags = new byte[words.Length];
         }
         internal long Revision { get; private set; }
@@ -51,15 +74,26 @@ namespace MoatMove
         internal uint Word(int node)
         {
             if ((uint)node >= words.Length) return 0;
-            if (known[node] == 0) { words[node] = Read(node); known[node] = 1; knownNodes.Add(node); }
+            if (known[node] == 0) { words[node] = ReadShared(node); known[node] = 1; knownNodes.Add(node); }
             return words[node];
+        }
+
+        // A player-neutral node takes another player's current word; otherwise (and for the first
+        // reader) the live evaluation, which then serves the other players.
+        private uint ReadShared(int node)
+        {
+            if (shared == null || !neutral(node)) return Read(node);
+            if (shared.TryGet(node, out uint word)) return word;
+            word = Read(node); shared.Set(node, word); return word;
         }
 
         // Fresh live word of one node (anchor-mode chunked resweep after access changes).
         internal uint Reread(int node)
         {
             if ((uint)node >= words.Length) return 0;
+            // A resweep always evaluates live (it looks for unreported changes) and shares the result.
             words[node] = Read(node);
+            if (shared != null && neutral(node)) shared.Set(node, words[node]);
             if (known[node] == 0) { known[node] = 1; knownNodes.Add(node); }
             return words[node];
         }
@@ -87,7 +121,9 @@ namespace MoatMove
 
         internal void Mark(int node)
         {
-            if ((uint)node < words.Length && known[node] != 0 && dirtyFlags[node] == 0) { dirtyFlags[node] = 1; dirty.Add(node); }
+            if ((uint)node >= words.Length || known[node] == 0) return;
+            shared?.Invalidate(node);
+            if (dirtyFlags[node] == 0) { dirtyFlags[node] = 1; dirty.Add(node); }
         }
         internal void MarkAll() { allDirty = true; }
 
@@ -99,7 +135,7 @@ namespace MoatMove
             List<int> candidates = allDirty ? knownNodes : dirty;
             foreach (int node in candidates)
             {
-                uint updated = Read(node);
+                uint updated = allDirty ? Read(node) : ReadShared(node);
                 if (updated != words[node]) { words[node] = updated; changed.Add(node); }
             }
             foreach (int node in dirty) dirtyFlags[node] = 0;

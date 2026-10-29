@@ -44,6 +44,27 @@ namespace MoatMove
                         Check(bothPolicies.Word(y * MapWidth + x) == shortcut.Word(y * MapWidth + x), $"ground shortcut changes the word of {x},{y}");
                 Check(shortcut.EdgeEvaluations < bothPolicies.EdgeEvaluations, "ground shortcut saves no live evaluation");
 
+                // Shared words: player-neutral nodes are read once for all players; near a gate closed to
+                // one player and along the moat every player keeps its own word. Words equal unshared
+                // per-player caches.
+                int gateTile = api.GetTileId(60, 10), savedLayer = nativeBuildingLayer[gateTile];
+                nativeBuildingLayer[gateTile] = 4242;
+                anchorBlocked[2] = new System.Collections.Generic.HashSet<int> { 4242 }; anchorBlockedUnion.Clear(); anchorBlockedUnion.Add(4242);
+                var sharedWords = new FastSharedWords(MapWidth * MapWidth);
+                FastTraversalCache PlayerCache(int player, bool share) => new FastTraversalCache(MapWidth, MapWidth,
+                    (int a, int b, int d, bool g, out bool w, out bool s) => AnchorLiveEdge(player, a, b, d, g, out w, out s), GroundEqualsFriendly,
+                    share ? sharedWords : null, share ? AnchorPlayerNeutral : (FastPlayerNeutral)null);
+                FastTraversalCache shared1 = PlayerCache(1, true), shared2 = PlayerCache(2, true), own1 = PlayerCache(1, false), own2 = PlayerCache(2, false);
+                Check(own1.Word(10 * MapWidth + 59) != own2.Word(10 * MapWidth + 59), "the closed test gate does not differ between players");
+                for (int y = 8; y <= 12; y++)
+                    for (int x = 8; x <= 182; x++)
+                    {
+                        int node = y * MapWidth + x;
+                        Check(shared1.Word(node) == own1.Word(node) && shared2.Word(node) == own2.Word(node), $"shared words differ from a player's own word at {x},{y}");
+                    }
+                Check(sharedWords.Reuses > 0, "no player-neutral word was shared");
+                nativeBuildingLayer[gateTile] = (ushort)savedLayer; anchorBlocked[2] = null; anchorBlockedUnion.Clear();
+
                 InitializeAnchor();
                 Check(anchorAvailable, "anchor core does not load from the plugin directory");
                 ResetAnchorMap();
@@ -190,6 +211,30 @@ namespace MoatMove
                 Check(TryAnchorQualifiesMoat(new PlanScope(1, 150, 10), &digger) && anchorTasks == tasksBeforeLazy + 1, "a later query recomputes the field");
                 EndAnchorFrame(14);
                 Check(!anchorLiveTasks.Contains(lazyTask) && anchorDispatchTask == 0, "a computed pending task survives its move");
+
+                // Formation plans: BugfixesAndQoL's targets reach the move frame, the first query answers
+                // all planned members in one batch, and a member's answer equals its single query.
+                long batchHits = anchorBatchHits, batchUnits = anchorBatchUnits;
+                GameUnit* members = GameUnitManagerAPI.Instance.Units;
+                members[3] = digger; members[3].r_GlobalId = 906;
+                BeginAnchorFrame(15, 0, 0, new[] { 3 }, spec);
+                ObserveAnchorFormation(15, new[] { 3 }, new uint[] { 906 }, new[] { 150 }, new[] { 10 });
+                var batchPlan = new PlanScope(3, 150, 10);
+                Check(TryAnchorQualifiesMoat(batchPlan, members + 3) && anchorBatchUnits == batchUnits + 1 && anchorBatchHits == batchHits + 1,
+                    "a planned member is not answered from the move's batch");
+                anchorBatchIndex.Clear();
+                var singlePlan = new PlanScope(3, 150, 10);
+                Check(TryAnchorQualifiesMoat(singlePlan, members + 3) && anchorBatchHits == batchHits + 1, "a member without batch entry is not asked singly");
+                byte[] batchBytes = batchPlan.QualifiedRoute.Route.Bytes, singleBytes = singlePlan.QualifiedRoute.Route.Bytes;
+                bool sameBytes = batchBytes.Length == singleBytes.Length;
+                for (int i = 0; sameBytes && i < batchBytes.Length; i++) sameBytes = batchBytes[i] == singleBytes[i];
+                Check(sameBytes, "batch and single answers differ");
+                EndAnchorFrame(15); members[3] = default;
+                // A plan for another tribe never attaches to this move.
+                BeginAnchorFrame(16, 0, 0, new[] { 3 }, spec);
+                ObserveAnchorFormation(17, new[] { 3 }, new uint[] { 906 }, new[] { 150 }, new[] { 10 });
+                Check(anchorFrames[anchorFrames.Count - 1].Targets == null, "a formation plan attaches to another tribe's move");
+                EndAnchorFrame(16); AnchorTick(++ticks);
 
                 // A failed live audit re-reads only the stale area (no full resweep); the next tick
                 // mirrors the change and the task reports stale.

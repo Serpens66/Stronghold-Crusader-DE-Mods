@@ -10,7 +10,7 @@ internal static class FormationCommandPipelineTests
         var runtime = CSharpSyntaxTree.ParseText(FeatureSourceModel.Read(root,
             "FormationRuntime", "BugfixesAndQoL/src/Formations")).GetRoot();
         string[] methods = { "TryCreatePacket", "ValidatePacket", "ApplyPacket", "ApplyPacketLocked", "TryIssuePacketVanillaFallback",
-            "OnTribeIssueOrderMoveHere", "OnUnitMoveHere", "PruneUnitAssignmentFrames", "ClearUnitAssignmentFrames",
+            "OnTribeIssueOrderMoveHere", "PublishFormationDestinations", "OnUnitMoveHere", "PruneUnitAssignmentFrames", "ClearUnitAssignmentFrames",
             "FinishUnitAssignmentFrame", "TryGetMatchingUnit", "RunUnitFallbacks", "LogFormationOrderResult",
             "BuildManagedDestinations", "BuildDirectionIndicator", "BuildVanillaSlotMetadata", "SnapSlots",
             "CaptureVanillaDestinations", "CaptureGroundSlots", "RentVisited", "ReturnVisited", "TryEnqueueVanillaCandidate",

@@ -64,6 +64,10 @@ namespace BugfixesAndQoL.UnitCommands
         // Terrain changed around one tile (native 3x3 tile/moat update): a provider may refresh
         // only the affected area. The default keeps the global invalidation.
         internal virtual void InvalidateFastMoatTile(int tile) => InvalidateFastMoatData();
+        // A formation group move (11B520 Pre) assigned these per-unit target tiles; 196280 later
+        // moves each unit there. Simulation-deterministic, called once per formation command.
+        // Arrays are owned by the caller and must not be kept. The default ignores the plan.
+        internal virtual void ObserveFormationDestinations(int tribeId, int[] unitIds, uint[] globalIds, int[] targetX, int[] targetY) { }
         internal abstract void LogAndResetFastMoatMetrics();
         internal abstract bool HasFastFriendlyMoatBridge(int playerId, int startTileId, int targetTileId);
         internal abstract void ClearDeferredFastMoveScope();
