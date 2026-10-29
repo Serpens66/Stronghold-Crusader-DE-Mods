@@ -4,6 +4,8 @@ param(
     # Rebuild BugfixesAndQoL first and commit its DLL/PDB on the current branch (MoatMove compiles
     # against the tracked BugfixesAndQoL.dll).
     [switch]$BuildBugfixes,
+    # With -BuildBugfixes: a DEVDIAG build of BugfixesAndQoL (its Shared.DevDiag counters and spikes).
+    [switch]$BugfixesDevDiag,
     [switch]$SkipMoatMove,
     [int]$RunSeconds = 180,
     [string]$SavePath = 'test_stresstest4.sav',
@@ -29,7 +31,7 @@ function Invoke-Build([string]$driver, [string]$arguments, [string]$logName) {
 if ($BuildBugfixes) {
     # Known stale develop test (Test-ModOptionsPerformance) blocks full test mode; relevant
     # BugfixesAndQoL tests run separately before an iteration.
-    Invoke-Build (Join-Path $root 'BugfixesAndQoL\build.bat') '/source:working /tests:none /nopause' "$Label-bfq-build.log"
+    Invoke-Build (Join-Path $root 'BugfixesAndQoL\build.bat') ('/source:working /tests:none /nopause' + $(if ($BugfixesDevDiag) { ' /devdiag' } else { '' })) "$Label-bfq-build.log"
     $installed = Join-Path $game 'BepInEx\plugins\BugfixesAndQoL_Serp'
     $tracked = Join-Path $root 'BugfixesAndQoL\BepInEx\plugins\BugfixesAndQoL_Serp'
     foreach ($name in 'BugfixesAndQoL.dll', 'BugfixesAndQoL.pdb') { Copy-Item -LiteralPath (Join-Path $installed $name) -Destination (Join-Path $tracked $name) -Force }
