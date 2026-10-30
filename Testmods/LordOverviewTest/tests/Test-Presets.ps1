@@ -17,7 +17,7 @@ foreach($pair in @(@('StartupObject','LordOverviewPresetTests'),@('AssemblyName'
 $compilerImport=$project.DocumentElement.SelectSingleNode("./*[local-name()='Import'][contains(@Project,'Microsoft.CSharp.targets')]")
 [void]$project.DocumentElement.InsertBefore($properties,$compilerImport)
 $items=$project.CreateElement('ItemGroup',$ns)
-foreach($file in @('src/OverviewState.cs','src/OverviewSettings.cs','tests/PresetProgram.cs')){
+foreach($file in @('src/OverviewState.cs','src/OverviewLayout.cs','src/OverviewSettings.cs','tests/PresetProgram.cs')){
  $item=$project.CreateElement('Compile',$ns);$item.SetAttribute('Include',[IO.Path]::GetFullPath((Join-Path $PSScriptRoot "../$file")));[void]$items.AppendChild($item)
 }
 $item=$project.CreateElement('Compile',$ns);$item.SetAttribute('Include',(Join-Path $workspace 'APIShared/src/Lobby/LobbyStateContracts.cs'));[void]$items.AppendChild($item)

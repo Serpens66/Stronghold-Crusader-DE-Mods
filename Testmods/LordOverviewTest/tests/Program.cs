@@ -16,12 +16,12 @@ internal static class Program {
   state.Select(null);state.Select(null);Check(state.Sort(rows)[0].Player==1,"ID ascending restored");
   var values=new long?[]{1,2,3,4,5};var five=new LordRow(8,true,values);values[4]=0;
   state.Select(Metric.GoldAcquired);Check(five.Values[4]==5 && state.Sort(new[]{five})[0].Player==8,"immutable metric snapshot");
-  TestColumns();TestExternalColumns();TestInformation();TestValues();TestMenuAndGestures();TestPassiveHover();
+  TestColumns();TestExternalColumns();TestInformation();TestValues();TestMenuAndGestures();TestPassiveHover();TestLayoutsAndActions();TestMenuWindowAndCrown();
   var gate=new RefreshGate();for(int i=0;i<39;i++)Check(!gate.Tick(true),"no query on intermediate ticks");Check(gate.Tick(true),"query at tick forty");
   for(int i=0;i<120;i++)Check(!gate.Tick(false),"hidden never samples");
   for(int i=0;i<39;i++)Check(!gate.Tick(true),"hidden resets interval");Check(gate.Tick(true),"one full interval after hidden");
   for(int i=0;i<400;i++)Check(gate.Tick(true)==(i%40==39),"exact cadence without drift");
-  Console.WriteLine("PASS: "+checks+" production sorting, selection, information policy, statistic arithmetic and 40-tick cadence checks.");
+  Console.WriteLine("PASS: "+checks+" production layout, UI lifetime, sample isolation, sorting, information and cadence checks.");
  }
  static void TestColumns(){
   var selection=new ColumnSelection();Check(selection.Columns.SequenceEqual(Metrics.Defaults),"default four columns");
@@ -129,9 +129,105 @@ internal static class Program {
   Check(!HeaderDropGeometry.TryTarget(168,10,25,46,widths,0,out destination,out boundary),"outside realized value columns excluded from target");
   Check(!HeaderDropGeometry.TryTarget(80,25,25,46,widths,0,out destination,out boundary) && !HeaderDropGeometry.TryTarget(80,-1,25,46,widths,0,out destination,out boundary),"vertical header bounds enforced");
   foreach(double start in new[]{0d,11.25d,110d}){
-   Check(HeaderDropGeometry.TryTarget(start+1,3,20,start,new[]{32d,51.75d,110d},2,out destination,out boundary) && destination==0 && boundary==start,"drag uses actual identity/gear widths, including fractional layouts");
+   Check(HeaderDropGeometry.TryTarget(start+1,3,20,start,new[]{32d,51.75d,110d},2,out destination,out boundary) && destination==0 && boundary==start,"drag uses actual identity widths, including fractional layouts");
    Check(HeaderDropGeometry.TryTarget(start+190,3,20,start,new[]{32d,51.75d,110d},0,out destination,out boundary) && destination==2,"variable metric widths retain insertion target");
   }
   Check(!HeaderDropGeometry.TryTarget(80,10,25,46,new double[]{0},0,out destination,out boundary) && !HeaderDropGeometry.TryTarget(double.NaN,10,25,46,widths,0,out destination,out boundary),"unarranged or invalid pointer geometry cancels");
+ }
+ static void TestLayoutsAndActions(){
+  foreach(int count in Enumerable.Range(1,45))foreach(bool byRows in new[]{false,true})foreach(int size in Enumerable.Range(1,count+2)){
+   var flow=GridFlow.Parse((byRows?"Rows:":"Columns:")+size,2);var positions=new System.Collections.Generic.HashSet<string>();int lastRow=-1,lastColumn=-1;
+   for(int i=0;i<count;i++){
+    flow.Position(i,count,out int row,out int column);
+    Check(row>=0 && row<flow.Rows(count) && column>=0 && column<flow.Columns(count),"grid stays inside its arrangement");
+    Check(positions.Add(row+","+column),"every chosen item occupies its own cell");
+    Check(row>lastRow || row==lastRow && column>lastColumn,"grid follows global row-major sort order");lastRow=row;lastColumn=column;
+   }
+   Check(positions.Count==count,"no item is omitted by a narrow grid");
+   Check(GridFlow.Parse(flow.ToString(),2).ToString()==flow.ToString(),"axis preference round trip");
+  }
+  for(int count=1;count<=8;count++){
+   var seen=new System.Collections.Generic.HashSet<string>();
+   for(int i=0;i<count;i++){int pane=OverviewLayout.Pane(i,count),row=OverviewLayout.PaneRow(i,count);
+    Check(pane>=0 && pane<=1 && row<(count+1)/2 && seen.Add(pane+","+row),"split lists preserve every globally sorted lord exactly once");}
+  }
+  Check(GridFlow.Parse("Rows:0",3).ToString()=="Columns:3" && GridFlow.Parse("Columns:bad",2).Columns(8)==2,"malformed grids use safe defaults");
+  Check(new GridFlow(0,int.MaxValue).Columns(8)==8 && new GridFlow(int.MaxValue,0).Rows(8)==8,"large preferences do not allocate empty cells");
+  Check(OverviewLayout.ParseDesign("Cards")==OverviewDesign.Cards && OverviewLayout.ParseDesign("bad")==OverviewDesign.List,"design parsing preserves the list default");
+  var palette=Enumerable.Range(0,9).ToArray();
+  foreach(int player in Enumerable.Range(1,8))Check(OverviewLayout.ColorIndex(player,p=>9-p,palette)==9-player,"loaded-player remapping is applied before the palette lookup");
+  Check(OverviewLayout.ColorIndex(0,p=>p,palette)==0 && OverviewLayout.ColorIndex(1,p=>-1,palette)==0 && OverviewLayout.ColorIndex(8,p=>99,palette)==0,"invalid color mappings fail safely");
+  var queue=new System.Collections.Generic.Queue<Action>();object view=new object();long session=1;int generation=1,epoch=1;bool visible=true,enabled=true,menu=true;
+  Func<UiActionContext> read=()=>new UiActionContext(session,generation,epoch,view,visible,enabled,menu);
+  Action drain=()=>{while(queue.Count>0)queue.Dequeue()();};int calls=0;
+  var control=UiActions.Bind(()=>calls++,read,queue.Enqueue,false);var checkbox=UiActions.Bind(()=>calls++,read,queue.Enqueue,true);
+  control();checkbox();drain();Check(calls==2,"initial real action delegates run");
+  generation++;menu=false;epoch++;visible=false;visible=true;
+  control();drain();Check(calls==3,"same reusable handler works after overview close and reopen");
+  menu=true;epoch++;checkbox();drain();Check(calls==4,"same checkbox handler works after overview close and reopen");
+  checkbox();menu=false;epoch++;drain();Check(calls==4,"closed menu rejects a queued checkbox change");
+  menu=true;checkbox();menu=false;epoch++;menu=true;epoch++;drain();Check(calls==4,"reopened menu cannot revive an earlier action");
+  control();generation++;drain();Check(calls==4,"obsolete overview generation rejects queued UI action");
+  control();view=new object();drain();Check(calls==4,"HUD replacement rejects queued work");
+  control();session++;drain();Check(calls==4,"mission replacement rejects queued work");
+  control();visible=false;drain();Check(calls==4,"hidden view rejects queued work");
+  control();visible=true;drain();Check(calls==4,"a click issued while hidden cannot revive on reopening");
+  enabled=false;control();enabled=true;drain();Check(calls==4,"disabled click cannot revive after enabling");
+  control();drain();Check(calls==5,"retained controls recover after all invalidations");
+  int samples=0;var refresh=new UiRefreshQueue(read,queue.Enqueue,()=>samples++);
+  for(int i=0;i<100;i++)refresh.Request();Check(queue.Count==1,"explicit refreshes coalesce without simulation ticks");drain();Check(samples==1,"paused selection refresh runs once");
+  refresh.Request();generation++;refresh.Request();drain();Check(samples==2,"new generation refresh replaces old queued request");
+  refresh.Request();refresh.Cancel();drain();Check(samples==2,"detaching cancels explicit refresh");
+  refresh.Request();visible=false;drain();Check(samples==2,"hidden overview never samples from pending UI work");
+  visible=true;refresh.Request();drain();Check(samples==3,"explicit refresh recovers after hidden state");
+  int rights=1,published=0,extended=0;
+  Func<int> rightsNow=()=>rights;Func<string> capture=()=>"snapshot";
+  Func<string,UiActionContext,int,bool> extend=(sample,stamp,version)=>{extended++;return true;};
+  Action<string> publish=sample=>{Check(sample=="snapshot","only the actual sample is published");published++;};
+  Check(UiSamples.TryRead(read,rightsNow,capture,extend,publish) && published==1 && extended==1,"valid sample passes both stages");
+  Check(!UiSamples.TryRead(read,rightsNow,()=>{session++;return "snapshot";},extend,publish) && extended==1 && published==1,"session replacement during native capture prevents provider calls and publication");
+  Check(!UiSamples.TryRead(read,rightsNow,()=>{rights++;return "snapshot";},extend,publish) && extended==1 && published==1,"rights revoked during capture prevent provider requests");
+  Check(!UiSamples.TryRead(read,rightsNow,capture,(sample,stamp,version)=>{rights++;return true;},publish) && published==1,"rights revoked by a provider prevent publication");
+  Check(!UiSamples.TryRead(read,rightsNow,capture,(sample,stamp,version)=>{generation++;return true;},publish) && published==1,"provider-triggered HUD generation change prevents publication");
+  Check(!UiSamples.TryRead(read,rightsNow,capture,(sample,stamp,version)=>false,publish) && published==1,"aborted extension batch is never published");
+  visible=false;Check(!UiSamples.TryRead(read,rightsNow,()=>{throw new Exception("must not sample hidden view");},extend,publish),"hidden UI does not enter capture");
+  visible=true;Check(UiSamples.TryRead(read,rightsNow,capture,extend,publish) && published==2,"fresh samples recover after every invalidation");
+ }
+
+ static void TestMenuWindowAndCrown(){
+  var eight=GridFlow.Choices(8,new GridFlow(4,2)).Select(g=>g.ToString()).ToArray();
+  Check(eight.SequenceEqual(new[]{"1x8","2x4","3x3","4x2","8x1"}),"eight-lord combinations include both orientations and a square");
+  Check(GridFlow.Parse("Rows:3",2).Normalize(8).ToString()=="3x3","saved row preference migrates into a pair");
+  Check(GridFlow.Parse("Columns:2",2).Normalize(8).ToString()=="4x2","saved column preference migrates into a pair");
+  Check(new GridFlow(2,3).Normalize(10).ToString()=="4x3","adding values grows rows without losing the column preference");
+  foreach(int count in Enumerable.Range(1,45))foreach(var grid in GridFlow.Choices(count,new GridFlow(2,3))){
+   var cells=new System.Collections.Generic.HashSet<string>();int previousRow=-1,previousColumn=-1;
+   for(int i=0;i<count;i++){grid.Position(i,count,out int row,out int col);Check(cells.Add(row+","+col) && row<grid.Rows(count) && col<grid.Columns(count),"combination shows every value exactly once");Check(row>previousRow || row==previousRow && col>previousColumn,"combination keeps global row-major order");previousRow=row;previousColumn=col;}
+   Check(GridFlow.Parse(grid.ToString(),2).ToString()==grid.ToString(),"paired grid persistence round trip");
+  }
+  var position=new MenuWindowState();var crown=new MenuRect(0,900,32,32);var stats=new MenuRect(40,700,600,380);
+  var initial=position.Arrange(1920,1080,crown,stats);Check(initial.Width==520 && initial.Height==420 && !initial.Overlaps(stats),"initial compact menu avoids statistics when space is available");
+  position.BeginDrag(initial.X+10,initial.Y+10);position.MoveDrag(-10000,-10000,1920,1080);Check(position.Bounds.X==0 && position.Bounds.Y==0,"drag cannot escape top and left");
+  position.MoveDrag(10000,10000,1920,1080);Check(position.Bounds.Right<=1920 && position.Bounds.Bottom<=1080,"drag cannot escape right and bottom");position.EndDrag();
+  var saved=position.Bounds;var reopened=position.Arrange(1920,1080,new MenuRect(0,0,32,32),stats);Check(reopened.X==saved.X && reopened.Y==saved.Y,"same-session reopen preserves menu position");
+  var small=position.Arrange(320,180,crown,stats);Check(small.Width==304 && small.Height==164 && small.Right<=320 && small.Bottom<=180,"resolution change bounds the entire window, including its header");
+  position.BeginDrag(10,10);position.EndDrag();var stopped=position.Bounds;position.MoveDrag(99,99,320,180);Check(position.Bounds.X==stopped.X && position.Bounds.Y==stopped.Y,"capture loss or close cancels drag");
+  position.Reset();Check(!position.HasPosition && !position.Dragging,"new mission clears position and capture state");
+  foreach(int width in new[]{64,320,1280,1920,3840})foreach(int height in new[]{48,180,720,1080,2160}){
+   var rect=position.Arrange(width,height,crown,stats);Check(rect.X>=0 && rect.Y>=0 && rect.Right<=width && rect.Bottom<=height,"menu stays in bounds at every supported viewport size");
+  }
+  object view=new object();var context=new UiActionContext(1,1,1,view,true,true,false);var press=new CrownPress();
+  Check(!press.Begin(context,false) && !press.Active,"left crown input is not intercepted by the right-click gesture");
+  Check(press.Begin(context,true) && press.End(context,true,true),"right press and release on the current crown opens settings");
+  press.Begin(context,true);Check(!press.End(context,false,true),"releasing outside the crown cancels settings");
+  press.Begin(context,true);Check(!press.End(new UiActionContext(2,1,1,view,true,true,false),true,true),"session change rejects a pending crown press");
+  press.Begin(context,true);Check(!press.End(new UiActionContext(1,2,1,view,true,true,false),true,true),"HUD generation change rejects a pending crown press");
+  press.Begin(context,true);press.Cancel();Check(!press.End(context,true,true),"focus or capture loss cancels crown action");
+  Check(!press.Begin(new UiActionContext(1,1,1,view,false,true,false),true),"hidden or obsolete crown cannot open settings");
+  bool overview=false,menu=false;int opens=0;
+  Action show=()=>{overview=true;opens++;};Action open=()=>menu=true;Action close=()=>menu=false;
+  CrownSettingsAction.Run(overview,menu,show,open,close);Check(overview && menu && opens==1,"right click opens both overview and settings from closed state");
+  CrownSettingsAction.Run(overview,menu,show,open,close);Check(overview && !menu && opens==1,"second right click closes only settings");
+  CrownSettingsAction.Run(overview,menu,show,open,close);Check(overview && menu && opens==1,"right click reopens menu without toggling statistics");
  }
 }

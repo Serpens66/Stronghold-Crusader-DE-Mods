@@ -5,39 +5,47 @@ $ns = [Xml.XmlNamespaceManager]::new($xml.NameTable)
 $ns.AddNamespace('x', 'http://schemas.microsoft.com/winfx/2006/xaml')
 function Named($name) { $xml.SelectSingleNode('//*[@x:Name="' + $name + '"]', $ns) }
 $owners = Named 'SpectatorEditorHumanOwners'
-if ($owners.LocalName -ne 'StackPanel' -or $owners.Orientation -ne 'Horizontal') { throw 'Player selection must remain one ordered portrait row.' }
+if ($owners.LocalName -ne 'Canvas' -or $owners.Width -ne '76') { throw 'The ordered roster must pack into a two-column canvas.' }
 foreach ($slot in 1..8) {
     foreach ($prefix in @('SpectatorEditorHumanOwner','TestTarget')) {
         $card = Named ($prefix + $slot)
-        if (-not $card -or $card.Width -ne '28' -or $card.Height -ne '28') { throw 'Each fixed player ID needs a square portrait.' }
+        $size = if ($prefix -eq 'TestTarget') { '28' } else { '36' }
+        if (-not $card -or $card.Width -ne $size -or $card.Height -ne $size) { throw 'Main portraits are 36 units; order targets retain 28 units.' }
         $numberName = if ($prefix -eq 'TestTarget') { 'TestTargetText' } else { 'SpectatorEditorHumanNumber' }
         $number = Named ($numberName + $slot)
-        if ($number.Text -ne [string]$slot -or $number.HorizontalAlignment -ne 'Left' -or $number.VerticalAlignment -ne 'Bottom' -or $number.ParentNode.LocalName -ne 'Grid' -or $number.HasAttribute('Background') -or $number.Style -ne '{StaticResource QuickNumber}') { throw 'The player number belongs inside the lower-left portrait corner.' }
+        if ($number.Text -ne [string]$slot -or $number.HorizontalAlignment -ne 'Left' -or $number.VerticalAlignment -ne 'Bottom' -or $number.HasAttribute('Background')) { throw 'Coloured numbers belong inside the lower-left corner without a background.' }
+        $outline = $number.PreviousSibling
+        if ($outline.LocalName -ne 'TextBlock' -or $outline.Text -ne $number.Text -or $outline.StrokeThickness -ne '2.25' -or $outline.Style -ne $number.Style -or $outline.Margin -ne $number.Margin -or $outline.HasAttribute('Background')) { throw 'The light outer stroke must follow the same glyph and metrics.' }
+        if ($prefix -eq 'SpectatorEditorHumanOwner' -and $card.ParentNode -ne $owners) { throw 'The existing buttons retain the common packed roster host.' }
     }
 }
 $amount = Named 'TestToolsAmount'
-if ($amount.Text -ne '0' -or $amount.HasAttribute('MaxLength') -or @($xml.SelectNodes('//TextBox')).Count -ne 1) { throw 'A single, untruncated amount input starts at zero.' }
+if ($amount.Text -ne '0' -or $amount.HasAttribute('MaxLength') -or @($xml.SelectNodes('//TextBox')).Count -ne 1) { throw 'A single untruncated amount input starts at zero.' }
 $credit = $xml.SelectSingleNode('//Button[@CommandParameter="Credit"]')
 $reset = $xml.SelectSingleNode('//Button[@CommandParameter="ResetAmount"]')
-if ($credit.IsEnabled -ne '{Binding CanCredit}' -or $credit.ParentNode -ne $amount.ParentNode -or $reset.ParentNode -ne $amount.ParentNode -or $reset.Content -ne '0') { throw 'Amount, validated send and reset share the same form.' }
+if ($credit.IsEnabled -ne '{Binding CanCredit}' -or $credit.ParentNode -ne $amount.ParentNode -or $reset.ParentNode -ne $amount.ParentNode -or $reset.Content -ne '0') { throw 'Amount, validated send and reset share the form.' }
 $goods = @($xml.SelectNodes('//Button[starts-with(@CommandParameter,"G") and @CommandParameter != "Goods"]'))
 if ($goods.Count -ne 21) { throw 'Every supported good remains available.' }
-foreach ($name in @('SpectatorEditorHumanDrag','SpectatorHeader','SpectatorLeftWing','SpectatorRightWing','SpectatorOrdersGrid','SpectatorSnapFrame','SpectatorPaperSurface')) {
+foreach ($name in @('SpectatorEditorHumanDrag','SpectatorRosterPanel','SpectatorToolPanel','SpectatorHeader','SpectatorLeftWing','SpectatorRightWing','SpectatorOrdersGrid','SpectatorSnapFrame','SpectatorToolSnapFrame','SpectatorPaperSurface')) {
     if (-not (Named $name)) { throw ('Missing common toolbar part: ' + $name) }
 }
-if ((Named 'SpectatorEditorHumanPanel').HasAttribute('Background') -or (Named 'SpectatorWings').HasAttribute('Background')) { throw 'The notch must have no opaque surface or hit mask.' }
-if ((Named 'SpectatorDetails').SelectNodes('.//ScrollViewer[not(@x:Name="PART_ContentHost")]', $ns).Count -ne 0) { throw 'Tool content must actually fit without a scrolling host.' }
-if ((Named 'SpectatorSnapFrame').IsHitTestVisible -ne 'False') { throw 'The dock guide must never intercept mouse input.' }
-if ((Named 'SpectatorHeader').HasAttribute('Background') -or (Named 'SpectatorDetails').HasAttribute('Background') -or (Named 'SpectatorLeftWing').HasAttribute('Background') -or (Named 'SpectatorRightWing').HasAttribute('Background')) { throw 'Docked paper must show through every toolbar region.' }
-$numberStyle = $xml.SelectSingleNode('//Style[@x:Key="QuickNumber"]', $ns)
-foreach ($pair in @(@('Height','15'),@('LineHeight','14'),@('LineStackingStrategy','BlockLineHeight'),@('Padding','0'))) {
-    if ($numberStyle.SelectSingleNode('Setter[@Property="' + $pair[0] + '"]').Value -ne $pair[1]) { throw 'Number glyph needs explicit bottom-aligned line metrics.' }
+if ((Named 'SpectatorEditorHumanPanel').HasAttribute('Background') -or (Named 'SpectatorWings').HasAttribute('Background')) { throw 'Gaps between real painted surfaces must not create an invisible input mask.' }
+if ((Named 'SpectatorDetails').SelectNodes('.//ScrollViewer[not(@x:Name="PART_ContentHost")]', $ns).Count -ne 0) { throw 'Tools must fit without a scrolling host.' }
+foreach ($name in @('SpectatorSnapFrame','SpectatorToolSnapFrame')) {
+    if ((Named $name).IsHitTestVisible -ne 'False') { throw 'Dock guides never intercept input.' }
 }
-$shadow = $numberStyle.SelectSingleNode('.//DropShadowEffect')
-if ($shadow.ShadowDepth -ne '0' -or $shadow.Color -ne 'Black') { throw 'Numbers need an unshifted dark contour.' }
-$layout = Get-Content -LiteralPath (Join-Path $root 'src/SpectatorRuntime.Layout.cs') -Raw
-if ($layout -match 'TooltipAnchor|AddInfoBounds|TryPlace') { throw 'Hover state must not participate in toolbar positioning.' }
-foreach ($pattern in @('placementRasterTransform.Restore()', 'RestorePlacementRaster();', 'new ToolbarProperty(placementRasterHost, UIElement.RenderTransformProperty)')) {
-    if (-not $layout.Contains($pattern)) { throw 'The sole borrowed ancestor transform needs exact property/binding restoration.' }
+foreach ($name in @('SpectatorLeftWing','SpectatorRightWing')) {
+    if ((Named $name).Background -ne '{StaticResource SpectatorPaper}' -or (Named $name).IsHitTestVisible -eq 'False') { throw 'The lower surfaces must paint opaque HUD paper and intercept their own clicks.' }
 }
-Write-Host 'PASS: 28-unit portrait overlays/line metrics, one amount form, compact orders, transparent paper, hover-independent dock and restorable raster.'
+$tools = Named 'SpectatorToolPanel'
+if ($tools.Visibility -ne '{Binding ExpandedVisibility}') { throw 'Placement, collapse and occupied HUDs must remove the complete tool surface, including category overdraw.' }
+$roster = Named 'SpectatorRosterPanel'
+foreach ($name in @('SpectatorStopPlacement','SpectatorExpand','SpectatorEditorHumanDrag')) {
+    if (-not $roster.SelectSingleNode('.//*[@x:Name="' + $name + '"]', $ns)) { throw 'Drag, expand and stop controls stay with the left-hand roster.' }
+}
+$style = $xml.SelectSingleNode('//Style[@x:Key="QuickNumber"]', $ns)
+if ($style.SelectSingleNode('Setter[@Property="StrokeThickness"]').Value -ne '1.25' -or $style.SelectSingleNode('Setter[@Property="Stroke"]').Value -ne '#FF0B0806') { throw 'The inner glyph stroke must remain dark and crisp.' }
+$style = $xml.SelectSingleNode('//Style[@x:Key="OwnerNumber"]', $ns)
+if ($style.SelectSingleNode('Setter[@Property="FontSize"]').Value -ne '18' -or $style.SelectSingleNode('Setter[@Property="LineHeight"]').Value -ne '20') { throw 'Main numbers require explicit enlarged glyph metrics.' }
+# Structural XAML guardrails only; glyph appearance and actual draw/hit order need ingame acceptance.
+Write-Host 'PASS: two-column roster, 36/28 portraits, dual glyph contours, reachable controls, complete form and opaque lower surfaces.'

@@ -1,0 +1,14 @@
+[Capture]
+Mode = Light
+
+[Limits]
+LightMemoryMiB = 32
+DeepMemoryMiB = 256
+WriterQueueMiB = 64
+LightIncidentMiB = 128
+SessionBytes = 4294967296
+
+[Deep]
+DurationSeconds = 300
+IntervalTicks = 10
+FocusUnitIds =

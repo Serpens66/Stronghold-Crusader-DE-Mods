@@ -6,7 +6,7 @@ namespace Spectator
 {
     internal static partial class SpectatorRuntime
     {
-        private static Grid toolbarRoot;
+        private static Canvas toolbarRoot;
         private static readonly Button[] targetButtons = new Button[9];
         private static readonly TextBlock[] targetLabels = new TextBlock[9];
         private static readonly Image[] ownerFaces = new Image[9], targetFaces = new Image[9];
@@ -17,7 +17,7 @@ namespace Spectator
 
         private static void CacheToolbarElements(IngameUIScreens screen)
         {
-            toolbarRoot = screen.FindName("TestToolsRoot") as Grid;
+            toolbarRoot = screen.FindName("TestToolsRoot") as Canvas;
             statusText = screen.FindName("ToolsStatus") as TextBlock;
             MenuToolTipSizing.SetReference(humanPanel, humanCanvas);
             var attackIcon = screen.FindName("AttackActionIcon") as Image;

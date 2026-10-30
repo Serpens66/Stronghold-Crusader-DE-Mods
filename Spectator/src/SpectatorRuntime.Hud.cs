@@ -88,6 +88,8 @@ namespace Spectator
                 ReferenceEquals(toolsModel, boundModel) && IsCurrentSession(boundSession) && IsToolbarSession());
             toolsModel = boundModel;
             toolsModel.PropertyChanged += OnToolsModelChanged;
+            // A reused view must not flash at its old/default coordinates before HUD layout is ready.
+            panel.Opacity = 0; panel.IsHitTestVisible = false;
             panel.DataContext = toolsModel;
             humanDetails.DataContext = toolsModel;
             CacheToolbarElements(screen);
@@ -201,14 +203,22 @@ namespace Spectator
                 !view.Show_HUD_Briefing && (!view.Show_HUD_MissionOver || Statistics?.Active == true);
             bool wasShown = humanPanel.Visibility == Visibility.Visible;
             humanPanel.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
-            if (!show) { RestorePlacementRaster(); amountInput?.EndEditing(); if (wasShown) ClosePlayerTooltips(); return; }
+            if (!show)
+            {
+                humanDragging = false;
+                if (humanDragHandle.IsMouseCaptured) humanDragHandle.ReleaseMouseCapture();
+                amountInput?.EndEditing();
+                if (wasShown) ClosePlayerTooltips();
+                return;
+            }
             toolsModel.PlacementActive = humanPlacementMode;
             var state = GameData.Instance.lastGameState;
             bool occupied = view.Show_HUD_Troops || view.Show_HUD_Building || view.Show_HUD_Briefing ||
                 view.Show_HUD_MissionOver || view.AlliesPanelVisible || view.MeritPanelVisible || view.MPChatVisible ||
                 state == null || GateHudLifecycle.Route(state.app_mode, state.app_sub_mode, false) != ToolsHudRoute.Main;
-            toolsModel.SetHudAvailable(DockHudPolicy.Evaluate(eligible, true, view.Show_HUD_Main,
-                occupied, false, humanPlacementMode, view.buildScreenID) == DockHudDisplay.Tools);
+            toolbarHudDisplay = DockHudPolicy.Evaluate(eligible, true, view.Show_HUD_Main,
+                occupied, false, humanPlacementMode, view.buildScreenID);
+            toolsModel.SetHudAvailable(toolbarHudDisplay == DockHudDisplay.Tools);
             string currentLocale = SerpLocalization.GetActiveLocale();
             if (currentLocale != toolbarLocale) { toolbarLocale = currentLocale; toolbarDirty = true; }
             if (!toolbarDirty) { PositionToolbar(); return; }
@@ -262,7 +272,7 @@ namespace Spectator
 
         private static void SetPlayerTooltip(Button button, string label, int player)
         {
-            string text = label + " â€” " + SerpLocalization.Get("Tools.SelectHelp");
+            string text = label + " \u2014 " + SerpLocalization.Get("Tools.SelectHelp");
             if (playerTooltipTexts.TryGetValue(button, out string previous) && previous == text + "|" + PlayerBrush(player).ToString()) return;
             var style = humanPanel.TryFindResource("PlayerTooltip") as Style;
             if (style == null) throw new MissingMemberException("Test tools popup style missing.");
@@ -270,7 +280,7 @@ namespace Spectator
                 Foreground = neutralPlayerBrush, TextWrapping = TextWrapping.Wrap,
                 MaxWidth = 400 };
             content.Inlines.Add(new Run { Text = label, Foreground = PlayerBrush(player) });
-            content.Inlines.Add(new Run { Text = " â€” " + SerpLocalization.Get("Tools.SelectHelp") });
+            content.Inlines.Add(new Run { Text = " \u2014 " + SerpLocalization.Get("Tools.SelectHelp") });
             var tip = new ToolTip { Style = style, Content = content };
             MenuToolTipSizing.SetEnabled(tip, true);
             if (ToolTipService.GetToolTip(button) is ToolTip previousTip) { previousTip.IsOpen = false; MenuToolTipSizing.SetEnabled(previousTip, false); }
@@ -345,7 +355,8 @@ namespace Spectator
 
         private static void OnHumanDragDown(object sender, MouseButtonEventArgs args)
         {
-            if (humanCanvas == null || humanPanel == null || humanDragHandle == null) return;
+            if (humanCanvas == null || humanPanel == null || humanDragHandle == null ||
+                !layoutCached || !humanPanel.IsHitTestVisible) return;
             humanDragStart = args.GetPosition(humanCanvas);
             humanDragOriginLeft = (float)Canvas.GetLeft(humanPanel);
             humanDragOriginTop = (float)Canvas.GetTop(humanPanel);
