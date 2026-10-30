@@ -381,9 +381,32 @@ namespace MoatMove
             if (task != 0) anchorLazyTasks++;
             if (ground) { frame.GroundTask = task; anchorGroundTask = task; } else { frame.Task = task; anchorDispatchTask = task; }
             anchorFrames[top] = frame;
-            if (task != 0 && frame.Targets != null && frame.Members != null) BatchAnchorQueries(task, ground, spec.Player, frame);
+            if (task != 0 && frame.Members != null)
+            {
+                // Vanilla-spread (AI) group moves: 11B520 writes every member's slot (r_AttackMoveToTargetTile,
+                // unit +0x2D8/+0x2DA) in its first loop and passes it to 196280 in the second (FBCB9319, audit
+                // 30.10.2026), so at the first query all answers are known and are batched like a formation
+                // plan. A member whose actual request differs finds no batch entry and asks singly.
+                if (frame.Targets == null) { frame.Targets = CaptureAnchorSlotTargets(frame.Members, spec.Player); anchorFrames[top] = frame; }
+                if (frame.Targets != null) BatchAnchorQueries(task, ground, spec.Player, frame);
+            }
             return task;
         }
+
+        private Dictionary<int, int> CaptureAnchorSlotTargets(int[] members, int player)
+        {
+            var targets = new Dictionary<int, int>(members.Length);
+            foreach (int id in members)
+            {
+                if (!APIShared.UnitAccess.TryGetById(id, out GameUnit* unit, out _) || unit == null ||
+                    !APIShared.UnitAccess.IsReallyAlive(unit) || unit->r_ControllableForPlayerId != player) continue;
+                int x = unit->r_AttackMoveToTargetTileX, y = unit->r_AttackMoveToTargetTileY;
+                if ((uint)x < MapWidth && (uint)y < MapWidth) targets[id] = y * MapWidth + x;
+            }
+            anchorSlotTargetMoves++;
+            return targets.Count != 0 ? targets : null;
+        }
+        private long anchorSlotTargetMoves;
 
         // BugfixesAndQoL's formation plan (11B520 Pre). Attached to this tribe's open move frame, or
         // kept until that frame begins; dropped at the next tick.
@@ -1285,7 +1308,7 @@ namespace MoatMove
                 $"encodeMs={AnchorMs(anchorEncodeTicks)} publishMs={AnchorMs(anchorPublishTicks)} published={anchorPublished} " +
                 $"publishRejects={anchorPublishRejects} encodeRejects={anchorEncodeRejects} routeReuses={anchorRouteReuses} " +
                 $"lazyTasks={anchorLazyTasks} unusedMoves={anchorUnusedMoves} auditSkips={anchorAuditSkips} publishReasons=[{FormatAnchorReasons()}] " +
-                $"batch(calls={anchorBatchCalls} units={anchorBatchUnits} hits={anchorBatchHits} ms={AnchorMs(anchorBatchTicks)}) " +
+                $"slotTargetMoves={anchorSlotTargetMoves} batch(calls={anchorBatchCalls} units={anchorBatchUnits} hits={anchorBatchHits} ms={AnchorMs(anchorBatchTicks)}) " +
                 $"queryStatus(ready,unreachable,overLimit,pending,stale,invalid,failed,error)={string.Join(",", anchorQueryStatus)} " +
                 $"members={anchorMembers} unreachedMembers={anchorUnreachedUnits} movesWithUnreached={anchorMovesWithUnreached} " +
                 $"vanilla(vanillaCalls={anchorVanillaCalls} vanillaFails={anchorVanillaFails} vanillaMs={AnchorMs(anchorVanillaTicks)} vanillaFailMs={AnchorMs(anchorVanillaFailTicks)} " +
