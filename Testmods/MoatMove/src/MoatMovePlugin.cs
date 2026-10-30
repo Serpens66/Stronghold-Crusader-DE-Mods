@@ -40,6 +40,8 @@ namespace MoatMove
             if (initialized) return;
             initialized = true;
             persistentLog = Logger;
+            // DEVDIAG builds only: Shared.DevDiag measuring points write through this log.
+            Shared.DevDiag.Attach(Logger);
             string mode = Config.Bind("Movement", "Mode", "precise",
                 new ConfigDescription(
                     "precise: weighted friendly/allied moat routes. fast: moat only when no ground alternative exists, shared group calculations, no extra moat cost. FastNative: Fast rules with a private native shared field. anchor (experimental): Fast's deferred move commands with native group fields; moves cross the moat when the weighted route is cheaper. Restart the game after changing this setting. Use the same mode on all multiplayer peers.")).Value;
@@ -52,11 +54,13 @@ namespace MoatMove
                 new ConfigDescription("DEVDIAG only: simulation ticks after a map start at which a forbidden test band (x 399..401, every row except 380..420) is set for all players; 0 = off.")).Value;
             int moatCostProbeTicks = Config.Bind("Diagnostics", "MoatCostProbeTicks", 0,
                 new ConfigDescription("DEVDIAG only: simulation ticks after a map start from which a RouteSearchEvents observer makes moat edges 50 times as expensive as ground edges; 0 = off.")).Value;
+            int topologyProbeTicks = Config.Bind("Diagnostics", "TopologyProbeTicks", 0,
+                new ConfigDescription("DEVDIAG only: simulation ticks after a map start at which every player's cursor topology is rebuilt once with the table-based and the per-tile build (both timed); 0 = off.")).Value;
 #else
-            int ruleProbeTicks = 0, moatCostProbeTicks = 0;
+            int ruleProbeTicks = 0, moatCostProbeTicks = 0, topologyProbeTicks = 0;
 #endif
             options = new MoatMoveOptions(mode) { PluginDirectory = System.IO.Path.GetDirectoryName(Info.Location), AnchorSingleMoves = singleMoves, AvoidFire = avoidFire,
-                RuleProbeTicks = ruleProbeTicks, MoatCostProbeTicks = moatCostProbeTicks };
+                RuleProbeTicks = ruleProbeTicks, MoatCostProbeTicks = moatCostProbeTicks, TopologyProbeTicks = topologyProbeTicks };
             Shared.DebugLogHelper.LogInfo(persistentLog,
                 $"MoatMove {PluginVersion} loaded; mode={options.ModeName}, commandPolicy=BugfixesAndQoL, hookOwner=BugfixesAndQoL; awaiting native library.");
             CrusaderLibrary.Instance.LibraryLoaded += OnLibraryLoaded;

@@ -11,19 +11,35 @@ namespace BugfixesAndQoL.UnitCommands
     {
         internal sealed class CursorTopology
         {
-            public readonly CursorRegionGraph Ground = new CursorRegionGraph(NativeTileCount + MaximumRegionId + 1);
+            public readonly CursorRegionGraph Ground;
             // Overapproximation of the actual GroundOnly kernel, independent of
             // cursor portal/owner exclusions. Only negative answers are proofs.
-            public readonly CursorRegionGraph GroundUpper = new CursorRegionGraph(NativeTileCount + MaximumRegionId + 1);
+            public readonly CursorRegionGraph GroundUpper;
             public readonly Dictionary<int, long[]> GroundBoundaries = new Dictionary<int, long[]>();
             public readonly long[][] Portals = new long[200][];
             public readonly HashSet<int> BlockedBuildings = new HashSet<int>();
             public readonly HashSet<int> NextBlockedBuildings = new HashSet<int>();
-            public readonly CursorRegionGraph Graph = new CursorRegionGraph(NativeTileCount + MaximumRegionId + 1);
+            public readonly CursorRegionGraph Graph;
             public readonly Dictionary<int, long[]> Boundaries = new Dictionary<int, long[]>();
             public readonly HashSet<int> Dirty = new HashSet<int>();
             public int Epoch, RegionGeneration;
             public bool Ready;
+            public CursorTopology() : this(null) { }
+            // replaced: a topology that is no longer used (new map epoch or region generation). Its three
+            // node-sized graphs (~9 MB) are cleared and reused instead of allocated again; their revisions
+            // keep increasing, so caches keyed by graph and revision never match the old contents.
+            public CursorTopology(CursorTopology replaced)
+            {
+                if (replaced == null)
+                {
+                    Ground = new CursorRegionGraph(NativeTileCount + MaximumRegionId + 1);
+                    GroundUpper = new CursorRegionGraph(NativeTileCount + MaximumRegionId + 1);
+                    Graph = new CursorRegionGraph(NativeTileCount + MaximumRegionId + 1);
+                    return;
+                }
+                Ground = replaced.Ground; GroundUpper = replaced.GroundUpper; Graph = replaced.Graph;
+                Ground.Reset(); GroundUpper.Reset(); Graph.Reset();
+            }
         }
         internal readonly Dictionary<int, CursorTopology> cursorTopologies = new Dictionary<int, CursorTopology>();
         internal BuildingCursorConnectivityScope activeBuildingCursorConnectivity;

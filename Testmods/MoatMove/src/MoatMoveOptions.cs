@@ -29,6 +29,8 @@ namespace MoatMove
         internal int RuleProbeTicks { get; set; }
         // DEVDIAG in-game check of route cost rules (FastMovementScheduler.ProbeMoatCost); 0 = off.
         internal int MoatCostProbeTicks { get; set; }
+        // DEVDIAG in-game timing of full cursor topology builds (FastMovementScheduler.ProbeCursorTopology); 0 = off.
+        internal int TopologyProbeTicks { get; set; }
         // Plugin folder; the anchor core DLL ships next to the mod assembly.
         internal string PluginDirectory { get; set; }
         internal string ModeName => NativeFast ? "FastNative" : Anchor ? "anchor" : mode == MoatMove.FriendlyMoatMovementMode.RequiredOnly ? "fast" : "precise";

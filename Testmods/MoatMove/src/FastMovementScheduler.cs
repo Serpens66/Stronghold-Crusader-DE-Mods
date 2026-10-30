@@ -123,6 +123,42 @@ namespace MoatMove
             Shared.DebugLogHelper.LogInfo(log, $"MoatMove rule probe set: forbiddenTiles={tiles} ms={AnchorMs(System.Diagnostics.Stopwatch.GetTimestamp() - started)}.");
         }
 
+        // DEVDIAG in-game timing of full cursor topology builds (option Diagnostics.TopologyProbeTicks):
+        // after that many ticks of a map, every player's topology is rebuilt once with the table-based
+        // build (kept) and once with the per-tile path (discarded); one deliberate lag in DEVDIAG runs.
+        private int topologyProbeElapsed;
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
+        private void ProbeCursorTopology()
+        {
+            if (settings.TopologyProbeTicks <= 0 || topologyProbeElapsed > settings.TopologyProbeTicks || ++topologyProbeElapsed <= settings.TopologyProbeTicks) return;
+            for (int player = 1; player <= 8; player++)
+            {
+                runtime.cursorTopologies.Remove(player);
+                long started = System.Diagnostics.Stopwatch.GetTimestamp();
+                CursorTopology kept = EnsureCursorTopology(player);
+                long table = System.Diagnostics.Stopwatch.GetTimestamp() - started;
+                runtime.cursorTopologies.Remove(player);
+                var perTile = EnsureCursorTopology(player, false);
+                started = System.Diagnostics.Stopwatch.GetTimestamp();
+                for (int tile = 0; tile < NativeTileCount; tile++) UpdateCursorBoundary(perTile, player, tile);
+                long slow = System.Diagnostics.Stopwatch.GetTimestamp() - started;
+                runtime.cursorTopologies[player] = kept;
+                bool Same(Dictionary<int, long[]> x, Dictionary<int, long[]> y)
+                {
+                    if (x.Count != y.Count) return false;
+                    foreach (KeyValuePair<int, long[]> e in x)
+                    {
+                        if (!y.TryGetValue(e.Key, out long[] o) || o.Length != e.Value.Length) return false;
+                        for (int i = 0; i < o.Length; i++) if (o[i] != e.Value[i]) return false;
+                    }
+                    return true;
+                }
+                Shared.DebugLogHelper.LogInfo(log, $"MoatMove topology probe: player={player} tableMs={AnchorMs(table)} perTileMs={AnchorMs(slow)} " +
+                    $"boundaries={kept.Boundaries.Count}/{perTile.Boundaries.Count} groundBoundaries={kept.GroundBoundaries.Count}/{perTile.GroundBoundaries.Count} " +
+                    $"same={Same(kept.Boundaries, perTile.Boundaries) && Same(kept.GroundBoundaries, perTile.GroundBoundaries)}.");
+            }
+        }
+
         // DEVDIAG in-game check of route cost rules (option Diagnostics.MoatCostProbeTicks): a
         // RouteSearchEvents observer, registered once, makes moat edges 50 times as expensive as ground
         // edges from that many ticks of a map on; the anchor breakdown's moatRoutes and costRules
@@ -298,6 +334,7 @@ namespace MoatMove
                     foreach (var identity in new List<FastUnitIdentity>(fastUnitDistributions.Keys))
                         if (!TryGetFastMember(identity, fastUnitDistributions[identity].Player, out _))
                             fastUnitDistributions.Remove(identity);
+                if (runtime.TraversalEnabled) PrebuildCursorTopologies();
                 // Anchor mode prepares masks and computes queued tasks even without new commands.
                 if (RequiredOnlyMode && runtime.TraversalEnabled)
                 {
@@ -310,6 +347,7 @@ namespace MoatMove
                     fireRules?.Tick(tick);
                     ProbeRouteRules();
                     ProbeMoatCost();
+                    ProbeCursorTopology();
                 }
                 if (fastCommands.Commands.Count == 0) return;
                 if (!RequiredOnlyMode || !runtime.TraversalEnabled)
@@ -438,6 +476,22 @@ namespace MoatMove
         }
 
         // Bit p is set when player p controls at least one living unit.
+        // Cursor topologies of all players with units, built one player per tick on the first ticks of a
+        // map (load catch-up, before the mission is ready to play) instead of on first use in play: a first
+        // build took 121-139 ms in 4 of 79 stress runs (user decision 30.10.2026: build at map start).
+        // Later region generation changes still rebuild on use (table build, reused graphs). Built from
+        // simulation state on the simulation thread, like the lazy build, so peers keep equal topologies.
+        private int cursorPrebuildEpoch = int.MinValue, cursorPrebuildMask;
+        private void PrebuildCursorTopologies()
+        {
+            if (cursorPrebuildEpoch != runtime.mapEpoch) { cursorPrebuildEpoch = runtime.mapEpoch; cursorPrebuildMask = ScanAnchorPlayers(); }
+            if (cursorPrebuildMask == 0 || runtime.nativePathManager == IntPtr.Zero) return;
+            int player = 1;
+            while ((cursorPrebuildMask & (1 << player)) == 0) player++;
+            cursorPrebuildMask &= ~(1 << player);
+            EnsureCursorTopology(player);
+        }
+
         private int ScanAnchorPlayers()
         {
             int mask = 0, alive = 0;

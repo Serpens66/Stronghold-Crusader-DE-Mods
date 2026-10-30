@@ -62,6 +62,91 @@ namespace MoatMove
             topology.Boundaries.Add(tile, saved);
         }
 
+        // Full build of a topology without boundary records: the same edges in the same tile order as
+        // UpdateCursorBoundary over every tile (GroundUpper, then Graph/Ground per tile), with the node
+        // of each tile computed once and neighbours read from a table instead of per-pair Extender
+        // calls. The per-tile path took 121-139 ms per build in 4 of 79 stress runs (pf-iter-55).
+        // Inputs (regions, flags, buildings, moats, blocked buildings) do not change during the build.
+        private int[] cursorNeighbors, cursorBuildNodes, cursorBuildGround, cursorCoordinateTiles;
+        private ushort[] cursorTileX, cursorTileY;
+        private int cursorNeighborEpoch = int.MinValue;
+        // Neighbour tile per tile and direction (-1: off map or not a valid tile) and tile positions,
+        // with the results of the GetTileVectorFromId/GetTileId calls UpdateCursorBoundary makes. Built
+        // per map on first use: the Extender's tile layout is only valid for a loaded map (a table built
+        // at ResetMapState held 0 of ~2,500 cursor boundaries per player, pf-topo-3). GetTileId is read
+        // once per coordinate (640,000 calls) instead of once per tile and direction.
+        private void EnsureCursorNeighborTable()
+        {
+            if (cursorNeighbors != null && cursorNeighborEpoch == runtime.mapEpoch) return;
+            int[] neighbors = cursorNeighbors ?? new int[NativeTileCount * 8], coordinates = cursorCoordinateTiles ?? new int[MapWidth * MapWidth];
+            ushort[] xs = cursorTileX ?? new ushort[NativeTileCount], ys = cursorTileY ?? new ushort[NativeTileCount];
+            for (int y = 0; y < MapWidth; y++)
+                for (int x = 0; x < MapWidth; x++)
+                {
+                    int next = GameTileManagerAPI.Instance.GetTileId(x, y);
+                    coordinates[y * MapWidth + x] = IsValidTileId(next) ? next : -1;
+                }
+            for (int tile = 0; tile < NativeTileCount; tile++)
+            {
+                int row = tile * 8;
+                if (!IsValidTileId(tile)) { for (int d = 0; d < 8; d++) neighbors[row + d] = -1; xs[tile] = ys[tile] = 0; continue; }
+                var pos = GameTileManagerAPI.Instance.GetTileVectorFromId(tile); xs[tile] = pos.X; ys[tile] = pos.Y;
+                for (int d = 0; d < 8; d++)
+                {
+                    int x = pos.X + WeightedMoatRoutePlanner.DirectionX[d], y = pos.Y + WeightedMoatRoutePlanner.DirectionY[d];
+                    neighbors[row + d] = (uint)x < MapWidth && (uint)y < MapWidth ? coordinates[y * MapWidth + x] : -1;
+                }
+            }
+            cursorTileX = xs; cursorTileY = ys; cursorNeighbors = neighbors; cursorCoordinateTiles = coordinates;
+            cursorNeighborEpoch = runtime.mapEpoch;
+        }
+
+        private void BuildCursorTopology(CursorTopology topology, int player)
+        {
+            EnsureCursorNeighborTable();
+            int[] nodes = cursorBuildNodes ?? (cursorBuildNodes = new int[NativeTileCount]);
+            int[] ground = cursorBuildGround ?? (cursorBuildGround = new int[NativeTileCount]);
+            for (int tile = 0; tile < NativeTileCount; tile++) { nodes[tile] = runtime.CursorNode(player, tile); ground[tile] = GroundUpperNode(tile); }
+            int[] neighbors = cursorNeighbors;
+            long* edges = stackalloc long[8];
+            for (int tile = 0; tile < NativeTileCount; tile++)
+            {
+                int row = tile * 8, count = 0, from = ground[tile];
+                int x = cursorTileX[tile], y = cursorTileY[tile];
+                if (from >= 0)
+                {
+                    for (int d = 0; d < 8; d++)
+                    {
+                        int next = neighbors[row + d]; if (next < 0) continue;
+                        int to = ground[next]; if (to < 0 || from == to) continue;
+                        if (!runtime.weightedMoatRoutePlanner.TryGetTraversalEdge(player, x, y, tile,
+                            x + WeightedMoatRoutePlanner.DirectionX[d], y + WeightedMoatRoutePlanner.DirectionY[d], next, d, false, false, MoatTraversalPolicy.GroundOnly, out _, out _)) continue;
+                        edges[count++] = ((long)from << 32) | (uint)to;
+                        topology.GroundUpper.ChangeEdge(from, to, 1);
+                    }
+                    if (count != 0) { var saved = new long[count]; for (int i = 0; i < count; i++) saved[i] = edges[i]; topology.GroundBoundaries.Add(tile, saved); }
+                }
+                from = nodes[tile]; if (from < 0) continue;
+                count = 0;
+                for (int d = 0; d < 8; d++)
+                {
+                    int next = neighbors[row + d]; if (next < 0) continue;
+                    int to = nodes[next]; if (to < 0 || from == to) continue;
+                    if (from <= MaximumRegionId && to <= MaximumRegionId) continue;
+                    if (!runtime.weightedMoatRoutePlanner.TryGetTraversalEdge(player, x, y, tile,
+                        x + WeightedMoatRoutePlanner.DirectionX[d], y + WeightedMoatRoutePlanner.DirectionY[d], next, d, false, false, MoatTraversalPolicy.FriendlyOnly, out _, out _)) continue;
+                    long packed = ((long)from << 32) | (uint)to;
+                    if (!runtime.IsCompletedMoatTile(tile) && !runtime.IsCompletedMoatTile(next))
+                    { packed |= long.MinValue; topology.Ground.ChangeEdge(from, to, 1); }
+                    edges[count++] = packed;
+                    topology.Graph.ChangeEdge(from, to, 1);
+                }
+                if (count == 0) continue;
+                var cursorSaved = new long[count]; for (int i = 0; i < count; i++) cursorSaved[i] = edges[i];
+                topology.Boundaries.Add(tile, cursorSaved);
+            }
+        }
+
         internal bool IsSamePositiveGroundRegion(int start, int target)
         {
             if (!IsValidTileId(start) || !IsValidTileId(target) ||
@@ -130,12 +215,16 @@ namespace MoatMove
                 for (int b = 1; b <= 8; b++)
                     if (a == b || GamePlayerManagerAPI.Instance.IsPlayerAlliedTo(a, b))
                         diplomacy |= 1UL << ((a - 1) * 8 + b - 1);
-            if (runtime.cursorDiplomacy != diplomacy) { runtime.cursorTopologies.Clear(); runtime.cursorDiplomacy = diplomacy; }
+            string rebuildReason = null;
+            if (runtime.cursorDiplomacy != diplomacy) { runtime.cursorTopologies.Clear(); runtime.cursorDiplomacy = diplomacy; rebuildReason = "diplomacy"; }
             int generation = *(int*)((byte*)runtime.nativePathManager + 0x74);
             if (!runtime.cursorTopologies.TryGetValue(player, out CursorTopology topology) ||
                 topology.Epoch != runtime.mapEpoch || topology.RegionGeneration != generation)
             {
-                topology = new CursorTopology { Epoch = runtime.mapEpoch, RegionGeneration = generation };
+                rebuildReason = rebuildReason ?? (topology == null ? "new" : topology.Epoch != runtime.mapEpoch ? "epoch" :
+                    "regionGeneration " + topology.RegionGeneration + "->" + generation);
+                // The replaced topology is dropped from the map right here; nothing else holds it.
+                topology = new CursorTopology(topology) { Epoch = runtime.mapEpoch, RegionGeneration = generation };
                 runtime.cursorTopologies[player] = topology;
             }
             RefreshCursorPortals(topology, player);
@@ -148,8 +237,13 @@ namespace MoatMove
                 if (!topology.Ready)
                 {
                     runtime.cursorTopologyBuilds++;
-                    for (int tile = 0; tile < NativeTileCount; tile++) UpdateCursorBoundary(topology, player, tile);
+                    long measured = 0;
+                    Shared.DevDiag.Start(ref measured);
+                    if (topology.Boundaries.Count == 0 && topology.GroundBoundaries.Count == 0) BuildCursorTopology(topology, player);
+                    else for (int tile = 0; tile < NativeTileCount; tile++) UpdateCursorBoundary(topology, player, tile);
                     topology.Ready = true;
+                    Shared.DevDiag.StopSpike(ref measured, "moat.cursorTopology.build", 0, () =>
+                        $"player={player} reason={rebuildReason ?? "notReady"} boundaries={topology.Boundaries.Count} groundBoundaries={topology.GroundBoundaries.Count}");
                 }
                 else
                     foreach (int tile in topology.Dirty) { UpdateCursorBoundary(topology, player, tile); runtime.cursorTopologyUpdates++; }

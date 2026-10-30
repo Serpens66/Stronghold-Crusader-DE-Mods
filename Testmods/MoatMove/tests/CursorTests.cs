@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.IO;
@@ -289,6 +290,63 @@ namespace MoatMove
             }
         }
 
+        // The table-based full build (BuildCursorTopology) gives exactly the per-tile path's boundary
+        // records (keys, edge order) and graph edge counts, here with regions, a friendly moat, a
+        // building, a special structure tile and map-edge tiles; a seeded change of one input
+        // (gate flag) must show up as a difference, so the comparison is not vacuous.
+        private void CursorTopologyBuildEquivalence()
+        {
+            var savedFlags = new Dictionary<int, uint>(); var savedRegions = new Dictionary<int, ushort>(); var savedMasks = new Dictionary<int, byte>();
+            void Flag(int tile, uint value) { if (!savedFlags.ContainsKey(tile)) savedFlags[tile] = tileFlags[tile]; tileFlags[tile] = value; }
+            void Region(int tile, ushort value) { if (!savedRegions.ContainsKey(tile)) savedRegions[tile] = pathRegionGrid[tile]; pathRegionGrid[tile] = value; }
+            void Mask(int tile, byte value) { if (!savedMasks.ContainsKey(tile)) savedMasks[tile] = nativeMovementMasks[tile]; nativeMovementMasks[tile] = value; }
+            for (int x = 20; x <= 26; x++) { Flag(1000 + x, 0x8000); Region(1000 + x, (ushort)(x < 23 ? 3 : 4)); Mask(1000 + x, 0x44); }
+            Flag(1024, CursorSpecialStructureTileFlagMask & 0x100);
+            Flag(0, 0x8000); Region(0, 5);
+            CursorTopology Build(bool fast)
+            {
+                cursorTopologies.Remove(1);
+                CursorTopology t = EnsureCursorTopology(1, false);
+                if (fast) BuildCursorTopology(t, 1); else for (int tile = 0; tile < NativeTileCount; tile++) UpdateCursorBoundary(t, 1, tile);
+                t.Ready = true;
+                return t;
+            }
+            bool SameRecords(Dictionary<int, long[]> a, Dictionary<int, long[]> b) =>
+                a.Count == b.Count && a.All(e => b.TryGetValue(e.Key, out long[] o) && o.SequenceEqual(e.Value));
+            bool SameGraph(CursorRegionGraph a, CursorRegionGraph b) =>
+                a.reverse.Count == b.reverse.Count && a.reverse.All(e => b.reverse.TryGetValue(e.Key, out var o) &&
+                    o.Count == e.Value.Count && e.Value.All(v => o.TryGetValue(v.Key, out int c) && c == v.Value));
+            bool Same(CursorTopology a, CursorTopology b) => SameRecords(a.Boundaries, b.Boundaries) && SameRecords(a.GroundBoundaries, b.GroundBoundaries) &&
+                SameGraph(a.Graph, b.Graph) && SameGraph(a.Ground, b.Ground) && SameGraph(a.GroundUpper, b.GroundUpper);
+            try
+            {
+                CursorTopology slow = Build(false), fast = Build(true);
+                Check(slow.Boundaries.Count > 0 && slow.GroundBoundaries.Count > 0, "equivalence fixture has cursor and ground boundaries");
+                Check(Same(slow, fast), "table-based cursor topology build equals the per-tile build");
+                // A new region generation reuses the replaced topology's graphs: same objects, higher
+                // revisions (MoatPlacement's graph/revision cache), same contents as a fresh build.
+                CursorRegionGraph graph = fast.Graph; long revision = graph.Revision;
+                int* generationField = (int*)((byte*)nativePathManager + 0x74); int savedGeneration = *generationField;
+                (*generationField)++;
+                try
+                {
+                    CursorTopology reused = EnsureCursorTopology(1);
+                    Check(!ReferenceEquals(reused, fast) && ReferenceEquals(reused.Graph, graph) && graph.Revision > revision && Same(slow, reused),
+                        "replaced cursor topology reuses its graphs with the per-tile build's contents");
+                }
+                finally { *generationField = savedGeneration; }
+                Flag(1022, CursorSpecialStructureTileFlagMask & 0x100);
+                Check(!Same(slow, Build(true)), "changed structure tile changes the table-based build");
+            }
+            finally
+            {
+                foreach (var e in savedFlags) tileFlags[e.Key] = e.Value;
+                foreach (var e in savedRegions) pathRegionGrid[e.Key] = e.Value;
+                foreach (var e in savedMasks) nativeMovementMasks[e.Key] = e.Value;
+                cursorTopologies.Remove(1);
+            }
+        }
+
         private void CursorAdapterTests()
         {
             cursorTopologies.Clear(); enemyTiles.Clear();
@@ -329,6 +387,7 @@ namespace MoatMove
             Check(ProbeCursorConnectivity(1,1010,1017,out route) && route.RouteFound,"owner change removes cached negative connection");
             Check(cursorTopologyBuilds==builds,"local changes do not rebuild the full map");
             Check(weightedMoatRoutePlanner.SearchRuns==pathRuns,"cursor creates no route searches");
+            CursorTopologyBuildEquivalence();
 
             int nativePairs = 0;
             originalCursorTilePairReachability = (manager,target,start,cache) => { nativePairs++; return 7; };
