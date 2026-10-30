@@ -42,6 +42,7 @@
     <Compile Include="src\FastIntegration.cs" />
     <Compile Include="src\AnchorRouting.cs" />
     <Compile Include="src\RouteReplanWatch.cs" />
+    <Compile Include="src\GroundFailureProofs.cs" />
     <Compile Include="src\FireRouteRules.cs" />
     <Compile Include="src\DigWorkFallback.cs" />
     <Compile Include="src\FastRouteField.cs" />

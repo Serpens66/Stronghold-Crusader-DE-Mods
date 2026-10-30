@@ -126,6 +126,154 @@ namespace MoatMove
             Check(!AnchorSingleSearchReplaceable(manager, east, eastFar), "an Assassin request with +0x80 was replaced");
         }
 
+        // Failed ground builds (GroundFailureProofs) on a synthetic 401 x 800 tile grid: a closed box of
+        // stamped tiles around the start proves every outside target unreachable. Only a player's third
+        // failure in the move captures; covered requests replay F4930's failure path (direct attempt, +0xAC, +0x7C, +0x155F68)
+        // without DAAC0/DA590 for any target outside the box (members' different slots), with the straight
+        // attempt of the request's profile; every other request, an open set, a region change, a target
+        // inside the set, another player/mode, F4930's region gate (E2F60 once), a
+        // builder success and a direct success keep or restore Vanilla.
+        private int groundDirectCalls, groundDefaultCalls, groundDirectResult, groundDirectLength, groundRegionCalls, groundRegionResult = 1;
+        private int GroundRegionStub(IntPtr manager, int player, int startRegion, int targetRegion) { groundRegionCalls++; return groundRegionResult; }
+        private int GroundDefaultStub(IntPtr manager, int sx, int sy, int tx, int ty) { groundDefaultCalls++; return GroundDirectStub(manager, sx, sy, tx, ty) * 0; }
+        private int GroundDirectStub(IntPtr manager, int sx, int sy, int tx, int ty)
+        {
+            groundDirectCalls++;
+            if (groundDirectResult != 0) *(int*)((byte*)manager + GroundFailureProofs.RouteLengthOffset) = groundDirectLength;
+            return groundDirectResult;
+        }
+        private void GroundFailureProofTests()
+        {
+            const int width = 401, tiles = CursorGroundRejectProof.TileCount, generation = 77;
+            var memory = new System.Collections.Generic.List<IntPtr>();
+            T* Alloc<T>(int count) where T : unmanaged
+            {
+                IntPtr block = System.Runtime.InteropServices.Marshal.AllocHGlobal(count * sizeof(T)); memory.Add(block);
+                for (int i = 0; i < count * sizeof(T); i++) ((byte*)block)[i] = 0;
+                return (T*)block;
+            }
+            try
+            {
+                short* stamps = Alloc<short>(tiles); byte* connections = Alloc<byte>(tiles); byte* bits = Alloc<byte>(8);
+                int* offsets = Alloc<int>(800 * 8); ushort* rows = Alloc<ushort>(tiles); ushort* regions = Alloc<ushort>(tiles);
+                byte* manager = Alloc<byte>(GroundFailureProofs.RouteLengthOffset + 16);
+                int[] dx = { 0, 1, 1, 1, 0, -1, -1, -1 }, dy = { -1, -1, 0, 1, 1, 1, 0, -1 }, step = new int[8];
+                for (int d = 0; d < 8; d++) step[d] = dy[d] * width + dx[d];
+                for (int d = 0; d < 8; d++) bits[d] = (byte)(1 << d);
+                for (int r = 0; r < 800; r++) for (int d = 0; d < 8; d++) offsets[r * 8 + d] = step[d];
+                for (int t = 0; t < tiles; t++) { rows[t] = (ushort)(t / width); regions[t] = 1; }
+                int Tile(int x, int y) => y * width + x;
+                bool Inside(int x, int y) => x >= 10 && x <= 20 && y >= 10 && y <= 20;
+                // Box 10..20 with edges only between box tiles, stamped like DA590's visited set.
+                for (int y = 10; y <= 20; y++)
+                    for (int x = 10; x <= 20; x++)
+                    {
+                        stamps[Tile(x, y)] = generation;
+                        for (int d = 0; d < 8; d++)
+                        {
+                            if (Inside(x + dx[d], y + dy[d])) connections[Tile(x, y)] |= bits[d];
+                        }
+                    }
+                *(int*)(manager + GroundFailureProofs.GenerationOffset) = generation;
+                var proofs = new GroundFailureProofs(stamps, connections, bits, offsets, rows, regions, (x, y) => Tile(x, y), GroundDirectStub, GroundDefaultStub, GroundRegionStub);
+                void Request(int sx, int sy, int tx, int ty)
+                {
+                    *(int*)(manager + GroundFailureProofs.StartXOffset) = sx; *(int*)(manager + GroundFailureProofs.StartYOffset) = sy;
+                    *(int*)(manager + GroundFailureProofs.TargetXOffset) = tx; *(int*)(manager + GroundFailureProofs.TargetYOffset) = ty;
+                }
+                bool Answer(int player, int profile, out int result) =>
+                    proofs.TryAnswer(manager, player, profile, false, out result, out _, out _);
+
+                Request(12, 12, 100, 100);
+                Check(!Answer(1, 0, out _), "a request is answered without any proof");
+                proofs.Observe(manager, 1, 0, 0, false, default, null); proofs.Observe(manager, 1, 0, 0, false, default, null);
+                Check(proofs.ProofCount == 0 && proofs.Captures == 0, "a proof is captured before a player's third failure");
+                Request(13, 12, 105, 100);
+                proofs.Observe(manager, 1, 0, 0, false, default, null);
+                Check(proofs.ProofCount == 1 && proofs.Captures == 1, "a player's third failure (another slot) does not capture its closed set");
+
+                // A covered start replays F4930's failure path with the native direct attempt only.
+                Request(18, 15, 100, 100);
+                *(int*)(manager + GroundFailureProofs.DirectFailureOffset) = 5; *(int*)(manager + GroundFailureProofs.SearchFlagOffset) = 9;
+                *(int*)(manager + GroundFailureProofs.RouteLengthOffset) = 9; groundDirectCalls = 0; groundDirectResult = 0;
+                Check(Answer(1, 0, out int known) && known == 0 && groundDirectCalls == 1 && proofs.Hits == 1, "a covered start is not answered as a failure");
+                Check(*(int*)(manager + GroundFailureProofs.DirectFailureOffset) == 6 && *(int*)(manager + GroundFailureProofs.SearchFlagOffset) == 0 &&
+                    *(int*)(manager + GroundFailureProofs.RouteLengthOffset) == 0, "the replay does not leave F4930's failure state");
+
+                // Requests the proof does not cover stay with Vanilla.
+                groundDirectCalls = 0;
+                Request(30, 15, 100, 100); Check(!Answer(1, 0, out _), "a start outside the proof is answered");
+                Request(18, 15, 15, 15); Check(!Answer(1, 0, out _), "a target inside the closed set is answered");
+                Request(18, 15, 101, 100); groundDirectCalls = 0;
+                Check(Answer(1, 0, out _) && groundDirectCalls == 1 && proofs.Hits == 2, "another slot outside the closed set is not answered");
+                *(int*)(manager + GroundFailureProofs.DirectFailureOffset) -= 1; groundDirectCalls = 0;
+                Request(18, 15, 100, 100); Check(!Answer(2, 0, out _), "another player's request is answered");
+                groundDefaultCalls = 0;
+                Check(Answer(1, 1, out _) && groundDefaultCalls == 1 && groundDirectCalls == 1, "a request with the F3060 profile does not use F3060");
+                *(int*)(manager + GroundFailureProofs.DirectFailureOffset) -= 1; groundDirectCalls = 0; groundDefaultCalls = 0;
+                foreach (int mode in new[] { GroundFailureProofs.MoatModeOffset, GroundFailureProofs.AssassinModeOffset })
+                { *(int*)(manager + mode) = 1; Check(!Answer(1, 0, out _), "a request in another builder mode is answered"); *(int*)(manager + mode) = 0; }
+                // +0x80 only drops DAAC0 from the same failure path (DA590 directly).
+                *(int*)(manager + GroundFailureProofs.DirectModeOffset) = 1;
+                Check(Answer(1, 0, out _) && groundDirectCalls == 1, "a covered request with +0x80 is not answered");
+                *(int*)(manager + GroundFailureProofs.DirectModeOffset) = 0; *(int*)(manager + GroundFailureProofs.DirectFailureOffset) -= 1; groundDirectCalls = 0;
+                Check(groundDirectCalls == 0 && groundRegionCalls == 0, "a declined request ran the direct attempt or the region gate");
+
+                // Region gate: another start region asks E2F60 once; unconnected regions (or target region 0) end
+                // F4930 without any write, connected ones take the search path.
+                int failuresNow = *(int*)(manager + GroundFailureProofs.DirectFailureOffset);
+                regions[Tile(18, 15)] = 2; groundRegionResult = 0;
+                Check(Answer(1, 0, out int gated) && gated == 0 && groundRegionCalls == 1 && groundDirectCalls == 0 && proofs.GateHits == 1 &&
+                    *(int*)(manager + GroundFailureProofs.DirectFailureOffset) == failuresNow, "unconnected regions do not end in F4930's region gate");
+                groundRegionResult = 3;
+                Check(Answer(1, 0, out _) && groundRegionCalls == 2 && groundDirectCalls == 1 &&
+                    *(int*)(manager + GroundFailureProofs.DirectFailureOffset) == failuresNow + 1, "connected regions do not take F4930's search path");
+                *(int*)(manager + GroundFailureProofs.DirectFailureOffset) = failuresNow; groundDirectCalls = 0;
+                regions[Tile(100, 100)] = 0;
+                Check(Answer(1, 0, out _) && groundRegionCalls == 2 && groundDirectCalls == 0 && proofs.GateHits == 2, "target region 0 asked E2F60");
+                regions[Tile(100, 100)] = 1; regions[Tile(18, 15)] = 1; groundRegionResult = 1; groundRegionCalls = 0;
+
+                // DEVDIAG verification: predicted only; Vanilla's terminal state confirms or counts a mismatch.
+                int before = *(int*)(manager + GroundFailureProofs.DirectFailureOffset);
+                *(int*)(manager + GroundFailureProofs.SearchFlagOffset) = 5; *(int*)(manager + GroundFailureProofs.RouteLengthOffset) = 6;
+                Check(!proofs.TryAnswer(manager, 1, 0, true, out _, out bool predicted, out GroundFailureProofs.BuildState state) && predicted &&
+                    state.Failures == before && state.Flag == 5 && state.Length == 6 && groundRegionCalls == 0, "verification mode skips Vanilla");
+                proofs.Observe(manager, 1, 0, 0, true, state, null);
+                Check(proofs.Verified == 1 && proofs.Mismatches == 0, "Vanilla's unwritten region-gate failure is not verified");
+                *(int*)(manager + GroundFailureProofs.DirectFailureOffset) = before + 1;
+                *(int*)(manager + GroundFailureProofs.SearchFlagOffset) = 0; *(int*)(manager + GroundFailureProofs.RouteLengthOffset) = 0;
+                proofs.Observe(manager, 1, 0, 0, true, state, null);
+                Check(proofs.Verified == 2 && proofs.Mismatches == 0, "a matching Vanilla search failure is not counted as verified");
+                *(int*)(manager + GroundFailureProofs.SearchFlagOffset) = 1;
+                proofs.Observe(manager, 1, 0, 0, true, state, null);
+                Check(proofs.Verified == 2 && proofs.Mismatches == 1, "a failure with another terminal state is verified");
+                proofs.Observe(manager, 1, 0, 4, true, state, null);
+                Check(proofs.Mismatches == 2 && proofs.MismatchSample != null && proofs.ProofCount == 0, "a Vanilla success against a proof is not a mismatch or keeps the proof");
+
+                // A direct success (never expected) is F4930's success path and drops the proofs.
+                Request(12, 12, 100, 100);
+                for (int i = 0; i < 3; i++) proofs.Observe(manager, 1, 0, 0, false, default, null);
+                Request(18, 15, 100, 100);
+                int successes = *(int*)(manager + GroundFailureProofs.DirectSuccessOffset);
+                groundDirectResult = 1; groundDirectLength = 7;
+                Check(Answer(1, 0, out int length) && length == 7 && *(int*)(manager + GroundFailureProofs.DirectSuccessOffset) == successes + 1 &&
+                    proofs.DirectSuccesses == 1 && proofs.ProofCount == 0, "a direct success does not follow F4930's success path");
+                groundDirectResult = 0;
+
+                // An open set (an edge leaves the box) is never a proof; Reset drops proofs and counts.
+                connections[Tile(20, 15)] |= bits[2];
+                Request(12, 12, 100, 100);
+                for (int i = 0; i < 3; i++) proofs.Observe(manager, 1, 0, 0, false, default, null);
+                Check(proofs.ProofCount == 0 && proofs.CaptureRejects == 1, "an open set was captured as a proof");
+                connections[Tile(20, 15)] &= unchecked((byte)~bits[2]);
+                proofs.Observe(manager, 1, 0, 0, false, default, null);
+                Check(proofs.ProofCount == 1, "a closed set after a rejected capture is not captured");
+                proofs.Reset(); Request(18, 15, 100, 100);
+                Check(proofs.ProofCount == 0 && !Answer(1, 0, out _), "Reset keeps a proof");
+            }
+            finally { foreach (IntPtr block in memory) System.Runtime.InteropServices.Marshal.FreeHGlobal(block); }
+        }
+
         // Writes a stored route starting at (x,y) and the move target into unit id's record and buffer.
         private void Route(int id, int x, int y, int[] steps, int targetX, int targetY)
         {
@@ -477,6 +625,7 @@ namespace MoatMove
                 ReleaseAnchorTask(penaltyTask);
                 ReplanWatchTests(ref ticks);
                 SingleSearchReplaceableTests();
+                GroundFailureProofTests();
                 CostRuleTests(start, anchor);
 
                 // The word-based reachability search (cached words, node tile table) visits the same

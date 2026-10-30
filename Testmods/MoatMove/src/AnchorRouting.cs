@@ -266,6 +266,7 @@ namespace MoatMove
             for (int p = 0; p < anchorMaskNext.Length; p++) { anchorMaskNext[p] = -1; anchorBlocked[p]?.Clear(); }
             anchorSweepCursor = -1; anchorSweepLeft = 0; anchorSweepRequestStart = anchorSweptSinceRequest = 0;
             ResetReplanWatch();
+            ResetGroundFailureProofs();
         }
 
         private bool AnchorReady(int player) =>
@@ -405,6 +406,7 @@ namespace MoatMove
         private void BeginAnchorFrame(int tribe, int task, int groundTask = 0, int[] members = null,
             AnchorTaskSpec diggerSpec = null, AnchorTaskSpec groundSpec = null)
         {
+            ResetGroundFailureProofs();
             if (diggerSpec != null) task = AnchorPendingTask;
             if (groundSpec != null) groundTask = AnchorPendingTask;
             Dictionary<int, int> targets = null;
@@ -501,6 +503,7 @@ namespace MoatMove
         // Post of a group move: ends its frame and any frame left open above it.
         private void EndAnchorFrame(int tribe)
         {
+            ResetGroundFailureProofs();
             while (anchorFrames.Count != 0)
             {
                 AnchorDispatchFrame frame = anchorFrames[anchorFrames.Count - 1];
@@ -787,6 +790,7 @@ namespace MoatMove
             long started = System.Diagnostics.Stopwatch.GetTimestamp();
             anchorSimThread = Environment.CurrentManagedThreadId;
             if (anchorFrames.Count != 0) ClearAnchorFrames();
+            ResetGroundFailureProofs();
             if (anchorAuditedRoutes.Count != 0) anchorAuditedRoutes.Clear();
             if (anchorBatchIndex.Count != 0) anchorBatchIndex.Clear();
             anchorPendingFormationTribe = -1; anchorPendingFormation = null;
@@ -1096,6 +1100,17 @@ namespace MoatMove
             finally { anchorSingleTicks += System.Diagnostics.Stopwatch.GetTimestamp() - started; }
         }
 
+        // Exact reuse of failed ground builds within one group move (null when its native contract is
+        // unavailable). DEVDIAG builds verify every covered start against Vanilla instead of skipping it.
+        private GroundFailureProofs groundFailureProofs;
+        private long anchorKnownFailureTicks;
+#if SERP_DEVDIAG
+        private const bool GroundFailureVerify = true;
+#else
+        private const bool GroundFailureVerify = false;
+#endif
+        private void ResetGroundFailureProofs() => groundFailureProofs?.Reset();
+
         // Builder calls outside anchor group moves, per search mode and plan kind: calls/time.
         private readonly Dictionary<string, long[]> anchorOutsideBuilds = new Dictionary<string, long[]>();
         private int CallVanillaBuilderTimed(IntPtr pathManager, int movementClass, int movementProfile, bool reconstruction, int unitId, PlanScope plan = null)
@@ -1118,8 +1133,18 @@ namespace MoatMove
                 return outside;
             }
             long started = System.Diagnostics.Stopwatch.GetTimestamp();
+            // Members of this group move inside a proven-closed failure set (GroundFailureProofs) skip
+            // DAAC0/DA590; DEVDIAG builds only predict them and compare with Vanilla's own run.
+            GroundFailureProofs proofs = !reconstruction && pathManager == runtime.nativePathManager &&
+                runtime.GetCurrentUnitMoveFrame() != null ? groundFailureProofs : null;
+            bool predicted = false; GroundFailureProofs.BuildState before = default;
+            if (proofs != null && proofs.TryAnswer((byte*)pathManager.ToPointer(), movementClass, movementProfile, GroundFailureVerify,
+                out int known, out predicted, out before))
+            { anchorKnownFailureTicks += System.Diagnostics.Stopwatch.GetTimestamp() - started; return known; }
             int result = runtime.CallVanillaBuilder(pathManager, movementClass, movementProfile, reconstruction);
             long elapsed = System.Diagnostics.Stopwatch.GetTimestamp() - started;
+            proofs?.Observe((byte*)pathManager.ToPointer(), movementClass, movementProfile, result, predicted, before,
+                APIShared.EnemyGatePathPolicyBridge.Current);
             anchorVanillaCalls++; anchorVanillaTicks += elapsed;
             if (anchorVanillaWhy.Count < 32 || anchorVanillaWhy.ContainsKey(anchorDecline))
                 anchorVanillaWhy[anchorDecline] = anchorVanillaWhy.TryGetValue(anchorDecline, out long seen) ? seen + 1 : 1;
@@ -1365,7 +1390,7 @@ namespace MoatMove
                 $"members={anchorMembers} unreachedMembers={anchorUnreachedUnits} movesWithUnreached={anchorMovesWithUnreached} " +
                 $"vanilla(vanillaCalls={anchorVanillaCalls} vanillaFails={anchorVanillaFails} vanillaMs={AnchorMs(anchorVanillaTicks)} vanillaFailMs={AnchorMs(anchorVanillaFailTicks)} " +
                 $"afterUnreachable={anchorVanillaAfterUnreachable} afterUnreachableMs={AnchorMs(anchorVanillaAfterUnreachableTicks)} " +
-                $"foundAfterUnreachable={anchorVanillaFoundAfterUnreachable}) vanillaWhy=[{FormatAnchorReasons(anchorVanillaWhy)}] sameTickTasks={anchorSameTickTasks} sameTickTaskMs={AnchorMs(anchorSameTickTaskTicks)} diggerGroundRoutes={anchorDiggerGroundRoutes} nativeByteChanges={anchorWatchChanges} rebuildsWatched={anchorRebuildsWatched} tileRuleChanges={routeTileRuleChanges} aliveUnits={anchorAliveUnits} costRules(changes={anchorCostRuleChanges} skips={anchorCostRuleSkips}) single(routes={anchorSingleRoutes} assassin={anchorSingleAssassinRoutes} probe(forbiddenHits={ruleProbeForbiddenHits} bandRoutes={ruleProbeBandRoutes}) unreachable={anchorSingleUnreachable} rejects={anchorSingleRejects} ms={AnchorMs(anchorSingleTicks)} queries={anchorCoreStats[AnchorNative.StatSingleQueries]} settles={anchorCoreStats[AnchorNative.StatSingleSettles]} coreMs={anchorCoreStats[AnchorNative.StatSingleNs] / 1e6:F1}) {FormatReplanWatch()} outsideBuilds(calls/ms/maxMs)=[{FormatOutsideBuilds()}] exhaustedReach(kept={ExhaustedReachabilityKept} hits={ExhaustedReachabilityHits}) reach(advances/expanded/ms/maxMs)=[{FormatReachabilityByOwner()}] " +
+                $"foundAfterUnreachable={anchorVanillaFoundAfterUnreachable}) vanillaWhy=[{FormatAnchorReasons(anchorVanillaWhy)}] sameTickTasks={anchorSameTickTasks} sameTickTaskMs={AnchorMs(anchorSameTickTaskTicks)} diggerGroundRoutes={anchorDiggerGroundRoutes} nativeByteChanges={anchorWatchChanges} rebuildsWatched={anchorRebuildsWatched} tileRuleChanges={routeTileRuleChanges} aliveUnits={anchorAliveUnits} costRules(changes={anchorCostRuleChanges} skips={anchorCostRuleSkips}) knownFailures(hits={groundFailureProofs?.Hits ?? 0} ms={AnchorMs(anchorKnownFailureTicks)} captures={groundFailureProofs?.Captures ?? 0} rejects={groundFailureProofs?.CaptureRejects ?? 0} gateHits={groundFailureProofs?.GateHits ?? 0} directSuccesses={groundFailureProofs?.DirectSuccesses ?? 0} verified={groundFailureProofs?.Verified ?? 0} mismatches={groundFailureProofs?.Mismatches ?? 0}{(groundFailureProofs?.MismatchSample != null ? " sample=[" + groundFailureProofs.MismatchSample + "]" : "")}) single(routes={anchorSingleRoutes} assassin={anchorSingleAssassinRoutes} probe(forbiddenHits={ruleProbeForbiddenHits} bandRoutes={ruleProbeBandRoutes}) unreachable={anchorSingleUnreachable} rejects={anchorSingleRejects} ms={AnchorMs(anchorSingleTicks)} queries={anchorCoreStats[AnchorNative.StatSingleQueries]} settles={anchorCoreStats[AnchorNative.StatSingleSettles]} coreMs={anchorCoreStats[AnchorNative.StatSingleNs] / 1e6:F1}) {FormatReplanWatch()} outsideBuilds(calls/ms/maxMs)=[{FormatOutsideBuilds()}] exhaustedReach(kept={ExhaustedReachabilityKept} hits={ExhaustedReachabilityHits}) reach(advances/expanded/ms/maxMs)=[{FormatReachabilityByOwner()}] " +
                 $"tick(refreshMs={AnchorMs(anchorRefreshTicks)} refreshNodes={anchorRefreshNodes} buildMs={AnchorMs(anchorBuildTicks)} " +
                 $"buildNodes={anchorBuildNodes} sweepMs={AnchorMs(anchorSweepTicks)} sweepNodes={anchorSweepNodes} resweeps={anchorResweeps} " +
                 $"accessChanges={anchorAccessChanges} gateRefreshes={anchorGateRefreshes} sharedReuses={anchorShared?.Reuses ?? 0} " +
@@ -1382,7 +1407,8 @@ namespace MoatMove
                 anchorSweepTicks = anchorSweepNodes = anchorResweeps = anchorAccessChanges = anchorGateRefreshes = anchorLazyTasks = anchorUnusedMoves = anchorAuditSkips = anchorBatchCalls = anchorBatchUnits = anchorBatchHits = anchorBatchTicks =
                 anchorResweepDiplomacy = anchorResweepPortals = anchorResweepFootprint = anchorResweepGlobal = anchorRefreshBacklog =
                 anchorVanillaCalls = anchorVanillaFails = anchorVanillaTicks = anchorVanillaFailTicks = anchorVanillaAfterUnreachable =
-                anchorVanillaAfterUnreachableTicks = anchorVanillaFoundAfterUnreachable = anchorSameTickTasks = anchorSameTickTaskTicks = anchorDiggerGroundRoutes = anchorWatchChanges = anchorRebuildsWatched = anchorSingleRoutes = anchorSingleAssassinRoutes = anchorSingleUnreachable = anchorSingleRejects = anchorSingleTicks = anchorGroupSingleRoutes = anchorGroupSingleTicks = 0;
+                anchorVanillaAfterUnreachableTicks = anchorVanillaFoundAfterUnreachable = anchorSameTickTasks = anchorSameTickTaskTicks = anchorDiggerGroundRoutes = anchorWatchChanges = anchorRebuildsWatched = anchorSingleRoutes = anchorSingleAssassinRoutes = anchorSingleUnreachable = anchorSingleRejects = anchorSingleTicks = anchorGroupSingleRoutes = anchorGroupSingleTicks = anchorKnownFailureTicks = 0;
+            groundFailureProofs?.ResetCounters();
             Array.Clear(anchorQueryStatus, 0, anchorQueryStatus.Length); anchorPublishReasons.Clear(); anchorVanillaWhy.Clear(); reachabilityByOwner.Clear(); anchorOutsideBuilds.Clear();
             ResetReplanMetrics();
         }
