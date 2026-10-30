@@ -16,6 +16,8 @@ namespace BugfixesAndQoL.UnitCommands
         bool EnableLadderAttackPathfindingFix { get; }
         /// <summary>Independent formation policy.</summary>
         bool EnableMoveFormationEnhancements { get; }
+        /// <summary>Local switch for result-identical replacements of Vanilla code (not synchronized).</summary>
+        bool VanillaPerformanceOptimizationsActive { get; }
     }
     internal interface IMoatSearchKernel
     {

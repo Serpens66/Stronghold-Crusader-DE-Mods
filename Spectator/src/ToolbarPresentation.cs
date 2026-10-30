@@ -14,11 +14,19 @@ namespace Spectator
         private static bool initialSelectionChosen;
         private static long rosterFingerprint;
         private static EngineInterface.PlayState rosterState;
+        private static readonly PortraitNumberLayout[] portraitNumbers = new PortraitNumberLayout[16];
+
+        private static void RefreshPortraitNumbers()
+        { foreach (var number in portraitNumbers) number?.Refresh(); }
+
+        private static void DetachPortraitNumbers()
+        { for (int i = 0; i < portraitNumbers.Length; i++) { portraitNumbers[i]?.Detach(); portraitNumbers[i] = null; } }
 
         private static void CacheToolbarElements(IngameUIScreens screen)
         {
             toolbarRoot = screen.FindName("TestToolsRoot") as Canvas;
             statusText = screen.FindName("ToolsStatus") as TextBlock;
+            orderStatusText = screen.FindName("OrdersStatus") as TextBlock;
             MenuToolTipSizing.SetReference(humanPanel, humanCanvas);
             var attackIcon = screen.FindName("AttackActionIcon") as Image;
             if (attackIcon != null) attackIcon.Source = MainViewModel.Instance.getAlliesGoodsIcon(-3);
@@ -34,6 +42,11 @@ namespace Spectator
                 targetFaces[player] = screen.FindName("TargetFace" + player) as Image;
                 if (targetButtons[player] == null || targetLabels[player] == null || ownerFaces[player] == null || targetFaces[player] == null)
                     throw new MissingMemberException("Spectator player cards are incomplete.");
+                portraitNumbers[(player - 1) * 2] = new PortraitNumberLayout(
+                    screen.FindName("SpectatorEditorHumanNumber" + player) as TextBlock,
+                    screen.FindName("OwnerNumberOutline" + player) as TextBlock);
+                portraitNumbers[(player - 1) * 2 + 1] = new PortraitNumberLayout(targetLabels[player],
+                    screen.FindName("TargetNumberOutline" + player) as TextBlock);
             }
             if (toolbarRoot == null) throw new MissingMemberException("Spectator toolbar root is missing.");
         }

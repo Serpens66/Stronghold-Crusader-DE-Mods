@@ -95,7 +95,6 @@ namespace Spectator
             CacheToolbarElements(screen);
             toolbarDirty = true;
             SpectatorPerspectiveRuntime.OnHudAvailable();
-            toolsModel.Status = SerpLocalization.Get("Tools.Ready");
             var amount = screen.FindName("TestToolsAmount") as TextBox;
             if (amount == null) throw new MissingMemberException("Test tools amount field missing.");
             amountInput = new CreditAmountInput(amount, toolsModel);
@@ -134,6 +133,7 @@ namespace Spectator
         private static void DetachHumanControls()
         {
             toolbarDirty = true;
+            DetachPortraitNumbers();
             DetachToolbarLayout();
             // The same IngameUIScreens can survive a map transition. Hide before dropping references.
             if (humanPanel != null) { humanPanel.Visibility = Visibility.Collapsed; humanPanel.DataContext = null; }
@@ -150,7 +150,7 @@ namespace Spectator
             amountInput?.Detach();
             amountInput = null;
             MenuToolTipSizing.SetReference(null);
-            playerTooltipTexts.Clear(); statusText = null;
+            playerTooltipTexts.Clear(); statusText = orderStatusText = null;
             if (humanPanel != null) humanPanel.SizeChanged -= OnHumanPanelSizeChanged;
             if (inputRoot != null) inputRoot.PreviewMouseDown -= OnToolbarOutsideClick;
             inputRoot = null;
@@ -205,6 +205,7 @@ namespace Spectator
             humanPanel.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
             if (!show)
             {
+                UpdatePlacementDate(false);
                 humanDragging = false;
                 if (humanDragHandle.IsMouseCaptured) humanDragHandle.ReleaseMouseCapture();
                 amountInput?.EndEditing();
@@ -219,8 +220,13 @@ namespace Spectator
             toolbarHudDisplay = DockHudPolicy.Evaluate(eligible, true, view.Show_HUD_Main,
                 occupied, false, humanPlacementMode, view.buildScreenID);
             toolsModel.SetHudAvailable(toolbarHudDisplay == DockHudDisplay.Tools);
+            UpdatePlacementDate(toolbarHudDisplay == DockHudDisplay.Placement);
             string currentLocale = SerpLocalization.GetActiveLocale();
-            if (currentLocale != toolbarLocale) { toolbarLocale = currentLocale; toolbarDirty = true; }
+            if (currentLocale != toolbarLocale)
+            {
+                toolbarLocale = currentLocale; toolbarDirty = true;
+                foreach (var number in portraitNumbers) number?.Invalidate();
+            }
             if (!toolbarDirty) { PositionToolbar(); return; }
             toolbarDirty = false;
             toolbarLayoutDirty = true;
@@ -325,7 +331,7 @@ namespace Spectator
             { QueueTestAction(new TestAction { Kind = TestActionKind.PowerToggle, Actor = humanSelectedOwner, Force = command == "EnablePowers" }); return; }
             if (command == "Placement") { ToggleHumanMode(null, null); return; }
             if (command == "ResetAmount") { amountInput?.ResetAmount(); return; }
-            if (command == "Credit") { QueueCredit(toolsModel.Good, toolsModel.Amount); return; }
+            if (command == "Credit" || command == "Debit") { QueueCredit(toolsModel.Good, toolsModel.Amount, command == "Debit"); return; }
             if (command == "Attack") { QueueOrder(TestActionKind.Attack, toolsModel.Target, toolsModel.ForceAcceptance); return; }
             if (command == "Defend") { QueueOrder(TestActionKind.Defend, toolsModel.Target, toolsModel.ForceAcceptance); return; }
             if (command == "Cancel") { QueueOrder(TestActionKind.Cancel, 0, false); return; }

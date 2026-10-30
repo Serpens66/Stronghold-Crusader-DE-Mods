@@ -31,6 +31,7 @@ namespace Spectator
         {
             internal long Session, Operation, PowerGeneration;
             internal TestActionKind Kind;
+            internal string StatusPage;
             internal int Actor, Target, Requester, Amount;
             internal eGoods Good;
             internal bool Force;
@@ -106,9 +107,9 @@ namespace Spectator
             return owner + " · " + name;
         }
 
-        private static void QueueCredit(eGoods good, string text)
+        private static void QueueCredit(eGoods good, string text, bool debit)
         {
-            if (!CreditMath.TryParse(text, out int amount)) { toolsModel.SetActionStatus(TestActionKind.Credit, SerpLocalization.Get("Tools.InvalidAmount")); return; }
+            if (!CreditMath.TryAmount(text, debit, out int amount)) { toolsModel.SetActionStatus(TestActionKind.Credit, SerpLocalization.Get("Tools.InvalidAmount")); return; }
             QueueTestAction(new TestAction { Kind = TestActionKind.Credit, Actor = humanSelectedOwner,
                 Good = good, Amount = amount });
         }
@@ -123,6 +124,7 @@ namespace Spectator
 
         private static void QueueTestAction(TestAction action)
         {
+            action.StatusPage = toolsModel?.ActiveViewKey;
             if (!IsToolsSession() || (action.Kind != TestActionKind.PowerToggle && !IsToolsPlayer(action.Actor, action.Kind != TestActionKind.Credit)))
             { ReportTestAction(action, SerpLocalization.Get("Tools.InvalidTarget")); return; }
             action.Session = CurrentSessionId;
@@ -134,7 +136,7 @@ namespace Spectator
 
         private static void ReportTestAction(TestAction action, string message)
         {
-            toolsModel?.SetActionStatus(action.Kind, message);
+            toolsModel?.SetActionStatus(action.Kind, message, action.StatusPage);
         }
 
         private static void DrainTestActions()

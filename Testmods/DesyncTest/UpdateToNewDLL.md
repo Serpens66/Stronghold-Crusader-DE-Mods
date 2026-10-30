@@ -45,3 +45,11 @@ Code und Daten sind für diesen Prototyp bewusst gemeinsam hashgebunden. Es exis
 Für ein Update die vollständige Kette RunTick → Simulation/Scheduler → Summenvergleich → Resync-Start → Kategorien-/Detailvergleich → blockweise Übertragung → Empfang/Erhaltungsregeln → Abschluss/Timeouts erneut prüfen. Normaler, lokaler unmittelbarer und entfernter unmittelbarer Dispatch müssen erhalten bleiben. Neue Strukturwerte nie allein aus einem Displacement übernehmen. Ein erfolgreicher Kompiliervorgang ersetzt diese Nachweise nicht.
 
 Die statisch belegte Vier-Byte-Basisdifferenz präzisiert das ältere Aufgeben-Dossier: dessen strukturrelative Offsets sind kein Wire-Record-Offset. Historische Aufgeben-Traces bleiben unverändert; neue Pakete dokumentieren ihre Basis ausdrücklich. Aktuelle Slotzustände werden bei jeder Aufnahme neu gelesen.
+
+## Präzisierungen aus dem Code-Review vom 30.10.2026
+
+Der Chore-56-Handler `0x15710` setzt im Packzweig die globale Phase von 1 auf 0, bevor er `0x1F5F0` aufruft. Feldereignisse verwenden deshalb den am Dispatch-Einstieg gesicherten Kontext mit threadlokaler, verschachtelungssicherer Wiederherstellung. Die Übertragungsrichtung stammt zusätzlich direkt aus dem fünften Argument des Feldhelpers. Ein globaler Phasenwert mitten im Handler beweist keine Empfangsausführung.
+
+Im Aufnahmeformat 2 bleibt der binäre Header 80 Byte groß. Diagnosephase 10 bezeichnet den regulären Prüfsummenaufruf mit Builderargument 0, Phase 13 den Resync-Aufruf mit Argument 1; das Argument steht zusätzlich in `Checksum.Stage`. Phase 11 bleibt die zusätzliche Deep-Probe, Phase 12 der Forced Run. `WorldUnit.Stage` 0/1 bezeichnet Record/Pfad. Bei `Field` ist `Stage` der Wire-Offset und `Global` die Übertragungsrichtung, 0=packen, 1=entpacken; dieses Feld ist bei diesem Ereignistyp keine Global-ID. Manifest und Frame deklarieren Format 2, damit alte mehrdeutige Aufnahmen nicht unter neuer Bedeutung interpretiert werden.
+
+Reguläre und Resync-Aufnahmen desselben Ticks werden getrennt erfasst. Wiederholte identische Tick-/Phasen-/Objekt-Schlüssel bleiben ohne zusätzlichen gemeinsamen Checkpointvertrag mehrdeutig; die Offline-Auswertung überspringt deren Zustandsvergleich. Reparatur-Endpunkte sind operationslokale Belege und werden nicht allein aufgrund desselben Ticks als gemeinsame Weltaufnahmen verglichen.

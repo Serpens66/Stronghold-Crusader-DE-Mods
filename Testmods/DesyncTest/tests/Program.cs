@@ -34,6 +34,7 @@ internal static unsafe class Program
         for(int i=0;i<5;i++)r.Append(e,IntPtr.Zero,0,false);
         var b=new byte[256];Check(r.Drain(b)==0,"Light history must stay in RAM before trigger");r.Flush();int n=r.Drain(b);
         Check(n==240,"ring wraps whole records");Check(BitConverter.ToInt64(b,8)==3,"oldest retained sequence");
+        Check(BitConverter.ToUInt16(b,4)==2,"binary format distinguishes revised phase/direction semantics");
         Check(BitConverter.ToInt32(b,40)==17&&BitConverter.ToInt32(b,72)==4,"wire header offsets");Check(r.HistoryOverwrites==2&&r.DroppedRecords==0,"expected rolling history distinguished from lost committed data");
         Check(r.Append(e,IntPtr.Zero,1000,true)==0,"oversized record refused without pointer read");
         var random=new Random(12);byte[] input=new byte[131];random.NextBytes(input);
@@ -177,6 +178,7 @@ internal static unsafe class Program
         string folder=Directory.GetDirectories(root).Single();Check(File.Exists(Path.Combine(folder,"events.bin")),"packet written");
         var m=(Dictionary<string,object>)Shared.DependencyFreeJson.Parse(File.ReadAllText(Path.Combine(folder,"manifest.json")));
         Check((bool)m["ended"]&&(bool)m["complete"],"session completion after successful flush");
+        Check(Convert.ToInt32(m["format"])==2,"manifest declares the same format as the binary frames");
         Check(File.ReadAllText(Path.Combine(folder,"summary.txt")).Contains("opcode=54"),"readable summary contains observed resync start, not just static instructions");
         r.Start(2,new{nativeHash="fixture"});r.Record(new CaptureEvent{Kind=RecordKind.Fault},IntPtr.Zero,0);r.End();r.Pump();
         Check(Directory.GetDirectories(root).Length==2,"new session does not overwrite previous packet");

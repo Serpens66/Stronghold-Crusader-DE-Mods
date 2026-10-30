@@ -20,6 +20,8 @@ The timeout branch in `0x1BCF0` calls `0x1A4A50` with the string `SyncEvent - Fo
 
 The table dispatches in pending execution, local pack, local immediate execution, remote measure and remote immediate execution share the no-explicit-argument handler ABI. The local immediate dispatch has an incoming branch to `0x23B98`; a 14-byte patch starting at `0x23B94` would span that target. The predecessor block `0x23B85..0x23B98` ends exactly at that boundary.
 
+Rechecked during the 2026-10-30 review: Chore 56 at `0x15710` changes the manager phase from 1 to 0 in its pack branch before calling the field helper `0x1F5F0`; its fifth helper argument remains 0 for packing and 1 for unpacking. The manager phase observed inside a helper call is therefore not sufficient to classify the originating dispatch. The regular scheduler `0xD1AD0` calls the checksum builder with argument 0, while Chore 54 at `0x15170` calls it with argument 1. Both calls can refer to the same simulation tick; their diagnostic checkpoints must retain their different execution contexts.
+
 ## DesyncTest evidence [mod integration]
 
 `Testmods/DesyncTest/UpdateToNewDLL.md` records all ten observed spans, their ABI, the hash binding and the intentionally unavailable unknown-image data fallback. `tools/Audit-Native.py` reads the installed PE and the hash-selected raw xref export, validates instruction boundaries/incoming edges and independently decodes the three layout anchors above. The semantic query entry remains the source for function/control-flow inspection.

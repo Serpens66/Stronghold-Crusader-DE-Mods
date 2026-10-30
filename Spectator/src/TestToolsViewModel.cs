@@ -13,7 +13,8 @@ namespace Spectator
     {
         private readonly Action<string> execute;
         private readonly Func<bool> canExecute;
-        private string amount = "0", status = "", selectedGood = "", selectedTarget = "";
+        private string amount = "0", selectedGood = "", selectedTarget = "";
+        private readonly ToolbarFeedback feedback = new ToolbarFeedback();
         private readonly ToolbarMenuState menu = new ToolbarMenuState();
         private bool powerFlag, force, hasRecipient;
         private bool expanded => menu.Expanded;
@@ -33,20 +34,18 @@ namespace Spectator
         public ToolsText Text { get; } = new ToolsText();
         public ICommand ActionCommand { get; }
         public string Amount { get => amount; set { if (amount == value || !CreditInput.IsEditable(value)) return; amount = value; Changed(nameof(Amount)); Changed(nameof(CanCredit)); } }
-        private string statusPage;
-        internal void SetActionStatus(TestActionKind kind, string value)
+        internal void SetActionStatus(TestActionKind kind, string value, string page = null)
         {
             SetStatus(value, kind == TestActionKind.Credit ? "Goods" :
-                kind == TestActionKind.Attack || kind == TestActionKind.Defend || kind == TestActionKind.Cancel ? "Orders" : "");
+                kind == TestActionKind.Attack || kind == TestActionKind.Defend || kind == TestActionKind.Cancel ? "Orders" : page ?? menu.View);
         }
         private void SetStatus(string value, string page)
         {
-            if (status == value && statusPage == page) return;
-            status = value; statusPage = page;
-            Changed(nameof(Status)); Changed(nameof(StatusVisibility));
+            if (feedback.ForPage(page) == value) return;
+            feedback.Set(page, value);
+            Changed(nameof(Status)); Changed(nameof(StatusVisibility)); Changed(nameof(GoodsStatusVisibility));
         }
-        internal string StatusForPage(string page) => statusPage == null || statusPage == page ? status : "";
-        public string Status { get => status; internal set => SetStatus(value, null); }
+        public string Status { get => feedback.ForPage(menu.View); internal set => SetStatus(value, menu.View); }
         public string SelectedGood { get => selectedGood; internal set { if (selectedGood == value) return; selectedGood = value; Changed(nameof(SelectedGood)); } }
         private Brush targetColour;
         public Brush SelectedTargetColour { get => targetColour; internal set { if (ReferenceEquals(targetColour, value)) return; targetColour = value; Changed(nameof(SelectedTargetColour)); } }
@@ -80,9 +79,10 @@ namespace Spectator
             powerItems = value; Changed(nameof(Powers));
         }
         public string SelectedGoodKey => "G" + ((int)good).ToString("00", CultureInfo.InvariantCulture);
-        public string ExpandLabel => expanded ? "−" : "+";
+        public string ExpandLabel => SerpLocalization.Get("Tools.Options");
         public bool CanCredit => toolsAvailable && hasRecipient && CreditMath.TryParse(amount, out _) && canExecute();
-        public Visibility StatusVisibility => details && !string.IsNullOrEmpty(StatusForPage(menu.View)) ? Visibility.Visible : Visibility.Collapsed;
+        public Visibility StatusVisibility => details && !string.IsNullOrEmpty(Status) ? Visibility.Visible : Visibility.Collapsed;
+        public Visibility GoodsStatusVisibility => goods ? StatusVisibility : Visibility.Collapsed;
         internal void SetRecipientAvailable(bool available)
         { if (hasRecipient == available) return; hasRecipient = available; Changed(nameof(CanCredit)); }
         private bool toolsAvailable, canAttack, canDefend, canCancel;
@@ -122,7 +122,7 @@ namespace Spectator
                 case "Orders": menu.ToggleView("Orders"); RefreshViews(); execute("StopCursor"); return;
                 case "Placement": execute("Placement"); return;
                 case "TogglePowers": if (ToolsAvailable) execute(powerFlag ? "DisablePowers" : "EnablePowers"); return;
-                case "Credit": if (!CanCredit) return; break;
+                case "Credit": case "Debit": if (!CanCredit) return; break;
                 case "Attack": if (!CanAttack) return; break;
                 case "Defend": if (!CanDefend) return; break;
                 case "Cancel": if (!CanCancel) return; break;
@@ -145,7 +145,7 @@ namespace Spectator
             string current = SerpLocalization.GetActiveLocale();
             if (current == locale) return;
             locale = current;
-            Changed(nameof(Text)); Changed(nameof(PowersToggleLabel)); Changed(nameof(PowersShortLabel));
+            Changed(nameof(Text)); Changed(nameof(PowersToggleLabel)); Changed(nameof(PowersShortLabel)); Changed(nameof(ExpandLabel));
             SelectGood(good);
         }
 
@@ -153,7 +153,7 @@ namespace Spectator
         {
             Changed(nameof(ExpandedVisibility)); Changed(nameof(GoodsVisibility));
             Changed(nameof(OrdersVisibility)); Changed(nameof(PlacementActive));
-            Changed(nameof(ExpandLabel)); Changed(nameof(ActiveViewKey)); Changed(nameof(StatusVisibility));
+            Changed(nameof(ExpandLabel)); Changed(nameof(ActiveViewKey)); Changed(nameof(Status)); Changed(nameof(StatusVisibility)); Changed(nameof(GoodsStatusVisibility));
             Changed(nameof(NavigationVisibility)); Changed(nameof(PlacementVisibility)); Changed(nameof(ExpandButtonVisibility));
         }
 

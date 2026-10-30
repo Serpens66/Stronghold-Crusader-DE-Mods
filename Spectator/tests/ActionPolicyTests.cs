@@ -75,11 +75,16 @@ namespace Spectator
             Expect(CreditInput.Normalize("") == "0", "empty on blur becomes zero");
             Expect(CreditInput.Normalize("00041") == "41", "leading zeros normalized on blur");
             Expect(CreditInput.Normalize("2147483647") == "2147483647", "maximum remains intact");
-            Expect(CreditMath.TryParse("-2147483648", out amount) && amount == int.MinValue, "minimum signed amount");
-            Expect(CreditInput.IsEditable("-") && !CreditMath.TryParse("-", out amount), "minus is edit-only");
-            Expect(CreditInput.Normalize("-") == "0" && CreditInput.Normalize("-0005") == "-5", "signed normalization");
-            Expect(CreditInput.TryReplace("10", 0, 0, "-", out candidate) && candidate == "-10", "prefix minus");
-            Expect(!CreditInput.TryReplace("10", 1, 0, "-", out candidate), "interior minus rejected");
+            foreach (string invalid in new[] { "-", "-1", "-2147483648", "+1" })
+            {
+                Expect(!CreditInput.IsEditable(invalid) && !CreditMath.TryParse(invalid, out amount), "UI accepts magnitudes only " + invalid);
+                Expect(!CreditMath.TryAmount(invalid, true, out amount), "debit validates magnitude too " + invalid);
+            }
+            Expect(CreditMath.TryAmount("2147483647", false, out amount) && amount == int.MaxValue, "credit direction at maximum");
+            Expect(CreditMath.TryAmount("2147483647", true, out amount) && amount == -int.MaxValue, "debit direction cannot overflow");
+            Expect(CreditMath.TryAmount("1", true, out amount) && amount == -1, "smallest debit");
+            Expect(!CreditMath.TryAmount("0", false, out amount) && !CreditMath.TryAmount("0", true, out amount), "neither action queues zero");
+            Expect(CreditInput.Normalize("-0005") == "0", "signed input cannot survive normalization");
             int stored = 7, incoming = 5, removalCalls = 0, reserveCalls = 0;
             System.Func<GoodsBalance> read = () => new GoodsBalance(stored, incoming);
             System.Action<int> remove = value => { removalCalls++; stored -= value; };

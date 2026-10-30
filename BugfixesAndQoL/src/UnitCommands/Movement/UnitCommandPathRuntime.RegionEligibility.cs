@@ -272,12 +272,14 @@ namespace BugfixesAndQoL.UnitCommands
         }
 
         // One-pass member check of 11B520's admission flood (TribeFloodMembership) when both native
-        // bodies match the audited ones; DEVDIAG builds also run Vanilla's and count differences.
+        // bodies match the audited ones and the local Vanilla performance setting is on (with it off,
+        // Vanilla's own body runs); DEVDIAG builds also run Vanilla's and count differences.
         internal bool exactFloodMembership;
         internal short* floodStamps;
         internal int TribeFloodFillMembership(IntPtr tribeManager, int tribeId, int floodFillStamp)
         {
-            if (!exactFloodMembership) return originalTribeFloodFillMembership(tribeManager, tribeId, floodFillStamp);
+            if (!exactFloodMembership || !settings.VanillaPerformanceOptimizationsActive)
+                return originalTribeFloodFillMembership(tribeManager, tribeId, floodFillStamp);
             int result = TribeFloodMembership.Check((byte*)tribeManager.ToPointer() + (long)tribeId * TribeFloodMembership.TribeStride,
                 nativeUnitManager, floodStamps, floodFillStamp);
 #if SERP_DEVDIAG

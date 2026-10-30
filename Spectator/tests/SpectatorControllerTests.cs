@@ -3,6 +3,14 @@ namespace Spectator {
   static void Check(bool value, string reason = "") { if(!value) throw new System.Exception("Controller invariant failed: " + reason); }
   public static void Main() {
    MenuToolTipTests.Run();
+   var feedback = new ToolbarFeedback();
+   Check(feedback.ForPage("Goods") == "" && feedback.ForPage("Orders") == "", "no initial placeholder or tooltip content");
+   feedback.Set("Goods", "Credited 100"); feedback.Set("Orders", "Forced attack");
+   Check(feedback.ForPage("Goods") == "Credited 100" && feedback.ForPage("Orders") == "Forced attack", "orders preserve goods feedback");
+   feedback.Set("Goods", "Debit failed");
+   Check(feedback.ForPage("Orders") == "Forced attack" && feedback.ForPage("Goods") == "Debit failed", "failure stays on its originating page");
+   feedback.Set("Orders", null);
+   Check(feedback.ForPage("Orders") == "" && feedback.ForPage("Goods") == "Debit failed", "clearing one page leaves the other intact");
    // Real presentation policy: the centre belongs to the new view only on Vanilla's blank page.
    Check(DockHudPolicy.Evaluate(true,true,true,false,false,false,22)==DockHudDisplay.Tools,"idle blank page");
    for(int screen=0;screen<23;screen++) if(screen!=22)

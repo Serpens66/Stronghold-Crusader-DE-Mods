@@ -5,7 +5,7 @@ $ns = [Xml.XmlNamespaceManager]::new($xml.NameTable)
 $ns.AddNamespace('x', 'http://schemas.microsoft.com/winfx/2006/xaml')
 function Named($name) { $xml.SelectSingleNode('//*[@x:Name="' + $name + '"]', $ns) }
 $owners = Named 'SpectatorEditorHumanOwners'
-if ($owners.LocalName -ne 'Canvas' -or $owners.Width -ne '76') { throw 'The ordered roster must pack into a two-column canvas.' }
+if ($owners.LocalName -ne 'Canvas' -or $owners.Width -ne '80') { throw 'The ordered roster must pack beside its narrow side grip.' }
 foreach ($slot in 1..8) {
     foreach ($prefix in @('SpectatorEditorHumanOwner','TestTarget')) {
         $card = Named ($prefix + $slot)
@@ -13,17 +13,19 @@ foreach ($slot in 1..8) {
         if (-not $card -or $card.Width -ne $size -or $card.Height -ne $size) { throw 'Main portraits are 36 units; order targets retain 28 units.' }
         $numberName = if ($prefix -eq 'TestTarget') { 'TestTargetText' } else { 'SpectatorEditorHumanNumber' }
         $number = Named ($numberName + $slot)
-        if ($number.Text -ne [string]$slot -or $number.HorizontalAlignment -ne 'Left' -or $number.VerticalAlignment -ne 'Bottom' -or $number.HasAttribute('Background')) { throw 'Coloured numbers belong inside the lower-left corner without a background.' }
+        if ($number.Text -ne [string]$slot -or $number.ParentNode.LocalName -ne 'Canvas' -or $number.GetAttribute('Canvas.Left') -ne '0' -or $number.GetAttribute('Canvas.Top') -ne '0' -or $number.HasAttribute('Background')) { throw 'Measured glyph layers require their own absolute portrait overlay without a background.' }
         $outline = $number.PreviousSibling
-        if ($outline.LocalName -ne 'TextBlock' -or $outline.Text -ne $number.Text -or $outline.StrokeThickness -ne '2.25' -or $outline.Style -ne $number.Style -or $outline.Margin -ne $number.Margin -or $outline.HasAttribute('Background')) { throw 'The light outer stroke must follow the same glyph and metrics.' }
+        $stroke = if ($prefix -eq 'TestTarget') { '2.5' } else { '3' }
+        if ($outline.LocalName -ne 'TextBlock' -or $outline.Text -ne $number.Text -or $outline.StrokeThickness -ne $stroke -or $outline.Style -ne $number.Style -or $outline.HasAttribute('Background')) { throw 'The stronger light outer stroke must follow the same glyph and metrics.' }
         if ($prefix -eq 'SpectatorEditorHumanOwner' -and $card.ParentNode -ne $owners) { throw 'The existing buttons retain the common packed roster host.' }
     }
 }
 $amount = Named 'TestToolsAmount'
 if ($amount.Text -ne '0' -or $amount.HasAttribute('MaxLength') -or @($xml.SelectNodes('//TextBox')).Count -ne 1) { throw 'A single untruncated amount input starts at zero.' }
 $credit = $xml.SelectSingleNode('//Button[@CommandParameter="Credit"]')
+$debit = $xml.SelectSingleNode('//Button[@CommandParameter="Debit"]')
 $reset = $xml.SelectSingleNode('//Button[@CommandParameter="ResetAmount"]')
-if ($credit.IsEnabled -ne '{Binding CanCredit}' -or $credit.ParentNode -ne $amount.ParentNode -or $reset.ParentNode -ne $amount.ParentNode -or $reset.Content -ne '0') { throw 'Amount, validated send and reset share the form.' }
+if ($credit.IsEnabled -ne '{Binding CanCredit}' -or $debit.IsEnabled -ne '{Binding CanCredit}' -or $credit.ParentNode -ne $debit.ParentNode -or $credit.ParentNode.ParentNode -ne $amount.ParentNode -or $credit.ParentNode.GetAttribute('Grid.Row') -ne '1' -or $amount.GetAttribute('Grid.Row') -eq '1' -or $reset.ParentNode -ne $amount.ParentNode -or $reset.Content -ne '0') { throw 'Amount sits above equal validated credit/debit actions in the shared form.' }
 $goods = @($xml.SelectNodes('//Button[starts-with(@CommandParameter,"G") and @CommandParameter != "Goods"]'))
 if ($goods.Count -ne 21) { throw 'Every supported good remains available.' }
 foreach ($name in @('SpectatorEditorHumanDrag','SpectatorRosterPanel','SpectatorToolPanel','SpectatorHeader','SpectatorLeftWing','SpectatorRightWing','SpectatorOrdersGrid','SpectatorSnapFrame','SpectatorToolSnapFrame','SpectatorPaperSurface')) {
@@ -40,12 +42,23 @@ foreach ($name in @('SpectatorLeftWing','SpectatorRightWing')) {
 $tools = Named 'SpectatorToolPanel'
 if ($tools.Visibility -ne '{Binding ExpandedVisibility}') { throw 'Placement, collapse and occupied HUDs must remove the complete tool surface, including category overdraw.' }
 $roster = Named 'SpectatorRosterPanel'
-foreach ($name in @('SpectatorStopPlacement','SpectatorExpand','SpectatorEditorHumanDrag')) {
-    if (-not $roster.SelectSingleNode('.//*[@x:Name="' + $name + '"]', $ns)) { throw 'Drag, expand and stop controls stay with the left-hand roster.' }
+if (-not $roster.SelectSingleNode('.//*[@x:Name="SpectatorEditorHumanDrag"]', $ns)) { throw 'The side grip stays within the portrait surface.' }
+$slot = Named 'SpectatorControlSlot'
+foreach ($name in @('SpectatorStopPlacement','SpectatorExpand')) {
+    if ($roster.SelectSingleNode('.//*[@x:Name="' + $name + '"]', $ns) -or -not $slot.SelectSingleNode('.//*[@x:Name="' + $name + '"]', $ns)) { throw 'Options and stop share an independent control slot, never an extra roster row.' }
 }
 $style = $xml.SelectSingleNode('//Style[@x:Key="QuickNumber"]', $ns)
-if ($style.SelectSingleNode('Setter[@Property="StrokeThickness"]').Value -ne '1.25' -or $style.SelectSingleNode('Setter[@Property="Stroke"]').Value -ne '#FF0B0806') { throw 'The inner glyph stroke must remain dark and crisp.' }
+if ($style.SelectSingleNode('Setter[@Property="StrokeThickness"]').Value -ne '1.75' -or $style.SelectSingleNode('Setter[@Property="Stroke"]').Value -ne '#FF0B0806') { throw 'The inner glyph stroke must remain dark and crisp.' }
 $style = $xml.SelectSingleNode('//Style[@x:Key="OwnerNumber"]', $ns)
 if ($style.SelectSingleNode('Setter[@Property="FontSize"]').Value -ne '18' -or $style.SelectSingleNode('Setter[@Property="LineHeight"]').Value -ne '20') { throw 'Main numbers require explicit enlarged glyph metrics.' }
+foreach ($button in (Named 'SpectatorActions').SelectNodes('.//Button')) {
+    if ($button.HasAttribute('Height') -or $button.Padding -ne '2,1') { throw 'Navigation height must follow its text and small padding.' }
+}
+if ((Named 'CurrentOrderText').FontSize -ne '14') { throw 'The current order needs the larger dedicated text row.' }
+foreach ($command in @('Attack','Defend','Cancel')) {
+    if (-not $xml.SelectSingleNode('//Button[@CommandParameter="'+$command+'"]//Image')) { throw 'Every order action needs its corresponding native icon.' }
+}
+if ((Named 'ToolsStatus').HasAttribute('Text') -or (Named 'ToolsStatus').SelectSingleNode('TextBlock.ToolTip')) { throw 'Status text and tooltip must have one consistent rich-text writer.' }
+if ((Named 'OrdersStatus').GetAttribute('Grid.Row') -ne '2' -or (Named 'OrdersStatus').HasAttribute('Text') -or (Named 'ToolsStatus').Visibility -ne '{Binding GoodsStatusVisibility}') { throw 'Order feedback uses the wide body row, independently of the narrow native footer gaps.' }
 # Structural XAML guardrails only; glyph appearance and actual draw/hit order need ingame acceptance.
 Write-Host 'PASS: two-column roster, 36/28 portraits, dual glyph contours, reachable controls, complete form and opaque lower surfaces.'

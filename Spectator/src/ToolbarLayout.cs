@@ -18,14 +18,14 @@ namespace Spectator
 
     internal readonly struct ToolbarPose
     {
-        internal readonly ToolbarRect Roster, Tools, Bounds;
-        internal ToolbarPose(ToolbarRect roster, ToolbarRect tools)
+        internal readonly ToolbarRect Roster, Tools, Control, Bounds;
+        internal ToolbarPose(ToolbarRect roster, ToolbarRect tools, ToolbarRect control)
         {
-            Roster = roster; Tools = tools;
-            float x = tools.Empty ? roster.X : Math.Min(roster.X, tools.X);
-            float y = tools.Empty ? roster.Y : Math.Min(roster.Y, tools.Y);
-            Bounds = new ToolbarRect(x, y, Math.Max(roster.Right, tools.Empty ? roster.Right : tools.Right) - x,
-                Math.Max(roster.Bottom, tools.Empty ? roster.Bottom : tools.Bottom) - y);
+            Roster = roster; Tools = tools; Control = control;
+            float x = Math.Min(roster.X, control.X), y = Math.Min(roster.Y, control.Y);
+            float right = Math.Max(roster.Right, control.Right), bottom = Math.Max(roster.Bottom, control.Bottom);
+            if (!tools.Empty) { x = Math.Min(x, tools.X); y = Math.Min(y, tools.Y); right = Math.Max(right, tools.Right); bottom = Math.Max(bottom, tools.Bottom); }
+            Bounds = new ToolbarRect(x, y, right - x, bottom - y);
         }
     }
 
@@ -33,7 +33,8 @@ namespace Spectator
     {
         internal const float Gap = 4;
         internal const float Portrait = 36, TargetPortrait = 28, Cell = 38, RosterWidth = 80;
-        internal const float Header = 32, Body = 56, Footer = 26;
+        internal const float Header = 22, Body = 66, Footer = 26;
+        internal const float ControlWidth = 64, ControlHeight = 22;
         // Vanilla's detailed info host ends 125 units above the viewport bottom
         // (compact: 130). Keep a two-unit gap below both, in every toolbar mode.
         internal static ToolbarRect Dock(ToolbarRect alignment)
@@ -101,20 +102,28 @@ namespace Spectator
         internal static ToolbarRect OwnerCell(int ordinal)
         {
             if (ordinal < 0 || ordinal >= 8) throw new ArgumentOutOfRangeException(nameof(ordinal));
-            return new ToolbarRect(1 + ordinal % 2 * Cell, 1 + ordinal / 2 * Cell, Portrait, Portrait);
+            return new ToolbarRect(4 + ordinal % 2 * Cell, ordinal / 2 * Cell, Portrait, Portrait);
         }
 
-        internal static float RosterHeight(int count) => 50 + ((Math.Max(0, Math.Min(8, count)) + 1) / 2) * Cell;
+        internal static float RosterHeight(int count) => Math.Max(1, (Math.Max(0, Math.Min(8, count)) + 1) / 2) * Cell - 2;
 
-        internal static ToolbarPose Arrange(ToolbarRect alignment, ToolbarRect frame, int count, bool details)
+        internal static ToolbarPose Arrange(ToolbarRect alignment, ToolbarRect frame, int count, bool details,
+            bool floating = false, ToolbarRect dockControl = default)
         {
             float scale = alignment.Width / 914;
-            // The control row ends two units above the padded outer edge: 6 + 2 = 8.
-            var roster = new ToolbarRect(frame.X - (8 + RosterWidth) * scale,
-                frame.Bottom - (6 + RosterHeight(count)) * scale, RosterWidth * scale, RosterHeight(count) * scale);
+            var roster = new ToolbarRect(frame.X - (2 + RosterWidth) * scale,
+                alignment.Bottom - RosterHeight(count) * scale, RosterWidth * scale, RosterHeight(count) * scale);
             var tools = details ? Dock(alignment) : default;
-            return new ToolbarPose(roster, tools);
+            var control = floating ? new ToolbarRect(roster.Right + 2 * scale,
+                roster.Bottom - ControlHeight * scale, ControlWidth * scale, ControlHeight * scale) :
+                dockControl.Empty ? new ToolbarRect(alignment.X + (553 - 2 - ControlWidth) * scale,
+                    alignment.Bottom - (ControlHeight + 2) * scale, ControlWidth * scale, ControlHeight * scale) : dockControl;
+            return new ToolbarPose(roster, tools, control);
         }
+
+        // Normalize the measured text, not its line box. Both contour layers use this offset.
+        internal static void NumberOffset(float height, float inkX, float inkBottom, out float x, out float y)
+        { x = 2 - inkX; y = height - 2 - inkBottom; }
 
         // Find the two largest usable footer intervals. The gaps have no visual or hit surface.
         internal static void Wings(ToolbarRect band, IList<ToolbarRect> controls,

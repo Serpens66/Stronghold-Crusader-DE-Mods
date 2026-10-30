@@ -78,6 +78,9 @@ try {
     foreach ($name in @('Stroke','StrokeThickness','LineHeight','LineStackingStrategy')) {
         if (-not @($noesis.MainModule.GetType('Noesis.TextBlock').Properties | Where-Object { $_.Name -eq $name -and $_.GetMethod.IsPublic -and $_.SetMethod.IsPublic }).Count) { throw "Missing public glyph property: $name" }
     }
+    foreach ($entry in @(@('Noesis.TextBlock','get_FormattedText'),@('Noesis.FormattedText','get_Bounds'),@('Noesis.Rect','get_X'),@('Noesis.Rect','get_Bottom'),@('Noesis.UIElement','get_IsHitTestVisibleProperty'))) {
+        if (-not @($noesis.MainModule.GetType($entry[0]).Methods | Where-Object { $_.Name -eq $entry[1] -and $_.IsPublic }).Count) { throw "Missing public number/date member: $($entry -join '.')" }
+    }
     foreach ($name in @('GetZIndex','SetZIndex')) {
         if (-not @($noesis.MainModule.GetType('Noesis.Panel').Methods | Where-Object { $_.Name -eq $name -and $_.IsPublic -and $_.IsStatic }).Count) { throw "Missing public stacking member: $name" }
     }

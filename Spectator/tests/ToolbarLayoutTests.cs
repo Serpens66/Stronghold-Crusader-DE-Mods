@@ -13,8 +13,8 @@ internal static class ToolbarLayoutTests
             var frame = new ToolbarRect(400+114*scale,600+22*scale,800*scale,144*scale);
             var compact = ToolbarLayout.Arrange(alignment,frame,count,false);
             var expanded = ToolbarLayout.Arrange(alignment,frame,count,true);
-            check(Math.Abs(frame.X-compact.Roster.Right-8*scale)<.001f,"Lord raster sits eight native UI units left of the outer frame.");
-            check(Math.Abs(frame.Bottom-(compact.Roster.Bottom-2*scale)-8*scale)<.001f,"Raster control row ends eight native UI units above the bottom.");
+            check(Math.Abs(frame.X-compact.Roster.Right-2*scale)<.001f,"Lord raster sits two native UI units left of the outer frame.");
+            check(Math.Abs(alignment.Bottom-compact.Roster.Bottom)<.001f,"Portrait rows finish at the screen bottom, without control or grip rows.");
             check(!compact.Roster.Intersects(frame),"Placing never reserves space inside the Vanilla construction HUD.");
             check(compact.Tools.Empty && compact.Roster.X == expanded.Roster.X && compact.Roster.Y == expanded.Roster.Y,
                 "Expanded/collapsed/placement modes keep the same left-hand raster.");
@@ -23,11 +23,18 @@ internal static class ToolbarLayoutTests
             check(expanded.Bounds.X <= expanded.Roster.X && expanded.Bounds.Y <= expanded.Tools.Y &&
                 expanded.Bounds.Right >= expanded.Tools.Right && expanded.Bounds.Bottom >= expanded.Roster.Bottom,
                 "Common drag/clamp bounds enclose every visible part without clipping the stop button.");
+            var floating = ToolbarLayout.Arrange(alignment,frame,count,true,true);
+            check(floating.Roster.X==expanded.Roster.X && floating.Roster.Y==expanded.Roster.Y &&
+                floating.Control.Bottom==floating.Roster.Bottom && floating.Control.X>floating.Roster.Right,
+                "Relocating the control never changes the portrait anchor or adds height.");
+            check(compact.Control.Right < alignment.X+553*scale && compact.Control.Bottom < alignment.Bottom &&
+                compact.Control.Width==64*scale && !compact.Control.Intersects(compact.Roster),
+                "Dock control fits immediately left of the trumpet without enlarging the roster.");
             var cells = new List<ToolbarRect>();
             for (int i=0;i<count;i++)
             {
                 var cell = ToolbarLayout.OwnerCell(i);
-                check(cell.Width==36 && cell.Height==36 && cell.Right<=76 && cell.Bottom<=((count+1)/2)*38,
+                check(cell.Width==36 && cell.Height==36 && cell.Right<=80 && cell.Bottom<=ToolbarLayout.RosterHeight(count),
                     "All portraits fit in two columns and at most four rows at the selected size.");
                 foreach (var previous in cells) check(!previous.Intersects(cell),"Packed portrait cells never overlap.");
                 cells.Add(cell);
@@ -37,7 +44,7 @@ internal static class ToolbarLayoutTests
             foreach(int id in new[]{1,3,7})
             {
                 var cell=ToolbarLayout.OwnerCell(ordinal++);
-                check((id!=7 || cell.Y==39) && (id!=3 || cell.X==39),"Sparse rosters pack by occupied ordinal, retaining numeric order.");
+                check((id!=7 || cell.Y==38) && (id!=3 || cell.X==42),"Sparse rosters pack by occupied ordinal, retaining numeric order.");
             }
             foreach (float viewport in new[] { 960f, 1920f, 2560f, 3840f })
             {

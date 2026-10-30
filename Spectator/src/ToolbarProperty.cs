@@ -4,6 +4,19 @@ namespace Spectator
 {
     internal static partial class SpectatorRuntime
     {
+        private sealed class ToolbarHitTestLease
+        {
+            private ToolbarProperty saved;
+            internal void Update(DependencyObject target, DependencyProperty property, bool active)
+            {
+                if (saved != null && (!active || !ReferenceEquals(saved.Target, target)))
+                { saved.Restore(); saved = null; }
+                if (!active || target == null || saved != null) return;
+                saved = new ToolbarProperty(target, property);
+                target.SetValue(property, false);
+            }
+        }
+
         // Preserve bindings themselves: restoring a sampled bool would permanently detach Vanilla updates.
         private sealed class ToolbarProperty
         {

@@ -144,5 +144,11 @@ class AnalyzerTests(unittest.TestCase):
         with fixture() as tmp:
             p=self.packet(Path(tmp),'a');f=p/'snapshots.bin';data=bytearray(f.read_bytes());struct.pack_into('<i',data,80+0x98,999);f.write_bytes(data)
             self.assertTrue(any('identity differs' in v for v in analyzer.load(p)['errors']))
+    def test_old_semantics_are_not_silently_read_as_format_two(self):
+        with fixture() as tmp:
+            p=self.packet(Path(tmp),'a');f=p/'events.bin';data=bytearray(f.read_bytes());struct.pack_into('<H',data,4,1);f.write_bytes(data)
+            self.assertTrue(any('invalid frame' in v for v in analyzer.load(p)['errors']))
+            manifest=json.loads((p/'manifest.json').read_text());manifest['format']=1;(p/'manifest.json').write_text(json.dumps(manifest))
+            with self.assertRaisesRegex(ValueError,'manifest format'):analyzer.load(p)
 
 if __name__=='__main__':unittest.main(testRunner=unittest.TextTestRunner(stream=sys.stdout))

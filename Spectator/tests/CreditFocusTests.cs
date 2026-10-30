@@ -102,12 +102,11 @@ namespace Spectator
             second.Text = ""; input.EndEditing(); Check(model.Amount == "", "other surface cannot normalize an active empty edit");
             secondInput.ResetAmount(); Check(control.Text == "0" && second.Text == "0", "shared reset updates both fields");
             keyboard.Focus(control); control.Select(0, control.Text.Length); control.Type("-");
-            Check(model.Amount == "-" && second.Text == "-", "minus editing shared without premature normalization");
-            control.Select(1, 0); control.Type("2147483648"); Check(model.Amount == "-2147483648", "minimum signed amount typed");
-            control.Text = "-2147483649"; Check(control.Text == "-2147483648", "negative overflow paste fully rolled back");
-            second.Text = "--1"; Check(second.Text == "-2147483648", "peer rollback buffer retains signed value");
-            control.Text = "-"; keyboard.ClearFocus(); Check(model.Amount == "0" && second.Text == "0", "lone minus normalized on blur");
-            foreach (string value in new[] { "", "-", "-2147483648", "4120", "2147483647" })
+            Check(model.Amount == "0" && control.Text == "0", "minus typing rejected in magnitude input");
+            control.Text = "-2147483648"; Check(control.Text == "0", "signed paste rejected as a whole");
+            control.Text = "123"; second.Text = "-5";
+            Check(second.Text == "123" && model.Amount == "123", "peer rollback retains positive magnitude");
+            foreach (string value in new[] { "", "0", "4120", "2147483647" })
             {
                 control.Text = value;
                 string capturedCredit = model.Amount;

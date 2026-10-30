@@ -9,7 +9,14 @@ namespace Spectator
     internal static class CreditMath
     {
         internal static bool TryParse(string text, out int amount)
-        { amount = 0; return CreditInput.IsEditable(text) && int.TryParse(text, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out amount) && amount != 0; }
+        { amount = 0; return CreditInput.IsEditable(text) && int.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out amount) && amount > 0; }
+
+        internal static bool TryAmount(string text, bool debit, out int amount)
+        {
+            if (!TryParse(text, out amount)) return false;
+            if (debit) amount = -amount;
+            return true;
+        }
 
         internal static bool Fits(long current, int amount)
         { return current >= 0 && amount > 0 && current <= int.MaxValue - (long)amount; }
@@ -21,11 +28,11 @@ namespace Spectator
         internal static bool IsEditable(string text)
         {
             if (text == null) return false;
-            if (text.Length == 0 || text == "-") return true;
-            for (int index = text[0] == '-' ? 1 : 0; index < text.Length; index++)
+            if (text.Length == 0) return true;
+            for (int index = 0; index < text.Length; index++)
                 if (text[index] < '0' || text[index] > '9') return false;
             int value;
-            return int.TryParse(text, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out value);
+            return int.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out value);
         }
 
         internal static bool TryReplace(string text, int start, int length, string insertion, out string candidate)
@@ -42,7 +49,7 @@ namespace Spectator
         internal static string Normalize(string text)
         {
             int value;
-            return IsEditable(text) && int.TryParse(text, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out value)
+            return IsEditable(text) && int.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out value)
                 ? value.ToString(CultureInfo.InvariantCulture) : "0";
         }
     }

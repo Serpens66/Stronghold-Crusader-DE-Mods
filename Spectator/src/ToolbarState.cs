@@ -2,6 +2,18 @@ using System;
 
 namespace Spectator
 {
+    // Each page owns its last result; an order must not erase a goods transaction.
+    internal sealed class ToolbarFeedback
+    {
+        private string goods = "", orders = "";
+        internal string ForPage(string page) => page == "Goods" ? goods : page == "Orders" ? orders : "";
+        internal void Set(string page, string value)
+        {
+            if (page == "Goods") goods = value ?? "";
+            else if (page == "Orders") orders = value ?? "";
+        }
+    }
+
     // One navigation state for the floating and HUD-anchored presentation.
     internal sealed class ToolbarMenuState
     {

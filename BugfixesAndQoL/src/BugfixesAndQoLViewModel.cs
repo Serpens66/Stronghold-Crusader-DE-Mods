@@ -968,13 +968,18 @@ namespace BugfixesAndQoL
             set => SetSetting(ref enableGatehouseTargetMarkerHeightFix, value, nameof(EnableGatehouseTargetMarkerHeightFix));
         }
 
-        // Local presentation optimizations (V1/V5); no simulation effect, therefore not synchronized.
+        // Local presentation optimizations (V1/V5) and result-identical replacements of Vanilla simulation
+        // code (one-pass group admission member check); neither changes a result, therefore not synchronized.
         [APIShared.ModSettings.PresetLocal]
         public bool EnableVanillaPerformanceOptimizations
         {
             get => enableVanillaPerformanceOptimizations;
             set => SetSetting(ref enableVanillaPerformanceOptimizations, value, nameof(EnableVanillaPerformanceOptimizations));
         }
+
+        // Effective switch of all of them. Not public, so it is no setting of its own.
+        internal bool VanillaPerformanceOptimizationsActive => EnableClientFeatures && EnableVanillaPerformanceOptimizations;
+        bool IUnitCommandSettings.VanillaPerformanceOptimizationsActive => VanillaPerformanceOptimizationsActive;
 
         // V13 minimap throttle (drawn at most every 100 ms). Presentation only, so a mismatch cannot
         // desync; it is a host value because a lockstep match runs at the speed of its slowest peer.

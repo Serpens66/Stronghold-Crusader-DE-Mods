@@ -41,7 +41,7 @@ namespace BugfixesAndQoL.VanillaPerformance
 
         private static void RefreshEnabled()
         {
-            bool enabled = settings.EnableClientFeatures && settings.EnableVanillaPerformanceOptimizations;
+            bool enabled = settings.VanillaPerformanceOptimizationsActive;
             RadarRebindOptimization.SetEnabled(enabled);
             EnginePresentationBridge.SetEnabled(enabled);
             MeritDataLockOptimization.SetEnabled(enabled);

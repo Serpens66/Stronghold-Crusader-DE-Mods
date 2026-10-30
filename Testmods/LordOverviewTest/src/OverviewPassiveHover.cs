@@ -51,7 +51,7 @@ namespace LordOverviewTest {
     var mouse=UnityEngine.Input.mousePosition;var screen=new Point(mouse.x,screenHeight-mouse.y);
     bool pressed=UnityEngine.Input.GetMouseButtonDown(0) || UnityEngine.Input.GetMouseButtonDown(1) || UnityEngine.Input.GetMouseButtonDown(2);
     if(Editing && !settingsPosition.Dragging && !LayoutDropDownOpen && pressed && !ScreenContains(settingsWindow,screen) && !ScreenContains(crownButton,screen) && !OverHeader(screen))CloseSettingsMenu();
-    if(pressed || UnityEngine.Input.GetMouseButton(0) || UnityEngine.Input.GetMouseButton(1) || UnityEngine.Input.GetMouseButton(2) || headerGesture.Active || settingsPosition.Dragging || !ScreenContains(parent,screen)) {ClosePassiveHover();return;}
+    if(pressed || UnityEngine.Input.mouseScrollDelta.sqrMagnitude>0 || UnityEngine.Input.GetMouseButton(0) || UnityEngine.Input.GetMouseButton(1) || UnityEngine.Input.GetMouseButton(2) || headerGesture.Active || settingsPosition.Dragging || !ScreenContains(parent,screen)) {ClosePassiveHover();return;}
     if(Editing && (LayoutDropDownOpen || ScreenContains(settingsWindow,screen))){ClosePassiveHover();return;}
     if(hoverGeometryDirty){
      foreach(var target in hoverTargets.Values){

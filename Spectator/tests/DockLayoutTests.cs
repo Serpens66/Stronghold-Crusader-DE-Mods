@@ -55,7 +55,7 @@ internal static class DockLayoutTests
         var names = own.Select(e => (string)e.Attribute(x+"Name")).Where(n => n != null).ToArray();
         Check(names.Distinct().Count() == names.Length, "Unique names in the single overlay.");
         var commands = own.Select(e => (string)e.Attribute("CommandParameter")).Where(c => c != null).ToArray();
-        foreach (string command in new[] { "Placement","Goods","Orders","TogglePowers","Collapse","Credit","ResetAmount","Attack","Defend","Cancel" })
+        foreach (string command in new[] { "Placement","Goods","Orders","TogglePowers","Collapse","Credit","Debit","ResetAmount","Attack","Defend","Cancel" })
             Check(commands.Contains(command), "Missing action "+command);
         var goods = commands.Where(c => c.Length == 3 && c[0] == 'G' && char.IsDigit(c[1])).ToArray();
         Check(goods.Length == 21 && goods.Distinct().Count() == 21,"Every good exactly once.");

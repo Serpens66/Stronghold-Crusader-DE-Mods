@@ -14,7 +14,7 @@ namespace Spectator
         private static PresentedAiOrder shownCurrentOrder;
         private static int shownOrderActor = -1;
         private static string shownOrderLocale;
-        private static TextBlock statusText;
+        private static TextBlock statusText, orderStatusText;
         private static void OnToolsModelChanged(object sender, System.ComponentModel.PropertyChangedEventArgs args)
         {
             toolbarDirty = true;
@@ -58,11 +58,34 @@ namespace Spectator
 
         private static void ClosePlayerTooltips() => MenuToolTipSizing.CloseAll();
 
-        private static void RefreshColouredStatus(TextBlock target = null)
+        private static void RefreshColouredStatus()
         {
-            var text = target ?? statusText;
+            RenderStatus(statusText);
+            RenderStatus(orderStatusText);
+        }
+
+        private static void RenderStatus(TextBlock text)
+        {
             if (text == null || toolsModel == null) return;
-            string value = toolsModel.StatusForPage(toolsModel.ActiveViewKey) ?? "";
+            string value = toolsModel.Status;
+            FillStatusInlines(text, value);
+            var previous = ToolTipService.GetToolTip(text) as ToolTip;
+            if (string.IsNullOrEmpty(value))
+            {
+                if (previous != null) { previous.IsOpen = false; MenuToolTipSizing.SetEnabled(previous, false); }
+                ToolTipService.SetToolTip(text, null);
+                return;
+            }
+            var rich = new TextBlock { TextWrapping = TextWrapping.Wrap, Foreground = neutralPlayerBrush };
+            FillStatusInlines(rich, value);
+            var tip = previous ?? new ToolTip { Style = humanPanel.TryFindResource("PlayerTooltip") as Style };
+            tip.Content = rich;
+            ToolTipService.SetToolTip(text, tip);
+            MenuToolTipSizing.SetEnabled(tip, true);
+        }
+
+        private static void FillStatusInlines(TextBlock text, string value)
+        {
             text.Inlines.Clear();
             int offset = 0;
             while (offset < value.Length)
@@ -80,15 +103,6 @@ namespace Spectator
                 if (match > offset) text.Inlines.Add(new Run { Text = value.Substring(offset, match - offset) });
                 text.Inlines.Add(new Run { Text = labelMatch, Foreground = PlayerBrush(playerMatch) });
                 offset = match + labelMatch.Length;
-            }
-            if (ToolTipService.GetToolTip(text) is ToolTip tip)
-            {
-                var rich = new TextBlock { TextWrapping = TextWrapping.Wrap, Foreground = neutralPlayerBrush };
-                foreach (Inline inline in text.Inlines)
-                    if (inline is Run run) rich.Inlines.Add(new Run { Text = run.Text, Foreground = run.Foreground });
-                tip.Style = humanPanel.TryFindResource("PlayerTooltip") as Style;
-                tip.Content = rich;
-                MenuToolTipSizing.SetEnabled(tip, true);
             }
         }
 
