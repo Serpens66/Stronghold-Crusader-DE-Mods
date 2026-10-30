@@ -4,6 +4,8 @@ Ziel des Auftrags: die Wegfindung im Spiel allgemein beschleunigen (keine Lags �
 
 Die Einzelnachweise jedes Laufs stehen in `PathfindingRoadmap.md`. Native Verträge und Prüfpunkte stehen in den `UpdateToNewDLL.md` von MoatMove und BugfixesAndQoL, die Vanilla-Audits in der Native-Baseline (`GROUND_ROUTE_BUILDERS.md`, `MANUAL_GROUP_ADMISSION.md`).
 
+**Abnahme (30.10.2026):** Der Nutzer hat diesen Stand akzeptiert. Mehrspieler- und Augentest sowie die Entscheidung über die Standardwerte folgen später; der extreme Regeltest bleibt als künftige Arbeit dokumentiert (Abschnitt 5).
+
 ## 1. Testaufbau
 
 - **Save und Last:** Save `test_stresstest4.sav`, 800×800, 8 KI-Lords. Die Automatik (`Run-PathfindingIteration.ps1`) erzeugt per `Spawn` 4.800 Einheiten auf insgesamt bis zu 9.938, zündet nach 15 s Pech und startet nach 20 s zwei Angriffe. Ein Lauf dauert 260 s.
