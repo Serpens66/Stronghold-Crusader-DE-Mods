@@ -59,17 +59,14 @@ namespace MoatMove
                 out byte* path, out int beforeLength, out byte[] backup);
             bool qualified = plan.FriendlyRouteQualified && plan.ModeObserved;
             bool groundReconstruction = false;
-            if (runtime.RequiredOnlyMode && reconstruction && owned && (originalVariant == 0 || originalVariant == 1))
-            {
+            if (reconstruction && owned && (originalVariant == 0 || originalVariant == 1))
                 groundReconstruction = TryPrepareGroundReconstruction(plan, unit);
-
-            }
             anchorDecline = reconstruction ? "builder:reconstruction" : qualified ? "builder:qualifiedMoat" : !owned ? "builder:buffer" :
                 originalVariant != 0 && originalVariant != 1 ? "builder:variant" : "builder:notRequiredMode";
             // Anchor dispatch, ground decision: the core's ground route replaces Vanilla's search.
-            bool anchorGround = runtime.RequiredOnlyMode && !reconstruction && !qualified && owned &&
+            bool anchorGround = !reconstruction && !qualified && owned &&
                 (originalVariant == 0 || originalVariant == 1) && TryPrepareAnchorGround(plan, unit);
-            if (runtime.RequiredOnlyMode && owned && (qualified || groundReconstruction || anchorGround) && (originalVariant == 0 || originalVariant == 1))
+            if (owned && (qualified || groundReconstruction || anchorGround) && (originalVariant == 0 || originalVariant == 1))
             {
                 // 196280 has already bound its real unit buffer. A ready shared field
                 // supplies the route without running F4930 again for this member.
@@ -138,7 +135,7 @@ namespace MoatMove
             // E32B0 consumes a previously populated native field. Changing the mode byte
             // does not undo that field, so a mod-qualified positive result needs an audit.
             bool auditRequired = qualified || reconstruction;
-            RequiredRouteMetrics requiredMetrics = runtime.RequiredOnlyMode && qualified && !reconstruction
+            RequiredRouteMetrics requiredMetrics = qualified && !reconstruction
                 ? activeMoveCommand?.Required ?? activeAttackCommand?.Required
                 : null;
             long requiredPublicationStarted = requiredMetrics != null
@@ -522,19 +519,13 @@ namespace MoatMove
             targetedRouteProbeBusy = true;
             try
             {
+                // Only a route the core or Fast qualified earlier is published; nothing is searched here.
                 bool found = route.IsValid;
-                if (!found && !runtime.RequiredOnlyMode)
-                {
-                    found = TryBuildMovementReachabilityEncoded(
-                        playerId, startX, startY, targetX, targetY, allowReservedTarget,
-                        out summary, out route) || TryBuildTerminalFillRoute(
-                        plan, unit, startX, startY, out summary, out route);
-                }
                 if (!found ||
                     !route.IsValid || (requireMoat && summary.MoatEdges <= 0) ||
                     route.Bytes.Length > NativeUnitPathBufferStride)
                 {
-                    details = runtime.RequiredOnlyMode && !found
+                    details = !found
                         ? "qualified-route-unavailable-fast"
                         : $"no-owner-safe-replacement:{summary.Reason}";
                     return false;

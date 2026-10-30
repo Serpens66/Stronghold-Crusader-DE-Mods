@@ -401,9 +401,9 @@ namespace MoatMove
             if (string.IsNullOrEmpty(directory) || !File.Exists(Path.Combine(directory, AnchorNative.Library)))
                 throw new FileNotFoundException("Anchor core required: run native/Build-MoatMoveAnchor.ps1 first.", directory);
             var api = GameTileManagerAPI.Instance;
-            bool anchorBefore = settings.Anchor; string directoryBefore = settings.PluginDirectory; int modeBefore = settings.RouteMode;
+            string directoryBefore = settings.PluginDirectory; int modeBefore = settings.RouteMode;
             // Anchor mode runs on Fast's RequiredOnly flow only.
-            settings.Anchor = true; settings.PluginDirectory = directory; settings.RouteMode = 1;
+            settings.PluginDirectory = directory; settings.RouteMode = 1;
             try
             {
                 // Same corridor as PlacementTests: ground 10..12, completed moat 13..135, ground 136..180.
@@ -819,7 +819,7 @@ namespace MoatMove
             finally
             {
                 ResetAnchorMap(); anchorAvailable = false;
-                settings.Anchor = anchorBefore; settings.PluginDirectory = directoryBefore; settings.RouteMode = modeBefore;
+                settings.PluginDirectory = directoryBefore; settings.RouteMode = modeBefore;
             }
         }
     }

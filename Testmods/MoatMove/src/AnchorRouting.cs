@@ -10,7 +10,7 @@ using SHCDESE.Interop;
 
 namespace MoatMove
 {
-    // Anchor mode (ANCHOR_MODE_PLAN.md, phase 4): every group move passes 11B520 (classic and
+    // Anchor routing (MOATMOVE.md, "Gruppenbefehle"): every group move passes 11B520 (classic and
     // target orders, BFQoL formations, queue and patrol legs). Its Pre event computes one core
     // task for the group synchronously; inside the call every capable unit asks the core first:
     // a cheaper moat route qualifies in the mode probe, a ground decision keeps Vanilla's mode
@@ -228,7 +228,6 @@ namespace MoatMove
 
         private void InitializeAnchor()
         {
-            if (!settings.Anchor) return;
             try
             {
                 string directory = settings.PluginDirectory ?? throw new InvalidOperationException("Plugin directory unknown.");
@@ -966,7 +965,7 @@ namespace MoatMove
         {
             published = 0;
             anchorDecline = "noPlan:noGroundTask";
-            if (anchorGroundTask == 0 || frame == null || pathManager != runtime.nativePathManager || !runtime.RequiredOnlyMode) return false;
+            if (anchorGroundTask == 0 || frame == null || pathManager != runtime.nativePathManager) return false;
             anchorDecline = "noPlan:unit";
             int unitId = frame.Args.UnitId;
             if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) || unit == null ||
@@ -1035,7 +1034,7 @@ namespace MoatMove
             int x = start % MapWidth, y = start / MapWidth; bool band = false;
             for (int i = 0; i < length; i++)
             {
-                x += FastNativeRouteField.Dx[anchorBuffer[i]]; y += FastNativeRouteField.Dy[anchorBuffer[i]];
+                x += FastRouteField.Dx[anchorBuffer[i]]; y += FastRouteField.Dy[anchorBuffer[i]];
                 if (x >= 399 && x <= 401) band = true;
                 if (APIShared.Pathfinding.RouteTileRules.GetEffect(x, y, player, out _) == APIShared.Pathfinding.RouteTileEffect.Forbidden)
                     ruleProbeForbiddenHits++;
@@ -1061,7 +1060,7 @@ namespace MoatMove
         {
             published = 0;
             UnitMoveFrame frame = runtime.GetCurrentUnitMoveFrame();
-            if (!settings.AnchorSingleMoves || !anchorAvailable || reconstruction || frame == null || !runtime.RequiredOnlyMode ||
+            if (!settings.AnchorSingleMoves || !anchorAvailable || reconstruction || frame == null ||
                 pathManager != runtime.nativePathManager) return false;
             byte* manager = (byte*)pathManager.ToPointer();
             int startX = *(int*)(manager + 0x08), startY = *(int*)(manager + 0x0C), targetX = *(int*)(manager + 0x10), targetY = *(int*)(manager + 0x14);

@@ -2,7 +2,7 @@
   "GUID": "MoatMove_Serp",
   "Author": "Serpens66",
   "Name": "MoatMove",
-  "Description": "Friendly/allied moat traversal addon for BugfixesAndQoL and APIShared. Precise, Fast and FastNative modes; shares the main mod command hooks.",
+  "Description": "Friendly/allied moat traversal and weighted group routes (native anchor core, Fast fallback) for BugfixesAndQoL and APIShared; shares the main mod command hooks.",
   "Version": "0.1.5",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.0",

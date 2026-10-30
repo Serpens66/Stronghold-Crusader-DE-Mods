@@ -20,7 +20,7 @@ namespace MoatMove
         internal override void InvalidateFastMoatTile(int tile)
         {
             ResetGroundFailureProofs();
-            if (RequiredOnlyMode && IsValidTileId(tile)) MarkFastTopologyTile(tile); else MarkFastTopologyAll();
+            if (IsValidTileId(tile)) MarkFastTopologyTile(tile); else MarkFastTopologyAll();
         }
         // A native mask rebuild changes only direction bytes: the anchor byte watch marks every
         // changed tile within one round (16 ticks), so no global resweep is needed once it has
@@ -28,7 +28,7 @@ namespace MoatMove
         internal override void InvalidateFastMoatDirections()
         {
             ResetGroundFailureProofs();
-            if (RequiredOnlyMode && AnchorNodeTiles() != null) { anchorRebuildsWatched++; return; }
+            if (AnchorNodeTiles() != null) { anchorRebuildsWatched++; return; }
             MarkFastTopologyAll();
         }
         internal override void ResetMapState()
@@ -40,7 +40,7 @@ namespace MoatMove
         internal override void CaptureDeferredFastMoveScope(MoveCommandScope command)
         {
             RetainFastDistribution(command);
-            if (command == null || !RequiredOnlyMode) return;
+            if (command == null) return;
             runtime.EnsureMoveCommandGroupSummary(command);
             foreach (int id in command.ActiveUnitIdsAtDispatch)
                 if (APIShared.UnitAccess.TryGetById(id, out GameUnit* unit, out _) && unit != null)

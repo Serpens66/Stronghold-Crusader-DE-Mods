@@ -34,9 +34,9 @@ namespace MoatMove
                 activeMoveCommand = null; activePlan = pendingPlan = null;
                 ClearUnitMoveFrames(); activeMoatWorkSelection = null;
 
-                foreach (int mode in new[] { 0, 1 })
+                // MoatMove's only route mode (required-only).
                 {
-                    settings.RouteMode = mode;
+                    settings.RouteMode = 1;
                     foreach (bool addon in new[] { false, true })
                     foreach (bool startsInMoat in new[] { false, true })
                     foreach (int answer in new[] { -1, 0, 1 })

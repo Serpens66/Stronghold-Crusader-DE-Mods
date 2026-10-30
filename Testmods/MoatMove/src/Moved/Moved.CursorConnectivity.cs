@@ -23,15 +23,9 @@ namespace MoatMove
 
         internal void UpdateCursorBoundary(CursorTopology topology, int player, int tile)
         {
-            UpdateGroundBoundary(topology, player, tile);
             if (topology.Boundaries.TryGetValue(tile, out long[] old))
             {
-                foreach (long edge in old)
-                {
-                    int source = (int)((edge >> 32) & 0x7FFFFFFF), destination = (int)edge;
-                    topology.Graph.ChangeEdge(source, destination, -1);
-                    if (edge < 0) topology.Ground.ChangeEdge(source, destination, -1);
-                }
+                foreach (long edge in old) topology.Graph.ChangeEdge((int)(edge >> 32), (int)edge, -1);
                 topology.Boundaries.Remove(tile);
             }
             int from = runtime.CursorNode(player, tile);
@@ -50,10 +44,7 @@ namespace MoatMove
                 if (from <= MaximumRegionId && to <= MaximumRegionId) continue;
                 if (!runtime.weightedMoatRoutePlanner.TryGetTraversalEdge(player, pos.X, pos.Y, tile,
                     x, y, next, d, false, false, MoatTraversalPolicy.FriendlyOnly, out _, out _)) continue;
-                long packed = ((long)from << 32) | (uint)to;
-                if (!runtime.IsCompletedMoatTile(tile) && !runtime.IsCompletedMoatTile(next))
-                { packed |= long.MinValue; topology.Ground.ChangeEdge(from, to, 1); }
-                edges[count++] = packed;
+                edges[count++] = ((long)from << 32) | (uint)to;
                 topology.Graph.ChangeEdge(from, to, 1);
             }
             if (count == 0) return;
@@ -63,11 +54,11 @@ namespace MoatMove
         }
 
         // Full build of a topology without boundary records: the same edges in the same tile order as
-        // UpdateCursorBoundary over every tile (GroundUpper, then Graph/Ground per tile), with the node
+        // UpdateCursorBoundary over every tile, with the node
         // of each tile computed once and neighbours read from a table instead of per-pair Extender
         // calls. The per-tile path took 121-139 ms per build in 4 of 79 stress runs (pf-iter-55).
         // Inputs (regions, flags, buildings, moats, blocked buildings) do not change during the build.
-        private int[] cursorNeighbors, cursorBuildNodes, cursorBuildGround, cursorCoordinateTiles;
+        private int[] cursorNeighbors, cursorBuildNodes, cursorCoordinateTiles;
         private ushort[] cursorTileX, cursorTileY;
         private int cursorNeighborEpoch = int.MinValue;
         // Neighbour tile per tile and direction (-1: off map or not a valid tile) and tile positions,
@@ -105,29 +96,14 @@ namespace MoatMove
         {
             EnsureCursorNeighborTable();
             int[] nodes = cursorBuildNodes ?? (cursorBuildNodes = new int[NativeTileCount]);
-            int[] ground = cursorBuildGround ?? (cursorBuildGround = new int[NativeTileCount]);
-            for (int tile = 0; tile < NativeTileCount; tile++) { nodes[tile] = runtime.CursorNode(player, tile); ground[tile] = GroundUpperNode(tile); }
+            for (int tile = 0; tile < NativeTileCount; tile++) nodes[tile] = runtime.CursorNode(player, tile);
             int[] neighbors = cursorNeighbors;
             long* edges = stackalloc long[8];
             for (int tile = 0; tile < NativeTileCount; tile++)
             {
-                int row = tile * 8, count = 0, from = ground[tile];
+                int row = tile * 8, count = 0, from = nodes[tile];
+                if (from < 0) continue;
                 int x = cursorTileX[tile], y = cursorTileY[tile];
-                if (from >= 0)
-                {
-                    for (int d = 0; d < 8; d++)
-                    {
-                        int next = neighbors[row + d]; if (next < 0) continue;
-                        int to = ground[next]; if (to < 0 || from == to) continue;
-                        if (!runtime.weightedMoatRoutePlanner.TryGetTraversalEdge(player, x, y, tile,
-                            x + WeightedMoatRoutePlanner.DirectionX[d], y + WeightedMoatRoutePlanner.DirectionY[d], next, d, false, false, MoatTraversalPolicy.GroundOnly, out _, out _)) continue;
-                        edges[count++] = ((long)from << 32) | (uint)to;
-                        topology.GroundUpper.ChangeEdge(from, to, 1);
-                    }
-                    if (count != 0) { var saved = new long[count]; for (int i = 0; i < count; i++) saved[i] = edges[i]; topology.GroundBoundaries.Add(tile, saved); }
-                }
-                from = nodes[tile]; if (from < 0) continue;
-                count = 0;
                 for (int d = 0; d < 8; d++)
                 {
                     int next = neighbors[row + d]; if (next < 0) continue;
@@ -135,10 +111,7 @@ namespace MoatMove
                     if (from <= MaximumRegionId && to <= MaximumRegionId) continue;
                     if (!runtime.weightedMoatRoutePlanner.TryGetTraversalEdge(player, x, y, tile,
                         x + WeightedMoatRoutePlanner.DirectionX[d], y + WeightedMoatRoutePlanner.DirectionY[d], next, d, false, false, MoatTraversalPolicy.FriendlyOnly, out _, out _)) continue;
-                    long packed = ((long)from << 32) | (uint)to;
-                    if (!runtime.IsCompletedMoatTile(tile) && !runtime.IsCompletedMoatTile(next))
-                    { packed |= long.MinValue; topology.Ground.ChangeEdge(from, to, 1); }
-                    edges[count++] = packed;
+                    edges[count++] = ((long)from << 32) | (uint)to;
                     topology.Graph.ChangeEdge(from, to, 1);
                 }
                 if (count == 0) continue;
@@ -160,53 +133,6 @@ namespace MoatMove
             return startRegion > 0 && startRegion == runtime.pathRegionGrid[target];
         }
 
-        internal GroundConnectionDecision ProbeGroundConnection(int player, int start, int target)
-        {
-            if (!IsValidTileId(start) || !IsValidTileId(target)) return GroundConnectionDecision.Unknown;
-            if (runtime.IsCompletedMoatTile(start) || runtime.IsCompletedMoatTile(target)) return GroundConnectionDecision.Excluded;
-            if (start == target) return GroundConnectionDecision.Reachable;
-            if (runtime.nativePathManager == IntPtr.Zero || !runtime.cursorTopologies.TryGetValue(player, out CursorTopology topology) ||
-                !topology.Ready || topology.Epoch != runtime.mapEpoch || topology.Dirty.Count != 0 ||
-                topology.RegionGeneration != *(int*)((byte*)runtime.nativePathManager + 0x74)) return GroundConnectionDecision.Unknown;
-            return topology.GroundUpper.CanReach(GroundUpperNode(start), GroundUpperNode(target))
-                ? GroundConnectionDecision.Unknown : GroundConnectionDecision.Excluded;
-        }
-
-        internal int GroundUpperNode(int tile)
-        {
-            if (!IsValidTileId(tile) || runtime.IsCompletedMoatTile(tile)) return -1;
-            int region = runtime.pathRegionGrid[tile];
-            return region > 0 && region <= MaximumRegionId &&
-                (runtime.tileFlags[tile] & CursorSpecialStructureTileFlagMask) == 0
-                ? region : MaximumRegionId + 1 + tile;
-        }
-
-        internal void UpdateGroundBoundary(CursorTopology topology, int player, int tile)
-        {
-            if (topology.GroundBoundaries.TryGetValue(tile, out long[] old))
-            {
-                foreach (long pair in old) topology.GroundUpper.ChangeEdge((int)(pair >> 32), (int)pair, -1);
-                topology.GroundBoundaries.Remove(tile);
-            }
-            int from = GroundUpperNode(tile);
-            if (from < 0) return;
-            var pos = GameTileManagerAPI.Instance.GetTileVectorFromId(tile);
-            long* pairs = stackalloc long[8]; int count=0;
-            for (int d=0;d<8;d++)
-            {
-                int x=pos.X+WeightedMoatRoutePlanner.DirectionX[d],y=pos.Y+WeightedMoatRoutePlanner.DirectionY[d];
-                if ((uint)x>=MapWidth || (uint)y>=MapWidth) continue;
-                int next=GameTileManagerAPI.Instance.GetTileId(x,y),to=GroundUpperNode(next);
-                if (to<0 || from==to) continue;
-                if (!runtime.weightedMoatRoutePlanner.TryGetTraversalEdge(player,pos.X,pos.Y,tile,x,y,next,d,false,false,
-                    MoatTraversalPolicy.GroundOnly,out _,out _)) continue;
-                pairs[count++]=((long)from<<32)|(uint)to;
-                topology.GroundUpper.ChangeEdge(from,to,1);
-            }
-            if (count==0) return;
-            var saved=new long[count]; for(int i=0;i<count;i++)saved[i]=pairs[i];
-            topology.GroundBoundaries.Add(tile,saved);
-        }
 
         internal CursorTopology EnsureCursorTopology(int player, bool buildConnections = true)
         {
@@ -239,11 +165,11 @@ namespace MoatMove
                     runtime.cursorTopologyBuilds++;
                     long measured = 0;
                     Shared.DevDiag.Start(ref measured);
-                    if (topology.Boundaries.Count == 0 && topology.GroundBoundaries.Count == 0) BuildCursorTopology(topology, player);
+                    if (topology.Boundaries.Count == 0) BuildCursorTopology(topology, player);
                     else for (int tile = 0; tile < NativeTileCount; tile++) UpdateCursorBoundary(topology, player, tile);
                     topology.Ready = true;
                     Shared.DevDiag.StopSpike(ref measured, "moat.cursorTopology.build", 0, () =>
-                        $"player={player} reason={rebuildReason ?? "notReady"} boundaries={topology.Boundaries.Count} groundBoundaries={topology.GroundBoundaries.Count}");
+                        $"player={player} reason={rebuildReason ?? "notReady"} boundaries={topology.Boundaries.Count}");
                 }
                 else
                     foreach (int tile in topology.Dirty) { UpdateCursorBoundary(topology, player, tile); runtime.cursorTopologyUpdates++; }
@@ -259,36 +185,17 @@ namespace MoatMove
             long started = (DetailedDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0L); cursorQueries++;
             try
             {
-                if (runtime.RequiredOnlyMode)
+                if (IsSamePositiveGroundRegion(start, target))
                 {
-                    bool fastNormal = IsSamePositiveGroundRegion(start, target);
-                    if (fastNormal)
-                    {
-                        fastVanillaBypasses++;
-                        summary.StartRegion = runtime.pathRegionGrid[start];
-                        summary.TargetRegion = runtime.pathRegionGrid[target];
-                        summary.AttackProbeEvaluated = true;
-                        summary.ReachedWithoutMoat = true;
-                        summary.RouteFound = true;
-                        return true;
-                    }
-                    return TryProbeFastCursorRoute(player, start, target, out summary);
+                    fastVanillaBypasses++;
+                    summary.StartRegion = runtime.pathRegionGrid[start];
+                    summary.TargetRegion = runtime.pathRegionGrid[target];
+                    summary.AttackProbeEvaluated = true;
+                    summary.ReachedWithoutMoat = true;
+                    summary.RouteFound = true;
+                    return true;
                 }
-                var topology = EnsureCursorTopology(player, false);
-                int from = runtime.CursorNode(player, start), to = runtime.CursorNode(player, target);
-                // An unchanged native ground region already proves connectivity. In
-                // this common hover case even the first moat topology build is unnecessary.
-                bool normal = from > 0 && from <= MaximumRegionId && from == to;
-                if (!normal && from >= 0 && to >= 0 && (!topology.Ready || topology.Dirty.Count != 0))
-                    topology = EnsureCursorTopology(player);
-                normal |= topology.Ready && topology.Ground.CanReach(from, to) && !runtime.IsCompletedMoatTile(start) && !runtime.IsCompletedMoatTile(target);
-                bool reachable = normal || topology.Ready && topology.Graph.CanReach(from, to);
-                summary.StartRegion = runtime.pathRegionGrid[start]; summary.TargetRegion = runtime.pathRegionGrid[target];
-                summary.AttackProbeEvaluated = true; summary.ReachedWithoutMoat = normal;
-                summary.ReachedWithMoat = reachable && !normal;
-                summary.FriendlyMoatTiles = summary.ReachedWithMoat ? 1 : 0;
-                summary.RouteFound = reachable;
-                return true;
+                return TryProbeFastCursorRoute(player, start, target, out summary);
             }
             finally { cursorQueryTicks += (DetailedDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0L) - started; }
         }
@@ -326,17 +233,12 @@ namespace MoatMove
                 bool same = (old?.Length ?? 0) == n;
                 if (same) for (int i = 0; i < n; i++) if (old[i] != candidate[i]) { same = false; break; }
                 if (same) continue;
-                if (old != null) foreach (long edge in old)
-                {
-                    topology.Graph.ChangeEdge((int)(edge >> 32), (int)edge, -1);
-                    topology.Ground.ChangeEdge((int)(edge >> 32), (int)edge, -1);
-                }
+                if (old != null) foreach (long edge in old) topology.Graph.ChangeEdge((int)(edge >> 32), (int)edge, -1);
                 long[] next = n == 0 ? null : new long[n];
                 for (int i = 0; i < n; i++)
                 {
                     next[i] = candidate[i];
                     topology.Graph.ChangeEdge((int)(candidate[i] >> 32), (int)candidate[i], 1);
-                    topology.Ground.ChangeEdge((int)(candidate[i] >> 32), (int)candidate[i], 1);
                 }
                 topology.Portals[id] = next;
             }
@@ -368,6 +270,5 @@ namespace MoatMove
                 if (IsValidTileId(tile)) foreach (var entry in runtime.cursorTopologies) entry.Value.Dirty.Add(tile);
             }
         }
-        internal enum GroundConnectionDecision { Unknown, Reachable, Excluded }
     }
 }

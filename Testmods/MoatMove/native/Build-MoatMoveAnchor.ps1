@@ -1,6 +1,6 @@
 param([string]$OutputDirectory, [switch]$CopyOnly)
 $ErrorActionPreference = 'Stop'
-# Builds the anchor-mode core (ANCHOR_MODE_PLAN.md) into .local/anchor (offline and harness
+# Builds the anchor core (MOATMOVE.md) into .local/anchor (offline and harness
 # tests). -OutputDirectory additionally copies the DLL there (build.bat: package folder);
 # -CopyOnly copies the existing build after verifying it still matches the source. Objects,
 # import library and the build proof always stay in .local/anchor and are never packaged.

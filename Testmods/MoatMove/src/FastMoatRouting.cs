@@ -14,7 +14,6 @@ namespace MoatMove
         {
             internal FastRoutePool Pool;
             internal readonly SortedDictionary<int, FastTraversalCache> Maps = new SortedDictionary<int, FastTraversalCache>();
-            internal readonly Dictionary<FastFieldKey, FastNativeMask> NativeMasks = new Dictionary<FastFieldKey, FastNativeMask>();
             internal ulong Access;
             internal bool AccessKnown;
         }
@@ -27,26 +26,13 @@ namespace MoatMove
             if (state != null) return state;
             state = new FastRoutingState();
             FastRoutingState captured = state;
-            long oneField = settings.NativeFast ? new FastNativeKernel.Layout(MapWidth, MapWidth).Bytes : (long)MapWidth * MapWidth * 9;
+            long oneField = (long)MapWidth * MapWidth * 9;
             // One forward candidate field is accounted for in the simulation budget.
             state.Pool = new FastRoutePool(MapWidth, MapWidth,
                 cursor ? oneField * 2 : 64L * 1024 * 1024 - oneField,
-                key => MakeFastEdge(captured, key),
-                settings.NativeFast ? (Func<Func<FastFieldKey>, MoatSearchEdge, IFastRouteField>)((key, edge) =>
-                    new FastNativeRouteField(MapWidth, MapWidth, edge, () => GetFastNativeMask(captured, key()))) : null, oneField);
+                key => MakeFastEdge(captured, key), null, oneField);
             if (cursor) fastCursorRouting = state; else fastSimulationRouting = state;
             return state;
-        }
-
-        private FastNativeMask GetFastNativeMask(FastRoutingState state, FastFieldKey key)
-        {
-            var maskKey = new FastFieldKey(key.Player, 0, key.Ground);
-            if (!state.NativeMasks.TryGetValue(maskKey, out FastNativeMask mask))
-            {
-                mask = new FastNativeMask(MapWidth, MapWidth, MakeFastEdge(state, key));
-                state.NativeMasks.Add(maskKey, mask);
-            }
-            return mask;
         }
 
         private MoatSearchEdge MakeFastEdge(FastRoutingState state, FastFieldKey key)
@@ -155,12 +141,7 @@ namespace MoatMove
                 EnsureCursorTopology(pair.Key, false);
                 if (changed) pair.Value.MarkAll();
                 IReadOnlyCollection<int> nodes = pair.Value.Refresh();
-                if (nodes.Count != 0)
-                {
-                    state.NativeMasks.Remove(new FastFieldKey(pair.Key, 0, true));
-                    state.NativeMasks.Remove(new FastFieldKey(pair.Key, 0, false));
-                    state.Pool.Invalidate(pair.Key, nodes, settings.NativeFast); fastNewInvalidations++;
-                }
+                if (nodes.Count != 0) { state.Pool.Invalidate(pair.Key, nodes); fastNewInvalidations++; }
             }
         }
 
@@ -176,7 +157,7 @@ namespace MoatMove
         // byte feeds its own node's edges and the diagonal/moat checks of direct neighbours.
         private void MarkFastTopologyTile(int tile, int radius = 2)
         {
-            if (!RequiredOnlyMode || !IsValidTileId(tile)) return;
+            if (!IsValidTileId(tile)) return;
             var position = GameTileManagerAPI.Instance.GetTileVectorFromId(tile);
             if ((uint)position.X < MapWidth && (uint)position.Y < MapWidth)
             {
@@ -205,7 +186,7 @@ namespace MoatMove
         // modes keep the live predicate.
         private FastTraversalCache ReachabilityWords(int player)
         {
-            if (player < 1 || player > 8 || !anchorAvailable || !settings.Anchor) return null;
+            if (player < 1 || player > 8 || !anchorAvailable) return null;
             return reachWords[player] ?? CreateReachabilityWords(player);
         }
         // Own method: a lambda capturing player inside ReachabilityWords allocates its closure on
@@ -327,9 +308,7 @@ namespace MoatMove
         internal override bool TryBuildMovementReachabilityEncoded(int player, int sx, int sy, int tx, int ty, bool reserved,
             out WeightedMoatRouteSummary summary, out WeightedMoatEncodedRoute route)
         {
-            return RequiredOnlyMode
-                ? TryFastEncoded(player, sx, sy, tx, ty, reserved, out summary, out route)
-                : runtime.weightedMoatRoutePlanner.TryBuildReachabilityEncoded(player, sx, sy, tx, ty, reserved, out summary, out route);
+            return TryFastEncoded(player, sx, sy, tx, ty, reserved, out summary, out route);
         }
 
         internal override bool TryPrepareGroundReconstruction(PlanScope plan, GameUnit* unit)

@@ -12,8 +12,9 @@ namespace MoatMove
         private readonly ManualLogSource log;
         private volatile bool enabled;
         internal override bool Enabled => enabled;
-        internal override bool RequiredOnly => settings.GetFriendlyMoatMovementMode() == FriendlyMoatMovementMode.RequiredOnly;
-        internal bool RequiredOnlyMode => RequiredOnly;
+        // Anchor mode: Vanilla first, moat routes where the core (or, until its masks are ready, the
+        // Fast fallback) finds them; MoatMove has no exact per-target mode.
+        internal override bool RequiredOnly => true;
         internal override IMoatSearchKernel CreateKernel(int width, int height, MoatSearchEdge edge) => new MoatSearchKernel(width, height, edge);
         internal FriendlyMoatTraversalProvider(ManualLogSource log, MoatMoveOptions options)
         {
@@ -25,8 +26,6 @@ namespace MoatMove
         {
             try
             {
-                if (settings.NativeFast) FastNativeKernel.Initialize(context.Memory.Slice(FastNativeKernel.SourceRva, FastNativeKernel.SourceLength).ToArray(), unchecked((ulong)context.ModuleHandle.ToInt64()));
-                if (settings.NativeFast) FastNativeKernel.Get(800, 800);
                 enabled = true;
                 InstallFastCommandRuntime(context.Memory, unchecked((ulong)context.ModuleHandle.ToInt64()));
                 InitializeAnchor();

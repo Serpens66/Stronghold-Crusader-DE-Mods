@@ -71,8 +71,6 @@ namespace MoatMove
         // while MoatMove compiles against its normal assembly. Signatures carry the map epoch.
         internal readonly Dictionary<int, string> lastUnscopedAttackModes = new Dictionary<int, string>();
         internal readonly Dictionary<int, string> lastAttackCommandCandidates = new Dictionary<int, string>();
-        internal readonly HashSet<string> loggedDiggerDecisions = new HashSet<string>(StringComparer.Ordinal);
-        internal int loggedDiggerDecisionsMapEpoch = int.MinValue;
 #endif
     }
 }

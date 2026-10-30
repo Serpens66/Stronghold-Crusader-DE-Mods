@@ -42,13 +42,10 @@ namespace MoatMove
             persistentLog = Logger;
             // DEVDIAG builds only: Shared.DevDiag measuring points write through this log.
             Shared.DevDiag.Attach(Logger);
-            string mode = Config.Bind("Movement", "Mode", "precise",
-                new ConfigDescription(
-                    "precise: weighted friendly/allied moat routes. fast: moat only when no ground alternative exists, shared group calculations, no extra moat cost. FastNative: Fast rules with a private native shared field. anchor (experimental): Fast's deferred move commands with native group fields; moves cross the moat when the weighted route is cheaper. Restart the game after changing this setting. Use the same mode on all multiplayer peers.")).Value;
             bool singleMoves = Config.Bind("Movement", "AnchorSingleMoves", false,
-                new ConfigDescription("anchor mode only (experimental): single-unit ground moves outside group commands also use the native core (exact cheapest routes, route tile rules) instead of Vanilla's per-unit search. Routes can differ from Vanilla's. Restart the game after changing this setting. Use the same value on all multiplayer peers.")).Value;
+                new ConfigDescription("Experimental: single-unit ground moves outside group commands also use the native core (exact cheapest routes, route tile rules) instead of Vanilla's per-unit search. Routes can differ from Vanilla's. Restart the game after changing this setting. Use the same value on all multiplayer peers.")).Value;
             bool avoidFire = Config.Bind("Movement", "AvoidFire", false,
-                new ConfigDescription("anchor mode only (experimental): routes avoid burning pitch. With AnchorSingleMoves, units that are already walking when fire starts on their route re-plan 3 tiles before it (a detour may be 50 % or 10 tiles longer) or wait up to about 10 s. Restart the game after changing this setting. Use the same value on all multiplayer peers.")).Value;
+                new ConfigDescription("Experimental: routes avoid burning pitch and other fire on the ground. With AnchorSingleMoves, units that are already walking when fire starts on their route re-plan 3 tiles before it (a detour may be 50 % or 10 tiles longer) or wait up to about 10 s. Restart the game after changing this setting. Use the same value on all multiplayer peers.")).Value;
 #if SERP_DEVDIAG
             int ruleProbeTicks = Config.Bind("Diagnostics", "RuleProbeTicks", 0,
                 new ConfigDescription("DEVDIAG only: simulation ticks after a map start at which a forbidden test band (x 399..401, every row except 380..420) is set for all players; 0 = off.")).Value;
@@ -59,10 +56,10 @@ namespace MoatMove
 #else
             int ruleProbeTicks = 0, moatCostProbeTicks = 0, topologyProbeTicks = 0;
 #endif
-            options = new MoatMoveOptions(mode) { PluginDirectory = System.IO.Path.GetDirectoryName(Info.Location), AnchorSingleMoves = singleMoves, AvoidFire = avoidFire,
+            options = new MoatMoveOptions { PluginDirectory = System.IO.Path.GetDirectoryName(Info.Location), AnchorSingleMoves = singleMoves, AvoidFire = avoidFire,
                 RuleProbeTicks = ruleProbeTicks, MoatCostProbeTicks = moatCostProbeTicks, TopologyProbeTicks = topologyProbeTicks };
             Shared.DebugLogHelper.LogInfo(persistentLog,
-                $"MoatMove {PluginVersion} loaded; mode={options.ModeName}, commandPolicy=BugfixesAndQoL, hookOwner=BugfixesAndQoL; awaiting native library.");
+                $"MoatMove {PluginVersion} loaded; anchorSingleMoves={options.AnchorSingleMoves}, avoidFire={options.AvoidFire}, commandPolicy=BugfixesAndQoL, hookOwner=BugfixesAndQoL; awaiting native library.");
             CrusaderLibrary.Instance.LibraryLoaded += OnLibraryLoaded;
         }
 
@@ -79,7 +76,7 @@ namespace MoatMove
                 runtime = new FriendlyMoatTraversalProvider(persistentLog, options);
                 runtime.Install(context);
                 Shared.DebugLogHelper.LogInfo(persistentLog,
-                    $"MoatMove runtime published; mode={options.ModeName}; shared command hooks owned by BugfixesAndQoL; detailed diagnostics disabled.");
+                    $"MoatMove runtime published; shared command hooks owned by BugfixesAndQoL; detailed diagnostics disabled.");
             }
             catch (Exception ex)
             {
@@ -108,7 +105,7 @@ namespace MoatMove
             mapSequence++;
             mapActive = true;
             mapTickObserved = false;
-            Shared.DebugLogHelper.LogInfo(persistentLog, $"MoatMove map-start sequence={mapSequence}; mode={options.ModeName} active.");
+            Shared.DebugLogHelper.LogInfo(persistentLog, $"MoatMove map-start sequence={mapSequence}; runtime active.");
         }
 
         private static void ObserveMapTick(int tick)

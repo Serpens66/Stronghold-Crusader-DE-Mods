@@ -50,7 +50,7 @@ namespace MoatMove
                 // This helper returns a unit ID, not a boolean success result. Fast may
                 // bypass the group scan only when Vanilla already selected the leader;
                 // a later moat member would otherwise leave 11B520 on its ground branch.
-                if (runtime.RequiredOnlyMode && vanillaResult == leadUnitId)
+                if (vanillaResult == leadUnitId)
                 {
                     fastVanillaBypasses++;
                     return vanillaResult;
@@ -113,7 +113,7 @@ namespace MoatMove
                     PlanScope probe = new PlanScope(unitId, command.TargetX, command.TargetY)
                     {
                         PlayerId = unit->r_ControllableForPlayerId,
-                        VanillaFailureProven = runtime.RequiredOnlyMode && vanillaResult == 0
+                        VanillaFailureProven = vanillaResult == 0
                     };
                     if (!runtime.TryFindRequiredFriendlyCompletedMoatRouteForPlan(
                             probe, out RouteProbeSummary route))

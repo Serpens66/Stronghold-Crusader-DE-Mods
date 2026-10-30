@@ -45,31 +45,24 @@ namespace MoatMove
             ValidateExactBytes(memory, 0x196100, new byte[] {
                 0x48,0x83,0xEC,0x48,0x48,0x63,0xC2,0x4C,0x8D,0x1D,0x12,0x06,0xB3,0x07 }, "Fast player move entry");
             originalFastPlayerMove = Marshal.GetDelegateForFunctionPointer<FastPlayerMoveDelegate>((IntPtr)(libraryBase + 0x196100));
-            // Saved Fast queues can also be restored while running Precise.
             // APIShared already validated and owns the waypoint entry.
             originalFastAppend = runtime.ContinueQueueAppend;
             HookTransaction pending = null;
             bool registered = false, tickRegistered = false;
             try
             {
-                if (RequiredOnlyMode)
-                {
-                    var originals = runtime.InstallTraversalCommandHooks(memory, libraryBase,
-                        CaptureFastPlayerMove, ObserveFastTargetChore, AppendAfterFastPendingMove);
-                    originalFastPlayerMove = originals.Move;
-                    originalFastTargetChore = originals.Target;
-                    originalFastAppend = originals.Append;
-                    fastChoreMode = (IntPtr)(libraryBase + 0x85F8FEC);
-                }
+                var originals = runtime.InstallTraversalCommandHooks(memory, libraryBase,
+                    CaptureFastPlayerMove, ObserveFastTargetChore, AppendAfterFastPendingMove);
+                originalFastPlayerMove = originals.Move;
+                originalFastTargetChore = originals.Target;
+                originalFastAppend = originals.Append;
+                fastChoreMode = (IntPtr)(libraryBase + 0x85F8FEC);
                 fastCommands.Removed += ReleaseFastPendingSearch;
                 fastCancelSubscription = TribeR3EventHooks.OnTribeIssueOrderWithTarget.Observable.Subscribe(CancelFastPlayerTarget);
                 // Rooted by the Extender's process-lived event; the handler idles until the core is ready.
-                if (settings.Anchor)
-                {
-                    anchorMoveSubscription = TribeR3EventHooks.OnTribeIssueOrderMoveHere.Observable.Subscribe(OnAnchorMoveHere);
-                    // Which group members Vanilla re-plans (196280) inside a group move.
-                    anchorUnitMoveSubscription = UnitR3EventHooks.OnUnitMoveHere.Observable.Subscribe(ObserveAnchorUnitMove);
-                }
+                anchorMoveSubscription = TribeR3EventHooks.OnTribeIssueOrderMoveHere.Observable.Subscribe(OnAnchorMoveHere);
+                // Which group members Vanilla re-plans (196280) inside a group move.
+                anchorUnitMoveSubscription = UnitR3EventHooks.OnUnitMoveHere.Observable.Subscribe(ObserveAnchorUnitMove);
                 fastLoadSubscription = Shared.MissionEvents.SaveLoading.Subscribe(args =>
                 {
                     if (args.IsBeforeInitialization)
@@ -154,8 +147,7 @@ namespace MoatMove
                     return true;
                 }
                 Shared.DebugLogHelper.LogInfo(log, $"MoatMove topology probe: player={player} tableMs={AnchorMs(table)} perTileMs={AnchorMs(slow)} " +
-                    $"boundaries={kept.Boundaries.Count}/{perTile.Boundaries.Count} groundBoundaries={kept.GroundBoundaries.Count}/{perTile.GroundBoundaries.Count} " +
-                    $"same={Same(kept.Boundaries, perTile.Boundaries) && Same(kept.GroundBoundaries, perTile.GroundBoundaries)}.");
+                    $"boundaries={kept.Boundaries.Count}/{perTile.Boundaries.Count} same={Same(kept.Boundaries, perTile.Boundaries)}.");
             }
         }
 
@@ -236,7 +228,7 @@ namespace MoatMove
         {
             // Support metric (fast-performance line): calls, captures and the first failing condition.
             fastCaptureCounts[0]++;
-            if (!Enabled || !runtime.TraversalEnabled || !fastSchedulerInitialized || fastDispatching || !RequiredOnlyMode)
+            if (!Enabled || !runtime.TraversalEnabled || !fastSchedulerInitialized || fastDispatching)
                 return RejectFastCapture(2);
             // Anchor mode serves group moves synchronously at 11B520 (OnAnchorMoveHere); no deferral.
             if (anchorAvailable) return RejectFastCapture(11);
@@ -336,7 +328,7 @@ namespace MoatMove
                             fastUnitDistributions.Remove(identity);
                 if (runtime.TraversalEnabled) PrebuildCursorTopologies();
                 // Anchor mode prepares masks and computes queued tasks even without new commands.
-                if (RequiredOnlyMode && runtime.TraversalEnabled)
+                if (runtime.TraversalEnabled)
                 {
                     // Tick-based and from simulation state only, so every peer requests alike.
                     if (AnchorPlayerScanDue(tick)) RequestAnchorMasksForPlayers(ScanAnchorPlayers());
@@ -350,7 +342,7 @@ namespace MoatMove
                     ProbeCursorTopology();
                 }
                 if (fastCommands.Commands.Count == 0) return;
-                if (!RequiredOnlyMode || !runtime.TraversalEnabled)
+                if (!runtime.TraversalEnabled)
                 {
                     foreach (FastPendingCommand command in new List<FastPendingCommand>(fastCommands.Commands))
                         if (!fastCommands.HasPredecessor(command.Members, command.Sequence)) DispatchFastCommand(command);
@@ -359,7 +351,7 @@ namespace MoatMove
                 RefreshFastRouting(GetFastRouting(false));
                 int budget = 8192;
                 var active = new List<FastPendingCommand>();
-                int capacity = settings.NativeFast ? GetFastRouting(false).Pool.PendingGroupCapacity : 4;
+                const int capacity = 4;
                 foreach (FastPendingCommand command in fastCommands.Commands)
                 { active.Add(command); if (active.Count == capacity) break; }
                 int idle = 0;
@@ -437,7 +429,7 @@ namespace MoatMove
                 }
                 // A skipped original raises no Post; other threads (UI probes) keep Vanilla.
                 AnchorTaskSpec digger = null, ground = null; int[] memberIds = null;
-                if (!args.SkipOriginalFunction && Enabled && runtime.TraversalEnabled && RequiredOnlyMode &&
+                if (!args.SkipOriginalFunction && Enabled && runtime.TraversalEnabled &&
                     Environment.CurrentManagedThreadId == anchorSimThread)
                 {
                     long started = System.Diagnostics.Stopwatch.GetTimestamp();
@@ -585,14 +577,14 @@ namespace MoatMove
             {
                 foreach (var group in groups)
                 {
-                    NativeFastQueueSnapshot inheritedQueue = null;
-                    if (command.IsWaypoint && !TryCaptureFastNativeQueue(group.Key, command.Player, out inheritedQueue))
+                    NativeWaypointQueueSnapshot inheritedQueue = null;
+                    if (command.IsWaypoint && !TryCaptureNativeWaypointQueue(group.Key, command.Player, out inheritedQueue))
                     { fastCommandRetries++; return false; }
                     if (!TryBindFastDispatchGroup(command.Player, group.Key, group.Value, out int tribe))
                     { fastCommandRetries++; return false; }
                     if (command.IsWaypoint)
                     {
-                        if (tribe != group.Key) RestoreFastNativeQueue(tribe, inheritedQueue);
+                        if (tribe != group.Key) RestoreNativeWaypointQueue(tribe, inheritedQueue);
                         originalFastAppend(runtime.nativeTribeManager, tribe, (ushort)command.X, (ushort)command.Y, command.MoveFlags, (short)command.Patrol);
                     }
                     else originalFastPlayerMove((IntPtr)runtime.nativeUnitManager, tribe, command.X, command.Y, command.Patrol, command.MoveFlags);
@@ -691,13 +683,13 @@ namespace MoatMove
             return (bits & (1 << (unitId & 15))) != 0;
         }
 
-        private sealed class NativeFastQueueSnapshot
+        private sealed class NativeWaypointQueueSnapshot
         {
             internal short Mode, Index, Count, Timer;
             internal readonly ushort[] Coordinates = new ushort[20];
         }
 
-        private bool TryCaptureFastNativeQueue(int tribeId, int player, out NativeFastQueueSnapshot snapshot)
+        private bool TryCaptureNativeWaypointQueue(int tribeId, int player, out NativeWaypointQueueSnapshot snapshot)
         {
             snapshot = null;
             if (tribeId <= 0 || tribeId >= MaximumTribeCount ||
@@ -706,13 +698,13 @@ namespace MoatMove
             byte* record = (byte*)runtime.nativeTribeManager + tribeId * TribeRecordSize;
             short count = *(short*)(record + 0x5DE), index = *(short*)(record + 0x5DC);
             if (count < 0 || count > 10 || index < 0 || index >= 10) return false;
-            snapshot = new NativeFastQueueSnapshot { Count = count, Index = index,
+            snapshot = new NativeWaypointQueueSnapshot { Count = count, Index = index,
                 Mode = *(short*)(record + 0x582), Timer = *(short*)(record + 0x56) };
             for (int i = 0; i < count * 2; i++) snapshot.Coordinates[i] = *(ushort*)(record + 0x5B4 + i * 2);
             return true;
         }
 
-        private void RestoreFastNativeQueue(int tribeId, NativeFastQueueSnapshot snapshot)
+        private void RestoreNativeWaypointQueue(int tribeId, NativeWaypointQueueSnapshot snapshot)
         {
             // 11C3A0 writes exact coordinates/count/mode; 11A980 advances the
             // signed 16-bit index only after its 16-bit timer and arrival test.

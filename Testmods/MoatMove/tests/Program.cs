@@ -8,7 +8,6 @@ try
 // Compile actual runtime methods against an in-memory native-grid fixture. No game
 // assembly is produced or installed by this standalone regression runner.
 string root = Path.GetFullPath(args.Length == 0 ? "." : args[0]);
-if (args.Contains("--native-only")) { FastNativeBackendTests.Validate(root); return; }
 if (args.Contains("--redbird-only")) { InstalledRedBirdContract.Validate(); return; }
 string sourceDir = Path.Combine(root, "Testmods", "MoatMove", "src");
 string testDir = Path.Combine(root, "Testmods", "MoatMove", "tests");
@@ -92,7 +91,7 @@ string[] runtimeSourceNames =
     "AssassinSelectionAdapters.cs",
     "CursorConnectivity.cs", "CursorRegionGraph.cs", "DirectMoatCommandScopes.cs",
     "AnchorRouting.cs", "RouteReplanWatch.cs", "GroundFailureProofs.cs", "MoatFailureProofs.cs", "FastIntegration.cs", "DigWorkFallback.cs", "IFastRouteField.cs", "FastRouteField.cs", "FastCommandQueue.cs", "FastRoutePool.cs", "FastTraversalCache.cs",
-    "FastMoatRouting.cs", "FastMovementScheduler.cs", "FastGroupDistribution.cs", "FillWeightedRoutes.cs", "FriendlyMoatMovementPolicy.cs",
+    "FastMoatRouting.cs", "FastMovementScheduler.cs", "FastGroupDistribution.cs", "FillWeightedRoutes.cs",
     "FriendlyMoatMovementRuntime.cs",
     "MoatPlacement.cs", "MoatPlacementSearch.cs",
     "MoatSearchKernel.cs", "MovementOptionsSnapshot.cs",
@@ -273,9 +272,6 @@ var compilation = CSharpCompilation.Create("Assembly-CSharp", new[] {
     CSharpSyntaxTree.ParseText(RuntimeSource("WeightedGridSearchKernel.cs")),
     CSharpSyntaxTree.ParseText(RuntimeSource("MoatCandidateField.cs")),
     CSharpSyntaxTree.ParseText("namespace MoatMove {" + CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandContracts.cs"))).GetRoot().DescendantNodes().OfType<InterfaceDeclarationSyntax>().Single(n => n.Identifier.Text == "IMoatSearchKernel") + "}"),
-    CSharpSyntaxTree.ParseText(RuntimeSource("FastNativeKernel.cs")),
-    CSharpSyntaxTree.ParseText(RuntimeSource("FastNativeRouteField.cs")),
-    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "FastNativeFixtures.cs"))),
     CSharpSyntaxTree.ParseText(RuntimeSource("IFastRouteField.cs")),
     CSharpSyntaxTree.ParseText(RuntimeSource("FastRouteField.cs")),
     CSharpSyntaxTree.ParseText(RuntimeSource("FastCommandQueue.cs")),
@@ -323,7 +319,7 @@ var assembly = Assembly.Load(output.ToArray(), symbols.ToArray());
 try
 {
     assembly.GetType("MoatMove.RouteSearchEventIntegrationTests").GetMethod("Run").Invoke(null, null);
-    assembly.GetType("MoatMove.FriendlyMoatMovementRuntime").GetMethod(args.Contains("--runtime-native") ? "RunNativeTests" : "RunTests").Invoke(null, null);
+    assembly.GetType("MoatMove.FriendlyMoatMovementRuntime").GetMethod("RunTests").Invoke(null, null);
     assembly.GetType("MoatMove.SearchKernelTests").GetMethod("Run").Invoke(null, null);
     assembly.GetType("MoatMove.FastRouteFieldTests").GetMethod("Run").Invoke(null, null);
     assembly.GetType("MoatMove.FastStateTests").GetMethod("Run").Invoke(null, null);

@@ -48,15 +48,12 @@
     <Compile Include="src\DigWorkFallback.cs" />
     <Compile Include="src\FastRouteField.cs" />
     <Compile Include="src\IFastRouteField.cs" />
-    <Compile Include="src\FastNativeKernel.cs" />
-    <Compile Include="src\FastNativeRouteField.cs" />
     <Compile Include="src\FastCommandQueue.cs" />
     <Compile Include="src\FastRoutePool.cs" />
     <Compile Include="src\FastTraversalCache.cs" />
     <Compile Include="src\FastMoatRouting.cs" />
     <Compile Include="src\FastMovementScheduler.cs" />
     <Compile Include="src\FastGroupDistribution.cs" />
-    <Compile Include="src\FriendlyMoatMovementPolicy.cs" />
     <Compile Include="src\MoatSearchKernel.cs" />
     <Compile Include="src\MoatMovePlugin.cs" /><Compile Include="src\MoatMoveOptions.cs" />
     <Compile Include="..\..\Shared\Runtime\Diagnostics\DebugLogHelper.cs"><Link>Shared\Runtime\Diagnostics\DebugLogHelper.cs</Link></Compile>

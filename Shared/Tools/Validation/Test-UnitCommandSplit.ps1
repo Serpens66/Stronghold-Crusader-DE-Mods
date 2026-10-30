@@ -34,10 +34,9 @@ foreach ($relative in $projects) {
             if ($text -match '\b(?:CodePatch\.Write|VirtualProtect|FlushInstructionCache)\s*\(|\.Hook\.(?:Enable|Disable|Undo|Dispose)\s*\(') {
                 throw "Executable hook mutation in shared command runtime: $path"
             }
-            if ($text -match 'NativeMemoryManager\.WriteStub\s*\(' -and
-                ([IO.Path]::GetFileName($path) -ne 'FastNativeKernel.cs' -or
-                 [regex]::Matches($text, 'NativeMemoryManager\.WriteStub\s*\(').Count -ne 1)) {
-                throw "Unexpected executable publication outside private FastNative constructor: $path"
+            # The private FastNative kernel, the only executable publication here, was removed (2026-10-30).
+            if ($text -match 'NativeMemoryManager\.WriteStub\s*\(') {
+                throw "Unexpected executable publication in shared command runtime: $path"
             }
         }
         if (-not $SkipCommonChecks -and $text -match '(?<!\r)\n') { throw "Bare LF: $path" }

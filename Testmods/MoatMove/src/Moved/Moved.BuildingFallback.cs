@@ -131,8 +131,7 @@ namespace MoatMove
                 }
                 if (pending.Count != 0)
                 {
-                    if (runtime.RequiredOnlyMode &&
-                        !HasFastFriendlyMoatBridgeForCells(playerId, leaderStarts, targets) &&
+                    if (!HasFastFriendlyMoatBridgeForCells(playerId, leaderStarts, targets) &&
                         !HasFastFriendlyMoatBridgeForCells(playerId, otherStarts, targets))
                     {
                         return BuildingConsumerFallbackResult.Rejected(
@@ -149,7 +148,7 @@ namespace MoatMove
                     {
                         long fieldStarted = (DetailedDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0L);
                         int[] distances = ResolveMovementCandidates(field, leaderStarts, targets, normal, terminal, out int expanded);
-                        if (runtime.RequiredOnlyMode) RecordFastFieldSearch(field, fieldStarted);
+                        RecordFastFieldSearch(field, fieldStarted);
                         if (performance != null) { performance.ReachabilityMapsBuilt++; performance.SearchNodes += expanded; }
                         var remaining = work.Remaining; var remainingIndices = work.RemainingIndices;
                         for (int i=0;i<distances.Length;i++)
@@ -164,7 +163,7 @@ namespace MoatMove
                             foreach(var c in candidates) if(c.Score<VanillaUnreachableCandidateScore) supplementBase=Math.Max(supplementBase,c.Score);
                             fieldStarted = (DetailedDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0L);
                             distances = ResolveMovementCandidates(field, otherStarts, remaining, normal, terminal, out expanded);
-                            if (runtime.RequiredOnlyMode) RecordFastFieldSearch(field, fieldStarted);
+                            RecordFastFieldSearch(field, fieldStarted);
                             if (performance != null) { performance.ReachabilityMapsBuilt++; performance.SearchNodes += expanded; }
                             for (int i=0;i<distances.Length;i++) if (distances[i]>=0)
                             { var c=candidates[remainingIndices[i]]; c.Score=supplementBase+distances[i]+1; candidates[remainingIndices[i]]=c; }

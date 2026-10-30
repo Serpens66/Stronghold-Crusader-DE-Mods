@@ -338,8 +338,7 @@ namespace MoatMove
             { var p=GameTileManagerAPI.Instance.GetTileVectorFromId(tile); targets.Add(p.Y*MapWidth+p.X); }
             if(targets.Count!=0)
             {
-                if (runtime.RequiredOnlyMode &&
-                    !HasFastFriendlyMoatBridgeForCells(playerId, starts, targets))
+                if (!HasFastFriendlyMoatBridgeForCells(playerId, starts, targets))
                 {
                     return AttackRegionFallbackDecision.Reject(
                         "no-friendly-moat-bridge", observed);
@@ -353,7 +352,7 @@ namespace MoatMove
                         (int f,int t,int d,out bool m,out bool st)=>BuildingCandidateEdge(playerId,f,t,d,false,false,out m,out st),
                         (int f,int t,int d,out bool m,out bool st)=>BuildingCandidateEdge(playerId,f,t,d,true,true,out m,out st),
                         out int expanded);
-                    if (runtime.RequiredOnlyMode) RecordFastFieldSearch(field, fieldStarted);
+                    RecordFastFieldSearch(field, fieldStarted);
                     if(activeBuildingApproachPerformance!=null)
                     { activeBuildingApproachPerformance.ReachabilityMapsBuilt++; activeBuildingApproachPerformance.SharedNodes+=expanded; }
                     for(int i=0;i<distances.Length;i++) if(distances[i]>=0)

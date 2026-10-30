@@ -1495,3 +1495,165 @@ No pattern fallback: the replica is bound to the two audited bodies. A different
 `exactFloodMembership` false and the hook calls Vanilla's original as before. On a new DLL repeat the audit of both
 bodies and of `0x11B520`'s retry loop, update the hashes, and run the replica test in MoatMove's harness
 (`FloodMembershipExactTests`) plus a DEVDIAG run (`uc.flood.exactMismatch` must stay absent).
+
+## Shared command runtime: address inventory and recovery contract (moved from MoatMove, 2026-10-30)
+
+Feature owner: BugfixesAndQoL's shared command runtime (`src/UnitCommands`). MoatMove registers only as its
+traversal provider and owns none of these entries. Reference SHA-256
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`. Until 2026-10-30 this inventory was kept in
+MoatMove's `UpdateToNewDLL.md` with references to MoatMove's former copy of the runtime; the source locations below
+are the current ones (`NativeDetourContracts.cs` remains the function-prefix catalog, see "Command engine ownership").
+
+### Resolution, signatures and failure contracts
+
+- Named function targets use their `*Pattern` constant and `UnitCommandPathRuntime.Resolve`. On the reference hash the
+  bytes at the reference RVA are used first; otherwise `Shared.NativePatternResolver` searches executable PE sections
+  for one match. `Resolve` additionally requires the resolved RVA to equal the reference.
+- The group movement helper at `0x117C70` has a three-match fallback pattern; a fallback attempt fails closed.
+- Observer entries use inline exact byte strings plus an executable-section uniqueness check; a changed entry fails
+  before installation. Reconstruction at `0xE32B0` validates all 56 bytes including its call to `0xE1640`; its detour
+  target is the function entry, not that call site.
+- Call-site entries validate complete five-byte `E8` instructions and signed relative targets. Cursor gate and consumer
+  entries are validated read contexts, not global patches.
+- Fixed data/table RVAs, manager prefixes and unit/tribe/moat/path-buffer offsets have no semantic relocation fallback;
+  a code pattern does not prove these layouts. Keep the dependent features hash-gated on an update.
+- Initialization failure logs an error and rolls back only an unpublished candidate; optional cursor/attack/work groups
+  fail independently and can leave ordinary movement installed. Inspect every group in a test.
+
+### Pre-builder recovery inline hook (`src/UnitCommands/Movement/NativeMovementRecovery.cs`)
+
+The only inline hook of this group is `[0x19664B, 0x196659)`, exactly 14 bytes: `33 C0 8B D6 48 89 05 8E 70 F1 05 49 8B CF`
+(`xor eax,eax; mov edx,esi; mov [RIP+...],rax; mov rcx,r15`). RedBird's installed implementation decodes at least
+max(requested length, 14) whole bytes; the decode-only installed-assembly test confirms `DisplacedByteCount = 14`.
+
+RSP is aligned at the site. RSI/RDI/RBP/R12-R15 stay live and ABI-preserved; volatile GPRs and flags are dead on both
+audited continuations, and the containing function has no XMM operands. The adapter reserves 0x30 bytes, reads the
+original start coordinates at the adjusted RSP+0xA0/+0xA8 before writing the argument slots at RSP+0x20/+0x28, and
+passes manager R15 and the 1-based unit ID ESI. A positive callback branches to the original buffer initialization at
+`0x196585`; otherwise all displaced instructions are replayed and RedBird returns to `0x196659`. The emitted 73-byte
+body is decoded and checked in MoatMove's harness ("actual recovery emitter assembled and decoded"), including its
+RIP-relative store. Local branches and the hash-matched baseline cross-references show no entry into the span's
+interior. Recheck instruction, branch and ABI contracts on any native or RedBird update.
+
+### Address inventory
+
+Names follow the source constants; they are not an independent proof of native parameter semantics.
+
+| Source symbol / derivation | Reference RVA | Current source |
+| --- | --- | --- |
+| CentralMovementPlanRva | `0x18E1E0` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:35 |
+| TribeFloodFillMembershipRva | `0x124740` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:36 |
+| FirstGroupUnitOnCompletedMoatRva | `0x117BC0` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:37 |
+| GetGroupUnitIdRva | `0x119F90` | BugfixesAndQoL/src/Formations/FormationRuntime.State.cs:40, BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:38 |
+| GetTribeMovementModeRva | `0x117C70` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:39 |
+| OrdinaryMovementGroupModeCallRva | `0x11B736` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:40 |
+| GroupMoatModeCallRva | `0x11B666` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:41 |
+| UnitStandingOnCompletedMoatRva | `0x196840` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:42 |
+| RegionReachabilityRva | `0xE7C40` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:43 |
+| CursorReachabilityRva | `0xE9FF0` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:44 |
+| CursorTilePairFallbackSelectionRva | `0x196870` | Entry owned by the Script Extender; its six call sites are adapted in BugfixesAndQoL/src/UnitCommands/Integration/AssassinSelectionAdapters.cs (see "preserve native ground cursor permission") |
+| SelectionCanDigMoatRva | `0x191C00` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:45 |
+| SelectionCanDigMoatCallRva | `0x8D3CE` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:46 |
+| CursorTilePairReachabilityRva | `0xE2CA0` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:47 |
+| GetRepresentativeSelectedUnitRva | `0x18D460` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:48 |
+| CursorRegionPrecheckRva | `0xE9D90` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:49 |
+| PathBuilderRva | `0xF4930` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:50 |
+| GroundPathBuilderRva | `0xDA590` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:51 |
+| AlternativePathBuilderRva | `0xDB650` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:52 |
+| GetMoatIdAtTileRva | `0x69560` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:53 |
+| AttackApproachFloodBuilderRva | `0xDBC60` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:54 |
+| BuildingApproachBuilderRva | `0xDA020` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:55 |
+| BuildingCandidateConsumerRva | `0x123090` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:56 |
+| RegionPairReachabilityRva | `0xE2610` | BugfixesAndQoL/src/AIPreplacedBuildingFixRuntime.cs:89, BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:57 |
+| AttackApproachFloodCallRva | `0x11EE47` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:58 |
+| AttackApproachFloodAlternativeCallRva | `0x11F46B` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:59 |
+| BuildingApproachCallRva | `0x11FF9A` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:60 |
+| BuildingCandidateConsumerCallRva | `0x11FFA7` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:61 |
+| BuildingCandidateConsumerAlternativeCallRva | `0x1206DF` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:62 |
+| BuildingCandidateConsumerForceCallRva | `0x120CCD` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:63 |
+| AttackFloodRegionPairCallRva | `0xDBF0D` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:64 |
+| AttackFloodTilePairCallRva | `0xDBF33` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:65 |
+| BuildingApproachRegionPairCallRva | `0xDA1F9` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:66 |
+| BuildingApproachTilePairCallRva | `0xDA232` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:67 |
+| BuildingApproachAlternativeRegionPairCallRva | `0xDA47C` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:68 |
+| BuildingApproachAlternativeTilePairCallRva | `0xDA4B1` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:69 |
+| OrdinaryMovementLadderPrecheckCallRva | `0x11B768` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:70 |
+| OrdinaryMovementLadderReachabilityCallRva | `0x11B785` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:71 |
+| BuildingConsumerFallbackBuilderCallRva | `0x123102` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:72 |
+| BuildingConsumerGroundBuilderCallRva | `0x12312C` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:73 |
+| BuildingCursorReachabilityRva | `0xB70C0` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:74 |
+| BuildingCursorReachabilityCallRva | `0x8DFF6` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:75 |
+| CombatFinishResumeRva | `0x1853F0` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:76 |
+| CombatFinishPostCombatCallRva | `0x18540D` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:77 |
+| PostCombatRepathRva | `0x1976C0` | BugfixesAndQoL/src/AssassinCombatResumeNativeDefinition.cs:27, BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:78 |
+| PostCombatMoveHereCallRva | `0x19772B` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:79 |
+| CursorMoveStagerRva | `0x195E30` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:80 |
+| NativeSpecialStructurePredicateRva | `0x107160` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:81 |
+| NativeSpecialStructureContextRva | `0x32DE440` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:82 |
+| NativeBuildingTypeBiasRva | `0x64CCCDE` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:83 |
+| CursorMoveStagerRegionPairCallRva | `0x195F46` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:84 |
+| Inline expression / observer / address array | `0x8F7BA` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:86 |
+| Inline expression / observer / address array | `0x8FD3C` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:86 |
+| Inline expression / observer / address array | `0x8FDC6` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:86 |
+| Inline expression / observer / address array | `0x8FE54` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:86 |
+| Inline expression / observer / address array | `0xE7F60` | BugfixesAndQoL/src/UnitCommands/Native/NativeDetourContracts.cs:76, BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:87 |
+| DirectFillApproachRva | `0xE7F60` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:87 |
+| DirectFillApproachRegionPairCallRva | `0xE81EB` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:88 |
+| DirectFillApproachCommandCallRva | `0x120E9D` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:89 |
+| MovementTerrainPhaseRva | `0x19B506` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:90 |
+| MovementCadenceRva | `0x184203` | BugfixesAndQoL/src/TroopMovementFix3SynchronizedMovementCadencePatch.cs:125, BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:91 |
+| MovementSubstepRva | `0x1855A0` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:92 |
+| MovementAdditionalSubstepsRva | `0x1857AA` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:93 |
+| MoatPathConsumptionReadRva | `0x185934` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:94 |
+| MoatPathConsumptionPersistRva | `0x19670C` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:95 |
+| CursorCurrentTileFlagGateRva | `0x8F388` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:96 |
+| CursorCurrentTileFlagGateJumpRva | `0x8F393` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:97 |
+| AttackUnitPairGateJumpRva | `0x8D72B` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:98 |
+| AttackBuildingPairGateJumpRva | `0x8E2C6` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:99 |
+| AttackAlternativePairGateJumpRva | `0x8E557` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:100 |
+| TileFlagsRva | `0x48F71B0` | BugfixesAndQoL/src/AssassinPathfindingRuntime.cs:36, BugfixesAndQoL/src/Formations/Markers/LargeMoveTargetMarkerRenderer.cs:35, BugfixesAndQoL/src/MountedStockpileMovementPatch.cs:59 |
+| MovementTargetAvailabilityRva | `0x3A11EA4` | BugfixesAndQoL/src/Formations/FormationRuntime.State.cs:43, BugfixesAndQoL/src/MountedStockpileMovementPatch.cs:56, BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:102 |
+| NativeMovementMaskRva | `0x51890D0` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:103 |
+| RowLookupRva | `0x402FF2C` | BugfixesAndQoL/src/AssassinPathfindingRuntime.cs:35, BugfixesAndQoL/src/MountedStockpileMovementPatch.cs:58, BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:104 |
+| NativeBuildingLayerRva | `0x4B6AA50` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:105 |
+| NativeHeightLayerRva | `0x4DDD350` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:106 |
+| NativeDirectionMaskRva | `0x312620` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:107 |
+| CursorTargetXRva | `0x3A11E2C` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:108 |
+| CursorTargetYRva | `0x3A11E30` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:109 |
+| PathRegionGridRva | `0x50EC690` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:110 |
+| MoatPathModeRva | `0x60AD6E4` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:111 |
+| NativePathManagerRva | `0x60AD660` | BugfixesAndQoL/src/AIBuildingTemporaryAccessClassifier.cs:48, BugfixesAndQoL/src/Formations/FormationRuntime.State.cs:41, BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:112 |
+| NativeUnitManagerRva | `0x67E8400` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:113 |
+| NativeTribeManagerRva | `0x7CC6720` | BugfixesAndQoL/src/Formations/FormationRuntime.State.cs:42, BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:114 |
+| Inline expression / observer / address array | `0xDB29A` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:117 |
+| Inline expression / observer / address array | `0xDB2EC` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:117 |
+| Inline expression / observer / address array | `0xDB37A` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:117 |
+| Inline expression / observer / address array | `0xE1856` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:119 |
+| Inline expression / observer / address array | `0xE18DF` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:119 |
+| Inline expression / observer / address array | `0xE195B` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:119 |
+| Module-relative expression | `0xE32B0` | BugfixesAndQoL/src/UnitCommands/Native/NativeDetourContracts.cs:70, BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.Initialization.cs:461, BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.Initialization.cs:462 |
+| Module-relative expression | `0x51D75F0` | BugfixesAndQoL/src/UnitCommands/Moat/MoatPlacement.cs:96 |
+| Module-relative expression | `0x9302C4` | BugfixesAndQoL/src/Formations/FormationSpeechNative.cs:18, BugfixesAndQoL/src/GateRouting/DiagnosticCallbackAdapterEmitter.DevDiag.cs:28, BugfixesAndQoL/src/GateRouting/NativeAssassinMovementDiagnostics.DevDiag.cs:77 |
+| Inline expression / observer / address array | `0x118E00` | BugfixesAndQoL/src/Formations/FormationRuntime.State.cs:38, BugfixesAndQoL/src/UnitCommands/Moat/MoatPlacement.cs:101, BugfixesAndQoL/src/UnitCommands/Moat/MoatPlacement.cs:120 |
+| Inline expression / observer / address array | `0x181890` | BugfixesAndQoL/src/UnitCommands/Moat/MoatPlacement.cs:104, BugfixesAndQoL/src/UnitCommands/Moat/MoatPlacement.cs:120, BugfixesAndQoL/src/UnitCommands/Native/NativeDetourContracts.cs:120 |
+| Inline expression / observer / address array | `0xF03C0` | BugfixesAndQoL/src/UnitCommands/Moat/MoatPlacement.cs:107, BugfixesAndQoL/src/UnitCommands/Moat/MoatPlacement.cs:120, BugfixesAndQoL/src/UnitCommands/Native/NativeDetourContracts.cs:80 |
+| FindMoatWorkTargetRva | `0x69D60` | BugfixesAndQoL/src/UnitCommands/Moat/UnitCommandPathRuntime.WorkTargetState.cs:14 |
+| ResolveMoatWorkTileRva | `0x6AF60` | BugfixesAndQoL/src/UnitCommands/Moat/UnitCommandPathRuntime.WorkTargetState.cs:15 |
+| HasFillMoatApproachRva | `0x6C490` | BugfixesAndQoL/src/UnitCommands/Moat/UnitCommandPathRuntime.WorkTargetState.cs:16 |
+| FillApproachCallRva | `0x69EE6` | BugfixesAndQoL/src/UnitCommands/Moat/UnitCommandPathRuntime.WorkTargetState.cs:17 |
+| DigStandingOnMoatCallRva | `0x69F91` | BugfixesAndQoL/src/UnitCommands/Moat/UnitCommandPathRuntime.WorkTargetState.cs:18 |
+| DigRegionSearchCallRva | `0x69FE3` | BugfixesAndQoL/src/UnitCommands/Moat/UnitCommandPathRuntime.WorkTargetState.cs:19 |
+| DigRegionPairCallRva | `0x6A014` | BugfixesAndQoL/src/UnitCommands/Moat/UnitCommandPathRuntime.WorkTargetState.cs:20 |
+| DigAlternativeRegionPairCallRva | `0x6A0C2` | BugfixesAndQoL/src/UnitCommands/Moat/UnitCommandPathRuntime.WorkTargetState.cs:21 |
+| MovementPlannerLowFlagGateRva | `0x196464` | BugfixesAndQoL/src/UnitCommands/Moat/UnitCommandPathRuntime.WorkTargetState.cs:22 |
+| MovementPlannerStructureFlagGateRva | `0x19648D` | BugfixesAndQoL/src/UnitCommands/Moat/UnitCommandPathRuntime.WorkTargetState.cs:23 |
+| Inline expression / observer / address array | `0xE1D30` | BugfixesAndQoL/src/Formations/FormationRuntime.State.cs:36, BugfixesAndQoL/src/UnitCommands/Formation/NativeFormationSlots.cs:41, BugfixesAndQoL/src/UnitCommands/Moat/MoatPlacement.cs:120 |
+| Inline expression / observer / address array | `0xE0970` | BugfixesAndQoL/src/Formations/FormationRuntime.State.cs:37, BugfixesAndQoL/src/UnitCommands/Formation/NativeFormationSlots.cs:47, BugfixesAndQoL/src/UnitCommands/Moat/MoatPlacement.cs:120 |
+| UnitTypeUpdateDispatchRva | `0x18410C` | BugfixesAndQoL/src/TroopMovementFix3SynchronizedMovementCadencePatch.cs:124, BugfixesAndQoL/src/UnitCommands/Movement/NativeMovementCadenceResolver.cs:18 |
+| Module-relative expression | `0x64CCED2` | BugfixesAndQoL/src/UnitCommands/Movement/NativeMovementRecovery.cs:52 |
+| Inline expression / observer / address array | `0xD90D0` | BugfixesAndQoL/src/UnitCommands/Movement/NativeMovementRecovery.cs:55, BugfixesAndQoL/src/UnitCommands/Native/NativeDetourContracts.cs:44 |
+| Inline expression / observer / address array | `0x59210` | BugfixesAndQoL/src/MoatTerrain/NativeDefinition.cs:32, BugfixesAndQoL/src/UnitCommands/Movement/NativeMovementRecovery.cs:61, BugfixesAndQoL/src/UnitCommands/Native/NativeDetourContracts.cs:24 |
+| Inline expression / observer / address array | `0x61E70` | BugfixesAndQoL/src/UnitCommands/Movement/NativeMovementRecovery.cs:73, BugfixesAndQoL/src/UnitCommands/Native/NativeDetourContracts.cs:25 |
+| Inline expression / observer / address array | `0xDAA50` | BugfixesAndQoL/src/UnitCommands/Movement/NativeMovementRecovery.cs:80, BugfixesAndQoL/src/UnitCommands/Movement/TraversalProvider.cs:67, BugfixesAndQoL/src/UnitCommands/Native/NativeDetourContracts.cs:48 |
+| failureRva | `0x19664B` | BugfixesAndQoL/src/UnitCommands/Movement/NativeMovementRecovery.cs:90 |
+| Module-relative expression | `0x196585` | BugfixesAndQoL/src/UnitCommands/Movement/NativeMovementRecovery.cs:163, BugfixesAndQoL/src/UnitCommands/Movement/NativeMovementRecovery.cs:93 |

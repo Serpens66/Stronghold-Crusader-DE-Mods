@@ -152,7 +152,7 @@ namespace MoatMove
             {
                 int d = (path[i >> 1] >> ((i & 1) << 2)) & 15;
                 if (d > 7) { replanUnreadable++; return -1; }
-                x += FastNativeRouteField.Dx[d]; y += FastNativeRouteField.Dy[d];
+                x += FastRouteField.Dx[d]; y += FastRouteField.Dy[d];
                 if ((uint)x >= MapWidth || (uint)y >= MapWidth) { replanUnreadable++; return -1; }
                 int n = y * MapWidth + x;
                 if ((replanTiles[n >> 6] & (1UL << (n & 63))) != 0) { node = n; return i - cursor + 1; }
@@ -172,7 +172,7 @@ namespace MoatMove
             {
                 int d = (path[i >> 1] >> ((i & 1) << 2)) & 15;
                 if (d > 7) { replanCursorMismatches++; return; }
-                x += FastNativeRouteField.Dx[d]; y += FastNativeRouteField.Dy[d];
+                x += FastRouteField.Dx[d]; y += FastRouteField.Dy[d];
             }
             if (x == unit->r_TargetTilePositionX2 && y == unit->r_TargetTilePositionY2) replanCursorMatches++;
             else replanCursorMismatches++;
@@ -283,7 +283,7 @@ namespace MoatMove
             int x = wait.StopX, y = wait.StopY;
             for (int i = 0; i < result.Length; i++)
             {
-                x += FastNativeRouteField.Dx[replanRoute[i]]; y += FastNativeRouteField.Dy[replanRoute[i]];
+                x += FastRouteField.Dx[replanRoute[i]]; y += FastRouteField.Dy[replanRoute[i]];
                 int n = y * MapWidth + x;
                 if ((replanTiles[n >> 6] & (1UL << (n & 63))) != 0) return false;
             }
