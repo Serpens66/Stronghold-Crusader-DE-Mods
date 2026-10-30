@@ -2,6 +2,8 @@
 
 Stand der Quellenprüfung: **27.10.2026**. Status: **Konzept und statische Befunde; kein Hilfsmod implementiert, keine neue Ingame-Abnahme und keine Performance-Messung durchgeführt.**
 
+**Fortsetzung vom 30.10.2026:** Der nachfolgende Entwurf bleibt als damaliger Konzeptstand erhalten. Die erste Implementierung liegt jetzt unter [Testmods/DesyncTest](Testmods/DesyncTest/USAGE.md), mit Light/Deep, begrenztem Writer und Offline-Auswertung; reale Multiplayer-/Performance-Abnahme steht weiter aus. Sie wurde nicht ins Spiel installiert. Der [ergänzende native Audit](_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/DESYNC_CAPTURE.md) präzisiert die Feldbasis: Ein nativer Übertragungsrecord beginnt vier Byte vor der Extender-GameUnit-Sicht. Strukturrelative Offsets in älteren Analysen sind deshalb nicht unverändert auf Rohaufnahmen anzuwenden. Weitere Reparaturlayouts und optionale Modzustandsanbieter sind noch nicht Bestandteil dieser Fassung.
+
 ## 1. Ziel und Aussagegrenzen
 
 Ein dauerhafter Hilfsmod soll Desyncs und Resyncs möglichst aussagekräftig dokumentieren, ohne selbst Spielzustand oder Netzwerkablauf zu verändern. Dieselbe Modfassung bietet zwei aktive Diagnose-Stufen: **Light** für den normalen Spielbetrieb und **Deep** für gezielte Untersuchungen. Der Standard ist Light; Off deaktiviert die Aufzeichnung logisch.

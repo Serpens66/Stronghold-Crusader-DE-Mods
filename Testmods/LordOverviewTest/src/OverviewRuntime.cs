@@ -31,7 +31,8 @@ namespace LordOverviewTest {
   private static Style buttonStyle,tipStyle;
   private static string signature="";
   private static string headerLayout="";
-  private static int errors;
+  private static int errors,informationGeneration;
+  private static readonly UiRefreshQueue requestedRefresh=new UiRefreshQueue(CurrentUiContext,Post,Refresh);
   private static string Text(string key)=>SerpLocalization.Get(key);
   internal static void Start(ManualLogSource logger,OverviewSettings preferences) {
    if(Interlocked.Exchange(ref started,1)!=0)return;log=logger;settings=preferences;
@@ -44,13 +45,13 @@ namespace LordOverviewTest {
     if(!client.TryGetMissionLifecycle(out var lifecycle,out var reason)){Error(new Exception(reason.Reason));return;}
     if(!lifecycle.TryRegisterObserver("overview",n=>{
      long id=n.Context.SessionId;Interlocked.Exchange(ref session,id);
-     Post(()=>{if(id!=Interlocked.Read(ref session))return;Close();menuState.Reset();mode=n.Context.Mode;selection.Load(settings.DisplayColumns);state=new OverviewState();rows.Clear();registration?.RequestContentRefresh();registration?.SetVisible(settings.EnableMod);Message("SESSION_START");});
-    },n=>{Interlocked.Exchange(ref session,0);Post(()=>{if(Interlocked.Read(ref session)!=0)return;Close();Detach();mode=null;rows.Clear();registration?.SetVisible(false);settings.FlushLocalColumns();});},null,out reason)){Error(new Exception(reason.Reason));return;}
+     Post(()=>{if(id!=Interlocked.Read(ref session))return;Close();menuState.Reset();settingsPosition.Reset();mode=n.Context.Mode;selection.Load(settings.DisplayColumns);state=new OverviewState();rows.Clear();registration?.RequestContentRefresh();registration?.SetVisible(settings.EnableMod);Message("SESSION_START");});
+    },n=>{Interlocked.Exchange(ref session,0);Post(()=>{if(Interlocked.Read(ref session)!=0)return;Close();Detach();mode=null;rows.Clear();registration?.SetVisible(false);settings.FlushLocalPreferences();});},null,out reason)){Error(new Exception(reason.Reason));return;}
     if(!client.TryGetHudExtrasButtons(out var buttons,out reason)){Error(new Exception(reason.Reason));return;}
-    var definition=new HudExtrasButtonDefinition("overview",new Command(Toggle),Text("Title"),context=>{
+    var definition=new HudExtrasButtonDefinition("overview",new Command(Toggle),CrownTooltip,context=>{
      Attach(context.Hud);
-     return OverviewAppearance.CreateButton(context.Hud);
-    },tooltipFactory:context=>CreateTip(Text("Title"),context.Hud));
+     var button=OverviewAppearance.CreateButton(context.Hud);BindCrownButton(button);return button;
+    },tooltipFactory:context=>CreateTip(CrownTooltip,context.Hud));
     if(!buttons.TryRegisterButton(definition,out registration,out reason)){Error(new Exception(reason.Reason));return;}
     registration.SetVisible(Interlocked.Read(ref session)>0 && settings.EnableMod);
     GameTimeManagerAPI.Instance.OnTick+=OnTick;
@@ -84,9 +85,10 @@ namespace LordOverviewTest {
     <Setter Property='Background' Value='#FF1D1710'/><Setter Property='Foreground' Value='White'/><Setter Property='BorderBrush' Value='#FFF2D48A'/>
     <Setter Property='Template'><Setter.Value><ControlTemplate TargetType='{x:Type ToolTip}'><Border Background='{TemplateBinding Background}' BorderBrush='{TemplateBinding BorderBrush}' BorderThickness='{TemplateBinding BorderThickness}' Padding='{TemplateBinding Padding}'><TextBlock Text='{TemplateBinding Content}' FontSize='{TemplateBinding FontSize}' Foreground='{TemplateBinding Foreground}' MaxWidth='{TemplateBinding MaxWidth}' TextWrapping='Wrap'/></Border></ControlTemplate></Setter.Value></Setter>
    </Style>") as Style;
-   AttachColumnsPopup();
+   AttachSettingsMenu();
+
   }
-  private static void OnPanelVisibility(object sender,DependencyPropertyChangedEventArgs e){bool visible=panel?.IsVisible==true;Volatile.Write(ref shown,visible?1:0);if(!visible){CancelHeaderGesture();CloseColumnsPopup();ClosePassiveHover();}}
+  private static void OnPanelVisibility(object sender,DependencyPropertyChangedEventArgs e){bool visible=panel?.IsVisible==true;int previous=Interlocked.Exchange(ref shown,visible?1:0);if(!visible){if(previous!=0)Interlocked.Increment(ref generation);CancelHeaderGesture();CloseSettingsMenu();ClosePassiveHover();}}
   private static void OnChanged(object sender,PropertyChangedEventArgs args) {
    if(args.PropertyName==nameof(MainViewModel.Show_HUD_Goods) && main.Show_HUD_Goods || args.PropertyName==nameof(MainViewModel.Show_HUD_Objectives) && main.Show_HUD_Objectives)Close();
    if(args.PropertyName==nameof(MainViewModel.Show_HUD_Extras) && !main.Show_HUD_Extras || args.PropertyName==nameof(MainViewModel.Show_InGameUI) && !main.Show_InGameUI)Close();
@@ -94,12 +96,16 @@ namespace LordOverviewTest {
   private static void Toggle() {
    if(Interlocked.Read(ref session)<=0 || !settings.EnableMod || panel==null || !panel.IsLoaded || !main.Show_InGameUI)return;
    if(Volatile.Read(ref shown)!=0){Close();return;}
+   OpenOverview();
+  }
+  private static void OpenOverview(){
+   if(Interlocked.Read(ref session)<=0 || !settings.EnableMod || panel==null || !panel.IsLoaded || main?.Show_InGameUI!=true)return;
    main.SetGoodsPopupState(false);main.SetObjectivePopupState(false);
    panel.Visibility=Visibility.Visible;Volatile.Write(ref shown,1);hoverFaulted=false;MarkHoverGeometryDirty();signature="";Refresh();
   }
-  private static void Close(){CancelHeaderGesture();CloseColumnsPopup();ClosePassiveHover();Interlocked.Increment(ref generation);Volatile.Write(ref shown,0);if(panel!=null){CloseTips(panel);panel.Visibility=Visibility.Collapsed;}}
+  private static void Close(){CancelCrownPress();CancelHeaderGesture();CloseSettingsMenu();ClosePassiveHover();Interlocked.Increment(ref generation);Volatile.Write(ref shown,0);if(panel!=null){CloseTips(panel);panel.Visibility=Visibility.Collapsed;}}
   private static void CloseTips(DependencyObject root){if(ToolTipService.GetToolTip(root) is ToolTip tip)tip.IsOpen=false;for(int i=0;i<VisualTreeHelper.GetChildrenCount(root);i++)CloseTips(VisualTreeHelper.GetChild(root,i));}
-  private static void Detach(){Close();DetachColumnsPopup();ResetTable();
+  private static void Detach(){Close();DetachCrownButton();DetachSettingsMenu();ResetTable();ClearHoverTargets();requestedRefresh.Cancel();
    if(main!=null)main.PropertyChanged-=OnChanged;
    if(parent!=null)parent.SizeChanged-=OnViewportSizeChanged;
    if(panel!=null)panel.IsVisibleChanged-=OnPanelVisibility;
@@ -107,16 +113,19 @@ namespace LordOverviewTest {
    panel=null;overlay=null;parent=null;sourceHost=null;main=null;signature="";
   }
 
+  private static UiActionContext CurrentUiContext()=>new UiActionContext(Interlocked.Read(ref session),Volatile.Read(ref generation),editEpoch,panel,panel?.IsVisible==true,settings.EnableMod,Editing);
+  private static void RequestRefresh()=>requestedRefresh.Request();
+
   private static void Refresh() {
    if(panel==null || !panel.IsLoaded || !panel.IsVisible || GameData.Instance?.lastGameState==null)return;
-   rows=OverviewData.Capture(selection.Columns,settings,mode);
-   long expected=Interlocked.Read(ref session);ReadExtensions(expected);if(expected<=0 || expected!=Interlocked.Read(ref session) || panel?.IsVisible!=true)return;
-   long id=Interlocked.Read(ref session);if(lastSampleSession!=id){lastSampleSession=id;Message("FIRST_SAMPLE session="+id+" players="+rows.Count);}
-   Render();
+   UiSamples.TryRead(CurrentUiContext,()=>Volatile.Read(ref informationGeneration),()=>OverviewData.Capture(selection.Columns,settings,mode),ReadExtensions,sample=>{
+    rows=sample;long id=Interlocked.Read(ref session);if(lastSampleSession!=id){lastSampleSession=id;Message("FIRST_SAMPLE session="+id+" players="+rows.Count);}
+    Render();
+   });
   }
   private static Noesis.Color ResolvePlayerColor(int player) {
    var mapping=SpriteMapping.remapColours;
-   int index=mapping!=null && player>0 && player<mapping.Length?mapping[player]:0;
+   int index=OverviewLayout.ColorIndex(player,SpriteMapping.RemapMPLoadedColour,mapping);
    if(mapping==null || index<=0 || index>=mapping.Length || spriteLoader.instance==null)return Noesis.Color.FromRgb(255,255,255);
    UnityEngine.Color color;
    spriteLoader.instance.GetGMMaterial(global::Enums.GM.GM_BODY_ARCHER,index,0,out color,0);

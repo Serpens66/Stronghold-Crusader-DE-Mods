@@ -81,7 +81,7 @@ namespace Spectator
 
         private static void AfterSetupNewBuildScreen(HUD_Main __instance)
         {
-            // Editor pages use Vanilla's visibility updates, but need the same raster refit.
+            // Page changes also change ownership of the spectator tool surface.
             if (ReferenceEquals(__instance, humanBoundHud)) toolbarLayoutDirty = true;
             if (!IsPlacementSession() || IsEditorToolsSession()) return;
             try { RefreshBuildIcons(__instance, CurrentAiOwner(), "tab"); }

@@ -60,6 +60,8 @@ Only Vanilla behavior; Script Extender names appear only as vocabulary.
 
 ## Vanilla audits with mod integration
 
+- [Desync capture and native unit wire-record prefix](./sem/FBCB9319/knowledge/DESYNC_CAPTURE.md): independently decoded four-byte wire/typed-view distinction, exact signed-byte checksum inputs, disabled native timeout logger and local-immediate dispatch boundary; fixture evidence with real multiplayer acceptance pending.
+
 Vanilla audits that also contain mod-specific parts; see the `[mod integration]` headings and `document-scopes.json`.
 
 - [Lord home relocation](./sem/FBCB9319/knowledge/LORD_HOME_TELEPORT.md): failed return paths, building-attack target-loss trigger and deliberately preserved invalid-component rescue, now integrated into BugfixesAndQoL with a default-enabled host option; human return-path suppression confirmed by four real blocked calls in singleplayer, other gameplay/MP cases pending.

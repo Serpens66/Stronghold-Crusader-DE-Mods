@@ -75,6 +75,12 @@ try {
     foreach ($name in @('SelectionStart','SelectionLength')) {
         if (-not @($noesis.MainModule.GetType('Noesis.TextBox').Properties | Where-Object { $_.Name -eq $name -and $_.GetMethod.IsPublic -and $_.SetMethod.IsPublic }).Count) { throw "Missing public selection property: $name" }
     }
+    foreach ($name in @('Stroke','StrokeThickness','LineHeight','LineStackingStrategy')) {
+        if (-not @($noesis.MainModule.GetType('Noesis.TextBlock').Properties | Where-Object { $_.Name -eq $name -and $_.GetMethod.IsPublic -and $_.SetMethod.IsPublic }).Count) { throw "Missing public glyph property: $name" }
+    }
+    foreach ($name in @('GetZIndex','SetZIndex')) {
+        if (-not @($noesis.MainModule.GetType('Noesis.Panel').Methods | Where-Object { $_.Name -eq $name -and $_.IsPublic -and $_.IsStatic }).Count) { throw "Missing public stacking member: $name" }
+    }
     $binding = $noesis.MainModule.GetType('Noesis.Binding')
     if (-not @($binding.Properties | Where-Object { $_.Name -eq 'Source' -and $_.GetMethod.IsPublic -and $_.SetMethod.IsPublic }).Count -or
         -not @($binding.Methods | Where-Object { $_.IsConstructor -and $_.IsPublic -and $_.Parameters.Count -eq 1 -and $_.Parameters[0].ParameterType.FullName -eq 'System.String' }).Count) { throw 'Missing public explicit-source Binding contract.' }

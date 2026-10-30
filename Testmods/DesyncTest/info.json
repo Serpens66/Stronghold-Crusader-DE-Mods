@@ -1,0 +1,16 @@
+{
+  "GUID": "DesyncTest_Serp",
+  "Author": "Serpens66",
+  "Name": "DesyncTest",
+  "Description": "Passive Light/Deep desync capture; runtime acceptance pending.",
+  "Version": "0.1.0",
+  "MinimumScriptExtenderVersion": "2.14.3",
+  "Dependencies": [
+    {
+      "GUID": "APIShared_Serp",
+      "MinimumVersion": "0.16.3"
+    }
+  ],
+  "Manifest": 1,
+  "NetworkMode": 0
+}

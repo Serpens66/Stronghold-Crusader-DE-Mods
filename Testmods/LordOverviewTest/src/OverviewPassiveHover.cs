@@ -35,8 +35,10 @@ namespace LordOverviewTest {
    var local=element.PointFromScreen(point);return local.X>=0 && local.Y>=0 && local.X<element.ActualWidth && local.Y<element.ActualHeight;
   }
   private static bool OverHeader(Point screen){
-   if(!Editing || tableHeader==null)return false;
-   var local=tableHeader.PointFromScreen(screen);return local.X>=0 && local.X<tableHeader.ActualWidth && local.Y>=0 && local.Y<tableHeader.RowDefinitions[0].ActualHeight;
+   if(!Editing)return false;
+   foreach(var surface in headerSurfaces){if(surface.Prefix.StartsWith("menu/",StringComparison.Ordinal))continue;var grid=surface.Grid;var local=grid.PointFromScreen(screen);
+    if(local.X>=0 && local.X<grid.ActualWidth && local.Y>=0 && local.Y<grid.RowDefinitions[0].ActualHeight)return true;}
+   return false;
   }
   private static void OnHoverGui(PresentationPostEventArgs args){
    // Existing Unity-thread publisher; no game reads, dispatcher closures or allocations on the dormant path.
@@ -45,12 +47,12 @@ namespace LordOverviewTest {
    try {
     if(!UnityEngine.Application.isFocused || !args.OriginalCompleted || panel?.IsVisible!=true || !panel.IsLoaded || parent==null || !sourceHost.IsLoaded || main.Show_HUD_IngameMenu){ClosePassiveHover();return;}
     int screenWidth=UnityEngine.Screen.width,screenHeight=UnityEngine.Screen.height;
-    if(screenWidth!=hoverScreenWidth || screenHeight!=hoverScreenHeight){hoverScreenWidth=screenWidth;hoverScreenHeight=screenHeight;MarkHoverGeometryDirty();ClosePassiveHover();CancelHeaderGesture();return;} // Let Noesis finish its viewport update before caching transforms.
+    if(screenWidth!=hoverScreenWidth || screenHeight!=hoverScreenHeight){hoverScreenWidth=screenWidth;hoverScreenHeight=screenHeight;MarkHoverGeometryDirty();ClosePassiveHover();CancelHeaderGesture();CancelMenuDrag();PositionSettingsMenu();return;} // Let Noesis finish its viewport update before caching transforms.
     var mouse=UnityEngine.Input.mousePosition;var screen=new Point(mouse.x,screenHeight-mouse.y);
     bool pressed=UnityEngine.Input.GetMouseButtonDown(0) || UnityEngine.Input.GetMouseButtonDown(1) || UnityEngine.Input.GetMouseButtonDown(2);
-    if(Editing && pressed && !ScreenContains(columnsPopup.Child as FrameworkElement,screen) && !ScreenContains(gearButton,screen) && !OverHeader(screen))CloseColumnsPopup();
-    if(pressed || UnityEngine.Input.GetMouseButton(0) || UnityEngine.Input.GetMouseButton(1) || UnityEngine.Input.GetMouseButton(2) || headerGesture.Active || !ScreenContains(parent,screen)) {ClosePassiveHover();return;}
-    if(Editing && ScreenContains(columnsPopup.Child as FrameworkElement,screen)){ClosePassiveHover();return;}
+    if(Editing && !settingsPosition.Dragging && !LayoutDropDownOpen && pressed && !ScreenContains(settingsWindow,screen) && !ScreenContains(crownButton,screen) && !OverHeader(screen))CloseSettingsMenu();
+    if(pressed || UnityEngine.Input.GetMouseButton(0) || UnityEngine.Input.GetMouseButton(1) || UnityEngine.Input.GetMouseButton(2) || headerGesture.Active || settingsPosition.Dragging || !ScreenContains(parent,screen)) {ClosePassiveHover();return;}
+    if(Editing && (LayoutDropDownOpen || ScreenContains(settingsWindow,screen))){ClosePassiveHover();return;}
     if(hoverGeometryDirty){
      foreach(var target in hoverTargets.Values){
       var element=target.Element;
@@ -74,6 +76,6 @@ namespace LordOverviewTest {
     if(found!=null && found.Tip.IsOpen!=open)found.Tip.IsOpen=open;
    } catch(Exception error){hoverFaulted=true;try{ClosePassiveHover();}catch{} Error(error);} // Retry on an explicit reopen/new HUD, never throw once per frame.
   }
-  private static void OnViewportSizeChanged(object sender,SizeChangedEventArgs args){CancelHeaderGesture();ClosePassiveHover();MarkHoverGeometryDirty();}
+  private static void OnViewportSizeChanged(object sender,SizeChangedEventArgs args){CancelHeaderGesture();CancelMenuDrag();ClosePassiveHover();MarkHoverGeometryDirty();PositionSettingsMenu();}
  }
 }

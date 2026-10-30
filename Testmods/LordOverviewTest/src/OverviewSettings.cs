@@ -12,7 +12,11 @@ namespace LordOverviewTest {
   internal bool EnemyDetailsReceived {get;private set;}
   internal event Action InformationRightsInvalidated;
   private string columns=Metrics.Serialize(Metrics.Defaults),pendingColumns;
-  public OverviewSettings(){ResetToDefaultCommand=new RelayCommand(()=>{if(CanEditHostSettings)AllowEnemyDetails=false;if(CanEditClientSettings){EnableMod=true;Columns=Metrics.Serialize(Metrics.Defaults);}});}
+  private string design="List",lordGrid="Columns:2",valueGrid="Columns:3",pendingDesign,pendingLordGrid,pendingValueGrid;
+  public OverviewSettings(){ResetToDefaultCommand=new RelayCommand(()=>{if(CanEditHostSettings)AllowEnemyDetails=false;if(CanEditClientSettings){
+   pendingColumns=pendingDesign=pendingLordGrid=pendingValueGrid=null;
+   EnableMod=true;Columns=Metrics.Serialize(Metrics.Defaults);Design="List";LordGrid="Columns:2";ValueGrid="Columns:3";
+  }});}
   [PresetLocal] public bool EnableMod {get=>enabled;set{if(!CanMutateSetting() || enabled==value)return;enabled=value;OnPropertyChanged(nameof(EnableMod));}}
   [SyncHostOnly] public bool AllowEnemyDetails {get=>enemyDetails;set{if(!CanMutateSetting())return;
    if(lobby.HasValue && GameXAMLManagerAPI.Instance.CurrentLobbyModSettingsChangeOrigin==LobbyModSettingsChangeOrigin.IncomingNetwork)EnemyDetailsReceived=true;
@@ -22,9 +26,22 @@ namespace LordOverviewTest {
    if(lobby!=next){lobby=next;EnemyDetailsReceived=false;InformationRightsInvalidated?.Invoke();}}
   [PresetLocal] public string Columns {get=>columns;set{if(!CanMutateSetting())return;string next=Metrics.Serialize(Metrics.Parse(value));if(next==columns)return;columns=next;OnPropertyChanged(nameof(Columns));}}
   internal string DisplayColumns=>pendingColumns??Columns;
-  internal void SetDisplayColumns(string value){pendingColumns=Metrics.Serialize(Metrics.Parse(value));FlushLocalColumns();}
+  internal void SetDisplayColumns(string value){pendingColumns=Metrics.Serialize(Metrics.Parse(value));FlushLocalPreferences();}
+  [PresetLocal] public string Design {get=>design;set{if(!CanMutateSetting())return;string next=OverviewLayout.ParseDesign(value).ToString();if(design==next)return;design=next;OnPropertyChanged(nameof(Design));}}
+  [PresetLocal] public string LordGrid {get=>lordGrid;set{if(!CanMutateSetting())return;string next=GridFlow.Parse(value,2).ToString();if(lordGrid==next)return;lordGrid=next;OnPropertyChanged(nameof(LordGrid));}}
+  [PresetLocal] public string ValueGrid {get=>valueGrid;set{if(!CanMutateSetting())return;string next=GridFlow.Parse(value,3).ToString();if(valueGrid==next)return;valueGrid=next;OnPropertyChanged(nameof(ValueGrid));}}
+  internal OverviewDesign DisplayDesign=>OverviewLayout.ParseDesign(pendingDesign??Design);
+  internal GridFlow DisplayLordGrid=>GridFlow.Parse(pendingLordGrid??LordGrid,2);
+  internal GridFlow DisplayValueGrid=>GridFlow.Parse(pendingValueGrid??ValueGrid,3);
+  internal void SetDisplayDesign(OverviewDesign value){pendingDesign=(Enum.IsDefined(typeof(OverviewDesign),value)?value:OverviewDesign.List).ToString();FlushLocalPreferences();}
+  internal void SetDisplayGrid(bool lords,GridFlow value){if(lords)pendingLordGrid=value.ToString();else pendingValueGrid=value.ToString();FlushLocalPreferences();}
   // A locked mission source does not prevent a local HUD choice. Persist it when the personal source is editable again.
-  internal void FlushLocalColumns(){if(pendingColumns==null || !CanEditClientSettings)return;var value=pendingColumns;Columns=value;if(Columns==value)pendingColumns=null;}
+  internal void FlushLocalPreferences(){if(!CanEditClientSettings)return;
+   if(pendingColumns!=null){var value=pendingColumns;Columns=value;if(Columns==value)pendingColumns=null;}
+   if(pendingDesign!=null){var value=pendingDesign;Design=value;if(Design==value)pendingDesign=null;}
+   if(pendingLordGrid!=null){var value=pendingLordGrid;LordGrid=value;if(LordGrid==value)pendingLordGrid=null;}
+   if(pendingValueGrid!=null){var value=pendingValueGrid;ValueGrid=value;if(ValueGrid==value)pendingValueGrid=null;}
+  }
   public RelayCommand ResetToDefaultCommand {get;}
   public string ResetText=>SerpLocalization.Get("Reset");
   public string EnemyDetailsText=>SerpLocalization.Get("EnemyDetails");

@@ -59,7 +59,7 @@ try {
  foreach($name in @('FontSize','MaxWidth','Padding','BorderThickness')){if($templates[0] -notmatch "\{TemplateBinding $name\}"){throw "Tooltip template does not honor its size owner: $name"}}
  $metrics=@($assembly.MainModule.GetType('LordOverviewTest.Metric').Fields | Where-Object IsLiteral | ForEach-Object Name)
  $settings=$assembly.MainModule.GetType('LordOverviewTest.OverviewSettings')
- foreach($name in @('EnableMod','AllowEnemyDetails','Columns')){
+ foreach($name in @('EnableMod','AllowEnemyDetails','Columns','Design','LordGrid','ValueGrid')){
   $property=$settings.Properties | Where-Object Name -eq $name
   $scope=if($name -eq 'AllowEnemyDetails'){'SyncHostOnlyAttribute'}else{'PresetLocalAttribute'}
   if(-not $property -or -not ($property.CustomAttributes | Where-Object {$_.AttributeType.Name -eq $scope})){throw "Wrong settings ownership: $name"}

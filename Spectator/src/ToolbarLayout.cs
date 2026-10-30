@@ -16,10 +16,24 @@ namespace Spectator
             X < other.Right && Right > other.X && Y < other.Bottom && Bottom > other.Y;
     }
 
+    internal readonly struct ToolbarPose
+    {
+        internal readonly ToolbarRect Roster, Tools, Bounds;
+        internal ToolbarPose(ToolbarRect roster, ToolbarRect tools)
+        {
+            Roster = roster; Tools = tools;
+            float x = tools.Empty ? roster.X : Math.Min(roster.X, tools.X);
+            float y = tools.Empty ? roster.Y : Math.Min(roster.Y, tools.Y);
+            Bounds = new ToolbarRect(x, y, Math.Max(roster.Right, tools.Empty ? roster.Right : tools.Right) - x,
+                Math.Max(roster.Bottom, tools.Empty ? roster.Bottom : tools.Bottom) - y);
+        }
+    }
+
     internal static class ToolbarLayout
     {
         internal const float Gap = 4;
-        internal const float Portrait = 28, Header = 32, Body = 56, Footer = 26;
+        internal const float Portrait = 36, TargetPortrait = 28, Cell = 38, RosterWidth = 80;
+        internal const float Header = 32, Body = 56, Footer = 26;
         // Vanilla's detailed info host ends 125 units above the viewport bottom
         // (compact: 130). Keep a two-unit gap below both, in every toolbar mode.
         internal static ToolbarRect Dock(ToolbarRect alignment)
@@ -41,16 +55,65 @@ namespace Spectator
             return dx * dx + dy * dy <= radius * radius;
         }
 
-        // Uniform fit preserves sprite aspect ratios and transforms input with the same matrix.
-        internal static float RasterScale(ToolbarRect source, ToolbarRect target) => source.Empty || target.Empty
-            ? 1 : Math.Min(1, Math.Min(target.Width / source.Width, target.Height / source.Height));
-
-        internal static ToolbarRect FitRaster(ToolbarRect source, ToolbarRect target)
+        // Only permanent functional HUD surfaces are supplied here, never hover text.
+        // Footer wings have their own holes; the solid roster and tool body must stay clear.
+        internal static bool TryAvoidControls(float x, float y, float width, float height,
+            float viewportWidth, float viewportHeight, IList<ToolbarRect> solids,
+            IList<ToolbarRect> controls, float gap, out ToolbarRect position)
         {
-            float scale = RasterScale(source, target);
-            return new ToolbarRect(target.X + (target.Width - source.Width * scale) / 2,
-                target.Y + (target.Height - source.Height * scale) / 2,
-                source.Width * scale, source.Height * scale);
+            position = Clamp(x, y, width, height, viewportWidth, viewportHeight);
+            if (Clear(position, viewportWidth, viewportHeight, solids, controls)) return true;
+            float wantedX = position.X, wantedY = position.Y;
+            var xs = new List<float> { wantedX, 0, viewportWidth - width };
+            var ys = new List<float> { wantedY, 0, viewportHeight - height };
+            foreach (var control in controls)
+                foreach (var solid in solids)
+                {
+                    if (control.Empty || solid.Empty) continue;
+                    xs.Add(control.X - solid.Right - gap); xs.Add(control.Right - solid.X + gap);
+                    ys.Add(control.Y - solid.Bottom - gap); ys.Add(control.Bottom - solid.Y + gap);
+                }
+            double best = double.MaxValue;
+            foreach (float cx in xs)
+                foreach (float cy in ys)
+                {
+                    double dx = cx - wantedX, dy = cy - wantedY, distance = dx * dx + dy * dy;
+                    if (distance >= best) continue;
+                    var candidate = new ToolbarRect(cx, cy, width, height);
+                    if (!Clear(candidate, viewportWidth, viewportHeight, solids, controls)) continue;
+                    position = candidate; best = distance;
+                }
+            return best != double.MaxValue;
+        }
+
+        private static bool Clear(ToolbarRect position, float width, float height,
+            IList<ToolbarRect> solids, IList<ToolbarRect> controls)
+        {
+            if (position.X < 0 || position.Y < 0 || position.Right > width || position.Bottom > height) return false;
+            foreach (var solid in solids)
+            {
+                var area = new ToolbarRect(position.X + solid.X, position.Y + solid.Y, solid.Width, solid.Height);
+                foreach (var control in controls) if (area.Intersects(control)) return false;
+            }
+            return true;
+        }
+
+        internal static ToolbarRect OwnerCell(int ordinal)
+        {
+            if (ordinal < 0 || ordinal >= 8) throw new ArgumentOutOfRangeException(nameof(ordinal));
+            return new ToolbarRect(1 + ordinal % 2 * Cell, 1 + ordinal / 2 * Cell, Portrait, Portrait);
+        }
+
+        internal static float RosterHeight(int count) => 50 + ((Math.Max(0, Math.Min(8, count)) + 1) / 2) * Cell;
+
+        internal static ToolbarPose Arrange(ToolbarRect alignment, ToolbarRect frame, int count, bool details)
+        {
+            float scale = alignment.Width / 914;
+            // The control row ends two units above the padded outer edge: 6 + 2 = 8.
+            var roster = new ToolbarRect(frame.X - (8 + RosterWidth) * scale,
+                frame.Bottom - (6 + RosterHeight(count)) * scale, RosterWidth * scale, RosterHeight(count) * scale);
+            var tools = details ? Dock(alignment) : default;
+            return new ToolbarPose(roster, tools);
         }
 
         // Find the two largest usable footer intervals. The gaps have no visual or hit surface.

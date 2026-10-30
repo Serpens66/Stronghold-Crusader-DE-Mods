@@ -37,12 +37,29 @@ internal static class LordOverviewPresetTests {
   GameNetworkAPI.LocalHost=true;model.System_RefreshSettingsAccess();
   model.System_EnterMissionPreset(new Dictionary<string,byte[]>{{nameof(OverviewSettings.AllowEnemyDetails),MessagePackSerializer.Serialize(false)}},"Trail",false);
   model.SetDisplayColumns("Fear,Popularity");Check(model.DisplayColumns=="Fear,Popularity","locked mission still permits runtime display choice");
-  model.System_ExitMissionPreset();model.FlushLocalColumns();Check(model.Columns=="Fear,Popularity","pending display choice persists through normal source after mission");
+  model.System_ExitMissionPreset();model.FlushLocalPreferences();Check(model.Columns=="Fear,Popularity","pending display choice persists through normal source after mission");
   Check(Prepare(file).Columns=="Fear,Popularity","deferred local choice survives restart");
   var reorder=new ColumnSelection();reorder.Load(model.Columns);Check(reorder.MoveTo(Metric.Popularity,0),"header drop changes selection by metric ID");
   model.SetDisplayColumns(Metrics.Serialize(reorder.Columns));Check(Prepare(file).Columns=="Popularity,Fear","header-drop order survives actual shared persistence restart");
   model.Columns="Gold,Army,Popularity,Fear,GoldAcquired,MaxPopulation";Check(model.Columns=="Gold,Army,Popularity,Fear,GoldAcquired,MaxPopulation","more than five columns persist without normalization");
   model.Columns="Gold,other.mod/missing,Army";Check(Prepare(file).Columns==model.Columns,"missing external provider survives actual preset restart");
+    model.Design="Cards";model.LordGrid="Rows:3";model.ValueGrid="Columns:4";
+  var layoutRestart=Prepare(file);Check(layoutRestart.Design=="Cards" && layoutRestart.LordGrid=="Rows:3" && layoutRestart.ValueGrid=="Columns:4","design and both grid preferences survive actual shared persistence");
+  model.System_EnterMissionPreset(new Dictionary<string,byte[]>{{nameof(OverviewSettings.AllowEnemyDetails),MessagePackSerializer.Serialize(false)}},"Trail",false);
+  model.SetDisplayDesign(OverviewDesign.SplitList);model.SetDisplayGrid(true,new GridFlow(1,8));model.SetDisplayGrid(false,new GridFlow(2,3));
+  Check(model.DisplayDesign==OverviewDesign.SplitList && model.DisplayLordGrid.ToString()=="1x8" && model.DisplayValueGrid.ToString()=="2x3","locked mission permits all local runtime layout choices");
+  model.System_ExitMissionPreset();model.FlushLocalPreferences();layoutRestart=Prepare(file);
+  Check(layoutRestart.Design=="SplitList" && layoutRestart.LordGrid=="1x8" && layoutRestart.ValueGrid=="2x3","deferred layout choices survive source exit and restart");
+  GameNetworkAPI.LocalHost=false;layoutRestart.System_RefreshSettingsAccess();layoutRestart.SetDisplayDesign(OverviewDesign.Cards);
+  Check(layoutRestart.Design=="Cards","client can change its local design");
+  GameXAMLManagerAPI.Instance.ApplyNetworkSync(layoutRestart,()=>layoutRestart.AllowEnemyDetails=false);
+  Check(layoutRestart.Design=="Cards" && layoutRestart.LordGrid=="1x8","incoming host preferences preserve local layouts");
+  layoutRestart.SetDisplayGrid(true,GridFlow.Parse("Rows:3",2).Normalize(8));
+  layoutRestart.SetDisplayGrid(false,GridFlow.Parse("Columns:4",3).Normalize(7));
+  var migrated=Prepare(file);Check(migrated.LordGrid=="3x3" && migrated.ValueGrid=="2x4","legacy preferences migrate and persist as exact grid pairs");
+  migrated.SetDisplayGrid(false,migrated.DisplayValueGrid.Normalize(11));Check(Prepare(file).ValueGrid=="3x4","expanded grid persists without dropping new values");
+  layoutRestart.Design="garbage";layoutRestart.LordGrid="Rows:-3";layoutRestart.ValueGrid="Columns:0";
+  Check(layoutRestart.Design=="List" && layoutRestart.LordGrid=="Columns:2" && layoutRestart.ValueGrid=="Columns:3","invalid persisted preferences normalize safely");
   Console.WriteLine("PASS: "+checks+" production LordOverview settings/persistence/host-source checks.");return 0;
  }catch(Exception error){Console.Error.WriteLine(error);return 1;}}
 }
