@@ -101,6 +101,28 @@ namespace MoatMove
             }
         }
 
+        // DEVDIAG in-game check of Forbidden tile rules (option Diagnostics.RuleProbeTicks): after that
+        // many simulation ticks of a map, a three-tile band across the map (x 399..401, every row except
+        // the gap 380..420) is forbidden for all players. Published single routes are then counted for
+        // forbidden tiles (expected 0) and for passing the band (AnchorRouting.CountRuleProbeRoute).
+        private APIShared.Pathfinding.RouteTileRuleSet ruleProbe;
+        private int ruleProbeElapsed;
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
+        private void ProbeRouteRules()
+        {
+            if (settings.RuleProbeTicks <= 0 || ruleProbeElapsed > settings.RuleProbeTicks || ++ruleProbeElapsed <= settings.RuleProbeTicks) return;
+            if (ruleProbe == null && !APIShared.Pathfinding.RouteTileRules.TryRegister(MoatMovePlugin.PluginGuid, "devdiag-probe", out ruleProbe, out string reason))
+            { Shared.DebugLogHelper.LogError(log, "MoatMove rule probe unavailable: " + reason); return; }
+            long started = System.Diagnostics.Stopwatch.GetTimestamp(); int tiles = 0;
+            for (int y = 0; y < MapWidth; y++)
+            {
+                if (y >= 380 && y <= 420) continue;
+                for (int x = 399; x <= 401; x++)
+                    if (ruleProbe.Set(x, y, APIShared.Pathfinding.RouteTileEffect.Forbidden)) tiles++;
+            }
+            Shared.DebugLogHelper.LogInfo(log, $"MoatMove rule probe set: forbiddenTiles={tiles} ms={AnchorMs(System.Diagnostics.Stopwatch.GetTimestamp() - started)}.");
+        }
+
         // After InitializeAnchor; anchor mode only: the core is the engine that reads the fire rules.
         private void RegisterFireRouteRules(ReadOnlySpan<byte> memory, ulong moduleBase)
         {
@@ -267,6 +289,7 @@ namespace MoatMove
                     // After AnchorTick: this tick's fire changes are read at the next tick, also on a
                     // new map, where AnchorTick starts following the journal from its current end.
                     fireRules?.Tick(tick);
+                    ProbeRouteRules();
                 }
                 if (fastCommands.Commands.Count == 0) return;
                 if (!RequiredOnlyMode || !runtime.TraversalEnabled)
@@ -631,6 +654,7 @@ namespace MoatMove
         {
             fastCommands.Clear(); fastLastTick = int.MinValue; fastRoundRobin = 0;
             fireRules?.Reset();
+            ruleProbe?.ClearAll(); ruleProbeElapsed = 0;
             ResetAnchorMap();
             fastSimulationRouting?.Pool.Clear(); fastCursorRouting?.Pool.Clear();
             fastSimulationRouting = fastCursorRouting = null;

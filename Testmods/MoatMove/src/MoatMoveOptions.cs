@@ -25,6 +25,8 @@ namespace MoatMove
         // Anchor mode only: burning pitch as APIShared route tile rules (FireRouteRules); moving units
         // re-plan around new fire only with AnchorSingleMoves.
         internal bool AvoidFire { get; set; }
+        // DEVDIAG in-game check of Forbidden tile rules (FastMovementScheduler.ProbeRouteRules); 0 = off.
+        internal int RuleProbeTicks { get; set; }
         // Plugin folder; the anchor core DLL ships next to the mod assembly.
         internal string PluginDirectory { get; set; }
         internal string ModeName => NativeFast ? "FastNative" : Anchor ? "anchor" : mode == MoatMove.FriendlyMoatMovementMode.RequiredOnly ? "fast" : "precise";

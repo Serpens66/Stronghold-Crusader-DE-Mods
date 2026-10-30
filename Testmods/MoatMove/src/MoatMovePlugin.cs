@@ -47,7 +47,13 @@ namespace MoatMove
                 new ConfigDescription("anchor mode only (experimental): single-unit ground moves outside group commands also use the native core (exact cheapest routes, route tile rules) instead of Vanilla's per-unit search. Routes can differ from Vanilla's. Restart the game after changing this setting. Use the same value on all multiplayer peers.")).Value;
             bool avoidFire = Config.Bind("Movement", "AvoidFire", false,
                 new ConfigDescription("anchor mode only (experimental): routes avoid burning pitch. With AnchorSingleMoves, units that are already walking when fire starts on their route re-plan 3 tiles before it (a detour may be 50 % or 10 tiles longer) or wait up to about 10 s. Restart the game after changing this setting. Use the same value on all multiplayer peers.")).Value;
-            options = new MoatMoveOptions(mode) { PluginDirectory = System.IO.Path.GetDirectoryName(Info.Location), AnchorSingleMoves = singleMoves, AvoidFire = avoidFire };
+#if SERP_DEVDIAG
+            int ruleProbeTicks = Config.Bind("Diagnostics", "RuleProbeTicks", 0,
+                new ConfigDescription("DEVDIAG only: simulation ticks after a map start at which a forbidden test band (x 399..401, every row except 380..420) is set for all players; 0 = off.")).Value;
+#else
+            int ruleProbeTicks = 0;
+#endif
+            options = new MoatMoveOptions(mode) { PluginDirectory = System.IO.Path.GetDirectoryName(Info.Location), AnchorSingleMoves = singleMoves, AvoidFire = avoidFire, RuleProbeTicks = ruleProbeTicks };
             Shared.DebugLogHelper.LogInfo(persistentLog,
                 $"MoatMove {PluginVersion} loaded; mode={options.ModeName}, commandPolicy=BugfixesAndQoL, hookOwner=BugfixesAndQoL; awaiting native library.");
             CrusaderLibrary.Instance.LibraryLoaded += OnLibraryLoaded;

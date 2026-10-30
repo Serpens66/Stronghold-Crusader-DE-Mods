@@ -926,6 +926,25 @@ namespace MoatMove
         // path), Vanilla's ground mode, the unit's own target and plans without special endpoints; the
         // route passes the same live audit and buffer publication as anchor ground routes.
         private long anchorSingleRoutes, anchorSingleAssassinRoutes, anchorSingleUnreachable, anchorSingleRejects, anchorSingleTicks;
+        private long ruleProbeForbiddenHits, ruleProbeBandRoutes;
+
+        // DEVDIAG check of a published single route (anchorBuffer, one direction per byte) against the
+        // tile rules: entered Forbidden tiles (expected 0) and routes that pass the rule probe's band
+        // (x 399..401) through its gap. Release builds drop the call.
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
+        private void CountRuleProbeRoute(int player, int start, int length)
+        {
+            if (!APIShared.Pathfinding.RouteTileRules.HasRules) return;
+            int x = start % MapWidth, y = start / MapWidth; bool band = false;
+            for (int i = 0; i < length; i++)
+            {
+                x += FastNativeRouteField.Dx[anchorBuffer[i]]; y += FastNativeRouteField.Dy[anchorBuffer[i]];
+                if (x >= 399 && x <= 401) band = true;
+                if (APIShared.Pathfinding.RouteTileRules.GetEffect(x, y, player, out _) == APIShared.Pathfinding.RouteTileEffect.Forbidden)
+                    ruleProbeForbiddenHits++;
+            }
+            if (band) ruleProbeBandRoutes++;
+        }
 
         // Whether F4930 (FBCB9319) would start this builder call with a plain ground search the core's ground
         // profile reproduces: ground mode (+0x84, +0x88 clear), or the Assassin profile (+0x88) with +0x80 and
@@ -984,6 +1003,7 @@ namespace MoatMove
                 {
                     *variant = 0; *runtime.moatPathMode = 0; published = ready; anchorSingleRoutes++;
                     if (assassin) anchorSingleAssassinRoutes++;
+                    CountRuleProbeRoute(player, start, result.Length);
                     return true;
                 }
                 anchorSingleRejects++;
@@ -1237,7 +1257,7 @@ namespace MoatMove
                 $"members={anchorMembers} unreachedMembers={anchorUnreachedUnits} movesWithUnreached={anchorMovesWithUnreached} " +
                 $"vanilla(vanillaCalls={anchorVanillaCalls} vanillaFails={anchorVanillaFails} vanillaMs={AnchorMs(anchorVanillaTicks)} vanillaFailMs={AnchorMs(anchorVanillaFailTicks)} " +
                 $"afterUnreachable={anchorVanillaAfterUnreachable} afterUnreachableMs={AnchorMs(anchorVanillaAfterUnreachableTicks)} " +
-                $"foundAfterUnreachable={anchorVanillaFoundAfterUnreachable}) vanillaWhy=[{FormatAnchorReasons(anchorVanillaWhy)}] sameTickTasks={anchorSameTickTasks} sameTickTaskMs={AnchorMs(anchorSameTickTaskTicks)} diggerGroundRoutes={anchorDiggerGroundRoutes} nativeByteChanges={anchorWatchChanges} rebuildsWatched={anchorRebuildsWatched} tileRuleChanges={routeTileRuleChanges} aliveUnits={anchorAliveUnits} single(routes={anchorSingleRoutes} assassin={anchorSingleAssassinRoutes} unreachable={anchorSingleUnreachable} rejects={anchorSingleRejects} ms={AnchorMs(anchorSingleTicks)} queries={anchorCoreStats[AnchorNative.StatSingleQueries]} settles={anchorCoreStats[AnchorNative.StatSingleSettles]} coreMs={anchorCoreStats[AnchorNative.StatSingleNs] / 1e6:F1}) {FormatReplanWatch()} outsideBuilds(calls/ms/maxMs)=[{FormatOutsideBuilds()}] exhaustedReach(kept={ExhaustedReachabilityKept} hits={ExhaustedReachabilityHits}) reach(advances/expanded/ms/maxMs)=[{FormatReachabilityByOwner()}] " +
+                $"foundAfterUnreachable={anchorVanillaFoundAfterUnreachable}) vanillaWhy=[{FormatAnchorReasons(anchorVanillaWhy)}] sameTickTasks={anchorSameTickTasks} sameTickTaskMs={AnchorMs(anchorSameTickTaskTicks)} diggerGroundRoutes={anchorDiggerGroundRoutes} nativeByteChanges={anchorWatchChanges} rebuildsWatched={anchorRebuildsWatched} tileRuleChanges={routeTileRuleChanges} aliveUnits={anchorAliveUnits} single(routes={anchorSingleRoutes} assassin={anchorSingleAssassinRoutes} probe(forbiddenHits={ruleProbeForbiddenHits} bandRoutes={ruleProbeBandRoutes}) unreachable={anchorSingleUnreachable} rejects={anchorSingleRejects} ms={AnchorMs(anchorSingleTicks)} queries={anchorCoreStats[AnchorNative.StatSingleQueries]} settles={anchorCoreStats[AnchorNative.StatSingleSettles]} coreMs={anchorCoreStats[AnchorNative.StatSingleNs] / 1e6:F1}) {FormatReplanWatch()} outsideBuilds(calls/ms/maxMs)=[{FormatOutsideBuilds()}] exhaustedReach(kept={ExhaustedReachabilityKept} hits={ExhaustedReachabilityHits}) reach(advances/expanded/ms/maxMs)=[{FormatReachabilityByOwner()}] " +
                 $"tick(refreshMs={AnchorMs(anchorRefreshTicks)} refreshNodes={anchorRefreshNodes} buildMs={AnchorMs(anchorBuildTicks)} " +
                 $"buildNodes={anchorBuildNodes} sweepMs={AnchorMs(anchorSweepTicks)} sweepNodes={anchorSweepNodes} resweeps={anchorResweeps} " +
                 $"accessChanges={anchorAccessChanges} gateRefreshes={anchorGateRefreshes} sharedReuses={anchorShared?.Reuses ?? 0} " +
