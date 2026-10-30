@@ -111,6 +111,9 @@ namespace AICoarsePathComponentFixTest
                 if (body.Length > StubCapacity)
                     throw new InvalidOperationException("Wood guard stub exceeds allocated page.");
                 Marshal.Copy(body, 0, candidate, body.Length);
+                // Fresh private page: written once while unreachable, then executable and never writable again.
+                if (!VirtualProtect(candidate, new UIntPtr((uint)StubCapacity), 0x20, out _))
+                    throw new InvalidOperationException("Wood guard stub could not be made executable.");
                 if (!FlushInstructionCache(GetCurrentProcess(), candidate, new UIntPtr((uint)body.Length)))
                     throw new InvalidOperationException("Wood guard stub instruction cache flush failed.");
                 byte[] jump = BuildSiteJump(module + SiteRva, unchecked((ulong)candidate.ToInt64()));
@@ -455,10 +458,10 @@ namespace AICoarsePathComponentFixTest
                 {
                     long address = aligned + direction * distance * stride;
                     if (address <= 0 || Math.Abs(address - (long)site) >= 0x70000000) continue;
-                    IntPtr candidate = VirtualAlloc(new IntPtr(address), new UIntPtr((uint)StubCapacity), 0x3000, 0x40);
+                    IntPtr candidate = VirtualAlloc(new IntPtr(address), new UIntPtr((uint)StubCapacity), 0x3000, 0x04);
                     if (candidate != IntPtr.Zero) return candidate;
                 }
-            throw new InvalidOperationException("No near executable page is available for the wood guard.");
+            throw new InvalidOperationException("No near stub page is available for the wood guard.");
         }
 
         private static bool IsOldOverlayEnabled()

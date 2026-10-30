@@ -1,10 +1,15 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>disable</Nullable></PropertyGroup>
+  <!-- External Fixes clone beside the workspace; override when it is elsewhere (e.g. from Git worktrees). -->
+  <PropertyGroup><FixesSourceRoot Condition="'$(FixesSourceRoot)' == ''">$(MSBuildThisFileDirectory)..\..\..\..\Fremde Mods\shcde-fixes-main</FixesSourceRoot></PropertyGroup>
   <ItemGroup>
     <Compile Include="..\..\Runtime\Compatibility\FixesStartupGate.cs" Link="FixesStartupGate.cs" />
     <Compile Include="..\..\Runtime\Persistence\DependencyFreeJson.cs" Link="DependencyFreeJson.cs" />
     <Compile Include="..\..\..\ExtendedData\src\TypedPreferenceSnapshotCodec.cs" Link="TypedPreferenceSnapshotCodec.cs" />
     <!-- Read-only boundary: exercise the current canonical external preference schema itself. -->
-    <Compile Include="..\..\..\..\Fremde Mods\shcde-fixes-main\src\shcde-fixes\Config\CustomLordPreferencesEntry.cs" Link="ExternalPreferences.cs" />
+    <Compile Include="$(FixesSourceRoot)\src\shcde-fixes\Config\CustomLordPreferencesEntry.cs" Link="ExternalPreferences.cs" />
   </ItemGroup>
+  <Target Name="ValidateFixesSource" BeforeTargets="PrepareForBuild">
+    <Error Condition="!Exists('$(FixesSourceRoot)\src\shcde-fixes\Config\CustomLordPreferencesEntry.cs')" Text="Fixes source not found below '$(FixesSourceRoot)'. Set FixesSourceRoot to the shcde-fixes clone." />
+  </Target>
 </Project>

@@ -5,7 +5,9 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $packages = Join-Path $env:USERPROFILE '.nuget\packages'
-$probeRoot = Join-Path (Split-Path -Parent $TestExecutable) 'RedBirdVersionProbes'
+# Short folder name: the .NET Framework probe loads assemblies via LoadFrom, which fails
+# beyond MAX_PATH in deeply nested build copies (e.g. Git worktrees under .claude).
+$probeRoot = Join-Path (Split-Path -Parent $TestExecutable) 'rb'
 
 foreach ($version in @('1.3.2', '1.5.0')) {
     $probeDir = Join-Path $probeRoot $version

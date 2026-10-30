@@ -42,6 +42,8 @@
     <LocalScriptExtenderRoot>$(MSBuildThisFileDirectory)..\..\shcde-script-extender</LocalScriptExtenderRoot>
     <LocalScriptExtenderModOutput>$(LocalScriptExtenderRoot)\mod_output\000shcdese</LocalScriptExtenderModOutput>
     <LocalScriptExtenderBuildOutput>$(LocalScriptExtenderRoot)\src\SHCDESE.BepInEx\bin\net481</LocalScriptExtenderBuildOutput>
+    <!-- External Extender checkout; override when it is not beside this workspace (e.g. Git worktrees). -->
+    <AicDecoderSourceRoot Condition="'$(AicDecoderSourceRoot)' == ''">$(LocalScriptExtenderRoot)\src\SHCDESE.AICDecoder\src\SHCDESE.AICDecoder</AicDecoderSourceRoot>
   </PropertyGroup>
   <PropertyGroup Condition="'$(ExtenderDir)' == '' and Exists('$(LocalScriptExtenderBuildOutput)\SHCDESE.dll')">
     <ExtenderDir>$(LocalScriptExtenderBuildOutput)</ExtenderDir>
@@ -92,10 +94,10 @@
     <Compile Include="..\..\Shared\Runtime\Diagnostics\DebugLogHelper.cs">
       <Link>Shared\Runtime\Diagnostics\DebugLogHelper.cs</Link>
     </Compile>
-    <Compile Include="..\..\shcde-script-extender\src\SHCDESE.AICDecoder\src\SHCDESE.AICDecoder\InternalAIC.cs">
+    <Compile Include="$(AicDecoderSourceRoot)\InternalAIC.cs">
       <Link>AICDecoder\InternalAIC.cs</Link>
     </Compile>
-    <Compile Include="..\..\shcde-script-extender\src\SHCDESE.AICDecoder\src\SHCDESE.AICDecoder\PublicAIC.cs">
+    <Compile Include="$(AicDecoderSourceRoot)\PublicAIC.cs">
       <Link>AICDecoder\PublicAIC.cs</Link>
     </Compile>
     <Compile Include="src\GlobalUsings.cs" />
@@ -112,5 +114,7 @@
            Text="SHCDESE.dll wurde im ExtenderDir nicht gefunden: $(ExtenderDir)" />
     <Error Condition="'$(ExtenderDir)' != '' and !Exists('$(ExtenderDir)\RedBird.Core.dll')"
            Text="RedBird.Core.dll wurde im ExtenderDir nicht gefunden: $(ExtenderDir)" />
+    <Error Condition="!Exists('$(AicDecoderSourceRoot)\InternalAIC.cs') Or !Exists('$(AicDecoderSourceRoot)\PublicAIC.cs')"
+           Text="SHCDESE.AICDecoder-Quellen wurden nicht gefunden: $(AicDecoderSourceRoot). AicDecoderSourceRoot setzen, wenn der Script-Extender-Checkout nicht neben dem Workspace liegt." />
   </Target>
 </Project>

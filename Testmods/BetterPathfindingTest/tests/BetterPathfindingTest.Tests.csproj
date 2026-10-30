@@ -19,5 +19,11 @@
     <Compile Include="../../../BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandContracts.cs" Link="Oracle/UnitCommandContracts.cs" />
     <Reference Include="APIShared"><HintPath>$(ApiSharedDir)\APIShared.dll</HintPath></Reference>
   </ItemGroup>
+  <!-- Intentional pipeline step: Build.ps1 first compiles the native backend and its proof
+       (.local/native/build.json, checked by BackendEvidence.cs); non-DEVDIAG builds delete the DLL
+       afterwards. Build these tests only through build.bat / Build.ps1. -->
   <ItemGroup><None Include="../BepInEx/plugins/BetterPathfindingTest_Serp/BetterPathfindingNative.dll" Link="BetterPathfindingNative.dll" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
+  <Target Name="RequireBuildScriptNativeBackend" BeforeTargets="BeforeBuild">
+    <Error Condition="!Exists('$(MSBuildThisFileDirectory)../BepInEx/plugins/BetterPathfindingTest_Serp/BetterPathfindingNative.dll')" Text="BetterPathfindingNative.dll is produced by Build.ps1 together with its compile proof. Build these tests only through Testmods\BetterPathfindingTest\build.bat (or Build.ps1)." />
+  </Target>
 </Project>

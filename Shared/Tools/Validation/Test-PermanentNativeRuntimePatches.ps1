@@ -48,6 +48,65 @@ if ((-not $ModDirectory -or $selectedFiles.Contains($wheatMemory)) -and (Test-Pa
     & (Join-Path $workspace 'APIShared\tools\Validation\Test-FixesWheatBoundary.ps1')
     if (-not $?) { throw 'APIShared wheat startup boundary verification failed.' }
 }
+
+# Returns the first/last line of the brace block that starts at the only line containing $Signature.
+function Get-SourceBlock([string[]]$Lines, [string]$Signature) {
+    $starts = @(for ($i = 0; $i -lt $Lines.Length; $i++) { if ($Lines[$i].Contains($Signature)) { $i } })
+    if ($starts.Count -ne 1) { return $null }
+    $depth = 0; $opened = $false
+    for ($i = $starts[0]; $i -lt $Lines.Length; $i++) {
+        foreach ($character in $Lines[$i].ToCharArray()) {
+            if ($character -eq '{') { $depth++; $opened = $true } elseif ($character -eq '}') { $depth-- }
+        }
+        if ($opened -and $depth -eq 0) { return [pscustomobject]@{ Start = $starts[0]; End = $i } }
+    }
+    return $null
+}
+
+# Fresh private stub pages: written once while unreachable, then made executable (RW -> RX)
+# before any hook can reach them, and never freed or rewritten after publication. These are
+# not rewrites of live code. Each exception covers only VirtualProtect/FlushInstructionCache
+# declarations and calls inside the named blocks of one file, and only while its structural
+# publication contract holds; anything else stays a normal finding.
+function Get-FreshPageAllowance([string]$Path, [string[]]$Lines) {
+    $text = [string]::Join("`n", $Lines)
+    if ($Path -eq (Join-Path $workspace 'APIShared\src\Projectiles\PlagueNativeCode.cs')) {
+        # Mirrors APIShared's own audited SourceModel guardrail (tools/SourceContracts): changes
+        # only in the constructor, VirtualFree only for an unpublished helper.
+        $constructor = Get-SourceBlock $Lines 'internal PlagueNativeCode(Action<Assembler> generate)'
+        $rollback = Get-SourceBlock $Lines 'internal void RollbackUnpublished()'
+        if (-not $constructor -or -not $rollback) { return $null }
+        $rollbackText = [string]::Join("`n", $Lines[$rollback.Start..$rollback.End])
+        $guard = $rollbackText.IndexOf('if (published) throw')
+        if ($guard -lt 0 -or $rollbackText.IndexOf('VirtualFree(') -lt $guard -or
+            [regex]::Matches($text, '\bVirtualFree\s*\(').Count -ne 2 -or
+            $text -notmatch 'VirtualAlloc\(IntPtr\.Zero, \(UIntPtr\)4096, 0x3000, 0x04\)') { return $null }
+        return @($constructor)
+    }
+    if ($Path -eq (Join-Path $workspace 'Testmods\AICoarsePathComponentFixTest\src\WoodSiteGuardExperiment.cs')) {
+        # Opt-in experiment: an 8-byte branch site that no RedBird hook type can replace. The
+        # live site is written once; only an unpublished candidate is restored.
+        $constructor = Get-SourceBlock $Lines 'internal WoodSiteGuardExperiment('
+        $writer = Get-SourceBlock $Lines 'private static void WriteInitialPatch(IntPtr site, byte[] bytes)'
+        if (-not $constructor -or -not $writer) { return $null }
+        $calls = @(for ($i = 0; $i -lt $Lines.Length; $i++) {
+            if (($i -lt $writer.Start -or $i -gt $writer.End) -and $Lines[$i] -match '\bWriteInitialPatch\s*\(') { $i }
+        })
+        if ($calls.Count -ne 2 -or $Lines[$calls[0]].Trim() -cne 'WriteInitialPatch(site, jump);' -or
+            -not $Lines[$calls[1]].Trim().StartsWith('WriteInitialPatch(site, Original);', [StringComparison]::Ordinal) -or
+            -not (@($Lines[[Math]::Max(0, $calls[1] - 4)..$calls[1]]) -match '^\s*if \(patchAttempted && !published\)$') -or
+            $calls[0] -lt $constructor.Start -or $calls[1] -gt $constructor.End -or
+            $text -match 'class WoodSiteGuardExperiment\s*:|\.(?:Undo|Disable|Uninstall)\s*\(' -or
+            $text -notmatch 'VirtualAlloc\(new IntPtr\(address\), new UIntPtr\(\(uint\)StubCapacity\), 0x3000, 0x04\)') { return $null }
+        # Constructor calls may only target the fresh candidate stub.
+        foreach ($i in $constructor.Start..$constructor.End) {
+            if ($Lines[$i] -match '\b(?:VirtualProtect|FlushInstructionCache)\s*\(' -and $Lines[$i] -notmatch '\(\s*(?:GetCurrentProcess\(\),\s*)?candidate,') { return $null }
+        }
+        return @($constructor, $writer)
+    }
+    return $null
+}
+
 foreach ($file in $files) {
     if (-not $file.FullName.Contains('\APIShared\')) {
         $source = [IO.File]::ReadAllText($file.FullName)
@@ -57,6 +116,7 @@ foreach ($file in $files) {
         }
     }
     $lines = [System.IO.File]::ReadAllLines($file.FullName)
+    $freshPageBlocks = @(Get-FreshPageAllowance $file.FullName $lines | Where-Object { $_ })
     for ($index = 0; $index -lt $lines.Length; $index++) {
         $line = $lines[$index]
         if ($line -match '\.Hook\.(Enable|Disable)\s*\(' -or
@@ -73,7 +133,10 @@ foreach ($file in $files) {
                 $source.Contains('Marshal.Copy(code, 0, gateway, code.Length);') -and
                 $source.Contains('Roots.Add(this);') -and
                 $source -notmatch 'VirtualFree|FreeStub|\.Undo\(|transaction\??\.Dispose\('
-            if ($file.FullName -ne $wheatMemory -and -not $freshSpectatorStub) {
+            $freshPage = $freshPageBlocks.Count -gt 0 -and $line -notmatch '\bCodePatch\.|\.Hook\.|GatehouseNativeMutation' -and
+                ($line -match '^\s*(?:\[DllImport\([^\]]*\)\]\s*)?private static extern bool (?:VirtualProtect|FlushInstructionCache)\(' -or
+                 @($freshPageBlocks | Where-Object { $index -ge $_.Start -and $index -le $_.End }).Count -gt 0)
+            if ($file.FullName -ne $wheatMemory -and -not $freshSpectatorStub -and -not $freshPage) {
                 $errors.Add("$($file.FullName):$($index + 1): runtime executable-memory mutation: $($line.Trim())")
             }
         }
@@ -105,8 +168,14 @@ $permanentManagedContracts = @(
         # Backend/relocation checks express this audited native contract. Publication
         # failure behavior belongs to APIShared's executable NativeHookPublicationTests;
         # do not require a particular helper name or spelling of the state assignment.
-        Required = @('AllowedSchemes = DetourScheme.Indirect', 'FollowJumps = false', 'Validate(buy.Hook', 'Validate(sell.Hook', 'native.TrampolineAddress', 'jump.NearBranchTarget')
+        # The relocation checks moved into APIShared's shared Indirect-entry validator (next entry).
+        Required = @('AllowedSchemes = DetourScheme.Indirect', 'FollowJumps = false', 'Validate(buy.Hook', 'Validate(sell.Hook', 'NativeSites.NativeIndirectEntry.Validate(hook, target, expected)')
         Forbidden = @('transaction.Dispose(', 'transaction?.Dispose(', 'buy.Hook.Disable(', 'sell.Hook.Disable(')
+    },
+    @{
+        Path = 'APIShared\src\Core\NativeSites\NativeIndirectEntry.cs'
+        Required = @('native.Scheme != DetourScheme.Indirect', 'native.TrampolineAddress', 'jump.NearBranchTarget')
+        Forbidden = @('.Disable(', '.Undo(')
     },
     @{
         Path = 'ExtraFeatures\src\AIMarketVanillaPriceHook.cs'

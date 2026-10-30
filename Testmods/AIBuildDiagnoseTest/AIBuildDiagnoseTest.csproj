@@ -19,7 +19,9 @@
   <PropertyGroup Condition="'$(GameDir)' == ''"><GameDir>E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition</GameDir></PropertyGroup>
   <PropertyGroup Condition="'$(ExtenderDir)' == ''"><ExtenderDir>$(GameDir)\BepInEx\plugins\000shcdese</ExtenderDir></PropertyGroup>
   <PropertyGroup Condition="'$(ApiSharedDir)' == ''"><ApiSharedDir>$(GameDir)\BepInEx\plugins\APIShared_Serp</ApiSharedDir></PropertyGroup>
-  <PropertyGroup Condition="'$(BugfixesDir)' == ''"><BugfixesDir>$(GameDir)\BepInEx\plugins\SerpsMods_Serp\Mods\BugfixesAndQoL_Serp</BugfixesDir></PropertyGroup>
+  <!-- Installed Bugfix owner: modpack layout first, otherwise the standalone installation. -->
+  <PropertyGroup Condition="'$(BugfixesDir)' == '' and Exists('$(GameDir)\BepInEx\plugins\SerpsMods_Serp\Mods\BugfixesAndQoL_Serp\BugfixesAndQoL.dll')"><BugfixesDir>$(GameDir)\BepInEx\plugins\SerpsMods_Serp\Mods\BugfixesAndQoL_Serp</BugfixesDir></PropertyGroup>
+  <PropertyGroup Condition="'$(BugfixesDir)' == ''"><BugfixesDir>$(GameDir)\BepInEx\plugins\BugfixesAndQoL_Serp</BugfixesDir></PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Core" />
@@ -50,7 +52,7 @@
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Target Name="ValidateReferences" BeforeTargets="BeforeBuild">
-    <Error Condition="!Exists('$(BugfixesDir)\BugfixesAndQoL.dll')" Text="The unchanged installed BugfixesAndQoL 1.0.192 package is required." />
+    <Error Condition="!Exists('$(BugfixesDir)\BugfixesAndQoL.dll')" Text="An installed BugfixesAndQoL package (see info.json MinimumVersion) is required, but BugfixesAndQoL.dll was not found in '$(BugfixesDir)'. Install BugfixesAndQoL or pass /p:BugfixesDir=..." />
     <Error Condition="!Exists('$(ExtenderDir)\SHCDESE.dll')" Text="Installed SHCDESE.dll is required." />
     <Error Condition="!Exists('$(ApiSharedDir)\APIShared.dll')" Text="Installed APIShared.dll is required." />
   </Target>

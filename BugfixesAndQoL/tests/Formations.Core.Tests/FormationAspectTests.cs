@@ -103,15 +103,24 @@ public class FormationAspectTests
     public void UnchangedGestureUsesCachedRowsWithoutAllocating()
     {
         var gesture = new FormationGestureState(FormationKind.Wedge, 10000, 0, FormationAspectRatio.Create(3, 2));
-        int sum = 0;
-        for (int i = 0; i < 100; i++) sum += gesture.Rows;
+        // The loop lives in a warmed, fully optimized helper: a loop inside this test method
+        // itself would be measured across tiered-JIT OSR/PGO transitions, which allocate.
+        int sum = ReadRows(gesture, 100);
         long before = GC.GetAllocatedBytesForCurrentThread();
-        for (int i = 0; i < 10000; i++) sum += gesture.Rows;
+        sum += ReadRows(gesture, 10000);
         long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
         Assert.AreEqual(0L, allocated);
         Assert.IsTrue(sum > 0);
         var singleton = new FormationGestureState(FormationKind.Block, 1, 0, FormationAspectRatio.Create(9, 1));
         singleton.ApplyWheel(10, 1);
         Assert.AreEqual(FormationAspectRatio.Create(9, 1), singleton.Aspect);
+    }
+
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveOptimization)]
+    private static int ReadRows(FormationGestureState gesture, int count)
+    {
+        int sum = 0;
+        for (int i = 0; i < count; i++) sum += gesture.Rows;
+        return sum;
     }
 }
