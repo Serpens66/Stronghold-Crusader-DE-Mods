@@ -101,6 +101,7 @@ namespace BugfixesAndQoL.UnitCommands
                         pendingCommand = null;
                         activeCommand = active;
                     }
+                    PublishFormationDestinations(packet.TribeId, units, destinations);
                 }
                 catch (Exception exception)
                 {

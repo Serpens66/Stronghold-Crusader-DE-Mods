@@ -24,6 +24,8 @@ namespace MoatMove
     internal struct UnmanagedVector2<T> { public T X, Y; }
     internal struct SelectedUnitInfo { public int UnitId, UnitType; }
     internal enum AttackPipelineStage { Mode, Builder }
+    // BugfixesAndQoL RouteTilePolicySnapshot.cs contract (not compiled into this harness).
+    internal static class GatePolicyNeutrality { internal static System.Func<int, bool> Current; }
     [StructLayout(LayoutKind.Sequential, Size = 0x490)]
     internal unsafe struct GameUnit
     {
@@ -32,6 +34,7 @@ namespace MoatMove
         public ushort r_AttackMoveToTargetTileX, r_AttackMoveToTargetTileY;
         public int r_ControllableForPlayerId, r_CurrentTilePositionX, r_CurrentTilePositionY;
         public int r_NextTilePositionX2, r_NextTilePositionY2, r_PathPlanStateBitFlags, r_MovementSubstep;
+        public int r_CurrentPathPlanIndex, r_PathPlanLength, r_TargetTilePositionX2, r_TargetTilePositionY2, r_PreviousTilePositionX, r_PreviousTilePositionY;
         public int r_AI_LastIssuedTribeCommand;
         public int r_AIState;
         public AliveState r_AliveState;
@@ -68,6 +71,11 @@ namespace MoatMove
         public bool IsValidId(int id) => id > 0 && id < 1025;
         public bool TryGetUnitById(int id, out GameUnit* unit)
         { LookupCalls++; unit = id > 0 && id < 1025 ? Units + id : null; return unit != null; }
+        // Extender MoveToTile (196280): calls are recorded; MoveHandler plays the native result.
+        public readonly System.Collections.Generic.List<int[]> Moves = new System.Collections.Generic.List<int[]>();
+        public System.Action<int, int, int> MoveHandler;
+        public void MoveToTile(int unitId, int tileX, int tileY, int unknown = 0)
+        { Moves.Add(new[] { unitId, tileX, tileY }); MoveHandler?.Invoke(unitId, tileX, tileY); }
     }
     internal unsafe class GamePlayerManagerAPI
     {
@@ -196,6 +204,10 @@ namespace MoatMove
         private int[] observedRouteRegions, reachedGroundRegions, reachedFriendlyMoatRegions, reachedEnemyMoatRegions;
         private int gridGeneration, cacheMapEpoch = -1, cachePlayerId, cacheStartX, cacheStartY;
         private bool cacheIncludesEnemyRoutes;
+        internal bool DisableWordReachability;
+        private sealed class ExhaustedReachability { internal long Forgets; internal ulong[] Ground, Any; }
+        private readonly ExhaustedReachability[] exhaustedReachability = new ExhaustedReachability[9];
+        internal long ExhaustedReachabilityHits, ExhaustedReachabilityKept;
         private int reachabilityQueueHead, reachabilityQueueTail, reachabilityTick;
         private object reachabilityOwner;
         private readonly Dictionary<long, bool> nativeGroundDecisions = new Dictionary<long, bool>();
@@ -963,6 +975,8 @@ namespace MoatMove
             enemyTiles.Add(1013);
             Check(!TryAuditFallbackPath(nativePathManager, Buffer(1), 7, new PlanScope(1, 17, 10), units + 1, out _),
                 "actual audit rejects enemy crossing despite valid direction bytes");
+            Check(!TryAuditFallbackPath(nativePathManager, Buffer(1), 7, new PlanScope(1, 17, 10), units + 1, out _, edgesAudited: true),
+                "an anchor-audited route skips the owner check, not only the edge check");
             enemyPlayerId = 1;
             SetBuilder(2, 17);
             for (int i = 0; i < 4; i++) Buffer(2)[i] = 0x22;
@@ -1294,6 +1308,7 @@ namespace MoatMove {
   internal int RouteMode=1;
   internal bool NativeFast;
   internal bool Anchor;
+  internal bool AnchorSingleMoves;
   internal string PluginDirectory;
  }
 }

@@ -26,6 +26,14 @@ internal static partial class Program
                 Console.WriteLine($"PASS: {assertions} revision comparison assertions.");
                 return 0;
             }
+            if (args.Contains("--native-benchmark"))
+            {
+                Type kernel = CompileProductionKernel(Path.GetFullPath(args[0]), false);
+                string directory = Environment.GetEnvironmentVariable("BFQOL_ASSASSIN_NATIVE_DIR") ?? Path.Combine(Path.GetFullPath(args[0]), "BugfixesAndQoL", "obj", "native");
+                foreach (var (terrain, count) in new[] { ("castle", 200), ("detour", 2000), ("gate", 2000), ("open", 2000) })
+                    Console.WriteLine("NATIVE BENCH " + InvokeKernel(kernel, "BenchNative", directory, terrain, count));
+                return 0;
+            }
             if (args.Contains("--performance") || args.Contains("--performance-spread"))
             {
                 BenchmarkProduction(Path.GetFullPath(args[0]), args.Contains("--performance-spread"));

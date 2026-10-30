@@ -18,6 +18,11 @@ namespace BugfixesAndQoL.GateRouting
             check(!first.IsDirectionAllowed(0, 2) && first.IsDirectionAllowed(1, 2));
             check(source.TryCaptureRoutePolicy(2, out var again) && ReferenceEquals(first, again));
             check(source.TryCaptureRoutePolicy(1, out var own) && own.IsDirectionAllowed(0, 2));
+            // Player-neutral table: tile 0 differs (player 2 restricted), tile 1 is equal for all players;
+            // tiles beyond every mask and empty snapshots are neutral.
+            var neutralSnapshot = new RouteTilePolicySnapshot(masks, 1);
+            check(!neutralSnapshot.IsPlayerNeutral(0) && neutralSnapshot.IsPlayerNeutral(1) && neutralSnapshot.IsPlayerNeutral(5));
+            check(new RouteTilePolicySnapshot(new byte[9][], 1).IsPlayerNeutral(0));
             var outer = source.Enter(2, false, true);
             check(!source.TryCaptureRoutePolicy(1, out _));
             var inner = source.Enter(2, true, true);

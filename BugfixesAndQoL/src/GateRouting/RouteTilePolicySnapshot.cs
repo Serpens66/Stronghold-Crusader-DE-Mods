@@ -37,6 +37,36 @@ namespace BugfixesAndQoL.GateRouting
         // Each byte contains the eight Vanilla directions that remain legal when
         // leaving the tile. A null player entry is the all-0xFF fast path.
         internal byte[][] DirectionMasks { get; }
+
+        // 1 where the leaving directions of a tile differ between players; built once per immutable
+        // snapshot on first use (a race builds equal arrays; one of them is kept).
+        private byte[] playerSensitive;
+        internal bool IsPlayerNeutral(int tileId)
+        {
+            if (NonEmptyPlayerMaskCount == 0 || tileId < 0) return true;
+            byte[] sensitive = playerSensitive ?? BuildPlayerSensitivity();
+            return tileId >= sensitive.Length || sensitive[tileId] == 0;
+        }
+        private byte[] BuildPlayerSensitivity()
+        {
+            int length = 0;
+            for (int player = 1; player < DirectionMasks.Length; player++)
+                if (DirectionMasks[player] != null) length = Math.Max(length, DirectionMasks[player].Length);
+            var sensitive = new byte[length];
+            for (int tile = 0; tile < length; tile++)
+            {
+                int first = -1;
+                for (int player = 1; player < DirectionMasks.Length; player++)
+                {
+                    byte[] masks = DirectionMasks[player];
+                    int value = masks == null || tile >= masks.Length ? 0xFF : masks[tile];
+                    if (first < 0) first = value;
+                    else if (value != first) { sensitive[tile] = 1; break; }
+                }
+            }
+            System.Threading.Interlocked.CompareExchange(ref playerSensitive, sensitive, null);
+            return playerSensitive;
+        }
         internal GateEdgeOwnership[] EdgeOwners { get; }
         // TEMP_GATE_ROUTE_ACCEPTANCE: player-independent geometry; never consulted by functional policy.
         internal GateEdgeOwnership DiagnosticGateEdges { get; }
@@ -72,5 +102,17 @@ namespace BugfixesAndQoL.GateRouting
             return masks == null || tileId >= masks.Length ||
                 (masks[tileId] & (1 << direction)) != 0;
         }
+    }
+}
+
+namespace BugfixesAndQoL.UnitCommands
+{
+    // Whether a tile's leaving directions are equal for every player in the currently published gate
+    // route policy (one byte per tile and snapshot). Set by the gate routing runtime; null without it.
+    // Traversal providers use it to share player-neutral tiles across player masks. Declared beside
+    // the snapshot so GateRouting compiles on its own; not part of the functional policy adapter.
+    internal static class GatePolicyNeutrality
+    {
+        internal static System.Func<int, bool> Current;
     }
 }

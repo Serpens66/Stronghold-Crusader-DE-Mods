@@ -42,7 +42,8 @@ namespace APIShared { public static unsafe class UnitAccess {
 namespace BugfixesAndQoL.UnitCommands {
  internal class FormationMoveAuthorization {}
  internal static class FormationPreviewMarkerModel {internal const int MaximumMarkers=10000;}
- internal static class UnitCommandPathAPI {internal static Commands Runtime=new();}
+ internal static class UnitCommandPathAPI {internal static Commands Runtime=new();internal static UnitCommandTraversalProvider Traversal;}
+ internal class UnitCommandTraversalProvider {internal virtual void ObserveFormationDestinations(int tribeId,int[] unitIds,uint[] globalIds,int[] targetX,int[] targetY){}}
  internal sealed class Commands {
   internal int Blocked,Queries;internal readonly ManualRegionAdmissionBatch Batch=new();
   internal FormationUnit[] AdmitFormationMembers(FormationUnit[] units,int tribe,int x,int y) {

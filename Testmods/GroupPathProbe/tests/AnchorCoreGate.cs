@@ -27,6 +27,26 @@ internal static class AnchorCoreGate
         for (int i = 0; i < results.Length; i++) results[i] = core.Query(tasks[load.GroupOf[i]], load.Queries[i].Start, load.Queries[i].Target, Margin);
         return results;
     }
+    // Same tasks as Solve, answered with one batch per group (caller order within the group).
+    private static RouteResult[] SolveBatch(AnchorCoreInterop core, GroupLoad load, int threads)
+    {
+        var tasks = new int[load.Groups];
+        for (int g = 0; g < load.Groups; g++)
+        {
+            int first = load.GroupOf.IndexOf(g); RouteQuery q = load.Queries[first];
+            int[] starts = Enumerable.Range(0, load.Queries.Count).Where(i => load.GroupOf[i] == g).Select(i => load.Queries[i].Start).ToArray();
+            tasks[g] = core.CreateTask(Player, load.Anchors[g], q.GroundCost, q.MoatCost, starts);
+        }
+        core.Step(int.MaxValue, threads);
+        var results = new RouteResult[load.Queries.Count];
+        for (int g = 0; g < load.Groups; g++)
+        {
+            int[] members = Enumerable.Range(0, load.Queries.Count).Where(i => load.GroupOf[i] == g).ToArray();
+            RouteResult[] answers = core.QueryBatch(tasks[g], members.Select(i => load.Queries[i].Start).ToArray(), members.Select(i => load.Queries[i].Target).ToArray(), Margin, threads);
+            for (int k = 0; k < members.Length; k++) results[members[k]] = answers[k];
+        }
+        return results;
+    }
     private static void Same(RouteResult[] a, RouteResult[] b, string name)
     {
         for (int i = 0; i < a.Length; i++)
@@ -77,6 +97,33 @@ internal static class AnchorCoreGate
             using (var core = new AnchorCoreInterop(load.Map.Width, load.Map.Height, 128L * 1024 * 1024)) { core.WriteWholeMask(Player, load.Map, 37); a = Solve(core, load, 1, out _); }
             using (var core = new AnchorCoreInterop(load.Map.Width, load.Map.Height, 128L * 1024 * 1024)) { core.WriteWholeMask(Player, load.Map, load.Map.Count); b = Solve(core, load, 4, out _); }
             Same(a, b, load.Name + "#" + sample); Check(load, a);
+            // Single-unit routes are exactly optimal.
+            using (var core = new AnchorCoreInterop(load.Map.Width, load.Map.Height, 128L * 1024 * 1024))
+            {
+                core.WriteWholeMask(Player, load.Map, load.Map.Count);
+                var single = load.Queries.Select(q => core.SingleRoute(Player, q.Target, q.GroundCost, q.MoatCost, q.Start)).ToArray();
+                Check(load, single);
+                for (int i = 0; i < single.Length; i++)
+                    if (single[i].Status == SearchStatus.Found && single[i].Cost != ReferenceSearch.Find(load.Map, load.Queries[i], new WorkBudget(256L * 1024 * 1024, 30)).Cost)
+                        throw new InvalidOperationException("Single route above optimum: sample=" + sample + " case=" + i);
+                // A settle budget only shortens the search: a found route is the unlimited one, a stopped
+                // search is inconclusive (never unreachable while a route exists).
+                for (int i = 0; i < single.Length; i++)
+                {
+                    var q = load.Queries[i];
+                    RouteResult limited = core.SingleRoute(Player, q.Target, q.GroundCost, q.MoatCost, q.Start, 64);
+                    if (limited.Status == SearchStatus.Found ? single[i].Status != SearchStatus.Found || limited.Cost != single[i].Cost
+                        : limited.Status == SearchStatus.Unreachable ? single[i].Status != SearchStatus.Unreachable : limited.Status != SearchStatus.Inconclusive)
+                        throw new InvalidOperationException($"Limited single route differs: sample={sample} case={i} limited={limited.Status} unlimited={single[i].Status}");
+                }
+            }
+            // Batch answers equal single queries in caller order, for one and several threads.
+            foreach (int threads in new[] { 1, 4 })
+            {
+                RouteResult[] batch;
+                using (var core = new AnchorCoreInterop(load.Map.Width, load.Map.Height, 128L * 1024 * 1024)) { core.WriteWholeMask(Player, load.Map, load.Map.Count); batch = SolveBatch(core, load, threads); }
+                Same(a, batch, load.Name + "#" + sample + "-batch" + threads);
+            }
         }
         // Pending until the mask is complete; stale after a later change; restart recovers.
         {
@@ -109,10 +156,175 @@ internal static class AnchorCoreGate
             GridSnapshot map = GroupGate.Grid(60, 60, null, n => n % 60 != 34 || n / 60 == 59);
             var load = new GroupLoad { Name = "core-far-slots", Map = map }; load.Anchors.Add(30 * 60 + 30);
             foreach (int slot in new[] { 30 * 60 + 30, 30 * 60 + 31, 30 * 60 + 36, 30 * 60 + 37 }) { load.Queries.Add(new RouteQuery { Start = 10 * 60 + 50 + load.Queries.Count, Target = slot, GroundCost = 1, MoatCost = 7 }); load.GroupOf.Add(0); }
-            using var core = new AnchorCoreInterop(60, 60, 128L * 1024 * 1024); core.WriteWholeMask(Player, map, 500);
+            using var core = new AnchorCoreInterop(60, 60, 128L * 1024 * 1024); core.WriteWholeMask(Player, map, 500); core.SetSubSingleBudget(0);
             RouteResult[] r = Solve(core, load, 2, out _); Check(load, r);
             if (core.Stats()[AnchorCoreInterop.Stat("subAnchors")] != 1) throw new InvalidOperationException("Far slots did not share one sub-anchor.");
+            using (var batchCore = new AnchorCoreInterop(60, 60, 128L * 1024 * 1024)) { batchCore.WriteWholeMask(Player, map, 500); batchCore.SetSubSingleBudget(0); Same(r, SolveBatch(batchCore, load, 4), "core-far-slots-batch"); if (batchCore.Stats()[AnchorCoreInterop.Stat("subAnchors")] != 1) throw new InvalidOperationException("Batch far slots did not share one sub-anchor."); }
             for (int i = 2; i < 4; i++) { var reference = ReferenceSearch.Find(map, load.Queries[i], new WorkBudget(64L * 1024 * 1024, 10)); if (r[i].Cost > reference.Cost + 2) throw new InvalidOperationException("Far-slot unit still detours; case=" + i); }
+            // Default budget: the far slots get exact single routes instead of a sub-anchor field, in
+            // the sequential and the batch pass alike.
+            using (var singleCore = new AnchorCoreInterop(60, 60, 128L * 1024 * 1024))
+            {
+                singleCore.WriteWholeMask(Player, map, 500);
+                RouteResult[] s = Solve(singleCore, load, 2, out _); Check(load, s);
+                long[] singleStats = singleCore.Stats();
+                if (singleStats[AnchorCoreInterop.Stat("subAnchors")] != 0 || singleStats[AnchorCoreInterop.Stat("subSingles")] == 0) throw new InvalidOperationException("Far slots did not use single routes before a sub-anchor.");
+                for (int i = 2; i < 4; i++) if (s[i].Cost != ReferenceSearch.Find(map, load.Queries[i], new WorkBudget(64L * 1024 * 1024, 10)).Cost) throw new InvalidOperationException("Far-slot single route above optimum; case=" + i);
+                using var batchCore = new AnchorCoreInterop(60, 60, 128L * 1024 * 1024); batchCore.WriteWholeMask(Player, map, 500); Same(s, SolveBatch(batchCore, load, 4), "core-far-slots-single-batch");
+            }
+        }
+        // Group split by a closed wall (AI members behind walls): the main field cannot reach the
+        // right-hand starts. A sub-anchor for right-hand slots targets only right-hand starts, so
+        // it stops near the slots instead of exhausting the right component; answers stay exact.
+        {
+            GridSnapshot map = GroupGate.Grid(60, 60, null, n => n % 60 != 30);
+            var load = new GroupLoad { Name = "core-split-group", Map = map }; load.Anchors.Add(30 * 60 + 10);
+            foreach (var (start, slot) in new[] { (26 * 60 + 8, 30 * 60 + 10), (26 * 60 + 9, 30 * 60 + 11), (26 * 60 + 44, 30 * 60 + 45), (26 * 60 + 45, 30 * 60 + 46), (26 * 60 + 46, 30 * 60 + 45) })
+            { load.Queries.Add(new RouteQuery { Start = start, Target = slot, GroundCost = 1, MoatCost = 7 }); load.GroupOf.Add(0); }
+            using var core = new AnchorCoreInterop(60, 60, 128L * 1024 * 1024); core.WriteWholeMask(Player, map, 500); core.SetSubSingleBudget(0);
+            RouteResult[] r = Solve(core, load, 2, out _); Check(load, r);
+            long[] stats = core.Stats();
+            if (stats[AnchorCoreInterop.Stat("subAnchors")] != 1) throw new InvalidOperationException("Right-hand slots did not share one sub-anchor.");
+            using (var batchCore = new AnchorCoreInterop(60, 60, 128L * 1024 * 1024)) { batchCore.WriteWholeMask(Player, map, 500); batchCore.SetSubSingleBudget(0); Same(r, SolveBatch(batchCore, load, 4), "core-split-group-batch"); }
+            // Main field: the whole left component (30 x 60 nodes). A sub-anchor that also targeted the
+            // unreachable left-hand starts would settle the whole right component (29 x 60) as well.
+            if (stats[AnchorCoreInterop.Stat("settleEvents")] >= 30 * 60 + 29 * 60) throw new InvalidOperationException("Sub-anchor exhausted the right component: settles=" + stats[AnchorCoreInterop.Stat("settleEvents")]);
+        }
+        // Anchor, starts and slots in three closed components (an AI group ordered into an
+        // enclosure, pf-iter-3): the first slot's exhausted sub-anchor proves every start
+        // unreachable for the slots it settled, so the other slots build no sub-anchor of their own.
+        {
+            GridSnapshot map = GroupGate.Grid(60, 60, null, n => n % 60 != 20 && n % 60 != 40);
+            var load = new GroupLoad { Name = "core-unreachable-slots", Map = map }; load.Anchors.Add(30 * 60 + 10);
+            for (int i = 0; i < 8; i++) { load.Queries.Add(new RouteQuery { Start = (20 + i) * 60 + 30, Target = 30 * 60 + 45 + i, GroundCost = 1, MoatCost = 7 }); load.GroupOf.Add(0); }
+            using var core = new AnchorCoreInterop(60, 60, 128L * 1024 * 1024); core.WriteWholeMask(Player, map, 500); core.SetSubSingleBudget(0);
+            RouteResult[] r = Solve(core, load, 2, out _); Check(load, r);
+            if (r.Any(x => x.Status != SearchStatus.Unreachable)) throw new InvalidOperationException("A slot in a closed component was not answered unreachable.");
+            if (core.Stats()[AnchorCoreInterop.Stat("subAnchors")] != 1) throw new InvalidOperationException("Unreachable slots built one sub-anchor each: " + core.Stats()[AnchorCoreInterop.Stat("subAnchors")]);
+            using (var batchCore = new AnchorCoreInterop(60, 60, 128L * 1024 * 1024)) { batchCore.WriteWholeMask(Player, map, 500); batchCore.SetSubSingleBudget(0); Same(r, SolveBatch(batchCore, load, 4), "core-unreachable-slots-batch"); }
+            // Default budget: the small start components are proven enclosed without any sub-anchor.
+            using (var singleCore = new AnchorCoreInterop(60, 60, 128L * 1024 * 1024))
+            {
+                singleCore.WriteWholeMask(Player, map, 500);
+                if (Solve(singleCore, load, 2, out _).Any(x => x.Status != SearchStatus.Unreachable) || singleCore.Stats()[AnchorCoreInterop.Stat("subAnchors")] != 0)
+                    throw new InvalidOperationException("Enclosed starts were not answered unreachable by single routes.");
+            }
+        }
+        // A member standing on a cell without edges (building or tower tiles) is proven enclosed before
+        // the field: the field stops at the other starts instead of exhausting the anchor's component,
+        // the member's query stays exactly unreachable and the others stay optimal.
+        {
+            const int stuck = 30 * 60 + 30;
+            GridSnapshot map = GroupGate.Grid(60, 60, null, n => n != stuck);
+            using var core = new AnchorCoreInterop(60, 60, 128L * 1024 * 1024); core.WriteWholeMask(Player, map, 500); core.SetSubSingleBudget(0);
+            int task = core.CreateTask(Player, 10 * 60 + 10, 1, 7, new[] { 12 * 60 + 12, stuck }); core.Step(1, 1);
+            long[] stats = core.Stats();
+            if (stats[AnchorCoreInterop.Stat("startsEnclosed")] != 1 || stats[AnchorCoreInterop.Stat("settleEvents")] >= 60 * 60 - 1)
+                throw new InvalidOperationException($"An edge-less start exhausted the field: enclosed={stats[AnchorCoreInterop.Stat("startsEnclosed")]} settles={stats[AnchorCoreInterop.Stat("settleEvents")]}");
+            if (core.Query(task, stuck, 10 * 60 + 11, Margin).Status != SearchStatus.Unreachable) throw new InvalidOperationException("An enclosed start was not answered unreachable.");
+            var open = new RouteQuery { Start = 12 * 60 + 12, Target = 10 * 60 + 11, GroundCost = 1, MoatCost = 7 };
+            RouteResult route = core.Query(task, open.Start, open.Target, Margin);
+            if (route.Status != SearchStatus.Found || route.Cost != ReferenceSearch.Find(map, open, new WorkBudget(64L * 1024 * 1024, 10)).Cost)
+                throw new InvalidOperationException("The open member lost its optimal route next to an enclosed one.");
+        }
+        // Ground-only profiles use the ground directions (bits 8..15, Vanilla's DA590 rules),
+        // moat profiles the friendly directions (DAFD0 rules with the height correction): an
+        // edge present only as ground direction (a keep or tower step) serves ground units only.
+        {
+            const uint West = 1U << 6, WestGround = 1U << 14;
+            var words = new uint[5];
+            for (int n = 1; n < 5; n++) words[n] = West | WestGround;
+            words[2] = WestGround;
+            using var core = new AnchorCoreInterop(5, 1, 64L * 1024 * 1024); core.BeginMask(Player); core.WriteWords(Player, 0, words);
+            int groundTask = core.CreateTask(Player, 0, 1, 0, new[] { 4 }), moatTask = core.CreateTask(Player, 0, 1, 7, new[] { 4 });
+            core.Step(8, 1);
+            RouteResult ground = core.Query(groundTask, 4, 0, Margin), moat = core.Query(moatTask, 4, 0, Margin);
+            if (ground.Status != SearchStatus.Found || ground.Cost != 4) throw new InvalidOperationException("Ground profile ignored a ground-only direction: " + ground.Status + "/" + ground.Reason);
+            if (moat.Status == SearchStatus.Found) throw new InvalidOperationException("Moat profile used a ground-only direction.");
+        }
+        // Field cache: a second task with the same player, anchor and profile whose starts the first
+        // field settled reuses that field and answers exactly like a fresh core; a mask change or
+        // an unsettled start computes a new field.
+        {
+            GridSnapshot map = GroupGate.Grid(60, 60, null, n => n % 60 != 30 || n / 60 == 50);
+            int anchorNode = 10 * 60 + 10, near = 12 * 60 + 15, far = 55 * 60 + 50;
+            using var core = new AnchorCoreInterop(60, 60, 128L * 1024 * 1024); core.WriteWholeMask(Player, map, 500);
+            int first = core.CreateTask(Player, anchorNode, 1, 7, new[] { near, far }); core.Step(8, 1);
+            int second = core.CreateTask(Player, anchorNode, 1, 7, new[] { near }); core.Step(8, 1);
+            if (core.Stats()[AnchorCoreInterop.Stat("fieldReuses")] != 1) throw new InvalidOperationException("A covered task did not reuse the cached field.");
+            using var fresh = new AnchorCoreInterop(60, 60, 128L * 1024 * 1024); fresh.WriteWholeMask(Player, map, 500);
+            int alone = fresh.CreateTask(Player, anchorNode, 1, 7, new[] { near }); fresh.Step(8, 1);
+            foreach (int slot in new[] { anchorNode, anchorNode + 1, anchorNode + 61 })
+            {
+                RouteResult cached = core.Query(second, near, slot, Margin), own = fresh.Query(alone, near, slot, Margin);
+                if (cached.Status != own.Status || cached.Cost != own.Cost) throw new InvalidOperationException($"Reused field answers differently: slot={slot} {cached.Status}/{cached.Cost} vs {own.Status}/{own.Cost}");
+            }
+            int third = core.CreateTask(Player, anchorNode, 1, 7, new[] { 59 * 60 + 59 }); core.Step(8, 1);
+            if (core.Stats()[AnchorCoreInterop.Stat("fieldReuses")] != 1) throw new InvalidOperationException("A task with an unsettled start reused the cached field.");
+            core.UpdateMask(Player, GroupGate.Grid(60, 60, null, n => n % 60 != 30), new[] { 50 * 60 + 30 });
+            int fourth = core.CreateTask(Player, anchorNode, 1, 7, new[] { near }); core.Step(8, 1);
+            if (core.Stats()[AnchorCoreInterop.Stat("fieldReuses")] != 1) throw new InvalidOperationException("A field of an older mask revision was reused.");
+            core.Release(first); core.Release(second); core.Release(third); core.Release(fourth);
+        }
+        // Entry penalties (APIShared route tile rules): a penalized column is crossed at its one
+        // unpenalized tile, which the unpenalized route (lowest direction first) does not use.
+        {
+            GridSnapshot map = GroupGate.Grid(20, 5);
+            int start = 2 * 20 + 0, slot = 2 * 20 + 19;
+            using var core = new AnchorCoreInterop(20, 5, 64L * 1024 * 1024); core.WriteWholeMask(Player, map, 100);
+            int plain = core.CreateTask(Player, slot, 1, 7, new[] { start }); core.Step(8, 1);
+            int CrossingRow(RouteResult route)
+            {
+                int node = start;
+                foreach (byte d in route.Directions) { node += GridSnapshot.Dy[d] * 20 + GridSnapshot.Dx[d]; if (node % 20 == 10) return node / 20; }
+                return -1;
+            }
+            RouteResult straight = core.Query(plain, start, slot, Margin);
+            if (straight.Status != SearchStatus.Found || CrossingRow(straight) == 4) throw new InvalidOperationException("Unpenalized route already crosses at the open row.");
+            var column = new[] { 0 * 20 + 10, 1 * 20 + 10, 2 * 20 + 10, 3 * 20 + 10 };
+            if (core.UpdatePenalties(Player, column, new byte[] { 50, 50, 50, 50 }) != 4 || core.TaskStatus(plain) != AnchorCoreInterop.Stale)
+                throw new InvalidOperationException("A penalty change did not make the task stale.");
+            int penalized = core.CreateTask(Player, slot, 1, 7, new[] { start }); core.Step(8, 1);
+            RouteResult around = core.Query(penalized, start, slot, Margin);
+            if (around.Status != SearchStatus.Found || CrossingRow(around) != 4) throw new InvalidOperationException("The route crosses a penalized tile: row " + CrossingRow(around));
+            using (var batchCore = new AnchorCoreInterop(20, 5, 64L * 1024 * 1024))
+            {
+                batchCore.WriteWholeMask(Player, map, 100); batchCore.UpdatePenalties(Player, column, new byte[] { 50, 50, 50, 50 });
+                int batchTask = batchCore.CreateTask(Player, slot, 1, 7, new[] { start }); batchCore.Step(8, 1);
+                RouteResult batched = batchCore.QueryBatch(batchTask, new[] { start }, new[] { slot }, Margin, 2)[0];
+                if (batched.Status != SearchStatus.Found || !batched.Directions.SequenceEqual(around.Directions)) throw new InvalidOperationException("Batch route differs under penalties.");
+            }
+        }
+        // Single routes search a corridor: on open ground ties dive towards the start instead of
+        // settling the diamond of equally short routes (about distance^2 / 4 nodes), so a straight
+        // trip settles a few nodes per step.
+        {
+            GridSnapshot map = GroupGate.Grid(60, 60);
+            using var core = new AnchorCoreInterop(60, 60, 128L * 1024 * 1024); core.WriteWholeMask(Player, map, 500);
+            RouteResult route = core.SingleRoute(Player, 30 * 60 + 10, 1, 7, 30 * 60 + 40);
+            long settles = core.Stats()[AnchorCoreInterop.Stat("singleSettles")];
+            if (route.Status != SearchStatus.Found || route.Cost != 30 || settles > 4 * 30)
+                throw new InvalidOperationException($"Single route is not a corridor search: status={route.Status} cost={route.Cost} settles={settles}");
+            // The result reports the call's settles (MoatMove's per-tick single budget charges them).
+            if (core.LastSettles != settles) throw new InvalidOperationException($"Single route settles not reported: {core.LastSettles} != {settles}");
+            // Over a settle budget the search stops inconclusive; a sufficient budget gives the same route.
+            if (core.SingleRoute(Player, 30 * 60 + 10, 1, 7, 30 * 60 + 40, 8).Reason != "over-2000-steps" || core.LastSettles != 8 ||
+                !core.SingleRoute(Player, 30 * 60 + 10, 1, 7, 30 * 60 + 40, 4096).Directions.SequenceEqual(route.Directions) || core.LastSettles != settles)
+                throw new InvalidOperationException("Settle budget of single routes is not respected.");
+        }
+        // A start enclosed by blocked cells is proven unreachable from its own small component, without
+        // the backward A* settling the target's whole open component.
+        {
+            static bool Ring(int n) { int x = n % 60, y = n / 60; return Math.Max(Math.Abs(x - 10), Math.Abs(y - 10)) == 1; }
+            GridSnapshot map = GroupGate.Grid(60, 60, null, n => !Ring(n));
+            using var core = new AnchorCoreInterop(60, 60, 128L * 1024 * 1024); core.WriteWholeMask(Player, map, 500);
+            RouteResult route = core.SingleRoute(Player, 50 * 60 + 50, 1, 7, 10 * 60 + 10);
+            long settles = core.Stats()[AnchorCoreInterop.Stat("singleSettles")];
+            if (route.Status != SearchStatus.Unreachable || settles > 0)
+                throw new InvalidOperationException($"Enclosed start is not proven unreachable cheaply: status={route.Status} settles={settles}");
+            RouteResult open = core.SingleRoute(Player, 50 * 60 + 50, 1, 7, 20 * 60 + 20);
+            if (open.Status != SearchStatus.Found || open.Cost != 30)
+                throw new InvalidOperationException($"Open start after the enclosure proof: status={open.Status} cost={open.Cost}");
         }
         // Directed snake longer than 2,000 steps: never returned as a route.
         {
@@ -146,6 +358,18 @@ internal static class AnchorCoreGate
             var named = new Dictionary<string, long>(); for (int i = 0; i < stats.Length; i++) named[AnchorCoreInterop.StatNames[i]] = stats[i];
             rows["threads-" + threads] = new { stepMs, queryMs, subAnchorMs = subMs, queryMicrosecondsPerUnit = (queryMs - subMs) * 1000 / load.Queries.Count, stats = named };
             Console.WriteLine("  core threads=" + threads + " step=" + stepMs.ToString("F1") + " ms queries=" + queryMs.ToString("F1") + " ms (sub-anchors " + subMs.ToString("F1") + " ms, " + stats[AnchorCoreInterop.Stat("subAnchors")] + ") via=" + stats[AnchorCoreInterop.Stat("viaChosen")] + " peakMiB=" + stats[AnchorCoreInterop.Stat("peakBytes")] / 1048576);
+        }
+        // Batch queries (one call per group, parallel pass plus ordered deferred pass): identical
+        // answers, timed like the single queries above.
+        foreach (int threads in new[] { 1, recommended })
+        {
+            using var core = new AnchorCoreInterop(load.Map.Width, load.Map.Height);
+            core.WriteWholeMask(Player, load.Map, 16384); core.Stats(true);
+            var results = SolveBatch(core, load, threads); long[] stats = core.Stats();
+            Same(reference, results, load.Name + " batch threads=" + threads);
+            double queryMs = stats[AnchorCoreInterop.Stat("queryNs")] / 1e6, subMs = stats[AnchorCoreInterop.Stat("subNs")] / 1e6;
+            rows["batch-threads-" + threads] = new { queryMs, subAnchorMs = subMs, queryMicrosecondsPerUnit = queryMs * 1000 / load.Queries.Count };
+            Console.WriteLine("  batch threads=" + threads + " queries=" + queryMs.ToString("F1") + " ms (sub-anchors " + subMs.ToString("F1") + " ms)");
         }
         var oracle = new PreciseOracle(load.Map); var extra = new List<long>(); var relative = new List<long>(); int mismatch = 0, worse = 0;
         var pw = Stopwatch.StartNew(); double next = 5;

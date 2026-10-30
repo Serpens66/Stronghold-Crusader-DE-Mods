@@ -12,7 +12,25 @@ namespace MoatMove
     {
         private readonly Dictionary<FastUnitIdentity, MoveCommandScope> deferredMoves =
             new Dictionary<FastUnitIdentity, MoveCommandScope>();
-        internal override void InvalidateFastMoatData() => MarkFastTopologyAll();
+        internal override void InvalidateFastMoatData() { ResetGroundFailureProofs(); MarkFastTopologyAll(); }
+        // Native 3x3 tile or moat update: only that area (+-2 tiles, the edges it can change) is
+        // re-read, so AI building activity no longer forces full anchor mask resweeps.
+        internal override void ObserveFormationDestinations(int tribeId, int[] unitIds, uint[] globalIds, int[] targetX, int[] targetY) =>
+            ObserveAnchorFormation(tribeId, unitIds, globalIds, targetX, targetY);
+        internal override void InvalidateFastMoatTile(int tile)
+        {
+            ResetGroundFailureProofs();
+            if (RequiredOnlyMode && IsValidTileId(tile)) MarkFastTopologyTile(tile); else MarkFastTopologyAll();
+        }
+        // A native mask rebuild changes only direction bytes: the anchor byte watch marks every
+        // changed tile within one round (16 ticks), so no global resweep is needed once it has
+        // recorded all bytes (pf-iter-16: rebuild resweeps forced live searches of 150-190 ms).
+        internal override void InvalidateFastMoatDirections()
+        {
+            ResetGroundFailureProofs();
+            if (RequiredOnlyMode && AnchorNodeTiles() != null) { anchorRebuildsWatched++; return; }
+            MarkFastTopologyAll();
+        }
         internal override void ResetMapState()
         {
             deferredMoves.Clear();

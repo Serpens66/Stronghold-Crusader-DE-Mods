@@ -28,6 +28,7 @@ namespace MoatMove
         private int fastPlayerActionDepth, fastLastTick = int.MinValue, fastRoundRobin;
         private IntPtr fastChoreMode;
         private byte[] fastLoadedCommands;
+        private FireRouteRules fireRules;
         private long fastQueuedCommands, fastExecutedCommands, fastCommandRetries;
 
         private sealed class FastPendingSearch : IDisposable
@@ -98,6 +99,97 @@ namespace MoatMove
                 // Native hooks belong to APIShared and survive failed provider initialization.
                 throw;
             }
+        }
+
+        // DEVDIAG in-game check of Forbidden tile rules (option Diagnostics.RuleProbeTicks): after that
+        // many simulation ticks of a map, a three-tile band across the map (x 399..401, every row except
+        // the gap 380..420) is forbidden for all players. Published single routes are then counted for
+        // forbidden tiles (expected 0) and for passing the band (AnchorRouting.CountRuleProbeRoute).
+        private APIShared.Pathfinding.RouteTileRuleSet ruleProbe;
+        private int ruleProbeElapsed;
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
+        private void ProbeRouteRules()
+        {
+            if (settings.RuleProbeTicks <= 0 || ruleProbeElapsed > settings.RuleProbeTicks || ++ruleProbeElapsed <= settings.RuleProbeTicks) return;
+            if (ruleProbe == null && !APIShared.Pathfinding.RouteTileRules.TryRegister(MoatMovePlugin.PluginGuid, "devdiag-probe", out ruleProbe, out string reason))
+            { Shared.DebugLogHelper.LogError(log, "MoatMove rule probe unavailable: " + reason); return; }
+            long started = System.Diagnostics.Stopwatch.GetTimestamp(); int tiles = 0;
+            for (int y = 0; y < MapWidth; y++)
+            {
+                if (y >= 380 && y <= 420) continue;
+                for (int x = 399; x <= 401; x++)
+                    if (ruleProbe.Set(x, y, APIShared.Pathfinding.RouteTileEffect.Forbidden)) tiles++;
+            }
+            Shared.DebugLogHelper.LogInfo(log, $"MoatMove rule probe set: forbiddenTiles={tiles} ms={AnchorMs(System.Diagnostics.Stopwatch.GetTimestamp() - started)}.");
+        }
+
+        // DEVDIAG in-game timing of full cursor topology builds (option Diagnostics.TopologyProbeTicks):
+        // after that many ticks of a map, every player's topology is rebuilt once with the table-based
+        // build (kept) and once with the per-tile path (discarded); one deliberate lag in DEVDIAG runs.
+        private int topologyProbeElapsed;
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
+        private void ProbeCursorTopology()
+        {
+            if (settings.TopologyProbeTicks <= 0 || topologyProbeElapsed > settings.TopologyProbeTicks || ++topologyProbeElapsed <= settings.TopologyProbeTicks) return;
+            for (int player = 1; player <= 8; player++)
+            {
+                runtime.cursorTopologies.Remove(player);
+                long started = System.Diagnostics.Stopwatch.GetTimestamp();
+                CursorTopology kept = EnsureCursorTopology(player);
+                long table = System.Diagnostics.Stopwatch.GetTimestamp() - started;
+                runtime.cursorTopologies.Remove(player);
+                var perTile = EnsureCursorTopology(player, false);
+                started = System.Diagnostics.Stopwatch.GetTimestamp();
+                for (int tile = 0; tile < NativeTileCount; tile++) UpdateCursorBoundary(perTile, player, tile);
+                long slow = System.Diagnostics.Stopwatch.GetTimestamp() - started;
+                runtime.cursorTopologies[player] = kept;
+                bool Same(Dictionary<int, long[]> x, Dictionary<int, long[]> y)
+                {
+                    if (x.Count != y.Count) return false;
+                    foreach (KeyValuePair<int, long[]> e in x)
+                    {
+                        if (!y.TryGetValue(e.Key, out long[] o) || o.Length != e.Value.Length) return false;
+                        for (int i = 0; i < o.Length; i++) if (o[i] != e.Value[i]) return false;
+                    }
+                    return true;
+                }
+                Shared.DebugLogHelper.LogInfo(log, $"MoatMove topology probe: player={player} tableMs={AnchorMs(table)} perTileMs={AnchorMs(slow)} " +
+                    $"boundaries={kept.Boundaries.Count}/{perTile.Boundaries.Count} groundBoundaries={kept.GroundBoundaries.Count}/{perTile.GroundBoundaries.Count} " +
+                    $"same={Same(kept.Boundaries, perTile.Boundaries) && Same(kept.GroundBoundaries, perTile.GroundBoundaries)}.");
+            }
+        }
+
+        // DEVDIAG in-game check of route cost rules (option Diagnostics.MoatCostProbeTicks): a
+        // RouteSearchEvents observer, registered once, makes moat edges 50 times as expensive as ground
+        // edges from that many ticks of a map on; the anchor breakdown's moatRoutes and costRules
+        // counters show whether group moves stop crossing moats.
+        private int moatCostProbeElapsed; private bool moatCostProbeActive, moatCostProbeRegistered;
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
+        private void ProbeMoatCost()
+        {
+            if (settings.MoatCostProbeTicks <= 0 || moatCostProbeActive || ++moatCostProbeElapsed <= settings.MoatCostProbeTicks) return;
+            if (!moatCostProbeRegistered)
+            {
+                moatCostProbeRegistered = APIShared.Pathfinding.RouteSearchEvents.TryRegister(MoatMovePlugin.PluginGuid, "devdiag-moat-cost",
+                    e => { if (moatCostProbeActive) e.MoatEdgeCost = Math.Min(e.Context.MaximumEdgeCost, e.GroundEdgeCost * 50); }, null, out string reason);
+                if (!moatCostProbeRegistered) { Shared.DebugLogHelper.LogError(log, "MoatMove moat cost probe unavailable: " + reason); return; }
+            }
+            moatCostProbeActive = true;
+            Shared.DebugLogHelper.LogInfo(log, "MoatMove moat cost probe active: moat edges cost 50 ground edges.");
+        }
+
+        // After InitializeAnchor; anchor mode only: the core is the engine that reads the fire rules.
+        private void RegisterFireRouteRules(ReadOnlySpan<byte> memory, ulong moduleBase)
+        {
+            if (!settings.AvoidFire || !anchorAvailable || fireRules != null) return;
+            var fire = new FireRouteRules();
+            // Fail-closed for this feature only: without validated effect anchors no rule is registered.
+            if (fire.TryBind(memory, moduleBase, log, out string reason) && fire.TryRegister(MoatMovePlugin.PluginGuid, out reason))
+            {
+                fireRules = fire;
+                Shared.DebugLogHelper.LogInfo(log, "MoatMove fire route rules registered; replanning=" + settings.AnchorSingleMoves + ".");
+            }
+            else Shared.DebugLogHelper.LogError(log, "MoatMove fire route rules unavailable: " + reason);
         }
 
         private void ReleaseFastPendingSearch(FastPendingCommand command)
@@ -242,12 +334,20 @@ namespace MoatMove
                     foreach (var identity in new List<FastUnitIdentity>(fastUnitDistributions.Keys))
                         if (!TryGetFastMember(identity, fastUnitDistributions[identity].Player, out _))
                             fastUnitDistributions.Remove(identity);
+                if (runtime.TraversalEnabled) PrebuildCursorTopologies();
                 // Anchor mode prepares masks and computes queued tasks even without new commands.
                 if (RequiredOnlyMode && runtime.TraversalEnabled)
                 {
                     // Tick-based and from simulation state only, so every peer requests alike.
                     if (AnchorPlayerScanDue(tick)) RequestAnchorMasksForPlayers(ScanAnchorPlayers());
                     AnchorTick(tick);
+                    ReplanTick(tick);
+                    // After AnchorTick: this tick's fire changes are read at the next tick, also on a
+                    // new map, where AnchorTick starts following the journal from its current end.
+                    fireRules?.Tick(tick);
+                    ProbeRouteRules();
+                    ProbeMoatCost();
+                    ProbeCursorTopology();
                 }
                 if (fastCommands.Commands.Count == 0) return;
                 if (!RequiredOnlyMode || !runtime.TraversalEnabled)
@@ -376,15 +476,34 @@ namespace MoatMove
         }
 
         // Bit p is set when player p controls at least one living unit.
+        // Cursor topologies of all players with units, built one player per tick on the first ticks of a
+        // map (load catch-up, before the mission is ready to play) instead of on first use in play: a first
+        // build took 121-139 ms in 4 of 79 stress runs (user decision 30.10.2026: build at map start).
+        // Later region generation changes still rebuild on use (table build, reused graphs). Built from
+        // simulation state on the simulation thread, like the lazy build, so peers keep equal topologies.
+        private int cursorPrebuildEpoch = int.MinValue, cursorPrebuildMask;
+        private void PrebuildCursorTopologies()
+        {
+            if (cursorPrebuildEpoch != runtime.mapEpoch) { cursorPrebuildEpoch = runtime.mapEpoch; cursorPrebuildMask = ScanAnchorPlayers(); }
+            if (cursorPrebuildMask == 0 || runtime.nativePathManager == IntPtr.Zero) return;
+            int player = 1;
+            while ((cursorPrebuildMask & (1 << player)) == 0) player++;
+            cursorPrebuildMask &= ~(1 << player);
+            EnsureCursorTopology(player);
+        }
+
         private int ScanAnchorPlayers()
         {
-            int mask = 0;
+            int mask = 0, alive = 0;
             foreach (int id in APIShared.UnitAccess.GetAllReallyAliveUnits())
                 if (APIShared.UnitAccess.TryGetById(id, out GameUnit* unit, out _) && unit != null)
                 {
+                    alive++;
                     int player = unit->r_ControllableForPlayerId;
                     if (player >= 1 && player <= 8) mask |= 1 << player;
                 }
+            // Load of the scenario, for the anchor breakdown (largest scan of the window).
+            anchorAliveUnits = Math.Max(anchorAliveUnits, alive);
             return mask;
         }
 
@@ -436,11 +555,14 @@ namespace MoatMove
                 var front = new int[diggers]; Array.Copy(starts, front, diggers);
                 digger = new AnchorTaskSpec { Player = player, Anchor = anchor, Ground = groundCost, Moat = moat, Starts = front };
             }
-            if (others != 0)
+            if (others != 0 || diggers != 0)
             {
                 // The tail holds the others in reverse member order; the spec keeps member order.
-                var back = new int[others];
+                // Diggers follow: a digger the moat task cannot route (DAFD0's height rule on a
+                // keep, tower or wall) takes the ground task's DA590 route instead of Vanilla's.
+                var back = new int[others + diggers];
                 for (int i = 0; i < others; i++) back[i] = starts[starts.Length - 1 - i];
+                Array.Copy(starts, 0, back, others, diggers);
                 ground = new AnchorTaskSpec { Player = player, Anchor = anchor, Ground = 1, Moat = 0, Starts = back };
             }
             if (digger != null || ground != null) { if (ai) anchorAiMoves++; else anchorHumanMoves++; }
@@ -605,6 +727,8 @@ namespace MoatMove
         private void ResetFastCommandMap()
         {
             fastCommands.Clear(); fastLastTick = int.MinValue; fastRoundRobin = 0;
+            fireRules?.Reset();
+            ruleProbe?.ClearAll(); ruleProbeElapsed = 0; moatCostProbeElapsed = 0; moatCostProbeActive = false;
             ResetAnchorMap();
             fastSimulationRouting?.Pool.Clear(); fastCursorRouting?.Pool.Clear();
             fastSimulationRouting = fastCursorRouting = null;

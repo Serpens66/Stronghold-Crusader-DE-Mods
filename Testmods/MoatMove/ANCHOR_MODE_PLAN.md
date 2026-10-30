@@ -344,6 +344,54 @@ Neu geprüft wurde die verwaltete Verzweigung in MoatMove:
   - `refreshMs` 85 ms (vorher 11 s in 9 Minuten). Keine Veröffentlichungsablehnung mehr. `encodeRejects` 403; das sind veraltete Maskenteile, die die Prüfung abfängt.
   - Resweep bleibt der größte Dauerposten: 19,9 s in 3 Minuten, etwa 0,85 ms je Tick und etwa 1 µs je Knoten. Auslöser sind 101513 Anforderungen bei 13 Zugangsänderungen. Ursache ist BFQoLs `InvalidateMovementSearchData` ohne Kachelangabe bei jeder Kachel- oder Grabenänderung.
   - Zusatzanker: 1297 angelegt, `subMs` 1,0 s, in einem Fenster 244 ms. `anchorMiss.noStart` 14291 (Starts außerhalb des Hauptfelds, etwa KI hinter Mauern).
+
+**Testlinie `dev/pathfinding` (ab 29.10.2026, Worktree `.work/a/pathfind/001`):**
+- Zweck: Pathfinding-Optimierungen über die Mods hinweg (Anker-Modus, BFQoL-Invalidierung, später Assassinen-Suche). BFQoL-Änderungen bleiben auf diesem Branch, bis der Nutzer sie annimmt. `develop` im Hauptordner bleibt für andere Arbeit frei, Verwerfen heißt Branch löschen.
+- Kachelgenaue Invalidierung (Commit `89f471d23`, nicht im Spiel geprüft):
+  - BFQoL übergibt bei Kachel-, Grabenschreib- und Grabenlöschänderungen die Kachel an `UnitCommandTraversalProvider.InvalidateFastMoatTile(int)`. Ohne Override fällt der Aufruf auf die globale Invalidierung zurück.
+  - Verschachtelte Einheitenbewegungen invalidieren keine Gelände-Caches mehr (`InvalidateMovementSearchData(terrain: false)`).
+  - MoatMove liest dann nur das ±2-Umfeld neu (`MarkFastTopologyTile`), für Fast-Caches und Anker-Masken. Ein voller Resweep bleibt für Zugangsänderungen, den Maskenneubau `DAA50` und Kartenstarts.
+  - Tests: BFQoL-Dispatch-Harness (Kachelmeldung bei deaktivierter Policy), MoatMove-Anker-Harness (Kachelmeldung macht die Aufgabe veraltet ohne Resweep, verschachtelte Bewegung ohne Resweep).
+- Weitere Offline-Optimierungen (29.10.2026, nicht im Spiel geprüft):
+  - Eine Prüfung statt zwei: Routen, die die Live-Prüfung des Ankers in diesem Tick bestanden haben (`anchorAuditedRoutes`, Objektidentität), überspringen bei der Veröffentlichung die zweite Kantenprüfung je Schritt (`TryAuditFallbackPath(..., edgesAudited)`). Grund: `FriendlyOnly`/`GroundOnly` lehnen jede Kante ab, die `AllowEnemyForDiagnostic` ablehnt (Feindgraben, Ecken, Tor-Richtlinie, Höhe, Grabenrand). Puffer-, Start-, Identitäts-, Eigentümer- und Endpunktprüfung bleiben. `GetReusableQualifiedRoute` verlangt denselben Tick, dieselbe Platzierungsrevision, denselben Start, dasselbe Ziel und dieselbe Einheit. Neuer Zähler `auditSkips`. Tests: Markierung nur für das geprüfte Objekt und nur im selben Tick; die Eigentümerprüfung lehnt auch mit `edgesAudited` eine Feindquerung ab.
+  - Zusatzanker nur mit Starts derselben Klasse: Bei erschöpftem Hauptfeld zielt ein Zusatzanker nur auf Starts derselben Hauptfeld-Erreichbarkeit wie der abfragende Start. Antworten bleiben exakt. GroupPathProbe-Vertrag `core-split-group`: Der alte Stand kommt auf 3646 statt höchstens 3540 Knoten (Gegenprobe), der neue besteht.
+  - Assassinen-Analyse mit Plan: `BugfixesAndQoL/Findings/ASSASSIN_PATHFINDING_PLAN.md`.
+
+**Dritter Sammellauf (29.10.2026, 15:19–15:24, Log `Testmods/MoatMove/.local/ingame-breakdown-3.log` in der Kopie; Spiel lief beim Sichern noch):**
+- Editor (2350 Mitglieder):
+  - Grabenbefehle: Stillstand 141–169 ms (vorher 168–181), `moveMs` 104–132 (vorher 131–143), `publishMs` 36–58 (vorher 60–69).
+  - `auditSkips` 2350 je Befehl, also jede Route nur einmal geprüft.
+  - Bodenbefehl: 154 ms Stillstand bei 95 ms `moveMs`.
+- KI (`test_stresstest4.sav`, etwa 4 Minuten bei etwa 119 Ticks/s):
+  - Rückschritt: 7 Lücken über 500 ms, die größte 2233 ms. `FastTraversalCache.Mark` hatte 33 % der Lücken-Stichproben, in der größten Lücke 72 %. Ursache: Die kachelgenaue Meldung markiert je Kachelereignis 25 Knoten in allen Caches, und `SortedSet.Add` legt dabei je Eintrag Speicher an. KI-Bau, Graben und brennende Gebäude erzeugen Bursts solcher Ereignisse.
+  - Resweep-Anforderungen sanken von 101513 auf 34. Der Resweep lief trotzdem fast durchgehend (25 s, 23,4 Mio. Knoten), weil jede der 13 Zugangsänderungen alle acht Masken voll neu abgleicht.
+  - `refreshMs` 3,6 s bei 130785 geänderten Knoten.
+  - Vanillas BFS `DA5EF` nur 0,9 % der Sim-Zeit; Anker-Kern 0,5 %. Die heißesten nativen Funktionen sind allgemeine Simulation (`0x18C160` 14 %, Tile-Renderer `0x41D60` 9 %, Einheitenbewegung `0x182B00` 8 %, `0xF5A40` 6 %).
+- Korrekturen danach (Commit `ee35a37f4`, nicht im Spiel geprüft):
+  - `FastTraversalCache` markiert mit Merkerfeld und Liste, sortiert einmal je Refresh. Reihenfolge und Ergebnis bleiben gleich; Test: 1000 Markierungen eines Knotens führen zu einem Neulesen.
+  - Zugangsänderungen lesen nur die Grundflächen (±2) von Torgebäuden mit geändertem Portaleintrag. Bündnisse, Portalzahl oder eine unbekannte Grundfläche lösen weiterhin einen vollen Resweep aus. Neuer Zähler `gateRefreshes`.
+  - Beim Neulesen wird `GroundOnly` nur noch nahe fertigen Gräben eigens geprüft (Endpunkte oder Diagonalecken). Sonst entscheidet `TryGetTraversalEdge` beide Regeln gleich. Gleichheitstest über den Graben-Korridor; die Suite erkennt eine falsche Abkürzung.
+
+**Gebündelte Abfragen und gemeinsame Grundmaske (29.10.2026, Commits `f791f6f69`/`9cebbaa4c`, installiert 15:50, nicht im Spiel geprüft):**
+- Kern, Vertrag `0x04000006`, `mma_query_batch`:
+  - Ein paralleler Durchgang über die vorhandenen Anker, je Worker mit eigenem Arbeitsspeicher (lokales Feld, Pfadpuffer, Zähler); die Aufgabe wird dabei nur gelesen.
+  - Abfragen, die einen neuen Zusatzanker bräuchten, gelten als zurückgestellt und laufen danach in Aufrufreihenfolge mit den gewohnten Regeln. Die Antworten sind daher identisch mit Einzelabfragen in derselben Reihenfolge, unabhängig von der Thread-Zahl.
+  - GroupPathProbe-Verträge: 24 Zufallslasten, entfernte Plätze und getrennte Gruppe, jeweils mit 1 und 4 Threads gegen Einzelabfragen (Status, Kosten, Wegbytes).
+  - Last (8 Threads, `results/core-20261029-143906-221` in der Kopie), Abfragezeit einzeln → gebündelt:
+    - `moat-group-mix-10000` 78 → 22 ms, `worker-trips-10000` 52 → 18 ms, `converging-groups-10000` 118 → 75 ms.
+    - `group-mix-10000` 114 → 65 ms, darin 33 ms Zusatzanker in der geordneten Phase.
+    - `group-1024` 12 → 12 ms: Hier fällt die einmalige Anlage der Worker-Speicher an (etwa 8 MiB je Worker, im Spiel einmal je Prozess).
+- BFQoL: Formationen melden ihre Einheitenziele im Pre von `11B520` an den Traversal-Provider (`UnitCommandTraversalProvider.ObserveFormationDestinations`, Standard: keine Aktion). Test in `FormationMovementEligibilityTests`: Die Meldung kommt genau einmal mit dem Platz jeder zugelassenen Einheit.
+- MoatMove:
+  - Die Meldung hängt am Frame derselben Gruppenbewegung, unabhängig von der Reihenfolge der Event-Handler.
+  - Bei der ersten Abfrage (`ResolveAnchorTask`) werden alle Mitglieder der Aufgabenklasse mit Ziel gebündelt beantwortet. Die Einzelabfrage findet ihre Antwort über (Aufgabe, native Startkachel, Ziel).
+  - Zwei wiederverwendete Puffersätze (Graben-/Bodenaufgabe) mit Aufgabenkennung, damit verschachtelte Bewegungen keine fremden Antworten liefern.
+  - Zähler: `batch(calls,units,hits,ms)`. Ohne Formation (Vanillas eigene Verteilung, KI) bleibt es bei Einzelabfragen.
+  - Test: Batch-Antwort bytegleich zur Einzelabfrage; eine Meldung für einen anderen Stamm hängt sich nicht an.
+- Gemeinsame Grundmaske:
+  - Spielermasken teilen die Wörter spielerunabhängiger Knoten (`FastSharedWords`, `AnchorPlayerNeutral`): kein fertiger Graben am Knoten oder an seinen Nachbarn, kein für irgendeinen Spieler gesperrtes Torgebäude darauf, gleiche Richtungsmaske der Torrichtlinie für alle Spieler mit Maske.
+  - Markierungen machen geteilte Wörter ungültig; der Resweep liest immer live und teilt das Ergebnis.
+  - Test: zwei Spieler mit unterschiedlich gesperrtem Tor im Korridor, geteilte Wörter gleich den ungeteilten Spielermasken; die Gegenprobe „alles neutral“ schlägt bei Kachel 59,10 fehl. Zähler `sharedReuses`.
  Die Wegqualität gegen Precise ist identisch mit der Messung vom 28.10. Abfragezeit je Einheit bei 8 Threads (`results/core-20261029-124523-008` gegen `core-20261028-172304-117`): `group-1024` 16,8 → 10,6 µs, `group-mix-10000` 12,9 → 7,5 µs, `converging-groups-10000` 12,2 → 7,1 µs, `scattered-group-mix-10000` 12,9 → 8,6 µs, `worker-trips-10000` 10,3 → 7,2 µs, `moat-group-mix-10000` 14,2 → 10,8 µs.
 
 **Prüfung für Teil A:**

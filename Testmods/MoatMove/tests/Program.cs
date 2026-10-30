@@ -91,7 +91,7 @@ string[] runtimeSourceNames =
 {
     "AssassinSelectionAdapters.cs",
     "CursorConnectivity.cs", "CursorRegionGraph.cs", "DirectMoatCommandScopes.cs",
-    "AnchorRouting.cs", "FastIntegration.cs", "DigWorkFallback.cs", "IFastRouteField.cs", "FastRouteField.cs", "FastCommandQueue.cs", "FastRoutePool.cs", "FastTraversalCache.cs",
+    "AnchorRouting.cs", "RouteReplanWatch.cs", "GroundFailureProofs.cs", "MoatFailureProofs.cs", "FastIntegration.cs", "DigWorkFallback.cs", "IFastRouteField.cs", "FastRouteField.cs", "FastCommandQueue.cs", "FastRoutePool.cs", "FastTraversalCache.cs",
     "FastMoatRouting.cs", "FastMovementScheduler.cs", "FastGroupDistribution.cs", "FillWeightedRoutes.cs", "FriendlyMoatMovementPolicy.cs",
     "FriendlyMoatMovementRuntime.cs",
     "MoatPlacement.cs", "MoatPlacementSearch.cs",
@@ -136,7 +136,7 @@ var methods = new HashSet<string>(new[] {
     "TryFindRequiredFriendlyCompletedMoatRouteForPlan", "TryGetCachedRequiredFriendlyRouteForPlan",
     "EnsureMoatWorkReachability", "TryGetMoatWorkRoute",
     "TryFindRequiredFriendlyCompletedMoatRouteToFillEndpoint",
-    "EnsureReachabilityMap", "AdvanceReachabilityMap", "EnsureReachabilityStorage", "VisitNeighbour",
+    "EnsureReachabilityMap", "AdvanceReachabilityMap", "EnsureReachabilityStorage", "VisitNeighbour", "EnqueueNeighbour", "Has", "ProvesUnreachedByExhaustedSearch", "KeepExhaustedSearch", "InvalidateExhaustedReachability",
     "GetRouteVisitedMap", "GetRouteDistanceMap", "GetRouteDistance", "ObserveTraversedRegion",
     "GetCachedRouteSummaryForTarget", "GetCachedRouteSummaryForRegion"
 });
@@ -245,6 +245,7 @@ var comparisonPlannerTree = CSharpSyntaxTree.ParseText("using APIShared; using S
 var compilation = CSharpCompilation.Create("Assembly-CSharp", new[] {
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared/src/Pathfinding/Routes/RouteSearchContracts.cs"))),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared/src/Pathfinding/Routes/RouteSearchEvents.cs"))),
+    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared/src/Pathfinding/Routes/RouteTileRules.cs"))),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "RouteSearchEventIntegrationTests.cs"))),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared", "src", "Units", "UnitAccess.cs"))
         .Replace("using SHCDESE.API;", "using GameUnitManagerAPI = MoatMove.GameUnitManagerAPI;")
@@ -284,6 +285,11 @@ var compilation = CSharpCompilation.Create("Assembly-CSharp", new[] {
     CSharpSyntaxTree.ParseText(RuntimeSource("FastGroupDistribution.cs").Replace("using SHCDESE.API;", "")),
     CSharpSyntaxTree.ParseText(RuntimeSource("FastIntegration.cs").Replace("using SHCDESE.API;", "")),
     CSharpSyntaxTree.ParseText(RuntimeSource("AnchorRouting.cs").Replace("using SHCDESE.API;", "").Replace("using SHCDESE.Interop;", "")),
+    CSharpSyntaxTree.ParseText(RuntimeSource("RouteReplanWatch.cs")),
+    CSharpSyntaxTree.ParseText(RuntimeSource("GroundFailureProofs.cs")),
+    CSharpSyntaxTree.ParseText(RuntimeSource("MoatFailureProofs.cs")),
+    CSharpSyntaxTree.ParseText(RuntimeSource("TribeFloodMembership.cs")),
+    CSharpSyntaxTree.ParseText(RuntimeSource("CursorGroundRejectProof.cs")),
     CSharpSyntaxTree.ParseText(RuntimeSource("TraversalCommandState.cs")),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared/src/Pathfinding/GateRoutes/EnemyBridgeDiagnosticBridge.cs"))),
     CSharpSyntaxTree.ParseText(RuntimeSource("EnemyGatePolicyIntegration.cs")),

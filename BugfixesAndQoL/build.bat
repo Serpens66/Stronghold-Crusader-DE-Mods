@@ -120,6 +120,13 @@ if exist "%LOCAL_SCRIPT_EXTENDER_MOD_OUTPUT%\SHCDESE.dll" (
 ) else goto build_failed
 if not exist "%API_SHARED_DIR%\APIShared.dll" goto build_failed
 
+rem The Assassin tests compare the native search kernel with the managed search, so it is compiled first.
+echo [%date% %time%] Compile native Assassin search
+call :step_start "compile" "05-Build-AssassinSearch.ps1"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%native\Build-AssassinSearch.ps1"
+call :step_end %ERRORLEVEL%
+if not "%ERRORLEVEL%"=="0" goto build_failed
+
 rem /checks:notifications selects the relevant behavior suite for a notification-only change.
 rem Checked builds run the common source and runtime safety checks once.
 set "NOTIFICATION_CHECKS=0"
@@ -547,9 +554,16 @@ if not "%ERRORLEVEL%"=="0" goto build_failed
 :artifact_tests_completed
 popd
 
+echo [%date% %time%] Package native Assassin search
+call :step_start "package" "73-Package-AssassinSearch.ps1"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%native\Build-AssassinSearch.ps1" -CopyOnly -OutputDirectory "%LOCAL_PLUGIN_DIR%"
+call :step_end %ERRORLEVEL%
+if not "%ERRORLEVEL%"=="0" goto package_failed
+
 rem The project copies every resource and hash-verifies the package, including neutral patches.
 if not exist "%LOCAL_PLUGIN_DIR%\BugfixesAndQoL.dll" goto package_failed
 if not exist "%LOCAL_PLUGIN_DIR%\info.json" goto package_failed
+if not exist "%LOCAL_PLUGIN_DIR%\BfqolAssassinSearch.dll" goto package_failed
 
 if "%NO_INSTALL%"=="1" goto prepared_no_install
 call :step_start "package" "74-Disable-LegacyGateTest.ps1"

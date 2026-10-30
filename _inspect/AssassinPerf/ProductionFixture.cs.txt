@@ -239,8 +239,40 @@ internal ITemporaryAssassinGateObserver DetailedObserver;internal Dictionary<int
    if(terrain is "detour" or "unreachable"){
     for(int y=0;y<(terrain=="detour"?46:48);y++)validCoordinates[y*800+32]=0;
    }
+   if(terrain.StartsWith("random"))BuildRandom(int.Parse(terrain.Substring(6)));
    // Validate once at setup, matching an already initialized live map.
    if(!EnsureCoordinateTileMappingValidated())throw new Exception("mapping");
+  }
+  // Random 64 x 48 terrain mixing every tile feature the edge predicates read: holes in the coordinate
+  // grid, random connection masks, walls of random height, low walls, stairs, fallback-blocking flags,
+  // special tiles (managed predicate, also called natively through its pointer), building and reserved
+  // tiles and one direct gatehouse endpoint. Native/managed comparison only.
+  static readonly SpecialTilePredicateDelegate FixtureSpecialTile=(context,tile)=>(byte)((tile*13)%3==0?1:0);
+  void BuildRandom(int seed){
+   var random=new Random(seed);
+   specialTilePredicate=FixtureSpecialTile;
+   for(int y=0;y<48;y++)for(int x=0;x<64;x++){
+    int tile=y*64+x;
+    if(random.Next(40)==0)validCoordinates[y*800+x]=0;
+    occupancyLayer[tile]=(byte)(random.Next(4)==0?random.Next(256):255);
+    int kind=random.Next(10);
+    if(kind<3){tileFlags[tile]=IsWallFlag;heightLayer[tile]=(byte)random.Next(256);occupancyLayer[tile]=(byte)random.Next(4);}
+    else if(kind==3){tileFlags[tile]=IsWallFlag|IsLowWallFlag;heightLayer[tile]=(byte)random.Next(60);}
+    else if(kind==4){tileFlags[tile]=IsWallFlag|IsStairsFlag;heightLayer[tile]=(byte)random.Next(120);}
+    else heightLayer[tile]=(byte)random.Next(8);
+    if(random.Next(12)==0)tileFlags[tile]|=1u<<(new[]{0,4,5,7,8,12,14,20,22,25,27,30})[random.Next(12)];
+    if(random.Next(9)==0)tileFlags[tile]|=NativeSpecialTileFlag|1u;
+    if(random.Next(6)==0)buildingLayer[tile]=(ushort)random.Next(1,600);
+   }
+   // Walls usually cut the physical connection at both ends (as on the "gate" terrain), so the climb
+   // branch, its endpoint rules and its costs decide those edges.
+   for(int y=0;y<48;y++)for(int x=0;x<64;x++)for(int d=0;d<8;d++){
+    int nx=x+DirectionX[d],ny=y+DirectionY[d];
+    if(nx<0||nx>=64||ny<0||ny>=48)continue;
+    if(((tileFlags[y*64+x]|tileFlags[ny*64+nx])&IsWallFlag)!=0&&random.Next(8)!=0){
+     occupancyLayer[y*64+x]&=(byte)~(1<<d);occupancyLayer[ny*64+nx]&=(byte)~(1<<(d^4));}
+   }
+   AssassinPathAPI.DirectEndpoint=random.Next(64*48);
   }
   // Castle-scale terrain (performance and oracle evidence for realistic search sizes): three
   // concentric wall rings of descending height, each with one ordinary opening on a different
@@ -337,6 +369,78 @@ internal ITemporaryAssassinGateObserver DetailedObserver;internal Dictionary<int
     }finally{r.Release();}
    }
    VERIFY_BOUND_PROFILE
+  }
+  // Native kernel (BfqolAssassinSearch.dll) against the managed bucket search on every terrain: found, cost,
+  // route nodes and their costs, edge counts and expansions must be identical, also with climbing off,
+  // reserved endpoints off, small node limits and both policy shapes (mask callback, masked transitions).
+  // Returns the summed native and managed search time per terrain.
+  public static string VerifyNative(string directory){
+   AssassinNativeSearch.Load(directory);
+   var report=new List<string>();
+   foreach(string terrain in new[]{"open","gate","detour","unreachable","castle","random1","random2","random3","random4"}){
+    var r=new AssassinPathfindingRuntime(terrain);
+    try{
+     r.BindNativeSearch(r.specialTilePredicate==null?IntPtr.Zero:Marshal.GetFunctionPointerForDelegate(r.specialTilePredicate),IntPtr.Zero);
+     var random=new Random(7319);int compared=0,foundRoutes=0,overflows=0,earlyExits=0;long nativeTicks=0,managedTicks=0;
+     var nativeRoute=new int[2001];var nativeCosts=new int[2001];
+     for(int i=0;i<240;i++){
+      int sx,sy,tx,ty;
+      if(terrain=="castle"){sx=random.Next(1,CastleSize-1);sy=random.Next(1,CastleSize-1);tx=CastleSize/2-10+random.Next(0,20);ty=CastleSize/2-10+random.Next(0,20);}
+      else{sx=random.Next(1,63);sy=random.Next(1,47);tx=random.Next(1,63);ty=random.Next(1,47);}
+      bool climbing=i%2==0,reserved=i%3!=0;r.climbRuntime.Allowed=climbing;
+      int nodes=i%7==0?20+random.Next(0,600):TileCount;
+      IEnemyGateRoutePolicySnapshot mask=i%5==0?new StripeMask():i%11==0?new ValidationMask{Allowed=false}:null;
+      r.nativeSearchBound=true;r.nativeLastStatus=int.MinValue;long t0=Stopwatch.GetTimestamp();
+      bool nf=r.TryBuildWeightedRoute(sx,sy,tx,ty,nodes,4,climbing,reserved,null,mask,out var ns);
+      nativeTicks+=Stopwatch.GetTimestamp()-t0;
+      int length=nf?ns.RouteLength:0;
+      // Only the native kernel leaves exactly the route nodes touched (the managed search touches its whole frontier).
+      // Early exits (invalid endpoints, backward unreachability proof) never reach the kernel; any kernel
+      // error would leave a negative status and the managed search answering.
+      if(r.nativeLastStatus==int.MinValue){Assert(!nf,"early exit without route "+terrain+"#"+i);earlyExits++;}
+      else{Assert(r.nativeLastStatus>=0,"native kernel failed "+terrain+"#"+i+" status="+r.nativeLastStatus);
+       if(r.nativeLastStatus==AssassinNativeSearch.StatusOverflow)overflows++;
+       else Assert(r.touchedCount==length,"native kernel answered "+terrain+"#"+i);}
+      for(int k=0;k<length;k++){nativeRoute[k]=r.route[k];nativeCosts[k]=r.costs[r.route[k]];}
+      r.nativeSearchBound=false;t0=Stopwatch.GetTimestamp();
+      bool mf=r.TryBuildWeightedRoute(sx,sy,tx,ty,nodes,4,climbing,reserved,null,mask,out var ms);
+      managedTicks+=Stopwatch.GetTimestamp()-t0;
+      string where=terrain+"#"+i+" "+sx+","+sy+"->"+tx+","+ty;
+      Assert(nf==mf,"native and managed agree on a route "+where);
+      if(nf){foundRoutes++;
+       Assert(ns.TotalCost==ms.TotalCost&&ns.RouteLength==ms.RouteLength&&ns.GroundEdges==ms.GroundEdges&&ns.ClimbEdges==ms.ClimbEdges&&ns.ExpandedNodes==ms.ExpandedNodes,
+        "native summary equals managed "+where+" native="+ns.TotalCost+"/"+ns.RouteLength+"/"+ns.ExpandedNodes+" managed="+ms.TotalCost+"/"+ms.RouteLength+"/"+ms.ExpandedNodes);
+       for(int k=0;k<length;k++)Assert(nativeRoute[k]==r.route[k]&&nativeCosts[k]==r.costs[r.route[k]],"native route node equals managed "+where+" at "+k);}
+      compared++;
+     }
+     Assert(foundRoutes>0,"native comparison found routes on "+terrain);
+     report.Add(terrain+":compared="+compared+",found="+foundRoutes+",heapFallbacks="+overflows+",earlyExits="+earlyExits+",nativeMs="+(nativeTicks*1000.0/Stopwatch.Frequency).ToString("F1",CultureInfo.InvariantCulture)+
+      ",managedMs="+(managedTicks*1000.0/Stopwatch.Frequency).ToString("F1",CultureInfo.InvariantCulture));
+    }finally{r.Release();AssassinPathAPI.DirectEndpoint=-1;}
+   }
+   return string.Join(" ",report);
+  }
+  // Separate native-only and managed-only passes over the same requests (no policy), twice each (the
+  // first pass warms caches); returns the second passes' times. Benchmark only, no assertions.
+  public static string BenchNative(string directory,string terrain,int count){
+   AssassinNativeSearch.Load(directory);
+   var r=new AssassinPathfindingRuntime(terrain);
+   try{
+    r.BindNativeSearch(IntPtr.Zero,IntPtr.Zero);r.climbRuntime.Allowed=true;AssassinPathAPI.DirectClimb=Environment.GetEnvironmentVariable("BENCH_DIRECT")!="0";
+    var random=new Random(911);var requests=new (int,int,int,int)[count];
+    for(int i=0;i<count;i++){
+     if(terrain=="castle")requests[i]=(random.Next(1,CastleSize-1),random.Next(1,CastleSize-1),CastleSize/2-10+random.Next(0,20),CastleSize/2-10+random.Next(0,20));
+     else requests[i]=(random.Next(1,63),random.Next(1,47),random.Next(1,63),random.Next(1,47));
+    }
+    long expandedTotal=0;
+    double Pass(bool native){
+     r.nativeSearchBound=native;long t0=Stopwatch.GetTimestamp();expandedTotal=0;
+     foreach(var(sx,sy,tx,ty) in requests)if(r.TryBuildWeightedRoute(sx,sy,tx,ty,TileCount,4,true,true,null,null,out var bs))expandedTotal+=bs.ExpandedNodes;
+     return (Stopwatch.GetTimestamp()-t0)*1000.0/Stopwatch.Frequency;
+    }
+    Pass(true);Pass(false);double n=Pass(true);int nativeTouched=r.touchedCount;double m=Pass(false);int managedTouched=r.touchedCount;
+    return terrain+":touched="+nativeTouched+"/"+managedTouched+",expandedFound="+expandedTotal+",native="+n.ToString("F1",CultureInfo.InvariantCulture)+"ms,managed="+m.ToString("F1",CultureInfo.InvariantCulture)+"ms";
+   }finally{r.Release();}
   }
   public static string Run(string terrain,int count,string mode,bool warm){
    var r=new AssassinPathfindingRuntime(terrain);

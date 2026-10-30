@@ -40,7 +40,8 @@ namespace BugfixesAndQoL.UnitCommands
                 UnitMoveFrame parent = GetCurrentUnitMoveFrame();
                 if (parent != null)
                 {
-                    InvalidateMovementSearchData();
+                    // A nested move changes search context, not terrain.
+                    InvalidateMovementSearchData(terrain: false);
                 }
                 unitMoveFrame = new UnitMoveFrame(args, parent, mapEpoch,
                     CaptureCurrentGameTick(), activeMoveCommand,

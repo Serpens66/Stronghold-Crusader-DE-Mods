@@ -4,6 +4,10 @@ using APIShared;
 
 namespace BugfixesAndQoL.GateRouting
 {
+    // A policy snapshot whose IsDirectionAllowed reads one byte per tile (bit d: direction d allowed; null:
+    // all allowed). The native Assassin search reads these bytes instead of calling back per edge.
+    internal interface IAssassinDirectionMaskSource { byte[] DirectionMask { get; } }
+
     // Publications and query scopes are managed data only. No hooks or game reads.
     internal sealed class GateRoutePolicySource : IEnemyGateRoutePolicyProvider
     {
@@ -93,7 +97,7 @@ namespace BugfixesAndQoL.GateRouting
             internal readonly IEnemyGateRoutePolicySnapshot[] Unmasked = new IEnemyGateRoutePolicySnapshot[9];
         }
 
-        private sealed class Snapshot : IEnemyGateRoutePolicySnapshot, IEnemyGateClimbRoutePolicySnapshot
+        private sealed class Snapshot : IEnemyGateRoutePolicySnapshot, IEnemyGateClimbRoutePolicySnapshot, IAssassinDirectionMaskSource
         {
             private readonly GateRoutePolicySource source;
             private readonly Publication publication;
@@ -116,6 +120,15 @@ namespace BugfixesAndQoL.GateRouting
             public bool IsCurrent => publication.RulesVersion == GateAccessRules.Version && ReferenceEquals(Volatile.Read(ref source.current), publication);
             public bool IsDirectionAllowed(int tileId, int direction) =>
                 unmasked || publication.Policy.IsDirectionAllowed(PlayerId, tileId, direction);
+            // The bytes IsDirectionAllowed reads (null: every direction allowed), for the native Assassin search.
+            public byte[] DirectionMask
+            {
+                get
+                {
+                    byte[][] masks = publication.Policy.DirectionMasks;
+                    return unmasked || PlayerId <= 0 || masks == null || PlayerId >= masks.Length ? null : masks[PlayerId];
+                }
+            }
         }
     }
 }

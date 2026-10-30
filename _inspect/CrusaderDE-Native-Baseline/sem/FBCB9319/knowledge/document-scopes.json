@@ -642,7 +642,8 @@
         "BugfixesAndQoL"
       ],
       "integrationSections": [
-        "Region proof and integration"
+        "Region proof and integration",
+        "One-pass member check in BugfixesAndQoL"
       ]
     },
     {
@@ -912,6 +913,27 @@
         "Script Extender"
       ],
       "vanillaSections": []
+    },
+    {
+      "file": "FIRE_EFFECTS.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "MoatMove"
+      ],
+      "integrationSections": [
+        "Mod integration [mod integration]"
+      ]
+    },
+    {
+      "file": "GROUND_ROUTE_BUILDERS.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "MoatMove"
+      ],
+      "integrationSections": [
+        "Consequences in MoatMove anchor mode [mod integration]"
+      ],
+      "note": "Runtime samples from the MoatMove anchor diagnosis."
     },
     {
       "file": "SIM_TICK_SPIKE_PATHING.md",

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.IO;
@@ -289,6 +290,135 @@ namespace MoatMove
             }
         }
 
+        // The table-based full build (BuildCursorTopology) gives exactly the per-tile path's boundary
+        // records (keys, edge order) and graph edge counts, here with regions, a friendly moat, a
+        // building, a special structure tile and map-edge tiles; a seeded change of one input
+        // (gate flag) must show up as a difference, so the comparison is not vacuous.
+        private void CursorTopologyBuildEquivalence()
+        {
+            var savedFlags = new Dictionary<int, uint>(); var savedRegions = new Dictionary<int, ushort>(); var savedMasks = new Dictionary<int, byte>();
+            void Flag(int tile, uint value) { if (!savedFlags.ContainsKey(tile)) savedFlags[tile] = tileFlags[tile]; tileFlags[tile] = value; }
+            void Region(int tile, ushort value) { if (!savedRegions.ContainsKey(tile)) savedRegions[tile] = pathRegionGrid[tile]; pathRegionGrid[tile] = value; }
+            void Mask(int tile, byte value) { if (!savedMasks.ContainsKey(tile)) savedMasks[tile] = nativeMovementMasks[tile]; nativeMovementMasks[tile] = value; }
+            for (int x = 20; x <= 26; x++) { Flag(1000 + x, 0x8000); Region(1000 + x, (ushort)(x < 23 ? 3 : 4)); Mask(1000 + x, 0x44); }
+            Flag(1024, CursorSpecialStructureTileFlagMask & 0x100);
+            Flag(0, 0x8000); Region(0, 5);
+            CursorTopology Build(bool fast)
+            {
+                cursorTopologies.Remove(1);
+                CursorTopology t = EnsureCursorTopology(1, false);
+                if (fast) BuildCursorTopology(t, 1); else for (int tile = 0; tile < NativeTileCount; tile++) UpdateCursorBoundary(t, 1, tile);
+                t.Ready = true;
+                return t;
+            }
+            bool SameRecords(Dictionary<int, long[]> a, Dictionary<int, long[]> b) =>
+                a.Count == b.Count && a.All(e => b.TryGetValue(e.Key, out long[] o) && o.SequenceEqual(e.Value));
+            bool SameGraph(CursorRegionGraph a, CursorRegionGraph b) =>
+                a.reverse.Count == b.reverse.Count && a.reverse.All(e => b.reverse.TryGetValue(e.Key, out var o) &&
+                    o.Count == e.Value.Count && e.Value.All(v => o.TryGetValue(v.Key, out int c) && c == v.Value));
+            bool Same(CursorTopology a, CursorTopology b) => SameRecords(a.Boundaries, b.Boundaries) && SameRecords(a.GroundBoundaries, b.GroundBoundaries) &&
+                SameGraph(a.Graph, b.Graph) && SameGraph(a.Ground, b.Ground) && SameGraph(a.GroundUpper, b.GroundUpper);
+            try
+            {
+                CursorTopology slow = Build(false), fast = Build(true);
+                Check(slow.Boundaries.Count > 0 && slow.GroundBoundaries.Count > 0, "equivalence fixture has cursor and ground boundaries");
+                Check(Same(slow, fast), "table-based cursor topology build equals the per-tile build");
+                // A new region generation reuses the replaced topology's graphs: same objects, higher
+                // revisions (MoatPlacement's graph/revision cache), same contents as a fresh build.
+                CursorRegionGraph graph = fast.Graph; long revision = graph.Revision;
+                int* generationField = (int*)((byte*)nativePathManager + 0x74); int savedGeneration = *generationField;
+                (*generationField)++;
+                try
+                {
+                    CursorTopology reused = EnsureCursorTopology(1);
+                    Check(!ReferenceEquals(reused, fast) && ReferenceEquals(reused.Graph, graph) && graph.Revision > revision && Same(slow, reused),
+                        "replaced cursor topology reuses its graphs with the per-tile build's contents");
+                }
+                finally { *generationField = savedGeneration; }
+                Flag(1022, CursorSpecialStructureTileFlagMask & 0x100);
+                Check(!Same(slow, Build(true)), "changed structure tile changes the table-based build");
+            }
+            finally
+            {
+                foreach (var e in savedFlags) tileFlags[e.Key] = e.Value;
+                foreach (var e in savedRegions) pathRegionGrid[e.Key] = e.Value;
+                foreach (var e in savedMasks) nativeMovementMasks[e.Key] = e.Value;
+                cursorTopologies.Remove(1);
+            }
+        }
+
+        // The one-pass member check (TribeFloodMembership.Check) against a direct transcription of
+        // 0x124740 and 0x119F90 as disassembled (FBCB9319): random member bitsets, tribe kinds, group sizes
+        // above the set bits, unit fields and signed stamps; plus a seeded mismatch, so the comparison bites.
+        private void FloodMembershipExactTests()
+        {
+            const int units = 10000, tiles = 4096;
+            byte* tribe = (byte*)NativeMemory.AllocZeroed(0x688); byte* unitRecords = (byte*)NativeMemory.AllocZeroed((nuint)(units * 0x490));
+            short* stamps = (short*)NativeMemory.AllocZeroed(tiles * 2);
+            int ReferenceUnit(int index)
+            {
+                if (*(short*)(tribe + 0x40) != 2) return 0;
+                int count = *(short*)(tribe + 0x5C);
+                if (index >= count || index < 0) return 0;
+                int seen = 0;
+                for (int word = 0; word < 0x271; word++)
+                {
+                    short value = ((short*)(tribe + 0x60))[word];
+                    if (value == 0) continue;
+                    for (int bit = 0; bit < 16; bit++)
+                        if (((int)value >> bit & 1) != 0) { if (seen == index) return bit + word * 16; seen++; }
+                }
+                return 0;
+            }
+            int Reference(int stamp)
+            {
+                int count = *(short*)(tribe + 0x5C);
+                for (int i = 0; i < count; i++)
+                {
+                    byte* unit = unitRecords + (long)ReferenceUnit(i) * 0x490;
+                    if (*(short*)(unit + 0x6E4) == 2 && *(short*)(unit + 0x8F8) == 0 && stamps[*(int*)(unit + 0x72C)] != stamp) return 0;
+                }
+                return 1;
+            }
+            try
+            {
+                var random = new Random(4711); int failures = 0, positives = 0;
+                for (int trial = 0; trial < 400; trial++)
+                {
+                    for (int i = 0; i < 0x688; i++) tribe[i] = 0;
+                    *(short*)(tribe + 0x40) = (short)(trial % 7 == 0 ? 1 : 2);
+                    int members = random.Next(0, 40);
+                    for (int m = 0; m < members; m++) { int u = random.Next(0, units); ((short*)(tribe + 0x60))[u >> 4] |= (short)(1 << (u & 15)); }
+                    *(short*)(tribe + 0x5C) = (short)(trial % 5 == 0 ? members + random.Next(0, 4) : trial % 11 == 0 ? -1 : members);
+                    int stamp = random.Next(-3, 4);
+                    for (int u = 0; u < units; u += 1 + random.Next(0, 3))
+                    {
+                        byte* unit = unitRecords + (long)u * 0x490;
+                        *(short*)(unit + 0x6E4) = (short)(random.Next(0, 4) == 0 ? 1 : 2);
+                        *(short*)(unit + 0x8F8) = (short)(random.Next(0, 6) == 0 ? 1 : 0);
+                        *(int*)(unit + 0x72C) = random.Next(0, tiles);
+                    }
+                    for (int t = 0; t < tiles; t++) stamps[t] = (short)(random.Next(0, 3) == 0 ? stamp + 1 : stamp);
+                    int expected = Reference(stamp), actual = TribeFloodMembership.Check(tribe, unitRecords, stamps, stamp);
+                    if (expected != actual) failures++;
+                    if (expected == 1) positives++;
+                }
+                Check(failures == 0, $"one-pass flood member check differs from 0x124740 in {failures} of 400 cases");
+                Check(positives > 20 && positives < 380, $"flood member fixture lacks both outcomes (positives={positives})");
+                // Seeded mismatch: an unstamped active member must fail both.
+                for (int i = 0; i < 0x688; i++) tribe[i] = 0;
+                *(short*)(tribe + 0x40) = 2; *(short*)(tribe + 0x5C) = 1; ((short*)(tribe + 0x60))[3] = 1 << 5;
+                byte* member = unitRecords + (long)(3 * 16 + 5) * 0x490;
+                *(short*)(member + 0x6E4) = 2; *(short*)(member + 0x8F8) = 0; *(int*)(member + 0x72C) = 9; stamps[9] = 0;
+                Check(Reference(7) == 0 && TribeFloodMembership.Check(tribe, unitRecords, stamps, 7) == 0 && TribeFloodMembership.Check(tribe, unitRecords, stamps, 0) == 1,
+                    "one-pass flood member check ignores the member's stamp");
+            }
+            finally
+            {
+                NativeMemory.Free(tribe); NativeMemory.Free(unitRecords); NativeMemory.Free(stamps);
+            }
+        }
+
         private void CursorAdapterTests()
         {
             cursorTopologies.Clear(); enemyTiles.Clear();
@@ -329,6 +459,8 @@ namespace MoatMove
             Check(ProbeCursorConnectivity(1,1010,1017,out route) && route.RouteFound,"owner change removes cached negative connection");
             Check(cursorTopologyBuilds==builds,"local changes do not rebuild the full map");
             Check(weightedMoatRoutePlanner.SearchRuns==pathRuns,"cursor creates no route searches");
+            CursorTopologyBuildEquivalence();
+            FloodMembershipExactTests();
 
             int nativePairs = 0;
             originalCursorTilePairReachability = (manager,target,start,cache) => { nativePairs++; return 7; };

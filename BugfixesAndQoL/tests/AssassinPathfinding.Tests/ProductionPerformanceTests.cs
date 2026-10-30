@@ -147,10 +147,13 @@ internal static partial class Program
             "APIShared/src/Pathfinding/GateRoutes/EnemyGatePathPolicyBridge.cs", "BugfixesAndQoL/src/AssassinGateRoutePolicy.cs",
             "BugfixesAndQoL/src/AssassinPathfindingRuntime.CacheKeys.cs", "BugfixesAndQoL/src/AssassinAStarPolicy.cs",
             "BugfixesAndQoL/src/AssassinClimbCostPolicy.cs", "BugfixesAndQoL/src/AssassinClimbTransitionPolicy.cs",
-            "BugfixesAndQoL/src/AssassinRouteEncoding.cs",
+            "BugfixesAndQoL/src/AssassinRouteEncoding.cs", "BugfixesAndQoL/src/AssassinNativeSearch.cs",
             // Real development-diagnostics facade: without SERP_DEVDIAG every call compiles away.
             "Shared/Runtime/Diagnostics/DevDiag.cs" };
-        var trees = files.Select(f => CSharpSyntaxTree.ParseText(Read(f), parseOptions)).Append(CSharpSyntaxTree.ParseText(fixture, parseOptions));
+        // The policy byte-mask view lives with BugfixesAndQoL's gate policy publication (not compiled here).
+        const string maskSource = "namespace BugfixesAndQoL.GateRouting { internal interface IAssassinDirectionMaskSource { byte[] DirectionMask { get; } } }";
+        var trees = files.Select(f => CSharpSyntaxTree.ParseText(Read(f), parseOptions)).Append(CSharpSyntaxTree.ParseText(fixture, parseOptions))
+            .Append(CSharpSyntaxTree.ParseText(maskSource, parseOptions));
         var refs = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")).Split(Path.PathSeparator)
             .Select(p => MetadataReference.CreateFromFile(p));
         var compilation = CSharpCompilation.Create("ProductionAssassin" + (before ? "Before" : "After"), trees, refs,
@@ -179,6 +182,9 @@ internal static partial class Program
         Type disabled = CompileProductionKernel(root, false), enabled = CompileProductionKernel(root, false, true);
         InvokeKernel(disabled, "Verify");
         InvokeKernel(enabled, "Verify");
+        // The packaged native kernel (build.bat compiles it before the tests) must equal the managed search.
+        string nativeDirectory = Environment.GetEnvironmentVariable("BFQOL_ASSASSIN_NATIVE_DIR") ?? Path.Combine(root, "BugfixesAndQoL", "obj", "native");
+        Console.WriteLine("PASS: native Assassin search equals managed: " + InvokeKernel(disabled, "VerifyNative", nativeDirectory));
         Type developmentKernel = CompileProductionKernel(root, false, development: true);
         InvokeKernel(developmentKernel, "VerifyTemporaryDecisions");
         Check(true, "actual gate transition observer on/off preserves predicates, results and legitimate climbing");

@@ -14,6 +14,17 @@ namespace BugfixesAndQoL.UnitCommands
             Traversal?.InvalidateFastMoatData();
              return;
         }
+        internal void InvalidateFastMoatTile(int tile)
+        {
+            // Maintenance must continue while policy is disabled; no route is searched.
+            Traversal?.InvalidateFastMoatTile(tile);
+             return;
+        }
+        internal void InvalidateFastMoatDirections()
+        {
+            // Maintenance must continue while policy is disabled; no route is searched.
+            Traversal?.InvalidateFastMoatDirections();
+        }
         internal void LogAndResetFastMoatMetrics()
         {
             Traversal?.LogAndResetFastMoatMetrics();

@@ -321,6 +321,8 @@ namespace BugfixesAndQoL.GateRouting
             DiagInitialize(diagnostics);
             this.deferredErrors = deferredErrors;
             registeredProvider = DetailedDiagnostics ? (IEnemyGatePathPolicy)this : new FunctionalGatePolicyAdapter(this, this);
+            // Traversal providers share player-neutral tiles of the currently published policy.
+            BugfixesAndQoL.UnitCommands.GatePolicyNeutrality.Current = tileId => publishedPolicy.IsPlayerNeutral(tileId);
             ownerConflict = existingHookOwner;
             maskPool = new NativeMaskSnapshot[NativeSnapshotPoolSize];
             for (int index = 0; index < maskPool.Length; index++)
