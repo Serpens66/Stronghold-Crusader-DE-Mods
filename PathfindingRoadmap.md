@@ -47,6 +47,10 @@ Save `test_stresstest4.sav`, 180 s Lauf nach Warmup, `tools/Run-PathfindingItera
 | pf-iter-33 | 6 | 4 | 0 | 127 ms | **Release-Builds** von BFQoL und MoatMove, gleiche 10.000-Einheiten-Last: 24.951 Ticks (DEVDIAG kostete ~20 %). Spitzen der Laufphase 121 ms (viele KI-Gruppenfelder in einem Tick, `mma_step`), 119 und 107 ms (Assassinen über Regionsgrenzen: Vanillas `D9C40` und BFQoLs gewichtete Klettersuche) |
 | pf-iter-34 | 6 | 4 | 0 | 144 ms (Laufphase 118) | Dial-Buckets statt Vierer-Heap in BFQoLs gewichteter Assassinen-Suche: keine Assassinen-Suche mehr in den Lücken; 27.069 Ticks. Rest im Kern (Gruppenfelder, Gruppenabfragen, Einzelwege) |
 | pf-iter-35 | 7 | 4 | 0 | 142 ms (Laufphase 142, 122, 107) | Einschluss-Beweis vor Einzelwegen (Vorwärtsflutung ab Start, 2.048 Knoten): Einzelwege 5,8 statt 8,9 s, 77 statt 187 Mio. Knoten. 142 ms: 88 Kernwege eines Gruppenbefehls von der Live-Prüfung abgelehnt (veralteter Übergang), danach 88 fehlschlagende Vanilla-Suchen (84 ms); 246 Graben- und 66.671 Bodenwege aus dem Kern |
+| pf-iter-38 | 8 | 5 | 0 | 200 ms (Laufphase 125, 140, 200) | Erste 8 Abfragen eines KI-Gruppenbefehls als exakte Einzelwege, erst danach das Feld: 6.951 Einzelwege kosteten 1,8 s (≈ 260 µs, lange Angriffswege), Feldzeit nur 3,5 → 2,7 s; Angriffs-Burst 140 + 200 ms. Ohne Budget verworfen |
+| pf-iter-39 | 6 | 3 | 0 | 158 ms (Laufphase 126, 158, 106) | Dieselben Einzelwege mit höchstens 4.096 A*-Knoten (`mma_single_route_limited`; darüber `OverLimit`, das Feld übernimmt): 5.725 Einzelwege in 0,24 s (41 µs), Feldzeit 3,0 s. Rest: Gruppenfelder (`mma_step`), 109 abgelehnte Kernwege mit 109 scheiternden Vanilla-Suchen (112 ms), 108 Sub-Anker in einem Fenster (118 ms) |
+| pf-iter-40 | 4 | 1 | 0 | 115 ms (Laufphase 115) | Zusätzlich vor jedem neuen Sub-Anker derselbe Einzelweg mit Budget (Vertrag `0x0400000D`): Sub-Anker 6.014 → 1, Kern-Abfragezeit 923 → 629 ms. In der Laufphase nur noch eine Lücke über 100 ms (115 ms; zu ~45 % Gruppenfelder eines Ticks); die drei übrigen Lücken liegen in den ersten 200 Ticks nach dem Laden |
+| pf-iter-41 | 5 | 2 | 0 | 120 ms (Laufphase 113, 120) | 32 statt 8 Einzelwege je Gruppenbefehl: Felder nur 1.488 → 1.434, Einzelwege +115 ms, Feldzeit −144 ms, also neutral; zurück auf 8. Die Lücke um Tick ~6.180 tritt in jedem Lauf auf (pf-iter-35: 6.200, 40: 6.175, 41: 6.181): ein KI-Burst mit 39 Feldern in einem Fenster (117 ms, einzelne bis 9,7 ms) |
 
 Ab pf-iter-15 verhalten sich die KI-Lords anders (34.000 statt 29.000 Ticks, 51–94 statt 16 Torwechsel je Lauf), seit mehr Einheiten Anker-Routen bekommen; die Läufe sind deshalb nur eingeschränkt mit den früheren vergleichbar.
 
@@ -113,12 +117,12 @@ Ziel: Mods definieren zusätzliche Wegfindungsregeln (Feuer ausweichen, Gefahren
 - Jede veröffentlichte Route wird einmal live geprüft. Deterministisch für Mehrspieler, nie abhängig vom lokalen Spieler.
 - Gemeinsame Masken und Felder statt Suchen je Einheit; Invalidierung kachelgenau.
 
-## Stand und Grenzen (30.10.2026, nach pf-iter-35)
+## Stand und Grenzen (30.10.2026, nach pf-iter-41)
 
-- Last: Stress-Save mit 8 KI-Lords auf der 800er-Karte, per `Spawn` bis 9.938 Einheiten, Feuer und zwei Assassinen-Angriffe, Release-Builds. In der Laufphase 3–4 Lücken über 100 ms in 260 s, jeweils 105–142 ms; zu Beginn (pf-base-1, ~5.150 Einheiten) 12 Lücken bis 647 ms.
+- Last: Stress-Save mit 8 KI-Lords auf der 800er-Karte, per `Spawn` bis 9.938 Einheiten, Feuer und zwei Assassinen-Angriffe, Release-Builds. In der Laufphase 1–2 Lücken über 100 ms in 260 s, jeweils 113–120 ms (pf-iter-40/41; bis pf-iter-35 3–4 Lücken bis 142 ms); zu Beginn (pf-base-1, ~5.150 Einheiten) 12 Lücken bis 647 ms. Die Lücken der ersten 200 Ticks nach dem Laden sind Kartenstart (Aufholphase).
+- Exakte Einzelwege mit Knotenbudget (seit 905f3df16): die ersten 8 Abfragen eines KI-Gruppenbefehls und jede Abfrage, die sonst einen Sub-Anker bauen würde, rechnet der Kern als A* mit höchstens 4.096 Knoten; darüber übernimmt das Feld bzw. der Sub-Anker. Gruppenfelder 2.402 → ~1.490 je Lauf, Sub-Anker 6.014 → 1.
 - Verbleibende Ursachen, alle Häufungen in einem Tick:
-  - viele KI-Gruppenbefehle mit je eigenem Feld (bis ~10 ms je Feld, `mma_step`);
-  - Gruppenabfragen eines großen Befehls (`mma_query`);
+  - viele KI-Gruppenbefehle mit großen Neuplanungen und je eigenem Feld (bis ~10 ms je Feld, `mma_step`). Die größten Felder schöpfen die Komponente des Ankers aus, weil Mitglieder unerreichbar sind (exakter Beweis). Schneller ginge das nur mit einer gerichteten Erreichbarkeitsstruktur je Maskenstand oder einem parallelisierten Einzelfeld; beides ist ein größerer Umbau mit offenem Nutzen;
   - von der Live-Prüfung abgelehnte Kernwege eines Befehls zu einem tatsächlich unerreichbaren Ziel, danach Vanillas fehlschlagende Suchen. Diese ohne Vanilla zu beantworten, wäre nicht exakt (andere Starts könnten einen Weg haben).
 - Weitere Hebel mit ungünstigem Aufwand-Nutzen: Gruppenfelder über Ticks verteilen (verzögert KI-Befehle, Verhaltensänderung), Vanilla-Fehlschläge zwischenspeichern (nicht exakt), Assassinen-Klettersuche nativ portieren (seit den Buckets nicht mehr in den Lücken).
 - Regelkonstrukt: APIShared-Leitfaden `docs/PATHFINDING_RULES.md` (Kachelregeln mit Umplanen, Grabenkosten, Torzugang, Mauerklettern). Im Spiel geprüft: Feuer (pf-fire-3), Grabenquerung (246 Kernwege in pf-iter-35), gewichtete Kletterwege (BFQoL, alle Läufe), Kachelstrafen im Kern (Integrationstests).
