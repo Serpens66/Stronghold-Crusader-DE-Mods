@@ -39,3 +39,24 @@ Native DLL SHA-256: `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2
 - The ground rules correspond to `0xDA590`. `0xDAAC0`'s extra tile test is not applied. Published routes are a subset of `0xDA590`'s graph and each is audited live.
 - A chunked watch compares `0x51890D0` with a copy (40,000 tiles per simulation tick) and marks changed tiles like a tile report.
 - Once the watch has recorded every byte, BugfixesAndQoL's `0xDAA50` observer no longer forces a full mask resweep. It reports "direction bytes only" (`InvalidateFastMoatDirections`), and the watch picks up the changes within one round.
+
+## 0xF4930 failure path and the state of a failed ground search (audit 30.10.2026)
+
+Source: complete pseudocode of the functions named below in the semantic export (confirmed), instruction bytes of the installed DLL.
+
+- Order in ground mode (`+0x84 == 0`, `+0x88 == 0`) after the region gate:
+  - `+0x7C = 1`, `+0x155F68 = 0`.
+  - The straight attempt: `0xF32B0` when `param_3 == 0` (pathfinding profile "Large"), otherwise `0xF3060`. Both walk greedily toward the target and need the direction bit of `0x51890D0` for every step. `0xF32B0` also stops on some building tiles. Both increment the generation `+0x04`, stamp the walked tiles in `0x52C2550` and write the steps into the route buffer `*(+0x155F60)` from offset `+0x155F68`; `0x196280` clears that unit buffer (1000 bytes) before the call.
+  - Success: `+0xA8 += 1`, return `+0x155F68`.
+  - Failure: `+0xAC += 1`, `+0x7C = 0`, `0x79C0(&0x34A9F50, sx, sy, tx, ty)`, `+0x155F68 = 0`; with `+0x80 == 0` first `0xDAAC0` (budget 2·(d+4)²), on its failure `0xDA590` (400,000); with `+0x80 != 0` directly `0xDA590`. Both failing: return 0. Success of either: `0xE1640` (mode 1 or 2), optional `0xDB650` refinement.
+- Region gate (`0xF49C8`): start and target in different regions search only when the target region is non-zero and `0xE2F60(manager, player, startRegion, targetRegion)` returns non-zero; otherwise F4930 returns 0 without any write. `0xE2F60` increments `manager+0xC8` and searches the region graph in local buffers only.
+- `+0x80` is the global `0x60AD6E0`; `0x196280` sets it when the unit field `+0x8FC` is 0 or `+0x6E8` is non-zero, `0x11B520` sets it per member before `0x196280`.
+- `0xDA590` and `0xDAAC0` are FIFO breadth-first searches whose edge rule depends only on the direction bits of the dequeued tile (`0xDAAC0` additionally needs `0x51D75F0[neighbour] == 0`). The queue (`+0x155F6C`, rows at `+0x28F3EC`) holds 320,800 entries, so a failure with a valid target and budget 400,000 always exhausts the start's forward component. Written state: generation `+0x04` (cleared at > 32,000), stamps `0x52C2550`, distances `0x5225B10`, queue, continuation `+0x155F3C`/`+0x155F44`/`+0x155F58`.
+- Readers of that state: 89 functions use the stamps or distances; the 18 that do not increment the generation themselves either clear the arrays (`0x15200`, `0x5BC70`, `0x71670`, `0xE6250`, `memset 0x7490`) or read a search their own caller chain started just before (`0x11B520` → `0x124740`/`0xE0970`/`0xE0AC0`/`0xE1D30`; `0x1243D0` → `0xE1C30`; `0x3BC90` → `0xEA620`; `0x3C150` → `0xF2CB0`; `0x1263D0`/`0x1264D0`/`0x1265B0`/`0xCEFC0`/`0xCF020`/`0xCF080`/`0xCF110`/`0x3BB80`/`0x3BD50` → `0xE3590` via `0xE8C20`/`0xE9500`/`0xE9610`/`0xE9720`/`0xEA3D0`/`0xEA4E0`; `0xE1640`/`0xE1110` after a found route; `0x123090`/`0x1232E0`/`0xE4FC0` search first). Only `0x11B520` resumes `0xDA590` (`param_7 = 1`), and only its own field search.
+- `0x34A9F50` is a scratch object: all 61 readers of `+0x04..+0x0C` and the helpers receiving it (`0x77C0`, `0x7600`, `0x7A80`) write before reading; `0x78E0`, `0x7890` and `0x9E00` ignore it.
+- After a failed build `0x196280` writes only unit fields (`+0x92A = 0`, type 0x52: `+0xA7E = 100`) and calls `0x199CD0`, which reads no search state; `0x11B520` then calls `0x123460`, which reads no stamps.
+
+## Failed ground builds in MoatMove anchor mode [mod integration]
+
+- `Testmods/MoatMove/src/GroundFailureProofs.cs` replays the failure path for members of one group move whose start lies in a closed failure set (BugfixesAndQoL's `CursorGroundRejectProof`, checked against the current direction bytes and the gate policy) and whose target lies outside it: region gate and straight attempt run natively, `0xDAAC0`/`0xDA590` are skipped. Validated bytes and fields: `Testmods/MoatMove/UpdateToNewDLL.md`.
+- DEVDIAG verification on `test_stresstest4.sav` (pf-known-8): 113 of 113 predicted failures matched Vanilla's result and terminal fields.
