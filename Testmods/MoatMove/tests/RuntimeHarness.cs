@@ -34,7 +34,7 @@ namespace MoatMove
         public ushort r_AttackMoveToTargetTileX, r_AttackMoveToTargetTileY;
         public int r_ControllableForPlayerId, r_CurrentTilePositionX, r_CurrentTilePositionY;
         public int r_NextTilePositionX2, r_NextTilePositionY2, r_PathPlanStateBitFlags, r_MovementSubstep;
-        public int r_CurrentPathPlanIndex, r_PathPlanLength, r_TargetTilePositionX2, r_TargetTilePositionY2, r_PreviousTilePositionX, r_PreviousTilePositionY, r_TargetTilePositionX, r_TargetTilePositionY;
+        public int r_CurrentPathPlanIndex, r_PathPlanLength, r_TargetTilePositionX2, r_TargetTilePositionY2, r_PreviousTilePositionX, r_PreviousTilePositionY;
         public int r_AI_LastIssuedTribeCommand;
         public int r_AIState;
         public AliveState r_AliveState;
