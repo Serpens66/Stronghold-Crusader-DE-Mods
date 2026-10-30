@@ -401,7 +401,12 @@ namespace MoatMove
                 if (!APIShared.UnitAccess.TryGetById(id, out GameUnit* unit, out _) || unit == null ||
                     !APIShared.UnitAccess.IsReallyAlive(unit) || unit->r_ControllableForPlayerId != player) continue;
                 int x = unit->r_AttackMoveToTargetTileX, y = unit->r_AttackMoveToTargetTileY;
-                if ((uint)x < MapWidth && (uint)y < MapWidth) targets[id] = y * MapWidth + x;
+                // Only members the second loop re-plans: AI state 0x6A, a slot other than the current
+                // target (+0xC4/+0xC6) or a route state other than 2 (+0xF2); pf-iter-36 batched every
+                // member and used 8 % of the answers.
+                bool replanned = unit->r_AIState == 0x6A || unit->r_TargetTilePositionX != x || unit->r_TargetTilePositionY != y ||
+                    unit->r_PathPlanStateBitFlags != 2;
+                if (replanned && (uint)x < MapWidth && (uint)y < MapWidth) targets[id] = y * MapWidth + x;
             }
             anchorSlotTargetMoves++;
             return targets.Count != 0 ? targets : null;
