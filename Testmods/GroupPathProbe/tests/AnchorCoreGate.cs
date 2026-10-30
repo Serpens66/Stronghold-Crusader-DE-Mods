@@ -261,6 +261,20 @@ internal static class AnchorCoreGate
             if (route.Status != SearchStatus.Found || route.Cost != 30 || settles > 4 * 30)
                 throw new InvalidOperationException($"Single route is not a corridor search: status={route.Status} cost={route.Cost} settles={settles}");
         }
+        // A start enclosed by blocked cells is proven unreachable from its own small component, without
+        // the backward A* settling the target's whole open component.
+        {
+            static bool Ring(int n) { int x = n % 60, y = n / 60; return Math.Max(Math.Abs(x - 10), Math.Abs(y - 10)) == 1; }
+            GridSnapshot map = GroupGate.Grid(60, 60, null, n => !Ring(n));
+            using var core = new AnchorCoreInterop(60, 60, 128L * 1024 * 1024); core.WriteWholeMask(Player, map, 500);
+            RouteResult route = core.SingleRoute(Player, 50 * 60 + 50, 1, 7, 10 * 60 + 10);
+            long settles = core.Stats()[AnchorCoreInterop.Stat("singleSettles")];
+            if (route.Status != SearchStatus.Unreachable || settles > 0)
+                throw new InvalidOperationException($"Enclosed start is not proven unreachable cheaply: status={route.Status} settles={settles}");
+            RouteResult open = core.SingleRoute(Player, 50 * 60 + 50, 1, 7, 20 * 60 + 20);
+            if (open.Status != SearchStatus.Found || open.Cost != 30)
+                throw new InvalidOperationException($"Open start after the enclosure proof: status={open.Status} cost={open.Cost}");
+        }
         // Directed snake longer than 2,000 steps: never returned as a route.
         {
             GridSnapshot map = GroupGate.Grid(800, 4, (a, b, d) => ((a / 800) % 2 == 0 ? d == 2 : d == 6) && a / 800 == b / 800 || d == 4 && a % 800 == ((a / 800) % 2 == 0 ? 799 : 0) ? 1U << d : 0);

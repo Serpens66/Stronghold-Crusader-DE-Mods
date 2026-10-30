@@ -346,6 +346,8 @@ struct Pool {
 // Per-thread query workspace: the local A* field (doubled ring) and path buffers.
 struct Scratch {
     std::unique_ptr<Field> local; std::vector<uint8_t> path, rest; std::vector<int> targets; i64 stats[StatCount] = {};
+    // Forward flood of mma_single_route's enclosure proof (stamped per call, sized on first use).
+    std::vector<u32> seen; std::vector<int> flood; u32 seenGen = 0;
     Scratch(Memory* m, int n) : local(std::make_unique<Field>(m, n, 2 * MaxCost + 2)) {}
 };
 
@@ -614,6 +616,31 @@ __declspec(dllexport) int mma_step(Context* c, int maxTasks, int threads, int* c
         return Ok;
     });
 }
+// Exact enclosure proof before a single route: the start's forward component over the same edges
+// (outgoing, as the backward A* reads them incoming) is exhausted within SingleFloodBudget nodes
+// without the target, so no route exists. The backward A* would instead settle the target's whole
+// component (pf-iter-34: 256 unreachable single routes, 56 M settles and 2 s in one window, mostly
+// starts on building tiles without ground edges). Larger start components keep the A*.
+constexpr int SingleFloodBudget = 2048;
+static bool StartEnclosed(Context& c, const Mask& mask, int start, int target, int moat) {
+    Scratch& s = *c.scratch;
+    if (s.seen.size() != size_t(c.map.n)) { s.seen.assign(size_t(c.map.n), 0u); s.seenGen = 0; }
+    if (++s.seenGen == 0) { std::fill(s.seen.begin(), s.seen.end(), 0u); s.seenGen = 1; }
+    if (start == target) return false;
+    s.flood.clear(); s.flood.push_back(start); s.seen[start] = s.seenGen;
+    for (size_t i = 0; i < s.flood.size(); ++i) {
+        const int v = s.flood[i];
+        for (u32 m = mask.outgoing(v, moat); m; m &= m - 1) {
+            const int u = v + c.map.off[Ctz(m)];
+            if (u == target) return false;
+            if (s.seen[u] == s.seenGen) continue;
+            if (int(s.flood.size()) >= SingleFloodBudget) return false;
+            s.seen[u] = s.seenGen; s.flood.push_back(u);
+        }
+    }
+    return true;
+}
+
 // Route of one unit from start to target (ground/moat profile like a task): backward A* from the
 // target towards the start over the whole map (solveTowards; Chebyshev heuristic), so a trip
 // explores a corridor instead of the disc of a full field. Found: packed directions as for
@@ -627,6 +654,7 @@ __declspec(dllexport) int mma_single_route(Context* c, int player, int target, i
     if (!mask || !mask->ready(c->map.n)) { result->status = Pending; return Ok; }
     return Guard([&] {
         auto t0 = Clock::now(); ++c->stats[SingleQueries];
+        if (StartEnclosed(*c, *mask, start, target, moat)) { result->status = Unreachable; c->stats[SingleNs] += Ns(t0); return Ok; }
         Field& local = *c->scratch->local; const i64 before = local.settles;
         Box all; all.x0 = 0; all.y0 = 0; all.x1 = c->map.width - 1; all.y1 = c->map.height - 1;
         local.solveTowards(c->map, *mask, target, start, start, ground, moat, all);
