@@ -210,6 +210,23 @@ internal static class AnchorCoreGate
                     throw new InvalidOperationException("Enclosed starts were not answered unreachable by single routes.");
             }
         }
+        // A member standing on a cell without edges (building or tower tiles) is proven enclosed before
+        // the field: the field stops at the other starts instead of exhausting the anchor's component,
+        // the member's query stays exactly unreachable and the others stay optimal.
+        {
+            const int stuck = 30 * 60 + 30;
+            GridSnapshot map = GroupGate.Grid(60, 60, null, n => n != stuck);
+            using var core = new AnchorCoreInterop(60, 60, 128L * 1024 * 1024); core.WriteWholeMask(Player, map, 500); core.SetSubSingleBudget(0);
+            int task = core.CreateTask(Player, 10 * 60 + 10, 1, 7, new[] { 12 * 60 + 12, stuck }); core.Step(1, 1);
+            long[] stats = core.Stats();
+            if (stats[AnchorCoreInterop.Stat("startsEnclosed")] != 1 || stats[AnchorCoreInterop.Stat("settleEvents")] >= 60 * 60 - 1)
+                throw new InvalidOperationException($"An edge-less start exhausted the field: enclosed={stats[AnchorCoreInterop.Stat("startsEnclosed")]} settles={stats[AnchorCoreInterop.Stat("settleEvents")]}");
+            if (core.Query(task, stuck, 10 * 60 + 11, Margin).Status != SearchStatus.Unreachable) throw new InvalidOperationException("An enclosed start was not answered unreachable.");
+            var open = new RouteQuery { Start = 12 * 60 + 12, Target = 10 * 60 + 11, GroundCost = 1, MoatCost = 7 };
+            RouteResult route = core.Query(task, open.Start, open.Target, Margin);
+            if (route.Status != SearchStatus.Found || route.Cost != ReferenceSearch.Find(map, open, new WorkBudget(64L * 1024 * 1024, 10)).Cost)
+                throw new InvalidOperationException("The open member lost its optimal route next to an enclosed one.");
+        }
         // Ground-only profiles use the ground directions (bits 8..15, Vanilla's DA590 rules),
         // moat profiles the friendly directions (DAFD0 rules with the height correction): an
         // edge present only as ground direction (a keep or tower step) serves ground units only.

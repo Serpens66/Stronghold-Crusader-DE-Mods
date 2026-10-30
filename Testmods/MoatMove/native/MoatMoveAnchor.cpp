@@ -41,7 +41,7 @@ using u64 = uint64_t;
 using u32 = uint32_t;
 constexpr int dx[8] = {0,1,1,1,0,-1,-1,-1}, dy[8] = {-1,-1,0,1,1,1,0,-1};
 // 48 sub-anchors (about 2.5 MiB each on 800x800) serve wide formations around blocked anchors.
-constexpr int MaxSteps = 2000, MaxPlayers = 8, MaxSubAnchors = 48, MaxCost = 255, SubSingleBudget = 4096;
+constexpr int MaxSteps = 2000, MaxPlayers = 8, MaxSubAnchors = 48, MaxCost = 255, SubSingleBudget = 4096, StartFilterBudget = 16;
 constexpr u32 Unset = 0xFFFFFFFFu;
 struct Exhausted {};
 
@@ -74,7 +74,7 @@ enum Flags { ViaAnchor = 1, SubAnchor = 2, NewSubAnchor = 4, Uncached = 8 };
 enum Code { Ok = 0, NoMemory = 2, BadArgument = 3, Internal = 4 };
 // AnchorNoStart..AnchorTooFar: why an anchor (main or sub) could not answer a query.
 enum StatIndex { TasksComputed, TasksFailed, SettleEvents, Entries, Queries, ViaChosen, SubAnchors, SubCapped, StepNs, QueryNs, SubNs, MaskWrites, MaskChanges, PeakBytes, Allocations, Workers,
-    AnchorNoStart, AnchorNoEntry, AnchorUnreached, AnchorTooFar, FieldReuses, SingleQueries, SingleSettles, SingleNs, SubSingles, StatCount };
+    AnchorNoStart, AnchorNoEntry, AnchorUnreached, AnchorTooFar, FieldReuses, SingleQueries, SingleSettles, SingleNs, SubSingles, StartsEnclosed, StatCount };
 
 struct Box { int x0 = 0, y0 = 0, x1 = -1, y1 = -1; };
 static int Ctz(u32 m) { unsigned long i; _BitScanForward(&i, m); return int(i); }
@@ -301,6 +301,9 @@ template<class Dist, class Stop> static int Descend(const Map& map, const Mask& 
 struct Task {
     int id = 0, player = 0, anchor = 0, ground = 1, moat = 1, status = Pending; u64 revision = 0; bool exhausted = false;
     std::vector<int> starts; std::shared_ptr<Stored> main; std::vector<std::unique_ptr<Stored>> subs;
+    // Starts not proven enclosed at the last compute (mma_step); the field, its box, the field cache and
+    // sub-anchors target only these.
+    std::vector<int> open;
 };
 
 // Recently computed main fields. A field depends only on player mask (revision), anchor and
@@ -382,7 +385,7 @@ static bool ValidNode(const Context& c, int node) { return node >= 0 && node < c
 // component (pf-iter-34: 256 unreachable single routes, 56 M settles and 2 s in one window, mostly
 // starts on building tiles without ground edges). Larger start components keep the A*.
 constexpr int SingleFloodBudget = 2048;
-static bool StartEnclosed(const Map& map, const Mask& mask, Scratch& s, int start, int target, int moat) {
+static bool StartEnclosed(const Map& map, const Mask& mask, Scratch& s, int start, int target, int moat, int budget = SingleFloodBudget) {
     if (s.seen.size() != size_t(map.n)) { s.seen.assign(size_t(map.n), 0u); s.seenGen = 0; }
     if (++s.seenGen == 0) { std::fill(s.seen.begin(), s.seen.end(), 0u); s.seenGen = 1; }
     if (start == target) return false;
@@ -393,7 +396,7 @@ static bool StartEnclosed(const Map& map, const Mask& mask, Scratch& s, int star
             const int u = v + map.off[Ctz(m)];
             if (u == target) return false;
             if (s.seen[u] == s.seenGen) continue;
-            if (int(s.flood.size()) >= SingleFloodBudget) return false;
+            if (int(s.flood.size()) >= budget) return false;
             s.seen[u] = s.seenGen; s.flood.push_back(u);
         }
     }
@@ -501,7 +504,7 @@ static int Query(Context& c, Task& t, Scratch& sc, int start, int slot, int marg
     // Answers stay exact: a later query uses a sub-anchor only where it settled that start.
     std::vector<int>& targets = sc.targets; targets.clear();
     const bool startInMain = t.main->at(start) != Unset;
-    for (int s : t.starts) if (!t.exhausted || (t.main->at(s) != Unset) == startInMain) targets.push_back(s);
+    for (int s : t.open) if (!t.exhausted || (t.main->at(s) != Unset) == startInMain) targets.push_back(s);
     targets.push_back(start);
     local.solve(map, mask, slot, false, targets, t.ground, t.moat);
     int flags = NewSubAnchor | SubAnchor;
@@ -529,7 +532,7 @@ template<class F> static int Guard(F body) {
 
 using namespace mma;
 extern "C" {
-__declspec(dllexport) int mma_contract() { return 0x0400000D; }
+__declspec(dllexport) int mma_contract() { return 0x0400000E; }
 // Physical cores minus two (Unity main thread plus simulation/render), within 1..8.
 __declspec(dllexport) int mma_recommended_threads() {
     DWORD length = 0; GetLogicalProcessorInformationEx(RelationProcessorCore, nullptr, &length);
@@ -622,6 +625,15 @@ __declspec(dllexport) int mma_step(Context* c, int maxTasks, int threads, int* c
             Task& t = *entry.second; Mask* m = c->mask(t.player);
             if (int(work.size()) >= maxTasks) break;
             if (t.status != Pending || !m || !m->ready(c->map.n)) continue;
+            // A start whose forward component closes within StartFilterBudget nodes without the anchor
+            // (units on building or tower tiles without edges) can never be settled: the field would
+            // exhaust the anchor's whole component to prove it (~234,000 nodes, ~9 ms; nearly all field
+            // time of pf-diag-field). Such starts stay out of the field; their queries find no stored
+            // distance and get the single route's own exact enclosure proof.
+            t.open.clear();
+            for (int s : t.starts) if (!StartEnclosed(c->map, *m, *c->scratch, s, t.anchor, t.moat, StartFilterBudget)) t.open.push_back(s);
+            if (t.open.empty()) t.open.push_back(t.anchor);
+            c->stats[StartsEnclosed] += i64(t.starts.size()) - i64(t.open.size());
             bool reused = false;
             for (CachedField& e : c->fieldCache) {
                 if (e.player != t.player || e.anchor != t.anchor || e.ground != t.ground || e.moat != t.moat || e.revision != m->revision) continue;
@@ -629,7 +641,7 @@ __declspec(dllexport) int mma_step(Context* c, int maxTasks, int threads, int* c
                 if (!covers)
                 {
                     covers = true;
-                    for (int s : t.starts)
+                    for (int s : t.open)
                         if (e.field->at(s) == Unset || (e.field->boxed && !c->map.inside(e.field->box, s))) { covers = false; break; }
                 }
                 if (!covers) break;
@@ -651,11 +663,11 @@ __declspec(dllexport) int mma_step(Context* c, int maxTasks, int threads, int* c
                 Task& t = *work[i];
                 try {
                     Box box; box.x0 = box.y0 = INT32_MAX; box.x1 = box.y1 = -1;
-                    for (int s : t.starts) { int x = s % c->map.width, y = s / c->map.width; box.x0 = std::min(box.x0, x); box.x1 = std::max(box.x1, x); box.y0 = std::min(box.y0, y); box.y1 = std::max(box.y1, y); }
+                    for (int s : t.open) { int x = s % c->map.width, y = s / c->map.width; box.x0 = std::min(box.x0, x); box.x1 = std::max(box.x1, x); box.y0 = std::min(box.y0, y); box.y1 = std::max(box.y1, y); }
                     // Scattered starts (a box over most of the map) gain nothing from the heuristic: full field.
                     bool boxed = std::max(box.x1 - box.x0, box.y1 - box.y0) <= c->map.width / 4;
-                    if (boxed) f.solveToBox(c->map, *c->mask(t.player), t.anchor, t.starts, t.ground, t.moat, box);
-                    else f.solve(c->map, *c->mask(t.player), t.anchor, false, t.starts, t.ground, t.moat);
+                    if (boxed) f.solveToBox(c->map, *c->mask(t.player), t.anchor, t.open, t.ground, t.moat, box);
+                    else f.solve(c->map, *c->mask(t.player), t.anchor, false, t.open, t.ground, t.moat);
                     auto s = std::make_shared<Stored>(&c->memory); s->take(c->map, f, t.anchor); s->boxed = boxed; s->box = box;
                     t.main = std::move(s); t.subs.clear(); t.exhausted = f.exhausted; t.revision = c->mask(t.player)->revision; t.status = Ready;
                 }
