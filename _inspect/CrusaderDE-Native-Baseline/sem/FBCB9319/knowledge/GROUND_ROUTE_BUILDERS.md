@@ -60,3 +60,21 @@ Source: complete pseudocode of the functions named below in the semantic export 
 
 - `Testmods/MoatMove/src/GroundFailureProofs.cs` replays the failure path for members of one group move whose start lies in a closed failure set (BugfixesAndQoL's `CursorGroundRejectProof`, checked against the current direction bytes and the gate policy) and whose target lies outside it: region gate and straight attempt run natively, `0xDAAC0`/`0xDA590` are skipped. Validated bytes and fields: `Testmods/MoatMove/UpdateToNewDLL.md`.
 - DEVDIAG verification on `test_stresstest4.sav` (pf-known-8): 113 of 113 predicted failures matched Vanilla's result and terminal fields.
+
+## 0xF4930 moat mode and 0xDAFD0 (audit 30.10.2026)
+
+Source: pseudocode of `0xF4930`, `0xDAFD0`, `0x107160`, `0xC07C0` and `0xE1640` in the semantic export and the disassembly of the installed DLL (FBCB9319).
+
+- Moat mode (`+0x84 != 0`, `+0x80 == 0`, `+0x88 == 0`): the region gate is skipped (mode word non-zero) and there is no straight attempt. `+0x7C = 1`, `+0x155F68 = 0`, `+0xAC += 1` (`0xF4A2B`), `+0x7C = 0`, `0x79C0(&0x34A9F50, sx, sy, tx, ty)`, `+0x155F68 = 0`, then `0xDAAC0(manager, sx, sy, tx, ty, 2*(d+4)^2, 0)` (`0xF4AF5`, `d` = `0x34A9F5C`) and, if it fails, `0xDAFD0(manager, sx, sy, tx, ty, 400000, 0)` (`0xF4B50`). Both fail: return 0 (`0xF4A85`). A route: `0xE1640(..., mode 2, 0)`, then with `param_3 == 0` and `+0x94 != 0` the `0xDB650` second pass.
+- `0xDAFD0` returns 0 without a search when the start or target is off the map or `0x3A11EA4[y*800+x] == 0`. Otherwise (`param_7 == 0`) it increments the generation `manager+4` (wrap above 32,000 with a clear of `0x9CA40` bytes), stamps accepted tiles in `0x52C2550` and their distances in `0x5225B10`, and dequeues FIFO from the ring `manager+0x155F6C` (head `+0x155F3C`, tail `+0x155F44`, both wrapping at `0x4E520`).
+- The budget compare (`0xDB164`) tests the ring head index against `param_6`. The head wraps below 320,800, so the 400,000 of F4930 never stops the search: a failure always exhausts the start's component, and the tiles stamped with the final generation are exactly that component.
+- Edge rule, from the dequeued tile `v` to neighbour `n = v + 0x405EDB0[y*8 + d]` (y = row of `v`): an unvisited `n`; then either `v`'s direction bit (`0x312620[d] & 0x51890D0[v]`, a load APIShared's gate filter hooks at `0xDB242`) with a height check, or flag rules (`0x48F71B0` bits 8, 30, `0x40000800`, `0xA5014B1`, bit 12 with `0x107160`) that also read `v`'s side tiles `v + 0x405EDB0[y*8 + d - 1]` and `[y*8 + (d+1) mod 8]`. The height check compares `0x4DDD350` of `v` and `n` within 0x10; with flag `0x10000000` on `n` the building height offset `0xC07C0(type)` is added, and building types 0x2D/0x2E (word at `0x64CCCDE + b*0x32C`, `b` from `0x4B6AA50`) shift by 0x5A.
+- No player input. `0x107160(0x32DE440, tile)`: index `0x4ACE010[tile]` (short); non-zero: true for the word at `0x32DE440 + index*0x9C + 0x6A` when it is at least 5 and not 0xF.
+- `0xC07C0(manager 0x64CCBB0, building)` depends only on the building's type word (`+0x12E` at stride `0x32C`, the same word as `0x64CCCDE + b*0x32C`).
+- `0xDAAC0`'s edges are not a subset of `0xDAFD0`'s: it follows direction bits without the height check (only `0x51D75F0[n] == 0`).
+- `0xE1640` rebuilds all direction bytes (`0xDAA50`) only when its route reconstruction finds no step back; it then increments `manager+0x78`.
+- Observation `pf-iter-66` (`test_stresstest4.sav`, after a spawn of 4,800 units): 128 moat-mode builds in one 2.5-s window, 109 failed, 281 of 282 ms. Vanilla alone shows the same bursts (`pf-se-1`, sampled inside `0xDAFD0`).
+
+## Failed moat-mode builds in MoatMove anchor mode [mod integration]
+
+- `Testmods/MoatMove/src/MoatFailureProofs.cs` keeps the stamped component of a failed moat-mode build (per player and gate policy) and a hash of the edge inputs above on every component tile with a neighbour outside it plus all their neighbours. A later moat-mode request with its start inside and its target outside replays F4930 up to `0xDAAC0` and skips `0xDAFD0`; a `0xDAAC0` route restores `+0xAC` and lets Vanilla's builder run. The hash is checked on every use; a mismatch drops the proof.

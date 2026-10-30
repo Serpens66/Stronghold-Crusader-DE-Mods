@@ -247,3 +247,28 @@ pattern fallback: the replay is bound to the audited instruction sequence, so an
 and leaves the feature off (every member keeps Vanilla's builder). On a new DLL repeat the audit: F4930's ground
 path and writes, F32B0 and DAAC0/DA590 edge rules, the readers of search stamps/distances/queue/continuation and
 of `0x34A9F50`, and BugfixesAndQoL's gate filter (`GateNativeSearchScopes`, `IsDirectionAllowed`).
+
+## Failed moat-mode builds (`src/MoatFailureProofs.cs`, installed by `FriendlyMoatTraversalProvider.InstallMoatFailureProofs`)
+
+Feature owner: MoatMove anchor mode. Reference SHA-256 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`
+(audit 30.10.2026, `GROUND_ROUTE_BUILDERS.md` "0xF4930 moat mode and 0xDAFD0"). A moat-mode request whose start lies in
+the stamped component of an earlier failed `0xDAFD0` search, with unchanged edge inputs on its border, replays `0xF4930`'s
+moat-mode path natively up to `0xDAAC0` and skips `0xDAFD0`.
+
+| Entry | Reference RVA | Validated bytes and use |
+|---|---|---|
+| Moat-mode entry | `0xF49D5` | `xor ebp,ebp; mov [rbx+7Ch],1; mov [rbx+155F68h],ebp; cmp [rbx+84h],ebp; jne` (23 bytes, replayed writes). |
+| Failure writes, 79C0, budget | `0xF4A16` | 65 bytes: `lea rcx,[0x34A9F50]`, `inc [rbx+0ACh]`, `mov [rbx+7Ch],ebp`, `call 0x79C0` (called natively: `rectangle, sx, sy, tx, ty`), `mov eax,[0x34A9F5C]; add eax,4; mov [rbx+155F68h],ebp; imul eax,eax; cmp [rbx+80h],ebp; je`. |
+| DAAC0 call | `0xF4AA0`, `0xF4AD6` | `cmp [rbx+88h],ebp; je` and 40 bytes ending in `call 0xDAAC0; test; jnz` (budget `eax+eax`, mode 0; called natively through the same address). |
+| DAFD0 dispatch | `0xF4AFE` | 92 bytes: `+0x88`/`+0x84` checks and `call 0xDAFD0` with 400,000 and mode 0 (skipped for proven requests). |
+| Failure return | `0xF4A7D` | `test eax,eax; jnz; xor eax,eax; jmp` (return 0). |
+| DAFD0 validity, generation, budget, stamps | `0xDB004`, `0xDB070`, `0xDB164`, `0xDB519` | `0x3A11EA4[y*800+x]` test, `inc [r15+4]` with the 32,000 wrap, ring head compare with `param_6` and `cmp r13d,0x4E51F`, distance/stamp writes (`0x5225B10`, `0x52C2550`). |
+| Edge inputs | `0xDB293`, `0xDB442`, `0x107160`, `0xC07C0` | `lea rcx,[0x32DE440]; call 0x107160`; `movsx edx,[0x4B6AA50]; lea rcx,[0x64CCBB0]; call 0xC07C0`; the predicate (47 bytes, `lea rdx,[rip+0x049C6EA6]` = `0x4ACE010`, stride `0x9C`, word `+0x6A`); `0xC07C0`'s type word (`+0x12E`, stride `0x32C`). |
+
+Tables read for the border hash: `0x51890D0` (direction bytes), `0x48F71B0` (flags), `0x4DDD350` (heights), `0x4B6AA50`
+(buildings) with `0x64CCCDE + b*0x32C` (type), `0x4ACE010` with `0x32DE440 + i*0x9C + 0x6A` (special-structure state);
+`0x405EDB0` per-row neighbour offsets (also index `y*8 - 1`, as DAFD0's side test reads it), `0x402FF2C` row starts and
+the Extender's column table. DAFD0's and DAAC0's direction loads (`0xDB242`, `0xDACB2`) are not pinned: APIShared's gate
+filter hooks them. There is no pattern fallback; any byte mismatch logs an error and leaves the feature off. On a new
+DLL repeat the audit: F4930's moat path and writes, DAFD0's exhaustiveness (ring size vs budget) and every edge input,
+DAAC0's relation to DAFD0, and the readers of search stamps (see "Failed ground builds").

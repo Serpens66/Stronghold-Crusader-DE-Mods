@@ -91,7 +91,7 @@ string[] runtimeSourceNames =
 {
     "AssassinSelectionAdapters.cs",
     "CursorConnectivity.cs", "CursorRegionGraph.cs", "DirectMoatCommandScopes.cs",
-    "AnchorRouting.cs", "RouteReplanWatch.cs", "GroundFailureProofs.cs", "FastIntegration.cs", "DigWorkFallback.cs", "IFastRouteField.cs", "FastRouteField.cs", "FastCommandQueue.cs", "FastRoutePool.cs", "FastTraversalCache.cs",
+    "AnchorRouting.cs", "RouteReplanWatch.cs", "GroundFailureProofs.cs", "MoatFailureProofs.cs", "FastIntegration.cs", "DigWorkFallback.cs", "IFastRouteField.cs", "FastRouteField.cs", "FastCommandQueue.cs", "FastRoutePool.cs", "FastTraversalCache.cs",
     "FastMoatRouting.cs", "FastMovementScheduler.cs", "FastGroupDistribution.cs", "FillWeightedRoutes.cs", "FriendlyMoatMovementPolicy.cs",
     "FriendlyMoatMovementRuntime.cs",
     "MoatPlacement.cs", "MoatPlacementSearch.cs",
@@ -287,6 +287,7 @@ var compilation = CSharpCompilation.Create("Assembly-CSharp", new[] {
     CSharpSyntaxTree.ParseText(RuntimeSource("AnchorRouting.cs").Replace("using SHCDESE.API;", "").Replace("using SHCDESE.Interop;", "")),
     CSharpSyntaxTree.ParseText(RuntimeSource("RouteReplanWatch.cs")),
     CSharpSyntaxTree.ParseText(RuntimeSource("GroundFailureProofs.cs")),
+    CSharpSyntaxTree.ParseText(RuntimeSource("MoatFailureProofs.cs")),
     CSharpSyntaxTree.ParseText(RuntimeSource("CursorGroundRejectProof.cs")),
     CSharpSyntaxTree.ParseText(RuntimeSource("TraversalCommandState.cs")),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared/src/Pathfinding/GateRoutes/EnemyBridgeDiagnosticBridge.cs"))),

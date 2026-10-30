@@ -31,6 +31,7 @@ namespace MoatMove
                 InstallFastCommandRuntime(context.Memory, unchecked((ulong)context.ModuleHandle.ToInt64()));
                 InitializeAnchor();
                 InstallGroundFailureProofs(context.Memory, unchecked((ulong)context.ModuleHandle.ToInt64()));
+                InstallMoatFailureProofs(context.Memory, unchecked((ulong)context.ModuleHandle.ToInt64()));
                 RegisterFireRouteRules(context.Memory, unchecked((ulong)context.ModuleHandle.ToInt64()));
             }
             catch { enabled = false; throw; }
@@ -77,6 +78,64 @@ namespace MoatMove
             {
                 groundFailureProofs = null;
                 Shared.DebugLogHelper.LogError(log, "MoatMove failed-ground-build proofs unavailable; Vanilla builds unchanged: " + ex.Message);
+            }
+        }
+
+        // MoatFailureProofs replays F4930's moat-mode path up to DAAC0 and relies on DAFD0's exhaustive search
+        // and its edge inputs; these windows pin exactly the audited code (FBCB9319; UpdateToNewDLL.md "Failed
+        // moat-mode builds"). DAFD0's and DAAC0's direction-byte loads are left out: APIShared's gate filter
+        // hooks them. Any mismatch leaves the feature off and every build keeps Vanilla's path.
+        private static void ValidatePin(ReadOnlySpan<byte> memory, int rva, string hex, string name)
+        {
+            string[] parts = hex.Split(' ');
+            var bytes = new byte[parts.Length];
+            for (int i = 0; i < parts.Length; i++) bytes[i] = Convert.ToByte(parts[i], 16);
+            UnitCommandPathRuntime.ValidateExactBytes(memory, rva, bytes, name);
+        }
+
+        private void InstallMoatFailureProofs(ReadOnlySpan<byte> memory, ulong libraryBase)
+        {
+            if (!anchorAvailable) return;
+            try
+            {
+                ValidatePin(memory, 0xF49D5, "33 ED C7 43 7C 01 00 00 00 89 AB 68 5F 15 00 39 AB 84 00 00 00 75 2A", "F4930 moat-mode entry writes");
+                ValidatePin(memory, 0xF4A16, "8B 43 14 48 8D 0D 30 55 3B 03 44 8B 4B 10 44 8B 43 0C 8B 53 08 FF 83 AC 00 00 00 89 44 24 20 89 6B 7C E8 83 2F F1 FF 8B 05 19 55 3B 03 83 C0 04 89 AB 68 5F 15 00 0F AF C0 39 AB 80 00 00 00 74 49", "F4930 failure writes, 79C0, budget");
+                ValidatePin(memory, 0xF4AA0, "39 AB 88 00 00 00 74 2E", "F4930 +0x88 branch");
+                ValidatePin(memory, 0xF4AD6, "44 8B 4B 10 03 C0 44 8B 43 0C 48 8B CB 8B 53 08 89 6C 24 30 89 44 24 28 8B 43 14 89 44 24 20 E8 C6 5F FE FF 85 C0 75 5C", "F4930 DAAC0 call");
+                ValidatePin(memory, 0xF4AFE, "8B 43 14 44 8B 4B 10 44 8B 43 0C 8B 53 08 39 AB 88 00 00 00 74 1D 89 6C 24 30 48 8B CB C7 44 24 28 80 1A 06 00 89 44 24 20 E8 14 51 FE FF E9 4C FF FF FF 39 AB 84 00 00 00 0F 84 28 FF FF FF 89 6C 24 30 48 8B CB C7 44 24 28 80 1A 06 00 89 44 24 20 E8 7B 64 FE FF E9 23 FF FF FF", "F4930 DAFD0 dispatch");
+                ValidatePin(memory, 0xF4A7D, "85 C0 0F 85 D5 00 00 00 33 C0 E9 A4 01 00 00", "F4930 failure return");
+                ValidatePin(memory, 0xDB004, "48 69 D5 20 03 00 00 4C 8D 05 EE 4F F2 FF 48 03 D6 42 80 BC 02 A4 1E A1 03 00", "DAFD0 start validity");
+                ValidatePin(memory, 0xDB070, "41 FF 47 04 41 81 7F 04 00 7D 00 00 7E 26", "DAFD0 generation step");
+                ValidatePin(memory, 0xDB164, "3B 84 24 B8 00 00 00 0F 8D 9E 04 00 00 41 81 FD 1F E5 04 00", "DAFD0 ring-head budget compare");
+                ValidatePin(memory, 0xDB519, "66 42 89 84 73 10 5B 22 05 41 0F B7 47 04 66 42 89 84 73 50 25 2C 05", "DAFD0 distance and stamp write");
+                ValidatePin(memory, 0xDB293, "48 8D 0D A6 31 20 03 E8 C1 BE 02 00", "DAFD0 special-structure call");
+                ValidatePin(memory, 0xDB442, "43 0F BF 94 70 50 AA B6 04 48 8D 0D 5E 17 3F 06 E8 69 53 FE FF", "DAFD0 height offset call");
+                ValidatePin(memory, 0x107160, "48 63 C2 48 8D 15 A6 6E 9C 04 48 0F BF 14 42 66 85 D2 74 1B 48 69 D2 9C 00 00 00 0F B7 44 0A 6A 66 83 F8 05 7C 09 66 83 F8 0F 74 03 B0 01 C3", "107160 special-structure predicate");
+                ValidatePin(memory, 0xC07C0, "48 63 C2 48 69 D0 2C 03 00 00 0F BF 84 0A 2E 01 00 00", "C07C0 type word");
+                // 107160: lea rdx,[rip+0x049C6EA6] at +3 (7 bytes): tile -> special-structure index.
+                const int SpecialTilesRva = 0x107160 + 10 + 0x049C6EA6;
+                ushort* rows = SHCDESE.API.GameTileManagerAPI.Instance.MapColumnLookupTable;
+                if (rows == null || runtime.nativeProbeGrid == null || runtime.movementTargetAvailability == null || runtime.nativeMovementMasks == null ||
+                    runtime.tileFlags == null || runtime.nativeHeightLayer == null || runtime.nativeBuildingLayer == null || runtime.nativeRowLookup == null ||
+                    runtime.nativeProbeRectangle == null || runtime.nativeSpecialStructureContext == IntPtr.Zero)
+                    throw new InvalidOperationException("native tables unavailable");
+                var distance = System.Runtime.InteropServices.Marshal.GetDelegateForFunctionPointer<MoatFailureProofs.DistanceDelegate>((IntPtr)(libraryBase + 0x79C0));
+                // The address F4930 calls (APIShared's gate filter inside DAAC0 applies as in Vanilla's call).
+                var firstSearch = System.Runtime.InteropServices.Marshal.GetDelegateForFunctionPointer<MoatFailureProofs.BreadthSearchDelegate>((IntPtr)(libraryBase + 0xDAAC0));
+                moatFailureProofs = new MoatFailureProofs((short*)(runtime.nativeProbeGrid + UnitCommandPathRuntime.NativeProbeGridBytes / 2),
+                    runtime.movementTargetAvailability, runtime.nativeMovementMasks, runtime.tileFlags, runtime.nativeHeightLayer, runtime.nativeBuildingLayer,
+                    (byte*)(libraryBase + UnitCommandPathRuntime.NativeBuildingTypeBiasRva), (short*)(libraryBase + SpecialTilesRva),
+                    (byte*)runtime.nativeSpecialStructureContext.ToPointer(), rows, runtime.nativeRowLookup, (int*)(libraryBase + 0x405EDB0),
+                    (IntPtr)runtime.nativeProbeRectangle, distance, firstSearch);
+#if SERP_DEVDIAG
+                moatFailureProofs.VerifySearch = System.Runtime.InteropServices.Marshal.GetDelegateForFunctionPointer<MoatFailureProofs.BreadthSearchDelegate>((IntPtr)(libraryBase + 0xDAFD0));
+#endif
+                Shared.DebugLogHelper.LogInfo(log, $"MoatMove failed-moat-build proofs ready; method=reference-rva verify={GroundFailureVerify}.");
+            }
+            catch (Exception ex)
+            {
+                moatFailureProofs = null;
+                Shared.DebugLogHelper.LogError(log, "MoatMove failed-moat-build proofs unavailable; Vanilla builds unchanged: " + ex.Message);
             }
         }
     }

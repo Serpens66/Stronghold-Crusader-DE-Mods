@@ -131,6 +131,109 @@ namespace MoatMove
             Check(!AnchorSingleSearchReplaceable(manager, east, eastFar), "an Assassin request with +0x80 was replaced");
         }
 
+        // MoatFailureProofs on a synthetic grid (offsets per row like DAFD0's table): a moat-mode failure whose
+        // stamps form a closed box is captured after repeated failures in one tick; a covered request replays
+        // F4930 up to DAAC0 (79C0, budget 2*(d+4)^2) and skips DAFD0; DAAC0 success restores +0xAC and declines.
+        // Any change of a watched edge input (a tile beside the box, a special-structure state) drops the
+        // proof; a change deep inside the box does not. Other players, modes, targets inside the box and
+        // invalid targets keep Vanilla.
+        private int moatDistanceCalls, moatSearchCalls, moatSearchResult, moatSearchBudget, moatDistanceValue = 6;
+        private void MoatDistanceStub(IntPtr rectangle, int sx, int sy, int tx, int ty)
+        { moatDistanceCalls++; *(int*)((byte*)rectangle + MoatFailureProofs.DistanceOffset) = moatDistanceValue; }
+        private int MoatSearchStub(IntPtr manager, int sx, int sy, int tx, int ty, int budget, int mode)
+        { moatSearchCalls++; moatSearchBudget = budget; return moatSearchResult; }
+        private void MoatFailureProofTests()
+        {
+            const int width = 401, tiles = MoatFailureProofs.TileCount, generation = 91;
+            var memory = new System.Collections.Generic.List<IntPtr>();
+            T* Alloc<T>(int count) where T : unmanaged
+            {
+                IntPtr block = System.Runtime.InteropServices.Marshal.AllocHGlobal(count * sizeof(T)); memory.Add(block);
+                for (int i = 0; i < count * sizeof(T); i++) ((byte*)block)[i] = 0;
+                return (T*)block;
+            }
+            try
+            {
+                short* stamps = Alloc<short>(tiles); byte* valid = Alloc<byte>(800 * 800); byte* directions = Alloc<byte>(tiles);
+                uint* flags = Alloc<uint>(tiles); byte* heights = Alloc<byte>(tiles); ushort* buildings = Alloc<ushort>(tiles);
+                byte* typeWords = Alloc<byte>(0x32C * 8); short* special = Alloc<short>(tiles); byte* context = Alloc<byte>(0x9C * 8);
+                ushort* rows = Alloc<ushort>(tiles); int* rowStarts = Alloc<int>(800 * 3); int* offsetBlock = Alloc<int>(800 * 8 + 8);
+                int* offsets = offsetBlock + 8; byte* rectangle = Alloc<byte>(64);
+                byte* manager = Alloc<byte>(MoatFailureProofs.RouteLengthOffset + 16);
+                int[] dx = { 0, 1, 1, 1, 0, -1, -1, -1 }, dy = { -1, -1, 0, 1, 1, 1, 0, -1 };
+                for (int r = -1; r < 800; r++) for (int d = 0; d < 8; d++) if (r * 8 + d >= -8) offsets[r * 8 + d] = dy[d] * width + dx[d];
+                for (int t = 0; t < tiles; t++) rows[t] = (ushort)(t / width);
+                for (int y = 0; y < 800; y++) rowStarts[y * 3] = y * width;
+                for (int i = 0; i < 800 * 800; i++) valid[i] = 1;
+                int Tile(int x, int y) => y * width + x;
+                for (int y = 10; y <= 20; y++) for (int x = 10; x <= 20; x++) stamps[Tile(x, y)] = generation;
+                *(int*)(manager + MoatFailureProofs.GenerationOffset) = generation;
+                *(int*)(manager + MoatFailureProofs.MoatModeOffset) = 1;
+                var proofs = new MoatFailureProofs(stamps, valid, directions, flags, heights, buildings, typeWords, special, context, rows, rowStarts,
+                    offsets, (IntPtr)rectangle, MoatDistanceStub, MoatSearchStub);
+                void Request(int sx, int sy, int tx, int ty)
+                {
+                    *(int*)(manager + MoatFailureProofs.StartXOffset) = sx; *(int*)(manager + MoatFailureProofs.StartYOffset) = sy;
+                    *(int*)(manager + MoatFailureProofs.TargetXOffset) = tx; *(int*)(manager + MoatFailureProofs.TargetYOffset) = ty;
+                }
+                bool Answer(int player, out int result) => proofs.TryAnswer(manager, player, false, out result, out _, out _);
+                void Capture(int tick)
+                {
+                    Request(12, 12, 100, 100);
+                    for (int i = 0; i < MoatFailureProofs.CaptureAfterFailures && proofs.ProofCount == 0; i++) proofs.Observe(manager, 1, 0, false, 0, tick, null);
+                }
+
+                Request(12, 12, 100, 100);
+                Check(!Answer(1, out _), "a moat-mode request is answered without any proof");
+                if (MoatFailureProofs.CaptureAfterFailures > 1)
+                {
+                    proofs.Observe(manager, 1, 0, false, 0, 5, null);
+                    Check(proofs.ProofCount == 0, "a moat proof is captured at a player's first failure");
+                    proofs.Observe(manager, 1, 0, false, 0, 6, null);
+                    Check(proofs.ProofCount == 0, "failures of different ticks add up to a capture");
+                }
+                Capture(7);
+                Check(proofs.ProofCount == 1 && proofs.Captures == 1, "repeated failures in one tick do not capture the closed set");
+
+                // A covered start: F4930's failure writes, 79C0, DAAC0 with 2*(d+4)^2, no DAFD0.
+                Request(18, 15, 100, 100);
+                *(int*)(manager + MoatFailureProofs.FailureOffset) = 5; *(int*)(manager + MoatFailureProofs.SearchFlagOffset) = 9;
+                *(int*)(manager + MoatFailureProofs.RouteLengthOffset) = 9; moatDistanceCalls = moatSearchCalls = 0; moatSearchResult = 0;
+                Check(Answer(1, out int known) && known == 0 && proofs.Hits == 1 && moatDistanceCalls == 1 && moatSearchCalls == 1 &&
+                    moatSearchBudget == (moatDistanceValue + 4) * (moatDistanceValue + 4) * 2, "a covered moat-mode start is not replayed up to DAAC0");
+                Check(*(int*)(manager + MoatFailureProofs.FailureOffset) == 6 && *(int*)(manager + MoatFailureProofs.SearchFlagOffset) == 0 &&
+                    *(int*)(manager + MoatFailureProofs.RouteLengthOffset) == 0, "the replay does not leave F4930's moat-mode failure state");
+                // DAAC0 finds a route: +0xAC as before, Vanilla's builder runs.
+                moatSearchResult = 1;
+                Check(!Answer(1, out _) && proofs.Fallbacks == 1 && *(int*)(manager + MoatFailureProofs.FailureOffset) == 6,
+                    "a DAAC0 success is not handed back to Vanilla with +0xAC restored");
+                moatSearchResult = 0;
+
+                // Requests the proof does not cover.
+                Request(30, 15, 100, 100); Check(!Answer(1, out _), "a start outside the moat proof is answered");
+                Request(18, 15, 15, 15); Check(!Answer(1, out _), "a target inside the closed set is answered");
+                Request(18, 15, 100, 100); Check(!Answer(2, out _), "another player's moat-mode request is answered");
+                *(int*)(manager + MoatFailureProofs.MoatModeOffset) = 0; Check(!Answer(1, out _), "a ground-mode request is answered"); *(int*)(manager + MoatFailureProofs.MoatModeOffset) = 1;
+                foreach (int mode in new[] { MoatFailureProofs.DirectModeOffset, MoatFailureProofs.AssassinModeOffset })
+                { *(int*)(manager + mode) = 1; Check(!Answer(1, out _), "a request with +0x80 or +0x88 is answered"); *(int*)(manager + mode) = 0; }
+                valid[100 * 800 + 100] = 0; Check(!Answer(1, out _), "a request with an invalid target is answered"); valid[100 * 800 + 100] = 1;
+
+                // A change deep inside the box keeps the proof; one on a watched tile drops it.
+                heights[Tile(15, 15)] = 40;
+                Check(Answer(1, out _) && proofs.Hits == 2, "a change inside the closed set drops the moat proof");
+                heights[Tile(21, 15)] = 40;
+                Check(!Answer(1, out _) && proofs.Stale == 1 && proofs.ProofCount == 0, "a changed tile beside the closed set keeps the moat proof");
+                special[Tile(21, 16)] = 3; *(ushort*)(context + 3 * 0x9C + 0x6A) = 4;
+                Capture(8);
+                Check(proofs.ProofCount == 1 && Answer(1, out _), "a proof with a special-structure tile is not used");
+                *(ushort*)(context + 3 * 0x9C + 0x6A) = 7;
+                Check(!Answer(1, out _) && proofs.Stale == 2, "a changed special-structure state keeps the moat proof");
+                proofs.Reset();
+                Check(proofs.ProofCount == 0, "a reset keeps moat proofs");
+            }
+            finally { foreach (IntPtr block in memory) System.Runtime.InteropServices.Marshal.FreeHGlobal(block); }
+        }
+
         // Failed ground builds (GroundFailureProofs) on a synthetic 401 x 800 tile grid: a closed box of
         // stamped tiles around the start proves every outside target unreachable. Only a player's third
         // failure in the move captures; covered requests replay F4930's failure path (direct attempt, +0xAC, +0x7C, +0x155F68)
@@ -631,6 +734,7 @@ namespace MoatMove
                 ReplanWatchTests(ref ticks);
                 SingleSearchReplaceableTests();
                 GroundFailureProofTests();
+                MoatFailureProofTests();
                 CostRuleTests(start, anchor);
 
                 // The word-based reachability search (cached words, node tile table) visits the same
