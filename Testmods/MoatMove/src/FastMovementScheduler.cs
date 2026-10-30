@@ -123,6 +123,25 @@ namespace MoatMove
             Shared.DebugLogHelper.LogInfo(log, $"MoatMove rule probe set: forbiddenTiles={tiles} ms={AnchorMs(System.Diagnostics.Stopwatch.GetTimestamp() - started)}.");
         }
 
+        // DEVDIAG in-game check of route cost rules (option Diagnostics.MoatCostProbeTicks): a
+        // RouteSearchEvents observer, registered once, makes moat edges 50 times as expensive as ground
+        // edges from that many ticks of a map on; the anchor breakdown's moatRoutes and costRules
+        // counters show whether group moves stop crossing moats.
+        private int moatCostProbeElapsed; private bool moatCostProbeActive, moatCostProbeRegistered;
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
+        private void ProbeMoatCost()
+        {
+            if (settings.MoatCostProbeTicks <= 0 || moatCostProbeActive || ++moatCostProbeElapsed <= settings.MoatCostProbeTicks) return;
+            if (!moatCostProbeRegistered)
+            {
+                moatCostProbeRegistered = APIShared.Pathfinding.RouteSearchEvents.TryRegister(MoatMovePlugin.PluginGuid, "devdiag-moat-cost",
+                    e => { if (moatCostProbeActive) e.MoatEdgeCost = Math.Min(e.Context.MaximumEdgeCost, e.GroundEdgeCost * 50); }, null, out string reason);
+                if (!moatCostProbeRegistered) { Shared.DebugLogHelper.LogError(log, "MoatMove moat cost probe unavailable: " + reason); return; }
+            }
+            moatCostProbeActive = true;
+            Shared.DebugLogHelper.LogInfo(log, "MoatMove moat cost probe active: moat edges cost 50 ground edges.");
+        }
+
         // After InitializeAnchor; anchor mode only: the core is the engine that reads the fire rules.
         private void RegisterFireRouteRules(ReadOnlySpan<byte> memory, ulong moduleBase)
         {
@@ -290,6 +309,7 @@ namespace MoatMove
                     // new map, where AnchorTick starts following the journal from its current end.
                     fireRules?.Tick(tick);
                     ProbeRouteRules();
+                    ProbeMoatCost();
                 }
                 if (fastCommands.Commands.Count == 0) return;
                 if (!RequiredOnlyMode || !runtime.TraversalEnabled)
@@ -654,7 +674,7 @@ namespace MoatMove
         {
             fastCommands.Clear(); fastLastTick = int.MinValue; fastRoundRobin = 0;
             fireRules?.Reset();
-            ruleProbe?.ClearAll(); ruleProbeElapsed = 0;
+            ruleProbe?.ClearAll(); ruleProbeElapsed = 0; moatCostProbeElapsed = 0; moatCostProbeActive = false;
             ResetAnchorMap();
             fastSimulationRouting?.Pool.Clear(); fastCursorRouting?.Pool.Clear();
             fastSimulationRouting = fastCursorRouting = null;

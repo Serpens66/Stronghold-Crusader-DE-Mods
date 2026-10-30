@@ -50,10 +50,13 @@ namespace MoatMove
 #if SERP_DEVDIAG
             int ruleProbeTicks = Config.Bind("Diagnostics", "RuleProbeTicks", 0,
                 new ConfigDescription("DEVDIAG only: simulation ticks after a map start at which a forbidden test band (x 399..401, every row except 380..420) is set for all players; 0 = off.")).Value;
+            int moatCostProbeTicks = Config.Bind("Diagnostics", "MoatCostProbeTicks", 0,
+                new ConfigDescription("DEVDIAG only: simulation ticks after a map start from which a RouteSearchEvents observer makes moat edges 50 times as expensive as ground edges; 0 = off.")).Value;
 #else
-            int ruleProbeTicks = 0;
+            int ruleProbeTicks = 0, moatCostProbeTicks = 0;
 #endif
-            options = new MoatMoveOptions(mode) { PluginDirectory = System.IO.Path.GetDirectoryName(Info.Location), AnchorSingleMoves = singleMoves, AvoidFire = avoidFire, RuleProbeTicks = ruleProbeTicks };
+            options = new MoatMoveOptions(mode) { PluginDirectory = System.IO.Path.GetDirectoryName(Info.Location), AnchorSingleMoves = singleMoves, AvoidFire = avoidFire,
+                RuleProbeTicks = ruleProbeTicks, MoatCostProbeTicks = moatCostProbeTicks };
             Shared.DebugLogHelper.LogInfo(persistentLog,
                 $"MoatMove {PluginVersion} loaded; mode={options.ModeName}, commandPolicy=BugfixesAndQoL, hookOwner=BugfixesAndQoL; awaiting native library.");
             CrusaderLibrary.Instance.LibraryLoaded += OnLibraryLoaded;

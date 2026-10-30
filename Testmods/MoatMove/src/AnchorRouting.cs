@@ -318,6 +318,39 @@ namespace MoatMove
             return 0;
         }
 
+        // Mods' route cost rules (APIShared RouteSearchEvents): the weighted moat field of a group move is
+        // an additional weighted search, published immediately before it is computed. Observers may change
+        // the ground and moat edge costs or skip it (the members then keep Vanilla/Fast); costs the core
+        // cannot represent (above AnchorMaxCost after reduction) fall back the same way. The ground-only
+        // task keeps Vanilla's DA590 edges and is not a preference search.
+        private const string AnchorPublisherGuid = "MoatMove_Serp";
+        private int ComputeAnchorTaskWithCostRules(AnchorTaskSpec spec, bool ground)
+        {
+            APIShared.Pathfinding.RouteSearchOperation search = null;
+            long groundCost = spec.Ground, moatCost = spec.Moat;
+            if (!ground && spec.Moat > 0 && APIShared.Pathfinding.RouteSearchEvents.HasObservers)
+            {
+                int first = spec.Starts.Length != 0 ? spec.Starts[0] : spec.Anchor;
+                var context = new APIShared.Pathfinding.RouteSearchContext(AnchorPublisherGuid, spec.Player,
+                    first % MapWidth, first / MapWidth, spec.Anchor % MapWidth, spec.Anchor / MapWidth,
+                    APIShared.Pathfinding.RouteSearchTerrain.FriendlyMoat, 2000, 65535);
+                if (groundCost <= context.MaximumEdgeCost && moatCost <= context.MaximumEdgeCost)
+                {
+                    search = APIShared.Pathfinding.RouteSearchEvents.BeginSearch(context, groundCost, moatCost);
+                    if (search != null)
+                    {
+                        if (search.Pre.SkipOriginalFunction) { anchorCostRuleSkips++; return 0; }
+                        groundCost = search.Pre.GroundEdgeCost; moatCost = search.Pre.MoatEdgeCost;
+                        if (groundCost != spec.Ground || moatCost != spec.Moat) anchorCostRuleChanges++;
+                    }
+                }
+            }
+            int task = TryComputeAnchorTask(spec.Player, spec.Anchor, groundCost, moatCost, spec.Starts, spec.Starts.Length);
+            search?.Complete(task != 0, task != 0 ? "anchor-field" : "anchor-field-unavailable", 0, 0);
+            return task;
+        }
+        private long anchorCostRuleChanges, anchorCostRuleSkips;
+
         // Pre of a group move: unit decisions inside this call query the task (0: none). A spec
         // instead of a task is computed on the first query (ResolveAnchorTask).
         private void BeginAnchorFrame(int tribe, int task, int groundTask = 0, int[] members = null,
@@ -344,7 +377,7 @@ namespace MoatMove
             int top = anchorFrames.Count - 1;
             AnchorDispatchFrame frame = anchorFrames[top];
             AnchorTaskSpec spec = ground ? frame.GroundSpec : frame.DiggerSpec;
-            task = spec == null ? 0 : TryComputeAnchorTask(spec.Player, spec.Anchor, spec.Ground, spec.Moat, spec.Starts, spec.Starts.Length);
+            task = spec == null ? 0 : ComputeAnchorTaskWithCostRules(spec, ground);
             if (task != 0) anchorLazyTasks++;
             if (ground) { frame.GroundTask = task; anchorGroundTask = task; } else { frame.Task = task; anchorDispatchTask = task; }
             anchorFrames[top] = frame;
@@ -1257,7 +1290,7 @@ namespace MoatMove
                 $"members={anchorMembers} unreachedMembers={anchorUnreachedUnits} movesWithUnreached={anchorMovesWithUnreached} " +
                 $"vanilla(vanillaCalls={anchorVanillaCalls} vanillaFails={anchorVanillaFails} vanillaMs={AnchorMs(anchorVanillaTicks)} vanillaFailMs={AnchorMs(anchorVanillaFailTicks)} " +
                 $"afterUnreachable={anchorVanillaAfterUnreachable} afterUnreachableMs={AnchorMs(anchorVanillaAfterUnreachableTicks)} " +
-                $"foundAfterUnreachable={anchorVanillaFoundAfterUnreachable}) vanillaWhy=[{FormatAnchorReasons(anchorVanillaWhy)}] sameTickTasks={anchorSameTickTasks} sameTickTaskMs={AnchorMs(anchorSameTickTaskTicks)} diggerGroundRoutes={anchorDiggerGroundRoutes} nativeByteChanges={anchorWatchChanges} rebuildsWatched={anchorRebuildsWatched} tileRuleChanges={routeTileRuleChanges} aliveUnits={anchorAliveUnits} single(routes={anchorSingleRoutes} assassin={anchorSingleAssassinRoutes} probe(forbiddenHits={ruleProbeForbiddenHits} bandRoutes={ruleProbeBandRoutes}) unreachable={anchorSingleUnreachable} rejects={anchorSingleRejects} ms={AnchorMs(anchorSingleTicks)} queries={anchorCoreStats[AnchorNative.StatSingleQueries]} settles={anchorCoreStats[AnchorNative.StatSingleSettles]} coreMs={anchorCoreStats[AnchorNative.StatSingleNs] / 1e6:F1}) {FormatReplanWatch()} outsideBuilds(calls/ms/maxMs)=[{FormatOutsideBuilds()}] exhaustedReach(kept={ExhaustedReachabilityKept} hits={ExhaustedReachabilityHits}) reach(advances/expanded/ms/maxMs)=[{FormatReachabilityByOwner()}] " +
+                $"foundAfterUnreachable={anchorVanillaFoundAfterUnreachable}) vanillaWhy=[{FormatAnchorReasons(anchorVanillaWhy)}] sameTickTasks={anchorSameTickTasks} sameTickTaskMs={AnchorMs(anchorSameTickTaskTicks)} diggerGroundRoutes={anchorDiggerGroundRoutes} nativeByteChanges={anchorWatchChanges} rebuildsWatched={anchorRebuildsWatched} tileRuleChanges={routeTileRuleChanges} aliveUnits={anchorAliveUnits} costRules(changes={anchorCostRuleChanges} skips={anchorCostRuleSkips}) single(routes={anchorSingleRoutes} assassin={anchorSingleAssassinRoutes} probe(forbiddenHits={ruleProbeForbiddenHits} bandRoutes={ruleProbeBandRoutes}) unreachable={anchorSingleUnreachable} rejects={anchorSingleRejects} ms={AnchorMs(anchorSingleTicks)} queries={anchorCoreStats[AnchorNative.StatSingleQueries]} settles={anchorCoreStats[AnchorNative.StatSingleSettles]} coreMs={anchorCoreStats[AnchorNative.StatSingleNs] / 1e6:F1}) {FormatReplanWatch()} outsideBuilds(calls/ms/maxMs)=[{FormatOutsideBuilds()}] exhaustedReach(kept={ExhaustedReachabilityKept} hits={ExhaustedReachabilityHits}) reach(advances/expanded/ms/maxMs)=[{FormatReachabilityByOwner()}] " +
                 $"tick(refreshMs={AnchorMs(anchorRefreshTicks)} refreshNodes={anchorRefreshNodes} buildMs={AnchorMs(anchorBuildTicks)} " +
                 $"buildNodes={anchorBuildNodes} sweepMs={AnchorMs(anchorSweepTicks)} sweepNodes={anchorSweepNodes} resweeps={anchorResweeps} " +
                 $"accessChanges={anchorAccessChanges} gateRefreshes={anchorGateRefreshes} sharedReuses={anchorShared?.Reuses ?? 0} " +

@@ -27,6 +27,8 @@ namespace MoatMove
         internal bool AvoidFire { get; set; }
         // DEVDIAG in-game check of Forbidden tile rules (FastMovementScheduler.ProbeRouteRules); 0 = off.
         internal int RuleProbeTicks { get; set; }
+        // DEVDIAG in-game check of route cost rules (FastMovementScheduler.ProbeMoatCost); 0 = off.
+        internal int MoatCostProbeTicks { get; set; }
         // Plugin folder; the anchor core DLL ships next to the mod assembly.
         internal string PluginDirectory { get; set; }
         internal string ModeName => NativeFast ? "FastNative" : Anchor ? "anchor" : mode == MoatMove.FriendlyMoatMovementMode.RequiredOnly ? "fast" : "precise";

@@ -77,6 +77,34 @@ namespace MoatMove
             }
         }
 
+        // Route cost rules (RouteSearchEvents) on the weighted moat field of a group move: an observer's
+        // costs are used (the field is built and the change counted), a skip builds no field, and the
+        // ground-only task is not published as a preference search.
+        private int costRuleMode;
+        private void CostRuleTests(int start, int anchor)
+        {
+            Check(APIShared.Pathfinding.RouteSearchEvents.TryRegister("tests.moatmove", "cost-rules", e =>
+            {
+                if (costRuleMode == 1) e.MoatEdgeCost = e.GroundEdgeCost * 3;
+                else if (costRuleMode == 2) e.SkipOriginalFunction = true;
+            }, null, out _), "cost rule registration failed");
+            var spec = new AnchorTaskSpec { Player = 1, Anchor = anchor, Ground = 1, Moat = 7, Starts = new[] { start } };
+            try
+            {
+                long changes = anchorCostRuleChanges, skips = anchorCostRuleSkips;
+                costRuleMode = 1;
+                int task = ComputeAnchorTaskWithCostRules(spec, false);
+                Check(task != 0 && anchorCostRuleChanges == changes + 1, "an observer's moat cost did not reach the anchor field");
+                ReleaseAnchorTask(task);
+                costRuleMode = 2;
+                Check(ComputeAnchorTaskWithCostRules(spec, false) == 0 && anchorCostRuleSkips == skips + 1, "a skipped weighted search still built a field");
+                int groundTask = ComputeAnchorTaskWithCostRules(new AnchorTaskSpec { Player = 1, Anchor = anchor, Ground = 1, Moat = 0, Starts = new[] { start } }, true);
+                Check(groundTask != 0 && anchorCostRuleSkips == skips + 1, "the ground-only task was published as a preference search");
+                ReleaseAnchorTask(groundTask);
+            }
+            finally { costRuleMode = 0; }
+        }
+
         // Which builder calls the core may answer (F4930's first search is a plain ground search): ground
         // mode, and Assassins only within one path region with +0x80 and +0x94 clear. Corridor regions:
         // x < 13 is region 1, x > 135 region 2.
@@ -443,6 +471,7 @@ namespace MoatMove
                 ReleaseAnchorTask(penaltyTask);
                 ReplanWatchTests(ref ticks);
                 SingleSearchReplaceableTests();
+                CostRuleTests(start, anchor);
 
                 // The word-based reachability search (cached words, node tile table) visits the same
                 // cells with the same distances and summary as the per-neighbour search.
