@@ -45,6 +45,8 @@ Save `test_stresstest4.sav`, 180 s Lauf nach Warmup, `tools/Run-PathfindingItera
 | pf-iter-31 | 13 | 10 | 1 | 217 ms | **10.000-Einheiten-Lauf:** 8 × 600 Soldaten per `Spawn` (bis 9.929 lebende Einheiten), Feuer und Angriffe; 18.409 statt ~35.000 Ticks (Vanillas Einheitenkosten). Größte Lücken: Assassinen-Schub (147 Aufrufe, 183 ms; etwa je zur Hälfte Vanillas Builder und BFQoLs A*), Vanillas Grabenmodus-Einzelwege nach dem Spawn (131 Aufrufe, 254 ms im Fenster) |
 | pf-iter-32 | 7 | 5 | 0 | 135 ms | Assassinen-Einzelwege über den Bodenweg des Kerns, wo F4930 zuerst DA590 rechnet (Audit 30.10.): 1.912 Kernwege, Vanillas Assassinen-Builder 241 statt 632 Aufrufe; 10.000 Einheiten, 19.947 Ticks. Rest: BFQoLs gewichtete Klettersuche (135 ms), Gruppenfelder (129 ms) |
 | pf-iter-33 | 6 | 4 | 0 | 127 ms | **Release-Builds** von BFQoL und MoatMove, gleiche 10.000-Einheiten-Last: 24.951 Ticks (DEVDIAG kostete ~20 %). Spitzen der Laufphase 121 ms (viele KI-Gruppenfelder in einem Tick, `mma_step`), 119 und 107 ms (Assassinen über Regionsgrenzen: Vanillas `D9C40` und BFQoLs gewichtete Klettersuche) |
+| pf-iter-34 | 6 | 4 | 0 | 144 ms (Laufphase 118) | Dial-Buckets statt Vierer-Heap in BFQoLs gewichteter Assassinen-Suche: keine Assassinen-Suche mehr in den Lücken; 27.069 Ticks. Rest im Kern (Gruppenfelder, Gruppenabfragen, Einzelwege) |
+| pf-iter-35 | 7 | 4 | 0 | 142 ms (Laufphase 142, 122, 107) | Einschluss-Beweis vor Einzelwegen (Vorwärtsflutung ab Start, 2.048 Knoten): Einzelwege 5,8 statt 8,9 s, 77 statt 187 Mio. Knoten. 142 ms: 88 Kernwege eines Gruppenbefehls von der Live-Prüfung abgelehnt (veralteter Übergang), danach 88 fehlschlagende Vanilla-Suchen (84 ms); 246 Graben- und 66.671 Bodenwege aus dem Kern |
 
 Ab pf-iter-15 verhalten sich die KI-Lords anders (34.000 statt 29.000 Ticks, 51–94 statt 16 Torwechsel je Lauf), seit mehr Einheiten Anker-Routen bekommen; die Läufe sind deshalb nur eingeschränkt mit den früheren vergleichbar.
 
@@ -110,3 +112,13 @@ Ziel: Mods definieren zusätzliche Wegfindungsregeln (Feuer ausweichen, Gefahren
 - Exakte Antworten oder ein beweisbares „unerreichbar“. Ein Budgetabbruch fällt auf Vanilla zurück und wird nie als „unerreichbar“ gewertet.
 - Jede veröffentlichte Route wird einmal live geprüft. Deterministisch für Mehrspieler, nie abhängig vom lokalen Spieler.
 - Gemeinsame Masken und Felder statt Suchen je Einheit; Invalidierung kachelgenau.
+
+## Stand und Grenzen (30.10.2026, nach pf-iter-35)
+
+- Last: Stress-Save mit 8 KI-Lords auf der 800er-Karte, per `Spawn` bis 9.938 Einheiten, Feuer und zwei Assassinen-Angriffe, Release-Builds. In der Laufphase 3–4 Lücken über 100 ms in 260 s, jeweils 105–142 ms; zu Beginn (pf-base-1, ~5.150 Einheiten) 12 Lücken bis 647 ms.
+- Verbleibende Ursachen, alle Häufungen in einem Tick:
+  - viele KI-Gruppenbefehle mit je eigenem Feld (bis ~10 ms je Feld, `mma_step`);
+  - Gruppenabfragen eines großen Befehls (`mma_query`);
+  - von der Live-Prüfung abgelehnte Kernwege eines Befehls zu einem tatsächlich unerreichbaren Ziel, danach Vanillas fehlschlagende Suchen. Diese ohne Vanilla zu beantworten, wäre nicht exakt (andere Starts könnten einen Weg haben).
+- Weitere Hebel mit ungünstigem Aufwand-Nutzen: Gruppenfelder über Ticks verteilen (verzögert KI-Befehle, Verhaltensänderung), Vanilla-Fehlschläge zwischenspeichern (nicht exakt), Assassinen-Klettersuche nativ portieren (seit den Buckets nicht mehr in den Lücken).
+- Regelkonstrukt: APIShared-Leitfaden `docs/PATHFINDING_RULES.md` (Kachelregeln mit Umplanen, Grabenkosten, Torzugang, Mauerklettern). Im Spiel geprüft: Feuer (pf-fire-3), Grabenquerung (246 Kernwege in pf-iter-35), gewichtete Kletterwege (BFQoL, alle Läufe), Kachelstrafen im Kern (Integrationstests).
