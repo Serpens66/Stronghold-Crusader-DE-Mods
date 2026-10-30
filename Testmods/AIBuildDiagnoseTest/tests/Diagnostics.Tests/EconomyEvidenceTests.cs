@@ -155,8 +155,14 @@ namespace AIBuildDiagnoseTest.Tests
         [TestMethod]
         public void TestsUseTheUnchangedInstalledBugfixObservationContract()
         {
-            Assert.AreEqual(new Version(1, 0, 192, 0), typeof(AiBuildObservation).Assembly.GetName().Version);
-            StringAssert.Contains(typeof(AiBuildObservation).Assembly.Location, "BugfixesAndQoL.dll");
+            // Installed Bugfix from the declared minimum (info.json/BepInDependency) on, as long as
+            // it keeps the observed sink contract and has no newer per-decision economy publisher.
+            Assembly bugfix = typeof(AiBuildObservation).Assembly;
+            Assert.IsTrue(bugfix.GetName().Version >= new Version(1, 0, 192, 0), bugfix.GetName().Version.ToString());
+            StringAssert.Contains(bugfix.Location, "BugfixesAndQoL.dll");
+            Type sink = bugfix.GetType("BugfixesAndQoL.Diagnostics.IAiBuildDiagnosticSink", throwOnError: true);
+            Assert.AreEqual(9, sink.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.DeclaredOnly).Length);
+            Assert.IsNull(bugfix.GetType("BugfixesAndQoL.Diagnostics.AiEconomyObservation"));
         }
     }
 }

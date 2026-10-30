@@ -80,7 +80,7 @@ operation for each observed AI measures the actual net change. Existing Extender
 notifications are Pre-only and stay separate from confirmed settlement accounting.
 
 0x2F080's emergency gate already belongs to BugfixesAndQoL at 0x2F454. The user
-requires the unchanged installed 1.0.192 build; it has no per-decision publisher.
+requires an unchanged installed build (minimum 1.0.192); it has no per-decision publisher.
 Do not patch that owner or infer protected outcomes from settings/absent calls.
 Actual strategic deletion enters 0x2D810 with the player. Hovel deletion 0x3B1D0
 also remains exclusively owned by that build; its decisions/context are unavailable.

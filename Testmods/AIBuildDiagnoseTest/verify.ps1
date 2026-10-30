@@ -123,7 +123,15 @@ for ($i = 0; $i -lt $expectedWoodDirections.Count; $i++) {
         throw 'Native wood-search direction order differs from the read-only replay.'
     }
 }
-$rizin = Join-Path $workspace '.tools\Cutter-v2.4.1-Windows-x86_64\Cutter-v2.4.1-Windows-x86_64\rizin.exe'
+$rizinRelative = '.tools\Cutter-v2.4.1-Windows-x86_64\Cutter-v2.4.1-Windows-x86_64\rizin.exe'
+$rizin = Join-Path $workspace $rizinRelative
+if (-not (Test-Path -LiteralPath $rizin -PathType Leaf)) {
+    # Ignored machine tools exist only in the primary checkout; branch build copies and other
+    # Git worktrees share its Git directory, so resolve the tool from there.
+    $commonGit = @(& git -C $workspace rev-parse --path-format=absolute --git-common-dir 2>$null)
+    if ($LASTEXITCODE -eq 0 -and $commonGit.Count -eq 1) { $rizin = Join-Path (Split-Path -Parent ([IO.Path]::GetFullPath($commonGit[0].Trim()))) $rizinRelative }
+}
+if (-not (Test-Path -LiteralPath $rizin -PathType Leaf)) { throw "rizin.exe is required for the native edge audit: $rizinRelative" }
 $routeEntry = (& $rizin -q -e scr.color=false -c 's 0x1800c3bf0; p8 7; q' $native) -join ''
 if ($routeEntry.Trim().ToLowerInvariant() -ne '4883ec384963c0') {
     throw 'Route hook displaced instruction bytes differ from the audited seven bytes.'
@@ -324,23 +332,31 @@ if ($economyCapture -match '\.(SkipOriginalFunction|ReplacementTotal)\s*=' -or
 }
 Write-Host 'PASS: General economy, removal and passive integration boundaries.'
 
-# The user's retained installed owner is the actual compile-time/runtime contract.
+# The installed (never workspace-built) Bugfix owner is the compile-time/runtime contract.
+# Same lookup as the csproj: modpack layout first, otherwise the standalone installation.
+# Any version from the declared minimum on is accepted while it keeps the observed contract.
 $gameRoot = Split-Path -Parent (Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $native)))
 $retainedBugfix = Join-Path $gameRoot 'BepInEx\plugins\SerpsMods_Serp\Mods\BugfixesAndQoL_Serp\BugfixesAndQoL.dll'
+if (-not (Test-Path -LiteralPath $retainedBugfix -PathType Leaf)) { $retainedBugfix = Join-Path $gameRoot 'BepInEx\plugins\BugfixesAndQoL_Serp\BugfixesAndQoL.dll' }
+if (-not (Test-Path -LiteralPath $retainedBugfix -PathType Leaf)) { throw 'No installed BugfixesAndQoL package was found.' }
+$bugfixDependency = @(([IO.File]::ReadAllText((Join-Path $project 'info.json')) | ConvertFrom-Json).Dependencies | Where-Object { $_.GUID -eq 'BugfixesAndQoL_Serp' })
+if ($bugfixDependency.Count -ne 1 -or -not $bugfixDependency[0].MinimumVersion) { throw 'info.json must declare one BugfixesAndQoL_Serp minimum version.' }
+$minimumBugfix = [version]$bugfixDependency[0].MinimumVersion
 [void][Reflection.Assembly]::Load([IO.File]::ReadAllBytes((Join-Path $gameRoot 'BepInEx\core\Mono.Cecil.dll')))
 $retainedAssembly = [Mono.Cecil.AssemblyDefinition]::ReadAssembly($retainedBugfix)
 try {
-    if ($retainedAssembly.Name.Version -ne [version]'1.0.192.0') { throw 'The selected unchanged Bugfix 1.0.192 build is required.' }
+    if ($retainedAssembly.Name.Version -lt $minimumBugfix) { throw "Installed Bugfix $($retainedAssembly.Name.Version) is older than the declared minimum $minimumBugfix." }
     $contract = $retainedAssembly.MainModule.GetType('BugfixesAndQoL.Diagnostics.IAiBuildDiagnosticSink')
     if (-not $contract -or $contract.Methods.Count -ne 9) { throw 'Retained Bugfix observation contract differs.' }
     if ($retainedAssembly.MainModule.GetType('BugfixesAndQoL.Diagnostics.AiEconomyObservation')) { throw 'Unexpected newer Bugfix economy publisher.' }
 } finally { $retainedAssembly.Dispose() }
 if ($economyCapture -match 'AiEconomyObservation' -or $economyCapture -notmatch 'protection-decisions' -or
     $economyCapture -notmatch 'ProtectionSnapshot.Capture' -or
-    [IO.File]::ReadAllText($projectFile) -notmatch 'SerpsMods_Serp\\Mods\\BugfixesAndQoL_Serp') {
-    throw 'Diagnostic must use retained installed Bugfix and explicitly report unavailable protection decisions.'
+    [IO.File]::ReadAllText($projectFile) -notmatch 'SerpsMods_Serp\\Mods\\BugfixesAndQoL_Serp' -or
+    [IO.File]::ReadAllText($projectFile) -notmatch 'plugins\\BugfixesAndQoL_Serp<') {
+    throw 'Diagnostic must use the installed Bugfix and explicitly report unavailable protection decisions.'
 }
-Write-Host 'PASS: unchanged installed Bugfix 1.0.192 reference and explicit protection coverage gap.'
+Write-Host "PASS: installed Bugfix $minimumBugfix+ observation contract and explicit protection coverage gap."
 
 # Source-only regression: never compile or install to verify this compatibility boundary.
 $economyContracts = [IO.File]::ReadAllText((Join-Path $project 'src\Diagnostics\EconomyHookContract.cs'))

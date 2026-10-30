@@ -40,7 +40,9 @@ namespace Shared { public static class UnityMainThreadDispatch { public static b
  public static void LogInfo(object log,string message) {}
  public static void LogErrorLimited(object log,string key,string message) { Errors++; }
  public static void LogWarningLimited(object log,string key,string message) {}
-} }
+}
+ public sealed class LogRateGate { public bool TryReserve(string site,int seconds,out long suppressed) { suppressed=0;return true; } }
+}
 namespace BugfixesAndQoL.UnitCommands {
  public class EditorDirector {
   public static EditorDirector instance=new(); public bool Consumed;
@@ -50,6 +52,7 @@ namespace BugfixesAndQoL.UnitCommands {
  internal static class FormationReleaseStateModel {
   internal static bool HasCommandRelease(FormationMouseState state,int button)=>true;
   internal static FormationMouseState Consume()=>new();internal static FormationMouseState DiscardDeferred(FormationMouseState s,int b)=>s;
+  internal static FormationMouseState RestoreDeferredForVanilla(FormationMouseState current,FormationMouseState deferred,int b)=>deferred;
  }
  internal class NativeContext { public IntPtr ModuleHandle;public byte[] Memory=Array.Empty<byte>(); }
  internal class Commands { public int mapEpoch=4; }
@@ -59,9 +62,10 @@ namespace BugfixesAndQoL.UnitCommands {
  internal class Target { public int NativeX=10,NativeY=10; }
  internal class ActiveDrag {
   public int TribeId=2,MapEpoch=4,PlayerId=1,CommandButton=1,Kind,Density=1,PlacementMode;
-  public bool ReleaseDeferred;public Geometry Geometry=new();public Gate ReleaseGate=new();public Authorization Authorization=new();public Target Target=new();
+  public bool ReleaseDeferred,ReleasePassThrough;public Geometry Geometry=new();public Gate ReleaseGate=new();public Authorization Authorization=new();public Target Target=new();
+  public int[] Selection=new int[2];
  }
- internal class FormationOrderPacket { public int OperationId=1,MoveType=1; }
+ internal class FormationOrderPacket { public int OperationId=1,MoveType=1,TargetX=10,TargetY=10; }
  internal enum DispatchDisposition { Accepted,Rejected }
  internal class ReleaseConsumptionWatch { public ReleaseConsumptionWatch(int a,int b,int c,int d) {} }
  internal static class FormationModel { internal static int NormalizeDensity(int n)=>n;internal static int NormalizePlacementMode(int n)=>n; }
@@ -109,6 +113,8 @@ namespace BugfixesAndQoL.UnitCommands {
   private void LogDebugNoThrow(string m) {} private void LogWarningNoThrow(string m) {}
   private void ResetTransientState() { speechQueue.Clear();drag=null; }
   private void AbortDrag(string m) { drag=null; }
+  private void AbortCommandMode(string phase,APIShared.Internal.GroundMovePreviewRejection rejection) { drag=null; }
+  private readonly Shared.LogRateGate formationSupportLogGate=new();
   private void FailOpen(string contract,Exception e) { localFailed=true; }
   private void AgeReleaseConsumptionWatch() {}
   private FormationMouseState CaptureMouseState(EditorDirector director)=>new();

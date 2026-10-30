@@ -67,7 +67,8 @@ remaining unattributed difference. Tax Pre events are not booked; the native all
 settlement's measured net change is booked separately. Nested resource notifications
 are evidence, never a second transaction. A unit spawn is not a recruitment purchase.
 
-The user-selected installed BugfixesAndQoL 1.0.192 remains unchanged. SETTINGS reads
+The installed BugfixesAndQoL (at least the info.json minimum 1.0.192, with the same
+9-member observation sink and no economy publisher) remains unchanged. SETTINGS reads
 its current hook settings, support flags and published-hook status through its
 verified managed contract. It does not expose per-decision protection observations:
 original/effective emergency/hovel/accessibility decisions, gate classification and
@@ -92,9 +93,10 @@ nativeOriginalEvaluated=false identifies its override and never proves native
 eligibility. An old or failed owner reports unavailable coverage. Summary call counts
 include zeroes; those require available coverage before interpreting a missing call.
 
-Builds and regression compilation reference the installed old Bugfix DLL under
-`BepInEx/plugins/SerpsMods_Serp/Mods/BugfixesAndQoL_Serp`, not the developing workspace
-package. No Bugfix build/install is performed. APIShared remains pinned to main 0.9.2.
+Builds and regression compilation reference the installed Bugfix DLL under
+`BepInEx/plugins/SerpsMods_Serp/Mods/BugfixesAndQoL_Serp`, otherwise under
+`BepInEx/plugins/BugfixesAndQoL_Serp` (override: `/p:BugfixesDir=...`), never the
+developing workspace package. No Bugfix build/install is performed. APIShared remains pinned to main 0.9.2.
 
 ## Validation, 2026-10-16
 

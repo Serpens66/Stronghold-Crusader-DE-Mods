@@ -127,7 +127,8 @@ string Read(string path) => File.ReadAllText(Path.Combine(root, path));
 string Methods(string file, params string[] names) => string.Join("\n",
     CSharpSyntaxTree.ParseText(Read(file)).GetRoot().DescendantNodes().Where(m => m is MethodDeclarationSyntax method && names.Contains(method.Identifier.Text) || m is EnumDeclarationSyntax type && names.Contains(type.Identifier.Text)).Select(m => m.ToFullString()));
 string engineMethods = Methods("BugfixesAndQoL/src/Formations/FormationRuntime.EngineAndCameraHooks.cs",
-    "EngineRunHook", "RunOriginalAfterReleaseConsumed", "RunOriginalOnce", "PrepareFormationRelease", "ConsumeGestureRelease", "RunOriginalWithDeferredRelease", "FormationReleaseDisposition", "DiscardDeferredRelease");
+    "EngineRunHook", "RunOriginalAfterReleaseConsumed", "RunOriginalOnce", "PrepareFormationRelease", "ConsumeGestureRelease", "RunOriginalWithDeferredRelease", "FormationReleaseDisposition", "DiscardDeferredRelease",
+    "LogDispatchRejected");
 string rendererMethod = Methods("BugfixesAndQoL/src/Formations/Markers/LargeMoveTargetMarkerRenderer.cs", "ResetDrawList");
 Type enumType = typeof(eChimps);
 string enumSource = "namespace SHCDESE.Interop { public enum eChimps : ushort {" +
