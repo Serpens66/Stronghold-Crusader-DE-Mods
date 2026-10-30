@@ -1467,3 +1467,14 @@ and the single LORD_TELEPORT_GUARD_UNAVAILABLE initialization failure; there is 
 heartbeat, teleport trace, trace allocation or counter, including in /devdiag builds.
 The user confirmed the integrated fix works on 2026-10-28. This is user-reported gameplay acceptance;
 no additional editor, save/load or real host/client acceptance is inferred. Historical records remain unchanged.
+
+## Native weighted Assassin search (2026-10-30, `native/AssassinSearch.cpp`, `src/AssassinNativeSearch.cs`)
+
+`BfqolAssassinSearch.dll` (contract `0x01000001`) runs the bucket variant of `TryBuildWeightedRoute` with identical
+results. It adds no RVA of its own: it reads exactly the tables the managed search binds in `InitializeNative`
+(valid coordinates, row lookup, tile flags, building, height, occupancy and direction masks) and calls the special
+tile predicate `0x107160` with context `0x32DE440` through the same addresses. Gate policy masks come from the
+published `RouteTilePolicySnapshot` bytes; masked edges, other policy shapes and direct gatehouse endpoints call back
+into the managed predicates. On a new DLL nothing changes here beyond the managed search's own RVA checks; the
+offline comparison (`tests/AssassinPathfinding.Tests`, `VerifyNative`) must stay identical on every fixture terrain.
+Without the DLL, or on a contract mismatch, a warning is logged and the managed search runs.

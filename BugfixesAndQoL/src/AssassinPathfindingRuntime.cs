@@ -160,6 +160,18 @@ namespace BugfixesAndQoL
             directionMasks = (byte*)IntPtr.Add(newLibraryHandle, DirectionMaskRva).ToPointer();
             specialTilePredicate = Marshal.GetDelegateForFunctionPointer<SpecialTilePredicateDelegate>(
                 IntPtr.Add(newLibraryHandle, SpecialTilePredicateRva));
+            // Optional native kernel of the bucket search (identical results); without it the managed search runs.
+            try
+            {
+                AssassinNativeSearch.Load(System.IO.Path.GetDirectoryName(typeof(AssassinPathfindingRuntime).Assembly.Location));
+                BindNativeSearch(IntPtr.Add(newLibraryHandle, SpecialTilePredicateRva), IntPtr.Add(newLibraryHandle, SpecialTilePredicateContextRva));
+                Shared.DebugLogHelper.LogInfo(log, $"native weighted Assassin search ready; contract=0x{AssassinNativeSearch.Contract:X8}.");
+            }
+            catch (Exception ex)
+            {
+                nativeSearchBound = false;
+                Shared.DebugLogHelper.LogWarning(log, "native weighted Assassin search unavailable; managed search used: " + ex.Message);
+            }
 
             AssassinPathReconstructionPatch pendingReconstructionPatch = null;
             try
@@ -695,6 +707,12 @@ namespace BugfixesAndQoL
                 targetX, targetY, speedDelay, allowClimbing,
                 allowWalkableReservedClimbEndpoints, gatePolicy?.PlayerId ?? 0, gatePolicy, AssassinPathAPI.DirectGatehouseClimbingEnabled);
             Dictionary<int, int> suffixCosts = command?.GetSuffixCosts(suffixKey);
+            // The native kernel runs exactly this bucket search (same route, cost and expansions); observers
+            // keep the managed search for their edge decisions, suffix estimates keep the heap.
+            if (allowBuckets && suffixCosts == null && diagonalTicks <= MaximumBucketStepTicks && activeObservation == null &&
+                TryNativeWeightedRoute(startX, startY, targetX, targetY, maximumNodes, speedDelay, cardinalTicks, diagonalTicks, allowClimbing,
+                    allowWalkableReservedClimbEndpoints, command, gatePolicy, searchStarted, out bool nativeFound, out routeSummary))
+                return nativeFound;
             Touch(startNode, 0, -1, 0,
                 EstimateRemainingTicks(
                     startX, startY, targetX, targetY,
@@ -1028,6 +1046,117 @@ namespace BugfixesAndQoL
             bool hasWall = ((currentFlags | targetFlags) & IsWallFlag) != 0;
             return targetAccepted && startAccepted && targetBuildingAccepted && hasWall;
         }
+
+        // Native search binding (AssassinNativeSearch, native/AssassinSearch.cpp); unbound without the DLL.
+        // Callbacks read the request's runtime and policy from these fields (simulation thread, no reentry).
+        private AssassinNativeSearch.Tables nativeSearchTables;
+        private bool nativeSearchBound;
+        private readonly int[] nativeRouteCosts = new int[MaximumCommittedPathLength + 1];
+        // Status of the last native call (AssassinNativeSearch.Status*, -1: kernel error); read by tests.
+        private int nativeLastStatus = -1;
+        private static AssassinPathfindingRuntime nativeCallbackRuntime;
+        private static IEnemyGateRoutePolicySnapshot nativeCallbackPolicy;
+        private static readonly AssassinNativeSearch.TileCallback NativeDirectGatehouse =
+            tile => AssassinPathAPI.IsDirectGatehouseClimbEndpoint(tile) ? 1 : 0;
+        private static readonly AssassinNativeSearch.MaskedTransitionCallback NativeMaskedTransition =
+            (from, to, direction, climbing, reserved) =>
+                nativeCallbackRuntime.AllowsAssassinTransition(nativeCallbackPolicy, from, to, direction, climbing != 0, reserved != 0) ? 1 : 0;
+        private static readonly AssassinNativeSearch.DirectionCallback NativeDirectionAllowed =
+            (tile, direction) => nativeCallbackPolicy.IsDirectionAllowed(tile, direction) ? 1 : 0;
+        private static readonly IntPtr NativeDirectGatehousePointer = Marshal.GetFunctionPointerForDelegate(NativeDirectGatehouse);
+
+        // Binds the native tables of this runtime (the game's layers, or test fixtures) once the DLL is loaded.
+        internal void BindNativeSearch(IntPtr specialTile, IntPtr specialContext)
+        {
+            if (!AssassinNativeSearch.Available) return;
+            nativeSearchTables = new AssassinNativeSearch.Tables
+            {
+                ValidCoordinates = (IntPtr)validCoordinates, RowLookup = (IntPtr)rowLookup, TileFlags = (IntPtr)tileFlags,
+                Occupancy = (IntPtr)occupancyLayer, Building = (IntPtr)buildingLayer, Height = (IntPtr)heightLayer,
+                DirectionMasks = (IntPtr)directionMasks, SpecialTile = specialTile, SpecialContext = specialContext,
+                MaskedTransition = Marshal.GetFunctionPointerForDelegate(NativeMaskedTransition),
+                DirectionAllowed = Marshal.GetFunctionPointerForDelegate(NativeDirectionAllowed),
+            };
+            nativeSearchBound = true;
+        }
+
+        // True when the native kernel answered this bucket search (found: a route is prepared in route[]
+        // and its node costs in costs[]); false keeps the managed search (no binding, kernel error).
+        private bool TryNativeWeightedRoute(int startX, int startY, int targetX, int targetY, int maximumNodes, int speedDelay,
+            int cardinalTicks, int diagonalTicks, bool allowClimbing, bool allowReserved, AssassinCommandScope command,
+            IEnemyGateRoutePolicySnapshot gatePolicy, long searchStarted, out bool found, out RouteSearchSummary routeSummary)
+        {
+            found = false; routeSummary = default;
+            if (!nativeSearchBound) return false;
+            byte[] mask = null;
+            bool callback = false;
+            if (gatePolicy != null)
+            {
+                if (gatePolicy is GateRouting.IAssassinDirectionMaskSource source) mask = source.DirectionMask;
+                else callback = true;
+            }
+            AssassinNativeSearch.Tables tables = nativeSearchTables;
+            tables.DirectGatehouseEndpoint = AssassinPathAPI.DirectGatehouseClimbingEnabled ? NativeDirectGatehousePointer : IntPtr.Zero;
+            AssassinNativeSearch.Result result;
+            int code;
+            AssassinPathfindingRuntime previousRuntime = nativeCallbackRuntime;
+            IEnemyGateRoutePolicySnapshot previousPolicy = nativeCallbackPolicy;
+            nativeCallbackRuntime = this; nativeCallbackPolicy = gatePolicy;
+            try
+            {
+                fixed (byte* maskBytes = mask)
+                fixed (int* nodes = route)
+                fixed (int* nodeCosts = nativeRouteCosts)
+                {
+                    var request = new AssassinNativeSearch.Request
+                    {
+                        StartX = startX, StartY = startY, TargetX = targetX, TargetY = targetY, MaximumNodes = maximumNodes,
+                        CardinalTicks = cardinalTicks, DiagonalTicks = diagonalTicks, AllowClimbing = allowClimbing ? 1 : 0,
+                        AllowReserved = allowReserved ? 1 : 0, PolicyMask = (IntPtr)maskBytes, PolicyMaskLength = mask?.Length ?? 0,
+                        UsePolicyCallback = callback ? 1 : 0,
+                    };
+                    code = AssassinNativeSearch.bfq_assassin_search(&tables, &request, nodes, nodeCosts, route.Length, &result);
+                }
+            }
+            finally { nativeCallbackRuntime = previousRuntime; nativeCallbackPolicy = previousPolicy; }
+            nativeLastStatus = code != 0 ? code : result.Status;
+            if (code != 0) return false;
+            if (result.Status == AssassinNativeSearch.StatusOverflow)
+            {
+                // Same fallback as the managed bucket search: the whole search on the heap.
+                Shared.DevDiag.Count("bfqol.assassin.astar.bucketFallback");
+                found = TryBuildWeightedRoute(startX, startY, targetX, targetY, maximumNodes, speedDelay, allowClimbing,
+                    allowReserved, command, gatePolicy, out routeSummary, allowBuckets: false);
+                return true;
+            }
+            Shared.DevDiag.Count("bfqol.assassin.native.searches");
+            if (result.Status == AssassinNativeSearch.StatusFound)
+            {
+                // The prepared route's node costs, as PrepareRoute leaves them for CachePreparedRoute's suffixes.
+                for (int i = 0; i < result.RouteLength; i++)
+                {
+                    int node = route[i];
+                    touched[touchedCount++] = node; costs[node] = nativeRouteCosts[i];
+                }
+                Shared.DevDiag.Count("bfqol.assassin.astar.expanded.found", result.Expanded);
+                long reconstructionStarted = PerformanceDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0;
+                routeSummary = new RouteSearchSummary(result.RouteLength, result.GroundEdges, result.ClimbEdges, result.TotalCost,
+                    result.Expanded, 0, reconstructionStarted - searchStarted, 0, cacheHit: false);
+                if (PerformanceDiagnosticsEnabled) command?.RecordSearch(routeSummary);
+                found = true;
+            }
+            else
+            {
+                if (PerformanceDiagnosticsEnabled) command?.RecordFailedSearch(
+                    (PerformanceDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0) - searchStarted, result.Expanded, 0);
+                if (result.Status == AssassinNativeSearch.StatusNone)
+                    Shared.DevDiag.Count(result.Expanded >= Math.Max(1, Math.Min(maximumNodes, TileCount)) ? "bfqol.assassin.astar.expanded.nodeLimit" : "bfqol.assassin.astar.expanded.exhausted", result.Expanded);
+            }
+            DiagCompareNativeRoute(startX, startY, targetX, targetY, maximumNodes, speedDelay, allowClimbing, allowReserved, gatePolicy, found, routeSummary);
+            return true;
+        }
+        partial void DiagCompareNativeRoute(int startX, int startY, int targetX, int targetY, int maximumNodes, int speedDelay,
+            bool allowClimbing, bool allowReserved, IEnemyGateRoutePolicySnapshot gatePolicy, bool found, RouteSearchSummary summary);
 
         private int EstimateRemainingTicks(
             int x,
