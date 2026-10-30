@@ -74,7 +74,7 @@ enum Flags { ViaAnchor = 1, SubAnchor = 2, NewSubAnchor = 4, Uncached = 8 };
 enum Code { Ok = 0, NoMemory = 2, BadArgument = 3, Internal = 4 };
 // AnchorNoStart..AnchorTooFar: why an anchor (main or sub) could not answer a query.
 enum StatIndex { TasksComputed, TasksFailed, SettleEvents, Entries, Queries, ViaChosen, SubAnchors, SubCapped, StepNs, QueryNs, SubNs, MaskWrites, MaskChanges, PeakBytes, Allocations, Workers,
-    AnchorNoStart, AnchorNoEntry, AnchorUnreached, AnchorTooFar, FieldReuses, SingleQueries, SingleSettles, SingleNs, StatCount };
+    AnchorNoStart, AnchorNoEntry, AnchorUnreached, AnchorTooFar, FieldReuses, SingleQueries, SingleSettles, SingleNs, SingleFieldSolves, SingleFieldHits, StatCount };
 
 struct Box { int x0 = 0, y0 = 0, x1 = -1, y1 = -1; };
 static int Ctz(u32 m) { unsigned long i; _BitScanForward(&i, m); return int(i); }
@@ -183,7 +183,8 @@ struct Field {
         exhausted = remaining > 0;
         for (auto& l : ring) l.clear();
     }
-    void solve(const Map& map, const Mask& mask, int source, bool forward, const std::vector<int>& targets, int ground, int moat, const Box* box = nullptr) {
+    // exhaustive: settle the whole component even after every target (single-target fields).
+    void solve(const Map& map, const Mask& mask, int source, bool forward, const std::vector<int>& targets, int ground, int moat, const Box* box = nullptr, bool exhaustive = false) {
         if (++generation == 0) { std::fill(gen.begin(), gen.end(), 0u); std::fill(needGen.begin(), needGen.end(), 0u); generation = 1; }
         const int size = int(ring.size()); i64 pending = 0, remaining = 0; settled.clear();
         for (int t : targets) if (needGen[t] != generation) { needGen[t] = generation; ++remaining; }
@@ -194,9 +195,9 @@ struct Field {
             dist[u] = value; ring[value % size].push_back(u); ++pending; ++entries;
         };
         relax(source, 0);
-        for (u32 bucket = 0; pending > 0 && remaining > 0; ++bucket) {
+        for (u32 bucket = 0; pending > 0 && (exhaustive || remaining > 0); ++bucket) {
             Vec<int>& list = ring[bucket % size];
-            for (size_t i = 0; i < list.size() && remaining > 0; ++i) {
+            for (size_t i = 0; i < list.size() && (exhaustive || remaining > 0); ++i) {
                 int v = list[i]; --pending;
                 if (done[v] || dist[v] != bucket) continue;
                 done[v] = 1; ++settles; settled.push_back(v);
@@ -356,6 +357,9 @@ struct Context {
     std::unique_ptr<Mask> masks[MaxPlayers + 1];
     std::map<int, std::unique_ptr<Task>> tasks; int nextId = 1;
     std::vector<CachedField> fieldCache; u64 fieldCacheClock = 0;
+    // Single-route targets of the current mask revision: repeat counts and up to two full backward fields.
+    struct SingleTarget { int player = -1, target = -1, ground = 0, moat = 0, hits = 0; u64 revision = 0, used = 0; int field = -1; };
+    SingleTarget singleTargets[16]; std::unique_ptr<Field> singleFields[2]; int singleFieldOwner[2] = { -1, -1 }; u64 singleTargetClock = 0;
     std::vector<std::unique_ptr<Field>> fields;
     // Simulation-thread scratch (single queries, ordered batch pass) and one per batch worker.
     std::unique_ptr<Scratch> scratch; std::vector<std::unique_ptr<Scratch>> workers;
@@ -465,7 +469,7 @@ template<class F> static int Guard(F body) {
 
 using namespace mma;
 extern "C" {
-__declspec(dllexport) int mma_contract() { return 0x0400000B; }
+__declspec(dllexport) int mma_contract() { return 0x0400000C; }
 // Physical cores minus two (Unity main thread plus simulation/render), within 1..8.
 __declspec(dllexport) int mma_recommended_threads() {
     DWORD length = 0; GetLogicalProcessorInformationEx(RelationProcessorCore, nullptr, &length);
@@ -655,6 +659,48 @@ __declspec(dllexport) int mma_single_route(Context* c, int player, int target, i
     return Guard([&] {
         auto t0 = Clock::now(); ++c->stats[SingleQueries];
         if (StartEnclosed(*c, *mask, start, target, moat)) { result->status = Unreachable; c->stats[SingleNs] += Ns(t0); return Ok; }
+        // Repeated targets of one mask revision (gather points, attack targets, detours behind a long
+        // barrier: 553 routes and 528 ms in one tick, pf-rule-1): from the third request on, one exhaustive
+        // backward Dijkstra field answers every further start by descent, exactly; a start outside its
+        // component is unreachable. Two fields are kept; the counters behind them are cheap.
+        {
+            Context::SingleTarget* entry = nullptr; Context::SingleTarget* oldest = &c->singleTargets[0];
+            for (auto& e : c->singleTargets) {
+                if (e.player == player && e.target == target && e.ground == ground && e.moat == moat && e.revision == mask->revision) { entry = &e; break; }
+                if (e.used < oldest->used) oldest = &e;
+            }
+            if (!entry) {
+                if (oldest->field >= 0) c->singleFieldOwner[oldest->field] = -1;
+                *oldest = Context::SingleTarget{}; entry = oldest;
+                entry->player = player; entry->target = target; entry->ground = ground; entry->moat = moat; entry->revision = mask->revision;
+            }
+            entry->used = ++c->singleTargetClock; ++entry->hits;
+            if (entry->field < 0 && entry->hits >= 3) {
+                int slot = c->singleFieldOwner[0] < 0 ? 0 : c->singleFieldOwner[1] < 0 ? 1 :
+                    (c->singleTargets[c->singleFieldOwner[0]].used < c->singleTargets[c->singleFieldOwner[1]].used ? 0 : 1);
+                if (c->singleFieldOwner[slot] >= 0) c->singleTargets[c->singleFieldOwner[slot]].field = -1;
+                if (!c->singleFields[slot]) c->singleFields[slot] = std::make_unique<Field>(&c->memory, c->map.n);
+                Field& f = *c->singleFields[slot]; const i64 settledBefore = f.settles;
+                std::vector<int>& none = c->scratch->targets; none.clear();
+                f.solve(c->map, *mask, target, false, none, ground, moat, nullptr, true);
+                c->stats[SingleSettles] += f.settles - settledBefore; ++c->stats[SingleFieldSolves];
+                c->singleFieldOwner[slot] = int(entry - c->singleTargets); entry->field = slot;
+            }
+            if (entry->field >= 0) {
+                const Field& f = *c->singleFields[entry->field]; ++c->stats[SingleFieldHits];
+                if (!f.reached(start)) { result->status = Unreachable; c->stats[SingleNs] += Ns(t0); return Ok; }
+                std::vector<uint8_t>& path = c->scratch->path; path.clear(); int g = 0, w = 0;
+                auto settled = [&](int v) { return f.reached(v) ? f.dist[v] : Unset; };
+                if (Descend(c->map, *mask, settled, start, ground, moat, path, g, w, [&](int v, int, int) { return v == target; }) < 0 ||
+                    int(path.size()) > MaxSteps || int(path.size()) > capacity)
+                { result->status = OverLimit; c->stats[SingleNs] += Ns(t0); return Ok; }
+                std::copy(path.begin(), path.end(), bytes);
+                result->status = Found; result->ground = g; result->moat = w; result->length = int(path.size());
+                result->cost = i64(f.dist[start]);
+                c->stats[SingleNs] += Ns(t0);
+                return Ok;
+            }
+        }
         Field& local = *c->scratch->local; const i64 before = local.settles;
         Box all; all.x0 = 0; all.y0 = 0; all.x1 = c->map.width - 1; all.y1 = c->map.height - 1;
         local.solveTowards(c->map, *mask, target, start, start, ground, moat, all);
