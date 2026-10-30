@@ -532,7 +532,7 @@ template<class F> static int Guard(F body) {
 
 using namespace mma;
 extern "C" {
-__declspec(dllexport) int mma_contract() { return 0x0400000E; }
+__declspec(dllexport) int mma_contract() { return 0x0400000F; }
 // Physical cores minus two (Unity main thread plus simulation/render), within 1..8.
 __declspec(dllexport) int mma_recommended_threads() {
     DWORD length = 0; GetLogicalProcessorInformationEx(RelationProcessorCore, nullptr, &length);
@@ -700,6 +700,7 @@ __declspec(dllexport) int mma_step(Context* c, int maxTasks, int threads, int* c
 // Exact optimal cost; deterministic for equal inputs.
 // budget > 0 (mma_single_route_limited): at most that many A* settles; a longer search answers
 // OverLimit (never Unreachable), so the caller can fall back to another exact source.
+// result->reserved: settles of this call (any status), for callers that share a settle budget.
 static int SingleRoute(Context* c, int player, int target, int ground, int moat, int start, i64 budget, uint8_t* bytes, int capacity, QueryResult* result) {
     if (!c || !result || !bytes || capacity < 0 || ground < 1 || ground > MaxCost || moat < 0 || moat > MaxCost || budget < 0) return BadArgument;
     *result = QueryResult{}; result->status = Invalid;
@@ -707,8 +708,9 @@ static int SingleRoute(Context* c, int player, int target, int ground, int moat,
     Mask* mask = c->mask(player);
     if (!mask || !mask->ready(c->map.n)) { result->status = Pending; return Ok; }
     return Guard([&] {
-        Scratch& sc = *c->scratch; int g = 0, w = 0; i64 cost = 0;
+        Scratch& sc = *c->scratch; int g = 0, w = 0; i64 cost = 0; const i64 before = sc.stats[SingleSettles];
         const int status = SingleSearch(c->map, *mask, sc, start, target, ground, moat, budget, capacity, g, w, cost);
+        result->reserved = int(std::min<i64>(sc.stats[SingleSettles] - before, 0x7FFFFFFF));
         MergeScratch(*c, sc);
         result->status = status;
         if (status == Found) { std::copy(sc.path.begin(), sc.path.end(), bytes); result->ground = g; result->moat = w; result->length = int(sc.path.size()); result->cost = cost; }

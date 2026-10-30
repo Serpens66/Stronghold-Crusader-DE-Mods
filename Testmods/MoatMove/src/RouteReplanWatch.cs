@@ -262,10 +262,13 @@ namespace MoatMove
         }
 
         // Whether the core's route from the stop tile avoids every replan tile within the policy's length.
+        // A probe over ReplanProbeSettles counts as not clear: the wait ends at its expiry anyway.
+        private const int ReplanProbeSettles = 65536;
         private bool ReplanRouteClear(ReplanWait wait)
         {
             int start = wait.StopY * MapWidth + wait.StopX, target = wait.TargetY * MapWidth + wait.TargetX;
-            if (AnchorNative.mma_single_route(anchorContext, wait.Player, target, 1, 0, start, replanRoute, replanRoute.Length, out AnchorNative.QueryResult result) != 0 ||
+            if (AnchorNative.mma_single_route_limited(anchorContext, wait.Player, target, 1, 0, start, ReplanProbeSettles, replanRoute, replanRoute.Length,
+                out AnchorNative.QueryResult result) != 0 ||
                 result.Status != AnchorNative.Ready || !wait.Policy.AllowsDetour(wait.Remaining, result.Length)) return false;
             int x = wait.StopX, y = wait.StopY;
             for (int i = 0; i < result.Length; i++)

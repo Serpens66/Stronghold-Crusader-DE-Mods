@@ -305,9 +305,11 @@ internal static class AnchorCoreGate
             long settles = core.Stats()[AnchorCoreInterop.Stat("singleSettles")];
             if (route.Status != SearchStatus.Found || route.Cost != 30 || settles > 4 * 30)
                 throw new InvalidOperationException($"Single route is not a corridor search: status={route.Status} cost={route.Cost} settles={settles}");
+            // The result reports the call's settles (MoatMove's per-tick single budget charges them).
+            if (core.LastSettles != settles) throw new InvalidOperationException($"Single route settles not reported: {core.LastSettles} != {settles}");
             // Over a settle budget the search stops inconclusive; a sufficient budget gives the same route.
-            if (core.SingleRoute(Player, 30 * 60 + 10, 1, 7, 30 * 60 + 40, 8).Reason != "over-2000-steps" ||
-                !core.SingleRoute(Player, 30 * 60 + 10, 1, 7, 30 * 60 + 40, 4096).Directions.SequenceEqual(route.Directions))
+            if (core.SingleRoute(Player, 30 * 60 + 10, 1, 7, 30 * 60 + 40, 8).Reason != "over-2000-steps" || core.LastSettles != 8 ||
+                !core.SingleRoute(Player, 30 * 60 + 10, 1, 7, 30 * 60 + 40, 4096).Directions.SequenceEqual(route.Directions) || core.LastSettles != settles)
                 throw new InvalidOperationException("Settle budget of single routes is not respected.");
         }
         // A start enclosed by blocked cells is proven unreachable from its own small component, without

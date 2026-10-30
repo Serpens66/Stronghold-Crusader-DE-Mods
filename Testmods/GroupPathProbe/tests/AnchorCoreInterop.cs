@@ -43,7 +43,7 @@ internal sealed class AnchorCoreInterop : IDisposable
     {
         if (library != IntPtr.Zero) return;
         library = NativeLibrary.Load(Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../MoatMove/.local/anchor/MoatMoveAnchor.dll")));
-        if (mma_contract() != 0x0400000E || Marshal.SizeOf<QueryResult>() != 32) throw new InvalidOperationException("Anchor core ABI");
+        if (mma_contract() != 0x0400000F || Marshal.SizeOf<QueryResult>() != 32) throw new InvalidOperationException("Anchor core ABI");
     }
     internal AnchorCoreInterop(int width, int height, long limit = 512L * 1024 * 1024)
     {
@@ -98,6 +98,7 @@ internal sealed class AnchorCoreInterop : IDisposable
     internal RouteResult SingleRoute(int player, int target, long ground, long moat, int start)
     {
         Code(mma_single_route(context, player, target, (int)ground, (int)moat, start, buffer, buffer.Length, out QueryResult r));
+        LastSettles = r.Reserved;
         return Convert(r, buffer, 0);
     }
     // Settle budget of the exact single route a query tries before a new sub-anchor (0: sub-anchor at once).
@@ -106,8 +107,11 @@ internal sealed class AnchorCoreInterop : IDisposable
     internal RouteResult SingleRoute(int player, int target, long ground, long moat, int start, int budget)
     {
         Code(mma_single_route_limited(context, player, target, (int)ground, (int)moat, start, budget, buffer, buffer.Length, out QueryResult r));
+        LastSettles = r.Reserved;
         return Convert(r, buffer, 0);
     }
+    // A* settles of the last single route (QueryResult.reserved), which MoatMove charges to its per-tick budget.
+    internal int LastSettles { get; private set; }
     // All units of one task at once (parallel pass, then deferred sub-anchor queries in order).
     internal RouteResult[] QueryBatch(int id, int[] starts, int[] slots, int margin, int threads)
     {

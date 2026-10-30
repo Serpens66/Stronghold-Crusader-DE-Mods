@@ -19,13 +19,13 @@ namespace MoatMove
     // queries keep Fast's rules. Until a player's mask is complete, Fast applies.
     internal sealed unsafe partial class FriendlyMoatTraversalProvider
     {
-        // Private C ABI of native/MoatMoveAnchor.cpp (contract 0x0400000E). The DLL is loaded
+        // Private C ABI of native/MoatMoveAnchor.cpp (contract 0x0400000F). The DLL is loaded
         // once by full path from the plugin folder and stays loaded for the process.
         private static class AnchorNative
         {
             internal const string Library = "MoatMoveAnchor.dll";
-            internal const int Contract = 0x0400000E, Ready = 0, Unreachable = 1, OverLimit = 2, Pending = 3, Stale = 4, Invalid = 5, Failed = 6;
-            [StructLayout(LayoutKind.Sequential)] internal struct QueryResult { internal int Status, Ground, Moat, Length, Flags, Reserved; internal long Cost; }
+            internal const int Contract = 0x0400000F, Ready = 0, Unreachable = 1, OverLimit = 2, Pending = 3, Stale = 4, Invalid = 5, Failed = 6;
+            [StructLayout(LayoutKind.Sequential)] internal struct QueryResult { internal int Status, Ground, Moat, Length, Flags, Settles; internal long Cost; }
             [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)] private static extern IntPtr LoadLibraryEx(string file, IntPtr reserved, uint flags);
             [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern int mma_contract();
             [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern int mma_recommended_threads();
@@ -34,7 +34,6 @@ namespace MoatMove
             [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern int mma_mask_write(IntPtr context, int player, int first, int count, uint[] words, out int changed);
             [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern int mma_mask_update(IntPtr context, int player, int[] nodes, uint[] words, int count, out int changed);
             [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern int mma_penalty_update(IntPtr context, int player, int[] nodes, byte[] values, int count, out int changed);
-            [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern int mma_single_route(IntPtr context, int player, int target, int ground, int moat, int start, byte[] bytes, int capacity, out QueryResult result);
             [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern int mma_single_route_limited(IntPtr context, int player, int target, int ground, int moat, int start, int budget, byte[] bytes, int capacity, out QueryResult result);
             [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern int mma_task_create(IntPtr context, int player, int anchor, int ground, int moat, int[] starts, int count, out int id);
             [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern int mma_task_restart(IntPtr context, int id);
@@ -1012,6 +1011,17 @@ namespace MoatMove
         // path), Vanilla's ground mode, the unit's own target and plans without special endpoints; the
         // route passes the same live audit and buffer publication as anchor ground routes.
         private long anchorSingleRoutes, anchorSingleAssassinRoutes, anchorSingleUnreachable, anchorSingleRejects, anchorSingleTicks;
+        // Settles the ground single routes of one simulation tick may use (~15-20 ms; normal ticks stay
+        // far below). An AI burst of ~350 single moves across a rule barrier (each A* detouring around
+        // it) took 13.5 M settles and 534 ms in one tick (pf-rule-3); with 1 M settles the tick still took
+        // 136 ms, about 63 ms of it Vanilla's own searches of the remaining moves (pf-rule-4). Over the
+        // budget a ground move keeps Vanilla's builder (~0.2 ms), as without AnchorSingleMoves. Assassin
+        // moves are charged but never skipped: their Vanilla chain (DA590, D9C40, BFQoL's weighted
+        // search) costs ~1.1 ms each, more than the core (pf-iter-54: 64 skipped Assassins, 95 ms).
+        // Settles are deterministic, so all peers choose the same moves.
+        private const int AnchorSingleTickSettles = 500000;
+        private int anchorSingleBudgetTick = int.MinValue, anchorSingleBudgetLeft;
+        private long anchorSingleOverBudget, anchorSingleBudgetSkips;
         private long ruleProbeForbiddenHits, ruleProbeBandRoutes;
 
         // DEVDIAG check of a published single route (anchorBuffer, one direction per byte) against the
@@ -1068,11 +1078,18 @@ namespace MoatMove
             int* variant = (int*)(manager + PathManagerRouteVariantOffset);
             int originalVariant = *variant, mode = *runtime.moatPathMode;
             if (originalVariant != 0 && originalVariant != 1) return false;
+            int tick = CaptureCurrentGameTick();
+            if (tick != anchorSingleBudgetTick) { anchorSingleBudgetTick = tick; anchorSingleBudgetLeft = AnchorSingleTickSettles; }
+            if (anchorSingleBudgetLeft <= 0 && !assassin) { anchorSingleBudgetSkips++; return false; }
             long started = System.Diagnostics.Stopwatch.GetTimestamp();
             try
             {
                 int start = startY * MapWidth + startX, target = targetY * MapWidth + targetX;
-                if (AnchorNative.mma_single_route(anchorContext, player, target, 1, 0, start, anchorBuffer, anchorBuffer.Length, out AnchorNative.QueryResult result) != 0) return false;
+                // Budget 0: unlimited (Assassins).
+                if (AnchorNative.mma_single_route_limited(anchorContext, player, target, 1, 0, start, assassin ? 0 : anchorSingleBudgetLeft, anchorBuffer,
+                    anchorBuffer.Length, out AnchorNative.QueryResult result) != 0) return false;
+                anchorSingleBudgetLeft -= result.Settles;
+                if (result.Status == AnchorNative.OverLimit && anchorSingleBudgetLeft <= 0) anchorSingleOverBudget++;
                 if (result.Status == AnchorNative.Unreachable) anchorSingleUnreachable++;
                 if (result.Status != AnchorNative.Ready || result.Length <= 0) return false;
                 var bytes = new byte[(result.Length + 1) / 2];
@@ -1390,7 +1407,7 @@ namespace MoatMove
                 $"members={anchorMembers} unreachedMembers={anchorUnreachedUnits} movesWithUnreached={anchorMovesWithUnreached} " +
                 $"vanilla(vanillaCalls={anchorVanillaCalls} vanillaFails={anchorVanillaFails} vanillaMs={AnchorMs(anchorVanillaTicks)} vanillaFailMs={AnchorMs(anchorVanillaFailTicks)} " +
                 $"afterUnreachable={anchorVanillaAfterUnreachable} afterUnreachableMs={AnchorMs(anchorVanillaAfterUnreachableTicks)} " +
-                $"foundAfterUnreachable={anchorVanillaFoundAfterUnreachable}) vanillaWhy=[{FormatAnchorReasons(anchorVanillaWhy)}] sameTickTasks={anchorSameTickTasks} sameTickTaskMs={AnchorMs(anchorSameTickTaskTicks)} diggerGroundRoutes={anchorDiggerGroundRoutes} nativeByteChanges={anchorWatchChanges} rebuildsWatched={anchorRebuildsWatched} tileRuleChanges={routeTileRuleChanges} aliveUnits={anchorAliveUnits} costRules(changes={anchorCostRuleChanges} skips={anchorCostRuleSkips}) knownFailures(hits={groundFailureProofs?.Hits ?? 0} ms={AnchorMs(anchorKnownFailureTicks)} captures={groundFailureProofs?.Captures ?? 0} rejects={groundFailureProofs?.CaptureRejects ?? 0} gateHits={groundFailureProofs?.GateHits ?? 0} directSuccesses={groundFailureProofs?.DirectSuccesses ?? 0} verified={groundFailureProofs?.Verified ?? 0} mismatches={groundFailureProofs?.Mismatches ?? 0}{(groundFailureProofs?.MismatchSample != null ? " sample=[" + groundFailureProofs.MismatchSample + "]" : "")}) single(routes={anchorSingleRoutes} assassin={anchorSingleAssassinRoutes} probe(forbiddenHits={ruleProbeForbiddenHits} bandRoutes={ruleProbeBandRoutes}) unreachable={anchorSingleUnreachable} rejects={anchorSingleRejects} ms={AnchorMs(anchorSingleTicks)} queries={anchorCoreStats[AnchorNative.StatSingleQueries]} settles={anchorCoreStats[AnchorNative.StatSingleSettles]} coreMs={anchorCoreStats[AnchorNative.StatSingleNs] / 1e6:F1}) {FormatReplanWatch()} outsideBuilds(calls/ms/maxMs)=[{FormatOutsideBuilds()}] exhaustedReach(kept={ExhaustedReachabilityKept} hits={ExhaustedReachabilityHits}) reach(advances/expanded/ms/maxMs)=[{FormatReachabilityByOwner()}] " +
+                $"foundAfterUnreachable={anchorVanillaFoundAfterUnreachable}) vanillaWhy=[{FormatAnchorReasons(anchorVanillaWhy)}] sameTickTasks={anchorSameTickTasks} sameTickTaskMs={AnchorMs(anchorSameTickTaskTicks)} diggerGroundRoutes={anchorDiggerGroundRoutes} nativeByteChanges={anchorWatchChanges} rebuildsWatched={anchorRebuildsWatched} tileRuleChanges={routeTileRuleChanges} aliveUnits={anchorAliveUnits} costRules(changes={anchorCostRuleChanges} skips={anchorCostRuleSkips}) knownFailures(hits={groundFailureProofs?.Hits ?? 0} ms={AnchorMs(anchorKnownFailureTicks)} captures={groundFailureProofs?.Captures ?? 0} rejects={groundFailureProofs?.CaptureRejects ?? 0} gateHits={groundFailureProofs?.GateHits ?? 0} directSuccesses={groundFailureProofs?.DirectSuccesses ?? 0} verified={groundFailureProofs?.Verified ?? 0} mismatches={groundFailureProofs?.Mismatches ?? 0}{(groundFailureProofs?.MismatchSample != null ? " sample=[" + groundFailureProofs.MismatchSample + "]" : "")}) single(routes={anchorSingleRoutes} assassin={anchorSingleAssassinRoutes} probe(forbiddenHits={ruleProbeForbiddenHits} bandRoutes={ruleProbeBandRoutes}) unreachable={anchorSingleUnreachable} rejects={anchorSingleRejects} overBudget={anchorSingleOverBudget} budgetSkips={anchorSingleBudgetSkips} ms={AnchorMs(anchorSingleTicks)} queries={anchorCoreStats[AnchorNative.StatSingleQueries]} settles={anchorCoreStats[AnchorNative.StatSingleSettles]} coreMs={anchorCoreStats[AnchorNative.StatSingleNs] / 1e6:F1}) {FormatReplanWatch()} outsideBuilds(calls/ms/maxMs)=[{FormatOutsideBuilds()}] exhaustedReach(kept={ExhaustedReachabilityKept} hits={ExhaustedReachabilityHits}) reach(advances/expanded/ms/maxMs)=[{FormatReachabilityByOwner()}] " +
                 $"tick(refreshMs={AnchorMs(anchorRefreshTicks)} refreshNodes={anchorRefreshNodes} buildMs={AnchorMs(anchorBuildTicks)} " +
                 $"buildNodes={anchorBuildNodes} sweepMs={AnchorMs(anchorSweepTicks)} sweepNodes={anchorSweepNodes} resweeps={anchorResweeps} " +
                 $"accessChanges={anchorAccessChanges} gateRefreshes={anchorGateRefreshes} sharedReuses={anchorShared?.Reuses ?? 0} " +
@@ -1407,7 +1424,7 @@ namespace MoatMove
                 anchorSweepTicks = anchorSweepNodes = anchorResweeps = anchorAccessChanges = anchorGateRefreshes = anchorLazyTasks = anchorUnusedMoves = anchorAuditSkips = anchorBatchCalls = anchorBatchUnits = anchorBatchHits = anchorBatchTicks =
                 anchorResweepDiplomacy = anchorResweepPortals = anchorResweepFootprint = anchorResweepGlobal = anchorRefreshBacklog =
                 anchorVanillaCalls = anchorVanillaFails = anchorVanillaTicks = anchorVanillaFailTicks = anchorVanillaAfterUnreachable =
-                anchorVanillaAfterUnreachableTicks = anchorVanillaFoundAfterUnreachable = anchorSameTickTasks = anchorSameTickTaskTicks = anchorDiggerGroundRoutes = anchorWatchChanges = anchorRebuildsWatched = anchorSingleRoutes = anchorSingleAssassinRoutes = anchorSingleUnreachable = anchorSingleRejects = anchorSingleTicks = anchorGroupSingleRoutes = anchorGroupSingleTicks = anchorKnownFailureTicks = 0;
+                anchorVanillaAfterUnreachableTicks = anchorVanillaFoundAfterUnreachable = anchorSameTickTasks = anchorSameTickTaskTicks = anchorDiggerGroundRoutes = anchorWatchChanges = anchorRebuildsWatched = anchorSingleRoutes = anchorSingleAssassinRoutes = anchorSingleUnreachable = anchorSingleRejects = anchorSingleOverBudget = anchorSingleBudgetSkips = anchorSingleTicks = anchorGroupSingleRoutes = anchorGroupSingleTicks = anchorKnownFailureTicks = 0;
             groundFailureProofs?.ResetCounters();
             Array.Clear(anchorQueryStatus, 0, anchorQueryStatus.Length); anchorPublishReasons.Clear(); anchorVanillaWhy.Clear(); reachabilityByOwner.Clear(); anchorOutsideBuilds.Clear();
             ResetReplanMetrics();
