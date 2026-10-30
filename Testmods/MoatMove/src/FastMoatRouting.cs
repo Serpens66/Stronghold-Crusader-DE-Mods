@@ -392,7 +392,7 @@ namespace MoatMove
             int start = sy * MapWidth + sx, target = plan.TargetY * MapWidth + plan.TargetX;
             fastNewQueries++;
             // Anchor mode: the cheaper weighted route decides; otherwise Fast's ground-first rule.
-            if (TryAnchorRequiredRoute(plan, reserved, sx, sy, out summary, out bool anchorMoat, ResolveAnchorTask(false))) return anchorMoat;
+            if (TryAnchorGroupRoute(plan, reserved, sx, sy, out summary, out bool anchorMoat, false)) return anchorMoat;
             // Anchor mode without a core answer (outside group moves: combat resume, AI orders
             // before their mask is ready) keeps Vanilla's result instead of a synchronous Fast
             // field (up to 930 ms per query with AI armies, 29.10.2026). Moat work keeps Fast.

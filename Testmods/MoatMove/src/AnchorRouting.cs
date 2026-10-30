@@ -19,12 +19,12 @@ namespace MoatMove
     // queries keep Fast's rules. Until a player's mask is complete, Fast applies.
     internal sealed unsafe partial class FriendlyMoatTraversalProvider
     {
-        // Private C ABI of native/MoatMoveAnchor.cpp (contract 0x0400000B). The DLL is loaded
+        // Private C ABI of native/MoatMoveAnchor.cpp (contract 0x0400000D). The DLL is loaded
         // once by full path from the plugin folder and stays loaded for the process.
         private static class AnchorNative
         {
             internal const string Library = "MoatMoveAnchor.dll";
-            internal const int Contract = 0x0400000B, Ready = 0, Unreachable = 1, OverLimit = 2, Pending = 3, Stale = 4, Invalid = 5, Failed = 6;
+            internal const int Contract = 0x0400000D, Ready = 0, Unreachable = 1, OverLimit = 2, Pending = 3, Stale = 4, Invalid = 5, Failed = 6;
             [StructLayout(LayoutKind.Sequential)] internal struct QueryResult { internal int Status, Ground, Moat, Length, Flags, Reserved; internal long Cost; }
             [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)] private static extern IntPtr LoadLibraryEx(string file, IntPtr reserved, uint flags);
             [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern int mma_contract();
@@ -35,6 +35,7 @@ namespace MoatMove
             [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern int mma_mask_update(IntPtr context, int player, int[] nodes, uint[] words, int count, out int changed);
             [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern int mma_penalty_update(IntPtr context, int player, int[] nodes, byte[] values, int count, out int changed);
             [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern int mma_single_route(IntPtr context, int player, int target, int ground, int moat, int start, byte[] bytes, int capacity, out QueryResult result);
+            [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern int mma_single_route_limited(IntPtr context, int player, int target, int ground, int moat, int start, int budget, byte[] bytes, int capacity, out QueryResult result);
             [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern int mma_task_create(IntPtr context, int player, int anchor, int ground, int moat, int[] starts, int count, out int id);
             [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern int mma_task_restart(IntPtr context, int id);
             [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern int mma_task_release(IntPtr context, int id);
@@ -46,7 +47,7 @@ namespace MoatMove
             [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern int mma_query_batch(IntPtr context, int id, int[] starts, int[] slots, int count, int margin, int threads,
                 [Out] byte[] bytes, int stride, [Out] QueryResult[] results);
             // Core counters (StatIndex order of MoatMoveAnchor.cpp); reset after each read.
-            internal const int StatCount = 24, StatFieldReuses = 20, StatSingleQueries = 21, StatSingleSettles = 22, StatSingleNs = 23, StatQueries = 4, StatViaChosen = 5, StatSubAnchors = 6, StatSubCapped = 7, StatStepNs = 8, StatQueryNs = 9, StatSubNs = 10,
+            internal const int StatCount = 25, StatSubSingles = 24, StatFieldReuses = 20, StatSingleQueries = 21, StatSingleSettles = 22, StatSingleNs = 23, StatQueries = 4, StatViaChosen = 5, StatSubAnchors = 6, StatSubCapped = 7, StatStepNs = 8, StatQueryNs = 9, StatSubNs = 10,
                 StatSettles = 2, StatPeakBytes = 13, StatAnchorNoStart = 16, StatAnchorNoEntry = 17, StatAnchorUnreached = 18, StatAnchorTooFar = 19;
             [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern int mma_stats(IntPtr context, [Out] long[] data, int count, int reset);
             // Throws when the file is missing or another core version is installed.
@@ -144,7 +145,11 @@ namespace MoatMove
             internal AnchorTaskSpec DiggerSpec, GroundSpec;
             // Formation plan of this move (unit id -> target node); null for Vanilla's own spreading.
             internal Dictionary<int, int> Targets;
+            // Exact single routes answered before the field (TryAnchorGroupSingle); NoSingles after an
+            // unreachable one. DiggerCosts: the digger profile after the move's cost rule publication.
+            internal int Singles; internal bool NoSingles; internal AnchorCostProfile DiggerCosts;
         }
+        internal sealed class AnchorCostProfile { internal long Ground, Moat; internal bool Skipped; internal APIShared.Pathfinding.RouteSearchOperation Search; }
         // Formation plan delivered by BugfixesAndQoL before its move frame exists (handler order).
         private int anchorPendingFormationTribe = -1;
         private Dictionary<int, int> anchorPendingFormation;
@@ -324,32 +329,76 @@ namespace MoatMove
         // cannot represent (above AnchorMaxCost after reduction) fall back the same way. The ground-only
         // task keeps Vanilla's DA590 edges and is not a preference search.
         private const string AnchorPublisherGuid = "MoatMove_Serp";
-        private int ComputeAnchorTaskWithCostRules(AnchorTaskSpec spec, bool ground)
+        // One publication per group move: the exact single routes answered before the field
+        // (TryAnchorGroupSingle) and the field use the same profile; the first of them completes it.
+        private AnchorCostProfile BeginAnchorCosts(AnchorTaskSpec spec, bool ground)
         {
-            APIShared.Pathfinding.RouteSearchOperation search = null;
-            long groundCost = spec.Ground, moatCost = spec.Moat;
-            if (!ground && spec.Moat > 0 && APIShared.Pathfinding.RouteSearchEvents.HasObservers)
-            {
-                int first = spec.Starts.Length != 0 ? spec.Starts[0] : spec.Anchor;
-                var context = new APIShared.Pathfinding.RouteSearchContext(AnchorPublisherGuid, spec.Player,
-                    first % MapWidth, first / MapWidth, spec.Anchor % MapWidth, spec.Anchor / MapWidth,
-                    APIShared.Pathfinding.RouteSearchTerrain.FriendlyMoat, 2000, 65535);
-                if (groundCost <= context.MaximumEdgeCost && moatCost <= context.MaximumEdgeCost)
-                {
-                    search = APIShared.Pathfinding.RouteSearchEvents.BeginSearch(context, groundCost, moatCost);
-                    if (search != null)
-                    {
-                        if (search.Pre.SkipOriginalFunction) { anchorCostRuleSkips++; return 0; }
-                        groundCost = search.Pre.GroundEdgeCost; moatCost = search.Pre.MoatEdgeCost;
-                        if (groundCost != spec.Ground || moatCost != spec.Moat) anchorCostRuleChanges++;
-                    }
-                }
-            }
-            int task = TryComputeAnchorTask(spec.Player, spec.Anchor, groundCost, moatCost, spec.Starts, spec.Starts.Length);
-            search?.Complete(task != 0, task != 0 ? "anchor-field" : "anchor-field-unavailable", 0, 0);
+            var costs = new AnchorCostProfile { Ground = spec.Ground, Moat = spec.Moat };
+            if (ground || spec.Moat <= 0 || !APIShared.Pathfinding.RouteSearchEvents.HasObservers) return costs;
+            int first = spec.Starts.Length != 0 ? spec.Starts[0] : spec.Anchor;
+            var context = new APIShared.Pathfinding.RouteSearchContext(AnchorPublisherGuid, spec.Player,
+                first % MapWidth, first / MapWidth, spec.Anchor % MapWidth, spec.Anchor / MapWidth,
+                APIShared.Pathfinding.RouteSearchTerrain.FriendlyMoat, 2000, 65535);
+            if (costs.Ground > context.MaximumEdgeCost || costs.Moat > context.MaximumEdgeCost) return costs;
+            costs.Search = APIShared.Pathfinding.RouteSearchEvents.BeginSearch(context, costs.Ground, costs.Moat);
+            if (costs.Search == null) return costs;
+            if (costs.Search.Pre.SkipOriginalFunction) { anchorCostRuleSkips++; costs.Skipped = true; costs.Search = null; return costs; }
+            costs.Ground = costs.Search.Pre.GroundEdgeCost; costs.Moat = costs.Search.Pre.MoatEdgeCost;
+            if (costs.Ground != spec.Ground || costs.Moat != spec.Moat) anchorCostRuleChanges++;
+            return costs;
+        }
+        private static void CompleteAnchorCosts(AnchorCostProfile costs, bool success, string reason)
+        {
+            costs.Search?.Complete(success, reason, 0, 0); costs.Search = null;
+        }
+        private int ComputeAnchorTaskWithCostRules(AnchorTaskSpec spec, bool ground, AnchorCostProfile costs = null)
+        {
+            costs = costs ?? BeginAnchorCosts(spec, ground);
+            if (costs.Skipped) return 0;
+            int task = TryComputeAnchorTask(spec.Player, spec.Anchor, costs.Ground, costs.Moat, spec.Starts, spec.Starts.Length);
+            CompleteAnchorCosts(costs, task != 0, task != 0 ? "anchor-field" : "anchor-field-unavailable");
             return task;
         }
         private long anchorCostRuleChanges, anchorCostRuleSkips;
+
+        // AI group moves re-plan few members (pf-iter-36: 8-10 % per move), but a field covers every
+        // member start (mma_step: up to ~80 ms in one 11B520 call, pf-iter-35). The first
+        // AnchorGroupSingles queries of a move without formation plan therefore get the core's exact
+        // single route (A*, same mask, cost profile and statuses as a field answer); from the next query
+        // on the field answers. Each single is limited to AnchorGroupSingleBudget A* settles: long AI
+        // routes (attack bursts) cost ~260 us per single without it, more than the field they replace
+        // (pf-iter-38). An over-budget or unreachable single (the latter may have settled the slot's
+        // whole component) hands the move to the field at once.
+        private const int AnchorGroupSingles = 8, AnchorGroupSingleBudget = 4096;
+        private long anchorGroupSingleRoutes, anchorGroupSingleTicks;
+        private bool TryAnchorGroupSingle(bool ground, int start, int target, out int code, out AnchorNative.QueryResult result)
+        {
+            code = 0; result = default;
+            if ((ground ? anchorGroundTask : anchorDispatchTask) != AnchorPendingTask || anchorFrames.Count == 0) return false;
+            int top = anchorFrames.Count - 1;
+            AnchorDispatchFrame frame = anchorFrames[top];
+            AnchorTaskSpec spec = ground ? frame.GroundSpec : frame.DiggerSpec;
+            if (spec == null || frame.Targets != null || frame.NoSingles || frame.Singles >= AnchorGroupSingles) return false;
+            AnchorCostProfile costs = ground ? null : frame.DiggerCosts ?? (frame.DiggerCosts = BeginAnchorCosts(spec, false));
+            anchorFrames[top] = frame;
+            if (costs != null && costs.Skipped) return false;
+            long groundCost = costs?.Ground ?? spec.Ground, moatCost = costs?.Moat ?? spec.Moat;
+            if (groundCost <= 0 || moatCost < 0) return false;
+            long divisor = Gcd(groundCost, moatCost); groundCost /= divisor; moatCost /= divisor;
+            if (groundCost > AnchorMaxCost || moatCost > AnchorMaxCost) return false;
+            long started = System.Diagnostics.Stopwatch.GetTimestamp();
+            code = AnchorNative.mma_single_route_limited(anchorContext, spec.Player, target, (int)groundCost, (int)moatCost, start,
+                AnchorGroupSingleBudget, anchorBuffer, anchorBuffer.Length, out result);
+            anchorGroupSingleTicks += System.Diagnostics.Stopwatch.GetTimestamp() - started;
+            frame.Singles++;
+            if (code != 0 || result.Status != AnchorNative.Ready) frame.NoSingles = true;
+            anchorFrames[top] = frame;
+            bool answered = code == 0 && (result.Status == AnchorNative.Ready || result.Status == AnchorNative.Unreachable);
+            if (costs != null && answered) CompleteAnchorCosts(costs, result.Status == AnchorNative.Ready, "anchor-single");
+            // Other statuses (route over the step limit, pending mask) leave this query to the field.
+            if (answered) anchorGroupSingleRoutes++;
+            return answered;
+        }
 
         // Pre of a group move: unit decisions inside this call query the task (0: none). A spec
         // instead of a task is computed on the first query (ResolveAnchorTask).
@@ -377,7 +426,7 @@ namespace MoatMove
             int top = anchorFrames.Count - 1;
             AnchorDispatchFrame frame = anchorFrames[top];
             AnchorTaskSpec spec = ground ? frame.GroundSpec : frame.DiggerSpec;
-            task = spec == null ? 0 : ComputeAnchorTaskWithCostRules(spec, ground);
+            task = spec == null ? 0 : ComputeAnchorTaskWithCostRules(spec, ground, ground ? null : frame.DiggerCosts);
             if (task != 0) anchorLazyTasks++;
             if (ground) { frame.GroundTask = task; anchorGroundTask = task; } else { frame.Task = task; anchorDispatchTask = task; }
             anchorFrames[top] = frame;
@@ -867,7 +916,7 @@ namespace MoatMove
             if (plan.RouteStartX >= 0) { sx = plan.RouteStartX; sy = plan.RouteStartY; }
             if ((uint)sx >= MapWidth || (uint)sy >= MapWidth) return false;
             // A ground decision keeps its finished route on the plan; the builder reuses it.
-            return TryAnchorRequiredRoute(plan, false, sx, sy, out _, out bool moat, ResolveAnchorTask(false), publishGround: true) && moat;
+            return TryAnchorGroupRoute(plan, false, sx, sy, out _, out bool moat, false, publishGround: true) && moat;
         }
 
         // Part B: during an anchor dispatch the builder publishes the core's ground route, so
@@ -892,11 +941,11 @@ namespace MoatMove
             QualifiedMovementRoute decided = runtime.GetReusableQualifiedRoute(plan, unit);
             if (decided != null && decided.Summary.MoatEdges == 0) { anchorRouteReuses++; return true; }
             anchorDecline = "prepare:bounds";
-            bool answered = TryAnchorRequiredRoute(plan, false, sx, sy, out _, out bool moat, ResolveAnchorTask(!digger), publishGround: true);
+            bool answered = TryAnchorGroupRoute(plan, false, sx, sy, out _, out bool moat, !digger, publishGround: true);
             // Exactly unreachable for the moat task: the ground task decides with Vanilla's ground rules.
             if (!answered && digger && anchorUnreachableUnit == plan.UnitId)
             {
-                answered = TryAnchorRequiredRoute(plan, false, sx, sy, out _, out moat, ResolveAnchorTask(true), publishGround: true);
+                answered = TryAnchorGroupRoute(plan, false, sx, sy, out _, out moat, true, publishGround: true);
                 if (answered) anchorDiggerGroundRoutes++;
             }
             if (!answered) return false;
@@ -1194,6 +1243,24 @@ namespace MoatMove
         // Cost-minimizing decision for a unit of the command currently being dispatched.
         // Returns false when the anchor core cannot answer; the caller then applies Fast.
         // With publishGround a ground decision also carries the core's ground route.
+        // Same decision for the innermost move's task (ground: the ground-only task); a pending task
+        // first answers with exact single routes (TryAnchorGroupSingle) before its field is computed.
+        private bool TryAnchorGroupRoute(PlanScope plan, bool reserved, int sx, int sy,
+            out RouteProbeSummary summary, out bool moatRoute, bool ground, bool publishGround = false)
+        {
+            summary = default; moatRoute = false;
+            if (!anchorAvailable || reserved) return false;
+            int start = sy * MapWidth + sx, target = plan.TargetY * MapWidth + plan.TargetX;
+            long queried = System.Diagnostics.Stopwatch.GetTimestamp();
+            if (TryAnchorGroupSingle(ground, start, target, out int code, out AnchorNative.QueryResult result))
+            {
+                anchorQueries++;
+                return FinishAnchorAnswer(plan, sx, sy, start, target, ground ? anchorGroundTask : anchorDispatchTask, code, result,
+                    queried, publishGround, out summary, out moatRoute);
+            }
+            return TryAnchorRequiredRoute(plan, reserved, sx, sy, out summary, out moatRoute, ResolveAnchorTask(ground), publishGround);
+        }
+
         private bool TryAnchorRequiredRoute(PlanScope plan, bool reserved, int sx, int sy,
             out RouteProbeSummary summary, out bool moatRoute, int task, bool publishGround = false)
         {
@@ -1215,6 +1282,14 @@ namespace MoatMove
             }
             else
                 code = AnchorNative.mma_query(anchorContext, task, start, target, AnchorMargin, anchorBuffer, anchorBuffer.Length, out result);
+            return FinishAnchorAnswer(plan, sx, sy, start, target, task, code, result, queried, publishGround, out summary, out moatRoute);
+        }
+
+        // Shared tail of a core answer (field query or group single route): audit, encoding, plan route.
+        private bool FinishAnchorAnswer(PlanScope plan, int sx, int sy, int start, int target, int task, int code, AnchorNative.QueryResult result,
+            long queried, bool publishGround, out RouteProbeSummary summary, out bool moatRoute)
+        {
+            summary = default; moatRoute = false;
             long answered = System.Diagnostics.Stopwatch.GetTimestamp();
             anchorQueryTicks += answered - queried;
             anchorQueryStatus[code != 0 ? 7 : Math.Min(Math.Max(result.Status, 0), 6)]++;
@@ -1284,7 +1359,7 @@ namespace MoatMove
                 $"preMs={AnchorMs(anchorPreTicks)} maxPreMs={AnchorMs(anchorPreMaxTicks)} queryMs={AnchorMs(anchorQueryTicks)} " +
                 $"encodeMs={AnchorMs(anchorEncodeTicks)} publishMs={AnchorMs(anchorPublishTicks)} published={anchorPublished} " +
                 $"publishRejects={anchorPublishRejects} encodeRejects={anchorEncodeRejects} routeReuses={anchorRouteReuses} " +
-                $"lazyTasks={anchorLazyTasks} unusedMoves={anchorUnusedMoves} auditSkips={anchorAuditSkips} publishReasons=[{FormatAnchorReasons()}] " +
+                $"lazyTasks={anchorLazyTasks} groupSingles={anchorGroupSingleRoutes}/{AnchorMs(anchorGroupSingleTicks)}ms unusedMoves={anchorUnusedMoves} auditSkips={anchorAuditSkips} publishReasons=[{FormatAnchorReasons()}] " +
                 $"batch(calls={anchorBatchCalls} units={anchorBatchUnits} hits={anchorBatchHits} ms={AnchorMs(anchorBatchTicks)}) " +
                 $"queryStatus(ready,unreachable,overLimit,pending,stale,invalid,failed,error)={string.Join(",", anchorQueryStatus)} " +
                 $"members={anchorMembers} unreachedMembers={anchorUnreachedUnits} movesWithUnreached={anchorMovesWithUnreached} " +
@@ -1296,7 +1371,7 @@ namespace MoatMove
                 $"accessChanges={anchorAccessChanges} gateRefreshes={anchorGateRefreshes} sharedReuses={anchorShared?.Reuses ?? 0} " +
                 $"resweepWhy(diplomacy={anchorResweepDiplomacy} portals={anchorResweepPortals} footprint={anchorResweepFootprint} global={anchorResweepGlobal}) " +
                 $"refreshBacklog={anchorRefreshBacklog}) core(queries={anchorCoreStats[AnchorNative.StatQueries]} " +
-                $"subAnchors={anchorCoreStats[AnchorNative.StatSubAnchors]} subCapped={anchorCoreStats[AnchorNative.StatSubCapped]} " +
+                $"subAnchors={anchorCoreStats[AnchorNative.StatSubAnchors]} subSingles={anchorCoreStats[AnchorNative.StatSubSingles]} subCapped={anchorCoreStats[AnchorNative.StatSubCapped]} " +
                 $"stepMs={anchorCoreStats[AnchorNative.StatStepNs] / 1e6:F3} queryMs={anchorCoreStats[AnchorNative.StatQueryNs] / 1e6:F3} " +
                 $"subMs={anchorCoreStats[AnchorNative.StatSubNs] / 1e6:F3} settles={anchorCoreStats[AnchorNative.StatSettles]} via={anchorCoreStats[AnchorNative.StatViaChosen]} " +
                 $"anchorMiss(noStart,noEntry,unreached,tooFar)={anchorCoreStats[AnchorNative.StatAnchorNoStart]},{anchorCoreStats[AnchorNative.StatAnchorNoEntry]}," +
@@ -1307,7 +1382,7 @@ namespace MoatMove
                 anchorSweepTicks = anchorSweepNodes = anchorResweeps = anchorAccessChanges = anchorGateRefreshes = anchorLazyTasks = anchorUnusedMoves = anchorAuditSkips = anchorBatchCalls = anchorBatchUnits = anchorBatchHits = anchorBatchTicks =
                 anchorResweepDiplomacy = anchorResweepPortals = anchorResweepFootprint = anchorResweepGlobal = anchorRefreshBacklog =
                 anchorVanillaCalls = anchorVanillaFails = anchorVanillaTicks = anchorVanillaFailTicks = anchorVanillaAfterUnreachable =
-                anchorVanillaAfterUnreachableTicks = anchorVanillaFoundAfterUnreachable = anchorSameTickTasks = anchorSameTickTaskTicks = anchorDiggerGroundRoutes = anchorWatchChanges = anchorRebuildsWatched = anchorSingleRoutes = anchorSingleAssassinRoutes = anchorSingleUnreachable = anchorSingleRejects = anchorSingleTicks = 0;
+                anchorVanillaAfterUnreachableTicks = anchorVanillaFoundAfterUnreachable = anchorSameTickTasks = anchorSameTickTaskTicks = anchorDiggerGroundRoutes = anchorWatchChanges = anchorRebuildsWatched = anchorSingleRoutes = anchorSingleAssassinRoutes = anchorSingleUnreachable = anchorSingleRejects = anchorSingleTicks = anchorGroupSingleRoutes = anchorGroupSingleTicks = 0;
             Array.Clear(anchorQueryStatus, 0, anchorQueryStatus.Length); anchorPublishReasons.Clear(); anchorVanillaWhy.Clear(); reachabilityByOwner.Clear(); anchorOutsideBuilds.Clear();
             ResetReplanMetrics();
         }

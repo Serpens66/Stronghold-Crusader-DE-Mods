@@ -18,6 +18,8 @@ internal sealed class AnchorCoreInterop : IDisposable
     [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern int mma_mask_update(IntPtr context, int player, int[] nodes, uint[] words, int count, out int changed);
     [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern int mma_penalty_update(IntPtr context, int player, int[] nodes, byte[] values, int count, out int changed);
     [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern int mma_single_route(IntPtr context, int player, int target, int ground, int moat, int start, byte[] bytes, int capacity, out QueryResult result);
+    [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern int mma_set_sub_single_budget(IntPtr context, int budget);
+    [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern int mma_single_route_limited(IntPtr context, int player, int target, int ground, int moat, int start, int budget, byte[] bytes, int capacity, out QueryResult result);
     [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern int mma_mask_state(IntPtr context, int player, out long written, out ulong revision);
     [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern int mma_task_create(IntPtr context, int player, int anchor, int ground, int moat, int[] starts, int count, out int id);
     [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern int mma_task_restart(IntPtr context, int id);
@@ -28,7 +30,7 @@ internal sealed class AnchorCoreInterop : IDisposable
     [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern int mma_stats(IntPtr context, [Out] long[] data, int count, int reset);
     [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern int mma_query_batch(IntPtr context, int id, int[] starts, int[] slots, int count, int margin, int threads, [Out] byte[] bytes, int stride, [Out] QueryResult[] results);
     internal static readonly string[] StatNames = { "tasksComputed", "tasksFailed", "settleEvents", "entries", "queries", "viaChosen", "subAnchors", "subCapped", "stepNs", "queryNs", "subNs", "maskWrites", "maskChanges", "peakBytes", "allocations", "workers",
-        "anchorNoStart", "anchorNoEntry", "anchorUnreached", "anchorTooFar", "fieldReuses", "singleQueries", "singleSettles", "singleNs" };
+        "anchorNoStart", "anchorNoEntry", "anchorUnreached", "anchorTooFar", "fieldReuses", "singleQueries", "singleSettles", "singleNs", "subSingles" };
     internal static int Stat(string name) => Array.IndexOf(StatNames, name);
     internal const int Found = 0, Unreachable = 1, OverLimit = 2, Pending = 3, Stale = 4, Invalid = 5, Failed = 6, Ready = 0;
     internal const int NoMemory = 2;
@@ -41,7 +43,7 @@ internal sealed class AnchorCoreInterop : IDisposable
     {
         if (library != IntPtr.Zero) return;
         library = NativeLibrary.Load(Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../MoatMove/.local/anchor/MoatMoveAnchor.dll")));
-        if (mma_contract() != 0x0400000B || Marshal.SizeOf<QueryResult>() != 32) throw new InvalidOperationException("Anchor core ABI");
+        if (mma_contract() != 0x0400000D || Marshal.SizeOf<QueryResult>() != 32) throw new InvalidOperationException("Anchor core ABI");
     }
     internal AnchorCoreInterop(int width, int height, long limit = 512L * 1024 * 1024)
     {
@@ -96,6 +98,14 @@ internal sealed class AnchorCoreInterop : IDisposable
     internal RouteResult SingleRoute(int player, int target, long ground, long moat, int start)
     {
         Code(mma_single_route(context, player, target, (int)ground, (int)moat, start, buffer, buffer.Length, out QueryResult r));
+        return Convert(r, buffer, 0);
+    }
+    // Settle budget of the exact single route a query tries before a new sub-anchor (0: sub-anchor at once).
+    internal void SetSubSingleBudget(int budget) => Code(mma_set_sub_single_budget(context, budget));
+    // The same with at most budget A* settles (over budget: OverLimit, never unreachable).
+    internal RouteResult SingleRoute(int player, int target, long ground, long moat, int start, int budget)
+    {
+        Code(mma_single_route_limited(context, player, target, (int)ground, (int)moat, start, budget, buffer, buffer.Length, out QueryResult r));
         return Convert(r, buffer, 0);
     }
     // All units of one task at once (parallel pass, then deferred sub-anchor queries in order).

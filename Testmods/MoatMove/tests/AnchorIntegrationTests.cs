@@ -367,8 +367,9 @@ namespace MoatMove
                     anchorUnreachedUnits == unreachedBefore + 1, "a member without re-plan is not counted");
                 anchorEndedUnreached = 0;
 
-                // Pending tasks: a group move captures only its starts; the field is computed at
-                // the first unit query, and never for a move whose members Vanilla does not re-plan.
+                // Pending tasks: a group move captures only its starts; its first AnchorGroupSingles
+                // queries get exact single routes, the field is computed at the next query, and never
+                // for a move whose members Vanilla does not re-plan.
                 long tasksBeforeLazy = anchorTasks, unused = anchorUnusedMoves;
                 var spec = new AnchorTaskSpec { Player = 1, Anchor = anchor, Ground = 1, Moat = 7, Starts = new[] { start } };
                 BeginAnchorFrame(13, 0, 0, null, spec);
@@ -376,8 +377,13 @@ namespace MoatMove
                 EndAnchorFrame(13);
                 Check(anchorTasks == tasksBeforeLazy && anchorUnusedMoves == unused + 1 && anchorDispatchTask == 0, "an unused group move computes a field");
                 BeginAnchorFrame(14, 0, 0, null, spec);
+                long groupSingles = anchorGroupSingleRoutes;
+                for (int i = 0; i < AnchorGroupSingles; i++)
+                    Check(TryAnchorQualifiesMoat(new PlanScope(1, 150, 10), &digger), "a group single route loses the moat decision");
+                Check(anchorTasks == tasksBeforeLazy && anchorDispatchTask == AnchorPendingTask && anchorGroupSingleRoutes == groupSingles + AnchorGroupSingles,
+                    "the first queries of a group move do not use exact single routes");
                 Check(TryAnchorQualifiesMoat(new PlanScope(1, 150, 10), &digger) && anchorTasks == tasksBeforeLazy + 1 && anchorDispatchTask > 0,
-                    "the first unit query does not compute the pending field");
+                    "the query after the single routes does not compute the pending field");
                 int lazyTask = anchorDispatchTask;
                 Check(TryAnchorQualifiesMoat(new PlanScope(1, 150, 10), &digger) && anchorTasks == tasksBeforeLazy + 1, "a later query recomputes the field");
                 EndAnchorFrame(14);

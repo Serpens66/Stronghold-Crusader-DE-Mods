@@ -106,6 +106,16 @@ internal static class AnchorCoreGate
                 for (int i = 0; i < single.Length; i++)
                     if (single[i].Status == SearchStatus.Found && single[i].Cost != ReferenceSearch.Find(load.Map, load.Queries[i], new WorkBudget(256L * 1024 * 1024, 30)).Cost)
                         throw new InvalidOperationException("Single route above optimum: sample=" + sample + " case=" + i);
+                // A settle budget only shortens the search: a found route is the unlimited one, a stopped
+                // search is inconclusive (never unreachable while a route exists).
+                for (int i = 0; i < single.Length; i++)
+                {
+                    var q = load.Queries[i];
+                    RouteResult limited = core.SingleRoute(Player, q.Target, q.GroundCost, q.MoatCost, q.Start, 64);
+                    if (limited.Status == SearchStatus.Found ? single[i].Status != SearchStatus.Found || limited.Cost != single[i].Cost
+                        : limited.Status == SearchStatus.Unreachable ? single[i].Status != SearchStatus.Unreachable : limited.Status != SearchStatus.Inconclusive)
+                        throw new InvalidOperationException($"Limited single route differs: sample={sample} case={i} limited={limited.Status} unlimited={single[i].Status}");
+                }
             }
             // Batch answers equal single queries in caller order, for one and several threads.
             foreach (int threads in new[] { 1, 4 })
@@ -146,11 +156,22 @@ internal static class AnchorCoreGate
             GridSnapshot map = GroupGate.Grid(60, 60, null, n => n % 60 != 34 || n / 60 == 59);
             var load = new GroupLoad { Name = "core-far-slots", Map = map }; load.Anchors.Add(30 * 60 + 30);
             foreach (int slot in new[] { 30 * 60 + 30, 30 * 60 + 31, 30 * 60 + 36, 30 * 60 + 37 }) { load.Queries.Add(new RouteQuery { Start = 10 * 60 + 50 + load.Queries.Count, Target = slot, GroundCost = 1, MoatCost = 7 }); load.GroupOf.Add(0); }
-            using var core = new AnchorCoreInterop(60, 60, 128L * 1024 * 1024); core.WriteWholeMask(Player, map, 500);
+            using var core = new AnchorCoreInterop(60, 60, 128L * 1024 * 1024); core.WriteWholeMask(Player, map, 500); core.SetSubSingleBudget(0);
             RouteResult[] r = Solve(core, load, 2, out _); Check(load, r);
             if (core.Stats()[AnchorCoreInterop.Stat("subAnchors")] != 1) throw new InvalidOperationException("Far slots did not share one sub-anchor.");
-            using (var batchCore = new AnchorCoreInterop(60, 60, 128L * 1024 * 1024)) { batchCore.WriteWholeMask(Player, map, 500); Same(r, SolveBatch(batchCore, load, 4), "core-far-slots-batch"); if (batchCore.Stats()[AnchorCoreInterop.Stat("subAnchors")] != 1) throw new InvalidOperationException("Batch far slots did not share one sub-anchor."); }
+            using (var batchCore = new AnchorCoreInterop(60, 60, 128L * 1024 * 1024)) { batchCore.WriteWholeMask(Player, map, 500); batchCore.SetSubSingleBudget(0); Same(r, SolveBatch(batchCore, load, 4), "core-far-slots-batch"); if (batchCore.Stats()[AnchorCoreInterop.Stat("subAnchors")] != 1) throw new InvalidOperationException("Batch far slots did not share one sub-anchor."); }
             for (int i = 2; i < 4; i++) { var reference = ReferenceSearch.Find(map, load.Queries[i], new WorkBudget(64L * 1024 * 1024, 10)); if (r[i].Cost > reference.Cost + 2) throw new InvalidOperationException("Far-slot unit still detours; case=" + i); }
+            // Default budget: the far slots get exact single routes instead of a sub-anchor field, in
+            // the sequential and the batch pass alike.
+            using (var singleCore = new AnchorCoreInterop(60, 60, 128L * 1024 * 1024))
+            {
+                singleCore.WriteWholeMask(Player, map, 500);
+                RouteResult[] s = Solve(singleCore, load, 2, out _); Check(load, s);
+                long[] singleStats = singleCore.Stats();
+                if (singleStats[AnchorCoreInterop.Stat("subAnchors")] != 0 || singleStats[AnchorCoreInterop.Stat("subSingles")] == 0) throw new InvalidOperationException("Far slots did not use single routes before a sub-anchor.");
+                for (int i = 2; i < 4; i++) if (s[i].Cost != ReferenceSearch.Find(map, load.Queries[i], new WorkBudget(64L * 1024 * 1024, 10)).Cost) throw new InvalidOperationException("Far-slot single route above optimum; case=" + i);
+                using var batchCore = new AnchorCoreInterop(60, 60, 128L * 1024 * 1024); batchCore.WriteWholeMask(Player, map, 500); Same(s, SolveBatch(batchCore, load, 4), "core-far-slots-single-batch");
+            }
         }
         // Group split by a closed wall (AI members behind walls): the main field cannot reach the
         // right-hand starts. A sub-anchor for right-hand slots targets only right-hand starts, so
@@ -160,11 +181,11 @@ internal static class AnchorCoreGate
             var load = new GroupLoad { Name = "core-split-group", Map = map }; load.Anchors.Add(30 * 60 + 10);
             foreach (var (start, slot) in new[] { (26 * 60 + 8, 30 * 60 + 10), (26 * 60 + 9, 30 * 60 + 11), (26 * 60 + 44, 30 * 60 + 45), (26 * 60 + 45, 30 * 60 + 46), (26 * 60 + 46, 30 * 60 + 45) })
             { load.Queries.Add(new RouteQuery { Start = start, Target = slot, GroundCost = 1, MoatCost = 7 }); load.GroupOf.Add(0); }
-            using var core = new AnchorCoreInterop(60, 60, 128L * 1024 * 1024); core.WriteWholeMask(Player, map, 500);
+            using var core = new AnchorCoreInterop(60, 60, 128L * 1024 * 1024); core.WriteWholeMask(Player, map, 500); core.SetSubSingleBudget(0);
             RouteResult[] r = Solve(core, load, 2, out _); Check(load, r);
             long[] stats = core.Stats();
             if (stats[AnchorCoreInterop.Stat("subAnchors")] != 1) throw new InvalidOperationException("Right-hand slots did not share one sub-anchor.");
-            using (var batchCore = new AnchorCoreInterop(60, 60, 128L * 1024 * 1024)) { batchCore.WriteWholeMask(Player, map, 500); Same(r, SolveBatch(batchCore, load, 4), "core-split-group-batch"); }
+            using (var batchCore = new AnchorCoreInterop(60, 60, 128L * 1024 * 1024)) { batchCore.WriteWholeMask(Player, map, 500); batchCore.SetSubSingleBudget(0); Same(r, SolveBatch(batchCore, load, 4), "core-split-group-batch"); }
             // Main field: the whole left component (30 x 60 nodes). A sub-anchor that also targeted the
             // unreachable left-hand starts would settle the whole right component (29 x 60) as well.
             if (stats[AnchorCoreInterop.Stat("settleEvents")] >= 30 * 60 + 29 * 60) throw new InvalidOperationException("Sub-anchor exhausted the right component: settles=" + stats[AnchorCoreInterop.Stat("settleEvents")]);
@@ -176,11 +197,18 @@ internal static class AnchorCoreGate
             GridSnapshot map = GroupGate.Grid(60, 60, null, n => n % 60 != 20 && n % 60 != 40);
             var load = new GroupLoad { Name = "core-unreachable-slots", Map = map }; load.Anchors.Add(30 * 60 + 10);
             for (int i = 0; i < 8; i++) { load.Queries.Add(new RouteQuery { Start = (20 + i) * 60 + 30, Target = 30 * 60 + 45 + i, GroundCost = 1, MoatCost = 7 }); load.GroupOf.Add(0); }
-            using var core = new AnchorCoreInterop(60, 60, 128L * 1024 * 1024); core.WriteWholeMask(Player, map, 500);
+            using var core = new AnchorCoreInterop(60, 60, 128L * 1024 * 1024); core.WriteWholeMask(Player, map, 500); core.SetSubSingleBudget(0);
             RouteResult[] r = Solve(core, load, 2, out _); Check(load, r);
             if (r.Any(x => x.Status != SearchStatus.Unreachable)) throw new InvalidOperationException("A slot in a closed component was not answered unreachable.");
             if (core.Stats()[AnchorCoreInterop.Stat("subAnchors")] != 1) throw new InvalidOperationException("Unreachable slots built one sub-anchor each: " + core.Stats()[AnchorCoreInterop.Stat("subAnchors")]);
-            using (var batchCore = new AnchorCoreInterop(60, 60, 128L * 1024 * 1024)) { batchCore.WriteWholeMask(Player, map, 500); Same(r, SolveBatch(batchCore, load, 4), "core-unreachable-slots-batch"); }
+            using (var batchCore = new AnchorCoreInterop(60, 60, 128L * 1024 * 1024)) { batchCore.WriteWholeMask(Player, map, 500); batchCore.SetSubSingleBudget(0); Same(r, SolveBatch(batchCore, load, 4), "core-unreachable-slots-batch"); }
+            // Default budget: the small start components are proven enclosed without any sub-anchor.
+            using (var singleCore = new AnchorCoreInterop(60, 60, 128L * 1024 * 1024))
+            {
+                singleCore.WriteWholeMask(Player, map, 500);
+                if (Solve(singleCore, load, 2, out _).Any(x => x.Status != SearchStatus.Unreachable) || singleCore.Stats()[AnchorCoreInterop.Stat("subAnchors")] != 0)
+                    throw new InvalidOperationException("Enclosed starts were not answered unreachable by single routes.");
+            }
         }
         // Ground-only profiles use the ground directions (bits 8..15, Vanilla's DA590 rules),
         // moat profiles the friendly directions (DAFD0 rules with the height correction): an
@@ -260,6 +288,10 @@ internal static class AnchorCoreGate
             long settles = core.Stats()[AnchorCoreInterop.Stat("singleSettles")];
             if (route.Status != SearchStatus.Found || route.Cost != 30 || settles > 4 * 30)
                 throw new InvalidOperationException($"Single route is not a corridor search: status={route.Status} cost={route.Cost} settles={settles}");
+            // Over a settle budget the search stops inconclusive; a sufficient budget gives the same route.
+            if (core.SingleRoute(Player, 30 * 60 + 10, 1, 7, 30 * 60 + 40, 8).Reason != "over-2000-steps" ||
+                !core.SingleRoute(Player, 30 * 60 + 10, 1, 7, 30 * 60 + 40, 4096).Directions.SequenceEqual(route.Directions))
+                throw new InvalidOperationException("Settle budget of single routes is not respected.");
         }
         // A start enclosed by blocked cells is proven unreachable from its own small component, without
         // the backward A* settling the target's whole open component.

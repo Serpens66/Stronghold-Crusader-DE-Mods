@@ -41,7 +41,7 @@ using u64 = uint64_t;
 using u32 = uint32_t;
 constexpr int dx[8] = {0,1,1,1,0,-1,-1,-1}, dy[8] = {-1,-1,0,1,1,1,0,-1};
 // 48 sub-anchors (about 2.5 MiB each on 800x800) serve wide formations around blocked anchors.
-constexpr int MaxSteps = 2000, MaxPlayers = 8, MaxSubAnchors = 48, MaxCost = 255;
+constexpr int MaxSteps = 2000, MaxPlayers = 8, MaxSubAnchors = 48, MaxCost = 255, SubSingleBudget = 4096;
 constexpr u32 Unset = 0xFFFFFFFFu;
 struct Exhausted {};
 
@@ -74,7 +74,7 @@ enum Flags { ViaAnchor = 1, SubAnchor = 2, NewSubAnchor = 4, Uncached = 8 };
 enum Code { Ok = 0, NoMemory = 2, BadArgument = 3, Internal = 4 };
 // AnchorNoStart..AnchorTooFar: why an anchor (main or sub) could not answer a query.
 enum StatIndex { TasksComputed, TasksFailed, SettleEvents, Entries, Queries, ViaChosen, SubAnchors, SubCapped, StepNs, QueryNs, SubNs, MaskWrites, MaskChanges, PeakBytes, Allocations, Workers,
-    AnchorNoStart, AnchorNoEntry, AnchorUnreached, AnchorTooFar, FieldReuses, SingleQueries, SingleSettles, SingleNs, StatCount };
+    AnchorNoStart, AnchorNoEntry, AnchorUnreached, AnchorTooFar, FieldReuses, SingleQueries, SingleSettles, SingleNs, SubSingles, StatCount };
 
 struct Box { int x0 = 0, y0 = 0, x1 = -1, y1 = -1; };
 static int Ctz(u32 m) { unsigned long i; _BitScanForward(&i, m); return int(i); }
@@ -135,7 +135,7 @@ struct Field {
     Vec<u32> gen, dist, needGen; Vec<uint8_t> done; Vec<Vec<int>> ring;
     // Nodes settled by the last solve(), in settle order (Stored::take copies only these).
     Vec<int> settled;
-    u32 generation = 0; i64 settles = 0, entries = 0; bool exhausted = false;
+    u32 generation = 0; i64 settles = 0, entries = 0; bool exhausted = false, overBudget = false;
     Field(Memory* m, int n, int buckets = MaxCost + 1) : gen(size_t(n), 0u, Alloc<u32>(m)), dist(size_t(n), 0u, Alloc<u32>(m)), needGen(size_t(n), 0u, Alloc<u32>(m)),
         done(size_t(n), 0, Alloc<uint8_t>(m)), ring(Alloc<Vec<int>>(m)), settled(Alloc<int>(m)) { for (int i = 0; i < buckets; ++i) ring.emplace_back(Alloc<int>(m)); }
     bool reached(int v) const { return gen[v] == generation && done[v]; }
@@ -147,12 +147,13 @@ struct Field {
     // current key, which needs more than 2 x MaxCost buckets (local field only). A descent over
     // touched nodes is exact too: a neighbour whose bound plus the step cost equals the exact
     // distance of the current node has that bound as its exact distance.
-    void solveTowards(const Map& map, const Mask& mask, int source, int a, int b, int ground, int moat, const Box& box) {
+    // budget > 0: stops after that many settles (overBudget; nothing is proven unreachable then).
+    void solveTowards(const Map& map, const Mask& mask, int source, int a, int b, int ground, int moat, const Box& box, i64 budget = 0) {
         if (++generation == 0) { std::fill(gen.begin(), gen.end(), 0u); std::fill(needGen.begin(), needGen.end(), 0u); generation = 1; }
         const int size = int(ring.size()), w = map.width; const u32 step = u32(moat ? std::min(ground, moat) : ground);
         const int ax = a % w, ay = a / w, bx = b % w, by = b / w;
         auto h = [&](int x, int y) { return step * u32(std::min(std::max(std::abs(x - ax), std::abs(y - ay)), std::max(std::abs(x - bx), std::abs(y - by)))); };
-        i64 pending = 0, remaining = 0;
+        i64 pending = 0, remaining = 0; const i64 stop = budget > 0 ? settles + budget : -1; overBudget = false;
         for (int t : {a, b}) if (needGen[t] != generation) { needGen[t] = generation; ++remaining; }
         auto relax = [&](int u, int x, int y, u32 value) {
             if (x < box.x0 || x > box.x1 || y < box.y0 || y > box.y1) return;
@@ -174,6 +175,7 @@ struct Field {
                 if (g + h(vx, vy) != key) continue;
                 done[v] = 1; ++settles;
                 if (needGen[v] == generation) { needGen[v] = 0; --remaining; }
+                if (settles == stop && remaining > 0) { overBudget = true; pending = 0; break; }
                 // Incoming edge u -> v in direction d: u lies at v - (dx, dy).
                 for (u32 m = mask.incoming(v, moat); m; m &= m - 1) {
                     int d = Ctz(m); relax(v - map.off[d], vx - dx[d], vy - dy[d], g + mask.cost(v, ((mask.inWet[v] >> d) & 1) != 0, ground, moat));
@@ -360,6 +362,8 @@ struct Context {
     // Simulation-thread scratch (single queries, ordered batch pass) and one per batch worker.
     std::unique_ptr<Scratch> scratch; std::vector<std::unique_ptr<Scratch>> workers;
     Pool pool; i64 stats[StatCount] = {};
+    // Settle budget of the single route tried before a new sub-anchor (0: none; mma_set_sub_single_budget).
+    i64 subSingleBudget = SubSingleBudget;
     Context(int w, int h, i64 limit) {
         memory.maximum = limit; map.width = w; map.height = h; map.n = w * h;
         for (int d = 0; d < 8; ++d) map.off[d] = dy[d] * w + dx[d];
@@ -371,6 +375,52 @@ struct Context {
 };
 
 static bool ValidNode(const Context& c, int node) { return node >= 0 && node < c.map.n; }
+
+// Exact enclosure proof before a single route: the start's forward component over the same edges
+// (outgoing, as the backward A* reads them incoming) is exhausted within SingleFloodBudget nodes
+// without the target, so no route exists. The backward A* would instead settle the target's whole
+// component (pf-iter-34: 256 unreachable single routes, 56 M settles and 2 s in one window, mostly
+// starts on building tiles without ground edges). Larger start components keep the A*.
+constexpr int SingleFloodBudget = 2048;
+static bool StartEnclosed(const Map& map, const Mask& mask, Scratch& s, int start, int target, int moat) {
+    if (s.seen.size() != size_t(map.n)) { s.seen.assign(size_t(map.n), 0u); s.seenGen = 0; }
+    if (++s.seenGen == 0) { std::fill(s.seen.begin(), s.seen.end(), 0u); s.seenGen = 1; }
+    if (start == target) return false;
+    s.flood.clear(); s.flood.push_back(start); s.seen[start] = s.seenGen;
+    for (size_t i = 0; i < s.flood.size(); ++i) {
+        const int v = s.flood[i];
+        for (u32 m = mask.outgoing(v, moat); m; m &= m - 1) {
+            const int u = v + map.off[Ctz(m)];
+            if (u == target) return false;
+            if (s.seen[u] == s.seenGen) continue;
+            if (int(s.flood.size()) >= SingleFloodBudget) return false;
+            s.seen[u] = s.seenGen; s.flood.push_back(u);
+        }
+    }
+    return true;
+}
+
+// One exact route from start to target with the scratch's local field (backward A* from the target
+// over the whole map, after the enclosure proof): Found with the directions in s.path, Unreachable,
+// or OverLimit (over budget settles when budget > 0, or longer than MaxSteps/capacity).
+static int SingleSearch(const Map& map, const Mask& mask, Scratch& s, int start, int target, int ground, int moat, i64 budget, int capacity,
+    int& g, int& w, i64& cost) {
+    i64* stats = s.stats; auto t0 = Clock::now(); ++stats[SingleQueries];
+    auto done = [&](int status) { stats[SingleNs] += Ns(t0); return status; };
+    if (StartEnclosed(map, mask, s, start, target, moat)) return done(Unreachable);
+    Field& local = *s.local; const i64 before = local.settles;
+    Box all; all.x0 = 0; all.y0 = 0; all.x1 = map.width - 1; all.y1 = map.height - 1;
+    local.solveTowards(map, mask, target, start, start, ground, moat, all, budget);
+    stats[SingleSettles] += local.settles - before; local.settles = before;
+    if (local.overBudget) return done(OverLimit);
+    if (!local.reached(start)) return done(Unreachable);
+    s.path.clear(); g = 0; w = 0;
+    auto touched = [&](int v) { return local.touched(v) ? local.dist[v] : Unset; };
+    if (Descend(map, mask, touched, start, ground, moat, s.path, g, w, [&](int v, int, int) { return v == target; }) < 0 ||
+        int(s.path.size()) > MaxSteps || int(s.path.size()) > capacity) return done(OverLimit);
+    cost = i64(local.dist[start]);
+    return done(Found);
+}
 
 // Answers one unit. Anchors are tried in creation order (main anchor first). An anchor is
 // usable when the slot is graph-near to it inside the anchor-slot box; otherwise a field
@@ -425,7 +475,21 @@ static int Query(Context& c, Task& t, Scratch& sc, int start, int slot, int marg
         path.insert(path.end(), rest.begin(), rest.end());
         finish(g, w, flags); return Ok;
     }
-    // No usable anchor: an exact field at the slot, cached as a sub-anchor while allowed. With
+    // No usable anchor: first the exact single route under SubSingleBudget settles (pf-iter-39: 108
+    // sub-anchors and 118 ms in one window, mostly members whose start the main field never settled);
+    // it is not cached. A longer search falls through to the sub-anchor. Sequential pass only
+    // (mayCreate), so results stay independent of the thread count.
+    if (mayCreate && c.subSingleBudget > 0) {
+        int g = 0, w = 0; i64 cost = 0;
+        const int status = SingleSearch(map, mask, sc, start, slot, t.ground, t.moat, c.subSingleBudget, capacity, g, w, cost);
+        if (status == Unreachable) { ++stats[SubSingles]; r.status = Unreachable; r.flags = 0; return Ok; }
+        if (status == Found) {
+            ++stats[SubSingles]; std::copy(sc.path.begin(), sc.path.end(), bytes);
+            r.status = Found; r.flags = 0; r.ground = g; r.moat = w; r.length = int(sc.path.size()); r.cost = i64(g) * t.ground + i64(w) * t.moat;
+            return Ok;
+        }
+    }
+    // Then an exact field at the slot, cached as a sub-anchor while allowed. With
     // every sub-anchor slot used the query is not answered (the caller keeps Vanilla) rather
     // than building an uncached full-map field per query.
     if (int(t.subs.size()) >= MaxSubAnchors) { r.status = OverLimit; r.flags = Uncached; ++stats[SubCapped]; return Ok; }
@@ -465,7 +529,7 @@ template<class F> static int Guard(F body) {
 
 using namespace mma;
 extern "C" {
-__declspec(dllexport) int mma_contract() { return 0x0400000B; }
+__declspec(dllexport) int mma_contract() { return 0x0400000D; }
 // Physical cores minus two (Unity main thread plus simulation/render), within 1..8.
 __declspec(dllexport) int mma_recommended_threads() {
     DWORD length = 0; GetLogicalProcessorInformationEx(RelationProcessorCore, nullptr, &length);
@@ -616,61 +680,39 @@ __declspec(dllexport) int mma_step(Context* c, int maxTasks, int threads, int* c
         return Ok;
     });
 }
-// Exact enclosure proof before a single route: the start's forward component over the same edges
-// (outgoing, as the backward A* reads them incoming) is exhausted within SingleFloodBudget nodes
-// without the target, so no route exists. The backward A* would instead settle the target's whole
-// component (pf-iter-34: 256 unreachable single routes, 56 M settles and 2 s in one window, mostly
-// starts on building tiles without ground edges). Larger start components keep the A*.
-constexpr int SingleFloodBudget = 2048;
-static bool StartEnclosed(Context& c, const Mask& mask, int start, int target, int moat) {
-    Scratch& s = *c.scratch;
-    if (s.seen.size() != size_t(c.map.n)) { s.seen.assign(size_t(c.map.n), 0u); s.seenGen = 0; }
-    if (++s.seenGen == 0) { std::fill(s.seen.begin(), s.seen.end(), 0u); s.seenGen = 1; }
-    if (start == target) return false;
-    s.flood.clear(); s.flood.push_back(start); s.seen[start] = s.seenGen;
-    for (size_t i = 0; i < s.flood.size(); ++i) {
-        const int v = s.flood[i];
-        for (u32 m = mask.outgoing(v, moat); m; m &= m - 1) {
-            const int u = v + c.map.off[Ctz(m)];
-            if (u == target) return false;
-            if (s.seen[u] == s.seenGen) continue;
-            if (int(s.flood.size()) >= SingleFloodBudget) return false;
-            s.seen[u] = s.seenGen; s.flood.push_back(u);
-        }
-    }
-    return true;
-}
 
 // Route of one unit from start to target (ground/moat profile like a task): backward A* from the
 // target towards the start over the whole map (solveTowards; Chebyshev heuristic), so a trip
 // explores a corridor instead of the disc of a full field. Found: packed directions as for
 // mma_query; Unreachable when the target's backward component was settled without the start.
 // Exact optimal cost; deterministic for equal inputs.
-__declspec(dllexport) int mma_single_route(Context* c, int player, int target, int ground, int moat, int start, uint8_t* bytes, int capacity, QueryResult* result) {
-    if (!c || !result || !bytes || capacity < 0 || ground < 1 || ground > MaxCost || moat < 0 || moat > MaxCost) return BadArgument;
+// budget > 0 (mma_single_route_limited): at most that many A* settles; a longer search answers
+// OverLimit (never Unreachable), so the caller can fall back to another exact source.
+static int SingleRoute(Context* c, int player, int target, int ground, int moat, int start, i64 budget, uint8_t* bytes, int capacity, QueryResult* result) {
+    if (!c || !result || !bytes || capacity < 0 || ground < 1 || ground > MaxCost || moat < 0 || moat > MaxCost || budget < 0) return BadArgument;
     *result = QueryResult{}; result->status = Invalid;
     if (!ValidNode(*c, start) || !ValidNode(*c, target)) return BadArgument;
     Mask* mask = c->mask(player);
     if (!mask || !mask->ready(c->map.n)) { result->status = Pending; return Ok; }
     return Guard([&] {
-        auto t0 = Clock::now(); ++c->stats[SingleQueries];
-        if (StartEnclosed(*c, *mask, start, target, moat)) { result->status = Unreachable; c->stats[SingleNs] += Ns(t0); return Ok; }
-        Field& local = *c->scratch->local; const i64 before = local.settles;
-        Box all; all.x0 = 0; all.y0 = 0; all.x1 = c->map.width - 1; all.y1 = c->map.height - 1;
-        local.solveTowards(c->map, *mask, target, start, start, ground, moat, all);
-        c->stats[SingleSettles] += local.settles - before; local.settles = before;
-        if (!local.reached(start)) { result->status = Unreachable; c->stats[SingleNs] += Ns(t0); return Ok; }
-        std::vector<uint8_t>& path = c->scratch->path; path.clear(); int g = 0, w = 0;
-        auto touched = [&](int v) { return local.touched(v) ? local.dist[v] : Unset; };
-        if (Descend(c->map, *mask, touched, start, ground, moat, path, g, w, [&](int v, int, int) { return v == target; }) < 0 ||
-            int(path.size()) > MaxSteps || int(path.size()) > capacity)
-        { result->status = OverLimit; c->stats[SingleNs] += Ns(t0); return Ok; }
-        std::copy(path.begin(), path.end(), bytes);
-        result->status = Found; result->ground = g; result->moat = w; result->length = int(path.size());
-        result->cost = i64(local.dist[start]);
-        c->stats[SingleNs] += Ns(t0);
+        Scratch& sc = *c->scratch; int g = 0, w = 0; i64 cost = 0;
+        const int status = SingleSearch(c->map, *mask, sc, start, target, ground, moat, budget, capacity, g, w, cost);
+        MergeScratch(*c, sc);
+        result->status = status;
+        if (status == Found) { std::copy(sc.path.begin(), sc.path.end(), bytes); result->ground = g; result->moat = w; result->length = int(sc.path.size()); result->cost = cost; }
         return Ok;
     });
+}
+
+__declspec(dllexport) int mma_set_sub_single_budget(Context* c, int budget) {
+    if (!c || budget < 0) return BadArgument;
+    c->subSingleBudget = budget; return Ok;
+}
+__declspec(dllexport) int mma_single_route(Context* c, int player, int target, int ground, int moat, int start, uint8_t* bytes, int capacity, QueryResult* result) {
+    return SingleRoute(c, player, target, ground, moat, start, 0, bytes, capacity, result);
+}
+__declspec(dllexport) int mma_single_route_limited(Context* c, int player, int target, int ground, int moat, int start, int budget, uint8_t* bytes, int capacity, QueryResult* result) {
+    return SingleRoute(c, player, target, ground, moat, start, budget, bytes, capacity, result);
 }
 
 __declspec(dllexport) int mma_query(Context* c, int id, int start, int slot, int margin, uint8_t* bytes, int capacity, QueryResult* result) {
