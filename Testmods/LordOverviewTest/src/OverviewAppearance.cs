@@ -31,7 +31,7 @@ namespace LordOverviewTest
 
         internal static Grid PlayerText(string text, Brush foreground)
         {
-            var grid = new Grid { VerticalAlignment=VerticalAlignment.Center };
+            var grid = new Grid { VerticalAlignment=VerticalAlignment.Center,IsHitTestVisible=false };
             float[,] offsets={{-0.65f,0},{0.65f,0},{0,-0.65f},{0,0.65f}};
             for(int i=0;i<4;i++) grid.Children.Add(new TextBlock { Text=text, FontSize=16,
                 Foreground=new SolidColorBrush(Color.FromArgb(255,35,28,21)),
@@ -41,9 +41,17 @@ namespace LordOverviewTest
             return grid;
         }
 
+        internal static void UpdatePlayerText(Grid grid,string text,Brush foreground)
+        {
+            for(int i=0;i<grid.Children.Count;i++)if(grid.Children[i] is TextBlock label){
+                if(label.Text!=text)label.Text=text;
+                if(i==grid.Children.Count-1 && !ReferenceEquals(label.Foreground,foreground))label.Foreground=foreground;
+            }
+        }
+
         internal static Grid Portrait(ImageSource source)
         {
-            var crop = new Grid { Width=28, Height=28, ClipToBounds=true };
+            var crop = new Grid { Width=28, Height=28, ClipToBounds=true,IsHitTestVisible=false };
             crop.Children.Add(new Image { Source=source, Width=30, Height=30, Margin=new Thickness(-1), Stretch=Stretch.Fill });
             return crop;
         }

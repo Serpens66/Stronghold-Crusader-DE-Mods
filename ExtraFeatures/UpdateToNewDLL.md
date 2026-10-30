@@ -477,3 +477,44 @@ publishes its host-synchronized Walls/Gates/Towers/Keeps policy at tolerance 20.
 Defaults are true/true/true/false; global host activation and mission mode gate
 control this owner's activation. No own native plague-height hooks remain here.
 Vanilla apothecary resistance and Tweaker damage remain unchanged.
+
+## Civilian/military enemy proximity (2026-10-29)
+
+Owner: ExtraFeatures; detailed Vanilla audit and field/caller evidence:
+`_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/ENEMY_BUILD_PROXIMITY.md`.
+Native reference SHA-256 FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
+Reference helper RVA 0xEE640, 502 bytes through RET at 0xEE835; complete body hash
+1D2DDB19C37B3EC505D426272421E57FE4336CAA2BF9FA80BE6F1143282C565D.
+
+No new live hook or patch span. Existing SE Pre event supplies the private native
+query result; an existing SkipOriginalFunction veto wins. The original Post event
+is absent when skipped, per the SE contract. The helper is emitted only once from
+CrusaderLibraryLoadContext.Memory, with a module-wide known-hash gate and full body
+validation. The original distance CMP at RVA 0xEE748 selects a per-category squared
+radius; all remaining original branches/instructions are replayed. Four RIP-relative
+anchors are relocated to absolute loads, and internal targets are BlockEncoder-mapped.
+No other native function is modified or copied by this feature.
+
+Fixed derived data RVAs: candidate count 0x379CE58 (player stride 0x583C), candidate
+IDs 0x38C19E8 (stride 20000), global IDs 0x38ED908 (stride 40000), unit sentinel
+base 0x67E8A5C (record stride 0x490), type at +0x8A. Map-valid raster 0x3A11EA4
+uses width 800. Remaining original displacements/anchors and stealth context global
+0x8574B90 stay in the original validated machine body. No pattern fallback is supplied:
+matching a code pattern alone cannot validate the list, unit and map memory layouts.
+An unknown hash or body disables only category radii with an error; Vanilla and
+independent rebuild timing remain available. Successful preparation logs reference-rva.
+
+Update checks: full caller/producer audit, true installed enum identities, exact body
+and every relocated anchor, seventh Win64 argument at stack+0x58 after four pushes,
+RCX/RDX liveness, strict squared Euclidean boundary, all exclusion/stealth branches,
+ABI sentinels and original-machine equivalence via ExtraFeaturesNativeTests. Confirm
+NativeMemoryManager.WriteStub's publication/cache-flush contract if RedBird changes.
+All helper/table bytes are written before publication and retained until process exit.
+
+Existing common-radius properties are import aliases only; eight category settings
+are the active host-controlled values. The migration reader's personal-path candidates
+and schema-1/2/3 envelope keys must be checked against APIShared on storage changes.
+All writes use its existing working-copy endpoint; new explicit values beat aliases.
+Old general immediate writes have been removed. Human special radii and unclassified
+AI first placements stay Vanilla. Gameplay/editor/save/real-MP acceptance remains
+pending because this task explicitly forbids installing the changed mod.

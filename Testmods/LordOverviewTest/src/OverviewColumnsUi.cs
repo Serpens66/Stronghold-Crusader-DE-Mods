@@ -48,22 +48,23 @@ namespace LordOverviewTest {
    });
   }
   private static void AttachColumnsPopup(){
-   popupAnchor=new Border {Width=380,Height=1,HorizontalAlignment=HorizontalAlignment.Left,VerticalAlignment=VerticalAlignment.Bottom,IsHitTestVisible=false};parent.Children.Add(popupAnchor);
+   popupAnchor=new Border {Width=380,Height=1,HorizontalAlignment=HorizontalAlignment.Left,VerticalAlignment=VerticalAlignment.Bottom,IsHitTestVisible=false};overlay.Children.Add(popupAnchor);
    columnsPopup=new Popup {PlacementTarget=popupAnchor,Placement=PlacementMode.Top,StaysOpen=true};
-   columnsPopup.Closed+=OnColumnsClosed;parent.Children.Add(columnsPopup);
+   columnsPopup.Closed+=OnColumnsClosed;overlay.Children.Add(columnsPopup);
    inputRoot=parent;while(VisualTreeHelper.GetParent(inputRoot) is UIElement ancestor)inputRoot=ancestor;
    inputRoot.PreviewMouseDown+=OnColumnsOutsideClick;
    inputRoot.PreviewKeyDown+=OnHeaderKeyDown;
   }
   private static bool ContainsClick(FrameworkElement element,MouseButtonEventArgs args){if(element==null || !element.IsVisible)return false;var point=args.GetPosition(element);return point.X>=0 && point.Y>=0 && point.X<element.ActualWidth && point.Y<element.ActualHeight;}
   private static void OnColumnsOutsideClick(object sender,MouseButtonEventArgs args){
-   if(columnsPopup?.IsOpen==true && !ContainsClick(columnsPopup.Child as FrameworkElement,args) && !ContainsClick(gearButton,args))CloseColumnsPopup();
+   if(columnsPopup?.IsOpen==true && !ContainsClick(columnsPopup.Child as FrameworkElement,args) && !ContainsClick(gearButton,args) && !ContainsHeaderClick(args))CloseColumnsPopup();
    // Never mark the preview event handled: the original map/HUD action must still receive it.
   }
-  private static void OnColumnsClosed(object sender,Noesis.EventArgs args){if(metricScroll!=null && !restoringScroll)menuState.Remember(metricScroll.VerticalOffset);if(columnsPopup?.Child!=null)CloseTips(columnsPopup.Child);}
-  private static void CloseColumnsPopup(){if(columnsPopup==null)return;if(columnsPopup.Child!=null)CloseTips(columnsPopup.Child);columnsPopup.IsOpen=false;}
-  private static void DetachColumnsPopup(){if(inputRoot!=null){inputRoot.PreviewMouseDown-=OnColumnsOutsideClick;inputRoot.PreviewKeyDown-=OnHeaderKeyDown;}inputRoot=null;gearButton=null;metricChecks.Clear();metricPages.Clear();categoryTabs.Clear();metricScroll=null;columnCount=null;restoringScroll=false;if(popupAnchor!=null)parent?.Children.Remove(popupAnchor);popupAnchor=null;if(columnsPopup==null)return;columnsPopup.Closed-=OnColumnsClosed;parent?.Children.Remove(columnsPopup);columnsPopup.Child=null;columnsPopup.PlacementTarget=null;columnsPopup=null;}
-  private static string MetricHelp(Metric metric)=>Text(metric.ToString())+(Metrics.Get(metric).Historical?" — "+Text("SinceStart"):" — "+Text(metric==Metric.Fear?"FearHelp":"CurrentValue"));
+  private static bool ContainsHeaderClick(MouseButtonEventArgs args){if(!Editing || tableHeader==null)return false;var point=args.GetPosition(tableHeader);return point.X>=0 && point.X<tableHeader.ActualWidth && point.Y>=0 && point.Y<tableHeader.RowDefinitions[0].ActualHeight;}
+  private static void OnColumnsClosed(object sender,Noesis.EventArgs args){UpdateHeaderEditing();if(metricScroll!=null && !restoringScroll)menuState.Remember(metricScroll.VerticalOffset);if(columnsPopup?.Child!=null)CloseTips(columnsPopup.Child);}
+  private static void CloseColumnsPopup(){if(columnsPopup==null)return;if(columnsPopup.Child!=null)CloseTips(columnsPopup.Child);columnsPopup.IsOpen=false;UpdateHeaderEditing();}
+  private static void DetachColumnsPopup(){if(inputRoot!=null){inputRoot.PreviewMouseDown-=OnColumnsOutsideClick;inputRoot.PreviewKeyDown-=OnHeaderKeyDown;}inputRoot=null;gearButton=null;metricChecks.Clear();metricPages.Clear();categoryTabs.Clear();metricScroll=null;columnCount=null;restoringScroll=false;if(popupAnchor!=null)overlay?.Children.Remove(popupAnchor);popupAnchor=null;if(columnsPopup==null)return;columnsPopup.Closed-=OnColumnsClosed;overlay?.Children.Remove(columnsPopup);columnsPopup.Child=null;columnsPopup.PlacementTarget=null;columnsPopup=null;}
+  private static string MetricHelp(Metric metric)=>providers.TryGetValue(metric,out var provider)?provider.GetTooltip():((int)metric<0?Metrics.Key(metric)+" — "+Text("Unavailable"):Text(metric.ToString())+(Metrics.Get(metric).Historical?" — "+Text("SinceStart"):" — "+Text(metric==Metric.Fear?"FearHelp":"CurrentValue")));
   private static Button ActionButton(string title,string help,Action action,bool enabled=true){
    var button=new Button {Style=buttonStyle,Content=Label(title),IsEnabled=enabled,Opacity=enabled?1:0.4f,Padding=new Thickness(3)};
    var execute=UiAction(action);button.Click+=(_,__)=>execute();Tip(button,help);return button;
@@ -88,14 +89,6 @@ namespace LordOverviewTest {
    layout.Children.Add(tabs);var pages=new Grid {Margin=new Thickness(0,0,22,0)}; // Explicit gutter: Vanilla's scrollbar skin may overlay its presenter.
    foreach(string group in Metrics.Groups){
     var page=new Grid();page.ColumnDefinitions.Add(new ColumnDefinition {Width=new GridLength(1,GridUnitType.Star)});page.ColumnDefinitions.Add(new ColumnDefinition {Width=new GridLength(1,GridUnitType.Star)});
-    int index=0;foreach(var definition in Metrics.All.Where(d=>d.Group==group)){
-     var metric=definition.Id;if(index%2==0)page.RowDefinitions.Add(new RowDefinition {Height=GridLength.Auto});
-     var label=new Grid();label.ColumnDefinitions.Add(new ColumnDefinition {Width=new GridLength(18)});label.ColumnDefinitions.Add(new ColumnDefinition {Width=new GridLength(1,GridUnitType.Star)});
-     label.Children.Add(MetricIcon(metric));var name=Label(Text(metric.ToString()));name.FontSize=14;name.MaxWidth=125;name.TextWrapping=TextWrapping.Wrap;name.Margin=new Thickness(5,0,0,0);Grid.SetColumn(name,1);label.Children.Add(name);
-     var checkbox=new CheckBox {Content=label,MinHeight=36,HorizontalContentAlignment=HorizontalAlignment.Stretch,Margin=new Thickness(3),Foreground=new SolidColorBrush(Color.FromRgb(255,255,255))};
-     var toggle=UiAction(()=>{if(selection.Toggle(metric))ApplyColumns();});checkbox.Click+=(_,__)=>toggle();metricChecks.Add(metric,checkbox);
-     Grid.SetRow(checkbox,index/2);Grid.SetColumn(checkbox,index%2);page.Children.Add(checkbox);index++;
-    }
     metricPages[group]=page;pages.Children.Add(page);
    }
    metricScroll=new ScrollViewer {Content=pages,VerticalScrollBarVisibility=ScrollBarVisibility.Auto,HorizontalScrollBarVisibility=ScrollBarVisibility.Disabled,Height=240};
@@ -104,13 +97,41 @@ namespace LordOverviewTest {
    foot.Children.Add(ActionButton(Text("ResetColumns"),Text("ResetColumnsHelp"),()=>{selection.Load(Metrics.Serialize(Metrics.Defaults));ApplyColumns();}));
    var hint=Label(Text("HeaderDragHint"));hint.FontSize=12;hint.MaxWidth=350;hint.TextWrapping=TextWrapping.Wrap;hint.Margin=new Thickness(3,5,3,0);foot.Children.Add(hint);Grid.SetRow(foot,3);layout.Children.Add(foot);
    columnsPopup.Child=new Border {Width=380,Background=new SolidColorBrush(Color.FromRgb(29,23,16)),BorderBrush=new SolidColorBrush(Color.FromRgb(242,212,138)),BorderThickness=new Thickness(1),Padding=new Thickness(6),Child=layout};
-   UpdateColumnsPopup();
+   SyncColumnChoices();UpdateColumnsPopup();
   }
   private static void UpdateColumnsPopup(){if(columnCount==null)return;var columns=selection.Columns;columnCount.Text=Text("ChooseColumns")+" · "+string.Format(Text("ColumnCount"),columns.Length);
-   foreach(var pair in metricChecks){bool selected=columns.Contains(pair.Key),enabled=selected?columns.Length>1:columns.Length<5;var checkbox=pair.Value;checkbox.IsChecked=selected;checkbox.IsEnabled=enabled;checkbox.Opacity=enabled?1:0.45f;
-    string help=MetricHelp(pair.Key)+(enabled?"":" — "+Text(selected?"MinimumColumns":"MaximumColumns"));
+   foreach(var pair in metricChecks){bool selected=columns.Contains(pair.Key),enabled=selected?columns.Length>1:Available(pair.Key);var checkbox=pair.Value;checkbox.IsChecked=selected;checkbox.IsEnabled=enabled;checkbox.Opacity=enabled?1:0.45f;
+    string help=MetricHelp(pair.Key)+(enabled?"":" — "+Text(selected?"MinimumColumns":"Unavailable"));
     if(ToolTipService.GetToolTip(checkbox) is ToolTip tip)tip.Content=help;else Tip(checkbox,help);
    }
+  }
+  private static void SyncColumnChoices(){
+   if(metricScroll==null)return;
+   double offset=metricScroll.VerticalOffset;restoringScroll=true;
+   var chosen=selection.Columns;
+   foreach(var group in Metrics.Groups){
+    var page=metricPages[group];var definitions=Metrics.All.Where(d=>d.Group==group && ((int)d.Id>=0 || Available(d.Id) || chosen.Contains(d.Id))).ToArray();
+    // Retain controls and the ScrollViewer. Reflow only cells whose catalog placement changed.
+    foreach(var definition in definitions){var metric=definition.Id;
+     if(!metricChecks.TryGetValue(metric,out var checkbox)){
+      checkbox=new CheckBox {MinHeight=36,HorizontalContentAlignment=HorizontalAlignment.Stretch,Margin=new Thickness(3),Foreground=new SolidColorBrush(Color.FromRgb(255,255,255))};
+      var toggle=UiAction(()=>{if(selection.Toggle(metric))ApplyColumns();});checkbox.Click+=(_,__)=>toggle();metricChecks.Add(metric,checkbox);
+     }
+     if(VisualTreeHelper.GetParent(checkbox) is Grid previous && previous!=page)previous.Children.Remove(checkbox);
+     if(!page.Children.Contains(checkbox))page.Children.Add(checkbox);
+     var label=new Grid();label.ColumnDefinitions.Add(new ColumnDefinition {Width=new GridLength(18)});label.ColumnDefinitions.Add(new ColumnDefinition {Width=new GridLength(1,GridUnitType.Star)});
+     label.Children.Add(MetricIcon(metric));var name=Label(MetricName(metric));name.FontSize=14;name.MaxWidth=125;name.TextWrapping=TextWrapping.Wrap;name.Margin=new Thickness(5,0,0,0);Grid.SetColumn(name,1);label.Children.Add(name);checkbox.Content=label;
+    }
+    int index=0;page.RowDefinitions.Clear();
+    foreach(var pair in metricChecks.Where(p=>VisualTreeHelper.GetParent(p.Value)==page)){
+     bool visible=definitions.Any(d=>d.Id==pair.Key);pair.Value.Visibility=visible?Visibility.Visible:Visibility.Collapsed;if(!visible)continue;
+     if(index%2==0)page.RowDefinitions.Add(new RowDefinition {Height=GridLength.Auto});Grid.SetRow(pair.Value,index/2);Grid.SetColumn(pair.Value,index%2);index++;
+    }
+   }
+   // Do not force layout on a popup outside an attached Noesis view.
+   var scroll=metricScroll;long expected=System.Threading.Interlocked.Read(ref session);int token=System.Threading.Volatile.Read(ref generation);
+   if(columnsPopup.IsOpen)Post(()=>{if(!ReferenceEquals(scroll,metricScroll) || expected!=System.Threading.Interlocked.Read(ref session) || token!=System.Threading.Volatile.Read(ref generation))return;scroll.ScrollToVerticalOffset((float)offset);restoringScroll=false;});
+   else restoringScroll=false;
   }
   private static void SelectCategory(string group){if(group==menuState.Group)return;menuState.Select(group,metricScroll.VerticalOffset);ShowCategory();}
   private static void ShowCategory(){
@@ -122,15 +143,16 @@ namespace LordOverviewTest {
   private static void OpenColumnsPopup(){
    if(columnsPopup==null)return;BuildColumnsPopup();UpdateColumnsPopup();float height=parent.ActualHeight;
    bool above=height-panel.ActualHeight>=270;columnsPopup.Placement=above?PlacementMode.Top:PlacementMode.Right;
-   popupAnchor.Width=above?380:1;popupAnchor.Margin=new Thickness(above?40:40+panel.ActualWidth,(float)0,0,panel.ActualHeight+2);
+   popupAnchor.Width=above?380:1;Canvas.SetLeft(popupAnchor,above?40:40+panel.ActualWidth);Canvas.SetBottom(popupAnchor,panel.ActualHeight+2);
    metricScroll.Height=Math.Max(60,Math.Min(240,(above?height-panel.ActualHeight:height)-160));
-   columnsPopup.IsOpen=true;ShowCategory();
+   columnsPopup.IsOpen=true;UpdateHeaderEditing();ShowCategory();
   }
   private static FrameworkElement GearIcon(){
    string teeth="";for(int angle=0;angle<360;angle+=45)teeth+="<Rectangle Canvas.Left='8' Canvas.Top='0' Width='2' Height='4' Fill='#FFF2D48A'><Rectangle.RenderTransform><RotateTransform Angle='"+angle+"' CenterX='1' CenterY='9'/></Rectangle.RenderTransform></Rectangle>";
    return GUI.ParseXaml("<Canvas xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation' Width='18' Height='18'>"+teeth+"<Ellipse Width='12' Height='12' Canvas.Left='3' Canvas.Top='3' Stroke='#FFF2D48A' StrokeThickness='2'/><Ellipse Width='3' Height='3' Canvas.Left='7.5' Canvas.Top='7.5' Fill='#FFF2D48A'/></Canvas>") as FrameworkElement;
   }
   private static FrameworkElement MetricIcon(Metric metric){
+   if((int)metric<0){var image=providers.TryGetValue(metric,out var provider)?provider.GetIcon():null;return image!=null?(FrameworkElement)new Image {Source=image,Width=18,Height=18}:Label("?");}
    ImageSource source=null;
    switch(metric){
     case Metric.Gold:case Metric.GoldAcquired:source=main.getSmallGoodsIcon((int)eGoods.STORED_GOLD);break;

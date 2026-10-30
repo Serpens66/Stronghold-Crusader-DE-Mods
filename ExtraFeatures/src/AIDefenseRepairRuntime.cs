@@ -78,6 +78,8 @@ namespace ExtraFeatures
         private readonly DetourHandle<PlacementDelegate> placementHook =
             new DetourHandle<PlacementDelegate>();
         private readonly IAivBuildStepObserver buildStepObserver;
+        private EnemyProximityQuery proximityQuery;
+        private bool proximityPrepared;
         private bool initialized;
         private bool nativeInitialized;
         private bool nativeUnavailable;
@@ -94,16 +96,22 @@ namespace ExtraFeatures
 
         private bool IsConfigured =>
             Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) &&
-            (settings.HumanEnemyProximitySingleplayer >= 0 ||
-             settings.HumanEnemyProximityMultiplayer >= 0 ||
-             settings.AIEnemyProximitySingleplayer >= 0 ||
-             settings.AIEnemyProximityMultiplayer >= 0 ||
+            (settings.HumanCivilianEnemyProximitySingleplayer >= 0 ||
+             settings.HumanMilitaryEnemyProximitySingleplayer >= 0 ||
+             settings.HumanCivilianEnemyProximityMultiplayer >= 0 ||
+             settings.HumanMilitaryEnemyProximityMultiplayer >= 0 ||
+             settings.AICivilianEnemyProximitySingleplayer >= 0 ||
+             settings.AIMilitaryEnemyProximitySingleplayer >= 0 ||
+             settings.AICivilianEnemyProximityMultiplayer >= 0 ||
+             settings.AIMilitaryEnemyProximityMultiplayer >= 0 ||
              settings.AITowerGateRebuildDelaySeconds >= 0);
 
         private bool NeedsNativeRebuildHooks =>
             Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) &&
-            (settings.AIEnemyProximitySingleplayer >= 0 ||
-             settings.AIEnemyProximityMultiplayer >= 0 ||
+            (settings.AICivilianEnemyProximitySingleplayer >= 0 ||
+             settings.AIMilitaryEnemyProximitySingleplayer >= 0 ||
+             settings.AICivilianEnemyProximityMultiplayer >= 0 ||
+             settings.AIMilitaryEnemyProximityMultiplayer >= 0 ||
              settings.AITowerGateRebuildDelaySeconds >= 0);
 
         public AIDefenseRepairRuntime(ManualLogSource log, ExtraFeaturesViewModel settings)
@@ -139,7 +147,6 @@ namespace ExtraFeatures
         public void ReconcileConfiguration()
         {
             Initialize();
-            ApplyHumanImmediateRanges();
 
             if (!IsConfigured)
             {
@@ -156,6 +163,17 @@ namespace ExtraFeatures
             ReadOnlySpan<byte> memory,
             bool referenceHashMatches)
         {
+            if (!proximityPrepared)
+            {
+                proximityPrepared = true;
+                try
+                {
+                    if (!referenceHashMatches) throw new InvalidOperationException("Enemy proximity data requires the audited native hash.");
+                    proximityQuery = new EnemyProximityQuery(memory, unchecked((ulong)libraryHandle.ToInt64()));
+                    Shared.DebugLogHelper.LogInfo(log, "Enemy proximity category predicate prepared from reference-rva 0xEE640; complete 502-byte body validated.");
+                }
+                catch (Exception ex) { LogFailure("category predicate preparation; proximity stays Vanilla", ex); }
+            }
             if (nativeInitialized || nativeUnavailable)
                 return;
 
@@ -263,7 +281,6 @@ namespace ExtraFeatures
             if (disposed)
                 return;
             disposed = true;
-            RestoreHumanImmediateRanges();
             foreach (IDisposable subscription in subscriptions)
                 subscription.Dispose();
             subscriptions.Clear();
@@ -484,7 +501,7 @@ namespace ExtraFeatures
 
         private void OnRepairProximity(BuildingAllowRepairInProximityEventArgs args)
         {
-            if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) || !mapActive || args.Phase != EventHookPhase.Pre)
+            if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) || !mapActive || args.Phase != EventHookPhase.Pre || args.SkipOriginalFunction)
                 return;
 
             try
@@ -507,11 +524,10 @@ namespace ExtraFeatures
                     pendingWallRepair = default;
                 if (isWallRepair)
                 {
-                    if (!TryGetConfiguredAIRadius(out int wallRadius))
+                    if (!TryGetConfiguredAIRadii(out int wallCivilian, out int wallMilitary))
                         return;
 
-                    args.Proximity = EnemyProximityPolicy.ApplyAIRadius(
-                        args.Proximity, wallRadius, isClassifiedRepairOrRebuild: true);
+                    ApplyCategoryProximity(args, wallCivilian, wallMilitary);
                     return;
                 }
 
@@ -530,13 +546,12 @@ namespace ExtraFeatures
                 // Calls outside the explicitly classified wall/rebuild contexts remain Vanilla.
                 if (context == null || context.History == null ||
                     !context.History.EverSpawnedDefense ||
-                    !TryGetConfiguredAIRadius(out int rebuildRadius))
+                    !TryGetConfiguredAIRadii(out int rebuildCivilian, out int rebuildMilitary))
                     return;
 
                 // Live AI calls supplied context-specific Vanilla radii 3, 5 and 15. A custom
                 // mode value replaces them only after the call was safely classified as rebuild.
-                args.Proximity = EnemyProximityPolicy.ApplyAIRadius(
-                    args.Proximity, rebuildRadius, isClassifiedRepairOrRebuild: true);
+                ApplyCategoryProximity(args, rebuildCivilian, rebuildMilitary);
             }
             catch (Exception ex)
             {
@@ -547,7 +562,7 @@ namespace ExtraFeatures
         private void OnAIBuildWall(AIBuildWallEventArgs args)
         {
             pendingWallRepair = default;
-            if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) || !mapActive || !TryGetConfiguredAIRadius(out _) ||
+            if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) || !mapActive || !TryGetConfiguredAIRadii(out _, out _) ||
                 !IsAI(args.PlayerId))
             {
                 return;
@@ -582,61 +597,34 @@ namespace ExtraFeatures
             if (args.PlayerId < 1 || args.PlayerId > 8 || !gameModeKnown)
                 return;
 
-            int configuredRadius = EnemyProximityPolicy.SelectConfiguredRadius(
-                realMultiplayer,
-                settings.HumanEnemyProximitySingleplayer,
-                settings.HumanEnemyProximityMultiplayer);
-            args.Proximity = EnemyProximityPolicy.ApplyHumanPlacementRadius(
-                args.Proximity, configuredRadius);
+            if (!EnemyProximityPolicy.IsOrdinaryHumanRadius(args.Proximity)) return;
+            ApplyCategoryProximity(args,
+                EnemyProximityPolicy.SelectConfiguredRadius(realMultiplayer,
+                    settings.HumanCivilianEnemyProximitySingleplayer, settings.HumanCivilianEnemyProximityMultiplayer),
+                EnemyProximityPolicy.SelectConfiguredRadius(realMultiplayer,
+                    settings.HumanMilitaryEnemyProximitySingleplayer, settings.HumanMilitaryEnemyProximityMultiplayer));
         }
 
-        private bool TryGetConfiguredAIRadius(out int radius)
+        private bool TryGetConfiguredAIRadii(out int civilian, out int military)
         {
-            radius = EnemyProximityPolicy.VanillaMode;
-            if (!gameModeKnown)
-                return false;
-
-            radius = EnemyProximityPolicy.SelectConfiguredRadius(
-                realMultiplayer,
-                settings.AIEnemyProximitySingleplayer,
-                settings.AIEnemyProximityMultiplayer);
-            return radius != EnemyProximityPolicy.VanillaMode;
+            civilian = military = -1;
+            if (!gameModeKnown) return false;
+            civilian = EnemyProximityPolicy.SelectConfiguredRadius(realMultiplayer,
+                settings.AICivilianEnemyProximitySingleplayer, settings.AICivilianEnemyProximityMultiplayer);
+            military = EnemyProximityPolicy.SelectConfiguredRadius(realMultiplayer,
+                settings.AIMilitaryEnemyProximitySingleplayer, settings.AIMilitaryEnemyProximityMultiplayer);
+            return civilian >= 0 || military >= 0;
         }
 
-        private void ApplyHumanImmediateRanges()
+        private void ApplyCategoryProximity(BuildingAllowRepairInProximityEventArgs args, int civilian, int military)
         {
-            int singleplayerConfigured = Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod)
-                ? settings.HumanEnemyProximitySingleplayer
-                : EnemyProximityPolicy.VanillaMode;
-            int multiplayerConfigured = Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod)
-                ? settings.HumanEnemyProximityMultiplayer
-                : EnemyProximityPolicy.VanillaMode;
-            SetHumanImmediateRanges(
-                EnemyProximityPolicy.ResolveHumanImmediateRadius(
-                    singleplayerConfigured, EnemyProximityPolicy.VanillaHumanSingleplayerRadius),
-                EnemyProximityPolicy.ResolveHumanImmediateRadius(
-                    multiplayerConfigured, EnemyProximityPolicy.VanillaHumanMultiplayerRadius));
-        }
-
-        private void RestoreHumanImmediateRanges() => SetHumanImmediateRanges(
-            EnemyProximityPolicy.VanillaHumanSingleplayerRadius,
-            EnemyProximityPolicy.VanillaHumanMultiplayerRadius);
-
-        private void SetHumanImmediateRanges(int singleplayerRadius, int multiplayerRadius)
-        {
-            GameGlobalsManager globals = GameGlobalsManager.Instance;
-            if (globals?.BuildingRepairProximityCheckRange == null ||
-                globals.BuildingRepairProximityCheckExRange == null)
-            {
-                return;
-            }
-
-            ushort normal = checked((ushort)singleplayerRadius);
-            ushort reduced = checked((ushort)multiplayerRadius);
-            if (globals.BuildingRepairProximityCheckRange.GetValue() != normal)
-                globals.BuildingRepairProximityCheckRange.SetValue(normal);
-            if (globals.BuildingRepairProximityCheckExRange.GetValue() != reduced)
-                globals.BuildingRepairProximityCheckExRange.SetValue(reduced);
+            if (proximityQuery == null || (civilian < 0 && military < 0)) return;
+            civilian = EnemyProximityPolicy.ResolveRadius(args.Proximity, civilian);
+            military = EnemyProximityPolicy.ResolveRadius(args.Proximity, military);
+            // Compute first. An exception leaves the original event decision untouched.
+            long result = proximityQuery.Invoke(args.PlayerId, args.TileX, args.TileY, military, args.Unknown, civilian);
+            args.ReturnValue = result;
+            args.SkipOriginalFunction = true;
         }
 
         private void LogGameModeFailure(string context, Exception ex)

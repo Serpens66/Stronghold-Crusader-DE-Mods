@@ -28,10 +28,6 @@ namespace ExtraFeatures
         public string GateClosingDistanceTitleText => SerpLocalization.Get("ExtraFeatures.SettingsLayout.ClosingDistance");
         public string SingleplayerText => SerpLocalization.Get("ExtraFeatures.SettingsLayout.Singleplayer");
         public string MultiplayerText => SerpLocalization.Get("ExtraFeatures.SettingsLayout.Multiplayer");
-        public string HumanEnemyProximitySingleplayerSearchTitle => EnemyProximityTitleText + " – " + HumanEnemyProximitySingleplayerText;
-        public string HumanEnemyProximityMultiplayerSearchTitle => EnemyProximityTitleText + " – " + HumanEnemyProximityMultiplayerText;
-        public string AIEnemyProximitySingleplayerSearchTitle => EnemyProximityTitleText + " – " + AIEnemyProximitySingleplayerText;
-        public string AIEnemyProximityMultiplayerSearchTitle => EnemyProximityTitleText + " – " + AIEnemyProximityMultiplayerText;
         private string settingsSearchLanguage;
         private string settingsSearchGoodsTitles;
 
@@ -42,6 +38,7 @@ namespace ExtraFeatures
                 NormalizeOwnedKillReward();
                 OnPropertyChanged(nameof(CanConfigurePeriodicGold));
                 OnPropertyChanged(nameof(CanConfigureKillReward));
+                OnPropertyChanged(nameof(CanConfigureEnemyProximity));
             }
             if (args.PropertyName == nameof(System_ModSettingsSearchText) ||
                 args.PropertyName == nameof(System_ModSettingsSearchIncludeToolTips) ||
@@ -324,10 +321,10 @@ namespace ExtraFeatures
         [SyncHostOnly] public double AIGateReopenDelaySeconds { get => aiGateReopenDelaySeconds; set => SetDoubleSetting(ref aiGateReopenDelaySeconds, RoundToStep(value, 2.5), GatehouseTimingValues.MinimumAiDelaySeconds, GatehouseTimingValues.MaximumAiDelaySeconds, nameof(AIGateReopenDelaySeconds), nameof(AIGateReopenDelayValueText)); }
         [SyncHostOnly] public double HumanGateClosingDistanceTiles { get => humanGateClosingDistanceTiles; set => SetDoubleSetting(ref humanGateClosingDistanceTiles, RoundToStep(value, 0.5), GatehouseTimingValues.MinimumDistanceTiles, GatehouseTimingValues.MaximumDistanceTiles, nameof(HumanGateClosingDistanceTiles), nameof(HumanGateClosingDistanceValueText)); }
         [SyncHostOnly] public double AIGateClosingDistanceTiles { get => aiGateClosingDistanceTiles; set => SetDoubleSetting(ref aiGateClosingDistanceTiles, RoundToStep(value, 0.5), GatehouseTimingValues.MinimumDistanceTiles, GatehouseTimingValues.MaximumDistanceTiles, nameof(AIGateClosingDistanceTiles), nameof(AIGateClosingDistanceValueText)); }
-        [SyncHostOnly] public int HumanEnemyProximitySingleplayer { get => humanEnemyProximitySingleplayer; set => SetIntSetting(ref humanEnemyProximitySingleplayer, value, EnemyProximityPolicy.MinimumRadius, EnemyProximityPolicy.MaximumRadius, nameof(HumanEnemyProximitySingleplayer), nameof(HumanEnemyProximitySingleplayerValueText)); }
-        [SyncHostOnly] public int HumanEnemyProximityMultiplayer { get => humanEnemyProximityMultiplayer; set => SetIntSetting(ref humanEnemyProximityMultiplayer, value, EnemyProximityPolicy.MinimumRadius, EnemyProximityPolicy.MaximumRadius, nameof(HumanEnemyProximityMultiplayer), nameof(HumanEnemyProximityMultiplayerValueText)); }
-        [SyncHostOnly] public int AIEnemyProximitySingleplayer { get => aiEnemyProximitySingleplayer; set => SetIntSetting(ref aiEnemyProximitySingleplayer, value, EnemyProximityPolicy.MinimumRadius, EnemyProximityPolicy.MaximumRadius, nameof(AIEnemyProximitySingleplayer), nameof(AIEnemyProximitySingleplayerValueText)); }
-        [SyncHostOnly] public int AIEnemyProximityMultiplayer { get => aiEnemyProximityMultiplayer; set => SetIntSetting(ref aiEnemyProximityMultiplayer, value, EnemyProximityPolicy.MinimumRadius, EnemyProximityPolicy.MaximumRadius, nameof(AIEnemyProximityMultiplayer), nameof(AIEnemyProximityMultiplayerValueText)); }
+        [SyncHostOnly] public int HumanEnemyProximitySingleplayer { get => humanEnemyProximitySingleplayer; set { if (CanMutateSetting(nameof(HumanEnemyProximitySingleplayer))) humanEnemyProximitySingleplayer = Math.Max(-1, Math.Min(100, value)); } }
+        [SyncHostOnly] public int HumanEnemyProximityMultiplayer { get => humanEnemyProximityMultiplayer; set { if (CanMutateSetting(nameof(HumanEnemyProximityMultiplayer))) humanEnemyProximityMultiplayer = Math.Max(-1, Math.Min(100, value)); } }
+        [SyncHostOnly] public int AIEnemyProximitySingleplayer { get => aiEnemyProximitySingleplayer; set { if (CanMutateSetting(nameof(AIEnemyProximitySingleplayer))) aiEnemyProximitySingleplayer = Math.Max(-1, Math.Min(100, value)); } }
+        [SyncHostOnly] public int AIEnemyProximityMultiplayer { get => aiEnemyProximityMultiplayer; set { if (CanMutateSetting(nameof(AIEnemyProximityMultiplayer))) aiEnemyProximityMultiplayer = Math.Max(-1, Math.Min(100, value)); } }
         [SyncHostOnly]
         public int AITowerGateRebuildDelaySeconds
         {
@@ -366,10 +363,6 @@ namespace ExtraFeatures
         public string AIGateReopenDelayValueText { get => FormatSeconds(AIGateReopenDelaySeconds); set => SetDoubleValueText(value, parsed => AIGateReopenDelaySeconds = parsed, nameof(AIGateReopenDelayValueText)); }
         public string HumanGateClosingDistanceValueText { get => FormatTiles(HumanGateClosingDistanceTiles); set => SetDoubleValueText(value, parsed => HumanGateClosingDistanceTiles = parsed, nameof(HumanGateClosingDistanceValueText)); }
         public string AIGateClosingDistanceValueText { get => FormatTiles(AIGateClosingDistanceTiles); set => SetDoubleValueText(value, parsed => AIGateClosingDistanceTiles = parsed, nameof(AIGateClosingDistanceValueText)); }
-        public string HumanEnemyProximitySingleplayerValueText { get => FormatWholeTiles(HumanEnemyProximitySingleplayer); set => SetIntValueText(value, parsed => HumanEnemyProximitySingleplayer = parsed, nameof(HumanEnemyProximitySingleplayerValueText)); }
-        public string HumanEnemyProximityMultiplayerValueText { get => FormatWholeTiles(HumanEnemyProximityMultiplayer); set => SetIntValueText(value, parsed => HumanEnemyProximityMultiplayer = parsed, nameof(HumanEnemyProximityMultiplayerValueText)); }
-        public string AIEnemyProximitySingleplayerValueText { get => FormatWholeTiles(AIEnemyProximitySingleplayer); set => SetIntValueText(value, parsed => AIEnemyProximitySingleplayer = parsed, nameof(AIEnemyProximitySingleplayerValueText)); }
-        public string AIEnemyProximityMultiplayerValueText { get => FormatWholeTiles(AIEnemyProximityMultiplayer); set => SetIntValueText(value, parsed => AIEnemyProximityMultiplayer = parsed, nameof(AIEnemyProximityMultiplayerValueText)); }
         public string AITowerGateRebuildDelayValueText { get => FormatWholeSeconds(AITowerGateRebuildDelaySeconds); set => SetIntValueText(value, parsed => AITowerGateRebuildDelaySeconds = parsed, nameof(AITowerGateRebuildDelayValueText)); }
         public string HumanLordHealthPercentText { get => FormatPercent(HumanLordHealthPercent); set => SetIntValueText(value, parsed => HumanLordHealthPercent = parsed, nameof(HumanLordHealthPercentText)); }
         public string AILordHealthPercentText { get => FormatPercent(AILordHealthPercent); set => SetIntValueText(value, parsed => AILordHealthPercent = parsed, nameof(AILordHealthPercentText)); }
@@ -436,6 +429,7 @@ namespace ExtraFeatures
                 AIGateReopenDelaySeconds = GatehouseTimingValues.VanillaAiDelaySeconds;
                 HumanGateClosingDistanceTiles = GatehouseTimingValues.VanillaHumanDistanceTiles;
                 AIGateClosingDistanceTiles = GatehouseTimingValues.VanillaAiDistanceTiles;
+                ResetEnemyProximityDefaults();
                 HumanEnemyProximitySingleplayer = EnemyProximityPolicy.VanillaMode;
                 HumanEnemyProximityMultiplayer = EnemyProximityPolicy.VanillaMode;
                 AIEnemyProximitySingleplayer = EnemyProximityPolicy.VanillaMode;

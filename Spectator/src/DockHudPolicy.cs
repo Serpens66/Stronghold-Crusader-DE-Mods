@@ -2,12 +2,6 @@ namespace Spectator
 {
     internal enum DockHudDisplay { Hidden, Tools, Placement }
 
-    internal sealed class DockMenuState
-    {
-        internal string Page { get; private set; } = "";
-        internal void Open(string page) { if (page == "" || page == "Goods" || page == "Orders") Page = page; }
-    }
-
     internal static class DockHudPolicy
     {
         // Managed HUD_Main contract: NewBuildScreenBlank selects page 22. It has no build icons.

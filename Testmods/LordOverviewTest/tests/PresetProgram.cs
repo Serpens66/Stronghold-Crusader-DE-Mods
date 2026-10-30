@@ -41,7 +41,8 @@ internal static class LordOverviewPresetTests {
   Check(Prepare(file).Columns=="Fear,Popularity","deferred local choice survives restart");
   var reorder=new ColumnSelection();reorder.Load(model.Columns);Check(reorder.MoveTo(Metric.Popularity,0),"header drop changes selection by metric ID");
   model.SetDisplayColumns(Metrics.Serialize(reorder.Columns));Check(Prepare(file).Columns=="Popularity,Fear","header-drop order survives actual shared persistence restart");
-  model.Columns="Gold,Army,Popularity,Fear,GoldAcquired,MaxPopulation";Check(model.Columns==Metrics.Serialize(Metrics.Defaults),"invalid six-column preference normalizes safely");
+  model.Columns="Gold,Army,Popularity,Fear,GoldAcquired,MaxPopulation";Check(model.Columns=="Gold,Army,Popularity,Fear,GoldAcquired,MaxPopulation","more than five columns persist without normalization");
+  model.Columns="Gold,other.mod/missing,Army";Check(Prepare(file).Columns==model.Columns,"missing external provider survives actual preset restart");
   Console.WriteLine("PASS: "+checks+" production LordOverview settings/persistence/host-source checks.");return 0;
  }catch(Exception error){Console.Error.WriteLine(error);return 1;}}
 }

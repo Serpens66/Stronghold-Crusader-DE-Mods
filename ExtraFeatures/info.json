@@ -3,7 +3,7 @@
   "Author": "Serpens66",
   "Name": "Extra Features",
   "Description": "Optional gameplay additions and economy customization for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.125",
+  "Version": "1.0.126",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.0",
   "MaximumScriptExtenderVersion": "",
@@ -16,6 +16,14 @@
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.126",
+      "Changes": [
+        "Split enemy-unit proximity into independent civilian and military radii for humans/AI and singleplayer/multiplayer. Preserve separate enemy-building/wall restrictions and the existing action scope.",
+        "Migrate existing common radii into both categories without overriding explicit new values, including Vanilla. Preserve personal profiles, named presets, mission snapshots and host/client authority.",
+        "Use a fully validated private native predicate through the existing Script Extender event, with no additional game-code hook or runtime immediate writes."
+      ]
+    },
     {
       "Version": "1.0.125",
       "Changes": [

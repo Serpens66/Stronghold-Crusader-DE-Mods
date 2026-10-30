@@ -81,6 +81,8 @@ namespace Spectator
 
         private static void AfterSetupNewBuildScreen(HUD_Main __instance)
         {
+            // Editor pages use Vanilla's visibility updates, but need the same raster refit.
+            if (ReferenceEquals(__instance, humanBoundHud)) toolbarLayoutDirty = true;
             if (!IsPlacementSession() || IsEditorToolsSession()) return;
             try { RefreshBuildIcons(__instance, CurrentAiOwner(), "tab"); }
             catch (Exception error) { LogOnce("SPECTATOR_EDITOR_ICONS_ERROR: " + error); }
@@ -210,6 +212,7 @@ namespace Spectator
             }
 
             bool changed = !ReferenceEquals(hud, activeHud) || owner != lastOwner || screen != lastScreen;
+            if (changed) toolbarLayoutDirty = true;
             activeHud = hud;
             lastOwner = owner;
             lastScreen = screen;

@@ -25,6 +25,38 @@ try {
  $calls=@($method.Body.Instructions | Where-Object {$_.Operand -is [Mono.Cecil.MethodReference]} | ForEach-Object {$_.Operand.Name})
  foreach($name in @('SetSprite1','SetSprite2','SetSprite3','SetSprite4')){if($name -notin $calls){throw "Missing Vanilla sprite assignment: $name"}}
  if($assembly.MainModule.GetType('LordOverviewTest.OverviewCrownButton')){throw 'Obsolete custom crown-template path remains.'}
+ # Guard the consumer's actual compiled opt-in. This does not prove Noesis rendering, but catches
+ # the previous failure class where only an inherited Extender tooltip style owned the size.
+ $runtime=$assembly.MainModule.GetType('LordOverviewTest.OverviewRuntime')
+ $tipFactory=$runtime.Methods | Where-Object Name -eq 'CreateTip'
+ $sizingCalls=@($tipFactory.Body.Instructions | Where-Object {$_.Operand -is [Mono.Cecil.MethodReference] -and $_.Operand.DeclaringType.FullName -eq 'APIShared.ModSettings.SharedToolTipSizing'} | ForEach-Object {$_.Operand.Name})
+ foreach($name in @('SetReferenceElement','SetReferenceFontSize','SetEnabled')){if($name -notin $sizingCalls){throw "Owned statistics tooltips lost their public sizing opt-in: $name"}}
+ # The game consumes any Noesis visual hit before routed handlers. Check the compiled
+ # creation boundaries, not only an unhandled Click event. Real Noesis hit tests remain in-game QA.
+ foreach($pair in @(@('LordOverviewTest.OverviewRuntime','CreateTip'),@('LordOverviewTest.OverviewAppearance','PlayerText'),@('LordOverviewTest.OverviewAppearance','Portrait'))){
+  $creator=$assembly.MainModule.GetType($pair[0]).Methods | Where-Object Name -eq $pair[1]
+  $passive=@($creator.Body.Instructions | Where-Object {$_.Operand -is [Mono.Cecil.MethodReference] -and $_.Operand.Name -eq 'set_IsHitTestVisible' -and $_.Previous.OpCode.Name -eq 'ldc.i4.0'})
+  if(-not $passive.Count){throw "Passive visual lost its hit-test exclusion: $($pair -join '.')"}
+ }
+ # Follow owned call targets (including dispatcher delegate bodies) from the presentation callback.
+ # This protects the 40-tick data boundary without trying to simulate Noesis or native game reads.
+ $pending=[Collections.Generic.Stack[Mono.Cecil.MethodDefinition]]::new()
+ $pending.Push(($runtime.Methods | Where-Object Name -eq 'OnHoverGui'))
+ $seen=[Collections.Generic.HashSet[string]]::new()
+ while($pending.Count){
+  $method=$pending.Pop();if(-not $method.HasBody -or -not $seen.Add($method.FullName)){continue}
+  foreach($instruction in $method.Body.Instructions){
+   if($instruction.Operand -isnot [Mono.Cecil.MethodReference]){continue}
+   $call=$instruction.Operand
+   if(($call.DeclaringType.FullName -eq 'LordOverviewTest.OverviewData' -and $call.Name -eq 'Capture') -or ($call.DeclaringType.FullName -eq 'EngineInterface' -and $call.Name -in @('GetMeritData','GetMPScoreData'))){throw 'Presentation hover must not sample statistics.'}
+   if($call -is [Mono.Cecil.MethodDefinition] -and $call.Module -eq $assembly.MainModule){$pending.Push($call)}
+  }
+ }
+ $attach=$runtime.Methods | Where-Object Name -eq 'Attach'
+ $templates=@($attach.Body.Instructions | Where-Object {$_.OpCode.Name -eq 'ldstr' -and $_.Operand -match "TargetType='\{x:Type ToolTip\}'"} | ForEach-Object {$_.Operand})
+ if($templates.Count -ne 1){throw 'Expected one explicit statistics popup style.'}
+ [xml]$template=$templates[0]
+ foreach($name in @('FontSize','MaxWidth','Padding','BorderThickness')){if($templates[0] -notmatch "\{TemplateBinding $name\}"){throw "Tooltip template does not honor its size owner: $name"}}
  $metrics=@($assembly.MainModule.GetType('LordOverviewTest.Metric').Fields | Where-Object IsLiteral | ForEach-Object Name)
  $settings=$assembly.MainModule.GetType('LordOverviewTest.OverviewSettings')
  foreach($name in @('EnableMod','AllowEnemyDetails','Columns')){

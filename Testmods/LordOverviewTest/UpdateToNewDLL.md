@@ -35,3 +35,48 @@ Metric identifiers, selection order and sorting are independent of visual positi
 The three themes are Economy, Military and Population/mood; they include both current and cumulative values. Stable metric IDs and saved order are unchanged. The popup, pages, checkboxes and ScrollViewer are created once per HUD. Changes only update check states, availability and the count. A 22-unit content gutter reserves room for the Vanilla scroll skin. The header/footer never scroll. Per-category offsets and the selected category are retained for the session and restored after layout through the guarded Unity queue. The menu uses its own fixed-width anchor sibling, positioned once per opening; changing the table width does not reposition the popup. No transparent click catcher is created.
 
 Only value headers support pointer gestures. A six-logical-unit movement threshold separates sorting from drag; a drop commits once, by metric ID, and preserves the selected sort ID. Invalid targets, session/HUD-generation changes, Escape, focus/capture loss and hiding cancel the gesture. Actual mouse capture and focus-change events are used, without a frame poll or new native hook. The data cadence still runs every forty visible ticks; presentation is deferred from pointer-down until release/cancel so it cannot replace a captured header. Ordinary value updates also retain header controls while columns, widths and sort state stay unchanged. APIShared and information rights are untouched.
+
+## Extensible columns and source-relative popups (2026-10-29)
+
+APIShared 0.19.0 owns the process-lived provider catalog and exclusive tooltip scaler, not this HUD.
+Builtin persisted IDs remain unchanged. External keys are escaped owner/local-ID pairs; absent
+providers retain removable selections. External providers receive only rows with ExtendedAllowed,
+after the existing controlled-player/spectator/elimination policy. Native builtin snapshots finish
+under the cached engine lock before external readers run; revalidate session afterwards.
+
+The table uses one Auto Grid for header and cells. No maximum count or character-width estimate;
+gear and identity precede metrics. Intrinsic rendered text (including custom decimal units) and
+symbols determine width. Header icons have balanced arrow space. Mouse-down captures actual
+arranged column geometry; data still samples every 40 ticks while presentation waits until release.
+No horizontal scrollbar, truncation or rescaling is introduced. Overwide content extends right.
+
+All owned statistics popups opt into SharedToolTipSizing with reference element and logical font 16.
+Templates bind every sized property. Settings popups use the same public scaler's preset mode.
+No new native contract, hook, perspective write, serializer or game data source is introduced.
+Actual Noesis rendering and viewport-scale acceptance remain separate from CLI validation.
+
+## Passive viewport table (2026-10-29)
+
+Managed UI audit: the APIShared side-button host belongs to Vanilla's HUD_ObjectivesPanel
+(width 440) in the full IngameUIScreens Grid. The table now owns a separate Canvas sibling,
+spanning that Grid's rows/columns at the same presentation layer, with an explicit binding to
+the extras container's visibility. It does not change that container, its width, clipping or
+Vanilla input state. Canvas measures the table at natural width; only viewport rendering clips.
+
+NoesisView.ProcessEvent consumes MouseDown/MouseUp after a nonempty visual HitTest before
+routed handlers decide Handled. Therefore Background, row identities/cells, lines, symbols
+and closed-mode header buttons are non-hit-testable. No synthetic clicks, input rewriting or
+native hooks are used. The gear shares the identity header; editable headers exist only while
+the column popup is open. A menu epoch additionally rejects queued sorts after close/reopen.
+
+Passive portrait/symbol/gear popups are manually opened ToolTips with PlacementTarget and
+IsHitTestVisible=false, using public SharedToolTipSizing. APIShared PresentationEvents.GuiChecks
+Post supplies the existing Unity-thread cadence, once per frame and dormant when hidden.
+Its work is pointer state, cached screen bounds and hover delay, never statistical data.
+Statistics remain opening/40-tick samples; cells update in place and never reset hover solely
+because a numeric value changed. The original popup service remains on menu controls/crown.
+
+Real unmodified assemblies verified at compilation: Noesis Canvas/Grid spans, PointToScreen /
+PointFromScreen, ToolTip placement and public Unity InputLegacyModule accesses. No publicized
+assembly or new native DLL contract. Native tooltip display, click-through, foreign popup
+occlusion and screen-edge clipping still require actual game acceptance at the three resolutions.

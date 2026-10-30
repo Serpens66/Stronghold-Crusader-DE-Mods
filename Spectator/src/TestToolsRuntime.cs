@@ -37,7 +37,6 @@ namespace Spectator
             internal ToolPower Power;
             internal int Tile;
             internal GateSelection Gate;
-            internal AllyTestViewModel AllyReply;
         }
 
         private static void RegisterTestActions()
@@ -135,8 +134,7 @@ namespace Spectator
 
         private static void ReportTestAction(TestAction action, string message)
         {
-            if (action.AllyReply != null) { action.AllyReply.Status = message; allyTestDirty = true; }
-            else toolsModel?.SetActionStatus(action.Kind, message);
+            toolsModel?.SetActionStatus(action.Kind, message);
         }
 
         private static void DrainTestActions()

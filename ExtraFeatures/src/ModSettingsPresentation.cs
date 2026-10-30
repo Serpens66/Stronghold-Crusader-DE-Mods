@@ -44,9 +44,9 @@ namespace ExtraFeatures
         public SettingsGroupPresentation GateReopenOptions { get; } = new SettingsGroupPresentation("human-gate-reopen-delay", "ai-gate-reopen-delay");
         public SettingsGroupPresentation GateDistanceOptions { get; } = new SettingsGroupPresentation("human-gate-closing-distance", "ai-gate-closing-distance");
         public SettingsGroupPresentation BuildingOptions { get; } = new SettingsGroupPresentation("building-repair", "keep-build-range");
-        public SettingsGroupPresentation EnemyProximityOptions { get; } = new SettingsGroupPresentation("human-enemy-proximity-singleplayer", "ai-enemy-proximity-singleplayer", "human-enemy-proximity-multiplayer", "ai-enemy-proximity-multiplayer");
-        public SettingsGroupPresentation EnemySingleplayerOptions { get; } = new SettingsGroupPresentation("human-enemy-proximity-singleplayer", "ai-enemy-proximity-singleplayer");
-        public SettingsGroupPresentation EnemyMultiplayerOptions { get; } = new SettingsGroupPresentation("human-enemy-proximity-multiplayer", "ai-enemy-proximity-multiplayer");
+        public SettingsGroupPresentation EnemyProximityOptions { get; } = new SettingsGroupPresentation("human-civilian-enemy-proximity-singleplayer", "human-military-enemy-proximity-singleplayer", "ai-civilian-enemy-proximity-singleplayer", "ai-military-enemy-proximity-singleplayer", "human-civilian-enemy-proximity-multiplayer", "human-military-enemy-proximity-multiplayer", "ai-civilian-enemy-proximity-multiplayer", "ai-military-enemy-proximity-multiplayer");
+        public SettingsGroupPresentation EnemySingleplayerOptions { get; } = new SettingsGroupPresentation("human-civilian-enemy-proximity-singleplayer", "human-military-enemy-proximity-singleplayer", "ai-civilian-enemy-proximity-singleplayer", "ai-military-enemy-proximity-singleplayer");
+        public SettingsGroupPresentation EnemyMultiplayerOptions { get; } = new SettingsGroupPresentation("human-civilian-enemy-proximity-multiplayer", "human-military-enemy-proximity-multiplayer", "ai-civilian-enemy-proximity-multiplayer", "ai-military-enemy-proximity-multiplayer");
         public SettingsGroupPresentation AiRebuildOptions { get; } = new SettingsGroupPresentation("ai-tower-gate-rebuild-delay");
         public SettingsGroupPresentation PopulationOptions { get; } = new SettingsGroupPresentation("extra-church-priests", "campfire-peasants");
         public SettingsGroupPresentation KillRewardOptions { get; } = new SettingsGroupPresentation("kill-reward-gold", "kill-reward-goods", "kill-reward-maximum");

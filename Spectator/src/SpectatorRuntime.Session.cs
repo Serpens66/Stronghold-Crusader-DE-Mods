@@ -81,6 +81,8 @@ namespace Spectator
             SetRevealHidden(0);
             DetachHumanControls();
             humanPlacementMode = false;
+            toolbarMoved = false;
+            toolbarDesiredX = toolbarDesiredY = 0;
             RestorePlacementFreeze();
             ApplyHumanAi(-1);
             initialSelectionChosen = false;
@@ -108,7 +110,6 @@ namespace Spectator
             buildingWall = null;
             placingUnitOwner = 0;
             rawMouseReleasePending = false;
-            RestoreDateLayout();
             activeHud = null;
             initialLayoutLoggedHud = null;
             lastOwner = int.MinValue;

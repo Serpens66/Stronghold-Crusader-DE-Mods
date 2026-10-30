@@ -14,46 +14,17 @@ namespace Spectator {
    Check(DockHudPolicy.Evaluate(true,false,true,false,false,false,22)==DockHudDisplay.Hidden,"global hide");
    Check(DockHudPolicy.Evaluate(true,true,false,false,false,false,22)==DockHudDisplay.Hidden,"reports/building owner");
    Check(DockHudPolicy.Evaluate(true,true,true,false,true,false,22)==DockHudDisplay.Hidden,"editor terrain not empty");
-   var dock = new DockMenuState(); var upper = new ToolbarMenuState();
-   dock.Open("Goods"); Check(dock.Page=="Goods" && !upper.Expanded,"bottom page does not expand upper menu");
-   upper.ToggleView("Orders"); Check(dock.Page=="Goods","upper navigation preserves bottom page");
-   dock.Open("Orders"); dock.Open(""); Check(dock.Page=="" && upper.View=="Orders","bottom back leaves upper navigation alone");
-   dock.Open("unknown"); Check(dock.Page=="","unknown page cannot hide all content");
    var menu = new ToolbarMenuState();
-   Check(!menu.Expanded && menu.View == "", "new HUD starts minimized");
-   menu.ToggleExpanded(); Check(menu.Expanded && menu.View == "");
-   menu.ToggleView("Goods"); Check(menu.Expanded && menu.View == "Goods");
-   menu.ToggleView("Goods"); Check(menu.Expanded && menu.View == "");
-   menu.ToggleView("Goods"); menu.ToggleView("Orders"); Check(menu.View == "Orders");
-   menu.ToggleView("Orders"); Check(menu.View == "");
-   menu.ToggleView("Orders"); menu.Placement(); Check(menu.View == "" && menu.Expanded);
-   menu.ToggleExpanded(); Check(!menu.Expanded);
-   foreach (int players in new[] {1,2,4,5,8}) {
-    float barWidth = 46 + players * 34;
-    foreach (float canvas in new[] {960f,1920f,2560f,3840f}) {
-     float width = ToolbarGeometry.DetailWidth(canvas);
-     Check(ToolbarGeometry.DetailLeft(10,barWidth,width,canvas,false)==10,"left anchor");
-     float right = canvas - barWidth - 10;
-     Check(ToolbarGeometry.DetailLeft(right,barWidth,width,canvas,true)==canvas-width-10,"right anchor");
-     Check(ToolbarGeometry.DetailHeight(1080,1020)==50,"scroll instead of moving bar");
-     Check(ToolbarGeometry.DetailHeight(1080,1090)==0,"no negative geometry");
-    }
-   }
-   // Verify packing with holes as well as contiguous slots; no absent player reserves a cell.
-   foreach (int mask in new[] {0,1,3,15,31,255,0x85,0xAA}) {
-    var positions = ToolbarGeometry.PortraitPositions(mask);
-    var occupied = new System.Collections.Generic.List<int>();
-    for (int player=1;player<=8;player++) {
-     if ((mask & (1 << (player-1)))==0) Check(positions[player]==-1,"absent card has no cell");
-     else occupied.Add(positions[player]);
-    }
-    occupied.Sort();
-    for(int cell=0;cell<occupied.Count;cell++) Check(occupied[cell]==cell,"visible cells are consecutive");
-    if(occupied.Count<=4 && occupied.Count>0) Check(occupied[occupied.Count-1]/4==0,"one row for four or fewer");
-    if(occupied.Count>4) Check(occupied[occupied.Count-1]/4==1,"second row only when needed");
-   }
-   var sparse=ToolbarGeometry.PortraitPositions(0x85);
-   Check(sparse[1]==0 && sparse[3]==1 && sparse[8]==2,"fixed IDs keep player order through compaction");
+   Check(!menu.Expanded && menu.View == "Goods", "new HUD starts compact with a useful initial page");
+   menu.ToggleExpanded(); Check(menu.ShowDetails);
+   menu.ToggleView("Orders"); Check(menu.ShowDetails && menu.View == "Orders");
+   menu.SetPlacement(true); Check(!menu.ShowDetails && menu.Expanded && menu.View == "Orders", "placement hides content without losing navigation");
+   menu.SetPlacement(false); Check(menu.ShowDetails && menu.View == "Orders", "stop restores the previous page");
+   menu.ToggleExpanded(); menu.SetPlacement(true); menu.SetPlacement(false);
+   Check(!menu.Expanded, "placement from compact restores compact");
+   menu.ToggleView("Goods"); menu.ToggleView("Goods"); Check(menu.View == "Goods" && menu.Expanded);
+   menu.ToggleView("unknown"); Check(menu.View == "Goods", "unknown navigation leaves a usable page");
+   ToolbarLayoutTests.Run(Check); SpectatorRuntime.TestToolbarProperty(Check);
    foreach(float menuScale in new[]{1f,1.333333f,2f,2.75f})
    foreach(float popupScale in new[]{1f,1.5f,2f}) {
     Check(ToolbarGeometry.TryTooltipScale(menuScale,menuScale,popupScale,popupScale,out float sx,out float sy));

@@ -29,6 +29,7 @@ namespace ExtraFeatures
                 NoKillRewardContractTests.Run(image);
                 HealerTargetsContractTests.Run(image, FindWorkspace());
                 FearFactorStubTests.Run(image, Check);
+                EnemyProximityNativeTests.Run(image, Check);
                 Console.WriteLine($"PASS: ExtraFeatures native tests ({assertions} assertions).");
                 return 0;
             }

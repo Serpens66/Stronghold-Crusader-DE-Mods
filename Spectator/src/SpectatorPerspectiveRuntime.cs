@@ -484,7 +484,7 @@ namespace Spectator
 
         private static void WaitForFreshAllies(EngineInterface.PlayState oldState)
         {
-            if (MainViewModel.Instance?.AlliesPanelVisible != true || SpectatorRuntime.IsAllyTestMode) return;
+            if (MainViewModel.Instance?.AlliesPanelVisible != true) return;
             var panel = MainViewModel.Instance.HUDAlliesPanel;
             if (panel == null) return;
             if (hiddenAlliesPanel != null && !ReferenceEquals(hiddenAlliesPanel, panel)) RestoreAllyPanel();

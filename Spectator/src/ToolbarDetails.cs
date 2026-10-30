@@ -9,8 +9,6 @@ namespace Spectator
         private static readonly Brush neutralPlayerBrush = new SolidColorBrush(Color.FromRgb(255, 255, 255));
         private static readonly Brush normalOwnerBorder = new SolidColorBrush(Color.FromArgb(176, 114, 36, 28));
         private static readonly Brush selectedOwnerBorder = new SolidColorBrush(Color.FromRgb(239, 198, 112));
-        private static readonly Image[] ownerOrderIcons = new Image[9];
-        private static readonly PresentedAiOrder[] shownOrders = new PresentedAiOrder[9];
         private static Image currentOrderIcon;
         private static TextBlock currentOrderText, currentOrderTarget;
         private static PresentedAiOrder shownCurrentOrder;
@@ -20,9 +18,7 @@ namespace Spectator
         private static void OnToolsModelChanged(object sender, System.ComponentModel.PropertyChangedEventArgs args)
         {
             toolbarDirty = true;
-            dockDirty = true;
-            if (args.PropertyName == nameof(TestToolsViewModel.DockGoodsVisibility) && toolsModel?.DockPage != "Goods")
-                dockAmountInput?.EndEditing();
+            toolbarLayoutDirty = true;
             if (args.PropertyName == nameof(TestToolsViewModel.ExpandedVisibility) && toolsModel?.Expanded != true)
             { ClosePlayerTooltips(); amountInput?.EndEditing(); }
         }
@@ -30,25 +26,16 @@ namespace Spectator
         private static Brush PlayerBrush(int player) => player > 0 && player < humanOwnerNumbers.Length
             ? humanOwnerNumbers[player]?.Foreground ?? neutralPlayerBrush : neutralPlayerBrush;
 
-        private static void PositionHumanDetails()
-        {
-            if (!humanPositioned || humanPanel == null || humanCanvas == null || humanDetails == null) return;
-            float width = ToolbarGeometry.DetailWidth(humanCanvas.ActualWidth);
-            float top = (float)Canvas.GetTop(humanPanel);
-            float header = Math.Max(0, humanPanel.ActualHeight - 8);
-            detailsHeader.Height = header;
-            detailsScroll.MaxHeight = Math.Max(0, ToolbarGeometry.DetailHeight(humanCanvas.ActualHeight, top) - header - 8);
-            humanDetails.Width = width;
-            humanDetails.MaxHeight = ToolbarGeometry.DetailHeight(humanCanvas.ActualHeight, top);
-            Canvas.SetLeft(humanDetails, ToolbarGeometry.DetailLeft((float)Canvas.GetLeft(humanPanel),
-                humanPanel.Width, width, humanCanvas.ActualWidth, detailsRight));
-            Canvas.SetTop(humanDetails, top);
-        }
-
         private static bool HitPanel(FrameworkElement element, MouseButtonEventArgs args)
         {
             if (element == null || !element.IsVisible) return false;
             Point p = args.GetPosition(element);
+            if (ReferenceEquals(element, humanPanel))
+            {
+                foreach (var piece in paintedPieces)
+                    if (p.X >= piece.X && p.X < piece.Right && p.Y >= piece.Y && p.Y < piece.Bottom) return true;
+                return false;
+            }
             return p.X >= 0 && p.Y >= 0 && p.X < element.ActualWidth && p.Y < element.ActualHeight;
         }
 
@@ -56,12 +43,10 @@ namespace Spectator
         {
             // Preview runs before a different text input takes focus; leave the original click untouched.
             amountInput?.OutsidePointerDown(HitPanel(humanPanel, args) || HitPanel(humanDetails, args));
-            dockAmountInput?.OutsidePointerDown(HitPanel(dockMenu, args));
         }
 
         private static void ReleaseAmountForMapClick()
         {
-            ReleaseDockAmountForMapClick();
             var input = amountInput;
             if (input == null || !input.OwnsKeyboard) return;
             long session = CurrentSessionId;
@@ -73,25 +58,11 @@ namespace Spectator
 
         private static void ClosePlayerTooltips() => MenuToolTipSizing.CloseAll();
 
-        private static void PackPortraitCards(Button[] buttons)
-        {
-            int mask = 0;
-            for (int player = 1; player <= 8; player++)
-                if (buttons[player].Visibility == Visibility.Visible) mask |= 1 << (player - 1);
-            var positions = ToolbarGeometry.PortraitPositions(mask);
-            for (int player = 1; player <= 8; player++)
-            {
-                if (positions[player] < 0) continue;
-                Grid.SetRow(buttons[player], positions[player] / 4);
-                Grid.SetColumn(buttons[player], positions[player] % 4);
-            }
-        }
-
         private static void RefreshColouredStatus(TextBlock target = null)
         {
             var text = target ?? statusText;
             if (text == null || toolsModel == null) return;
-            string value = toolsModel.StatusForPage(target == dockStatus ? toolsModel.DockPage : toolsModel.ActiveViewKey) ?? "";
+            string value = toolsModel.StatusForPage(toolsModel.ActiveViewKey) ?? "";
             text.Inlines.Clear();
             int offset = 0;
             while (offset < value.Length)
@@ -108,7 +79,6 @@ namespace Spectator
                 if (match < 0) { text.Inlines.Add(new Run { Text = value.Substring(offset) }); break; }
                 if (match > offset) text.Inlines.Add(new Run { Text = value.Substring(offset, match - offset) });
                 text.Inlines.Add(new Run { Text = labelMatch, Foreground = PlayerBrush(playerMatch) });
-                if (text == dockStatus) SetDockContrast(text, playerMatch);
                 offset = match + labelMatch.Length;
             }
             if (ToolTipService.GetToolTip(text) is ToolTip tip)
@@ -126,15 +96,6 @@ namespace Spectator
         {
             var state = GameData.Instance?.lastGameState;
             if (state == null || toolsModel?.Expanded != true || currentOrderText == null) return;
-            for (int player = 1; player <= 8; player++)
-            {
-                var order = PresentedAiOrder.Read(player, state.skirmish_order, state.skirmish_order_player, state.skirmish_order_from_player);
-                if (force || !order.Equals(shownOrders[player]))
-                {
-                    shownOrders[player] = order;
-                    ownerOrderIcons[player].Source = OrderIcon(order);
-                }
-            }
             var selected = PresentedAiOrder.Read(humanSelectedOwner, state.skirmish_order, state.skirmish_order_player, state.skirmish_order_from_player);
             string locale = SerpLocalization.GetActiveLocale();
             if (!force && shownOrderActor == humanSelectedOwner && selected.Equals(shownCurrentOrder) && shownOrderLocale == locale) return;
@@ -143,7 +104,9 @@ namespace Spectator
             currentOrderText.Text = SerpLocalization.Get("Tools.CurrentOrder") + ": " + SerpLocalization.Get(
                 selected.Mode == 1 ? "Tools.Attack" : selected.Mode == 2 ? "Tools.Defend" : "Tools.NoOrder");
             currentOrderTarget.Text = selected.Mode == 0 ? "" : selected.Target > 0
-                ? PlayerLabel(selected.Target) : SerpLocalization.Get("Tools.UnknownTarget");
+                ? selected.Target.ToString(System.Globalization.CultureInfo.InvariantCulture) : "?";
+            if (ToolTipService.GetToolTip(currentOrderTarget) is ToolTip tip)
+                tip.Content = selected.Target > 0 ? PlayerLabel(selected.Target) : SerpLocalization.Get("Tools.UnknownTarget");
             currentOrderTarget.Foreground = PlayerBrush(selected.Target);
         }
 

@@ -51,9 +51,7 @@ namespace Spectator
         private static DateTime pendingVisibilityAt = DateTime.MaxValue;
         private static int visibilityDiagnostics;
         private static int hudLayoutDiagnostics;
-        private static int dateLayoutDiagnostics;
         private static HUD_Main initialLayoutLoggedHud;
-        private static DateLayoutState dateLayout;
         private static int suppressedBlankCalls;
         private static int suppressedFreezeCalls;
         private static FieldInfo buildIconListsField;
@@ -114,20 +112,19 @@ namespace Spectator
         private static Border humanDragHandle;
         private static Button humanToggle;
         private static TextBlock humanToggleText;
-        private static Panel humanOwners;
         private static readonly Button[] humanOwnerButtons = new Button[9];
         private static readonly TextBlock[] humanOwnerNumbers = new TextBlock[9];
         private static readonly RoutedEventHandler[] humanOwnerHandlers = new RoutedEventHandler[9];
         private static readonly MouseButtonEventHandler[] humanJumpHandlers = new MouseButtonEventHandler[9];
         private static readonly int[] humanDisplayedColours = new int[9];
-        private static bool humanDragging, humanPositioned;
+        private static bool humanDragging;
         private static bool humanCameraFailureLogged;
         private static Point humanDragStart;
         private static float humanDragOriginLeft, humanDragOriginTop;
         private static readonly SolidColorBrush ownerNormalBrush =
-            new SolidColorBrush(Noesis.Color.FromArgb(120, 15, 12, 10));
+            new SolidColorBrush(Noesis.Color.FromArgb(48, 111, 68, 35));
         private static readonly SolidColorBrush ownerSelectedBrush =
-            new SolidColorBrush(Noesis.Color.FromArgb(160, 74, 37, 24));
+            new SolidColorBrush(Noesis.Color.FromArgb(112, 173, 117, 64));
 
         private const string NativeSha256 = "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2";
         private const int AvailabilityRva = 0xCC420;
@@ -208,18 +205,6 @@ namespace Spectator
             internal int Subtractions;
         }
 
-        private sealed class DateLayoutState
-        {
-            internal HUD_Main Hud;
-            internal TextBlock Date;
-            internal TranslateTransform Translate;
-            internal float OriginalX, OriginalFontSize;
-            internal bool OriginalHitTest;
-            internal double LastLeft = double.NaN, LastRight = double.NaN;
-            internal double LastHudWidth = double.NaN;
-            internal float LastTranslation = float.NaN, LastFontSize = float.NaN;
-            internal string LastText;
-        }
 
         internal static void Initialize(ManualLogSource logger, SpectatorViewModel currentSettings)
         {
