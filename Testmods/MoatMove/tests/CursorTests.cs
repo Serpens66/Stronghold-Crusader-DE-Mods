@@ -347,6 +347,78 @@ namespace MoatMove
             }
         }
 
+        // The one-pass member check (TribeFloodMembership.Check) against a direct transcription of
+        // 0x124740 and 0x119F90 as disassembled (FBCB9319): random member bitsets, tribe kinds, group sizes
+        // above the set bits, unit fields and signed stamps; plus a seeded mismatch, so the comparison bites.
+        private void FloodMembershipExactTests()
+        {
+            const int units = 10000, tiles = 4096;
+            byte* tribe = (byte*)NativeMemory.AllocZeroed(0x688); byte* unitRecords = (byte*)NativeMemory.AllocZeroed((nuint)(units * 0x490));
+            short* stamps = (short*)NativeMemory.AllocZeroed(tiles * 2);
+            int ReferenceUnit(int index)
+            {
+                if (*(short*)(tribe + 0x40) != 2) return 0;
+                int count = *(short*)(tribe + 0x5C);
+                if (index >= count || index < 0) return 0;
+                int seen = 0;
+                for (int word = 0; word < 0x271; word++)
+                {
+                    short value = ((short*)(tribe + 0x60))[word];
+                    if (value == 0) continue;
+                    for (int bit = 0; bit < 16; bit++)
+                        if (((int)value >> bit & 1) != 0) { if (seen == index) return bit + word * 16; seen++; }
+                }
+                return 0;
+            }
+            int Reference(int stamp)
+            {
+                int count = *(short*)(tribe + 0x5C);
+                for (int i = 0; i < count; i++)
+                {
+                    byte* unit = unitRecords + (long)ReferenceUnit(i) * 0x490;
+                    if (*(short*)(unit + 0x6E4) == 2 && *(short*)(unit + 0x8F8) == 0 && stamps[*(int*)(unit + 0x72C)] != stamp) return 0;
+                }
+                return 1;
+            }
+            try
+            {
+                var random = new Random(4711); int failures = 0, positives = 0;
+                for (int trial = 0; trial < 400; trial++)
+                {
+                    for (int i = 0; i < 0x688; i++) tribe[i] = 0;
+                    *(short*)(tribe + 0x40) = (short)(trial % 7 == 0 ? 1 : 2);
+                    int members = random.Next(0, 40);
+                    for (int m = 0; m < members; m++) { int u = random.Next(0, units); ((short*)(tribe + 0x60))[u >> 4] |= (short)(1 << (u & 15)); }
+                    *(short*)(tribe + 0x5C) = (short)(trial % 5 == 0 ? members + random.Next(0, 4) : trial % 11 == 0 ? -1 : members);
+                    int stamp = random.Next(-3, 4);
+                    for (int u = 0; u < units; u += 1 + random.Next(0, 3))
+                    {
+                        byte* unit = unitRecords + (long)u * 0x490;
+                        *(short*)(unit + 0x6E4) = (short)(random.Next(0, 4) == 0 ? 1 : 2);
+                        *(short*)(unit + 0x8F8) = (short)(random.Next(0, 6) == 0 ? 1 : 0);
+                        *(int*)(unit + 0x72C) = random.Next(0, tiles);
+                    }
+                    for (int t = 0; t < tiles; t++) stamps[t] = (short)(random.Next(0, 3) == 0 ? stamp + 1 : stamp);
+                    int expected = Reference(stamp), actual = TribeFloodMembership.Check(tribe, unitRecords, stamps, stamp);
+                    if (expected != actual) failures++;
+                    if (expected == 1) positives++;
+                }
+                Check(failures == 0, $"one-pass flood member check differs from 0x124740 in {failures} of 400 cases");
+                Check(positives > 20 && positives < 380, $"flood member fixture lacks both outcomes (positives={positives})");
+                // Seeded mismatch: an unstamped active member must fail both.
+                for (int i = 0; i < 0x688; i++) tribe[i] = 0;
+                *(short*)(tribe + 0x40) = 2; *(short*)(tribe + 0x5C) = 1; ((short*)(tribe + 0x60))[3] = 1 << 5;
+                byte* member = unitRecords + (long)(3 * 16 + 5) * 0x490;
+                *(short*)(member + 0x6E4) = 2; *(short*)(member + 0x8F8) = 0; *(int*)(member + 0x72C) = 9; stamps[9] = 0;
+                Check(Reference(7) == 0 && TribeFloodMembership.Check(tribe, unitRecords, stamps, 7) == 0 && TribeFloodMembership.Check(tribe, unitRecords, stamps, 0) == 1,
+                    "one-pass flood member check ignores the member's stamp");
+            }
+            finally
+            {
+                NativeMemory.Free(tribe); NativeMemory.Free(unitRecords); NativeMemory.Free(stamps);
+            }
+        }
+
         private void CursorAdapterTests()
         {
             cursorTopologies.Clear(); enemyTiles.Clear();
@@ -388,6 +460,7 @@ namespace MoatMove
             Check(cursorTopologyBuilds==builds,"local changes do not rebuild the full map");
             Check(weightedMoatRoutePlanner.SearchRuns==pathRuns,"cursor creates no route searches");
             CursorTopologyBuildEquivalence();
+            FloodMembershipExactTests();
 
             int nativePairs = 0;
             originalCursorTilePairReachability = (manager,target,start,cache) => { nativePairs++; return 7; };

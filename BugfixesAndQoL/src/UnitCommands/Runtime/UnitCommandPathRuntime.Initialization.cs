@@ -409,6 +409,10 @@ namespace BugfixesAndQoL.UnitCommands
             nativeProbeGrid = (byte*)(libraryBase + 0x5225B10);
             nativeProbeRectangle = (byte*)(libraryBase + 0x34A9F50);
             InitializeCursorGroundContract(memory, libraryBase);
+            floodStamps = (short*)(nativeProbeGrid + NativeProbeGridBytes / 2);
+            exactFloodMembership = floodResolution.Rva == TribeFloodMembership.MembershipRva && groupUnitResolution.Rva == TribeFloodMembership.GroupUnitRva &&
+                TribeFloodMembership.BodyMatches(memory, TribeFloodMembership.MembershipRva, TribeFloodMembership.MembershipBodyLength, TribeFloodMembership.MembershipBodySha256) &&
+                TribeFloodMembership.BodyMatches(memory, TribeFloodMembership.GroupUnitRva, TribeFloodMembership.GroupUnitBodyLength, TribeFloodMembership.GroupUnitBodySha256);
             nativeTribeManager = (IntPtr)(libraryBase + NativeTribeManagerRva);
             nativeSpecialStructureContext =
                 (IntPtr)(libraryBase + NativeSpecialStructureContextRva);
@@ -611,7 +615,7 @@ namespace BugfixesAndQoL.UnitCommands
                     $"0x{postCombatRepathResolution.Rva:X}->0x196280, " +
                     $"directCursorMove=0x{cursorMoveStagerResolution.Rva:X}, " +
                     $"selectionCanDigMoat=0x{selectionCanDigResolution.Rva:X}/call=0x{SelectionCanDigMoatCallRva:X}, " +
-                    $"tribeFloodFill=0x{floodResolution.Rva:X}, moatLookup=0x{moatLookupResolution.Rva:X}; " +
+                    $"tribeFloodFill=0x{floodResolution.Rva:X}/exact={exactFloodMembership}, moatLookup=0x{moatLookupResolution.Rva:X}; " +
                     $"groupMoatMode=0x{groupMoatResolution.Rva:X}/iterator=0x{groupUnitResolution.Rva:X}/" +
                     $"call=0x{GroupMoatModeCallRva:X}; " +
                     "additionalMoatEntry=provider-only, " +

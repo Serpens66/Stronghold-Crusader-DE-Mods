@@ -288,6 +288,7 @@ var compilation = CSharpCompilation.Create("Assembly-CSharp", new[] {
     CSharpSyntaxTree.ParseText(RuntimeSource("RouteReplanWatch.cs")),
     CSharpSyntaxTree.ParseText(RuntimeSource("GroundFailureProofs.cs")),
     CSharpSyntaxTree.ParseText(RuntimeSource("MoatFailureProofs.cs")),
+    CSharpSyntaxTree.ParseText(RuntimeSource("TribeFloodMembership.cs")),
     CSharpSyntaxTree.ParseText(RuntimeSource("CursorGroundRejectProof.cs")),
     CSharpSyntaxTree.ParseText(RuntimeSource("TraversalCommandState.cs")),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared/src/Pathfinding/GateRoutes/EnemyBridgeDiagnosticBridge.cs"))),

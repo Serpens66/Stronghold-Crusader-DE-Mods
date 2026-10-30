@@ -87,3 +87,16 @@ The real generated X64InlineHook is executed against destructive order/path writ
 checking unchanged old state for exclusions, thread/tribe/generation/global-ID
 guards, ABI/flags, and 100/200/550/1000 members. Harness timings exclude the engine
 and real E2610 and must not be reported as in-game command latency.
+
+## Admission flood and member check 0x124740 (audit 30.10.2026)
+
+Source: pseudocode of `0x11B520`, `0x124740`, `0x119F90` in the semantic export and the disassembly of the installed DLL (FBCB9319).
+
+- `0x11B520` floods from the leader tile with the group's mode (`0xD9C40` Assassin, `0xDAFD0` moat, otherwise `0xDA590` without target) and budget `d*d/2` from `0x79C0` (`d` above 0x2D), then calls `0x124740(tribeManager, tribe, generation 0x60AD664)`. While it returns 0 the whole flood runs again with budget +5,000 (capped at `0x4E520`), each time followed by `0x124740`.
+- `0x124740` (body 0xAC bytes, SHA-256 `FFB294BD9F96BE36B85A9D7D3031746B843F7D1D1F98148E169003E449C9817C`): `count` = signed word at tribe `+0x5C` (stride `0x688`); for `i` in `0..count-1` the member `u = 0x119F90(manager, tribe, i)`; it returns 0 at the first `u` with word `[0x67E8AE4 + u*0x490] == 2`, word `[0x67E8CF8 + u*0x490] == 0` and signed stamp `0x52C2550[int [0x67E8B2C + u*0x490]] != generation`; otherwise 1.
+- `0x119F90` (body 0x8C bytes, SHA-256 `CD5DAE0B455BA6CBFC20D0193849591A8250C710C8B77BBDCFFF6908FBD1544F`): 0 unless tribe word `+0x40 == 2` and `0 <= i < count`; otherwise the bit position of the `i`-th set bit in 625 words from `+0x60` (bits 0..15 each, `word*16 + bit`), scanning from the first word, and 0 when there are fewer set bits.
+- So one `0x124740` call costs O(count x bit positions); `pf-flood-1` (`test_stresstest4.sav`): 96-221 calls per second, about 9 ms of simulation time per second, at most 2.4 ms per call.
+
+## One-pass member check in BugfixesAndQoL [mod integration]
+
+- `BugfixesAndQoL/src/UnitCommands/Native/TribeFloodMembership.cs` answers `0x124740` in one pass over the bitset with the same member order, the same unit-slot-0 cases and the same first failing member. It is used only when both bodies above match (`UnitCommandPathRuntime.exactFloodMembership`); BugfixesAndQoL's flood hook keeps its own bypass rule on top. DEVDIAG compares every call with Vanilla's original: 0 differences in `pf-flood-2`.

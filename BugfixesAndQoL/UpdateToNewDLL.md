@@ -1478,3 +1478,20 @@ published `RouteTilePolicySnapshot` bytes; masked edges, other policy shapes and
 into the managed predicates. On a new DLL nothing changes here beyond the managed search's own RVA checks; the
 offline comparison (`tests/AssassinPathfinding.Tests`, `VerifyNative`) must stay identical on every fixture terrain.
 Without the DLL, or on a contract mismatch, a warning is logged and the managed search runs.
+
+## One-pass flood member check (2026-10-30, `src/UnitCommands/Native/TribeFloodMembership.cs`)
+
+Feature owner: BugfixesAndQoL's tribe flood hook (`AllowTribeFloodFillForMoveOrder`). Reference SHA-256
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`. Instead of calling Vanilla's `0x124740`, the hook
+computes its result in one pass (audit: `MANUAL_GROUP_ADMISSION.md` "Admission flood and member check 0x124740").
+
+| Entry | Reference RVA | Binding |
+|---|---|---|
+| Member check | `0x124740` | Resolved RVA must equal the reference; body `0xAC` bytes, SHA-256 `FFB294BD...C9817C`. |
+| Group member lookup | `0x119F90` | Resolved RVA must equal the reference; body `0x8C` bytes, SHA-256 `CD5DAE0B...BD1544F`. |
+| Data | tribe stride `0x688` (`+0x40`, `+0x5C`, bitset `+0x60`, 625 words); unit stride `0x490` from `0x67E8400` (`+0x6E4`, `+0x8F8`, `+0x72C`); stamps `0x52C2550` | Read exactly as the two bodies read them. |
+
+No pattern fallback: the replica is bound to the two audited bodies. A different RVA or body leaves
+`exactFloodMembership` false and the hook calls Vanilla's original as before. On a new DLL repeat the audit of both
+bodies and of `0x11B520`'s retry loop, update the hashes, and run the replica test in MoatMove's harness
+(`FloodMembershipExactTests`) plus a DEVDIAG run (`uc.flood.exactMismatch` must stay absent).

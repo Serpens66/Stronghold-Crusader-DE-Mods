@@ -630,7 +630,8 @@
         "BugfixesAndQoL"
       ],
       "integrationSections": [
-        "Region proof and integration"
+        "Region proof and integration",
+        "One-pass member check in BugfixesAndQoL"
       ]
     },
     {
