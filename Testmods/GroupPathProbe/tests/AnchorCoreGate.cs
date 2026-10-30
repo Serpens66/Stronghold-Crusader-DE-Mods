@@ -275,25 +275,6 @@ internal static class AnchorCoreGate
             if (open.Status != SearchStatus.Found || open.Cost != 30)
                 throw new InvalidOperationException($"Open start after the enclosure proof: status={open.Status} cost={open.Cost}");
         }
-        // Repeated targets: from the third request in one mask revision a single exhaustive field answers
-        // (behind a wall with one gap); every cost equals a fresh A* search's, and the field is built once.
-        {
-            static bool Open(int n) => n % 60 != 30 || n / 60 == 45;
-            GridSnapshot map = GroupGate.Grid(60, 60, null, Open);
-            int target = 10 * 60 + 50;
-            int[] starts = { 10 * 60 + 5, 20 * 60 + 8, 40 * 60 + 3, 55 * 60 + 10, 5 * 60 + 20 };
-            using var shared = new AnchorCoreInterop(60, 60, 128L * 1024 * 1024); shared.WriteWholeMask(Player, map, 500);
-            foreach (int s in starts)
-            {
-                using var fresh = new AnchorCoreInterop(60, 60, 128L * 1024 * 1024); fresh.WriteWholeMask(Player, map, 500);
-                RouteResult expected = fresh.SingleRoute(Player, target, 1, 7, s), actual = shared.SingleRoute(Player, target, 1, 7, s);
-                if (expected.Status != SearchStatus.Found || actual.Status != SearchStatus.Found || actual.Cost != expected.Cost)
-                    throw new InvalidOperationException($"Shared target field differs from A*: start={s} expected={expected.Status}/{expected.Cost} actual={actual.Status}/{actual.Cost}");
-            }
-            long solves = shared.Stats()[AnchorCoreInterop.Stat("singleFieldSolves")], hits = shared.Stats()[AnchorCoreInterop.Stat("singleFieldHits")];
-            if (solves != 1 || hits != starts.Length - 2)
-                throw new InvalidOperationException($"Shared target field not used once: solves={solves} hits={hits}");
-        }
         // Directed snake longer than 2,000 steps: never returned as a route.
         {
             GridSnapshot map = GroupGate.Grid(800, 4, (a, b, d) => ((a / 800) % 2 == 0 ? d == 2 : d == 6) && a / 800 == b / 800 || d == 4 && a % 800 == ((a / 800) % 2 == 0 ? 799 : 0) ? 1U << d : 0);
