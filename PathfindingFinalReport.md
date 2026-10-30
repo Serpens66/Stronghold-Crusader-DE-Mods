@@ -16,7 +16,7 @@ Die Einzelnachweise jedes Laufs stehen in `PathfindingRoadmap.md`. Native Vertr�
 |---|---|---|---|
 | Vanilla mit Script Extender allein (pf-se-1) | 7 | 213 ms | 253 |
 | Mods am Anfang der Testlinie (pf-base-1, ~5.150 Einheiten) | 12 | 647 ms | – |
-| Mods vor den Arbeiten dieses Tages (pf-iter-42..48) | 0–2 | 108–152 ms | ~296 |
+| Mods vor den Arbeiten dieses Tages (pf-iter-42..53) | 0–2 | 107–152 ms | ~296 (pf-iter-49..53) |
 | Mods mit allen Änderungen, normales Spiel (pf-iter-73, 74, 75) | **0, 0, 0** | – | 284–292 |
 | Wie oben, mit extremem Regeltest (pf-cons-3) | 2 | 129 ms | 286 |
 
