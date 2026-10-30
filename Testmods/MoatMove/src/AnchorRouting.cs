@@ -104,7 +104,8 @@ namespace MoatMove
             foreach (var entry in anchorOutsideBuilds)
             {
                 if (text.Length != 0) text.Append(',');
-                text.Append(entry.Key).Append(':').Append(entry.Value[0]).Append('/').Append(AnchorMs(entry.Value[1])).Append('/').Append(AnchorMs(entry.Value[2]));
+                text.Append(entry.Key).Append(':').Append(entry.Value[0]).Append('/').Append(AnchorMs(entry.Value[1])).Append('/').Append(AnchorMs(entry.Value[2]))
+                    .Append('/').Append(entry.Value[3]).Append('/').Append(AnchorMs(entry.Value[4]));
             }
             return text.ToString();
         }
@@ -1145,8 +1146,9 @@ namespace MoatMove
                      plan.MoatWorkMovement ? "moatWork" : plan.ExactRouteEndpoints ? "exactEndpoints" : "plain") +
                     (runtime.GetCurrentUnitMoveFrame() != null ? "/frame" : "/noFrame");
                 if (!anchorOutsideBuilds.TryGetValue(kind, out long[] row))
-                { if (anchorOutsideBuilds.Count >= 24) return outside; anchorOutsideBuilds[kind] = row = new long[3]; }
+                { if (anchorOutsideBuilds.Count >= 24) return outside; anchorOutsideBuilds[kind] = row = new long[5]; }
                 row[0]++; row[1] += outsideElapsed; row[2] = Math.Max(row[2], outsideElapsed);
+                if (outside <= 0) { row[3]++; row[4] += outsideElapsed; }
                 return outside;
             }
             long started = System.Diagnostics.Stopwatch.GetTimestamp();
@@ -1407,7 +1409,7 @@ namespace MoatMove
                 $"members={anchorMembers} unreachedMembers={anchorUnreachedUnits} movesWithUnreached={anchorMovesWithUnreached} " +
                 $"vanilla(vanillaCalls={anchorVanillaCalls} vanillaFails={anchorVanillaFails} vanillaMs={AnchorMs(anchorVanillaTicks)} vanillaFailMs={AnchorMs(anchorVanillaFailTicks)} " +
                 $"afterUnreachable={anchorVanillaAfterUnreachable} afterUnreachableMs={AnchorMs(anchorVanillaAfterUnreachableTicks)} " +
-                $"foundAfterUnreachable={anchorVanillaFoundAfterUnreachable}) vanillaWhy=[{FormatAnchorReasons(anchorVanillaWhy)}] sameTickTasks={anchorSameTickTasks} sameTickTaskMs={AnchorMs(anchorSameTickTaskTicks)} diggerGroundRoutes={anchorDiggerGroundRoutes} nativeByteChanges={anchorWatchChanges} rebuildsWatched={anchorRebuildsWatched} tileRuleChanges={routeTileRuleChanges} aliveUnits={anchorAliveUnits} costRules(changes={anchorCostRuleChanges} skips={anchorCostRuleSkips}) knownFailures(hits={groundFailureProofs?.Hits ?? 0} ms={AnchorMs(anchorKnownFailureTicks)} captures={groundFailureProofs?.Captures ?? 0} rejects={groundFailureProofs?.CaptureRejects ?? 0} gateHits={groundFailureProofs?.GateHits ?? 0} directSuccesses={groundFailureProofs?.DirectSuccesses ?? 0} verified={groundFailureProofs?.Verified ?? 0} mismatches={groundFailureProofs?.Mismatches ?? 0}{(groundFailureProofs?.MismatchSample != null ? " sample=[" + groundFailureProofs.MismatchSample + "]" : "")}) single(routes={anchorSingleRoutes} assassin={anchorSingleAssassinRoutes} probe(forbiddenHits={ruleProbeForbiddenHits} bandRoutes={ruleProbeBandRoutes}) unreachable={anchorSingleUnreachable} rejects={anchorSingleRejects} overBudget={anchorSingleOverBudget} budgetSkips={anchorSingleBudgetSkips} ms={AnchorMs(anchorSingleTicks)} queries={anchorCoreStats[AnchorNative.StatSingleQueries]} settles={anchorCoreStats[AnchorNative.StatSingleSettles]} coreMs={anchorCoreStats[AnchorNative.StatSingleNs] / 1e6:F1}) {FormatReplanWatch()} outsideBuilds(calls/ms/maxMs)=[{FormatOutsideBuilds()}] exhaustedReach(kept={ExhaustedReachabilityKept} hits={ExhaustedReachabilityHits}) reach(advances/expanded/ms/maxMs)=[{FormatReachabilityByOwner()}] " +
+                $"foundAfterUnreachable={anchorVanillaFoundAfterUnreachable}) vanillaWhy=[{FormatAnchorReasons(anchorVanillaWhy)}] sameTickTasks={anchorSameTickTasks} sameTickTaskMs={AnchorMs(anchorSameTickTaskTicks)} diggerGroundRoutes={anchorDiggerGroundRoutes} nativeByteChanges={anchorWatchChanges} rebuildsWatched={anchorRebuildsWatched} tileRuleChanges={routeTileRuleChanges} aliveUnits={anchorAliveUnits} costRules(changes={anchorCostRuleChanges} skips={anchorCostRuleSkips}) knownFailures(hits={groundFailureProofs?.Hits ?? 0} ms={AnchorMs(anchorKnownFailureTicks)} captures={groundFailureProofs?.Captures ?? 0} rejects={groundFailureProofs?.CaptureRejects ?? 0} gateHits={groundFailureProofs?.GateHits ?? 0} directSuccesses={groundFailureProofs?.DirectSuccesses ?? 0} verified={groundFailureProofs?.Verified ?? 0} mismatches={groundFailureProofs?.Mismatches ?? 0}{(groundFailureProofs?.MismatchSample != null ? " sample=[" + groundFailureProofs.MismatchSample + "]" : "")}) single(routes={anchorSingleRoutes} assassin={anchorSingleAssassinRoutes} probe(forbiddenHits={ruleProbeForbiddenHits} bandRoutes={ruleProbeBandRoutes}) unreachable={anchorSingleUnreachable} rejects={anchorSingleRejects} overBudget={anchorSingleOverBudget} budgetSkips={anchorSingleBudgetSkips} ms={AnchorMs(anchorSingleTicks)} queries={anchorCoreStats[AnchorNative.StatSingleQueries]} settles={anchorCoreStats[AnchorNative.StatSingleSettles]} coreMs={anchorCoreStats[AnchorNative.StatSingleNs] / 1e6:F1}) {FormatReplanWatch()} outsideBuilds(calls/ms/maxMs/fails/failMs)=[{FormatOutsideBuilds()}] exhaustedReach(kept={ExhaustedReachabilityKept} hits={ExhaustedReachabilityHits}) reach(advances/expanded/ms/maxMs)=[{FormatReachabilityByOwner()}] " +
                 $"tick(refreshMs={AnchorMs(anchorRefreshTicks)} refreshNodes={anchorRefreshNodes} buildMs={AnchorMs(anchorBuildTicks)} " +
                 $"buildNodes={anchorBuildNodes} sweepMs={AnchorMs(anchorSweepTicks)} sweepNodes={anchorSweepNodes} resweeps={anchorResweeps} " +
                 $"accessChanges={anchorAccessChanges} gateRefreshes={anchorGateRefreshes} sharedReuses={anchorShared?.Reuses ?? 0} " +

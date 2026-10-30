@@ -40,7 +40,12 @@ namespace MoatMove
         private readonly Dictionary<long, ReplanGroupWait> replanGroupWaits = new Dictionary<long, ReplanGroupWait>();
         private readonly byte[] replanRoute = new byte[2000];
         private long replanChecks, replanTriggers, replanDetours, replanWaitsStarted, replanResumed, replanExpired, replanEnded, replanKept,
-            replanGroupShared, replanUnreadable, replanCursorMatches, replanCursorMismatches, replanTicks, replanMaxTicks;
+            replanGroupShared, replanUnreadable, replanCursorMatches, replanCursorMismatches, replanTicks, replanMaxTicks, replanProbesDeferred;
+        // Settles all wait probes (ReplanRouteClear) of one simulation tick may use (~10 ms). Waits that start
+        // together probe together: 225 units of moving hazard zones behind a map-wide barrier took 169 ms in one
+        // tick (pf-cons-1). Over the budget a probe moves to the next tick; settles are deterministic.
+        private const int ReplanProbeTickSettles = 250000;
+        private int replanProbeTick = int.MinValue, replanProbeLeft;
 
         // A journaled rule tile: whether any set with a replan policy now holds it for some player.
         private void NoteReplanTile(int x, int y)
@@ -249,6 +254,8 @@ namespace MoatMove
                 if (!expired && tick - wait.NextProbe < 0) continue;
                 if (!expired)
                 {
+                    if (tick != replanProbeTick) { replanProbeTick = tick; replanProbeLeft = ReplanProbeTickSettles; }
+                    if (replanProbeLeft <= 0) { wait.NextProbe = tick + 1; replanProbesDeferred++; continue; }
                     wait.NextProbe = tick + ReplanWaitProbeTicks;
                     if (!ReplanRouteClear(wait)) continue;
                 }
@@ -262,13 +269,16 @@ namespace MoatMove
         }
 
         // Whether the core's route from the stop tile avoids every replan tile within the policy's length.
-        // A probe over ReplanProbeSettles counts as not clear: the wait ends at its expiry anyway.
+        // A probe over ReplanProbeSettles (or the tick's remaining probe budget) counts as not clear: the
+        // wait ends at its expiry anyway.
         private const int ReplanProbeSettles = 65536;
         private bool ReplanRouteClear(ReplanWait wait)
         {
             int start = wait.StopY * MapWidth + wait.StopX, target = wait.TargetY * MapWidth + wait.TargetX;
-            if (AnchorNative.mma_single_route_limited(anchorContext, wait.Player, target, 1, 0, start, ReplanProbeSettles, replanRoute, replanRoute.Length,
-                out AnchorNative.QueryResult result) != 0 ||
+            int code = AnchorNative.mma_single_route_limited(anchorContext, wait.Player, target, 1, 0, start, Math.Min(ReplanProbeSettles, Math.Max(1, replanProbeLeft)),
+                replanRoute, replanRoute.Length, out AnchorNative.QueryResult result);
+            replanProbeLeft -= result.Settles;
+            if (code != 0 ||
                 result.Status != AnchorNative.Ready || !wait.Policy.AllowsDetour(wait.Remaining, result.Length)) return false;
             int x = wait.StopX, y = wait.StopY;
             for (int i = 0; i < result.Length; i++)
@@ -289,11 +299,11 @@ namespace MoatMove
         private string FormatReplanWatch() =>
             $"replan(tiles={replanTileCount} hot={replanHot.Count} waiting={replanWaits.Count} checks={replanChecks} triggers={replanTriggers} " +
             $"detours={replanDetours} waits={replanWaitsStarted} groupShared={replanGroupShared} resumed={replanResumed} expired={replanExpired} " +
-            $"ended={replanEnded} kept={replanKept} unreadable={replanUnreadable} cursor(matches={replanCursorMatches} mismatches={replanCursorMismatches}) " +
+            $"ended={replanEnded} kept={replanKept} unreadable={replanUnreadable} probesDeferred={replanProbesDeferred} cursor(matches={replanCursorMatches} mismatches={replanCursorMismatches}) " +
             $"ms={AnchorMs(replanTicks)} maxMs={AnchorMs(replanMaxTicks)})";
 
         private void ResetReplanMetrics() =>
             replanChecks = replanTriggers = replanDetours = replanWaitsStarted = replanGroupShared = replanResumed = replanExpired = replanEnded =
-                replanKept = replanUnreadable = replanCursorMatches = replanCursorMismatches = replanTicks = replanMaxTicks = 0;
+                replanKept = replanUnreadable = replanCursorMatches = replanCursorMismatches = replanTicks = replanMaxTicks = replanProbesDeferred = 0;
     }
 }

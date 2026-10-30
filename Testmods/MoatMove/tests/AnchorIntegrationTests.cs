@@ -62,6 +62,11 @@ namespace MoatMove
 
                 // The fire goes out: the next probe finds the clear core route and the unit resumes.
                 fire.ClearAll(); AnchorTick(++ticks); answer = straight; units.Moves.Clear();
+                // An exhausted per-tick probe budget moves the probe to the next tick instead of searching.
+                long deferred = replanProbesDeferred;
+                for (int i = 0; i < 64 && replanProbesDeferred == deferred; i++) { replanProbeTick = ticks + 1; replanProbeLeft = 0; ReplanTick(++ticks); }
+                Check(replanProbesDeferred == deferred + 1 && replanResumed == resumed && replanWaits.ContainsKey(7) && units.Moves.Count == 0,
+                    "an exhausted probe budget did not defer the waiting unit's probe");
                 for (int i = 0; i < 64 && replanResumed == resumed; i++) ReplanTick(++ticks);
                 Check(replanResumed == resumed + 1 && !replanWaits.ContainsKey(7) && units.Moves.Count == 1 && units.Moves[0][1] == 160,
                     $"a waiting unit did not resume once its route was clear (moves={units.Moves.Count})");
