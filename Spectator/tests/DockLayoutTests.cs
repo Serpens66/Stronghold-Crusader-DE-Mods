@@ -65,6 +65,33 @@ internal static class DockLayoutTests
         // Full semantic tree comparison, not merely an absence check: no original binding,
         // input mask, resource, HUD or command may change when applying this production patch.
         Check(XNode.DeepEquals(before,after), "The complete Vanilla screen must remain unchanged beneath the overlay.");
+        // Use the actual Vanilla margins, including all four placement unit tabs.
+        // The previous 64-unit slot overlapped the last tab by two units.
+        var hud = XDocument.Load(args[2]);
+        Func<string,XElement> named = name => hud.Descendants().Single(e => (string)e.Attribute("Name")==name || (string)e.Attribute(x+"Name")==name);
+        Func<XElement,int,float> margin = (e,index) => {
+            var parts=((string)e.Attribute("Margin")??"0").Split(',');
+            return float.Parse(parts.Length==1?parts[0]:parts[index],System.Globalization.CultureInfo.InvariantCulture);
+        };
+        var tabs=named("BottomTabs1"); float cursor=margin(tabs,0);
+        var nativeTabs=new List<Spectator.ToolbarRect>();
+        foreach(var tab in tabs.Elements().Where(e=>e.Name.LocalName=="RadioButton"))
+        {
+            if((string)tab.Attribute("Name")=="RadioButtonMERuins") continue;
+            cursor+=margin(tab,0);
+            float w=(float)tab.Attribute("Width"),h=(float)tab.Attribute("Height");
+            nativeTabs.Add(new Spectator.ToolbarRect(cursor,166-h,w,h));
+            cursor+=w+margin(tab,2);
+        }
+        Check(nativeTabs.Count==10,"The placement fixture must exercise six construction and four unit tabs.");
+        var trumpet=named("ButtonAllies");
+        var allyBounds=new Spectator.ToolbarRect(margin(trumpet,0),166-(float)trumpet.Attribute("Height"),(float)trumpet.Attribute("Width"),(float)trumpet.Attribute("Height"));
+        var pose=Spectator.ToolbarLayout.Arrange(new Spectator.ToolbarRect(0,0,914,166),new Spectator.ToolbarRect(114,22,800,144),8,false);
+        Check(pose.Control.Width<=60 && Math.Abs(allyBounds.X-pose.Control.Right-2)<.001,"Shared options/stop slot stays at the trumpet with the required gap.");
+        foreach(var tab in nativeTabs) Check(!pose.Control.Intersects(tab),"Stop must not collide with any actual construction/unit tab.");
+        var slot=own.Single(e=>(string)e.Attribute(x+"Name")=="SpectatorControlSlot");
+        Check(slot.Descendants().Any(e=>(string)e.Attribute(x+"Name")=="SpectatorExpand") &&
+            slot.Descendants().Any(e=>(string)e.Attribute(x+"Name")=="SpectatorStopPlacement"),"Options and stop share the same physical slot.");
         Console.WriteLine("PASS: real Extender patcher, complete Vanilla tree preserved, single overlay and all actions/goods/tooltips.");
     }
 }

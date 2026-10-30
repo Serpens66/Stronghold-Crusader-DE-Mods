@@ -19,9 +19,9 @@ namespace LordOverviewTest {
   private static Action UiAction(Action action,bool needsMenu=true)=>UiActions.Bind(action,CurrentUiContext,Post,needsMenu);
   private static void InvalidateInformation(){System.Threading.Interlocked.Increment(ref informationGeneration);long id=System.Threading.Interlocked.Read(ref session);Post(()=>{
    if(id!=System.Threading.Interlocked.Read(ref session))return;
-   CancelHeaderGesture();
+   CancelHeaderGesture();OverviewData.Reset();
    rows=rows.Select(row=>{var values=(long?[])row.Values.Clone();for(int i=2;i<values.Length;i++)values[i]=null;return new LordRow(row.Player,row.Alive,values);}).ToList();
-   signature="";if(panel?.IsVisible==true)Render();
+   if(panel?.IsVisible==true)Render();
   });}
   private static void OnSettingsChanged(object sender,PropertyChangedEventArgs args){
    bool layoutChanged=args.PropertyName==nameof(OverviewSettings.Design) || args.PropertyName==nameof(OverviewSettings.LordGrid) || args.PropertyName==nameof(OverviewSettings.ValueGrid);
@@ -37,7 +37,7 @@ namespace LordOverviewTest {
      registration?.SetVisible(id>0 && settings.EnableMod);if(!settings.EnableMod)Close();
     }
     if(args.PropertyName==nameof(OverviewSettings.Columns)){
-     selection.Load(settings.DisplayColumns);state.Reconcile(selection.Columns);signature="";
+     selection.Load(settings.DisplayColumns);state.Reconcile(selection.Columns);
      CancelHeaderGesture();if(panel?.IsVisible==true){Render();RequestRefresh();}UpdateColumnsPopup();
     }
     if(layoutChanged)ApplyLayout();
@@ -70,7 +70,7 @@ namespace LordOverviewTest {
    var execute=UiAction(action,needsMenu);button.Click+=(_,__)=>execute();Tip(button,help);return button;
   }
   private static void ApplyColumns(){
-   CancelHeaderGesture();state.Reconcile(selection.Columns);settings.SetDisplayColumns(Metrics.Serialize(selection.Columns));signature="";
+   CancelHeaderGesture();state.Reconcile(selection.Columns);settings.SetDisplayColumns(Metrics.Serialize(selection.Columns));
    Render();RequestRefresh();UpdateColumnsPopup();
   }
   private static void BuildSettingsMenu(){

@@ -30,9 +30,12 @@ namespace LordOverviewTest {
   [PresetLocal] public string Design {get=>design;set{if(!CanMutateSetting())return;string next=OverviewLayout.ParseDesign(value).ToString();if(design==next)return;design=next;OnPropertyChanged(nameof(Design));}}
   [PresetLocal] public string LordGrid {get=>lordGrid;set{if(!CanMutateSetting())return;string next=GridFlow.Parse(value,2).ToString();if(lordGrid==next)return;lordGrid=next;OnPropertyChanged(nameof(LordGrid));}}
   [PresetLocal] public string ValueGrid {get=>valueGrid;set{if(!CanMutateSetting())return;string next=GridFlow.Parse(value,3).ToString();if(valueGrid==next)return;valueGrid=next;OnPropertyChanged(nameof(ValueGrid));}}
-  internal OverviewDesign DisplayDesign=>OverviewLayout.ParseDesign(pendingDesign??Design);
-  internal GridFlow DisplayLordGrid=>GridFlow.Parse(pendingLordGrid??LordGrid,2);
-  internal GridFlow DisplayValueGrid=>GridFlow.Parse(pendingValueGrid??ValueGrid,3);
+  private string cachedDesignText,cachedLordText,cachedValueText;
+  private OverviewDesign cachedDesign;
+  private GridFlow cachedLord,cachedValue;
+  internal OverviewDesign DisplayDesign {get {string text=pendingDesign??Design;if(text!=cachedDesignText){cachedDesignText=text;cachedDesign=OverviewLayout.ParseDesign(text);}return cachedDesign;}}
+  internal GridFlow DisplayLordGrid {get {string text=pendingLordGrid??LordGrid;if(text!=cachedLordText){cachedLordText=text;cachedLord=GridFlow.Parse(text,2);}return cachedLord;}}
+  internal GridFlow DisplayValueGrid {get {string text=pendingValueGrid??ValueGrid;if(text!=cachedValueText){cachedValueText=text;cachedValue=GridFlow.Parse(text,3);}return cachedValue;}}
   internal void SetDisplayDesign(OverviewDesign value){pendingDesign=(Enum.IsDefined(typeof(OverviewDesign),value)?value:OverviewDesign.List).ToString();FlushLocalPreferences();}
   internal void SetDisplayGrid(bool lords,GridFlow value){if(lords)pendingLordGrid=value.ToString();else pendingValueGrid=value.ToString();FlushLocalPreferences();}
   // A locked mission source does not prevent a local HUD choice. Persist it when the personal source is editable again.

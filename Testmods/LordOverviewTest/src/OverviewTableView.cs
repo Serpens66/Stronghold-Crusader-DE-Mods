@@ -13,13 +13,26 @@ namespace LordOverviewTest {
    internal SolidColorBrush Foreground;
    internal string FullName;
    internal ImageSource Face;
+   internal HoverTarget PortraitHover,NameHover;
+   internal string PlayerLabel;
+   internal bool? Alive;
+   internal int Pane=-1,Position=-1;
+   internal readonly Dictionary<Metric,decimal?> LastValues=new Dictionary<Metric,decimal?>();
    internal readonly Dictionary<Metric,Grid> Cells=new Dictionary<Metric,Grid>();
   }
   private static readonly Dictionary<int,RowVisual> rowVisuals=new Dictionary<int,RowVisual>();
   private static readonly List<Grid> tables=new List<Grid>();
   private static Grid cards;
+  private static readonly List<LordRow> orderedRows=new List<LordRow>(8);
+  private static Metric[] realizedColumns;
+  private static OverviewDesign realizedDesign;
+  private static GridFlow realizedLordGrid,realizedValueGrid;
+  private static long realizedCatalog;
+  private static int realizedRoster;
   private static int editEpoch;
-  private static bool headerEditing;
+  private static bool headerEditing,paintedDescending;
+  private static Metric? paintedSort;
+  private static int headerRevision,paintedHeaderRevision=-1;
   private static bool Editing=>settingsWindow?.Visibility==Visibility.Visible && panel?.IsVisible==true;
 
   private static ImageSource PlayerFace(int player){
@@ -28,17 +41,16 @@ namespace LordOverviewTest {
     Platform_Multiplayer.Instance.GetUserAvatar(Platform_Multiplayer.Instance.getPlayerSteamID(player));
   }
   private static void Render(){
-   if(headerGesture.Active || panel==null || GameData.Instance?.lastGameState==null)return;
-   var columns=selection.Columns;state.Reconcile(columns);var ordered=state.Sort(rows);NormalizeGridPreferences(ordered.Count,columns.Length);
-   var colors=ordered.ToDictionary(r=>r.Player,r=>ResolvePlayerColor(r.Player));
-   var names=ordered.ToDictionary(r=>r.Player,r=>Platform_Multiplayer.Instance.getSkirmishName(r.Player)??"");
-   var faces=ordered.ToDictionary(r=>r.Player,r=>PlayerFace(r.Player));
-   string layout=Metrics.Serialize(columns)+"/"+catalogRevision+"/"+settings.DisplayDesign+"/"+settings.DisplayLordGrid+"/"+settings.DisplayValueGrid+"/"+string.Join(",",ordered.Select(r=>r.Player).OrderBy(p=>p));
-   string next=layout+"/"+string.Join(";",ordered.Select(r=>r.Player+"="+colors[r.Player]))+"/"+state.Column+"/"+state.Descending+"/"+string.Join(";",ordered.Select(r=>r.Player+":"+r.Alive+":"+r.ValueSignature));
-   bool identityChanged=ordered.Any(r=>!rowVisuals.TryGetValue(r.Player,out var view) || view.FullName!=names[r.Player] || !ReferenceEquals(view.Face,faces[r.Player]));
-   if(next==signature && !identityChanged)return;
-   if(headerLayout!=layout){
-    ResetTable();headerLayout=layout;
+   if(headerGesture.Active || panel?.IsVisible!=true || GameData.Instance?.lastGameState==null)return;
+   var columns=selection.Columns;state.Reconcile(columns);state.SortInto(rows,orderedRows);var ordered=orderedRows;
+   NormalizeGridPreferences(ordered.Count,columns.Length);
+   var design=settings.DisplayDesign;var lordFlow=settings.DisplayLordGrid;var valueFlow=settings.DisplayValueGrid;
+   int roster=0;for(int i=0;i<ordered.Count;i++)roster|=1<<ordered[i].Player;
+   bool rebuild=!ReferenceEquals(realizedColumns,columns) || realizedDesign!=design || !ReferenceEquals(realizedLordGrid,lordFlow) || !ReferenceEquals(realizedValueGrid,valueFlow) || realizedCatalog!=catalogRevision || realizedRoster!=roster;
+   bool geometryChanged=rebuild;long elapsed=0;Shared.DevDiag.Start(ref elapsed);
+   try {
+    if(rebuild){
+     ResetTable();
     if(settings.DisplayDesign==OverviewDesign.Cards){
      cards=new Grid();var flow=settings.DisplayLordGrid;
      for(int i=0;i<flow.Columns(ordered.Count);i++)cards.ColumnDefinitions.Add(new ColumnDefinition {Width=GridLength.Auto});
@@ -61,25 +73,38 @@ namespace LordOverviewTest {
      }
     }
     foreach(var row in ordered){var view=CreateRow(row.Player,columns);rowVisuals.Add(row.Player,view);}
-   }
-   for(int index=0;index<ordered.Count;index++){
-    var row=ordered[index];var view=rowVisuals[row.Player];
-    if(view.Foreground==null || !view.Foreground.Color.Equals(colors[row.Player]))view.Foreground=new SolidColorBrush(colors[row.Player]);
-    var color=view.Foreground;view.FullName=names[row.Player];view.Face=faces[row.Player];
-    ((Image)view.Portrait.Children[0]).Source=view.Face;
-    UpdateHoverText("view/player/"+row.Player,view.FullName);
-    OverviewAppearance.UpdatePlayerText(view.Number,row.Player.ToString(),color);
-    if(view.Name!=null){view.Name.Text=view.FullName;view.Name.Foreground=color;UpdateHoverText("view/name/"+row.Player,view.FullName);}
-    foreach(var metric in columns)OverviewAppearance.UpdatePlayerText(view.Cells[metric],Metrics.Get(metric).Format(row.Get(metric)),color);
-    if(cards!=null){view.Root.Opacity=row.Alive?1:.45f;settings.DisplayLordGrid.Position(index,ordered.Count,out int cardRow,out int cardColumn);Grid.SetRow(view.Root,cardRow);Grid.SetColumn(view.Root,cardColumn);
-     int lastOccupiedRow=(ordered.Count-1)/settings.DisplayLordGrid.Columns(ordered.Count);view.Root.Margin=new Thickness(0,0,8,cardRow==lastOccupiedRow?0:6);}
-    else{
-     int pane=tables.Count==1?0:OverviewLayout.Pane(index,ordered.Count),position=(tables.Count==1?index:OverviewLayout.PaneRow(index,ordered.Count))+1;
-     MoveCell(view.Root,tables[pane],position,0);view.Root.Opacity=row.Alive?1:.45f;
-     for(int col=0;col<columns.Length;col++){var cell=view.Cells[columns[col]];MoveCell(cell,tables[pane],position,col+1);cell.Opacity=view.Root.Opacity;}
+
+     realizedColumns=columns;realizedDesign=design;realizedLordGrid=lordFlow;realizedValueGrid=valueFlow;realizedCatalog=catalogRevision;realizedRoster=roster;
     }
-   }
-   UpdateHeaderEditing();UpdateGridReadouts();MarkHoverGeometryDirty();signature=next;
+    for(int index=0;index<ordered.Count;index++){
+     var row=ordered[index];var view=rowVisuals[row.Player];var playerColor=ResolvePlayerColor(row.Player);
+     bool colorChanged=view.Foreground==null || !view.Foreground.Color.Equals(playerColor);
+     if(colorChanged){view.Foreground=new SolidColorBrush(playerColor);OverviewAppearance.UpdatePlayerText(view.Number,view.PlayerLabel,view.Foreground);}
+     string name=Platform_Multiplayer.Instance.getSkirmishName(row.Player)??"";var face=PlayerFace(row.Player);
+     bool nameChanged=view.FullName!=name;
+     if(!ReferenceEquals(view.Face,face)){view.Face=face;((Image)view.Portrait.Children[0]).Source=face;}
+     if(nameChanged){view.FullName=name;UpdateHoverText(view.PortraitHover,name);UpdateHoverText(view.NameHover,name);}
+     if(view.Name!=null){if(nameChanged)view.Name.Text=name;if(colorChanged)view.Name.Foreground=view.Foreground;}
+     bool aliveChanged=view.Alive!=row.Alive;if(aliveChanged){view.Alive=row.Alive;view.Root.Opacity=row.Alive?1:.45f;}
+     foreach(var metric in columns){
+      var value=row.Get(metric);var cell=view.Cells[metric];
+      if(colorChanged || !view.LastValues.TryGetValue(metric,out var previous) || value!=previous){
+       OverviewAppearance.UpdatePlayerText(cell,Metrics.Get(metric).Format(value),view.Foreground);view.LastValues[metric]=value;geometryChanged=true;
+      }
+      if(aliveChanged && cards==null)cell.Opacity=view.Root.Opacity;
+     }
+     if(cards!=null){
+      lordFlow.Position(index,ordered.Count,out int cardRow,out int cardColumn);
+      if(view.Pane!=cardColumn || view.Position!=cardRow){view.Pane=cardColumn;view.Position=cardRow;Grid.SetRow(view.Root,cardRow);Grid.SetColumn(view.Root,cardColumn);
+       int lastRow=(ordered.Count-1)/lordFlow.Columns(ordered.Count);view.Root.Margin=new Thickness(0,0,8,cardRow==lastRow?0:6);geometryChanged=true;}
+     }else{
+      int pane=tables.Count==1?0:OverviewLayout.Pane(index,ordered.Count),position=(tables.Count==1?index:OverviewLayout.PaneRow(index,ordered.Count))+1;
+      if(view.Pane!=pane || view.Position!=position){view.Pane=pane;view.Position=position;MoveCell(view.Root,tables[pane],position,0);
+       for(int col=0;col<columns.Length;col++)MoveCell(view.Cells[columns[col]],tables[pane],position,col+1);geometryChanged=true;}
+     }
+    }
+    UpdateHeaderEditing();if(rebuild)UpdateGridReadouts();if(geometryChanged)MarkHoverGeometryDirty();
+   }finally{if(rebuild)Shared.DevDiag.StopSpike(ref elapsed,"overview.layout",1000);else Shared.DevDiag.StopSpike(ref elapsed,"overview.render",1000);}
   }
   private static Brush StatisticsBackground()=>new SolidColorBrush(Color.FromRgb(96,96,96)){Opacity=.5f};
   private static void MoveCell(FrameworkElement cell,Grid target,int row,int column){
@@ -87,9 +112,9 @@ namespace LordOverviewTest {
    if(!target.Children.Contains(cell))target.Children.Add(cell);Grid.SetRow(cell,row);Grid.SetColumn(cell,column);
   }
   private static RowVisual CreateRow(int player,Metric[] columns){
-   var view=new RowVisual {Portrait=OverviewAppearance.Portrait(null),Number=OverviewAppearance.PlayerText(player.ToString(),null)};
+   var view=new RowVisual {Portrait=OverviewAppearance.Portrait(null),Number=OverviewAppearance.PlayerText(player.ToString(),null),PlayerLabel=player.ToString()};
    view.Number.Margin=new Thickness(5,0,3,0);
-   RegisterHover("view/player/"+player,view.Portrait,"");
+   view.PortraitHover=RegisterHover("view/player/"+player,view.Portrait,"",true);
    if(cards==null){
     var identity=new StackPanel {Orientation=Orientation.Horizontal,IsHitTestVisible=false,Margin=new Thickness(2)};
     identity.Children.Add(view.Portrait);identity.Children.Add(view.Number);view.Root=identity;
@@ -103,7 +128,7 @@ namespace LordOverviewTest {
    var nameHost=new Canvas {Height=28,IsHitTestVisible=false,ClipToBounds=true};Grid.SetColumn(nameHost,2);header.Children.Add(nameHost);
    view.Name=Label("");view.Name.TextTrimming=TextTrimming.CharacterEllipsis;view.Name.IsHitTestVisible=false;Canvas.SetTop(view.Name,4);nameHost.Children.Add(view.Name);
    nameHost.SizeChanged+=(_,__)=>{view.Name.Width=Math.Max(0,nameHost.ActualWidth);MarkHoverGeometryDirty();};
-   RegisterHover("view/name/"+player,nameHost,"");content.Children.Add(header);
+   view.NameHover=RegisterHover("view/name/"+player,nameHost,"",true);content.Children.Add(header);
    var values=new Grid {IsHitTestVisible=false};Grid.SetRow(values,1);var flow=settings.DisplayValueGrid;int cols=flow.Columns(columns.Length);
    for(int i=0;i<cols;i++)values.ColumnDefinitions.Add(new ColumnDefinition {Width=GridLength.Auto});
    for(int i=0;i<flow.Rows(columns.Length);i++)values.RowDefinitions.Add(new RowDefinition {Height=GridLength.Auto});
@@ -118,10 +143,10 @@ namespace LordOverviewTest {
    var box=new Border {Background=StatisticsBackground(),Child=content,Margin=new Thickness(0,0,8,6),HorizontalAlignment=HorizontalAlignment.Stretch,VerticalAlignment=VerticalAlignment.Bottom,IsHitTestVisible=false};
    box.SizeChanged+=OnTableGeometryChanged;view.Root=box;cards.Children.Add(box);return view;
   }
-  private static void UpdateHoverText(string key,string text){if(hoverTargets.TryGetValue(key,out var target)){target.Description=text;target.Tip.Content=text;}}
+  private static void UpdateHoverText(HoverTarget target,string text){if(target==null || target.Description==text)return;target.Description=text;target.Tip.Content=text;}
   private static void ResetTable(){
-   CancelHeaderGesture();RemoveHeaders(false);rowVisuals.Clear();
-   foreach(var table in tables)table.SizeChanged-=OnTableGeometryChanged;tables.Clear();cards=null;headerLayout="";
+   CancelHeaderGesture();RemoveHeaders(false);rowVisuals.Clear();realizedColumns=null;realizedLordGrid=realizedValueGrid=null;
+   foreach(var table in tables)table.SizeChanged-=OnTableGeometryChanged;tables.Clear();cards=null;
    if(panel!=null){CloseTips(panel);panel.Children.Clear();}
   }
   private static void AddDivider(Grid table,int row,bool header){
@@ -129,19 +154,22 @@ namespace LordOverviewTest {
    Grid.SetRow(line,row);Grid.SetColumnSpan(line,table.ColumnDefinitions.Count);table.Children.Add(line);
   }
   private static Button CreateHeader(HeaderSurface surface,Metric? metric,string help,FrameworkElement symbol){
-   symbol.IsHitTestVisible=false;symbol.HorizontalAlignment=HorizontalAlignment.Center;symbol.VerticalAlignment=VerticalAlignment.Center;
+   headerRevision++;symbol.IsHitTestVisible=false;symbol.HorizontalAlignment=HorizontalAlignment.Center;symbol.VerticalAlignment=VerticalAlignment.Center;
    var content=new Grid {Margin=new Thickness(2,0,2,0)};content.Children.Add(symbol);
    var arrow=new Canvas {Width=4,Height=5,HorizontalAlignment=HorizontalAlignment.Right,VerticalAlignment=VerticalAlignment.Top,IsHitTestVisible=false,Visibility=Visibility.Collapsed};
    arrow.Children.Add(new Path {Fill=new SolidColorBrush(Color.FromRgb(255,240,191)),Data=Geometry.Parse("M0,0 L4,0 L2,3 Z")});content.Children.Add(arrow);
    var highlight=new Border {Child=content,Background=new SolidColorBrush(Color.FromArgb(0,0,0,0))};
    var button=new Button {Style=buttonStyle,Content=highlight,Padding=new Thickness(2),HorizontalAlignment=HorizontalAlignment.Stretch};
    var binding=new HeaderBinding {Surface=surface,Metric=metric,Highlight=highlight,Arrow=arrow,Menu=surface.Prefix.StartsWith("menu/",StringComparison.Ordinal)};
+   if(surface.Wrap!=null)surface.Items.Add(button);
    if(binding.Menu)Tip(button,help+" — "+Text("HeaderDragHint"));
    if(metric.HasValue)BindMetricHeader(button,binding);
-   else {headers.Add(button,binding);var action=UiAction(()=>{state.Select(null);signature="";Render();UpdateColumnsPopup();});button.Click+=(_,__)=>action();}
+   else {headers.Add(button,binding);var action=UiAction(()=>{state.Select(null);Render();UpdateColumnsPopup();});button.Click+=(_,__)=>action();}
    if(!binding.Menu)RegisterHover(surface.Prefix+(metric.HasValue?Metrics.Key(metric.Value):"identity"),symbol,help);return button;
   }
   private static void UpdateHeaderEditing(){
+   if(headerEditing==Editing && paintedHeaderRevision==headerRevision && paintedSort==state.Column && paintedDescending==state.Descending)return;
+   paintedHeaderRevision=headerRevision;paintedSort=state.Column;paintedDescending=state.Descending;
    if(headerEditing!=Editing){headerEditing=Editing;editEpoch++;CancelHeaderGesture();ClosePassiveHover();}
    foreach(var pair in headers){
     pair.Key.IsHitTestVisible=Editing;pair.Key.Focusable=Editing;

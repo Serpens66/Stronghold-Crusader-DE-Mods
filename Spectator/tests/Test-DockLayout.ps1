@@ -15,5 +15,5 @@ if (-not (Test-Path -LiteralPath $extender -PathType Container)) {
 $output = New-ShortWorkDirectory -Root $workspace -Kind t -Name 'SpectatorDock'
 & dotnet msbuild (Join-Path $PSScriptRoot 'DockLayoutTests.csproj') /t:Build /verbosity:quiet "/p:OutputPath=$output/" "/p:IntermediateOutputPath=$output/obj/" "/p:ScriptExtenderSourceRoot=$extender"
 if ($LASTEXITCODE -ne 0) { throw 'Dock layout harness compilation failed.' }
-& (Join-Path $output 'DockLayoutTests.exe') $vanilla (Join-Path $PSScriptRoot '../Patches/Assets/GUI/XAML/IngameUIScreens.xaml')
+& (Join-Path $output 'DockLayoutTests.exe') $vanilla (Join-Path $PSScriptRoot '../Patches/Assets/GUI/XAML/IngameUIScreens.xaml') (Join-Path (Split-Path -Parent (Split-Path -Parent $vanilla)) 'XAMLResources/HUD_Main.xaml')
 if ($LASTEXITCODE -ne 0) { throw 'Dock patch integration failed.' }

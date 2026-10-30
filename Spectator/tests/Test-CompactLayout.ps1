@@ -5,7 +5,7 @@ $ns = [Xml.XmlNamespaceManager]::new($xml.NameTable)
 $ns.AddNamespace('x', 'http://schemas.microsoft.com/winfx/2006/xaml')
 function Named($name) { $xml.SelectSingleNode('//*[@x:Name="' + $name + '"]', $ns) }
 $owners = Named 'SpectatorEditorHumanOwners'
-if ($owners.LocalName -ne 'Canvas' -or $owners.Width -ne '80') { throw 'The ordered roster must pack beside its narrow side grip.' }
+if ($owners.LocalName -ne 'Canvas') { throw 'The same portrait canvas must support both arrangements.' }
 foreach ($slot in 1..8) {
     foreach ($prefix in @('SpectatorEditorHumanOwner','TestTarget')) {
         $card = Named ($prefix + $slot)
@@ -37,13 +37,20 @@ foreach ($name in @('SpectatorSnapFrame','SpectatorToolSnapFrame')) {
     if ((Named $name).IsHitTestVisible -ne 'False') { throw 'Dock guides never intercept input.' }
 }
 foreach ($name in @('SpectatorLeftWing','SpectatorRightWing')) {
-    if ((Named $name).Background -ne '{StaticResource SpectatorPaper}' -or (Named $name).IsHitTestVisible -eq 'False') { throw 'The lower surfaces must paint opaque HUD paper and intercept their own clicks.' }
+    if ((Named $name).Background -ne 'Transparent' -or (Named $name).IsHitTestVisible -eq 'False') { throw 'Footer inputs sit above the single clipped paper layer, without restarting the image.' }
 }
 $tools = Named 'SpectatorToolPanel'
 if ($tools.Visibility -ne '{Binding ExpandedVisibility}') { throw 'Placement, collapse and occupied HUDs must remove the complete tool surface, including category overdraw.' }
 $roster = Named 'SpectatorRosterPanel'
-if (-not $roster.SelectSingleNode('.//*[@x:Name="SpectatorEditorHumanDrag"]', $ns)) { throw 'The side grip stays within the portrait surface.' }
+$grip = Named 'SpectatorEditorHumanDrag'
+if ($roster.SelectSingleNode('.//*[@x:Name="SpectatorEditorHumanDrag"]', $ns) -or $grip.ParentNode -ne (Named 'TestToolsRoot') -or $grip.HasAttribute('Width')) { throw 'One independent grip follows the dock gap or the floating top edge.' }
+$paper = Named 'SpectatorPaperSurface'
+if ($paper.ParentNode -ne (Named 'TestToolsRoot') -or $paper.IsHitTestVisible -ne 'False' -or $paper.SelectNodes('.//Image').Count -ne 2) { throw 'Continuous paper is clipped once behind the actual menu surfaces.' }
+foreach ($name in @('SpectatorPaperTopImage','SpectatorPaperLowerImage')) {
+    if ((Named $name).Source -ne '{StaticResource UI-HUD 007}') { throw 'Paper layers must use the original Vanilla scroll graphic.' }
+}
 $slot = Named 'SpectatorControlSlot'
+if ($slot.Width -ne '60') { throw 'Both control labels share the slot that fits beside all ten native tabs.' }
 foreach ($name in @('SpectatorStopPlacement','SpectatorExpand')) {
     if ($roster.SelectSingleNode('.//*[@x:Name="' + $name + '"]', $ns) -or -not $slot.SelectSingleNode('.//*[@x:Name="' + $name + '"]', $ns)) { throw 'Options and stop share an independent control slot, never an extra roster row.' }
 }

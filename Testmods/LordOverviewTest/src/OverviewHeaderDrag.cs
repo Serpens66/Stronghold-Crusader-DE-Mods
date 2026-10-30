@@ -10,6 +10,8 @@ namespace LordOverviewTest {
    internal Border Marker;
    internal int Skip;
    internal string Prefix;
+   internal WrapPanel Wrap;
+   internal readonly List<Button> Items=new List<Button>();
   }
   private sealed class HeaderBinding {
    internal HeaderSurface Surface;
@@ -23,13 +25,14 @@ namespace LordOverviewTest {
   private static readonly List<HeaderSurface> headerSurfaces=new List<HeaderSurface>();
   private static HeaderSurface activeHeader;
   private static Button pressedHeader;
+  private static MenuRect[] wrappedCells;
   private static long pointerSession;
   private static int pointerGeneration,pointerEditEpoch;
   private static HeaderSurface NewHeaderSurface(Grid grid,int skip,string prefix){
    var surface=new HeaderSurface {Grid=grid,Skip=skip,Prefix=prefix};
    surface.Marker=new Border {Width=2,HorizontalAlignment=HorizontalAlignment.Left,VerticalAlignment=VerticalAlignment.Top,Height=24,
     Background=new SolidColorBrush(Color.FromRgb(242,212,138)),Visibility=Visibility.Collapsed,IsHitTestVisible=false};
-   Grid.SetColumnSpan(surface.Marker,grid.ColumnDefinitions.Count);Panel.SetZIndex(surface.Marker,10);grid.Children.Add(surface.Marker);
+   Grid.SetColumnSpan(surface.Marker,Math.Max(1,grid.ColumnDefinitions.Count));Panel.SetZIndex(surface.Marker,10);grid.Children.Add(surface.Marker);
    headerSurfaces.Add(surface);return surface;
   }
   private static void BindMetricHeader(Button button,HeaderBinding binding){
@@ -43,20 +46,28 @@ namespace LordOverviewTest {
     Interlocked.Read(ref session)<=0 || panel?.IsVisible!=true || !settings.EnableMod || !Editing)return;
    CancelHeaderGesture();activeHeader=binding.Surface;button.Focus();var point=args.GetPosition(activeHeader.Grid);
    pointerSession=Interlocked.Read(ref session);pointerGeneration=Volatile.Read(ref generation);pointerEditEpoch=editEpoch;
-   widths=activeHeader.Grid.ColumnDefinitions.Skip(activeHeader.Skip).Select(c=>(double)c.ActualWidth).ToArray();
+   if(activeHeader.Wrap==null)widths=activeHeader.Grid.ColumnDefinitions.Skip(activeHeader.Skip).Select(c=>(double)c.ActualWidth).ToArray();
+   else {
+    wrappedCells=new MenuRect[activeHeader.Items.Count];
+    for(int i=0;i<wrappedCells.Length;i++){var item=activeHeader.Items[i];var origin=activeHeader.Grid.PointFromScreen(item.PointToScreen(new Point(0,0)));wrappedCells[i]=new MenuRect(origin.X,origin.Y,item.ActualWidth,item.ActualHeight);}
+   }
    headerGesture.Begin(binding.Metric.Value,point.X,point.Y,pointerSession,pointerGeneration);pressedHeader=button;
    if(!button.CaptureMouse()){CancelHeaderGesture();return;}args.Handled=true;
   }
   private static void TrackHeader(MouseEventArgs args){
    if(!headerGesture.Active || activeHeader==null || !Editing)return;
    var grid=activeHeader.Grid;var point=args.GetPosition(grid);var columns=selection.Columns;
-   bool inside=HeaderDropGeometry.TryTarget(point.X,point.Y,grid.RowDefinitions[0].ActualHeight,
-    grid.ColumnDefinitions.Take(activeHeader.Skip).Sum(c=>(double)c.ActualWidth),widths,Array.IndexOf(columns,headerGesture.Metric),out int target,out double boundary);
+   bool inside;int target;double boundary=0;MenuRect marker=default(MenuRect);
+   int source=Array.IndexOf(columns,headerGesture.Metric);
+   if(activeHeader.Wrap==null)inside=HeaderDropGeometry.TryTarget(point.X,point.Y,grid.RowDefinitions[0].ActualHeight,grid.ColumnDefinitions.Take(activeHeader.Skip).Sum(c=>(double)c.ActualWidth),widths,source,out target,out boundary);
+   else inside=WrappedDropGeometry.TryTarget(point.X,point.Y,grid.ActualWidth,grid.ActualHeight,wrappedCells,source,out target,out marker);
    headerGesture.Update(point.X,point.Y,target);
    if(pressedHeader!=null && headers.TryGetValue(pressedHeader,out var binding))binding.Highlight.Background=new SolidColorBrush(headerGesture.Dragging?Color.FromArgb(100,200,150,50):Color.FromArgb(0,0,0,0));
    activeHeader.Marker.Visibility=headerGesture.Dragging && inside?Visibility.Visible:Visibility.Collapsed;
-   activeHeader.Marker.RenderTransform=new TranslateTransform((float)boundary-1,0);
+   activeHeader.Marker.Height=activeHeader.Wrap==null?24:(float)marker.Height;
+   activeHeader.Marker.RenderTransform=activeHeader.Wrap==null?new TranslateTransform((float)boundary-1,0):new TranslateTransform((float)marker.X,(float)marker.Y);
   }
+  private static void OnOrderSizeChanged(object sender,SizeChangedEventArgs args){if(ReferenceEquals(activeHeader?.Wrap,sender))CancelHeaderGesture();}
   private static void OnHeaderMove(object sender,MouseEventArgs args){
    if(!ReferenceEquals(sender,pressedHeader) || !headerGesture.Active)return;
    if(args.LeftButton!=MouseButtonState.Pressed){CancelHeaderGesture();return;}TrackHeader(args);args.Handled=true;
@@ -69,20 +80,21 @@ namespace LordOverviewTest {
    ReleaseHeaderCapture();args.Handled=true;
    Post(()=>{if(expected<=0 || expected!=Interlocked.Read(ref session) || token!=Volatile.Read(ref generation) || !ReferenceEquals(view,panel) ||
     !TableInteraction.CanEdit(Editing,panel?.IsVisible==true,Interlocked.Read(ref session),expected,editEpoch,editToken) || originalColumns!=Metrics.Serialize(selection.Columns))return;
-    if(result==HeaderGestureResult.Sort){state.Select(metric);signature="";}
+    if(result==HeaderGestureResult.Sort){state.Select(metric);}
     else if(result==HeaderGestureResult.Reorder && selection.MoveTo(metric,target)){ApplyColumns();return;}
     Render();UpdateColumnsPopup();
    });
   }
   private static void ReleaseHeaderCapture(){var old=pressedHeader;pressedHeader=null;if(old?.IsMouseCaptured==true)old.ReleaseMouseCapture();
    foreach(var surface in headerSurfaces)surface.Marker.Visibility=Visibility.Collapsed;
-   foreach(var binding in headers.Values)binding.Highlight.Background=new SolidColorBrush(Color.FromArgb(0,0,0,0));activeHeader=null;
+   foreach(var binding in headers.Values)binding.Highlight.Background=new SolidColorBrush(Color.FromArgb(0,0,0,0));activeHeader=null;wrappedCells=null;
   }
   private static void CancelHeaderGesture(){if(!headerGesture.Active && pressedHeader==null)return;headerGesture.Cancel();ReleaseHeaderCapture();
    var view=panel;long id=Interlocked.Read(ref session);int token=Volatile.Read(ref generation);
    Post(()=>{if(id==Interlocked.Read(ref session) && token==Volatile.Read(ref generation) && ReferenceEquals(view,panel) && panel?.IsVisible==true)Render();});
   }
   private static void RemoveHeaders(bool menu){
+   headerRevision++;
    foreach(var pair in headers.Where(p=>p.Value.Menu==menu).ToArray())headers.Remove(pair.Key);
    headerSurfaces.RemoveAll(s=>s.Prefix.StartsWith(menu?"menu/":"view/",StringComparison.Ordinal));
    foreach(var key in hoverTargets.Keys.Where(k=>k.StartsWith(menu?"menu/":"view/",StringComparison.Ordinal)).ToArray())RemoveHover(key);

@@ -21,8 +21,10 @@ namespace LordOverviewTest {
    SyncCatalog(catalog);
    // Catalog callbacks never sample statistics, rebuild a popup or change its ScrollViewer.
    // A gesture keeps the realized geometry until its end; data stays unknown meanwhile.
-   foreach(var row in rows)foreach(var id in providers.Keys)row.SetExtra(id,null);
-   signature="";if(catalogUiPending)return;catalogUiPending=true;
+   var invalidated=new List<LordRow>(rows.Count);
+   foreach(var row in rows)invalidated.Add(new LordRow(row.Player,row.Alive,row.Values){ExtendedAllowed=row.ExtendedAllowed});
+   rows=invalidated;
+   if(catalogUiPending)return;catalogUiPending=true;
    // Metadata/value providers can publish a new catalog synchronously. Never rebuild
    // the view reentrantly while a card or its metadata is still being constructed.
    Post(()=>{catalogUiPending=false;if(panel?.IsVisible==true && !headerGesture.Active)Render();SyncColumnChoices();UpdateColumnsPopup();});
@@ -30,11 +32,17 @@ namespace LordOverviewTest {
   private static bool Available(Metric metric)=>!providers.TryGetValue(metric,out var column)?(int)metric>=0:column.IsActive;
   private static string MetricName(Metric metric)=>providers.TryGetValue(metric,out var column)?column.GetName():(int)metric>=0?Text(metric.ToString()):Metrics.Key(metric);
   private static bool ReadExtensions(List<LordRow> sample,UiActionContext stamp,int informationVersion){
-   var allowed=sample.Where(r=>r.ExtendedAllowed).Select(r=>r.Player).ToArray();
-   foreach(var id in selection.Columns.Where(m=>(int)m<0)){
-    if(!providers.TryGetValue(id,out var provider) || !provider.IsActive)continue;
-    var snapshot=provider.Read(stamp.Session,allowed);
-    // A provider may synchronously trigger a lifecycle or logical activation change.
+   var columns=selection.Columns;bool any=false;
+   for(int i=0;i<columns.Length;i++)if((int)columns[i]<0 && providers.TryGetValue(columns[i],out var active) && active.IsActive){any=true;break;}
+   if(!any)return true;
+   int count=0;for(int i=0;i<sample.Count;i++)if(sample[i].ExtendedAllowed)count++;
+   if(count==0)return true;
+   var allowed=new int[count];int at=0;for(int i=0;i<sample.Count;i++)if(sample[i].ExtendedAllowed)allowed[at++]=sample[i].Player;
+   for(int i=0;i<columns.Length;i++){
+    var id=columns[i];if((int)id>=0 || !providers.TryGetValue(id,out var provider) || !provider.IsActive)continue;
+    long elapsed=0;Shared.DevDiag.Start(ref elapsed);
+    IReadOnlyDictionary<int,decimal?> snapshot;
+    try{snapshot=provider.Read(stamp.Session,allowed);}finally{Shared.DevDiag.StopSpike(ref elapsed,"overview.provider",1000);}
     if(!stamp.Allows(CurrentUiContext(),false) || informationVersion!=System.Threading.Volatile.Read(ref informationGeneration))return false;
     foreach(var row in sample)row.SetExtra(id,row.ExtendedAllowed && provider.IsActive && snapshot.TryGetValue(row.Player,out var value)?value:null);
    }

@@ -14,13 +14,13 @@ using SHCDESE.Interop;
 namespace LordOverviewTest {
  internal static partial class OverviewRuntime {
   private static ManualLogSource log;
-  private static int started,pending,shown,generation;
+  private static int started,shown,generation;
   private static double[] widths;
   private static OverviewSettings settings;
   private static GameModeSnapshot? mode;
   private static readonly ColumnSelection selection=new ColumnSelection();
   private static long session,lastSampleSession;
-  private static readonly RefreshGate cadence=new RefreshGate();
+  private static readonly HybridRefreshGate sampling=new HybridRefreshGate();
   private static OverviewState state=new OverviewState();
   private static List<LordRow> rows=new List<LordRow>();
   private static IHudExtrasButtonRegistration registration;
@@ -29,8 +29,6 @@ namespace LordOverviewTest {
   private static FrameworkElement sourceHost;
   private static MainViewModel main;
   private static Style buttonStyle,tipStyle;
-  private static string signature="";
-  private static string headerLayout="";
   private static int errors,informationGeneration;
   private static readonly UiRefreshQueue requestedRefresh=new UiRefreshQueue(CurrentUiContext,Post,Refresh);
   private static string Text(string key)=>SerpLocalization.Get(key);
@@ -38,15 +36,15 @@ namespace LordOverviewTest {
    if(Interlocked.Exchange(ref started,1)!=0)return;log=logger;settings=preferences;
    selection.Load(settings.DisplayColumns);settings.PropertyChanged+=OnSettingsChanged;settings.InformationRightsInvalidated+=InvalidateInformation;
    UnityEngine.Application.focusChanged+=OnOverviewFocusChanged;
-   TooltipProbeStartup.Start(logger);
+   TooltipProbeStartup.Start(logger);Shared.DevDiag.Attach(logger);
    ApiShared.ForMod("LordOverviewTest_Serp").WhenReady(client=>{
     StartExtensions();StartPassiveHover();
     if(!client.TryGetLobbyState(out var lobby,out var lobbyReason) || !lobby.TryRegisterObserver("overview-permission",settings.ObserveLobby,out lobbyReason))throw new InvalidOperationException(lobbyReason.Reason);
     if(!client.TryGetMissionLifecycle(out var lifecycle,out var reason)){Error(new Exception(reason.Reason));return;}
     if(!lifecycle.TryRegisterObserver("overview",n=>{
      long id=n.Context.SessionId;Interlocked.Exchange(ref session,id);
-     Post(()=>{if(id!=Interlocked.Read(ref session))return;Close();menuState.Reset();settingsPosition.Reset();mode=n.Context.Mode;selection.Load(settings.DisplayColumns);state=new OverviewState();rows.Clear();registration?.RequestContentRefresh();registration?.SetVisible(settings.EnableMod);Message("SESSION_START");});
-    },n=>{Interlocked.Exchange(ref session,0);Post(()=>{if(Interlocked.Read(ref session)!=0)return;Close();Detach();mode=null;rows.Clear();registration?.SetVisible(false);settings.FlushLocalPreferences();});},null,out reason)){Error(new Exception(reason.Reason));return;}
+     Post(()=>{if(id!=Interlocked.Read(ref session))return;Close();OverviewData.Reset();sampling.Reset(Now);menuState.Reset();settingsPosition.Reset();mode=n.Context.Mode;selection.Load(settings.DisplayColumns);state=new OverviewState();rows.Clear();registration?.RequestContentRefresh();registration?.SetVisible(settings.EnableMod);Message("SESSION_START");});
+    },n=>{Interlocked.Exchange(ref session,0);Post(()=>{if(Interlocked.Read(ref session)!=0)return;Close();Detach();OverviewData.Reset();sampling.Reset(Now);mode=null;rows.Clear();registration?.SetVisible(false);settings.FlushLocalPreferences();});},null,out reason)){Error(new Exception(reason.Reason));return;}
     if(!client.TryGetHudExtrasButtons(out var buttons,out reason)){Error(new Exception(reason.Reason));return;}
     var definition=new HudExtrasButtonDefinition("overview",new Command(Toggle),CrownTooltip,context=>{
      Attach(context.Hud);
@@ -59,13 +57,19 @@ namespace LordOverviewTest {
    });
   }
   private static void Post(Action action)=>UnityMainThreadDispatcher.EnqueueStatic(()=>{try{action();}catch(Exception e){Close();Error(e);}});
-  private static void OnTick(int tick) {
-   // This simulation callback only counts; all native reads and UI work run on the main thread.
-   if(!cadence.Tick(Volatile.Read(ref shown)!=0))return;
-   if(Interlocked.Exchange(ref pending,1)!=0)return;
-   long id=Interlocked.Read(ref session);int token=Volatile.Read(ref generation);
-   Post(()=>{try{if(id>0 && id==Interlocked.Read(ref session) && token==Volatile.Read(ref generation) && Volatile.Read(ref shown)!=0)Refresh();}finally{Interlocked.Exchange(ref pending,0);}});
+  private static double Now=>System.Diagnostics.Stopwatch.GetTimestamp()/(double)System.Diagnostics.Stopwatch.Frequency;
+  private static void OnTick(int tick){
+   long elapsed=0;Shared.DevDiag.Start(ref elapsed);
+   sampling.Tick(Volatile.Read(ref shown)!=0);
+   Shared.DevDiag.Stop(ref elapsed,"overview.tick");
   }
+  private static void OnOverviewGui(APIShared.Presentation.PresentationPostEventArgs args){
+   DiagOverviewGui();
+   if(Volatile.Read(ref shown)==0)return;
+   OnHoverGui(args);
+   if(args.OriginalCompleted)try{Refresh();}catch(Exception error){Close();Error(error);}
+  }
+  static partial void DiagOverviewGui();
   private static void Attach(FrameworkElement host) {
    if(ReferenceEquals(sourceHost,host))return;
    Detach();sourceHost=host;
@@ -88,7 +92,7 @@ namespace LordOverviewTest {
    AttachSettingsMenu();
 
   }
-  private static void OnPanelVisibility(object sender,DependencyPropertyChangedEventArgs e){bool visible=panel?.IsVisible==true;int previous=Interlocked.Exchange(ref shown,visible?1:0);if(!visible){if(previous!=0)Interlocked.Increment(ref generation);CancelHeaderGesture();CloseSettingsMenu();ClosePassiveHover();}}
+  private static void OnPanelVisibility(object sender,DependencyPropertyChangedEventArgs e){bool visible=panel?.IsVisible==true;int previous=Interlocked.Exchange(ref shown,visible?1:0);if(!visible){sampling.Cancel();if(previous!=0)Interlocked.Increment(ref generation);CancelHeaderGesture();CloseSettingsMenu();ClosePassiveHover();}}
   private static void OnChanged(object sender,PropertyChangedEventArgs args) {
    if(args.PropertyName==nameof(MainViewModel.Show_HUD_Goods) && main.Show_HUD_Goods || args.PropertyName==nameof(MainViewModel.Show_HUD_Objectives) && main.Show_HUD_Objectives)Close();
    if(args.PropertyName==nameof(MainViewModel.Show_HUD_Extras) && !main.Show_HUD_Extras || args.PropertyName==nameof(MainViewModel.Show_InGameUI) && !main.Show_InGameUI)Close();
@@ -101,27 +105,39 @@ namespace LordOverviewTest {
   private static void OpenOverview(){
    if(Interlocked.Read(ref session)<=0 || !settings.EnableMod || panel==null || !panel.IsLoaded || main?.Show_InGameUI!=true)return;
    main.SetGoodsPopupState(false);main.SetObjectivePopupState(false);
-   panel.Visibility=Visibility.Visible;Volatile.Write(ref shown,1);hoverFaulted=false;MarkHoverGeometryDirty();signature="";Refresh();
+   panel.Visibility=Visibility.Visible;Volatile.Write(ref shown,1);hoverFaulted=false;MarkHoverGeometryDirty();RequestRefresh();
   }
-  private static void Close(){CancelCrownPress();CancelHeaderGesture();CloseSettingsMenu();ClosePassiveHover();Interlocked.Increment(ref generation);Volatile.Write(ref shown,0);if(panel!=null){CloseTips(panel);panel.Visibility=Visibility.Collapsed;}}
+  private static void Close(){CancelCrownPress();CancelHeaderGesture();CloseSettingsMenu();ClosePassiveHover();Interlocked.Increment(ref generation);Volatile.Write(ref shown,0);sampling.Cancel();if(panel!=null){CloseTips(panel);panel.Visibility=Visibility.Collapsed;}}
   private static void CloseTips(DependencyObject root){if(ToolTipService.GetToolTip(root) is ToolTip tip)tip.IsOpen=false;for(int i=0;i<VisualTreeHelper.GetChildrenCount(root);i++)CloseTips(VisualTreeHelper.GetChild(root,i));}
   private static void Detach(){Close();DetachCrownButton();DetachSettingsMenu();ResetTable();ClearHoverTargets();requestedRefresh.Cancel();
    if(main!=null)main.PropertyChanged-=OnChanged;
    if(parent!=null)parent.SizeChanged-=OnViewportSizeChanged;
    if(panel!=null)panel.IsVisibleChanged-=OnPanelVisibility;
    if(overlay!=null){overlay.ClearValue(UIElement.VisibilityProperty);parent?.Children.Remove(overlay);}
-   panel=null;overlay=null;parent=null;sourceHost=null;main=null;signature="";
+   panel=null;overlay=null;parent=null;sourceHost=null;main=null;
   }
 
   private static UiActionContext CurrentUiContext()=>new UiActionContext(Interlocked.Read(ref session),Volatile.Read(ref generation),editEpoch,panel,panel?.IsVisible==true,settings.EnableMod,Editing);
-  private static void RequestRefresh()=>requestedRefresh.Request();
-
-  private static void Refresh() {
-   if(panel==null || !panel.IsLoaded || !panel.IsVisible || GameData.Instance?.lastGameState==null)return;
-   UiSamples.TryRead(CurrentUiContext,()=>Volatile.Read(ref informationGeneration),()=>OverviewData.Capture(selection.Columns,settings,mode),ReadExtensions,sample=>{
-    rows=sample;long id=Interlocked.Read(ref session);if(lastSampleSession!=id){lastSampleSession=id;Message("FIRST_SAMPLE session="+id+" players="+rows.Count);}
-    Render();
-   });
+  private static void RequestRefresh(){
+   if(panel?.IsVisible!=true)return;
+   var stamp=CurrentUiContext();int rights=Volatile.Read(ref informationGeneration);
+   var cached=OverviewData.FromCache(selection.Columns,settings,mode,rows,stamp.Session,rights);
+   if(cached!=null && stamp.Allows(CurrentUiContext(),false) && rights==Volatile.Read(ref informationGeneration)){rows=cached;Render();}
+   sampling.Request();requestedRefresh.Request();
+  }
+  private static void Refresh(){
+   if(panel?.IsVisible!=true || !panel.IsLoaded || GameData.Instance?.lastGameState==null)return;
+   double now=Now;if(!sampling.TryBegin(now))return;
+   CaptureAndPublish(now);
+  }
+  private static void CaptureAndPublish(double now){
+   bool success=false;
+   try {
+    success=UiSamples.TryRead(CurrentUiContext,()=>Volatile.Read(ref informationGeneration),
+     ()=>OverviewData.Capture(selection.Columns,settings,mode,rows,Interlocked.Read(ref session),Volatile.Read(ref informationGeneration),now),ReadExtensions,sample=>{
+      rows=sample;long id=Interlocked.Read(ref session);if(lastSampleSession!=id){lastSampleSession=id;Message("FIRST_SAMPLE session="+id+" players="+rows.Count);}Render();
+     });
+   }finally{sampling.End(Now,success);}
   }
   private static Noesis.Color ResolvePlayerColor(int player) {
    var mapping=SpriteMapping.remapColours;

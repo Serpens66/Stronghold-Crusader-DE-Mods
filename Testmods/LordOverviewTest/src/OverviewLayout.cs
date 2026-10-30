@@ -13,6 +13,7 @@ namespace LordOverviewTest {
   internal GridFlow(int rows,int columns){rowCount=Math.Max(0,rows);columnCount=Math.Max(0,columns);if(rowCount==0 && columnCount==0)columnCount=1;}
   internal int Columns(int items)=>Math.Min(Math.Max(1,items),columnCount>0?columnCount:Divide(items,Math.Max(1,rowCount)));
   internal int Rows(int items)=>Divide(items,Columns(items));
+  internal bool IsNormalized(int items)=>rowCount>0 && columnCount>0 && rowCount==Rows(items) && columnCount==Columns(items);
   internal GridFlow Normalize(int items)=>new GridFlow(Rows(items),Columns(items));
   internal void Position(int index,int items,out int row,out int column){
    if(items<1 || index<0 || index>=items)throw new ArgumentOutOfRangeException(nameof(index));
@@ -81,7 +82,7 @@ namespace LordOverviewTest {
   // No snapshot may cross a mission/HUD change or an information-rights revocation.
   internal static bool TryRead<T>(Func<UiActionContext> read,Func<int> rights,Func<T> capture,Func<T,UiActionContext,int,bool> extend,Action<T> publish){
    var stamp=read();int version=rights();if(!stamp.Allows(stamp,false))return false;
-   var sample=capture();if(!stamp.Allows(read(),false) || version!=rights())return false;
+   var sample=capture();if(ReferenceEquals(sample,null) || !stamp.Allows(read(),false) || version!=rights())return false;
    if(!extend(sample,stamp,version) || !stamp.Allows(read(),false) || version!=rights())return false;
    publish(sample);return true;
   }

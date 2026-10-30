@@ -44,6 +44,7 @@
     <Reference Include="Microsoft.Extensions.Logging.Abstractions"><HintPath>$(ExtenderDir)\Microsoft.Extensions.Logging.Abstractions.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="APIShared"><HintPath>$(ApiSharedDir)\APIShared.dll</HintPath><Private>false</Private></Reference>
   </ItemGroup>
+  <ItemGroup Condition="'$(SerpDevDiagnostics)' == 'true'"><Reference Include="UnityEngine.ScreenCaptureModule"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.ScreenCaptureModule.dll</HintPath><Private>false</Private></Reference></ItemGroup>
   <ItemGroup><Compile Include="src\*.cs" /></ItemGroup>
   <ItemGroup><Compile Include="..\..\Shared\Runtime\Diagnostics\DevDiag.cs"><Link>Shared\DevDiag.cs</Link></Compile></ItemGroup>
   <ItemGroup><Compile Include="..\..\Shared\Runtime\Diagnostics\DebugLogHelper.cs"><Link>Shared\DebugLogHelper.cs</Link></Compile><Compile Include="..\..\Shared\Runtime\Localization\SerpLocalization.cs"><Link>Shared\SerpLocalization.cs</Link></Compile></ItemGroup>

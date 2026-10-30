@@ -137,7 +137,9 @@ namespace Spectator
             DetachToolbarLayout();
             // The same IngameUIScreens can survive a map transition. Hide before dropping references.
             if (humanPanel != null) { humanPanel.Visibility = Visibility.Collapsed; humanPanel.DataContext = null; }
-            if (humanDetails != null) { humanDetails.Visibility = Visibility.Collapsed; humanDetails.DataContext = null; }
+            // The collapsed common parent already hides the content. Preserve its
+            // visibility binding so the same Noesis view can serve another mission.
+            if (humanDetails != null) humanDetails.DataContext = null;
             ClosePlayerTooltips();
             foreach (var button in playerTooltipTexts.Keys)
                 if (ToolTipService.GetToolTip(button) is ToolTip tip) { MenuToolTipSizing.SetEnabled(tip, false); ToolTipService.SetToolTip(button, null); }
@@ -363,9 +365,8 @@ namespace Spectator
         {
             if (humanCanvas == null || humanPanel == null || humanDragHandle == null ||
                 !layoutCached || !humanPanel.IsHitTestVisible) return;
-            humanDragStart = args.GetPosition(humanCanvas);
-            humanDragOriginLeft = (float)Canvas.GetLeft(humanPanel);
-            humanDragOriginTop = (float)Canvas.GetTop(humanPanel);
+            Point pointer = args.GetPosition(humanCanvas);
+            toolbarDrag.Begin(pointer.X, pointer.Y, toolbarVisibleGrip, !toolbarMoved);
             humanDragging = humanDragHandle.CaptureMouse();
             toolbarLayoutDirty = true;
             PositionToolbar();
@@ -376,8 +377,7 @@ namespace Spectator
         {
             if (!humanDragging || humanCanvas == null || humanPanel == null) return;
             Point current = args.GetPosition(humanCanvas);
-            SnapToolbarDrag(humanDragOriginLeft + (float)(current.X - humanDragStart.X),
-                humanDragOriginTop + (float)(current.Y - humanDragStart.Y));
+            SnapToolbarDrag(current.X, current.Y);
             PositionToolbar();
             args.Handled = true;
         }

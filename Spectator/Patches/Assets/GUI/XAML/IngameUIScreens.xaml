@@ -33,12 +33,20 @@
 <Style x:Key="GoodsTab" TargetType="{x:Type Button}" BasedOn="{StaticResource ToolsButton}"><Style.Triggers><DataTrigger Binding="{Binding ActiveViewKey}" Value="Goods"><Setter Property="Background" Value="#70AD7540"/><Setter Property="BorderBrush" Value="#FFEFC670"/></DataTrigger></Style.Triggers></Style>
 <Style x:Key="OrdersTab" TargetType="{x:Type Button}" BasedOn="{StaticResource ToolsButton}"><Style.Triggers><DataTrigger Binding="{Binding ActiveViewKey}" Value="Orders"><Setter Property="Background" Value="#70AD7540"/><Setter Property="BorderBrush" Value="#FFEFC670"/></DataTrigger></Style.Triggers></Style>
       <ImageBrush x:Key="SpectatorPaper" ImageSource="{StaticResource UI-HUD 007}" Viewbox="0.02,0.08,0.96,0.80" ViewboxUnits="RelativeToBoundingBox" Stretch="Fill"/>
-      </Canvas.Resources>
+      <ImageBrush x:Key="SpectatorPaperEdge" ImageSource="{StaticResource UI-HUD 007}" Viewbox="0,0.90,1,0.03" ViewboxUnits="RelativeToBoundingBox" Stretch="Fill"/>
+</Canvas.Resources>
       <!-- Own surfaces share one origin. Their empty bounding-box gaps never intercept the HUD. -->
       <Border x:Name="SpectatorEditorHumanPanel" ClipToBounds="False" Visibility="Collapsed" Opacity="0" IsHitTestVisible="False">
         <Canvas x:Name="TestToolsRoot" ClipToBounds="False">
-      <Border x:Name="SpectatorSnapFrame" Visibility="Collapsed" IsHitTestVisible="False" BorderBrush="#88977645" BorderThickness="0.7" CornerRadius="5"/>
-      <Border x:Name="SpectatorToolSnapFrame" Visibility="Collapsed" IsHitTestVisible="False" BorderBrush="#88977645" BorderThickness="0.7" CornerRadius="5"/>
+<Canvas x:Name="SpectatorPaperSurface" IsHitTestVisible="False" Background="{StaticResource SpectatorPaperEdge}">
+<Canvas x:Name="SpectatorPaperTop" IsHitTestVisible="False"><Image x:Name="SpectatorPaperTopImage" Source="{StaticResource UI-HUD 007}" Stretch="Fill" IsHitTestVisible="False"/></Canvas>
+<Canvas x:Name="SpectatorPaperLower" IsHitTestVisible="False"><Image x:Name="SpectatorPaperLowerImage" Source="{StaticResource UI-HUD 007}" Stretch="Fill" IsHitTestVisible="False"/></Canvas>
+</Canvas>
+<Border x:Name="SpectatorEditorHumanDrag" Panel.ZIndex="2" Cursor="SizeAll" ToolTipService.ShowDuration="60000">
+<Border.Style><Style TargetType="{x:Type Border}"><Setter Property="Background" Value="#20744221"/><Setter Property="BorderBrush" Value="#40744221"/><Setter Property="BorderThickness" Value="0.5"/><Style.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter Property="Background" Value="#60AD7540"/><Setter Property="BorderBrush" Value="#99EFC670"/></Trigger></Style.Triggers></Style></Border.Style>
+<Border.ToolTip><ToolTip Style="{StaticResource ToolsTooltip}" Content="{Binding Text[DragHelp]}"/></Border.ToolTip></Border>
+      <Border x:Name="SpectatorSnapFrame" Panel.ZIndex="3" Visibility="Collapsed" IsHitTestVisible="False" BorderBrush="#88977645" BorderThickness="0.7" CornerRadius="5"/>
+      <Border x:Name="SpectatorToolSnapFrame" Panel.ZIndex="3" Visibility="Collapsed" IsHitTestVisible="False" BorderBrush="#88977645" BorderThickness="0.7" CornerRadius="5"/>
 
           <Border x:Name="SpectatorRosterPanel" Width="80" Background="{StaticResource SpectatorPaper}" CornerRadius="3"><Grid><Canvas x:Name="SpectatorEditorHumanOwners" Width="80">
 <Button x:Name="SpectatorEditorHumanOwner1" Width="36" Height="36" Margin="0" Style="{StaticResource QuickButton}" ToolTipService.ShowDuration="60000">
@@ -105,15 +113,15 @@
         <TextBlock x:Name="SpectatorEditorHumanNumber8" Text="8" Style="{StaticResource OwnerNumber}" Canvas.Left="0" Canvas.Top="0" IsHitTestVisible="False"/>
       </Canvas>
     </Button>
-              </Canvas><Border x:Name="SpectatorEditorHumanDrag" Width="4" HorizontalAlignment="Left" Background="#60744221" CornerRadius="3" Cursor="SizeAll" ToolTipService.ShowDuration="60000"><Border.ToolTip><ToolTip Style="{StaticResource ToolsTooltip}" Content="{Binding Text[DragHelp]}"/></Border.ToolTip></Border></Grid></Border>
-<Border x:Name="SpectatorControlSlot" Width="64" Height="22" Background="{StaticResource SpectatorPaper}" CornerRadius="3"><Grid>
+              </Canvas></Grid></Border>
+<Border x:Name="SpectatorControlSlot" Width="60" Height="22" Background="{StaticResource SpectatorPaper}" CornerRadius="3"><Grid>
 <Button x:Name="SpectatorExpand" Style="{StaticResource ToolsButton}" FontSize="12" Content="{Binding ExpandLabel}" Command="{Binding ActionCommand}" CommandParameter="Collapse" Visibility="{Binding ExpandButtonVisibility}" ToolTipService.ShowDuration="60000"><Button.ToolTip><ToolTip Style="{StaticResource ToolsTooltip}" Content="{Binding Text[CollapseHelp]}"/></Button.ToolTip></Button>
 <Button x:Name="SpectatorStopPlacement" Style="{StaticResource ToolsButton}" FontSize="12" Content="{Binding Text[StopShort]}" Command="{Binding ActionCommand}" CommandParameter="Placement" Visibility="{Binding PlacementVisibility}" ToolTipService.ShowDuration="60000"><Button.ToolTip><ToolTip Style="{StaticResource ToolsTooltip}" Content="{Binding Text[StopPlacement]}"/></Button.ToolTip></Button>
 </Grid></Border>
           <Canvas x:Name="SpectatorToolPanel" Width="496" Height="114" Visibility="{Binding ExpandedVisibility}">
             <Grid Width="496" Height="114">
               <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="26"/></Grid.RowDefinitions>
-              <Border x:Name="SpectatorPaperSurface" Grid.RowSpan="2" Background="{StaticResource SpectatorPaper}" CornerRadius="6,6,0,0" IsHitTestVisible="False" Visibility="Collapsed"/>
+
               <Border x:Name="SpectatorHeader" Background="Transparent" BorderBrush="#50744221" BorderThickness="0,0,0,0.5" Padding="1,0">
 <Grid x:Name="SpectatorActions" Visibility="{Binding NavigationVisibility}"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                   <Button x:Name="SpectatorEditorHumanToggle" Grid.Column="0" Padding="2,1" Margin="1,0" Style="{StaticResource ToolsButton}" Command="{Binding ActionCommand}" CommandParameter="Placement" ToolTipService.ShowDuration="60000">
@@ -227,7 +235,7 @@
             </Grid>
           </Border>
           <Canvas x:Name="SpectatorWings" Grid.Row="2" Height="26" Visibility="{Binding ExpandedVisibility}">
-            <Border x:Name="SpectatorLeftWing" Background="{StaticResource SpectatorPaper}" CornerRadius="0,0,4,4" Height="26">
+            <Border x:Name="SpectatorLeftWing" Background="Transparent" CornerRadius="0,0,4,4" Height="26">
               <Grid>
 
                 <Grid Visibility="{Binding OrdersVisibility}" Margin="4,0" VerticalAlignment="Center">
@@ -235,7 +243,7 @@
                 </Grid>
               </Grid>
             </Border>
-            <Border x:Name="SpectatorRightWing" Background="{StaticResource SpectatorPaper}" CornerRadius="0,0,4,4" Height="26" ClipToBounds="True">
+            <Border x:Name="SpectatorRightWing" Background="Transparent" CornerRadius="0,0,4,4" Height="26" ClipToBounds="True">
 <TextBlock x:Name="ToolsStatus" FontSize="10" Foreground="#FF37200E" Margin="4,0" TextWrapping="Wrap" LineHeight="11" LineStackingStrategy="BlockLineHeight" VerticalAlignment="Center" Visibility="{Binding GoodsStatusVisibility}" ToolTipService.ShowDuration="60000"></TextBlock>
             </Border>
           </Canvas>

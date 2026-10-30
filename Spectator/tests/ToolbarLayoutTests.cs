@@ -24,12 +24,14 @@ internal static class ToolbarLayoutTests
                 expanded.Bounds.Right >= expanded.Tools.Right && expanded.Bounds.Bottom >= expanded.Roster.Bottom,
                 "Common drag/clamp bounds enclose every visible part without clipping the stop button.");
             var floating = ToolbarLayout.Arrange(alignment,frame,count,true,true);
-            check(floating.Roster.X==expanded.Roster.X && floating.Roster.Y==expanded.Roster.Y &&
-                floating.Control.Bottom==floating.Roster.Bottom && floating.Control.X>floating.Roster.Right,
-                "Relocating the control never changes the portrait anchor or adds height.");
+            check(floating.Roster.Width == 496 && floating.Roster.Height == 44 && floating.Tools.Y == floating.Roster.Bottom &&
+                floating.Control.Right <= floating.Roster.Right && floating.Control.Bottom <= floating.Roster.Bottom,
+                "Floating portraits/control share one header, directly above the tool surface.");
             check(compact.Control.Right < alignment.X+553*scale && compact.Control.Bottom < alignment.Bottom &&
-                compact.Control.Width==64*scale && !compact.Control.Intersects(compact.Roster),
+                compact.Control.Width==60*scale && !compact.Control.Intersects(compact.Roster),
                 "Dock control fits immediately left of the trumpet without enlarging the roster.");
+            check(compact.Grip.Right == frame.X && compact.Grip.Y == compact.Roster.Y && compact.Grip.Height == compact.Roster.Height,
+                "The existing gap is the full-height dock grip; no separate side strip remains.");
             var cells = new List<ToolbarRect>();
             for (int i=0;i<count;i++)
             {
@@ -37,6 +39,11 @@ internal static class ToolbarLayoutTests
                 check(cell.Width==36 && cell.Height==36 && cell.Right<=80 && cell.Bottom<=ToolbarLayout.RosterHeight(count),
                     "All portraits fit in two columns and at most four rows at the selected size.");
                 foreach (var previous in cells) check(!previous.Intersects(cell),"Packed portrait cells never overlap.");
+                var floatingCell = ToolbarLayout.OwnerCell(i,true);
+                check(floatingCell.Y == 6 && floatingCell.Right < floating.Control.X && floatingCell.Height == 36,
+                    "All eight portraits fit left-to-right before the floating control.");
+                check(!new ToolbarRect(compact.Roster.X+cell.X*scale,compact.Roster.Y+cell.Y*scale,
+                    cell.Width*scale,cell.Height*scale).Intersects(compact.Grip),"Gap dragging cannot steal portrait clicks.");
                 cells.Add(cell);
             }
             // Gaps in player IDs do not consume a cell: runtime passes the visible ordinal.
@@ -53,6 +60,32 @@ internal static class ToolbarLayoutTests
                 check(clamped.X>=0 && clamped.Right<=viewport+.001f && clamped.Y==0 && clamped.Bottom<=1080,
                     "The complete group, including portraits and stop control, stays reachable at screen edges.");
             }
+        }
+        foreach(float uiScale in new[]{.75f,1f,1.5f,2f,3f})
+        foreach(float fraction in new[]{0f,.5f,1f})
+        {
+            var grip = new ToolbarRect(300,700,4*uiScale,150*uiScale);
+            float targetX=grip.X+fraction*grip.Width, targetY=grip.Y+fraction*grip.Height;
+            var drag=new ToolbarDragAnchor(); drag.Begin(targetX,targetY,grip);
+            check(drag.Move(targetX+13.9f/uiScale,targetY,grip,uiScale,uiScale,uiScale,true,out var x,out var y),"Attached grip retains fourteen-pixel hysteresis.");
+            check(!drag.Move(targetX+14.1f/uiScale,targetY,grip,uiScale,uiScale,uiScale,true,out x,out y),"Crossing release radius selects the row layout.");
+            float firstX=x, firstY=y;
+            for(int move=0;move<5;move++)
+                check(!drag.Move(targetX+14.1f/uiScale,targetY,grip,uiScale,uiScale,uiScale,false,out x,out y) && x==firstX && y==firstY,
+                    "Changing panel dimensions cannot feed back as pointer motion or snap chatter.");
+            check(drag.Move(targetX+9.9f/uiScale,targetY,grip,uiScale,uiScale,uiScale,false,out x,out y),"Return to the original grip point acquires within ten rendered pixels.");
+            var floatingGrip=new ToolbarRect(120,180,496*uiScale,4*uiScale);
+            drag.Begin(floatingGrip.X+fraction*floatingGrip.Width,floatingGrip.Y+fraction*floatingGrip.Height,floatingGrip,false);
+            check(drag.Move(grip.X+grip.Width/2,grip.Y+grip.Height/2,grip,uiScale,uiScale,uiScale,false,out x,out y),
+                "A new floating drag always targets the visible dock centre, independently of the exact top-edge click.");
+            var paper=new ToolbarRect(-150,-25,876*uiScale,103*uiScale);
+            var slices=new ToolbarPaperSlices(paper,180*uiScale);
+            float topV=(slices.Join-slices.TopImage.Y)/slices.TopImage.Height;
+            float lowerV=(slices.Join-slices.LowerImage.Y)/slices.LowerImage.Height;
+            check(Math.Abs(topV-lowerV)<.00001f && Math.Abs(topV-.8f)<.00001f &&
+                slices.TopImage.X==slices.LowerImage.X && slices.TopImage.Width==slices.LowerImage.Width,
+                "Paper strips meet at the same source texel and keep horizontal texture coordinates.");
+            check(slices.LowerImage.Bottom>=180*uiScale-.001f,"The matching lower shading reaches the footer without a texture restart.");
         }
         var dock=new ToolbarRect(100,200,600,202);
         foreach(float scale in new[]{1f,1.5f,2f,3f})

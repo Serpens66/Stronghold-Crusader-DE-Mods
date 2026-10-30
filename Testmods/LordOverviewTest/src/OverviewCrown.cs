@@ -11,6 +11,7 @@ namespace LordOverviewTest {
    ReferenceEquals(button,crownButton) && button.IsLoaded && button.IsVisible && button.IsEnabled && button.IsHitTestVisible && sourceHost?.IsLoaded==true && main?.Show_InGameUI==true,settings.EnableMod,false);
   private static void BindCrownButton(Button button){
    DetachCrownButton();crownButton=button;
+   ToolTipService.SetInitialShowDelay(button,0);ToolTipService.SetBetweenShowDelay(button,0);
    button.PreviewMouseDown+=OnCrownDown;button.PreviewMouseUp+=OnCrownUp;button.LostMouseCapture+=OnCrownLostCapture;
   }
   private static void DetachCrownButton(){

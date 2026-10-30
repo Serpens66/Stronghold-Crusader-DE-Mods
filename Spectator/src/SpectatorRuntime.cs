@@ -119,8 +119,6 @@ namespace Spectator
         private static readonly int[] humanDisplayedColours = new int[9];
         private static bool humanDragging;
         private static bool humanCameraFailureLogged;
-        private static Point humanDragStart;
-        private static float humanDragOriginLeft, humanDragOriginTop;
         private static readonly SolidColorBrush ownerNormalBrush =
             new SolidColorBrush(Noesis.Color.FromArgb(48, 111, 68, 35));
         private static readonly SolidColorBrush ownerSelectedBrush =

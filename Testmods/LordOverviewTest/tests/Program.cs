@@ -1,7 +1,7 @@
 using System;
 using System.Linq;
 using LordOverviewTest;
-internal static class Program {
+internal static partial class Program {
  static int checks;
  static void Check(bool ok,string message){checks++;if(!ok)throw new Exception(message);}
  static void Main(){
@@ -17,10 +17,7 @@ internal static class Program {
   var values=new long?[]{1,2,3,4,5};var five=new LordRow(8,true,values);values[4]=0;
   state.Select(Metric.GoldAcquired);Check(five.Values[4]==5 && state.Sort(new[]{five})[0].Player==8,"immutable metric snapshot");
   TestColumns();TestExternalColumns();TestInformation();TestValues();TestMenuAndGestures();TestPassiveHover();TestLayoutsAndActions();TestMenuWindowAndCrown();
-  var gate=new RefreshGate();for(int i=0;i<39;i++)Check(!gate.Tick(true),"no query on intermediate ticks");Check(gate.Tick(true),"query at tick forty");
-  for(int i=0;i<120;i++)Check(!gate.Tick(false),"hidden never samples");
-  for(int i=0;i<39;i++)Check(!gate.Tick(true),"hidden resets interval");Check(gate.Tick(true),"one full interval after hidden");
-  for(int i=0;i<400;i++)Check(gate.Tick(true)==(i%40==39),"exact cadence without drift");
+  TestSamplingAndPointer();
   Console.WriteLine("PASS: "+checks+" production layout, UI lifetime, sample isolation, sorting, information and cadence checks.");
  }
  static void TestColumns(){

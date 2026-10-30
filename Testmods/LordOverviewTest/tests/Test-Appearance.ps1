@@ -39,7 +39,7 @@ try {
   if(-not $passive.Count){throw "Passive visual lost its hit-test exclusion: $($pair -join '.')"}
  }
  # Follow owned call targets (including dispatcher delegate bodies) from the presentation callback.
- # This protects the 40-tick data boundary without trying to simulate Noesis or native game reads.
+ # This protects the independent sampling boundary without trying to simulate Noesis or native game reads.
  $pending=[Collections.Generic.Stack[Mono.Cecil.MethodDefinition]]::new()
  $pending.Push(($runtime.Methods | Where-Object Name -eq 'OnHoverGui'))
  $seen=[Collections.Generic.HashSet[string]]::new()
@@ -48,9 +48,21 @@ try {
   foreach($instruction in $method.Body.Instructions){
    if($instruction.Operand -isnot [Mono.Cecil.MethodReference]){continue}
    $call=$instruction.Operand
-   if(($call.DeclaringType.FullName -eq 'LordOverviewTest.OverviewData' -and $call.Name -eq 'Capture') -or ($call.DeclaringType.FullName -eq 'EngineInterface' -and $call.Name -in @('GetMeritData','GetMPScoreData'))){throw 'Presentation hover must not sample statistics.'}
+   if(($call.DeclaringType.FullName -eq 'LordOverviewTest.OverviewData' -and $call.Name -eq 'Capture') -or ($call.DeclaringType.FullName -eq 'EngineInterface' -and $call.Name -in @('GetMeritData','GetMPScoreData','DLL_GetMeritData','DLL_GetMPScoreData'))){throw 'Presentation hover must not sample statistics.'}
    if($call -is [Mono.Cecil.MethodDefinition] -and $call.Module -eq $assembly.MainModule){$pending.Push($call)}
   }
+ }
+ # The regular GUI/tick paths must not allocate a closure before their due/visibility guard.
+ # These are compiled IL allocation checks, not claims about native API/Noesis allocations.
+ foreach($pair in @(@('LordOverviewTest.OverviewRuntime','OnTick'),@('LordOverviewTest.OverviewRuntime','Refresh'),@('LordOverviewTest.OverviewRuntime','OnOverviewGui'),@('LordOverviewTest.OverviewData','CopyRaw'))){
+  $method=$assembly.MainModule.GetType($pair[0]).Methods | Where-Object Name -eq $pair[1]
+  foreach($instruction in $method.Body.Instructions){
+   if($instruction.OpCode.Name -in @('newarr','box') -or ($instruction.OpCode.Name -eq 'newobj' -and -not $instruction.Operand.DeclaringType.IsValueType)){throw "Managed allocation on critical/fast boundary: $($pair -join '.')"}
+  }
+ }
+ $bindCrown=$runtime.Methods | Where-Object Name -eq 'BindCrownButton'
+ foreach($name in @('SetInitialShowDelay','SetBetweenShowDelay')){
+  if(-not ($bindCrown.Body.Instructions | Where-Object {$_.Operand -is [Mono.Cecil.MethodReference] -and $_.Operand.Name -eq $name -and $_.Previous.OpCode.Name -eq 'ldc.i4.0'})){throw "Crown delay must be zero: $name"}
  }
  $attach=$runtime.Methods | Where-Object Name -eq 'Attach'
  $templates=@($attach.Body.Instructions | Where-Object {$_.OpCode.Name -eq 'ldstr' -and $_.Operand -match "TargetType='\{x:Type ToolTip\}'"} | ForEach-Object {$_.Operand})
@@ -89,7 +101,15 @@ try {
  $engine=$gameAssembly.MainModule.GetType('EngineInterface')
  $lock=$engine.Fields | Where-Object Name -eq 'threadLock'
  if(-not $lock.IsStatic -or $lock.IsPublic -or $lock.FieldType.FullName -ne 'System.Object'){throw 'Engine lock reflection contract changed.'}
- foreach($name in @('GetMeritData','GetMPScoreData')){if(-not ($engine.Methods | Where-Object {$_.Name -eq $name -and $_.IsPublic -and $_.IsStatic})){throw "Vanilla public snapshot unavailable: $name"}}
+ foreach($name in @('GetMeritData','GetMPScoreData','DLL_GetMeritData','DLL_GetMPScoreData')){if(-not ($engine.Methods | Where-Object {$_.Name -eq $name -and $_.IsPublic -and $_.IsStatic})){throw "Vanilla public snapshot unavailable: $name"}}
+ $export=$gameAssembly.MainModule.GetType('EngineInterface/multiplayer_stats_export')
+ if(-not $export.IsNestedPublic -or -not $export.IsExplicitLayout){throw 'Public native statistics export layout unavailable.'}
+ foreach($name in @('valid','gold_acquired','max_population','food_produced','wood_produced','stone_produced','iron_produced','pitch_produced','weapons_produced','goods_received','goods_sent','troops_produced','who_killed_who','enemy_buildings_destroyed','buildings_lost','lords_killed')){
+  $field=$export.Fields | Where-Object Name -eq $name
+  $attribute=$field.CustomAttributes | Where-Object {$_.AttributeType.FullName -eq 'System.Runtime.CompilerServices.FixedBufferAttribute'}
+  $count=if($name -eq 'who_killed_who'){81}else{9}
+  if(-not $field.IsPublic -or -not $attribute -or $attribute.ConstructorArguments[0].Value.FullName -ne 'System.Int32' -or $attribute.ConstructorArguments[1].Value -ne $count){throw "Native export field changed: $name"}
+ }
  $resources=$extender.MainModule.GetType('SHCDESE.Interop.GamePlayerResources')
  foreach($pair in @(@('r_CurrentPopularity','System.UInt32'),@('r_GoodBadThingBoost','System.Int32'))){
   $field=$resources.Fields | Where-Object Name -eq $pair[0]

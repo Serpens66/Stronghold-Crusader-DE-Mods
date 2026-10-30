@@ -47,10 +47,11 @@ namespace LordOverviewTest {
  }
  internal sealed class ColumnSelection {
   private List<Metric> columns=new List<Metric>(Metrics.Defaults);
-  internal Metric[] Columns=>columns.ToArray();
-  internal void Load(string value){columns=new List<Metric>(Metrics.Parse(value));}
-  internal bool Toggle(Metric id){if(!Metrics.All.Any(d=>d.Id==id))return false;if(columns.Contains(id)){if(columns.Count==1)return false;columns.Remove(id);}else{columns.Add(id);}return true;}
-  internal bool MoveTo(Metric id,int index){int old=columns.IndexOf(id);if(old<0 || index<0 || index>=columns.Count || old==index)return false;columns.RemoveAt(old);columns.Insert(index,id);return true;}
+  private Metric[] snapshot;
+  internal Metric[] Columns=>snapshot??(snapshot=columns.ToArray());
+  internal void Load(string value){columns=new List<Metric>(Metrics.Parse(value));snapshot=null;}
+  internal bool Toggle(Metric id){if(!Metrics.All.Any(d=>d.Id==id))return false;if(columns.Contains(id)){if(columns.Count==1)return false;columns.Remove(id);}else{columns.Add(id);}snapshot=null;return true;}
+  internal bool MoveTo(Metric id,int index){int old=columns.IndexOf(id);if(old<0 || index<0 || index>=columns.Count || old==index)return false;columns.RemoveAt(old);columns.Insert(index,id);snapshot=null;return true;}
  }
  internal enum HeaderGestureResult { Cancel, Sort, Reorder }
  internal static class HeaderDropGeometry {
@@ -92,12 +93,14 @@ namespace LordOverviewTest {
   internal void SetExtra(Metric metric,decimal? value){extra[metric]=value;}
   internal string ValueSignature=>string.Join(";",Values)+"/"+string.Join(";",extra.OrderBy(p=>p.Key).Select(p=>p.Key+"="+p.Value));
  }
- internal sealed class OverviewState {
+ internal sealed class OverviewState : IComparer<LordRow> {
+  int IComparer<LordRow>.Compare(LordRow a,LordRow b)=>Compare(a,b);
   internal Metric? Column {get;private set;}
   internal bool Descending {get;private set;}
   internal void Select(Metric? column) {Descending=column==Column?!Descending:true;Column=column;}
   internal void Reconcile(IEnumerable<Metric> visible){if(Column.HasValue && !visible.Contains(Column.Value)){Column=null;Descending=false;}}
-  internal List<LordRow> Sort(IEnumerable<LordRow> rows){var result=new List<LordRow>(rows);result.Sort(Compare);return result;}
+  internal List<LordRow> Sort(IEnumerable<LordRow> rows){var result=new List<LordRow>(rows);result.Sort(this);return result;}
+  internal void SortInto(List<LordRow> source,List<LordRow> target){target.Clear();for(int i=0;i<source.Count;i++)target.Add(source[i]);target.Sort(this);}
   private int Compare(LordRow a,LordRow b){
    if(!Column.HasValue)return Descending?b.Player.CompareTo(a.Player):a.Player.CompareTo(b.Player);
    decimal? av=a.Get(Column.Value),bv=b.Get(Column.Value);
@@ -105,9 +108,5 @@ namespace LordOverviewTest {
    int cmp=av.HasValue?av.Value.CompareTo(bv.Value):0;
    return cmp==0?a.Player.CompareTo(b.Player):Descending?-cmp:cmp;
   }
- }
- internal sealed class RefreshGate {
-  private int ticks;
-  internal bool Tick(bool visible){if(!visible){ticks=0;return false;}if(++ticks<40)return false;ticks=0;return true;}
  }
 }

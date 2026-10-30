@@ -18,12 +18,12 @@ namespace Spectator
 
     internal readonly struct ToolbarPose
     {
-        internal readonly ToolbarRect Roster, Tools, Control, Bounds;
-        internal ToolbarPose(ToolbarRect roster, ToolbarRect tools, ToolbarRect control)
+        internal readonly ToolbarRect Roster, Tools, Control, Grip, Bounds;
+        internal ToolbarPose(ToolbarRect roster, ToolbarRect tools, ToolbarRect control, ToolbarRect grip)
         {
-            Roster = roster; Tools = tools; Control = control;
-            float x = Math.Min(roster.X, control.X), y = Math.Min(roster.Y, control.Y);
-            float right = Math.Max(roster.Right, control.Right), bottom = Math.Max(roster.Bottom, control.Bottom);
+            Roster = roster; Tools = tools; Control = control; Grip = grip;
+            float x = Math.Min(roster.X, Math.Min(control.X, grip.X)), y = Math.Min(roster.Y, Math.Min(control.Y, grip.Y));
+            float right = Math.Max(roster.Right, Math.Max(control.Right, grip.Right)), bottom = Math.Max(roster.Bottom, Math.Max(control.Bottom, grip.Bottom));
             if (!tools.Empty) { x = Math.Min(x, tools.X); y = Math.Min(y, tools.Y); right = Math.Max(right, tools.Right); bottom = Math.Max(bottom, tools.Bottom); }
             Bounds = new ToolbarRect(x, y, right - x, bottom - y);
         }
@@ -34,7 +34,7 @@ namespace Spectator
         internal const float Gap = 4;
         internal const float Portrait = 36, TargetPortrait = 28, Cell = 38, RosterWidth = 80;
         internal const float Header = 22, Body = 66, Footer = 26;
-        internal const float ControlWidth = 64, ControlHeight = 22;
+        internal const float ControlWidth = 60, ControlHeight = 22, WindowWidth = 496, FloatingHeader = 44, FloatingGrip = 4;
         // Vanilla's detailed info host ends 125 units above the viewport bottom
         // (compact: 130). Keep a two-unit gap below both, in every toolbar mode.
         internal static ToolbarRect Dock(ToolbarRect alignment)
@@ -99,10 +99,11 @@ namespace Spectator
             return true;
         }
 
-        internal static ToolbarRect OwnerCell(int ordinal)
+        internal static ToolbarRect OwnerCell(int ordinal, bool floating = false)
         {
             if (ordinal < 0 || ordinal >= 8) throw new ArgumentOutOfRangeException(nameof(ordinal));
-            return new ToolbarRect(4 + ordinal % 2 * Cell, ordinal / 2 * Cell, Portrait, Portrait);
+            return floating ? new ToolbarRect(2 + ordinal * Cell, 6, Portrait, Portrait) :
+                new ToolbarRect(4 + ordinal % 2 * Cell, ordinal / 2 * Cell, Portrait, Portrait);
         }
 
         internal static float RosterHeight(int count) => Math.Max(1, (Math.Max(0, Math.Min(8, count)) + 1) / 2) * Cell - 2;
@@ -110,15 +111,20 @@ namespace Spectator
         internal static ToolbarPose Arrange(ToolbarRect alignment, ToolbarRect frame, int count, bool details,
             bool floating = false, ToolbarRect dockControl = default)
         {
+            if (floating)
+                return new ToolbarPose(new ToolbarRect(0, 0, WindowWidth, FloatingHeader),
+                    details ? new ToolbarRect(0, FloatingHeader, WindowWidth, Header + Body + Footer) : default,
+                    new ToolbarRect(WindowWidth - ControlWidth - 2, 13, ControlWidth, ControlHeight),
+                    new ToolbarRect(0, 0, WindowWidth, FloatingGrip));
             float scale = alignment.Width / 914;
             var roster = new ToolbarRect(frame.X - (2 + RosterWidth) * scale,
                 alignment.Bottom - RosterHeight(count) * scale, RosterWidth * scale, RosterHeight(count) * scale);
             var tools = details ? Dock(alignment) : default;
-            var control = floating ? new ToolbarRect(roster.Right + 2 * scale,
-                roster.Bottom - ControlHeight * scale, ControlWidth * scale, ControlHeight * scale) :
-                dockControl.Empty ? new ToolbarRect(alignment.X + (553 - 2 - ControlWidth) * scale,
+            var control = dockControl.Empty ? new ToolbarRect(alignment.X + (553 - 2 - ControlWidth) * scale,
                     alignment.Bottom - (ControlHeight + 2) * scale, ControlWidth * scale, ControlHeight * scale) : dockControl;
-            return new ToolbarPose(roster, tools, control);
+            // Include the blank two-unit margin within the roster, stopping at the frame.
+            var grip = new ToolbarRect(roster.Right - 2 * scale, roster.Y, 4 * scale, roster.Height);
+            return new ToolbarPose(roster, tools, control, grip);
         }
 
         // Normalize the measured text, not its line box. Both contour layers use this offset.
@@ -150,5 +156,44 @@ namespace Spectator
             if (right.Width > 0 && left.X > right.X) { var swap = left; left = right; right = swap; }
         }
 
+    }
+
+    // Pointer fractions belong to the grip, never to a mode-dependent panel origin.
+    // Keeping them fixed for the drag prevents a reflow from looking like mouse movement.
+    internal sealed class ToolbarDragAnchor
+    {
+        private float fractionX, fractionY, dockFractionX, dockFractionY;
+        internal void Begin(float x, float y, ToolbarRect grip, bool attached = true)
+        {
+            fractionX = Math.Max(0, Math.Min(1, (x - grip.X) / Math.Max(1, grip.Width)));
+            fractionY = Math.Max(0, Math.Min(1, (y - grip.Y) / Math.Max(1, grip.Height)));
+            // A fresh floating drag targets the visible dock centre. A subpixel click
+            // within the four-unit top edge must not choose an arbitrary dock row.
+            dockFractionX = attached ? fractionX : .5f;
+            dockFractionY = attached ? fractionY : .5f;
+        }
+        internal bool Move(float x, float y, ToolbarRect dockGrip, float screenScaleX, float screenScaleY,
+            float floatingScale, bool attached, out float wantedX, out float wantedY)
+        {
+            var target = new ToolbarRect(dockGrip.X + dockFractionX * dockGrip.Width,
+                dockGrip.Y + dockFractionY * dockGrip.Height, 1, 1);
+            wantedX = x - fractionX * ToolbarLayout.WindowWidth * floatingScale;
+            wantedY = y - fractionY * ToolbarLayout.FloatingGrip * floatingScale;
+            return ToolbarLayout.Snap(x, y, target, screenScaleX, screenScaleY, attached);
+        }
+    }
+
+    internal readonly struct ToolbarPaperSlices
+    {
+        internal readonly ToolbarRect TopImage, LowerImage;
+        internal readonly float Join;
+        internal ToolbarPaperSlices(ToolbarRect paper, float end)
+        {
+            TopImage = paper;
+            Join = paper.Y + paper.Height * .8f;
+            float stretch = Math.Max(1, (end - Join) / Math.Max(1, paper.Height * .2f));
+            LowerImage = new ToolbarRect(paper.X, Join - paper.Height * .8f * stretch,
+                paper.Width, paper.Height * stretch);
+        }
     }
 }
