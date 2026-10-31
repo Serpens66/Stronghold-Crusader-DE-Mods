@@ -7,6 +7,8 @@ namespace Spectator
     internal static partial class SpectatorRuntime
     {
         private static bool toolbarLayoutDirty = true, toolbarMoved, layoutCached;
+        private static int observedBuildPage = int.MinValue;
+        private static bool observedMainHud;
         // Absolute floating-header position. It never depends on the docked bounding box.
         private static float toolbarDesiredX, toolbarDesiredY;
         private static FrameworkElement alignmentAnchor, frameAnchor, toolbarGoods;
@@ -21,6 +23,7 @@ namespace Spectator
         private static Canvas toolbarWings, toolbarTools, toolbarOwners;
         private static DockHudDisplay toolbarHudDisplay;
         private static readonly List<FrameworkElement> protectedControls = new List<FrameworkElement>();
+        private static readonly List<FrameworkElement> centerOwners = new List<FrameworkElement>();
         private static readonly List<FrameworkElement> buildCategories = new List<FrameworkElement>();
         private static readonly List<FrameworkElement> observedLayout = new List<FrameworkElement>();
         private static readonly List<ToolbarRect> observedBounds = new List<ToolbarRect>();
@@ -96,6 +99,7 @@ namespace Spectator
         {
             if (root is FrameworkElement element)
             {
+                if (element.Name == "HUD_Troops" || element.Name == "HUD_Buildings") CacheCenterOwner(element);
                 if (element.Name == "OST_Date") dateAnchor = element;
                 if (element.Name == "ButtonAllies") alliesAnchor = element;
                 if (element is RadioButton && element.Name != null &&
@@ -109,6 +113,12 @@ namespace Spectator
             }
             int count = VisualTreeHelper.GetChildrenCount(root);
             for (int i = 0; i < count; i++) CacheVanillaLayout(VisualTreeHelper.GetChild(root, i));
+        }
+
+        private static void CacheCenterOwner(FrameworkElement element)
+        {
+            if (element == null || centerOwners.Contains(element)) return;
+            centerOwners.Add(element); ObserveLayout(element);
         }
 
         private static ToolbarRect CanvasBounds(FrameworkElement element)
@@ -159,11 +169,17 @@ namespace Spectator
                 ObserveLayout(alignmentAnchor); ObserveLayout(frameAnchor);
                 ObserveLayout(scrollAnchor);
                 CacheVanillaLayout(humanScreen.FindName("MainHUD") as DependencyObject ?? humanBoundHud);
+                CacheCenterOwner(CrusaderDE.MainViewModel.Instance.HUDAlliesPanel?.FindName("LayoutRoot") as FrameworkElement);
+                CacheCenterOwner(CrusaderDE.MainViewModel.Instance.HUDMeritPanel?.FindName("LayoutRoot") as FrameworkElement);
+                CacheCenterOwner(CrusaderDE.MainViewModel.Instance.HUDMPChatPanel?.FindName("LayoutRoot") as FrameworkElement);
                 layoutCached = true; toolbarLayoutDirty = true;
             }
-            UpdatePlacementDate(toolbarHudDisplay == DockHudDisplay.Placement);
+            UpdatePlacementDate(humanPlacementMode);
             RefreshPortraitNumbers();
             ObserveCachedBounds();
+            var currentView = CrusaderDE.MainViewModel.Instance;
+            if (observedBuildPage != currentView.buildScreenID || observedMainHud != currentView.Show_HUD_Main)
+            { observedBuildPage = currentView.buildScreenID; observedMainHud = currentView.Show_HUD_Main; toolbarLayoutDirty = true; }
             if (!toolbarLayoutDirty) return;
             toolbarLayoutDirty = false;
             float vw = humanCanvas.ActualWidth, vh = humanCanvas.ActualHeight;
@@ -174,6 +190,13 @@ namespace Spectator
             bool frameVisible = !frame.Empty;
             if (frame.Empty) frame = new ToolbarRect(alignment.X + 114 * nativeScale,
                 alignment.Bottom - 144 * nativeScale, 800 * nativeScale, 144 * nativeScale);
+            var view = CrusaderDE.MainViewModel.Instance;
+            bool foreign = false;
+            var center = ToolbarLayout.Dock(alignment);
+            foreach (var owner in centerOwners) if (CanvasBounds(owner).Intersects(center)) { foreign = true; break; }
+            bool occupied = DockHudPolicy.CenterIsOccupied(view.Show_HUD_Main, view.buildScreenID, humanPlacementMode, foreign);
+            toolbarHudDisplay = DockHudPolicy.Evaluate(true, true, occupied, humanPlacementMode);
+            toolsModel.SetHudAvailable(DockHudPolicy.CanShowDetails(toolbarMoved, toolbarHudDisplay));
             bool details = toolsModel.ExpandedVisibility == Visibility.Visible;
             int count = 0;
             for (int player = 1; player <= 8; player++)
@@ -211,7 +234,7 @@ namespace Spectator
                 toolbarMoved ? toolbarDesiredY : groupDock.Y, width * scale, height * scale, vw, vh);
             toolbarOwners.Width = roster.Width; toolbarOwners.Height = roster.Height;
             Place(rosterSurface, roster); Place(toolbarControl, control); Place(humanDragHandle, grip);
-            bool controlVisible = toolbarMoved || toolbarHudDisplay != DockHudDisplay.Hidden;
+            bool controlVisible = toolbarMoved || humanPlacementMode || toolbarHudDisplay != DockHudDisplay.Hidden;
             toolbarControl.Visibility = controlVisible ? Visibility.Visible : Visibility.Collapsed;
             rosterSurface.Background = toolbarMoved ? transparentToolbarBrush : rosterPaper;
             ((Border)toolbarControl).Background = toolbarMoved ? transparentToolbarBrush : controlPaper;
@@ -223,7 +246,8 @@ namespace Spectator
             if (details) solidPieces.Add(Scaled(new ToolbarRect(tools.X, tools.Y, tools.Width,
                 ToolbarLayout.Header + ToolbarLayout.Body + (toolbarMoved ? ToolbarLayout.Footer : 0)), scale));
             controlsBounds.Clear(); AddControlBounds(protectedControls);
-            bool coverCategories = DockHudPolicy.CanCoverBuildCategories(toolbarHudDisplay, toolsModel.Expanded) && details;
+            bool coverCategories = DockHudPolicy.CanCoverBuildCategories(toolbarHudDisplay, toolsModel.Expanded,
+                view.Show_HUD_Main && view.buildScreenID == DockHudPolicy.BlankBuildScreen) && details;
             if (!coverCategories) AddControlBounds(buildCategories);
             if (!toolbarMoved && controlVisible)
             {
@@ -368,7 +392,7 @@ namespace Spectator
                 item.IsVisibleChanged -= OnToolbarLayoutVisibility;
                 item.IsEnabledChanged -= OnToolbarLayoutVisibility;
             }
-            observedLayout.Clear(); observedBounds.Clear(); protectedControls.Clear(); buildCategories.Clear(); controlsBounds.Clear(); solidPieces.Clear(); paintedPieces.Clear();
+            observedLayout.Clear(); observedBounds.Clear(); protectedControls.Clear(); centerOwners.Clear(); buildCategories.Clear(); controlsBounds.Clear(); solidPieces.Clear(); paintedPieces.Clear();
             toolbarHeader = rosterSurface = leftWing = rightWing = snapFrame = toolSnapFrame = snapGripFrame = null;
             toolbarNativeLayer = null;
             alignmentAnchor = frameAnchor = toolbarGoods = dateAnchor = alliesAnchor = toolbarControl = null;
@@ -376,6 +400,7 @@ namespace Spectator
             toolbarWings = toolbarTools = toolbarOwners = null;
             scrollAnchor = null; rosterPaper = controlPaper = null;
             DetachToolbarPaper();
+            observedBuildPage = int.MinValue;
             toolbarHudDisplay = DockHudDisplay.Hidden; layoutCached = false; toolbarLayoutDirty = true;
         }
     }

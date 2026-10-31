@@ -13,7 +13,7 @@ using UnityEngine;
 
 namespace Spectator
 {
-    internal static class SpectatorPerspectiveRuntime
+    internal static partial class SpectatorPerspectiveRuntime
     {
         private static ManualLogSource log;
         private static SpectatorViewModel settings;
@@ -40,7 +40,6 @@ namespace Spectator
         private static string selectedName;
         private static bool[] occupiedSlots;
         private static EngineInterface.PlayState stateBeforeLoad;
-        private static EngineInterface.PlayState reportStateBeforeSwitch;
         private static EngineInterface.PlayState alliesStateBeforeSwitch;
         private static Noesis.Grid hiddenReportPanel;
         private static PanelInputLease reportPanelLease;
@@ -64,6 +63,7 @@ namespace Spectator
                     SaveSpectatorMarker, IgnoreLoadedMarker))
                     throw new InvalidOperationException("Spectator save-data handler already registered.");
                 SpectatorReportHooks.Install();
+                InitializeReportRefresh();
                 SpectatorAllyHooks.Install();
                 if (!ApiShared.Current.TryGetMissionLifecycle(SpectatorPlugin.PluginGuid,
                     out IMissionLifecycleCapability lifecycle, out NativeCapabilityDiagnostic diagnostic))
@@ -125,7 +125,7 @@ namespace Spectator
         private static void BeginMapLoad()
         {
             PlayerPerspectiveAPI.ClearSpectatorView();
-            RestoreReportPanel();
+            ClearReportCache();
             RestoreAllyPanel();
             RestoreFoodControls();
             SpectatorAllyHooks.RestoreControls();
@@ -159,7 +159,7 @@ namespace Spectator
         private static void StopRenderIfIdle()
         {
             if (!renderSubscribed || resetHudPending || initializationPending || hudPending ||
-                reportStateBeforeSwitch != null || alliesStateBeforeSwitch != null) return;
+                reportRefresh.Pending || alliesStateBeforeSwitch != null) return;
             Application.onBeforeRender -= OnPendingRender;
             renderSubscribed = false;
         }
@@ -195,14 +195,14 @@ namespace Spectator
                     else if ((MainViewModel.viewModelLoaded && MainViewModel.Instance.Show_HUD_Briefing))
                         hudPending = false;
                 }
-                RefreshPendingReport(GameData.Instance?.lastGameState);
+                RefreshPendingReport();
                 RefreshPendingAllies(GameData.Instance?.lastGameState);
-                if ((initializationPending || hudPending || reportStateBeforeSwitch != null || alliesStateBeforeSwitch != null) &&
+                if ((initializationPending || hudPending || reportRefresh.Pending || alliesStateBeforeSwitch != null) &&
                     Time.realtimeSinceStartup - pendingSince > 15f)
                 {
                     string pending = initializationPending ? saveRecoveryStage == 1 ? "restored spectator PlayState" :
                         saveRecoveryStage == 2 ? "selected-player PlayState" : "PlayState" : hudPending ? "IngameUI" :
-                        reportStateBeforeSwitch != null ? "report PlayState" : "allies PlayState";
+                        reportRefresh.Pending ? "report PlayState" : "allies PlayState";
                     Shared.DebugLogHelper.LogWarning(log, "SPECTATOR_PERSPECTIVE_READY_TIMEOUT: " + pending +
                         " did not become ready within 15 seconds.");
                     initializationPending = false;
@@ -443,43 +443,51 @@ namespace Spectator
         {
             string name = Platform_Multiplayer.Instance?.getSkirmishName(selectedPlayer);
             selectedName = string.IsNullOrWhiteSpace(name) ? "-" : name;
-            if (GameData.Instance?.app_mode == 16 && GameData.Instance.app_sub_mode == 71 && MainViewModel.Instance != null)
+            if (!reportRefresh.Pending && GameData.Instance?.app_mode == 16 && GameData.Instance.app_sub_mode == 71 && MainViewModel.Instance != null)
                 MainViewModel.Instance.PlayerNameText = selectedName;
         }
 
-        private static void WaitForFreshReport(EngineInterface.PlayState oldState)
+        private static void WaitForFreshReport()
         {
             if (GameData.Instance?.app_mode != 16) return;
             var panel = MainViewModel.Instance?.HUDBuildingPanel?.RefBuildingPanel;
             if (panel == null) return;
             if (hiddenReportPanel != null && !ReferenceEquals(hiddenReportPanel, panel)) RestoreReportPanel();
-            reportStateBeforeSwitch = oldState;
-            pendingSince = Time.realtimeSinceStartup;
-            if (hiddenReportPanel == null)
+            try
             {
-                hiddenReportPanel = panel;
-                reportPanelLease = new PanelInputLease(panel, true);
+                int boundary = SpectatorRuntime.CaptureReportFrame(reportClock);
+                reportRefresh.Begin(preparedSessionId, panel, selectedPlayer, GameData.Instance.app_sub_mode, boundary);
+                pendingSince = Time.realtimeSinceStartup;
+                if (hiddenReportPanel == null)
+                {
+                    hiddenReportPanel = panel;
+                    reportPanelLease = new PanelInputLease(panel);
+                    HoldReportValues();
+                }
+                ArmRenderIfNeeded();
             }
-            ArmRenderIfNeeded();
-        }
-
-        private static void RefreshPendingReport(EngineInterface.PlayState state)
-        {
-            if (reportStateBeforeSwitch == null) return;
-            if (!mapReady || GameData.Instance?.app_mode != 16)
+            catch (Exception error)
             {
                 RestoreReportPanel();
-                return;
+                Shared.DebugLogHelper.LogError(log, "SPECTATOR_REPORT_REFRESH_FAILED: " + error);
             }
-            if (ReferenceEquals(state, reportStateBeforeSwitch)) return;
-            RestoreReportPanel();
+        }
+
+        private static void RefreshPendingReport()
+        {
+            if (reportRefresh.Pending && !ReportContextCurrent()) RestoreReportPanel();
+            // Completion is handled after Vanilla's GUI writes, never on an arbitrary render frame.
         }
 
         private static void RestoreReportPanel()
         {
-            reportPanelLease?.Restore(); reportPanelLease = null;
+            reportRefresh.Cancel();
+            var display = reportDisplay; reportDisplay = null;
+            var input = reportPanelLease; reportPanelLease = null;
             hiddenReportPanel = null;
-            reportStateBeforeSwitch = null;
+            Exception failure = display?.Restore();
+            try { input?.Restore(); } catch (Exception error) { if (failure == null) failure = error; }
+            if (failure != null) Shared.DebugLogHelper.LogError(log, "SPECTATOR_REPORT_RESTORE_FAILED: " + failure);
         }
 
         private static void WaitForFreshAllies(EngineInterface.PlayState oldState)
@@ -565,7 +573,7 @@ namespace Spectator
         internal static void OnHudUnavailable()
         {
             RestoreFoodControls();
-            RestoreReportPanel();
+            ClearReportCache();
             RestoreAllyPanel();
             if (!mapReady || !spectatorActive) return;
             hudPending = true;
@@ -574,6 +582,7 @@ namespace Spectator
 
         internal static void OnHudAvailable()
         {
+            CacheReportValues(MainViewModel.Instance.HUDBuildingPanel);
             if (!mapReady || !spectatorActive) return;
             hudPending = true;
             ArmRenderIfNeeded();
@@ -601,8 +610,8 @@ namespace Spectator
             var state = GameData.Instance?.lastGameState;
             if (player < 1 || player > 8 || state == null || !state.is_human_or_skirmish_player(player)) return;
             selectedPlayer = player;
+            WaitForFreshReport();
             CacheSelectedName();
-            WaitForFreshReport(state);
             WaitForFreshAllies(state);
         }
 
@@ -623,9 +632,9 @@ namespace Spectator
                 return;
             }
             selectedPlayer = player;
+            WaitForFreshReport();
             CacheSelectedName();
             SpectatorRuntime.AcceptPerspective(player);
-            WaitForFreshReport(state);
             WaitForFreshAllies(state);
         }
 

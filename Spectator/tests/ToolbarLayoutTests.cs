@@ -152,7 +152,8 @@ internal static class ToolbarLayoutTests
         }
         foreach(DockHudDisplay display in Enum.GetValues(typeof(DockHudDisplay)))
         foreach(bool expanded in new[]{false,true})
-            check(DockHudPolicy.CanCoverBuildCategories(display,expanded)==(display==DockHudDisplay.Tools && expanded),
+        foreach(bool blank in new[]{false,true})
+            check(DockHudPolicy.CanCoverBuildCategories(display,expanded,blank)==(display==DockHudDisplay.Tools && expanded && blank),
                 "Only an expanded tool surface on the actual blank HUD may cover construction categories.");
         var controls=new List<ToolbarRect>{new ToolbarRect(260,100,100,26),new ToolbarRect(450,94,35,40)};
         var band=new ToolbarRect(0,100,500,26);

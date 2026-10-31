@@ -5,21 +5,17 @@ namespace Spectator
     internal sealed class PanelInputLease
     {
         private readonly UIElement panel;
-        private readonly BindingBase opacityBinding, hitBinding;
-        private readonly object opacity, hit;
-        internal PanelInputLease(UIElement element, bool obscure)
+        private readonly BindingBase hitBinding;
+        private readonly object hit;
+        internal PanelInputLease(UIElement element)
         {
             panel = element;
-            opacityBinding = BindingOperations.GetBindingBase(panel, UIElement.OpacityProperty);
             hitBinding = BindingOperations.GetBindingBase(panel, UIElement.IsHitTestVisibleProperty);
-            opacity = panel.ReadLocalValue(UIElement.OpacityProperty);
             hit = panel.ReadLocalValue(UIElement.IsHitTestVisibleProperty);
-            if (obscure) panel.Opacity = 0;
             panel.IsHitTestVisible = false;
         }
         internal void Restore()
         {
-            Restore(UIElement.OpacityProperty, opacityBinding, opacity, 0f);
             Restore(UIElement.IsHitTestVisibleProperty, hitBinding, hit, false);
         }
         private void Restore(DependencyProperty property, BindingBase binding, object local, object owned)

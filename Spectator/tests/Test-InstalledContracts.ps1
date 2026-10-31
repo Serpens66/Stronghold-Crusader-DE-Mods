@@ -16,8 +16,18 @@ foreach ($providerFile in Get-ChildItem -LiteralPath (Join-Path $gameDirectory '
 $managed = Join-Path $gameDirectory 'Stronghold Crusader Definitive Edition_Data\Managed\Assembly-CSharp.dll'
 $assembly = [Mono.Cecil.AssemblyDefinition]::ReadAssembly($managed)
 try {
+    foreach($entry in @(@('bufferPool','System.Collections.Generic.List`1<MemoryBuffers/MemBuffer>',$false),@('commonFrameID','System.Int32',$true))) {
+        $field = @($assembly.MainModule.GetType('MemoryBuffers').Fields | Where-Object Name -eq $entry[0])
+        if ($field.Count -ne 1 -or -not $field[0].IsPrivate -or $field[0].IsStatic -ne $entry[2] -or $field[0].FieldType.FullName -cne $entry[1]) { throw 'Report buffer reflection contract changed.' }
+    }
     foreach ($entry in @(
         @('CrusaderDE.MainViewModel','viewModelLoaded','field'),
+        @('CrusaderDE.MainViewModel','HUDMPChatPanel','field'),
+        @('CrusaderDE.MainViewModel','HUDMeritPanel','field'),
+        @('CrusaderDE.WGT_Popularity','popValueProperty','field'),
+        @('MemoryBuffers','instance','field'),
+        @('MemoryBuffers/MemBuffer','frameID','field'),
+        @('MemoryBuffers/MemBuffer','gameState','field'),
         @('CrusaderDE.MainViewModel','buildScreenID','field'),
         @('CrusaderDE.MainViewModel','get_Show_HUD_Extras','method'),
         @('CrusaderDE.MainViewModel','get_Show_HUD_IngameMenu','method'),
@@ -52,7 +62,7 @@ try {
         @('CrusaderDE.HUD_Buildings','RefHUDBuildingFullClickMask','field')
     )) {
         $type = $assembly.MainModule.GetType($entry[0])
-        if (-not $type -or -not $type.IsPublic) { throw "Missing public game type: $($entry[0])" }
+        if (-not $type -or -not ($type.IsPublic -or ($type.IsNestedPublic -and $type.DeclaringType.IsPublic))) { throw "Missing public game type: $($entry[0])" }
         $members = if ($entry[2] -eq 'field') { @($type.Fields) } else { @($type.Methods) }
         $member = @($members | Where-Object { $_.Name -eq $entry[1] -and $_.IsPublic })
         if ($member.Count -eq 0) { throw "Missing public game member: $($entry -join '.')" }

@@ -150,7 +150,7 @@ namespace LordOverviewTest {
    spriteLoader.instance.GetGMMaterial(global::Enums.GM.GM_BODY_ARCHER,index,0,out color,0);
    return Noesis.Color.FromRgb((byte)(color.r*255f),(byte)(color.g*255f),(byte)(color.b*255f));
   }
-  private static TextBlock Label(string text)=>new TextBlock {Text=text,FontSize=16,Foreground=new SolidColorBrush(Noesis.Color.FromArgb(255,255,240,191)),VerticalAlignment=VerticalAlignment.Center,Effect=new DropShadowEffect {ShadowDepth=1,BlurRadius=1,Color=Noesis.Color.FromArgb(255,0,0,0)}};
+  private static TextBlock Label(string text)=>new TextBlock {Text=text,FontSize=OverviewPresentationPolicy.FontSize,Foreground=new SolidColorBrush(Noesis.Color.FromArgb(255,255,240,191)),VerticalAlignment=VerticalAlignment.Center,Effect=new DropShadowEffect {ShadowDepth=1,BlurRadius=1,Color=Noesis.Color.FromArgb(255,0,0,0)}};
   private static void Tip(DependencyObject element,string text){ToolTipService.SetToolTip(element,CreateTip(text,element as FrameworkElement??sourceHost));ToolTipService.SetShowDuration(element,60000);ToolTipService.SetShowOnDisabled(element,true);ToolTipService.SetIsEnabled(element,true);}
   private static void Message(string text)=>log.LogInfo("["+DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")+"] LORD_OVERVIEW_"+text);
   private static void Error(Exception e){if(Interlocked.Increment(ref errors)>3)return;log.LogError("["+DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")+"] LORD_OVERVIEW: "+e);}

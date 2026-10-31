@@ -19,17 +19,23 @@ namespace Spectator {
    Check(feedback.ForPage("Orders") == "Forced attack" && feedback.ForPage("Goods") == "Debit failed", "failure stays on its originating page");
    feedback.Set("Orders", null);
    Check(feedback.ForPage("Orders") == "" && feedback.ForPage("Goods") == "Debit failed", "clearing one page leaves the other intact");
-   // Real presentation policy: the centre belongs to the new view only on Vanilla's blank page.
-   Check(DockHudPolicy.Evaluate(true,true,true,false,false,false,22)==DockHudDisplay.Tools,"idle blank page");
-   for(int screen=0;screen<23;screen++) if(screen!=22)
-    Check(DockHudPolicy.Evaluate(true,true,true,false,false,false,screen)==DockHudDisplay.Hidden,"normal build pages retain ownership");
-   Check(DockHudPolicy.Evaluate(true,true,true,true,false,false,22)==DockHudDisplay.Hidden,"foreign troops can coexist with main flag");
-   Check(DockHudPolicy.Evaluate(true,true,true,true,false,true,1)==DockHudDisplay.Hidden,"foreign view wins even during placement");
-   Check(DockHudPolicy.Evaluate(true,true,true,false,false,true,1)==DockHudDisplay.Placement,"placement header instead of tools");
-   Check(DockHudPolicy.Evaluate(false,true,true,false,false,false,22)==DockHudDisplay.Hidden,"disabled or stale session");
-   Check(DockHudPolicy.Evaluate(true,false,true,false,false,false,22)==DockHudDisplay.Hidden,"global hide");
-   Check(DockHudPolicy.Evaluate(true,true,false,false,false,false,22)==DockHudDisplay.Hidden,"reports/building owner");
-   Check(DockHudPolicy.Evaluate(true,true,true,false,true,false,22)==DockHudDisplay.Hidden,"editor terrain not empty");
+   Check(DockHudPolicy.Evaluate(true,true,false,false)==DockHudDisplay.Tools,"free native centre");
+   Check(DockHudPolicy.Evaluate(true,true,true,false)==DockHudDisplay.Hidden,"filled construction, reports and foreign troops own the centre");
+   Check(DockHudPolicy.Evaluate(true,true,true,true)==DockHudDisplay.Hidden,"foreign centre still wins during docked placement");
+   Check(DockHudPolicy.Evaluate(true,true,false,true)==DockHudDisplay.Placement,"placement header instead of tools");
+   Check(DockHudPolicy.Evaluate(false,true,false,false)==DockHudDisplay.Hidden,"disabled/stale session");
+   Check(DockHudPolicy.Evaluate(true,false,false,false)==DockHudDisplay.Hidden,"global hide");
+   foreach(DockHudDisplay display in System.Enum.GetValues(typeof(DockHudDisplay)))
+   {
+    Check(DockHudPolicy.CanShowDetails(true,display),"floating tools ignore native centre ownership");
+    Check(DockHudPolicy.CanShowDetails(false,display)==(display==DockHudDisplay.Tools),"docked tools follow actual native centre ownership");
+   }
+   for(int page=0;page<23;page++)
+   {
+    Check(DockHudPolicy.CenterIsOccupied(true,page,false,false)==(page!=22),"only the actual blank page permits category overdraw");
+    Check(!DockHudPolicy.CenterIsOccupied(true,page,true,false),"own placement keeps its stop control available on every construction page");
+    Check(DockHudPolicy.CenterIsOccupied(false,page,false,true),"foreign report/troup content owns the centre independently of main HUD flag");
+   }
    var menu = new ToolbarMenuState();
    Check(!menu.Expanded && menu.View == "Goods", "new HUD starts compact with a useful initial page");
    menu.ToggleExpanded(); Check(menu.ShowDetails);

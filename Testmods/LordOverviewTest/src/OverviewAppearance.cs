@@ -33,10 +33,10 @@ namespace LordOverviewTest
         {
             var grid = new Grid { VerticalAlignment=VerticalAlignment.Center,IsHitTestVisible=false,Tag=OverviewPresentationPolicy.PassiveTag };
             float[,] offsets={{-0.65f,0},{0.65f,0},{0,-0.65f},{0,0.65f}};
-            for(int i=0;i<4;i++) grid.Children.Add(new TextBlock { Text=text, FontSize=16,
+            for(int i=0;i<4;i++) grid.Children.Add(new TextBlock { Text=text, FontSize=OverviewPresentationPolicy.FontSize,
                 Foreground=new SolidColorBrush(Color.FromArgb(255,35,28,21)),
                 RenderTransform=new TranslateTransform(offsets[i,0],offsets[i,1]), IsHitTestVisible=false });
-            grid.Children.Add(new TextBlock { Text=text, FontSize=16, Foreground=foreground,
+            grid.Children.Add(new TextBlock { Text=text, FontSize=OverviewPresentationPolicy.FontSize, Foreground=foreground,
                 Effect=new DropShadowEffect {ShadowDepth=1,BlurRadius=1,Color=Color.FromArgb(230,20,15,10)}, IsHitTestVisible=false });
             return grid;
         }

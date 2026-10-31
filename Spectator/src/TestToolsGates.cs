@@ -33,7 +33,11 @@ namespace Spectator
         private static bool gateAutomationResolved;
 
         // The engine input callback only captures intent. Rendering waits for a completed PlayState update.
-        private static void AfterToolsPlayState() => Interlocked.Increment(ref toolsStateRevision);
+        private static void AfterToolsPlayState()
+        {
+            Interlocked.Increment(ref toolsStateRevision);
+            SpectatorPerspectiveRuntime.ObserveReportSnapshot(GameData.Instance?.lastGameState);
+        }
 
         private static void BeforeVanillaHudTransition()
         {

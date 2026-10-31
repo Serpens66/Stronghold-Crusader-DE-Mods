@@ -27,7 +27,7 @@ internal static partial class Program {
   Check(OverviewPresentationPolicy.IconKey(Metric.Gold)==OverviewPresentationPolicy.IconKey(Metric.GoldAcquired) && OverviewPresentationPolicy.IconKey(Metric.LordsKilled)=="MP_Star","current gold shares the Vanilla gold emblem and lord kills use their actual star");
   var merit=XDocument.Load(Path.Combine(Path.GetDirectoryName(path),"HUD_MeritPanel.xaml"));
   var crown=merit.Descendants().Single(e=>(string)e.Attribute("Name")=="Merit_SortLordScore");
-  Check(crown.Attributes().Single(a=>a.Name.LocalName.EndsWith(".Sprite1",StringComparison.Ordinal)).Value=="{StaticResource "+OverviewPresentationPolicy.IconKey(Metric.GreatestLord)+"}","score uses the actual Merit ranking crown");
+  Check(crown.Attributes().Single(a=>a.Name.LocalName.EndsWith(".Sprite3",StringComparison.Ordinal)).Value=="{StaticResource "+OverviewPresentationPolicy.IconKey(Metric.GreatestLord)+"}","score uses the selected gold Merit ranking crown");
   var atlas=XDocument.Load(Path.Combine(root.FullName,"_inspect/CrusaderDE-Native-Baseline",relative,"resources/xaml/Assets/GUI/Sprites/UI-MasterAtlas.xaml"));
   foreach(var metric in Metrics.Builtins){
    if(metric.Id==Metric.Popularity)continue;

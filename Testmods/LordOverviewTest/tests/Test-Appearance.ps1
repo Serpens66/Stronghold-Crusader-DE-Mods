@@ -47,6 +47,30 @@ try {
  $tipFactory=$runtime.Methods | Where-Object Name -eq 'CreateTip'
  $sizingCalls=@($tipFactory.Body.Instructions | Where-Object {$_.Operand -is [Mono.Cecil.MethodReference] -and $_.Operand.DeclaringType.FullName -eq 'APIShared.ModSettings.SharedToolTipSizing'} | ForEach-Object {$_.Operand.Name})
  foreach($name in @('SetReferenceElement','SetReferenceFontSize','SetEnabled')){if($name -notin $sizingCalls){throw "Owned statistics tooltips lost their public sizing opt-in: $name"}}
+ # Check the compiled presentation boundary, not just a shared constant. Noesis rendering
+ # and pixel scaling are still user in-game acceptance, not simulated by this IL guardrail.
+ $fontWrites=0
+ foreach($type in $assembly.MainModule.Types | Where-Object Namespace -eq 'LordOverviewTest'){
+  foreach($method in $type.Methods | Where-Object HasBody){
+   foreach($instruction in $method.Body.Instructions){
+    if($instruction.Operand -is [Mono.Cecil.MethodReference] -and $instruction.Operand.Name -in @('set_FontSize','SetReferenceFontSize')){
+     if($instruction.Previous.OpCode.Name -ne 'ldc.r4' -or $instruction.Previous.Operand -ne 14){throw "Inconsistent text size in $($method.FullName)"};$fontWrites++
+    }
+   }
+  }
+ }
+ if($fontWrites -lt 7){throw 'Missing expected statistics/menu/tooltip text sizing boundaries.'}
+ foreach($name in @('Render','CreateRow')){
+  $method=$runtime.Methods | Where-Object Name -eq $name
+  $calls=@($method.Body.Instructions | Where-Object {$_.Operand -is [Mono.Cecil.MethodReference]} | ForEach-Object {$_.Operand.Name})
+  if('MetricName' -notin $calls -or 'MetricHelp' -in $calls){throw "Statistics must prepare only short icon names: $name"}
+ }
+ foreach($name in @('UpdateLayoutMenu','UpdateColumnsPopup')){
+  $method=$runtime.Methods | Where-Object Name -eq $name
+  if(-not ($method.Body.Instructions | Where-Object {$_.Operand -is [Mono.Cecil.MethodReference] -and $_.Operand.Name -eq 'MetricHelp'})){throw "Settings must retain detailed value tooltips: $name"}
+ }
+ $editing=$runtime.Methods | Where-Object Name -eq 'UpdateHeaderEditing'
+ if($editing.Body.Instructions | Where-Object {$_.OpCode.Name -eq 'ldstr' -and $_.Operand -in @('Sort','HeaderDragHint')}){throw 'Editing must not append instructions to statistic icon names.'}
  # The game consumes any Noesis visual hit before routed handlers. Check the compiled
  # creation boundaries, not only an unhandled Click event. Real Noesis hit tests remain in-game QA.
  foreach($pair in @(@('LordOverviewTest.OverviewRuntime','CreateTip'),@('LordOverviewTest.OverviewRuntime','CreatePassiveBubble'),@('LordOverviewTest.OverviewAppearance','PlayerText'),@('LordOverviewTest.OverviewAppearance','Portrait'))){

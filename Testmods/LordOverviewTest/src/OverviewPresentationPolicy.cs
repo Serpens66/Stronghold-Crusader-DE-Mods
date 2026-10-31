@@ -4,7 +4,7 @@ namespace LordOverviewTest {
   internal IconCrop(int x,int y,int width,int height,int sourceWidth=129,int sourceHeight=200){X=x;Y=y;Width=width;Height=height;SourceWidth=sourceWidth;SourceHeight=sourceHeight;}
  }
  internal static class OverviewPresentationPolicy {
-  internal const int IconSize=28,IconCellSize=32;
+  internal const int FontSize=14,IconSize=28,IconCellSize=32;
   // FatControler.overNoesisGUI walks both logical and visual parents. These are Vanilla tags,
   // not Noesis hit-test flags: Ignore exempts a subtree, IgnoreSelf only a directly hit container.
   internal const string PassiveTag="Ignore",ContainerTag="IgnoreSelf";
@@ -13,7 +13,7 @@ namespace LordOverviewTest {
   internal static int PopularitySprite(decimal? permittedValue,bool dynamic)=>!dynamic?0:!permittedValue.HasValue?1:permittedValue.Value>=50?0:2;
   // Normal sprites from HUD_MissionOver, resolved from the existing atlas, never new image files.
   internal static string IconKey(Metric metric){switch(metric){
-   case Metric.GreatestLord:return "UI-Buttons S045";
+   case Metric.GreatestLord:return "UI-Buttons S047"; // Vanilla's selected gold crown.
    case Metric.Gold:case Metric.GoldAcquired:return "UI-Buttons S048";
    case Metric.Army:return "UI-Buttons S051";
    case Metric.TroopsKilled:return "UI-Buttons S055";case Metric.TroopsLost:return "UI-Buttons S058";

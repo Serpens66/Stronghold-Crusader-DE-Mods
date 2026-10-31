@@ -84,11 +84,11 @@ namespace LordOverviewTest {
    var preferences=new ScrollViewer {Content=BuildLayoutMenu(),HorizontalScrollBarVisibility=ScrollBarVisibility.Disabled,VerticalScrollBarVisibility=ScrollBarVisibility.Auto,Margin=new Thickness(0,0,10,0)};body.Children.Add(preferences);
    var choices=new Grid();Grid.SetColumn(choices,1);body.Children.Add(choices);
    choices.RowDefinitions.Add(new RowDefinition {Height=GridLength.Auto});choices.RowDefinitions.Add(new RowDefinition {Height=GridLength.Auto});choices.RowDefinitions.Add(new RowDefinition {Height=new GridLength(1,GridUnitType.Star)});choices.RowDefinitions.Add(new RowDefinition {Height=GridLength.Auto});
-   columnCount=Label("");columnCount.FontSize=14;columnCount.Margin=new Thickness(3,2,3,6);choices.Children.Add(columnCount);
+   columnCount=Label("");columnCount.Margin=new Thickness(3,2,3,6);choices.Children.Add(columnCount);
    var tabs=new Grid {Margin=new Thickness(0,0,0,6)};Grid.SetRow(tabs,1);tabs.ColumnDefinitions.Add(new ColumnDefinition {Width=new GridLength(1,GridUnitType.Star)});tabs.ColumnDefinitions.Add(new ColumnDefinition {Width=new GridLength(1,GridUnitType.Star)});
    tabs.RowDefinitions.Add(new RowDefinition {Height=GridLength.Auto});tabs.RowDefinitions.Add(new RowDefinition {Height=GridLength.Auto});
    for(int i=0;i<Metrics.Groups.Length;i++){
-    string group=Metrics.Groups[i];var button=ActionButton("",Text(group),()=>SelectCategory(group));var name=Label(Text(group));name.FontSize=12;name.TextWrapping=TextWrapping.Wrap;name.TextAlignment=TextAlignment.Center;
+    string group=Metrics.Groups[i];var button=ActionButton("",Text(group),()=>SelectCategory(group));var name=Label(Text(group));name.TextWrapping=TextWrapping.Wrap;name.TextAlignment=TextAlignment.Center;
     var border=new Border {Child=name,Padding=new Thickness(2),MinHeight=24,BorderThickness=new Thickness(1),BorderBrush=new SolidColorBrush(Color.FromRgb(242,212,138))};
     categoryTabs[group]=border;button.Content=border;Grid.SetColumn(button,i%2);Grid.SetRow(button,i/2);tabs.Children.Add(button);
    }
@@ -121,7 +121,7 @@ namespace LordOverviewTest {
      if(VisualTreeHelper.GetParent(checkbox) is Grid previous && previous!=page)previous.Children.Remove(checkbox);
      if(!page.Children.Contains(checkbox))page.Children.Add(checkbox);
      var label=new Grid();label.ColumnDefinitions.Add(new ColumnDefinition {Width=new GridLength(OverviewPresentationPolicy.IconSize)});label.ColumnDefinitions.Add(new ColumnDefinition {Width=new GridLength(1,GridUnitType.Star)});
-     label.Children.Add(MetricIcon(metric));var name=Label(MetricName(metric));name.FontSize=13;name.MaxWidth=96;name.TextWrapping=TextWrapping.Wrap;name.Margin=new Thickness(5,0,0,0);Grid.SetColumn(name,1);label.Children.Add(name);checkbox.Content=label;
+     label.Children.Add(MetricIcon(metric));var name=Label(MetricName(metric));name.MaxWidth=96;name.TextWrapping=TextWrapping.Wrap;name.Margin=new Thickness(5,0,0,0);Grid.SetColumn(name,1);label.Children.Add(name);checkbox.Content=label;
     }
     int index=0;page.RowDefinitions.Clear();
     foreach(var pair in metricChecks.Where(p=>VisualTreeHelper.GetParent(p.Value)==page)){

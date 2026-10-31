@@ -68,7 +68,7 @@ namespace LordOverviewTest {
       for(int row=0;row<=count;row++)table.RowDefinitions.Add(new RowDefinition {Height=GridLength.Auto});
       var surface=NewHeaderSurface(table,1,"view/"+i+"/");
       var identity=CreateHeader(surface,null,Text("Player"),Label("#"));identity.MinWidth=44;table.Children.Add(identity);
-      for(int col=0;col<columns.Length;col++){var button=CreateHeader(surface,columns[col],MetricHelp(columns[col]),MetricIcon(columns[col]));Grid.SetColumn(button,col+1);table.Children.Add(button);}
+      for(int col=0;col<columns.Length;col++){var button=CreateHeader(surface,columns[col],MetricName(columns[col]),MetricIcon(columns[col]));Grid.SetColumn(button,col+1);table.Children.Add(button);}
       for(int row=0;row<=count;row++)AddDivider(table,row,row==0);
       table.SizeChanged+=OnTableGeometryChanged;
       var backing=new Grid {Margin=new Thickness(i==0?0:8,0,0,0),VerticalAlignment=VerticalAlignment.Bottom,Tag=OverviewPresentationPolicy.ContainerTag};
@@ -141,7 +141,7 @@ namespace LordOverviewTest {
     var icon=MetricIcon(metric);if(metric==Metric.Popularity)view.PopularityIcon=(Image)icon;
     icon.IsHitTestVisible=false;icon.VerticalAlignment=VerticalAlignment.Center;pair.Children.Add(icon);
     var cell=OverviewAppearance.PlayerText("",null);cell.Margin=new Thickness(5,0,0,0);view.Cells.Add(metric,cell);pair.Children.Add(cell);
-    RegisterHover("view/value/"+player+"/"+Metrics.Key(metric),icon,MetricHelp(metric));
+    RegisterHover("view/value/"+player+"/"+Metrics.Key(metric),icon,MetricName(metric));
     flow.Position(i,columns.Length,out int valueRow,out int valueColumn);Grid.SetRow(pair,valueRow);Grid.SetColumn(pair,valueColumn);values.Children.Add(pair);
    }
    content.Children.Add(values);
@@ -182,9 +182,6 @@ namespace LordOverviewTest {
     pair.Value.Arrow.Visibility=state.Column==pair.Value.Metric?Visibility.Visible:Visibility.Collapsed;
     pair.Value.Arrow.RenderTransform=state.Descending?null:new ScaleTransform {ScaleX=1,ScaleY=-1,CenterX=2,CenterY=2};
    }
-   foreach(var surface in headerSurfaces.Where(s=>s.Prefix.StartsWith("view/",StringComparison.Ordinal)))
-    foreach(var target in hoverTargets.Where(p=>p.Key.StartsWith(surface.Prefix,StringComparison.Ordinal)))
-     target.Value.DisplayText=target.Value.Description+(Editing?" — "+Text("Sort")+" — "+Text("HeaderDragHint"):"");
   }
   private static void OnTableGeometryChanged(object sender,SizeChangedEventArgs args){CancelHeaderGesture();MarkHoverGeometryDirty();if(initialMenuPlacement)PositionSettingsMenu();}
  }

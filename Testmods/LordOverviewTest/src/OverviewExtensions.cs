@@ -51,7 +51,7 @@ namespace LordOverviewTest {
   private static ToolTip CreateTip(string text,FrameworkElement reference){
    var tip=new ToolTip {Style=tipStyle,Content=text,IsHitTestVisible=false};
    APIShared.ModSettings.SharedToolTipSizing.SetReferenceElement(tip,reference);
-   APIShared.ModSettings.SharedToolTipSizing.SetReferenceFontSize(tip,16);
+   APIShared.ModSettings.SharedToolTipSizing.SetReferenceFontSize(tip,OverviewPresentationPolicy.FontSize);
    APIShared.ModSettings.SharedToolTipSizing.SetEnabled(tip,true);return tip;
   }
  }

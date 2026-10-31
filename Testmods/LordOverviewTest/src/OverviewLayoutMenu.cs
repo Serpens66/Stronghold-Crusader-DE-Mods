@@ -23,8 +23,8 @@ namespace LordOverviewTest {
    designChoice.ItemsSource=new[]{Text("DesignList"),Text("DesignSplitList"),Text("DesignCards")};Tip(designChoice,Text("DesignHelp"));
    designChoice.SelectionChanged+=(_,__)=>{if(updatingMenu)return;int selected=designChoice.SelectedIndex;if(selected<0 || selected>2)return;
     UiAction(()=>{settings.SetDisplayDesign((OverviewDesign)selected);ApplyLayout();})();};
-   var eliminatedLabel=Label(Text("ShowEliminated"));eliminatedLabel.FontSize=13;eliminatedLabel.TextWrapping=TextWrapping.Wrap;eliminatedLabel.MaxWidth=145;
-   showEliminatedChoice=new CheckBox {Content=eliminatedLabel,FontSize=13,Margin=new Thickness(2,1,2,5)};Tip(showEliminatedChoice,Text("ShowEliminatedHelp"));
+   var eliminatedLabel=Label(Text("ShowEliminated"));eliminatedLabel.TextWrapping=TextWrapping.Wrap;eliminatedLabel.MaxWidth=145;
+   showEliminatedChoice=new CheckBox {Content=eliminatedLabel,FontSize=OverviewPresentationPolicy.FontSize,Margin=new Thickness(2,1,2,5)};Tip(showEliminatedChoice,Text("ShowEliminatedHelp"));
    showEliminatedChoice.Checked+=(_,__)=>ChooseEliminated(true);showEliminatedChoice.Unchecked+=(_,__)=>ChooseEliminated(false);controls.Children.Add(showEliminatedChoice);
    cardOptions=new StackPanel();
    cardOptions.Children.Add(MenuLine(Text("LordGrid"),lordGridChoice=MenuCombo()));Tip(lordGridChoice,Text("GridHelp"));
@@ -37,12 +37,12 @@ namespace LordOverviewTest {
    orderHost=new Grid {HorizontalAlignment=HorizontalAlignment.Stretch};controls.Children.Add(MenuLine(Text("ValueOrder"),orderHost));
    return controls;
   }
-  private static ComboBox MenuCombo()=>new ComboBox {FontSize=14,HorizontalAlignment=HorizontalAlignment.Stretch};
+  private static ComboBox MenuCombo()=>new ComboBox {FontSize=OverviewPresentationPolicy.FontSize,HorizontalAlignment=HorizontalAlignment.Stretch};
   private static int DisplayedLordCount=>OverviewState.VisibleCount(rows,settings.DisplayShowEliminated);
   private static void ChooseEliminated(bool show){if(updatingMenu)return;UiAction(()=>{settings.SetDisplayShowEliminated(show);ApplyPlayerFilter();})();}
   private static void ApplyPlayerFilter(){bool show=settings.DisplayShowEliminated;if(appliedPlayerFilter==show)return;appliedPlayerFilter=show;CancelHeaderGesture();ClosePassiveHover();if(panel?.IsVisible==true)Render();UpdateColumnsPopup();PositionSettingsMenu();}
   private static FrameworkElement MenuLine(string title,FrameworkElement control){
-   var line=new StackPanel {Margin=new Thickness(2,1,2,5)};var label=Label(title);label.FontSize=13;label.TextWrapping=TextWrapping.Wrap;line.Children.Add(label);line.Children.Add(control);return line;
+   var line=new StackPanel {Margin=new Thickness(2,1,2,5)};var label=Label(title);label.TextWrapping=TextWrapping.Wrap;line.Children.Add(label);line.Children.Add(control);return line;
   }
   private static void ChooseGrid(bool lords){
    if(updatingMenu)return;var combo=lords?lordGridChoice:valueGridChoice;var choices=lords?lordChoices:valueChoices;int index=combo.SelectedIndex;

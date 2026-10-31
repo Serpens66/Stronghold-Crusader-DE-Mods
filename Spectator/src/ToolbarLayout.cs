@@ -32,7 +32,7 @@ namespace Spectator
     internal static class ToolbarLayout
     {
         internal const float Gap = 4;
-        internal const float Portrait = 36, TargetPortrait = 28, Cell = 38, RosterWidth = 80;
+        internal const float Portrait = 36, TargetPortrait = 42, Cell = 38, RosterWidth = 80;
         internal const float Header = 22, Body = 66, Footer = 26;
         internal const float ControlWidth = 60, ControlHeight = 22, WindowWidth = 496, FloatingHeader = 40, FloatingGrip = 8;
         internal const float ToggleWidth = 24, DesignWidth = 22;

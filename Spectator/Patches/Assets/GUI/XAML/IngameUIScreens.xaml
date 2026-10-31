@@ -171,83 +171,86 @@
                 </Border><Border Width="25" Height="24" Margin="1,1"><Border.Style><Style TargetType="{x:Type Border}"><Setter Property="BorderThickness" Value="1"/><Setter Property="BorderBrush" Value="Transparent"/><Style.Triggers><DataTrigger Binding="{Binding SelectedGoodKey}" Value="G15"><Setter Property="BorderBrush" Value="#FFF2D48A"/><Setter Property="Background" Value="#FF714221"/></DataTrigger></Style.Triggers></Style></Border.Style><Button Width="22" Height="22" local:PropEx.Sprite1="{StaticResource UISprites E023}" local:PropEx.Sprite2="{StaticResource UISprites E024}" local:PropEx.Sprite3="{StaticResource UISprites E024}" local:PropEx.Sprite4="{StaticResource UISprites E023}" Command="{Binding ActionCommand}" CommandParameter="G15" Style="{StaticResource BTN_Image}" ToolTipService.ShowDuration="60000" Margin="0" ><Button.ToolTip><ToolTip Style="{StaticResource ToolsTooltip}" Content="{Binding Text[Good15]}"/></Button.ToolTip></Button>
                 </Border></WrapPanel>
               </Grid>
-              <Grid x:Name="SpectatorOrdersGrid" Visibility="{Binding OrdersVisibility}"><Grid.ColumnDefinitions><ColumnDefinition Width="240"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Grid.RowDefinitions><RowDefinition Height="20"/><RowDefinition Height="30"/><RowDefinition Height="*"/></Grid.RowDefinitions><Grid Grid.ColumnSpan="2"><Grid.ColumnDefinitions><ColumnDefinition Width="18"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><Image x:Name="CurrentOrderIcon" Width="18" Height="18"/><TextBlock Grid.Column="1" TextWrapping="NoWrap" LineHeight="16" LineStackingStrategy="BlockLineHeight" x:Name="CurrentOrderText" FontSize="14" Foreground="{Binding MenuForeground}"/><TextBlock Grid.Column="2" x:Name="CurrentOrderTarget" FontSize="14" Margin="4,0" ToolTipService.ShowDuration="60000"><TextBlock.ToolTip><ToolTip Style="{StaticResource ToolsTooltip}"/></TextBlock.ToolTip></TextBlock></Grid><StackPanel x:Name="TestToolsTargets" Grid.Row="1" Orientation="Horizontal">
-<Button x:Name="TestTarget1" Width="28" Height="28" Margin="1" Style="{StaticResource QuickButton}" ToolTipService.InitialShowDelay="0" ToolTipService.BetweenShowDelay="0" ToolTipService.ShowDuration="60000" Command="{Binding ActionCommand}" CommandParameter="Target1">
+              <Grid x:Name="SpectatorOrdersGrid" Visibility="{Binding OrdersVisibility}"><Grid.ColumnDefinitions><ColumnDefinition Width="352"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Grid.RowDefinitions><RowDefinition Height="18"/><RowDefinition Height="48"/></Grid.RowDefinitions><Grid ClipToBounds="True"><Grid.ColumnDefinitions><ColumnDefinition Width="18"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><Image x:Name="CurrentOrderIcon" Width="18" Height="18"/><TextBlock Grid.Column="1" TextWrapping="NoWrap" LineHeight="16" LineStackingStrategy="BlockLineHeight" x:Name="CurrentOrderText" FontSize="14" Foreground="{Binding MenuForeground}"/><TextBlock Grid.Column="2" x:Name="CurrentOrderTarget" FontSize="14" Margin="4,0" ToolTipService.ShowDuration="60000"><TextBlock.ToolTip><ToolTip Style="{StaticResource ToolsTooltip}"/></TextBlock.ToolTip></TextBlock></Grid><Border x:Name="ForceAcceptanceSurface" Grid.Column="1" Background="{Binding ForceBackground}" Padding="2,0" CornerRadius="2">
+<CheckBox x:Name="ForceAcceptanceToggle" Height="18" VerticalContentAlignment="Center" IsChecked="{Binding ForceAcceptance, Mode=TwoWay}" FontSize="12" Foreground="{Binding MenuForeground}" ToolTipService.ShowDuration="60000"><CheckBox.ToolTip><ToolTip Style="{StaticResource ToolsTooltip}" Content="{Binding Text[ForceHelp]}"/></CheckBox.ToolTip>
+<CheckBox.Template><ControlTemplate TargetType="{x:Type CheckBox}"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="18"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Border Width="16" Height="16" Background="{Binding MenuInput}" BorderBrush="{Binding MenuBorder}" BorderThickness="1"><Path x:Name="ForceTick" Data="M 2,7 L 5,10 L 12,2" Stroke="{Binding MenuForeground}" StrokeThickness="2" Visibility="Collapsed"/></Border><ContentPresenter Grid.Column="1" VerticalAlignment="Center"/></Grid><ControlTemplate.Triggers><Trigger Property="IsChecked" Value="True"><Setter TargetName="ForceTick" Property="Visibility" Value="Visible"/></Trigger></ControlTemplate.Triggers></ControlTemplate></CheckBox.Template>
+<TextBlock Text="{Binding Text[Force]}" FontSize="12" LineHeight="14" LineStackingStrategy="BlockLineHeight" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
+</CheckBox></Border><StackPanel x:Name="TestToolsTargets" Grid.Row="1" Orientation="Horizontal" VerticalAlignment="Center">
+<Button x:Name="TestTarget1" Width="42" Height="42" Margin="1" Style="{StaticResource QuickButton}" ToolTipService.InitialShowDelay="0" ToolTipService.BetweenShowDelay="0" ToolTipService.ShowDuration="60000" Command="{Binding ActionCommand}" CommandParameter="Target1">
       <Button.ToolTip><ToolTip Style="{StaticResource ToolsTooltip}" Content="{Binding Text[SelectTarget]}"/></Button.ToolTip>
-      <Canvas Width="26" Height="26" ClipToBounds="True">
-        <Image Width="26" Height="26" x:Name="TargetFace1" Stretch="UniformToFill"/>
-        <TextBlock x:Name="TargetNumberOutline1" Text="1" Style="{StaticResource QuickNumber}" Foreground="#FFF2E7CE" Stroke="#FFF2E7CE" StrokeThickness="2.5" Canvas.Left="0" Canvas.Top="0" IsHitTestVisible="False"/>
-        <TextBlock x:Name="TestTargetText1" Text="1" Style="{StaticResource QuickNumber}" Canvas.Left="0" Canvas.Top="0" IsHitTestVisible="False"/>
+      <Canvas Width="40" Height="40" ClipToBounds="True">
+        <Image Width="40" Height="40" x:Name="TargetFace1" Stretch="UniformToFill"/>
+        <TextBlock x:Name="TargetNumberOutline1" Text="1" Style="{StaticResource OwnerNumber}" Foreground="#FFF2E7CE" Stroke="#FFF2E7CE" StrokeThickness="3" Canvas.Left="0" Canvas.Top="0" IsHitTestVisible="False"/>
+        <TextBlock x:Name="TestTargetText1" Text="1" Style="{StaticResource OwnerNumber}" Canvas.Left="0" Canvas.Top="0" IsHitTestVisible="False"/>
       </Canvas>
     </Button>
-<Button x:Name="TestTarget2" Width="28" Height="28" Margin="1" Style="{StaticResource QuickButton}" ToolTipService.InitialShowDelay="0" ToolTipService.BetweenShowDelay="0" ToolTipService.ShowDuration="60000" Command="{Binding ActionCommand}" CommandParameter="Target2">
+<Button x:Name="TestTarget2" Width="42" Height="42" Margin="1" Style="{StaticResource QuickButton}" ToolTipService.InitialShowDelay="0" ToolTipService.BetweenShowDelay="0" ToolTipService.ShowDuration="60000" Command="{Binding ActionCommand}" CommandParameter="Target2">
       <Button.ToolTip><ToolTip Style="{StaticResource ToolsTooltip}" Content="{Binding Text[SelectTarget]}"/></Button.ToolTip>
-      <Canvas Width="26" Height="26" ClipToBounds="True">
-        <Image Width="26" Height="26" x:Name="TargetFace2" Stretch="UniformToFill"/>
-        <TextBlock x:Name="TargetNumberOutline2" Text="2" Style="{StaticResource QuickNumber}" Foreground="#FFF2E7CE" Stroke="#FFF2E7CE" StrokeThickness="2.5" Canvas.Left="0" Canvas.Top="0" IsHitTestVisible="False"/>
-        <TextBlock x:Name="TestTargetText2" Text="2" Style="{StaticResource QuickNumber}" Canvas.Left="0" Canvas.Top="0" IsHitTestVisible="False"/>
+      <Canvas Width="40" Height="40" ClipToBounds="True">
+        <Image Width="40" Height="40" x:Name="TargetFace2" Stretch="UniformToFill"/>
+        <TextBlock x:Name="TargetNumberOutline2" Text="2" Style="{StaticResource OwnerNumber}" Foreground="#FFF2E7CE" Stroke="#FFF2E7CE" StrokeThickness="3" Canvas.Left="0" Canvas.Top="0" IsHitTestVisible="False"/>
+        <TextBlock x:Name="TestTargetText2" Text="2" Style="{StaticResource OwnerNumber}" Canvas.Left="0" Canvas.Top="0" IsHitTestVisible="False"/>
       </Canvas>
     </Button>
-<Button x:Name="TestTarget3" Width="28" Height="28" Margin="1" Style="{StaticResource QuickButton}" ToolTipService.InitialShowDelay="0" ToolTipService.BetweenShowDelay="0" ToolTipService.ShowDuration="60000" Command="{Binding ActionCommand}" CommandParameter="Target3">
+<Button x:Name="TestTarget3" Width="42" Height="42" Margin="1" Style="{StaticResource QuickButton}" ToolTipService.InitialShowDelay="0" ToolTipService.BetweenShowDelay="0" ToolTipService.ShowDuration="60000" Command="{Binding ActionCommand}" CommandParameter="Target3">
       <Button.ToolTip><ToolTip Style="{StaticResource ToolsTooltip}" Content="{Binding Text[SelectTarget]}"/></Button.ToolTip>
-      <Canvas Width="26" Height="26" ClipToBounds="True">
-        <Image Width="26" Height="26" x:Name="TargetFace3" Stretch="UniformToFill"/>
-        <TextBlock x:Name="TargetNumberOutline3" Text="3" Style="{StaticResource QuickNumber}" Foreground="#FFF2E7CE" Stroke="#FFF2E7CE" StrokeThickness="2.5" Canvas.Left="0" Canvas.Top="0" IsHitTestVisible="False"/>
-        <TextBlock x:Name="TestTargetText3" Text="3" Style="{StaticResource QuickNumber}" Canvas.Left="0" Canvas.Top="0" IsHitTestVisible="False"/>
+      <Canvas Width="40" Height="40" ClipToBounds="True">
+        <Image Width="40" Height="40" x:Name="TargetFace3" Stretch="UniformToFill"/>
+        <TextBlock x:Name="TargetNumberOutline3" Text="3" Style="{StaticResource OwnerNumber}" Foreground="#FFF2E7CE" Stroke="#FFF2E7CE" StrokeThickness="3" Canvas.Left="0" Canvas.Top="0" IsHitTestVisible="False"/>
+        <TextBlock x:Name="TestTargetText3" Text="3" Style="{StaticResource OwnerNumber}" Canvas.Left="0" Canvas.Top="0" IsHitTestVisible="False"/>
       </Canvas>
     </Button>
-<Button x:Name="TestTarget4" Width="28" Height="28" Margin="1" Style="{StaticResource QuickButton}" ToolTipService.InitialShowDelay="0" ToolTipService.BetweenShowDelay="0" ToolTipService.ShowDuration="60000" Command="{Binding ActionCommand}" CommandParameter="Target4">
+<Button x:Name="TestTarget4" Width="42" Height="42" Margin="1" Style="{StaticResource QuickButton}" ToolTipService.InitialShowDelay="0" ToolTipService.BetweenShowDelay="0" ToolTipService.ShowDuration="60000" Command="{Binding ActionCommand}" CommandParameter="Target4">
       <Button.ToolTip><ToolTip Style="{StaticResource ToolsTooltip}" Content="{Binding Text[SelectTarget]}"/></Button.ToolTip>
-      <Canvas Width="26" Height="26" ClipToBounds="True">
-        <Image Width="26" Height="26" x:Name="TargetFace4" Stretch="UniformToFill"/>
-        <TextBlock x:Name="TargetNumberOutline4" Text="4" Style="{StaticResource QuickNumber}" Foreground="#FFF2E7CE" Stroke="#FFF2E7CE" StrokeThickness="2.5" Canvas.Left="0" Canvas.Top="0" IsHitTestVisible="False"/>
-        <TextBlock x:Name="TestTargetText4" Text="4" Style="{StaticResource QuickNumber}" Canvas.Left="0" Canvas.Top="0" IsHitTestVisible="False"/>
+      <Canvas Width="40" Height="40" ClipToBounds="True">
+        <Image Width="40" Height="40" x:Name="TargetFace4" Stretch="UniformToFill"/>
+        <TextBlock x:Name="TargetNumberOutline4" Text="4" Style="{StaticResource OwnerNumber}" Foreground="#FFF2E7CE" Stroke="#FFF2E7CE" StrokeThickness="3" Canvas.Left="0" Canvas.Top="0" IsHitTestVisible="False"/>
+        <TextBlock x:Name="TestTargetText4" Text="4" Style="{StaticResource OwnerNumber}" Canvas.Left="0" Canvas.Top="0" IsHitTestVisible="False"/>
       </Canvas>
     </Button>
-<Button x:Name="TestTarget5" Width="28" Height="28" Margin="1" Style="{StaticResource QuickButton}" ToolTipService.InitialShowDelay="0" ToolTipService.BetweenShowDelay="0" ToolTipService.ShowDuration="60000" Command="{Binding ActionCommand}" CommandParameter="Target5">
+<Button x:Name="TestTarget5" Width="42" Height="42" Margin="1" Style="{StaticResource QuickButton}" ToolTipService.InitialShowDelay="0" ToolTipService.BetweenShowDelay="0" ToolTipService.ShowDuration="60000" Command="{Binding ActionCommand}" CommandParameter="Target5">
       <Button.ToolTip><ToolTip Style="{StaticResource ToolsTooltip}" Content="{Binding Text[SelectTarget]}"/></Button.ToolTip>
-      <Canvas Width="26" Height="26" ClipToBounds="True">
-        <Image Width="26" Height="26" x:Name="TargetFace5" Stretch="UniformToFill"/>
-        <TextBlock x:Name="TargetNumberOutline5" Text="5" Style="{StaticResource QuickNumber}" Foreground="#FFF2E7CE" Stroke="#FFF2E7CE" StrokeThickness="2.5" Canvas.Left="0" Canvas.Top="0" IsHitTestVisible="False"/>
-        <TextBlock x:Name="TestTargetText5" Text="5" Style="{StaticResource QuickNumber}" Canvas.Left="0" Canvas.Top="0" IsHitTestVisible="False"/>
+      <Canvas Width="40" Height="40" ClipToBounds="True">
+        <Image Width="40" Height="40" x:Name="TargetFace5" Stretch="UniformToFill"/>
+        <TextBlock x:Name="TargetNumberOutline5" Text="5" Style="{StaticResource OwnerNumber}" Foreground="#FFF2E7CE" Stroke="#FFF2E7CE" StrokeThickness="3" Canvas.Left="0" Canvas.Top="0" IsHitTestVisible="False"/>
+        <TextBlock x:Name="TestTargetText5" Text="5" Style="{StaticResource OwnerNumber}" Canvas.Left="0" Canvas.Top="0" IsHitTestVisible="False"/>
       </Canvas>
     </Button>
-<Button x:Name="TestTarget6" Width="28" Height="28" Margin="1" Style="{StaticResource QuickButton}" ToolTipService.InitialShowDelay="0" ToolTipService.BetweenShowDelay="0" ToolTipService.ShowDuration="60000" Command="{Binding ActionCommand}" CommandParameter="Target6">
+<Button x:Name="TestTarget6" Width="42" Height="42" Margin="1" Style="{StaticResource QuickButton}" ToolTipService.InitialShowDelay="0" ToolTipService.BetweenShowDelay="0" ToolTipService.ShowDuration="60000" Command="{Binding ActionCommand}" CommandParameter="Target6">
       <Button.ToolTip><ToolTip Style="{StaticResource ToolsTooltip}" Content="{Binding Text[SelectTarget]}"/></Button.ToolTip>
-      <Canvas Width="26" Height="26" ClipToBounds="True">
-        <Image Width="26" Height="26" x:Name="TargetFace6" Stretch="UniformToFill"/>
-        <TextBlock x:Name="TargetNumberOutline6" Text="6" Style="{StaticResource QuickNumber}" Foreground="#FFF2E7CE" Stroke="#FFF2E7CE" StrokeThickness="2.5" Canvas.Left="0" Canvas.Top="0" IsHitTestVisible="False"/>
-        <TextBlock x:Name="TestTargetText6" Text="6" Style="{StaticResource QuickNumber}" Canvas.Left="0" Canvas.Top="0" IsHitTestVisible="False"/>
+      <Canvas Width="40" Height="40" ClipToBounds="True">
+        <Image Width="40" Height="40" x:Name="TargetFace6" Stretch="UniformToFill"/>
+        <TextBlock x:Name="TargetNumberOutline6" Text="6" Style="{StaticResource OwnerNumber}" Foreground="#FFF2E7CE" Stroke="#FFF2E7CE" StrokeThickness="3" Canvas.Left="0" Canvas.Top="0" IsHitTestVisible="False"/>
+        <TextBlock x:Name="TestTargetText6" Text="6" Style="{StaticResource OwnerNumber}" Canvas.Left="0" Canvas.Top="0" IsHitTestVisible="False"/>
       </Canvas>
     </Button>
-<Button x:Name="TestTarget7" Width="28" Height="28" Margin="1" Style="{StaticResource QuickButton}" ToolTipService.InitialShowDelay="0" ToolTipService.BetweenShowDelay="0" ToolTipService.ShowDuration="60000" Command="{Binding ActionCommand}" CommandParameter="Target7">
+<Button x:Name="TestTarget7" Width="42" Height="42" Margin="1" Style="{StaticResource QuickButton}" ToolTipService.InitialShowDelay="0" ToolTipService.BetweenShowDelay="0" ToolTipService.ShowDuration="60000" Command="{Binding ActionCommand}" CommandParameter="Target7">
       <Button.ToolTip><ToolTip Style="{StaticResource ToolsTooltip}" Content="{Binding Text[SelectTarget]}"/></Button.ToolTip>
-      <Canvas Width="26" Height="26" ClipToBounds="True">
-        <Image Width="26" Height="26" x:Name="TargetFace7" Stretch="UniformToFill"/>
-        <TextBlock x:Name="TargetNumberOutline7" Text="7" Style="{StaticResource QuickNumber}" Foreground="#FFF2E7CE" Stroke="#FFF2E7CE" StrokeThickness="2.5" Canvas.Left="0" Canvas.Top="0" IsHitTestVisible="False"/>
-        <TextBlock x:Name="TestTargetText7" Text="7" Style="{StaticResource QuickNumber}" Canvas.Left="0" Canvas.Top="0" IsHitTestVisible="False"/>
+      <Canvas Width="40" Height="40" ClipToBounds="True">
+        <Image Width="40" Height="40" x:Name="TargetFace7" Stretch="UniformToFill"/>
+        <TextBlock x:Name="TargetNumberOutline7" Text="7" Style="{StaticResource OwnerNumber}" Foreground="#FFF2E7CE" Stroke="#FFF2E7CE" StrokeThickness="3" Canvas.Left="0" Canvas.Top="0" IsHitTestVisible="False"/>
+        <TextBlock x:Name="TestTargetText7" Text="7" Style="{StaticResource OwnerNumber}" Canvas.Left="0" Canvas.Top="0" IsHitTestVisible="False"/>
       </Canvas>
     </Button>
-<Button x:Name="TestTarget8" Width="28" Height="28" Margin="1" Style="{StaticResource QuickButton}" ToolTipService.InitialShowDelay="0" ToolTipService.BetweenShowDelay="0" ToolTipService.ShowDuration="60000" Command="{Binding ActionCommand}" CommandParameter="Target8">
+<Button x:Name="TestTarget8" Width="42" Height="42" Margin="1" Style="{StaticResource QuickButton}" ToolTipService.InitialShowDelay="0" ToolTipService.BetweenShowDelay="0" ToolTipService.ShowDuration="60000" Command="{Binding ActionCommand}" CommandParameter="Target8">
       <Button.ToolTip><ToolTip Style="{StaticResource ToolsTooltip}" Content="{Binding Text[SelectTarget]}"/></Button.ToolTip>
-      <Canvas Width="26" Height="26" ClipToBounds="True">
-        <Image Width="26" Height="26" x:Name="TargetFace8" Stretch="UniformToFill"/>
-        <TextBlock x:Name="TargetNumberOutline8" Text="8" Style="{StaticResource QuickNumber}" Foreground="#FFF2E7CE" Stroke="#FFF2E7CE" StrokeThickness="2.5" Canvas.Left="0" Canvas.Top="0" IsHitTestVisible="False"/>
-        <TextBlock x:Name="TestTargetText8" Text="8" Style="{StaticResource QuickNumber}" Canvas.Left="0" Canvas.Top="0" IsHitTestVisible="False"/>
+      <Canvas Width="40" Height="40" ClipToBounds="True">
+        <Image Width="40" Height="40" x:Name="TargetFace8" Stretch="UniformToFill"/>
+        <TextBlock x:Name="TargetNumberOutline8" Text="8" Style="{StaticResource OwnerNumber}" Foreground="#FFF2E7CE" Stroke="#FFF2E7CE" StrokeThickness="3" Canvas.Left="0" Canvas.Top="0" IsHitTestVisible="False"/>
+        <TextBlock x:Name="TestTargetText8" Text="8" Style="{StaticResource OwnerNumber}" Canvas.Left="0" Canvas.Top="0" IsHitTestVisible="False"/>
       </Canvas>
     </Button>
-                </StackPanel><Grid Grid.Row="1" Grid.Column="1"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-<Button Grid.Column="0" Height="28" Margin="1" Style="{StaticResource ToolsButton}" Command="{Binding ActionCommand}" CommandParameter="Attack" IsEnabled="{Binding CanAttack}" ToolTipService.ShowDuration="60000"><Button.ToolTip><ToolTip Style="{StaticResource ToolsTooltip}" Content="{Binding Text[AttackHelp]}"/></Button.ToolTip><Grid Margin="2,0"><Grid.ColumnDefinitions><ColumnDefinition Width="18"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Image Width="16" Height="22" Stretch="Uniform" x:Name="AttackActionIcon"/><TextBlock Grid.Column="1" Text="{Binding Text[Attack]}" FontSize="11" LineHeight="11" LineStackingStrategy="BlockLineHeight" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center"/></Grid></Button><Button Grid.Column="1" Height="28" Margin="1" Style="{StaticResource ToolsButton}" Command="{Binding ActionCommand}" CommandParameter="Defend" ToolTipService.ShowDuration="60000" IsEnabled="{Binding CanDefend}"><Button.ToolTip><ToolTip Style="{StaticResource ToolsTooltip}" Content="{Binding Text[DefendHelp]}"/></Button.ToolTip><Grid Margin="2,0"><Grid.ColumnDefinitions><ColumnDefinition Width="18"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Image Width="16" Height="22" Stretch="Uniform" Source="{StaticResource UI-Buttons S033}"/><TextBlock Grid.Column="1" Text="{Binding Text[Defend]}" FontSize="11" LineHeight="11" LineStackingStrategy="BlockLineHeight" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center"/></Grid></Button><Button Grid.Column="2" Height="28" Margin="1" Style="{StaticResource ToolsButton}" Command="{Binding ActionCommand}" CommandParameter="Cancel" ToolTipService.ShowDuration="60000" IsEnabled="{Binding CanCancel}"><Button.ToolTip><ToolTip Style="{StaticResource ToolsTooltip}" Content="{Binding Text[CancelHelp]}"/></Button.ToolTip><Grid Margin="2,0"><Grid.ColumnDefinitions><ColumnDefinition Width="18"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Image Width="16" Height="22" Stretch="Uniform" Source="{StaticResource UI-Buttons S031}"/><TextBlock Grid.Column="1" Text="{Binding Text[Cancel]}" FontSize="11" LineHeight="11" LineStackingStrategy="BlockLineHeight" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center"/></Grid></Button>
-                </Grid><TextBlock x:Name="OrdersStatus" Grid.Row="2" FontSize="10" Foreground="{Binding MenuForeground}" LineHeight="11" LineStackingStrategy="BlockLineHeight" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Visibility="{Binding StatusVisibility}" ToolTipService.ShowDuration="60000"/><TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding OrderAvailability}" Foreground="{Binding MenuForeground}" FontSize="10" LineHeight="11" LineStackingStrategy="BlockLineHeight" TextWrapping="Wrap" ToolTipService.ShowDuration="60000"><TextBlock.ToolTip><ToolTip Style="{StaticResource ToolsTooltip}" Content="{Binding OrderAvailability}"/></TextBlock.ToolTip></TextBlock></Grid>
+                </StackPanel><Grid x:Name="SpectatorOrderActions" Grid.Row="1" Grid.Column="1"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Grid.RowDefinitions><RowDefinition Height="24"/><RowDefinition Height="24"/></Grid.RowDefinitions><Button Grid.Column="0" Grid.Row="0" Height="24" Margin="0" Style="{StaticResource ToolsButton}" Command="{Binding ActionCommand}" CommandParameter="Attack" IsEnabled="{Binding CanAttack}" ToolTipService.ShowDuration="60000"><Button.ToolTip><ToolTip Style="{StaticResource ToolsTooltip}" Content="{Binding Text[AttackHelp]}"/></Button.ToolTip><Grid Margin="2,0"><Grid.ColumnDefinitions><ColumnDefinition Width="18"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Image Width="16" Height="20" Stretch="Uniform" x:Name="AttackActionIcon"/><TextBlock Grid.Column="1" Text="{Binding Text[Attack]}" FontSize="11" LineHeight="11" LineStackingStrategy="BlockLineHeight" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center"/></Grid></Button><Button Grid.Column="1" Grid.Row="0" Height="24" Margin="0" Style="{StaticResource ToolsButton}" Command="{Binding ActionCommand}" CommandParameter="Defend" ToolTipService.ShowDuration="60000" IsEnabled="{Binding CanDefend}"><Button.ToolTip><ToolTip Style="{StaticResource ToolsTooltip}" Content="{Binding Text[DefendHelp]}"/></Button.ToolTip><Grid Margin="2,0"><Grid.ColumnDefinitions><ColumnDefinition Width="18"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Image Width="16" Height="20" Stretch="Uniform" Source="{StaticResource UI-Buttons S033}"/><TextBlock Grid.Column="1" Text="{Binding Text[Defend]}" FontSize="11" LineHeight="11" LineStackingStrategy="BlockLineHeight" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center"/></Grid></Button><Button Grid.Column="0" Grid.Row="1" Grid.ColumnSpan="2" Height="24" Margin="0" Style="{StaticResource ToolsButton}" Command="{Binding ActionCommand}" CommandParameter="Cancel" ToolTipService.ShowDuration="60000" IsEnabled="{Binding CanCancel}"><Button.ToolTip><ToolTip Style="{StaticResource ToolsTooltip}" Content="{Binding Text[CancelHelp]}"/></Button.ToolTip><Grid Margin="2,0"><Grid.ColumnDefinitions><ColumnDefinition Width="18"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Image Width="16" Height="20" Stretch="Uniform" Source="{StaticResource UI-Buttons S031}"/><TextBlock Grid.Column="1" Text="{Binding Text[Cancel]}" FontSize="11" LineHeight="11" LineStackingStrategy="BlockLineHeight" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center"/></Grid></Button></Grid></Grid>
             </Grid>
           </Border>
           <Canvas x:Name="SpectatorWings" Grid.Row="2" Height="26" Visibility="{Binding ExpandedVisibility}">
             <Border x:Name="SpectatorLeftWing" Background="Transparent" CornerRadius="0,0,4,4" Height="26">
               <Grid>
 
-                <Grid Visibility="{Binding OrdersVisibility}" Margin="4,0" VerticalAlignment="Center">
-<CheckBox Height="22" VerticalContentAlignment="Center" IsChecked="{Binding ForceAcceptance, Mode=TwoWay}" FontSize="11" Foreground="{Binding MenuForeground}" ToolTipService.ShowDuration="60000"><CheckBox.ToolTip><ToolTip Style="{StaticResource ToolsTooltip}" Content="{Binding Text[ForceHelp]}"/></CheckBox.ToolTip><TextBlock Text="{Binding Text[Force]}" FontSize="10" LineHeight="11" LineStackingStrategy="BlockLineHeight" TextWrapping="Wrap"/></CheckBox>
-                </Grid>
+                <Grid Visibility="{Binding OrdersVisibility}" Margin="4,0" VerticalAlignment="Center"><Grid.RowDefinitions><RowDefinition Height="12"/><RowDefinition Height="12"/></Grid.RowDefinitions>
+<TextBlock x:Name="OrdersStatus" Grid.Row="0" FontSize="11" Foreground="{Binding MenuForeground}" LineHeight="12" LineStackingStrategy="BlockLineHeight" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Visibility="{Binding StatusVisibility}" ToolTipService.ShowDuration="60000"/>
+<TextBlock x:Name="OrderAvailability" Grid.Row="1" Text="{Binding OrderAvailability}" Visibility="{Binding OrderAvailabilityVisibility}" Foreground="{Binding MenuForeground}" FontSize="11" LineHeight="12" LineStackingStrategy="BlockLineHeight" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" ToolTipService.ShowDuration="60000"><TextBlock.ToolTip><ToolTip Style="{StaticResource ToolsTooltip}" Content="{Binding OrderAvailability}"/></TextBlock.ToolTip></TextBlock>
+</Grid>
               </Grid>
             </Border>
             <Border x:Name="SpectatorRightWing" Background="Transparent" CornerRadius="0,0,4,4" Height="26" ClipToBounds="True">

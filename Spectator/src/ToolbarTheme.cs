@@ -4,7 +4,7 @@ namespace Spectator
 {
     internal sealed class ToolbarPalette
     {
-        internal readonly Brush Ink, Button, Hover, Border, Active, Input, Grip, GripHover;
+        internal readonly Brush Ink, Button, Hover, Border, Active, Input, Grip, GripHover, Force;
         internal static readonly ToolbarPalette Paper = new ToolbarPalette(false), Classic = new ToolbarPalette(true);
         private ToolbarPalette(bool classic)
         {
@@ -15,6 +15,7 @@ namespace Spectator
             Active = Brush(classic ? 0xA04A2518 : 0x70AD7540);
             Input = Brush(classic ? 0xFF271610 : 0xFFFFE8B8);
             Grip = Brush(classic ? 0xFF6F1712 : 0xFFB58B51);
+            Force = Brush(classic ? 0xFF795A40 : 0xFFF9E6BC);
             GripHover = Brush(classic ? 0xFF913025 : 0xFFD8B477);
         }
         private static Brush Brush(uint value) => new SolidColorBrush(Color.FromArgb(

@@ -224,14 +224,6 @@ namespace Spectator
                 return;
             }
             toolsModel.PlacementActive = humanPlacementMode;
-            var state = GameData.Instance.lastGameState;
-            bool occupied = view.Show_HUD_Troops || view.Show_HUD_Building || view.Show_HUD_Briefing ||
-                view.Show_HUD_MissionOver || view.AlliesPanelVisible || view.MeritPanelVisible || view.MPChatVisible ||
-                state == null || GateHudLifecycle.Route(state.app_mode, state.app_sub_mode, false) != ToolsHudRoute.Main;
-            toolbarHudDisplay = DockHudPolicy.Evaluate(eligible, true, view.Show_HUD_Main,
-                occupied, false, humanPlacementMode, view.buildScreenID);
-            toolsModel.SetHudAvailable(toolbarHudDisplay == DockHudDisplay.Tools);
-            UpdatePlacementDate(toolbarHudDisplay == DockHudDisplay.Placement);
             string currentLocale = SerpLocalization.GetActiveLocale();
             if (currentLocale != toolbarLocale)
             {

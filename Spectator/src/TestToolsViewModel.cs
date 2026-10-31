@@ -88,6 +88,7 @@ namespace Spectator
         public Brush MenuBorder => palette.Border;
         public Brush MenuActive => palette.Active;
         public Brush MenuInput => palette.Input;
+        public Brush ForceBackground => palette.Force;
         public Brush MenuGrip => palette.Grip;
         public Brush MenuGripHover => palette.GripHover;
         public string DesignHelp => SerpLocalization.Get(classicTheme ? "Tools.DesignPaper" : "Tools.DesignClassic");
@@ -96,7 +97,7 @@ namespace Spectator
             if (classicTheme == value) return;
             classicTheme = value; palette = value ? ToolbarPalette.Classic : ToolbarPalette.Paper;
             foreach (string property in new[] { nameof(MenuForeground), nameof(MenuButton), nameof(MenuHover),
-                nameof(MenuBorder), nameof(MenuActive), nameof(MenuInput), nameof(MenuGrip), nameof(MenuGripHover), nameof(DesignHelp) }) Changed(property);
+                nameof(MenuBorder), nameof(MenuActive), nameof(MenuInput), nameof(ForceBackground), nameof(MenuGrip), nameof(MenuGripHover), nameof(DesignHelp) }) Changed(property);
         }
         public string ExpandLabel => expanded ? "\u2212" : "+";
         public bool CanCredit => toolsAvailable && hasRecipient && CreditMath.TryParse(amount, out _) && canExecute();
@@ -111,6 +112,7 @@ namespace Spectator
         public bool CanDefend => canDefend;
         public bool CanCancel => canCancel;
         public string OrderAvailability => orderAvailability;
+        public Visibility OrderAvailabilityVisibility => string.IsNullOrEmpty(orderAvailability) ? Visibility.Collapsed : Visibility.Visible;
         internal void SetAvailability(bool tools)
         { if (toolsAvailable != tools) { toolsAvailable = tools; Changed(nameof(ToolsAvailable)); Changed(nameof(CanCredit)); } }
         internal void SetOrderAvailability(bool attack, bool defend, bool cancel, string reason)
@@ -119,7 +121,7 @@ namespace Spectator
             if (canDefend != defend) { canDefend = defend; Changed(nameof(CanDefend)); }
             if (canCancel != cancel) { canCancel = cancel; Changed(nameof(CanCancel)); }
             string text = string.IsNullOrEmpty(reason) ? "" : SerpLocalization.Get("Tools." + reason);
-            if (orderAvailability != text) { orderAvailability = text; Changed(nameof(OrderAvailability)); }
+            if (orderAvailability != text) { orderAvailability = text; Changed(nameof(OrderAvailability)); Changed(nameof(OrderAvailabilityVisibility)); }
         }
         internal bool Expanded => expanded;
         internal eGoods Good => good;

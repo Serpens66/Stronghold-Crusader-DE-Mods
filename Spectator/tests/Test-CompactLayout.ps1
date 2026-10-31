@@ -9,13 +9,17 @@ if ($owners.LocalName -ne 'Canvas') { throw 'The same portrait canvas must suppo
 foreach ($slot in 1..8) {
     foreach ($prefix in @('SpectatorEditorHumanOwner','TestTarget')) {
         $card = Named ($prefix + $slot)
-        $size = if ($prefix -eq 'TestTarget') { '28' } else { '36' }
-        if (-not $card -or $card.Width -ne $size -or $card.Height -ne $size) { throw 'Main portraits are 36 units; order targets retain 28 units.' }
+        $size = if ($prefix -eq 'TestTarget') { '42' } else { '36' }
+        if (-not $card -or $card.Width -ne $size -or $card.Height -ne $size) { throw 'Main portraits remain 36 units; order targets are 42 units.' }
+        if ($prefix -eq 'TestTarget') {
+            $face = $card.SelectSingleNode('Canvas/Image')
+            if ($face.Width -ne '40' -or $face.Height -ne '40' -or $face.ParentNode.Width -ne '40' -or $face.ParentNode.Height -ne '40') { throw 'The target sprite itself grows with its portrait button.' }
+        }
         $numberName = if ($prefix -eq 'TestTarget') { 'TestTargetText' } else { 'SpectatorEditorHumanNumber' }
         $number = Named ($numberName + $slot)
         if ($number.Text -ne [string]$slot -or $number.ParentNode.LocalName -ne 'Canvas' -or $number.GetAttribute('Canvas.Left') -ne '0' -or $number.GetAttribute('Canvas.Top') -ne '0' -or $number.HasAttribute('Background')) { throw 'Measured glyph layers require their own absolute portrait overlay without a background.' }
         $outline = $number.PreviousSibling
-        $stroke = if ($prefix -eq 'TestTarget') { '2.5' } else { '3' }
+        $stroke = '3'
         if ($outline.LocalName -ne 'TextBlock' -or $outline.Text -ne $number.Text -or $outline.StrokeThickness -ne $stroke -or $outline.Style -ne $number.Style -or $outline.HasAttribute('Background')) { throw 'The stronger light outer stroke must follow the same glyph and metrics.' }
         if ($prefix -eq 'SpectatorEditorHumanOwner' -and $card.ParentNode -ne $owners) { throw 'The existing buttons retain the common packed roster host.' }
     }
@@ -81,6 +85,16 @@ foreach ($command in @('Attack','Defend','Cancel')) {
     if (-not $xml.SelectSingleNode('//Button[@CommandParameter="'+$command+'"]//Image')) { throw 'Every order action needs its corresponding native icon.' }
 }
 if ((Named 'ToolsStatus').HasAttribute('Text') -or (Named 'ToolsStatus').SelectSingleNode('TextBlock.ToolTip')) { throw 'Status text and tooltip must have one consistent rich-text writer.' }
-if ((Named 'OrdersStatus').GetAttribute('Grid.Row') -ne '2' -or (Named 'OrdersStatus').HasAttribute('Text') -or (Named 'ToolsStatus').Visibility -ne '{Binding GoodsStatusVisibility}') { throw 'Order feedback uses the wide body row, independently of the narrow native footer gaps.' }
+$orders = Named 'SpectatorOrdersGrid'
+if ($orders.SelectSingleNode('Grid.ColumnDefinitions/ColumnDefinition[1]').Width -ne '352' -or $orders.SelectSingleNode('Grid.RowDefinitions/RowDefinition[1]').Height -ne '18' -or $orders.SelectSingleNode('Grid.RowDefinitions/RowDefinition[2]').Height -ne '48') { throw 'Eight 44-unit target cells fit beside the two-row action grid, within the existing body height.' }
+$actions=Named 'SpectatorOrderActions'
+if ($actions.SelectNodes('Grid.RowDefinitions/RowDefinition').Count -ne 2) { throw 'Order actions require two rows.' }
+foreach ($command in @('Attack','Defend','Cancel')) {
+ $button = $actions.SelectSingleNode('Button[@CommandParameter="'+$command+'"]')
+ if ($button.Height -ne '24' -or $button.GetAttribute('Grid.Row') -ne $(if($command -eq 'Cancel'){'1'}else{'0'})) { throw 'Order action row/height mismatch.' }
+ if ($button.GetAttribute('Grid.Column') -ne $(if($command -eq 'Defend'){'1'}else{'0'}) -or ($command -eq 'Cancel' -and $button.GetAttribute('Grid.ColumnSpan') -ne '2')) { throw 'Attack/defend share the top row; cancel spans the bottom row.' }
+}
+if ((Named 'ForceAcceptanceSurface').Background -ne '{Binding ForceBackground}' -or (Named 'ForceAcceptanceSurface').GetAttribute('Grid.Column') -ne '1' -or (Named 'ForceAcceptanceToggle').FontSize -ne '12') { throw 'Force acceptance belongs on the bright larger-text top row.' }
+if (-not (Named 'SpectatorLeftWing').SelectSingleNode('.//*[@x:Name="OrdersStatus"]',$ns) -or (Named 'OrderAvailability').GetAttribute('Grid.Row') -ne '1' -or (Named 'ToolsStatus').Visibility -ne '{Binding GoodsStatusVisibility}') { throw 'Order feedback and availability use the lower free slot independently of goods feedback.' }
 # Structural XAML guardrails only; glyph appearance and actual draw/hit order need ingame acceptance.
-Write-Host 'PASS: two-column roster, 36/28 portraits, dual glyph contours, reachable controls, complete form and opaque lower surfaces.'
+Write-Host 'PASS: two-column roster, 36/42 portraits, dual glyph contours, reachable controls, complete form and opaque lower surfaces.'

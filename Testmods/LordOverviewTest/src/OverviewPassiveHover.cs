@@ -34,7 +34,7 @@ namespace LordOverviewTest {
   private static void ClosePassiveHover(){HidePassiveBubble();visibleHover=null;hoverState.Reset();}
   private static Border CreatePassiveBubble(){
    // A view-owned passive visual: manual ToolTip.IsOpen did not attach a popup in the game's Noesis build.
-   hoverBubbleLabel=new TextBlock {IsHitTestVisible=false,FontSize=16,Foreground=new SolidColorBrush(Color.FromRgb(255,255,255)),TextWrapping=TextWrapping.Wrap};
+   hoverBubbleLabel=new TextBlock {IsHitTestVisible=false,FontSize=OverviewPresentationPolicy.FontSize,Foreground=new SolidColorBrush(Color.FromRgb(255,255,255)),TextWrapping=TextWrapping.Wrap};
    return new Border {IsHitTestVisible=false,Tag=OverviewPresentationPolicy.PassiveTag,Visibility=Visibility.Collapsed,Background=new SolidColorBrush(Color.FromArgb(255,29,23,16)),BorderBrush=new SolidColorBrush(Color.FromRgb(242,212,138)),BorderThickness=new Thickness(1.5f),Padding=new Thickness(10,8,10,8),Child=hoverBubbleLabel};
   }
   private static void ShowPassiveBubble(HoverTarget target){

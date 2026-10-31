@@ -11,15 +11,19 @@ namespace Spectator
 
         // Managed HUD_Main contract: NewBuildScreenBlank selects page 22. It has no build icons.
         internal const int BlankBuildScreen = 22;
-        internal static bool CanCoverBuildCategories(DockHudDisplay display, bool expanded) =>
-            display == DockHudDisplay.Tools && expanded;
+        internal static bool CanCoverBuildCategories(DockHudDisplay display, bool expanded, bool blankMainPage) =>
+            display == DockHudDisplay.Tools && expanded && blankMainPage;
 
-        internal static DockHudDisplay Evaluate(bool eligible, bool uiVisible, bool main,
-            bool occupied, bool editorTerrain, bool placement, int buildScreen)
+        internal static bool CanShowDetails(bool floating, DockHudDisplay display) => floating || display == DockHudDisplay.Tools;
+
+        internal static bool CenterIsOccupied(bool main, int page, bool placement, bool foreign) =>
+            foreign || (main && !placement && page != BlankBuildScreen);
+
+        internal static DockHudDisplay Evaluate(bool eligible, bool uiVisible, bool occupied, bool placement)
         {
-            if (!eligible || !uiVisible || !main || occupied || editorTerrain) return DockHudDisplay.Hidden;
+            if (!eligible || !uiVisible || occupied) return DockHudDisplay.Hidden;
             if (placement) return DockHudDisplay.Placement;
-            return buildScreen == BlankBuildScreen ? DockHudDisplay.Tools : DockHudDisplay.Hidden;
+            return DockHudDisplay.Tools;
         }
     }
 }
