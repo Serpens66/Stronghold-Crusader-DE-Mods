@@ -22,6 +22,9 @@
         "Preserve complete lordmeta.json, including all languages, message text and future fields, in Custom/Coop Trails, network snapshots and saves.",
         "Display each packaged Lord's full authored name and own title; legacy Trails retain the saved name without an unverifiable generic title.",
         "Add a default-off Trail Maker option to embed referenced Lord portraits, audio and video in a shared verified store, retained through export, import, backup and Workshop staging.",
+        "Never block saving a Trail Maker mission because of Lord requirements: an unreadable lordmeta.json only drops the optional presentation, and other capture problems keep the previous requirements with a specific notice; the export still checks the Lords and asks the author.",
+        "Keep Trail Maker import, clear and export running when the optional Lord-media backup fails, and report the incomplete backup.",
+        "Isolate Lord presentation from Lord data, Fixes preferences and network state so a media or metadata problem cannot interrupt a game start; reuse already verified cached media.",
         "Require APIShared 0.20.0 or newer."
       ]
     },

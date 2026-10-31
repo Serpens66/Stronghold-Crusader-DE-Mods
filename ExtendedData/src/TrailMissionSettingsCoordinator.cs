@@ -1027,17 +1027,8 @@ namespace ExtendedData
                     return;
                 }
                 ModSettingsDefinition document = null;
-                IReadOnlyList<TrailLordSlot> savedLordRequirements = null;
                 try
                 {
-                    var lordCapture = TrailLordRequirementSource.Resolve(trailPath, restartInfo,
-                        IsMakerCoopEnabled() ? CoopTrailSlotSelection.GetAiPlayerIds(CoopTrailSlotSelection.GetActiveSlots(restartInfo.lordTypes)) : null, false);
-                    savedLordRequirements = lordCapture.Slots;
-                    if (IsMakerMediaEnabled())
-                    {
-                        foreach (var slot in savedLordRequirements) slot.Presentation = TrailLordMediaStore.SelectMedia(slot.Presentation, true);
-                        TrailLordMediaStore.Stage(savedLordRequirements.Select(x => x.Presentation), IOPath.GetDirectoryName(IOPath.GetFullPath(trailPath)));
-                    }
                     // Vanilla unloads and rebuilds the editor inside the original save call.
                     // Capture synchronously before invoking it so every save uses its own visible values.
                     document = CaptureDocument();
@@ -1059,13 +1050,28 @@ namespace ExtendedData
                     return;
                 }
 
+                // Captured before Vanilla rewrites the mission. Lord requirements never block the
+                // Vanilla save: on failure the existing sidecar stays untouched, exactly as before
+                // save-time capture existed, and the export resolves again and asks the author.
+                IReadOnlyList<TrailLordSlot> savedLordRequirements =
+                    CaptureSavedLordRequirements(trailPath, restartInfo, out string lordRequirementsWarning);
+
                 saveCustomTrailMapOriginal(self, mapPath, mapName, trailPath, restartInfo);
                 string sidecar = MissionLoader.GetTrailModSettingsPath(trailPath);
                 try
                 {
                     if (!File.Exists(trailPath))
                         throw new FileNotFoundException("The game did not create the expected Trail mission.", trailPath);
-                    TrailLordRequirements.Create(trailPath, savedLordRequirements).Write(trailPath);
+                    if (savedLordRequirements != null)
+                    {
+                        try { TrailLordRequirements.Create(trailPath, savedLordRequirements).Write(trailPath); }
+                        catch (Exception exception)
+                        {
+                            Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/trail-save-lord-requirements",
+                                $"Could not write the Lord requirements of [{trailPath}]; the mission was saved: {exception}");
+                            lordRequirementsWarning = LordRequirementsNotSavedText(exception.Message);
+                        }
+                    }
                     if (editorSaveOptions.IncludeTrailModSettings)
                     {
                         ModSettingsJson.WriteAtomic(sidecar, document);
@@ -1094,6 +1100,8 @@ namespace ExtendedData
                         SerpLocalization.Get("EditorSave.ModSettingsSaveFailed"));
                     return;
                 }
+                if (lordRequirementsWarning != null)
+                    ShowInformation(SerpLocalization.Get("ExtendedData.SidecarsIncompleteTitle"), lordRequirementsWarning);
 
                 try
                 {
@@ -1122,6 +1130,49 @@ namespace ExtendedData
                     Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:995", $"Saved Trail mod settings for [{trailPath}], but could not reactivate the editable Trail preset: {exception}");
                 }
             }
+
+            // Null when the save must leave the existing sidecar untouched; warning is user text.
+            private IReadOnlyList<TrailLordSlot> CaptureSavedLordRequirements(string trailPath,
+                HUD_IngameMenu.RestartSkirmishMapInfo restartInfo, out string warning)
+            {
+                warning = null;
+                IReadOnlyList<TrailLordSlot> slots;
+                try
+                {
+                    // No embedded-only retry here: a stored embedded-only slot would be reused by
+                    // the export and silently replace the author's confirmation there.
+                    slots = TrailLordRequirementSource.Resolve(trailPath, restartInfo,
+                        IsMakerCoopEnabled() ? CoopTrailSlotSelection.GetAiPlayerIds(CoopTrailSlotSelection.GetActiveSlots(restartInfo.lordTypes)) : null,
+                        false).Slots;
+                }
+                catch (Exception exception)
+                {
+                    Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/trail-save-lord-capture",
+                        $"Could not capture the Lord requirements of [{trailPath}]; the mission is saved without updating them: {exception}");
+                    warning = LordRequirementsNotSavedText((FindAuthoringGap(exception) ?? exception).Message);
+                    return null;
+                }
+                if (!IsMakerMediaEnabled())
+                    return slots;
+                LordPresentationData[] withoutMedia = slots.Select(slot => TrailLordMediaStore.SelectMedia(slot.Presentation, false)).ToArray();
+                try
+                {
+                    foreach (var slot in slots) slot.Presentation = TrailLordMediaStore.SelectMedia(slot.Presentation, true);
+                    TrailLordMediaStore.Stage(slots.Select(x => x.Presentation), IOPath.GetDirectoryName(IOPath.GetFullPath(trailPath)));
+                }
+                catch (Exception exception)
+                {
+                    // Embedding is optional; the complete lordmeta.json is still recorded.
+                    for (int index = 0; index < slots.Count; index++) slots[index].Presentation = withoutMedia[index];
+                    Shared.DebugLogHelper.LogWarningLimited(log, "ExtendedData/trail-save-lord-media",
+                        $"Lord media of [{trailPath}] could not be embedded; metadata is saved without media: {exception.Message}");
+                    warning = SerpLocalization.Get("ExtendedData.TrailLordMediaNotEmbedded").Replace("{Reason}", exception.Message);
+                }
+                return slots;
+            }
+
+            private static string LordRequirementsNotSavedText(string reason) =>
+                SerpLocalization.Get("ExtendedData.TrailLordRequirementsNotSaved").Replace("{Reason}", reason);
 
             private void ManageTrailButtonHook(FRONT_ManageTrail self, string command)
             {
@@ -1778,7 +1829,17 @@ namespace ExtendedData
                     ReportSkippedSidecars("ExtendedData.BackupSidecarsIncomplete",
                         CopySidecars(source, destination, overwrite: true)));
                 TryFileOperation("back up the Coop Trail Maker marker", () => CopyCoopMarker(source, destination));
-                CopyLordPresentationSources(source, destination);
+                // Vanilla continues with Clear/Import/Export after this backup. Its failure must not
+                // cancel that confirmed action; Clear removes only missions and sidecars, never LordMedia.
+                TryFileOperation("back up Trail Lord media", () =>
+                {
+                    try { CopyLordPresentationSources(source, destination); }
+                    catch
+                    {
+                        ReportSkippedSidecars("ExtendedData.BackupSidecarsIncomplete", new List<string> { TrailLordMediaStore.DirectoryName });
+                        throw;
+                    }
+                });
                 TryFileOperation("back up the Coop Trail package", () => CopyCoopPackage(source, destination));
             }
 

@@ -93,6 +93,20 @@ namespace ExtraFeatures
             CaptureEnemyProximityStartupFile(EnemyProximityFileExists(current) ? current : legacy);
         }
 
+        // The migration is optional. Any failure leaves loading, corrupt-file backup and
+        // defaults to APIShared's registration, which must still run.
+        internal bool TryCaptureEnemyProximityStartup(string pluginLocation, string guid, string modName, out Exception failure) =>
+            TryCaptureEnemyProximity(() => CaptureEnemyProximityStartup(pluginLocation, guid, modName), out failure);
+
+        internal bool TryCaptureEnemyProximityStartupFile(string path, out Exception failure) =>
+            TryCaptureEnemyProximity(() => CaptureEnemyProximityStartupFile(path), out failure);
+
+        private bool TryCaptureEnemyProximity(Action capture, out Exception failure)
+        {
+            try { capture(); failure = null; return true; }
+            catch (Exception error) { startupEnemyProximity = null; failure = error; return false; }
+        }
+
         private static bool EnemyProximityFileExists(string path)
         {
             try

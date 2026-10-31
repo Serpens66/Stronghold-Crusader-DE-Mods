@@ -97,7 +97,9 @@ namespace ExtraFeatures
             try
             {
                 Shared.DirectLaunchSettingsNotice.Configure(Settings, PluginGuid);
-                Settings.CaptureEnemyProximityStartup(Info.Location, PluginGuid, PluginGuid);
+                if (!Settings.TryCaptureEnemyProximityStartup(Info.Location, PluginGuid, PluginGuid, out Exception migrationFailure))
+                    Shared.DebugLogHelper.LogWarningLimited(Logger, "ExtraFeatures/enemy-proximity-migration",
+                        "Extra Features could not read the previous enemy-proximity setting; the stored new values or defaults apply: " + migrationFailure);
                 APIShared.ModSettings.LobbyModSettingsPresetRegistration.Register(
                     this,
                     Shared.DebugLogHelper.ForExternalCode(Logger),

@@ -15,6 +15,39 @@ Verifikationsweg: `git diff main...dev/Serpens66`, Gegenprüfung gegen den lokal
 
 Geprüft wurden alle neuen bzw. geänderten Quellen: ESC-Menü-Broker (`IngameMenu*`), `MissionOverEvents`, `VisibleMapRenderEvents`/-Bridge, `SynchronizedSaveRuntime`/`SaveContextRuntime`, `MoveCommandFailureRuntime`, Lord-Media-Korrekturen und -Diagnose, `PackagedLordPresentation`/`CoopLordRestartPresentation`/`LordMetadataDocument`, `LordStatistics`, `EngineReadbacks` inkl. `MarkedUnitSelectionAPI`-Änderung, `RouteTileRules`, `SharedToolTipSizing`/`PopupPixelScale`, Preset-/Savegame-Änderungen, `NativeIndirectEntry`-Refactoring, XAML-Patch, Beispiele, `info.json`, `Verify-Interop.ps1`.
 
+## Umsetzungsstand (31.10.2026, nicht committet)
+
+Umgesetzt im Arbeitsbaum von `APIShared` (`dev/Serpens66`, Basis `4a6941f`):
+
+| Punkt | Umsetzung |
+|---|---|
+| B1 | `info.json`: 0.18.0 wiederhergestellt (Visible-Map, ESC-Menü, Popup-Sizing, Routenregeln). 0.19.0 neu belegt (Lord-Statistiken, Engine-Readbacks). 0.20.0 ergänzt um die SE-Archivkontext-Korrektur als ausdrückliche Verhaltensänderung, den Bewegungsfehler-Logkontext sowie die Savegame-/Workshop-Diagnosen. 0.16.4 ergänzt um die Lord-Media-Änderungen aus Commit 57. Ursache des Fehlers war Commit 60, der den 0.18.0-Eintrag in 0.19.0 umbenannt hatte. |
+| B2 | Neue Gruppe `Presentation.VisibleMapRender` in `ApiSharedNativeSites` (`All()`). `VisibleMapRenderEvents` reserviert und gibt frei über `ApiSharedNativeSites.Claim/Release`. Katalogtest und Installer-Reihenfolgetest um `0x13030`/`0x13036` und `0x41D60` erweitert. `NATIVE_SITES.md` um beide Gruppen ergänzt. |
+| B3 | `UpdateToNewDLL.md`: Begründung „kein Fallback“ für `0x41D60`, tatsächlicher ESC-Menü-Vertrag, neuer Abschnitt mit den verwalteten SE- und Spielzielen von Lord-Präsentation, Coop-Restart und Bewegungsfehler-Log. |
+| B4 | `System_PresetStatusText` verbindet Hinweis und Status nur, wenn beide vorhanden sind. |
+| B5 | Die Neustartvorbereitung speichert Rohdaten (`sourceLabel`, `basedOnPreset`, `modified`), und der Status wird nach dem Neustart in der aktuellen Sprache neu erzeugt. Alte Journale mit `label` werden weiter gelesen; deren festes Suffix „ (modified)“ wird dabei zum Änderungszustand. Bestehenden Test erweitert, ein Regressionstest für den Rohdatenweg ist neu. |
+| H2 | Kommentar zu `RouteTileRules.Version` korrigiert. |
+| H3 | Zusätzliche Überladung `EngineReadbacks.TryRegister(…, out registration, out reason)`. Die bestehende Signatur bleibt erhalten (LordOverviewTest nutzt sie). API-Baseline, Guide und Test sind ergänzt. |
+| H6 | Text der `SE_LORD_MEDIA`-Warnung präzisiert („unless a packaged Lord presentation supplies them“). |
+
+Prüfungen nach der Umsetzung (31.10.2026, 18:56–18:58):
+- `Core.Tests` 355/355,
+- `APISharedTests` 465 bestanden, 1 übersprungen (inkl. erweitertem Native-Site-Katalog- und Installer-Reihenfolgetest sowie Readback-Test),
+- `LobbyModSettingsPresetTests` 103/103 (inkl. neuem Neustart-Status-Test),
+- `Content.Tests` 24/24,
+- `Test-Documentation.ps1` (frisches Windows PowerShell) PASS,
+- `_inspect/HostClientPresetTests` alle PASS,
+- alle geänderten Dateien CRLF ohne nackte LF.
+
+Nicht ausgeführt: `build.bat`-Gesamtlauf, Verbraucherprüfungen, Spieltest.
+
+Kompatibilität:
+- Alle öffentlichen Änderungen sind additiv (neue `TryRegister`-Überladung).
+- Neu ist der Registrierungsname der Visible-Map-Hookstelle. Er ist in Registry-Diagnosen sichtbar, aber noch unveröffentlicht.
+- Das Neustart-Journal erhält zusätzliche Schlüssel; alte Journale bleiben lesbar.
+
+Nicht umgesetzt, weil Entscheidung oder Messung nötig: H1 (nur nach Messung), H4 (ungenutzten Stil dokumentieren oder entfernen), H5 (Legacy-Überladung entfernen erst nach Klärung mit externen Verbrauchern bzw. Ensrick).
+
 ## Ergebnis in Kürze
 
 Im neuen Code habe ich **keinen kritischen Laufzeitfehler** gefunden (kein Absturz-, Desync- oder Datenverlustpfad). Die nativen Eingriffe (`0x13030`, `0x41D60`) sind sauber abgesichert: Hash-Pin, Bytevergleich, geprüftes Indirect-Schema und dauerhaft verwurzelte Hooks. Alle CLI-Tests sind grün.

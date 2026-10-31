@@ -20,7 +20,8 @@
       "Version": "1.0.207",
       "Changes": [
         "Add a default-enabled host option preventing human Lord return-to-Keep teleport exploits while preserving invalid-standing-tile rescue and AI behavior.",
-        "Integrate the native guard and its executed machine-code regressions; retire the standalone LordTeleportGuardTest."
+        "Integrate the native guard and its executed machine-code regressions; retire the standalone LordTeleportGuardTest.",
+        "Move the spectator perspective, eliminated players becoming spectators and the live spectator statistics into the separate Spectator mod; Bugfixes and QoL keeps surrender and the statistics team badges, and their previous host options are retired."
       ]
     },
     {

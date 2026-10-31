@@ -8,7 +8,7 @@ Momentaufnahme vom 31.10.2026. Geprüft wurden die Commits auf `develop` (HEAD `
 1. Diff-Durchsicht aller geänderten Quellen mit ersten Funden und Fix-Vorschlägen.
 2. Zweiter Prüfdurchgang: Jeder Fund wurde im Kontext des restlichen Codes erneut bestätigt. Geprüft wurden Aufrufer, Thread-Verträge, Ausnahmebehandlung der Aufrufer und das Vanilla-Verhalten (dekompiliertes `Assembly-CSharp` und Disassembly der installierten DLL). Danach wurden die Fix-Vorschläge erneut bewertet. Dabei wurden H1 präzisiert, M1 korrigiert, M2 vom Verdacht zum bestätigten Fund hochgestuft sowie zwei frühere Funde (alt N2/N3) als nicht relevant zurückgestuft.
 
-Es wurde kein Code geändert.
+Die Prüfung selbst hat keinen Code geändert. Die anschließend umgesetzten Fixes stehen im Abschnitt **Umsetzungsstand**.
 
 ---
 
@@ -28,6 +28,40 @@ Es wurde kein Code geändert.
 | N2 | Niedrig | CastlePlanner | `RefreshHud` erzeugt bei jedem Aufruf einen neuen Brush und eine Property-Benachrichtigung | bestätigt, vernachlässigbar |
 
 Zusätzlich gibt es eine Prüfempfehlung ohne Fehlerbefund (P1, native Assassin-Suche im Mehrspieler) und eine Liste der geprüften und **nicht** bestätigten Verdachtsfälle (am Ende).
+
+---
+
+## Umsetzungsstand (31.10.2026, nicht committet)
+
+| ID | Stand | Umsetzung |
+|---|---|---|
+| B1 | **offen (bewusst)** | APIShared wird parallel in einem anderen Chat korrigiert und ist hier nicht angefasst. Vor dem Pack-Build APIShared 0.20.0 veröffentlichen. |
+| B2 | umgesetzt | CastlePlanner 0.8.48 (`PluginVersion`, `info.json`) mit Changelog-Eintrag für die KI-Plan-Ansicht. |
+| B3 | **offen (Nutzer)** | Der Spectator-Mod wird später vom Nutzer fertiggestellt und ins Pack aufgenommen. Der BugfixesAndQoL-Changelog 1.0.207 nennt die Auslagerung jetzt. |
+| H1 | umgesetzt (Fix nach Neubewertung geändert) | siehe unten |
+| H1b | umgesetzt (neu gefunden) | Derselbe strenge Präsentations-Capture lief auch im MP-Host-Snapshot (`LordDataSyncCoordinator.CaptureSlot`). Eine ungültige `lordmeta.json` brach dort die Lord-Daten-Synchronisierung ab. Jetzt wird auf den Anzeigenamen zurückgefallen, mit Warnung im Log. |
+| H2 | umgesetzt | `TryCaptureEnemyProximityStartup` fängt jeden Migrationsfehler ab. Das Plugin loggt eine Warnung und setzt Registrierung, Hooks und Bindings fort. |
+| M1 | umgesetzt | Der Medien-Backup-Schritt läuft in `TryFileOperation` und meldet ein unvollständiges Backup (`ExtendedData.BackupSidecarsIncomplete` mit „LordMedia“). Außerdem liest `CopyLordPresentationSources` die Sidecars jetzt ungebunden (`ReadUnbound`); die Medien prüft `BindAndVerify` weiterhin per Hash. |
+| M2 | umgesetzt | `ApplyPresentation` und `PrepareLegacyTrailPresentation` sind vollständig fail-open (leere Präsentation, Fehler-Log). Medien werden pro Slot isoliert (`ResolveMediaProvider`). Ein fehlender Dispatcher führt nur noch zu einer Warnung. Ein bereits verifizierter Medien-Cache wird ohne erneutes Staging wiederverwendet. |
+| M3 | umgesetzt | APIShared-Mindestversion von CastlePlanner auf 0.14.0 (`BepInDependency` und `info.json`). |
+| N1 | umgesetzt | Host-Changelog 1.0.33 korrigiert und ergänzt; Host-`MinimumVersion` auf 0.20.0 (der Packer setzt ohnehin die Infrastrukturversion). |
+| N2 | umgesetzt | Brush wird pro betrachtetem Spieler zwischengespeichert; `SpectatorCastleColour` meldet nur bei echter Änderung. |
+| P1, MP-Test | **offen (Nutzer)** | Erfordert Spielläufe (DEVDIAG-Build) und zwei Rechner. |
+
+**Neubewertung des H1-Fixes:** Der ursprünglich vorgeschlagene Schritt 3 („erneut mit `allowEmbeddedValuesOnly: true` auflösen“) wäre falsch gewesen. `TrailLordRequirementSource.Resolve` verwendet gespeicherte Slots wieder, sobald `HasSameAuthoredIdentity` zutrifft, und zwar unabhängig von `EmbeddedValuesOnly`. Ein beim Speichern geschriebener „embedded-only“-Slot hätte beim Export die Bestätigungsfrage an den Autor (`OfferEmbeddedValuesOnlyExport`) stillschweigend umgangen. Umgesetzt wurde deshalb:
+1. `TrailLordMediaStore.CaptureOrFallback`: Eine ungültige oder nicht lesbare `lordmeta.json` führt nur noch zum Anzeigenamen ohne Metadaten. Das wird an allen vier Erfassungsstellen genutzt.
+2. `CaptureSavedLordRequirements`: Die Lord-Erfassung ist vom Settings-Capture getrennt. Bei einem Fehler wird die Mission trotzdem gespeichert, das vorhandene Sidecar bleibt **unverändert** (Verhalten vor Commit 1057), und es erscheint eine eigene Meldung (`ExtendedData.TrailLordRequirementsNotSaved`). Der Export löst später neu auf und fragt den Autor.
+3. Scheitert nur das Einbetten der Medien, werden die vollständigen Metadaten ohne Medien gespeichert, mit Meldung `ExtendedData.TrailLordMediaNotEmbedded`.
+4. Scheitert das Schreiben des Sidecars nach dem Vanilla-Speichern, wird trotzdem das Settings-Sidecar geschrieben, und die Meldung erscheint.
+
+Die beiden neuen Locale-Schlüssel gibt es in allen 21 Sprachen (Deutsch übersetzt, sonst Englisch).
+
+**Tests:**
+- `ExtraFeatures/tests/EnemyProximityTests.cs`: Eine beschädigte persönliche Datei meldet einen Migrationsfehler, und die Registrierung läuft mit Defaults weiter.
+- `ExtendedData.Tests/LordPresentationTests.InvalidMetadataFallsBack`: JSON-Array, defektes JSON und ungültiges UTF-8 fallen auf den Anzeigenamen zurück; gültige Metadaten bleiben unverändert.
+- Für M1/M2 gibt es keinen neuen Test. Der Hook bzw. der Koordinator ist nur mit vollständiger Unity-/Noesis-Laufzeit ausführbar; die Änderung ist reine Fehlerkapselung.
+
+**Prüfungen:** `Test-SharedBoundaries.ps1 -ModDirectory` für ExtendedData, ExtraFeatures und CastlePlanner sowie `Test-DependencyMetadata.ps1` bestanden. Die Build-Ergebnisse stehen unten im Abschnitt **Builds**.
 
 ---
 
@@ -110,8 +144,8 @@ Zusätzlich gibt es eine Prüfempfehlung ohne Fehlerbefund (P1, native Assassin-
 **Fix (nach erneuter Bewertung):**
 1. Die Lord-Erfassung vom Settings-Capture trennen. Das Vanilla-Speichern muss auch dann stattfinden, wenn die Lord-Erfassung scheitert.
 2. In `CaptureSlot` einen Fehler von `TrailLordMediaStore.Capture` nicht als Fehler des ganzen Slots behandeln. Stattdessen auf `new LordPresentationData { DisplayName = FallbackName(name) }` zurückfallen, so wie `Resolve` es für gespeicherte Slots schon tut, und eine Warnung loggen. Die Präsentation ist optional, Gameplay-Werte hängen nicht davon ab.
-3. Bei verbleibender `TrailLordAuthoringUnavailableException` mit `allowEmbeddedValuesOnly: true` erneut auflösen, also mit derselben Semantik wie nach bestätigtem Export. Der Export fragt ohnehin noch einmal nach.
-4. Scheitert auch das (beschädigtes Sidecar, fehlende Medien), nach dem Vanilla-Speichern das veraltete `.lordrequirements.json` entfernen und eine eigene, lokalisierte Meldung zeigen. Ein Sidecar mit altem `MissionDigest` lässt sonst das spätere gebundene Lesen scheitern (`TrailLordRequirements.Read`: „Lord requirements do not match this mission“). Das wirkt sich auch auf M1 aus.
+3. ~~Bei verbleibender `TrailLordAuthoringUnavailableException` mit `allowEmbeddedValuesOnly: true` erneut auflösen.~~ **Bei der Umsetzung verworfen:** Ein so gespeicherter Slot würde beim Export ohne Rückfrage wiederverwendet (siehe Umsetzungsstand).
+4. ~~Das veraltete Sidecar entfernen.~~ **Bei der Umsetzung geändert:** Das vorhandene Sidecar bleibt unverändert, so wie vor Commit 1057, und es erscheint eine eigene Meldung. Entfernen hätte gespeicherte Zusatzwerte anderer Slots vernichtet. Damit ein veraltetes Sidecar nicht stört, liest das Medien-Backup jetzt ungebunden (M1).
 5. Den Trail-Regressionstest ergänzen um die Fälle „ungültige `lordmeta.json`“ und „Autorquelle nicht auflösbar“. Erwartung in beiden Fällen: Die Mission wird gespeichert.
 
 **Bewertung:** Schritt 2 beseitigt die neue Fehlerquelle ohne Risiko für Gameplay-Daten. Die Schritte 1, 3 und 4 stellen das Vanilla-Speichern als oberste Garantie wieder her. Ob ein Speichern mit „embedded-only“ ohne Rückfrage gewollt ist oder eine Bestätigung wie beim Export erscheinen soll, ist eine Produktentscheidung. Technisch funktionieren beide Varianten.
@@ -227,10 +261,30 @@ Diese Stellen wurden gezielt nachgeprüft und sind **in Ordnung**:
 
 ## Empfohlene Reihenfolge
 
-1. **H1** und **H2** beheben (beide klein und lokal begrenzt) und die zugehörigen Tests ergänzen.
-2. **M1** und **M2** beheben.
-3. CastlePlanner auf 0.8.48 anheben, mit Changelog und APIShared-Mindestversion (**B2** und **M3**).
-4. Den Spectator-Mod fertigstellen und die offenen Punkte aus B3 abarbeiten: committen, Version und Changelog, `Mods`-Liste, Entscheidungen zu Übernahme alter Werte und Default der Testwerkzeuge.
-5. Changelogs korrigieren: Host (**N1**) und BugfixesAndQoL (Hinweis auf die Auslagerung).
-6. APIShared 0.20.0 nach `main` bringen und veröffentlichen (**B1**), danach `CreateSteamModPack.bat` ausführen.
-7. Vor dem Upload den DEVDIAG-Vergleich der Assassin-Suche (**P1**) und einen echten MP-Test mit Host und Client durchführen, mit Spectator-Mod.
+1. ~~**H1** und **H2** beheben und die zugehörigen Tests ergänzen.~~ erledigt (31.10.2026, nicht committet)
+2. ~~**M1** und **M2** beheben.~~ erledigt
+3. ~~CastlePlanner auf 0.8.48 anheben (**B2** und **M3**).~~ erledigt
+4. **Builds und Tests nachholen**, sobald APIShared wieder ein konsistentes Paket hat (siehe **Builds**).
+5. Den Spectator-Mod fertigstellen und die offenen Punkte aus B3 abarbeiten: committen, Version und Changelog, `Mods`-Liste, Entscheidungen zu Übernahme alter Werte und Default der Testwerkzeuge.
+6. ~~Changelogs korrigieren (**N1**, BugfixesAndQoL).~~ erledigt. Sobald der Spectator-Mod ins Pack kommt, den Host-Changelog 1.0.33 um ihn ergänzen.
+7. APIShared 0.20.0 nach `main` bringen und veröffentlichen (**B1**), danach `CreateSteamModPack.bat` ausführen.
+8. Vor dem Upload den DEVDIAG-Vergleich der Assassin-Suche (**P1**) und einen echten MP-Test mit Host und Client durchführen, mit Spectator-Mod.
+
+---
+
+## Builds (31.10.2026, 19:05–19:07)
+
+**Ergebnis: blockiert, nicht durch die Änderungen dieses Berichts.**
+
+- `ExtendedData\build.bat /nopause`, `ExtraFeatures\build.bat /nopause` und `CastlePlanner\build.bat /nopause` (Arbeitsstand) brechen schon beim Vorbereiten des APIShared-SDK aus dem lokalen Checkout `APIShared` (`dev/Serpens66`, HEAD `4a6941f`, mit uncommitteten Änderungen) ab: `ERROR: Incomplete or mixed bootstrap pair.` (`APIShared/tools/DependencyBootstrapPackage.ps1`). An diesem Checkout arbeitet gleichzeitig ein anderer Chat.
+- Eine reine Kompilierprüfung per MSBuild in einen Scratch-Ordner (ohne Installation) scheitert an derselben Paketprüfung (`Shared/Tools/ApiSharedRepository/Test-ConsumerPackage.ps1`). Das gilt sowohl für das Checkout-Paket als auch für das im Spiel installierte APIShared 0.20.0. Die Prüfung wurde bewusst **nicht** umgangen.
+- `/apishared:main` scheidet aus, weil es APIShared 0.16.3 liefert und ExtendedData 0.20.0 braucht.
+- Damit sind die geänderten Mods **nicht kompiliert und nicht getestet**. Ausgeführt und bestanden sind nur die Quellprüfungen (`Test-SharedBoundaries.ps1` für die drei Mods, `Test-DependencyMetadata.ps1`) sowie die JSON- und CRLF-Kontrolle aller geänderten Dateien.
+
+**Nachholen**, sobald die APIShared-Arbeit abgeschlossen ist und `Test-ConsumerPackage.ps1` das Paket wieder akzeptiert:
+
+    ExtendedData\build.bat /nopause
+    ExtraFeatures\build.bat /nopause
+    CastlePlanner\build.bat /nopause
+
+BugfixesAndQoL und SerpsModsHost haben nur Changelog- bzw. Manifest-Text erhalten. Ein eigener Build ist dafür nicht nötig; der Pack-Build baut sie ohnehin.

@@ -38,6 +38,26 @@ internal static class LordPresentationTests
         Check(nextSave.Slots.Single().LordName == slot.LordName && nextSave.Slots.Single().Presentation.MetadataJson == json,
             "mission transition/save lost identity, titles, locale or unknown metadata fields");
     }
+    // Presentation is optional: malformed lordmeta.json must not block capturing the Lord itself.
+    internal static void InvalidMetadataFallsBack()
+    {
+        string root = TestWorkDirectory.New("lordmeta-invalid");
+        foreach (byte[] content in new[] { System.Text.Encoding.UTF8.GetBytes("[1,2]"), System.Text.Encoding.UTF8.GetBytes("{broken"), new byte[] { 0x7B, 0xFF, 0x7D } })
+        {
+            string source = Path.Combine(root, Guid.NewGuid().ToString("N").Substring(0, 8)); Directory.CreateDirectory(source);
+            File.WriteAllBytes(Path.Combine(source, "lordmeta.json"), content);
+            bool strictFailed = false;
+            try { TrailLordMediaStore.Capture("123\\Doctor", source); } catch (Exception) { strictFailed = true; }
+            var fallback = TrailLordMediaStore.CaptureOrFallback("123\\Doctor", source, out string problem);
+            Check(strictFailed && problem != null, "invalid metadata was not reported");
+            Check(fallback.DisplayName == "Doctor" && fallback.MetadataJson == null && fallback.MediaId == null,
+                "fallback must keep only the display name");
+        }
+        string valid = Path.Combine(root, "valid"); Directory.CreateDirectory(valid);
+        File.WriteAllText(Path.Combine(valid, "lordmeta.json"), "{\"Unknown\":1}");
+        Check(TrailLordMediaStore.CaptureOrFallback("Doctor", valid, out string none).MetadataJson == "{\"Unknown\":1}" && none == null,
+            "valid metadata must be captured unchanged");
+    }
     internal static void Media()
     {
         string root = TestWorkDirectory.New("lordmeta-media");

@@ -25,7 +25,9 @@ namespace CastlePlanner {
    controlledKeepAvailable=false;Interlocked.Exchange(ref spectatorDirty,1);
    RefreshHud();
   }
-  private void ResetSpectatorBlueprints(){spectatorAivNames.Clear();spectatorAivFileName=null;spectatorNameErrorLogged=false;spectatorTicks=0;spectatorRequested=false;spectatorSampling=false;spectatorPlan=null;spectatorPlayer=-1;Interlocked.Exchange(ref spectatorDirty,0);}
+  private Noesis.SolidColorBrush spectatorBrush;
+  private int spectatorBrushPlayer=-1;
+  private void ResetSpectatorBlueprints(){spectatorBrush=null;spectatorBrushPlayer=-1;spectatorAivNames.Clear();spectatorAivFileName=null;spectatorNameErrorLogged=false;spectatorTicks=0;spectatorRequested=false;spectatorSampling=false;spectatorPlan=null;spectatorPlayer=-1;Interlocked.Exchange(ref spectatorDirty,0);}
   private unsafe BlueprintLivePlan CaptureSpectatorPlan(){
    int player=spectatorPlayer;
    if(player<1 || player>8 || !GamePlayerManagerAPI.Instance.IsAIPlayer(player))return null;

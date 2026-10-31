@@ -55,7 +55,8 @@ namespace ExtendedData
             var values = new List<LordPresentationData>();
             foreach (string trail in Directory.GetFiles(source, "*.trail"))
             {
-                var requirements = TrailLordRequirements.Read(trail);
+                // Media hashes are verified below; mission binding is irrelevant for copying them.
+                var requirements = TrailLordRequirements.ReadUnbound(trail, out _);
                 if (requirements == null) continue;
                 var presentations = requirements.Slots.Select(x => x.Presentation).Where(x => x != null).ToArray();
                 TrailLordMediaStore.BindAndVerify(presentations, source); values.AddRange(presentations);

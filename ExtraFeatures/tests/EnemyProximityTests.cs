@@ -120,6 +120,15 @@ internal static class EnemyProximityTests
             check(settings.HumanCivilianEnemyProximityMultiplayer == -1 && settings.HumanMilitaryEnemyProximityMultiplayer == 91,
                 "Early migration uses authoritative nested current snapshot and explicit new keys");
 
+            // A damaged personal file must not stop the registration that backs it up.
+            File.WriteAllBytes(storage, new byte[] { 0xC1, 0x00, 0xFF });
+            var recovered = new ExtraFeaturesViewModel(false);
+            bool captured = recovered.TryCaptureEnemyProximityStartupFile(storage, out Exception migrationFailure);
+            check(!captured && migrationFailure != null, "Damaged personal file reports a failed optional migration");
+            recovered.PreparePresets(null, plugin, "EnemyProximity");
+            recovered.ActivatePresets(); recovered.CompleteKillRewardRegistration();
+            check(keys.All(key => (int)typeof(ExtraFeaturesViewModel).GetProperty(key).GetValue(recovered) == -1),
+                "Registration continues with defaults after a failed migration");
         }
         finally
         {

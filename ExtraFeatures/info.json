@@ -21,7 +21,8 @@
       "Changes": [
         "Split enemy-unit proximity into independent civilian and military radii for humans/AI and singleplayer/multiplayer. Preserve separate enemy-building/wall restrictions and the existing action scope.",
         "Migrate existing common radii into both categories without overriding explicit new values, including Vanilla. Preserve personal profiles, named presets, mission snapshots and host/client authority.",
-        "Use a fully validated private native predicate through the existing Script Extender event, with no additional game-code hook or runtime immediate writes."
+        "Use a fully validated private native predicate through the existing Script Extender event, with no additional game-code hook or runtime immediate writes.",
+        "Keep all Extra Features active when the old proximity value cannot be read from a damaged or locked settings file; the shared settings system then backs up the file and applies the stored new values or defaults."
       ]
     },
     {

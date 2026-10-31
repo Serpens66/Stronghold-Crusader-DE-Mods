@@ -1141,8 +1141,14 @@ namespace CastlePlanner
             Noesis.Brush colour = Noesis.Brushes.White;
             if (spectator && spectatorPlayer >= 1 && spectatorPlayer <= 8 && OnScreenText.Instance != null)
             {
-                var c = GameMap.Lighten(OnScreenText.Instance.MPTeamColours[SpriteMapping.remapColours[SpriteMapping.RemapMPLoadedColour(spectatorPlayer)]], 0.3f);
-                colour = new Noesis.SolidColorBrush(Noesis.Color.FromArgb(255,(byte)(c.r*255),(byte)(c.g*255),(byte)(c.b*255)));
+                // Player colours are fixed for a session; keep one brush per viewed player.
+                if (spectatorBrush == null || spectatorBrushPlayer != spectatorPlayer)
+                {
+                    var c = GameMap.Lighten(OnScreenText.Instance.MPTeamColours[SpriteMapping.remapColours[SpriteMapping.RemapMPLoadedColour(spectatorPlayer)]], 0.3f);
+                    spectatorBrush = new Noesis.SolidColorBrush(Noesis.Color.FromArgb(255,(byte)(c.r*255),(byte)(c.g*255),(byte)(c.b*255)));
+                    spectatorBrushPlayer = spectatorPlayer;
+                }
+                colour = spectatorBrush;
             }
             Hud.SetSpectatorContext(spectator, name, colour, spectatorAivFileName);
             Hud.Update(

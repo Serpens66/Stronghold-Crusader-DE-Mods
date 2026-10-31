@@ -125,7 +125,7 @@ namespace CastlePlanner
             string sourceText = SerpLocalization.Get("CastlePlanner.Hud.AiPlanFile").Replace("{File}",
                 aivFileName ?? SerpLocalization.Get("CastlePlanner.Hud.AiPlanFileUnknown"));
             if (sourceText != SpectatorAivFileText) { SpectatorAivFileText = sourceText; OnPropertyChanged(nameof(SpectatorAivFileText)); }
-            SpectatorCastleColour = colour; OnPropertyChanged(nameof(SpectatorCastleColour));
+            if (!ReferenceEquals(colour, SpectatorCastleColour)) { SpectatorCastleColour = colour; OnPropertyChanged(nameof(SpectatorCastleColour)); }
         }
         public bool CanSelectCastle => !SpectatorMode && (!PreviewVisible || preview.CanConfirm);
         public bool CanSelectRotation => !SpectatorMode && settings.AllowRotation && preview.CanConfirm && preview.HasRotatableSelection;

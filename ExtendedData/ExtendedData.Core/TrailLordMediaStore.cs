@@ -22,6 +22,19 @@ namespace ExtendedData
             var result = new LordPresentationData { DisplayName = LordPresentationData.FallbackName(name), MetadataJson = json, SourceRoot = source };
             LordPresentationData.Validate(result); return result;
         }
+        // Presentation is optional: a malformed or unreadable lordmeta.json must not hide the Lord's
+        // gameplay values. Callers report the problem and keep only the display name.
+        public static LordPresentationData CaptureOrFallback(string name, string source, out string problem)
+        {
+            problem = null;
+            try { return Capture(name, source); }
+            catch (Exception exception) when (exception is InvalidDataException || exception is IOException ||
+                exception is UnauthorizedAccessException || exception is ArgumentException || exception is FormatException)
+            {
+                problem = exception.GetType().Name + ": " + exception.Message;
+                return new LordPresentationData { DisplayName = LordPresentationData.FallbackName(name) };
+            }
+        }
         public static LordPresentationData SelectMedia(LordPresentationData source, bool include)
         {
             if (source == null) return null;

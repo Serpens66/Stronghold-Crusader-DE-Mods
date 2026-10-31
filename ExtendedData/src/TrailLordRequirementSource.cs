@@ -61,7 +61,7 @@ namespace ExtendedData
                 {
                     if (storedSlot.Presentation == null)
                     {
-                        try { var author = TrailLordPackageRuntime.ResolveAuthorSource(info, playerId); storedSlot.Presentation = TrailLordMediaStore.Capture(author.Name, author.Config.path); }
+                        try { var author = TrailLordPackageRuntime.ResolveAuthorSource(info, playerId); storedSlot.Presentation = TrailLordMediaStore.CaptureOrFallback(author.Name, author.Config.path, out _); }
                         catch (InvalidDataException) { storedSlot.Presentation = new LordPresentationData { DisplayName = LordPresentationData.FallbackName(storedSlot.LordName) }; }
                     }
                     else if (storedSlot.Presentation.SourceRoot == null && storedSlot.Presentation.MediaId == null)
@@ -69,7 +69,7 @@ namespace ExtendedData
                         try
                         {
                             var author = TrailLordPackageRuntime.ResolveAuthorSource(info, playerId);
-                            var captured = TrailLordMediaStore.Capture(author.Name, author.Config.path);
+                            var captured = TrailLordMediaStore.CaptureOrFallback(author.Name, author.Config.path, out _);
                             if (storedSlot.Presentation.MetadataJson == null) storedSlot.Presentation = captured;
                             else if (storedSlot.Presentation.MetadataJson == captured.MetadataJson)
                                 storedSlot.Presentation.SourceRoot = captured.SourceRoot;

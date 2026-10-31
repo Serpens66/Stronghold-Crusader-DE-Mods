@@ -10,7 +10,7 @@
     "Dependencies":  [
                          {
                              "GUID":  "APIShared_Serp",
-                             "MinimumVersion":  "0.16.4"
+                             "MinimumVersion":  "0.20.0"
                          }
                      ],
     "Manifest":  1,
@@ -22,7 +22,11 @@
                                               "Include the LineUp Patrol passthrough fix, preserved Map/Trail working settings, the already-satisfied market-price correction and more specific bounded support logs for settings, formations, prices, bandits and AI/AIV/AIC decisions.",
                                               "Add Personal Settings to the shared reset dropdown for all compatible mods while retaining the active Map/Trail context and personal storage.",
                                               "Clarify the visible shared-reset label as Reset ALL modsettings to: (German: ALLE Modsettings zurücksetzen auf:) while retaining the existing tooltip and confirmation.",
-                                              "Require APIShared 0.16.4 or newer; include ExtendedData 1.0.21 Personal Settings source support."
+                                              "Bugfixes and QoL: add the human Lord return-teleport fix, remembered formation width/depth proportions and a faster native Assassin route search; move the spectator features into the separate Spectator mod.",
+                                              "Extra Features: configurable victory loot (gold, goods, gold maximum) and separate civilian/military enemy-proximity radii.",
+                                              "CastlePlanner: multiplayer spectators can view the accepted AI castle plan of the viewed player.",
+                                              "Extended Data: complete Custom Lord metadata and optional embedded Lord media in Trails; Personal Settings as a shared reset source.",
+                                              "Require APIShared 0.20.0 or newer."
                                           ]
                           },
                           {
