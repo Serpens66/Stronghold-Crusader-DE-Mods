@@ -58,3 +58,6 @@ ValueOrder=Value order
 RightClickSettings=Right-click: settings
 SettingsTitle=Statistics settings
 MoveSettings=Drag this title bar to move the window. Its position is remembered for this match only.
+ShowEliminated=Show eliminated players
+ShowEliminatedHelp=Also show eliminated lords. This local choice applies to all designs.
+NoLordsToShow=No lords to display.

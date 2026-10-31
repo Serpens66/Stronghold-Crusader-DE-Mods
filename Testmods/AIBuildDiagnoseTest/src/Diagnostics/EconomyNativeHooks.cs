@@ -20,10 +20,20 @@ namespace AIBuildDiagnoseTest
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)] internal delegate void QuadAction(ulong state, int player, int kind, byte flag);
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)] internal delegate void TradeAction(ulong state, int player, int good, int amount);
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)] internal delegate void SettlementAction(ulong state);
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)] internal delegate void CellAction(ulong state, int x, int y);
         private readonly EconomyDiagnostics owner;
+        private readonly Func<int, EconomyOperation> beginCounter;
+        private readonly Action<EconomyOperation, int?> endCounter;
+        private readonly Func<ulong, int, int, RemovalCellObservation> beginCell;
+        private readonly Action<RemovalCellObservation> endCell;
+        private readonly Action<Exception> captureFailed;
         private readonly List<object> roots = new List<object>();
         private static EconomyNativeHooks published;
-        internal EconomyNativeHooks(EconomyDiagnostics owner) { this.owner = owner; }
+        internal EconomyNativeHooks(EconomyDiagnostics owner)
+        {
+            this.owner = owner; beginCounter = owner.SafeBeginCounter; endCounter = owner.SafeEnd;
+            beginCell = owner.SafeBeginCell; endCell = owner.SafeEndCell; captureFailed = owner.HookCaptureFailed;
+        }
 
         internal void Install(CrusaderLibraryLoadContext context, string hash)
         {
@@ -33,6 +43,13 @@ namespace AIBuildDiagnoseTest
             Pair(context, 0x2E1E0, "wood-eligibility");
             Pair(context, 0x2DBA0, "farm-eligibility");
             Pair(context, 0x3B360, "wood-retirement");
+            var counter = new Node<PairResult>();
+            Add(context, 0x3B270, counter, (PairResult)((state, slot) =>
+                ObserveCounter(counter.Handle.Original, state, slot, counter.Ready ? beginCounter : null, endCounter, captureFailed)));
+            ActionPair(context, 0xC8F50, "accessibility-sweep");
+            var cell = new Node<CellAction>();
+            Add(context, 0x55E10, cell, (CellAction)((state, x, y) =>
+                ObserveCell(cell.Handle.Original, state, x, y, cell.Ready ? beginCell : null, endCell, captureFailed)));
             ActionPair(context, 0x3EC90, "purchase-decision");
             ActionPair(context, 0x40740, "ai-recruitment");
             var settlement = new Node<SettlementAction>();
@@ -81,6 +98,25 @@ namespace AIBuildDiagnoseTest
                 finally { owner.SafeEnd(op, null); }
             }));
         }
+        // Keep the original call outside both observer error boundaries. Delegates are rooted once at installation.
+        internal static int ObserveCounter(PairResult original, ulong state, int slot,
+            Func<int, EconomyOperation> begin, Action<EconomyOperation, int?> end, Action<Exception> failed)
+        {
+            EconomyOperation op = null; int? result = null;
+            try { if (begin != null) op = begin(slot); } catch (Exception ex) { Report(failed, ex); }
+            try { int value = original(state, slot); result = value; return value; }
+            finally { try { end(op, result); } catch (Exception ex) { Report(failed, ex); } }
+        }
+        internal static void ObserveCell(CellAction original, ulong state, int x, int y,
+            Func<ulong, int, int, RemovalCellObservation> begin, Action<RemovalCellObservation> end, Action<Exception> failed)
+        {
+            RemovalCellObservation capture = null;
+            try { if (begin != null) capture = begin(state, x, y); } catch (Exception ex) { Report(failed, ex); }
+            try { original(state, x, y); }
+            finally { try { end(capture); } catch (Exception ex) { Report(failed, ex); } }
+        }
+        private static void Report(Action<Exception> failed, Exception error)
+        { try { failed(error); } catch { /* A logger failure cannot replace Vanilla's return/exception. */ } }
         private void Pair(CrusaderLibraryLoadContext context, int rva, string kind)
         {
             var node = new Node<PairResult>();

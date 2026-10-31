@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Reflection;
 using APIShared;
 using APIShared.GameModes;
+using APIShared.Statistics;
 using CrusaderDE;
 using SHCDESE.API;
 using SHCDESE.Interop;
@@ -10,7 +11,9 @@ using SHCDESE.Interop.Enums;
 namespace LordOverviewTest {
  internal static unsafe class OverviewData {
   private static readonly object engineLock=ResolveEngineLock();
-  private static readonly PreparedRead reader=new PreparedRead(engineLock,CopyRaw);
+  private static readonly DeferredRead pending=new DeferredRead(CopyRaw);
+  private static readonly PreparedRead reader=new PreparedRead(engineLock,pending.Run);
+  private static EngineReadbackRegistration readback;
   private static readonly int historyBytes=ValidateHistoryContract();
   private static RawSnapshot front=new RawSnapshot(historyBytes),back=new RawSnapshot(historyBytes);
   private static readonly long?[] values=new long?[Metrics.Builtins.Length];
@@ -20,6 +23,22 @@ namespace LordOverviewTest {
   private static double lastHistory=double.NegativeInfinity;
   private static long cachedSession;
   private static int cachedRights;
+  private static long requestedSession;
+  private static int requestedRights,requestedGeneration;
+  private static double copiedAt;
+#if SERP_DEVDIAG
+  private static long rawTicks,rawAllocated;
+  private static int rawThread,mainThread;
+#endif
+  internal static bool HasPending=>pending.Busy;
+  internal static bool PollPending(double now)=>pending.Poll(now,reader);
+  internal static void EnableReadbacks(){
+#if SERP_DEVDIAG
+   mainThread=System.Threading.Thread.CurrentThread.ManagedThreadId;_ = OverviewAllocationProbe.Read();
+#endif
+   if(!EngineReadbacks.TryRegister("LordOverviewTest_Serp","statistics",pending.Run,out readback))throw new InvalidOperationException("Engine readback publisher unavailable.");
+  }
+  internal static void CancelPending(){readback?.Cancel();pending.Cancel();}
   private static object ResolveEngineLock(){var field=typeof(EngineInterface).GetField("threadLock",BindingFlags.Static|BindingFlags.NonPublic);
    if(field==null || field.FieldType!=typeof(object))throw new InvalidOperationException("Vanilla engine lock contract unavailable.");
    return field.GetValue(null)??throw new InvalidOperationException("Vanilla engine lock not initialized.");}
@@ -33,55 +52,73 @@ namespace LordOverviewTest {
    }
    return sizeof(EngineInterface.multiplayer_stats_export);
   }
-  internal static void Reset(){hasSample=false;cachedSession=0;cachedRights=0;lastHistory=double.NegativeInfinity;front.Clear();back.Clear();assembled.Clear();}
+  internal static void Reset(){CancelPending();hasSample=false;cachedSession=0;cachedRights=0;lastHistory=double.NegativeInfinity;front.Clear();if(!pending.Busy)back.Clear();assembled.Clear();}
   internal static bool HasSample(long session,int rights)=>hasSample && cachedSession==session && cachedRights==rights;
   internal static List<LordRow> FromCache(Metric[] visible,OverviewSettings settings,GameModeSnapshot? mode,List<LordRow> previous,long session,int rights){
    if(!HasSample(session,rights) || capturing)return null;
    return BuildRows(front,visible,settings,mode,previous,false);
   }
-  internal static List<LordRow> Capture(Metric[] visible,OverviewSettings settings,GameModeSnapshot? mode,List<LordRow> previous,long session,int rights,double now){
+  internal static List<LordRow> Capture(Metric[] visible,OverviewSettings settings,GameModeSnapshot? mode,List<LordRow> previous,long session,int rights,int generation,double now){
    if(capturing)return null;capturing=true;
    long elapsed=0;Shared.DevDiag.Start(ref elapsed);
    try {
     settings.System_RefreshSettingsAccess();
-    if(cachedSession!=session || cachedRights!=rights)Reset();
-    players=GamePlayerManagerAPI.Instance;_ = GameUnitManagerAPI.Instance;
-    bool historical=false;for(int i=0;i<visible.Length;i++)if((int)visible[i]>=0 && Metrics.Get(visible[i]).Historical){historical=true;break;}
-    historyDue=historical && (!front.HasHistory || now-lastHistory>=2);
-    back.Prepare(historyDue,front);
+    if(hasSample && (cachedSession!=session || cachedRights!=rights))Reset();
+    if(!pending.Busy){
+     players=GamePlayerManagerAPI.Instance;_ = GameUnitManagerAPI.Instance;
+     bool historical=false;for(int i=0;i<visible.Length;i++)if((int)visible[i]>=0 && Metrics.Get(visible[i]).Historical){historical=true;break;}
+     historyDue=historical && (!front.HasHistory || now-lastHistory>=2);
+     back.Prepare(historyDue,front);back.Controlled=PlayerPerspectiveAPI.GetControlledPlayerId();
+     requestedSession=session;requestedRights=rights;requestedGeneration=generation;
+     pending.Queue(now);
+     // Pause/idle: copy immediately if free. Busy simulation: let its completed-run publisher copy.
+     if(!reader.TryRead())Shared.DevDiag.Count("overview.lock-busy");
+     if(!pending.Complete)readback.Request();
+    }
+    if(!pending.Complete)return null;
+    bool valid=pending.Take(out var failure);
+    readback.Cancel();
 #if SERP_DEVDIAG
-    long allocated=OverviewAllocationProbe.Read(),allocationDelta=-1;
+    // Aggregate/log only after producer ownership ends, outside the engine critical section.
+    long measured=System.Diagnostics.Stopwatch.GetTimestamp()-rawTicks;Shared.DevDiag.StopSpike(ref measured,"overview.raw",1000);
+    if(rawAllocated>=0){Shared.DevDiag.Count("overview.raw.allocation-samples");Shared.DevDiag.Count("overview.raw.bytes",rawAllocated);}
+    if(failure==null){Shared.DevDiag.Count("overview.raw.success");Shared.DevDiag.Count(rawThread==mainThread?"overview.raw.main":"overview.raw.sim");}
 #endif
-    bool copied;long critical=0;Shared.DevDiag.Start(ref critical);
-    try {copied=reader.TryRead();
-#if SERP_DEVDIAG
-     if(allocated>=0)allocationDelta=OverviewAllocationProbe.Read()-allocated;
-#endif
-    }finally {Shared.DevDiag.StopSpike(ref critical,"overview.raw",1000);}
-#if SERP_DEVDIAG
-    if(allocationDelta>=0)Shared.DevDiag.Count("overview.raw.bytes",allocationDelta);
-#endif
-    if(!copied){Shared.DevDiag.Count("overview.lock-busy");return null;}
+    if(failure!=null)throw new InvalidOperationException("Deferred statistics read failed.",failure);
+    if(!valid || requestedSession!=session || requestedRights!=rights || requestedGeneration!=generation || back.Controlled!=PlayerPerspectiveAPI.GetControlledPlayerId()){back.Clear();return null;}
     var old=front;front=back;back=old;hasSample=true;cachedSession=session;cachedRights=rights;
-    if(historyDue){lastHistory=now;Shared.DevDiag.Count("overview.history");}
+    if(historyDue){lastHistory=copiedAt;Shared.DevDiag.Count("overview.history");}
     return BuildRows(front,visible,settings,mode,previous,true);
    }finally {capturing=false;Shared.DevDiag.StopSpike(ref elapsed,"overview.capture",1000);}
   }
   // Prepared buffers and services only: no managed allocation, conversion or presentation while locked.
   private static void CopyRaw(){
+#if SERP_DEVDIAG
+   long started=System.Diagnostics.Stopwatch.GetTimestamp(),allocated=OverviewAllocationProbe.Read();
+#endif
+   try{CopyNative();}
+   finally{
+#if SERP_DEVDIAG
+    rawAllocated=allocated<0?-1:OverviewAllocationProbe.Read()-allocated;
+    rawTicks=System.Diagnostics.Stopwatch.GetTimestamp()-started;rawThread=System.Threading.Thread.CurrentThread.ManagedThreadId;
+#endif
+   }
+  }
+  private static void CopyNative(){
    fixed(int* target=back.Merit)EngineInterface.DLL_GetMeritData(target);
    if(historyDue)fixed(byte* target=back.History)EngineInterface.DLL_GetMPScoreData(target);
-   int controlled=PlayerPerspectiveAPI.GetControlledPlayerId();back.Controlled=controlled;
+   int controlled=back.Controlled;
    back.LocalValid=controlled>=1 && controlled<=8 && back.Merit[controlled*5]>0;
    for(int player=1;player<=8;player++){
     if(back.Merit[player*5]<=0 || players==null || !players.TryGetPlayerResourcesById(player,out GamePlayerResources* resource) || resource==null)continue;
-    back.Resources[player]=new ResourceSnapshot {Present=true,Popularity=resource->r_CurrentPopularity,Fear=resource->r_GoodBadThingBoost};
+    back.Resources[player]=new ResourceSnapshot {Present=true,Defeated=resource->r_WinLossState==WinLossState.Loss,Popularity=resource->r_CurrentPopularity,Fear=resource->r_GoodBadThingBoost};
     if(player!=controlled)continue;
     bool dead=false;long lord=resource->r_LordUnitId;
-    if(lord>0 && lord<=int.MaxValue && UnitAccess.TryGetById((int)lord,out GameUnit* unit,out _) && unit!=null && unit->r_GlobalId>0 && unit->r_UnitChimp==eChimps.CHIMP_TYPE_LORD && unit->r_ControllableForPlayerId==controlled)
+    if(lord>0 && lord<=int.MaxValue && UnitAccess.TryGetById((int)lord,out GameUnit* unit,out _) && unit!=null && unit->r_GlobalId>0 && unit->r_UnitChimp==eChimps.CHIMP_TYPE_LORD && unit->r_ControllableForPlayerId==player)
      dead=InformationPolicy.HasDeadLordEvidence(unit->r_AliveState==AliveState.None || unit->r_AliveState==AliveState.NeedsInit,unit->r_CurrentHealth==0,unit->r_IsKilledByProjectile!=0,unit->r_AliveState==AliveState.MarkedForDeletion);
-    back.Eliminated=InformationPolicy.IsEliminated(resource->r_WinLossState==WinLossState.Loss,back.Merit[controlled*5+1]<0,dead);
+    if(player==controlled)back.Eliminated=InformationPolicy.IsEliminated(resource->r_WinLossState==WinLossState.Loss,back.Merit[player*5+1]<0,dead);
    }
+   copiedAt=System.Diagnostics.Stopwatch.GetTimestamp()/(double)System.Diagnostics.Stopwatch.Frequency;
   }
   private static List<LordRow> BuildRows(RawSnapshot raw,Metric[] visible,OverviewSettings settings,GameModeSnapshot? mode,List<LordRow> previous,bool includeExtensions){
    bool editor=mode.HasValue && mode.Value.Kind==GameModeKind.MapEditor;var state=GameData.Instance?.lastGameState;
@@ -105,10 +142,11 @@ namespace LordOverviewTest {
      }
     }
     LordRow old=null;for(int i=0;i<previous.Count;i++)if(previous[i].Player==player){old=previous[i];break;}
-    bool same=old!=null && old.Alive==(raw.Merit[slot+1]>=0) && old.ExtendedAllowed==extended;
+    bool alive=!InformationPolicy.IsEliminated(raw.Resources[player].Present && raw.Resources[player].Defeated,raw.Merit[slot+1]<0,false);
+    bool same=old!=null && old.Alive==alive && old.ExtendedAllowed==extended;
     if(same)for(int i=0;i<values.Length;i++)if(values[i]!=old.Values[i]){same=false;break;}
     if(external && includeExtensions)same=false; // Providers must not mutate a published row.
-    var row=same?old:new LordRow(player,raw.Merit[slot+1]>=0,values){ExtendedAllowed=extended};
+    var row=same?old:new LordRow(player,alive,values){ExtendedAllowed=extended};
     if(!same && !includeExtensions && external && old!=null && extended)for(int i=0;i<visible.Length;i++)if((int)visible[i]<0)row.SetExtra(visible[i],old.Get(visible[i]));
     if(assembled.Count>=previous.Count || !ReferenceEquals(row,previous[assembled.Count]))unchanged=false;
     assembled.Add(row);

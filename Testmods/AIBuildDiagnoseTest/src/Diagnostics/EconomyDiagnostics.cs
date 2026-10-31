@@ -19,13 +19,13 @@ using System.Text;
 namespace AIBuildDiagnoseTest
 {
     // Process-rooted by AIBuildDiagnoseRuntime. Native callbacks capture only; render drains copied logs.
-    internal sealed unsafe class EconomyDiagnostics
+    internal sealed unsafe partial class EconomyDiagnostics
     {
         internal const string TradeControllerCoverageDetail =
             "not-installed-for-release-fixes-compatibility; market-gate=unknown; buy-sell-alternation=unknown; " +
             "aborted-sale-decisions=unknown; missing-controller-observations-are-not-evidence-of-no-trade; " +
             "purchase-decision, ai-buy, ai-sell and price/extender events remain independent partial observations";
-        internal static readonly string[] SummaryStages = { "wood-eligibility", "farm-eligibility", "build-resources", "purchase-decision", "ai-buy", "ai-sell", "ai-recruitment", "wood-retirement", "emergency-demolition", "hovel-reduction" };
+        internal static readonly string[] SummaryStages = { "wood-eligibility", "farm-eligibility", "build-resources", "purchase-decision", "ai-buy", "ai-sell", "ai-recruitment", "wood-retirement", "wood-counter-retirement", "accessibility-sweep", "emergency-demolition", "hovel-reduction" };
         [ThreadStatic] private static EconomyOperation current;
         private EconomyOperation Current => active ? current?.ForSession(session) : null;
         private readonly ManualLogSource log;
@@ -69,6 +69,8 @@ namespace AIBuildDiagnoseTest
             ValidateLayout();
             log = logger; module = unchecked((long)address);
             nativeLayout = string.Equals(hash, NativeDiagnosticContracts.SupportedHash, StringComparison.OrdinalIgnoreCase);
+            try { ValidateRemovalLayout(); removalLayout = true; Coverage("removal-layout", true, "field offsets validated; new reads use the supported native hash only"); }
+            catch (Exception error) { Coverage("removal-layout", false, error.Message); }
             if (nativeLayout)
             {
                 int pe = Marshal.ReadInt32(new IntPtr(module + 0x3C));
@@ -101,7 +103,10 @@ namespace AIBuildDiagnoseTest
             else Coverage("price-events", true, "query-only; no transaction acknowledgement");
         }
         internal void Install(CrusaderLibraryLoadContext context, string hash)
-        { native = new EconomyNativeHooks(this); native.Install(context, hash); }
+        {
+            native = new EconomyNativeHooks(this); native.Install(context, hash);
+            InstallWorkerCauses(context, hash);
+        }
         internal void Start(long id, bool enabled, bool isSave)
         {
             lock (sync)
@@ -110,6 +115,13 @@ namespace AIBuildDiagnoseTest
                 sequence = 0; tick = -1; nextSummary = 0; current = null; overflowReported = false;
                 ledger.Reset(); budget.Reset(); counters.Clear(); last.Clear(); repeats.Clear();
                 deleting.Clear(); delayedDeletion.Clear(); knownBuildings.Clear(); eventFrames.Clear(); parameters.Clear(); captureFailures = 0;
+                removals.Reset(id);
+                workerCauses.Reset(id);
+                workerHooks?.SetActive(enabled);
+                Array.Clear(constructionContext, 0, constructionContext.Length);
+                Array.Clear(workerDeathSourceSeen, 0, workerDeathSourceSeen.Length);
+                Array.Clear(woodBuildDecisions, 0, woodBuildDecisions.Length);
+                Array.Clear(resourceBuildDecisions, 0, resourceBuildDecisions.Length);
                 if (!active) return;
                 if (Chainloader.PluginInfos.ContainsKey("SpectatorEditorBuildTest_Serp"))
                     Coverage("build-resource-native-observation", ResourceOwnerReady,
@@ -151,13 +163,17 @@ namespace AIBuildDiagnoseTest
                     try
                     {
                         Summary("end");
-                        Emit("COVERAGE", 0, 0, $"phase=end, captureFailures={captureFailures}, protectionCallbackFailures={availability.CallbackFailures}, " +
-                            $"priceCallbackFailures={MarketPriceEvents.CallbackFailures}, pendingDeletionCalls={delayedDeletion.Count}, openEventFrames={eventFrames.Count}");
+                        Emit("COVERAGE", 0, 0, $"phase=end, captureFailures={captureFailures}, protectionCallbackFailures={availability?.CallbackFailures ?? 0}, " +
+                            $"priceCallbackFailures={MarketPriceEvents.CallbackFailures}, pendingDeletionCalls={delayedDeletion.Count}, openEventFrames={eventFrames.Count}, workerStateOmitted={workerCauses.Omitted}, duplicateDeathEvents={workerCauses.DuplicateDeaths}", final: true);
                     }
                     finally
                     {
                         active = false; current = null; eventFrames.Clear(); deleting.Clear(); parameters.Clear();
-                        output.Enqueue($"AI_ECONOMY_BUDGET: session={session}, tick={tick}, bytes={budget.Bytes}, reservedBytes={EconomyLogBudget.ReservedBytes}, omitted={string.Join("|", budget.Omitted)}.");
+                        workerHooks?.SetActive(false);
+                        workerCauses.Reset(0);
+                        removals.Reset(0);
+                        string finalBudget = $"AI_ECONOMY_BUDGET: session={session}, tick={tick}, bytesBeforeBudgetLine={budget.Bytes}, reservedBytes={EconomyLogBudget.ReservedBytes}, routineBytes={budget.RoutineBytes}, causeBytes={budget.CauseBytes}, finalBytes={budget.FinalBytes}, omitted={string.Join("|", budget.Omitted)}.";
+                        if (budget.Accept("FINAL_BUDGET", finalBudget)) output.Enqueue(finalBudget);
                     }
                 }
             });
@@ -168,7 +184,11 @@ namespace AIBuildDiagnoseTest
                 WriteLine(line);
         }
         internal void DrainOnProcessExit()
-        { while (output.TryDequeue(out string line)) WriteLine(line); }
+        {
+            // End uses copied counters only; shutdown must never query unloaded game state.
+            End();
+            while (output.TryDequeue(out string line)) WriteLine(line);
+        }
         private void WriteLine(string line)
         {
             var level = GetLogLevel(line);
@@ -223,14 +243,15 @@ namespace AIBuildDiagnoseTest
                 Marshal.OffsetOf(typeof(GamePlayerResources), nameof(GamePlayerResources.r_TotalGoodsNull)).ToInt32() != 0x4D0)
                 throw new InvalidOperationException("Economy observation interop layout differs from the audited native image");
         }
-        private void Emit(string kind, int player, long operation, string detail)
+        private void Emit(string kind, int player, long operation, string detail, bool final = false)
         {
             string line = $"AI_ECONOMY_{kind}: observedAt={DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}, session={session}, tick={tick}, player={player}, operation={operation}, {detail}.";
-            if (budget.Accept(kind, line)) output.Enqueue(line);
+            if (budget.Accept(final ? "FINAL_" + kind : kind, line)) output.Enqueue(line);
             else if (!overflowReported)
             {
                 overflowReported = true;
-                output.Enqueue($"AI_ECONOMY_OVERFLOW: session={session}, tick={tick}, reservedBytes={EconomyLogBudget.ReservedBytes}, firstOmittedCategory={kind}; subsequentDetailsIncomplete=true.");
+                string warning = $"AI_ECONOMY_OVERFLOW: session={session}, tick={tick}, reservedBytes={EconomyLogBudget.ReservedBytes}, firstOmittedCategory={kind}; independentRoutineCauseFinalBudgets=true; subsequentDetailsIncomplete=true.";
+                if (budget.Accept("FINAL_OVERFLOW", warning)) output.Enqueue(warning);
             }
         }
         private void Change(string key, string kind, int player, long op, string detail)
@@ -242,7 +263,7 @@ namespace AIBuildDiagnoseTest
             last[key] = detail;
             Emit(kind, player, op, detail);
         }
-        internal EconomyOperation SafeBegin(string kind, int player, int a, int b)
+        internal EconomyOperation SafeBegin(string kind, int player, int a, int b, bool countEntry = true)
         {
             EconomyOperation op = null;
             Safe(() =>
@@ -253,7 +274,9 @@ namespace AIBuildDiagnoseTest
                     op = new EconomyOperation(++sequence, session, kind, player, Gold(player), Current);
                     op.ArgumentA = a; op.ArgumentB = b;
                     parameters[op.Id] = $"a={a}, b={b}";
-                    current = op; Count(player + ":" + kind + ":entered");
+                    current = op;
+                    if (countEntry) Count(player + ":" + kind + ":entered");
+                    if (kind == "wood-retirement" || kind == "wood-counter-retirement") Safe(() => CaptureRemovalInputs(op));
                     if (kind == "ai-buy" || kind == "ai-sell")
                     {
                         op.StockBefore = Stock(player, a);
@@ -263,7 +286,10 @@ namespace AIBuildDiagnoseTest
                     if (kind == "build-resources")
                         Change(player + ":cost:" + a, "COSTS", player, op.Id, Costs(player, (eMappers)a));
                     if (kind == "purchase-decision" || kind == "build-resources" || kind.EndsWith("eligibility", StringComparison.Ordinal))
-                        Change(player + ":" + kind + ":state", "DECISION_INPUT", player, op.Id, $"kind={kind}, {NativeState(player)}");
+                    {
+                        op.DecisionInputs = NativeState(player);
+                        Change(player + ":" + kind + ":state", "DECISION_INPUT", player, op.Id, $"kind={kind}, {op.DecisionInputs}");
+                    }
                 }
             });
             return op;
@@ -286,6 +312,7 @@ namespace AIBuildDiagnoseTest
             // Context restoration must also happen when capture fails or a session was replaced.
             try
             {
+                if (op.Kind == "wood-retirement" || op.Kind == "wood-counter-retirement") Safe(() => FinishRemovalDecision(op, result));
                 Safe(() =>
                 {
                     lock (sync)
@@ -297,6 +324,9 @@ namespace AIBuildDiagnoseTest
                         // Unknown children are accounted as unknown; never reassigned to a broad parent.
                         op.Close(after);
                         Count(op.Player + ":" + op.Kind + ":result:" + (result?.ToString() ?? "void"));
+                        RememberBuildDecision(op, result);
+                        if (!EconomyDecisionEvidence.EmitGenericResult(op.Kind))
+                        { parameters.Remove(op.Id); return; } // Dedicated counter record already owns the decision; no duplicate formatting.
                         string detail = $"kind={op.Kind}, result={result?.ToString() ?? "unavailable"}, " +
                             $"goldBefore={op.GoldBefore}, goldAfter={after}, actualDelta={(long)after - op.GoldBefore}, exclusiveDelta={exclusive}, " +
                             $"bookingAttributed={attributed}, {parameters[op.Id]}, nativeOriginalEvaluated={op.NativeOriginalEvaluated?.ToString() ?? "see-native-context"}, reason={(op.NativeOriginalEvaluated == false ? "owner-override; native-predicate-not-evaluated" : EconomyDecisionEvidence.Reason(op.Kind, result, op.RawWoodPrecondition))}, nativeReturnIsNotSpawn=true";
@@ -304,7 +334,8 @@ namespace AIBuildDiagnoseTest
                         if (op.Kind == "ai-buy" || op.Kind == "ai-sell")
                             Emit("TRANSACTION_END", op.Player, op.Id, detail + $", good={(eGoods)op.ArgumentA}, requestedAmount={op.ArgumentB}, " +
                                 $"stockBefore={op.StockBefore}, stockAfter={Stock(op.Player, op.ArgumentA)}, outcome={EconomyDecisionEvidence.TradeOutcome(op.Kind, result, op.StockBefore, Stock(op.Player, op.ArgumentA))}");
-                        else Change(op.Player + ":" + op.Kind + ":result", "DECISION_RESULT", op.Player, op.Id, detail);
+                        else
+                            Change(EconomyDecisionEvidence.DecisionKey(op), "DECISION_RESULT", op.Player, op.Id, detail);
                         parameters.Remove(op.Id);
                     }
                 });
@@ -409,20 +440,32 @@ namespace AIBuildDiagnoseTest
         }
         private void Summary(string phase)
         {
-            Change("protection-settings", "SETTINGS", 0, 0, ProtectionSnapshot.Capture());
-            Snapshot(phase);
+            bool final = phase == "end";
+            if (!final)
+            {
+                Change("protection-settings", "SETTINGS", 0, 0, ProtectionSnapshot.Capture());
+                Snapshot(phase);
+            }
             for (int player = 1; player <= 8; player++)
             {
-                if (!Observe(player)) continue;
+                if (!final && !Observe(player)) continue;
                 var totals = new StringBuilder();
+                int omittedKeys = 0;
                 foreach (string stage in SummaryStages)
                 {
                     string key = player + ":" + stage + ":entered";
                     totals.Append(stage).Append("Calls=").Append(counters.TryGetValue(key, out long n) ? n : 0).Append(';');
                 }
-                foreach (var pair in counters)
-                    if (pair.Key.StartsWith(player + ":", StringComparison.Ordinal)) totals.Append(pair.Key).Append('=').Append(pair.Value).Append(';');
-                Emit("SUMMARY", player, 0, $"phase={phase}, counters={totals}, omitted={string.Join("|", budget.Omitted)}; zeroCallsOnlyMeaningfulWithAvailableHook=true; searchAndSpawnCounters=AI_BUILD_SUMMARY; unknownCausesRemainUnknown=true; captureFailures={captureFailures}; observerCallbackFailures={availability.CallbackFailures}; priceCallbackFailures={MarketPriceEvents.CallbackFailures}");
+                // Prioritize the cause totals so routine keys cannot push them out of the final record.
+                foreach (bool important in new[] { true, false })
+                    foreach (var pair in counters)
+                        if (pair.Key.StartsWith(player + ":", StringComparison.Ordinal) &&
+                            (pair.Key.Contains("worker-") || pair.Key.Contains("removal") || pair.Key.Contains("rebuild")) == important)
+                        {
+                            string entry = pair.Key + "=" + pair.Value + ";";
+                            if (totals.Length + entry.Length > 4096) omittedKeys++; else totals.Append(entry);
+                        }
+                Emit("SUMMARY", player, 0, $"phase={phase}, counters={totals}, summaryCounterKeysOmitted={omittedKeys}, omitted={(final ? "see-final-budget" : string.Join("|", budget.Omitted))}, removalStateOmitted={removals.Omitted}, workerStateOmitted={workerCauses.Omitted}, pendingRemovalMarks={removals.PendingCount}; zeroCallsOnlyMeaningfulWithAvailableHook=true; searchAndSpawnCounters=AI_BUILD_SUMMARY; unknownCausesRemainUnknown=true; captureFailures={captureFailures}; observerCallbackFailures={availability?.CallbackFailures ?? 0}; priceCallbackFailures={MarketPriceEvents.CallbackFailures}", final);
             }
         }
         private void OnPrice(MarketPricePostEventArgs args)
@@ -487,6 +530,7 @@ namespace AIBuildDiagnoseTest
         private void ConfirmRemoval(PendingDeletion record)
         {
             var id = record.Identity;
+            ConfirmMarkedRemoval(id, Identity(id.Slot));
             Emit("REMOVAL_CONFIRMED", id.Player, record.Operation, $"{id}, deletionCallContext={record.Cause}, " +
                 "callContextIsNotUniversalCauseProof=true");
             Count(id.Player + ":confirmed-removal:" + id.Type + ":" + record.Cause);
@@ -495,6 +539,9 @@ namespace AIBuildDiagnoseTest
         }
         private void MonitorDeletions()
         {
+            if (removals.PendingCount != 0)
+                foreach (var mark in removals.PendingSnapshot())
+                    ConfirmMarkedRemoval(mark.Identity, Identity(mark.Identity.Slot));
             foreach (var pending in new List<PendingDeletion>(delayedDeletion.Values))
             {
                 var now = Identity(pending.Identity.Slot);
@@ -522,7 +569,19 @@ namespace AIBuildDiagnoseTest
             subscriptions.Add(BuildingR3EventHooks.OnBuildingBulldoze.Observable.Subscribe(e => Safe(() =>
             { BuildingEvent("bulldoze:" + e.BuildingId, e.BuildingId, e.Phase, "bulldoze"); })));
             subscriptions.Add(BuildingR3EventHooks.OnBuildStructure.Observable.Subscribe(e => Safe(() => Event("build:" + e.PlayerId, e.PlayerId, e.Phase, "build", (int)e.Mappers))));
-            subscriptions.Add(BuildingR3EventHooks.OnBuildingRefund.Observable.Subscribe(e => Safe(() => Event("refund:" + e.BuildingId, e.PlayerId, e.Phase, "refund", e.BuildingId, e.Percentage))));
+            subscriptions.Add(BuildingR3EventHooks.OnBuildingRefund.Observable.Subscribe(e => Safe(() =>
+            {
+                lock (sync)
+                {
+                    if (e.Phase == EventHookPhase.Pre)
+                    {
+                        var context = RemovalContext();
+                        var id = Identity(e.BuildingId);
+                        if (context != null && id != null && context.Player == id.Player) context.RemovalTarget = id;
+                    }
+                    Event("refund:" + e.BuildingId, e.PlayerId, e.Phase, "refund", e.BuildingId, e.Percentage);
+                }
+            })));
             subscriptions.Add(BuildingR3EventHooks.OnBuildingSpawn.Observable.Subscribe(e => Safe(() =>
             {
                 if (e.Phase != EventHookPhase.Post || e.ReturnValue <= 0 || e.ReturnValue > int.MaxValue) return;
@@ -530,6 +589,9 @@ namespace AIBuildDiagnoseTest
                 {
                     var id = Identity((int)e.ReturnValue);
                     if (id == null || !Observe(id.Player)) return;
+                    MonitorDeletions(); // Includes terminal slot reuse before correlating this new identity.
+                    knownBuildings[id.Slot] = id;
+                    ObserveRebuild(id);
                     Emit("SPAWN", id.Player, Current?.Id ?? 0, $"{id}, source={Current?.Kind ?? "unknown"}; spawnIsNotHistoricalRebuildProof=true");
                     Count(id.Player + ":spawn:" + id.Type);
                 }

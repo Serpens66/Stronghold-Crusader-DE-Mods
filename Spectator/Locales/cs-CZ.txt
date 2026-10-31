@@ -10,7 +10,7 @@ Tools.Credit=Credit
 Tools.CreditHelp=Add this amount once to the selected AI. It is validated again when executed. Goods enter the Vanilla delivery reserve and are stored as space becomes available. Gold is credited immediately. Your own stock is untouched.
 Tools.Defend=Protect target
 Tools.DefendHelp=Ask the selected AI to protect the selected Lord, including itself.
-Tools.DragHelp=Drag the gap between portraits and construction HUD; when floating, drag the top edge.
+Tools.DragHelp=Drag & drop - dock left of build menu
 Tools.EditorNotice=In the map editor, slots may exist before an AI is initialized. Delivery reserves need storage and simulation; orders require a running AI.
 Tools.EnemyRequired=Select an enemy of the ordered AI as attack target.
 Tools.Failed=Action failed. See the timestamped game log.
@@ -73,7 +73,7 @@ Tools.PowersSwitchOn=Extreme powers: On
 Tools.PowersSwitchOff=Extreme powers: Off
 Tools.Queued=Action queued for validation.
 Tools.ReserveHelp=Goods enter the Vanilla delivery reserve and are stored as space becomes available. Gold is credited immediately. Your own stock is untouched.
-Tools.SelectHelp=Left click selects this player. On the upper AI selector: right click jumps to the Keep, middle click to the Lord.
+Tools.SelectHelp=Right click = Keep; Middle click = Lord
 Tools.SelectTarget=Select a target below.
 Tools.StopPlacement=Stop placing
 Tools.Target=Attack / protection target
@@ -117,5 +117,5 @@ Tools.PowersShortOn=Powers: On
 Tools.PowersShortOff=Powers: Off
 Tools.Debit=Debit
 Tools.DebitHelp=Remove this amount from the selected player's stock and incoming reserves, down to zero.
-Tools.Options=Options
 Tools.StopShort=Stop
+Tools.TargetHelp=Click = select target

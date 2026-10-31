@@ -3,6 +3,14 @@ namespace Spectator {
   static void Check(bool value, string reason = "") { if(!value) throw new System.Exception("Controller invariant failed: " + reason); }
   public static void Main() {
    MenuToolTipTests.Run();
+   for(int bits=0;bits<128;bits++) foreach(int occupants in new[]{0,1,8}) {
+    bool eligible=(bits&1)!=0,ui=(bits&2)!=0,ingame=(bits&4)!=0,extras=(bits&8)!=0;
+    bool briefing=(bits&16)!=0,statistics=(bits&32)!=0,gameMenu=(bits&64)!=0;
+    Check(DockHudPolicy.CanShowToolbar(eligible,ui,ingame,extras,briefing,statistics,gameMenu,occupants)==
+     (bits==15 && occupants>0),"Only an eligible world HUD with occupied slots may expose the toolbar");
+   }
+   Check(DockHudPolicy.CanShowToolbar(true,true,true,true,false,false,false,8),"Simulation pause alone does not hide the world HUD");
+
    var feedback = new ToolbarFeedback();
    Check(feedback.ForPage("Goods") == "" && feedback.ForPage("Orders") == "", "no initial placeholder or tooltip content");
    feedback.Set("Goods", "Credited 100"); feedback.Set("Orders", "Forced attack");

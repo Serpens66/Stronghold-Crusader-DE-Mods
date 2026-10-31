@@ -8,6 +8,7 @@ $resolver.AddSearchDirectory($ApiSharedDir)
 $reader = [Mono.Cecil.ReaderParameters]::new(); $reader.AssemblyResolver = $resolver
 $mod = [Mono.Cecil.AssemblyDefinition]::ReadAssembly($AssemblyPath,$reader)
 $api = [Mono.Cecil.AssemblyDefinition]::ReadAssembly((Join-Path $ApiSharedDir 'APIShared.dll'))
+$game = [Mono.Cecil.AssemblyDefinition]::ReadAssembly((Join-Path $GameDir 'Stronghold Crusader Definitive Edition_Data/Managed/Assembly-CSharp.dll'))
 $root = Split-Path -Parent $PSScriptRoot
 try {
     $settings = $mod.MainModule.GetType('Spectator.SpectatorViewModel')
@@ -23,6 +24,18 @@ try {
     $items = @('ModeOptions','PropertyName','ScopeText','SelectedModeIndex','Title','Description','DisplayName','Name')
     foreach ($view in @(@('Patches/Assets/GUI/XAML/IngameUIScreens.xaml','Spectator.TestToolsViewModel'),@('Override/ScriptExtenderUI/SpectatorSettings.xaml','Spectator.SpectatorViewModel'),@('Patches/Assets/GUI/XAMLResources/HUD_MissionOver.xaml','Spectator.StatisticsControlsViewModel'))) {
         $text = [IO.File]::ReadAllText((Join-Path $root $view[0]))
+        if ($view[0] -eq 'Patches/Assets/GUI/XAML/IngameUIScreens.xaml') {
+            [xml]$document = $text
+            $ns = [Xml.XmlNamespaceManager]::new($document.NameTable); $ns.AddNamespace('x','http://schemas.microsoft.com/winfx/2006/xaml')
+            $parentStyle = $document.SelectSingleNode('//*[@x:Name="SpectatorEditorHumanCanvas"]/Canvas.Style',$ns)
+            if (-not $parentStyle) { throw 'Missing native-context visibility gate.' }
+            $nativeProperties = @($game.MainModule.GetType('CrusaderDE.MainViewModel').Properties | Where-Object { $_.GetMethod.IsPublic } | ForEach-Object Name)
+            foreach ($binding in [regex]::Matches($parentStyle.OuterXml,'\{Binding ([\w]+)(?:[,}\[])')) {
+                if ($binding.Groups[1].Value -notin $nativeProperties) { throw "Unresolved native-context binding: $($binding.Value)" }
+            }
+            [void]$parentStyle.ParentNode.RemoveChild($parentStyle)
+            $text = $document.OuterXml
+        }
         $properties = @($mod.MainModule.GetType($view[1]).Properties.Name) + @($base.Properties.Name)
         foreach ($match in [regex]::Matches($text,'\{Binding ([\w]+)(?:[,}\[])')) {
             if ($match.Groups[1].Value -notin $properties -and $match.Groups[1].Value -notin $items) { throw "Unresolved binding: $($view[0]) $($match.Value)" }
@@ -42,4 +55,4 @@ try {
     if ($dependencies.Count -lt 2) { throw 'Missing runtime dependencies.' }
     if (@($dependencies | Where-Object { $_.ConstructorArguments[0].Value -match 'BugfixesAndQoL|SpectatorEditorBuildTest' }).Count) { throw 'Migration dependencies are not permitted.' }
     Write-Host 'PASS: compiled settings roles, shared preset bindings, tool bindings/locales and independent plugin dependencies.'
-} finally { $mod.Dispose(); $api.Dispose() }
+} finally { $mod.Dispose(); $api.Dispose(); $game.Dispose() }

@@ -7,14 +7,17 @@ namespace LordOverviewTest {
  internal static partial class OverviewRuntime {
   private sealed class HoverTarget {
    internal FrameworkElement Element;
-   internal ToolTip Tip;
-   internal string Description;
+   internal string Description,DisplayText;
    internal Rect Bounds;
    internal bool ValidBounds,Immediate;
   }
   private static readonly Dictionary<string,HoverTarget> hoverTargets=new Dictionary<string,HoverTarget>();
   private static readonly OverviewHoverState hoverState=new OverviewHoverState();
   private static HoverTarget visibleHover;
+  private static Border hoverBubble;
+  private static TextBlock hoverBubbleLabel;
+  private static string bubbleText;
+  private static int hoverRevision,bubbleRevision=-1;
   private static bool hoverGeometryDirty=true,hoverFaulted;
   private static int hoverFrame=-1,hoverScreenWidth,hoverScreenHeight;
   private static void StartPassiveHover(){
@@ -22,14 +25,29 @@ namespace LordOverviewTest {
   }
   private static HoverTarget RegisterHover(string key,FrameworkElement element,string text,bool immediate=false){
    RemoveHover(key);
-   var tip=CreateTip(text,element);tip.PlacementTarget=element;tip.Placement=PlacementMode.Top;
-   var target=new HoverTarget {Element=element,Tip=tip,Description=text,Immediate=immediate};hoverTargets.Add(key,target);MarkHoverGeometryDirty();return target;
+   var target=new HoverTarget {Element=element,Description=text,DisplayText=text,Immediate=immediate};hoverTargets.Add(key,target);MarkHoverGeometryDirty();return target;
   }
-  private static void RemoveHover(string key){if(!hoverTargets.TryGetValue(key,out var target))return;target.Tip.IsOpen=false;if(ReferenceEquals(target,visibleHover))ClosePassiveHover();ReleaseHover(target);hoverTargets.Remove(key);}
-  private static void ReleaseHover(HoverTarget target){target.Tip.IsOpen=false;APIShared.ModSettings.SharedToolTipSizing.SetEnabled(target.Tip,false);APIShared.ModSettings.SharedToolTipSizing.SetReferenceElement(target.Tip,null);target.Tip.PlacementTarget=null;}
-  private static void ClearHoverTargets(){ClosePassiveHover();foreach(var target in hoverTargets.Values)ReleaseHover(target);hoverTargets.Clear();MarkHoverGeometryDirty();}
-  private static void MarkHoverGeometryDirty(){hoverGeometryDirty=true;}
-  private static void ClosePassiveHover(){if(visibleHover!=null)visibleHover.Tip.IsOpen=false;visibleHover=null;hoverState.Reset();}
+  private static void RemoveHover(string key){if(!hoverTargets.TryGetValue(key,out var target))return;if(ReferenceEquals(target,visibleHover))ClosePassiveHover();hoverTargets.Remove(key);}
+  private static void ClearHoverTargets(){ClosePassiveHover();hoverTargets.Clear();MarkHoverGeometryDirty();}
+  private static void MarkHoverGeometryDirty(){hoverGeometryDirty=true;hoverRevision++;}
+  private static void HidePassiveBubble(){if(hoverBubble?.Visibility==Visibility.Visible)hoverBubble.Visibility=Visibility.Collapsed;bubbleRevision=-1;}
+  private static void ClosePassiveHover(){HidePassiveBubble();visibleHover=null;hoverState.Reset();}
+  private static Border CreatePassiveBubble(){
+   // A view-owned passive visual: manual ToolTip.IsOpen did not attach a popup in the game's Noesis build.
+   hoverBubbleLabel=new TextBlock {IsHitTestVisible=false,FontSize=16,Foreground=new SolidColorBrush(Color.FromRgb(255,255,255)),TextWrapping=TextWrapping.Wrap};
+   return new Border {IsHitTestVisible=false,Tag=OverviewPresentationPolicy.PassiveTag,Visibility=Visibility.Collapsed,Background=new SolidColorBrush(Color.FromArgb(255,29,23,16)),BorderBrush=new SolidColorBrush(Color.FromRgb(242,212,138)),BorderThickness=new Thickness(1.5f),Padding=new Thickness(10,8,10,8),Child=hoverBubbleLabel};
+  }
+  private static void ShowPassiveBubble(HoverTarget target){
+   if(overlay==null || parent==null || !target.ValidBounds)return;
+   if(hoverBubble==null){hoverBubble=CreatePassiveBubble();Panel.SetZIndex(hoverBubble,30);overlay.Children.Add(hoverBubble);}
+   if(hoverBubble.Visibility==Visibility.Visible && bubbleRevision==hoverRevision && bubbleText==target.DisplayText)return;
+   if(bubbleText!=target.DisplayText){bubbleText=target.DisplayText;hoverBubbleLabel.Text=bubbleText;}
+   hoverBubble.MaxWidth=Math.Max(1,Math.Min(420,parent.ActualWidth));hoverBubble.Visibility=Visibility.Visible;
+   hoverBubble.Measure(new Size(hoverBubble.MaxWidth,float.PositiveInfinity));
+   var a=overlay.PointFromScreen(new Point(target.Bounds.X,target.Bounds.Y));var b=overlay.PointFromScreen(new Point(target.Bounds.Right,target.Bounds.Bottom));
+   var position=PassiveBubblePlacement.Place(new MenuRect(a.X,a.Y,b.X-a.X,b.Y-a.Y),hoverBubble.DesiredSize.Width,hoverBubble.DesiredSize.Height,parent.ActualWidth,parent.ActualHeight);
+   Canvas.SetLeft(hoverBubble,(float)position.X);Canvas.SetTop(hoverBubble,(float)position.Y);bubbleRevision=hoverRevision;
+  }
   private static bool ScreenContains(FrameworkElement element,Point point){
    if(element==null || !element.IsLoaded || !element.IsVisible)return false;
    var local=element.PointFromScreen(point);return local.X>=0 && local.Y>=0 && local.X<element.ActualWidth && local.Y<element.ActualHeight;
@@ -56,6 +74,7 @@ namespace LordOverviewTest {
     int screenWidth=UnityEngine.Screen.width,screenHeight=UnityEngine.Screen.height;
     if(screenWidth!=hoverScreenWidth || screenHeight!=hoverScreenHeight){hoverScreenWidth=screenWidth;hoverScreenHeight=screenHeight;MarkHoverGeometryDirty();ClosePassiveHover();CancelHeaderGesture();CancelMenuDrag();PositionSettingsMenu();return;} // Let Noesis finish its viewport update before caching transforms.
     var mouse=UnityEngine.Input.mousePosition;var screen=new Point(mouse.x,screenHeight-mouse.y);
+    DiagHoverPoint(ref screen);
     bool pressed=UnityEngine.Input.GetMouseButtonDown(0) || UnityEngine.Input.GetMouseButtonDown(1) || UnityEngine.Input.GetMouseButtonDown(2);
     if(Editing && !settingsPosition.Dragging && !LayoutDropDownOpen && pressed && !ScreenContains(settingsWindow,screen) && !ScreenContains(crownButton,screen) && !OverHeader(screen))CloseSettingsMenu();
     if(pressed || UnityEngine.Input.mouseScrollDelta.sqrMagnitude>0 || UnityEngine.Input.GetMouseButton(0) || UnityEngine.Input.GetMouseButton(1) || UnityEngine.Input.GetMouseButton(2) || headerGesture.Active || settingsPosition.Dragging || !ScreenContains(parent,screen)) {ClosePassiveHover();return;}
@@ -70,19 +89,20 @@ namespace LordOverviewTest {
      }hoverGeometryDirty=false;
     }
     string key=null;HoverTarget found=null;
-    foreach(var pair in hoverTargets)if(pair.Value.ValidBounds && pair.Value.Bounds.Contains(screen)){key=pair.Key;found=pair.Value;break;}
+    foreach(var pair in hoverTargets)if(pair.Value.ValidBounds && !string.IsNullOrEmpty(pair.Value.Description) && pair.Value.Bounds.Contains(screen)){key=pair.Key;found=pair.Value;break;}
     if(found!=null){
      // Passive content does not hit. A different foreground UI must still win over our hover areas.
      var hitRoot=inputRoot as Visual??parent;
      var hitObject=VisualTreeHelper.HitTest(hitRoot,hitRoot.PointFromScreen(screen)).VisualHit;var hit=hitObject as Visual;
      if(hitObject!=null && hit==null || HoverOcclusion.Blocks<Visual>(hit,overlay,hoverParent,hoverZ,hoverIndex)){key=null;found=null;}
     }
-    if(!ReferenceEquals(found,visibleHover)){if(visibleHover!=null)visibleHover.Tip.IsOpen=false;visibleHover=found;}
+    if(!ReferenceEquals(found,visibleHover)){HidePassiveBubble();visibleHover=found;}
     double delay=found==null || found.Immediate?0:ToolTipService.GetInitialShowDelay(found.Element)/1000d;
     bool open=hoverState.Update(key,UnityEngine.Time.realtimeSinceStartup,delay,60);
-    if(found!=null && found.Tip.IsOpen!=open)found.Tip.IsOpen=open;
+    if(found!=null && open)ShowPassiveBubble(found);else HidePassiveBubble();
    } catch(Exception error){hoverFaulted=true;try{ClosePassiveHover();}catch{} Error(error);} // Retry on an explicit reopen/new HUD, never throw once per frame.
   }
+  static partial void DiagHoverPoint(ref Point screen);
   private static void OnViewportSizeChanged(object sender,SizeChangedEventArgs args){CancelHeaderGesture();CancelMenuDrag();ClosePassiveHover();MarkHoverGeometryDirty();PositionSettingsMenu();}
  }
 }

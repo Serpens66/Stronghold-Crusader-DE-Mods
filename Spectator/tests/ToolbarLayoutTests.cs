@@ -13,7 +13,7 @@ internal static class ToolbarLayoutTests
             var frame = new ToolbarRect(400+114*scale,600+22*scale,800*scale,144*scale);
             var compact = ToolbarLayout.Arrange(alignment,frame,count,false);
             var expanded = ToolbarLayout.Arrange(alignment,frame,count,true);
-            check(Math.Abs(frame.X-compact.Roster.Right-2*scale)<.001f,"Lord raster sits two native UI units left of the outer frame.");
+            check(Math.Abs(frame.X-compact.Roster.Right-6*scale)<.001f,"Lord raster sits six native UI units left of the outer frame.");
             check(Math.Abs(alignment.Bottom-compact.Roster.Bottom)<.001f,"Portrait rows finish at the screen bottom, without control or grip rows.");
             check(!compact.Roster.Intersects(frame),"Placing never reserves space inside the Vanilla construction HUD.");
             check(compact.Tools.Empty && compact.Roster.X == expanded.Roster.X && compact.Roster.Y == expanded.Roster.Y,
@@ -24,14 +24,22 @@ internal static class ToolbarLayoutTests
                 expanded.Bounds.Right >= expanded.Tools.Right && expanded.Bounds.Bottom >= expanded.Roster.Bottom,
                 "Common drag/clamp bounds enclose every visible part without clipping the stop button.");
             var floating = ToolbarLayout.Arrange(alignment,frame,count,true,true);
-            check(floating.Roster.Width == 496 && floating.Roster.Height == 44 && floating.Tools.Y == floating.Roster.Bottom &&
+            check(floating.Roster.Width == ToolbarLayout.FloatingWidth(count,false) && floating.Roster.Height == 40 && floating.Tools.Y == floating.Roster.Bottom &&
                 floating.Control.Right <= floating.Roster.Right && floating.Control.Bottom <= floating.Roster.Bottom,
                 "Floating portraits/control share one header, directly above the tool surface.");
             check(compact.Control.Right < alignment.X+553*scale && compact.Control.Bottom < alignment.Bottom &&
                 compact.Control.Width==60*scale && !compact.Control.Intersects(compact.Roster),
                 "Dock control fits immediately left of the trumpet without enlarging the roster.");
-            check(compact.Grip.Right == frame.X && compact.Grip.Y == compact.Roster.Y && compact.Grip.Height == compact.Roster.Height,
+            check(compact.Grip.Right == frame.X && compact.Grip.Y == compact.Roster.Y && compact.Grip.Height == compact.Roster.Height && compact.Grip.Width==8*scale,
                 "The existing gap is the full-height dock grip; no separate side strip remains.");
+            var placed = ToolbarLayout.Arrange(alignment,frame,count,false,true,default,true);
+            var closed = ToolbarLayout.Arrange(alignment,frame,count,false,true);
+            check(floating.Roster.Width==closed.Roster.Width && floating.Tools.Width==496 && closed.Bounds.Width==closed.Roster.Width,
+                "An open menu retains its width without stretching the compact header or the closed hit bounds.");
+            check(placed.Control.Width==60 && closed.Control.Width==24 && placed.Roster.Width-closed.Roster.Width==36,
+                "Only the placement label adds necessary width; plus/minus stay compact.");
+            check(floating.Grip.Right<=ToolbarLayout.OwnerCell(0,true).X && floating.Grip.Y==2 && floating.Grip.Height==36,
+                "The floating drag area is a small left-hand grip, never a long top strip.");
             var cells = new List<ToolbarRect>();
             for (int i=0;i<count;i++)
             {
@@ -40,7 +48,7 @@ internal static class ToolbarLayoutTests
                     "All portraits fit in two columns and at most four rows at the selected size.");
                 foreach (var previous in cells) check(!previous.Intersects(cell),"Packed portrait cells never overlap.");
                 var floatingCell = ToolbarLayout.OwnerCell(i,true);
-                check(floatingCell.Y == 6 && floatingCell.Right < floating.Control.X && floatingCell.Height == 36,
+                check(floatingCell.Y == 2 && floatingCell.Right < floating.Control.X && floatingCell.Height == 36,
                     "All eight portraits fit left-to-right before the floating control.");
                 check(!new ToolbarRect(compact.Roster.X+cell.X*scale,compact.Roster.Y+cell.Y*scale,
                     cell.Width*scale,cell.Height*scale).Intersects(compact.Grip),"Gap dragging cannot steal portrait clicks.");
@@ -62,30 +70,43 @@ internal static class ToolbarLayoutTests
             }
         }
         foreach(float uiScale in new[]{.75f,1f,1.5f,2f,3f})
+        foreach(float screenScale in new[]{1f,1.5f,2f})
         foreach(float fraction in new[]{0f,.5f,1f})
         {
-            var grip = new ToolbarRect(300,700,4*uiScale,150*uiScale);
-            float targetX=grip.X+fraction*grip.Width, targetY=grip.Y+fraction*grip.Height;
-            var drag=new ToolbarDragAnchor(); drag.Begin(targetX,targetY,grip);
-            check(drag.Move(targetX+13.9f/uiScale,targetY,grip,uiScale,uiScale,uiScale,true,out var x,out var y),"Attached grip retains fourteen-pixel hysteresis.");
-            check(!drag.Move(targetX+14.1f/uiScale,targetY,grip,uiScale,uiScale,uiScale,true,out x,out y),"Crossing release radius selects the row layout.");
-            float firstX=x, firstY=y;
+            var grip = new ToolbarRect(300,700,8*uiScale,150*uiScale);
+            var target=ToolbarLayout.DockDropTarget(grip);
+            float startX=grip.X+fraction*grip.Width,startY=grip.Y+fraction*grip.Height;
+            var drag=new ToolbarDragAnchor(); drag.Begin(startX,startY,grip,true);
+            check(!drag.Move(startX+13.9f/screenScale,startY,target,screenScale,screenScale,uiScale,out var x,out var y),"Docked view stays fixed inside fourteen physical pixels.");
+            check(drag.Move(startX+14.1f/screenScale,startY,target,screenScale,screenScale,uiScale,out x,out y),"Crossing fourteen physical pixels detaches the view.");
+            float firstX=x,firstY=y;
             for(int move=0;move<5;move++)
-                check(!drag.Move(targetX+14.1f/uiScale,targetY,grip,uiScale,uiScale,uiScale,false,out x,out y) && x==firstX && y==firstY,
-                    "Changing panel dimensions cannot feed back as pointer motion or snap chatter.");
-            check(drag.Move(targetX+9.9f/uiScale,targetY,grip,uiScale,uiScale,uiScale,false,out x,out y),"Return to the original grip point acquires within ten rendered pixels.");
-            var floatingGrip=new ToolbarRect(120,180,496*uiScale,4*uiScale);
+                check(drag.Move(startX+14.1f/screenScale,startY,target,screenScale,screenScale,uiScale,out x,out y) && x==firstX && y==firstY,
+                    "Reflow cannot feed back as pointer motion or cause repeated attach/detach.");
+            var small=ToolbarLayout.FloatingGripRect;
+            float px=target.X+target.Width/2+(fraction-.5f)*small.Width*uiScale;
+            float py=target.Y+target.Height/2+(fraction-.5f)*small.Height*uiScale;
+            check(drag.Move(px+9.8f/screenScale,py,target,screenScale,screenScale,uiScale,out x,out y) && drag.Preview && drag.Floating,
+                "Approach highlights a preview while retaining the row during capture.");
+            check(Math.Abs(x+(small.X+fraction*small.Width)*uiScale-px-9.8f/screenScale)<.001f,
+                "The real grip offset stays under the pointer independently of header width.");
+            check(drag.Drop(px+9.8f/screenScale,py,target,screenScale,screenScale,uiScale,out x,out y) && !drag.Floating && !drag.Preview,
+                "Release within ten physical pixels commits the grid and clears its preview.");
+            var floatingGrip=new ToolbarRect(120,180,small.Width*uiScale,small.Height*uiScale);
             drag.Begin(floatingGrip.X+fraction*floatingGrip.Width,floatingGrip.Y+fraction*floatingGrip.Height,floatingGrip,false);
-            check(drag.Move(grip.X+grip.Width/2,grip.Y+grip.Height/2,grip,uiScale,uiScale,uiScale,false,out x,out y),
-                "A new floating drag always targets the visible dock centre, independently of the exact top-edge click.");
+            drag.Move(px+9.8f/screenScale,py,target,screenScale,screenScale,uiScale,out x,out y);
+            check(drag.Preview && !drag.Drop(px+10.2f/screenScale,py,target,screenScale,screenScale,uiScale,out x,out y) && drag.Floating,
+                "Release checks its own final position; an old preview cannot snap outside the radius.");
+            drag.Move(px,py,target,screenScale,screenScale,uiScale,out x,out y);drag.Cancel();
+            check(!drag.Preview && drag.Floating,"Hiding or losing capture cancels preview without committing a dock.");
             var paper=new ToolbarRect(-150,-25,876*uiScale,103*uiScale);
             var slices=new ToolbarPaperSlices(paper,180*uiScale);
             float topV=(slices.Join-slices.TopImage.Y)/slices.TopImage.Height;
             float lowerV=(slices.Join-slices.LowerImage.Y)/slices.LowerImage.Height;
             check(Math.Abs(topV-lowerV)<.00001f && Math.Abs(topV-.8f)<.00001f &&
                 slices.TopImage.X==slices.LowerImage.X && slices.TopImage.Width==slices.LowerImage.Width,
-                "Paper strips meet at the same source texel and keep horizontal texture coordinates.");
-            check(slices.LowerImage.Bottom>=180*uiScale-.001f,"The matching lower shading reaches the footer without a texture restart.");
+                "Paper strips meet at the same source texel and retain horizontal texture coordinates.");
+            check(slices.LowerImage.Bottom>=180*uiScale-.001f,"Paper reaches the bottom edge without restarting the texture.");
         }
         var dock=new ToolbarRect(100,200,600,202);
         foreach(float scale in new[]{1f,1.5f,2f,3f})
@@ -102,9 +123,10 @@ internal static class ToolbarLayoutTests
                 "Only an expanded tool surface on the actual blank HUD may cover construction categories.");
         var controls=new List<ToolbarRect>{new ToolbarRect(260,100,100,26),new ToolbarRect(450,94,35,40)};
         var band=new ToolbarRect(0,100,500,26);
-        ToolbarLayout.Wings(band,controls,out var left,out var right);
-        check(left.Width>230 && right.Width>0,"Covering inactive construction tabs leaves useful lower tool space.");
-        foreach(var control in controls) check(!left.Intersects(control) && !right.Intersects(control),"Date, trumpet and crown retain real uncovered hit areas.");
+        var freeParts=new List<ToolbarRect>();
+        ToolbarLayout.FooterSegments(band,controls,freeParts);
+        check(freeParts.Count==3,"All free intervals survive, including the small remainder previously discarded.");
+        CheckCoverage(band,controls,freeParts,check);
         // Regression: previously only footer wings avoided controls. Moving the solid tool
         // body downward by even six pixels could cover the trumpet/crown above those wings.
         var solid = new List<ToolbarRect>{new ToolbarRect(0,0,80,202),new ToolbarRect(104,85,496,88)};
@@ -130,7 +152,23 @@ internal static class ToolbarLayoutTests
         check(!ToolbarLayout.TryAvoidControls(400,800,80,202,1280,1080,rosterOnly,fullScreen,4,out safe),
             "A fully occupied viewport reports no room, rather than accepting an unsafe input surface.");
         var adjacent=new List<ToolbarRect>{new ToolbarRect(100,100,90,30),new ToolbarRect(140,100,110,30),new ToolbarRect(240,100,60,30)};
-        ToolbarLayout.Wings(band,adjacent,out left,out right);
-        foreach(var item in adjacent) check(!left.Intersects(item) && !right.Intersects(item),"Overlapping functional reservations form one exclusion.");
+        ToolbarLayout.FooterSegments(band,adjacent,freeParts);
+        CheckCoverage(band,adjacent,freeParts,check);
+        var fullBand=new ToolbarRect(0,131,496,35);
+        ToolbarLayout.FooterSegments(fullBand,controls,freeParts);
+        CheckCoverage(fullBand,controls,freeParts,check);
+        foreach(var part in freeParts) check(part.Bottom==166,"Every free strip reaches the screen bottom, including the old nine-unit gap.");
+    }
+    private static void CheckCoverage(ToolbarRect band,List<ToolbarRect> controls,List<ToolbarRect> parts,Action<bool,string> check)
+    {
+        foreach(var part in parts) foreach(var control in controls)
+            check(!part.Intersects(control),"Coverage leaves every functional HUD surface clear.");
+        for(float x=band.X+.25f;x<band.Right;x+=.5f)
+        {
+            bool reserved=false,covered=false;
+            foreach(var c in controls) if(c.Y<band.Bottom && c.Bottom>band.Y && x>=c.X-4 && x<c.Right+4) reserved=true;
+            foreach(var p in parts) if(x>=p.X && x<p.Right) covered=true;
+            check(covered==!reserved,"Coverage and hit regions fill every unreserved footer interval, not just content slots.");
+        }
     }
 }

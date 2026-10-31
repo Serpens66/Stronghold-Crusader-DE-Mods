@@ -34,7 +34,14 @@ namespace Spectator
         internal const float Gap = 4;
         internal const float Portrait = 36, TargetPortrait = 28, Cell = 38, RosterWidth = 80;
         internal const float Header = 22, Body = 66, Footer = 26;
-        internal const float ControlWidth = 60, ControlHeight = 22, WindowWidth = 496, FloatingHeader = 44, FloatingGrip = 4;
+        internal const float ControlWidth = 60, ControlHeight = 22, WindowWidth = 496, FloatingHeader = 40, FloatingGrip = 8;
+        internal const float ToggleWidth = 24;
+        internal static float FloatingWidth(int count, bool placement) =>
+            12 + Math.Max(0, Math.Min(8, count) * Cell - 2) + 2 + (placement ? ControlWidth : ToggleWidth) + 2;
+        internal static ToolbarRect FloatingGripRect => new ToolbarRect(2, 2, FloatingGrip, Portrait);
+        internal static ToolbarRect DockDropTarget(ToolbarRect grip) => new ToolbarRect(grip.X,
+            grip.Y + (grip.Height - Math.Min(grip.Height, grip.Width / FloatingGrip * Portrait)) / 2,
+            grip.Width, Math.Min(grip.Height, grip.Width / FloatingGrip * Portrait));
         // Vanilla's detailed info host ends 125 units above the viewport bottom
         // (compact: 130). Keep a two-unit gap below both, in every toolbar mode.
         internal static ToolbarRect Dock(ToolbarRect alignment)
@@ -102,28 +109,30 @@ namespace Spectator
         internal static ToolbarRect OwnerCell(int ordinal, bool floating = false)
         {
             if (ordinal < 0 || ordinal >= 8) throw new ArgumentOutOfRangeException(nameof(ordinal));
-            return floating ? new ToolbarRect(2 + ordinal * Cell, 6, Portrait, Portrait) :
+            return floating ? new ToolbarRect(12 + ordinal * Cell, 2, Portrait, Portrait) :
                 new ToolbarRect(4 + ordinal % 2 * Cell, ordinal / 2 * Cell, Portrait, Portrait);
         }
 
         internal static float RosterHeight(int count) => Math.Max(1, (Math.Max(0, Math.Min(8, count)) + 1) / 2) * Cell - 2;
 
         internal static ToolbarPose Arrange(ToolbarRect alignment, ToolbarRect frame, int count, bool details,
-            bool floating = false, ToolbarRect dockControl = default)
+            bool floating = false, ToolbarRect dockControl = default, bool placement = false)
         {
             if (floating)
-                return new ToolbarPose(new ToolbarRect(0, 0, WindowWidth, FloatingHeader),
+            {
+                float barWidth = FloatingWidth(count, placement), buttonWidth = placement ? ControlWidth : ToggleWidth;
+                return new ToolbarPose(new ToolbarRect(0, 0, barWidth, FloatingHeader),
                     details ? new ToolbarRect(0, FloatingHeader, WindowWidth, Header + Body + Footer) : default,
-                    new ToolbarRect(WindowWidth - ControlWidth - 2, 13, ControlWidth, ControlHeight),
-                    new ToolbarRect(0, 0, WindowWidth, FloatingGrip));
+                    new ToolbarRect(barWidth - buttonWidth - 2, 8, buttonWidth, ToggleWidth), FloatingGripRect);
+            }
             float scale = alignment.Width / 914;
-            var roster = new ToolbarRect(frame.X - (2 + RosterWidth) * scale,
+            var roster = new ToolbarRect(frame.X - (6 + RosterWidth) * scale,
                 alignment.Bottom - RosterHeight(count) * scale, RosterWidth * scale, RosterHeight(count) * scale);
             var tools = details ? Dock(alignment) : default;
             var control = dockControl.Empty ? new ToolbarRect(alignment.X + (553 - 2 - ControlWidth) * scale,
                     alignment.Bottom - (ControlHeight + 2) * scale, ControlWidth * scale, ControlHeight * scale) : dockControl;
-            // Include the blank two-unit margin within the roster, stopping at the frame.
-            var grip = new ToolbarRect(roster.Right - 2 * scale, roster.Y, 4 * scale, roster.Height);
+            // The doubled grip uses the old blank margin plus six units of HUD gap.
+            var grip = new ToolbarRect(roster.Right - 2 * scale, roster.Y, FloatingGrip * scale, roster.Height);
             return new ToolbarPose(roster, tools, control, grip);
         }
 
@@ -131,11 +140,10 @@ namespace Spectator
         internal static void NumberOffset(float height, float inkX, float inkBottom, out float x, out float y)
         { x = 2 - inkX; y = height - 2 - inkBottom; }
 
-        // Find the two largest usable footer intervals. The gaps have no visual or hit surface.
-        internal static void Wings(ToolbarRect band, IList<ToolbarRect> controls,
-            out ToolbarRect left, out ToolbarRect right)
+        // Paint every free interval. Choosing content slots must not expose inactive tabs.
+        internal static void FooterSegments(ToolbarRect band, IList<ToolbarRect> controls, List<ToolbarRect> result)
         {
-            left = right = default;
+            result.Clear();
             float cursor = band.X;
             while (cursor < band.Right)
             {
@@ -148,39 +156,51 @@ namespace Spectator
                     { start = Math.Max(cursor, item.X - Gap); end = Math.Max(cursor, item.Right + Gap); }
                 }
                 var free = new ToolbarRect(cursor, band.Y, Math.Max(0, start - cursor), band.Height);
-                if (free.Width > left.Width) { right = left; left = free; }
-                else if (free.Width > right.Width) right = free;
+                if (!free.Empty) result.Add(free);
                 if (start >= band.Right) break;
                 cursor = Math.Min(band.Right, Math.Max(cursor + 1, end));
             }
-            if (right.Width > 0 && left.X > right.X) { var swap = left; left = right; right = swap; }
         }
 
     }
 
-    // Pointer fractions belong to the grip, never to a mode-dependent panel origin.
-    // Keeping them fixed for the drag prevents a reflow from looking like mouse movement.
+    // During capture the view can detach, but only Drop may attach it again.
+    // The same desired grip geometry drives preview and release, before HUD avoidance.
     internal sealed class ToolbarDragAnchor
     {
-        private float fractionX, fractionY, dockFractionX, dockFractionY;
-        internal void Begin(float x, float y, ToolbarRect grip, bool attached = true)
+        private float startX, startY, grabX, grabY;
+        internal bool Floating { get; private set; }
+        internal bool Preview { get; private set; }
+        internal void Begin(float x, float y, ToolbarRect grip, bool attached)
         {
-            fractionX = Math.Max(0, Math.Min(1, (x - grip.X) / Math.Max(1, grip.Width)));
-            fractionY = Math.Max(0, Math.Min(1, (y - grip.Y) / Math.Max(1, grip.Height)));
-            // A fresh floating drag targets the visible dock centre. A subpixel click
-            // within the four-unit top edge must not choose an arbitrary dock row.
-            dockFractionX = attached ? fractionX : .5f;
-            dockFractionY = attached ? fractionY : .5f;
+            startX = x; startY = y; Floating = !attached; Preview = false;
+            var small = ToolbarLayout.FloatingGripRect;
+            grabX = small.X + Math.Max(0, Math.Min(1, (x - grip.X) / Math.Max(.001f, grip.Width))) * small.Width;
+            grabY = small.Y + Math.Max(0, Math.Min(1, (y - grip.Y) / Math.Max(.001f, grip.Height))) * small.Height;
         }
-        internal bool Move(float x, float y, ToolbarRect dockGrip, float screenScaleX, float screenScaleY,
-            float floatingScale, bool attached, out float wantedX, out float wantedY)
+        internal bool Move(float x, float y, ToolbarRect dockTarget, float screenScaleX, float screenScaleY,
+            float floatingScale, out float wantedX, out float wantedY)
         {
-            var target = new ToolbarRect(dockGrip.X + dockFractionX * dockGrip.Width,
-                dockGrip.Y + dockFractionY * dockGrip.Height, 1, 1);
-            wantedX = x - fractionX * ToolbarLayout.WindowWidth * floatingScale;
-            wantedY = y - fractionY * ToolbarLayout.FloatingGrip * floatingScale;
-            return ToolbarLayout.Snap(x, y, target, screenScaleX, screenScaleY, attached);
+            if (!Floating && !ToolbarLayout.Snap(x, y, new ToolbarRect(startX, startY, 1, 1), screenScaleX, screenScaleY, true))
+                Floating = true;
+            wantedX = x - grabX * floatingScale; wantedY = y - grabY * floatingScale;
+            var small = ToolbarLayout.FloatingGripRect;
+            Preview = Floating && ToolbarLayout.Snap(wantedX + (small.X + small.Width / 2) * floatingScale,
+                wantedY + (small.Y + small.Height / 2) * floatingScale,
+                new ToolbarRect(dockTarget.X + dockTarget.Width / 2, dockTarget.Y + dockTarget.Height / 2, 1, 1),
+                screenScaleX, screenScaleY, false);
+            return Floating;
         }
+        internal bool Drop(float x, float y, ToolbarRect dockTarget, float screenScaleX, float screenScaleY,
+            float floatingScale, out float wantedX, out float wantedY)
+        {
+            Move(x, y, dockTarget, screenScaleX, screenScaleY, floatingScale, out wantedX, out wantedY);
+            bool attach = !Floating || Preview;
+            if (attach) Floating = false;
+            Preview = false;
+            return attach;
+        }
+        internal void Cancel() { Preview = false; }
     }
 
     internal readonly struct ToolbarPaperSlices

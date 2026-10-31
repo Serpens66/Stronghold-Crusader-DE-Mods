@@ -20,8 +20,11 @@ namespace CanarariWoodTest
         public const string Guid = "CanarariWoodTest_Serp";
         private static ManualLogSource log;
         private static bool registered, placement, nearby, farms, swap;
+        private static bool experimentsReady;
         private static FixesFarmFilterOverride comparison;
         private static CanarariWoodRuntime runtime;
+        private static CanariPassiveDiagnostics passive;
+        private static CanariNativeCapture capture;
         private static IDisposable sessionSubscription, spawnSubscription, buildSubscription;
         private void Awake()
         {
@@ -50,26 +53,55 @@ namespace CanarariWoodTest
                 Shared.DebugLogHelper.LogWarning(log, "AI_BUILD_SPECIAL_PROBES_DISABLED: Vanilla comparison/native contract unavailable; no active experiment armed.");
             try
             {
+                passive = new CanariPassiveDiagnostics(log, BepInEx.Bootstrap.Chainloader.PluginInfos.ContainsKey("fixes"),
+                    unchecked((ulong)context.ModuleHandle.ToInt64()),
+                    () => BepInEx.Bootstrap.Chainloader.PluginInfos.ContainsKey("AICoarsePathComponentFixTest_Serp"));
                 runtime = new CanarariWoodRuntime(log, unchecked((ulong)context.ModuleHandle.ToInt64()),
-                    ready && placement, ready && nearby, ready && farms, ready && swap);
-                if (!AiBuildExperimentBridge.TryRegister(Guid, runtime.OnNativeRecord, out string error))
+                    ready && placement, ready && nearby, ready && farms, ready && swap, passive.Log);
+                capture = new CanariNativeCapture(context.ModuleHandle.ToInt64(), NativeDiagnosticContracts.ComputeInstalledHash());
+                if (!AiBuildExperimentBridge.TryRegister(Guid, DeliverRecord, out string error) ||
+                    !AiBuildExperimentBridge.TryRegisterDetails(Guid, capture, passive.OnWall, out error))
                 { Shared.DebugLogHelper.LogError(log, "AI_BUILD_SPECIAL_PROBES_UNAVAILABLE: " + error); runtime = null; return; }
-                if (!AiBuildDiagnostic.TryRegisterWoodBuildGate(Guid, runtime.ShouldDeferWoodBuild, out error) ||
-                    !AiBuildDiagnostic.TryRegisterNearbyWoodOverlay(Guid, runtime.BeginNearbyWoodOverlay, out error))
-                { Shared.DebugLogHelper.LogError(log, "AI_BUILD_SPECIAL_PROBES_UNAVAILABLE: " + error); return; }
-                sessionSubscription = Shared.GameplaySessionLifecycle.SubscribeStarted(log, runtime.OnSessionStarted, runtime.OnSessionEnded);
-                spawnSubscription = BuildingR3EventHooks.OnBuildingSpawn.Observable.Subscribe(runtime.OnBuildingSpawn);
-                buildSubscription = BuildingR3EventHooks.OnBuildStructure.Observable.Subscribe(runtime.OnBuildStructure);
+                experimentsReady = AiBuildDiagnostic.TryRegisterWoodBuildGate(Guid, runtime.ShouldDeferWoodBuild, out error) &&
+                    AiBuildDiagnostic.TryRegisterNearbyWoodOverlay(Guid, runtime.BeginNearbyWoodOverlay, out error);
+                if (!experimentsReady)
+                    Shared.DebugLogHelper.LogError(log, "AI_BUILD_SPECIAL_PROBES_UNAVAILABLE: " + error + "; passive observation remains active.");
+                sessionSubscription = Shared.GameplaySessionLifecycle.SubscribeStarted(log, OnSessionStarted, OnSessionEnded);
+                spawnSubscription = BuildingR3EventHooks.OnBuildingSpawn.Observable.Subscribe(OnExperimentSpawn);
+                buildSubscription = BuildingR3EventHooks.OnBuildStructure.Observable.Subscribe(OnExperimentBuild);
                 GameTimeManagerAPI.Instance.OnTick += OnTick;
                 Shared.DebugLogHelper.LogInfo(log, "AI_BUILD_SPECIAL_READY: publisher=GameTimeManagerAPI.OnTick; nativeHooksOwnedBy=AIBuildDiagnoseTest.");
             }
             catch (Exception ex) { Shared.DebugLogHelper.LogError(log, "AI_BUILD_SPECIAL_INITIALIZATION_FAILED: " + ex); }
         }
         private static bool firstTick;
+        private static void DeliverRecord(AiBuildDiagnosticRecord record)
+        {
+            try { passive?.OnNativeRecord(record); }
+            catch (Exception ex) { Shared.DebugLogHelper.LogError(log, "AI_BUILD_PASSIVE_CALLBACK_FAILED: " + ex); }
+            try { if (experimentsReady) runtime?.OnNativeRecord(record); }
+            catch (Exception ex) { Shared.DebugLogHelper.LogError(log, "AI_BUILD_EXPERIMENT_CALLBACK_FAILED: " + ex); }
+        }
+        private static void OnSessionStarted(Shared.GameplaySessionStartedContext session)
+        {
+            try { passive?.OnSessionStarted(session); }
+            finally { if (experimentsReady) runtime?.OnSessionStarted(session); }
+        }
+        private static void OnSessionEnded()
+        {
+            try { passive?.OnSessionEnded(); }
+            finally { runtime?.OnSessionEnded(); }
+        }
+        private static void OnExperimentSpawn(BuildingSpawnEventArgs args)
+        { if (experimentsReady) runtime?.OnBuildingSpawn(args); }
+        private static void OnExperimentBuild(BuildStructureEventArgs args)
+        { if (experimentsReady) runtime?.OnBuildStructure(args); }
         private static void OnTick(int tick)
         {
             if (!firstTick) { firstTick = true; Shared.DebugLogHelper.LogInfo(log, "AI_BUILD_SPECIAL_POST_STARTUP_TICK: " + tick); }
-            try { runtime?.OnTick(tick); }
+            try { passive?.OnTick(tick); }
+            catch (Exception ex) { Shared.DebugLogHelper.LogError(log, "AI_BUILD_PASSIVE_TICK_FAILED: " + ex); }
+            try { if (experimentsReady) runtime?.OnTick(tick); }
             catch (Exception ex) { Shared.DebugLogHelper.LogError(log, "AI_BUILD_SPECIAL_TICK_FAILED: " + ex); }
         }
     }

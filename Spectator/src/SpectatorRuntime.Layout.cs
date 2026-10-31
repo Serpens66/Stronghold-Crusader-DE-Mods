@@ -12,7 +12,8 @@ namespace Spectator
         private static FrameworkElement alignmentAnchor, frameAnchor, toolbarGoods;
         private static FrameworkElement dateAnchor, alliesAnchor, toolbarControl;
         private static readonly ToolbarHitTestLease dateHitTest = new ToolbarHitTestLease();
-        private static Border toolbarHeader, rosterSurface, leftWing, rightWing, snapFrame, toolSnapFrame;
+        private static Border toolbarHeader, rosterSurface, leftWing, rightWing, snapFrame, toolSnapFrame, snapGripFrame;
+        private static UIElement toolbarNativeLayer;
         private static Image scrollAnchor;
         private static Brush rosterPaper, controlPaper;
         private static readonly Brush transparentToolbarBrush = new SolidColorBrush(Color.FromArgb(0, 0, 0, 0));
@@ -25,6 +26,10 @@ namespace Spectator
         private static readonly List<ToolbarRect> controlsBounds = new List<ToolbarRect>();
         private static readonly List<ToolbarRect> solidPieces = new List<ToolbarRect>(2);
         private static readonly List<ToolbarRect> paintedPieces = new List<ToolbarRect>(4);
+        private static readonly List<ToolbarRect> footerSegments = new List<ToolbarRect>(8);
+        private static readonly List<Border> footerCovers = new List<Border>(8);
+        private static readonly Brush snapIdleBrush = new SolidColorBrush(Color.FromArgb(136, 151, 118, 69));
+        private static readonly Brush snapReadyBrush = new SolidColorBrush(Color.FromRgb(239, 198, 112));
         private static ToolbarRect toolbarDockGrip, toolbarVisibleGrip;
         private static float toolbarFloatingScale = 1;
         private static readonly ToolbarDragAnchor toolbarDrag = new ToolbarDragAnchor();
@@ -42,10 +47,11 @@ namespace Spectator
             toolbarGoods = humanScreen.FindName("SpectatorGoodsGrid") as FrameworkElement;
             snapFrame = humanScreen.FindName("SpectatorSnapFrame") as Border;
             toolSnapFrame = humanScreen.FindName("SpectatorToolSnapFrame") as Border;
+            snapGripFrame = humanScreen.FindName("SpectatorSnapGrip") as Border;
             BindToolbarPaper();
             if (toolbarHeader == null || rosterSurface == null || toolbarTools == null || toolbarOwners == null ||
                 toolbarWings == null || leftWing == null || rightWing == null || toolbarGoods == null ||
-                snapFrame == null || toolSnapFrame == null || toolbarControl == null)
+                snapFrame == null || toolSnapFrame == null || snapGripFrame == null || toolbarControl == null)
                 throw new MissingMemberException("Spectator raster/tool surfaces missing.");
             ObserveLayout(toolbarHeader);
             // A reused view can still have our floating transparent background.
@@ -54,9 +60,10 @@ namespace Spectator
             if (rosterPaper == null) throw new MissingMemberException("Spectator paper resource missing.");
             controlPaper = rosterPaper;
             // These are siblings in IngameUIScreens. Only our own surface changes its draw order.
-            var main = humanScreen.FindName("MainHUD") as UIElement;
-            if (main != null && ReferenceEquals(VisualTreeHelper.GetParent(main), VisualTreeHelper.GetParent(humanCanvas)))
-                Panel.SetZIndex(humanCanvas, Math.Max(10031, Panel.GetZIndex(main) + 1));
+            toolbarNativeLayer = humanScreen.FindName("MainHUD") as UIElement;
+            if (toolbarNativeLayer == null || !ReferenceEquals(VisualTreeHelper.GetParent(toolbarNativeLayer), VisualTreeHelper.GetParent(humanCanvas)))
+                throw new MissingMemberException("Shared Spectator/native stacking parent missing.");
+            RefreshToolbarLayer();
             toolbarLayoutDirty = true;
         }
 
@@ -125,15 +132,22 @@ namespace Spectator
         private static void HideBlockedToolbar()
         {
             humanPanel.Opacity = 0; humanPanel.IsHitTestVisible = false;
-            amountInput?.EndEditing(); ClosePlayerTooltips();
-            humanDragging = false;
-            if (humanDragHandle.IsMouseCaptured) humanDragHandle.ReleaseMouseCapture();
+            SuspendToolbarInteraction();
+        }
+
+        private static void RefreshToolbarLayer()
+        {
+            // Read cached references in the existing render path, never search the tree here.
+            int nativeLayer = Panel.GetZIndex(toolbarNativeLayer);
+            int layer = Math.Max(10031, nativeLayer == int.MaxValue ? int.MaxValue : nativeLayer + 1);
+            if (Panel.GetZIndex(humanCanvas) != layer) Panel.SetZIndex(humanCanvas, layer);
         }
 
         private static void PositionToolbar()
         {
             if (humanPanel == null || humanPanel.Visibility != Visibility.Visible || humanCanvas == null ||
-                humanCanvas.ActualWidth <= 0 || humanCanvas.ActualHeight <= 0) return;
+                !humanCanvas.IsVisible || humanCanvas.ActualWidth <= 0 || humanCanvas.ActualHeight <= 0) return;
+            RefreshToolbarLayer();
             if (!layoutCached)
             {
                 if (humanBoundHud?.IsLoaded != true || humanScreen?.IsLoaded != true) return;
@@ -173,12 +187,12 @@ namespace Spectator
                 allies.Bottom - (ToolbarLayout.ControlHeight + 2) * nativeScale,
                 ToolbarLayout.ControlWidth * nativeScale, ToolbarLayout.ControlHeight * nativeScale);
             var dockPose = ToolbarLayout.Arrange(alignment, frame, count, details, false, dockControl);
-            toolbarDockGrip = dockPose.Grip;
-            var pose = toolbarMoved ? ToolbarLayout.Arrange(alignment, frame, count, details, true) : dockPose;
+            toolbarDockGrip = ToolbarLayout.DockDropTarget(dockPose.Grip);
+            var floatingPose = ToolbarLayout.Arrange(alignment, frame, count, details, true, default, humanPlacementMode);
+            var pose = toolbarMoved ? floatingPose : dockPose;
             float units = toolbarMoved ? 1 : nativeScale;
             float width = pose.Bounds.Width / units, height = pose.Bounds.Height / units;
-            toolbarFloatingScale = Math.Min(nativeScale, Math.Min(vw / ToolbarLayout.WindowWidth,
-                vh / (ToolbarLayout.FloatingHeader + (details ? ToolbarLayout.Header + ToolbarLayout.Body + ToolbarLayout.Footer : 0))));
+            toolbarFloatingScale = Math.Min(nativeScale, Math.Min(vw / floatingPose.Bounds.Width, vh / floatingPose.Bounds.Height));
             float scale = toolbarMoved ? toolbarFloatingScale : Math.Min(nativeScale, Math.Min(vw / width, vh / height));
             humanPanel.Width = width; humanPanel.Height = height;
             humanPanel.RenderTransform = new ScaleTransform(scale, scale);
@@ -224,7 +238,9 @@ namespace Spectator
             toolbarVisibleGrip = new ToolbarRect(position.X + grip.X * scale, position.Y + grip.Y * scale,
                 grip.Width * scale, grip.Height * scale);
             toolbarPaperPieces.Clear();
-            if (toolbarMoved) toolbarPaperPieces.Add(new ToolbarRect(0, 0, width, height));
+            footerSegments.Clear();
+            if (toolbarMoved) toolbarPaperPieces.Add(roster);
+            float paperBottom = roster.Bottom;
             if (details)
             {
                 ToolbarRect left, right;
@@ -238,9 +254,20 @@ namespace Spectator
                     if (controlVisible) controlsBounds.Add(new ToolbarRect(position.X + control.X * scale,
                         position.Y + control.Y * scale, control.Width * scale, control.Height * scale));
                     float toolX = position.X + tools.X * scale, toolY = position.Y + tools.Y * scale;
-                    var band = new ToolbarRect(toolX, toolY + (ToolbarLayout.Header + ToolbarLayout.Body) * scale,
-                        tools.Width * scale, ToolbarLayout.Footer * scale);
-                    ToolbarLayout.Wings(band, controlsBounds, out var a, out var b);
+                    float bandY = toolY + (ToolbarLayout.Header + ToolbarLayout.Body) * scale;
+                    var band = new ToolbarRect(toolX, bandY, tools.Width * scale, Math.Max(ToolbarLayout.Footer * scale, alignment.Bottom - bandY));
+                    ToolbarLayout.FooterSegments(band, controlsBounds, footerSegments);
+                    ToolbarRect a = default, b = default;
+                    for (int i = 0; i < footerSegments.Count; i++)
+                    {
+                        var free = footerSegments[i];
+                        var local = Relative(free, position, scale);
+                        paintedPieces.Add(local); toolbarPaperPieces.Add(local);
+                        paperBottom = Math.Max(paperBottom, local.Bottom);
+                        footerSegments[i] = local;
+                        if (free.Width > a.Width) { b = a; a = free; }
+                        else if (free.Width > b.Width) b = free;
+                    }
                     if (toolsModel.ActiveViewKey == "Orders")
                     { left = a.Width >= b.Width ? a : b; right = default; }
                     else { right = a.Width >= b.Width ? a : b; left = default; }
@@ -250,20 +277,22 @@ namespace Spectator
                 var body = new ToolbarRect(tools.X, tools.Y, tools.Width, ToolbarLayout.Header + ToolbarLayout.Body);
                 paintedPieces.Add(body);
                 if (!toolbarMoved) toolbarPaperPieces.Add(body);
+                else toolbarPaperPieces.Add(new ToolbarRect(tools.X, tools.Y, tools.Width, tools.Height));
                 foreach (var wing in new[] { left, right })
                 {
                     if (wing.Empty) continue;
                     var piece = new ToolbarRect(tools.X + wing.X, tools.Y + ToolbarLayout.Header + ToolbarLayout.Body,
                         wing.Width, ToolbarLayout.Footer);
                     paintedPieces.Add(piece);
-                    if (!toolbarMoved) toolbarPaperPieces.Add(piece);
                 }
             }
+            UpdateFooterCovers();
             var nativePaper = CanvasBounds(scrollAnchor);
             RenderToolbarPaper(width, height, toolbarMoved, nativePaper.Empty ? default : Relative(nativePaper, position, scale),
-                tools.Empty ? height : tools.Bottom, scrollAnchor);
+                Math.Max(paperBottom, tools.Empty ? 0 : tools.Bottom), scrollAnchor);
             PlaceGuide(snapFrame, dockPose.Roster, position, scale, true);
             PlaceGuide(toolSnapFrame, dockPose.Tools, position, scale, details);
+            PlaceGuide(snapGripFrame, toolbarDockGrip, position, scale, true);
         }
 
         private static ToolbarRect Scaled(ToolbarRect area, float scale) =>
@@ -290,21 +319,44 @@ namespace Spectator
             Canvas.SetLeft(guide, (target.X - position.X) / scale);
             Canvas.SetTop(guide, (target.Y - position.Y) / scale);
             guide.Visibility = humanDragging && visible ? Visibility.Visible : Visibility.Collapsed;
+            guide.BorderBrush = toolbarDrag.Preview ? snapReadyBrush : snapIdleBrush;
+        }
+        private static void HideDockGuides()
+        {
+            if (snapFrame != null) snapFrame.Visibility = Visibility.Collapsed;
+            if (toolSnapFrame != null) toolSnapFrame.Visibility = Visibility.Collapsed;
+            if (snapGripFrame != null) snapGripFrame.Visibility = Visibility.Collapsed;
+        }
+        private static void OnFooterCoverMouseDown(object sender, MouseButtonEventArgs args) => args.Handled = true;
+        private static void UpdateFooterCovers()
+        {
+            while (footerCovers.Count < footerSegments.Count)
+            {
+                var cover = new Border { Background = transparentToolbarBrush };
+                Panel.SetZIndex(cover, -1); cover.MouseDown += OnFooterCoverMouseDown;
+                toolbarRoot.Children.Add(cover); footerCovers.Add(cover);
+            }
+            for (int i = 0; i < footerCovers.Count; i++)
+            {
+                footerCovers[i].Visibility = i < footerSegments.Count ? Visibility.Visible : Visibility.Collapsed;
+                if (i < footerSegments.Count) Place(footerCovers[i], footerSegments[i]);
+            }
         }
         private static void SnapToolbarDrag(float x, float y)
         {
             Point origin = humanCanvas.PointToScreen(new Point(0, 0));
             Point unit = humanCanvas.PointToScreen(new Point(100, 100));
-            toolbarMoved = !toolbarDrag.Move(x, y, toolbarDockGrip,
+            toolbarMoved = toolbarDrag.Move(x, y, toolbarDockGrip,
                 (unit.X - origin.X) / 100, (unit.Y - origin.Y) / 100,
-                toolbarFloatingScale, !toolbarMoved, out toolbarDesiredX, out toolbarDesiredY);
+                toolbarFloatingScale, out toolbarDesiredX, out toolbarDesiredY);
             toolbarLayoutDirty = true;
         }
         private static void DetachToolbarLayout()
         {
             UpdatePlacementDate(false);
-            if (snapFrame != null) snapFrame.Visibility = Visibility.Collapsed;
-            if (toolSnapFrame != null) toolSnapFrame.Visibility = Visibility.Collapsed;
+            HideDockGuides(); toolbarDrag.Cancel();
+            foreach (var cover in footerCovers) { cover.MouseDown -= OnFooterCoverMouseDown; toolbarRoot?.Children.Remove(cover); }
+            footerCovers.Clear(); footerSegments.Clear();
             foreach (var item in observedLayout)
             {
                 item.SizeChanged -= OnToolbarLayoutSize;
@@ -312,7 +364,8 @@ namespace Spectator
                 item.IsEnabledChanged -= OnToolbarLayoutVisibility;
             }
             observedLayout.Clear(); observedBounds.Clear(); protectedControls.Clear(); buildCategories.Clear(); controlsBounds.Clear(); solidPieces.Clear(); paintedPieces.Clear();
-            toolbarHeader = rosterSurface = leftWing = rightWing = snapFrame = toolSnapFrame = null;
+            toolbarHeader = rosterSurface = leftWing = rightWing = snapFrame = toolSnapFrame = snapGripFrame = null;
+            toolbarNativeLayer = null;
             alignmentAnchor = frameAnchor = toolbarGoods = dateAnchor = alliesAnchor = toolbarControl = null;
             toolbarWings = toolbarTools = toolbarOwners = null;
             scrollAnchor = null; rosterPaper = controlPaper = null;

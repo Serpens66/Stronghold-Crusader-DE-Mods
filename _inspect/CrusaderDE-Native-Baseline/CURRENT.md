@@ -46,6 +46,8 @@ Semantic reverse-engineering baseline:
 
 ## Vanilla behavior audits
 
+- [AI woodcutter retirement and repeated construction](./sem/FBCB9319/knowledge/AI_WOODCUTTER_RETIREMENT.md): retirement thresholds, worker path/counter writers, accessibility propagation and temporary coarse-cell avoidance; static audit, no save-specific cause claim.
+
 Only Vanilla behavior; Script Extender names appear only as vocabulary.
 
 - [AI resource reserve audit](./sem/FBCB9319/knowledge/AI_RESOURCE_RESERVE.md)

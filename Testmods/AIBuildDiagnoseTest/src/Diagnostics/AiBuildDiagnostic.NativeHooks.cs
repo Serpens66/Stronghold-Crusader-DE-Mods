@@ -133,14 +133,13 @@ namespace AIBuildDiagnoseTest
                 bool observe = mapperIndex == 3 &&
                     TryGetCurrentWoodAttempt(out long id, out int owner) && owner == playerId && HasObserver;
                 AiRouteEvidence evidence = null;
-                if (observe)
+                if (observe && AiBuildExperimentBridge.HasDetails)
                 {
-                    try { evidence = CaptureRouteEvidence(playerId, mapperIndex, tileX, tileY); }
+                    try { evidence = AiBuildExperimentBridge.CaptureRoute(playerId, mapperIndex, tileX, tileY); }
                     catch (Exception ex)
                     {
                         Shared.DebugLogHelper.LogError(log, "AI route evidence capture failed: " + ex);
-                        evidence = Unavailable("capture-exception:" + ex.GetType().Name,
-                            tileX, tileY, -1, -1);
+                        evidence = null;
                     }
                 }
                 int result = hook.Original(manager, playerId, mapperIndex, tileX, tileY);
@@ -153,7 +152,7 @@ namespace AIBuildDiagnoseTest
                 {
                     try
                     {
-                        PublishRouteEvidence(playerId, evidence);
+                        if (evidence != null) PublishRouteEvidence(playerId, evidence);
                         Publish("route-result", playerId, result, mapperIndex, tileX, tileY);
                     }
                     catch (Exception ex) { Shared.DebugLogHelper.LogError(log, "AI route result observation failed: " + ex); }
@@ -161,67 +160,6 @@ namespace AIBuildDiagnoseTest
                 return result;
             }
 
-            private static AiRouteEvidence Unavailable(string status, int x, int y,
-                int sourceTile, int targetTile) =>
-                new AiRouteEvidence(status, x, y, sourceTile, targetTile,
-                    -1, -1, -1, -1, -1, -1, new AiRouteConnection[0]);
-
-            private static unsafe AiRouteEvidence CaptureRouteEvidence(int playerId,
-                int mapperIndex, int tileX, int tileY)
-            {
-                // Audit: 0xC3BF0 reads the player's keep tile and the target tile through
-                // the 320800-entry PCL grid. The map's XY raster is 800 by 800.
-                if (playerId < 1 || playerId > 8)
-                    return Unavailable("invalid-player", tileX, tileY, -1, -1);
-                if (tileX < 0 || tileX >= 800 || tileY < 0 || tileY >= 800)
-                    return Unavailable("outside-800-raster", tileX, tileY, -1, -1);
-                if (!GameTileManagerAPI.Instance.IsTileInsideMapBounds(tileX, tileY))
-                    return Unavailable("outside-playable-diamond", tileX, tileY, -1, -1);
-                Span<ushort> grid = GamePathingManagerAPI.Instance.GetPathComponentGrid();
-                if (grid.Length != 320800)
-                    return Unavailable("path-grid-capacity:" + grid.Length, tileX, tileY, -1, -1);
-                int sourceTile = Marshal.ReadInt32(new IntPtr(checked(moduleBase + 0x379AFB0 +
-                    (long)playerId * PlayerStride)));
-                int targetTile = Marshal.ReadInt32(new IntPtr(checked(moduleBase + 0x402FF2C +
-                    (long)tileY * 12))) + tileX;
-                if ((uint)sourceTile >= (uint)grid.Length ||
-                    (uint)targetTile >= (uint)grid.Length)
-                    return Unavailable("tile-id-outside-path-grid", tileX, tileY, sourceTile, targetTile);
-                int source = grid[sourceTile];
-                int target = grid[targetTile];
-                int sourceNative = (ushort)Marshal.ReadInt16(new IntPtr(checked(
-                    moduleBase + 0x50EC690 + (long)sourceTile * 2)));
-                int targetNative = (ushort)Marshal.ReadInt16(new IntPtr(checked(
-                    moduleBase + 0x50EC690 + (long)targetTile * 2)));
-                int bypass = Marshal.ReadInt32(new IntPtr(checked(moduleBase + 0x2E4FE0 + mapperIndex * 4L)));
-                int playerToken = Marshal.ReadInt32(new IntPtr(checked(moduleBase + 0x37EDF3C +
-                    playerId * 4L)));
-                var connections = new AiRouteConnection[199];
-                int buildingCapacity = GameBuildingManagerAPI.Instance.GetBuildingsAsSpan().Length;
-                GamePathingManagerAPI pathing = GamePathingManagerAPI.Instance;
-                for (int recordId = 1; recordId <= 199; recordId++)
-                {
-                    if (!pathing.TryGetPathConnectionRecordById(recordId, out PathConnectionRecord* record) ||
-                        record == null)
-                        return Unavailable("connection-record-unavailable:" + recordId,
-                            tileX, tileY, sourceTile, targetTile);
-                    int owner = record->r_OwnerOrAccessPlayerId;
-                    int ownerToken = owner >= 0 && owner <= 8
-                        ? Marshal.ReadInt32(new IntPtr(checked(moduleBase + 0x37EDF3C +
-                            owner * 4L))) : int.MinValue;
-                    int buildingId = record->r_BuildingId;
-                    int gateFlag = buildingId >= 0 && buildingId < buildingCapacity
-                        ? Marshal.ReadInt16(new IntPtr(checked(moduleBase + 0x64CCED2 +
-                            (long)buildingId * 0x32C))) : int.MinValue;
-                    connections[recordId - 1] = new AiRouteConnection(recordId,
-                        record->r_IsActive, record->r_IsEnabledOrOpen,
-                        (int)record->r_ConnectionClass, owner, buildingId,
-                        record->r_PathComponentA, record->r_PathComponentB,
-                        record->r_PathComponentC, ownerToken, gateFlag);
-                }
-                return new AiRouteEvidence("ok", tileX, tileY, sourceTile, targetTile,
-                    source, target, sourceNative, targetNative, bypass, playerToken, connections);
-            }
         }
 
         private static void ValidateEntry(byte[] bytes, int rva, int displaced)

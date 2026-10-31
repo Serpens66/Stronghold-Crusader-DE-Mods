@@ -6,6 +6,8 @@ namespace LordOverviewTest {
  internal static partial class OverviewRuntime {
   private static ComboBox designChoice,sortChoice,lordGridChoice,valueGridChoice;
   private static Button sortDirection;
+  private static CheckBox showEliminatedChoice;
+  private static bool? appliedPlayerFilter;
   private static StackPanel cardOptions;
   private static ScrollViewer menuScroll;
   private static Grid orderHost;
@@ -21,6 +23,9 @@ namespace LordOverviewTest {
    designChoice.ItemsSource=new[]{Text("DesignList"),Text("DesignSplitList"),Text("DesignCards")};Tip(designChoice,Text("DesignHelp"));
    designChoice.SelectionChanged+=(_,__)=>{if(updatingMenu)return;int selected=designChoice.SelectedIndex;if(selected<0 || selected>2)return;
     UiAction(()=>{settings.SetDisplayDesign((OverviewDesign)selected);ApplyLayout();})();};
+   var eliminatedLabel=Label(Text("ShowEliminated"));eliminatedLabel.FontSize=13;eliminatedLabel.TextWrapping=TextWrapping.Wrap;eliminatedLabel.MaxWidth=145;
+   showEliminatedChoice=new CheckBox {Content=eliminatedLabel,FontSize=13,Margin=new Thickness(2,1,2,5)};Tip(showEliminatedChoice,Text("ShowEliminatedHelp"));
+   showEliminatedChoice.Checked+=(_,__)=>ChooseEliminated(true);showEliminatedChoice.Unchecked+=(_,__)=>ChooseEliminated(false);controls.Children.Add(showEliminatedChoice);
    cardOptions=new StackPanel();
    cardOptions.Children.Add(MenuLine(Text("LordGrid"),lordGridChoice=MenuCombo()));Tip(lordGridChoice,Text("GridHelp"));
    cardOptions.Children.Add(MenuLine(Text("ValueGrid"),valueGridChoice=MenuCombo()));Tip(valueGridChoice,Text("GridHelp"));
@@ -33,13 +38,16 @@ namespace LordOverviewTest {
    return controls;
   }
   private static ComboBox MenuCombo()=>new ComboBox {FontSize=14,HorizontalAlignment=HorizontalAlignment.Stretch};
+  private static int DisplayedLordCount=>OverviewState.VisibleCount(rows,settings.DisplayShowEliminated);
+  private static void ChooseEliminated(bool show){if(updatingMenu)return;UiAction(()=>{settings.SetDisplayShowEliminated(show);ApplyPlayerFilter();})();}
+  private static void ApplyPlayerFilter(){bool show=settings.DisplayShowEliminated;if(appliedPlayerFilter==show)return;appliedPlayerFilter=show;CancelHeaderGesture();ClosePassiveHover();if(panel?.IsVisible==true)Render();UpdateColumnsPopup();PositionSettingsMenu();}
   private static FrameworkElement MenuLine(string title,FrameworkElement control){
    var line=new StackPanel {Margin=new Thickness(2,1,2,5)};var label=Label(title);label.FontSize=13;label.TextWrapping=TextWrapping.Wrap;line.Children.Add(label);line.Children.Add(control);return line;
   }
   private static void ChooseGrid(bool lords){
    if(updatingMenu)return;var combo=lords?lordGridChoice:valueGridChoice;var choices=lords?lordChoices:valueChoices;int index=combo.SelectedIndex;
    if(index<0 || index>=choices.Length)return;var selected=choices[index];
-   UiAction(()=>{settings.SetDisplayGrid(lords,selected.Normalize(lords?rows.Count:selection.Columns.Length));ApplyLayout();})();
+   UiAction(()=>{settings.SetDisplayGrid(lords,selected.Normalize(lords?DisplayedLordCount:selection.Columns.Length));ApplyLayout();})();
   }
   private static void NormalizeGridPreferences(int lordCount,int valueCount){
    var lords=settings.DisplayLordGrid;if(lordCount>0 && !lords.IsNormalized(lordCount))settings.SetDisplayGrid(true,lords.Normalize(lordCount));
@@ -55,6 +63,7 @@ namespace LordOverviewTest {
    if(designChoice==null)return;updatingMenu=true;
    try {
     designChoice.SelectedIndex=(int)settings.DisplayDesign;cardOptions.Visibility=settings.DisplayDesign==OverviewDesign.Cards?Visibility.Visible:Visibility.Collapsed;
+    showEliminatedChoice.IsChecked=settings.DisplayShowEliminated;
     UpdateGridReadouts();
     sortMetrics.Clear();sortMetrics.Add(null);sortMetrics.AddRange(selection.Columns.Select(m=>(Metric?)m));
     var labels=new List<string>{Text("Player")};labels.AddRange(selection.Columns.Select(MetricName));sortChoice.ItemsSource=labels;sortChoice.SelectedIndex=sortMetrics.IndexOf(state.Column);
@@ -75,7 +84,8 @@ namespace LordOverviewTest {
   private static void UpdateGridReadouts(){
    if(lordGridChoice==null)return;bool before=updatingMenu;updatingMenu=true;
    try {
-    UpdateGridChoice(lordGridChoice,rows.Count,settings.DisplayLordGrid,ref lordChoices,ref lordChoiceSignature);
+    lordGridChoice.IsEnabled=DisplayedLordCount>0;
+    UpdateGridChoice(lordGridChoice,DisplayedLordCount,settings.DisplayLordGrid,ref lordChoices,ref lordChoiceSignature);
     UpdateGridChoice(valueGridChoice,selection.Columns.Length,settings.DisplayValueGrid,ref valueChoices,ref valueChoiceSignature);
    } finally {updatingMenu=before;}
   }
@@ -83,6 +93,6 @@ namespace LordOverviewTest {
    string key=count+"/"+selected;if(cached==key)return;cached=key;var effective=selected.Normalize(count);choices=GridFlow.Choices(count,selected);
    combo.ItemsSource=choices.Select(c=>c.Label).ToArray();combo.SelectedIndex=Array.FindIndex(choices,c=>c.ToString()==effective.ToString());
   }
-  private static void ResetLayoutMenu(){designChoice=sortChoice=lordGridChoice=valueGridChoice=null;sortDirection=null;cardOptions=null;menuScroll=null;orderHost=null;sortMetrics.Clear();orderSignature=appliedLayout=lordChoiceSignature=valueChoiceSignature="";lordChoices=valueChoices=new GridFlow[0];updatingMenu=false;}
+  private static void ResetLayoutMenu(){designChoice=sortChoice=lordGridChoice=valueGridChoice=null;showEliminatedChoice=null;appliedPlayerFilter=null;sortDirection=null;cardOptions=null;menuScroll=null;orderHost=null;sortMetrics.Clear();orderSignature=appliedLayout=lordChoiceSignature=valueChoiceSignature="";lordChoices=valueChoices=new GridFlow[0];updatingMenu=false;}
  }
 }

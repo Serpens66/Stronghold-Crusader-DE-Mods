@@ -38,7 +38,7 @@ namespace LordOverviewTest {
    UnityEngine.Application.focusChanged+=OnOverviewFocusChanged;
    TooltipProbeStartup.Start(logger);Shared.DevDiag.Attach(logger);
    ApiShared.ForMod("LordOverviewTest_Serp").WhenReady(client=>{
-    StartExtensions();StartPassiveHover();
+    OverviewData.EnableReadbacks();StartExtensions();StartPassiveHover();
     if(!client.TryGetLobbyState(out var lobby,out var lobbyReason) || !lobby.TryRegisterObserver("overview-permission",settings.ObserveLobby,out lobbyReason))throw new InvalidOperationException(lobbyReason.Reason);
     if(!client.TryGetMissionLifecycle(out var lifecycle,out var reason)){Error(new Exception(reason.Reason));return;}
     if(!lifecycle.TryRegisterObserver("overview",n=>{
@@ -77,12 +77,12 @@ namespace LordOverviewTest {
    parent=extras==null?null:VisualTreeHelper.GetParent(extras) as Grid;
    if(parent==null || extras.Name!="HUD_ObjectivesPanel")throw new InvalidOperationException("Full viewport side-HUD contract unavailable.");
    main=MainViewModel.Instance;main.PropertyChanged+=OnChanged;
-   overlay=new Canvas {ClipToBounds=false};
+   overlay=new Canvas {ClipToBounds=false,Tag=OverviewPresentationPolicy.ContainerTag};
    Grid.SetRowSpan(overlay,Math.Max(1,parent.RowDefinitions.Count));Grid.SetColumnSpan(overlay,Math.Max(1,parent.ColumnDefinitions.Count));
    overlay.SetBinding(UIElement.VisibilityProperty,new Binding("Visibility"){Source=extras});
    // Same layer as the original extras; later Vanilla dialogs retain their normal precedence.
    Panel.SetZIndex(overlay,Panel.GetZIndex(extras));parent.Children.Insert(parent.Children.IndexOf(extras)+1,overlay);
-   panel=new Grid {Visibility=Visibility.Collapsed};Canvas.SetLeft(panel,40);Canvas.SetBottom(panel,0);overlay.Children.Add(panel);
+   panel=new Grid {Visibility=Visibility.Collapsed,Tag=OverviewPresentationPolicy.PassiveTag};Canvas.SetLeft(panel,40);Canvas.SetBottom(panel,0);overlay.Children.Add(panel);
    panel.IsVisibleChanged+=OnPanelVisibility;parent.SizeChanged+=OnViewportSizeChanged;
    buttonStyle=GUI.ParseXaml("<Style xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation' TargetType='{x:Type Button}' xmlns:x='http://schemas.microsoft.com/winfx/2006/xaml'><Setter Property='Template'><Setter.Value><ControlTemplate TargetType='{x:Type Button}'><Border Background='Transparent' Padding='3'><ContentPresenter/></Border></ControlTemplate></Setter.Value></Setter></Style>") as Style;
    tipStyle=GUI.ParseXaml(@"<Style xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation' xmlns:x='http://schemas.microsoft.com/winfx/2006/xaml' TargetType='{x:Type ToolTip}'>
@@ -107,9 +107,10 @@ namespace LordOverviewTest {
    main.SetGoodsPopupState(false);main.SetObjectivePopupState(false);
    panel.Visibility=Visibility.Visible;Volatile.Write(ref shown,1);hoverFaulted=false;MarkHoverGeometryDirty();RequestRefresh();
   }
-  private static void Close(){CancelCrownPress();CancelHeaderGesture();CloseSettingsMenu();ClosePassiveHover();Interlocked.Increment(ref generation);Volatile.Write(ref shown,0);sampling.Cancel();if(panel!=null){CloseTips(panel);panel.Visibility=Visibility.Collapsed;}}
+  private static void Close(){CancelCrownPress();CancelHeaderGesture();CloseSettingsMenu();ClosePassiveHover();Interlocked.Increment(ref generation);Volatile.Write(ref shown,0);sampling.Cancel();OverviewData.CancelPending();if(panel!=null){CloseTips(panel);panel.Visibility=Visibility.Collapsed;}}
   private static void CloseTips(DependencyObject root){if(ToolTipService.GetToolTip(root) is ToolTip tip)tip.IsOpen=false;for(int i=0;i<VisualTreeHelper.GetChildrenCount(root);i++)CloseTips(VisualTreeHelper.GetChild(root,i));}
-  private static void Detach(){Close();DetachCrownButton();DetachSettingsMenu();ResetTable();ClearHoverTargets();requestedRefresh.Cancel();
+  private static void Detach(){Close();DetachCrownButton();DetachSettingsMenu();ResetTable();ClearHoverTargets();ResetMetricIcons();requestedRefresh.Cancel();
+   if(hoverBubble!=null)overlay?.Children.Remove(hoverBubble);hoverBubble=null;hoverBubbleLabel=null;bubbleText=null;
    if(main!=null)main.PropertyChanged-=OnChanged;
    if(parent!=null)parent.SizeChanged-=OnViewportSizeChanged;
    if(panel!=null)panel.IsVisibleChanged-=OnPanelVisibility;
@@ -127,14 +128,16 @@ namespace LordOverviewTest {
   }
   private static void Refresh(){
    if(panel?.IsVisible!=true || !panel.IsLoaded || GameData.Instance?.lastGameState==null)return;
-   double now=Now;if(!sampling.TryBegin(now))return;
+   double now=Now;
+   if(OverviewData.HasPending){if(!OverviewData.PollPending(now))return;}
+   else if(!sampling.TryBegin(now))return;
    CaptureAndPublish(now);
   }
   private static void CaptureAndPublish(double now){
    bool success=false;
    try {
     success=UiSamples.TryRead(CurrentUiContext,()=>Volatile.Read(ref informationGeneration),
-     ()=>OverviewData.Capture(selection.Columns,settings,mode,rows,Interlocked.Read(ref session),Volatile.Read(ref informationGeneration),now),ReadExtensions,sample=>{
+     ()=>OverviewData.Capture(selection.Columns,settings,mode,rows,Interlocked.Read(ref session),Volatile.Read(ref informationGeneration),Volatile.Read(ref generation),now),ReadExtensions,sample=>{
       rows=sample;long id=Interlocked.Read(ref session);if(lastSampleSession!=id){lastSampleSession=id;Message("FIRST_SAMPLE session="+id+" players="+rows.Count);}Render();
      });
    }finally{sampling.End(Now,success);}

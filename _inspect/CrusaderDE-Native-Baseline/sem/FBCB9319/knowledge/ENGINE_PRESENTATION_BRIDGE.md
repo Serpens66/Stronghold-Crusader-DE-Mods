@@ -87,3 +87,25 @@ Task evidence is retained under `.work/t/perf-opt/001` in this workspace.
 No mod build, installation or new in-game acceptance was performed in this task.
 The next game comparison must establish the effect on frame lags; static and
 fixture results alone do not prove their elimination or native tick speedups.
+
+## Raw history export and completed-buffer readback (2026-10-31)
+
+For the same native/managed hashes above, public `DLL_GetMPScoreData(byte*)`
+dispatches to RVA 83CB0. Its managed explicit `multiplayer_stats_export` contains
+nine-entry Int32 player arrays and the 81-entry killer-row/victim-column matrix.
+The last `teams` array begins at byte 1392 and ends at 1428; use the managed
+type's aligned size, not just the final array end. The public convenience wrapper
+allocates raw storage, takes threadLock for the export, then builds the full
+MPScoreData including arrays, identities and colour data outside that lock.
+Merit raw storage is 45 Int32 slots; absent player records only receive the
+presence marker, so reused buffers must be reset before each export.
+
+[mod integration] APIShared's existing run/returnBuffer interception can execute
+requested prepared reads before publishing a beingFilled buffer. The additional
+readback gate checks a thread-local run scope and Monitor.IsEntered on the real
+engine lock. Main-thread TryEnter alone has no fairness guarantee: in an eight-Lord
+stress pilot all active-phase overview attempts were skipped, while paused raw
+copies succeeded in roughly 5 microseconds after warm-up. This is evidence about
+that pilot, not a guarantee for every machine or save. The Spectator refresh button
+uses GetMPScoreData synchronously; the BFQoL merit optimization instead refreshes
+requested merit at its already-locked pre-publication run bridge.

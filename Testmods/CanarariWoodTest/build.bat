@@ -53,11 +53,13 @@ set "PLUGIN_NAME=CanarariWoodTest_Serp"
 set "LOCAL_PLUGIN_DIR=%PROJECT_DIR%BepInEx\plugins\%PLUGIN_NAME%"
 set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\%PLUGIN_NAME%"
 set "NO_PAUSE=0"
+set "NO_INSTALL=0"
+for %%A in (%*) do if /I "%%~A"=="/noinstall" set "NO_INSTALL=1"
 for %%A in (%*) do if /I "%%~A"=="/nopause" set "NO_PAUSE=1"
 
 set "SHCDE_GAME_DIR=%GAME_DIR%"
 echo [%date% %time%] Run diagnostic and companion integration tests
-dotnet test "%PROJECT_DIR%..\AIBuildDiagnoseTest\tests\Diagnostics.Tests\Diagnostics.Tests.csproj" --configuration Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /p:ApiSharedDir="%API_SHARED_DIR%" --logger trx --results-directory "%PROJECT_DIR%..\AIBuildDiagnoseTest\tests\Diagnostics.Tests\TestResults"
+dotnet test "%PROJECT_DIR%tests\Companion.Tests\Companion.Tests.csproj" --configuration Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /p:ApiSharedDir="%API_SHARED_DIR%" --logger trx --results-directory "%PROJECT_DIR%tests\Companion.Tests\TestResults"
 if not "%ERRORLEVEL%"=="0" goto failed
 echo [%date% %time%] PowerShell checks / build step
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%verify.ps1"
@@ -78,9 +80,14 @@ echo [%date% %time%] Copy package files
 copy /Y "%PROJECT_DIR%info.json" "%LOCAL_PLUGIN_DIR%\info.json" >nul
 if not "%ERRORLEVEL%"=="0" goto failed
 echo [%date% %time%] Copy package files
+if "%NO_INSTALL%"=="1" goto built_no_install
 xcopy "%LOCAL_PLUGIN_DIR%" "%GAME_PLUGIN_DIR%\" /E /I /Q /Y >nul
 if not "%ERRORLEVEL%"=="0" goto failed
 echo CanarariWoodTest built and installed.
+exit /b 0
+
+:built_no_install
+echo Build completed without installation.
 exit /b 0
 
 :failed_popd

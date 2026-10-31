@@ -49,7 +49,7 @@ namespace LordOverviewTest {
   private List<Metric> columns=new List<Metric>(Metrics.Defaults);
   private Metric[] snapshot;
   internal Metric[] Columns=>snapshot??(snapshot=columns.ToArray());
-  internal void Load(string value){columns=new List<Metric>(Metrics.Parse(value));snapshot=null;}
+  internal void Load(string value){var parsed=Metrics.Parse(value);if(OverviewLayout.SameColumns(Columns,parsed))return;columns=new List<Metric>(parsed);snapshot=parsed;}
   internal bool Toggle(Metric id){if(!Metrics.All.Any(d=>d.Id==id))return false;if(columns.Contains(id)){if(columns.Count==1)return false;columns.Remove(id);}else{columns.Add(id);}snapshot=null;return true;}
   internal bool MoveTo(Metric id,int index){int old=columns.IndexOf(id);if(old<0 || index<0 || index>=columns.Count || old==index)return false;columns.RemoveAt(old);columns.Insert(index,id);snapshot=null;return true;}
  }
@@ -87,11 +87,10 @@ namespace LordOverviewTest {
  internal sealed class LordRow {
   internal readonly int Player; internal readonly bool Alive; internal readonly long?[] Values;
   internal LordRow(int player,bool alive,params long?[] values) {Player=player;Alive=alive;Values=(long?[])values.Clone();}
-  private readonly Dictionary<Metric,decimal?> extra=new Dictionary<Metric,decimal?>();
+  private Dictionary<Metric,decimal?> extra;
   internal bool ExtendedAllowed {get;set;}
-  internal decimal? Get(Metric metric)=>(int)metric>=0?((int)metric<Values.Length?(decimal?)Values[(int)metric]:null):(extra.TryGetValue(metric,out var value)?value:null);
-  internal void SetExtra(Metric metric,decimal? value){extra[metric]=value;}
-  internal string ValueSignature=>string.Join(";",Values)+"/"+string.Join(";",extra.OrderBy(p=>p.Key).Select(p=>p.Key+"="+p.Value));
+  internal decimal? Get(Metric metric)=>(int)metric>=0?((int)metric<Values.Length?(decimal?)Values[(int)metric]:null):(extra!=null && extra.TryGetValue(metric,out var value)?value:null);
+  internal void SetExtra(Metric metric,decimal? value){if(!value.HasValue){extra?.Remove(metric);return;}if(extra==null)extra=new Dictionary<Metric,decimal?>();extra[metric]=value;}
  }
  internal sealed class OverviewState : IComparer<LordRow> {
   int IComparer<LordRow>.Compare(LordRow a,LordRow b)=>Compare(a,b);
@@ -100,7 +99,8 @@ namespace LordOverviewTest {
   internal void Select(Metric? column) {Descending=column==Column?!Descending:true;Column=column;}
   internal void Reconcile(IEnumerable<Metric> visible){if(Column.HasValue && !visible.Contains(Column.Value)){Column=null;Descending=false;}}
   internal List<LordRow> Sort(IEnumerable<LordRow> rows){var result=new List<LordRow>(rows);result.Sort(this);return result;}
-  internal void SortInto(List<LordRow> source,List<LordRow> target){target.Clear();for(int i=0;i<source.Count;i++)target.Add(source[i]);target.Sort(this);}
+  internal static int VisibleCount(List<LordRow> source,bool showEliminated){int count=0;for(int i=0;i<source.Count;i++)if(showEliminated || source[i].Alive)count++;return count;}
+  internal void SortInto(List<LordRow> source,List<LordRow> target,bool showEliminated=true){target.Clear();for(int i=0;i<source.Count;i++)if(showEliminated || source[i].Alive)target.Add(source[i]);target.Sort(this);}
   private int Compare(LordRow a,LordRow b){
    if(!Column.HasValue)return Descending?b.Player.CompareTo(a.Player):a.Player.CompareTo(b.Player);
    decimal? av=a.Get(Column.Value),bv=b.Get(Column.Value);

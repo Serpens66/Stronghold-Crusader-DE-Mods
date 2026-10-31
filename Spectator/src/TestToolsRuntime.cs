@@ -90,7 +90,7 @@ namespace Spectator
             return resources->r_WinLossState != WinLossState.Loss && resources->r_LordUnitId > 0;
         }
 
-        private static string PlayerLabel(int owner)
+        private static string PlayerLabel(int owner, bool includeNumber = true)
         {
             string name = null;
             try
@@ -104,7 +104,7 @@ namespace Spectator
             }
             catch (Exception error) { LogOnce("TEST_PLAYER_NAME_ERROR: " + error); }
             if (string.IsNullOrWhiteSpace(name)) name = SerpLocalization.Get("Tools.Player");
-            return owner + " · " + name;
+            return includeNumber ? owner + " · " + name : name;
         }
 
         private static void QueueCredit(eGoods good, string text, bool debit)

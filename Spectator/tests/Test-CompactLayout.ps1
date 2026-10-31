@@ -20,6 +20,14 @@ foreach ($slot in 1..8) {
         if ($prefix -eq 'SpectatorEditorHumanOwner' -and $card.ParentNode -ne $owners) { throw 'The existing buttons retain the common packed roster host.' }
     }
 }
+foreach ($slot in 1..8) {
+ foreach ($prefix in @('SpectatorEditorHumanOwner','TestTarget')) {
+  $card=Named ($prefix+$slot)
+  if ($card.GetAttribute('ToolTipService.InitialShowDelay') -ne '0' -or $card.GetAttribute('ToolTipService.BetweenShowDelay') -ne '0') { throw 'Lord and target portrait help must appear immediately.' }
+ }
+}
+$drag=Named 'SpectatorEditorHumanDrag'
+if ($drag.GetAttribute('ToolTipService.InitialShowDelay') -ne '0' -or $drag.GetAttribute('ToolTipService.BetweenShowDelay') -ne '0') { throw 'Drag help must appear immediately.' }
 $amount = Named 'TestToolsAmount'
 if ($amount.Text -ne '0' -or $amount.HasAttribute('MaxLength') -or @($xml.SelectNodes('//TextBox')).Count -ne 1) { throw 'A single untruncated amount input starts at zero.' }
 $credit = $xml.SelectSingleNode('//Button[@CommandParameter="Credit"]')
@@ -33,7 +41,7 @@ foreach ($name in @('SpectatorEditorHumanDrag','SpectatorRosterPanel','Spectator
 }
 if ((Named 'SpectatorEditorHumanPanel').HasAttribute('Background') -or (Named 'SpectatorWings').HasAttribute('Background')) { throw 'Gaps between real painted surfaces must not create an invisible input mask.' }
 if ((Named 'SpectatorDetails').SelectNodes('.//ScrollViewer[not(@x:Name="PART_ContentHost")]', $ns).Count -ne 0) { throw 'Tools must fit without a scrolling host.' }
-foreach ($name in @('SpectatorSnapFrame','SpectatorToolSnapFrame')) {
+foreach ($name in @('SpectatorSnapFrame','SpectatorToolSnapFrame','SpectatorSnapGrip')) {
     if ((Named $name).IsHitTestVisible -ne 'False') { throw 'Dock guides never intercept input.' }
 }
 foreach ($name in @('SpectatorLeftWing','SpectatorRightWing')) {
@@ -43,7 +51,7 @@ $tools = Named 'SpectatorToolPanel'
 if ($tools.Visibility -ne '{Binding ExpandedVisibility}') { throw 'Placement, collapse and occupied HUDs must remove the complete tool surface, including category overdraw.' }
 $roster = Named 'SpectatorRosterPanel'
 $grip = Named 'SpectatorEditorHumanDrag'
-if ($roster.SelectSingleNode('.//*[@x:Name="SpectatorEditorHumanDrag"]', $ns) -or $grip.ParentNode -ne (Named 'TestToolsRoot') -or $grip.HasAttribute('Width')) { throw 'One independent grip follows the dock gap or the floating top edge.' }
+if ($roster.SelectSingleNode('.//*[@x:Name="SpectatorEditorHumanDrag"]', $ns) -or $grip.ParentNode -ne (Named 'TestToolsRoot') -or $grip.HasAttribute('Width')) { throw 'One independent grip follows the dock gap or the floating left edge.' }
 $paper = Named 'SpectatorPaperSurface'
 if ($paper.ParentNode -ne (Named 'TestToolsRoot') -or $paper.IsHitTestVisible -ne 'False' -or $paper.SelectNodes('.//Image').Count -ne 2) { throw 'Continuous paper is clipped once behind the actual menu surfaces.' }
 foreach ($name in @('SpectatorPaperTopImage','SpectatorPaperLowerImage')) {

@@ -58,3 +58,6 @@ ValueOrder=Reihenfolge der Werte
 RightClickSettings=Rechtsklick: Einstellungen
 SettingsTitle=Statistik-Einstellungen
 MoveSettings=An dieser Titelleiste ziehen, um das Fenster zu verschieben. Die Position wird nur für diese Partie gemerkt.
+ShowEliminated=Ausgeschiedene Spieler anzeigen
+ShowEliminatedHelp=Zeigt auch ausgeschiedene Lords an. Diese lokale Auswahl gilt für alle Ansichten.
+NoLordsToShow=Keine Lords anzuzeigen.

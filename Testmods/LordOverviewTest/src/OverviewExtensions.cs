@@ -11,7 +11,7 @@ namespace LordOverviewTest {
   private static bool catalogUiPending;
   private static void StartExtensions(){LordStatistics.CatalogChanged+=OnCatalogChanged;SyncCatalog(LordStatistics.GetCatalog());}
   private static void SyncCatalog(LordStatisticCatalog catalog){
-   providers.Clear();catalogRevision=catalog.Revision;
+   providers.Clear();extensionIcons.Clear();catalogRevision=catalog.Revision;
    foreach(var column in catalog.Columns){
     var id=Metrics.RegisterExternal(column.Key,column.Theme.ToString(),column.Format);
     providers[id]=column;

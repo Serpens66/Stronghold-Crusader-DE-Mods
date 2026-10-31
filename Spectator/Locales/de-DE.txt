@@ -10,7 +10,7 @@ Tools.Credit=Gutschreiben
 Tools.CreditHelp=Diese Menge einmal der ausgewählten KI gutschreiben. Bei Ausführung wird erneut geprüft. Güter gelangen in die Vanilla-Lieferreserve und werden bei freiem Lagerplatz eingelagert. Gold wird sofort gutgeschrieben. Eigene Vorräte bleiben unberührt.
 Tools.Defend=Ziel schützen
 Tools.DefendHelp=Die ausgewählte KI zum Schutz des ausgewählten Lords auffordern, auch ihrer selbst.
-Tools.DragHelp=Am Griff zwischen Porträts und Bau-HUD verschieben; frei schwebend am oberen Rahmen ziehen.
+Tools.DragHelp=Ziehen - links neben Baumenü andocken
 Tools.EditorNotice=Im Karteneditor können Plätze vor der KI-Initialisierung existieren. Lieferreserven benötigen Lager und Simulation; Befehle eine laufende KI.
 Tools.EnemyRequired=Als Angriffsziel einen Gegner der beauftragten KI auswählen.
 Tools.Failed=Aktion fehlgeschlagen. Details stehen mit Zeitstempel im Spiellog.
@@ -73,7 +73,7 @@ Tools.PowersSwitchOn=Extremkräfte: Ein
 Tools.PowersSwitchOff=Extremkräfte: Aus
 Tools.Queued=Aktion zur Prüfung eingereiht.
 Tools.ReserveHelp=Güter gelangen in die Vanilla-Lieferreserve und werden bei freiem Lagerplatz eingelagert. Gold wird sofort gutgeschrieben. Eigene Vorräte bleiben unberührt.
-Tools.SelectHelp=Linksklick wählt den Spieler. In der oberen KI-Auswahl springt Rechtsklick zum Bergfried, Mittelklick zum Lord.
+Tools.SelectHelp=Rechtsklick = Bergfried; Mittelklick = Lord
 Tools.SelectTarget=Unten ein Ziel auswählen.
 Tools.StopPlacement=Platzieren beenden
 Tools.Target=Angriffs- / Schutzziel
@@ -117,5 +117,5 @@ Tools.PowersShortOn=Kräfte: An
 Tools.PowersShortOff=Kräfte: Aus
 Tools.Debit=Abziehen
 Tools.DebitHelp=Die angegebene Menge beim ausgewählten Spieler aus Bestand und Lieferreserve abziehen, höchstens bis 0.
-Tools.Options=Optionen
 Tools.StopShort=Beenden
+Tools.TargetHelp=Klick = Ziel auswählen

@@ -25,7 +25,7 @@ namespace LordOverviewTest {
   });}
   private static void OnSettingsChanged(object sender,PropertyChangedEventArgs args){
    bool layoutChanged=args.PropertyName==nameof(OverviewSettings.Design) || args.PropertyName==nameof(OverviewSettings.LordGrid) || args.PropertyName==nameof(OverviewSettings.ValueGrid);
-   if(!layoutChanged && args.PropertyName!=nameof(OverviewSettings.Columns) && args.PropertyName!=nameof(OverviewSettings.EnableMod) &&
+   if(!layoutChanged && args.PropertyName!=nameof(OverviewSettings.ShowEliminated) && args.PropertyName!=nameof(OverviewSettings.Columns) && args.PropertyName!=nameof(OverviewSettings.EnableMod) &&
     args.PropertyName!=nameof(OverviewSettings.IsLocalSettingsHost) && args.PropertyName!=nameof(OverviewSettings.IsRealMultiplayerContext) &&
     args.PropertyName!=nameof(OverviewSettings.CanEditClientSettings))return;
    long id=System.Threading.Interlocked.Read(ref session);
@@ -41,6 +41,7 @@ namespace LordOverviewTest {
      CancelHeaderGesture();if(panel?.IsVisible==true){Render();RequestRefresh();}UpdateColumnsPopup();
     }
     if(layoutChanged)ApplyLayout();
+    if(args.PropertyName==nameof(OverviewSettings.ShowEliminated))ApplyPlayerFilter();
    });
   }
   private static void AttachSettingsMenu(){
@@ -144,29 +145,6 @@ namespace LordOverviewTest {
     try {if(Editing && group==menuState.Group && id==System.Threading.Interlocked.Read(ref session) && epoch==editEpoch){restoringScroll=true;scroll.ScrollToVerticalOffset((float)offset);}}
     finally {restoringScroll=false;}
    });
-  }
-  private static FrameworkElement MetricIcon(Metric metric){
-   if((int)metric<0){var image=providers.TryGetValue(metric,out var provider)?provider.GetIcon():null;return image!=null?(FrameworkElement)new Image {Source=image,Width=18,Height=18}:Label("?");}
-   ImageSource source=null;
-   switch(metric){
-    case Metric.Gold:case Metric.GoldAcquired:source=main.getSmallGoodsIcon((int)eGoods.STORED_GOLD);break;
-    case Metric.FoodProduced:source=main.getSmallGoodsIcon((int)eGoods.STORED_FOOD_BREAD);break;
-    case Metric.WoodProduced:source=main.getSmallGoodsIcon((int)eGoods.STORED_WOOD_PLANKS);break;
-    case Metric.StoneProduced:case Metric.BuildingsDestroyed:case Metric.BuildingsLost:source=main.getSmallGoodsIcon((int)eGoods.STORED_STONE_BLOCKS);break;
-    case Metric.IronProduced:source=main.getSmallGoodsIcon((int)eGoods.STORED_IRON_INGOTS);break;
-    case Metric.PitchProduced:source=main.getSmallGoodsIcon((int)eGoods.STORED_PITCH_REFINED);break;
-    case Metric.WeaponsProduced:source=main.getSmallGoodsIcon((int)eGoods.STORED_SWORDS);break;
-    case Metric.GoodsReceived:case Metric.GoodsSent:source=main.getAlliesGoodsIcon(-1);break;
-    case Metric.Fear:source=main.GameSprites[115];break; // Vanilla GetPlayerFear(0): neutral historical fear icon, used only as a column symbol.
-    case Metric.Popularity:case Metric.MaxPopulation:return GUI.ParseXaml("<Canvas xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation' Width='18' Height='18'><Ellipse Width='16' Height='16' Canvas.Left='1' Canvas.Top='1' Stroke='#FFF2D48A' StrokeThickness='1.5'/><Path Data='M5,6 L6,6 M12,6 L13,6 M5,10 Q9,16 13,10' Stroke='#FFF2D48A' StrokeThickness='1.5'/></Canvas>") as FrameworkElement;
-    default:source=main.getAlliesGoodsIcon(-3);break; // Vanilla attack-order scroll.
-   }
-   var grid=new Grid {Width=18,Height=18};grid.Children.Add(new Image {Source=source});
-   string badge=Metrics.Get(metric).Historical?"Σ":"";
-   if(metric==Metric.TroopsLost || metric==Metric.BuildingsLost)badge="−";
-   if(metric==Metric.GoodsReceived)badge="←";if(metric==Metric.GoodsSent)badge="→";
-   if(badge!=""){var text=Label(badge);text.FontSize=9;text.HorizontalAlignment=HorizontalAlignment.Right;text.VerticalAlignment=VerticalAlignment.Bottom;grid.Children.Add(text);}
-   return grid;
   }
  }
 }

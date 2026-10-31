@@ -35,6 +35,7 @@ namespace Spectator
         private static CreditAmountInput amountInput;
         private static Border humanDetails;
         private static UIElement inputRoot;
+        private static int toolbarOccupiedCount = -1;
         private static readonly Dictionary<Button, string> playerTooltipTexts = new Dictionary<Button, string>();
         private static void EnsureHumanControls()
         {
@@ -108,6 +109,8 @@ namespace Spectator
             dragHandle.MouseLeftButtonUp += OnHumanDragUp;
             dragHandle.LostMouseCapture += OnHumanLostCapture;
             canvas.SizeChanged += OnHumanCanvasSizeChanged;
+            canvas.IsVisibleChanged += OnHumanCanvasVisibilityChanged;
+            toolbarOccupiedCount = -1;
             for (int owner = 1; owner <= 8; owner++)
             {
                 int selected = owner;
@@ -164,7 +167,11 @@ namespace Spectator
                 humanDragHandle.LostMouseCapture -= OnHumanLostCapture;
                 if (humanDragHandle.IsMouseCaptured) humanDragHandle.ReleaseMouseCapture();
             }
-            if (humanCanvas != null) humanCanvas.SizeChanged -= OnHumanCanvasSizeChanged;
+            if (humanCanvas != null)
+            {
+                humanCanvas.SizeChanged -= OnHumanCanvasSizeChanged;
+                humanCanvas.IsVisibleChanged -= OnHumanCanvasVisibilityChanged;
+            }
             for (int owner = 1; owner <= 8; owner++)
             {
                 if (humanOwnerButtons[owner] != null && humanOwnerHandlers[owner] != null)
@@ -201,17 +208,19 @@ namespace Spectator
         {
             if (humanPanel == null || toolsModel == null) return;
             var view = MainViewModel.Instance;
-            bool show = eligible && view.UIVisible && view.Show_InGameUI &&
-                !view.Show_HUD_Briefing && (!view.Show_HUD_MissionOver || Statistics?.Active == true);
+            if (toolbarDirty || toolbarOccupiedCount < 0)
+            {
+                toolbarOccupiedCount = 0;
+                if (eligible) for (int player = 1; player <= 8; player++) if (IsSelectableView(player)) toolbarOccupiedCount++;
+            }
+            bool show = humanCanvas.IsVisible && DockHudPolicy.CanShowToolbar(eligible, view.UIVisible, view.Show_InGameUI,
+                view.Show_HUD_Extras, view.Show_HUD_Briefing, view.Show_HUD_MissionOver, view.Show_HUD_IngameMenu, toolbarOccupiedCount);
             bool wasShown = humanPanel.Visibility == Visibility.Visible;
             humanPanel.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
             if (!show)
             {
-                UpdatePlacementDate(false);
-                humanDragging = false;
-                if (humanDragHandle.IsMouseCaptured) humanDragHandle.ReleaseMouseCapture();
-                amountInput?.EndEditing();
-                if (wasShown) ClosePlayerTooltips();
+                if (wasShown || humanDragging || toolbarDrag.Preview || amountInput?.OwnsKeyboard == true)
+                    SuspendToolbarInteraction();
                 return;
             }
             toolsModel.PlacementActive = humanPlacementMode;
@@ -245,7 +254,7 @@ namespace Spectator
                 {
                     RefreshHumanOwnerColour(owner);
                     humanOwnerNumbers[owner].Text = owner.ToString(System.Globalization.CultureInfo.InvariantCulture);
-                    SetPlayerTooltip(button, PlayerLabel(owner), owner);
+                    SetPlayerTooltip(button, PlayerLabel(owner, false), owner);
                     RefreshPlayerFace("OwnerFace" + owner, owner);
                 }
                 var target = targetButtons[owner];
@@ -257,7 +266,7 @@ namespace Spectator
                     targetLabels[owner].Text = owner.ToString(System.Globalization.CultureInfo.InvariantCulture);
                     RefreshHumanOwnerColour(owner);
                     targetLabels[owner].Foreground = humanOwnerNumbers[owner].Foreground;
-                    SetPlayerTooltip(target, PlayerLabel(owner), owner);
+                    SetPlayerTooltip(target, PlayerLabel(owner, false), owner, true);
                     RefreshPlayerFace("TargetFace" + owner, owner);
                 }
             }
@@ -278,23 +287,27 @@ namespace Spectator
             PositionToolbar();
         }
 
-        private static void SetPlayerTooltip(Button button, string label, int player)
+        private static void SetPlayerTooltip(Button button, string label, int player, bool target = false)
         {
-            string text = label + " \u2014 " + SerpLocalization.Get("Tools.SelectHelp");
-            if (playerTooltipTexts.TryGetValue(button, out string previous) && previous == text + "|" + PlayerBrush(player).ToString()) return;
+            string help = SerpLocalization.Get(target ? "Tools.TargetHelp" : "Tools.SelectHelp");
+            string text = label + "\n" + help;
+            if (playerTooltipTexts.TryGetValue(button, out string previous) && previous == text) return;
             var style = humanPanel.TryFindResource("PlayerTooltip") as Style;
             if (style == null) throw new MissingMemberException("Test tools popup style missing.");
             var content = new TextBlock { FontSize = ToolbarGeometry.MenuFontSize,
                 Foreground = neutralPlayerBrush, TextWrapping = TextWrapping.Wrap,
                 MaxWidth = 400 };
-            content.Inlines.Add(new Run { Text = label, Foreground = PlayerBrush(player) });
-            content.Inlines.Add(new Run { Text = " \u2014 " + SerpLocalization.Get("Tools.SelectHelp") });
+            // Some player colours are almost black; tooltip names inherit the readable white text.
+            content.Inlines.Add(new Run { Text = label });
+            content.Inlines.Add(new Run { Text = "\n" + help });
             var tip = new ToolTip { Style = style, Content = content };
             MenuToolTipSizing.SetEnabled(tip, true);
             if (ToolTipService.GetToolTip(button) is ToolTip previousTip) { previousTip.IsOpen = false; MenuToolTipSizing.SetEnabled(previousTip, false); }
             ToolTipService.SetToolTip(button, tip);
             ToolTipService.SetShowDuration(button, 60000);
-            playerTooltipTexts[button] = text + "|" + PlayerBrush(player).ToString();
+            ToolTipService.SetInitialShowDelay(button, 0);
+            ToolTipService.SetBetweenShowDelay(button, 0);
+            playerTooltipTexts[button] = text;
         }
 
         private static void OnHumanPanelSizeChanged(object sender, SizeChangedEventArgs args) => toolbarLayoutDirty = true;
@@ -384,6 +397,15 @@ namespace Spectator
 
         private static void OnHumanDragUp(object sender, MouseButtonEventArgs args)
         {
+            if (humanDragging && humanCanvas != null)
+            {
+                Point current = args.GetPosition(humanCanvas);
+                Point origin = humanCanvas.PointToScreen(new Point(0, 0));
+                Point unit = humanCanvas.PointToScreen(new Point(100, 100));
+                toolbarMoved = !toolbarDrag.Drop(current.X, current.Y, toolbarDockGrip,
+                    (unit.X - origin.X) / 100, (unit.Y - origin.Y) / 100, toolbarFloatingScale,
+                    out toolbarDesiredX, out toolbarDesiredY);
+            }
             humanDragging = false;
             toolbarLayoutDirty = true;
             PositionToolbar();
@@ -392,9 +414,24 @@ namespace Spectator
         }
 
         private static void OnHumanLostCapture(object sender, MouseEventArgs args)
-        { humanDragging = false; toolbarLayoutDirty = true; PositionToolbar(); }
+        { humanDragging = false; toolbarDrag.Cancel(); toolbarLayoutDirty = true; PositionToolbar(); }
         private static void OnHumanCanvasSizeChanged(object sender, SizeChangedEventArgs args)
         { toolbarDirty = true; toolbarLayoutDirty = true; }
+
+        private static void SuspendToolbarInteraction()
+        {
+            UpdatePlacementDate(false);
+            humanDragging = false; toolbarDrag.Cancel();
+            if (humanDragHandle?.IsMouseCaptured == true) humanDragHandle.ReleaseMouseCapture();
+            amountInput?.EndEditing(); ClosePlayerTooltips();
+            HideDockGuides();
+        }
+
+        private static void OnHumanCanvasVisibilityChanged(object sender, DependencyPropertyChangedEventArgs args)
+        {
+            toolbarDirty = toolbarLayoutDirty = true;
+            if (humanCanvas?.IsVisible != true) SuspendToolbarInteraction();
+        }
 
         private static RadioButton[] NormalTabs(HUD_Main hud) => new[] {
             hud.RefTabBuildCastle, hud.RefTabBuildIndustry, hud.RefTabBuildFarms,

@@ -26,13 +26,31 @@ namespace AIBuildDiagnoseTest
     internal sealed class EconomyLogBudget
     {
         internal const int ReservedBytes = 8 * 1024 * 1024;
+        internal const int RoutineLimit = 4 * 1024 * 1024;
+        internal const int FinalLimit = 64 * 1024;
+        internal const int CauseLimit = ReservedBytes - RoutineLimit - FinalLimit;
         internal long Bytes { get; private set; }
+        internal long RoutineBytes { get; private set; }
+        internal long CauseBytes { get; private set; }
+        internal long FinalBytes { get; private set; }
         internal readonly Dictionary<string, int> Omitted = new Dictionary<string, int>();
-        internal void Reset() { Bytes = 0; Omitted.Clear(); }
+        internal void Reset() { Bytes = RoutineBytes = CauseBytes = FinalBytes = 0; Omitted.Clear(); }
+        internal static bool IsCause(string category) => category.StartsWith("WORKER_", StringComparison.Ordinal) ||
+            category.StartsWith("REMOVAL_", StringComparison.Ordinal) || category == "REMOVAL_CONFIRMED" ||
+            category == "REBUILD_AFTER_REMOVAL" || category == "DELETE_BEGIN" || category == "DELETE_END";
         internal bool Accept(string category, string line)
         {
             int size = Encoding.UTF8.GetByteCount(line) + 80; // includes logger prefix/timestamp
-            if (Bytes + size <= ReservedBytes) { Bytes += size; return true; }
+            bool final = category.StartsWith("FINAL_", StringComparison.Ordinal);
+            bool cause = !final && IsCause(category);
+            long used = final ? FinalBytes : cause ? CauseBytes : RoutineBytes;
+            long limit = final ? FinalLimit : cause ? CauseLimit : RoutineLimit;
+            if (used + size <= limit)
+            {
+                Bytes += size;
+                if (final) FinalBytes += size; else if (cause) CauseBytes += size; else RoutineBytes += size;
+                return true;
+            }
             Omitted[category] = (Omitted.TryGetValue(category, out int old) ? old : 0) + 1;
             return false;
         }
@@ -48,6 +66,9 @@ namespace AIBuildDiagnoseTest
         internal int ArgumentA, ArgumentB;
         internal int? StockBefore, RawWoodPrecondition;
         internal bool? NativeOriginalEvaluated;
+        internal string DecisionInputs;
+        internal RemovalInputs RemovalInputs;
+        internal BuildingEvidenceIdentity RemovalTarget;
         internal EconomyOperation(long id, long session, string kind, int player, int gold,
             EconomyOperation parent)
         { Id = id; Session = session; Kind = kind; Player = player; GoldBefore = gold; Parent = parent; }
@@ -83,6 +104,10 @@ namespace AIBuildDiagnoseTest
 
     internal static class EconomyDecisionEvidence
     {
+        // The counter path already emits its own identity-aware decision record.
+        internal static bool EmitGenericResult(string kind) => kind != "wood-counter-retirement";
+        internal static string DecisionKey(EconomyOperation op) =>
+            op.Player + ":" + op.Kind + ":" + op.ArgumentA + ":" + op.ArgumentB + ":" + op.RemovalInputs?.Target?.GlobalId;
         internal static bool HasMeasuredBookingContext(string kind) =>
             kind == "tax-settlement" || kind == "ai-buy" || kind == "ai-sell" || kind == "build" ||
             kind == "bulldoze" || kind == "refund" || kind == "ai-recruitment" ||

@@ -79,7 +79,7 @@ namespace Spectator
             powerItems = value; Changed(nameof(Powers));
         }
         public string SelectedGoodKey => "G" + ((int)good).ToString("00", CultureInfo.InvariantCulture);
-        public string ExpandLabel => SerpLocalization.Get("Tools.Options");
+        public string ExpandLabel => expanded ? "\u2212" : "+";
         public bool CanCredit => toolsAvailable && hasRecipient && CreditMath.TryParse(amount, out _) && canExecute();
         public Visibility StatusVisibility => details && !string.IsNullOrEmpty(Status) ? Visibility.Visible : Visibility.Collapsed;
         public Visibility GoodsStatusVisibility => goods ? StatusVisibility : Visibility.Collapsed;

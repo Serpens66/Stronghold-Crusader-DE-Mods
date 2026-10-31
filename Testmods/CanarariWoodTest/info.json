@@ -2,7 +2,7 @@
   "GUID": "CanarariWoodTest_Serp",
   "Author": "Serpens66",
   "Name": "CanarariWoodTest",
-  "Description": "Explicit disposable-save experiments for Canari wood construction and farm-site contracts.",
+  "Description": "Passive detailed wood/farm diagnostics and explicit disposable-save experiments for Canari construction and farm-site contracts.",
   "Version": "0.1.0",
   "MinimumScriptExtenderVersion": "2.11.0",
   "MaximumScriptExtenderVersion": "",

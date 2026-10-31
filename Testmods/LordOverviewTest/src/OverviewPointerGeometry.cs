@@ -1,5 +1,12 @@
 using System;
 namespace LordOverviewTest {
+ internal static class PassiveBubblePlacement {
+  internal static MenuRect Place(MenuRect anchor,double width,double height,double viewportWidth,double viewportHeight){
+   double x=anchor.X+(anchor.Width-width)/2,y=anchor.Y-height-6;
+   if(y<0)y=anchor.Bottom+6;
+   return new MenuRect(Math.Max(0,Math.Min(Math.Max(0,viewportWidth-width),x)),Math.Max(0,Math.Min(Math.Max(0,viewportHeight-height),y)),width,height);
+  }
+ }
  internal static class HoverOcclusion {
   // A read-only ancestry walk: never temporarily alter hit testing on the real HUD.
   internal static bool Blocks<T>(T hit,T overlay,Func<T,T> parent,Func<T,int> z,Func<T,T,int> index) where T:class {

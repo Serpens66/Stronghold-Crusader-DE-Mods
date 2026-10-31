@@ -1,5 +1,20 @@
 # Native contracts of the disposable experiments
 
+## Passive readers transferred from the general diagnostic
+
+`src/CanariNativeCapture.cs` now owns the unchanged coarse-cell/PCL/nearby and
+route-connection readers. The original address, layout, hash and search contracts
+below and in the current AI_WOODCUTTER_BUILD baseline still apply. The general
+mod owns the permanent scheduler/route/general-site hooks and calls the optional
+reader synchronously at the original boundary. There is no new native function
+call, hook or fallback. Verify-PassiveNative.ps1 checks the transferred actual-byte,
+callgraph, parcel-writer, search-direction and placement contracts.
+
+`src/CanariPassiveDiagnostics.cs` owns path-generation and raw placement-reason
+reads formerly in the general runtime (path manager RVA 0x60AD660 + 0x74;
+tile-manager-relative 0x204E704, possibly stale). The existing hash gate remains;
+these are observations, not authoritative causes or supported migration fallbacks.
+
 Reference DLL SHA-256: `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
 These are existing contracts transferred from AIBuildDiagnoseTest, not new native
 findings. Canonical evidence: the matching `AI_WOODCUTTER_BUILD.md` in the native

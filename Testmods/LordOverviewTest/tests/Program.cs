@@ -189,6 +189,7 @@ internal static partial class Program {
   Check(!UiSamples.TryRead(read,rightsNow,capture,(sample,stamp,version)=>false,publish) && published==1,"aborted extension batch is never published");
   visible=false;Check(!UiSamples.TryRead(read,rightsNow,()=>{throw new Exception("must not sample hidden view");},extend,publish),"hidden UI does not enter capture");
   visible=true;Check(UiSamples.TryRead(read,rightsNow,capture,extend,publish) && published==2,"fresh samples recover after every invalidation");
+  Check(!UiSamples.TryRead<string>(read,rightsNow,()=>null,extend,publish) && published==2,"busy capture never invokes providers or publishes an empty snapshot");
  }
 
  static void TestMenuWindowAndCrown(){

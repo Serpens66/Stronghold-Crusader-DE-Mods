@@ -8,6 +8,8 @@ using APIShared;
 namespace LordOverviewTest {
  public sealed class OverviewSettings : PresetLobbyModSettingsViewModel {
   private bool enabled=true,enemyDetails;
+  private bool showEliminated=true;
+  private bool? pendingShowEliminated;
   private ulong? lobby;
   internal bool EnemyDetailsReceived {get;private set;}
   internal event Action InformationRightsInvalidated;
@@ -15,9 +17,13 @@ namespace LordOverviewTest {
   private string design="List",lordGrid="Columns:2",valueGrid="Columns:3",pendingDesign,pendingLordGrid,pendingValueGrid;
   public OverviewSettings(){ResetToDefaultCommand=new RelayCommand(()=>{if(CanEditHostSettings)AllowEnemyDetails=false;if(CanEditClientSettings){
    pendingColumns=pendingDesign=pendingLordGrid=pendingValueGrid=null;
-   EnableMod=true;Columns=Metrics.Serialize(Metrics.Defaults);Design="List";LordGrid="Columns:2";ValueGrid="Columns:3";
+   pendingShowEliminated=null;
+   EnableMod=true;ShowEliminated=true;Columns=Metrics.Serialize(Metrics.Defaults);Design="List";LordGrid="Columns:2";ValueGrid="Columns:3";
   }});}
   [PresetLocal] public bool EnableMod {get=>enabled;set{if(!CanMutateSetting() || enabled==value)return;enabled=value;OnPropertyChanged(nameof(EnableMod));}}
+  [PresetLocal] public bool ShowEliminated {get=>showEliminated;set{if(!CanMutateSetting() || showEliminated==value)return;showEliminated=value;OnPropertyChanged(nameof(ShowEliminated));}}
+  internal bool DisplayShowEliminated=>pendingShowEliminated??ShowEliminated;
+  internal void SetDisplayShowEliminated(bool value){pendingShowEliminated=value;FlushLocalPreferences();}
   [SyncHostOnly] public bool AllowEnemyDetails {get=>enemyDetails;set{if(!CanMutateSetting())return;
    if(lobby.HasValue && GameXAMLManagerAPI.Instance.CurrentLobbyModSettingsChangeOrigin==LobbyModSettingsChangeOrigin.IncomingNetwork)EnemyDetailsReceived=true;
    if(enemyDetails==value)return;enemyDetails=value;if(!value)InformationRightsInvalidated?.Invoke();OnPropertyChanged(nameof(AllowEnemyDetails));}}
@@ -40,6 +46,7 @@ namespace LordOverviewTest {
   internal void SetDisplayGrid(bool lords,GridFlow value){if(lords)pendingLordGrid=value.ToString();else pendingValueGrid=value.ToString();FlushLocalPreferences();}
   // A locked mission source does not prevent a local HUD choice. Persist it when the personal source is editable again.
   internal void FlushLocalPreferences(){if(!CanEditClientSettings)return;
+   if(pendingShowEliminated.HasValue){bool value=pendingShowEliminated.Value;ShowEliminated=value;if(ShowEliminated==value)pendingShowEliminated=null;}
    if(pendingColumns!=null){var value=pendingColumns;Columns=value;if(Columns==value)pendingColumns=null;}
    if(pendingDesign!=null){var value=pendingDesign;Design=value;if(Design==value)pendingDesign=null;}
    if(pendingLordGrid!=null){var value=pendingLordGrid;LordGrid=value;if(LordGrid==value)pendingLordGrid=null;}

@@ -20,6 +20,7 @@ namespace AIBuildDiagnoseTest
         public const string Version = "0.2.1";
         private static ManualLogSource log;
         private static AIBuildDiagnoseRuntime runtime;
+        private static Action<AiBuildDiagnosticRecord> generalCapture;
         private static IDisposable sessionSubscription;
         private static bool registered;
         private void Awake()
@@ -37,6 +38,7 @@ namespace AIBuildDiagnoseTest
             {
                 runtime = new AIBuildDiagnoseRuntime(log, Chainloader.PluginInfos.ContainsKey("fixes"),
                     unchecked((ulong)context.ModuleHandle.ToInt64()));
+                generalCapture = runtime.OnNativeRecord;
                 sessionSubscription = Shared.GameplaySessionLifecycle.SubscribeStarted(log, runtime.OnSessionStarted, runtime.OnSessionEnded);
                 GameTimeManagerAPI.Instance.OnTick += OnTick;
                 string hash;
@@ -60,10 +62,7 @@ namespace AIBuildDiagnoseTest
         }
         private static void DeliverRecord(AiBuildDiagnosticRecord record)
         {
-            // A general capture failure must not prevent an independently registered probe.
-            try { runtime?.OnNativeRecord(record); }
-            catch (Exception ex) { Shared.DebugLogHelper.LogError(log, "AI_BUILD_CALLBACK_FAILED: " + ex); }
-            AiBuildExperimentBridge.Deliver(record, log);
+            AiBuildExperimentBridge.Dispatch(record, generalCapture, log);
         }
         private static void OnTick(int tick) => runtime?.OnTick(tick);
         private static void DrainEconomy() => runtime?.DrainEconomy();

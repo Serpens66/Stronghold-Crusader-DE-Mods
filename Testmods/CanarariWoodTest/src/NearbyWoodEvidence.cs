@@ -1,8 +1,9 @@
+using AIBuildDiagnoseTest;
 using System;
 using System.Text;
 using System.Collections.Generic;
 using SHCDESE.Interop.Enums;
-namespace AIBuildDiagnoseTest
+namespace CanarariWoodTest
 {
     // Copied snapshots and read-only replay; never writes game data or installs hooks.
     internal static class NearbyWoodEvidence

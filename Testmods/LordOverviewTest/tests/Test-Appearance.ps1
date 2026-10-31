@@ -28,12 +28,20 @@ try {
  # Guard the consumer's actual compiled opt-in. This does not prove Noesis rendering, but catches
  # the previous failure class where only an inherited Extender tooltip style owned the size.
  $runtime=$assembly.MainModule.GetType('LordOverviewTest.OverviewRuntime')
+ # Compiled fast-path guardrail: the source cache must return before any lookup/allocation.
+ # This is bounded IL inspection; visual/resource availability still needs game acceptance.
+ $cache=$runtime.Methods | Where-Object Name -eq 'EnsureMetricIcons'
+ $cacheCode=@($cache.Body.Instructions);$firstAllocation=-1;$firstReturn=-1
+ for($i=0;$i -lt $cacheCode.Count;$i++){if($firstReturn -lt 0 -and $cacheCode[$i].OpCode.Name -eq 'ret'){$firstReturn=$i};if($firstAllocation -lt 0 -and $cacheCode[$i].OpCode.Name -eq 'newarr'){$firstAllocation=$i}}
+ if($firstReturn -lt 0 -or $firstAllocation -le $firstReturn -or -not ($cacheCode[0..$firstReturn] | Where-Object {$_.Operand -is [Mono.Cecil.FieldReference] -and $_.Operand.Name -eq 'builtinIcons'})){throw 'Icon source initialization lost its cached early return.'}
+ $render=$runtime.Methods | Where-Object Name -eq 'Render'
+ if($render.Body.Instructions | Where-Object {$_.Operand -is [Mono.Cecil.MethodReference] -and $_.Operand.Name -in @('TryFindResource','GetIcon')}){throw 'Recurring renderer performs direct icon resource/provider lookups.'}
  $tipFactory=$runtime.Methods | Where-Object Name -eq 'CreateTip'
  $sizingCalls=@($tipFactory.Body.Instructions | Where-Object {$_.Operand -is [Mono.Cecil.MethodReference] -and $_.Operand.DeclaringType.FullName -eq 'APIShared.ModSettings.SharedToolTipSizing'} | ForEach-Object {$_.Operand.Name})
  foreach($name in @('SetReferenceElement','SetReferenceFontSize','SetEnabled')){if($name -notin $sizingCalls){throw "Owned statistics tooltips lost their public sizing opt-in: $name"}}
  # The game consumes any Noesis visual hit before routed handlers. Check the compiled
  # creation boundaries, not only an unhandled Click event. Real Noesis hit tests remain in-game QA.
- foreach($pair in @(@('LordOverviewTest.OverviewRuntime','CreateTip'),@('LordOverviewTest.OverviewAppearance','PlayerText'),@('LordOverviewTest.OverviewAppearance','Portrait'))){
+ foreach($pair in @(@('LordOverviewTest.OverviewRuntime','CreateTip'),@('LordOverviewTest.OverviewRuntime','CreatePassiveBubble'),@('LordOverviewTest.OverviewAppearance','PlayerText'),@('LordOverviewTest.OverviewAppearance','Portrait'))){
   $creator=$assembly.MainModule.GetType($pair[0]).Methods | Where-Object Name -eq $pair[1]
   $passive=@($creator.Body.Instructions | Where-Object {$_.Operand -is [Mono.Cecil.MethodReference] -and $_.Operand.Name -eq 'set_IsHitTestVisible' -and $_.Previous.OpCode.Name -eq 'ldc.i4.0'})
   if(-not $passive.Count){throw "Passive visual lost its hit-test exclusion: $($pair -join '.')"}
@@ -54,7 +62,7 @@ try {
  }
  # The regular GUI/tick paths must not allocate a closure before their due/visibility guard.
  # These are compiled IL allocation checks, not claims about native API/Noesis allocations.
- foreach($pair in @(@('LordOverviewTest.OverviewRuntime','OnTick'),@('LordOverviewTest.OverviewRuntime','Refresh'),@('LordOverviewTest.OverviewRuntime','OnOverviewGui'),@('LordOverviewTest.OverviewData','CopyRaw'))){
+ foreach($pair in @(@('LordOverviewTest.OverviewRuntime','OnTick'),@('LordOverviewTest.OverviewRuntime','Refresh'),@('LordOverviewTest.OverviewRuntime','OnOverviewGui'),@('LordOverviewTest.OverviewData','CopyRaw'),@('LordOverviewTest.OverviewData','CopyNative'))){
   $method=$assembly.MainModule.GetType($pair[0]).Methods | Where-Object Name -eq $pair[1]
   foreach($instruction in $method.Body.Instructions){
    if($instruction.OpCode.Name -in @('newarr','box') -or ($instruction.OpCode.Name -eq 'newobj' -and -not $instruction.Operand.DeclaringType.IsValueType)){throw "Managed allocation on critical/fast boundary: $($pair -join '.')"}
@@ -99,6 +107,15 @@ $gameAssembly=[Mono.Cecil.AssemblyDefinition]::ReadAssembly((Join-Path $GameDire
 $extender=[Mono.Cecil.AssemblyDefinition]::ReadAssembly((Join-Path $GameDirectory 'BepInEx/plugins/000shcdese/SHCDESE.dll'))
 try {
  $engine=$gameAssembly.MainModule.GetType('EngineInterface')
+ # This checks the actual game input policy, not just Noesis visual hit-test flags.
+ $input=$gameAssembly.MainModule.GetType('FatControler').Methods | Where-Object Name -eq 'overNoesisGUI'
+ $tags=@($input.Body.Instructions | Where-Object {$_.OpCode.Name -eq 'ldstr'} | ForEach-Object Operand)
+ foreach($tag in @('Ignore','IgnoreSelf')){if($tag -notin $tags){throw "Vanilla world-input exemption changed: $tag"}}
+ $inputCalls=@($input.Body.Instructions | Where-Object {$_.Operand -is [Mono.Cecil.MethodReference]} | ForEach-Object {$_.Operand.Name})
+ foreach($name in @('HitTest','get_Tag','get_Parent','GetParent')){if($name -notin $inputCalls){throw "Vanilla world-input ancestry contract changed: $name"}}
+ $gameCheck=$gameAssembly.MainModule.GetType('FatControler').Methods | Where-Object Name -eq 'NoesisGUIUpdateChecksInGame'
+ if(-not ($gameCheck.Body.Instructions | Where-Object {$_.Operand -is [Mono.Cecil.MethodReference] -and $_.Operand.Name -eq 'set_BookPopularityColour'})){throw 'Overall popularity colour producer changed.'}
+ if(-not ($gameCheck.Body.Instructions | Where-Object {$_.OpCode.Name -eq 'ldc.i4.s' -and $_.Operand -eq 50})){throw 'Re-audit overall popularity colour threshold.'}
  $lock=$engine.Fields | Where-Object Name -eq 'threadLock'
  if(-not $lock.IsStatic -or $lock.IsPublic -or $lock.FieldType.FullName -ne 'System.Object'){throw 'Engine lock reflection contract changed.'}
  foreach($name in @('GetMeritData','GetMPScoreData','DLL_GetMeritData','DLL_GetMPScoreData')){if(-not ($engine.Methods | Where-Object {$_.Name -eq $name -and $_.IsPublic -and $_.IsStatic})){throw "Vanilla public snapshot unavailable: $name"}}
@@ -115,6 +132,7 @@ try {
   $field=$resources.Fields | Where-Object Name -eq $pair[0]
   if(-not $field.IsPublic -or $field.FieldType.FullName -ne $pair[1]){throw "SE resource contract changed: $($pair[0])"}
  }
+ if(-not ($resources.Fields | Where-Object {$_.Name -eq 'r_WinLossState' -and $_.IsPublic -and $_.FieldType.FullName -eq 'SHCDESE.Interop.Enums.WinLossState'})){throw 'Official eliminated-player status contract changed.'}
  $origin=$extender.MainModule.GetType('SHCDESE.API.GameXAMLManagerAPI').Properties | Where-Object Name -eq 'CurrentLobbyModSettingsChangeOrigin'
  if(-not $origin.GetMethod.IsPublic){throw 'Settings change-origin contract unavailable.'}
 } finally {$gameAssembly.Dispose();$extender.Dispose()}

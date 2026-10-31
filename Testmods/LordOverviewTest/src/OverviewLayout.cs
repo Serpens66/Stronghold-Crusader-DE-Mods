@@ -13,6 +13,7 @@ namespace LordOverviewTest {
   internal GridFlow(int rows,int columns){rowCount=Math.Max(0,rows);columnCount=Math.Max(0,columns);if(rowCount==0 && columnCount==0)columnCount=1;}
   internal int Columns(int items)=>Math.Min(Math.Max(1,items),columnCount>0?columnCount:Divide(items,Math.Max(1,rowCount)));
   internal int Rows(int items)=>Divide(items,Columns(items));
+  internal bool SameShape(GridFlow other)=>other!=null && rowCount==other.rowCount && columnCount==other.columnCount;
   internal bool IsNormalized(int items)=>rowCount>0 && columnCount>0 && rowCount==Rows(items) && columnCount==Columns(items);
   internal GridFlow Normalize(int items)=>new GridFlow(Rows(items),Columns(items));
   internal void Position(int index,int items,out int row,out int column){
@@ -39,6 +40,7 @@ namespace LordOverviewTest {
  }
 
  internal static class OverviewLayout {
+  internal static bool SameColumns(Metric[] a,Metric[] b){if(ReferenceEquals(a,b))return true;if(a==null || b==null || a.Length!=b.Length)return false;for(int i=0;i<a.Length;i++)if(a[i]!=b[i])return false;return true;}
   internal static OverviewDesign ParseDesign(string value)=>Enum.TryParse(value,out OverviewDesign design) && Enum.IsDefined(typeof(OverviewDesign),design)?design:OverviewDesign.List;
   internal static int Pane(int index,int count)=>index/Math.Max(1,(count+1)/2);
   internal static int PaneRow(int index,int count)=>index%Math.Max(1,(count+1)/2);

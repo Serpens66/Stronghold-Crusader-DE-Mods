@@ -17,7 +17,9 @@ internal static class LordOverviewPresetTests {
   PersonalSettingsPaths.TestDocumentsDirectory=_=>Path.Combine(root,"documents");
   APIShared.Localization.UiText.Configure(()=>"en-US");GameNetworkAPI.LocalHost=true;GameNetworkAPI.Networked=true;GameNetworkAPI.MultiplayerGame=true;
   string file=Path.Combine(Program.PresetFixtureInstallRoot,"LordOverviewTest.dll");var model=Prepare(file);
-  Check(!model.AllowEnemyDetails && model.EnableMod,"safe code defaults");
+  Check(!model.AllowEnemyDetails && model.EnableMod && model.ShowEliminated,"safe code defaults preserve existing eliminated rows");
+  model.SetDisplayShowEliminated(false);Check(!Prepare(file).ShowEliminated,"local eliminated-player filter survives restart");
+  model.SetDisplayShowEliminated(true);
   model.SetDisplayColumns("Fear,Gold,TroopsKilled");model.SetDisplayColumns("TroopsKilled,Gold,Fear");model.AllowEnemyDetails=true;
   var restart=Prepare(file);Check(restart.Columns=="TroopsKilled,Gold,Fear" && restart.AllowEnemyDetails,"actual shared storage survives restart and replacement");
   GameNetworkAPI.LocalHost=false;restart.System_RefreshSettingsAccess();restart.AllowEnemyDetails=false;Check(restart.AllowEnemyDetails,"client rejected host edit");
@@ -37,8 +39,10 @@ internal static class LordOverviewPresetTests {
   GameNetworkAPI.LocalHost=true;model.System_RefreshSettingsAccess();
   model.System_EnterMissionPreset(new Dictionary<string,byte[]>{{nameof(OverviewSettings.AllowEnemyDetails),MessagePackSerializer.Serialize(false)}},"Trail",false);
   model.SetDisplayColumns("Fear,Popularity");Check(model.DisplayColumns=="Fear,Popularity","locked mission still permits runtime display choice");
+  model.SetDisplayShowEliminated(false);Check(!model.DisplayShowEliminated && model.ShowEliminated,"locked mission stages local player filter without changing mission source");
   model.System_ExitMissionPreset();model.FlushLocalPreferences();Check(model.Columns=="Fear,Popularity","pending display choice persists through normal source after mission");
   Check(Prepare(file).Columns=="Fear,Popularity","deferred local choice survives restart");
+  Check(!Prepare(file).ShowEliminated,"deferred player filter persists after source exit");
   var reorder=new ColumnSelection();reorder.Load(model.Columns);Check(reorder.MoveTo(Metric.Popularity,0),"header drop changes selection by metric ID");
   model.SetDisplayColumns(Metrics.Serialize(reorder.Columns));Check(Prepare(file).Columns=="Popularity,Fear","header-drop order survives actual shared persistence restart");
   model.Columns="Gold,Army,Popularity,Fear,GoldAcquired,MaxPopulation";Check(model.Columns=="Gold,Army,Popularity,Fear,GoldAcquired,MaxPopulation","more than five columns persist without normalization");
@@ -53,6 +57,7 @@ internal static class LordOverviewPresetTests {
   GameNetworkAPI.LocalHost=false;layoutRestart.System_RefreshSettingsAccess();layoutRestart.SetDisplayDesign(OverviewDesign.Cards);
   Check(layoutRestart.Design=="Cards","client can change its local design");
   GameXAMLManagerAPI.Instance.ApplyNetworkSync(layoutRestart,()=>layoutRestart.AllowEnemyDetails=false);
+  Check(!layoutRestart.ShowEliminated,"host sync cannot replace a local player filter");
   Check(layoutRestart.Design=="Cards" && layoutRestart.LordGrid=="1x8","incoming host preferences preserve local layouts");
   layoutRestart.SetDisplayGrid(true,GridFlow.Parse("Rows:3",2).Normalize(8));
   layoutRestart.SetDisplayGrid(false,GridFlow.Parse("Columns:4",3).Normalize(7));

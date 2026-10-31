@@ -19,6 +19,8 @@ try {
     foreach ($entry in @(
         @('CrusaderDE.MainViewModel','viewModelLoaded','field'),
         @('CrusaderDE.MainViewModel','buildScreenID','field'),
+        @('CrusaderDE.MainViewModel','get_Show_HUD_Extras','method'),
+        @('CrusaderDE.MainViewModel','get_Show_HUD_IngameMenu','method'),
         @('CrusaderDE.MainViewModel','get_MEMode','method'),
         @('CrusaderDE.HUD_Main','NewBuildScreenBlank','method'),
         @('CrusaderDE.MainViewModel','get_AlliesPanelVisible','method'),
@@ -83,6 +85,9 @@ try {
     }
     foreach ($name in @('GetZIndex','SetZIndex')) {
         if (-not @($noesis.MainModule.GetType('Noesis.Panel').Methods | Where-Object { $_.Name -eq $name -and $_.IsPublic -and $_.IsStatic }).Count) { throw "Missing public stacking member: $name" }
+    }
+    foreach ($name in @('SetInitialShowDelay','SetBetweenShowDelay')) {
+        if (-not @($noesis.MainModule.GetType('Noesis.ToolTipService').Methods | Where-Object { $_.Name -eq $name -and $_.IsPublic -and $_.IsStatic }).Count) { throw "Missing public immediate-tooltip member: $name" }
     }
     $binding = $noesis.MainModule.GetType('Noesis.Binding')
     if (-not @($binding.Properties | Where-Object { $_.Name -eq 'Source' -and $_.GetMethod.IsPublic -and $_.SetMethod.IsPublic }).Count -or

@@ -53,6 +53,8 @@ set "PLUGIN_NAME=AIBuildDiagnoseTest_Serp"
 set "LOCAL_PLUGIN_DIR=%PROJECT_DIR%BepInEx\plugins\%PLUGIN_NAME%"
 set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\%PLUGIN_NAME%"
 set "NO_PAUSE=0"
+set "NO_INSTALL=0"
+for %%A in (%*) do if /I "%%~A"=="/noinstall" set "NO_INSTALL=1"
 for %%A in (%*) do if /I "%%~A"=="/nopause" set "NO_PAUSE=1"
 
 set "SHCDE_GAME_DIR=%GAME_DIR%"
@@ -78,9 +80,14 @@ echo [%date% %time%] Copy package files
 copy /Y "%PROJECT_DIR%info.json" "%LOCAL_PLUGIN_DIR%\info.json" >nul
 if not "%ERRORLEVEL%"=="0" goto failed
 echo [%date% %time%] Copy package files
+if "%NO_INSTALL%"=="1" goto built_no_install
 xcopy "%LOCAL_PLUGIN_DIR%" "%GAME_PLUGIN_DIR%\" /E /I /Q /Y >nul
 if not "%ERRORLEVEL%"=="0" goto failed
 echo AI Build Diagnose Test built and installed.
+exit /b 0
+
+:built_no_install
+echo Build completed without installation.
 exit /b 0
 
 :failed_popd

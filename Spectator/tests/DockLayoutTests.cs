@@ -38,13 +38,21 @@ internal static class DockLayoutTests
         XNamespace x = "http://schemas.microsoft.com/winfx/2006/xaml";
         var canvas = after.Descendants().Single(e => (string)e.Attribute(x+"Name") == "SpectatorEditorHumanCanvas");
         var nativeHud = after.Descendants().Single(e => (string)e.Attribute(x+"Name") == "MainHUD");
+        var parentStyle=canvas.Elements().Single(e=>e.Name.LocalName=="Canvas.Style");
+        Check(parentStyle.Descendants().Any(e=>e.Name.LocalName=="Setter" && (string)e.Attribute("Property")=="Visibility" &&
+            ((string)e.Attribute("Value")??"").Contains("Show_HUD_Extras") && ((string)e.Attribute("Value")??"").Contains("FallbackValue=Collapsed")),
+            "The release Extras gate belongs to the parent and fails closed before binding.");
+        foreach(string flag in new[]{"Show_HUD_Briefing","Show_HUD_MissionOver","Show_HUD_IngameMenu"})
+            Check(parentStyle.Descendants().Any(e=>e.Name.LocalName=="DataTrigger" && ((string)e.Attribute("Binding")??"").Contains(flag) &&
+                e.Descendants().Any(s=>(string)s.Attribute("Property")=="Visibility" && (string)s.Attribute("Value")=="Collapsed")),
+                "The whole surface, including input and previews, hides for "+flag);
         Check(ReferenceEquals(nativeHud.Parent,canvas.Parent), "Overlay and native HUD must use the same stacking parent.");
         int nativeLayer = (int?)nativeHud.Attribute("Panel.ZIndex") ?? 0;
         Check((int)canvas.Attribute("Panel.ZIndex") > nativeLayer, "Overlay draws above the native HUD at the common ancestor.");
         var commonSurface = canvas.Descendants().Single(e => (string)e.Attribute(x+"Name") == "SpectatorEditorHumanPanel");
         Check((string)commonSurface.Attribute("Opacity")=="0" && (string)commonSurface.Attribute("IsHitTestVisible")=="False",
             "Before the first valid HUD layout, neither an unpositioned menu nor its hit surface may appear.");
-        foreach(string name in new[]{"SpectatorSnapFrame","SpectatorToolSnapFrame"})
+        foreach(string name in new[]{"SpectatorSnapFrame","SpectatorToolSnapFrame","SpectatorSnapGrip"})
         {
             var guide=canvas.Descendants().Single(e => (string)e.Attribute(x+"Name") == name);
             Check(guide.Ancestors().Contains(commonSurface),"Guides must inherit common HUD visibility/opacity: "+name);
