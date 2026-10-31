@@ -11,6 +11,7 @@ namespace Spectator
         private static float toolbarDesiredX, toolbarDesiredY;
         private static FrameworkElement alignmentAnchor, frameAnchor, toolbarGoods;
         private static FrameworkElement dateAnchor, alliesAnchor, toolbarControl;
+        private static Button toolbarDesign;
         private static readonly ToolbarHitTestLease dateHitTest = new ToolbarHitTestLease();
         private static Border toolbarHeader, rosterSurface, leftWing, rightWing, snapFrame, toolSnapFrame, snapGripFrame;
         private static UIElement toolbarNativeLayer;
@@ -41,6 +42,7 @@ namespace Spectator
             toolbarTools = humanScreen.FindName("SpectatorToolPanel") as Canvas;
             toolbarOwners = humanScreen.FindName("SpectatorEditorHumanOwners") as Canvas;
             toolbarControl = humanScreen.FindName("SpectatorControlSlot") as FrameworkElement;
+            toolbarDesign = humanScreen.FindName("SpectatorDesign") as Button;
             toolbarWings = humanScreen.FindName("SpectatorWings") as Canvas;
             leftWing = humanScreen.FindName("SpectatorLeftWing") as Border;
             rightWing = humanScreen.FindName("SpectatorRightWing") as Border;
@@ -51,7 +53,7 @@ namespace Spectator
             BindToolbarPaper();
             if (toolbarHeader == null || rosterSurface == null || toolbarTools == null || toolbarOwners == null ||
                 toolbarWings == null || leftWing == null || rightWing == null || toolbarGoods == null ||
-                snapFrame == null || toolSnapFrame == null || snapGripFrame == null || toolbarControl == null)
+                snapFrame == null || toolSnapFrame == null || snapGripFrame == null || toolbarControl == null || toolbarDesign == null)
                 throw new MissingMemberException("Spectator raster/tool surfaces missing.");
             ObserveLayout(toolbarHeader);
             // A reused view can still have our floating transparent background.
@@ -187,14 +189,17 @@ namespace Spectator
                 allies.Bottom - (ToolbarLayout.ControlHeight + 2) * nativeScale,
                 ToolbarLayout.ControlWidth * nativeScale, ToolbarLayout.ControlHeight * nativeScale);
             var dockPose = ToolbarLayout.Arrange(alignment, frame, count, details, false, dockControl);
-            toolbarDockGrip = ToolbarLayout.DockDropTarget(dockPose.Grip);
+            toolbarDockGrip = ToolbarLayout.DockDropTarget(alignment, frame);
             var floatingPose = ToolbarLayout.Arrange(alignment, frame, count, details, true, default, humanPlacementMode);
             var pose = toolbarMoved ? floatingPose : dockPose;
             float units = toolbarMoved ? 1 : nativeScale;
             float width = pose.Bounds.Width / units, height = pose.Bounds.Height / units;
             toolbarFloatingScale = Math.Min(nativeScale, Math.Min(vw / floatingPose.Bounds.Width, vh / floatingPose.Bounds.Height));
             float scale = toolbarMoved ? toolbarFloatingScale : Math.Min(nativeScale, Math.Min(vw / width, vh / height));
-            humanPanel.Width = width; humanPanel.Height = height;
+            humanPanel.Width = toolbarRoot.Width = width; humanPanel.Height = toolbarRoot.Height = height;
+            toolsModel.SetFloatingTheme(toolbarMoved && ToolbarThemePreference.Classic);
+            toolbarDesign.Visibility = toolbarMoved ? Visibility.Visible : Visibility.Collapsed;
+            if (toolbarMoved) Place(toolbarDesign, ToolbarLayout.FloatingDesignRect(count, humanPlacementMode));
             humanPanel.RenderTransform = new ScaleTransform(scale, scale);
             var roster = Relative(pose.Roster, pose.Bounds, units);
             var tools = Relative(pose.Tools, pose.Bounds, units);
@@ -229,7 +234,7 @@ namespace Spectator
             }
             // The common control owns only its reserved native gap. The roster/grip never enter the build frame.
             if (frameVisible && toolbarHudDisplay != DockHudDisplay.Tools) controlsBounds.Add(frame);
-            if (!ToolbarLayout.TryAvoidControls(position.X, position.Y, position.Width, position.Height,
+            if (!ToolbarLayout.Position(toolbarMoved, position.X, position.Y, position.Width, position.Height,
                 vw, vh, solidPieces, controlsBounds, ToolbarLayout.Gap * scale, out position) ||
                 (!toolbarMoved && (Math.Abs(position.X - groupDock.X) > .01f || Math.Abs(position.Y - groupDock.Y) > .01f)))
             { HideBlockedToolbar(); return; }
@@ -333,7 +338,7 @@ namespace Spectator
             while (footerCovers.Count < footerSegments.Count)
             {
                 var cover = new Border { Background = transparentToolbarBrush };
-                Panel.SetZIndex(cover, -1); cover.MouseDown += OnFooterCoverMouseDown;
+                Panel.SetZIndex(cover, 1); cover.MouseDown += OnFooterCoverMouseDown;
                 toolbarRoot.Children.Add(cover); footerCovers.Add(cover);
             }
             for (int i = 0; i < footerCovers.Count; i++)
@@ -367,6 +372,7 @@ namespace Spectator
             toolbarHeader = rosterSurface = leftWing = rightWing = snapFrame = toolSnapFrame = snapGripFrame = null;
             toolbarNativeLayer = null;
             alignmentAnchor = frameAnchor = toolbarGoods = dateAnchor = alliesAnchor = toolbarControl = null;
+            toolbarDesign = null;
             toolbarWings = toolbarTools = toolbarOwners = null;
             scrollAnchor = null; rosterPaper = controlPaper = null;
             DetachToolbarPaper();

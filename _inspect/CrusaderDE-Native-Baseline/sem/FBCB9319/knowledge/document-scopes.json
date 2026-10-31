@@ -21,6 +21,12 @@
   },
   "documents": [
     {
+      "file": "SAVE_WRITER_ROUTES.md",
+      "scope": "vanilla",
+      "components": [],
+      "integrationSections": []
+    },
+    {
       "file": "AI_WOODCUTTER_RETIREMENT.md",
       "scope": "vanilla",
       "components": [],

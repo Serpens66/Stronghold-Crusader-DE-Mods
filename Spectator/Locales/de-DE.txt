@@ -119,3 +119,5 @@ Tools.Debit=Abziehen
 Tools.DebitHelp=Die angegebene Menge beim ausgewählten Spieler aus Bestand und Lieferreserve abziehen, höchstens bis 0.
 Tools.StopShort=Beenden
 Tools.TargetHelp=Klick = Ziel auswählen
+Tools.DesignClassic=Design: Dunkel
+Tools.DesignPaper=Design: Pergament

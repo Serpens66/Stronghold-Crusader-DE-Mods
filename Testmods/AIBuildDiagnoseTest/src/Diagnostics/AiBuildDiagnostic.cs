@@ -70,6 +70,7 @@ namespace AIBuildDiagnoseTest
         {
             internal long Id;
             internal int PlayerId;
+            internal Action SafetyRestore;
         }
 
         internal static void Initialize(long baseAddress, string hash, ScanRegion scanRegion, ManualLogSource logger)
@@ -78,6 +79,7 @@ namespace AIBuildDiagnoseTest
             {
                 moduleBase = baseAddress;
                 nativeHash = hash;
+                WoodSafetyBridge.SetNativeHash(hash);
                 region = scanRegion;
                 log = logger;
             }
@@ -329,7 +331,8 @@ namespace AIBuildDiagnoseTest
             if (!HasObserver || playerId < 1 || playerId > 8) return 0;
             long id = Interlocked.Increment(ref nextAttemptId);
             if (woodAttempts == null) woodAttempts = new Stack<WoodAttempt>();
-            woodAttempts.Push(new WoodAttempt { Id = id, PlayerId = playerId });
+            woodAttempts.Push(new WoodAttempt { Id = id, PlayerId = playerId,
+                SafetyRestore = WoodSafetyBridge.EnterWoodBuild(playerId) });
             return id;
         }
 
@@ -337,8 +340,8 @@ namespace AIBuildDiagnoseTest
         public static void EndWoodAttempt(long id)
         {
             if (id == 0 || woodAttempts == null || woodAttempts.Count == 0) return;
-            if (woodAttempts.Peek().Id == id) woodAttempts.Pop();
-            else woodAttempts.Clear();
+            if (woodAttempts.Peek().Id == id) WoodSafetyBridge.ExitWoodBuild(woodAttempts.Pop().SafetyRestore);
+            else while (woodAttempts.Count != 0) WoodSafetyBridge.ExitWoodBuild(woodAttempts.Pop().SafetyRestore);
         }
 
         /// <summary>Gets the active attempt on the current simulation thread.</summary>

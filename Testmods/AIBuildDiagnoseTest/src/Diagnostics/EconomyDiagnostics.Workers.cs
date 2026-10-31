@@ -29,6 +29,7 @@ namespace AIBuildDiagnoseTest
                 Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.r_AIState)).ToInt32() != 0x2BC ||
                 Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.r_LinkedProductionBuildingId)).ToInt32() != 0x334 ||
                 Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.r_LinkedProductionBuildingGlobalId)).ToInt32() != 0x364 ||
+                Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.r_IsKilledByProjectile)).ToInt32() != 0x29C ||
                 Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.r_CurrentHealth)).ToInt32() != 0x3C4)
                 throw new InvalidOperationException("Worker identity/state/assignment layout differs");
         }
@@ -85,6 +86,7 @@ namespace AIBuildDiagnoseTest
                 if (!workerLayout || !removalLayout) return;
                 workerHooks = new WorkerCauseNativeHooks(this);
                 workerHooks.Install(context, hash);
+                WoodSafetyBridge.SetCounterReady(workerHooks.CounterReady);
                 workerHooks.SetActive(active);
             });
         }
@@ -105,7 +107,7 @@ namespace AIBuildDiagnoseTest
             return new WorkerSnapshot(slot, u->r_GlobalId, u->r_ControllableForPlayerId, (int)u->r_UnitChimp,
                 u->r_AIState, (int)u->r_AliveState, u->r_CurrentHealth, u->r_CurrentTilePositionX, u->r_CurrentTilePositionY,
                 u->r_TargetTilePositionX, u->r_TargetTilePositionY, u->r_LinkedProductionBuildingId,
-                u->r_LinkedProductionBuildingGlobalId, building);
+                u->r_LinkedProductionBuildingGlobalId, building, u->r_IsKilledByProjectile);
         }
         private void RecordWorkerTrigger(WorkerSnapshot worker, string kind, string source, bool death)
         {
@@ -122,6 +124,19 @@ namespace AIBuildDiagnoseTest
                 lock (sync)
                 {
                     if (!active || !workerLayout || !nativeLayout) return;
+                    short? nativeAfter = null;
+                    WoodCounterCorrection correction = default;
+                    if (!returning)
+                    {
+                        // The optional fix is isolated from all later capture/logging failures.
+                        Safe(() =>
+                        {
+                            nativeAfter = ReadWorkerCounter(nativeBuilding);
+                            uint unitGlobal = unchecked((uint)Read(0x67E8400L + unitId * 0x490L + 0x6F0));
+                            uint buildingGlobal = unchecked((uint)Read(0x64CCBB0L + nativeBuilding * 0x32CL + 0x134));
+                            correction = WoodSafetyBridge.CorrectDeathCounter(new WoodCounterPoint(session, tick, unitId, unitGlobal, nativeBuilding, buildingGlobal, nativeAfter.Value));
+                        });
+                    }
                     var worker = CopyWorker(unitId, false, returning ? (int?)null : nativeBuilding);
                     if (worker == null)
                     { Emit("WORKER_EVENT_GAP", 0, 0, $"unitRaw={unitId}, nativeBuildingRaw={nativeBuilding}, returning={returning}; context-unresolved"); return; }
@@ -135,9 +150,17 @@ namespace AIBuildDiagnoseTest
                     }
                     else
                     {
-                        long offset = 0x64CCBB0L + nativeBuilding * 0x32CL + 0x338;
-                        if (offset < 0 || offset + 2 > moduleSize) throw new InvalidOperationException("Native counter destination outside image: " + nativeBuilding);
-                        short after = Marshal.ReadInt16(new IntPtr(module + offset));
+                        short after = ReadWorkerCounter(nativeBuilding);
+                        bool corrected = nativeAfter.HasValue && correction.Applied &&
+                            correction.UnitGlobal == worker.GlobalId && correction.BuildingGlobal == worker.Building?.GlobalId &&
+                            after == unchecked((short)(nativeAfter.Value - 10));
+                        if (corrected || nativeAfter.HasValue && after != nativeAfter.Value)
+                        {
+                            Count((worker.Building?.Player ?? worker.Player) + ":worker-counter-correction:" + corrected);
+                            Emit("WORKER_COUNTER_CORRECTION", worker.Building?.Player ?? worker.Player, 0,
+                                $"{worker}, nativeBuildingSlot={nativeBuilding}, nativeAfter={nativeAfter}, remainingCounter={after}, nativeAdd=10, correctionConfirmed={corrected}, netAdd={(corrected ? "0" : "unknown")}, woodSafetyCallbackFailures={WoodSafetyBridge.CallbackFailures}; loadedHistoryUnchanged=true");
+                            return; // A removed/unknown contribution is never counted as an effective +10.
+                        }
                         var increment = workerCauses.Increment(session, worker, after);
                         if (increment == null) return;
                         int player = worker.Building?.Player ?? worker.Player;
@@ -147,6 +170,12 @@ namespace AIBuildDiagnoseTest
                     }
                 }
             });
+        }
+        private short ReadWorkerCounter(int nativeBuilding)
+        {
+            long offset = 0x64CCBB0L + nativeBuilding * 0x32CL + 0x338;
+            if (offset < 0 || offset + 2 > moduleSize) throw new InvalidOperationException("Native counter destination outside image: " + nativeBuilding);
+            return Marshal.ReadInt16(new IntPtr(module + offset));
         }
         internal void RecordConstructionContext(int player, string detail)
         {

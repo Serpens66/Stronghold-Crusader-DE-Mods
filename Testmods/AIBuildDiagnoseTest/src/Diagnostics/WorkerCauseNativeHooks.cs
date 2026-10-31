@@ -34,6 +34,7 @@ namespace AIBuildDiagnoseTest
         private readonly IntPtr demand = Marshal.AllocHGlobal(2); // Process lifetime, data only, one gate per site.
         private readonly bool[] ready = new bool[2];
         private readonly EconomyDiagnostics owner;
+        internal bool CounterReady => ready[1];
         internal WorkerCauseNativeHooks(EconomyDiagnostics owner) { this.owner = owner; Marshal.WriteByte(demand, 0, 0); Marshal.WriteByte(demand, 1, 0); published.Add(this); }
         internal void SetActive(bool active)
         { for (int i = 0; i < ready.Length; i++) Marshal.WriteByte(demand, i, active && ready[i] ? (byte)1 : (byte)0); }

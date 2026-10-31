@@ -8,15 +8,16 @@ namespace AIBuildDiagnoseTest
     {
         internal readonly int Slot, Player, Chimp, State, Alive, X, Y, TargetX, TargetY, BuildingSlot;
         internal readonly uint GlobalId, Health, BuildingGlobalId;
+        internal readonly ushort DeathMarker;
         internal readonly BuildingEvidenceIdentity Building;
         internal WorkerSnapshot(int slot, uint global, int player, int chimp, int state, int alive, uint health,
-            int x, int y, int tx, int ty, int buildingSlot, uint buildingGlobal, BuildingEvidenceIdentity building)
+            int x, int y, int tx, int ty, int buildingSlot, uint buildingGlobal, BuildingEvidenceIdentity building, ushort deathMarker = 0)
         { Slot = slot; GlobalId = global; Player = player; Chimp = chimp; State = state; Alive = alive; Health = health;
-          X = x; Y = y; TargetX = tx; TargetY = ty; BuildingSlot = buildingSlot; BuildingGlobalId = buildingGlobal; Building = building; }
+          X = x; Y = y; TargetX = tx; TargetY = ty; BuildingSlot = buildingSlot; BuildingGlobalId = buildingGlobal; Building = building; DeathMarker = deathMarker; }
         internal bool AssignmentMatches(WorkerSnapshot other) => other != null && BuildingSlot == other.BuildingSlot &&
             BuildingGlobalId == other.BuildingGlobalId;
         internal bool BuildingMatches => Building != null && Building.Matches(BuildingSlot, BuildingGlobalId);
-        public override string ToString() => $"unit={Slot}, unitGlobalId={GlobalId}, unitPlayer={Player}, chimp={Chimp}, aiState={State}, alive={Alive}, health={Health}, workerTile=({X},{Y}), movementTarget=({TargetX},{TargetY}), linkedBuilding={BuildingSlot}/{BuildingGlobalId}, building=[{Building?.ToString() ?? "unavailable"}], assignmentMatches={BuildingMatches}";
+        public override string ToString() => $"unit={Slot}, unitGlobalId={GlobalId}, unitPlayer={Player}, chimp={Chimp}, aiState={State}, alive={Alive}, health={Health}, deathMarker={DeathMarker}, workerTile=({X},{Y}), movementTarget=({TargetX},{TargetY}), linkedBuilding={BuildingSlot}/{BuildingGlobalId}, building=[{Building?.ToString() ?? "unavailable"}], assignmentMatches={BuildingMatches}";
     }
 
     internal sealed class WorkerCauseEvent

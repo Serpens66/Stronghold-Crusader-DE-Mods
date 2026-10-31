@@ -337,6 +337,8 @@ namespace Spectator
         {
             if (!IsToolbarSession() || toolsModel == null) return;
             toolbarDirty = true;
+            if (command == "ToggleDesign")
+            { ToolbarThemePreference.Toggle(); toolbarLayoutDirty = true; return; }
             if (!IsToolsSession()) return;
             SyncSpectatorSelection();
             if (command == "StopCursor" || command == "CancelPower") { amountInput?.EndEditing(); }

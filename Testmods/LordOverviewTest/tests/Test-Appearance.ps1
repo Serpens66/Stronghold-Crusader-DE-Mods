@@ -36,6 +36,14 @@ try {
  if($firstReturn -lt 0 -or $firstAllocation -le $firstReturn -or -not ($cacheCode[0..$firstReturn] | Where-Object {$_.Operand -is [Mono.Cecil.FieldReference] -and $_.Operand.Name -eq 'builtinIcons'})){throw 'Icon source initialization lost its cached early return.'}
  $render=$runtime.Methods | Where-Object Name -eq 'Render'
  if($render.Body.Instructions | Where-Object {$_.Operand -is [Mono.Cecil.MethodReference] -and $_.Operand.Name -in @('TryFindResource','GetIcon')}){throw 'Recurring renderer performs direct icon resource/provider lookups.'}
+ # Cropping belongs exclusively to HUD cache initialization, never a warm icon factory/render.
+ $icon=$runtime.Methods | Where-Object Name -eq 'MetricIcon'
+ foreach($method in @($icon,$render)){
+  if($method.Body.Instructions | Where-Object {$_.OpCode.Name -eq 'newobj' -and $_.Operand.DeclaringType.FullName -eq 'Noesis.CroppedBitmap'}){throw 'Icon crop escaped the HUD source cache.'}
+ }
+ foreach($property in @('set_Width','set_Height')){
+  if(-not ($icon.Body.Instructions | Where-Object {$_.Operand -is [Mono.Cecil.MethodReference] -and $_.Operand.Name -eq $property -and $_.Previous.Operand -eq 28})){throw "Shared metric icon lost its 28-unit extent: $property"}
+ }
  $tipFactory=$runtime.Methods | Where-Object Name -eq 'CreateTip'
  $sizingCalls=@($tipFactory.Body.Instructions | Where-Object {$_.Operand -is [Mono.Cecil.MethodReference] -and $_.Operand.DeclaringType.FullName -eq 'APIShared.ModSettings.SharedToolTipSizing'} | ForEach-Object {$_.Operand.Name})
  foreach($name in @('SetReferenceElement','SetReferenceFontSize','SetEnabled')){if($name -notin $sizingCalls){throw "Owned statistics tooltips lost their public sizing opt-in: $name"}}
@@ -73,6 +81,8 @@ try {
   if(-not ($bindCrown.Body.Instructions | Where-Object {$_.Operand -is [Mono.Cecil.MethodReference] -and $_.Operand.Name -eq $name -and $_.Previous.OpCode.Name -eq 'ldc.i4.0'})){throw "Crown delay must be zero: $name"}
  }
  $attach=$runtime.Methods | Where-Object Name -eq 'Attach'
+ $buttonTemplates=@($attach.Body.Instructions | Where-Object {$_.OpCode.Name -eq 'ldstr' -and $_.Operand -match "<Style .*TargetType='\{x:Type Button\}'"} | ForEach-Object {$_.Operand})
+ if($buttonTemplates.Count -ne 1 -or $buttonTemplates[0] -notmatch "Padding='\{TemplateBinding Padding\}'"){throw 'Header template must honor two-unit padding so a 28-unit icon fits a 32-unit reorder cell.'}
  $templates=@($attach.Body.Instructions | Where-Object {$_.OpCode.Name -eq 'ldstr' -and $_.Operand -match "TargetType='\{x:Type ToolTip\}'"} | ForEach-Object {$_.Operand})
  if($templates.Count -ne 1){throw 'Expected one explicit statistics popup style.'}
  [xml]$template=$templates[0]

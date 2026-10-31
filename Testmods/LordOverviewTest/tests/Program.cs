@@ -36,7 +36,7 @@ internal static partial class Program {
   selection.Load("Gold,Gold,Army");Check(selection.Columns.SequenceEqual(new[]{Metric.Gold,Metric.Army}),"duplicate identifiers normalized");
  }
  static void TestExternalColumns(){
-  var selection=new ColumnSelection();selection.Load(Metrics.Serialize(Metrics.Builtins.Select(d=>d.Id)));Check(selection.Columns.Length==20,"all builtin columns permitted");
+  var selection=new ColumnSelection();selection.Load(Metrics.Serialize(Metrics.Builtins.Select(d=>d.Id)));Check(selection.Columns.Length==Metrics.Builtins.Length,"all builtin columns permitted");
   selection.Load("Gold,foreign.mod/units,Army");var missing=selection.Columns[1];Check(Metrics.Key(missing)=="foreign.mod/units","missing provider selection retained");
   var id=Metrics.RegisterExternal("foreign.mod/units","Military",v=>v.ToString("0.00",System.Globalization.CultureInfo.InvariantCulture)+" m");Check(id==missing,"late provider recovers the same identity");
   Check(Metrics.Parse(Metrics.Serialize(selection.Columns)).SequenceEqual(selection.Columns),"qualified keys and order round trip without provider");
@@ -94,12 +94,25 @@ internal static partial class Program {
   Check(StatisticValues.Kills(matrix,2,true)==10,"losses use incoming column including environment");
   matrix[2*9+3]=int.MaxValue;Check(StatisticValues.Kills(matrix,2,false)==(long)int.MaxValue+12,"wide sum avoids overflow");
   Check(!StatisticValues.Kills(new int[80],2,true).HasValue && !StatisticValues.At(new int[2],8).HasValue,"incomplete native snapshot unavailable");
+  var merit=new int[45];
+  for(int player=1;player<=8;player++){
+   int slot=player*5;merit[slot]=player;
+   foreach(int score in new[]{0,1,35791,int.MaxValue,-1,int.MinValue}){merit[slot+1]=score;Check(StatisticValues.GreatestLord(merit,player)==score,"exact signed score from each native Merit record");}
+   merit[slot]=-1;Check(!StatisticValues.GreatestLord(merit,player).HasValue,"absent native player cannot leak stale score");
+  }
+  Check(!StatisticValues.GreatestLord(null,1).HasValue && !StatisticValues.GreatestLord(merit,0).HasValue && !StatisticValues.GreatestLord(merit,9).HasValue && !StatisticValues.GreatestLord(new int[41],8).HasValue,"score validates buffer and one-based player boundaries");
+  foreach(var metric in Metrics.Builtins)Check(metric.Historical==(metric.Id>=Metric.GoldAcquired && metric.Id<=Metric.LordsKilled),"only cumulative metrics demand historical export");
+  Check((int)Metric.LordsKilled==19 && (int)Metric.GreatestLord==20 && !Metrics.Get(Metric.GreatestLord).Historical,"score appends without changing existing IDs or demanding history");
+  var scoreRows=new[]{ScoreRow(1,0),ScoreRow(2,-1),ScoreRow(3,1200),ScoreRow(4,null)};var scoreSort=new OverviewState();scoreSort.Select(Metric.GreatestLord);
+  Check(scoreSort.Sort(scoreRows).Select(r=>r.Player).SequenceEqual(new[]{3,1,2,4}),"Greatest Lord sorts exact scores descending, unknown last");scoreSort.Select(Metric.GreatestLord);
+  Check(scoreSort.Sort(scoreRows).Select(r=>r.Player).SequenceEqual(new[]{2,1,3,4}),"Greatest Lord ascending keeps defeat score and unknown distinct");
  }
+ static LordRow ScoreRow(int player,long? score){var values=new long?[Metrics.Builtins.Length];values[(int)Metric.GreatestLord]=score;return new LordRow(player,score!=-1,values);}
  static void TestMenuAndGestures(){
   Check(Metrics.All.Where(d=>d.Group=="PopulationMood").Select(d=>d.Id).OrderBy(x=>x).SequenceEqual(new[]{Metric.Popularity,Metric.Fear,Metric.MaxPopulation}),"population and mood are thematic, not a default-values group");
   var military=new[]{Metric.Army,Metric.TroopsProduced,Metric.TroopsKilled,Metric.TroopsLost,Metric.BuildingsDestroyed,Metric.BuildingsLost,Metric.LordsKilled};
   Check(Metrics.Builtins.Where(d=>d.Group=="Military").Select(d=>d.Id).SequenceEqual(military),"current and cumulative military values grouped together");
-  Check(Metrics.All.All(d=>Metrics.Groups.Contains(d.Group)) && Metrics.All.Count(d=>d.Group=="Economy")==10,"every metric belongs to one of three complete themes");
+  Check(Metrics.All.All(d=>Metrics.Groups.Contains(d.Group)) && Metrics.All.Count(d=>d.Group=="Economy")==11 && Metrics.Get(Metric.GreatestLord).Group=="Economy","every metric belongs to a complete theme including the current wealth/strength score");
   var menu=new ColumnMenuState();menu.Select("Military",42);menu.Remember(17);var columns=new ColumnSelection();columns.Toggle(Metric.WoodProduced);
   Check(menu.Group=="Military" && menu.Offset==17,"checkbox changes preserve category and offset");
   menu.Select("Economy",17);Check(menu.Offset==42,"each category restores its offset");

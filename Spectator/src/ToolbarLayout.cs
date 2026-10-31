@@ -35,13 +35,20 @@ namespace Spectator
         internal const float Portrait = 36, TargetPortrait = 28, Cell = 38, RosterWidth = 80;
         internal const float Header = 22, Body = 66, Footer = 26;
         internal const float ControlWidth = 60, ControlHeight = 22, WindowWidth = 496, FloatingHeader = 40, FloatingGrip = 8;
-        internal const float ToggleWidth = 24;
+        internal const float ToggleWidth = 24, DesignWidth = 22;
         internal static float FloatingWidth(int count, bool placement) =>
-            12 + Math.Max(0, Math.Min(8, count) * Cell - 2) + 2 + (placement ? ControlWidth : ToggleWidth) + 2;
+            12 + Math.Max(0, Math.Min(8, count) * Cell - 2) + 2 + DesignWidth + 2 + (placement ? ControlWidth : ToggleWidth) + 2;
         internal static ToolbarRect FloatingGripRect => new ToolbarRect(2, 2, FloatingGrip, Portrait);
-        internal static ToolbarRect DockDropTarget(ToolbarRect grip) => new ToolbarRect(grip.X,
-            grip.Y + (grip.Height - Math.Min(grip.Height, grip.Width / FloatingGrip * Portrait)) / 2,
-            grip.Width, Math.Min(grip.Height, grip.Width / FloatingGrip * Portrait));
+        internal static ToolbarRect DockDropTarget(ToolbarRect alignment, ToolbarRect frame)
+        {
+            // Always the complete eight-player target, even for a sparse/small roster.
+            float scale = alignment.Width / 914;
+            return new ToolbarRect(frame.X - (6 + RosterWidth) * scale,
+                alignment.Bottom - RosterHeight(8) * scale, RosterWidth * scale, RosterHeight(8) * scale);
+        }
+        internal static ToolbarRect FloatingDesignRect(int count, bool placement) =>
+            new ToolbarRect(FloatingWidth(count, placement) - (placement ? ControlWidth : ToggleWidth) - 4 - DesignWidth,
+                8, DesignWidth, ToggleWidth);
         // Vanilla's detailed info host ends 125 units above the viewport bottom
         // (compact: 130). Keep a two-unit gap below both, in every toolbar mode.
         internal static ToolbarRect Dock(ToolbarRect alignment)
@@ -56,11 +63,10 @@ namespace Spectator
                 Math.Max(0, Math.Min(Math.Max(0, viewportWidth - width), x)),
                 Math.Max(0, Math.Min(Math.Max(0, viewportHeight - height), y)), width, height);
 
-        internal static bool Snap(float x, float y, ToolbarRect dock, float scaleX, float scaleY, bool attached)
+        internal static bool WithinDetachThreshold(float x, float y, ToolbarRect dock, float scaleX, float scaleY)
         {
             double dx = (x - dock.X) * Math.Abs(scaleX), dy = (y - dock.Y) * Math.Abs(scaleY);
-            float radius = attached ? 14 : 10;
-            return dx * dx + dy * dy <= radius * radius;
+            return dx * dx + dy * dy <= 14 * 14;
         }
 
         // Only permanent functional HUD surfaces are supplied here, never hover text.
@@ -92,6 +98,14 @@ namespace Spectator
                     position = candidate; best = distance;
                 }
             return best != double.MaxValue;
+        }
+
+        internal static bool Position(bool floating, float x, float y, float width, float height,
+            float viewportWidth, float viewportHeight, IList<ToolbarRect> solids,
+            IList<ToolbarRect> controls, float gap, out ToolbarRect position)
+        {
+            if (floating) { position = Clamp(x, y, width, height, viewportWidth, viewportHeight); return true; }
+            return TryAvoidControls(x, y, width, height, viewportWidth, viewportHeight, solids, controls, gap, out position);
         }
 
         private static bool Clear(ToolbarRect position, float width, float height,
@@ -181,14 +195,14 @@ namespace Spectator
         internal bool Move(float x, float y, ToolbarRect dockTarget, float screenScaleX, float screenScaleY,
             float floatingScale, out float wantedX, out float wantedY)
         {
-            if (!Floating && !ToolbarLayout.Snap(x, y, new ToolbarRect(startX, startY, 1, 1), screenScaleX, screenScaleY, true))
+            if (!Floating && !ToolbarLayout.WithinDetachThreshold(x, y, new ToolbarRect(startX, startY, 1, 1), screenScaleX, screenScaleY))
                 Floating = true;
             wantedX = x - grabX * floatingScale; wantedY = y - grabY * floatingScale;
             var small = ToolbarLayout.FloatingGripRect;
-            Preview = Floating && ToolbarLayout.Snap(wantedX + (small.X + small.Width / 2) * floatingScale,
-                wantedY + (small.Y + small.Height / 2) * floatingScale,
-                new ToolbarRect(dockTarget.X + dockTarget.Width / 2, dockTarget.Y + dockTarget.Height / 2, 1, 1),
-                screenScaleX, screenScaleY, false);
+            float cx = wantedX + (small.X + small.Width / 2) * floatingScale;
+            float cy = wantedY + (small.Y + small.Height / 2) * floatingScale;
+            Preview = Floating && !dockTarget.Empty && cx >= dockTarget.X && cx <= dockTarget.Right &&
+                cy >= dockTarget.Y && cy <= dockTarget.Bottom;
             return Floating;
         }
         internal bool Drop(float x, float y, ToolbarRect dockTarget, float screenScaleX, float screenScaleY,

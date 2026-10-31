@@ -39,6 +39,8 @@ Shared/Tests/Threading.Tests/Shared.Threading.Tests.csproj
 StartConditions/StartConditions.csproj
 Testmods/AIAttackTest/AIAttackTest.csproj
 Testmods/AIBuildDiagnoseTest/AIBuildDiagnoseTest.csproj
+Testmods/AIWoodSafetyTest/AIWoodSafetyTest.csproj
+Testmods/AIWoodSafetyTest/tests/Safety.Tests.csproj
 Testmods/AICoarsePathComponentFixTest/AICoarsePathComponentFixTest.csproj
 Testmods/AIDefenseTest/AIDefenseTest.csproj
 Testmods/AIMarketOverbuyDiagnostic/AIMarketOverbuyDiagnostic.csproj

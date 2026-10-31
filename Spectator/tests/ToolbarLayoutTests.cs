@@ -24,6 +24,16 @@ internal static class ToolbarLayoutTests
                 expanded.Bounds.Right >= expanded.Tools.Right && expanded.Bounds.Bottom >= expanded.Roster.Bottom,
                 "Common drag/clamp bounds enclose every visible part without clipping the stop button.");
             var floating = ToolbarLayout.Arrange(alignment,frame,count,true,true);
+            var dockTarget=ToolbarLayout.DockDropTarget(alignment,frame);
+            check(dockTarget.Width==80*scale && dockTarget.Height==150*scale && dockTarget.Bottom==alignment.Bottom,
+                "The target always reserves the complete eight-player raster, independent of occupied rows.");
+            var design=ToolbarLayout.FloatingDesignRect(count,false);
+            check(design.Width==22 && design.Right+2==floating.Control.X &&
+                ToolbarLayout.OwnerCell(count-1,true).Right+2==design.X,"Design button fits precisely between portraits and toggle.");
+            var placing=ToolbarLayout.Arrange(alignment,frame,count,false,true,default,true);
+            check(placing.Roster.Width-floating.Roster.Width==36 && placing.Control.Width==60,
+                "Only the additional stop-label width extends the compact row during placement.");
+
             check(floating.Roster.Width == ToolbarLayout.FloatingWidth(count,false) && floating.Roster.Height == 40 && floating.Tools.Y == floating.Roster.Bottom &&
                 floating.Control.Right <= floating.Roster.Right && floating.Control.Bottom <= floating.Roster.Bottom,
                 "Floating portraits/control share one header, directly above the tool surface.");
@@ -40,6 +50,14 @@ internal static class ToolbarLayoutTests
                 "Only the placement label adds necessary width; plus/minus stay compact.");
             check(floating.Grip.Right<=ToolbarLayout.OwnerCell(0,true).X && floating.Grip.Y==2 && floating.Grip.Height==36,
                 "The floating drag area is a small left-hand grip, never a long top strip.");
+            foreach(var pose in new[]{compact,expanded,floating,placing,closed})
+            {
+                check(!pose.Grip.Intersects(pose.Control) && !pose.Grip.Intersects(pose.Tools),
+                    "The raised grip never steals control or tool clicks in any toolbar form.");
+            }
+            foreach(var pose in new[]{floating,placing,closed})
+                check(!pose.Grip.Intersects(ToolbarLayout.FloatingDesignRect(count,pose.Control.Width==60)),
+                    "The raised floating grip leaves the design button reachable.");
             var cells = new List<ToolbarRect>();
             for (int i=0;i<count;i++)
             {
@@ -74,7 +92,7 @@ internal static class ToolbarLayoutTests
         foreach(float fraction in new[]{0f,.5f,1f})
         {
             var grip = new ToolbarRect(300,700,8*uiScale,150*uiScale);
-            var target=ToolbarLayout.DockDropTarget(grip);
+            var target=new ToolbarRect(200,500,80*uiScale,150*uiScale);
             float startX=grip.X+fraction*grip.Width,startY=grip.Y+fraction*grip.Height;
             var drag=new ToolbarDragAnchor(); drag.Begin(startX,startY,grip,true);
             check(!drag.Move(startX+13.9f/screenScale,startY,target,screenScale,screenScale,uiScale,out var x,out var y),"Docked view stays fixed inside fourteen physical pixels.");
@@ -84,20 +102,38 @@ internal static class ToolbarLayoutTests
                 check(drag.Move(startX+14.1f/screenScale,startY,target,screenScale,screenScale,uiScale,out x,out y) && x==firstX && y==firstY,
                     "Reflow cannot feed back as pointer motion or cause repeated attach/detach.");
             var small=ToolbarLayout.FloatingGripRect;
-            float px=target.X+target.Width/2+(fraction-.5f)*small.Width*uiScale;
-            float py=target.Y+target.Height/2+(fraction-.5f)*small.Height*uiScale;
-            check(drag.Move(px+9.8f/screenScale,py,target,screenScale,screenScale,uiScale,out x,out y) && drag.Preview && drag.Floating,
-                "Approach highlights a preview while retaining the row during capture.");
-            check(Math.Abs(x+(small.X+fraction*small.Width)*uiScale-px-9.8f/screenScale)<.001f,
-                "The real grip offset stays under the pointer independently of header width.");
-            check(drag.Drop(px+9.8f/screenScale,py,target,screenScale,screenScale,uiScale,out x,out y) && !drag.Floating && !drag.Preview,
-                "Release within ten physical pixels commits the grid and clears its preview.");
+            foreach(float fx in new[]{0f,.5f,1f})
+            foreach(float fy in new[]{0f,.5f,1f})
+            {
+                // The cursor can grab any part of the grip. Its centre, not the cursor,
+                // must enter the entire fixed raster, including the four corners.
+                float centreX=target.X+target.Width*fx, centreY=target.Y+target.Height*fy;
+                float px=centreX+(fraction-.5f)*small.Width*uiScale;
+                float py=centreY+(fraction-.5f)*small.Height*uiScale;
+                check(drag.Move(px,py,target,screenScale,screenScale,uiScale,out x,out y) && drag.Preview && drag.Floating,
+                    "Any point in the full 2x4 target previews while the row remains floating.");
+                check(Math.Abs(x+(small.X+fraction*small.Width)*uiScale-px)<.001f,
+                    "The real grab offset remains under the pointer independently of header width.");
+            }
+            float dropX=target.Right+(fraction-.5f)*small.Width*uiScale;
+            float dropY=target.Bottom+(fraction-.5f)*small.Height*uiScale;
+            check(drag.Drop(dropX,dropY,target,screenScale,screenScale,uiScale,out x,out y) && !drag.Floating && !drag.Preview,
+                "Release at the target edge commits the grid and clears preview.");
             var floatingGrip=new ToolbarRect(120,180,small.Width*uiScale,small.Height*uiScale);
             drag.Begin(floatingGrip.X+fraction*floatingGrip.Width,floatingGrip.Y+fraction*floatingGrip.Height,floatingGrip,false);
-            drag.Move(px+9.8f/screenScale,py,target,screenScale,screenScale,uiScale,out x,out y);
-            check(drag.Preview && !drag.Drop(px+10.2f/screenScale,py,target,screenScale,screenScale,uiScale,out x,out y) && drag.Floating,
-                "Release checks its own final position; an old preview cannot snap outside the radius.");
-            drag.Move(px,py,target,screenScale,screenScale,uiScale,out x,out y);drag.Cancel();
+            float insideX=target.X+target.Width/2+(fraction-.5f)*small.Width*uiScale;
+            float insideY=target.Y+target.Height/2+(fraction-.5f)*small.Height*uiScale;
+            drag.Move(insideX,insideY,target,screenScale,screenScale,uiScale,out x,out y);
+            check(drag.Preview && !drag.Drop(dropX+1,dropY,target,screenScale,screenScale,uiScale,out x,out y) && drag.Floating,
+                "Release checks the final position and rejects a stale preview outside the target.");
+            foreach(var outside in new[]{new ToolbarRect(target.X-1,target.Y,1,1),new ToolbarRect(target.Right+1,target.Y,1,1),
+                new ToolbarRect(target.X,target.Y-1,1,1),new ToolbarRect(target.X,target.Bottom+1,1,1)})
+            {
+                drag.Move(outside.X+(fraction-.5f)*small.Width*uiScale,outside.Y+(fraction-.5f)*small.Height*uiScale,
+                    target,screenScale,screenScale,uiScale,out x,out y);
+                check(!drag.Preview,"Every outside target edge rejects the preview.");
+            }
+            drag.Move(insideX,insideY,target,screenScale,screenScale,uiScale,out x,out y);drag.Cancel();
             check(!drag.Preview && drag.Floating,"Hiding or losing capture cancels preview without committing a dock.");
             var paper=new ToolbarRect(-150,-25,876*uiScale,103*uiScale);
             var slices=new ToolbarPaperSlices(paper,180*uiScale);
@@ -111,11 +147,8 @@ internal static class ToolbarLayoutTests
         var dock=new ToolbarRect(100,200,600,202);
         foreach(float scale in new[]{1f,1.5f,2f,3f})
         {
-            check(ToolbarLayout.Snap(100+9.999f/scale,200,dock,scale,scale,false),"Acquire within ten rendered pixels.");
-            check(!ToolbarLayout.Snap(100+10.1f/scale,200,dock,scale,scale,false),"Do not acquire beyond ten rendered pixels.");
-            check(ToolbarLayout.Snap(100+13.9f/scale,200,dock,scale,scale,true),"Keep snap until fourteen rendered pixels.");
-            check(!ToolbarLayout.Snap(100+14.1f/scale,200,dock,scale,scale,true),"Release beyond fourteen rendered pixels.");
-            check(!ToolbarLayout.Snap(100+8/scale,200+8/scale,dock,scale,scale,false),"Snap uses a radius, not a square.");
+            check(ToolbarLayout.WithinDetachThreshold(100+13.9f/scale,200,dock,scale,scale),"Keep dock until fourteen rendered pixels.");
+            check(!ToolbarLayout.WithinDetachThreshold(100+14.1f/scale,200,dock,scale,scale),"Release beyond fourteen rendered pixels.");
         }
         foreach(DockHudDisplay display in Enum.GetValues(typeof(DockHudDisplay)))
         foreach(bool expanded in new[]{false,true})
@@ -151,6 +184,19 @@ internal static class ToolbarLayoutTests
         var fullScreen = new List<ToolbarRect>{new ToolbarRect(0,0,1280,1080)};
         check(!ToolbarLayout.TryAvoidControls(400,800,80,202,1280,1080,rosterOnly,fullScreen,4,out safe),
             "A fully occupied viewport reports no room, rather than accepting an unsafe input surface.");
+        foreach(int count in new[]{1,2,3,4,5,6,7,8})
+        foreach(bool details in new[]{false,true})
+        foreach(bool placing in new[]{false,true})
+        {
+            var pose=ToolbarLayout.Arrange(new ToolbarRect(0,914,914,166),new ToolbarRect(114,936,800,144),count,details,true,default,placing);
+            foreach(var wanted in new[]{new ToolbarRect(0,0,1,1),new ToolbarRect(650,850,1,1),new ToolbarRect(1600,1200,1,1)})
+            {
+                check(ToolbarLayout.Position(true,wanted.X,wanted.Y,pose.Bounds.Width,pose.Bounds.Height,1920,1080,
+                    rosterOnly,fullScreen,4,out safe),"Floating toolbar ignores every HUD obstacle, including placement and open tools.");
+                var expected=ToolbarLayout.Clamp(wanted.X,wanted.Y,pose.Bounds.Width,pose.Bounds.Height,1920,1080);
+                check(safe.X==expected.X && safe.Y==expected.Y,"Only viewport edges alter a requested floating position.");
+            }
+        }
         var adjacent=new List<ToolbarRect>{new ToolbarRect(100,100,90,30),new ToolbarRect(140,100,110,30),new ToolbarRect(240,100,60,30)};
         ToolbarLayout.FooterSegments(band,adjacent,freeParts);
         CheckCoverage(band,adjacent,freeParts,check);

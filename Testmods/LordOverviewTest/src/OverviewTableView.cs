@@ -160,11 +160,11 @@ namespace LordOverviewTest {
   }
   private static Button CreateHeader(HeaderSurface surface,Metric? metric,string help,FrameworkElement symbol){
    headerRevision++;symbol.IsHitTestVisible=false;symbol.HorizontalAlignment=HorizontalAlignment.Center;symbol.VerticalAlignment=VerticalAlignment.Center;
-   var content=new Grid {Margin=new Thickness(2,0,2,0)};content.Children.Add(symbol);
+   var content=new Grid();content.Children.Add(symbol);
    var arrow=new Canvas {Width=4,Height=5,HorizontalAlignment=HorizontalAlignment.Right,VerticalAlignment=VerticalAlignment.Top,IsHitTestVisible=false,Visibility=Visibility.Collapsed};
    arrow.Children.Add(new Path {Fill=new SolidColorBrush(Color.FromRgb(255,240,191)),Data=Geometry.Parse("M0,0 L4,0 L2,3 Z")});content.Children.Add(arrow);
    var highlight=new Border {Child=content,Background=new SolidColorBrush(Color.FromArgb(0,0,0,0))};
-   var button=new Button {Style=buttonStyle,Content=highlight,Padding=new Thickness(2),HorizontalAlignment=HorizontalAlignment.Stretch};
+   var button=new Button {Style=buttonStyle,Content=highlight,Padding=new Thickness(2),MinHeight=OverviewPresentationPolicy.IconCellSize,HorizontalAlignment=HorizontalAlignment.Stretch};
    var binding=new HeaderBinding {Surface=surface,Metric=metric,Highlight=highlight,Arrow=arrow,Menu=surface.Prefix.StartsWith("menu/",StringComparison.Ordinal)};
    if(surface.Wrap!=null)surface.Items.Add(button);
    if(binding.Menu)Tip(button,help+" — "+Text("HeaderDragHint"));

@@ -164,7 +164,7 @@ namespace AIBuildDiagnoseTest
                     {
                         Summary("end");
                         Emit("COVERAGE", 0, 0, $"phase=end, captureFailures={captureFailures}, protectionCallbackFailures={availability?.CallbackFailures ?? 0}, " +
-                            $"priceCallbackFailures={MarketPriceEvents.CallbackFailures}, pendingDeletionCalls={delayedDeletion.Count}, openEventFrames={eventFrames.Count}, workerStateOmitted={workerCauses.Omitted}, duplicateDeathEvents={workerCauses.DuplicateDeaths}", final: true);
+                            $"priceCallbackFailures={MarketPriceEvents.CallbackFailures}, woodSafetyCallbackFailuresProcess={WoodSafetyBridge.CallbackFailures}, pendingDeletionCalls={delayedDeletion.Count}, openEventFrames={eventFrames.Count}, workerStateOmitted={workerCauses.Omitted}, duplicateDeathEvents={workerCauses.DuplicateDeaths}", final: true);
                     }
                     finally
                     {

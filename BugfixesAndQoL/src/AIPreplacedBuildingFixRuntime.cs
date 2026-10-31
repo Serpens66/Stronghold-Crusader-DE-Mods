@@ -1375,6 +1375,9 @@ namespace BugfixesAndQoL
                     int y = beginY + dy;
                     if (!api.IsTileInsideMapBounds(x, y)) { count++; continue; }
                     int tileId = api.GetTileId(x, y);
+                    // Geometric bounds also include the diamond's packed-grid fringe.
+                    // Outside packed storage is blocked terrain, not an attempted PCL read.
+                    if ((uint)tileId >= NativePclEntryCount) { count++; continue; }
                     if (!TryGetPclByTileId(tileId, out int pcl, "shadow-economy") || !reachablePcls.Contains(pcl)) count++;
                 }
             return count;
@@ -1427,8 +1430,13 @@ namespace BugfixesAndQoL
                     if (HasAnyAiPlayer() && !preAivBaselineMissingLogged)
                     {
                         preAivBaselineMissingLogged = true;
-                        Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/AIPreplacedBuildingFixRuntime.cs:1394", $"PREPLACED_BASELINE_MISSING: checkpoint=0x{AllocateSpecRva:X}; " +
-                            "economy fix disabled for this map; legacy ruin timer handling remains independent.");
+                        string detail = $"checkpoint=0x{AllocateSpecRva:X}; isSave={args.Context.IsSave}; " +
+                            "economy fix disabled for this map; legacy ruin timer handling remains independent.";
+                        if (args.Context.IsSave)
+                            Shared.DebugLogHelper.LogInfo(log, "PREPLACED_BASELINE_UNAVAILABLE: loaded save has no new-map pre-AIV baseline; " + detail);
+                        else
+                            Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/AIPreplacedBuildingFixRuntime.cs:1394",
+                                "PREPLACED_BASELINE_MISSING: new-map allocation checkpoint was not observed; " + detail);
                     }
                 }
                 else
@@ -2137,18 +2145,19 @@ namespace BugfixesAndQoL
             Span<ushort> grid = GamePathingManagerAPI.Instance.GetPathComponentGrid();
             if (grid.Length != NativePclEntryCount || (uint)tileId >= (uint)grid.Length)
             {
-                RecordInvalidPclAccess(tileId, source);
+                RecordInvalidPclAccess(tileId, source, grid.Length);
                 return false;
             }
             pcl = grid[tileId];
             return pcl > 0;
         }
 
-        private void RecordInvalidPclAccess(int tileId, string source)
+        private void RecordInvalidPclAccess(int tileId, string source, int gridLength)
         {
             string signature = source + "/" + tileId;
             if (emittedInvalidPclAccesses.Add(signature))
-                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/AIPreplacedBuildingFixRuntime.cs:2116", $"PREPLACED_INVALID_PCL_TILE_ACCESS: source={source}; tileId={tileId}; valid=0..{NativePclEntryCount - 1}.");
+                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/AIPreplacedBuildingFixRuntime.cs:2116", $"PREPLACED_INVALID_PCL_TILE_ACCESS: source={source}; tileId={tileId}; actualGridLength={gridLength}; expectedGridLength={NativePclEntryCount}; valid=0..{gridLength - 1}; " +
+                    $"reason={(gridLength != NativePclEntryCount ? "grid-capacity-contract" : "tile-id-out-of-range")}; action=reject-access.");
         }
 
         private bool TryCaptureBuilding(int buildingId, out BuildingSnapshot snapshot)

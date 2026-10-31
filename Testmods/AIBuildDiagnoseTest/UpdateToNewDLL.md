@@ -218,6 +218,18 @@ no guessed maximum of 64 profiles is imposed. Runtime AIC size 0x5E4 and each
 selected public field's offset are taken from installed Interop. Lord enum and
 effective profile index are logged separately. Never use a Lord enum as that index.
 
+Optional AIWoodSafetyTest uses an internal intervention bridge at the already owned
+0x12D1A2 point. Before any optional correction, copy the actual native target WORD
+and identity globals: unit module+0x67E8400+unitId*0x490+0x6F0; building
+module+0x64CCBB0+buildingId*0x32C+0x134. These are native manager-relative offsets,
+not GameUnit/GameBuilding structure-relative fields. Validate the typed unit death
+marker at +0x29C as well. The sink/hooks/public APIShared/Canari contracts do not
+change. Only the separate safety mod writes; general logs compare captured native
+counter and globals with the independently read remaining counter. Unknown or
+unacknowledged changes never become effective +10 evidence. Nested wood contexts
+restore an optional intervention scope in finally, independent of scalar observers.
+Review both mods' update contracts together when moving these points or layouts.
+
 For an update re-audit complete functions/callers, all conditional/alternative exits,
 incoming edges, relocated instructions and the installed backend. Refresh fingerprints,
 offset contracts and machine evidence together. No stale RVA on an unknown image.

@@ -13,6 +13,7 @@ namespace ExtendedData
         // null identifies a legacy payload; -1 is Custom, >=0 is the configuration Lord type.
         public int? LordType { get; set; }
         public string LordName { get; set; }
+        public LordPresentationData Presentation { get; set; }
         public string ConfigName { get; set; }
         public string ConfigChecksum { get; set; }
         public string ModLordJson { get; set; }
@@ -25,7 +26,7 @@ namespace ExtendedData
         public const int MaxSidecarBytes = APIShared.ModData.ModDataDocumentJson.MaximumDocumentBytes;
         public const int MaxNamespaceBytes = APIShared.ModData.ModDataDocumentJson.MaximumNamespaceBytes;
         public const int MaxSnapshotBytes = 256 * 1024;
-        public const int ProtocolVersion = 4;
+        public const int ProtocolVersion = 5;
 
         public string SessionId { get; private set; }
         public string Digest { get; private set; }
@@ -45,7 +46,7 @@ namespace ExtendedData
         {
             if (string.IsNullOrWhiteSpace(sessionId))
                 throw new InvalidDataException("A Lord-data session ID is required.");
-            LordDataSlot[] ordered = (slots ?? Enumerable.Empty<LordDataSlot>()).OrderBy(item => item.PlayerId).ToArray();
+            LordDataSlot[] ordered = (slots ?? Enumerable.Empty<LordDataSlot>()).OrderBy(item => item?.PlayerId ?? 0).ToArray();
             ValidateSlots(ordered, fixesInstalled);
             var payload = new Dictionary<string, object>(StringComparer.Ordinal)
             {
@@ -57,6 +58,7 @@ namespace ExtendedData
                     ["playerId"] = item.PlayerId,
                     ["lordType"] = item.LordType,
                     ["lordName"] = item.LordName,
+                    ["presentation"] = LordPresentationData.Encode(item.Presentation),
                     ["configName"] = item.ConfigName,
                     ["configChecksum"] = item.ConfigChecksum,
                     ["modLordData"] = item.ModLordJson == null ? null : ParseModLord(item.ModLordJson),
@@ -114,6 +116,7 @@ namespace ExtendedData
                     PlayerId = Convert.ToInt32(item["playerId"]),
                     LordType = version >= 3 && item.TryGetValue("lordType", out object identity) && identity != null ? (int?)Convert.ToInt32(identity) : null,
                     LordName = RequireString(item, "lordName"),
+                    Presentation = version >= 5 && item.TryGetValue("presentation", out object presentation) ? LordPresentationData.Decode(presentation) : null,
                     ConfigName = RequireString(item, "configName"),
                     ConfigChecksum = RequireString(item, "configChecksum"),
                     ModLordJson = legacy ? OptionalString(item, "modLordJson") :
@@ -182,13 +185,22 @@ namespace ExtendedData
 
         private static void ValidateSlots(LordDataSlot[] slots, bool fixesInstalled)
         {
-            if (slots.Length > 8 || slots.Any(item => item == null || item.PlayerId < 1 || item.PlayerId > 8 ||
-                string.IsNullOrWhiteSpace(item.LordName) || string.IsNullOrWhiteSpace(item.ConfigName)) ||
-                slots.Select(item => item.PlayerId).Distinct().Count() != slots.Length)
-                throw new InvalidDataException("The selected Lord slots are invalid.");
+            if (slots.Length > 8)
+                throw new InvalidDataException("The selected Lord slots are invalid: slotCount=" + slots.Length + ",maximum=8.");
+            var players = new HashSet<int>();
             foreach (LordDataSlot slot in slots)
             {
-                if (slot.LordType < -1) throw new InvalidDataException("Invalid Lord type identity.");
+                if (slot == null) throw new InvalidDataException("The selected Lord slots are invalid: null slot.");
+                string problem = slot.PlayerId < 1 || slot.PlayerId > 8 ? "player ID outside 1..8" :
+                    !players.Add(slot.PlayerId) ? "duplicate player ID" :
+                    string.IsNullOrWhiteSpace(slot.LordName) ? "missing resolved Lord name" :
+                    string.IsNullOrWhiteSpace(slot.ConfigName) ? "missing configuration name" :
+                    slot.LordType < -1 ? "invalid Lord type" : null;
+                if (problem != null)
+                    throw new InvalidDataException("The selected Lord slots are invalid: reason=" + problem +
+                        ",player=" + slot.PlayerId + ",lordType=" + slot.LordType + ",lord=" + slot.LordName +
+                        ",config=" + slot.ConfigName + ",checksum=" + slot.ConfigChecksum);
+                LordPresentationData.Validate(slot.Presentation);
                 ValidateModLord(slot.ModLordJson);
                 FixesPreferenceSources.Validate(slot.FixesSources);
                 if (!fixesInstalled && (slot.FixesJson != null || slot.FixesSources != null))

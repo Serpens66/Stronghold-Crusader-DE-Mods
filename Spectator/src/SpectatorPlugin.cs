@@ -30,6 +30,7 @@ namespace Spectator
             Shared.UnityMainThreadDispatch.InitializeForCurrentThread();
             Shared.DebugLogHelper.InitializeDiagnostics(Config, Logger);
             SerpLocalization.SetRoutineLoggingEnabled(false);
+            ToolbarThemePreference.Initialize(Config);
             Settings = new SpectatorViewModel();
             SpectatorRuntime.Initialize(Logger, Settings);
             CrusaderLibrary.Instance.LibraryLoaded += OnLibraryLoaded;

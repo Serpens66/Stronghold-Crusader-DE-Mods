@@ -52,11 +52,18 @@ if ($tools.Visibility -ne '{Binding ExpandedVisibility}') { throw 'Placement, co
 $roster = Named 'SpectatorRosterPanel'
 $grip = Named 'SpectatorEditorHumanDrag'
 if ($roster.SelectSingleNode('.//*[@x:Name="SpectatorEditorHumanDrag"]', $ns) -or $grip.ParentNode -ne (Named 'TestToolsRoot') -or $grip.HasAttribute('Width')) { throw 'One independent grip follows the dock gap or the floating left edge.' }
+# The floating roster spans the grip and has a transparent hit-testable background.
+# Relative sibling order is the contract here; this does not replace a real Noesis mouse test.
+if ($grip.ParentNode -ne $roster.ParentNode -or [int]$grip.GetAttribute('Panel.ZIndex') -le [int]$roster.GetAttribute('Panel.ZIndex')) { throw 'Drag grip must receive input above the overlapping portrait container.' }
 $paper = Named 'SpectatorPaperSurface'
-if ($paper.ParentNode -ne (Named 'TestToolsRoot') -or $paper.IsHitTestVisible -ne 'False' -or $paper.SelectNodes('.//Image').Count -ne 2) { throw 'Continuous paper is clipped once behind the actual menu surfaces.' }
-foreach ($name in @('SpectatorPaperTopImage','SpectatorPaperLowerImage')) {
-    if ((Named $name).Source -ne '{StaticResource UI-HUD 007}') { throw 'Paper layers must use the original Vanilla scroll graphic.' }
+if ($paper.ParentNode -ne (Named 'TestToolsRoot') -or $paper.IsHitTestVisible -ne 'False' -or $paper.GetAttribute('Panel.ZIndex') -ne '0') { throw 'Pooled parchment patches use an explicit nonnegative common background layer.' }
+foreach($name in @('SpectatorRosterPanel','SpectatorControlSlot','SpectatorToolPanel','SpectatorEditorHumanDrag','SpectatorDesign')) {
+ if ([int](Named $name).GetAttribute('Panel.ZIndex') -le 1) { throw 'Interactive controls must be above background and footer input covers.' }
 }
+$design=Named 'SpectatorDesign'
+if ($design.CommandParameter -ne 'ToggleDesign' -or $design.GetAttribute('ToolTipService.InitialShowDelay') -ne '0' -or $design.Visibility -ne 'Collapsed') { throw 'Design control starts hidden until floating and has immediate help.' }
+$gripStyle=(Named 'SpectatorEditorHumanDrag').SelectSingleNode('Border.Style/Style')
+if ($gripStyle.SelectSingleNode('Setter[@Property="Background"]').Value -ne '{Binding MenuGrip}') { throw 'The grip uses its visible theme colour at rest as well as on hover.' }
 $slot = Named 'SpectatorControlSlot'
 if ($slot.Width -ne '60') { throw 'Both control labels share the slot that fits beside all ten native tabs.' }
 foreach ($name in @('SpectatorStopPlacement','SpectatorExpand')) {

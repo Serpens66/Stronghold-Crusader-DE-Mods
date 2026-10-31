@@ -80,7 +80,9 @@ namespace BugfixesAndQoL.BuildPreview
             store.Publish(store.Read(),mapper,11,20,new GroundCounts(80,46,0));
             Assert(retained.X==10 && retained.Counts.Coverage==81, "Retained snapshot remains immutable");
             store.Clear(current);
-            Assert(store.Read().Snapshot==null, "Abort discards counts");
+            Assert(store.Read().Snapshot==null && store.Read().Enabled && store.Read().Generation==current.Generation, "Abort discards counts without disabling the generation");
+            store.Publish(store.Read(),mapper,12,20,counts);
+            Assert(store.Read().Snapshot.X==12, "A complete sample publishes after clearing a skipped footprint");
             var producerCapture=store.Read();
             using (var captured=new System.Threading.ManualResetEvent(false))
             using (var resume=new System.Threading.ManualResetEvent(false))
@@ -184,36 +186,54 @@ namespace BugfixesAndQoL.BuildPreview
                 ulong image = (ulong)memory.ToInt64();
                 IntPtr manager = (IntPtr)(long)(image + PreviewNativeContract.ManagerRva);
                 var view = new GameTileManagerView((ulong)manager.ToInt64());
-                int scale = 9, count = scale*scale;
-                for (int y = 0; y < scale; y++)
+                foreach (var mapper in new[] { eMappers.MAPPER_APPLEFARM, eMappers.MAPPER_QUARRY,
+                    eMappers.MAPPER_WHEATFARM, eMappers.MAPPER_HOPSFARM, eMappers.MAPPER_CATTLEFARM,
+                    eMappers.MAPPER_IRON_MINE, eMappers.MAPPER_PITCH_WORKINGS })
                 {
-                    *(int*)(image + PreviewNativeContract.PackedRowRva + (ulong)y*12) = y*scale;
-                    for (int x = 0; x < scale; x++)
+                    int scale = FarmPreviewPolicy.Scale(mapper), count = scale*scale;
+                    for (int y = 0; y < scale; y++)
                     {
-                        *(byte*)(image + PreviewNativeContract.ValidMapMaskRva + (ulong)(y*800+x)) = 1;
-                        view.Logic2Grid[y*scale+x] = (byte)TileType.OasisGrass;
-                        view.ConstructionGrid[y*scale+x] = FarmPreviewPolicy.DarkPreview;
+                        *(int*)(image + PreviewNativeContract.PackedRowRva + (ulong)y*12) = y*scale;
+                        for (int x = 0; x < scale; x++)
+                        {
+                            *(byte*)(image + PreviewNativeContract.ValidMapMaskRva + (ulong)(y*800+x)) = 1;
+                            view.LogicGrid[y*scale+x] = 0;
+                            view.Logic2Grid[y*scale+x] = (byte)TileType.OasisGrass;
+                            view.ConstructionGrid[y*scale+x] = FarmPreviewPolicy.DarkPreview;
+                        }
                     }
-                }
-                view.Logic2Grid[0] = (byte)TileType.NoneOrDirt;
-                MarkResult result = FootprintMarker.Apply(image, manager, 0, 0, scale);
-                Assert(result.Changed == 1 && result.Coverage == count-1 && view.ConstructionGrid[0] == FarmPreviewPolicy.RedPreview, "Production capture writes correct packed index zero");
-                view.ConstructionGrid[0] = FarmPreviewPolicy.DarkPreview;
-                *(byte*)(image + PreviewNativeContract.ValidMapMaskRva + (ulong)((scale-1)*800+scale-1)) = 0;
-                bool rejected = false;
-                try { FootprintMarker.Apply(image, manager, 0, 0, scale); } catch (InvalidOperationException) { rejected = true; }
-                Assert(rejected && view.ConstructionGrid[0] == FarmPreviewPolicy.DarkPreview, "Last invalid map-mask cell prevents all writes");
-                foreach (int x in new[] { -1, 800, int.MinValue, int.MaxValue })
-                {
+                    view.Logic2Grid[0] = (byte)TileType.NoneOrDirt;
+                    Assert(FootprintMarker.TryApply(image, manager, 0, 0, scale, out MarkResult result, mapper), "Complete footprint sampled: " + mapper);
+                    int expected = FarmPreviewPolicy.IsFarm(mapper) ? 1 : count;
+                    Assert(result.Changed == expected && result.Coverage == count-1 && view.ConstructionGrid[0] == FarmPreviewPolicy.RedPreview, "Production marking includes packed index zero: " + mapper);
+                    for (int i = 0; i < count; i++) view.ConstructionGrid[i] = FarmPreviewPolicy.DarkPreview;
+                    foreach (int missingCell in new[] { 0, count-1 })
+                    {
+                        ulong mask = image + PreviewNativeContract.ValidMapMaskRva + (ulong)((missingCell/scale)*800+missingCell%scale);
+                        *(byte*)mask = 0;
+                        Assert(!FootprintMarker.TryApply(image, manager, 0, 0, scale, out result, mapper) && result.Cells == 0 && result.Changed == 0 && result.Coverage == 0, "Map edge returns no partial result: " + mapper);
+                        Assert(!FootprintMarker.TryApply(image, manager, 0, 0, scale, out result, mapper, false), "Map edge skipped independently of placement state: " + mapper);
+                        for (int i = 0; i < count; i++) Assert(view.ConstructionGrid[i] == FarmPreviewPolicy.DarkPreview, "Map edge preserves every preview cell");
+                        *(byte*)mask = 1;
+                    }
+                    foreach (int coordinate in new[] { -1, 800, int.MinValue, int.MaxValue, 800-scale+1 })
+                    {
+                        Assert(!FootprintMarker.TryApply(image, manager, coordinate, 0, scale, out result, mapper), "X boundary safely skipped: " + mapper);
+                        Assert(!FootprintMarker.TryApply(image, manager, 0, coordinate, scale, out result, mapper), "Y boundary safely skipped: " + mapper);
+                    }
+                    for (int i = 0; i < count; i++) Assert(view.ConstructionGrid[i] == FarmPreviewPolicy.DarkPreview, "Coordinate rejection preserves every preview cell");
+                    Assert(FootprintMarker.TryApply(image, manager, 0, 0, scale, out result, mapper) && result.Changed == expected, "Valid-edge-valid recovers without reinitialization: " + mapper);
+                    for (int i = 0; i < count; i++) view.ConstructionGrid[i] = FarmPreviewPolicy.DarkPreview;
+                    Assert(FootprintMarker.TryApply(image, manager, 0, 0, scale, out result, mapper, false) && result.Changed == 0 && result.Cells == count, "Valid placement sampled without recolouring: " + mapper);
+                    *(int*)(image + PreviewNativeContract.PackedRowRva + (ulong)(scale-1)*12) = GameTileManagerView.NativePackedTileCapacity;
+                    bool rejected = false;
+                    try { FootprintMarker.TryApply(image, manager, 0, 0, scale, out result, mapper); } catch (InvalidOperationException) { rejected = true; }
+                    Assert(rejected, "Bad packed row index remains a contract error: " + mapper);
+                    for (int i = 0; i < count; i++) Assert(view.ConstructionGrid[i] == FarmPreviewPolicy.DarkPreview, "Corrupt row prevents all writes");
                     rejected = false;
-                    try { FootprintMarker.Apply(image, manager, x, 0, scale); } catch (InvalidOperationException) { rejected = true; }
-                    Assert(rejected && view.ConstructionGrid[0] == FarmPreviewPolicy.DarkPreview, "Out-of-grid/overflow footprint fails before writes");
+                    try { FootprintMarker.TryApply(image, manager, 0, 0, scale+1, out result, mapper); } catch (ArgumentException) { rejected = true; }
+                    Assert(rejected, "Unsupported scale remains a contract error: " + mapper);
                 }
-                *(byte*)(image + PreviewNativeContract.ValidMapMaskRva + (ulong)((scale-1)*800+scale-1)) = 1;
-                *(int*)(image + PreviewNativeContract.PackedRowRva + (ulong)(scale-1)*12) = GameTileManagerView.NativePackedTileCapacity;
-                rejected = false;
-                try { FootprintMarker.Apply(image, manager, 0, 0, scale); } catch (InvalidOperationException) { rejected = true; }
-                Assert(rejected && view.ConstructionGrid[0] == FarmPreviewPolicy.DarkPreview, "Bad packed row index prevents partial writes");
             }
             finally { Assert(VirtualFree(memory, UIntPtr.Zero, 0x8000), "Native layout fixture released"); }
         }

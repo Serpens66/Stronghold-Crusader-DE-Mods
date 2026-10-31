@@ -115,3 +115,22 @@ refund event alone does not prove the terminal state or historical reason.
 Ordinary strategic emergency-demolition categories 1..7 in 0x2D810, selected by
 0x2F080, do not include structure type 3. These statements do not rule out damage,
 script actions or other mods as additional causes in a specific game.
+
+## Synchronous death-contribution distinction, 31 October 2026
+
+Same native hash. In 0x12BC00, the WORD ADD at 0x12D199 writes +10 to
+native building manager+buildingId*0x32C+0x338, after the worker is marked for
+deletion. The existing observation point 0x12D1A2 follows that ADD. A live return
+failure and a death can both reach state 110; state 110 or counter 20 alone does
+not distinguish them. The worker death marker at GameUnit+0x29C, despite the
+Extender name r_IsKilledByProjectile, is written by both fatal melee and projectile
+paths. Combined current health zero, deletion state, worker/global identity and
+linked hut/global identity can distinguish the current death contribution without
+requiring a historical event or reinterpreting an old saved counter. The known
+counter writer/reader chain is woodsman-specific; this is not evidence of the same
+mechanism for all economy buildings. General accessibility demolition remains separate.
+
+AIWoodSafetyTest experiments with subtracting only the just-observed ten in that
+verified case. This is a mod policy, not a changed Vanilla fact. Scratch tests
+exercise the actual guarded WORD writer including old values and signed wrap;
+affected-save A/B acceptance of the policy remains pending.

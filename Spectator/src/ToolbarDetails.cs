@@ -131,7 +131,8 @@ namespace Spectator
 
         private static void MarkOwnerButton(Button button, bool selected)
         {
-            button.Background = selected ? ownerSelectedBrush : ownerNormalBrush;
+            button.Background = toolsModel?.ClassicTheme == true ?
+                (selected ? toolsModel.MenuActive : toolsModel.MenuButton) : (selected ? ownerSelectedBrush : ownerNormalBrush);
             button.BorderBrush = selected ? selectedOwnerBorder : normalOwnerBorder;
             button.BorderThickness = new Thickness(selected ? 2 : 1);
         }

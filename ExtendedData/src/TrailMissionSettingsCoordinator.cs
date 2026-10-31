@@ -29,7 +29,7 @@ using IOPath = System.IO.Path;
 namespace ExtendedData
 {
     /// <summary>Owns the process-wide Custom Trail settings and customization integration.</summary>
-    internal sealed class TrailMissionSettingsCoordinator : IDisposable, IModSettingsWorkingSourceProvider
+    internal sealed partial class TrailMissionSettingsCoordinator : IDisposable, IModSettingsWorkingSourceProvider
         {
             private const string CoopTrailMakerSourceDirectory = "TrailMakerSource";
             private const int CoopCustomizeProtocolVersion = 2;
@@ -315,6 +315,7 @@ namespace ExtendedData
                         button.Visibility = enabled ? Visibility.Visible : Visibility.Collapsed;
                 if (previous.EditorFiles != value.EditorFiles && coopTrailExportCheckbox != null)
                     coopTrailExportCheckbox.Visibility = EditorEnabled ? Visibility.Visible : Visibility.Collapsed;
+                if (lordMediaExportCheckbox != null) lordMediaExportCheckbox.Visibility = EditorEnabled ? Visibility.Visible : Visibility.Collapsed;
                 if (previous.WorkshopUploads && !UploadEnabled)
                 {
                     uploadOptions.Close();
@@ -1026,8 +1027,17 @@ namespace ExtendedData
                     return;
                 }
                 ModSettingsDefinition document = null;
+                IReadOnlyList<TrailLordSlot> savedLordRequirements = null;
                 try
                 {
+                    var lordCapture = TrailLordRequirementSource.Resolve(trailPath, restartInfo,
+                        IsMakerCoopEnabled() ? CoopTrailSlotSelection.GetAiPlayerIds(CoopTrailSlotSelection.GetActiveSlots(restartInfo.lordTypes)) : null, false);
+                    savedLordRequirements = lordCapture.Slots;
+                    if (IsMakerMediaEnabled())
+                    {
+                        foreach (var slot in savedLordRequirements) slot.Presentation = TrailLordMediaStore.SelectMedia(slot.Presentation, true);
+                        TrailLordMediaStore.Stage(savedLordRequirements.Select(x => x.Presentation), IOPath.GetDirectoryName(IOPath.GetFullPath(trailPath)));
+                    }
                     // Vanilla unloads and rebuilds the editor inside the original save call.
                     // Capture synchronously before invoking it so every save uses its own visible values.
                     document = CaptureDocument();
@@ -1055,6 +1065,7 @@ namespace ExtendedData
                 {
                     if (!File.Exists(trailPath))
                         throw new FileNotFoundException("The game did not create the expected Trail mission.", trailPath);
+                    TrailLordRequirements.Create(trailPath, savedLordRequirements).Write(trailPath);
                     if (editorSaveOptions.IncludeTrailModSettings)
                     {
                         ModSettingsJson.WriteAtomic(sidecar, document);
@@ -1278,7 +1289,8 @@ namespace ExtendedData
                 else if (string.Equals(command, "Upload", StringComparison.Ordinal))
                 {
                     if (selectedRow?.trail != null && UploadEnabled)
-                        uploadOptions.Open(WorkshopUploadOptionKind.Trail);
+                        uploadOptions.Open(WorkshopUploadOptionKind.Trail,
+                            LordMediaUploadSummary(IOPath.Combine(ConfigSettings.GetUserCustomTrailsPath(), selectedRow.trail.Name)));
                     else if (selectedRow?.lord != null)
                         uploadOptions.Open(WorkshopUploadOptionKind.CustomLord);
                     else
@@ -1312,7 +1324,7 @@ namespace ExtendedData
                 PendingUploadDecision decision = GetUploadDecision(nameMap, mapTitle);
                 Action terminalSuccess = WrapTerminalCallback(decision, successAction);
                 Action terminalFailure = WrapTerminalCallback(decision, failAction);
-                if (decision != null && !decision.IncludeExtendedData)
+                if (decision != null && !decision.IncludeExtendedData && !IsCustomTrailUpload(tags))
                 {
                     uploadWorkshopMapOriginal(instance, nameMap, mapTitle, description, tags,
                         publicMap, previewImage, terminalSuccess, terminalFailure);
@@ -1392,6 +1404,13 @@ namespace ExtendedData
                             out int requiredFiles, out string requiredError, requirementsOnly: true))
                     {
                         Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:1211", $"Custom Trail Lord requirements could not be staged for [{mapTitle}]; upload aborted: {requiredError}");
+                        InvokeUploadFailure(mapTitle, terminalFailure);
+                        return;
+                    }
+                    try { CopyLordPresentationSources(source, destination); }
+                    catch (Exception error)
+                    {
+                        Shared.DebugLogHelper.LogErrorLimited(log, "trail-lord-upload-media", error.ToString());
                         InvokeUploadFailure(mapTitle, terminalFailure);
                         return;
                     }
@@ -1759,6 +1778,7 @@ namespace ExtendedData
                     ReportSkippedSidecars("ExtendedData.BackupSidecarsIncomplete",
                         CopySidecars(source, destination, overwrite: true)));
                 TryFileOperation("back up the Coop Trail Maker marker", () => CopyCoopMarker(source, destination));
+                CopyLordPresentationSources(source, destination);
                 TryFileOperation("back up the Coop Trail package", () => CopyCoopPackage(source, destination));
             }
 
@@ -1788,6 +1808,7 @@ namespace ExtendedData
                         CopySidecars(trailSource, ConfigSettings.GetUserTrailMakerPath(), overwrite: false)));
                 TryFileOperation("import the Coop Trail Maker state", () =>
                 {
+                    CopyLordPresentationSources(trailSource, ConfigSettings.GetUserTrailMakerPath());
                     SetMakerCoopEnabled(coopPackage);
                     RefreshTrailMakerCoopCheckbox();
                 });
@@ -1822,6 +1843,8 @@ namespace ExtendedData
                                 allowEmbeddedValuesOnly, makerRequirements));
                     // Also Maker missions beyond the 40 Coop missions keep bound requirements.
                     PrepareMakerRequirements(makerRoot, allowEmbeddedValuesOnly, makerRequirements, exportCoop);
+                    long mediaBytes = TrailLordMediaStore.ByteCount(makerRequirements.Values.SelectMany(x => x).Select(x => x.Presentation));
+                    if (lordMediaExportCheckbox != null) lordMediaExportCheckbox.Content = SerpLocalization.Get("ExtendedData.EmbedLordMedia") + " (" + (mediaBytes / 1048576.0).ToString("0.0", CultureInfo.CurrentCulture) + " MiB)";
                 }
                 catch (Exception exception)
                 {
@@ -1845,6 +1868,8 @@ namespace ExtendedData
                         exportOriginal(self, trailMakerSource);
                         ExportSidecars(trailMakerSource);
                         WriteLordRequirements(trailMakerSource, makerRoot, makerRequirements);
+                        TrailLordMediaStore.Stage(makerRequirements.Values.SelectMany(x => x).Select(x => x.Presentation), prepared.LordMediaStaging);
+                        if (IsMakerMediaEnabled()) File.WriteAllText(IOPath.Combine(trailMakerSource, MediaExportMarker), "enabled\r\n");
                         prepared.Publish(destination);
                         RemoveNormalTrailFiles(destination);
                         DebugLogHelper.LogInfo(log, "Published Coop Trail package [" + prepared.Package.Manifest.DisplayName +
@@ -1856,6 +1881,8 @@ namespace ExtendedData
                         exportOriginal(self, destination);
                         ExportSidecars(destination);
                         WriteLordRequirements(destination, makerRoot, makerRequirements);
+                        TrailLordMediaStore.Publish(makerRequirements.Values.SelectMany(x => x).Select(x => x.Presentation), destination);
+                        SetMediaExportMarker(destination, IsMakerMediaEnabled());
                         RemoveCoopPackage(destination);
                     }
                     CoopPackageExported?.Invoke();
@@ -1877,6 +1904,8 @@ namespace ExtendedData
             {
                 TrailLordRequirementSource.Resolution resolution = TrailLordRequirementSource.Resolve(
                     trailPath, restart, includedPlayerIds, allowEmbeddedValuesOnly);
+                foreach (var slot in resolution.Slots)
+                    slot.Presentation = TrailLordMediaStore.SelectMedia(slot.Presentation, IsMakerMediaEnabled());
                 resolved[IOPath.GetFullPath(trailPath)] = resolution.Slots;
                 if (resolution.MigratedFixesSources)
                     DebugLogHelper.LogInfo(log, "Legacy Trail Fixes inheritance supplemented with current host/author sources; " +
@@ -2047,6 +2076,7 @@ namespace ExtendedData
                         "Trail_Mission_*" + TrailLordRequirements.Suffix))
                         File.Delete(sidecar);
                     SetMakerCoopEnabled(false);
+                    SetMakerMediaEnabled(false);
                     RefreshTrailMakerCoopCheckbox();
                 });
             }
@@ -2107,6 +2137,7 @@ namespace ExtendedData
                 optionRow.Children.Add(checkbox);
                 host.Children.Add(optionRow);
                 coopTrailExportCheckbox = checkbox;
+                AddLordMediaCheckbox(host, optionRow);
             }
 
             private static string GetCoopMarkerPath(string root) => IOPath.Combine(root, "cooptrail.enabled");
@@ -2127,6 +2158,7 @@ namespace ExtendedData
             {
                 if (coopTrailExportCheckbox != null)
                     coopTrailExportCheckbox.IsChecked = IsMakerCoopEnabled();
+                if (lordMediaExportCheckbox != null) lordMediaExportCheckbox.IsChecked = IsMakerMediaEnabled();
             }
 
             private static void CopyCoopMarker(string source, string destination)
@@ -2305,7 +2337,12 @@ namespace ExtendedData
                             ToLordInfoMap(detailed.restartSkirmishInfo.aivs), false);
                     }
                     if (requirements == null)
+                    {
                         LordDataCoordinator?.PrepareTrail(null, null, false, out _);
+                        FileHeader legacy = MapFileManager.Instance.GetFileInfoFromFileName(
+                            lordHeader.filePath, lordHeader.filePath, 4, loadRestartInfo: true);
+                        LordDataCoordinator?.PrepareLegacyTrailPresentation(ToLordInfoMap(legacy?.restartSkirmishInfo?.aivs));
+                    }
                 }
                 catch (Exception exception)
                 {

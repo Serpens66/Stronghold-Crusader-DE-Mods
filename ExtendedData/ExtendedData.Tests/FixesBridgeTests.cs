@@ -46,6 +46,55 @@ internal static class FixesBridgeTests
     { try { action(); } catch (InvalidDataException) { return; } throw new Exception(message); }
     private static LordDataSlot Slot(string name, int player = 1, int type = -1) => new LordDataSlot
     { PlayerId = player, LordType = type, LordName = name, ConfigName = "cfg", ConfigChecksum = "42" };
+    internal static void AssetIdentityCollision()
+    {
+        var ai = SHCDESE.API.GameAIManagerAPI.Instance;
+        var assets = SHCDESE.API.GameAssetManagerAPI.Instance;
+        string[] previousNames = ConfigSettings.extendedLordPaths;
+        ConfigSettings.extendedLordPaths = new[] { "Rat" };
+        var plugin = new Fixes.Boostrap.Plugin();
+        BepInEx.Bootstrap.Chainloader.PluginInfos["fixes"] = new BepInEx.Bootstrap.FakePluginInfo { Instance = plugin };
+        var bridge = new FixesLordPreferencesBridge();
+        var coordinator = new LordDataSyncCoordinator();
+        ai.Entries["rat"] = new SHCDESE.API.GameAIManagerAPI.LordEntry { AssetProviderGuid = "custom-rat-provider" };
+        assets.Provider = "custom-rat-provider"; assets.Json = "{\"Value\":17}";
+        plugin.CustomLordPreferences["Rat"] = new Fixes.Config.CustomLordPreferencesEntry { Value = 17 };
+        Fixes.Config.Preferences.SetExtended(0, new Fixes.Config.CustomLordPreferencesEntry { Value = 23 });
+        ai.RegistryReads = assets.Reads = 0;
+        try
+        {
+            Require(bridge.Capture("Rat", 0).Contains("23") && bridge.Capture("Rat", -1).Contains("17"),
+                "Same-name Lords lost their distinct typed preferences.");
+            coordinator.InspectFixesAsset(2, 0, "Rat", bridge.Capture("Rat", 0));
+            Fixes.Config.Preferences.Reset(); // No selected Extended override is valid, too.
+            coordinator.InspectFixesAsset(2, 0, "Rat", bridge.Capture("Rat", 0));
+            coordinator.InspectFixesAsset(2, 0, null, null);
+            Require(ai.RegistryReads == 0 && assets.Reads == 0, "Extended selection touched the Custom asset registry.");
+            coordinator.InspectFixesAsset(3, -1, "Rat", bridge.Capture("Rat", -1));
+            Require(assets.Reads == 1, "Custom preference asset was not checked.");
+            plugin.CustomLordPreferences.Remove("Rat");
+            for (int repeat = 0; repeat < 2; repeat++)
+            {
+                try { coordinator.InspectFixesAsset(3, -1, "Rat", bridge.Capture("Rat", -1)); }
+                catch (InvalidDataException error)
+                {
+                    Require(error.Message.Contains("player=3") && error.Message.Contains("lordType=-1") &&
+                        error.Message.Contains("custom-rat-provider") && error.Message.Contains("asset-present-but-effective-entry-missing"),
+                        "Initial or repeated missing-Custom error lost its available source identity.");
+                    continue;
+                }
+                throw new Exception("Unloaded available Custom preferences were accepted.");
+            }
+            assets.Json = null;
+            coordinator.InspectFixesAsset(3, -1, "Rat", null); // No preferences asset is a valid default.
+        }
+        finally
+        {
+            ai.Entries.Clear(); assets.Provider = assets.Json = null;
+            ConfigSettings.extendedLordPaths = previousNames;
+            plugin.CustomLordPreferences.Clear(); Fixes.Config.Preferences.Reset();
+        }
+    }
     internal static void MapDefaultSources()
     {
         var plugin = new Fixes.Boostrap.Plugin();
@@ -219,6 +268,18 @@ internal static class FixesBridgeTests
         public object SyncRoot => inner.SyncRoot;
         public bool IsSynchronized => inner.IsSynchronized;
         public void CopyTo(Array array, int index) => inner.CopyTo(array, index);
+    }
+}
+// Only the surrounding coordinator ownership is replaced. Compile the production
+// partial itself so the guard, asset access, cache and failure path are exercised.
+namespace ExtendedData
+{
+    internal sealed partial class LordDataSyncCoordinator
+    {
+        private readonly BepInEx.Logging.ManualLogSource log = null;
+        private readonly FixesLordPreferencesBridge fixes = new();
+        internal void InspectFixesAsset(int player, int type, string name, string json)
+            => LogFixesAssetSource(player, type, name, json);
     }
 }
 namespace BepInEx.Bootstrap

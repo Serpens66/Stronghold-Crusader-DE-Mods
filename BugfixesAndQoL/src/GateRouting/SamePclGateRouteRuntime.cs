@@ -273,6 +273,8 @@ namespace BugfixesAndQoL.GateRouting
             cursorRejectedEdges;
         private long cursorUnitPending, cursorValidationTicks, cursorValidationMaxTicks;
         private long missingContexts, invalidPlayers, scopeMismatches;
+        private string invalidPlayerContext;
+        internal string InvalidPlayerContext => Volatile.Read(ref invalidPlayerContext) ?? "none";
         private long slotConflicts, poolExhaustions, exceptions;
         private long aiQueries, aiNegativeWithRejectedEdges, attackQueries, buildingApproachQueries,
             buildingConsumerQueries, alternateBuildingConsumerQueries, candidateQueries;
@@ -996,6 +998,7 @@ namespace BugfixesAndQoL.GateRouting
             Reset(ref cursorUnitPending);
             Reset(ref cursorValidationTicks); Reset(ref cursorValidationMaxTicks);
             Reset(ref missingContexts); Reset(ref invalidPlayers);
+            Volatile.Write(ref invalidPlayerContext, null);
             Reset(ref scopeMismatches); Reset(ref slotConflicts); Reset(ref poolExhaustions);
             Reset(ref exceptions);
             Reset(ref cursorCommandQueries);
@@ -1203,6 +1206,9 @@ namespace BugfixesAndQoL.GateRouting
             }
             if (player <= 0 || player >= snapshot.PlayerMasks.Length)
             {
+                Volatile.Write(ref invalidPlayerContext, "kind=" + diagnosticKind + ",player=" + player +
+                    ",maskSlots=" + snapshot.PlayerMasks.Length + ",unmasked=" + unmasked +
+                    ",rulesVersion=" + routePublication.RulesVersion + "; action=unmasked-original-query");
                 CountIntegrityError(ref invalidPlayers);
                 Interlocked.Increment(ref missingContexts);
             }

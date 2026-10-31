@@ -61,3 +61,5 @@ MoveSettings=Drag this title bar to move the window. Its position is remembered 
 ShowEliminated=Show eliminated players
 ShowEliminatedHelp=Also show eliminated lords. This local choice applies to all designs.
 NoLordsToShow=No lords to display.
+GreatestLord=Greatest Lord
+GreatestLordHelp=Current Vanilla Lord score from stored goods, gold, population and weighted army strength. Eliminated lords receive -1 after the initial Vanilla grace period.

@@ -3,19 +3,58 @@
   "Author": "Serpens66",
   "Name": "Extended Data",
   "Description": "Adds portable Custom and Coop Trail data plus complete Script Extender Custom Lord Workshop packages.",
-  "Version": "1.0.18",
+  "Version": "1.0.22",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.4.0",
   "MaximumScriptExtenderVersion": "",
   "Dependencies": [
     {
       "GUID": "APIShared_Serp",
-      "MinimumVersion": "0.12.5"
+      "MinimumVersion": "0.20.0"
     }
   ],
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.22",
+      "Changes": [
+        "Preserve complete lordmeta.json, including all languages, message text and future fields, in Custom/Coop Trails, network snapshots and saves.",
+        "Display each packaged Lord's full authored name and own title; legacy Trails retain the saved name without an unverifiable generic title.",
+        "Add a default-off Trail Maker option to embed referenced Lord portraits, audio and video in a shared verified store, retained through export, import, backup and Workshop staging.",
+        "Require APIShared 0.20.0 or newer."
+      ]
+    },
+    {
+      "Version": "1.0.21",
+      "Changes": [
+        "Apply embedded Map/Trail settings only when their source changes; preserve manual edits and loaded presets when reopening the same lobby and retain the frozen working copy for mission restarts.",
+        "Restore personal settings when leaving the mission context, keep temporary and received values separate from personal files, and retain the visible Map/Trail/Save source context after loading a preset.",
+        "Log Map/Trail session transitions with the existing source identity, transition reason and editability state.",
+        "Add Personal Settings to the Map and Trail reset sources, restoring the user's stored settings inside the current editable mission working copy.",
+        "Retain original Map/Trail sources and authoring rules for later resets; preserve personal storage, host/client rights and external configuration restart handling.",
+        "Require APIShared 0.16.4 or newer."
+      ]
+    },
+    {
+      "Version": "1.0.20",
+      "Changes": [
+        "Resolve embedded Coop package maps through APIShared exact-name/CRC lookup and report missing, conflicting or unready content before Ready/Start without replacing Vanilla launch decisions.",
+        "Distinguish pending Lord selections from missing or invalid packages, compare the actual Lord configuration identity, and preserve useful mission-preparation failure reasons.",
+        "Publish localized, deduplicated lobby launch blockers and loading states through APIShared, including host/client scope and rejected-command details.",
+        "Keep host Lord snapshots, mission settings and load/save transitions consistent across Coop mission changes; retain host authority, acknowledgements and existing serialized compatibility checks.",
+        "Move detailed development timing and synchronization traces behind compile-time diagnostics while retaining actionable warnings and errors.",
+        "Require APIShared 0.16.3 or newer; all multiplayer participants need matching mod versions."
+      ]
+    },
+    {
+      "Version": "1.0.19",
+      "Changes": [
+        "Add a Coop Trail package menu with mission selection, cached mission resolution and deferred package validation, preserving authoritative mission settings and custom Lord requirements.",
+        "Use a responsive ten-row virtualized mission dropdown with clipped event-driven hover, scrolling and the local black/red palette.",
+        "Add localized Active/Inactive settings search filters through APIShared 0.16.0."
+      ]
+    },
     {
       "Version": "1.0.18",
       "Changes": [

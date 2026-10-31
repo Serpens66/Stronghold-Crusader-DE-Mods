@@ -72,10 +72,10 @@ namespace LordOverviewTest {
     if(orderSignature!=next){
      CancelHeaderGesture();RemoveHeaders(true);orderHost.Children.Clear();
      var grid=new Grid();grid.ColumnDefinitions.Add(new ColumnDefinition {Width=new GridLength(1,GridUnitType.Star)});grid.RowDefinitions.Add(new RowDefinition {Height=GridLength.Auto});
-     var wrap=new WrapPanel {ItemWidth=32,ItemHeight=32,Orientation=Orientation.Horizontal,HorizontalAlignment=HorizontalAlignment.Stretch};grid.Children.Add(wrap);
+     var wrap=new WrapPanel {ItemWidth=OverviewPresentationPolicy.IconCellSize,ItemHeight=OverviewPresentationPolicy.IconCellSize,Orientation=Orientation.Horizontal,HorizontalAlignment=HorizontalAlignment.Stretch};grid.Children.Add(wrap);
      var surface=NewHeaderSurface(grid,0,"menu/order/");surface.Wrap=wrap;wrap.SizeChanged+=OnOrderSizeChanged;
      var columns=selection.Columns;for(int i=0;i<columns.Length;i++){
-      var header=CreateHeader(surface,columns[i],MetricName(columns[i])+" — "+MetricHelp(columns[i]),MetricIcon(columns[i]));header.Width=header.Height=32;wrap.Children.Add(header);
+      var header=CreateHeader(surface,columns[i],MetricName(columns[i])+" — "+MetricHelp(columns[i]),MetricIcon(columns[i]));header.Width=header.Height=OverviewPresentationPolicy.IconCellSize;wrap.Children.Add(header);
      }
      orderHost.Children.Add(grid);orderSignature=next;UpdateHeaderEditing();
     }

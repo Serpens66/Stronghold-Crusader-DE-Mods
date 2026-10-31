@@ -46,6 +46,8 @@ Semantic reverse-engineering baseline:
 
 ## Vanilla behavior audits
 
+- [Save writer routes and synchronized saves](./sem/FBCB9319/knowledge/SAVE_WRITER_ROUTES.md): autosave/Chore 39, ordinary export and Trail-template routes; shared writer and MP Lord-name limits.
+
 - [AI woodcutter retirement and repeated construction](./sem/FBCB9319/knowledge/AI_WOODCUTTER_RETIREMENT.md): retirement thresholds, worker path/counter writers, accessibility propagation and temporary coarse-cell avoidance; static audit, no save-specific cause claim.
 
 Only Vanilla behavior; Script Extender names appear only as vocabulary.

@@ -273,7 +273,7 @@ namespace BugfixesAndQoL
             Application.onBeforeRender -= ObserveRecoveryBeforeRender;
             Application.onBeforeRender += ObserveRecoveryBeforeRender;
             Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/DisplayResolutionPersistenceHook.cs:297", $"Bugfixes and QoL requested borderless resolution recovery ({reason}): " +
-                $"target={target}, observedBeforeRequest={DescribeActual()}.");
+                $"target={target}, observedAtRequest={DescribeActual()}; request issued, application not yet confirmed.");
         }
 
         private void ObserveRecoveryBeforeRender()
@@ -287,9 +287,10 @@ namespace BugfixesAndQoL
                 long elapsed = ElapsedMilliseconds(
                     recoveryStartedTimestamp,
                     Stopwatch.GetTimestamp());
+                bool focused = Application.isFocused;
                 DisplayRecoveryAction action = state.ObserveRecovery(
                     IsEnabled,
-                    Application.isFocused,
+                    focused,
                     state.IsArmed && ResolutionMatches(state.Snapshot),
                     elapsed >= RecoveryTimeoutMilliseconds);
 
@@ -304,7 +305,8 @@ namespace BugfixesAndQoL
                 else if (action == DisplayRecoveryAction.TimedOut)
                 {
                     Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/DisplayResolutionPersistenceHook.cs:331", $"Bugfixes and QoL stopped temporary resolution verification after {RecoveryTimeoutMilliseconds} ms; " +
-                        $"save protection remains armed for the next focus gain. actual={DescribeActual()}.");
+                        $"target={state.Snapshot}, elapsedMs={elapsed}, focused={focused}; " +
+                        $"save protection remains armed for the next focus gain. actual={DescribeActual()}; saved target retained, underlying display rejection cause unknown.");
                 }
             }
             catch (Exception ex)

@@ -65,7 +65,7 @@ namespace LordOverviewTest {
    DetachMenuDrag();metricChecks.Clear();metricPages.Clear();categoryTabs.Clear();metricScroll=null;columnCount=null;restoringScroll=false;
    RemoveHeaders(true);ResetLayoutMenu();if(settingsWindow!=null){settingsWindow.SizeChanged-=OnSettingsSizeChanged;overlay?.Children.Remove(settingsWindow);settingsWindow.Child=null;}settingsWindow=null;
   }
-  private static string MetricHelp(Metric metric)=>providers.TryGetValue(metric,out var provider)?provider.GetTooltip():((int)metric<0?Metrics.Key(metric)+" — "+Text("Unavailable"):Text(metric.ToString())+(Metrics.Get(metric).Historical?" — "+Text("SinceStart"):" — "+Text(metric==Metric.Fear?"FearHelp":"CurrentValue")));
+  private static string MetricHelp(Metric metric)=>providers.TryGetValue(metric,out var provider)?provider.GetTooltip():((int)metric<0?Metrics.Key(metric)+" — "+Text("Unavailable"):Text(metric.ToString())+(Metrics.Get(metric).Historical?" — "+Text("SinceStart"):" — "+Text(metric==Metric.Fear?"FearHelp":metric==Metric.GreatestLord?"GreatestLordHelp":"CurrentValue")));
   private static Button ActionButton(string title,string help,Action action,bool enabled=true,bool needsMenu=true){
    var button=new Button {Style=buttonStyle,Content=Label(title),IsEnabled=enabled,Opacity=enabled?1:0.4f,Padding=new Thickness(3)};
    var execute=UiAction(action,needsMenu);button.Click+=(_,__)=>execute();Tip(button,help);return button;
@@ -120,7 +120,7 @@ namespace LordOverviewTest {
      }
      if(VisualTreeHelper.GetParent(checkbox) is Grid previous && previous!=page)previous.Children.Remove(checkbox);
      if(!page.Children.Contains(checkbox))page.Children.Add(checkbox);
-     var label=new Grid();label.ColumnDefinitions.Add(new ColumnDefinition {Width=new GridLength(18)});label.ColumnDefinitions.Add(new ColumnDefinition {Width=new GridLength(1,GridUnitType.Star)});
+     var label=new Grid();label.ColumnDefinitions.Add(new ColumnDefinition {Width=new GridLength(OverviewPresentationPolicy.IconSize)});label.ColumnDefinitions.Add(new ColumnDefinition {Width=new GridLength(1,GridUnitType.Star)});
      label.Children.Add(MetricIcon(metric));var name=Label(MetricName(metric));name.FontSize=13;name.MaxWidth=96;name.TextWrapping=TextWrapping.Wrap;name.Margin=new Thickness(5,0,0,0);Grid.SetColumn(name,1);label.Children.Add(name);checkbox.Content=label;
     }
     int index=0;page.RowDefinitions.Clear();

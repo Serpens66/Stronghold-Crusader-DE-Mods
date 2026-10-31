@@ -65,6 +65,10 @@ internal static class LordOverviewPresetTests {
   migrated.SetDisplayGrid(false,migrated.DisplayValueGrid.Normalize(11));Check(Prepare(file).ValueGrid=="3x4","expanded grid persists without dropping new values");
   layoutRestart.Design="garbage";layoutRestart.LordGrid="Rows:-3";layoutRestart.ValueGrid="Columns:0";
   Check(layoutRestart.Design=="List" && layoutRestart.LordGrid=="Columns:2" && layoutRestart.ValueGrid=="Columns:3","invalid persisted preferences normalize safely");
+  migrated.SetDisplayColumns("GreatestLord,Gold");Check(Prepare(file).Columns=="GreatestLord,Gold","new score selection and order survive local storage restart");
+  migrated.System_EnterMissionPreset(new Dictionary<string,byte[]>{{nameof(OverviewSettings.AllowEnemyDetails),MessagePackSerializer.Serialize(false)}},"Trail",false);
+  migrated.SetDisplayColumns("Gold,GreatestLord");Check(migrated.DisplayColumns=="Gold,GreatestLord","score selection stages under a locked mission source");
+  migrated.System_ExitMissionPreset();migrated.FlushLocalPreferences();Check(Prepare(file).Columns=="Gold,GreatestLord","staged score selection persists after mission exit");
   Console.WriteLine("PASS: "+checks+" production LordOverview settings/persistence/host-source checks.");return 0;
  }catch(Exception error){Console.Error.WriteLine(error);return 1;}}
 }

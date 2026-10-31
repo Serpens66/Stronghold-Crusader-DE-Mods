@@ -80,3 +80,28 @@ boundaries substituted. They demonstrate admission and the registration early re
 not an actual Unity/Noesis session or host/client acceptance. The original 11:25:36
 log does not identify the affected player and does not demonstrate this registration
 failure; its empty-name warning was a normal fallback misclassified by APIShared.
+
+## Packaged names and Coop restart metadata (2026-10-31)
+
+Rechecked against the same native/managed hashes above and installed Extender 2.14.3.
+`Platform_Multiplayer.StartGame` creates one `RestartMPInfo`. Its original ordinary-MP
+branch (`coopTrailID == 0`) copies lobby AIV names/images; the Coop branch skips that
+copy. Both branches encode this object before native pre-init and later assign the
+same object to the HUD. Restoring names only at the HUD assignment is too late for
+the encoded restart/save state. The type array is left untouched by the original
+name-copy path and is not an authenticated custom-AIC identity (see SAVE_WRITER_ROUTES).
+`RegisterSkirmishUser` (export RVA 0x86550) stores the selected nickname subtype;
+the same subtype can legitimately occur in several different player slots.
+
+SE resolves generic-slot identities through restart data and resolves name, title,
+details, portrait and speech independently from its process catalog. An embedded
+AIC/AIV alone cannot reconstruct absent `lordmeta.json`. Full packaged metadata
+therefore needs a separate, session-scoped presentation source; it must not create
+a false script/catalog registration. Complete JSON preservation is independent of
+whether the referenced media files are included.
+
+APIShared's packaged presentation adapter supplies this source and fills claimed
+Coop AI names/images immediately before the original encode call, retaining all
+unclaimed selections and gameplay types. Codec tests exercise the real restart
+encode/decode; an IL fixture transforms a copy of the installed StartGame method.
+These checks do not establish Unity rendering, playback or host/client acceptance.

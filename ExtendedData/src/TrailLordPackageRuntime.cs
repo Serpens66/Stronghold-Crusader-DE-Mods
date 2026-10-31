@@ -86,6 +86,7 @@ namespace ExtendedData
                 PlayerId = playerId,
                 LordType = source.Config.lordType,
                 LordName = source.Name,
+                Presentation = TrailLordMediaStore.Capture(source.Name, source.Config.path),
                 ConfigName = info.lordConfig.name,
                 ConfigChecksum = checksum,
                 AivChecksums = (info.aivs ?? new List<CustomisationFileManager.CustomAIV>())

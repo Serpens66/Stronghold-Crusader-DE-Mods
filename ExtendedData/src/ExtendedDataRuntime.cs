@@ -1314,6 +1314,8 @@ namespace ExtendedData
             if (!lordDataCoordinator.PrepareTrail(selected?.Loaded.LordRequirements,
                 CurrentLordInfoMap(self), true, out reason, captureLocalReplacements))
                 return false;
+            if (selected != null && selected.Loaded.LordRequirements == null)
+                lordDataCoordinator.PrepareLegacyTrailPresentation(CurrentLordInfoMap(self), self?.singlePlayerCoop != true);
             if (self?.currentLobby != null && !self.currentLobby.isHost && !self.singlePlayerCoop)
             {
                 var localInfos = self.AIVs?.Take(8).Select((info, index) => new { info, index })

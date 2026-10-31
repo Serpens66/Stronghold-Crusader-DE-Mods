@@ -31,6 +31,7 @@ namespace ExtendedData.Core
                     PlayerId = activeSlots.IndexOf(slot.PlayerId - 1) + 1,
                     LordType = slot.LordType,
                     LordName = slot.LordName,
+                    Presentation = slot.Presentation,
                     ConfigName = slot.ConfigName,
                     ConfigChecksum = slot.ConfigChecksum,
                     AivChecksums = slot.AivChecksums?.ToArray(),

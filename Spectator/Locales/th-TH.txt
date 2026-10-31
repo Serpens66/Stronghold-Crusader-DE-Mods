@@ -119,3 +119,5 @@ Tools.Debit=Debit
 Tools.DebitHelp=Remove this amount from the selected player's stock and incoming reserves, down to zero.
 Tools.StopShort=Stop
 Tools.TargetHelp=Click = select target
+Tools.DesignClassic=Design: Classic
+Tools.DesignPaper=Design: Parchment

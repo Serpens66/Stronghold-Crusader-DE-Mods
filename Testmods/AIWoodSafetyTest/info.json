@@ -1,0 +1,17 @@
+{
+  "GUID": "AIWoodSafetyTest_Serp",
+  "Author": "Serpens66",
+  "Name": "AI Wood Safety Test",
+  "Description": "Singleplayer test: avoid hostile towers/gatehouses during the original woodsman site search and undo death-only hut-counter contributions. Requires the paired general diagnostic build.",
+  "Version": "0.1.0",
+  "MinimumScriptExtenderVersion": "2.14.0",
+  "MaximumScriptExtenderVersion": "",
+  "Dependencies": [
+    { "GUID": "APIShared_Serp", "MinimumVersion": "0.9.2" },
+    { "GUID": "BugfixesAndQoL_Serp", "MinimumVersion": "1.0.192" },
+    { "GUID": "AIBuildDiagnoseTest_Serp", "MinimumVersion": "0.2.1" }
+  ],
+  "Manifest": 1,
+  "NetworkMode": 1,
+  "SupportedGameVersions": [ "2.8.0.2" ]
+}

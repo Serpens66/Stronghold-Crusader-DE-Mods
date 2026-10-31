@@ -34,6 +34,30 @@ wood/farm audit checks moved with their readers. Both build drivers support
 `/noinstall`. Current dependency paths/versions must be verified at build time;
 the dated validation entries below describe their original runs only.
 
+## Optional AIWoodSafetyTest intervention
+
+Without AIWoodSafetyTest the general diagnostic remains passive. The separate
+singleplayer testmod owns the active safety policy; install only a paired build
+when an intervention is explicitly wanted. It needs no Canari companion. The
+private WoodSafetyBridge adds no public APIShared or Bugfix-sink member and no
+competing hook. Existing general owners publish nested synchronous wood-build
+scopes and the current worker-counter point; observer errors are caught separately.
+End coverage includes the process-wide woodSafetyCallbackFailuresProcess count.
+
+At the existing post-ADD point, identities and nativeAfter are copied before the
+optional intervention. The general observer then samples the actual remaining
+counter. WORKER_COUNTER_CORRECTION distinguishes nativeAdd=10, nativeAfter,
+remainingCounter, correctionConfirmed and netAdd. A confirmed undone contribution
+does not enter the effective-increment ledger. Any unacknowledged change remains
+unknown. Worker snapshots additionally retain the native death-marker raw value.
+No saved counter is reset; missing or conflicting identities cannot authorize a write.
+The regular death/removal/rebuild evidence and existing budgets remain in place.
+
+Detailed rules, configuration, native update contract and pending affected-save
+comparison: ../AIWoodSafetyTest/docs/DIAGNOSTICS.md (from the mod directory).
+Builds of the pair do not install either mod by default. Existing historical
+installation/acceptance records below do not certify the new testfix.
+
 The following original description and validation records predate this split.
 
 AIBuildDiagnoseTest observes new and loaded games for all AI player slots,

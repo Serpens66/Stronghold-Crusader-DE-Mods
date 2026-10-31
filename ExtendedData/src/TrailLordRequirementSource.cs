@@ -46,6 +46,7 @@ namespace ExtendedData
         {
             // A damaged or contradictory sidecar throws here and is never silently replaced.
             TrailLordRequirements stored = TrailLordRequirements.ReadUnbound(trailPath, out _);
+            if (stored != null) TrailLordMediaStore.BindAndVerify(stored.Slots.Select(x => x.Presentation), Path.GetDirectoryName(trailPath));
             var fixes = new FixesLordPreferencesBridge();
             var slots = new List<TrailLordSlot>();
             var sources = new Dictionary<int, TrailLordPackageRuntime.Candidate>();
@@ -58,6 +59,23 @@ namespace ExtendedData
                 TrailLordSlot storedSlot = stored?.Slots.FirstOrDefault(slot => slot.PlayerId == playerId);
                 if (storedSlot != null && TrailLordRequirements.HasSameAuthoredIdentity(storedSlot, current))
                 {
+                    if (storedSlot.Presentation == null)
+                    {
+                        try { var author = TrailLordPackageRuntime.ResolveAuthorSource(info, playerId); storedSlot.Presentation = TrailLordMediaStore.Capture(author.Name, author.Config.path); }
+                        catch (InvalidDataException) { storedSlot.Presentation = new LordPresentationData { DisplayName = LordPresentationData.FallbackName(storedSlot.LordName) }; }
+                    }
+                    else if (storedSlot.Presentation.SourceRoot == null && storedSlot.Presentation.MediaId == null)
+                    {
+                        try
+                        {
+                            var author = TrailLordPackageRuntime.ResolveAuthorSource(info, playerId);
+                            var captured = TrailLordMediaStore.Capture(author.Name, author.Config.path);
+                            if (storedSlot.Presentation.MetadataJson == null) storedSlot.Presentation = captured;
+                            else if (storedSlot.Presentation.MetadataJson == captured.MetadataJson)
+                                storedSlot.Presentation.SourceRoot = captured.SourceRoot;
+                        }
+                        catch (InvalidDataException) { /* Stored metadata stays authoritative without an author installation. */ }
+                    }
                     slots.Add(storedSlot);
                     reused.Add(playerId);
                     continue;
@@ -86,7 +104,7 @@ namespace ExtendedData
                     {
                         PlayerId = slot.PlayerId, LordType = slot.LordType, LordName = slot.LordName,
                         ConfigName = slot.ConfigName, ConfigChecksum = slot.ConfigChecksum,
-                        ModLordJson = slot.ModLordJson, FixesJson = slot.FixesJson, FixesSources = slot.FixesSources,
+                        ModLordJson = slot.ModLordJson, Presentation = slot.Presentation, FixesJson = slot.FixesJson, FixesSources = slot.FixesSources,
                     }));
                 var completed = fixes.CompleteSources(captured, slot => restart.aivs[slot.PlayerId - 1].lordConfig.lordData.opponent_type);
                 migrated = !ReferenceEquals(captured, completed);

@@ -332,7 +332,8 @@ namespace BugfixesAndQoL.UnitCommands
             LogWarningNoThrow(
                 $"FORMATION_UNEXPECTED_SECOND_ORDER: operation={watch.OperationId}, " +
                 $"tribe={watch.TribeId}, button={watch.CommandButton}, " +
-                $"target={args.TileX},{args.TileY}.");
+                $"target={args.TileX},{args.TileY}, phase=Pre, pendingPresent={pending != null}, " +
+                $"skipOriginal={args.SkipOriginalFunction}; observed request only, native execution is not confirmed.");
         }
 
         private sealed class ReleaseConsumptionWatch

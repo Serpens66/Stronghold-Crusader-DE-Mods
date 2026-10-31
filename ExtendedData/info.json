@@ -3,19 +3,28 @@
   "Author": "Serpens66",
   "Name": "Extended Data",
   "Description": "Adds portable Custom and Coop Trail data plus complete Script Extender Custom Lord Workshop packages.",
-  "Version": "1.0.21",
+  "Version": "1.0.22",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.4.0",
   "MaximumScriptExtenderVersion": "",
   "Dependencies": [
     {
       "GUID": "APIShared_Serp",
-      "MinimumVersion": "0.16.4"
+      "MinimumVersion": "0.20.0"
     }
   ],
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.22",
+      "Changes": [
+        "Preserve complete lordmeta.json, including all languages, message text and future fields, in Custom/Coop Trails, network snapshots and saves.",
+        "Display each packaged Lord's full authored name and own title; legacy Trails retain the saved name without an unverifiable generic title.",
+        "Add a default-off Trail Maker option to embed referenced Lord portraits, audio and video in a shared verified store, retained through export, import, backup and Workshop staging.",
+        "Require APIShared 0.20.0 or newer."
+      ]
+    },
     {
       "Version": "1.0.21",
       "Changes": [

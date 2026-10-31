@@ -9,6 +9,8 @@ using System.Text.Json;
 
 var tests = new (string Name, Action Run)[]
 {
+    ("Complete Lord metadata survives snapshots, Trails and saves", LordPresentationTests.Roundtrip),
+    ("Optional media retains locale variants and deduplicates across missions", LordPresentationTests.Media),
     ("Map production draft transitions retain edits through lobby rebuilds and repeated missions", MapDraftRuntimeTests.Run),
     ("Coop menu mirrors authoritative selection, catalog refresh and edit permissions", CoopTrailMenuTests.Selection),
     ("Coop menu consumes dismissal through release and resets recreated views", CoopTrailMenuTests.Input),
@@ -23,6 +25,7 @@ var tests = new (string Name, Action Run)[]
     ("shared mod-data source preserves host authority, local provenance, reset and cleanup", ModDataSourceTests.Run),
     ("mission origin survives restarts and replacements, but releases on failures and exit", MissionOriginLifecycleTests.Run),
     ("Fixes bridge owns custom aliases, extended identity, defaults and originals", FixesBridgeTests.Run),
+    ("Same-name Extended and Custom Lords keep independent Fixes asset validation", FixesBridgeTests.AssetIdentityCollision),
     ("Extended map defaults verify live sources, absence and Trail media remapping", FixesBridgeTests.MapDefaultSources),
     ("deferred settings remain complete at 4233, 12000 and 16384 options", DeferredSettingsTests.Run),
     ("Custom Coop Trail preview names follow the selected lobby slot", TestCoopTrailPreviewNames),
@@ -376,6 +379,21 @@ static void TestSelectedLordDataSnapshot()
 
 static void TestInvalidLordDataSnapshot()
 {
+    var unnamed = new LordDataSlot { PlayerId = 2, LordType = 0, LordName = "", ConfigName = "custom-aic", ConfigChecksum = "123" };
+    try { LordDataSnapshot.CreateTrail("invalid-slot", false, new[] { unnamed }); Assert(false, "unresolved Lord name passed"); }
+    catch (InvalidDataException error)
+    {
+        Assert(error.Message.Contains("missing resolved Lord name") && error.Message.Contains("player=2") &&
+            error.Message.Contains("config=custom-aic") && error.Message.Contains("checksum=123"),
+            "invalid slot lost the actual reason or available identities");
+    }
+    unnamed.LordName = TrailLordSourceSelector.ResolveLordName("", unnamed.LordType.Value, new[] { "Rat" });
+    Assert(LordDataSnapshot.CreateTrail("resolved-slot", false, new[] { unnamed }).Slots.Single().LordName == "Rat",
+        "valid normalized Extended AIC could not create the Trail snapshot");
+    AssertThrows<InvalidDataException>(() => LordDataSnapshot.CreateTrail("null-slot", false, new LordDataSlot[] { null }),
+        "null slot did not report a validation error");
+    AssertThrows<InvalidDataException>(() => LordDataSnapshot.CreateTrail("duplicate-slot", false, new[] { unnamed, unnamed }),
+        "duplicate player slot was accepted");
     LordDataSnapshot snapshot = LordDataSnapshot.Create("lobby-2", false, new[]
     {
         new LordDataSlot { PlayerId = 2, LordName = "Lord", ConfigName = "a", ConfigChecksum = "1",
@@ -799,6 +817,33 @@ static void TestEmbeddedLordSlotReadiness()
     infos[2].lordName = string.Empty;
     embedded.Remove(3);
     Assert(!Inspect().Matches, "an unnamed slot without an embedded binding was accepted");
+    var extendedNames = Enumerable.Range(0, 8).Select(type => "Extended " + type).ToArray();
+    extendedNames[infos[2].lordConfig.lordType] = slots[0].LordName;
+    Assert(LordSnapshotSlotSelection.MatchesSavedIdentity("", slots[0], null, extendedNames),
+        "saved empty-name Extended AIC did not match its canonical identity");
+    Assert(LordSnapshotSlotSelection.Inspect(snapshot, infos, activeAi, embedded, prepared, extendedNames).Matches,
+        "valid empty-name Extended AIC did not match its published configuration identity");
+    extendedNames[infos[2].lordConfig.lordType] = "Different Lord";
+    Assert(!LordSnapshotSlotSelection.MatchesSavedIdentity("", slots[0], null, extendedNames),
+        "saved empty-name AIC accepted a different canonical Lord");
+    Assert(!LordSnapshotSlotSelection.Inspect(snapshot, infos, activeAi, embedded, prepared, extendedNames).Matches,
+        "empty-name AIC accepted the wrong Extended Lord identity");
+    infos[2].lordConfig.lordType = -1;
+    Assert(!LordSnapshotSlotSelection.Inspect(snapshot, infos, activeAi, embedded, prepared, extendedNames).Matches,
+        "fully custom Lord without a name passed as an Extended Lord");
+    infos[2].lordConfig.lordType = slots[0].LordType.Value;
+    var portable = new LordDataSlot { PlayerId = 3, LordType = -1, LordName = "Portable Lord", ConfigName = "aic", ConfigChecksum = "123" };
+    var portablePackage = new LordPackageSlot { PlayerId = 3, LordType = -1, LordName = "Portable Lord",
+        ConfigName = "aic", ConfigChecksum = "123", EmbeddedTrail = true };
+    Assert(LordSnapshotSlotSelection.MatchesSavedIdentity("", portable, portablePackage, extendedNames),
+        "portable embedded Lord save required optional installed media");
+    portablePackage.ConfigChecksum = "124";
+    Assert(!LordSnapshotSlotSelection.MatchesSavedIdentity("", portable, portablePackage, extendedNames),
+        "different embedded saved configuration was accepted");
+    Assert(!LordSnapshotSlotSelection.MatchesSavedIdentity("", portable, null, extendedNames),
+        "ordinary Custom Lord without a saved name or embedded binding was accepted");
+    Assert(LordSnapshotSlotSelection.MatchesSavedIdentity("portable lord", portable, null, extendedNames),
+        "named Custom Lord save was rejected");
     infos[2].lordName = slots[0].LordName;
     Assert(Inspect().Matches, "ordinary named Custom Lord was rejected");
     infos[2].lordConfig.checksum++;
@@ -2381,11 +2426,18 @@ static void TestCoopLordRequirementStaging()
     using Fixture fixture = Fixture.Create();
     string root = CreatePackage(fixture, Path.Combine(fixture.Root, "CustomTrails"), "LordTrail", 1);
     string mission = Path.Combine(root, "CoopMissions", "01.coopmission.json");
+    string author = Path.Combine(fixture.Root, "author"); Directory.CreateDirectory(author);
+    const string metadata = "{\"FacePath\":\"face\",\"Future\":[true,1]}";
+    File.WriteAllText(Path.Combine(author, "lordmeta.json"), metadata);
+    File.WriteAllBytes(Path.Combine(author, "face.png"), new byte[] { 4, 2 });
+    var presentation = TrailLordMediaStore.SelectMedia(TrailLordMediaStore.Capture("Author", author), true);
+    TrailLordMediaStore.Stage(new[] { presentation }, Path.GetDirectoryName(mission));
     TrailLordRequirements.Create(mission, new[]
     {
         new TrailLordSlot
         {
             PlayerId = 3, LordName = "Author", ConfigName = "lord",
+            Presentation = presentation,
             ConfigChecksum = "123", AivChecksums = new[] { "456" },
             RequiresInstalledPackage = true, PackageDigest = new string('A', 64),
             ModLordJson = "{\"test.mod\":{\"enabled\":true}}",
@@ -2404,6 +2456,13 @@ static void TestCoopLordRequirementStaging()
     Assert(copied == 0 && staged.Missions[0].LordRequirements != null &&
         staged.Missions[0].LordRequirements.Slots.Single().RequiresInstalledPackage,
         "required Lord data was removed with optional mod settings");
+    Assert(staged.Missions[0].LordRequirements.Slots.Single().Presentation.MetadataJson == metadata &&
+        staged.Missions[0].BundledFiles.Any(path => path.EndsWith("face.png")),
+        "complete metadata/media were removed with optional modsettings");
+    string mediaFile = staged.Missions[0].BundledFiles.Single(path => path.EndsWith("face.png"));
+    File.AppendAllText(mediaFile, "changed");
+    ExpectFailure(() => CoopTrailPackageCatalog.Load(destination), "modified Lord media passed the package fingerprint");
+    File.WriteAllBytes(mediaFile, new byte[] { 4, 2 });
     File.AppendAllText(TrailLordRequirements.SidecarPath(Path.Combine(destination,
         "CoopMissions", "01.coopmission.json")), "changed");
     ExpectFailure(() => CoopTrailPackageCatalog.Load(destination),

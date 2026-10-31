@@ -12,9 +12,13 @@ namespace LordOverviewTest {
    for(int i=0;i<masks.Length;i++)masks[i]=main.GameSprites[i]??throw new InvalidOperationException("Vanilla popularity mask unavailable: "+i);
    for(int i=0;i<images.Length;i++){
     var metric=(Metric)i;if(metric==Metric.Popularity){images[i]=masks[0];continue;}
+    if(metric==Metric.GoldAcquired){images[i]=images[(int)Metric.Gold];continue;}
     string key=OverviewPresentationPolicy.IconKey(metric);
     Shared.DevDiag.Count("overview.icon.resource-lookup");
-    images[i]=sourceHost.TryFindResource(key) as ImageSource??throw new InvalidOperationException("Vanilla statistics icon unavailable: "+key);
+    var source=sourceHost.TryFindResource(key) as BitmapSource??throw new InvalidOperationException("Vanilla statistics bitmap unavailable: "+key);
+    var crop=OverviewPresentationPolicy.Crop(metric);
+    if(source.PixelWidth!=crop.SourceWidth || source.PixelHeight!=crop.SourceHeight)throw new InvalidOperationException("Vanilla statistics bitmap dimensions changed: "+key);
+    images[i]=new CroppedBitmap(source,new Int32Rect(crop.X,crop.Y,crop.Width,crop.Height));
    }
    popularityMasks=masks;builtinIcons=images;
   }
@@ -26,7 +30,7 @@ namespace LordOverviewTest {
     Shared.DevDiag.Count("overview.icon.provider-lookup");image=providers.TryGetValue(metric,out var provider)?provider.GetIcon():null;
     if(revision==catalogRevision)extensionIcons[metric]=image;else image=null;
    }
-   return image!=null?(FrameworkElement)new Image {Source=image,Width=18,Height=18,IsHitTestVisible=false}:Label("?");
+   return image!=null?(FrameworkElement)new Image {Source=image,Width=OverviewPresentationPolicy.IconSize,Height=OverviewPresentationPolicy.IconSize,Stretch=Stretch.Uniform,IsHitTestVisible=false}:Label("?");
   }
  }
 }

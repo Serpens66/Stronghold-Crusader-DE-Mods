@@ -25,5 +25,17 @@ internal static partial class Program {
   var fear=x.Descendants().First(e=>(string)e.Attribute("CommandParameter")=="Fear").Ancestors().First(e=>e.Name.LocalName=="RadioButton");
   Check(fear.Attributes().Single(a=>a.Name.LocalName.EndsWith(".Sprite1",StringComparison.Ordinal)).Value=="{StaticResource "+OverviewPresentationPolicy.IconKey(Metric.Fear)+"}","fear uses the original statistics noose emblem");
   Check(OverviewPresentationPolicy.IconKey(Metric.Gold)==OverviewPresentationPolicy.IconKey(Metric.GoldAcquired) && OverviewPresentationPolicy.IconKey(Metric.LordsKilled)=="MP_Star","current gold shares the Vanilla gold emblem and lord kills use their actual star");
+  var merit=XDocument.Load(Path.Combine(Path.GetDirectoryName(path),"HUD_MeritPanel.xaml"));
+  var crown=merit.Descendants().Single(e=>(string)e.Attribute("Name")=="Merit_SortLordScore");
+  Check(crown.Attributes().Single(a=>a.Name.LocalName.EndsWith(".Sprite1",StringComparison.Ordinal)).Value=="{StaticResource "+OverviewPresentationPolicy.IconKey(Metric.GreatestLord)+"}","score uses the actual Merit ranking crown");
+  var atlas=XDocument.Load(Path.Combine(root.FullName,"_inspect/CrusaderDE-Native-Baseline",relative,"resources/xaml/Assets/GUI/Sprites/UI-MasterAtlas.xaml"));
+  foreach(var metric in Metrics.Builtins){
+   if(metric.Id==Metric.Popularity)continue;
+   var source=atlas.Root.Elements().Single(e=>e.Attributes().Any(a=>a.Name.LocalName=="Key" && a.Value==OverviewPresentationPolicy.IconKey(metric.Id)));
+   var rect=source.Attribute("SourceRect").Value.Split(',').Select(int.Parse).ToArray();var crop=OverviewPresentationPolicy.Crop(metric.Id);
+   Check(crop.SourceWidth==rect[2] && crop.SourceHeight==rect[3],"icon source dimensions match the original Vanilla rectangle");
+   Check(crop.X>=0 && crop.Y>=0 && crop.Width>0 && crop.Height>0 && crop.X+crop.Width<=rect[2] && crop.Y+crop.Height<=rect[3],"trimmed icon stays within its original source");
+  }
+  Check(OverviewPresentationPolicy.IconSize==28 && OverviewPresentationPolicy.IconCellSize==32 && OverviewPresentationPolicy.IconSize+4==OverviewPresentationPolicy.IconCellSize,"shared symbol dimensions fill a 32-unit cell with two-unit padding");
  }
 }

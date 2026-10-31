@@ -115,8 +115,10 @@ namespace BugfixesAndQoL.BuildPreview
                     Shared.DebugLogHelper.LogDebug(persistentLog, "BUILD_PREVIEW_RUNTIME_CONFIRMED native preview after startup cleanup.");
                 if (eligible && State.IsCurrent(capture))
                 {
-                    MarkResult result = FootprintMarker.Apply(imageBase, manager, x, y, scale, (eMappers)mapper, blocked);
-                    State.Publish(capture, (eMappers)mapper, x, y, result.Counts);
+                    if (FootprintMarker.TryApply(imageBase, manager, x, y, scale, out MarkResult result, (eMappers)mapper, blocked))
+                        State.Publish(capture, (eMappers)mapper, x, y, result.Counts);
+                    else
+                        State.Clear(capture); // A cursor footprint crossing the map edge is transient, not a runtime failure.
                 }
                 else State.Clear(capture);
             }

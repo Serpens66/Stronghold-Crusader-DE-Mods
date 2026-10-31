@@ -802,8 +802,6 @@ namespace BugfixesAndQoL
                 if (!TryApplyRotation(operation, "multiplayer-chore", targetAlreadyValidated: false))
                 {
                     RememberFailedRotationTarget(operation);
-                    LogWarningThreadSafe(
-                        $"Bugfixes and QoL quarry-pile Chore completed without relocation: operationId={operation.OperationId}, target={operation.TargetTileX},{operation.TargetTileY}.");
                     return;
                 }
 
@@ -827,6 +825,22 @@ namespace BugfixesAndQoL
             string reason,
             bool targetAlreadyValidated = false)
         {
+            bool applied = TryApplyRotation(operation, reason, out string failure, targetAlreadyValidated);
+            if (!applied)
+                LogWarningThreadSafe($"Bugfixes and QoL quarry-pile relocation rejected: source={reason}, " +
+                    $"reason={failure}, operationId={operation.OperationId}, player={operation.PlayerId}, " +
+                    $"quarryGlobalId={operation.QuarryGlobalId}, oldPileGlobalId={operation.OldPileGlobalId}, " +
+                    $"target={operation.TargetTileX},{operation.TargetTileY}, targetPrevalidated={targetAlreadyValidated}; existing pile retained.");
+            return applied;
+        }
+
+        private bool TryApplyRotation(
+            QuarryPileRelocationOperation operation,
+            string reason,
+            out string failure,
+            bool targetAlreadyValidated)
+        {
+            failure = "quarry missing, stale, wrong owner/type or outside link capacity";
             int quarryId = FindAliveBuildingIdByGlobalId(operation.QuarryGlobalId);
             if (quarryId <= 0 ||
                 quarryId > ushort.MaxValue ||
@@ -834,6 +848,7 @@ namespace BugfixesAndQoL
                 !IsAliveBuilding(quarry, eStructs.STRUCT_QUARRY, operation.PlayerId))
                 return false;
 
+            failure = "old pile missing, stale or no longer linked to requested quarry identity; quarryId=" + quarryId;
             int oldPileId = quarry->r_StoneQuarry_StockPileBuildingId;
             if (oldPileId <= 0 ||
                 !GameBuildingManagerAPI.Instance.TryGetBuildingById(oldPileId, out GameBuilding* oldPile) ||
@@ -841,6 +856,7 @@ namespace BugfixesAndQoL
                 (int)oldPile->r_GlobalId != operation.OldPileGlobalId)
                 return false;
 
+            failure = "requested target no longer valid; quarryId=" + quarryId + ",oldPileId=" + oldPileId;
             PlacementPosition expectedTarget;
             if (targetAlreadyValidated)
             {
@@ -863,6 +879,7 @@ namespace BugfixesAndQoL
                 Shared.NativeBuildingCompoundGroup.Read(oldPile));
             if (!groupResolution.CanUse)
             {
+                failure = "inconsistent Vanilla structure groups: " + groupResolution.Status;
                 LogErrorThreadSafe(
                     $"Bugfixes and QoL rejected quarry-pile relocation because Vanilla structure groups are inconsistent: operationId={operation.OperationId}, quarryId={quarryId}, oldPileId={oldPileId}, quarryGroupId={Shared.NativeBuildingCompoundGroup.Read(quarry)}, oldPileGroupId={Shared.NativeBuildingCompoundGroup.Read(oldPile)}, status={groupResolution.Status}.");
                 return false;
@@ -878,6 +895,7 @@ namespace BugfixesAndQoL
             PileContentSnapshot content = PileContentSnapshot.Capture(oldPile);
             short previousCurrentHealth = oldPile->r_CurrentHealth;
             ushort previousMaxHealth = oldPile->r_MaxHealth;
+            failure = "replacement spawn failed; quarryId=" + quarryId + ",oldPileId=" + oldPileId;
             if (!TrySpawnReplacement(
                 operation.PlayerId,
                 oldPileId,
@@ -892,6 +910,7 @@ namespace BugfixesAndQoL
 
             if (newPileId > ushort.MaxValue)
             {
+                failure = "replacement exceeds ushort link capacity; newPileId=" + newPileId;
                 DeleteBuildingSafely(newPileId);
                 return false;
             }
@@ -921,6 +940,8 @@ namespace BugfixesAndQoL
                 DeleteBuildingSafely(oldPileId);
             if (!oldPileMarkedForDeletion)
             {
+                failure = "old pile deletion failed; links/content restored and replacement deletion requested; oldPileId=" +
+                    oldPileId + ",newPileId=" + newPileId;
                 quarry->r_StoneQuarry_StockPileBuildingId = previousQuarryPileId;
                 Shared.NativeBuildingCompoundGroup.Write(oldPile, previousOldPileGroupId);
                 oldPile->r_StoneQuarry_StockPileBuildingId = previousOldPileQuarryId;
@@ -934,6 +955,7 @@ namespace BugfixesAndQoL
             }
 
             ClearFailedRotationTargets(operation.QuarryGlobalId);
+            failure = null;
             if (Shared.DebugLogHelper.DiagnosticsEnabled)
                 LogInfo(
                     $"rotation completed: reason={reason}, playerId={operation.PlayerId}, quarryGlobalId={operation.QuarryGlobalId}, " +

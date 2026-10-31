@@ -61,3 +61,5 @@ MoveSettings=An dieser Titelleiste ziehen, um das Fenster zu verschieben. Die Po
 ShowEliminated=Ausgeschiedene Spieler anzeigen
 ShowEliminatedHelp=Zeigt auch ausgeschiedene Lords an. Diese lokale Auswahl gilt für alle Ansichten.
 NoLordsToShow=Keine Lords anzuzeigen.
+GreatestLord=Größter Lord
+GreatestLordHelp=Aktueller Vanilla-Lord-Wert aus Warenbeständen, Gold, Bevölkerung und bewerteter Armeestärke. Ausgeschiedene Lords erhalten nach Vanillas Start-Schonfrist -1.

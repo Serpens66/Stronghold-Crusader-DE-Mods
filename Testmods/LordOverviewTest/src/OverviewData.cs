@@ -136,6 +136,7 @@ namespace LordOverviewTest {
      switch(metric){
       case Metric.Gold:values[(int)metric]=raw.Merit[slot+2];break;
       case Metric.Army:values[(int)metric]=raw.Merit[slot+3];break;
+      case Metric.GreatestLord:values[(int)metric]=StatisticValues.GreatestLord(raw.Merit,player);break;
       case Metric.Popularity:if(raw.Resources[player].Present)values[(int)metric]=StatisticValues.Popularity(raw.Resources[player].Popularity);break;
       case Metric.Fear:if(raw.Resources[player].Present)values[(int)metric]=StatisticValues.Fear(raw.Resources[player].Fear);break;
       default:if(raw.HasHistory)fixed(byte* buffer=raw.History){var data=(EngineInterface.multiplayer_stats_export*)buffer;if(data->valid[player]>0)values[(int)metric]=Historical(data,metric,player);}break;

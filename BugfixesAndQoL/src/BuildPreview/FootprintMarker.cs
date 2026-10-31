@@ -14,8 +14,9 @@ namespace BugfixesAndQoL.BuildPreview
 
     internal static class FootprintMarker
     {
-        internal static unsafe MarkResult Apply(ulong imageBase, IntPtr manager, int x, int y, int scale, eMappers mapper = eMappers.MAPPER_WHEATFARM, bool blocked = true)
+        internal static unsafe bool TryApply(ulong imageBase, IntPtr manager, int x, int y, int scale, out MarkResult result, eMappers mapper = eMappers.MAPPER_WHEATFARM, bool blocked = true)
         {
+            result = default;
             if (scale != FarmPreviewPolicy.Scale(mapper) || scale == 0) throw new ArgumentException("Unsupported farm footprint.");
             int count = scale * scale;
             Span<int> indices = stackalloc int[count];
@@ -30,9 +31,9 @@ namespace BugfixesAndQoL.BuildPreview
                 long tileX = (long)x + i % scale, tileY = (long)y + i / scale;
                 if ((ulong)tileX >= GameTileManagerView.PackedMapAxisCapacity ||
                     (ulong)tileY >= GameTileManagerView.PackedMapAxisCapacity)
-                    throw new InvalidOperationException("Blocked preview has an out-of-grid footprint.");
+                    return false;
                 if (*(byte*)(imageBase + PreviewNativeContract.ValidMapMaskRva + (ulong)(tileY * 800 + tileX)) == 0)
-                    throw new InvalidOperationException("Blocked preview crosses the native map mask.");
+                    return false;
                 int index = checked(*(int*)(imageBase + PreviewNativeContract.PackedRowRva + (ulong)tileY * 12) + (int)tileX);
                 if ((uint)index >= (uint)view.ConstructionGrid.Length || (uint)index >= (uint)view.LogicGrid.Length ||
                     (uint)index >= (uint)view.Logic2Grid.Length)
@@ -44,11 +45,12 @@ namespace BugfixesAndQoL.BuildPreview
 
             }
             int changed = FarmPreviewPolicy.Mark(mapper, blocked, logic, terrain, preview, out GroundCounts counts);
-            if (changed == 0) return new MarkResult(count, counts, 0);
+            result = new MarkResult(count, counts, changed);
+            if (changed == 0) return true;
             for (int i = 0; i < count; i++)
                 if (preview[i] == FarmPreviewPolicy.RedPreview && view.ConstructionGrid[indices[i]] == FarmPreviewPolicy.DarkPreview)
                     view.ConstructionGrid[indices[i]] = FarmPreviewPolicy.RedPreview;
-            return new MarkResult(count, counts, changed);
+            return true;
         }
     }
 }

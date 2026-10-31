@@ -30,6 +30,7 @@
     <!-- Production reader with the same local SDK boundary doubles as the legacy facade tests. -->
     <Compile Include="..\..\APIShared\src\ModData\ModDataAccess.cs" Link="APIShared\ModDataAccess.cs" />
     <Compile Include="..\src\FixesLordPreferencesBridge.cs" Link="FixesLordPreferencesBridge.cs" />
+    <Compile Include="..\src\LordDataSyncCoordinator.FixesAssetSource.cs" Link="LordDataSyncCoordinator.FixesAssetSource.cs" />
     <Compile Include="..\src\TypedPreferenceSnapshotCodec.cs" Link="TypedPreferenceSnapshotCodec.cs" />
     <Compile Include="..\src\LordDataSyncDiagnostics.cs" Link="LordDataSyncDiagnostics.cs" />
     <Compile Include="..\src\LordSnapshotSlotSelection.cs" Link="LordSnapshotSlotSelection.cs" />

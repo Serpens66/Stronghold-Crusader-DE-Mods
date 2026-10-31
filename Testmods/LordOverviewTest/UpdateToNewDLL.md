@@ -81,3 +81,27 @@ RVA or gameplay hook is introduced by these presentation changes.
 The existing prepared resource copy now also retains each player's typed official
 WinLossState.Loss flag. Combined with negative merit this marks eliminated rows,
 without extra exports, retained pointers or managed allocation under threadLock.
+
+## Greatest Lord and trimmed icon sources (2026-10-31)
+
+The same installed native/managed hashes were rechecked. Merit column 1 is the
+signed current Greatest Lord score, not a rank number or historical total.
+DLL_GetMeritData (84140) calls 1E20 for present eligible players; a missing living
+Lord after native time exceeds the start reference by 200 marks the score -1
+and exports zero gold/army. Presence must still be positive before reading it.
+HUD_MeritPanel.populateList sorts score descending, then gold descending.
+The consumer copies the already captured score outside the engine lock, through
+the existing permission projection. It never recalculates it or requests history
+for it. Historical metric classification ends at LordsKilled; the new metric ID
+is appended so old persisted identifiers and indices remain valid.
+
+UI-MasterAtlas's normal stat sprites are 129x200 with considerable transparent
+padding; Merit_SortLordScore uses S045 (1000x288), MP_Star is 90x128. The source
+relative alpha bounds in OverviewPresentationPolicy preserve arrows and sword
+tips. EnsureMetricIcons validates each original bitmap extent before constructing
+one CroppedBitmap per distinct builtin source/HUD; gold shares its cached source.
+The crown crop is (308,25,383,263), the star (26,46,40,39). No runtime pixel scans,
+new textures, hooks, exports or repeated render-time crop construction are used.
+Images use uniform scaling in 28x28 boxes; header templates bind their two-unit
+padding so the existing 32x32 drag cells contain them. Recheck atlas mappings,
+dimensions, bounds and real Noesis presentation after asset updates.

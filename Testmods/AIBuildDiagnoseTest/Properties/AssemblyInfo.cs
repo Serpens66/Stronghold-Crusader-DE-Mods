@@ -7,3 +7,4 @@ using System.Reflection;
 [assembly: AssemblyInformationalVersion("0.2.1")]
 
 [assembly: System.Runtime.CompilerServices.InternalsVisibleTo("CanarariWoodTest")]
+[assembly: System.Runtime.CompilerServices.InternalsVisibleTo("AIWoodSafetyTest")]

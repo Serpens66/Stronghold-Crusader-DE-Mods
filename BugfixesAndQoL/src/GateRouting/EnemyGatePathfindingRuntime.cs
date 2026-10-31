@@ -727,7 +727,7 @@ namespace BugfixesAndQoL.GateRouting
             $"tacticalPlayer={same.AiTacticalInvalidPlayers},tacticalScope={same.AiTacticalScopeConflicts},tacticalExceptions={same.AiTacticalExceptions}," +
             $"identity={DecisionTotal(NativeGateSnapshotDecision.RecordIdMismatch)},owner={DecisionTotal(NativeGateSnapshotDecision.OwnerMismatch)}," +
             $"queryPlayer={DecisionTotal(NativeGateSnapshotDecision.InvalidQueryPlayer)},nativeException={DecisionTotal(NativeGateSnapshotDecision.Exception)}," +
-            $"unexpectedGate={Read(ref untrackedUnexpectedGate)}";
+            $"unexpectedGate={Read(ref untrackedUnexpectedGate)},invalidPlayerContext=[{samePclRouteRuntime?.InvalidPlayerContext ?? "unavailable"}]";
 
         private void FlushDeferredErrors(bool final = false)
         {

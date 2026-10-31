@@ -4,10 +4,10 @@ using System.Globalization;
 using System.Linq;
 namespace LordOverviewTest {
  // Stable persisted metric identifiers never depend on translated labels or column positions.
- internal enum Metric { Gold, Army, Popularity, Fear, GoldAcquired, MaxPopulation, FoodProduced, WoodProduced, StoneProduced, IronProduced, PitchProduced, WeaponsProduced, GoodsReceived, GoodsSent, TroopsProduced, TroopsKilled, TroopsLost, BuildingsDestroyed, BuildingsLost, LordsKilled }
+ internal enum Metric { Gold, Army, Popularity, Fear, GoldAcquired, MaxPopulation, FoodProduced, WoodProduced, StoneProduced, IronProduced, PitchProduced, WeaponsProduced, GoodsReceived, GoodsSent, TroopsProduced, TroopsKilled, TroopsLost, BuildingsDestroyed, BuildingsLost, LordsKilled, GreatestLord }
  internal sealed class MetricDefinition {
   internal readonly Metric Id; internal string Group; internal readonly string Key; internal Func<decimal,string> Formatter;
-  internal bool Historical => (int)Id>=0 && Id>=Metric.GoldAcquired;
+  internal bool Historical => Id>=Metric.GoldAcquired && Id<=Metric.LordsKilled;
   internal MetricDefinition(Metric id,string group){Id=id;Group=group;Key=id.ToString();}
   internal MetricDefinition(Metric id,string key,string group){Id=id;Key=key;Group=group;}
   internal string Format(decimal? value)=>!value.HasValue?"?":Formatter!=null?Formatter(value.Value):Id==Metric.Fear?value.Value.ToString("+0;-0;+0",CultureInfo.InvariantCulture):value.Value.ToString(CultureInfo.InvariantCulture);

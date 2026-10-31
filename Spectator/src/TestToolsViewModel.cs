@@ -79,6 +79,25 @@ namespace Spectator
             powerItems = value; Changed(nameof(Powers));
         }
         public string SelectedGoodKey => "G" + ((int)good).ToString("00", CultureInfo.InvariantCulture);
+        private bool classicTheme;
+        private ToolbarPalette palette = ToolbarPalette.Paper;
+        internal bool ClassicTheme => classicTheme;
+        public Brush MenuForeground => palette.Ink;
+        public Brush MenuButton => palette.Button;
+        public Brush MenuHover => palette.Hover;
+        public Brush MenuBorder => palette.Border;
+        public Brush MenuActive => palette.Active;
+        public Brush MenuInput => palette.Input;
+        public Brush MenuGrip => palette.Grip;
+        public Brush MenuGripHover => palette.GripHover;
+        public string DesignHelp => SerpLocalization.Get(classicTheme ? "Tools.DesignPaper" : "Tools.DesignClassic");
+        internal void SetFloatingTheme(bool value)
+        {
+            if (classicTheme == value) return;
+            classicTheme = value; palette = value ? ToolbarPalette.Classic : ToolbarPalette.Paper;
+            foreach (string property in new[] { nameof(MenuForeground), nameof(MenuButton), nameof(MenuHover),
+                nameof(MenuBorder), nameof(MenuActive), nameof(MenuInput), nameof(MenuGrip), nameof(MenuGripHover), nameof(DesignHelp) }) Changed(property);
+        }
         public string ExpandLabel => expanded ? "\u2212" : "+";
         public bool CanCredit => toolsAvailable && hasRecipient && CreditMath.TryParse(amount, out _) && canExecute();
         public Visibility StatusVisibility => details && !string.IsNullOrEmpty(Status) ? Visibility.Visible : Visibility.Collapsed;
@@ -145,7 +164,7 @@ namespace Spectator
             string current = SerpLocalization.GetActiveLocale();
             if (current == locale) return;
             locale = current;
-            Changed(nameof(Text)); Changed(nameof(PowersToggleLabel)); Changed(nameof(PowersShortLabel)); Changed(nameof(ExpandLabel));
+            Changed(nameof(Text)); Changed(nameof(DesignHelp)); Changed(nameof(PowersToggleLabel)); Changed(nameof(PowersShortLabel)); Changed(nameof(ExpandLabel));
             SelectGood(good);
         }
 
