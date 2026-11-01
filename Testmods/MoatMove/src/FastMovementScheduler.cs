@@ -174,12 +174,17 @@ namespace MoatMove
         private void RegisterFireRouteRules(ReadOnlySpan<byte> memory, ulong moduleBase)
         {
             if (!settings.AvoidFire || !anchorAvailable || fireRules != null) return;
-            var fire = new FireRouteRules();
+            var fire = new FireRouteRules(fireTiles);
+            // Re-plan 3 steps before fire; detour and wait time from the configuration (40 ticks per second).
+            var policy = new APIShared.Pathfinding.RouteReplanPolicy(3, settings.FireDetourPercent, settings.FireDetourMinTiles, settings.FireWaitSeconds * 40);
             // Fail-closed for this feature only: without validated effect anchors no rule is registered.
-            if (fire.TryBind(memory, moduleBase, log, out string reason) && fire.TryRegister(MoatMovePlugin.PluginGuid, out reason))
+            if (fire.TryBind(memory, moduleBase, log, out string reason) && fire.TryRegister(MoatMovePlugin.PluginGuid, policy, out reason))
             {
                 fireRules = fire;
-                Shared.DebugLogHelper.LogInfo(log, "MoatMove fire route rules registered; replanning=" + settings.AnchorSingleMoves + ".");
+                fireAbortPolicy = fireEscapePolicy = policy;
+                fireEscapeActive = settings.EscapeFire;
+                Shared.DebugLogHelper.LogInfo(log, $"MoatMove fire route rules registered; replanning={settings.AnchorSingleMoves} escape={settings.EscapeFire} " +
+                    $"waitSeconds={settings.FireWaitSeconds} detour={settings.FireDetourPercent}%/{settings.FireDetourMinTiles}.");
             }
             else Shared.DebugLogHelper.LogError(log, "MoatMove fire route rules unavailable: " + reason);
         }
@@ -337,6 +342,7 @@ namespace MoatMove
                     // After AnchorTick: this tick's fire changes are read at the next tick, also on a
                     // new map, where AnchorTick starts following the journal from its current end.
                     fireRules?.Tick(tick);
+                    FireEscapeTick(tick);
                     ProbeRouteRules();
                     ProbeMoatCost();
                     ProbeCursorTopology();
@@ -445,6 +451,7 @@ namespace MoatMove
         private void ObserveAnchorUnitMove(UnitMoveHereEventArgs args)
         {
             if (args.Phase == EventHookPhase.Pre) MarkAnchorUnit(args.UnitId);
+            else ObserveReplanMove(args);
         }
 
         // Members a group move never re-planned keep their previous order; bounded per map.

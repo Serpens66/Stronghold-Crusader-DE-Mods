@@ -68,7 +68,7 @@ namespace Spectator
         {
             if (text == null || toolsModel == null) return;
             string value = toolsModel.Status;
-            FillStatusInlines(text, value, ReferenceEquals(text, statusText));
+            FillStatusInlines(text, value, true);
             var previous = ToolTipService.GetToolTip(text) as ToolTip;
             if (string.IsNullOrEmpty(value))
             {

@@ -2,7 +2,7 @@ using Noesis;
 
 namespace Spectator
 {
-    // Goods emphasis belongs to the actual runs. Tooltip and order runs retain their inherited styling.
+    // Footer emphasis belongs to the actual runs. Tooltips retain their inherited styling.
     internal static class StatusInlineFormat
     {
         internal static Run Create(TextBlock owner, string value, Brush colour, bool emphasize)

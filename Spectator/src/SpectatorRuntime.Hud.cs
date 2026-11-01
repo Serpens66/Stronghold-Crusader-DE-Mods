@@ -135,6 +135,7 @@ namespace Spectator
 
         private static void DetachHumanControls()
         {
+            toolbarPortraits.Reset();
             ReleaseActivePlayerBuildMenu();
             toolbarDirty = true;
             DetachPortraitNumbers();
@@ -225,6 +226,7 @@ namespace Spectator
                 return;
             }
             toolsModel.PlacementActive = humanPlacementMode;
+            RefreshPendingToolbarPortraits();
             string currentLocale = SerpLocalization.GetActiveLocale();
             if (currentLocale != toolbarLocale)
             {
@@ -235,7 +237,7 @@ namespace Spectator
             toolbarDirty = false;
             toolbarLayoutDirty = true;
             toolsModel.RefreshLocale();
-            int firstAi = -1;
+            int firstAi = -1, portraitMask = 0;
             for (int owner = 1; owner <= 8; owner++)
             {
                 bool available = IsSelectableView(owner);
@@ -248,7 +250,7 @@ namespace Spectator
                     RefreshHumanOwnerColour(owner);
                     humanOwnerNumbers[owner].Text = owner.ToString(System.Globalization.CultureInfo.InvariantCulture);
                     SetPlayerTooltip(button, PlayerLabel(owner, false), owner);
-                    RefreshPlayerFace("OwnerFace" + owner, owner);
+                    portraitMask |= 1 << owner;
                 }
                 var target = targetButtons[owner];
                 bool targetAvailable = IsToolsPlayer(owner, false);
@@ -260,9 +262,10 @@ namespace Spectator
                     RefreshHumanOwnerColour(owner);
                     targetLabels[owner].Foreground = humanOwnerNumbers[owner].Foreground;
                     SetPlayerTooltip(target, PlayerLabel(owner, false), owner, true);
-                    RefreshPlayerFace("TargetFace" + owner, owner);
+                    portraitMask |= 1 << owner;
                 }
             }
+            RefreshToolbarPortraits(portraitMask);
             if (!spectatorSelectionLinked && humanSelectedOwner == -1 && !initialSelectionChosen && firstAi > 0)
             {
                 int self = PlayerPerspectiveAPI.GetControlledPlayerId();
@@ -305,17 +308,6 @@ namespace Spectator
         }
 
         private static void OnHumanPanelSizeChanged(object sender, SizeChangedEventArgs args) => toolbarLayoutDirty = true;
-
-        private static void RefreshPlayerFace(string element, int owner)
-        {
-            var image = element.StartsWith("Owner", StringComparison.Ordinal) ? ownerFaces[owner] : targetFaces[owner];
-            if (image == null) return;
-            var state = GameData.Instance.lastGameState;
-            ImageSource face = state.is_skirmish_player(owner)
-                ? MainViewModel.Instance.getAIFace(state.computer_register[owner], true)
-                : Platform_Multiplayer.Instance.GetUserAvatar(Platform_Multiplayer.Instance.getPlayerSteamID(owner));
-            if (!ReferenceEquals(image.Source, face)) image.Source = face;
-        }
 
         private static void ExecuteToolsCommand(string command)
         {

@@ -12,13 +12,13 @@ namespace Spectator
             var paperInk = new Brush(); var classicInk = new Brush();
             var red = new Brush(); var green = new Brush();
             var owner = new TextBlock { FontSize = 11, Foreground = paperInk };
-            foreach (string value in new[] { "Credited 2147483647 gold to ", "1 · Rat, Duc de Puce", ".", new string('W', 300) })
+            foreach (string value in new[] { "Credited 2147483647 gold to ", "1 · Rat, Duc de Puce", "Order cancelled.", "Select a target below.", "Action failed.", ".", new string('W', 300) })
             {
                 var plain = StatusInlineFormat.Create(owner, value, null, true);
                 var player = StatusInlineFormat.Create(owner, value, red, true);
                 foreach (var run in new[] { plain, player })
                     check(run.Text == value && run.FontSize == 14 && run.FontWeight == FontWeight.Bold && run.StrokeThickness == .25f,
-                        "every goods fragment explicitly owns 14-unit bold glyphs and the thin emphasis contour, without shortening its text");
+                        "every footer fragment explicitly owns 14-unit bold glyphs and the thin emphasis contour, without shortening its text");
                 check(ReferenceEquals(plain.Stroke, paperInk), "plain emphasis matches the current parchment ink");
                 check(ReferenceEquals(player.Foreground, red) && ReferenceEquals(player.Stroke, red), "player fill and contour use the same brush");
                 owner.Foreground = classicInk;
@@ -32,7 +32,7 @@ namespace Spectator
                         ordinary.ReadLocalValue(TextElement.FontWeightProperty) == DependencyProperty.UnsetValue &&
                         ordinary.ReadLocalValue(TextElement.StrokeProperty) == DependencyProperty.UnsetValue &&
                         ordinary.ReadLocalValue(TextElement.StrokeThicknessProperty) == DependencyProperty.UnsetValue,
-                        "tooltips and order messages keep their inherited formatting, including delayed tooltip sizing");
+                        "tooltips keep their inherited formatting, including delayed tooltip sizing");
                     check(ReferenceEquals(ordinary.Foreground, colour) && ordinary.Text == value, "ordinary fragments preserve full text and player colours");
                 }
                 owner.Foreground = paperInk;

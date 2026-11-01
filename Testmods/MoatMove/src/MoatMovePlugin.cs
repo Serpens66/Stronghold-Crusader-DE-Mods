@@ -45,7 +45,18 @@ namespace MoatMove
             bool singleMoves = Config.Bind("Movement", "AnchorSingleMoves", false,
                 new ConfigDescription("Experimental: single-unit ground moves outside group commands also use the native core (exact cheapest routes, route tile rules) instead of Vanilla's per-unit search. Routes can differ from Vanilla's. Restart the game after changing this setting. Use the same value on all multiplayer peers.")).Value;
             bool avoidFire = Config.Bind("Movement", "AvoidFire", false,
-                new ConfigDescription("Experimental: routes avoid burning pitch and other fire on the ground. With AnchorSingleMoves, units that are already walking when fire starts on their route re-plan 3 tiles before it (a detour may be 50 % or 10 tiles longer) or wait up to about 10 s. Restart the game after changing this setting. Use the same value on all multiplayer peers.")).Value;
+                new ConfigDescription("Experimental: routes avoid burning pitch and other fire on the ground. With AnchorSingleMoves, soldiers that are already walking when fire starts on their route re-plan 3 tiles before it (detour rule: FireDetourPercent/FireDetourMinTiles) or stop and wait (FireWaitSeconds); without a fire-free route by then the move is aborted. Restart the game after changing this setting. Use the same value on all multiplayer peers.")).Value;
+            int fireWaitSeconds = Config.Bind("Movement", "FireWaitSeconds", 10,
+                new ConfigDescription("With AvoidFire: seconds of game time a soldier waits in front of fire before its move is aborted, and in which a soldier that left a fire returns to its old position or move target. Restart the game after changing this setting. Use the same value on all multiplayer peers.",
+                    new AcceptableValueRange<int>(1, 1800))).Value;
+            int fireDetourPercent = Config.Bind("Movement", "FireDetourPercent", 50,
+                new ConfigDescription("With AvoidFire: a fire-free detour may be this many percent longer than the remaining route (or FireDetourMinTiles steps longer, whichever is more); a longer detour counts as no route. Restart the game after changing this setting. Use the same value on all multiplayer peers.",
+                    new AcceptableValueRange<int>(0, 1000))).Value;
+            int fireDetourMinTiles = Config.Bind("Movement", "FireDetourMinTiles", 10,
+                new ConfigDescription("With AvoidFire: extra steps a fire-free detour may always add, also for short remaining routes. Restart the game after changing this setting. Use the same value on all multiplayer peers.",
+                    new AcceptableValueRange<int>(0, 2000))).Value;
+            bool escapeFire = Config.Bind("Movement", "EscapeFire", true,
+                new ConfigDescription("With AvoidFire: soldiers standing on a burning tile move to the nearest tile without fire and later return (see FireWaitSeconds). Workers, firemen, siege equipment and units on walls are not moved. Restart the game after changing this setting. Use the same value on all multiplayer peers.")).Value;
 #if SERP_DEVDIAG
             int ruleProbeTicks = Config.Bind("Diagnostics", "RuleProbeTicks", 0,
                 new ConfigDescription("DEVDIAG only: simulation ticks after a map start at which a forbidden test band (x 399..401, every row except 380..420) is set for all players; 0 = off.")).Value;
@@ -56,10 +67,13 @@ namespace MoatMove
 #else
             int ruleProbeTicks = 0, moatCostProbeTicks = 0, topologyProbeTicks = 0;
 #endif
+            // Clamped defensively: RouteReplanPolicy rejects values outside these ranges.
             options = new MoatMoveOptions { PluginDirectory = System.IO.Path.GetDirectoryName(Info.Location), AnchorSingleMoves = singleMoves, AvoidFire = avoidFire,
+                FireWaitSeconds = Math.Min(1800, Math.Max(1, fireWaitSeconds)), FireDetourPercent = Math.Min(1000, Math.Max(0, fireDetourPercent)),
+                FireDetourMinTiles = Math.Min(2000, Math.Max(0, fireDetourMinTiles)), EscapeFire = escapeFire,
                 RuleProbeTicks = ruleProbeTicks, MoatCostProbeTicks = moatCostProbeTicks, TopologyProbeTicks = topologyProbeTicks };
             Shared.DebugLogHelper.LogInfo(persistentLog,
-                $"MoatMove {PluginVersion} loaded; anchorSingleMoves={options.AnchorSingleMoves}, avoidFire={options.AvoidFire}, commandPolicy=BugfixesAndQoL, hookOwner=BugfixesAndQoL; awaiting native library.");
+                $"MoatMove {PluginVersion} loaded; anchorSingleMoves={options.AnchorSingleMoves}, avoidFire={options.AvoidFire}, escapeFire={options.EscapeFire}, commandPolicy=BugfixesAndQoL, hookOwner=BugfixesAndQoL; awaiting native library.");
             CrusaderLibrary.Instance.LibraryLoaded += OnLibraryLoaded;
         }
 

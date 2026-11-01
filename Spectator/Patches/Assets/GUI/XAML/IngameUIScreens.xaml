@@ -10,6 +10,11 @@
 <DataTrigger Binding="{Binding Show_HUD_IngameMenu}" Value="True"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger>
 </Style.Triggers></Style></Canvas.Style>
 <Canvas.Resources>
+        <Style x:Key="FooterFeedback" TargetType="{x:Type TextBlock}">
+          <Setter Property="FontSize" Value="14"/><Setter Property="FontWeight" Value="Bold"/>
+          <Setter Property="Stroke" Value="{Binding MenuForeground}"/><Setter Property="StrokeThickness" Value="0.25"/>
+          <Setter Property="LineHeight" Value="16"/><Setter Property="LineStackingStrategy" Value="BlockLineHeight"/>
+        </Style>
         <Style x:Key="ToolsTooltip" TargetType="{x:Type ToolTip}">
           <Setter Property="Placement" Value="Top"/>
           <Setter Property="Background" Value="#FF1D1710"/><Setter Property="Foreground" Value="White"/><Setter Property="BorderBrush" Value="#FFF2D48A"/>
@@ -242,14 +247,14 @@
             <Border x:Name="SpectatorLeftWing" Background="Transparent" CornerRadius="0,0,4,4" Height="33">
               <Grid>
 
-                <Grid Visibility="{Binding OrdersVisibility}" Margin="4,0" VerticalAlignment="Center"><Grid.RowDefinitions><RowDefinition Height="12"/><RowDefinition Height="12"/></Grid.RowDefinitions>
-<TextBlock x:Name="OrdersStatus" Grid.Row="0" FontSize="11" Foreground="{Binding MenuForeground}" LineHeight="12" LineStackingStrategy="BlockLineHeight" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Visibility="{Binding StatusVisibility}" ToolTipService.ShowDuration="60000"/>
-<TextBlock x:Name="OrderAvailability" Grid.Row="1" Text="{Binding OrderAvailability}" Visibility="{Binding OrderAvailabilityVisibility}" Foreground="{Binding MenuForeground}" FontSize="11" LineHeight="12" LineStackingStrategy="BlockLineHeight" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" ToolTipService.ShowDuration="60000"><TextBlock.ToolTip><ToolTip Style="{StaticResource ToolsTooltip}" Content="{Binding OrderAvailability}"/></TextBlock.ToolTip></TextBlock>
+                <Grid Visibility="{Binding OrdersVisibility}" Margin="4,0" VerticalAlignment="Center"><Grid.RowDefinitions><RowDefinition Height="16"/><RowDefinition Height="16"/></Grid.RowDefinitions>
+<TextBlock x:Name="OrdersStatus" Style="{StaticResource FooterFeedback}" Grid.Row="0" FontSize="14" FontWeight="Bold" Foreground="{Binding MenuForeground}" LineHeight="16" LineStackingStrategy="BlockLineHeight" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Visibility="{Binding StatusVisibility}" ToolTipService.ShowDuration="60000" MaxHeight="16"/>
+<TextBlock x:Name="OrderAvailability" Style="{StaticResource FooterFeedback}" Grid.Row="1" Text="{Binding OrderAvailability}" Visibility="{Binding OrderAvailabilityVisibility}" Foreground="{Binding MenuForeground}" FontSize="14" FontWeight="Bold" LineHeight="16" LineStackingStrategy="BlockLineHeight" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" ToolTipService.ShowDuration="60000" MaxHeight="16"><TextBlock.ToolTip><ToolTip Style="{StaticResource ToolsTooltip}" Content="{Binding OrderAvailability}"/></TextBlock.ToolTip></TextBlock>
 </Grid>
               </Grid>
             </Border>
             <Border x:Name="SpectatorRightWing" Background="Transparent" CornerRadius="0,0,4,4" Height="33" ClipToBounds="True">
-<TextBlock x:Name="ToolsStatus" FontSize="14" FontWeight="Bold" Foreground="{Binding MenuForeground}" Margin="4,0" TextWrapping="Wrap" TextTrimming="CharacterEllipsis" MaxHeight="32" LineHeight="16" LineStackingStrategy="BlockLineHeight" VerticalAlignment="Center" Visibility="{Binding GoodsStatusVisibility}" ToolTipService.ShowDuration="60000"></TextBlock>
+<TextBlock x:Name="ToolsStatus" Style="{StaticResource FooterFeedback}" FontSize="14" FontWeight="Bold" Foreground="{Binding MenuForeground}" Margin="4,0" TextWrapping="Wrap" TextTrimming="CharacterEllipsis" MaxHeight="32" LineHeight="16" LineStackingStrategy="BlockLineHeight" VerticalAlignment="Center" Visibility="{Binding GoodsStatusVisibility}" ToolTipService.ShowDuration="60000"></TextBlock>
             </Border>
           </Canvas>
             </Grid>

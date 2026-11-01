@@ -39,14 +39,34 @@ Feature owner: MoatMove fire route rules. Reference SHA-256 `FBCB93195FC7EFCA9BD
 | Effect removal pass | `0xA2E60` | `RemovalPattern` (48 bytes, displacements wildcarded). `lea rdi,[rip+d32]` at +0x0F gives the effect manager (`0x2F7A680`); the pattern also pins `imul rcx,rax,0E8h` (record size) and `cmp word [rcx+rdi+3Ch],2` (state field). |
 | Fire of a tile | `0xA02D0` | `LookupPattern` (50 bytes). `lea rdx,[rip+d32]` at +3 gives the per-tile effect list heads (`0x4CF23F0`, after the records); the pattern pins `imul r8,rdx,0E8h`, type `cmp word [..+3Eh],9` and the list link `movsx eax,word [..+32h]`. |
 
-Record layout used: slots 1..5999 (`0xA2D80` relinks 0x19..5999, `0xA2E60` purges 1..0x18), state +0x3C (0 = free,
-2 = removed in the same pass), type +0x3E (9 = fire, written by `0x9C120`, `0x9C450`, `0x9DCF0` through
-`0x9B2B0`), native tile id +0x60 (int; `0x9F5B0` unlinks by it). Tile ids convert to coordinates with the
+Record layout used: slots 1..5999 (`0xA2D80` relinks 0x19..5999, `0xA2E60` purges the active records of 1..0x18),
+state +0x3C (0 = free, 1 = new, 2 = active: `0x9F960` moves 1 to 2 on the first update, 3..8 end the record;
+Vanilla's search mask `0x9C6B0` counts `state == 2 && type == 9` only, and so does `FireRouteRules`), type +0x3E
+(9 = fire, written by `0x9C120`, `0x9C450`, `0x9DCF0` through `0x9B2B0`), native tile id +0x60 (int; `0x9F5B0`
+unlinks by it). Tile ids convert to coordinates with the
 Extender's `GetTileVectorFromId` and are checked back with `GetTileId`. Both entries resolve through
 `Shared.NativePatternResolver` (reference RVA first, unique executable-section pattern fallback); the derived
 manager must lie before the tile heads by at least 6000 records. Any failure logs an error and registers no
 fire rules; movement keeps working. The record layout has no second semantic source beyond these anchors, so
 the feature stays hash-gated with the rest of MoatMove.
+
+Fire abort and escape (`src/RouteReplanWatch.cs`, `src/FireEscape.cs`, audit 01.11.2026, same hash). No new RVA is
+resolved at runtime; the following Vanilla facts are hard-coded and must be rechecked on a new DLL:
+
+- **Damage only on the tile itself:** `0x99420 -> 0x9E030 -> 0x192400`; tiles whose flags (BugfixesAndQoL's
+  `tileFlags`) intersect `0xBA7001B1` (walls, raised, crenels, fords ...) take no fire damage
+  (`FireImmuneTileFlags`). Vanilla has no flee behaviour; `0xDCE60` (+0x406) only makes a unit hesitate once
+  before entering fire.
+- **Soldiers:** `GameUnit.r_SelectionAllowed` (+0x2A0) is set by every military update routine and 0 for
+  workers, civilians and firemen. Siege equipment is filtered by `eChimps` like Vanilla's group move
+  `0x11B520` does. A fireman stopped in state 3 extinguishes from afar (`0x159C30 -> 0xC3C80`, no distance
+  check) and workers treat a forced route end as reaching their job target (`0x188340`); both are therefore
+  never stopped or re-planned.
+- **`0x196280` (MoveToTile):** returns 1 when a route was published and 0 on failure; a failure (`0x199CD0`)
+  keeps state, cursor and length but zeroes the route buffer, so MoatMove then stops the unit explicitly
+  (target = movement start gives state 0 and length 0). The result is read from the Extender's
+  `OnUnitMoveHere` Post (`ReturnValue`).
+- **Escape targets:** `movementTargetAvailability != 0` and tile flags without `0x30`.
 
 ## Assassin single routes through the anchor core (`src/AnchorRouting.cs`, `TryPublishAnchorSingle`)
 

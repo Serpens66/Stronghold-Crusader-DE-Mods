@@ -47,6 +47,28 @@ try {
         }
     }
     [xml]$settingsXaml = [IO.File]::ReadAllText((Join-Path $root 'Override/ScriptExtenderUI/SpectatorSettings.xaml'))
+    # Structural search/category coverage; preset and role behavior are tested separately.
+    $sectionKeys = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+    foreach ($group in @(
+        @{Controls=@('EnableEliminatedPlayersBecomeSpectators');Role='CanEditMissionIndependentHostSettings'},
+        @{Controls=@('AllowEnemyDetails');Role='CanEditMissionIndependentHostSettings'},
+        @{Controls=@('EnableLordOverview','OverviewDesignIndex');Role='CanEditClientSettings'},
+        @{Controls=@('EnableSpectatorPerspective','EnableStatistics');Role='CanEditClientSettings'},
+        @{Controls=@('EnableTestTools','EnableSingleplayerTestMode');Role='CanEditClientSettings'})) {
+        $section = $null
+        foreach ($property in $group.Controls) {
+            $control = $settingsXaml.SelectSingleNode('//*[@IsChecked="{Binding '+$property+', Mode=TwoWay}" or @SelectedIndex="{Binding '+$property+', Mode=TwoWay}"]')
+            $owner = $control
+            while ($owner -is [Xml.XmlElement] -and $owner.GetAttribute('shared:ModSettingsSearch.IsSection') -ne 'True') { $owner = $owner.ParentNode }
+            if (-not $control -or $owner -isnot [Xml.XmlElement]) { throw "Setting lacks a searchable topic: $property" }
+            if ($section -and $section -ne $owner) { throw 'Related settings must share their topic.' }
+            $section = $owner
+        }
+        $title = $section.GetAttribute('shared:ModSettingsSearch.SectionTitle')
+        $heading = $section.SelectSingleNode('*[local-name()="TextBlock"]')
+        if (-not $sectionKeys.Add($section.GetAttribute('shared:ModSettingsSearch.SectionKey')) -or -not $title -or $heading.Text -ne $title) { throw 'Topics require distinct search keys and matching localized headings.' }
+        if ($section.ParentNode.GetAttribute('IsEnabled') -ne ('{Binding '+$group.Role+'}')) { throw 'Topics must retain the appropriate host/local access gate.' }
+    }
     $hostContent = $settingsXaml.SelectSingleNode('//*[@IsEnabled="{Binding CanEditMissionIndependentHostSettings}"]')
     if (-not $hostContent) { throw 'Host options must use the mission-independent authority binding.' }
     foreach ($hostControl in @($hostContent) + @($hostContent.SelectNodes('.//*'))) {

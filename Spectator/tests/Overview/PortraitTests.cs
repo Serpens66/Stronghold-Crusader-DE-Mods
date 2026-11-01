@@ -89,5 +89,22 @@ internal static partial class Program
         long allocated = GC.GetAllocatedBytesForCurrentThread();
         for (int i = 0; i < 10000; i++) { cache.Resolve(1, 5.2); cache.Poll(5.2); }
         Check(GC.GetAllocatedBytesForCurrentThread() == allocated, "prepared portrait cache/idle refresh allocate no managed objects");
+
+        // A closed/disabled overview must not own the toolbar's portrait lifetime.
+        var overviewCache = new PlayerPortraits<object>(source);
+        var toolbarCache = new PlayerPortraits<object>(source);
+        source.Identities[1] = PortraitIdentity.Choose(false, -1, true, false, 0);
+        source.LocalImage = null;
+        toolbarCache.SetPlayers((1 << 1) | (1 << 4));
+        source.Identities[4] = ai;
+        Check(toolbarCache.Resolve(1, 0) == null && toolbarCache.HasPending, "toolbar retains a pending singleplayer avatar with overview disabled");
+        var aiFace = toolbarCache.Resolve(4, 0);
+        reads = source.Reads;
+        Check(ReferenceEquals(toolbarCache.Resolve(4, .1), aiFace) && source.Reads == reads, "main and target portraits reuse one toolbar cache entry");
+        overviewCache.Reset();
+        source.LocalImage = new object();
+        Check(toolbarCache.Poll(1) == (1 << 1) && ReferenceEquals(toolbarCache.Cached(1), source.LocalImage), "closing overview does not retire pending toolbar avatar work");
+        toolbarCache.Reset();
+        Check(toolbarCache.Cached(1) == null && toolbarCache.Cached(4) == null && !toolbarCache.HasPending, "HUD/session retirement clears both toolbar projections");
     }
 }

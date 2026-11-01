@@ -14,6 +14,7 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}"
   <Grid.Resources>
     <Style TargetType="{x:Type ToolTip}" x:Key="SpectatorPopupStyle"><Setter Property="Background" Value="#FF1D1710"/><Setter Property="Foreground" Value="White"/><Setter Property="apiui:SharedToolTipSizing.Enabled" Value="True"/><Setter Property="FontSize" Value="{x:Static apiui:ToolTipPresentation.AutomaticFontSize}"/><Setter Property="MaxWidth" Value="{x:Static apiui:ToolTipPresentation.AutomaticMaximumWidth}"/><Setter Property="Padding" Value="24,18"/><Setter Property="BorderThickness" Value="4.5"/><Setter Property="BorderBrush" Value="#FFF2D48A"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="{x:Type ToolTip}"><Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="2" Padding="{TemplateBinding Padding}" MaxWidth="{TemplateBinding MaxWidth}"><TextBlock Text="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}" FontSize="{TemplateBinding FontSize}" TextWrapping="Wrap"/></Border></ControlTemplate></Setter.Value></Setter></Style>
     <Style x:Key="HostRoleHeader" TargetType="{x:Type TextBlock}"><Setter Property="Background" Value="#332F5F9F"/><Setter Property="Foreground" Value="#77AAFF"/><Setter Property="FontWeight" Value="Bold"/></Style>
+    <Style x:Key="SettingsTopicHeader" TargetType="{x:Type TextBlock}"><Setter Property="Foreground" Value="#FFF2D48A"/><Setter Property="FontWeight" Value="Bold"/><Setter Property="Margin" Value="0,8,0,2"/></Style>
     <Style x:Key="ClientRoleHeader" TargetType="{x:Type TextBlock}"><Setter Property="Background" Value="#33306950"/><Setter Property="Foreground" Value="#66CC99"/><Setter Property="FontWeight" Value="Bold"/></Style>
     <Style x:Key="HostActivationBorder" TargetType="{x:Type Border}"><Setter Property="Background" Value="#443B6EA5"/><Setter Property="BorderBrush" Value="#FF77AAFF"/><Setter Property="BorderThickness" Value="1"/><Setter Property="CornerRadius" Value="3"/><Setter Property="Padding" Value="8,4"/></Style>
     <Style x:Key="ClientActivationBorder" TargetType="{x:Type Border}"><Setter Property="Background" Value="#44306950"/><Setter Property="BorderBrush" Value="#FF66CC99"/><Setter Property="BorderThickness" Value="1"/><Setter Property="CornerRadius" Value="3"/><Setter Property="Padding" Value="8,4"/></Style>
@@ -124,21 +125,35 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}"
       <TextBlock Text="{Binding HostOptionsText}" Style="{StaticResource HostRoleHeader}" Margin="0,12,0,6"/>
       <TextBlock Text="{Binding Text[PersonalHostNotice]}" Foreground="#BBBBBB" TextWrapping="Wrap" Margin="0,0,0,6"/>
       <StackPanel IsEnabled="{Binding CanEditMissionIndependentHostSettings}" Opacity="{Binding HostSettingsOpacity}">
+        <StackPanel shared:ModSettingsSearch.IsSection="True" shared:ModSettingsSearch.SectionKey="spectator.host.spectator" shared:ModSettingsSearch.SectionTitle="{Binding Text[SpectatorSection]}">
+          <TextBlock Text="{Binding Text[SpectatorSection]}" Style="{StaticResource SettingsTopicHeader}"/>
         <CheckBox IsChecked="{Binding EnableEliminatedPlayersBecomeSpectators, Mode=TwoWay}" Content="{Binding Text[DefeatSetting]}" ToolTipService.ShowDuration="60000" Foreground="White" Margin="0,4"><CheckBox.ToolTip><ToolTip Style="{StaticResource SpectatorPopupStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding Text[DefeatSettingHelp]}"/></CheckBox.ToolTip></CheckBox>
+        </StackPanel>
+        <StackPanel shared:ModSettingsSearch.IsSection="True" shared:ModSettingsSearch.SectionKey="spectator.host.overview" shared:ModSettingsSearch.SectionTitle="{Binding Text[OverviewSection]}">
+          <TextBlock Text="{Binding Text[OverviewSection]}" Style="{StaticResource SettingsTopicHeader}"/>
         <CheckBox IsChecked="{Binding AllowEnemyDetails, Mode=TwoWay}" Content="{Binding Text[EnemyDetailsSetting]}" ToolTipService.ShowDuration="60000" Foreground="White" Margin="0,4"><CheckBox.ToolTip><ToolTip Style="{StaticResource SpectatorPopupStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding Text[EnemyDetailsSettingHelp]}"/></CheckBox.ToolTip></CheckBox>
+        </StackPanel>
       </StackPanel>
       <TextBlock Text="{Binding ClientOptionsText}" Style="{StaticResource ClientRoleHeader}" Margin="0,12,0,6"/>
       <TextBlock Text="{Binding Text[ClientNotice]}" Foreground="White" TextWrapping="Wrap" MaxWidth="700"/>
       <StackPanel IsEnabled="{Binding CanEditClientSettings}" Opacity="{Binding ClientSettingsOpacity}">
+        <StackPanel shared:ModSettingsSearch.IsSection="True" shared:ModSettingsSearch.SectionKey="spectator.local.overview" shared:ModSettingsSearch.SectionTitle="{Binding Text[OverviewSection]}">
+          <TextBlock Text="{Binding Text[OverviewSection]}" Style="{StaticResource SettingsTopicHeader}"/>
         <CheckBox IsChecked="{Binding EnableLordOverview, Mode=TwoWay}" Content="{Binding Text[OverviewSetting]}" ToolTipService.ShowDuration="60000" Foreground="White" Margin="0,4"><CheckBox.ToolTip><ToolTip Style="{StaticResource SpectatorPopupStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding Text[OverviewSettingHelp]}"/></CheckBox.ToolTip></CheckBox>
         <StackPanel Margin="0,4"><TextBlock Text="{Binding Text[OverviewDesign]}" Foreground="White"/>
           <ComboBox ItemsSource="{Binding OverviewDesignNames}" SelectedIndex="{Binding OverviewDesignIndex, Mode=TwoWay}" ToolTipService.ShowDuration="60000" MaxWidth="400" HorizontalAlignment="Left"><ComboBox.ToolTip><ToolTip Style="{StaticResource SpectatorPopupStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding Text[OverviewDesignHelp]}"/></ComboBox.ToolTip></ComboBox>
         </StackPanel>
+        </StackPanel>
+        <StackPanel shared:ModSettingsSearch.IsSection="True" shared:ModSettingsSearch.SectionKey="spectator.local.views" shared:ModSettingsSearch.SectionTitle="{Binding Text[ViewsSection]}">
+          <TextBlock Text="{Binding Text[ViewsSection]}" Style="{StaticResource SettingsTopicHeader}"/>
         <CheckBox IsChecked="{Binding EnableSpectatorPerspective, Mode=TwoWay}" Content="{Binding Text[PerspectiveSetting]}" ToolTipService.ShowDuration="60000" Foreground="White" Margin="0,4"><CheckBox.ToolTip><ToolTip Style="{StaticResource SpectatorPopupStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding Text[PerspectiveSettingHelp]}"/></CheckBox.ToolTip></CheckBox>
         <CheckBox IsChecked="{Binding EnableStatistics, Mode=TwoWay}" Content="{Binding Text[StatisticsSetting]}" ToolTipService.ShowDuration="60000" Foreground="White" Margin="0,4"><CheckBox.ToolTip><ToolTip Style="{StaticResource SpectatorPopupStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding Text[StatisticsSettingHelp]}"/></CheckBox.ToolTip></CheckBox>
-
+        </StackPanel>
+        <StackPanel shared:ModSettingsSearch.IsSection="True" shared:ModSettingsSearch.SectionKey="spectator.local.tools" shared:ModSettingsSearch.SectionTitle="{Binding Text[TestToolsSection]}">
+          <TextBlock Text="{Binding Text[TestToolsSection]}" Style="{StaticResource SettingsTopicHeader}"/>
         <CheckBox IsChecked="{Binding EnableTestTools, Mode=TwoWay}" Content="{Binding Text[TestToolsSetting]}" ToolTipService.ShowDuration="60000" Foreground="White" Margin="0,4"><CheckBox.ToolTip><ToolTip Style="{StaticResource SpectatorPopupStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding Text[TestToolsSettingHelp]}"/></CheckBox.ToolTip></CheckBox>
         <CheckBox IsChecked="{Binding EnableSingleplayerTestMode, Mode=TwoWay}" Content="{Binding Text[SingleplayerTestSetting]}" ToolTipService.ShowDuration="60000" Foreground="White" Margin="0,4"><CheckBox.ToolTip><ToolTip Style="{StaticResource SpectatorPopupStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding Text[SingleplayerTestSettingHelp]}"/></CheckBox.ToolTip></CheckBox>
+        </StackPanel>
       </StackPanel>
     </StackPanel>
   </ScrollViewer>

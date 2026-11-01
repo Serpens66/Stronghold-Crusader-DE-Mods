@@ -45,6 +45,7 @@
     <Compile Include="src\GroundFailureProofs.cs" />
     <Compile Include="src\MoatFailureProofs.cs" />
     <Compile Include="src\FireRouteRules.cs" />
+    <Compile Include="src\FireEscape.cs" />
     <Compile Include="src\DigWorkFallback.cs" />
     <Compile Include="src\FastRouteField.cs" />
     <Compile Include="src\IFastRouteField.cs" />

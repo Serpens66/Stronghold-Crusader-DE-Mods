@@ -13,7 +13,9 @@ namespace MoatMove
         // x 136, player 1's mask ready): a walking unit 3 steps before a new rule tile re-plans to its
         // unchanged target and keeps an allowed detour; a detour beyond the policy stops it on its next
         // tile; once the core finds a clear route the unit resumes its target. Unit 7 walks east from
-        // (140,10) to (160,10); MoveHandler plays 196280's result.
+        // (140,10) to (160,10); MoveHandler plays 196280's result. Only soldiers are watched (no
+        // civilians or siege equipment); a failed 196280 when resuming ends in an explicit stop, and
+        // MoatMove's fire policy aborts the move after the wait instead of resuming.
         private void ReplanWatchTests(ref int ticks)
         {
             bool singleBefore = settings.AnchorSingleMoves; settings.AnchorSingleMoves = true;
@@ -41,7 +43,7 @@ namespace MoatMove
             try
             {
                 walker->r_GlobalId = 9007; walker->r_ControllableForPlayerId = 1; walker->r_AliveState = AliveState.IsAlive; walker->r_TribeId = 0;
-                walker->r_IsKilledByProjectile = 0; walker->r_MovementSubstep = 0;
+                walker->r_IsKilledByProjectile = 0; walker->r_MovementSubstep = 0; walker->r_SelectionAllowed = 1; walker->r_UnitChimp = 0;
                 Route(7, 140, 10, straight, 160, 10);
                 units.Moves.Clear();
                 long detours = replanDetours, waits = replanWaitsStarted, resumed = replanResumed;
@@ -74,11 +76,176 @@ namespace MoatMove
                 long checks = replanChecks;
                 for (int i = 0; i < 40; i++) ReplanTick(++ticks);
                 Check(replanChecks == checks, "the replan watch checks units without rule tiles");
+
+                // Civilians, workers and firemen (r_SelectionAllowed 0) and siege equipment are not watched.
+                Check(fire.Set(143, 10, APIShared.Pathfinding.RouteTileEffect.Penalty, 254), "fire rule rejected");
+                AnchorTick(++ticks); replanSettled.Clear(); answer = tooLong;
+                long triggers = replanTriggers;
+                foreach (int chimp in new[] { -1, eChimps.CHIMP_TYPE_TREBUCHET, eChimps.CHIMP_TYPE_BATTERING_RAM })
+                {
+                    walker->r_SelectionAllowed = chimp < 0 ? 0 : 1; walker->r_UnitChimp = chimp < 0 ? 0 : chimp;
+                    Route(7, 140, 10, straight, 160, 10); units.Moves.Clear();
+                    for (int i = 0; i < 48; i++) ReplanTick(++ticks);
+                    Check(replanTriggers == triggers && units.Moves.Count == 0, $"the replan watch stopped a non-soldier (chimp {chimp})");
+                }
+                walker->r_SelectionAllowed = 1; walker->r_UnitChimp = 0;
+
+                // A foreign policy resumes after the wait; a failed 196280 (Post result 0, route buffer
+                // zeroed) then ends in an explicit stop on the movement start instead of a dead route.
+                Route(7, 140, 10, straight, 160, 10); units.Moves.Clear();
+                for (int i = 0; i < 48 && !replanWaits.ContainsKey(7); i++) ReplanTick(++ticks);
+                Check(replanWaits.ContainsKey(7), "a detour beyond the policy did not start a wait");
+                units.MoveHandler = (id, x, y) =>
+                {
+                    if (x == 160 && y == 10)
+                    {
+                        byte* path = nativeUnitManager + NativeUnitPathBufferOffset + id * NativeUnitPathBufferStride;
+                        for (int i = 0; i < NativeUnitPathBufferStride; i++) path[i] = 0;
+                        GameUnit* unit = units.Units + id;
+                        unit->r_TargetTilePositionX2 = x; unit->r_TargetTilePositionY2 = y; unit->r_PathPlanStateBitFlags = 2; unit->r_PathPlanLength = 20;
+                        ObserveReplanMove(new UnitMoveHereEventArgs(EventHookPhase.Post, id, x, y, 0) { ReturnValue = 0 });
+                    }
+                    else Route(id, x, y, new int[0], x, y);
+                };
+                units.Moves.Clear();
+                long ended = replanEnded, failures = replanMoveFailures, expired = replanExpired;
+                for (int i = 0; i < 480 && replanWaits.ContainsKey(7); i++) ReplanTick(++ticks);
+                Check(!replanWaits.ContainsKey(7) && replanEnded == ended + 1 && replanMoveFailures == failures + 1 && replanExpired == expired &&
+                    units.Moves.Count == 2 && units.Moves[1][1] == 140 && walker->r_PathPlanStateBitFlags == 0 && walker->r_TargetTilePositionX2 == 140,
+                    $"a failed resume did not stop the unit (moves={units.Moves.Count})");
+
+                // MoatMove's fire policy: no clear route within the wait aborts the move; the unit stays.
+                units.MoveHandler = (id, x, y) =>
+                {
+                    if (x == 160 && y == 10) Route(id, 140, 10, answer, x, y);
+                    else Route(id, x, y, new int[0], x, y);
+                };
+                fireAbortPolicy = fire.ReplanPolicy; replanSettled.Clear();
+                Route(7, 140, 10, straight, 160, 10);
+                for (int i = 0; i < 48 && !replanWaits.ContainsKey(7); i++) ReplanTick(++ticks);
+                Check(replanWaits.ContainsKey(7), "the fire policy did not start a wait");
+                units.Moves.Clear();
+                long aborted = replanAborted; expired = replanExpired;
+                for (int i = 0; i < 480 && replanWaits.ContainsKey(7); i++) ReplanTick(++ticks);
+                Check(!replanWaits.ContainsKey(7) && replanAborted == aborted + 1 && replanExpired == expired && units.Moves.Count == 0 &&
+                    walker->r_PathPlanStateBitFlags == 0 && walker->r_TargetTilePositionX2 == 140,
+                    $"an expired fire wait did not abort the move (moves={units.Moves.Count})");
+                for (int i = 0; i < 48; i++) ReplanTick(++ticks);
+                Check(units.Moves.Count == 0, "an aborted unit is moved again");
             }
             finally
             {
                 units.MoveHandler = null; units.Moves.Clear(); fire.ClearAll(); fire.ReplanPolicy = null; AnchorTick(++ticks);
-                *walker = saved; ResetReplanWatch(); settings.AnchorSingleMoves = singleBefore;
+                *walker = saved; ResetReplanWatch(); fireAbortPolicy = null; settings.AnchorSingleMoves = singleBefore;
+            }
+        }
+
+        // FireEscape on the anchor corridor (row 10, ground east of x 136): a soldier on a burning tile
+        // leaves for the nearest standable tile with the fewest burning tiles on the way, returns once the
+        // fire is out, stays after the wait, and a new order ends the case. Immune tiles, civilians and
+        // siege equipment are left alone; a waiting unit keeps its wait target as return point.
+        private void FireEscapeTests(ref int ticks)
+        {
+            GameUnitManagerAPI units = GameUnitManagerAPI.Instance;
+            GameUnit* walker = units.Units + 7;
+            GameUnit saved = *walker;
+            var api = GameTileManagerAPI.Instance;
+            var availability = new byte[181];
+            for (int x = 136; x <= 180; x++) { availability[x] = movementTargetAvailability[10 * MapWidth + x]; movementTargetAvailability[10 * MapWidth + x] = 1; }
+            // Escape ticks run every 8th simulation tick (a ref parameter cannot be captured).
+            int now = ticks;
+            int Next() { now += 8 - (now & 7); return now; }
+            void Burn(bool on) { for (int x = 149; x <= 152; x++) fireTiles.Set(10 * MapWidth + x, on); }
+            int[] Steps(int direction, int count) { var steps = new int[count]; for (int i = 0; i < count; i++) steps[i] = direction; return steps; }
+            // 196280 on row 10: a straight route from the current tile.
+            units.MoveHandler = (id, x, y) =>
+            {
+                GameUnit* unit = units.Units + id;
+                int fromX = unit->r_CurrentTilePositionX;
+                Route(id, fromX, 10, Steps(x > fromX ? 2 : 6, Math.Abs(x - fromX)), x, y);
+            };
+            void Stand(int x) => Route(7, x, 10, new int[0], x, 10);
+            void Arrive(int x) { int tx = walker->r_TargetTilePositionX2, ty = walker->r_TargetTilePositionY2; Route(7, x, 10, new int[0], tx, ty); }
+            try
+            {
+                walker->r_GlobalId = 9007; walker->r_ControllableForPlayerId = 1; walker->r_AliveState = AliveState.IsAlive; walker->r_TribeId = 0;
+                walker->r_IsKilledByProjectile = 0; walker->r_MovementSubstep = 0; walker->r_SelectionAllowed = 1; walker->r_UnitChimp = 0;
+                fireEscapeActive = true; fireEscapePolicy = new APIShared.Pathfinding.RouteReplanPolicy(3, 50, 10, 400);
+                ResetFireEscapes();
+
+                // Burning 149..152, the soldier stands at 150: west crosses one burning tile, east two.
+                Stand(150); Burn(true); units.Moves.Clear();
+                long started = escapeStarted;
+                FireEscapeTick(Next());
+                Check(escapeStarted == started + 1 && units.Moves.Count == 1 && units.Moves[0][1] == 148 && fireEscapes.TryGetValue(7, out var entry) &&
+                    entry.ReturnX == 150 && entry.ReturnY == 10, $"a soldier on fire did not escape to the nearest tile (moves={units.Moves.Count})");
+                // On the way out nothing else happens; at the escape tile the burning return point is not probed.
+                FireEscapeTick(Next());
+                Check(units.Moves.Count == 1 && escapeStarted == started + 1, "an escaping unit was moved again");
+                Arrive(148);
+                for (int i = 0; i < 8; i++) FireEscapeTick(Next());
+                Check(units.Moves.Count == 1 && fireEscapes.ContainsKey(7), "a soldier returned into burning fire");
+                // The fire goes out: the next probe finds the clear core route and the soldier returns.
+                Burn(false);
+                long returned = escapeReturned;
+                for (int i = 0; i < 8 && fireEscapes.ContainsKey(7); i++) FireEscapeTick(Next());
+                Check(!fireEscapes.ContainsKey(7) && escapeReturned == returned + 1 && units.Moves.Count == 2 && units.Moves[1][1] == 150,
+                    $"an escaped soldier did not return once the fire was out (moves={units.Moves.Count})");
+
+                // The fire keeps burning: after the wait the soldier stays at the edge.
+                Stand(150); Burn(true); units.Moves.Clear();
+                FireEscapeTick(Next()); Arrive(148);
+                long stayed = escapeStayed;
+                for (int i = 0; i < 64 && fireEscapes.ContainsKey(7); i++) FireEscapeTick(Next());
+                Check(!fireEscapes.ContainsKey(7) && escapeStayed == stayed + 1 && units.Moves.Count == 1,
+                    $"an escaped soldier did not stay after the wait (moves={units.Moves.Count})");
+
+                // A new order ends the case ...
+                Stand(150); units.Moves.Clear();
+                FireEscapeTick(Next()); Arrive(148);
+                Check(fireEscapes.ContainsKey(7), "the soldier did not escape again");
+                Route(7, 148, 10, Steps(2, 22), 170, 10);
+                long ended = escapeEnded;
+                FireEscapeTick(Next());
+                Check(!fireEscapes.ContainsKey(7) && escapeEnded == ended + 1, "a new order did not end the escape");
+                // ... and blocks a new escape for a while, so combat AI and escape do not take turns.
+                Stand(150); units.Moves.Clear();
+                FireEscapeTick(Next());
+                Check(!fireEscapes.ContainsKey(7) && units.Moves.Count == 0, "an escape restarted right after a new order");
+                ResetFireEscapes();
+
+                // A waiting unit escapes and later continues to the target of its wait.
+                Stand(150); units.Moves.Clear();
+                replanWaits[7] = new ReplanWait { Global = 9007, Player = 1, TargetX = 170, TargetY = 10, StopX = 150, StopY = 10 };
+                FireEscapeTick(Next());
+                Check(!replanWaits.ContainsKey(7) && fireEscapes.TryGetValue(7, out entry) && entry.ReturnX == 170,
+                    "a waiting unit lost its target when it escaped");
+                ResetFireEscapes();
+
+                // Immune tiles, civilians and siege equipment stay.
+                int tile = api.GetTileId(150, 10); uint flags = tileFlags[tile];
+                started = escapeStarted;
+                tileFlags[tile] = flags | 0x01; Stand(150); units.Moves.Clear();
+                FireEscapeTick(Next());
+                tileFlags[tile] = flags;
+                Check(escapeStarted == started && units.Moves.Count == 0, "a soldier on an immune tile escaped");
+                walker->r_SelectionAllowed = 0; FireEscapeTick(Next());
+                walker->r_SelectionAllowed = 1; walker->r_UnitChimp = eChimps.CHIMP_TYPE_MANGONEL; FireEscapeTick(Next());
+                walker->r_UnitChimp = 0;
+                Check(escapeStarted == started && units.Moves.Count == 0, "a civilian or siege equipment escaped");
+
+                // Burning tiles without a unit on them allocate nothing.
+                Stand(140); FireEscapeTick(Next());
+                long allocated = GC.GetAllocatedBytesForCurrentThread();
+                for (int i = 0; i < 16; i++) FireEscapeTick(Next());
+                Check(GC.GetAllocatedBytesForCurrentThread() == allocated && units.Moves.Count == 0, "an idle escape tick allocates");
+            }
+            finally
+            {
+                units.MoveHandler = null; units.Moves.Clear(); fireTiles.Clear(); ResetFireEscapes(); replanWaits.Clear();
+                fireEscapeActive = false; fireEscapePolicy = null;
+                for (int x = 136; x <= 180; x++) movementTargetAvailability[10 * MapWidth + x] = availability[x];
+                *walker = saved; ticks = now;
             }
         }
 
@@ -732,6 +899,7 @@ namespace MoatMove
                 Check(AnchorNative.mma_task_status(anchorContext, penaltyTask) == AnchorNative.Stale, "a removed Penalty rule stays in the core");
                 ReleaseAnchorTask(penaltyTask);
                 ReplanWatchTests(ref ticks);
+                FireEscapeTests(ref ticks);
                 SingleSearchReplaceableTests();
                 GroundFailureProofTests();
                 MoatFailureProofTests();

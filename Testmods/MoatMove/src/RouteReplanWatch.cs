@@ -4,14 +4,19 @@ using System;
 using System.Collections.Generic;
 using APIShared.Pathfinding;
 using SHCDESE.API;
+using SHCDESE.EventAPI;
+using SHCDESE.EventAPI.Units;
 using SHCDESE.Interop;
 
 namespace MoatMove
 {
-    // Engine side of APIShared's RouteReplanPolicy (anchor mode with AnchorSingleMoves): a unit whose
+    // Engine side of APIShared's RouteReplanPolicy (anchor mode with AnchorSingleMoves): a soldier whose
     // stored route meets a rule tile of a set with a replan policy (fire that starts after its move)
     // is re-planned to its unchanged move target (196280, the primitive Vanilla's own unit states
-    // use; order and state stay), or stopped until a clear route exists.
+    // use; order and state stay), or stopped until a clear route exists. Only soldiers (IsReplanSoldier):
+    // a stopped fireman in state 3 extinguishes his building from afar (0x159C30 -> 0xC3C80) and
+    // workers treat a forced route end as reaching their job target (0x188340). MoatMove's own fire
+    // policy (fireAbortPolicy) ends a wait without a clear route by aborting the move: the unit stays.
     // Cost with 10,000 units: each tick checks every 40th unit id (every 8th for 8 ticks after new
     // rule tiles) plus a short hot list of units with such a tile further ahead. A check decodes at
     // most ReplanLookahead steps of the stored route against a bit set; without rule tiles of a
@@ -40,7 +45,13 @@ namespace MoatMove
         private readonly Dictionary<long, ReplanGroupWait> replanGroupWaits = new Dictionary<long, ReplanGroupWait>();
         private readonly byte[] replanRoute = new byte[2000];
         private long replanChecks, replanTriggers, replanDetours, replanWaitsStarted, replanResumed, replanExpired, replanEnded, replanKept,
-            replanGroupShared, replanUnreadable, replanCursorMatches, replanCursorMismatches, replanTicks, replanMaxTicks, replanProbesDeferred;
+            replanGroupShared, replanUnreadable, replanCursorMatches, replanCursorMismatches, replanTicks, replanMaxTicks, replanProbesDeferred,
+            replanAborted, replanMoveFailures;
+        // MoatMove's fire policy: an expired wait aborts the move instead of walking through the rule tiles.
+        private RouteReplanPolicy fireAbortPolicy;
+        // 196280's result for ReplanMove, from the Extender's OnUnitMoveHere Post (MoveToTile drops it).
+        private int replanMoveUnit;
+        private long replanMoveResult;
         // Settles all wait probes (ReplanRouteClear) of one simulation tick may use (~10 ms). Waits that start
         // together probe together: 225 units of moving hazard zones behind a map-wide barrier took 169 ms in one
         // tick (pf-cons-1). Over the budget a probe moves to the next tick; settles are deterministic.
@@ -118,7 +129,7 @@ namespace MoatMove
         private bool CheckReplanUnit(int id, int tick)
         {
             if (!APIShared.UnitAccess.TryGetById(id, out GameUnit* unit, out _) || unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||
-                unit->r_PathPlanStateBitFlags == 0) return false;
+                unit->r_PathPlanStateBitFlags == 0 || !IsReplanSoldier(unit) || fireEscapes.ContainsKey(id)) return false;
             int cursor = unit->r_CurrentPathPlanIndex, length = unit->r_PathPlanLength;
             if (cursor >= length || length > 2000) return false;
             int player = unit->r_ControllableForPlayerId;
@@ -200,11 +211,11 @@ namespace MoatMove
                 StartReplanWait(id, unit, player, policy, remaining, targetX, targetY, startX, startY, tick);
                 return;
             }
-            ReplanMove(id, targetX, targetY);
+            bool moved = ReplanMove(id, targetX, targetY);
             if (!APIShared.UnitAccess.TryGetById(id, out unit, out _) || unit == null || unit->r_GlobalId != global ||
                 unit->r_TargetTilePositionX2 != targetX || unit->r_TargetTilePositionY2 != targetY) { replanEnded++; return; }
-            int length = unit->r_PathPlanStateBitFlags != 0 ? unit->r_PathPlanLength - unit->r_CurrentPathPlanIndex : -1;
-            // Rule tiles further ahead on the new route are decided when the unit gets there.
+            // A failed 196280 keeps state, cursor and length but zeroes the route buffer: never decode it.
+            int length = moved && unit->r_PathPlanStateBitFlags != 0 ? unit->r_PathPlanLength - unit->r_CurrentPathPlanIndex : -1;
             // Rule tiles further ahead on the new route are decided when the unit gets there.
             if (length > 0 && policy.AllowsDetour(remaining, length) &&
                 FindReplanTile(unit, id, unit->r_CurrentPathPlanIndex, unit->r_PathPlanLength, ReplanLookahead, out _) < 0)
@@ -212,6 +223,7 @@ namespace MoatMove
             if (policy.MaximumWaitTicks == 0)
             {
                 // No stop wanted: the unit keeps the new route and is not re-planned again for this target.
+                if (!moved) StopReplanUnit(id);
                 replanKept++;
                 replanSettled[id] = new ReplanSettled { Global = global, TargetX = targetX, TargetY = targetY };
                 return;
@@ -259,10 +271,22 @@ namespace MoatMove
                     wait.NextProbe = tick + ReplanWaitProbeTicks;
                     if (!ReplanRouteClear(wait)) continue;
                 }
-                ReplanMove(id, wait.TargetX, wait.TargetY);
-                if (expired) replanExpired++; else replanResumed++;
                 replanWaitDone.Add(id);
-                // After the wait the unit walks its route, even through remaining rule tiles.
+                if (expired && ReferenceEquals(wait.Policy, fireAbortPolicy))
+                {
+                    // Fire policy: no clear route within the wait time aborts the move; the unit stays stopped.
+                    replanAborted++;
+                    replanSettled[id] = new ReplanSettled { Global = wait.Global, TargetX = wait.StopX, TargetY = wait.StopY };
+                    continue;
+                }
+                if (!ReplanMove(id, wait.TargetX, wait.TargetY))
+                {
+                    // 196280 failed: stop cleanly instead of leaving a zeroed route buffer behind.
+                    StopReplanUnit(id); replanEnded++;
+                    continue;
+                }
+                if (expired) replanExpired++; else replanResumed++;
+                // After the wait (other policies) the unit walks its route, even through remaining rule tiles.
                 replanSettled[id] = new ReplanSettled { Global = wait.Global, TargetX = wait.TargetX, TargetY = wait.TargetY };
             }
             foreach (int id in replanWaitDone) replanWaits.Remove(id);
@@ -272,38 +296,73 @@ namespace MoatMove
         // A probe over ReplanProbeSettles (or the tick's remaining probe budget) counts as not clear: the
         // wait ends at its expiry anyway.
         private const int ReplanProbeSettles = 65536;
-        private bool ReplanRouteClear(ReplanWait wait)
+        private bool ReplanRouteClear(ReplanWait wait) =>
+            CoreRouteClear(wait.Player, wait.StopX, wait.StopY, wait.TargetX, wait.TargetY, wait.Policy, wait.Remaining);
+
+        // Whether the core's route from (startX,startY) avoids every replan and burning tile and fits the
+        // policy against `remaining` steps. Consumes the tick's probe budget.
+        private bool CoreRouteClear(int player, int startX, int startY, int targetX, int targetY, RouteReplanPolicy policy, int remaining)
         {
-            int start = wait.StopY * MapWidth + wait.StopX, target = wait.TargetY * MapWidth + wait.TargetX;
-            int code = AnchorNative.mma_single_route_limited(anchorContext, wait.Player, target, 1, 0, start, Math.Min(ReplanProbeSettles, Math.Max(1, replanProbeLeft)),
+            int start = startY * MapWidth + startX, target = targetY * MapWidth + targetX;
+            int code = AnchorNative.mma_single_route_limited(anchorContext, player, target, 1, 0, start, Math.Min(ReplanProbeSettles, Math.Max(1, replanProbeLeft)),
                 replanRoute, replanRoute.Length, out AnchorNative.QueryResult result);
             replanProbeLeft -= result.Settles;
             if (code != 0 ||
-                result.Status != AnchorNative.Ready || !wait.Policy.AllowsDetour(wait.Remaining, result.Length)) return false;
-            int x = wait.StopX, y = wait.StopY;
+                result.Status != AnchorNative.Ready || !policy.AllowsDetour(remaining, result.Length)) return false;
+            int x = startX, y = startY;
             for (int i = 0; i < result.Length; i++)
             {
                 x += FastRouteField.Dx[replanRoute[i]]; y += FastRouteField.Dy[replanRoute[i]];
                 int n = y * MapWidth + x;
-                if ((replanTiles[n >> 6] & (1UL << (n & 63))) != 0) return false;
+                if ((replanTiles[n >> 6] & (1UL << (n & 63))) != 0 || fireTiles.Contains(n)) return false;
             }
             return true;
         }
 
-        // Extender move (196280) for a validated unit id only (workspace UnitAccess contract).
-        private static void ReplanMove(int id, int x, int y)
+        // Extender move (196280) for a validated unit id only (workspace UnitAccess contract). True when
+        // 196280 published a route; its result comes from the Extender's Post event (ObserveReplanMove),
+        // without one (another subscriber skipped the original) from the unit's fresh route fields.
+        private bool ReplanMove(int id, int x, int y)
         {
-            if (APIShared.UnitAccess.TryGetById(id, out GameUnit* checkedUnit, out _)) GameUnitManagerAPI.Instance.MoveToTile(id, x, y, 0);
+            GameUnit* unit;
+            replanMoveUnit = id; replanMoveResult = -1;
+            try
+            {
+                if (APIShared.UnitAccess.TryGetById(id, out unit, out _)) GameUnitManagerAPI.Instance.MoveToTile(id, x, y, 0);
+                else return false;
+            }
+            finally { replanMoveUnit = 0; }
+            if (unit == null) return false;
+            if (replanMoveResult >= 0) { if (replanMoveResult == 0) replanMoveFailures++; return replanMoveResult != 0; }
+            bool published = unit->r_PathPlanStateBitFlags != 0 && unit->r_CurrentPathPlanIndex == 0 && unit->r_PathPlanLength > 0;
+            if (!published) replanMoveFailures++;
+            return published;
+        }
+
+        // OnUnitMoveHere Post of the unit ReplanMove is moving (a nested move of another unit is ignored).
+        private void ObserveReplanMove(UnitMoveHereEventArgs args)
+        {
+            if (args.Phase == EventHookPhase.Post && replanMoveUnit != 0 && args.UnitId == replanMoveUnit) replanMoveResult = args.ReturnValue;
+        }
+
+        // A clean stop on the unit's movement start (its next tile while a step is in progress): a move to
+        // the start writes state 0 and an empty route.
+        private void StopReplanUnit(int id)
+        {
+            if (!APIShared.UnitAccess.TryGetById(id, out GameUnit* unit, out _) || unit == null) return;
+            GetNativeMovementStart(unit, out int x, out int y);
+            if ((uint)x >= MapWidth || (uint)y >= MapWidth) return;
+            if (APIShared.UnitAccess.TryGetById(id, out _, out _)) GameUnitManagerAPI.Instance.MoveToTile(id, x, y, 0);
         }
 
         private string FormatReplanWatch() =>
             $"replan(tiles={replanTileCount} hot={replanHot.Count} waiting={replanWaits.Count} checks={replanChecks} triggers={replanTriggers} " +
             $"detours={replanDetours} waits={replanWaitsStarted} groupShared={replanGroupShared} resumed={replanResumed} expired={replanExpired} " +
-            $"ended={replanEnded} kept={replanKept} unreadable={replanUnreadable} probesDeferred={replanProbesDeferred} cursor(matches={replanCursorMatches} mismatches={replanCursorMismatches}) " +
+            $"ended={replanEnded} kept={replanKept} aborted={replanAborted} moveFailures={replanMoveFailures} unreadable={replanUnreadable} probesDeferred={replanProbesDeferred} cursor(matches={replanCursorMatches} mismatches={replanCursorMismatches}) " +
             $"ms={AnchorMs(replanTicks)} maxMs={AnchorMs(replanMaxTicks)})";
 
         private void ResetReplanMetrics() =>
             replanChecks = replanTriggers = replanDetours = replanWaitsStarted = replanGroupShared = replanResumed = replanExpired = replanEnded =
-                replanKept = replanUnreadable = replanCursorMatches = replanCursorMismatches = replanTicks = replanMaxTicks = replanProbesDeferred = 0;
+                replanKept = replanAborted = replanMoveFailures = replanUnreadable = replanCursorMatches = replanCursorMismatches = replanTicks = replanMaxTicks = replanProbesDeferred = 0;
     }
 }

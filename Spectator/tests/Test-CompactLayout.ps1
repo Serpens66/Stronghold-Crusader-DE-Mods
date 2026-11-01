@@ -86,6 +86,14 @@ foreach ($command in @('Attack','Defend','Cancel')) {
 }
 if ((Named 'ToolsStatus').HasAttribute('Text') -or (Named 'ToolsStatus').SelectSingleNode('TextBlock.ToolTip')) { throw 'Status text and tooltip must have one consistent rich-text writer.' }
 $status = Named 'ToolsStatus'
+foreach ($name in @('ToolsStatus','OrdersStatus','OrderAvailability')) {
+    $footerText = Named $name
+    if ($footerText.Style -ne '{StaticResource FooterFeedback}' -or $footerText.FontSize -ne '14' -or $footerText.FontWeight -ne 'Bold' -or $footerText.LineHeight -ne '16') { throw 'Every lower feedback and availability text requires the same enlarged bold formatting.' }
+}
+$footerStyle = $xml.SelectSingleNode('//Style[@x:Key="FooterFeedback"]',$ns)
+if ($footerStyle.SelectSingleNode('Setter[@Property="Stroke"]').Value -ne '{Binding MenuForeground}' -or $footerStyle.SelectSingleNode('Setter[@Property="StrokeThickness"]').Value -ne '0.25') { throw 'Footer glyph contours must follow the current palette.' }
+$orderRows = (Named 'OrdersStatus').ParentNode.SelectNodes('Grid.RowDefinitions/RowDefinition')
+if ($orderRows.Count -ne 2 -or @($orderRows | Where-Object Height -ne '16').Count -or (Named 'OrdersStatus').MaxHeight -ne '16' -or (Named 'OrderAvailability').MaxHeight -ne '16') { throw 'Order feedback and availability must both fit inside the 33-unit lower surface.' }
 $credit = $xml.SelectSingleNode('//Button[@CommandParameter="Credit"]/TextBlock')
 if ($status.FontSize -ne '14' -or $credit.FontSize -ne '11' -or $status.FontWeight -ne 'Bold' -or
     $status.TextWrapping -ne 'Wrap' -or $status.LineHeight -ne '16' -or $status.MaxHeight -ne '32' -or

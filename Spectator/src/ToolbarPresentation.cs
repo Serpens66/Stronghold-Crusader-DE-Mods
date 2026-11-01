@@ -1,6 +1,7 @@
 using CrusaderDE;
 using Noesis;
 using System;
+using Spectator.LordOverview;
 
 namespace Spectator
 {
@@ -10,11 +11,42 @@ namespace Spectator
         private static readonly Button[] targetButtons = new Button[9];
         private static readonly TextBlock[] targetLabels = new TextBlock[9];
         private static readonly Image[] ownerFaces = new Image[9], targetFaces = new Image[9];
+        private static readonly PlayerPortraits<ImageSource> toolbarPortraits = new PlayerPortraits<ImageSource>(
+            new VanillaPortraitSource(() => MainViewModel.viewModelLoaded ? MainViewModel.Instance : null, () => toolbarPortraitMode));
         private static string toolbarLocale;
         private static bool initialSelectionChosen;
         private static long rosterFingerprint;
         private static EngineInterface.PlayState rosterState;
         private static readonly PortraitNumberLayout[] portraitNumbers = new PortraitNumberLayout[16];
+
+        private static double PortraitTime => System.Diagnostics.Stopwatch.GetTimestamp() / (double)System.Diagnostics.Stopwatch.Frequency;
+
+        private static void SetToolbarPortrait(int player, ImageSource face)
+        {
+            if (ownerFaces[player] != null && !ReferenceEquals(ownerFaces[player].Source, face)) ownerFaces[player].Source = face;
+            if (targetFaces[player] != null && !ReferenceEquals(targetFaces[player].Source, face)) targetFaces[player].Source = face;
+        }
+
+        private static void RefreshToolbarPortraits(int mask)
+        {
+            toolbarPortraits.SetPlayers(mask);
+            double now = PortraitTime;
+            for (int player = 1; player <= 8; player++)
+                SetToolbarPortrait(player, (mask & (1 << player)) == 0 ? null : toolbarPortraits.Resolve(player, now));
+        }
+
+        private static void RefreshPendingToolbarPortraits()
+        {
+            if (!toolbarPortraits.HasPending || humanPanel?.IsVisible != true || !humanPanel.IsLoaded) return;
+            long session = CurrentSessionId;
+            var panel = humanPanel;
+            if (!IsCurrentSession(session)) return;
+            int changed = toolbarPortraits.Poll(PortraitTime);
+            if (changed == 0 || !IsCurrentSession(session) || !ReferenceEquals(panel, humanPanel) || panel?.IsVisible != true) return;
+            // Updating the existing images must not rebuild the toolbar or acquire statistics.
+            for (int player = 1; player <= 8; player++)
+                if ((changed & (1 << player)) != 0) SetToolbarPortrait(player, toolbarPortraits.Cached(player));
+        }
 
         private static void RefreshPortraitNumbers()
         { foreach (var number in portraitNumbers) number?.Refresh(); }

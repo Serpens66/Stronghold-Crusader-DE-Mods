@@ -9,7 +9,12 @@ namespace MoatMove
 {
     internal enum AliveState { IsAlive, Dead }
     internal enum eStructs { STRUCT_NULL }
-    internal static class eChimps { internal const int CHIMP_TYPE_ARAB_ASSASIN = 0x49; }
+    internal static class eChimps
+    {
+        internal const int CHIMP_TYPE_ARAB_ASSASIN = 0x49, CHIMP_TYPE_CATAPULT = 0x27, CHIMP_TYPE_TREBUCHET = 0x28, CHIMP_TYPE_MANGONEL = 0x29,
+            CHIMP_TYPE_SIEGE_TOWER = 0x3A, CHIMP_TYPE_BATTERING_RAM = 0x3B, CHIMP_TYPE_PORTABLE_SHIELD = 0x3C, CHIMP_TYPE_BALLISTA = 0x3D,
+            CHIMP_TYPE_ARAB_BALLISTA = 0x4D;
+    }
     internal enum TribeAICommand { Move, AttackUnit=4, AttackBuilding=5, DigMoatTileId = 6, Unknown7 = 7 }
     internal enum EventHookPhase { Pre, Post }
     internal class UnitMoveHereEventArgs
@@ -41,6 +46,7 @@ namespace MoatMove
         public int r_UnitSelected, r_UnitHover;
         public bool Digger;
         public int r_UnitChimp;
+        public int r_SelectionAllowed;
         public int r_IsKilledByProjectile;
         public int r_CurrentSpeed;
     }

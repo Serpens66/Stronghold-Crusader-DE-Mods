@@ -26,7 +26,11 @@ BepInEx-Konfiguration `BepInEx/config/MoatMove_Serp.cfg`, Abschnitt `[Movement]`
 | Einstellung | Standard | Wirkung |
 |---|---|---|
 | `AnchorSingleMoves` | `false` | Einzelbefehle außerhalb von Gruppen nutzen den Kern (exaktes A*, Routenregeln) statt Vanillas Suche je Einheit. |
-| `AvoidFire` | `false` | Feuer am Boden wird als teure Regelkachel eingetragen. Mit `AnchorSingleMoves` planen laufende Einheiten vor neuem Feuer um oder warten. |
+| `AvoidFire` | `false` | Feuer am Boden wird als teure Regelkachel eingetragen. Mit `AnchorSingleMoves` planen laufende Soldaten vor neuem Feuer um oder warten; ohne feuerfreien Weg wird die Bewegung abgebrochen. |
+| `FireWaitSeconds` | `10` | Mit `AvoidFire`: Wartezeit vor Feuer bis zum Abbruch und Rückkehrfenster nach einer Flucht (Sekunden Spielzeit, 1–1800). |
+| `FireDetourPercent` | `50` | Mit `AvoidFire`: erlaubter Umweg in Prozent der Restroute (0–1000). |
+| `FireDetourMinTiles` | `10` | Mit `AvoidFire`: immer erlaubte zusätzliche Schritte (0–2000). |
+| `EscapeFire` | `true` | Mit `AvoidFire`: Soldaten auf brennenden Kacheln gehen zur nächsten feuerfreien Kachel und kehren später zurück. |
 
 Nur im DEVDIAG-Build (`build.bat /devdiag`, Abschnitt `[Diagnostics]`): `RuleProbeTicks`, `MoatCostProbeTicks`, `TopologyProbeTicks` (Selbstprüfungen der Regeln und der Cursor-Topologie, 0 = aus).
 
@@ -82,11 +86,22 @@ Beide sind an die geprüften Bytes gebunden und schalten sich bei Abweichungen a
 
 ### Feuer (`AvoidFire`)
 
-- `FireRouteRules` liest alle 4 Ticks Vanillas Effektmanager (Typ 9: brennendes Pech, Feuerpfeile und -töpfe, brennende Gebäude) und trägt diese Kacheln für alle Spieler als Regelkacheln mit der größten Strafe ein.
+- `FireRouteRules` liest alle 4 Ticks Vanillas Effektmanager (Typ 9 im Zustand 2: brennendes Pech, Feuerpfeile und -töpfe, brennende Gebäude). Es trägt diese Kacheln für alle Spieler als Regelkacheln mit der größten Strafe ein und führt sie zusätzlich als Bitfeld für die Flucht. Neue Befehle umgehen Feuer, sobald irgendein Umweg existiert.
+- **Nur Soldaten:** Umplanen, Warten und Flucht gelten nur für Einheiten mit `r_SelectionAllowed` (Militär), ohne Belagerungsgerät.
+  - Ein gestoppter Feuerwehrmann löscht sein Gebäude aus der Ferne (`0x159C30` → `0xC3C80`).
+  - Arbeiter werten ein erzwungenes Routenende als „Ziel erreicht“ (`0x188340`).
+  - Beide behalten deshalb die Kern-Route mit Feuerstrafe.
 - `RouteReplanWatch` (nur mit `AnchorSingleMoves`):
-  - Laufende Einheiten planen 3 Schritte vor dem Feuer um; erlaubt sind 50 % bzw. mindestens 10 Schritte Umweg.
-  - Ist kein Umweg möglich, warten sie bis zu 400 Ticks (etwa 10 s).
-  - Die Prüfungen haben ein Budget je Tick.
+  - Laufende Soldaten planen 3 Schritte vor dem Feuer zum selben Ziel um. Erlaubt ist ein Umweg von `FireDetourPercent` % bzw. mindestens `FireDetourMinTiles` Schritten.
+  - Ist kein solcher Umweg möglich, halten sie auf dem nächsten Feld und warten bis zu `FireWaitSeconds`. Findet eine Prüfung (alle 40 Ticks, Budget je Tick) einen feuerfreien Weg, laufen sie weiter.
+  - Am Ende der Wartezeit wird die Bewegung abgebrochen: Die Einheit bleibt stehen (Zähler `aborted`) und läuft nicht durch das Feuer.
+  - Scheitert ein Umplanen (`0x196280` liefert 0 und nullt den Routenpuffer), wird die Einheit sauber auf ihrem Bewegungsstart gestoppt (Zähler `moveFailures`).
+- `FireEscape` (`EscapeFire`, braucht `AnchorSingleMoves` nicht):
+  - Alle 8 Ticks werden Soldaten auf brennenden Kacheln gesucht; Kacheln, auf denen Vanilla keinen Feuerschaden macht (Flags `0xBA7001B1`: Mauer, erhöht, Zinnen, Furt usw.), sind ausgenommen.
+  - Ziel ist die nächste begehbare Kachel ohne Feuer im Umkreis von 12: zuerst so wenig Feuerkacheln auf dem Weg wie möglich, dann so wenige Schritte wie möglich. Der Weg hinaus führt zwangsläufig durch Feuer; fliehende Einheiten sind deshalb vom Wächter ausgenommen.
+  - **Rückkehr:** Stand der Soldat, geht er an seine alte Position; war er unterwegs oder wartete er vor Feuer, setzt er sein altes Ziel fort. Das geschieht, sobald das Ziel nicht mehr brennt und der Kern einen feuerfreien Weg innerhalb der Umweg-Regel findet. Nach `FireWaitSeconds` bleibt er am Rand stehen.
+  - Ein neuer Befehl (Spieler oder Kampf-KI) beendet die Flucht und sperrt eine neue für 40 Ticks; ebenso ein gescheiterter Fluchtversuch.
+- Die Abbruch-Semantik gilt nur für MoatMoves eigene Feuer-Policy. Regeln anderer Mods mit `RouteReplanPolicy` setzen nach der Wartezeit wie im APIShared-Vertrag fort.
 
 ### Regeln anderer Mods
 
@@ -102,7 +117,7 @@ Beide sind an die geprüften Bytes gebunden und schalten sich bei Abweichungen a
 
 - Zurückgestellte Fast-Befehle werden im Spielstand gespeichert (`ModSaveDataAPI`, Schlüssel `MoatMove_Serp`).
 - Masken und Felder entstehen nach dem Laden neu.
-- Vor Feuer wartende Einheiten werden nicht gespeichert.
+- Vor Feuer wartende und fliehende Einheiten werden nicht gespeichert.
 
 ## Mehrspieler
 
@@ -120,11 +135,11 @@ Beide sind an die geprüften Bytes gebunden und schalten sich bei Abweichungen a
 - **`tests/MoatMove.Tests`:** kompiliert die echten Quellen von MoatMove und der BugfixesAndQoL-Befehlslogik gegen Fixtures. Enthalten sind auch der Integrationstest mit der echten Kern-DLL (`AnchorIntegrationTests.cs`) und die Cursor-, Platzierungs- und Feld-Tests.
 - **Kernverträge:** `Testmods/GroupPathProbe` mit `--anchor-core` prüft unabhängige Vergleiche, Thread-Unabhängigkeit und Batch-Gleichheit.
 - **Messläufe im Spiel:** `tools/Run-PathfindingIteration.ps1` und `tools/Analyze-PathfindingRun.ps1` (mit PerfProbe); Ergebnisse unter `.local/runs/`. Übersicht über alle Läufe: `PathfindingRoadmap.md` und `PathfindingFinalReport.md` im Workspace.
-- **Leistungszeilen im Log:** `stage=anchor-performance`, `stage=anchor-breakdown`, `stage=fast-performance`.
+- **Leistungszeilen im Log:** `stage=anchor-performance`, `stage=anchor-breakdown` (darin `replan(...)` und `escape(...)`), `stage=fast-performance`.
 
 ## Offen
 
 - Spieltest mit Augen (Gruppenwege, Feuer, Assassinen) und ein echter Mehrspielertest.
 - Ingame-Modsettings mit Host-Synchronisierung statt der Konfigurationsdatei.
 - Die Mindestversionen in `info.json` und in den `BepInDependency`-Attributen (APIShared 0.4.10, BugfixesAndQoL 1.0.181) entsprechen nicht dem benötigten Stand: `RouteTileRules` kam erst mit APIShared 0.19.0, und die interne Provider-Schnittstelle stammt aus dem aktuellen BugfixesAndQoL.
-- Ziel auf einer gesperrten Kachel gilt als unerreichbar (Vanilla übernimmt); vor Feuer wartende Einheiten sind nicht im Spielstand; extreme Regeln (kartenweite Sperre) erzeugen noch einzelne Lücken von 120–130 ms.
+- Ziel auf einer gesperrten Kachel gilt als unerreichbar (Vanilla übernimmt); vor Feuer wartende und fliehende Einheiten sind nicht im Spielstand; extreme Regeln (kartenweite Sperre) erzeugen noch einzelne Lücken von 120–130 ms.

@@ -1,40 +1,11 @@
-using CrusaderDE;
 using Noesis;
-using APIShared.GameModes;
 
 namespace Spectator.LordOverview
 {
     internal static partial class OverviewRuntime
     {
-        private static readonly PlayerPortraits<ImageSource> portraits = new PlayerPortraits<ImageSource>(new VanillaPortraitSource());
-
-        private sealed class VanillaPortraitSource : IPlayerPortraitSource<ImageSource>
-        {
-            public PortraitIdentity Identify(int player)
-            {
-                var snapshot = GameData.Instance?.lastGameState;
-                if (snapshot?.computer_register == null || player < 1 || player >= snapshot.computer_register.Length) return default;
-                bool ai = snapshot.is_skirmish_player(player);
-                bool known = mode.HasValue && mode.Value.Kind != GameModeKind.Unknown;
-                bool multiplayer = known && mode.Value.IsRealMultiplayer;
-                ulong steamId = 0;
-                if (!ai && multiplayer && Platform_Multiplayer.Instance != null)
-                {
-                    var id = Platform_Multiplayer.Instance.getPlayerSteamID(player);
-                    if (id.IsValid()) steamId = id.m_SteamID;
-                }
-                return PortraitIdentity.Choose(ai, snapshot.computer_register[player], known, multiplayer, steamId);
-            }
-            public ImageSource Read(PortraitIdentity identity)
-            {
-                if (identity.Kind == PortraitKind.Ai) return main?.getAIFace(identity.Lord, true);
-                var platform = Platform_Multiplayer.Instance;
-                if (platform == null) return null;
-                if (identity.Kind == PortraitKind.Local) return platform.GetLocalAvatar();
-                if (identity.Kind == PortraitKind.Steam) return platform.GetUserAvatar(identity.SteamId);
-                return null;
-            }
-        }
+        private static readonly PlayerPortraits<ImageSource> portraits = new PlayerPortraits<ImageSource>(
+            new VanillaPortraitSource(() => main, () => mode));
 
         private static void SetPortrait(RowVisual view, ImageSource face)
         {

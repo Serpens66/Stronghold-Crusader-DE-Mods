@@ -10,6 +10,8 @@ Native DLL SHA-256: `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2
 - Type 9 is fire. Writers: `0x9C120` (Extender `c_game_spawn_fire_internal`, callers `0x99420`, `0x9C100`), `0x9C450` and `0x9DCF0`, all through the generic effect constructor `0x9B2B0` with type 9. A fire on a tile that already burns resets its timers (`+0x28`, `+0xC8`) and raises its strength `+0xCA` instead of adding a record (`0xA02D0` finds the existing one). With strength above 2 and suitable terrain a type `0x1A` record is added as well.
 - Tiles with flag bits `0x10300131` (spawn) or `0x1A7001B1` (`0x9C450`) get no fire; tiles of buildings with certain types (`0x2D`, `0x2E`, `0x4A`..`0x4E` in `0x9C120`) are skipped, other buildings are ignited through `0xC4D30`.
 - `0x9F650` (called by `0xC3C80`) marks the fire records of a tile (`+0xC8 = 0x10002`, `+0x28 = 0`).
+- State values (audit 2026-11-01, pseudocode of `0x9F960` and machine bytes of `0x9C6B0` and `0xA2E60`): 1 = new, 2 = active; `0x9F960` moves a record from 1 to 2 on its first update, states 3..8 end it. `0x9C6B0` (search fire mask and counter) tests `state == 2 && type == 9` only. `0xA2E60` purges the active records of slots 1..`0x18`.
+- Fire damage hits only units on the burning tile itself (`0x99420 -> 0x9E030 -> 0x192400`); tiles with flag bits `0xBA7001B1` take none. There is no flee behaviour: `0xDCE60` (unit `+0x406`) only makes a unit hesitate once before stepping onto fire.
 
 ## Pitch ignition
 
@@ -21,7 +23,9 @@ Native DLL SHA-256: `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2
 - `0x196280` stores the unit's current tile (`+0xC0`) as the route start (`+0xC8`), although a moving unit's builder starts at its next tile (`+0xDC`). The stored start is therefore no reference for decoding while a step is in progress.
 - The cursor (`+0xF6`) already counts the step towards the next tile. Decoding the packed buffer from the next tile over steps `cursor..length-1` ended at the move target `+0xE8/+0xEA` in about 98 % of about 100,000 checks (`pf-fire-3`); the rest is consistent with region intermediates.
 - `0x196280` with a target equal to the movement start writes state 0 and a zero cursor and length (the unit stops); its `+0xE8/+0xEA` target is written before that branch.
+- `0x196280` returns 1 when it published a route and 0 on failure. The failure path (`0x199CD0`) zeroes the route buffer but keeps state, cursor and length, so a caller must stop the unit itself afterwards.
+- `GameUnit +0x2A0` (Extender `r_SelectionAllowed`) is set by every military update routine and 0 for workers, civilians and firemen. A fireman stopped in state 3 extinguishes from afar (`0x159C30 -> 0xC3C80`, see `FIREMAN_TARGETING.md`), and workers in about 80 job states treat a forced route end as reaching their job target (`0x188340`).
 
 ## Mod integration [mod integration]
 
-MoatMove `FireRouteRules` (option `AvoidFire`) reads the type-9 records every four ticks, without writing native memory, and publishes their tiles as APIShared route tile rules with a replan policy. `RouteReplanWatch` re-plans moving units through `0x196280` to their unchanged target. Anchors and fallbacks: `Testmods/MoatMove/UpdateToNewDLL.md`, section "Fire effects".
+MoatMove `FireRouteRules` (option `AvoidFire`) reads the type-9 records every four ticks, without writing native memory, and publishes their tiles as APIShared route tile rules with a replan policy. `RouteReplanWatch` re-plans moving soldiers (`+0x2A0` set, no siege equipment) through `0x196280` to their unchanged target and aborts the move when no fire-free route exists within the wait; `FireEscape` moves soldiers off burning tiles and back once the fire is out. Anchors and fallbacks: `Testmods/MoatMove/UpdateToNewDLL.md`, section "Fire effects".

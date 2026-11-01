@@ -33,6 +33,7 @@ namespace Spectator
     internal static partial class SpectatorRuntime
     {
         private static long announcedSessionId;
+        private static GameModeSnapshot? toolbarPortraitMode;
         private static long CurrentSessionId => Interlocked.Read(ref activeSessionId);
         internal static bool HasMission => CurrentSessionId > 0;
 
@@ -44,15 +45,17 @@ namespace Spectator
             long sessionId = notification?.Context?.SessionId ?? 0;
             if (sessionId <= 0) return;
             Interlocked.Exchange(ref announcedSessionId, sessionId);
-            if (!log.IsMainThread) { presentationCallbacks.Enqueue(() => BeginPresentedSession(sessionId)); return; }
-            BeginPresentedSession(sessionId);
+            var mode = notification.Context.Mode;
+            if (!log.IsMainThread) { presentationCallbacks.Enqueue(() => BeginPresentedSession(sessionId, mode)); return; }
+            BeginPresentedSession(sessionId, mode);
         }
 
-        private static void BeginPresentedSession(long sessionId)
+        private static void BeginPresentedSession(long sessionId, GameModeSnapshot mode)
         {
             if (Interlocked.Read(ref announcedSessionId) != sessionId) return;
             if (!initialized || sessionId <= 0 || sessionId == CurrentSessionId) return;
             ResetSessionState();
+            toolbarPortraitMode = mode;
             Interlocked.Exchange(ref activeSessionId, sessionId);
             actionLedger.Reset(sessionId);
             log?.LogInfo("SPECTATOR_EDITOR_SESSION_START id=" + sessionId);
@@ -81,6 +84,7 @@ namespace Spectator
             ResetTestActions(0);
             SetRevealHidden(0);
             DetachHumanControls();
+            toolbarPortraitMode = null;
             humanPlacementMode = false;
             toolbarMoved = false;
             toolbarDesiredX = toolbarDesiredY = 0;

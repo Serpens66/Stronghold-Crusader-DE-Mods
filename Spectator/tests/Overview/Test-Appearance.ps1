@@ -108,16 +108,23 @@ try {
  }
  # Portrait retries may only update realized images; the pending path must not render
  # or acquire statistics. This IL boundary guard complements the production cache tests.
- $pendingPortraits=$runtime.Methods | Where-Object Name -eq 'RefreshPendingPortraits'
- $portraitWrites=$runtime.Methods | Where-Object Name -eq 'SetPortrait'
- foreach($method in @($pendingPortraits,$portraitWrites)) {
+ $toolbar=$assembly.MainModule.GetType('Spectator.SpectatorRuntime')
+ $portraitMethods=@($runtime.Methods | Where-Object Name -in @('RefreshPendingPortraits','SetPortrait')) + @($toolbar.Methods | Where-Object Name -in @('RefreshPendingToolbarPortraits','SetToolbarPortrait'))
+ if($portraitMethods.Count -ne 4){throw 'Both portrait surfaces must have isolated image-only refresh paths.'}
+ foreach($method in $portraitMethods) {
   if(-not $method -or -not $method.HasBody){throw 'Missing owned portrait presentation boundary.'}
   foreach($instruction in $method.Body.Instructions) {
    if($instruction.Operand -is [Mono.Cecil.MethodReference] -and $instruction.Operand.Name -in @('CurrentUiContext','Render','Capture','RequestRefresh','ReadExtensions','GetMeritData','GetMPScoreData','DLL_GetMeritData','DLL_GetMPScoreData')){throw 'Portrait-only refresh crossed the statistics/layout boundary.'}
    if($instruction.OpCode.Name -in @('newarr','box') -or ($instruction.OpCode.Name -eq 'newobj' -and -not $instruction.Operand.DeclaringType.IsValueType)){throw 'Portrait-only refresh allocates a new visual/closure.'}
   }
  }
- $portraitBackend=$runtime.NestedTypes | Where-Object Name -eq 'VanillaPortraitSource'
+ $portraitBackend=$assembly.MainModule.GetType('Spectator.VanillaPortraitSource')
+ foreach($owner in @($runtime,$toolbar)) {
+  $cache=@($owner.Fields | Where-Object {$_.FieldType -is [Mono.Cecil.GenericInstanceType] -and $_.FieldType.ElementType.FullName -eq 'Spectator.LordOverview.PlayerPortraits`1'})
+  if($cache.Count -ne 1){throw 'Overview and toolbar each require one independently owned portrait cache.'}
+  $initializer=$owner.Methods | Where-Object Name -eq '.cctor'
+  if(-not ($initializer.Body.Instructions | Where-Object {$_.OpCode.Name -eq 'newobj' -and $_.Operand.DeclaringType.FullName -eq $portraitBackend.FullName})){throw 'Both caches must use the same Vanilla portrait source implementation.'}
+ }
  $portraitRead=$portraitBackend.Methods | Where-Object Name -eq 'Read'
  $portraitCalls=@($portraitRead.Body.Instructions | Where-Object {$_.Operand -is [Mono.Cecil.MethodReference]} | ForEach-Object {$_.Operand.Name})
  foreach($name in @('GetLocalAvatar','GetUserAvatar','getAIFace')){if($name -notin $portraitCalls){throw "Vanilla portrait branch missing: $name"}}
