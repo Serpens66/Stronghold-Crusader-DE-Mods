@@ -68,7 +68,7 @@ namespace Spectator
         {
             if (text == null || toolsModel == null) return;
             string value = toolsModel.Status;
-            FillStatusInlines(text, value);
+            FillStatusInlines(text, value, ReferenceEquals(text, statusText));
             var previous = ToolTipService.GetToolTip(text) as ToolTip;
             if (string.IsNullOrEmpty(value))
             {
@@ -84,7 +84,7 @@ namespace Spectator
             MenuToolTipSizing.SetEnabled(tip, true);
         }
 
-        private static void FillStatusInlines(TextBlock text, string value)
+        private static void FillStatusInlines(TextBlock text, string value, bool emphasize = false)
         {
             text.Inlines.Clear();
             int offset = 0;
@@ -99,9 +99,9 @@ namespace Spectator
                     if (index >= 0 && (match < 0 || index < match || (index == match && label.Length > labelMatch.Length)))
                     { match = index; playerMatch = player; labelMatch = label; }
                 }
-                if (match < 0) { text.Inlines.Add(new Run { Text = value.Substring(offset) }); break; }
-                if (match > offset) text.Inlines.Add(new Run { Text = value.Substring(offset, match - offset) });
-                text.Inlines.Add(new Run { Text = labelMatch, Foreground = PlayerBrush(playerMatch) });
+                if (match < 0) { text.Inlines.Add(StatusInlineFormat.Create(text, value.Substring(offset), null, emphasize)); break; }
+                if (match > offset) text.Inlines.Add(StatusInlineFormat.Create(text, value.Substring(offset, match - offset), null, emphasize));
+                text.Inlines.Add(StatusInlineFormat.Create(text, labelMatch, PlayerBrush(playerMatch), emphasize));
                 offset = match + labelMatch.Length;
             }
         }

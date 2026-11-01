@@ -30,7 +30,14 @@ namespace Noesis
         public void SetValue(DependencyProperty p, object value)
         { Bindings.Remove(p); if (Equals(GetValue(p), value)) return; values[p] = value; p.Metadata.Changed?.Invoke(this, new DependencyPropertyChangedEventArgs { NewValue = value }); }
     }
-    public class BindingBase { public object Value; }
+    public class BindingBase { public virtual object Value { get; set; } }
+    public class Binding : BindingBase
+    {
+        private readonly string path;
+        public object Source;
+        public Binding(string path) { this.path = path; }
+        public override object Value { get => Source.GetType().GetProperty(path).GetValue(Source); set => base.Value = value; }
+    }
     public static class BindingOperations
     {
         public static BindingBase GetBindingBase(DependencyObject target, DependencyProperty property) => target.Bindings.TryGetValue(property, out var binding) ? binding : null;
@@ -49,7 +56,23 @@ namespace Noesis
         public float ActualWidth = 800, Scale = 1;
         public Point PointToScreen(Point value) => new Point(value.X * Scale, value.Y * Scale);
     }
-    public class TextBlock : FrameworkElement { public float FontSize, MaxWidth = float.PositiveInfinity; }
+    public class Brush { }
+    public enum FontWeight { Normal = 400, Bold = 700 }
+    public class TextElement : FrameworkElement
+    {
+        public static readonly DependencyProperty FontSizeProperty = DependencyProperty.RegisterAttached("FontSize", typeof(float), typeof(TextElement), new PropertyMetadata(12f,null));
+        public static readonly DependencyProperty FontWeightProperty = DependencyProperty.RegisterAttached("FontWeight", typeof(FontWeight), typeof(TextElement), new PropertyMetadata(FontWeight.Normal,null));
+        public static readonly DependencyProperty StrokeProperty = DependencyProperty.RegisterAttached("Stroke", typeof(Brush), typeof(TextElement), new PropertyMetadata(null,null));
+        public static readonly DependencyProperty StrokeThicknessProperty = DependencyProperty.RegisterAttached("StrokeThickness", typeof(float), typeof(TextElement), new PropertyMetadata(0f,null));
+        public Brush Foreground;
+        public float FontSize { get => (float)GetValue(FontSizeProperty); set => SetValue(FontSizeProperty,value); }
+        public FontWeight FontWeight { get => (FontWeight)GetValue(FontWeightProperty); set => SetValue(FontWeightProperty,value); }
+        public Brush Stroke { get => (Brush)GetValue(StrokeProperty); set => SetValue(StrokeProperty,value); }
+        public float StrokeThickness { get => (float)GetValue(StrokeThicknessProperty); set => SetValue(StrokeThicknessProperty,value); }
+    }
+    public class Run : TextElement { public string Text; }
+    public class TextBlock : FrameworkElement
+    { public float FontSize, MaxWidth = float.PositiveInfinity; public Brush Foreground { get; set; } }
     public class ToolTip : FrameworkElement
     {
         public FrameworkElement PlacementTarget;

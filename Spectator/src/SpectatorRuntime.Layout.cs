@@ -241,7 +241,7 @@ namespace Spectator
             rosterSurface.Background = toolbarMoved ? transparentToolbarBrush : rosterPaper;
             ((Border)toolbarControl).Background = toolbarMoved ? transparentToolbarBrush : controlPaper;
             if (details) Place(toolbarTools, tools);
-            toolbarGoods.Width = 297;
+            toolbarGoods.Width = ToolbarLayout.GoodsWidth;
             paintedPieces.Clear(); paintedPieces.Add(roster); paintedPieces.Add(grip);
             if (controlVisible) paintedPieces.Add(control);
             solidPieces.Clear(); solidPieces.Add(Scaled(roster, scale)); solidPieces.Add(Scaled(grip, scale));

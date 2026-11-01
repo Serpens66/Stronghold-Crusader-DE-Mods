@@ -87,23 +87,38 @@ foreach ($command in @('Attack','Defend','Cancel')) {
 if ((Named 'ToolsStatus').HasAttribute('Text') -or (Named 'ToolsStatus').SelectSingleNode('TextBlock.ToolTip')) { throw 'Status text and tooltip must have one consistent rich-text writer.' }
 $status = Named 'ToolsStatus'
 $credit = $xml.SelectSingleNode('//Button[@CommandParameter="Credit"]/TextBlock')
-if ($status.FontSize -ne '11' -or $status.FontSize -ne $credit.FontSize -or $status.FontWeight -ne 'Bold' -or
-    $status.TextWrapping -ne 'Wrap' -or $status.LineHeight -ne '12' -or $status.MaxHeight -ne '24' -or
+if ($status.FontSize -ne '14' -or $credit.FontSize -ne '11' -or $status.FontWeight -ne 'Bold' -or
+    $status.TextWrapping -ne 'Wrap' -or $status.LineHeight -ne '16' -or $status.MaxHeight -ne '32' -or
     $status.TextTrimming -ne 'CharacterEllipsis' -or $status.LineStackingStrategy -ne 'BlockLineHeight') {
-    throw 'Goods feedback must inherit Credit-sized bold glyphs, wrap to two 12-unit lines and trim overflow.'
+    throw 'Goods feedback requires 14-unit bold glyphs, two 16-unit lines and trimmed overflow; action typography stays unchanged.'
+}
+if ($tools.Height -ne '121' -or $tools.SelectSingleNode('Grid').Height -ne '121' -or
+    $tools.SelectSingleNode('Grid/Grid.RowDefinitions/RowDefinition[3]').Height -ne '33') { throw 'Tool surface and footer must reserve the enlarged feedback height.' }
+foreach ($name in @('SpectatorLeftWing','SpectatorRightWing')) {
+    if ((Named $name).Height -ne '33') { throw 'Both lower surfaces must provide the enlarged feedback height.' }
 }
 $goods = Named 'SpectatorGoodsGrid'
 $goodsColumn = $goods.ParentNode.SelectSingleNode('Grid.ColumnDefinitions/ColumnDefinition[1]')
-if ($goodsColumn.Width -ne '297' -or $goods.ItemWidth -ne '27' -or $goods.ItemHeight -ne '28' -or
-    $goods.SelectNodes('Border').Count -ne 21 -or [math]::Floor([double]$goodsColumn.Width / [double]$goods.ItemWidth) -ne 11) {
-    throw 'The larger goods icons must keep all 21 goods in eleven columns and two rows without narrowing the form.'
+if ($goodsColumn.Width -ne '308' -or $goods.ItemWidth -ne '28' -or $goods.ItemHeight -ne '30' -or
+    $goods.SelectNodes('Grid').Count -ne 21 -or [math]::Floor([double]$goodsColumn.Width / [double]$goods.ItemWidth) -ne 11) {
+    throw 'All 21 goods require eleven 28-unit columns with two 30-unit rows.'
 }
-foreach ($cell in $goods.SelectNodes('Border')) {
+foreach ($cell in $goods.SelectNodes('Grid')) {
     $icon = $cell.SelectSingleNode('Button')
-    if ($icon.Width -ne '24' -or $icon.Height -ne '24' -or $cell.Width -ne '27' -or $cell.Height -ne '26' -or $cell.Margin -ne '0,1' -or
-        [double]$icon.Width + 2 -gt [double]$cell.Width -or [double]$icon.Height + 2 -gt [double]$cell.Height) {
-        throw 'Each enlarged goods sprite and its selection border must fit completely inside its cell.'
+    $overlay = $cell.SelectSingleNode('Border')
+    if ($icon.Width -ne '28' -or $icon.Height -ne '28' -or $cell.Width -ne '28' -or $cell.Height -ne '28' -or $cell.Margin -ne '0,1' -or
+        $overlay.PreviousSibling -ne $icon -or $overlay.IsHitTestVisible -ne 'False' -or $overlay.BorderThickness -ne '1' -or $icon.Margin -ne '0') {
+        throw 'Every icon and click surface must occupy the complete 28-unit cell below a passive overlay frame.'
     }
+    $backgroundTrigger = $cell.SelectSingleNode('Grid.Style/Style/Style.Triggers/DataTrigger')
+    $frameTrigger = $overlay.SelectSingleNode('Border.Style/Style/Style.Triggers/DataTrigger')
+    if ($backgroundTrigger.Binding -ne '{Binding SelectedGoodKey}' -or $frameTrigger.Binding -ne $backgroundTrigger.Binding -or
+        $backgroundTrigger.Value -ne $icon.CommandParameter -or $frameTrigger.Value -ne $icon.CommandParameter -or
+        $backgroundTrigger.SelectSingleNode('Setter[@Property="Background"]').Value -ne '#FF714221' -or
+        $frameTrigger.SelectSingleNode('Setter[@Property="BorderBrush"]').Value -ne '#FFF2D48A') { throw 'Selection fill and overlay frame must follow the same good as the original command.' }
+}
+if ($amount.HasAttribute('Width') -or $amount.MinWidth -ne '72' -or $amount.HorizontalAlignment -ne 'Stretch' -or $reset.Margin -ne '1,0') {
+    throw 'Amount entry must stretch within the two-row form, without the reset overflowing its column.'
 }
 $plaque = $xml.SelectSingleNode('//Style[@x:Key="ToolsPlaque"]', $ns)
 if ($plaque.GetAttribute('BasedOn') -ne '{StaticResource ToolsButton}' -or $plaque.SelectSingleNode('Setter[@Property="FontWeight"]').Value -ne 'Bold' -or

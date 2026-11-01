@@ -33,7 +33,8 @@ namespace Spectator
     {
         internal const float Gap = 4;
         internal const float Portrait = 36, TargetPortrait = 42, Cell = 38, RosterWidth = 80;
-        internal const float Header = 22, Body = 66, Footer = 26;
+        internal const float Header = 22, Body = 66, Footer = 33;
+        internal const float GoodsWidth = 308;
         internal const float ControlWidth = 60, ControlHeight = 22, WindowWidth = 496, FloatingHeader = 40, FloatingGrip = 8;
         internal const float ToggleWidth = 24, DesignWidth = 22;
         internal static float FloatingWidth(int count, bool placement) =>

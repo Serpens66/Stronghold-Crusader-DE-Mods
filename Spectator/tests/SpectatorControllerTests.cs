@@ -3,6 +3,7 @@ namespace Spectator {
   static void Check(bool value, string reason = "") { if(!value) throw new System.Exception("Controller invariant failed: " + reason); }
   public static void Main() {
    MenuToolTipTests.Run();
+   StatusInlineFormatTests.Run(Check);
    for(int bits=0;bits<128;bits++) foreach(int occupants in new[]{0,1,8}) {
     bool eligible=(bits&1)!=0,ui=(bits&2)!=0,ingame=(bits&4)!=0,extras=(bits&8)!=0;
     bool briefing=(bits&16)!=0,statistics=(bits&32)!=0,gameMenu=(bits&64)!=0;
