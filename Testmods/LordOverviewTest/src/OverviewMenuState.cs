@@ -9,13 +9,15 @@ namespace LordOverviewTest {
   internal bool Overlaps(MenuRect other)=>Width>0 && Height>0 && other.Width>0 && other.Height>0 && X<other.Right && Right>other.X && Y<other.Bottom && Bottom>other.Y;
  }
  internal sealed class MenuWindowState {
+  internal const int PreferredWidth=620,PreferredHeight=440;
+  internal static bool HorizontalFallback(double width)=>width<PreferredWidth;
   internal MenuRect Bounds {get;private set;}
   internal bool HasPosition {get;private set;}
   internal bool Dragging {get;private set;}
   private double startX,startY,originX,originY;
   internal void Reset(){HasPosition=false;Dragging=false;Bounds=default(MenuRect);}
   internal MenuRect Arrange(double viewportWidth,double viewportHeight,MenuRect crown,MenuRect statistics){
-   double width=Math.Min(520,Math.Max(0,viewportWidth-16)),height=Math.Min(420,Math.Max(0,viewportHeight-16));
+   double width=Math.Min(PreferredWidth,Math.Max(0,viewportWidth-16)),height=Math.Min(PreferredHeight,Math.Max(0,viewportHeight-16));
    if(!HasPosition){
     var candidates=new[]{new MenuRect(crown.Right+8,crown.Bottom-height,width,height),new MenuRect(crown.X,crown.Y-height-8,width,height),
      new MenuRect(statistics.Right+8,statistics.Bottom-height,width,height),new MenuRect(statistics.X,statistics.Y-height-8,width,height)};

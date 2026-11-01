@@ -21,13 +21,13 @@ internal static partial class Program {
   Console.WriteLine("PASS: "+checks+" production layout, UI lifetime, sample isolation, sorting, information and cadence checks.");
  }
  static void TestColumns(){
-  var selection=new ColumnSelection();Check(selection.Columns.SequenceEqual(Metrics.Defaults),"default four columns");
-  Check(selection.Toggle(Metric.LordsKilled) && selection.Columns.Length==5,"fifth column allowed");
-  Check(selection.Toggle(Metric.GoldAcquired) && selection.Columns.Length==6,"sixth column allowed");selection.Toggle(Metric.GoldAcquired);
+  var selection=new ColumnSelection();Check(selection.Columns.SequenceEqual(new[]{Metric.GreatestLord,Metric.Gold,Metric.Army,Metric.TroopsKilled,Metric.Popularity}),"new five default columns have the requested order");
+  Check(selection.Toggle(Metric.LordsKilled) && selection.Columns.Length==6,"sixth column allowed");
+  Check(selection.Toggle(Metric.GoldAcquired) && selection.Columns.Length==7,"seventh column allowed");selection.Toggle(Metric.GoldAcquired);
   Check(selection.MoveTo(Metric.LordsKilled,3) && selection.Columns[3]==Metric.LordsKilled,"reorder selected value");
   var sort=new OverviewState();sort.Select(Metric.LordsKilled);sort.Reconcile(selection.Columns);Check(sort.Column==Metric.LordsKilled,"sort follows metric after reorder");
   selection.Toggle(Metric.LordsKilled);sort.Reconcile(selection.Columns);Check(sort.Column==null && !sort.Descending,"removed sort resets ID ascending");
-  foreach(var metric in new[]{Metric.Fear,Metric.Popularity,Metric.Army})Check(selection.Toggle(metric),"deselect column");
+  foreach(var metric in new[]{Metric.GreatestLord,Metric.TroopsKilled,Metric.Popularity,Metric.Army})Check(selection.Toggle(metric),"deselect column");
   Check(!selection.Toggle(Metric.Gold) && selection.Columns.Length==1,"last metric cannot be removed");
   Check(!selection.MoveTo(Metric.Gold,-1) && !selection.MoveTo(Metric.Gold,1),"reorder bounds");
   foreach(var metric in Metrics.Builtins){selection.Load(metric.Id.ToString());Check(selection.Columns.Single()==metric.Id,"every metric persists by identifier");}
@@ -87,7 +87,22 @@ internal static partial class Program {
  static void TestValues(){
   Check(StatisticValues.Popularity(0)==0 && StatisticValues.Popularity(9999)==99 && StatisticValues.Popularity(10000)==100,"Vanilla popularity truncates hundredths");
   Check(!StatisticValues.Popularity(10001).HasValue,"invalid popularity unavailable");
-  for(int fear=-5;fear<=5;fear++)Check(Metrics.Get(Metric.Fear).Format(StatisticValues.Fear(fear))==(fear<0?fear.ToString():"+"+fear),"signed two-character fear");
+  var fearState=new FearIconState();
+  int[] fearSprites={120,119,118,117,116,115,121,127,133,139,145};
+  for(int fear=-5;fear<=5;fear++){
+   Check(StatisticValues.Fear(fear)==fear && OverviewPresentationPolicy.FearBand(fear)==fear+5,"current fear remains numeric and maps to one of eleven icon states");
+   Check(OverviewPresentationPolicy.FearSpriteIndex(fear+5)==fearSprites[fear+5],"neutral, green and red use the exact Vanilla sprite index");
+   Check(fearState.Update(fear) && fearState.Band==fear+5 && !fearState.Update(fear),"fear source changes once per different level");
+  }
+  Check(fearState.Update(null) && fearState.Band==-1 && !fearState.Update(null),"rights revocation clears a known image once and keeps unknown separate from neutral");
+  Check(fearState.Update(0) && fearState.Band==5,"neutral recovers from unknown with its white icon");
+  foreach(decimal? value in new decimal?[]{null,-6,6,.5m})Check(OverviewPresentationPolicy.FearBand(value)==-1,"unavailable or invalid fear never looks neutral");
+  Check(OverviewPresentationPolicy.FearSpriteIndex(-1)==-1 && OverviewPresentationPolicy.FearSpriteIndex(11)==-1,"invalid bands never index the Vanilla sprite list");
+  var newHudFear=new FearIconState();Check(newHudFear.Update(0),"new visual or HUD initializes even when the last HUD had the same level");
+  for(int i=0;i<1000;i++)fearState.Update(0);long fearBytes=GC.GetAllocatedBytesForCurrentThread();for(int i=0;i<10000;i++)fearState.Update(0);
+  Check(GC.GetAllocatedBytesForCurrentThread()==fearBytes,"unchanged fear state allocates no managed memory");
+  var fearRows=new long?[]{-5,-2,-1,0,1,2,5,null}.Select((f,i)=>{var data=new long?[Metrics.Builtins.Length];data[(int)Metric.Fear]=f;return new LordRow(i+1,true,data);}).Reverse().ToArray();var fearSort=new OverviewState();fearSort.Select(Metric.Fear);
+  Check(fearSort.Sort(fearRows).Select(r=>r.Get(Metric.Fear)).SequenceEqual(new decimal?[]{5,2,1,0,-1,-2,-5,null}),"fear sorting remains numerical despite symbolic rendering and unknown stays last");
   Check(!StatisticValues.Fear(6).HasValue && !StatisticValues.Fear(-6).HasValue,"unknown fear not clamped or inverted");
   var matrix=new int[81];matrix[2*9+1]=12;matrix[1*9+2]=7;matrix[2*9+2]=99;matrix[2]=3;matrix[2*9]=44;
   Check(StatisticValues.Kills(matrix,2,false)==12,"kills use outgoing row excluding self and environment");
@@ -217,7 +232,8 @@ internal static partial class Program {
    Check(GridFlow.Parse(grid.ToString(),2).ToString()==grid.ToString(),"paired grid persistence round trip");
   }
   var position=new MenuWindowState();var crown=new MenuRect(0,900,32,32);var stats=new MenuRect(40,700,600,380);
-  var initial=position.Arrange(1920,1080,crown,stats);Check(initial.Width==520 && initial.Height==420 && !initial.Overlaps(stats),"initial compact menu avoids statistics when space is available");
+  var initial=position.Arrange(1920,1080,crown,stats);Check(initial.Width==620 && initial.Height==440 && !initial.Overlaps(stats),"larger menu avoids statistics when space is available");
+  Check(!MenuWindowState.HorizontalFallback(initial.Width) && MenuWindowState.HorizontalFallback(619),"horizontal fallback is reserved for a viewport-constrained window");
   position.BeginDrag(initial.X+10,initial.Y+10);position.MoveDrag(-10000,-10000,1920,1080);Check(position.Bounds.X==0 && position.Bounds.Y==0,"drag cannot escape top and left");
   position.MoveDrag(10000,10000,1920,1080);Check(position.Bounds.Right<=1920 && position.Bounds.Bottom<=1080,"drag cannot escape right and bottom");position.EndDrag();
   var saved=position.Bounds;var reopened=position.Arrange(1920,1080,new MenuRect(0,0,32,32),stats);Check(reopened.X==saved.X && reopened.Y==saved.Y,"same-session reopen preserves menu position");

@@ -15,6 +15,9 @@ namespace LordOverviewTest {
    internal ImageSource Face;
    internal Image PopularityIcon;
    internal int PopularityBand=-1;
+   internal Image FearIcon;
+   internal Grid FearUnknown;
+   internal FearIconState FearState;
    internal HoverTarget PortraitHover,NameHover;
    internal string PlayerLabel;
    internal bool? Alive;
@@ -92,7 +95,13 @@ namespace LordOverviewTest {
      if(view.PopularityIcon!=null){int band=OverviewPresentationPolicy.PopularitySprite(row.Get(Metric.Popularity),true);if(view.PopularityBand!=band){view.PopularityBand=band;view.PopularityIcon.Source=popularityMasks[band];Shared.DevDiag.Count("overview.icon.popularity-source");}}
      foreach(var metric in columns){
       var value=row.Get(metric);var cell=view.Cells[metric];
-      if(colorChanged || !view.LastValues.TryGetValue(metric,out var previous) || value!=previous){
+      if(metric==Metric.Fear){
+       if(view.FearState.Update(value)){
+        int band=view.FearState.Band;view.FearIcon.Source=band<0?null:fearPies[band];
+        view.FearIcon.Visibility=band<0?Visibility.Collapsed:Visibility.Visible;view.FearUnknown.Visibility=band<0?Visibility.Visible:Visibility.Collapsed;
+       }
+       if(colorChanged)OverviewAppearance.UpdatePlayerText(view.FearUnknown,"?",view.Foreground);
+      }else if(colorChanged || !view.LastValues.TryGetValue(metric,out var previous) || value!=previous){
        OverviewAppearance.UpdatePlayerText(cell,Metrics.Get(metric).Format(value),view.Foreground);view.LastValues[metric]=value;geometryChanged=true;
       }
       if(aliveChanged && cards==null)cell.Opacity=view.Root.Opacity;
@@ -122,7 +131,7 @@ namespace LordOverviewTest {
    if(cards==null){
     var identity=new StackPanel {Orientation=Orientation.Horizontal,IsHitTestVisible=false,Tag=OverviewPresentationPolicy.PassiveTag,Margin=new Thickness(2)};
     identity.Children.Add(view.Portrait);identity.Children.Add(view.Number);view.Root=identity;
-    foreach(var metric in columns){var cell=OverviewAppearance.PlayerText("",null);cell.HorizontalAlignment=HorizontalAlignment.Right;cell.Margin=new Thickness(4,2,4,2);view.Cells.Add(metric,cell);}
+    foreach(var metric in columns){var cell=CreateValueCell(view,player,metric);cell.HorizontalAlignment=HorizontalAlignment.Right;cell.Margin=new Thickness(4,2,4,2);view.Cells.Add(metric,cell);}
     return view;
    }
    var content=new Grid {Margin=new Thickness(5,2,5,2),IsHitTestVisible=false};content.RowDefinitions.Add(new RowDefinition {Height=GridLength.Auto});content.RowDefinitions.Add(new RowDefinition {Height=GridLength.Auto});
@@ -140,13 +149,22 @@ namespace LordOverviewTest {
     var metric=columns[i];var pair=new StackPanel {Orientation=Orientation.Horizontal,IsHitTestVisible=false,Margin=new Thickness(4,2,6,2)};
     var icon=MetricIcon(metric);if(metric==Metric.Popularity)view.PopularityIcon=(Image)icon;
     icon.IsHitTestVisible=false;icon.VerticalAlignment=VerticalAlignment.Center;pair.Children.Add(icon);
-    var cell=OverviewAppearance.PlayerText("",null);cell.Margin=new Thickness(5,0,0,0);view.Cells.Add(metric,cell);pair.Children.Add(cell);
+    var cell=CreateValueCell(view,player,metric);cell.Margin=new Thickness(5,0,0,0);view.Cells.Add(metric,cell);pair.Children.Add(cell);
     RegisterHover("view/value/"+player+"/"+Metrics.Key(metric),icon,MetricName(metric));
     flow.Position(i,columns.Length,out int valueRow,out int valueColumn);Grid.SetRow(pair,valueRow);Grid.SetColumn(pair,valueColumn);values.Children.Add(pair);
    }
    content.Children.Add(values);
    var box=new Border {Background=StatisticsBackground(),Child=content,Margin=new Thickness(0,0,8,6),HorizontalAlignment=HorizontalAlignment.Stretch,VerticalAlignment=VerticalAlignment.Bottom,IsHitTestVisible=false,Tag=OverviewPresentationPolicy.PassiveTag};
    box.SizeChanged+=OnTableGeometryChanged;view.Root=box;cards.Children.Add(box);return view;
+  }
+  private static Grid CreateValueCell(RowVisual view,int player,Metric metric){
+   if(metric!=Metric.Fear)return OverviewAppearance.PlayerText("",null);
+   EnsureFearIcons();
+   var cell=new Grid {Width=OverviewPresentationPolicy.IconSize,Height=OverviewPresentationPolicy.IconSize,VerticalAlignment=VerticalAlignment.Center,IsHitTestVisible=false,Tag=OverviewPresentationPolicy.PassiveTag};
+   view.FearIcon=new Image {Width=OverviewPresentationPolicy.IconSize,Height=OverviewPresentationPolicy.IconSize,Stretch=Stretch.Uniform,IsHitTestVisible=false,Visibility=Visibility.Collapsed};
+   view.FearUnknown=OverviewAppearance.PlayerText("?",null);view.FearUnknown.HorizontalAlignment=HorizontalAlignment.Center;
+   cell.Children.Add(view.FearIcon);cell.Children.Add(view.FearUnknown);
+   RegisterHover("view/fear/"+player,cell,MetricName(metric));return cell;
   }
   private static void UpdateHoverText(HoverTarget target,string text){if(target==null || target.Description==text)return;target.Description=target.DisplayText=text;}
   private static void ResetTable(){

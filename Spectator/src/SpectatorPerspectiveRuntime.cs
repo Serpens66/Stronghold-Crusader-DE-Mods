@@ -7,7 +7,6 @@ using Noesis;
 using Shared;
 using SHCDESE.API;
 using SHCDESE.API.Components.SaveData;
-using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using UnityEngine;
 
@@ -33,7 +32,6 @@ namespace Spectator
         private static bool resetHudPending;
         private static bool renderSubscribed;
         private static bool failureLogged;
-        private static bool cameraFailureLogged;
         private static int selectedPlayer;
         private static int lastPendingFrame = -1;
         private static float pendingSince;
@@ -141,7 +139,6 @@ namespace Spectator
             selectedPlayer = 0;
             selectedName = null;
             failureLogged = false;
-            cameraFailureLogged = false;
             occupiedSlots = null;
             stateBeforeLoad = null;
             resetHudPending = true;
@@ -529,7 +526,6 @@ namespace Spectator
             RestoreAllyPanel();
         }
 
-        internal static void CancelAllyRefresh() => RestoreAllyPanel();
         private static void OnPendingAllyVisibilityChanged(object sender, DependencyPropertyChangedEventArgs args)
         {
             if (hiddenAlliesPanel?.IsVisible != true) RestoreAllyPanel();
@@ -588,22 +584,6 @@ namespace Spectator
             ArmRenderIfNeeded();
         }
 
-        private static void OnBriefingChanged(bool visible)
-        {
-            if (!mapReady || !spectatorActive) return;
-            if (visible)
-            {
-                SpectatorRuntime.InvalidateToolbar();
-                hudPending = false;
-                StopRenderIfIdle();
-            }
-            else
-            {
-                hudPending = true;
-                ArmRenderIfNeeded();
-            }
-        }
-
         internal static void ObservePerspective(int player)
         {
             if (!spectatorActive || player == selectedPlayer) return;
@@ -636,52 +616,6 @@ namespace Spectator
             CacheSelectedName();
             SpectatorRuntime.AcceptPerspective(player);
             WaitForFreshAllies(state);
-        }
-
-        internal static unsafe void JumpToPlayer(int player, MouseButton button)
-        {
-            if (player < 1 || player > 8 || !IsActiveSpectator() ||
-                occupiedSlots == null || !occupiedSlots[player] ||
-                !GameData.Instance.lastGameState.is_human_or_skirmish_player(player)) return;
-
-            try
-            {
-                GamePlayerManagerAPI players = GamePlayerManagerAPI.Instance;
-                if (players == null) return;
-
-                if (button == MouseButton.Right)
-                {
-                    GameBuildingManagerAPI buildings = GameBuildingManagerAPI.Instance;
-                    if (buildings == null) return;
-                    int keepId = players.GetPlayerKeepId(player);
-                    if (keepId <= 0 || !buildings.TryGetBuildingById(keepId, out GameBuilding* keep) ||
-                        keep == null || keep->r_AliveState != AliveState.IsAlive ||
-                        keep->r_PlayerIdOwner != player || keep->r_GlobalId == 0 ||
-                        keep->r_BuildingType < eStructs.STRUCT_KEEP_ONE ||
-                        keep->r_BuildingType > eStructs.STRUCT_KEEP_FIVE) return;
-                    players.SetScreenCenterToBuilding(keepId);
-                }
-                else if (button == MouseButton.Middle)
-                {
-                    GameUnitManagerAPI units = GameUnitManagerAPI.Instance;
-                    if (units == null) return;
-                    int lordId = players.GetLordUnitId(player);
-                    int lordGlobalId = players.GetLordUnitGlobalId(player);
-                    if (lordId <= 0 || lordGlobalId == 0 ||
-                        !APIShared.UnitAccess.TryGetById(units, lordId, out GameUnit* lord, out _) || lord == null ||
-                        !APIShared.UnitAccess.IsReallyAlive(lord) ||
-                        lord->r_ControllableForPlayerId != player ||
-                        lord->r_UnitChimp != eChimps.CHIMP_TYPE_LORD ||
-                        lord->r_CurrentHealth == 0 || lord->r_GlobalId != unchecked((uint)lordGlobalId)) return;
-                    players.SetScreenCenterToUnit(lordId);
-                }
-            }
-            catch (Exception error)
-            {
-                if (cameraFailureLogged) return;
-                cameraFailureLogged = true;
-                Shared.DebugLogHelper.LogError(log, $"SPECTATOR_PERSPECTIVE_CAMERA_FAILED: player={player}, button={button}, error={error}.");
-            }
         }
 
     }

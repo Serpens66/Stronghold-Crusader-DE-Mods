@@ -73,7 +73,7 @@ namespace Spectator
             }
             if (value != rosterFingerprint) { rosterFingerprint = value; toolbarDirty = true; }
             // Availability can change on defeat while roster membership remains unchanged.
-            if (!spectatorSelectionLinked && humanSelectedOwner > 0 && !IsSelectableAi(humanSelectedOwner)) ApplyHumanAi(-1);
+            if (!spectatorSelectionLinked) selection?.Revalidate(IsSelectableView(humanSelectedOwner));
             if (toolsModel?.Expanded == true && toolsModel.ActiveViewKey == "Orders") RefreshOrderAvailability();
         }
 

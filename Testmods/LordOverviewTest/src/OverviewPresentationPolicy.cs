@@ -1,4 +1,9 @@
 namespace LordOverviewTest {
+ internal struct FearIconState {
+  private bool initialized;
+  internal int Band {get;private set;}
+  internal bool Update(decimal? permittedValue){int next=OverviewPresentationPolicy.FearBand(permittedValue);if(initialized && Band==next)return false;initialized=true;Band=next;return true;}
+ }
  internal readonly struct IconCrop {
   internal readonly int X,Y,Width,Height,SourceWidth,SourceHeight;
   internal IconCrop(int x,int y,int width,int height,int sourceWidth=129,int sourceHeight=200){X=x;Y=y;Width=width;Height=height;SourceWidth=sourceWidth;SourceHeight=sourceHeight;}
@@ -11,6 +16,9 @@ namespace LordOverviewTest {
   internal static string StatisticsTag(bool editing)=>editing?ContainerTag:PassiveTag;
   // WGT_Popularity uses GameSprites 0/1/2. Overall BookPopularityColour turns green at 50.
   internal static int PopularitySprite(decimal? permittedValue,bool dynamic)=>!dynamic?0:!permittedValue.HasValue?1:permittedValue.Value>=50?0:2;
+  // Current fear has one signed level, so only eleven of Vanilla's 6x6 Pie combinations apply.
+  internal static int FearBand(decimal? permittedValue)=>permittedValue.HasValue && permittedValue.Value>=-5 && permittedValue.Value<=5 && decimal.Truncate(permittedValue.Value)==permittedValue.Value?(int)permittedValue.Value+5:-1;
+  internal static int FearSpriteIndex(int band)=>band<0 || band>10?-1:115+(band>5?(band-5)*6:5-band);
   // Normal sprites from HUD_MissionOver, resolved from the existing atlas, never new image files.
   internal static string IconKey(Metric metric){switch(metric){
    case Metric.GreatestLord:return "UI-Buttons S047"; // Vanilla's selected gold crown.

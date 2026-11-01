@@ -34,6 +34,7 @@ namespace Spectator
     {
         private static long announcedSessionId;
         private static long CurrentSessionId => Interlocked.Read(ref activeSessionId);
+        internal static bool HasMission => CurrentSessionId > 0;
 
         private static bool IsCurrentSession(long sessionId) =>
             sessionId > 0 && sessionId == CurrentSessionId && sessionId == Interlocked.Read(ref announcedSessionId);
@@ -143,7 +144,7 @@ namespace Spectator
 
         private static bool IsSelectableAi(int owner) => IsToolsPlayer(owner, true);
 
-        private static int CurrentAiOwner() => IsPlacementSession() && IsSelectableAi(humanSelectedOwner)
+        private static int CurrentAiOwner() => IsPlacementSession() && IsPlacementPlayer(humanSelectedOwner)
             ? humanSelectedOwner : -1;
 
     }

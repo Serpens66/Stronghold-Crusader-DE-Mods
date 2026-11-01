@@ -45,7 +45,6 @@ Tools.GoodsHelp=Güter oder Gold für die ausgewählte KI erzeugen, ohne eigene 
 Tools.InvalidAmount=Gib eine positive ganze Zahl von 1 bis 2147483647 ein.
 Tools.InvalidTarget=Der ausgewählte Spieler ist nicht mehr verfügbar.
 Tools.NativeUnavailable=KI-Befehle sind wegen fehlgeschlagener nativer Prüfung gesperrt. Güter und Platzierung bleiben unabhängig nutzbar.
-Tools.NoAi=Keine verfügbare KI
 Tools.OrderAccepted=Der Auftrag ist aktiv. Truppenbewegung hängt weiterhin von Einheiten, Wegen und laufender KI ab.
 Tools.OrderRejected=Die KI hat den Auftrag abgelehnt. Für diesen Test kann „Annahme erzwingen“ aktiviert werden.
 Tools.Orders=KI-Befehle
@@ -68,16 +67,12 @@ Tools.PowerHelp=Bedienung über die Vanilla-Kräfteleiste mit der eingestellten 
 Tools.PowerInvalidTarget=Dieses Ziel ist für die gewählte KI nicht zulässig. Gelände, Entfernung und Gegnernähe prüfen.
 Tools.PowerRejected=Die konfigurierte Kraft hat das Ziel abgelehnt. Details im Log.
 Tools.PowerUnavailable=Diese Kraft ist ausgeschaltet oder ihr Backend/Zieltyp ist nicht verfügbar.
-Tools.PowersEnabledHelp=Extremkräfte für die Partie ein- oder ausschalten. Die rechte Vanilla-Leiste führt Kräfte kostenlos für die hier gewählte KI aus, auch bei minimiertem Testmenü. CheatMod und ExtremePowers werden berücksichtigt.
 Tools.PowersSwitchOn=Extremkräfte: Ein
 Tools.PowersSwitchOff=Extremkräfte: Aus
 Tools.Queued=Aktion zur Prüfung eingereiht.
-Tools.ReserveHelp=Güter gelangen in die Vanilla-Lieferreserve und werden bei freiem Lagerplatz eingelagert. Gold wird sofort gutgeschrieben. Eigene Vorräte bleiben unberührt.
 Tools.SelectHelp=Rechtsklick = Bergfried; Mittelklick = Lord
 Tools.SelectTarget=Unten ein Ziel auswählen.
 Tools.StopPlacement=Platzieren beenden
-Tools.Target=Angriffs- / Schutzziel
-Tools.Title=Zuschauer
 
 Tools.GateAutomatic=Automatische Torsteuerung aktiviert.
 Tools.GateFixed=Tor auf manuelle Steuerung gesetzt.
@@ -85,7 +80,6 @@ Tools.PowerCancelled=Kraftaktion abgebrochen.
 
 Tools.ResetAmountHelp=Menge auf 0 zur�cksetzen.
 Tools.Statistics=Statistik
-Tools.StatisticsHelp=Aktuelle Statistik ansehen, ohne die Partie zu beenden.
 Tools.RefreshStatistics=Aktualisieren
 Tools.RefreshStatisticsHelp=Statistik aus der laufenden Simulation aktualisieren.
 Tools.PerspectiveSetting=Zuschauerperspektiven
@@ -95,8 +89,8 @@ Tools.StatisticsSettingHelp=Zuschauern das Öffnen und Aktualisieren der Parties
 Tools.DefeatSetting=Nach dem Ausscheiden weiter zusehen
 Tools.DefeatSettingHelp=Ausgeschiedene menschliche Spieler als Vanilla-Zuschauer in der Partie behalten. Im Multiplayer wird der Wechsel durch den Host synchronisiert.
 Tools.ClientNotice=Die lokale Aktivierung steuert persönliche Funktionen und Testwerkzeuge. Hostfreigaben steuern Zuschauerperspektiven und Statistiken.
-Tools.TestToolsSetting=Lokale Testwerkzeuge
-Tools.TestToolsSettingHelp=Erlaubt die Testwerkzeuge im Einzelspieler und Karteneditor. Diese Werkzeuge verändern Spielzustände und sind im echten Multiplayer gesperrt. Zuschauerfreigaben werden vom Host festgelegt.
+Tools.TestToolsSetting=Testwerkzeuge für Zuschauer und Editor
+Tools.TestToolsSettingHelp=Erlaubt Testwerkzeuge für Zuschauer im Einzelspieler und im Karteneditor. Echter Multiplayer bleibt gesperrt. Für aktive Spieler gibt es einen eigenen Testmodus.
 Common.ModSettingsSearchStateLabel=Status
 Common.ModSettingsSearchStateAll=Alle
 Common.ModSettingsSearchStateActive=Aktiv
@@ -107,10 +101,8 @@ Tools.CurrentOrder=Aktiver Auftrag
 Tools.NoOrder=Kein aktiver Auftrag
 Tools.UnknownTarget=Unbekanntes Ziel
 
-Tools.Back=Zurück zur Werkzeugübersicht.
 Tools.GoldRemoved={Amount} von angeforderten {Requested} Gold bei {Player} abgezogen (einschließlich Lieferreserve).
 Tools.GoodsRemoved={Amount} von angeforderten {Requested} Gütern bei {Player} abgezogen (Lager und Lieferreserve).
-Tools.TargetShort=Ziel
 
 Tools.PlacementShort=Platzieren
 Tools.PowersShortOn=Kräfte: An
@@ -121,3 +113,8 @@ Tools.StopShort=Beenden
 Tools.TargetHelp=Klick = Ziel auswählen
 Tools.DesignClassic=Design: Dunkel
 Tools.DesignPaper=Design: Pergament
+Tools.SingleplayerTestSetting=KI-Lord-Testmodus als aktiver Spieler
+Tools.SingleplayerTestSettingHelp=Standardmäßig aus. Erlaubt als aktiver Spieler in allen Einzelspielerpartien, auch Kampagnen, Missionen und Trails, Testwerkzeuge für sich selbst und KI-Lords: kostenlose Gebäude und Einheiten, Güter und Gold sowie KI-Befehle. Die Auswahl ändert nur den Werkzeugempfänger; Reports zeigen weiterhin die eigenen Daten. Echter Multiplayer bleibt gesperrt.
+Common.ResetToDefault=Zurücksetzen
+Common.ResetToDefaultHelp=Setzt die Einstellungen zurück, die du im aktuellen Kontext bearbeiten darfst. Der Einzelspieler-Testmodus wird ausgeschaltet.
+Tools.ToolsShort=Tools

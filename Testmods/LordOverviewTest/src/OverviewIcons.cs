@@ -3,9 +3,15 @@ using System.Collections.Generic;
 using Noesis;
 namespace LordOverviewTest {
  internal static partial class OverviewRuntime {
-  private static ImageSource[] builtinIcons,popularityMasks;
+  private static ImageSource[] builtinIcons,popularityMasks,fearPies;
   private static readonly Dictionary<Metric,ImageSource> extensionIcons=new Dictionary<Metric,ImageSource>();
-  private static void ResetMetricIcons(){builtinIcons=null;popularityMasks=null;extensionIcons.Clear();}
+  private static void ResetMetricIcons(){builtinIcons=null;popularityMasks=null;fearPies=null;extensionIcons.Clear();}
+  private static void EnsureFearIcons(){
+   if(fearPies!=null)return;
+   var images=new ImageSource[11];
+   for(int band=0;band<images.Length;band++)images[band]=main.GameSprites[OverviewPresentationPolicy.FearSpriteIndex(band)]??throw new InvalidOperationException("Vanilla fear pie unavailable: "+band);
+   fearPies=images;
+  }
   private static void EnsureMetricIcons(){
    if(builtinIcons!=null)return;
    var images=new ImageSource[Metrics.Builtins.Length];var masks=new ImageSource[3];

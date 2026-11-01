@@ -105,3 +105,21 @@ new textures, hooks, exports or repeated render-time crop construction are used.
 Images use uniform scaling in 28x28 boxes; header templates bind their two-unit
 padding so the existing 32x32 drag cells contain them. Recheck atlas mappings,
 dimensions, bounds and real Noesis presentation after asset updates.
+
+## Current fear pie presentation (2026-11-01)
+
+HUD_MissionOver computes fearPie = fearfactor*6 - minfearfactor and obtains
+MainViewModel.GameSprites[115+fearPie]. MainViewModel.setupSprites inserts
+Pie 001..036 at indices 115..150. Five null placeholders precede this block;
+count actual List.Add operations, not only resource string literals. For the overview's existing current signed
+level n (-5..5), use only fearPie = n>0 ? n*6 : -n: white for zero, green for
+positive and red for negative. This is a current-value adapter, not a change
+to the result window's historical fields. No MP history export is added for Fear.
+
+The eleven applicable existing ImageSources are retained per HUD, lazily on first
+Fear cell construction. Row visuals keep the last permitted band; a changed band
+only replaces Source/Visibility, with no Image creation, resource lookup or value
+formatting on the warm update path. Unknown/revoked values clear Source and show
+the existing question-mark text. Numeric snapshots and sorting remain unchanged;
+passive pie cells retain Vanilla Tag Ignore and hit-test exclusion. HUD detach
+clears the palette and visual replacement initializes a fresh band state.

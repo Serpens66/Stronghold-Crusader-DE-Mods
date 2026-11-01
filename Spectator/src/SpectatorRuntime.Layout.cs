@@ -160,6 +160,7 @@ namespace Spectator
             if (humanPanel == null || humanPanel.Visibility != Visibility.Visible || humanCanvas == null ||
                 !humanCanvas.IsVisible || humanCanvas.ActualWidth <= 0 || humanCanvas.ActualHeight <= 0) return;
             RefreshToolbarLayer();
+            UpdateActivePlayerBuildMenu();
             if (!layoutCached)
             {
                 if (humanBoundHud?.IsLoaded != true || humanScreen?.IsLoaded != true) return;
@@ -220,6 +221,7 @@ namespace Spectator
             toolbarFloatingScale = Math.Min(nativeScale, Math.Min(vw / floatingPose.Bounds.Width, vh / floatingPose.Bounds.Height));
             float scale = toolbarMoved ? toolbarFloatingScale : Math.Min(nativeScale, Math.Min(vw / width, vh / height));
             humanPanel.Width = toolbarRoot.Width = width; humanPanel.Height = toolbarRoot.Height = height;
+            toolsModel.SetFloating(toolbarMoved);
             toolsModel.SetFloatingTheme(toolbarMoved && ToolbarThemePreference.Classic);
             toolbarDesign.Visibility = toolbarMoved ? Visibility.Visible : Visibility.Collapsed;
             if (toolbarMoved) Place(toolbarDesign, ToolbarLayout.FloatingDesignRect(count, humanPlacementMode));
@@ -234,7 +236,7 @@ namespace Spectator
                 toolbarMoved ? toolbarDesiredY : groupDock.Y, width * scale, height * scale, vw, vh);
             toolbarOwners.Width = roster.Width; toolbarOwners.Height = roster.Height;
             Place(rosterSurface, roster); Place(toolbarControl, control); Place(humanDragHandle, grip);
-            bool controlVisible = toolbarMoved || humanPlacementMode || toolbarHudDisplay != DockHudDisplay.Hidden;
+            bool controlVisible = toolbarMoved || humanPlacementMode || IsActivePlayerTestSession() || toolbarHudDisplay != DockHudDisplay.Hidden;
             toolbarControl.Visibility = controlVisible ? Visibility.Visible : Visibility.Collapsed;
             rosterSurface.Background = toolbarMoved ? transparentToolbarBrush : rosterPaper;
             ((Border)toolbarControl).Background = toolbarMoved ? transparentToolbarBrush : controlPaper;

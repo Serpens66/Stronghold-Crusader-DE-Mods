@@ -25,6 +25,7 @@ namespace LordOverviewTest {
     if(initialMenuPlacement)settingsPosition.Reset();
     var bounds=settingsPosition.Arrange(parent.ActualWidth,parent.ActualHeight,ElementBounds(crownButton),ElementBounds(panel));
     settingsWindow.Width=(float)bounds.Width;settingsWindow.Height=(float)bounds.Height;
+    if(menuScroll!=null){var horizontal=MenuWindowState.HorizontalFallback(bounds.Width)?ScrollBarVisibility.Auto:ScrollBarVisibility.Disabled;if(menuScroll.HorizontalScrollBarVisibility!=horizontal)menuScroll.HorizontalScrollBarVisibility=horizontal;}
     Canvas.SetLeft(settingsWindow,(float)bounds.X);Canvas.SetTop(settingsWindow,(float)bounds.Y);
     if(settingsWindow.ActualWidth>0 && panel.ActualWidth>0)initialMenuPlacement=false;
     MarkHoverGeometryDirty();

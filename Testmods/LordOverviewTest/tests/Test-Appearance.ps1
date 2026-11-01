@@ -34,6 +34,12 @@ try {
  $cacheCode=@($cache.Body.Instructions);$firstAllocation=-1;$firstReturn=-1
  for($i=0;$i -lt $cacheCode.Count;$i++){if($firstReturn -lt 0 -and $cacheCode[$i].OpCode.Name -eq 'ret'){$firstReturn=$i};if($firstAllocation -lt 0 -and $cacheCode[$i].OpCode.Name -eq 'newarr'){$firstAllocation=$i}}
  if($firstReturn -lt 0 -or $firstAllocation -le $firstReturn -or -not ($cacheCode[0..$firstReturn] | Where-Object {$_.Operand -is [Mono.Cecil.FieldReference] -and $_.Operand.Name -eq 'builtinIcons'})){throw 'Icon source initialization lost its cached early return.'}
+ $fearCache=$runtime.Methods | Where-Object Name -eq 'EnsureFearIcons'
+ $fearCode=@($fearCache.Body.Instructions);$fearReturn=-1;$fearAllocation=-1
+ for($i=0;$i -lt $fearCode.Count;$i++){if($fearReturn -lt 0 -and $fearCode[$i].OpCode.Name -eq 'ret'){$fearReturn=$i};if($fearAllocation -lt 0 -and $fearCode[$i].OpCode.Name -eq 'newarr'){$fearAllocation=$i}}
+ if($fearReturn -lt 0 -or $fearAllocation -le $fearReturn -or -not ($fearCode[0..$fearReturn] | Where-Object {$_.Operand -is [Mono.Cecil.FieldReference] -and $_.Operand.Name -eq 'fearPies'})){throw 'Fear sources must retain the cached early return.'}
+ $resetIcons=$runtime.Methods | Where-Object Name -eq 'ResetMetricIcons'
+ if(-not ($resetIcons.Body.Instructions | Where-Object {$_.OpCode.Name -eq 'stsfld' -and $_.Operand.Name -eq 'fearPies' -and $_.Previous.OpCode.Name -eq 'ldnull'})){throw 'HUD replacement must clear the fear source cache.'}
  $render=$runtime.Methods | Where-Object Name -eq 'Render'
  if($render.Body.Instructions | Where-Object {$_.Operand -is [Mono.Cecil.MethodReference] -and $_.Operand.Name -in @('TryFindResource','GetIcon')}){throw 'Recurring renderer performs direct icon resource/provider lookups.'}
  # Cropping belongs exclusively to HUD cache initialization, never a warm icon factory/render.
@@ -73,7 +79,7 @@ try {
  if($editing.Body.Instructions | Where-Object {$_.OpCode.Name -eq 'ldstr' -and $_.Operand -in @('Sort','HeaderDragHint')}){throw 'Editing must not append instructions to statistic icon names.'}
  # The game consumes any Noesis visual hit before routed handlers. Check the compiled
  # creation boundaries, not only an unhandled Click event. Real Noesis hit tests remain in-game QA.
- foreach($pair in @(@('LordOverviewTest.OverviewRuntime','CreateTip'),@('LordOverviewTest.OverviewRuntime','CreatePassiveBubble'),@('LordOverviewTest.OverviewAppearance','PlayerText'),@('LordOverviewTest.OverviewAppearance','Portrait'))){
+ foreach($pair in @(@('LordOverviewTest.OverviewRuntime','CreateTip'),@('LordOverviewTest.OverviewRuntime','CreatePassiveBubble'),@('LordOverviewTest.OverviewRuntime','CreateValueCell'),@('LordOverviewTest.OverviewAppearance','PlayerText'),@('LordOverviewTest.OverviewAppearance','Portrait'))){
   $creator=$assembly.MainModule.GetType($pair[0]).Methods | Where-Object Name -eq $pair[1]
   $passive=@($creator.Body.Instructions | Where-Object {$_.Operand -is [Mono.Cecil.MethodReference] -and $_.Operand.Name -eq 'set_IsHitTestVisible' -and $_.Previous.OpCode.Name -eq 'ldc.i4.0'})
   if(-not $passive.Count){throw "Passive visual lost its hit-test exclusion: $($pair -join '.')"}
@@ -141,6 +147,28 @@ $gameAssembly=[Mono.Cecil.AssemblyDefinition]::ReadAssembly((Join-Path $GameDire
 $extender=[Mono.Cecil.AssemblyDefinition]::ReadAssembly((Join-Path $GameDirectory 'BepInEx/plugins/000shcdese/SHCDESE.dll'))
 try {
  $engine=$gameAssembly.MainModule.GetType('EngineInterface')
+ # Verify the actual Vanilla fear palette/index contract used by the cached signed-level adapter.
+ $fearMethod=$gameAssembly.MainModule.GetType('CrusaderDE.HUD_MissionOver').Methods | Where-Object Name -eq 'GetPlayerFear'
+ if(-not ($fearMethod.Body.Instructions | Where-Object {$_.Operand -eq 115})){throw 'Vanilla fear sprite base changed; re-audit the palette.'}
+ $setup=$gameAssembly.MainModule.GetType('CrusaderDE.MainViewModel').Methods | Where-Object Name -eq 'setupSprites'
+ # Count actual List.Add operations, including the five null placeholders before the pie block.
+ # String ordinal alone is not the GameSprites index. The checked prefix is straight-line IL.
+ $spriteNames=[Collections.Generic.List[string]]::new();$resourceKey=$null
+ foreach($instruction in $setup.Body.Instructions){
+  if($instruction.OpCode.FlowControl -in @('Branch','Cond_Branch')){throw 'Sprite setup prefix changed control flow; re-audit its list construction.'}
+  if($instruction.OpCode.Name -eq 'ldstr'){$resourceKey=[string]$instruction.Operand}
+  if($instruction.Operand -is [Mono.Cecil.MethodReference] -and $instruction.Operand.Name -eq 'Add' -and $instruction.Operand.DeclaringType.FullName -eq 'System.Collections.Generic.List`1<Noesis.ImageSource>'){
+   if($instruction.Previous.OpCode.Name -eq 'ldnull'){$spriteNames.Add($null)}
+   elseif($instruction.Previous.OpCode.Name -like 'ldloc*' -and $resourceKey){$spriteNames.Add($resourceKey)}
+   else{throw 'Unsupported sprite list producer; re-audit the palette.'}
+   if($spriteNames.Count -eq 151){break}
+  }
+ }
+ if($spriteNames.Count -lt 151){throw 'Vanilla fear palette prefix unavailable.'}
+ for($i=0;$i -lt 36;$i++){if($spriteNames[115+$i] -ne ('Pie '+($i+1).ToString('D3'))){throw 'Vanilla fear palette is no longer at the audited sprite positions.'}}
+ $policy=$assembly.MainModule.GetType('LordOverviewTest.OverviewPresentationPolicy')
+ $fearMap=$policy.Methods | Where-Object Name -eq 'FearSpriteIndex'
+ if(-not ($fearMap.Body.Instructions | Where-Object {$_.Operand -eq 115})){throw 'Signed fear adapter does not use the checked Vanilla palette.'}
  # This checks the actual game input policy, not just Noesis visual hit-test flags.
  $input=$gameAssembly.MainModule.GetType('FatControler').Methods | Where-Object Name -eq 'overNoesisGUI'
  $tags=@($input.Body.Instructions | Where-Object {$_.OpCode.Name -eq 'ldstr'} | ForEach-Object Operand)

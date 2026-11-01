@@ -39,6 +39,7 @@ namespace Spectator {
    var menu = new ToolbarMenuState();
    Check(!menu.Expanded && menu.View == "Goods", "new HUD starts compact with a useful initial page");
    menu.ToggleExpanded(); Check(menu.ShowDetails);
+   menu.ToggleExpanded(false); Check(menu.Expanded,"options reopen tools temporarily hidden behind a Vanilla page with a single click");
    menu.ToggleView("Orders"); Check(menu.ShowDetails && menu.View == "Orders");
    menu.SetPlacement(true); Check(!menu.ShowDetails && menu.Expanded && menu.View == "Orders", "placement hides content without losing navigation");
    menu.SetPlacement(false); Check(menu.ShowDetails && menu.View == "Orders", "stop restores the previous page");
@@ -46,6 +47,16 @@ namespace Spectator {
    Check(!menu.Expanded, "placement from compact restores compact");
    menu.ToggleView("Goods"); menu.ToggleView("Goods"); Check(menu.View == "Goods" && menu.Expanded);
    menu.ToggleView("unknown"); Check(menu.View == "Goods", "unknown navigation leaves a usable page");
+   Check(menu.ControlLabel("Tools")=="Tools" && menu.ControlFontSize==12,"docked control has a readable persistent caption");
+   for(int move=0;move<8;move++) {
+    bool wasExpanded=menu.Expanded; string page=menu.View;
+    Check(menu.SetFloating(true) && menu.Floating && menu.ControlFontSize==18,"floating control uses the larger symbol independently of colour theme");
+    Check(menu.ControlLabel("Tools")== (wasExpanded?"\u2212":"+"),"floating caption follows the existing expansion state");
+    Check(!menu.SetFloating(true) && menu.View==page && menu.Expanded==wasExpanded,"unchanged form is silent and preserves navigation");
+    menu.SetPlacement(true); Check(menu.Placing && !menu.ShowDetails,"placement still uses the separate stop control");
+    Check(menu.SetFloating(false) && menu.ControlLabel("Tools")=="Tools" && menu.ControlFontSize==12 && menu.Placing,"docking during placement preserves stop and restores the docked caption");
+    menu.SetPlacement(false); menu.ToggleExpanded();
+   }
    ToolbarLayoutTests.Run(Check); SpectatorRuntime.TestToolbarProperty(Check);
    foreach(float menuScale in new[]{1f,1.333333f,2f,2.75f})
    foreach(float popupScale in new[]{1f,1.5f,2f}) {
@@ -86,6 +97,43 @@ namespace Spectator {
    Check(!ToolSessionPolicy.CanMutate(true,true,true,true,true,true,false));
    Check(!ToolSessionPolicy.CanMutate(true,true,true,true,false,true,true));
    Check(!ToolSessionPolicy.CanMutate(true,false,true,true,false,true,false));
+   foreach(bool spectatorTools in new[]{false,true})
+   foreach(bool activeTools in new[]{false,true})
+   foreach(bool editor in new[]{false,true})
+   foreach(bool spectator in new[]{false,true})
+   foreach(bool active in new[]{false,true}) {
+    bool enabled = ToolSessionPolicy.Enabled(spectatorTools,activeTools,editor,spectator,active);
+    Check(enabled==((editor||spectator)?spectatorTools:active&&activeTools),"test mode explicitly distinguishes active players from spectators and editor");
+    Check(!ToolSessionPolicy.CanMutate(enabled,true,true,true,true,true,false),"real network veto is independent of every local setting");
+    Check(!ToolSessionPolicy.CanMutate(enabled,true,true,true,false,true,true),"director multiplayer veto remains fail-closed");
+   }
+   foreach(bool host in new[]{false,true}) foreach(bool client in new[]{false,true})
+   foreach(bool spectatorTools in new[]{false,true}) foreach(bool activeTools in new[]{false,true}) {
+    var activation = new SpectatorFeatureActivation(host,client,true,true,true,spectatorTools,activeTools);
+    Check(activation.SingleplayerTest==(client&&activeTools) && activation.TestTools==(client&&spectatorTools),"test options are independent and follow only local activation");
+    Check(activation.Perspective==host && activation.Statistics==host && activation.Defeat==host,"local test settings cannot revoke host permissions");
+   }
+   foreach(bool occupied in new[]{false,true}) foreach(bool ai in new[]{false,true}) foreach(bool self in new[]{false,true}) {
+    Check(ToolSessionPolicy.CanSelect(false,true,occupied,ai,self)==(occupied&&(ai||self)),"active testing includes self and AI, no other human slots");
+    Check(ToolSessionPolicy.CanSelect(true,false,occupied,ai,self)==occupied,"spectator roster remains unchanged");
+    Check(!ToolSessionPolicy.CanSelect(false,false,occupied,ai,self),"no testing roster without a permitted session");
+   }
+   var build = new BuildMenuLease(); var originalHud = new object(); var nextHud = new object();
+   foreach(bool active in new[]{false,true}) foreach(bool floating in new[]{false,true})
+   foreach(bool expanded in new[]{false,true}) foreach(bool placing in new[]{false,true})
+   foreach(bool main in new[]{false,true}) foreach(bool foreign in new[]{false,true})
+    Check(build.CanAcquire(active,floating,expanded,placing,main,foreign)==(active&&!floating&&expanded&&!placing&&main&&!foreign),"only docked active-player tools may borrow a normal build page");
+   bool?[] savedTabs = {true,false,null,false,false,false};
+   build.Acquire(originalHud,7,3,savedTabs); savedTabs[0]=false;
+   Check(build.Saved.Page==7 && build.Saved.SubMode==3 && build.Saved.Tabs[0]==true,"original page/submode and independent tab snapshot survive placement");
+   build.ObserveNativePage(originalHud,4,true); Check(build.Saved!=null,"placement pages do not erase the original tool snapshot");
+   build.ObserveNativePage(nextHud,4,false); Check(build.Saved!=null,"another HUD cannot claim the saved layout");
+   Check(build.Release(true,false)==null && build.Saved!=null,"closing tools while reports are open defers restoration without losing the original page");
+   var restored = build.Release(); Check(restored.Page==7 && ReferenceEquals(restored.Hud,originalHud) && build.Saved==null,"release transfers exactly one restoration snapshot");
+   build.Acquire(originalHud,9,4,savedTabs); build.ObserveNativePage(originalHud,2,false);
+   Check(build.Saved==null && build.Suppressed && !build.CanAcquire(true,false,true,false,true,false),"choosing a native category keeps it open instead of reclaiming it next frame");
+   build.Request(); Check(build.CanAcquire(true,false,true,false,true,false),"an explicit tool navigation request can reopen the dock");
+   build.Acquire(originalHud,5,0,savedTabs); build.Reset(); Check(build.Saved==null && !build.Suppressed,"HUD/session cleanup drops all ownership");
    Check(SpectatorDefeatPolicy.CanPromoteEliminatedPlayerToSpectator(true,true,false,false,true,true,true,8));
    Check(!SpectatorDefeatPolicy.CanPromoteEliminatedPlayerToSpectator(false,true,false,false,true,true,true,8));
    Check(!SpectatorDefeatPolicy.CanPromoteEliminatedPlayerToSpectator(true,true,false,false,true,true,false,8));

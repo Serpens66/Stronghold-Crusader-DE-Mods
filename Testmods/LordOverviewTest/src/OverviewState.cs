@@ -10,7 +10,7 @@ namespace LordOverviewTest {
   internal bool Historical => Id>=Metric.GoldAcquired && Id<=Metric.LordsKilled;
   internal MetricDefinition(Metric id,string group){Id=id;Group=group;Key=id.ToString();}
   internal MetricDefinition(Metric id,string key,string group){Id=id;Key=key;Group=group;}
-  internal string Format(decimal? value)=>!value.HasValue?"?":Formatter!=null?Formatter(value.Value):Id==Metric.Fear?value.Value.ToString("+0;-0;+0",CultureInfo.InvariantCulture):value.Value.ToString(CultureInfo.InvariantCulture);
+  internal string Format(decimal? value)=>!value.HasValue?"?":Formatter!=null?Formatter(value.Value):value.Value.ToString(CultureInfo.InvariantCulture);
  }
  internal static class Metrics {
   internal static readonly string[] Groups={"Economy","Military","PopulationMood","OtherMods"};
@@ -29,7 +29,7 @@ namespace LordOverviewTest {
   }
   internal static bool IsExternalKey(string key)=>!string.IsNullOrWhiteSpace(key) && key.Count(c=>c=='/')==1 && !key.Contains(",") && key.Split('/').All(p=>p.Length>0);
   internal static string Key(Metric id)=>Get(id).Key;
-  internal static readonly Metric[] Defaults={Metric.Gold,Metric.Army,Metric.Popularity,Metric.Fear};
+  internal static readonly Metric[] Defaults={Metric.GreatestLord,Metric.Gold,Metric.Army,Metric.TroopsKilled,Metric.Popularity};
   internal static string Serialize(IEnumerable<Metric> columns)=>string.Join(",",columns.Select(Key));
   internal static Metric[] Parse(string text){var columns=new List<Metric>();foreach(string key in (text??"").Split(',')){
    Metric id;if(Enum.TryParse(key,out id) && Enum.IsDefined(typeof(Metric),id) && key==id.ToString()){}

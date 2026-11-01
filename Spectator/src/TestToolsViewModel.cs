@@ -13,7 +13,7 @@ namespace Spectator
     {
         private readonly Action<string> execute;
         private readonly Func<bool> canExecute;
-        private string amount = "0", selectedGood = "", selectedTarget = "";
+        private string amount = "0", selectedGood = "";
         private readonly ToolbarFeedback feedback = new ToolbarFeedback();
         private readonly ToolbarMenuState menu = new ToolbarMenuState();
         private bool powerFlag, force, hasRecipient;
@@ -47,9 +47,6 @@ namespace Spectator
         }
         public string Status { get => feedback.ForPage(menu.View); internal set => SetStatus(value, menu.View); }
         public string SelectedGood { get => selectedGood; internal set { if (selectedGood == value) return; selectedGood = value; Changed(nameof(SelectedGood)); } }
-        private Brush targetColour;
-        public Brush SelectedTargetColour { get => targetColour; internal set { if (ReferenceEquals(targetColour, value)) return; targetColour = value; Changed(nameof(SelectedTargetColour)); } }
-        public string SelectedTarget { get => selectedTarget; internal set { if (selectedTarget == value) return; selectedTarget = value; Changed(nameof(SelectedTarget)); } }
         public bool ForceAcceptance { get => force; set { force = value; Changed(nameof(ForceAcceptance)); } }
         private bool hudAvailable;
         private bool details => menu.ShowDetails && hudAvailable;
@@ -91,15 +88,22 @@ namespace Spectator
         public Brush ForceBackground => palette.Force;
         public Brush MenuGrip => palette.Grip;
         public Brush MenuGripHover => palette.GripHover;
+        public Brush MenuHighlight => palette.Highlight;
         public string DesignHelp => SerpLocalization.Get(classicTheme ? "Tools.DesignPaper" : "Tools.DesignClassic");
         internal void SetFloatingTheme(bool value)
         {
             if (classicTheme == value) return;
             classicTheme = value; palette = value ? ToolbarPalette.Classic : ToolbarPalette.Paper;
             foreach (string property in new[] { nameof(MenuForeground), nameof(MenuButton), nameof(MenuHover),
-                nameof(MenuBorder), nameof(MenuActive), nameof(MenuInput), nameof(ForceBackground), nameof(MenuGrip), nameof(MenuGripHover), nameof(DesignHelp) }) Changed(property);
+                nameof(MenuBorder), nameof(MenuActive), nameof(MenuInput), nameof(ForceBackground), nameof(MenuGrip), nameof(MenuGripHover), nameof(MenuHighlight), nameof(DesignHelp) }) Changed(property);
         }
-        public string ExpandLabel => expanded ? "\u2212" : "+";
+        internal void SetFloating(bool value)
+        {
+            if (!menu.SetFloating(value)) return;
+            Changed(nameof(ExpandLabel)); Changed(nameof(ExpandFontSize));
+        }
+        public string ExpandLabel => menu.ControlLabel(SerpLocalization.Get("Tools.ToolsShort"));
+        public float ExpandFontSize => menu.ControlFontSize;
         public bool CanCredit => toolsAvailable && hasRecipient && CreditMath.TryParse(amount, out _) && canExecute();
         public Visibility StatusVisibility => details && !string.IsNullOrEmpty(Status) ? Visibility.Visible : Visibility.Collapsed;
         public Visibility GoodsStatusVisibility => goods ? StatusVisibility : Visibility.Collapsed;
@@ -138,7 +142,7 @@ namespace Spectator
             if (!canExecute()) return;
             switch (value)
             {
-                case "Collapse": menu.ToggleExpanded(); RefreshViews(); execute("CancelPower"); return;
+                case "Collapse": menu.ToggleExpanded(hudAvailable); RefreshViews(); execute("CancelPower"); return;
                 case "Goods": menu.ToggleView("Goods"); RefreshViews(); execute("StopCursor"); return;
                 case "Orders": menu.ToggleView("Orders"); RefreshViews(); execute("StopCursor"); return;
                 case "Placement": execute("Placement"); return;

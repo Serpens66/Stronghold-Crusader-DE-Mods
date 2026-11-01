@@ -58,9 +58,13 @@ namespace Spectator
 
         private static bool EnsureVisibility(HUD_Main hud, string name, Visibility visibility)
         {
-            var element = hud.FindName(name) as FrameworkElement;
+            if (!ReferenceEquals(hud, placementLayoutHud))
+            { placementElements.Clear(); placementLayoutHud = hud; }
+            if (!placementElements.TryGetValue(name, out FrameworkElement element))
+            { element = hud.FindName(name) as FrameworkElement; if (element != null) placementElements.Add(name, element); }
             if (element == null) throw new MissingMemberException("HUD_Main", name);
             if (element.Visibility == visibility) return false;
+            RememberPlacementLayout(element);
             element.Visibility = visibility;
             return true;
         }
@@ -83,6 +87,8 @@ namespace Spectator
         {
             // Page changes also change ownership of the spectator tool surface.
             if (ReferenceEquals(__instance, humanBoundHud)) toolbarLayoutDirty = true;
+            if (buildPageMutation == 0)
+                dockBuildMenu.ObserveNativePage(__instance, MainViewModel.Instance.buildScreenID, humanPlacementMode);
             if (!IsPlacementSession() || IsEditorToolsSession()) return;
             try { RefreshBuildIcons(__instance, CurrentAiOwner(), "tab"); }
             catch (Exception error) { LogOnce("SPECTATOR_EDITOR_ICONS_ERROR: " + error); }

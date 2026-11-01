@@ -67,15 +67,24 @@ namespace Spectator
         private static bool IsToolsSession()
         {
             // Avoid touching mode services before the managed game view exists.
-            if (settings?.Activation.TestTools != true || !IsCurrentSession(CurrentSessionId) ||
+            if (settings == null || !IsCurrentSession(CurrentSessionId) ||
                 !MainViewModel.viewModelLoaded || GameData.Instance?.lastGameState == null) return false;
-            return ToolSessionPolicy.CanMutate(settings?.Activation.TestTools == true,
+            bool enabled = ToolSessionPolicy.Enabled(settings.Activation.TestTools, settings.Activation.SingleplayerTest,
+                GameModeHelper.IsMapEditor(), SpectatorPerspectiveRuntime.IsOriginalSpectator(),
+                PlayerPerspectiveAPI.GetControlledPlayerId() > 0);
+            return ToolSessionPolicy.CanMutate(enabled,
                 IsCurrentSession(CurrentSessionId), MainViewModel.viewModelLoaded,
                 GameData.Instance?.lastGameState != null, GameModeHelper.IsRealMultiplayer(),
                 Director.instance != null, Director.instance != null && Director.instance.MultiplayerGame);
         }
 
         private static bool IsEditorToolsSession() => IsToolsSession() && GameModeHelper.IsMapEditor();
+
+        private static bool IsActivePlayerTestSession() => IsToolsSession() && !GameModeHelper.IsMapEditor() &&
+            !SpectatorPerspectiveRuntime.IsOriginalSpectator() && PlayerPerspectiveAPI.GetControlledPlayerId() > 0;
+
+        private static bool IsPlacementPlayer(int owner) => IsSelectableAi(owner) ||
+            IsActivePlayerTestSession() && owner == PlayerPerspectiveAPI.GetControlledPlayerId() && IsToolsPlayer(owner, false);
 
         private static unsafe bool IsToolsPlayer(int owner, bool requireAi)
         {

@@ -20,7 +20,13 @@ namespace Spectator
         internal bool Expanded { get; private set; }
         internal string View { get; private set; } = "Goods";
         internal bool Placing { get; private set; }
-        internal void ToggleExpanded() { Expanded = !Expanded; }
+        internal bool Floating { get; private set; }
+        internal bool SetFloating(bool value)
+        { if (Floating == value) return false; Floating = value; return true; }
+        internal string ControlLabel(string dockedLabel) => Floating ? (Expanded ? "\u2212" : "+") : dockedLabel;
+        internal float ControlFontSize => Floating ? 18 : 12;
+        internal void ToggleExpanded(bool currentlyVisible = true)
+        { if (Expanded && !currentlyVisible) return; Expanded = !Expanded; }
         internal void ToggleView(string view) { if (view == "Goods" || view == "Orders") { Expanded = true; View = view; } }
         internal void SetPlacement(bool value) { Placing = value; }
         internal bool ShowDetails => Expanded && !Placing;

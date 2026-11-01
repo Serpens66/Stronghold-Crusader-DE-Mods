@@ -18,6 +18,8 @@ internal static class LordOverviewPresetTests {
   APIShared.Localization.UiText.Configure(()=>"en-US");GameNetworkAPI.LocalHost=true;GameNetworkAPI.Networked=true;GameNetworkAPI.MultiplayerGame=true;
   string file=Path.Combine(Program.PresetFixtureInstallRoot,"LordOverviewTest.dll");var model=Prepare(file);
   Check(!model.AllowEnemyDetails && model.EnableMod && model.ShowEliminated,"safe code defaults preserve existing eliminated rows");
+  Check(model.Columns=="GreatestLord,Gold,Army,TroopsKilled,Popularity","fresh settings use the requested five default values in order");
+  model.SetDisplayColumns("Gold,Army,Popularity,Fear");Check(Prepare(file).Columns=="Gold,Army,Popularity,Fear","even the old exact default selection is preserved when stored");
   model.SetDisplayShowEliminated(false);Check(!Prepare(file).ShowEliminated,"local eliminated-player filter survives restart");
   model.SetDisplayShowEliminated(true);
   model.SetDisplayColumns("Fear,Gold,TroopsKilled");model.SetDisplayColumns("TroopsKilled,Gold,Fear");model.AllowEnemyDetails=true;
@@ -69,6 +71,7 @@ internal static class LordOverviewPresetTests {
   migrated.System_EnterMissionPreset(new Dictionary<string,byte[]>{{nameof(OverviewSettings.AllowEnemyDetails),MessagePackSerializer.Serialize(false)}},"Trail",false);
   migrated.SetDisplayColumns("Gold,GreatestLord");Check(migrated.DisplayColumns=="Gold,GreatestLord","score selection stages under a locked mission source");
   migrated.System_ExitMissionPreset();migrated.FlushLocalPreferences();Check(Prepare(file).Columns=="Gold,GreatestLord","staged score selection persists after mission exit");
+  migrated.ResetToDefaultCommand.Execute(null);Check(migrated.Columns=="GreatestLord,Gold,Army,TroopsKilled,Popularity" && Prepare(file).Columns==migrated.Columns,"explicit reset applies and persists the new defaults");
   Console.WriteLine("PASS: "+checks+" production LordOverview settings/persistence/host-source checks.");return 0;
  }catch(Exception error){Console.Error.WriteLine(error);return 1;}}
 }

@@ -15,7 +15,7 @@ namespace Spectator
     [BepInDependency("CheatMod_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("ExtremePowers_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("ExtraFeatures_Serp", BepInDependency.DependencyFlags.SoftDependency)]
-    public sealed class SpectatorPlugin : BaseUnityPlugin
+    public sealed partial class SpectatorPlugin : BaseUnityPlugin
     {
         public const string PluginGuid = "Spectator_Serp";
         private static SpectatorPlugin processRoot;
@@ -39,9 +39,16 @@ namespace Spectator
         private void OnLibraryLoaded(CrusaderLibraryLoadContext context)
         {
             if (Interlocked.Exchange(ref initialized, 1) != 0) return;
-            InitializeFeature("settings", () => LobbyModSettingsPresetRegistration.Register(this,
-                Shared.DebugLogHelper.ForExternalCode(Logger), PluginGuid, Settings,
-                "ScriptExtenderUI/SpectatorSettings.xaml", logRoutineActivity: false));
+            InitializeFeature("legacy-settings", PrepareLegacySettings);
+            InitializeFeature("settings", () => {
+                if (legacySettings?.RegistrationSafe == false)
+                    throw new InvalidOperationException("Settings registration deferred: the initial settings/migration journal could not be read or saved safely. Retry after fixing the logged file error.");
+                LobbyModSettingsPresetRegistration.Register(this,
+                    Shared.DebugLogHelper.ForExternalCode(Logger), PluginGuid, Settings,
+                    "ScriptExtenderUI/SpectatorSettings.xaml", logRoutineActivity: false);
+                settingsRegistered = true;
+                TryMigrateLegacySettings();
+            });
             InitializeFeature("perspective", () => SpectatorPerspectiveRuntime.Initialize(Logger, Settings));
             InitializeFeature("statistics", () => {
                 statistics = new SpectatorStatistics(Logger, Settings);

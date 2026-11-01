@@ -37,9 +37,10 @@ namespace Spectator
                 APIShared.GameModes.GameModeHelper.IsMapEditor());
 
         private static bool IsSelectableView(int player) => player >= 1 && player <= 8 &&
-            (SpectatorPerspectiveRuntime.IsActiveSpectator()
-                ? GameData.Instance.lastGameState.is_human_or_skirmish_player(player)
-                : IsSelectableAi(player));
+            ToolSessionPolicy.CanSelect(SpectatorPerspectiveRuntime.IsActiveSpectator(), IsToolsSession(),
+                GameData.Instance.lastGameState.is_human_or_skirmish_player(player),
+                IsSelectableAi(player), IsActivePlayerTestSession() && player == PlayerPerspectiveAPI.GetControlledPlayerId() &&
+                    IsToolsPlayer(player, false));
 
         private static void SyncSpectatorSelection()
         {
@@ -62,7 +63,7 @@ namespace Spectator
         {
             humanSelectedOwner = owner;
             toolbarDirty = true;
-            if (IsSelectableAi(owner) && humanPlacementMode && MainViewModel.viewModelLoaded && MainViewModel.Instance.HUDmain != null)
+            if (IsPlacementPlayer(owner) && humanPlacementMode && MainViewModel.viewModelLoaded && MainViewModel.Instance.HUDmain != null)
                 RefreshBuildIcons(MainViewModel.Instance.HUDmain, owner, "selection");
             log.LogInfo("SPECTATOR_SELECTION player=" + owner);
         }

@@ -85,6 +85,39 @@ foreach ($command in @('Attack','Defend','Cancel')) {
     if (-not $xml.SelectSingleNode('//Button[@CommandParameter="'+$command+'"]//Image')) { throw 'Every order action needs its corresponding native icon.' }
 }
 if ((Named 'ToolsStatus').HasAttribute('Text') -or (Named 'ToolsStatus').SelectSingleNode('TextBlock.ToolTip')) { throw 'Status text and tooltip must have one consistent rich-text writer.' }
+$status = Named 'ToolsStatus'
+$credit = $xml.SelectSingleNode('//Button[@CommandParameter="Credit"]/TextBlock')
+if ($status.FontSize -ne '11' -or $status.FontSize -ne $credit.FontSize -or $status.FontWeight -ne 'Bold' -or
+    $status.TextWrapping -ne 'Wrap' -or $status.LineHeight -ne '12' -or $status.MaxHeight -ne '24' -or
+    $status.TextTrimming -ne 'CharacterEllipsis' -or $status.LineStackingStrategy -ne 'BlockLineHeight') {
+    throw 'Goods feedback must inherit Credit-sized bold glyphs, wrap to two 12-unit lines and trim overflow.'
+}
+$goods = Named 'SpectatorGoodsGrid'
+$goodsColumn = $goods.ParentNode.SelectSingleNode('Grid.ColumnDefinitions/ColumnDefinition[1]')
+if ($goodsColumn.Width -ne '297' -or $goods.ItemWidth -ne '27' -or $goods.ItemHeight -ne '28' -or
+    $goods.SelectNodes('Border').Count -ne 21 -or [math]::Floor([double]$goodsColumn.Width / [double]$goods.ItemWidth) -ne 11) {
+    throw 'The larger goods icons must keep all 21 goods in eleven columns and two rows without narrowing the form.'
+}
+foreach ($cell in $goods.SelectNodes('Border')) {
+    $icon = $cell.SelectSingleNode('Button')
+    if ($icon.Width -ne '24' -or $icon.Height -ne '24' -or $cell.Width -ne '27' -or $cell.Height -ne '26' -or $cell.Margin -ne '0,1' -or
+        [double]$icon.Width + 2 -gt [double]$cell.Width -or [double]$icon.Height + 2 -gt [double]$cell.Height) {
+        throw 'Each enlarged goods sprite and its selection border must fit completely inside its cell.'
+    }
+}
+$plaque = $xml.SelectSingleNode('//Style[@x:Key="ToolsPlaque"]', $ns)
+if ($plaque.GetAttribute('BasedOn') -ne '{StaticResource ToolsButton}' -or $plaque.SelectSingleNode('Setter[@Property="FontWeight"]').Value -ne 'Bold' -or
+    -not $plaque.SelectSingleNode('.//ControlTemplate/Border[@CornerRadius="3"]') -or
+    -not $plaque.SelectSingleNode('.//Border[@x:Name="PlaqueHighlight" and @Height="1" and @IsHitTestVisible="False"]',$ns) -or
+    -not $plaque.SelectSingleNode('.//Trigger[@Property="IsMouseOver"]') -or -not $plaque.SelectSingleNode('.//Trigger[@Property="IsPressed"]')) {
+    throw 'The shared plaque needs a rounded frame, passive highlight and pointer/pressed feedback.'
+}
+foreach ($name in @('SpectatorExpand','SpectatorStopPlacement')) {
+    if ((Named $name).Style -ne '{StaticResource ToolsPlaque}') { throw 'Open and stop must keep the same plaque styling.' }
+}
+if ((Named 'SpectatorExpand').FontSize -ne '{Binding ExpandFontSize}' -or (Named 'SpectatorExpand').Content -ne '{Binding ExpandLabel}') {
+    throw 'Caption and glyph size must follow the common presentation state, independently of the palette.'
+}
 $orders = Named 'SpectatorOrdersGrid'
 if ($orders.SelectSingleNode('Grid.ColumnDefinitions/ColumnDefinition[1]').Width -ne '352' -or $orders.SelectSingleNode('Grid.RowDefinitions/RowDefinition[1]').Height -ne '18' -or $orders.SelectSingleNode('Grid.RowDefinitions/RowDefinition[2]').Height -ne '48') { throw 'Eight 44-unit target cells fit beside the two-row action grid, within the existing body height.' }
 $actions=Named 'SpectatorOrderActions'

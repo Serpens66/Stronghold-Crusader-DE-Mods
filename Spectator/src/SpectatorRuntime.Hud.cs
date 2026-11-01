@@ -135,6 +135,7 @@ namespace Spectator
 
         private static void DetachHumanControls()
         {
+            ReleaseActivePlayerBuildMenu();
             toolbarDirty = true;
             DetachPortraitNumbers();
             DetachToolbarLayout();
@@ -263,17 +264,18 @@ namespace Spectator
                 }
             }
             if (!spectatorSelectionLinked && humanSelectedOwner == -1 && !initialSelectionChosen && firstAi > 0)
-            { initialSelectionChosen = true; ApplyHumanAi(firstAi); }
+            {
+                int self = PlayerPerspectiveAPI.GetControlledPlayerId();
+                initialSelectionChosen = true;
+                ApplyHumanAi(IsActivePlayerTestSession() && IsSelectableView(self) ? self : firstAi);
+            }
             else if (!IsSelectableView(humanSelectedOwner)) ApplyHumanAi(-1);
             for (int owner = 1; owner <= 8; owner++) MarkOwnerButton(humanOwnerButtons[owner], owner == humanSelectedOwner);
-            toolsModel.SetRecipientAvailable(IsSelectableAi(humanSelectedOwner));
+            toolsModel.SetRecipientAvailable(IsPlacementPlayer(humanSelectedOwner));
             toolsModel.SetAvailability(IsToolsSession());
             RefreshOrderAvailability();
-            humanToggle.IsEnabled = IsToolsSession() && IsSelectableAi(humanSelectedOwner);
+            humanToggle.IsEnabled = IsPlacementPlayer(humanSelectedOwner);
             humanToggleText.Text = SerpLocalization.Get("Tools.PlacementShort");
-            toolsModel.SelectedTarget = SerpLocalization.Get("Tools.Target") + ": " +
-                (IsToolsPlayer(toolsModel.Target, false) ? PlayerLabel(toolsModel.Target) : SerpLocalization.Get("Tools.SelectTarget"));
-            toolsModel.SelectedTargetColour = PlayerBrush(toolsModel.Target);
             RefreshOrderPresentation(true);
             RefreshColouredStatus();
             PositionToolbar();
@@ -334,8 +336,8 @@ namespace Spectator
             if (!IsToolsSession()) return;
             SyncSpectatorSelection();
             if (command == "StopCursor" || command == "CancelPower") { amountInput?.EndEditing(); }
-            if (command == "StopCursor") { CancelPowerSelection(); if (humanPlacementMode) ToggleHumanMode(null, null); else MainControls.instance?.StopAllPlacement(); return; }
-            if (command == "CancelPower") { CancelPowerSelection(); return; }
+            if (command == "StopCursor") { dockBuildMenu.Request(); CancelPowerSelection(); if (humanPlacementMode) ToggleHumanMode(null, null); else MainControls.instance?.StopAllPlacement(); return; }
+            if (command == "CancelPower") { dockBuildMenu.Request(); CancelPowerSelection(); return; }
             if (command == "EnablePowers" || command == "DisablePowers")
             { QueueTestAction(new TestAction { Kind = TestActionKind.PowerToggle, Actor = humanSelectedOwner, Force = command == "EnablePowers" }); return; }
             if (command == "Placement") { ToggleHumanMode(null, null); return; }
@@ -399,6 +401,7 @@ namespace Spectator
                 toolbarMoved = !toolbarDrag.Drop(current.X, current.Y, toolbarDockGrip,
                     (unit.X - origin.X) / 100, (unit.Y - origin.Y) / 100, toolbarFloatingScale,
                     out toolbarDesiredX, out toolbarDesiredY);
+                if (!toolbarMoved) dockBuildMenu.Request();
             }
             humanDragging = false;
             toolbarLayoutDirty = true;
@@ -434,9 +437,16 @@ namespace Spectator
 
         private static void ToggleHumanMode(object sender, RoutedEventArgs args)
         {
+            buildPageMutation++;
+            try { ToggleHumanModeCore(); }
+            finally { buildPageMutation--; }
+        }
+
+        private static void ToggleHumanModeCore()
+        {
             if (!IsHumanSingleplayerSession()) return;
             SyncSpectatorSelection();
-            if (!humanPlacementMode && !IsSelectableAi(humanSelectedOwner)) return;
+            if (!humanPlacementMode && !IsPlacementPlayer(humanSelectedOwner)) return;
             CancelPowerSelection();
             toolbarDirty = true;
             amountInput?.EndEditing();
@@ -454,6 +464,7 @@ namespace Spectator
             if (humanPlacementMode)
             {
                 humanPlacementMode = false;
+                RestorePlacementLayout(); playerPlacementPage = null;
                 RestorePlacementFreeze();
                 SetRevealHidden(0);
                 MainControls.instance.StopAllPlacement();
@@ -478,17 +489,19 @@ namespace Spectator
             {
                 int firstAi = -1;
                 for (int owner = 1; owner <= 8; owner++)
-                    if (IsSelectableAi(owner)) { firstAi = owner; break; }
+                    if (IsPlacementPlayer(owner)) { firstAi = owner; break; }
                 if (firstAi < 0) return;
                 humanSavedScreen = MainViewModel.Instance.buildScreenID;
                 if (!GateHudLifecycle.IsBuildScreen(humanSavedScreen) && humanSavedScreen != DockHudPolicy.BlankBuildScreen) humanSavedScreen = 1;
                 humanSavedSubMode = MainViewModel.Instance.SubMode;
+                if (IsActivePlayerTestSession())
+                    playerPlacementPage = new BuildMenuSnapshot(hud, humanSavedScreen, humanSavedSubMode, CaptureBuildTabs(hud));
                 RadioButton[] tabs = NormalTabs(hud);
                 humanSavedTabs = new bool?[tabs.Length];
                 for (int index = 0; index < tabs.Length; index++)
                     humanSavedTabs[index] = tabs[index]?.IsChecked;
                 MainControls.instance.StopAllPlacement();
-                if (!IsSelectableAi(humanSelectedOwner)) humanSelectedOwner = firstAi;
+                if (!IsPlacementPlayer(humanSelectedOwner)) humanSelectedOwner = firstAi;
                 humanPlacementMode = true;
                 SetRevealHidden(
                     visualMapDetour != null && visualFrameRegistration != null &&
@@ -574,6 +587,7 @@ namespace Spectator
                 SpectatorDefeat.ObservePresentedState();
                 Statistics?.ObserveAvailability();
                 ObserveRoster();
+                RetireUnavailablePlacement();
                 bool humanEligible = IsHumanSingleplayerSession();
                 SetRevealHidden(
                     humanEligible && humanPlacementMode && !IsEditorToolsSession() && visualMapDetour != null &&
