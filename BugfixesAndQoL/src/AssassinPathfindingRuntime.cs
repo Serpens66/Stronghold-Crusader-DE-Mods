@@ -1052,17 +1052,31 @@ namespace BugfixesAndQoL
         private AssassinNativeSearch.Tables nativeSearchTables;
         private bool nativeSearchBound;
         private readonly int[] nativeRouteCosts = new int[MaximumCommittedPathLength + 1];
-        // Status of the last native call (AssassinNativeSearch.Status*, -1: kernel error); read by tests.
+        // Status of the last native call (AssassinNativeSearch.Status*; negative: kernel error, -3: failed
+        // callback); read by tests.
         private int nativeLastStatus = -1;
+        private const int NativeCallbackFailedStatus = -3;
         private static AssassinPathfindingRuntime nativeCallbackRuntime;
         private static IEnemyGateRoutePolicySnapshot nativeCallbackPolicy;
-        private static readonly AssassinNativeSearch.TileCallback NativeDirectGatehouse =
-            tile => AssassinPathAPI.IsDirectGatehouseClimbEndpoint(tile) ? 1 : 0;
-        private static readonly AssassinNativeSearch.MaskedTransitionCallback NativeMaskedTransition =
-            (from, to, direction, climbing, reserved) =>
-                nativeCallbackRuntime.AllowsAssassinTransition(nativeCallbackPolicy, from, to, direction, climbing != 0, reserved != 0) ? 1 : 0;
-        private static readonly AssassinNativeSearch.DirectionCallback NativeDirectionAllowed =
-            (tile, direction) => nativeCallbackPolicy.IsDirectionAllowed(tile, direction) ? 1 : 0;
+        // An exception must not unwind through the kernel's frames (undefined under Mono; its buckets would
+        // keep stale entries for later searches). A failing callback answers 0 and marks the call, whose
+        // result is then discarded: the managed search repeats it and fails at the same predicate.
+        private static bool nativeCallbackFailed;
+        private static readonly AssassinNativeSearch.TileCallback NativeDirectGatehouse = tile =>
+        {
+            try { return AssassinPathAPI.IsDirectGatehouseClimbEndpoint(tile) ? 1 : 0; }
+            catch (Exception) { nativeCallbackFailed = true; return 0; }
+        };
+        private static readonly AssassinNativeSearch.MaskedTransitionCallback NativeMaskedTransition = (from, to, direction, climbing, reserved) =>
+        {
+            try { return nativeCallbackRuntime.AllowsAssassinTransition(nativeCallbackPolicy, from, to, direction, climbing != 0, reserved != 0) ? 1 : 0; }
+            catch (Exception) { nativeCallbackFailed = true; return 0; }
+        };
+        private static readonly AssassinNativeSearch.DirectionCallback NativeDirectionAllowed = (tile, direction) =>
+        {
+            try { return nativeCallbackPolicy.IsDirectionAllowed(tile, direction) ? 1 : 0; }
+            catch (Exception) { nativeCallbackFailed = true; return 0; }
+        };
         private static readonly IntPtr NativeDirectGatehousePointer = Marshal.GetFunctionPointerForDelegate(NativeDirectGatehouse);
 
         // Binds the native tables of this runtime (the game's layers, or test fixtures) once the DLL is loaded.
@@ -1099,9 +1113,10 @@ namespace BugfixesAndQoL
             tables.DirectGatehouseEndpoint = AssassinPathAPI.DirectGatehouseClimbingEnabled ? NativeDirectGatehousePointer : IntPtr.Zero;
             AssassinNativeSearch.Result result;
             int code;
+            bool callbackFailed;
             AssassinPathfindingRuntime previousRuntime = nativeCallbackRuntime;
             IEnemyGateRoutePolicySnapshot previousPolicy = nativeCallbackPolicy;
-            nativeCallbackRuntime = this; nativeCallbackPolicy = gatePolicy;
+            nativeCallbackRuntime = this; nativeCallbackPolicy = gatePolicy; nativeCallbackFailed = false;
             try
             {
                 fixed (byte* maskBytes = mask)
@@ -1118,9 +1133,13 @@ namespace BugfixesAndQoL
                     code = AssassinNativeSearch.bfq_assassin_search(&tables, &request, nodes, nodeCosts, route.Length, &result);
                 }
             }
-            finally { nativeCallbackRuntime = previousRuntime; nativeCallbackPolicy = previousPolicy; }
-            nativeLastStatus = code != 0 ? code : result.Status;
-            if (code != 0) return false;
+            finally
+            {
+                callbackFailed = nativeCallbackFailed;
+                nativeCallbackRuntime = previousRuntime; nativeCallbackPolicy = previousPolicy; nativeCallbackFailed = false;
+            }
+            nativeLastStatus = code != 0 ? code : callbackFailed ? NativeCallbackFailedStatus : result.Status;
+            if (code != 0 || callbackFailed) return false;
             if (result.Status == AssassinNativeSearch.StatusOverflow)
             {
                 // Same fallback as the managed bucket search: the whole search on the heap.
@@ -1976,7 +1995,9 @@ private bool StagePreparedRouteWithDiagnostics(IntPtr context, RouteCacheKey key
 
         private void BucketStart(int start)
         {
-            bucketCount = 0; bucketOverflow = false; bucketCurrent = estimatedTotalCosts[start];
+            // A search aborted by an exception leaves its entries; they must not reach this search.
+            BucketClear();
+            bucketOverflow = false; bucketCurrent = estimatedTotalCosts[start];
             BucketPush(start);
         }
 

@@ -21,7 +21,8 @@
       "Changes": [
         "Add a default-enabled host option preventing human Lord return-to-Keep teleport exploits while preserving invalid-standing-tile rescue and AI behavior.",
         "Integrate the native guard and its executed machine-code regressions; retire the standalone LordTeleportGuardTest.",
-        "Move the spectator perspective, eliminated players becoming spectators and the live spectator statistics into the separate Spectator mod; Bugfixes and QoL keeps surrender and the statistics team badges, and their previous host options are retired."
+        "Move the spectator perspective, eliminated players becoming spectators and the live spectator statistics into the separate Spectator mod; Bugfixes and QoL keeps surrender and the statistics team badges, and their previous host options are retired.",
+        "Native Assassin route search: an error in one of its managed rule queries now discards the native result and falls back exactly like the managed search, so the native and managed searches keep identical results for every multiplayer peer."
       ]
     },
     {

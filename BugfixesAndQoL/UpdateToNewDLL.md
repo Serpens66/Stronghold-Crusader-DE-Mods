@@ -1478,6 +1478,11 @@ published `RouteTilePolicySnapshot` bytes; masked edges, other policy shapes and
 into the managed predicates. On a new DLL nothing changes here beyond the managed search's own RVA checks; the
 offline comparison (`tests/AssassinPathfinding.Tests`, `VerifyNative`) must stay identical on every fixture terrain.
 Without the DLL, or on a contract mismatch, a warning is logged and the managed search runs.
+Since 2026-11-01 `VerifyNative` also compares the production policy shape (byte mask read by the kernel, tiles beyond
+the mask allowed, masked climb callbacks answering true at a live gate) and a throwing managed callback: callbacks never
+let an exception unwind through the kernel; a failed callback discards the native call, the managed search repeats it
+and fails at the same predicate, and the following searches still agree. `GateRouting.Tests` checks that
+`DirectionMask` and `IsDirectionAllowed` of every captured gate snapshot decide identically.
 
 ## One-pass flood member check (2026-10-30, `src/UnitCommands/Native/TribeFloodMembership.cs`)
 

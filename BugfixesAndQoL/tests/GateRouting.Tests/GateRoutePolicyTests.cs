@@ -67,6 +67,27 @@ namespace BugfixesAndQoL.GateRouting
             source.Leave(reference);
             source.Publish(RouteTilePolicySnapshot.Empty);
             check(!typed.TryGetBlockedGateIdentity(0,2,out _,out _,out _,out _));
+            // The native Assassin kernel reads DirectionMask instead of calling IsDirectionAllowed: both views of a
+            // captured snapshot must decide identically (no mask, tiles beyond a mask, players beyond the table,
+            // unmasked scopes), or native and managed searches would differ between multiplayer peers.
+            foreach (byte[][] viewMasks in new[] {
+                new byte[9][] { null, null, new byte[] { 0xFB, 0x00 }, null, null, new byte[] { 0x55, 0xAA, 0x0F }, null, null, null },
+                new byte[4][] { null, null, new byte[] { 0x01 }, null } })
+            {
+                source.Publish(new RouteTilePolicySnapshot(viewMasks, 200));
+                for (int player = 1; player <= 8; player++)
+                    foreach (bool unmaskedView in new[] { false, true })
+                    {
+                        var scope = unmaskedView ? source.Enter(player, true, true) : null;
+                        check(source.TryCaptureRoutePolicy(player, out var view));
+                        if (scope != null) source.Leave(scope);
+                        byte[] bytes = ((IAssassinDirectionMaskSource)view).DirectionMask;
+                        for (int tile = 0; tile < 5; tile++)
+                            for (int direction = 0; direction < 8; direction++)
+                                check(view.IsDirectionAllowed(tile, direction) ==
+                                    (bytes == null || tile >= bytes.Length || (bytes[tile] & (1 << direction)) != 0));
+                    }
+            }
             return count;
         }
     }

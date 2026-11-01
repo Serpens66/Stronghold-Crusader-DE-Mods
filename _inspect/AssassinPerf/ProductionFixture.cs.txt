@@ -126,6 +126,21 @@ namespace BugfixesAndQoL {
    public int PlayerId=>2;public bool IsCurrent=>true;
    public bool IsDirectionAllowed(int tile,int direction)=>(tile*7+direction)%5!=0;
   }
+  // Production shape of the gate policy (GateRoutePolicySource.Snapshot): the kernel reads the byte mask directly
+  // (tiles beyond it are allowed) and calls back for masked edges, whose blocked-gate identities allow climbs at
+  // gate 578. ThrowAt makes the identity query throw from that call on (failing-callback contract).
+  sealed class ByteMask:IEnemyGateRoutePolicySnapshot,IEnemyGateClimbRoutePolicySnapshot,GateRouting.IAssassinDirectionMaskSource {
+   readonly byte[] mask;internal int IdentityCalls,IdentityHits,ThrowAt=-1;
+   internal ByteMask(int seed,int length){var random=new Random(seed);mask=new byte[length];for(int i=0;i<length;i++)mask[i]=(byte)(random.Next(256)|random.Next(256));}
+   public int PlayerId=>2;public bool IsCurrent=>true;public byte[] DirectionMask=>mask;
+   public bool IsDirectionAllowed(int tile,int direction)=>tile>=mask.Length||(mask[tile]&(1<<direction))!=0;
+   public bool TryGetBlockedGateIdentity(int tile,int direction,out int b,out uint g,out int o,out int c){
+    b=0;g=0;o=c=0;IdentityCalls++;
+    if(ThrowAt>=0&&IdentityCalls>=ThrowAt)throw new InvalidOperationException("fixture-identity");
+    if(IsDirectionAllowed(tile,direction)||(tile*3+direction)%4==3)return false;
+    b=578;g=99;o=3;IdentityHits++;return true;
+   }
+  }
 #if SERP_DEVDIAG
   public static void VerifyTemporaryRouteValidation() {
    var r=new AssassinPathfindingRuntime("open");var mask=new ValidationMask();
@@ -376,20 +391,38 @@ internal ITemporaryAssassinGateObserver DetailedObserver;internal Dictionary<int
   // Returns the summed native and managed search time per terrain.
   public static string VerifyNative(string directory){
    AssassinNativeSearch.Load(directory);
-   var report=new List<string>();
-   foreach(string terrain in new[]{"open","gate","detour","unreachable","castle","random1","random2","random3","random4"}){
+   var report=new List<string>();int maskedClimbEdges=0,identityHits=0,callbackFailures=0;
+   string[] terrains={"open","gate","detour","unreachable","castle","random1","random2","random3","random4"};
+   for(int terrainIndex=0;terrainIndex<terrains.Length;terrainIndex++){
+    string terrain=terrains[terrainIndex];
     var r=new AssassinPathfindingRuntime(terrain);
     try{
      r.BindNativeSearch(r.specialTilePredicate==null?IntPtr.Zero:Marshal.GetFunctionPointerForDelegate(r.specialTilePredicate),IntPtr.Zero);
-     var random=new Random(7319);int compared=0,foundRoutes=0,overflows=0,earlyExits=0;long nativeTicks=0,managedTicks=0;
+     var random=new Random(7319);int compared=0,foundRoutes=0,overflows=0,earlyExits=0,terrainHits=0;long nativeTicks=0,managedTicks=0;
      var nativeRoute=new int[2001];var nativeCosts=new int[2001];
+     int width=terrain=="castle"?CastleSize:64,height=terrain=="castle"?CastleSize:48;
+     // Walls and buildings of the random terrains partly become the live gate 578, so the byte-mask policy's
+     // masked callback also allows climbs there (the production shape; the other policies only answer false).
+     if(terrain.StartsWith("random")){
+      GameBuildingManagerAPI.Instance.Building=(GameBuilding*)r.Allocate(sizeof(GameBuilding));
+      *GameBuildingManagerAPI.Instance.Building=new GameBuilding{r_GlobalId=99,r_PlayerIdOwner=3,r_BuildingType=eStructs.STRUCT_GATE_MAIN,r_AliveState=AliveState.IsAlive};
+      for(int tile=0;tile<width*height;tile+=2)if((r.tileFlags[tile]&IsWallFlag)!=0||r.buildingLayer[tile]!=0)r.buildingLayer[tile]=578;
+     }
+     var byteMask=new ByteMask(4100+terrainIndex,width*height*2/3);
+     for(int y=0;y<height;y++)for(int x=0;x<width;x++)for(int d=0;d<8;d+=2){
+      int nx=x+DirectionX[d],ny=y+DirectionY[d];
+      if(!r.IsValidCoordinate(x,y)||!r.IsValidCoordinate(nx,ny))continue;
+      int from=r.GetTileId(x,y);
+      if(!byteMask.IsDirectionAllowed(from,d)&&r.AllowsAssassinTransition(byteMask,from,r.GetTileId(nx,ny),d,true,true))maskedClimbEdges++;
+     }
+     (int,int,int,int) Request()=>terrain=="castle"
+      ?(random.Next(1,CastleSize-1),random.Next(1,CastleSize-1),CastleSize/2-10+random.Next(0,20),CastleSize/2-10+random.Next(0,20))
+      :(random.Next(1,63),random.Next(1,47),random.Next(1,63),random.Next(1,47));
      for(int i=0;i<240;i++){
-      int sx,sy,tx,ty;
-      if(terrain=="castle"){sx=random.Next(1,CastleSize-1);sy=random.Next(1,CastleSize-1);tx=CastleSize/2-10+random.Next(0,20);ty=CastleSize/2-10+random.Next(0,20);}
-      else{sx=random.Next(1,63);sy=random.Next(1,47);tx=random.Next(1,63);ty=random.Next(1,47);}
+      var(sx,sy,tx,ty)=Request();
       bool climbing=i%2==0,reserved=i%3!=0;r.climbRuntime.Allowed=climbing;
       int nodes=i%7==0?20+random.Next(0,600):TileCount;
-      IEnemyGateRoutePolicySnapshot mask=i%5==0?new StripeMask():i%11==0?new ValidationMask{Allowed=false}:null;
+      IEnemyGateRoutePolicySnapshot mask=i%5==0?new StripeMask():i%11==0?new ValidationMask{Allowed=false}:i%3==1?byteMask:null;
       r.nativeSearchBound=true;r.nativeLastStatus=int.MinValue;long t0=Stopwatch.GetTimestamp();
       bool nf=r.TryBuildWeightedRoute(sx,sy,tx,ty,nodes,4,climbing,reserved,null,mask,out var ns);
       nativeTicks+=Stopwatch.GetTimestamp()-t0;
@@ -402,6 +435,12 @@ internal ITemporaryAssassinGateObserver DetailedObserver;internal Dictionary<int
        if(r.nativeLastStatus==AssassinNativeSearch.StatusOverflow)overflows++;
        else Assert(r.touchedCount==length,"native kernel answered "+terrain+"#"+i);}
       for(int k=0;k<length;k++){nativeRoute[k]=r.route[k];nativeCosts[k]=r.costs[r.route[k]];}
+      // A route edge the byte mask forbids exists only through the kernel's masked callback answering true.
+      if(nf&&mask==byteMask)for(int k=0;k+1<length;k++){
+       int to=nativeRoute[k],from=nativeRoute[k+1];
+       int d=GetDirectionIndex(to%MapWidth-from%MapWidth,to/MapWidth-from/MapWidth);
+       if(!byteMask.IsDirectionAllowed(r.GetTileId(from%MapWidth,from/MapWidth),d))terrainHits++;
+      }
       r.nativeSearchBound=false;t0=Stopwatch.GetTimestamp();
       bool mf=r.TryBuildWeightedRoute(sx,sy,tx,ty,nodes,4,climbing,reserved,null,mask,out var ms);
       managedTicks+=Stopwatch.GetTimestamp()-t0;
@@ -414,10 +453,47 @@ internal ITemporaryAssassinGateObserver DetailedObserver;internal Dictionary<int
       compared++;
      }
      Assert(foundRoutes>0,"native comparison found routes on "+terrain);
-     report.Add(terrain+":compared="+compared+",found="+foundRoutes+",heapFallbacks="+overflows+",earlyExits="+earlyExits+",nativeMs="+(nativeTicks*1000.0/Stopwatch.Frequency).ToString("F1",CultureInfo.InvariantCulture)+
+     // A throwing managed callback: the kernel discards its call instead of unwinding through native frames, so
+     // native and managed searches end in the same exception, and later searches on the runtime still agree
+     // (neither queue keeps the aborted search's entries). The throw is placed after the backward proof's own
+     // identity queries, inside the kernel's (native) or the managed search's (managed) half of the queries.
+     int throwChecks=0;
+     for(int attempt=0;attempt<80&&throwChecks<3;attempt++){
+      var(sx,sy,tx,ty)=Request();
+      int start=byteMask.IdentityCalls;
+      if(r.ProvesTargetUnreachable(sx,sy,tx,ty,true,true,byteMask))continue;
+      int proof=byteMask.IdentityCalls-start;start=byteMask.IdentityCalls;
+      r.nativeSearchBound=true;r.TryBuildWeightedRoute(sx,sy,tx,ty,TileCount,4,true,true,null,byteMask,out _);
+      int searchCalls=byteMask.IdentityCalls-start-proof;
+      if(searchCalls<2)continue;
+      foreach(bool native in new[]{true,false}){
+       r.nativeSearchBound=native;r.nativeLastStatus=int.MinValue;byteMask.ThrowAt=byteMask.IdentityCalls+proof+searchCalls/2;bool threw=false;
+       try{r.TryBuildWeightedRoute(sx,sy,tx,ty,TileCount,4,true,true,null,byteMask,out _);}
+       catch(InvalidOperationException e)when(e.Message=="fixture-identity"){threw=true;}
+       finally{byteMask.ThrowAt=-1;}
+       string where=terrain+" "+sx+","+sy+"->"+tx+","+ty;
+       Assert(threw,"failing gate callback ends the "+(native?"native":"managed")+" search in its exception "+where);
+       if(native){Assert(r.nativeLastStatus==NativeCallbackFailedStatus,"kernel discards a failed callback "+where+" status="+r.nativeLastStatus);callbackFailures++;}
+      }
+      r.nativeSearchBound=true;bool nf=r.TryBuildWeightedRoute(sx,sy,tx,ty,TileCount,4,true,true,null,byteMask,out var ns);
+      int length=nf?ns.RouteLength:0;
+      for(int k=0;k<length;k++){nativeRoute[k]=r.route[k];nativeCosts[k]=r.costs[r.route[k]];}
+      r.nativeSearchBound=false;bool mf=r.TryBuildWeightedRoute(sx,sy,tx,ty,TileCount,4,true,true,null,byteMask,out var ms);
+      string after=terrain+" "+sx+","+sy+"->"+tx+","+ty;
+      Assert(nf==mf&&(!nf||ns.TotalCost==ms.TotalCost&&ns.RouteLength==ms.RouteLength&&ns.ExpandedNodes==ms.ExpandedNodes),
+       "search after a failed callback agrees "+after+" native="+nf+"/"+ns.TotalCost+"/"+ns.ExpandedNodes+" managed="+mf+"/"+ms.TotalCost+"/"+ms.ExpandedNodes);
+      for(int k=0;k<length;k++)Assert(nativeRoute[k]==r.route[k]&&nativeCosts[k]==r.costs[r.route[k]],"route after a failed callback equals managed "+after+" at "+k);
+      throwChecks++;
+     }
+     identityHits+=terrainHits;
+     report.Add(terrain+":compared="+compared+",found="+foundRoutes+",heapFallbacks="+overflows+",earlyExits="+earlyExits+",maskedClimbSteps="+terrainHits+",failedCallbacks="+throwChecks+",nativeMs="+(nativeTicks*1000.0/Stopwatch.Frequency).ToString("F1",CultureInfo.InvariantCulture)+
       ",managedMs="+(managedTicks*1000.0/Stopwatch.Frequency).ToString("F1",CultureInfo.InvariantCulture));
-    }finally{r.Release();AssassinPathAPI.DirectEndpoint=-1;}
+    }finally{r.Release();AssassinPathAPI.DirectEndpoint=-1;GameBuildingManagerAPI.Instance.Building=null;}
    }
+   // Coverage of the production policy shape: masked climb edges exist, native routes use them and failing
+   // callbacks were exercised (each comparison above already asserted equality).
+   Assert(maskedClimbEdges>0&&identityHits>0,"byte-mask policy exercises masked climbs: edges="+maskedClimbEdges+" routeSteps="+identityHits);
+   Assert(callbackFailures>0,"failing native callbacks were exercised");
    return string.Join(" ",report);
   }
   // Separate native-only and managed-only passes over the same requests (no policy), twice each (the

@@ -27,7 +27,7 @@ Die Prüfung selbst hat keinen Code geändert. Die anschließend umgesetzten Fix
 | N1 | Niedrig | SerpsModsHost | Host-Changelog 1.0.33 nennt falsche Versionen und lässt wesentliche Änderungen aus | bestätigt |
 | N2 | Niedrig | CastlePlanner | `RefreshHud` erzeugt bei jedem Aufruf einen neuen Brush und eine Property-Benachrichtigung | bestätigt, vernachlässigbar |
 
-Zusätzlich gibt es eine Prüfempfehlung ohne Fehlerbefund (P1, native Assassin-Suche im Mehrspieler) und eine Liste der geprüften und **nicht** bestätigten Verdachtsfälle (am Ende).
+Zusätzlich gibt es eine Prüfempfehlung (P1, native Assassin-Suche im Mehrspieler; am 01.11.2026 offline abgesichert und gehärtet) und eine Liste der geprüften und **nicht** bestätigten Verdachtsfälle (am Ende).
 
 ---
 
@@ -46,7 +46,8 @@ Zusätzlich gibt es eine Prüfempfehlung ohne Fehlerbefund (P1, native Assassin-
 | M3 | umgesetzt | APIShared-Mindestversion von CastlePlanner auf 0.14.0 (`BepInDependency` und `info.json`). |
 | N1 | umgesetzt | Host-Changelog 1.0.33 korrigiert und ergänzt; Host-`MinimumVersion` auf 0.20.0 (der Packer setzt ohnehin die Infrastrukturversion). |
 | N2 | umgesetzt | Brush wird pro betrachtetem Spieler zwischengespeichert; `SpectatorCastleColour` meldet nur bei echter Änderung. |
-| P1, MP-Test | **offen (Nutzer)** | Erfordert Spielläufe (DEVDIAG-Build) und zwei Rechner. |
+| P1 | offline abgesichert (01.11.2026) | Testlücken geschlossen, Callback-Fehler gehärtet; DEVDIAG-Lauf nur noch optional (siehe P1). |
+| MP-Test | **offen (Nutzer)** | Erfordert Spielläufe und zwei Rechner. |
 
 **Neubewertung des H1-Fixes:** Der ursprünglich vorgeschlagene Schritt 3 („erneut mit `allowEmbeddedValuesOnly: true` auflösen“) wäre falsch gewesen. `TrailLordRequirementSource.Resolve` verwendet gespeicherte Slots wieder, sobald `HasSameAuthoredIdentity` zutrifft, und zwar unabhängig von `EmbeddedValuesOnly`. Ein beim Speichern geschriebener „embedded-only“-Slot hätte beim Export die Bestätigungsfrage an den Autor (`OfferEmbeddedValuesOnlyExport`) stillschweigend umgangen. Umgesetzt wurde deshalb:
 1. `TrailLordMediaStore.CaptureOrFallback`: Eine ungültige oder nicht lesbare `lordmeta.json` führt nur noch zum Anzeigenamen ohne Metadaten. Das wird an allen vier Erfassungsstellen genutzt.
@@ -233,7 +234,26 @@ Der Eintrag nennt „Require APIShared 0.16.4 … include ExtendedData 1.0.21“
 
 ### P1 – Native Assassin-Suche im Mehrspieler
 BugfixesAndQoL liefert `BfqolAssassinSearch.dll` mit. `build.bat` baut und kopiert sie mit Hash-Nachweis, und der Packer überspringt Nicht-.NET-DLLs bei der Plugin-Erkennung. Die Simulation nutzt die DLL, wenn sie geladen werden kann, sonst die verwaltete Bucket-Suche. Desync-frei ist das nur, wenn beide Wege **exakt** dasselbe Ergebnis liefern. Ein Peer, bei dem die DLL fehlt (z. B. Virenscanner-Quarantäne), schreibt lediglich eine Warnung.
-**Empfehlung vor dem Release:** einen DEVDIAG-Lauf mit vielen Assassinen-Befehlen auswerten (`bfqol.assassin.native.mismatch` muss 0 sein). Der Vergleich ist im Code vorhanden (`AssassinPathfindingRuntime.DevDiag.cs`).
+
+**Erneute Prüfung (01.11.2026, ohne Spiellauf):**
+
+- **Codevergleich:** `native/AssassinSearch.cpp` und der Bucket-Zweig von `TryBuildWeightedRoute` sind Zeile für Zeile gleich. Das betrifft Schätzwert und Sättigung, Bucket-Ring, LIFO-Pop und Stale-Skip, Kosten-Vorabtest, Ordinary-, Fallback-, Spezialkachel-, Reserved- und Gatehouse-Regeln, Kletterkosten, Knotenlimit, Rekonstruktion und Status. Nur einseitig sind `touched`, Zähler und Diagnose; nichts davon liest die Simulation.
+- **Offline-Vergleich gab es schon:** `VerifyNative` (`_inspect/AssassinPerf/ProductionFixture.cs.txt`) vergleicht Route, Kosten und Expansionen auf 9 Terrains mit je 240 Anfragen. `build.bat` baut die DLL vorher und bricht ab, wenn sie fehlt. Die ursprüngliche Empfehlung war deshalb zu pessimistisch.
+- **Gefundene Lücken und Umsetzung (nicht committet):**
+  - **Produktiver Maskenpfad war ungetestet.** Im Spiel liest die DLL immer die Byte-Maske von `GateRoutePolicySource.Snapshot`, die Fixtures nutzten aber nur Callback-Policies. Neu sind:
+    - die Fixture-Policy `ByteMask`: eine Maske, die kürzer als die Karte ist, dazu Torkletter-Ausnahmen am Live-Tor 578;
+    - in `GateRoutePolicyTests` ein Gleichlauftest, dass `DirectionMask` und `IsDirectionAllowed` jedes Snapshots gleich entscheiden.
+  - **Exceptions in Callbacks liefen durch native Frames.** Unter Mono ist das undefiniert: Absturz, oder veraltete Bucket-Einträge, die spätere native Suchen verfälschen, während ein Peer ohne DLL korrekt rechnet.
+    - Die Callbacks fangen Fehler jetzt ab. Die native Antwort wird dann verworfen, die verwaltete Suche wiederholt sie und scheitert an derselben Stelle (`exception-fallback`).
+    - Zusätzlich leert die verwaltete Suche beim Start die Buckets einer abgebrochenen Suche.
+    - Eine konkrete Wurfquelle ist nach Codestand nicht erkennbar; es ist eine Härtung.
+  - **Verworfen:** Weitere Geschwindigkeiten zu testen bringt nichts. Sie gehen nur als zwei Ganzzahlen ein, und die Bucket-Grenze liegt bei `speedDelay` 79.
+- **Ergebnis:**
+  - `AssassinPathfinding.Tests` ist grün, mit Masken- und Torkletter-Fällen (5 Torkletter-Schritte auf nativen Routen) und je 3 werfenden Callbacks auf 6 Terrains.
+  - Auch `GateRouting.Tests` und `Test-SharedBoundaries` (BugfixesAndQoL) sind grün.
+  - Gegenprobe: Ohne den Bucket-Fix bzw. bei ignoriertem Callback-Fehler wird der Test rot.
+
+**Restrisiko:** Die Fixtures sind synthetische Karten. Ein DEVDIAG-Lauf mit echten Karten (`bfqol.assassin.native.mismatch` = 0) bleibt als optionale Abnahme sinnvoll, ist aber keine Release-Voraussetzung mehr.
 
 ---
 
@@ -268,7 +288,8 @@ Diese Stellen wurden gezielt nachgeprüft und sind **in Ordnung**:
 5. Den Spectator-Mod fertigstellen und die offenen Punkte aus B3 abarbeiten: committen, Version und Changelog, `Mods`-Liste, Entscheidungen zu Übernahme alter Werte und Default der Testwerkzeuge.
 6. ~~Changelogs korrigieren (**N1**, BugfixesAndQoL).~~ erledigt. Sobald der Spectator-Mod ins Pack kommt, den Host-Changelog 1.0.33 um ihn ergänzen.
 7. APIShared 0.20.0 nach `main` bringen und veröffentlichen (**B1**), danach `CreateSteamModPack.bat` ausführen.
-8. Vor dem Upload den DEVDIAG-Vergleich der Assassin-Suche (**P1**) und einen echten MP-Test mit Host und Client durchführen, mit Spectator-Mod.
+8. Vor dem Upload einen echten MP-Test mit Host und Client durchführen, mit Spectator-Mod. Der DEVDIAG-Vergleich der Assassin-Suche (**P1**) ist optional; die Offline-Absicherung ist erledigt (01.11.2026).
+9. `BugfixesAndQoL\build.bat /nopause` nachholen, sobald APIShared wieder konsistent ist (P1-Änderung, siehe **Builds**).
 
 ---
 
@@ -287,4 +308,13 @@ Diese Stellen wurden gezielt nachgeprüft und sind **in Ordnung**:
     ExtraFeatures\build.bat /nopause
     CastlePlanner\build.bat /nopause
 
-BugfixesAndQoL und SerpsModsHost haben nur Changelog- bzw. Manifest-Text erhalten. Ein eigener Build ist dafür nicht nötig; der Pack-Build baut sie ohnehin.
+SerpsModsHost hat nur Manifest-Text erhalten. Ein eigener Build ist dafür nicht nötig; der Pack-Build baut ihn ohnehin.
+
+**Nachtrag 01.11.2026 (P1):** BugfixesAndQoL hat jetzt Codeänderungen (`AssassinPathfindingRuntime.cs`). Ohne APIShared-Paket geprüft wurden:
+- `native/Build-AssassinSearch.ps1`, danach `AssassinPathfinding.Tests` (grün),
+- `GateRouting.Tests` per MSBuild (grün),
+- `Test-SharedBoundaries.ps1 -ModDirectory BugfixesAndQoL` (grün).
+
+Der volle Build steht aus:
+
+    BugfixesAndQoL\build.bat /nopause

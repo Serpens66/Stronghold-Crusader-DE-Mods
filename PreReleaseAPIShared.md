@@ -15,9 +15,9 @@ Verifikationsweg: `git diff main...dev/Serpens66`, Gegenprüfung gegen den lokal
 
 Geprüft wurden alle neuen bzw. geänderten Quellen: ESC-Menü-Broker (`IngameMenu*`), `MissionOverEvents`, `VisibleMapRenderEvents`/-Bridge, `SynchronizedSaveRuntime`/`SaveContextRuntime`, `MoveCommandFailureRuntime`, Lord-Media-Korrekturen und -Diagnose, `PackagedLordPresentation`/`CoopLordRestartPresentation`/`LordMetadataDocument`, `LordStatistics`, `EngineReadbacks` inkl. `MarkedUnitSelectionAPI`-Änderung, `RouteTileRules`, `SharedToolTipSizing`/`PopupPixelScale`, Preset-/Savegame-Änderungen, `NativeIndirectEntry`-Refactoring, XAML-Patch, Beispiele, `info.json`, `Verify-Interop.ps1`.
 
-## Umsetzungsstand (31.10.2026, nicht committet)
+## Umsetzungsstand
 
-Umgesetzt im Arbeitsbaum von `APIShared` (`dev/Serpens66`, Basis `4a6941f`):
+Umgesetzt am 31.10.2026 in `APIShared` (`dev/Serpens66`, Basis `4a6941f`; vom Nutzer committet als `1f882ec`):
 
 | Punkt | Umsetzung |
 |---|---|
@@ -46,7 +46,13 @@ Kompatibilität:
 - Neu ist der Registrierungsname der Visible-Map-Hookstelle. Er ist in Registry-Diagnosen sichtbar, aber noch unveröffentlicht.
 - Das Neustart-Journal erhält zusätzliche Schlüssel; alte Journale bleiben lesbar.
 
-Nicht umgesetzt, weil Entscheidung oder Messung nötig: H1 (nur nach Messung), H4 (ungenutzten Stil dokumentieren oder entfernen), H5 (Legacy-Überladung entfernen erst nach Klärung mit externen Verbrauchern bzw. Ensrick).
+H1, H4 und H5 waren zunächst offen (Entscheidung nötig). Der Nutzer hat am 01.11.2026 alle drei freigegeben; Umsetzung im Arbeitsbaum, nicht committet:
+
+| Punkt | Umsetzung |
+|---|---|
+| H1 | `VisibleMapRenderEvents.Dispatch` verkettet die Args der aktivierten Registrierungen intern (`Registration`, `Previous`) statt ein Array pro Aufruf anzulegen. Kein Pooling, kein `[ThreadStatic]`, Args werden nicht wiederverwendet; `Previous` wird vor `Finally` gelöst. Reihenfolge, garantiertes `Finally` und Rekursion bleiben gleich. Der bestehende Render-Test prüft zusätzlich eine beim Aufrufbeginn deaktivierte Registrierung und einen rekursiven Aufruf. Begründung: `AGENTS/performance.md` (Allokationen pro Ereignis in Tick-Pfaden vermeiden). Der Gewinn ist klein (pro Sim-Tick mit aktivem Observer ein Objekt weniger) und nicht gemessen. |
+| H4 | `APISharedMenuActionButtonStyle` samt XAML-Operation, zugehörigem Test und Testlink `MenuPatch.xaml` entfernt. Der leere Alias hatte keinen Nutzer, aber eine harte XAML-`StaticResource`-Abhängigkeit auf `BTN_SH_GlowSDisable`; der Code prüft diesen Stil weiterhin per `TryFindResource`. |
+| H5 | Legacy-Überladung `IngameMenuActions.TryRegister(owner, id, state, execute, out reason, order)` entfernt, ebenso ihre Sonderregeln in `IngameMenuRegistry` (impliziter QuitMission/Left-Kandidat, eigene Konfliktregel, Claims-Einträge). Sie stammte aus der ersten ESC-Menü-Fassung (966442d, 27.10.2026) und war nie in `main` oder einem Release. Workspace-Verbraucher (BugfixesAndQoL, Spectator) nutzen die Options-Variante. API-Baseline, Guide (Migrationsabsatz) und Tests angepasst; ein Test prüft jetzt, dass Registrierungen ohne Optionen abgelehnt werden. |
 
 ## Ergebnis in Kürze
 
@@ -211,6 +217,8 @@ Das Risiko ist gering. Der Fix ist deutlich sauberer als der Minimalfix.
 ---
 
 ## Optionale Hinweise (keine Fehler)
+
+Stand 01.11.2026: H1–H6 sind umgesetzt (siehe [Umsetzungsstand](#umsetzungsstand)); die folgenden Einträge sind der ursprüngliche Befund.
 
 - **H1 – Allokation im Render-Pfad:** `VisibleMapRenderEvents.Dispatch` (`:151`) legt bei aktivem Bedarf pro Aufruf von `0x41D60` (einmal je Sim-Tick, Sim-Thread) ein Array und pro aktiver Registrierung ein EventArgs-Objekt an. Bei abgeschaltetem Bedarf passiert dank des nativen Bedarfsbytes nichts. Das Array könnte `[ThreadStatic]` wiederverwendet werden. Die EventArgs müssen neu bleiben, weil Aufrufer sie behalten dürfen. Nur umsetzen, wenn eine Messung Bedarf zeigt.
 - **H2 – Doku `RouteTileRules.Version`** (`RouteTileRules.cs:51`): Dort steht, dass auch Registrierungen gezählt werden. `TryRegister` erhöht `sequence` aber nicht. Den Kommentar anpassen, nicht den Code.
