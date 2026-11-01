@@ -10,7 +10,8 @@ using System.Text.Json;
 var tests = new (string Name, Action Run)[]
 {
     ("Complete Lord metadata survives snapshots, Trails and saves", LordPresentationTests.Roundtrip),
-    ("Optional media retains locale variants and deduplicates across missions", LordPresentationTests.Media),\n    ("Invalid lordmeta.json falls back to the display name", LordPresentationTests.InvalidMetadataFallsBack),
+    ("Optional media retains locale variants and deduplicates across missions", LordPresentationTests.Media),
+    ("Invalid lordmeta.json falls back to the display name", LordPresentationTests.InvalidMetadataFallsBack),
     ("Map production draft transitions retain edits through lobby rebuilds and repeated missions", MapDraftRuntimeTests.Run),
     ("Coop menu mirrors authoritative selection, catalog refresh and edit permissions", CoopTrailMenuTests.Selection),
     ("Coop menu consumes dismissal through release and resets recreated views", CoopTrailMenuTests.Input),

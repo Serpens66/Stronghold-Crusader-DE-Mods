@@ -1344,7 +1344,11 @@ namespace ExtendedData
                     ",config=" + config.name + ",checksum=" + config.checksum + ",path=" + config.path +
                     "; " + exception.Message, exception);
             }
-            LordPresentationData presentation = TrailLordMediaStore.CaptureOrFallback(lordName, config.path, out string presentationProblem);\n            if (presentationProblem != null)\n                Shared.DebugLogHelper.LogWarningLimited(log, "ExtendedData/LordData/presentation-capture",\n                    "Lord presentation metadata ignored; gameplay values are still captured: player=" + playerId +\n                    ",lord=" + LordDataSyncDiagnostics.SafeLabel(lordName) + ",problem=" + presentationProblem);
+            LordPresentationData presentation = TrailLordMediaStore.CaptureOrFallback(lordName, config.path, out string presentationProblem);
+            if (presentationProblem != null)
+                Shared.DebugLogHelper.LogWarningLimited(log, "ExtendedData/LordData/presentation-capture",
+                    "Lord presentation metadata ignored; gameplay values are still captured: player=" + playerId +
+                    ",lord=" + LordDataSyncDiagnostics.SafeLabel(lordName) + ",problem=" + presentationProblem);
             string path = Path.Combine(config.path, config.name + ".modlord.json");
             string modLordJson = File.Exists(path) ? LordDataSnapshot.ReadModLordFile(path) : null;
             string fixesJson = fixes.Capture(lordName, config.lordType);

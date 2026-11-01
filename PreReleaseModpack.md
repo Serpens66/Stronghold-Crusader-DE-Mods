@@ -284,16 +284,34 @@ Diese Stellen wurden gezielt nachgeprüft und sind **in Ordnung**:
 1. ~~**H1** und **H2** beheben und die zugehörigen Tests ergänzen.~~ erledigt (31.10.2026, nicht committet)
 2. ~~**M1** und **M2** beheben.~~ erledigt
 3. ~~CastlePlanner auf 0.8.48 anheben (**B2** und **M3**).~~ erledigt
-4. **Builds und Tests nachholen**, sobald APIShared wieder ein konsistentes Paket hat (siehe **Builds**).
+4. ~~**Builds und Tests nachholen**~~ erledigt am 01.11.2026 (siehe **Builds**).
 5. Den Spectator-Mod fertigstellen und die offenen Punkte aus B3 abarbeiten: committen, Version und Changelog, `Mods`-Liste, Entscheidungen zu Übernahme alter Werte und Default der Testwerkzeuge.
 6. ~~Changelogs korrigieren (**N1**, BugfixesAndQoL).~~ erledigt. Sobald der Spectator-Mod ins Pack kommt, den Host-Changelog 1.0.33 um ihn ergänzen.
 7. APIShared 0.20.0 nach `main` bringen und veröffentlichen (**B1**), danach `CreateSteamModPack.bat` ausführen.
 8. Vor dem Upload einen echten MP-Test mit Host und Client durchführen, mit Spectator-Mod. Der DEVDIAG-Vergleich der Assassin-Suche (**P1**) ist optional; die Offline-Absicherung ist erledigt (01.11.2026).
-9. `BugfixesAndQoL\build.bat /nopause` nachholen, sobald APIShared wieder konsistent ist (P1-Änderung, siehe **Builds**).
+9. ~~`BugfixesAndQoL\build.bat /nopause` nachholen~~ erledigt am 01.11.2026.
 
 ---
 
-## Builds (31.10.2026, 19:05–19:07)
+## Builds
+
+### 01.11.2026, 01:30–01:40: gebaut, getestet und installiert
+
+Gebaut wurden ExtendedData, ExtraFeatures, CastlePlanner, BugfixesAndQoL und SerpsModsHost, jeweils mit `build.bat /nopause` aus dem Arbeitsstand und mit dem APIShared-Paket aus dem lokalen Checkout.
+
+- **Alle fünf Mods: Exit 0**, Tests bestanden, Installation ins Spiel erfolgreich.
+- Die neuen Tests sind dabei gelaufen:
+  - `Invalid lordmeta.json falls back to the display name` (ExtendedData),
+  - die ExtraFeatures-Preset-Tests einschließlich des Migrationsfalls (8448 Prüfungen),
+  - `native Assassin search equals managed` mit `ByteMask` und werfenden Callbacks,
+  - `GateRouting.Tests` (BugfixesAndQoL).
+- **Erster ExtendedData-Lauf: rot, durch meinen Fehler aus dem Fix vom 31.10.** Ein Ersetzungsskript hatte an zwei Stellen ein wörtliches `\n` statt eines Zeilenumbruchs geschrieben:
+  - `ExtendedData.Tests/Program.cs`: die Registrierung des neuen Tests,
+  - `src/LordDataSyncCoordinator.cs`: der H1b-Fallback.
+
+  Beide Stellen sind korrigiert. Eine Suche nach weiteren solchen Resten in allen Pack-Mods war leer. Danach war der zweite Lauf grün.
+
+### 31.10.2026, 19:05–19:07 (historisch)
 
 **Ergebnis: blockiert, nicht durch die Änderungen dieses Berichts.**
 
