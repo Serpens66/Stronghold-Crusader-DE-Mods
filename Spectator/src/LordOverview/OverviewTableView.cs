@@ -40,17 +40,13 @@ namespace Spectator.LordOverview {
   private static int headerRevision,paintedHeaderRevision=-1;
   private static bool Editing=>settingsWindow?.Visibility==Visibility.Visible && panel?.IsVisible==true;
 
-  private static ImageSource PlayerFace(int player){
-   var snapshot=GameData.Instance.lastGameState;
-   return snapshot.is_skirmish_player(player)?main.getAIFace(snapshot.computer_register[player],true):
-    Platform_Multiplayer.Instance.GetUserAvatar(Platform_Multiplayer.Instance.getPlayerSteamID(player));
-  }
   private static void Render(){
    if(headerGesture.Active || panel?.IsVisible!=true || GameData.Instance?.lastGameState==null)return;
    var columns=selection.Columns;state.Reconcile(columns);state.SortInto(rows,orderedRows,settings.DisplayShowEliminated);var ordered=orderedRows;
    NormalizeGridPreferences(rows.Count,columns.Length); // Filtering must not rewrite the saved grid.
    var design=settings.DisplayDesign;var lordFlow=settings.DisplayLordGrid;var valueFlow=settings.DisplayValueGrid;
    int roster=0;for(int i=0;i<ordered.Count;i++)roster|=1<<ordered[i].Player;
+   portraits.SetPlayers(roster);double portraitTime=Now;
    bool rebuild=!OverviewLayout.SameColumns(realizedColumns,columns) || realizedDesign!=design || !lordFlow.SameShape(realizedLordGrid) || !valueFlow.SameShape(realizedValueGrid) || realizedCatalog!=catalogRevision || realizedRoster!=roster;
    bool geometryChanged=rebuild;long elapsed=0;Shared.DevDiag.Start(ref elapsed);
    try {
@@ -86,9 +82,9 @@ namespace Spectator.LordOverview {
      var row=ordered[index];var view=rowVisuals[row.Player];var playerColor=ResolvePlayerColor(row.Player);
      bool colorChanged=view.Foreground==null || !view.Foreground.Color.Equals(playerColor);
      if(colorChanged){view.Foreground=new SolidColorBrush(playerColor);OverviewAppearance.UpdatePlayerText(view.Number,view.PlayerLabel,view.Foreground);}
-     string name=Platform_Multiplayer.Instance.getSkirmishName(row.Player)??"";var face=PlayerFace(row.Player);
+     string name=Platform_Multiplayer.Instance.getSkirmishName(row.Player)??"";var face=portraits.Resolve(row.Player,portraitTime);
      bool nameChanged=view.FullName!=name;
-     if(!ReferenceEquals(view.Face,face)){view.Face=face;((Image)view.Portrait.Children[0]).Source=face;}
+     SetPortrait(view,face);
      if(nameChanged){view.FullName=name;UpdateHoverText(view.PortraitHover,name);UpdateHoverText(view.NameHover,name);}
      if(view.Name!=null){if(nameChanged)view.Name.Text=name;if(colorChanged)view.Name.Foreground=view.Foreground;}
      bool aliveChanged=view.Alive!=row.Alive;if(aliveChanged){view.Alive=row.Alive;view.Root.Opacity=row.Alive?1:.45f;}
@@ -109,7 +105,7 @@ namespace Spectator.LordOverview {
      if(cards!=null){
       lordFlow.Position(index,ordered.Count,out int cardRow,out int cardColumn);
       if(view.Pane!=cardColumn || view.Position!=cardRow){view.Pane=cardColumn;view.Position=cardRow;Grid.SetRow(view.Root,cardRow);Grid.SetColumn(view.Root,cardColumn);
-       int lastRow=(ordered.Count-1)/lordFlow.Columns(ordered.Count);view.Root.Margin=new Thickness(0,0,8,cardRow==lastRow?0:6);geometryChanged=true;}
+       int lastRow=(ordered.Count-1)/lordFlow.Columns(ordered.Count);view.Root.Margin=CardMargin(cardRow==lastRow);geometryChanged=true;}
      }else{
       int pane=tables.Count==1?0:OverviewLayout.Pane(index,ordered.Count),position=(tables.Count==1?index:OverviewLayout.PaneRow(index,ordered.Count))+1;
       if(view.Pane!=pane || view.Position!=position){view.Pane=pane;view.Position=position;MoveCell(view.Root,tables[pane],position,0);
@@ -119,6 +115,7 @@ namespace Spectator.LordOverview {
     UpdateHeaderEditing();if(rebuild)UpdateGridReadouts();if(geometryChanged)MarkHoverGeometryDirty();
    }finally{if(rebuild)Shared.DevDiag.StopSpike(ref elapsed,"overview.layout",1000);else Shared.DevDiag.StopSpike(ref elapsed,"overview.render",1000);}
   }
+  private static Thickness CardMargin(bool lastRow)=>new Thickness(0,0,1.6f,lastRow?0:1.2f);
   private static Brush StatisticsBackground()=>new SolidColorBrush(Color.FromRgb(96,96,96)){Opacity=.5f};
   private static void MoveCell(FrameworkElement cell,Grid target,int row,int column){
    if(VisualTreeHelper.GetParent(cell) is Grid old && !ReferenceEquals(old,target))old.Children.Remove(cell);
@@ -134,8 +131,9 @@ namespace Spectator.LordOverview {
     foreach(var metric in columns){var cell=CreateValueCell(view,player,metric);cell.HorizontalAlignment=HorizontalAlignment.Right;cell.Margin=new Thickness(4,2,4,2);view.Cells.Add(metric,cell);}
     return view;
    }
-   var content=new Grid {Margin=new Thickness(5,2,5,2),IsHitTestVisible=false};content.RowDefinitions.Add(new RowDefinition {Height=GridLength.Auto});content.RowDefinitions.Add(new RowDefinition {Height=GridLength.Auto});
-   var header=new Grid {Margin=new Thickness(0,0,0,4),IsHitTestVisible=false};header.ColumnDefinitions.Add(new ColumnDefinition {Width=GridLength.Auto});header.ColumnDefinitions.Add(new ColumnDefinition {Width=GridLength.Auto});header.ColumnDefinitions.Add(new ColumnDefinition {Width=new GridLength(1,GridUnitType.Star)});
+   view.Number.Margin=new Thickness(1,0,.6f,0);
+   var content=new Grid {Margin=new Thickness(1,.4f,1,.4f),IsHitTestVisible=false};content.RowDefinitions.Add(new RowDefinition {Height=GridLength.Auto});content.RowDefinitions.Add(new RowDefinition {Height=GridLength.Auto});
+   var header=new Grid {Margin=new Thickness(0,0,0,.8f),IsHitTestVisible=false};header.ColumnDefinitions.Add(new ColumnDefinition {Width=GridLength.Auto});header.ColumnDefinitions.Add(new ColumnDefinition {Width=GridLength.Auto});header.ColumnDefinitions.Add(new ColumnDefinition {Width=new GridLength(1,GridUnitType.Star)});
    header.Children.Add(view.Portrait);Grid.SetColumn(view.Number,1);header.Children.Add(view.Number);
    // A Canvas contributes no name width to the natural card size. Only the values and portrait/ID set it.
    var nameHost=new Canvas {Height=28,IsHitTestVisible=false,ClipToBounds=true};Grid.SetColumn(nameHost,2);header.Children.Add(nameHost);
@@ -146,15 +144,15 @@ namespace Spectator.LordOverview {
    for(int i=0;i<cols;i++)values.ColumnDefinitions.Add(new ColumnDefinition {Width=GridLength.Auto});
    for(int i=0;i<flow.Rows(columns.Length);i++)values.RowDefinitions.Add(new RowDefinition {Height=GridLength.Auto});
    for(int i=0;i<columns.Length;i++){
-    var metric=columns[i];var pair=new StackPanel {Orientation=Orientation.Horizontal,IsHitTestVisible=false,Margin=new Thickness(4,2,6,2)};
+    var metric=columns[i];var pair=new StackPanel {Orientation=Orientation.Horizontal,IsHitTestVisible=false,Margin=new Thickness(.8f,.4f,1.2f,.4f)};
     var icon=MetricIcon(metric);if(metric==Metric.Popularity)view.PopularityIcon=(Image)icon;
     icon.IsHitTestVisible=false;icon.VerticalAlignment=VerticalAlignment.Center;pair.Children.Add(icon);
-    var cell=CreateValueCell(view,player,metric);cell.Margin=new Thickness(5,0,0,0);view.Cells.Add(metric,cell);pair.Children.Add(cell);
+    var cell=CreateValueCell(view,player,metric);cell.Margin=new Thickness(1,0,0,0);view.Cells.Add(metric,cell);pair.Children.Add(cell);
     RegisterHover("view/value/"+player+"/"+Metrics.Key(metric),icon,MetricName(metric));
     flow.Position(i,columns.Length,out int valueRow,out int valueColumn);Grid.SetRow(pair,valueRow);Grid.SetColumn(pair,valueColumn);values.Children.Add(pair);
    }
    content.Children.Add(values);
-   var box=new Border {Background=StatisticsBackground(),Child=content,Margin=new Thickness(0,0,8,6),HorizontalAlignment=HorizontalAlignment.Stretch,VerticalAlignment=VerticalAlignment.Bottom,IsHitTestVisible=false,Tag=OverviewPresentationPolicy.PassiveTag};
+   var box=new Border {Background=StatisticsBackground(),Child=content,Margin=CardMargin(false),HorizontalAlignment=HorizontalAlignment.Stretch,VerticalAlignment=VerticalAlignment.Bottom,IsHitTestVisible=false,Tag=OverviewPresentationPolicy.PassiveTag};
    box.SizeChanged+=OnTableGeometryChanged;view.Root=box;cards.Children.Add(box);return view;
   }
   private static Grid CreateValueCell(RowVisual view,int player,Metric metric){

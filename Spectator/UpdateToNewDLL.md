@@ -534,3 +534,32 @@ formatting on the warm update path. Unknown/revoked values clear Source and show
 the existing question-mark text. Numeric snapshots and sorting remain unchanged;
 passive pie cells retain Vanilla Tag Ignore and hit-test exclusion. HUD detach
 clears the palette and visual replacement initializes a fresh band state.
+
+## Human portraits and delayed cached sources (2026-11-01)
+
+The native and managed reference hashes above still match the installed game.
+This change calls public managed presentation methods; it adds no native address,
+engine export, Steam request, texture creation or APIShared hook.
+
+Platform_Multiplayer.getPlayerSteamID returns zero when gameMembers has no matching
+slot. GetUserAvatar only reads Vanilla's cache (and delegates the local Steam ID
+to GetLocalAvatar). Singleplayer does not require a multiplayer roster: Vanilla's
+OnScreenText and MainViewModel briefing use GetLocalAvatar instead, respecting the
+configured Steam image/coat of arms. EditorDirector already initiates local Steam
+avatar loading; Avatars.CreateLocalUserAvatar produces the configured local coat
+of arms. Lobby preparation owns remote Steam/coat-of-arms cache population.
+
+OverviewPortraits follows that presentation split. Known non-MP human slots use
+GetLocalAvatar; MP slots require a validated per-slot CSteamID and use GetUserAvatar.
+Unknown MP identities never inherit the local user's picture. AI faces still use
+getAIFace with extended remapping enabled. Revalidate these public methods and
+Steamworks.CSteamID.IsValid/m_SteamID against the real assemblies after updates.
+
+PlayerPortraits retains the borrowed source per slot/identity, throttles source
+reads to one second and drops old sources on identity changes. The existing GUI
+publisher checks missing sources while the overview is visible, independently of
+simulation ticks and statistics capture, so delayed images can appear during pause.
+It only changes an existing Image.Source when its reference changes. Closing,
+HUD replacement and mission replacement retire the cache; a retired read cannot
+publish a source to the replacement view. Null results remain eligible for retry.
+No render/layout rebuild or statistics/provider query is part of that retry path.

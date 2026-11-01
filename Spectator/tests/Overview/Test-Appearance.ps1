@@ -106,6 +106,22 @@ try {
    if($instruction.OpCode.Name -in @('newarr','box') -or ($instruction.OpCode.Name -eq 'newobj' -and -not $instruction.Operand.DeclaringType.IsValueType)){throw "Managed allocation on critical/fast boundary: $($pair -join '.')"}
   }
  }
+ # Portrait retries may only update realized images; the pending path must not render
+ # or acquire statistics. This IL boundary guard complements the production cache tests.
+ $pendingPortraits=$runtime.Methods | Where-Object Name -eq 'RefreshPendingPortraits'
+ $portraitWrites=$runtime.Methods | Where-Object Name -eq 'SetPortrait'
+ foreach($method in @($pendingPortraits,$portraitWrites)) {
+  if(-not $method -or -not $method.HasBody){throw 'Missing owned portrait presentation boundary.'}
+  foreach($instruction in $method.Body.Instructions) {
+   if($instruction.Operand -is [Mono.Cecil.MethodReference] -and $instruction.Operand.Name -in @('CurrentUiContext','Render','Capture','RequestRefresh','ReadExtensions','GetMeritData','GetMPScoreData','DLL_GetMeritData','DLL_GetMPScoreData')){throw 'Portrait-only refresh crossed the statistics/layout boundary.'}
+   if($instruction.OpCode.Name -in @('newarr','box') -or ($instruction.OpCode.Name -eq 'newobj' -and -not $instruction.Operand.DeclaringType.IsValueType)){throw 'Portrait-only refresh allocates a new visual/closure.'}
+  }
+ }
+ $portraitBackend=$runtime.NestedTypes | Where-Object Name -eq 'VanillaPortraitSource'
+ $portraitRead=$portraitBackend.Methods | Where-Object Name -eq 'Read'
+ $portraitCalls=@($portraitRead.Body.Instructions | Where-Object {$_.Operand -is [Mono.Cecil.MethodReference]} | ForEach-Object {$_.Operand.Name})
+ foreach($name in @('GetLocalAvatar','GetUserAvatar','getAIFace')){if($name -notin $portraitCalls){throw "Vanilla portrait branch missing: $name"}}
+ if(($portraitCalls -contains 'RequestUserAvatar') -or @($portraitRead.Body.Instructions | Where-Object {$_.OpCode.Name -eq 'newobj'}).Count -gt 0){throw 'Portraits must borrow Vanilla cached sources, not create/request another image.'}
  $bindCrown=$runtime.Methods | Where-Object Name -eq 'BindCrownButton'
  foreach($name in @('SetInitialShowDelay','SetBetweenShowDelay')){
   if(-not ($bindCrown.Body.Instructions | Where-Object {$_.Operand -is [Mono.Cecil.MethodReference] -and $_.Operand.Name -eq $name -and $_.Previous.OpCode.Name -eq 'ldc.i4.0'})){throw "Crown delay must be zero: $name"}
@@ -136,7 +152,15 @@ foreach($file in Get-ChildItem -LiteralPath $localeRoot -Filter '*.txt'){
 # Verify the real unmodified game/SE boundary, not only a successful compile against a publicized assembly.
 $gameAssembly=[Mono.Cecil.AssemblyDefinition]::ReadAssembly((Join-Path $GameDirectory 'Stronghold Crusader Definitive Edition_Data/Managed/Assembly-CSharp.dll'))
 $extender=[Mono.Cecil.AssemblyDefinition]::ReadAssembly((Join-Path $GameDirectory 'BepInEx/plugins/000shcdese/SHCDESE.dll'))
+$steamAssembly=[Mono.Cecil.AssemblyDefinition]::ReadAssembly((Join-Path $GameDirectory 'Stronghold Crusader Definitive Edition_Data/Managed/com.rlabrecque.steamworks.net.dll'))
 try {
+ $portraitPlatform=$gameAssembly.MainModule.GetType('Platform_Multiplayer')
+ foreach($pair in @(@('GetLocalAvatar',0),@('GetUserAvatar',1),@('getPlayerSteamID',1))) {
+  if(-not ($portraitPlatform.Methods | Where-Object {$_.Name -eq $pair[0] -and $_.IsPublic -and $_.Parameters.Count -eq $pair[1]})){throw "Public Vanilla portrait contract changed: $($pair[0])"}
+ }
+ $steamIdType=$steamAssembly.MainModule.GetType('Steamworks.CSteamID')
+ if(-not ($steamIdType.Methods | Where-Object {$_.Name -eq 'IsValid' -and $_.IsPublic -and $_.Parameters.Count -eq 0 -and $_.ReturnType.FullName -eq 'System.Boolean'})){throw 'Public Steam identity validation unavailable.'}
+ if(-not ($steamIdType.Fields | Where-Object {$_.Name -eq 'm_SteamID' -and $_.IsPublic -and $_.FieldType.FullName -eq 'System.UInt64'})){throw 'Public Steam identity value unavailable.'}
  $engine=$gameAssembly.MainModule.GetType('EngineInterface')
  # Verify the actual Vanilla fear palette/index contract used by the cached signed-level adapter.
  $fearMethod=$gameAssembly.MainModule.GetType('CrusaderDE.HUD_MissionOver').Methods | Where-Object Name -eq 'GetPlayerFear'
@@ -188,5 +212,5 @@ try {
  if(-not ($resources.Fields | Where-Object {$_.Name -eq 'r_WinLossState' -and $_.IsPublic -and $_.FieldType.FullName -eq 'SHCDESE.Interop.Enums.WinLossState'})){throw 'Official eliminated-player status contract changed.'}
  $origin=$extender.MainModule.GetType('SHCDESE.API.GameXAMLManagerAPI').Properties | Where-Object Name -eq 'CurrentLobbyModSettingsChangeOrigin'
  if(-not $origin.GetMethod.IsPublic){throw 'Settings change-origin contract unavailable.'}
-} finally {$gameAssembly.Dispose();$extender.Dispose()}
+} finally {$gameAssembly.Dispose();$extender.Dispose();$steamAssembly.Dispose()}
 Write-Host 'PASS: packaged crown states, metric locales, settings/tooltips and real Vanilla/SE access contracts (actual rendering still requires in-game validation).'

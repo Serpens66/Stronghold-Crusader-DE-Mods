@@ -22,7 +22,7 @@ internal static partial class Program {
   state.Restore("Player",true,new[]{Metric.Gold});Check(state.Column==null && state.Descending,"player descending persists");
   var external=Metrics.RegisterExternal("sort.mod/score");state.Restore("sort.mod/score",true,new[]{external});Check(state.Column==external && state.SortKey=="sort.mod/score","provider sort persists by stable key, never ephemeral negative enum ID");
   TestColumns();TestExternalColumns();TestInformation();TestValues();TestMenuAndGestures();TestPassiveHover();TestLayoutsAndActions();TestMenuWindowAndCrown();
-  TestSamplingAndPointer();
+  TestSamplingAndPointer();TestPortraits();
   Console.WriteLine("PASS: "+checks+" production layout, UI lifetime, sample isolation, sorting, information and cadence checks.");
  }
  static void TestColumns(){

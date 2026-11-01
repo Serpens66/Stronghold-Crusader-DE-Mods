@@ -67,7 +67,7 @@ namespace Spectator.LordOverview {
    DiagOverviewGui();
    if(Volatile.Read(ref shown)==0)return;
    OnHoverGui(args);
-   if(args.OriginalCompleted)try{Refresh();}catch(Exception error){Close();Error(error);}
+   if(args.OriginalCompleted)try{RefreshPendingPortraits();Refresh();}catch(Exception error){Close();Error(error);}
   }
   static partial void DiagOverviewGui();
   private static void Attach(FrameworkElement host) {
@@ -107,7 +107,7 @@ namespace Spectator.LordOverview {
    main.SetGoodsPopupState(false);main.SetObjectivePopupState(false);
    panel.Visibility=Visibility.Visible;Volatile.Write(ref shown,1);hoverFaulted=false;MarkHoverGeometryDirty();RequestRefresh();
   }
-  private static void Close(){CancelCrownPress();CancelHeaderGesture();CloseSettingsMenu();ClosePassiveHover();Interlocked.Increment(ref generation);Volatile.Write(ref shown,0);sampling.Cancel();OverviewData.CancelPending();if(panel!=null){CloseTips(panel);panel.Visibility=Visibility.Collapsed;}}
+  private static void Close(){CancelCrownPress();CancelHeaderGesture();CloseSettingsMenu();ClosePassiveHover();Interlocked.Increment(ref generation);Volatile.Write(ref shown,0);portraits.Reset();sampling.Cancel();OverviewData.CancelPending();if(panel!=null){CloseTips(panel);panel.Visibility=Visibility.Collapsed;}}
   private static void CloseTips(DependencyObject root){if(ToolTipService.GetToolTip(root) is ToolTip tip)tip.IsOpen=false;for(int i=0;i<VisualTreeHelper.GetChildrenCount(root);i++)CloseTips(VisualTreeHelper.GetChild(root,i));}
   private static void Detach(){Close();DetachCrownButton();DetachSettingsMenu();ResetTable();ClearHoverTargets();ResetMetricIcons();requestedRefresh.Cancel();
    if(hoverBubble!=null)overlay?.Children.Remove(hoverBubble);hoverBubble=null;hoverBubbleLabel=null;bubbleText=null;
