@@ -3,19 +3,26 @@
   "Author": "Serpens66",
   "Name": "Extra Features",
   "Description": "Optional gameplay additions and economy customization for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.126",
+  "Version": "1.0.127",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.0",
   "MaximumScriptExtenderVersion": "",
   "Dependencies": [
     {
       "GUID": "APIShared_Serp",
-      "MinimumVersion": "0.16.1"
+      "MinimumVersion": "0.22.0"
     }
   ],
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.127",
+      "Changes": [
+        "Fix periodic gold multiplayer divergence by using APIShared's native map-tick event instead of the local engine-run counter affected by frame skips and FPS compensation.",
+        "Use the same save-preserved counter at mission start and reactivation; keep all 400-tick intervals, Human/AI amounts, signed accounting and overflow limits. Disable only periodic gold when the source is unavailable."
+      ]
+    },
     {
       "Version": "1.0.126",
       "Changes": [

@@ -9,8 +9,8 @@ namespace ExtraFeatures
     // The engine boundary is also used by the offline lifecycle/accounting fixture.
     internal interface IPeriodicGoldWorld
     {
-        int CurrentTick { get; }
-        event Action<int> Tick;
+        bool TryGetCurrentTick(out int tick);
+        bool TryRegisterTick(Action<int> callback, out string reason);
         void VisitAlivePlayers(Action<int, bool, int, int> visitor);
         void AddIncomingGold(int playerId, int amount);
         void SetGold(int playerId, int gold);
@@ -26,7 +26,7 @@ namespace ExtraFeatures
         private readonly Action<int, bool, int, int> applyPlayer;
         private long session;
         private int lastTick, human, ai;
-        private bool started, subscribed, registered;
+        private bool started, active, registered;
 
         internal PeriodicGoldRuntime(ManualLogSource log, ExtraFeaturesViewModel settings, IPeriodicGoldWorld world)
         {
@@ -40,6 +40,11 @@ namespace ExtraFeatures
         {
             if (registered) return;
             registered = true;
+            if (!world.TryRegisterTick(OnTick, out string reason))
+            {
+                Error(new InvalidOperationException("Native simulation tick registration failed; periodic gold disabled: " + reason));
+                return;
+            }
             // Mission/activation publishers root this object for the entire process.
             subscriptions.Add(Shared.MissionEvents.Initialization.Subscribe(Initializing));
             subscriptions.Add(Shared.MissionEvents.Started.Subscribe(Started));
@@ -66,7 +71,11 @@ namespace ExtraFeatures
                 if (started && session == note.Context.SessionId) return;
                 EndSession();
                 session = note.Context.SessionId;
-                lastTick = world.CurrentTick;
+                if (!world.TryGetCurrentTick(out lastTick))
+                {
+                    Error(new InvalidOperationException("Native map tick unavailable at mission start; periodic gold disabled for this session."));
+                    return;
+                }
                 human = settings.PeriodicGoldHuman;
                 ai = settings.PeriodicGoldAI;
                 started = true;
@@ -110,22 +119,25 @@ namespace ExtraFeatures
         {
             bool needed = started && (human != 0 || ai != 0) &&
                 Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod);
-            if (needed == subscribed) return;
+            if (needed == active) return;
             if (needed)
             {
                 // Do not catch up ticks elapsed while disabled.
-                lastTick = Math.Max(lastTick, world.CurrentTick);
-                world.Tick += OnTick;
+                if (!world.TryGetCurrentTick(out int tick))
+                {
+                    Error(new InvalidOperationException("Native map tick unavailable during activation; periodic gold remains inactive."));
+                    return;
+                }
+                lastTick = Math.Max(lastTick, tick);
             }
-            else world.Tick -= OnTick;
-            subscribed = needed;
+            active = needed;
         }
 
         private void OnTick(int tick)
         {
             lock (sync)
             {
-                if (!subscribed || tick <= lastTick || tick <= 0) return;
+                if (!active || tick <= lastTick || tick <= 0) return;
                 lastTick = tick;
                 // A publisher may already have captured this delegate while activation
                 // is changing; the current gate remains authoritative at execution.

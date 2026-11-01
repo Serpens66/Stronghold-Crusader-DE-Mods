@@ -3,19 +3,66 @@
   "Author": "Serpens66",
   "Name": "Extra Features",
   "Description": "Optional gameplay additions and economy customization for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.121",
+  "Version": "1.0.127",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.0",
   "MaximumScriptExtenderVersion": "",
   "Dependencies": [
     {
       "GUID": "APIShared_Serp",
-      "MinimumVersion": "0.16.0"
+      "MinimumVersion": "0.22.0"
     }
   ],
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.127",
+      "Changes": [
+        "Fix periodic gold multiplayer divergence by using APIShared's native map-tick event instead of the local engine-run counter affected by frame skips and FPS compensation.",
+        "Use the same save-preserved counter at mission start and reactivation; keep all 400-tick intervals, Human/AI amounts, signed accounting and overflow limits. Disable only periodic gold when the source is unavailable."
+      ]
+    },
+    {
+      "Version": "1.0.126",
+      "Changes": [
+        "Split enemy-unit proximity into independent civilian and military radii for humans/AI and singleplayer/multiplayer. Preserve separate enemy-building/wall restrictions and the existing action scope.",
+        "Migrate existing common radii into both categories without overriding explicit new values, including Vanilla. Preserve personal profiles, named presets, mission snapshots and host/client authority.",
+        "Use a fully validated private native predicate through the existing Script Extender event, with no additional game-code hook or runtime immediate writes.",
+        "Keep all Extra Features active when the old proximity value cannot be read from a damaged or locked settings file; the shared settings system then backs up the file and applies the stored new values or defaults."
+      ]
+    },
+    {
+      "Version": "1.0.125",
+      "Changes": [
+        "Fix severe victory-loot slider lag: use the standard individual-value update, persistence and host synchronization path instead of applying and publishing all host settings on every step. Unchanged values do no work.",
+        "Migrate old No Kill Reward values when loading profiles, confirmed presets and mission working copies; preserve independent later edits, personal client settings and read-only Trail sources, including after host takeover.",
+        "Fix the out-of-module award-statistic address that caused exceptions and Vanilla fallback on Lord death. Derive the address from validated native instructions and reject invalid player ranges or non-writable data before publishing the existing hooks."
+      ]
+    },
+    {
+      "Version": "1.0.124",
+      "Changes": [
+        "Replace victory-loot suppression checkboxes with independent Human/AI gold and goods percentage sliders (-1 for Vanilla, 0-100 percent) and positive absolute gold limits (-1 retains 100,000). Preserve Vanilla defaults, rounding, victory messages and cleanup.",
+        "Default all six settings to -1: Vanilla awards 25 percent gold with a minimum of 500 and a limit of 100,000, plus 25 percent of each eligible goods stock. Custom percentages have no minimum; 0 gives no reward of that kind. Apply the selected gold limit afterwards, allowing it to replace either Vanilla gold bound.",
+        "Migrate previous No Kill Reward profile and Trail settings to zero gold and goods; keep canonical exports, atomic grouped edits, host authority and mission locking. Bound native credits safely and split very large gold announcements into representable messages."
+      ]
+    },
+    {
+      "Version": "1.0.123",
+      "Changes": [
+        "Recognize an already effective requested market price as satisfied without claiming ownership or reporting a conflicting-price warning; continue to protect differing direct prices and preserve rounding, factor changes and restoration.",
+        "Log bounded market-price decisions with the good, buy/sell direction, base/current/requested prices, factor and ownership state without attributing an observed difference to a specific mod."
+      ]
+    },
+    {
+      "Version": "1.0.122",
+      "Changes": [
+        "Configure separate signed whole-number gold amounts for Human and AI players every 400 simulation ticks; both default to zero. Positive amounts queue incoming gold, while negative amounts debit the current balance down to zero and preserve pending gold.",
+        "Keep the saved game-tick phase across loading, skip already completed boundaries, and detach the ticker entirely when disabled or both amounts are zero. Apply deterministically to living players in allowed gameplay/editor sessions through existing Extender events.",
+        "Integrate host-authoritative presets, strict integer validation, mission locking, money icons and localized text/state search. Bound credits safely at the signed Int32 capacity."
+      ]
+    },
     {
       "Version": "1.0.121",
       "Changes": [

@@ -20,22 +20,34 @@ internal static class PeriodicGoldTests
     private sealed class World : IPeriodicGoldWorld
     {
         internal readonly List<Player> Players = new List<Player>();
+        internal readonly List<int> VisitTicks = new List<int>();
         internal int Subscriptions, Visits, Credits, Debits;
+        internal long Session = 1;
+        internal bool Available = true, RegistrationAvailable = true;
         public int CurrentTick { get; set; }
         private Action<int> tick;
-        public event Action<int> Tick
+        private readonly APIShared.Simulation.SimulationTickRegistry registry;
+        internal World()
         {
-            add { tick += value; Subscriptions++; }
-            remove { tick -= value; Subscriptions--; }
+            registry = new APIShared.Simulation.SimulationTickRegistry(Read, callback =>
+            {
+                if (!RegistrationAvailable) throw new InvalidOperationException("fixture source unavailable");
+                tick = callback; Subscriptions++;
+            });
         }
-        internal void Emit(int value, bool paused = false)
+        private bool Read(out long session, out int value) { session = Session; value = CurrentTick; return Available; }
+        public bool TryGetCurrentTick(out int value) => registry.TryGetCurrentTick(out value);
+        public bool TryRegisterTick(Action<int> callback, out string reason) =>
+            registry.TryRegister("gold", "runtime", callback, 0, out reason);
+        internal void Emit(int value, bool paused = false, int? localTick = null)
         {
             CurrentTick = value;
-            if (!paused) tick?.Invoke(value);
+            if (!paused) tick?.Invoke(localTick ?? value);
         }
         public void VisitAlivePlayers(Action<int, bool, int, int> visitor)
         {
             Visits++;
+            VisitTicks.Add(CurrentTick);
             foreach (Player p in Players.Where(p => p.Alive)) visitor(p.Id, p.AI, p.Gold, p.Pending);
         }
         public void AddIncomingGold(int id, int amount) { Players.Single(p => p.Id == id).Pending += amount; Credits++; }
@@ -62,20 +74,25 @@ internal static class PeriodicGoldTests
         world.Players.AddRange(new[] { human, ai, dead });
         var runtime = new PeriodicGoldRuntime(null, settings, world);
         runtime.Register(); runtime.Register();
-        check(world.Subscriptions == 0, "Gold runtime has no tick handler in menus");
+        check(world.Subscriptions == 1, "Gold runtime registers one process-lifetime native tick callback");
         long session = 9000;
         Func<int, MissionStartKind, GameModeKind, MissionContext> begin = (tick, kind, mode) =>
         {
             world.CurrentTick = tick;
+            world.Session++;
             var context = new MissionContext(++session, kind, Mode(mode), null, "gold fixture", false);
             Publish(context, MissionLifecycleKind.Initialization);
-            check(world.Subscriptions == 0, "Initialization retires old ticker before starting another map");
+            int visits = world.Visits;
+            world.Emit(tick + 400);
+            check(world.Visits == visits, "Initialization logically stops old gold work before another map starts");
+            world.CurrentTick = tick;
+            world.Session++; // The initialization probe is not a simulation step of the new mission.
             Publish(context, MissionLifecycleKind.Start);
             return context;
         };
         var map = begin(0, MissionStartKind.NewGame, GameModeKind.CustomGame);
         world.Emit(400);
-        check(world.Subscriptions == 0 && world.Visits == 0, "Zero/zero never subscribes or visits players");
+        check(world.Subscriptions == 1 && world.Visits == 0, "Zero/zero never visits players despite permanent registration");
         Publish(map, MissionLifecycleKind.End);
         settings.PeriodicGoldHuman = 50; settings.PeriodicGoldAI = -25;
         map = begin(0, MissionStartKind.NewGame, GameModeKind.CustomGame);
@@ -96,14 +113,14 @@ internal static class PeriodicGoldTests
         world.Emit(800);
         check(human.Pending == 107 && world.Visits == 2, "Next simulation boundary pays exactly once");
         settings.EnableMod = false;
-        check(world.Subscriptions == 0, "Disabling ExtraFeatures completely detaches the gold handler");
+        check(world.Subscriptions == 1, "Disabling ExtraFeatures retains the process-lifetime registration");
         world.Emit(1200);
         settings.EnableMod = true; world.Emit(1200);
         check(world.Visits == 2 && world.Subscriptions == 1, "Reactivation neither catches up nor repays current tick");
         world.Emit(1600);
         check(world.Visits == 3, "Reactivation resumes on the next boundary");
         Publish(map, MissionLifecycleKind.End);
-        check(world.Subscriptions == 0 && settings.CanConfigurePeriodicGold, "End detaches ticker and unlocks settings");
+        check(world.Subscriptions == 1 && settings.CanConfigurePeriodicGold, "End unlocks settings while retaining registration");
         map = begin(1600, MissionStartKind.LoadedSave, GameModeKind.CustomGame);
         world.Emit(1600); world.Emit(1999);
         check(world.Visits == 3, "Save loaded at a paid boundary never repays it");
@@ -125,7 +142,9 @@ internal static class PeriodicGoldTests
         foreach (GameModeKind mode in new[] { GameModeKind.Campaign, GameModeKind.StandaloneMission, GameModeKind.VanillaTrail, GameModeKind.Unknown })
         {
             map = begin(0, MissionStartKind.NewGame, mode);
-            check(world.Subscriptions == 0, "Disallowed mission mode has no gold ticker: " + mode);
+            int visits = world.Visits;
+            world.Emit(400);
+            check(world.Visits == visits, "Disallowed mission mode never visits gold accounts: " + mode);
             Publish(map, MissionLifecycleKind.End);
         }
         settings.PeriodicGoldHuman = int.MaxValue; settings.PeriodicGoldAI = int.MinValue;
@@ -146,7 +165,9 @@ internal static class PeriodicGoldTests
         var failed = new MissionContext(++session, MissionStartKind.LoadedSave, Mode(GameModeKind.CustomGame), null, "failed", false);
         Publish(failed, MissionLifecycleKind.Initialization);
         Publish(map, MissionLifecycleKind.End);
-        check(world.Subscriptions == 0, "Replacing an active map detaches ticker before failed load");
+        int failedVisits = world.Visits;
+        world.Emit(1200);
+        check(world.Visits == failedVisits, "Replacing an active map stops gold work before failed load");
         Publish(failed, MissionLifecycleKind.End);
         check(settings.CanConfigurePeriodicGold, "Failed load leaves settings unlocked");
         settings.PeriodicGoldHuman = 77; settings.PeriodicGoldAI = -5;
@@ -162,10 +183,18 @@ internal static class PeriodicGoldTests
         });
         new PeriodicGoldRuntime(null, clientSettings, clientWorld).Register();
         map = begin(0, MissionStartKind.NewGame, GameModeKind.CustomGame);
-        foreach (int tick in new[] { 399, 400, 400, 799, 800, 1200 }) { world.Emit(tick); clientWorld.Emit(tick); }
+        world.VisitTicks.Clear(); clientWorld.VisitTicks.Clear();
+        foreach (int tick in new[] { 399, 400, 400, 799, 800, 1200 })
+        {
+            world.Emit(tick, localTick: tick + 3);
+            clientWorld.Emit(tick, localTick: tick * 2 + 19);
+        }
         check(clientWorld.Players[0].Pending == human.Pending && clientWorld.Players[0].Gold == human.Gold &&
             clientWorld.Players[1].Gold == ai.Gold && clientWorld.Players[1].Pending == ai.Pending,
             "Two offline peers with synchronized settings execute identical tick/accounting results");
+        check(world.VisitTicks.SequenceEqual(new[] { 400, 800, 1200 }) &&
+            world.VisitTicks.SequenceEqual(clientWorld.VisitTicks),
+            "Different local engine counters and FPS compensation pay at the same native ticks");
         int beforeGateClosure = human.Pending;
         // Model a captured event delegate before the activation notification arrives.
         var blocked = new MissionContext(++session, MissionStartKind.NewGame, Mode(GameModeKind.Campaign), null, "gate transition", false);
@@ -175,7 +204,34 @@ internal static class PeriodicGoldTests
         check(human.Pending == beforeGateClosure && clientWorld.Players[0].Pending == beforeGateClosure,
             "Captured tick callbacks cannot pay after the authoritative mode gate closes");
         Publish(map, MissionLifecycleKind.End);
-        check(clientWorld.Subscriptions == 0 && world.Subscriptions == 0, "Both offline peers detach at mission end");
+        int endedVisits = world.Visits + clientWorld.Visits;
+        world.Emit(2000); clientWorld.Emit(2000);
+        check(world.Visits + clientWorld.Visits == endedVisits && world.Subscriptions == 1 && clientWorld.Subscriptions == 1,
+            "Both offline peers stop gold work at mission end and retain one registration");
+        // Startup and activation failures must never fall back to local tick values or lock the UI forever.
+        var unavailableSettings = new ExtraFeaturesViewModel(false) { PeriodicGoldHuman = 5 };
+        var unavailable = new World { RegistrationAvailable = false };
+        new PeriodicGoldRuntime(null, unavailableSettings, unavailable).Register();
+        map = begin(2401, MissionStartKind.LoadedSave, GameModeKind.CustomGame);
+        unavailable.Emit(2800);
+        check(unavailable.Subscriptions == 0 && unavailable.Visits == 0 && unavailableSettings.CanConfigurePeriodicGold,
+            "Unavailable registration disables only the unregistered feature and keeps its settings unlocked");
+        world.Emit(2401); world.Emit(2799); world.Emit(2800);
+        check(world.VisitTicks.Last() == 2800, "Save after a paid boundary waits for the next native interval");
+        Publish(map, MissionLifecycleKind.End);
+        world.Available = false;
+        map = begin(3200, MissionStartKind.LoadedSave, GameModeKind.CustomGame);
+        world.Available = true;
+        int missingVisits = world.Visits;
+        world.Emit(3600);
+        check(world.Visits == missingVisits && settings.CanConfigurePeriodicGold,
+            "Missing start counter keeps this mission inactive instead of inventing tick zero");
+        Publish(map, MissionLifecycleKind.End);
+        map = begin(0, MissionStartKind.NewGame, GameModeKind.CustomGame);
+        settings.EnableMod = false; world.Available = false; settings.EnableMod = true;
+        world.Available = true; missingVisits = world.Visits; world.Emit(400);
+        check(world.Visits == missingVisits, "Unavailable activation read stays inactive without a local-clock fallback");
+        Publish(map, MissionLifecycleKind.End);
     }
 
     private static void Settings(Action<bool, string> check)

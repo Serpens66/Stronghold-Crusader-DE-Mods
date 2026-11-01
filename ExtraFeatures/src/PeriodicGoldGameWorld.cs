@@ -6,12 +6,12 @@ namespace ExtraFeatures
 {
     internal sealed class PeriodicGoldGameWorld : IPeriodicGoldWorld
     {
-        public int CurrentTick => Director.instance.getSimTickCount();
-        public event Action<int> Tick
-        {
-            add => GameTimeManagerAPI.Instance.OnTick += value;
-            remove => GameTimeManagerAPI.Instance.OnTick -= value;
-        }
+        public bool TryGetCurrentTick(out int tick) =>
+            APIShared.Simulation.SimulationTickEvents.TryGetCurrentTick(out tick);
+
+        public bool TryRegisterTick(Action<int> callback, out string reason) =>
+            APIShared.Simulation.SimulationTickEvents.TryRegister(
+                ExtraFeaturesPlugin.PluginGuid, "periodic-gold", callback, out reason);
 
         public void VisitAlivePlayers(Action<int, bool, int, int> visitor)
         {
