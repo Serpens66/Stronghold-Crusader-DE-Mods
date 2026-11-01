@@ -37,13 +37,13 @@ namespace Spectator
                 if (!Settings.IsRestoringSnapshot && CanMigrateSetting(args.PropertyName) && !SpectatorRuntime.HasMission &&
                     !Settings.IsMissionPresetSelected && Array.IndexOf(LegacySpectatorSettings.Keys, args.PropertyName) >= 0)
                     legacySettings?.PreserveEdit(args.PropertyName);
-                if (args.PropertyName == nameof(Settings.CanEditHostSettings) || args.PropertyName == nameof(Settings.CanEditClientSettings)) TryMigrateLegacySettings();
+                if (args.PropertyName == nameof(Settings.CanEditMissionIndependentHostSettings) || args.PropertyName == nameof(Settings.CanEditClientSettings)) TryMigrateLegacySettings();
             }
             catch (Exception error) { LogMigrationError(error); }
         }
 
         private bool CanMigrateSetting(string key) => key == nameof(Settings.EnableSpectatorPerspective)
-            ? Settings.CanEditClientSettings : Settings.CanEditHostSettings;
+            ? Settings.CanEditClientSettings : Settings.CanEditMissionIndependentHostSettings;
 
         private void TryMigrateLegacySettings()
         {

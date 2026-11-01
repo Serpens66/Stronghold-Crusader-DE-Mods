@@ -190,3 +190,4 @@ Tools.OverviewDesign=Overview design
 Tools.OverviewDesignHelp=Choose the same locally saved design used by the in-game overview: list, two lists or lord cards.
 Tools.EnemyDetailsSetting=Allow additional enemy details
 Tools.EnemyDetailsSettingHelp=Host permission for active players to view additional enemy statistics. Disabled by default. Host features must also be enabled; existing viewer information rights still apply.
+Tools.PersonalHostNotice=These host options are saved personally and are not prescribed by maps, trails or savegames.

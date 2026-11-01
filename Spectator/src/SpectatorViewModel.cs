@@ -30,13 +30,13 @@ namespace Spectator
         private void RefreshActivation() => Activation = new SpectatorFeatureActivation(EnableMod,
             EnableClientFeatures, EnableSpectatorPerspective, EnableStatistics,
             EnableEliminatedPlayersBecomeSpectators, EnableTestTools, EnableSingleplayerTestMode, EnableLordOverview);
-        [SyncHostOnly]
+        [SyncHostOnly, MissionIndependent]
         public bool EnableMod { get => enableMod; set => Set(ref enableMod, value, nameof(EnableMod)); }
         [PresetLocal]
         public bool EnableSpectatorPerspective { get => enableSpectatorPerspective; set => Set(ref enableSpectatorPerspective, value, nameof(EnableSpectatorPerspective)); }
         [PresetLocal]
         public bool EnableStatistics { get => enableStatistics; set => Set(ref enableStatistics, value, nameof(EnableStatistics)); }
-        [SyncHostOnly]
+        [SyncHostOnly, MissionIndependent]
         public bool EnableEliminatedPlayersBecomeSpectators { get => enableEliminatedPlayersBecomeSpectators; set => Set(ref enableEliminatedPlayersBecomeSpectators, value, nameof(EnableEliminatedPlayersBecomeSpectators)); }
 
         private void Set(ref bool field, bool value, string name)

@@ -190,3 +190,4 @@ Tools.OverviewDesign=Ansicht der Übersicht
 Tools.OverviewDesignHelp=Wählt dieselbe lokal gespeicherte Ansicht wie im Ingame-Menü: Liste, zwei Listen oder Lord-Kacheln.
 Tools.EnemyDetailsSetting=Zusätzliche Gegnerinformationen erlauben
 Tools.EnemyDetailsSettingHelp=Hostfreigabe für zusätzliche gegnerische Statistikwerte bei aktiven Spielern. Standardmäßig ausgeschaltet. Hostfunktionen müssen ebenfalls aktiviert sein; bestehende Informationsrechte gelten weiterhin.
+Tools.PersonalHostNotice=Diese Hostoptionen werden persönlich gespeichert und nicht durch Karten, Trails oder Spielstände vorgegeben.

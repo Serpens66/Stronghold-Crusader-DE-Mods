@@ -13,7 +13,7 @@ namespace Spectator
   [PresetLocal] public bool EnableLordOverview {get=>enableLordOverview;set=>Set(ref enableLordOverview,value,nameof(EnableLordOverview));}
   [PresetLocal] public bool OverviewShowEliminated {get=>overviewShowEliminated;set=>Set(ref overviewShowEliminated,value,nameof(OverviewShowEliminated));}
   [PresetLocal] public bool OverviewSortDescending {get=>overviewSortDescending;set=>Set(ref overviewSortDescending,value,nameof(OverviewSortDescending));}
-  [SyncHostOnly] public bool AllowEnemyDetails {get=>allowEnemyDetails;set{
+  [SyncHostOnly, MissionIndependent] public bool AllowEnemyDetails {get=>allowEnemyDetails;set{
    if(!CanMutateSetting())return;
    // A same-value authoritative write still confirms this lobby's permission.
    Overview.ObservePermissionWrite();

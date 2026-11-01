@@ -122,7 +122,8 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}"
       <TextBlock Text="{Binding System_TrailSourceNoticeText}" Visibility="{Binding System_TrailSourceNoticeVisibility}" Foreground="#FFCC66" FontWeight="Bold" TextWrapping="Wrap" Margin="0,0,0,8"/>
       <TextBlock Text="{Binding HostReadOnlyNoticeText}" Visibility="{Binding HostReadOnlyNoticeVisibility}" Foreground="#FFCC66" FontWeight="Bold" Margin="0,0,0,8"/>
       <TextBlock Text="{Binding HostOptionsText}" Style="{StaticResource HostRoleHeader}" Margin="0,12,0,6"/>
-      <StackPanel IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
+      <TextBlock Text="{Binding Text[PersonalHostNotice]}" Foreground="#BBBBBB" TextWrapping="Wrap" Margin="0,0,0,6"/>
+      <StackPanel IsEnabled="{Binding CanEditMissionIndependentHostSettings}" Opacity="{Binding HostSettingsOpacity}">
         <CheckBox IsChecked="{Binding EnableEliminatedPlayersBecomeSpectators, Mode=TwoWay}" Content="{Binding Text[DefeatSetting]}" ToolTipService.ShowDuration="60000" Foreground="White" Margin="0,4"><CheckBox.ToolTip><ToolTip Style="{StaticResource SpectatorPopupStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding Text[DefeatSettingHelp]}"/></CheckBox.ToolTip></CheckBox>
         <CheckBox IsChecked="{Binding AllowEnemyDetails, Mode=TwoWay}" Content="{Binding Text[EnemyDetailsSetting]}" ToolTipService.ShowDuration="60000" Foreground="White" Margin="0,4"><CheckBox.ToolTip><ToolTip Style="{StaticResource SpectatorPopupStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding Text[EnemyDetailsSettingHelp]}"/></CheckBox.ToolTip></CheckBox>
       </StackPanel>

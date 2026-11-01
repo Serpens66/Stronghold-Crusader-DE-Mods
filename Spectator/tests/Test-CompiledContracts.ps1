@@ -15,6 +15,7 @@ try {
     foreach ($name in @('EnableMod','AllowEnemyDetails','EnableEliminatedPlayersBecomeSpectators')) {
         $property = $settings.Properties | Where-Object Name -eq $name
         if (-not ($property.CustomAttributes.AttributeType.Name -contains 'SyncHostOnlyAttribute')) { throw "Host role lost: $name" }
+        if (-not ($property.CustomAttributes.AttributeType.Name -contains 'MissionIndependentAttribute')) { throw "Mission-independent ownership lost: $name" }
     }
     foreach ($name in @('EnableClientFeatures','EnableTestTools','EnableSingleplayerTestMode','EnableSpectatorPerspective','EnableStatistics','EnableLordOverview','OverviewColumns','OverviewDesign','OverviewLordGrid','OverviewValueGrid','OverviewShowEliminated','OverviewSortBy','OverviewSortDescending')) {
         $client = $settings.Properties | Where-Object Name -eq $name
@@ -46,7 +47,20 @@ try {
         }
     }
     [xml]$settingsXaml = [IO.File]::ReadAllText((Join-Path $root 'Override/ScriptExtenderUI/SpectatorSettings.xaml'))
-    $hostContent = $settingsXaml.SelectSingleNode('//*[@IsEnabled="{Binding CanEditHostSettings}"]')
+    $hostContent = $settingsXaml.SelectSingleNode('//*[@IsEnabled="{Binding CanEditMissionIndependentHostSettings}"]')
+    if (-not $hostContent) { throw 'Host options must use the mission-independent authority binding.' }
+    foreach ($hostControl in @($hostContent) + @($hostContent.SelectNodes('.//*'))) {
+        for ($ancestor = $hostControl; $ancestor; $ancestor = $ancestor.ParentNode) {
+            if ($ancestor -is [Xml.XmlElement] -and $ancestor.GetAttribute('IsEnabled') -match 'CanEditHostSettings|AreSettingsEditable') {
+                throw 'An ancestor still disables mission-independent host options through a mission lock.'
+            }
+        }
+    }
+    $hostToggle = $settingsXaml.SelectSingleNode('//*[@IsChecked="{Binding HostSettingsEnabled, Mode=TwoWay}"]')
+    if ($hostToggle.GetAttribute('IsEnabled') -ne '{Binding CanToggleHostSettings}') { throw 'Host activation must use the classification-aware shared gate.' }
+    for ($ancestor = $hostToggle.ParentNode; $ancestor; $ancestor = $ancestor.ParentNode) {
+        if ($ancestor -is [Xml.XmlElement] -and $ancestor.GetAttribute('IsEnabled') -match 'CanEditHostSettings|AreSettingsEditable') { throw 'Host activation is inside a mission-disabled container.' }
+    }
     if ($hostContent.Opacity -ne '{Binding HostSettingsOpacity}') { throw 'Host content must use the shared dimming contract.' }
     $runtime = $mod.MainModule.GetType('Spectator.SpectatorRuntime')
     $renderCalls = @($runtime.Methods | Where-Object HasBody | ForEach-Object { $_.Body.Instructions } | Where-Object { $_.Operand -is [Mono.Cecil.MethodReference] -and $_.Operand.DeclaringType.FullName -eq 'APIShared.Presentation.VisibleMapRenderEvents' })
