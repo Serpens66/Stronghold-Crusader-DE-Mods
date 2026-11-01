@@ -154,11 +154,11 @@ namespace StockpileAccessFixTest
         private int lastTick;
         private int consecutiveTicks;
         private int repairTick;
-        private int cooldownUntilTick;
+        private int? cooldownUntilTick;
         private bool progressReported;
         private Phase phase;
 
-        internal bool CanDiscard => phase == Phase.None && cooldownUntilTick == 0;
+        internal bool CanDiscard => phase == Phase.None && !cooldownUntilTick.HasValue;
 
         internal static bool CanStartCandidate(
             in StockpileObservation observation,
@@ -173,11 +173,11 @@ namespace StockpileAccessFixTest
             if (phase == Phase.Verifying)
                 return ObserveVerification(observation, tick);
 
-            if (cooldownUntilTick != 0)
+            if (cooldownUntilTick.HasValue)
             {
-                if (tick < cooldownUntilTick)
+                if (unchecked(tick - cooldownUntilTick.Value) < 0)
                     return StockpileEpisodeAction.None;
-                cooldownUntilTick = 0;
+                cooldownUntilTick = null;
             }
 
             if (!observation.HasIdleBugSignature)
@@ -230,7 +230,7 @@ namespace StockpileAccessFixTest
             lastTick = 0;
             consecutiveTicks = 0;
             repairTick = 0;
-            cooldownUntilTick = 0;
+            cooldownUntilTick = null;
             progressReported = false;
             phase = Phase.None;
         }
@@ -281,7 +281,7 @@ namespace StockpileAccessFixTest
             repairStart = default;
             repairTick = 0;
             progressReported = false;
-            cooldownUntilTick = checked(tick + RetryCooldownTicks);
+            cooldownUntilTick = unchecked(tick + RetryCooldownTicks);
         }
 
         private void ResetTracking()

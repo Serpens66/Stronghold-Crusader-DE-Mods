@@ -3,7 +3,6 @@ using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 
 namespace Shared
 {
@@ -51,13 +50,13 @@ namespace Shared
         private readonly Action<string> errorLogger;
         private readonly Action<ActivePlayerKeepWaitResult> completionCallback;
         private readonly string timeoutErrorText;
-        private readonly long startedTimestamp;
-        private readonly long timeoutStopwatchTicks;
         private bool listening;
+        private readonly int simulationTimeoutTicks;
+        private readonly int startedMapTick;
 
         internal ActivePlayerKeepWaitHandle(
             Action<ActivePlayerKeepSnapshot> readyCallback,
-            TimeSpan timeout,
+            int timeoutTicks, int startedTick,
             Action<string> errorLogger,
             string timeoutErrorText,
             Action<ActivePlayerKeepWaitResult> completionCallback)
@@ -68,11 +67,8 @@ namespace Shared
                 ? "Active-player Keep readiness timed out."
                 : timeoutErrorText.Trim();
             this.completionCallback = completionCallback;
-            startedTimestamp = Stopwatch.GetTimestamp();
-            timeoutStopwatchTicks = Math.Max(
-                1L,
-                checked((long)Math.Ceiling(timeout.TotalSeconds * Stopwatch.Frequency)));
-            GameTimeManagerAPI.Instance.OnTick += OnGameTick;
+            simulationTimeoutTicks = timeoutTicks;
+            startedMapTick = startedTick;
             listening = true;
         }
 
@@ -91,7 +87,7 @@ namespace Shared
                 "The Keep-readiness wait was cancelled."));
         }
 
-        private void OnGameTick(int tick)
+        internal void OnGameTick(int tick)
         {
             if (IsCompleted)
                 return;
@@ -119,8 +115,8 @@ namespace Shared
                 return;
             }
 
-            if (Stopwatch.GetTimestamp() - startedTimestamp < timeoutStopwatchTicks)
-                return;
+            if (!APIShared.Simulation.SimulationClock.TryGetElapsedTicks(startedMapTick, tick, out int elapsed) ||
+                elapsed < simulationTimeoutTicks) return;
 
             StopListening();
             string timeoutDetails = $"{timeoutErrorText} Last readiness failure: {failure}";
@@ -136,7 +132,7 @@ namespace Shared
             if (!listening)
                 return;
 
-            GameTimeManagerAPI.Instance.OnTick -= OnGameTick;
+            ActivePlayerKeepReadiness.RemoveSimulationWait(this);
             listening = false;
         }
 
@@ -157,24 +153,35 @@ namespace Shared
 
     public static unsafe class ActivePlayerKeepReadiness
     {
-        public static ActivePlayerKeepWaitHandle Wait(
-            Action<ActivePlayerKeepSnapshot> readyCallback,
-            TimeSpan timeout,
-            Action<string> errorLogger = null,
-            string timeoutErrorText = null,
-            Action<ActivePlayerKeepWaitResult> completionCallback = null)
+        private static readonly List<ActivePlayerKeepWaitHandle> simulationWaits = new List<ActivePlayerKeepWaitHandle>();
+        private static bool simulationTicksRegistered;
+        internal static void InitializeSimulationTicks(string ownerGuid)
         {
-            if (timeout <= TimeSpan.Zero)
-                throw new ArgumentOutOfRangeException(nameof(timeout), "The timeout must be greater than zero.");
-
-            return new ActivePlayerKeepWaitHandle(
-                readyCallback,
-                timeout,
-                errorLogger,
-                timeoutErrorText,
-                completionCallback);
+            if (simulationTicksRegistered) return;
+            if (!APIShared.Simulation.SimulationTickEvents.TryRegister(ownerGuid, "active-player-keep-readiness",
+                OnSimulationTick, out string reason, 100)) throw new InvalidOperationException(reason);
+            simulationTicksRegistered = true;
         }
-
+        private static void OnSimulationTick(int tick)
+        {
+            if (simulationWaits.Count == 0) return;
+            // Waits may complete/create other waits during delivery; new waits start next tick.
+            foreach (var wait in simulationWaits.ToArray()) wait.OnGameTick(tick);
+        }
+        internal static void RemoveSimulationWait(ActivePlayerKeepWaitHandle wait) => simulationWaits.Remove(wait);
+        internal static ActivePlayerKeepWaitHandle WaitForSimulationTicks(
+            Action<ActivePlayerKeepSnapshot> readyCallback, int timeoutTicks, Action<string> errorLogger,
+            string timeoutErrorText, Action<ActivePlayerKeepWaitResult> completionCallback)
+        {
+            if (!simulationTicksRegistered) throw new InvalidOperationException("Simulation readiness source is not registered.");
+            if (timeoutTicks <= 0) throw new ArgumentOutOfRangeException(nameof(timeoutTicks));
+            if (!MissionEvents.TryGetCurrentMapTick(out int startedTick))
+                throw new InvalidOperationException("A simulation readiness wait needs native map time at creation.");
+            var wait = new ActivePlayerKeepWaitHandle(readyCallback, timeoutTicks, startedTick, errorLogger,
+                timeoutErrorText, completionCallback);
+            simulationWaits.Add(wait);
+            return wait;
+        }
         public static bool TryCapture(
             out ActivePlayerKeepSnapshot snapshot,
             out string failure)

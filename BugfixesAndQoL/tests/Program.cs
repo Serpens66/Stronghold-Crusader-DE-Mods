@@ -284,7 +284,7 @@ namespace BugfixesAndQoL
                   runtime.Contains("pendingTransaction?.Dispose();") &&
                   runtime.Contains("ValidateCommittedDetour(committedDetour, expectedTargetAddress);") &&
                   runtime.Contains("internal void SetEnabled(bool enabled)") &&
-                  runtime.Contains("if (!correctionAvailable || !optimizationEnabled)") &&
+                  runtime.Contains("!correctionAvailable || !optimizationEnabled") &&
                   !runtime.Contains("public void Dispose()"),
                 "Waterboy detour validates committed targets, rolls back unpublished candidates and switches logically");
             Check(project.Contains("src\\WaterboyReservationLedger.cs") &&

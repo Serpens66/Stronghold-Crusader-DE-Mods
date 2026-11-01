@@ -16,6 +16,7 @@ namespace AIDefenseTest
 {
     internal sealed unsafe class AIDefenseTestRuntime : IDisposable
     {
+        private bool simulationTickRegistered;
         private const int InitialScanDelayTicks = 20;
         private const int ScanIntervalTicks = 250;
         private const int SummaryLogIntervalTicks = 1000;
@@ -119,7 +120,12 @@ namespace AIDefenseTest
                 .Where(args => args.Phase == EventHookPhase.Pre)
                 .Subscribe(OnUnitDelete));
 
-            GameTimeManagerAPI.Instance.OnTick += OnGameTick;
+            if (!simulationTickRegistered)
+            {
+                if (!APIShared.Simulation.SimulationTickEvents.TryRegister(AIDefenseTestPlugin.PluginGuid, "ai-defense-validation", OnGameTick, out string tickReason, 300))
+                    throw new InvalidOperationException("Native simulation ticks unavailable: " + tickReason);
+                simulationTickRegistered = true;
+            }
 
             applied = true;
             LogInfo(
@@ -177,7 +183,7 @@ namespace AIDefenseTest
             if (!applied)
                 return;
 
-            GameTimeManagerAPI.Instance.OnTick -= OnGameTick;
+            // Process-owned tick registration remains rooted; feature state gates execution.
 
             foreach (IDisposable subscription in subscriptions)
                 subscription.Dispose();
@@ -221,7 +227,7 @@ namespace AIDefenseTest
             editorBypassActive = false;
             firstScanPending = true;
 
-            int currentTick = GameTimeManagerAPI.Instance.GetFrameProvider().CurrentGameTick;
+            int currentTick = Shared.MissionEvents.RequireCurrentMapTick();
             nextScanTick = currentTick + InitialScanDelayTicks;
             nextSummaryLogTick = currentTick;
 
@@ -251,7 +257,7 @@ namespace AIDefenseTest
 
         private void OnGameTick(int tick)
         {
-            if (!IsRuntimeActiveForCurrentContext("game-tick editor detection") || tick < nextScanTick)
+            if (!IsRuntimeActiveForCurrentContext("game-tick editor detection") || unchecked(tick - nextScanTick) < 0)
                 return;
 
             nextScanTick = tick + ScanIntervalTicks;

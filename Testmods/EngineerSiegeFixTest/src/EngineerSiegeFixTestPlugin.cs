@@ -7,14 +7,14 @@ using System;
 namespace EngineerSiegeFixTest
 {
     [BepInDependency(ScriptExtenderGuid, "2.3.0")]
-    [BepInDependency("APIShared_Serp", "0.3.6")]
+    [BepInDependency("APIShared_Serp", "0.23.0")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class EngineerSiegeFixTestPlugin : BaseUnityPlugin
     {
         private const string ScriptExtenderGuid = "000shcdese";
         private const string PluginGuid = "EngineerSiegeFixTest_Serp";
         private const string PluginName = "Engineer Siege Fix Test";
-        private const string PluginVersion = "0.1.2";
+        private const string PluginVersion = "0.1.3";
 
         // SHCDE destroys the early BepInEx component during normal startup. Keep all
         // process-wide state independent of that Unity object's lifetime.

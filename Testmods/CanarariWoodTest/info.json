@@ -3,13 +3,13 @@
   "Author": "Serpens66",
   "Name": "CanarariWoodTest",
   "Description": "Passive detailed wood/farm diagnostics and explicit disposable-save experiments for Canari construction and farm-site contracts.",
-  "Version": "0.1.0",
+  "Version": "0.1.1",
   "MinimumScriptExtenderVersion": "2.11.0",
   "MaximumScriptExtenderVersion": "",
   "Dependencies": [
     {
       "GUID": "APIShared_Serp",
-      "MinimumVersion": "0.4.6"
+      "MinimumVersion": "0.23.0"
     },
     {
       "GUID": "BugfixesAndQoL_Serp",
@@ -24,5 +24,11 @@
   "NetworkMode": 1,
   "SupportedGameVersions": [
     "2.8.0.2"
+  ],
+  "SerpChangelog": [
+    {
+      "Version": "0.1.1",
+      "Changes": ["Use native map ticks for mutating farm experiments; retain passive local diagnostic tick labels and scoped experiment activation."]
+    }
   ]
 }

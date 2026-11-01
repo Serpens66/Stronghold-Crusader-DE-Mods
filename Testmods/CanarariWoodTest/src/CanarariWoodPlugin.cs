@@ -10,11 +10,11 @@ using System;
 namespace CanarariWoodTest
 {
     [BepInDependency("000shcdese", "2.11.0")]
-    [BepInDependency("APIShared_Serp", "0.4.6")]
+    [BepInDependency("APIShared_Serp", "0.23.0")]
     [BepInDependency("BugfixesAndQoL_Serp", "1.0.181")]
     [BepInDependency("AIBuildDiagnoseTest_Serp", "0.1.2")]
     [BepInDependency("fixes", BepInDependency.DependencyFlags.SoftDependency)]
-    [BepInPlugin(Guid, "CanarariWoodTest", "0.1.0")]
+    [BepInPlugin(Guid, "CanarariWoodTest", "0.1.1")]
     public sealed class CanarariWoodPlugin : BaseUnityPlugin
     {
         public const string Guid = "CanarariWoodTest_Serp";
@@ -69,7 +69,9 @@ namespace CanarariWoodTest
                 sessionSubscription = Shared.GameplaySessionLifecycle.SubscribeStarted(log, OnSessionStarted, OnSessionEnded);
                 spawnSubscription = BuildingR3EventHooks.OnBuildingSpawn.Observable.Subscribe(OnExperimentSpawn);
                 buildSubscription = BuildingR3EventHooks.OnBuildStructure.Observable.Subscribe(OnExperimentBuild);
-                GameTimeManagerAPI.Instance.OnTick += OnTick;
+                GameTimeManagerAPI.Instance.OnTick += OnTick; // Passive diagnostics retain their original labels.
+                if (!APIShared.Simulation.SimulationTickEvents.TryRegister(Guid, "farm-experiments", OnExperimentTick, out string tickReason, 200))
+                { experimentsReady = false; runtime?.OnSessionEnded(); throw new InvalidOperationException(tickReason); }
                 Shared.DebugLogHelper.LogInfo(log, "AI_BUILD_SPECIAL_READY: publisher=GameTimeManagerAPI.OnTick; nativeHooksOwnedBy=AIBuildDiagnoseTest.");
             }
             catch (Exception ex) { Shared.DebugLogHelper.LogError(log, "AI_BUILD_SPECIAL_INITIALIZATION_FAILED: " + ex); }
@@ -101,6 +103,9 @@ namespace CanarariWoodTest
             if (!firstTick) { firstTick = true; Shared.DebugLogHelper.LogInfo(log, "AI_BUILD_SPECIAL_POST_STARTUP_TICK: " + tick); }
             try { passive?.OnTick(tick); }
             catch (Exception ex) { Shared.DebugLogHelper.LogError(log, "AI_BUILD_PASSIVE_TICK_FAILED: " + ex); }
+        }
+        private static void OnExperimentTick(int tick)
+        {
             try { if (experimentsReady) runtime?.OnTick(tick); }
             catch (Exception ex) { Shared.DebugLogHelper.LogError(log, "AI_BUILD_SPECIAL_TICK_FAILED: " + ex); }
         }

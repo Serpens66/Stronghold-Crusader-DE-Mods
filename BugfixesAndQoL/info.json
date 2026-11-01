@@ -3,19 +3,23 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.207",
+  "Version": "1.0.208",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.0",
   "MaximumScriptExtenderVersion": "",
   "Dependencies": [
     {
       "GUID": "APIShared_Serp",
-      "MinimumVersion": "0.18.0"
+      "MinimumVersion": "0.23.0"
     }
   ],
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.208",
+      "Changes": ["Use native map ticks for gameplay scheduling and deadlines, preserving initialization, save behavior and logical activation."]
+    },
     {
       "Version": "1.0.207",
       "Changes": [

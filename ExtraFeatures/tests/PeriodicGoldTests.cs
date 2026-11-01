@@ -232,6 +232,26 @@ internal static class PeriodicGoldTests
         world.Available = true; missingVisits = world.Visits; world.Emit(400);
         check(world.Visits == missingVisits, "Unavailable activation read stays inactive without a local-clock fallback");
         Publish(map, MissionLifecycleKind.End);
+        settings.PeriodicGoldHuman = 5; settings.PeriodicGoldAI = 0;
+        map = begin(2147483599, MissionStartKind.LoadedSave, GameModeKind.CustomGame);
+        int wrappedVisits = world.Visits;
+        world.Emit(2147483600);
+        int wrappedBoundary = unchecked((int)2147484000u);
+        world.Emit(wrappedBoundary - 1); world.Emit(wrappedBoundary);
+        check(world.Visits == wrappedVisits + 2, "Gold boundaries continue across native signed Int32 wrap");
+        settings.EnableMod = false;
+        world.Emit(unchecked(wrappedBoundary + 400));
+        settings.EnableMod = true;
+        world.Emit(unchecked(wrappedBoundary + 400));
+        check(world.Visits == wrappedVisits + 2, "Reactivation on a negative native boundary does not replay it");
+        world.Emit(unchecked(wrappedBoundary + 800));
+        check(world.Visits == wrappedVisits + 3, "Reactivated gold retains the saved native counter phase");
+        Publish(map, MissionLifecycleKind.End);
+        map = begin(wrappedBoundary, MissionStartKind.LoadedSave, GameModeKind.CustomGame);
+        wrappedVisits = world.Visits;
+        world.Emit(wrappedBoundary); world.Emit(unchecked(wrappedBoundary + 400));
+        check(world.Visits == wrappedVisits + 1, "Negative saved boundary is paid only at the next interval");
+        Publish(map, MissionLifecycleKind.End);
     }
 
     private static void Settings(Action<bool, string> check)

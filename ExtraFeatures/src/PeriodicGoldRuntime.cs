@@ -128,7 +128,7 @@ namespace ExtraFeatures
                     Error(new InvalidOperationException("Native map tick unavailable during activation; periodic gold remains inactive."));
                     return;
                 }
-                lastTick = Math.Max(lastTick, tick);
+                lastTick = tick;
             }
             active = needed;
         }
@@ -137,11 +137,13 @@ namespace ExtraFeatures
         {
             lock (sync)
             {
-                if (!active || tick <= lastTick || tick <= 0) return;
+                uint elapsed = unchecked((uint)(tick - lastTick));
+                if (!active || elapsed == 0 || elapsed > int.MaxValue) return;
                 lastTick = tick;
                 // A publisher may already have captured this delegate while activation
                 // is changing; the current gate remains authoritative at execution.
-                if (tick % 400 != 0 || !Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod)) return;
+                // Schedule from the saved 32-bit counter bits, including its signed Int32 wrap.
+                if (unchecked((uint)tick) % 400 != 0 || !Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod)) return;
                 try { world.VisitAlivePlayers(applyPlayer); }
                 catch (Exception ex) { Error(ex); }
             }

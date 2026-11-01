@@ -29,7 +29,7 @@ namespace StartConditions
         private bool libraryInitialized;
         internal const int DelayedStartTroopCountMilliseconds = 20000;
         internal const int DelayedStartTroopCountSeconds = DelayedStartTroopCountMilliseconds / 1000;
-        private static readonly TimeSpan KeepReadinessTimeout = TimeSpan.FromSeconds(30);
+        private const int KeepReadinessTimeoutTicks = 1200;
         private const int IncomingGoodClearAmount = 100000;
         private string pendingStartTroopTimerHandle;
         private StartTroopPlan pendingStartTroopPlan;
@@ -131,6 +131,7 @@ namespace StartConditions
 
             vanillaPeaceTimeState.Initialize(context, currentNativeVersion);
             vanillaStartTroopSpawnState.Initialize(context, currentNativeVersion);
+            Shared.ActivePlayerKeepReadiness.InitializeSimulationTicks(StartConditionsPlugin.PluginGuid);
             InitializeAIStartTroopIsolation();
             EnsureBriefingGoldRegistration();
             SubscribeSettingsChanges();

@@ -172,7 +172,7 @@ namespace CanarariWoodTest
                 }
                 if (state == 2)
                 {
-                    if (tick - stateTick > TimeoutTicks)
+                    if (unchecked((uint)(tick - stateTick)) > TimeoutTicks)
                     { Snapshot("delete-timeout", tick, generation);
                         Fail("delete-cleanup-timeout:" + DescribeDeleteBarrier(generation)); return; }
                     if (!OldBuildingGone() || !ParcelClean()) return;
@@ -181,7 +181,7 @@ namespace CanarariWoodTest
                     state = 3; stateTick = tick;
                     return; // Build on a subsequent tick only after verified cleanup.
                 }
-                if (state == 3 && tick > stateTick)
+                if (state == 3 && unchecked(tick - stateTick) > 0)
                 {
                     replacementSpawns = replacementId = 0;
                     creating = true;
@@ -224,7 +224,7 @@ namespace CanarariWoodTest
                         "; tick=" + tick + "; generation=" + generation +
                         "; deferredTotal=" + deferredWoodCalls);
                 }
-                else if (state == 4 && tick - stateTick > TimeoutTicks)
+                else if (state == 4 && unchecked((uint)(tick - stateTick)) > TimeoutTicks)
                 { Snapshot("path-rebuild-not-observed", tick, generation);
                     Fail("replacement-path-rebuild-timeout"); }
             }

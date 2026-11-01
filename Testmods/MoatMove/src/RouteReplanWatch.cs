@@ -26,7 +26,8 @@ namespace MoatMove
     {
         private const int ReplanSpread = 40, ReplanFastSpread = 8, ReplanLookahead = 40, ReplanWaitProbeTicks = 40, ReplanGroupTicks = 400;
         private readonly ulong[] replanTiles = new ulong[(MapWidth * MapWidth + 63) / 64];
-        private int replanTileCount, replanFastUntil = int.MinValue, replanTick;
+        private int replanTileCount, replanTick;
+        private int? replanFastUntil;
         private long replanVersion;
         private readonly List<int> replanHot = new List<int>();
         private readonly HashSet<int> replanHotSet = new HashSet<int>();
@@ -96,7 +97,7 @@ namespace MoatMove
         {
             Array.Clear(replanTiles, 0, replanTiles.Length); replanTileCount = 0; replanVersion++;
             replanHot.Clear(); replanHotSet.Clear(); replanWaits.Clear(); replanSettled.Clear(); replanGroupWaits.Clear();
-            replanFastUntil = int.MinValue; replanRebuildCursor = -1;
+            replanFastUntil = null; replanRebuildCursor = -1;
         }
 
         // Once per simulation tick after AnchorTick (rule changes of this tick are already read).
@@ -113,7 +114,7 @@ namespace MoatMove
                 if (replanTileCount == 0) { replanHot.Clear(); replanHotSet.Clear(); return; }
                 for (int i = replanHot.Count - 1; i >= 0; i--)
                     if (!CheckReplanUnit(replanHot[i], tick)) { replanHotSet.Remove(replanHot[i]); replanHot.RemoveAt(i); }
-                int spread = tick - replanFastUntil < 0 ? ReplanFastSpread : ReplanSpread;
+                int spread = replanFastUntil.HasValue && unchecked(tick - replanFastUntil.Value) < 0 ? ReplanFastSpread : ReplanSpread;
                 int slot = ((tick % spread) + spread) % spread;
                 for (int id = slot == 0 ? spread : slot; id <= MaximumUnitCount; id += spread)
                     if (!replanHotSet.Contains(id) && CheckReplanUnit(id, tick) && replanHotSet.Add(id)) replanHot.Add(id);

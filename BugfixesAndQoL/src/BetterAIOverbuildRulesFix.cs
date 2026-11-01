@@ -488,8 +488,7 @@ namespace BugfixesAndQoL
         {
             try
             {
-                tick = GameTimeManagerAPI.Instance.CaptureTimeStamp().CapturedGameTick;
-                return true;
+                return Shared.MissionEvents.TryGetCurrentMapTick(out tick);
             }
             catch
             {

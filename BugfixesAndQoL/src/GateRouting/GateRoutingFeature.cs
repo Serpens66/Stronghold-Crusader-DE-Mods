@@ -16,6 +16,7 @@ namespace BugfixesAndQoL.GateRouting
     // TEMP_GATE_MIGRATION_DIAGNOSTICS: local diagnostic options; never synchronized gameplay settings.
     internal static class GateRoutingFeature
     {
+        private static bool simulationTickRegistered;
         private static BugfixesAndQoLViewModel settings;
         private static ManualLogSource log;
         private static EnemyGatePathfindingRuntime runtime;
@@ -81,7 +82,12 @@ namespace BugfixesAndQoL.GateRouting
             // fix off and no foreign rules the hooks stay uninstalled; later enabling uses the lazy path.
             if(settings!=null&&((settings.EnableMod&&settings.EnableEnemyGatePathfindingFix)||GateAccessRules.HasRegistrations))
                 lock(StateGate) EnsureRuntime();
-            GameTimeManagerAPI.Instance.OnTick+=Tick;
+            if (!simulationTickRegistered)
+            {
+                if (!APIShared.Simulation.SimulationTickEvents.TryRegister(BugfixesAndQoLPlugin.PluginGuid, "gate-topology", Tick, out string tickReason, 400))
+                    throw new InvalidOperationException("Native simulation ticks unavailable: " + tickReason);
+                simulationTickRegistered = true;
+            }
             Refresh();
         }
         private static void Changed(string name)

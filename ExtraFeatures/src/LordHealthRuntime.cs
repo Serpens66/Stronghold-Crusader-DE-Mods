@@ -16,6 +16,7 @@ namespace ExtraFeatures
     internal sealed unsafe class LordHealthRuntime : IDisposable
     {
         internal const string SaveDataIdentifier = "ExtraFeatures.LordHealth.v1";
+        private bool simulationTickRegistered;
         private const string ArchiveFileName = "_SE_ModData_" + SaveDataIdentifier + ".msgpack";
         private const int FirstPlayerId = 1;
         private const int LastPlayerId = 8;
@@ -53,7 +54,12 @@ namespace ExtraFeatures
                 unitCreatedSubscription = null;
                 throw new InvalidOperationException("Lord health save-data registration failed.");
             }
-            GameTimeManagerAPI.Instance.OnTick += OnGameTick;
+            if (!simulationTickRegistered)
+            {
+                if (!APIShared.Simulation.SimulationTickEvents.TryRegister(ExtraFeaturesPlugin.PluginGuid, "lord-health", OnGameTick, out string tickReason, 300))
+                    throw new InvalidOperationException("Native simulation ticks unavailable: " + tickReason);
+                simulationTickRegistered = true;
+            }
             initialized = true;
         }
 
@@ -113,7 +119,7 @@ namespace ExtraFeatures
         {
             ResetMapState();
             if (!initialized) return;
-            GameTimeManagerAPI.Instance.OnTick -= OnGameTick;
+            // Process-owned tick registration remains rooted; feature state gates execution.
             ModSaveDataAPI.Instance.UnregisterModDataHandler(SaveDataIdentifier);
             unitCreatedSubscription?.Dispose();
             unitCreatedSubscription = null;

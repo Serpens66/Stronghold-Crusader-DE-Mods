@@ -11,7 +11,7 @@ namespace ExtraFeatures
 
         public bool TryRegisterTick(Action<int> callback, out string reason) =>
             APIShared.Simulation.SimulationTickEvents.TryRegister(
-                ExtraFeaturesPlugin.PluginGuid, "periodic-gold", callback, out reason);
+                ExtraFeaturesPlugin.PluginGuid, "periodic-gold", callback, out reason, 700);
 
         public void VisitAlivePlayers(Action<int, bool, int, int> visitor)
         {

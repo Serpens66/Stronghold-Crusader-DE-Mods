@@ -34,6 +34,7 @@ namespace CastlePlanner
 {
     internal sealed unsafe class CastlePlannerRuntime
     {
+        private bool simulationTickRegistered;
         private const int AivSpecStride = 0x6D98;
         private const int PlayerAivStateStride = 0x583C;
         private const int SpecCopiedPlayerAivValueOffset = 0x08;
@@ -201,7 +202,12 @@ namespace CastlePlanner
                 .Subscribe(OnLoadSave));
             subscriptions.Add(Shared.MissionEvents.Ended
                 .Subscribe(OnUnloadMap));
-            GameTimeManagerAPI.Instance.OnTick += OnGameTick;
+            if (!simulationTickRegistered)
+            {
+                if (!APIShared.Simulation.SimulationTickEvents.TryRegister(CastlePlannerPlugin.PluginGuid, "deferred-compound-buildings", OnGameTick, out string tickReason, 100))
+                    throw new InvalidOperationException("Native simulation ticks unavailable: " + tickReason);
+                simulationTickRegistered = true;
+            }
 
             installed = true;
             Shared.DebugLogHelper.LogDebug(
@@ -1274,9 +1280,9 @@ namespace CastlePlanner
             DeferredCompoundBuildingQueue queue,
             int tick)
         {
-            if (queue.FirstTick < 0)
-                queue.FirstTick = tick;
-            if (tick - queue.FirstTick > DeferredCompoundPlacementTimeoutTicks)
+            if (!queue.FirstTick.HasValue) queue.FirstTick = tick;
+            if (!APIShared.Simulation.SimulationClock.TryGetElapsedTicks(queue.FirstTick.Value, tick, out int elapsed) ||
+                elapsed > DeferredCompoundPlacementTimeoutTicks)
             {
                 Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:1379", $"Deferred compound-building queue timed out: playerId={queue.PlayerId}, " +
                     $"tick={tick}, cursor={queue.Cursor}/{queue.Placements.Count}.");
@@ -2394,7 +2400,7 @@ namespace CastlePlanner
             public List<string> DigestRows { get; } = new List<string>();
             public bool Processing { get; set; }
             public int Cursor { get; set; }
-            public int FirstTick { get; set; } = -1;
+            public int? FirstTick { get; set; }
         }
 
     }

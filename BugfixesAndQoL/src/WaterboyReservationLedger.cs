@@ -192,12 +192,12 @@ namespace BugfixesAndQoL
                 suppressedByOwner.Remove(reservation.Owner.GlobalId);
                 return ReservationReconcileResult.Kept;
             }
-            if (currentTick < reservation.LastProgressTick)
+            if (unchecked((uint)(currentTick - reservation.LastProgressTick)) > int.MaxValue)
             {
                 reservation.LastProgressTick = currentTick;
                 return ReservationReconcileResult.Kept;
             }
-            if (currentTick - reservation.LastProgressTick < StationaryTimeoutTicks)
+            if (unchecked((uint)(currentTick - reservation.LastProgressTick)) < StationaryTimeoutTicks)
                 return ReservationReconcileResult.Kept;
 
             reservationsByOwner.Remove(reservation.Owner.GlobalId);

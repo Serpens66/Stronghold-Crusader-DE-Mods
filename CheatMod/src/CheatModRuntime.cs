@@ -13,6 +13,7 @@ namespace CheatMod
 {
     internal sealed class CheatModRuntime
     {
+        private bool simulationTickRegistered;
         private delegate void SetExtremePowersEnabledDelegate(
             GamePlayerManagerAPI self,
             bool enabled);
@@ -26,7 +27,7 @@ namespace CheatMod
 
         private bool initialized;
         private bool mapActive;
-        private bool tickSubscribed;
+        private volatile bool tickSubscribed;
         private Hook extremePowersEnabledHook;
         private SetExtremePowersEnabledDelegate setExtremePowersEnabledTrampoline;
 
@@ -58,6 +59,12 @@ namespace CheatMod
                 Shared.DebugLogHelper.LogWarning(
                     log,
                     $"Cheat Mod could not observe Extreme Powers activation changes: {ex}");
+            }
+            if (!simulationTickRegistered)
+            {
+                if (!APIShared.Simulation.SimulationTickEvents.TryRegister(CheatModPlugin.PluginGuid, "extreme-powers-mana", OnGameTick, out string tickReason, 700))
+                    throw new InvalidOperationException("Native simulation ticks unavailable: " + tickReason);
+                simulationTickRegistered = true;
             }
             initialized = true;
         }
@@ -91,6 +98,7 @@ namespace CheatMod
 
         private void OnGameTick(int tick)
         {
+            if (!tickSubscribed) return;
             // This also catches an external native write which bypassed the managed setter.
             if (!GamePlayerManagerAPI.Instance.IsLocalPlayerExtremePowersEnabled())
             {
@@ -160,11 +168,6 @@ namespace CheatMod
                 GamePlayerManagerAPI.Instance.IsLocalPlayerExtremePowersEnabled();
             if (tickSubscribed == shouldSubscribe)
                 return;
-
-            if (shouldSubscribe)
-                GameTimeManagerAPI.Instance.OnTick += OnGameTick;
-            else
-                GameTimeManagerAPI.Instance.OnTick -= OnGameTick;
 
             tickSubscribed = shouldSubscribe;
             Shared.DebugLogHelper.LogDebug(

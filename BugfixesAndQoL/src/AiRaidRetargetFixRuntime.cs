@@ -16,6 +16,7 @@ namespace BugfixesAndQoL
 {
     internal sealed unsafe class AiRaidRetargetFixRuntime
     {
+        private bool simulationTickRegistered;
         private const int MaxPlayers = 8;
         private const int RaidGroupCount = 6;
         private const int RetargetCounterOffset = 0x2B78;
@@ -49,7 +50,7 @@ namespace BugfixesAndQoL
         private readonly HashSet<string> warningReasons = new HashSet<string>();
         private IDisposable sessionSubscription, orderSubscription;
         private long sessionId, attackSequence, observationEpoch;
-        private long nextRejectionCleanupTick;
+        private int? nextRejectionCleanupTick;
         private bool initialized, sessionStarted, firstTickLogged, searchConfirmed, firstRetryLogged, issuingFallback;
         private volatile bool active;
         private int lastTick = -1, fallbackTribeId, fallbackBuildingId;
@@ -76,25 +77,28 @@ namespace BugfixesAndQoL
             }
             if (!available) { Info("AI_RAID_READY: available=False; Vanilla preserved."); return; }
             IDisposable pendingSession = null, pendingOrder = null;
-            bool pendingTick = false;
             try
             {
                 pendingOrder = TribeR3EventHooks.OnTribeIssueOrderWithTarget.Observable.Subscribe(OnTribeOrder);
                 pendingSession = Shared.GameplaySessionLifecycle.SubscribeStarted(log, OnSessionStarted, OnSessionEnded);
-                GameTimeManagerAPI.Instance.OnTick += OnTick;
-                pendingTick = true;
+                if (!simulationTickRegistered)
+                {
+                    if (!APIShared.Simulation.SimulationTickEvents.TryRegister(BugfixesAndQoLPlugin.PluginGuid, "ai-raid-retarget", OnTick, out string tickReason, 500))
+                        throw new InvalidOperationException("Native simulation ticks unavailable: " + tickReason);
+                    simulationTickRegistered = true;
+                }
                 CompleteInitialization(pendingOrder, pendingSession);
             }
             catch (System.Exception ex)
             {
                 // Only event candidates not yet published by this runtime are rolled back.
                 FailInitialization();
-                if (pendingTick) GameTimeManagerAPI.Instance.OnTick -= OnTick;
+
                 pendingSession?.Dispose();
                 pendingOrder?.Dispose();
                 Warn("AI_RAID_INACTIVE: event initialization failed; Vanilla preserved: " + ex);
             }
-            Info($"AI_RAID_READY: available={activation.Available && initialized}, requested={enabled}, publisher=GameTimeManagerAPI.OnTick,roles=6,tribeTarget=0x622/0x626,candidates=resource+0x35BC/0x3684,bias=-0x5C.");
+            Info($"AI_RAID_READY: available={activation.Available && initialized}, requested={enabled}, publisher=APIShared.SimulationTickEvents,roles=6,tribeTarget=0x622/0x626,candidates=resource+0x35BC/0x3684,bias=-0x5C.");
         }
 
         private void CompleteInitialization(IDisposable pendingOrder, IDisposable pendingSession)
@@ -170,9 +174,8 @@ namespace BugfixesAndQoL
                     if (!firstTickLogged)
                     {
                         firstTickLogged = true;
-                        Info($"AI_RAID_RUNTIME_CONFIRMED: session={sessionId}, tick={tick}, publisher=GameTimeManagerAPI.OnTick,roles=6,tribeTarget=0x622/0x626,candidates=resource+0x35BC/0x3684,bias=-0x5C.");
+                        Info($"AI_RAID_RUNTIME_CONFIRMED: session={sessionId}, tick={tick}, publisher=APIShared.SimulationTickEvents,roles=6,tribeTarget=0x622/0x626,candidates=resource+0x35BC/0x3684,bias=-0x5C.");
                     }
-                    if (lastTick >= 0 && tick < lastTick) ClearObservations();
                     lastTick = tick;
                     PruneExpiredRejectedTargets();
                     PruneReplacedRaidGroups();
@@ -443,14 +446,14 @@ namespace BugfixesAndQoL
 
         private void PruneExpiredRejectedTargets()
         {
-            if (lastTick < nextRejectionCleanupTick) return;
-            nextRejectionCleanupTick = (long)lastTick + RejectionCleanupIntervalTicks;
+            if (nextRejectionCleanupTick.HasValue && unchecked(lastTick - nextRejectionCleanupTick.Value) < 0) return;
+            nextRejectionCleanupTick = unchecked(lastTick + RejectionCleanupIntervalTicks);
             foreach (RaidGroupKey key in new List<RaidGroupKey>(rejectedRaidTargets.Keys))
             {
                 Dictionary<ulong, int> rejected = rejectedRaidTargets[key];
                 var expired = new List<ulong>();
                 foreach (KeyValuePair<ulong, int> target in rejected)
-                    if (target.Value <= lastTick) expired.Add(target.Key);
+                    if (unchecked(lastTick - target.Value) >= 0) expired.Add(target.Key);
                 foreach (ulong identity in expired) rejected.Remove(identity);
                 if (rejected.Count == 0) rejectedRaidTargets.Remove(key);
             }
@@ -568,13 +571,13 @@ namespace BugfixesAndQoL
                 rejectedRaidTargets.Add(groupKey, rejected);
             }
             rejected[BuildingIdentity(buildingId, globalId)] =
-                lastTick + RejectedTargetDurationTicks;
+                unchecked(lastTick + RejectedTargetDurationTicks);
         }
 
         private bool IsRejectedTarget(RaidGroupKey groupKey, int buildingId, uint globalId) =>
             rejectedRaidTargets.TryGetValue(groupKey, out Dictionary<ulong, int> rejected) &&
             rejected.TryGetValue(BuildingIdentity(buildingId, globalId), out int until) &&
-            until > lastTick;
+            unchecked(lastTick - until) < 0;
 
         private static bool IsCurrentRaidGroup(RaidGroupKey key)
         {
@@ -966,7 +969,7 @@ namespace BugfixesAndQoL
             fallbackResult = AttackResult.Unknown;
             fallbackDetails = fallbackSummary = null;
             lastTick = -1;
-            nextRejectionCleanupTick = 0;
+            nextRejectionCleanupTick = null;
         }
 
         private void Info(string value, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0) { try { if (Shared.DebugLogHelper.DiagnosticsEnabled)

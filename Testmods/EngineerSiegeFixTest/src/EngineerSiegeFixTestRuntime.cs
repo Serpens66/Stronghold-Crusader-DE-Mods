@@ -8,6 +8,7 @@ namespace EngineerSiegeFixTest
 {
     internal sealed unsafe class EngineerSiegeFixTestRuntime : IDisposable
     {
+        private bool simulationTickRegistered;
         private const int UnitSlotSize = 0x490;
         private const int UnitArrayBias = 0x65C;
         private const int AliveStateOffset = 0x88;
@@ -53,6 +54,8 @@ namespace EngineerSiegeFixTest
             new Dictionary<int, HandoffTracker>();
         private readonly HashSet<ushort> liveProofCompletedTypes = new HashSet<ushort>();
         private IntPtr observedManager;
+        private APIShared.IMissionLifecycleCapability missions;
+        private long observedSession;
         private uint lastObservedTick = uint.MaxValue;
         private int tickCallbackCount;
         private int slotTransitionCount;
@@ -79,11 +82,20 @@ namespace EngineerSiegeFixTest
                 throw new InvalidOperationException("The Script Extender siege-unit enum contract changed.");
             }
 
+            if (!APIShared.ApiShared.ForMod("EngineerSiegeFixTest_Serp").TryGetMissionLifecycle(out missions, out var missionReason))
+                throw new InvalidOperationException("Mission lifecycle unavailable: " + missionReason);
+            if (!missions.TryRegisterObserver("siege-handoff-lifecycle", _ => ResetMission(), _ => ResetMission(),
+                _ => ResetMission(), out missionReason)) throw new InvalidOperationException("Mission registration failed: " + missionReason);
             try
             {
                 // Unlike the early BepInEx component, this Script Extender publisher
                 // survives SHCDE's normal startup cleanup and roots the runtime.
-                GameTimeManagerAPI.Instance.OnTick += OnGameTick;
+                if (!simulationTickRegistered)
+                {
+                    if (!APIShared.Simulation.SimulationTickEvents.TryRegister("EngineerSiegeFixTest_Serp", "siege-handoff-experiment", OnGameTick, out string tickReason, 300))
+                        throw new InvalidOperationException("Native simulation ticks unavailable: " + tickReason);
+                    simulationTickRegistered = true;
+                }
                 tickSubscribed = true;
 
                 Shared.DebugLogHelper.LogInfo(
@@ -114,13 +126,22 @@ namespace EngineerSiegeFixTest
             disposed = true;
             if (tickSubscribed)
             {
-                GameTimeManagerAPI.Instance.OnTick -= OnGameTick;
+                // Process-owned tick registration remains rooted; feature state gates execution.
                 tickSubscribed = false;
             }
         }
 
+        private void ResetMission()
+        {
+            observedManager = IntPtr.Zero;
+            siegeSlotObservations.Clear(); engineerObservations.Clear(); handoffTrackers.Clear();
+            liveProofCompletedTypes.Clear();
+        }
         private void OnGameTick(int tick)
         {
+            var mission = missions.Current;
+            if (mission == null) return;
+            if (observedSession != mission.SessionId) { ResetMission(); observedSession = mission.SessionId; }
             if (disposed || diagnosticsDisabled)
                 return;
 

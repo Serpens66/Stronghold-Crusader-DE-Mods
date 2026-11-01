@@ -162,7 +162,7 @@ namespace MoatMove
         private static int tick = 10;
         private object log;
         private readonly MoatMoveOptions settings = TestSettings.Settings;
-        private static int CaptureCurrentGameTick() => tick;
+        internal static int CaptureCurrentGameTick() => tick;
         private bool disposed, targetedRouteProbeBusy, weightedShadowBusy;
         private int mapEpoch = 1;
         private PlanScope activePlan, pendingPlan;
@@ -1309,3 +1309,8 @@ namespace Shared {
 
 // Ordinary Move mode is the validated external cursor command contract.
 namespace APIShared.Internal { internal static class GroundMovePreviewEligibility {internal const int OrdinaryMoveCommandMode=1;} }
+
+// Native clock boundary shares the deterministic fixture's map tick.
+namespace Shared { internal static class MissionEvents {
+ internal static bool TryGetCurrentMapTick(out int tick) { tick=MoatMove.FriendlyMoatMovementRuntime.CaptureCurrentGameTick(); return true; }
+} }

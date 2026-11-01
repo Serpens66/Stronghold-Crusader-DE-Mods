@@ -38,6 +38,26 @@ namespace Shared
         private static readonly ManualLogSource log = BepInEx.Logging.Logger.CreateLogSource("Mission adapter");
 #endif
         internal static void SetOwner(string owner) { ownerGuid = owner; }
+        // No substitute clock before NativeLoaded. Callers must handle that phase explicitly.
+        internal static bool TryGetCurrentMapTick(out int tick)
+        {
+#if API_SHARED_PRESET_TESTS
+            // Preset tests have no native engine. They may inject only this external boundary.
+            int? value = ReadMapTickForTests?.Invoke(latest?.Context);
+            tick = value.GetValueOrDefault();
+            return value.HasValue;
+#else
+            return APIShared.Simulation.SimulationClock.TryGetCurrentTick(latest?.Context, out tick);
+#endif
+        }
+#if API_SHARED_PRESET_TESTS
+        internal static Func<MissionContext, int?> ReadMapTickForTests;
+#endif
+        internal static int RequireCurrentMapTick()
+        {
+            if (TryGetCurrentMapTick(out int tick)) return tick;
+            throw new InvalidOperationException("Native map time is unavailable for this mission phase.");
+        }
         internal static void SetGate(Action<MissionLifecycleNotification> gate)
         {
             bool connected = capability != null;
@@ -60,7 +80,7 @@ namespace Shared
 #endif
         }
 #if API_SHARED_PRESET_TESTS
-        internal static void ResetForTests() { observers.Clear(); latest = null; priority = null; capability = null; }
+        internal static void ResetForTests() { observers.Clear(); latest = null; priority = null; capability = null; ReadMapTickForTests = null; }
         internal static void PublishForTests(MissionLifecycleNotification e) => Deliver(e);
 #endif
         private static void Deliver(MissionLifecycleNotification notification)

@@ -29,10 +29,13 @@ namespace BugfixesAndQoL
             new DetourHandle<FindNearestBurningBuildingDelegate>();
         private readonly HookTransaction transaction;
         private readonly IDisposable mapUnloadSubscription;
+        private readonly IDisposable mapEndSubscription;
+        private readonly IDisposable mapStartSubscription;
         private readonly int targetSearchDisplacedByteCount;
         private readonly string targetSearchScheme;
         private volatile bool correctionAvailable = true;
         private bool initialMapSeedCompleted;
+        private volatile bool nativeMapReady;
         private volatile bool optimizationEnabled;
         // Settings arrive on the UI thread; the ledger is only touched on the simulation thread.
         private volatile bool ledgerResetPending;
@@ -59,7 +62,6 @@ namespace BugfixesAndQoL
 
             HookTransaction pendingTransaction = null;
             IDisposable pendingMapUnload = null;
-            bool pendingTick = false;
             try
             {
                 pendingTransaction = new HookTransaction(context.Region,
@@ -81,9 +83,18 @@ namespace BugfixesAndQoL
                     throw new InvalidOperationException($"The waterboy target-search detour was not installed: {result}.");
                 ValidateCommittedDetour(committedDetour, expectedTargetAddress);
 
-                GameTimeManagerAPI.Instance.GetFrameProvider().OnGameTick += OnGameTick;
-                pendingTick = true;
-                pendingMapUnload = MapLoaderR3EventHooks.OnUnloadMap.Observable.Subscribe(_ => OnMapUnload());
+                if (!APIShared.Simulation.SimulationTickEvents.TryRegister(BugfixesAndQoLPlugin.PluginGuid,
+                    "waterboy-reservations", OnGameTick, out string tickReason, 300))
+                    throw new InvalidOperationException(tickReason);
+                pendingMapUnload = Shared.MissionEvents.Initialization.Subscribe(e =>
+                {
+                    if (e.IsBeforeInitialization) OnMapUnload();
+                    else if (e.Phase == APIShared.MissionInitializationPhase.NativeLoaded) OnNativeLoaded();
+                });
+                mapEndSubscription = Shared.MissionEvents.Ended.Subscribe(_ => OnMapUnload());
+                // NativeLoaded never replays, and nested/repeated loads can still replace the
+                // initialized state. Confirm the final inventory before regular simulation.
+                mapStartSubscription = Shared.MissionEvents.Started.Subscribe(_ => OnNativeLoaded(true));
 
                 transaction = pendingTransaction;
                 mapUnloadSubscription = pendingMapUnload;
@@ -91,12 +102,13 @@ namespace BugfixesAndQoL
                 targetSearchScheme = committedDetour.Scheme.ToString();
                 pendingTransaction = null;
                 pendingMapUnload = null;
-                pendingTick = false;
             }
             catch
             {
-                if (pendingTick)
-                    GameTimeManagerAPI.Instance.GetFrameProvider().OnGameTick -= OnGameTick;
+                correctionAvailable = false;
+                nativeMapReady = false; // The APIShared registration is process-owned.
+                mapStartSubscription?.Dispose();
+                mapEndSubscription?.Dispose();
                 pendingMapUnload?.Dispose();
                 pendingTransaction?.Dispose();
                 throw;
@@ -133,7 +145,9 @@ namespace BugfixesAndQoL
 
         private int FindNearestEligibleFire(IntPtr buildingManager, int nativeUnitId)
         {
-            if (!correctionAvailable || !optimizationEnabled || ledgerResetPending)
+            if (!correctionAvailable || !optimizationEnabled || ledgerResetPending || !nativeMapReady || !initialMapSeedCompleted)
+                return targetSearchHook.Original(buildingManager, nativeUnitId);
+            if (!APIShared.Simulation.SimulationTickEvents.TryGetCurrentTick(out int nativeTick))
                 return targetSearchHook.Original(buildingManager, nativeUnitId);
 
             NativeIdentity requester;
@@ -146,7 +160,7 @@ namespace BugfixesAndQoL
                 requesterPlayerId = requesterUnit->r_ControllableForPlayerId;
                 if (!IsOptimizedForPlayer(requesterPlayerId))
                     return targetSearchHook.Original(buildingManager, nativeUnitId);
-                PruneInvalidReservations(CurrentGameTick());
+                PruneInvalidReservations(nativeTick);
             }
             catch (Exception exception)
             {
@@ -184,7 +198,7 @@ namespace BugfixesAndQoL
                     {
                         ReservationClaimResult claim = ledger.Claim(requesterPlayerId, requester,
                             targetIdentity, compoundKey, requesterUnit->r_CurrentTilePositionX,
-                            requesterUnit->r_CurrentTilePositionY, CurrentGameTick());
+                            requesterUnit->r_CurrentTilePositionY, nativeTick);
                         if (claim == ReservationClaimResult.Conflict)
                             throw new InvalidOperationException("Reservation changed during target claim.");
                         if (claim == ReservationClaimResult.Suppressed)
@@ -206,7 +220,7 @@ namespace BugfixesAndQoL
                             currentOwner->r_AIState, requesterDistance, previousOwnerDistance) &&
                             ledger.TryTransfer(conflict, requesterPlayerId, requester, targetIdentity,
                                 compoundKey, requesterUnit->r_CurrentTilePositionX,
-                                requesterUnit->r_CurrentTilePositionY, CurrentGameTick()))
+                                requesterUnit->r_CurrentTilePositionY, nativeTick))
                         {
                             displacedOwner = conflict;
                             selectionAccepted = true;
@@ -242,21 +256,43 @@ namespace BugfixesAndQoL
             return selectedBuildingId;
         }
 
+        private void OnNativeLoaded(bool required = false)
+        {
+            try
+            {
+                ApplyPendingLedgerReset();
+                if (!Shared.MissionEvents.TryGetCurrentMapTick(out int tick))
+                {
+                    nativeMapReady = false;
+                    if (required) throw new InvalidOperationException("Ready mission has no current map clock.");
+                    return; // An enclosing native loader can still be running; Started confirms again.
+                }
+                if (correctionAvailable && optimizationEnabled) SeedMap(tick);
+                nativeMapReady = true;
+            }
+            catch (Exception ex) { DisableCorrection("native-load reservation reconstruction failed", ex); }
+        }
+
+        private void SeedMap(int tick)
+        {
+            for (int playerId = 1; playerId <= 8; playerId++)
+            {
+                ledger.ClearPlayer(playerId);
+                SeedPlayerReservations(playerId, tick);
+            }
+            initialMapSeedCompleted = true;
+        }
+
         private void OnGameTick(int currentTick)
         {
             try
             {
                 ApplyPendingLedgerReset();
-                if (!correctionAvailable || !optimizationEnabled)
+                if (!nativeMapReady || !correctionAvailable || !optimizationEnabled)
                     return;
                 if (!initialMapSeedCompleted)
                 {
-                    initialMapSeedCompleted = true;
-                    for (int playerId = 1; playerId <= 8; playerId++)
-                    {
-                        ledger.ClearPlayer(playerId);
-                        SeedPlayerReservations(playerId, currentTick);
-                    }
+                    SeedMap(currentTick);
                 }
                 PruneInvalidReservations(currentTick);
             }
@@ -380,6 +416,7 @@ namespace BugfixesAndQoL
 
         private void OnMapUnload()
         {
+            nativeMapReady = false;
             ledger.Clear();
             reservationScratch.Clear();
             maskedFireScratch.Clear();
@@ -441,9 +478,6 @@ namespace BugfixesAndQoL
             WaterboyTargetPolicy.ManhattanDistance(unit->r_CurrentTilePositionX,
                 unit->r_CurrentTilePositionY, building->r_TilePositionXBegin,
                 building->r_TilePositionYBegin);
-
-        private static int CurrentGameTick() =>
-            GameTimeManagerAPI.Instance.GetFrameProvider().CurrentGameTick;
 
         private static bool IsValidPlayerId(int playerId) => playerId >= 1 && playerId <= 8;
 

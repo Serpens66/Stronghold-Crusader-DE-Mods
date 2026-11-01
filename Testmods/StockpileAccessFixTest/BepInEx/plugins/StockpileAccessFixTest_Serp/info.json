@@ -3,18 +3,22 @@
   "Author": "Serpens66",
   "Name": "Stockpile Access Fix Test",
   "Description": "Diagnoses and repairs workers stranded by a stale stockpile access point.",
-  "Version": "0.1.4",
+  "Version": "0.1.5",
   "MinimumScriptExtenderVersion": "2.14.0",
   "MaximumScriptExtenderVersion": "",
   "Dependencies": [
     {
       "GUID": "APIShared_Serp",
-      "MinimumVersion": "0.3.6"
+      "MinimumVersion": "0.23.0"
     }
   ],
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "0.1.5",
+      "Changes": ["Use native map ticks for gameplay scheduling and deadlines, preserving initialization, save behavior and logical activation."]
+    },
     {
       "Version": "0.1.4",
       "Changes": [

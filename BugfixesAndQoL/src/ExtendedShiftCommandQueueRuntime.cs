@@ -21,6 +21,7 @@ namespace BugfixesAndQoL
 {
     internal sealed unsafe class ExtendedShiftCommandQueueRuntime
     {
+        private bool simulationTickRegistered;
         private const int ReferenceWaypointAppendRva = 0x11C3A0;
         private const int ReferenceMovementCompleteRva = 0x1178D0;
         private const int ReferenceTribeOverlayRenderRva = 0x1222A0;
@@ -330,7 +331,12 @@ namespace BugfixesAndQoL
                 .Subscribe(args => ResetMapState()));
             subscriptions.Add(Shared.MissionEvents.Ended
                 .Subscribe(args => ResetMapState()));
-            GameTimeManagerAPI.Instance.OnTick += OnTick;
+            if (!simulationTickRegistered)
+            {
+                if (!APIShared.Simulation.SimulationTickEvents.TryRegister(BugfixesAndQoLPlugin.PluginGuid, "shift-command-queue", OnTick, out string tickReason, 500))
+                    throw new InvalidOperationException("Native simulation ticks unavailable: " + tickReason);
+                simulationTickRegistered = true;
+            }
 
             installed = true;
             ApplySetting();
@@ -951,6 +957,7 @@ namespace BugfixesAndQoL
             int sourceTribeId,
             int targetTribeId)
         {
+            if (signals.Count == 0 || !Shared.MissionEvents.TryGetCurrentMapTick(out currentTick)) return;
             PruneExpectedMoveSignals(signals);
             int sourceCount = signals.Count;
             for (int sourceIndex = 0; sourceIndex < sourceCount; sourceIndex++)
@@ -1079,6 +1086,8 @@ namespace BugfixesAndQoL
                 return;
             }
 
+            // Validate time before changing queue state; native initialization has no stamp.
+            if (!Shared.MissionEvents.TryGetCurrentMapTick(out currentTick)) return;
             QueueCommand command = new QueueCommand(
                 QueueCommandKind.Move,
                 args.TileX,
@@ -1097,7 +1106,7 @@ namespace BugfixesAndQoL
                     // The already-created input chore can still reach the native append helper
                     // even though this order callback is skipped. Match it there and suppress it.
                     expectedMoveChores.Add(new RuntimeExpectedMove(
-                        args.TribeId, command, currentTick + ExpectedMoveChoreLifetimeTicks));
+                        args.TribeId, command, unchecked(currentTick + ExpectedMoveChoreLifetimeTicks)));
                 }
             }
 
@@ -1153,6 +1162,7 @@ namespace BugfixesAndQoL
                 // the Move a second time, which breaks mixed-command ordering.
                 if (installed && FeatureEnabled && !internalDispatch)
                 {
+                    if (!Shared.MissionEvents.TryGetCurrentMapTick(out currentTick)) goto Vanilla;
                     // Chore 71 is also emitted for AI movement. It has no Shift semantics.
                     if (IsAiOwnedAliveTribe(tribeId))
                         goto Vanilla;
@@ -1192,8 +1202,8 @@ namespace BugfixesAndQoL
                         {
                             // Some native input paths may reach the Chore hook first. In that
                             // case this is the authoritative insertion and the later event is deduplicated.
-                            expectedMoveEvents.Add(new RuntimeExpectedMove(
-                                tribeId, command, currentTick + ExpectedMoveChoreLifetimeTicks));
+                                    expectedMoveEvents.Add(new RuntimeExpectedMove(
+                                tribeId, command, unchecked(currentTick + ExpectedMoveChoreLifetimeTicks)));
                         }
                         else
                         {
@@ -2415,6 +2425,7 @@ namespace BugfixesAndQoL
             int tribeId,
             QueueCommand command)
         {
+            if (signals.Count == 0 || !Shared.MissionEvents.TryGetCurrentMapTick(out currentTick)) return false;
             PruneExpectedMoveSignals(signals);
             for (int index = 0; index < signals.Count; index++)
             {
@@ -2429,9 +2440,10 @@ namespace BugfixesAndQoL
 
         private void PruneExpectedMoveSignals(List<RuntimeExpectedMove> signals)
         {
+            if (signals.Count == 0 || !Shared.MissionEvents.TryGetCurrentMapTick(out currentTick)) return;
             for (int index = signals.Count - 1; index >= 0; index--)
             {
-                if (signals[index].ExpiresAfterTick < currentTick)
+                if (unchecked(currentTick - signals[index].ExpiresAfterTick) > 0)
                     signals.RemoveAt(index);
             }
         }

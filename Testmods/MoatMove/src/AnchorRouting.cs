@@ -1021,7 +1021,8 @@ namespace MoatMove
         // search) costs ~1.1 ms each, more than the core (pf-iter-54: 64 skipped Assassins, 95 ms).
         // Settles are deterministic, so all peers choose the same moves.
         private const int AnchorSingleTickSettles = 500000;
-        private int anchorSingleBudgetTick = int.MinValue, anchorSingleBudgetLeft;
+        private int? anchorSingleBudgetTick;
+        private int anchorSingleBudgetLeft;
         private long anchorSingleOverBudget, anchorSingleBudgetSkips;
         private long ruleProbeForbiddenHits, ruleProbeBandRoutes;
 
@@ -1079,7 +1080,7 @@ namespace MoatMove
             int* variant = (int*)(manager + PathManagerRouteVariantOffset);
             int originalVariant = *variant, mode = *runtime.moatPathMode;
             if (originalVariant != 0 && originalVariant != 1) return false;
-            int tick = CaptureCurrentGameTick();
+            if (!Shared.MissionEvents.TryGetCurrentMapTick(out int tick)) return false;
             if (tick != anchorSingleBudgetTick) { anchorSingleBudgetTick = tick; anchorSingleBudgetLeft = AnchorSingleTickSettles; }
             if (anchorSingleBudgetLeft <= 0 && !assassin) { anchorSingleBudgetSkips++; return false; }
             long started = System.Diagnostics.Stopwatch.GetTimestamp();

@@ -34,6 +34,7 @@ namespace ExtraFeatures
         // Dispatcher 0x539B0 uses 0x52270 only for AIV entries whose +0x14 field is zero;
         // otherwise it iterates the finished-castle frames through 0x51790. The 2026-08-24
         // finished-castle trace consequently reached 0x51790 repeatedly and never 0x52270.
+        private bool simulationTickRegistered;
         private const string PlacementPattern =
             "44 89 4C 24 20 44 89 44 24 18 89 54 24 10 53 55 56 57 41 54 41 55 41 56 41 57 48 83 EC 48 44 8B BC 24 B8 00 00 00";
         private const int PlacementRva = 0x5CD90;
@@ -131,7 +132,12 @@ namespace ExtraFeatures
             subscriptions.Add(BuildingR3EventHooks.OnBuildingSpawn.Observable.Subscribe(OnBuildingSpawn));
             subscriptions.Add(BuildingR3EventHooks.OnBuildingTileTakeDamage.Observable.Subscribe(OnDefenseDamage));
             // The game-time publisher outlives BepInEx's startup component.
-            GameTimeManagerAPI.Instance.OnTick += OnGameTick;
+            if (!simulationTickRegistered)
+            {
+                if (!APIShared.Simulation.SimulationTickEvents.TryRegister(ExtraFeaturesPlugin.PluginGuid, "ai-defense-repair", OnGameTick, out string tickReason, 200))
+                    throw new InvalidOperationException("Native simulation ticks unavailable: " + tickReason);
+                simulationTickRegistered = true;
+            }
             // SaveLifecycle: NewMapOnly - Pre surrounds Vanilla's initial finished-castle spawns.
             subscriptions.Add(Shared.MissionEvents.NativeStart
                 .Where(args => args.IsBeforeInitialization)
@@ -284,7 +290,7 @@ namespace ExtraFeatures
             foreach (IDisposable subscription in subscriptions)
                 subscription.Dispose();
             subscriptions.Clear();
-            GameTimeManagerAPI.Instance.OnTick -= OnGameTick;
+            // Process-owned tick registration remains rooted; feature state gates execution.
             // The published placement detour is process-wide because APIShared retains this
             // observer. Dispose is only allowed to roll back an unpublished candidate.
             if (!nativeInitialized && !placementHook.Success)
@@ -675,8 +681,7 @@ namespace ExtraFeatures
             {
                 if (settings.AITowerGateRebuildDelaySeconds > 0)
                 {
-                    now = SafeCurrentTick();
-                    if (now < 0)
+                    if (!Shared.MissionEvents.TryGetCurrentMapTick(out now))
                     {
                         LogClockUnavailable();
                         return null;
@@ -859,8 +864,8 @@ namespace ExtraFeatures
 
                         if (rebuildDelays.TryGetValue(target, out RebuildDelayState delay))
                         {
-                            int spawnTick = SafeCurrentTick();
-                            int elapsed = spawnTick >= 0 ? ElapsedTicks(spawnTick, delay.FirstDetectedTick) : -1;
+                            int? spawnTick = SafeCurrentTick();
+                            int elapsed = spawnTick.HasValue ? ElapsedTicks(spawnTick.Value, delay.FirstDetectedTick) : -1;
                             string message = $"AI defense rebuild spawn: target={target}, tick={spawnTick}, " +
                                 $"startTick={delay.FirstDetectedTick}, elapsedTicks={elapsed}, " +
                                 $"requiredTicks={(long)settings.AITowerGateRebuildDelaySeconds * TicksPerSecond}, " +
@@ -952,10 +957,10 @@ namespace ExtraFeatures
                     QueueDamageWatch(observation.Target, identity);
                     return;
                 }
-                int now = SafeCurrentTick();
-                if (now >= 0)
+                int? now = SafeCurrentTick();
+                if (now.HasValue)
                 {
-                    RecordDestruction(observation.Target, identity, now, "damage-post");
+                    RecordDestruction(observation.Target, identity, now.Value, "damage-post");
                     damagedDefenseWatches.Remove(observation.Target);
                 }
                 else
@@ -1123,8 +1128,8 @@ namespace ExtraFeatures
             Shared.DebugLogHelper.LogWarningLimited(log, "ExtraFeatures/src/AIDefenseRepairRuntime.cs:1096", "AI defense rebuild clock was unavailable; affected attempts remain Vanilla until the clock recovers.");
         }
 
-        private static int CurrentTick() => GameTimeManagerAPI.Instance.CaptureTimeStamp().CapturedGameTick;
-        private static int SafeCurrentTick() { try { return CurrentTick(); } catch { return -1; } }
+        private static int CurrentTick() => Shared.MissionEvents.RequireCurrentMapTick();
+        private static int? SafeCurrentTick() { try { return CurrentTick(); } catch { return null; } }
         private static int ElapsedTicks(int now, int previous) =>
             unchecked((int)Math.Min((uint)(now - previous), int.MaxValue));
         private static bool IsAI(int playerId) =>

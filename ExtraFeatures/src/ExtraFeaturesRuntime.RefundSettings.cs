@@ -73,14 +73,14 @@ namespace ExtraFeatures
 
             GameBuildingManagerAPI buildingApi = GameBuildingManagerAPI.Instance;
             eStructs buildingType = buildingApi.GetType(args.BuildingId);
-            int createdTick = CurrentGameTick();
+            int? createdTick = CurrentGameTick();
             AddBuildingRefundGuard(args.PlayerId, eGoods.STORED_WOOD_PLANKS, GetRefundAmount(buildingApi.GetWoodCost(buildingType), buildingApi.WoodRefundMultiplier, args.Percentage), createdTick);
             AddBuildingRefundGuard(args.PlayerId, eGoods.STORED_STONE_BLOCKS, GetRefundAmount(buildingApi.GetStoneCost(buildingType), buildingApi.StoneRefundMultiplier, args.Percentage), createdTick);
             AddBuildingRefundGuard(args.PlayerId, eGoods.STORED_IRON_INGOTS, GetRefundAmount(buildingApi.GetIronIngotCost(buildingType), buildingApi.IronRefundMultiplier, args.Percentage), createdTick);
             AddBuildingRefundGuard(args.PlayerId, eGoods.STORED_PITCH_RAW, GetRefundAmount(buildingApi.GetRawPitchCost(buildingType), buildingApi.PitchRefundMultiplier, args.Percentage), createdTick);
         }
 
-        private void AddBuildingRefundGuard(int playerId, eGoods good, int amount, int createdTick)
+        private void AddBuildingRefundGuard(int playerId, eGoods good, int amount, int? createdTick)
         {
             if (amount <= 0)
                 return;

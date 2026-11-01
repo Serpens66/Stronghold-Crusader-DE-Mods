@@ -175,6 +175,9 @@ namespace ExtraFeatures
                 lifecycleSubscriptions.Add(
                     Shared.GameplaySessionLifecycle.SubscribeStarted(log, OnSessionStarted));
                 lifecycleSubscriptions.Add(Shared.MissionEvents.Ended.Subscribe(OnUnloadMap));
+                lifecycleSubscriptions.Add(Shared.MissionEvents.Initialization
+                    .Where(e => e.Phase == APIShared.MissionInitializationPhase.NativeLoaded)
+                    .Subscribe(_ => { ClearResourceEventGuards(); pendingStockpileRefund = null; }));
             }
             catch (Exception ex)
             {
@@ -974,7 +977,7 @@ namespace ExtraFeatures
             public int PlayerId;
             public int Owner;
             public int RefundBuildingId;
-            public int CreatedTick;
+            public int? CreatedTick;
             public int PartsRemaining;
             public HashSet<int> ProcessedBuildingIds = new HashSet<int>();
         }
@@ -982,17 +985,19 @@ namespace ExtraFeatures
         private sealed class ResourceEventCountGuard
         {
             public int RemainingAmount { get; set; }
-            public int CreatedTick { get; set; }
+            public int? CreatedTick { get; set; }
         }
 
-        private static int CurrentGameTick() =>
-            GameTimeManagerAPI.Instance.CaptureTimeStamp().CapturedGameTick;
+        private static int? CurrentGameTick() =>
+            Shared.MissionEvents.TryGetCurrentMapTick(out int tick) ? tick : (int?)null;
 
-        // A tick counter that moved backwards belongs to a different map and is treated as expired.
-        private static bool IsTickWindowExpired(int createdTick, int nowTick, int lifetimeTicks)
+        // Unanchored guards belong to a synchronous initialization operation. Post/End clears
+        // them; unavailable time must never expire half of an active transaction.
+        private static bool IsTickWindowExpired(int? createdTick, int? nowTick, int lifetimeTicks)
         {
-            int elapsed = unchecked(nowTick - createdTick);
-            return elapsed < 0 || elapsed >= lifetimeTicks;
+            if (!createdTick.HasValue || !nowTick.HasValue) return false;
+            return !APIShared.Simulation.SimulationClock.TryGetElapsedTicks(createdTick.Value, nowTick.Value, out int elapsed) ||
+                elapsed >= lifetimeTicks;
         }
     }
 }

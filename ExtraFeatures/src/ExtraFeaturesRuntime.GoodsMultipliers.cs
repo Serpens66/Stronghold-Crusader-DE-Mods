@@ -80,7 +80,7 @@ namespace ExtraFeatures
             if (guards.Count == 0)
                 return;
 
-            int now = CurrentGameTick();
+            int? now = CurrentGameTick();
             // Reused buffer: pruning runs before every guarded stockpile addition.
             List<long> expiredKeys = expiredResourceGuardKeys;
             expiredKeys.Clear();

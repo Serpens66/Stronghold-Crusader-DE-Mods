@@ -47,7 +47,7 @@ namespace SHCDESE.EventAPI.Tribes {
   public TribeMoveType MoveType=TribeMoveType.DefaultInSync;public long ReturnValue;
  }
 }
-namespace Shared { public static class CrashBreadcrumbDiagnostics { public static void Record(string m,int outcome=0){} }
+namespace Shared { internal static class MissionEvents { internal static bool ClockAvailable=true; internal static bool TryGetCurrentMapTick(out int tick){tick=0;return ClockAvailable;} } public static class CrashBreadcrumbDiagnostics { public static void Record(string m,int outcome=0){} }
  public static class DebugLogHelper { public static bool DiagnosticsEnabled => true;  public static void LogErrorLimited(object l,string p,string m){} } }
 namespace BugfixesAndQoL.UnitCommands {
  static class UnitCommandPathAPI { public static bool FormationDispatchActive; }
@@ -91,6 +91,13 @@ namespace BugfixesAndQoL.UnitCommands {
     var normal=new SHCDESE.EventAPI.Tribes.TribeIssueOrderMoveHereEventArgs{MoveType=(TribeMoveType)(mp?0x41:1)};
     f.OnMoveOrderCore(normal);Check(normal.SkipOriginalFunction&&f.queued[7]==2,"Ordinary queued move changed");
    }
+   Shared.MissionEvents.ClockAvailable=false;
+   var loading=new QueueFixture();var early=new SHCDESE.EventAPI.Tribes.TribeIssueOrderMoveHereEventArgs();
+   loading.OnMoveOrderCore(early);Check(!early.SkipOriginalFunction&&loading.queued.Count==0,"Initialization must not partially enqueue without native time");
+   loading.originalSharedAppend=(m,t,x,y,i,mode)=>loading.AppendCalls++;
+   loading.AppendMovementWaypointCore((IntPtr)123,7,14,24,4,(short)TribePatrolMode.PatrolOnce);
+   Check(loading.AppendCalls==1&&loading.queued.Count==0,"Unavailable clock preserves one original waypoint call");
+   Shared.MissionEvents.ClockAvailable=true;
    var marker=new QueueFixture{Multiplayer=true};IntPtr mem=Marshal.AllocHGlobal(24);
    try {
     marker.choreModePointer=mem;marker.choreTribeIdPointer=mem+4;marker.choreCommandOrTileXPointer=mem+8;
@@ -110,6 +117,41 @@ string queueUsings = "using SHCDESE.Interop;using SHCDESE.EventAPI;using SHCDESE
 Run("Patrol", new[] { enums, Read("BugfixesAndQoL/src/UnitCommands/Movement/QueueNativeContract.cs"),
     queueUsings + queueDoubles.Replace("__MEMBERS__", members) }, "BugfixesAndQoL.UnitCommands.QueueFixture");
 
+
+if (!baseline)
+{
+    string[] waterboyMethods = { "OnNativeLoaded", "SeedMap", "ApplyPendingLedgerReset", "OnMapUnload", "DisableCorrection" };
+    string waterboyMembers = string.Join("\n", Parse(Read("BugfixesAndQoL/src/WaterboyTargetReservationRuntime.cs"))
+        .DescendantNodes().OfType<MethodDeclarationSyntax>().Where(m => waterboyMethods.Contains(m.Identifier.Text)).Select(m => m.ToFullString()));
+    Run("WaterboyInitialization", new[] { """
+using System;using System.Collections.Generic;
+namespace Shared {
+ static class MissionEvents { internal static bool Available; internal static int Tick; internal static bool TryGetCurrentMapTick(out int tick){tick=Tick;return Available;} }
+ static class DebugLogHelper {internal static void LogErrorLimited(object log,string key,string message){} }
+}
+public class WaterboyFixture {
+ __MEMBERS__
+ bool nativeMapReady,initialMapSeedCompleted,ledgerResetPending;
+ bool correctionAvailable=true,optimizationEnabled=true;
+ object log; List<int> reservationScratch=new(),maskedFireScratch=new(),seeded=new();
+ class Ledger {internal void Clear(){} internal void ClearPlayer(int player){} }
+ Ledger ledger=new();
+ void SeedPlayerReservations(int player,int tick){seeded.Add(player);}
+ static void Check(bool condition,string message){if(!condition)throw new Exception(message);}
+ public static void Run(){
+  var f=new WaterboyFixture(); Shared.MissionEvents.Available=false;
+  f.OnNativeLoaded();Check(f.correctionAvailable&&!f.nativeMapReady&&f.seeded.Count==0,"enclosing load availability must not disable waterboy");
+  Shared.MissionEvents.Tick=0;Shared.MissionEvents.Available=true;f.OnNativeLoaded();
+  Check(f.nativeMapReady&&f.initialMapSeedCompleted&&string.Join(",",f.seeded)=="1,2,3,4,5,6,7,8","native zero tick and stable seed order");
+  Shared.MissionEvents.Available=false;f.OnNativeLoaded();Check(!f.nativeMapReady&&f.correctionAvailable,"repeated load suspends seeded inventory");
+  f.seeded.Clear();Shared.MissionEvents.Available=true;f.OnNativeLoaded(true);
+  Check(f.nativeMapReady&&string.Join(",",f.seeded)=="1,2,3,4,5,6,7,8","ready confirmation reconstructs final native state");
+  f.OnMapUnload();Check(!f.nativeMapReady&&!f.initialMapSeedCompleted,"mission end retires waterboy inventory");
+  Shared.MissionEvents.Available=false;f.OnNativeLoaded(true);Check(!f.correctionAvailable,"missing ready clock is a visible feature failure");
+ }
+}
+""".Replace("__MEMBERS__",waterboyMembers) }, "WaterboyFixture");
+}
 
 void Run(string name, IEnumerable<string> sources, string typeName)
 {

@@ -139,7 +139,7 @@ internal static class HardeningTests
         Check(((IDictionary)Get(runtime, "rejectedRaidTargets")).Count == 0, "Expired last entry removes group map");
         Set(runtime, "lastTick", 301); Call(runtime, "RememberRejectedTarget", key, 119, 6450u);
         Call(runtime, "PruneExpiredRejectedTargets");
-        Check((long)Get(runtime, "nextRejectionCleanupTick") == 500, "Cleanup not repeated before 200-tick interval");
+        Check(Convert.ToInt32(Get(runtime, "nextRejectionCleanupTick")) == 500, "Cleanup not repeated before 200-tick interval");
         int maximum = 0;
         for (int tick = 1000; tick <= 21000; tick += 50)
         {
@@ -151,9 +151,14 @@ internal static class HardeningTests
             maximum = Math.Max(maximum, retained);
         }
         Check(maximum <= 480, "Long stream with eight players / six roles bounds retained expired identities");
-        runtime.OnTick(5); // Backward tick clears maps before native role lookups, so this is native-memory-free.
-        Check(((IDictionary)Get(runtime, "rejectedRaidTargets")).Count == 0 && (int)Get(runtime, "lastTick") == 5, "Backward tick clears identities and restarts cleanup");
-        Check((long)Get(runtime, "nextRejectionCleanupTick") == 205, "Cleanup schedule reset after tick rollback");
+        Set(runtime, "lastTick", int.MaxValue - 100); Call(runtime, "RememberRejectedTarget", key, 119, 6450u);
+        Set(runtime, "lastTick", unchecked(int.MaxValue + 199));
+        Check((bool)Call(runtime, "IsRejectedTarget", key, 119, 6450u), "Native rejection window retains wrapped tick 299");
+        Set(runtime, "lastTick", unchecked(int.MaxValue + 200));
+        Check(!(bool)Call(runtime, "IsRejectedTarget", key, 119, 6450u), "Native rejection window expires at wrapped tick 300");
+        runtime.OnSessionEnded(); Start(runtime); runtime.OnTick(5); // Session retirement resets identities, independently of numeric tick values.
+        Check(((IDictionary)Get(runtime, "rejectedRaidTargets")).Count == 0 && (int)Get(runtime, "lastTick") == 5, "Mission replacement clears identities and restarts cleanup");
+        Check(Convert.ToInt32(Get(runtime, "nextRejectionCleanupTick")) == 205, "Cleanup schedule reset after mission replacement");
         Check(!GroupKey(1, 0).Equals(GroupKey(1, 1)) && !GroupKey(1, 0).Equals(GroupKey(2, 0)), "Player/role independently identify groups");
     }
     private static void TestWaitingCallbacks()

@@ -72,6 +72,7 @@ namespace BugfixesAndQoL
 
     internal sealed unsafe class QuarryPileRelocationRuntime : IDisposable
     {
+        private bool simulationTickRegistered;
         // Vanilla placeQuarry uses size 6 for the quarry, size 2 for its pile and tries 1..9.
         // setupBuildingEntrancesOffset exposes 4 * buildingSize clockwise perimeter candidates.
         private const int VanillaQuarryScale = 6;
@@ -227,7 +228,12 @@ namespace BugfixesAndQoL
                     .Subscribe(_ => EndMapState()));
                 subscriptions.Add(BuildingR3EventHooks.OnBuildingSpawn.Observable
                     .Subscribe(OnBuildingSpawn));
-                GameTimeManagerAPI.Instance.OnTick += OnGameTick;
+                if (!simulationTickRegistered)
+                {
+                    if (!APIShared.Simulation.SimulationTickEvents.TryRegister(BugfixesAndQoLPlugin.PluginGuid, "quarry-pile", OnGameTick, out string tickReason, 200))
+                        throw new InvalidOperationException("Native simulation ticks unavailable: " + tickReason);
+                    simulationTickRegistered = true;
+                }
                 tickSubscribed = true;
 
                 installedHook = new Hook(FindSetUpInbuildingMethod(), (SetUpInbuildingDelegate)SetUpInbuildingHook);
@@ -602,9 +608,10 @@ namespace BugfixesAndQoL
             if (!pendingAIQuarriesByGlobalId.TryGetValue(quarryGlobalId, out PendingAIQuarry pending))
                 return;
 
-            if (pending.DeadlineTick == null)
-                pending.DeadlineTick = (long)tick + AIQuarryReadinessTimeoutTicks;
-            if (tick >= pending.DeadlineTick.Value)
+            if (pending.FirstProcessedTick == null)
+                pending.FirstProcessedTick = tick;
+            if (!APIShared.Simulation.SimulationClock.TryGetElapsedTicks(pending.FirstProcessedTick.Value, tick, out int elapsed) ||
+                elapsed >= AIQuarryReadinessTimeoutTicks)
             {
                 pendingAIQuarriesByGlobalId.Remove(quarryGlobalId);
                 Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/QuarryPileRelocationRuntime.cs:613", $"Bugfixes and QoL AI quarry-pile placement timed out; the Vanilla pile remains unchanged: playerId={pending.PlayerId}, quarryId={pending.QuarryId}, quarryGlobalId={quarryGlobalId}, tick={tick}.");
@@ -1800,7 +1807,7 @@ namespace BugfixesAndQoL
             if (!tickSubscribed)
                 return;
 
-            GameTimeManagerAPI.Instance.OnTick -= OnGameTick;
+            // Process-owned tick registration remains rooted; feature state gates execution.
             tickSubscribed = false;
         }
 
@@ -1849,7 +1856,7 @@ namespace BugfixesAndQoL
             public int QuarryId { get; }
             public int QuarryGlobalId { get; }
             public int PlayerId { get; }
-            public long? DeadlineTick { get; set; }
+            public int? FirstProcessedTick { get; set; }
         }
 
         private sealed class PrefabSpawnCapture

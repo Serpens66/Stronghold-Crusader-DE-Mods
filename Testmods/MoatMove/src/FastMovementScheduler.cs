@@ -17,6 +17,7 @@ namespace MoatMove
 {
     internal sealed unsafe partial class FriendlyMoatTraversalProvider
     {
+        private bool simulationTickRegistered;
         private FastPlayerMoveDelegate originalFastPlayerMove;
         private FastChoreDelegate originalFastTargetChore;
         private FastAppendDelegate originalFastAppend;
@@ -25,7 +26,8 @@ namespace MoatMove
         private HookTransaction fastCommandHooks;
         private IDisposable fastCancelSubscription, fastLoadSubscription, anchorMoveSubscription, anchorUnitMoveSubscription;
         private bool fastSchedulerInitialized, fastDispatching, fastLoadReady, fastSaveLoading;
-        private int fastPlayerActionDepth, fastLastTick = int.MinValue, fastRoundRobin;
+        private int fastPlayerActionDepth, fastRoundRobin;
+        private int? fastLastTick;
         private IntPtr fastChoreMode;
         private byte[] fastLoadedCommands;
         private FireRouteRules fireRules;
@@ -48,7 +50,7 @@ namespace MoatMove
             // APIShared already validated and owns the waypoint entry.
             originalFastAppend = runtime.ContinueQueueAppend;
             HookTransaction pending = null;
-            bool registered = false, tickRegistered = false;
+            bool registered = false;
             try
             {
                 var originals = runtime.InstallTraversalCommandHooks(memory, libraryBase,
@@ -77,15 +79,19 @@ namespace MoatMove
                     context => context.IsSaveFile ? CaptureFastSave() : null,
                     (bytes, context) => { if (context.IsSaveFile) fastLoadedCommands = (byte[])bytes.Clone(); });
                 if (!registered) throw new InvalidOperationException("Fast save handler already registered.");
-                GameTimeManagerAPI.Instance.OnTick += ProcessFastCommands;
-                tickRegistered = true;
+                if (!simulationTickRegistered)
+                {
+                    if (!APIShared.Simulation.SimulationTickEvents.TryRegister(MoatMovePlugin.PluginGuid, "movement-scheduler", ProcessFastCommands, out string tickReason, 600))
+                        throw new InvalidOperationException("Native simulation ticks unavailable: " + tickReason);
+                    simulationTickRegistered = true;
+                }
                 fastCommandHooks = pending;
                 fastSchedulerInitialized = true;
             }
             catch
             {
                 // Only a failed initialization candidate reaches this rollback.
-                if (tickRegistered) GameTimeManagerAPI.Instance.OnTick -= ProcessFastCommands;
+
                 if (registered) ModSaveDataAPI.Instance.UnregisterModDataHandler("MoatMove_Serp");
                 fastCancelSubscription?.Dispose(); fastLoadSubscription?.Dispose(); anchorMoveSubscription?.Dispose(); anchorUnitMoveSubscription?.Dispose();
                 fastCommands.Removed -= ReleaseFastPendingSearch;
@@ -725,7 +731,7 @@ namespace MoatMove
 
         private void ResetFastCommandMap()
         {
-            fastCommands.Clear(); fastLastTick = int.MinValue; fastRoundRobin = 0;
+            fastCommands.Clear(); fastLastTick = null; fastRoundRobin = 0;
             fireRules?.Reset();
             ruleProbe?.ClearAll(); ruleProbeElapsed = 0; moatCostProbeElapsed = 0; moatCostProbeActive = false;
             ResetAnchorMap();

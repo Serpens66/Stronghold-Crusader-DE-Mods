@@ -3,13 +3,17 @@
   "Author": "Serpens66",
   "Name": "AI Defense Test",
   "Description": "Keeps AI castle towers garrisoned with targetable ranged defenders held in private, neutral tribes outside normal AI command groups and troop categories.",
-  "Version": "1.2.13",
+  "Version": "1.2.14",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.0",
   "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.2.14",
+      "Changes": ["Use native map ticks for gameplay scheduling and deadlines, preserving initialization, save behavior and logical activation."]
+    },
     {
       "Version": "1.2.13",
       "Changes": [
@@ -126,7 +130,7 @@
   "Dependencies": [
     {
       "GUID": "APIShared_Serp",
-      "MinimumVersion": "0.3.6"
+      "MinimumVersion": "0.23.0"
     }
   ]
 }

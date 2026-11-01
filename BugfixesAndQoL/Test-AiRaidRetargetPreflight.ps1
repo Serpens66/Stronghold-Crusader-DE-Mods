@@ -10,7 +10,7 @@ if ([regex]::Matches($runtime, '\bEvaluate\(').Count -ne 1 -or
     $evaluation -notmatch 'freshness != "nativeSearchObserved"' -or
     $runtime -notmatch 'pre.Evidence.PlayerId == raidPlayer && pre.Evidence.RaidRole == raidGroup') { throw 'Single authoritative search classifier changed.' }
 if ($runtime -match 'OnUnitMoveHere|OnBuildingDamage|OnBuildingDelete|RAID_DIAG_|RAID_DIAG_CONTROL_ATTACK|\b(?:OnDestroy|OnDisable|OnApplicationQuit|Update|LateUpdate|FixedUpdate|StartCoroutine)\s*\(') { throw 'Diagnostic spam or lifecycle callback in raid runtime.' }
-if ($runtime -notmatch 'GameTimeManagerAPI.Instance.OnTick \+= OnTick' -or
+if ($runtime -notmatch 'APIShared.Simulation.SimulationTickEvents.TryRegister' -or
     $owner -notmatch 'static AiRaidRetargetFixRuntime processAiRaidRetargetFixRuntime' -or
     $owner -notmatch 'settings.EnableMod && settings.EnableAiRaidRetargetFix' -or
     $runtime -notmatch 'if \(wasActive != active\) ClearObservations\(\)' -or
