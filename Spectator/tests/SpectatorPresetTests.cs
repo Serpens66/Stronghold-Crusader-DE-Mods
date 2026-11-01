@@ -47,15 +47,25 @@ internal static class SpectatorPresetTests
             vm.System_LoadModDefaults(); Check(vm.EnableTestTools, "tools default restored");
             GameNetworkAPI.LocalHost = false; vm.System_RefreshSettingsAccess();
             vm.EnableStatistics = false; vm.EnableEliminatedPlayersBecomeSpectators = false;
-            Check(vm.EnableStatistics && vm.EnableEliminatedPlayersBecomeSpectators, "client cannot change host spectator permissions");
+            Check(!vm.EnableStatistics && vm.EnableEliminatedPlayersBecomeSpectators, "statistics are local; promotion remains host controlled");
+            vm.EnableSpectatorPerspective=false;
+            Check(!vm.Activation.Perspective && !Prepare(path).EnableSpectatorPerspective,"local perspective preference survives restart");
+            vm.EnableStatistics=true;
             vm.EnableClientFeatures = false;
             vm.EnableSingleplayerTestMode = true;
-            Check(vm.EnableSingleplayerTestMode && !vm.Activation.SingleplayerTest && vm.Activation.Statistics && vm.Activation.Defeat && !vm.Activation.TestTools,
-                "client may configure its test preference but local activation never revokes host information or defeat rights");
+            Check(vm.EnableSingleplayerTestMode && !vm.Activation.SingleplayerTest && !vm.Activation.Statistics && !vm.Activation.Overview && vm.Activation.Defeat && !vm.Activation.TestTools,
+                "local master gates local views and tools without revoking host promotion");
             GameXAMLManagerAPI.Instance.ApplyNetworkSync(vm, () => vm.EnableEliminatedPlayersBecomeSpectators = false);
-            Check(vm.Activation.Statistics && !vm.Activation.Defeat, "statistics remain available without automatic spectator promotion");
+            Check(!vm.Activation.Statistics && !vm.Activation.Defeat, "statistics remain available without automatic spectator promotion");
             var snapshot = vm.System_CreateCurrentWorkingSnapshot();
             Check(!snapshot.ContainsKey("EnableSurrenderAndStatistics"), "Spectator never inherits another mod's surrender preference");
+            vm.EnableClientFeatures=true; vm.EnableStatistics=true; vm.EnableSpectatorPerspective=true;
+            Check(vm.Activation.Overview && vm.Overview.EnableMod && vm.Activation.Statistics,"local UI can be enabled independently of promotion");
+            GameNetworkAPI.LocalHost=true;vm.System_RefreshSettingsAccess();vm.EnableMod=false;
+            Check(vm.Activation.Overview && vm.Activation.Statistics && vm.Activation.Perspective && !vm.Activation.Defeat,"host master never gates local UI");
+            vm.EnableLordOverview=false;
+            Check(!vm.Overview.EnableMod && vm.Activation.Statistics,"overview switch does not hide the separate detailed statistics");
+            Check(OverviewPresetTests.Run(new[]{Path.Combine(root,"overview")})==0,"integrated overview preset contracts");
             LegacySpectatorSettingsTests.Run();
             Console.WriteLine("PASS: production Spectator settings persistence, reset, host/client authority and independent activation.");
             return 0;

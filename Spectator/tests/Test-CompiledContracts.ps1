@@ -12,11 +12,11 @@ $game = [Mono.Cecil.AssemblyDefinition]::ReadAssembly((Join-Path $GameDir 'Stron
 $root = Split-Path -Parent $PSScriptRoot
 try {
     $settings = $mod.MainModule.GetType('Spectator.SpectatorViewModel')
-    foreach ($name in @('EnableMod','EnableSpectatorPerspective','EnableStatistics','EnableEliminatedPlayersBecomeSpectators')) {
+    foreach ($name in @('EnableMod','AllowEnemyDetails','EnableEliminatedPlayersBecomeSpectators')) {
         $property = $settings.Properties | Where-Object Name -eq $name
         if (-not ($property.CustomAttributes.AttributeType.Name -contains 'SyncHostOnlyAttribute')) { throw "Host role lost: $name" }
     }
-    foreach ($name in @('EnableClientFeatures','EnableTestTools','EnableSingleplayerTestMode')) {
+    foreach ($name in @('EnableClientFeatures','EnableTestTools','EnableSingleplayerTestMode','EnableSpectatorPerspective','EnableStatistics','EnableLordOverview','OverviewColumns','OverviewDesign','OverviewLordGrid','OverviewValueGrid','OverviewShowEliminated','OverviewSortBy','OverviewSortDescending')) {
         $client = $settings.Properties | Where-Object Name -eq $name
         if (-not ($client.CustomAttributes.AttributeType.Name -contains 'PresetLocalAttribute')) { throw "Local tools must remain local settings: $name" }
     }

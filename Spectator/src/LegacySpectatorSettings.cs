@@ -87,11 +87,17 @@ namespace Spectator
 
         internal void Apply(bool canEdit, Func<Dictionary<string, byte[]>> current, Action<Dictionary<string, byte[]>> apply)
         {
-            if (!prepared || !canEdit || pending.Count == 0) return;
+            Apply(_ => canEdit, current, apply);
+        }
+
+        internal void Apply(Func<string, bool> canEdit, Func<Dictionary<string, byte[]>> current, Action<Dictionary<string, byte[]>> apply)
+        {
+            if (!prepared || pending.Count == 0) return;
             var snapshot = current();
             var changes = new Dictionary<string, byte[]>(StringComparer.Ordinal);
             foreach (var entry in pending.ToArray())
             {
+                if (!canEdit(entry.Key)) continue;
                 if (!snapshot.TryGetValue(entry.Key, out byte[] bytes)) return; // registration not active yet
                 bool value = ReadBool(bytes);
                 if (value != baseline[entry.Key] && value != entry.Value)

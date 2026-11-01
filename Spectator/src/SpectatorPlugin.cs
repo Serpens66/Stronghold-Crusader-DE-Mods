@@ -9,7 +9,7 @@ namespace Spectator
 {
     [BepInPlugin(PluginGuid, "Spectator", "0.1.0")]
     [BepInDependency("000shcdese", "2.14.0")]
-    [BepInDependency("APIShared_Serp", "0.18.0")]
+    [BepInDependency("APIShared_Serp", "0.21.0")]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("fixes", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("CheatMod_Serp", BepInDependency.DependencyFlags.SoftDependency)]
@@ -49,6 +49,7 @@ namespace Spectator
                 settingsRegistered = true;
                 TryMigrateLegacySettings();
             });
+            InitializeFeature("overview", () => LordOverview.OverviewRuntime.Start(Logger, Settings.Overview));
             InitializeFeature("perspective", () => SpectatorPerspectiveRuntime.Initialize(Logger, Settings));
             InitializeFeature("statistics", () => {
                 statistics = new SpectatorStatistics(Logger, Settings);

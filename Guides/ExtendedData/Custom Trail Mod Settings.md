@@ -225,7 +225,7 @@ Jede Koop-Mission enthält eine unveränderte Kopie ihres Trails und die daraus 
 
 Spieler benötigen `ExtendedData`, APIShared mit den von den installierten Mods deklarierten Mindestversionen und jeden von der Map oder Mission ausdrücklich genannten Mod. Ein fehlender genannter Mod wird bei der Aktivierung des Presets gemeldet. Nicht genannte Mods und Einstellungen verwenden ihre moddefinierte sichere Ausgangslage statt beliebiger lokaler Gameplay-Werte.
 
-Nach Missionsende stellen kompatible Mods die vorherigen normalen Arbeitswerte und den Presetstatus des Spielers wieder her. Die Auswahl eines Custom Trails zeigt zunächst eine schreibgeschützte Vorschau: Mods, die nicht im Sidecar genannt werden, behalten während der Auswahl ihre persönlichen Werte. Beim direkten Start werden die Missionseinstellungen als schreibgeschützter Kontext angewendet; für nicht genannte Mods und Einstellungen gilt die sichere Ausgangslage.
+Nach Missionsende stellen kompatible Mods die vorherigen missionsabhängigen Hostwerte wieder her; persönliche Änderungen bleiben gespeichert. Die Auswahl eines Custom Trails zeigt zunächst eine schreibgeschützte Vorschau: Mods, die nicht im Sidecar genannt werden, behalten während der Auswahl ihre persönlichen Werte. Beim direkten Start werden die Missionseinstellungen als schreibgeschützter Kontext angewendet; für nicht genannte Mods und Einstellungen gilt die sichere Ausgangslage.
 
 In einem freien Einzelspieler-Scharmützel oder einer Multiplayer-Host-Lobby initialisiert die Auswahl einer Map mit gültigen eingebetteten Einstellungen eine bearbeitbare Map-Arbeitskopie. Ein über **Customize** geöffneter Trail initialisiert stattdessen seine bearbeitbare Trail-Arbeitskopie; die Map-Einstellungen stehen nur als ausdrücklich ladbare Quelle im gemeinsamen Wähler bereit. Die Auswahl einer anderen Map oder das Verlassen der Lobby stellt den vorherigen normalen Arbeitsstand wieder her. Beim Start aus der bearbeitbaren Kopie werden deren aktuelle Werte als schreibgeschützter Missions-Snapshot angewendet.
 
@@ -263,3 +263,14 @@ Ein größeres Beispiel befindet sich unter `ExtendedData/Examples/01.modtrail.j
 - Wird ein Mod als fehlend gemeldet, installiere das Plugin mit der von der Mission genannten GUID.
 - Ist ein fester Wert falsch, öffne die Map oder Mission erneut im Editor, wähle **Fester Wert**, setze den Wert im zugehörigen Mod und speichere erneut.
 - Beim manuellen Verschieben müssen `.trail` und `.modtrail.json` denselben Basisnamen behalten.
+
+### Persönliche Werte und Missionsvorgaben
+
+Nur missionsabhängige Host-Einstellungen werden vorgegeben oder vorübergehend geändert.
+Player-/Local-Werte bleiben auch in Customize und bei gesperrten Missionsquellen persönlich
+editierbar und gespeichert. Missionsstart, Laden, Quellenwechsel und Ende setzen sie nicht
+zurück. Das bewusste Laden eines normalen Presets in Customize oder Zurücksetzen auf
+Mod-Standards darf persönliche Werte ändern; normale Hostwerte bleiben dabei temporär.
+Mit `[MissionIndependent]` gekennzeichnete Hostwerte bleiben ebenfalls persönlich beim
+Host und erscheinen nicht in ExtendedDatas Einstufung oder Missionsdateien. Die normale
+Host-/Client-Autorität und bestehende Preset-Ladesperren bleiben bestehen.

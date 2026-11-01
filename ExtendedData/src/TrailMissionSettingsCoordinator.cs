@@ -236,6 +236,7 @@ namespace ExtendedData
                         // never become compatible through the legacy reason-string adapter.
                         reason = !string.IsNullOrWhiteSpace(report?.Diagnostic) ? report.Diagnostic
                             : report == null ? "missing owning plugin GUID or mod-settings registration" : report.Status.ToString();
+                    if (report?.IsCompatible == true && report.HostProperties.Count == 0) continue;
                     result.Add(new TrailModCompatibilityInfo(modId, GetModDisplayName(group.First()),
                         report?.IsCompatible == true ? report.HostProperties.ToArray() : Array.Empty<PropertyInfo>(),
                         reason, report?.IsCompatible == true ? (object)report.Endpoint : group.First()?.ViewModel));

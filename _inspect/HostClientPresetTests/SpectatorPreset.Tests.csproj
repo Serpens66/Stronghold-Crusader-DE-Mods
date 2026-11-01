@@ -9,5 +9,11 @@
     <Compile Include="..\..\Spectator\src\ToolsText.cs"/>
     <Compile Include="..\..\Spectator\src\LegacySpectatorSettings.cs"/>
     <Compile Include="..\..\Spectator\tests\LegacySpectatorSettingsTests.cs"/>
+    <Compile Include="..\..\Spectator\src\SpectatorViewModel.Overview.cs"/>
+    <Compile Include="..\..\Spectator\src\LordOverview\OverviewSettings.cs"/>
+    <Compile Include="..\..\Spectator\src\LordOverview\OverviewState.cs"/>
+    <Compile Include="..\..\Spectator\src\LordOverview\OverviewLayout.cs"/>
+    <Compile Include="..\..\Spectator\tests\Overview\PresetProgram.cs"/>
+    <Compile Include="..\..\APIShared\src\Lobby\LobbyStateContracts.cs"/>
   </ItemGroup>
 </Project>

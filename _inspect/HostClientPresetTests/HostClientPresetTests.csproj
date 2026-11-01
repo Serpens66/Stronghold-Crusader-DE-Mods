@@ -85,12 +85,8 @@
     <Compile Include="..\..\Shared\Runtime\UI\NumericTextInput.cs" />
     <Compile Include="..\..\ExtremePowers\src\Settings\ExtremePowersSettings.cs" />
     <Compile Include="DynamicPresetTests.cs" />
+    <Compile Include="BackendDefaultResetTests.cs" />
     <Compile Include="RestartSettingsTests.cs" />
-    <Compile Include="TweakerProviderTests.cs" />
-    <Compile Include="TweakerDefaultResetTests.cs" />
-    <Compile Include="OptionalIntegrationTests.cs" />
-    <Compile Include="..\..\SerpsModsHost\src\OptionalSettingsIntegration.cs" />
-    <Compile Include="..\..\SerpsModsHost\src\StatsTweakerConfigurationProvider.cs" />
     <Compile Include="..\..\APIShared\src\ModSettings\Presets\DynamicPresetSettings.cs" />
     <Compile Include="..\..\APIShared\src\ModSettings\ModSettingsApplication.cs" />
     <Compile Include="..\..\APIShared\src\ModSettings\Presets\ModSettingsPresetContracts.cs"><Link>ModSettingsPresetContracts.cs</Link></Compile>

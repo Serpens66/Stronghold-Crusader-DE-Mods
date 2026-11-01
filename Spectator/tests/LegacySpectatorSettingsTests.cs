@@ -54,7 +54,7 @@ internal static class LegacySpectatorSettingsTests
         migration.Prepare(Defaults()); return migration;
     }
     private static void Apply(LegacySpectatorSettings plan, SpectatorViewModel vm, bool host = true) =>
-        plan.Apply(host, vm.System_CreateCurrentWorkingSnapshot, vm.System_ApplyWorkingSnapshot);
+        plan.Apply(key => key == Perspective || host, vm.System_CreateCurrentWorkingSnapshot, vm.System_ApplyWorkingSnapshot);
 
     internal static void Run()
     {
@@ -84,7 +84,7 @@ internal static class LegacySpectatorSettingsTests
             string root = NewRoot(); Write(Settings(root, "BugfixesAndQoL_Serp"), Values(false, false));
             Plan(root); Register(root); // interruption after registration materializes defaults
             var retry = Plan(root); var vm = Register(root);
-            Apply(retry, vm, false); Check(vm.EnableSpectatorPerspective, "client cannot apply host values");
+            Apply(retry, vm, false); Check(!vm.EnableSpectatorPerspective && vm.EnableEliminatedPlayersBecomeSpectators, "client migrates its local perspective while host promotion stays deferred");
             Apply(retry, vm); Check(!vm.EnableSpectatorPerspective, "pending intent survives default materialization and role deferral");
         }
         {

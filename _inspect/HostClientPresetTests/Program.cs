@@ -69,7 +69,7 @@ internal static class Program
             changes.Contains(nameof(settings.HostSettingsOpacity)) && changes.Contains(nameof(settings.ClientSettingsOpacity)),
             "reset did not refresh opacity");
         settings.System_EnterMissionPreset(snapshot, "Trail", false);
-        Check(settings.HostSettingsOpacity == 0.65f && !settings.CanEditHostSettings && !settings.CanEditClientSettings,
+        Check(settings.HostSettingsOpacity == 0.65f && !settings.CanEditHostSettings && settings.CanEditClientSettings,
             "mission opacity changed read-only policy");
         settings.System_ExitMissionPreset();
         Check(settings.HostSettingsOpacity == 1f && settings.ClientSettingsOpacity == 1f,
@@ -370,6 +370,15 @@ internal static class Program
                 "Trail",
                 editable: false);
             AssertState(vm, host: false, mission: true, editable: false, false, false, false, "client read-only Trail");
+            vm.EphemeralChoice = true;
+            Check(vm.EphemeralChoice && !vm.System_CreateCurrentWorkingSnapshot().ContainsKey(nameof(vm.EphemeralChoice)),
+                "non-persistent personal option was locked or entered a stored snapshot");
+            int ownPersonalHost = vm.PersonalHostValue;
+            vm.PersonalHostValue = 909;
+            Check(vm.PersonalHostValue == ownPersonalHost, "client edited a mission-independent host property");
+            GameXAMLManagerAPI.Instance.ApplyNetworkSync(vm, () => vm.PersonalHostValue = 919);
+            Check(vm.PersonalHostValue == 919, "authenticated independent host sync failed");
+            AssertNoSentinel(settingsPath, 919);
             AssertNoSentinel(settingsPath, TrailSentinel);
             byte[] beforeTrailReceive = File.ReadAllBytes(settingsPath);
             GameXAMLManagerAPI.Instance.ApplyNetworkSync(
@@ -396,8 +405,8 @@ internal static class Program
                 "restoring the Trail preset lost authoritative host state or changed personal client settings");
             vm.ClientValue = 244;
             vm.LocalValue = 344;
-            Check(vm.ClientValue == 233 && vm.LocalValue == 333,
-                "read-only Trail accepted personal setting edits");
+            Check(vm.ClientValue == 244 && vm.LocalValue == 344,
+                "read-only Trail rejected personal setting edits");
             AssertNoSentinel(settingsPath, TrailSentinel);
             AssertStoredHostValue(settingsPath, 122);
 
@@ -409,8 +418,8 @@ internal static class Program
             GameXAMLManagerAPI.Instance.ApplyNetworkSync(vm, () => vm.HostValue = RemoteSentinel + 2);
             vm.SelectedPreset = 1;
             Check(vm.HostValue == RemoteSentinel + 2, "client preset changed a host property");
-            Check(vm.ClientValue == 233, "normal working client value changed unexpectedly");
-            Check(vm.LocalValue == 333, "normal working local value changed unexpectedly");
+            Check(vm.ClientValue == 244, "normal working client value reverted the personal mission edit");
+            Check(vm.LocalValue == 344, "normal working local value reverted the personal mission edit");
 
             var compound = new CompoundViewModel();
             int originalMinimum = compound.Minimum;
@@ -439,6 +448,9 @@ internal static class Program
                 "Trail",
                 editable: false);
             AssertState(vm, host: true, mission: true, editable: false, false, false, false, "host read-only Trail");
+            vm.PersonalHostValue = 929;
+            Check(vm.PersonalHostValue == 929 && ReadInt(MessagePackSerializer.Deserialize<Dictionary<string, byte[]>>(File.ReadAllBytes(settingsPath)), nameof(vm.PersonalHostValue)) == 929,
+                "locked mission did not personally persist the independent host setting");
             vm.SelectedPreset = 0;
             Check(vm.IsMissionPresetActive && !vm.CanEditHostSettings && vm.HostValue == TrailSentinel,
                 "read-only Trail allowed switching to normal working settings");
@@ -4980,7 +4992,7 @@ internal static class Program
         Check(vm.IsMissionPresetActive == mission, context + ": mission state");
         Check(vm.MissionPresetEditable == editable, context + ": editable state");
         Check(vm.CanEditHostSettings == canEditHost, context + ": host editability");
-        Check(vm.CanEditClientSettings == (!mission || editable), context + ": client editability");
+        Check(vm.CanEditClientSettings, context + ": client editability");
         Check(vm.CanResetSettings == canReset, context + ": reset availability");
         Check(vm.CanChangePreset == canChangePreset, context + ": preset availability");
     }
@@ -5761,6 +5773,12 @@ internal sealed class MixedViewModel : PresetLobbyModSettingsViewModel
     private int clientValue = 201;
     private int localValue = 301;
     private int transientHostValue = 401;
+    private int personalHostValue = 501;
+    private bool ephemeralChoice;
+    [PresetLocal, DoNotPersist]
+    public bool EphemeralChoice { get => ephemeralChoice; set { if (!CanMutateSetting()) return; ephemeralChoice = value; OnPropertyChanged(nameof(EphemeralChoice)); } }
+    [SyncHostOnly, MissionIndependent]
+    public int PersonalHostValue { get => personalHostValue; set { if (!CanMutateSetting() || personalHostValue == value) return; personalHostValue = value; OnPropertyChanged(nameof(PersonalHostValue)); } }
 
     [SyncHostOnly]
     public int HostValue

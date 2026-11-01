@@ -34,13 +34,16 @@ namespace Spectator
             if (!settingsRegistered || migratingSettings) return;
             try
             {
-                if (!Settings.IsRestoringSnapshot && Settings.CanEditHostSettings && !SpectatorRuntime.HasMission &&
+                if (!Settings.IsRestoringSnapshot && CanMigrateSetting(args.PropertyName) && !SpectatorRuntime.HasMission &&
                     !Settings.IsMissionPresetSelected && Array.IndexOf(LegacySpectatorSettings.Keys, args.PropertyName) >= 0)
                     legacySettings?.PreserveEdit(args.PropertyName);
-                if (args.PropertyName == nameof(Settings.CanEditHostSettings)) TryMigrateLegacySettings();
+                if (args.PropertyName == nameof(Settings.CanEditHostSettings) || args.PropertyName == nameof(Settings.CanEditClientSettings)) TryMigrateLegacySettings();
             }
             catch (Exception error) { LogMigrationError(error); }
         }
+
+        private bool CanMigrateSetting(string key) => key == nameof(Settings.EnableSpectatorPerspective)
+            ? Settings.CanEditClientSettings : Settings.CanEditHostSettings;
 
         private void TryMigrateLegacySettings()
         {
@@ -52,7 +55,7 @@ namespace Spectator
                     { nameof(Settings.EnableSpectatorPerspective), true },
                     { nameof(Settings.EnableEliminatedPlayersBecomeSpectators), true }
                 });
-                legacySettings.Apply(Settings.CanEditHostSettings, Settings.System_CreateCurrentWorkingSnapshot,
+                legacySettings.Apply(CanMigrateSetting, Settings.System_CreateCurrentWorkingSnapshot,
                     Settings.System_ApplyWorkingSnapshot);
             }
             catch (Exception error) { LogMigrationError(error); }

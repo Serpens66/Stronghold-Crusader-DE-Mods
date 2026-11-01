@@ -477,7 +477,6 @@ namespace SerpsModsHost
                 Interlocked.Exchange(ref settingsSortQueued, 0);
                 try
                 {
-                    StatsTweakerPresetAdapter.TryAttach(instance.owner.Info.Location, instance.Logger);
                     var registrations = GameXAMLManagerAPI.Instance.RegisteredModSettings;
                     LobbyModSettingsEntry host = registrations.FirstOrDefault(entry =>
                         string.Equals(entry.Name, PluginGuid, StringComparison.Ordinal));

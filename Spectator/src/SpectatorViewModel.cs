@@ -5,7 +5,7 @@ using System;
 
 namespace Spectator
 {
-    public sealed class SpectatorViewModel : PresetLobbyModSettingsViewModel
+    public sealed partial class SpectatorViewModel : PresetLobbyModSettingsViewModel
     {
         private bool enableClientFeatures = true, enableMod = true, enableSpectatorPerspective = true, enableStatistics = true,
             enableEliminatedPlayersBecomeSpectators = true, enableTestTools = true;
@@ -17,7 +17,7 @@ namespace Spectator
         public event Action SettingsChanged;
         internal bool IsRestoringSnapshot => IsApplyingSettingsSnapshot;
 
-        public SpectatorViewModel() { RefreshActivation(); ResetToDefaultCommand = new RelayCommand(ResetDefaults); }
+        public SpectatorViewModel() { Overview = new LordOverview.OverviewSettings(this); RefreshActivation(); ResetToDefaultCommand = new RelayCommand(ResetDefaults); }
         protected override string ResolveSettingsUiText(string key, string fallback) => SerpLocalization.Get(key);
 
         [PresetLocal]
@@ -29,12 +29,12 @@ namespace Spectator
         internal SpectatorFeatureActivation Activation { get; private set; }
         private void RefreshActivation() => Activation = new SpectatorFeatureActivation(EnableMod,
             EnableClientFeatures, EnableSpectatorPerspective, EnableStatistics,
-            EnableEliminatedPlayersBecomeSpectators, EnableTestTools, EnableSingleplayerTestMode);
+            EnableEliminatedPlayersBecomeSpectators, EnableTestTools, EnableSingleplayerTestMode, EnableLordOverview);
         [SyncHostOnly]
         public bool EnableMod { get => enableMod; set => Set(ref enableMod, value, nameof(EnableMod)); }
-        [SyncHostOnly]
+        [PresetLocal]
         public bool EnableSpectatorPerspective { get => enableSpectatorPerspective; set => Set(ref enableSpectatorPerspective, value, nameof(EnableSpectatorPerspective)); }
-        [SyncHostOnly]
+        [PresetLocal]
         public bool EnableStatistics { get => enableStatistics; set => Set(ref enableStatistics, value, nameof(EnableStatistics)); }
         [SyncHostOnly]
         public bool EnableEliminatedPlayersBecomeSpectators { get => enableEliminatedPlayersBecomeSpectators; set => Set(ref enableEliminatedPlayersBecomeSpectators, value, nameof(EnableEliminatedPlayersBecomeSpectators)); }

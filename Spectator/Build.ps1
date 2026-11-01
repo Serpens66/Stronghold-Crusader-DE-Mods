@@ -31,6 +31,8 @@ foreach ($file in @('Spectator.dll','info.json','Override/ScriptExtenderUI/Spect
 }
 & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'tests/Test-CompiledContracts.ps1') -AssemblyPath (Join-Path $package 'Spectator.dll') -ApiSharedDir $ApiSharedDir -GameDir $game
 if ($LASTEXITCODE -ne 0) { throw 'Compiled contracts failed.' }
+& powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'tests/Overview/Test-Appearance.ps1') -AssemblyPath (Join-Path $package 'Spectator.dll') -GameDirectory $game
+if ($LASTEXITCODE -ne 0) { throw 'Overview compiled appearance/runtime boundary checks failed.' }
 # This development package is deliberately not added to the main-mod release whitelist.
 $proof = [ordered]@{ BuiltUtc=[DateTime]::UtcNow.ToString('o'); Version='0.1.0'; ApiSharedDirectory=$ApiSharedDir; ApiSharedSha256=(FileHash (Join-Path $ApiSharedDir 'APIShared.dll')); SpectatorSha256=(FileHash (Join-Path $package 'Spectator.dll')); Installed=($NoInstall -eq 0) }
 [void](New-Item -ItemType Directory -Path (Join-Path $PSScriptRoot '.local') -Force)

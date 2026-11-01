@@ -8,12 +8,15 @@ function Check([string]$file, [string[]]$arguments = @()) {
 $workspace = Split-Path -Parent $PSScriptRoot
 Check (Join-Path $workspace 'Shared/Tools/Validation/Test-SharedBoundaries.ps1') @('-ModDirectory','Spectator','-ConsumerOnly')
 Check (Join-Path $workspace 'Shared/Tools/Validation/Test-IngameTooltips.ps1') @('-Workspace',$workspace,'-ModDirectories',$PSScriptRoot)
+& dotnet run --project (Join-Path $PSScriptRoot 'tests/Overview/Tests.csproj') -c Release
+if ($LASTEXITCODE -ne 0) { throw 'Overview controller checks failed.' }
 foreach ($name in @('Presets','Allies','ActionPolicy','SpectatorSelection','SpectatorControllers','SavePolicy','CreditFocus','OptionalGates','OptionalPowers','CompactLayout','DockLayout','Theme','NativeActions','NativeOrderContract','NativePowerContext','InstalledContracts')) {
     Write-Host "[Spectator] $name"
     Check (Join-Path $PSScriptRoot "tests/Test-$name.ps1")
 }
 $files = @(Get-ChildItem (Join-Path $PSScriptRoot 'src'),(Join-Path $PSScriptRoot 'Patches'),(Join-Path $PSScriptRoot 'Override'),(Join-Path $PSScriptRoot 'Locales') -Recurse -File)
 foreach ($file in $files) {
+    if ($file.Extension -notin @('.cs','.xaml','.txt')) { continue } # PNG assets are binary.
     $text = [IO.File]::ReadAllText($file.FullName)
     if ($text -match '(?<!\r)\n') { throw "Non-CRLF source: $($file.FullName)" }
     if ($file.Extension -eq '.xaml') { [xml]$xml = $text }

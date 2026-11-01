@@ -90,8 +90,8 @@ namespace Spectator {
    foreach (bool perspective in new[] { false, true })
    foreach (bool tools in new[] { false, true }) {
     var rights = new SpectatorFeatureActivation(host, client, perspective, true, true, tools);
-    Check(SpectatorFeatureActivation.ForceArmyReport(false, true, rights.Perspective) == !(host && perspective), "placement/tools must never grant reports");
-    Check(SpectatorFeatureActivation.ForceArmyReport(true, true, rights.Perspective) == !(host && perspective), "enabled perspective owns report access independently of frozen controls");
+    Check(SpectatorFeatureActivation.ForceArmyReport(false, true, rights.Perspective) == !(client && perspective), "placement/tools must never grant reports");
+    Check(SpectatorFeatureActivation.ForceArmyReport(true, true, rights.Perspective) == !(client && perspective), "enabled perspective owns report access independently of frozen controls");
     Check(SpectatorFeatureActivation.ForceArmyReport(true, false, rights.Perspective) && !SpectatorFeatureActivation.ForceArmyReport(false, false, rights.Perspective), "ordinary player keeps Vanilla navigation");
    }
    Check(ToolSessionPolicy.CanMutate(true,true,true,true,false,true,false));
@@ -112,7 +112,7 @@ namespace Spectator {
    foreach(bool spectatorTools in new[]{false,true}) foreach(bool activeTools in new[]{false,true}) {
     var activation = new SpectatorFeatureActivation(host,client,true,true,true,spectatorTools,activeTools);
     Check(activation.SingleplayerTest==(client&&activeTools) && activation.TestTools==(client&&spectatorTools),"test options are independent and follow only local activation");
-    Check(activation.Perspective==host && activation.Statistics==host && activation.Defeat==host,"local test settings cannot revoke host permissions");
+    Check(activation.Perspective==client && activation.Statistics==client && activation.Overview==client && activation.Defeat==host,"local views follow client activation; promotion follows host activation");
    }
    foreach(bool occupied in new[]{false,true}) foreach(bool ai in new[]{false,true}) foreach(bool self in new[]{false,true}) {
     Check(ToolSessionPolicy.CanSelect(false,true,occupied,ai,self)==(occupied&&(ai||self)),"active testing includes self and AI, no other human slots");

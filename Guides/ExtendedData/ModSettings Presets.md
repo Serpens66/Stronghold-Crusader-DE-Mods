@@ -112,7 +112,7 @@ Descriptions support line breaks and up to 8192 characters. The standard editor 
 
 Every compatible mod has one **Reset settings to** selector. **Mod defaults** is always available; **Trail settings** and **Map settings** appear only when a valid source exists. On entering a context, the selector prefers Trail, then Map, then Mod defaults. A manual selection remains selected while that context stays unchanged. Selecting an entry changes nothing until **Reset** is pressed. Resetting replaces only the working copy: it never writes a Trail sidecar or Map archive, and it never changes personal presets.
 
-Direct Map/Trail starts are read-only. Customize and Trail Maker use a freely editable temporary working copy, just like a normal Custom Game. For a Trail, Trail settings have initial precedence and embedded Map settings are ignored until the author explicitly loads **Map settings**. Only the visible **Include modsettings** options on the normal Trail Maker and Map Editor save paths may write or remove a sidecar or the ExtendedData archive entry. Saving a personal preset never modifies these mission sources. Leaving Customize restores the previous normal working values and status.
+Direct Map/Trail starts are read-only. Customize and Trail Maker use a freely editable temporary working copy, just like a normal Custom Game. For a Trail, Trail settings have initial precedence and embedded Map settings are ignored until the author explicitly loads **Map settings**. Only the visible **Include modsettings** options on the normal Trail Maker and Map Editor save paths may write or remove a sidecar or the ExtendedData archive entry. Saving a personal preset never modifies these mission sources. Leaving Customize restores the previous mission-dependent Host values; personal changes remain saved.
 
 ---
 
@@ -183,4 +183,15 @@ Beschreibungen unterstützen Zeilenumbrüche und bis zu 8192 Zeichen. Der Standa
 
 Jeder kompatible Mod besitzt einen einheitlichen Wähler **Einstellungen zurücksetzen auf**. **Mod-Standards** ist immer verfügbar; **Trail-Einstellungen** und **Map-Einstellungen** erscheinen nur bei einer gültigen Quelle. Beim Eintritt in einen Kontext wird Trail vor Map und Map vor Mod-Standards vorausgewählt. Eine manuelle Auswahl bleibt erhalten, solange derselbe Kontext aktiv bleibt. Die Auswahl allein ändert nichts, erst **Zurücksetzen** ersetzt die Arbeitskopie. Dabei werden weder persönliche Presets noch Trail-Sidecar oder Maparchiv verändert.
 
-Direkt gestartete Maps und Trails sind schreibgeschützt. Customize und Trail Maker verwenden dagegen eine vollständig editierbare temporäre Arbeitskopie wie ein normales Custom Game. Bei einem Trail haben zunächst ausschließlich die Trail-Einstellungen Vorrang; Map-Einstellungen werden erst übernommen, wenn der Autor sie ausdrücklich lädt. Nur die sichtbaren Optionen **Modsettings einschließen** an den normalen Speicherpfaden von Trail Maker und Map Editor dürfen ein Sidecar beziehungsweise den ExtendedData-Archiveintrag schreiben oder entfernen. Persönliches Preset-Speichern verändert diese Missionsquellen nie. Beim Verlassen werden die vorherigen normalen Arbeitswerte und ihr Status wiederhergestellt.
+Direkt gestartete Maps und Trails sind schreibgeschützt. Customize und Trail Maker verwenden dagegen eine vollständig editierbare temporäre Arbeitskopie wie ein normales Custom Game. Bei einem Trail haben zunächst ausschließlich die Trail-Einstellungen Vorrang; Map-Einstellungen werden erst übernommen, wenn der Autor sie ausdrücklich lädt. Nur die sichtbaren Optionen **Modsettings einschließen** an den normalen Speicherpfaden von Trail Maker und Map Editor dürfen ein Sidecar beziehungsweise den ExtendedData-Archiveintrag schreiben oder entfernen. Persönliches Preset-Speichern verändert diese Missionsquellen nie. Beim Verlassen werden die vorherigen missionsabhängigen Hostwerte wiederhergestellt; persönliche Änderungen bleiben gespeichert.
+
+### Persönliche Werte und Missionsvorgaben
+
+Nur missionsabhängige Host-Einstellungen werden vorgegeben oder vorübergehend geändert.
+Player-/Local-Werte bleiben auch in Customize und bei gesperrten Missionsquellen persönlich
+editierbar und gespeichert. Missionsstart, Laden, Quellenwechsel und Ende setzen sie nicht
+zurück. Das bewusste Laden eines normalen Presets in Customize oder Zurücksetzen auf
+Mod-Standards darf persönliche Werte ändern; normale Hostwerte bleiben dabei temporär.
+Mit `[MissionIndependent]` gekennzeichnete Hostwerte bleiben ebenfalls persönlich beim
+Host und erscheinen nicht in ExtendedDatas Einstufung oder Missionsdateien. Die normale
+Host-/Client-Autorität und bestehende Preset-Ladesperren bleiben bestehen.

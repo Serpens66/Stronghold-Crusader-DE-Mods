@@ -24,13 +24,12 @@ namespace SerpsModsHost
     // signatures. The dependent implementation is constructed only after the gate.
     [BepInDependency("000shcdese", "2.3.0")]
     [BepInDependency("APIShared_Serp", BepInDependency.DependencyFlags.SoftDependency)]
-    [BepInDependency("CrusaderDETweaker", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class SerpsModsHostPlugin : BaseUnityPlugin
     {
         public const string PluginGuid = "SerpsMods_Serp";
         public const string PluginName = "Serps Mods";
-        public const string PluginVersion = "1.0.33";
+        public const string PluginVersion = "1.0.34";
         public const bool ExtendedDataModSettingsOptOut = true;
         internal ManualLogSource HostLogger => Logger;
         private static object runtime;

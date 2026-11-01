@@ -3,15 +3,17 @@ namespace Spectator
     internal sealed class SpectatorFeatureActivation
     {
         internal SpectatorFeatureActivation(bool host, bool client, bool perspective,
-            bool statistics, bool defeat, bool tools, bool singleplayerTest = false)
+            bool statistics, bool defeat, bool tools, bool singleplayerTest = false, bool overview = true)
         {
-            Perspective = host && perspective;
-            Statistics = host && statistics;
+            Perspective = client && perspective;
+            Statistics = client && statistics;
             Defeat = host && defeat;
+            Overview = client && overview;
             TestTools = client && tools;
             SingleplayerTest = client && singleplayerTest;
         }
 
+        internal bool Overview { get; }
         internal bool Perspective { get; }
         internal bool Statistics { get; }
         internal bool Defeat { get; }
