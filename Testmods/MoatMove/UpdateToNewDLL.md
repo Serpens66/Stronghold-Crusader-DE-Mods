@@ -66,7 +66,34 @@ resolved at runtime; the following Vanilla facts are hard-coded and must be rech
   keeps state, cursor and length but zeroes the route buffer, so MoatMove then stops the unit explicitly
   (target = movement start gives state 0 and length 0). The result is read from the Extender's
   `OnUnitMoveHere` Post (`ReturnValue`).
-- **Escape targets:** `movementTargetAvailability != 0` and tile flags without `0x30`.
+- **Escape targets:** `movementTargetAvailability != 0` and tile flags without `0x30`. Targets on unburnt pitch
+  (`TilePropertyFlag.PitchTrap`, the logic grid bit 0x8 set by `0x59380`; a simulation bit, unlike the
+  client-dependent display bit MiscDisplay 0x2000) or next to fire are only a fallback.
+
+Soldier moves as Vanilla group commands (`src/SoldierTribeMoves.cs`, `src/RouteReplanWatch.cs`, audit 02.11.2026,
+same hash; Extender APIs only, no RVA of MoatMove's own):
+
+- **Why:** `0x196280` (MoveToTile) publishes a route but never sets the military walking state; `0x11B520`
+  writes per admitted member `r_AIState` = 101, +0x342 = 0, +0x3A4 = 0, +0xEC = 0 before `0x196280` (122 with
+  an exit route after a failed `0x196280`). A standing soldier moved by `0x196280` alone glides.
+- **Command:** `IssueMoveHereCommand(tribe, x, y, false, 1, DefaultInSync)` equals the player move
+  `0x8C5F0 -> 0x196100 -> 0x11B520(patrol 0, newOrder 1, flags 1)` without `0x196100`'s tribe +0x56C step. The
+  move type is only tested `!= 0` (unit +0x78 marker counter). The result 1 does not prove a move (no admitted
+  member, failed `0x196280`); MoatMove checks `r_AIState` 101/122 afterwards. Admission: AliveState 2,
+  +0x29C/+0x29A/+0x40F/+0x428 zero, `r_AIState` != 207, +0x90 != 1, not types 40/41/61, types 39/77/58/59/60
+  need their crew state (+0x3B0).
+- **Single-member tribe:** the slot is the commanded tile (`0xDA590` seeds it, `0xE1D30` accepts it).
+- **Membership:** `0x11D370` (assign) and `0x123EA0` (remove) never touch state, route or targets; removing
+  the last member deletes the tribe in the same tick (`0x1261F0`). `Create` is `0x119C00` (slots 1..4499).
+  An AI soldier without a valid tribe gets a typed AI tribe from `0x118660` (call-site coverage probable).
+- **Order tracking:** `0x11B520` writes the two-point order (`r_PatrolPoint1` leader tile, `r_PatrolPoint2`
+  commanded tile, index 1, count 2) only with `newOrder != 0`; AI legs pass `newOrder 0`.
+  `r_ObjectiveTargetTileX/Y` is not written. MoatMove therefore tracks the last move (`OnTribeIssueOrderMoveHere`
+  Pre) and target order (`OnTribeIssueOrderWithTarget` Pre) per tribe and marks player moves inside `0x196100`
+  (MoatMove's move hook, queue flags excluded) as plain.
+- **Call site:** the simulation tick (`APIShared.Simulation.SimulationTickEvents`, before unit updates,
+  `0x1261F0` and tribe AI) has no flood or slot scratch of `0x11B520` open; never call it from a
+  `0x11B520`/`0x196280` Pre or Post handler.
 
 ## Assassin single routes through the anchor core (`src/AnchorRouting.cs`, `TryPublishAnchorSingle`)
 
@@ -129,3 +156,21 @@ the Extender's column table. DAFD0's and DAAC0's direction loads (`0xDB242`, `0x
 filter hooks them. There is no pattern fallback; any byte mismatch logs an error and leaves the feature off. On a new
 DLL repeat the audit: F4930's moat path and writes, DAFD0's exhaustiveness (ring size vs budget) and every edge input,
 DAAC0's relation to DAFD0, and the readers of search stamps (see "Failed ground builds").
+
+Plague clouds (`src/PlagueRouteRules.cs`, `src/PlagueDamageModel.cs`, option AvoidPlague, audit 02.11.2026, same hash). The
+records come from the effect manager `FireRouteRules` binds; no RVA of their own. Hard-coded Vanilla facts to recheck on a new DLL:
+
+- **Records:** type `+0x3E` = 22 (`ProjectileType.Disease`), state `+0x3C` 2 (damaging until 3, fade phases 1016..1023 included;
+  creation in state 1 does not damage). Position `+0x4C/+0x4E` in 1/8 tiles; `0x9C730` takes the tile as position >> 3.
+  Step every 31 ticks (`+0xAA`), direction `+0xB0` (0 N, 1 NE, 2 E, 3 SE, 4 S, 5 SW, 6 W, 7 NW), steps left `+0xB2` (a new
+  direction from the simulation RNG at 0).
+- **Area (`0x9C730`):** cloud tile, 8 neighbours, 16-tile ring (offsets at `0x2DB750`), all within Chebyshev distance 2. Vanilla
+  gate for neighbours and ring: `|H(cloud) - H(tile)| < 120` with `H` = `0x6B910` (raw height `0x4DDD350`, or building roof
+  `0xC07C0` on raw height, on DefaultHeight for main and inner gates). Roof table in `PlagueDamageModel.Roof`.
+- **Per-unit gate (`0x192750`):** tile flags `0x10000100`, building types 40..47 and 74..78, unit-type table `0x32BC40` (among
+  soldiers only lord and healer are immune), healer resistance only scales the damage.
+- **APIShared policy:** lanes and standing planes as in `APIShared/src/Projectiles/PlagueHeightAssembly.cs` (`GenerateSurface`,
++
++  returns no policy (Vanilla rules).
+  returns no policy (Vanilla rules). A unit's standing height is taken as its tile's plane (exact for standing units on ordinary
+  tiles; drawbridges and the unit field `+0xA5A` differ).

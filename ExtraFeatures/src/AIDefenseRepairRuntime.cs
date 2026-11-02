@@ -9,6 +9,7 @@ using APIShared.GameModes;
 // Tower-ruin cleanup is deliberately handled by BugfixesAndQoL and is independent of this gate.
 using BepInEx.Logging;
 using APIShared;
+using APIShared.Buildings;
 using RedBird.Abstractions.Hooks;
 using RedBird.Abstractions.Hooks.Transaction;
 using RedBird.Core.Memory;
@@ -79,8 +80,7 @@ namespace ExtraFeatures
         private readonly DetourHandle<PlacementDelegate> placementHook =
             new DetourHandle<PlacementDelegate>();
         private readonly IAivBuildStepObserver buildStepObserver;
-        private EnemyProximityQuery proximityQuery;
-        private bool proximityPrepared;
+        private EnemyProximityRegistration proximityRegistration;
         private bool initialized;
         private bool nativeInitialized;
         private bool nativeUnavailable;
@@ -124,10 +124,10 @@ namespace ExtraFeatures
 
         public void Initialize()
         {
+            RegisterProximityPolicy();
             if (initialized)
                 return;
 
-            subscriptions.Add(BuildingR3EventHooks.OnBuildingAllowRepairInProximity.Observable.Subscribe(OnRepairProximity));
             subscriptions.Add(AIR3EventHooks.OnAIBuildWall.Observable.Subscribe(OnAIBuildWall));
             subscriptions.Add(BuildingR3EventHooks.OnBuildingSpawn.Observable.Subscribe(OnBuildingSpawn));
             subscriptions.Add(BuildingR3EventHooks.OnBuildingTileTakeDamage.Observable.Subscribe(OnDefenseDamage));
@@ -169,17 +169,7 @@ namespace ExtraFeatures
             ReadOnlySpan<byte> memory,
             bool referenceHashMatches)
         {
-            if (!proximityPrepared)
-            {
-                proximityPrepared = true;
-                try
-                {
-                    if (!referenceHashMatches) throw new InvalidOperationException("Enemy proximity data requires the audited native hash.");
-                    proximityQuery = new EnemyProximityQuery(memory, unchecked((ulong)libraryHandle.ToInt64()));
-                    Shared.DebugLogHelper.LogInfo(log, "Enemy proximity category predicate prepared from reference-rva 0xEE640; complete 502-byte body validated.");
-                }
-                catch (Exception ex) { LogFailure("category predicate preparation; proximity stays Vanilla", ex); }
-            }
+            RegisterProximityPolicy();
             if (nativeInitialized || nativeUnavailable)
                 return;
 
@@ -238,6 +228,24 @@ namespace ExtraFeatures
             Shared.DebugLogHelper.LogDebug(
                 log,
                 "AI defense rebuild registered through APIShared.");
+        }
+
+        private void RegisterProximityPolicy()
+        {
+            // Presence also identifies this version as a cooperating broker consumer when
+            // every radius is Vanilla or the mod is disabled. Register before unrelated native
+            // features can fail; the callback itself gates changes and APIShared owns preparation.
+            if (proximityRegistration == null)
+            {
+                try
+                {
+                    if (!EnemyProximityPolicies.TryRegister(ExtraFeaturesPlugin.PluginGuid, "enemy-proximity",
+                        EnemyProximityPhase.Override, OnRepairProximity, out proximityRegistration, out string reason))
+                        throw new InvalidOperationException("Shared enemy proximity registration unavailable: " + reason);
+                    proximityRegistration.SetEnabled(true);
+                }
+                catch (Exception ex) { LogFailure("shared proximity registration; radii stay Vanilla", ex); }
+            }
         }
 
         private void InstallPlacementHook(
@@ -505,18 +513,17 @@ namespace ExtraFeatures
                     $"globalId={identity.GlobalId}, tick={tick}, source={source}.");
         }
 
-        private void OnRepairProximity(BuildingAllowRepairInProximityEventArgs args)
+        private EnemyProximityDecision OnRepairProximity(EnemyProximityContext args)
         {
-            if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) || !mapActive || args.Phase != EventHookPhase.Pre || args.SkipOriginalFunction)
-                return;
+            if (disposed || !Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) || !mapActive)
+                return EnemyProximityDecision.None;
 
             try
             {
                 bool isAi = IsAI(args.PlayerId);
                 if (!isAi)
                 {
-                    ApplyHumanPlacementProximity(args);
-                    return;
+                    return ApplyHumanPlacementProximity(args);
                 }
 
                 // AI wall repair is not a GameBuilding repair. ExecuteBuildStep calls the
@@ -525,16 +532,15 @@ namespace ExtraFeatures
                 // Bind only that synchronous, coordinate-identical call. This preserves all
                 // first placements while avoiding the old tower-spawn-history heuristic.
                 bool isWallRepair = pendingWallRepair.Matches(
-                    args.PlayerId, args.TileX, args.TileY, args.Proximity);
+                    args.PlayerId, args.TileX, args.TileY, args.OriginalRadius);
                 if (pendingWallRepair.IsSet)
                     pendingWallRepair = default;
                 if (isWallRepair)
                 {
                     if (!TryGetConfiguredAIRadii(out int wallCivilian, out int wallMilitary))
-                        return;
+                        return EnemyProximityDecision.None;
 
-                    ApplyCategoryProximity(args, wallCivilian, wallMilitary);
-                    return;
+                    return CategoryProximityOverride(args.OriginalRadius, wallCivilian, wallMilitary);
                 }
 
                 BuildStepContext context = activeContext;
@@ -543,9 +549,7 @@ namespace ExtraFeatures
                     // The measured ExecuteBuildStep path asks this native question after the
                     // placement helper and before spawning. Returning Vanilla's blocked value
                     // leaves the frame scheduler intact, so other frame targets still run.
-                    args.ReturnValue = 1;
-                    args.SkipOriginalFunction = true;
-                    return;
+                    return EnemyProximityDecision.Blocked;
                 }
 
                 // 0xEE640 is a general placement helper, not a standing-building repair API.
@@ -553,15 +557,16 @@ namespace ExtraFeatures
                 if (context == null || context.History == null ||
                     !context.History.EverSpawnedDefense ||
                     !TryGetConfiguredAIRadii(out int rebuildCivilian, out int rebuildMilitary))
-                    return;
+                    return EnemyProximityDecision.None;
 
                 // Live AI calls supplied context-specific Vanilla radii 3, 5 and 15. A custom
                 // mode value replaces them only after the call was safely classified as rebuild.
-                ApplyCategoryProximity(args, rebuildCivilian, rebuildMilitary);
+                return CategoryProximityOverride(args.OriginalRadius, rebuildCivilian, rebuildMilitary);
             }
             catch (Exception ex)
             {
                 LogFailure("repair proximity", ex);
+                return EnemyProximityDecision.None;
             }
         }
 
@@ -598,13 +603,13 @@ namespace ExtraFeatures
             }
         }
 
-        private void ApplyHumanPlacementProximity(BuildingAllowRepairInProximityEventArgs args)
+        private EnemyProximityDecision ApplyHumanPlacementProximity(EnemyProximityContext args)
         {
             if (args.PlayerId < 1 || args.PlayerId > 8 || !gameModeKnown)
-                return;
+                return EnemyProximityDecision.None;
 
-            if (!EnemyProximityPolicy.IsOrdinaryHumanRadius(args.Proximity)) return;
-            ApplyCategoryProximity(args,
+            if (!EnemyProximityPolicy.IsOrdinaryHumanRadius(args.OriginalRadius)) return EnemyProximityDecision.None;
+            return CategoryProximityOverride(args.OriginalRadius,
                 EnemyProximityPolicy.SelectConfiguredRadius(realMultiplayer,
                     settings.HumanCivilianEnemyProximitySingleplayer, settings.HumanCivilianEnemyProximityMultiplayer),
                 EnemyProximityPolicy.SelectConfiguredRadius(realMultiplayer,
@@ -622,15 +627,12 @@ namespace ExtraFeatures
             return civilian >= 0 || military >= 0;
         }
 
-        private void ApplyCategoryProximity(BuildingAllowRepairInProximityEventArgs args, int civilian, int military)
+        private static EnemyProximityDecision CategoryProximityOverride(int originalRadius, int civilian, int military)
         {
-            if (proximityQuery == null || (civilian < 0 && military < 0)) return;
-            civilian = EnemyProximityPolicy.ResolveRadius(args.Proximity, civilian);
-            military = EnemyProximityPolicy.ResolveRadius(args.Proximity, military);
-            // Compute first. An exception leaves the original event decision untouched.
-            long result = proximityQuery.Invoke(args.PlayerId, args.TileX, args.TileY, military, args.Unknown, civilian);
-            args.ReturnValue = result;
-            args.SkipOriginalFunction = true;
+            if (civilian < 0 && military < 0) return EnemyProximityDecision.None;
+            return new EnemyProximityDecision(
+                civilianRadius: EnemyProximityPolicy.ResolveRadius(originalRadius, civilian),
+                militaryRadius: EnemyProximityPolicy.ResolveRadius(originalRadius, military));
         }
 
         private void LogGameModeFailure(string context, Exception ex)

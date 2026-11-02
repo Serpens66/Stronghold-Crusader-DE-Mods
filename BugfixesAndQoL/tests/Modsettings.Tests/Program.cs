@@ -55,6 +55,13 @@ internal static partial class Program
     {
         try
         {
+            if (args.Length == 1 && args[0] == "--peace-policy-only")
+            {
+                PeaceTimeCivilianPolicyTests();
+                PeaceTimeCivilianRuntimeTests();
+                Console.WriteLine("PASS: peace-time civilian policy checks: " + checks);
+                return 0;
+            }
             string workspace=Path.GetFullPath(args[0]), dll=Path.GetFullPath(args[1]);
             string game=@"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition";
             string api=args.Length>2?args[2]:Environment.GetEnvironmentVariable("API_SHARED_DIR");
@@ -106,6 +113,7 @@ internal static partial class Program
                 new[]{"SkirmishGameOptionsRuntime","Enabled","ShowMpAdvancedSettingsInSingleplayer"},
                 new[]{"NoDogsNativePatch","DesiredEnabled","ShowMpAdvancedSettingsInSingleplayer"},
                 new[]{"VanillaPeaceTimeGameplayPatch","DesiredEnabled","EnablePeaceTimeGameplayFixes"},
+                new[]{"PeaceTimeCivilianProximityFeature","DesiredEnabled","EnablePeaceTimeCivilianProximityReduction"},
                 new[]{"AbruptHostMigrationFix","StartupStateFixEnabled","EnableMultiplayerStartupStateFix"}})
                 Matrix(test[0],test[1],test[2],true);
             Matrix("SkirmishAiSelectionMemoryHook","RandomEnhancementsEnabled","EnableRandomOpponentSelectionEnhancements",true);
@@ -166,6 +174,9 @@ internal static partial class Program
             Check(!Bool(protectedMap,"OriginalMapProtectionEnabled"),"unused map protection has no hidden feature activation");
             protectedMap.GetType().GetField("preserveOriginalMapProtection",All).SetValue(protectedMap,true);
             Check(Bool(protectedMap,"OriginalMapProtectionEnabled") && !Bool(protectedMap,"FeatureEnabled"),"already exposed original stays protected while optional dialogs are off");
+            PeaceTimeCivilianPolicyTests();
+            PeaceTimeCivilianRuntimeTests();
+            PeaceTimeCivilianCompiledTests(workspace);
             Metadata(workspace);
             SettingsPresentationTests(workspace);
             CompactLobbyChatTests(workspace, game);
@@ -213,7 +224,7 @@ internal static partial class Program
     }
     private static void Metadata(string workspace)
     {
-        var scopes=new Dictionary<string,bool>{{"EnableCompactLobbyChat",false},{"EnableLordAndMapListEnhancements",false},{"EnableMissingMapSaveRecovery",false},{"EnableRandomOpponentSelectionEnhancements",true},{"EnableMultiplayerStartupStateFix",true},{"EnablePeaceTimeGameplayFixes",true},{"EnableTreeBlightDecayFix",true}};
+        var scopes=new Dictionary<string,bool>{{"EnableCompactLobbyChat",false},{"EnableLordAndMapListEnhancements",false},{"EnableMissingMapSaveRecovery",false},{"EnableRandomOpponentSelectionEnhancements",true},{"EnableMultiplayerStartupStateFix",true},{"EnablePeaceTimeGameplayFixes",true},{"EnablePeaceTimeCivilianProximityReduction",true},{"EnableTreeBlightDecayFix",true}};
         MethodBase ctor=modelType.GetConstructors(All).Single();
         List<Tuple<OpCode,object>> body=Instructions(ctor);
         var xaml=new XmlDocument();xaml.Load(Path.Combine(workspace,"BugfixesAndQoL/Override/ScriptExtenderUI/BugfixesAndQoLSettings.xaml"));

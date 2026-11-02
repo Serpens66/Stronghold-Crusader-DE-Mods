@@ -24,7 +24,6 @@ namespace Spectator
         private bool statisticsPreviewActive => preview.Active;
         private bool ready, statisticsViewer, lastAvailable;
         private EngineInterface.PlayState observedState;
-        private object engineLock;
         private long session;
         private StatisticsControlsViewModel controls;
         private IngameMenuActionRegistration menuRegistration;
@@ -36,7 +35,6 @@ namespace Spectator
         internal SpectatorStatistics(ManualLogSource log, SpectatorViewModel settings) { this.log = log; this.settings = settings; }
         internal void Initialize()
         {
-            engineLock = FindRequiredField(typeof(EngineInterface), "threadLock", BindingFlags.Static | BindingFlags.NonPublic).GetValue(null) ?? throw new InvalidOperationException("Engine lock unavailable.");
             InitializeStatisticsPreview();
             controls = new StatisticsControlsViewModel(() => Active, Refresh);
             GameXAMLManagerAPI.Instance.RegisterBinding("SpectatorStatisticsRefreshHost", controls);
@@ -68,25 +66,18 @@ namespace Spectator
             InvalidateMenu();
         }
         internal void InvalidateMenu() => menuRegistration?.Invalidate();
-        internal unsafe void ObserveAvailability(bool force = false)
+        internal void ObserveAvailability(bool force = false)
         {
             var state = GameData.Instance?.lastGameState;
             if (force || !ReferenceEquals(state, observedState))
             {
                 observedState = state;
-                bool validLord = true;
+                // APIShared's defeat state instead of the Lord record: a not yet spawned Lord is not a
+                // defeat, so availability no longer flips when the Lord appears.
                 int player = PlayerPerspectiveAPI.GetControlledPlayerId();
-                if (state != null && player >= 1 && player <= 8 && engineLock != null)
-                {
-                    lock (engineLock)
-                    {
-                        int lord = GamePlayerManagerAPI.Instance.GetLordUnitId(player);
-                        validLord = UnitAccess.TryGetById(lord, out GameUnit* unit, out _) && unit != null &&
-                            unit->r_ControllableForPlayerId == player && unit->r_UnitChimp == eChimps.CHIMP_TYPE_LORD &&
-                            unit->r_GlobalId > 0 && unit->r_CurrentHealth > 0 && UnitAccess.IsReallyAlive(unit);
-                    }
-                }
-                statisticsViewer = state != null && SpectatorDefeatPolicy.IsStatisticsViewer(state.spectatorMode != 0, player, validLord);
+                bool validLord = !SpectatorDefeat.IsPlayerEliminated(player);
+                statisticsViewer = state != null && (SpectatorDefeatPolicy.IsStatisticsViewer(state.spectatorMode != 0, player, validLord) ||
+                    SpectatorDefeat.IsEliminatedParticipant);
             }
             bool available = Available;
             if (lastAvailable != available) { lastAvailable = available; SpectatorRuntime.InvalidateToolbar(); }

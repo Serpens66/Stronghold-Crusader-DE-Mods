@@ -70,7 +70,7 @@ namespace Spectator
             if (settings == null || !IsCurrentSession(CurrentSessionId) ||
                 !MainViewModel.viewModelLoaded || GameData.Instance?.lastGameState == null) return false;
             bool enabled = ToolSessionPolicy.Enabled(settings.Activation.TestTools, settings.Activation.SingleplayerTest,
-                GameModeHelper.IsMapEditor(), SpectatorPerspectiveRuntime.IsOriginalSpectator(),
+                GameModeHelper.IsMapEditor(), SpectatorPerspectiveRuntime.IsSpectatorObserver(),
                 PlayerPerspectiveAPI.GetControlledPlayerId() > 0);
             return ToolSessionPolicy.CanMutate(enabled,
                 IsCurrentSession(CurrentSessionId), MainViewModel.viewModelLoaded,
@@ -81,7 +81,10 @@ namespace Spectator
         private static bool IsEditorToolsSession() => IsToolsSession() && GameModeHelper.IsMapEditor();
 
         private static bool IsActivePlayerTestSession() => IsToolsSession() && !GameModeHelper.IsMapEditor() &&
-            !SpectatorPerspectiveRuntime.IsOriginalSpectator() && PlayerPerspectiveAPI.GetControlledPlayerId() > 0;
+            !SpectatorPerspectiveRuntime.IsSpectatorObserver() && PlayerPerspectiveAPI.GetControlledPlayerId() > 0;
+
+        // The local view uses a normal build menu: an active test player or an input-controlled spectator.
+        private static bool HasOwnBuildMenu() => IsActivePlayerTestSession() || IsControlledBuildSession();
 
         private static bool IsPlacementPlayer(int owner) => IsSelectableAi(owner) ||
             IsActivePlayerTestSession() && owner == PlayerPerspectiveAPI.GetControlledPlayerId() && IsToolsPlayer(owner, false);

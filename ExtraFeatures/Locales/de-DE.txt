@@ -95,7 +95,7 @@ SomeSettings.KnightMountTooltipBody=Wandelt ausgewaehlte Schwertkaempfer in beri
 SomeSettings.EnableExtraChurchPriests=Mehr Priester fuer Kirchen aktivieren
 SomeSettings.EnableExtraChurchPriestsHelp=Wenn aktiviert, erhalten Kirchen zwei Priester und Kathedralen drei Priester.
 SomeSettings.PlagueDurationMultiplier=Pestwolken-Dauer
-SomeSettings.PlagueDurationMultiplierHelp=Multiplikator fuer die aktive Lebensdauer aller Pestwolken. 1,0x behaelt die Vanilla-Dauer bei; hoehere Werte verlaengern auch, wie lange Wolken Schaden verursachen koennen.
+SomeSettings.PlagueDurationMultiplierHelp=Multiplikator fuer die aktive Lebensdauer aller Pestwolken. 1,0x behaelt die Vanilla-Dauer bei; hoehere Werte verlaengern auch, wie lange Wolken Schaden verursachen koennen. Maximal 40x, weil das Spiel laengere Wolkenlebensdauern nicht zaehlen kann.
 SomeSettings.ApothecaryPlagueSearchDistance=Apotheker-Suchreichweite
 SomeSettings.ApothecaryPlagueSearchDistanceHelp=Maximale Manhattan-Distanz vom zugeordneten Apothekergebaeude zu einer Pestwolke. 30 behaelt die Vanilla-Reichweite bei.
 

@@ -3,19 +3,27 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.208",
+  "Version": "1.0.209",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.0",
   "MaximumScriptExtenderVersion": "",
   "Dependencies": [
     {
       "GUID": "APIShared_Serp",
-      "MinimumVersion": "0.23.0"
+      "MinimumVersion": "0.25.0"
     }
   ],
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.209",
+      "Changes": [
+        "Add an enabled-by-default host option capping civilian building-action proximity at min(3, effective radius) during active native Peace Time for humans and AI; preserve smaller ExtraFeatures values and soldier, building, wall and occupancy restrictions.",
+        "Work without ExtraFeatures and independently of the singleplayer Peace Time extension; restore normal radii immediately after peace ends and disable only this reduction with incompatible older ExtraFeatures versions.",
+        "Lock local changes to this option during missions, including preset loading and reset, while retaining authoritative mission restores and host synchronization."
+      ]
+    },
     {
       "Version": "1.0.208",
       "Changes": ["Use native map ticks for gameplay scheduling and deadlines, preserving initialization, save behavior and logical activation."]

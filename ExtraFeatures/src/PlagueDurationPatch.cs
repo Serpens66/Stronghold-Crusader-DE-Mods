@@ -17,9 +17,17 @@ namespace ExtraFeatures
     internal sealed unsafe class PlagueDurationPatch : IDisposable
     {
         public const double MinimumMultiplier = 0.5;
-        public const double MaximumMultiplier = 1000.0;
+        // Largest whole multiplier whose lifetime (32000 ticks) stays within MaximumLifetime.
+        public const double MaximumMultiplier = 40.0;
 
         private const int VanillaLifetime = 800;
+        // 0x9A080 counts the cloud age (+0xD0) as a signed 16-bit value, +1 per call, and compares
+        // it with `cmp word [age], ax; jl`: only AX of the lifetime counts. After the age reaches the
+        // lifetime, phase 1016 is reset to 8 and re-checked on every call until the next phase step
+        // (every 4 calls, period table 0x2DAF70) moves it to 1017. Meanwhile the age reaches
+        // lifetime + 3; a wrap past 32767 would keep the cloud alive instead of fading it.
+        private const int DiseasePhasePeriod = 4;
+        internal const int MaximumLifetime = short.MaxValue - (DiseasePhasePeriod - 1);
         private const int LifetimeImmediateOffset = 9;
         private const int LifetimeComparisonOffset = 18;
         private const int LifetimeComparisonMinimumHookSize = 9;
@@ -89,10 +97,16 @@ namespace ExtraFeatures
         public void Apply(double multiplier, bool enabled)
         {
             ThrowIfDisposed();
-            int desiredLifetime = enabled
-                ? checked((int)Math.Round(VanillaLifetime * ClampMultiplier(multiplier), MidpointRounding.AwayFromZero))
-                : VanillaLifetime;
-            SetLifetime(desiredLifetime);
+            SetLifetime(ResolveLifetime(multiplier, enabled));
+        }
+
+        internal static int ResolveLifetime(double multiplier, bool enabled)
+        {
+            if (!enabled)
+                return VanillaLifetime;
+
+            double lifetime = Math.Round(VanillaLifetime * ClampMultiplier(multiplier), MidpointRounding.AwayFromZero);
+            return (int)Math.Min(MaximumLifetime, lifetime);
         }
 
         public void RestoreVanilla()

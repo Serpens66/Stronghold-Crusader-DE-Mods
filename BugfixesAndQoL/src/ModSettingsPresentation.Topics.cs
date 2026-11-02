@@ -56,6 +56,7 @@ namespace BugfixesAndQoL
         public SettingsOptionPresentation EnableCorruptLordDataSpawnFix => options["EnableCorruptLordDataSpawnFix"];
         public SettingsOptionPresentation EnableMultiplayerStartupStateFix => options["EnableMultiplayerStartupStateFix"];
         public SettingsOptionPresentation EnablePeaceTimeGameplayFixes => options["EnablePeaceTimeGameplayFixes"];
+        public SettingsOptionPresentation EnablePeaceTimeCivilianProximityReduction => options["EnablePeaceTimeCivilianProximityReduction"];
         public SettingsOptionPresentation ShowMpAdvancedSettingsInSingleplayer => options["ShowMpAdvancedSettingsInSingleplayer"];
         public SettingsOptionPresentation EnableCustomLordListEnhancements => options["EnableCustomLordListEnhancements"];
         public SettingsOptionPresentation EnableTrailCustomizationButtons => options["EnableTrailCustomizationButtons"];
@@ -173,6 +174,7 @@ namespace BugfixesAndQoL
             AddOption("EnableCorruptLordDataSpawnFix", "bugfixes.enable-corrupt-lord-data-spawn-fix", SettingsCategory.Fixes, HostSetup);
             AddOption("EnableMultiplayerStartupStateFix", "bugfixes.enable-multiplayer-startup-state-fix", SettingsCategory.Fixes, HostSetup);
             AddOption("EnablePeaceTimeGameplayFixes", "bugfixes.enable-peace-time-gameplay-fixes", SettingsCategory.Fixes, HostSetup);
+            AddOption("EnablePeaceTimeCivilianProximityReduction", "bugfixes.enable-peace-time-civilian-proximity-reduction", SettingsCategory.Qol, HostSetup);
             AddOption("ShowMpAdvancedSettingsInSingleplayer", "bugfixes.show-mp-advanced-settings-in-sp", SettingsCategory.Qol, HostSetup);
             AddOption("EnableCustomLordListEnhancements", "bugfixes.enable-custom-lord-list-enhancements", SettingsCategory.Qol, HostSetup);
             AddOption("EnableTrailCustomizationButtons", "bugfixes.enable-trail-customization-buttons", SettingsCategory.Qol, HostSetup);

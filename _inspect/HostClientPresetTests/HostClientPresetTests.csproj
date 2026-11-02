@@ -78,6 +78,8 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Program.cs" />
+    <Compile Include="PeaceTimeProximityPresetTests.cs" />
+    <Compile Include="..\..\BugfixesAndQoL\src\BugfixesAndQoLViewModel.PeaceTime.cs" />
     <Compile Include="ExtremePowersPresetTests.cs" />
     <Compile Include="RandomEventsChatPresetTests.cs" />
     <Compile Include="..\..\RandomEvents\src\RandomEventsSettingsViewModel.cs" />

@@ -211,7 +211,9 @@ namespace BugfixesAndQoL
                 return;
             }
             MainViewModel main = MainViewModel.Instance;
-            bool vanillaTroopSelection = state.spectatorMode == 0 && state.app_mode == 14 &&
+            int inputControlledPlayerId = state.spectatorMode != 0 ? PlayerPerspectiveAPI.GetInputControlledPlayerId() : 0;
+            bool spectator = SpectatorInputControlPolicy.IsObservingSpectator(state.spectatorMode, inputControlledPlayerId);
+            bool vanillaTroopSelection = !spectator && state.app_mode == 14 &&
                 (state.app_sub_mode == 61 || state.app_sub_mode == 62);
             string hudBlocker = main == null ? "missing-MainViewModel.Instance" :
                 main.HUDmain == null ? "missing-HUDmain" :
@@ -237,12 +239,7 @@ namespace BugfixesAndQoL
                 ValidateInteropLayout();
                 layoutValidated = true;
             }
-            bool spectator = state.spectatorMode != 0;
-            bool editor = session.IsEditor || session.Mode.IsMapEditor;
-            int ownPlayerId = spectator ? 0 : editor
-                ? EditorDirector.instance?.ActivePlayerID ?? 0
-                : PlayerPerspectiveAPI.GetControlledPlayerId();
-            if (ownPlayerId < 1 || ownPlayerId > 8) ownPlayerId = 0;
+            int ownPlayerId = ResolveOwnPlayerId(session, state.spectatorMode, inputControlledPlayerId);
             MarkedUnitSelectionSnapshot selection = Volatile.Read(ref markedSnapshot);
             if (selection == null || selection.SessionId != session.SessionId)
             {
@@ -388,6 +385,16 @@ namespace BugfixesAndQoL
             return samples;
         }
 
+        // EditorDirector.ActivePlayerID stays nonpositive while an original spectator controls a player.
+        private static int ResolveOwnPlayerId(MissionContext session, int spectatorMode, int inputControlledPlayerId)
+        {
+            bool editor = session.IsEditor || session.Mode.IsMapEditor;
+            int ordinaryPlayerId = editor
+                ? EditorDirector.instance?.ActivePlayerID ?? 0
+                : PlayerPerspectiveAPI.GetControlledPlayerId();
+            return SpectatorInputControlPolicy.ResolveOwnPlayerId(spectatorMode, inputControlledPlayerId, ordinaryPlayerId);
+        }
+
         private static void CenterOnGroup(int owner, int type)
         {
             try
@@ -398,12 +405,9 @@ namespace BugfixesAndQoL
                 if (session == null || state == null || main == null ||
                     !ReferenceEquals(main, ownedTroopHud) || !main.Show_HUD_Troops)
                     return;
-                bool spectator = state.spectatorMode != 0;
-                bool editor = session.IsEditor || session.Mode.IsMapEditor;
-                int ownPlayerId = spectator ? 0 : editor
-                    ? EditorDirector.instance?.ActivePlayerID ?? 0
-                    : PlayerPerspectiveAPI.GetControlledPlayerId();
-                if (!spectator && owner == ownPlayerId && ownPlayerId != 0) return;
+                int inputControlledPlayerId = state.spectatorMode != 0 ? PlayerPerspectiveAPI.GetInputControlledPlayerId() : 0;
+                int ownPlayerId = ResolveOwnPlayerId(session, state.spectatorMode, inputControlledPlayerId);
+                if (owner == ownPlayerId && ownPlayerId != 0) return;
                 GameUnitManagerAPI unitApi = GameUnitManagerAPI.Instance;
                 GamePlayerManagerAPI playerApi = GamePlayerManagerAPI.Instance;
                 if (unitApi == null || playerApi == null) return;

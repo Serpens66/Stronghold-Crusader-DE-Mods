@@ -42,7 +42,6 @@ if (args.Contains("--really-alive"))
         "Testmods/EngineerSiegeFixTest/EngineerSiegeFixTest.csproj",
         "Testmods/MoatMove/MoatMove.csproj",
         "Testmods/OutpostTest/OutpostTest.csproj",
-        "Testmods/SpectatorEditorBuildTest/SpectatorEditorBuildTest.csproj",
         "Testmods/StockpileAccessFixTest/StockpileAccessFixTest.csproj",
         "Testmods/VirtualUnitsPrototype/VirtualUnitsPrototype.csproj"
     };

@@ -70,7 +70,7 @@ namespace Spectator.LordOverview {
       for(int col=0;col<columns.Length;col++){var button=CreateHeader(surface,columns[col],MetricName(columns[col]),MetricIcon(columns[col]));Grid.SetColumn(button,col+1);table.Children.Add(button);}
       for(int row=0;row<=count;row++)AddDivider(table,row,row==0);
       table.SizeChanged+=OnTableGeometryChanged;
-      var backing=new Grid {Margin=new Thickness(i==0?0:8,0,0,0),VerticalAlignment=VerticalAlignment.Bottom,Tag=OverviewPresentationPolicy.ContainerTag};
+      var backing=new Grid {Margin=new Thickness(i==0?0:.8f,0,0,0),VerticalAlignment=VerticalAlignment.Bottom,Tag=OverviewPresentationPolicy.ContainerTag};
       backing.Children.Add(new Border {Background=StatisticsBackground(),IsHitTestVisible=false,Tag=OverviewPresentationPolicy.PassiveTag});backing.Children.Add(table);container.Children.Add(backing);
      }
     }

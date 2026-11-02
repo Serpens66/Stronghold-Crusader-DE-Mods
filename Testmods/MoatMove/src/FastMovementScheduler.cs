@@ -31,6 +31,7 @@ namespace MoatMove
         private IntPtr fastChoreMode;
         private byte[] fastLoadedCommands;
         private FireRouteRules fireRules;
+        private PlagueRouteRules plagueRules;
         private long fastQueuedCommands, fastExecutedCommands, fastCommandRetries;
 
         private sealed class FastPendingSearch : IDisposable
@@ -189,10 +190,36 @@ namespace MoatMove
                 fireRules = fire;
                 fireAbortPolicy = fireEscapePolicy = policy;
                 fireEscapeActive = settings.EscapeFire;
+                fireReturnTicks = settings.FireReturnSeconds * 40;
                 Shared.DebugLogHelper.LogInfo(log, $"MoatMove fire route rules registered; replanning={settings.AnchorSingleMoves} escape={settings.EscapeFire} " +
-                    $"waitSeconds={settings.FireWaitSeconds} detour={settings.FireDetourPercent}%/{settings.FireDetourMinTiles}.");
+                    $"waitSeconds={settings.FireWaitSeconds} returnSeconds={settings.FireReturnSeconds} detour={settings.FireDetourPercent}%/{settings.FireDetourMinTiles}.");
             }
             else Shared.DebugLogHelper.LogError(log, "MoatMove fire route rules unavailable: " + reason);
+        }
+
+        // After RegisterFireRouteRules; anchor mode only, like fire. The plague rules read the same effect
+        // records (bound here when AvoidFire is off) and decide damage with the native terrain layers.
+        private void RegisterPlagueRouteRules(ReadOnlySpan<byte> memory, ulong moduleBase)
+        {
+            if (!settings.AvoidPlague || !anchorAvailable || plagueRules != null) return;
+            var binder = fireRules ?? new FireRouteRules(new HazardTileSet());
+            string reason = null;
+            if (binder.Effects == null && !binder.TryBind(memory, moduleBase, log, out reason))
+            { Shared.DebugLogHelper.LogError(log, "MoatMove plague route rules unavailable: " + reason); return; }
+            var model = new PlagueDamageModel(new PlagueRouteRules.NativeTerrain(runtime.tileFlags, runtime.nativeHeightLayer, runtime.nativeBuildingLayer));
+            var plague = new PlagueRouteRules(plagueTiles, plagueNear, model, APIShared.ApiShared.ForMod(MoatMovePlugin.PluginGuid));
+            plague.Bind(binder.Effects);
+            // Re-plan 3 steps before plague; the detour rule is shared with fire, the wait is plague's own.
+            var policy = new APIShared.Pathfinding.RouteReplanPolicy(3, settings.FireDetourPercent, settings.FireDetourMinTiles, settings.PlagueWaitSeconds * 40);
+            if (!plague.TryRegister(MoatMovePlugin.PluginGuid, policy, out reason))
+            { Shared.DebugLogHelper.LogError(log, "MoatMove plague route rules unavailable: " + reason); return; }
+            plagueRules = plague; plagueModel = model;
+            plagueAbortPolicy = plagueEscapePolicy = policy;
+            plagueEscapeActive = settings.EscapePlague; plagueEscapeRaised = settings.EscapePlagueRaised;
+            plagueReturnTicks = settings.PlagueReturnSeconds * 40;
+            Shared.DebugLogHelper.LogInfo(log, $"MoatMove plague route rules registered; replanning={settings.AnchorSingleMoves} escape={settings.EscapePlague} " +
+                $"escapeRaised={settings.EscapePlagueRaised} waitSeconds={settings.PlagueWaitSeconds} returnSeconds={settings.PlagueReturnSeconds} " +
+                "heightPolicy=APIShared (Vanilla while no owner enables a surface).");
         }
 
         private void ReleaseFastPendingSearch(FastPendingCommand command)
@@ -229,8 +256,17 @@ namespace MoatMove
         {
             try { if (TryCaptureFastPlayerMove(tribeId, x, y, patrol, flags)) return; }
             catch (Exception ex) { fastCaptureCounts[12]++; runtime.TryLogDiagnosticFailure("fast-capture", ex); }
+            // An ordinary player move (not queued, no patrol): the replan watch may repeat it; a queued one it
+            // never repeats (ObserveTribeOrder).
+            int previous = playerMoveTribe, previousQueued = playerQueuedTribe;
+            if (patrol == 0)
+            {
+                if (QueueNativeContract.TryDecodeQueuedMoveType(flags, out _)) playerQueuedTribe = tribeId;
+                else playerMoveTribe = tribeId;
+            }
             // No catch around Original: a failing native invocation must never be replayed.
-            originalFastPlayerMove(manager, tribeId, x, y, patrol, flags);
+            try { originalFastPlayerMove(manager, tribeId, x, y, patrol, flags); }
+            finally { playerMoveTribe = previous; playerQueuedTribe = previousQueued; }
         }
 
         private bool RejectFastCapture(int reason) { fastCaptureCounts[reason]++; return false; }
@@ -287,6 +323,12 @@ namespace MoatMove
 
         private void CancelFastPlayerTarget(TribeIssueOrderWithTargetEventArgs args)
         {
+            // Any target order (player or AI) replaces the tribe's move order for the replan watch.
+            if (args.Phase == EventHookPhase.Pre && anchorAvailable && Environment.CurrentManagedThreadId == anchorSimThread)
+            {
+                try { ObserveTribeOrder(args.TribeId, false, 0, 0, 0, false, TribeMoveType.NoChange); }
+                catch (Exception ex) { runtime.TryLogDiagnosticFailure("replan-order", ex); }
+            }
             if (!fastSchedulerInitialized || fastDispatching || fastPlayerActionDepth == 0 || args.Phase != EventHookPhase.Pre) return;
             try
             {
@@ -348,6 +390,7 @@ namespace MoatMove
                     // After AnchorTick: this tick's fire changes are read at the next tick, also on a
                     // new map, where AnchorTick starts following the journal from its current end.
                     fireRules?.Tick(tick);
+                    if (plagueRules != null) { plagueRules.Tick(tick); plagueCloudCount = plagueRules.Clouds; plaguePolicyActive = plagueRules.PolicyActive; }
                     FireEscapeTick(tick);
                     ProbeRouteRules();
                     ProbeMoatCost();
@@ -439,6 +482,10 @@ namespace MoatMove
                     if (anchorEndedUnreached != 0) LogAnchorUnreached();
                     return;
                 }
+                // The replan watch repeats only a tribe's last observed order (simulation thread only).
+                if (Environment.CurrentManagedThreadId == anchorSimThread)
+                    ObserveTribeOrder(args.TribeId, true, args.TileX, args.TileY, args.IsPatrolPath, args.IsNewOrder, args.MoveType,
+                        QueueNativeContract.TryDecodeQueuedMoveType((int)args.MoveType, out _));
                 // A skipped original raises no Post; other threads (UI probes) keep Vanilla.
                 AnchorTaskSpec digger = null, ground = null; int[] memberIds = null;
                 if (!args.SkipOriginalFunction && Enabled && runtime.TraversalEnabled &&
@@ -732,7 +779,7 @@ namespace MoatMove
         private void ResetFastCommandMap()
         {
             fastCommands.Clear(); fastLastTick = null; fastRoundRobin = 0;
-            fireRules?.Reset();
+            fireRules?.Reset(); plagueRules?.Reset();
             ruleProbe?.ClearAll(); ruleProbeElapsed = 0; moatCostProbeElapsed = 0; moatCostProbeActive = false;
             ResetAnchorMap();
             fastSimulationRouting?.Pool.Clear(); fastCursorRouting?.Pool.Clear();

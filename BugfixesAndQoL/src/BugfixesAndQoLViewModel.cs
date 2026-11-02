@@ -14,7 +14,7 @@ using UnityEngine;
 
 namespace BugfixesAndQoL
 {
-    public sealed class BugfixesAndQoLViewModel : APIShared.ModSettings.PresetLobbyModSettingsViewModel, IUnitCommandSettings
+    public sealed partial class BugfixesAndQoLViewModel : APIShared.ModSettings.PresetLobbyModSettingsViewModel, IUnitCommandSettings
     {
         // EnableSpriteSheetMerge (Boolean, unreleased develop) was replaced by SpriteSheetMergeMode.
         protected override bool IsRetiredPresetProperty(string propertyName) =>
@@ -29,6 +29,8 @@ namespace BugfixesAndQoL
 
         private void OnSettingsPresentationPropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs args)
         {
+            if (args.PropertyName == nameof(CanEditHostSettings))
+                OnPropertyChanged(nameof(CanConfigurePeaceTimeCivilianProximity));
             if (args.PropertyName == nameof(System_ModSettingsSearchText) ||
                 args.PropertyName == nameof(System_ModSettingsSearchIncludeToolTips) ||
                 args.PropertyName == nameof(System_ModSettingsSearchExactKey) ||
@@ -1660,6 +1662,7 @@ namespace BugfixesAndQoL
                 EnableRandomOpponentSelectionEnhancements = true;
                 EnableMultiplayerStartupStateFix = true;
                 EnablePeaceTimeGameplayFixes = true;
+                EnablePeaceTimeCivilianProximityReduction = true;
                 AllowFullAiMultiplayerLobby = true;
                 ShowMpAdvancedSettingsInSingleplayer = true;
                 EnableAiStoneReserveFix = true;

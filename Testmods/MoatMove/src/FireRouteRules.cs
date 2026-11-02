@@ -22,8 +22,8 @@ namespace MoatMove
         // state 2: 0x9F960 moves a new record from 1 to 2 on its first tick, states 3..8 end it, and
         // Vanilla's search mask (0x9C6B0) counts type 9 in state 2 only.
         private const int EffectSlots = 6000, EffectStride = 0xE8, EffectState = 0x3C, EffectType = 0x3E, EffectTile = 0x60, FireType = 9, BurningState = 2;
-        private readonly FireTileSet tiles;
-        internal FireRouteRules(FireTileSet tiles) { this.tiles = tiles; }
+        private readonly HazardTileSet tiles;
+        internal FireRouteRules(HazardTileSet tiles) { this.tiles = tiles; }
         // A2E60 (effect removal pass): lea rdi,[manager]; imul rcx,rax,0E8h; cmp word [rcx+rdi+3Ch],2.
         private const int RemovalRva = 0xA2E60, RemovalLeaOffset = 0x0F;
         private const string RemovalPattern = "48 89 5C 24 08 57 48 83 EC 20 BB 01 00 00 00 48 8D 3D ?? ?? ?? ?? 89 1D ?? ?? ?? ?? 8B C3 66 90 48 98 48 69 C8 E8 00 00 00 66 83 7C 39 3C 02 75 1A";
@@ -38,6 +38,8 @@ namespace MoatMove
         // Marked and this scan's burning nodes; swapped per scan.
         private HashSet<int> marked = new HashSet<int>(), burning = new HashSet<int>();
         internal int Burning => marked.Count;
+        // The bound effect manager; PlagueRouteRules reads the same records.
+        internal byte* Effects => effects;
 
         internal bool TryBind(ReadOnlySpan<byte> memory, ulong moduleBase, ManualLogSource log, out string reason)
         {

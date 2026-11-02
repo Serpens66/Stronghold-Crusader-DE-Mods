@@ -103,7 +103,8 @@ unchanged.
 1. Require one match for every relevant entry and verify hook boundaries,
    delegates, register/stack assumptions and RIP-relative target bounds.
 2. Verify the complete Vanilla worker table and its table-start calculation.
-3. Revalidate plague lifetime value `800`, the comparison hook's `R8+RBX`
+3. Revalidate plague lifetime value `800`, the 16-bit age limit behind
+   `MaximumLifetime` (see below), the comparison hook's `R8+RBX`
    projectile pointer, and Vanilla distance comparison `30`. Confirm that the
    AI flag routine still calls the generic projectile spawn synchronously and
    does not call `c_game_disease_create_one_herd`.
@@ -155,6 +156,24 @@ the flag path. At the Disease lifetime comparison at RVA `0x9A176`, `R8+RBX`
 is the current `GameProjectile`; the conditional hook therefore substitutes
 Vanilla lifetime `800` only for an identity captured during the synchronous AI
 flag call.
+
+Plague lifetime limit (audit 2026-11-02, same hash): `0x9A080` increments the
+cloud age at `+0xD0` as a signed 16-bit value (`inc word`, once per call from
+the projectile update `0x9F960`, which runs the type-22 handler on every pass)
+and compares it with `cmp word [age], ax; jl`, so only `AX` of the substituted
+lifetime counts. New records start with age `0` (`0x9B2B0`). Once the age
+reaches the lifetime, phase `1016` is set; on every later call the loop branch
+resets it to `8` and sets `1016` again while age >= lifetime, until the
+Disease phase step (period `4` from table `0x2DAF70` entry 22, applied in
+`0x9F960` before the handler) moves it to `1017`. The fade branch no longer
+reads the age. The age therefore reaches lifetime + 3 while still compared, and
+must not wrap past `32767`: `PlagueDurationPatch.MaximumLifetime` is `32764`
+and `MaximumMultiplier` is `40` (lifetime `32000`). Larger values used to fade
+clouds at once (`AX` negative) or truncate the lifetime modulo `65536`. On an
+update, revalidate the 16-bit age increment and compare, the phase reset of
+`1016`, and the type-22 phase period; `ExtraFeaturesNativeTests` checks the
+period on the reference hash. The unknown-hash scan validates the compare but
+not the period.
 
 The Monk update handler starts at RVA `0x151040`; unit-dispatch entry 37 points
 to it. Its audited movement block chooses walking at RVA `0x151413`
@@ -518,3 +537,13 @@ All writes use its existing working-copy endpoint; new explicit values beat alia
 Old general immediate writes have been removed. Human special radii and unclassified
 AI first placements stay Vanilla. Gameplay/editor/save/real-MP acceptance remains
 pending because this task explicitly forbids installing the changed mod.
+
+## Shared enemy-proximity ownership (2026-11-02)
+
+The current consumer delegates category evaluation to APIShared.Buildings.
+EnemyProximityPolicies; its stable Override registration is
+`ExtraFeatures_Serp / enemy-proximity`. The previous private native-copy contract
+above is historical evidence; APIShared/UpdateToNewDLL.md now owns updates of
+that predicate. ExtraFeatures retains its original human/AI scope, setting
+sentinel resolution and authoritative AI rebuild-delay veto. No direct SE
+proximity-event subscription or duplicate machine-function copy remains here.

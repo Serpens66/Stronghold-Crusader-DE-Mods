@@ -112,6 +112,11 @@ internal static class Program
         };
         try
         {
+            if (args != null && args.Length == 1 && args[0] == "peace-proximity")
+            {
+                PeaceTimeProximityPresetTests.Run();
+                return 0;
+            }
             if (args != null && args.Length == 1 && args[0] == "spectator-migration")
             {
                 TestSurrenderAndStatisticsSettingAndPolicy();
@@ -218,6 +223,7 @@ internal static class Program
                 return 0;
             }
 
+            PeaceTimeProximityPresetTests.Run();
             FearFactorPresetTests.Run();
             AssassinCapturedGatePresetTests.Run();
             EnemyGateRoutingPresetTests.Run();

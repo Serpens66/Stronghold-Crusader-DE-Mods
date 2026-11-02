@@ -512,8 +512,10 @@ namespace Spectator
         private static void SelectHumanAi(int owner)
         {
             if (!IsToolbarSession() || !IsSelectableView(owner)) return;
-            if (SpectatorPerspectiveRuntime.IsActiveSpectator())
+            if (SpectatorPerspectiveRuntime.IsSpectatorRoster())
             {
+                // The roster is shown before perspective initialization; selection waits for it.
+                if (!SpectatorPerspectiveRuntime.IsActiveSpectator()) return;
                 SpectatorPerspectiveRuntime.SelectPlayer(owner);
                 SyncSpectatorSelection();
             }
@@ -565,6 +567,76 @@ namespace Spectator
             }
         }
 
+        internal static void PrepareEliminatedObserverHud()
+        {
+            // The old positive participant can still own market, troop and building controls.
+            // Retire their cursors and borrowed pages before the first foreign report viewpoint.
+            humanPlacementMode = false;
+            CancelSelectionActions();
+            RestorePlacementLayout(); playerPlacementPage = null;
+            dockBuildMenu.Release(); dockBuildMenu.Reset();
+            RestorePlacementFreeze();
+            ReleaseGateHud(false);
+            SetRevealHidden(0);
+            ApplyHumanAi(-1);
+            toolbarDirty = toolbarLayoutDirty = true;
+            if (!MainViewModel.viewModelLoaded) return;
+            var view = MainViewModel.Instance;
+            view.AlliesPanelVisible = false;
+            // Preserve an actual defeat/briefing overlay while hiding interactive panels behind it.
+            if (!view.Show_HUD_MissionOver && !view.Show_HUD_Briefing) view.DefaultGameUIGameAction();
+            else { view.Show_HUD_Building = false; view.Show_HUD_Troops = false; }
+            view.buildControlsFreeze(true);
+        }
+
+        private static int controlUnfreezeDiagnostics;
+        private static int spriteLeasePlayer;
+        private static bool spriteLeaseFailureLogged;
+
+        // Unit HUD sprites (troop tab, recruitment, portraits) follow the player placed for, otherwise the
+        // input-controlled player. Only a change calls APIShared; the editor recolours by itself.
+        private static void UpdateSpriteColourLease()
+        {
+            int desired = IsEditorToolsSession() ? 0 : CurrentAiOwner();
+            if (desired < 1) desired = SpectatorPerspectiveRuntime.InputControlledPlayer();
+            if (desired == spriteLeasePlayer) return;
+            spriteLeasePlayer = desired;
+            if (desired < 1) { APIShared.UnitHudSpriteColours.Release(Guid); return; }
+            // A refused lease is not retried per frame; the next change of player tries again.
+            if (!APIShared.UnitHudSpriteColours.TryLease(Guid, desired, out string reason) && !spriteLeaseFailureLogged)
+            {
+                spriteLeaseFailureLogged = true;
+                log.LogWarning("SPECTATOR_SPRITE_COLOUR_UNAVAILABLE: player=" + desired + "; " + reason);
+            }
+        }
+
+        private static void ResetSpriteColourLease()
+        {
+            // APIShared also ends the lease at mission end; this only clears our cached player.
+            if (spriteLeasePlayer > 0) APIShared.UnitHudSpriteColours.Release(Guid);
+            spriteLeasePlayer = 0;
+        }
+
+        // Vanilla freezes build tabs for a nonpositive managed player; the controlled player
+        // uses them like a normal player. RestorePlacementFreeze re-freezes after control ends.
+        private static void UnfreezeControlledBuild()
+        {
+            var view = MainViewModel.Instance;
+            if (!view.FreezeMainControls) return;
+            RememberPlacementFreeze();
+            view.buildControlsFreeze(false);
+            // An open Tools panel keeps its leased blank page; otherwise show the castle page. Marked
+            // as our own page change, so the lease observer does not treat it as a Vanilla choice.
+            if (dockBuildMenu.Saved == null && view.HUDmain != null)
+            {
+                buildPageMutation++;
+                try { view.HUDmain.SetupNewBuildScreen(1); }
+                finally { buildPageMutation--; }
+            }
+            if (controlUnfreezeDiagnostics++ < 8)
+                log.LogInfo("SPECTATOR_CONTROL_BUILD_UNFROZEN player=" + SpectatorPerspectiveRuntime.InputControlledPlayer());
+        }
+
         private static void OnBeforeRender()
         {
             int frame = UnityEngine.Time.frameCount;
@@ -580,6 +652,7 @@ namespace Spectator
                 Statistics?.ObserveAvailability();
                 ObserveRoster();
                 RetireUnavailablePlacement();
+                UpdateSpriteColourLease();
                 bool humanEligible = IsHumanSingleplayerSession();
                 SetRevealHidden(
                     humanEligible && humanPlacementMode && !IsEditorToolsSession() && visualMapDetour != null &&
@@ -593,7 +666,8 @@ namespace Spectator
                 DrainTestActions();
                 if (!IsPlacementSession())
                 {
-                    RestorePlacementFreeze();
+                    if (IsControlledBuildSession()) UnfreezeControlledBuild();
+                    else RestorePlacementFreeze();
                     activeHud = null;
                     initialLayoutLoggedHud = null;
                     lastOwner = int.MinValue;

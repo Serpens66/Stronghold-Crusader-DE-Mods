@@ -32,6 +32,7 @@ namespace MoatMove
                 InstallGroundFailureProofs(context.Memory, unchecked((ulong)context.ModuleHandle.ToInt64()));
                 InstallMoatFailureProofs(context.Memory, unchecked((ulong)context.ModuleHandle.ToInt64()));
                 RegisterFireRouteRules(context.Memory, unchecked((ulong)context.ModuleHandle.ToInt64()));
+                RegisterPlagueRouteRules(context.Memory, unchecked((ulong)context.ModuleHandle.ToInt64()));
             }
             catch { enabled = false; throw; }
         }

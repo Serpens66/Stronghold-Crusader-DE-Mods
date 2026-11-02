@@ -108,6 +108,7 @@ Writers of the pitch drop and its reversal:
 - 0x594CB in 0x59380 is the only `max(0, h - 4)` store of pitch placement. 0x59380 has the direct callers 0x6D580 (build dispatcher) and 0xC9A30.
 - 0x804C0 (only caller 0x7D527 in 0x7D510, which runs inside 0x71670) visits every packed tile on start and load. For a PitchTrap tile with Default >= 4 it stores `Default - 4`, independent of the previous height, wall or structure state; Default 0..3 stays untouched. The same loop also clears misc-display bit 0x20 under structure conditions. Its return value is unused by 0x7D510.
 - 0x71670 is reached from DLL_LoadSaveGame 0x853F0 and from 0x94350/0x100530 (DLL_LoadMapToPlay 0x84AC0). DLL_PreInitMap_Editor 0x85E90 calls 0x5BC70 and 0x87D10 instead and does not reach 0x804C0.
+- Addendum (02.11.2026, game log): loading a map into the editor calls DLL_LoadSaveGame with `bLoadingEditorMap=1`, and the PitchStairsTest counter confirms that it reaches 0x804C0. Only a newly created editor map (0x85E90) bypasses it.
 - +4 reversals exist only at 0x6CCED (0x6CB20) and 0x6F6B6 (0x6F230), as documented above.
 - 0x62EB0 (pitch removal) clears bit 0x8 and restores DefaultHeight when neither IsWall nor a structure is present.
 - 0x7D4A0 (end of the pitch burn phase in the 0x7D280 chain) restores DefaultHeight without clearing bit 0x8 at that point.
@@ -138,3 +139,77 @@ The displacement scan above misses loops that walk a grid through a register (su
 - 0x58FC0 stores grid pointers into the tile manager: Logic +0x204E830, Height +0x204E840, MiscDisplay +0x204E880. No native code reads them.
 
 None of these loops lowers or compensates pitch. Managed `GameMap` takes tile heights from the native renderer's output buffer (slot 5 of 21 per tile), not directly from HeightGrid.
+
+### Pitch fire path (02.11.2026, same hash, static disassembly)
+
+- Pitch placement 0x59380 sets logic bit 0x8 at 0x594E7 and clears MiscDisplay bits 0x4000 (0x594F2) and 0x2000 (0x59502) on the placed tile.
+- 0x7D280 walks the pitch records (stride 0x14, state word read at `[rbx-2]`): 0 → 1; 2 (burning) counts to 0x14, then becomes 3 and ignites up to eight neighbor pitch records in state 1 whose raw heights differ by less than 25. Each ignition calls 0x9C430 with the neighbor's raw height and strength 3 and sets the neighbor to 2. State 3 counts to 200, restores DefaultHeight (0x7D4A0) and becomes -1. A record whose tile has lost bit 0x8 is removed through 0x62EB0.
+- 0x9C430 → 0x9C450: the position is the pixel coordinate plus a jitter from the table at 0x2DC890 (`rand & 0x3F`), so the fire can land on a neighbor tile. An existing fire on the tile is restarted (+0xC8 = 0, +0x28 = 0, strength raised to the new value). Otherwise nothing is spawned when the tile's logic has any bit of 0x1A7001B1. Otherwise 0x9B2B0 creates effect type 9 with +0xCA = strength, plus a type 0x1A effect for strength ≥ 3.
+- Effect handlers sit in the qword table at RVA 0x2DA9C0, indexed by effect field +0x3E. 0x2DA9C0[9] = 0x99420. 0x9F960 dispatches it through 0x9BE80 (from 0x9FEAE) and 0x9BFC0 (from 0x9FED0). 0x99420 has no direct callers.
+- In 0x99420 (effect array RVA 0x2F7A680, stride 0xE8), the spread block 0x99786.. runs only for phase +0xC8 == 0 and frame +0x28 in 1..6. The burning-tile height is loaded at 0x997B4 before `cmp ax,4`, where ax is the direction index +0xCC. Spread then needs direction < 4 and strength +0xCA > 1. Each attempt increments +0xCC at 0x9994A.
+
+Measured on 02.11.2026 (PitchStairsTest DEVDIAG, log SHA-256 5D8F4AEE…FC1F): 0x997B4 ran 648 times, 305 of them on PitchTrap tiles, and all 305 had MiscDisplay 0x2000 set.
+
+### MiscDisplay 0x2000 on pitch = visible to the local player (02.11.2026, same hash)
+
+This corrects the footprint-edge reading above for pitch tiles. The 0x2000 writes of 0x628F0/0x6C510 apply only to building removal.
+
+- The tile pass 0x65830 is called once per simulation block from 0xCDE60 (0xCE0E1) and from the editor path 0x5BC70 (0x5BDC4).
+  - Per tile it loads `r10d = 0xFFFFDFFF` (0x67630).
+  - For PitchTrap tiles it clears 0x2000 (0x682D9) and looks up the pitch record (0x695C0).
+- It then sets MiscDisplay 0x800 (0x683A1) and 0x2000 (0x683D8), plus a pitch sprite id in the grid at tile manager +0x140900, when any of these holds:
+  - a global flag (0x682FE);
+  - record state ≥ 2, i.e. burning or burnt (0x6830B);
+  - the record owner is on the local player's team (0x68316..0x68334, table 0x37EDF3C indexed by a global player index);
+  - another global flag (0x68336).
+- Otherwise the bit stays clear: enemy pitch that is not burning is hidden.
+- Consequence: the renderer and the 0x68EAD cap draw visible pitch at its lowered stored height, a visible ditch. Hidden pitch gets the +4 compensation and looks like flat ground. Stored height is lowered for every pitch tile regardless of the bit. Because the bit depends on the local player, Vanilla can use it only for presentation; gameplay code must not branch on it.
+- A full `.text` scan of `or`/`mov` word writes to +0xF05F40 / RVA 0x4F64CF0, following immediate values loaded shortly before, found 0x683D8 as the only write of 0x2000. Building removal sets it through a combined register value at 0x629EF; review found that one by hand. Register values with no nearby immediate were not resolved.
+- AIV overbuild (0x6CCE3) and manual overbuild (0x6F6B1) clear PitchTrap when they set IsWall, so wall tiles never carry the pitch flag.
+
+## Burn-out, low-height reloads and generic consumers (2026-11-02)
+
+Same canonical native hash as above. The following facts were checked against
+installed instructions and isolated executions of the complete original native
+functions. Generic database function names remain candidate names; the machine
+blocks and state flow described here are independently verified.
+
+- `0x7D280` restores DefaultHeight at `0x7D497..0x7D4A8` when state 3 reaches
+  timer 200, then writes signed state -1 at `0x7D4A8`. PitchTrap remains set
+  until the next record cleanup through `0x62EB0`. `0xCDE60` calls `0x7D280`
+  before the projectile/effect update `0x9F960` in the same simulation tick.
+  Consequently the general fire comparison can observe restored height while
+  the pitch flag is still set. Default 8 restores height 8, not 4; a fire source
+  at 32 then passes the strict height-difference bound 25 (24, not 28).
+- `0x804C0` re-lowers PitchTrap tiles only when DefaultHeight is at least 4.
+  It preserves a terminal low tile's restored height: Default 3/state -1 stays
+  at height 3 after loading, while Default 4/state -1 becomes height 0.
+  Treating all pitch-flagged load states as lowered would conflate these cases.
+- The pitch chain loads source height at `0x7D3B1` and neighboring height at
+  `0x7D411`, followed by the signed difference/absolute-value comparison. Its
+  source has just changed from state 2 to 3; eligible neighbors are state 1.
+  The clamp used at pitch placement is nonlinear below height 4: original
+  placement on floors 3/28 produces 0/24 and the chain ignites the neighbor.
+  Comparing unreduced floors 3/28 instead would fail at difference 25.
+- Native pitch record address is `tileManager + 0x2038E44 + id*20`, with
+  one-based IDs. PackedTileId is int32 at +0, GlobalId uint32 at +4, occupied
+  OwnerId int16 at +8, state int16 at +0x10 and timer int16 at +0x12.
+  `0x695C0` and `0x7D280` use OwnerId != 0, not GlobalId, as occupancy.
+  The signed exclusive PitchIdLimit is at manager +0x204C6C4; physical slot
+  capacity is 4000 including slot zero. PackedTileId lies four bytes before
+  the Extender descriptor's GlobalId. Its trailing Reserved field must not
+  be mistaken for that same record's packed index.
+- The ordinary editor number brush at `0x70DF0` clamps terrain height to
+  8..156. Heights 0..3 therefore require separate evidence for custom/imported
+  maps or Extender editing; the native byte layout itself supports them.
+
+Generic height consumers also matter even when a particular branch never checks
+PitchTrap. `0x18E9A0` uses unit base plus height addition for its ranged
+height-correction marker (+0x9E2, thresholds +/-70), not a universal target
+permission gate, and writes raw ground height into the look-at height for coordinate
+targets. Ordinary projectile damage in `0x192750` checks projectile elevation
+against actual unit height and the unit-type hit interval. The shared effect
+routine `0x9C730` contains both fire/pitch branches and the separate Disease
+(type 0x16) neighbor/ring surface test through `0x6B910`, strictly |delta| <120.
+These are real dependencies of HeightGrid, not evidence that all readers should
+be compensated or that a changed surface admission necessarily causes damage.

@@ -789,11 +789,13 @@
       "scope": "vanilla+integration",
       "components": [
         "PlagueHeightTest",
-        "BugfixesAndQoL"
+        "BugfixesAndQoL",
+        "MoatMove"
       ],
       "integrationSections": [
         "Testmod evidence and limits",
-        "Integration observation, 2026-10-23"
+        "Integration observation, 2026-10-23",
+        "MoatMove plague avoidance [mod integration]"
       ]
     },
     {
@@ -963,9 +965,13 @@
       "file": "SIM_TICK_SPIKE_PATHING.md",
       "scope": "vanilla+integration",
       "components": [
-        "PerfProbe"
+        "PerfProbe",
+        "MoatMove",
+        "BugfixesAndQoL"
       ],
-      "integrationSections": [],
+      "integrationSections": [
+        "Periodic AI order spikes with 10,000 units, 2026-11-02"
+      ],
       "note": "Measured with the PerfProbe testmod."
     },
     {

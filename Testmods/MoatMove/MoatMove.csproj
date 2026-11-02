@@ -46,6 +46,9 @@
     <Compile Include="src\MoatFailureProofs.cs" />
     <Compile Include="src\FireRouteRules.cs" />
     <Compile Include="src\FireEscape.cs" />
+    <Compile Include="src\SoldierTribeMoves.cs" />
+    <Compile Include="src\PlagueDamageModel.cs" />
+    <Compile Include="src\PlagueRouteRules.cs" />
     <Compile Include="src\DigWorkFallback.cs" />
     <Compile Include="src\FastRouteField.cs" />
     <Compile Include="src\IFastRouteField.cs" />

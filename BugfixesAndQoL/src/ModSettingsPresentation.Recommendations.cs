@@ -51,6 +51,7 @@ namespace BugfixesAndQoL
             options["EnableCorruptLordDataSpawnFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableCorruptLordDataSpawnFix");
             options["EnableMultiplayerStartupStateFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableMultiplayerStartupStateFix");
             options["EnablePeaceTimeGameplayFixes"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnablePeaceTimeGameplayFixes");
+            options["EnablePeaceTimeCivilianProximityReduction"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnablePeaceTimeCivilianProximityReduction");
             options["ShowMpAdvancedSettingsInSingleplayer"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.ShowMpAdvancedSettingsInSingleplayer");
             options["EnableCustomLordListEnhancements"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableCustomLordListEnhancements");
             options["EnableTrailCustomizationButtons"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableTrailCustomizationButtons");

@@ -54,7 +54,6 @@ Testmods/OutpostTest/OutpostTest.csproj
 Testmods/OutpostTest/tests/OutpostTest.Tests.csproj
 Testmods/PrebuiltWorkshopBothFixTest/PrebuiltWorkshopBothFixTest.csproj
 Testmods/SkinTest/SkinTest.csproj
-Testmods/SpectatorEditorBuildTest/SpectatorEditorBuildTest.csproj
 Testmods/StockpileAccessFixTest/StockpileAccessFixTest.csproj
 Testmods/VirtualUnitsPrototype/VirtualUnitsPrototype.csproj
 UnitCosts/UnitCosts.csproj

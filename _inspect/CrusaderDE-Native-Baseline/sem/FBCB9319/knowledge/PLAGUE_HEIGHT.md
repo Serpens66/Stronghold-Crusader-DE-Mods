@@ -80,3 +80,22 @@ building-before-wall classification. Existing historical findings above are reta
 User reports successful in-game cloud-edge movement, wall demolition and tower
 collapse on the prior testmod. This does not establish multiplayer acceptance of
 the new integration or the separate category controls.
+
+## Cloud life cycle, movement and damage cadence (audit 2026-11-02, same hash)
+
+Static audit for MoatMove's plague avoidance (decompile and capstone disassembly of the installed DLL; no runtime test).
+
+- Type-22 records: state `+0x3C` 1 (new, set by `0x9B2B0`; `0x9F960` moves it to 2 on its next pass), 2 (active), 3 (end: `0x9A080` at phase 1024, `0x9C730` for an invalid position, `0xA0540`); `0x9F960` frees a state-3 record via `0x9F2D0`. Disease records use slots from 0x19 upwards; Global-ID `+0x44`.
+- Phase `+0x28` rises every 4 ticks (`+0x24`/`+0x26`): 0..7 intro, 8..15 loop. When age `+0xD0` (signed short, +1 per handler call) reaches the lifetime (`0x9A16C`, 800; ExtraFeatures hooks the compare), the phase becomes 1016; 1017..1023 fade (about 29..32 ticks), 1024 sets state 3. The signed 16-bit compare makes lifetimes above 32767 fade at once (only AX counts). While phase is 1016 the loop branch resets it to 8 and re-checks the age on each call until the phase step (type-22 period 4, table `0x2DAF70`, applied in `0x9F960` before the handler) moves it to 1017, so the age reaches lifetime + 3 while still compared; a wrap past 32767 there resets the cloud to its loop phase. Safe maximum lifetime: 32764.
+- Treatment (`0xA0470`, healer update `0x14F3C0`) sets phase 1016 only for state-2 clouds with phase <= 1000 within distance < 7; as age is still below the lifetime, `0x9A080` resets the phase to 8 unless the 4-tick increment lands first, so treatment often repeats.
+- Damage: `0x9C730` runs at creation (state 1, so no damage) and then from `0x9F960` whenever `+0xAA` exceeds 30, i.e. every 31 ticks after a step of 1/8 tile; it never checks the phase, so fading clouds still damage. Center `+0x60` without height gate; 8 neighbours via `int[0x405EDB0 + (y*8+d)*4]`; 16-tile ring via `0x6AE20` and the pairs at `0x2DB750` (all Chebyshev distance 2); no bounds checks on neighbours and ring. Vanilla gate for both: `|H(center) - H(tile)| < 120`, H = `0x6B910`.
+- Movement: on each 31-tick event `+0xB2` steps left decrease; at <= 0 a new count `(RNG hi byte) & 0x3F` and direction `(RNG >> 4) & 7` come from the simulation RNG (0x856A6D0). Directions 0 N, 1 NE, 2 E, 3 SE, 4 S, 5 SW, 6 W, 7 NW. Clouds drift over walls, buildings, towers and water; only an invalid mask or tile flags 0x30 end them.
+- `0x192750` for Disease always returns 0; immune unit types (table `0x32BC40`) include lord and healer among soldiers; the healer counter `int[0x379E6D0 + owner*0x583C]` only scales the damage (80/60/40 %).
+
+### MoatMove plague avoidance [mod integration]
+
+`Testmods/MoatMove/src/PlagueRouteRules.cs` and `PlagueDamageModel.cs` mark tiles a cloud would damage (Vanilla rules, or APIShared's policy once readable) as route tile rules and let soldiers leave them; see `Testmods/MoatMove/UpdateToNewDLL.md`, "Plague clouds".
+
+### ExtraFeatures plague duration limit [mod integration]
+
+`ExtraFeatures/src/PlagueDurationPatch.cs` clamps the substituted lifetime to 32764 ticks (multiplier at most 40x); see `ExtraFeatures/UpdateToNewDLL.md`, "Plague lifetime limit".

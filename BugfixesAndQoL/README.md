@@ -250,6 +250,13 @@ AI castle lists can be searched and sorted by origin or name, while AI configura
 
 The local **Keep selected Lord after Workshop upload** option prevents successful Extended AIV Castle and Extended CPU Lord uploads from returning the upload list to the Rat.
 
+### Reduce civilian building restrictions during Peace Time
+The enabled-by-default host option **Limit civilian building distance during Peace Time** caps the effective enemy-civilian exclusion radius at **3 tiles** while native Peace Time is active: `min(3, effective civilian radius)`. Passing workers are therefore less likely to prevent construction in your base. It applies to human and AI building, repair and demolition queries that use the normal enemy-unit proximity check.
+
+With ExtraFeatures, civilian radii of 0, 1 or 2 remain unchanged; larger values are capped at 3. A Vanilla setting of -1 uses the actual Vanilla radius before applying the cap. Without ExtraFeatures, the cap applies to the incoming Vanilla radius. Soldier, enemy-building, wall, Keep, terrain and direct-occupancy checks remain in effect. Normal radii return immediately when Peace Time ends, without changing saved settings or removing buildings already built.
+
+Find the option beside the existing Peace Time options in the host QoL settings. It works independently of the option that enables Peace Time outside multiplayer, including during original multiplayer Peace Time. Change it before or after a mission. If an older ExtraFeatures version is installed without the shared proximity integration, only this Peace Time reduction stays inactive until ExtraFeatures is updated.
+
 ### Improve game-speed controls
 Adds Multiplayer game-speed and pause controls. Can be restricted to the host or allowed for everyone. Pressing or holding a speed key changes the speed immediately and repeats every 0.25 seconds; holding Shift changes it by 25 instead of 5 per step. The slider retains its normal 5-point increments.
 
@@ -309,7 +316,7 @@ Adds "Customize" Button to custom and coop trails. Allows to use custom AI as Al
 
 ## Compatibility and diagnostics
 
-This mod requires the Script Extender and **APIShared 0.12.6 or newer**. Subscribe to APIShared separately when using the Steam modpack.
+This mod requires the Script Extender and **APIShared 0.25.0 or newer**. Subscribe to APIShared separately when using the Steam modpack.
 
 Shared hooks coordinate command and HUD integrations with other mods; synchronized multiplayer actions use APIShared transport.
 

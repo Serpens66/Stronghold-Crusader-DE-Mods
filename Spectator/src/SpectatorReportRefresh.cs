@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using APIShared;
 using APIShared.Presentation;
 using CrusaderDE;
 using Noesis;
@@ -42,6 +43,8 @@ namespace Spectator
 
         private static void OnReportGuiCompleted(PresentationPostEventArgs args)
         {
+            if (spectatorActive && PlayerPerspectiveAPI.GetViewedPlayerId() < 0) ObservePerspective(-1);
+            if (perspectiveUncertain) { CloseUncertainPresentation(); return; }
             if (!reportRefresh.Pending) return;
             try
             {

@@ -8,12 +8,22 @@ using System.Runtime.InteropServices;
 namespace MoatMove
 {
     internal enum AliveState { IsAlive, Dead }
-    internal enum eStructs { STRUCT_NULL }
+    // Extender eStructs values used by PlagueDamageModel (keeps, gates, towers, roof table).
+    internal enum eStructs
+    {
+        STRUCT_NULL, STRUCT_KEEP_ONE = 40, STRUCT_KEEP_TWO = 41, STRUCT_KEEP_THREE = 42, STRUCT_KEEP_FOUR = 43, STRUCT_KEEP_FIVE = 44,
+        STRUCT_GATE_MAIN = 45, STRUCT_GATE_INNER = 46, STRUCT_GATE_WOOD = 47, STRUCT_GATE_POSTERN = 48, STRUCT_DRAWBRIDGE = 49, STRUCT_GATEHOUSE = 60,
+        STRUCT_TOWER = 61, STRUCT_SIEGE_TOWER = 69, STRUCT_KEEPDOOR_LEFT = 71, STRUCT_KEEPDOOR_RIGHT = 72, STRUCT_KEEPDOOR = 73,
+        STRUCT_TOWER1 = 74, STRUCT_TOWER2 = 75, STRUCT_TOWER3 = 76, STRUCT_TOWER4 = 77, STRUCT_TOWER5 = 78, STRUCT_TOWER5_DESTROYED = 79,
+        STRUCT_TOWER1_DESTROYED = 86, STRUCT_TOWER2_DESTROYED = 87, STRUCT_TOWER3_DESTROYED = 88, STRUCT_TOWER4_DESTROYED = 89,
+        STRUCT_GATE_WOOD1A = 127, STRUCT_GATE_WOOD1B = 128, STRUCT_GATE_WOOD1C = 129, STRUCT_GATE_WOOD1D = 130,
+        STRUCT_GATE_STONE1A = 131, STRUCT_GATE_STONE1B = 132, STRUCT_GATE_STONE2A = 133, STRUCT_GATE_STONE2B = 134
+    }
     internal static class eChimps
     {
         internal const int CHIMP_TYPE_ARAB_ASSASIN = 0x49, CHIMP_TYPE_CATAPULT = 0x27, CHIMP_TYPE_TREBUCHET = 0x28, CHIMP_TYPE_MANGONEL = 0x29,
             CHIMP_TYPE_SIEGE_TOWER = 0x3A, CHIMP_TYPE_BATTERING_RAM = 0x3B, CHIMP_TYPE_PORTABLE_SHIELD = 0x3C, CHIMP_TYPE_BALLISTA = 0x3D,
-            CHIMP_TYPE_ARAB_BALLISTA = 0x4D;
+            CHIMP_TYPE_ARAB_BALLISTA = 0x4D, CHIMP_TYPE_HEALER = 34, CHIMP_TYPE_LORD = 55;
     }
     internal enum TribeAICommand { Move, AttackUnit=4, AttackBuilding=5, DigMoatTileId = 6, Unknown7 = 7 }
     internal enum EventHookPhase { Pre, Post }
@@ -88,7 +98,9 @@ namespace MoatMove
         public static GamePlayerManagerAPI Instance = new GamePlayerManagerAPI();
         public GameCursorManager* Cursor;
         public CursorPointer GetCursorManager() => new CursorPointer { Pointer=Cursor };
-        public bool IsAIPlayer(int id) => false;
+        // Bit p: player p is an AI.
+        public int AIPlayerMask;
+        public bool IsAIPlayer(int id) => id >= 0 && id < 31 && (AIPlayerMask & (1 << id)) != 0;
         public bool IsPlayerIdValid(int id) => id > 0 && id <= 8;
         public bool IsPlayerAlliedTo(int a, int b) => a == b;
         public int GetLocalPlayerId() => 1;
@@ -122,6 +134,7 @@ namespace MoatMove
         public UnmanagedVector2<ushort> GetTileVectorFromId(int tile) =>
             new UnmanagedVector2<ushort> { X = (ushort)(tile % 1000), Y = (ushort)(tile >= 2000 ? 11 : 10) };
         public bool IsValidTileId(int tile) => tile >= 0 && tile < 640000;
+        public bool HasTilePropertyFlag(int tile, TilePropertyFlag flag) => tile >= 0 && tile < TileManager.LogicGrid.Length && (TileManager.LogicGrid[tile] & (int)flag) != 0;
     }
     internal sealed unsafe partial class FriendlyMoatMovementRuntime
     {
@@ -1260,11 +1273,60 @@ namespace MoatMove {
 
 namespace APIShared.GameModes { internal static class GameModeHelper { internal static bool IsMapEditor()=>true; } }
 namespace MoatMove {
- internal unsafe struct GameTribe { public int r_LeaderUnitId, r_PlayerIdOwner; }
+ internal enum TribeStance : ushort { Hold = 0, Defensive = 1, Aggressive = 2 }
+ internal enum TribeMoveType { NoChange = 0, DefaultInSync = 1, Fast = -255 }
+ internal enum TilePropertyFlag { PitchTrap = 1 << 3 }
+ internal unsafe struct GameTribe {
+  public int r_LeaderUnitId, r_PlayerIdOwner, r_UnitsInGroup;
+  public uint r_GlobalId;
+  public AliveState r_AliveState;
+  public TribeStance r_TribeStance;
+  public ushort r_PatrolPoint2TileX, r_PatrolPoint2TileY, r_PatrolCurrentTargetIndex, r_CurrentPatrolPoints;
+ }
  internal unsafe sealed class GameTribeManagerAPI {
   internal static readonly GameTribeManagerAPI Instance=new GameTribeManagerAPI();
   internal GameTribe* Tribe;
-  internal bool TryGetTribeById(int id,out GameTribe* tribe) { tribe=Tribe;return tribe!=null; }
+  // Tribe table for tribe commands (ids 1..TableSize-1); without it every id resolves to Tribe.
+  internal GameTribe* Table; internal int TableSize; internal uint NextGlobal=50000;
+  internal bool FailCreate, FailAssign;
+  internal readonly List<int[]> Moves=new List<int[]>();
+  // IssueMoveHereCommand (0x11B520): calls are recorded; MoveHandler plays the native member moves.
+  internal Func<int,int,int,bool> MoveHandler;
+  internal readonly List<int> Deleted=new List<int>();
+  internal bool TryGetTribeById(int id,out GameTribe* tribe) {
+   if(Table==null){tribe=Tribe;return tribe!=null;}
+   tribe=id>0&&id<TableSize?Table+id:null;return tribe!=null;
+  }
+  internal long Create(int owner,bool unknown) {
+   if(FailCreate||Table==null)return -1;
+   for(int id=1;id<TableSize;id++)
+    if(Table[id].r_AliveState!=AliveState.IsAlive)
+    { Table[id]=new GameTribe{r_PlayerIdOwner=owner,r_GlobalId=NextGlobal++,r_AliveState=AliveState.IsAlive,r_TribeStance=TribeStance.Defensive};return id; }
+   return -1;
+  }
+  internal bool AssignUnit(int tribeId,int unitId) {
+   if(FailAssign||!TryGetTribeById(tribeId,out GameTribe* tribe))return false;
+   GameUnit* unit=GameUnitManagerAPI.Instance.Units+unitId;
+   if(unit->r_TribeId!=0)return true;
+   unit->r_TribeId=tribeId;tribe->r_UnitsInGroup++;return true;
+  }
+  internal bool UnassignUnit(int tribeId,int unitId) {
+   if(!TryGetTribeById(tribeId,out GameTribe* tribe))return false;
+   GameUnit* unit=GameUnitManagerAPI.Instance.Units+unitId;
+   if(unit->r_TribeId!=tribeId)return false;
+   unit->r_TribeId=0;tribe->r_UnitsInGroup--;return true;
+  }
+  internal bool DeleteTribeSafe(int tribeId) {
+   if(!TryGetTribeById(tribeId,out GameTribe* tribe)||tribe->r_UnitsInGroup!=0)return false;
+   tribe->r_AliveState=AliveState.Dead;Deleted.Add(tribeId);return true;
+  }
+  internal bool IssueMoveHereCommand(int tribeId,int x,int y,bool isPatrolPath=false,int bIsNewOrder=1,TribeMoveType tribeMoveType=TribeMoveType.DefaultInSync) {
+   Moves.Add(new[]{tribeId,x,y});
+   // 11B520 writes the two-point order (leader tile, commanded tile) only for a new order.
+   if(bIsNewOrder!=0&&TryGetTribeById(tribeId,out GameTribe* tribe))
+   {tribe->r_PatrolPoint2TileX=(ushort)x;tribe->r_PatrolPoint2TileY=(ushort)y;tribe->r_CurrentPatrolPoints=2;tribe->r_PatrolCurrentTargetIndex=1;}
+   return MoveHandler==null||MoveHandler(tribeId,x,y);
+  }
  }
  internal sealed class GameTileManagerView {
   internal const int NativePackedTileCapacity=320800;
@@ -1304,6 +1366,7 @@ namespace Shared {
   [System.Diagnostics.Conditional("SERP_DEVDIAG")] internal static void Start(ref long timestamp) {}
   [System.Diagnostics.Conditional("SERP_DEVDIAG")] internal static void Stop(ref long timestamp,string name) {}
   [System.Diagnostics.Conditional("SERP_DEVDIAG")] internal static void StopSpike(ref long timestamp,string name,long threshold,System.Func<string> details=null) {}
+  [System.Diagnostics.Conditional("SERP_DEVDIAG")] internal static void Log(System.Func<string> message) {}
  }
 }
 

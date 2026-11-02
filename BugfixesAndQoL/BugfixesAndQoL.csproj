@@ -8,8 +8,8 @@
     <OutputType>Library</OutputType>
     <RootNamespace>BugfixesAndQoL</RootNamespace>
     <AssemblyName>BugfixesAndQoL</AssemblyName>
-    <AssemblyVersion>1.0.208.0</AssemblyVersion>
-    <FileVersion>1.0.208.0</FileVersion>
+    <AssemblyVersion>1.0.209.0</AssemblyVersion>
+    <FileVersion>1.0.209.0</FileVersion>
     <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
     <LangVersion>latest</LangVersion>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
@@ -289,6 +289,7 @@
     <Compile Include="src\LordControlGroupNativeDefinition.cs" />
     <Compile Include="src\LordControlGroupNativePatch.cs" />
     <Compile Include="src\LordUnitControlsPolicy.cs" />
+    <Compile Include="src\SpectatorInputControlPolicy.cs" />
     <Compile Include="src\MovementCadenceIntegration.cs" />
     <Compile Include="src\MovementLoggingStateTracker.cs" />
     <Compile Include="src\PlaguePopularityFix.cs" />
@@ -335,6 +336,9 @@
     <Compile Include="src\NoDogsNativePatch.cs" />
     <Compile Include="src\VanillaPeaceTimeNativeContract.cs" />
     <Compile Include="src\VanillaPeaceTimeGameplayPatch.cs" />
+    <Compile Include="src\PeaceTimeCivilianProximityFeature.cs" />
+    <Compile Include="src\PeaceTimeCivilianProximityPolicy.cs" />
+    <Compile Include="src\BugfixesAndQoLViewModel.PeaceTime.cs" />
     <Compile Include="src\SteamLobbyInvitePrompt.cs" />
     <Compile Include="src\SteamLobbyInvitePolicy.cs" />
     <Compile Include="src\SteamInviteBlacklistStore.cs" />

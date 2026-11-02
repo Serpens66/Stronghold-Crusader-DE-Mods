@@ -26,7 +26,7 @@ namespace Spectator
         {
             var view = MainViewModel.Instance;
             HUD_Main hud = view.HUDmain;
-            bool enabled = IsActivePlayerTestSession();
+            bool enabled = HasOwnBuildMenu();
             if (dockBuildMenu.Saved != null && !ReferenceEquals(hud, dockBuildMenu.Saved.Hud))
                 dockBuildMenu.Release(); // a new HUD owns its page; never replay old UI state over it
             if (!humanPlacementMode && (!enabled || toolbarMoved || toolsModel?.Expanded != true))
@@ -103,7 +103,8 @@ namespace Spectator
             RestorePlacementLayout();
             var saved = playerPlacementPage; playerPlacementPage = null;
             // Promotion to spectator must not replay the former human's editable build page.
-            bool stillHuman = APIShared.PlayerPerspectiveAPI.GetControlledPlayerId() > 0;
+            bool stillHuman = APIShared.PlayerPerspectiveAPI.GetControlledPlayerId() > 0 &&
+                !SpectatorPerspectiveRuntime.IsSpectatorObserver();
             if (stillHuman) RestoreBuildPage(saved);
             ReleaseDockBuildMenu(stillHuman);
             toolbarDirty = toolbarLayoutDirty = true;

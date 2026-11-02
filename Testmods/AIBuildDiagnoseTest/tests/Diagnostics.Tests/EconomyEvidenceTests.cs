@@ -3,7 +3,7 @@ using System.Reflection;
 using AIBuildDiagnoseTest;
 using BugfixesAndQoL.Diagnostics;
 using BugfixesAndQoL;
-using SpectatorEditorBuildTest;
+using Spectator;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using Microsoft.VisualStudio.TestTools.UnitTesting;

@@ -9,7 +9,7 @@ namespace Spectator
     {
         private bool enableClientFeatures = true, enableMod = true, enableSpectatorPerspective = true, enableStatistics = true,
             enableEliminatedPlayersBecomeSpectators = true, enableTestTools = true;
-        private bool enableSingleplayerTestMode;
+        private bool enableSingleplayerTestMode, enableSpectatorControl;
         public ToolsText Text { get; } = new ToolsText();
         public RelayCommand ResetToDefaultCommand { get; }
         public string ResetToDefaultText => SerpLocalization.Get(SerpLocalization.ResetToDefault);
@@ -29,11 +29,15 @@ namespace Spectator
         internal SpectatorFeatureActivation Activation { get; private set; }
         private void RefreshActivation() => Activation = new SpectatorFeatureActivation(EnableMod,
             EnableClientFeatures, EnableSpectatorPerspective, EnableStatistics,
-            EnableEliminatedPlayersBecomeSpectators, EnableTestTools, EnableSingleplayerTestMode, EnableLordOverview);
+            EnableEliminatedPlayersBecomeSpectators, EnableTestTools, EnableSingleplayerTestMode, EnableLordOverview,
+            EnableSpectatorControl);
         [SyncHostOnly, MissionIndependent]
         public bool EnableMod { get => enableMod; set => Set(ref enableMod, value, nameof(EnableMod)); }
         [PresetLocal]
         public bool EnableSpectatorPerspective { get => enableSpectatorPerspective; set => Set(ref enableSpectatorPerspective, value, nameof(EnableSpectatorPerspective)); }
+        // Original singleplayer spectators control the player chosen in the portrait bar.
+        [PresetLocal]
+        public bool EnableSpectatorControl { get => enableSpectatorControl; set => Set(ref enableSpectatorControl, value, nameof(EnableSpectatorControl)); }
         [PresetLocal]
         public bool EnableStatistics { get => enableStatistics; set => Set(ref enableStatistics, value, nameof(EnableStatistics)); }
         [SyncHostOnly, MissionIndependent]

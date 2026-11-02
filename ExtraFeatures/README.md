@@ -47,7 +47,11 @@ Set separate refund percentages from 0% to 100% for wood, stone, iron, pitch, an
 Goods inside a granary, stockpile, or armory are returned as incoming goods when the building is demolished instead of being lost. Contents of a granary that was built for free cannot be restored, which can occur when no wood was available during construction.
 
 ### Customize enemy proximity for building actions
-Set separate Singleplayer and Multiplayer enemy-exclusion radii for human and AI building actions. Human values apply to normal building placement, repair, and demolition; the demolition cursor from BugfixesAndQoL reads the same active range. AI values apply only to safely classified repairs of damaged defenses and walls and to rebuilding previously built towers and gatehouses, while initial placements and unclassified AI building calls remain unchanged.
+Eight host sliders set separate enemy **civilian** and **soldier** exclusion radii for human and AI building actions in Singleplayer and Multiplayer. Each accepts whole numbers from **-1 to 100 tiles**: -1 keeps the actual Vanilla radius and 0 removes that category's distance restriction. All default to -1. Existing common-radius settings migrate to both categories while preserving explicitly stored category values. Enemy-building, wall, terrain and direct-occupancy checks remain in effect.
+
+Human values apply to normal building placement, repair and demolition. AI values apply only to safely classified repairs of damaged defenses and walls and to rebuilding previously built towers and gatehouses; initial placements and unclassified AI calls retain their normal radii. Civilian workers, economic transports and civilian castle residents follow the civilian slider. Engineers, tunnelers, Fighting Monks and Arabian Slaves remain in the military category.
+
+With [BugfixesAndQoL's Peace Time reduction](../BugfixesAndQoL/README.md#reduce-civilian-building-restrictions-during-peace-time) enabled, the effective civilian radius becomes `min(3, effective civilian radius)` during active Peace Time. Values 0, 1 and 2 are preserved, and -1 resolves to the actual Vanilla radius first. That separate rule also covers normal AI initial-placement proximity queries. Soldier and building restrictions and AI rebuild-delay vetoes remain in effect. ExtraFeatures alone keeps its configured radii throughout the match.
 
 ## Economy features
 
@@ -93,14 +97,14 @@ Multiply all market buying and selling prices globally, then fine-tune the buyin
 Plague clouds can also damage units on nearby walls, gates, towers and keeps when their heights are close enough. The host controls each of these four surfaces separately: walls, gates and towers are enabled by default, keeps are disabled; normal damage and apothecary protection still apply.
 
 ### Customize plague-cloud duration
-Set how long plague clouds remain active from 0.5 to 20 times the Vanilla duration. Longer durations also extend how long a cloud can cause damage. By default set to *4.
+Set how long plague clouds remain active from 0.5 to 40 times the Vanilla duration; the game cannot count longer cloud lifetimes. Longer durations also extend how long a cloud can cause damage. By default set to *4.
 
 ### Customize apothecary search range
 Set how far an apothecary searches from its assigned building for plague clouds. The range can be adjusted from 20 to 200 tiles; Vanilla uses 30.
 
 ## Compatibility and diagnostics
 
-This mod requires the Script Extender and **APIShared 0.16.1 or newer**. Subscribe to APIShared separately when using the Steam modpack. Mod settings indicate when gameplay changes are inactive for a direct mission or Trail launch. Use **Customize** where available to start with those changes; edits made while inactive are saved for later games.
+This mod requires the Script Extender and **APIShared 0.25.0 or newer**. Subscribe to APIShared separately when using the Steam modpack. Mod settings indicate when gameplay changes are inactive for a direct mission or Trail launch. Use **Customize** where available to start with those changes; edits made while inactive are saved for later games.
 
 Plague-height, market-price, repair-HUD and troop-command integrations use coordinated APIShared hooks. Gatehouse and mount/dismount actions use its synchronized multiplayer transport.
 

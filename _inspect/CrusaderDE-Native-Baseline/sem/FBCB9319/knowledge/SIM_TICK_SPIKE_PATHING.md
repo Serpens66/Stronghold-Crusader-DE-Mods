@@ -30,3 +30,16 @@ lock. Managed Monitor waiting, pre-native work, the inclusive native call (inclu
 SE/mod callbacks), and post-native publication must be measured separately. This
 clarifies managed observation boundaries; it does not add a native address or
 attribute every future native-time spike to the AI movement path observed above.
+
+## Periodic AI order spikes with 10,000 units, 2026-11-02 [mod integration]
+
+Evidence: a manual run on `test_stresstest5.sav` (800x800, 8 AI lords, 9,988 alive units) with MoatMove (anchor mode, DEVDIAG build), BugfixesAndQoL and PerfProbe (sampler with `SimOutsideRun`). It covers 52 s of play after load.
+
+- **Cadence:** Every 200 game ticks, one `EngineInterface.run` took long; the map ticks were 121907, 122107, 122307, and so on. Rendering, camera and hover continued (`framesDuring` 818-1084), so only the simulation stopped. Mods logged AI group orders with up to 593 members in the same windows (`anchor-move-unreached tribe=... members=593`). This matches the per-AI scheduler `0x2AE40` issuing group orders through `0x11B520`.
+- **While MoatMove's anchor masks were still being built:** The masks were built at 4,096 nodes per tick, about 28 s for 8 players. In this phase, group orders fell back to one Vanilla search per member.
+  - The three ticks took 3,651, 2,746 and 2,943 ms, with `maskPendingMoves` at 33, 11 and 42.
+  - Sim-thread samples: about 62 % self in `0xDA5EF`/`0xDAB1D` under BugfixesAndQoL's wrapper of the `0xF4930` original. About 25 % were in BugfixesAndQoL's `edgeHooks[index]` stubs at RVAs `0xDA783` and `0xDACB2` inside that search loop, mapped by stub address and size from the SE log. So in this configuration a fallback order costs several times the pure Vanilla figure above, and the edge hooks are a notable share of it.
+- **After all masks were ready:** about 240-290 ms per 200 ticks, mostly MoatMove's own anchor work for the AI orders.
+  - Sampled: `mma_query`, managed `LiveEdge`, `TryAuditFallbackPathCore`, BugfixesAndQoL `TryGetTraversalEdge`, `HashSet<int>.Contains` and native `0x119F90`.
+  - DEVDIAG and the 1 kHz sampler inflate this, so a Release measurement is still pending.
+- **Consequence in MoatMove (same day):** The map's first player scan now completes all requested masks in one tick, during loading. Later requests keep the per-tick budget. Uncertain: the remaining Release cost per 200 ticks, and the edge-hook share on runs without MoatMove's anchor mode.

@@ -140,7 +140,11 @@ namespace BugfixesAndQoL
             int selectedId = count == 1 && state.selectedChimps != null && state.selectedChimps.Length > 0 ? state.selectedChimps[0] : -1;
             int player = GetControlledPlayerId(editor);
             lord = CaptureLord(player);
-            return LordUnitControlsPolicy.CanActivate(settings.EnableMod, settings.EnableLordUnitControls, IsActiveMatch(), editor, state != null && state.spectatorMode != 0, count, selectedId, player, lord);
+            // GetLocalPlayerId already reports the input-controlled player; only an uncontrolled spectator is blocked.
+            int spectatorMode = state?.spectatorMode ?? 0;
+            int inputControlledPlayerId = spectatorMode != 0 ? APIShared.PlayerPerspectiveAPI.GetInputControlledPlayerId() : 0;
+            bool spectator = SpectatorInputControlPolicy.IsObservingSpectator(spectatorMode, inputControlledPlayerId);
+            return LordUnitControlsPolicy.CanActivate(settings.EnableMod, settings.EnableLordUnitControls, IsActiveMatch(), editor, spectator, count, selectedId, player, lord);
         }
 
         private bool ShouldIncludeControlledLord(out SurrenderLordSnapshot lord)

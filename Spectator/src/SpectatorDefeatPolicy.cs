@@ -2,6 +2,8 @@ namespace Spectator
 {
     internal static class SpectatorDefeatPolicy
     {
+        internal static bool IsSpectatorObserver(bool originalSpectator, bool confirmedEliminatedParticipant) =>
+            originalSpectator || confirmedEliminatedParticipant;
         internal static bool IsStatisticsViewer(bool spectator, int player, bool validLord) =>
             spectator || (player >= 1 && player <= 8 && !validLord);
         internal static bool ConfirmIdentity(int expected, int nativePlayer, int managedPlayer) =>
@@ -14,7 +16,7 @@ namespace Spectator
             bool alreadySpectator,
             bool supportedGameMode,
             bool validLocalParticipant,
-            bool lordDeathObserved,
+            bool eliminationConfirmed,
             int localPlayerId) =>
             featureEnabled &&
             activeMatch &&
@@ -22,7 +24,7 @@ namespace Spectator
             !alreadySpectator &&
             supportedGameMode &&
             validLocalParticipant &&
-            lordDeathObserved &&
+            eliminationConfirmed &&
             localPlayerId >= 1 && localPlayerId <= 8;
 
         internal static int ResolvePresentedGameOverState(
@@ -30,10 +32,14 @@ namespace Spectator
             bool spectatorPromotionRequested) =>
             state == 1 && spectatorPromotionRequested ? 2 : state;
 
-        internal static bool ShouldLatchPlayerLordDeath(int notificationPlayerId, int localPlayerId) =>
-            notificationPlayerId >= 1 &&
-            notificationPlayerId <= 8 &&
-            notificationPlayerId == localPlayerId;
+        internal static bool IsLocalElimination(long activeSession, long observedSession, int observedPlayer,
+            int localPlayer, bool readable, bool eliminationConfirmed) =>
+            activeSession > 0 && activeSession == observedSession && observedPlayer >= 1 && observedPlayer <= 8 &&
+            observedPlayer == localPlayer && readable && eliminationConfirmed;
+
+        // Roster exclusion: only a readable defeat of the current mission session counts.
+        internal static bool IsRosterEliminated(long activeSession, long observedSession, bool readable, bool eliminated) =>
+            activeSession > 0 && activeSession == observedSession && readable && eliminated;
 
     }
 }

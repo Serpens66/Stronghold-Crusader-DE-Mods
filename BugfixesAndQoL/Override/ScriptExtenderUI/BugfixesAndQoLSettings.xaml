@@ -970,6 +970,18 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}" sha
           </StackPanel>
           <StackPanel Visibility="{Binding SettingsPresentation.HostSetup.QolVisibility}">
             <TextBlock Text="{Binding QolTitleText}" Style="{StaticResource CategoryHeader}" Margin="28,8,0,4" shared:ModSettingsSearch.Exclude="True"/>
+            <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-peace-time-civilian-proximity-reduction" shared:ModSettingsSearch.Title="{Binding EnablePeaceTimeCivilianProximityReductionText}" shared:ModSettingsSearch.ToolTipText="{Binding EnablePeaceTimeCivilianProximityReductionHelpText}">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="28"/>
+                <ColumnDefinition Width="*"/>
+              </Grid.ColumnDefinitions>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnablePeaceTimeCivilianProximityReduction}"/>
+              <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
+                <CheckBox IsEnabled="{Binding CanConfigurePeaceTimeCivilianProximity}" IsChecked="{Binding EnablePeaceTimeCivilianProximityReduction, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnablePeaceTimeCivilianProximityReductionHelpText}" Margin="0,0,14,8">
+                  <TextBlock Text="{Binding EnablePeaceTimeCivilianProximityReductionText}" Foreground="White" TextWrapping="Wrap"/>
+                </CheckBox>
+              </Grid>
+            </Grid>
             <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.show-mp-advanced-settings-in-sp" shared:ModSettingsSearch.Title="{Binding ShowMpAdvancedSettingsInSingleplayerText}" shared:ModSettingsSearch.ToolTipText="{Binding ShowMpAdvancedSettingsInSingleplayerHelpText}">
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="28"/>

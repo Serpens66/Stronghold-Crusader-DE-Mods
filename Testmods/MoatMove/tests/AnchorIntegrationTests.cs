@@ -6,22 +6,26 @@ namespace MoatMove
     internal sealed unsafe partial class FriendlyMoatMovementRuntime
     {
         // Anchor mode against the real native core (build.bat builds it into .local/anchor
-        // before the tests): masks start for alive human players only and complete in a fixed
-        // number of ticks, a moat route passes the live audit, a terrain change on the route
+        // before the tests): masks start for alive human players only, the map's first scan completes
+        // them in one tick and later requests keep the per-tick budget, a moat route passes the live audit, a terrain change on the route
         // makes the task stale, stale restarts are bounded, and a steady tick allocates nothing.
         // Replan watch (RouteReplanPolicy with AnchorSingleMoves) on the anchor corridor (ground east of
         // x 136, player 1's mask ready): a walking unit 3 steps before a new rule tile re-plans to its
         // unchanged target and keeps an allowed detour; a detour beyond the policy stops it on its next
         // tile; once the core finds a clear route the unit resumes its target. Unit 7 walks east from
-        // (140,10) to (160,10); MoveHandler plays 196280's result. Only soldiers are watched (no
-        // civilians or siege equipment); a failed 196280 when resuming ends in an explicit stop, and
-        // MoatMove's fire policy aborts the move after the wait instead of resuming.
+        // (140,10) to (160,10) in group 3 (order target 160,10); MoveHandler plays 196280's result. The
+        // move resumes as the group's Vanilla command again (one per tribe), not with 196280. Only
+        // soldiers are watched (no civilians or siege equipment); a failed detour (196280) ends in an
+        // explicit stop, a group re-ordered meanwhile leaves the unit stopped, and MoatMove's fire
+        // policy aborts the move after the wait instead of resuming.
         private void ReplanWatchTests(ref int ticks)
         {
             bool singleBefore = settings.AnchorSingleMoves; settings.AnchorSingleMoves = true;
             GameUnitManagerAPI units = GameUnitManagerAPI.Instance;
-            GameUnit* walker = units.Units + 7;
-            GameUnit saved = *walker;
+            GameTribeManagerAPI tribes = GameTribeManagerAPI.Instance;
+            GameUnit* walker = units.Units + 7, second = units.Units + 9;
+            GameUnit saved = *walker, savedSecond = *second;
+            GameTribe* table = InstallTribeTable(8);
             Check(APIShared.Pathfinding.RouteTileRules.TryRegister("tests.moatmove", "replan", out APIShared.Pathfinding.RouteTileRuleSet fire, out _),
                 "replan rule registration failed");
             fire.ReplanPolicy = new APIShared.Pathfinding.RouteReplanPolicy(3, 50, 10, 400);
@@ -42,8 +46,10 @@ namespace MoatMove
             };
             try
             {
-                walker->r_GlobalId = 9007; walker->r_ControllableForPlayerId = 1; walker->r_AliveState = AliveState.IsAlive; walker->r_TribeId = 0;
+                walker->r_GlobalId = 9007; walker->r_ControllableForPlayerId = 1; walker->r_AliveState = AliveState.IsAlive; walker->r_TribeId = 3;
                 walker->r_IsKilledByProjectile = 0; walker->r_MovementSubstep = 0; walker->r_SelectionAllowed = 1; walker->r_UnitChimp = 0;
+                // Unit 9 joins group 3 for the two-member resume at the end only.
+                *second = *walker; second->r_GlobalId = 9009; second->r_TribeId = 0; second->r_SelectionAllowed = 0; second->r_PathPlanStateBitFlags = 0;
                 Route(7, 140, 10, straight, 160, 10);
                 units.Moves.Clear();
                 long detours = replanDetours, waits = replanWaitsStarted, resumed = replanResumed;
@@ -63,15 +69,16 @@ namespace MoatMove
                     $"a detour beyond the policy did not stop the unit (moves={units.Moves.Count})");
 
                 // The fire goes out: the next probe finds the clear core route and the unit resumes.
-                fire.ClearAll(); AnchorTick(++ticks); answer = straight; units.Moves.Clear();
+                fire.ClearAll(); AnchorTick(++ticks); answer = straight; units.Moves.Clear(); tribes.Moves.Clear();
                 // An exhausted per-tick probe budget moves the probe to the next tick instead of searching.
                 long deferred = replanProbesDeferred;
                 for (int i = 0; i < 64 && replanProbesDeferred == deferred; i++) { replanProbeTick = ticks + 1; replanProbeLeft = 0; ReplanTick(++ticks); }
                 Check(replanProbesDeferred == deferred + 1 && replanResumed == resumed && replanWaits.ContainsKey(7) && units.Moves.Count == 0,
                     "an exhausted probe budget did not defer the waiting unit's probe");
                 for (int i = 0; i < 64 && replanResumed == resumed; i++) ReplanTick(++ticks);
-                Check(replanResumed == resumed + 1 && !replanWaits.ContainsKey(7) && units.Moves.Count == 1 && units.Moves[0][1] == 160,
-                    $"a waiting unit did not resume once its route was clear (moves={units.Moves.Count})");
+                Check(replanResumed == resumed + 1 && !replanWaits.ContainsKey(7) && units.Moves.Count == 0 && tribes.Moves.Count == 1 &&
+                    tribes.Moves[0][0] == 3 && tribes.Moves[0][1] == 160 && walker->r_TargetTilePositionX2 == 160 && walker->r_PathPlanStateBitFlags != 0,
+                    $"a waiting unit did not resume with its group command once its route was clear (moves={tribes.Moves.Count})");
                 // Without rule tiles or waits the watch returns at once.
                 long checks = replanChecks;
                 for (int i = 0; i < 40; i++) ReplanTick(++ticks);
@@ -90,11 +97,8 @@ namespace MoatMove
                 }
                 walker->r_SelectionAllowed = 1; walker->r_UnitChimp = 0;
 
-                // A foreign policy resumes after the wait; a failed 196280 (Post result 0, route buffer
-                // zeroed) then ends in an explicit stop on the movement start instead of a dead route.
-                Route(7, 140, 10, straight, 160, 10); units.Moves.Clear();
-                for (int i = 0; i < 48 && !replanWaits.ContainsKey(7); i++) ReplanTick(++ticks);
-                Check(replanWaits.ContainsKey(7), "a detour beyond the policy did not start a wait");
+                // A failed detour (196280 Post result 0, route buffer zeroed) ends in an explicit stop on the
+                // movement start and a wait instead of a dead route.
                 units.MoveHandler = (id, x, y) =>
                 {
                     if (x == 160 && y == 10)
@@ -107,12 +111,24 @@ namespace MoatMove
                     }
                     else Route(id, x, y, new int[0], x, y);
                 };
-                units.Moves.Clear();
-                long ended = replanEnded, failures = replanMoveFailures, expired = replanExpired;
+                Route(7, 140, 10, straight, 160, 10); units.Moves.Clear();
+                long failures = replanMoveFailures;
+                for (int i = 0; i < 48 && !replanWaits.ContainsKey(7); i++) ReplanTick(++ticks);
+                Check(replanWaits.ContainsKey(7) && replanMoveFailures == failures + 1 && units.Moves.Count == 2 && units.Moves[1][1] == 140 &&
+                    walker->r_PathPlanStateBitFlags == 0 && walker->r_TargetTilePositionX2 == 140,
+                    $"a failed detour did not stop the unit (moves={units.Moves.Count})");
+                // A foreign policy resumes after the wait, but the group was re-ordered meanwhile: no command,
+                // the unit stays stopped.
+                TribeOrder plain = tribeOrders[3];
+                ObserveTribeOrder(3, true, 170, 10, 0, true, TribeMoveType.DefaultInSync);
+                Check(!tribeOrders[3].Plain, "a move outside 196100 counted as a plain player move");
+                units.Moves.Clear(); tribes.Moves.Clear();
+                long held = replanHeld, expired = replanExpired;
                 for (int i = 0; i < 480 && replanWaits.ContainsKey(7); i++) ReplanTick(++ticks);
-                Check(!replanWaits.ContainsKey(7) && replanEnded == ended + 1 && replanMoveFailures == failures + 1 && replanExpired == expired &&
-                    units.Moves.Count == 2 && units.Moves[1][1] == 140 && walker->r_PathPlanStateBitFlags == 0 && walker->r_TargetTilePositionX2 == 140,
-                    $"a failed resume did not stop the unit (moves={units.Moves.Count})");
+                tribeOrders[3] = plain;
+                Check(!replanWaits.ContainsKey(7) && replanHeld == held + 1 && replanExpired == expired &&
+                    units.Moves.Count == 0 && tribes.Moves.Count == 0 && walker->r_PathPlanStateBitFlags == 0 && walker->r_TargetTilePositionX2 == 140,
+                    $"a wait of a re-ordered group resumed (moves={tribes.Moves.Count})");
 
                 // MoatMove's fire policy: no clear route within the wait aborts the move; the unit stays.
                 units.MoveHandler = (id, x, y) =>
@@ -120,7 +136,10 @@ namespace MoatMove
                     if (x == 160 && y == 10) Route(id, 140, 10, answer, x, y);
                     else Route(id, x, y, new int[0], x, y);
                 };
-                fireAbortPolicy = fire.ReplanPolicy; replanSettled.Clear();
+                plagueAbortPolicy = new APIShared.Pathfinding.RouteReplanPolicy(3, 50, 10, 400);
+                Check(IsAbortPolicy(plagueAbortPolicy) && !IsAbortPolicy(fire.ReplanPolicy), "the plague policy does not abort");
+                plagueAbortPolicy = null;
+                fireAbortPolicy = fire.ReplanPolicy; replanSettled.Clear(); tribes.Moves.Clear();
                 Route(7, 140, 10, straight, 160, 10);
                 for (int i = 0; i < 48 && !replanWaits.ContainsKey(7); i++) ReplanTick(++ticks);
                 Check(replanWaits.ContainsKey(7), "the fire policy did not start a wait");
@@ -128,123 +147,465 @@ namespace MoatMove
                 long aborted = replanAborted; expired = replanExpired;
                 for (int i = 0; i < 480 && replanWaits.ContainsKey(7); i++) ReplanTick(++ticks);
                 Check(!replanWaits.ContainsKey(7) && replanAborted == aborted + 1 && replanExpired == expired && units.Moves.Count == 0 &&
-                    walker->r_PathPlanStateBitFlags == 0 && walker->r_TargetTilePositionX2 == 140,
+                    tribes.Moves.Count == 0 && walker->r_PathPlanStateBitFlags == 0 && walker->r_TargetTilePositionX2 == 140,
                     $"an expired fire wait did not abort the move (moves={units.Moves.Count})");
                 for (int i = 0; i < 48; i++) ReplanTick(++ticks);
-                Check(units.Moves.Count == 0, "an aborted unit is moved again");
+                Check(units.Moves.Count == 0 && tribes.Moves.Count == 0, "an aborted unit is moved again");
+
+                // Two stopped members of group 3 with a clear route: one group command moves both.
+                fire.ClearAll(); AnchorTick(++ticks); replanSettled.Clear(); units.Moves.Clear(); tribes.Moves.Clear();
+                second->r_TribeId = 3; second->r_SelectionAllowed = 1;
+                Route(7, 140, 10, new int[0], 140, 10); Route(9, 141, 10, new int[0], 141, 10);
+                int due = ticks + 8 - (ticks & 7);
+                replanWaits[7] = new ReplanWait { Global = 9007, Player = 1, TargetX = 160, TargetY = 10, StopX = 140, StopY = 10, Remaining = 20,
+                    Until = due + 400, NextProbe = due, Policy = fire.ReplanPolicy, Tribe = 3, Order = tribeOrders[3] };
+                replanWaits[9] = new ReplanWait { Global = 9009, Player = 1, TargetX = 161, TargetY = 10, StopX = 141, StopY = 10, Remaining = 20,
+                    Until = due + 400, NextProbe = due + 40, Policy = fire.ReplanPolicy, Tribe = 3, Order = tribeOrders[3] };
+                resumed = replanResumed;
+                while (ticks < due) ReplanTick(++ticks);
+                Check(replanWaits.Count == 0 && replanResumed == resumed + 2 && tribes.Moves.Count == 1 && tribes.Moves[0][0] == 3 &&
+                    walker->r_TargetTilePositionX2 == 160 && second->r_TargetTilePositionX2 == 160 && units.Moves.Count == 0,
+                    $"two waiting members of a group did not resume with one group command (moves={tribes.Moves.Count})");
+
+                // A formation order (a player move outside 196100): the member walks alone to its own slot in a
+                // tribe of its own and rejoins group 3 on arrival.
+                TribeOrder formation = tribeOrders[3]; formation.Plain = false; tribeOrders[3] = formation;
+                second->r_TribeId = 0; replanSettled.Clear(); tribes.Moves.Clear();
+                Route(7, 140, 10, new int[0], 140, 10);
+                due = ticks + 8 - (ticks & 7);
+                replanWaits[7] = new ReplanWait { Global = 9007, Player = 1, TargetX = 158, TargetY = 10, StopX = 140, StopY = 10, Remaining = 20,
+                    Until = due + 400, NextProbe = due, Policy = fire.ReplanPolicy, Tribe = 3, Order = formation };
+                long soloResumed = replanSoloResumed;
+                while (ticks < due) ReplanTick(++ticks);
+                int solo = walker->r_TribeId;
+                Check(replanSoloResumed == soloResumed + 1 && tribes.Moves.Count == 1 && tribes.Moves[0][0] == solo && solo != 3 && tribes.Moves[0][1] == 158 &&
+                    walker->r_TargetTilePositionX2 == 158 && replanSolos.ContainsKey(7), $"a formation member did not resume alone to its slot (moves={tribes.Moves.Count})");
+                for (int i = 0; i < 16; i++) ReplanTick(++ticks);
+                Check(replanSolos.ContainsKey(7) && walker->r_TribeId == solo, "a walking solo member rejoined before arriving");
+                Route(7, 158, 10, new int[0], 158, 10);
+                for (int i = 0; i < 8 && replanSolos.Count != 0; i++) ReplanTick(++ticks);
+                Check(!replanSolos.ContainsKey(7) && walker->r_TribeId == 3 && table[solo].r_AliveState == AliveState.Dead,
+                    "a solo member did not rejoin its group on arrival");
+
+                // A queued order (shift queue) is not repeated.
+                formation.Queued = true; tribeOrders[3] = formation; tribes.Moves.Clear();
+                Route(7, 140, 10, new int[0], 140, 10);
+                due = ticks + 8 - (ticks & 7);
+                replanWaits[7] = new ReplanWait { Global = 9007, Player = 1, TargetX = 158, TargetY = 10, StopX = 140, StopY = 10, Remaining = 20,
+                    Until = due + 400, NextProbe = due, Policy = fire.ReplanPolicy, Tribe = 3, Order = formation };
+                long queuedHeld = replanHeldReasons[HeldQueued];
+                while (ticks < due) ReplanTick(++ticks);
+                Check(!replanWaits.ContainsKey(7) && replanHeldReasons[HeldQueued] == queuedHeld + 1 && tribes.Moves.Count == 0 && walker->r_TribeId == 3,
+                    "a queued order was repeated");
             }
             finally
             {
                 units.MoveHandler = null; units.Moves.Clear(); fire.ClearAll(); fire.ReplanPolicy = null; AnchorTick(++ticks);
-                *walker = saved; ResetReplanWatch(); fireAbortPolicy = null; settings.AnchorSingleMoves = singleBefore;
+                *walker = saved; *second = savedSecond; ResetReplanWatch(); fireAbortPolicy = null; settings.AnchorSingleMoves = singleBefore;
+                RemoveTribeTable(table);
             }
         }
 
+        // A tribe table for Vanilla group commands (GameTribeManagerAPI double): slots 1..size-1 free
+        // except group 3 (player 1, global 3003) with a plain player move to 160,10 (two-point order and
+        // the replan watch's observed order). The command moves the tribe's members (units 7 and 9) on
+        // row 10 straight from their current tile to the commanded tile and sets the walking state.
+        private GameTribe* InstallTribeTable(int size)
+        {
+            var tribes = GameTribeManagerAPI.Instance;
+            var table = (GameTribe*)System.Runtime.InteropServices.Marshal.AllocHGlobal(sizeof(GameTribe) * size);
+            for (int i = 0; i < size; i++) table[i] = new GameTribe { r_AliveState = AliveState.Dead };
+            table[3] = new GameTribe { r_PlayerIdOwner = 1, r_GlobalId = 3003, r_AliveState = AliveState.IsAlive, r_UnitsInGroup = 2,
+                r_TribeStance = TribeStance.Aggressive, r_PatrolPoint2TileX = 160, r_PatrolPoint2TileY = 10, r_CurrentPatrolPoints = 2, r_PatrolCurrentTargetIndex = 1 };
+            tribeOrders[3] = new TribeOrder { Global = 3003, Sequence = ++tribeOrderSequence, X = 160, Y = 10, NewOrder = true, Move = true, Plain = true,
+                MoveType = TribeMoveType.DefaultInSync };
+            tribes.Table = table; tribes.TableSize = size; tribes.Moves.Clear(); tribes.Deleted.Clear(); tribes.FailCreate = tribes.FailAssign = false;
+            tribes.MoveHandler = (tribe, x, y) =>
+            {
+                foreach (int id in new[] { 7, 9 })
+                {
+                    GameUnit* unit = GameUnitManagerAPI.Instance.Units + id;
+                    if (unit->r_TribeId != tribe || unit->r_AliveState != AliveState.IsAlive || unit->r_GlobalId == 0) continue;
+                    int fromX = unit->r_CurrentTilePositionX, count = Math.Abs(x - fromX);
+                    var steps = new int[count];
+                    for (int i = 0; i < count; i++) steps[i] = x > fromX ? 2 : 6;
+                    Route(id, fromX, 10, steps, x, y);
+                    unit->r_AIState = 101;
+                }
+                return true;
+            };
+            return table;
+        }
+
+        private void RemoveTribeTable(GameTribe* table)
+        {
+            var tribes = GameTribeManagerAPI.Instance;
+            tribes.Table = null; tribes.TableSize = 0; tribes.MoveHandler = null; tribes.Moves.Clear(); tribes.Deleted.Clear();
+            tribes.FailCreate = tribes.FailAssign = false;
+            System.Runtime.InteropServices.Marshal.FreeHGlobal((IntPtr)table);
+        }
+
         // FireEscape on the anchor corridor (row 10, ground east of x 136): a soldier on a burning tile
-        // leaves for the nearest standable tile with the fewest burning tiles on the way, returns once the
-        // fire is out, stays after the wait, and a new order ends the case. Immune tiles, civilians and
-        // siege equipment are left alone; a waiting unit keeps its wait target as return point.
+        // gets a tribe of its own and a Vanilla group command to the nearest standable tile off the fire
+        // front with the fewest burning tiles on the way, returns once the fire is out and then rejoins
+        // its group. A standing soldier's window (fireReturnTicks) and a walking one's (policy wait) start
+        // on reaching a fire-free tile; another escape keeps them. A new order ends the case. Immune tiles,
+        // civilians and siege equipment are left alone; a waiting unit keeps its wait target as return point.
         private void FireEscapeTests(ref int ticks)
         {
             GameUnitManagerAPI units = GameUnitManagerAPI.Instance;
-            GameUnit* walker = units.Units + 7;
-            GameUnit saved = *walker;
+            GameTribeManagerAPI tribes = GameTribeManagerAPI.Instance;
+            GameUnit* walker = units.Units + 7, second = units.Units + 9;
+            GameUnit saved = *walker, savedSecond = *second;
             var api = GameTileManagerAPI.Instance;
             var availability = new byte[181];
             for (int x = 136; x <= 180; x++) { availability[x] = movementTargetAvailability[10 * MapWidth + x]; movementTargetAvailability[10 * MapWidth + x] = 1; }
+            int returnTicksBefore = fireReturnTicks;
             // Escape ticks run every 8th simulation tick (a ref parameter cannot be captured).
             int now = ticks;
             int Next() { now += 8 - (now & 7); return now; }
-            void Burn(bool on) { for (int x = 149; x <= 152; x++) fireTiles.Set(10 * MapWidth + x, on); }
-            int[] Steps(int direction, int count) { var steps = new int[count]; for (int i = 0; i < count; i++) steps[i] = direction; return steps; }
-            // 196280 on row 10: a straight route from the current tile.
-            units.MoveHandler = (id, x, y) =>
+            void Burn(int from, int to, bool on) { for (int x = from; x <= to; x++) fireTiles.Set(10 * MapWidth + x, on); }
+            void Pitch(int from, int to, bool on)
             {
-                GameUnit* unit = units.Units + id;
-                int fromX = unit->r_CurrentTilePositionX;
-                Route(id, fromX, 10, Steps(x > fromX ? 2 : 6, Math.Abs(x - fromX)), x, y);
-            };
+                for (int x = from; x <= to; x++)
+                {
+                    int tile = api.GetTileId(x, 10);
+                    api.TileManager.LogicGrid[tile] = on ? api.TileManager.LogicGrid[tile] | (int)TilePropertyFlag.PitchTrap : api.TileManager.LogicGrid[tile] & ~(int)TilePropertyFlag.PitchTrap;
+                }
+            }
             void Stand(int x) => Route(7, x, 10, new int[0], x, 10);
             void Arrive(int x) { int tx = walker->r_TargetTilePositionX2, ty = walker->r_TargetTilePositionY2; Route(7, x, 10, new int[0], tx, ty); }
+            void Join(int tribe) { walker->r_TribeId = tribe; }
+            // Drops the case and puts the soldier back into group 3 (its own tribe removed).
+            void Reset()
+            {
+                ResetFireEscapes();
+                int own = walker->r_TribeId;
+                if (own != 3) { tribes.UnassignUnit(own, 7); tribes.DeleteTribeSafe(own); tribes.AssignUnit(3, 7); }
+            }
+            GameTribe* table = InstallTribeTable(8);
             try
             {
-                walker->r_GlobalId = 9007; walker->r_ControllableForPlayerId = 1; walker->r_AliveState = AliveState.IsAlive; walker->r_TribeId = 0;
+                walker->r_GlobalId = 9007; walker->r_ControllableForPlayerId = 1; walker->r_AliveState = AliveState.IsAlive; Join(3);
                 walker->r_IsKilledByProjectile = 0; walker->r_MovementSubstep = 0; walker->r_SelectionAllowed = 1; walker->r_UnitChimp = 0;
-                fireEscapeActive = true; fireEscapePolicy = new APIShared.Pathfinding.RouteReplanPolicy(3, 50, 10, 400);
+                fireEscapeActive = true; fireEscapePolicy = new APIShared.Pathfinding.RouteReplanPolicy(3, 50, 10, 400); fireReturnTicks = 800;
                 ResetFireEscapes();
 
-                // Burning 149..152, the soldier stands at 150: west crosses one burning tile, east two.
-                Stand(150); Burn(true); units.Moves.Clear();
+                // Burning 149..152, the soldier stands at 150: west crosses one burning tile, east two; 148 lies at
+                // the fire front, so the soldier goes on to 147 in a tribe of its own (slot 1), its group keeps one.
+                Stand(150); Burn(149, 152, true); units.Moves.Clear();
                 long started = escapeStarted;
+                FireEscapeEntry entry = null;
                 FireEscapeTick(Next());
-                Check(escapeStarted == started + 1 && units.Moves.Count == 1 && units.Moves[0][1] == 148 && fireEscapes.TryGetValue(7, out var entry) &&
-                    entry.ReturnX == 150 && entry.ReturnY == 10, $"a soldier on fire did not escape to the nearest tile (moves={units.Moves.Count})");
-                // On the way out nothing else happens; at the escape tile the burning return point is not probed.
+                Check(escapeStarted == started + 1 && tribes.Moves.Count == 1 && tribes.Moves[0][0] == 1 && tribes.Moves[0][1] == 147 &&
+                    walker->r_TribeId == 1 && table[3].r_UnitsInGroup == 1 && table[1].r_TribeStance == TribeStance.Aggressive && units.Moves.Count == 0 &&
+                    fireEscapes.TryGetValue(7, out entry) && entry.ReturnX == 150 && entry.ReturnY == 10 && entry.Kind == FireReturnKind.Position,
+                    $"a soldier on fire did not escape off the fire front in a tribe of its own (moves={tribes.Moves.Count})");
+                // The last step is still in progress (cursor == length, next tile ahead) on a burning tile: no new escape.
+                long again = escapeReescaped;
+                walker->r_CurrentTilePositionX = 149; walker->r_NextTilePositionX2 = 148; walker->r_CurrentPathPlanIndex = walker->r_PathPlanLength;
                 FireEscapeTick(Next());
-                Check(units.Moves.Count == 1 && escapeStarted == started + 1, "an escaping unit was moved again");
-                Arrive(148);
-                for (int i = 0; i < 8; i++) FireEscapeTick(Next());
-                Check(units.Moves.Count == 1 && fireEscapes.ContainsKey(7), "a soldier returned into burning fire");
-                // The fire goes out: the next probe finds the clear core route and the soldier returns.
-                Burn(false);
-                long returned = escapeReturned;
-                for (int i = 0; i < 8 && fireEscapes.ContainsKey(7); i++) FireEscapeTick(Next());
-                Check(!fireEscapes.ContainsKey(7) && escapeReturned == returned + 1 && units.Moves.Count == 2 && units.Moves[1][1] == 150,
-                    $"an escaped soldier did not return once the fire was out (moves={units.Moves.Count})");
+                Check(escapeReescaped == again && tribes.Moves.Count == 1 && fireEscapes.ContainsKey(7) && !entry.Safe,
+                    "a soldier in its last step was sent out of the fire again");
+                // Vanilla moves a walker whose target is taken to a neighbouring tile: the case keeps the new target.
+                long shifted = escapeShifted;
+                walker->r_TargetTilePositionX2 = 146;
+                FireEscapeTick(Next());
+                Check(escapeShifted == shifted + 1 && fireEscapes.ContainsKey(7) && entry.MoveX == 146, "a shifted target ended the escape");
+                walker->r_TargetTilePositionX2 = 147; entry.MoveX = 147;
+                // On the way out nothing else happens, however long it takes: the window has not started.
+                for (int i = 0; i < 120; i++) FireEscapeTick(Next());
+                Check(tribes.Moves.Count == 1 && fireEscapes.ContainsKey(7) && !entry.Safe, "an escaping unit was moved again or its window started early");
+                Arrive(147);
+                long targetBurning = escapeReturnTargetBurning;
+                for (int i = 0; i < 64; i++) FireEscapeTick(Next());
+                Check(tribes.Moves.Count == 1 && fireEscapes.ContainsKey(7) && entry.Safe, "a soldier returned into burning fire or left before its window");
+                Check(escapeReturnTargetBurning > targetBurning && FireCasesReportable(), "a burning return target was not reported");
+                // The fire goes out: the next probe finds the clear core route and the soldier returns, then rejoins.
+                Burn(149, 152, false);
+                long issued = escapeReturnIssued, arrived = escapeReturnArrived;
+                for (int i = 0; i < 8 && !entry.Returning; i++) FireEscapeTick(Next());
+                Check(escapeReturnIssued == issued + 1 && tribes.Moves.Count == 2 && tribes.Moves[1][0] == 1 && tribes.Moves[1][1] == 150 &&
+                    fireEscapes.ContainsKey(7), $"an escaped soldier did not return once the fire was out (moves={tribes.Moves.Count})");
+                FireEscapeTick(Next());
+                Check(fireEscapes.ContainsKey(7) && escapeReturnArrived == arrived, "a returning soldier counted as arrived on the way");
+                Arrive(150); FireEscapeTick(Next());
+                Check(!fireEscapes.ContainsKey(7) && escapeReturnArrived == arrived + 1 && walker->r_TribeId == 3 && table[3].r_UnitsInGroup == 2 &&
+                    tribes.Deleted.Count == 1 && tribes.Deleted[0] == 1, "a returned soldier did not rejoin its group");
 
-                // The fire keeps burning: after the wait the soldier stays at the edge.
-                Stand(150); Burn(true); units.Moves.Clear();
-                FireEscapeTick(Next()); Arrive(148);
+                // The fire keeps burning: the window of a standing soldier (800 ticks here) starts at 147;
+                // another escape there (147 catches fire) keeps it running.
+                Stand(150); Burn(149, 152, true); tribes.Moves.Clear(); tribes.Deleted.Clear();
+                FireEscapeTick(Next()); Arrive(147); FireEscapeTick(Next());
+                int safeAt = now;
+                Check(fireEscapes.TryGetValue(7, out entry) && entry.Safe, "the soldier did not escape again");
+                for (int i = 0; i < 40; i++) FireEscapeTick(Next());
+                Burn(147, 147, true);
+                long reescaped = escapeReescaped;
+                FireEscapeTick(Next());
+                Check(escapeReescaped == reescaped + 1 && tribes.Moves.Count == 2 && tribes.Moves[1][1] == 145 && entry.Until == safeAt + 800,
+                    $"a soldier whose escape tile caught fire did not leave again with its window (moves={tribes.Moves.Count})");
+                Arrive(145);
                 long stayed = escapeStayed;
-                for (int i = 0; i < 64 && fireEscapes.ContainsKey(7); i++) FireEscapeTick(Next());
-                Check(!fireEscapes.ContainsKey(7) && escapeStayed == stayed + 1 && units.Moves.Count == 1,
-                    $"an escaped soldier did not stay after the wait (moves={units.Moves.Count})");
+                while (now - safeAt < 800 - 8) FireEscapeTick(Next());
+                Check(fireEscapes.ContainsKey(7), "a standing soldier's window ended early");
+                for (int i = 0; i < 2; i++) FireEscapeTick(Next());
+                Check(!fireEscapes.ContainsKey(7) && escapeStayed == stayed + 1 && tribes.Moves.Count == 2 && walker->r_TribeId == 3,
+                    $"an escaped soldier did not stay and rejoin after its window (moves={tribes.Moves.Count})");
+                Burn(147, 147, false);
 
-                // A new order ends the case ...
-                Stand(150); units.Moves.Clear();
-                FireEscapeTick(Next()); Arrive(148);
+                // A walking soldier continues to its move target within the policy's 400 ticks only.
+                Route(7, 150, 10, new[] { 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2 }, 170, 10); tribes.Moves.Clear();
+                FireEscapeTick(Next());
+                Check(fireEscapes.TryGetValue(7, out entry) && entry.Kind == FireReturnKind.MoveTarget && entry.ReturnX == 170,
+                    "a walking soldier did not keep its move target");
+                Arrive(147); FireEscapeTick(Next()); safeAt = now; stayed = escapeStayed;
+                while (now - safeAt < 400 - 8) FireEscapeTick(Next());
+                Check(fireEscapes.ContainsKey(7), "a walking soldier's window ended early");
+                for (int i = 0; i < 2; i++) FireEscapeTick(Next());
+                Check(!fireEscapes.ContainsKey(7) && escapeStayed == stayed + 1, "a walking soldier's window did not end after 400 ticks");
+
+                // A new order ends the case and rejoins the group ...
+                Stand(150); tribes.Moves.Clear();
+                FireEscapeTick(Next()); Arrive(147);
                 Check(fireEscapes.ContainsKey(7), "the soldier did not escape again");
-                Route(7, 148, 10, Steps(2, 22), 170, 10);
-                long ended = escapeEnded;
+                Route(7, 147, 10, new[] { 2, 2, 2 }, 150, 10);
+                long ended = escapeEndedOrder;
                 FireEscapeTick(Next());
-                Check(!fireEscapes.ContainsKey(7) && escapeEnded == ended + 1, "a new order did not end the escape");
+                Check(!fireEscapes.ContainsKey(7) && escapeEndedOrder == ended + 1 && walker->r_TribeId == 3, "a new order did not end the escape");
                 // ... and blocks a new escape for a while, so combat AI and escape do not take turns.
-                Stand(150); units.Moves.Clear();
+                Stand(150); tribes.Moves.Clear();
                 FireEscapeTick(Next());
-                Check(!fireEscapes.ContainsKey(7) && units.Moves.Count == 0, "an escape restarted right after a new order");
+                Check(!fireEscapes.ContainsKey(7) && tribes.Moves.Count == 0, "an escape restarted right after a new order");
                 ResetFireEscapes();
 
                 // A waiting unit escapes and later continues to the target of its wait.
-                Stand(150); units.Moves.Clear();
+                Stand(150); tribes.Moves.Clear();
                 replanWaits[7] = new ReplanWait { Global = 9007, Player = 1, TargetX = 170, TargetY = 10, StopX = 150, StopY = 10 };
                 FireEscapeTick(Next());
-                Check(!replanWaits.ContainsKey(7) && fireEscapes.TryGetValue(7, out entry) && entry.ReturnX == 170,
+                Check(!replanWaits.ContainsKey(7) && fireEscapes.TryGetValue(7, out entry) && entry.ReturnX == 170 && entry.Kind == FireReturnKind.MoveTarget,
                     "a waiting unit lost its target when it escaped");
+                // The group is gone (slot reused): the case ends without a rejoin, the soldier keeps its own tribe.
+                table[3].r_GlobalId = 3999;
+                Route(7, 150, 10, new[] { 2, 2 }, 152, 10);
+                FireEscapeTick(Next());
+                table[3].r_GlobalId = 3003;
+                Check(!fireEscapes.ContainsKey(7) && walker->r_TribeId == 1 && table[1].r_AliveState == AliveState.IsAlive && table[1].r_UnitsInGroup == 1,
+                    "a soldier rejoined a group that no longer exists");
+                Reset();
+                // An AI soldier whose group is gone leaves its own tribe for Vanilla's repair (0x118660).
+                GamePlayerManagerAPI.Instance.AIPlayerMask = 1 << 1;
+                Stand(150); tribes.Moves.Clear(); tribes.Deleted.Clear();
+                FireEscapeTick(Next());
+                table[3].r_GlobalId = 3999;
+                Route(7, 150, 10, new[] { 2, 2 }, 152, 10);
+                FireEscapeTick(Next());
+                table[3].r_GlobalId = 3003; GamePlayerManagerAPI.Instance.AIPlayerMask = 0;
+                Check(!fireEscapes.ContainsKey(7) && walker->r_TribeId == 0 && tribes.Deleted.Count == 1,
+                    "an AI soldier without its group did not leave its own tribe");
+                tribes.AssignUnit(3, 7); ResetFireEscapes();
+
+                // Alone in its tribe the soldier keeps it; without a free tribe slot it does not escape.
+                table[3].r_UnitsInGroup = 1; Stand(150); tribes.Moves.Clear(); tribes.Deleted.Clear();
+                FireEscapeTick(Next());
+                Check(tribes.Moves.Count == 1 && tribes.Moves[0][0] == 3 && walker->r_TribeId == 3 && table[1].r_AliveState == AliveState.Dead,
+                    "a soldier alone in its tribe was split off");
+                Reset(); table[3].r_UnitsInGroup = 2;
+                Stand(150); tribes.Moves.Clear(); tribes.FailCreate = true;
+                long failed = escapeFailed;
+                FireEscapeTick(Next());
+                tribes.FailCreate = false;
+                Check(!fireEscapes.ContainsKey(7) && escapeFailed == failed + 1 && tribes.Moves.Count == 0 && walker->r_TribeId == 3,
+                    "a failed split moved the soldier");
                 ResetFireEscapes();
+                // 11B520 returns 1 without admitting the member (no walking state): no case, back into the group.
+                var admit = tribes.MoveHandler; tribes.MoveHandler = (t, x, y) => true; walker->r_AIState = 0;
+                Stand(150); tribes.Moves.Clear(); tribes.Deleted.Clear(); failed = escapeFailed;
+                FireEscapeTick(Next());
+                tribes.MoveHandler = admit;
+                Check(!fireEscapes.ContainsKey(7) && escapeFailed == failed + 1 && tribes.Moves.Count == 1 && walker->r_TribeId == 3 &&
+                    table[1].r_AliveState == AliveState.Dead, "a soldier Vanilla did not admit was kept in its own tribe");
+                ResetFireEscapes();
+
+                // Unburnt pitch counts as fire front: 147 is pitch, 146 is chosen; with pitch everywhere in
+                // reach the nearest tile off the fire (148) remains.
+                Stand(150); tribes.Moves.Clear(); Pitch(147, 147, true);
+                FireEscapeTick(Next());
+                Check(tribes.Moves.Count == 1 && tribes.Moves[0][1] == 146, $"an escape ended on unburnt pitch (to {(tribes.Moves.Count > 0 ? tribes.Moves[0][1] : -1)})");
+                Reset();
+                Stand(150); tribes.Moves.Clear(); Pitch(136, 148, true); Pitch(153, 165, true);
+                FireEscapeTick(Next());
+                Pitch(136, 165, false);
+                Check(tribes.Moves.Count == 1 && tribes.Moves[0][1] == 148, "without a tile off the fire front the soldier did not take the nearest");
+                Reset();
+
+                // Two soldiers on the same burning tile escape to different tiles.
+                *second = *walker; second->r_GlobalId = 9009; second->r_TribeId = 0; tribes.AssignUnit(3, 9);
+                Stand(150); Route(9, 150, 10, new int[0], 150, 10); tribes.Moves.Clear();
+                FireEscapeTick(Next());
+                Check(tribes.Moves.Count == 2 && tribes.Moves[0][1] != tribes.Moves[1][1] && fireEscapes.ContainsKey(9),
+                    "two soldiers escaped to the same tile");
+                int ownSecond = second->r_TribeId;
+                Reset(); tribes.UnassignUnit(ownSecond, 9); tribes.DeleteTribeSafe(ownSecond); *second = savedSecond;
 
                 // Immune tiles, civilians and siege equipment stay.
                 int tile = api.GetTileId(150, 10); uint flags = tileFlags[tile];
                 started = escapeStarted;
-                tileFlags[tile] = flags | 0x01; Stand(150); units.Moves.Clear();
+                tileFlags[tile] = flags | 0x01; Stand(150); tribes.Moves.Clear();
                 FireEscapeTick(Next());
                 tileFlags[tile] = flags;
-                Check(escapeStarted == started && units.Moves.Count == 0, "a soldier on an immune tile escaped");
+                Check(escapeStarted == started && tribes.Moves.Count == 0, "a soldier on an immune tile escaped");
                 walker->r_SelectionAllowed = 0; FireEscapeTick(Next());
                 walker->r_SelectionAllowed = 1; walker->r_UnitChimp = eChimps.CHIMP_TYPE_MANGONEL; FireEscapeTick(Next());
                 walker->r_UnitChimp = 0;
-                Check(escapeStarted == started && units.Moves.Count == 0, "a civilian or siege equipment escaped");
+                Check(escapeStarted == started && tribes.Moves.Count == 0, "a civilian or siege equipment escaped");
 
                 // Burning tiles without a unit on them allocate nothing.
                 Stand(140); FireEscapeTick(Next());
                 long allocated = GC.GetAllocatedBytesForCurrentThread();
                 for (int i = 0; i < 16; i++) FireEscapeTick(Next());
-                Check(GC.GetAllocatedBytesForCurrentThread() == allocated && units.Moves.Count == 0, "an idle escape tick allocates");
+                Check(GC.GetAllocatedBytesForCurrentThread() == allocated && tribes.Moves.Count == 0 && units.Moves.Count == 0, "an idle escape tick allocates");
             }
             finally
             {
                 units.MoveHandler = null; units.Moves.Clear(); fireTiles.Clear(); ResetFireEscapes(); replanWaits.Clear();
-                fireEscapeActive = false; fireEscapePolicy = null;
+                fireEscapeActive = false; fireEscapePolicy = null; fireReturnTicks = returnTicksBefore;
                 for (int x = 136; x <= 180; x++) movementTargetAvailability[10 * MapWidth + x] = availability[x];
+                RemoveTribeTable(table);
+                *walker = saved; *second = savedSecond; ticks = now;
+            }
+        }
+
+        // Terrain fixture of PlagueDamageModel: native packed tile ids index plain arrays.
+        private sealed class PlagueTerrainFixture : IPlagueTerrain
+        {
+            public readonly uint[] TileFlags = new uint[PlagueDamageModel.NativeTileCount];
+            public readonly byte[] Heights = new byte[PlagueDamageModel.NativeTileCount], Defaults = new byte[PlagueDamageModel.NativeTileCount];
+            public readonly short[] Buildings = new short[PlagueDamageModel.NativeTileCount];
+            public readonly System.Collections.Generic.Dictionary<int, (eStructs Type, int Base)> Records =
+                new System.Collections.Generic.Dictionary<int, (eStructs Type, int Base)>();
+            public uint Flags(int tile) => TileFlags[tile];
+            public int RawHeight(int tile) => Heights[tile];
+            public int DefaultHeight(int tile) => Defaults[tile];
+            public int BuildingId(int tile) => Buildings[tile];
+            public bool TryGetBuilding(int buildingId, out eStructs type, out int baseHeight)
+            {
+                bool found = Records.TryGetValue(buildingId, out var record);
+                type = record.Type; baseHeight = record.Base;
+                return found;
+            }
+        }
+
+        // PlagueDamageModel (audit 02.11.2026): Vanilla's 120 height gate for neighbours and ring and its
+        // wall/elevated/keep/gate/tower exclusions; with an APIShared policy the lanes and standing planes.
+        private void PlagueDamageModelTests()
+        {
+            var terrain = new PlagueTerrainFixture();
+            var model = new PlagueDamageModel(terrain);
+            const int cloud = 1000, ground = 1001, steep = 1002, wall = 1003, tower = 1004, gate = 1005, raised = 1006, wallCloud = 1007;
+            terrain.Heights[cloud] = 10; terrain.Heights[ground] = 10; terrain.Heights[steep] = 130;
+            terrain.TileFlags[wall] = PlagueDamageModel.WallFlag; terrain.Heights[wall] = 10;
+            terrain.TileFlags[wallCloud] = PlagueDamageModel.WallFlag; terrain.Heights[wallCloud] = 10;
+            terrain.TileFlags[tower] = PlagueDamageModel.ElevatedFlag; terrain.Buildings[tower] = 5; terrain.Records[5] = (eStructs.STRUCT_TOWER2, 30);
+            terrain.Buildings[gate] = 6; terrain.Records[6] = (eStructs.STRUCT_GATE_MAIN, 0); terrain.Defaults[gate] = 12;
+            terrain.TileFlags[raised] = PlagueDamageModel.ElevatedFlag; terrain.Buildings[raised] = 7; terrain.Records[7] = (eStructs.STRUCT_NULL, 0);
+            var vanilla = default(PlagueHeightRules);
+            Check(model.WouldDamage(cloud, cloud, 0, vanilla) && model.WouldDamage(cloud, ground, 1, vanilla), "plague spares ground tiles");
+            terrain.Heights[steep] = 129;
+            Check(model.WouldDamage(cloud, steep, 2, vanilla), "plague spares a ring tile 119 units higher");
+            terrain.Heights[steep] = 130;
+            Check(!model.WouldDamage(cloud, steep, 2, vanilla) && model.WouldDamage(steep, steep, 0, vanilla), "Vanilla's 120 gate of neighbours and ring");
+            Check(!model.WouldDamage(cloud, wall, 1, vanilla) && !model.WouldDamage(cloud, tower, 1, vanilla) && !model.WouldDamage(cloud, gate, 1, vanilla) &&
+                !model.WouldDamage(cloud, raised, 1, vanilla), "Vanilla plague damages walls, towers, gates or elevated tiles");
+            Check(model.Surface(gate) == 12 + 128 && model.Surface(tower) == 148 && PlagueDamageModel.Roof(eStructs.STRUCT_TOWER1) == 296,
+                "plague surface heights differ from 0x6B910");
+            Check(!model.WouldDamage(cloud, ground, 3, vanilla) && !model.WouldDamage(cloud, PlagueDamageModel.NativeTileCount, 0, vanilla), "plague damage outside its area");
+
+            // Policy (ExtraFeatures: walls and towers on, gates and keeps off, tolerance 20).
+            var policy = new PlagueHeightRules { Walls = 21, Towers = 21 };
+            Check(model.WouldDamage(wallCloud, wall, 1, policy), "a plague cloud on a wall spares the wall");
+            terrain.Heights[wall] = 31;
+            Check(!model.WouldDamage(wallCloud, wall, 1, policy), "plague damages beyond the policy's tolerance");
+            terrain.Heights[wall] = 30;
+            Check(model.WouldDamage(wallCloud, wall, 1, policy), "plague spares a wall within the tolerance");
+            Check(!model.WouldDamage(cloud, gate, 1, policy), "plague damages a gate whose lane is off");
+            terrain.Heights[cloud] = 178; terrain.TileFlags[cloud] = 0;
+            Check(model.WouldDamage(cloud, tower, 1, policy) && !model.WouldDamage(cloud, raised, 1, policy), "plague lanes for towers and other elevated tiles");
+            terrain.Heights[cloud] = 10; terrain.Heights[ground] = 31;
+            Check(!model.WouldDamage(cloud, ground, 1, policy), "plague damages ground beyond the largest tolerance");
+            terrain.Heights[ground] = 30;
+            Check(model.WouldDamage(cloud, ground, 1, policy), "ground tiles do not use the largest tolerance");
+            Check(!model.WouldDamage(wallCloud, ground, 1, new PlagueHeightRules { Walls = 21 }) || terrain.Heights[ground] - terrain.Heights[wallCloud] <= 20,
+                "a cloud on a wall damages the ground below beyond the tolerance");
+            Check(model.IsRaised(wall) && model.IsRaised(tower) && model.IsRaised(gate) && !model.IsRaised(ground), "raised plague tiles");
+        }
+
+        // Plague escape on the anchor corridor (row 10): like fire, with the plague policy's windows; on a
+        // wall only with EscapePlagueRaised; the lord is immune; a cloud an apothecary removes lets the
+        // soldier return. A plague wait aborts like a fire wait.
+        private void PlagueEscapeTests(ref int ticks)
+        {
+            GameUnitManagerAPI units = GameUnitManagerAPI.Instance;
+            GameTribeManagerAPI tribes = GameTribeManagerAPI.Instance;
+            GameUnit* walker = units.Units + 7;
+            GameUnit saved = *walker;
+            var api = GameTileManagerAPI.Instance;
+            var availability = new byte[181];
+            for (int x = 136; x <= 180; x++) { availability[x] = movementTargetAvailability[10 * MapWidth + x]; movementTargetAvailability[10 * MapWidth + x] = 1; }
+            int now = ticks;
+            int Next() { now += 8 - (now & 7); return now; }
+            void Cloud(bool on) { for (int x = 148; x <= 152; x++) plagueTiles.Set(10 * MapWidth + x, on); for (int x = 147; x <= 153; x++) plagueNear.Set(10 * MapWidth + x, on); }
+            void Stand(int x) => Route(7, x, 10, new int[0], x, 10);
+            void Arrive(int x) { int tx = walker->r_TargetTilePositionX2, ty = walker->r_TargetTilePositionY2; Route(7, x, 10, new int[0], tx, ty); }
+            var terrain = new PlagueTerrainFixture();
+            GameTribe* table = InstallTribeTable(8);
+            try
+            {
+                walker->r_GlobalId = 9007; walker->r_ControllableForPlayerId = 1; walker->r_AliveState = AliveState.IsAlive; walker->r_TribeId = 3;
+                walker->r_IsKilledByProjectile = 0; walker->r_MovementSubstep = 0; walker->r_SelectionAllowed = 1; walker->r_UnitChimp = 0;
+                plagueEscapeActive = true; plagueEscapePolicy = new APIShared.Pathfinding.RouteReplanPolicy(3, 50, 10, 400); plagueReturnTicks = 800;
+                plagueModel = new PlagueDamageModel(terrain);
+                ResetFireEscapes();
+
+                // A cloud covers 148..152: the soldier at 150 leaves for 146 (147 is the cloud's margin).
+                Stand(150); Cloud(true); tribes.Moves.Clear();
+                long started = escapeStartedPlague;
+                FireEscapeEntry entry = null;
+                FireEscapeTick(Next());
+                Check(escapeStartedPlague == started + 1 && tribes.Moves.Count == 1 && tribes.Moves[0][1] == 146 &&
+                    fireEscapes.TryGetValue(7, out entry) && entry.Hazard == EscapeHazard.Plague,
+                    $"a soldier in plague did not escape past the cloud's margin (to {(tribes.Moves.Count > 0 ? tribes.Moves[0][1] : -1)})");
+                Arrive(146); FireEscapeTick(Next());
+                Check(entry.Safe && entry.Until == now + 800, "the plague return window does not apply");
+                // An apothecary removes the cloud: the next probe returns the soldier.
+                Cloud(false);
+                for (int i = 0; i < 8 && !entry.Returning; i++) FireEscapeTick(Next());
+                Check(entry.Returning && tribes.Moves.Count == 2 && tribes.Moves[1][1] == 150, "a soldier did not return after the cloud was removed");
+                Arrive(150); FireEscapeTick(Next());
+                Check(!fireEscapes.ContainsKey(7) && walker->r_TribeId == 3, "a returned plague escape did not end");
+
+                // On a wall (raised tile) only with EscapePlagueRaised; the lord is immune.
+                int tile = api.GetTileId(150, 10);
+                terrain.TileFlags[tile] = PlagueDamageModel.WallFlag;
+                Stand(150); Cloud(true); tribes.Moves.Clear(); started = escapeStartedPlague;
+                FireEscapeTick(Next());
+                Check(escapeStartedPlague == started && tribes.Moves.Count == 0, "a wall garrison left plague without EscapePlagueRaised");
+                plagueEscapeRaised = true;
+                FireEscapeTick(Next());
+                Check(escapeStartedPlague == started + 1 && tribes.Moves.Count == 1, "EscapePlagueRaised did not move the wall garrison");
+                ResetFireEscapes(); terrain.TileFlags[tile] = 0; plagueEscapeRaised = false;
+                if (walker->r_TribeId != 3) { int own = walker->r_TribeId; tribes.UnassignUnit(own, 7); tribes.DeleteTribeSafe(own); tribes.AssignUnit(3, 7); }
+                walker->r_UnitChimp = eChimps.CHIMP_TYPE_LORD; Stand(150); tribes.Moves.Clear(); started = escapeStartedPlague;
+                FireEscapeTick(Next());
+                walker->r_UnitChimp = 0;
+                Check(escapeStartedPlague == started && tribes.Moves.Count == 0, "the plague-immune lord fled");
+            }
+            finally
+            {
+                plagueTiles.Clear(); plagueNear.Clear(); ResetFireEscapes(); replanWaits.Clear();
+                plagueEscapeActive = plagueEscapeRaised = false; plagueEscapePolicy = null; plagueModel = null; plagueReturnTicks = 180 * 40;
+                for (int x = 136; x <= 180; x++) movementTargetAvailability[10 * MapWidth + x] = availability[x];
+                RemoveTribeTable(table);
                 *walker = saved; ticks = now;
             }
         }
@@ -666,9 +1027,10 @@ namespace MoatMove
                 Check(AnchorPlayerScanDue(1), "first anchor tick does not scan unit owners");
                 RequestAnchorMasksForPlayers(1 << 1);
                 Check(!AnchorPlayerScanDue(2) && AnchorPlayerScanDue(256), "unit owners are not rescanned every 256 ticks");
-                int total = MapWidth * MapWidth, expected = (total + AnchorMaskNodesPerTick - 1) / AnchorMaskNodesPerTick, ticks = 0;
-                while (!AnchorReady(1) && ticks <= expected) AnchorTick(++ticks);
-                Check(ticks == expected, $"mask preparation took {ticks} ticks instead of {expected}");
+                // The map's first scan builds its masks completely in one tick (no Vanilla moves while pending).
+                int total = MapWidth * MapWidth, ticks = 0;
+                AnchorTick(++ticks);
+                Check(AnchorReady(1), "the map's first scan did not build its mask in one tick");
                 for (int p = 2; p <= 8; p++) Check(anchorMaskNext[p] == -1, "mask started for a player without units");
 
                 int start = 10 * MapWidth + 10, anchor = 10 * MapWidth + 150;
@@ -900,6 +1262,8 @@ namespace MoatMove
                 ReleaseAnchorTask(penaltyTask);
                 ReplanWatchTests(ref ticks);
                 FireEscapeTests(ref ticks);
+                PlagueDamageModelTests();
+                PlagueEscapeTests(ref ticks);
                 SingleSearchReplaceableTests();
                 GroundFailureProofTests();
                 MoatFailureProofTests();
@@ -983,6 +1347,9 @@ namespace MoatMove
                 Check(GC.GetAllocatedBytesForCurrentThread() == allocated, "steady anchor tick allocates");
                 RequestAnchorMask(3);
                 Check(anchorMaskNext[3] == 0, "a player's move order does not start that player's mask");
+                // Later requests keep the per-tick budget.
+                AnchorTick(++ticks);
+                Check(anchorMaskNext[3] == Math.Min(AnchorMaskNodesPerTick, total), "a later mask request is not built within the per-tick budget");
             }
             finally
             {

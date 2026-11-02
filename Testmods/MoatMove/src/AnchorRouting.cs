@@ -128,7 +128,7 @@ namespace MoatMove
         private int anchorUnreachableUnit, anchorUnreachableStart, anchorUnreachableTarget, anchorUnreachableTask, anchorUnreachableLogs;
         private const long AnchorMemoryLimit = 768L * 1024 * 1024;
         private IntPtr anchorContext;
-        private bool anchorAvailable, anchorPlayersRequested;
+        private bool anchorAvailable, anchorPlayersRequested, anchorBuildAll;
         // anchorSimThread: thread of the simulation tick; group moves elsewhere keep Vanilla.
         // anchorDispatchTask: field of the group's moat-capable members; anchorGroundTask:
         // ground-only field of its members that cannot enter moats.
@@ -261,7 +261,7 @@ namespace MoatMove
             Array.Clear(anchorMaps, 0, anchorMaps.Length); anchorAccessKnown = false; anchorShared = null; anchorBlockedUnion.Clear();
             Array.Clear(reachWords, 0, reachWords.Length); Array.Clear(exhaustedReachability, 0, exhaustedReachability.Length);
             anchorWatchTiles = null; anchorWatchBytes = null; routeTileRuleCursor = -1; anchorPenaltiesWritten = false;
-            anchorPlayersRequested = false; anchorUnreachedLogs = 0; anchorUnreachableLogs = 0; anchorAliveUnits = 0; reachabilitySlowLogs = 0; anchorEndedUnreached = 0; anchorPortalCount = -1;
+            anchorPlayersRequested = anchorBuildAll = false; anchorUnreachedLogs = 0; anchorUnreachableLogs = 0; anchorAliveUnits = 0; reachabilitySlowLogs = 0; anchorEndedUnreached = 0; anchorPortalCount = -1;
             for (int p = 0; p < anchorMaskNext.Length; p++) { anchorMaskNext[p] = -1; anchorBlocked[p]?.Clear(); }
             anchorSweepCursor = -1; anchorSweepLeft = 0; anchorSweepRequestStart = anchorSweptSinceRequest = 0;
             ResetReplanWatch();
@@ -296,6 +296,8 @@ namespace MoatMove
 
         private void RequestAnchorMasksForPlayers(int playerMask)
         {
+            // The map's first scan (map start or save load) completes its masks in this tick.
+            if (!anchorPlayersRequested) anchorBuildAll = true;
             anchorPlayersRequested = true;
             for (int player = 1; player <= 8; player++)
                 if ((playerMask & (1 << player)) != 0) RequestAnchorMask(player);
@@ -783,6 +785,36 @@ namespace MoatMove
                     { foreach (var map in anchorMaps) map?.Mark(y * MapWidth + x); foreach (var map in reachWords) map?.Mark(y * MapWidth + x); }
         }
 
+        // Writes up to budget nodes of unfinished masks; returns the unused budget (> 0 once none is left).
+        // Unfinished masks first (human players before AI), so frequent access changes and their
+        // resweeps of ready masks never starve a mask that is still being built.
+        private int BuildAnchorMasks(int budget, int total)
+        {
+            for (int pass = 0; pass < 2 && budget > 0; pass++)
+            for (int p = 1; p <= 8 && budget > 0; p++)
+            {
+                int next = anchorMaskNext[p];
+                if (next < 0 || next >= total || GamePlayerManagerAPI.Instance.IsAIPlayer(p) != (pass == 1)) continue;
+                FastTraversalCache map = AnchorTraversal(p);
+                int count = Math.Min(budget, total - next);
+                for (int i = 0; i < count; i++) anchorWords[i] = map.Word(next + i);
+                if (AnchorNative.mma_mask_write(anchorContext, p, next, count, anchorWords, out _) != 0 || !WriteAnchorPenalties(p, next, count))
+                {
+                    anchorMaskNext[p] = -2;
+                    Shared.DebugLogHelper.LogError(log, $"MoatMove anchor mask write failed; player={p} keeps Fast rules for this map.");
+                    continue;
+                }
+                anchorMaskNext[p] = next + count; budget -= count; anchorBuildNodes += count;
+                if (anchorMaskNext[p] >= total)
+                {
+                    Shared.DebugLogHelper.LogInfo(log, $"MoatMove anchor mask ready; player={p}.");
+                    // Its earlier chunks predate a running round's request: extend the round.
+                    if (anchorSweepCursor >= 0) ResweepAnchorMasks();
+                }
+            }
+            return budget;
+        }
+
         // Called once per simulation tick before Fast's command loop.
         private void AnchorTick(int tick)
         {
@@ -827,31 +859,21 @@ namespace MoatMove
             }
             long phase = System.Diagnostics.Stopwatch.GetTimestamp();
             anchorRefreshTicks += phase - started;
-            int budget = AnchorMaskNodesPerTick, total = MapWidth * MapWidth;
-            // Unfinished masks first (human players before AI), so frequent access changes and
-            // their resweeps of ready masks never starve a mask that is still being built.
-            for (int pass = 0; pass < 2 && budget > 0; pass++)
-            for (int p = 1; p <= 8 && budget > 0; p++)
+            int budget, total = MapWidth * MapWidth;
+            if (anchorBuildAll)
             {
-                int next = anchorMaskNext[p];
-                if (next < 0 || next >= total || GamePlayerManagerAPI.Instance.IsAIPlayer(p) != (pass == 1)) continue;
-                FastTraversalCache map = AnchorTraversal(p);
-                int count = Math.Min(budget, total - next);
-                for (int i = 0; i < count; i++) anchorWords[i] = map.Word(next + i);
-                if (AnchorNative.mma_mask_write(anchorContext, p, next, count, anchorWords, out _) != 0 || !WriteAnchorPenalties(p, next, count))
-                {
-                    anchorMaskNext[p] = -2;
-                    Shared.DebugLogHelper.LogError(log, $"MoatMove anchor mask write failed; player={p} keeps Fast rules for this map.");
-                    continue;
-                }
-                anchorMaskNext[p] = next + count; budget -= count; anchorBuildNodes += count;
-                if (anchorMaskNext[p] >= total)
-                {
-                    Shared.DebugLogHelper.LogInfo(log, $"MoatMove anchor mask ready; player={p}.");
-                    // Its earlier chunks predate a running round's request: extend the round.
-                    if (anchorSweepCursor >= 0) ResweepAnchorMasks();
-                }
+                // Map start or save load (still behind the loading screen): build the first scan's masks
+                // completely. While a mask is pending, that player's group moves get one Vanilla search per
+                // member, which took up to 3.7 s per AI order on 10,000 units; a longer load is preferred
+                // (user decision 02.11.2026). Every peer runs this in the same tick on the same map data.
+                anchorBuildAll = false;
+                long nodes = anchorBuildNodes;
+                do budget = BuildAnchorMasks(AnchorMaskNodesPerTick, total); while (budget == 0);
+                if (anchorBuildNodes != nodes)
+                    Shared.DebugLogHelper.LogInfo(log, $"MoatMove anchor masks built at map start; nodes={anchorBuildNodes - nodes} " +
+                        $"ms={AnchorMs(System.Diagnostics.Stopwatch.GetTimestamp() - phase)}.");
             }
+            else budget = BuildAnchorMasks(AnchorMaskNodesPerTick, total);
             long built = System.Diagnostics.Stopwatch.GetTimestamp();
             anchorBuildTicks += built - phase;
             budget = Math.Min(budget, AnchorResweepNodesPerTick);
@@ -1391,7 +1413,8 @@ namespace MoatMove
 
         private void LogAndResetAnchorMetrics()
         {
-            if (!anchorAvailable || anchorTasks == 0 && anchorQueries == 0 && anchorMaskPendingMoves == 0) return;
+            // Also while fire burns or fire waits and escapes are open: their outcome follows without group moves.
+            if (!anchorAvailable || anchorTasks == 0 && anchorQueries == 0 && anchorMaskPendingMoves == 0 && !FireCasesReportable()) return;
             Shared.DebugLogHelper.LogInfo(log, "MoatMove stage=anchor-performance " +
                 $"tasks={anchorTasks} liveTasks={anchorLiveTasks.Count} queries={anchorQueries} moatRoutes={anchorMoatRoutes} " +
                 $"groundRoutes={anchorGroundRoutes} nonDiggerRoutes={anchorGroundOnlyRoutes} groundDecisions={anchorGroundDecisions} fallbacks={anchorFallbacks} maskPendingMoves={anchorMaskPendingMoves} aiMoves={anchorAiMoves} " +
@@ -1429,7 +1452,7 @@ namespace MoatMove
                 $"members={anchorMembers} unreachedMembers={anchorUnreachedUnits} movesWithUnreached={anchorMovesWithUnreached} " +
                 $"vanilla(vanillaCalls={anchorVanillaCalls} vanillaFails={anchorVanillaFails} vanillaMs={AnchorMs(anchorVanillaTicks)} vanillaFailMs={AnchorMs(anchorVanillaFailTicks)} " +
                 $"afterUnreachable={anchorVanillaAfterUnreachable} afterUnreachableMs={AnchorMs(anchorVanillaAfterUnreachableTicks)} " +
-                $"foundAfterUnreachable={anchorVanillaFoundAfterUnreachable}) vanillaWhy=[{FormatAnchorReasons(anchorVanillaWhy)}] sameTickTasks={anchorSameTickTasks} sameTickTaskMs={AnchorMs(anchorSameTickTaskTicks)} diggerGroundRoutes={anchorDiggerGroundRoutes} nativeByteChanges={anchorWatchChanges} rebuildsWatched={anchorRebuildsWatched} tileRuleChanges={routeTileRuleChanges} aliveUnits={anchorAliveUnits} costRules(changes={anchorCostRuleChanges} skips={anchorCostRuleSkips}) knownMoatFailures(hits={moatFailureProofs?.Hits ?? 0} ms={AnchorMs(anchorKnownMoatTicks)} captures={moatFailureProofs?.Captures ?? 0} rejects={moatFailureProofs?.CaptureRejects ?? 0} stale={moatFailureProofs?.Stale ?? 0} fallbacks={moatFailureProofs?.Fallbacks ?? 0} verified={moatFailureProofs?.Verified ?? 0} mismatches={moatFailureProofs?.Mismatches ?? 0} selfChecks={moatFailureProofs?.SelfChecks ?? 0} selfCheckFailures={moatFailureProofs?.SelfCheckFailures ?? 0}{(moatFailureProofs?.MismatchSample != null ? " sample=[" + moatFailureProofs.MismatchSample + "]" : "")}) knownFailures(hits={groundFailureProofs?.Hits ?? 0} ms={AnchorMs(anchorKnownFailureTicks)} captures={groundFailureProofs?.Captures ?? 0} rejects={groundFailureProofs?.CaptureRejects ?? 0} gateHits={groundFailureProofs?.GateHits ?? 0} directSuccesses={groundFailureProofs?.DirectSuccesses ?? 0} verified={groundFailureProofs?.Verified ?? 0} mismatches={groundFailureProofs?.Mismatches ?? 0}{(groundFailureProofs?.MismatchSample != null ? " sample=[" + groundFailureProofs.MismatchSample + "]" : "")}) single(routes={anchorSingleRoutes} assassin={anchorSingleAssassinRoutes} probe(forbiddenHits={ruleProbeForbiddenHits} bandRoutes={ruleProbeBandRoutes}) unreachable={anchorSingleUnreachable} rejects={anchorSingleRejects} overBudget={anchorSingleOverBudget} budgetSkips={anchorSingleBudgetSkips} ms={AnchorMs(anchorSingleTicks)} queries={anchorCoreStats[AnchorNative.StatSingleQueries]} settles={anchorCoreStats[AnchorNative.StatSingleSettles]} coreMs={anchorCoreStats[AnchorNative.StatSingleNs] / 1e6:F1}) {FormatReplanWatch()} {FormatFireEscapes()} outsideBuilds(calls/ms/maxMs/fails/failMs)=[{FormatOutsideBuilds()}] exhaustedReach(kept={ExhaustedReachabilityKept} hits={ExhaustedReachabilityHits}) reach(advances/expanded/ms/maxMs)=[{FormatReachabilityByOwner()}] " +
+                $"foundAfterUnreachable={anchorVanillaFoundAfterUnreachable}) vanillaWhy=[{FormatAnchorReasons(anchorVanillaWhy)}] sameTickTasks={anchorSameTickTasks} sameTickTaskMs={AnchorMs(anchorSameTickTaskTicks)} diggerGroundRoutes={anchorDiggerGroundRoutes} nativeByteChanges={anchorWatchChanges} rebuildsWatched={anchorRebuildsWatched} tileRuleChanges={routeTileRuleChanges} aliveUnits={anchorAliveUnits} costRules(changes={anchorCostRuleChanges} skips={anchorCostRuleSkips}) knownMoatFailures(hits={moatFailureProofs?.Hits ?? 0} ms={AnchorMs(anchorKnownMoatTicks)} captures={moatFailureProofs?.Captures ?? 0} rejects={moatFailureProofs?.CaptureRejects ?? 0} stale={moatFailureProofs?.Stale ?? 0} fallbacks={moatFailureProofs?.Fallbacks ?? 0} verified={moatFailureProofs?.Verified ?? 0} mismatches={moatFailureProofs?.Mismatches ?? 0} selfChecks={moatFailureProofs?.SelfChecks ?? 0} selfCheckFailures={moatFailureProofs?.SelfCheckFailures ?? 0}{(moatFailureProofs?.MismatchSample != null ? " sample=[" + moatFailureProofs.MismatchSample + "]" : "")}) knownFailures(hits={groundFailureProofs?.Hits ?? 0} ms={AnchorMs(anchorKnownFailureTicks)} captures={groundFailureProofs?.Captures ?? 0} rejects={groundFailureProofs?.CaptureRejects ?? 0} gateHits={groundFailureProofs?.GateHits ?? 0} directSuccesses={groundFailureProofs?.DirectSuccesses ?? 0} verified={groundFailureProofs?.Verified ?? 0} mismatches={groundFailureProofs?.Mismatches ?? 0}{(groundFailureProofs?.MismatchSample != null ? " sample=[" + groundFailureProofs.MismatchSample + "]" : "")}) single(routes={anchorSingleRoutes} assassin={anchorSingleAssassinRoutes} probe(forbiddenHits={ruleProbeForbiddenHits} bandRoutes={ruleProbeBandRoutes}) unreachable={anchorSingleUnreachable} rejects={anchorSingleRejects} overBudget={anchorSingleOverBudget} budgetSkips={anchorSingleBudgetSkips} ms={AnchorMs(anchorSingleTicks)} queries={anchorCoreStats[AnchorNative.StatSingleQueries]} settles={anchorCoreStats[AnchorNative.StatSingleSettles]} coreMs={anchorCoreStats[AnchorNative.StatSingleNs] / 1e6:F1}) {FormatReplanWatch()} {FormatFireEscapes()} {FormatSoldierTribes()} outsideBuilds(calls/ms/maxMs/fails/failMs)=[{FormatOutsideBuilds()}] exhaustedReach(kept={ExhaustedReachabilityKept} hits={ExhaustedReachabilityHits}) reach(advances/expanded/ms/maxMs)=[{FormatReachabilityByOwner()}] " +
                 $"tick(refreshMs={AnchorMs(anchorRefreshTicks)} refreshNodes={anchorRefreshNodes} buildMs={AnchorMs(anchorBuildTicks)} " +
                 $"buildNodes={anchorBuildNodes} sweepMs={AnchorMs(anchorSweepTicks)} sweepNodes={anchorSweepNodes} resweeps={anchorResweeps} " +
                 $"accessChanges={anchorAccessChanges} gateRefreshes={anchorGateRefreshes} sharedReuses={anchorShared?.Reuses ?? 0} " +
@@ -1451,6 +1474,7 @@ namespace MoatMove
             Array.Clear(anchorQueryStatus, 0, anchorQueryStatus.Length); anchorPublishReasons.Clear(); anchorVanillaWhy.Clear(); reachabilityByOwner.Clear(); anchorOutsideBuilds.Clear();
             ResetReplanMetrics();
             ResetFireEscapeMetrics();
+            ResetSoldierTribeMetrics();
         }
     }
 }

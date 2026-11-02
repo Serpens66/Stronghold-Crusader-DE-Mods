@@ -109,3 +109,19 @@ GPR and XMM6/XMM15 sentinels. Actual startup allocation/delegate is exercised.
 Preset fixtures cover old files, authoritative nested snapshots, named JSON
 profiles, explicit Vanilla, restart, Trail restoration and client persistence.
 No new game installation or actual gameplay/host-client acceptance is claimed.
+
+## Shared policy ownership and peace cap (2026-11-02) [mod integration]
+
+The previously described private predicate and native comparison fixture now live
+in APIShared Buildings/EnemyProximity and tests/APISharedTests respectively. The
+complete native body, taxonomy and ABI remain unchanged; the earlier path is
+historical evidence, not a current source location. ExtraFeatures contributes its
+existing scoped overrides and authoritative AI rebuild-delay veto through the
+shared broker. BugfixesAndQoL owns an independent host preference that contributes
+a civilian-only Limit of3 during actual native active peace. APIShared owns no
+default gameplay policy and adds no native hook. Its read-only peace-state source
+uses the already audited active flag and mission/native-world lifecycle.
+
+Evidence: .work/a/peace-proximity/001. Isolated new-source tests do not constitute
+a full APIShared build or game/real multiplayer acceptance. The user explicitly
+reserved the APIShared build for another concurrent chat.

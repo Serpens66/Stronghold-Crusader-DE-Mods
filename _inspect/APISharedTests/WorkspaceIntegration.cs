@@ -118,9 +118,13 @@ namespace APISharedTests
             Assert(Count(unitHud, "setupTroopsOriginal(panel)") == 1 &&
                 Count(unitHud, "populateGroupsOriginal(panel)") == 1 &&
                 Count(unitHud, "gameActionOriginal(command, value1, value2, value3)") == 1 &&
-                Count(unitHud, "updateSpritesOriginal(self, colour, arabic)") == 1 &&
-                Count(unitHud, "updateSpritesOriginal(main, lastSpriteColour, lastSpriteArabic)") == 2,
-                "central HUD sprite handling retains the hook, explicit refresh and activation-restoration paths");
+                // The sprite-colour lease passes the effective (possibly leased) colour everywhere and adds
+                // exactly one lease replay; the hook and both refresh paths stay single and explicit.
+                Count(unitHud, "updateSpritesOriginal(self, drawColour, drawArabic)") == 1 &&
+                Count(unitHud, "updateSpritesOriginal(main, drawColour, drawArabic)") == 2 &&
+                Count(unitHud, "updateSpritesOriginal(main, colour, arabic)") == 1 &&
+                Count(unitHud, "updateSpritesOriginal(") == 4,
+                "central HUD sprite handling retains the hook, explicit refresh, activation-restoration and lease replay paths");
             string beforeRenderMethod = ExtractSourceMethod(unitHud, "private void OnBeforeRender()");
             int idleGuard = beforeRenderMethod.IndexOf("if (activeSurfaces == UnitHudSurface.None && !hasActionButtons && !pendingPresentation && !refreshRequested && recruitmentLease == null) return;", StringComparison.Ordinal);
             Assert(idleGuard >= 0 && idleGuard < beforeRenderMethod.IndexOf("OnActiveBeforeRender();", StringComparison.Ordinal) && !beforeRenderMethod.Contains("Time.frameCount"),

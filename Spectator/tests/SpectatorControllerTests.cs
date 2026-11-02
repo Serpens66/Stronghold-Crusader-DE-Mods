@@ -2,6 +2,7 @@ namespace Spectator {
  public static class ControllerTests {
   static void Check(bool value, string reason = "") { if(!value) throw new System.Exception("Controller invariant failed: " + reason); }
   public static void Main() {
+   SpectatorDefeatRuntimeTests.Run(Check);
    MenuToolTipTests.Run();
    StatusInlineFormatTests.Run(Check);
    for(int bits=0;bits<128;bits++) foreach(int occupants in new[]{0,1,8}) {
@@ -93,6 +94,10 @@ namespace Spectator {
     Check(SpectatorFeatureActivation.ForceArmyReport(false, true, rights.Perspective) == !(client && perspective), "placement/tools must never grant reports");
     Check(SpectatorFeatureActivation.ForceArmyReport(true, true, rights.Perspective) == !(client && perspective), "enabled perspective owns report access independently of frozen controls");
     Check(SpectatorFeatureActivation.ForceArmyReport(true, false, rights.Perspective) && !SpectatorFeatureActivation.ForceArmyReport(false, false, rights.Perspective), "ordinary player keeps Vanilla navigation");
+    // Control follows the portrait selection: it is opt-in and needs the local perspective feature.
+    Check(!rights.Control, "spectator input control is off by default");
+    Check(new SpectatorFeatureActivation(host, client, perspective, true, true, tools, control: true).Control == (client && perspective),
+     "spectator input control requires client features and the perspective option");
    }
    Check(ToolSessionPolicy.CanMutate(true,true,true,true,false,true,false));
    Check(!ToolSessionPolicy.CanMutate(true,true,true,true,true,true,false));
@@ -119,6 +124,10 @@ namespace Spectator {
     Check(ToolSessionPolicy.CanSelect(true,false,occupied,ai,self)==occupied,"spectator roster remains unchanged");
     Check(!ToolSessionPolicy.CanSelect(false,false,occupied,ai,self),"no testing roster without a permitted session");
    }
+   // Roster exclusion uses only a readable defeat of the current session; no snapshot/other session lists the slot.
+   Check(SpectatorDefeatPolicy.IsRosterEliminated(5,5,true,true),"current readable defeat leaves the roster");
+   Check(!SpectatorDefeatPolicy.IsRosterEliminated(5,4,true,true) && !SpectatorDefeatPolicy.IsRosterEliminated(0,0,true,true),"stale or missing session never hides a player");
+   Check(!SpectatorDefeatPolicy.IsRosterEliminated(5,5,false,true) && !SpectatorDefeatPolicy.IsRosterEliminated(5,5,true,false),"unreadable or living players stay listed");
    var build = new BuildMenuLease(); var originalHud = new object(); var nextHud = new object();
    foreach(bool active in new[]{false,true}) foreach(bool floating in new[]{false,true})
    foreach(bool expanded in new[]{false,true}) foreach(bool placing in new[]{false,true})
@@ -141,11 +150,49 @@ namespace Spectator {
    Check(!SpectatorDefeatPolicy.CanPromoteEliminatedPlayerToSpectator(true,true,false,false,true,false,true,8));
    Check(SpectatorDefeatPolicy.ResolvePresentedGameOverState(1,true)==2);
    Check(SpectatorDefeatPolicy.ResolvePresentedGameOverState(1,false)==1);
-            Check(SpectatorDefeatPolicy.ShouldLatchPlayerLordDeath(3, 3) &&
-                    !SpectatorDefeatPolicy.ShouldLatchPlayerLordDeath(3, 2) &&
-                    !SpectatorDefeatPolicy.ShouldLatchPlayerLordDeath(0, 0) &&
-                    !SpectatorDefeatPolicy.ShouldLatchPlayerLordDeath(9, 9),
-                "only a valid local-player lord event sets the spectator latch");
+            Check(SpectatorDefeatPolicy.IsLocalElimination(12, 12, 3, 3, true, true),
+                "a current confirmed local loss or lord death grants eligibility, including a loaded baseline");
+            Check(!SpectatorDefeatPolicy.IsLocalElimination(12, 11, 3, 3, true, true) &&
+                    !SpectatorDefeatPolicy.IsLocalElimination(0, 0, 3, 3, true, true) &&
+                    !SpectatorDefeatPolicy.IsLocalElimination(12, 12, 3, 2, true, true) &&
+                    !SpectatorDefeatPolicy.IsLocalElimination(12, 12, 0, 0, true, true) &&
+                    !SpectatorDefeatPolicy.IsLocalElimination(12, 12, 9, 9, true, true) &&
+                    !SpectatorDefeatPolicy.IsLocalElimination(12, 12, 3, 3, false, true) &&
+                    !SpectatorDefeatPolicy.IsLocalElimination(12, 12, 3, 3, true, false),
+                "stale worlds, foreign players, unreadable states and missing elimination evidence grant no role");
+            foreach (bool original in new[] { false, true })
+            foreach (bool eliminated in new[] { false, true })
+            foreach (bool perspective in new[] { false, true })
+            foreach (bool tools in new[] { false, true })
+            foreach (bool activeTest in new[] { false, true })
+            {
+                bool observer = SpectatorDefeatPolicy.IsSpectatorObserver(original, eliminated);
+                Check(observer == (original || eliminated), "confirmed eliminated participants and original spectators share observer rights");
+                bool enabled = ToolSessionPolicy.Enabled(tools, activeTest, false, observer, !original);
+                Check(enabled == (observer ? tools : activeTest), "eliminated tools follow spectator tools independently from perspective and active-player test mode");
+                Check(SpectatorFeatureActivation.ForceArmyReport(false, observer, perspective) == (observer && !perspective),
+                    "observer reports require perspective permission, including while placement releases the freeze");
+                Check(!ToolSessionPolicy.CanMutate(enabled, true, true, true, true, true, false),
+                    "no observer tools in multiplayer even with every local option enabled");
+            }
+            foreach (bool vanillaFreeze in new[] { false, true })
+            foreach (bool eliminated in new[] { false, true })
+            foreach (bool authorizedPlacement in new[] { false, true })
+            {
+                bool run = SpectatorFeatureActivation.ResolveControlFreeze(vanillaFreeze, eliminated, authorizedPlacement, out bool effective);
+                Check(run == (!authorizedPlacement || !vanillaFreeze) &&
+                    effective == (authorizedPlacement ? vanillaFreeze : vanillaFreeze || eliminated),
+                    "only authorized placement suppresses Vanilla freeze and permits an explicit unfreeze");
+            }
+            bool frozen = true;
+            if (SpectatorFeatureActivation.ResolveControlFreeze(false, true, true, out bool unfreeze)) frozen = unfreeze;
+            Check(!frozen, "the placement recovery call executes false once instead of refreezing every frame");
+            Check(!SpectatorFeatureActivation.ResolveControlFreeze(true, true, true, out _),
+                "Vanilla cannot refreeze an authorized placement session afterwards");
+            Check(!SpectatorFeatureActivation.CanOpenReports(true, true) &&
+                SpectatorFeatureActivation.CanOpenReports(true, false) &&
+                SpectatorFeatureActivation.CanOpenReports(false, true),
+                "uncertain observer views cannot reopen reports; ordinary Vanilla report access is unchanged");
             Check(SpectatorDefeatPolicy.CanPromoteEliminatedPlayerToSpectator(
                     true, true, false, false, true, true, true, 3) &&
                     !SpectatorDefeatPolicy.CanPromoteEliminatedPlayerToSpectator(

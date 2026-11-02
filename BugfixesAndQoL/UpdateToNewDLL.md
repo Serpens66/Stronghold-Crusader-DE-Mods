@@ -1670,3 +1670,13 @@ Reference native SHA-256 remains FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711
 Client evidence: CenterOfPower.map, 2026-10-30 14:11:18.354, BUILD_PREVIEW_CALLBACK_ERROR. The user reproduced with apple farm and quarry below their BuildingLimit caps. Do not attribute this reproduction to an exhausted limit. Vanilla's validator (0x78768..0x7879D -> 0x798D1) writes state 2 for invalid footprint coordinates/mask; 0x5DD70 normally omits that state. The Extender's post-validation overrides can replace it, but the concrete mapper/XY/state transition was not logged, so the reason this particular callback passed admission remains unresolved. Geometry is checked independently of that admission state.
 
 Regression: existing BuildPreview.Tests production memory fixture covers all seven supported mappers, first/last invalid mask cells, both coordinate axes including extremes, valid-edge-valid recovery, unchanged complete-placement sampling, and fatal corrupt-row/scale contracts. Existing snapshot tests cover retirement and generation safety. This is offline evidence, not in-game acceptance; retest apple farm and quarry below and at their building limits.
+
+## Peace-time civilian building proximity (2026-11-02)
+
+This consumer adds no native site. It registers a civilian-only Limit of3 through
+APIShared.Buildings.EnemyProximityPolicies and reads actual active peace through
+APIShared.Simulation.PeaceTimeState. APIShared/UpdateToNewDLL.md owns those native
+contracts. Existing VanillaPeaceTimeNativeContract patches remain independent.
+Recheck standalone operation, legacy-ExtraFeatures refusal, native expiry/save
+state, soldier/building exclusions and priority of ExtraFeatures rebuild vetoes
+when either SDK or native library changes.

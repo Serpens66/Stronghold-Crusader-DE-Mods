@@ -3,7 +3,7 @@
   "Author": "Serpens66",
   "Name": "Pitch Stairs Test",
   "Description": "Experimental variant B: pitch keeps the ground height so stairs behind pitch stay reachable; fire spread keeps Vanilla heights.",
-  "Version": "0.1.0",
+  "Version": "0.1.1",
   "MinimumScriptExtenderVersion": "2.14.3",
   "MaximumScriptExtenderVersion": "",
   "Dependencies": [

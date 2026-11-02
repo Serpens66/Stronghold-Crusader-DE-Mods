@@ -57,3 +57,41 @@ The shared render entry at `0x41D60` is now owned by APIShared 0.18.0, with BFQ
 marker observation before Spectator's temporary visibility scope. This changes
 hook ownership, not Vanilla input/order semantics. The exact Indirect/10 ABI and
 native demand-bridge tests are documented in APIShared/UpdateToNewDLL.md.
+
+## Eliminated participants and retained action panels, 2026-11-02 [Vanilla facts]
+
+Rechecked against the native and managed hashes recorded above. The confirmed
+`DLL_GameAction` export at RVA `0x81870` handles `SpectatorMode` (`0x431`) by
+setting only the local spectator flag, with return value zero. The managed
+`EngineInterface.GameAction` monitor encloses the native call; return zero has no
+managed role/UI branch. An eliminated positive participant therefore does not
+become a nonpositive original spectator through this action.
+
+The installed `MainViewModel.buildControlsFreeze(bool)` changes the six build
+tabs and its freeze field; it does not close an already open building, market or
+troop panel. `ButtonChangeRations(object)` calls `SetRationing` directly and
+`ButtonAdjustTax(object)` calls `SetTaxRate` directly. The native branches
+`0x3ED` and `0x3EC`, respectively, have no spectator-flag admission check; the
+tax writer uses the native viewpoint's resources. Retaining the positive ID and
+freezing only build tabs is consequently insufficient protection for a foreign
+report viewpoint. These are static call/data-flow facts, not a live MP exploit
+or a network-acceptance result.
+
+The audited local presentation/camera/pause branches are `0x402`, `0x404`,
+`0x405`, `0x406`, `0x413`, `0x415`, `0x416`, `0x418`, `0x42B`, and `0x431`.
+`CloseTroopsPanel` (`0x410`) also reaches deselection handling and is not classified
+as a pure presentation action. These command values identify switch branches,
+not an extensible permission policy for other native builds.
+
+## Eliminated-view consumer integration, 2026-11-02 [mod integration]
+
+Spectator closes old interactive HUDs/cursors before confirming the positive
+observer role. It uses APIShared's existing managed GameAction broker to reject
+ordinary gameplay/unknown actions, with the audited local exceptions and its
+explicit singleplayer ally policy. Already consumed offline power selections
+remain with the existing validated tool path. Explicit placement unfreezing is
+separate from the ordinary build-tab freeze. APIShared's participant view keeps
+the original positive local identity; common saves and complete raw Chore
+submissions temporarily use that identity under the engine monitor. No second
+native GameAction/queue hook is introduced. Offline fixtures and real host/client
+acceptance remain distinct evidence.

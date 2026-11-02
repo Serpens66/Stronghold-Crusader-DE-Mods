@@ -1,5 +1,7 @@
 # Abschlussbericht Wegfindung (Testlinie `dev/pathfinding`, Stand 30.10.2026)
 
+Nachtrag vom 02.11.2026: [Abschnitt 8](#8-feuerbewegung-und-rückkehr--nachtrag-vom-02112026) dokumentiert den aktuellen kombinierten Testlauf mit PitchStairsTest, die Feuerbewegung und Empfehlungen für getrennte Wartefristen. Die Abschnitte 1–7 bleiben historische Aussagen zum Stand 30.10.2026.
+
 Ziel des Auftrags: die Wegfindung im Spiel allgemein beschleunigen (keine Lags über ~100 ms auf 800×800-Karten mit bis zu 8 KI-Lords und 10.000 Einheiten) und ein Regelkonstrukt in APIShared schaffen, mit dem Mods Regeln wie Grabenquerung, Routenkosten, Mauerklettern und Feuerausweichen ohne Lags umsetzen können. Vanilla-Bewegungen sollen weiter möglich bleiben.
 
 Die Einzelnachweise jedes Laufs stehen in `PathfindingRoadmap.md`. Native Verträge und Prüfpunkte stehen in den `UpdateToNewDLL.md` von MoatMove und BugfixesAndQoL, die Vanilla-Audits in der Native-Baseline (`GROUND_ROUTE_BUILDERS.md`, `MANUAL_GROUP_ADMISSION.md`).
@@ -119,3 +121,94 @@ Die Einzelnachweise jedes Laufs stehen in `PathfindingRoadmap.md`. Native Vertr�
 - **Branch:** `dev/pathfinding` im Worktree `.work/a/pathfind/001`, nicht gepusht. Die Commits dieses Tages beginnen bei `7b256daa7` (Knotenbudget) und reichen bis `27841dca6` (Mitgliedsprüfung), dazu dieser Bericht.
 - **Laufprotokolle:** `Testmods/MoatMove/.local/runs/` (pf-iter-…, pf-rule-…, pf-cons-…, pf-mp-…, pf-flood-…, pf-topo-…).
 - **Fahrplan mit allen Läufen:** `PathfindingRoadmap.md`.
+
+## 8. Feuerbewegung und Rückkehr – Nachtrag vom 02.11.2026
+
+### 8.1 Testkontext und aktuelle Logbefunde
+
+Dieser Nachtrag ergänzt den historischen Bericht vom 30.10.2026. Er dokumentiert neue Nutzerbeobachtungen, Logbefunde, native Untersuchung und Empfehlungen; die unten beschriebenen Bewegungskorrekturen und getrennten Fristen sind noch nicht implementiert.
+
+Quelle ist der Host-Prozesslauf vom 02.11.2026, etwa 10:57:20 bis 11:03:54 (Europe/Berlin):
+
+    E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\LogOutput.log
+
+Log-SHA-256:
+
+    725265D719174DA5709C1645D6A40AB56A9041903C2AD039F7A779861F845D97
+
+Gleichzeitig geladen waren **MoatMove 0.1.6** und **PitchStairsTest 0.1.0**, außerdem BugfixesAndQoL 1.0.208, APIShared 0.23.0 und Script Extender 2.14.3.0. Die Pechhöhen-/Ladenormalisierung ist separat in [PitchStairs.md, Abschnitt 21](PitchStairs.md#21-logauswertung-vom-02112026) ausgewertet. Wartezeit, Umplanung, Feuerflucht und Rückkehr liegen im MoatMove-Code.
+
+MoatMove meldete `replanning=True`, `escape=True`, `waitSeconds=10` und die Umwegregel 50 % / mindestens 10 Zusatzfelder. Das sind die Werte des untersuchten Builds; die Empfehlungen in 8.3 sind davon zu unterscheiden.
+
+| Logzeit | Replan-Ereignisse im protokollierten Fenster | Feuerflucht-Ereignisse im Fenster |
+|---|---|---|
+| 10:59:22.168 | 2 Wartevorgänge, 0 Wiederaufnahmen, 2 sonstige Beendigungen | 24 Starts, 0 Rückkehrmeldungen, 2 sonstige Beendigungen |
+| 10:59:28.598 | 1 Wartevorgang, 1 Wiederaufnahme | Keine neuen Fluchtstarts oder Rückkehrmeldungen |
+| 11:01:43.400 | Keine weiteren für die Summe relevanten Wartevorgänge | 18 Starts, 0 Rückkehrmeldungen, 1 Fristablauf, 5 sonstige Beendigungen |
+
+Summierte protokollierte Ereignisse: **3 Wartevorgänge, 1 Wiederaufnahme; 42 Fluchtstarts, 0 Rückkehrmeldungen, 1 Fristablauf, 7 sonstige Beendigungen und 0 Fluchtfehler**. Die 42 Starts sind keine 42 eindeutigen Einheiten: erneutes Ausweichen eines schon aktiven Falls wird ebenfalls gezählt. Ereigniszähler werden nach dem Leistungsbericht zurückgesetzt; `active` und `waiting` sind dagegen Momentaufnahmen. Der Lauf hatte keine Error-/Fatal-Zeilen.
+
+Die Meldungen enthalten keine Fall-IDs mit Einzelverlauf, Deadline, AI-/Animationszustand oder eindeutigem Abbruchgrund. Darum lässt sich nicht jede verlorene Rückkehr Fristablauf, neuem Befehl oder einer anderen Zustandsänderung zuordnen. Die fehlende Animation ist eine Nutzerbeobachtung; die Leistungszähler allein beweisen oder widerlegen sie nicht. Der anschließende Save-Start um 11:03:20 enthielt keine weiteren protokollierten Feuerereignisse und ist kein Nachweis gespeicherter Warte-/Rückkehrfälle.
+
+### 8.2 Warum ein veröffentlichter Weg noch keine normale Laufbewegung ist
+
+**Statischer nativer Befund:** Der untersuchte Vanilla-Hash ist FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2 (kanonische DLL, mit CURRENT.json abgeglichen). Der öffentliche Extender-Aufruf `GameUnitManagerAPI.MoveToTile` führt nach 0x196280. Diese Funktion setzt Ziel- und Pfadfelder und publiziert den Weg; sie setzt weder den militärischen `r_AIState` noch den Animationstimer.
+
+Der normale Bewegungsbefehl geht über **0x196100 -> 0x11B520 -> 0x196280**. Die Gruppenroutine übernimmt pro zugelassener Einheit zusätzlich die Kommandovorbereitung: individuelles Bewegungsziel, militärischer Bewegungszustand 101, Kontextbereinigung und passender letzter Befehl. Besondere Vorzustände besitzen weitere Behandlung. Anschliessend wählen die jeweiligen Einheitentyp-Handler die Laufanimation und führen den normalen Bewegungsfortschritt über 0x188340 aus. Der alternative Gruppenpfad 0x118E00 bestätigt dieselbe grundsätzliche Trennung.
+
+`RouteReplanWatch.ReplanMove` nutzt derzeit nur MoveToTile. Bei einer inzwischen stehenden oder anders beschäftigten Einheit reicht ein neuer Weg deshalb nicht, um wieder den vollständigen militärischen Bewegungszustand herzustellen. Das erklärt die beobachtete gleitende Bewegung beim Wiederanlaufen und Flüchten aus dem Datenfluss; eine korrigierte Implementierung ist noch nicht durch einen ausgeführten nativen Vergleichstest oder Sichttest bestätigt.
+
+**Empfohlene Korrektur:** Eine zentrale, gegen Vanillas Pro-Einheit-Semantik geprüfte Vorbereitung für normale individuelle militärische Bewegung vorsehen und für Flucht, Wiederaufnahme und Rückkehr verwenden. Dabei native Zulassung, Leben/Global-ID, gesperrte und besondere Zustände sowie Typausnahmen erhalten; aktives Assassinenklettern beispielsweise darf nicht durch ein pauschales State-Setzen abgebrochen werden. Reine Umplanung einer bereits laufenden Einheit gesondert behandeln.
+
+Danach weiterhin die öffentliche MoveToTile-API samt Ergebnisprüfung und den normalen nativen Bewegungsablauf verwenden. Eine fehlgeschlagene Wegbildung muss sauber gestoppt werden; 0x196280 kann bei Fehlschlag den Wegpuffer nullen, ohne die alten Pfadsteuerfelder zu löschen. Höhen, Übergänge, Kollisionsverhalten, Geschwindigkeit und Animation bleiben Aufgaben des nativen Bewegungsablaufs.
+
+Keine Positionsverschiebung, keine künstlich hochgezählten Animationsframes und kein Befehl an die gesamte Tribe als Einzelbewegungsersatz. Der öffentliche Tribe-Befehl ist vollständig, würde aber weitere Mitglieder erfassen; der Extender bietet hier keinen ebenso vollständigen individuellen Befehlswrapper.
+
+### 8.3 Zwei Rückkehrarten und zwei tickbasierte Fristen
+
+**Aktueller Code:** `FireEscapeEntry.Until` wird bereits beim Fluchtstart aus derselben `MaximumWaitTicks`-Policy gesetzt, die auch das Warten vor Feuer begrenzt. Nach deren Ablauf entfernt `ProcessFireEscapes` den Fall dauerhaft und erhöht `escapeStayed`. Ein später erloschenes Feuer löst dann keine Rückkehr mehr aus. Zieländerungen können den Fall ebenfalls beenden. Die bisherige Frist betrug 400 Simulationsticks für beide Fälle.
+
+**Nutzerwahl und Empfehlung für die weitere Umsetzung:**
+
+| Zweck | Maximale Wartefrist in Simulationsticks | Umrechnung bei 40 Ticks je Spielsekunde |
+|---|---:|---:|
+| Bisheriges Bewegungsziel fortsetzen / einen sicheren Umweg finden | **400** | 10 Spielsekunden |
+| Nach einer Flucht zur vorherigen Standposition zurückkehren | **4.800** | 120 Spielsekunden |
+
+Alle Fristen und Vergleiche in Simulationsticks führen. Die Sekundenwerte dienen der Erklärung; weder Echtzeit noch Frames dürfen den Ablauf bestimmen. Die Werte sind Höchstfristen für weiterhin blockierte Fälle, keine vorgeschriebene Verzögerung: Sobald Ziel und Weg sicher sowie gemäß Umwegregel erreichbar sind, kann die normale Bewegung früher beginnen.
+
+Die Rückkehrart muss beim Anlegen des Falls ausdrücklich festgehalten werden: vorherige Standposition oder bisheriges Bewegungsziel. Ein Soldat mit einem laufenden beziehungsweise vor Feuer wartenden Bewegungsauftrag behält dessen Ziel; eine zuvor stehende Einheit behält ihre Standposition. Ein einziges Zielkoordinatenpaar ohne Herkunft reicht für die Wahl der Frist nicht.
+
+Empfohlen wird, die Wartefrist nach einer Flucht an das erste sichere Ankommen zu koppeln, statt schon während des Herauslaufens Wartezeit zu verbrauchen. Wiederholtes Ausweichen bewahrt den ursprünglichen Rückkehrzweck und darf die Frist nicht unbegrenzt neu starten. Neue Befehle, Tod oder eine geänderte Global-ID beenden den alten Fall; automatische Rückkehr darf einen neueren Auftrag nicht überschreiben.
+
+Ausgegebenes Rückkehrkommando und tatsächliches Ankommen unterscheiden. Der aktuelle Zähler `escapeReturned` wird bereits bei erfolgreicher Befehlsausgabe erhöht; er ist kein sicherer Ankunftsnachweis. Für eine Abnahme beide Ereignisse getrennt erfassen. Ziel- und Wegfreigabe weiter aus dem aktuellen Feuerzustand und den normalen Bewegungsregeln bestimmen, nicht allein aus dem Ablauf einer geschätzten Brenndauer.
+
+### 8.4 Wie lange ein Pechfeuer brennt
+
+**Isoliertes natives Experiment, kein vollständiger Kartenlauf:** Ein einzelnes Feuer wurde mit dem originalen Erzeuger 0x9C450 als Typ 9, Stärke 3 angelegt. Ausgeführt wurden die Original-Updates 0x9F960 -> 0x99420 sowie die echte Entfernung über 0x9F2D0 im privaten Abbild der oben identifizierten DLL. Kein Gebäude, keine Einheiten, keine erneute Entzündung. Zur Isolation des Einzelfelds wurde der Ausbreitungsfolgeaufruf 0x9C120 im privaten Abbild durch eine sofortige Rückkehr ersetzt und der separate Begleitrauch entfernt. Die installierte DLL und Spielstände blieben unverändert.
+
+| Zufallsvariante des Feuereffekts, Bit 7 im Feld +0xC0 | Zur Löschung markiert nach Updates | Tatsächlich entfernt nach Updates | Umrechnung bei 40 Updates pro Spielsekunde |
+|---|---:|---:|---:|
+| gesetzt | 877 | **878** | **21,95 Spielsekunden** |
+| nicht gesetzt | 1087 | **1.088** | **27,2 Spielsekunden** |
+
+Diese Zahlen gelten für den genannten isolierten Ausgangszustand einschließlich des Löschupdates. Sie sind keine gemessene Stoppuhrdauer des aktuellen Nutzerlaufs. Die tatsächliche Echtzeit hängt von Spielgeschwindigkeit und Pausen ab.
+
+Die Pechbeschreibung selbst durchläuft in 0x7D280 20 Updates bis zur Folgephase und weitere 200 bis zum verbrauchten Zustand. Diese **220 Updates sind nicht das Ende des Feuereffekts**. Pech- und Effektaktualisierung werden von 0xCDE60 jeweils einmal im selben regulären Simulationsblock aufgerufen.
+
+Wiederentzündung über 0x9C450 oder 0x9C120 setzt Phase und Frame eines vorhandenen Feuers zurück. Brennt ein zugeordnetes Gebäude weiter, kann 0x99420 die Hauptphase halten und ihren Zykluszähler zurücksetzen. Für eine zusammenhängende Pechfläche, Nachfeuern oder Gebäudebrände ergibt sich deshalb **kein allgemeines Maximum von 1.088 Ticks**. Auch die frühere etwa 13-sekündige Flächenbeobachtung aus den Automatikläufen ist kein allgemeiner Höchstwert.
+
+Die bisherige Rückkehrfrist von 400 Ticks ist deutlich kürzer als beide isolierten Feuereffektdauern. Ein Rückkehrfall kann somit bereits verworfen werden, während das ursprüngliche Feld noch brennt. Die längere Standpositionsfrist adressiert dieses Problem, ersetzt aber nicht die laufende Sicherheitsprüfung.
+
+### 8.5 Erforderliche Abnahme der Empfehlungen
+
+Die folgenden Punkte sind noch umzusetzen beziehungsweise zu prüfen; dieser Nachtrag nimmt keine Runtime-Änderung vor:
+
+1. Native Vergleichstests für die individuelle Bewegungsvorbereitung gegen den normalen Vanilla-Pro-Einheit-Ablauf, einschließlich Zulassung, Sonderzustand und fehlgeschlagener Wegbildung. Vorhandene MoatMove-Integrationsfälle anpassen; ein MoveToTile-Testdouble allein prüft die Animation nicht.
+2. Sichttests für Laufanimation und Bewegungsregeln beim Wiederanlaufen, Verlassen des Feuers und Zurückkehren. Verschiedene Soldatentypen, Treppen, Höhenwechsel, Hindernisse und Kollisionen einbeziehen; andere Gruppenmitglieder bleiben von einem individuellen Fluchtauftrag unberührt.
+3. Getrennte 400-/4.800-Tick-Fristen, frühe sichere Bewegung, Pause, unterschiedliche Spielgeschwindigkeiten, erneutes Ausweichen und Ablauf ohne erneute Gefahrbewegung testen.
+4. Ursprüngliches Bewegungsziel und Standposition auseinanderhalten. Rückkehrkommando und tatsächliche Ankunft separat nachweisen; neue Befehle, Tod und Slot-Wiederverwendung dürfen keinen alten Auftrag fortsetzen.
+5. Begrenzte Einzelfalldiagnose nur im DEVDIAG-Build: Global-ID, Fallart, Start-/Ankunfts-/Ablauftick, Ziel, Befehls- und Ankunftsergebnis sowie Beendigungsgrund. Bestehende Suchbudgets erhalten; keine unbegrenzten neuen Suchen pro Tick.
+6. Kombinierter Lauf mit PitchStairsTest, Karteneditor und echter Host-/Client-Abgleich mit identischen Einstellungen. Der ausgewertete Singleplayer-Lauf belegt keinen deterministischen Mehrspielerbetrieb.
+
+Die historischen Aussagen dieses Berichts bleiben auf ihren damaligen Stand bezogen. Insbesondere sind weitere Spieltests und gegebenenfalls die Speicherung wartender Rückkehrfälle getrennte Aufgaben; die Empfehlungen hier beweisen keine bereits vorhandene Save-Wiederherstellung dieser Fälle.

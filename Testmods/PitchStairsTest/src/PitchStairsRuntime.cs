@@ -6,7 +6,6 @@ using RedBird.Abstractions.Hooks;
 using RedBird.Abstractions.Hooks.Transaction;
 using RedBird.X64.Hooks;
 using RedBird.X64.Hooks.Transaction;
-using SHCDESE.API;
 using SHCDESE.API.LowLevel;
 using SHCDESE.GameGlobals;
 using SHCDESE.Interop;
@@ -18,7 +17,7 @@ using System.Threading;
 namespace PitchStairsTest
 {
     // Owns the permanent native stubs of variant B as one atomic unit. Published code is never
-    // restored; only the native enabled word changes (fail-closed to Vanilla after a mismatch).
+    // restored. The enabled word is finalized during installation and remains constant thereafter.
     internal sealed unsafe partial class PitchStairsRuntime
     {
         private const string Registration = "PitchStairsVariantB";
@@ -39,7 +38,7 @@ namespace PitchStairsTest
         private HookTransaction transaction;
         private IntPtr state;
         private ulong image;
-        private bool published, ready, tileManagerChecked;
+        private bool published, ready;
 
         internal PitchStairsRuntime(ManualLogSource log)
         {
@@ -52,11 +51,19 @@ namespace PitchStairsTest
 
         internal void Install(CrusaderLibraryLoadContext context, bool referenceHashMatches)
         {
+            // No pattern fallback for another DLL on purpose: the tile offsets, the screen-height table and
+            // the stub spans are proven only for this hash. A different build leaves Vanilla untouched.
             if (context == null || context.ModuleHandle == IntPtr.Zero || !referenceHashMatches ||
                 !string.Equals(Shared.DebugLogHelper.InstalledNativeSha256(), NativeCode.Hash, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidOperationException("Pitch stairs requires the audited native image: " + NativeCode.Hash);
             image = unchecked((ulong)context.ModuleHandle.ToInt64());
             ValidateDataLayout(context.Memory);
+            // Validate the independently resolved manager before any hook can change map data.
+            // A later mission-start disable cannot restore a map already loaded under B rules.
+            ulong extenderTiles = GameGlobalsManager.Instance.GameTileManagerVA;
+            if (extenderTiles != image + NativeCode.TileManagerRva)
+                throw new InvalidOperationException($"Extender tile manager 0x{extenderTiles:X} differs from " +
+                    $"the audited manager 0x{image + NativeCode.TileManagerRva:X}.");
 
             var spans = new NativeSiteSpan[NativeCode.Sites.Length];
             for (int i = 0; i < NativeCode.Sites.Length; i++)
@@ -84,6 +91,8 @@ namespace PitchStairsTest
                     $"instructionLengths={string.Join(",", site.InstructionLengths)}.");
             }
 
+            // All sites form one rule: a partial set would mix lowered and unlowered pitch and cut
+            // stairs off again. That is why there is a single exclusive claim and a single transaction.
             var claim = NativeSiteRegistry.Register(PitchStairsTestPlugin.Guid, Registration, spans);
             if (!claim.Succeeded) throw new InvalidOperationException("Native site claim refused: " + claim.Reason);
             try
@@ -93,6 +102,8 @@ namespace PitchStairsTest
                 transaction = new HookTransaction(context.Region, SHCDESE.BepInEx.Bootstrap.Plugin.Instance.LoggerFactory,
                     new HookTransactionOptions { FailureMode = TransactionFailureMode.RollbackAndThrow, OwnsHooks = true });
                 ulong stateAddress = unchecked((ulong)state.ToInt64());
+                bool diagCounters = false;
+                DiagFireCounters(ref diagCounters);
                 for (int i = 0; i < NativeCode.Sites.Length; i++)
                 {
                     NativeCode.Site site = NativeCode.Sites[i];
@@ -100,13 +111,13 @@ namespace PitchStairsTest
                     // Assemble every stub once before committing any site.
                     Instruction[] expected = NativeCode.Decode(site.Bytes, address, site.InstructionLengths);
                     var a = new Assembler(64);
-                    NativeCode.Emit(a, site, expected, stateAddress, continuation);
+                    NativeCode.Emit(a, site, expected, stateAddress, continuation, diagCounters);
                     NativeCode.Assemble(a, address);
                     transaction.AddInline(handles[i], HookTarget.FromAddress(address), (assembler, original, _) =>
                     {
                         // A mismatch throws inside Commit, which rolls the whole transaction back.
                         NativeCode.RequireSameInstructions(original, expected, site.Name);
-                        NativeCode.Emit(assembler, site, original, stateAddress, continuation);
+                        NativeCode.Emit(assembler, site, original, stateAddress, continuation, diagCounters);
                     }, hookSize: site.Length, name: "PitchStairsTest_" + site.Name);
                 }
                 CommitResult result = transaction.Commit();
@@ -114,10 +125,9 @@ namespace PitchStairsTest
                 published = true;
                 for (int i = 0; i < NativeCode.Sites.Length; i++) ValidateCommitted(NativeCode.Sites[i], handles[i]);
                 ready = true;
+                // Enabled only after the post-commit check. LibraryLoaded precedes every map load, so no
+                // tile is ever stored with mixed rules.
                 Volatile.Write(ref *(int*)state, 1);
-                Shared.DebugLogHelper.LogInfo(log, $"PITCH_STAIRS_READY: {NativeCode.Sites.Length} permanent native stubs; " +
-                    "pitch keeps ground height (placement, AIV/manual overbuild, start/load, render, placement cap); " +
-                    "fire spread keeps Vanilla heights; no managed per-tile callback, save extension or RNG call.");
             }
             catch
             {
@@ -132,6 +142,14 @@ namespace PitchStairsTest
                 }
                 throw;
             }
+            // Diagnostic failure must never switch a successfully activated simulation rule off.
+            try
+            {
+                Shared.DebugLogHelper.LogInfo(log, $"PITCH_STAIRS_READY: {NativeCode.Sites.Length} permanent native stubs; " +
+                    "pitch keeps ground height (placement, AIV/manual overbuild, start/load, render, placement cap); " +
+                    "fire spread keeps Vanilla heights; no managed per-tile callback, save extension or RNG call.");
+            }
+            catch { /* Hooks and their enabled state already belong to the process. */ }
         }
 
         private static void ValidateDataLayout(ReadOnlySpan<byte> memory)
@@ -144,6 +162,12 @@ namespace PitchStairsTest
             RequireDisplacement(memory, NativeCode.StructureAnchorRva, 9, NativeCode.StructureOffset, Code.Cmp_rm16_imm8);
             RequireDisplacement(memory, NativeCode.DefaultHeightAnchorRva, 8, NativeCode.DefaultHeightOffset, Code.Movzx_r32_rm8);
             RequireDisplacement(memory, NativeCode.LoadStructureAnchorRva, 8, NativeCode.MiscDisplayToStructureDelta, Code.Movsx_r64_rm16);
+            RequireDisplacement(memory, NativeCode.PitchLimitAnchorRva, 7, NativeCode.PitchLimitOffset, Code.Movsxd_r64_rm32);
+            RequireDisplacement(memory, NativeCode.PitchRecordsAnchorRva, 7,
+                NativeCode.PitchRecordsOffset + NativeCode.PitchRecordStride, Code.Lea_r64_m);
+            RequireDisplacement(memory, NativeCode.PitchOwnerAnchorRva, 5, NativeCode.PitchOwnerOffset, Code.Cmp_rm16_imm8);
+            RequireDisplacement(memory, NativeCode.PitchStateAnchorRva, 8,
+                NativeCode.PitchRecordsOffset + NativeCode.PitchStateOffset, Code.Cmp_rm16_imm8);
 
             // The displaced blocks themselves carry the remaining offsets and targets.
             Instruction[] Site(int index) => NativeCode.Decode(NativeCode.Sites[index].Bytes, (ulong)NativeCode.Sites[index].Rva,
@@ -156,17 +180,27 @@ namespace PitchStairsTest
                 (long)render[1].MemoryDisplacement64 == NativeCode.VanillaPitchHeightTableOffset &&
                 NativeCode.VanillaPitchHeightTableOffset - NativeCode.HeightTableOffset == NativeCode.PitchHeightDrop * sizeof(int) &&
                 (long)placement[1].MemoryDisplacement64 == NativeCode.TileManagerRva + NativeCode.MiscDisplayOffset &&
-                placement[0].Immediate32 == NativeCode.FootprintEdgeBit &&
+                placement[0].Immediate32 == NativeCode.PitchVisibleBit &&
                 (long)fire[0].MemoryDisplacement64 == NativeCode.HeightOffset;
             for (int i = 0; i < NativeCode.Sites.Length; i++)
             {
                 NativeCode.Site site = NativeCode.Sites[i];
-                if (site.Kind != NativeCode.SiteKind.FireNeighbor) continue;
-                ok &= Site(i)[site.CallIndex].NearBranchTarget == NativeCode.NeighborHeightRva;
+                Instruction[] block = Site(i);
+                if (site.Kind == NativeCode.SiteKind.FireNeighbor)
+                    ok &= block[site.CallIndex].NearBranchTarget == NativeCode.NeighborHeightRva;
+                else if (site.Kind == NativeCode.SiteKind.LoadBootstrap)
+                    ok &= block[1].IPRelativeMemoryAddress == NativeCode.TileManagerRva + NativeCode.HeightOffset &&
+                        block[2].Immediate32 == NativeCode.TileCapacity;
+                else if (site.Kind == NativeCode.SiteKind.BurnoutRestore)
+                    ok &= (long)block[0].MemoryDisplacement64 == NativeCode.TileManagerRva + NativeCode.DefaultHeightOffset &&
+                        (long)block[1].MemoryDisplacement64 == NativeCode.TileManagerRva + NativeCode.HeightOffset;
+                else if (site.Kind == NativeCode.SiteKind.PitchChain)
+                    ok &= (long)block[0].MemoryDisplacement64 == NativeCode.TileManagerRva + NativeCode.HeightOffset;
             }
             if (!ok) throw new InvalidOperationException("Pitch-stairs tile, table or call layout differs.");
-            if (GameTileManagerView.NativePackedTileCapacity != 320_800)
-                throw new InvalidOperationException("Extender packed tile capacity changed.");
+            if (GameTileManagerView.NativePackedTileCapacity != NativeCode.TileCapacity ||
+                GameTileManagerView.PitchSlotCapacity != NativeCode.PitchSlotCapacity)
+                throw new InvalidOperationException("Extender packed tile or pitch capacity changed.");
         }
 
         private static void RequireDisplacement(ReadOnlySpan<byte> memory, int rva, int length, int displacement, Code code)
@@ -194,24 +228,26 @@ namespace PitchStairsTest
         internal void OnMissionStarted(MissionLifecycleNotification notification)
         {
             if (!published) return;
-            if (!tileManagerChecked)
-            {
-                // Extender's independently resolved tile manager must match the hash-bound address.
-                tileManagerChecked = true;
-                ulong extenderTiles = GameGlobalsManager.Instance.GameTileManagerVA;
-                if (extenderTiles != image + NativeCode.TileManagerRva)
-                {
-                    Volatile.Write(ref *(int*)state, 0);
-                    Shared.DebugLogHelper.LogError(log, $"PITCH_STAIRS_DISABLED: extender tile manager 0x{extenderTiles:X} " +
-                        $"differs from 0x{image + NativeCode.TileManagerRva:X}; Vanilla behavior restored.");
-                }
-            }
             MissionContext context = notification.Context;
-            int editorRaised = -1;
-            // The editor load path bypasses 0x804C0; maps saved by Vanilla still hold lowered pitch, and
-            // the skipped manual +4 would then build walls over it too low. Normalize once per editor start.
-            if (Enabled && context != null && context.IsEditor && !notification.IsReplay)
-                editorRaised = NormalizeEditorPitch();
+            // Editor map loads also run 0x804C0 (DLL_LoadSaveGame); only a new, pitch-free editor map skips it.
+            Shared.DebugLogHelper.LogInfo(log, $"PITCH_STAIRS_SESSION session={context?.SessionId}; start={context?.StartKind}; " +
+                $"enabled={Enabled}; ready={ready}; delta/total: {CounterReport()}; mode={context?.Mode.ToDiagnosticString()}.");
+            DiagMissionStarted(notification);
+        }
+
+        // Closes the counting window of a mission, so activity after its start report is not lost.
+        internal void OnMissionEnded(MissionLifecycleNotification notification)
+        {
+            if (!published) return;
+            MissionContext context = notification.Context;
+            Shared.DebugLogHelper.LogInfo(log, $"PITCH_STAIRS_SESSION_END session={context?.SessionId}; start={context?.StartKind}; " +
+                $"reason={notification.EndReason}; enabled={Enabled}; delta/total: {CounterReport()}.");
+            DiagMissionEnded(notification);
+        }
+
+        // Delta since the previous start or end report, then the process-lifetime total.
+        private string CounterReport()
+        {
             var parts = new string[Counters.Length];
             for (int i = 0; i < Counters.Length; i++)
             {
@@ -219,34 +255,11 @@ namespace PitchStairsTest
                 parts[i] = $"{Counters[i].Name}={value - reported[i]}/{value}";
                 reported[i] = value;
             }
-            Shared.DebugLogHelper.LogInfo(log, $"PITCH_STAIRS_SESSION session={context?.SessionId}; start={context?.StartKind}; " +
-                $"enabled={Enabled}; ready={ready}; editorRaisedTiles={(editorRaised < 0 ? "n/a" : editorRaised.ToString())}; " +
-                $"delta/total: {string.Join("; ", parts)}; mode={context?.Mode.ToDiagnosticString()}.");
-            DiagMissionStarted(notification);
-        }
-
-        // Runs on the mission-start callback after the native editor load, before any edit. Pathing
-        // transitions are not rebuilt here; every playable start recomputes them in 0x71670.
-        private int NormalizeEditorPitch()
-        {
-            var tiles = GameTileManagerAPI.Instance;
-            Span<byte> height = tiles.GetHeightLayer(), defaults = tiles.GetDefaultHeightLayer();
-            Span<int> logic = tiles.GetLogicLayer();
-            Span<ushort> structures = tiles.TileManager.StructureGrid;
-            int count = Math.Min(Math.Min(height.Length, defaults.Length), Math.Min(logic.Length, structures.Length));
-            if (count != GameTileManagerView.NativePackedTileCapacity)
-                throw new InvalidOperationException("Unexpected tile grid length " + count + ".");
-            int raised = 0;
-            for (int i = 0; i < count; i++)
-            {
-                byte normalized = NativeCode.NormalizedPitchHeight(height[i], defaults[i], logic[i], structures[i]);
-                if (normalized == height[i]) continue;
-                height[i] = normalized;
-                raised++;
-            }
-            return raised;
+            return string.Join("; ", parts);
         }
 
         partial void DiagMissionStarted(MissionLifecycleNotification notification);
+        partial void DiagMissionEnded(MissionLifecycleNotification notification);
+        partial void DiagFireCounters(ref bool enabled);
     }
 }

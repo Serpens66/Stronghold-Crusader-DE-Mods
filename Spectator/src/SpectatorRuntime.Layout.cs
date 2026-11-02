@@ -236,7 +236,7 @@ namespace Spectator
                 toolbarMoved ? toolbarDesiredY : groupDock.Y, width * scale, height * scale, vw, vh);
             toolbarOwners.Width = roster.Width; toolbarOwners.Height = roster.Height;
             Place(rosterSurface, roster); Place(toolbarControl, control); Place(humanDragHandle, grip);
-            bool controlVisible = toolbarMoved || humanPlacementMode || IsActivePlayerTestSession() || toolbarHudDisplay != DockHudDisplay.Hidden;
+            bool controlVisible = toolbarMoved || humanPlacementMode || HasOwnBuildMenu() || toolbarHudDisplay != DockHudDisplay.Hidden;
             toolbarControl.Visibility = controlVisible ? Visibility.Visible : Visibility.Collapsed;
             rosterSurface.Background = toolbarMoved ? transparentToolbarBrush : rosterPaper;
             ((Border)toolbarControl).Background = toolbarMoved ? transparentToolbarBrush : controlPaper;

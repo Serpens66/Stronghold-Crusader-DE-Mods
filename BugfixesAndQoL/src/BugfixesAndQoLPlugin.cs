@@ -12,7 +12,7 @@ using System.Reflection;
 namespace BugfixesAndQoL
 {
     [BepInDependency(ScriptExtenderGuid, "2.14.0")]
-    [BepInDependency(ApiSharedGuid, "0.23.0")]
+    [BepInDependency(ApiSharedGuid, "0.25.0")]
     [BepInDependency("ActiveAIVDetector_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("ExtraFeatures_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency(LegacySomeSettingsGuid, BepInDependency.DependencyFlags.SoftDependency)]
@@ -45,7 +45,7 @@ namespace BugfixesAndQoL
 
         public const string PluginGuid = "BugfixesAndQoL_Serp";
         public const string PluginName = "Bugfixes and QoL";
-        public const string PluginVersion = "1.0.208";
+        public const string PluginVersion = "1.0.209";
 
         private static DisplayResolutionPersistenceHook displayResolutionPersistenceHook;
         private static DamagedHealthBarsRuntime damagedHealthBarsRuntime;
@@ -57,6 +57,7 @@ namespace BugfixesAndQoL
         private static SkirmishGameOptionsRuntime skirmishGameOptionsRuntime;
         private static SkirmishGameOptionsAccessViewModel skirmishGameOptionsAccess;
         private static VanillaPeaceTimeGameplayPatch vanillaPeaceTimeGameplayPatch;
+        private static PeaceTimeCivilianProximityFeature peaceTimeCivilianProximityFeature;
         private static TimerCountdownFeature timerCountdownFeature;
         private static TrailDeletionViewModel trailDeletionViewModel;
         private static NoDogsNativePatch noDogsNativePatch;
@@ -373,6 +374,16 @@ namespace BugfixesAndQoL
             catch (Exception ex)
             {
                 Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/src/BugfixesAndQoLPlugin.cs:373", $"Bugfixes and QoL native runtime initialization failed; unaffected features may continue: {ex}");
+            }
+
+            try
+            {
+                if (peaceTimeCivilianProximityFeature == null)
+                    peaceTimeCivilianProximityFeature = new PeaceTimeCivilianProximityFeature(Logger, Settings);
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(Logger, "PEACE_CIVILIAN_PROXIMITY_UNAVAILABLE: existing building rules remain active; " + ex);
             }
 
             FormationFeature.Initialize(context);

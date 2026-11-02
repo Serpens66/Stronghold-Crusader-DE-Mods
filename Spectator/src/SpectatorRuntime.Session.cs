@@ -82,6 +82,7 @@ namespace Spectator
         private static void ResetSessionState()
         {
             ResetTestActions(0);
+            ResetSpriteColourLease();
             SetRevealHidden(0);
             DetachHumanControls();
             toolbarPortraitMode = null;
@@ -135,7 +136,7 @@ namespace Spectator
                 return CurrentSessionId > 0 && state != null && director != null &&
                     editor != null && view != null &&
                     state.game_type == 3 && state.spectatorMode != 0 &&
-                    editor.ActivePlayerID <= 0 && !view.IsMapEditorMode &&
+                    SpectatorPerspectiveRuntime.IsSpectatorObserver() && !view.IsMapEditorMode &&
                     director.SkirmishModeGame && !director.MultiplayerGame &&
                     !APIShared.GameModes.GameModeHelper.IsRealMultiplayer();
             }

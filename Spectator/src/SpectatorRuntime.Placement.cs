@@ -94,8 +94,14 @@ namespace Spectator
             catch (Exception error) { LogOnce("SPECTATOR_EDITOR_ICONS_ERROR: " + error); }
         }
 
+        // Spectator input control uses the normal build menu of the controlled player.
+        private static bool IsControlledBuildSession() => !IsPlacementSession() && IsSpectatorSession() &&
+            SpectatorPerspectiveRuntime.IsInputControlled();
+
         private static bool BeforeNewBuildScreenBlank()
         {
+            // Vanilla's per-frame spectator blank stays suppressed; our own lease/restore page changes pass.
+            if (IsControlledBuildSession()) return buildPageMutation > 0;
             if (!IsPlacementSession() || IsEditorToolsSession()) return true;
             if (++suppressedBlankCalls <= 3)
                 log.LogInfo("SPECTATOR_EDITOR_BLANK_SUPPRESSED screen=" +
@@ -120,9 +126,13 @@ namespace Spectator
                 IsCurrentSession(session) && IsSpectatorSession()) previous.buildControlsFreeze(true);
         }
 
-        private static bool BeforeBuildControlsFreeze(bool Mode)
+        private static bool BeforeBuildControlsFreeze(ref bool Mode)
         {
-            if (!Mode || !IsSpectatorSession() || !IsPlacementSession()) return true;
+            // A defeated participant retains its positive identity, but normal controls stay read-only.
+            bool runOriginal = SpectatorFeatureActivation.ResolveControlFreeze(Mode, SpectatorDefeat.IsEliminatedSpectator,
+                IsSpectatorSession() && (IsPlacementSession() || SpectatorPerspectiveRuntime.IsInputControlled()), out bool effective);
+            Mode = effective;
+            if (runOriginal) return true;
             RememberPlacementFreeze();
             if (++suppressedFreezeCalls <= 3)
                 log.LogInfo("SPECTATOR_EDITOR_FREEZE_SUPPRESSED frozen=" +
@@ -413,7 +423,14 @@ namespace Spectator
             out WallStoneScope __state)
         {
             __state = null;
-            if (!IsPlacementSession()) return true;
+            if (!IsPlacementSession())
+            {
+                // Vanilla passes the spectator's nonpositive managed ID; control builds as the
+                // controlled player with Vanilla's normal (paid) in-game semantics.
+                int controlled = IsSpectatorSession() ? SpectatorPerspectiveRuntime.InputControlledPlayer() : 0;
+                if (controlled > 0) player = controlled;
+                return true;
+            }
             eMappers mapper = (eMappers)item;
             // The real editor already owns free placement, input state and visual registration.
             // Only route its building/unit owner; keep its complete native editor path.
@@ -527,6 +544,11 @@ namespace Spectator
         private static bool BeforeDeleteBuilding(int x, int y, ref int player,
             ref bool inGameNotEditor, int mouseState)
         {
+            if (!IsPlacementSession())
+            {
+                int controlled = IsSpectatorSession() ? SpectatorPerspectiveRuntime.InputControlledPlayer() : 0;
+                if (controlled > 0) { player = controlled; return true; }
+            }
             if (!humanPlacementMode || !IsHumanSingleplayerSession() ||
                 MainControls.instance == null || MainControls.instance.CurrentAction != 6)
                 return true;

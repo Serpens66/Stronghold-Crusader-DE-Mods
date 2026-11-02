@@ -104,6 +104,7 @@ namespace BugfixesAndQoL
             TestKeepFlagRotationIntegration();
             KeepFlagRotationTests.Run(Check);
             CorruptLordDataSpawnTests.Run(Check);
+            SpectatorInputControlTests.Run(Check);
             TestSynchronizedGatehouseReachabilityPolicy();
             TestMovementFastPathParity();
             TestMovementLoggingState();

@@ -1191,6 +1191,8 @@ Die sinnvollste weitere Prüfung von B ist damit kein bloßes Entfernen dreier I
 
 ## 20. Testmod „PitchStairsTest“: Umsetzung von Variante B
 
+Aktualisierung vom 02.11.2026: Der historische Entwicklungs- und Buildstatus dieses Abschnitts wird durch den dokumentierten Spielstart und Ladeversuch in [Abschnitt 21](#21-logauswertung-vom-02112026) ergänzt. Die Aussagen „noch nicht gebaut oder installiert“ und die Buildblockade in 20.4 gelten für den damaligen Stand, nicht für den dort ausgewerteten Lauf.
+
 Stand: 01.11.2026. Implementiert als eigenständiger Testmod unter `Testmods/PitchStairsTest` (GUID `PitchStairsTest_Serp`, Version 0.1.0, NetworkMode 1). Er ist noch nicht im Spiel getestet und noch nicht gebaut oder installiert, siehe 20.4. Nicht committet.
 
 ### 20.1 Nutzerentscheidungen
@@ -1238,6 +1240,8 @@ Die frühere Idee einer eigenen Normalisierungsschleife vor `call 0xDAA50` (0x71
 - Vanilla-Befunde ergänzt in `_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/PITCH_STAIRS_HEIGHT.md`, Abschnitt „Complete pitch-drop writer and compensation inventory“.
 
 ### 20.4 Offen
+
+Historischer Stand vom 01.11.2026: Zur späteren erfolgreichen Laufzeitaktivierung siehe Abschnitt 21, zur implementierten Editor-Normalisierung Abschnitt 20.6. Deren jeweilige Spielabnahme bleibt gesondert zu beurteilen.
 
 - **Build/Installation (Stand 01.11.2026, 22:13):** `build.bat /devdiag /nopause` brach in der APIShared-Vorbereitung ab („Incomplete or mixed bootstrap pair“). Im lokalen APIShared-Checkout (HEAD c490504, nicht committete Netzwerkänderungen) passt `BepInEx/plugins/APIShared_Serp/APIShared.dll` nicht zu `dependency-bootstrap-pair.json`. Die Workspace-Paketprüfung lehnt installierte APIShared-DLLs ab. Das betrifft nicht den Testmod-Code.
 - Editorabdeckung: Der Editor-Ladepfad erreicht 0x804C0 nicht. Der DEVDIAG-Scan `PITCH_STAIRS_SCAN` meldet noch abgesenkte Pechfelder je Start.
@@ -1290,3 +1294,428 @@ Die offene Editorlücke aus 20.5 ist im Testmod behoben. Ablauf beim Missionssta
 - Der Wert `editorRaisedTiles` erscheint im Log `PITCH_STAIRS_SESSION`.
 - Wegübergänge werden im Editor nicht neu berechnet. Jeder spielbare Start berechnet sie in 0x71670 neu.
 - Die Spielabnahme steht aus: Vanilla-Karte mit Pech im Editor laden, Wand und Treppe darüber bauen, speichern und als Partie starten.
+
+## 21. Logauswertung vom 02.11.2026
+
+### 21.1 Quelle, Testkontext und Zuordnung
+
+Ausgewertet wurde der Host-Prozesslauf vom 02.11.2026, etwa 10:57:20 bis 11:03:54 (Europe/Berlin). Das Log hatte zum Auswertungszeitpunkt 678.708 Bytes; letzte Dateiänderung 11:03:55.
+
+Quelle:
+
+    E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\LogOutput.log
+
+SHA-256 des ausgewerteten Logs:
+
+    725265D719174DA5709C1645D6A40AB56A9041903C2AD039F7A779861F845D97
+
+Geladen waren Pitch Stairs Test 0.1.0 (GUID `PitchStairsTest_Serp`, mit DEVDIAG-Ausgaben), MoatMove 0.1.6, BugfixesAndQoL 1.0.208, APIShared 0.23.0 und Script Extender 2.14.3.0. Die nativen Adressen beziehen sich weiterhin auf die kanonische DLL aus Abschnitt 3.1 mit SHA-256 FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
+
+PitchStairsTest verändert die Pechhöhe und die zugehörigen Bau-, Lade-, Darstellungs-, Platzierungs- und Feuer-Höhenvergleiche. Wartezeit, Feuerflucht und Rückkehr werden vom gleichzeitig aktiven MoatMove gesteuert. Dessen Logbefunde und Empfehlungen stehen im [PathfindingFinalReport.md, Abschnitt 8](PathfindingFinalReport.md#8-feuerbewegung-und-rückkehr--nachtrag-vom-02112026). Die beobachtete fehlende Bewegungsanimation wird deshalb nicht ohne weiteren Nachweis dem Pechhöhenfix zugeschrieben.
+
+### 21.2 Installation im tatsächlichen Spielstart
+
+Um 10:57:20.383 wurden alle elf `PITCH_STAIRS_SITE`-Marker ausgegeben, jeweils mit `method=reference-rva`: Pechabsenkung, AIV- und manueller Überbau, Ladenormalisierung, Darstellung, Platzierungsgrenze, Feuer-Ausgangshöhe und vier Feuer-Nachbarhöhen. RVAs und Spannen entsprechen dem dokumentierten Umfang aus 20.2 und `Testmods/PitchStairsTest/UpdateToNewDLL.md`.
+
+Um **10:57:20.387** folgte `PITCH_STAIRS_READY: 11 permanent native stubs`. Beide nachfolgenden Missionsstarts meldeten `enabled=True` und `ready=True`. Damit wurde die Installation dieses Prozessstarts einschließlich ihrer Nachkontrollen erreicht. Die historische Buildblockade aus 20.4 beschreibt nicht den Zustand dieses Laufs; ein bestimmtes Buildmanifest oder der damalige Buildweg wird durch das Log allein nicht nachgewiesen.
+
+Im gesamten ausgewerteten Log wurden keine modbezogene Error-/Fatal-Meldung und keine Marker `PITCH_STAIRS_UNAVAILABLE`, `PITCH_STAIRS_DISABLED`, `PITCH_STAIRS_SESSION_FAILED` oder `PITCH_STAIRS_SCAN_FAILED` gefunden. Die vorhandenen Archiv-/Lua-Warnungen beim Laden sind für sich kein Beleg für einen Fehler von PitchStairsTest.
+
+### 21.3 Missionsstarts und gemessene Feldhöhen
+
+| Zeitpunkt / Start | Pechfelder im Scan | Weiterhin abgesenkt | Relevante Zähler beim Startbericht |
+|---|---:|---:|---|
+| 10:58:08.057, Session 1, NewGame; Scan 10:58:08.059 | 0 | 0 | Alle sieben Zähler 0/0 |
+| 11:03:20.634, Session 2, LoadedSave; Scan 11:03:20.635 | 173 | 0 | Unterdrückte Absenkungen 52/52; Ladefelder 173/173; beim Laden angepasste Höhen 173/173 |
+
+Beim nativen Laden um 11:03:18.878 nennt das Log ausdrücklich diesen Spielstand:
+
+    C:\Users\Serpens66\AppData\LocalLow\Firefly Studios\Stronghold Crusader Definitive Edition\Saves\test2_pitchstrais2.sav
+
+Dieser Dateiname unterscheidet sich vom historischen `test2_pitchstrais.sav`. Die Startmarker beweisen nicht, dass der geladene Spielstand aus dem zuvor protokollierten Neuspiel erzeugt wurde.
+
+Vollständiger Zählerstand der zweiten Startmeldung, jeweils Delta / Total:
+
+| Zähler | Wert |
+|---|---:|
+| skippedLowerings | 52 / 52 |
+| skippedAivRestores | 0 / 0 |
+| skippedManualRestores | 0 / 0 |
+| loadPitchTiles | 173 / 173 |
+| loadRaisedTiles | 173 / 173 |
+| fireSourceAdjusted | 0 / 0 |
+| fireNeighborAdjusted | 0 / 0 |
+
+Beide Scans meldeten `firstLoweredTile=-1`; alle vier ausgegebenen Rasterlängen betrugen jeweils **320.800**. Der Scan nach dem Laden fand unter seinen expliziten Pech-/Flag-/Strukturbedingungen kein weiterhin nach Vanilla abgesenktes Feld. Der Ladenormalisierungszähler bestätigt 173 erreichte Fälle und 173 tatsächliche Höhenanpassungen. Das ist kein allgemeiner Beweis beliebiger korrekter Feldhöhen.
+
+Beide Sitzungen waren lokaler Singleplayer-Skirmish, `realMultiplayer=False`, `mapEditor=False`, `editorRaisedTiles=n/a`. Das gleichzeitig ausgegebene `lowLevelNetworked=True` macht daraus keinen echten Mehrspielertest.
+
+### 21.4 Bedeutung und Grenzen der Zähler
+
+Gegen `PitchStairsRuntime.OnMissionStarted`, den Lade-Stub in `NativeCode` und den DEVDIAG-Scan geprüft:
+
+- Die nativen Zähler werden beim Anlegen des Runtime-State nullinitialisiert und nicht pro Mission zurückgesetzt. `reported[]` wird nur bei Missionsstarts fortgeschrieben. Delta bedeutet deshalb seit dem vorherigen Startbericht, einschließlich Aktivitäten der vorigen Partie und des anschließenden Ladens.
+- Die 52 unterdrückten Absenkungen sind Ereignisse zwischen den beiden Startmeldungen. Sie sind weder 52 eindeutig identifizierte Kartenfelder noch ausschließlich Ereignisse der zweiten Sitzung oder ihres Ladeprozesses.
+- `loadPitchTiles` zählt erreichte aktive Normalisierungsfälle. `loadRaisedTiles` steigt nur bei einem tatsächlichen Schreibzugriff mit vom Zielwert verschiedener Höhe; der Name beweist nicht für jeden Fall eine vorherige Absenkung um genau vier.
+- AIV- und manueller Überbau blieben bei null. Der Lauf nimmt diese Teilfunktionen damit nicht ab.
+- Beide Feuervergleichszähler blieben bei null. Das belegt keine gezählte einschlägige Höhenanpassung bis zum Bericht; es ist weder ein Erfolgstest der Feuerkorrektur noch ein Beweis, dass keine Feuerfunktion lief.
+- Es gibt keinen abschliessenden Zählerbericht beim Missions- oder Prozessende. Die letzten ausgegebenen Totals gelten bis zur Startmeldung um 11:03:20.634, nicht als vollständige Messung aller späteren Aktionen bis 11:03:54.
+- Für Darstellung und Platzierungsgrenze gibt es hier keine entsprechenden Laufzeitzähler. READY belegt die Installation, nicht das richtige sichtbare Ergebnis.
+
+### 21.5 Ergebnis und verbleibende Spielabnahme
+
+**Belegt sind die erfolgreiche Aktivierung im laufenden Spiel und die wirksame Ladenormalisierung der untersuchten Pechfelder.** Der Neuspiel-Startpfad samt Diagnose lief ebenfalls; weil beim Start kein Pech vorhanden war, wurde damit vorplatziertes Kartenpech im Neuspiel noch nicht geprüft.
+
+Im Log wird der tatsächliche Abriss oder Fortbestand der betroffenen Gebäude nicht direkt erfasst. Daher folgt daraus allein weder die vollständige Behebung des historischen Abrissfalls noch ein nachgewiesener Neuspiel-Speichern-Laden-Zyklus desselben Saves. Ebenfalls offen bleiben Darstellung, Pechüberbau per AIV und manuell, Platzierungsgrenze, Feuerweitergabe an Höhengrenzen, Editor und echter MP-Host/Client. Die Editorimplementierung aus 20.6 ist von ihrer noch offenen Spielabnahme zu unterscheiden.
+
+Die Nutzerbeobachtungen zur gleitenden Bewegung und ausbleibenden Rückkehr werden als Beobachtungen des kombinierten Testlaufs festgehalten. Der weiter untersuchte MoatMove-Bewegungsweg und die getrennten Wartefristen sind Gegenstand des Nachtrags im PathfindingFinalReport; mit dieser Dokumentation wurden keine Laufzeitkorrekturen vorgenommen.
+
+### 21.6 Nachprüfung und Ergänzungen (02.11.2026, Claude Code)
+
+Geprüft am selben Log (SHA-256 unverändert 725265D7…5D97, Stand 11:29) und an der kanonischen DLL.
+
+**Build des Laufs.** Installiert war der DEVDIAG-Build vom 02.11.2026 04:10:53. Buildrecord: `.work/b/working/637.build.json`. SHA-256 der `PitchStairsTest.dll`: 0318A601A2A1385CECF0F5132AFA0917786FBBD631459CA0AC6E3BB2166B4640. Der Build enthält den damals noch nicht committeten Umbau des Feuer-Nachbar-Stubs auf zwei Aufrufwege ohne Stackeingriff. Anlass war ein Fehler der Zeilenvarianten `0x9987C`/`0x998D1`: Ihr deaktivierter Pfad übernahm nicht die Flags des Aufgerufenen, wie Vanilla es tut. Die Folge war ein von der Stackadresse abhängiges Parity-Flag. Im Spiel war das harmlos, weil `sub edi,eax` die Flags neu setzt. Die Buildblockade aus 20.4 ist damit erledigt.
+
+**Herkunft des geladenen Saves.** `test2_pitchstrais2.sav` wurde zuletzt am 01.11.2026 um 20:44:40 geschrieben, also vor dem ersten Build des Testmods. Der zweite Start lud damit einen von Vanilla geschriebenen, betroffenen Spielstand.
+
+- Die 173 angehobenen Felder sind die Korrektur dieses alten Saves.
+- Nutzerbestätigung nach dem Laden: Die Gebäude hinter dem Pech blieben stehen, und die Einheiten erreichten die Treppe.
+- Damit ist der Abnahmepunkt „betroffenen Vanilla-Save laden“ erfüllt.
+- Ein Zyklus aus Neuspiel, Speichern und Laden mit aktivem Mod fehlt weiterhin.
+- Ob die 52 `skippedLowerings` in der ersten Partie oder beim Laden anfielen, ist offen. Der Bericht am Missionsende (unten) trennt das künftig.
+
+**Feuer: offener Befund.** Laut Nutzer brannte in der ersten Partie Pech. Trotzdem blieben `fireSourceAdjusted` und `fireNeighborAdjusted` bei 0. Statisch müsste der Quell-Stub bei `0x997B4` auf Pechfeldern zählen. Die Kette ist in `_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/PITCH_STAIRS_HEIGHT.md` unter „Pitch fire path“ belegt:
+
+- Pech erzeugt Feuer vom Typ 9 über `0x7D280 → 0x9C430 → 0x9C450 → 0x9B2B0`.
+- Der Handler `0x2DA9C0[9] = 0x99420` wird pro Tick über `0x9F960` aufgerufen.
+- Der Pechbau löscht das Bit `0x2000` auf dem Pechfeld.
+- Im Brandpfad liegt kein fremder Hook.
+
+Die Ursache ist ungeklärt.
+
+**Folgemaßnahmen im Testmod:**
+
+- `PITCH_STAIRS_SESSION_END` meldet die Zähler beim Missionsende, mit Delta seit dem letzten Bericht.
+- Nur im DEVDIAG-Build zählen die Feuer-Stubs zusätzlich ihre Ausführungen sowie Pechfelder mit und ohne `0x2000`. Ausgegeben wird das als `DEVDIAG PITCH_STAIRS_FIRE` bei Start und Ende.
+- Die Release-Stubs sind unverändert; StubTests prüft beide Varianten.
+
+**Relevanz.** Für Erreichbarkeit, Abriss und Wegfindung ist der Feuerbefund unerheblich. Er betrifft nur die gewählte Erhaltung der Vanilla-Feuerweitergabe. Greifen die Stubs nicht, wertet die Weitergabe von und zu Pech die Felder 4 höher als Vanilla. Das ändert nur Fälle nahe der Grenze |Δh| = 25, etwa Pech vor Treppe oder Mauer.
+
+**Nächster Spieltest:**
+
+1. Neues Spiel starten, Pech legen und anzünden.
+2. Das Pech vollständig abbrennen lassen und die Partie beenden.
+3. Das Log sichern.
+
+Danach `fireSourceCalls`, `fireSourcePitch` und `fireSourcePitchEdge` gegen `fireSourceAdjusted` auswerten.
+
+## 22. Feuermessung vom 02.11.2026 und Bedeutung von MiscDisplay 0x2000
+
+### 22.1 Lauf
+
+Host-Prozesslauf vom 02.11.2026, 12:00:49 bis 12:02:00.
+
+- Log: `LogOutput.log`, SHA-256 5D8F4AEE50E5FAA95F568C1DE98ADB2303FF04CD54D7F028C1F52D872796FC1F, 585.564 Bytes. Eine Kopie liegt im Scratchpad der Claude-Code-Sitzung.
+- Build: DEVDIAG vom 02.11.2026 11:55, Buildrecord `.work/b/working/638.build.json`.
+- Spiel: ein lokales Neuspiel (Session 1, `NewGame`, Singleplayer-Skirmish). Pech wurde gelegt und angezündet. Ende durch Beenden des Programms (`reason=ApplicationExit`).
+
+| Zähler bei `PITCH_STAIRS_SESSION_END` / `DEVDIAG PITCH_STAIRS_FIRE point=end` | Wert |
+|---|---:|
+| skippedLowerings | 24 |
+| fireSourceAdjusted / fireNeighborAdjusted | 0 / 0 |
+| fireSourceCalls | 648 |
+| fireSourcePitch | 305 |
+| fireSourcePitchEdge | **305** |
+| fireNeighborCalls | 220 |
+
+Der Brandpfad 0x99420 lief also, 305-mal auf einem Pechfeld. Jedes dieser Felder trug MiscDisplay 0x2000, deshalb hat der Stub nie angepasst. Der Endbericht und die neuen Zähler funktionieren.
+
+### 22.2 Nativer Befund: 0x2000 auf Pech bedeutet „für den lokalen Spieler sichtbar“
+
+Statische Disassembly der kanonischen DLL:
+
+- Der Kacheldurchlauf 0x65830 wird pro Simulationsblock aus 0xCDE60 aufgerufen (0xCE0E1), außerdem aus dem Editorpfad 0x5BC70.
+  - Am Kopf jeder Kachel lädt er `r10d = 0xFFFFDFFF` (0x67630).
+  - Für Kacheln mit PitchTrap löscht er 0x2000 (0x682D9) und sucht den Pechdatensatz (0x695C0).
+- Danach setzt er MiscDisplay `0x800` (0x683A1) und `0x2000` (0x683D8) und eine Pech-Sprite-ID, wenn eine der folgenden Bedingungen zutrifft:
+  - ein globales Flag ist gesetzt (0x682FE);
+  - der Pechzustand ist mindestens 2, also brennend oder ausgebrannt (0x6830B);
+  - der Besitzer des Datensatzes gehört zum Team des lokalen Spielers (0x68316..0x68334, Tabelle 0x37EDF3C, Index ist ein globaler Spielerindex);
+  - ein weiteres globales Flag ist gesetzt (0x68336).
+- Sonst bleibt 0x2000 gelöscht. Gegnerisches, nicht brennendes Pech ist für den lokalen Spieler verborgen.
+- Außer diesem Durchlauf setzt nur der Gebäudeabriss 0x628F0 das Bit 0x2000, nach der Randprüfung 0x6C510 (0x629EF). Die Pechplatzierung 0x59380 löscht es (0x59502). Das ergab ein Scan aller Schreibzugriffe auf das MiscDisplay-Raster mit verfolgten Sofortwerten.
+
+Folgerungen:
+
+1. **Darstellung in Vanilla.** Sichtbares Pech (0x2000) zeichnet der Renderer ohne Ausgleich, also 4 tiefer: ein sichtbarer Graben. Verborgenes Pech zeichnet er mit dem +4-Ausgleich auf Bodenhöhe, damit der Gegner es nicht erkennt. Die Bezeichnung „Footprint-Rand“ aus den Abschnitten 19 bis 21 trifft für Pech nicht zu. Diese älteren Abschnitte bleiben als historischer Stand erhalten.
+2. **Feuer.** Vanillas Brandweitergabe liest die rohe Höhe. Diese ist für jedes Pechfeld abgesenkt, unabhängig von 0x2000. Die Feuer-Stubs ließen wegen ihrer Regel „Pech ohne 0x2000“ alles eigene, verbündete und brennende Pech unangepasst. Nur verborgenes gegnerisches Pech wurde angepasst. Unter B wird damit fast jede Feuerweitergabe über Pech mit 4 Einheiten höheren Pechfeldern berechnet als in Vanilla.
+3. **Mehrspieler.** 0x2000 hängt auf jedem Rechner vom lokalen Spieler ab. In Vanilla beeinflusst das Bit offenbar nur die Darstellung; sonst würde Vanilla im Mehrspieler desynchronisieren. Die Feuer-Stubs machen daraus eine Spielentscheidung. Bei gegnerischem Pech können Host und Client Feuer deshalb unterschiedlich weitergeben, was einen **Desync** bedeuten würde. Render- und Platzierungsstub betrifft das nicht, denn dort entscheidet Vanilla selbst mit dem Bit, und beide wirken nur auf die Darstellung.
+4. **Mauern.** AIV-Überbau (0x6CCE3) und manueller Überbau (0x6F6B1) löschen PitchTrap. Ein Mauerfeld trägt also nie das Pech-Flag.
+
+### 22.3 Korrektur (umgesetzt am 02.11.2026, Spieltest offen)
+
+- **Feuer-Stubs:** Die Bedingung 0x2000 entfällt. In Vanilla abgesenkt ist ein Feld genau dann, wenn PitchTrap gesetzt ist. Beim Nachbarstub bleibt der Ausschluss von Strukturfeldern (eigener Pfad von 0x6B910).
+- **Bekannte Grenze:** Das Fenster nach 0x7D4A0 bleibt bestehen. Dort ist die Höhe wiederhergestellt, das Flag aber bis zur Entfernung noch gesetzt.
+- **Umgesetzt:**
+  - `IsVanillaLoweredPitch` und der DEVDIAG-Scan prüfen 0x2000 nicht mehr.
+  - Der DEVDIAG-Zähler heißt jetzt `fireSourcePitchVisible`. Er beobachtet das Bit nur und beeinflusst keine Entscheidung.
+  - StubTests: Fälle mit und ohne 0x2000 liefern dasselbe Ergebnis. 5412 Prüfungen bestehen.
+  - UpdateToNewDLL.md ist aktualisiert.
+- **Darstellung unter B:** Sichtbares Pech erscheint auf Bodenhöhe statt 4 tiefer. Das passt zu den ebenfalls rohen Höhen der Einheiten (0x19B260 u. a.) und der Feuereffekte (0x7D44B, 0x9C8B8). Ein abgesenktes Zeichnen nur des sichtbaren Pechs würde Einheiten und Flammen 4 Einheiten darüber schweben lassen. Das ist eine Nutzerentscheidung; empfohlen wird, die einheitliche Bodenhöhe beizubehalten.
+
+### 22.4 Spieltest der Korrektur (02.11.2026)
+
+Host-Prozesslauf vom 02.11.2026, 12:15:19 bis 12:16:39.
+
+- Log: SHA-256 DD66B6AA08E6A237F0453955A75967256F3570E1D44CBE9F55A2F3CE191BCE8C, 558.793 Bytes. Eine Kopie liegt im Scratchpad der Claude-Code-Sitzung.
+- Build: DEVDIAG vom 02.11.2026 12:10, Buildrecord `.work/b/working/643.build.json`.
+- Spiel: ein lokales Neuspiel. Pech wurde gelegt und angezündet, Ende durch Beenden des Programms. Keine Error- oder Fatal-Zeilen im Log.
+
+| Zeitpunkt | Ergebnis |
+|---|---|
+| Start 12:15:39 (NewGame) | Vor dem Startbericht waren 173 Absenkungen unterdrückt. Der Scan fand 173 Pechfelder, davon keines mehr auf Vanilla-Höhe abgesenkt. Das Pech entstand also beim Kartenstart über 0x59380, nicht über die Ladenormalisierung (`loadPitchTiles=0`). |
+| Ende 12:16:39 | Weitere 39 Absenkungen unterdrückt, insgesamt 212. Die Feuerzähler stehen in der Tabelle darunter. |
+
+| Feuerzähler | Wert |
+|---|---:|
+| fireSourceCalls | 847 |
+| fireSourcePitch | 363 |
+| fireSourceAdjusted | **363** |
+| fireSourcePitchVisible | 363 |
+| fireNeighborCalls | 284 |
+| fireNeighborAdjusted | **125** |
+
+Jede Brandquelle auf Pech wurde jetzt angepasst. Die Nachbar-Anpassung greift ebenfalls. Damit nimmt der Lauf die Korrektur aus 22.3 auf Zählerebene ab. Ob das Feuer an Höhengrenzen genau wie in Vanilla übergreift, ist damit nicht einzeln belegt. Die Stub-Tests prüfen dafür die Rechenregel gegen den Vanilla-Block.
+
+**Darstellung:** Laut Nutzer ist visuell alles in Ordnung. Die einheitliche Bodenhöhe aus 22.3 bleibt bestehen; die Entscheidung ist damit getroffen.
+
+**Weiterhin offen:**
+- AIV- und manueller Überbau von Pech: Beide Zähler standen in allen bisherigen Läufen bei 0.
+- Editor.
+- Zyklus aus Neuspiel, Speichern und Laden mit aktivem Mod.
+- Echter Mehrspieler-Test mit Host und Client.
+
+### 22.5 Testplan für die offene Spielabnahme
+
+Die beiden Überbau-Stubs greifen nur, wenn eine Mauer oder Treppe auf ein vorhandenes Pechfeld gebaut wird. Beide prüfen vorher `test al,8`. Die Castillo-AIV hat das in beiden Läufen nicht ausgelöst. Deshalb sind gezielte Handgriffe nötig. Nach jedem Lauf das Log sichern; ausgewertet werden `PITCH_STAIRS_SESSION`, `PITCH_STAIRS_SESSION_END` und `DEVDIAG PITCH_STAIRS_SCAN`.
+
+1. **Manueller Überbau:**
+   - Im Neuspiel Pech legen.
+   - Darüber ein Mauerstück und eine Treppe bauen.
+   - Erwartung: `skippedManualRestores > 0`. Mauer und Treppe sind gleich hoch wie neben dem Pech. Einheiten steigen über die Treppe auf die Mauer.
+2. **Speichern und Laden mit aktivem Mod:**
+   - Denselben Stand speichern und laden.
+   - Erwartung: `loadPitchTiles` ist größer als 0. `loadRaisedTiles` bleibt bei 0 oder sehr klein, weil die Höhen bereits B entsprechen. Der Scan meldet `stillLowered=0`, und die Gebäude bleiben stehen.
+3. **Editor:**
+   - Eine Vanilla-Karte mit vorplatziertem Pech im Editor öffnen.
+   - Erwartung: `editorRaisedTiles` ist größer als 0, und der Scan meldet `stillLowered=0`.
+   - Danach im Editor eine Mauer über Pech setzen, die Karte speichern und als Partie starten. Die Mauer muss die normale Höhe haben.
+4. **Mehrspieler:**
+   - Host und Client mit identischer Modliste, eigenes und gegnerisches Pech, beides anzünden.
+   - Erwartung: kein Desync. Auf beiden Rechnern ist `fireSourceAdjusted` gleich `fireSourcePitch`. Das Client-Log liegt unter `\\LENOVO_SERP\…\LogOutput.log`.
+
+### 22.6 Abnahmelauf vom 02.11.2026, 12:53 bis 12:58
+
+**Quelle**
+- Log: SHA-256 6C87DA932A3E6FA82B88C8286D274DC72AEC6953E8F8350D0AD957A3CCC4810D, 833.666 Bytes. Eine Kopie liegt im Scratchpad der Claude-Code-Sitzung.
+- Build: DEVDIAG `.work/b/working/643.build.json`. Fixes-Mod und BugfixesAndQoL waren mitgeladen.
+- Keine Error- oder Fatal-Zeilen. Laut Nutzer sieht visuell alles korrekt aus.
+
+**Lauf**
+
+| Session | Ablauf | Ergebnis |
+|---|---|---|
+| 1 | `test2_pitchstrais3.sav` geladen, geschrieben am 02.11.2026 12:48:11 mit aktivem Mod (Build 12:10), über `DLL_LoadSaveGame`. Danach Weiterspielen. | Start: 1211 Pechfelder normalisiert, 0 angehoben, Scan `stillLowered=0`. Bis zum Ende: 26 Absenkungen unterdrückt, **7 manuelle Überbauten** unterdrückt, Feuer 332 von 332 Quellen und 100 Nachbarn angepasst. |
+| 2 | Neue Editorkarte (`EditorCreated`, 0 Pech). Darin Pech gelegt und überbaut, gespeichert als `Maps\test_pitch.map` (12:57:31). | 93 Absenkungen und **9 manuelle Überbauten** im Editor unterdrückt. `editorRaisedTiles=0`. |
+| 3 | `test_pitch.map` im Editor geladen (`EditorLoaded`). | **`loadPitchTiles=84`**, 0 angehoben, Scan 84 Pechfelder und `stillLowered=0`. 84 entspricht 93 gelegten minus 9 überbauten Feldern. |
+| 4 | `test_pitch.map` als Partie gestartet (`DLL_LoadMapToPlay`, `NewGame`). | 84 Pechfelder normalisiert, **3 AIV-Überbauten** unterdrückt, Scan 77 Pechfelder und `stillLowered=0`. |
+
+**Abgenommen** sind damit:
+- Speichern und Laden mit aktivem Mod: Die Höhen bleiben erhalten, nichts musste angehoben werden.
+- Manueller Überbau, im Spiel und im Editor.
+- AIV-Überbau.
+- Pechbau im Editor.
+- Laden einer Editorkarte und Kartenstart aus dem Editor.
+- Feuer.
+- Optik, laut Nutzer.
+
+Dass der Scan 77 statt 81 Pechfelder fand, also 4 weniger als 84 − 3, ist mit dem Log nicht weiter aufzuschlüsseln. Plausibel ist eine Pechentfernung durch den KI-Aufbau über 0x62EB0. Weiterhin offen ist allein der echte **Mehrspieler-Test** mit Host und Client.
+
+**Berichtigung zum Editor (20.6).** Das Laden einer Karte im Editor läuft über `DLL_LoadSaveGame` mit `bLoadingEditorMap=1` (Extender-Log, Zeile 3704) und damit über 0x71670 → 0x7D510 → 0x804C0. Der Aufrufbaum von 0x804C0 hat nur diese Wurzeln:
+- 0x853F0 (DLL_LoadSaveGame),
+- 0x84AC0 (DLL_LoadMapToPlay),
+- 0x1002A0/0x87C40/0x1054E0.
+
+Nur eine neu angelegte Editorkarte (0x85E90) umgeht die Normalisierung, und sie enthält kein vorhandenes Pech. Die verwaltete Editor-Normalisierung aus 20.6 hatte daher in beiden Editorstarts nichts zu tun. Für keinen Startweg ist sie nachweislich nötig.
+
+**Entfernt (02.11.2026, Nutzerentscheidung):**
+- die verwaltete Editor-Normalisierung,
+- die Hilfsregel `NativeCode.NormalizedPitchHeight`,
+- das Logfeld `editorRaisedTiles`.
+
+Den Editor-Ladeweg deckt der native Lade-Stub bei 0x80530 ab. Der DEVDIAG-Scan meldet weiterhin jeden Startweg, der noch abgesenktes Pech hinterlässt.
+
+### 22.7 Abschluss-Audit der Vanilla-Auswirkungen (02.11.2026)
+
+Gescannt wurden alle Funktionen der `.text`-Sektion, die die Höhe lesen oder schreiben (Raster +0xD7E5A0 bzw. RVA 0x4DDD350) und zugleich Logic-Bit 0x8 prüfen. Die Zuordnung zur Funktion erfolgte über `.pdata`. Ergebnis: 29 Funktionen.
+
+Die meisten Treffer sind `and`-Masken von Gebäude- und Geländeschreibern. Diese Masken behalten Bit 0x8, die Funktionen prüfen Pech also gar nicht. Die übrigen Treffer:
+
+| Funktion | Verhalten | Unter B |
+|---|---|---|
+| 0x639C0 | Graben über Pech: löscht PitchTrap, setzt Höhe 0 | gleich |
+| 0x5D740, 0x6D580 | löschen PitchTrap (Maske …F7), setzen Höhe = Default | gleich |
+| 0x10DDC0, 0x17CF50 | Einheiten: suchen nur den Pechdatensatz am Einheitenfeld (Entzünden), ohne Höhenentscheidung | unberührt |
+| 0x9C730 | Feuereffekt: entzündet Pech, liest die Höhe nur für die Effekthöhe | Optik vom Nutzer abgenommen |
+| 0x65830, 0x7D280 | bekannte Stellen: Platzierungs-Site bzw. Pechkette | wie dokumentiert |
+
+Damit bleibt kein unbekannter pechabhängiger Höhenverbraucher übrig. Die Begründungen für jede gepatchte und jede bewusst nicht gepatchte Stelle stehen jetzt als Kommentar in `Testmods/PitchStairsTest/src/NativeCode.cs` (Klassenkommentar und Site- bzw. Emitter-Kommentare).
+
+Grenzen des Scans:
+- Höhenzugriffe, die über einen Zeigerlauf laufen, sind separat erfasst (siehe Baseline „Pointer-walking grid loops“).
+- Pech-Prüfungen auf zuvor in ein Register geladene Logic-Werte erfasst der Scan nicht. Die bekannten Fälle dieser Art (0x6CB20, 0x6F230, 0x41D60) sind gepatcht.
+
+## 23. Korrekturen und Startschutz nach vertiefter Prüfung (02.11.2026)
+
+Dieser Abschnitt beschreibt den neuen Arbeitsstand. Die früheren Spielnachweise in Abschnitt 22
+gelten weiterhin für ihre damaligen Builds; sie nehmen die folgenden Änderungen nicht ab.
+Der ursprüngliche Schluss, ausschließlich ein echter MP-Lauf stehe noch aus, gilt für diesen
+überarbeiteten Stand daher nicht. Referenz bleibt der native SHA-256
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+
+### 23.1 Bestätigte Randfälle und Umsetzung
+
+- Beim Abbrennen stellt Vanilla die Höhe wieder her, bevor es den PitchTrap-Status entfernt.
+  Die frühere Feuerkorrektur zog während dieses Fensters erneut vier ab. Eine native Markerkarte
+  mit 320800 Bytes zeichnet nun den tatsächlichen Wiederherstellungsschritt auf. Neue Erzeugung
+  löscht den Feldmarker. Feuer verwendet bei Marker 1 die wiederhergestellte Höhe.
+- Laden löscht die Marker und rekonstruiert ausschließlich belegte terminale Pechrecords auf
+  gültigen Feldern mit Default unter vier. Vanilla senkt solche terminalen Höhen beim Laden
+  nicht erneut ab. Der native Recordvertrag wird unabhängig vom Extender-Reserved-Feld geprüft.
+- Pechketten vergleichen beide lokalen Operanden als max(0,Höhe−4), ohne reale Höhen oder R12
+  zu verändern. Das behebt insbesondere Sonderkarten mit Default-Höhen unter vier.
+- Die Extender-Tilemanager-Prüfung liegt vor Registry-Claim, Allokation und Veröffentlichung.
+  Eine Missionsstartprüfung kann die Regel nicht mehr nach veränderten Kartendaten abschalten.
+  Auch eine fehlgeschlagene Abschlusslogausgabe kann eine aktivierte Regel nicht zurücksetzen.
+- Die atomare Installation umfasst 14 permanente Sites und 320896 Zustandsbytes. Die drei
+  zusätzlichen Sites und alle Speicher-/Registerverträge stehen in
+  [UpdateToNewDLL.md](Testmods/PitchStairsTest/UpdateToNewDLL.md).
+
+### 23.2 Multiplayer-Vertrag
+
+Zurückgestellter Entwurf, kein aktiver Produktstand: Die folgenden Absätze dokumentieren den
+bearbeiteten MP-Ansatz. Die abschließende Nutzerentscheidung und der aktive Umfang stehen in 23.6.
+
+APIShared erhält einen additiven Startschutz mit synchronen, geordneten Validatoren auf dem
+Unity-Thread. Explizites Ready/Lock, Host-Veröffentlichung, Save-Koordinator, der vollständige eingehende
+Frontend-Startblock und direkte Lifecycle-Starts prüfen ihn vor den jeweiligen Seiteneffekten.
+Unready, Unlock und normale Lobbyupdates bleiben möglich. ExtendedData prüft vor der eigenen
+Vorbereitung; BFQoL prüft zusätzlich sämtliche unmittelbaren und verzögerten Host-Veröffentlichungen
+unabhängig von der Hookreihenfolge. Eine verweigerte AIV-Fortsetzung verwirft den Versuch, sodass
+späte ACKs ihn nicht mehr starten können. Es gibt keine automatische Wiederholung.
+Ein bereits veröffentlichter und dann verweigerter eingehender Start bleibt anhand seiner
+Steam-Lobby-ID und seines Startmarkers gesperrt, auch nach später übereinstimmenden Berichten.
+Erst ein beobachtetes Löschen/Ändern des Markers oder ein Lobbywechsel beendet diesen Versuch;
+ein bloß ausgetauschtes Lobbyobjekt mit gleicher ID und gleichem Marker genügt nicht.
+
+Der Testmod registriert vor LibraryLoaded einen langlebigen Validator und die informative,
+nicht schaltbare Settingsseite. Die vorhandene SyncPerPlayer-Koordination überträgt pending,
+failed:reasoncode oder den exakten Token aus Regelrevision und vollständigem Native-Hash.
+Jeder aktuelle menschliche Teilnehmer muss denselben Ready-Token melden; ein frischer
+Lobby-Snapshot muss zusätzlich mit den Identitäten der synchronisierten Slots übereinstimmen.
+Native Aktivierung setzt die erforderlichen Registrierungen und einen verfügbaren Startschutz
+voraus. Die erste vorgesehene APIShared-Version mit diesem Broker ist 0.25.0.
+
+### 23.3 Maschinenprüfungen und verbleibende Abnahme
+
+Die aktualisierten nativen Tests bestehen 11361 Checks. Sie verwenden den tatsächlichen
+Iced-/RedBird-Backend und führen die originalen Lade-, Ketten-, Abbrenn-, Entfernungs- und
+Neuerzeugungspfade in einem privaten PE-Abbild aus. Grenzprüfungen umfassen Default-Höhen
+0,1,2,3,4,8,255, Record-/Kartengrenzen, wiederholte Markerrekonstruktion und deaktivierte
+Originalsemantik. Die produktive Peerbericht-Policy besteht zusätzlich 85 Checks.
+Der zuletzt gesicherte Broker-Prüfstand besteht 111 isolierte Checks; er ist kein freigegebener
+Paketstand und deckt den automatischen Coop-Ready-Übergang noch nicht ab.
+
+Beschuss, Projektiltreffer und Seuche folgen wie entschieden der tatsächlichen B-Bodenhöhe.
+Gezielte native Fixtures vergleichen B-Pech mit normalem Boden derselben Höhe: vollständige
+Pfeilschadensrechnung an beiden Trefferbandgrenzen, Seuchenzulassung für Nachbarn und Außenring
+an der strikten Grenze 120 sowie Fernkampf-Höhenargumente und Korrekturmarker bei ±70.
+Der ±70-Marker ist kein pauschales Zielverbot. Sicht-/Zielprädikate im Fernkampf und Audio-/HUD-
+Senken sind isoliert; die Seuchenfixture zeichnet die Schadenszulassung auf. Die Fixtures
+belegen keine tatsächliche Sichtlinie, Noesis-Darstellung oder Spielabnahme.
+
+Auf ausdrücklichen Nutzerwunsch baut dieser Chat APIShared nicht. Isolierte Broker-/Hooktests,
+Quellprüfungen und ein Compile-only-Test des vollständigen Testmodcodes mit einem ausdrücklich
+als Testdouble gekennzeichneten Brokervertrag ersetzen keinen vollständigen Paketbuild.
+Die vorhandene APIShared-Paketausgabe 0.24.0 enthält den neuen Broker noch nicht; ein geprüfter
+Verbraucherbuild benötigt den späteren passenden SDK-Stand aus dem parallel bearbeiteten APIShared.
+Es wurde nichts installiert, veröffentlicht oder in einen Hauptmod übernommen.
+
+Offen bleiben der vollständige Build mit passendem SDK, die neuen Lifecycle-/Spielabnahmen
+(Neuspiel, Kartenpech, manueller/AIV-Überbau, Editor, wiederholtes Speichern/Laden und Feuer an
+Höhengrenzen), aktive APIShared-Seuchenregeln sowie ein echter Host-/Clientlauf mit identischem
+Paket und gezielt einseitig verweigerter Initialisierung. Erst danach ist die Hauptmod-Freigabe
+begründet. Alte +4-Treppen ohne Pechflag werden weiterhin nicht repariert.
+
+### 23.4 Zusätzliche Schlussprüfung des neuen Codes
+
+Die unabhängige Codeprüfung umfasste noch einmal alle nativen Emitter, Aktivierungs-/Fehlerpfade,
+Rosteridentitäten, verwaltete Hookreihenfolgen und verzögerte Veröffentlichungen. Dabei wurden
+zusätzliche Randfälle im neuen Startschutz gefunden und vor Abschluss korrigiert:
+
+- Direkte Aufrufe von Fremdthreads verweigern den Übergang, bevor sie Unity-/Lobbyzustand lesen,
+  terminale Sperren ändern oder einen vorbereiteten Save abbrechen. Echte Workerthread-Tests
+  prüfen diese ausbleibenden Nebenwirkungen.
+- Veraltete öffentliche Queries dürfen weder einen Save einer anderen Lobby noch einen anderen
+  Save derselben Lobby abbrechen. Absolute Archivpfade behalten ihre Verzeichnisidentität.
+- Unready und Unlock bleiben auch dann möglich, wenn eine andere Startschutzvoraussetzung fehlt.
+- Eine dauerhaft gesperrte Publikation bleibt über einen eigenen Statusprovider sichtbar;
+  später passende Peerberichte dürfen nicht irrtümlich eine automatische Ready-Meldung auslösen.
+- Automatisches Coop-Ready durch `FRONT_Multiplayer.doOpen` ruft den Button-Hook nicht auf.
+  Ein zusätzlicher Hook an `SetMemberReadyState` wurde untersucht, aber aus dem aktiven Stand
+  wieder herausgenommen: Der Coop-Host hat keinen entsprechenden Ready-Button, sodass eine
+  abgelehnte automatische Bereitschaft ohne gesonderten Wiederaufnahmepfad hängen bleiben kann.
+  Der Entwurf bleibt als Analysepatch erhalten; dieser Teil ist ausdrücklich nicht abgeschlossen.
+- BFQoL verwirft den Transferzustand vor Lokalisierung, UI-Ausgabe oder Logging, damit Fehler
+  dieser Ausgaben keinen abgelehnten Versuch für späte ACKs aktiv lassen.
+
+Diese zusätzlichen Prüfungen ändern die offenen Build-/Spiel-/MP-Abnahmen aus 23.3 nicht.
+
+### 23.5 Neubewertung des MP-Umfangs auf Nutzerwunsch
+
+Identische Mod-/DLL-Dateien garantieren keinen identischen Erfolg von OS-Speicheroperationen.
+Die installierte RedBird-Implementierung benötigt einen ausführbaren 64-KiB-Slab innerhalb
+±1,75 GiB des Hookziels. Allokations- oder Speicherschutzfehler können prozessabhängig sein.
+ASLR allein verändert dagegen weder RVAs noch Instruktionsspannen und ist kein belegter
+Fehlergrund. Die deterministischen Vertragsprüfungen sollten bei identischen Livebytes
+gleich ausfallen; eine feste Hooküberschneidung betrifft grundsätzlich beide Installationen.
+
+Ein asymmetrischer Installationsausfall ist damit technisch möglich, für PitchStairs aber
+weder auf Host/Client reproduziert noch als wahrscheinlich belegt. Daraus folgt kein Nachweis
+eines normalen Desyncs bei beidseitig erfolgreicher Installation. Der allgemeine Broker ist
+ein zusätzlicher Fehlerfallschutz mit deutlich größerem Start-/Save-/UI-Umfang als die nativen
+Fehlerkorrekturen. Die Freigabe dieses Umfangs wird nach dem neuen Nutzerwunsch gesondert
+entschieden. Empfehlung für den kleinsten Risikoumfang: bestätigte native Korrekturen, frühe
+atomare Validierung, NetworkMode 1 und echte passende Host-/Clientabnahme priorisieren.
+Alle bisherigen Quellen und Nachweise bleiben erhalten; nichts wurde installiert.
+
+### 23.6 Abschließende Nutzerentscheidung: nativen Umfang fertigstellen
+
+Der Nutzer hat nach der Risikobewertung ausdrücklich entschieden, die bestätigten nativen
+Korrekturen abzuschließen und den umfassenden MP-Startschutz separat zurückzustellen.
+Broker, Peerbericht-/Statusseite und zugehörige Eingriffe in Ready-/Start-/Savewege gehören
+daher nicht mehr zum aktiven Quellstand. Die Entwürfe, Patches, Originalpfad-/Hashmanifeste
+und der isolierte 111-Check-Nachweis liegen unter `.work/a/pitch-fix/001/deferred-mp`.
+Die ungeprüfte zusätzliche AutoReady-Erweiterung liegt separat als Analysepatch vor.
+Fremde, parallel bearbeitete APIShared-Änderungen bleiben erhalten.
+
+Aktiv bleiben die 14 hashgebundenen nativen Sites, die Markerkarte, der niedrige Kettenvergleich,
+die frühe Tilemanager-Prüfung und die unveränderliche Regel nach erfolgreicher Installation.
+Der Plugin-Lifecycle verwurzelt veröffentlichte Kandidaten auch im Fehlerpfad. Testmod 0.1.1
+unterscheidet diese korrigierte Regel vom bisherigen 0.1.0; NetworkMode 1 bleibt gesetzt.
+Die bisherige APIShared-Mindestversion 0.23.0 genügt weiter. Der Abschlussbuild verwendet den
+vorhandenen installierten SDK, baut APIShared nicht und installiert keine Ausgabe.
+
+Die native Maschinenprüfung umfasst weiterhin 11361 Checks; die zusätzlichen Broker- und
+Peerbericht-Checks sind nur Nachweise des zurückgestellten Entwurfs. Echte Spiel-/Editor-/Save-
+und Host-/Clientabnahme bleiben erforderlich. Die Hauptmod-Übernahme ist nicht Teil dieses Schritts.

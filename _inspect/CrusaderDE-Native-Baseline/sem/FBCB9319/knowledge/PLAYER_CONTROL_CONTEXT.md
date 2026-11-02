@@ -234,3 +234,87 @@ view-lease integration and live save identity protection, Spectator consumption,
 acceptance are not established by these findings. They need separate completed
 audits and tests before foreign control may be exposed. No live-game or real
 host/client acceptance is claimed here.
+
+## Local control coordinator (2026-11-02) [mod integration]
+
+`LocalControlRuntime` now owns the ordering that the fixtures above previously sequenced
+by hand. Under the engine monitor it binds session and queue to one native world before
+publishing handler demand, and retires in the order demand 0, input actor 0, queue end,
+session end, then the ended world's save identity. The latter matters because
+`RetireEndedWorld` requires the engine context; a lifecycle observer outside it would
+otherwise leave a stale binding that refuses every save in the next world. A queue capture
+with a native body above the 1260-byte command limit now also leaves a rejection tombstone
+(a slot can carry up to 0x500-17 bytes), and the input stub reads its actor cell once.
+The runtime is still unwired; no live-game acceptance is claimed.
+
+## Shared view ownership follow-up (2026-11-02) [mod integration]
+
+The coordinator-order observation above predates the shared-identity follow-up.
+The current implementation uses one `PlayerViewIdentityRuntime`/`ControlSaveIdentity`
+for participant perspectives, Save, raw Chore send and the unwired local-control
+runtime. Immutable owner/world/controller/token leases prevent role adoption and
+stale cleanup. Only the neutral lifecycle root retires invalidated native worlds.
+Local retirement confirms suspended input before releasing its own lease and only
+then returns input to Vanilla; failures retain the required input/identity protection.
+
+Native control wiring still requires a separate queue retirement proof.
+`SinglePlayerNativeQueue.End` removes managed sidecars, not the native slots.
+The zero-demand branch emitted by `ControlHandlerBridge` jumps to the original
+handler, bypassing the sidecar rejection path. Therefore managed queue cleanup or
+view restoration is not evidence that previously enqueued foreign commands have
+drained. Prove native reset/drain before disabling this guard in a future backend.
+No control input/handler bridge was installed by this ownership change.
+
+## Second spectator-input boundary and Vanilla deselection (2026-11-02) [Vanilla facts]
+
+Rechecked against the canonical native SHA-256 above. Inside the input dispatcher
+`0x8C5F0` (called only from `DLL_RunTick` and recursively), the branch at
+`0x8D0D0..0x8D109` requires stack flags `[rsp+0xD8]==0`, `[rsp+0xD0]==0`, BL==0 and
+ESI==1, loads the input state `[0x1860AD56C]` into EBX, calls `0x897F0` and continues
+only if that previous state was nonzero. It then loads EBX=[view] (`0x8D10B`), compares
+the spectator flag `0x3666080` (`0x8D115`), executes CMOVNE EAX,EDI (`0x8D128`, EDI=0
+from `0x8D0C8`), XOR R9D,R9D (`0x8D12B`) and MOV [view],EAX (`0x8D12E`), recursively
+calls `0x8C5F0` with mode 3 (`0x8D15B`) and restores EBX (`0x8D16D`). Spectator map
+input is therefore suppressed at this nested re-dispatch as well as in `DLL_RunTick`.
+No direct branch in the dispatcher targets `0x8D129..0x8D133`, and a byte-level scan
+of `.text` found no rel8/rel32 branch or call into that span or `0x868F7..0x86903`.
+
+`DLL_GameAction` `CloseTroopsPanel` (1040, `0x410`) calls `0x897F0`: it resets app
+modes `0x3D`/`0x3E`, and with a nonzero local marked count (`unit manager +0x20`)
+calls `0x19A5B0` (opcode 15 via the local queue `0x23990`, whose source is the
+current native view) and `0x82F0`; it then clears local marking (`0x186C50`) and the
+input state. `EditorDirector` uses the same action for right-click deselection. The
+managed wrapper has no branch for its zero result. Whether the opcode-15 handler
+releases every group reservation (`+0x2A`) is not established statically.
+
+The spectator flag has further readers (`0x41D60`, `0x6E620`, `0xB5690`, `0x1D160`,
+`0x65830`, `0x94350`, `0x884D0`, `0x38A0`, `0x109EF0`, GameAction `0x40C`). For example
+`0x1D160` tests `human[view]==0 && !spectator`; clearing the flag to grant input would
+change these unrelated semantics. Managed placement/demolition
+(`EditorDirector` -> `PlaceMapperItem`/`DeleteBuilding`) passes
+`EditorDirector.ActivePlayerID`, which `DLL_MapAction` writes temporarily as the view.
+
+## Spectator input control (2026-11-02) [mod integration]
+
+APIShared installs both boundaries (`[0x868F6,0x86900)` Indirect/10 and
+`[0x8D128,0x8D12E)` Indirect/6, the latter followed by the unchanged store) for this
+hash only, on the first consumer registration (none without a consumer). A clear spectator
+comparison (ZF set) always follows the original block. `LocalInputControl` owns the actor cell;
+`PlayerPerspectiveAPI.TrySetSpectatorControl` deselects as the old view, confirms
+the new view and only then publishes the actor, all under the engine monitor that
+serializes `DLL_RunTick`. World invalidation resets the actor without commands.
+This is full Vanilla input of one player for original offline spectators, not the
+rights-gated backend, which together with mixed-owner and multiplayer control stays
+WIP. Executable fixtures cover both stub forms; no live-game acceptance is claimed.
+
+## Human registration and controlled AI players (2026-11-02) [Vanilla facts]
+
+`0x8574BCC` is the per-player human registration (written by load `0x853F0`, kick
+`0x84A30`, start `0x8AE80` and, in editor mode only, `DLL_SetEditorPlayer`). The input
+dispatcher `0x8C5F0`, selection `0x191130`, order staging `0x195E30`, opcode-17 handler
+`0x196100` and deselection `0x897F0` do not read it. `0x8AA20` admits building interaction
+when the owner's team equals the view's team (or for a non-human AI owner); `0xCC420` has an
+AI branch in placement validation that reflects Vanilla's own rules for that owner. Managed
+player-ID arguments outside the native view appear only in `PlaceMapperItem`/`DeleteBuilding`
+(`EditorDirector.ActivePlayerID`), the ally panel (`GameData.playerID`), insults, chat and merit.
+Static evidence; controlling an AI player in a live mission still needs in-game confirmation.

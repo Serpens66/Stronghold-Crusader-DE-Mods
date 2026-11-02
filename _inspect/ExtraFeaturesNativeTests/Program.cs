@@ -29,7 +29,6 @@ namespace ExtraFeatures
                 NoKillRewardContractTests.Run(image);
                 HealerTargetsContractTests.Run(image, FindWorkspace());
                 FearFactorStubTests.Run(image, Check);
-                EnemyProximityNativeTests.Run(image, Check);
                 Console.WriteLine($"PASS: ExtraFeatures native tests ({assertions} assertions).");
                 return 0;
             }
@@ -151,6 +150,8 @@ namespace ExtraFeatures
             CheckPattern(image, 0x9F866, "E8 ?? ?? ?? ?? 83 3D ?? ?? ?? ?? 1E 7F ?? 0F BF 4B 1C 48 8D 15 ?? ?? ?? ??", "apothecary distance hook span and return boundary");
             CheckPattern(image, 0x151436, "66 46 39 B4 2B 14 09 00 00 75 22 66 46 39 B4 2B 9E 09 00 00 74 17", "Monk movement hook and following branch");
             Check(ReadInt32(image, 0x9A16D) == 800, "plague lifetime immediate");
+            // PlagueDurationPatch.MaximumLifetime (32767 - 3) assumes a Disease (type 22) phase step every 4 calls.
+            Check(ReadUInt16(image, 0x2DAF70 + 22 * 4) == 4, "Disease phase period behind the plague lifetime limit");
             Check(image[0x9F871] == 30, "apothecary Vanilla distance immediate");
         }
 
