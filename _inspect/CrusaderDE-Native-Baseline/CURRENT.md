@@ -46,6 +46,8 @@ Semantic reverse-engineering baseline:
 
 ## Vanilla behavior audits
 
+- [Pitch traps and stairs](./sem/FBCB9319/knowledge/PITCH_STAIRS_HEIGHT.md): direction/search height inconsistency, AIV/manual construction over pitch and independent building-access boundary checks; original-code isolated execution, no production fix or live-game acceptance.
+
 - [Save writer routes and synchronized saves](./sem/FBCB9319/knowledge/SAVE_WRITER_ROUTES.md): autosave/Chore 39, ordinary export and Trail-template routes; shared writer and MP Lord-name limits.
 
 - [AI woodcutter retirement and repeated construction](./sem/FBCB9319/knowledge/AI_WOODCUTTER_RETIREMENT.md): retirement thresholds, worker path/counter writers, accessibility propagation and temporary coarse-cell avoidance; static audit, no save-specific cause claim.
@@ -63,6 +65,8 @@ Only Vanilla behavior; Script Extender names appear only as vocabulary.
 - [Surrender selection and multiplayer checksum audit](./sem/FBCB9319/knowledge/SURRENDER_SELECTION.md): selected Lord field, checksum buckets, deselection and trace evidence.
 
 ## Vanilla audits with mod integration
+
+- [Player-control context and Chore issuer](./sem/FBCB9319/knowledge/PLAYER_CONTROL_CONTEXT.md): transport-source flow, identity-only native helper, view-dependent enqueue, selection reservation side effects and the additive APIShared adapter; foreign-control backend and peer acceptance remain pending.
 
 - [Desync capture and native unit wire-record prefix](./sem/FBCB9319/knowledge/DESYNC_CAPTURE.md): independently decoded four-byte wire/typed-view distinction, exact signed-byte checksum inputs, disabled native timeout logger and local-immediate dispatch boundary; fixture evidence with real multiplayer acceptance pending.
 

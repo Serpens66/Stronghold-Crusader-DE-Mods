@@ -1,0 +1,92 @@
+@echo off
+setlocal EnableExtensions
+rem SHCDE_BRANCH_DISPATCH: select committed sources; the selected child owns its build.
+if defined SHCDE_BRANCH_SOURCE_ROOT goto :shcde_branch_selected
+if defined SHCDE_BRANCH_PINNED goto :shcde_branch_selected
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0../../Shared\Tools\BranchBuild\Invoke-BranchBuild.ps1" -Repository "%~dp0../../." -Driver "Testmods/PitchStairsTest/build.bat" %*
+set "SHCDE_BRANCH_RESULT=%ERRORLEVEL%"
+set "SHCDE_BRANCH_PAUSE=1"
+for %%A in (%*) do if /I "%%~A"=="/nopause" set "SHCDE_BRANCH_PAUSE=0"
+if "%SHCDE_BRANCH_PAUSE%"=="1" pause
+exit /b %SHCDE_BRANCH_RESULT%
+:shcde_branch_selected
+endlocal
+@echo off
+setlocal EnableExtensions
+set "BUILD_DRIVER_NOPAUSE=0"
+for %%A in (%*) do if /I "%%~A"=="/nopause" set "BUILD_DRIVER_NOPAUSE=1"
+set "BUILD_DRIVER_ORIGINAL_DIR=%CD%"
+echo [%date% %time%] START PitchStairsTest
+cd /d "%~dp0"
+if not "%ERRORLEVEL%"=="0" goto :build_driver_directory_failed
+rem The outer driver owns the pause, including failures before compilation.
+call :build_driver_main %* /nopause
+set "BUILD_DRIVER_RESULT=%ERRORLEVEL%"
+cd /d "%BUILD_DRIVER_ORIGINAL_DIR%"
+echo [%date% %time%] END: exit code %BUILD_DRIVER_RESULT%
+if "%BUILD_DRIVER_NOPAUSE%"=="0" pause
+exit /b %BUILD_DRIVER_RESULT%
+
+:build_driver_directory_failed
+echo ERROR: Cannot enter the build directory "%~dp0".
+if "%BUILD_DRIVER_NOPAUSE%"=="0" pause
+exit /b 1
+
+:build_driver_main
+echo [%date% %time%] Workspace source and runtime preflight
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\..\Shared\Tools\Validation\Test-SharedBoundaries.ps1" -ModDirectory "Testmods/PitchStairsTest"
+if not "%ERRORLEVEL%"=="0" exit /b 1
+setlocal EnableExtensions
+set "PROJECT_DIR=%~dp0"
+set "MSBUILD=C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\MSBuild.exe"
+set "GAME_DIR=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition"
+set "EXTENDER_DIR=%GAME_DIR%\BepInEx\plugins\000shcdese"
+if defined SHCDESE_EXTENDER_DIR set "EXTENDER_DIR=%SHCDESE_EXTENDER_DIR%"
+set "API_SHARED_DIR=%~dp0..\..\APIShared\BepInEx\plugins\APIShared_Serp"
+rem APIShared source: /apishared:main (release branch) or /apishared:dev (local checkout, default).
+call "%~dp0..\..\Shared\Tools\ApiSharedRepository\Select-ApiSharedBranch.cmd" %*
+if not "%ERRORLEVEL%"=="0" exit /b 1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\..\Shared\Tools\ApiSharedRepository\Test-ConsumerPackage.ps1" -Workspace "%~dp0..\.." -PackageDirectory "%API_SHARED_DIR%"
+if not "%ERRORLEVEL%"=="0" exit /b 1
+set "LOCAL_PLUGIN_DIR=%PROJECT_DIR%BepInEx\plugins\PitchStairsTest_Serp"
+set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\PitchStairsTest_Serp"
+set "NO_INSTALL=0"
+for %%A in (%*) do if /I "%%~A"=="/noinstall" set "NO_INSTALL=1"
+
+echo [%date% %time%] Native contract checks
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%verify.ps1"
+if not "%ERRORLEVEL%"=="0" goto failed
+if not exist "%MSBUILD%" goto failed
+if not exist "%EXTENDER_DIR%\SHCDESE.dll" goto failed
+if not exist "%API_SHARED_DIR%\APIShared.dll" goto failed
+
+pushd "%PROJECT_DIR%"
+echo [%date% %time%] Stub machine tests
+"%MSBUILD%" PitchStairsTest.StubTests.csproj /nologo /v:minimal /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
+if not "%ERRORLEVEL%"=="0" goto failed_popd
+"%PROJECT_DIR%tests\bin\PitchStairsTest.StubTests.exe" "%GAME_DIR%\Stronghold Crusader Definitive Edition_Data\Plugins\x86_64\CrusaderDE.dll"
+if not "%ERRORLEVEL%"=="0" goto failed_popd
+echo [%date% %time%] Check that the game is closed
+powershell.exe -NoProfile -Command "if (Get-Process -Name 'Stronghold Crusader Definitive Edition' -ErrorAction SilentlyContinue) { exit 1 } else { exit 0 }" >nul 2>&1
+if not "%ERRORLEVEL%"=="0" goto failed_popd
+echo [%date% %time%] Compile project
+"%MSBUILD%" PitchStairsTest.csproj /t:Rebuild /nologo /v:minimal /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /p:ApiSharedDir="%API_SHARED_DIR%"
+if not "%ERRORLEVEL%"=="0" goto failed_popd
+popd
+echo [%date% %time%] Copy package files
+copy /Y "%PROJECT_DIR%info.json" "%LOCAL_PLUGIN_DIR%\info.json" >nul
+if not "%ERRORLEVEL%"=="0" goto failed
+if "%NO_INSTALL%"=="1" (
+  echo Pitch Stairs Test built locally; installation skipped.
+  exit /b 0
+)
+xcopy "%LOCAL_PLUGIN_DIR%" "%GAME_PLUGIN_DIR%\" /E /I /Q /Y >nul
+if not "%ERRORLEVEL%"=="0" goto failed
+echo Pitch Stairs Test built and installed.
+exit /b 0
+
+:failed_popd
+popd
+:failed
+echo Pitch Stairs Test build or installation failed.
+exit /b 1

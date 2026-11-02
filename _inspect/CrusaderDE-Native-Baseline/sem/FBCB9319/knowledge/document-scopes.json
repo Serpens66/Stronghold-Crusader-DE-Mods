@@ -21,6 +21,18 @@
   },
   "documents": [
     {
+      "file": "PLAYER_CONTROL_CONTEXT.md",
+      "scope": "vanilla+integration",
+      "components": ["APIShared"],
+      "integrationSections": ["APIShared adapter", "Audit limits"]
+    },
+    {
+      "file": "PITCH_STAIRS_HEIGHT.md",
+      "scope": "vanilla",
+      "components": [],
+      "integrationSections": []
+    },
+    {
       "file": "SAVE_WRITER_ROUTES.md",
       "scope": "vanilla",
       "components": [],

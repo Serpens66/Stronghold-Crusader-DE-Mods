@@ -50,6 +50,13 @@ Vor jedem Tool- oder Shellaufruf die einschlägigen Punkte prüfen; bereits doku
 - Ist eine vollständig in Markdown formatierte Antwort verlangt: genau ein äußerer Codeblock ab ` ```markdown ` bis ganz zum Ende, darin keine weiteren dreifachen Backticks (Code mit vier Leerzeichen einrücken).
 - Lange Prozesse: Fortschritt beobachtbar machen (getrennte Logs, Zeitstempel, CPU, Loggröße, Zwischenstände); nicht wegen eines kurzen Shell-Timeouts als hängend behandeln. Bei voraussichtlich > 5 Minuten den Nutzer fragen, ob fortgesetzt werden soll; ein sicher laufender Prozess darf währenddessen weiterlaufen.
 
+### Unteragenten und Aufgabenverteilung
+
+- Chats dürfen jederzeit eigenständig und ohne zusätzliche Rückfrage Unteragenten zur Aufgabenverteilung einsetzen, wenn dies die Arbeit voraussichtlich beschleunigt, ohne die Qualität zu mindern. Dies gilt im Rahmen der verfügbaren Werkzeuge und übergeordneten Vorgaben.
+- Geeignete, klar abgegrenzte Teilaufgaben delegieren und unabhängig bearbeitbare Aufgaben parallel ausführen. Umfang und Anzahl der Unteragenten am tatsächlichen Nutzen und Koordinationsaufwand ausrichten.
+- Unteragenten erhalten Ziel, relevanten Kontext, geltende Arbeitsanweisungen, Zuständigkeiten und erwartete Ergebnisse. Gleichzeitige Änderungen so abstimmen, dass keine Arbeit überschrieben wird.
+- Der koordinierende Chat bleibt für Gesamtlösung, Zusammenführung und Qualität verantwortlich. Ergebnisse und Nachweise der Unteragenten prüfen sowie die relevanten Prüfungen des integrierten Stands durchführen; Delegation ersetzt keine vorgeschriebenen Audits oder Qualitätsprüfungen.
+
 ## 4. Dateien, Änderungen und Builds
 
 - `README.md`-Dateien nur auf ausdrückliche Bitte ändern. Bekommt ein Mod ein neues Feature, fragen, ob es nach Fertigstellung in die README soll.
