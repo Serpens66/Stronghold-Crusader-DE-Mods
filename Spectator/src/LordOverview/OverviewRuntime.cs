@@ -39,7 +39,7 @@ namespace Spectator.LordOverview {
    TooltipProbeStartup.Start(logger);Shared.DevDiag.Attach(logger);
    ApiShared.ForMod(SpectatorPlugin.PluginGuid).WhenReady(client=>{
     OverviewData.EnableReadbacks();StartExtensions();StartPassiveHover();
-    if(!client.TryGetLobbyState(out var lobby,out var lobbyReason) || !lobby.TryRegisterObserver("overview/permission",settings.ObserveLobby,out lobbyReason))throw new InvalidOperationException(lobbyReason.Reason);
+    if(!client.TryGetLobbyState(out var lobby,out var lobbyReason) || !lobby.TryRegisterObserver("overview/permission",settings.ObserveLobby,out lobbyReason)){Error(new Exception(lobbyReason.Reason));return;}
     if(!client.TryGetMissionLifecycle(out var lifecycle,out var reason)){Error(new Exception(reason.Reason));return;}
     if(!lifecycle.TryRegisterObserver("overview/lifecycle",n=>{
      long id=n.Context.SessionId;Interlocked.Exchange(ref session,id);

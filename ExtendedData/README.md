@@ -16,6 +16,8 @@ A custom Coop Trail ends after its last included mission. Later mission slots ar
 
 Saving or exporting a Custom or Coop Trail again preserves its required Lord content and companion files. If extra Lord data cannot be verified, you can confirm an export using only the saved AI behaviour, castles and portrait; unverified extras such as Fixes preferences and required scripts are then omitted.
 
+The complete `lordmeta.json` of each Lord is always saved. The default-off Trail Maker option **Embed Custom Lord media** also stores their images, audio and videos in the Trail, so players do not need a matching installed Lord package; identical media is stored once per Trail.
+
 Missing or conflicting mission files are reported with details in `BepInEx/LogOutput.log`. All players should use the same current version of ExtendedData for new Coop packages.
 
 With BugfixesAndQoL installed and **Extended map, save and trail dialogs** enabled, the Import Trail dialog can delete local Coop Trail packages after confirmation. Subscribed Workshop Trails remain protected; deletion creates no backup.
@@ -52,9 +54,11 @@ Without a usable checkbox, automatic loads use current supported settings. Exist
 
 The host can separately enable map/Trail mod settings, custom Coop packages and extended Lord content. Personal editor/import/export tools and extended Workshop uploads have their own switches; saving author data does not automatically enable it in a match.
 
+The shared **Reset ALL modsettings to:** dropdown also offers **Personal Settings**. Inside an editable Map or Trail working copy, this restores your own stored settings without leaving the mission context.
+
 ### Compatibility and diagnostics
 
-This mod requires the Script Extender and **APIShared 0.12.5 or newer**, including its `APIShared.Content.dll`. Subscribe to APIShared separately when using the Steam modpack.
+This mod requires the Script Extender and **APIShared 0.21.0 or newer**, including its `APIShared.Content.dll`. Subscribe to APIShared separately when using the Steam modpack.
 
 Map/Trail compatibility messages use APIShared's shared participant checks. A broken settings provider is reported without hiding other compatible mods. APIShared prepares and applies temporary settings snapshots and handles their cleanup. ExtendedData supplies content sources and coordinates the mission lifecycle.
 
@@ -75,6 +79,8 @@ Beim Neustart einer Mission bleiben die aktiven Mod-Einstellungen aus Karte, Tra
 Ein benutzerdefinierter Koop-Trail endet nach seiner letzten enthaltenen Mission. Spätere Missionsplätze sind nicht verfügbar, solange dieses Paket ausgewählt ist. Wähle wieder die Vanilla-Koop-Trails, um die ursprünglichen Missionen zu spielen.
 
 Beim erneuten Speichern oder Exportieren eines Custom- oder Koop-Trails bleiben benötigte Lord-Inhalte und Begleitdateien erhalten. Lassen sich Lord-Zusatzdaten nicht prüfen, kannst du einen Export nur mit gespeichertem KI-Verhalten, Burgen und Porträt bestätigen; ungeprüfte Extras wie Fixes-Präferenzen und benötigte Skripte fehlen dann.
+
+Die vollständige `lordmeta.json` jedes Lords wird immer gespeichert. Die standardmäßig deaktivierte Trail-Maker-Option **Medien der Custom Lords einbetten** speichert zusätzlich Bilder, Audio und Videos im Trail, sodass Mitspieler kein passendes installiertes Lord-Paket brauchen; gleiche Medien werden pro Trail nur einmal gespeichert.
 
 Fehlende oder widersprüchliche Missionsdateien werden mit Details in `BepInEx/LogOutput.log` gemeldet. Alle Spieler sollten für neue Koop-Pakete dieselbe aktuelle Version von ExtendedData verwenden.
 
@@ -112,9 +118,11 @@ Fehlt eine nutzbare Checkbox, werden beim automatischen Laden die aktuellen unte
 
 Der Host kann Mod-Einstellungen aus Karten und Trails, eigene Koop-Pakete und erweiterte Lord-Inhalte getrennt aktivieren. Persönliche Editor-, Import- und Exportwerkzeuge sowie erweiterte Workshop-Uploads haben eigene Schalter; gespeicherte Autorenangaben werden dadurch nicht automatisch in einer Partie angewendet.
 
+Die gemeinsame Auswahl **ALLE Modsettings zurücksetzen auf:** bietet auch **Persönliche Einstellungen**. In einer bearbeitbaren Karten- oder Trail-Arbeitskopie stellt sie deine eigenen gespeicherten Einstellungen wieder her, ohne den Missionskontext zu verlassen.
+
 ### Kompatibilität und Diagnosen
 
-Diese Mod benötigt den Script Extender und **APIShared 0.12.5 oder neuer**, einschließlich `APIShared.Content.dll`. APIShared muss beim Steam-Modpack separat abonniert werden.
+Diese Mod benötigt den Script Extender und **APIShared 0.21.0 oder neuer**, einschließlich `APIShared.Content.dll`. APIShared muss beim Steam-Modpack separat abonniert werden.
 
 Kompatibilitätsmeldungen für Maps und Trails verwenden APIShareds gemeinsame Teilnehmerprüfung. Ein fehlerhafter Settings-Anbieter wird gemeldet, ohne andere kompatible Mods auszublenden. APIShared bereitet temporäre Settings-Snapshots vor, wendet sie an und bereinigt sie. ExtendedData liefert die Inhaltsquellen und koordiniert den Missionslifecycle.
 

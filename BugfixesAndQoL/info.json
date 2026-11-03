@@ -3,7 +3,7 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.209",
+  "Version": "1.0.210",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.0",
   "MaximumScriptExtenderVersion": "",
@@ -16,6 +16,10 @@
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.210",
+      "Changes": ["Improved manual unit commands: a fully rejected group move no longer changes the group's fast/formation movement mode, also without the separate MoatMove test mod."]
+    },
     {
       "Version": "1.0.209",
       "Changes": [

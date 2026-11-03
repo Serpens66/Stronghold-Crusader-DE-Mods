@@ -33,14 +33,16 @@ foreach ($file in @('Spectator.dll','info.json','Override/ScriptExtenderUI/Spect
 if ($LASTEXITCODE -ne 0) { throw 'Compiled contracts failed.' }
 & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'tests/Overview/Test-Appearance.ps1') -AssemblyPath (Join-Path $package 'Spectator.dll') -GameDirectory $game
 if ($LASTEXITCODE -ne 0) { throw 'Overview compiled appearance/runtime boundary checks failed.' }
-# This development package is deliberately not added to the main-mod release whitelist.
-$proof = [ordered]@{ BuiltUtc=[DateTime]::UtcNow.ToString('o'); Version='0.1.0'; ApiSharedDirectory=$ApiSharedDir; ApiSharedSha256=(FileHash (Join-Path $ApiSharedDir 'APIShared.dll')); SpectatorSha256=(FileHash (Join-Path $package 'Spectator.dll')); Installed=($NoInstall -eq 0) }
+# Spectator is a Serps Mods pack member (release-projects.json, WorkshopConfiguration.ps1).
+$version = [string]([IO.File]::ReadAllText((Join-Path $PSScriptRoot 'info.json')) | ConvertFrom-Json).Version
+$proof = [ordered]@{ BuiltUtc=[DateTime]::UtcNow.ToString('o'); Version=$version; ApiSharedDirectory=$ApiSharedDir; ApiSharedSha256=(FileHash (Join-Path $ApiSharedDir 'APIShared.dll')); SpectatorSha256=(FileHash (Join-Path $package 'Spectator.dll')); Installed=($NoInstall -eq 0) }
 [void](New-Item -ItemType Directory -Path (Join-Path $PSScriptRoot '.local') -Force)
 [IO.File]::WriteAllText((Join-Path $PSScriptRoot '.local/build.json'), (($proof | ConvertTo-Json) -replace "`r?`n","`r`n"), [Text.UTF8Encoding]::new($false))
 if ($NoInstall -eq 0) {
- $destination = Join-Path $game 'BepInEx/plugins/Spectator_Serp'
+ # Branch builds of develop install beside the main package (SHCDE_BRANCH_INSTALL_SUFFIX=_dev).
+ $destination = Join-Path $game ('BepInEx/plugins/Spectator_Serp' + $env:SHCDE_BRANCH_INSTALL_SUFFIX)
  [void](New-Item -ItemType Directory -Path $destination -Force)
  Remove-RetiredSpectatorPatches $destination
  Get-ChildItem -LiteralPath $package | Copy-Item -Destination $destination -Recurse -Force
  Write-Host '[Spectator] Built and installed.'
-} else { Write-Host '[Spectator] Development package built; installation skipped.' }
+} else { Write-Host '[Spectator] Package built; installation skipped.' }

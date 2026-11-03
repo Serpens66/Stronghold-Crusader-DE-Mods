@@ -227,7 +227,7 @@ namespace Spectator
             }
             toolsModel.PlacementActive = humanPlacementMode;
             RefreshPendingToolbarPortraits();
-            string currentLocale = SerpLocalization.GetActiveLocale();
+            string currentLocale = ActiveLocale();
             if (currentLocale != toolbarLocale)
             {
                 toolbarLocale = currentLocale; toolbarDirty = true;
@@ -282,6 +282,22 @@ namespace Spectator
             RefreshOrderPresentation(true);
             RefreshColouredStatus();
             PositionToolbar();
+        }
+
+        private static string cachedLocale;
+        private static long cachedLocaleAt;
+
+        // The language is resolved from Extender and Steam settings. The per-frame toolbar
+        // refresh re-checks it at most once per second; a change still rebuilds the toolbar.
+        private static string ActiveLocale()
+        {
+            long now = System.Diagnostics.Stopwatch.GetTimestamp();
+            if (cachedLocale == null || now - cachedLocaleAt >= System.Diagnostics.Stopwatch.Frequency)
+            {
+                cachedLocale = SerpLocalization.GetActiveLocale();
+                cachedLocaleAt = now;
+            }
+            return cachedLocale;
         }
 
         private static void SetPlayerTooltip(Button button, string label, int player, bool target = false)
@@ -642,20 +658,90 @@ namespace Spectator
                 log.LogInfo("SPECTATOR_CONTROL_BUILD_UNFROZEN player=" + SpectatorPerspectiveRuntime.InputControlledPlayer());
         }
 
+        private static bool renderEnabled, renderSubscribed;
+        private static int renderArmRequested;
+        private static volatile bool rosterPending = true;
+
+        // The static frame callback is subscribed only while a mission with an applicable feature
+        // runs or queued presentation/log work waits. Other threads arm it through Unity's context.
+        private static void RequestRender()
+        {
+            if (!renderEnabled) return;
+            if (Shared.UnityMainThreadDispatch.IsMainThread) { ArmRender(); return; }
+            if (Interlocked.CompareExchange(ref renderArmRequested, 1, 0) != 0) return;
+            if (!Shared.UnityMainThreadDispatch.TryEnqueue(ArmRequestedRender))
+                Interlocked.Exchange(ref renderArmRequested, 0);
+        }
+
+        private static void ArmRequestedRender()
+        {
+            Interlocked.Exchange(ref renderArmRequested, 0);
+            ArmRender();
+        }
+
+        private static void EnableRender()
+        {
+            renderEnabled = true;
+            settings.SettingsChanged += RequestRender;
+            ArmRender();
+        }
+
+        private static void ArmRender()
+        {
+            if (renderSubscribed) return;
+            renderSubscribed = true;
+            UnityEngine.Application.onBeforeRender += OnBeforeRender;
+        }
+
+        private static void StopRenderIfIdle()
+        {
+            if (!renderSubscribed || SessionNeedsFrames() || !presentationCallbacks.IsEmpty || log.HasPending) return;
+            UnityEngine.Application.onBeforeRender -= OnBeforeRender;
+            renderSubscribed = false;
+        }
+
+        // Settings change only between missions; the editor has no Spectator toolbar or tools.
+        private static bool SessionNeedsFrames()
+        {
+            if (settings == null || !IsCurrentSession(CurrentSessionId) || !(sessionMode is GameModeSnapshot mode) ||
+                mode.IsMapEditor) return false;
+            var activation = settings.Activation;
+            // Test tools can apply to every local role outside real multiplayer.
+            if (!mode.IsRealMultiplayer && (activation.TestTools || activation.SingleplayerTest)) return true;
+            if (!activation.Perspective && !activation.Statistics && !activation.Defeat) return false;
+            // Views, statistics and promotion only concern observers and eliminated participants.
+            var state = GameData.Instance?.lastGameState;
+            return state != null && state.spectatorMode != 0 || SpectatorDefeat.NeedsPresentation;
+        }
+
+        // Called after GameData.setGameState (main thread), the only writer of a new PlayState.
+        // A role change (spectator view, elimination) arrives with such a PlayState.
+        private static void ObserveRosterChange()
+        {
+            rosterPending = true;
+            if (renderEnabled && !renderSubscribed && SessionNeedsFrames()) RequestRender();
+        }
+
         private static void OnBeforeRender()
         {
             int frame = UnityEngine.Time.frameCount;
             if (lastRenderFrame == frame) return;
             lastRenderFrame = frame;
+            try { RenderFrame(); }
+            finally { StopRenderIfIdle(); }
+        }
+
+        private static void RenderFrame()
+        {
             log.Flush();
             while (presentationCallbacks.TryDequeue(out Action pending))
                 try { pending(); } catch (Exception error) { LogOnce("TEST_SESSION_PRESENTATION_ERROR: " + error); }
-            if (!MainViewModel.viewModelLoaded) return;
+            if (!MainViewModel.viewModelLoaded || !SessionNeedsFrames()) return;
             try
             {
                 SpectatorDefeat.ObservePresentedState();
                 Statistics?.ObserveAvailability();
-                ObserveRoster();
+                if (rosterPending) { rosterPending = false; ObserveRoster(); }
                 RetireUnavailablePlacement();
                 UpdateSpriteColourLease();
                 bool humanEligible = IsHumanSingleplayerSession();
@@ -677,8 +763,7 @@ namespace Spectator
                     initialLayoutLoggedHud = null;
                     lastOwner = int.MinValue;
                     lastScreen = int.MinValue;
-                    pendingVisibilityHud = null;
-                    pendingVisibilityAt = DateTime.MaxValue;
+                    DiagForgetIcons();
                     activeWall = null;
                     activeSpecial = null;
                     PositionToolbar();
@@ -709,8 +794,7 @@ namespace Spectator
                 int screen = view.buildScreenID;
                 if (!ReferenceEquals(hud, activeHud) || owner != lastOwner || screen != lastScreen)
                 {
-                    if (screen <= 0 || screen == 15 || screen == 17 ||
-                        screen == 18 || screen == 21 || screen == 22 || screen >= 23)
+                    if (!GateHudLifecycle.IsBuildScreen(screen))
                         hud.SetupNewBuildScreen(1);
                     else
                         RefreshBuildIcons(hud, owner, "session");
@@ -721,13 +805,7 @@ namespace Spectator
                     log.LogInfo("SPECTATOR_EDITOR_RUNTIME_AFTER_STARTUP: HUD active; owner=" +
                         owner + " screen=" + view.buildScreenID);
                 }
-                if (ReferenceEquals(hud, pendingVisibilityHud) &&
-                    DateTime.UtcNow >= pendingVisibilityAt)
-                {
-                    LogVisibilityAfterAnimation(hud);
-                    pendingVisibilityHud = null;
-                    pendingVisibilityAt = DateTime.MaxValue;
-                }
+                DiagIconsSettled(hud);
                 PositionToolbar();
             }
             catch (Exception error)

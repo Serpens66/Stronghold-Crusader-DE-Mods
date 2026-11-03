@@ -139,16 +139,22 @@ internal static class Program
             string[] extendedOptions = { "EnableMissionModSettings", "EnableCoopPackages", "EnableLordDataIntegration", "EnableEditorFileIntegration", "EnableWorkshopUploads" };
             string[] members = { "MissionModSettings", "CoopPackages", "LordDataIntegration", "EditorFiles", "WorkshopUploads" };
             for (int i = 0; i < extendedOptions.Length; i++) Matrix(ed, "ExtendedData.ExtendedDataSettingsViewModel", extendedOptions, extendedOptions[i], members[i], i < 3, true);
-            string[] spectatorOptions = { "EnableSpectatorPerspective", "EnableStatistics", "EnableEliminatedPlayersBecomeSpectators", "EnableTestTools" };
-            string[] spectatorMembers = { "Perspective", "Statistics", "Defeat", "TestTools" };
-            for (int i = 0; i < spectatorOptions.Length; i++) Matrix(sp, "Spectator.SpectatorViewModel", spectatorOptions, spectatorOptions[i], spectatorMembers[i], i < 3, false);
+            // Host-controlled options first: only eliminated-player promotion follows the host switch;
+            // perspective, statistics and tools are local (PresetLocal) and follow the client switch.
+            string[] spectatorOptions = { "EnableEliminatedPlayersBecomeSpectators", "EnableSpectatorPerspective", "EnableStatistics", "EnableTestTools" };
+            string[] spectatorMembers = { "Defeat", "Perspective", "Statistics", "TestTools" };
+            for (int i = 0; i < spectatorOptions.Length; i++) Matrix(sp, "Spectator.SpectatorViewModel", spectatorOptions, spectatorOptions[i], spectatorMembers[i], i < 1, false);
             Equivalence(ed, "ExtendedData.ExtendedDataSettingsViewModel", extendedOptions, members, 3, true);
-            Equivalence(sp, "Spectator.SpectatorViewModel", spectatorOptions, spectatorMembers, 3, false);
+            Equivalence(sp, "Spectator.SpectatorViewModel", spectatorOptions, spectatorMembers, 1, false);
             Type toolbar = sp.GetType("Spectator.SpectatorFeatureActivation", true);
+            MethodInfo hasToolbar = toolbar.GetMethod("HasToolbar", All);
             bool[] toolbarTruth = { false, true, true, true, true, true, true, true };
             int toolbarCase = 0;
             foreach (bool tools in new[] { false, true }) foreach (bool perspective in new[] { false, true }) foreach (bool statistics in new[] { false, true })
-                Check((bool)toolbar.GetMethod("HasToolbar", All).Invoke(null, new object[] { tools, perspective, statistics }) == toolbarTruth[toolbarCase++], "toolbar combines available groups");
+            {
+                Check((bool)hasToolbar.Invoke(null, new object[] { tools, perspective, statistics, false }) == toolbarTruth[toolbarCase++], "toolbar combines available groups");
+                Check(!(bool)hasToolbar.Invoke(null, new object[] { tools, perspective, statistics, true }), "map editor never shows the toolbar");
+            }
             Console.WriteLine("PASS: " + checks + " production activation and dormant-entry checks; no hooks installed.");
             return 0;
         }

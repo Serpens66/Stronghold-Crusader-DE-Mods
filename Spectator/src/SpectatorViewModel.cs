@@ -8,8 +8,9 @@ namespace Spectator
     public sealed partial class SpectatorViewModel : PresetLobbyModSettingsViewModel
     {
         private bool enableClientFeatures = true, enableMod = true, enableSpectatorPerspective = true, enableStatistics = true,
-            enableEliminatedPlayersBecomeSpectators = true, enableTestTools = true;
-        private bool enableSingleplayerTestMode, enableSpectatorControl;
+            enableEliminatedPlayersBecomeSpectators = true;
+        // Test and cheat tools are opt-in.
+        private bool enableTestTools, enableSingleplayerTestMode, enableSpectatorControl;
         public ToolsText Text { get; } = new ToolsText();
         public RelayCommand ResetToDefaultCommand { get; }
         public string ResetToDefaultText => SerpLocalization.Get(SerpLocalization.ResetToDefault);

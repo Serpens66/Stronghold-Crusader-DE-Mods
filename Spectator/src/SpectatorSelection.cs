@@ -12,7 +12,7 @@ namespace Spectator
         private static bool toolbarDirty = true;
         private static PlayerSelectionController selection;
         internal static SpectatorStatistics Statistics;
-        internal static void PostPresentation(Action action) => presentationCallbacks.Enqueue(action);
+        internal static void PostPresentation(Action action) { presentationCallbacks.Enqueue(action); RequestRender(); }
         internal static bool ToolbarReady => humanPanel != null;
         internal static void InvalidateToolbar() => toolbarDirty = true;
         internal static void AcceptPerspective(int player) { ApplyHumanAi(player); toolbarDirty = true; }
@@ -21,7 +21,7 @@ namespace Spectator
         {
             selection = new PlayerSelectionController(CancelSelectionActions, PublishSelectedPlayer);
             perspectiveSubscription = PlayerPerspectiveAPI.SubscribeChanges(Guid, "toolbar", change =>
-                presentationCallbacks.Enqueue(() => {
+                PostPresentation(() => {
                     if (change.Sequence <= lastPerspectiveSequence) return;
                     lastPerspectiveSequence = change.Sequence;
                     if (change.Reason == PlayerPerspectiveChangeReason.Cleared)

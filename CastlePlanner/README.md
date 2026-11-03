@@ -13,9 +13,13 @@ In the lobby, CastlePlanner shows whether the selected AI castles fit on the cho
 
 Drawbridge images now mirror consistently in composite images, depth fragments, and fallback images. Their direction follows the camera-rotated map grid independently of terrain height and flattened view.
 
+## AI castle plan for spectators
+
+Multiplayer spectators can view the accepted AI castle plan of the player they are watching as a read-only blueprint, including the source AIV file name when the session provides it. The view only refreshes while it or its panel is shown.
+
 ## Compatibility and diagnostics
 
-This mod requires the Script Extender and **APIShared 0.11.1 or newer**. Subscribe to APIShared separately when using the Steam modpack. Mod settings indicate when gameplay changes are inactive for a direct mission or Trail launch. Use **Customize** where available to start with those changes; edits made while inactive are saved for later games. Blueprints remain available during those direct launches.
+This mod requires the Script Extender and **APIShared 0.23.0 or newer**. Subscribe to APIShared separately when using the Steam modpack. Mod settings indicate when gameplay changes are inactive for a direct mission or Trail launch. Use **Customize** where available to start with those changes; edits made while inactive are saved for later games. Blueprints remain available during those direct launches.
 
 Shared HUD services place the Blueprints button alongside buttons from other mods and coordinate GUI updates and preview pause commands.
 

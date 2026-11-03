@@ -37,7 +37,7 @@ namespace Spectator
             }, args => {
                 if (!(args.State is ToolbarRequest request)) return;
                 // Never run UI/native actions recursively inside the shared GameAction publisher.
-                presentationCallbacks.Enqueue(() => {
+                PostPresentation(() => {
                     if (!IsCurrentSession(request.Session) || !ToolPolicy.PowerContextMatches(request.Session, CurrentSessionId,
                         request.Actor, humanSelectedOwner, request.Generation, powerGeneration, HasPowerTestContext())) return;
                     SelectPower(request.Power);

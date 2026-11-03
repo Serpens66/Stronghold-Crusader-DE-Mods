@@ -12,7 +12,7 @@ namespace Spectator
         private static readonly TextBlock[] targetLabels = new TextBlock[9];
         private static readonly Image[] ownerFaces = new Image[9], targetFaces = new Image[9];
         private static readonly PlayerPortraits<ImageSource> toolbarPortraits = new PlayerPortraits<ImageSource>(
-            new VanillaPortraitSource(() => MainViewModel.viewModelLoaded ? MainViewModel.Instance : null, () => toolbarPortraitMode));
+            new VanillaPortraitSource(() => MainViewModel.viewModelLoaded ? MainViewModel.Instance : null, () => sessionMode));
         private static string toolbarLocale;
         private static bool initialSelectionChosen;
         private static long rosterFingerprint;

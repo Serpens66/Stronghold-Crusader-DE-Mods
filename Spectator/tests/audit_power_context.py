@@ -1,11 +1,18 @@
 """Read-only installed-hash and full-baseline incoming-edge audit for the four inline spans."""
 from pathlib import Path
-import hashlib, json, sqlite3, pefile, capstone
+import hashlib, json, os, sqlite3, pefile, capstone
 workspace = Path(__file__).resolve().parents[2]
-base = workspace / '_inspect/CrusaderDE-Native-Baseline'
+source = workspace / '_inspect/CrusaderDE-Native-Baseline'
+# Branch build copies lack the untracked database; their driver passes the local baseline read-only.
+base = Path(os.environ.get('SHCDE_NATIVE_BASELINE_ROOT') or source)
 current = json.loads((base / 'CURRENT.json').read_text())
+if base.resolve() != source.resolve():
+    tracked = json.loads((source / 'CURRENT.json').read_text())
+    assert (tracked['currentNativeHash'], tracked['databaseManifest']) == (current['currentNativeHash'], current['databaseManifest']), \
+        'shared baseline does not identify the dataset of the source'
 manifest = json.loads((base / current['databaseManifest']).read_text())
-dll = Path(r'E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Plugins\x86_64\CrusaderDE.dll')
+game = Path(os.environ.get('SHCDE_GAME_DIR') or r'E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition')
+dll = game / 'Stronghold Crusader Definitive Edition_Data' / 'Plugins' / 'x86_64' / 'CrusaderDE.dll'
 assert hashlib.sha256(dll.read_bytes()).hexdigest().upper() == current['currentNativeHash'] == manifest['identities']['currentNativeHash']
 db = sqlite3.connect((base / manifest['database']['path']).as_uri() + '?mode=ro', uri=True)
 pe = pefile.PE(str(dll)); decoder = capstone.Cs(capstone.CS_ARCH_X86, capstone.CS_MODE_64); decoder.detail = True; decoder.skipdata = True

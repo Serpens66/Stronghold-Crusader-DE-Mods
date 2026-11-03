@@ -51,7 +51,7 @@ namespace Spectator
             if (input == null || !input.OwnsKeyboard) return;
             long session = CurrentSessionId;
             if (log.IsMainThread) input.OutsidePointerDown(false);
-            else presentationCallbacks.Enqueue(() => {
+            else PostPresentation(() => {
                 if (IsCurrentSession(session) && ReferenceEquals(amountInput, input)) input.OutsidePointerDown(false);
             });
         }
@@ -111,7 +111,7 @@ namespace Spectator
             var state = GameData.Instance?.lastGameState;
             if (state == null || toolsModel?.Expanded != true || currentOrderText == null) return;
             var selected = PresentedAiOrder.Read(humanSelectedOwner, state.skirmish_order, state.skirmish_order_player, state.skirmish_order_from_player);
-            string locale = SerpLocalization.GetActiveLocale();
+            string locale = ActiveLocale();
             if (!force && shownOrderActor == humanSelectedOwner && selected.Equals(shownCurrentOrder) && shownOrderLocale == locale) return;
             shownOrderActor = humanSelectedOwner; shownCurrentOrder = selected; shownOrderLocale = locale;
             currentOrderIcon.Source = OrderIcon(selected);

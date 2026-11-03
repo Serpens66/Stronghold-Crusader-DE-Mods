@@ -35,15 +35,24 @@ namespace Spectator
         // The engine input callback only captures intent. Rendering waits for a completed PlayState update.
         private static void AfterToolsPlayState()
         {
-            Interlocked.Increment(ref toolsStateRevision);
-            SpectatorPerspectiveRuntime.ObserveReportSnapshot(GameData.Instance?.lastGameState);
+            try
+            {
+                Interlocked.Increment(ref toolsStateRevision);
+                ObserveRosterChange();
+                SpectatorPerspectiveRuntime.ObserveReportSnapshot(GameData.Instance?.lastGameState);
+            }
+            catch (Exception error) { LogOnce("SPECTATOR_PLAYSTATE_HOOK_ERROR: " + error); }
         }
 
         private static void BeforeVanillaHudTransition()
         {
-            if (buildingOwnSetup) return;
-            gateHudLifecycle.Transition(); pendingGate = null;
-            ReleaseGateHud(false);
+            try
+            {
+                if (buildingOwnSetup) return;
+                gateHudLifecycle.Transition(); pendingGate = null;
+                ReleaseGateHud(false);
+            }
+            catch (Exception error) { LogOnce("SPECTATOR_HUD_TRANSITION_HOOK_ERROR: " + error); }
         }
 
         private static void BeforeVanillaTroopTransition() => BeforeVanillaHudTransition();

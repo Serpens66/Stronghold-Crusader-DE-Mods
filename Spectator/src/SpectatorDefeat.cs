@@ -119,6 +119,20 @@ namespace Spectator
         }
 
         internal static bool IsEliminatedSpectator => instance != null && instance.IsConfirmedParticipant();
+
+        // Whether ObservePresentedState still has work for the local participant: an elimination or
+        // pending promotion, or a local player that TryActivateLocalView has not yet resolved.
+        internal static bool NeedsPresentation
+        {
+            get
+            {
+                var current = instance;
+                if (current == null || !current.initialized || Interlocked.Read(ref current.activeSessionId) <= 0) return false;
+                if (current.promotionRequested || current.promotionActivated && !current.promotionConfirmed ||
+                    IsEliminatedParticipant) return true;
+                return Volatile.Read(ref current.localPlayerId) != PlayerPerspectiveAPI.GetControlledPlayerId();
+            }
+        }
         internal static bool IsEliminatedParticipant
         {
             get

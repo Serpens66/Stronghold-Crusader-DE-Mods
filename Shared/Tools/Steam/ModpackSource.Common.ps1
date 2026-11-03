@@ -130,8 +130,10 @@ function Get-PreparedModpackUploadSource([string]$Workspace,[bool]$Test,[string]
 # known build products; every source edit or unrelated dirty path remains forbidden.
 function Get-ModpackCopiedOutputMap([string]$Root) {
     $map=@{}
-    foreach($path in @(Invoke-ApiRepositoryGit $Root @('ls-files','--','SerpsModsHost/Locales','SerpsModsHost/Override','ExtendedData/Patches'))){
+    # Mod builds copy these tracked resources unchanged into their tracked package folders.
+    foreach($path in @(Invoke-ApiRepositoryGit $Root @('ls-files','--','SerpsModsHost/Locales','SerpsModsHost/Override','ExtendedData/Patches','Spectator/Patches','Spectator/Override'))){
         if($path.StartsWith('SerpsModsHost/')){$output=$path.Replace('SerpsModsHost/','SerpsModsHost/BepInEx/plugins/SerpsMods_Serp/')}
+        elseif($path.StartsWith('Spectator/')){$output='Spectator/BepInEx/plugins/Spectator_Serp/'+$path.Substring('Spectator/'.Length)}
         else{$output=$path.Replace('ExtendedData/','ExtendedData/BepInEx/plugins/ExtendedData_Serp/')}
         $map[$output]=$path
     }

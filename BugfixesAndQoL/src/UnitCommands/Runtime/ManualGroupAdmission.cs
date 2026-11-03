@@ -67,12 +67,21 @@ namespace BugfixesAndQoL.UnitCommands
                         ManualGroupAdmissionGate.Emit(asm, manualAdmissionSlot, libraryBase + ManualGroupAdmissionGate.SkipRva);
                         asm.AddInstructions(original);
                     }, hookSize: 14);
+                // 196100 writes tribe+56C before 11B520; a rejected order must restore it with or
+                // without a traversal provider, so the admission gate and this wrapper publish together.
+                RedBirdDetour<FastPlayerMoveDelegate> playerMoveHook = nativePlayerMove == null
+                    ? InstallConnectivityObserver(candidate, memory, libraryBase, PlayerMoveRva, PlayerMoveEntryBytes,
+                        (FastPlayerMoveDelegate)DispatchPlayerMove)
+                    : null;
                 CommitResult result = CommitPermanentHooks(candidate);
+                if (playerMoveHook != null) nativePlayerMove = CountPlayerMove(playerMoveHook.Original);
+                ValidatePublishedCommandHooks(candidate);
                 if (!result.IsCompleteSuccess || !manualAdmissionGate.Success || !manualAdmissionGate.IsInstalled ||
-                    manualAdmissionGate.Hook.DisplacedByteCount != 14)
+                    manualAdmissionGate.Hook.DisplacedByteCount != 14 || playerMoveHook?.Committed == false)
                     throw new InvalidOperationException("The manual group admission hook contract changed.");
                 manualAdmissionReady = true;
-                Shared.DebugLogHelper.LogInfo(log, "Manual group admission installed: reference-rva=0x118F50 span=14 resume=0x118F5E reject=0x118FBE; native-only member gate.");
+                Shared.DebugLogHelper.LogInfo(log, "Manual group admission installed: reference-rva=0x118F50 span=14 resume=0x118F5E reject=0x118FBE; " +
+                    "player-move wrapper reference-rva=0x196100 restores tribe+0x56C on rejection; native-only member gate.");
             }
             catch (Exception exception)
             {

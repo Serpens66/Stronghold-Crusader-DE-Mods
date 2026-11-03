@@ -182,7 +182,7 @@ The enabled-by-default host option extends Shift queues so movement orders and a
 ### Choose unit arrangements and preview movement
 The enabled-by-default host option **Enable unit arrangement and complete target markers** adds an **Arrangement** button to your troop HUD. Choose Vanilla, Block, Line, Column, Wedge, or Circle, density 1-4, optional rear/centre role placement, and coloured previews. Personal defaults are Vanilla, density 2, role placement off, and role markers off.
 
-With at least two units selected, hold your configured Move-command mouse button over open ground and drag to set facing. Scroll up for fewer rows (wider), down for more rows (longer); release issues one synchronized Move. Circle and Vanilla keep their geometry; adjust density in the window. **Remember rows**, on by default, saves rows per Block, Line, Column, and Wedge across restarts, temporarily limiting them for smaller groups.
+With at least two units selected, hold your configured Move-command mouse button over open ground and drag to set facing. Scroll up for fewer rows (wider), down for more rows (longer); release issues one synchronized Move. Circle and Vanilla keep their geometry; adjust density in the window. **Remember width/depth ratio**, on by default, saves the width-to-depth proportion per Block, Line, Column, and Wedge across restarts and adapts it to the number of reachable units.
 
 Destination markers cover large groups. The enabled-by-default local **Correct gatehouse target markers** option also corrects their height on gatehouses, including formation previews.
 
@@ -269,10 +269,10 @@ Adds the multiplayer **Game Options** dialog to local Skirmish, including restri
 ### Load multiplayer saves alone
 A ready host can load a normal multiplayer save without another human player. Missing human players are removed rather than replaced with AI; existing AI players are restored from the save, and this option is enabled by default.
 
-### Add surrender and spectator features
-Active players receive a confirmed Surrender button that kills their lord through the normal game rules, preserving the natural defeat and statistics flow. Spectators can open and refresh the current match statistics without leaving or ending the game. Eliminated players can also receive normal spectator vision and AI information.
+### Surrender
+Active players receive a confirmed Surrender button that kills their lord through the normal game rules, preserving the natural defeat and statistics flow.
 
-The enabled-by-default host option **Expanded spectator perspective** lets players who started as spectators switch between player views, inspect reports and allies, and jump to keeps or Lords. Eliminated players cannot switch views. Ally actions are available only in local CPU games.
+Spectator perspectives, live match statistics and eliminated players becoming spectators moved to the separate **Spectator** mod, which is part of the Serps Mods pack.
 
 ### Identify and kick a disconnected player during resync
 During a stalled multiplayer resynchronization, the host is shown the human player with the oldest overdue connection heartbeat. A confirmation button lets the host authoritatively remove that player.

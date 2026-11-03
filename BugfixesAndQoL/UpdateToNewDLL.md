@@ -1193,6 +1193,14 @@ Additional audited data: GameUnit base65C, GlobalId +94 (native6F0), native mobi
 field +442 (nativeA9E), query mode +35C. Independent mobility writer 19A44C reads
 3226B0[type*4]. Player wrapper 196100 writes tribe+56C before the group event;
 fully rejected invocations restore only that earlier flag through a nested frame.
+Owner: the 196100 detour (reference RVA 0x196100, entry bytes
+`48 83 EC 48 48 63 C2 4C 8D 1D 12 06 B3 07`, NativeX64 Indirect) is published in the
+same transaction as the 118F50 admission gate, so the restore works without a
+traversal provider. Its only caller is Chore-17 consumer 10AE0; without a provider it
+calls the original exactly once. A provider registered later (MoatMove) only becomes
+its logical target; if admission failed, `InstallTraversalCommandHooks` installs the
+detour itself as before. Neither the Extender, Fixes nor APIShared hooks 196100
+(checked 2026-11-03; the Extender hooks 11B520).
 118E00 clears native748/74C (GameUnit EC/EE/F0), NOT path flags F2/native74E.
 196305/19630F read flags F2 and substep F4/native750: current only at flags0 AND
 substep8, otherwise next2. Reuse GetNativeMovementStart; preserve unknown native

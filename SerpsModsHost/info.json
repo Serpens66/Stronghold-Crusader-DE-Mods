@@ -2,20 +2,30 @@
     "GUID":  "SerpsMods_Serp",
     "Author":  "Serpens66",
     "Name":  "Serps Mods - Fully Customizable Collection",
-    "Description":  "APIShared must be subscribed separately in the Steam Workshop! / APIShared muss separat im Steam Workshop abonniert werden!\n\nMultiplayer: all players need the same versions of this modpack and APIShared. / Mehrspieler: Alle Spieler brauchen dieselbe Version dieses Modpacks und von APIShared.\n\nAll included mods can be freely configured in the in-game Mod Settings.\n\nIncluded mods:\n- Bugfixes and QoL\n- Building Costs\n- Building Limit\n- Extra Features\n- Random Events\n- CastlePlanner\n- Start Conditions\n- Unit Costs\n- Unit Limit\n- Extended Data",
-    "Version":  "1.0.34",
+    "Description":  "APIShared must be subscribed separately in the Steam Workshop! / APIShared muss separat im Steam Workshop abonniert werden!\n\nMultiplayer: all players need the same versions of this modpack and APIShared. / Mehrspieler: Alle Spieler brauchen dieselbe Version dieses Modpacks und von APIShared.\n\nAll included mods can be freely configured in the in-game Mod Settings.\n\nIncluded mods:\n- Bugfixes and QoL\n- Building Costs\n- Building Limit\n- Extra Features\n- Random Events\n- CastlePlanner\n- Start Conditions\n- Unit Costs\n- Unit Limit\n- Extended Data\n- Spectator",
+    "Version":  "1.0.35",
     "Website":  "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods",
     "MinimumScriptExtenderVersion":  "2.3.0",
     "MaximumScriptExtenderVersion":  "",
     "Dependencies":  [
                          {
                              "GUID":  "APIShared_Serp",
-                             "MinimumVersion":  "0.20.0"
+                             "MinimumVersion":  "0.25.0"
                          }
                      ],
     "Manifest":  1,
     "NetworkMode":  1,
     "SerpChangelog":  [
+                          {
+                            "Version": "1.0.35",
+                            "Changes": [
+                              "Include the new Spectator mod: spectator perspectives, live statistics, Lord overview and eliminated players as spectators (the features previously in Bugfixes and QoL). Its local AI testing tools are disabled by default and blocked in multiplayer.",
+                              "Multiplayer: gameplay scheduling and deadlines in Bugfixes and QoL, Extra Features, CastlePlanner and Start Conditions now use native map ticks; this fixes periodic-gold divergence caused by frame skips.",
+                              "Bugfixes and QoL: new enabled-by-default host option limiting civilian building-action proximity during native Peace Time; a fully rejected manual group move no longer changes the group's movement mode.",
+                              "Extra Features: the eight civilian/soldier building-action radius settings are composed through APIShared, keeping Vanilla defaults and existing values.",
+                              "Require APIShared 0.25.0 or newer."
+                            ]
+                          },
                           {
                             "Version": "1.0.34",
                             "Changes": [

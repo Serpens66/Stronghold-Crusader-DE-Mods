@@ -251,7 +251,7 @@ Assert-True ($createScriptText.Contains('Get-LegacyApiSharedFiles -History $uplo
 Assert-True ($createScriptText.Contains('New-ApiWorkshopInventory -Directory $hostStage -LegacyFiles $legacyApiSharedFiles')) 'the final host payload must ship its historical migration inventory'
 Assert-True ($createScriptText.Contains("-Arguments @('/nopause','/noinstall') -FailureCode 4")) 'compatibility builds must not install'
 Assert-True ($createScriptText.IndexOf("Fail-Pack 2 'Prepare APIShared first") -lt $createScriptText.IndexOf('foreach ($mod in @($mods | Where-Object NeedsSourceEdit)) { Set-ModCompatibility')) 'missing APIShared releases must fail before consumer source changes'
-foreach ($modName in @('BugfixesAndQoL','BuildingCosts','BuildingLimit','ExtraFeatures','RandomEvents','CastlePlanner','StartConditions','UnitCosts','UnitLimit','ExtendedData')) {
+foreach ($modName in @('BugfixesAndQoL','BuildingCosts','BuildingLimit','ExtraFeatures','RandomEvents','CastlePlanner','StartConditions','UnitCosts','UnitLimit','ExtendedData','Spectator')) {
     $driver = [IO.File]::ReadAllText((Join-Path $workspace "$modName/build.bat"))
     Assert-True ($driver.Contains('if "%NO_INSTALL%"=="1" goto prepared_no_install')) "$modName must support preparation without touching installed files"
 }

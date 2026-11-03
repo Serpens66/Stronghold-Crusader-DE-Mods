@@ -22,7 +22,13 @@
     {
       "Version": "0.1.0",
       "Changes": [
-        "Development version: shared spectator and local testing toolbar."
+        "First release in the Serps Mods pack. The spectator features of Bugfixes and QoL now live in this separate mod; its spectator-view and eliminated-player settings are taken over once.",
+        "Spectators and eliminated players can switch the displayed player, reports and ally view through the portrait bar.",
+        "Optional: spectators control the selected player in singleplayer skirmishes (off by default).",
+        "Eliminated players can keep watching with spectator views (host option).",
+        "The detailed Vanilla statistics screen can be opened during the match.",
+        "Lord overview via the crown button, with host permission for extra enemy statistics.",
+        "Test tools for spectators and an AI lord test mode for active single-player participants; both are off by default, disabled in real multiplayer and not available in the map editor."
       ]
     }
   ]

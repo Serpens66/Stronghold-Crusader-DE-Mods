@@ -1,5 +1,5 @@
 $ErrorActionPreference = 'Stop'
-$gameDirectory = 'E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition'
+$gameDirectory = if ($env:SHCDE_GAME_DIR) { $env:SHCDE_GAME_DIR } else { 'E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition' }
 # Metadata-only reader; loading its bytes avoids mutating Windows Zone.Identifier on game files.
 [void][Reflection.Assembly]::Load([IO.File]::ReadAllBytes((Join-Path $gameDirectory 'BepInEx\core\Mono.Cecil.dll')))
 # Optional reflection contracts must match real access modifiers, not just the fixture signatures.

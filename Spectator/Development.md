@@ -1,4 +1,4 @@
-# Spectator 0.1.0 — Entwicklungsstand
+# Spectator — Entwicklerhinweise
 
 ## Aufbau
 
@@ -11,23 +11,30 @@
 - `CreditAmountInput`, die Aktionsrichtlinien und optionale Anbieteradapter kapseln
   Eingabevalidierung, Einmaligkeit und modabhängige Verträge.
 
-Die Modversion ist ein Entwicklungsstand. Es gibt keine Anwesenheitssperre für
-BugfixesAndQoL oder den früheren Testmod. BugfixesAndQoL enthält nach der Auslagerung
-keine Zuschauer-Auswahl, Berichte, Save-Wiederherstellung, Statistikvorschau oder
+Spectator ist Teil des Steam-Modpacks „Serps Mods“ (`release-projects.json`,
+`WorkshopConfiguration.ps1`); die Modversion steht in `SpectatorPlugin.PluginVersion` und
+`info.json`. Es gibt keine Anwesenheitssperre für BugfixesAndQoL oder den früheren Testmod.
+BugfixesAndQoL enthält nach der Auslagerung keine Zuschauer-Auswahl, Berichte, Save-Wiederherstellung, Statistikvorschau oder
 Ausscheidensübergänge mehr. Aufgeben, Lobby-Rückkehr, allgemeines fremdes Truppen-HUD
 und Statistikabzeichen bleiben dort. Beide Mods nutzen APIShareds gemeinsame
 Endansicht-Ereignisse. Der alte Testmod gehört nicht zur gemeinsamen Testinstallation.
-Die Releaseauswahl bleibt unverändert; Spectator ist weiterhin ein Entwicklungsmod.
+
+Test- und Cheatwerkzeuge (`EnableTestTools`, `EnableSingleplayerTestMode`) sind standardmäßig
+aus. Der Karteneditor hat weder Spectator-Leiste noch Werkzeugsitzung. Der Frame-Callback
+`OnBeforeRender` ist nur angemeldet, solange eine Mission eine anwendbare Funktion hat
+(Zuschauer, ausgeschiedener Teilnehmer, aktive Werkzeuge außerhalb von echtem Multiplayer)
+oder Präsentations-/Logarbeit wartet. Andere Threads melden ihn über Unitys
+Synchronisationskontext an; Rollenwechsel prüft der `GameData.setGameState`-Postfix. Platzierungsdiagnose liegt in `SpectatorRuntime.Placement.DevDiag.cs`
+(nur `build.bat /devdiag`).
 
 ## Build
 
-APIShared zuerst aus dem vereinbarten Entwicklungsarbeitsstand über dessen Buildtreiber
-bauen. Anschließend `SHCDE_API_SHARED_DIR` auf dessen geprüftes Paket setzen und
-`Spectator/build.bat /nopause /noinstall` ausführen. SDK-Auswahl und MSBuild prüfen den
-Paketnachweis. Ohne `/noinstall` installiert der Treiber bei geschlossenem Spiel.
-Der neue Mod ist nicht in der Hauptmod-Releaseauswahl registriert.
+`Spectator/build.bat` nutzt den gemeinsamen Branch-Dispatch der Packmods (Arbeitsstand,
+Branch oder festgehaltener Release-Commit; SDK-Auswahl über `/apishared:…`). Ohne
+`/noinstall` installiert der Treiber bei geschlossenem Spiel; danach schreibt er den lokalen
+Buildnachweis. Releases laufen über `Spectator/release.bat` bzw. das Modpack.
 
-## Nachweise vom 21.10.2026
+## Nachweise vom 21.10.2026 (historisch, Entwicklungsstand vor der Pack-Aufnahme)
 
 - APIShared: vollständiger Treiber erfolgreich; 700 Tests bestanden, zwei optionale
   Umgebungstests übersprungen. Öffentliche Änderungen ausschließlich additiv.

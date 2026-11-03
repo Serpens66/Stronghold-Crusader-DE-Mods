@@ -34,7 +34,7 @@ namespace Spectator
     {
         public const string Guid = "Spectator_Serp";
         public const string Name = "Spectator";
-        public const string Version = "0.1.0";
+        public const string Version = SpectatorPlugin.PluginVersion;
 
         // The plugin component is destroyed during startup. Hooks, callbacks, and the logger
         // therefore remain rooted in static fields for the entire process lifetime.
@@ -45,23 +45,12 @@ namespace Spectator
         private static HUD_Main activeHud;
         private static int lastOwner = int.MinValue;
         private static int lastScreen = int.MinValue;
-        private static HUD_Main pendingVisibilityHud;
-        private static int pendingVisibilityScreen;
-        private static int pendingVisibilityOwner;
-        private static DateTime pendingVisibilityAt = DateTime.MaxValue;
-        private static int visibilityDiagnostics;
         private static int hudLayoutDiagnostics;
         private static HUD_Main initialLayoutLoggedHud;
-        private static int suppressedBlankCalls;
-        private static int suppressedFreezeCalls;
         private static FieldInfo buildIconListsField;
         private static FieldInfo buildButtonsField;
         private static bool runtimeConfirmed;
         private static readonly HashSet<string> loggedFailures = new HashSet<string>();
-        private static IDisposable tribeSubscription;
-        private static int unitDiagnostics;
-        private static int unitRequests;
-        [ThreadStatic] private static int placingUnitOwner;
         [ThreadStatic] private static int lastEditorMouseState;
         [ThreadStatic] private static bool rawMouseReleasePending;
         [ThreadStatic] private static BuildingRequest buildingClickScope;
@@ -70,7 +59,6 @@ namespace Spectator
         private static volatile BuildingRequest pendingBuilding;
         private static volatile WallRequest activeWall;
         private static volatile WallRequest pendingWall;
-        private static IDisposable buildingSpawnSubscription;
         private static IDisposable buildStructureSubscription;
         private static IDisposable wallBuildSubscription;
         private static IDisposable subtractResourceSubscription;
@@ -82,22 +70,15 @@ namespace Spectator
         private static int revealHiddenActive;
         private static int visualMapLogged, visualResourceLogged;
         private static ulong nativeImageBase;
-        private static int wallPreviewDiagnostics;
-        private static int wallInputDiagnostics;
-        private static int wallPressDiagnostics, wallReleaseDiagnostics, wallQueueDiagnostics;
-        private static int wallOrderDiagnostics;
-        private static int wallCostDiagnostics;
-        private static int specialInputDiagnostics, pitchCostDiagnostics;
-        private static int moatInputDiagnostics, moatOutcomeDiagnostics, deleteDiagnostics;
+        // Caps the tracked moat tiles per session; each probe can refresh the tile visuals.
+        private static int moatInputDiagnostics;
         private static volatile SpecialDragRequest activeSpecial;
         private static readonly List<MoatProbe> pendingMoat = new List<MoatProbe>();
         private static readonly object moatLock = new object();
         private static readonly List<PitchRequest> pendingPitch = new List<PitchRequest>();
         private static readonly object pitchLock = new object();
+        // Throttles real build-path warnings and errors.
         private static int buildingDiagnostics;
-        private static int vanillaWellDiagnostics;
-        private static readonly List<BuildingVisualSample> visualSamples = new List<BuildingVisualSample>();
-        private static readonly object visualSamplesLock = new object();
         private static IMissionLifecycleCapability missionLifecycle;
         private static long activeSessionId;
         private static bool humanPlacementMode;
@@ -145,12 +126,11 @@ namespace Spectator
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private delegate byte VisualResourceDelegate(IntPtr tileManager, int buildingId);
 
-        private sealed class BuildingRequest
+        private sealed partial class BuildingRequest
         {
             internal int Owner, X, Y, Scale;
             internal eMappers Mapper;
             internal long SessionId;
-            internal bool Spawned;
             internal volatile bool ClickAccepted, BuildStarted;
             internal DateTime ExpiresAtUtc;
         }
@@ -207,12 +187,11 @@ namespace Spectator
         internal static void Initialize(ManualLogSource logger, SpectatorViewModel currentSettings)
         {
             if (harmony != null) return;
-            log = new TimestampLog(logger);
+            log = new TimestampLog(logger, RequestRender);
             settings = currentSettings;
+            Shared.DevDiag.Attach(logger);
             var candidate = new Harmony(Guid);
             harmony = candidate; // Root every published patch, including partial initialization.
-            IDisposable candidateTribeSubscription = null;
-            IDisposable candidateBuildingSpawn = null;
             IDisposable candidateBuildStructure = null;
             IDisposable candidateWallBuild = null;
             IDisposable candidateSubtractResource = null;
@@ -274,11 +253,6 @@ namespace Spectator
                     typeof(BulkBuildingDetours).FullName, "c_game_build_wall_hook_impl");
                 candidate.Patch(buildWall, finalizer: new HarmonyMethod(AccessTools.Method(
                     typeof(SpectatorRuntime), nameof(FinalizeBuildWall))));
-                candidateTribeSubscription = TribeR3EventHooks.OnTribeAssignUnit.Observable
-                    .Where(args => args.Phase == EventHookPhase.Post)
-                    .Subscribe(OnTribeAssigned);
-                candidateBuildingSpawn = BuildingR3EventHooks.OnBuildingSpawn.Observable
-                    .Subscribe(OnBuildingSpawn);
                 candidateBuildStructure = BuildingR3EventHooks.OnBuildStructure.Observable
                     .Subscribe(OnBuildStructure);
                 candidateWallBuild = BuildingR3EventHooks.OnBuildWall.Observable.Subscribe(OnBuildWall);
@@ -286,14 +260,13 @@ namespace Spectator
                     .Where(args => args.Phase == EventHookPhase.Pre).Subscribe(OnSubtractResource);
                 candidatePitchBuild = BuildingR3EventHooks.OnBuildPitchDitch.Observable
                     .Subscribe(OnBuildPitchDitch);
-                tribeSubscription = candidateTribeSubscription;
-                buildingSpawnSubscription = candidateBuildingSpawn;
                 buildStructureSubscription = candidateBuildStructure;
                 wallBuildSubscription = candidateWallBuild;
                 subtractResourceSubscription = candidateSubtractResource;
                 pitchBuildSubscription = candidatePitchBuild;
+                DiagSubscribe();
                 GameTimeManagerAPI.Instance.OnTick += OnSimulationTick;
-                UnityEngine.Application.onBeforeRender += OnBeforeRender;
+                EnableRender();
                 CrusaderLibrary.Instance.LibraryLoaded += OnNativeLibraryLoaded;
                 if (!ApiShared.Current.TryGetMissionLifecycle(Guid,
                     out IMissionLifecycleCapability lifecycle, out NativeCapabilityDiagnostic diagnostic))
@@ -336,12 +309,6 @@ namespace Spectator
             if (buildIconListsField?.FieldType != typeof(int[,]) ||
                 buildButtonsField?.FieldType != typeof(Button[]))
                 throw new MissingFieldException("HUD_Main", "BuildIconLists/buildButtons");
-        }
-
-        private sealed class BuildingVisualSample
-        {
-            internal int BuildingId, X, Y, NextTick, Samples;
-            internal string Source;
         }
 
         private static void LogOnce(string message)

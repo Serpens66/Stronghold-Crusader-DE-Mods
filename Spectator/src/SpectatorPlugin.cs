@@ -7,7 +7,7 @@ using SHCDESE.API.LowLevel;
 
 namespace Spectator
 {
-    [BepInPlugin(PluginGuid, "Spectator", "0.1.0")]
+    [BepInPlugin(PluginGuid, "Spectator", PluginVersion)]
     [BepInDependency("000shcdese", "2.14.0")]
     [BepInDependency("APIShared_Serp", "0.25.0")]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
@@ -18,6 +18,7 @@ namespace Spectator
     public sealed partial class SpectatorPlugin : BaseUnityPlugin
     {
         public const string PluginGuid = "Spectator_Serp";
+        public const string PluginVersion = "0.1.0";
         private static SpectatorPlugin processRoot;
         private static SpectatorStatistics statistics;
         private static SpectatorDefeat spectatorDefeat;

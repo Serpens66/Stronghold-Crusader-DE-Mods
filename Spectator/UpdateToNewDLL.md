@@ -253,12 +253,16 @@ register/branch contract. No existing game instructions are rewritten on activat
 
 StatisticsPreviewController owns the current preview identity and generation. A real
 Vanilla end notification revokes that ownership without rewriting the new end screen.
-Settings use the shared preset base: local tools activation is PresetLocal, perspective,
-statistics and eliminated-player permissions are SyncHostOnly. No foreign settings migrate.
+Settings use the shared preset base: local tools, perspective, control and statistics are
+PresetLocal; only eliminated-player promotion (EnableEliminatedPlayersBecomeSpectators) and
+AllowEnemyDetails are SyncHostOnly behind the host switch EnableMod. LegacySpectatorSettings
+migrates exactly two BugfixesAndQoL settings once: EnableSpectatorPerspective and
+EnableEliminatedPlayersBecomeSpectators. Test tools are off by default; the map editor has
+no toolbar and no tool session.
 
-The development package is not on the main-mod release whitelist. Build via build.bat
-with the verified SDK selected through SHCDE_API_SHARED_DIR; /noinstall preserves the
-current game installation. Automated tests do not establish in-game delivery, effects,
+Spectator is a Serps Mods pack member (release-projects.json, WorkshopConfiguration.ps1).
+Build via build.bat (shared branch dispatch, SDK via /apishared:...); /noinstall preserves
+the current game installation. Automated tests do not establish in-game delivery, effects,
 layout at different resolutions or interoperability after the user cleans BugfixesAndQoL.
 
 ## Endansicht nach der Zuschauer-Auslagerung (2026-10-27)

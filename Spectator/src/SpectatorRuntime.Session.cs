@@ -1,31 +1,8 @@
 using APIShared.GameModes;
 using APIShared;
-using BepInEx;
-using BepInEx.Logging;
 using CrusaderDE;
-using HarmonyLib;
-using Iced.Intel;
-using Noesis;
-using R3;
-using RedBird.Abstractions.Hooks;
-using RedBird.Backends.NativeX64;
-using SHCDESE.API;
-using SHCDESE.API.LowLevel;
-using SHCDESE.Detours;
-using SHCDESE.EventAPI;
-using SHCDESE.EventAPI.Buildings;
-using SHCDESE.EventAPI.Player;
-using SHCDESE.EventAPI.Tribes;
-using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
-using System.Collections.Generic;
-using System.IO;
-using Path = System.IO.Path;
-using System.Reflection;
-using System.Runtime.InteropServices;
-using Marshal = System.Runtime.InteropServices.Marshal;
-using System.Security.Cryptography;
 using System.Threading;
 
 namespace Spectator
@@ -33,7 +10,7 @@ namespace Spectator
     internal static partial class SpectatorRuntime
     {
         private static long announcedSessionId;
-        private static GameModeSnapshot? toolbarPortraitMode;
+        private static GameModeSnapshot? sessionMode;
         private static long CurrentSessionId => Interlocked.Read(ref activeSessionId);
         internal static bool HasMission => CurrentSessionId > 0;
 
@@ -46,7 +23,7 @@ namespace Spectator
             if (sessionId <= 0) return;
             Interlocked.Exchange(ref announcedSessionId, sessionId);
             var mode = notification.Context.Mode;
-            if (!log.IsMainThread) { presentationCallbacks.Enqueue(() => BeginPresentedSession(sessionId, mode)); return; }
+            if (!log.IsMainThread) { PostPresentation(() => BeginPresentedSession(sessionId, mode)); return; }
             BeginPresentedSession(sessionId, mode);
         }
 
@@ -55,10 +32,11 @@ namespace Spectator
             if (Interlocked.Read(ref announcedSessionId) != sessionId) return;
             if (!initialized || sessionId <= 0 || sessionId == CurrentSessionId) return;
             ResetSessionState();
-            toolbarPortraitMode = mode;
+            sessionMode = mode;
             Interlocked.Exchange(ref activeSessionId, sessionId);
             actionLedger.Reset(sessionId);
             log?.LogInfo("SPECTATOR_EDITOR_SESSION_START id=" + sessionId);
+            RequestRender();
         }
 
         private static void OnMissionEnd(MissionLifecycleNotification notification)
@@ -68,7 +46,7 @@ namespace Spectator
             // Invalidate gameplay immediately on the publishing thread, before deferred UI cleanup.
             Interlocked.CompareExchange(ref announcedSessionId, 0, sessionId);
             Interlocked.CompareExchange(ref activeSessionId, 0, sessionId);
-            if (!log.IsMainThread) { presentationCallbacks.Enqueue(() => EndPresentedSession(sessionId)); return; }
+            if (!log.IsMainThread) { PostPresentation(() => EndPresentedSession(sessionId)); return; }
             EndPresentedSession(sessionId);
         }
 
@@ -85,7 +63,7 @@ namespace Spectator
             ResetSpriteColourLease();
             SetRevealHidden(0);
             DetachHumanControls();
-            toolbarPortraitMode = null;
+            sessionMode = null;
             humanPlacementMode = false;
             toolbarMoved = false;
             toolbarDesiredX = toolbarDesiredY = 0;
@@ -104,24 +82,18 @@ namespace Spectator
             lock (moatLock) pendingMoat.Clear();
             lock (pitchLock) pendingPitch.Clear();
             pitchClickScope = null;
-            wallPreviewDiagnostics = 0;
-            wallInputDiagnostics = 0;
-            wallPressDiagnostics = wallReleaseDiagnostics = wallQueueDiagnostics = 0;
-            wallOrderDiagnostics = 0;
-            wallCostDiagnostics = 0;
-            specialInputDiagnostics = pitchCostDiagnostics = 0;
-            moatInputDiagnostics = moatOutcomeDiagnostics = deleteDiagnostics = 0;
+            moatInputDiagnostics = 0;
+            DiagResetSession();
             pendingBuilding = null;
             buildingClickScope = null;
             buildingWall = null;
-            placingUnitOwner = 0;
+            DiagPlacingUnit(0);
             rawMouseReleasePending = false;
             activeHud = null;
             initialLayoutLoggedHud = null;
             lastOwner = int.MinValue;
             lastScreen = int.MinValue;
-            pendingVisibilityHud = null;
-            pendingVisibilityAt = DateTime.MaxValue;
+            DiagForgetIcons();
         }
 
         private static bool IsSpectatorSession()
@@ -135,7 +107,7 @@ namespace Spectator
                 var view = MainViewModel.Instance;
                 return CurrentSessionId > 0 && state != null && director != null &&
                     editor != null && view != null &&
-                    state.game_type == 3 && state.spectatorMode != 0 &&
+                    state.game_type == (int)eGameTypeModes.GAMETYPE_MULTIPLAYER && state.spectatorMode != 0 &&
                     SpectatorPerspectiveRuntime.IsSpectatorObserver() && !view.IsMapEditorMode &&
                     director.SkirmishModeGame && !director.MultiplayerGame &&
                     !APIShared.GameModes.GameModeHelper.IsRealMultiplayer();

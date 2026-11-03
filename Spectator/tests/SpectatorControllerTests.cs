@@ -109,7 +109,7 @@ namespace Spectator {
    foreach(bool spectator in new[]{false,true})
    foreach(bool active in new[]{false,true}) {
     bool enabled = ToolSessionPolicy.Enabled(spectatorTools,activeTools,editor,spectator,active);
-    Check(enabled==((editor||spectator)?spectatorTools:active&&activeTools),"test mode explicitly distinguishes active players from spectators and editor");
+    Check(enabled==(!editor&&(spectator?spectatorTools:active&&activeTools)),"test mode distinguishes active players from spectators; the toolbar-less editor has no tools");
     Check(!ToolSessionPolicy.CanMutate(enabled,true,true,true,true,true,false),"real network veto is independent of every local setting");
     Check(!ToolSessionPolicy.CanMutate(enabled,true,true,true,false,true,true),"director multiplayer veto remains fail-closed");
    }

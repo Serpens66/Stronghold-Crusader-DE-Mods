@@ -38,30 +38,31 @@ internal static class SettingsSplitPresetTests
         GameNetworkAPI.Networked = true;
         GameNetworkAPI.MultiplayerGame = true;
     }
-    private static void RoundTrip<T>(string root, string id, string[] options) where T : PresetLobbyModSettingsViewModel, new()
+    // Saves the non-default value of every option and checks preset, restart, reset and old snapshots.
+    private static void RoundTrip<T>(string root, string id, string[] options, bool defaultValue = true) where T : PresetLobbyModSettingsViewModel, new()
     {
         Role(true);
         string file = Path.Combine(root, id + ".dll");
         T vm = Prepare<T>(file, id);
-        foreach (string name in options) Check(Get(vm, name), id + " default true: " + name);
-        foreach (string name in options) Set(vm, name, false);
+        foreach (string name in options) Check(Get(vm, name) == defaultValue, id + " default " + defaultValue + ": " + name);
+        foreach (string name in options) Set(vm, name, !defaultValue);
         var saved = vm.System_CreateCurrentWorkingSnapshot();
         var selection = options.Select(name => new PresetSaveSelection { PropertyName = name, Mode = PublishedPresetValueMode.Fixed }).ToArray();
         vm.System_SavePersonalPreset("split-values", "Split values", "", selection, false);
-        foreach (string name in options) Set(vm, name, true);
+        foreach (string name in options) Set(vm, name, defaultValue);
         var preset = vm.System_TestPublishedPresets.Single(item => item.Id == "split-values");
         vm.System_TestLoadPreset(preset.StableId);
-        foreach (string name in options) Check(!Get(vm, name), id + " named preset retains false: " + name);
+        foreach (string name in options) Check(Get(vm, name) != defaultValue, id + " named preset retains non-default: " + name);
         T restart = Prepare<T>(file, id);
-        foreach (string name in options) Check(!Get(restart, name), id + " restart retains false: " + name);
+        foreach (string name in options) Check(Get(restart, name) != defaultValue, id + " restart retains non-default: " + name);
         restart.System_LoadModDefaults();
-        foreach (string name in options) Check(Get(restart, name), id + " reset true: " + name);
+        foreach (string name in options) Check(Get(restart, name) == defaultValue, id + " reset to default: " + name);
 
         var legacy = new Dictionary<string, byte[]>(saved);
         foreach (string name in options) legacy.Remove(name);
         T oldPreset = Prepare<T>(Path.Combine(root, id + "-old.dll"), id + "-old");
         oldPreset.System_ApplyWorkingSnapshot(legacy);
-        foreach (string name in options) Check(Get(oldPreset, name), id + " missing old key uses default: " + name);
+        foreach (string name in options) Check(Get(oldPreset, name) == defaultValue, id + " missing old key uses default: " + name);
     }
     public static int Main()
     {
@@ -72,7 +73,7 @@ internal static class SettingsSplitPresetTests
             Directory.CreateDirectory(Program.PresetFixtureInstallRoot);
             PersonalSettingsPaths.TestDocumentsDirectory = _ => Path.Combine(root, "documents");
             RoundTrip<ExtendedDataSettingsViewModel>(Program.PresetFixtureInstallRoot, "ExtendedSplit", ExtendedOptions);
-            RoundTrip<SpectatorViewModel>(Program.PresetFixtureInstallRoot, "SpectatorSplit", SpectatorOptions);
+            RoundTrip<SpectatorViewModel>(Program.PresetFixtureInstallRoot, "SpectatorSplit", SpectatorOptions, false);
 
             Role(true);
             var vm = Prepare<ExtendedDataSettingsViewModel>(Path.Combine(root, "roles.dll"), "SplitRoles");

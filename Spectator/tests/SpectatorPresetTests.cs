@@ -28,25 +28,26 @@ internal static class SpectatorPresetTests
             string path = Path.Combine(root, "Spectator.dll");
             var vm = Prepare(path);
             Check(!vm.EnableSingleplayerTestMode && !vm.Activation.SingleplayerTest, "active-player test mode is opt-in");
+            Check(!vm.EnableTestTools && !vm.Activation.TestTools, "spectator test and cheat tools are opt-in");
             vm.EnableSingleplayerTestMode = true;
-            vm.EnableTestTools = false;
             Check(vm.Activation.SingleplayerTest && !vm.Activation.TestTools && Prepare(path).EnableSingleplayerTestMode,
                 "independent local test modes persist across restart");
+            vm.EnableTestTools = true;
             vm.ResetToDefaultCommand.Execute(null);
-            Check(!vm.EnableSingleplayerTestMode && vm.EnableTestTools, "visible shared reset turns active-player tools off");
+            Check(!vm.EnableSingleplayerTestMode && !vm.EnableTestTools, "visible shared reset turns all test tools off");
             var changes = new System.Collections.Generic.List<string>();
             vm.PropertyChanged += (_, e) => changes.Add(e.PropertyName);
             vm.EnableMod = false;
             Check(vm.HostSettingsOpacity == 0.65f && vm.CanEditHostSettings && changes.Contains(nameof(vm.HostSettingsOpacity)), "host switch dims via shared controller without revoking editing");
             vm.EnableMod = true;
             Check(vm.HostSettingsOpacity == 1f, "host switch restores full opacity");
-            vm.EnableTestTools = false;
-            vm.System_SavePersonalPreset("tools-off", "Tools off", "", new[] { new PresetSaveSelection {
-                PropertyName = nameof(vm.EnableTestTools), Mode = PublishedPresetValueMode.Fixed } }, false);
             vm.EnableTestTools = true;
-            vm.System_TestLoadPreset(vm.System_TestPublishedPresets.Single(p => p.Id == "tools-off").StableId);
-            Check(!vm.EnableTestTools && !Prepare(path).EnableTestTools, "local tools persist through preset and restart");
-            vm.System_LoadModDefaults(); Check(vm.EnableTestTools, "tools default restored");
+            vm.System_SavePersonalPreset("tools-on", "Tools on", "", new[] { new PresetSaveSelection {
+                PropertyName = nameof(vm.EnableTestTools), Mode = PublishedPresetValueMode.Fixed } }, false);
+            vm.EnableTestTools = false;
+            vm.System_TestLoadPreset(vm.System_TestPublishedPresets.Single(p => p.Id == "tools-on").StableId);
+            Check(vm.EnableTestTools && Prepare(path).EnableTestTools, "local tools persist through preset and restart");
+            vm.System_LoadModDefaults(); Check(!vm.EnableTestTools, "tools default restored");
             GameNetworkAPI.LocalHost = false; vm.System_RefreshSettingsAccess();
             vm.EnableStatistics = false; vm.EnableEliminatedPlayersBecomeSpectators = false;
             Check(!vm.EnableStatistics && vm.EnableEliminatedPlayersBecomeSpectators, "statistics are local; promotion remains host controlled");
