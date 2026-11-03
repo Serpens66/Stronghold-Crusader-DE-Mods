@@ -1508,6 +1508,9 @@ cost-optimal (equal-cost ties may differ from the per-unit search). Without a la
   pass), the precedent of MoatMove's single routes. The frame's `+0x94` identity test is skipped while Vanilla's
   builder did not run, because `+0x94` then holds the value of an earlier reconstruction (`E1110`/`E1640` are its only writers).
 - Every other request, a rejected or unpublished route, keeps the unchanged per-unit path (Vanilla builder + weighted search).
+- Recent fields (as many as the native pool keeps) are reused for 400 map ticks by later move commands to the same
+  target with the same profile key, and by single requests outside a command scope whose target is a slot such a field
+  answered (post-combat resumption, `AssassinCombatResumeRuntime`). A single request never builds a field.
 On a new DLL: re-audit F4930's Assassin branch, the writers of `+0x94` and the frame publication fields before enabling it.
 
 ## One-pass flood member check (2026-10-30, `src/UnitCommands/Native/TribeFloodMembership.cs`)

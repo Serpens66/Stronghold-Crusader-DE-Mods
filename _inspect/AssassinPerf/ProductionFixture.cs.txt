@@ -499,7 +499,7 @@ internal ITemporaryAssassinGateObserver DetailedObserver;internal Dictionary<int
         int sx=random.Next(1,width-1),sy=random.Next(1,height-1);
         int tx=Math.Min(width-2,Math.Max(1,ax+random.Next(-6,7))),ty=Math.Min(height-2,Math.Max(1,ay+random.Next(-6,7)));
         if(!IsNativeTile(r.GetTileId(sx,sy))||!IsNativeTile(r.GetTileId(tx,ty)))continue;
-        int status=r.RunGroupRoute(command,key,sx,sy,tx,ty,card,diag,climbing,reserved,policy,out var gr,margin);
+        int status=r.RunGroupRoute(command,key,sx,sy,tx,ty,card,diag,climbing,reserved,policy,0,out var gr,margin);
         string where=terrain+" group#"+group+" margin="+margin+" "+sx+","+sy+"->"+tx+","+ty;
         if(status!=AssassinNativeSearch.StatusFound)continue;
         var summary=new RouteSearchSummary(gr.RouteLength,gr.GroundEdges,gr.ClimbEdges,gr.TotalCost,gr.Expanded,0,0,0,cacheHit:false);

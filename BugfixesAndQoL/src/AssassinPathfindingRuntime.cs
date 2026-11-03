@@ -1194,7 +1194,10 @@ namespace BugfixesAndQoL
         internal bool TryStageGroupRoute(IntPtr context)
         {
             AssassinCommandScope command = activeCommand;
-            if (!IsInstalled || !nativeSearchBound || command == null || command.EventKind != MoveCommandKind ||
+            // Outside a command scope (e.g. an Assassin resuming its move after a fight) only a recent field that
+            // answered the same slot is reused; other commands (targets) keep the per-unit path.
+            Func<int> tickSource = MapTickSource;
+            if (!IsInstalled || !nativeSearchBound || (command == null ? tickSource == null : command.EventKind != MoveCommandKind) ||
                 context != IntPtr.Add(libraryHandle, 0x60AD660))
                 return false;
             byte* manager = (byte*)context.ToPointer();
@@ -1203,7 +1206,16 @@ namespace BugfixesAndQoL
                 return false;
             int startX = *(int*)(manager + 0x08), startY = *(int*)(manager + 0x0C);
             int targetX = *(int*)(manager + 0x10), targetY = *(int*)(manager + 0x14);
-            int anchorX = command.TargetValue1, anchorY = command.TargetValue2;
+            int tick = command?.Tick ?? tickSource();
+            RecentGroupField slotField = default;
+            if (command == null)
+            {
+                // Player and profile are checked below through the full field key.
+                if (!IsValidCoordinate(targetX, targetY) || !slotGroupFields.TryGetValue(GetCoordinateIndex(targetX, targetY), out slotField) ||
+                    slotField.Epoch != mapEpoch || tick < slotField.Tick || tick - slotField.Tick > GroupFieldReuseTicks)
+                    return false;
+            }
+            int anchorX = command?.TargetValue1 ?? slotField.Key.TargetX, anchorY = command?.TargetValue2 ?? slotField.Key.TargetY;
             if (!IsValidCoordinate(startX, startY) || !IsValidCoordinate(targetX, targetY) || !IsValidCoordinate(anchorX, anchorY) ||
                 !IsNativeTile(GetTileId(startX, startY)) || !IsNativeTile(GetTileId(targetX, targetY)))
                 return false;
@@ -1213,22 +1225,24 @@ namespace BugfixesAndQoL
             if (!AssassinPathAPI.TryGetCurrentWeightedRequest(BugfixesAndQoLPlugin.PluginGuid, context,
                     startX, startY, targetX, targetY, out _, out _) ||
                 !TryResolveAssassinRequest(command, context, startX, startY, targetX, targetY, out int playerId, out int speedDelay) ||
-                !command.IsEnabledFor(IsAIPlayer(playerId)) || !EnsureCoordinateTileMappingValidated() ||
+                !(command?.IsEnabledFor(IsAIPlayer(playerId)) ?? IsWeightedEnabledFor(IsAIPlayer(playerId))) || !EnsureCoordinateTileMappingValidated() ||
                 !AssassinGateRoutePolicy.TryCapture(provider, playerId, out IEnemyGateRoutePolicySnapshot gatePolicy))
                 return false;
             int cardinalTicks = AssassinClimbCostPolicy.GetCardinalMovementTicks(speedDelay);
             int diagonalTicks = AssassinClimbCostPolicy.GetDiagonalMovementTicks(speedDelay);
             if (diagonalTicks > MaximumBucketStepTicks)
                 return false;
-            bool allowClimbing = command.GetClimbingAllowed(playerId, climbRuntime);
+            bool allowClimbing = command?.GetClimbingAllowed(playerId, climbRuntime) ?? climbRuntime.IsClimbingAllowed(playerId);
             bool allowReserved = reconstructionPatch?.IsApplied == true;
             bool directClimbing = AssassinPathAPI.DirectGatehouseClimbingEnabled;
             var fieldKey = new SuffixCacheKey(anchorX, anchorY, speedDelay, allowClimbing, allowReserved, playerId, gatePolicy, directClimbing);
+            if (command == null && !fieldKey.Equals(slotField.Key))
+                return false;
 
             long diagStage = 0;
             Shared.DevDiag.Start(ref diagStage);
             int status = RunGroupRoute(command, fieldKey, startX, startY, targetX, targetY, cardinalTicks, diagonalTicks,
-                allowClimbing, allowReserved, gatePolicy, out AssassinNativeSearch.Result result);
+                allowClimbing, allowReserved, gatePolicy, tick, out AssassinNativeSearch.Result result);
             Shared.DevDiag.Stop(ref diagStage, status == AssassinNativeSearch.StatusFound ? "bfqol.assassin.group.found" : "bfqol.assassin.group.status" + status);
             if (status != AssassinNativeSearch.StatusFound || !AssassinGateRoutePolicy.IsCurrent(gatePolicy))
                 return false;
@@ -1237,7 +1251,13 @@ namespace BugfixesAndQoL
             var cacheKey = new RouteCacheKey(startX, startY, targetX, targetY, TileCount, speedDelay,
                 playerId, allowClimbing, allowReserved, gatePolicy, directClimbing);
             bool staged = TryStagePreparedRoute(context, cacheKey, summary, null, command);
-            Shared.DevDiag.Count(staged ? "bfqol.assassin.group.staged" : "bfqol.assassin.group.stageRejected");
+            Shared.DevDiag.Count(staged ? (command == null ? "bfqol.assassin.group.stagedSingle" : "bfqol.assassin.group.staged") : "bfqol.assassin.group.stageRejected");
+            // The slot this field answered: a later single request of the member (after a fight) can reuse the field.
+            if (staged && command != null && FindRecentGroupField(fieldKey, tick, out RecentGroupField used))
+            {
+                if (slotGroupFields.Count >= MaximumSlotGroupFields) slotGroupFields.Clear();
+                slotGroupFields[GetCoordinateIndex(targetX, targetY)] = used;
+            }
             return staged;
         }
 
@@ -1248,7 +1268,7 @@ namespace BugfixesAndQoL
 
         // Native group route into route[] (target first): status of bfq_assassin_field_route, or -1 without an answer.
         private int RunGroupRoute(AssassinCommandScope command, SuffixCacheKey fieldKey, int startX, int startY, int targetX, int targetY,
-            int cardinalTicks, int diagonalTicks, bool allowClimbing, bool allowReserved, IEnemyGateRoutePolicySnapshot gatePolicy,
+            int cardinalTicks, int diagonalTicks, bool allowClimbing, bool allowReserved, IEnemyGateRoutePolicySnapshot gatePolicy, int tick,
             out AssassinNativeSearch.Result result, int margin = GroupRouteMargin)
         {
             result = default;
@@ -1279,9 +1299,17 @@ namespace BugfixesAndQoL
                         AllowReserved = allowReserved ? 1 : 0, PolicyMask = (IntPtr)maskBytes, PolicyMaskLength = mask?.Length ?? 0,
                         UsePolicyCallback = callback ? 1 : 0,
                     };
-                    int handle = command.GetGroupField(fieldKey);
+                    int handle = command?.GetGroupField(fieldKey) ?? 0;
+                    if (handle == 0 && FindRecentGroupField(fieldKey, tick, out RecentGroupField recent))
+                    {
+                        handle = recent.Handle;
+                        command?.SetGroupField(fieldKey, handle);
+                        Shared.DevDiag.Count("bfqol.assassin.group.fieldReused");
+                    }
                     code = handle > 0 ? GroupRoute(handle, &tables, &request, nodes, nodeCosts, ref result, margin) : AssassinNativeSearch.FieldRecycled;
-                    if (code == AssassinNativeSearch.FieldRecycled)
+                    if (code == AssassinNativeSearch.FieldRecycled) ForgetRecentGroupField(handle);
+                    // A single request never builds a field: that costs more than its own per-unit search.
+                    if (code == AssassinNativeSearch.FieldRecycled && command != null)
                     {
                         // A new field towards the move target (the request's target is the anchor at creation).
                         var anchorRequest = request;
@@ -1290,18 +1318,20 @@ namespace BugfixesAndQoL
                         if (code == 0)
                         {
                             command.SetGroupField(fieldKey, handle);
+                            RememberRecentGroupField(fieldKey, handle, tick);
                             Shared.DevDiag.Count("bfqol.assassin.group.fields");
                             code = GroupRoute(handle, &tables, &request, nodes, nodeCosts, ref result, margin);
                         }
                     }
                     // The move target cannot be reached from this slot (e.g. a blocked target tile): once per command the
                     // field is anchored at this member's slot instead; the slots of one move lie close together.
-                    if (code == 0 && result.Status == AssassinNativeSearch.StatusFieldFailed && command.TryReanchorGroupField())
+                    if (code == 0 && result.Status == AssassinNativeSearch.StatusFieldFailed && command != null && command.TryReanchorGroupField())
                     {
                         code = AssassinNativeSearch.bfq_assassin_field_create(&tables, &request, &handle);
                         if (code == 0)
                         {
                             command.SetGroupField(fieldKey, handle);
+                            RememberRecentGroupField(fieldKey, handle, tick);
                             Shared.DevDiag.Count("bfqol.assassin.group.reanchored");
                             code = GroupRoute(handle, &tables, &request, nodes, nodeCosts, ref result, margin);
                         }
@@ -1315,8 +1345,53 @@ namespace BugfixesAndQoL
                 nativeCallbackRuntime = previousRuntime; nativeCallbackPolicy = previousPolicy; nativeCallbackFailed = false;
             }
             // A failed callback answered 0 inside the field: drop that field (its distances may be wrong).
-            if (callbackFailed) { command.SetGroupField(fieldKey, 0); return -1; }
+            if (callbackFailed) { command?.SetGroupField(fieldKey, 0); ForgetRecentGroupField(fieldKey); return -1; }
             return status;
+        }
+
+        // Recent group fields (as many as the native pool keeps): later move commands to the same target with the same
+        // profile (the AI repeats its Assassin move every few seconds, test_stresstest5) and single requests to a slot a
+        // field answered (an Assassin resuming its move after a fight) reuse them within GroupFieldReuseTicks. A reused
+        // field may predate map changes since: every route still passes the full staging validation, and a descent that
+        // no longer matches the map fails over to the per-unit path. Deterministic on all peers (simulation state only).
+        private const int GroupFieldReuseTicks = 400, MaximumSlotGroupFields = 8192;
+        // Map tick source for requests outside command scopes; set by the plugin runtime (null in fixtures: no reuse).
+        internal static Func<int> MapTickSource;
+        private struct RecentGroupField { public SuffixCacheKey Key; public int Handle, Tick, Epoch; }
+        private readonly RecentGroupField[] recentGroupFields = new RecentGroupField[4];
+        private readonly Dictionary<long, RecentGroupField> slotGroupFields = new Dictionary<long, RecentGroupField>();
+
+        private bool FindRecentGroupField(SuffixCacheKey key, int tick, out RecentGroupField found)
+        {
+            foreach (RecentGroupField entry in recentGroupFields)
+                if (entry.Handle > 0 && entry.Epoch == mapEpoch && tick >= entry.Tick && tick - entry.Tick <= GroupFieldReuseTicks && entry.Key.Equals(key))
+                { found = entry; return true; }
+            found = default;
+            return false;
+        }
+
+        // Replaces the same key, a free entry or the oldest one (the native pool recycles its least recently used field).
+        private void RememberRecentGroupField(SuffixCacheKey key, int handle, int tick)
+        {
+            int slot = 0;
+            for (int i = 0; i < recentGroupFields.Length; i++)
+            {
+                if (recentGroupFields[i].Handle <= 0 || recentGroupFields[i].Key.Equals(key)) { slot = i; break; }
+                if (recentGroupFields[i].Tick < recentGroupFields[slot].Tick) slot = i;
+            }
+            recentGroupFields[slot] = new RecentGroupField { Key = key, Handle = handle, Tick = tick, Epoch = mapEpoch };
+        }
+
+        private void ForgetRecentGroupField(int handle)
+        {
+            if (handle <= 0) return;
+            for (int i = 0; i < recentGroupFields.Length; i++) if (recentGroupFields[i].Handle == handle) recentGroupFields[i] = default;
+        }
+
+        private void ForgetRecentGroupField(SuffixCacheKey key)
+        {
+            for (int i = 0; i < recentGroupFields.Length; i++)
+                if (recentGroupFields[i].Handle > 0 && recentGroupFields[i].Key.Equals(key)) recentGroupFields[i] = default;
         }
 
         // margin < 0: the cost-optimal landmark route (tests and DEVDIAG quality checks).
