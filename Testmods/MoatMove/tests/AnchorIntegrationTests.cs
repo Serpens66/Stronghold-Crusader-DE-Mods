@@ -197,6 +197,31 @@ namespace MoatMove
                 while (ticks < due) ReplanTick(++ticks);
                 Check(!replanWaits.ContainsKey(7) && replanHeldReasons[HeldQueued] == queuedHeld + 1 && tribes.Moves.Count == 0 && walker->r_TribeId == 3,
                     "a queued order was repeated");
+
+                // A target order (attack) is kept with the wait; the resume keeps the member in its group and
+                // its order and re-plans it to its target (196280) instead of a plain move in a tribe of its own.
+                answer = straight;
+                ObserveTribeOrder(3, false, 0, 0, 0, false, TribeMoveType.NoChange);
+                TribeOrder attack = tribeOrders[3];
+                void WaitAndResume(string what, bool keepsOrder, ref int tick)
+                {
+                    replanSettled.Clear(); tribes.Moves.Clear();
+                    Route(7, 140, 10, new int[0], 140, 10);
+                    StartReplanWait(7, walker, 1, fire.ReplanPolicy, 20, 160, 10, 140, 10, tick);
+                    Check(replanWaits.TryGetValue(7, out ReplanWait kept) && (keepsOrder ? kept.Order.Sequence == attack.Sequence && !kept.Order.Move : kept.Order.Sequence == 0),
+                        $"the wait of {what} recorded the wrong order");
+                    units.Moves.Clear();
+                    long moveResumed = replanMoveResumed, soloBefore = replanSoloResumed;
+                    for (int i = 0; i < 64 && replanWaits.ContainsKey(7); i++) ReplanTick(++tick);
+                    Check(!replanWaits.ContainsKey(7) && replanMoveResumed == moveResumed + 1 && replanSoloResumed == soloBefore && tribes.Moves.Count == 0 &&
+                        walker->r_TribeId == 3 && replanSolos.Count == 0 && units.Moves.Count == 1 && units.Moves[0][0] == 7 && units.Moves[0][1] == 160 &&
+                        walker->r_TargetTilePositionX2 == 160 && walker->r_PathPlanStateBitFlags != 0,
+                        $"{what} did not resume in its group with its order (tribeMoves={tribes.Moves.Count} unitMoves={units.Moves.Count} tribe={walker->r_TribeId})");
+                }
+                WaitAndResume("an attacking member", true, ref ticks);
+                // A group without an observed order (a load without saved cases) is not split up either.
+                tribeOrders.Remove(3);
+                WaitAndResume("a member of a group without an observed order", false, ref ticks);
             }
             finally
             {
@@ -470,6 +495,171 @@ namespace MoatMove
             {
                 units.MoveHandler = null; units.Moves.Clear(); fireTiles.Clear(); ResetFireEscapes(); replanWaits.Clear();
                 fireEscapeActive = false; fireEscapePolicy = null; fireReturnTicks = returnTicksBefore;
+                for (int x = 136; x <= 180; x++) movementTargetAvailability[10 * MapWidth + x] = availability[x];
+                RemoveTribeTable(table);
+                *walker = saved; *second = savedSecond; ticks = now;
+            }
+        }
+
+        // MovementCaseSave on the FireEscape corridor: a save of open cases (escape, solo walker, wait with
+        // its group order, watch state), the load's map reset and the restore on the first tick give the same
+        // cases, which then end as without the save (the escape returns and rejoins, the wait resumes with its
+        // group command, the solo walker rejoins on arrival). A save before that tick writes the loaded record
+        // back; the same state encodes to the same bytes. A case that cannot continue (escape or replanning
+        // now off) ends at once and rejoins the soldier (an AI one without its group leaves its own tribe);
+        // a damaged entry restores nothing of its own and leaves the others.
+        private void MovementCaseSaveTests(ref int ticks)
+        {
+            bool singleBefore = settings.AnchorSingleMoves; settings.AnchorSingleMoves = true;
+            GameUnitManagerAPI units = GameUnitManagerAPI.Instance;
+            GameTribeManagerAPI tribes = GameTribeManagerAPI.Instance;
+            GameUnit* walker = units.Units + 7, second = units.Units + 9;
+            GameUnit saved = *walker, savedSecond = *second;
+            var availability = new byte[181];
+            for (int x = 136; x <= 180; x++) { availability[x] = movementTargetAvailability[10 * MapWidth + x]; movementTargetAvailability[10 * MapWidth + x] = 1; }
+            int returnTicksBefore = fireReturnTicks;
+            int now = ticks;
+            int Next() { now += 8 - (now & 7); return now; }
+            void Burn(int from, int to, bool on) { for (int x = from; x <= to; x++) fireTiles.Set(10 * MapWidth + x, on); }
+            void Stand(int x) => Route(7, x, 10, new int[0], x, 10);
+            void Arrive(int x) { int tx = walker->r_TargetTilePositionX2, ty = walker->r_TargetTilePositionY2; Route(7, x, 10, new int[0], tx, ty); }
+            System.Collections.Generic.Dictionary<string, byte[]> Save()
+            {
+                var entries = new System.Collections.Generic.Dictionary<string, byte[]>(StringComparer.Ordinal);
+                CaptureMovementCases((name, data) => entries.Add(name, data));
+                return entries;
+            }
+            bool Same(System.Collections.Generic.Dictionary<string, byte[]> a, System.Collections.Generic.Dictionary<string, byte[]> b)
+            {
+                if (a.Count != b.Count) return false;
+                foreach (var entry in a)
+                    if (!b.TryGetValue(entry.Key, out byte[] other) || !((ReadOnlySpan<byte>)entry.Value).SequenceEqual(other)) return false;
+                return true;
+            }
+            // A load: the map reset drops every case (ResetAnchorMap), the record arrives, the first tick applies it.
+            void Load(System.Collections.Generic.Dictionary<string, byte[]> entries)
+            {
+                ResetReplanWatch(); ResetFireEscapes(); tribeOrderSequence = 0;
+                StageMovementCases(entries);
+                Check(Same(Save(), entries), "a save before the first tick did not keep the loaded cases");
+                ApplyLoadedMovementCases();
+            }
+            GameTribe* table = InstallTribeTable(8);
+            try
+            {
+                walker->r_GlobalId = 9007; walker->r_ControllableForPlayerId = 1; walker->r_AliveState = AliveState.IsAlive; walker->r_TribeId = 3;
+                walker->r_IsKilledByProjectile = 0; walker->r_MovementSubstep = 0; walker->r_SelectionAllowed = 1; walker->r_UnitChimp = 0;
+                fireEscapeActive = true; fireEscapePolicy = fireAbortPolicy = new APIShared.Pathfinding.RouteReplanPolicy(3, 50, 10, 400); fireReturnTicks = 800;
+                ResetFireEscapes();
+                TribeOrder groupOrder = tribeOrders[3];
+
+                // An escaped soldier waiting for its return in its own tribe (slot 1), plus a retry tick.
+                Stand(150); Burn(149, 152, true); tribes.Moves.Clear();
+                FireEscapeTick(Next()); Arrive(147); FireEscapeTick(Next());
+                Check(fireEscapes.TryGetValue(7, out FireEscapeEntry before) && before.Safe && walker->r_TribeId == 1, "the save test soldier did not escape");
+                int retryAt = now + 40; fireEscapeRetry[5] = retryAt;
+                var record = Save();
+                Check(Same(Save(), record), "the same cases encode differently");
+                long restored = casesRestored;
+                Load(record);
+                Check(fireEscapes.TryGetValue(7, out FireEscapeEntry after) && !ReferenceEquals(after, before) && casesRestored == restored + 1 &&
+                    after.Global == 9007 && after.Player == 1 && after.MoveX == before.MoveX && after.ReturnX == 150 && after.ReturnY == 10 &&
+                    after.Until == before.Until && after.NextProbe == before.NextProbe && after.Safe && !after.Returning && after.Kind == before.Kind &&
+                    after.Hazard == before.Hazard && after.Tribe.Own == 1 && after.Tribe.OwnGlobal == before.Tribe.OwnGlobal && after.Tribe.Original == 3 &&
+                    after.Tribe.OriginalGlobal == 3003 && after.Tribe.Split && fireEscapeRetry.TryGetValue(5, out int retry) && retry == retryAt,
+                    "an open escape was not restored");
+                Check(Same(Save(), record), "a restored escape saves differently");
+                // The restored case goes on: the fire goes out, the soldier returns and rejoins group 3.
+                Burn(149, 152, false); fireEscapeRetry.Remove(5);
+                for (int i = 0; i < 8 && !after.Returning; i++) FireEscapeTick(Next());
+                Check(after.Returning && tribes.Moves[tribes.Moves.Count - 1][1] == 150, "a restored escape did not return");
+                Arrive(150); FireEscapeTick(Next());
+                Check(!fireEscapes.ContainsKey(7) && walker->r_TribeId == 3 && table[3].r_UnitsInGroup == 2 && table[1].r_AliveState == AliveState.Dead,
+                    "a restored escape did not rejoin its group");
+
+                // Escaping is off after the load: the case ends at once and the soldier rejoins its group.
+                Stand(150); Burn(149, 152, true); tribes.Deleted.Clear();
+                FireEscapeTick(Next());
+                int own = walker->r_TribeId;
+                Check(fireEscapes.ContainsKey(7) && own != 3, "the second save test soldier did not escape");
+                record = Save();
+                long ended = casesEnded;
+                fireEscapeActive = false; Load(record); fireEscapeActive = true;
+                Check(!fireEscapes.ContainsKey(7) && casesEnded == ended + 1 && walker->r_TribeId == 3 && table[3].r_UnitsInGroup == 2 &&
+                    table[own].r_AliveState == AliveState.Dead, "an escape that cannot continue did not rejoin its group");
+                // The same for an AI soldier whose group is gone: it leaves its own tribe for Vanilla's repair.
+                GamePlayerManagerAPI.Instance.AIPlayerMask = 1 << 1; tribes.Deleted.Clear();
+                FireEscapeTick(Next());
+                own = walker->r_TribeId;
+                Check(fireEscapes.ContainsKey(7) && own != 3, "the AI save test soldier did not escape");
+                record = Save(); table[3].r_GlobalId = 3999;
+                fireEscapeActive = false; Load(record); fireEscapeActive = true;
+                table[3].r_GlobalId = 3003; GamePlayerManagerAPI.Instance.AIPlayerMask = 0;
+                Check(!fireEscapes.ContainsKey(7) && walker->r_TribeId == 0 && tribes.Deleted.Count == 1 && tribes.Deleted[0] == own,
+                    "an AI soldier without its group kept its own tribe after the load");
+                // The reused group slot (another global id) got no restored order either.
+                Check(!tribeOrders.ContainsKey(3), "an order was restored to a reused tribe slot");
+                tribeOrders[3] = groupOrder;
+                tribes.AssignUnit(3, 7); Burn(149, 152, false); ResetFireEscapes();
+
+                // A solo walker (unit 7, own tribe) and a wait of unit 9 with group 3's plain order and a settled entry.
+                *second = *walker; second->r_GlobalId = 9009; second->r_TribeId = 3;
+                Route(9, 141, 10, new int[0], 141, 10);
+                SoldierTribe soloTribe = default; int soloX = -1, soloY = -1;
+                Check(TryIsolateSoldier(7, 9007, 1, out soloTribe) && TryMoveSoldier(7, 9007, soloTribe, 158, 10, out soloX, out soloY),
+                    "the save test solo walker was not moved");
+                replanSolos[7] = new ReplanSolo { Global = 9007, MoveX = soloX, MoveY = soloY, Tribe = soloTribe };
+                int due = now + 8 - (now & 7);
+                TribeOrder order = tribeOrders[3];
+                replanWaits[9] = new ReplanWait { Global = 9009, Player = 1, TargetX = 161, TargetY = 10, StopX = 141, StopY = 10, Remaining = 20,
+                    Until = due + 400, NextProbe = due, Policy = fireAbortPolicy, Tribe = 3, Order = order };
+                replanSettled[9] = new ReplanSettled { Global = 9009, TargetX = 141, TargetY = 10 };
+                int sequence = tribeOrderSequence;
+                record = Save();
+                Load(record);
+                Check(replanSolos.TryGetValue(7, out ReplanSolo solo) && solo.MoveX == soloX && solo.Tribe.Own == soloTribe.Own && solo.Tribe.Original == 3 &&
+                    replanWaits.TryGetValue(9, out ReplanWait wait) && ReferenceEquals(wait.Policy, fireAbortPolicy) && wait.Order.Sequence == order.Sequence &&
+                    wait.Order.Plain && wait.Until == due + 400 && tribeOrders.TryGetValue(3, out TribeOrder restoredOrder) && restoredOrder.Sequence == order.Sequence &&
+                    tribeOrderSequence == sequence && replanSettled.TryGetValue(9, out ReplanSettled settled) && settled.TargetX == 141,
+                    "a solo walker, a wait or the watch state was not restored");
+                Check(Same(Save(), record), "restored replan cases save differently");
+                // The wait resumes with its group's command, the solo walker rejoins on arrival.
+                tribes.Moves.Clear(); replanSettled.Remove(9);
+                while (now < due) ReplanTick(++now);
+                Check(!replanWaits.ContainsKey(9) && tribes.Moves.Count == 1 && tribes.Moves[0][0] == 3 && second->r_TargetTilePositionX2 == 160 && walker->r_TribeId == soloTribe.Own,
+                    $"a restored wait did not resume with its group command (moves={tribes.Moves.Count})");
+                Route(7, 158, 10, new int[0], 158, 10);
+                for (int i = 0; i < 8 && replanSolos.Count != 0; i++) ReplanTick(++now);
+                Check(!replanSolos.ContainsKey(7) && walker->r_TribeId == 3 && table[soloTribe.Own].r_AliveState == AliveState.Dead,
+                    "a restored solo walker did not rejoin its group");
+
+                // Replanning off after the load: the solo walker rejoins at once, the wait is dropped (the unit stays).
+                Check(TryIsolateSoldier(7, 9007, 1, out soloTribe) && TryMoveSoldier(7, 9007, soloTribe, 158, 10, out soloX, out soloY), "the second solo walker was not moved");
+                replanSolos[7] = new ReplanSolo { Global = 9007, MoveX = soloX, MoveY = soloY, Tribe = soloTribe };
+                replanWaits[9] = new ReplanWait { Global = 9009, Player = 1, TargetX = 161, TargetY = 10, StopX = 141, StopY = 10, Remaining = 20,
+                    Until = now + 400, NextProbe = now + 8, Policy = fireAbortPolicy, Tribe = 3, Order = tribeOrders[3] };
+                record = Save();
+                long dropped = casesDropped; ended = casesEnded;
+                settings.AnchorSingleMoves = false; Load(record); settings.AnchorSingleMoves = true;
+                Check(replanSolos.Count == 0 && replanWaits.Count == 0 && casesEnded == ended + 1 && casesDropped == dropped + 1 && walker->r_TribeId == 3 &&
+                    table[soloTribe.Own].r_AliveState == AliveState.Dead, "cases of a disabled replan watch were kept");
+
+                // A damaged entry restores nothing of its own; the other entries still apply.
+                replanSettled[9] = new ReplanSettled { Global = 9009, TargetX = 141, TargetY = 10 };
+                replanWaits[9] = new ReplanWait { Global = 9009, Player = 1, TargetX = 161, TargetY = 10, StopX = 141, StopY = 10, Remaining = 20,
+                    Until = now + 400, NextProbe = now + 8, Policy = fireAbortPolicy, Tribe = 3, Order = tribeOrders[3] };
+                record = Save();
+                byte[] cut = record[CaseWaits]; Array.Resize(ref cut, cut.Length - 1); record[CaseWaits] = cut;
+                long unreadable = casesUnreadable;
+                ResetReplanWatch(); ResetFireEscapes(); StageMovementCases(record); ApplyLoadedMovementCases();
+                Check(casesUnreadable == unreadable + 1 && replanWaits.Count == 0 && replanSettled.ContainsKey(9) && tribeOrders.ContainsKey(3),
+                    "a damaged entry was applied or blocked the others");
+            }
+            finally
+            {
+                units.MoveHandler = null; units.Moves.Clear(); fireTiles.Clear(); ResetFireEscapes(); ResetReplanWatch(); loadedCases = null;
+                fireEscapeActive = false; fireEscapePolicy = fireAbortPolicy = null; fireReturnTicks = returnTicksBefore;
+                GamePlayerManagerAPI.Instance.AIPlayerMask = 0; settings.AnchorSingleMoves = singleBefore;
                 for (int x = 136; x <= 180; x++) movementTargetAvailability[10 * MapWidth + x] = availability[x];
                 RemoveTribeTable(table);
                 *walker = saved; *second = savedSecond; ticks = now;
@@ -1293,6 +1483,7 @@ namespace MoatMove
                 ReleaseAnchorTask(penaltyTask);
                 ReplanWatchTests(ref ticks);
                 FireEscapeTests(ref ticks);
+                MovementCaseSaveTests(ref ticks);
                 PlagueDamageModelTests();
                 PlagueEscapeTests(ref ticks);
                 SingleSearchReplaceableTests();

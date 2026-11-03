@@ -106,6 +106,13 @@ internal static partial class Program
     Assert(ReferenceEquals(prepared.GetPackedDirections(),prepared.GetPackedDirections()),"cached encoding reused");
     Assert(ReferenceEquals(prepared.GetValidator(),prepared.GetValidator()),"bound validator reused");
     Assert(prepared.GetValidator()(),"cached validator proves current route");
+    // Group routes: Stage's full validation answers Complete's immediate repeat once; every later call validates in full.
+    var group=prepared.GetGroupRouteValidator();
+    Assert(group(),"group validator validates in full at Stage");
+    direct.climbRuntime.Allowed=false;
+    Assert(group()&&!group()&&!group(),"Complete takes Stage's result once, later calls validate in full");
+    direct.climbRuntime.Allowed=true;
+    Assert(group()&&group()&&group(),"valid group route passes full validation again");
     // SPLIT_SETTINGS_BEGIN separate host settings for human players and AI lords (player table kind).
     direct.settings.EnableImprovedAssassinPathfindingAI=false;
     Assert(direct.IsWeightedEnabledFor(false)&&!direct.IsWeightedEnabledFor(true),"AI setting disables only AI lords");

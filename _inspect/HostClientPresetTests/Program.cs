@@ -2774,12 +2774,10 @@ internal static class Program
     {
         Check(EnemyProximityPolicy.SelectConfiguredRadius(false, 31, 16) == 31 &&
               EnemyProximityPolicy.SelectConfiguredRadius(true, 31, 16) == 16, "Independent SP/MP radii");
+        Check(EnemyProximityPolicy.ConfiguredContribution(-1) == null, "Vanilla mode contributes no category, so the context-specific radius stays");
+        Check(EnemyProximityPolicy.ConfiguredContribution(0) == 0 && EnemyProximityPolicy.ConfiguredContribution(100) == 100, "Zero and maximum category radii");
         foreach (int original in new[] { 3, 5, 15, 30 })
-        {
-            Check(EnemyProximityPolicy.ResolveRadius(original, -1) == original, "Context-specific Vanilla radius");
-            Check(EnemyProximityPolicy.ResolveRadius(original, 0) == 0 && EnemyProximityPolicy.ResolveRadius(original, 100) == 100, "Zero and maximum category radii");
             Check(EnemyProximityPolicy.IsOrdinaryHumanRadius(original) == (original == 15 || original == 30), "Special human placement scope preserved");
-        }
     }
 
     private static void TestAssassinClimbCostPolicy()

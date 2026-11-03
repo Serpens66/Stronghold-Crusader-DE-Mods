@@ -61,8 +61,6 @@ struct Scratch {
     // search, so each tile costs at most one managed transition (its walls are building tiles).
     std::vector<uint32_t> gateGen;
     std::vector<uint8_t> gateValue;
-    // Landmark searches only: queued nodes whose key lies beyond the bucket window (see Search::Push).
-    std::vector<int> far;
     uint32_t generation = 0;
     Scratch() : costs(CoordinateCount), estimated(CoordinateCount), parents(CoordinateCount), gen(CoordinateCount, 0),
         done(CoordinateCount, 0), kinds(CoordinateCount), buckets(BucketRing), gateGen(TileCount, 0), gateValue(TileCount, 0) {}
@@ -82,45 +80,20 @@ inline int32_t EstimateOctile(int x, int y, int tx, int ty, int32_t cardinal, in
     return estimate >= IntMax ? IntMax : int32_t(estimate);
 }
 
-struct GroupField;
 struct Search {
     const BfqAssassinTables& t; const BfqAssassinRequest& r; Scratch& s;
     uint32_t g; int bucketCount = 0; int32_t bucketCurrent = 0; bool overflow = false;
-    // Group field landmark (null: the plain octile estimate, the per-unit search): see Estimate below.
-    const GroupField* landmark = nullptr; int32_t landmarkSlot = 0, landmarkFrontier = 0, farMin = IntMax;
-    int32_t Estimate(int x, int y, int node, int tx, int ty, int32_t cardinal, int32_t diagonal) const;
     int32_t Cost(int node) const { return s.gen[node] == g ? s.costs[node] : IntMax; }
     bool ValidCoordinate(int x, int y) const { return unsigned(x) < unsigned(MapWidth) && unsigned(y) < unsigned(MapWidth) && t.validCoordinates[y * MapWidth + x] != 0; }
     int TileId(int x, int y) const { return t.rowLookup[y * 3] + x; }
     static bool NativeTile(int tile) { return unsigned(tile) < unsigned(TileCount); }
-    // A key beyond the window is an overflow for the octile estimate (the caller repeats the search on its heap).
-    // A landmark estimate gives hopeless neighbours far larger keys; they wait in s.far and enter the ring once
-    // the window reaches them (Migrate), so the pop order stays the bucket order by key.
     void Push(int node) {
         int32_t key = s.estimated[node];
-        if (key < bucketCurrent) { overflow = true; return; }
-        if (key - bucketCurrent >= BucketRing) {
-            if (!landmark) { overflow = true; return; }
-            s.far.push_back(node); if (key < farMin) farMin = key;
-            return;
-        }
+        if (key < bucketCurrent || key - bucketCurrent >= BucketRing) { overflow = true; return; }
         s.buckets[key & (BucketRing - 1)].push_back(node); ++bucketCount;
     }
-    // Moves the far nodes whose current key lies inside the window into the ring (stale keys are dropped, as Pop
-    // would skip them).
-    void Migrate() {
-        int32_t nextMin = IntMax; size_t kept = 0;
-        for (size_t i = 0; i < s.far.size(); ++i) {
-            const int node = s.far[i]; const int32_t key = s.estimated[node];
-            if (s.done[node] == g || key < bucketCurrent) continue;
-            if (key - bucketCurrent < BucketRing) { s.buckets[key & (BucketRing - 1)].push_back(node); ++bucketCount; }
-            else { s.far[kept++] = node; if (key < nextMin) nextMin = key; }
-        }
-        s.far.resize(kept); farMin = nextMin;
-    }
     int Pop() {
-        while (bucketCount > 0 || !s.far.empty()) {
-            if (bucketCount == 0) { bucketCurrent = farMin; Migrate(); continue; }
+        while (bucketCount > 0) {
             std::vector<int>& list = s.buckets[bucketCurrent & (BucketRing - 1)];
             while (!list.empty()) {
                 int node = list.back(); list.pop_back(); --bucketCount;
@@ -129,11 +102,10 @@ struct Search {
                 return node;
             }
             ++bucketCurrent;
-            if (!s.far.empty() && farMin - bucketCurrent < BucketRing) Migrate();
         }
         return -1;
     }
-    void Clear() { if (bucketCount != 0) for (auto& list : s.buckets) list.clear(); bucketCount = 0; s.far.clear(); farMin = IntMax; }
+    void Clear() { if (bucketCount != 0) for (auto& list : s.buckets) list.clear(); bucketCount = 0; }
     bool GatehouseEndpoint(int tile) const {
         if (!t.directGatehouseEndpoint) return false;
         if (s.gateGen[tile] != g) { s.gateGen[tile] = g; s.gateValue[tile] = t.directGatehouseEndpoint(tile) != 0 ? 1 : 0; }
@@ -196,10 +168,10 @@ struct Search {
         const int startNode = sy * MapWidth + sx, targetNode = ty * MapWidth + tx;
         int nodeLimit = r.maximumNodes < TileCount ? r.maximumNodes : TileCount;
         if (nodeLimit < 1) nodeLimit = 1;
-        Touch(startNode, 0, -1, 0, Estimate(sx, sy, startNode, tx, ty, cardinal, diagonal));
+        Touch(startNode, 0, -1, 0, EstimateOctile(sx, sy, tx, ty, cardinal, diagonal));
         bucketCurrent = s.estimated[startNode]; Push(startNode);
         int expanded = 0;
-        while ((bucketCount > 0 || !s.far.empty()) && expanded < nodeLimit) {
+        while (bucketCount > 0 && expanded < nodeLimit) {
             int current = Pop();
             if (current < 0) break;
             ++expanded;
@@ -244,7 +216,7 @@ struct Search {
                 const int32_t edgeCost = movement > IntMax - climbTicks ? IntMax : movement + climbTicks;
                 const int32_t newCost = currentCost > IntMax - edgeCost ? IntMax : currentCost + edgeCost;
                 if (newCost >= nextCost) continue;
-                const int32_t estimate = SaturatingAdd(newCost, Estimate(nx, ny, nextNode, tx, ty, cardinal, diagonal));
+                const int32_t estimate = SaturatingAdd(newCost, EstimateOctile(nx, ny, tx, ty, cardinal, diagonal));
                 Touch(nextNode, newCost, current, climbEdge ? ClimbEdgeKind : GroundEdgeKind, estimate);
                 Push(nextNode);
             }
@@ -266,16 +238,13 @@ uint32_t NextGeneration(Scratch& s) {
 }
 
 // Group field (shared work for the members of one Assassin group move): one backward Dijkstra from the move
-// target (anchor) over exactly Search's edges and costs, resumed only as far as members need. It serves as an
-// ALT landmark: dist[v] is v's exact cost to the anchor, so dist[v] - dist[slot] never exceeds v's cost to the
-// slot (triangle inequality on the directed graph). Each member runs Run's A* to its own slot with
-// max(octile, that bound); the route is cost-optimal like the per-unit search, which expands ~41,000 tiles per
-// member with the octile estimate alone (test_stresstest5, 03.11.2026). Among equally cheap routes the choice
-// can differ from the per-unit search.
+// target (anchor) over exactly Search's edges and costs, resumed only as far as members need. dist[v] is v's exact
+// cost to the anchor; DescentRoute follows it instead of a per-unit search, which expands ~41,000 tiles per member
+// (test_stresstest5, 03.11.2026).
 constexpr int MaxGroupFields = 4;
 struct GroupField {
     int handle = 0, anchor = -1, current = 0, pending = 0; uint32_t generation = 0; uint64_t used = 0;
-    int64_t settles = 0; bool failed = false;
+    bool failed = false;
     std::vector<uint32_t> gen; std::vector<int32_t> dist; std::vector<uint8_t> done; std::vector<std::vector<int>> ring;
     GroupField() : gen(CoordinateCount, 0u), dist(CoordinateCount, 0), done(CoordinateCount, 0), ring(BucketRing) {}
     bool Touched(int v) const { return gen[v] == generation; }
@@ -284,27 +253,16 @@ struct GroupField {
 GroupField* groupFields[MaxGroupFields];
 int nextGroupHandle = 1; uint64_t groupClock = 0;
 
-// Lower bound of the remaining cost to the target. Without a landmark exactly the octile estimate (the per-unit
-// search, unchanged). With one: a node not yet settled has dist >= the frontier key, so the frontier key is its
-// lower bound; the bound stays consistent across settled and unsettled neighbours because every settled dist is at
-// most the frontier key, and the field is not resumed during one search.
-int32_t Search::Estimate(int x, int y, int node, int tx, int ty, int32_t cardinal, int32_t diagonal) const {
-    const int32_t octile = EstimateOctile(x, y, tx, ty, cardinal, diagonal);
-    if (!landmark) return octile;
-    const int64_t bound = int64_t(landmark->Settled(node) ? landmark->dist[node] : landmarkFrontier) - landmarkSlot;
-    return bound > octile ? (bound >= IntMax ? IntMax : int32_t(bound)) : octile;
-}
-
 // Settles nodes in nondecreasing distance until `node` is settled, nothing is queued, or an edge cost does not fit
 // the ring. Every edge costs at least the cardinal movement (> 0), so a settled distance is exact, every node with a
-// smaller distance is settled before it, and every unsettled node has a distance of at least f.current.
+// smaller distance is settled before it.
 void ResumeField(const Search& se, GroupField& f, int node) {
     while (f.pending > 0 && !f.Settled(node)) {
         std::vector<int>& list = f.ring[f.current & (BucketRing - 1)];
         if (list.empty()) { ++f.current; continue; }
         const int v = list.back(); list.pop_back(); --f.pending;
         if (f.done[v] != 0 || f.dist[v] != f.current) continue;
-        f.done[v] = 1; ++f.settles;
+        f.done[v] = 1;
         const int vx = v % MapWidth, vy = v / MapWidth, vTile = se.TileId(vx, vy);
         if (!Search::NativeTile(vTile)) continue;
         for (int d = 0; d < 8; ++d) {
@@ -327,22 +285,10 @@ void ResumeField(const Search& se, GroupField& f, int node) {
 
 std::vector<int> descentNodes; std::vector<int32_t> descentCosts;
 
-// Exact mode: Run's A* to the slot with the landmark bound (cost-optimal). Status as Run (1 route, 0 none,
-// 2 bucket overflow, 3 rejected route), or 4 when the field failed (edge cost beyond the ring) or the slot does not
-// reach the anchor (no bound; the caller keeps the per-unit search).
-int LandmarkRoute(Search& se, GroupField& f, int start, int slot, int* routeNodes, int32_t* routeCosts, int capacity, BfqAssassinResult& result) {
-    // The start first: its search reads the bounds of the nodes between it and the anchor.
-    ResumeField(se, f, start);
-    ResumeField(se, f, slot);
-    if (f.failed || !f.Settled(slot)) return 4;
-    Search route{ se.t, se.r, se.s, NextGeneration(se.s) };
-    route.landmark = &f; route.landmarkSlot = f.dist[slot]; route.landmarkFrontier = f.current;
-    return route.Run(routeNodes, routeCosts, capacity, result);
-}
-
-// Fast mode (as MoatMove's anchor routes): the exact descent along the field towards the anchor until the route
-// enters the box around anchor and slot (margin), then Run's A* from that entry to the slot. Near-optimal, not
-// cost-optimal. Status as LandmarkRoute; 4 also when the start does not reach the anchor.
+// As MoatMove's anchor routes: the exact descent along the field towards the anchor until the route enters the box
+// around anchor and slot (margin), then Run's A* from that entry to the slot. Near-optimal, not cost-optimal (user
+// decision 03.11.2026). Status as Run (1 route, 0 none, 2 bucket overflow, 3 rejected route), or 4 when the field
+// failed (edge cost beyond the ring) or the start does not reach the anchor (the caller keeps the per-unit search).
 int DescentRoute(Search& se, GroupField& f, int start, int slot, int margin, int* routeNodes, int32_t* routeCosts, int capacity, BfqAssassinResult& result) {
     ResumeField(se, f, start);
     if (f.failed || !f.Settled(start)) return 4;
@@ -378,7 +324,8 @@ int DescentRoute(Search& se, GroupField& f, int start, int slot, int margin, int
     }
     BfqAssassinRequest local = se.r;
     local.startX = node % MapWidth; local.startY = node / MapWidth;
-    Search finish{ se.t, local, se.s, NextGeneration(se.s) };
+    // se's generation: the descent touched no node, only the per-search gatehouse answers, which stay valid.
+    Search finish{ se.t, local, se.s, se.g };
     const int status = finish.Run(routeNodes, routeCosts, capacity, result);
     if (status != 1) return status;
     int length = result.routeLength;
@@ -426,7 +373,7 @@ __declspec(dllexport) int bfq_assassin_field_create(const BfqAssassinTables* tab
         for (auto& list : f->ring) list.clear();
         if (++f->generation == 0) { std::fill(f->gen.begin(), f->gen.end(), 0u); f->generation = 1; }
         f->handle = nextGroupHandle++; if (nextGroupHandle <= 0) nextGroupHandle = 1;
-        f->used = ++groupClock; f->failed = false; f->settles = 0; f->current = 0; f->pending = 0;
+        f->used = ++groupClock; f->failed = false; f->current = 0; f->pending = 0;
         f->anchor = request->targetY * MapWidth + request->targetX;
         f->gen[f->anchor] = f->generation; f->done[f->anchor] = 0; f->dist[f->anchor] = 0;
         f->ring[0].push_back(f->anchor); f->pending = 1;
@@ -438,11 +385,11 @@ __declspec(dllexport) int bfq_assassin_field_create(const BfqAssassinTables* tab
 
 // Route of one member from the request's start to its slot (the request's target) along the field `handle`.
 // The request must carry the field's movement costs, switches and gate policy.
-// margin < 0: exact LandmarkRoute; else DescentRoute with that box margin. Returns 0 with result filled (status of
-// the route function; result.expanded counts Run's expansions), -4 when the handle was recycled.
+// margin (>= 0): DescentRoute's box margin. Returns 0 with result filled (DescentRoute's status; result.expanded
+// counts Run's expansions), -4 when the handle was recycled.
 __declspec(dllexport) int bfq_assassin_field_route(int handle, const BfqAssassinTables* tables, const BfqAssassinRequest* request,
     int margin, int* routeNodes, int32_t* routeCosts, int routeCapacity, BfqAssassinResult* result) {
-    if (!routeNodes || !routeCosts || routeCapacity < 1 || !result || !ValidRequest(tables, request)) return -1;
+    if (margin < 0 || !routeNodes || !routeCosts || routeCapacity < 1 || !result || !ValidRequest(tables, request)) return -1;
     GroupField* f = FindGroupField(handle);
     if (!f) return -4;
     std::memset(result, 0, sizeof(*result));
@@ -452,8 +399,7 @@ __declspec(dllexport) int bfq_assassin_field_route(int handle, const BfqAssassin
         f->used = ++groupClock;
         Search se{ *tables, *request, s, NextGeneration(s) };
         const int start = request->startY * MapWidth + request->startX, slot = request->targetY * MapWidth + request->targetX;
-        result->status = margin < 0 ? LandmarkRoute(se, *f, start, slot, routeNodes, routeCosts, routeCapacity, *result)
-            : DescentRoute(se, *f, start, slot, margin, routeNodes, routeCosts, routeCapacity, *result);
+        result->status = DescentRoute(se, *f, start, slot, margin, routeNodes, routeCosts, routeCapacity, *result);
         return 0;
     }
     catch (const std::bad_alloc&) { return -2; }

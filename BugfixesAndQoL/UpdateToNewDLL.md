@@ -1496,17 +1496,22 @@ and fails at the same predicate, and the following searches still agree. `GateRo
 ### Group fields of Assassin group moves (2026-11-03, contract `0x01000002`)
 
 `bfq_assassin_field_create`/`bfq_assassin_field_route` answer the members of one Assassin move command with one
-backward Dijkstra from the move target over exactly `Search::Run`'s edges and costs (`Search::Edge`), used as an ALT
-landmark: each member runs `Run`'s A* to its own slot with max(octile, `dist[v] - dist[slot]`), which keeps the route
-cost-optimal (equal-cost ties may differ from the per-unit search). Without a landmark `Run` is unchanged. Reference SHA-256
+backward Dijkstra from the move target over exactly `Search::Run`'s edges and costs (`Search::Edge`): each member
+follows the exact descent along it until the box around target and slot (margin 8), then `Run`'s A* to its own slot.
+Near-optimal like MoatMove's anchor routes (user decision 2026-11-03), never cheaper than the per-unit optimum
+(`VerifyNative`); the per-unit `Run` is unchanged. Reference SHA-256
 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`. Managed contract (`TryStageGroupRoute`,
 `UnitCommandPathRuntime.TryPublishAssassinGroupRoute`):
-- Only inside a move command scope (`TribeIssueOrderMoveHere`, target tile = anchor), for the path manager singleton
+- Fields are built only inside a move command scope (`TribeIssueOrderMoveHere`, target tile = anchor), for the path manager singleton
   `0x60AD660` with `+0x88 != 0`, `+0x84 == 0` and `+0x80 == 0` (F4930's Assassin branch, audit `ASSASSIN_RECONSTRUCTION_REPAIR.md`),
   request start/target from `+0x08..+0x14`, and a qualified single-unit frame (`AssassinPathAPI.TryGetCurrentWeightedRequest`).
 - The staged route is published through the frame without calling F4930 (no `0xD9C40`, `0xE1640`, second `+0x94`
   pass), the precedent of MoatMove's single routes. The frame's `+0x94` identity test is skipped while Vanilla's
   builder did not run, because `+0x94` then holds the value of an earlier reconstruction (`E1110`/`E1640` are its only writers).
+- `Complete` follows `Stage` directly, with no game code in between: the group route's validator validates in full at
+  `Stage` and answers `Complete`'s repeat once with that result (`CachedRoute.GetGroupRouteValidator`; the unit identity is
+  still rechecked). Any other outcome, including an exception after staging, replaces the frame, so no group route
+  reaches the builder path.
 - Every other request, a rejected or unpublished route, keeps the unchanged per-unit path (Vanilla builder + weighted search).
 - Recent fields (as many as the native pool keeps) are reused for 400 map ticks by later move commands to the same
   target with the same profile key, and by single requests outside a command scope whose target is a slot such a field

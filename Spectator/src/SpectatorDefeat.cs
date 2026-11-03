@@ -26,6 +26,10 @@ namespace Spectator
 
         internal SpectatorDefeat(ManualLogSource log, SpectatorViewModel settings)
         { this.log = log; this.settings = settings; }
+        // Constructed on Unity's startup thread; local UI input arrives on the same thread.
+        private readonly int mainThreadId = Thread.CurrentThread.ManagedThreadId;
+        private readonly System.Collections.Generic.HashSet<Enums.GameActionCommand> reportedVetoes =
+            new System.Collections.Generic.HashSet<Enums.GameActionCommand>();
 
         internal void Initialize()
         {
@@ -75,6 +79,7 @@ namespace Spectator
                 Volatile.Write(ref localPlayerId, -1);
                 promotionRequested = promotionActivated = promotionConfirmed = promotionIdentityError = false;
                 promotionPlayerId = -1;
+                lock (reportedVetoes) reportedVetoes.Clear();
                 Interlocked.Exchange(ref activeSessionId, session);
             }
         }
@@ -167,17 +172,28 @@ namespace Spectator
                 $"Eliminated-player view confirmed: player={managed}; participant identity preserved.");
         }
 
+        // Vetoes only LOCAL input (Unity thread) of a confirmed observer that would act as the viewed
+        // player (SpectatorObserverActionPolicy). Synchronized simulation/Chore calls, e.g. other mods'
+        // GameActions inside a Chore callback, run on every peer and are never touched.
         private static void OnGameAction(GameActionPreEventArgs args)
         {
             var current = instance;
-            if (args.SkipOriginalFunction || current == null || !current.promotionConfirmed) return;
+            if (args.SkipOriginalFunction || current == null || !current.promotionConfirmed ||
+                Thread.CurrentThread.ManagedThreadId != current.mainThreadId) return;
+            var decision = SpectatorObserverActionPolicy.Decision.Veto;
+            int viewed = -1;
             try
             {
-                if (!IsEliminatedSpectator || SpectatorObserverActionPolicy.IsLocalPresentationCommand(args.Command)) return;
+                if (!IsEliminatedSpectator) return;
+                decision = SpectatorObserverActionPolicy.Decide(true, true, args.Command, false);
+                if (decision == SpectatorObserverActionPolicy.Decision.Allow) return;
                 bool ally = args.Command >= Enums.GameActionCommand.Ally_Orders &&
                     args.Command <= Enums.GameActionCommand.Ally_CancelOrders;
                 if (ally && !current.mode.IsRealMultiplayer && SpectatorPerspectiveRuntime.CanIssueAllyAction(args.Command, args.StructureId,
                         args.ActionState, args.Value2)) return;
+                viewed = PlayerPerspectiveAPI.GetRawNativeViewPlayerId();
+                if (ObserverCommandExceptions.IsAllowed(new ObserverCommandRequest(current.promotionPlayerId, viewed,
+                        args.Command, args.StructureId, args.ActionState, args.Value2))) return;
             }
             catch (Exception error)
             {
@@ -185,6 +201,17 @@ namespace Spectator
                 ReportCommandValidationFailure(current, error);
             }
             args.SkipOriginalFunction = true;
+            current.ReportVeto(args.Command, viewed, decision == SpectatorObserverActionPolicy.Decision.VetoUnaudited);
+        }
+
+        // Once per command and session, so it stays visible what an observer could not issue.
+        private void ReportVeto(Enums.GameActionCommand command, int viewed, bool unaudited)
+        {
+            lock (reportedVetoes) if (!reportedVetoes.Add(command)) return;
+            string message = (unaudited ? "SPECTATOR_OBSERVER_UNAUDITED_GAMEACTION_BLOCKED" : "SPECTATOR_OBSERVER_GAMEACTION_BLOCKED") +
+                $": command={command} ({(int)command}), observer={promotionPlayerId}, viewed={viewed}.";
+            if (unaudited) Shared.DebugLogHelper.LogWarning(log, message);
+            else Shared.DebugLogHelper.LogInfo(log, message);
         }
 
         private static void ReportCommandValidationFailure(SpectatorDefeat current, Exception error)
@@ -199,6 +226,8 @@ namespace Spectator
             var snapshot = Volatile.Read(ref observed[player]);
             bool confirmed = snapshot != null && SpectatorDefeatPolicy.IsLocalElimination(Interlocked.Read(ref activeSessionId),
                 snapshot.SessionId, snapshot.PlayerId, player, snapshot.Readable, snapshot.IsEliminated);
+            // Runs every frame: cheap conjuncts first, before the Steam/lobby participant lookup.
+            if (!settings.Activation.Defeat || !confirmed) return;
             if (!SpectatorDefeatPolicy.CanPromoteEliminatedPlayerToSpectator(settings.Activation.Defeat,
                     IsActiveMatch(), GameModeHelper.IsMapEditor(), SpectatorPerspectiveRuntime.IsOriginalSpectator(),
                     mode.IsRealMultiplayer || mode.IsSingleplayerSkirmishMode,

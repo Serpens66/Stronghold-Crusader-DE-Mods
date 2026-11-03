@@ -571,6 +571,11 @@ namespace Spectator
         {
             // The old positive participant can still own market, troop and building controls.
             // Retire their cursors and borrowed pages before the first foreign report viewpoint.
+            // Vanilla's own deselection while the native view is still the participant's own: a queued
+            // deselect then carries the participant as its source. Afterwards CloseTroopsPanel (ESC,
+            // Reports) has no selection left that it could deselect as a foreign view.
+            try { EngineInterface.GameAction(Enums.GameActionCommand.CloseTroopsPanel, 0, 0); }
+            catch (Exception error) { LogOnce("SPECTATOR_OBSERVER_DESELECT_FAILED: " + error); }
             humanPlacementMode = false;
             CancelSelectionActions();
             RestorePlacementLayout(); playerPlacementPage = null;

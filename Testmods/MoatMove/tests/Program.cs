@@ -90,7 +90,7 @@ string[] runtimeSourceNames =
 {
     "AssassinSelectionAdapters.cs",
     "CursorConnectivity.cs", "CursorRegionGraph.cs", "DirectMoatCommandScopes.cs",
-    "AnchorRouting.cs", "RouteReplanWatch.cs", "FireEscape.cs", "SoldierTribeMoves.cs", "AnchorEdgeMemo.cs", "PlagueDamageModel.cs", "GroundFailureProofs.cs", "MoatFailureProofs.cs", "FastIntegration.cs", "DigWorkFallback.cs", "IFastRouteField.cs", "FastRouteField.cs", "FastCommandQueue.cs", "FastRoutePool.cs", "FastTraversalCache.cs",
+    "AnchorRouting.cs", "RouteReplanWatch.cs", "FireEscape.cs", "SoldierTribeMoves.cs", "MovementCaseSave.cs", "AnchorEdgeMemo.cs", "PlagueDamageModel.cs", "GroundFailureProofs.cs", "MoatFailureProofs.cs", "FastIntegration.cs", "DigWorkFallback.cs", "IFastRouteField.cs", "FastRouteField.cs", "FastCommandQueue.cs", "FastRoutePool.cs", "FastTraversalCache.cs",
     "FastMoatRouting.cs", "FastMovementScheduler.cs", "FastGroupDistribution.cs", "FillWeightedRoutes.cs",
     "FriendlyMoatMovementRuntime.cs",
     "MoatPlacement.cs", "MoatPlacementSearch.cs",
@@ -127,7 +127,7 @@ var methods = new HashSet<string>(new[] {
     "RentBuildingFallbackWorkBuffers", "ReturnBuildingFallbackWorkBuffers", "BuildPathWithCompletedMoatRouteVariantWithMoat", "ObserveUnitMoveOrder", "GetCurrentUnitMoveFrame", "AbandonUnitMoveFrame", "ClearUnitMoveFrames",
     "GetUnitMovePlan", "CopyMovementPlan", "GetNativeMovementStart", "TryAuditFallbackPath", "TryAuditFallbackPathCore", "IsCompletedEnemyMoatForPlayer",
     "DescribeFallbackContractFailure",
-    "EnableCompletedMoatModeForScopedMovement", "ResolveScopedCompletedMoatMode", "GetBuilderPlan", "MatchesBuilderPlan", "BeginAssassinRoutePublication",
+    "EnableCompletedMoatModeForScopedMovement", "ResolveScopedCompletedMoatMode", "GetBuilderPlan", "MatchesBuilderPlan", "BeginAssassinRoutePublication", "TryPublishAssassinGroupRoute",
     "TryCaptureUnitFallbackPathBuffer", "RestoreFallbackPathBuffer",
     "CaptureAttackApproachState",
     "TryHandleVanillaLadderRegionPair", "RestoreVanillaLadderBuildingCandidates", "GetBuildingApproachPairKey",
@@ -157,7 +157,7 @@ var constants = new HashSet<string>(new[] {
     "MovementBlockedLowTileFlagMask", "CompletedMoatTileFlag", "CursorSpecialStructureTileFlagMask", "PathManagerOutputBufferOffset",
     "PathManagerOutputLengthOffset", "NativeUnitPathBufferOffset", "NativeUnitPathBufferStride",
     "PathManagerRouteVariantOffset", "OrdinaryWalkableTileFlag", "MoatWorkNeighbourX", "MoatWorkNeighbourY"
-    , "FastSearchNodeBudget", "WeightedPublicationSafetyMarginTicks", "weightedPhaseTimingActive", "attackQualificationTimingDepth", "requiredPublicationTimingDepth"
+    , "FastSearchNodeBudget", "WeightedPublicationSafetyMarginTicks", "weightedPhaseTimingActive", "attackQualificationTimingDepth", "requiredPublicationTimingDepth", "AssassinGroupRouteStager", "assassinBuilderSkipped"
 });
 var selected = new List<MemberDeclarationSyntax>();
 // Members the harness stubs deliberately (state, diagnostics, qualification) keep their stub,
@@ -284,6 +284,7 @@ var compilation = CSharpCompilation.Create("Assembly-CSharp", new[] {
     CSharpSyntaxTree.ParseText(RuntimeSource("RouteReplanWatch.cs")),
     CSharpSyntaxTree.ParseText(RuntimeSource("FireEscape.cs")),
     CSharpSyntaxTree.ParseText(RuntimeSource("SoldierTribeMoves.cs")),
+    CSharpSyntaxTree.ParseText(RuntimeSource("MovementCaseSave.cs")),
     CSharpSyntaxTree.ParseText(RuntimeSource("AnchorEdgeMemo.cs")),
     CSharpSyntaxTree.ParseText(RuntimeSource("PlagueDamageModel.cs")),
     CSharpSyntaxTree.ParseText(RuntimeSource("GroundFailureProofs.cs")),

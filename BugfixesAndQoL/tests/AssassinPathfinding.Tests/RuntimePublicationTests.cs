@@ -129,6 +129,11 @@ unsafe partial class UnitCommandPathRuntime {
  int validations=0;path[0]=0;
  AssassinGroupRouteStager=c=>AssassinRouteHandoff.Stage(c,1,2,1,1,2,exact,3,()=>++validations==1);
  Assert(r.BuildPathWithCompletedMoatRouteVariant(r.nativePathManager,2,0)==1&&builderRan&&path[0]==0&&validations==2,"rejected group route keeps the builder path");
+ // A stager that fails after staging leaves no route for the builder path (its validator would skip Complete's repeat).
+ // +0x94 = 0: the frame's identity check would otherwise reject the route after the builder anyway.
+ builderRan=false;path[0]=0;*(int*)(m+0x94)=0;
+ AssassinGroupRouteStager=c=>{Assert(AssassinRouteHandoff.Stage(c,1,2,1,1,2,exact,3,()=>true),"group route staged before failure");throw new InvalidOperationException("stager");};
+ Assert(r.BuildPathWithCompletedMoatRouteVariant(r.nativePathManager,2,0)==1&&builderRan&&path[0]==0,"failed stager drops its staged route");
  builderRan=false;AssassinGroupRouteStager=c=>false;
  Assert(r.BuildPathWithCompletedMoatRouteVariant(r.nativePathManager,2,0)==1&&builderRan,"no group route runs the builder");
  AssassinGroupRouteStager=null;*(int*)(m+0x94)=0;

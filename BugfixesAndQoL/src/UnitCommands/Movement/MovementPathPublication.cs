@@ -99,7 +99,9 @@ namespace BugfixesAndQoL.UnitCommands
                 staged = stager(pathManager);
                 if (staged) published = frame.Complete(0);
             }
-            catch (Exception ex) { TryLogDiagnosticFailure("assassin-group-route", ex); published = 0; }
+            // A route may already be staged: the frame is replaced below, so no group route reaches the builder path
+            // (its validator skips Complete's repeat, see AssassinPathfindingRuntime.CachedRoute.GetGroupRouteValidator).
+            catch (Exception ex) { TryLogDiagnosticFailure("assassin-group-route", ex); published = 0; staged = true; }
             finally { assassinBuilderSkipped = false; }
             if (published > 0) return true;
             if (!staged) return false;

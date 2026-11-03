@@ -16,7 +16,7 @@ namespace PerfProbe
     // Scripted AI orders during the automated run phase (for example many Assassins sent to attack),
     // so a stress run reproduces the same burst every time. Config Automation.Actions:
     // "seconds:Attack:actor:target[:force]" entries separated by '|', seconds after the run started.
-    // Same native order and forced acceptance as SpectatorEditorBuildTest's AI order buttons:
+    // Same native order and forced acceptance as Spectator's AI order buttons:
     // CrusaderDE.dll 0xD7580 (attack target, ordered AI, requester, order), hash-bound to FBCB9319
     // (see UpdateToNewDLL.md); force accepts exactly the scripted (AI, requester, target) through
     // the Extender's OnPlayerAIEvaluateAttackOrder Pre event. Runs on the automation's static render

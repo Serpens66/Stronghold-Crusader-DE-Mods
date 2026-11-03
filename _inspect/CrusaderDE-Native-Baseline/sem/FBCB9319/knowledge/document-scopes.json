@@ -1136,6 +1136,17 @@
         "Optional poleturner/tanner workshop idle delay"
       ],
       "note": "Not tagged in file: bytes are pinned by tools/semantic/audited-models.json."
+    },
+    {
+      "file": "GAMEACTION_OBSERVER_CLASSES.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "Spectator",
+        "APIShared"
+      ],
+      "integrationSections": [
+        "Spectator observer command policy"
+      ]
     }
   ]
 }

@@ -393,7 +393,8 @@ namespace MoatMove
         }
 
         // The burning tiles belong to FireRouteRules (cleared by its Reset with its own state). On a map
-        // change the tribes belong to the old map: the cases are dropped without rejoining.
+        // change the tribes belong to the old map: the cases are dropped without rejoining. A save keeps
+        // the cases with the tribes (MovementCaseSave); its load restores them or rejoins the soldiers.
         private void ResetFireEscapes() { fireEscapes.Clear(); fireEscapeRetry.Clear(); fireCaseLogs = 0; }
 
         private string FormatFireEscapes() =>

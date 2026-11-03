@@ -48,6 +48,8 @@ namespace MoatMove
         //   alone to its own slot (replanSolos), so the formation keeps its places; a repeated group command
         //   would turn it into Vanilla slots.
         // - Queued moves (shift queue): not repeated; a repeat drops a multiplayer queue.
+        // - Target orders (attack): not repeated (no direct API) and not split off: the unit keeps its order
+        //   and re-plans to its move target (ResumeReplanMove), as before the group resume existed.
         private struct TribeOrder
         {
             internal uint Global; internal int Sequence, X, Y; internal short Patrol; internal bool NewOrder, Move, Plain, Queued;
@@ -65,7 +67,7 @@ namespace MoatMove
         // more, Vanilla refused (command or split), member not walking, queued order.
         private const int HeldNewerOrder = 0, HeldGroup = 1, HeldPoints = 2, HeldRefused = 3, HeldNotMoving = 4, HeldQueued = 5;
         private readonly long[] replanHeldReasons = new long[6];
-        private long replanSoloResumed, replanSoloRejoined;
+        private long replanSoloResumed, replanSoloRejoined, replanMoveResumed;
         // Ordered by unit id: waits resume in the same order on every peer.
         private readonly SortedDictionary<int, ReplanWait> replanWaits = new SortedDictionary<int, ReplanWait>();
         // Units left alone until their move target changes (route kept, wait resumed or ended).
@@ -129,7 +131,8 @@ namespace MoatMove
             Array.Clear(replanTiles, 0, replanTiles.Length); replanTileCount = 0; replanVersion++;
             replanHot.Clear(); replanHotSet.Clear(); replanWaits.Clear(); replanSettled.Clear(); replanGroupWaits.Clear();
             replanFastUntil = null; replanRebuildCursor = -1; tribeOrders.Clear(); playerMoveTribe = playerQueuedTribe = 0;
-            // The tribes belong to the old map: solo walkers are dropped without rejoining.
+            // The tribes belong to the old map: solo walkers are dropped without rejoining. A save keeps
+            // them, its orders and its waits (MovementCaseSave), and its load restores them.
             replanSolos.Clear();
         }
 
@@ -286,8 +289,9 @@ namespace MoatMove
             uint global = unit->r_GlobalId;
             var wait = new ReplanWait { Global = global, Player = player, TargetX = targetX, TargetY = targetY, StopX = stopX, StopY = stopY,
                 Remaining = remaining, Until = tick + policy.MaximumWaitTicks, NextProbe = tick + ReplanWaitProbeTicks, Policy = policy, Tribe = unit->r_TribeId };
+            // Move and target orders: a target order is kept, so the resume does not turn an attack into a move.
             if (TryGetLiveTribe(wait.Tribe, 0, player, out GameTribe* tribe) && tribeOrders.TryGetValue(wait.Tribe, out TribeOrder order) &&
-                order.Global == tribe->r_GlobalId && order.Move) wait.Order = order;
+                order.Global == tribe->r_GlobalId) wait.Order = order;
             // stopX/stopY is the movement start (GetNativeMovementStart): a stop, not a move to count.
             StopReplanUnitAt(id, stopX, stopY);
             replanWaitsStarted++;
@@ -371,15 +375,24 @@ namespace MoatMove
         // the unit and have no newer order. A plain order is given again with its own arguments (a player
         // move must also still be 11B520's two-point order to that tile: r_PatrolPoint2, count 2, index 1);
         // another player move sends the unit alone to its own slot (ResumeReplanSolo); a queued one is held.
-        // A unit without a tribe or an observed order walks alone to its move target as well.
+        // A target order and a group without an observed order (an order not seen on the simulation thread,
+        // or a load without saved movement cases) keep the unit in its group with its order: it re-plans to
+        // its move target (ResumeReplanMove). A unit without a tribe walks alone to its move target.
         private bool ResumeReplanGroup(int id, ReplanWait wait, out int held)
         {
             held = HeldGroup;
             TribeOrder order = wait.Order;
-            if (wait.Tribe <= 0 || order.Sequence == 0) return ResumeReplanSolo(id, wait, out held);
+            if (wait.Tribe <= 0) return ResumeReplanSolo(id, wait, out held);
+            GameUnit* member;
+            if (order.Sequence == 0)
+            {
+                if (!TryGetLiveTribe(wait.Tribe, 0, wait.Player, out _) || !TryGetSoldier(id, wait.Global, out member) || member->r_TribeId != wait.Tribe) return false;
+                return ResumeReplanMove(id, wait, out held);
+            }
             if (!tribeOrders.TryGetValue(wait.Tribe, out TribeOrder last) || last.Sequence != order.Sequence) { held = HeldNewerOrder; return false; }
             if (!TryGetLiveTribe(wait.Tribe, order.Global, wait.Player, out GameTribe* tribe) ||
-                !APIShared.UnitAccess.TryGetById(id, out GameUnit* member, out _) || member == null || member->r_TribeId != wait.Tribe) return false;
+                !APIShared.UnitAccess.TryGetById(id, out member, out _) || member == null || member->r_TribeId != wait.Tribe) return false;
+            if (!order.Move) return ResumeReplanMove(id, wait, out held);
             if (order.Queued) { held = HeldQueued; return false; }
             if (!order.Plain) return ResumeReplanSolo(id, wait, out held);
             if (order.NewOrder && (tribe->r_CurrentPatrolPoints != 2 || tribe->r_PatrolCurrentTargetIndex != 1 ||
@@ -394,6 +407,18 @@ namespace MoatMove
             LogFireCase("resume-group", id, $"tribe={wait.Tribe} order={order.X},{order.Y} newOrder={order.NewOrder} moveType={order.MoveType}");
             held = HeldNotMoving;
             return APIShared.UnitAccess.TryGetById(id, out member, out _) && member != null && IsMoveCommanded(member);
+        }
+
+        // The unit keeps its tribe and order (target order, or none observed) and re-plans to its move target
+        // with 196280, the primitive Vanilla's own unit states use. A failed re-plan zeroes the route buffer
+        // but keeps the route state (DecideReplan): the unit gets a clean stop where it waited instead.
+        private bool ResumeReplanMove(int id, ReplanWait wait, out int held)
+        {
+            held = HeldRefused;
+            if (!ReplanMove(id, wait.TargetX, wait.TargetY)) { StopReplanUnitAt(id, wait.StopX, wait.StopY); return false; }
+            replanMoveResumed++;
+            LogFireCase("resume-move", id, $"tribe={wait.Tribe} order={wait.Order.Sequence} move={wait.Order.Move} target={wait.TargetX},{wait.TargetY}");
+            return true;
         }
 
         // The unit alone to its own move target (its formation slot) in a tribe of its own; it rejoins its
@@ -512,7 +537,7 @@ namespace MoatMove
         private string FormatReplanWatch() =>
             $"replan(tiles={replanTileCount} hot={replanHot.Count} waiting={replanWaits.Count} checks={replanChecks} triggers={replanTriggers} " +
             $"detours={replanDetours} waits={replanWaitsStarted} groupShared={replanGroupShared} resumed={replanResumed} expired={replanExpired} " +
-            $"ended={replanEnded} kept={replanKept} aborted={replanAborted} held={replanHeld} heldWhy(newer,group,points,refused,notMoving,queued)={string.Join(",", replanHeldReasons)} solo(resumed={replanSoloResumed} rejoined={replanSoloRejoined} active={replanSolos.Count}) probes(clear,noRoute,tooLong,fire)={replanProbeOutcomes[ProbeClear]},{replanProbeOutcomes[ProbeNoRoute]},{replanProbeOutcomes[ProbeTooLong]},{replanProbeOutcomes[ProbeRuleTile]} moveFailures={replanMoveFailures} unreadable={replanUnreadable} probesDeferred={replanProbesDeferred} cursor(matches={replanCursorMatches} mismatches={replanCursorMismatches}) " +
+            $"ended={replanEnded} kept={replanKept} aborted={replanAborted} held={replanHeld} heldWhy(newer,group,points,refused,notMoving,queued)={string.Join(",", replanHeldReasons)} solo(resumed={replanSoloResumed} rejoined={replanSoloRejoined} active={replanSolos.Count}) moveResumed={replanMoveResumed} probes(clear,noRoute,tooLong,fire)={replanProbeOutcomes[ProbeClear]},{replanProbeOutcomes[ProbeNoRoute]},{replanProbeOutcomes[ProbeTooLong]},{replanProbeOutcomes[ProbeRuleTile]} moveFailures={replanMoveFailures} unreadable={replanUnreadable} probesDeferred={replanProbesDeferred} cursor(matches={replanCursorMatches} mismatches={replanCursorMismatches}) " +
             $"ms={AnchorMs(replanTicks)} maxMs={AnchorMs(replanMaxTicks)})";
 
         private void ResetReplanMetrics()
@@ -520,7 +545,7 @@ namespace MoatMove
             replanChecks = replanTriggers = replanDetours = replanWaitsStarted = replanGroupShared = replanResumed = replanExpired = replanEnded =
                 replanKept = replanAborted = replanHeld = replanMoveFailures = replanUnreadable = replanCursorMatches = replanCursorMismatches = replanTicks = replanMaxTicks = replanProbesDeferred = 0;
             Array.Clear(replanProbeOutcomes, 0, replanProbeOutcomes.Length); Array.Clear(replanHeldReasons, 0, replanHeldReasons.Length);
-            replanSoloResumed = replanSoloRejoined = 0;
+            replanSoloResumed = replanSoloRejoined = replanMoveResumed = 0;
         }
     }
 }

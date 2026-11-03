@@ -16,7 +16,7 @@ using System.Reflection;
 
 namespace MoatMove
 {
-    [BepInDependency("APIShared_Serp", "0.23.0")]
+    [BepInDependency("APIShared_Serp", "0.24.0")]
     [BepInPlugin(PluginGuid, "MoatMove", PluginVersion)]
     [BepInDependency("000shcdese", "2.14.0")]
     [BepInDependency("BugfixesAndQoL_Serp", "1.0.181")]

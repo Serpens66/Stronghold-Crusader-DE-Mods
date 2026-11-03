@@ -89,7 +89,8 @@ namespace Spectator
 
         private static void EnsureControlRegistration()
         {
-            if (controlRegistered || !featureReady || !settings.Activation.Control) return;
+            // APIShared installs only between missions; a refusal inside one is no failure to report.
+            if (controlRegistered || !featureReady || !settings.Activation.Control || mapReady) return;
             try
             {
                 controlRegistered = PlayerPerspectiveAPI.TryRegisterSpectatorControl(SpectatorPlugin.PluginGuid, out string reason);
@@ -739,7 +740,7 @@ namespace Spectator
             var view = MainViewModel.Instance;
             view.AlliesPanelVisible = false;
             // This public Vanilla helper only changes HUD flags. Preserve unrelated modal overlays.
-            if (GameData.Instance?.app_mode == 16 && view.Show_HUD_Building &&
+            if (GameData.Instance?.app_mode == (int)Enums.AppModes.APP_MODE_IN_BUILDING && view.Show_HUD_Building &&
                 !view.Show_HUD_MissionOver && !view.Show_HUD_Briefing)
                 view.DefaultGameUIGameAction();
         }

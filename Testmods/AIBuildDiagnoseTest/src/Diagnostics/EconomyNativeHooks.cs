@@ -59,11 +59,11 @@ namespace AIBuildDiagnoseTest
                 try { settlement.Handle.Original(state); }
                 finally { owner.EndSettlement(operations); }
             }));
-            if (Chainloader.PluginInfos.ContainsKey("SpectatorEditorBuildTest_Serp"))
+            if (Chainloader.PluginInfos.ContainsKey("Spectator_Serp"))
             {
                 // Existing owner wins even if its initialization later fails. Never install a competing hook.
                 owner.Coverage("build-resource-native-observation", owner.ResourceOwnerReady,
-                    "entry owned by SpectatorEditorBuildTest_Serp; passive owner connection; readiness rechecked at session start");
+                    "entry owned by Spectator_Serp; passive owner connection; readiness rechecked at session start");
             }
             else
             {

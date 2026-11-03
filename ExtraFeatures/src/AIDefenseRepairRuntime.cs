@@ -540,7 +540,7 @@ namespace ExtraFeatures
                     if (!TryGetConfiguredAIRadii(out int wallCivilian, out int wallMilitary))
                         return EnemyProximityDecision.None;
 
-                    return CategoryProximityOverride(args.OriginalRadius, wallCivilian, wallMilitary);
+                    return CategoryProximityOverride(wallCivilian, wallMilitary);
                 }
 
                 BuildStepContext context = activeContext;
@@ -561,7 +561,7 @@ namespace ExtraFeatures
 
                 // Live AI calls supplied context-specific Vanilla radii 3, 5 and 15. A custom
                 // mode value replaces them only after the call was safely classified as rebuild.
-                return CategoryProximityOverride(args.OriginalRadius, rebuildCivilian, rebuildMilitary);
+                return CategoryProximityOverride(rebuildCivilian, rebuildMilitary);
             }
             catch (Exception ex)
             {
@@ -609,7 +609,7 @@ namespace ExtraFeatures
                 return EnemyProximityDecision.None;
 
             if (!EnemyProximityPolicy.IsOrdinaryHumanRadius(args.OriginalRadius)) return EnemyProximityDecision.None;
-            return CategoryProximityOverride(args.OriginalRadius,
+            return CategoryProximityOverride(
                 EnemyProximityPolicy.SelectConfiguredRadius(realMultiplayer,
                     settings.HumanCivilianEnemyProximitySingleplayer, settings.HumanCivilianEnemyProximityMultiplayer),
                 EnemyProximityPolicy.SelectConfiguredRadius(realMultiplayer,
@@ -627,12 +627,14 @@ namespace ExtraFeatures
             return civilian >= 0 || military >= 0;
         }
 
-        private static EnemyProximityDecision CategoryProximityOverride(int originalRadius, int civilian, int military)
+        // A Vanilla-mode category contributes nothing (null), as the Override contract requires: only
+        // configured categories are replaced, so earlier participants keep theirs.
+        private static EnemyProximityDecision CategoryProximityOverride(int civilian, int military)
         {
             if (civilian < 0 && military < 0) return EnemyProximityDecision.None;
             return new EnemyProximityDecision(
-                civilianRadius: EnemyProximityPolicy.ResolveRadius(originalRadius, civilian),
-                militaryRadius: EnemyProximityPolicy.ResolveRadius(originalRadius, military));
+                civilianRadius: EnemyProximityPolicy.ConfiguredContribution(civilian),
+                militaryRadius: EnemyProximityPolicy.ConfiguredContribution(military));
         }
 
         private void LogGameModeFailure(string context, Exception ex)

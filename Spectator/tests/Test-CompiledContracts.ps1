@@ -90,5 +90,13 @@ try {
     $dependencies = @($mod.MainModule.GetType('Spectator.SpectatorPlugin').CustomAttributes | Where-Object { $_.AttributeType.Name -eq 'BepInDependency' })
     if ($dependencies.Count -lt 2) { throw 'Missing runtime dependencies.' }
     if (@($dependencies | Where-Object { $_.ConstructorArguments[0].Value -match 'BugfixesAndQoL|SpectatorEditorBuildTest' }).Count) { throw 'Migration dependencies are not permitted.' }
+    # The controller fixture classifies every GameActionCommand of its enum double for the observer
+    # command policy. That proof only holds while the double mirrors the installed game enum exactly;
+    # a new or changed game value must fail here and be audited (exact names/values are the contract).
+    $gameCommands = @($game.MainModule.GetType('Enums/GameActionCommand').Fields | Where-Object { $_.IsLiteral } | ForEach-Object { '{0}={1}' -f $_.Name, $_.Constant } | Sort-Object)
+    $fixture = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'SpectatorDefeatRuntimeTests.cs'))
+    $double = [regex]::Match($fixture, '(?s)public enum GameActionCommand\s*\{(.*?)\}').Groups[1].Value
+    $fixtureCommands = @([regex]::Matches($double, '(\w+)\s*=\s*(\d+)') | ForEach-Object { '{0}={1}' -f $_.Groups[1].Value, $_.Groups[2].Value } | Sort-Object)
+    if ($gameCommands.Count -eq 0 -or (Compare-Object $gameCommands $fixtureCommands)) { throw 'GameActionCommand fixture double differs from the installed game enum; re-audit the observer command policy.' }
     Write-Host 'PASS: compiled settings roles, shared preset bindings, tool bindings/locales and independent plugin dependencies.'
 } finally { $mod.Dispose(); $api.Dispose(); $game.Dispose() }

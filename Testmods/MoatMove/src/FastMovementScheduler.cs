@@ -69,7 +69,7 @@ namespace MoatMove
                 fastLoadSubscription = Shared.MissionEvents.SaveLoading.Subscribe(args =>
                 {
                     if (args.IsBeforeInitialization)
-                    { fastSaveLoading = true; fastCommands.Clear(); fastLoadedCommands = null; fastLoadReady = false; }
+                    { fastSaveLoading = true; fastCommands.Clear(); fastLoadedCommands = null; fastLoadReady = false; loadedCases = null; }
                     else
                     {
                         fastSaveLoading = false; fastLoadReady = !args.IsBeforeInitialization;
@@ -86,6 +86,7 @@ namespace MoatMove
                         throw new InvalidOperationException("Native simulation ticks unavailable: " + tickReason);
                     simulationTickRegistered = true;
                 }
+                RegisterMovementCaseSave();
                 fastCommandHooks = pending;
                 fastSchedulerInitialized = true;
             }
@@ -220,6 +221,34 @@ namespace MoatMove
             Shared.DebugLogHelper.LogInfo(log, $"MoatMove plague route rules registered; replanning={settings.AnchorSingleMoves} escape={settings.EscapePlague} " +
                 $"escapeRaised={settings.EscapePlagueRaised} waitSeconds={settings.PlagueWaitSeconds} returnSeconds={settings.PlagueReturnSeconds} " +
                 "heightPolicy=APIShared (Vanilla while no owner enables a surface).");
+        }
+
+        // Open movement cases (MovementCaseSave) in their own versioned record beside the Fast queue's raw
+        // entry. Registered last and once: the registration lives for the process and cannot be rolled
+        // back, so its callbacks idle until the scheduler is initialized. Without it (another registration
+        // took the identifier) the cases are not saved, as before: logged, the runtime stays published.
+        // Simulation relevant: every peer must load the same cases, so APIShared compares the record
+        // before a multiplayer save loads.
+        private bool caseSaveRegistered;
+        private void RegisterMovementCaseSave()
+        {
+            if (caseSaveRegistered) return;
+            var registration = new APIShared.Savegames.VersionedSaveDataRegistration(MoatMovePlugin.PluginGuid, CaseSaveIdentifier,
+                CaseRecordVersion, CaseRecordMinimumReader, CaseEntries,
+                writer => { if (!fastSchedulerInitialized) return false; CaptureMovementCases(writer.Write); return true; },
+                ObserveMovementCaseLoad) { SimulationRelevant = true };
+            caseSaveRegistered = APIShared.Savegames.VersionedSaveData.TryRegister(registration, out _, out string reason);
+            if (!caseSaveRegistered) Shared.DebugLogHelper.LogError(log, "MoatMove movement cases are not saved: " + reason);
+        }
+
+        // Once at the end of every archive load, before its first simulation tick (ProcessFastCommands applies it).
+        private void ObserveMovementCaseLoad(APIShared.Savegames.VersionedSaveLoad load)
+        {
+            var status = load.Status;
+            StageMovementCases(status == APIShared.Savegames.VersionedSaveLoadStatus.Restored ? load.Entries : null);
+            if (status != APIShared.Savegames.VersionedSaveLoadStatus.Restored && status != APIShared.Savegames.VersionedSaveLoadStatus.NoRecord &&
+                status != APIShared.Savegames.VersionedSaveLoadStatus.OutOfScope)
+                Shared.DebugLogHelper.LogWarning(log, $"MoatMove saved movement cases not used ({status}): {load.Detail}");
         }
 
         private void ReleaseFastPendingSearch(FastPendingCommand command)
@@ -375,6 +404,8 @@ namespace MoatMove
                     byte[] staged = fastLoadedCommands; fastLoadedCommands = null; fastLoadReady = false;
                     fastCommands.Load(staged);
                 }
+                // Saved movement cases before this tick's replan watch and escape tick read them.
+                if (loadedCases != null) ApplyLoadedMovementCases();
                 if ((tick & 63) == 0 && fastUnitDistributions.Count != 0)
                     foreach (var identity in new List<FastUnitIdentity>(fastUnitDistributions.Keys))
                         if (!TryGetFastMember(identity, fastUnitDistributions[identity].Player, out _))
@@ -786,7 +817,8 @@ namespace MoatMove
             fastSimulationRouting = fastCursorRouting = null;
             fastDistribution = null;
             fastUnitDistributions.Clear();
-            if (!fastSaveLoading) { fastLoadedCommands = null; fastLoadReady = false; }
+            // A load's own resets keep what it staged; any other map change drops it.
+            if (!fastSaveLoading) { fastLoadedCommands = null; fastLoadReady = false; loadedCases = null; }
         }
     }
 }

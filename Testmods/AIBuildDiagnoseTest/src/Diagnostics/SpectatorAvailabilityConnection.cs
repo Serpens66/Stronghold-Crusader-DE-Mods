@@ -15,9 +15,9 @@ namespace AIBuildDiagnoseTest
         {
             try
             {
-                if (!Chainloader.PluginInfos.TryGetValue("SpectatorEditorBuildTest_Serp", out var owner))
+                if (!Chainloader.PluginInfos.TryGetValue("Spectator_Serp", out var owner))
                 { Detail = "owner-not-installed; diagnostic owns native resource entry"; return; }
-                Type type = owner.Instance.GetType().Assembly.GetType("SpectatorEditorBuildTest.AvailabilityObservation", false);
+                Type type = owner.Instance.GetType().Assembly.GetType("Spectator.AvailabilityObservation", false);
                 var register = type?.GetMethod("Register", Flags, null,
                     new[] { typeof(Func<int, int, int, Action<int?, bool>>) }, null);
                 ready = type?.GetProperty("Ready", Flags);

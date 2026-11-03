@@ -92,7 +92,7 @@ namespace AIBuildDiagnoseTest
                 { op.NativeOriginalEvaluated = evaluated; SafeEnd(op, result); });
             });
             Coverage("trade-controller", false, TradeControllerCoverageDetail, expectedUnavailable: true);
-            if (Chainloader.PluginInfos.ContainsKey("SpectatorEditorBuildTest_Serp"))
+            if (Chainloader.PluginInfos.ContainsKey("Spectator_Serp"))
                 Coverage("resource-owner-subscriber", availability.Registered, availability.Detail);
             Coverage("protection-decisions", false,
                 "ownerVersion=" + (Chainloader.PluginInfos.TryGetValue("BugfixesAndQoL_Serp", out var owner) ? owner.Metadata.Version.ToString() : "unavailable") +
@@ -123,7 +123,7 @@ namespace AIBuildDiagnoseTest
                 Array.Clear(woodBuildDecisions, 0, woodBuildDecisions.Length);
                 Array.Clear(resourceBuildDecisions, 0, resourceBuildDecisions.Length);
                 if (!active) return;
-                if (Chainloader.PluginInfos.ContainsKey("SpectatorEditorBuildTest_Serp"))
+                if (Chainloader.PluginInfos.ContainsKey("Spectator_Serp"))
                     Coverage("build-resource-native-observation", ResourceOwnerReady,
                         "Spectator owner; nativeOriginalEvaluated=false means owner override, not a native decision");
                 Emit("COVERAGE", 0, 0, "capabilities=" + string.Join("|", coverage));

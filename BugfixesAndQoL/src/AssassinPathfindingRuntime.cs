@@ -170,7 +170,8 @@ namespace BugfixesAndQoL
             catch (Exception ex)
             {
                 nativeSearchBound = false;
-                Shared.DebugLogHelper.LogWarning(log, "native weighted Assassin search unavailable; managed search used: " + ex.Message);
+                Shared.DebugLogHelper.LogError(log, "native weighted Assassin search failed to load; group routes disabled, managed " +
+                    "per-unit search used. Reinstall the mod; multiplayer peers must have identical files: " + ex.Message);
             }
 
             AssassinPathReconstructionPatch pendingReconstructionPatch = null;
@@ -1250,7 +1251,7 @@ namespace BugfixesAndQoL
                 result.Expanded, 0, 0, 0, cacheHit: false);
             var cacheKey = new RouteCacheKey(startX, startY, targetX, targetY, TileCount, speedDelay,
                 playerId, allowClimbing, allowReserved, gatePolicy, directClimbing);
-            bool staged = TryStagePreparedRoute(context, cacheKey, summary, null, command);
+            bool staged = TryStagePreparedRoute(context, cacheKey, summary, null, command, groupRoute: true);
             Shared.DevDiag.Count(staged ? (command == null ? "bfqol.assassin.group.stagedSingle" : "bfqol.assassin.group.staged") : "bfqol.assassin.group.stageRejected");
             // The slot this field answered: a later single request of the member (after a fight) can reuse the field.
             if (staged && command != null && FindRecentGroupField(fieldKey, tick, out RecentGroupField used))
@@ -1269,7 +1270,7 @@ namespace BugfixesAndQoL
         // Native group route into route[] (target first): status of bfq_assassin_field_route, or -1 without an answer.
         private int RunGroupRoute(AssassinCommandScope command, SuffixCacheKey fieldKey, int startX, int startY, int targetX, int targetY,
             int cardinalTicks, int diagonalTicks, bool allowClimbing, bool allowReserved, IEnemyGateRoutePolicySnapshot gatePolicy, int tick,
-            out AssassinNativeSearch.Result result, int margin = GroupRouteMargin)
+            out AssassinNativeSearch.Result result)
         {
             result = default;
             byte[] mask = null;
@@ -1306,7 +1307,7 @@ namespace BugfixesAndQoL
                         command?.SetGroupField(fieldKey, handle);
                         Shared.DevDiag.Count("bfqol.assassin.group.fieldReused");
                     }
-                    code = handle > 0 ? GroupRoute(handle, &tables, &request, nodes, nodeCosts, ref result, margin) : AssassinNativeSearch.FieldRecycled;
+                    code = handle > 0 ? GroupRoute(handle, &tables, &request, nodes, nodeCosts, ref result) : AssassinNativeSearch.FieldRecycled;
                     if (code == AssassinNativeSearch.FieldRecycled) ForgetRecentGroupField(handle);
                     // A single request never builds a field: that costs more than its own per-unit search.
                     if (code == AssassinNativeSearch.FieldRecycled && command != null)
@@ -1320,7 +1321,7 @@ namespace BugfixesAndQoL
                             command.SetGroupField(fieldKey, handle);
                             RememberRecentGroupField(fieldKey, handle, tick);
                             Shared.DevDiag.Count("bfqol.assassin.group.fields");
-                            code = GroupRoute(handle, &tables, &request, nodes, nodeCosts, ref result, margin);
+                            code = GroupRoute(handle, &tables, &request, nodes, nodeCosts, ref result);
                         }
                     }
                     // The move target cannot be reached from this slot (e.g. a blocked target tile): once per command the
@@ -1333,7 +1334,7 @@ namespace BugfixesAndQoL
                             command.SetGroupField(fieldKey, handle);
                             RememberRecentGroupField(fieldKey, handle, tick);
                             Shared.DevDiag.Count("bfqol.assassin.group.reanchored");
-                            code = GroupRoute(handle, &tables, &request, nodes, nodeCosts, ref result, margin);
+                            code = GroupRoute(handle, &tables, &request, nodes, nodeCosts, ref result);
                         }
                     }
                     if (code == 0) status = result.Status;
@@ -1353,7 +1354,8 @@ namespace BugfixesAndQoL
         // profile (the AI repeats its Assassin move every few seconds, test_stresstest5) and single requests to a slot a
         // field answered (an Assassin resuming its move after a fight) reuse them within GroupFieldReuseTicks. A reused
         // field may predate map changes since: every route still passes the full staging validation, and a descent that
-        // no longer matches the map fails over to the per-unit path. Deterministic on all peers (simulation state only).
+        // no longer matches the map fails over to the per-unit path. Deterministic on all peers (simulation state only;
+        // both caches start empty in every mission, see ClearTransientState).
         private const int GroupFieldReuseTicks = 400, MaximumSlotGroupFields = 8192;
         // Map tick source for requests outside command scopes; set by the plugin runtime (null in fixtures: no reuse).
         internal static Func<int> MapTickSource;
@@ -1394,32 +1396,11 @@ namespace BugfixesAndQoL
                 if (recentGroupFields[i].Handle > 0 && recentGroupFields[i].Key.Equals(key)) recentGroupFields[i] = default;
         }
 
-        // margin < 0: the cost-optimal landmark route (tests and DEVDIAG quality checks).
-#if SERP_DEVDIAG
-        private int diagGroupQualitySample;
-#endif
         private int GroupRoute(int handle, AssassinNativeSearch.Tables* tables, AssassinNativeSearch.Request* request,
-            int* nodes, int* nodeCosts, ref AssassinNativeSearch.Result result, int margin)
+            int* nodes, int* nodeCosts, ref AssassinNativeSearch.Result result)
         {
             AssassinNativeSearch.Result local;
-            int code;
-#if SERP_DEVDIAG
-            // Quality of every 8th fast route: the cost-optimal landmark route first (overwritten below), per cost ratio.
-            AssassinNativeSearch.Result exact = default;
-            bool compare = margin >= 0 && (++diagGroupQualitySample & 7) == 0;
-            int exactCode = compare ? AssassinNativeSearch.bfq_assassin_field_route(handle, tables, request, -1, nodes, nodeCosts, route.Length, &exact) : -1;
-#endif
-            code = AssassinNativeSearch.bfq_assassin_field_route(handle, tables, request, margin, nodes, nodeCosts, route.Length, &local);
-#if SERP_DEVDIAG
-            if (code == 0 && exactCode == 0 && local.Status == AssassinNativeSearch.StatusFound && exact.Status == AssassinNativeSearch.StatusFound)
-            {
-                long extra = local.TotalCost - (long)exact.TotalCost;
-                double ratio = exact.TotalCost > 0 ? extra / (double)exact.TotalCost : 0;
-                Shared.DevDiag.Count("bfqol.assassin.group.quality." + (extra < 0 ? "cheaperThanExact" : extra == 0 ? "equal" : ratio <= 0.01 ? "le1pct" :
-                    ratio <= 0.05 ? "le5pct" : ratio <= 0.10 ? "le10pct" : ratio <= 0.25 ? "le25pct" : "over25pct"));
-            }
-            else if (compare) Shared.DevDiag.Count("bfqol.assassin.group.quality.unpaired");
-#endif
+            int code = AssassinNativeSearch.bfq_assassin_field_route(handle, tables, request, GroupRouteMargin, nodes, nodeCosts, route.Length, &local);
             result = local;
             return code;
         }
@@ -1652,7 +1633,7 @@ namespace BugfixesAndQoL
                 directionMasks[direction], directionMasks[direction ^ 4]);
 
         private bool TryStagePreparedRoute(IntPtr context, RouteCacheKey key, RouteSearchSummary summary,
-            CachedRoute prepared, AssassinCommandScope command)
+            CachedRoute prepared, AssassinCommandScope command, bool groupRoute = false)
         {
             long started = (PerformanceDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0);
             // Reachability/field callers cannot consume an exact packed single-unit route.
@@ -1660,11 +1641,11 @@ namespace BugfixesAndQoL
                 key.StartX, key.StartY, key.TargetX, key.TargetY, out _, out _)) return false;
             // Keep captured delegates in a separate method: C# allocates their closure
             // at method entry, even when an earlier guard returns without staging.
-            return StagePreparedRouteCore(context, key, summary, prepared, command, started);
+            return StagePreparedRouteCore(context, key, summary, prepared, command, started, groupRoute);
         }
 
         private bool StagePreparedRouteCore(IntPtr context, RouteCacheKey key, RouteSearchSummary summary,
-            CachedRoute prepared, AssassinCommandScope command, long started)
+            CachedRoute prepared, AssassinCommandScope command, long started, bool groupRoute)
         {
             int length = summary.RouteLength;
             if (prepared == null)
@@ -1675,14 +1656,15 @@ namespace BugfixesAndQoL
             }
             byte[] bytes = prepared.GetPackedDirections();
             if (bytes == null) return false;
+            Func<bool> validator = groupRoute ? prepared.GetGroupRouteValidator() : prepared.GetValidator();
 #if SERP_DEVDIAG
             if (!PerformanceDiagnosticsEnabled || command == null)
 #endif
                 return AssassinPathAPI.TryStageWeightedRoute(BugfixesAndQoLPlugin.PluginGuid, context,
                     key.StartX, key.StartY, key.TargetX, key.TargetY, key.PlayerId, bytes, length - 1,
-                    prepared.GetValidator());
+                    validator);
 #if SERP_DEVDIAG
-            return StagePreparedRouteWithDiagnostics(context, key, prepared, command, started, bytes, length);
+            return StagePreparedRouteWithDiagnostics(context, key, command, started, bytes, length, validator, prepared.Summary);
 #endif
         }
 
@@ -1690,15 +1672,15 @@ namespace BugfixesAndQoL
 
 #if SERP_DEVDIAG
 private bool StagePreparedRouteWithDiagnostics(IntPtr context, RouteCacheKey key,
-            CachedRoute prepared, AssassinCommandScope command, long started, byte[] bytes, int length)
+            AssassinCommandScope command, long started, byte[] bytes, int length, Func<bool> validator, RouteSearchSummary summary)
         {
             long stagingTicks = 0;
             bool staged = AssassinPathAPI.TryStageWeightedRoute(BugfixesAndQoLPlugin.PluginGuid, context,
                 key.StartX, key.StartY, key.TargetX, key.TargetY, key.PlayerId, bytes, length - 1,
-                prepared.GetValidator(),
+                validator,
                 (ticks, success) =>
                 {
-                    if (PerformanceDiagnosticsEnabled) command.RecordPublication(stagingTicks + ticks, success, prepared.Summary);
+                    if (PerformanceDiagnosticsEnabled) command.RecordPublication(stagingTicks + ticks, success, summary);
                     if (PerformanceDiagnosticsEnabled) command.RecordTotal(ticks);
                 });
             stagingTicks = (PerformanceDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0) - started;
@@ -2178,6 +2160,10 @@ private bool StagePreparedRouteWithDiagnostics(IntPtr context, RouteCacheKey key
         private void ClearTransientState()
         {
             activeCommand = null;
+            // Group-field reuse must not depend on what this process played before: a peer with an earlier
+            // mission would evict and clear differently than a freshly started one and route differently.
+            Array.Clear(recentGroupFields, 0, recentGroupFields.Length);
+            slotGroupFields.Clear();
         }
 
         private static double ToMilliseconds(long ticks) =>
@@ -2480,6 +2466,17 @@ private bool StagePreparedRouteWithDiagnostics(IntPtr context, RouteCacheKey key
             // Every Stage/Complete invocation still checks current map, settings,
             // climbing, gate policy, physical edges and costs in full.
             public Func<bool> GetValidator() => validator ?? (validator = Validate);
+            // Group routes only (TryStageGroupRoute): UnitCommandPathRuntime.TryPublishAssassinGroupRoute calls Complete
+            // directly after Stage, with no game code in between, and replaces the frame on every other outcome. Stage
+            // validates in full; Complete's repeat would read the same map, settings and policy, so it takes that result
+            // once (Complete still rechecks the unit identity). Any later call validates in full again.
+            public Func<bool> GetGroupRouteValidator() => ValidateGroupRoute;
+            private bool groupRouteValidated;
+            private bool ValidateGroupRoute()
+            {
+                if (groupRouteValidated) { groupRouteValidated = false; return true; }
+                return groupRouteValidated = Validate();
+            }
 #if SERP_DEVDIAG
             private bool Validate() =>
                 (epoch == runtime.mapEpoch || runtime.TemporaryRouteValidation(false, key, "map-epoch", Summary)) &&

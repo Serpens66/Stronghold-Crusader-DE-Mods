@@ -11,7 +11,7 @@ namespace AIBuildDiagnoseTest
     [BepInDependency("APIShared_Serp", "0.9.2")]
     [BepInDependency("BugfixesAndQoL_Serp", "1.0.192")]
     [BepInDependency("fixes", BepInDependency.DependencyFlags.SoftDependency)]
-    [BepInDependency("SpectatorEditorBuildTest_Serp", BepInDependency.DependencyFlags.SoftDependency)]
+    [BepInDependency("Spectator_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInPlugin(Guid, Name, Version)]
     public sealed class AIBuildDiagnosePlugin : BaseUnityPlugin
     {

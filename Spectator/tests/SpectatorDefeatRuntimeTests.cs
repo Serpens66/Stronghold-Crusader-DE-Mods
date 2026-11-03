@@ -52,6 +52,20 @@ namespace APIShared
         { defeat = Defeat; diagnostic = null; return true; }
     }
     public static class ApiShared { public static ApiBoundary Current; }
+    public readonly struct ObserverCommandRequest
+    {
+        public ObserverCommandRequest(int observer, int viewed, CrusaderDE.Enums.GameActionCommand command, int structure, int state, int value2)
+        { ObserverPlayerId = observer; ViewedPlayerId = viewed; Command = command; }
+        public int ObserverPlayerId { get; }
+        public int ViewedPlayerId { get; }
+        public CrusaderDE.Enums.GameActionCommand Command { get; }
+    }
+    public static class ObserverCommandExceptions
+    {
+        public static Func<ObserverCommandRequest, bool> Allow;
+        public static ObserverCommandRequest Last;
+        public static bool IsAllowed(ObserverCommandRequest request) { Last = request; return Allow != null && Allow(request); }
+    }
     public static class PlayerPerspectiveAPI
     {
         public static int Native = 3;
@@ -97,18 +111,37 @@ namespace CrusaderDE
 {
     public static class Enums
     {
+        // Exact mirror of the installed game enum; Test-CompiledContracts.ps1 enforces equality.
         public enum GameActionCommand
         {
-            GateHouseState = 1001, RepairBuilding = 1002, ToggleSleep = 1003,
-            SetTaxRate = 1004, SetRationing = 1005, SetFoodEaten = 1006, MakeTroop = 1007,
-            Troops_Stop = 1010, Troops_Disband = 1011, BuyGoods = 1024, SellGoods = 1025,
-            CycleBookmarks = 1026, RadarClicked = 1028, AlignSprites = 1029,
-            ResizeRadarMapBuffer = 1030, CloseTroopsPanel = 1040, CentreMarker = 1043,
-            HideObjectiveProgress = 1045, SetRadarMapRotationType = 1046, Game_Paused = 1048,
-            Ally_Orders = 1061, Ally_CancelGoodsReq = 1062, Ally_SendGoods = 1063,
-            Ally_RequestGoods = 1064, Ally_ConfirmOrders = 1065, Ally_CancelOrders = 1066,
-            ShowPlannedMoat = 1067, ExtremePower = 1068, SpectatorMode = 1073,
-            Scenario_Set_StartingGoods = 2004
+            GateHouseState = 1001, RepairBuilding = 1002, ToggleSleep = 1003, SetTaxRate = 1004, SetRationing = 1005,
+            SetFoodEaten = 1006, MakeTroop = 1007, DrawbridgeState = 1008, OpenDogCage = 1009, Troops_Stop = 1010,
+            Troops_Disband = 1011, Troops_AttackHere = 1012, Troops_Cow = 1013, EngBuild_Catapult = 1014,
+            EngBuild_Trebuchet = 1015, EngBuild_SiegeTower = 1016, EngBuild_Shield = 1017,
+            EngBuild_BatteringRam = 1018, Troops_Patrol = 1019, Troops_ChangeStance = 1020, Troops_DeSelectType = 1021,
+            Troops_DeSelectExceptType = 1022, SetNextWeaponMade = 1023, BuyGoods = 1024, SellGoods = 1025,
+            CycleBookmarks = 1026, SetCurrentTradedGood = 1027, RadarClicked = 1028, AlignSprites = 1029,
+            ResizeRadarMapBuffer = 1030, FreeBuild_Event = 1031, FreeBuild_InvasionCharSet = 1032,
+            FreeBuild_InvasionCount = 1033, FreeBuild_InvasionStart = 1034, ActionPointClicked = 1035, Undo = 1036,
+            SetStartingTeam = 1037, Set_AI_Patrolling = 1038, Fix_Tribes = 1039, CloseTroopsPanel = 1040,
+            AmmoRecharge = 1041, AI_Target_Special = 1042, CentreMarker = 1043, SH1Cheats = 1044,
+            HideObjectiveProgress = 1045, SetRadarMapRotationType = 1046, SelectBuildingType = 1047,
+            Game_Paused = 1048, RotateBuilding = 1049, Autotrade_Pause = 1050, Autotrade_OnOff = 1051,
+            Autotrade_SetBuy = 1052, Autotrade_SetSell = 1053, Autotrade_Apply = 1054, SetOutpostState = 1055,
+            SetOutpostSize = 1056, SetOutpostDelay = 1057, GenieSpeech = 1058, LordType = 1059,
+            EngBuild_ArabBallista = 1060, Ally_Orders = 1061, Ally_CancelGoodsReq = 1062, Ally_SendGoods = 1063,
+            Ally_RequestGoods = 1064, Ally_ConfirmOrders = 1065, Ally_CancelOrders = 1066, ShowPlannedMoat = 1067,
+            ExtremePower = 1068, SkirmishInsult = 1069, MPConfig = 1070, ResetTime = 1071, SandsCheatAllowed = 1072,
+            SpectatorMode = 1073, Scenario_Set_Starting_Month = 2000, Scenario_Set_Starting_Year = 2001,
+            Scenario_Set_Trading = 2002, Scenario_Set_Special = 2003, Scenario_Set_StartingGoods = 2004,
+            Scenario_Set_Starting_Popularity = 2005, Scenario_Set_Starting_Special_Gold = 2006,
+            Scenario_Set_Starting_Special_Rations = 2007, Scenario_Set_Starting_Special_Tax = 2008,
+            Scenario_Set_BuildingAvailable = 2009, Scenario_Set_TroopAvailable = 2010,
+            Scenario_Set_SwordAvailable = 2011, Scenario_Set_XbowAvailable = 2012, Scenario_Set_PikeAvailable = 2013,
+            EditorWipeGoods = 2015, RespawnLord = 2016, WipeAnimals = 2017, HoldTime = 2018, SetMarkerState = 2019,
+            FastGoodsFeedin = 2020, Scenario_Set_MaceAvailable = 2021, Scenario_Set_bowAvailable = 2022,
+            Scenario_Set_SpearAvailable = 2023, Scenario_Set_MercTroopAvailable = 2024,
+            Scenario_Set_BedouinTroopAvailable = 2025, Balanced = 2026
         }
         public enum SceneIDS { ActualMainGame }
     }
@@ -141,6 +174,9 @@ namespace Shared
     {
         public static void LogErrorLimited(BepInEx.Logging.ManualLogSource log, string key, string text) { }
         public static void LogDebugLimited(BepInEx.Logging.ManualLogSource log, string key, string text) { }
+        public static readonly List<string> Messages = new List<string>();
+        public static void LogInfo(BepInEx.Logging.ManualLogSource log, string text) { Messages.Add(text); }
+        public static void LogWarning(BepInEx.Logging.ManualLogSource log, string text) { Messages.Add(text); }
     }
 }
 namespace Spectator
@@ -207,6 +243,7 @@ namespace Spectator
             CrusaderDE.Director.instance.SimRunning = true;
             APIShared.PlayerPerspectiveAPI.Native = 3; CrusaderDE.EngineInterface.Calls = 0;
             APIShared.GameModes.GameModeHelper.Editor = false;
+            APIShared.ObserverCommandExceptions.Allow = null; Shared.DebugLogHelper.Messages.Clear();
             var settings = new SpectatorViewModel { Activation = new SpectatorFeatureActivation(hostEnabled, true, true, true, true, true) };
             if (loadedLoss)
             {
@@ -334,23 +371,48 @@ namespace Spectator
 
         private static void CheckObserverCommands(Action<bool, string> check)
         {
+            // Every audited game value has exactly one class (the enum double mirrors the game enum).
+            foreach (CrusaderDE.Enums.GameActionCommand command in Enum.GetValues(typeof(CrusaderDE.Enums.GameActionCommand)))
+                check(SpectatorObserverActionPolicy.IsViewedPlayerAction(command) != SpectatorObserverActionPolicy.IsAuditedAllowed(command),
+                    "observer policy classifies the audited command exactly once: " + command);
             foreach (var command in new[] {
                 CrusaderDE.Enums.GameActionCommand.SetTaxRate, CrusaderDE.Enums.GameActionCommand.SetRationing,
                 CrusaderDE.Enums.GameActionCommand.SetFoodEaten, CrusaderDE.Enums.GameActionCommand.BuyGoods,
                 CrusaderDE.Enums.GameActionCommand.SellGoods, CrusaderDE.Enums.GameActionCommand.MakeTroop,
                 CrusaderDE.Enums.GameActionCommand.ToggleSleep, CrusaderDE.Enums.GameActionCommand.RepairBuilding,
                 CrusaderDE.Enums.GameActionCommand.Troops_Disband, CrusaderDE.Enums.GameActionCommand.Troops_Stop,
-                CrusaderDE.Enums.GameActionCommand.ExtremePower, CrusaderDE.Enums.GameActionCommand.CloseTroopsPanel,
-                CrusaderDE.Enums.GameActionCommand.Scenario_Set_StartingGoods,
+                CrusaderDE.Enums.GameActionCommand.ExtremePower, CrusaderDE.Enums.GameActionCommand.SelectBuildingType,
                 (CrusaderDE.Enums.GameActionCommand)int.MaxValue })
-                check(!APIShared.Commands.GameActionEvents.Allowed(command), "ordinary or unknown observer gameplay command blocked: " + command);
+                check(!APIShared.Commands.GameActionEvents.Allowed(command), "local observer command acting as the viewed player (or unaudited) blocked: " + command);
             foreach (var command in new[] {
                 CrusaderDE.Enums.GameActionCommand.CycleBookmarks, CrusaderDE.Enums.GameActionCommand.RadarClicked,
                 CrusaderDE.Enums.GameActionCommand.AlignSprites, CrusaderDE.Enums.GameActionCommand.ResizeRadarMapBuffer,
                 CrusaderDE.Enums.GameActionCommand.CentreMarker, CrusaderDE.Enums.GameActionCommand.HideObjectiveProgress,
                 CrusaderDE.Enums.GameActionCommand.SetRadarMapRotationType, CrusaderDE.Enums.GameActionCommand.Game_Paused,
-                CrusaderDE.Enums.GameActionCommand.ShowPlannedMoat, CrusaderDE.Enums.GameActionCommand.SpectatorMode })
-                check(APIShared.Commands.GameActionEvents.Allowed(command), "audited local observer presentation command preserved: " + command);
+                CrusaderDE.Enums.GameActionCommand.ShowPlannedMoat, CrusaderDE.Enums.GameActionCommand.SpectatorMode,
+                // ESC and the Reports button; the observer's selection was cleared with its own view.
+                CrusaderDE.Enums.GameActionCommand.CloseTroopsPanel,
+                CrusaderDE.Enums.GameActionCommand.Scenario_Set_StartingGoods, CrusaderDE.Enums.GameActionCommand.Undo })
+                check(APIShared.Commands.GameActionEvents.Allowed(command), "menu/presentation/global observer command preserved: " + command);
+            check(Shared.DebugLogHelper.Messages.Exists(m => m.Contains("SPECTATOR_OBSERVER_UNAUDITED_GAMEACTION_BLOCKED")) &&
+                Shared.DebugLogHelper.Messages.FindAll(m => m.Contains("command=SetTaxRate ")).Count <= 1,
+                "blocked commands are reported once per command, unaudited ones distinctly");
+
+            // Synchronized simulation/Chore calls (another thread) run on every peer and are never vetoed.
+            bool simulationAllowed = false;
+            var simulation = new System.Threading.Thread(() =>
+                simulationAllowed = APIShared.Commands.GameActionEvents.Allowed(CrusaderDE.Enums.GameActionCommand.FreeBuild_Event));
+            simulation.Start(); simulation.Join();
+            check(simulationAllowed, "a simulation-thread GameAction (e.g. a Chore callback) is never vetoed for an observer");
+
+            // Cross-mod exception: decided per observer and request, seeing the viewed player.
+            APIShared.ObserverCommandExceptions.Allow = r => r.Command == CrusaderDE.Enums.GameActionCommand.SetTaxRate && r.ObserverPlayerId == 3;
+            check(APIShared.Commands.GameActionEvents.Allowed(CrusaderDE.Enums.GameActionCommand.SetTaxRate) &&
+                APIShared.ObserverCommandExceptions.Last.ViewedPlayerId == APIShared.PlayerPerspectiveAPI.Native,
+                "a registered exception lets the observer issue that command");
+            check(!APIShared.Commands.GameActionEvents.Allowed(CrusaderDE.Enums.GameActionCommand.BuyGoods),
+                "an exception for one command does not open others");
+            APIShared.ObserverCommandExceptions.Allow = null;
         }
     }
 }

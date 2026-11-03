@@ -91,26 +91,24 @@ try {
     }
     Write-Host 'PASS: compiled plague lifetime stays within the native signed 16-bit age limit.'
     # Exercise the actual broker-adapter method without constructing a runtime or
-    # game object. Resolving a saved -1 before the shared Limit phase is essential:
-    # passing it through would discard the contribution instead of preserving Vanilla.
+    # game object. A saved -1 (Vanilla) must never reach the broker as -1 (that would
+    # discard the whole contribution); it supplies no category (null), so the incoming
+    # Vanilla or earlier-participant radius stays, as the Override contract requires.
     $proximity = $assembly.GetType('ExtraFeatures.AIDefenseRepairRuntime', $true)
     $override = $proximity.GetMethod('CategoryProximityOverride', $flags)
     if (-not $override) { throw 'Enemy proximity adapter needs updating.' }
-    foreach ($original in @(3, 5, 15, 30)) {
-        $none = $override.Invoke($null, @([int]$original, [int]-1, [int]-1))
-        if ($null -ne $none.CivilianRadius -or $null -ne $none.MilitaryRadius -or $none.Block) {
-            throw 'Vanilla categories unexpectedly contribute an override.'
-        }
-        foreach ($civilianRadius in @(-1, 0, 1, 2, 3, 100)) {
-            foreach ($militaryRadius in @(-1, 0, 15, 100)) {
-                if ($civilianRadius -eq -1 -and $militaryRadius -eq -1) { continue }
-                $decision = $override.Invoke($null, @([int]$original, [int]$civilianRadius, [int]$militaryRadius))
-                $expectedCivilian = if ($civilianRadius -eq -1) { $original } else { $civilianRadius }
-                $expectedMilitary = if ($militaryRadius -eq -1) { $original } else { $militaryRadius }
-                if ($decision.CivilianRadius -ne $expectedCivilian -or
-                    $decision.MilitaryRadius -ne $expectedMilitary -or $decision.Block) {
-                    throw "Enemy proximity override differs for Vanilla=$original, civilians=$civilianRadius, military=$militaryRadius."
-                }
+    $none = $override.Invoke($null, @([int]-1, [int]-1))
+    if ($null -ne $none.CivilianRadius -or $null -ne $none.MilitaryRadius -or $none.Block) {
+        throw 'Vanilla categories unexpectedly contribute an override.'
+    }
+    foreach ($civilianRadius in @(-1, 0, 1, 2, 3, 100)) {
+        foreach ($militaryRadius in @(-1, 0, 15, 100)) {
+            if ($civilianRadius -eq -1 -and $militaryRadius -eq -1) { continue }
+            $decision = $override.Invoke($null, @([int]$civilianRadius, [int]$militaryRadius))
+            $civilianOk = if ($civilianRadius -eq -1) { $null -eq $decision.CivilianRadius } else { $decision.CivilianRadius -eq $civilianRadius }
+            $militaryOk = if ($militaryRadius -eq -1) { $null -eq $decision.MilitaryRadius } else { $decision.MilitaryRadius -eq $militaryRadius }
+            if (-not $civilianOk -or -not $militaryOk -or $decision.Block) {
+                throw "Enemy proximity override differs for civilians=$civilianRadius, military=$militaryRadius."
             }
         }
     }

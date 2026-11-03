@@ -13,8 +13,9 @@ namespace ExtraFeatures
             bool isRealMultiplayer, int singleplayerRadius, int multiplayerRadius) =>
             isRealMultiplayer ? multiplayerRadius : singleplayerRadius;
 
-        internal static int ResolveRadius(int originalRadius, int configuredRadius) =>
-            configuredRadius == VanillaMode ? originalRadius : configuredRadius;
+        // Vanilla mode supplies no radius; the incoming (Vanilla or earlier) radius stays.
+        internal static int? ConfiguredContribution(int configuredRadius) =>
+            configuredRadius == VanillaMode ? (int?)null : configuredRadius;
 
         internal static bool IsOrdinaryHumanRadius(int radius) =>
             radius == OrdinaryHumanLargeRadius || radius == OrdinaryHumanSmallRadius;
