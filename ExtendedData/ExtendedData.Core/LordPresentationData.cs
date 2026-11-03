@@ -1,4 +1,4 @@
-using APIShared.Content.Lords;
+using APIShared.Lords;
 using System;
 using System.Collections.Generic;
 using System.IO;

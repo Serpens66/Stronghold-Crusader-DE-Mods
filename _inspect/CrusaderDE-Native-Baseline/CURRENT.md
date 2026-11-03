@@ -46,8 +46,6 @@ Semantic reverse-engineering baseline:
 
 ## Vanilla behavior audits
 
-- [Pitch traps and stairs](./sem/FBCB9319/knowledge/PITCH_STAIRS_HEIGHT.md): direction/search height inconsistency, AIV/manual construction over pitch and independent building-access boundary checks; original-code isolated execution, no production fix or live-game acceptance.
-
 - [Save writer routes and synchronized saves](./sem/FBCB9319/knowledge/SAVE_WRITER_ROUTES.md): autosave/Chore 39, ordinary export and Trail-template routes; shared writer and MP Lord-name limits.
 
 - [AI woodcutter retirement and repeated construction](./sem/FBCB9319/knowledge/AI_WOODCUTTER_RETIREMENT.md): retirement thresholds, worker path/counter writers, accessibility propagation and temporary coarse-cell avoidance; static audit, no save-specific cause claim.
@@ -61,6 +59,7 @@ Only Vanilla behavior; Script Extender names appear only as vocabulary.
 - [Health-bar rendering audit](./sem/FBCB9319/knowledge/HEALTH_BAR_RENDERING.md): visible-map render paths, selection gates, HP storage and candidate hook spans.
 - [Keep and campground ground: verified records](./sem/FBCB9319/knowledge/KEEP_CAMPGROUND_GROUND.md)
 - [Keep main-flag rotation audit](./sem/FBCB9319/knowledge/KEEP_FLAG_ROTATION.md): view-dependent Vanilla micro-anchors, Keep-relative rotation, and projectile coordinate contracts.
+- [Long simulation ticks from AI group movement (FBCB9319)](./sem/FBCB9319/knowledge/SIM_TICK_SPIKE_PATHING.md): AI group-order stalls, `0x119F90` member lookup, Assassin per-member `0xD9C40` and the `+0x94` route output; mod contracts and mod measurements are only linked.
 - [Minimap (radar) pass 0xF5A40 (FBCB9319)](./sem/FBCB9319/knowledge/RADAR_PASS_F5A40.md)
 - [Surrender selection and multiplayer checksum audit](./sem/FBCB9319/knowledge/SURRENDER_SELECTION.md): selected Lord field, checksum buckets, deselection and trace evidence.
 
@@ -112,7 +111,6 @@ Vanilla audits that also contain mod-specific parts; see the `[mod integration]`
 - [Independent manual gatehouse and drawbridge control](./sem/FBCB9319/knowledge/GATE_BRIDGE_AUTOMATION.md)
 - [Lobby chat layout](./sem/FBCB9319/knowledge/LOBBY_CHAT_LAYOUT.md): shared Coop/Skirmish managed renderer, fixed-width name and forced line break, local compact presentation and foreach/finally insertion boundary; native visual acceptance pending.
 - [Lobby save loading and Skirmish load-button visibility](./sem/FBCB9319/knowledge/LOBBY_SAVE_LOADING.md): solo-host eligibility, absent-human removal, persistent frontend path and consumer acceptance limits.
-- [Long simulation ticks from AI group movement (FBCB9319)](./sem/FBCB9319/knowledge/SIM_TICK_SPIKE_PATHING.md)
 - [Lord defeat loot audit](./sem/FBCB9319/knowledge/DEFEAT_LOOT.md): winner attribution, direct gold and incoming-goods awards, and the native skip branch.
 - [Lord defeat percentages and message capacity](./sem/FBCB9319/knowledge/KILL_REWARD_PERCENT.md): exact goods/cleanup fields, signed-short gold messages, bounded transfer and existing-span integration.
 - [Lord AIC slots and optional media lookup](./sem/FBCB9319/knowledge/LORD_MEDIA_LOOKUP.md): Vanilla AIC-slot remapping, normal media fallback and independently reachable SE registration failures.
@@ -126,6 +124,7 @@ Vanilla audits that also contain mod-specific parts; see the `[mod integration]`
 - [Outpost static audit](./sem/FBCB9319/knowledge/OUTPOSTS.md): profiles, spawn/guard/group flows, selection, rally scope and documented runtime gaps.
 - [Packaged Coop maps and Ready admission](./sem/FBCB9319/knowledge/COOP_PACKAGE_MAP_READINESS.md): direct package headers versus Vanilla multiplayer catalogs, cached verification, silent Ready rejection and lobby system-message rendering; confirmed-static managed path, two-peer acceptance pending.
 - [Pause and zoom automation boundaries](./sem/FBCB9319/knowledge/AUTOMATION_PAUSE_ZOOM.md): native versus managed pause, multiplayer transport asymmetry, public camera methods and static validation limits.
+- [Pitch traps and stairs](./sem/FBCB9319/knowledge/PITCH_STAIRS_HEIGHT.md): direction/search height inconsistency, stale direction bytes after pitch placement, AIV/manual construction over pitch, building-access and demolition checks, pitch-drop writer/compensation inventory and fire path; original-code isolated execution plus PitchStairsTest live counters under `[mod integration]`; no multiplayer acceptance.
 - [Plague cloud height and damage](./sem/FBCB9319/knowledge/PLAGUE_HEIGHT.md): explicit wall/roof immunity, standing-height contracts and standalone PlagueHeightTest native fixture evidence.
 - [Plague popularity: scheduling and identity contract](./sem/FBCB9319/knowledge/PLAGUE_POPULARITY.md)
 - [Player defeat observation audit](./sem/FBCB9319/knowledge/PLAYER_DEFEAT.md)

@@ -73,7 +73,7 @@ namespace Spectator
             {
                 observedState = state;
                 // APIShared's defeat state instead of the Lord record: a not yet spawned Lord is not a
-                // defeat, so availability no longer flips when the Lord appears.
+                // defeat, so availability stays stable when the Lord appears.
                 int player = PlayerPerspectiveAPI.GetControlledPlayerId();
                 bool validLord = !SpectatorDefeat.IsPlayerEliminated(player);
                 statisticsViewer = state != null && (SpectatorDefeatPolicy.IsStatisticsViewer(state.spectatorMode != 0, player, validLord) ||

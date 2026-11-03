@@ -100,8 +100,8 @@
     <Compile Include="..\Shared\Runtime\Gameplay\ActivePlayerHelper.cs">
       <Link>Shared\Runtime\Gameplay\ActivePlayerHelper.cs</Link>
     </Compile>
-    <Compile Include="..\Shared\Runtime\Gameplay\ActivePlayerKeepReadiness.cs">
-      <Link>Shared\Runtime\Gameplay\ActivePlayerKeepReadiness.cs</Link>
+    <Compile Include="..\Shared\Adapters\APIShared\ActivePlayerKeepReadiness.cs">
+      <Link>Shared\Adapters\APIShared\ActivePlayerKeepReadiness.cs</Link>
     </Compile>
     <Compile Include="..\Shared\Runtime\Diagnostics\DebugLogHelper.cs">
       <Link>Shared\Runtime\Diagnostics\DebugLogHelper.cs</Link>

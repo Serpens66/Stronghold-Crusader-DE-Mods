@@ -1,12 +1,10 @@
 # Native targets of PitchStairsTest (variant B)
 
 Reference DLL SHA-256: `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
-Background and audit: `PitchStairs.md` sections 17-20 in the workspace root.
+Purpose, log markers, test procedure and dated runs: [docs/PITCHSTAIRS.md](docs/PITCHSTAIRS.md). Vanilla audit: [PITCH_STAIRS_HEIGHT.md](../../_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/PITCH_STAIRS_HEIGHT.md).
 
-Current scope (02.11.2026): native corrections only, testmod 0.1.1. The broader
-APIShared multiplayer admission draft is deferred and has no active runtime wiring.
-NetworkMode 1 remains; APIShared minimum stays 0.23.0. Installation success still
-requires matching native contracts. No normal multiplayer desync has been demonstrated.
+Scope: native corrections only; NetworkMode 1; versions and minimums per [info.json](info.json).
+Installation success requires matching native contracts. No normal multiplayer desync has been demonstrated.
 
 Owning feature: variant B of the pitch/stairs fix. Pitch keeps the ground height in HeightGrid.
 The audited pitch creation, overbuild, load, render and placement compensation paths are adjusted.
@@ -64,15 +62,15 @@ DEVDIAG builds only: both fire stubs also count their executions (`fireSourceCal
 
 The user decided to keep Vanilla's fire behavior. Vanilla initially stores pitch 4 lower and its spread code reads that raw height. Both stubs therefore subtract 4 for non-restored PitchTrap tiles; the terminal restore window keeps Vanilla's restored height. Overbuild clears the flag: AIV at `0x6CCE3`, manual at `0x6F6B1`.
 
-**Do not test MiscDisplay `0x2000` here.** Measured and audited on 02.11.2026 (PitchStairs.md section 22):
+**Do not test MiscDisplay `0x2000` here.** Measured and audited on 02.11.2026 ([docs/PITCHSTAIRS.md](docs/PITCHSTAIRS.md#dated-evidence-02112026-eleven-site-builds), baseline section "MiscDisplay 0x2000 on pitch"):
 
 - On pitch, `0x2000` means "visible to the local player". The simulation tile pass `0x65830` clears it at `0x682D9` and sets it again at `0x683D8` for burning pitch and for pitch of the local player's team.
 - The bit therefore differs per client. Vanilla uses it only to draw visible pitch as a ditch: the renderer at `0x43347` and the cap at `0x68EB2` skip the +4 compensation for it.
-- The first version of the fire stubs excluded it. That left all own, allied and burning pitch unadjusted, and in multiplayer it would have made fire spread depend on the local player.
+- Excluding it would leave all own, allied and burning pitch unadjusted, and in multiplayer it would make fire spread depend on the local player.
 
 The terminal restore window is tracked by a native byte map. A restored pitch source or neighbor
 keeps its raw height; only a non-restored pitch field uses max(0,h-4). The pitch-to-pitch comparison
-also saturates both local operands, so low defaults no longer change its ignition decision.
+also saturates both local operands, so low defaults do not change its ignition decision.
 
 ## Terminal markers and the three additional sites
 
@@ -104,7 +102,7 @@ baseline xrefs. At update time repeat that scan, foreign-owner checks and actual
 The current source tests additionally execute complete original native load, pitch chain, terminal
 restore, cleanup and replacement paths with the production generators in a private PE image.
 
-DEVDIAG expectation: terminal pitch remains included in fireSourcePitch, but no longer increments
+DEVDIAG expectation: terminal pitch remains included in fireSourcePitch, but does not increment
 fireSourceAdjusted. Equality of those counters is therefore not an invariant after this correction.
 
 ## Not adjusted (accepted or open)
@@ -113,12 +111,12 @@ fireSourceAdjusted. Equality of those counters is therefore not an invariant aft
 - **Fire effect height** (`0x7D44B`, `0x9C430` uses the raw height): needs a visual check.
 - **Ranged targeting, projectile hits and disease:** intentionally use actual B ground height. Private native fixtures compare B pitch with ordinary ground at projectile hit-band, ranged correction +/-70 and strict disease height 120 boundaries. Ranged sight/target predicates and presentation sinks are isolated; live LOS, APIShared disease-rule interaction and gameplay remain acceptance checks.
 - **Visible pitch is drawn at ground level** instead of as a ditch 4 lower; hidden enemy pitch looks as in Vanilla. This matches unit and fire-effect heights, which also use the raw height. The user checked this in game on 02.11.2026 and accepted it.
-- **Editor:** loading a map into the editor goes through `DLL_LoadSaveGame` (`bLoadingEditorMap=1`) and therefore reaches `0x804C0`; this was observed on 02.11.2026. Only a new editor map (`0x85E90` → `0x5BC70`/`0x87D10`) bypasses it, and such a map has no pitch yet. The managed editor normalization that the mod had before was never needed and was removed on 02.11.2026. Other paths outside `0x71670` are still reported by the DEVDIAG scan `PITCH_STAIRS_SCAN`.
+- **Editor:** loading a map into the editor goes through `DLL_LoadSaveGame` (`bLoadingEditorMap=1`) and therefore reaches `0x804C0`; this was observed on 02.11.2026. Only a new editor map (`0x85E90` → `0x5BC70`/`0x87D10`) bypasses it, and such a map has no pitch yet. No managed editor normalization is needed. Other paths outside `0x71670` are still reported by the DEVDIAG scan `PITCH_STAIRS_SCAN`.
 - **Stairs already raised by +4 in old saves** carry no pitch flag any more and are not repaired.
 
 ## Re-audit on a new DLL
 
-- Repeat the full `.text` height-writer and compensation scans from PitchStairs.md section 20: all −4 stores, +4 restores, `PitchTrap && !0x2000` compensations and `0x804C0`-like loops.
+- Repeat the full `.text` height-writer and compensation scans of the baseline (sections "Complete pitch-drop writer and compensation inventory", "Pointer-walking grid loops" and "Further height consumers and the pitch-bit scan"): all −4 stores, +4 restores, `PitchTrap && !0x2000` compensations, `0x804C0`-like loops and functions that access Height and test bit 0x8.
 - Then re-check every site's control flow, register and flag liveness, incoming edges, the 0x6B910 callers and foreign hooks: Extender detours, BFQoL/ExtraFeatures/APIShared sites and the Fixes clone.
 - Then rerun `PitchStairsTest.StubTests.exe`.
 

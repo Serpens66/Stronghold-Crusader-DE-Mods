@@ -1,6 +1,6 @@
 # MoatMove
 
-Stand 30.10.2026. Dieses Dokument beschreibt nur den aktuellen Stand; der frühere Verlauf (Modi `precise`, `fast`, `FastNative`, Messläufe, Pläne) steht in der Git-Historie. Prüfbar über den Code unter `src/`, `native/` und die Tests unter `tests/`.
+Stand 03.11.2026. Dieses Dokument beschreibt nur den aktuellen Stand; der frühere Verlauf (Modi `precise`, `fast`, `FastNative`, Messläufe, Pläne) steht in der Git-Historie. Prüfbar über den Code unter `src/`, `native/` und die Tests unter `tests/`.
 
 ## Zweck
 
@@ -149,7 +149,8 @@ Beide sind an die geprüften Bytes gebunden und schalten sich bei Abweichungen a
 
 - Zurückgestellte Fast-Befehle werden im Spielstand gespeichert (`ModSaveDataAPI`, Schlüssel `MoatMove_Serp`).
 - Masken und Felder entstehen nach dem Laden neu.
-- Vor Feuer wartende und fliehende Einheiten werden nicht gespeichert. Ein während einer Flucht gespeicherter Soldat bleibt nach dem Laden in seinem Hilfs-Tribe.
+- Offene Bewegungsfälle (Feuer- und Pestfluchten, Solo-Fortsetzungen, Wartefälle samt beobachteten Tribe-Befehlen) speichert ein versionierter Datensatz über APIShared `VersionedSaveData` (`MoatMove_Serp.MovementCases`, siehe `src/MovementCaseSave.cs`).
+- Nach dem Laden wird der Datensatz im ersten Simulationstick angewendet. Jeder Fall wird gegen die gespeicherten globalen IDs von Einheit und Tribes geprüft; ein Fall, der nicht weiterlaufen kann, endet sofort und führt den Soldaten in seine ursprüngliche Gruppe zurück.
 
 ## Mehrspieler
 
@@ -173,5 +174,5 @@ Beide sind an die geprüften Bytes gebunden und schalten sich bei Abweichungen a
 
 - Spieltest mit Augen (Gruppenwege, Feuer, Assassinen) und ein echter Mehrspielertest.
 - Ingame-Modsettings mit Host-Synchronisierung statt der Konfigurationsdatei.
-- Die Mindestversionen in `info.json` und in den `BepInDependency`-Attributen (APIShared 0.4.10, BugfixesAndQoL 1.0.181) entsprechen nicht dem benötigten Stand: `RouteTileRules` kam erst mit APIShared 0.19.0, und die interne Provider-Schnittstelle stammt aus dem aktuellen BugfixesAndQoL.
-- Ziel auf einer gesperrten Kachel gilt als unerreichbar (Vanilla übernimmt); vor Feuer wartende und fliehende Einheiten sind nicht im Spielstand; extreme Regeln (kartenweite Sperre) erzeugen noch einzelne Lücken von 120–130 ms.
+- Die BugfixesAndQoL-Mindestversion in `info.json` und im `BepInDependency`-Attribut (1.0.181) entspricht nicht dem benötigten Stand: Die interne Provider-Schnittstelle stammt aus dem aktuellen BugfixesAndQoL.
+- Ziel auf einer gesperrten Kachel gilt als unerreichbar (Vanilla übernimmt); extreme Regeln (kartenweite Sperre) erzeugen noch einzelne Lücken von 120–130 ms.

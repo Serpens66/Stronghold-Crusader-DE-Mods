@@ -266,11 +266,4 @@ Ein größeres Beispiel befindet sich unter `ExtendedData/Examples/01.modtrail.j
 
 ### Persönliche Werte und Missionsvorgaben
 
-Nur missionsabhängige Host-Einstellungen werden vorgegeben oder vorübergehend geändert.
-Player-/Local-Werte bleiben auch in Customize und bei gesperrten Missionsquellen persönlich
-editierbar und gespeichert. Missionsstart, Laden, Quellenwechsel und Ende setzen sie nicht
-zurück. Das bewusste Laden eines normalen Presets in Customize oder Zurücksetzen auf
-Mod-Standards darf persönliche Werte ändern; normale Hostwerte bleiben dabei temporär.
-Mit `[MissionIndependent]` gekennzeichnete Hostwerte bleiben ebenfalls persönlich beim
-Host und erscheinen nicht in ExtendedDatas Einstufung oder Missionsdateien. Die normale
-Host-/Client-Autorität und bestehende Preset-Ladesperren bleiben bestehen.
+Siehe [ModSettings Presets: Persönliche Werte und Missionsvorgaben](ModSettings%20Presets.md#persönliche-werte-und-missionsvorgaben).

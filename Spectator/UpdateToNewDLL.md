@@ -489,7 +489,7 @@ MP_Star represents lords_killed in the result rows. Sources are cached per HUD;
 extension metadata sources additionally invalidate on catalog changes. No native
 RVA or gameplay hook is introduced by these presentation changes.
 
-The existing prepared resource copy now also retains each player's typed official
+The prepared resource copy also retains each player's typed official
 WinLossState.Loss flag. Combined with negative merit this marks eliminated rows,
 without extra exports, retained pointers or managed allocation under threadLock.
 

@@ -11,8 +11,8 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <PlatformTarget>x64</PlatformTarget>
     <Prefer32Bit>false</Prefer32Bit>
-    <OutputPath>tests\bin\</OutputPath>
-    <IntermediateOutputPath>tests\obj\</IntermediateOutputPath>
+    <OutputPath>bin\</OutputPath>
+    <IntermediateOutputPath>obj\</IntermediateOutputPath>
     <!-- The stub tests have no APIShared reference; keep Directory.Build.targets from adding src\*.DevDiag.cs in /devdiag builds. -->
     <SerpDevDiagnostics>false</SerpDevDiagnostics>
   </PropertyGroup>
@@ -34,8 +34,8 @@
     <Reference Include="System.Numerics.Vectors"><HintPath>$(ExtenderDir)\System.Numerics.Vectors.dll</HintPath><Private>true</Private></Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="src\NativeCode.cs" />
-    <Compile Include="tests\StubTests.cs" />
+    <Compile Include="..\src\NativeCode.cs" Link="Production\NativeCode.cs" />
+    <Compile Include="StubTests.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

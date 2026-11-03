@@ -30,8 +30,8 @@ Der einzige direkte Erfolgssprung kommt von `0x58B28`; `0x58BAC` überspringt de
 Block bis zur exakten Endgrenze. Vollfunktionsdecode und gesamte Datenbank-Xrefs
 weisen keine Eingänge ins Spaninnere aus. Fixes' Farmlandspan `0x58B12..0x58B2E`
 (angefordert 0x1A, wegen vollständiger JZ-Instruktion tatsächlich 0x1C), Bugfix' Nearby-Einstieg
-`0x58950` sowie die allgemeinen Suchbeobachter liegen außerhalb. Der vorherige
-Canari-Experimentalpunkt im früheren Erfolgsbranch wird nicht erneut verwendet.
+`0x58950` sowie die allgemeinen Suchbeobachter liegen außerhalb. Der
+CanarariWoodTest-Punkt im Erfolgsbranch liegt außerhalb dieses Spans.
 Die Live-Prüfung verlangt die eigenen 14 Byte unverändert; fremde benachbarte
 Hooks werden weder überschrieben noch zurückgenommen.
 

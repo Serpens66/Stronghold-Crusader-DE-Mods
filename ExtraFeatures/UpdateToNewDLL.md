@@ -168,7 +168,7 @@ Disease phase step (period `4` from table `0x2DAF70` entry 22, applied in
 `0x9F960` before the handler) moves it to `1017`. The fade branch no longer
 reads the age. The age therefore reaches lifetime + 3 while still compared, and
 must not wrap past `32767`: `PlagueDurationPatch.MaximumLifetime` is `32764`
-and `MaximumMultiplier` is `40` (lifetime `32000`). Larger values used to fade
+and `MaximumMultiplier` is `40` (lifetime `32000`). Larger values would fade
 clouds at once (`AX` negative) or truncate the lifetime modulo `65536`. On an
 update, revalidate the 16-bit age increment and compare, the phase reset of
 `1016`, and the type-22 phase period; `ExtraFeaturesNativeTests` checks the
@@ -497,53 +497,18 @@ Defaults are true/true/true/false; global host activation and mission mode gate
 control this owner's activation. No own native plague-height hooks remain here.
 Vanilla apothecary resistance and Tweaker damage remain unchanged.
 
-## Civilian/military enemy proximity (2026-10-29)
+## Enemy proximity settings
 
-Owner: ExtraFeatures; detailed Vanilla audit and field/caller evidence:
+ExtraFeatures delegates category evaluation to `APIShared.Buildings.EnemyProximityPolicies`
+(Override registration `ExtraFeatures_Serp / enemy-proximity`); APIShared/UpdateToNewDLL.md
+owns the native predicate contract. Vanilla audit and field/caller evidence:
 `_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/ENEMY_BUILD_PROXIMITY.md`.
-Native reference SHA-256 FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
-Reference helper RVA 0xEE640, 502 bytes through RET at 0xEE835; complete body hash
-1D2DDB19C37B3EC505D426272421E57FE4336CAA2BF9FA80BE6F1143282C565D.
+ExtraFeatures keeps its human/AI scope, the resolution of its -1 (Vanilla) setting, which
+contributes no category radius, and the authoritative AI rebuild-delay veto. It installs no
+native code and has no direct SE proximity-event subscription.
 
-No new live hook or patch span. Existing SE Pre event supplies the private native
-query result; an existing SkipOriginalFunction veto wins. The original Post event
-is absent when skipped, per the SE contract. The helper is emitted only once from
-CrusaderLibraryLoadContext.Memory, with a module-wide known-hash gate and full body
-validation. The original distance CMP at RVA 0xEE748 selects a per-category squared
-radius; all remaining original branches/instructions are replayed. Four RIP-relative
-anchors are relocated to absolute loads, and internal targets are BlockEncoder-mapped.
-No other native function is modified or copied by this feature.
-
-Fixed derived data RVAs: candidate count 0x379CE58 (player stride 0x583C), candidate
-IDs 0x38C19E8 (stride 20000), global IDs 0x38ED908 (stride 40000), unit sentinel
-base 0x67E8A5C (record stride 0x490), type at +0x8A. Map-valid raster 0x3A11EA4
-uses width 800. Remaining original displacements/anchors and stealth context global
-0x8574B90 stay in the original validated machine body. No pattern fallback is supplied:
-matching a code pattern alone cannot validate the list, unit and map memory layouts.
-An unknown hash or body disables only category radii with an error; Vanilla and
-independent rebuild timing remain available. Successful preparation logs reference-rva.
-
-Update checks: full caller/producer audit, true installed enum identities, exact body
-and every relocated anchor, seventh Win64 argument at stack+0x58 after four pushes,
-RCX/RDX liveness, strict squared Euclidean boundary, all exclusion/stealth branches,
-ABI sentinels and original-machine equivalence via ExtraFeaturesNativeTests. Confirm
-NativeMemoryManager.WriteStub's publication/cache-flush contract if RedBird changes.
-All helper/table bytes are written before publication and retained until process exit.
-
-Existing common-radius properties are import aliases only; eight category settings
-are the active host-controlled values. The migration reader's personal-path candidates
-and schema-1/2/3 envelope keys must be checked against APIShared on storage changes.
-All writes use its existing working-copy endpoint; new explicit values beat aliases.
-Old general immediate writes have been removed. Human special radii and unclassified
-AI first placements stay Vanilla. Gameplay/editor/save/real-MP acceptance remains
-pending because this task explicitly forbids installing the changed mod.
-
-## Shared enemy-proximity ownership (2026-11-02)
-
-The current consumer delegates category evaluation to APIShared.Buildings.
-EnemyProximityPolicies; its stable Override registration is
-`ExtraFeatures_Serp / enemy-proximity`. The previous private native-copy contract
-above is historical evidence; APIShared/UpdateToNewDLL.md now owns updates of
-that predicate. ExtraFeatures retains its original human/AI scope, setting
-sentinel resolution and authoritative AI rebuild-delay veto. No direct SE
-proximity-event subscription or duplicate machine-function copy remains here.
+The common-radius properties are import aliases only; the eight category settings are the
+active host-controlled values. On storage changes, check the migration reader's
+personal-path candidates and schema-1/2/3 envelope keys against APIShared. All writes use
+its working-copy endpoint; explicit values beat aliases. Human special radii and
+unclassified AI first placements stay Vanilla.

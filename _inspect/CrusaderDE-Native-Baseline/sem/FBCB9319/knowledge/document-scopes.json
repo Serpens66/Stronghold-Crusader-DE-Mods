@@ -23,14 +23,15 @@
     {
       "file": "PLAYER_CONTROL_CONTEXT.md",
       "scope": "vanilla+integration",
-      "components": ["APIShared"],
-      "integrationSections": ["APIShared adapter", "Audit limits"]
+      "components": ["APIShared", "Spectator", "BugfixesAndQoL"],
+      "integrationSections": ["APIShared adapter", "Unfinished control backend", "Player-view identity and spectator input control", "Audit limits"]
     },
     {
       "file": "PITCH_STAIRS_HEIGHT.md",
-      "scope": "vanilla",
-      "components": [],
-      "integrationSections": []
+      "scope": "vanilla+integration",
+      "components": ["PitchStairsTest"],
+      "integrationSections": ["PitchStairsTest measurements"],
+      "note": "Live counters of the PitchStairsTest testmod; all other sections are Vanilla."
     },
     {
       "file": "SAVE_WRITER_ROUTES.md",
@@ -963,16 +964,10 @@
     },
     {
       "file": "SIM_TICK_SPIKE_PATHING.md",
-      "scope": "vanilla+integration",
-      "components": [
-        "PerfProbe",
-        "MoatMove",
-        "BugfixesAndQoL"
-      ],
-      "integrationSections": [
-        "Periodic AI order spikes with 10,000 units, 2026-11-02"
-      ],
-      "note": "Measured with the PerfProbe testmod."
+      "scope": "vanilla",
+      "components": [],
+      "integrationSections": [],
+      "note": "Measured with the PerfProbe testmod; some runs also loaded MoatMove and BugfixesAndQoL. Mod contracts and mod measurements are only linked (BugfixesAndQoL/UpdateToNewDLL.md, VanillaOptimization.md)."
     },
     {
       "file": "SITUATIONAL_UNIT_AUDIO.md",

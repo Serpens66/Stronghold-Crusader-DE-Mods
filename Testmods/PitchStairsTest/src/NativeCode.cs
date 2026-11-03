@@ -7,7 +7,7 @@ using static Iced.Intel.AssemblerRegisters;
 
 namespace PitchStairsTest
 {
-    // Variant B of PitchStairs.md: pitch keeps the ground height in HeightGrid. Every RVA, byte
+    // Variant B (docs/PITCHSTAIRS.md): pitch keeps the ground height in HeightGrid. Every RVA, byte
     // sequence and tile-manager offset below is bound to this native hash; see UpdateToNewDLL.md.
     //
     // Why: Vanilla stores pitch 4 lower (0x594CB). That drop alone makes the full transition rebuild

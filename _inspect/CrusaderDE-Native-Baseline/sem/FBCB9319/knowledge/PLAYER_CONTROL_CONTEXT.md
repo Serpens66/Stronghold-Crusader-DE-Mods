@@ -125,32 +125,26 @@ these routes, not live save acceptance or proof of reservation normalization.
 
 ## APIShared adapter [mod integration]
 
-The additive authenticated Chore channel reads only a phase-0 opcode-106 slot,
-requires matching source/execution IDs in 1..8, and rechecks phase, slot, opcode,
-source, tick and command identity. A process-rooted managed scope around SE's
-native-only blob dispatcher binds the exact packet ID/body to that pending slot
-before deserialization. It validates the four-byte native length prefix, payload
-size and completed transfer cursor. Nested calls restore the previous scope;
-an invalid or unrelated nested call cannot inherit its issuer. Typed delivery
-rechecks the captured native tuple after consumer validation. Steam/worker events
-without this exact thread scope are rejected before native reads. Activation and
-payload/authority predicates run only after this verification, so a rejected
-Steam/worker event cannot invoke consumer game-state reads. This prevents
-a reentrant observer from attributing an older packet to a newer native context.
-The implementation does not replace the Script Extender's
-opcode-106 handler or change old channels. Hash-bound layout checks do not prove
-grant validity, compatible peers or stable object ownership.
+The authenticated Chore channel reads only a phase-0 opcode-106 slot, requires matching
+source/execution IDs in 1..8, and rechecks phase, slot, opcode, source, tick and command
+identity. A process-rooted managed scope around SE's native-only blob dispatcher binds the
+exact packet ID/body to that pending slot before deserialization. It validates the four-byte
+native length prefix, payload size and completed transfer cursor. Nested calls restore the
+previous scope; an invalid or unrelated nested call cannot inherit its issuer. Typed delivery
+rechecks the captured native tuple after consumer validation. Steam/worker events without this
+exact thread scope are rejected before native reads, and activation and payload/authority
+predicates run only after this verification. The Script Extender's opcode-106 handler stays in
+place. Hash-bound layout checks do not prove grant validity, compatible peers or stable object
+ownership.
 
-SE's public `SendPacketToAllEx2` can serialize again and fall back to Steam.
-The stronger channel therefore binds the installed internal raw submission
-method, validates its loaded call contract and uses that method directly with one
-captured serialization. The engine monitor, pending-byte staging lifetime and
-native queue binding are checked. A native view differing from the real local
-human identity rejects this submission; no source field is rewritten to compensate.
-The loaded IL must use the actual engine monitor for both Enter and Exit, enclosing
-the queue call in the same try/finally. Its mutable monitor/queue bindings are
-rechecked before submission; a later replacement rejects the send.
-This reader/adapter work is not a completed foreign-control backend.
+SE's public `SendPacketToAllEx2` can serialize again and fall back to Steam. The authenticated
+channel therefore binds the installed internal raw submission method, validates its loaded call
+contract and uses that method directly with one captured serialization. The engine monitor,
+pending-byte staging lifetime and native queue binding are checked. A native view differing
+from the real local human identity rejects this submission; no source field is rewritten to
+compensate. The loaded IL must use the actual engine monitor for both Enter and Exit, enclosing
+the queue call in the same try/finally. Its mutable monitor/queue bindings are rechecked before
+submission; a later replacement rejects the send.
 
 ## Saved local identity
 
@@ -172,98 +166,16 @@ counts matching live building types; `0x186040` counts matching live unit record
 into global RVA `0x3668E3C`. Neither rewrites unit/building owners. Changing the
 view cell is not a change of `EditorDirector.ActivePlayerID` or a role grant.
 
-## Local isolation and identity-guard fixtures [mod integration]
+## Unfinished control backend [mod integration]
 
-Single-owner singleplayer admission has its own registrations, grants, bounded
-pending-command tickets and execution gate. It does not construct or consult
-the multiplayer agreement, fragments, commit barrier or mixed-owner provider.
-The backend router has separate failure domains and no cross-mode fallback.
-The local native-queue sidecar is separately fixture-tested. It binds world,
-manager, slot, command identity, source owner, opcode and copied native body;
-the scheduled tick is deliberately not an identity component because Vanilla
-may reschedule it. Consumed, rejected and revoked entries retain tombstones
-until actual slot reuse or world retirement. Exceptions cannot make a queued
-foreign command fall through to the ordinary untracked path on a retry. Native
-producer/handler wiring and real reservation release remain pending.
-Loss of the confirmed singleplayer world retires the local grants and pending
-tickets for that session permanently. A later successful mode read cannot revive
-them; another confirmed lifecycle start is required. A throwing mode adapter also
-retires them before propagating its error to the backend's isolation boundary.
-A stale mode callback that reentrantly replaces the session cannot retire that
-replacement. The queue checks local session health before returning NotTracked,
-including after a reservation cleanup callback; a missing sidecar is not a reason
-to follow Vanilla after the local world was lost or queue cleanup failed.
-
-The no-argument normal-handler ABI also permits a dormant native guard which tails
-the complete original handler without a managed call or game lookup. Its isolated
-machine fixture checks both tail destinations, one invocation, opcode delivery,
-return value, stack, an ABI-preserved register and zero dormant allocations. The
-primitive publishes no native handler-table entry and grants no control itself.
-
-The optional active-human save guard is also independent of original-spectator
-control. Fixtures verify nested writers, failure restoration, release during
-an append callback, world replacement, retained identity after failed view
-restoration and allocation-free dormant calls on the .NET Framework test host.
-The writer adapter and actual NativeX64 Indirect/10 backend are tested against a
-private ABI fixture. They are not yet wired into a published control capability
-or a running game. Installation is startup-only; no late hook is permitted.
-The guard also rejects world replacement during initial view reads/writes, avoids
-rollback into the new world even after a throwing setter, and retains the actual
-completed writer result if a later world check throws. The private native-world
-identity in the central lifecycle remains stable through metadata checkpoints but
-is retired before load/unload observers, independently of their reentrant order.
-
-The input bridge additionally has a real NativeX64 Indirect/10 relocation fixture:
-108 combinations execute the conditional move/RIP store through the production
-intermediary and its original trampoline. Wrong actor/view/continuation validation
-is rejected; no managed input callback runs. This is private executable memory,
-not an installed control hook or an in-game permission/selection acceptance test.
-
-A diagnostic fixture initially used the backend's thread-suspending defaults,
-instead of the production startup adaptation. Combined fixtures then terminated
-in CLR memory access after both native bodies and cleanup had returned. With
-the actual non-suspending startup options, the native pair and combined control
-suite pass, including forced collection while the writer hook remains rooted.
-This comparison does not establish a general CLR/RedBird root cause or a live-game
-acceptance result. No published game hook was modified by these fixtures.
-
-## Audit limits [mod integration]
-
-The full mixed-owner input/command backend, individual native command validation,
-view-lease integration and live save identity protection, Spectator consumption, and genuine peer
-acceptance are not established by these findings. They need separate completed
-audits and tests before foreign control may be exposed. No live-game or real
-host/client acceptance is claimed here.
-
-## Local control coordinator (2026-11-02) [mod integration]
-
-`LocalControlRuntime` now owns the ordering that the fixtures above previously sequenced
-by hand. Under the engine monitor it binds session and queue to one native world before
-publishing handler demand, and retires in the order demand 0, input actor 0, queue end,
-session end, then the ended world's save identity. The latter matters because
-`RetireEndedWorld` requires the engine context; a lifecycle observer outside it would
-otherwise leave a stale binding that refuses every save in the next world. A queue capture
-with a native body above the 1260-byte command limit now also leaves a rejection tombstone
-(a slot can carry up to 0x500-17 bytes), and the input stub reads its actor cell once.
-The runtime is still unwired; no live-game acceptance is claimed.
-
-## Shared view ownership follow-up (2026-11-02) [mod integration]
-
-The coordinator-order observation above predates the shared-identity follow-up.
-The current implementation uses one `PlayerViewIdentityRuntime`/`ControlSaveIdentity`
-for participant perspectives, Save, raw Chore send and the unwired local-control
-runtime. Immutable owner/world/controller/token leases prevent role adoption and
-stale cleanup. Only the neutral lifecycle root retires invalidated native worlds.
-Local retirement confirms suspended input before releasing its own lease and only
-then returns input to Vanilla; failures retain the required input/identity protection.
-
-Native control wiring still requires a separate queue retirement proof.
-`SinglePlayerNativeQueue.End` removes managed sidecars, not the native slots.
-The zero-demand branch emitted by `ControlHandlerBridge` jumps to the original
-handler, bypassing the sidecar rejection path. Therefore managed queue cleanup or
-view restoration is not evidence that previously enqueued foreign commands have
-drained. Prove native reset/drain before disabling this guard in a future backend.
-No control input/handler bridge was installed by this ownership change.
+Rights-gated control of individual native commands, several owners at once and multiplayer
+control are not part of APIShared's main line; their unfinished backend and its private fixtures
+(single-owner admission, native-queue sidecar, handler bridge, local control coordinator) are kept
+on the APIShared branch `wip/player-control`. Before such a backend may retire control, it needs
+a native queue reset/drain proof: removing managed sidecars does not remove queued native
+slots, and a zero-demand handler bridge jumps to the original handler. A diagnostic fixture
+showed that backend thread-suspending defaults differ from the production startup adaptation;
+only the non-suspending startup options were validated.
 
 ## Second spectator-input boundary and Vanilla deselection (2026-11-02) [Vanilla facts]
 
@@ -294,18 +206,32 @@ change these unrelated semantics. Managed placement/demolition
 (`EditorDirector` -> `PlaceMapperItem`/`DeleteBuilding`) passes
 `EditorDirector.ActivePlayerID`, which `DLL_MapAction` writes temporarily as the view.
 
-## Spectator input control (2026-11-02) [mod integration]
+## Player-view identity and spectator input control [mod integration]
 
-APIShared installs both boundaries (`[0x868F6,0x86900)` Indirect/10 and
-`[0x8D128,0x8D12E)` Indirect/6, the latter followed by the unchanged store) for this
-hash only, on the first consumer registration (none without a consumer). A clear spectator
-comparison (ZF set) always follows the original block. `LocalInputControl` owns the actor cell;
-`PlayerPerspectiveAPI.TrySetSpectatorControl` deselects as the old view, confirms
-the new view and only then publishes the actor, all under the engine monitor that
-serializes `DLL_RunTick`. World invalidation resets the actor without commands.
-This is full Vanilla input of one player for original offline spectators, not the
-rights-gated backend, which together with mixed-owner and multiplayer control stays
-WIP. Executable fixtures cover both stub forms; no live-game acceptance is claimed.
+`PlayerViewIdentityRuntime` owns one process-wide `PlayerViewIdentity` core for positive-player
+views; the common Save writer guard (`PlayerViewSaveScope`, Indirect/10 at `0x52B0`, installed
+during startup), the raw Chore submission and the local-ID correction share it. Immutable
+owner/world/participant/token leases prevent role adoption and stale cleanup; only the
+lifecycle's world invalidation retires ended worlds. Eliminated-participant views require this
+protection for foreign views. Fixtures verify nested writers, failure restoration, world
+replacement during view reads/writes and allocation-free dormant calls.
+
+Spectator input control installs both input boundaries (`[0x868F6,0x86900)` Indirect/10 and
+`[0x8D128,0x8D12E)` Indirect/6, the latter followed by the unchanged store) for this hash only,
+on the first consumer registration (none without a consumer). A clear spectator comparison (ZF
+set) always follows the original block. `LocalInputControl` owns the actor cell;
+`PlayerPerspectiveAPI.TrySetSpectatorControl` deselects as the old view, confirms the new view
+and only then publishes the actor, all under the engine monitor that serializes `DLL_RunTick`.
+World invalidation resets the actor without commands. This is full Vanilla input of one player
+for original offline spectators. Spectator (the consumer) uses it for original spectators;
+BugfixesAndQoL shows the Vanilla troop HUD for the controlled player's units. Executable
+fixtures cover both stub forms and the 108 relocation combinations of the RunTick bridge.
+
+## Audit limits [mod integration]
+
+No live-game or real host/client acceptance is claimed. Individual native command validation,
+mixed-owner control and multiplayer control are not established (see the unfinished backend
+above). Whether Vanilla's opcode-15 deselection releases every group reservation is unproven.
 
 ## Human registration and controlled AI players (2026-11-02) [Vanilla facts]
 

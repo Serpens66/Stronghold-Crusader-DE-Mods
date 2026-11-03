@@ -14,9 +14,9 @@ Abschnitt `Safety`, Änderungen ausschließlich zwischen Partien:
 - `ProtectNewHutsFromFortifications = true`
 - `IgnoreDeadWorkersForCounter = true`
 
-Der Testmod benötigt den **gemeinsam gebauten AIBuildDiagnoseTest**. Dessen Version
-bleibt 0.2.1; ein älteres Paket derselben Versionsnummer enthält den neuen internen
-Vertrag noch nicht. Das Buildpaket enthält deshalb beide Mods. APIShared, Extender,
+Der Testmod benötigt den **gemeinsam gebauten AIBuildDiagnoseTest**: Nur ein Paket aus
+demselben Build enthält den passenden internen Vertrag, die Mindestversion allein erzwingt
+ihn nicht. Das Buildpaket enthält deshalb beide Mods. APIShared, Extender,
 BugfixesAndQoL und optional Fixes werden aus der vorhandenen Installation referenziert,
 weder gebaut noch aktualisiert. CanarariWoodTest ist nicht erforderlich.
 

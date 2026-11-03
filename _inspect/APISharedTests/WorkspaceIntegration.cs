@@ -118,12 +118,13 @@ namespace APISharedTests
             Assert(Count(unitHud, "setupTroopsOriginal(panel)") == 1 &&
                 Count(unitHud, "populateGroupsOriginal(panel)") == 1 &&
                 Count(unitHud, "gameActionOriginal(command, value1, value2, value3)") == 1 &&
-                // The sprite-colour lease passes the effective (possibly leased) colour everywhere and adds
-                // exactly one lease replay; the hook and both refresh paths stay single and explicit.
+                // The hook draws Vanilla's request with the effective (possibly leased) colour; every redraw
+                // (explicit refresh, activation restoration, lease replay) goes through the single DrawSprites.
                 Count(unitHud, "updateSpritesOriginal(self, drawColour, drawArabic)") == 1 &&
-                Count(unitHud, "updateSpritesOriginal(main, drawColour, drawArabic)") == 2 &&
                 Count(unitHud, "updateSpritesOriginal(main, colour, arabic)") == 1 &&
-                Count(unitHud, "updateSpritesOriginal(") == 4,
+                Count(unitHud, "updateSpritesOriginal(") == 2 &&
+                Count(unitHud, "DrawSprites(main, clearRecorded: false, applyOverrides: true)") == 1 &&
+                Count(unitHud, "DrawSprites(main, clearRecorded: true, applyOverrides: activeImages") == 2,
                 "central HUD sprite handling retains the hook, explicit refresh, activation-restoration and lease replay paths");
             string beforeRenderMethod = ExtractSourceMethod(unitHud, "private void OnBeforeRender()");
             int idleGuard = beforeRenderMethod.IndexOf("if (activeSurfaces == UnitHudSurface.None && !hasActionButtons && !pendingPresentation && !refreshRequested && recruitmentLease == null) return;", StringComparison.Ordinal);
@@ -147,12 +148,11 @@ namespace APISharedTests
                 : string.Empty;
             Assert(selectionRefreshBlock.Contains("SetupSelectedTroops()") &&
                 !selectionRefreshBlock.Contains("HUDControlGroups") &&
-                !selectionRefreshBlock.Contains("updateSpritesOriginal") &&
+                !selectionRefreshBlock.Contains("updateSpritesOriginal") && !selectionRefreshBlock.Contains("DrawSprites") &&
                 !selectionRefreshBlock.Contains("ApplyImageOverrides"),
                 "selection-only refreshes must update the troop HUD without touching control groups or global images");
             Assert(explicitRefreshBlock.Contains("HUDControlGroups?.Update()") &&
-                explicitRefreshBlock.Contains("updateSpritesOriginal(main, lastSpriteColour, lastSpriteArabic)") &&
-                explicitRefreshBlock.Contains("ApplyImageOverrides(main, lastSpriteColour, lastSpriteArabic)"),
+                explicitRefreshBlock.Contains("DrawSprites(main, clearRecorded: false, applyOverrides: true)"),
                 "explicit refreshes must retain control-group and legitimate global image updates");
             string ensureButtonsMethod = ExtractSourceMethod(unitHud, "private void EnsureCategoryButtons(");
             string hideButtonsMethod = ExtractSourceMethod(unitHud, "private void HideCategoryButtons()");

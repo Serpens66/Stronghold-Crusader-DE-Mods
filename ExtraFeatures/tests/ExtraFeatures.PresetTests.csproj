@@ -123,6 +123,7 @@
     <Compile Include="../src/NoKillRewardPolicy.cs" />
     <Compile Include="KillRewardTests.cs" />
     <Compile Include="../src/PeriodicGoldRuntime.cs" />
+    <Compile Include="../../APIShared/src/Core/Events/OwnedCallbacks.cs" />
     <Compile Include="../../APIShared/src/Simulation/SimulationTickRegistry.cs" />
     <Compile Include="PeriodicGoldTests.cs" />
     <Compile Include="../src/IndependentFeatureRegistration.cs" />

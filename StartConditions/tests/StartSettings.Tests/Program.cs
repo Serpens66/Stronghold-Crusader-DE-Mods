@@ -90,9 +90,10 @@ Run("Settings", new[] { vm, Read("StartConditions/src/IStartConditionsSettings.c
 // Production readiness handle, broker, native-read decisions, clock math and event registry.
 // Doubles replace engine pointers, roster/memory readiness and the upstream SE publisher only.
 if (!baseline) Run("SimulationReadiness", new[] {
-    Read("Shared/Runtime/Gameplay/ActivePlayerKeepReadiness.cs"),
+    Read("Shared/Adapters/APIShared/ActivePlayerKeepReadiness.cs"),
     Read("APIShared/src/Simulation/SimulationClock.cs"),
     Read("APIShared/src/Simulation/SimulationTickRegistry.cs"),
+    Read("APIShared/src/Core/Events/OwnedCallbacks.cs"),
     """
 using System; using System.Collections.Generic; using System.Runtime.InteropServices;
 namespace SHCDESE.Interop { public enum eStructs { STRUCT_KEEP_ONE,STRUCT_KEEP_TWO,STRUCT_KEEP_THREE,STRUCT_KEEP_FOUR,STRUCT_KEEP_FIVE }

@@ -62,7 +62,7 @@ if not exist "%API_SHARED_DIR%\APIShared.dll" goto failed
 
 pushd "%PROJECT_DIR%"
 echo [%date% %time%] Stub machine tests
-"%MSBUILD%" PitchStairsTest.StubTests.csproj /nologo /v:minimal /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
+"%MSBUILD%" tests\PitchStairsTest.StubTests.csproj /nologo /v:minimal /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
 if not "%ERRORLEVEL%"=="0" goto failed_popd
 "%PROJECT_DIR%tests\bin\PitchStairsTest.StubTests.exe" "%GAME_DIR%\Stronghold Crusader Definitive Edition_Data\Plugins\x86_64\CrusaderDE.dll"
 if not "%ERRORLEVEL%"=="0" goto failed_popd

@@ -1479,7 +1479,7 @@ no additional editor, save/load or real host/client acceptance is inferred. Hist
 
 ## Native weighted Assassin search (2026-10-30, `native/AssassinSearch.cpp`, `src/AssassinNativeSearch.cs`)
 
-`BfqolAssassinSearch.dll` (contract `0x01000002` since 2026-11-03, before `0x01000001`) runs the bucket variant of `TryBuildWeightedRoute` with identical
+`BfqolAssassinSearch.dll` (contract `0x01000002`) runs the bucket variant of `TryBuildWeightedRoute` with identical
 results. It adds no RVA of its own: it reads exactly the tables the managed search binds in `InitializeNative`
 (valid coordinates, row lookup, tile flags, building, height, occupancy and direction masks) and calls the special
 tile predicate `0x107160` with context `0x32DE440` through the same addresses. Gate policy masks come from the
@@ -1487,7 +1487,7 @@ published `RouteTilePolicySnapshot` bytes; masked edges, other policy shapes and
 into the managed predicates. On a new DLL nothing changes here beyond the managed search's own RVA checks; the
 offline comparison (`tests/AssassinPathfinding.Tests`, `VerifyNative`) must stay identical on every fixture terrain.
 Without the DLL, or on a contract mismatch, a warning is logged and the managed search runs.
-Since 2026-11-01 `VerifyNative` also compares the production policy shape (byte mask read by the kernel, tiles beyond
+`VerifyNative` also compares the production policy shape (byte mask read by the kernel, tiles beyond
 the mask allowed, masked climb callbacks answering true at a live gate) and a throwing managed callback: callbacks never
 let an exception unwind through the kernel; a failed callback discards the native call, the managed search repeats it
 and fails at the same predicate, and the following searches still agree. `GateRouting.Tests` checks that
@@ -1697,7 +1697,7 @@ Names follow the source constants; they are not an independent proof of native p
 | failureRva | `0x19664B` | BugfixesAndQoL/src/UnitCommands/Movement/NativeMovementRecovery.cs:90 |
 | Module-relative expression | `0x196585` | BugfixesAndQoL/src/UnitCommands/Movement/NativeMovementRecovery.cs:163, BugfixesAndQoL/src/UnitCommands/Movement/NativeMovementRecovery.cs:93 |
 
-### Preview map-edge handling, 2026-10-31 [mod integration]
+### Preview map-edge handling, 2026-10-31
 
 Reference native SHA-256 remains FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2; no new RVA or hook. FootprintMarker.TryApply returns false with a default result when any XY cell is outside the 800-axis buffer or native validity mask. Full-footprint validation still precedes every construction-grid write; packed-row overflow, invalid packed indices and unsupported scales remain contract errors. The callback clears its captured ground snapshot on a skipped footprint without disabling readiness or activation. The next complete footprint is sampled normally, and Vanilla Original still runs exactly once.
 

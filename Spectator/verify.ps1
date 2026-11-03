@@ -8,7 +8,7 @@ function Check([string]$file, [string[]]$arguments = @()) {
 $workspace = Split-Path -Parent $PSScriptRoot
 Check (Join-Path $workspace 'Shared/Tools/Validation/Test-SharedBoundaries.ps1') @('-ModDirectory','Spectator','-ConsumerOnly')
 Check (Join-Path $workspace 'Shared/Tools/Validation/Test-IngameTooltips.ps1') @('-Workspace',$workspace,'-ModDirectories',$PSScriptRoot)
-& dotnet run --project (Join-Path $PSScriptRoot 'tests/Overview/Tests.csproj') -c Release
+& dotnet run --project (Join-Path $PSScriptRoot 'tests/Overview/OverviewTests.csproj') -c Release
 if ($LASTEXITCODE -ne 0) { throw 'Overview controller checks failed.' }
 foreach ($name in @('Presets','Allies','ActionPolicy','SpectatorSelection','SpectatorControllers','SavePolicy','CreditFocus','OptionalGates','OptionalPowers','CompactLayout','DockLayout','Theme','NativeActions','NativeOrderContract','NativePowerContext','InstalledContracts')) {
     Write-Host "[Spectator] $name"
