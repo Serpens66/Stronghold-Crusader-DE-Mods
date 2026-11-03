@@ -101,7 +101,7 @@ namespace Spectator
             try
             {
                 // Page changes also change ownership of the spectator tool surface.
-                if (ReferenceEquals(__instance, humanBoundHud)) toolbarLayoutDirty = true;
+                if (ReferenceEquals(__instance, humanBoundHud)) RequestToolbarLayout();
                 if (buildPageMutation == 0)
                     dockBuildMenu.ObserveNativePage(__instance, MainViewModel.Instance.buildScreenID, humanPlacementMode);
                 if (!IsPlacementSession() || IsEditorToolsSession()) return;
@@ -224,7 +224,7 @@ namespace Spectator
             }
 
             bool changed = !ReferenceEquals(hud, activeHud) || owner != lastOwner || screen != lastScreen;
-            if (changed) toolbarLayoutDirty = true;
+            if (changed) RequestToolbarLayout();
             activeHud = hud;
             lastOwner = owner;
             lastScreen = screen;

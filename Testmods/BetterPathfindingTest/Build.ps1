@@ -1,12 +1,17 @@
 $ErrorActionPreference = 'Stop'
-$devdiag = $false; $install = $true
+$devdiag = $false; $install = $true; $apiSharedDirectory = ''
 foreach ($argument in $args) {
+    if ($argument.StartsWith('/apishareddir:', [StringComparison]::OrdinalIgnoreCase)) {
+        $apiSharedDirectory = $argument.Substring('/apishareddir:'.Length)
+        if ([string]::IsNullOrWhiteSpace($apiSharedDirectory)) { throw '/apishareddir requires a consumer SDK directory.' }
+        continue
+    }
     switch ($argument.ToLowerInvariant()) {
         '/devdiag' { $devdiag = $true }
         '/noinstall' { $install = $false }
         '/nopause' { }
         '/source:working' { }
-        default { throw "Unsupported argument: $argument. This prototype builds its current working sources and installed SDK only." }
+        default { throw "Unsupported argument: $argument. This prototype builds current working sources and the installed or explicitly selected consumer SDK." }
     }
 }
 $env:SHCDE_DEVDIAG = if ($devdiag) { '1' } else { '' }
@@ -14,17 +19,25 @@ $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..'))
 $game = 'E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition'
 $msbuild = 'C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\MSBuild.exe'
 . (Join-Path $workspace 'APIShared\tools\BuildProof.ps1')
+if (-not $apiSharedDirectory) { $apiSharedDirectory = Join-Path $game 'BepInEx\plugins\APIShared_Serp' }
+$apiSharedDirectory = (Resolve-Path -LiteralPath $apiSharedDirectory).Path
+$consumerCheck = Join-Path $workspace 'Shared\Tools\ApiSharedRepository\Test-ConsumerPackage.ps1'
+& powershell.exe -NoProfile -ExecutionPolicy Bypass -File $consumerCheck -Workspace $workspace -PackageDirectory $apiSharedDirectory
+if ($LASTEXITCODE) { throw 'Selected APIShared consumer package is not coherent or current.' }
 $branch = & git -C $workspace branch --show-current
 if ($devdiag -and $branch -eq 'main') { throw 'DEVDIAG builds on main are prohibited.' }
 $evidence = Join-Path $PSScriptRoot '.local'
 [IO.Directory]::CreateDirectory($evidence) | Out-Null
 $inputs = @{}
-# Read and attest every installed dependency; no SDK build/copy targets are invoked.
+$sdkInputs = @{}
+# Read and attest installed dependencies and the selected SDK; no SDK build/copy targets are invoked.
 foreach ($folder in @('000shcdese','APIShared_Serp')) {
     foreach ($file in Get-ChildItem -LiteralPath (Join-Path $game "BepInEx\plugins\$folder") -File -Recurse) { $inputs[$file.FullName] = Get-ApiFileHash $file.FullName }
 }
+foreach ($file in Get-ChildItem -LiteralPath $apiSharedDirectory -File -Recurse) { $sdkInputs[$file.FullName] = Get-ApiFileHash $file.FullName }
 function Assert-InstalledDependencies {
     foreach ($path in $inputs.Keys) { if ((Get-ApiFileHash $path) -cne $inputs[$path]) { throw "Installed dependency changed: $path" } }
+    foreach ($path in $sdkInputs.Keys) { if ((Get-ApiFileHash $path) -cne $sdkInputs[$path]) { throw "Selected SDK dependency changed: $path" } }
 }
 function Get-PrototypeSourceHashes {
     $hashes = @{}
@@ -52,7 +65,7 @@ if ($LASTEXITCODE) { throw 'Passive source guards failed.' }
 if ($LASTEXITCODE) { throw 'Offline behavior tests failed.' }
 & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'tests\Test-ServiceApi.ps1')
 if ($LASTEXITCODE) { throw 'Independent API consumer failed.' }
-& $msbuild $project /nologo /t:Rebuild /p:Configuration=Release /p:SerpDevDiagnostics=$($devdiag.ToString().ToLowerInvariant()) /verbosity:minimal
+& $msbuild $project /nologo /t:Rebuild /p:Configuration=Release /p:SerpDevDiagnostics=$($devdiag.ToString().ToLowerInvariant()) "/p:ApiSharedDir=$apiSharedDirectory" /verbosity:minimal
 if ($LASTEXITCODE) { throw 'Runtime build failed.' }
 Assert-InstalledDependencies
 $package = Join-Path $PSScriptRoot 'BepInEx\plugins\BetterPathfindingTest_Serp'
@@ -74,12 +87,14 @@ if ($install) {
     if ((Get-ApiFileHash $dll) -cne (Get-ApiFileHash (Join-Path $destination 'BetterPathfindingTest.dll'))) { throw 'Installed test DLL hash mismatch.' }
 }
 Assert-InstalledDependencies
+& powershell.exe -NoProfile -ExecutionPolicy Bypass -File $consumerCheck -Workspace $workspace -PackageDirectory $apiSharedDirectory
+if ($LASTEXITCODE) { throw 'Selected APIShared consumer package changed during the build.' }
 $sources = $sourceInputs
 foreach ($file in Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot 'src'),(Join-Path $PSScriptRoot 'tests') -Recurse -File -Filter '*.cs' | Where-Object { $_.FullName -notmatch '[\\/](bin|obj)[\\/]' }) { $sources[$file.FullName] = Get-ApiFileHash $file.FullName }
 foreach ($relative in @('Movement\WeightedGridSearchKernel.cs','Movement\WeightedMoatRoutePlanner.cs','Moat\MoatCandidateField.cs','Runtime\UnitCommandContracts.cs')) { $path = Join-Path $workspace "BugfixesAndQoL\src\UnitCommands\$relative"; $sources[$path] = Get-ApiFileHash $path }
 $nativeHash = if ($devdiag) { Get-ApiFileHash $nativeDll } else { $null }
 foreach ($folder in @('native')) { foreach ($file in Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot $folder) -File) { $sources[$file.FullName] = Get-ApiFileHash $file.FullName } }
-$record = @{ nativeSha256=$nativeHash; timestampUtc=[DateTime]::UtcNow.ToString('o'); branch=$branch; head=(& git -C $workspace rev-parse HEAD); devdiag=$devdiag; installed=$install; dllSha256=(Get-ApiFileHash $dll); installedDependencies=$inputs; sourceSha256=$sources } | ConvertTo-Json -Depth 6
+$record = @{ nativeSha256=$nativeHash; timestampUtc=[DateTime]::UtcNow.ToString('o'); branch=$branch; head=(& git -C $workspace rev-parse HEAD); devdiag=$devdiag; installed=$install; dllSha256=(Get-ApiFileHash $dll); apiSharedDirectory=$apiSharedDirectory; selectedSdkDependencies=$sdkInputs; installedDependencies=$inputs; sourceSha256=$sources } | ConvertTo-Json -Depth 6
 $record | Set-Content -LiteralPath (Join-Path $evidence ('build-' + [DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss-fff') + '.json')) -Encoding UTF8
 $record | Set-Content -LiteralPath (Join-Path $evidence 'build.json') -Encoding UTF8
 Write-Host "PASS: prototype built; devdiag=$devdiag; installed=$install; dependencies unchanged."

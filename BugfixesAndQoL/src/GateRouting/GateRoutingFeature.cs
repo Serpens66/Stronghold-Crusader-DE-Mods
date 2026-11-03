@@ -17,6 +17,7 @@ namespace BugfixesAndQoL.GateRouting
     internal static class GateRoutingFeature
     {
         private static bool simulationTickRegistered;
+        private static APIShared.Presentation.IUiFrameWorkRegistration deferredWork;
         private static BugfixesAndQoLViewModel settings;
         private static ManualLogSource log;
         private static EnemyGatePathfindingRuntime runtime;
@@ -40,6 +41,9 @@ namespace BugfixesAndQoL.GateRouting
         internal static void Configure(ManualLogSource logger,ConfigFile config,BugfixesAndQoLViewModel options)
         {
             if(configured)return;configured=true;log=logger;settings=options;
+            if (!ApiShared.ForMod(BugfixesAndQoLPlugin.PluginGuid).Ui.TryRegisterBeforeRender(
+                "gate-routing-deferred", Deferred, out deferredWork, out string schedulingReason, 100))
+                throw new InvalidOperationException("Gate deferred scheduling unavailable: " + schedulingReason);
 #if SERP_DEVDIAG
             detailed=GateDiagnosticConfiguration.Read(config,ex=>Shared.DebugLogHelper.LogError(log,"Gate diagnostic config migration failed; diagnosis is disabled for this process and will be retried: "+ex));
             if(GateDiagnosticConfiguration.BuildAvailable)
@@ -62,7 +66,6 @@ namespace BugfixesAndQoL.GateRouting
                 subscriptions.Add(UnitR3EventHooks.OnUnitMoveHere.Observable.Subscribe(a=>{if(active)runtime?.ObserveUnitMove(a);}));
             }
 #endif
-            Application.onBeforeRender+=Deferred;
             settings.SettingChanged+=Changed;
         }
         internal static void Initialize(CrusaderLibraryLoadContext library,bool compatible)
@@ -99,7 +102,7 @@ namespace BugfixesAndQoL.GateRouting
         // and no peers, so it keeps the render-frame schedule there.
         private static void Tick(int tick)
         {
-            lock(StateGate) { RefreshCore();if(active){runtime?.OnGameTick();if(!editor)runtime?.ProcessGatePolicies(tick);} }
+            lock(StateGate) { RefreshCore();UpdateDeferredDemand();if(active){runtime?.OnGameTick();if(!editor)runtime?.ProcessGatePolicies(tick);} }
         }
         private static void Deferred()
         {
@@ -112,7 +115,21 @@ namespace BugfixesAndQoL.GateRouting
                 runtime?.ProcessDeferredDiagnostics();
             }
         }
-        private static void Refresh() { lock(StateGate) RefreshCore(); }
+        private static void Refresh()
+        {
+            lock(StateGate)
+            {
+                RefreshCore();
+                UpdateDeferredDemand();
+                deferredWork?.Request();
+            }
+        }
+        private static void UpdateDeferredDemand()
+        {
+            // Normal builds also flush native callback errors here. Keep that drain frame-bound
+            // while active; gameplay policies themselves remain in Tick outside the editor.
+            deferredWork?.SetContinuous(map && (editor || active || detailed || macemen));
+        }
         private static void RefreshCore()
         {
             if(settings==null)return;

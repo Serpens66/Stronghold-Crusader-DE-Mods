@@ -311,7 +311,9 @@ namespace APISharedTests
                 castleBindings.Contains("executeToPercentage = Bind<ExecuteToPercentageDelegate>") &&
                 !castleBindings.Contains("AddDetour") && !castleBindings.Contains("AddContextHook"),
                 "CastlePlanner AIV targets 0x54EC0, 0x54DE0, 0x53D00, and 0x55F50 must remain bind-only");
-            Assert(Count(lobbyState, "Application.onBeforeRender += OnBeforeRender") == 1 &&
+            // Limited integration guardrail: scheduler/lobby behavior is covered by their
+            // production-core tests; this retains single-owner registration and detour checks.
+            Assert(Count(lobbyState, "Presentation.UiWorkRuntime.TryRegister(") == 1 &&
                 lobbyState.Contains("ObserveDirtyNow();") &&
                 Count(lobbyState, "getActiveLobbyMembersOriginal(self, coopGame)") == 1 &&
                 Count(lobbyState, "leaveLobbyOriginal(self, startGame)") == 1 &&

@@ -12,7 +12,7 @@ namespace Spectator
     public sealed class TestToolsViewModel : INotifyPropertyChanged
     {
         private readonly Action<string> execute;
-        private readonly Func<bool> canExecute;
+        private readonly Func<string, bool> canExecute;
         private string amount = "0", selectedGood = "";
         private readonly ToolbarFeedback feedback = new ToolbarFeedback();
         private readonly ToolbarMenuState menu = new ToolbarMenuState();
@@ -56,7 +56,7 @@ namespace Spectator
         public Visibility OrdersVisibility => details && orders ? Visibility.Visible : Visibility.Collapsed;
         public Visibility NavigationVisibility => details ? Visibility.Visible : Visibility.Collapsed;
         public Visibility PlacementVisibility => menu.Placing ? Visibility.Visible : Visibility.Collapsed;
-        public Visibility ExpandButtonVisibility => menu.Placing ? Visibility.Collapsed : Visibility.Visible;
+        public Visibility ExpandButtonVisibility => menu.CanExpand ? Visibility.Visible : Visibility.Collapsed;
         public bool PlacementActive { get => menu.Placing; internal set { if (menu.Placing == value) return; menu.SetPlacement(value); RefreshViews(); } }
         public string ActiveViewKey => menu.View;
         public ToolPower[] Powers => powerItems;
@@ -104,21 +104,27 @@ namespace Spectator
         }
         public string ExpandLabel => menu.ControlLabel(SerpLocalization.Get("Tools.ToolsShort"));
         public float ExpandFontSize => menu.ControlFontSize;
-        public bool CanCredit => toolsAvailable && hasRecipient && CreditMath.TryParse(amount, out _) && canExecute();
+        public bool CanCredit => ToolsAvailable && hasRecipient && CreditMath.TryParse(amount, out _) && canExecute("Credit");
         public Visibility StatusVisibility => details && !string.IsNullOrEmpty(Status) ? Visibility.Visible : Visibility.Collapsed;
         public Visibility GoodsStatusVisibility => goods ? StatusVisibility : Visibility.Collapsed;
         internal void SetRecipientAvailable(bool available)
         { if (hasRecipient == available) return; hasRecipient = available; Changed(nameof(CanCredit)); }
-        private bool toolsAvailable, canAttack, canDefend, canCancel;
+        private bool canAttack, canDefend, canCancel;
         private string orderAvailability = "";
-        public bool ToolsAvailable => toolsAvailable;
-        public bool CanAttack => canAttack;
-        public bool CanDefend => canDefend;
-        public bool CanCancel => canCancel;
+        public bool ToolsAvailable => menu.ToolsAvailable;
+        public bool CanAttack => ToolsAvailable && canAttack;
+        public bool CanDefend => ToolsAvailable && canDefend;
+        public bool CanCancel => ToolsAvailable && canCancel;
         public string OrderAvailability => orderAvailability;
         public Visibility OrderAvailabilityVisibility => string.IsNullOrEmpty(orderAvailability) ? Visibility.Collapsed : Visibility.Visible;
         internal void SetAvailability(bool tools)
-        { if (toolsAvailable != tools) { toolsAvailable = tools; Changed(nameof(ToolsAvailable)); Changed(nameof(CanCredit)); } }
+        {
+            if (!menu.SetToolsAvailable(tools)) return;
+            Changed(nameof(ToolsAvailable)); Changed(nameof(CanCredit));
+            Changed(nameof(CanAttack)); Changed(nameof(CanDefend)); Changed(nameof(CanCancel));
+            RefreshViews();
+            ((ToolsCommand)ActionCommand).Refresh();
+        }
         internal void SetOrderAvailability(bool attack, bool defend, bool cancel, string reason)
         {
             if (canAttack != attack) { canAttack = attack; Changed(nameof(CanAttack)); }
@@ -130,16 +136,18 @@ namespace Spectator
         internal bool Expanded => expanded;
         internal eGoods Good => good;
 
-        internal TestToolsViewModel(Action<string> execute, Func<bool> canExecute)
+        internal TestToolsViewModel(Action<string> execute, Func<string, bool> canExecute)
         {
             this.execute = execute; this.canExecute = canExecute;
-            ActionCommand = new ToolsCommand(Invoke, canExecute);
+            ActionCommand = new ToolsCommand(Invoke, CanInvoke);
             SelectGood(good);
         }
 
+        private bool CanInvoke(string value) => canExecute(value) && menu.CanInvoke(value);
+
         private void Invoke(string value)
         {
-            if (!canExecute()) return;
+            if (!CanInvoke(value)) return;
             switch (value)
             {
                 case "Collapse": menu.ToggleExpanded(hudAvailable); RefreshViews(); execute("CancelPower"); return;
@@ -204,11 +212,12 @@ namespace Spectator
         private sealed class ToolsCommand : ICommand
         {
             private readonly Action<string> execute;
-            private readonly Func<bool> enabled;
-            internal ToolsCommand(Action<string> execute, Func<bool> enabled) { this.execute = execute; this.enabled = enabled; }
-            public event System.EventHandler CanExecuteChanged { add { } remove { } }
-            public bool CanExecute(object parameter) => enabled();
-            public void Execute(object parameter) { if (enabled()) execute(parameter as string); }
+            private readonly Func<string, bool> enabled;
+            internal ToolsCommand(Action<string> execute, Func<string, bool> enabled) { this.execute = execute; this.enabled = enabled; }
+            public event System.EventHandler CanExecuteChanged;
+            internal void Refresh() => CanExecuteChanged?.Invoke(this, System.EventArgs.Empty);
+            public bool CanExecute(object parameter) => enabled(parameter as string);
+            public void Execute(object parameter) { if (enabled(parameter as string)) execute(parameter as string); }
         }
     }
 }

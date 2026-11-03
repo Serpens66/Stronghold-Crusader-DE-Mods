@@ -14,9 +14,9 @@ namespace CastlePlanner {
   private int spectatorPlayer=-1,spectatorTicks,spectatorDirty;
   private void InitializeSpectatorBlueprints(){
    subscriptions.Add(APIShared.PlayerPerspectiveAPI.SubscribeChanges(CastlePlannerPlugin.PluginGuid,"blueprint-view",change=>{
-    Shared.UnityMainThreadDispatch.TryEnqueue(()=>{if(HasSpectatorIdentity)RefreshSpectatorIdentity(true);});
+    APIShared.ApiShared.ForMod(CastlePlannerPlugin.PluginGuid).Ui.TryPost(()=>{if(HasSpectatorIdentity)RefreshSpectatorIdentity(true);RequestFrame();});
    }));
-   GameTimeManagerAPI.Instance.OnTick+=tick=>{if(BlueprintSpectatorPolicy.ShouldSample(ref spectatorTicks,spectatorSampling)){Interlocked.Exchange(ref spectatorDirty,1);}};
+   GameTimeManagerAPI.Instance.OnTick+=tick=>{if(BlueprintSpectatorPolicy.ShouldSample(ref spectatorTicks,spectatorSampling)){Interlocked.Exchange(ref spectatorDirty,1);RequestFrame();}};
   }
   private void RefreshSpectatorIdentity(bool force=false){
    int player=HasSpectatorIdentity?APIShared.PlayerPerspectiveAPI.GetViewedPlayerId():-1;

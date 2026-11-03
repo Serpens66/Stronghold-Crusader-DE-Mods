@@ -107,7 +107,8 @@ namespace BugfixesAndQoL
         private bool initialized;
         private bool networkInitialized;
         private bool renderStateKnown;
-        private bool renderRefreshSubscribed;
+        private APIShared.Presentation.IUiFrameWorkRegistration frameWork;
+        private bool presentationSession;
         private HUD_Troops lastRenderPanel;
         private bool lastRenderFeatureActive;
         private int lastRenderPlayerId = -1;
@@ -159,10 +160,12 @@ namespace BugfixesAndQoL
             if (initialized)
                 return;
             initialized = true;
-            if (!renderRefreshSubscribed)
+            if (frameWork == null)
             {
-                Application.onBeforeRender += OnBeforeRender;
-                renderRefreshSubscribed = true;
+                if (!APIShared.ApiShared.ForMod(BugfixesAndQoLPlugin.PluginGuid).Ui.TryRegisterBeforeRender(
+                    "assassin-climb-hud", OnBeforeRender, out frameWork, out string reason, 100))
+                    throw new InvalidOperationException("Assassin climb HUD scheduling unavailable: " + reason);
+                settings.SettingChanged += OnPresentationSettingChanged;
             }
             InvalidateRenderState();
             RefreshButtonVisibility();
@@ -171,11 +174,8 @@ namespace BugfixesAndQoL
         public void Dispose()
         {
             initialized = false;
-            if (renderRefreshSubscribed)
-            {
-                Application.onBeforeRender -= OnBeforeRender;
-                renderRefreshSubscribed = false;
-            }
+            frameWork?.SetContinuous(false);
+            frameWork?.CancelPending();
             InvalidateRenderState();
             HideTooltip();
             UnhookButtonEvents();
@@ -199,6 +199,8 @@ namespace BugfixesAndQoL
 
         public void BeginMap(Shared.GameplaySessionStartedContext context)
         {
+            presentationSession = true;
+            UpdatePresentationDemand();
             ResetPlayerStates();
             if (saveSlot != null && saveSlot.TryTake(context, out AssassinClimbSaveState state))
             {
@@ -224,6 +226,8 @@ namespace BugfixesAndQoL
 
         public void EndMap()
         {
+            presentationSession = false;
+            UpdatePresentationDemand();
             ResetPlayerStates();
             InvalidateRenderState();
             HideTooltip();
@@ -232,6 +236,7 @@ namespace BugfixesAndQoL
 
         public void RefreshButtonVisibility()
         {
+            UpdatePresentationDemand();
             HUD_Troops troopPanel = null;
             TryGetHudTroopPanel(out troopPanel);
             RefreshButtonVisibilityCore(troopPanel, force: true);
@@ -317,6 +322,16 @@ namespace BugfixesAndQoL
             if (RefreshButtonVisibilityCore(troopPanel, force: false))
                 APIShared.Presentation.TroopActionHud.Reflow(troopPanel);
         }
+
+        private void OnPresentationSettingChanged(string propertyName)
+        {
+            if (propertyName == nameof(BugfixesAndQoLViewModel.EnableMod) ||
+                propertyName == nameof(BugfixesAndQoLViewModel.EnableImprovedAssassinPathfinding))
+            { UpdatePresentationDemand(); frameWork?.Request(); }
+        }
+
+        private void UpdatePresentationDemand() => frameWork?.SetContinuous(
+            initialized && presentationSession && settings.EnableMod && settings.EnableImprovedAssassinPathfinding);
 
         private void OnToggleCommand()
         {

@@ -21,15 +21,25 @@ namespace Spectator
         internal string View { get; private set; } = "Goods";
         internal bool Placing { get; private set; }
         internal bool Floating { get; private set; }
+        internal bool ToolsAvailable { get; private set; }
+        internal bool SetToolsAvailable(bool value)
+        {
+            if (ToolsAvailable == value) return false;
+            ToolsAvailable = value;
+            if (!value) { Expanded = false; Placing = false; }
+            return true;
+        }
+        internal bool CanInvoke(string command) => ToolsAvailable || command == "ToggleDesign";
+        internal bool CanExpand => ToolsAvailable && !Placing;
         internal bool SetFloating(bool value)
         { if (Floating == value) return false; Floating = value; return true; }
         internal string ControlLabel(string dockedLabel) => Floating ? (Expanded ? "\u2212" : "+") : dockedLabel;
         internal float ControlFontSize => Floating ? 18 : 12;
         internal void ToggleExpanded(bool currentlyVisible = true)
-        { if (Expanded && !currentlyVisible) return; Expanded = !Expanded; }
-        internal void ToggleView(string view) { if (view == "Goods" || view == "Orders") { Expanded = true; View = view; } }
-        internal void SetPlacement(bool value) { Placing = value; }
-        internal bool ShowDetails => Expanded && !Placing;
+        { if (!ToolsAvailable || Expanded && !currentlyVisible) return; Expanded = !Expanded; }
+        internal void ToggleView(string view) { if (ToolsAvailable && (view == "Goods" || view == "Orders")) { Expanded = true; View = view; } }
+        internal void SetPlacement(bool value) { Placing = ToolsAvailable && value; }
+        internal bool ShowDetails => ToolsAvailable && Expanded && !Placing;
     }
 
     internal static class ToolbarGeometry

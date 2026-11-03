@@ -42,20 +42,27 @@ namespace BugfixesAndQoL
         private IDisposable ended;
         private int lastFrame = -1;
         private bool disposed;
+        private APIShared.Presentation.IUiFrameWorkRegistration frameWork;
         internal StatisticsTeamBadges(ManualLogSource log, BugfixesAndQoLViewModel settings) { this.log = log; this.settings = settings; }
         internal void Initialize()
         {
             InitializeStatisticsTeamBadges();
             statisticsTeamBadgesReady = true;
+            if (!APIShared.ApiShared.ForMod(BugfixesAndQoLPlugin.PluginGuid).Ui.TryRegisterBeforeRender(
+                "statistics-team-badges", Render, out frameWork, out string reason, 100))
+                throw new InvalidOperationException("Statistics badges scheduling unavailable: " + reason);
             settings.SettingChanged += OnPresentationSettingChanged;
             PublishStatisticsBadgeMode();
-            ended = Shared.MissionEvents.Ended.Subscribe(_ => Shared.UnityMainThreadDispatch.TryEnqueue(ClearStatisticsTeamBadges));
-            UnityEngine.Application.onBeforeRender += Render;
+            ended = Shared.MissionEvents.Ended.Subscribe(_ => {
+                Interlocked.Exchange(ref statisticsBadgeClearPending, 1); frameWork.Request();
+            });
         }
         private bool StatisticsTeamBadgesEnabled => settings.EnableClientFeatures;
         private void Render()
         {
-            if (disposed || !MainViewModel.viewModelLoaded || lastFrame == UnityEngine.Time.frameCount) return;
+            if (disposed) return;
+            if (!MainViewModel.viewModelLoaded) { frameWork.RequestAfter(TimeSpan.FromMilliseconds(100)); return; }
+            if (lastFrame == UnityEngine.Time.frameCount) return;
             lastFrame = UnityEngine.Time.frameCount;
             try
             {
@@ -68,11 +75,16 @@ namespace BugfixesAndQoL
                 if (!statisticsTeamBadgeErrorLogged) { statisticsTeamBadgeErrorLogged = true;
                     Shared.DebugLogHelper.LogErrorLimited(log, "statistics-badges", "Statistics team badges unavailable: " + error); }
             }
+            finally
+            {
+                if (statisticsTeamBadgesReady && Volatile.Read(ref statisticsBadgeModeSnapshot) != SurrenderPolicy.StatisticsTeamBadgesOff)
+                    frameWork.RequestAfter(TimeSpan.FromMilliseconds(100));
+            }
         }
         public void Dispose()
         {
             disposed = true; ended?.Dispose(); settings.SettingChanged -= OnPresentationSettingChanged;
-            UnityEngine.Application.onBeforeRender -= Render; ClearStatisticsTeamBadges();
+            frameWork?.CancelPending(); ClearStatisticsTeamBadges();
         }
         private void OnPresentationSettingChanged(string propertyName)
         {
@@ -88,6 +100,7 @@ namespace BugfixesAndQoL
             int previous = Interlocked.Exchange(ref statisticsBadgeModeSnapshot, next);
             if (previous != next && next == SurrenderPolicy.StatisticsTeamBadgesOff)
                 Interlocked.Exchange(ref statisticsBadgeClearPending, 1);
+            frameWork?.Request();
         }
 
         private void InitializeStatisticsTeamBadges()

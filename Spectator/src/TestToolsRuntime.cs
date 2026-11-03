@@ -23,7 +23,6 @@ namespace Spectator
         private static TestToolsViewModel toolsModel;
         private static IDisposable forceAttackSubscription, forceDefendSubscription;
         [ThreadStatic] private static ForcedOrderContext forcedOrder;
-        private static int lastRenderFrame = -1;
         private static readonly ConcurrentQueue<Action> presentationCallbacks = new ConcurrentQueue<Action>();
         private static object engineLock;
 
@@ -143,6 +142,7 @@ namespace Spectator
             action.PowerGeneration = powerGeneration;
             action.Operation = Interlocked.Increment(ref nextTestAction);
             testActions.Enqueue(action);
+            RequestRender();
             ReportTestAction(action, SerpLocalization.Get("Tools.Queued"));
         }
 

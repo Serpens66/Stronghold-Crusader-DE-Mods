@@ -22,8 +22,9 @@ namespace Spectator
         internal ToolbarPose(ToolbarRect roster, ToolbarRect tools, ToolbarRect control, ToolbarRect grip)
         {
             Roster = roster; Tools = tools; Control = control; Grip = grip;
-            float x = Math.Min(roster.X, Math.Min(control.X, grip.X)), y = Math.Min(roster.Y, Math.Min(control.Y, grip.Y));
-            float right = Math.Max(roster.Right, Math.Max(control.Right, grip.Right)), bottom = Math.Max(roster.Bottom, Math.Max(control.Bottom, grip.Bottom));
+            float x = Math.Min(roster.X, grip.X), y = Math.Min(roster.Y, grip.Y);
+            float right = Math.Max(roster.Right, grip.Right), bottom = Math.Max(roster.Bottom, grip.Bottom);
+            if (!control.Empty) { x = Math.Min(x, control.X); y = Math.Min(y, control.Y); right = Math.Max(right, control.Right); bottom = Math.Max(bottom, control.Bottom); }
             if (!tools.Empty) { x = Math.Min(x, tools.X); y = Math.Min(y, tools.Y); right = Math.Max(right, tools.Right); bottom = Math.Max(bottom, tools.Bottom); }
             Bounds = new ToolbarRect(x, y, right - x, bottom - y);
         }
@@ -37,8 +38,9 @@ namespace Spectator
         internal const float GoodsWidth = 308;
         internal const float ControlWidth = 60, ControlHeight = 22, WindowWidth = 496, FloatingHeader = 40, FloatingGrip = 8;
         internal const float ToggleWidth = 24, DesignWidth = 22;
-        internal static float FloatingWidth(int count, bool placement) =>
-            12 + Math.Max(0, Math.Min(8, count) * Cell - 2) + 2 + DesignWidth + 2 + (placement ? ControlWidth : ToggleWidth) + 2;
+        internal static float FloatingWidth(int count, bool placement, bool toolControlAvailable = true) =>
+            12 + Math.Max(0, Math.Min(8, count) * Cell - 2) + 2 + DesignWidth + 2 +
+            (toolControlAvailable ? (placement ? ControlWidth : ToggleWidth) + 2 : 0);
         internal static ToolbarRect FloatingGripRect => new ToolbarRect(2, 2, FloatingGrip, Portrait);
         internal static ToolbarRect DockDropTarget(ToolbarRect alignment, ToolbarRect frame)
         {
@@ -47,8 +49,9 @@ namespace Spectator
             return new ToolbarRect(frame.X - (6 + RosterWidth) * scale,
                 alignment.Bottom - RosterHeight(8) * scale, RosterWidth * scale, RosterHeight(8) * scale);
         }
-        internal static ToolbarRect FloatingDesignRect(int count, bool placement) =>
-            new ToolbarRect(FloatingWidth(count, placement) - (placement ? ControlWidth : ToggleWidth) - 4 - DesignWidth,
+        internal static ToolbarRect FloatingDesignRect(int count, bool placement, bool toolControlAvailable = true) =>
+            new ToolbarRect(FloatingWidth(count, placement, toolControlAvailable) -
+                (toolControlAvailable ? (placement ? ControlWidth : ToggleWidth) + 2 : 0) - 2 - DesignWidth,
                 8, DesignWidth, ToggleWidth);
         // Vanilla's detailed info host ends 125 units above the viewport bottom
         // (compact: 130). Keep a two-unit gap below both, in every toolbar mode.
@@ -131,21 +134,22 @@ namespace Spectator
         internal static float RosterHeight(int count) => Math.Max(1, (Math.Max(0, Math.Min(8, count)) + 1) / 2) * Cell - 2;
 
         internal static ToolbarPose Arrange(ToolbarRect alignment, ToolbarRect frame, int count, bool details,
-            bool floating = false, ToolbarRect dockControl = default, bool placement = false)
+            bool floating = false, ToolbarRect dockControl = default, bool placement = false, bool toolControlAvailable = true)
         {
+            details &= toolControlAvailable;
             if (floating)
             {
-                float barWidth = FloatingWidth(count, placement), buttonWidth = placement ? ControlWidth : ToggleWidth;
+                float barWidth = FloatingWidth(count, placement, toolControlAvailable), buttonWidth = placement ? ControlWidth : ToggleWidth;
                 return new ToolbarPose(new ToolbarRect(0, 0, barWidth, FloatingHeader),
                     details ? new ToolbarRect(0, FloatingHeader, WindowWidth, Header + Body + Footer) : default,
-                    new ToolbarRect(barWidth - buttonWidth - 2, 8, buttonWidth, ToggleWidth), FloatingGripRect);
+                    toolControlAvailable ? new ToolbarRect(barWidth - buttonWidth - 2, 8, buttonWidth, ToggleWidth) : default, FloatingGripRect);
             }
             float scale = alignment.Width / 914;
             var roster = new ToolbarRect(frame.X - (6 + RosterWidth) * scale,
                 alignment.Bottom - RosterHeight(count) * scale, RosterWidth * scale, RosterHeight(count) * scale);
             var tools = details ? Dock(alignment) : default;
-            var control = dockControl.Empty ? new ToolbarRect(alignment.X + (553 - 2 - ControlWidth) * scale,
-                    alignment.Bottom - (ControlHeight + 2) * scale, ControlWidth * scale, ControlHeight * scale) : dockControl;
+            var control = !toolControlAvailable ? default : dockControl.Empty ? new ToolbarRect(alignment.X + (553 - 2 - ControlWidth) * scale,
+                alignment.Bottom - (ControlHeight + 2) * scale, ControlWidth * scale, ControlHeight * scale) : dockControl;
             // The doubled grip uses the old blank margin plus six units of HUD gap.
             var grip = new ToolbarRect(roster.Right - 2 * scale, roster.Y, FloatingGrip * scale, roster.Height);
             return new ToolbarPose(roster, tools, control, grip);

@@ -28,12 +28,13 @@ namespace Spectator.LordOverview {
   private static Canvas overlay;
   private static FrameworkElement sourceHost;
   private static MainViewModel main;
+  private static APIShared.Presentation.UiWorkClient ui;
   private static Style buttonStyle,tipStyle;
   private static int errors,informationGeneration;
   private static readonly UiRefreshQueue requestedRefresh=new UiRefreshQueue(CurrentUiContext,Post,Refresh);
   private static string Text(string key)=>SerpLocalization.Get("Overview."+key);
   internal static void Start(ManualLogSource logger,OverviewSettings preferences) {
-   if(Interlocked.Exchange(ref started,1)!=0)return;log=logger;settings=preferences;
+   if(Interlocked.Exchange(ref started,1)!=0)return;log=logger;settings=preferences;ui=ApiShared.ForMod(SpectatorPlugin.PluginGuid).Ui;
    selection.Load(settings.DisplayColumns);settings.PropertyChanged+=OnSettingsChanged;settings.InformationRightsInvalidated+=InvalidateInformation;
    UnityEngine.Application.focusChanged+=OnOverviewFocusChanged;
    TooltipProbeStartup.Start(logger);Shared.DevDiag.Attach(logger);
@@ -56,7 +57,7 @@ namespace Spectator.LordOverview {
     Message("READY");
    });
   }
-  private static void Post(Action action)=>UnityMainThreadDispatcher.EnqueueStatic(()=>{try{action();}catch(Exception e){Close();Error(e);}});
+  private static void Post(Action action){if(!ui.TryPost(()=>{try{action();}catch(Exception e){Close();Error(e);}}))Error(new InvalidOperationException("Overview UI dispatch unavailable."));}
   private static double Now=>System.Diagnostics.Stopwatch.GetTimestamp()/(double)System.Diagnostics.Stopwatch.Frequency;
   private static void OnTick(int tick){
    long elapsed=0;Shared.DevDiag.Start(ref elapsed);

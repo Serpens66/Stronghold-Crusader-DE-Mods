@@ -5,6 +5,32 @@ namespace Spectator {
    SpectatorDefeatRuntimeTests.Run(Check);
    MenuToolTipTests.Run();
    StatusInlineFormatTests.Run(Check);
+   // Bound amount edits are frequent; they must not fan out into imperative HUD work.
+   foreach(string property in new[]{"Amount","CanCredit","SelectedGood","SelectedGoodKey","ForceAcceptance"})
+    Check(ToolbarRefreshPolicy.ForProperty(property)==ToolbarRefresh.None,"bound input updates without toolbar rebuild: "+property);
+   Check(ToolbarRefreshPolicy.ForProperty("Status")==ToolbarRefresh.Status,"rich status updates independently of player cards and geometry");
+   Check((ToolbarRefreshPolicy.ForProperty("ExpandedVisibility")&(ToolbarRefresh.Layout|ToolbarRefresh.State))==
+    (ToolbarRefresh.Layout|ToolbarRefresh.State),"expanding tools wakes layout and build-menu reconciliation");
+   Check(ToolbarRefreshPolicy.ForProperty("Powers")==ToolbarRefresh.State,"power metadata refresh wakes leased vanilla controls");
+   Check(ToolbarRefreshPolicy.ForProperty(null)==(ToolbarRefresh.Status|ToolbarRefresh.Layout|ToolbarRefresh.State),"unspecified model change refreshes all imperative consumers");
+   var refresh=new PresentationRefreshState();
+   Check(refresh.ObservePerspective(true,2)&&refresh.TakeStatusCheck(0,1000),"initial perspective gets a complete reconcile");
+   refresh.ContentPending=refresh.RosterPending=refresh.StatusPending=refresh.LayoutPending=false;
+   Check(!refresh.ObservePerspective(true,2)&&!refresh.TakeStatusCheck(10,1000),"unchanged render identity does not force a status refresh");
+   Check(refresh.ObservePerspective(true,3)&&refresh.ContentPending&&refresh.StatePending,
+    "external view change between status intervals invalidates content and eligibility immediately");
+   Check(refresh.TakeStatusCheck(10,1000),"external view change bypasses the status delay");
+   refresh.ContentPending=refresh.RosterPending=refresh.StatusPending=refresh.LayoutPending=false;
+   for(int now=20;now<110;now+=10){refresh.RosterPending=true;Check(!refresh.TakeStatusCheck(now,1000),"snapshot bursts keep the existing status deadline");}
+   Check(refresh.TakeStatusCheck(110,1000)&&refresh.RosterPending,"latest snapshot survives until the due reconcile");
+   refresh.ContentPending=refresh.RosterPending=refresh.StatusPending=refresh.LayoutPending=false;
+   refresh.Failed(120,1000);
+   Check(refresh.ContentPending&&refresh.RosterPending&&refresh.StatePending&&refresh.StatusPending&&refresh.LayoutPending,
+    "failure restores work consumed by earlier consumers before a later UI exception");
+   Check(!refresh.Ready(219)&&refresh.Ready(220)&&refresh.RetryDelay(120,1000)==System.TimeSpan.FromMilliseconds(100),
+    "failed reconcile retries within the status bound without a per-frame exception loop");
+   Check(refresh.ObservePerspective(false,-1),"identity guard still observes role loss during cleanup retry");
+   refresh.Reset();Check(refresh.Ready(0)&&refresh.ContentPending&&refresh.TakeStatusCheck(0,1000),"new mission clears retry backoff and requests fresh content");
    for(int bits=0;bits<128;bits++) foreach(int occupants in new[]{0,1,8}) {
     bool eligible=(bits&1)!=0,ui=(bits&2)!=0,ingame=(bits&4)!=0,extras=(bits&8)!=0;
     bool briefing=(bits&16)!=0,statistics=(bits&32)!=0,gameMenu=(bits&64)!=0;
@@ -40,6 +66,11 @@ namespace Spectator {
    }
    var menu = new ToolbarMenuState();
    Check(!menu.Expanded && menu.View == "Goods", "new HUD starts compact with a useful initial page");
+   Check(!menu.ToolsAvailable && !menu.CanExpand && !menu.CanInvoke("Collapse"), "new HUD cannot flash or open tools before its role is reconciled");
+   menu.ToggleExpanded(); menu.ToggleView("Orders"); menu.SetPlacement(true);
+   Check(!menu.Expanded && !menu.Placing && !menu.ShowDetails, "direct commands cannot open or place with disabled tools");
+   Check(menu.CanInvoke("ToggleDesign"), "roster design remains useful without test tools");
+   menu.SetToolsAvailable(true);
    menu.ToggleExpanded(); Check(menu.ShowDetails);
    menu.ToggleExpanded(false); Check(menu.Expanded,"options reopen tools temporarily hidden behind a Vanilla page with a single click");
    menu.ToggleView("Orders"); Check(menu.ShowDetails && menu.View == "Orders");
@@ -112,6 +143,28 @@ namespace Spectator {
     Check(enabled==(!editor&&(spectator?spectatorTools:active&&activeTools)),"test mode distinguishes active players from spectators; the toolbar-less editor has no tools");
     Check(!ToolSessionPolicy.CanMutate(enabled,true,true,true,true,true,false),"real network veto is independent of every local setting");
     Check(!ToolSessionPolicy.CanMutate(enabled,true,true,true,false,true,true),"director multiplayer veto remains fail-closed");
+   }
+   foreach(string role in new[]{"active","original spectator","eliminated spectator"})
+   foreach(bool spectatorTools in new[]{false,true}) foreach(bool activeTools in new[]{false,true})
+   foreach(bool editor in new[]{false,true}) foreach(bool multiplayer in new[]{false,true}) {
+    bool observer=role!="active";
+    bool enabled=ToolSessionPolicy.Enabled(spectatorTools,activeTools,editor,observer,role!="original spectator");
+    bool available=ToolSessionPolicy.CanMutate(enabled,true,true,true,multiplayer,true,multiplayer);
+    bool expected=!editor&&!multiplayer&&(observer?spectatorTools:activeTools);
+    var roleMenu=new ToolbarMenuState(); roleMenu.SetToolsAvailable(available);
+    Check(roleMenu.CanExpand==expected && roleMenu.CanInvoke("Collapse")==expected,
+     "button/open command follow only the current role's setting: "+role);
+    roleMenu.ToggleExpanded(); Check(roleMenu.ShowDetails==expected,"detail window follows the same role permission");
+    roleMenu.ToggleView("Orders"); roleMenu.SetPlacement(true);
+    Check(roleMenu.Placing==expected,"disabled entrypoints cannot start placement");
+    roleMenu.SetFloating(true); roleMenu.SetToolsAvailable(false);
+    Check(!roleMenu.Expanded&&!roleMenu.Placing&&!roleMenu.ShowDetails&&!roleMenu.CanExpand,
+     "losing permission closes all tool surfaces, including placement stop state");
+    Check(roleMenu.Floating&&roleMenu.CanInvoke("ToggleDesign"),"tool removal preserves floating roster/design state");
+    foreach(string command in new[]{"Collapse","Goods","Orders","Placement","TogglePowers","Credit","Attack","Defend","Cancel"})
+     Check(!roleMenu.CanInvoke(command),"hidden tools reject direct command: "+command);
+    roleMenu.SetToolsAvailable(available);
+    Check(!roleMenu.Expanded&&!roleMenu.Placing,"re-enabled tools never reopen an old window or placement");
    }
    foreach(bool host in new[]{false,true}) foreach(bool client in new[]{false,true})
    foreach(bool spectatorTools in new[]{false,true}) foreach(bool activeTools in new[]{false,true}) {

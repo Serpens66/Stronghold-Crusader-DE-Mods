@@ -33,6 +33,33 @@ internal static class ToolbarLayoutTests
             var placing=ToolbarLayout.Arrange(alignment,frame,count,false,true,default,true);
             check(placing.Roster.Width-floating.Roster.Width==36 && placing.Control.Width==60,
                 "Only the additional stop-label width extends the compact row during placement.");
+            foreach(bool requestedDetails in new[]{false,true})
+            foreach(bool requestedPlacement in new[]{false,true})
+            {
+                var unavailableDock=ToolbarLayout.Arrange(alignment,frame,count,requestedDetails,false,compact.Control,requestedPlacement,false);
+                var unavailableFloating=ToolbarLayout.Arrange(alignment,frame,count,requestedDetails,true,default,requestedPlacement,false);
+                var availableFloating=ToolbarLayout.Arrange(alignment,frame,count,false,true,default,requestedPlacement);
+                var unavailableDesign=ToolbarLayout.FloatingDesignRect(count,requestedPlacement,false);
+                check(unavailableDock.Control.Empty && unavailableFloating.Control.Empty &&
+                    unavailableDock.Tools.Empty && unavailableFloating.Tools.Empty,
+                    "Unavailable tools have no control or tool surface, even with stale expanded/placement requests or a reserved dock slot.");
+                check(unavailableDock.Roster.X==compact.Roster.X && unavailableDock.Roster.Y==compact.Roster.Y &&
+                    unavailableDock.Grip.Right==compact.Grip.Right && unavailableDock.Bounds.X==compact.Roster.X &&
+                    unavailableDock.Bounds.Y==compact.Roster.Y && unavailableDock.Bounds.Right==compact.Grip.Right &&
+                    unavailableDock.Bounds.Bottom==compact.Roster.Bottom,
+                    "Removing tools preserves the dock raster/grip and excludes the entire old control gap from its bounds.");
+                check(unavailableFloating.Bounds.Width==ToolbarLayout.FloatingWidth(count,requestedPlacement,false) &&
+                    unavailableFloating.Bounds.Width==unavailableFloating.Roster.Width && unavailableFloating.Bounds.Height==40 &&
+                    availableFloating.Roster.Width-unavailableFloating.Roster.Width==availableFloating.Control.Width+2,
+                    "The floating row releases the unavailable control and its gap instead of retaining blank paper or hit bounds.");
+                check(unavailableDesign.X==design.X && unavailableDesign.Right+2==unavailableFloating.Roster.Right &&
+                    ToolbarLayout.OwnerCell(count-1,true).Right+2==unavailableDesign.X &&
+                    !unavailableFloating.Grip.Intersects(unavailableDesign),
+                    "The design button remains beside the portraits and ends the compact row when tools are unavailable.");
+                check(unavailableFloating.Grip.X==floating.Grip.X && unavailableFloating.Grip.Width==floating.Grip.Width &&
+                    unavailableFloating.Grip.Height==floating.Grip.Height,
+                    "Tool availability never removes or expands the floating drag grip.");
+            }
 
             check(floating.Roster.Width == ToolbarLayout.FloatingWidth(count,false) && floating.Roster.Height == 40 && floating.Tools.Y == floating.Roster.Bottom &&
                 floating.Control.Right <= floating.Roster.Right && floating.Control.Bottom <= floating.Roster.Bottom,

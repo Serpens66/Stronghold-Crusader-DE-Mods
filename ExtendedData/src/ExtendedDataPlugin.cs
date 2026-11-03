@@ -10,7 +10,7 @@ using UnityEngine;
 namespace ExtendedData
 {
     [BepInDependency("000shcdese", "2.4.0")]
-    [BepInDependency("APIShared_Serp", "0.21.0")]
+    [BepInDependency("APIShared_Serp", "0.26.0")]
     [BepInDependency("BugfixesAndQoL_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("fixes", BepInDependency.DependencyFlags.SoftDependency)]
@@ -26,7 +26,7 @@ namespace ExtendedData
         public const bool UsesApiSharedSaveLoadDialog = true;
 
         private static ExtendedDataRuntime runtime;
-        private static bool deferredCompatibilityRefreshPending;
+        private static APIShared.Presentation.IUiFrameWorkRegistration compatibilityRefresh;
 
         public ExtendedDataSettingsViewModel Settings { get; private set; }
 
@@ -97,17 +97,14 @@ namespace ExtendedData
 
         private static void ScheduleDeferredCompatibilityRefresh()
         {
-            if (deferredCompatibilityRefreshPending)
-                return;
-
-            deferredCompatibilityRefreshPending = true;
-            Application.onBeforeRender += RefreshCompatibilityAfterRegistrations;
+            if (compatibilityRefresh == null && !APIShared.ApiShared.ForMod(PluginGuid).Ui.TryRegisterBeforeRender(
+                "compatibility-refresh", RefreshCompatibilityAfterRegistrations, out compatibilityRefresh, out string reason, 100))
+                throw new InvalidOperationException("Deferred compatibility refresh unavailable: " + reason);
+            compatibilityRefresh.Request();
         }
 
         private static void RefreshCompatibilityAfterRegistrations()
         {
-            Application.onBeforeRender -= RefreshCompatibilityAfterRegistrations;
-            deferredCompatibilityRefreshPending = false;
             runtime?.RefreshModCompatibility();
         }
 

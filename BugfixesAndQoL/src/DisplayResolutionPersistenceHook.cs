@@ -27,6 +27,7 @@ namespace BugfixesAndQoL
         private SaveSettingsDelegate saveSettingsOriginal;
         private OptionsButtonDelegate optionsButtonOriginal;
         private long recoveryStartedTimestamp;
+        private APIShared.Presentation.IUiFrameWorkRegistration recoveryWork;
         private int lastRecoveryFrame = -1;
         private int manualApplyDepth;
         private bool settingsLoaded;
@@ -44,6 +45,9 @@ namespace BugfixesAndQoL
 
             try
             {
+                if (!APIShared.ApiShared.ForMod(BugfixesAndQoLPlugin.PluginGuid).Ui.TryRegisterBeforeRender(
+                    "display-resolution-recovery", ObserveRecoveryBeforeRender, out recoveryWork, out string reason, 100))
+                    throw new InvalidOperationException("Display recovery scheduling unavailable: " + reason);
                 loadSettingsHook = new Hook(
                     FindMethod(typeof(ConfigSettings), nameof(ConfigSettings.LoadSettings), true, Type.EmptyTypes),
                     (LoadSettingsDelegate)LoadSettingsHook);
@@ -270,8 +274,7 @@ namespace BugfixesAndQoL
                 target.FullscreenRefresh > 0 ? target.FullscreenRefresh : 0);
             recoveryStartedTimestamp = Stopwatch.GetTimestamp();
             lastRecoveryFrame = -1;
-            Application.onBeforeRender -= ObserveRecoveryBeforeRender;
-            Application.onBeforeRender += ObserveRecoveryBeforeRender;
+            recoveryWork.SetContinuous(true);
             Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/DisplayResolutionPersistenceHook.cs:297", $"Bugfixes and QoL requested borderless resolution recovery ({reason}): " +
                 $"target={target}, observedAtRequest={DescribeActual()}; request issued, application not yet confirmed.");
         }
@@ -325,7 +328,8 @@ namespace BugfixesAndQoL
 
         private void StopRecoveryObservation()
         {
-            Application.onBeforeRender -= ObserveRecoveryBeforeRender;
+            recoveryWork?.SetContinuous(false);
+            recoveryWork?.CancelPending();
             recoveryStartedTimestamp = 0;
             lastRecoveryFrame = -1;
         }

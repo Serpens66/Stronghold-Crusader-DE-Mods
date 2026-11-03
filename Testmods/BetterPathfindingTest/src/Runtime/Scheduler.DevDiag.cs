@@ -22,7 +22,10 @@ namespace BetterPathfindingTest
         static partial void DiagAttach(ManualLogSource log)
         {
             Shared.DevDiag.Attach(log); runtime = new DiagnosticRuntime();
-            Application.onBeforeRender += runtime.Frame;
+            if (!ApiShared.ForMod(PluginGuid).Ui.TryRegisterBeforeRender("resident-diagnostics",
+                runtime.Frame, out var frameWork, out string reason, 100))
+                throw new InvalidOperationException(reason);
+            runtime.SetFrameWork(frameWork);
             CrusaderLibrary.Instance.LibraryLoaded += runtime.LibraryLoaded;
             ApiShared.WhenReady(api => runtime.ApiReady(api));
         }
@@ -36,6 +39,9 @@ namespace BetterPathfindingTest
         private IApiShared api;
         private CrusaderLibraryLoadContext library;
         private bool hasLibrary, registered, failed;
+        private APIShared.Presentation.IUiFrameWorkRegistration frameWork;
+        internal void SetFrameWork(APIShared.Presentation.IUiFrameWorkRegistration work)
+        { frameWork = work; work.SetContinuous(true); }
         private EngineGate engine;
         private SnapshotCapture capture;
         private ResidentReports reports;
@@ -81,7 +87,7 @@ namespace BetterPathfindingTest
         }
         private void StopObserver(Exception error)
         {
-            failed = true; schedule.Fail(); service.Fail(error.Message, true);
+            failed = true; frameWork?.SetContinuous(false); schedule.Fail(); service.Fail(error.Message, true);
             background.Enqueue(() => ResidentReports.Unsupported(output, error));
             Shared.DevDiag.Log(() => "UNSUPPORTED runtime contract; observer stopped: " + error);
         }

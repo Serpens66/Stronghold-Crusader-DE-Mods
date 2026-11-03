@@ -93,10 +93,14 @@ namespace Spectator
                 foreach (Button button in vanillaPowerButtons) toolbarProperties.Add(new ToolbarProperty(button, UIElement.IsEnabledProperty));
                 powerToolbarOwned = true;
             }
-            powerToolbarHost.Visibility = MainViewModel.Instance.UIVisible && !MainViewModel.Instance.Show_HUD_Briefing
+            Visibility visibility = MainViewModel.Instance.UIVisible && !MainViewModel.Instance.Show_HUD_Briefing
                 ? Visibility.Visible : Visibility.Collapsed;
-            if (powerMeter != null) powerMeter.Height = 236;
-            for (int id = 0; id < 8; id++) vanillaPowerButtons[id].IsEnabled = toolsModel.Powers[id].Enabled;
+            // Inspect actual properties: Vanilla may have overwritten our last desired value.
+            if (powerToolbarHost.Visibility != visibility) powerToolbarHost.Visibility = visibility;
+            if (powerMeter != null && powerMeter.Height != 236) powerMeter.Height = 236;
+            for (int id = 0; id < 8; id++)
+                if (vanillaPowerButtons[id].IsEnabled != toolsModel.Powers[id].Enabled)
+                    vanillaPowerButtons[id].IsEnabled = toolsModel.Powers[id].Enabled;
         }
 
         private static void RestoreVanillaPowerToolbar(bool detach)

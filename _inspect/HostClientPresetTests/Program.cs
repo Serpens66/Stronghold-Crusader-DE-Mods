@@ -101,7 +101,9 @@ internal static class Program
     private static int Main(string[] args)
     {
         APIShared.Localization.UiText.Configure(() => "en-US");
-        string documentsRoot = Path.Combine(Path.GetTempPath(), "HostClientDocuments-" + Guid.NewGuid().ToString("N"));
+        // Ordinary preset fixtures use the shared short work root. Long-path boundaries are
+        // exercised separately; sandbox temp prefixes must not accidentally choose those cases.
+        string documentsRoot = TestWorkDirectory.New("host-client");
         PresetFixtureInstallRoot = Path.Combine(documentsRoot, "installation");
         Directory.CreateDirectory(PresetFixtureInstallRoot);
         PersonalSettingsPaths.TestDocumentsDirectory = assembly =>
@@ -112,6 +114,12 @@ internal static class Program
         };
         try
         {
+            if (args != null && args.Length == 1 && args[0] == "gameplay-gate")
+            {
+                TestGameplayGateSourceIntegration();
+                Console.WriteLine("PASS: gameplay gate source integration and direct-editor HUD bootstrap.");
+                return 0;
+            }
             if (args != null && args.Length == 1 && args[0] == "peace-proximity")
             {
                 PeaceTimeProximityPresetTests.Run();
@@ -566,7 +574,7 @@ internal static class Program
         finally
         {
             PersonalSettingsPaths.TestDocumentsDirectory = null;
-            if (Directory.Exists(documentsRoot)) Directory.Delete(documentsRoot, true);
+            if (TestWorkDirectory.IsOwned(documentsRoot) && Directory.Exists(documentsRoot)) Directory.Delete(documentsRoot, true);
         }
     }
 
@@ -1925,7 +1933,8 @@ internal static class Program
               !bugfixRuntimeSource.Contains("BeginEditorMapIfApplicable") &&
               assassinClimbSource.Contains("initialized = true;") &&
               assassinClimbSource.Contains("RefreshButtonVisibility();") &&
-              assassinClimbSource.Contains("Application.onBeforeRender += OnBeforeRender") &&
+              assassinClimbSource.Contains("TryRegisterBeforeRender") &&
+              assassinClimbSource.Contains("UpdatePresentationDemand()") &&
               assassinClimbSource.Contains("lastRenderFrame == Time.frameCount") &&
               assassinClimbSource.Contains("APIShared.LocalSelectionAPI.TryCapture(") &&
               assassinClimbSource.Contains("editor && (!hasSnapshot || selected.Count > 0)") &&

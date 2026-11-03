@@ -9,10 +9,12 @@ namespace Spectator
         {
             var hud = new GateHudLifecycle();
             hud.Request(10);
+            Expect(hud.Pending, "empty-map gate intent keeps presentation demand without a selected gate");
             Expect(!hud.TryConsume(10, true), "gate waits for completed state update");
             Expect(!hud.TryConsume(11, false), "unready HUD retains intention");
             hud.Release();
             Expect(hud.TryConsume(11, true), "Vanilla transition preserves pending gate click");
+            Expect(!hud.Pending, "consumed gate intent releases pending presentation demand");
             hud.Acquire();
             hud.Request(11); hud.Transition();
             Expect(!hud.TryConsume(12, true), "newer Vanilla HUD supersedes pending gate intent");
@@ -23,6 +25,7 @@ namespace Spectator
             hud.Request(20); hud.Request(21);
             Expect(!hud.TryConsume(21, true) && hud.TryConsume(22, true), "rapid clicks retain only newest revision");
             hud.Request(30); hud.CancelPending();
+            Expect(!hud.Pending, "cancelled gate intent stops pending presentation demand");
             Expect(!hud.TryConsume(31, true), "HUD/session replacement cancels pending click");
             for (int n=0; n<40; n++)
             {

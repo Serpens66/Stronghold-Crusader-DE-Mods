@@ -6,7 +6,8 @@ namespace Spectator
 {
     internal static partial class SpectatorRuntime
     {
-        private static bool toolbarLayoutDirty = true, toolbarMoved, layoutCached;
+        private static bool toolbarLayoutDirty { get => presentationRefresh.LayoutPending; set => presentationRefresh.LayoutPending = value; }
+        private static bool toolbarMoved, layoutCached;
         private static int observedBuildPage = int.MinValue;
         private static bool observedMainHud;
         // Absolute floating-header position. It never depends on the docked bounding box.
@@ -80,8 +81,8 @@ namespace Spectator
             element.IsVisibleChanged += OnToolbarLayoutVisibility;
             element.IsEnabledChanged += OnToolbarLayoutVisibility;
         }
-        private static void OnToolbarLayoutSize(object sender, SizeChangedEventArgs args) => toolbarLayoutDirty = true;
-        private static void OnToolbarLayoutVisibility(object sender, DependencyPropertyChangedEventArgs args) => toolbarLayoutDirty = true;
+        private static void OnToolbarLayoutSize(object sender, SizeChangedEventArgs args) => RequestToolbarLayout();
+        private static void OnToolbarLayoutVisibility(object sender, DependencyPropertyChangedEventArgs args) => RequestToolbarLayout();
 
         private static void ObserveCachedBounds()
         {
@@ -155,12 +156,13 @@ namespace Spectator
             if (Panel.GetZIndex(humanCanvas) != layer) Panel.SetZIndex(humanCanvas, layer);
         }
 
+        private static bool HasToolbarViewport() => humanPanel != null && humanPanel.Visibility == Visibility.Visible &&
+            humanCanvas != null && humanCanvas.IsVisible && humanCanvas.ActualWidth > 0 && humanCanvas.ActualHeight > 0;
+
         private static void PositionToolbar()
         {
-            if (humanPanel == null || humanPanel.Visibility != Visibility.Visible || humanCanvas == null ||
-                !humanCanvas.IsVisible || humanCanvas.ActualWidth <= 0 || humanCanvas.ActualHeight <= 0) return;
+            if (!HasToolbarViewport()) return;
             RefreshToolbarLayer();
-            UpdateActivePlayerBuildMenu();
             if (!layoutCached)
             {
                 if (humanBoundHud?.IsLoaded != true || humanScreen?.IsLoaded != true) return;
@@ -198,7 +200,8 @@ namespace Spectator
             bool occupied = DockHudPolicy.CenterIsOccupied(view.Show_HUD_Main, view.buildScreenID, humanPlacementMode, foreign);
             toolbarHudDisplay = DockHudPolicy.Evaluate(true, true, occupied, humanPlacementMode);
             toolsModel.SetHudAvailable(DockHudPolicy.CanShowDetails(toolbarMoved, toolbarHudDisplay));
-            bool details = toolsModel.ExpandedVisibility == Visibility.Visible;
+            bool toolsAvailable = toolsModel.ToolsAvailable;
+            bool details = toolsAvailable && toolsModel.ExpandedVisibility == Visibility.Visible;
             int count = 0;
             for (int player = 1; player <= 8; player++)
             {
@@ -212,9 +215,9 @@ namespace Spectator
                 allies.X - (ToolbarLayout.ControlWidth + 2) * nativeScale,
                 allies.Bottom - (ToolbarLayout.ControlHeight + 2) * nativeScale,
                 ToolbarLayout.ControlWidth * nativeScale, ToolbarLayout.ControlHeight * nativeScale);
-            var dockPose = ToolbarLayout.Arrange(alignment, frame, count, details, false, dockControl);
+            var dockPose = ToolbarLayout.Arrange(alignment, frame, count, details, false, dockControl, false, toolsAvailable);
             toolbarDockGrip = ToolbarLayout.DockDropTarget(alignment, frame);
-            var floatingPose = ToolbarLayout.Arrange(alignment, frame, count, details, true, default, humanPlacementMode);
+            var floatingPose = ToolbarLayout.Arrange(alignment, frame, count, details, true, default, humanPlacementMode, toolsAvailable);
             var pose = toolbarMoved ? floatingPose : dockPose;
             float units = toolbarMoved ? 1 : nativeScale;
             float width = pose.Bounds.Width / units, height = pose.Bounds.Height / units;
@@ -224,7 +227,7 @@ namespace Spectator
             toolsModel.SetFloating(toolbarMoved);
             toolsModel.SetFloatingTheme(toolbarMoved && ToolbarThemePreference.Classic);
             toolbarDesign.Visibility = toolbarMoved ? Visibility.Visible : Visibility.Collapsed;
-            if (toolbarMoved) Place(toolbarDesign, ToolbarLayout.FloatingDesignRect(count, humanPlacementMode));
+            if (toolbarMoved) Place(toolbarDesign, ToolbarLayout.FloatingDesignRect(count, humanPlacementMode, toolsAvailable));
             humanPanel.RenderTransform = new ScaleTransform(scale, scale);
             var roster = Relative(pose.Roster, pose.Bounds, units);
             var tools = Relative(pose.Tools, pose.Bounds, units);
@@ -236,8 +239,9 @@ namespace Spectator
                 toolbarMoved ? toolbarDesiredY : groupDock.Y, width * scale, height * scale, vw, vh);
             toolbarOwners.Width = roster.Width; toolbarOwners.Height = roster.Height;
             Place(rosterSurface, roster); Place(toolbarControl, control); Place(humanDragHandle, grip);
-            bool controlVisible = toolbarMoved || humanPlacementMode || HasOwnBuildMenu() || toolbarHudDisplay != DockHudDisplay.Hidden;
+            bool controlVisible = toolsAvailable && (toolbarMoved || humanPlacementMode || HasOwnBuildMenu() || toolbarHudDisplay != DockHudDisplay.Hidden);
             toolbarControl.Visibility = controlVisible ? Visibility.Visible : Visibility.Collapsed;
+            toolbarControl.IsHitTestVisible = controlVisible;
             rosterSurface.Background = toolbarMoved ? transparentToolbarBrush : rosterPaper;
             ((Border)toolbarControl).Background = toolbarMoved ? transparentToolbarBrush : controlPaper;
             if (details) Place(toolbarTools, tools);

@@ -9,8 +9,8 @@
     <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion><LangVersion>latest</LangVersion><AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <OutputPath>BepInEx\plugins\BetterPathfindingTest_Serp\</OutputPath><DebugSymbols>true</DebugSymbols><DebugType>portable</DebugType><Optimize>true</Optimize>
     <GameDir Condition="'$(GameDir)' == ''">E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition</GameDir>
-    <ExtenderDir>$(GameDir)\BepInEx\plugins\000shcdese</ExtenderDir><ApiSharedDir>$(GameDir)\BepInEx\plugins\APIShared_Serp</ApiSharedDir>
-    <!-- Explicit prototype contract: consume the installed SDK; never invoke workspace SDK builders. -->
+    <ExtenderDir>$(GameDir)\BepInEx\plugins\000shcdese</ExtenderDir><ApiSharedDir Condition="'$(ApiSharedDir)' == ''">$(GameDir)\BepInEx\plugins\APIShared_Serp</ApiSharedDir>
+    <!-- Consume the selected existing SDK; never invoke workspace SDK builders. -->
     <SerpDevDiagnostics Condition="'$(SerpDevDiagnostics)' == ''">false</SerpDevDiagnostics>
     <SerpDevDiagnostics Condition="'$(SHCDE_DEVDIAG)' == '1'">true</SerpDevDiagnostics>
     <DefineConstants Condition="'$(SerpDevDiagnostics)' == 'true'">$(DefineConstants);SERP_DEVDIAG</DefineConstants>

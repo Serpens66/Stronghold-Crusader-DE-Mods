@@ -9,7 +9,7 @@ namespace BetterPathfindingTest
 {
     [BepInPlugin(PluginGuid, "BetterPathfindingTest", PluginVersion)]
     [BepInDependency("000shcdese", "2.14.3")]
-    [BepInDependency("APIShared_Serp", "0.16.3")]
+    [BepInDependency("APIShared_Serp", "0.26.0")]
     public sealed partial class Plugin : BaseUnityPlugin
     {
         public const string PluginGuid = "BetterPathfindingTest_Serp", PluginVersion = "0.3.0";

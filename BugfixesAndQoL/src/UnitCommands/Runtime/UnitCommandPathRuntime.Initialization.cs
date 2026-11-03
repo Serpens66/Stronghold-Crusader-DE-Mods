@@ -632,7 +632,11 @@ namespace BugfixesAndQoL.UnitCommands
                 InstallConnectivityAndRecovery(memory, libraryBase);
                 InstallManualGroupAdmission(memory, libraryBase);
 #if SERP_DEVDIAG
-                UnityEngine.Application.onBeforeRender += ObserveCursorPerformance;
+                if (!APIShared.ApiShared.ForMod(BugfixesAndQoLPlugin.PluginGuid).Ui.TryRegisterBeforeRender(
+                    "cursor-performance-diagnostics", ObserveCursorPerformance,
+                    out APIShared.Presentation.IUiFrameWorkRegistration cursorDiagnostics, out string schedulingReason, 100))
+                    throw new InvalidOperationException("Cursor diagnostics scheduling unavailable: " + schedulingReason);
+                cursorDiagnostics.SetContinuous(true);
 #endif
             }
             catch

@@ -54,7 +54,7 @@ namespace BugfixesAndQoL
         private R3PacketEventHook<SurrenderRequestPacket> requestPacketHook;
         private R3PacketEventHook<SurrenderExecutionPacket> executionPacketHook;
         private IDisposable requestPacketSubscription, executionPacketSubscription;
-        private int nextRequestId, lastFrame = -1;
+        private int nextRequestId;
         private long confirmationSequence, confirmationOpenedFromMenuSequence, presentationGeneration;
         private bool initialized, disposed;
         internal SurrenderFeature(ManualLogSource log, BugfixesAndQoLViewModel settings)
@@ -93,7 +93,6 @@ namespace BugfixesAndQoL
             }
             subscriptions.Add(Shared.GameplaySessionLifecycle.SubscribeStarted(log, _ => ResetSession("start")));
             subscriptions.Add(Shared.MissionEvents.Ended.Subscribe(_ => ResetSession("end")));
-            UnityEngine.Application.onBeforeRender += OnBeforeRender;
             initialized = true;
             menuRegistration.Invalidate();
         }
@@ -133,17 +132,11 @@ namespace BugfixesAndQoL
             }
             catch (Exception error) { buttonViewModel.SetMenuState(false, false); Shared.DebugLogHelper.LogErrorLimited(log, "surrender-menu", "Surrender menu unavailable: " + error); }
         }
-        private void OnBeforeRender()
-        {
-            if (disposed || lastFrame == UnityEngine.Time.frameCount) return;
-            lastFrame = UnityEngine.Time.frameCount;
-            lobbyReturnFeature.OnBeforeRender();
-        }
         public void Dispose()
         {
             disposed = true; presentationGeneration++;
             requestPacketSubscription?.Dispose(); executionPacketSubscription?.Dispose();
-            lobbyReturnFeature.Dispose(); UnityEngine.Application.onBeforeRender -= OnBeforeRender;
+            lobbyReturnFeature.Dispose();
             foreach (IDisposable subscription in subscriptions) subscription.Dispose();
             subscriptions.Clear(); buttonViewModel.SetMenuState(false, false);
             menuRegistration?.Invalidate();

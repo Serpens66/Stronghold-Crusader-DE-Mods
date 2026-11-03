@@ -123,6 +123,7 @@ namespace CastlePlanner
         private long lastAbortSent;
         private string pendingAbortReason;
         private int lastFrame = -1;
+        private APIShared.Presentation.IUiFrameWorkRegistration frameWork;
         private int lastDisplayedTimerSeconds = int.MinValue;
         private string selectedChoice = string.Empty;
         private string selectedRotation;
@@ -321,7 +322,10 @@ namespace CastlePlanner
             delayShowDisconnectHook = new Hook(
                 delayShowDisconnect,
                 (DelayShowDisconnectDelegate)DelayShowDisconnectHook);
-            Application.onBeforeRender += OnBeforeRender;
+            if (!APIShared.ApiShared.ForMod(CastlePlannerPlugin.PluginGuid).Ui.TryRegisterBeforeRender(
+                "free-castle-preview", OnBeforeRender, out frameWork, out string schedulingReason, 110))
+                throw new InvalidOperationException("Free-castle preview scheduling unavailable: " + schedulingReason);
+            frameWork.SetContinuous(IsPreviewPendingOrActive);
             if (Shared.DebugLogHelper.DiagnosticsEnabled)
                 Shared.DebugLogHelper.LogDebug(
                     log,
@@ -1670,6 +1674,8 @@ namespace CastlePlanner
 
         private void NotifyAll()
         {
+            // Protocol retries and readiness barriers keep their original rendered-frame cadence.
+            frameWork?.SetContinuous(IsPreviewPendingOrActive);
             Notify(nameof(IsPreviewActive));
             Notify(nameof(IsSpawnMapPass));
             Notify(nameof(IsLocalConfirmed));

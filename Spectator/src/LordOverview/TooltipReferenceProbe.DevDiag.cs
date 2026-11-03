@@ -34,7 +34,8 @@ namespace Spectator.LordOverview
         private static void QueueAttach()
         {
             if (System.Threading.Interlocked.Exchange(ref pending, 1) != 0) return;
-            SHCDESE.API.UnityMainThreadDispatcher.EnqueueStatic(AttachSettings);
+            if (!APIShared.ApiShared.ForMod(SpectatorPlugin.PluginGuid).Ui.TryPost(AttachSettings))
+                System.Threading.Interlocked.Exchange(ref pending, 0);
         }
         private static void AttachSettings()
         {

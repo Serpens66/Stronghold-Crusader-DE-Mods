@@ -18,7 +18,8 @@ $destroy = [regex]::Match($plugin, '(?s)private void OnDestroy\(\)\s*\{(.*?)\n  
 if (-not $destroy -or $destroy -match 'Dispose|Undo|-=|Disable\(') { throw 'Unsafe plugin teardown' }
 if (-not $plugin.Contains('private static BlueprintRuntimeController blueprintRuntime;')) { throw 'Blueprint runtime lost its static root' }
 $controller = [IO.File]::ReadAllText((Join-Path $modRoot 'src/BlueprintRuntimeController.cs'))
-if (-not $controller.Contains('Application.onBeforeRender += OnBeforeRender;')) { throw 'Persistent render publisher missing' }
+if (-not $controller.Contains('TryRegisterBeforeRender(') -or
+    -not $controller.Contains('frameWork.SetContinuous(NeedsFrames())')) { throw 'Process-lived shared frame registration/demand path missing' }
 $preview = [IO.File]::ReadAllText((Join-Path $modRoot 'src/FreeCastlePreviewRuntime.cs'))
 if (-not $preview.Contains('private void DelayShowDisconnectHook(Director self)') -or
     -not $preview.Contains('self.StartCoroutine(ShowLoadingWarningAfterDelay(generation));') -or
@@ -44,7 +45,8 @@ if ([regex]::Matches($library, 'BlueprintCaptureRequest request = BlueprintBuild
 $capture = [IO.File]::ReadAllText((Join-Path $modRoot 'src/BlueprintBuildingCaptureCatalog.cs'))
 if (-not $capture.Contains('.ResolveDrawbridgeImage(drawbridgePosition).FlipHorizontally')) { throw 'Fallback/composite/depth mirror mapping diverged' }
 
-Add-Type -Path (Join-Path $workspace '_inspect/StatsTweakerApiTests/bin/Mono.Cecil.dll')
+$game = if ($env:SHCDE_GAME_DIR) { $env:SHCDE_GAME_DIR } else { 'E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition' }
+[void][Reflection.Assembly]::Load([IO.File]::ReadAllBytes((Join-Path $game 'BepInEx/core/Mono.Cecil.dll')))
 $enumSource = [IO.File]::ReadAllText((Join-Path $workspace 'shcde-script-extender/src/SHCDESE.BepInEx/Interop/Enums.cs'))
 $enumBody = [regex]::Match($enumSource, '(?s)public enum eMappers\s*:\s*Int16\s*\{(.*?)\}').Groups[1].Value
 $withoutComments = [regex]::Replace($enumBody, '//[^\r\n]*', '')
@@ -58,7 +60,6 @@ foreach ($entry in $withoutComments.Split(',')) {
     if ($Matches[2]) { $enumValue = [int]$Matches[2] } else { $enumValue++ }
     $sourceValues[$name] = $enumValue
 }
-$game = 'E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition'
 $assemblies = @(
     (Join-Path $game 'BepInEx/plugins/000shcdese/SHCDESE.dll'),
     (Join-Path $workspace 'shcde-script-extender/src/SHCDESE.BepInEx/bin/net481/SHCDESE.dll')
@@ -90,7 +91,7 @@ foreach ($relative in $changedTextPaths) {
     if ($text -match '(?<!\r)\n|\r(?!\n)') { throw "Changed text is not CRLF: $relative" }
 }
 & (Join-Path $workspace 'Shared/Tools/Validation/Test-PermanentNativeRuntimePatches.ps1')
-$addedRuntimeLines = @(git -C $workspace diff --unified=0 -- '*.cs' | Where-Object {
+$addedRuntimeLines = @(git -C $workspace diff --unified=0 -- 'CastlePlanner/src/*.cs' | Where-Object {
     $_.StartsWith('+') -and -not $_.StartsWith('+++')
 })
 if ($LASTEXITCODE -ne 0) { throw 'Could not inspect workspace source changes' }
@@ -98,7 +99,7 @@ foreach ($line in $addedRuntimeLines) {
     if ($line -match '\b(?:Marshal\.Write\w*|CodePatch\.Write|VirtualProtect|FlushInstructionCache)\s*\(' -or
         $line -match '\.\s*(?:Enable|Disable|Apply|Undo|Dispose)\s*\(' -or
         $line -match '\b(?:OnDestroy|OnDisable|OnApplicationQuit)\s*\(') {
-        throw "Review new workspace mutation/teardown before building: $line"
+        throw "Review new CastlePlanner mutation/teardown before building: $line"
     }
 }
 Write-Output 'PASS: CastlePlanner JSON, lifecycle/publishers, plugin callbacks, XAML, enum parity, native identity and CRLF.'

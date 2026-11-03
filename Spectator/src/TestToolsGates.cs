@@ -132,6 +132,7 @@ namespace Spectator
             if (!IsToolsSession()) return;
             pendingGate = null;
             gateHudLifecycle.Request(Interlocked.Read(ref toolsStateRevision));
+            RequestRender(); // An empty-map intent also has work even when pendingGate stays null.
             var tiles = GameTileManagerAPI.Instance;
             if (!tiles.IsTileInsideMapBounds(x, y)) return;
             int id = tiles.GetTileBuildingId(tiles.GetTileId(x, y));
@@ -289,7 +290,7 @@ namespace Spectator
                 (IsEditorToolsSession() ? " " + SerpLocalization.Get("Tools.EditorNotice") : "");
         }
 
-        private static unsafe void RefreshGateState()
+        private static unsafe void RefreshGateState(bool refreshState)
         {
             // QoL can publish its troop HUD through properties without a Vanilla method callback.
             // Observe this before a pending empty-map intent could request a default HUD rebuild.
@@ -299,6 +300,7 @@ namespace Spectator
                 view.Show_HUD_Building, view.Show_HUD_Main, view.Show_HUD_Troops))
             { pendingGate = null; ReleaseGateHud(false); }
             ApplyGateIntent();
+            if (!refreshState) return;
             if (selectedGate != null)
             {
                 if (selectedGate.Actor != humanSelectedOwner || !CurrentGate(selectedGate, out _)) ClearGateSelection();

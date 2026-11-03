@@ -107,7 +107,7 @@ namespace Spectator
                 !SpectatorPerspectiveRuntime.IsSpectatorObserver();
             if (stillHuman) RestoreBuildPage(saved);
             ReleaseDockBuildMenu(stillHuman);
-            toolbarDirty = toolbarLayoutDirty = true;
+            InvalidateToolbar();
         }
     }
 }

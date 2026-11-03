@@ -31,6 +31,9 @@ namespace AIBuildDiagnoseTest
         private readonly ManualLogSource log;
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
         private readonly ConcurrentQueue<string> output = new ConcurrentQueue<string>();
+        internal volatile Action OutputQueued;
+        internal bool HasOutput => !output.IsEmpty;
+        private void EnqueueOutput(string line) { output.Enqueue(line); OutputQueued?.Invoke(); }
         private readonly EconomyLogBudget budget = new EconomyLogBudget();
         private readonly EconomyLedger ledger = new EconomyLedger();
         private readonly Dictionary<string, long> counters = new Dictionary<string, long>();
@@ -173,7 +176,7 @@ namespace AIBuildDiagnoseTest
                         workerCauses.Reset(0);
                         removals.Reset(0);
                         string finalBudget = $"AI_ECONOMY_BUDGET: session={session}, tick={tick}, bytesBeforeBudgetLine={budget.Bytes}, reservedBytes={EconomyLogBudget.ReservedBytes}, routineBytes={budget.RoutineBytes}, causeBytes={budget.CauseBytes}, finalBytes={budget.FinalBytes}, omitted={string.Join("|", budget.Omitted)}.";
-                        if (budget.Accept("FINAL_BUDGET", finalBudget)) output.Enqueue(finalBudget);
+                        if (budget.Accept("FINAL_BUDGET", finalBudget)) EnqueueOutput(finalBudget);
                     }
                 }
             });
@@ -208,7 +211,7 @@ namespace AIBuildDiagnoseTest
         {
             lock (sync) coverage[feature] = $"available={available}/{detail}";
             // Initialization diagnostics are independent of an active mission.
-            output.Enqueue($"AI_ECONOMY_CAPABILITY: feature={feature}, available={available}, status={(available ? "available" : expectedUnavailable ? "unsupported" : "failed")}, detail={detail}.");
+            EnqueueOutput($"AI_ECONOMY_CAPABILITY: feature={feature}, available={available}, status={(available ? "available" : expectedUnavailable ? "unsupported" : "failed")}, detail={detail}.");
         }
         private bool Observe(int player) => active && player >= 1 && player <= 8 && GamePlayerManagerAPI.Instance.IsAIPlayer(player);
         private void Safe(Action action)
@@ -220,7 +223,7 @@ namespace AIBuildDiagnoseTest
                 {
                     captureFailures++;
                     if ((captureFailures & (captureFailures - 1)) == 0)
-                        output.Enqueue($"AI_ECONOMY_CAPTURE_FAILED: session={session}, tick={tick}, count={captureFailures}, error={ex.GetType().Name}:{ex.Message}.");
+                        EnqueueOutput($"AI_ECONOMY_CAPTURE_FAILED: session={session}, tick={tick}, count={captureFailures}, error={ex.GetType().Name}:{ex.Message}.");
                 }
             }
         }
@@ -246,12 +249,12 @@ namespace AIBuildDiagnoseTest
         private void Emit(string kind, int player, long operation, string detail, bool final = false)
         {
             string line = $"AI_ECONOMY_{kind}: observedAt={DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}, session={session}, tick={tick}, player={player}, operation={operation}, {detail}.";
-            if (budget.Accept(final ? "FINAL_" + kind : kind, line)) output.Enqueue(line);
+            if (budget.Accept(final ? "FINAL_" + kind : kind, line)) EnqueueOutput(line);
             else if (!overflowReported)
             {
                 overflowReported = true;
                 string warning = $"AI_ECONOMY_OVERFLOW: session={session}, tick={tick}, reservedBytes={EconomyLogBudget.ReservedBytes}, firstOmittedCategory={kind}; independentRoutineCauseFinalBudgets=true; subsequentDetailsIncomplete=true.";
-                if (budget.Accept("FINAL_OVERFLOW", warning)) output.Enqueue(warning);
+                if (budget.Accept("FINAL_OVERFLOW", warning)) EnqueueOutput(warning);
             }
         }
         private void Change(string key, string kind, int player, long op, string detail)

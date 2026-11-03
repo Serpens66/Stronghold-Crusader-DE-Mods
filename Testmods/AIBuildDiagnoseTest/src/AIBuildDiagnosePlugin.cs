@@ -8,7 +8,7 @@ using System;
 namespace AIBuildDiagnoseTest
 {
     [BepInDependency("000shcdese", "2.14.0")]
-    [BepInDependency("APIShared_Serp", "0.9.2")]
+    [BepInDependency("APIShared_Serp", "0.26.0")]
     [BepInDependency("BugfixesAndQoL_Serp", "1.0.192")]
     [BepInDependency("fixes", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("Spectator_Serp", BepInDependency.DependencyFlags.SoftDependency)]
@@ -23,6 +23,7 @@ namespace AIBuildDiagnoseTest
         private static Action<AiBuildDiagnosticRecord> generalCapture;
         private static IDisposable sessionSubscription;
         private static bool registered;
+        private static APIShared.Presentation.IUiFrameWorkRegistration economyOutputWork;
         private void Awake()
         {
             log = Logger;
@@ -52,7 +53,9 @@ namespace AIBuildDiagnoseTest
                     Shared.DebugLogHelper.LogWarning(log, "AI_BUILD_OBSERVATION_BRIDGE_UNAVAILABLE: " + sinkError);
                 runtime.TryInstallGeneralSiteSearchHooks(context);
                 runtime.InitializeEconomy(context, hash);
-                UnityEngine.Application.onBeforeRender += DrainEconomy;
+                if (!ApiShared.ForMod(Guid).Ui.TryRegisterBeforeRender("economy-output", DrainEconomy,
+                    out economyOutputWork, out string reason, 100)) throw new InvalidOperationException(reason);
+                runtime.SetEconomyOutputWake(RequestEconomyOutput);
                 AppDomain.CurrentDomain.ProcessExit += OnProcessExit;
                 Shared.DebugLogHelper.LogInfo(log, "AI_BUILD_DIAGNOSTIC_READY: publisher=GameTimeManagerAPI.OnTick; " +
                     "observer=" + AiBuildDiagnostic.HasObserver + ", schedulerHook=" + AiBuildDiagnostic.SchedulerReady +
@@ -65,7 +68,12 @@ namespace AIBuildDiagnoseTest
             AiBuildExperimentBridge.Dispatch(record, generalCapture, log);
         }
         private static void OnTick(int tick) => runtime?.OnTick(tick);
-        private static void DrainEconomy() => runtime?.DrainEconomy();
+        private static void RequestEconomyOutput() => economyOutputWork?.Request();
+        private static void DrainEconomy()
+        {
+            try { runtime?.DrainEconomy(); }
+            finally { if (runtime?.HasEconomyOutput == true) RequestEconomyOutput(); }
+        }
         private static void OnProcessExit(object sender, EventArgs args) => runtime?.DrainEconomyOnExit();
     }
 }

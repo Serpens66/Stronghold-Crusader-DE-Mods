@@ -11,7 +11,7 @@ namespace AIWoodSafetyTest
 {
     [BepInPlugin(Guid, "AI Wood Safety Test", Version)]
     [BepInDependency("000shcdese", "2.14.0")]
-    [BepInDependency("APIShared_Serp", "0.9.2")]
+    [BepInDependency("APIShared_Serp", "0.26.0")]
     [BepInDependency("BugfixesAndQoL_Serp", "1.0.192")]
     [BepInDependency("AIBuildDiagnoseTest_Serp", "0.2.1")]
     [BepInDependency("fixes", BepInDependency.DependencyFlags.SoftDependency)]
@@ -22,6 +22,7 @@ namespace AIWoodSafetyTest
         private static ConfigEntry<bool> build, death;
         private static WoodSafetyRuntime runtime;
         private static bool registered;
+        private static APIShared.Presentation.IUiFrameWorkRegistration outputWork;
         private static readonly CompositeDisposable subscriptions = new CompositeDisposable();
         private void Awake()
         {
@@ -45,15 +46,23 @@ namespace AIWoodSafetyTest
                 BuildingR3EventHooks.OnBuildingCapture.Observable.Subscribe(e => runtime.BuildingChanged(e.BuildingId)).AddTo(subscriptions);
                 BuildingR3EventHooks.OnPlacementValidation.Observable.Subscribe(e => runtime.ValidatePlacement(e)).AddTo(subscriptions);
                 GameTimeManagerAPI.Instance.OnTick += Tick;
-                UnityEngine.Application.onBeforeRender += Drain;
+                if (!APIShared.ApiShared.ForMod(Guid).Ui.TryRegisterBeforeRender("diagnostic-output",
+                    Drain, out outputWork, out string reason, 100)) throw new InvalidOperationException(reason);
+                runtime.OutputQueued = RequestOutput;
+                if (runtime.HasOutput) RequestOutput();
                 AppDomain.CurrentDomain.ProcessExit += Exit;
-                runtime.Info("READY publisher=MissionLifecycle/OnTick/onBeforeRender; processRooted=true; runtimeGameMembers=none");
+                runtime.Info("READY publisher=MissionLifecycle/OnTick/UiWork; processRooted=true; runtimeGameMembers=none");
             }
             catch (Exception ex) { Shared.DebugLogHelper.LogError(log, "AI_WOOD_SAFETY_INITIALIZATION_FAILED: " + ex); }
         }
         private static void Start(Shared.GameplaySessionStartedContext context) => runtime.Start(context, build.Value, death.Value);
         private static void Tick(int tick) => runtime?.Tick(tick);
-        private static void Drain() => runtime?.Drain();
+        private static void RequestOutput() => outputWork?.Request();
+        private static void Drain()
+        {
+            try { runtime?.Drain(); }
+            finally { if (runtime?.HasOutput == true) RequestOutput(); }
+        }
         private static void Exit(object sender, EventArgs args) => runtime?.FinishAndDrain();
     }
 }

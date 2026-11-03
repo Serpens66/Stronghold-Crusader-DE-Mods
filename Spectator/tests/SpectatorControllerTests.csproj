@@ -4,5 +4,7 @@
 <ItemGroup><Compile Include="..\src\BuildMenuLease.cs"/></ItemGroup>
 <ItemGroup><Compile Include="SpectatorDefeatRuntimeTests.cs"/><Compile Include="..\src\SpectatorDefeat.cs"/><Compile Include="..\src\SpectatorObserverActionPolicy.cs"/></ItemGroup>
 <ItemGroup><Compile Include="..\src\StatusInlineFormat.cs"/><Compile Include="StatusInlineFormatTests.cs"/></ItemGroup>
+<ItemGroup><Compile Include="..\src\ToolbarRefreshPolicy.cs"/></ItemGroup>
+<ItemGroup><Compile Include="..\src\PresentationRefreshState.cs"/></ItemGroup>
 <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets"/>
 </Project>

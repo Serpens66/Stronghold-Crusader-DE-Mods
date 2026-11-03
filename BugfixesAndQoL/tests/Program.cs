@@ -40,6 +40,15 @@ namespace BugfixesAndQoL
 
         private static int Main(string[] args)
         {
+            if (args.Length == 1 && args[0] == "--ui-work")
+            {
+                TestTimerCountdownMigration();
+                TestStatisticsTeamBadgeIntegration(File.ReadAllText(Path.Combine(FindProjectDirectory(), "src", "StatisticsTeamBadges.cs")));
+                TestMultiplayerLobbyReturnIntegration();
+                TestPacketThreadMarshallingContracts();
+                Console.WriteLine("Shared UI work integration: failures=" + failures);
+                return failures == 0 ? 0 : 1;
+            }
             if (args.Length == 1 && args[0] == "--spectator-migration")
             {
                 TestSurrenderSelectionCleanup();
@@ -217,11 +226,28 @@ namespace BugfixesAndQoL
                   throwingViewModel.OstRemaining == string.Empty,
                 "a failing countdown notification is caught without a second SetRemaining attempt");
 
+            var recoveringViewModel = new TimerCountdownViewModel();
+            recoveringViewModel.SetRemaining("0:10", "0:05");
+            bool failClearOnce = true;
+            var recoveredNotifications = new List<string>();
+            recoveringViewModel.PropertyChanged += (_, args) => {
+                if (failClearOnce) { failClearOnce = false; throw new InvalidOperationException("transient clear failure"); }
+                recoveredNotifications.Add(args.PropertyName);
+            };
+            Check(!recoveringViewModel.TrySetRemaining(string.Empty, string.Empty, out _) && recoveredNotifications.Count == 0,
+                "a failed clear leaves notification work for a later attempt");
+            Check(recoveringViewModel.TrySetRemaining(string.Empty, string.Empty, out _) &&
+                  recoveredNotifications.SequenceEqual(new[] { "ObjectiveRemaining", "ObjectiveVisibility", "OstRemaining", "OstVisibility" }) &&
+                  recoveringViewModel.ObjectiveVisibility == Noesis.Visibility.Collapsed && recoveringViewModel.OstVisibility == Noesis.Visibility.Collapsed,
+                "retry finishes both text and visibility notifications after partial clear failure");
+
             string feature = File.ReadAllText(Path.Combine("src", "TimerCountdownFeature.cs"));
             string settings = File.ReadAllText(Path.Combine("src", "BugfixesAndQoLViewModel.cs"));
             string xaml = File.ReadAllText(Path.Combine(
                 "Override", "ScriptExtenderUI", "BugfixesAndQoLSettings.xaml"));
-            Check(feature.Contains("Application.onBeforeRender += OnBeforeRender") &&
+            // The runtime fixture verifies scheduling behavior; these checks retain the local
+            // presentation/setting/error boundaries without prescribing a Unity event subscription.
+            Check(feature.Contains("TryRegisterBeforeRender") &&
                   feature.Contains("lastRenderedFrame == frame") &&
                   feature.Contains("enabled = settings.EnableClientFeatures && settings.ShowCountdownTimers;") &&
                   feature.Contains("if (!enabled && Volatile.Read(ref clearPending) == 0) return;") &&
@@ -233,7 +259,7 @@ namespace BugfixesAndQoL
                   settings.Contains("new LocalPerPlayerSetting<bool>(true);") &&
                   settings.Contains("public bool ShowCountdownTimers") &&
                   xaml.Contains("IsChecked=\"{Binding ShowCountdownTimers, Mode=TwoWay}\""),
-                "countdown stays on the permanent Unity render path with a default-on player setting");
+                "countdown uses shared Unity presentation with a default-on player setting");
         }
 
         private static void TestPermanentManagedRuntimeHooks()

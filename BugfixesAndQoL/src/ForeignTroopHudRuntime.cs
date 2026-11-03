@@ -44,7 +44,7 @@ namespace BugfixesAndQoL
         private static int resetPending;
         private static int activeSurfaces;
         private static int lastFrame = -1;
-        private static float nextRefreshAt;
+        private static APIShared.Presentation.IUiFrameWorkRegistration frameWork;
         private static EngineInterface.PlayState stateBeforeReady;
         private static MainViewModel ownedTroopHud;
         private static string lastSpectatorSelectionKey;
@@ -65,6 +65,9 @@ namespace BugfixesAndQoL
             camera = cameraFeature;
             view = new ForeignTroopHudView();
             view.CenterOnGroup = CenterOnGroup;
+            if (!ApiShared.ForMod(BugfixesAndQoLPlugin.PluginGuid).Ui.TryRegisterBeforeRender(
+                "foreign-troop-hud", OnBeforeRender, out frameWork, out string reason, 100))
+                throw new InvalidOperationException("Foreign troop HUD scheduling unavailable: " + reason);
             if (!ApiShared.Current.TryGetMissionLifecycle(BugfixesAndQoLPlugin.PluginGuid, out lifecycle, out NativeCapabilityDiagnostic diagnostic))
                 throw new InvalidOperationException("APIShared mission lifecycle unavailable: " + diagnostic?.Reason);
             if (!lifecycle.TryRegisterObserver("BugfixesAndQoL.ForeignTroopHud", OnSessionStarted, OnSessionEnded, null, out diagnostic))
@@ -73,7 +76,6 @@ namespace BugfixesAndQoL
                 throw new InvalidOperationException("APIShared marked-unit selection observer registration failed.");
             settings.SettingChanged += OnSettingChanged;
             PublishActivation();
-            Application.onBeforeRender += OnBeforeRender;
             initialized = true;
             Shared.DebugLogHelper.LogDebug(log, "FOREIGN_TROOP_HUD_INITIALIZED: static render publisher and APIShared mission events registered.");
         }
@@ -84,7 +86,7 @@ namespace BugfixesAndQoL
             Volatile.Write(ref markedSnapshot, null);
             stateBeforeReady = GameData.Instance?.lastGameState;
             Interlocked.Exchange(ref resetPending, 1);
-            nextRefreshAt = 0f;
+            frameWork.Request();
             lastExceptionKey = null;
             lastHideExceptionKey = null;
             lordIconWarningLogged = false;
@@ -101,7 +103,7 @@ namespace BugfixesAndQoL
             Volatile.Write(ref markedSnapshot, null);
             stateBeforeReady = null;
             Interlocked.Exchange(ref resetPending, 1);
-            nextRefreshAt = 0f;
+            frameWork.Request();
             lastExceptionKey = null;
             lastHideExceptionKey = null;
             lordIconWarningLogged = false;
@@ -114,6 +116,7 @@ namespace BugfixesAndQoL
         {
             // This may run inside EngineInterface.run. No Noesis or HUD work belongs here.
             Volatile.Write(ref markedSnapshot, selection);
+            frameWork.Request();
         }
 
         private static void OnSettingChanged(string propertyName)
@@ -129,8 +132,8 @@ namespace BugfixesAndQoL
                 ? (settings.ShowForeignTroopHud ? 1 : 0) | (settings.ShowSelectedUnitHealth ? 2 : 0) : 0;
             if (Interlocked.Exchange(ref activeSurfaces, next) != next)
             {
-                nextRefreshAt = 0f;
                 Interlocked.Exchange(ref resetPending, 1);
+                frameWork.Request();
             }
         }
 
@@ -140,9 +143,6 @@ namespace BugfixesAndQoL
             if (surfaces == 0 && Volatile.Read(ref resetPending) == 0) return;
             if (Time.frameCount == lastFrame) return;
             lastFrame = Time.frameCount;
-            float now = Time.realtimeSinceStartup;
-            if (now < nextRefreshAt && (Volatile.Read(ref resetPending) == 0 || surfaces == 0)) return;
-            nextRefreshAt = now + 0.1f;
             try
             {
                 if (Interlocked.Exchange(ref resetPending, 0) != 0)
@@ -162,8 +162,9 @@ namespace BugfixesAndQoL
             }
             catch (Exception error)
             {
-                // If cleanup failed, a disabled surface must still get another main-thread attempt.
-                if (Volatile.Read(ref activeSurfaces) == 0) Interlocked.Exchange(ref resetPending, 1);
+                // Reset may already have consumed its flag before a Noesis hide/reset failed.
+                // Preserve idempotent cleanup demand even after a session ends with features enabled.
+                Interlocked.Exchange(ref resetPending, 1);
                 string key = error.GetType().FullName + ":" + error.Message;
                 try { HideForeignHud(); }
                 catch (Exception hideError)
@@ -176,6 +177,12 @@ namespace BugfixesAndQoL
                 if (key == lastExceptionKey) return;
                 lastExceptionKey = key;
                 Shared.DebugLogHelper.LogError(log, "FOREIGN_TROOP_HUD_ERROR: " + error);
+            }
+            finally
+            {
+                if (Volatile.Read(ref resetPending) != 0 ||
+                    Volatile.Read(ref activeSurfaces) != 0 && activeSession != null)
+                    frameWork.RequestAfter(TimeSpan.FromMilliseconds(100));
             }
         }
 

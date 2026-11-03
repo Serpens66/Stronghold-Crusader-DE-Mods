@@ -64,6 +64,7 @@ namespace CastlePlanner
         private bool beforeRenderCallbackObserved;
         private bool depthLoadReady;
         private bool hudObserverPending;
+        private APIShared.Presentation.IUiFrameWorkRegistration frameWork;
         private MainViewModel observedHudViewModel;
         private APIShared.IHudExtrasButtonRegistration hudExtrasRegistration;
         private Hook cameraUpdateHook;
@@ -102,6 +103,10 @@ namespace CastlePlanner
                 sizeCalibration,
                 buildingImageLibrary);
             Hud = new BlueprintHudViewModel(ToggleBlueprint, settings, preview);
+            if (!APIShared.ApiShared.ForMod(CastlePlannerPlugin.PluginGuid).Ui.TryRegisterBeforeRender(
+                "blueprint-presentation", OnBeforeRender, out frameWork, out string schedulingReason, 100))
+                throw new InvalidOperationException("Blueprint scheduling unavailable: " + schedulingReason);
+            Hud.PropertyChanged += (_, __) => RequestFrame();
             RegisterHudExtrasButton();
             InitializeSpectatorBlueprints();
             InstallEditorPlayerHook();
@@ -138,13 +143,13 @@ namespace CastlePlanner
             // Blueprint input, camera, and overlay work must follow rendered frames even while
             // simulation ticks are paused. This verified static callback survives startup, and
             // TickOncePerFrame deduplicates multiple callbacks within the same rendered frame.
-            Application.onBeforeRender += OnBeforeRender;
+            RequestFrame();
             Application.focusChanged += OnApplicationFocusChanged;
             if (Shared.DebugLogHelper.DiagnosticsEnabled)
                 Shared.DebugLogHelper.LogDebug(
                     log,
                     "Persistent local blueprint runtime initialized; " +
-                    "Application.onBeforeRender frame loop and focus-loss guard " +
+                    "APIShared presentation work and focus-loss guard " +
                     "registered.");
         }
 
@@ -217,6 +222,19 @@ namespace CastlePlanner
         }
         private void OnBeforeRender()
         {
+            if (!initialized) return;
+            try { PresentFrame(); }
+            finally { frameWork.SetContinuous(NeedsFrames()); }
+        }
+
+        private void RequestFrame() => frameWork?.Request();
+
+        private bool NeedsFrames() => blueprintVisible || hotkeyCapturePending || depthLoadReady ||
+            mapActive && buildingImageLibrary.HasCompletedDepthRead || (Hud?.RequiresFrameInput ?? false) ||
+            hudObserverPending || editorSessionActive && editorControlledPlayerId < 1;
+
+        private void PresentFrame()
+        {
             // Reuse the existing frame path: only cached identity fields, no native query.
             try
             {
@@ -251,7 +269,7 @@ namespace CastlePlanner
                 beforeRenderCallbackObserved = true;
                 Shared.DebugLogHelper.LogDebug(
                     log,
-                    "Persistent Application.onBeforeRender blueprint callback is active.");
+                    "Persistent APIShared blueprint presentation callback is active.");
             }
 
             try
@@ -524,6 +542,7 @@ namespace CastlePlanner
         private void OnHotkeyCaptureRequested()
         {
             hotkeyCapturePending = true;
+            RequestFrame();
             hotkeyCaptureStartFrame = Time.frameCount;
             hotkeyCaptureIgnoredKeys.Clear();
 
@@ -706,6 +725,7 @@ namespace CastlePlanner
         private void OnDepthReadCompleted()
         {
             depthLoadReady = mapActive;
+            RequestFrame();
         }
 
         private void OnBuildingSpawned(BuildingSpawnEventArgs args)
@@ -1075,6 +1095,7 @@ namespace CastlePlanner
 
         private void ResetMapState()
         {
+            RequestFrame();
             spectatorSaveLoaded = false;
             ResetSpectatorBlueprints();
             if (observedHudViewModel != null)
@@ -1135,6 +1156,7 @@ namespace CastlePlanner
 
         private void RefreshHud()
         {
+            RequestFrame();
             if (Hud == null) return;
             bool spectator = HasSpectatorIdentity;
             string name = spectator && spectatorPlayer >= 1 && spectatorPlayer <= 8 ? Platform_Multiplayer.Instance.getSkirmishName(spectatorPlayer) : "";

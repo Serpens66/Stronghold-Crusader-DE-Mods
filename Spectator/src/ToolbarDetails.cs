@@ -17,8 +17,10 @@ namespace Spectator
         private static TextBlock statusText, orderStatusText;
         private static void OnToolsModelChanged(object sender, System.ComponentModel.PropertyChangedEventArgs args)
         {
-            toolbarDirty = true;
-            toolbarLayoutDirty = true;
+            ToolbarRefresh refresh = ToolbarRefreshPolicy.ForProperty(args.PropertyName);
+            if ((refresh & ToolbarRefresh.Status) != 0) RequestToolbarStatus();
+            if ((refresh & ToolbarRefresh.Layout) != 0) RequestToolbarLayout();
+            if ((refresh & ToolbarRefresh.State) != 0) InvalidatePresentationState();
             if (args.PropertyName == nameof(TestToolsViewModel.ExpandedVisibility) && toolsModel?.Expanded != true)
             { ClosePlayerTooltips(); amountInput?.EndEditing(); }
         }

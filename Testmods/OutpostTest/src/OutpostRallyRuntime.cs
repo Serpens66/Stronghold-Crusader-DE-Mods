@@ -16,12 +16,14 @@ namespace OutpostTest
         private byte[] loadedRally;
         private readonly List<IDisposable> rallySubscriptions=new List<IDisposable>();
         private OutpostRallyView rallyView;
-        private bool rallyRegistered, dispatchingRally, frameFailed, inputFailed;
+        private bool rallyRegistered, dispatchingRally, inputFailed;
+        private volatile bool frameFailed;
         private int dispatchTribe, presentationRevision, shownRevision=-1;
         private readonly OutpostPresentationState presentation=new OutpostPresentationState();
         private bool renderConfirmed;
         private readonly OutpostFrameMetrics frameMetrics=new OutpostFrameMetrics();
         private long? moveResult;
+        private APIShared.Presentation.IUiFrameWorkRegistration rallyFrameWork;
         internal void RegisterRally()
         {
             if(rallyRegistered) return;
@@ -51,8 +53,12 @@ namespace OutpostTest
                 (bytes,context)=> { if(context.IsSaveFile) lock(rallyLock) loadedRally=(byte[])bytes.Clone(); },
                 ()=> { lock(rallyLock) { loadedRally=null; rally=new OutpostRallyState(); Interlocked.Increment(ref presentationRevision); } }))
                 throw new InvalidOperationException("Outpost rally save handler already registered.");
-            UnityEngine.Application.onBeforeRender += PresentRally;
+            if(!APIShared.ApiShared.ForMod(OutpostTestPlugin.Guid).Ui.TryRegisterBeforeRender(
+                "rally-presentation",PresentRally,out rallyFrameWork,out string reason,100))
+                throw new InvalidOperationException(reason);
             rallyRegistered=true;
+            rallyFrameWork.SetContinuous(active && !frameFailed);
+            rallyFrameWork.Request();
             Info("rally ready: middle click, per-outpost save data, Hold and one-shot native running orders");
         }
         internal void FailInitialization()
@@ -115,7 +121,7 @@ namespace OutpostTest
                 }
                 rallyView.Present(hasPoint,x,y);
             } catch(Exception ex) {
-                frameFailed=true;
+                frameFailed=true; rallyFrameWork.SetContinuous(false);
                 try { rallyView.Hide(); } catch { }
                 Shared.DebugLogHelper.LogError(log,"OutpostTest presentation disabled: "+ex);
             } finally {

@@ -7,7 +7,7 @@ namespace BugfixesAndQoL
     {
         internal const int TicksPerSecond = 40;
 
-        // The countdown is refreshed every frame but changes once per second; reuse the last text.
+        // Cosmetic refreshes can outnumber displayed-second changes; reuse the last text.
         private sealed class FormattedSeconds
         {
             internal FormattedSeconds(long seconds, string text) { Seconds = seconds; Text = text; }

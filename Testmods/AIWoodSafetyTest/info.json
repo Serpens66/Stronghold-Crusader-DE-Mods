@@ -7,7 +7,7 @@
   "MinimumScriptExtenderVersion": "2.14.0",
   "MaximumScriptExtenderVersion": "",
   "Dependencies": [
-    { "GUID": "APIShared_Serp", "MinimumVersion": "0.9.2" },
+    { "GUID": "APIShared_Serp", "MinimumVersion": "0.26.0" },
     { "GUID": "BugfixesAndQoL_Serp", "MinimumVersion": "1.0.192" },
     { "GUID": "AIBuildDiagnoseTest_Serp", "MinimumVersion": "0.2.1" }
   ],

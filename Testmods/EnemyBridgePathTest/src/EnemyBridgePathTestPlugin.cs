@@ -14,7 +14,7 @@ namespace EnemyBridgePathTest
 {
     [BepInPlugin("EnemyBridgePathTest_Serp", "Enemy Bridge Path Test", "0.1.0")]
     [BepInDependency("000shcdese", "2.14.0")]
-    [BepInDependency("APIShared_Serp", "0.4.12")]
+    [BepInDependency("APIShared_Serp", "0.26.0")]
     [BepInDependency("BugfixesAndQoL_Serp")]
     public sealed class EnemyBridgePathTestPlugin : BaseUnityPlugin
     {
@@ -23,6 +23,7 @@ namespace EnemyBridgePathTest
         private static BridgeDiagnostics runtime;
         private static IDisposable started, ended, target, move, unit, movement, buildingSpawn, buildingDelete, buildingCapture, buildingDamage;
         private static int frame = -1;
+        private static APIShared.Presentation.IUiFrameWorkRegistration renderWork;
         private void Awake()
         {
             if (runtime != null) return;
@@ -42,7 +43,11 @@ namespace EnemyBridgePathTest
             buildingDelete = BuildingR3EventHooks.OnBuildingDelete.Observable.Subscribe(_ => runtime.Trace.InvalidateBuildings());
             buildingCapture = BuildingR3EventHooks.OnBuildingCapture.Observable.Subscribe(runtime.BuildingCapture);
             buildingDamage = BuildingR3EventHooks.OnBuildingTileTakeDamage.Observable.Subscribe(runtime.BuildingDamage);
-            Application.onBeforeRender += Render;
+            // Deferred includes artifact completion and native frame retirement; retain its cadence.
+            if (!ApiShared.ForMod("EnemyBridgePathTest_Serp").Ui.TryRegisterBeforeRender(
+                "deferred-diagnostics", Render, out renderWork, out string reason, 100))
+                throw new InvalidOperationException(reason);
+            renderWork.SetContinuous(true);
             Shared.DebugLogHelper.LogInfo(Logger,
                 "EnemyBridgePathTest registered: diagnosis-only, no gate provider, passive native decision probes, no active edge mask.");
         }

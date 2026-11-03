@@ -17,11 +17,12 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(GameDir)' == ''"><GameDir>E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition</GameDir></PropertyGroup>
   <PropertyGroup Condition="'$(ExtenderDir)' == ''"><ExtenderDir>$(GameDir)\BepInEx\plugins\000shcdese</ExtenderDir></PropertyGroup>
+  <PropertyGroup Condition="'$(ApiSharedDir)' == ''"><ApiSharedDir>$(GameDir)\BepInEx\plugins\APIShared_Serp</ApiSharedDir></PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="BepInEx"><HintPath>$(GameDir)\BepInEx\core\BepInEx.dll</HintPath><Private>false</Private></Reference>
-    <Reference Include="APIShared"><HintPath>$(GameDir)\BepInEx\plugins\APIShared_Serp\APIShared.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="APIShared"><HintPath>$(ApiSharedDir)\APIShared.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="Assembly-CSharp"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\Assembly-CSharp.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="Noesis.NoesisGUI"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\Noesis.NoesisGUI.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="SHCDESE"><HintPath>$(ExtenderDir)\SHCDESE.dll</HintPath><Private>false</Private></Reference>

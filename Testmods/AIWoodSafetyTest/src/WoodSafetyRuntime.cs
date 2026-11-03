@@ -313,7 +313,10 @@ namespace AIWoodSafetyTest
                 if (logBytes + bytes > limit) { logOmitted++; return; }
                 logBytes += bytes; output.Enqueue(line);
             }
+            OutputQueued?.Invoke();
         }
+        internal volatile Action OutputQueued;
+        internal bool HasOutput => !output.IsEmpty;
         private void Write(string line)
         {
             if (line.Contains("_FAILED") || line.Contains("UNSUPPORTED_NATIVE")) log?.LogError(line);

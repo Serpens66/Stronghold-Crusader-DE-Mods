@@ -59,6 +59,7 @@ namespace Spectator
 
         private static void ResetSessionState()
         {
+            ResetPresentationScheduling();
             ResetTestActions(0);
             ResetSpriteColourLease();
             SetRevealHidden(0);

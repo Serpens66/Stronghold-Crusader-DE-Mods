@@ -35,6 +35,8 @@ namespace OutpostTest
                 m.Kind != APIShared.GameModes.GameModeKind.Unknown && m.Kind != APIShared.GameModes.GameModeKind.Tutorial;
             native.Enabled = active; initialBypasses = native.Bypasses;
             lock(rallyLock) RestoreRally(n.Context.IsSave);
+            rallyFrameWork?.SetContinuous(active && !frameFailed);
+            rallyFrameWork?.Request();
             Info($"session={n.Context.SessionId} save={n.Context.IsSave} active={active} mode=incremental-macemen; {m.ToDiagnosticString()}");
         }
         internal void End(MissionLifecycleNotification _) => Disable("mission ended");
@@ -42,6 +44,8 @@ namespace OutpostTest
         {
             native.Enabled = false; active = false; entries.Clear(); lastTick = int.MinValue; confirmed = false;
             lock(rallyLock) { rally=new OutpostRallyState(); System.Threading.Interlocked.Increment(ref presentationRevision); }
+            rallyFrameWork?.SetContinuous(false);
+            rallyFrameWork?.Request(); // Publish reset state before waking Unity to hide the old view.
             // Native building fields retain unfinished groups for saves and Vanilla fallback.
             Info("inactive: " + reason);
         }

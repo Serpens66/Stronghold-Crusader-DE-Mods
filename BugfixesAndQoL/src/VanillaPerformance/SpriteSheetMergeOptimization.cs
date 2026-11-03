@@ -43,6 +43,7 @@ namespace BugfixesAndQoL.VanillaPerformance
         private static ManualLogSource log;
         private static Func<SpriteSheetMergeMode> selectedMode;
         private static int armed, decided, applied, loadCalls;
+        private static APIShared.Presentation.IUiFrameWorkRegistration spriteWaitWork;
 
         private sealed class Sheet
         {
@@ -89,8 +90,11 @@ namespace BugfixesAndQoL.VanillaPerformance
                 if (load == null || load.ReturnType != typeof(void))
                     throw new MissingMethodException("spriteLoader.loadSprites signature differs from the audit.");
                 harmony.Patch(load, prefix: new HarmonyMethod(typeof(SpriteSheetMergeOptimization), nameof(BeforeLoadSprites)));
-                // No public "sprites loaded" event exists; after the decision this is a single int read per frame.
-                Application.onBeforeRender += WaitForSprites;
+                // No public "sprites loaded" event exists; frame demand ends with the startup decision.
+                if (!APIShared.ApiShared.ForMod(BugfixesAndQoLPlugin.PluginGuid).Ui.TryRegisterBeforeRender(
+                    "sprite-sheet-startup", WaitForSprites, out spriteWaitWork, out string reason, 100))
+                    throw new InvalidOperationException("Sprite readiness scheduling unavailable: " + reason);
+                spriteWaitWork.SetContinuous(true);
             }
             catch (Exception exception)
             {
@@ -117,6 +121,7 @@ namespace BugfixesAndQoL.VanillaPerformance
             spriteLoader loader = spriteLoader.instance;
             if (loader == null || !loader.spritesLoaded) return;
             Volatile.Write(ref decided, 1);
+            spriteWaitWork.SetContinuous(false);
             try { Decide(loader); }
             catch (Exception exception)
             {

@@ -1,6 +1,7 @@
 using APIShared.GameModes;
 using System;
 using APIShared;
+using APIShared.Presentation;
 using BepInEx.Logging;
 using CrusaderDE;
 using Noesis;
@@ -34,10 +35,10 @@ namespace Spectator
         private static bool initializationPending;
         private static bool hudPending;
         private static bool resetHudPending;
-        private static bool renderSubscribed;
+        private static IUiFrameWorkRegistration pendingRenderWork;
+        private static bool pendingRenderActive;
         private static bool failureLogged;
         private static int selectedPlayer;
-        private static int lastPendingFrame = -1;
         private static float pendingSince;
         private static string selectedName;
         private static bool[] occupiedSlots;
@@ -67,6 +68,9 @@ namespace Spectator
                 SpectatorReportHooks.Install();
                 InitializeReportRefresh();
                 SpectatorAllyHooks.Install();
+                if (!ApiShared.ForMod(SpectatorPlugin.PluginGuid).Ui.TryRegisterBeforeRender("perspective-pending",
+                    OnPendingRender, out pendingRenderWork, out string renderReason, order: 110))
+                    throw new InvalidOperationException("Perspective UI scheduling unavailable: " + renderReason);
                 if (!ApiShared.Current.TryGetMissionLifecycle(SpectatorPlugin.PluginGuid,
                     out IMissionLifecycleCapability lifecycle, out NativeCapabilityDiagnostic diagnostic))
                     throw new InvalidOperationException("Mission lifecycle unavailable: " + diagnostic?.Reason);
@@ -184,24 +188,24 @@ namespace Spectator
 
         private static void ArmRenderIfNeeded()
         {
-            if (renderSubscribed) return;
+            if (pendingRenderWork == null || pendingRenderActive) return;
             pendingSince = Time.realtimeSinceStartup;
-            renderSubscribed = true;
-            Application.onBeforeRender += OnPendingRender;
+            pendingRenderActive = true;
+            pendingRenderWork.SetContinuous(true);
+            pendingRenderWork.Request();
         }
 
         private static void StopRenderIfIdle()
         {
-            if (!renderSubscribed || resetHudPending || initializationPending || hudPending ||
+            if (!pendingRenderActive || resetHudPending || initializationPending || hudPending ||
                 reportRefresh.Pending || alliesStateBeforeSwitch != null) return;
-            Application.onBeforeRender -= OnPendingRender;
-            renderSubscribed = false;
+            pendingRenderWork.SetContinuous(false);
+            pendingRenderWork.CancelPending();
+            pendingRenderActive = false;
         }
 
         private static void OnPendingRender()
         {
-            if (lastPendingFrame == Time.frameCount) return;
-            lastPendingFrame = Time.frameCount;
             try
             {
                 if (resetHudPending)

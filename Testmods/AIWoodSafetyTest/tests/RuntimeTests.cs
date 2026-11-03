@@ -19,6 +19,24 @@ namespace AIWoodSafetyTest.Tests
             return r;
         }
         [TestMethod]
+        public void CopiedOutputWakesPresentationAndBoundedDrainsRetainTheRemainder()
+        {
+            var runtime = new WoodSafetyRuntime(null);
+            int wakes = 0;
+            runtime.OutputQueued = () => Interlocked.Increment(ref wakes);
+            var producer = new Thread(() => {
+                for (int index = 0; index < 300; index++) runtime.Info("queued-" + index);
+            });
+            producer.Start(); Assert.IsTrue(producer.Join(3000));
+            Assert.AreEqual(300, wakes);
+            Assert.IsTrue(runtime.HasOutput);
+            runtime.Drain(); Assert.IsTrue(runtime.HasOutput, "The 256-entry budget must not discard remaining records.");
+            runtime.Drain(); Assert.IsFalse(runtime.HasOutput);
+            runtime.Info("after-idle");
+            Assert.AreEqual(301, wakes, "A producer must wake a previously idle drain.");
+            runtime.Drain(); Assert.IsFalse(runtime.HasOutput);
+        }
+        [TestMethod]
         public void NestedWoodContextsRestoreEnemiesEvenWhenInnerBodyThrows()
         {
             var r = Ready(); var outer = r.EnterPreparedBuild(3, 1 << 2);

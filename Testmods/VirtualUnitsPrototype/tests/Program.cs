@@ -130,8 +130,10 @@ namespace VirtualUnitsPrototype.Tests
                 "Desert Archer category does not use the surface-specific tinted Vanilla Archer HUD icons");
             Check(runtime.Contains("TryRegisterRecruitment") && runtime.Contains("OnUnitTransition") && runtime.Contains("UnitTransitionSource.EuropeanBarracks"), "Desert Archer recruitment transition correlation is missing");
             Check(runtime.Contains("args.UnitId <= 0") && runtime.Contains("pending.PreserveOnFailure") && runtime.Contains("!pending.PreserveOnFailure"), "recruited units are not identity-based or protected from diagnostic deletion");
-            Check(!runtime.Contains("GameAction(Enums.GameActionCommand.MakeTroop") && sharedPresentation.Contains("RecruitmentGameActionHook"), "VUP issues a second MakeTroop action instead of using APIShared's Vanilla hook");
-            Check(sharedPresentation.Contains("createTroopOriginal(self, parameter)") && sharedPresentation.Contains("recruitmentGameActionOriginal(command, structureId, state, value2)"), "central recruitment hook does not preserve Vanilla execution");
+            // VUP's boundary is its public recruitment registration, not APIShared's private
+            // detour names. APIShared's managed-event tests verify accepted/original ordering.
+            Check(!Regex.IsMatch(runtime, @"GameAction\s*\(\s*Enums\.GameActionCommand\.MakeTroop"),
+                "VUP issues a second MakeTroop action instead of consuming shared recruitment");
             Check(sharedPresentation.Contains("EngineInterface.TroopSelectionChanged") && sharedPresentation.Contains("unitId <= 0"), "central ID-exact 1-based selection path missing");
             Check(!Regex.IsMatch(sharedPresentation, @"r_UnitChimp\s*=(?!=)") &&
                     !Regex.IsMatch(sharedPresentation, @"selectedChimpTypes\s*\[[^\]]+\]\s*=(?!=)") &&

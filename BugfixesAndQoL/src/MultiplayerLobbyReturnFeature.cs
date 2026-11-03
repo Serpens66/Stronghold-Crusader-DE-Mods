@@ -49,6 +49,7 @@ namespace BugfixesAndQoL
         private bool disposed;
         private long exitWaitStartedAt;
         private int lastFrame = -1;
+        private APIShared.Presentation.IUiFrameWorkRegistration exitWork;
 
         internal MultiplayerLobbyReturnFeature(ManualLogSource log, BugfixesAndQoLViewModel settings)
         {
@@ -58,6 +59,9 @@ namespace BugfixesAndQoL
 
         internal void Initialize()
         {
+            if (!APIShared.ApiShared.ForMod(BugfixesAndQoLPlugin.PluginGuid).Ui.TryRegisterBeforeRender(
+                "multiplayer-lobby-return", OnBeforeRender, out exitWork, out string reason, 100))
+                throw new InvalidOperationException("Lobby return scheduling unavailable: " + reason);
             // SaveLifecycle: NewMapOnly - lobby state is captured before Vanilla leaves the setup.
             subscriptions.Add(Shared.MissionEvents.NativeStart
                 .Where(args => args.IsBeforeInitialization)
@@ -171,6 +175,7 @@ namespace BugfixesAndQoL
                 pendingVanillaExit = vanillaExit;
                 pendingExitIsCurrent = isCurrent;
                 exitWaitStartedAt = Stopwatch.GetTimestamp();
+                exitWork.SetContinuous(true);
                 Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/MultiplayerLobbyReturnFeature.cs:178", "Post-game Exit is waiting for the host's replacement lobby ID.");
             }
             return true;
@@ -546,6 +551,8 @@ namespace BugfixesAndQoL
 
         private void ClearPendingExit()
         {
+            exitWork?.SetContinuous(false);
+            exitWork?.CancelPending();
             pendingVanillaExit = null;
             pendingExitIsCurrent = null;
         }

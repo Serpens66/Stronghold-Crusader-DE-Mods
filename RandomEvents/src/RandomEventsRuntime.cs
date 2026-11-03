@@ -47,8 +47,7 @@ namespace RandomEvents
         private readonly Func<bool> isChatEnabled;
         private readonly Func<RandomEventChatAnnouncement, bool> displayChatAnnouncement;
         private readonly Action<Exception> reportChatFailure;
-        private bool chatRenderSubscribed;
-        private int lastChatRenderFrame = -1;
+        private APIShared.Presentation.IUiFrameWorkRegistration chatWork;
         private readonly ScenarioSignpostRegistry signpostRegistry;
         private readonly SignpostPlacementService signpostPlacement;
         private readonly NativeVanillaEventDispatcher nativeEventDispatcher;
@@ -179,6 +178,9 @@ namespace RandomEvents
         {
             if (initialized)
                 return;
+            if (!APIShared.ApiShared.ForMod(RandomEventsPlugin.PluginGuid).Ui.TryRegisterBeforeRender(
+                "chat-announcements", DrainChatAnnouncements, out chatWork, out string schedulingReason, 100))
+                throw new InvalidOperationException("Chat announcement scheduling unavailable: " + schedulingReason);
 
             // Persistent state is shared infrastructure for every scheduled event. Starting
             // map/tick processing without it could repeat already executed batches after load.
@@ -220,6 +222,7 @@ namespace RandomEvents
         public void Dispose()
         {
             if (disposed) return;
+            chatWork?.CancelPending();
             Shared.GameplayModActivationGate.StateChanged -= OnModeAllowedChanged;
             if (tickSubscribed)
             {
@@ -1337,37 +1340,22 @@ namespace RandomEvents
             {
                 if (chatAnnouncements.RecordResult(
                         System.Threading.Interlocked.Read(ref currentSessionId), kind, targetPlayerId, applied) &&
-                    !Shared.UnityMainThreadDispatch.TryEnqueue(drainChatAnnouncements))
-                    LogWarning("Random Events chat dispatch unavailable; announcement remains queued.");
+                    !APIShared.ApiShared.ForMod(RandomEventsPlugin.PluginGuid).Ui.TryPost(drainChatAnnouncements))
+                {
+                    chatWork.Request();
+                    LogWarning("Random Events chat dispatch unavailable; announcement remains queued for shared presentation.");
+                }
             }
             catch (Exception ex) { reportChatFailure(ex); }
         }
 
         private void DrainChatAnnouncements()
         {
+            if (disposed) return;
             chatAnnouncements.Drain(getChatSession, isChatEnabled, displayChatAnnouncement, reportChatFailure);
             // There is no HUD-ready event. Retry only while an announcement awaits the HUD,
             // including when simulation ticks are paused, without a plugin MonoBehaviour.
-            bool needsRetry = chatAnnouncements.HasPending;
-            if (needsRetry && !chatRenderSubscribed)
-            {
-                UnityEngine.Application.onBeforeRender += OnBeforeRenderChatAnnouncements;
-                chatRenderSubscribed = true;
-            }
-            else if (!needsRetry && chatRenderSubscribed)
-            {
-                UnityEngine.Application.onBeforeRender -= OnBeforeRenderChatAnnouncements;
-                chatRenderSubscribed = false;
-            }
-        }
-
-        private void OnBeforeRenderChatAnnouncements()
-        {
-            int frame = UnityEngine.Time.frameCount;
-            if (lastChatRenderFrame == frame)
-                return;
-            lastChatRenderFrame = frame;
-            DrainChatAnnouncements();
+            if (chatAnnouncements.HasPending) chatWork.RequestAfter(TimeSpan.FromMilliseconds(100));
         }
 
         private static bool TryDisplayChatAnnouncement(RandomEventChatAnnouncement announcement)

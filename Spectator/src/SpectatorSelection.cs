@@ -9,13 +9,18 @@ namespace Spectator
         private static bool spectatorSelectionLinked;
         private static IDisposable perspectiveSubscription;
         private static long lastPerspectiveSequence;
-        private static bool toolbarDirty = true;
+        private static bool toolbarDirty { get => presentationRefresh.ContentPending; set => presentationRefresh.ContentPending = value; }
         private static PlayerSelectionController selection;
         internal static SpectatorStatistics Statistics;
         internal static void PostPresentation(Action action) { presentationCallbacks.Enqueue(action); RequestRender(); }
         internal static bool ToolbarReady => humanPanel != null;
-        internal static void InvalidateToolbar() => toolbarDirty = true;
-        internal static void AcceptPerspective(int player) { ApplyHumanAi(player); toolbarDirty = true; }
+        internal static void InvalidateToolbar()
+        {
+            toolbarDirty = toolbarStatusDirty = true;
+            InvalidatePresentationState();
+            RequestToolbarLayout();
+        }
+        internal static void AcceptPerspective(int player) { ApplyHumanAi(player); InvalidateToolbar(); }
 
         private static void RegisterPerspectiveSelection()
         {
@@ -69,7 +74,7 @@ namespace Spectator
         private static void PublishSelectedPlayer(int owner)
         {
             humanSelectedOwner = owner;
-            toolbarDirty = true;
+            InvalidateToolbar();
             if (IsPlacementPlayer(owner) && humanPlacementMode && MainViewModel.viewModelLoaded && MainViewModel.Instance.HUDmain != null)
                 RefreshBuildIcons(MainViewModel.Instance.HUDmain, owner, "selection");
             log.LogInfo("SPECTATOR_SELECTION player=" + owner);

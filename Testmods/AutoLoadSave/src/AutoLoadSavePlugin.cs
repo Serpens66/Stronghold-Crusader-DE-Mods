@@ -13,7 +13,7 @@ namespace AutoLoadSave
 {
     [BepInPlugin(Guid, Name, Version)]
     [BepInDependency("000shcdese", "2.14.0")]
-    [BepInDependency("APIShared_Serp", "0.12.0")]
+    [BepInDependency("APIShared_Serp", "0.26.0")]
     [BepInDependency("fixes", BepInDependency.DependencyFlags.SoftDependency)]
     public sealed class AutoLoadSavePlugin : BaseUnityPlugin
     {
@@ -26,6 +26,7 @@ namespace AutoLoadSave
         private static int tickReported;
         private static int lastFrame = -1;
         private static string resolvedPath;
+        private static APIShared.Presentation.IUiFrameWorkRegistration renderWork;
 
         private void Awake()
         {
@@ -43,8 +44,10 @@ namespace AutoLoadSave
                 if (!api.TryGetMissionLifecycle(out missions, out var diagnostic) ||
                     !missions.TryRegisterObserver("autoload-result", OnStarted, null, null, out diagnostic))
                     throw new InvalidOperationException("Mission lifecycle unavailable: " + diagnostic.Reason);
-                // Static publisher survives SHCDE destroying the early plugin component.
-                Application.onBeforeRender += BeforeRender;
+                // The shared process-owned publisher survives startup component cleanup.
+                if (!api.Ui.TryRegisterBeforeRender("autoload-readiness", BeforeRender,
+                    out renderWork, out string reason, 100)) throw new InvalidOperationException(reason);
+                renderWork.SetContinuous(true);
                 LogInfo("Waiting for the fully initialized main menu.");
             }
             catch (Exception ex) { Error("Autoload initialization failed; no save will be loaded. " + ex); }
@@ -62,6 +65,7 @@ namespace AutoLoadSave
                     view.HUDmain != null && view.HUDIngameMenu != null &&
                     Director.instance != null && EditorDirector.instance != null;
                 if (!request.TryBegin(ready)) return;
+                renderWork.SetContinuous(false); // Exactly one attempt, including a failed load.
                 LogInfo("Main menu ready after startup cleanup; beginning the single load attempt.");
                 resolvedPath = request.ResolvePath(ConfigSettings.GetSavesPath());
                 // Folder type 0 is Vanilla's user-file catalog selector, not a game/player ID.
@@ -87,6 +91,7 @@ namespace AutoLoadSave
             {
                 // Even failures while checking readiness must not log/retry every frame.
                 request.TryBegin(true);
+                renderWork?.SetContinuous(false);
                 Error("Automatic loading failed; no retry. " + ex);
             }
         }

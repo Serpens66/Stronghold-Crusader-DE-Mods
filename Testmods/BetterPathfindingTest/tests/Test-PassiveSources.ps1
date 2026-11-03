@@ -8,5 +8,7 @@ if ($text -match '\b(OnDestroy|OnDisable|LateUpdate|FixedUpdate|StartCoroutine)\
 if ($text -match '\b(Marshal\.Write\w*|VirtualProtect|GetDelegateForFunctionPointer|HarmonyPatch|CreateHook|InstallHook|RegisterTraversalProvider|SubmitCommand)\s*\(') { throw 'Observer acquired a mutation/hook path.' }
 [xml]$project = [IO.File]::ReadAllText((Join-Path $mod 'BetterPathfindingTest.csproj'))
 foreach ($item in $project.SelectNodes('//*[local-name()="Compile"][@Include]')) { if ([string]$item.Include -match 'BugfixesAndQoL|MoatMove') { throw 'Production oracle leaked into runtime compilation.' } }
-if ($text -notmatch 'Shared\.DependencyFreeJson\.Serialize' -or $text -notmatch 'Application\.onBeforeRender\s*\+=' -or $text -notmatch 'TryRegisterObserver\(') { throw 'Required persistence/lifecycle contracts missing.' }
+# This only checks integration with the process-owned host. Its timing/concurrency
+# behavior is exercised against the production UiWork core by APIShared's tests.
+if ($text -notmatch 'Shared\.DependencyFreeJson\.Serialize' -or $text -notmatch 'TryRegisterBeforeRender\(' -or $text -notmatch 'TryRegisterObserver\(') { throw 'Required persistence/lifecycle contracts missing.' }
 Write-Host 'PASS: scoped serializer, passive source and persistent callback guards (limited static checks).'

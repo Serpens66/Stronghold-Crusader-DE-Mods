@@ -78,6 +78,13 @@ namespace AIBuildDiagnoseTest
         }
 
         internal void DrainEconomy() => economy?.Drain();
+        internal bool HasEconomyOutput => economy?.HasOutput == true;
+        internal void SetEconomyOutputWake(Action wake)
+        {
+            if (economy == null) return;
+            economy.OutputQueued = wake;
+            if (economy.HasOutput) wake();
+        }
         internal void DrainEconomyOnExit() => economy?.DrainOnProcessExit();
 
         internal AIBuildDiagnoseRuntime(ManualLogSource logger, bool hasFixes, ulong moduleBase)
