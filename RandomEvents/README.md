@@ -9,7 +9,7 @@
 
 ## Compatibility and diagnostics
 
-This mod requires the Script Extender and **APIShared 0.7.0 or newer**. Subscribe to APIShared separately when using the Steam modpack. Mod settings indicate when gameplay changes are inactive for a direct mission or Trail launch. Use **Customize** where available to start with those changes; edits made while inactive are saved for later games.
+This mod requires the Script Extender and **APIShared 0.26.0 or newer**. Subscribe to APIShared separately when using the Steam modpack. Mod settings indicate when gameplay changes are inactive for a direct mission or Trail launch. Use **Customize** where available to start with those changes; edits made while inactive are saved for later games.
 
 Random-event batches and signpost initialization use APIShared synchronized multiplayer transport.
 

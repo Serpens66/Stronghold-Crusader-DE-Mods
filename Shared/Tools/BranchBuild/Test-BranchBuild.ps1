@@ -43,6 +43,11 @@ echo BUILD_ARGUMENTS=%*
 echo API_PACKAGE=%SHCDE_API_SHARED_DIR%
 type "%SHCDE_API_SHARED_DIR%\APIShared.dll"
 if exist "%~dp0fail.txt" exit /b 27
+rem Like the real drivers: the project's package folder is rebuilt from scratch.
+if exist "%PROJECT_DIR%BepInEx\plugins\Fixture_Serp\" rmdir /s /q "%PROJECT_DIR%BepInEx\plugins\Fixture_Serp"
+mkdir "%PROJECT_DIR%BepInEx\plugins\Fixture_Serp"
+copy /Y "%~dp0source.txt" "%PROJECT_DIR%BepInEx\plugins\Fixture_Serp\built.txt" >nul
+if errorlevel 1 exit /b 1
 if not exist "%GAME_PLUGIN_DIR%\" mkdir "%GAME_PLUGIN_DIR%"
 copy /Y "%~dp0source.txt" "%GAME_PLUGIN_DIR%\built.txt" >nul
 if errorlevel 1 exit /b 1
@@ -180,6 +185,27 @@ function Assert-ApiBuildProof([string]$Root) {
     $null = Invoke-Fixture @('/source:working','/install:dev','/install:main','/nopause') 1
     $null = Invoke-Fixture @('/source:working','/install:unknown','/nopause') 1
     $null = Invoke-Fixture @('/source:working','/branch:main','/nopause') 1
+    # /syncpackage mirrors only a successful working build into the workspace package folder,
+    # deletes files the build no longer produced and never reaches the build driver itself.
+    $workspacePackage = Join-Path $repo 'Fixture/BepInEx/plugins/Fixture_Serp'
+    Write-BranchText (Join-Path $workspacePackage 'stale.txt') 'STALE'
+    $syncOutput = Invoke-Fixture @('/source:working','/noinstall','/nopause','/syncpackage')
+    Assert-Case (($syncOutput -join "`n") -notmatch 'BUILD_ARGUMENTS=.*?/syncpackage') '/syncpackage reached the build driver'
+    Assert-Case ((Get-BranchHash (Join-Path $workspacePackage 'built.txt')) -ceq (Get-BranchHash (Join-Path $repo 'Fixture/source.txt'))) '/syncpackage did not mirror the built package'
+    Assert-Case (-not (Test-Path -LiteralPath (Join-Path $workspacePackage 'stale.txt'))) '/syncpackage kept a file the build no longer produced'
+    Write-BranchText (Join-Path $workspacePackage 'built.txt') 'KEEP_AFTER_FAILED_BUILD'
+    Write-BranchText (Join-Path $repo 'Fixture/fail.txt') 'fail'
+    $recordsBefore = @(Get-ChildItem -LiteralPath (Join-Path $repo '.work/b') -Recurse -Filter '*.build.json' | ForEach-Object FullName)
+    $null = Invoke-Fixture @('/source:working','/noinstall','/nopause','/syncpackage') 27
+    [IO.File]::Delete((Join-Path $repo 'Fixture/fail.txt'))
+    # The deliberate failure's record is checked here and removed; later checks cover successful builds.
+    $failedRecords = @(Get-ChildItem -LiteralPath (Join-Path $repo '.work/b') -Recurse -Filter '*.build.json' | Where-Object { $_.FullName -notin $recordsBefore })
+    Assert-Case ($failedRecords.Count -eq 1 -and ([IO.File]::ReadAllText($failedRecords[0].FullName) | ConvertFrom-Json).ExitCode -eq 27) 'failed /syncpackage build record missing'
+    [IO.File]::Delete($failedRecords[0].FullName)
+    Assert-Case ([IO.File]::ReadAllText((Join-Path $workspacePackage 'built.txt')) -ceq 'KEEP_AFTER_FAILED_BUILD') 'A failed build mirrored its package'
+    $null = Invoke-Fixture @('/branch:main','/noinstall','/nopause','/syncpackage') 1
+    Assert-Case ([IO.File]::ReadAllText((Join-Path $workspacePackage 'built.txt')) -ceq 'KEEP_AFTER_FAILED_BUILD') 'A branch build mirrored its package'
+    [IO.Directory]::Delete((Join-Path $repo 'Fixture/BepInEx'), $true)
     Write-BranchText (Join-Path $mainDir 'built.txt') 'KEEP_MAIN_NOINSTALL'
     $previousPrepareOnly = $env:SHCDE_PREPARE_ONLY
     try {

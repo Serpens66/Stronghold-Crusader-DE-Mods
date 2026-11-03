@@ -316,7 +316,7 @@ Adds "Customize" Button to custom and coop trails. Allows to use custom AI as Al
 
 ## Compatibility and diagnostics
 
-This mod requires the Script Extender and **APIShared 0.25.0 or newer**. Subscribe to APIShared separately when using the Steam modpack.
+This mod requires the Script Extender and **APIShared 0.26.0 or newer**. Subscribe to APIShared separately when using the Steam modpack.
 
 Shared hooks coordinate command and HUD integrations with other mods; synchronized multiplayer actions use APIShared transport.
 

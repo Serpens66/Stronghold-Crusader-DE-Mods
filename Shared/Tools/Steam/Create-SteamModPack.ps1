@@ -822,7 +822,9 @@ function Add-ReleaseProjectIfNeeded {
 function Invoke-ModBuild {
     param([Parameter(Mandatory)]$Mod)
     Write-RunLog "Building $($Mod.Name) for compatibility validation."
-    Invoke-Checked -FilePath $Mod.BuildBat -Arguments @('/nopause','/noinstall') -FailureCode 4 -WorkingDirectory $Mod.Directory | Out-Null
+    # The build runs in a .work/b copy; /syncpackage mirrors its package back so the audit and the
+    # following commit see the package that was actually built, not the stale tracked folder.
+    Invoke-Checked -FilePath $Mod.BuildBat -Arguments @('/nopause','/noinstall','/syncpackage') -FailureCode 4 -WorkingDirectory $Mod.Directory | Out-Null
     try { [void](Assert-ScriptExtenderXamlPatchContract -Directory $Mod.PackageDirectory) }
     catch { Fail-Pack 4 "Built package for $($Mod.Name) violates the XAML patch contract: $($_.Exception.Message)" }
     $built = Get-CecilPluginMetadata -Directory $Mod.PackageDirectory

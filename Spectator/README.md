@@ -16,6 +16,6 @@ The spectator features of Bugfixes and QoL now live in this mod. Your previous s
 
 ## Compatibility and diagnostics
 
-This mod requires the Script Extender and **APIShared 0.25.0 or newer**. Subscribe to APIShared separately when using the Steam modpack. Local options (views, control, statistics, lord overview and test tools) can be changed by every player; eliminated-player spectator views and extra enemy statistics follow the host settings.
+This mod requires the Script Extender and **APIShared 0.26.0 or newer**. Subscribe to APIShared separately when using the Steam modpack. Local options (views, control, statistics, lord overview and test tools) can be changed by every player; eliminated-player spectator views and extra enemy statistics follow the host settings.
 
 Repeated diagnostics are limited to reduce log spam; warnings and errors remain available.

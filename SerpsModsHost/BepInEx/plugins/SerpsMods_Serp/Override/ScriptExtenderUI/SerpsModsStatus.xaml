@@ -81,6 +81,10 @@
               <ComboBox ItemsSource="{Binding Search.ModFilters}" DisplayMemberPath="DisplayName" SelectedItem="{Binding Search.SelectedModFilter, Mode=TwoWay}" ToolTip="{Binding Search.ModFilterHelpText}" ToolTipService.ShowDuration="60000"/>
               <CheckBox Grid.Column="1" Content="{Binding Search.IncludeToolTipsText}" IsChecked="{Binding Search.IncludeToolTips, Mode=TwoWay}" Foreground="White" Margin="12,0,0,0" VerticalAlignment="Center" ToolTip="{Binding Search.IncludeToolTipsHelpText}" ToolTipService.ShowDuration="60000"/>
             </Grid>
+            <WrapPanel Orientation="Horizontal" Margin="0,5,0,0">
+              <TextBlock Text="{Binding Search.StateFilterLabelText}" Foreground="White" VerticalAlignment="Center" Margin="0,0,8,0"/>
+              <ComboBox ItemsSource="{Binding Search.StateFilters}" SelectedIndex="{Binding Search.SelectedStateFilterIndex, Mode=TwoWay}" MinWidth="140" ToolTip="{Binding Search.StateFilterHelpText}" ToolTipService.ShowDuration="60000"/>
+            </WrapPanel>
             <StackPanel Visibility="{Binding Search.SearchResultsVisibility}" Margin="0,10,0,0">
               <TextBlock Text="{Binding Search.ResultsTitleText}" Foreground="#FF77AAFF" FontWeight="Bold" FontSize="18"/>
               <TextBlock Text="{Binding Search.ResultCountText}" Foreground="#BBBBBB" Margin="0,0,0,5"/>

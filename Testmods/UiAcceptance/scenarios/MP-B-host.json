@@ -1,0 +1,17 @@
+{
+  "enabled": true,
+  "series": "MP-B-host",
+  "role": "host",
+  "steps": [
+    { "id": "menu", "do": "WaitMainMenu", "timeoutMs": 180000, "stopOnFail": true, "allowErrors": true },
+    { "id": "host", "do": "Mp.Host", "args": ["DoHost"], "timeoutMs": 60000, "stopOnFail": true },
+    { "id": "members", "do": "Mp.WaitMembers", "args": ["2"], "timeoutMs": 900000, "stopOnFail": true },
+    { "id": "settle-join", "do": "Wait", "args": ["5000"] },
+    { "id": "load", "do": "Mp.LoadSave", "args": ["uiaccept_mp.msv"], "timeoutMs": 300000, "stopOnFail": true },
+    { "id": "real-mp", "do": "Mp.ExpectRealMultiplayer", "timeoutMs": 30000 },
+    { "id": "describe", "do": "Describe" },
+    { "id": "run", "do": "WaitMissionTicks", "args": ["400"], "timeoutMs": 300000 },
+    { "id": "shot", "do": "Screenshot", "args": ["host-loaded"] },
+    { "id": "exit", "do": "Mp.Exit", "timeoutMs": 30000 }
+  ]
+}

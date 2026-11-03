@@ -63,8 +63,11 @@ namespace BugfixesAndQoL.UnitCommands
         {
             long entries = playerMoveEntries;
             ManualPlayerMoveFrame parentPlayerMove = manualPlayerMove;
-            bool preserve = manualAdmissionReady && manager == nativeTribeManager && tribe > 0 && tribe < MaximumTribeCount;
-            ushort previousMode = preserve ? *(ushort*)((byte*)manager + tribe * TribeRecordSize + 0x56C) : (ushort)0;
+            // 196100 ignores its first argument (Vanilla's Chore-17 handler 10AE0 passes the unit
+            // manager 67E8400) and always writes the tribe manager's +56C for this tribe.
+            bool preserve = manualAdmissionReady && nativeTribeManager != IntPtr.Zero && tribe > 0 && tribe < MaximumTribeCount;
+            ushort* movementMode = preserve ? (ushort*)((byte*)nativeTribeManager + tribe * TribeRecordSize + 0x56C) : null;
+            ushort previousMode = preserve ? *movementMode : (ushort)0;
             manualPlayerMove = new ManualPlayerMoveFrame { Valid = preserve, Tribe = tribe };
             try
             {
@@ -83,7 +86,7 @@ namespace BugfixesAndQoL.UnitCommands
                 // 196100 updates this group flag before the 11B520 event. A fully
                 // rejected order must preserve that earlier write as well.
                 if (preserve && manualPlayerMove.Rejected)
-                    *(ushort*)((byte*)manager + tribe * TribeRecordSize + 0x56C) = previousMode;
+                    *movementMode = previousMode;
                 manualPlayerMove = parentPlayerMove;
             }
         }

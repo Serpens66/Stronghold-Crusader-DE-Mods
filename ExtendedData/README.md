@@ -58,7 +58,7 @@ The shared **Reset ALL modsettings to:** dropdown also offers **Personal Setting
 
 ### Compatibility and diagnostics
 
-This mod requires the Script Extender and **APIShared 0.21.0 or newer**, including its `APIShared.Content.dll`. Subscribe to APIShared separately when using the Steam modpack.
+This mod requires the Script Extender and **APIShared 0.26.0 or newer**, including its `APIShared.Content.dll`. Subscribe to APIShared separately when using the Steam modpack.
 
 Map/Trail compatibility messages use APIShared's shared participant checks. A broken settings provider is reported without hiding other compatible mods. APIShared prepares and applies temporary settings snapshots and handles their cleanup. ExtendedData supplies content sources and coordinates the mission lifecycle.
 
@@ -122,7 +122,7 @@ Die gemeinsame Auswahl **ALLE Modsettings zurücksetzen auf:** bietet auch **Per
 
 ### Kompatibilität und Diagnosen
 
-Diese Mod benötigt den Script Extender und **APIShared 0.21.0 oder neuer**, einschließlich `APIShared.Content.dll`. APIShared muss beim Steam-Modpack separat abonniert werden.
+Diese Mod benötigt den Script Extender und **APIShared 0.26.0 oder neuer**, einschließlich `APIShared.Content.dll`. APIShared muss beim Steam-Modpack separat abonniert werden.
 
 Kompatibilitätsmeldungen für Maps und Trails verwenden APIShareds gemeinsame Teilnehmerprüfung. Ein fehlerhafter Settings-Anbieter wird gemeldet, ohne andere kompatible Mods auszublenden. APIShared bereitet temporäre Settings-Snapshots vor, wendet sie an und bereinigt sie. ExtendedData liefert die Inhaltsquellen und koordiniert den Missionslifecycle.
 

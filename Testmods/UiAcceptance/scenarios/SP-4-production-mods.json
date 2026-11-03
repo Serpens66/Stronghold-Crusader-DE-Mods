@@ -1,0 +1,18 @@
+{
+  "enabled": true,
+  "series": "SP-4",
+  "role": "sp",
+  "steps": [
+    { "id": "menu", "do": "WaitMainMenu", "timeoutMs": 180000, "stopOnFail": true, "allowErrors": true },
+    { "id": "load", "do": "LoadSave", "args": ["test_gates.sav"], "timeoutMs": 120000, "stopOnFail": true },
+    { "id": "select-lord", "do": "SelectOwnUnits", "args": ["1", "1"] },
+    { "id": "shot-selection", "do": "Screenshot", "args": ["selection"] },
+    { "id": "hud-default", "do": "Hud", "args": ["default"] },
+    { "id": "focus", "do": "FocusCycle", "args": ["1500"], "timeoutMs": 20000 },
+    { "id": "shot-after-focus", "do": "Screenshot", "args": ["focus"] },
+    { "id": "resolution", "do": "Resolution", "args": ["cfg"], "timeoutMs": 15000 },
+    { "id": "speed", "do": "Speed", "args": ["90"] },
+    { "id": "run", "do": "WaitTicks", "args": ["400"], "timeoutMs": 120000 },
+    { "id": "quit", "do": "QuitToMenu", "timeoutMs": 60000 }
+  ]
+}

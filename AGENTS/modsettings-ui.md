@@ -10,6 +10,7 @@
 - Sperren nur über die berechneten Bindings: `CanEditHostSettings`, `CanEditClientSettings`, `CanChangePreset`, `CanResetSettings`, `PresetVisibility`, `HostReadOnlyNoticeVisibility`. Commands prüfen dieselben Rechte intern; `[SyncHostOnly]` bleibt die Netzwerk-Sicherheitsgrenze.
 - Rollen- und Trail-Zustand sind unabhängig. Ein aktiver Trail sperrt nur, solange der dritte Preseteintrag „Trail“ gewählt ist (außerhalb der Trail-Bearbeitung). Auf Preset 1/2 gelten normale Singleplayer-/Host-/Clientrechte und Änderungen gehen ins lokale Preset; zurück auf „Trail“ stellt den unveränderten Snapshot und die Sperre wieder her.
 - `CustomCustomTrail` erfasst in `.modjson` und Mission-Snapshots nur `[SyncHostOnly]`-Properties; fehlende Trail-Properties setzen persönliche Einstellungen nicht zurück. Bei Änderungen am Trail-Zusammenspiel `ExtendedData/src/TrailMissionSettingsCoordinator.cs` mitprüfen.
+- Map-/Trail-Erfassung nutzt dieselben Teilnehmer wie APIShareds automatische Savegame-Settings. Mods mit `[ExcludeFromSavegameModSettings]` (z. B. ExtendedData selbst) landen daher weder in Saves noch in Maps/Trails; ihre `[SyncHostOnly]`-Schalter sind faktisch missionsunabhängig, ohne `[MissionIndependent]` (das würde zusätzlich die Speicherung in den persönlichen Speicher verlagern). Missionsinhalte solcher Mods in Saves laufen über eigene ModSaveData-Handler.
 - Modsettings werden nur vor/nach einer Partie geändert, nie während einer laufenden (außer auf ausdrückliche Anfrage); das vorhandene Sync-System kann genutzt werden.
 
 ## Aufbau und Bedienbarkeit

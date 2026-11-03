@@ -19,7 +19,7 @@ Multiplayer spectators can view the accepted AI castle plan of the player they a
 
 ## Compatibility and diagnostics
 
-This mod requires the Script Extender and **APIShared 0.23.0 or newer**. Subscribe to APIShared separately when using the Steam modpack. Mod settings indicate when gameplay changes are inactive for a direct mission or Trail launch. Use **Customize** where available to start with those changes; edits made while inactive are saved for later games. Blueprints remain available during those direct launches.
+This mod requires the Script Extender and **APIShared 0.26.0 or newer**. Subscribe to APIShared separately when using the Steam modpack. Mod settings indicate when gameplay changes are inactive for a direct mission or Trail launch. Use **Customize** where available to start with those changes; edits made while inactive are saved for later games. Blueprints remain available during those direct launches.
 
 Shared HUD services place the Blueprints button alongside buttons from other mods and coordinate GUI updates and preview pause commands.
 

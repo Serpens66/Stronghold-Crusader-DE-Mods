@@ -10,7 +10,7 @@
     "Dependencies":  [
                          {
                              "GUID":  "APIShared_Serp",
-                             "MinimumVersion":  "0.25.0"
+                             "MinimumVersion":  "0.26.0"
                          }
                      ],
     "Manifest":  1,
@@ -23,7 +23,8 @@
                               "Multiplayer: gameplay scheduling and deadlines in Bugfixes and QoL, Extra Features, CastlePlanner and Start Conditions now use native map ticks; this fixes periodic-gold divergence caused by frame skips.",
                               "Bugfixes and QoL: new enabled-by-default host option limiting civilian building-action proximity during native Peace Time; a fully rejected manual group move no longer changes the group's movement mode.",
                               "Extra Features: the eight civilian/soldier building-action radius settings are composed through APIShared, keeping Vanilla defaults and existing values.",
-                              "Require APIShared 0.25.0 or newer."
+                              "Bugfixes and QoL, Extended Data, Random Events, CastlePlanner and Spectator move their UI updates to APIShared's shared UI work service: one-time UI work, coalesced refreshes and frame work only while needed.",
+                              "Require APIShared 0.26.0 or newer."
                             ]
                           },
                           {

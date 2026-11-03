@@ -28,7 +28,8 @@
         "Eliminated players can keep watching with spectator views (host option).",
         "The detailed Vanilla statistics screen can be opened during the match.",
         "Lord overview via the crown button, with host permission for extra enemy statistics.",
-        "Test tools for spectators and an AI lord test mode for active single-player participants; both are off by default, disabled in real multiplayer and not available in the map editor."
+        "Test tools for spectators and an AI lord test mode for active single-player participants; both are off by default, disabled in real multiplayer and not available in the map editor.",
+        "Toolbar, Lord overview and perspective updates run through APIShared's shared UI work service only while they are needed."
       ]
     }
   ]

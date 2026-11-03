@@ -100,3 +100,8 @@ Source: pseudocode of `0x11B520`, `0x124740`, `0x119F90` in the semantic export 
 ## One-pass member check in BugfixesAndQoL [mod integration]
 
 - `BugfixesAndQoL/src/UnitCommands/Native/TribeFloodMembership.cs` answers `0x124740` in one pass over the bitset with the same member order, the same unit-slot-0 cases and the same first failing member. It is used only when both bodies above match (`UnitCommandPathRuntime.exactFloodMembership`); BugfixesAndQoL's flood hook keeps its own bypass rule on top. DEVDIAG compares every call with Vanilla's original: 0 differences in `pf-flood-2`.
+
+## Player wrapper 196100 ignores its first argument
+
+- Installed native SHA-256 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`, checked 2026-11-03 from the DLL bytes: the Chore-17 handler `0x10AE0` loads `rcx` with `lea rcx,[rip]` at RVA `0x10C7C` -> `0x67E8400` (unit manager) and calls `0x196100` at RVA `0x10CAB`.
+- `0x196100` never reads `rcx`: it writes `0x7CC6720 + tribe*0x688 + 0x56C` (tribe manager) directly from the tribe argument and bit 7 of the sixth argument, then calls `0x11B520`. A hook must not identify the tribe record through the first argument.

@@ -15,8 +15,16 @@
     <Compile Include="..\..\ExtendedData\src\ExtendedDataFeatureActivation.cs"/>
     <Compile Include="..\..\ExtendedData\src\TrailModSelectionItem.cs"/>
     <Compile Include="..\..\ExtendedData\src\TrailModCompatibilityInfo.cs"/>
+    <Compile Include="..\..\ExtendedData\src\CoopPackageBlockMessages.cs"/>
+    <Compile Include="..\..\ExtendedData\src\MissionAssetException.cs"/>
+    <Compile Include="..\..\Shared\Runtime\Diagnostics\DevDiag.cs"/>
     <Compile Include="..\..\Spectator\src\SpectatorViewModel.cs"/>
     <Compile Include="..\..\Spectator\src\SpectatorFeatureActivation.cs"/>
     <Compile Include="..\..\Spectator\src\ToolsText.cs"/>
+    <Compile Include="..\..\Spectator\src\SpectatorViewModel.Overview.cs"/>
+    <Compile Include="..\..\Spectator\src\LordOverview\OverviewSettings.cs"/>
+    <Compile Include="..\..\Spectator\src\LordOverview\OverviewState.cs"/>
+    <Compile Include="..\..\Spectator\src\LordOverview\OverviewLayout.cs"/>
+    <Compile Include="..\..\APIShared\src\Lobby\LobbyStateContracts.cs"/>
   </ItemGroup>
 </Project>

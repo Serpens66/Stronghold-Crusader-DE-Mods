@@ -122,6 +122,10 @@ namespace ExtendedData
             EnableMod, EnableClientFeatures, EnableMissionModSettings, EnableCoopPackages,
             EnableLordDataIntegration, EnableEditorFileIntegration, EnableWorkshopUploads);
 
+        // These host switches only decide what applies to new matches; no Map, Trail or savegame can
+        // prescribe or restore them (plugin is [ExcludeFromSavegameModSettings], see ExtendedDataPlugin).
+        // Saves restore their Lord data independently of EnableLordDataIntegration (LordDataSyncCoordinator,
+        // activeFromSave). ActiveCoopPackageId and the DoNotPersist fields below are session state, not preferences.
         [SyncHostOnly]
         public bool EnableMissionModSettings { get => enableMissionModSettings; set => SetFeature(ref enableMissionModSettings, value, nameof(EnableMissionModSettings)); }
         [SyncHostOnly]

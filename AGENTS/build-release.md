@@ -90,6 +90,10 @@ arguments retain the branch menu.
 Do not combine it with `/branch`. Every branch or working build removes its copy
 afterwards (about 5 GB, mostly tracked `_inspect` data); the `.build.json` record and
 local provenance stay beside it. Pass `/keepsource` only to inspect a copy, then remove it.
+`/syncpackage` (working-tree mod builds only; rejected with `/branch`) mirrors the built
+`<Mod>/BepInEx/plugins/<Guid>` folders back into the tracked workspace package after a successful
+build, removes files the build no longer produced and verifies each file by SHA-256; use it to
+refresh the tracked packages before committing them.
 The record hashes only files that differ from its commit (working overlays, adapter
 rewrites, untracked inputs); the commit identifies everything else.
 An APIShared `main`/`develop` SDK is built and fully tested once per input state and kept

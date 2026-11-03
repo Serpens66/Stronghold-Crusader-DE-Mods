@@ -1201,6 +1201,10 @@ calls the original exactly once. A provider registered later (MoatMove) only bec
 its logical target; if admission failed, `InstallTraversalCommandHooks` installs the
 detour itself as before. Neither the Extender, Fixes nor APIShared hooks 196100
 (checked 2026-11-03; the Extender hooks 11B520).
+Argument contract: 10AE0 passes the unit manager 67E8400 in rcx (lea at 10C7C, call at
+10CAB); 196100 ignores it and writes tribe manager 7CC6720 + tribe*688 + 56C. The
+restore therefore addresses the runtime's validated tribe manager, never the first
+argument (the earlier `manager == tribe manager` guard never matched Vanilla input).
 118E00 clears native748/74C (GameUnit EC/EE/F0), NOT path flags F2/native74E.
 196305/19630F read flags F2 and substep F4/native750: current only at flags0 AND
 substep8, otherwise next2. Reuse GetNativeMovementStart; preserve unknown native

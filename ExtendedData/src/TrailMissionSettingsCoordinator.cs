@@ -3861,6 +3861,8 @@ namespace ExtendedData
 
             private void ExitActiveParticipants() => settingsSession.Exit();
 
+            // Map and Trail capture/apply use the automatic savegame participants. Plugins marked
+            // [ExcludeFromSavegameModSettings], including ExtendedData itself, are therefore never captured.
             private Dictionary<string, IModSettingsPresetEndpoint> FindCompatibleViewModels()
             {
                 return SavegameModSettings.GetCompatibleParticipants()

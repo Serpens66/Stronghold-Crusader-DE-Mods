@@ -16,16 +16,17 @@ if (Get-Process -Name 'Stronghold Crusader Definitive Edition' -ErrorAction Sile
 Write-Host '[Spectator] Checks: own runtime/controllers, optional providers, native contracts, XAML/locales, shared-source boundaries. No unrelated mod tests.'
 & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'verify.ps1')
 if ($LASTEXITCODE -ne 0) { throw 'Spectator validation failed.' }
+$package = Join-Path $PSScriptRoot 'BepInEx/plugins/Spectator_Serp'
+# Rebuild the package from scratch so no stale tracked file reaches the release.
+if (Test-Path -LiteralPath $package) { Remove-Item -LiteralPath $package -Recurse -Force }
 & $msbuild (Join-Path $PSScriptRoot 'Spectator.csproj') /t:Rebuild /p:Configuration=Release "/p:GameDir=$game" "/p:ExtenderDir=$extender" "/p:ApiSharedDir=$ApiSharedDir" /verbosity:minimal
 if ($LASTEXITCODE -ne 0) { throw 'Spectator compilation failed.' }
-$package = Join-Path $PSScriptRoot 'BepInEx/plugins/Spectator_Serp'
 function Remove-RetiredSpectatorPatches([string]$PackageRoot) {
  foreach ($relative in @('Patches/Assets/GUI/XAMLResources/HUD_Main.xaml','Patches/Assets/GUI/XAMLResources/HUD_AlliesPanel.xaml')) {
   $retired = Join-Path $PackageRoot $relative
   if (Test-Path -LiteralPath $retired) { Remove-Item -LiteralPath $retired -Force }
  }
 }
-Remove-RetiredSpectatorPatches $package
 foreach ($file in @('Spectator.dll','info.json','Override/ScriptExtenderUI/SpectatorSettings.xaml','Patches/Assets/GUI/XAML/IngameUIScreens.xaml','Patches/Assets/GUI/XAMLResources/HUD_MissionOver.xaml')) {
  if (-not (Test-Path -LiteralPath (Join-Path $package $file))) { throw "Missing package file: $file" }
 }

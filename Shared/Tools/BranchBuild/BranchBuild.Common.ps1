@@ -15,6 +15,42 @@ function Get-BranchHash([string]$Path) {
     try { return [BitConverter]::ToString($sha.ComputeHash($stream)).Replace('-', '').ToLowerInvariant() }
     finally { $sha.Dispose(); $stream.Dispose() }
 }
+# /syncpackage: mirrors the freshly built package folders <Mod>/BepInEx/plugins/<Guid> of a working
+# build copy back into the tracked workspace folders (deleting files the build no longer produced)
+# and verifies every file by SHA-256. Only called after a successful working-tree build.
+function Sync-BranchPackages([string]$Repository, [string]$CopyRoot, [string]$Driver) {
+    $project = Split-Path -Parent ($Driver.Replace('/', '\'))
+    $source = Join-Path $CopyRoot "$project\BepInEx\plugins"
+    $target = Join-Path $Repository "$project\BepInEx\plugins"
+    if (-not (Test-Path -LiteralPath $source -PathType Container)) { throw "/syncpackage: the build produced no package folder: $source" }
+    $packages = @(Get-ChildItem -LiteralPath $source -Directory)
+    if ($packages.Count -eq 0) { throw "/syncpackage: no package below $source" }
+    $mirrored = 0
+    foreach ($package in $packages) {
+        $destination = Join-Path $target $package.Name
+        Assert-BranchUnlinkedPath $destination
+        [void][IO.Directory]::CreateDirectory($destination)
+        $built = @{}
+        foreach ($file in @(Get-ChildItem -LiteralPath $package.FullName -File -Recurse)) {
+            $relative = $file.FullName.Substring($package.FullName.Length).TrimStart('\')
+            $built[$relative.ToLowerInvariant()] = $true
+            $copy = Join-Path $destination $relative
+            [void][IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($copy))
+            [IO.File]::Copy($file.FullName, $copy, $true)
+            if ((Get-BranchHash $copy) -cne (Get-BranchHash $file.FullName)) { throw "/syncpackage: hash mismatch after copy: $copy" }
+            $mirrored++
+        }
+        foreach ($stale in @(Get-ChildItem -LiteralPath $destination -File -Recurse)) {
+            $relative = $stale.FullName.Substring($destination.Length).TrimStart('\')
+            if (-not $built.ContainsKey($relative.ToLowerInvariant())) { [IO.File]::Delete($stale.FullName); Write-BranchMessage "/syncpackage removed stale $project\BepInEx\plugins\$($package.Name)\$relative" }
+        }
+        foreach ($directory in @(Get-ChildItem -LiteralPath $destination -Directory -Recurse | Sort-Object { $_.FullName.Length } -Descending)) {
+            if (@(Get-ChildItem -LiteralPath $directory.FullName -Force).Count -eq 0) { [IO.Directory]::Delete($directory.FullName) }
+        }
+    }
+    Write-BranchMessage "/syncpackage mirrored $mirrored files into $target"
+    return $mirrored
+}
 function Invoke-BranchGit([string]$Root, [string[]]$Arguments) {
     $output = @(& git -C $Root @Arguments)
     if ($LASTEXITCODE -ne 0) { throw "Git failed in ${Root}: $($Arguments -join ' ')" }
@@ -502,7 +538,7 @@ function Invoke-SelectedBranchBuild {
         foreach ($target in $targets) { Write-BranchMessage "Installation: $target" }
         # Run the selected BAT directly; preserve error codes and argument boundaries.
         Set-Location -LiteralPath $projectRoot
-        $arguments = @($DriverArguments | Where-Object { $_ -notmatch '^/branch:' -and $_ -ine '/keepsource' })
+        $arguments = @($DriverArguments | Where-Object { $_ -notmatch '^/branch:' -and $_ -ine '/keepsource' -and $_ -ine '/syncpackage' })
         if ($arguments -inotcontains '/nopause') { $arguments += '/nopause' }
         if ($env:SHCDE_BRANCH_NOINSTALL -eq '1' -and $arguments -inotcontains '/noinstall') { $arguments += '/noinstall' }
         Assert-ToolPathBudget -Path $selectedDriver

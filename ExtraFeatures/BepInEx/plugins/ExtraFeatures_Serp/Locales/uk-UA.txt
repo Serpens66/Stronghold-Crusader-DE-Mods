@@ -97,7 +97,7 @@ SomeSettings.KnightMountTooltipBody=Turns selected swordsmen into mounted knight
 SomeSettings.EnableExtraChurchPriests=Enable extra priests for churches
 SomeSettings.EnableExtraChurchPriestsHelp=When enabled, churches receive two priests and cathedrals receive three priests.
 SomeSettings.PlagueDurationMultiplier=Plague cloud duration
-SomeSettings.PlagueDurationMultiplierHelp=Multiplier for the active lifetime of all plague clouds. 1.0x keeps the Vanilla duration; higher values also extend how long clouds can cause damage.
+SomeSettings.PlagueDurationMultiplierHelp=Multiplier for the active lifetime of all plague clouds. 1.0x keeps the Vanilla duration; higher values also extend how long clouds can cause damage. Maximum 40x, because the game cannot count longer cloud lifetimes.
 SomeSettings.ApothecaryPlagueSearchDistance=Apothecary plague-search range
 SomeSettings.ApothecaryPlagueSearchDistanceHelp=Maximum Manhattan distance from an apothecary's assigned building to a plague cloud. 30 keeps the Vanilla range.
 

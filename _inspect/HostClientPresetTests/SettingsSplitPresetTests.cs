@@ -13,6 +13,7 @@ using System.Reflection;
 // Localization is a presentation boundary; persistence exercises the real setters/controller.
 internal static class SerpLocalization
 {
+    internal const string ResetToDefault = "Common.ResetToDefault", ResetToDefaultHelp = "Common.ResetToDefaultHelp";
     internal static string Get(string key) => key;
 }
 
@@ -100,19 +101,29 @@ internal static class SettingsSplitPresetTests
             var trail = vm.System_CreateCurrentWorkingSnapshot();
             foreach (string name in new[] { "EnableClientFeatures", "EnableEditorFileIntegration", "EnableWorkshopUploads", "PlayerTrailPropertyIds", "FixedTrailPropertyIds" }) trail.Remove(name);
             vm.System_EnterMissionPreset(trail, "Trail", false);
-            bool retained = vm.EnableEditorFileIntegration;
-            vm.EnableEditorFileIntegration = !retained;
-            Check(vm.EnableEditorFileIntegration == retained, "read-only Trail rejects local setter commands");
+            // Since APIShared 62.3/ExtendedData 1.0.23, only mission (SyncHostOnly, not
+            // MissionIndependent) values are locked; personal Local values stay outside the draft.
+            // Synthetic: real Map/Trail flows never enter ExtendedData's own settings (the plugin is
+            // savegame-excluded); its model only serves as a vehicle for APIShared's lock contract.
+            bool retained = vm.EnableLordDataIntegration;
+            vm.EnableLordDataIntegration = !retained;
+            Check(vm.EnableLordDataIntegration == retained, "read-only Trail rejects host mission setter commands");
+            bool local = vm.EnableEditorFileIntegration;
+            vm.EnableEditorFileIntegration = !local;
+            Check(vm.EnableEditorFileIntegration == !local, "read-only Trail keeps personal Local options editable");
+            vm.EnableEditorFileIntegration = local;
             vm.System_ExitMissionPreset();
 
             Role(true);
             var spectator = Prepare<SpectatorViewModel>(Path.Combine(root, "spectator-roles.dll"), "SpectatorRoles");
             Role(false); spectator.System_RefreshSettingsAccess();
-            spectator.EnableStatistics = false;
-            Check(spectator.EnableStatistics, "Spectator setter cannot bypass host authority");
+            // Promotion is host-only; statistics, views and tools are local (Spectator 0.1.0).
+            spectator.EnableEliminatedPlayersBecomeSpectators = false;
+            Check(spectator.EnableEliminatedPlayersBecomeSpectators, "Spectator setter cannot bypass host authority");
             spectator.EnableClientFeatures = false;
             spectator.EnableTestTools = false;
-            Check(spectator.Activation.Statistics && !spectator.Activation.TestTools, "spectator host permission survives local opt-out");
+            Check(spectator.Activation.Defeat && !spectator.Activation.Statistics && !spectator.Activation.TestTools,
+                "host promotion survives the local opt-out, which gates local views and tools");
             Console.WriteLine("PASS: " + checks + " real consumer preset, defaults, persistence and role checks. Fixture: " + root);
             return 0;
         }

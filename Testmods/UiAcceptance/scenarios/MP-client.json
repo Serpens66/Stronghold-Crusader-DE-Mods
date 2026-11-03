@@ -1,0 +1,27 @@
+{
+  "enabled": true,
+  "series": "MP-client",
+  "role": "client",
+  "steps": [
+    { "id": "menu", "do": "WaitMainMenu", "timeoutMs": 300000, "stopOnFail": true, "allowErrors": true },
+    { "id": "follow-a", "do": "Mp.Follow", "args": ["lobby"], "timeoutMs": 1800000, "stopOnFail": true, "allowErrors": true },
+    { "id": "ready-a", "do": "Mp.Ready", "timeoutMs": 300000, "stopOnFail": true },
+    { "id": "mission-a", "do": "Mp.Follow", "args": ["mission"], "timeoutMs": 900000, "stopOnFail": true, "allowErrors": true },
+    { "id": "real-mp-a", "do": "Mp.ExpectRealMultiplayer", "timeoutMs": 30000 },
+    { "id": "describe-a", "do": "Describe" },
+    { "id": "tools-blocked", "do": "Spectator.ExpectNoToolbar", "args": ["2000"], "timeoutMs": 10000 },
+    { "id": "surrender-at", "do": "WaitMissionTicks", "args": ["600"], "timeoutMs": 300000 },
+    { "id": "surrender", "do": "MenuAction", "args": ["BugfixesAndQoL_Serp", "surrender"], "timeoutMs": 15000 },
+    { "id": "confirm", "do": "Confirm", "args": ["1"], "timeoutMs": 15000 },
+    { "id": "spectator", "do": "ExpectGameState", "args": ["spectatorMode", "1"], "timeoutMs": 60000 },
+    { "id": "describe-spectator", "do": "Describe" },
+    { "id": "toolbar", "do": "Spectator.WaitToolbar", "timeoutMs": 20000 },
+    { "id": "shot-a", "do": "Screenshot", "args": ["client-spectator"] },
+    { "id": "follow-b", "do": "Mp.Follow", "args": ["mission"], "timeoutMs": 1800000, "stopOnFail": true, "allowErrors": true },
+    { "id": "real-mp-b", "do": "Mp.ExpectRealMultiplayer", "timeoutMs": 30000 },
+    { "id": "describe-b", "do": "Describe" },
+    { "id": "run-b", "do": "WaitMissionTicks", "args": ["300"], "timeoutMs": 300000 },
+    { "id": "shot-b", "do": "Screenshot", "args": ["client-loaded"] },
+    { "id": "end-b", "do": "WaitMissionEnd", "timeoutMs": 900000, "allowErrors": true }
+  ]
+}

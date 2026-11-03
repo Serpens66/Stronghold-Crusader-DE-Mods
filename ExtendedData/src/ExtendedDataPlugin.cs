@@ -15,12 +15,18 @@ namespace ExtendedData
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("fixes", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
+    // ExtendedData's own settings are never mission content: APIShared does not capture or restore
+    // them in savegames, and Map/Trail capture (TrailMissionSettingsCoordinator.FindCompatibleViewModels)
+    // uses the same participant set, so Maps and Trails never contain them either. They are therefore
+    // already mission-independent in practice; [MissionIndependent] is deliberately not used because it
+    // would also move host values into personal storage (APIShared/docs/MOD_SETTINGS.md). Mission
+    // content in saves (Lord data, Coop/launch origin) uses ExtendedData's own ModSaveData handlers.
     [ExcludeFromSavegameModSettings]
     public sealed class ExtendedDataPlugin : BaseUnityPlugin
     {
         public const string PluginGuid = "ExtendedData_Serp";
         public const string PluginName = "Extended Data";
-        public const string PluginVersion = "1.0.23";
+        public const string PluginVersion = "1.0.24";
         public const bool ExtendedDataModSettingsOptOut = true;
         // Advertised before LibraryLoaded so APIShared can reject older competing dialog hooks.
         public const bool UsesApiSharedSaveLoadDialog = true;
