@@ -11,7 +11,7 @@ internal static partial class Program
         var developmentOptions = CSharpParseOptions.Default.WithPreprocessorSymbols("SERP_DEVDIAG");
         var tree = CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,
             "BugfixesAndQoL/src/UnitCommands/Movement/MovementPathPublication.cs")), developmentOptions);
-        string[] names = { "BuildPathWithCompletedMoatRouteVariant", "BeginAssassinRoutePublication" };
+        string[] names = { "BuildPathWithCompletedMoatRouteVariant", "BeginAssassinRoutePublication", "TryPublishAssassinGroupRoute" };
         string methods = string.Join("\n", tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>()
             .Where(m => names.Contains(m.Identifier.Text)).Select(m => ActiveDiagnosticFixtureCode(m)));
         var movement = CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,
@@ -47,7 +47,8 @@ static class AssassinPathAPI { internal static AssassinRouteOutputFrame BeginRou
 unsafe partial class UnitCommandPathRuntime {
  const int NativeUnitPathBufferOffset=0xB4FE78, NativeUnitPathBufferStride=1000, MaximumUnitCount=10000;
  const int PathManagerOutputBufferOffset=0x155F60, PathManagerOutputLengthOffset=0x155F68;
- private bool assassinExactPublicationLogged, nativeManualProbe;
+ private bool assassinExactPublicationLogged, nativeManualProbe, assassinBuilderSkipped;
+ internal static Func<IntPtr,bool> AssassinGroupRouteStager;
  private IntPtr nativePathManager; private byte* nativeUnitManager; private object log;
  private Func<int> builder;
  private long FreezeBuilder(IntPtr manager)=>0;
@@ -117,6 +118,20 @@ unsafe partial class UnitCommandPathRuntime {
  UnitAccess.Unit->r_CurrentTilePositionX=7;
  r.builder=()=> {Assert(AssassinRouteHandoff.TryResolve(r.nativePathManager,1,2,1,1,out _,out _),"moving unit binds native next tile instead of current tile");return 1;};
  r.BuildPathWithCompletedMoatRouteVariant(r.nativePathManager,2,0);
+ // Group routes (TryPublishAssassinGroupRoute): a staged group route is published without Vanilla's builder, also while
+ // +0x94 still holds an earlier reconstruction's value; a group route rejected at publication leaves a fresh frame
+ // and the unchanged builder path; without a staged route the builder runs as before.
+ bool builderRan=false;
+ r.builder=()=> {builderRan=true;path[0]=0;*(int*)(m+PathManagerOutputLengthOffset)=1;return 1;};
+ *(int*)(m+0x94)=1;path[0]=0;
+ AssassinGroupRouteStager=c=>AssassinRouteHandoff.Stage(c,1,2,1,1,2,exact,3,()=>true);
+ Assert(r.BuildPathWithCompletedMoatRouteVariant(r.nativePathManager,2,0)==3&&!builderRan&&path[0]==2&&path[1]==6,"group route published without the builder");
+ int validations=0;path[0]=0;
+ AssassinGroupRouteStager=c=>AssassinRouteHandoff.Stage(c,1,2,1,1,2,exact,3,()=>++validations==1);
+ Assert(r.BuildPathWithCompletedMoatRouteVariant(r.nativePathManager,2,0)==1&&builderRan&&path[0]==0&&validations==2,"rejected group route keeps the builder path");
+ builderRan=false;AssassinGroupRouteStager=c=>false;
+ Assert(r.BuildPathWithCompletedMoatRouteVariant(r.nativePathManager,2,0)==1&&builderRan,"no group route runs the builder");
+ AssassinGroupRouteStager=null;*(int*)(m+0x94)=0;
  // Every identity predicate keeps its original short-circuit order, with/without diagnostic observer.
  var cases=new List<(string Reason,Action Change)> {
   ("path-manager",()=>r.nativePathManager=IntPtr.Zero), ("unit-manager",()=>r.nativeUnitManager=null),

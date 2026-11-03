@@ -416,6 +416,15 @@ call :step_start "tests" "55-AssassinCapturedGateProtectionTests.exe"
 "%PROJECT_DIR%tests\AssassinCapturedGateProtection.Tests\bin\AssassinCapturedGateProtectionTests.exe"
 call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+echo [%date% %time%] Tribe member lookup machine tests (V14 against Vanilla's 0x119F90 copy)
+call :step_start "tests" "55b-TribeMemberLookup.Tests.csproj"
+"%MSBUILD%" "tests\TribeMemberLookup.Tests\TribeMemberLookup.Tests.csproj" /p:Configuration=Release /p:ExtenderDir="%EXTENDER_DIR%"
+call :step_end %ERRORLEVEL%
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+call :step_start "tests" "55c-TribeMemberLookup.Tests.exe"
+"%PROJECT_DIR%tests\TribeMemberLookup.Tests\bin\TribeMemberLookup.Tests.exe" "%GAME_DIR%\Stronghold Crusader Definitive Edition_Data\Plugins\x86_64\CrusaderDE.dll"
+call :step_end %ERRORLEVEL%
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 set "MOAT_TEST_API_SHARED_DLL=%API_SHARED_DIR%\APIShared.dll"
 echo [%date% %time%] Run tests
 call :step_start "tests" "56-FriendlyMoatMovement.Tests.csproj"

@@ -5,14 +5,16 @@ using System.Runtime.InteropServices;
 
 namespace BugfixesAndQoL
 {
-    // C ABI of native/AssassinSearch.cpp (BfqolAssassinSearch.dll, contract 0x01000001): the bucket A* of
-    // AssassinPathfindingRuntime.TryBuildWeightedRoute with identical results. The DLL is loaded once by
-    // full path from the plugin folder and stays loaded for the process; without it the managed search runs.
+    // C ABI of native/AssassinSearch.cpp (BfqolAssassinSearch.dll, contract 0x01000002): the bucket A* of
+    // AssassinPathfindingRuntime.TryBuildWeightedRoute with identical results, and the group fields of
+    // Assassin group moves (bfq_assassin_field_*). The DLL is loaded once by full path from the plugin folder
+    // and stays loaded for the process; without it the managed search runs and group fields are unused.
     internal static unsafe class AssassinNativeSearch
     {
         internal const string Library = "BfqolAssassinSearch.dll";
-        internal const int Contract = 0x01000001;
-        internal const int StatusNone = 0, StatusFound = 1, StatusOverflow = 2, StatusRejectedRoute = 3;
+        internal const int Contract = 0x01000002;
+        internal const int StatusNone = 0, StatusFound = 1, StatusOverflow = 2, StatusRejectedRoute = 3, StatusFieldFailed = 4;
+        internal const int FieldRecycled = -4;
 
         [StructLayout(LayoutKind.Sequential)]
         internal struct Tables
@@ -37,6 +39,11 @@ namespace BugfixesAndQoL
         [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern int bfq_assassin_contract();
         [DllImport(Library, CallingConvention = CallingConvention.Cdecl)]
         internal static extern int bfq_assassin_search(Tables* tables, Request* request, int* routeNodes, int* routeCosts, int routeCapacity, Result* result);
+        [DllImport(Library, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern int bfq_assassin_field_create(Tables* tables, Request* request, int* handle);
+        [DllImport(Library, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern int bfq_assassin_field_route(int handle, Tables* tables, Request* request, int margin,
+            int* routeNodes, int* routeCosts, int routeCapacity, Result* result);
         [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)] private static extern IntPtr LoadLibraryEx(string file, IntPtr reserved, uint flags);
         private const uint LoadWithAlteredSearchPath = 0x00000008;
 

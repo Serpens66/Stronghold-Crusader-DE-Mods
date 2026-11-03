@@ -5,8 +5,9 @@ using System.Threading;
 
 namespace BugfixesAndQoL.VanillaPerformance
 {
-    // Local client optimizations of Vanilla presentation paths (VanillaOptimization.md V1, V5, V7, V13).
-    // None of them changes simulation state, so they need no host or multiplayer agreement.
+    // Local client optimizations of Vanilla presentation paths (VanillaOptimization.md V1, V5, V7, V13) and
+    // the exact tribe member lookup V14. None of them changes simulation state or results, so they need no
+    // host or multiplayer agreement.
     // Installed once from LibraryLoaded; the Harmony patches and the V13 detour stay published for the
     // process lifetime (rooted by static fields) and the settings only switch the logical activation.
     internal static class VanillaPerformanceFeature
@@ -22,6 +23,7 @@ namespace BugfixesAndQoL.VanillaPerformance
             EnginePresentationBridge.Install(log);
             MeritDataLockOptimization.Install(log);
             MinimapRefreshThrottle.Install(log, context);
+            TribeMemberLookupOptimization.Install(log, context);
             settings.SettingChanged += OnSettingChanged;
             RefreshEnabled();
             // V7 reads the setting once, when Vanilla has finished loading its sprites (main menu);
@@ -45,6 +47,8 @@ namespace BugfixesAndQoL.VanillaPerformance
             RadarRebindOptimization.SetEnabled(enabled);
             EnginePresentationBridge.SetEnabled(enabled);
             MeritDataLockOptimization.SetEnabled(enabled);
+            // Exact (identical answers), so it needs no peer agreement either.
+            TribeMemberLookupOptimization.SetEnabled(enabled);
             // Lossy (minimap up to 100 ms late), therefore a separate setting. Host-controlled so every
             // peer of a lockstep match draws the same way (the slowest peer sets the speed).
             MinimapRefreshThrottle.SetEnabled(settings.EnableMod && settings.EnableMinimapRefreshThrottle);

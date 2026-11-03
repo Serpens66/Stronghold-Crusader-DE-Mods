@@ -1177,6 +1177,178 @@ namespace BugfixesAndQoL
         partial void DiagCompareNativeRoute(int startX, int startY, int targetX, int targetY, int maximumNodes, int speedDelay,
             bool allowClimbing, bool allowReserved, IEnemyGateRoutePolicySnapshot gatePolicy, bool found, RouteSearchSummary summary);
 
+        // Group routes of Assassin group moves (shared work as in MoatMove; user decision 03.11.2026). Vanilla's
+        // group move 0x11B520 sends every member through its own F4930 builder: one Vanilla breadth-first search
+        // D9C40 (~208,000 tiles, ~2.4 ms) plus this runtime's weighted search per member, ~1,100 members per AI
+        // wave every few seconds on test_stresstest5 (4-5.5 s per wave). Instead one native group field per move
+        // command (backward Dijkstra from the move target over exactly the weighted search's edges and costs)
+        // answers every member: the exact descent along it towards the target, then the exact A* from the box around
+        // target and slot to the member's slot. The routes are near-optimal like MoatMove's anchor routes (user
+        // decision 03.11.2026: MoatMove's accuracy is sufficient). The F4930 wrapper publishes the staged route
+        // without running Vanilla's builder (UnitCommandPathRuntime.AssassinGroupRouteStager); any request this path
+        // does not answer keeps the full per-unit path unchanged.
+        private const int GroupRouteMargin = 8;
+
+        // F4930 request of the current single-unit frame: a staged group route, or false (the caller keeps
+        // Vanilla's builder and the per-unit search). Simulation thread, inside UnitCommandPathRuntime's frame.
+        internal bool TryStageGroupRoute(IntPtr context)
+        {
+            AssassinCommandScope command = activeCommand;
+            if (!IsInstalled || !nativeSearchBound || command == null || command.EventKind != MoveCommandKind ||
+                context != IntPtr.Add(libraryHandle, 0x60AD660))
+                return false;
+            byte* manager = (byte*)context.ToPointer();
+            // Assassin profile only (+0x88), without F4930's moat (+0x84) and direct ground (+0x80) branches.
+            if (*(int*)(manager + 0x88) == 0 || *(int*)(manager + 0x84) != 0 || *(int*)(manager + 0x80) != 0)
+                return false;
+            int startX = *(int*)(manager + 0x08), startY = *(int*)(manager + 0x0C);
+            int targetX = *(int*)(manager + 0x10), targetY = *(int*)(manager + 0x14);
+            int anchorX = command.TargetValue1, anchorY = command.TargetValue2;
+            if (!IsValidCoordinate(startX, startY) || !IsValidCoordinate(targetX, targetY) || !IsValidCoordinate(anchorX, anchorY) ||
+                !IsNativeTile(GetTileId(startX, startY)) || !IsNativeTile(GetTileId(targetX, targetY)))
+                return false;
+            IEnemyGatePathPolicy provider = EnemyGatePathPolicyBridge.Current;
+            if (HasAssassinSearchObservers(provider))
+                return false;
+            if (!AssassinPathAPI.TryGetCurrentWeightedRequest(BugfixesAndQoLPlugin.PluginGuid, context,
+                    startX, startY, targetX, targetY, out _, out _) ||
+                !TryResolveAssassinRequest(command, context, startX, startY, targetX, targetY, out int playerId, out int speedDelay) ||
+                !command.IsEnabledFor(IsAIPlayer(playerId)) || !EnsureCoordinateTileMappingValidated() ||
+                !AssassinGateRoutePolicy.TryCapture(provider, playerId, out IEnemyGateRoutePolicySnapshot gatePolicy))
+                return false;
+            int cardinalTicks = AssassinClimbCostPolicy.GetCardinalMovementTicks(speedDelay);
+            int diagonalTicks = AssassinClimbCostPolicy.GetDiagonalMovementTicks(speedDelay);
+            if (diagonalTicks > MaximumBucketStepTicks)
+                return false;
+            bool allowClimbing = command.GetClimbingAllowed(playerId, climbRuntime);
+            bool allowReserved = reconstructionPatch?.IsApplied == true;
+            bool directClimbing = AssassinPathAPI.DirectGatehouseClimbingEnabled;
+            var fieldKey = new SuffixCacheKey(anchorX, anchorY, speedDelay, allowClimbing, allowReserved, playerId, gatePolicy, directClimbing);
+
+            long diagStage = 0;
+            Shared.DevDiag.Start(ref diagStage);
+            int status = RunGroupRoute(command, fieldKey, startX, startY, targetX, targetY, cardinalTicks, diagonalTicks,
+                allowClimbing, allowReserved, gatePolicy, out AssassinNativeSearch.Result result);
+            Shared.DevDiag.Stop(ref diagStage, status == AssassinNativeSearch.StatusFound ? "bfqol.assassin.group.found" : "bfqol.assassin.group.status" + status);
+            if (status != AssassinNativeSearch.StatusFound || !AssassinGateRoutePolicy.IsCurrent(gatePolicy))
+                return false;
+            var summary = new RouteSearchSummary(result.RouteLength, result.GroundEdges, result.ClimbEdges, result.TotalCost,
+                result.Expanded, 0, 0, 0, cacheHit: false);
+            var cacheKey = new RouteCacheKey(startX, startY, targetX, targetY, TileCount, speedDelay,
+                playerId, allowClimbing, allowReserved, gatePolicy, directClimbing);
+            bool staged = TryStagePreparedRoute(context, cacheKey, summary, null, command);
+            Shared.DevDiag.Count(staged ? "bfqol.assassin.group.staged" : "bfqol.assassin.group.stageRejected");
+            return staged;
+        }
+
+        // Diagnostic observers record every per-unit search (as BuildWeightedPath attaches them); they keep the per-unit path.
+        private static bool HasAssassinSearchObservers(IEnemyGatePathPolicy provider) =>
+            (provider != null && provider.HasPublishedMask && provider is IEnemyGateAssassinObserver) ||
+            EnemyBridgeDiagnosticBridge.Current != null;
+
+        // Native group route into route[] (target first): status of bfq_assassin_field_route, or -1 without an answer.
+        private int RunGroupRoute(AssassinCommandScope command, SuffixCacheKey fieldKey, int startX, int startY, int targetX, int targetY,
+            int cardinalTicks, int diagonalTicks, bool allowClimbing, bool allowReserved, IEnemyGateRoutePolicySnapshot gatePolicy,
+            out AssassinNativeSearch.Result result, int margin = GroupRouteMargin)
+        {
+            result = default;
+            byte[] mask = null;
+            bool callback = false;
+            if (gatePolicy != null)
+            {
+                if (gatePolicy is GateRouting.IAssassinDirectionMaskSource source) mask = source.DirectionMask;
+                else callback = true;
+            }
+            AssassinNativeSearch.Tables tables = nativeSearchTables;
+            tables.DirectGatehouseEndpoint = fieldKey.DirectGatehouseClimbing ? NativeDirectGatehousePointer : IntPtr.Zero;
+            AssassinPathfindingRuntime previousRuntime = nativeCallbackRuntime;
+            IEnemyGateRoutePolicySnapshot previousPolicy = nativeCallbackPolicy;
+            nativeCallbackRuntime = this; nativeCallbackPolicy = gatePolicy; nativeCallbackFailed = false;
+            int code, status = -1;
+            bool callbackFailed;
+            try
+            {
+                fixed (byte* maskBytes = mask)
+                fixed (int* nodes = route)
+                fixed (int* nodeCosts = nativeRouteCosts)
+                {
+                    var request = new AssassinNativeSearch.Request
+                    {
+                        StartX = startX, StartY = startY, TargetX = targetX, TargetY = targetY, MaximumNodes = TileCount,
+                        CardinalTicks = cardinalTicks, DiagonalTicks = diagonalTicks, AllowClimbing = allowClimbing ? 1 : 0,
+                        AllowReserved = allowReserved ? 1 : 0, PolicyMask = (IntPtr)maskBytes, PolicyMaskLength = mask?.Length ?? 0,
+                        UsePolicyCallback = callback ? 1 : 0,
+                    };
+                    int handle = command.GetGroupField(fieldKey);
+                    code = handle > 0 ? GroupRoute(handle, &tables, &request, nodes, nodeCosts, ref result, margin) : AssassinNativeSearch.FieldRecycled;
+                    if (code == AssassinNativeSearch.FieldRecycled)
+                    {
+                        // A new field towards the move target (the request's target is the anchor at creation).
+                        var anchorRequest = request;
+                        anchorRequest.TargetX = fieldKey.TargetX; anchorRequest.TargetY = fieldKey.TargetY;
+                        code = AssassinNativeSearch.bfq_assassin_field_create(&tables, &anchorRequest, &handle);
+                        if (code == 0)
+                        {
+                            command.SetGroupField(fieldKey, handle);
+                            Shared.DevDiag.Count("bfqol.assassin.group.fields");
+                            code = GroupRoute(handle, &tables, &request, nodes, nodeCosts, ref result, margin);
+                        }
+                    }
+                    // The move target cannot be reached from this slot (e.g. a blocked target tile): once per command the
+                    // field is anchored at this member's slot instead; the slots of one move lie close together.
+                    if (code == 0 && result.Status == AssassinNativeSearch.StatusFieldFailed && command.TryReanchorGroupField())
+                    {
+                        code = AssassinNativeSearch.bfq_assassin_field_create(&tables, &request, &handle);
+                        if (code == 0)
+                        {
+                            command.SetGroupField(fieldKey, handle);
+                            Shared.DevDiag.Count("bfqol.assassin.group.reanchored");
+                            code = GroupRoute(handle, &tables, &request, nodes, nodeCosts, ref result, margin);
+                        }
+                    }
+                    if (code == 0) status = result.Status;
+                }
+            }
+            finally
+            {
+                callbackFailed = nativeCallbackFailed;
+                nativeCallbackRuntime = previousRuntime; nativeCallbackPolicy = previousPolicy; nativeCallbackFailed = false;
+            }
+            // A failed callback answered 0 inside the field: drop that field (its distances may be wrong).
+            if (callbackFailed) { command.SetGroupField(fieldKey, 0); return -1; }
+            return status;
+        }
+
+        // margin < 0: the cost-optimal landmark route (tests and DEVDIAG quality checks).
+#if SERP_DEVDIAG
+        private int diagGroupQualitySample;
+#endif
+        private int GroupRoute(int handle, AssassinNativeSearch.Tables* tables, AssassinNativeSearch.Request* request,
+            int* nodes, int* nodeCosts, ref AssassinNativeSearch.Result result, int margin)
+        {
+            AssassinNativeSearch.Result local;
+            int code;
+#if SERP_DEVDIAG
+            // Quality of every 8th fast route: the cost-optimal landmark route first (overwritten below), per cost ratio.
+            AssassinNativeSearch.Result exact = default;
+            bool compare = margin >= 0 && (++diagGroupQualitySample & 7) == 0;
+            int exactCode = compare ? AssassinNativeSearch.bfq_assassin_field_route(handle, tables, request, -1, nodes, nodeCosts, route.Length, &exact) : -1;
+#endif
+            code = AssassinNativeSearch.bfq_assassin_field_route(handle, tables, request, margin, nodes, nodeCosts, route.Length, &local);
+#if SERP_DEVDIAG
+            if (code == 0 && exactCode == 0 && local.Status == AssassinNativeSearch.StatusFound && exact.Status == AssassinNativeSearch.StatusFound)
+            {
+                long extra = local.TotalCost - (long)exact.TotalCost;
+                double ratio = exact.TotalCost > 0 ? extra / (double)exact.TotalCost : 0;
+                Shared.DevDiag.Count("bfqol.assassin.group.quality." + (extra < 0 ? "cheaperThanExact" : extra == 0 ? "equal" : ratio <= 0.01 ? "le1pct" :
+                    ratio <= 0.05 ? "le5pct" : ratio <= 0.10 ? "le10pct" : ratio <= 0.25 ? "le25pct" : "over25pct"));
+            }
+            else if (compare) Shared.DevDiag.Count("bfqol.assassin.group.quality.unpaired");
+#endif
+            result = local;
+            return code;
+        }
+
         private int EstimateRemainingTicks(
             int x,
             int y,
@@ -2346,6 +2518,15 @@ private bool StagePreparedRouteWithDiagnostics(IntPtr context, RouteCacheKey key
 
             public Dictionary<int, int> GetSuffixCosts(SuffixCacheKey key) =>
                 suffixCosts.TryGetValue(key, out Dictionary<int, int> field) ? field : null;
+
+            // Native group field of this move command (handle 0: none). One per command; a request with another
+            // key (other player, speed or policy in the same command) replaces it.
+            private SuffixCacheKey groupFieldKey;
+            private int groupFieldHandle;
+            public int GetGroupField(SuffixCacheKey key) => groupFieldHandle != 0 && groupFieldKey.Equals(key) ? groupFieldHandle : 0;
+            public void SetGroupField(SuffixCacheKey key, int handle) { groupFieldKey = key; groupFieldHandle = handle; }
+            private bool groupFieldReanchored;
+            public bool TryReanchorGroupField() { if (groupFieldReanchored) return false; groupFieldReanchored = true; return true; }
 
             public void CacheSuffixes(
                 SuffixCacheKey key,

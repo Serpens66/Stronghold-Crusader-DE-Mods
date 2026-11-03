@@ -24,6 +24,15 @@ see [ENGINE_PRESENTATION_BRIDGE.md](../_inspect/CrusaderDE-Native-Baseline/sem/F
 - Fallback: none (hash-bound). Another hash, prologue or member layout leaves Vanilla unchanged and logs `VANILLA_PERF_MINIMAP_THROTTLE_DISABLED`.
 - Update checks: find the pass again (only writer of `radarMap` and `*(radar+0x70)`, no simulation writes), re-check the call ABI, the displaced span and the managed buffer ring; audit: [RADAR_PASS_F5A40.md](../_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/RADAR_PASS_F5A40.md).
 
+## Tribe member lookup V14 (2026-11-02)
+
+- Owner: `src/VanillaPerformance/TribeMemberLookupCode.cs` (machine code) and `TribeMemberLookupOptimization.cs` (installation), enabled with `VanillaPerformanceOptimizationsActive`.
+- Reference: hash `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`, RVA `0x119F90` ("unit id of the i-th tribe member"), body `0x8C` bytes with SHA-256 `CD5DAE0B455BA6CBFC20D0193849591A8250C710C8B77BBDCFFF6908FBD1544F` (shared constant with `TribeFloodMembership`). `X64InlineHook` at the entry with exactly 18 displaced bytes: `mov [rsp+8],rbx; movsxd rax,edx; xor r9d,r9d; imul rdx,rax,0x688` (no RIP-relative operand, no branch of the body into `0x119F91..0x119FA1`); absolute-indirect jump and padding validated after commit; exclusive `NativeSiteRegistry` span.
+- Contract: `rcx` tribe manager, `edx` tribe id, `r8d` ordinal; 0 unless `(short)tribe+0x40 == 2` and `0 <= i < (short)tribe+0x5C`; otherwise `word*16+bit` of the i-th set bit of the 625 words at `+0x60`, else 0. The stub writes only `rax, rdx, r9, r10, r11` (a subset of the original's) and keeps `r8` as the original does. Disabled: the displaced instructions and the original body run.
+- Fallback: none (hash- and body-bound). A different hash, body or an occupied entry leaves Vanilla unchanged and logs `VANILLA_PERF_TRIBE_MEMBER_LOOKUP_UNAVAILABLE`.
+- Tests: `tests/TribeMemberLookup.Tests` copies the installed body into executable memory (it is position independent) and compares Vanilla's copy with a copy hooked through the real `X64InlineHook` backend, flag on and off, on random and edge-case tribe records; registers `r8`/`rbx` are checked.
+- Update checks: re-audit `0x119F90` and its callers (stride `0x688`, kind `+0x40`, count `+0x5C`, words `+0x60`, 625 words), the displaced span and incoming branches; re-run the machine test against the new DLL.
+
 ## AI keep-range probe allocation (2026-10-05)
 
 The 18:51 startup failed before the actual EEF90 hook: the copied-entry probe
@@ -1470,7 +1479,7 @@ no additional editor, save/load or real host/client acceptance is inferred. Hist
 
 ## Native weighted Assassin search (2026-10-30, `native/AssassinSearch.cpp`, `src/AssassinNativeSearch.cs`)
 
-`BfqolAssassinSearch.dll` (contract `0x01000001`) runs the bucket variant of `TryBuildWeightedRoute` with identical
+`BfqolAssassinSearch.dll` (contract `0x01000002` since 2026-11-03, before `0x01000001`) runs the bucket variant of `TryBuildWeightedRoute` with identical
 results. It adds no RVA of its own: it reads exactly the tables the managed search binds in `InitializeNative`
 (valid coordinates, row lookup, tile flags, building, height, occupancy and direction masks) and calls the special
 tile predicate `0x107160` with context `0x32DE440` through the same addresses. Gate policy masks come from the
@@ -1483,6 +1492,23 @@ the mask allowed, masked climb callbacks answering true at a live gate) and a th
 let an exception unwind through the kernel; a failed callback discards the native call, the managed search repeats it
 and fails at the same predicate, and the following searches still agree. `GateRouting.Tests` checks that
 `DirectionMask` and `IsDirectionAllowed` of every captured gate snapshot decide identically.
+
+### Group fields of Assassin group moves (2026-11-03, contract `0x01000002`)
+
+`bfq_assassin_field_create`/`bfq_assassin_field_route` answer the members of one Assassin move command with one
+backward Dijkstra from the move target over exactly `Search::Run`'s edges and costs (`Search::Edge`), used as an ALT
+landmark: each member runs `Run`'s A* to its own slot with max(octile, `dist[v] - dist[slot]`), which keeps the route
+cost-optimal (equal-cost ties may differ from the per-unit search). Without a landmark `Run` is unchanged. Reference SHA-256
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`. Managed contract (`TryStageGroupRoute`,
+`UnitCommandPathRuntime.TryPublishAssassinGroupRoute`):
+- Only inside a move command scope (`TribeIssueOrderMoveHere`, target tile = anchor), for the path manager singleton
+  `0x60AD660` with `+0x88 != 0`, `+0x84 == 0` and `+0x80 == 0` (F4930's Assassin branch, audit `ASSASSIN_RECONSTRUCTION_REPAIR.md`),
+  request start/target from `+0x08..+0x14`, and a qualified single-unit frame (`AssassinPathAPI.TryGetCurrentWeightedRequest`).
+- The staged route is published through the frame without calling F4930 (no `0xD9C40`, `0xE1640`, second `+0x94`
+  pass), the precedent of MoatMove's single routes. The frame's `+0x94` identity test is skipped while Vanilla's
+  builder did not run, because `+0x94` then holds the value of an earlier reconstruction (`E1110`/`E1640` are its only writers).
+- Every other request, a rejected or unpublished route, keeps the unchanged per-unit path (Vanilla builder + weighted search).
+On a new DLL: re-audit F4930's Assassin branch, the writers of `+0x94` and the frame publication fields before enabling it.
 
 ## One-pass flood member check (2026-10-30, `src/UnitCommands/Native/TribeFloodMembership.cs`)
 

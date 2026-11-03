@@ -391,7 +391,7 @@ internal ITemporaryAssassinGateObserver DetailedObserver;internal Dictionary<int
   // Returns the summed native and managed search time per terrain.
   public static string VerifyNative(string directory){
    AssassinNativeSearch.Load(directory);
-   var report=new List<string>();int maskedClimbEdges=0,identityHits=0,callbackFailures=0;
+   var report=new List<string>();int maskedClimbEdges=0,identityHits=0,callbackFailures=0,groupRoutes=0;
    string[] terrains={"open","gate","detour","unreachable","castle","random1","random2","random3","random4"};
    for(int terrainIndex=0;terrainIndex<terrains.Length;terrainIndex++){
     string terrain=terrains[terrainIndex];
@@ -485,6 +485,34 @@ internal ITemporaryAssassinGateObserver DetailedObserver;internal Dictionary<int
       for(int k=0;k<length;k++)Assert(nativeRoute[k]==r.route[k]&&nativeCosts[k]==r.costs[r.route[k]],"route after a failed callback equals managed "+after+" at "+k);
       throwChecks++;
      }
+     // Group fields of Assassin group moves (TryStageGroupRoute): fast routes are valid weighted routes and never
+     // cheaper than the per-unit optimum; landmark routes cost exactly the optimum. One field per group of members.
+     for(int group=0;group<8;group++){
+      int ax=random.Next(1,width-1),ay=random.Next(1,height-1);
+      bool climbing=group%2==0,reserved=group%3!=0;r.climbRuntime.Allowed=climbing;
+      IEnemyGateRoutePolicySnapshot policy=group%3==1?byteMask:group%4==3?new StripeMask():null;
+      var key=new SuffixCacheKey(ax,ay,4,climbing,reserved,policy?.PlayerId??0,policy,AssassinPathAPI.DirectGatehouseClimbingEnabled);
+      int card=AssassinClimbCostPolicy.GetCardinalMovementTicks(4),diag=AssassinClimbCostPolicy.GetDiagonalMovementTicks(4);
+      foreach(int margin in new[]{8,-1}){
+       var command=new AssassinCommandScope(null,group+1,0,0,1,MoveCommandKind,ax,ay,"test",true,true);
+       for(int m=0;m<12;m++){
+        int sx=random.Next(1,width-1),sy=random.Next(1,height-1);
+        int tx=Math.Min(width-2,Math.Max(1,ax+random.Next(-6,7))),ty=Math.Min(height-2,Math.Max(1,ay+random.Next(-6,7)));
+        if(!IsNativeTile(r.GetTileId(sx,sy))||!IsNativeTile(r.GetTileId(tx,ty)))continue;
+        int status=r.RunGroupRoute(command,key,sx,sy,tx,ty,card,diag,climbing,reserved,policy,out var gr,margin);
+        string where=terrain+" group#"+group+" margin="+margin+" "+sx+","+sy+"->"+tx+","+ty;
+        if(status!=AssassinNativeSearch.StatusFound)continue;
+        var summary=new RouteSearchSummary(gr.RouteLength,gr.GroundEdges,gr.ClimbEdges,gr.TotalCost,gr.Expanded,0,0,0,cacheHit:false);
+        var routeKey=new RouteCacheKey(sx,sy,tx,ty,TileCount,4,policy?.PlayerId??0,climbing,reserved,policy,AssassinPathAPI.DirectGatehouseClimbingEnabled);
+        var nodes=new int[gr.RouteLength];Array.Copy(r.route,nodes,nodes.Length);
+        Assert(r.ValidateCachedRoute(routeKey,new CachedRoute(nodes,summary,r,routeKey,0)),"group route is a valid weighted route "+where);
+        r.nativeSearchBound=true;
+        Assert(r.TryBuildWeightedRoute(sx,sy,tx,ty,TileCount,4,climbing,reserved,null,policy,out var exact),"per-unit search finds the group route's pair "+where);
+        Assert(margin<0?gr.TotalCost==exact.TotalCost:gr.TotalCost>=exact.TotalCost,"group route cost "+gr.TotalCost+" against per-unit "+exact.TotalCost+" "+where);
+        groupRoutes++;
+       }
+      }
+     }
      identityHits+=terrainHits;
      report.Add(terrain+":compared="+compared+",found="+foundRoutes+",heapFallbacks="+overflows+",earlyExits="+earlyExits+",maskedClimbSteps="+terrainHits+",failedCallbacks="+throwChecks+",nativeMs="+(nativeTicks*1000.0/Stopwatch.Frequency).ToString("F1",CultureInfo.InvariantCulture)+
       ",managedMs="+(managedTicks*1000.0/Stopwatch.Frequency).ToString("F1",CultureInfo.InvariantCulture));
@@ -494,6 +522,8 @@ internal ITemporaryAssassinGateObserver DetailedObserver;internal Dictionary<int
    // callbacks were exercised (each comparison above already asserted equality).
    Assert(maskedClimbEdges>0&&identityHits>0,"byte-mask policy exercises masked climbs: edges="+maskedClimbEdges+" routeSteps="+identityHits);
    Assert(callbackFailures>0,"failing native callbacks were exercised");
+   Assert(groupRoutes>0,"group field routes were checked");
+   report.Add("groupRoutes="+groupRoutes);
    return string.Join(" ",report);
   }
   // Separate native-only and managed-only passes over the same requests (no policy), twice each (the

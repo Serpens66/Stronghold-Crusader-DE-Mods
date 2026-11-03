@@ -64,6 +64,7 @@ Es gibt keine Moduswahl mehr. Ein alter Eintrag `Mode` in einer vorhandenen Konf
   - Ein günstigerer Grabenweg qualifiziert die Einheit (Moduserkennung).
   - Eine Bodenentscheidung ersetzt Vanillas `F4930` über `TryReplaceUnsafeFallbackPath`.
   - Jede Route wird live geprüft: Identität, Start, Ziel, Puffer, alle Kanten und Eigentümer.
+  - Innerhalb eines Gruppenbefehls merkt sich MoatMove bereits geprüfte Kanten (`AnchorEdgeMemo`): Die Mitglieder laufen durch dieselben Korridore, Treffer liegen bei ~98 %. Jede gemeldete Kartenänderung, Regeländerung, Markierung und jeder neue Befehl beginnt neu; DEVDIAG-Builds prüfen jeden Treffer live nach (`anchor-breakdown` `edgeMemo`).
 - **Qualität:** Offline sind die Wege fast optimal; die Mehrkosten liegen im 95-%-Perzentil bei höchstens 6 % gegenüber einer exakten Suche je Einheit (GroupPathProbe).
 - **Ausnahmen mit Fast bzw. Vanilla:**
   - Angriffe, Arbeitsaufträge, Wegpunkte und Patrouillen;

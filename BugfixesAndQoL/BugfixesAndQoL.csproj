@@ -42,6 +42,8 @@
     <Compile Include="src\VanillaPerformance\SpriteSheetMergeMode.cs" />
     <Compile Include="src\VanillaPerformance\MinimapRefreshThrottle.cs" />
     <Compile Include="src\VanillaPerformance\RadarThrottlePolicy.cs" />
+    <Compile Include="src\VanillaPerformance\TribeMemberLookupCode.cs" />
+    <Compile Include="src\VanillaPerformance\TribeMemberLookupOptimization.cs" />
     <Compile Include="src\GatehouseLivingCapture\CaptureAdapterEmitter.cs" />
     <Compile Include="src\GatehouseLivingCapture\NativeDefinition.cs" />
     <Compile Include="src\GatehouseLivingCapture\CaptureDecision.cs" />

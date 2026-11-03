@@ -26,21 +26,25 @@ internal static partial class Program
             .GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().First();
         string[] excluded = { "InitializeNative", "Dispose", "BuildWeightedPath", "DescribeNativeAssassinState",
             "ObservePreparedAssassinRoute", "ObserveMoveCommand", "ObserveTargetCommand", "CloseCommandScope",
-            "CompleteCommand", "ClearTransientState", "ResetMapValidation", "ApplySetting", "BeginMap", "EndMap", "LogDebug", "LogInfo", "LogWarning", "LogError", "TimestampNow" };
+            "CompleteCommand", "ClearTransientState", "ResetMapValidation", "HasAssassinSearchObservers", "ApplySetting", "BeginMap", "EndMap", "LogDebug", "LogInfo", "LogWarning", "LogError", "TimestampNow" };
         var members = runtime.Members.Where(m => m is FieldDeclarationSyntax || m is DelegateDeclarationSyntax ||
             m is MethodDeclarationSyntax method && !excluded.Contains(method.Identifier.Text) ||
             m is BaseTypeDeclarationSyntax type && type.Identifier.Text != "AssassinObservation" ||
             m is PropertyDeclarationSyntax property && property.Identifier.Text is "PerformanceDiagnosticsEnabled" or "DetailedDiagnosticsEnabled");
         string body = string.Join("\n", members.Select(m => ActiveDiagnosticFixtureCode(m)));
         if (before) body = "private const bool PerformanceDiagnosticsEnabled = true;\n" + body;
+        // The fixture has no diagnostic observers (their bridges are outside it).
+        body += "\nprivate static bool HasAssassinSearchObservers(IEnemyGatePathPolicy provider)=>false;\n";
         body = System.Text.RegularExpressions.Regex.Replace(body, @"(?:const bool PerformanceDiagnosticsEnabled = false|static bool PerformanceDiagnosticsEnabled => Shared.DebugLogHelper.DiagnosticsEnabled)", diagnostics ? "const bool PerformanceDiagnosticsEnabled = true" : "const bool PerformanceDiagnosticsEnabled = false");
         // Identical counters in both revisions; no search decision is changed.
         body = body.Replace("int result = heap[0];", "fixturePops++; int result = heap[0];")
             .Replace("heapOperations++;", "heapOperations++; fixtureHeapOperations++;");
         var publication = CSharpSyntaxTree.ParseText(Read("BugfixesAndQoL/src/UnitCommands/Movement/MovementPathPublication.cs"), parseOptions);
         string publishing = string.Join("\n", publication.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>()
-            .Where(m => m.Identifier.Text is "BuildPathWithCompletedMoatRouteVariant" or "BeginAssassinRoutePublication")
+            .Where(m => m.Identifier.Text is "BuildPathWithCompletedMoatRouteVariant" or "BeginAssassinRoutePublication" or "TryPublishAssassinGroupRoute")
             .Select(m => ActiveDiagnosticFixtureCode(m)));
+        // Without a stager (none is registered in this fixture) the group route path keeps the per-unit builder.
+        publishing += "\ninternal static Func<IntPtr,bool> AssassinGroupRouteStager; private bool assassinBuilderSkipped;\n";
         // This kernel fixture has no active cursor proof scope; the observation
         // boundary itself is exercised with real snapshots by ManualHarness.
         publishing += "\nprivate void ObserveCursorGroundBuilder(IntPtr manager,int player,int profile,int result){}\n";

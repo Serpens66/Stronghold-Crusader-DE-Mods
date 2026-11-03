@@ -261,10 +261,14 @@ namespace PerfProbe
             // Fixed layout of the audited DLL: refuse a smaller image instead of reading outside it.
             int peOffset = System.Runtime.InteropServices.Marshal.ReadInt32(module, 0x3C);
             uint imageSize = (uint)System.Runtime.InteropServices.Marshal.ReadInt32(module, peOffset + 0x18 + 0x38);
-            if (imageSize < 0x60AD660 + 0x80) return "unavailable(image)";
+            if (imageSize < 0x60AD660 + 0xC0) return "unavailable(image)";
             IntPtr manager = new IntPtr(module.ToInt64() + 0x60AD660);
+            // +0xBC: calls of the Assassin breadth-first search 0xD9C40 (incremented on every call);
+            // +0xAC: 0xF4930 calls that reach its search dispatch (LAB_1800f4a16).
             return "reconstructFailures=" + System.Runtime.InteropServices.Marshal.ReadInt32(manager, 0x78).ToString(C) +
-                " pclRebuilds=" + System.Runtime.InteropServices.Marshal.ReadInt32(manager, 0x74).ToString(C);
+                " pclRebuilds=" + System.Runtime.InteropServices.Marshal.ReadInt32(manager, 0x74).ToString(C) +
+                " assassinSearches=" + System.Runtime.InteropServices.Marshal.ReadInt32(manager, 0xBC).ToString(C) +
+                " builderSearches=" + System.Runtime.InteropServices.Marshal.ReadInt32(manager, 0xAC).ToString(C);
         }
 
         [System.Runtime.InteropServices.DllImport("kernel32.dll", CharSet = System.Runtime.InteropServices.CharSet.Unicode)]

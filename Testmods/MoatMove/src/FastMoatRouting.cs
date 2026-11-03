@@ -157,6 +157,7 @@ namespace MoatMove
         // byte feeds its own node's edges and the diagonal/moat checks of direct neighbours.
         private void MarkFastTopologyTile(int tile, int radius = 2)
         {
+            InvalidateEdgeMemo();
             if (!IsValidTileId(tile)) return;
             var position = GameTileManagerAPI.Instance.GetTileVectorFromId(tile);
             if ((uint)position.X < MapWidth && (uint)position.Y < MapWidth)
@@ -229,6 +230,7 @@ namespace MoatMove
         // masks and reachability words itself; only Fast's own caches are marked completely.
         private void MarkFastTopologyAll(bool anchorMasks = true)
         {
+            InvalidateEdgeMemo();
             if (fastSimulationRouting != null) foreach (var map in fastSimulationRouting.Maps.Values) map.MarkAll();
             if (fastCursorRouting != null) foreach (var map in fastCursorRouting.Maps.Values) map.MarkAll();
             if (anchorMasks) { anchorResweepGlobal++; ResweepAnchorMasks(); }
@@ -286,7 +288,7 @@ namespace MoatMove
             {
                 int direction = (bytes[i >> 1] >> ((i & 1) * 4)) & 15;
                 int next = node + WeightedMoatRoutePlanner.DirectionY[direction] * MapWidth + WeightedMoatRoutePlanner.DirectionX[direction];
-                bool live = anchor ? AnchorLiveEdge(player, node, next, direction, groundOnly, out bool wet, out bool structure)
+                bool live = anchor ? AnchorLiveEdgeMemo(player, node, next, direction, groundOnly, out bool wet, out bool structure)
                     : FastLiveEdge(player, node, next, direction, groundOnly, out wet, out structure);
                 if (!live)
                 {

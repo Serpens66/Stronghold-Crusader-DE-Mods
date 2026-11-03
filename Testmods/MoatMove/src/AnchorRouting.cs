@@ -561,6 +561,7 @@ namespace MoatMove
         // building is closed to the player unless it is open or owned by the player or an ally.
         private void RefreshAnchorBlocked(int player)
         {
+            InvalidateEdgeMemo();
             HashSet<int> blocked = anchorBlocked[player] ?? (anchorBlocked[player] = new HashSet<int>());
             blocked.Clear();
             if (runtime.nativePathManager == IntPtr.Zero) return;
@@ -778,6 +779,7 @@ namespace MoatMove
         // A failed live audit names the stale node: its area is re-read at the next tick.
         private void MarkAnchorArea(int node)
         {
+            InvalidateEdgeMemo();
             if ((uint)node >= (uint)(MapWidth * MapWidth)) return;
             int cx = node % MapWidth, cy = node / MapWidth;
             for (int y = Math.Max(0, cy - 2); y <= Math.Min(MapWidth - 1, cy + 2); y++)
@@ -1446,7 +1448,7 @@ namespace MoatMove
                 $"preMs={AnchorMs(anchorPreTicks)} maxPreMs={AnchorMs(anchorPreMaxTicks)} queryMs={AnchorMs(anchorQueryTicks)} " +
                 $"encodeMs={AnchorMs(anchorEncodeTicks)} publishMs={AnchorMs(anchorPublishTicks)} published={anchorPublished} " +
                 $"publishRejects={anchorPublishRejects} encodeRejects={anchorEncodeRejects} routeReuses={anchorRouteReuses} " +
-                $"lazyTasks={anchorLazyTasks} groupSingles={anchorGroupSingleRoutes}/{AnchorMs(anchorGroupSingleTicks)}ms unusedMoves={anchorUnusedMoves} auditSkips={anchorAuditSkips} publishReasons=[{FormatAnchorReasons()}] " +
+                $"lazyTasks={anchorLazyTasks} groupSingles={anchorGroupSingleRoutes}/{AnchorMs(anchorGroupSingleTicks)}ms unusedMoves={anchorUnusedMoves} auditSkips={anchorAuditSkips} {FormatEdgeMemo()} publishReasons=[{FormatAnchorReasons()}] " +
                 $"batch(calls={anchorBatchCalls} units={anchorBatchUnits} hits={anchorBatchHits} ms={AnchorMs(anchorBatchTicks)}) " +
                 $"queryStatus(ready,unreachable,overLimit,pending,stale,invalid,failed,error)={string.Join(",", anchorQueryStatus)} " +
                 $"members={anchorMembers} unreachedMembers={anchorUnreachedUnits} movesWithUnreached={anchorMovesWithUnreached} " +

@@ -90,7 +90,7 @@ string[] runtimeSourceNames =
 {
     "AssassinSelectionAdapters.cs",
     "CursorConnectivity.cs", "CursorRegionGraph.cs", "DirectMoatCommandScopes.cs",
-    "AnchorRouting.cs", "RouteReplanWatch.cs", "FireEscape.cs", "SoldierTribeMoves.cs", "PlagueDamageModel.cs", "GroundFailureProofs.cs", "MoatFailureProofs.cs", "FastIntegration.cs", "DigWorkFallback.cs", "IFastRouteField.cs", "FastRouteField.cs", "FastCommandQueue.cs", "FastRoutePool.cs", "FastTraversalCache.cs",
+    "AnchorRouting.cs", "RouteReplanWatch.cs", "FireEscape.cs", "SoldierTribeMoves.cs", "AnchorEdgeMemo.cs", "PlagueDamageModel.cs", "GroundFailureProofs.cs", "MoatFailureProofs.cs", "FastIntegration.cs", "DigWorkFallback.cs", "IFastRouteField.cs", "FastRouteField.cs", "FastCommandQueue.cs", "FastRoutePool.cs", "FastTraversalCache.cs",
     "FastMoatRouting.cs", "FastMovementScheduler.cs", "FastGroupDistribution.cs", "FillWeightedRoutes.cs",
     "FriendlyMoatMovementRuntime.cs",
     "MoatPlacement.cs", "MoatPlacementSearch.cs",
@@ -284,6 +284,7 @@ var compilation = CSharpCompilation.Create("Assembly-CSharp", new[] {
     CSharpSyntaxTree.ParseText(RuntimeSource("RouteReplanWatch.cs")),
     CSharpSyntaxTree.ParseText(RuntimeSource("FireEscape.cs")),
     CSharpSyntaxTree.ParseText(RuntimeSource("SoldierTribeMoves.cs")),
+    CSharpSyntaxTree.ParseText(RuntimeSource("AnchorEdgeMemo.cs")),
     CSharpSyntaxTree.ParseText(RuntimeSource("PlagueDamageModel.cs")),
     CSharpSyntaxTree.ParseText(RuntimeSource("GroundFailureProofs.cs")),
     CSharpSyntaxTree.ParseText(RuntimeSource("MoatFailureProofs.cs")),

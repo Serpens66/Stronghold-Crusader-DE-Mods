@@ -1033,6 +1033,37 @@ namespace MoatMove
                 Check(AnchorReady(1), "the map's first scan did not build its mask in one tick");
                 for (int p = 2; p <= 8; p++) Check(anchorMaskNext[p] == -1, "mask started for a player without units");
 
+                // Edge memo of one group order (AnchorEdgeMemo): a repeated edge answers like LiveEdge without a
+                // second check; outside an order, after a reported map change, a topology mark or in the next
+                // order the edge is checked live again.
+                {
+                    int memoFrom = 10 * MapWidth + 10, memoDir = -1, memoTo = 0;
+                    for (int d = 0; d < 8 && memoDir < 0; d++)
+                    {
+                        int candidate = memoFrom + WeightedMoatRoutePlanner.DirectionY[d] * MapWidth + WeightedMoatRoutePlanner.DirectionX[d];
+                        if (AnchorLiveEdge(1, memoFrom, candidate, d, true, out _, out _)) { memoDir = d; memoTo = candidate; }
+                    }
+                    Check(memoDir >= 0, "no live ground edge at the memo test node");
+                    AnchorLiveEdge(1, memoFrom, memoTo, memoDir, true, out bool liveWet, out bool liveStructure);
+                    long memoHits = edgeMemoHits;
+                    bool Memo(out bool memoWetOut, out bool memoStructureOut) => AnchorLiveEdgeMemo(1, memoFrom, memoTo, memoDir, true, out memoWetOut, out memoStructureOut);
+                    Check(Memo(out _, out _) && Memo(out _, out _) && edgeMemoHits == memoHits, "edge memo used outside a group order");
+                    BeginAnchorFrame(77, 0);
+                    Check(Memo(out bool firstWet, out bool firstStructure) && edgeMemoHits == memoHits &&
+                        firstWet == liveWet && firstStructure == liveStructure, "first check of an order is not live");
+                    Check(Memo(out bool memoWet, out bool memoStructure) && edgeMemoHits == memoHits + 1 && memoWet == liveWet && memoStructure == liveStructure,
+                        "a repeated edge of an order is not answered from the memo");
+                    placementRevision++;
+                    Check(Memo(out _, out _) && edgeMemoHits == memoHits + 1, "a reported map change keeps the memo");
+                    InvalidateEdgeMemo();
+                    Check(Memo(out _, out _) && edgeMemoHits == memoHits + 1, "a topology mark keeps the memo");
+                    Check(Memo(out _, out _) && edgeMemoHits == memoHits + 2, "the memo is not refilled after a mark");
+                    EndAnchorFrame(77);
+                    BeginAnchorFrame(78, 0);
+                    Check(Memo(out _, out _) && edgeMemoHits == memoHits + 2, "the next order reuses the previous order's memo");
+                    EndAnchorFrame(78);
+                }
+
                 int start = 10 * MapWidth + 10, anchor = 10 * MapWidth + 150;
                 long tasksBefore = anchorTasks;
                 // Profile 8/56 reduces to 1/7; the group's task is ready when the call returns.

@@ -160,6 +160,8 @@ namespace BugfixesAndQoL
             assassinClimbRuntime = new AssassinClimbRuntime(log, settings, multiplayerFeatureGate);
             assassinClimbCancellationRuntime = new AssassinClimbCancellationRuntime(log, settings);
             assassinPathfindingRuntime = new AssassinPathfindingRuntime(log, settings, assassinClimbRuntime);
+            // Rooted by the static field for the process; inactive until the runtime is installed.
+            UnitCommands.UnitCommandPathRuntime.AssassinGroupRouteStager = assassinPathfindingRuntime.TryStageGroupRoute;
             assassinCombatResumeRuntime = new AssassinCombatResumeRuntime(log, settings);
             assassinCapturedGateProtectionRuntime = new AssassinCapturedGateProtectionRuntime(log, settings);
             multiplayerGameSpeedRuntime = new MultiplayerGameSpeedRuntime(log, settings, multiplayerFeatureGate);
