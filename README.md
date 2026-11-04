@@ -26,6 +26,12 @@ Definitive Edition. [Watch the preview](https://youtu.be/Jdz_aAA7CE4).
 Use the same gameplay-mod versions as the other players in multiplayer. Each mod's
 page lists its requirements and any limits for particular game modes.
 
+On Linux/Proton, follow the [Linux modding guide](Guides/Linux%20and%20Proton%20Modding.md).
+If Script Extender cannot complete APIShared's first Workshop installation, download
+the separate [Proton Workshop Fix ZIP (0.27.0)](https://github.com/SHCDE-APIShared/APIShared/releases/download/APIShared/v0.27.0/APIShared-ProtonWorkshopFix-v0.27.0.zip)
+and follow the guide's manual repair steps. This patcher is installed separately
+from APIShared and the modpack.
+
 ## Mods in this repository
 
 | Mod | What it offers |
