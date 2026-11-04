@@ -7,6 +7,7 @@ param(
 . (Join-Path $PSScriptRoot 'Release.Common.ps1')
 . (Join-Path $PSScriptRoot 'GitHubReleaseDraft.ps1')
 . (Join-Path $PSScriptRoot 'SCDEModManagerPackage.ps1')
+. (Join-Path $PSScriptRoot '../BuildCache/ModBuildCheckpoint.ps1')
 
 if ($ModName -eq 'APIShared') {
     throw 'APIShared releases now belong to SHCDE-APIShared/APIShared. Use APIShared/release.bat from the shared Git checkout.'
@@ -101,7 +102,17 @@ try {
         }
         $buildArguments = @('/nopause')
         if ($env:SHCDE_PREPARE_ONLY -eq '1') { $buildArguments += '/noinstall' }
-        $buildResult = Invoke-CheckedCommand -FilePath $metadata.BuildBat -Arguments $buildArguments -AllowFailure
+        $coordinator = if (Get-Command Get-ApiMainWorkspace -ErrorAction SilentlyContinue) { Get-ApiMainWorkspace $config.Root } else { $config.Root }
+        $checkpointOptions = @{
+            Workspace=$config.Root; Coordinator=$coordinator; ModName=$ModName; ModDirectory=$metadata.ModDir;
+            PackageDirectory=$metadata.PackageDir; Driver=$metadata.BuildBat; Arguments=$buildArguments; Commit=$commit;
+            GameDirectory=$config.GameDir; ExtenderDirectory=$extenderDir; Compiler=$config.MSBuild;
+            ApiSharedDirectory=$(if($apiSharedPackage){$apiSharedPackage.Directory}else{Join-Path $config.Root 'APIShared/BepInEx/plugins/APIShared_Serp'});
+            ApiSourceDirectory=$(if(Get-Command Get-WorkshopApiRoot -ErrorAction SilentlyContinue){Get-WorkshopApiRoot $config.Root}else{Join-Path $config.Root 'APIShared'})
+        }
+        $buildResult = Invoke-ModBuildCheckpoint @checkpointOptions -Action {
+            Invoke-CheckedCommand -FilePath $metadata.BuildBat -Arguments $buildArguments -AllowFailure
+        }
         $buildOutput = @($buildResult.Output)
         $buildExitCode = $buildResult.ExitCode
     } finally {
@@ -180,6 +191,8 @@ try {
     $ghVersion = ((Invoke-CheckedCommand -FilePath 'gh' -Arguments @('--version')).Output | Select-Object -First 1).Trim()
     $dotnetVersion = ((Invoke-CheckedCommand -FilePath 'dotnet' -Arguments @('--version')).Output -join '').Trim()
     $msBuildVersion = (Get-Item -LiteralPath $config.MSBuild).VersionInfo.FileVersion
+    $buildCheckpoint = if ($buildResult.PSObject.Properties['Checkpoint']) { $buildResult.Checkpoint } else { $null }
+    if ($buildCheckpoint) { $buildStart = [DateTime]::Parse($buildCheckpoint.BuildStartedUtc).ToUniversalTime() }
     $provenance = [ordered]@{
         SchemaVersion = 2
         Repository = "https://github.com/$($config.Repository)"
@@ -192,7 +205,8 @@ try {
         Version = $metadata.Version
         Tag = $metadata.Tag
         BuildStartedUtc = $buildStart.ToString('o')
-        BuildCompletedUtc = [DateTime]::UtcNow.ToString('o')
+        BuildCompletedUtc = $(if($buildCheckpoint){$buildCheckpoint.BuildCompletedUtc}else{[DateTime]::UtcNow.ToString('o')})
+        BuildCheckpoint = $buildCheckpoint
         Package = [ordered]@{ Profile = 'Thin'; File = [IO.Path]::GetFileName($zipPath); Sha256 = $zipHash; Size = (Get-Item -LiteralPath $zipPath).Length }
         ManagerPackage = [ordered]@{
             Format = 'scdemod'

@@ -61,6 +61,13 @@ Buildbezogene Abläufe und Prüfungslisten in diesen Anweisungen sind Empfehlung
 
 - Kritische Datei-/Paket-Hashprüfungen in Build-/Release-Treibern nutzen die vorhandenen gemeinsamen .NET-SHA-256-Helfer statt `Get-FileHash` (Verfügbarkeit/Modulauflösung nicht vorausgesetzt). Streams und Hashobjekte zuverlässig freigeben; bei Fehlern abbrechen, nie überspringen oder schwächer vergleichen.
 
+## Lokale Mod-Buildcheckpoints
+
+- Release-, Kompatibilitäts- und Hostbuilds mit explizitem `/noinstall` können vollständig erfolgreiche Builds samt Prüfungen über `Shared/Tools/BuildCache/ModBuildCheckpoint.ps1` wiederverwenden. Installierende Aufrufe führen ihre Buildaktion immer aus, weil vorhandene Paketdateien keine erfolgreiche Installation belegen. Dies überspringt keine aktuellen Git-, Abhängigkeits-, Versions-, Paket-, DEVDIAG- oder Veröffentlichungssperren. Teilweise bestandene Prüfungen eines fehlgeschlagenen Builds werden nicht als Erfolg gespeichert.
+- Ein Treffer verlangt denselben vollständigen Commit, Quell-/Paketpfad, Argumente, geerbte Umgebung sowie unveränderte relevante Quellen, Tests, Quelllinks, Werkzeuge, SDK-, Spiel-/Native- und Compilerreferenzen. Die ausgewählte Native-Baseline bindet aktuelle Metadaten, Ressourcen und den manifestierten Datenbankdigest samt Dateistatus ein; keine erneute pauschale Gigabyte-Datenbankkopie oder -Hashprüfung.
+- Zusätzlich muss der ursprüngliche Paketdateisatz vollständig vorhanden sein und alle SHA-256-Werte müssen stimmen. Fehlende oder veränderte Ausgaben erfordern einen echten Build; der Checkpoint stellt keine Binärdateien wieder her. Ursprünglicher Buildcommit und Buildzeit bleiben bei Wiederverwendung erhalten und werden in der Release-Provenance gekennzeichnet.
+- Unter `.release-output/checkpoints/mod-builds` des koordinierenden Workspaces liegen höchstens 32 Erfolgsnachweise mit jeweils maximal 1 MiB, keine Binär-, Quell- oder Paketkopien. Jeder echte Neuversuch entfernt den bisherigen Nachweis vor Ausführung, auch wenn sein Fingerprint nicht mehr berechenbar ist. Unsichere Cachepfade werden nicht verwendet. Gezielt prüfen: `powershell.exe -NoProfile -ExecutionPolicy Bypass -File Shared/Tools/BuildCache/Test-ModBuildCheckpoint.ps1`.
+
 ## Versionen
 
 - Während Tests/Debugging die Version nicht ändern, außer für einen Test wirklich sinnvoll oder ausdrücklich angefordert. Erst wenn ein Feature fertig oder ein Bug final behoben ist erhöhen; im Zweifel fragen, ob der Stand final ist.
