@@ -1,0 +1,40 @@
+# BugfixesAndQoL release status
+
+**Status:** code newer
+
+- Release: [v1.0.211](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/releases/tag/BugfixesAndQoL/v1.0.211)
+- Release commit: [08fe05d](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/commit/08fe05ddc84a2fe70cff893fe448f8e67f713fc2)
+- Current main commit: [e1b61a6](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/commit/e1b61a67fe673e4389c404646ae1e53155a64857)
+
+## Relevant changed files
+
+- `BugfixesAndQoL/native/Build-AssassinSearch.ps1`
+
+## Diff
+
+```diff
+diff --git a/BugfixesAndQoL/native/Build-AssassinSearch.ps1 b/BugfixesAndQoL/native/Build-AssassinSearch.ps1
+index b83a5a847..7619071fc 100644
+--- a/BugfixesAndQoL/native/Build-AssassinSearch.ps1
++++ b/BugfixesAndQoL/native/Build-AssassinSearch.ps1
+@@ -16,13 +16,12 @@ if ($CopyOnly) {
+     $recorded = Get-Content -LiteralPath $proof -Raw | ConvertFrom-Json
+     if ($recorded.sourceSha256 -cne (Get-ApiFileHash $source) -or $recorded.dllSha256 -cne (Get-ApiFileHash $dll)) { throw 'Assassin search build does not match the current source.' }
+ } else {
+-    $compilerRoot = (Get-ChildItem -LiteralPath 'C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC' -Directory | Sort-Object { [version]$_.Name } -Descending | Where-Object { Test-Path -LiteralPath (Join-Path $_.FullName 'bin/Hostx64/x64/cl.exe') } | Select-Object -First 1).FullName
+-    if (-not $compilerRoot) { throw 'MSVC x64 compiler not found (Visual Studio 2022 Build Tools).' }
+-    $sdkRoot = 'C:\Program Files (x86)\Windows Kits\10'
+-    $sdk = Get-ChildItem -LiteralPath (Join-Path $sdkRoot 'Include') -Directory | Sort-Object Name -Descending | Where-Object { Test-Path -LiteralPath (Join-Path $_.FullName 'ucrt/stdio.h') } | Select-Object -First 1
+-    if (-not $sdk) { throw 'Windows SDK not found.' }
+-    $env:INCLUDE = (Join-Path $compilerRoot 'include') + ';' + (Join-Path $sdk.FullName 'ucrt') + ';' + (Join-Path $sdk.FullName 'shared') + ';' + (Join-Path $sdk.FullName 'um')
+-    $env:LIB = (Join-Path $compilerRoot 'lib/x64') + ';' + (Join-Path $sdkRoot ('Lib/' + $sdk.Name + '/ucrt/x64')) + ';' + (Join-Path $sdkRoot ('Lib/' + $sdk.Name + '/um/x64'))
++    . (Join-Path $mod '../Shared/Tools/BuildCache/MsvcToolchain.ps1')
++    $toolchain = Get-MsvcToolchain
++    $compilerRoot = $toolchain.CompilerRoot
++    $sdk = $toolchain.Sdk
++    $env:INCLUDE = $toolchain.IncludeDirectories -join ';'
++    $env:LIB = $toolchain.LibraryDirectories -join ';'
+     [IO.Directory]::CreateDirectory($work) | Out-Null
+     $hash = Get-ApiFileHash $source
+     & (Join-Path $compilerRoot 'bin/Hostx64/x64/cl.exe') /nologo /std:c++17 /O2 /Ob2 /EHsc /MT /W4 /LD $source "/Fo$work/AssassinSearch.obj" /link "/OUT:$dll" "/IMPLIB:$work/BfqolAssassinSearch.lib"
+```

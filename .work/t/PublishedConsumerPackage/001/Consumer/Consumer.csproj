@@ -1,0 +1,1 @@
+<Project><ItemGroup><Reference Include="APIShared"><HintPath>$(ApiSharedDir)/APIShared.dll</HintPath></Reference></ItemGroup></Project>

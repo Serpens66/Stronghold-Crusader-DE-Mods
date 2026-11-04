@@ -1,0 +1,9 @@
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup><Reference Include="APIShared"><HintPath>obsolete-reference.dll</HintPath></Reference></ItemGroup>
+  <Import Project="../../Directory.Build.targets" />
+  <Target Name="Probe" DependsOnTargets="ValidateWorkspaceApiSharedPackage">
+    <Error Condition="'$(ApiSharedDir)' != '$(ExpectedSdk)'" Text="Wrong SDK property: $(ApiSharedDir)" />
+    <Error Condition="'%(Reference.HintPath)' != '$(ExpectedSdk)\APIShared.dll'" Text="Compiler and validation SDK differ: %(Reference.HintPath)" />
+    <Message Importance="high" Text="SDK_PROBE_OK $(ApiSharedDir)" />
+  </Target>
+</Project>
