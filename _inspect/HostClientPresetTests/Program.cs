@@ -278,6 +278,7 @@ internal static class Program
             TestGatehouseAutomationSaveState();
             TestBoundedSaveStateDeserialization();
             TestPlagueFlagDiseaseRegistry();
+            TestAIDefenseRebuildSaveState();
             TestAIMarketNativeResolution();
             TestAiStoneReserveNativeResolution();
             TestAiStoneReservePolicy();
@@ -1108,6 +1109,47 @@ internal static class Program
             rejected = true;
         }
         Check(rejected, "Shared did not reject " + scenario);
+    }
+
+    // Persisted save-game contract: field order and bounds must stay readable by later versions.
+    private static void TestAIDefenseRebuildSaveState()
+    {
+        var saved = new AIDefenseRebuildSaveState
+        {
+            Targets = new[]
+            {
+                new AIDefenseRebuildSaveRecord { PlayerId = 2, TileX = 427, TileY = 119, Family = 1,
+                    Flags = AIDefenseRebuildSaveRecord.DestroyedFlag | AIDefenseRebuildSaveRecord.DelayFlag |
+                        AIDefenseRebuildSaveRecord.DelayFromConfirmedDestructionFlag,
+                    DestroyedTick = int.MaxValue - 5, DelayStartTick = int.MinValue + 7 },
+                new AIDefenseRebuildSaveRecord { PlayerId = 8, TileX = 0, TileY = 799, Family = 2 }
+            }
+        };
+        AIDefenseRebuildSaveState restored = MessagePackSerializer.Deserialize<AIDefenseRebuildSaveState>(
+            MessagePackSerializer.Serialize(saved));
+        Check(restored.Version == AIDefenseRebuildSaveState.CurrentVersion && restored.Targets.Length == 2,
+            "AI defense rebuild state lost its version or records");
+        for (int index = 0; index < 2; index++)
+        {
+            AIDefenseRebuildSaveRecord expected = saved.Targets[index], actual = restored.Targets[index];
+            Check(actual.PlayerId == expected.PlayerId && actual.TileX == expected.TileX &&
+                  actual.TileY == expected.TileY && actual.Family == expected.Family &&
+                  actual.Flags == expected.Flags && actual.DestroyedTick == expected.DestroyedTick &&
+                  actual.DelayStartTick == expected.DelayStartTick,
+                "AI defense rebuild record " + index + " did not round-trip exactly");
+        }
+        ExpectMessagePackFailure(
+            () => MessagePackSerializer.Deserialize<AIDefenseRebuildSaveState>(
+                new byte[] { 0x92, 0x01, 0xDD, 0x7F, 0xFF, 0xFF, 0xFF }),
+            "AI defense rebuild int.MaxValue record header was not rejected before allocation");
+        ExpectMessagePackFailure(
+            () => MessagePackSerializer.Deserialize<AIDefenseRebuildSaveState>(new byte[] { 0x91, 0x01 }),
+            "AI defense rebuild root field count was not validated");
+        ExpectMessagePackFailure(
+            () => MessagePackSerializer.Deserialize<AIDefenseRebuildSaveState>(
+                new byte[] { 0x92, 0x01, 0x91, 0x92, 0x01, 0x02 }),
+            "AI defense rebuild record field count was not validated");
+        Console.WriteLine("PASS: AI defense rebuild save state round-trip and bounded deserialization.");
     }
 
     private static void TestPlagueFlagDiseaseRegistry()

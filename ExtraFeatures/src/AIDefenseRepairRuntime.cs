@@ -127,6 +127,8 @@ namespace ExtraFeatures
             if (initialized)
                 return;
 
+            // Before any subscription: a failure here must not leave duplicate subscriptions on retry.
+            RegisterSaveData();
             subscriptions.Add(AIR3EventHooks.OnAIBuildWall.Observable.Subscribe(OnAIBuildWall));
             subscriptions.Add(BuildingR3EventHooks.OnBuildingSpawn.Observable.Subscribe(OnBuildingSpawn));
             subscriptions.Add(BuildingR3EventHooks.OnBuildingTileTakeDamage.Observable.Subscribe(OnDefenseDamage));
@@ -302,6 +304,8 @@ namespace ExtraFeatures
 
         private void OnSessionStarted(Shared.GameplaySessionStartedContext context)
         {
+            // Taken for every start kind so no later session can consume this archive's bytes.
+            byte[] savedRebuildState = TakeArchivedState();
             if (context.IsEditor)
             {
                 ResetMap();
@@ -317,6 +321,7 @@ namespace ExtraFeatures
                 // live buildings before the first finished-castle build step can run.
                 mapPrepared = true;
                 ReconstructLoadedDefenses();
+                RestoreSavedTargets(savedRebuildState);
             }
             BeginMap();
         }
@@ -882,12 +887,12 @@ namespace ExtraFeatures
             if (!rebuildDelays.TryGetValue(target, out RebuildDelayState state))
             {
                 int firstTick = context.Tick;
-                string source = "first-missing-attempt";
+                string source = FirstMissingAttemptSource;
                 if (destroyedDefenseTicks.TryGetValue(target, out int destructionTick) &&
-                    unchecked((uint)(context.Tick - destructionTick)) <= int.MaxValue)
+                    IsNotInFuture(destructionTick, context.Tick))
                 {
                     firstTick = destructionTick;
-                    source = "confirmed-destruction";
+                    source = ConfirmedDestructionSource;
                 }
 
                 state = new RebuildDelayState(firstTick, source);
@@ -1125,9 +1130,9 @@ namespace ExtraFeatures
             internal DefenseTargetKey(int playerId, int x, int y, DefenseFamily family)
             { PlayerId = playerId; X = x; Y = y; Family = family; }
             internal int PlayerId { get; }
-            private int X { get; }
-            private int Y { get; }
-            private DefenseFamily Family { get; }
+            internal int X { get; }
+            internal int Y { get; }
+            internal DefenseFamily Family { get; }
             public override string ToString() => $"player={PlayerId}, family={Family}, anchor=({X},{Y})";
             public bool Equals(DefenseTargetKey other) =>
                 PlayerId == other.PlayerId && X == other.X && Y == other.Y && Family == other.Family;
