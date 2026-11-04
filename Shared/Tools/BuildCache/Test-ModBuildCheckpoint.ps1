@@ -1,3 +1,4 @@
+param([switch]$NativeToolchainOnly)
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'ModBuildCheckpoint.ps1')
 . (Join-Path $PSScriptRoot '../Paths/WorkPaths.ps1')
@@ -6,6 +7,57 @@ $fixture=New-ShortWorkDirectory -Root $workspace -Kind t -Name ModBuildCheckpoin
 $checks=0;$script:runs=0;$script:exitCode=0
 function Check([bool]$Value,[string]$Message){if(-not $Value){throw $Message};$script:checks++}
 function Put([string]$Path,[string]$Value){[void][IO.Directory]::CreateDirectory((Split-Path -Parent $Path));[IO.File]::WriteAllText($Path,$Value,[Text.UTF8Encoding]::new($false))}
+if($NativeToolchainOnly) {
+    . (Join-Path $PSScriptRoot 'MsvcToolchain.ps1')
+    $vc=Join-Path $fixture 'vc';$kits=Join-Path $fixture 'kits'
+    function Make-Toolchain([string]$Version,[string]$SdkVersion) {
+        foreach($file in @('cl.exe','link.exe','c1xx.dll','c2.dll')){Put (Join-Path $vc ($Version+'/bin/Hostx64/x64/'+$file)) 'binary'}
+        Put (Join-Path $vc ($Version+'/include/vector')) 'header'
+        Put (Join-Path $vc ($Version+'/lib/x64/libcmt.lib')) 'library'
+        foreach($directory in @('ucrt','shared','um')){Put (Join-Path $kits ('Include/'+$SdkVersion+'/'+$directory+'/stdio.h')) 'header'}
+        foreach($directory in @('ucrt','um')){Put (Join-Path $kits ('Lib/'+$SdkVersion+'/'+$directory+'/x64/kernel.lib')) 'library'}
+    }
+    Make-Toolchain '14.3.1' '10.0.2';Make-Toolchain '14.9.1' '10.0.9'
+    [void][IO.Directory]::CreateDirectory((Join-Path $vc '14.99.0'))
+    [void][IO.Directory]::CreateDirectory((Join-Path $kits 'Include/10.0.99'))
+    $oldInclude=$env:INCLUDE;$oldLib=$env:LIB
+    $selection=Get-MsvcToolchain -MsvcRoot $vc -SdkRoot $kits
+    Check ($selection.CompilerRoot -eq (Join-Path $vc '14.9.1') -and $selection.Sdk.Name -ceq '10.0.9') 'Resolver changed the existing newest-eligible MSVC/SDK selection.'
+    $fingerprint=Get-MsvcToolchainInputFingerprint $selection
+    Check ($fingerprint -ceq (Get-MsvcToolchainInputFingerprint $selection)) 'Unchanged native toolchain key is unstable.'
+    Check ($env:INCLUDE -ceq $oldInclude -and $env:LIB -ceq $oldLib) 'Resolving/fingerprinting changed the inherited build environment.'
+    foreach($file in @(Get-MsvcToolchainFiles (Join-Path $selection.CompilerRoot 'bin/Hostx64/x64')) +
+        @(foreach($directory in ($selection.IncludeDirectories+$selection.LibraryDirectories)){Get-MsvcToolchainFiles $directory})) {
+        $before=Get-MsvcToolchainInputFingerprint $selection
+        # Preserve length and timestamp: the key must bind contents, not a stat shortcut.
+        $time=[IO.File]::GetLastWriteTimeUtc($file);$text=[IO.File]::ReadAllText($file)
+        [IO.File]::WriteAllText($file,$text.ToUpperInvariant(),[Text.UTF8Encoding]::new($false));[IO.File]::SetLastWriteTimeUtc($file,$time)
+        Check ($before -cne (Get-MsvcToolchainInputFingerprint $selection)) ('Native compiler/header/library content change did not invalidate: '+$file)
+    }
+    $before=Get-MsvcToolchainInputFingerprint $selection;$added=Join-Path $selection.IncludeDirectories[0] 'new.h';Put $added 'new'
+    Check ($before -cne (Get-MsvcToolchainInputFingerprint $selection)) 'Added native header did not invalidate.'
+    [IO.File]::Delete($added)
+    Check ($before -ceq (Get-MsvcToolchainInputFingerprint $selection)) 'Native file-set identity was not restored after removing the added header.'
+    $before=Get-MsvcToolchainInputFingerprint $selection;Make-Toolchain '14.10.1' '10.0.99'
+    $newSelection=Get-MsvcToolchain -MsvcRoot $vc -SdkRoot $kits
+    Check ($newSelection.CompilerRoot -eq (Join-Path $vc '14.10.1') -and $newSelection.Sdk.Name -ceq '10.0.99' -and
+        $before -cne (Get-MsvcToolchainInputFingerprint $newSelection)) 'Newly installed eligible native toolchain did not change selection/key.'
+    [IO.File]::Delete((Join-Path $newSelection.CompilerRoot 'bin/Hostx64/x64/link.exe'))
+    $rejected=$false;try{$null=Get-MsvcToolchainInputFingerprint $newSelection}catch{$rejected=$true}
+    Check $rejected 'Missing selected native compiler input was accepted.'
+    Put (Join-Path $newSelection.CompilerRoot 'bin/Hostx64/x64/link.exe') 'binary'
+    $missing=$newSelection.IncludeDirectories[1];[IO.Directory]::Move($missing,$missing+'.missing')
+    $rejected=$false;try{$null=Get-MsvcToolchainInputFingerprint $newSelection}catch{$rejected=$true}
+    Check $rejected 'Missing native SDK input directory was accepted.'
+    # Read-only comparison with exactly the selectors used before extraction. No real
+    # compiler runs and no installed compiler/SDK content is hashed by this check.
+    $actual=Get-MsvcToolchain
+    $expectedCompiler=(Get-ChildItem -LiteralPath 'C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC' -Directory | Sort-Object {[version]$_.Name} -Descending | Where-Object {Test-Path -LiteralPath (Join-Path $_.FullName 'bin/Hostx64/x64/cl.exe')} | Select-Object -First 1).FullName
+    $expectedSdk=Get-ChildItem -LiteralPath 'C:\Program Files (x86)\Windows Kits\10\Include' -Directory | Sort-Object Name -Descending | Where-Object {Test-Path -LiteralPath (Join-Path $_.FullName 'ucrt/stdio.h')} | Select-Object -First 1
+    Check ($actual.CompilerRoot -ceq $expectedCompiler -and $actual.Sdk.FullName -ceq $expectedSdk.FullName) 'Real native selection changed from the builder selector.'
+    Write-Host "PASS: $checks native toolchain resolver/content/selection/missing-input checks; real selection $($actual.CompilerRoot), SDK $($actual.Sdk.Name). Fixture: $fixture"
+    return
+}
 $mod=Join-Path $fixture 'Mod';$package=Join-Path $mod 'BepInEx/plugins/Mod_Serp'
 $game=Join-Path $fixture 'game';$extender=Join-Path $fixture 'extender';$api=Join-Path $fixture 'api';$sdk=Join-Path $api 'BepInEx/plugins/APIShared_Serp'
 foreach($directory in @('Stronghold Crusader Definitive Edition_Data/Managed','Stronghold Crusader Definitive Edition_Data/Plugins/x86_64','BepInEx/core')){[void][IO.Directory]::CreateDirectory((Join-Path $game $directory))}
