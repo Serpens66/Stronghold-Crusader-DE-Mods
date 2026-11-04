@@ -64,7 +64,7 @@ namespace ExtraFeatures
         private readonly ChurchPriestCountRuntime churchPriestCountRuntime;
         private readonly GatehouseAutomationRuntime gatehouseAutomationRuntime;
         private readonly AIDefenseRepairRuntime aiDefenseRepairRuntime;
-        private readonly LordHealthRuntime lordHealthRuntime;
+        private readonly HealthModifierRuntime healthModifierRuntime;
         private readonly MarketTradeGuardBridge marketTradeGuardBridge;
         private readonly ElevatedMoatRuntime elevatedMoatRuntime;
         private readonly NoKillRewardHook noKillRewardHook;
@@ -106,7 +106,7 @@ namespace ExtraFeatures
             churchPriestCountRuntime = new ChurchPriestCountRuntime(log, settings);
             gatehouseAutomationRuntime = new GatehouseAutomationRuntime(log, settings, multiplayerFeatureGate);
             aiDefenseRepairRuntime = new AIDefenseRepairRuntime(log, settings);
-            lordHealthRuntime = new LordHealthRuntime(log, settings);
+            healthModifierRuntime = new HealthModifierRuntime(log, settings);
             marketTradeGuardBridge = new MarketTradeGuardBridge(log, this);
             elevatedMoatRuntime = new ElevatedMoatRuntime(log);
             noKillRewardHook = new NoKillRewardHook(log);
@@ -145,7 +145,7 @@ namespace ExtraFeatures
             // Local lifecycle setup does not require a functioning custom packet group.
             TryRunFeature("gatehouse automation lifecycle", gatehouseAutomationRuntime.Initialize);
             TryRunFeature("AI defense repair lifecycle", aiDefenseRepairRuntime.Initialize);
-            TryRunFeature("Lord health lifecycle", lordHealthRuntime.Initialize);
+            TryRunFeature("health lifecycle", healthModifierRuntime.Initialize);
             TryRunFeature("building repair HUD lifecycle", InitializeBuildingRepairHud);
             InitializeMissionLifecycle();
             TryRunFeature("periodic gold lifecycle", () =>
@@ -268,7 +268,7 @@ namespace ExtraFeatures
             TryRunFeature("market price multipliers", ApplyMarketPriceMultipliers);
             TryRunFeature("church priest counts", churchPriestCountRuntime.ApplySetting);
             TryRunFeature("campfire peasants", ApplyCampfirePeasantsLimit);
-            TryRunFeature("Lord health", ReconcileLordHealthRuntime);
+            TryRunFeature("health", ReconcileHealthModifierRuntime);
             ApplyPlagueDurationSetting();
             ApplyMonkAlwaysRunSetting();
             TryRunFeature("gatehouse automation", gatehouseAutomationRuntime.ApplySettings);
@@ -309,7 +309,7 @@ namespace ExtraFeatures
                 PlayerR3EventHooks.OnPlayerMarketInteraction.Observable.Subscribe(OnPlayerMarketInteraction));
             TrySubscribeFeature("church priest spawn handling", () =>
                 BuildingR3EventHooks.OnBuildingSpawn.Observable.Subscribe(churchPriestCountRuntime.ApplySpawnedBuilding));
-            TryRunFeature("Lord health tick", ReconcileLordHealthRuntime);
+            TryRunFeature("health tick", ReconcileHealthModifierRuntime);
             hooksSubscribed = true;
             ReconcileKnightAndElevatedMoat();
             Shared.DebugLogHelper.LogDebug(log, "Extra Features feature hooks reconciled.");
@@ -321,7 +321,7 @@ namespace ExtraFeatures
                 TryRunFeature("event subscription cleanup", subscription.Dispose);
             subscriptions.Clear();
             TryRunFeature("knight mount/dismount cleanup", knightDismountRuntime.Deactivate);
-            TryRunFeature("Lord health cleanup", lordHealthRuntime.ResetMapState);
+            TryRunFeature("health cleanup", healthModifierRuntime.ResetMapState);
             ClearResourceEventGuards();
             hooksSubscribed = false;
         }
@@ -574,9 +574,15 @@ namespace ExtraFeatures
             }
 
             if (propertyName == nameof(ExtraFeaturesViewModel.HumanLordHealthPercent) ||
-                propertyName == nameof(ExtraFeaturesViewModel.AILordHealthPercent))
+                propertyName == nameof(ExtraFeaturesViewModel.AILordHealthPercent) ||
+                propertyName == nameof(ExtraFeaturesViewModel.HumanSoldierHealthPercent) ||
+                propertyName == nameof(ExtraFeaturesViewModel.AISoldierHealthPercent) ||
+                propertyName == nameof(ExtraFeaturesViewModel.HumanCivilianHealthPercent) ||
+                propertyName == nameof(ExtraFeaturesViewModel.AICivilianHealthPercent) ||
+                propertyName == nameof(ExtraFeaturesViewModel.HumanBuildingHealthPercent) ||
+                propertyName == nameof(ExtraFeaturesViewModel.AIBuildingHealthPercent))
             {
-                TryRunFeature("Lord health", ReconcileLordHealthRuntime);
+                TryRunFeature("health", ReconcileHealthModifierRuntime);
                 return;
             }
 
@@ -598,7 +604,7 @@ namespace ExtraFeatures
             mapActive = false;
             sessionStarted = false;
             aiMarketVanillaPriceHook?.SetSessionOverride(false);
-            lordHealthRuntime.ResetMapState();
+            healthModifierRuntime.ResetMapState();
             ClearResourceEventGuards();
             multiplayerFeatureGate.Reset();
             gatehouseAutomationRuntime.EndMap();
@@ -676,11 +682,11 @@ namespace ExtraFeatures
             ApplyMapLoadedSettings(context.IsEditor);
 
             CaptureAIMarketSessionSettings();
-            TryRunFeature("Lord health map initialization", () =>
+            TryRunFeature("health map initialization", () =>
             {
-                ReconcileLordHealthRuntime();
+                ReconcileHealthModifierRuntime();
                 if (Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod))
-                    lordHealthRuntime.BeginMap(context.SessionId, context.IsLoadedSave);
+                    healthModifierRuntime.BeginMap(context.SessionId, context.IsLoadedSave);
             });
 
             // ApplyMapLoadedSettings already started the gatehouse map state for every start kind.
@@ -828,17 +834,17 @@ namespace ExtraFeatures
             TryRunFeature("plague duration restoration", ApplyPlagueDurationSetting);
         }
 
-        private void ReconcileLordHealthRuntime()
+        private void ReconcileHealthModifierRuntime()
         {
             if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod))
             {
-                lordHealthRuntime.ResetMapState();
+                healthModifierRuntime.ResetMapState();
                 return;
             }
 
             // Keep subscriptions rooted; only a completed session start captures settings.
-            // Default percentages also restore recorded Vanilla bases on save reload.
-            lordHealthRuntime.Initialize();
+            // The shared service captures bases even when every contribution is 100%.
+            healthModifierRuntime.Initialize();
         }
 
         private void CaptureAIMarketSessionSettings()

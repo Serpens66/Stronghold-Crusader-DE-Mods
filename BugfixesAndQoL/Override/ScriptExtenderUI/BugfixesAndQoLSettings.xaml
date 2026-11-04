@@ -1748,6 +1748,18 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}" sha
                 </CheckBox>
               </Grid>
             </Grid>
+            <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.pitch-stairs-fix" shared:ModSettingsSearch.Title="{Binding EnablePitchStairsFixText}" shared:ModSettingsSearch.ToolTipText="{Binding EnablePitchStairsFixHelpText}">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="28"/>
+                <ColumnDefinition Width="*"/>
+              </Grid.ColumnDefinitions>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnablePitchStairsFix}"/>
+              <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
+                <CheckBox IsChecked="{Binding EnablePitchStairsFix, Mode=TwoWay}" IsEnabled="{Binding CanConfigurePitchStairs}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnablePitchStairsFixHelpText}" Margin="0,0,14,8">
+                  <TextBlock Text="{Binding EnablePitchStairsFixText}" Foreground="White" TextWrapping="Wrap"/>
+                </CheckBox>
+              </Grid>
+            </Grid>
             <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-assassin-gatehouse-climb-fix" shared:ModSettingsSearch.Title="{Binding EnableAssassinGatehouseClimbFixText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableAssassinGatehouseClimbFixHelpText}">
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="28"/>

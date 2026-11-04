@@ -283,6 +283,7 @@ namespace ExtraFeatures.Tests
                 Check(!own.NegativeFearHumanEnabled && own.FearNegative3Human == -3, "Legacy ExtraFeatures reset includes Popularity");
                 KillRewardTests.Run(Check);
                 EnemyProximityTests.Run(Check);
+                HealthMultiplierTests.Run(Check);
                 PeriodicGoldTests.Run(Check);
                 PopularityLifecycleTests.Run(Check);
                 bool independent = false;

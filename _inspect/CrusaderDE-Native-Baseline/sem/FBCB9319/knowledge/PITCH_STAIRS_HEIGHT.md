@@ -289,7 +289,81 @@ Isolated execution of original functions on reconstructed data of `test2_pitchst
 
 ## PitchStairsTest measurements [mod integration]
 
-PitchStairsTest (`Testmods/PitchStairsTest`, variant B: pitch keeps the ground height) consumes the writer and compensation inventory above. Its contract, sites and dated runs are in [UpdateToNewDLL.md](../../../../../Testmods/PitchStairsTest/UpdateToNewDLL.md) and [PITCHSTAIRS.md](../../../../../Testmods/PitchStairsTest/docs/PITCHSTAIRS.md).
+PitchStairsTest (`Testmods/PitchStairsTest`, variant B: pitch keeps the ground height) consumes the writer and compensation inventory above. Its contract, sites and dated runs were migrated to [BugfixesAndQoL/UpdateToNewDLL.md](../../../../../BugfixesAndQoL/UpdateToNewDLL.md#pitchstairs-variant-b-integration) and [PITCHSTAIRS.md](../../../../../BugfixesAndQoL/docs/PITCHSTAIRS.md); the former testmod identity below remains historical.
 
 - 02.11.2026, game log: loading `test_pitch.map` into the editor (`EditorLoaded`) reported `loadPitchTiles=84` from the load stub inside 0x804C0, confirming the editor load path through DLL_LoadSaveGame.
 - 02.11.2026 (PitchStairsTest DEVDIAG, log SHA-256 5D8F4AEE…FC1F): 0x997B4 ran 648 times, 305 of them on PitchTrap tiles, and all 305 had MiscDisplay 0x2000 set.
+
+
+## Record, layout and terminal-window evidence supplement [Vanilla facts]
+
+Same canonical native hash, supplement migrated from the completed testmod audit.
+The following code-derived layout facts are independent of the mod's marker map:
+
+| Original instruction anchor | Native evidence |
+|---|---|
+| `0x71956` in `0x71670` | RIP-relative `lea rcx` resolves the tile manager at image + `0x405EDB0`, passed to `0x7D510`. |
+| `0x62F04`, `0x62F0F` in `0x62EB0` | Removal tests Structure word at manager +`0xB0BCA0` and loads DefaultHeight byte at +`0xDCCAC0`. |
+| `0x804FA` in `0x804C0` | Its pointer-walking MiscDisplay word load reaches Structure with displacement `-0x3FA2A0`. This is a grid-base delta, not a record field. |
+| `0x695C0`, `0x695D5`, `0x695E0` in `0x695C0` | Signed exclusive PitchIdLimit +`0x204C6C4`; first usable record at +`0x2038E44 + 20`; occupied OwnerId word +8. IDs are 1-based; slot zero is reserved, capacity 4000. |
+| `0x7D407` in `0x7D280` | State comparison uses +`0x2038E44 + 0x10`, independently confirming the signed state word of the same native pitch record. |
+| `0x804C0..0x804D2` | Load-loop entry stores RBX at original `[rsp+8]`, loads the HeightGrid pointer into R9 and the count 320800 into R11D. The normalization scans the packed grid, not the record array. |
+
+The burn-out store at `0x7D497..0x7D4A8` restores DefaultHeight before the
+following state=-1 store; it does not clear PitchTrap. General spread in the
+later effect update can therefore see the restored surface with a pitch flag.
+Cleanup and replacement are separate: `0x62EB0` removes a record/flag, and a
+new `0x59380` creates another pitch record. A flag by itself does not identify
+whether its current height is lowered, terminal-restored or load-normalized.
+Default 0..3 terminal values survive original `0x804C0`, while Default>=4 is
+lowered on every load, including terminal records. These distinctions explain
+why a uniform subtract-four reader correction does not preserve every state.
+
+## Generic physics boundary evidence supplement [Vanilla facts]
+
+Same hash; original native code executed in a private relocated image with
+synthetic records. These are bounded observations, not real-game acceptance:
+
+- The fixture runs `0x19B260` repeatedly and `0x184FD0` to settle actual unit
+  standing height, then executes the complete `0x192750` ArcherArrow hit path.
+  At ordinary ground 8, lowering the surface to pitch height 4 moves the unit's
+  real hit band: projectile elevation 7 hits the lowered unit and misses the
+  ground unit; elevation 47 misses the lowered unit and hits the ground unit.
+  Audio/HUD sinks are isolated; damage and resulting unit-record differences
+  remain original native processing.
+- In `0x9C730`, Disease (type `0x16`) neighbor/ring surface admission uses the
+  strict difference `<120`. Source ground 8 admits target height 124 but not
+  128; lowered source height 4 admits 123 but not 124, for the tested neighbor
+  radii 1 and 2. The outgoing `0x192750` call is recorded instead of applying
+  damage, so this demonstrates surface admission, not disease immunity/damage.
+- The complete `0x18E9A0` target/correction state machine retains the +/-70
+  correction threshold and supplies actual source/target elevations to its
+  raycast. With source height 8, target 75 retains neutral correction, 78 is
+  the inclusive boundary and 79 yields -1; lowering the source to 4 already
+  yields -1 at 75. With source 80, target 8 yields +1, while 10 is the neutral
+  boundary. Geometry/target predicates are isolated, so live LOS is unproven.
+
+## BugfixesAndQoL migration and validation boundary [mod integration]
+
+Variant B's fourteen sites, terminal marker allocation/bootstrap, producer-side
+height changes and fire-only virtual height are owned by BugfixesAndQoL under
+`src/PitchStairs`. [PITCHSTAIRS.md](../../../../../BugfixesAndQoL/docs/PITCHSTAIRS.md)
+retains every dated testmod run and its original log/build identity;
+[UpdateToNewDLL.md](../../../../../BugfixesAndQoL/UpdateToNewDLL.md#pitchstairs-variant-b-integration)
+retains the full site/register/update contract. Machine record names in the
+baseline were not renamed as a side effect of this migration.
+
+`EnablePitchStairsFix` is a default-true `[SyncHostOnly]` host option under
+HostSiege / Fixes?, gated with EnableMod. The native enabled word is selected
+only at the first BeforeLoad of each session, before normalization, and remains
+unchanged through mission end or failed-load retirement until the next load.
+Hooks stay permanent; settings changes never retroactively convert a live grid.
+The old no-settings testmod instead selected B once for the whole process.
+
+The fourteen-site testmod passed 11361 native offline checks before migration;
+the dated live runs on 02.11.2026 had eleven sites. Neither result establishes
+integrated fourteen-site game/save/editor or genuine host/client acceptance.
+The migrated fixture compares B pitch with ordinary ground at the projectile,
+Disease admission and ranged-correction boundaries above; APIShared disease
+rules and real LOS remain gameplay acceptance cases. No broader MP readiness
+broker is included; that work is separately deferred.

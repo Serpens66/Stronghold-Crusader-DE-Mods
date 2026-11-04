@@ -51,3 +51,24 @@ The Script Extender 2.14.1 and canonical Fixes v1.26.3 source searches found no 
 of these two helper entries. Occupied entries or unknown native hashes fail closed.
 Evidence and caller exports are retained in .inspect/APISharedHookAudit. This is a
 static/backend contract audit; no interactive host/client gameplay run is asserted.
+## Base-price composition and HUD limits (2026-11-04)
+
+The current packed Int32 buy/sell table is at manager offsets 1817B8/1817BC,
+stride eight; absolute VA 1837ED9C8. Composition belongs at this base-lot level,
+not at completed helper totals. Manual/auto/HUD callers retain their respective
+native arithmetic. Defaults are separate from the mutable current table.
+
+The installed canonical DLL hash was rechecked before decoding 19EC2E..19ECD7
+with Capstone. The native report builder calls CEB00 at 19EC2E, stores AX as the
+buy lot price at 19EC33, then the 25-good preview branch at 19EC82..19EC92 uses
+16-bit shift/add to multiply that price by five. A composed positive buy base
+must therefore be at most floor(Int16.MaxValue / 5) = 6553. The same preview
+calls CEBB0 at 19ECB0 and stores AX at 19ECB5; its division-first 25-good sell
+arithmetic permits base prices through 6554 because floor(6554/5)*25 = 32750,
+whereas 6555 produces 32775. These limits protect displayed prices as well as
+base storage; merely capping the buy base at Int16.MaxValue is insufficient.
+
+APIShared's shared base-price broker reuses the existing CEB10/CEB90 owner and
+keeps legacy total vetoes authoritative. The AI projection changes only the
+base cell around the original straight-line helper, restoring it afterward;
+no caller arithmetic or native damage/trade instructions are changed.

@@ -3,19 +3,27 @@
   "Author": "Serpens66",
   "Name": "Extra Features",
   "Description": "Optional gameplay additions and economy customization for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.129",
+  "Version": "1.0.130",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.0",
   "MaximumScriptExtenderVersion": "",
   "Dependencies": [
     {
       "GUID": "APIShared_Serp",
-      "MinimumVersion": "0.25.0"
+      "MinimumVersion": "0.28.0"
     }
   ],
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.130",
+      "Changes": [
+        "Add separate Human/AI health multipliers for soldiers, civilians and buildings alongside Lords, with shared 10-500% controls, synchronized settings, presets and localized category/safety guidance. All HP controls remain inactive in the map editor.",
+        "Use APIShared's initialization-only health coordination and original-basis saves; preserve Lord legacy imports and leave new categories disabled in legacy saves without original bases.",
+        "Publish normal-stage market lot-price factors through APIShared; the AI vanilla-price exception now excludes only ExtraFeatures factors while preserving other mods' contributions."
+      ]
+    },
     {
       "Version": "1.0.129",
       "Changes": [

@@ -7,6 +7,7 @@ namespace BugfixesAndQoL
         private void ApplyApprovedRecommendations()
         {
             options["EnableMoatTerrainRestoration"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableMoatTerrainRestoration");
+            options["EnablePitchStairsFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnablePitchStairsFix");
             options["PreserveDisplayResolution"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.PreserveDisplayResolution");
             options["EnableGatehouseTargetMarkerHeightFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableGatehouseTargetMarkerHeightFix");
             options["EnableVanillaPerformanceOptimizations"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableVanillaPerformanceOptimizations");

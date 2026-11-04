@@ -96,6 +96,14 @@ public static class SerpLocalization
     public const string EconomyBuffsTitle = "SomeSettings.EconomyBuffsTitle";
     public const string LordHealthTitle = "SomeSettings.LordHealthTitle";
     public const string LordHealthHelp = "SomeSettings.LordHealthHelp";
+    public const string HealthTitle = "ExtraFeatures.HealthTitle";
+    public const string HealthHelp = "ExtraFeatures.HealthHelp";
+    public const string SoldierHealthTitle = "ExtraFeatures.SoldierHealthTitle";
+    public const string SoldierHealthHelp = "ExtraFeatures.SoldierHealthHelp";
+    public const string CivilianHealthTitle = "ExtraFeatures.CivilianHealthTitle";
+    public const string CivilianHealthHelp = "ExtraFeatures.CivilianHealthHelp";
+    public const string BuildingHealthTitle = "ExtraFeatures.BuildingHealthTitle";
+    public const string BuildingHealthHelp = "ExtraFeatures.BuildingHealthHelp";
     public const string MultiplyGoodsGain = "SomeSettings.MultiplyGoodsGain";
     public const string MultiplyGoodsGainHelp = "SomeSettings.MultiplyGoodsGainHelp";
     public const string MultiplyGoodsAsMoney = "SomeSettings.MultiplyGoodsAsMoney";
@@ -623,7 +631,15 @@ public static class SerpLocalization
         { KeepStorageContentHelp, "When enabled, bulldozing a granary, armory, or stockpile keeps the goods stored inside by adding them back as incoming goods.\nIf Granary was built for free can't credit goods back (happens when building it while no wood is on stock)" },
         { EconomyBuffsTitle, "Economy Bonuses" },
         { LordHealthTitle, "Lord Health" },
-        { LordHealthHelp, "Multiplies the maximum and current health of all Lords when the match starts. Human and AI Lords can be configured separately; individual AI Lord health differences remain intact. 100% is unchanged." },
+        { HealthTitle, "Health" },
+        { HealthHelp, "Health multipliers are applied once when an object is created, changes unit type or is loaded. Capturing an object later does not change its maximum health. Safe game limits can reduce the effective multiplier. The map editor is unchanged. New health categories remain inactive in old saves without shared health data." },
+        { SoldierHealthTitle, "Soldier health" },
+        { SoldierHealthHelp, "Multiplies soldier health, including mobile siege engines, engineers and other military support. Siege towers and their linked structure share one safe multiplier. Lords, animals and decorative people are excluded. 100% adds no extra multiplier." },
+        { CivilianHealthTitle, "Civilian health" },
+        { CivilianHealthHelp, "Multiplies the health of peasants and functional civilian workers. Animals and passive decorative people are excluded. 100% adds no extra multiplier." },
+        { BuildingHealthTitle, "Building health" },
+        { BuildingHealthHelp, "Multiplies ordinary building health, including towers and gatehouses. Walls and objects without health are unchanged. Mobile siege towers use the soldier multiplier. Safe game limits can reduce the effective value. 100% adds no extra multiplier." },
+        { LordHealthHelp, "Multiplies Lord health when the Lord is initialized or loaded. Human and AI Lords are configured separately; individual AI Lord health differences remain intact. Later capture does not change maximum health. Safe game limits apply. 100% adds no extra multiplier." },
         { MultiplyGoodsGain, "Multiply goods gain" },
         { MultiplyGoodsGainHelp, "Multiplier for gained goods. 1 = unchanged, 2 = double, 3 = triple. Values 1 or lower add nothing." },
         { MultiplyGoodsAsMoney, "Multiply goods as money" },

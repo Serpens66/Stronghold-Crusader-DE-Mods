@@ -563,6 +563,17 @@ if not "%ERRORLEVEL%"=="0" goto build_failed
 :artifact_tests_completed
 popd
 
+if "%BUILD_TEST_MODE%"=="none" goto pitch_stairs_checks_completed
+call :step_start "tests" "PitchStairs.Tests build"
+"%MSBUILD%" "%PROJECT_DIR%tests\PitchStairs.Tests\PitchStairs.Tests.csproj" /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /nologo /verbosity:minimal
+call :step_end %ERRORLEVEL%
+if not "%ERRORLEVEL%"=="0" goto build_failed
+call :step_start "tests" "PitchStairs.Tests execution"
+"%PROJECT_DIR%tests\PitchStairs.Tests\bin\BugfixesAndQoL.PitchStairs.Tests.exe" "%GAME_DIR%\Stronghold Crusader Definitive Edition_Data\Plugins\x86_64\CrusaderDE.dll"
+call :step_end %ERRORLEVEL%
+if not "%ERRORLEVEL%"=="0" goto build_failed
+:pitch_stairs_checks_completed
+
 echo [%date% %time%] Package native Assassin search
 call :step_start "package" "73-Package-AssassinSearch.ps1"
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%native\Build-AssassinSearch.ps1" -CopyOnly -OutputDirectory "%LOCAL_PLUGIN_DIR%"

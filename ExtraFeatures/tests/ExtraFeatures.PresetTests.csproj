@@ -28,6 +28,7 @@
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="System.Numerics" />
     <Reference Include="MessagePack">
       <HintPath>$(ExtenderDir)\MessagePack.dll</HintPath>
       <Private>true</Private>
@@ -119,7 +120,7 @@
   <ItemGroup>
     <Compile Include="../src/ExtraFeaturesViewModel.Popularity.cs" />
     <Compile Include="../src/ExtraFeaturesViewModel.PeriodicGold.cs" />
-    <Compile Include="../src/ExtraFeaturesViewModel.KillReward.cs" /><Compile Include="../src/ExtraFeaturesViewModel.EnemyProximity.cs" /><Compile Include="EnemyProximityTests.cs" />
+    <Compile Include="../src/ExtraFeaturesViewModel.KillReward.cs" /><Compile Include="../src/ExtraFeaturesViewModel.EnemyProximity.cs" /><Compile Include="EnemyProximityTests.cs" /><Compile Include="HealthMultiplierTests.cs" />
     <Compile Include="../src/NoKillRewardPolicy.cs" />
     <Compile Include="KillRewardTests.cs" />
     <Compile Include="../src/PeriodicGoldRuntime.cs" />
@@ -133,12 +134,14 @@
     <Compile Include="../src/MarketGoodPriceDefinition.cs" />
     <Compile Include="../src/MarketGoodPriceItemViewModel.cs" />
     <Compile Include="../src/EnemyProximityPolicy.cs" />
-    <Compile Include="../src/LordHealthMultiplierPolicy.cs" />
+    <Compile Include="../src/HealthMultiplierPolicy.cs" />
     <Compile Include="../../Shared/Runtime/UI/NumericTextInput.cs" />
     <Compile Include="ViewModelBoundary.cs" />
     <Compile Include="PopularityLifecycleTests.cs" />
     <Compile Include="../../APIShared/src/Economy/FearPopularity.cs" />
     <Compile Include="../../APIShared/src/Economy/PopularityOverrides.cs" />
+    <Compile Include="../../APIShared/src/Economy/PopularityModifiers.cs" />
+    <Compile Include="../../APIShared/src/Modifiers/ValueModifiers.cs" />
     <Compile Include="../../APIShared/tests/PopularityDisplay.Tests/FearRuntimeBoundary.cs" />
     <Compile Include="../src/PopularityRuntime.cs" />
     <Compile Include="../src/PopularityCatalog.cs" />

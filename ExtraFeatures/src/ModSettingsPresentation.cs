@@ -38,7 +38,7 @@ namespace ExtraFeatures
         // Group membership only controls contextual captions/rows; APIShared remains the sole search index.
         public SettingsGroupPresentation SoldierOptions { get; } = new SettingsGroupPresentation("fear-factor-neutralization", "monks-always-run");
         public SettingsGroupPresentation KnightOptions { get; } = new SettingsGroupPresentation("knight-dismount", "instant-horse", "knight-transform-gold", "knight-transform-delay");
-        public SettingsGroupPresentation LordOptions { get; } = new SettingsGroupPresentation("lord-health");
+        public SettingsGroupPresentation LordOptions { get; } = new SettingsGroupPresentation("lord-health", "soldier-health", "civilian-health", "building-health");
         public SettingsGroupPresentation MoatOptions { get; } = new SettingsGroupPresentation("elevated-moat");
         public SettingsGroupPresentation GateOptions { get; } = new SettingsGroupPresentation("human-gate-reopen-delay", "ai-gate-reopen-delay", "human-gate-closing-distance", "ai-gate-closing-distance");
         public SettingsGroupPresentation GateReopenOptions { get; } = new SettingsGroupPresentation("human-gate-reopen-delay", "ai-gate-reopen-delay");

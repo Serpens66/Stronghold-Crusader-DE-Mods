@@ -4,11 +4,12 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType><AssemblyName>ExtraFeaturesSessionTests</AssemblyName>
     <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion><LangVersion>latest</LangVersion>
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks><OutputPath>bin\</OutputPath>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks><OutputPath>bin\</OutputPath><NoWarn>0436</NoWarn>
     <ExtenderDir>E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese</ExtenderDir>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="System" /><Reference Include="System.Core" />
+    <Reference Include="System" /><Reference Include="System.Core" /><Reference Include="System.Numerics" />
+    <Reference Include="SHCDESE"><HintPath>$(ExtenderDir)\SHCDESE.dll</HintPath></Reference>
     <Reference Include="MessagePack"><HintPath>$(ExtenderDir)\MessagePack.dll</HintPath></Reference>
     <Reference Include="MessagePack.Annotations"><HintPath>$(ExtenderDir)\MessagePack.Annotations.dll</HintPath></Reference>
     <Reference Include="System.Memory"><HintPath>$(ExtenderDir)\System.Memory.dll</HintPath></Reference>
@@ -16,7 +17,12 @@
     <Reference Include="System.Runtime.CompilerServices.Unsafe"><HintPath>$(ExtenderDir)\System.Runtime.CompilerServices.Unsafe.dll</HintPath></Reference>
     <Reference Include="System.Threading.Tasks.Extensions"><HintPath>$(ExtenderDir)\System.Threading.Tasks.Extensions.dll</HintPath></Reference>
     <Reference Include="Microsoft.Bcl.AsyncInterfaces"><HintPath>$(ExtenderDir)\Microsoft.Bcl.AsyncInterfaces.dll</HintPath></Reference>
-    <Compile Include="..\..\APIShared\src\Units\UnitAccess.cs" Link="UnitAccess.cs" /><Compile Include="GeneratedHarness.cs" />
+    <Compile Include="..\..\APIShared\src\Units\UnitAccess.cs" Link="UnitAccess.cs" />
+    <Compile Include="SessionTests.cs" /><Compile Include="MarketHarness.cs" />
+    <Compile Include="..\..\APIShared\src\Health\HealthContracts.cs" />
+    <Compile Include="..\..\APIShared\src\Modifiers\ValueModifiers.cs" />
+    <Compile Include="..\..\ExtraFeatures\src\HealthModifierRuntime.cs" />
+    <Compile Include="..\..\ExtraFeatures\src\HealthMultiplierPolicy.cs" />
     <Compile Include="..\..\ExtraFeatures\src\LordHealthSaveState.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

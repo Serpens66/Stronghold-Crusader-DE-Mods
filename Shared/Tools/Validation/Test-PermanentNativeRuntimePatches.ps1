@@ -178,11 +178,6 @@ $permanentManagedContracts = @(
         Forbidden = @('.Disable(', '.Undo(')
     },
     @{
-        Path = 'ExtraFeatures\src\AIMarketVanillaPriceHook.cs'
-        Required = @('MarketPriceEvents.TryRegister(', 'MarketPriceEvents.CalculateTradeTotal(')
-        Forbidden = @('AddDetour(', 'HookTransaction', 'NativeDetour', 'CalculateTradeTotal(price.BuyPrice')
-    },
-    @{
         Path = 'APIShared\src\Core\Events\ManagedInterceptionHook.cs'
         Required = @('ManualApply = true', 'GenerateTrampoline<T>()', 'candidate.Apply();', 'hook = candidate;', 'candidate?.Dispose();')
         Forbidden = @('public void Dispose()', 'hook.Dispose(', 'hook?.Dispose(', 'hook.Undo(', 'hook?.Undo(')

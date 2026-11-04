@@ -11,7 +11,7 @@ using System.Reflection;
 
 namespace BugfixesAndQoL
 {
-    [BepInDependency(ScriptExtenderGuid, "2.14.0")]
+    [BepInDependency(ScriptExtenderGuid, "2.14.3")]
     [BepInDependency(ApiSharedGuid, "0.26.0")]
     [BepInDependency("ActiveAIVDetector_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("ExtraFeatures_Serp", BepInDependency.DependencyFlags.SoftDependency)]
@@ -28,6 +28,7 @@ namespace BugfixesAndQoL
     [BepInIncompatibility("GatehouseLivingCaptureTest_Serp")]
     [BepInIncompatibility("DrawbridgeDestructionFixTest_Serp")]
     [BepInIncompatibility("LordTeleportGuardTest_Serp")]
+    [BepInIncompatibility("PitchStairsTest_Serp")]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
 
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
@@ -45,7 +46,7 @@ namespace BugfixesAndQoL
 
         public const string PluginGuid = "BugfixesAndQoL_Serp";
         public const string PluginName = "Bugfixes and QoL";
-        public const string PluginVersion = "1.0.211";
+        public const string PluginVersion = "1.0.212";
 
         private static DisplayResolutionPersistenceHook displayResolutionPersistenceHook;
         private static DamagedHealthBarsRuntime damagedHealthBarsRuntime;

@@ -8,8 +8,8 @@
     <OutputType>Library</OutputType>
     <RootNamespace>BugfixesAndQoL</RootNamespace>
     <AssemblyName>BugfixesAndQoL</AssemblyName>
-    <AssemblyVersion>1.0.211.0</AssemblyVersion>
-    <FileVersion>1.0.211.0</FileVersion>
+    <AssemblyVersion>1.0.212.0</AssemblyVersion>
+    <FileVersion>1.0.212.0</FileVersion>
     <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
     <LangVersion>latest</LangVersion>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
@@ -30,6 +30,11 @@
   <PropertyGroup Condition="'$(ExtenderDir)' == '' and Exists('$(LocalScriptExtenderModOutput)\SHCDESE.dll')"><ExtenderDir>$(LocalScriptExtenderModOutput)</ExtenderDir></PropertyGroup>
   <ItemGroup>
     <Compile Include="src\BfqolNativeCache.cs" />
+    <Compile Include="src\BugfixesAndQoLViewModel.PitchStairs.cs" />
+    <Compile Include="src\BugfixesAndQoLRuntime.PitchStairs.cs" />
+    <Compile Include="src\PitchStairs\NativeCode.cs" />
+    <Compile Include="src\PitchStairs\PitchStairsRuntime.cs" />
+    <Compile Include="src\PitchStairs\PitchStairsActivation.cs" />
     <Compile Include="src\GatehouseTargetMarkerHeightPolicy.cs" />
     <Compile Include="src\GatehouseTargetMarkerHeightHook.cs" />
     <Compile Include="src\VanillaPerformance\VanillaPerformanceFeature.cs" />

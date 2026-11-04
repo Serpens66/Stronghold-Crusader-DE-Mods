@@ -1,0 +1,11 @@
+{
+  "GUID": "PlayerControlRelayTest_Serp",
+  "Author": "Serpens66",
+  "Name": "Player Control Relay Test",
+  "Description": "Experimental private selection and owner/host relay for synchronized group Move and Stop. Subsets are rejected until safely supported.",
+  "Version": "0.1.0",
+  "MinimumScriptExtenderVersion": "2.14.0",
+  "Dependencies": [ { "GUID": "APIShared_Serp", "MinimumVersion": "0.27.0" } ],
+  "Manifest": 1,
+  "NetworkMode": 1
+}

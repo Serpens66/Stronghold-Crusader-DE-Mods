@@ -110,6 +110,7 @@ namespace BugfixesAndQoL
         public SettingsOptionPresentation EnableWorkshopIdleDelayFix => options["EnableWorkshopIdleDelayFix"];
         public SettingsOptionPresentation EnableGatehouseLivingCaptureFix => options["EnableGatehouseLivingCaptureFix"];
         public SettingsOptionPresentation EnableMoatTerrainRestoration => options["EnableMoatTerrainRestoration"];
+        public SettingsOptionPresentation EnablePitchStairsFix => options["EnablePitchStairsFix"];
         public SettingsOptionPresentation EnableDrawbridgeDestructionFix => options["EnableDrawbridgeDestructionFix"];
         public SettingsOptionPresentation EnableAssassinGatehouseClimbFix => options["EnableAssassinGatehouseClimbFix"];
         public SettingsOptionPresentation EnableTunnelPlacementDistanceFix => options["EnableTunnelPlacementDistanceFix"];
@@ -235,6 +236,7 @@ namespace BugfixesAndQoL
             AddOption("EnableGatehouseLivingCaptureFix", "bugfixes.enable-gatehouse-living-capture-fix", SettingsCategory.Fixes, HostSiege);
             AddOption("EnableDrawbridgeDestructionFix", "bugfixes.enable-drawbridge-destruction-fix", SettingsCategory.Fixes, HostSiege);
             AddOption("EnableMoatTerrainRestoration", "bugfixes.moat-terrain-restoration", SettingsCategory.Fixes, HostSiege);
+            AddOption("EnablePitchStairsFix", "bugfixes.pitch-stairs-fix", SettingsCategory.Fixes, HostSiege);
             AddOption("EnableAssassinGatehouseClimbFix", "bugfixes.enable-assassin-gatehouse-climb-fix", SettingsCategory.Fixes, HostSiege);
             AddOption("EnableTunnelPlacementDistanceFix", "bugfixes.enable-tunnel-placement-distance-fix", SettingsCategory.Fixes, HostSiege);
             AddOption("EnableCenteredGatehouseDistanceFix", "bugfixes.centered-gatehouse-distance", SettingsCategory.Qol, HostSiege);

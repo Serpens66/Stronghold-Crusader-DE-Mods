@@ -489,6 +489,7 @@ namespace BugfixesAndQoL
                 processMoatTerrainRuntime.Install(context, isFixedLayoutHashValidated);
             });
             TryInitializePersistentFeature("human Lord return teleport guard", () => InitializeLordTeleportGuard(context));
+            TryInitializePersistentFeature("pitch/stairs height fix", () => InitializePitchStairs(context, isFixedLayoutHashValidated));
             TryInitializePersistentFeature("tree-blight decay fix", () =>
             {
                 if (treeBlightDecayInitializationAttempted) return;

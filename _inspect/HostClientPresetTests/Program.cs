@@ -151,6 +151,7 @@ internal static class Program
             }
             if (args != null && args.Length == 1 && args[0] == "ai-sell-threshold") { AiSellThresholdPresetTests.Run(); return 0; }
             if (args != null && args.Length == 1 && args[0] == "lord-teleport") { LordReturnTeleportPresetTests.Run(); return 0; }
+            if (args != null && args.Length == 1 && args[0] == "pitch-stairs") { PitchStairsPresetTests.Run(); return 0; }
             if (args != null && args.Length == 1 && args[0] == "settings-opacity")
             {
                 TestSettingsOpacity();
@@ -232,6 +233,7 @@ internal static class Program
             }
 
             PeaceTimeProximityPresetTests.Run();
+            PitchStairsPresetTests.Run();
             FearFactorPresetTests.Run();
             AssassinCapturedGatePresetTests.Run();
             EnemyGateRoutingPresetTests.Run();
@@ -270,7 +272,6 @@ internal static class Program
             TestAssassinCombatResumeNativeDefinition();
             TestAssassinPathReconstructionNativeDefinition();
             TestTroopActionButtonLayoutPolicy();
-            TestLordHealthMultiplierPolicy();
             TestQuarryPileTargetSelectionPolicy();
             TestQuarryPileVanillaGroupPolicy();
             TestTemporaryGateBlockagePolicy();
@@ -3318,39 +3319,6 @@ internal static class Program
                 TemporaryGateBlockagePolicy.IsGateOrDrawbridge(eStructs.STRUCT_DRAWBRIDGE) &&
                 !TemporaryGateBlockagePolicy.IsGateOrDrawbridge(eStructs.STRUCT_SIEGE_TOWER),
             "portal type policy includes gates and drawbridges but excludes unrelated linkages");
-    }
-
-    private static void TestLordHealthMultiplierPolicy()
-    {
-        Check(LordHealthMultiplierPolicy.NormalizePercent(-1) == 10,
-            "Lord health percentage did not clamp to 10%");
-        Check(LordHealthMultiplierPolicy.NormalizePercent(100) == 100,
-            "Lord health percentage changed the 100% default");
-        Check(LordHealthMultiplierPolicy.NormalizePercent(900) == 500,
-            "Lord health percentage did not clamp to 500%");
-
-        // The runtime now captures these values after native initialization. The pure
-        // policy must not reconstruct them from incomplete global option/AI data.
-        uint humanVanilla = 2000;
-        uint weakAI = 1000;
-        uint strongAI = 3600;
-        Check(LordHealthMultiplierPolicy.CalculateMaximum(weakAI, 200) == 2000 &&
-              LordHealthMultiplierPolicy.CalculateMaximum(strongAI, 200) == 7200,
-            "AI Lord multiplier flattened individual Vanilla health values");
-        Check(LordHealthMultiplierPolicy.CalculateMaximum(humanVanilla, 10) == 200 &&
-              LordHealthMultiplierPolicy.CalculateMaximum(humanVanilla, 500) == 10000,
-            "Lord health multiplier produced an incorrect boundary value");
-
-        uint wounded = LordHealthMultiplierPolicy.CalculateCurrent(750, 1500, 3000);
-        Check(wounded == 1500 && LordHealthMultiplierPolicy.CalculateHealthPercent(wounded, 3000) == 50,
-            "Lord health scaling did not preserve the wounded health ratio");
-        uint repeated = LordHealthMultiplierPolicy.CalculateMaximum(humanVanilla, 200);
-        Check(repeated == LordHealthMultiplierPolicy.CalculateMaximum(humanVanilla, 200),
-            "Lord health target calculation was not idempotent");
-        Check(LordHealthMultiplierPolicy.CalculateMaximum(uint.MaxValue, 500) == uint.MaxValue,
-            "Lord health overflow was not clamped");
-        Check(LordHealthMultiplierPolicy.CalculateCurrent(0, 1000, 2000) == 1,
-            "an active Lord was allowed to reach zero health during scaling");
     }
 
     private static void TestQuarryPileTargetSelectionPolicy()

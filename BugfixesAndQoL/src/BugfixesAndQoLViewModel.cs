@@ -30,7 +30,10 @@ namespace BugfixesAndQoL
         private void OnSettingsPresentationPropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs args)
         {
             if (args.PropertyName == nameof(CanEditHostSettings))
+            {
                 OnPropertyChanged(nameof(CanConfigurePeaceTimeCivilianProximity));
+                OnPropertyChanged(nameof(CanConfigurePitchStairs));
+            }
             if (args.PropertyName == nameof(System_ModSettingsSearchText) ||
                 args.PropertyName == nameof(System_ModSettingsSearchIncludeToolTips) ||
                 args.PropertyName == nameof(System_ModSettingsSearchExactKey) ||
@@ -1681,6 +1684,7 @@ namespace BugfixesAndQoL
                 EnableAiRaidRetargetFix = true;
                 EnableEnemyGatePathfindingFix = true;
                 EnableMoatTerrainRestoration = true;
+                EnablePitchStairsFix = true;
                 EnableDrawbridgeDestructionFix = true;
                 EnableTreeBlightDecayFix = true;
                 EnableGatehouseLivingCaptureFix = true;

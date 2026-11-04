@@ -136,7 +136,7 @@ Log-SHA-256:
 
     725265D719174DA5709C1645D6A40AB56A9041903C2AD039F7A779861F845D97
 
-Gleichzeitig geladen waren **MoatMove 0.1.6** und **PitchStairsTest 0.1.0**, außerdem BugfixesAndQoL 1.0.208, APIShared 0.23.0 und Script Extender 2.14.3.0. Die Pechhöhen-/Ladenormalisierung ist separat in [PitchStairsTest, Nachweise vom 02.11.2026](Testmods/PitchStairsTest/docs/PITCHSTAIRS.md#dated-evidence-02112026-eleven-site-builds) ausgewertet; Vanilla-Befunde in [PITCH_STAIRS_HEIGHT.md](_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/PITCH_STAIRS_HEIGHT.md). Wartezeit, Umplanung, Feuerflucht und Rückkehr liegen im MoatMove-Code.
+Gleichzeitig geladen waren **MoatMove 0.1.6** und **PitchStairsTest 0.1.0**, außerdem BugfixesAndQoL 1.0.208, APIShared 0.23.0 und Script Extender 2.14.3.0. Die Pechhöhen-/Ladenormalisierung ist separat in [PitchStairsTest, Nachweise vom 02.11.2026](BugfixesAndQoL/docs/PITCHSTAIRS.md#dated-evidence-02112026-eleven-site-builds) ausgewertet; Vanilla-Befunde in [PITCH_STAIRS_HEIGHT.md](_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/PITCH_STAIRS_HEIGHT.md). Wartezeit, Umplanung, Feuerflucht und Rückkehr liegen im MoatMove-Code.
 
 MoatMove meldete `replanning=True`, `escape=True`, `waitSeconds=10` und die Umwegregel 50 % / mindestens 10 Zusatzfelder. Das sind die Werte des untersuchten Builds; die Empfehlungen in 8.3 sind davon zu unterscheiden.
 

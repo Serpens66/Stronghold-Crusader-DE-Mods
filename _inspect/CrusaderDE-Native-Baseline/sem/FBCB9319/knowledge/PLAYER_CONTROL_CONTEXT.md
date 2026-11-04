@@ -354,3 +354,37 @@ An inactive cell follows the complete original loads, including zero/negative
 native spectator IDs. A failed partial publication must retain all executable
 roots with that cell inactive. This describes the bounded integration contract;
 it is not evidence of live host/client acceptance of a corrective build.
+
+## Group allocation and explicit relay orders (2026-11-04) [Vanilla facts]
+
+Rechecked for native SHA-256
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+The relative call at `0x11E17C` resolves to the create-group function `0x119C00`.
+Its allocation tests the group state at raw record `+0x40`, but does not test the
+local pending-selection reservation at `+0x2A`. It then clears the complete
+record and assigns its new global identity. This differs from `0x11D1B0`, which
+requires both state and reservation to be clear. A synchronized caller therefore
+cannot assume that independently calling the public Extender `Create` on every
+peer chooses a reservation-safe identical slot. The false second argument avoids
+the optional current-selected-tribe header write; it does not repair allocation.
+
+Assignment `0x11D370` adds the target membership bit/count and rewrites the unit's
+tribe/leader/global references. It does not remove the previous membership.
+Explicit regrouping needs the audited removal and rest-group lifecycle, not just
+an assignment followed by a movement call. These are confirmed-static instruction
+and data-flow facts; internal symbolic names remain candidate labels.
+
+The Extender group-move entry reaches `0x11B520` directly. It does not traverse
+Vanilla's Chore-17 wrapper `0x196100` and its separate group `+0x56C` write.
+Existing group-order events and inner native hooks remain reachable, but this is
+not proof of identical ordinary-input semantics. Stop follows `0x11E960` case
+`0x1F`, rather than disband case `0x1E`; its special traversal cleanup can still
+perform normal native relocation/damage. A successful public call is not proof
+that all members moved or reached the requested destination.
+
+## Relay experiment boundary (2026-11-04) [mod integration]
+
+The bounded experimental integration and its actual public API calls are recorded
+in `Testmods/PlayerControlRelayTest/UpdateToNewDLL.md`. Private selection does not
+mutate native selection; ordinary consequences of a synchronized order remain
+simulation mutations. No new live-game or real-peer acceptance is claimed here.

@@ -225,6 +225,29 @@ internal static partial class Program
             "moat terrain is a host-controlled fix classified as a personal preference");
         Check(modelType.GetProperty("EnableMoatTerrainRestoration").GetCustomAttributesData()
             .Any(a => a.AttributeType.Name == "SyncHostOnlyAttribute"), "moat terrain is synchronized by the host");
+        object pitchFix = options.Single(o => (string)Get(o, "PropertyName") == "EnablePitchStairsFix");
+        var pitchEditor = editors.Single(e => e.Property == "EnablePitchStairsFix");
+        XmlNode pitchRow = Ancestors(pitchEditor.Node).First(a => SearchAttribute(a, "Key") != null);
+        Check(Get(pitchFix, "Category").ToString() == "Fixes" && (string)Get(pitchFix, "Symbol") == "★" &&
+            !(bool)Get(pitchFix, "IsPreference") &&
+            pitchRow.ParentNode.Attributes?["Visibility"]?.Value == "{Binding SettingsPresentation.HostSiege.FixesVisibility}" &&
+            SearchAttribute(pitchRow, "Key") == "bugfixes.pitch-stairs-fix" &&
+            pitchEditor.Node.Attributes?["IsEnabled"]?.Value == "{Binding CanConfigurePitchStairs}" &&
+            pitchEditor.Node.SelectSingleNode("ancestor::*[@IsEnabled='{Binding CanEditHostSettings}']") != null,
+            "pitch stairs is a recommended host siege fix with mission-aware editing");
+        var siegeRows = pitchRow.ParentNode.ChildNodes.Cast<XmlNode>().Where(n => n.LocalName == "Grid").ToArray();
+        int pitchOrdinal = Array.IndexOf(siegeRows, pitchRow);
+        Check(pitchOrdinal > 0 && SearchAttribute(siegeRows[pitchOrdinal - 1], "Key") == "bugfixes.moat-terrain-restoration",
+            "pitch stairs directly follows moat terrain restoration");
+        var pitchProperty = modelType.GetProperty("EnablePitchStairsFix");
+        Check(pitchProperty.GetCustomAttributesData().Any(a => a.AttributeType.Name == "SyncHostOnlyAttribute") &&
+            Instructions(pitchProperty.SetMethod).Any(i => i.Item2 is MethodBase method && method.Name == "SetSetting"),
+            "compiled pitch property retains host sync and the central setter");
+        var pitchReset = Instructions(modelType.GetMethod("ResetToDefault", All));
+        Check(pitchReset.Select((instruction, index) => new { instruction, index }).Any(item =>
+            item.instruction.Item2 is MethodBase method && method.Name == "set_EnablePitchStairsFix" &&
+            item.index > 0 && pitchReset[item.index - 1].Item1 == OpCodes.Ldc_I4_1),
+            "compiled reset assigns true through the actual pitch setter and its mission guard");
         Type terrainType = mod.GetType("BugfixesAndQoL.MoatTerrain.TerrainRuntime", true);
         object terrainRuntime = System.Runtime.Serialization.FormatterServices.GetUninitializedObject(terrainType);
         object saveRegistration = terrainType.GetMethod("CreateSaveRegistration", All).Invoke(terrainRuntime, null);

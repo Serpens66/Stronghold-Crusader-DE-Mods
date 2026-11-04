@@ -90,6 +90,14 @@ public static class SerpLocalization {
     public const string EconomyBuffsTitle = "SomeSettings.EconomyBuffsTitle";
     public const string LordHealthTitle = "SomeSettings.LordHealthTitle";
     public const string LordHealthHelp = "SomeSettings.LordHealthHelp";
+    public const string HealthTitle = "ExtraFeatures.HealthTitle";
+    public const string HealthHelp = "ExtraFeatures.HealthHelp";
+    public const string SoldierHealthTitle = "ExtraFeatures.SoldierHealthTitle";
+    public const string SoldierHealthHelp = "ExtraFeatures.SoldierHealthHelp";
+    public const string CivilianHealthTitle = "ExtraFeatures.CivilianHealthTitle";
+    public const string CivilianHealthHelp = "ExtraFeatures.CivilianHealthHelp";
+    public const string BuildingHealthTitle = "ExtraFeatures.BuildingHealthTitle";
+    public const string BuildingHealthHelp = "ExtraFeatures.BuildingHealthHelp";
     public const string MultiplyGoodsGain = "SomeSettings.MultiplyGoodsGain";
     public const string MultiplyGoodsGainHelp = "SomeSettings.MultiplyGoodsGainHelp";
     public const string MultiplyGoodsAsMoney = "SomeSettings.MultiplyGoodsAsMoney";

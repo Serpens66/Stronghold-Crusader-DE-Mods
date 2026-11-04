@@ -264,7 +264,8 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}"
             </Grid>
           </StackPanel>
           <StackPanel Visibility="{Binding SettingsPresentation.LordOptions.Visibility}" Grid.IsSharedSizeScope="True">
-            <TextBlock Text="{Binding LordHealthTitleText}" Style="{StaticResource SubsectionHeader}" />
+            <TextBlock Text="{Binding HealthTitleText}" Style="{StaticResource SubsectionHeader}" />
+            <TextBlock Text="{Binding HealthHelpText}" Foreground="#FFBBBBBB" TextWrapping="Wrap" Margin="0,0,0,8" />
             <Grid HorizontalAlignment="Left" Margin="0,0,0,6">
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" SharedSizeGroup="SettingLabel" MaxWidth="220" />
@@ -284,6 +285,7 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}"
                 <ColumnDefinition Width="24" />
                 <ColumnDefinition Width="Auto" SharedSizeGroup="RoleEditor" MinWidth="192" />
               </Grid.ColumnDefinitions>
+              <TextBlock Text="{Binding LordHealthTitleText}" Style="{StaticResource CompactSettingLabel}" Grid.Column="0" />
               <Grid HorizontalAlignment="Left" Grid.Column="2">
                 <Grid.ColumnDefinitions>
                   <ColumnDefinition Width="120" />
@@ -301,6 +303,90 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}"
                 </Grid.ColumnDefinitions>
                 <Slider shared:ModSettingsSearch.InactiveValues="100" Minimum="10" Maximum="500" Value="{Binding AILordHealthPercent, Mode=TwoWay}" TickFrequency="10" IsSnapToTickEnabled="True" Margin="0" ToolTipService.ShowDuration="60000" ToolTip="{Binding LordHealthHelpText}" MinHeight="28" VerticalAlignment="Center" Grid.Column="0" Width="120" />
                 <TextBox ui:KeyboardCaptureBinding.Enabled="True" Text="{Binding AILordHealthPercentText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Left" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding LordHealthHelpText}" MinWidth="64" MaxWidth="130" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1" Margin="0" MinHeight="28" Grid.Column="2" Width="Auto" />
+              </Grid>
+            </Grid>
+            <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.soldier-health" shared:ModSettingsSearch.Title="{Binding SoldierHealthTitleText}" shared:ModSettingsSearch.ToolTipText="{Binding SoldierHealthHelpText}">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" SharedSizeGroup="SettingLabel" MaxWidth="220" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="Auto" SharedSizeGroup="RoleEditor" MinWidth="192" />
+                <ColumnDefinition Width="24" />
+                <ColumnDefinition Width="Auto" SharedSizeGroup="RoleEditor" MinWidth="192" />
+              </Grid.ColumnDefinitions>
+              <TextBlock Text="{Binding SoldierHealthTitleText}" Style="{StaticResource CompactSettingLabel}" Grid.Column="0" />
+              <Grid HorizontalAlignment="Left" Grid.Column="2">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="120" />
+                  <ColumnDefinition Width="8" />
+                  <ColumnDefinition Width="Auto" SharedSizeGroup="RoleValue" MinWidth="64" MaxWidth="130" />
+                </Grid.ColumnDefinitions>
+                <Slider shared:ModSettingsSearch.InactiveValues="100" Minimum="10" Maximum="500" Value="{Binding HumanSoldierHealthPercent, Mode=TwoWay}" TickFrequency="10" IsSnapToTickEnabled="True" Margin="0" ToolTipService.ShowDuration="60000" ToolTip="{Binding SoldierHealthHelpText}" MinHeight="28" VerticalAlignment="Center" Grid.Column="0" Width="120" />
+                <TextBox ui:KeyboardCaptureBinding.Enabled="True" Text="{Binding HumanSoldierHealthPercentText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Left" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding SoldierHealthHelpText}" MinWidth="64" MaxWidth="130" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1" Margin="0" MinHeight="28" Grid.Column="2" Width="Auto" />
+              </Grid>
+              <Grid HorizontalAlignment="Left" Grid.Column="4">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="120" />
+                  <ColumnDefinition Width="8" />
+                  <ColumnDefinition Width="Auto" SharedSizeGroup="RoleValue" MinWidth="64" MaxWidth="130" />
+                </Grid.ColumnDefinitions>
+                <Slider shared:ModSettingsSearch.InactiveValues="100" Minimum="10" Maximum="500" Value="{Binding AISoldierHealthPercent, Mode=TwoWay}" TickFrequency="10" IsSnapToTickEnabled="True" Margin="0" ToolTipService.ShowDuration="60000" ToolTip="{Binding SoldierHealthHelpText}" MinHeight="28" VerticalAlignment="Center" Grid.Column="0" Width="120" />
+                <TextBox ui:KeyboardCaptureBinding.Enabled="True" Text="{Binding AISoldierHealthPercentText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Left" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding SoldierHealthHelpText}" MinWidth="64" MaxWidth="130" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1" Margin="0" MinHeight="28" Grid.Column="2" Width="Auto" />
+              </Grid>
+            </Grid>
+            <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.civilian-health" shared:ModSettingsSearch.Title="{Binding CivilianHealthTitleText}" shared:ModSettingsSearch.ToolTipText="{Binding CivilianHealthHelpText}">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" SharedSizeGroup="SettingLabel" MaxWidth="220" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="Auto" SharedSizeGroup="RoleEditor" MinWidth="192" />
+                <ColumnDefinition Width="24" />
+                <ColumnDefinition Width="Auto" SharedSizeGroup="RoleEditor" MinWidth="192" />
+              </Grid.ColumnDefinitions>
+              <TextBlock Text="{Binding CivilianHealthTitleText}" Style="{StaticResource CompactSettingLabel}" Grid.Column="0" />
+              <Grid HorizontalAlignment="Left" Grid.Column="2">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="120" />
+                  <ColumnDefinition Width="8" />
+                  <ColumnDefinition Width="Auto" SharedSizeGroup="RoleValue" MinWidth="64" MaxWidth="130" />
+                </Grid.ColumnDefinitions>
+                <Slider shared:ModSettingsSearch.InactiveValues="100" Minimum="10" Maximum="500" Value="{Binding HumanCivilianHealthPercent, Mode=TwoWay}" TickFrequency="10" IsSnapToTickEnabled="True" Margin="0" ToolTipService.ShowDuration="60000" ToolTip="{Binding CivilianHealthHelpText}" MinHeight="28" VerticalAlignment="Center" Grid.Column="0" Width="120" />
+                <TextBox ui:KeyboardCaptureBinding.Enabled="True" Text="{Binding HumanCivilianHealthPercentText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Left" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding CivilianHealthHelpText}" MinWidth="64" MaxWidth="130" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1" Margin="0" MinHeight="28" Grid.Column="2" Width="Auto" />
+              </Grid>
+              <Grid HorizontalAlignment="Left" Grid.Column="4">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="120" />
+                  <ColumnDefinition Width="8" />
+                  <ColumnDefinition Width="Auto" SharedSizeGroup="RoleValue" MinWidth="64" MaxWidth="130" />
+                </Grid.ColumnDefinitions>
+                <Slider shared:ModSettingsSearch.InactiveValues="100" Minimum="10" Maximum="500" Value="{Binding AICivilianHealthPercent, Mode=TwoWay}" TickFrequency="10" IsSnapToTickEnabled="True" Margin="0" ToolTipService.ShowDuration="60000" ToolTip="{Binding CivilianHealthHelpText}" MinHeight="28" VerticalAlignment="Center" Grid.Column="0" Width="120" />
+                <TextBox ui:KeyboardCaptureBinding.Enabled="True" Text="{Binding AICivilianHealthPercentText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Left" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding CivilianHealthHelpText}" MinWidth="64" MaxWidth="130" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1" Margin="0" MinHeight="28" Grid.Column="2" Width="Auto" />
+              </Grid>
+            </Grid>
+            <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.building-health" shared:ModSettingsSearch.Title="{Binding BuildingHealthTitleText}" shared:ModSettingsSearch.ToolTipText="{Binding BuildingHealthHelpText}">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" SharedSizeGroup="SettingLabel" MaxWidth="220" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="Auto" SharedSizeGroup="RoleEditor" MinWidth="192" />
+                <ColumnDefinition Width="24" />
+                <ColumnDefinition Width="Auto" SharedSizeGroup="RoleEditor" MinWidth="192" />
+              </Grid.ColumnDefinitions>
+              <TextBlock Text="{Binding BuildingHealthTitleText}" Style="{StaticResource CompactSettingLabel}" Grid.Column="0" />
+              <Grid HorizontalAlignment="Left" Grid.Column="2">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="120" />
+                  <ColumnDefinition Width="8" />
+                  <ColumnDefinition Width="Auto" SharedSizeGroup="RoleValue" MinWidth="64" MaxWidth="130" />
+                </Grid.ColumnDefinitions>
+                <Slider shared:ModSettingsSearch.InactiveValues="100" Minimum="10" Maximum="500" Value="{Binding HumanBuildingHealthPercent, Mode=TwoWay}" TickFrequency="10" IsSnapToTickEnabled="True" Margin="0" ToolTipService.ShowDuration="60000" ToolTip="{Binding BuildingHealthHelpText}" MinHeight="28" VerticalAlignment="Center" Grid.Column="0" Width="120" />
+                <TextBox ui:KeyboardCaptureBinding.Enabled="True" Text="{Binding HumanBuildingHealthPercentText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Left" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding BuildingHealthHelpText}" MinWidth="64" MaxWidth="130" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1" Margin="0" MinHeight="28" Grid.Column="2" Width="Auto" />
+              </Grid>
+              <Grid HorizontalAlignment="Left" Grid.Column="4">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="120" />
+                  <ColumnDefinition Width="8" />
+                  <ColumnDefinition Width="Auto" SharedSizeGroup="RoleValue" MinWidth="64" MaxWidth="130" />
+                </Grid.ColumnDefinitions>
+                <Slider shared:ModSettingsSearch.InactiveValues="100" Minimum="10" Maximum="500" Value="{Binding AIBuildingHealthPercent, Mode=TwoWay}" TickFrequency="10" IsSnapToTickEnabled="True" Margin="0" ToolTipService.ShowDuration="60000" ToolTip="{Binding BuildingHealthHelpText}" MinHeight="28" VerticalAlignment="Center" Grid.Column="0" Width="120" />
+                <TextBox ui:KeyboardCaptureBinding.Enabled="True" Text="{Binding AIBuildingHealthPercentText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Left" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding BuildingHealthHelpText}" MinWidth="64" MaxWidth="130" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1" Margin="0" MinHeight="28" Grid.Column="2" Width="Auto" />
               </Grid>
             </Grid>
           </StackPanel>
@@ -469,26 +555,26 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}"
                 <ColumnDefinition Width="Auto" SharedSizeGroup="RoleEditor" MinWidth="192" />
               </Grid.ColumnDefinitions>
               <TextBlock Text="{Binding CivilianSingleplayerText}" Style="{StaticResource CompactSettingLabel}" Grid.Column="0" Margin="0,0,0,0" />
-              <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.human-civilian-enemy-proximity-singleplayer" shared:ModSettingsSearch.Title="{Binding HumanCivilianEnemyProximitySingleplayerSearchTitle}" shared:ModSettingsSearch.ToolTipText="{Binding HumanEnemyProximityHelpText}" ToolTipService.ShowDuration="60000" ToolTip="{Binding HumanEnemyProximityHelpText}" Grid.Column="2" Margin="0">
+              <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.human-civilian-enemy-proximity-singleplayer" shared:ModSettingsSearch.Title="{Binding HumanCivilianEnemyProximitySingleplayerSearchTitle}" shared:ModSettingsSearch.ToolTipText="{Binding HumanCivilianEnemyProximitySingleplayerHelpText}" ToolTipService.ShowDuration="60000" ToolTip="{Binding HumanCivilianEnemyProximitySingleplayerHelpText}" Grid.Column="2" Margin="0">
                 <Grid HorizontalAlignment="Left">
                   <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="120" />
                     <ColumnDefinition Width="8" />
                     <ColumnDefinition Width="Auto" SharedSizeGroup="RoleValue" MinWidth="64" MaxWidth="130" />
                   </Grid.ColumnDefinitions>
-                  <Slider Minimum="-1" Maximum="100" Value="{Binding HumanCivilianEnemyProximitySingleplayer, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="0" ToolTipService.ShowDuration="60000" ToolTip="{Binding HumanEnemyProximityHelpText}" MinHeight="28" VerticalAlignment="Center" Grid.Column="0" Width="120" />
-                  <TextBox ui:KeyboardCaptureBinding.Enabled="True" Text="{Binding HumanCivilianEnemyProximitySingleplayerValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Left" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding HumanEnemyProximityHelpText}" MinWidth="64" MaxWidth="130" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1" Margin="0" MinHeight="28" Grid.Column="2" Width="Auto" />
+                  <Slider Minimum="-1" Maximum="100" Value="{Binding HumanCivilianEnemyProximitySingleplayer, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="0" ToolTipService.ShowDuration="60000" ToolTip="{Binding HumanCivilianEnemyProximitySingleplayerHelpText}" MinHeight="28" VerticalAlignment="Center" Grid.Column="0" Width="120" />
+                  <TextBox ui:KeyboardCaptureBinding.Enabled="True" Text="{Binding HumanCivilianEnemyProximitySingleplayerValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Left" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding HumanCivilianEnemyProximitySingleplayerHelpText}" MinWidth="64" MaxWidth="130" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1" Margin="0" MinHeight="28" Grid.Column="2" Width="Auto" />
                 </Grid>
               </Grid>
-              <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.ai-civilian-enemy-proximity-singleplayer" shared:ModSettingsSearch.Title="{Binding AICivilianEnemyProximitySingleplayerSearchTitle}" shared:ModSettingsSearch.ToolTipText="{Binding AIEnemyProximityHelpText}" ToolTipService.ShowDuration="60000" ToolTip="{Binding AIEnemyProximityHelpText}" Grid.Column="4" Margin="0">
+              <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.ai-civilian-enemy-proximity-singleplayer" shared:ModSettingsSearch.Title="{Binding AICivilianEnemyProximitySingleplayerSearchTitle}" shared:ModSettingsSearch.ToolTipText="{Binding AICivilianEnemyProximitySingleplayerHelpText}" ToolTipService.ShowDuration="60000" ToolTip="{Binding AICivilianEnemyProximitySingleplayerHelpText}" Grid.Column="4" Margin="0">
                 <Grid HorizontalAlignment="Left">
                   <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="120" />
                     <ColumnDefinition Width="8" />
                     <ColumnDefinition Width="Auto" SharedSizeGroup="RoleValue" MinWidth="64" MaxWidth="130" />
                   </Grid.ColumnDefinitions>
-                  <Slider Minimum="-1" Maximum="100" Value="{Binding AICivilianEnemyProximitySingleplayer, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="0" ToolTipService.ShowDuration="60000" ToolTip="{Binding AIEnemyProximityHelpText}" MinHeight="28" VerticalAlignment="Center" Grid.Column="0" Width="120" />
-                  <TextBox ui:KeyboardCaptureBinding.Enabled="True" Text="{Binding AICivilianEnemyProximitySingleplayerValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Left" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding AIEnemyProximityHelpText}" MinWidth="64" MaxWidth="130" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1" Margin="0" MinHeight="28" Grid.Column="2" Width="Auto" />
+                  <Slider Minimum="-1" Maximum="100" Value="{Binding AICivilianEnemyProximitySingleplayer, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="0" ToolTipService.ShowDuration="60000" ToolTip="{Binding AICivilianEnemyProximitySingleplayerHelpText}" MinHeight="28" VerticalAlignment="Center" Grid.Column="0" Width="120" />
+                  <TextBox ui:KeyboardCaptureBinding.Enabled="True" Text="{Binding AICivilianEnemyProximitySingleplayerValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Left" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding AICivilianEnemyProximitySingleplayerHelpText}" MinWidth="64" MaxWidth="130" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1" Margin="0" MinHeight="28" Grid.Column="2" Width="Auto" />
                 </Grid>
               </Grid>
             </Grid>
@@ -501,26 +587,26 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}"
                 <ColumnDefinition Width="Auto" SharedSizeGroup="RoleEditor" MinWidth="192" />
               </Grid.ColumnDefinitions>
               <TextBlock Text="{Binding MilitarySingleplayerText}" Style="{StaticResource CompactSettingLabel}" Grid.Column="0" Margin="0,0,0,0" />
-              <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.human-military-enemy-proximity-singleplayer" shared:ModSettingsSearch.Title="{Binding HumanMilitaryEnemyProximitySingleplayerSearchTitle}" shared:ModSettingsSearch.ToolTipText="{Binding HumanEnemyProximityHelpText}" ToolTipService.ShowDuration="60000" ToolTip="{Binding HumanEnemyProximityHelpText}" Grid.Column="2" Margin="0">
+              <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.human-military-enemy-proximity-singleplayer" shared:ModSettingsSearch.Title="{Binding HumanMilitaryEnemyProximitySingleplayerSearchTitle}" shared:ModSettingsSearch.ToolTipText="{Binding HumanMilitaryEnemyProximitySingleplayerHelpText}" ToolTipService.ShowDuration="60000" ToolTip="{Binding HumanMilitaryEnemyProximitySingleplayerHelpText}" Grid.Column="2" Margin="0">
                 <Grid HorizontalAlignment="Left">
                   <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="120" />
                     <ColumnDefinition Width="8" />
                     <ColumnDefinition Width="Auto" SharedSizeGroup="RoleValue" MinWidth="64" MaxWidth="130" />
                   </Grid.ColumnDefinitions>
-                  <Slider Minimum="-1" Maximum="100" Value="{Binding HumanMilitaryEnemyProximitySingleplayer, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="0" ToolTipService.ShowDuration="60000" ToolTip="{Binding HumanEnemyProximityHelpText}" MinHeight="28" VerticalAlignment="Center" Grid.Column="0" Width="120" />
-                  <TextBox ui:KeyboardCaptureBinding.Enabled="True" Text="{Binding HumanMilitaryEnemyProximitySingleplayerValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Left" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding HumanEnemyProximityHelpText}" MinWidth="64" MaxWidth="130" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1" Margin="0" MinHeight="28" Grid.Column="2" Width="Auto" />
+                  <Slider Minimum="-1" Maximum="100" Value="{Binding HumanMilitaryEnemyProximitySingleplayer, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="0" ToolTipService.ShowDuration="60000" ToolTip="{Binding HumanMilitaryEnemyProximitySingleplayerHelpText}" MinHeight="28" VerticalAlignment="Center" Grid.Column="0" Width="120" />
+                  <TextBox ui:KeyboardCaptureBinding.Enabled="True" Text="{Binding HumanMilitaryEnemyProximitySingleplayerValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Left" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding HumanMilitaryEnemyProximitySingleplayerHelpText}" MinWidth="64" MaxWidth="130" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1" Margin="0" MinHeight="28" Grid.Column="2" Width="Auto" />
                 </Grid>
               </Grid>
-              <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.ai-military-enemy-proximity-singleplayer" shared:ModSettingsSearch.Title="{Binding AIMilitaryEnemyProximitySingleplayerSearchTitle}" shared:ModSettingsSearch.ToolTipText="{Binding AIEnemyProximityHelpText}" ToolTipService.ShowDuration="60000" ToolTip="{Binding AIEnemyProximityHelpText}" Grid.Column="4" Margin="0">
+              <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.ai-military-enemy-proximity-singleplayer" shared:ModSettingsSearch.Title="{Binding AIMilitaryEnemyProximitySingleplayerSearchTitle}" shared:ModSettingsSearch.ToolTipText="{Binding AIMilitaryEnemyProximitySingleplayerHelpText}" ToolTipService.ShowDuration="60000" ToolTip="{Binding AIMilitaryEnemyProximitySingleplayerHelpText}" Grid.Column="4" Margin="0">
                 <Grid HorizontalAlignment="Left">
                   <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="120" />
                     <ColumnDefinition Width="8" />
                     <ColumnDefinition Width="Auto" SharedSizeGroup="RoleValue" MinWidth="64" MaxWidth="130" />
                   </Grid.ColumnDefinitions>
-                  <Slider Minimum="-1" Maximum="100" Value="{Binding AIMilitaryEnemyProximitySingleplayer, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="0" ToolTipService.ShowDuration="60000" ToolTip="{Binding AIEnemyProximityHelpText}" MinHeight="28" VerticalAlignment="Center" Grid.Column="0" Width="120" />
-                  <TextBox ui:KeyboardCaptureBinding.Enabled="True" Text="{Binding AIMilitaryEnemyProximitySingleplayerValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Left" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding AIEnemyProximityHelpText}" MinWidth="64" MaxWidth="130" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1" Margin="0" MinHeight="28" Grid.Column="2" Width="Auto" />
+                  <Slider Minimum="-1" Maximum="100" Value="{Binding AIMilitaryEnemyProximitySingleplayer, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="0" ToolTipService.ShowDuration="60000" ToolTip="{Binding AIMilitaryEnemyProximitySingleplayerHelpText}" MinHeight="28" VerticalAlignment="Center" Grid.Column="0" Width="120" />
+                  <TextBox ui:KeyboardCaptureBinding.Enabled="True" Text="{Binding AIMilitaryEnemyProximitySingleplayerValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Left" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding AIMilitaryEnemyProximitySingleplayerHelpText}" MinWidth="64" MaxWidth="130" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1" Margin="0" MinHeight="28" Grid.Column="2" Width="Auto" />
                 </Grid>
               </Grid>
             </Grid>
@@ -533,26 +619,26 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}"
                 <ColumnDefinition Width="Auto" SharedSizeGroup="RoleEditor" MinWidth="192" />
               </Grid.ColumnDefinitions>
               <TextBlock Text="{Binding CivilianMultiplayerText}" Style="{StaticResource CompactSettingLabel}" Grid.Column="0" Margin="0,0,0,0" />
-              <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.human-civilian-enemy-proximity-multiplayer" shared:ModSettingsSearch.Title="{Binding HumanCivilianEnemyProximityMultiplayerSearchTitle}" shared:ModSettingsSearch.ToolTipText="{Binding HumanEnemyProximityHelpText}" ToolTipService.ShowDuration="60000" ToolTip="{Binding HumanEnemyProximityHelpText}" Grid.Column="2" Margin="0">
+              <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.human-civilian-enemy-proximity-multiplayer" shared:ModSettingsSearch.Title="{Binding HumanCivilianEnemyProximityMultiplayerSearchTitle}" shared:ModSettingsSearch.ToolTipText="{Binding HumanCivilianEnemyProximityMultiplayerHelpText}" ToolTipService.ShowDuration="60000" ToolTip="{Binding HumanCivilianEnemyProximityMultiplayerHelpText}" Grid.Column="2" Margin="0">
                 <Grid HorizontalAlignment="Left">
                   <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="120" />
                     <ColumnDefinition Width="8" />
                     <ColumnDefinition Width="Auto" SharedSizeGroup="RoleValue" MinWidth="64" MaxWidth="130" />
                   </Grid.ColumnDefinitions>
-                  <Slider Minimum="-1" Maximum="100" Value="{Binding HumanCivilianEnemyProximityMultiplayer, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="0" ToolTipService.ShowDuration="60000" ToolTip="{Binding HumanEnemyProximityHelpText}" MinHeight="28" VerticalAlignment="Center" Grid.Column="0" Width="120" />
-                  <TextBox ui:KeyboardCaptureBinding.Enabled="True" Text="{Binding HumanCivilianEnemyProximityMultiplayerValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Left" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding HumanEnemyProximityHelpText}" MinWidth="64" MaxWidth="130" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1" Margin="0" MinHeight="28" Grid.Column="2" Width="Auto" />
+                  <Slider Minimum="-1" Maximum="100" Value="{Binding HumanCivilianEnemyProximityMultiplayer, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="0" ToolTipService.ShowDuration="60000" ToolTip="{Binding HumanCivilianEnemyProximityMultiplayerHelpText}" MinHeight="28" VerticalAlignment="Center" Grid.Column="0" Width="120" />
+                  <TextBox ui:KeyboardCaptureBinding.Enabled="True" Text="{Binding HumanCivilianEnemyProximityMultiplayerValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Left" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding HumanCivilianEnemyProximityMultiplayerHelpText}" MinWidth="64" MaxWidth="130" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1" Margin="0" MinHeight="28" Grid.Column="2" Width="Auto" />
                 </Grid>
               </Grid>
-              <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.ai-civilian-enemy-proximity-multiplayer" shared:ModSettingsSearch.Title="{Binding AICivilianEnemyProximityMultiplayerSearchTitle}" shared:ModSettingsSearch.ToolTipText="{Binding AIEnemyProximityHelpText}" ToolTipService.ShowDuration="60000" ToolTip="{Binding AIEnemyProximityHelpText}" Grid.Column="4" Margin="0">
+              <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.ai-civilian-enemy-proximity-multiplayer" shared:ModSettingsSearch.Title="{Binding AICivilianEnemyProximityMultiplayerSearchTitle}" shared:ModSettingsSearch.ToolTipText="{Binding AICivilianEnemyProximityMultiplayerHelpText}" ToolTipService.ShowDuration="60000" ToolTip="{Binding AICivilianEnemyProximityMultiplayerHelpText}" Grid.Column="4" Margin="0">
                 <Grid HorizontalAlignment="Left">
                   <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="120" />
                     <ColumnDefinition Width="8" />
                     <ColumnDefinition Width="Auto" SharedSizeGroup="RoleValue" MinWidth="64" MaxWidth="130" />
                   </Grid.ColumnDefinitions>
-                  <Slider Minimum="-1" Maximum="100" Value="{Binding AICivilianEnemyProximityMultiplayer, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="0" ToolTipService.ShowDuration="60000" ToolTip="{Binding AIEnemyProximityHelpText}" MinHeight="28" VerticalAlignment="Center" Grid.Column="0" Width="120" />
-                  <TextBox ui:KeyboardCaptureBinding.Enabled="True" Text="{Binding AICivilianEnemyProximityMultiplayerValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Left" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding AIEnemyProximityHelpText}" MinWidth="64" MaxWidth="130" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1" Margin="0" MinHeight="28" Grid.Column="2" Width="Auto" />
+                  <Slider Minimum="-1" Maximum="100" Value="{Binding AICivilianEnemyProximityMultiplayer, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="0" ToolTipService.ShowDuration="60000" ToolTip="{Binding AICivilianEnemyProximityMultiplayerHelpText}" MinHeight="28" VerticalAlignment="Center" Grid.Column="0" Width="120" />
+                  <TextBox ui:KeyboardCaptureBinding.Enabled="True" Text="{Binding AICivilianEnemyProximityMultiplayerValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Left" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding AICivilianEnemyProximityMultiplayerHelpText}" MinWidth="64" MaxWidth="130" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1" Margin="0" MinHeight="28" Grid.Column="2" Width="Auto" />
                 </Grid>
               </Grid>
             </Grid>
@@ -565,26 +651,26 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}"
                 <ColumnDefinition Width="Auto" SharedSizeGroup="RoleEditor" MinWidth="192" />
               </Grid.ColumnDefinitions>
               <TextBlock Text="{Binding MilitaryMultiplayerText}" Style="{StaticResource CompactSettingLabel}" Grid.Column="0" Margin="0,0,0,0" />
-              <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.human-military-enemy-proximity-multiplayer" shared:ModSettingsSearch.Title="{Binding HumanMilitaryEnemyProximityMultiplayerSearchTitle}" shared:ModSettingsSearch.ToolTipText="{Binding HumanEnemyProximityHelpText}" ToolTipService.ShowDuration="60000" ToolTip="{Binding HumanEnemyProximityHelpText}" Grid.Column="2" Margin="0">
+              <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.human-military-enemy-proximity-multiplayer" shared:ModSettingsSearch.Title="{Binding HumanMilitaryEnemyProximityMultiplayerSearchTitle}" shared:ModSettingsSearch.ToolTipText="{Binding HumanMilitaryEnemyProximityMultiplayerHelpText}" ToolTipService.ShowDuration="60000" ToolTip="{Binding HumanMilitaryEnemyProximityMultiplayerHelpText}" Grid.Column="2" Margin="0">
                 <Grid HorizontalAlignment="Left">
                   <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="120" />
                     <ColumnDefinition Width="8" />
                     <ColumnDefinition Width="Auto" SharedSizeGroup="RoleValue" MinWidth="64" MaxWidth="130" />
                   </Grid.ColumnDefinitions>
-                  <Slider Minimum="-1" Maximum="100" Value="{Binding HumanMilitaryEnemyProximityMultiplayer, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="0" ToolTipService.ShowDuration="60000" ToolTip="{Binding HumanEnemyProximityHelpText}" MinHeight="28" VerticalAlignment="Center" Grid.Column="0" Width="120" />
-                  <TextBox ui:KeyboardCaptureBinding.Enabled="True" Text="{Binding HumanMilitaryEnemyProximityMultiplayerValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Left" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding HumanEnemyProximityHelpText}" MinWidth="64" MaxWidth="130" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1" Margin="0" MinHeight="28" Grid.Column="2" Width="Auto" />
+                  <Slider Minimum="-1" Maximum="100" Value="{Binding HumanMilitaryEnemyProximityMultiplayer, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="0" ToolTipService.ShowDuration="60000" ToolTip="{Binding HumanMilitaryEnemyProximityMultiplayerHelpText}" MinHeight="28" VerticalAlignment="Center" Grid.Column="0" Width="120" />
+                  <TextBox ui:KeyboardCaptureBinding.Enabled="True" Text="{Binding HumanMilitaryEnemyProximityMultiplayerValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Left" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding HumanMilitaryEnemyProximityMultiplayerHelpText}" MinWidth="64" MaxWidth="130" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1" Margin="0" MinHeight="28" Grid.Column="2" Width="Auto" />
                 </Grid>
               </Grid>
-              <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.ai-military-enemy-proximity-multiplayer" shared:ModSettingsSearch.Title="{Binding AIMilitaryEnemyProximityMultiplayerSearchTitle}" shared:ModSettingsSearch.ToolTipText="{Binding AIEnemyProximityHelpText}" ToolTipService.ShowDuration="60000" ToolTip="{Binding AIEnemyProximityHelpText}" Grid.Column="4" Margin="0">
+              <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.ai-military-enemy-proximity-multiplayer" shared:ModSettingsSearch.Title="{Binding AIMilitaryEnemyProximityMultiplayerSearchTitle}" shared:ModSettingsSearch.ToolTipText="{Binding AIMilitaryEnemyProximityMultiplayerHelpText}" ToolTipService.ShowDuration="60000" ToolTip="{Binding AIMilitaryEnemyProximityMultiplayerHelpText}" Grid.Column="4" Margin="0">
                 <Grid HorizontalAlignment="Left">
                   <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="120" />
                     <ColumnDefinition Width="8" />
                     <ColumnDefinition Width="Auto" SharedSizeGroup="RoleValue" MinWidth="64" MaxWidth="130" />
                   </Grid.ColumnDefinitions>
-                  <Slider Minimum="-1" Maximum="100" Value="{Binding AIMilitaryEnemyProximityMultiplayer, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="0" ToolTipService.ShowDuration="60000" ToolTip="{Binding AIEnemyProximityHelpText}" MinHeight="28" VerticalAlignment="Center" Grid.Column="0" Width="120" />
-                  <TextBox ui:KeyboardCaptureBinding.Enabled="True" Text="{Binding AIMilitaryEnemyProximityMultiplayerValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Left" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding AIEnemyProximityHelpText}" MinWidth="64" MaxWidth="130" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1" Margin="0" MinHeight="28" Grid.Column="2" Width="Auto" />
+                  <Slider Minimum="-1" Maximum="100" Value="{Binding AIMilitaryEnemyProximityMultiplayer, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="0" ToolTipService.ShowDuration="60000" ToolTip="{Binding AIMilitaryEnemyProximityMultiplayerHelpText}" MinHeight="28" VerticalAlignment="Center" Grid.Column="0" Width="120" />
+                  <TextBox ui:KeyboardCaptureBinding.Enabled="True" Text="{Binding AIMilitaryEnemyProximityMultiplayerValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Left" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding AIMilitaryEnemyProximityMultiplayerHelpText}" MinWidth="64" MaxWidth="130" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1" Margin="0" MinHeight="28" Grid.Column="2" Width="Auto" />
                 </Grid>
               </Grid>
             </Grid>

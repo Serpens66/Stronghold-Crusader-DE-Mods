@@ -3,9 +3,9 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.211",
+  "Version": "1.0.212",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
-  "MinimumScriptExtenderVersion": "2.14.0",
+  "MinimumScriptExtenderVersion": "2.14.3",
   "MaximumScriptExtenderVersion": "",
   "Dependencies": [
     {
@@ -16,6 +16,14 @@
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.212",
+      "Changes": [
+        "Add the default-enabled host option to keep stairs behind pitch reachable, including loaded maps and saves, manual/AIV overbuild and editor maps.",
+        "Preserve Vanilla fire spread and pitch chains while ordinary projectile and disease checks follow actual ground height; freeze the rule before each map loads.",
+        "Integrate and retire PitchStairsTest, preserve its native contracts and dated evidence, and require Script Extender 2.14.3 or newer."
+      ]
+    },
     {
       "Version": "1.0.211",
       "Changes": [

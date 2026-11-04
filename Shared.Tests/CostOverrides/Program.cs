@@ -1,8 +1,9 @@
 using System;
 using System.Collections.Generic;
 using Shared;
+using APIShared.Economy;
+using APIShared.Modifiers;
 using UnitCosts;
-using ExtraFeatures;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 
@@ -10,7 +11,6 @@ internal static class Program
 {
     private const eChimps Unit = eChimps.CHIMP_TYPE_KNIGHT;
     private const eStructs Tent = eStructs.STRUCT_SIEGE_TENT_CATAPULT;
-    private const eGoods Good = eGoods.STORED_WOOD_PLANKS;
     private static int passed;
 
     private static int Main()
@@ -21,13 +21,10 @@ internal static class Program
             Run("explicit unit and tent gold have independent restore values", UnitGold);
             Run("material cells restore independently including the knight horse", Materials);
             Run("overrides rebase on foreign writes and do not claim equal values", Rebase);
-            Run("market directions respect foreign absolute prices independently", ForeignMarket);
-            Run("repeated price application and factor changes never compound", RepeatedMarket);
-            Run("already effective external prices succeed without acquiring ownership", AlreadyEffectiveMarket);
-            Run("return to neutral preserves foreign cells", MarketReset);
-            Run("combined neutral and rounding retain existing arithmetic", Arithmetic);
             Run("mission end releases ownership for new maps and loaded saves", Sessions);
             Run("setter failures isolate recovery and session boundaries", Failures);
+            Run("shared market bases do not compound and preserve foreign writes", SharedMarket);
+            Run("shared market saves retain original bases and isolate partial setters", SharedMarketSave);
             Console.WriteLine("PASS: " + passed + " cost ownership behavior scenarios (real SE value types; no game process).");
             return 0;
         }
@@ -46,21 +43,16 @@ internal static class Program
         internal int Gold = 91, TentGold = 123, Writes;
         internal UnitGoodCosts Goods = new UnitGoodCosts(eGoods32.STORED_SWORDS,
             eGoods32.STORED_METAL_ARMOUR, eGoods32.STORED_NULL, eGoods32._SE_REQUIRE_HORSE);
-        internal PackedGoodPrice Price = new PackedGoodPrice(100, 50);
         internal readonly UnitCostOverrides Units;
-        internal readonly MarketPriceOverrides Market;
         internal Fixture()
         {
             Units = new UnitCostOverrides(_ => Gold, (_, v) => { Gold = v; Writes++; },
                 _ => TentGold, (_, v) => { TentGold = v; Writes++; },
                 _ => Goods, (_, v) => { Goods = v; Writes++; });
-            Market = new MarketPriceOverrides(_ => Price, (_, v) => { Price = v; Writes++; },
-                _ => new PackedGoodPrice(100, 50));
         }
         internal void End()
         {
             Units.RestoreAll(ex => { throw ex; }, true);
-            Market.RestoreAll(ex => { throw ex; }, true);
         }
     }
 
@@ -71,16 +63,13 @@ internal static class Program
         host.Gold = client.Gold = 77; host.TentGold = client.TentGold = 88;
         foreach (var f in new[] { host, client })
         {
-            f.Price = new PackedGoodPrice(211, 119);
             for (int repeat = 0; repeat < 3; repeat++)
             {
                 f.Units.ApplyGold(Unit, -1); f.Units.ApplyTentGold(Tent, -1);
                 f.Units.ApplyMaterials(Unit, false);
-                Equal(true, f.Market.Apply(Good, true, 1)); Equal(true, f.Market.Apply(Good, false, 1));
                 f.End(); // Disabled mod, end, or repeated cleanup must also be inert.
             }
             Equal(0, f.Writes); Equal(77, f.Gold); Equal(88, f.TentGold);
-            Equal(211, f.Price.BuyPrice); Equal(119, f.Price.SellPrice);
         }
     }
 
@@ -116,67 +105,12 @@ internal static class Program
         f.Units.ApplyGold(Unit, 45); f.Gold = 60; f.End(); Equal(60, f.Gold);
     }
 
-    private static void ForeignMarket()
-    {
-        var f = new Fixture { Price = new PackedGoodPrice(111, 50) };
-        Equal(false, f.Market.Apply(Good, true, 2)); Equal(true, f.Market.Apply(Good, false, 2));
-        Equal(111, f.Price.BuyPrice); Equal(100, f.Price.SellPrice); Equal(1, f.Writes);
-        f.End(); Equal(111, f.Price.BuyPrice); Equal(50, f.Price.SellPrice);
-    }
-
-    private static void AlreadyEffectiveMarket()
-    {
-        var f = new Fixture { Price = new PackedGoodPrice(200, 50) };
-        Equal(true, f.Market.Apply(Good, true, 2, out MarketPriceApplication result));
-        Equal(100, result.Baseline); Equal(200, result.Current); Equal(200, result.Desired);
-        Equal(false, result.Owned); Equal(0, f.Writes);
-        f.Market.Apply(Good, true, 1); Equal(200, f.Price.BuyPrice); Equal(0, f.Writes);
-        Equal(false, f.Market.Apply(Good, true, 3, out result));
-        Equal(200, result.Current); Equal(300, result.Desired);
-        f.End(); Equal(200, f.Price.BuyPrice); Equal(0, f.Writes);
-        var owned = new Fixture(); owned.Market.Apply(Good, true, 2);
-        Equal(true, owned.Market.Apply(Good, true, 2, out result)); Equal(true, result.Owned);
-        owned.End(); Equal(100, owned.Price.BuyPrice);
-    }
-
-    private static void RepeatedMarket()
-    {
-        var f = new Fixture();
-        for (int i = 0; i < 4; i++) Equal(true, f.Market.Apply(Good, true, 1.5));
-        Equal(150, f.Price.BuyPrice); Equal(1, f.Writes);
-        Equal(true, f.Market.Apply(Good, true, 2)); Equal(200, f.Price.BuyPrice);
-        Equal(true, f.Market.Apply(Good, true, 1)); Equal(100, f.Price.BuyPrice);
-    }
-
-    private static void MarketReset()
-    {
-        var f = new Fixture(); f.Market.Apply(Good, true, 2); f.Market.Apply(Good, false, 2);
-        f.Price = new PackedGoodPrice(321, f.Price.SellPrice);
-        Equal(false, f.Market.Apply(Good, true, 3));
-        f.Market.Apply(Good, true, 1); f.Market.Apply(Good, false, 1);
-        Equal(321, f.Price.BuyPrice); Equal(50, f.Price.SellPrice);
-    }
-
-    private static void Arithmetic()
-    {
-        var f = new Fixture();
-        f.Market.Apply(Good, true, MarketGoodPriceDefinition.CombineMultipliers(2, 0.5));
-        Equal(0, f.Writes);
-        f.Market.Apply(Good, false, 1.25); Equal(63, f.Price.SellPrice);
-        f.Market.Apply(Good, true, 0); Equal(0, f.Price.BuyPrice);
-        f.Market.Apply(Good, true, 2); Equal(200, f.Price.BuyPrice);
-    }
-
     private static void Sessions()
     {
-        var f = new Fixture(); f.Units.ApplyGold(Unit, 20); f.Market.Apply(Good, true, 2);
-        f.End(); Equal(91, f.Gold); Equal(100, f.Price.BuyPrice);
-        f.Gold = 66; f.Price = new PackedGoodPrice(404, 50); // Next map/save's foreign values.
-        f.Units.ApplyGold(Unit, -1); Equal(false, f.Market.Apply(Good, true, 2));
-        f.End(); Equal(66, f.Gold); Equal(404, f.Price.BuyPrice);
-        f.Price = new PackedGoodPrice(100, 50); // A fresh load resets the native table.
-        f.Market.Apply(Good, true, 2); f.Market.Apply(Good, true, 2);
-        Equal(200, f.Price.BuyPrice); f.End(); Equal(100, f.Price.BuyPrice);
+        var f = new Fixture(); f.Units.ApplyGold(Unit, 20);
+        f.End(); Equal(91, f.Gold);
+        f.Gold = 66; // Next map/save's foreign value.
+        f.Units.ApplyGold(Unit, -1); f.End(); Equal(66, f.Gold);
     }
 
     private static void Failures()
@@ -193,5 +127,43 @@ internal static class Program
         { values[key] = v; if (v == 22) throw new Exception("setter failed after mutation"); });
         try { partial.Apply(0, 22); } catch (Exception) { }
         partial.Restore(0); Equal(10, values[0]);
+    }
+
+    private static void SharedMarket()
+    {
+        int[] prices = { 100, 50 }; int writes = 0;
+        var table = new MarketPriceTableCoordinator(1, (g, b) => prices[b ? 0 : 1],
+            (g, b, v) => { prices[b ? 0 : 1] = v; writes++; }, (g, b) => b ? 100 : 50);
+        table.Begin(null); decimal factor = 1;
+        Func<int, bool, bool, int, int?, MarketPriceResolution> resolve = (g, b, ai, basis, foreign) =>
+            foreign.HasValue ? new MarketPriceResolution(foreign.Value, false) : new MarketPriceResolution(
+                (int)ValueModifierCalculator.Calculate(basis, new[] { ValueModifierContribution.Factor(ai ? 1 : factor) }, 0, 32767), factor != 1);
+        Action<string> error = message => { throw new Exception(message); };
+        table.Refresh(resolve, error); Equal(0, writes);
+        factor = 1.5m; table.Refresh(resolve, error); table.Refresh(resolve, error);
+        Equal(150, prices[0]); Equal(75, prices[1]); Equal(2, writes); Equal(100, table.AIPrice(0, true));
+        prices[0] = 333; factor = 3; table.Refresh(resolve, error); Equal(333, prices[0]); Equal(150, prices[1]);
+        prices[0] = 100; table.Refresh(resolve, error); Equal(100, prices[0]);
+        factor = 1; table.Refresh(resolve, error); table.End(error); Equal(100, prices[0]); Equal(50, prices[1]);
+    }
+
+    private static void SharedMarketSave()
+    {
+        int[] prices = { 100, 50 }; bool fail = true; int errors = 0;
+        var table = new MarketPriceTableCoordinator(1, (g, b) => prices[b ? 0 : 1],
+            (g, b, v) => { prices[b ? 0 : 1] = v; if (b && fail) throw new Exception("partial setter"); }, (g, b) => b ? 100 : 50);
+        table.Begin(null); decimal factor = 2;
+        Func<int, bool, bool, int, int?, MarketPriceResolution> resolve = (g, b, ai, basis, foreign) =>
+            new MarketPriceResolution(foreign ?? (int)(basis * factor), !foreign.HasValue && factor != 1);
+        table.Refresh(resolve, _ => errors++); Equal(1, errors); Equal(200, prices[0]); Equal(100, prices[1]);
+        fail = false; byte[] saved = table.Save();
+        table.Begin(MarketPriceTableCoordinator.Decode(saved, 1)); factor = 3; table.Refresh(resolve, _ => errors++);
+        Equal(300, prices[0]); Equal(150, prices[1]);
+        saved = table.Save(); table.Begin(MarketPriceTableCoordinator.Decode(saved, 1)); table.Refresh(resolve, _ => errors++);
+        Equal(300, prices[0]);
+        table.End(_ => errors++); Equal(100, prices[0]); Equal(50, prices[1]);
+        bool rejected = false; saved[20] = 2;
+        try { MarketPriceTableCoordinator.Decode(saved, 1); } catch (InvalidOperationException) { rejected = true; }
+        Equal(true, rejected);
     }
 }
