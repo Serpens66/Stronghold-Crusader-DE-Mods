@@ -19,8 +19,9 @@
     {
       "Version": "1.0.211",
       "Changes": [
-        "Presentation work runs through APIShared's shared UI work service (one-time UI work, coalesced refreshes, frame work only while needed) instead of permanent per-frame callbacks. Covers the Assassin climb and Lord unit HUDs, countdown timers, foreign troop HUD, statistics team badges, display-resolution recovery, deferred gate routing, the multiplayer lobby return and sprite-sheet startup. Require APIShared 0.26.0 or newer.",
-        "Add an enabled-by-default host fix completing missing AIV-planned stockpile, granary and armoury sections after a new game starts with complete AI castles. Each additional section waits for an initialized neighbouring section and uses normal Vanilla placement rules; loaded games and storage buildings destroyed later are not repaired."
+        "Complete missing AIV-planned stockpile, granary and armoury sections in new games with complete AI starting castles. This host fix is enabled by default, follows normal placement rules and leaves blocked locations empty; loaded games and storage buildings destroyed later are unchanged.",
+        "Keep timed gameplay features consistent between multiplayer participants with different frame rates, and refresh HUD displays only when needed.",
+        "Require APIShared 0.26.0 or newer."
       ]
     },
     {

@@ -19,7 +19,7 @@
     {
       "Version": "1.0.57",
       "Changes": [
-        "Event chat announcements are delivered through APIShared's shared UI work service, retried while the HUD is not yet available and shown exactly once.",
+        "Wait for the in-game chat before displaying pending event announcements and show each announcement once.",
         "Require APIShared 0.26.0 or newer."
       ]
     },

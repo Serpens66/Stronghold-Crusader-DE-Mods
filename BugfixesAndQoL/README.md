@@ -23,7 +23,7 @@ This setting is independent of **Recruits Run to Rally Points**. It does not add
 Complete AI starting castles use the configured "Both" production choices for their workshops.
 
 ### Complete storage sections in prebuilt AI castles
-In new games with complete AI starting castles, Vanilla leaves out some stockpile, granary, and armoury sections planned in the AIV. This enabled-by-default host fix adds them with the normal placement rules; blocked spots stay empty. Loaded games and storage buildings destroyed later are not affected.
+In new games with complete AI starting castles, Vanilla leaves out some stockpile, granary, and armoury sections planned in the AIV. This enabled-by-default host fix adds them once the neighbouring storage section is ready, using the normal placement rules; blocked spots stay empty. Loaded games and storage buildings destroyed later are not affected.
 
 ### Skip inaccessible AI raid targets
 
@@ -317,10 +317,8 @@ The enabled-by-default local **Compact lobby chat** QoL option shows the shield,
 ### Customize trails
 Adds "Customize" Button to custom and coop trails. Allows to use custom AI as Ally in Coop Trails.
 
-## Compatibility and diagnostics
+## Compatibility
 
 This mod requires the Script Extender and **APIShared 0.26.0 or newer**. Subscribe to APIShared separately when using the Steam modpack.
 
-Shared hooks coordinate command and HUD integrations with other mods; synchronized multiplayer actions use APIShared transport.
-
-Routine activity is logged at Debug level. Repeated diagnostics are limited to reduce log spam; warnings and errors remain available.
+All multiplayer participants need matching modpack and APIShared versions. Gameplay timing follows the match's simulation time, keeping movement and other timed features consistent between players with different frame rates.

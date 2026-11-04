@@ -12,7 +12,9 @@
   "SerpChangelog": [
     {
       "Version": "1.0.34",
-      "Changes": ["Use native map ticks for start-troop validation and a 1200-simulation-tick Keep-readiness deadline independent of local wall-clock time."]
+      "Changes": [
+        "Use the same simulation timing for starting-troop preparation on every multiplayer participant, independent of frame rate or local clock time."
+      ]
     },
     {
       "Version": "1.0.33",

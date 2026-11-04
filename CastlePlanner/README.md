@@ -2,8 +2,9 @@
 - Spawn a selected aivjson castle in a new game for human players at game start
 - Let the host set the real-time castle selection limit from 60 to 600 seconds (default: 120 seconds)
 - Load custom aivjson castles as visible blueprints ingame, so you can copy build your favorite AI castle
-- Select your castle and set blueprint icon size and opacity with the **Blueprints** button in the bottom-left HUD extras area; APIShared coordinates its placement with buttons from other mods
+- Select your castle and set blueprint icon size and opacity with the **Blueprints** button in the bottom-left HUD extras area
 - Restarting to spawn a completed castle preserves your active mission settings and the Trail author's restrictions
+- Spawned castles include the AIV's additional stockpile, granary and armoury sections where the normal placement rules allow them; blocked locations stay empty
 
 ## AI castle placement checks
 
@@ -11,12 +12,10 @@ In the lobby, CastlePlanner shows whether the selected AI castles fit on the cho
 
 ## AI castle plan for spectators
 
-Multiplayer spectators can view the accepted AI castle plan of the player they are watching as a read-only blueprint, including the source AIV file name when the session provides it. The view only refreshes while it or its panel is shown. Eliminated players get the same view.
+Multiplayer spectators can view the accepted AI castle plan of the player they are watching as a read-only blueprint, including the source AIV file name when the session provides it. Eliminated players get the same view; they cannot choose, rotate or confirm a castle, including from a panel opened before elimination.
 
-## Compatibility and diagnostics
+## Compatibility
 
 This mod requires the Script Extender and **APIShared 0.26.0 or newer**. Subscribe to APIShared separately when using the Steam modpack. Mod settings indicate when gameplay changes are inactive for a direct mission or Trail launch. Use **Customize** where available to start with those changes; edits made while inactive are saved for later games. Blueprints remain available during those direct launches.
 
-Shared HUD services place the Blueprints button alongside buttons from other mods and coordinate GUI updates and preview pause commands.
-
-Routine activity is logged at Debug level. Repeated diagnostics are limited to reduce log spam; warnings and errors remain available.
+All multiplayer participants need matching modpack and APIShared versions. Castle spawning applies to new games; loading a saved game does not spawn the chosen castle again.

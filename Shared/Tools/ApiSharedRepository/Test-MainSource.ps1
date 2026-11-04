@@ -105,6 +105,103 @@ try{$hash=([BitConverter]::ToString($sha.ComputeHash($stream))).Replace('-','').
     Check ($verified.Version -ceq '1.0.0' -and $verified.Commit -ceq $selected.Commit) 'Dev manifest or source entered consumer proof.'
     Add-Type -TypeDefinition 'public class StableConsumer { public APIShared.MainOnly Value; }' -ReferencedAssemblies $dll -OutputAssembly (Join-Path $fixture 'consumer.dll')
     Reject {Add-Type -TypeDefinition 'public class NeedsUnreleasedApi { public APIShared.DevOnly Value; }' -ReferencedAssemblies $dll -OutputAssembly (Join-Path $fixture 'invalid-consumer.dll') -ErrorAction Stop}
+    # Regression: compatibility builds dispatch working sources, but their SDK must remain the
+    # published audit package. Its root deliberately has no Git metadata or tools/BuildProof.ps1.
+    foreach($file in @('BranchBuild/BranchBuild.Common.ps1','BranchBuild/Invoke-BranchBuild.ps1',
+        'ApiSharedRepository/ApiShared.Common.ps1','ApiSharedRepository/Select-ApiSharedBranch.ps1',
+        'ApiSharedRepository/Select-ApiSharedBranch.cmd','Steam/SteamPackPolicy.ps1')){
+        $destination=Join-Path $root ('Shared/Tools/'+$file)
+        [void][IO.Directory]::CreateDirectory((Split-Path -Parent $destination))
+        Copy-Item -LiteralPath (Join-Path $workspace ('Shared/Tools/'+$file)) -Destination $destination
+    }
+    Write-Fixture (Join-Path $root '.gitignore') "APIShared/`r`n.work/`r`n.release-output/`r`n"
+    $null=Invoke-ApiRepositoryGit $root @('init','--initial-branch=main')
+    Write-Fixture (Join-Path $root 'Fixture/info.json') '{"GUID":"Fixture_Serp","Version":"1.0.0"}'
+    Write-Fixture (Join-Path $root 'Fixture/Fixture.csproj') '<Project><ItemGroup><Reference Include="APIShared" /></ItemGroup></Project>'
+    $driverText=[IO.File]::ReadAllText((Join-Path $workspace 'BuildingCosts/build.bat'))
+    $prefixEnd=$driverText.IndexOf(":shcde_branch_selected`r`nendlocal`r`n")
+    Check ($prefixEnd -ge 0) 'Published SDK fixture requires the actual BAT dispatcher.'
+    $consumerBatch=$driverText.Substring(0,$prefixEnd+":shcde_branch_selected`r`nendlocal`r`n".Length).Replace('BuildingCosts/build.bat','Fixture/build.bat')+@'
+@echo off
+setlocal EnableExtensions
+rem A legacy fixed SDK path must be replaced with the exact selected binary package.
+set "API_SHARED_DIR=%~dp0..\APIShared\BepInEx\plugins\APIShared_Serp"
+call "%~dp0..\Shared\Tools\ApiSharedRepository\Select-ApiSharedBranch.cmd" %*
+if errorlevel 1 exit /b 1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0inspect.ps1"
+if errorlevel 1 exit /b 1
+if exist "%~dp0fail.txt" exit /b 27
+if exist "%~dp0BepInEx\plugins\Fixture_Serp" rmdir /s /q "%~dp0BepInEx\plugins\Fixture_Serp"
+if not exist "%~dp0BepInEx\plugins\Fixture_Serp" mkdir "%~dp0BepInEx\plugins\Fixture_Serp"
+copy /Y "%~dp0source.txt" "%~dp0BepInEx\plugins\Fixture_Serp\built.txt" >nul
+exit /b %ERRORLEVEL%
+'@
+    Write-Fixture (Join-Path $root 'Fixture/build.bat') $consumerBatch
+    Write-Fixture (Join-Path $root 'Fixture/inspect.ps1') @'
+$ErrorActionPreference='Stop'
+$root=Split-Path -Parent $PSScriptRoot
+. (Join-Path $root 'Shared/Tools/ApiSharedRepository/ApiShared.Common.ps1')
+$null=Assert-ApiConsumerPackage $root $env:API_SHARED_DIR
+$source=[IO.File]::ReadAllText((Join-Path $root 'APIShared/info.json'))|ConvertFrom-Json
+if($source.Version -cne '1.0.0'){throw 'Unreleased APIShared sources entered preflight.'}
+if($env:API_SHARED_DIR -cne $env:SHCDE_BRANCH_API_PACKAGE -or
+   $env:SHCDE_BRANCH_MSBUILD_API -cne ('"/p:ApiSharedDir='+$env:API_SHARED_DIR+'"')){throw 'Binary SDK selection diverged.'}
+Write-Host ('PUBLISHED_SDK='+$env:API_SHARED_DIR)
+'@
+    Write-Fixture (Join-Path $root 'Fixture/source.txt') 'committed consumer'
+    Commit-Fixture $root
+    Write-Fixture (Join-Path $root 'Fixture/source.txt') 'compatibility working source'
+    $consumer=Join-Path $root 'Fixture/build.bat'
+    $package=Join-Path $root 'Fixture/BepInEx/plugins/Fixture_Serp'
+    Write-Fixture (Join-Path $package 'stale.txt') 'remove after success'
+    function Invoke-PublishedConsumer([string[]]$Arguments,[int]$Expected=0){
+        $output=@(& $consumer @Arguments 2>&1);$code=$LASTEXITCODE
+        Check ($code -eq $Expected) ("Published consumer exit $code, expected ${Expected}: "+($output -join "`n"))
+        return $output -join "`n"
+    }
+    $publishedSelection=$env:SHCDE_API_SHARED_MAIN_SELECTION
+    $publishedSdkPath=[IO.Path]::GetFullPath($sdk)
+    $output=Invoke-PublishedConsumer @('/nopause','/noinstall','/syncpackage')
+    Check ($output.Contains('PUBLISHED_SDK='+$publishedSdkPath)) 'Dispatcher replaced the published binary SDK.'
+    Check ([IO.File]::ReadAllText((Join-Path $package 'built.txt')) -ceq 'compatibility working source') 'Published SDK build did not mirror working-source output.'
+    Check (-not(Test-Path -LiteralPath (Join-Path $package 'stale.txt'))) 'Published SDK sync kept stale output.'
+    $buildRecord=Get-ChildItem -LiteralPath (Join-Path $root '.work/b/working') -Filter '*.build.json' | Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1
+    $record=[IO.File]::ReadAllText($buildRecord.FullName)|ConvertFrom-Json
+    Check ($record.ApiShared.Branch -ceq 'published' -and $record.ApiShared.Commit -ceq $selected.Commit -and
+        $record.ApiShared.PublishedCommit -ceq $selected.Commit -and $record.ApiShared.PackageDirectory -ceq $publishedSdkPath -and
+        $record.ApiShared.ProvenanceSha256 -ceq $env:SHCDE_API_SHARED_RELEASE_PROOF_SHA256) 'Published SDK build provenance lost its source/package identity.'
+    Write-Fixture (Join-Path $package 'built.txt') 'preserve failed build'
+    $preservedPackageHash=Get-ApiRepositoryHash (Join-Path $package 'built.txt')
+    Write-Fixture (Join-Path $root 'Fixture/fail.txt') 'fail'
+    $null=Invoke-PublishedConsumer @('/nopause','/noinstall','/syncpackage') 27
+    [IO.File]::Delete((Join-Path $root 'Fixture/fail.txt'))
+    Check ((Get-ApiRepositoryHash (Join-Path $package 'built.txt')) -ceq $preservedPackageHash) 'Failed published SDK build mirrored output.'
+    foreach($choice in @('/apishared:dev','/apishared:main','/apishared:package')){
+        $output=Invoke-PublishedConsumer @('/nopause','/noinstall',$choice) 1
+        Check (-not $output.Contains('PUBLISHED_SDK=')) 'Explicit SDK override executed the consumer.'
+    }
+    $savedSdkBranch=$env:SHCDE_API_SHARED_BRANCH
+    try{$env:SHCDE_API_SHARED_BRANCH='develop';$null=Invoke-PublishedConsumer @('/nopause','/noinstall') 1}
+    finally{$env:SHCDE_API_SHARED_BRANCH=$savedSdkBranch}
+    $dllBytes=[IO.File]::ReadAllBytes($dll)
+    try{
+        [IO.File]::WriteAllText($dll,'tampered')
+        $output=Invoke-PublishedConsumer @('/nopause','/noinstall') 1
+        Check (-not $output.Contains('PUBLISHED_SDK=')) 'Tampered published DLL executed the consumer.'
+    }finally{[IO.File]::WriteAllBytes($dll,$dllBytes)}
+    $proofBytes=[IO.File]::ReadAllBytes($env:SHCDE_API_SHARED_RELEASE_PROOF)
+    try{
+        [IO.File]::AppendAllText($env:SHCDE_API_SHARED_RELEASE_PROOF,' ')
+        $null=Invoke-PublishedConsumer @('/nopause','/noinstall') 1
+    }finally{[IO.File]::WriteAllBytes($env:SHCDE_API_SHARED_RELEASE_PROOF,$proofBytes)}
+    $env:SHCDE_API_SHARED_DIR=Join-Path $api 'BepInEx/plugins/APIShared_Serp'
+    $null=Invoke-PublishedConsumer @('/nopause','/noinstall') 1
+    $env:SHCDE_API_SHARED_DIR=$sdk
+    $env:SHCDE_API_SHARED_MAIN_SELECTION=''
+    $null=Invoke-PublishedConsumer @('/nopause','/noinstall') 1
+    $env:SHCDE_API_SHARED_MAIN_SELECTION=$publishedSelection
+    Check (((Invoke-ApiRepositoryGit $api @('rev-parse','HEAD'))-join '') -ceq $devHead -and
+        [IO.File]::ReadAllText((Join-Path $api 'open.txt')) -ceq 'unfinished development') 'Published consumer changed the personal checkout.'
     $env:SHCDE_API_SHARED_RELEASE_PROOF='';$env:SHCDE_API_SHARED_DIR=''
     $delivery=Get-ApiMainDeliveryIdentity $root
     $null=Assert-ApiMainDeliveryIdentity $root $delivery

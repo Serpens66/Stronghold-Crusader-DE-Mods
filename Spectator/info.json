@@ -22,16 +22,14 @@
     {
       "Version": "0.1.0",
       "Changes": [
-        "First release in the Serps Mods pack. The spectator features of Bugfixes and QoL now live in this separate mod; its spectator-view and eliminated-player settings are taken over once.",
-        "Spectators and eliminated players can switch the displayed player, reports and ally view through the portrait bar.",
-        "Optional: spectators control the selected player in singleplayer skirmishes (off by default).",
-        "Eliminated players can keep watching with spectator views (host option).",
-        "The detailed Vanilla statistics screen can be opened during the match.",
-        "Lord overview via the crown button, with host permission for extra enemy statistics.",
-        "Test tools for spectators and an AI lord test mode for active single-player participants; both are off by default, disabled in real multiplayer and not available in the map editor.",
-        "While the test tools place a building for an AI lord, the camera no longer jumps to that lord's existing building of the same type (for example stockpile, granary, armoury or barracks); the selection itself stays unchanged.",
-        "Eliminated players watching with spectator views see the build menu read-only; building from it remains possible only while a test-tool placement for an AI lord is active.",
-        "Toolbar, Lord overview and perspective updates run through APIShared's shared UI work service only while they are needed.",
+        "First release in the Serps Mods pack. Spectator features previously included in Bugfixes and QoL now live in this mod; existing perspective and post-elimination settings are transferred once.",
+        "Switch the displayed player, reports and ally view through the portrait bar as a spectator or an eliminated player with host permission.",
+        "Open detailed match statistics and the Lord overview during play; the host can allow extra enemy statistics for active players.",
+        "Optionally control the viewed player as a spectator from the start of a singleplayer skirmish. Off by default; the selected player's AI remains active.",
+        "Use optional AI test tools for buildings, units, goods, gold, orders, powers and gates. Spectator tools and active-player singleplayer test mode are both off by default and unavailable in real multiplayer and the map editor.",
+        "Keep the camera in place when placing test buildings for an AI lord. Eliminated spectators see the build menu read-only unless an allowed singleplayer test placement is active.",
+        "Credit gold immediately or add goods as storage space becomes available; debit removes stored and incoming reserves down to zero. Rejected amounts show the reason.",
+        "Edit the amount only by clicking its field. Enter and Esc finish editing without sending a credit or debit and return keyboard control to the game; an empty field becomes zero.",
         "Require APIShared 0.27.0 or newer."
       ]
     }

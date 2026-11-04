@@ -56,13 +56,11 @@ The host can separately enable map/Trail mod settings, custom Coop packages and 
 
 The shared **Reset ALL modsettings to:** dropdown also offers **Personal Settings**. Inside an editable Map or Trail working copy, this restores your own stored settings without leaving the mission context.
 
-### Compatibility and diagnostics
+### Compatibility
 
 This mod requires the Script Extender and **APIShared 0.26.0 or newer**, including its `APIShared.Content.dll`. Subscribe to APIShared separately when using the Steam modpack.
 
-Map/Trail compatibility messages use APIShared's shared participant checks. A broken settings provider is reported without hiding other compatible mods. APIShared prepares and applies temporary settings snapshots and handles their cleanup. ExtendedData supplies content sources and coordinates the mission lifecycle.
-
-Shared services handle presets and game-mode classification. Routine activity is logged at Debug level. Repeated diagnostics are limited to reduce log spam; warnings and errors remain available. No gameplay setting is needed for this change. Validated Fixes preference property metadata is cached; preference values and snapshot checks are unchanged.
+All multiplayer participants need matching modpack and APIShared versions. Map and Trail settings apply only to supported gameplay options; personal interface preferences remain your own.
 
 ---
 
@@ -120,10 +118,8 @@ Der Host kann Mod-Einstellungen aus Karten und Trails, eigene Koop-Pakete und er
 
 Die gemeinsame Auswahl **ALLE Modsettings zurücksetzen auf:** bietet auch **Persönliche Einstellungen**. In einer bearbeitbaren Karten- oder Trail-Arbeitskopie stellt sie deine eigenen gespeicherten Einstellungen wieder her, ohne den Missionskontext zu verlassen.
 
-### Kompatibilität und Diagnosen
+### Kompatibilität
 
 Diese Mod benötigt den Script Extender und **APIShared 0.26.0 oder neuer**, einschließlich `APIShared.Content.dll`. APIShared muss beim Steam-Modpack separat abonniert werden.
 
-Kompatibilitätsmeldungen für Maps und Trails verwenden APIShareds gemeinsame Teilnehmerprüfung. Ein fehlerhafter Settings-Anbieter wird gemeldet, ohne andere kompatible Mods auszublenden. APIShared bereitet temporäre Settings-Snapshots vor, wendet sie an und bereinigt sie. ExtendedData liefert die Inhaltsquellen und koordiniert den Missionslifecycle.
-
-Gemeinsame Dienste übernehmen Presets und die Erkennung des Spielmodus. Routineausgaben erscheinen auf Debug-Ebene. Wiederholte Diagnosen werden begrenzt, um das Log zu entlasten; Warnungen und Fehler bleiben verfügbar. Dafür ist keine Spieleinstellung nötig. Geprüfte Metadaten der Fixes-Einstellungen werden zwischengespeichert; Einstellungswerte und Snapshot-Prüfungen bleiben unverändert.
+Alle Mitspieler brauchen dieselben Modpack- und APIShared-Versionen. Karten- und Trail-Einstellungen betreffen nur unterstützte Spieloptionen; persönliche Oberflächen-Einstellungen bleiben deine eigenen.

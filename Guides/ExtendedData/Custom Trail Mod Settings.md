@@ -83,6 +83,18 @@ CoopMissions/01.lordrequirements.json
 
 The sidecar binds the selected Custom Lord slots and their AIC/AIV checksums to the mission. It includes the selected `.modlord.json` and Fixes values where available. Keep it beside the matching mission when moving or publishing a Trail. ExtendedData checks it before launch. A Lord whose package contains additional gameplay files must have the matching Script Extender package installed and registered at startup; missing or different required content blocks the mission. Optional media does not by itself make a package mandatory.
 
+#### Custom Lord metadata and media
+
+When a selected Custom Lord has a valid `lordmeta.json`, the Lord-requirements sidecar also stores its complete contents, independently of the modsettings and media options. These saved metadata supply localized names, descriptions, titles and message definitions.
+
+In the Trail Maker, **Embed Custom Lord media** controls whether referenced images, audio and videos are embedded when exporting a normal or Coop Trail. It is disabled by default. Enable it before export to create the `LordMedia/` folders in the exported package; identical media is shared across missions. Keep those folders, their contents and their relative locations together with the missions and `.lordrequirements.json` sidecars when distributing the Trail.
+
+The Workshop upload page reports whether the exported Trail contains Lord metadata and media, metadata only, or no embedded Lord metadata. Media selection happens in the Trail Maker before export; re-export the Trail to change it. **Include modsettings** on the upload page independently controls the modsettings sidecars. Unchecking it still uploads the Lord requirements and any media already embedded in the exported Trail.
+
+Without embedded media, a registered installed Lord package can supply optional media only when its `lordmeta.json` is text-identical to the metadata saved with the Trail. Matching AIC/AIV checksums alone is insufficient. The saved metadata remain authoritative; additional required gameplay packages must still be installed as described above. See [Custom Lord packages with Script Extender](CustomLordExtendedPackages.md#english) for authoring metadata and media references.
+
+#### Trail portability and Coop packages
+
 Import, backup, clearing and export keep this sidecar with its own mission. When a Trail Maker mission is saved again, its stored values stay valid for every slot whose Lord, configuration and ordered AIV list are unchanged; only changed slots are captured again from the installed author Lord. If such a slot can be neither reused nor verified, the export stops and asks whether to continue with only the AI data saved in the Trail. That choice omits unknown extra values (for example `.modlord.json` data, Fixes preferences or required script packages) and is stored in the sidecar.
 
 The Trail Maker's **Coop Trail** export packages the first 40 existing missions, in order, as up to four Coop Trail pages of ten missions each. Later Trail Maker missions remain normal Custom Trail missions. The first two occupied player slots become host and guest. The host selects an installed package, and every participant needs matching package contents before a replaced mission can start. A package ends at its actual mission count; slots beyond it are unavailable until Vanilla Coop Trails are selected.
@@ -214,6 +226,18 @@ CoopMissions/01.lordrequirements.json
 ```
 
 Das Sidecar bindet die ausgewählten Custom-Lord-Plätze und ihre AIC-/AIV-Prüfsummen an die Mission. Es enthält, soweit vorhanden, die ausgewählten `.modlord.json`- und Fixes-Werte. Beim Verschieben oder Veröffentlichen eines Trails muss es neben der zugehörigen Mission bleiben. ExtendedData prüft es vor dem Start. Enthält das Lord-Paket zusätzliche Gameplay-Dateien, muss das passende Script-Extender-Paket installiert und beim Spielstart registriert sein; fehlende oder abweichende erforderliche Inhalte blockieren die Mission. Optionale Medien allein machen ein Paket nicht verpflichtend.
+
+#### Custom-Lord-Metadaten und Medien
+
+Besitzt ein ausgewählter Custom Lord eine gültige `lordmeta.json`, speichert das Lord-Anforderungs-Sidecar außerdem deren vollständigen Inhalt, unabhängig von den Modsettings- und Medienoptionen. Diese gespeicherten Metadaten liefern lokalisierte Namen, Beschreibungen, Titel und Nachrichtendefinitionen.
+
+Im Trail Maker steuert **Medien der Custom Lords einbetten**, ob referenzierte Bilder, Audio und Videos beim Export eines normalen oder Koop-Trails eingebettet werden. Die Option ist standardmäßig deaktiviert. Aktiviere sie vor dem Export, um die `LordMedia/`-Ordner im exportierten Paket zu erzeugen; gleiche Medien werden von mehreren Missionen gemeinsam genutzt. Gib diese Ordner samt Inhalt und unveränderten relativen Speicherorten zusammen mit den Missionen und `.lordrequirements.json`-Sidecars weiter.
+
+Die Workshop-Upload-Seite zeigt an, ob der exportierte Trail Lord-Metadaten und Medien, nur Metadaten oder keine eingebetteten Lord-Metadaten enthält. Die Medienauswahl erfolgt im Trail Maker vor dem Export; exportiere den Trail erneut, um sie zu ändern. **Modsettings aufnehmen** auf der Upload-Seite steuert unabhängig davon die Modsettings-Sidecars. Auch ohne diesen Haken werden die Lord-Anforderungen und bereits im exportierten Trail eingebettete Medien hochgeladen.
+
+Ohne eingebettete Medien kann ein registriertes installiertes Lord-Paket optionale Medien nur liefern, wenn seine `lordmeta.json` mit den im Trail gespeicherten Metadaten textidentisch ist. Übereinstimmende AIC-/AIV-Prüfsummen allein reichen nicht. Die gespeicherten Metadaten bleiben maßgeblich; zusätzlich erforderliche Gameplay-Pakete müssen weiterhin wie oben beschrieben installiert sein. Das Anlegen von Metadaten und Medienreferenzen erklärt [Custom-Lord-Pakete mit Script Extender](CustomLordExtendedPackages.md#deutsch).
+
+#### Trail-Portabilität und Koop-Pakete
 
 Import, Sicherung, Leeren und Export halten dieses Sidecar bei seiner eigenen Mission. Wird eine Trail-Maker-Mission erneut gespeichert, bleiben ihre gespeicherten Werte für jeden Platz gültig, dessen Lord, Konfiguration und geordnete AIV-Liste unverändert sind; nur geänderte Plätze werden erneut aus dem installierten Autoren-Lord erfasst. Lässt sich ein solcher Platz weder weiterverwenden noch nachweisen, hält der Export an und fragt, ob nur mit den im Trail gespeicherten KI-Daten fortgefahren werden soll. Diese Wahl lässt unbekannte Zusatzwerte (etwa `.modlord.json`-Daten, Fixes-Einstellungen oder benötigte Skriptpakete) weg und wird im Sidecar gespeichert.
 

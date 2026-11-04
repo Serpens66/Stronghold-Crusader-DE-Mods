@@ -19,7 +19,7 @@
     {
       "Version": "1.0.24",
       "Changes": [
-        "The compatibility refresh after mod registrations runs once through APIShared's shared UI work service instead of a permanent per-frame callback.",
+        "Refresh Map and Trail compatibility information after compatible mods become available without continuously updating an idle interface.",
         "Require APIShared 0.26.0 or newer."
       ]
     },

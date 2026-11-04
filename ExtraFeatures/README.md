@@ -70,14 +70,12 @@ Percentages are rounded down, separately for each goods type. A percentage of 0 
 
 Existing profiles and Trails that enabled **No Kill Reward** automatically use 0% for both gold and goods for the affected winner role. Migration happens when settings are loaded, before editing. Human and AI settings remain independent, and subsequent changes are preserved in presets and multiplayer synchronization.
 
-Version 1.0.125 fixes excessive work while moving these sliders and a native statistic-address error that caused exceptions and Vanilla loot fallback when a Lord died.
-
 ### Gold every 400 ticks
 Set separate whole-number gold amounts for human and AI players in the Economy settings. Both default to 0; positive and negative values are supported. The host chooses these settings between matches, and they are included in presets and multiplayer synchronization. The Active/Inactive search filter treats 0 as inactive and either sign as active.
 
 Every 400 simulation ticks (about 10 seconds at game speed 40), living players receive their configured amount. Positive amounts enter the normal incoming-gold queue and are credited gradually; negative amounts immediately reduce stored gold, stopping at 0 and leaving pending incoming gold intact. Positive amounts are limited to the remaining capacity of the stored and queued gold balances.
 
-Payments follow the saved simulation tick: 400, 800, 1200, and so on. Starting or loading a map never triggers an immediate or catch-up payment. The same rules apply in the map editor when the simulation is running and living players exist. When both amounts are 0, the gold tick callback is unsubscribed.
+Payments follow the saved simulation tick: 400, 800, 1200, and so on, using the same timing for every multiplayer participant regardless of frame rate. Starting or loading a map never triggers an immediate or catch-up payment. The same rules apply in the map editor when the simulation is running and living players exist.
 
 ### Customize popularity
 Adjust popularity values independently for human and AI players in the Popularity section of the mod settings.
@@ -102,10 +100,8 @@ Set how long plague clouds remain active from 0.5 to 40 times the Vanilla durati
 ### Customize apothecary search range
 Set how far an apothecary searches from its assigned building for plague clouds. The range can be adjusted from 20 to 200 tiles; Vanilla uses 30.
 
-## Compatibility and diagnostics
+## Compatibility
 
 This mod requires the Script Extender and **APIShared 0.25.0 or newer**. Subscribe to APIShared separately when using the Steam modpack. Mod settings indicate when gameplay changes are inactive for a direct mission or Trail launch. Use **Customize** where available to start with those changes; edits made while inactive are saved for later games.
 
-Plague-height, market-price, repair-HUD and troop-command integrations use coordinated APIShared hooks. Gatehouse and mount/dismount actions use its synchronized multiplayer transport.
-
-Routine activity is logged at Debug level. Repeated diagnostics are limited to reduce log spam; warnings and errors remain available. No gameplay setting is needed for this change.
+All multiplayer participants need matching modpack and APIShared versions.

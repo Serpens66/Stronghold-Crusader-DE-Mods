@@ -1,82 +1,85 @@
-# Stronghold Crusader DE Mods and Code
+# Stronghold Crusader DE Mods
 
-Preview Video: https://youtu.be/Jdz_aAA7CE4  
+Optional fixes and configurable gameplay improvements for Stronghold Crusader
+Definitive Edition. [Watch the preview](https://youtu.be/Jdz_aAA7CE4).
 
-## Download:
-- Recommended Steam auto updates: https://steamcommunity.com/sharedfiles/filedetails/?id=3788821961  
-- Releases: https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/releases (see this [table](#latest-mod-releases) for specific mods)   
-- Nexusmods: https://www.nexusmods.com/profile/Serpens66/mods?gameId=7959
+## Download
 
-#### Trail (Un-)packer and modded/vanilla Launcher bat files:
-- can be found here: https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/releases/tag/1.0.1  
+- [Serps Mods on Steam Workshop](https://steamcommunity.com/sharedfiles/filedetails/?id=3788821961): recommended for automatic updates.
+- [GitHub releases](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/releases): complete packs and individual mods.
+- [Nexus Mods](https://www.nexusmods.com/profile/Serpens66/mods?gameId=7959).
+- [Trail tools and modded/Vanilla launchers](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/releases/tag/1.0.1).
 
-## Installation:
-- Make sure you installed the script extender below.
-- - This is done by downloading the latest "Loader" from here first: https://gitlab.com/rawra-stronghold-crusader/shcde-bepinex/-/releases and copy pasting the content of it into your game install folder "Steam\steamapps\common\Stronghold Crusader Definitive Edition".  
-- - Then download the latest "SHCDESE_X.XX.X.zip" from : https://gitlab.com/rawra-stronghold-crusader/shcde-script-extender/-/releases and copy paste it also in your install folder, replace if sth. already exists.
-- Copy paste the mod folder into your "\Stronghold Crusader Definitive Edition\BepInEx\plugins" folder.
+## Installation
 
-## Script Extender: 
-https://gitlab.com/rawra-stronghold-crusader/shcde-script-extender / https://www.nexusmods.com/strongholdcrusaderdefinitiveedition/mods/35  
+1. Install the [BepInEx loader](https://gitlab.com/rawra-stronghold-crusader/shcde-bepinex/-/releases)
+   and [Script Extender](https://gitlab.com/rawra-stronghold-crusader/shcde-script-extender/-/releases)
+   into your game directory.
+2. Subscribe to [APIShared](https://steamcommunity.com/workshop/filedetails/?id=3818609220)
+   separately, then subscribe to the Serps Mods pack. For manual installation,
+   extract the complete official APIShared and mod ZIPs into the game directory
+   while the game is closed, retaining their `BepInEx` folder structure.
+3. Open the mod settings before starting a match. Choose the features and presets
+   you want. The host controls gameplay options; personal interface options are
+   configured independently by each player.
 
-### Script Extender Docu:
-- Mod https://gitlab.com/rawra-stronghold-crusader/shcde-script-extender/-/blob/main/docs/guides/bepinex-mod-guide.md?ref_type=heads
-- lua doku: https://gitlab.com/rawra-stronghold-crusader/shcde-script-extender/-/blob/main/docs/guides/lua-reference.md?ref_type=heads
-- enums: https://rawra-stronghold-crusader.gitlab.io/shcde-script-extender/api/SHCDESE.Interop.eTroops.html?q=etroop
-- event types: https://rawra-stronghold-crusader.gitlab.io/shcde-script-extender/api/SHCDESE.EventAPI.Buildings.BuildStructureEventArgs.html
+Use the same gameplay-mod versions as the other players in multiplayer. Each mod's
+page lists its requirements and any limits for particular game modes.
 
-## Building:
-They all have a build.bat file. You need to adjust them to your paths though and need the required programs installed.
+## Mods in this repository
 
-## Verified releases
-
-Release-enabled mods contain a `release.bat`. It only publishes a clean commit that is already present on `origin/main`, then uploads the ZIP, its SHA-256 file, and a provenance manifest to GitHub. Run `setup-check.bat` to verify the local tools and game dependencies. Machine-specific path overrides can be copied from `release.local.example.json` to the ignored `release.local.json`.
-
-The provenance records the public source commit, packaged files, build tools, and dependency hashes. It is a documented statement by the repository owner, not an independently executed build. Upload the exact GitHub ZIP unchanged to Steam or NexusMods so its published SHA-256 remains verifiable.
+| Mod | What it offers |
+| --- | --- |
+| [Bugfixes and QoL](BugfixesAndQoL/README.md) | Configurable game fixes, AI improvements, unit commands and interface conveniences. |
+| [Building Costs](BuildingCosts/README.md) | Custom construction costs. |
+| [Building Limit](BuildingLimit/README.md) | Individual building limits for human players. |
+| [Unit Costs](UnitCosts/README.md) | Recruitment costs and additional resource requirements. |
+| [Unit Limit](UnitLimit/README.md) | Individual troop and siege-unit limits for human players. |
+| [Extra Features](ExtraFeatures/README.md) | Economy, unit, gatehouse and plague options. |
+| [Random Events](RandomEvents/README.md) | Configurable positive and negative skirmish events. |
+| [Start Conditions](StartConditions/README.md) | Starting gold, goods and armies. |
+| [CastlePlanner](CastlePlanner/README.md) | Castle blueprints, starting castles and AI placement checks. |
+| [Extended Data](ExtendedData/README.md) | Custom Lords, Trails, map data and saved mod settings. |
+| [Spectator](Spectator/README.md) | Player perspectives, live statistics, Lord overview and optional local AI testing tools. |
 
 <!-- RELEASE-INDEX:START -->
 ## Latest Mod Releases
 
-These archives are produced by the repository release scripts from the linked public commit. The provenance file records the exact package, tool, and dependency hashes. This is a documented statement by the repository owner, not an independently executed build.
+Choose a published release below. APIShared is installed separately from its [official releases](https://github.com/SHCDE-APIShared/APIShared/releases) or [Steam Workshop page](https://steamcommunity.com/workshop/filedetails/?id=3818609220).
 
-Where shown, the code-status badge compares a release with the current relevant mod sources on `main`. Click it to open the mod-specific filtered diff report.
+The code-status badge shows whether newer changes are waiting for release. Use the linked download; unreleased source changes are not included in older packages.
 
 | Mod | Latest release | Code status | Source commit | ZIP SHA-256 |
 | --- | --- | --- | --- | --- |
-| SerpsMods (Modpack) | [1.0.23](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/releases/download/SerpsMods/v1.0.23/SerpsMods-v1.0.23.zip) | — | [b4b5a6e](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/commit/b4b5a6e905455b4578e1daa73d4327526e0042ba) | `9e28017111c2f6bd23074ab0a86e3aee36370412e7107e7c4206ff1cebf435c4` |
-| APIShared | [0.4.10](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/releases/tag/APIShared/v0.4.10) | [![release status](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FSerpens66%2FStronghold-Crusader-DE-Mods%2Frelease-status%2Fbadges%2FAPIShared.json&cacheSeconds=300)](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/blob/release-status/reports/APIShared.md) | [840ce78](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/commit/840ce7881327d355bbb98ecb2a23945c9346f61b) | `5621653be20b1304cda7be88aa0dd8369ce33800d48152e8e9d7951014d3e6bd` |
-| BugfixesAndQoL | [1.0.175](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/releases/tag/BugfixesAndQoL/v1.0.175) | [![release status](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FSerpens66%2FStronghold-Crusader-DE-Mods%2Frelease-status%2Fbadges%2FBugfixesAndQoL.json&cacheSeconds=300)](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/blob/release-status/reports/BugfixesAndQoL.md) | [438e6cc](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/commit/438e6cc93961bc64068b378660523d7d54ff0d61) | `811453318f152ca3ced5e9913c8b70683e06748456f0339dbb5640281b8b7e0b` |
-| BuildingCosts | [1.0.109](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/releases/tag/BuildingCosts/v1.0.109) | [![release status](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FSerpens66%2FStronghold-Crusader-DE-Mods%2Frelease-status%2Fbadges%2FBuildingCosts.json&cacheSeconds=300)](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/blob/release-status/reports/BuildingCosts.md) | [1c02d19](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/commit/1c02d195b1c694da6bfc2e802698d8f4ce9d13ff) | `456ea10ef0d5ff4b8f4e37222f42fa9bf956bc86ed2ff15a6f25a9900eddf8aa` |
-| BuildingLimit | [1.0.26](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/releases/tag/BuildingLimit/v1.0.26) | [![release status](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FSerpens66%2FStronghold-Crusader-DE-Mods%2Frelease-status%2Fbadges%2FBuildingLimit.json&cacheSeconds=300)](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/blob/release-status/reports/BuildingLimit.md) | [1c3bc01](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/commit/1c3bc01ebf7e6428e6c61f12b69e9b9926a0e679) | `b2c7086acb44a50cd307d37a6f22e3f434288638f08f3dfcbb1982f5b4c36d32` |
-| ExtendedData | [1.0.7](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/releases/tag/ExtendedData/v1.0.7) | [![release status](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FSerpens66%2FStronghold-Crusader-DE-Mods%2Frelease-status%2Fbadges%2FExtendedData.json&cacheSeconds=300)](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/blob/release-status/reports/ExtendedData.md) | [fdeb151](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/commit/fdeb1515a1aab78a9f08d1053c4b5ad724520a4b) | `aedd7eac7d1cc66ae2263cd22b4359abdf787dd3c7bbec6536f4a5595cf47224` |
-| ExtraFeatures | [1.0.108](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/releases/tag/ExtraFeatures/v1.0.108) | [![release status](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FSerpens66%2FStronghold-Crusader-DE-Mods%2Frelease-status%2Fbadges%2FExtraFeatures.json&cacheSeconds=300)](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/blob/release-status/reports/ExtraFeatures.md) | [1fc7fd3](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/commit/1fc7fd3748bb522199db6b08adf669cb89c16d30) | `9516851e4d355e3e6d4ec84e660230bf8b5798adb03780ea3496da3813d9a9f9` |
-| RandomEvents | [1.0.47](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/releases/tag/RandomEvents/v1.0.47) | [![release status](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FSerpens66%2FStronghold-Crusader-DE-Mods%2Frelease-status%2Fbadges%2FRandomEvents.json&cacheSeconds=300)](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/blob/release-status/reports/RandomEvents.md) | [07e059a](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/commit/07e059adde5b40307b8b1ce8af1ea437c13e421e) | `71b7d965882a57979e4bbb88c7eac4b835fcbaede407ae04b6c3fe1558274d7f` |
-| CastlePlanner | [0.8.36](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/releases/tag/CastlePlanner/v0.8.36) | [![release status](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FSerpens66%2FStronghold-Crusader-DE-Mods%2Frelease-status%2Fbadges%2FCastlePlanner.json&cacheSeconds=300)](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/blob/release-status/reports/CastlePlanner.md) | [a1ab5dc](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/commit/a1ab5dc8ccce17b7c2b7c6ce754dc92503f40a5a) | `1ef1aaea7658b66829a332449efdd40def4deffba358ae1d036845476daa07d8` |
-| StartConditions | [1.0.28](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/releases/tag/StartConditions/v1.0.28) | [![release status](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FSerpens66%2FStronghold-Crusader-DE-Mods%2Frelease-status%2Fbadges%2FStartConditions.json&cacheSeconds=300)](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/blob/release-status/reports/StartConditions.md) | [0f0470a](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/commit/0f0470a7a2ee00f42246a19c18a402f28fef54bd) | `09af11fdcc4627875bd8e8ff1fef88b2b38e1e8b49d793a66e5afc0d9710d3f9` |
-| UnitCosts | [1.0.32](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/releases/tag/UnitCosts/v1.0.32) | [![release status](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FSerpens66%2FStronghold-Crusader-DE-Mods%2Frelease-status%2Fbadges%2FUnitCosts.json&cacheSeconds=300)](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/blob/release-status/reports/UnitCosts.md) | [1a5f090](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/commit/1a5f09017f48d96c66f63959736452c57e8f649e) | `7befce1a2bc213d5410007305fc749a88acaf91e734c77cc361bebd79188b34e` |
-| UnitLimit | [1.0.101](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/releases/tag/UnitLimit/v1.0.101) | [![release status](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FSerpens66%2FStronghold-Crusader-DE-Mods%2Frelease-status%2Fbadges%2FUnitLimit.json&cacheSeconds=300)](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/blob/release-status/reports/UnitLimit.md) | [4800d86](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/commit/4800d86ec2a9003929a52704c8188a01bb0b2409) | `3508414c6c88fa65c6a67527e416ac124503bfdb884b440019041931fc73d537` |
+| SerpsMods (Modpack) | [1.0.32](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/releases/download/SerpsMods/v1.0.32/SerpsMods-v1.0.32.zip) | — | [7550af3](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/commit/7550af3f08678dda3e583a3f6b00c78da2c450e5) | `b75a6c014e664408f439e21d86e156e54d5fe56a5e0ed70420b74ba701aab297` |
+| BugfixesAndQoL | [1.0.203](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/releases/tag/BugfixesAndQoL/v1.0.203) | [![release status](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FSerpens66%2FStronghold-Crusader-DE-Mods%2Frelease-status%2Fbadges%2FBugfixesAndQoL.json&cacheSeconds=300)](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/blob/release-status/reports/BugfixesAndQoL.md) | [db8aa86](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/commit/db8aa869a3869c21fdc4a09dd7fbeaee8a92ec8f) | `bcfcbdad265f1b162912dcc8eed111d0acbfcb48eb3f1fd8b6621fd80651c393` |
+| BuildingCosts | [1.0.116](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/releases/tag/BuildingCosts/v1.0.116) | [![release status](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FSerpens66%2FStronghold-Crusader-DE-Mods%2Frelease-status%2Fbadges%2FBuildingCosts.json&cacheSeconds=300)](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/blob/release-status/reports/BuildingCosts.md) | [9d4045d](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/commit/9d4045dbc7dc82417b9b9dc44f9848c7950fcd07) | `007521ea0e654e5f4c1f115f4c3c5e281456ae7d8ec38f9679b7d707f29424b1` |
+| BuildingLimit | [1.0.33](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/releases/tag/BuildingLimit/v1.0.33) | [![release status](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FSerpens66%2FStronghold-Crusader-DE-Mods%2Frelease-status%2Fbadges%2FBuildingLimit.json&cacheSeconds=300)](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/blob/release-status/reports/BuildingLimit.md) | [9d4045d](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/commit/9d4045dbc7dc82417b9b9dc44f9848c7950fcd07) | `5e26f286974bfe4210cf8e654565a570cadb7571009ec23659e4e439fc693432` |
+| ExtendedData | [1.0.20](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/releases/tag/ExtendedData/v1.0.20) | [![release status](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FSerpens66%2FStronghold-Crusader-DE-Mods%2Frelease-status%2Fbadges%2FExtendedData.json&cacheSeconds=300)](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/blob/release-status/reports/ExtendedData.md) | [db8aa86](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/commit/db8aa869a3869c21fdc4a09dd7fbeaee8a92ec8f) | `38667ad1a540ec9f19a6ba7c3763b0a5722b1dfce5a2ab02a052e93bb0421b4e` |
+| ExtraFeatures | [1.0.122](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/releases/tag/ExtraFeatures/v1.0.122) | [![release status](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FSerpens66%2FStronghold-Crusader-DE-Mods%2Frelease-status%2Fbadges%2FExtraFeatures.json&cacheSeconds=300)](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/blob/release-status/reports/ExtraFeatures.md) | [db8aa86](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/commit/db8aa869a3869c21fdc4a09dd7fbeaee8a92ec8f) | `c6f68fdf3cdf0f74cfa54a89f93214c90e0aa813a3cb9369caf9a7edae94fa03` |
+| RandomEvents | [1.0.55](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/releases/tag/RandomEvents/v1.0.55) | [![release status](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FSerpens66%2FStronghold-Crusader-DE-Mods%2Frelease-status%2Fbadges%2FRandomEvents.json&cacheSeconds=300)](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/blob/release-status/reports/RandomEvents.md) | [feb5f5e](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/commit/feb5f5ef90b0e741a546269be0422dc64be92970) | `77c876629bfdd5ca1da8b878841a0dc65589eb1adbb463c9c095a96dbee3720c` |
+| CastlePlanner | [0.8.47](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/releases/tag/CastlePlanner/v0.8.47) | [![release status](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FSerpens66%2FStronghold-Crusader-DE-Mods%2Frelease-status%2Fbadges%2FCastlePlanner.json&cacheSeconds=300)](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/blob/release-status/reports/CastlePlanner.md) | [db8aa86](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/commit/db8aa869a3869c21fdc4a09dd7fbeaee8a92ec8f) | `8bd636d7594f296ac6bb78f8f109162a16286ea75e0f87d7f29c06b98d2a1fd3` |
+| StartConditions | [1.0.33](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/releases/tag/StartConditions/v1.0.33) | [![release status](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FSerpens66%2FStronghold-Crusader-DE-Mods%2Frelease-status%2Fbadges%2FStartConditions.json&cacheSeconds=300)](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/blob/release-status/reports/StartConditions.md) | [9d4045d](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/commit/9d4045dbc7dc82417b9b9dc44f9848c7950fcd07) | `668b8a383effd38a6ed2dfa38fad0243aa411b5e94bb320e7610b3542c936ff3` |
+| UnitCosts | [1.0.38](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/releases/tag/UnitCosts/v1.0.38) | [![release status](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FSerpens66%2FStronghold-Crusader-DE-Mods%2Frelease-status%2Fbadges%2FUnitCosts.json&cacheSeconds=300)](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/blob/release-status/reports/UnitCosts.md) | [9d4045d](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/commit/9d4045dbc7dc82417b9b9dc44f9848c7950fcd07) | `ee3fa48c0f131da919df630c353e1b6c2f0ee38052d7df74e708ba90e0d81c29` |
+| UnitLimit | [1.0.108](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/releases/tag/UnitLimit/v1.0.108) | [![release status](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FSerpens66%2FStronghold-Crusader-DE-Mods%2Frelease-status%2Fbadges%2FUnitLimit.json&cacheSeconds=300)](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/blob/release-status/reports/UnitLimit.md) | [9d4045d](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/commit/9d4045dbc7dc82417b9b9dc44f9848c7950fcd07) | `c6bc0a344ee873193dcb809316ff106c387ce570a1fe206de5e43349dec10933` |
 
 Verify a downloaded archive with `Get-FileHash <archive.zip> -Algorithm SHA256` and compare it with the release asset and table above.
 <!-- RELEASE-INDEX:END -->
 
-## Some small Guides:
-- https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main/Guides
+## Help
 
-## Other Mods:
-- https://gitlab.com/ensrick7/crusader-de-tweaker
-- https://github.com/richardbinder/Stronghold-Crusader-DE-AI-Buff/releases
+See the [guides](Guides), including [how to report errors](Guides/How%20to%20Report%20Errors.md).
+Download executable mods only from official sources and authors you trust.
 
-## Attention:
-Script Extender itself and also Mods using it **may in theory contain malicious code**, so only download from the official source and from modders you trust. See this repo for my source code. See here for the script extender official release: https://gitlab.com/rawra-stronghold-crusader/shcde-script-extender/-/releases
+## Other mods
 
-## Disclaimer:
-I don't know C#, only lua/python. So most code here was created by ChatGPT 5.6 Sol in the Visual Studio Code Codex extension. I provided several open source projects of Stronghold Crusader as information source to Chatgpt. So besides ideas and prompts/instructions and ingame testing for the mods, I did not contribute any code myself.  
-Directly used sources:  
-- https://gitlab.com/rawra-stronghold-crusader/shcde-script-extender
-- https://github.com/sourcehold
-- https://github.com/UnofficialCrusaderPatch/UnofficialCrusaderPatch3
+- [Crusader DE Tweaker](https://gitlab.com/ensrick7/crusader-de-tweaker).
+- [AI Buff](https://github.com/richardbinder/Stronghold-Crusader-DE-AI-Buff/releases).
 
-## Credits:
-- Big thank to "Rawra" the creator of the script extender, which makes modding possible :)  
-- Thanks to the creators of "BepInEx", without the script extender would not be possiible.  
-- Thanks to the **UCP Modding team**, who made so many fixes and features for the HD version of the game! Fixing the same issues in DE was easier, because I was able to check how the UCP team did it. UCP for HD version of the game: **https://github.com/UnofficialCrusaderPatch**
+## Credits
+
+Thanks to Rawra for the Script Extender, the BepInEx authors, and the
+[Unofficial Crusader Patch team](https://github.com/UnofficialCrusaderPatch) for
+their work on the HD game. Other source references include
+[sourcehold](https://github.com/sourcehold). These mods were developed with AI
+assistance; Serpens66 provided the ideas, direction and in-game testing.

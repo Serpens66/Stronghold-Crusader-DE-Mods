@@ -19,8 +19,9 @@
     {
       "Version": "1.0.129",
       "Changes": [
-        "Compose the eight civilian/soldier building-action radius settings through APIShared while retaining Vanilla defaults, migration, the existing human/AI action scope and rebuild-delay vetoes.",
-        "Support BugfixesAndQoL capping the effective civilian radius at min(3, effective radius) during native Peace Time; preserve configured values below 3 and independent soldier and building restrictions."
+        "Keep separate civilian and soldier exclusion distances for human and AI building actions, retaining Vanilla defaults and existing saved choices.",
+        "With BugfixesAndQoL enabled, cap the civilian exclusion distance at 3 tiles during Peace Time while preserving configured distances below 3 and all separate soldier and building restrictions.",
+        "Keep periodic gold payments on the same saved simulation tick for every multiplayer participant, including after loading a game."
       ]
     },
     {

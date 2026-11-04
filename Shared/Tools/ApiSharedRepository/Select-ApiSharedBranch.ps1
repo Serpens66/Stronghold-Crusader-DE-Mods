@@ -21,7 +21,7 @@ function Write-Selection([string[]]$Lines) {
 }
 
 try {
-    if ($env:SHCDE_BRANCH_API_ROOT) {
+    if ($env:SHCDE_BRANCH_API_ROOT -and -not $env:SHCDE_API_SHARED_RELEASE_PROOF) {
         $root = [IO.Path]::GetFullPath($env:SHCDE_BRANCH_API_ROOT)
         $commit = ((Invoke-ApiGit $root @('rev-parse','HEAD')) -join '').Trim()
         if ($commit -cne $env:SHCDE_BRANCH_API_COMMIT) { throw 'Selected branch SDK commit changed.' }

@@ -19,7 +19,7 @@ namespace UnitLimit
 
         public const string PluginGuid = "UnitLimit_Serp";
         public const string PluginName = "Unit Limit";
-        public const string PluginVersion = "1.0.108";
+        public const string PluginVersion = "1.0.109";
 
         private UnitLimitRuntime runtime;
         private int libraryInitializationStarted;
