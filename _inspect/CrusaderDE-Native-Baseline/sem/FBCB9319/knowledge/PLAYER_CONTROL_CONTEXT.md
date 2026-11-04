@@ -244,3 +244,113 @@ AI branch in placement validation that reflects Vanilla's own rules for that own
 player-ID arguments outside the native view appear only in `PlaceMapperItem`/`DeleteBuilding`
 (`EditorDirector.ActivePlayerID`), the ally panel (`GameData.playerID`), insults, chat and merit.
 Static evidence; controlling an AI player in a live mission still needs in-game confirmation.
+
+## Multiplayer progress and frame skipping (2026-11-03) [Vanilla facts]
+
+The following chain was checked against the canonical native hash above, including
+4,589 decoded instruction byte comparisons across the relevant seventeen functions.
+Internal names remain candidate labels; the stated loads, branches and offsets are
+instruction-backed facts for this image. Manager base `0x8574320` is shared by the
+Chore scheduler and multiplayer progress state.
+
+`DLL_RegisterMultiplayerUser` (`0x864C0`) records a local human's declared ID at
+manager `+0x8A8` and sets host flag `+0x9A0` when that local ID is 1. It separately
+writes native view `+0x36FA50` (module RVA `0x88E3D70`). Changing the view with
+`DLL_SetEditorPlayer` (`0x872E0`) does not change the declared ID or host flag in
+multiplayer mode. That setter changes the human registration array only in editor
+game mode 1; positive multiplayer view changes write only the native view cell.
+
+The ordinary heartbeat is not the Script Extender's custom Chore sender. Late in
+`DLL_RunTick` (`0x86680`), `0x1CD20` sends it through `0x27F30`, normally after at
+least 100 ms (with 20 ms added for each participant beyond two). The paused/start
+maintenance route `0x24FD0` also calls `0x27F30`, after 179 ms, for non-hosts.
+`0x27F30` exits for network modes 0 and 99. Its packet type is a byte argument;
+it has no explicit local-player argument.
+
+Heartbeat `0x27F30` writes current native tick into both
+`manager+0x14D030+player*4` and `manager+0x14D054+player*4`, and `timeGetTime()`
+into `manager+0x14D078+player*4`. Each of the three player loads independently reads
+`manager+0x36FA50`, the presentation view. The writes occur only when connection
+pause field `+0xEE4` (RVA `0x8575204`) is less than 1. This field is written by
+`DLL_ConnectionPause` (`0x81360`) and reset by `0x87D10`; it is not the spectator
+flag at RVA `0x3666080`. Connection/save pause also changes the heartbeat's lag byte
+to `0x7F`. The native payload is five bytes: packet type, the low three tick bytes
+copied by `0x7130`, and the lag byte. `0x19D3C0` appends its length, destination
+and bytes to the native-to-managed outgoing buffer.
+
+Managed `Platform_Multiplayer.SendChores` forwards the outgoing payload using the
+Steam peer connection. On reception, packet type 1 calls
+`EngineInterface.ReceiveChore(fromMember.playerID, ...)`, under the engine monitor.
+`DLL_ReceiveChore` (`0x86480`) buffers that peer ID through `0x23E70`; `0x23C30`
+returns it with the next packet. Receive dispatcher `0x23620` routes heartbeat
+types 0 and 1 through `0x27DE0`. Identity helper `0x1F9A0` preserves the received
+peer ID. The receiver therefore updates the authenticated peer's progress index,
+while the sender's own local progress update uses its selected native view.
+This asymmetry is present even if custom Chore submission is separately protected.
+
+Before a real simulation pass, `DLL_RunTick` calls `0x24E80(manager, nativeView)`.
+The player argument is loaded at `0x869D2`; `0x24E80` retains EDX through its call
+to `0x1F9B0`. That function finds minimum/maximum progress among registered humans
+(slots 1 through 8 whose manager `+0x8AC+slot*4` is not -1), but chooses the local
+reference from `manager+0x14D030+player*4`. It produces signed ahead/behind values
+at `+0x370BB4`/`+0x370BB8` relative to that selected reference. Selecting an AI can
+therefore advance the AI-indexed heartbeat while leaving the sender's real human
+slot stale in its own local table. Other peers still receive heartbeats as the
+real human. A selected view is not a substitute for the participating identity.
+
+`0x24E80` resets skip count `+0x370BEC` (module RVA `0x88E4F0C`) to zero. Mode
+0/99 and its `+0xDA8` early-return path do not calculate network skip demand. A
+negative behind value returns before the ahead path. Positive ahead must exceed
+4 and at least 50 ms must have elapsed since `+0x370BE8` before demand is set.
+Hosts request 1 for ahead 5..14, 2 for 15..99, and 3 for at least 100. Non-hosts
+request 1 only for ahead greater than 8. The timestamp is updated on the elapsed
+path even when the non-host threshold does not request a skip. The additional
+ahead-versus-delay condition can set manager `+0x279F58`; it does not rewrite the
+selected player or host role.
+
+Serializer `0x19D960` copies this count to return-buffer byte `+0x78C` only when
+the incoming RunTick `mpFrameSkip` flag (global RVA `0x8EBA92`) is zero; otherwise
+it writes zero. Managed `PlayStateReturnData.SkipFrame` is a signed 16-bit field
+at offset 1932, copied unchanged into `PlayState`. `EngineInterface.run` passes a
+positive result to `Director.MPSkipFrame`, which adds it to `FrameToSkipMP` only
+in multiplayer. `Director.runSimTickTest` passes `FrameToSkipMP>0` into the next
+`run`, and decrements positive demand after each call, including the call that
+created it. Demand 3 thus gives two subsequent skipped calls per real pass.
+
+The separate native sync-event gate `0x1BCF0` uses the host flag, tick counter,
+sync-event queue, due-command barrier list and a 3-second forced-run fallback.
+It does not index participant progress through the selected view. RunTick may set
+its local simulation-skip flag when this gate declines; its original input flag
+still controls the serializer above. These two skip decisions must not be merged.
+
+Managed `lowFPSCompensationLevel` is a third source of incoming skipped calls.
+`Director.SetEngineFrameRate` derives it from requested simulation speed: 4 for
+at most 10, 3 for at most 15, 2 for at most 20, otherwise 1. The timer runs at
+requested speed multiplied by this level; intermediate calls are marked skipped.
+It is not driven by measured rendering FPS. A 40-call/s, two-thirds-skipped trace
+alone cannot distinguish level 3 at approximately 13.33 requested speed from
+native demand 3. Record the level and native ahead/behind/SkipFrame values when
+that distinction matters; PerfProbe's existing render snapshots include the level.
+
+## Positive participant view integration boundary [mod integration]
+
+A narrow correction can substitute the protected positive participant index at
+four loads without changing native presentation view: `[0x869D2,0x869D8)` (six
+bytes, MOV EDX,[RIP+view]) and heartbeat `[0x27FEB,0x27FF2)`,
+`[0x27FFF,0x28006)`, `[0x28019,0x28020)` (seven bytes each,
+MOVSXD RCX,[RBX+0x36FA50]). Full enclosing-function control flow and known global
+xrefs have no entry inside these single-instruction spans. Their continuations
+are respectively MOV RCX,R14; MOV EAX,[tick]; MOV EAX,[tick]; and
+MOV [RBX+RCX*4+0x14D078],EAX. Current local Extender, canonical Fixes and APIShared
+sources have no competing hook at these sites.
+
+The installed NativeX64 backend (SHA-256
+`0843DD4C381A3E77DD6D8B51D5CCF95465B3FB49BFDF2980F39A212D774AADB0`)
+selects an Indirect patch's six-byte minimum and rounds up by whole instructions.
+These four sites consequently need exactly 6/7/7/7 bytes; the separate context-hook
+backend's fourteen-byte minimum must not be used here. A positive protected lease
+must be unavailable until every site passes preparation and publication validation.
+An inactive cell follows the complete original loads, including zero/negative
+native spectator IDs. A failed partial publication must retain all executable
+roots with that cell inactive. This describes the bounded integration contract;
+it is not evidence of live host/client acceptance of a corrective build.

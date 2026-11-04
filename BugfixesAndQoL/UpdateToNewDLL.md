@@ -1726,3 +1726,38 @@ contracts. Existing VanillaPeaceTimeNativeContract patches remain independent.
 Recheck standalone operation, legacy-ExtraFeatures refusal, native expiry/save
 state, soldier/building exclusions and priority of ExtraFeatures rebuild vetoes
 when either SDK or native library changes.
+
+## Delayed prebuilt AI storage sections (2026-11-04)
+
+Reference native SHA-256:
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+`PrebuiltAiStorageFixRuntime` adds no native hook. Its prebuilt-player bitfield
+reference is the `MOV ECX,[RIP+disp32]` at RVA `0x95FF8`, validated against the
+same instruction pattern as the existing prebuilt-workshop correction. The
+target is derived from displacement bytes `+2..+5` and instruction end `+6`;
+the following player-bit setting and `0x55F50(...,100)` call establish the role.
+Only the audited native hash is admitted. There is no unknown-build layout
+fallback: a matching code reference cannot establish the fixed building and
+AIV structure contracts. Resolution/layout failure leaves this feature inactive.
+
+The storage adjacency branch at `0x7897F` (stores), `0x789FF` (granary), and
+`0x78A7F` (armoury) calls `0xC72C0`, which requires an initialized same-owner,
+same-type neighbor. `0xB47E0` creates `NeedsInit` records and immediately registers
+the first yard through `0xD0630`; only the later `0xC60F0` dispatcher changes
+state 1 to 2. The shared startup queue waits for that regular initialization.
+Creation uses the Extender's `CreatePrefab` with active Vanilla placement rules.
+
+The success bookkeeping mirrors `0x51790`: RVA `0x5214D` writes ushort 1 at
+building-manager + id*`0x32C` + `0x324` (GameBuilding + `0x2C8`, named
+`p_UnknownRelevant17`); `0x52174` writes step state 3 and `0x5219F..0x521B1`
+writes rebuild delay 10 on success. The manager prefix is `0x5C`. A yard consists
+of four records; mark the final record captured from that synchronous constructor,
+not an assumed adjacent ID. `0x31000` only adjusts workshop goods and has no
+storage effect. Existing confirmed sections retain their building flags while
+matching prepared AIV retry frames become Built/10.
+
+Recheck public SE AivVillageState stride `0x6D98`, MaximumBuildStep +`0x20`,
+BuildStep stride `0x0C` with state/delay/type/payload at `0/1/2/8`, the real
+selected-village mapping, all four yard records, first-yard Fixes policy, and
+new-game/save/replay/multiplayer behavior when updating Native or Extender.
+Source and offline tests do not establish actual game or peer acceptance.

@@ -95,3 +95,40 @@ the original positive local identity; common saves and complete raw Chore
 submissions temporarily use that identity under the engine monitor. No second
 native GameAction/queue hook is introduced. Offline fixtures and real host/client
 acceptance remain distinct evidence.
+
+## Campfire floating popularity mask, 2026-11-03 [Vanilla facts]
+
+Canonical native SHA-256 remains `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`;
+managed SHA-256 remains `BC8B6A395F01D48557DB413600C8DD8D1FDFD3ABDF97BFBBB68A3C56B04FD789`.
+This is a Unity Fly popup, independent of Noesis WGT_Popularity and the scribe book.
+Producer `0xB5690` uses the campground owner's resources, creates projectile type
+41 through `0x9B2B0`, then writes current popularity divided by 100 into the
+projectile's `0xD8` field at `0xB5845`. Spawn has already called the projectile
+updater through table `0x2DA9C0` at `0x9BA06` before that new value is installed.
+Canonical instructions were read directly where semantic pseudocode is absent.
+
+Type 41's updater is `0x9AC20`. Instructions `0x9ACAC..0x9ACCF` read that same
+`0xD8` snapshot and select mask 130 below 40, 129 from 40 through 59, and 128 from
+60 upward; the result goes to `0xD4`. These are the world popup's thresholds,
+distinct from the book's 50-point color threshold and sign-based report masks.
+No viewpoint identity supplies the icon's band. The number remains an immutable
+snapshot during this popup's life; `0xA12C0` suppresses another active popup of the
+same type/owner, while `0xCAA70` schedules later changed-popularity snapshots.
+
+Packet builder `0x1A13C0` writes projectile `0xD4` to short-record index 17, and
+splits `0xD8` into indices 18 and 19. GameMap.processTestMap case 3 reconstructs
+infoType and infoData and calls the public fourteen-parameter addUpdateFly.
+That method stores IL arguments 12/13/14 into Fly.gameObjectType/infoType/infoData
+when creating a new Fly. It creates its body_info icon and numeric child sprites
+only on that path; later updates change the parent and position/transparency but
+never refresh those children. SpriteMapping maps file 202 and image N to
+GM_BODY_INFO sprite N-1: extracted body_info-127/128/129 are green/neutral/red masks.
+Thus an initial stale red mask can be retained beside the new number 98 even
+after native `0x9AC20` computes the correct green mask. This is a static ordering
+and cache finding; the exact screenshot allocation was not instrumented live.
+
+Evidence and canonical instruction bytes: `.work/a/spec-ui/001/campfire-popularity-audit.json`.
+Extracted resource previews remain beside it. No raw baseline or binary identity
+was rewritten. APIShared's internal managed correction normalizes only the type41
+mask argument from the same numeric snapshot before Vanilla cache creation; it
+does not change native state, digits, player identity or other popup types.

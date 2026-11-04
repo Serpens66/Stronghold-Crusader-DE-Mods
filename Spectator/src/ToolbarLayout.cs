@@ -49,6 +49,29 @@ namespace Spectator
             return new ToolbarRect(frame.X - (6 + RosterWidth) * scale,
                 alignment.Bottom - RosterHeight(8) * scale, RosterWidth * scale, RosterHeight(8) * scale);
         }
+
+        internal static ToolbarRect ReachableDockDropTarget(ToolbarRect target, float floatingHeight,
+            float floatingScale, float viewportHeight, float screenScaleY)
+        {
+            if (target.Empty) return target;
+            float centre = (FloatingGripRect.Y + FloatingGripRect.Height / 2) * floatingScale;
+            float minimum = centre, maximum = Math.Max(0, viewportHeight - floatingHeight) + centre;
+            // Translate a complete copy into the reachable range. Merely clamping its endpoints
+            // leaves today's expanded row with the same nine-unit strip as the original target.
+            float shift = Math.Min(0, maximum - target.Bottom);
+            shift = Math.Max(shift, minimum - target.Y);
+            float top = Math.Max(minimum, target.Y + shift);
+            float bottom = Math.Min(maximum, target.Bottom + shift);
+            if (maximum <= minimum)
+            {
+                float tolerance = 14 / Math.Max(.001f, Math.Abs(screenScaleY));
+                top = minimum - tolerance;
+                bottom = minimum + tolerance;
+            }
+            // Keep the original target for pointer travel beyond the clamped window.
+            top = Math.Min(target.Y, top); bottom = Math.Max(target.Bottom, bottom);
+            return new ToolbarRect(target.X, top, target.Width, bottom - top);
+        }
         internal static ToolbarRect FloatingDesignRect(int count, bool placement, bool toolControlAvailable = true) =>
             new ToolbarRect(FloatingWidth(count, placement, toolControlAvailable) -
                 (toolControlAvailable ? (placement ? ControlWidth : ToggleWidth) + 2 : 0) - 2 - DesignWidth,

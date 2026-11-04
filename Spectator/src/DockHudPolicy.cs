@@ -16,6 +16,10 @@ namespace Spectator
 
         internal static bool CanShowDetails(bool floating, DockHudDisplay display) => floating || display == DockHudDisplay.Tools;
 
+        internal static bool CanShowControl(bool tools, bool floating, bool main, bool buildPage,
+            bool buildFrame, bool competingHud) =>
+            tools && (floating || main && buildPage && buildFrame && !competingHud);
+
         internal static bool CenterIsOccupied(bool main, int page, bool placement, bool foreign) =>
             foreign || (main && !placement && page != BlankBuildScreen);
 

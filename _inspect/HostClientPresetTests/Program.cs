@@ -6470,7 +6470,7 @@ namespace BepInEx
     }
 }
 
-namespace BepInEx.Logging { public sealed class ManualLogSource { } }
+namespace BepInEx.Logging { public sealed class ManualLogSource { public void LogMessage(object data) { } } }
 
 namespace Noesis
 {

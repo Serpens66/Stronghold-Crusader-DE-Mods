@@ -29,6 +29,7 @@ namespace Noesis
         public object GetValue(DependencyProperty p) => Bindings.TryGetValue(p, out var binding) ? binding.Value : values.TryGetValue(p, out var value) ? value : p.Metadata.Default;
         public void SetValue(DependencyProperty p, object value)
         { Bindings.Remove(p); if (Equals(GetValue(p), value)) return; values[p] = value; p.Metadata.Changed?.Invoke(this, new DependencyPropertyChangedEventArgs { NewValue = value }); }
+        public void SetStyleValue(DependencyProperty p, object value) { values[p] = value; }
     }
     public class BindingBase { public virtual object Value { get; set; } }
     public class Binding : BindingBase
@@ -89,6 +90,12 @@ namespace Noesis
         public event EventHandler<SizeChangedEventArgs> SizeChanged;
         public void FinishLayout() { Loaded?.Invoke(this, new RoutedEventArgs()); SizeChanged?.Invoke(this, new SizeChangedEventArgs()); }
     }
+    public static class ToolTipService
+    {
+        private static readonly Dictionary<DependencyObject, object> tips = new Dictionary<DependencyObject, object>();
+        public static object GetToolTip(DependencyObject owner) => tips.TryGetValue(owner, out var tip) ? tip : null;
+        public static void SetToolTip(DependencyObject owner, object tip) { tips[owner] = tip; }
+    }
 }
 namespace SHCDESE.UI
 {
@@ -115,7 +122,23 @@ namespace Spectator
             MenuToolTipSizing.CloseAll(); Check(!tip.IsOpen, "collapse closes own popup");
             tip.PlacementTarget = new Noesis.FrameworkElement { Scale = 2.5f };
             tip.Scale = 1; tip.IsOpen = true;
-            Check(tip.FontSize == 35, "second HUD surface uses its own rendered scale");
+            Check(tip.FontSize == 21, "different target transforms retain the common toolbar font size");
+            var button = new Noesis.FrameworkElement { Scale = .5f };
+            var plain = new Noesis.ToolTip { Scale = 2, PlacementTarget = button, Content = "Goods / Gold" };
+            // Model a style-supplied opt-in already present when the HUD cache encounters it.
+            plain.SetStyleValue(MenuToolTipSizing.EnabledProperty, true);
+            Noesis.ToolTipService.SetToolTip(button, plain);
+            MenuToolTipSizing.InitializeToolTip(button);
+            plain.IsOpen = true;
+            Check(plain.FontSize * plain.Scale == tip.FontSize * tip.Scale,
+                "XAML string and programmatic rich tooltips have the same rendered font size");
+            plain.FinishLayout(); MenuToolTipSizing.InitializeToolTip(button);
+            Check(plain.FontSize == 10.5f, "repeated initialization and layout do not compound popup scaling");
+            var nativeOwner = new Noesis.FrameworkElement();
+            var nativeTip = new Noesis.ToolTip { FontSize = 9 };
+            Noesis.ToolTipService.SetToolTip(nativeOwner, nativeTip);
+            MenuToolTipSizing.InitializeToolTip(nativeOwner); nativeTip.IsOpen = true;
+            Check(nativeTip.FontSize == 9, "HUD cache initialization leaves non-opted-in native tooltips alone");
             tip.IsOpen = false; tip.PlacementTarget.IsVisible = false; tip.IsOpen = true;
             Check(!tip.IsOpen, "hidden HUD rejects pending popup");
             tip.PlacementTarget = null;

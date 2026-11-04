@@ -80,7 +80,6 @@ namespace CastlePlanner
         private const int PrebuiltPlayersReferenceRva = 0x95FF8;
         private const int PreparedKeepCoordinatesReferenceRva = 0x95EA3;
         private const int HumanKeepCoordinateLoadRva = 0x95B3C;
-        private const int DeferredCompoundPlacementTimeoutTicks = 600;
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private delegate int AllocateSpecDelegate(IntPtr aivState, int playerId);
@@ -824,6 +823,8 @@ namespace CastlePlanner
             if (!IsCastleSpawningModeAllowed())
                 return;
 
+            if (deferredCompoundBuildings.TryGetValue(args.PlayerId, out DeferredCompoundBuildingQueue queue))
+                queue.Backend.ObserveSpawn(args);
             supplementalSpawner.Observe(args.ReturnValue, args.PlayerId, args.Building,
                 args.TileX, args.TileY, LookupSupplementalBuilding);
         }
@@ -850,11 +851,10 @@ namespace CastlePlanner
             {
                 AivFrameSpawnCategory frameCategory = AivSpawnPlan.ClassifyFrame(frame.itemType);
                 bool isFearFactor = frameCategory == AivFrameSpawnCategory.FearFactor;
-                bool isStockpile = frame.itemType == (int)eMappers.MAPPER_STORES;
-                if (!isFearFactor && !isStockpile)
+                if (!isFearFactor)
                     continue;
 
-                string digestKind = isStockpile ? "stockpile" : "fear";
+                const string digestKind = "fear";
                 foreach (int encodedPosition in frame.tilePositionOfsets)
                 {
                     eMappers mapper = (eMappers)frame.itemType;
@@ -1165,8 +1165,7 @@ namespace CastlePlanner
         }
 
         private int CreateSupplementalPrefab(
-            int playerId, int x, int y, eMappers mapper, out string reason,
-            bool bypassPlacementRules = true)
+            int playerId, int x, int y, eMappers mapper, out string reason)
         {
             bool previousBypassEnabled = GameTileManagerAPI.Instance.TileManager.UsePlacementBlockedOverride;
             bool previousBypassValue = GameTileManagerAPI.Instance.TileManager.PlacementBlockedOverrideValue;
@@ -1174,7 +1173,7 @@ namespace CastlePlanner
             {
                 return supplementalSpawner.Create(playerId, mapper, x, y,
                     variation => GameBuildingManagerAPI.Instance.CreatePrefab(playerId, x, y, mapper,
-                        BuildingScales.GetScale(mapper), variation, true, bypassPlacementRules),
+                        BuildingScales.GetScale(mapper), variation, true, true),
                     LookupSupplementalBuilding, out reason);
             }
             finally
@@ -1186,42 +1185,22 @@ namespace CastlePlanner
 
         private void QueueDeferredCompoundBuildings(PreparedAivCastle castle)
         {
-            List<AivCompoundBuildingPlacement> plan = AivCompoundBuildingPlan.Create(
-                castle.FilteredDocument,
-                castle.RequestedKeepX,
-                castle.RequestedKeepY,
-                ToAivRotation(castle.Orientation));
-            var repeatedMappers = new HashSet<eMappers>(
-                plan.GroupBy(item => item.Mapper)
-                    .Where(group => group.Count() > 1)
-                    .Select(group => group.Key));
-            List<AivCompoundBuildingPlacement> compoundPlan = plan
-                .Where(item => repeatedMappers.Contains(item.Mapper))
+            List<StoragePlacement> placements = AivCompoundBuildingPlan.Create(
+                    castle.FilteredDocument,
+                    castle.RequestedKeepX,
+                    castle.RequestedKeepY,
+                    ToAivRotation(castle.Orientation))
+                .Select(item => new StoragePlacement(item.SourceOrdinal, item.Mapper,
+                    item.BuildOrigin.X, item.BuildOrigin.Y,
+                    AivMapperCatalog.Resolve((int)item.Mapper).FootprintSize.GetValueOrDefault(1)))
                 .ToList();
-            if (compoundPlan.Count == 0)
+            if (placements.Count == 0)
                 return;
 
-            int existing = compoundPlan.Count(item =>
-                TryFindCompoundBuilding(castle.PlayerId, item, out _, out _));
-            if (existing == compoundPlan.Count)
-            {
-                if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:1299", $"Deferred compound-building queue not needed: playerId={castle.PlayerId}, " +
-                        $"planned={compoundPlan.Count}, existing={existing}.");
-                return;
-            }
-
+            // The Keep's stockpile is a seed even when the AIV contains only one
+            // extension. All three storage families use the same readiness queue.
             deferredCompoundBuildings[castle.PlayerId] = new DeferredCompoundBuildingQueue(
-                castle.PlayerId,
-                castle.RequestedKeepX,
-                castle.RequestedKeepY,
-                ToAivRotation(castle.Orientation),
-                compoundPlan);
-            if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:1312", $"Deferred compound-building queue armed: playerId={castle.PlayerId}, " +
-                    $"planned={compoundPlan.Count}, existing={existing}, " +
-                    $"entries=[{string.Join("|", compoundPlan.Select(item =>
-                        $"{item.SourceOrdinal}:{item.Mapper}:{item.BuildOrigin.X}:{item.BuildOrigin.Y}"))}].");
+                castle.PlayerId, placements);
         }
 
         private void OnGameTick(int tick)
@@ -1230,7 +1209,10 @@ namespace CastlePlanner
                 return;
 
             if (!IsCastleSpawningModeAllowed())
+            {
+                ClearDeferredCompoundPlacements("castle-spawning-inactive");
                 return;
+            }
 
             int keyCount = deferredCompoundBuildings.Count;
             int[] playerIds = deferredCompoundKeyBuffers.Count > 0
@@ -1280,160 +1262,17 @@ namespace CastlePlanner
             DeferredCompoundBuildingQueue queue,
             int tick)
         {
-            if (!queue.FirstTick.HasValue) queue.FirstTick = tick;
-            if (!APIShared.Simulation.SimulationClock.TryGetElapsedTicks(queue.FirstTick.Value, tick, out int elapsed) ||
-                elapsed > DeferredCompoundPlacementTimeoutTicks)
+            StorageQueueResult result = queue.Work.Process(tick, queue.Backend, out string reason);
+            if (result == StorageQueueResult.Waiting)
+                return false;
+            if (result != StorageQueueResult.Completed)
             {
-                Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:1379", $"Deferred compound-building queue timed out: playerId={queue.PlayerId}, " +
-                    $"tick={tick}, cursor={queue.Cursor}/{queue.Placements.Count}.");
-                return true;
+                Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner:deferred-storage",
+                    $"Deferred storage placement stopped: playerId={queue.Work.PlayerId}, " +
+                    $"tick={tick}, result={result}, cursor={queue.Work.Cursor}/{queue.Work.Count}, reason={reason}.");
             }
-
-            while (queue.Cursor < queue.Placements.Count)
-            {
-                AivCompoundBuildingPlacement placement = queue.Placements[queue.Cursor];
-                if (TryFindCompoundBuilding(
-                        queue.PlayerId,
-                        placement,
-                        out int existingId,
-                        out AliveState existingState))
-                {
-                    if (existingState != AliveState.IsAlive)
-                        return false;
-
-                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                        Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:1398", $"Deferred compound-building prerequisite ready: playerId={queue.PlayerId}, " +
-                            $"sourceOrdinal={placement.SourceOrdinal}, mapper={placement.Mapper}, " +
-                            $"position=({placement.BuildOrigin.X},{placement.BuildOrigin.Y}), " +
-                            $"buildingId={existingId}, tick={tick}.");
-                    queue.Cursor++;
-                    continue;
-                }
-
-                AivCompoundBuildingPlacement? predecessor = FindPreviousSameType(
-                    queue.Placements,
-                    queue.Cursor,
-                    placement.Mapper);
-                if (!predecessor.HasValue ||
-                    !TryFindCompoundBuilding(
-                        queue.PlayerId,
-                        predecessor.Value,
-                        out _,
-                        out AliveState predecessorState) ||
-                    predecessorState != AliveState.IsAlive)
-                {
-                    // The first piece of each complex belongs to Vanilla. Without it,
-                    // creating later pieces would hide a different placement failure.
-                    return false;
-                }
-
-                if (!CanPlaceSupplementalPrefab(
-                        placement.Mapper,
-                        placement.EncodedPosition,
-                        queue.NativeReferenceX,
-                        queue.NativeReferenceY,
-                        queue.Rotation,
-                        out string reason))
-                {
-                    Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:1434", $"Deferred compound-building placement aborted: playerId={queue.PlayerId}, " +
-                        $"sourceOrdinal={placement.SourceOrdinal}, mapper={placement.Mapper}, " +
-                        $"position=({placement.BuildOrigin.X},{placement.BuildOrigin.Y}), " +
-                        $"reason={reason}, remaining={queue.Placements.Count - queue.Cursor}, tick={tick}.");
-                    return true;
-                }
-
-                int buildingId = CreateSupplementalPrefab(
-                    queue.PlayerId,
-                    placement.BuildOrigin.X,
-                    placement.BuildOrigin.Y,
-                    placement.Mapper, out string spawnReason,
-                    bypassPlacementRules: false);
-                if (buildingId > 0)
-                {
-                    int height = GameTileManagerAPI.Instance.GetTileHeight(
-                        GameTileManagerAPI.Instance.GetTileId(
-                            placement.BuildOrigin.X,
-                            placement.BuildOrigin.Y));
-                    queue.DigestRows.Add(
-                        $"building:{(int)placement.Mapper}:{queue.PlayerId}:" +
-                        $"{placement.BuildOrigin.X}:{placement.BuildOrigin.Y}:{height}");
-                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                        Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:1459", $"Deferred compound-building placement accepted by Vanilla: " +
-                            $"playerId={queue.PlayerId}, sourceOrdinal={placement.SourceOrdinal}, " +
-                            $"mapper={placement.Mapper}, position=({placement.BuildOrigin.X},{placement.BuildOrigin.Y}), " +
-                            $"buildingId={buildingId}, tick={tick}.");
-                    return false;
-                }
-
-                // An unconfirmed native call may already have created a building.
-                // Abort this queue rather than risk a duplicate on the next tick.
-                Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner:compound-unconfirmed",
-                    $"Deferred compound-building queue aborted: playerId={queue.PlayerId}, " +
-                    $"sourceOrdinal={placement.SourceOrdinal}, mapper={placement.Mapper}, " +
-                    $"position=({placement.BuildOrigin.X},{placement.BuildOrigin.Y}), reason={spawnReason}, " +
-                    $"remaining={queue.Placements.Count - queue.Cursor}, tick={tick}.");
-                return true;
-            }
-
-            if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:1481", $"Deferred compound-building queue completed: playerId={queue.PlayerId}, " +
-                    $"placements={queue.Placements.Count}, tick={tick}.");
-            string digestPayload = string.Join("|", queue.DigestRows);
-            string digest;
-            using (SHA256 sha = SHA256.Create())
-            {
-                digest = BitConverter.ToString(
-                        sha.ComputeHash(Encoding.UTF8.GetBytes(digestPayload)))
-                    .Replace("-", string.Empty)
-                    .ToLowerInvariant();
-            }
-            if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerRuntime.cs:1494", $"Deferred compound-building spawn digest: playerId={queue.PlayerId}, " +
-                    $"objects={queue.DigestRows.Count}, sha256={digest}, entries=[{digestPayload}].");
-            LogSpecialBuildingDiagnostics(queue.PlayerId);
+            LogSpecialBuildingDiagnostics(queue.Work.PlayerId);
             return true;
-        }
-
-        private static AivCompoundBuildingPlacement? FindPreviousSameType(
-            IReadOnlyList<AivCompoundBuildingPlacement> placements,
-            int cursor,
-            eMappers mapper)
-        {
-            for (int index = cursor - 1; index >= 0; index--)
-            {
-                if (placements[index].Mapper == mapper)
-                    return placements[index];
-            }
-            return null;
-        }
-
-        private static bool TryFindCompoundBuilding(
-            int playerId,
-            AivCompoundBuildingPlacement placement,
-            out int buildingId,
-            out AliveState aliveState)
-        {
-            eStructs structure = placement.Mapper.ConvertToEStructs();
-            Span<GameBuilding> buildings = GameBuildingManagerAPI.Instance.GetBuildingsAsSpan();
-            for (int spanIndex = 0; spanIndex < buildings.Length; spanIndex++)
-            {
-                ref GameBuilding building = ref buildings[spanIndex];
-                if (building.r_PlayerIdOwner == playerId &&
-                    building.r_BuildingType == structure &&
-                    building.r_TilePositionXBegin == placement.BuildOrigin.X &&
-                    building.r_TilePositionYBegin == placement.BuildOrigin.Y &&
-                    (building.r_AliveState == AliveState.NeedsInit ||
-                     building.r_AliveState == AliveState.IsAlive))
-                {
-                    buildingId = spanIndex + 1;
-                    aliveState = building.r_AliveState;
-                    return true;
-                }
-            }
-
-            buildingId = -1;
-            aliveState = default;
-            return false;
         }
 
         private void ClearDeferredCompoundPlacements(string reason)
@@ -2378,29 +2217,15 @@ namespace CastlePlanner
 
         private sealed class DeferredCompoundBuildingQueue
         {
-            public DeferredCompoundBuildingQueue(
-                int playerId,
-                int nativeReferenceX,
-                int nativeReferenceY,
-                AivRotation rotation,
-                List<AivCompoundBuildingPlacement> placements)
+            public DeferredCompoundBuildingQueue(int playerId, List<StoragePlacement> placements)
             {
-                PlayerId = playerId;
-                NativeReferenceX = nativeReferenceX;
-                NativeReferenceY = nativeReferenceY;
-                Rotation = rotation;
-                Placements = placements ?? throw new ArgumentNullException(nameof(placements));
+                Work = new DeferredStorageQueue(playerId, placements);
+                Backend = new StoragePlacementBackend(playerId);
             }
 
-            public int PlayerId { get; }
-            public int NativeReferenceX { get; }
-            public int NativeReferenceY { get; }
-            public AivRotation Rotation { get; }
-            public List<AivCompoundBuildingPlacement> Placements { get; }
-            public List<string> DigestRows { get; } = new List<string>();
+            public DeferredStorageQueue Work { get; }
+            public StoragePlacementBackend Backend { get; }
             public bool Processing { get; set; }
-            public int Cursor { get; set; }
-            public int? FirstTick { get; set; }
         }
 
     }

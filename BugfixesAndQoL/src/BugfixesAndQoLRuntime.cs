@@ -80,6 +80,7 @@ namespace BugfixesAndQoL
         private static KeepFlagRotationRuntime processKeepFlagRotationRuntime;
         private static CorruptLordDataSpawnRuntime processCorruptLordDataSpawnRuntime;
         private static PrebuiltAiWorkshopBothFixRuntime processPrebuiltAiWorkshopBothFixRuntime;
+        private static PrebuiltAiStorageFixRuntime processPrebuiltAiStorageFixRuntime;
         private static AIPreplacedBuildingFixRuntime processAIPreplacedBuildingFixRuntime;
         private static AIKeepRangeRuntime processAIKeepRangeRuntime;
 
@@ -369,6 +370,9 @@ namespace BugfixesAndQoL
             TryInitializePersistentFeature(
                 "prebuilt AI workshop Both fix",
                 () => EnsurePrebuiltAiWorkshopBothFixRuntime(context, isFixedLayoutHashValidated));
+            TryInitializePersistentFeature(
+                "prebuilt AI storage fix",
+                () => EnsurePrebuiltAiStorageFixRuntime(context, isFixedLayoutHashValidated));
             TryInitializePersistentFeature(
                 "nearest-water-carrier targeting QoL",
                 () => EnsureWaterboyTargetReservationRuntime(
@@ -770,6 +774,24 @@ namespace BugfixesAndQoL
                 log, settings, context, isFixedLayoutHashValidated);
             candidate.Install();
             processPrebuiltAiWorkshopBothFixRuntime = candidate;
+        }
+
+        private void EnsurePrebuiltAiStorageFixRuntime(
+            CrusaderLibraryLoadContext context,
+            bool isFixedLayoutHashValidated)
+        {
+            if (processPrebuiltAiStorageFixRuntime != null)
+                return;
+            if (!isFixedLayoutHashValidated)
+            {
+                Shared.DebugLogHelper.LogWarningLimited(log, "prebuilt-ai-storage-unsupported-build",
+                    "Prebuilt AI storage fix is inactive because the installed native hash is not audited.");
+                return;
+            }
+
+            var candidate = new PrebuiltAiStorageFixRuntime(log, settings, context);
+            candidate.Install();
+            processPrebuiltAiStorageFixRuntime = candidate;
         }
 
         public void Dispose()

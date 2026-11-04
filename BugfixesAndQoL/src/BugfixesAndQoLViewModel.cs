@@ -77,6 +77,7 @@ namespace BugfixesAndQoL
         private bool enableAssassinCapturedGateProtectionFix = true;
         private bool enableAiWallTargetingFix = true;
         private bool enablePrebuiltAiWorkshopBothFix = true;
+        private bool enablePrebuiltAiStorageFix = true;
         private bool enableBakerMillerBreaks;
         private bool enableWorkshopIdleDelayFix;
         private bool removeAIKeepRangeLimit = true;
@@ -547,6 +548,8 @@ namespace BugfixesAndQoL
         public string EnableCorruptLordDataSpawnFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableCorruptLordDataSpawnFixHelp");
         public string EnablePrebuiltAiWorkshopBothFixText => SerpLocalization.Get("BugfixesAndQoL.EnablePrebuiltAiWorkshopBothFix");
         public string EnablePrebuiltAiWorkshopBothFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnablePrebuiltAiWorkshopBothFixHelp");
+        public string EnablePrebuiltAiStorageFixText => SerpLocalization.Get("BugfixesAndQoL.EnablePrebuiltAiStorageFix");
+        public string EnablePrebuiltAiStorageFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnablePrebuiltAiStorageFixHelp");
         public string EnableTunnelPlacementDistanceFixText => SerpLocalization.Get("BugfixesAndQoL.EnableTunnelPlacementDistanceFix");
         public string EnableTunnelPlacementDistanceFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableTunnelPlacementDistanceFixHelp");
         public string EnableFairSiegeAmmoRestockText => SerpLocalization.Get("BugfixesAndQoL.EnableFairSiegeAmmoRestock");
@@ -1530,6 +1533,13 @@ namespace BugfixesAndQoL
         }
 
         [SyncHostOnly]
+        public bool EnablePrebuiltAiStorageFix
+        {
+            get => enablePrebuiltAiStorageFix;
+            set => SetSetting(ref enablePrebuiltAiStorageFix, value, nameof(EnablePrebuiltAiStorageFix));
+        }
+
+        [SyncHostOnly]
         public bool EnableTunnelPlacementDistanceFix
         {
             get => enableTunnelPlacementDistanceFix;
@@ -1721,6 +1731,7 @@ namespace BugfixesAndQoL
                 EnableTanneryAnimationFix = true;
                 EnableCorruptLordDataSpawnFix = true;
                 EnablePrebuiltAiWorkshopBothFix = true;
+                EnablePrebuiltAiStorageFix = true;
                 EnableTunnelPlacementDistanceFix = true;
                 EnableFairSiegeAmmoRestock = true;
                 EnableSurrenderAndStatistics = true;

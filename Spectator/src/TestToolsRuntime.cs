@@ -88,6 +88,9 @@ namespace Spectator
         private static bool IsPlacementPlayer(int owner) => IsSelectableAi(owner) ||
             IsActivePlayerTestSession() && owner == PlayerPerspectiveAPI.GetControlledPlayerId() && IsToolsPlayer(owner, false);
 
+        private static bool IsOrderTarget(int owner) => OrderTargetPolicy.IsAvailable(
+            IsToolsPlayer(owner, false), SpectatorDefeat.IsPlayerEliminated(owner));
+
         private static unsafe bool IsToolsPlayer(int owner, bool requireAi)
         {
             if (!IsToolsSession() || owner < 1 || owner > 8 ||
@@ -211,7 +214,7 @@ namespace Spectator
                         else players.RemoveGood(action.Actor, action.Good, value);
                     }, value => players.SubtractIncomingGood(action.Actor, action.Good, value));
                 return SerpLocalization.Get(gold ? "Tools.GoldRemoved" : "Tools.GoodsRemoved",
-                    "Amount", actual, "Requested", -(long)action.Amount, "Player", PlayerLabel(action.Actor));
+                    "Amount", actual, "Player", PlayerLabel(action.Actor));
             }
             if (action.Good == eGoods.STORED_GOLD)
             {
@@ -243,11 +246,13 @@ namespace Spectator
         private static unsafe string ExecuteOrder(TestAction action)
         {
             if (nativeOrder == null) return SerpLocalization.Get("Tools.NativeUnavailable");
+            if (!OrderTargetPolicy.CanExecute(action.Kind, IsOrderTarget(action.Actor),
+                action.Kind == TestActionKind.Cancel || IsOrderTarget(action.Target)))
+                return SerpLocalization.Get("Tools.InvalidTarget");
             var players = GamePlayerManagerAPI.Instance;
             if (!players.IsAIPlayer(action.Actor) || !players.TryGetPlayerResourcesById(action.Actor, out GamePlayerResources* resources) ||
                 resources->r_LordUnitId == 0 || !IsToolsPlayer(action.Requester, false))
                 return SerpLocalization.Get("Tools.AiNotRunning");
-            if (action.Kind != TestActionKind.Cancel && !IsToolsPlayer(action.Target, false)) return SerpLocalization.Get("Tools.InvalidTarget");
             if (action.Kind == TestActionKind.Attack)
             {
                 var state = GameData.Instance.lastGameState;

@@ -100,7 +100,7 @@ namespace Spectator
                     value = value * 31 + (state.computer_names?[player].GetHashCode() ?? 0);
                     value = value * 31 + (SpriteMapping.remapColours?[player] ?? 0);
                     // Defeat can invalidate a recipient without changing its roster slot/name.
-                    value = value * 31 + (IsToolsPlayer(player, false) ? 1 : 0);
+                    value = value * 31 + (IsOrderTarget(player) ? 1 : 0);
                 }
             }
             if (value != rosterFingerprint) { rosterFingerprint = value; toolbarDirty = true; }
@@ -111,8 +111,9 @@ namespace Spectator
 
         private static void RefreshOrderAvailability()
         {
-            bool actor = IsSelectableAi(humanSelectedOwner);
-            bool target = toolsModel != null && IsToolsPlayer(toolsModel.Target, false);
+            if (toolsModel != null) toolsModel.Target = OrderTargetPolicy.Revalidate(toolsModel.Target, IsOrderTarget);
+            bool actor = IsSelectableAi(humanSelectedOwner) && !SpectatorDefeat.IsPlayerEliminated(humanSelectedOwner);
+            bool target = toolsModel != null && IsOrderTarget(toolsModel.Target);
             bool backend = nativeOrder != null;
             var state = GameData.Instance?.lastGameState;
             bool enemy = actor && target && state != null && humanSelectedOwner != toolsModel.Target &&

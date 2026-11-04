@@ -137,7 +137,8 @@ namespace CastlePlanner
             foreach (AivJsonFrame frame in document.frames)
             {
                 eMappers mapper = (eMappers)frame.itemType;
-                if (mapper != eMappers.MAPPER_GRANARY &&
+                if (mapper != eMappers.MAPPER_STORES &&
+                    mapper != eMappers.MAPPER_GRANARY &&
                     mapper != eMappers.MAPPER_ARMOURY)
                 {
                     continue;

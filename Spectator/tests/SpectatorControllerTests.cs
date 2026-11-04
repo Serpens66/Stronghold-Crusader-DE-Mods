@@ -39,6 +39,21 @@ namespace Spectator {
    }
    Check(DockHudPolicy.CanShowToolbar(true,true,true,true,false,false,false,8),"Simulation pause alone does not hide the world HUD");
 
+   Check(DockHudPolicy.CanShowControl(true,false,true,true,true,false),"visible construction page exposes the docked Tools control");
+   foreach(bool placement in new[]{false,true}) {
+    // Neither an active Place mode nor player-control permission may override the actual HUD.
+    foreach(bool main in new[]{false,true}) foreach(bool competing in new[]{false,true})
+     Check(DockHudPolicy.CanShowControl(true,false,main,true,true,competing)==(main&&!competing),
+      "normal and foreign troop/building HUDs suppress docked Tools/Stop, including during placement="+placement);
+    Check(!DockHudPolicy.CanShowControl(true,false,true,false,true,false),"report/non-build page hides the docked control");
+    Check(!DockHudPolicy.CanShowControl(true,false,true,true,false,false),"a hidden build frame hides the docked control");
+    Check(DockHudPolicy.CanShowControl(true,false,true,true,true,false),"returning from troop HUD restores Tools/Stop");
+   }
+   foreach(bool main in new[]{false,true}) foreach(bool frame in new[]{false,true}) foreach(bool other in new[]{false,true}) {
+    Check(DockHudPolicy.CanShowControl(true,true,main,false,frame,other),"floating header control stays usable independently of native HUD");
+    Check(!DockHudPolicy.CanShowControl(false,true,main,true,frame,other),"floating header never bypasses tool permission");
+   }
+
    var feedback = new ToolbarFeedback();
    Check(feedback.ForPage("Goods") == "" && feedback.ForPage("Orders") == "", "no initial placeholder or tooltip content");
    feedback.Set("Goods", "Credited 100"); feedback.Set("Orders", "Forced attack");
@@ -182,10 +197,18 @@ namespace Spectator {
    Check(!SpectatorDefeatPolicy.IsRosterEliminated(5,4,true,true) && !SpectatorDefeatPolicy.IsRosterEliminated(0,0,true,true),"stale or missing session never hides a player");
    Check(!SpectatorDefeatPolicy.IsRosterEliminated(5,5,false,true) && !SpectatorDefeatPolicy.IsRosterEliminated(5,5,true,false),"unreadable or living players stay listed");
    var build = new BuildMenuLease(); var originalHud = new object(); var nextHud = new object();
+   Check(BuildMenuLease.CanBorrow(false,true,true),"confirmed eliminated observer with spectator tools can open the dock on its retained build page");
+   Check(!BuildMenuLease.CanBorrow(false,true,false),"elimination alone grants no tools");
+   Check(!BuildMenuLease.CanBorrow(false,false,true),"tools option alone grants no active-player build-page lease");
+   Check(BuildMenuLease.CanBorrow(true,false,false),"existing own-build-menu path is preserved");
+   bool observerTools=BuildMenuLease.CanBorrow(false,true,true);
+   Check(build.CanAcquire(observerTools,false,true,false,true,false),"eliminated observer opens docked tools without enabling input control");
+   Check(!build.CanAcquire(observerTools,false,true,false,false,true),"troop HUD blocks the eliminated observer build-page lease");
+   Check(!build.CanAcquire(observerTools,true,true,false,true,false),"floating observer tools do not replace the build page");
    foreach(bool active in new[]{false,true}) foreach(bool floating in new[]{false,true})
    foreach(bool expanded in new[]{false,true}) foreach(bool placing in new[]{false,true})
    foreach(bool main in new[]{false,true}) foreach(bool foreign in new[]{false,true})
-    Check(build.CanAcquire(active,floating,expanded,placing,main,foreign)==(active&&!floating&&expanded&&!placing&&main&&!foreign),"only docked active-player tools may borrow a normal build page");
+    Check(build.CanAcquire(active,floating,expanded,placing,main,foreign)==(active&&!floating&&expanded&&!placing&&main&&!foreign),"only authorized docked tools may borrow a normal build page");
    bool?[] savedTabs = {true,false,null,false,false,false};
    build.Acquire(originalHud,7,3,savedTabs); savedTabs[0]=false;
    Check(build.Saved.Page==7 && build.Saved.SubMode==3 && build.Saved.Tabs[0]==true,"original page/submode and independent tab snapshot survive placement");
@@ -197,6 +220,27 @@ namespace Spectator {
    Check(build.Saved==null && build.Suppressed && !build.CanAcquire(true,false,true,false,true,false),"choosing a native category keeps it open instead of reclaiming it next frame");
    build.Request(); Check(build.CanAcquire(true,false,true,false,true,false),"an explicit tool navigation request can reopen the dock");
    build.Acquire(originalHud,5,0,savedTabs); build.Reset(); Check(build.Saved==null && !build.Suppressed,"HUD/session cleanup drops all ownership");
+   var observerHud = new ObserverBuildHudState(); int clearedPages = 0;
+   System.Action<object> clearPage = current => { Check(ReferenceEquals(current,originalHud),"clear uses the actual HUD"); clearedPages++; };
+   Check(!observerHud.TryClear(originalHud,5,7,false,clearPage),"a living participant or genuine Place page stays intact");
+   Check(observerHud.TryClear(originalHud,5,7,true,clearPage) && clearedPages==1,"promotion clears a retained build page immediately");
+   Check(!observerHud.TryClear(originalHud,5,22,true,clearPage),"an already cleared observer page needs no repeated UI writes");
+   build.Acquire(originalHud,22,48,savedTabs);
+   Check(observerHud.TryClear(originalHud,5,4,true,current=>{
+    Check(!observerHud.TryClear(current,5,0,true,clearPage),"nested setup callbacks do not recurse while clearing"); clearedPages++;
+   }),"a later Vanilla category is cleared again");
+   Check(build.Saved!=null && !build.Suppressed,"normalization before ObserveNativePage retains the docked Tools lease");
+   Check(observerHud.TryClear(nextHud,5,22,true,current=>clearedPages++),"a replacement HUD clears its own icons even when the shared page ID is22");
+   Check(observerHud.TryClear(nextHud,6,22,true,current=>clearedPages++),"a reused HUD is cleared in a replacement mission");
+   bool clearFailed=false;
+   try { observerHud.TryClear(originalHud,6,22,true,current=>{throw new System.InvalidOperationException("HUD not ready");}); }
+   catch(System.InvalidOperationException){clearFailed=true;}
+   Check(clearFailed && observerHud.TryClear(originalHud,6,22,true,clearPage),"a failed clear never consumes the replacement HUD's pending work");
+   Check(!observerHud.TryClear(null,6,1,true,clearPage) && !observerHud.TryClear(originalHud,0,1,true,clearPage),"unavailable HUD or ended mission never receives UI writes");
+   observerHud.Reset();
+   Check(observerHud.TryClear(originalHud,6,22,true,clearPage),"HUD detach drops the old reference and a rebind clears again");
+   Check(DockHudPolicy.CanShowControl(true,false,true,true,true,false),"blank observer page retains docked Tools");
+   Check(!DockHudPolicy.CanShowControl(true,false,false,true,true,true),"clearing a hidden build page does not expose Tools over troop or building HUDs");
    Check(SpectatorDefeatPolicy.CanPromoteEliminatedPlayerToSpectator(true,true,false,false,true,true,true,8));
    Check(!SpectatorDefeatPolicy.CanPromoteEliminatedPlayerToSpectator(false,true,false,false,true,true,true,8));
    Check(!SpectatorDefeatPolicy.CanPromoteEliminatedPlayerToSpectator(true,true,false,false,true,true,false,8));

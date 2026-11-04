@@ -71,6 +71,7 @@ namespace BugfixesAndQoL
         public SettingsOptionPresentation EnableAiDefensePatrolFix => options["EnableAiDefensePatrolFix"];
         public SettingsOptionPresentation EnableAiWallTargetingFix => options["EnableAiWallTargetingFix"];
         public SettingsOptionPresentation EnablePrebuiltAiWorkshopBothFix => options["EnablePrebuiltAiWorkshopBothFix"];
+        public SettingsOptionPresentation EnablePrebuiltAiStorageFix => options["EnablePrebuiltAiStorageFix"];
         public SettingsOptionPresentation EnableAivDefenderPositionFix => options["EnableAivDefenderPositionFix"];
         public SettingsOptionPresentation FixAIPreplacedMapBuildings => options["FixAIPreplacedMapBuildings"];
         public SettingsOptionPresentation FixAITowerRepair => options["FixAITowerRepair"];
@@ -191,6 +192,7 @@ namespace BugfixesAndQoL
             AddOption("EnableAiDefensePatrolFix", "bugfixes.enable-ai-defense-patrol-fix", SettingsCategory.Fixes, HostAi);
             AddOption("EnableAiWallTargetingFix", "bugfixes.enable-ai-wall-targeting-fix", SettingsCategory.Fixes, HostAi);
             AddOption("EnablePrebuiltAiWorkshopBothFix", "bugfixes.enable-prebuilt-ai-workshop-both-fix", SettingsCategory.Fixes, HostAi);
+            AddOption("EnablePrebuiltAiStorageFix", "bugfixes.enable-prebuilt-ai-storage-fix", SettingsCategory.Fixes, HostAi);
             AddOption("EnableAivDefenderPositionFix", "bugfixes.enable-aiv-defender-position-fix", SettingsCategory.Fixes, HostAi);
             AddOption("FixAIPreplacedMapBuildings", "bugfixes.fix-ai-preplaced-map-buildings", SettingsCategory.Fixes, HostAi);
             AddOption("FixAITowerRepair", "bugfixes.fix-aitower-repair", SettingsCategory.Fixes, HostAi);

@@ -1254,3 +1254,54 @@ This is a managed contract; no native RVA or hook span is changed.
   Real-assembly CLI tests now exercise that snapshot and the shared production launch
   validator, including placeholder types, unnamed AICs and independent castle sources.
   These do not establish post-fix in-game or host/client acceptance.
+
+## 2026-11-04 storage-section initialization at completed-castle start
+
+Native SHA-256: `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+Confidence: confirmed for the following constructor, registration and readiness
+branches, checked against current canonical DLL instructions and semantic exports.
+No in-game or real multiplayer result is asserted by this static audit.
+
+The completed-castle route `0x94350 -> 0x55F50 -> 0x51790` performs consecutive
+prepared frames without an intervening building initialization pass. Ordinary
+construction `0x6D580 -> 0x76E80/0x75780 -> 0xB47E0` initially writes entity
+state 1 (NeedsInit). Allocator registration `0xD0630` already publishes the first
+storage ID; for Stores the global is `0x379AE8C + playerId * 0x583C`.
+
+The Stores branch `0x7897F..0x789FA` in `0x77E60` therefore sees an existing
+first stockpile and calls `0xC72C0`. Granary and Armoury use the same helper
+from the following branches (`0x78A59`, `0x78AD9`). Its parameters are building
+manager, one-based player ID, world X/Y origin, footprint size and structure type.
+Perimeter offsets come from `0xC0270`; a neighbor must have a positive building
+ID, state 2 (IsAlive), matching owner and matching structure type. A freshly
+registered NeedsInit neighbor fails. `0xB8140` counts only IsAlive structures
+for the separate capacity gate (Stores 32 subrecords, Granary/Armoury 8).
+
+Normal simulation dispatch `0xCDE60 -> 0xC60F0` promotes NeedsInit to IsAlive
+at `0xC62F7` and advances to the next slot. Do not invoke the whole dispatcher
+prematurely or assign IsAlive manually: it also owns other simulation effects.
+
+A Stores section has four 2x2 building records, whose origins from table
+`0x2D2FB8` are `(0,0), (3,0), (0,3), (3,3)` relative to its 5x5 origin.
+The nine remaining cells are links. Readiness of one record alone is not proof
+that all four initialized; observed identity loss must not become a rebuild.
+
+The successful ordinary AIV step `0x51790` marks the constructor's final
+building record with ushort 1 (`GameBuilding.p_UnknownRelevant17`, offset
+`0x2C8`; raw manager offset `0x324`, write at `0x5214D`). It writes frame
+State=Built (3) and RebuildDelay=10 at `0x52174` / `0x5219F..0x521B1`.
+`0x31000` only changes workshop production goods, so it has no storage effect.
+Successful deferred creation must retain these storage bookkeeping semantics,
+including the final fourth record of Stores and duplicate AIV frame positions.
+
+### Deferred storage startup consumers [mod integration]
+
+CastlePlanner's previous separate Stores placement bypass is replaced by the
+same source-linked startup queue used by BugfixesAndQoL for prebuilt AI castles.
+Both keep Vanilla placement rules active, wait for real readiness, admit at most
+one new section per player/native simulation tick, stop after 600 ticks and
+never resume startup repair from a loaded save. BugfixesAndQoL observes the
+selected prepared live AIV and updates success bookkeeping only after verified
+creation; existing Vanilla sections retire matching duplicate frame retries.
+The Fixes per-player goodsyard policy remains authoritative. Actual game and
+matching-build host/client acceptance must be recorded separately.

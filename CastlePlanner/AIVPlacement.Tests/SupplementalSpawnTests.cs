@@ -43,8 +43,8 @@ internal static class SupplementalSpawnTests
                 _ => throw new Exception("invalid anchor reached map lookup"), out _), "invalid source anchor rejected before lookup");
 
         var spawner = new SupplementalPrefabSpawner();
-        eMappers prefabMapper = eMappers.MAPPER_GRANARY;
-        eStructs type = eStructs.STRUCT_GRANARY;
+        eMappers prefabMapper = eMappers.MAPPER_GARDEN1;
+        eStructs type = prefabMapper.ConvertToEStructs();
         var pool = new Dictionary<int, SupplementalBuildingIdentity>();
         SupplementalBuildingIdentity? Lookup(int id) => pool.TryGetValue(id, out var value) ? value : null;
         SupplementalBuildingIdentity Identity(uint global = 100, int owner = 1, int x = 20, int y = 30,
@@ -99,9 +99,7 @@ internal static class SupplementalSpawnTests
         // Enumerate the actual catalog-driven routes rather than assuming future
         // FearFactor additions automatically accept the same native argument.
         var expected = Enum.GetValues<eMappers>().Distinct().Where(value =>
-            AivSpawnPlan.ClassifyFrame((int)value) == AivFrameSpawnCategory.FearFactor ||
-            value == eMappers.MAPPER_STORES || value == eMappers.MAPPER_GRANARY ||
-            value == eMappers.MAPPER_ARMOURY).ToHashSet();
+            AivSpawnPlan.ClassifyFrame((int)value) == AivFrameSpawnCategory.FearFactor).ToHashSet();
         foreach (eMappers value in Enum.GetValues<eMappers>().Distinct())
         {
             Check(SupplementalPrefabVisualPolicy.TryGetVariation(value, out int variation) == expected.Contains(value),

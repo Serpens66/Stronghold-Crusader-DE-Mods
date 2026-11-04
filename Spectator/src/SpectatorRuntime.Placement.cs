@@ -93,6 +93,8 @@ namespace Spectator
         static partial void DiagIconsSettled(HUD_Main hud);
         static partial void DiagForgetIcons();
         static partial void DiagSimulationTick(int tick);
+        static partial void DiagPlacementInput(eMappers mapper, int owner, int x, int y, bool constructingOnly, int mouseState);
+        static partial void DiagPlacementInputEnd();
         static partial void DiagBuildExpired(int tick, BuildingRequest request);
         static partial void DiagBuildFinished(BuildStructureEventArgs args, BuildingRequest request);
 
@@ -100,6 +102,7 @@ namespace Spectator
         {
             try
             {
+                if (ReconcileObserverBuildHud(__instance)) return;
                 // Page changes also change ownership of the spectator tool surface.
                 if (ReferenceEquals(__instance, humanBoundHud)) RequestToolbarLayout();
                 if (buildPageMutation == 0)
@@ -254,6 +257,7 @@ namespace Spectator
             bool vanilla = __result;
             try
             {
+                if (IsReadOnlyObserverBuild()) { __result = false; return; }
                 if (!IsPlacementSession() || IsEditorToolsSession()) return;
                 string key = parameter as string;
                 if (string.IsNullOrEmpty(key)) return;
@@ -440,6 +444,7 @@ namespace Spectator
             // Moat drawing is a live-game dig order. Keep Vanilla's in-game flag;
             // editor placement semantics are only needed by the other mappers.
             inGameNotEditor = mapper == eMappers.MAPPER_MOAT;
+            DiagPlacementInput(mapper, owner, x, y, constructingOnly, mouseState);
             if (IsWallMapper(mapper))
             {
                 bool raised = TryRaiseStone(owner, out WallStoneScope stone);
@@ -555,6 +560,7 @@ namespace Spectator
 
         private static void AfterPlaceMapperItem()
         {
+            DiagPlacementInputEnd();
             DiagPlacingUnit(0);
             pitchClickScope = null;
             BuildingRequest request = buildingClickScope;
@@ -568,6 +574,7 @@ namespace Spectator
         private static Exception FinalizePlaceMapperItem(Exception __exception,
             WallStoneScope __state)
         {
+            DiagPlacementInputEnd();
             if (__state != null) RestoreStone(__state.Owner, __state.OriginalStone);
             if (__exception != null && pitchClickScope != null)
                 lock (pitchLock) pendingPitch.Remove(pitchClickScope);

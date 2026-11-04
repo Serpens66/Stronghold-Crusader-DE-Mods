@@ -102,13 +102,14 @@ namespace CastlePlanner
                 log,
                 sizeCalibration,
                 buildingImageLibrary);
-            Hud = new BlueprintHudViewModel(ToggleBlueprint, settings, preview);
+            Hud = new BlueprintHudViewModel(ToggleBlueprint, settings, preview, CanUseManualBlueprintControls);
             if (!APIShared.ApiShared.ForMod(CastlePlannerPlugin.PluginGuid).Ui.TryRegisterBeforeRender(
                 "blueprint-presentation", OnBeforeRender, out frameWork, out string schedulingReason, 100))
                 throw new InvalidOperationException("Blueprint scheduling unavailable: " + schedulingReason);
             Hud.PropertyChanged += (_, __) => RequestFrame();
             RegisterHudExtrasButton();
             InitializeSpectatorBlueprints();
+            InitializeBlueprintRole();
             InstallEditorPlayerHook();
             InstallCameraWheelGuard();
 
@@ -127,6 +128,7 @@ namespace CastlePlanner
                 log,
                 context =>
                 {
+                    observerRole.Begin(context.SessionId);
                     if (context.IsEditor)
                         OnEditorMapReady();
                     else if (context.IsLoadedSave)
@@ -217,7 +219,8 @@ namespace CastlePlanner
                 var director = EditorDirector.instance;
                 return state != null && director != null && BlueprintSpectatorPolicy.IsSpectator(true, false,
                     state.game_type == (int)eGameTypeModes.GAMETYPE_MULTIPLAYER,
-                    state.spectatorMode != 0, director.ActivePlayerID);
+                    state.spectatorMode != 0, director.ActivePlayerID,
+                    observerRole.HasConfirmedLoss);
             }
         }
         private void OnBeforeRender()
@@ -233,7 +236,7 @@ namespace CastlePlanner
             mapActive && buildingImageLibrary.HasCompletedDepthRead || (Hud?.RequiresFrameInput ?? false) ||
             hudObserverPending || editorSessionActive && editorControlledPlayerId < 1;
 
-        private void PresentFrame()
+        private void ApplyBlueprintRoleTransition()
         {
             // Reuse the existing frame path: only cached identity fields, no native query.
             try
@@ -245,6 +248,9 @@ namespace CastlePlanner
                     bool wanted = blueprintVisible;
                     ResetSpectatorBlueprints();
                     renderer?.Clear(); layout = null; blueprintVisible = false;
+                    preparePending = false; showAfterPrepare = false;
+                    pendingViewSettleTime = -1f; suppressOverlayUntilViewSettled = false;
+                    layoutKeepX = int.MinValue; layoutKeepY = int.MinValue;
                     if (spectator) { spectatorRequested = wanted; RefreshSpectatorIdentity(true); }
                     else if (EffectiveBlueprintMode) SchedulePrepare(false);
                     RefreshHud();
@@ -254,6 +260,12 @@ namespace CastlePlanner
             {
                 Shared.DebugLogHelper.LogErrorLimited(log, "BlueprintSpectatorIdentity", "Blueprint spectator transition failed: " + error);
             }
+        }
+
+        private void PresentFrame()
+        {
+            if (observerRole.TakeInvalidation()) RefreshBlueprintRoleEvidence();
+            ApplyBlueprintRoleTransition();
             spectatorSampling = HasSpectatorIdentity && EffectiveBlueprintMode && (spectatorRequested || Hud.SettingsPanelVisible);
             if (HasSpectatorIdentity && System.Threading.Volatile.Read(ref spectatorDirty) != 0) UpdateSpectatorBlueprint();
             // A hidden projection has no frame-dependent work after its one-time preparation.
@@ -450,6 +462,7 @@ namespace CastlePlanner
 
         private void OnUnloadMap(APIShared.MissionLifecycleNotification args)
         {
+            observerRole.End();
             ResetMapState();
             hudObserverPending = false;
             mapActive = false;
@@ -906,6 +919,10 @@ namespace CastlePlanner
 
         private void ToggleBlueprint()
         {
+            RefreshBlueprintRoleEvidence();
+            ApplyBlueprintRoleTransition();
+            if (HasSpectatorIdentity && spectatorPlayer != APIShared.PlayerPerspectiveAPI.GetViewedPlayerId())
+                RefreshSpectatorIdentity(true);
             if (HasSpectatorIdentity && EffectiveBlueprintMode) { ToggleSpectatorBlueprint(); return; }
             if (!EffectiveBlueprintMode || !mapActive)
             {
@@ -1096,6 +1113,8 @@ namespace CastlePlanner
         private void ResetMapState()
         {
             RequestFrame();
+            spectatorSuppressed = false;
+            observerRole.Invalidate();
             spectatorSaveLoaded = false;
             ResetSpectatorBlueprints();
             if (observedHudViewModel != null)

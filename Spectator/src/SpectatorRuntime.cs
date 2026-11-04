@@ -199,6 +199,7 @@ namespace Spectator
             try
             {
                 ValidateHudFields();
+                InitializeObserverBuildHud();
                 Patch(candidate, typeof(HUD_Main), nameof(HUD_Main.SetupModeDependantUI),
                     nameof(AfterSetupModeDependantUI), postfix: true);
                 Patch(candidate, typeof(HUD_Main), nameof(HUD_Main.SetupNewBuildScreen),
@@ -209,6 +210,10 @@ namespace Spectator
                     nameof(BeforeBuildControlsFreeze), postfix: false, typeof(bool));
                 Patch(candidate, typeof(MainViewModel), nameof(MainViewModel.CanPlaceMapper),
                     nameof(AfterCanPlaceMapper), postfix: true, typeof(object));
+                Patch(candidate, typeof(MainViewModel), "ButtonBuild",
+                    nameof(BeforeObserverButtonBuild), postfix: false, typeof(object));
+                Patch(candidate, typeof(EngineInterface), nameof(EngineInterface.StartMapperItem),
+                    nameof(BeforeObserverStartMapper), postfix: false, typeof(int));
                 Patch(candidate, typeof(GameData), nameof(GameData.setGameState), nameof(AfterToolsPlayState), true, typeof(EngineInterface.PlayState));
                 Patch(candidate, typeof(MainViewModel), nameof(MainViewModel.InBuildingGameAction), nameof(BeforeVanillaHudTransition), false);
                 Patch(candidate, typeof(MainViewModel), nameof(MainViewModel.TroopsSelectedGameAction), nameof(BeforeVanillaTroopTransition), false, typeof(bool));
@@ -277,6 +282,7 @@ namespace Spectator
                 missionLifecycle = lifecycle;
                 harmony = candidate;
                 RegisterTestActions();
+                RegisterMapperSelectionCamera();
                 RegisterPowerInput();
                 RegisterPerspectiveSelection();
                 initialized = true;

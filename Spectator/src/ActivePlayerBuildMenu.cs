@@ -24,9 +24,13 @@ namespace Spectator
 
         private static void UpdateActivePlayerBuildMenu()
         {
+            ReconcileObserverBuildHud();
             var view = MainViewModel.Instance;
             HUD_Main hud = view.HUDmain;
-            bool enabled = HasOwnBuildMenu();
+            // Eliminated observers retain a normal build page despite having no input control.
+            // Borrow it only while their authorized docked tools are open, then restore it normally.
+            bool enabled = BuildMenuLease.CanBorrow(HasOwnBuildMenu(),
+                SpectatorDefeat.IsEliminatedSpectator, IsToolsSession());
             if (dockBuildMenu.Saved != null && !ReferenceEquals(hud, dockBuildMenu.Saved.Hud))
                 dockBuildMenu.Release(); // a new HUD owns its page; never replay old UI state over it
             if (!humanPlacementMode && (!enabled || toolbarMoved || toolsModel?.Expanded != true))
@@ -47,6 +51,7 @@ namespace Spectator
             if (saved == null || !IsCurrentSession(CurrentSessionId) || !MainViewModel.viewModelLoaded) return;
             var view = MainViewModel.Instance;
             if (!ReferenceEquals(view.HUDmain, saved.Hud) || !view.Show_HUD_Main) return;
+            if (ReconcileObserverBuildHud((HUD_Main)saved.Hud)) return;
             var hud = (HUD_Main)saved.Hud;
             buildPageMutation++;
             try

@@ -7,6 +7,18 @@ namespace Spectator
         { checks++; if (!condition) throw new System.Exception("Failed: " + name); }
         public static int Run()
         {
+            foreach (bool local in new[] { false, true })
+            foreach (bool eliminated in new[] { false, true })
+            foreach (bool placing in new[] { false, true })
+            foreach (bool validTarget in new[] { false, true })
+            foreach (int mapper in new[] { -1, 0, 39, 80 })
+            {
+                bool readOnly = ObserverBuildPolicy.IsReadOnly(eliminated, placing, validTarget);
+                Expect(readOnly == (eliminated && !(placing && validTarget)), "only genuine Place releases an eliminated observer's build lock");
+                Expect(ObserverBuildPolicy.AllowMapper(local, readOnly, mapper) ==
+                    (!local || mapper == 0 || !eliminated || placing && validTarget),
+                    "local stale mapper starts stop; cancellation, nonlocal calls and ordinary players keep original behavior");
+            }
             var hud = new GateHudLifecycle();
             hud.Request(10);
             Expect(hud.Pending, "empty-map gate intent keeps presentation demand without a selected gate");
@@ -133,6 +145,27 @@ namespace Spectator
             Expect(!force.Matches(TestActionKind.Attack, 2, 1, 4), "different attack target untouched");
             var defend = new ForcedOrderContext(TestActionKind.Defend, 2, 4, 4);
             Expect(defend.Matches(TestActionKind.Defend, 2, 4, 4), "protection target is explicit requester");
+            bool[] actionableTargets = new bool[9], eliminatedTargets = new bool[9];
+            actionableTargets[2] = actionableTargets[4] = true;
+            System.Func<int, bool> targetAvailable = player => player > 0 && player < actionableTargets.Length &&
+                OrderTargetPolicy.IsAvailable(actionableTargets[player], eliminatedTargets[player]);
+            int selectedTarget = OrderTargetPolicy.Revalidate(4, targetAvailable);
+            Expect(selectedTarget == 4, "living human or allied protection target remains selectable without AI/team restrictions");
+            int queuedTarget = selectedTarget;
+            eliminatedTargets[4] = true; // Defeat can precede the removal of native Lord/resource records.
+            selectedTarget = OrderTargetPolicy.Revalidate(selectedTarget, targetAvailable);
+            Expect(selectedTarget == 0 && actionableTargets[4], "confirmed defeat clears selection while underlying records remain actionable");
+            foreach (TestActionKind kind in new[] { TestActionKind.Attack, TestActionKind.Defend })
+                Expect(!OrderTargetPolicy.CanExecute(kind, targetAvailable(2), targetAvailable(queuedTarget)),
+                    "queued " + kind + " rejects a target eliminated after selection");
+            Expect(OrderTargetPolicy.CanExecute(TestActionKind.Cancel, targetAvailable(2), false), "cancel needs no selected target");
+            eliminatedTargets[2] = true;
+            Expect(!OrderTargetPolicy.CanExecute(TestActionKind.Cancel, targetAvailable(2), false), "eliminated actor cannot receive a queued cancel order");
+            eliminatedTargets[4] = false;
+            Expect(OrderTargetPolicy.Revalidate(0, targetAvailable) == 0, "cleared target is not automatically replaced after revival");
+            Expect(OrderTargetPolicy.Revalidate(4, targetAvailable) == 4, "available target can be explicitly selected again");
+            actionableTargets[4] = false;
+            Expect(OrderTargetPolicy.Revalidate(4, targetAvailable) == 0, "missing resource/slot invalidates target even without elimination evidence");
             Expect(ToolPolicy.SameBuilding(10, 10, 2, 2, 3, 3, 99, 99, true), "same gate identity accepted");
             Expect(!ToolPolicy.SameBuilding(10, 11, 2, 2, 3, 3, 99, 99, true), "gate from old session rejected");
             Expect(!ToolPolicy.SameBuilding(10, 10, 2, 4, 3, 3, 99, 99, true), "captured gate rejected");

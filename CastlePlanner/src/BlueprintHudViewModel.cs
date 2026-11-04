@@ -32,6 +32,7 @@ namespace CastlePlanner
         private readonly Action toggle;
         private readonly CastlePlannerSettingsViewModel settings;
         private readonly FreeCastlePreviewRuntime preview;
+        private readonly Func<bool> manualControlsAllowed;
         private readonly BulkObservableCollection<string> filteredCastleOptions =
             new BulkObservableCollection<string>();
         private bool hudVisible;
@@ -72,12 +73,15 @@ namespace CastlePlanner
         public BlueprintHudViewModel(
             Action toggle,
             CastlePlannerSettingsViewModel settings,
-            FreeCastlePreviewRuntime preview)
+            FreeCastlePreviewRuntime preview,
+            Func<bool> manualControlsAllowed)
         {
             this.toggle = toggle ?? throw new ArgumentNullException(nameof(toggle));
             this.settings = settings ??
                 throw new ArgumentNullException(nameof(settings));
             this.preview = preview ?? throw new ArgumentNullException(nameof(preview));
+            this.manualControlsAllowed = manualControlsAllowed ?? throw new ArgumentNullException(nameof(manualControlsAllowed));
+            ConfirmCastleCommand = new BlueprintParticipantCommand(preview.ConfirmCommand, () => ManualControlsAllowed);
             ToggleCommand = new RelayCommand(
                 () => this.toggle(),
                 () => CanToggle);
@@ -94,8 +98,9 @@ namespace CastlePlanner
 
         public ICommand ToggleCommand { get; }
         public ICommand ToggleSettingsPanelCommand { get; }
-        public ICommand ConfirmCastleCommand => preview.ConfirmCommand;
-        public bool PreviewVisible => preview.IsPreviewActive;
+        public ICommand ConfirmCastleCommand { get; }
+        private bool ManualControlsAllowed => !SpectatorMode && manualControlsAllowed();
+        public bool PreviewVisible => ManualControlsAllowed && preview.IsPreviewActive;
         public bool NormalBlueprintSettingsVisible => !PreviewVisible;
         public string PreviewTitleText => preview.TitleText;
         public string PreviewTimerText => preview.TimerText;
@@ -104,7 +109,7 @@ namespace CastlePlanner
         public string RotationText => preview.RotationText;
         public ObservableCollection<string> RotationOptions =>
             preview.RotationChoices;
-        public bool CanConfirmCastle => preview.CanConfirm;
+        public bool CanConfirmCastle => ManualControlsAllowed && preview.CanConfirm;
         public bool SpectatorMode { get; private set; }
         public Noesis.Visibility ManualCastleVisibility => SpectatorMode ? Noesis.Visibility.Collapsed : Noesis.Visibility.Visible;
         public Noesis.Visibility SpectatorCastleVisibility => SpectatorMode ? Noesis.Visibility.Visible : Noesis.Visibility.Collapsed;
@@ -118,7 +123,8 @@ namespace CastlePlanner
                 CloseSearchPopupForApplicationFocusLoss();
                 if (enabled && rotationComboBox != null) rotationComboBox.IsDropDownOpen = false;
                 SpectatorMode = enabled;
-                foreach (string property in new[] { nameof(SpectatorMode), nameof(ManualCastleVisibility), nameof(SpectatorCastleVisibility), nameof(CanSelectCastle), nameof(CanSelectRotation), nameof(SelectedCastle), nameof(SelectedRotation) }) OnPropertyChanged(property);
+                foreach (string property in new[] { nameof(SpectatorMode), nameof(ManualCastleVisibility), nameof(SpectatorCastleVisibility), nameof(CanSelectCastle), nameof(CanSelectRotation), nameof(SelectedCastle), nameof(SelectedRotation), nameof(PreviewVisible), nameof(NormalBlueprintSettingsVisible), nameof(PanelHeight), nameof(CanConfirmCastle) }) OnPropertyChanged(property);
+                ((BlueprintParticipantCommand)ConfirmCastleCommand).NotifyChanged();
             }
             string text = SerpLocalization.Get("CastlePlanner.Hud.AiPlan").Replace("{Lord}", name);
             if (text != SpectatorCastleText) { SpectatorCastleText = text; OnPropertyChanged(nameof(SpectatorCastleText)); }
@@ -127,8 +133,8 @@ namespace CastlePlanner
             if (sourceText != SpectatorAivFileText) { SpectatorAivFileText = sourceText; OnPropertyChanged(nameof(SpectatorAivFileText)); }
             if (!ReferenceEquals(colour, SpectatorCastleColour)) { SpectatorCastleColour = colour; OnPropertyChanged(nameof(SpectatorCastleColour)); }
         }
-        public bool CanSelectCastle => !SpectatorMode && (!PreviewVisible || preview.CanConfirm);
-        public bool CanSelectRotation => !SpectatorMode && settings.AllowRotation && preview.CanConfirm && preview.HasRotatableSelection;
+        public bool CanSelectCastle => ManualControlsAllowed && (!PreviewVisible || preview.CanConfirm);
+        public bool CanSelectRotation => ManualControlsAllowed && settings.AllowRotation && preview.CanConfirm && preview.HasRotatableSelection;
         public double PanelWidth => ClampPanelExtent(
             DesiredPanelWidth,
             viewportWidth);
@@ -139,7 +145,7 @@ namespace CastlePlanner
         public string SelectedRotation
         {
             get => preview.SelectedRotation;
-            set { if (!SpectatorMode) preview.SelectedRotation = value; }
+            set { if (ManualControlsAllowed) preview.SelectedRotation = value; }
         }
 
         public ObservableCollection<string> CastleOptions =>
@@ -159,7 +165,7 @@ namespace CastlePlanner
             }
             set
             {
-                if (SpectatorMode) return;
+                if (!ManualControlsAllowed) return;
                 if (PreviewVisible)
                 {
                     if (IsPreviewSpecialChoice(value))

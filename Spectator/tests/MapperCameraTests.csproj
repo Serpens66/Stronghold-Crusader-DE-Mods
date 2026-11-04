@@ -1,0 +1,5 @@
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<PropertyGroup><TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion><OutputType>Exe</OutputType><AssemblyName>SpectatorMapperCameraTests</AssemblyName><LangVersion>latest</LangVersion><AllowUnsafeBlocks>true</AllowUnsafeBlocks></PropertyGroup>
+<ItemGroup><Reference Include="System"/><Reference Include="System.Core"/><Reference Include="System.Numerics"/><Compile Include="MapperCameraTests.cs"/><Compile Include="..\src\SpectatorRuntime.MapperCamera.cs"/></ItemGroup>
+<Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets"/>
+</Project>

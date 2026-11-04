@@ -66,6 +66,7 @@ namespace BugfixesAndQoL
             options["EnableAiDefensePatrolFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableAiDefensePatrolFix");
             options["EnableAiWallTargetingFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableAiWallTargetingFix");
             options["EnablePrebuiltAiWorkshopBothFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnablePrebuiltAiWorkshopBothFix");
+            options["EnablePrebuiltAiStorageFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnablePrebuiltAiStorageFix");
             options["EnableAivDefenderPositionFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableAivDefenderPositionFix");
             options["FixAIPreplacedMapBuildings"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.FixAIPreplacedMapBuildings");
             options["FixAITowerRepair"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.FixAITowerRepair");

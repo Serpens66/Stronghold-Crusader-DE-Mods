@@ -11,9 +11,23 @@ namespace Spectator
         public static readonly DependencyProperty EnabledProperty = DependencyProperty.RegisterAttached(
             "Enabled", typeof(bool), typeof(MenuToolTipSizing), new PropertyMetadata(false, Changed));
         public static bool GetEnabled(DependencyObject value) => (bool)value.GetValue(EnabledProperty);
-        public static void SetEnabled(DependencyObject value, bool enabled) => value.SetValue(EnabledProperty, enabled);
+        public static void SetEnabled(DependencyObject value, bool enabled)
+        {
+            bool unchanged = GetEnabled(value) == enabled;
+            value.SetValue(EnabledProperty, enabled);
+            // A XAML style may already supply True before the explicit HUD initialization.
+            // Setting that same value need not invoke the dependency-property callback.
+            if (unchanged && value is ToolTip tip) Configure(tip, enabled);
+        }
         private static FrameworkElement reference, viewport;
         private static readonly HashSet<ToolTip> openTips = new HashSet<ToolTip>();
+
+        internal static void InitializeToolTip(DependencyObject owner)
+        {
+            // Called by the existing HUD cache traversal, never by a frame-time tree walk.
+            // Only our opted-in tooltips are touched; native HUD hover text stays independent.
+            if (ToolTipService.GetToolTip(owner) is ToolTip tip && GetEnabled(tip)) SetEnabled(tip, true);
+        }
 
         internal static void SetReference(FrameworkElement value, FrameworkElement canvas = null)
         {
@@ -31,13 +45,17 @@ namespace Spectator
 
         private static void Changed(DependencyObject value, DependencyPropertyChangedEventArgs args)
         {
-            if (!(value is ToolTip tip)) return;
+            if (value is ToolTip tip) Configure(tip, (bool)args.NewValue);
+        }
+
+        private static void Configure(ToolTip tip, bool enabled)
+        {
             tip.Opened -= Opened;
             tip.Loaded -= Opened;
             tip.SizeChanged -= SizeChanged;
             tip.Closed -= Closed;
             openTips.Remove(tip);
-            if (!(bool)args.NewValue) { tip.IsOpen = false; return; }
+            if (!enabled) { tip.IsOpen = false; return; }
             SHCDESE.UI.ToolTipResolutionScale.SetEnabled(tip, false);
             tip.FontSize = ToolbarGeometry.MenuFontSize;
             tip.MaxWidth = 420;
@@ -47,6 +65,7 @@ namespace Spectator
             tip.Loaded += Opened;
             tip.SizeChanged += SizeChanged;
             tip.Closed += Closed;
+            Opened(tip, null);
         }
 
         private static void Closed(object sender, RoutedEventArgs args) => openTips.Remove((ToolTip)sender);
@@ -60,8 +79,10 @@ namespace Spectator
             if (!tip.IsVisible) return; // Loaded/SizeChanged retries after the popup has joined its view.
             var surface = tip.PlacementTarget as FrameworkElement ?? reference;
             if (!surface.IsVisible) { tip.IsOpen = false; return; }
-            Point menuOrigin = surface.PointToScreen(new Point(0, 0));
-            Point menuUnit = surface.PointToScreen(new Point(100, 100));
+            // Placement targets can have their own transforms or native HUD scales.
+            // Every tool popup must instead match the same rendered portrait toolbar.
+            Point menuOrigin = reference.PointToScreen(new Point(0, 0));
+            Point menuUnit = reference.PointToScreen(new Point(100, 100));
             Point popupOrigin = tip.PointToScreen(new Point(0, 0));
             Point popupUnit = tip.PointToScreen(new Point(100, 100));
             if (!ToolbarGeometry.TryTooltipScale(menuUnit.X - menuOrigin.X, menuUnit.Y - menuOrigin.Y,

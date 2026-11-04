@@ -33,6 +33,14 @@ try {
         @('CrusaderDE.MainViewModel','get_Show_HUD_IngameMenu','method'),
         @('CrusaderDE.MainViewModel','get_MEMode','method'),
         @('CrusaderDE.HUD_Main','NewBuildScreenBlank','method'),
+        @('GameMap','instance','field'),
+        @('GameMap','ignoreNextCachedBounds','field'),
+        @('GameMap','mapGameTileToTilemapCoord','method'),
+        @('GameMap','getMapTile','method'),
+        @('GameMap','PreCalcScreenCentre','method'),
+        @('CameraControls2D','instance','field'),
+        @('CameraControls2D','setCameraPos','method'),
+        @('PerfectPixelWithZoom','instance','field'),
         @('CrusaderDE.MainViewModel','get_AlliesPanelVisible','method'),
         @('CrusaderDE.MainViewModel','get_MeritPanelVisible','method'),
         @('CrusaderDE.MainViewModel','get_MPChatVisible','method'),
@@ -110,6 +118,17 @@ try {
 $extender = [Mono.Cecil.AssemblyDefinition]::ReadAssembly((Join-Path $gameDirectory 'BepInEx\plugins\000shcdese\SHCDESE.dll'))
 try {
     $player = $extender.MainModule.GetType('SHCDESE.API.GamePlayerManagerAPI')
+    $converter = @($extender.MainModule.GetType('SHCDESE.CoordinateConverter').Methods | Where-Object {
+        $_.Name -eq 'ConvertLocalTileToCameraWorld' -and $_.IsPublic -and $_.IsStatic -and
+        $_.ReturnType.FullName -eq 'System.Numerics.Vector2' -and $_.Parameters.Count -eq 1 -and
+        $_.Parameters[0].ParameterType.FullName -eq 'System.Numerics.Vector2'
+    })
+    if ($converter.Count -ne 1) { throw 'Public synchronous camera coordinate conversion contract changed.' }
+    foreach ($name in @('r_FirstGoodsyardId','r_FirstGranaryId','r_FirstArmouryId','r_TradePostId','r_EuroMercPostId','r_EngineersGuildId','r_TunnelersGuildId')) {
+        if (@($extender.MainModule.GetType('SHCDESE.Interop.GamePlayerResources').Fields | Where-Object {
+            $_.Name -eq $name -and $_.IsPublic -and $_.FieldType.FullName -eq 'System.UInt32'
+        }).Count -ne 1) { throw "Public first-building resource field contract changed: $name" }
+    }
     foreach ($name in @('SubtractIncomingGood','RemoveGood','GetCurrentGameTypeMode','AddIncomingGood','AddPlayerGold','GetPlayerGold','TryGetPlayerResourcesById','SetLocalPlayerExtremePowersEnabled','IsLocalPlayerExtremePowersEnabled','GetLordUnitId','GetLordUnitGlobalId')) {
         $method = @($player.Methods | Where-Object { $_.Name -eq $name -and $_.IsPublic })
         if ($method.Count -ne 1) { throw "Missing or ambiguous Extender player API: $name" }

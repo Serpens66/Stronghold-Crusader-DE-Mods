@@ -239,6 +239,10 @@
     <Compile Include="src\CorruptLordDataSpawnPolicy.cs" />
     <Compile Include="src\CorruptLordDataSpawnRuntime.cs" />
     <Compile Include="src\PrebuiltAiWorkshopBothFixRuntime.cs" />
+    <Compile Include="src\PrebuiltAiStorageFixRuntime.cs" />
+    <Compile Include="src\PrebuiltAiStorageCompletionPolicy.cs" />
+    <Compile Include="..\Shared\Runtime\Gameplay\DeferredStoragePlacements.cs"><Link>Shared\Runtime\Gameplay\DeferredStoragePlacements.cs</Link></Compile>
+    <Compile Include="..\Shared\Runtime\Gameplay\StoragePlacementBackend.cs"><Link>Shared\Runtime\Gameplay\StoragePlacementBackend.cs</Link></Compile>
     <Compile Include="src\NativeTannerFade.cs" />
     <Compile Include="src\NativeTannerFadeState.cs" />
     <Compile Include="src\NotificationQueueNativeContract.cs" />

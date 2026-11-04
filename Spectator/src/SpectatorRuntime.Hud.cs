@@ -77,6 +77,7 @@ namespace Spectator
             }
             humanScreen = screen;
             humanBoundHud = hud;
+            ReconcileObserverBuildHud(hud);
             humanCanvas = canvas;
             humanPanel = panel;
             humanDetails = details;
@@ -139,6 +140,7 @@ namespace Spectator
         {
             toolbarPortraits.Reset();
             ReleaseActivePlayerBuildMenu();
+            observerBuildHud.Reset();
             toolbarDirty = true;
             DetachPortraitNumbers();
             DetachToolbarLayout();
@@ -257,7 +259,7 @@ namespace Spectator
                     portraitMask |= 1 << owner;
                 }
                 var target = targetButtons[owner];
-                bool targetAvailable = IsToolsPlayer(owner, false);
+                bool targetAvailable = IsOrderTarget(owner);
                 target.Visibility = targetAvailable ? Visibility.Visible : Visibility.Collapsed;
                 MarkOwnerButton(target, owner == toolsModel.Target);
                 if (targetAvailable)
@@ -358,7 +360,7 @@ namespace Spectator
             if (command == "Defend") { QueueOrder(TestActionKind.Defend, toolsModel.Target, toolsModel.ForceAcceptance); return; }
             if (command == "Cancel") { QueueOrder(TestActionKind.Cancel, 0, false); return; }
             if (command != null && command.StartsWith("Target", StringComparison.Ordinal) &&
-                int.TryParse(command.Substring(6), out int target) && IsToolsPlayer(target, false))
+                int.TryParse(command.Substring(6), out int target) && IsOrderTarget(target))
                 toolsModel.Target = target;
         }
 
@@ -408,7 +410,7 @@ namespace Spectator
                 Point current = args.GetPosition(humanCanvas);
                 Point origin = humanCanvas.PointToScreen(new Point(0, 0));
                 Point unit = humanCanvas.PointToScreen(new Point(100, 100));
-                toolbarMoved = !toolbarDrag.Drop(current.X, current.Y, toolbarDockGrip,
+                toolbarMoved = !toolbarDrag.Drop(current.X, current.Y, ToolbarDropTarget((unit.Y - origin.Y) / 100),
                     (unit.X - origin.X) / 100, (unit.Y - origin.Y) / 100, toolbarFloatingScale,
                     out toolbarDesiredX, out toolbarDesiredY);
                 if (!toolbarMoved) dockBuildMenu.Request();
@@ -609,6 +611,9 @@ namespace Spectator
             if (!view.Show_HUD_MissionOver && !view.Show_HUD_Briefing) view.DefaultGameUIGameAction();
             else { view.Show_HUD_Building = false; view.Show_HUD_Troops = false; }
             view.buildControlsFreeze(true);
+            // Promotion is confirmed only after this method returns. Clear explicitly
+            // now, before a first foreign viewpoint can make the old icons selectable.
+            ReconcileObserverBuildHud(preparingPromotion: true);
         }
 
         private static int controlUnfreezeDiagnostics;
@@ -703,6 +708,7 @@ namespace Spectator
                 if (stateCheck || rosterChanged || contentChanged)
                 {
                     if (SpectatorDefeat.NeedsPresentation) SpectatorDefeat.ObservePresentedState();
+                    ReconcileObserverBuildHud();
                     Statistics?.ObserveAvailability(contentChanged);
                     if (rosterChanged) { rosterPending = false; ObserveRoster(); }
                     RetireUnavailablePlacement();
@@ -752,7 +758,12 @@ namespace Spectator
                 }
                 MainViewModel view = MainViewModel.Instance;
                 HUD_Main hud = view.HUDmain;
-                if (hud == null || !view.Show_HUD_Main) return;
+                if (hud == null || !view.Show_HUD_Main)
+                {
+                    // Placement may remain active while troop/building HUDs replace the build menu.
+                    PositionToolbar();
+                    return;
+                }
                 if (IsEditorToolsSession()) return;
                 bool layoutChanged = EnsurePlacementHudLayout(hud);
                 bool firstLayout = !ReferenceEquals(hud, initialLayoutLoggedHud);

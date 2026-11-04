@@ -190,3 +190,23 @@ The pure live-plan adapter inverts the rotated footprint origin to reuse the exi
 ### Spectator AIV source names (2026-10-28)
 
 Presentation metadata only. The selected native variant is joined to the current session's RestartSkirmishMapInfo.aivs in its original import order. Fresh multiplayer uses the current lobby's serialized MPAIVInfo, excluding portrait/configuration payloads; loaded MP saves without original metadata remain unnamed. Empty candidates retain their indices. Built-in candidate checksum ranges 1..8 / 51..58 / 61 identify Default / Community / Historical source indices as serialized by CustomisationFileManager. AIVLoader's checked private static string[,] AIVs supplies actual default filenames; alternate arrays only exist before AILords.SK_JEWEL. The checked private GameAssetManagerAPI._fileIndex is read as IDictionary to include registered archive overrides without reading/extracting content. Both reflection contracts are optional and failure affects only the source label, with one warning per context. No AIV loader, decoder, file catalog or native entry is called. Names are cached per player/session, reset with selection/lifecycle, and excluded from geometry comparison. Vanilla's actual accepted native plan remains authoritative even when source metadata is unavailable.
+
+## Delayed storage sections (2026-11-04)
+
+Native SHA256: FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
+The native constructor registers the first storage record while it is still
+`NeedsInit`; the shared connection predicate at `0xC72C0` accepts only `IsAlive`.
+The normal building update at `0xC60F0` performs that transition. The confirmed
+Stores branch at `0x7897F` calls the same predicate as Granary and Armoury.
+
+CastlePlanner now maps all three storage families from the filtered, chosen AIV
+through the existing complete-footprint rotation transform, then uses the shared
+`DeferredStorageQueue` and `StoragePlacementBackend`. The Keep-created stockpile
+is an eligible seed even when the plan contains only one extension. Storage
+creation preserves Vanilla placement rules and waits for real native readiness;
+no new native hook, forced initialization or public API is added. The old
+supplemental bypass route now handles fear-factor structures only. Map replacement
+or save loading clears all deferred startup work. Queue behavior is covered by
+shared tests; the CastlePlanner mapping test includes all four stockpile rotations
+and one-extension plans. Actual game and real host/client acceptance remains a
+separate validation step.

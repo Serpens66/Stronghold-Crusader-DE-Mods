@@ -6,6 +6,7 @@ internal static class ToolbarLayoutTests
 {
     internal static void Run(Action<bool, string> check)
     {
+        CheckReachableDock(check);
         foreach (float scale in new[] { .75f, 1f, 1.5f, 2f, 3f })
         foreach (int count in new[] { 1,2,3,4,5,6,7,8 })
         {
@@ -233,6 +234,61 @@ internal static class ToolbarLayoutTests
         CheckCoverage(fullBand,controls,freeParts,check);
         foreach(var part in freeParts) check(part.Bottom==166,"Every free strip reaches the screen bottom, including the old nine-unit gap.");
     }
+    private static void CheckReachableDock(Action<bool,string> check)
+    {
+        foreach(float uiScale in new[]{.75f,1f,1.5f,2f,3f})
+        foreach(float screenScale in new[]{1f,1.5f,2f})
+        foreach(int count in new[]{1,8}) foreach(bool expanded in new[]{false,true})
+        {
+            const float viewportHeight=1080;
+            var alignment=new ToolbarRect(400,viewportHeight-166*uiScale,914*uiScale,166*uiScale);
+            var frame=new ToolbarRect(400+114*uiScale,viewportHeight-144*uiScale,800*uiScale,144*uiScale);
+            var pose=ToolbarLayout.Arrange(alignment,frame,count,expanded,true);
+            var original=ToolbarLayout.DockDropTarget(alignment,frame);
+            float height=pose.Bounds.Height*uiScale;
+            var target=ToolbarLayout.ReachableDockDropTarget(original,height,uiScale,viewportHeight,screenScale);
+            check(target.X==original.X && target.Width==original.Width,"screen-edge docking never widens the horizontal snap zone");
+            var clamped=ToolbarLayout.Clamp(original.X,viewportHeight,pose.Bounds.Width*uiScale,height,1920,viewportHeight);
+            check(clamped.Bottom<=viewportHeight+.001f,"expanded tools remain entirely on screen during docking");
+            var grip=ToolbarLayout.FloatingGripRect;
+            float centreOffset=(grip.Y+grip.Height/2)*uiScale;
+            float centreY=Math.Min(original.Bottom,Math.Max(original.Y,clamped.Y+centreOffset));
+            var drag=new ToolbarDragAnchor();
+            drag.Begin(0,0,new ToolbarRect(0,0,grip.Width*uiScale,grip.Height*uiScale),false);
+            float px=original.X+original.Width/2-grip.Width*uiScale/2;
+            float py=centreY-grip.Height*uiScale/2;
+            drag.Move(px,py,target,screenScale,screenScale,uiScale,out _,out _);
+            check(drag.Preview,"clamped expanded/collapsed row can preview docking with sparse/full roster");
+            check(drag.Drop(px,py,target,screenScale,screenScale,uiScale,out _,out _),"release uses the same reachable zone as preview");
+
+            float newCentre=(target.Y+original.Y)/2;
+            check(newCentre<original.Y && newCentre>=centreOffset && newCentre<=clamped.Y+centreOffset,
+                "real expanded/collapsed geometry gains a reachable snap band above the original dock zone");
+            drag.Begin(0,0,new ToolbarRect(0,0,grip.Width*uiScale,grip.Height*uiScale),false);
+            py=newCentre-grip.Height*uiScale/2;
+            drag.Move(px,py,target,screenScale,screenScale,uiScale,out _,out _);
+            check(drag.Preview && drag.Drop(px,py,target,screenScale,screenScale,uiScale,out _,out _),
+                "preview and drop work in the added band with the actual current toolbar height");
+
+            // A target entirely below the reachable grip range must remain reachable at the limit.
+            float tallHeight=220*uiScale;
+            float limit=viewportHeight-tallHeight+centreOffset;
+            target=ToolbarLayout.ReachableDockDropTarget(original,tallHeight,uiScale,viewportHeight,screenScale);
+            check(Math.Abs(target.Y-Math.Max(centreOffset,limit-original.Height))<.01f,
+                "unreachable dock target retains its height within the available viewport grip range");
+            drag.Begin(0,0,new ToolbarRect(0,0,grip.Width*uiScale,grip.Height*uiScale),false);
+            py=limit-grip.Height*uiScale/2;
+            drag.Move(px,py,target,screenScale,screenScale,uiScale,out _,out _);
+            check(drag.Preview,"expanded window need not leave the viewport to reach a low dock target");
+            drag.Move(px,target.Y-1-grip.Height*uiScale/2,target,screenScale,screenScale,uiScale,out _,out _);
+            check(!drag.Preview,"above the projected band must not snap");
+            check(!drag.Drop(original.X-1-grip.Width*uiScale/2,py,target,screenScale,screenScale,uiScale,out _,out _),"horizontal miss rejects a stale projected preview");
+            target=ToolbarLayout.ReachableDockDropTarget(original,viewportHeight,uiScale,viewportHeight,screenScale);
+            check(Math.Abs(target.Y-(centreOffset-14/screenScale))<.01f,
+                "a full-height window projects to a line with fourteen physical pixels of tolerance");
+        }
+    }
+
     private static void CheckCoverage(ToolbarRect band,List<ToolbarRect> controls,List<ToolbarRect> parts,Action<bool,string> check)
     {
         foreach(var part in parts) foreach(var control in controls)

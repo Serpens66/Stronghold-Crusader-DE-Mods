@@ -149,9 +149,12 @@ namespace Spectator
 
         private static void OnBeforeRender()
         {
+            long diagnosticStarted = 0;
+            Shared.DevDiag.Start(ref diagnosticStarted);
             try { RenderFrame(); }
             finally
             {
+                Shared.DevDiag.StopSpike(ref diagnosticStarted, "spectator.render", 20000);
                 TimeSpan retry = presentationRefresh.RetryDelay(System.Diagnostics.Stopwatch.GetTimestamp(),
                     System.Diagnostics.Stopwatch.Frequency);
                 if (retry > TimeSpan.Zero)

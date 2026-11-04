@@ -36,7 +36,7 @@ namespace Spectator
         private static readonly Brush snapIdleBrush = new SolidColorBrush(Color.FromArgb(136, 151, 118, 69));
         private static readonly Brush snapReadyBrush = new SolidColorBrush(Color.FromRgb(239, 198, 112));
         private static ToolbarRect toolbarDockGrip, toolbarVisibleGrip;
-        private static float toolbarFloatingScale = 1;
+        private static float toolbarFloatingScale = 1, toolbarFloatingHeight;
         private static readonly ToolbarDragAnchor toolbarDrag = new ToolbarDragAnchor();
 
         private static void BindToolbarLayout()
@@ -98,6 +98,7 @@ namespace Spectator
 
         private static void CacheVanillaLayout(DependencyObject root)
         {
+            MenuToolTipSizing.InitializeToolTip(root);
             if (root is FrameworkElement element)
             {
                 if (element.Name == "HUD_Troops" || element.Name == "HUD_Buildings") CacheCenterOwner(element);
@@ -172,6 +173,7 @@ namespace Spectator
                 ObserveLayout(alignmentAnchor); ObserveLayout(frameAnchor);
                 ObserveLayout(scrollAnchor);
                 CacheVanillaLayout(humanScreen.FindName("MainHUD") as DependencyObject ?? humanBoundHud);
+                CacheVanillaLayout(humanPanel);
                 CacheCenterOwner(CrusaderDE.MainViewModel.Instance.HUDAlliesPanel?.FindName("LayoutRoot") as FrameworkElement);
                 CacheCenterOwner(CrusaderDE.MainViewModel.Instance.HUDMeritPanel?.FindName("LayoutRoot") as FrameworkElement);
                 CacheCenterOwner(CrusaderDE.MainViewModel.Instance.HUDMPChatPanel?.FindName("LayoutRoot") as FrameworkElement);
@@ -222,6 +224,7 @@ namespace Spectator
             float units = toolbarMoved ? 1 : nativeScale;
             float width = pose.Bounds.Width / units, height = pose.Bounds.Height / units;
             toolbarFloatingScale = Math.Min(nativeScale, Math.Min(vw / floatingPose.Bounds.Width, vh / floatingPose.Bounds.Height));
+            toolbarFloatingHeight = floatingPose.Bounds.Height * toolbarFloatingScale;
             float scale = toolbarMoved ? toolbarFloatingScale : Math.Min(nativeScale, Math.Min(vw / width, vh / height));
             humanPanel.Width = toolbarRoot.Width = width; humanPanel.Height = toolbarRoot.Height = height;
             toolsModel.SetFloating(toolbarMoved);
@@ -239,7 +242,10 @@ namespace Spectator
                 toolbarMoved ? toolbarDesiredY : groupDock.Y, width * scale, height * scale, vw, vh);
             toolbarOwners.Width = roster.Width; toolbarOwners.Height = roster.Height;
             Place(rosterSurface, roster); Place(toolbarControl, control); Place(humanDragHandle, grip);
-            bool controlVisible = toolsAvailable && (toolbarMoved || humanPlacementMode || HasOwnBuildMenu() || toolbarHudDisplay != DockHudDisplay.Hidden);
+            bool controlVisible = DockHudPolicy.CanShowControl(toolsAvailable, toolbarMoved,
+                view.Show_HUD_Main, GateHudLifecycle.IsBuildScreen(view.buildScreenID) ||
+                view.buildScreenID == DockHudPolicy.BlankBuildScreen, frameVisible,
+                foreign || view.Show_HUD_Troops || view.Show_HUD_Building);
             toolbarControl.Visibility = controlVisible ? Visibility.Visible : Visibility.Collapsed;
             toolbarControl.IsHitTestVisible = controlVisible;
             rosterSurface.Background = toolbarMoved ? transparentToolbarBrush : rosterPaper;
@@ -381,11 +387,14 @@ namespace Spectator
         {
             Point origin = humanCanvas.PointToScreen(new Point(0, 0));
             Point unit = humanCanvas.PointToScreen(new Point(100, 100));
-            toolbarMoved = toolbarDrag.Move(x, y, toolbarDockGrip,
+            toolbarMoved = toolbarDrag.Move(x, y, ToolbarDropTarget((unit.Y - origin.Y) / 100),
                 (unit.X - origin.X) / 100, (unit.Y - origin.Y) / 100,
                 toolbarFloatingScale, out toolbarDesiredX, out toolbarDesiredY);
             toolbarLayoutDirty = true;
         }
+        private static ToolbarRect ToolbarDropTarget(float screenScaleY) =>
+            ToolbarLayout.ReachableDockDropTarget(toolbarDockGrip, toolbarFloatingHeight,
+                toolbarFloatingScale, humanCanvas.ActualHeight, screenScaleY);
         private static void DetachToolbarLayout()
         {
             UpdatePlacementDate(false);

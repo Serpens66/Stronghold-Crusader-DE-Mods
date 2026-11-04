@@ -749,29 +749,57 @@ namespace Spectator
                 view.DefaultGameUIGameAction();
         }
 
+        // Switch measurements and their state exist only in the /devdiag build.
+        static partial void DiagPerspectiveSwitchBegin(int player);
+        static partial void DiagPerspectiveSwitchStage(string stage, bool completed);
+
         internal static void SelectPlayer(int player)
         {
+            DiagPerspectiveSwitchBegin(player);
+#if SERP_DEVDIAG
+            try
+            {
+#endif
             if (!spectatorActive || player < 1 || player > 8 || occupiedSlots == null || !occupiedSlots[player] ||
-                SpectatorDefeat.IsPlayerEliminated(player)) return;
+                SpectatorDefeat.IsPlayerEliminated(player))
+            { DiagPerspectiveSwitchStage("rejected/selection", true); return; }
             var state = GameData.Instance?.lastGameState;
             if (state == null || state.spectatorMode == 0 || state.game_type != (int)eGameTypeModes.GAMETYPE_MULTIPLAYER ||
                 EditorDirector.instance == null || !IsSpectatorObserver() ||
-                !state.is_human_or_skirmish_player(player) || selectedPlayer == player) return;
+                !state.is_human_or_skirmish_player(player) || selectedPlayer == player)
+            { DiagPerspectiveSwitchStage("rejected/state-or-unchanged", true); return; }
+            DiagPerspectiveSwitchStage("validated", false);
             try
             {
-                if (!TrySetView(player)) return;
+                if (!TrySetView(player))
+                { DiagPerspectiveSwitchStage("try-set-view/rejected", true); return; }
+                DiagPerspectiveSwitchStage("try-set-view", false);
             }
             catch (Exception error)
             {
+                DiagPerspectiveSwitchStage("try-set-view/exception/" + error.GetType().Name, true);
                 Shared.DebugLogHelper.LogError(log, $"SPECTATOR_PERSPECTIVE_SELECT_FAILED: player={player}, error={error}.");
                 return;
             }
             selectedPlayer = player;
             WaitForFreshReport();
+            DiagPerspectiveSwitchStage("wait-report", false);
             CacheSelectedName();
+            DiagPerspectiveSwitchStage("cache-name", false);
             SpectatorRuntime.AcceptPerspective(player);
+            DiagPerspectiveSwitchStage("accept-selection", false);
             WaitForFreshAllies(state);
+            DiagPerspectiveSwitchStage("wait-allies", false);
             ApplyControlPresentation();
+            DiagPerspectiveSwitchStage("apply-presentation", true);
+#if SERP_DEVDIAG
+            }
+            catch (Exception error)
+            {
+                DiagPerspectiveSwitchStage("exception/" + error.GetType().Name, true);
+                throw;
+            }
+#endif
         }
 
     }
