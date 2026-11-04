@@ -159,12 +159,18 @@ function Invoke-ModBuildCheckpointCore {
         [Parameter(Mandatory)][string]$Driver,[Parameter(Mandatory)][string[]]$Arguments,[Parameter(Mandatory)][string]$Commit,
         [Parameter(Mandatory)][string]$GameDirectory,[Parameter(Mandatory)][string]$ExtenderDirectory,
         [Parameter(Mandatory)][string]$ApiSharedDirectory,[Parameter(Mandatory)][string]$ApiSourceDirectory,
-        [Parameter(Mandatory)][string]$Compiler,[Parameter(Mandatory)][scriptblock]$Action)
+        [Parameter(Mandatory)][string]$Compiler,[string]$RetainedPackageDirectory,[Parameter(Mandatory)][scriptblock]$Action)
     if($ModName -cnotmatch '^[A-Za-z][A-Za-z0-9_.-]*$' -or $Commit -cnotmatch '^[a-f0-9]{40}$'){throw 'Invalid build checkpoint identity.'}
     $context=[ordered]@{Workspace=[IO.Path]::GetFullPath($Workspace);Coordinator=[IO.Path]::GetFullPath($Coordinator);ModName=$ModName;ModDirectory=[IO.Path]::GetFullPath($ModDirectory);
         PackageDirectory=[IO.Path]::GetFullPath($PackageDirectory);Driver=[IO.Path]::GetFullPath($Driver);Arguments=@($Arguments);Commit=$Commit;
         GameDirectory=[IO.Path]::GetFullPath($GameDirectory);ExtenderDirectory=[IO.Path]::GetFullPath($ExtenderDirectory);
         ApiSharedDirectory=[IO.Path]::GetFullPath($ApiSharedDirectory);ApiSourceDirectory=[IO.Path]::GetFullPath($ApiSourceDirectory);Compiler=[IO.Path]::GetFullPath($Compiler)}
+    if($RetainedPackageDirectory) {
+        $retained=[IO.Path]::GetFullPath($RetainedPackageDirectory)
+        if(-not $retained.StartsWith($context.Workspace.TrimEnd('\')+'\.release-output\',[StringComparison]::OrdinalIgnoreCase)){throw 'Retained build package escapes release output.'}
+        Assert-ModCheckpointPath $retained
+        $context.RetainedPackageDirectory=$retained
+    }
     $cache=Join-Path ([IO.Path]::GetFullPath($Coordinator)) '.release-output/checkpoints/mod-builds'
     $path=Join-Path $cache ($ModName+'.json');$fingerprint=$null;$cacheAvailable=$false;$cacheWritable=$false
     try {
@@ -175,10 +181,13 @@ function Invoke-ModBuildCheckpointCore {
         if([IO.File]::Exists($path) -and (Get-Item -LiteralPath $path).Length -le 1MB) {
             $proof=[IO.File]::ReadAllText($path)|ConvertFrom-Json
             if($proof.SchemaVersion -eq 1 -and $proof.Fingerprint -ceq $fingerprint -and $proof.BuildCommit -ceq $Commit -and $proof.Status -ceq 'Passed') {
-                $actual=@(Get-ModCheckpointPackage $context.PackageDirectory)
-                if(($actual|ConvertTo-Json -Depth 4 -Compress) -ceq (@($proof.PackageFiles)|ConvertTo-Json -Depth 4 -Compress)) {
-                    Write-Host ('[{0:yyyy-MM-dd HH:mm:ss.fff}] Reusing successful {1} build/checks from {2}; package hashes verified.' -f [DateTime]::Now,$ModName,$proof.BuildCompletedUtc)
-                    return [pscustomobject]@{ExitCode=0;Output=@();Checkpoint=[pscustomobject]@{Reused=$true;Fingerprint=$fingerprint;BuildCommit=$proof.BuildCommit;BuildStartedUtc=$proof.BuildStartedUtc;BuildCompletedUtc=$proof.BuildCompletedUtc}}
+                foreach($candidate in @($context.PackageDirectory,$RetainedPackageDirectory)) {
+                    if(-not $candidate){continue}
+                    try {$actual=@(Get-ModCheckpointPackage $candidate)}catch{continue}
+                    if(($actual|ConvertTo-Json -Depth 4 -Compress) -ceq (@($proof.PackageFiles)|ConvertTo-Json -Depth 4 -Compress)) {
+                        Write-Host ('[{0:yyyy-MM-dd HH:mm:ss.fff}] Reusing successful {1} build/checks from {2}; package hashes verified.' -f [DateTime]::Now,$ModName,$proof.BuildCompletedUtc)
+                        return [pscustomobject]@{ExitCode=0;Output=@();PackageDirectory=[IO.Path]::GetFullPath($candidate);Checkpoint=[pscustomobject]@{Reused=$true;Fingerprint=$fingerprint;BuildCommit=$proof.BuildCommit;BuildStartedUtc=$proof.BuildStartedUtc;BuildCompletedUtc=$proof.BuildCompletedUtc}}
+                    }
                 }
             }
         }
@@ -215,7 +224,7 @@ function Invoke-ModBuildCheckpoint {
         [Parameter(Mandatory)][string]$Driver,[Parameter(Mandatory)][string[]]$Arguments,[Parameter(Mandatory)][string]$Commit,
         [Parameter(Mandatory)][string]$GameDirectory,[Parameter(Mandatory)][string]$ExtenderDirectory,
         [Parameter(Mandatory)][string]$ApiSharedDirectory,[Parameter(Mandatory)][string]$ApiSourceDirectory,
-        [Parameter(Mandatory)][string]$Compiler,[Parameter(Mandatory)][scriptblock]$Action)
+        [Parameter(Mandatory)][string]$Compiler,[string]$RetainedPackageDirectory,[Parameter(Mandatory)][scriptblock]$Action)
     # Installation is an externally visible side effect, not proved by package hashes.
     # Only the explicit non-installing build contract is eligible for whole-build reuse.
     if($Arguments -notcontains '/noinstall'){return (& $Action)}
