@@ -237,6 +237,7 @@ namespace ExtraFeatures
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
             this.multiplayerFeatureGate = multiplayerFeatureGate ?? throw new ArgumentNullException(nameof(multiplayerFeatureGate));
             this.unitLimitBridge = unitLimitBridge ?? throw new ArgumentNullException(nameof(unitLimitBridge));
+            selectionWorld = new KnightSelectionWorld(this);
             buttonViewModel = new KnightDismountButtonViewModel(
                 OnDismountCommand,
                 OnMountCommand,
@@ -299,9 +300,7 @@ namespace ExtraFeatures
                 lock (engineGate)
                 {
                     CancelAllPending("feature-disabled", refundGold: true, releaseReservedHorse: true);
-                    pendingSelectionRequestIds.Clear();
-                    pendingSelectionTransferIds.Clear();
-                    pendingSelectionTransferTicks = 0;
+                    selectionTransfers.Clear();
                 }
             }
 
@@ -1111,7 +1110,7 @@ namespace ExtraFeatures
                 return false;
             }
 
-            bool transferSelection = ShouldTransferSelection(currentSnapshot.OwnerPlayerId, currentKnight);
+            bool transferSelection = ShouldTransferSelection(currentSnapshot, currentKnight);
             if (!(APIShared.UnitAccess.TryGetById(currentKnightId, out _, out _) && GameUnitManagerAPI.Instance.DeleteUnitSafe(currentKnightId)))
             {
                 RollbackConsumedStableHorse(consumedHorse, reason);

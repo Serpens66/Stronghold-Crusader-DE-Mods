@@ -176,6 +176,10 @@ namespace BugfixesAndQoL
         public string Key { get; }
         public bool IsHost { get; }
         public string Title => ModSettingsPresentation.Text("Topic." + Id);
+        // Keep the theme identity while adding its category to each descendant's search text.
+        public string FixesSearchTitle => Title + " " + SerpLocalization.Get("BugfixesAndQoL.FixesTitle");
+        public string QolSearchTitle => Title + " " + SerpLocalization.Get("BugfixesAndQoL.QolTitle");
+        public string PossibleSearchTitle => Title + " " + SerpLocalization.Get("BugfixesAndQoL.PossibleFixesTitle");
         public int OptionCount => options.Count;
         public string CountText => OptionCount.ToString(CultureInfo.InvariantCulture);
         public bool IsExpanded => ContentVisibility == Visibility.Visible;
@@ -237,7 +241,8 @@ namespace BugfixesAndQoL
         private void Notify()
         {
             foreach (string property in new[] { nameof(Visibility), nameof(ContentVisibility), nameof(IsExpanded),
-                nameof(FixesVisibility), nameof(QolVisibility), nameof(PossibleVisibility), nameof(Title), nameof(CountText) })
+                nameof(FixesVisibility), nameof(QolVisibility), nameof(PossibleVisibility), nameof(Title), nameof(CountText),
+                nameof(FixesSearchTitle), nameof(QolSearchTitle), nameof(PossibleSearchTitle) })
                 PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(property));
         }
     }

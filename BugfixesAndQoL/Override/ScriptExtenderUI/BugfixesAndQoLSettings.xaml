@@ -296,7 +296,7 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}" sha
           </Grid>
         </Button>
         <StackPanel Visibility="{Binding SettingsPresentation.ClientDisplay.ContentVisibility}" Margin="8,2,8,6">
-          <StackPanel Visibility="{Binding SettingsPresentation.ClientDisplay.FixesVisibility}">
+          <StackPanel Visibility="{Binding SettingsPresentation.ClientDisplay.FixesVisibility}" shared:ModSettingsSearch.SectionKey="bugfixes.topic.client-display" shared:ModSettingsSearch.SectionTitle="{Binding SettingsPresentation.ClientDisplay.FixesSearchTitle}">
             <TextBlock Text="{Binding FixesTitleText}" Style="{StaticResource CategoryHeader}" Margin="28,8,0,4" shared:ModSettingsSearch.Exclude="True"/>
             <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.preserve-display-resolution" shared:ModSettingsSearch.Title="{Binding PreserveDisplayResolutionText}" shared:ModSettingsSearch.ToolTipText="{Binding PreserveDisplayResolutionHelpText}">
               <Grid.ColumnDefinitions>
@@ -360,7 +360,7 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}" sha
               </Grid>
             </Grid>
           </StackPanel>
-          <StackPanel Visibility="{Binding SettingsPresentation.ClientDisplay.QolVisibility}">
+          <StackPanel Visibility="{Binding SettingsPresentation.ClientDisplay.QolVisibility}" shared:ModSettingsSearch.SectionKey="bugfixes.topic.client-display" shared:ModSettingsSearch.SectionTitle="{Binding SettingsPresentation.ClientDisplay.QolSearchTitle}">
             <TextBlock Text="{Binding QolTitleText}" Style="{StaticResource CategoryHeader}" Margin="28,8,0,4" shared:ModSettingsSearch.Exclude="True"/>
             <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.show-selected-unit-health" shared:ModSettingsSearch.Title="{Binding ShowSelectedUnitHealthText}" shared:ModSettingsSearch.ToolTipText="{Binding ShowSelectedUnitHealthHelpText}">
               <Grid.ColumnDefinitions>
@@ -443,7 +443,7 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}" sha
               </WrapPanel>
             </Grid>
           </StackPanel>
-          <StackPanel Visibility="{Binding SettingsPresentation.ClientDisplay.PossibleVisibility}">
+          <StackPanel Visibility="{Binding SettingsPresentation.ClientDisplay.PossibleVisibility}" shared:ModSettingsSearch.SectionKey="bugfixes.topic.client-display" shared:ModSettingsSearch.SectionTitle="{Binding SettingsPresentation.ClientDisplay.PossibleSearchTitle}">
             <TextBlock Text="{Binding PossibleFixesTitleText}" Style="{StaticResource CategoryHeader}" Margin="28,8,0,4" shared:ModSettingsSearch.Exclude="True"/>
             <TextBlock Text="{Binding SettingsPresentation.PossibleFixesHelpText}" Foreground="#FFBBBBBB" TextWrapping="Wrap" Margin="28,0,0,8" shared:ModSettingsSearch.Exclude="True"/>
             <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-notification-last-frame" shared:ModSettingsSearch.Title="{Binding EnableNotificationLastFrameText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableNotificationLastFrameHelpText}">
@@ -491,7 +491,7 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}" sha
           </Grid>
         </Button>
         <StackPanel Visibility="{Binding SettingsPresentation.ClientControls.ContentVisibility}" Margin="8,2,8,6">
-          <StackPanel Visibility="{Binding SettingsPresentation.ClientControls.FixesVisibility}">
+          <StackPanel Visibility="{Binding SettingsPresentation.ClientControls.FixesVisibility}" shared:ModSettingsSearch.SectionKey="bugfixes.topic.client-controls" shared:ModSettingsSearch.SectionTitle="{Binding SettingsPresentation.ClientControls.FixesSearchTitle}">
             <TextBlock Text="{Binding FixesTitleText}" Style="{StaticResource CategoryHeader}" Margin="28,8,0,4" shared:ModSettingsSearch.Exclude="True"/>
             <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-minimap-cursor-follow-fix" shared:ModSettingsSearch.Title="{Binding EnableMinimapCursorFollowFixText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableMinimapCursorFollowFixHelpText}">
               <Grid.ColumnDefinitions>
@@ -530,7 +530,7 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}" sha
               </Grid>
             </Grid>
           </StackPanel>
-          <StackPanel Visibility="{Binding SettingsPresentation.ClientControls.QolVisibility}">
+          <StackPanel Visibility="{Binding SettingsPresentation.ClientControls.QolVisibility}" shared:ModSettingsSearch.SectionKey="bugfixes.topic.client-controls" shared:ModSettingsSearch.SectionTitle="{Binding SettingsPresentation.ClientControls.QolSearchTitle}">
             <TextBlock Text="{Binding QolTitleText}" Style="{StaticResource CategoryHeader}" Margin="28,8,0,4" shared:ModSettingsSearch.Exclude="True"/>
             <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.improved-build-preview" shared:ModSettingsSearch.Title="{Binding ImprovedBuildPreviewText}" shared:ModSettingsSearch.ToolTipText="{Binding ImprovedBuildPreviewHelpText}">
               <Grid.ColumnDefinitions>
@@ -623,7 +623,7 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}" sha
           </Grid>
         </Button>
         <StackPanel Visibility="{Binding SettingsPresentation.ClientMenus.ContentVisibility}" Margin="8,2,8,6">
-          <StackPanel Visibility="{Binding SettingsPresentation.ClientMenus.FixesVisibility}">
+          <StackPanel Visibility="{Binding SettingsPresentation.ClientMenus.FixesVisibility}" shared:ModSettingsSearch.SectionKey="bugfixes.topic.client-menus" shared:ModSettingsSearch.SectionTitle="{Binding SettingsPresentation.ClientMenus.FixesSearchTitle}">
             <TextBlock Text="{Binding FixesTitleText}" Style="{StaticResource CategoryHeader}" Margin="28,8,0,4" shared:ModSettingsSearch.Exclude="True"/>
             <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-custom-trail-extreme-gold-fix" shared:ModSettingsSearch.Title="{Binding EnableCustomTrailExtremeGoldFixText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableCustomTrailExtremeGoldFixHelpText}">
               <Grid.ColumnDefinitions>
@@ -638,7 +638,7 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}" sha
               </Grid>
             </Grid>
           </StackPanel>
-          <StackPanel Visibility="{Binding SettingsPresentation.ClientMenus.QolVisibility}">
+          <StackPanel Visibility="{Binding SettingsPresentation.ClientMenus.QolVisibility}" shared:ModSettingsSearch.SectionKey="bugfixes.topic.client-menus" shared:ModSettingsSearch.SectionTitle="{Binding SettingsPresentation.ClientMenus.QolSearchTitle}">
             <TextBlock Text="{Binding QolTitleText}" Style="{StaticResource CategoryHeader}" Margin="28,8,0,4" shared:ModSettingsSearch.Exclude="True"/>
             <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.show-vanilla-maps-in-editor" shared:ModSettingsSearch.Title="{Binding ShowLoadSaveDialogControlsText}" shared:ModSettingsSearch.ToolTipText="{Binding ShowLoadSaveDialogControlsHelpText}">
               <Grid.ColumnDefinitions>
@@ -776,7 +776,7 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}" sha
           </Grid>
         </Button>
         <StackPanel Visibility="{Binding SettingsPresentation.ClientMarket.ContentVisibility}" Margin="8,2,8,6">
-          <StackPanel Visibility="{Binding SettingsPresentation.ClientMarket.FixesVisibility}">
+          <StackPanel Visibility="{Binding SettingsPresentation.ClientMarket.FixesVisibility}" shared:ModSettingsSearch.SectionKey="bugfixes.topic.client-market" shared:ModSettingsSearch.SectionTitle="{Binding SettingsPresentation.ClientMarket.FixesSearchTitle}">
             <TextBlock Text="{Binding FixesTitleText}" Style="{StaticResource CategoryHeader}" Margin="28,8,0,4" shared:ModSettingsSearch.Exclude="True"/>
             <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-market-key-main-menu-fix" shared:ModSettingsSearch.Title="{Binding EnableMarketKeyMainMenuFixText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableMarketKeyMainMenuFixHelpText}">
               <Grid.ColumnDefinitions>
@@ -803,7 +803,7 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}" sha
               </Grid>
             </Grid>
           </StackPanel>
-          <StackPanel Visibility="{Binding SettingsPresentation.ClientMarket.QolVisibility}">
+          <StackPanel Visibility="{Binding SettingsPresentation.ClientMarket.QolVisibility}" shared:ModSettingsSearch.SectionKey="bugfixes.topic.client-market" shared:ModSettingsSearch.SectionTitle="{Binding SettingsPresentation.ClientMarket.QolSearchTitle}">
             <TextBlock Text="{Binding QolTitleText}" Style="{StaticResource CategoryHeader}" Margin="28,8,0,4" shared:ModSettingsSearch.Exclude="True"/>
             <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-ally-goods-amount-modifiers" shared:ModSettingsSearch.Title="{Binding EnableAllyGoodsAmountModifiersText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableAllyGoodsAmountModifiersHelpText}">
               <Grid.ColumnDefinitions>
@@ -893,7 +893,7 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}" sha
           </Grid>
         </Button>
         <StackPanel Visibility="{Binding SettingsPresentation.HostSetup.ContentVisibility}" Margin="8,2,8,6">
-          <StackPanel Visibility="{Binding SettingsPresentation.HostSetup.FixesVisibility}">
+          <StackPanel Visibility="{Binding SettingsPresentation.HostSetup.FixesVisibility}" shared:ModSettingsSearch.SectionKey="bugfixes.topic.host-setup" shared:ModSettingsSearch.SectionTitle="{Binding SettingsPresentation.HostSetup.FixesSearchTitle}">
             <TextBlock Text="{Binding FixesTitleText}" Style="{StaticResource CategoryHeader}" Margin="28,8,0,4" shared:ModSettingsSearch.Exclude="True"/>
             <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-abrupt-host-migration-fix" shared:ModSettingsSearch.Title="{Binding EnableAbruptHostMigrationFixText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableAbruptHostMigrationFixHelpText}">
               <Grid.ColumnDefinitions>
@@ -968,7 +968,7 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}" sha
               </Grid>
             </Grid>
           </StackPanel>
-          <StackPanel Visibility="{Binding SettingsPresentation.HostSetup.QolVisibility}">
+          <StackPanel Visibility="{Binding SettingsPresentation.HostSetup.QolVisibility}" shared:ModSettingsSearch.SectionKey="bugfixes.topic.host-setup" shared:ModSettingsSearch.SectionTitle="{Binding SettingsPresentation.HostSetup.QolSearchTitle}">
             <TextBlock Text="{Binding QolTitleText}" Style="{StaticResource CategoryHeader}" Margin="28,8,0,4" shared:ModSettingsSearch.Exclude="True"/>
             <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-peace-time-civilian-proximity-reduction" shared:ModSettingsSearch.Title="{Binding EnablePeaceTimeCivilianProximityReductionText}" shared:ModSettingsSearch.ToolTipText="{Binding EnablePeaceTimeCivilianProximityReductionHelpText}">
               <Grid.ColumnDefinitions>
@@ -1136,7 +1136,7 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}" sha
           </Grid>
         </Button>
         <StackPanel Visibility="{Binding SettingsPresentation.HostAi.ContentVisibility}" Margin="8,2,8,6">
-          <StackPanel Visibility="{Binding SettingsPresentation.HostAi.FixesVisibility}">
+          <StackPanel Visibility="{Binding SettingsPresentation.HostAi.FixesVisibility}" shared:ModSettingsSearch.SectionKey="bugfixes.topic.host-ai" shared:ModSettingsSearch.SectionTitle="{Binding SettingsPresentation.HostAi.FixesSearchTitle}">
             <TextBlock Text="{Binding FixesTitleText}" Style="{StaticResource CategoryHeader}" Margin="28,8,0,4" shared:ModSettingsSearch.Exclude="True"/>
             <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-ai-stone-reserve-fix" shared:ModSettingsSearch.Title="{Binding EnableAiStoneReserveFixText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableAiStoneReserveFixHelpText}">
               <Grid.ColumnDefinitions>
@@ -1309,7 +1309,7 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}" sha
               </Grid>
             </Grid>
           </StackPanel>
-          <StackPanel Visibility="{Binding SettingsPresentation.HostAi.QolVisibility}">
+          <StackPanel Visibility="{Binding SettingsPresentation.HostAi.QolVisibility}" shared:ModSettingsSearch.SectionKey="bugfixes.topic.host-ai" shared:ModSettingsSearch.SectionTitle="{Binding SettingsPresentation.HostAi.QolSearchTitle}">
             <TextBlock Text="{Binding QolTitleText}" Style="{StaticResource CategoryHeader}" Margin="28,8,0,4" shared:ModSettingsSearch.Exclude="True"/>
             <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.remember-ai-aiv-settings" shared:ModSettingsSearch.Title="{Binding RememberAiAivSettingsText}" shared:ModSettingsSearch.ToolTipText="{Binding RememberAiAivSettingsHelpText}">
               <Grid.ColumnDefinitions>
@@ -1336,7 +1336,7 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}" sha
               </Grid>
             </Grid>
           </StackPanel>
-          <StackPanel Visibility="{Binding SettingsPresentation.HostAi.PossibleVisibility}">
+          <StackPanel Visibility="{Binding SettingsPresentation.HostAi.PossibleVisibility}" shared:ModSettingsSearch.SectionKey="bugfixes.topic.host-ai" shared:ModSettingsSearch.SectionTitle="{Binding SettingsPresentation.HostAi.PossibleSearchTitle}">
             <TextBlock Text="{Binding PossibleFixesTitleText}" Style="{StaticResource CategoryHeader}" Margin="28,8,0,4" shared:ModSettingsSearch.Exclude="True"/>
             <TextBlock Text="{Binding SettingsPresentation.PossibleFixesHelpText}" Foreground="#FFBBBBBB" TextWrapping="Wrap" Margin="28,0,0,8" shared:ModSettingsSearch.Exclude="True"/>
             <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-ai-sell-threshold-fix" shared:ModSettingsSearch.Title="{Binding EnableAiSellThresholdFixText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableAiSellThresholdFixHelpText}">
@@ -1370,7 +1370,7 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}" sha
           </Grid>
         </Button>
         <StackPanel Visibility="{Binding SettingsPresentation.HostTroops.ContentVisibility}" Margin="8,2,8,6">
-          <StackPanel Visibility="{Binding SettingsPresentation.HostTroops.FixesVisibility}">
+          <StackPanel Visibility="{Binding SettingsPresentation.HostTroops.FixesVisibility}" shared:ModSettingsSearch.SectionKey="bugfixes.topic.host-troops" shared:ModSettingsSearch.SectionTitle="{Binding SettingsPresentation.HostTroops.FixesSearchTitle}">
             <TextBlock Text="{Binding FixesTitleText}" Style="{StaticResource CategoryHeader}" Margin="28,8,0,4" shared:ModSettingsSearch.Exclude="True"/>
             <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-troop-movement-fix" shared:ModSettingsSearch.Title="{Binding EnableTroopMovementFixText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableTroopMovementFixHelpText}">
               <Grid.ColumnDefinitions>
@@ -1445,7 +1445,7 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}" sha
               </Grid>
             </Grid>
           </StackPanel>
-          <StackPanel Visibility="{Binding SettingsPresentation.HostTroops.QolVisibility}">
+          <StackPanel Visibility="{Binding SettingsPresentation.HostTroops.QolVisibility}" shared:ModSettingsSearch.SectionKey="bugfixes.topic.host-troops" shared:ModSettingsSearch.SectionTitle="{Binding SettingsPresentation.HostTroops.QolSearchTitle}">
             <TextBlock Text="{Binding QolTitleText}" Style="{StaticResource CategoryHeader}" Margin="28,8,0,4" shared:ModSettingsSearch.Exclude="True"/>
             <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-extended-shift-command-queue" shared:ModSettingsSearch.Title="{Binding EnableExtendedShiftCommandQueueText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableExtendedShiftCommandQueueHelpText}">
               <Grid.ColumnDefinitions>
@@ -1514,7 +1514,7 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}" sha
           </Grid>
         </Button>
         <StackPanel Visibility="{Binding SettingsPresentation.HostEconomy.ContentVisibility}" Margin="8,2,8,6">
-          <StackPanel Visibility="{Binding SettingsPresentation.HostEconomy.FixesVisibility}">
+          <StackPanel Visibility="{Binding SettingsPresentation.HostEconomy.FixesVisibility}" shared:ModSettingsSearch.SectionKey="bugfixes.topic.host-economy" shared:ModSettingsSearch.SectionTitle="{Binding SettingsPresentation.HostEconomy.FixesSearchTitle}">
             <TextBlock Text="{Binding FixesTitleText}" Style="{StaticResource CategoryHeader}" Margin="28,8,0,4" shared:ModSettingsSearch.Exclude="True"/>
             <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-keep-flag-rotation-fix" shared:ModSettingsSearch.Title="{Binding EnableKeepFlagRotationFixText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableKeepFlagRotationFixHelpText}">
               <Grid.ColumnDefinitions>
@@ -1601,7 +1601,7 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}" sha
               </Grid>
             </Grid>
           </StackPanel>
-          <StackPanel Visibility="{Binding SettingsPresentation.HostEconomy.QolVisibility}">
+          <StackPanel Visibility="{Binding SettingsPresentation.HostEconomy.QolVisibility}" shared:ModSettingsSearch.SectionKey="bugfixes.topic.host-economy" shared:ModSettingsSearch.SectionTitle="{Binding SettingsPresentation.HostEconomy.QolSearchTitle}">
             <TextBlock Text="{Binding QolTitleText}" Style="{StaticResource CategoryHeader}" Margin="28,8,0,4" shared:ModSettingsSearch.Exclude="True"/>
             <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.single-building-pause" shared:ModSettingsSearch.Title="{Binding EnableSingleBuildingPauseText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableSingleBuildingPauseHelpText}">
               <Grid.ColumnDefinitions>
@@ -1664,7 +1664,7 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}" sha
               </Grid>
             </Grid>
           </StackPanel>
-          <StackPanel Visibility="{Binding SettingsPresentation.HostEconomy.PossibleVisibility}">
+          <StackPanel Visibility="{Binding SettingsPresentation.HostEconomy.PossibleVisibility}" shared:ModSettingsSearch.SectionKey="bugfixes.topic.host-economy" shared:ModSettingsSearch.SectionTitle="{Binding SettingsPresentation.HostEconomy.PossibleSearchTitle}">
             <TextBlock Text="{Binding PossibleFixesTitleText}" Style="{StaticResource CategoryHeader}" Margin="28,8,0,4" shared:ModSettingsSearch.Exclude="True"/>
             <TextBlock Text="{Binding SettingsPresentation.PossibleFixesHelpText}" Foreground="#FFBBBBBB" TextWrapping="Wrap" Margin="28,0,0,8" shared:ModSettingsSearch.Exclude="True"/>
             <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-baker-miller-breaks" shared:ModSettingsSearch.Title="{Binding EnableBakerMillerBreaksText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableBakerMillerBreaksHelpText}">
@@ -1710,7 +1710,7 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}" sha
           </Grid>
         </Button>
         <StackPanel Visibility="{Binding SettingsPresentation.HostSiege.ContentVisibility}" Margin="8,2,8,6">
-          <StackPanel Visibility="{Binding SettingsPresentation.HostSiege.FixesVisibility}">
+          <StackPanel Visibility="{Binding SettingsPresentation.HostSiege.FixesVisibility}" shared:ModSettingsSearch.SectionKey="bugfixes.topic.host-siege" shared:ModSettingsSearch.SectionTitle="{Binding SettingsPresentation.HostSiege.FixesSearchTitle}">
             <TextBlock Text="{Binding FixesTitleText}" Style="{StaticResource CategoryHeader}" Margin="28,8,0,4" shared:ModSettingsSearch.Exclude="True"/>
             <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-gatehouse-living-capture-fix" shared:ModSettingsSearch.Title="{Binding EnableGatehouseLivingCaptureFixText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableGatehouseLivingCaptureFixHelpText}">
               <Grid.ColumnDefinitions>
@@ -1785,7 +1785,7 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}" sha
               </Grid>
             </Grid>
           </StackPanel>
-          <StackPanel Visibility="{Binding SettingsPresentation.HostSiege.QolVisibility}">
+          <StackPanel Visibility="{Binding SettingsPresentation.HostSiege.QolVisibility}" shared:ModSettingsSearch.SectionKey="bugfixes.topic.host-siege" shared:ModSettingsSearch.SectionTitle="{Binding SettingsPresentation.HostSiege.QolSearchTitle}">
             <TextBlock Text="{Binding QolTitleText}" Style="{StaticResource CategoryHeader}" Margin="28,8,0,4" shared:ModSettingsSearch.Exclude="True"/>
             <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.centered-gatehouse-distance" shared:ModSettingsSearch.Title="{Binding EnableCenteredGatehouseDistanceFixText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableCenteredGatehouseDistanceFixHelpText}">
               <Grid.ColumnDefinitions>
@@ -1812,7 +1812,7 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}" sha
               </Grid>
             </Grid>
           </StackPanel>
-          <StackPanel Visibility="{Binding SettingsPresentation.HostSiege.PossibleVisibility}">
+          <StackPanel Visibility="{Binding SettingsPresentation.HostSiege.PossibleVisibility}" shared:ModSettingsSearch.SectionKey="bugfixes.topic.host-siege" shared:ModSettingsSearch.SectionTitle="{Binding SettingsPresentation.HostSiege.PossibleSearchTitle}">
             <TextBlock Text="{Binding PossibleFixesTitleText}" Style="{StaticResource CategoryHeader}" Margin="28,8,0,4" shared:ModSettingsSearch.Exclude="True"/>
             <TextBlock Text="{Binding SettingsPresentation.PossibleFixesHelpText}" Foreground="#FFBBBBBB" TextWrapping="Wrap" Margin="28,0,0,8" shared:ModSettingsSearch.Exclude="True"/>
             <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-assassin-captured-gate-protection-fix" shared:ModSettingsSearch.Title="{Binding EnableAssassinCapturedGateProtectionFixText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableAssassinCapturedGateProtectionFixHelpText}">
@@ -1847,7 +1847,7 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}" sha
         </Button>
         <StackPanel Visibility="{Binding SettingsPresentation.HostPerformance.ContentVisibility}" Margin="8,2,8,6">
           <TextBlock Text="{Binding SettingsPresentation.PerformanceHelpText}" Foreground="#FFCCCCCC" TextWrapping="Wrap" Margin="28,6,0,8" shared:ModSettingsSearch.Exclude="True"/>
-          <StackPanel Visibility="{Binding SettingsPresentation.HostPerformance.FixesVisibility}">
+          <StackPanel Visibility="{Binding SettingsPresentation.HostPerformance.FixesVisibility}" shared:ModSettingsSearch.SectionKey="bugfixes.topic.host-performance" shared:ModSettingsSearch.SectionTitle="{Binding SettingsPresentation.HostPerformance.FixesSearchTitle}">
             <TextBlock Text="{Binding FixesTitleText}" Style="{StaticResource CategoryHeader}" Margin="28,8,0,4" shared:ModSettingsSearch.Exclude="True"/>
             <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-enemy-gate-pathfinding-fix" shared:ModSettingsSearch.Title="{Binding EnableEnemyGatePathfindingFixText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableEnemyGatePathfindingFixHelpText}">
               <Grid.ColumnDefinitions>
@@ -1886,7 +1886,7 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}" sha
               </Grid>
             </Grid>
           </StackPanel>
-          <StackPanel Visibility="{Binding SettingsPresentation.HostPerformance.QolVisibility}">
+          <StackPanel Visibility="{Binding SettingsPresentation.HostPerformance.QolVisibility}" shared:ModSettingsSearch.SectionKey="bugfixes.topic.host-performance" shared:ModSettingsSearch.SectionTitle="{Binding SettingsPresentation.HostPerformance.QolSearchTitle}">
             <TextBlock Text="{Binding QolTitleText}" Style="{StaticResource CategoryHeader}" Margin="28,8,0,4" shared:ModSettingsSearch.Exclude="True"/>
             <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-improved-assassin-pathfinding" shared:ModSettingsSearch.Title="{Binding EnableImprovedAssassinPathfindingText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableImprovedAssassinPathfindingHelpText}">
               <Grid.ColumnDefinitions>

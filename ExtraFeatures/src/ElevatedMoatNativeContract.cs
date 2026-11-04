@@ -986,10 +986,7 @@ namespace ExtraFeatures
         }
 
         private static int ReadInt32(ReadOnlySpan<byte> memory, int offset) =>
-            memory[offset] |
-            memory[offset + 1] << 8 |
-            memory[offset + 2] << 16 |
-            memory[offset + 3] << 24;
+            Shared.NativePatternResolver.ReadInt32(memory, offset);
 
         private static void ValidateRefreshOrder(
             ReadOnlySpan<byte> memory,

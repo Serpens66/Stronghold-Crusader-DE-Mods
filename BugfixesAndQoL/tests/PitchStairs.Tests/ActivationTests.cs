@@ -2,58 +2,145 @@ using BugfixesAndQoL.PitchStairs;
 using System;
 using System.Threading;
 
-// Production snapshot controller: models the external pre-load/settings/end event ordering.
-// Native generator execution is covered separately by StubTests; no game or UI is loaded here.
+// Production controller; only native publication and loader/tick boundaries are doubles.
 internal static class ActivationTests
 {
+    private static int checks;
     internal static void Run()
     {
-        int checks = 0;
+        checks = 0;
         foreach (bool ready in new[] { false, true })
         foreach (bool mod in new[] { false, true })
         foreach (bool feature in new[] { false, true })
+        foreach (bool outside in new[] { false, true })
         {
-            object engineGate = new object();
-            bool native = false;
-            int writes = 0;
-            var activation = new PitchStairsActivation(engineGate, value =>
+            var f = new Fixture();
+            bool desired = ready && mod && feature;
+            if (outside)
             {
-                Require(Monitor.IsEntered(engineGate), "native publication must hold Vanilla's engine gate");
-                native = value; writes++;
+                Require(f.Activation.BeginLoad(1, ready, mod, feature), "outside phase queues");
+                Require(f.Writes == 0, "outside phase leaves old world intact");
+            }
+            int result = f.Activation.RunLoad(() =>
+            {
+                if (!outside)
+                {
+                    Require(f.Writes == 0, "inside hook has no premature snapshot");
+                    Require(f.Activation.BeginLoad(1, ready, mod, feature), "inside phase publishes");
+                }
+                Require(f.Native == desired && f.Writes == 1, "original loader sees finalized gates in either hook order");
+                Require(!f.Activation.BeginLoad(1, !ready, !mod, !feature), "nested phase cannot resnapshot");
+                f.Activation.RunLoad(() => { Require(f.Writes == 1, "nested wrapper cannot republish"); return 0; });
+                return 42;
             });
-            // First BeforeLoad sees settings already restored from a save or flushed from the host.
-            Require(activation.BeginLoad(1, ready, mod, feature), "first load publishes");
-            Require(native == (ready && mod && feature) && writes == 1, "effective host setting snapshot");
-            // Later initialization/Started/preset changes cannot overwrite the first snapshot.
-            Require(!activation.BeginLoad(1, true, !mod, !feature), "nested load does not resnapshot");
-            Require(writes == 1 && native == (ready && mod && feature), "nested path retains actual world rule");
-            Require(!activation.End(0), "unrelated old session end ignored");
-            Require(activation.End(1), "matching end unlocks UI");
-            Require(!activation.End(1) && writes == 1, "duplicate end is inert, native world retained");
-            // Restart/new map/editor create/editor load/failed replacement each get a fresh ID.
+            Require(result == 42, "return value retained");
+            Require(!f.Activation.End(0), "stale end ignored");
+            Require(f.Activation.End(1), "matching end retires once");
+            Require(!f.Activation.End(1) && f.Writes == 1, "end never changes native state");
+            // Save/editor/restart/failed replacements differ only in their fresh lifecycle ID here.
             for (long session = 2; session <= 6; session++)
             {
-                bool desired = session % 2 == 0;
-                Require(activation.BeginLoad(session, true, true, desired), "replacement selects next rule");
-                Require(native == desired && writes == session, "next load uses current host settings");
-                Require(!activation.End(session - 1), "late replaced end cannot unlock next mission");
-                Require(!activation.BeginLoad(session - 1, false, false, false), "stale load cannot change world");
-                Require(activation.End(session), "failed or successful attempt retires once");
-                Require(native == desired && writes == session, "retirement leaves loaded heights and rule paired");
+                bool next = session % 2 == 0;
+                int before = f.Writes;
+                f.Activation.BeginLoad(session, true, true, next);
+                Require(f.Writes == before, "next snapshot preserves old world's rule");
+                Require(!f.Activation.End(session - 1), "old end cannot cancel next attempt");
+                Require(!f.Activation.BeginLoad(session - 1, false, false, false), "stale phase ignored");
+                f.Activation.RunLoad(() => { Require(f.Native == next && f.Writes == before + 1, "next load uses current settings"); return 0; });
+                f.Activation.End(session);
+                Require(f.Native == next && f.Writes == before + 1, "retirement preserves world and rule pairing");
             }
-            checks += 37;
         }
-        RequireThrows(() => new PitchStairsActivation(null, _ => { }));
-        RequireThrows(() => new PitchStairsActivation(new object(), null));
-        Console.WriteLine("PASS: production pitch-stairs activation snapshots; engine lock, host/master gates, nested loads, replacements and retirement (" + checks + " checks).");
+        ThrowsAndCancellation();
+        WaitingTicks();
+        RequireThrows<ArgumentNullException>(() => new PitchStairsActivation(null, _ => { }));
+        RequireThrows<ArgumentNullException>(() => new PitchStairsActivation(new object(), null));
+        RequireThrows<ArgumentNullException>(() => new Fixture().Activation.RunLoad<int>(null));
+        Console.WriteLine("PASS: production pitch-stairs activation: both hook orders, continuous engine lock, queued old tick, nested loads, throw/cancel and host/master gates (" + checks + " checks).");
     }
 
-    private static void Require(bool value, string message)
-    { if (!value) throw new InvalidOperationException("Pitch stairs activation: " + message); }
-    private static void RequireThrows(Action action)
+    private static void ThrowsAndCancellation()
     {
+        var f = new Fixture();
+        f.Activation.BeginLoad(1, true, true, true);
+        RequireThrows<InvalidOperationException>(() => f.Activation.RunLoad<int>(() => throw new InvalidOperationException("native boundary")));
+        Require(f.Native && f.Writes == 1, "throw preserves rule of the world the loader began creating");
+        f.Activation.End(1);
+        f.Activation.BeginLoad(2, true, true, false);
+        Require(f.Native && f.Writes == 1, "finally resets depth; next outside phase only queues");
+        f.Activation.End(2);
+        f.Activation.RunLoad(() => 0);
+        Require(f.Native && f.Writes == 1, "cancelled queued attempt cannot publish in unrelated wrapper");
+        f.Activation.BeginLoad(3, true, true, false);
+        f.Activation.RunLoad(() => { Require(!f.Native && f.Writes == 2, "valid replacement publishes after throw"); return 0; });
+    }
+
+    private static void WaitingTicks()
+    {
+        var f = new Fixture();
+        f.Activation.BeginLoad(1, true, true, true);
+        f.Activation.RunLoad(() => 0);
+        using (var queued = new ManualResetEventSlim())
+        using (var finished = new ManualResetEventSlim())
+        {
+            bool observed = false;
+            var tick = new Thread(() => { queued.Set(); lock (f.Gate) observed = f.Native; finished.Set(); });
+            lock (f.Gate)
+            {
+                tick.Start();
+                Require(queued.Wait(5000), "old tick reached lock boundary");
+                f.Activation.BeginLoad(2, true, true, false);
+                Require(f.Native && f.Writes == 1, "new snapshot cannot alter old world before wrapper scope");
+            }
+            Require(finished.Wait(5000) && tick.Join(5000), "previously requested tick completes");
+            Require(observed, "old tick really observed old rule after BeforeLoad queued");
+        }
+        using (var queued = new ManualResetEventSlim())
+        using (var finished = new ManualResetEventSlim())
+        {
+            bool observed = true;
+            var tick = new Thread(() => { queued.Set(); lock (f.Gate) observed = f.Native; finished.Set(); });
+            f.Activation.RunLoad(() =>
+            {
+                Require(!f.Native && f.Writes == 2, "new rule selected inside load scope");
+                tick.Start();
+                Require(queued.Wait(5000), "next tick waits during original loader");
+                Require(!finished.IsSet, "no unlocked gap between publication and original native load");
+                return 0;
+            });
+            Require(finished.Wait(5000) && tick.Join(5000), "scope releases gate on return");
+            Require(!observed, "next tick observes loaded world's new rule");
+        }
+        // A thrown loader must release the monitor as well as its reentrant depth.
+        RequireThrows<InvalidOperationException>(() => f.Activation.RunLoad<int>(() => throw new InvalidOperationException()));
+        bool entered = false;
+        var afterThrow = new Thread(() => { lock (f.Gate) entered = true; });
+        afterThrow.Start();
+        Require(afterThrow.Join(5000) && entered, "finally releases monitor after throw");
+    }
+
+    private sealed class Fixture
+    {
+        internal readonly object Gate = new object();
+        internal readonly PitchStairsActivation Activation;
+        internal bool Native;
+        internal int Writes;
+        internal Fixture()
+        {
+            Activation = new PitchStairsActivation(Gate, value =>
+            {
+                Require(Monitor.IsEntered(Gate), "publication holds Vanilla's engine gate");
+                Native = value; Writes++;
+            });
+        }
+    }
+    private static void Require(bool value, string message)
+    { checks++; if (!value) throw new InvalidOperationException("Pitch stairs activation: " + message); }
+    private static void RequireThrows<T>(Action action) where T : Exception
+    {
+        checks++;
         try { action(); }
-        catch (ArgumentNullException) { return; }
-        throw new InvalidOperationException("Missing activation prerequisite accepted.");
+        catch (T) { return; }
+        throw new InvalidOperationException("Expected boundary rejection: " + typeof(T).Name);
     }
 }

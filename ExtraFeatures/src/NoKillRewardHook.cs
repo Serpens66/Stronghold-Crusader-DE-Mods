@@ -102,7 +102,6 @@ namespace ExtraFeatures
                     FailureMode = TransactionFailureMode.RollbackAndThrow,
                     OwnsHooks = true
                 });
-            bool published = false;
             try
             {
                 transaction.AddContextHook(
@@ -116,27 +115,25 @@ namespace ExtraFeatures
                     NoKillRewardStubContract.GenerateGoldMessageGuard,
                     hookSize: GoldMessageLength);
                 VerifyLiveSpans(memory);
-                CommitResult result = transaction.Commit();
-                // From this point onward the transaction may own executable patches.
-                // Keep them rooted even if a post-commit assertion fails.
+                // One commit attempt per process: a rollback cannot be proven complete, so no
+                // retry may hook these spans a second time.
                 rootedPublishedInstance = this;
-                published = true;
+                ExtraFeaturesHookInfrastructure.RootBeforeCommit(this, transaction);
+                CommitResult result = transaction.Commit();
                 if (!result.IsCompleteSuccess ||
                     !rewardHandle.Success || !goldMessageHandle.Success ||
                     !rewardHandle.IsInstalled || !goldMessageHandle.IsInstalled ||
                     rewardHandle.Hook.DisplacedByteCount != RewardLength ||
                     goldMessageHandle.Hook.DisplacedByteCount != GoldMessageLength)
-                    throw new InvalidOperationException("The two defeat-loot hooks did not commit with their audited spans.");
+                    throw new InvalidOperationException("The two defeat-loot hooks did not commit with their audited spans; rolling back.");
                 installed = true;
             }
             catch
             {
                 Volatile.Write(ref configuration, KillRewardConfiguration.Vanilla);
-                if (!published)
-                {
-                    transaction.Dispose();
-                    transaction = null;
-                }
+                // Still an unpublished candidate: roll back both spans, also after a post-commit mismatch.
+                transaction.Dispose();
+                transaction = null;
                 throw;
             }
 
@@ -156,7 +153,7 @@ namespace ExtraFeatures
                 Marshal.OffsetOf(typeof(GamePlayerResources), nameof(GamePlayerResources.r_TotalGoodsGold)).ToInt32() != 0x50C)
                 throw new InvalidOperationException("The Extender defeat-loot resource layout changed.");
             for (int index = 0; index < RewardGoods.Length; index++)
-                if (BitConverter.ToInt32(memory.Slice(0x3327B0 + index * 4, 4).ToArray(), 0) != (int)RewardGoods[index])
+                if (ReadInt32(memory, 0x3327B0 + index * 4) != (int)RewardGoods[index])
                     throw new InvalidOperationException("The Vanilla defeat-loot goods table changed.");
         }
 
@@ -205,7 +202,7 @@ namespace ExtraFeatures
         }
 
         private static int ReadInt32(ReadOnlySpan<byte> image, int offset) =>
-            BitConverter.ToInt32(image.Slice(offset, 4).ToArray(), 0);
+            Shared.NativePatternResolver.ReadInt32(image, offset);
         private static int ReadUInt16(ReadOnlySpan<byte> image, int offset) =>
             image[offset] | (image[offset + 1] << 8);
 

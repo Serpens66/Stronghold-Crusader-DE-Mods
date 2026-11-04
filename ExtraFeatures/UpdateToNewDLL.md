@@ -10,6 +10,23 @@ The audited hash uses locally validated direct RVAs. On another hash, only the
 signature- and semantics-validated features use bounded unique scans. Knight mount/dismount uses only public Script
 Extender fields and the bidirectional stable-link API, so it has no private RVA.
 
+Hash-bound (fail closed on any other CrusaderDE.dll, no scan): Monks always run,
+fear-factor neutralization, apothecary plague range, No Kill Reward, Bedouin healer
+targets, AI defense placement, the AI-flag Disease exception and elevated moats.
+Their absolute RVAs, branch targets and the absence of incoming branches into
+each span are proven offline against the canonical DLL
+(`_inspect/ExtraFeaturesNativeTests`, `_inspect/ElevatedMoatHeightTests`); on a
+new build re-audit them and update the hash only together. Nothing is bound to a
+Script Extender, RedBird or Iced version: backend contracts (spans, schemes) are
+checked against the installed backend's actual behavior.
+
+Installation rule for every owned hook transaction: call
+`ExtraFeaturesHookInfrastructure.RootBeforeCommit` directly before `Commit()`,
+verify `Success`, `IsInstalled` and the actual `DisplacedByteCount` afterwards,
+and dispose the transaction on any mismatch before publishing. RedBird only logs
+rollback failures (`HookCommitPipeline.Rollback`, `HookTransaction.Dispose`), so
+native memory read by a stub is freed only when no commit was attempted.
+
 ## Semantic-baseline audit (2026-09-02)
 
 This pass used `_inspect/CrusaderDE-Native-Baseline/CURRENT.json` and the
@@ -23,11 +40,11 @@ managed/native links as applicable.
 | --- | --- | --- |
 | Building refunds and retained storage goods | Building delete/resource events, `GameBuilding` goods fields and pre-delete lifetime | Existing Script Extender event path remains correct; no private native address is used. |
 | Goods-gain and money multipliers | Resource-change event direction, market-trade exclusion and Vanilla price conversion | Existing event guards and arithmetic remain correct. |
-| Global and per-good market prices | AI buy/sell helpers at `0xCEB10`/`0xCEB90`, complete 31-byte functions, ABI, 10-byte detour spans and transaction callers | Existing paired hooks remain valid and self-validating on unknown hashes. |
+| Global and per-good market prices | AI buy/sell helpers at `0xCEB10`/`0xCEB90`, complete 31-byte functions, ABI, 10-byte detour spans and transaction callers | Since 2026-11 owned by APIShared (`APIShared.Economy.MarketPriceModifiers`); ExtraFeatures only contributes price factors and installs no market hook. See `../APIShared/UpdateToNewDLL.md`. |
 | Plague duration and AI flag disease | Handler `0x9A080..0x9A21A`, lifetime block at `0x9A164`, AI flag routine `0x504F0..0x50620`, projectile spawn provenance and save identity | Confirmed contracts remain valid. Corrected fail-closed behavior: on unknown DLL hashes only the self-validating global lifetime block is used; the separate layout-/provenance-dependent AI-flag/Cesspit exception detour is not installed. |
-| Apothecary plague range | Handler `0x9F700..0x9F90D`, comparison at `0x9F86B`, Vanilla distance 30 and projectile/building context | Existing bounded comparison hook remains valid. |
+| Apothecary plague range | Handler `0x9F700..0x9F90D`, comparison at `0x9F86B`, Vanilla distance 30 and projectile/building context | Since 2026-11: one 14-byte native inline hook at `0x9F866..0x9F874` (pattern start `0x9F85F`) that calls distance function `0x79C0` and rejects at `0x9F8CD` by absolute audited RVA; hash-bound because a nearby pattern cannot confirm those targets. |
 | Campfire peasants and Lord health | Public Script Extender player/unit APIs, Lord IDs and `GameUnit` health fields | No private native target; current 1-based ID use is correct. |
-| Monks always run | Monk handler `0x151090..0x152011`, decision at `0x151436`, complete overwrite instructions, branch targets and state/speed writes | Existing semantics-validated unknown-hash path remains valid. |
+| Monks always run | Monk handler `0x151090..0x152011`, decision at `0x151436`, complete overwrite instructions, branch targets and state/speed writes | Since 2026-11 hash-bound: the incoming-branch audit of the 20-byte span runs offline (`TestMonkHookHasNoIncomingDirectBranches`), not at startup. |
 | Knight mount/dismount | Public `GameUnit`/stable fields, 1-based alive-unit IDs, stable links, horse slots and Chore synchronization | Current public-API implementation and ID basis remain correct. |
 | Extra church priests | Complete worker table beginning at `0x2E5DE0`, unique pattern at `0x2E5E58` and church/cathedral worker lifecycle | Existing table-start calculation and reversible writes remain valid. |
 | AI proximity and defense repair | Functions `0x51790..0x52266` and `0x5CD90..0x5D1C5`, placement pairing, origin globals and damage/spawn observations | Existing exact-hash restriction remains required and correct. |
@@ -65,12 +82,10 @@ rollback and protection/cache-cleanup failures with a fake native-memory adapter
 | --- | ---: | --- |
 | APIShared `AivBuildStep` target | `0x51790` | audited-hash-only shared detour; ExtraFeatures registers an immutable observer |
 | `PlacementPattern` | `0x5CD90` | audited-hash-only paired AIV placement detour |
-| AI buy-price helper (`49 63 C0 8B 8C C1 B8 17 18 00 B8 67 66 66 66 F7 E9 D1 FA 8B C2 C1 E8 1F 03 C2 41 0F AF C1 C3`) | `0xCEB10` | executable-section unique scan; managed function detour |
-| AI sell-price helper (`49 63 C0 8B 8C C1 BC 17 18 00 B8 67 66 66 66 F7 E9 D1 FA 8B C2 C1 E8 1F 03 C2 41 0F AF C1 C3`) | `0xCEB90` | executable-section unique scan; managed function detour |
 | `AiFlagRoutinePattern` | `0x504F0` | audited-hash-only detour captures exact AI flag projectile provenance |
 | `LifetimePattern` | `0x9A164` | scan; lifetime immediate at `+9`, conditional comparison hook at `+18` (`0x9A176`) |
-| `BuildingDistanceComparisonPattern` | `0x9F86B` | scan; distance context hook |
-| `MovementDecisionPattern` (Monk handler) | `0x151436` | executable-section unique scan; 20-byte inline decision hook |
+| `HookPattern` (apothecary range) | `0x9F85F` | audited-hash-only; 14-byte native inline hook at `0x9F866` |
+| `MovementDecisionPattern` (Monk handler) | `0x151436` | audited-hash-only; 20-byte inline decision hook |
 | worker-table byte pattern | `0x2E5E58` | full-image data scan; table begins `0x2E5DE0` |
 | `DistanceBlockPattern` | `0xB7BBB` | executable-section unique scan; derives the three related gatehouse immediates below |
 | Gatehouse AI closing-distance immediate | `0xB7BC3` | `DistanceBlockPattern`; Vanilla `200` native units = `25` fields |
@@ -348,13 +363,13 @@ is still immutable and rejected attempts still cannot restart the delay.
 
 ## Fear-factor neutralization (1.0.91)
 
-Optional host setting `EnableFearFactorNeutralization`, default false. Both sites are native-only inline stubs (`FearFactorNativeStubs`, since 21.10.2026; formerly a managed detour and a managed context hook) that read one native activation byte, so neither path enters managed code: the damage helper runs per melee/projectile hit and the overlay load per marked visible unit and tick inside the renderer 0x41D60. Disabled damage executes the displaced Vanilla instructions and continues in Vanilla; disabled UI keeps the loaded value. Uses the shared ExtraFeatures mode gate, including the map editor. The owning runtime and persistent OnTick subscription root the hooks beyond startup cleanup.
+Optional host setting `EnableFearFactorNeutralization`, default false. Both sites are native-only inline stubs (`FearFactorNativeStubs`, since 21.10.2026; formerly a managed detour and a managed context hook) that read one native activation byte, so neither path enters managed code: the damage helper runs per melee/projectile hit and the overlay load per marked visible unit and tick inside the renderer 0x41D60. Disabled damage executes the displaced Vanilla instructions and continues in Vanilla; disabled UI keeps the loaded value. Uses the shared ExtraFeatures mode gate, including the map editor. `RootBeforeCommit` and the process-rooted runtime keep the hooks and the activation byte alive beyond startup cleanup.
 
 Reference SHA-256: FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2. SE target 2.4.0; semantic extraction commit 5d5719c1002aec043d331162d72b2e7f3111b34b. Validate installed hash against CURRENT.json and dataset binary_hash before reusing addresses.
 
 - Damage helper RVA 0x180560, length 47; full pattern in FearFactorNativeDefinition. Function entry inline hook replaces 17 bytes (MOVSXD RAX,R8D; IMUL RCX,RAX,0x583C; LEA RAX,[RIP -> fear table RVA 0x379CF04]); RedBird requires at least 14. RAX and entry flags are dead, so the stub tests the byte through RAX; enabled it returns `mov eax,edx; ret`, otherwise it replays the three instructions (the RIP-relative LEA is re-encoded by Iced) and returns to 0x180571. Vanilla computes damage * (fear + 20) * 5 / 100; replacement returns base damage only when enabled. A raw scan of all executable sections finds no direct branch into the 17-byte span. Melee caller RVA 0x199110 (2189 bytes), projectile caller RVA 0x192750 (4664 bytes), each calls this helper once. These labels correct the swapped names in the former test definition.
 - UI hook RVA 0x1A19F2, length 14 (IMUL RCX,R10,0x583C; MOV EAX,[RCX+RDI+0x379CF04]); return 0x1A1A00 before TEST EAX,EAX. Surrounding function RVA 0x1A13C0, length 5079. Validate all direct incoming targets and actual RedBird DisplacedByteCount. No interior entry is allowed.
-- Resolution checks reference RVA, then unique pattern through Shared.NativePatternResolver over the supplied native image; exact audited RVA and full semantic validation remain mandatory. Unknown hashes remain unsupported because fixed resource layout, caller/function boundaries and render-frame semantics lack a validated cross-version derivation. No automatic address migration on unknown binaries.
+- Resolution checks the pattern at the reference RVA through Shared.NativePatternResolver; exact audited RVA and full semantic validation remain mandatory. Pattern uniqueness is proven offline (`FearFactorStubTests`), so startup no longer scans the image. Unknown hashes remain unsupported because fixed resource layout, caller/function boundaries and render-frame semantics lack a validated cross-version derivation. No automatic address migration on unknown binaries.
 - Failure rolls back the entire owned hook transaction and disables only this feature. Success logs resolved RVAs and actual span. A loaded FearFactorNeutralizationTest_Serp blocks installation to prevent overlapping patches.
 - Setting changes do not uninstall hooks or overwrite global fear; they only write the activation byte. RAX is the only intentionally changed UI result, after both displaced instructions: the overlay stub replays IMUL, tests the byte through RAX (dead before the load; MOV keeps the CMP flags), replays the load and zeroes EAX when enabled. R11 (live render-cache key) and every other GPR stay untouched. The following TEST regenerates needed condition flags. Neither stub touches XMM state.
 - Test: `_inspect/ExtraFeaturesNativeTests/FearFactorStubTests.cs` (run by `build.bat`) executes the Vanilla bytes and both stub paths in a fake image with the audited RVA distances and compares all GPRs; it also checks the actual RedBird spans and the branch scan.
@@ -414,7 +429,7 @@ Migration acceptance: testmod editor logs on 2026-09-07 at 20:33:43 showed base 
 - Reference SHA-256: `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`. Owner: lord-death state function RVA `0x15A950`. The feature remains hash-bound because its resource layout, cleanup contract and message ordering are not derived for other builds.
 - Reward hook RVA `0x15C4EA`, exact 14-byte span ending at `0x15C4F8`: `4C 69 D5 0F 16 00 00 4C 69 ED 3C 58 00 00`. The native pattern resolver requires a unique match in the mapped image and the audited RVA. The first reward write follows at `0x15C4FC`; suppression branches to cleanup RVA `0x15C980`. The callback supplies resource-base RVA `0x366C210` in RCX, places the actual credited gold in R12D and uses RDX for the generated post-callback decision.
 - Gold-message hook RVA `0x15CA65`, exact 15-byte span ending at `0x15CA74`: `8B D6 44 2B E0 44 89 64 24 20 E8 5C FE EB FF`. With zero reward it skips only the gold-message call; positive rewards are emitted as one or more base-30000 messages of at most 900,000,000 gold each to fit the native signed-short payload. The preceding victory message and later follow-up remain Vanilla. The pattern resolver again requires a unique audited RVA. Both copied-buffer RedBird probes must match these complete spans and generated continuations.
-- Before committing the two hooks, compare both complete spans in the current executable pages with the validated load-time snapshot; repeat immediately before commit. A mismatch or failed native contract leaves the feature disabled and is logged once by the feature initialization guard. Published hooks remain rooted until process exit; settings change only the atomic role mask. The local Fixes and Script Extender sources and active own-mod hook sites have no known overlap at these spans.
+- Before committing the two hooks, compare both complete spans in the current executable pages with the validated load-time snapshot; repeat immediately before commit. A mismatch or failed native contract leaves the feature disabled and is logged once by the feature initialization guard; a post-commit span mismatch rolls both hooks back before publication and no second commit is attempted. Published hooks remain rooted until process exit; settings change only the atomic role mask. The local Fixes and Script Extender sources and active own-mod hook sites have no known overlap at these spans.
 
 - Configurable reward data (2026-10-27): raw player-zero resources RVA `0x379ADD0`, stride `0x583C`; source totals `+0x4D0`, incoming `+0x46C`, gold `+0x50C`, goods notification `+0x3C`; winner award statistic RVA `0x087EED98` plus one-based winnerId*4. Resolve it from LEA R13,[RIP+disp32] at `0x15C988` (next RIP `0x15C98F`, displacement `0x08417991`) and ADD [R13+RBP*4+disp32],R12D at `0x15C997` (displacement `0x0027AA78`). Validate the complete zero-through-MAX_PLAYERS Int32 range against SizeOfImage and a writable non-executable PE data section before publishing either hook; recheck both live anchor instructions immediately before commit. The previous `0x887EED98` was an erroneous RVA outside this image and must be rejected. The twenty goods indices come from the native table RVA `0x3327B0`, validated against the installed Extender enums. Bases follow the gold/goods writers at `0x15C4FC..0x15C977` and statistic writer `0x15C997`; Extender pointer equality and struct offsets are checked before writing. There is no unknown-hash layout fallback: only this feature fails closed on hash/layout mismatch. Source data and all credit amounts are staged before the first write; no throwing API follows crediting.
 - Cleanup clears the loser's incoming goods table, not its totals. Actual credited gold is bounded by both current-gold and award-statistic signed Int32 headroom before the original cleanup adds the statistic. The message continuation uses only Win64 nonvolatile RBP/RSI/R12/R13 across calls; R12 is dead before Vanilla overwrites it at `0x15CA7B`. Executed native fixtures verify chunking through Int32.MaxValue with volatile-clobbering recorders.
@@ -481,10 +496,10 @@ project's UpdateToNewDLL.md for hash, ABI, candidate-only rollback and tests. Th
 
 ## Bedouin healer targets (HealerTargetsRuntime)
 
-- Reference SHA-256: `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`. The feature is hash-bound: `HealerNativeContract.VerifyInstalledBinary` hashes the installed DLL and requires RedBird NativeX64 1.5.0.0. There is no pattern fallback because the player list count/ID/Global-ID tables and their strides are fixed-layout data not derivable from a function signature.
+- Reference SHA-256: `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`. The feature is hash-bound: `HealerNativeContract.VerifyInstalledBinary` hashes the installed DLL. It is not bound to a RedBird version: `ProbeBackend` installs a probe detour on a copied buffer and, like `ValidateInstalledDetour` after the commit, checks the actual scheme, span and pointer slot. There is no pattern fallback because the player list count/ID/Global-ID tables and their strides are fixed-layout data not derivable from a function signature.
 - Function detour (Indirect scheme, 10 displaced bytes) on the per-player unit list builder RVA `0x181340`; entry bytes `48 89 5C 24 10 48 89 6C 24 20 57 41 54 41 55 41 56 41 57 48 83 EC 30` are compared live before installation. Vanilla runs exactly once; targets are appended afterwards.
 - Data RVAs: unit manager `0x67E8400` (GameUnitArray at `+0x65C`, slot 0 = LastOrderedUnit, game IDs index directly), list count `0x379F66C` (stride `0x583C`), short ID list `0x3945748` (stride 20000), Global-ID list `0x3971668` (stride 40000), capacity 10000 per player.
-- GameUnit exclusion fields: `TargetExclusionWordOffset` `0x29C` (no Extender field; hash-bound) and `TargetExclusionByteOffset` `0x458` (= Extender `GameUnit.N000000DE`, validated with `Marshal.OffsetOf`).
+- GameUnit exclusion fields: `TargetExclusionWordOffset` `0x29C` (no Extender field; hash-bound) and `TargetExclusionByteOffset` `0x458` (hash-bound as well; the Extender's placeholder field names such as `GameUnit.N000000DE` are not a stable contract and are not checked).
 - Failure behaviour: any contract mismatch leaves only this feature uninstalled and logged; a callback exception permanently turns the published detour into a Vanilla pass-through. The published instance stays statically rooted until process exit.
 - Update audit: re-derive all RVAs/strides above from the list builder and its healer consumers in the new semantic baseline; re-check the two exclusion fields and the Extender unit layout before changing the hash.
 
@@ -512,3 +527,44 @@ active host-controlled values. On storage changes, check the migration reader's
 personal-path candidates and schema-1/2/3 envelope keys against APIShared. All writes use
 its working-copy endpoint; explicit values beat aliases. Human special radii and
 unclassified AI first placements stay Vanilla.
+
+## Elevated moats and drawbridges (ElevatedMoatPatch)
+
+Hash-bound to the reference SHA-256 above; `ElevatedMoatPatch` refuses any other
+build before resolving a pattern. `ElevatedMoatNativeContract` is the authoritative
+list of every span, function boundary, branch/call target, data RVA and expected byte
+block; this table only orients an update audit. All twenty hooks form one owned
+transaction (installed logically disabled; three native flag bytes switch them).
+
+| Hook | RVA | Bytes | Kind |
+| --- | ---: | ---: | --- |
+| Drawbridge height-failure writer | `0x7870B` | 20 | context |
+| AIV moat player-audience capture (function entry `0x59730`) | `0x59730` | 15 | context |
+| AIV moat height gate | `0x59827` | 22 | inline |
+| `MAPPER_MOAT`/`MAPPER_ANTIMOAT` command height gate | `0x5CC1E` | 14 | inline |
+| Shared moat height gate | `0x704CC` | 14 | inline |
+| AIV completed-moat height | `0x599E7` | 17 | context |
+| Excavated-moat height | `0x63A65` | 16 | context |
+| Lowered-drawbridge height write | `0x64546` | 15 | inline |
+| Direct completed-moat height | `0x705F7` | 22 | context |
+| Completed-drawbridge height write | `0x73B35` | 17 | inline |
+| Drawbridge special-renderer prologue | `0x45820` | 19 | inline |
+| Drawbridge animated-renderer arguments | `0x43BA2` | 17 | inline |
+| Drawbridge static-renderer arguments | `0x44EDD` | 16 | inline |
+| Unit drawbridge vertical correction | `0x18511C` | 19 | inline |
+| Planned moat cancellation | `0x70562` | 15 | context |
+| Direct moat-removal height | `0x70621` | 23 | context |
+| Footprint moat-removal height | `0x623DA` | 15 | context |
+| Object moat-removal height | `0x6CAA1` | 19 | context |
+| Moat work-completion height | `0x694BD` | 22 | context |
+| Area moat-removal height | `0xEDA77` | 21 | context |
+
+Data RVAs: tile manager `0x405EDB0`, default height grid `0x4E2B870`, building
+manager `0x64CCBB0`, current rendered tile height `0x42D8D8`.
+
+Update audit: re-derive every constant in `ElevatedMoatNativeContract` from the new
+semantic baseline (spans, enclosing functions, all incoming branches, call targets,
+renderer argument order, register liveness) and run `_inspect/ElevatedMoatHeightTests`,
+which validate the contract against the canonical DLL and exercise the drawbridge and
+unit-height stub generators.
+Only then update the hash.

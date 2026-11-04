@@ -92,6 +92,7 @@ namespace ExtraFeatures
 
             HookTransaction pending = null;
             IntPtr flag = IntPtr.Zero;
+            bool commitAttempted = false;
             try
             {
                 flag = Marshal.AllocHGlobal(1);
@@ -121,6 +122,8 @@ namespace ExtraFeatures
                         assembler, instructions, returnAddress, flagAddress),
                     hookSize: FearFactorNativeDefinition.UiHookLength);
 
+                ExtraFeaturesHookInfrastructure.RootBeforeCommit(this, pending);
+                commitAttempted = true;
                 CommitResult result = pending.Commit();
                 if (!result.IsCompleteSuccess || !damageHook.Success || !unitOverlayHook.Success)
                 {
@@ -148,9 +151,9 @@ namespace ExtraFeatures
                     {
                     }
                 }
-                // Only an unpublished candidate's flag is released; a published one lives
-                // as long as its stubs.
-                if (flag != IntPtr.Zero)
+                // Released only before any commit attempt; afterwards a stub may still read it
+                // (see RootBeforeCommit).
+                if (!commitAttempted && flag != IntPtr.Zero)
                     Marshal.FreeHGlobal(flag);
                 throw;
             }

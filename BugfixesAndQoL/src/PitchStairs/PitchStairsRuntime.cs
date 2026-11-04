@@ -76,10 +76,11 @@ namespace BugfixesAndQoL.PitchStairs
             if (notification.Phase != MissionInitializationPhase.BeforeLoad || notification.Context == null) return;
             // Save restoration and the MP receive flush precede this wrapper. Started is too late:
             // 0x804C0 has already normalized every pitch field by then.
-            if (activation.BeginLoad(notification.Context.SessionId, ready, settings.EnableMod, settings.EnablePitchStairsFix))
+            bool modEnabled = settings.EnableMod, featureEnabled = settings.EnablePitchStairsFix;
+            if (activation.BeginLoad(notification.Context.SessionId, ready, modEnabled, featureEnabled))
             {
                 SetMissionLockedSafely(true);
-                try { Shared.DebugLogHelper.LogInfo(log, $"PITCH_STAIRS_ACTIVATION session={notification.Context.SessionId}; enabled={Enabled}; ready={ready}."); }
+                try { Shared.DebugLogHelper.LogInfo(log, $"PITCH_STAIRS_ACTIVATION session={notification.Context.SessionId}; selected={ready && modEnabled && featureEnabled}; enabled={Enabled}; ready={ready}."); }
                 catch { /* Diagnostics cannot change the native rule selected for this world. */ }
             }
         }
@@ -138,6 +139,9 @@ namespace BugfixesAndQoL.PitchStairs
             if (!claim.Succeeded) throw new InvalidOperationException("Native site claim refused: " + claim.Reason);
             try
             {
+                // BeforeLoad alone does not exclude a queued old-world tick after its callback.
+                // Keep selection and the actual loader under one uninterrupted engine lock.
+                InstallLoadBoundaries();
                 state = Marshal.AllocHGlobal(NativeCode.StateSize);
                 Marshal.Copy(new byte[NativeCode.StateSize], 0, state, NativeCode.StateSize);
                 transaction = new HookTransaction(context.Region, SHCDESE.BepInEx.Bootstrap.Plugin.Instance.LoggerFactory,

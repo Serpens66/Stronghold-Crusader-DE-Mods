@@ -23,7 +23,7 @@ User decisions: variant B (initially as a test mod, now integrated into Bugfixes
 
 - Host option `EnablePitchStairsFix`, `[SyncHostOnly]`, default/reset true, under Host / Gates and siege rules / Fixes (`HostSiege`, `SettingsCategory.Fixes`). The native rule requires both `EnableMod` and this option; it runs on every simulation participant, including clients and the editor. Existing host presets, save/map/trail settings and synchronization own the value. No legacy testmod setting needs importing (the testmod had none).
 - Installation runs once at `CrusaderLibrary.LibraryLoaded`, before any map or save is loaded. All fourteen sites must install on the audited native hash. Successful installation leaves the native gate at zero until the first `BeforeLoad` for a new session. Failure keeps it zero and Vanilla runs (reported through the persistent-feature health log); unrelated BugfixesAndQoL features remain independent.
-- At that first `BeforeLoad`, after saved/received settings restoration and before native placement or load normalization, one snapshot under `EngineInterface.threadLock` selects `ready && EnableMod && EnablePitchStairsFix`. Duplicate/nested notifications do not republish. The selected rule stays unchanged for the entire native world, including load failure, mission end, diagnostic failure and settings restoration after the mission. Only the next session's first `BeforeLoad` may select another rule. `Started` is too late to select it; `Ended` releases the settings lock but never flips the native gate. Published hooks remain installed for the process.
+- The first `BeforeLoad`, after saved/received settings restoration, snapshots `ready && EnableMod && EnablePitchStairsFix`. Four permanent managed load boundaries (`EngineInterface.loadMap`, `LoadSaveFile`, `LoadMapFile`, `newMapEditor`) hold `EngineInterface.threadLock` continuously from publication of that snapshot through the original loader. A queued old-world tick therefore cannot run with the new rule between the callback and loading. This works with either ordering of the APIShared and BFQoL wrappers: a snapshot taken outside the boundary waits for entry; a snapshot taken inside publishes reentrantly. Duplicate/nested notifications do not resnapshot. The selected rule stays unchanged after load failure, mission end, diagnostic failure and settings restoration; an unpublished snapshot is discarded when its attempt ends. Only a new session may select another rule. `Started` is too late; `Ended` releases the settings lock but never flips the native gate. All published hooks remain installed for the process.
 - `NetworkMode` 1: stored heights change pathing and fire, so every player in a lobby needs the same gameplay mod. The ordinary shared host-setting transport is used; an extra per-peer native-readiness/start guard is deferred.
 - Loads after the Fixes mod when present (soft dependency). Fixes patches none of the fourteen sites. The BepInEx incompatibility declaration for `PitchStairsTest_Serp` prevents BugfixesAndQoL from loading alongside a residual old testmod; remove that obsolete copy before use. There must never be two owners of these sites.
 
@@ -33,7 +33,7 @@ User decisions: variant B (initially as a test mod, now integrated into Bugfixes
 |---|---|
 | `PITCH_STAIRS_SITE` | One per site with resolution method and RVA. |
 | `PITCH_STAIRS_READY` | All sites published and validated; activation awaits `BeforeLoad`. |
-| `PITCH_STAIRS_ACTIVATION` | First `BeforeLoad` selected the session's native enabled word. |
+| `PITCH_STAIRS_ACTIVATION` | First `BeforeLoad` captured `selected`; `enabled` may still show the old world until the load boundary is entered. |
 | Persistent-feature health error for `pitch/stairs height fix` | Installation refused; Vanilla heights remain active. |
 | `PITCH_STAIRS_SESSION` / `PITCH_STAIRS_SESSION_END` | Mission start/end: `enabled`, `ready`, counters as delta/total. |
 | `DEVDIAG PITCH_STAIRS_SCAN` | DEVDIAG builds, mission start: `pitchTiles`, `stillLowered` (pitch still at Vanilla's lowered height), `firstLoweredTile`, grid lengths. |
@@ -78,6 +78,12 @@ Every gameplay stub decides only on simulation data, never on MiscDisplay `0x200
 ## Acceptance status
 
 Before migration, the fourteen-site testmod source state passed 11361 native machine checks. That result is not an integrated BugfixesAndQoL build or game acceptance. The integrated fourteen-site implementation still needs game, editor, save and genuine host/client acceptance. The runs below used earlier testmod builds with eleven sites and remain valid for those builds only.
+
+### Integrated machine checks (04.11.2026)
+
+BugfixesAndQoL 1.0.212 was built from the working tree with the existing APIShared 0.27.0 SDK; APIShared was neither rebuilt nor installed. The final build passed 11361 native checks, 663 production activation checks (including both wrapper orders, queued old ticks, nested loads, cancellation and exception lock release), and 2112 compiled modsettings checks. The targeted actual-property host/preset suite passed 26 checks. The final review closed the queued-tick gap with permanent managed loader boundaries; it found no further confirmed defect.
+
+All 50 packaged files were hash-verified after installation; the two personal lobby-setting files and APIShared remained unchanged. Local evidence: `.work/a/pitch-bfq/001/result.json`, `installed.json`, `build-reviewed.log`; build record `.work/b/working/818.build.json`. These are dated local observations, not runtime dependencies. This build and installation do not replace real game, editor, repeated save/load and genuine host/client acceptance, which remain open. The exception fixture proves propagation and monitor release, not actual DLL entry for arbitrary managed failures.
 
 ### Dated evidence (02.11.2026, eleven-site builds)
 

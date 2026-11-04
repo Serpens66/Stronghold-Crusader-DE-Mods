@@ -125,7 +125,7 @@
     <Compile Include="KillRewardTests.cs" />
     <Compile Include="../src/PeriodicGoldRuntime.cs" />
     <Compile Include="../../APIShared/src/Core/Events/OwnedCallbacks.cs" />
-    <Compile Include="../../APIShared/src/Simulation/SimulationTickRegistry.cs" />
+    <Compile Include="../../APIShared/src/Simulation/SimulationTickRegistry.cs" /><Compile Include="../../APIShared/src/Simulation/SimulationMutationScope.cs" />
     <Compile Include="PeriodicGoldTests.cs" />
     <Compile Include="../src/IndependentFeatureRegistration.cs" />
     <Compile Include="PresetIntegration.cs" />

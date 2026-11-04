@@ -21,6 +21,12 @@
   },
   "documents": [
     {
+      "file": "KNIGHT_SELECTION_TRANSFERS.md",
+      "scope": "mod",
+      "components": ["ExtraFeatures", "Script Extender"],
+      "integrationSections": ["ExtraFeatures integration and verification"]
+    },
+    {
       "file": "ENEMY_HP_MULTIPLIER.md",
       "scope": "vanilla",
       "components": [],
@@ -1148,6 +1154,12 @@
       "integrationSections": [
         "Spectator observer command policy"
       ]
+    },
+    {
+      "file": "ALLY_GOODS_TRANSFERS.md",
+      "scope": "vanilla+integration",
+      "components": ["APIShared"],
+      "integrationSections": ["Shared adapter and hook evidence [mod integration]"]
     }
   ]
 }

@@ -30,6 +30,7 @@ namespace ExtraFeatures
                 NoKillRewardContractTests.Run(image);
                 HealerTargetsContractTests.Run(image, FindWorkspace());
                 FearFactorStubTests.Run(image, Check);
+                KnightSelectionTransferTests.Run(Check);
                 Console.WriteLine($"PASS: ExtraFeatures native tests ({assertions} assertions).");
                 return 0;
             }
@@ -109,7 +110,7 @@ namespace ExtraFeatures
                 "apothecary enable-disable-enable retains the same published hook");
             Check(noKillReward.Contains("rootedPublishedInstance = this;") &&
                   noKillReward.Contains("Volatile.Write(ref configuration") &&
-                  noKillReward.Contains("if (!published)"),
+                  noKillReward.Contains("ExtraFeaturesHookInfrastructure.RootBeforeCommit(this, transaction);"),
                 "No Kill Reward source guardrail retains rooted hooks and atomic logical settings");
             int finalLiveCheck = noKillReward.LastIndexOf("VerifyLiveSpans(memory);", StringComparison.Ordinal);
             int commit = noKillReward.IndexOf("transaction.Commit();", StringComparison.Ordinal);

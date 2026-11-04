@@ -67,6 +67,8 @@ Only Vanilla behavior; Script Extender names appear only as vocabulary.
 
 ## Vanilla audits with mod integration
 
+- [Ally goods gifts and transfer boundaries](./sem/FBCB9319/knowledge/ALLY_GOODS_TRANSFERS.md): complete send/Chore/storage/Gold path, actual-transfer event boundary and nine-byte entry audit; static evidence, game acceptance pending.
+
 - [Player-control context and Chore issuer](./sem/FBCB9319/knowledge/PLAYER_CONTROL_CONTEXT.md): transport-source flow, identity-only native helper, view-dependent enqueue, selection reservation side effects and the additive APIShared adapter; foreign-control backend and peer acceptance remain pending.
 
 - [Desync capture and native unit wire-record prefix](./sem/FBCB9319/knowledge/DESYNC_CAPTURE.md): independently decoded four-byte wire/typed-view distinction, exact signed-byte checksum inputs, disabled native timeout logger and local-immediate dispatch boundary; fixture evidence with real multiplayer acceptance pending.
@@ -153,6 +155,8 @@ Vanilla audits that also contain mod-specific parts; see the `[mod integration]`
 - [Weighted Assassin search cost](./sem/FBCB9319/knowledge/ASSASSIN_WEIGHTED_SEARCH_COST.md): D9C40 depth limit 800 and climb-fallback rules, the post-load AI target burst with whole-component searches toward unreachable targets, and the exact backward unreachability proof; runtime evidence on the 8-lord stress save.
 
 ## Mod and testmod work (not Vanilla)
+
+- [Knight replacement selection and input lifetime](./sem/FBCB9319/knowledge/KNIGHT_SELECTION_TRANSFERS.md): replacement initialization/removal, three-phase input ordering, stale selection repair and the accepted Extender cancellation boundary; original game scenario user-confirmed, extended editor/MP acceptance pending.
 
 Design, diagnosis, acceptance and migration records of our mods and testmods. Use only their `[Vanilla facts]` sections as Vanilla knowledge.
 

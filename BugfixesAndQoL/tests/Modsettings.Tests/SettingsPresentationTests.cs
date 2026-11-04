@@ -290,7 +290,8 @@ internal static partial class Program
 
         object display = Get(presentation, "ClientDisplay"), controls = Get(presentation, "ClientControls");
         int notifications = 0;
-        ((INotifyPropertyChanged)display).PropertyChanged += (_, e) => notifications++;
+        var headingChanges = new HashSet<string>();
+        ((INotifyPropertyChanged)display).PropertyChanged += (_, e) => { notifications++; headingChanges.Add(e.PropertyName); };
         Execute(display, "ToggleCommand"); Execute(controls, "ToggleCommand");
         Check(Visible(display, "ContentVisibility") && Visible(controls, "ContentVisibility"), "several topics open together");
         Check((bool)Get(display, "IsExpanded") && (bool)Get(controls, "IsExpanded"), "manual expansion updates vector arrows");
@@ -300,6 +301,8 @@ internal static partial class Program
         Check(topics.Where(t => (bool)Get(t, "IsHost")).All(t => !Visible(t, "ContentVisibility")) && Visible(display, "ContentVisibility"),
             "bulk operation is limited to its role");
         Check(notifications > 0, "view changes publish binding notifications");
+        Check(new[] { "FixesSearchTitle", "QolSearchTitle", "PossibleSearchTitle" }.All(headingChanges.Contains),
+            "topic refresh notifies the category search bindings along with its localized title");
 
         // Use the real shared catalog on the production XAML. Test doubles supply only text/item getters.
         // No native UI is created, measured, traversed or required by this fixture.
@@ -312,6 +315,41 @@ internal static partial class Program
         object entries = read[1];
         object[] indexed = ((IEnumerable)entries).Cast<object>().ToArray();
         Check(options.All(o => indexed.Any(e => (string)Get(e, "Key") == (string)Get(o, "Key"))), "closed-topic XAML catalog includes every main option");
+        Check(indexed.Count(e => (bool)Get(e, "IsSection")) == topics.Length,
+            "category metadata does not add global section hits that suppress individual options");
+        Type matcher = catalog.Assembly.GetType("APIShared.ModSettings.ModSettingsSearchMatcher", true);
+        MethodInfo match = matcher.GetMethods().Single(m => m.Name == "IsMatch" && m.GetParameters().Length == 8);
+        Func<object, string, bool, bool> matches = (entry, query, tips) => (bool)match.Invoke(null, new object[]
+        {
+            query, tips, "", Get(entry, "Key"), Get(entry, "Title"), Get(entry, "ToolTip"), Get(entry, "SectionKey"), Get(entry, "SectionTitle")
+        });
+        foreach (object option in options)
+        {
+            string key = (string)Get(option, "Key"), category = Get(option, "Category").ToString();
+            var editor = editors.Single(e => e.Property == (string)Get(option, "PropertyName"));
+            XmlNode topicNode = Ancestors(editor.Node).First(a => SearchAttribute(a, "IsSection") == "True");
+            string topicKey = SearchAttribute(topicNode, "SectionKey");
+            string topicName = Regex.Match(SearchAttribute(topicNode, "SectionTitle"), @"SettingsPresentation\.(\w+)\.Title").Groups[1].Value;
+            object entry = indexed.Single(e => (string)Get(e, "Key") == key);
+            object label = Get(SearchFixtureBase.Labels, topicName);
+            Check((string)Get(entry, "SectionKey") == topicKey &&
+                (string)Get(entry, "SectionTitle") == (string)Get(label, category + "SearchTitle"),
+                "every option retains its theme and receives exactly its category: " + key);
+            string query = category == "Qol" ? "QoL" : category == "Possible" ? "Fixes?" : "Fixes";
+            Check(matches(entry, query, false), "category matches without tooltip search: " + key);
+            Check(matches(entry, "Theme " + topicName + " " + query, false),
+                "theme and category can be combined: " + key);
+            Check(matches(entry, query + " " + Get(entry, "Title"), false),
+                "category and option title can be combined: " + key);
+            if (category == "Possible") Check(matches(entry, "Fixes", false), "Fixes includes Fixes?: " + key);
+        }
+        // Exercise the production localized getters as well as the XAML/catalog boundary.
+        object textModel = System.Runtime.Serialization.FormatterServices.GetUninitializedObject(modelType);
+        foreach (object topic in topics)
+            foreach (string category in new[] { "Fixes", "Qol", "Possible" })
+                Check((string)Get(topic, category + "SearchTitle") == (string)Get(topic, "Title") + " " +
+                    (string)Get(textModel, category == "Possible" ? "PossibleFixesTitleText" : category + "TitleText"),
+                    "production search headings reuse the visible localized category: " + Get(topic, "Key") + "/" + category);
         MethodInfo refresh = presentationType.GetMethod("RefreshSearch", All);
         Action<string, bool, string> search = (text, tooltips, exact) => refresh.Invoke(presentation, new[] { (object)text, tooltips, exact, entries, Enum.ToObject(catalog.Assembly.GetType("APIShared.ModSettings.ModSettingsSearchStateFilter", true), 0), fixture });
 
@@ -319,6 +357,29 @@ internal static partial class Program
         string performanceKey = (string)Get(performance, "Key");
         object assassin = Get(presentation, "EnableImprovedAssassinPathfindingAI");
         string assassinKey = (string)Get(assassin, "Key");
+        foreach (string query in new[] { "QoL", "qol", "Fixes", "Fixes?" })
+        {
+            search(query, false, "");
+            foreach (object topic in topics)
+            {
+                object[] found = indexed.Where(e => !(bool)Get(e, "IsSection") &&
+                    (string)Get(e, "SectionKey") == (string)Get(topic, "Key") && matches(e, query, false)).ToArray();
+                Check(Visible(topic, "Visibility") == (found.Length > 0), "local and global category matches agree: " + query + "/" + Get(topic, "Key"));
+                foreach (string category in new[] { "Fixes", "Qol", "Possible" })
+                    Check(Visible(topic, category + "Visibility") == found.Any(e =>
+                        (options.FirstOrDefault(o => (string)Get(o, "Key") == (string)Get(e, "Key")) is object option
+                            ? Get(option, "Category").ToString() : "Qol") == category),
+                        "only matching category headings remain: " + query + "/" + Get(topic, "Key") + "/" + category);
+            }
+        }
+        Check(indexed.Any(e => (string)Get(e, "Key") == "bugfixes.market-good.fixture" && matches(e, "QoL", false)),
+            "dynamic market goods inherit the QoL category");
+        Check(indexed.Any(e => (string)Get(e, "Key") == "bugfixes.restore-hd-market-order" && matches(e, "QoL", false)),
+            "auxiliary market actions inherit the QoL category");
+        search("QoL Theme HostPerformance", false, "");
+        Check(Visible(performance, "ContentVisibility") && Visible(performance, "QolVisibility") &&
+            !Visible(performance, "FixesVisibility") && !Visible(display, "Visibility"),
+            "combined theme/category query opens only the matching category");
         search("", false, assassinKey);
         Check(Visible(performance, "ContentVisibility") && !Visible(display, "Visibility") && !Visible(presentation, "BulkActionsVisibility"),
             "exact global option opens closed topic and hides unrelated topics");
@@ -356,6 +417,24 @@ internal static partial class Program
         Check(Visible(performance, "ContentVisibility"), "refreshed catalog remains searchable");
         search("", true, "");
         Check(!Visible(performance, "ContentVisibility"), "catalog replacement preserves manual state");
+        try
+        {
+            SearchTopicLabel.QolTitle = "Komfort";
+            register.Invoke(null, new object[] { fixture, file, null, "BFQoL localized fixture", null });
+            read = new object[] { fixture, null }; catalog.GetMethod("TryGetEntries").Invoke(null, read); entries = read[1];
+            search("Komfort Theme HostPerformance", false, "");
+            Check(Visible(performance, "QolVisibility") && !Visible(performance, "FixesVisibility"),
+                "re-registering localized metadata refreshes category text");
+            Check(!((IEnumerable)entries).Cast<object>().Any(e => matches(e, "QoL", false)),
+                "old category text is absent after a language refresh");
+        }
+        finally
+        {
+            SearchTopicLabel.QolTitle = "QoL";
+            register.Invoke(null, new object[] { fixture, file, null, "BFQoL restored fixture", null });
+            read = new object[] { fixture, null }; catalog.GetMethod("TryGetEntries").Invoke(null, read); entries = read[1];
+            search("", false, "");
+        }
         bool[] manualTopicVisibility = topics.Select(topic => Visible(topic, "ContentVisibility")).ToArray();
         Type stateType = catalog.Assembly.GetType("APIShared.ModSettings.ModSettingsSearchStateFilter", true);
         refresh.Invoke(presentation, new object[] { "", false, "", entries, Enum.ToObject(stateType, 1), fixture });
@@ -363,6 +442,9 @@ internal static partial class Program
         ((SearchFixtureBase)fixture).EnableImprovedAssassinPathfindingAI = true;
         refresh.Invoke(presentation, new object[] { "", false, "", entries, Enum.ToObject(stateType, 1), fixture });
         Check(Visible(performance, "ContentVisibility") && !Visible(display, "Visibility"), "status-only search opens the matching topic");
+        refresh.Invoke(presentation, new object[] { "QoL", false, "", entries, Enum.ToObject(stateType, 1), fixture });
+        Check(Visible(performance, "QolVisibility") && !Visible(performance, "FixesVisibility") && !Visible(display, "Visibility"),
+            "category and active-state filters combine");
         ((SearchFixtureBase)fixture).EnableImprovedAssassinPathfindingAI = false;
         refresh.Invoke(presentation, new object[] { "", false, "", entries, Enum.ToObject(stateType, 2), fixture });
         Check(Visible(performance, "ContentVisibility"), "inactive checkbox opens its topic");
@@ -418,7 +500,14 @@ public class SearchGoodFixture
     public string SearchTitle => "Fixture goods";
     public string GoodToolTip => "Fixture goods tooltip";
 }
-public class SearchTopicLabel { public string Title { get; set; } }
+public class SearchTopicLabel
+{
+    public static string QolTitle = "QoL";
+    public string Title { get; set; }
+    public string FixesSearchTitle => Title + " Fixes";
+    public string QolSearchTitle => Title + " " + QolTitle;
+    public string PossibleSearchTitle => Title + " Fixes?";
+}
 public class SearchPresentationLabels
 {
     public SearchTopicLabel ClientDisplay => new SearchTopicLabel { Title = "Theme ClientDisplay" };

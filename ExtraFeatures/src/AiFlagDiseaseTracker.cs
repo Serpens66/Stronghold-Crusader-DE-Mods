@@ -92,6 +92,7 @@ namespace ExtraFeatures
                     aiFlagRoutineHook,
                     HookTarget.FromAddress(libraryBase + unchecked((ulong)routineRva)),
                     RunAiFlagRoutine);
+                ExtraFeaturesHookInfrastructure.RootBeforeCommit(this, candidate);
                 CommitResult commitResult = candidate.Commit();
                 if (!commitResult.IsCompleteSuccess || !aiFlagRoutineHook.Success)
                     throw new InvalidOperationException("The AI flag projectile hook was not installed.");
@@ -104,6 +105,8 @@ namespace ExtraFeatures
             }
             catch
             {
+                // A detour whose rollback failed silently must reach Vanilla only.
+                trackingAvailable = false;
                 RollbackUnpublishedHook(candidate, hookPublished);
                 DisposeManagedState();
                 throw;

@@ -87,6 +87,7 @@ namespace ExtraFeatures
         private bool monkAlwaysRunPatchUnavailable;
         private bool hooksSubscribed;
         // Set by every session start, enabled or not; cleared with the map session.
+        private readonly Dictionary<string, Action> gatedSettingHandlers;
         private volatile bool sessionStarted;
         private bool plagueDurationPatchUnavailable;
         private bool plagueApothecarySearchRangePatchUnavailable;
@@ -110,6 +111,7 @@ namespace ExtraFeatures
             marketTradeGuardBridge = new MarketTradeGuardBridge(log, this);
             elevatedMoatRuntime = new ElevatedMoatRuntime(log);
             noKillRewardHook = new NoKillRewardHook(log);
+            gatedSettingHandlers = CreateGatedSettingHandlers();
             settings.SettingChanged += OnSettingChanged;
         }
 
@@ -503,90 +505,71 @@ namespace ExtraFeatures
             if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod))
                 return;
 
-            if (propertyName == nameof(ExtraFeaturesViewModel.EnableBuildingRepair))
-            {
-                TryRunFeature("building repair HUD configuration", ReconcileBuildingRepairHud);
-                return;
-            }
-
-            if (propertyName.StartsWith("KillReward", StringComparison.Ordinal) ||
-                propertyName == nameof(ExtraFeaturesViewModel.NoKillRewardHuman) ||
-                propertyName == nameof(ExtraFeaturesViewModel.NoKillRewardAI))
+            if (propertyName.StartsWith("KillReward", StringComparison.Ordinal))
             {
                 ApplyNoKillRewardSetting();
                 return;
             }
-
-            if (propertyName == nameof(ExtraFeaturesViewModel.HealCivilianTargets) ||
-                propertyName == nameof(ExtraFeaturesViewModel.HealSiegeTargets))
+            if (gatedSettingHandlers.TryGetValue(propertyName, out Action handler))
             {
-                ApplyHealerTargetsSetting();
+                handler();
                 return;
             }
 
-            if (propertyName == nameof(ExtraFeaturesViewModel.EnableKnightDismount))
-            {
-                ReconcileKnightAndElevatedMoat();
-                TryRunFeature("knight mount/dismount visibility", knightDismountRuntime.RefreshButtonVisibility);
-                return;
-            }
-            if (propertyName == nameof(ExtraFeaturesViewModel.AllowElevatedMoatAI) ||
-                propertyName == nameof(ExtraFeaturesViewModel.AllowElevatedMoatHuman))
-            {
-                ReconcileElevatedMoatRuntime();
-                return;
-            }
-            if (propertyName == nameof(ExtraFeaturesViewModel.HumanGateReopenDelaySeconds) ||
-                propertyName == nameof(ExtraFeaturesViewModel.AIGateReopenDelaySeconds) ||
-                propertyName == nameof(ExtraFeaturesViewModel.HumanGateClosingDistanceTiles) ||
-                propertyName == nameof(ExtraFeaturesViewModel.AIGateClosingDistanceTiles))
-            {
-                TryRunFeature("gatehouse automation", gatehouseAutomationRuntime.ApplySettings);
-                return;
-            }
-            if (propertyName == nameof(ExtraFeaturesViewModel.EnableExtraChurchPriests))
-            {
-                TryRunFeature("church priest counts", churchPriestCountRuntime.ApplySetting);
-                return;
-            }
-            if (propertyName == nameof(ExtraFeaturesViewModel.CampfirePeasantsLimit))
-            {
-                TryRunFeature("campfire peasants", ApplyCampfirePeasantsLimit);
-                return;
-            }
-            if (propertyName == nameof(ExtraFeaturesViewModel.EnableMonksAlwaysRun))
-            {
-                ApplyMonkAlwaysRunSetting();
-                return;
-            }
-            if (propertyName == nameof(ExtraFeaturesViewModel.PlagueDurationMultiplier))
-            {
-                ApplyPlagueDurationSetting();
-                return;
-            }
-            if (propertyName == nameof(ExtraFeaturesViewModel.ApothecaryPlagueSearchDistance))
-            {
-                ApplyPlagueApothecarySearchRangeSetting();
-                if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/ExtraFeaturesRuntime.cs:541", $"Extra Features apothecary plague-search distance changed to " +
-                        $"{settings.ApothecaryPlagueSearchDistance}.");
-                return;
-            }
-
-            if (propertyName == nameof(ExtraFeaturesViewModel.HumanLordHealthPercent) ||
-                propertyName == nameof(ExtraFeaturesViewModel.AILordHealthPercent) ||
-                propertyName == nameof(ExtraFeaturesViewModel.HumanSoldierHealthPercent) ||
-                propertyName == nameof(ExtraFeaturesViewModel.AISoldierHealthPercent) ||
-                propertyName == nameof(ExtraFeaturesViewModel.HumanCivilianHealthPercent) ||
-                propertyName == nameof(ExtraFeaturesViewModel.AICivilianHealthPercent) ||
-                propertyName == nameof(ExtraFeaturesViewModel.HumanBuildingHealthPercent) ||
-                propertyName == nameof(ExtraFeaturesViewModel.AIBuildingHealthPercent))
-            {
-                TryRunFeature("health", ReconcileHealthModifierRuntime);
-                return;
-            }
-
+            // Unlisted settings (refunds, goods, market, knight costs, AI rebuild delay, enemy
+            // proximity) need the full pass: it also installs lazily required hooks.
             ApplySettings();
+        }
+
+        // Settings with a dedicated reconciliation while the mod is enabled; each replaces the full pass.
+        private Dictionary<string, Action> CreateGatedSettingHandlers()
+        {
+            Action noKillReward = ApplyNoKillRewardSetting;
+            Action healerTargets = ApplyHealerTargetsSetting;
+            Action elevatedMoat = ReconcileElevatedMoatRuntime;
+            Action gatehouse = () => TryRunFeature("gatehouse automation", gatehouseAutomationRuntime.ApplySettings);
+            Action health = () => TryRunFeature("health", ReconcileHealthModifierRuntime);
+            return new Dictionary<string, Action>(StringComparer.Ordinal)
+            {
+                [nameof(ExtraFeaturesViewModel.EnableBuildingRepair)] =
+                    () => TryRunFeature("building repair HUD configuration", ReconcileBuildingRepairHud),
+                [nameof(ExtraFeaturesViewModel.NoKillRewardHuman)] = noKillReward,
+                [nameof(ExtraFeaturesViewModel.NoKillRewardAI)] = noKillReward,
+                [nameof(ExtraFeaturesViewModel.HealCivilianTargets)] = healerTargets,
+                [nameof(ExtraFeaturesViewModel.HealSiegeTargets)] = healerTargets,
+                [nameof(ExtraFeaturesViewModel.EnableKnightDismount)] = () =>
+                {
+                    ReconcileKnightAndElevatedMoat();
+                    TryRunFeature("knight mount/dismount visibility", knightDismountRuntime.RefreshButtonVisibility);
+                },
+                [nameof(ExtraFeaturesViewModel.AllowElevatedMoatAI)] = elevatedMoat,
+                [nameof(ExtraFeaturesViewModel.AllowElevatedMoatHuman)] = elevatedMoat,
+                [nameof(ExtraFeaturesViewModel.HumanGateReopenDelaySeconds)] = gatehouse,
+                [nameof(ExtraFeaturesViewModel.AIGateReopenDelaySeconds)] = gatehouse,
+                [nameof(ExtraFeaturesViewModel.HumanGateClosingDistanceTiles)] = gatehouse,
+                [nameof(ExtraFeaturesViewModel.AIGateClosingDistanceTiles)] = gatehouse,
+                [nameof(ExtraFeaturesViewModel.EnableExtraChurchPriests)] =
+                    () => TryRunFeature("church priest counts", churchPriestCountRuntime.ApplySetting),
+                [nameof(ExtraFeaturesViewModel.CampfirePeasantsLimit)] =
+                    () => TryRunFeature("campfire peasants", ApplyCampfirePeasantsLimit),
+                [nameof(ExtraFeaturesViewModel.EnableMonksAlwaysRun)] = ApplyMonkAlwaysRunSetting,
+                [nameof(ExtraFeaturesViewModel.PlagueDurationMultiplier)] = ApplyPlagueDurationSetting,
+                [nameof(ExtraFeaturesViewModel.ApothecaryPlagueSearchDistance)] = () =>
+                {
+                    ApplyPlagueApothecarySearchRangeSetting();
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/ExtraFeaturesRuntime.cs:541", $"Extra Features apothecary plague-search distance changed to " +
+                            $"{settings.ApothecaryPlagueSearchDistance}.");
+                },
+                [nameof(ExtraFeaturesViewModel.HumanLordHealthPercent)] = health,
+                [nameof(ExtraFeaturesViewModel.AILordHealthPercent)] = health,
+                [nameof(ExtraFeaturesViewModel.HumanSoldierHealthPercent)] = health,
+                [nameof(ExtraFeaturesViewModel.AISoldierHealthPercent)] = health,
+                [nameof(ExtraFeaturesViewModel.HumanCivilianHealthPercent)] = health,
+                [nameof(ExtraFeaturesViewModel.AICivilianHealthPercent)] = health,
+                [nameof(ExtraFeaturesViewModel.HumanBuildingHealthPercent)] = health,
+                [nameof(ExtraFeaturesViewModel.AIBuildingHealthPercent)] = health
+            };
         }
 
         private void OnModeStateChanged(bool allowed)

@@ -32,8 +32,11 @@
     <Compile Include="Program.cs" />
     <Compile Include="NoKillRewardContractTests.cs" />
     <Compile Include="..\..\ExtraFeatures\src\NoKillRewardHook.cs" />
+    <Compile Include="..\..\ExtraFeatures\src\ExtraFeaturesHookInfrastructure.cs"><Link>ExtraFeaturesHookInfrastructure.cs</Link></Compile>
     <Compile Include="HealerTargetsContractTests.cs" />
     <Compile Include="FearFactorStubTests.cs" />
+    <Compile Include="KnightSelectionTransferTests.cs" />
+    <Compile Include="..\..\ExtraFeatures\src\KnightSelectionTransferQueue.cs"><Link>KnightSelectionTransferQueue.cs</Link></Compile>
     <Compile Include="..\..\ExtraFeatures\src\FearFactorNativeDefinition.cs"><Link>FearFactorNativeDefinition.cs</Link></Compile>
     <Compile Include="..\..\ExtraFeatures\src\FearFactorNativeStubs.cs"><Link>FearFactorNativeStubs.cs</Link></Compile>
     <Compile Include="..\..\ExtraFeatures\src\FearFactorNeutralizationPolicy.cs"><Link>FearFactorNeutralizationPolicy.cs</Link></Compile>

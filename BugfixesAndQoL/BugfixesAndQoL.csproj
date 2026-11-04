@@ -35,6 +35,7 @@
     <Compile Include="src\PitchStairs\NativeCode.cs" />
     <Compile Include="src\PitchStairs\PitchStairsRuntime.cs" />
     <Compile Include="src\PitchStairs\PitchStairsActivation.cs" />
+    <Compile Include="src\PitchStairs\PitchStairsRuntime.LoadBoundary.cs" />
     <Compile Include="src\GatehouseTargetMarkerHeightPolicy.cs" />
     <Compile Include="src\GatehouseTargetMarkerHeightHook.cs" />
     <Compile Include="src\VanillaPerformance\VanillaPerformanceFeature.cs" />

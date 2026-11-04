@@ -40,6 +40,7 @@ namespace ExtraFeatures
             new HookHandle<X64InlineHook>();
         private HookTransaction transaction;
         private IntPtr effectiveMaximumAddress;
+        private bool commitAttempted;
         private bool published;
 
         private PlagueApothecarySearchRangePatch(
@@ -71,7 +72,7 @@ namespace ExtraFeatures
 
             long moduleBase = libraryHandle.ToInt64();
             int compareRva = checked(hookRva + CompareOffsetInHook);
-            int displacement = ReadInt32LittleEndian(
+            int displacement = Shared.NativePatternResolver.ReadInt32(
                 memory,
                 compareRva + CompareDisplacementOffset);
             long distanceResult = checked(
@@ -103,6 +104,8 @@ namespace ExtraFeatures
                             imageBase + DistanceCalculationRva,
                             imageBase + RejectRva),
                     hookSize: HookDisplacedBytes);
+                ExtraFeaturesHookInfrastructure.RootBeforeCommit(this, pendingTransaction);
+                commitAttempted = true;
                 CommitResult commitResult = pendingTransaction.Commit();
                 if (!commitResult.IsCompleteSuccess ||
                     !distanceComparisonHook.Success ||
@@ -191,8 +194,9 @@ namespace ExtraFeatures
 
         private void RollbackUnpublishedCandidate()
         {
-            // The constructor disposes its uncommitted transaction itself; this frees the native maximum.
-            if (published)
+            // The constructor disposes its unpublished transaction itself; this frees the native
+            // maximum, but only before a commit attempt (afterwards a stub may still read it).
+            if (published || commitAttempted)
                 return;
 
             if (effectiveMaximumAddress != IntPtr.Zero)
@@ -200,17 +204,6 @@ namespace ExtraFeatures
                 Marshal.FreeHGlobal(effectiveMaximumAddress);
                 effectiveMaximumAddress = IntPtr.Zero;
             }
-        }
-
-        private static int ReadInt32LittleEndian(ReadOnlySpan<byte> bytes, int offset)
-        {
-            if (offset < 0 || offset + sizeof(int) > bytes.Length)
-                throw new ArgumentOutOfRangeException(nameof(offset));
-
-            return bytes[offset] |
-                (bytes[offset + 1] << 8) |
-                (bytes[offset + 2] << 16) |
-                (bytes[offset + 3] << 24);
         }
     }
 }

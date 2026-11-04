@@ -29,6 +29,7 @@ namespace ExtraFeatures
         [ThreadStatic] private static bool internalStop;
         private static Hook persistentSaveHook;
         private static bool visualSubscriptionsInstalled;
+        private static long selectionSessionId;
         private static EngineInterfaceSaveDelegate persistentSaveTrampoline;
         private static Texture2D progressTexture;
         private static Sprite progressSprite;
@@ -37,10 +38,8 @@ namespace ExtraFeatures
             new Dictionary<int, PendingKnightTransformation>();
         // Ordered copy of the pending keys; UpdatePendingTransformations is never re-entered.
         private readonly List<int> pendingGlobalIdBuffer = new List<int>();
-        private readonly HashSet<int> pendingSelectionRequestIds = new HashSet<int>();
-        private readonly List<int> invalidSelectionRequestIds = new List<int>();
-        private readonly HashSet<int> pendingSelectionTransferIds = new HashSet<int>();
-        private int pendingSelectionTransferTicks;
+        private readonly KnightSelectionTransferQueue selectionTransfers = new KnightSelectionTransferQueue();
+        private readonly IKnightSelectionTransferWorld selectionWorld;
         // Main thread only: Unity objects are created and destroyed there.
         private readonly Dictionary<int, ProgressVisual> progressVisuals =
             new Dictionary<int, ProgressVisual>();
@@ -105,6 +104,7 @@ namespace ExtraFeatures
 
                     subscriptionCandidates.Add(UnitR3EventHooks.OnUnitMoveHere.Observable.Subscribe(PersistentUnitMoveHere));
                     subscriptionCandidates.Add(Shared.MissionEvents.Ended.Subscribe(PersistentMapUnload));
+                    subscriptionCandidates.Add(Shared.MissionEvents.Started.Subscribe(PersistentMapStarted));
                     GameTimeManagerAPI.Instance.OnTick += PersistentGameTick;
                     tickSubscribed = true;
 
@@ -195,10 +195,14 @@ namespace ExtraFeatures
             KnightDismountRuntime runtime = activeRuntime;
             // pendingViewStale catches up a view that an exception in a command path left behind.
             if (runtime != null && runtime.IsPendingRuntimeActive() &&
-                (runtime.pendingTransformations.Count != 0 || runtime.deferredSave != null || runtime.pendingViewStale))
+                (runtime.pendingTransformations.Count != 0 || runtime.deferredSave != null ||
+                 runtime.pendingViewStale || runtime.selectionTransfers.HasWork))
             {
                 try
                 {
+                    // Test pre-existing ownership: taking the monitor here would also admit
+                    // the editor resize's time callback, which has no preceding input phase.
+                    runtime.AdvanceSelectionTransfers(Monitor.IsEntered(EngineLock.Gate));
                     runtime.UpdatePendingTransformations();
                     runtime.TryCompleteDeferredSave(tick);
                 }
@@ -243,6 +247,7 @@ namespace ExtraFeatures
 
         private static void PersistentMapUnload(APIShared.MissionLifecycleNotification args)
         {
+            Volatile.Write(ref selectionSessionId, 0);
             KnightDismountRuntime runtime = activeRuntime;
             if (runtime == null || args == null)
                 return;
@@ -250,13 +255,21 @@ namespace ExtraFeatures
             lock (EngineLock.Gate)
             {
                 runtime.CancelAllPending("map-unload", refundGold: true, releaseReservedHorse: true);
-                runtime.pendingSelectionRequestIds.Clear();
-                runtime.pendingSelectionTransferIds.Clear();
-                runtime.pendingSelectionTransferTicks = 0;
+                runtime.selectionTransfers.Clear();
                 runtime.deferredSave = null;
                 runtime.scheduledSave = null;
                 runtime.deferredSaveReadyAfterTick = long.MaxValue;
             }
+        }
+
+        private static void PersistentMapStarted(APIShared.MissionLifecycleNotification args)
+        {
+            if (args?.Context == null) return;
+            long previous = Interlocked.Exchange(ref selectionSessionId, args.Context.SessionId);
+            if (previous == args.Context.SessionId) return;
+            KnightDismountRuntime runtime = activeRuntime;
+            if (runtime != null)
+                lock (EngineLock.Gate) runtime.selectionTransfers.Clear();
         }
 
         private bool IsPendingRuntimeActive()
@@ -415,10 +428,6 @@ namespace ExtraFeatures
 
         private void UpdatePendingTransformations()
         {
-            if (pendingSelectionTransferIds.Count == 0)
-                PrunePendingSelectionRequest();
-            else
-                TryPublishReadySelectionTransfers();
             if (pendingTransformations.Count == 0)
                 return;
 
@@ -430,7 +439,6 @@ namespace ExtraFeatures
             int readyCount = 0;
             int completedCount = 0;
             int cancelledCount = 0;
-            List<int> selectionTransfers = null;
             for (int index = 0; index < examinedCount; index++)
             {
                 int globalId = pendingGlobalIdBuffer[index];
@@ -476,7 +484,7 @@ namespace ExtraFeatures
                     FinishPending(pending);
                     completedCount++;
                     if (selectedReplacementUnitId > 0)
-                        (selectionTransfers ?? (selectionTransfers = new List<int>())).Add(selectedReplacementUnitId);
+                        QueueSelectionTransfer(selectedReplacementUnitId);
                 }
                 else
                 {
@@ -484,9 +492,6 @@ namespace ExtraFeatures
                     cancelledCount++;
                 }
             }
-
-            if (selectionTransfers != null)
-                PublishSelectionTransfers(selectionTransfers);
 
             if (readyCount > 0 || cancelledCount > 0)
             {
@@ -531,7 +536,7 @@ namespace ExtraFeatures
                 return false;
             }
 
-            bool transferSelection = ShouldTransferSelection(currentSnapshot.OwnerPlayerId, swordsman);
+            bool transferSelection = ShouldTransferSelection(currentSnapshot, swordsman);
             if (!(APIShared.UnitAccess.TryGetById(swordsmanUnitId, out _, out _) && GameUnitManagerAPI.Instance.DeleteUnitSafe(swordsmanUnitId)))
             {
                 ReleaseExactHorseLink(allocation, knightUnitId, (int)knight->r_GlobalId, reason + "-delete-rollback");
@@ -552,135 +557,18 @@ namespace ExtraFeatures
             return true;
         }
 
-        private static bool ShouldTransferSelection(int ownerPlayerId, GameUnit* source)
+        private bool ShouldTransferSelection(UnitTransformSnapshot snapshot, GameUnit* source)
         {
+            int playerId = GetSelectionPlayerId();
+            long sessionId = Volatile.Read(ref selectionSessionId);
+            // Commands with zero delay can finish before the next tick after an
+            // editor-player change. Retire the former player's gesture first.
+            selectionTransfers.SetContext(sessionId, playerId);
             return source != null && APIShared.UnitAccess.IsReallyAlive(source) &&
-                IsSelected(source) && ownerPlayerId == GetSelectionPlayerId();
-        }
-
-        private void PrunePendingSelectionRequest()
-        {
-            if (pendingSelectionRequestIds.Count == 0)
-                return;
-
-            int localPlayerId = GetSelectionPlayerId();
-            // Runs every tick until the selection settles; reuse the removal buffer.
-            invalidSelectionRequestIds.Clear();
-            foreach (int unitId in pendingSelectionRequestIds)
-            {
-                if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
-                    !APIShared.UnitAccess.IsReallyAlive(unit) ||
-                    unit->r_ControllableForPlayerId != localPlayerId)
-                {
-                    invalidSelectionRequestIds.Add(unitId);
-                }
-            }
-            foreach (int unitId in invalidSelectionRequestIds)
-                pendingSelectionRequestIds.Remove(unitId);
-            invalidSelectionRequestIds.Clear();
-
-            foreach (int unitId in pendingSelectionRequestIds)
-            {
-                if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
-                    !IsSelected(unit))
-                {
-                    return;
-                }
-            }
-
-            // Every member of the last request is now reflected in Vanilla's selection.
-            pendingSelectionRequestIds.Clear();
-        }
-
-        private void PublishSelectionTransfers(List<int> newUnitIds)
-        {
-            if (newUnitIds.Count == 0)
-                return;
-
-            foreach (int unitId in newUnitIds)
-            {
-                pendingSelectionRequestIds.Add(unitId);
-                pendingSelectionTransferIds.Add(unitId);
-            }
-
-            try
-            {
-                int localPlayerId = GetSelectionPlayerId();
-                GameUnitManagerAPI unitApi = GameUnitManagerAPI.Instance;
-                foreach (int unitId in APIShared.UnitAccess.GetAllReallyAliveUnits())
-                {
-                    if (APIShared.UnitAccess.TryGetById(unitApi, unitId, out GameUnit* unit, out _) &&
-                        unit->r_ControllableForPlayerId == localPlayerId &&
-                        IsSelected(unit))
-                        pendingSelectionRequestIds.Add(unitId);
-                }
-
-                TryPublishReadySelectionTransfers();
-            }
-            catch (Exception ex)
-            {
-                LogError($"Knight transformation selection transfer failed: {ex}");
-            }
-        }
-
-        private void TryPublishReadySelectionTransfers()
-        {
-            if (pendingSelectionTransferIds.Count == 0)
-                return;
-
-            try
-            {
-                int localPlayerId = GetSelectionPlayerId();
-                GameUnitManagerAPI unitApi = GameUnitManagerAPI.Instance;
-                foreach (int unitId in pendingSelectionTransferIds)
-                {
-                    bool found = APIShared.UnitAccess.TryGetById(unitApi, unitId, out GameUnit* unit, out _);
-                    if (!found || !APIShared.UnitAccess.IsReallyAlive(unit) ||
-                        unit->r_ControllableForPlayerId != localPlayerId)
-                    {
-                        pendingSelectionTransferTicks++;
-                        if (pendingSelectionTransferTicks < 100)
-                            return;
-                        LogError($"Knight selection replacement did not become selectable: unitId={unitId}.");
-                        pendingSelectionTransferIds.Clear();
-                        pendingSelectionRequestIds.Clear();
-                        pendingSelectionTransferTicks = 0;
-                        return;
-                    }
-                }
-
-                var selectedUnitIds = new List<int>();
-                var seen = new HashSet<int>();
-                foreach (int unitId in APIShared.UnitAccess.GetAllReallyAliveUnits())
-                {
-                    if (APIShared.UnitAccess.TryGetById(unitApi, unitId, out GameUnit* unit, out _) &&
-                        unit->r_ControllableForPlayerId == localPlayerId &&
-                        IsSelected(unit) && seen.Add(unitId))
-                        selectedUnitIds.Add(unitId);
-                }
-
-                // Keep the previous request and replacements until the new gesture commits.
-                foreach (int unitId in pendingSelectionRequestIds)
-                {
-                    if (APIShared.UnitAccess.TryGetById(unitApi, unitId, out GameUnit* unit, out _) &&
-                        APIShared.UnitAccess.IsReallyAlive(unit) &&
-                        unit->r_ControllableForPlayerId == localPlayerId && seen.Add(unitId))
-                    {
-                        selectedUnitIds.Add(unitId);
-                    }
-                }
-
-                pendingSelectionRequestIds.Clear();
-                pendingSelectionRequestIds.UnionWith(selectedUnitIds);
-                if (!GamePlayerManagerAPI.Instance.SetSelectedChimps(selectedUnitIds))
-                    LogError("Knight transformation selection transfer was rejected by the Script Extender.");
-                pendingSelectionTransferIds.Clear();
-                pendingSelectionTransferTicks = 0;
-            }
-            catch (Exception ex)
-            {
-                LogError($"Knight transformation selection transfer failed: {ex}");
-            }
+                snapshot.OwnerPlayerId == playerId &&
+                selectionTransfers.IsSourceSelected(new KnightSelectionIdentity(
+                    sessionId, snapshot.OwnerPlayerId, snapshot.UnitId,
+                    snapshot.GlobalId, (int)source->r_UnitChimp), IsSelected(source));
         }
 
         private bool TryTransferReservationToKnight(

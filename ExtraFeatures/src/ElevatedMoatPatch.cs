@@ -267,6 +267,7 @@ namespace ExtraFeatures
                 "area moat-removal height");
 
             HookTransaction pending = null;
+            bool commitAttempted = false;
             try
             {
                 aivAudienceAllowedFlag = Marshal.AllocHGlobal(1);
@@ -452,89 +453,60 @@ namespace ExtraFeatures
                     RestoreAreaRemovalHeight,
                     CorrectingContextOptions(ElevatedMoatNativeContract.AreaRemovalHeightLength));
 
+                ExtraFeaturesHookInfrastructure.RootBeforeCommit(this, pending);
+                commitAttempted = true;
                 CommitResult result = pending.Commit();
-                if (!result.IsCompleteSuccess ||
-                    !drawbridgeHeightFailureWriterHook.Success ||
-                    !aivAudienceCaptureHook.Success ||
-                    !aivHeightGateHook.Success ||
-                    !moatCommandHeightGateHook.Success ||
-                    !sharedHeightGateHook.Success ||
-                    !aivCompletedHeightHook.Success ||
-                    !excavationCompletedHeightHook.Success ||
-                    !loweredDrawbridgeHeightWriteHook.Success ||
-                    !directCompletedHeightHook.Success ||
-                    !completedDrawbridgeHeightWriteHook.Success ||
-                    !drawbridgeSpecialRendererHook.Success ||
-                    !drawbridgeAnimatedRendererArgumentsHook.Success ||
-                    !drawbridgeStaticRendererArgumentsHook.Success ||
-                    !unitDrawbridgeHeightCorrectionHook.Success ||
-                    !plannedMoatCancellationHook.Success ||
-                    !directRemovalHeightHook.Success ||
-                    !footprintRemovalHeightHook.Success ||
-                    !objectRemovalHeightHook.Success ||
-                    !moatWorkCompletionHeightHook.Success ||
-                    !areaRemovalHeightHook.Success)
-                    throw new InvalidOperationException($"The elevated-moat hook transaction was incomplete: {result}.");
-                if (drawbridgeHeightFailureWriterHook.Hook.DisplacedByteCount !=
-                    ElevatedMoatNativeContract.DrawbridgeHeightFailureWriterLength)
+                var installedHooks = new (HookHandle<X64InlineHook> Handle, int Length, string Description)[]
                 {
-                    throw new InvalidOperationException(
-                        "Unexpected installed elevated-drawbridge overwrite length; rolling back.");
+                    (drawbridgeHeightFailureWriterHook, ElevatedMoatNativeContract.DrawbridgeHeightFailureWriterLength,
+                        "elevated-drawbridge"),
+                    (aivAudienceCaptureHook, ElevatedMoatNativeContract.AivAudienceCaptureLength,
+                        "AIV moat player-audience capture"),
+                    (aivHeightGateHook, ElevatedMoatNativeContract.AivHeightGateLength, "AIV moat height gate"),
+                    (moatCommandHeightGateHook, ElevatedMoatNativeContract.MoatCommandHeightGateLength,
+                        "MAPPER_MOAT/MAPPER_ANTIMOAT command height gate"),
+                    (sharedHeightGateHook, ElevatedMoatNativeContract.SharedHeightGateLength, "shared moat height gate"),
+                    (aivCompletedHeightHook, ElevatedMoatNativeContract.AivCompletedHeightLength,
+                        "AIV completed-moat height"),
+                    (excavationCompletedHeightHook, ElevatedMoatNativeContract.ExcavationCompletedHeightLength,
+                        "excavated-moat height"),
+                    (loweredDrawbridgeHeightWriteHook, ElevatedMoatNativeContract.LowerDrawbridgeHookLength,
+                        "lowered-drawbridge hook block"),
+                    (directCompletedHeightHook, ElevatedMoatNativeContract.DirectCompletedHeightLength,
+                        "direct completed-moat height"),
+                    (completedDrawbridgeHeightWriteHook, ElevatedMoatNativeContract.CompletedDrawbridgeHookLength,
+                        "completed-drawbridge hook block"),
+                    (drawbridgeSpecialRendererHook, ElevatedMoatNativeContract.DrawbridgeSpecialRendererHookLength,
+                        "drawbridge special-renderer prologue"),
+                    (drawbridgeAnimatedRendererArgumentsHook,
+                        ElevatedMoatNativeContract.DrawbridgeAnimatedRendererArgumentsLength,
+                        "drawbridge animated-renderer arguments"),
+                    (drawbridgeStaticRendererArgumentsHook,
+                        ElevatedMoatNativeContract.DrawbridgeStaticRendererArgumentsLength,
+                        "drawbridge static-renderer arguments"),
+                    (unitDrawbridgeHeightCorrectionHook, ElevatedMoatNativeContract.UnitDrawbridgeHeightCorrectionLength,
+                        "unit drawbridge vertical-correction block"),
+                    (plannedMoatCancellationHook, ElevatedMoatNativeContract.PlannedMoatCancellationLength,
+                        "planned moat cancellation"),
+                    (directRemovalHeightHook, ElevatedMoatNativeContract.DirectRemovalHeightLength,
+                        "direct moat-removal height"),
+                    (footprintRemovalHeightHook, ElevatedMoatNativeContract.FootprintRemovalHeightLength,
+                        "footprint moat-removal height"),
+                    (objectRemovalHeightHook, ElevatedMoatNativeContract.ObjectRemovalHeightLength,
+                        "object moat-removal height"),
+                    (moatWorkCompletionHeightHook, ElevatedMoatNativeContract.MoatWorkCompletionHeightLength,
+                        "moat work-completion height"),
+                    (areaRemovalHeightHook, ElevatedMoatNativeContract.AreaRemovalHeightLength,
+                        "area moat-removal height")
+                };
+                if (!result.IsCompleteSuccess || Array.Exists(installedHooks, hook => !hook.Handle.Success))
+                    throw new InvalidOperationException($"The elevated-moat hook transaction was incomplete: {result}.");
+                foreach (var hook in installedHooks)
+                {
+                    if (hook.Handle.Hook.DisplacedByteCount != hook.Length)
+                        throw new InvalidOperationException(
+                            $"Unexpected installed {hook.Description} overwrite length; rolling back.");
                 }
-                RequireInstalledHookLength(
-                    aivAudienceCaptureHook,
-                    ElevatedMoatNativeContract.AivAudienceCaptureLength,
-                    "AIV moat player-audience capture");
-                RequireInstalledHookLength(
-                    aivHeightGateHook,
-                    ElevatedMoatNativeContract.AivHeightGateLength,
-                    "AIV moat height gate");
-                RequireInstalledHookLength(moatCommandHeightGateHook,
-                    ElevatedMoatNativeContract.MoatCommandHeightGateLength,
-                    "MAPPER_MOAT/MAPPER_ANTIMOAT command height gate");
-                RequireInstalledHookLength(sharedHeightGateHook,
-                    ElevatedMoatNativeContract.SharedHeightGateLength, "shared moat height gate");
-                RequireInstalledHookLength(aivCompletedHeightHook,
-                    ElevatedMoatNativeContract.AivCompletedHeightLength, "AIV completed-moat height");
-                RequireInstalledHookLength(excavationCompletedHeightHook,
-                    ElevatedMoatNativeContract.ExcavationCompletedHeightLength, "excavated-moat height");
-                RequireInstalledHookLength(loweredDrawbridgeHeightWriteHook,
-                    ElevatedMoatNativeContract.LowerDrawbridgeHookLength,
-                    "lowered-drawbridge hook block");
-                RequireInstalledHookLength(directCompletedHeightHook,
-                    ElevatedMoatNativeContract.DirectCompletedHeightLength, "direct completed-moat height");
-                RequireInstalledHookLength(completedDrawbridgeHeightWriteHook,
-                    ElevatedMoatNativeContract.CompletedDrawbridgeHookLength,
-                    "completed-drawbridge hook block");
-                RequireInstalledHookLength(drawbridgeSpecialRendererHook,
-                    ElevatedMoatNativeContract.DrawbridgeSpecialRendererHookLength,
-                    "drawbridge special-renderer prologue");
-                RequireInstalledHookLength(drawbridgeAnimatedRendererArgumentsHook,
-                    ElevatedMoatNativeContract.DrawbridgeAnimatedRendererArgumentsLength,
-                    "drawbridge animated-renderer arguments");
-                RequireInstalledHookLength(drawbridgeStaticRendererArgumentsHook,
-                    ElevatedMoatNativeContract.DrawbridgeStaticRendererArgumentsLength,
-                    "drawbridge static-renderer arguments");
-                RequireInstalledHookLength(unitDrawbridgeHeightCorrectionHook,
-                    ElevatedMoatNativeContract.UnitDrawbridgeHeightCorrectionLength,
-                    "unit drawbridge vertical-correction block");
-                RequireInstalledHookLength(plannedMoatCancellationHook,
-                    ElevatedMoatNativeContract.PlannedMoatCancellationLength,
-                    "planned moat cancellation");
-                RequireInstalledHookLength(directRemovalHeightHook,
-                    ElevatedMoatNativeContract.DirectRemovalHeightLength, "direct moat-removal height");
-                RequireInstalledHookLength(footprintRemovalHeightHook,
-                    ElevatedMoatNativeContract.FootprintRemovalHeightLength,
-                    "footprint moat-removal height");
-                RequireInstalledHookLength(objectRemovalHeightHook,
-                    ElevatedMoatNativeContract.ObjectRemovalHeightLength,
-                    "object moat-removal height");
-                RequireInstalledHookLength(moatWorkCompletionHeightHook,
-                    ElevatedMoatNativeContract.MoatWorkCompletionHeightLength,
-                    "moat work-completion height");
-                RequireInstalledHookLength(areaRemovalHeightHook,
-                    ElevatedMoatNativeContract.AreaRemovalHeightLength,
-                    "area moat-removal height");
 
                 if (Shared.DebugLogHelper.DiagnosticsEnabled)
                     Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/ElevatedMoatPatch.cs:543", $"Extra Features elevated-moat hooks installed (logically disabled until enabled); editor=true, " +
@@ -556,7 +528,9 @@ namespace ExtraFeatures
                     {
                     }
                 }
-                FreeUnpublishedFlags();
+                // After a commit attempt a stub may still read the flags (see RootBeforeCommit).
+                if (!commitAttempted)
+                    FreeUnpublishedFlags();
                 throw;
             }
         }
@@ -854,18 +828,6 @@ namespace ExtraFeatures
             }
         }
 
-        private static void RequireInstalledHookLength(
-            HookHandle<X64InlineHook> handle,
-            int expectedLength,
-            string description)
-        {
-            if (handle.Hook.DisplacedByteCount != expectedLength)
-            {
-                throw new InvalidOperationException(
-                    $"Unexpected installed {description} overwrite length; rolling back.");
-            }
-        }
-
         private static void GenerateMoatCommandHeightBypass(
             Assembler assembler,
             ReadOnlySpan<Instruction> overwrittenInstructions,
@@ -998,11 +960,7 @@ namespace ExtraFeatures
             Label vanillaHeightGate = assembler.CreateLabel("aivVanillaHeightGate");
             // Preserve RAX and the stack exactly while reading the result captured at this
             // function's entry for the actual player ID (including CastlePlanner humans).
-            assembler.push(rax);
-            assembler.mov(rax, audienceAllowedFlagAddress);
-            assembler.cmp(__byte_ptr[rax], 1);
-            assembler.pop(rax);
-            assembler.jne(vanillaHeightGate);
+            EmitEnabledFlagBranch(assembler, audienceAllowedFlagAddress, vanillaHeightGate);
 
             // The low-height branch is Vanilla's normal moat creation path. Jumping there
             // bypasses only the height alternative after all preceding tile checks passed.
