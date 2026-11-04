@@ -4875,6 +4875,9 @@ namespace BugfixesAndQoL
                     {
                         "AIPreplacedBuildingFixRuntime.cs",
                         "AiStoneReserveFix.cs",
+                        // Typed, bounds-checked village/build-step accessors only; every call runs
+                        // inside the capture or tick try/catch, so failures leave Vanilla active.
+                        "PrebuiltAiStorageFixRuntime.cs",
                         "ShcdeSeCoarseGridBufferWorkaround.cs"
                     }),
                 "all BugfixesAndQoL GameAIVManagerAPI references are confined to audited consumers");

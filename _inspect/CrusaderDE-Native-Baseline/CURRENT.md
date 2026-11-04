@@ -46,6 +46,8 @@ Semantic reverse-engineering baseline:
 
 ## Vanilla behavior audits
 
+- [Enemy HP: offline team reference and real multiplayer gate](./sem/FBCB9319/knowledge/ENEMY_HP_MULTIPLIER.md): spectator reference AI/team exemption, per-owner HP consumers, and the mode-1 network-start bypass; static evidence, no new game/host-client acceptance run.
+
 - [Save writer routes and synchronized saves](./sem/FBCB9319/knowledge/SAVE_WRITER_ROUTES.md): autosave/Chore 39, ordinary export and Trail-template routes; shared writer and MP Lord-name limits.
 
 - [AI woodcutter retirement and repeated construction](./sem/FBCB9319/knowledge/AI_WOODCUTTER_RETIREMENT.md): retirement thresholds, worker path/counter writers, accessibility propagation and temporary coarse-cell avoidance; static audit, no save-specific cause claim.

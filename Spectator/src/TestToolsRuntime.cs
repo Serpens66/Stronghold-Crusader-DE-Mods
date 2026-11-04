@@ -37,6 +37,8 @@ namespace Spectator
             internal ToolPower Power;
             internal int Tile;
             internal GateSelection Gate;
+            internal CreditTrace Credit;
+            internal string CreditError;
         }
 
         private static void RegisterTestActions()
@@ -191,7 +193,12 @@ namespace Spectator
                     log.LogInfo("TEST_ACTION session=" + action.Session + " operation=" + action.Operation +
                         " kind=" + action.Kind + " actor=" + action.Actor + " target=" + action.Target +
                         " force=" + action.Force + " amount=" + action.Amount + " good=" + action.Good +
-                        " power=" + action.Power?.Id + " tile=" + action.Tile + " building=" + action.Gate?.Id + " result=" + result);
+                        " power=" + action.Power?.Id + " tile=" + action.Tile + " building=" + action.Gate?.Id +
+                        action.Credit?.LogFields + " result=" + result);
+                    if (action.CreditError != null)
+                        log.LogError("TEST_CREDIT_ERROR session=" + action.Session + " operation=" + action.Operation +
+                            " actor=" + action.Actor + " amount=" + action.Amount + " good=" + action.Good +
+                            action.Credit?.LogFields + ": " + action.CreditError);
                 }
                 catch (Exception error) { LogOnce("TEST_ACTION_ERROR: " + error); ReportTestAction(action, SerpLocalization.Get("Tools.Failed")); }
             }
@@ -203,35 +210,69 @@ namespace Spectator
                 !GamePlayerManagerAPI.Instance.TryGetPlayerResourcesById(action.Actor, out GamePlayerResources* resources))
                 return SerpLocalization.Get("Tools.InvalidTarget");
             var players = GamePlayerManagerAPI.Instance;
-            if (action.Amount < 0)
+            bool gold = action.Good == eGoods.STORED_GOLD;
+            bool reserveOnly = !gold && action.Amount < 0 &&
+                players.GetCurrentGameTypeMode() == eGameTypeModes.GAMETYPE_SIEGE_THAT_BUILDER;
+            // Immediate gold credits affect stored gold only; debits still include the delivery reserve.
+            action.Credit = new CreditTrace(ReadDebitBalance(action.Actor, action.Good), action.Amount,
+                gold && action.Amount > 0, reserveOnly);
+            try
             {
-                bool gold = action.Good == eGoods.STORED_GOLD;
-                bool reserveOnly = !gold && players.GetCurrentGameTypeMode() == eGameTypeModes.GAMETYPE_SIEGE_THAT_BUILDER;
-                long actual = CreditDebit.Execute(action.Amount, reserveOnly,
-                    () => ReadDebitBalance(action.Actor, action.Good),
-                    value => {
-                        if (gold) { if (!players.AddPlayerGold(action.Actor, -value)) throw new InvalidOperationException("Gold debit failed."); }
-                        else players.RemoveGood(action.Actor, action.Good, value);
-                    }, value => players.SubtractIncomingGood(action.Actor, action.Good, value));
-                return SerpLocalization.Get(gold ? "Tools.GoldRemoved" : "Tools.GoodsRemoved",
-                    "Amount", actual, "Player", PlayerLabel(action.Actor));
+                if (action.Amount < 0)
+                {
+                    long actual = CreditDebit.Execute(action.Amount, reserveOnly,
+                        () => action.Credit.Observe(ReadDebitBalance(action.Actor, action.Good)),
+                        value => {
+                            if (gold) { if (!players.AddPlayerGold(action.Actor, -value)) throw new InvalidOperationException("Gold debit failed."); }
+                            else players.RemoveGood(action.Actor, action.Good, value);
+                        }, value => players.SubtractIncomingGood(action.Actor, action.Good, value));
+                    return SerpLocalization.Get(gold ? "Tools.GoldRemoved" : "Tools.GoodsRemoved",
+                        "Amount", actual, "Player", PlayerLabel(action.Actor));
+                }
+                action.Credit.Failure = CreditMath.Check(action.Credit.Before, action.Amount, gold);
+                if (action.Credit.Failure != CreditFailure.None)
+                {
+                    action.Credit.Observe(action.Credit.Before);
+                    return CreditFailureText(action);
+                }
+                if (gold)
+                {
+                    if (!players.AddPlayerGold(action.Actor, action.Amount))
+                        throw new InvalidOperationException("Gold credit failed.");
+                }
+                else players.AddIncomingGood(action.Actor, action.Good, action.Amount);
+                GoodsBalance after = action.Credit.Observe(ReadDebitBalance(action.Actor, action.Good));
+                if (action.Credit.Actual != action.Credit.Expected ||
+                    (!gold && (long)after.Incoming != (long)action.Credit.Before.Incoming + action.Amount))
+                    throw new CreditAccountingException(CreditFailure.Postcondition, "Credit postcondition failed.");
+                return SerpLocalization.Get(gold ? "Tools.GoldCredited" : "Tools.GoodsCredited",
+                    "Amount", action.Amount, "Player", PlayerLabel(action.Actor));
             }
-            if (action.Good == eGoods.STORED_GOLD)
+            catch (Exception error)
             {
-                int before = players.GetPlayerGold(action.Actor);
-                if (!CreditMath.Fits(before, action.Amount)) return SerpLocalization.Get("Tools.Overflow");
-                if (!players.AddPlayerGold(action.Actor, action.Amount) || players.GetPlayerGold(action.Actor) != before + action.Amount)
-                    throw new InvalidOperationException("Gold postcondition failed.");
-                return SerpLocalization.Get("Tools.GoldCredited", "Amount", action.Amount, "Player", PlayerLabel(action.Actor));
+                action.Credit.Failure = error is CreditAccountingException accounting ? accounting.Failure : CreditFailure.Provider;
+                action.CreditError = error.ToString();
+                // A provider may have changed an account before failing. Observe under the same engine lock.
+                action.Credit.ActualKnown = false;
+                try { action.Credit.Observe(ReadDebitBalance(action.Actor, action.Good)); }
+                catch (Exception readError) { action.CreditError += "\nBalance read failed: " + readError; }
+                return CreditFailureText(action);
             }
-            int* incoming = (int*)(&resources->r_incomingNull);
-            int value = incoming[(int)action.Good];
-            int stored = players.GetGoodAmount(action.Actor, action.Good);
-            if (value < 0 || stored < 0 || !CreditMath.Fits((long)value + stored, action.Amount))
-                return SerpLocalization.Get("Tools.Overflow");
-            players.AddIncomingGood(action.Actor, action.Good, action.Amount);
-            if (incoming[(int)action.Good] != value + action.Amount) throw new InvalidOperationException("Incoming goods postcondition failed.");
-            return SerpLocalization.Get("Tools.GoodsCredited", "Amount", action.Amount, "Player", PlayerLabel(action.Actor));
+        }
+
+        private static string CreditFailureText(TestAction action)
+        {
+            CreditTrace trace = action.Credit;
+            string reason = trace.Failure == CreditFailure.NegativeBalance ? "Tools.NegativeBalance" :
+                trace.Failure == CreditFailure.Overflow ? "Tools.Overflow" :
+                trace.Failure == CreditFailure.Postcondition ? "Tools.BalancePostcondition" : "Tools.BalanceOperationFailed";
+            string details = SerpLocalization.Get("Tools.BalanceDetails", "Player", PlayerLabel(action.Actor),
+                "Good", Translate.Instance.lookUpText(Enums.eTextSections.TEXT_GOODS, (int)action.Good),
+                "Current", trace.Current, "Stored", trace.Before.Stored, "Incoming", trace.Before.Incoming,
+                "Amount", trace.Amount, "Expected", trace.Expected,
+                "Actual", trace.ActualKnown ? (object)trace.Actual : SerpLocalization.Get("Tools.BalanceUnknown"),
+                "Limit", int.MaxValue);
+            return SerpLocalization.Get(reason) + " " + details;
         }
 
         private static unsafe GoodsBalance ReadDebitBalance(int actor, eGoods good)

@@ -15,8 +15,15 @@ namespace Spectator
         private bool previousKeyboard;
         internal bool OwnsKeyboard => ownsKeyboard;
 
-        internal void OutsidePointerDown(bool insideMenu)
-        { if (!insideMenu && ownsKeyboard) EndEditing(); }
+        internal void OutsidePointerDown(bool insideInput)
+        { if (!insideInput && ownsKeyboard) EndEditing(); }
+
+        internal void PointerDown(MouseButtonEventArgs args)
+        {
+            Point point = args.GetPosition(control);
+            OutsidePointerDown(control.IsVisible && point.X >= 0 && point.Y >= 0 &&
+                point.X < control.ActualWidth && point.Y < control.ActualHeight);
+        }
 
         internal CreditAmountInput(TextBox control, TestToolsViewModel model)
         {
@@ -25,6 +32,7 @@ namespace Spectator
             validText = model.Amount;
             control.Text = validText;
             control.PreviewTextInput += BeforeTextInput;
+            control.PreviewKeyDown += BeforeKeyDown;
             control.TextChanged += TextChanged;
             control.SelectionChanged += SelectionChanged;
             control.LostFocus += LostFocus;
@@ -99,6 +107,13 @@ namespace Spectator
                 control.SelectionLength, args.Text, out _)) args.Handled = true;
         }
 
+        private void BeforeKeyDown(object sender, KeyEventArgs args)
+        {
+            if (!control.IsKeyboardFocused || (args.Key != Key.Escape && args.Key != Key.Enter)) return;
+            args.Handled = true;
+            EndEditing();
+        }
+
         private void TextChanged(object sender, RoutedEventArgs args)
         {
             if (restoring) return;
@@ -137,6 +152,7 @@ namespace Spectator
             control.LostKeyboardFocus -= LostKeyboardFocus;
             control.IsVisibleChanged -= VisibilityChanged;
             control.PreviewTextInput -= BeforeTextInput;
+            control.PreviewKeyDown -= BeforeKeyDown;
             control.TextChanged -= TextChanged;
             control.SelectionChanged -= SelectionChanged;
             control.LostFocus -= LostFocus;

@@ -985,8 +985,7 @@ namespace CastlePlanner
                             castle.PlayerId,
                             projectileType))
                     {
-                        if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                            Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/CastlePlannerRuntime/SpawnSupplementalContents.decoration-skipped-because-already", $"Supplemental decoration skipped because it already exists or was queued: playerId={castle.PlayerId}, sourceIndex={index}, mapper={mapper}, position=({tile.X},{tile.Y}).");
+                        skipped.Add("decoration-already-present-or-queued", $"sourceIndex={index}, mapper={mapper}, position=({tile.X},{tile.Y})");
                         continue;
                     }
 
@@ -998,9 +997,10 @@ namespace CastlePlanner
                             height,
                             mapper,
                             projectileType,
-                            out int projectileId))
+                            out int projectileId,
+                            out string failureReason))
                     {
-                        skipped.Add("decoration-creation-failed", $"sourceIndex={index}, itemType={item.itemType}, position=({tile.X},{tile.Y})");
+                        skipped.Add(failureReason, $"sourceIndex={index}, itemType={item.itemType}, position=({tile.X},{tile.Y})");
                         continue;
                     }
                     if (projectileType == ProjectileType.Disease)
@@ -1012,9 +1012,14 @@ namespace CastlePlanner
                 skipped.Add("unknown-misc", $"sourceIndex={index}, itemType={item.itemType}");
             }
 
-            if (skipped.Count != 0)
-                Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner:supplemental-summary",
-                    $"Supplemental castle contents omitted: playerId={castle.PlayerId}, {skipped}.");
+            foreach (SupplementalSpawnSummary summary in skipped.Summaries)
+            {
+                string message = $"Supplemental castle contents omitted: playerId={castle.PlayerId}, {summary}.";
+                if (summary.IsExpected)
+                    Shared.DebugLogHelper.LogInfo(log, message);
+                else
+                    Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner:supplemental-summary:" + summary.Category, message);
+            }
             string digestPayload = string.Join("|", digestRows);
             string digest;
             using (SHA256 sha = SHA256.Create())
@@ -1048,9 +1053,11 @@ namespace CastlePlanner
             int height,
             eMappers mapper,
             ProjectileType projectileType,
-            out int projectileId)
+            out int projectileId,
+            out string failureReason)
         {
             projectileId = 0;
+            failureReason = "decoration-creation-failed";
             int projectileX;
             int projectileY;
             try
@@ -1060,6 +1067,7 @@ namespace CastlePlanner
             }
             catch (ArgumentOutOfRangeException)
             {
+                failureReason = "invalid-decoration-coordinate";
                 return false;
             }
 
@@ -1083,12 +1091,17 @@ namespace CastlePlanner
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner/CastlePlannerRuntime/TryCreateDecoration.creation-threw-player-id", $"Supplemental decoration creation threw: playerId={playerId}, mapper={mapper}, projectileType={projectileType}, position=({worldX},{worldY}), error={ex.GetBaseException().Message}.");
+                failureReason = "decoration-creation-threw";
+                Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner/CastlePlannerRuntime/TryCreateDecoration.creation-threw-player-id", $"Supplemental decoration creation threw: category={SupplementalSpawnReport.CategoryFor(failureReason)}, reason={failureReason}, playerId={playerId}, mapper={mapper}, projectileType={projectileType}, position=({worldX},{worldY}), error={ex.GetBaseException().Message}.");
                 return false;
             }
 
             if (result <= 0 || result > int.MaxValue)
+            {
+                if (result > int.MaxValue) failureReason = "invalid-projectile-id";
+                Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner/decoration-creation-failed", $"Supplemental decoration creation failed: category={SupplementalSpawnReport.CategoryFor(failureReason)}, reason={failureReason}, playerId={playerId}, mapper={mapper}, projectileType={projectileType}, tile=({worldX},{worldY}), result={result}, {DescribeSupplementalTile(tileId)}.");
                 return false;
+            }
 
             projectileId = (int)result;
             short flyGridProjectileId = GameTileManagerAPI.Instance.TileManager.FlyGrid[tileId];
@@ -1113,16 +1126,35 @@ namespace CastlePlanner
                     projectile->r_CurrentTileId,
                     tileId))
             {
+                failureReason = "decoration-verification-failed";
                 string observed = projectile == null
                     ? "unavailable"
                     : $"state={projectile->r_AliveState}, type={projectile->r_ProjectileType}, owner={projectile->r_PlayerSourceId}, source=({projectile->r_SourceWorldTileX},{projectile->r_SourceWorldTileY},{projectile->r_SourceElevation}), target=({projectile->r_TargetWorldTileX},{projectile->r_TargetWorldTileY},{projectile->r_TargetElevation}), current=({projectile->r_CurrentTileX},{projectile->r_CurrentTileY},{projectile->r_CurrentTileId}), flyGrid={flyGridProjectileId}";
-                Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner/CastlePlannerRuntime/TryCreateDecoration.verification-failed-player-id", $"Supplemental decoration verification failed: playerId={playerId}, projectileId={projectileId}, mapper={mapper}, projectileType={projectileType}, tile=({worldX},{worldY}), projectilePosition=({projectileX},{projectileY}), observed={observed}.");
+                Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner/CastlePlannerRuntime/TryCreateDecoration.verification-failed-player-id", $"Supplemental decoration verification failed: category={SupplementalSpawnReport.CategoryFor(failureReason)}, reason={failureReason}, playerId={playerId}, projectileId={projectileId}, mapper={mapper}, projectileType={projectileType}, tile=({worldX},{worldY}), projectilePosition=({projectileX},{projectileY}), observed={observed}, {DescribeSupplementalTile(tileId)}.");
                 return false;
             }
 
             if (Shared.DebugLogHelper.DiagnosticsEnabled)
                 Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/CastlePlannerRuntime/TryCreateDecoration.created-player-id-projectile", $"Supplemental decoration created: playerId={playerId}, projectileId={projectileId}, mapper={mapper}, projectileType={projectileType}, position=({worldX},{worldY}), height={height}.");
+            failureReason = string.Empty;
             return true;
+        }
+
+        private static string DescribeSupplementalTile(int tileId)
+        {
+            // Support context only, read on failure. A building or wall can support a brazier;
+            // occupancy is not an inferred native rejection reason.
+            try
+            {
+                GameTileManagerAPI tiles = GameTileManagerAPI.Instance;
+                if (!tiles.IsValidTileId(tileId)) return $"tileContext=unavailable, tileId={tileId}";
+                TilePropertyFlag flags = tiles.GetTilePropertyFlag(tileId);
+                return $"tileFlags={flags}, tileFlagsRaw=0x{(uint)flags:X8}, buildingId={tiles.GetTileBuildingId(tileId)}, tileHeight={tiles.GetTileHeight(tileId)}";
+            }
+            catch (Exception ex)
+            {
+                return $"tileContext=unavailable, tileContextError={ex.GetBaseException().Message}";
+            }
         }
 
         private static string CheckSupplementalMiscTile(AivWorldTile tile)

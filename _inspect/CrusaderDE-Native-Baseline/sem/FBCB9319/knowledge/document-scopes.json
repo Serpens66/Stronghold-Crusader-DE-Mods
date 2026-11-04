@@ -21,6 +21,12 @@
   },
   "documents": [
     {
+      "file": "ENEMY_HP_MULTIPLIER.md",
+      "scope": "vanilla",
+      "components": [],
+      "integrationSections": []
+    },
+    {
       "file": "PLAYER_CONTROL_CONTEXT.md",
       "scope": "vanilla+integration",
       "components": ["APIShared", "Spectator", "BugfixesAndQoL"],

@@ -28,23 +28,10 @@ namespace Spectator
         private static Brush PlayerBrush(int player) => player > 0 && player < humanOwnerNumbers.Length
             ? humanOwnerNumbers[player]?.Foreground ?? neutralPlayerBrush : neutralPlayerBrush;
 
-        private static bool HitPanel(FrameworkElement element, MouseButtonEventArgs args)
-        {
-            if (element == null || !element.IsVisible) return false;
-            Point p = args.GetPosition(element);
-            if (ReferenceEquals(element, humanPanel))
-            {
-                foreach (var piece in paintedPieces)
-                    if (p.X >= piece.X && p.X < piece.Right && p.Y >= piece.Y && p.Y < piece.Bottom) return true;
-                return false;
-            }
-            return p.X >= 0 && p.Y >= 0 && p.X < element.ActualWidth && p.Y < element.ActualHeight;
-        }
-
         private static void OnToolbarOutsideClick(object sender, MouseButtonEventArgs args)
         {
             // Preview runs before a different text input takes focus; leave the original click untouched.
-            amountInput?.OutsidePointerDown(HitPanel(humanPanel, args) || HitPanel(humanDetails, args));
+            amountInput?.PointerDown(args);
         }
 
         private static void ReleaseAmountForMapClick()

@@ -74,6 +74,49 @@ namespace Spectator
             Expect(!CreditMath.Fits(int.MaxValue, 1), "full reserve");
             Expect(!CreditMath.Fits(-1, 1), "corrupt negative reserve");
             Expect(!CreditMath.Fits(0, 0), "zero rejected");
+            foreach (int initial in new[] { 0, 1, 2000 })
+            {
+                var goldBalance = new GoodsBalance(initial, 123);
+                var trace = new CreditTrace(goldBalance, 10000, true, false);
+                Expect(CreditMath.Check(goldBalance, 10000, true) == CreditFailure.None, "ordinary gold credit allowed " + initial);
+                Expect(trace.Current == initial && trace.Expected == initial + 10000L && !trace.ActualKnown,
+                    "immediate gold result excludes pending delivery and retains original balance " + initial);
+                trace.Observe(new GoodsBalance(initial + 10000, 123));
+                Expect(trace.Actual == trace.Expected && trace.Before.Incoming == 123, "gold snapshot reports actual credit " + initial);
+            }
+            Expect(CreditMath.Check(new GoodsBalance(-1, 0), 10000, true) == CreditFailure.NegativeBalance,
+                "negative gold is distinct from overflow");
+            Expect(CreditMath.Check(new GoodsBalance(0, -1), 1, false) == CreditFailure.NegativeBalance,
+                "negative pending goods remain visible as invalid balance");
+            Expect(CreditMath.Check(new GoodsBalance(0, -1), 1, true) == CreditFailure.None,
+                "immediate gold retains its stored-account-only contract");
+            Expect(CreditMath.Check(new GoodsBalance(int.MaxValue - 10000, 0), 10000, true) == CreditFailure.None,
+                "gold credit can reach exact maximum");
+            Expect(CreditMath.Check(new GoodsBalance(int.MaxValue - 9999, 0), 10000, true) == CreditFailure.Overflow,
+                "gold one above maximum is rejected");
+            var overflowTrace = new CreditTrace(new GoodsBalance(int.MaxValue, int.MaxValue), int.MaxValue, false, false);
+            Expect(overflowTrace.Current == 4294967294L && overflowTrace.Expected == 6442450941L,
+                "goods balance and rejected result are computed in Int64");
+            Expect(CreditMath.Check(overflowTrace.Before, overflowTrace.Amount, false) == CreditFailure.Overflow,
+                "combined goods overflow is rejected");
+            Expect(CreditMath.Check(new GoodsBalance(2, int.MaxValue - 3), 1, false) == CreditFailure.None &&
+                CreditMath.Check(new GoodsBalance(2, int.MaxValue - 3), 2, false) == CreditFailure.Overflow,
+                "goods check includes pending deliveries");
+            var cappedDebit = new CreditTrace(new GoodsBalance(7, 5), int.MinValue, false, false);
+            Expect(cappedDebit.Expected == 0, "debit diagnostic handles minimum signed amount and caps available funds");
+            var reserveDebit = new CreditTrace(new GoodsBalance(10, 4), -12, false, true);
+            Expect(reserveDebit.Expected == 10, "mode-six expected result preserves stored goods");
+            reserveDebit.Observe(new GoodsBalance(10, 1));
+            Expect(reserveDebit.Current == 14 && reserveDebit.Actual == 11 && reserveDebit.Before.Incoming == 4,
+                "partial debit diagnostics preserve original and actual snapshots");
+            bool negativeReason = false, postconditionReason = false;
+            try { new GoodsBalance(-1, 0).Validate(); }
+            catch (CreditAccountingException error) { negativeReason = error.Failure == CreditFailure.NegativeBalance; }
+            Expect(negativeReason, "debit invalid-state exception carries its rejection reason");
+            int excessive = 10;
+            try { CreditDebit.Execute(-1, false, () => new GoodsBalance(excessive, 0), value => excessive -= 2, value => { }); }
+            catch (CreditAccountingException error) { postconditionReason = error.Failure == CreditFailure.Postcondition; }
+            Expect(postconditionReason && excessive == 8, "postcondition failure distinguishes changed actual balance");
             Expect(CreditInput.IsEditable(""), "empty editing state");
             Expect(CreditInput.IsEditable("0"), "zero editing state");
             Expect(CreditInput.IsEditable("2147483647"), "maximum input");

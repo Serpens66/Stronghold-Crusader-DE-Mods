@@ -7,6 +7,14 @@ namespace Noesis
     public class RoutedEventArgs : EventArgs { }
     public class DependencyPropertyChangedEventArgs : EventArgs { }
     public class TextCompositionEventArgs : EventArgs { public string Text; public bool Handled; }
+    public enum Key { Escape, Enter, A }
+    public class KeyEventArgs : EventArgs { public Key Key; public bool Handled; }
+    public struct Point { public double X, Y; }
+    public class MouseButtonEventArgs : EventArgs
+    {
+        public Point Position; public bool Handled;
+        public Point GetPosition(UIElement target) { return Position; }
+    }
     public class KeyboardFocusChangedEventArgs : EventArgs { public UIElement OldFocus, NewFocus; }
     public class UIElement { }
     public class TextBoxBase : UIElement { }
@@ -32,7 +40,9 @@ namespace Noesis
         public int SelectionStart, SelectionLength;
         public bool IsKeyboardFocused { get { return Keyboard.FocusedElement == this; } }
         public bool IsVisible = true;
+        public double ActualWidth = 150, ActualHeight = 25;
         public event EventHandler<TextCompositionEventArgs> PreviewTextInput;
+        public event EventHandler<KeyEventArgs> PreviewKeyDown;
         public event EventHandler<RoutedEventArgs> TextChanged, SelectionChanged, LostFocus;
         public event EventHandler<KeyboardFocusChangedEventArgs> GotKeyboardFocus, LostKeyboardFocus;
         public event EventHandler<DependencyPropertyChangedEventArgs> IsVisibleChanged;
@@ -46,6 +56,8 @@ namespace Noesis
             if (!args.Handled) Text = Text.Remove(SelectionStart, SelectionLength).Insert(SelectionStart, value);
         }
         public void Select(int start, int length) { SelectionStart = start; SelectionLength = length; SelectionChanged?.Invoke(this, new RoutedEventArgs()); }
+        public KeyEventArgs Press(Key key)
+        { var args = new KeyEventArgs { Key = key }; PreviewKeyDown?.Invoke(this, args); return args; }
     }
 }
 public class FatControler
@@ -84,10 +96,39 @@ namespace Spectator
             Check(FatControler.instance.NoesisHasKeyboard, "focus enables keyboard and suppresses game keys");
             control.Select(0, 1); control.Type("4120");
             Check(control.Text == "4120" && model.Amount == "4120", "typing reaches amount model");
-            input.OutsidePointerDown(true);
-            Check(control.IsKeyboardFocused, "inside menu keeps typing focus");
-            input.OutsidePointerDown(false);
+            var inside = new Noesis.MouseButtonEventArgs { Position = new Noesis.Point { X = 75, Y = 12 } };
+            input.PointerDown(inside);
+            Check(control.IsKeyboardFocused && !inside.Handled, "inside input keeps typing focus and original click");
+            var outside = new Noesis.MouseButtonEventArgs { Position = new Noesis.Point { X = 75, Y = 26 } };
+            input.PointerDown(outside);
             Check(!control.IsKeyboardFocused && !FatControler.instance.NoesisHasKeyboard && model.Amount == "4120", "outside map click restores hotkeys and retains amount");
+            Check(!outside.Handled, "outside click still reaches its original button or map surface");
+            foreach (var position in new[] {
+                new Noesis.Point { X = -1, Y = 10 }, new Noesis.Point { X = 150, Y = 10 },
+                new Noesis.Point { X = 75, Y = -1 }, new Noesis.Point { X = 75, Y = 25 } })
+            {
+                keyboard.Focus(control); input.PointerDown(new Noesis.MouseButtonEventArgs { Position = position });
+                Check(!control.IsKeyboardFocused && !FatControler.instance.NoesisHasKeyboard && model.Amount == "4120",
+                    "each boundary outside the input releases keyboard");
+            }
+            foreach (var key in new[] { Noesis.Key.Escape, Noesis.Key.Enter })
+            {
+                foreach (string value in new[] { "4120", "", "00041" })
+                {
+                    keyboard.Focus(control); control.Text = value;
+                    var args = control.Press(key);
+                    Check(args.Handled && !control.IsKeyboardFocused && !FatControler.instance.NoesisHasKeyboard,
+                        "editing exit key is consumed and restores hotkeys " + key);
+                    Check(model.Amount == (value == "" ? "0" : value == "00041" ? "41" : value),
+                        "editing exit key normalizes without resetting amount " + key);
+                }
+            }
+            keyboard.Focus(control);
+            Check(!control.Press(Noesis.Key.A).Handled && control.IsKeyboardFocused, "other keys keep editing");
+            control.Text = "10000"; keyboard.Focus(control); input.EndEditing();
+            Check(model.Amount == "10000" && !control.IsKeyboardFocused && !FatControler.instance.NoesisHasKeyboard,
+                "explicit command exit retains the booking magnitude");
+            control.Text = "4120";
             keyboard.Focus(control);
             control.Select(0, 4); control.Type("x"); Check(control.Text == "4120", "invalid typing rejected");
             control.Text = "12bad"; Check(control.Text == "4120", "invalid paste rolls back entire input");
@@ -131,6 +172,12 @@ namespace Spectator
             control.IsVisible = true; keyboard.Focus(control); input.Detach();
             Check(!control.IsKeyboardFocused && !FatControler.instance.NoesisHasKeyboard, "HUD detach releases focus");
             keyboard.Focus(control); Check(!FatControler.instance.NoesisHasKeyboard, "detached input cannot reacquire keyboard");
+            Check(!control.Press(Noesis.Key.Enter).Handled && control.IsKeyboardFocused, "detached input has no key handler");
+            keyboard.ClearFocus();
+            var replacement = new CreditAmountInput(control, model);
+            keyboard.Focus(control); control.Press(Noesis.Key.Escape);
+            Check(!control.IsKeyboardFocused && !FatControler.instance.NoesisHasKeyboard, "recreated HUD handles editing exit once");
+            replacement.Detach();
             secondInput.Detach();
             return checks;
         }

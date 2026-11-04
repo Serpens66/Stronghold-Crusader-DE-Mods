@@ -91,12 +91,18 @@ try {
 } finally { $assembly.Dispose() }
 $noesis = [Mono.Cecil.AssemblyDefinition]::ReadAssembly((Join-Path $gameDirectory 'Stronghold Crusader Definitive Edition_Data\Managed\Noesis.NoesisGUI.dll'))
 try {
-    foreach ($entry in @(@('Noesis.UIElement','PreviewTextInput'),@('Noesis.UIElement','LostFocus'),@('Noesis.UIElement','GotKeyboardFocus'),@('Noesis.UIElement','LostKeyboardFocus'),@('Noesis.UIElement','IsVisibleChanged'),@('Noesis.TextBoxBase','TextChanged'),@('Noesis.TextBoxBase','SelectionChanged'))) {
+    foreach ($entry in @(@('Noesis.UIElement','PreviewKeyDown'),@('Noesis.UIElement','PreviewMouseDown'),@('Noesis.UIElement','PreviewTextInput'),@('Noesis.UIElement','LostFocus'),@('Noesis.UIElement','GotKeyboardFocus'),@('Noesis.UIElement','LostKeyboardFocus'),@('Noesis.UIElement','IsVisibleChanged'),@('Noesis.TextBoxBase','TextChanged'),@('Noesis.TextBoxBase','SelectionChanged'))) {
         $type = $noesis.MainModule.GetType($entry[0])
         if (-not @($type.Events | Where-Object { $_.Name -eq $entry[1] -and $_.AddMethod.IsPublic -and $_.RemoveMethod.IsPublic }).Count) { throw "Missing public input event: $($entry -join '.')" }
     }
     foreach ($name in @('SelectionStart','SelectionLength')) {
         if (-not @($noesis.MainModule.GetType('Noesis.TextBox').Properties | Where-Object { $_.Name -eq $name -and $_.GetMethod.IsPublic -and $_.SetMethod.IsPublic }).Count) { throw "Missing public selection property: $name" }
+    }
+    foreach ($entry in @(@('Noesis.KeyEventArgs','Key'),@('Noesis.FrameworkElement','ActualWidth'),@('Noesis.FrameworkElement','ActualHeight'))) {
+        if (-not @($noesis.MainModule.GetType($entry[0]).Properties | Where-Object { $_.Name -eq $entry[1] -and $_.GetMethod.IsPublic }).Count) { throw "Missing public input property: $($entry -join '.')" }
+    }
+    foreach ($name in @('Enter','Escape')) {
+        if (-not @($noesis.MainModule.GetType('Noesis.Key').Fields | Where-Object { $_.Name -eq $name -and $_.IsPublic -and $_.HasConstant }).Count) { throw "Missing public editing exit key: $name" }
     }
     foreach ($name in @('Stroke','StrokeThickness','LineHeight','LineStackingStrategy')) {
         if (-not @($noesis.MainModule.GetType('Noesis.TextBlock').Properties | Where-Object { $_.Name -eq $name -and $_.GetMethod.IsPublic -and $_.SetMethod.IsPublic }).Count) { throw "Missing public glyph property: $name" }

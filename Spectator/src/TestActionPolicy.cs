@@ -4,6 +4,7 @@ using System.Globalization;
 namespace Spectator
 {
     internal enum TestActionKind { Credit, Attack, Defend, Cancel, Power, Gate, GateAutomation, PowerToggle }
+    internal enum CreditFailure { None, NegativeBalance, Overflow, Postcondition, Provider }
 
     // Pure policy used by both the runtime and its independent behavioral checks.
     internal static class CreditMath
@@ -20,6 +21,12 @@ namespace Spectator
 
         internal static bool Fits(long current, int amount)
         { return current >= 0 && amount > 0 && current <= int.MaxValue - (long)amount; }
+
+        internal static CreditFailure Check(GoodsBalance balance, int amount, bool storedOnly)
+        {
+            if (balance.Stored < 0 || (!storedOnly && balance.Incoming < 0)) return CreditFailure.NegativeBalance;
+            return Fits(storedOnly ? balance.Stored : balance.Total, amount) ? CreditFailure.None : CreditFailure.Overflow;
+        }
 
     }
 
@@ -60,7 +67,48 @@ namespace Spectator
         internal GoodsBalance(int stored, int incoming) { Stored = stored; Incoming = incoming; }
         internal long Total { get { return (long)Stored + Incoming; } }
         internal void Validate()
-        { if (Stored < 0 || Incoming < 0) throw new InvalidOperationException("Negative resource balance."); }
+        { if (Stored < 0 || Incoming < 0) throw new CreditAccountingException(CreditFailure.NegativeBalance, "Negative resource balance."); }
+    }
+
+    internal sealed class CreditAccountingException : InvalidOperationException
+    {
+        internal readonly CreditFailure Failure;
+        internal CreditAccountingException(CreditFailure failure, string message) : base(message) { Failure = failure; }
+    }
+
+    // One action's locked snapshots, shared by the UI failure text and its support log.
+    internal sealed class CreditTrace
+    {
+        internal readonly GoodsBalance Before;
+        internal readonly int Amount;
+        internal readonly bool StoredOnly;
+        internal readonly long Expected;
+        internal GoodsBalance After;
+        internal bool ActualKnown;
+        internal CreditFailure Failure;
+        internal long Current { get { return StoredOnly ? Before.Stored : Before.Total; } }
+        internal long Actual { get { return StoredOnly ? After.Stored : After.Total; } }
+
+        internal CreditTrace(GoodsBalance before, int amount, bool storedOnly, bool reserveOnly)
+        {
+            Before = before; Amount = amount; StoredOnly = storedOnly; Failure = CreditFailure.None;
+            // Debit remains capped at the available account, including the native mode-six reserve contract.
+            Expected = amount >= 0 || before.Stored < 0 || before.Incoming < 0
+                ? Current + (long)amount
+                : Current - Math.Min(-(long)amount, reserveOnly ? before.Incoming : Current);
+        }
+
+        internal GoodsBalance Observe(GoodsBalance balance)
+        { After = balance; ActualKnown = true; return balance; }
+
+        internal string LogFields { get { return " balance=" + Current.ToString(CultureInfo.InvariantCulture) +
+            " stored=" + Before.Stored.ToString(CultureInfo.InvariantCulture) +
+            " incoming=" + Before.Incoming.ToString(CultureInfo.InvariantCulture) +
+            " expected=" + Expected.ToString(CultureInfo.InvariantCulture) +
+            " actual=" + (ActualKnown ? Actual.ToString(CultureInfo.InvariantCulture) : "unknown") +
+            " actualStored=" + (ActualKnown ? After.Stored.ToString(CultureInfo.InvariantCulture) : "unknown") +
+            " actualIncoming=" + (ActualKnown ? After.Incoming.ToString(CultureInfo.InvariantCulture) : "unknown") +
+            " storedOnly=" + StoredOnly + " limit=" + int.MaxValue.ToString(CultureInfo.InvariantCulture) + " failure=" + Failure; } }
     }
 
     // Shared production transaction, tested with the native API boundary replaced by delegates.
@@ -77,14 +125,14 @@ namespace Spectator
             GoodsBalance after = read(); after.Validate();
             long removed = before.Total - after.Total;
             if (removed < 0 || removed > requested)
-                throw new InvalidOperationException("Resource removal was changed beyond the requested amount.");
+                throw new CreditAccountingException(CreditFailure.Postcondition, "Resource removal was changed beyond the requested amount.");
             // In mode 6 the original already debits incoming goods. Observe rather than subtract twice.
             int remainder = reserveOnly ? 0 : (int)Math.Min(requested - removed, after.Incoming);
             if (remainder > 0) removeIncoming(remainder);
             GoodsBalance final = read(); final.Validate();
             long actual = before.Total - final.Total;
             if (actual < removed || actual > requested)
-                throw new InvalidOperationException("Incoming resource removal postcondition failed.");
+                throw new CreditAccountingException(CreditFailure.Postcondition, "Incoming resource removal postcondition failed.");
             return actual;
         }
     }

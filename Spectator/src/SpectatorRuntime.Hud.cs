@@ -356,7 +356,8 @@ namespace Spectator
             { QueueTestAction(new TestAction { Kind = TestActionKind.PowerToggle, Actor = humanSelectedOwner, Force = command == "EnablePowers" }); return; }
             if (command == "Placement") { ToggleHumanMode(null, null); return; }
             if (command == "ResetAmount") { amountInput?.ResetAmount(); return; }
-            if (command == "Credit" || command == "Debit") { QueueCredit(toolsModel.Good, toolsModel.Amount, command == "Debit"); return; }
+            if (command == "Credit" || command == "Debit")
+            { amountInput?.EndEditing(); QueueCredit(toolsModel.Good, toolsModel.Amount, command == "Debit"); return; }
             if (command == "Attack") { QueueOrder(TestActionKind.Attack, toolsModel.Target, toolsModel.ForceAcceptance); return; }
             if (command == "Defend") { QueueOrder(TestActionKind.Defend, toolsModel.Target, toolsModel.ForceAcceptance); return; }
             if (command == "Cancel") { QueueOrder(TestActionKind.Cancel, 0, false); return; }
