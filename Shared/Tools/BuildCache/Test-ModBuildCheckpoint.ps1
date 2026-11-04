@@ -25,6 +25,8 @@ Put (Join-Path $fixture 'Shared/Runtime/Contract.cs') 'shared'
 $options=@{Workspace=$fixture;Coordinator=$fixture;ModName='Mod';ModDirectory=$mod;PackageDirectory=$package;
     Driver=(Join-Path $mod 'build.bat');Arguments=@('/nopause','/noinstall');Commit=('a'*40);GameDirectory=$game;
     ExtenderDirectory=$extender;ApiSharedDirectory=$sdk;ApiSourceDirectory=$api;Compiler=(Join-Path $fixture 'compiler/MSBuild.exe')}
+$stage=Join-Path $fixture '.release-output/Mod/v1/stage/Mod'
+$options.RetainedPackageDirectory=$stage
 $cache=Join-Path $fixture '.release-output/checkpoints/mod-builds';$record=Join-Path $cache 'Mod.json'
 function Invoke-Fixture {
     Invoke-ModBuildCheckpoint @options -Action {
@@ -53,6 +55,27 @@ try {
     $null=Invoke-Fixture;$null=Invoke-Fixture
     Check ($script:runs -eq $before+2) 'Installing build action was skipped by package-only reuse.'
     $options.Arguments=$savedArguments
+    [void][IO.Directory]::CreateDirectory($stage)
+    foreach($file in Get-ChildItem -LiteralPath $package -File){Copy-Item -LiteralPath $file.FullName -Destination $stage}
+    Put (Join-Path $package 'Mod.dll') 'restored tracked package'
+    $before=$script:runs;$retained=Invoke-Fixture
+    Check ($script:runs -eq $before -and $retained.Checkpoint.Reused -and $retained.PackageDirectory -ieq $stage) 'Restored source package did not reuse the intact release stage.'
+    Check ($retained.Checkpoint.BuildCommit -ceq $first.Checkpoint.BuildCommit -and $retained.Checkpoint.BuildCompletedUtc -ceq $first.Checkpoint.BuildCompletedUtc -and
+        -not $retained.Checkpoint.PSObject.Properties['PackageDirectory']) 'Retained reuse changed original identity or exposed its local path in provenance.'
+    foreach($mutation in @('modify','add','remove')) {
+        Put (Join-Path $stage 'Mod.dll') 'validated output';Put (Join-Path $stage 'info.json') '{}'
+        $extra=Join-Path $stage 'extra.txt';if([IO.File]::Exists($extra)){[IO.File]::Delete($extra)}
+        if($mutation -eq 'modify'){Put (Join-Path $stage 'Mod.dll') 'tampered stage'}
+        elseif($mutation -eq 'add'){Put $extra 'extra'}
+        else{[IO.File]::Delete((Join-Path $stage 'info.json'))}
+        Put (Join-Path $package 'Mod.dll') 'restored tracked package'
+        $before=$script:runs;$result=Invoke-Fixture
+        Check ($script:runs -eq $before+1 -and -not $result.Checkpoint.Reused) ('Invalid retained stage '+$mutation+' skipped the build.')
+    }
+    $savedStage=$options.RetainedPackageDirectory;$options.RetainedPackageDirectory=Join-Path $fixture 'outside-release-output'
+    $rejected=$false;try{$null=Invoke-Fixture}catch{$rejected=$_.Exception.Message -like '*escapes release output*'}
+    Check $rejected 'Retained package outside the controlled release output was accepted.'
+    $options.RetainedPackageDirectory=$savedStage
     foreach($file in @((Join-Path $mod 'src/Settings.cs'),(Join-Path $mod 'tests/Test.cs'),(Join-Path $fixture 'Shared/Runtime/Contract.cs'),
         (Join-Path $sdk 'APIShared.dll'),(Join-Path $api 'src/Contract.cs'),(Join-Path $extender 'SHCDESE.dll'),
         (Join-Path $game 'Stronghold Crusader Definitive Edition_Data/Plugins/x86_64/CrusaderDE.dll'),

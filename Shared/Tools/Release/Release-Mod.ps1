@@ -89,6 +89,15 @@ try {
     }
     $dependencyRecords = @(Get-DependencyRecords -Metadata $metadata -ExtenderDir $extenderDir `
         -ApiSharedDir $(if ($null -ne $apiSharedPackage) { $apiSharedPackage.Directory } else { $null }))
+    $outputRoot = Join-Path $config.Root ".release-output\$ModName\v$($metadata.Version)"
+    if ($env:SHCDE_WORKSHOP_TEST -eq '1') { $outputRoot=Join-Path $config.Root ".release-output\SteamWorkshop\test\$ModName\v$($metadata.Version)" }
+    $outputRoot=[IO.Path]::GetFullPath($outputRoot)
+    if(-not $outputRoot.StartsWith([IO.Path]::GetFullPath($config.Root).TrimEnd('\')+'\.release-output\',[StringComparison]::OrdinalIgnoreCase)){throw 'Unsafe release output path.'}
+    Assert-ModCheckpointPath $outputRoot
+    $stageRoot = Join-Path $outputRoot 'stage'
+    $stagePackage = [IO.Path]::GetFullPath((Join-Path $stageRoot $metadata.PackageFolderName))
+    if(-not $stagePackage.StartsWith($stageRoot+'\',[StringComparison]::OrdinalIgnoreCase)){throw 'Unsafe release stage path.'}
+    Assert-ModCheckpointPath $stagePackage
     $buildStart = [DateTime]::UtcNow
     Write-Host 'Running the mod build once...' -ForegroundColor Cyan
     Push-Location $metadata.ModDir
@@ -109,6 +118,7 @@ try {
             GameDirectory=$config.GameDir; ExtenderDirectory=$extenderDir; Compiler=$config.MSBuild;
             ApiSharedDirectory=$(if($apiSharedPackage){$apiSharedPackage.Directory}else{Join-Path $config.Root 'APIShared/BepInEx/plugins/APIShared_Serp'});
             ApiSourceDirectory=$(if(Get-Command Get-WorkshopApiRoot -ErrorAction SilentlyContinue){Get-WorkshopApiRoot $config.Root}else{Join-Path $config.Root 'APIShared'})
+            RetainedPackageDirectory=$stagePackage
         }
         $buildResult = Invoke-ModBuildCheckpoint @checkpointOptions -Action {
             Invoke-CheckedCommand -FilePath $metadata.BuildBat -Arguments $buildArguments -AllowFailure
@@ -132,18 +142,25 @@ try {
     if($env:SHCDE_API_SHARED_MAIN_SELECTION){$trackedStatusArguments+=@('--','.',':(exclude)APIShared')}
     $trackedStatus = Invoke-CheckedCommand -FilePath 'git' -Arguments $trackedStatusArguments
     $trackedChangesAfterBuild = @($trackedStatus.Output | ForEach-Object { if ([string]$_ -match '^.. (.+)$') { $Matches[1] } })
-    $outputRoot = Join-Path $config.Root ".release-output\$ModName\v$($metadata.Version)"
-    if ($env:SHCDE_WORKSHOP_TEST -eq '1') { $outputRoot=Join-Path $config.Root ".release-output\SteamWorkshop\test\$ModName\v$($metadata.Version)" }
-    $outputRoot=[IO.Path]::GetFullPath($outputRoot)
-    if(-not $outputRoot.StartsWith([IO.Path]::GetFullPath($config.Root).TrimEnd('\')+'\.release-output\',[StringComparison]::OrdinalIgnoreCase)){throw 'Unsafe release output path.'}
-    if (Test-Path -LiteralPath $outputRoot) { Remove-Item -LiteralPath $outputRoot -Recurse -Force }
-    [void](New-Item -ItemType Directory -Path $outputRoot -Force)
-    $stageRoot = Join-Path $outputRoot 'stage'
-    $stagePackage = Join-Path $stageRoot $metadata.PackageFolderName
-    [void](New-Item -ItemType Directory -Path $stagePackage -Force)
-    $packageChildren = @(Get-ChildItem -LiteralPath $metadata.PackageDir -Force)
-    foreach ($packageChild in $packageChildren) {
-        Copy-Item -LiteralPath $packageChild.FullName -Destination $stagePackage -Recurse -Force
+    $retainedStageReused = $null -ne $buildResult.PSObject.Properties['PackageDirectory'] -and $buildResult.PackageDirectory -ieq $stagePackage
+    if (-not $retainedStageReused) {
+        if (Test-Path -LiteralPath $outputRoot) { Remove-Item -LiteralPath $outputRoot -Recurse -Force }
+        [void](New-Item -ItemType Directory -Path $stagePackage -Force)
+        $packageChildren = @(Get-ChildItem -LiteralPath $metadata.PackageDir -Force)
+        foreach ($packageChild in $packageChildren) {
+            Copy-Item -LiteralPath $packageChild.FullName -Destination $stagePackage -Recurse -Force
+        }
+    } else {
+        # Keep the already verified stage; regenerate packaging/audits, never copy stale
+        # tracked package files back over the successful build after Git restored them.
+        Write-Host 'Reusing the SHA-256 verified release stage; packaging gates run again.'
+        if(@(Get-ChildItem -LiteralPath $outputRoot -Force -Recurse | Where-Object {$_.Attributes -band [IO.FileAttributes]::ReparsePoint}).Count){throw 'Linked retained release output.'}
+        $oldAudit = Join-Path $outputRoot 'audit'
+        if(Test-Path -LiteralPath $oldAudit) {
+            Assert-ModCheckpointPath $oldAudit
+            if(@(Get-ChildItem -LiteralPath $oldAudit -Force -Recurse | Where-Object {$_.Attributes -band [IO.FileAttributes]::ReparsePoint}).Count){throw 'Linked release audit output.'}
+            Remove-Item -LiteralPath $oldAudit -Recurse -Force
+        }
     }
 
     $packageFiles = @(Get-ChildItem -LiteralPath $stagePackage -File -Recurse | Sort-Object FullName)
@@ -168,11 +185,11 @@ try {
     $fileRecords = @(foreach ($file in $packageFiles) { Get-FileHashRecord -Path $file.FullName -BasePath $stageRoot })
     $baseName = "$ModName-v$($metadata.Version)"
     $zipPath = Join-Path $outputRoot "$baseName.zip"
-    Compress-Archive -LiteralPath $stagePackage -DestinationPath $zipPath -CompressionLevel Optimal
+    Compress-Archive -LiteralPath $stagePackage -DestinationPath $zipPath -CompressionLevel Optimal -Force
     $zipHash = Get-Sha256Hex -Path $zipPath
 
     $managerPackagePath = Join-Path $outputRoot "$baseName.scdemod"
-    $managerPackage = New-SCDEModManagerPackage -PluginDirectory $metadata.PackageDir -Info $metadata.Manifest `
+    $managerPackage = New-SCDEModManagerPackage -PluginDirectory $stagePackage -Info $metadata.Manifest `
         -DestinationPath $managerPackagePath -WorkingDirectory $outputRoot -ApiSharedGuid ([string]$config.ApiShared.Guid) `
         -ApiSharedConsumer:$apiSharedConsumer
     $managerPackageHash = [string]$managerPackage.Sha256
