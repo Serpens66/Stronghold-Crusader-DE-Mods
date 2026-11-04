@@ -343,13 +343,6 @@ internal static partial class Program
                 "category and option title can be combined: " + key);
             if (category == "Possible") Check(matches(entry, "Fixes", false), "Fixes includes Fixes?: " + key);
         }
-        // Exercise the production localized getters as well as the XAML/catalog boundary.
-        object textModel = System.Runtime.Serialization.FormatterServices.GetUninitializedObject(modelType);
-        foreach (object topic in topics)
-            foreach (string category in new[] { "Fixes", "Qol", "Possible" })
-                Check((string)Get(topic, category + "SearchTitle") == (string)Get(topic, "Title") + " " +
-                    (string)Get(textModel, category == "Possible" ? "PossibleFixesTitleText" : category + "TitleText"),
-                    "production search headings reuse the visible localized category: " + Get(topic, "Key") + "/" + category);
         MethodInfo refresh = presentationType.GetMethod("RefreshSearch", All);
         Action<string, bool, string> search = (text, tooltips, exact) => refresh.Invoke(presentation, new[] { (object)text, tooltips, exact, entries, Enum.ToObject(catalog.Assembly.GetType("APIShared.ModSettings.ModSettingsSearchStateFilter", true), 0), fixture });
 

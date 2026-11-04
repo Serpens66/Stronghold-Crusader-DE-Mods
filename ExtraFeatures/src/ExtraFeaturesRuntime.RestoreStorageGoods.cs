@@ -27,7 +27,7 @@ namespace ExtraFeatures
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "ExtraFeatures/src/ExtraFeaturesRuntime.RestoreStorageGoods.cs:50", $"Extra Features stockpile restore hook failed: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "ExtraFeatures/ExtraFeaturesRuntime.RestoreStorageGoods/OnBuildingBulldoze", $"Extra Features stockpile restore hook failed: {ex}");
             }
         }
 
@@ -56,7 +56,7 @@ namespace ExtraFeatures
                 var diagnosticArgs = @args;
                 var diagnosticPending = @pending;
                 var diagnosticGoods = @goods;
-                Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/ExtraFeaturesRuntime.RestoreStorageGoods.cs:41", () => $"Extra Features restored stockpile part goods: buildingId={diagnosticArgs.BuildingId}, playerId={diagnosticPending.PlayerId}, goods={BuildGoodsSummary(diagnosticGoods)}, partsRemaining={diagnosticPending.PartsRemaining}.");
+                Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/ExtraFeaturesRuntime.RestoreStorageGoods/RestoreStockpilePart", () => $"Extra Features restored stockpile part goods: buildingId={diagnosticArgs.BuildingId}, playerId={diagnosticPending.PlayerId}, goods={BuildGoodsSummary(diagnosticGoods)}, partsRemaining={diagnosticPending.PartsRemaining}.");
             }
 
             if (pending.PartsRemaining <= 0)
@@ -72,7 +72,7 @@ namespace ExtraFeatures
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "ExtraFeatures/src/ExtraFeaturesRuntime.RestoreStorageGoods.cs:94", $"Extra Features storage restore hook failed: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "ExtraFeatures/ExtraFeaturesRuntime.RestoreStorageGoods/OnBuildingRefund", $"Extra Features storage restore hook failed: {ex}");
             }
         }
 
@@ -115,7 +115,7 @@ namespace ExtraFeatures
                 var diagnosticArgsValue = @args;
                 var diagnosticBuildingGlobalId = @buildingGlobalId;
                 var diagnosticGoodsValue = @goods;
-                Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/ExtraFeaturesRuntime.RestoreStorageGoods.cs:87", () => $"Extra Features restored storage goods: type={diagnosticStructure}, buildingId={diagnosticArgsValue.BuildingId}, " +
+                Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/ExtraFeaturesRuntime.RestoreStorageGoods/HandleBuildingRefund", () => $"Extra Features restored storage goods: type={diagnosticStructure}, buildingId={diagnosticArgsValue.BuildingId}, " +
                         $"buildingGlobalId={diagnosticBuildingGlobalId}, playerId={diagnosticArgsValue.PlayerId}, goods={BuildGoodsSummary(diagnosticGoodsValue)}.");
             }
         }

@@ -35,13 +35,13 @@ namespace ExtraFeatures
                 blocksLocalStateChanges = snapshot.Kind == APIShared.GameModes.GameModeKind.Unknown || snapshot.IsRealMultiplayer;
                 hasMapSnapshot = snapshot.Kind != APIShared.GameModes.GameModeKind.Unknown;
                 if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/MultiplayerFeatureGate.cs:37", $"Extra Features multiplayer feature gate captured map mode: {snapshot.ToDiagnosticString()}.");
+                    Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/MultiplayerFeatureGate/CaptureMapMode.multiplayer-feature-gate-captured", $"Extra Features multiplayer feature gate captured map mode: {snapshot.ToDiagnosticString()}.");
             }
             catch (Exception ex)
             {
                 blocksLocalStateChanges = true;
                 hasMapSnapshot = true;
-                Shared.DebugLogHelper.LogErrorLimited(log, "ExtraFeatures/src/MultiplayerFeatureGate.cs:45", $"Extra Features could not capture the map mode; desync-prone local state changes remain blocked as a precaution: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "ExtraFeatures/MultiplayerFeatureGate/CaptureMapMode.could-not-capture-map", $"Extra Features could not capture the map mode; desync-prone local state changes remain blocked as a precaution: {ex}");
             }
         }
 

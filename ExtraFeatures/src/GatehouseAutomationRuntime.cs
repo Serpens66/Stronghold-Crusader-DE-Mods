@@ -222,7 +222,7 @@ namespace ExtraFeatures
                 return;
             }
 
-            int localPlayerId = GetControlledPlayerId();
+            int localPlayerId = ControlledPlayer.GetId();
             int selectedBuildingId = GamePlayerManagerAPI.Instance.GetSelectedBuildingId();
             if (!TryGetOwnedGatehouse(selectedBuildingId, localPlayerId, out GameBuilding* building, out string failure))
             {
@@ -437,7 +437,7 @@ namespace ExtraFeatures
                     return;
                 RefreshEditorReadiness();
 
-                int playerId = GetControlledPlayerId();
+                int playerId = ControlledPlayer.GetId();
                 int buildingId = GamePlayerManagerAPI.Instance.GetSelectedBuildingId();
                 if (!TryGetOwnedGatehouse(buildingId, playerId, out GameBuilding* building, out string failure))
                 {
@@ -1095,18 +1095,6 @@ namespace ExtraFeatures
             if (nextOperationId == int.MaxValue)
                 nextOperationId = 0;
             return ++nextOperationId;
-        }
-
-        private static int GetControlledPlayerId()
-        {
-            if (APIShared.GameModes.GameModeHelper.IsMapEditor())
-            {
-                // The gate button is available only for the active editor player's buildings.
-                return EditorDirector.instance?.ActivePlayerID ?? -1;
-            }
-
-            int localPlayerId = GamePlayerManagerAPI.Instance.GetLocalPlayerId();
-            return localPlayerId > 0 ? localPlayerId : -1;
         }
 
         private static bool IsMapEditor() => APIShared.GameModes.GameModeHelper.IsMapEditor();

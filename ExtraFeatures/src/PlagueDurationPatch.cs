@@ -171,7 +171,7 @@ namespace ExtraFeatures
                     }
                     catch (Exception ex)
                     {
-                        Shared.DebugLogHelper.LogWarningLimited(log, "ExtraFeatures/src/PlagueDurationPatch.cs:158", "Extra Features could not initialize AI flag Disease tracking; " +
+                        Shared.DebugLogHelper.LogWarningLimited(log, "ExtraFeatures/PlagueDurationPatch/TryInstallLifetimeComparisonHook.initialize-ai-flag-disease", "Extra Features could not initialize AI flag Disease tracking; " +
                             $"the permanent lifetime hook remains active without that exception: {ex}");
                     }
                 }
@@ -190,7 +190,7 @@ namespace ExtraFeatures
                 RollbackUnpublishedLifetimeComparisonHook(candidate, hookPublished);
                 aiFlagDiseaseTracker?.Dispose();
                 aiFlagDiseaseTracker = null;
-                Shared.DebugLogHelper.LogWarningLimited(log, "ExtraFeatures/src/PlagueDurationPatch.cs:178", "Extra Features could not install the plague-lifetime hook; " +
+                Shared.DebugLogHelper.LogWarningLimited(log, "ExtraFeatures/PlagueDurationPatch/TryInstallLifetimeComparisonHook.install-plague-lifetime-hook", "Extra Features could not install the plague-lifetime hook; " +
                     $"the plague duration multiplier is unavailable and Vanilla duration applies for this process: {ex}");
             }
         }
@@ -230,7 +230,7 @@ namespace ExtraFeatures
                     return;
 
                 conditionalCallbackFailureLogged = true;
-                Shared.DebugLogHelper.LogErrorLimited(log, "ExtraFeatures/src/PlagueDurationPatch.cs:220", "Extra Features plague lifetime callback was disabled for this process; " +
+                Shared.DebugLogHelper.LogErrorLimited(log, "ExtraFeatures/PlagueDurationPatch/ApplyConditionalLifetime", "Extra Features plague lifetime callback was disabled for this process; " +
                     $"the physically installed hook now preserves Vanilla behavior: {ex}");
             }
         }

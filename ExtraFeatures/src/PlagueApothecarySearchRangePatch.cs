@@ -188,7 +188,7 @@ namespace ExtraFeatures
                 "ApothecaryPlagueSearchMaximum",
                 effectiveMaximum);
             if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/PlagueApothecarySearchRangePatch.cs:182", $"Extra Features apothecary plague-search maximum is now " +
+                Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/PlagueApothecarySearchRangePatch/SetEffectiveMaximum", $"Extra Features apothecary plague-search maximum is now " +
                     $"{effectiveMaximum} ({(enabled ? "configured" : "Vanilla")}).");
         }
 

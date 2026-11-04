@@ -509,7 +509,7 @@ namespace ExtraFeatures
                 }
 
                 if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/ElevatedMoatPatch.cs:543", $"Extra Features elevated-moat hooks installed (logically disabled until enabled); editor=true, " +
+                    Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/ElevatedMoatPatch/Constructor", $"Extra Features elevated-moat hooks installed (logically disabled until enabled); editor=true, " +
                         $"adaptiveDepth={ElevatedMoatNativeContract.MoatDepth}, " +
                         $"healthReportInterval={ElevatedMoatHealthReporting.ReportInterval} corrections.");
 
@@ -801,7 +801,7 @@ namespace ExtraFeatures
                 return;
 
             if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/ElevatedMoatPatch.cs:824", $"Extra Features elevated-moat healthy: corrections={total}, " +
+                Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/ElevatedMoatPatch/RecordSuccessfulCorrection", $"Extra Features elevated-moat healthy: corrections={total}, " +
                     $"completed={Interlocked.Read(ref completedHeightCorrections)}, " +
                     $"restored={Interlocked.Read(ref restoredHeightCorrections)}, errors=0.");
         }
@@ -1034,7 +1034,7 @@ namespace ExtraFeatures
             if (Interlocked.Exchange(ref callbackFailureReported, 1) != 0)
                 return;
 
-            Shared.DebugLogHelper.LogErrorLimited(log, "ExtraFeatures/src/ElevatedMoatPatch.cs:1069", $"Extra Features elevated-moat callback failed at {stage}; later duplicate failures are suppressed: {exception}");
+            Shared.DebugLogHelper.LogErrorLimited(log, "ExtraFeatures/ElevatedMoatPatch/LogCallbackFailure", $"Extra Features elevated-moat callback failed at {stage}; later duplicate failures are suppressed: {exception}");
         }
 
     }

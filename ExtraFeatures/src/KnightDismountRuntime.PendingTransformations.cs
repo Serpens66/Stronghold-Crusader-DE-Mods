@@ -938,7 +938,7 @@ namespace ExtraFeatures
                 };
                 deferredSaveReadyAfterTick = long.MaxValue;
 
-                int playerId = GetControlledPlayerId();
+                int playerId = ControlledPlayer.GetId();
                 if (!IsChoreTransportReady() ||
                     !TrySendTransformationPacket(playerId, KnightTransformationPacket.CancelAllAction, Array.Empty<int>()))
                 {

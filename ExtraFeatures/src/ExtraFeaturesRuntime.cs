@@ -291,7 +291,7 @@ namespace ExtraFeatures
             {
                 aiMarketVanillaPriceHook?.Dispose();
                 aiMarketVanillaPriceHook = null;
-                Shared.DebugLogHelper.LogErrorLimited(log, "ExtraFeatures/src/ExtraFeaturesRuntime.cs:229", "Extra Features AI Vanilla market-price override is disabled for this process; " +
+                Shared.DebugLogHelper.LogErrorLimited(log, "ExtraFeatures/ExtraFeaturesRuntime/InstallAIMarketVanillaPriceHook", "Extra Features AI Vanilla market-price override is disabled for this process; " +
                     $"the AI uses the active global prices and all other Extra Features remain active: {ex}");
             }
         }
@@ -356,7 +356,7 @@ namespace ExtraFeatures
 
         private void LogFeatureFailure(string featureName, Exception ex)
         {
-            Shared.DebugLogHelper.LogErrorLimited(log, "ExtraFeatures/src/ExtraFeaturesRuntime.cs:336", $"Extra Features feature '{featureName}' failed and remains inactive: {ex}");
+            Shared.DebugLogHelper.LogErrorLimited(log, "ExtraFeatures/ExtraFeaturesRuntime/LogFeatureFailure", $"Extra Features feature '{featureName}' failed and remains inactive: {ex}");
         }
 
         private void ReconcileKnightAndElevatedMoat()
@@ -436,7 +436,7 @@ namespace ExtraFeatures
                 if (!api.TryGetBuildingRepair(ExtraFeaturesPlugin.PluginGuid, out candidate,
                     out NativeCapabilityDiagnostic diagnostic))
                 {
-                    Shared.DebugLogHelper.LogErrorLimited(log, "ExtraFeatures/src/ExtraFeaturesRuntime.cs:417", "Building repair HUD is unavailable: " + diagnostic?.Reason);
+                    Shared.DebugLogHelper.LogErrorLimited(log, "ExtraFeatures/ExtraFeaturesRuntime/OnBuildingRepairApiReady.unavailable", "Building repair HUD is unavailable: " + diagnostic?.Reason);
                     return;
                 }
 
@@ -448,7 +448,7 @@ namespace ExtraFeatures
             catch (Exception ex)
             {
                 candidate?.SetActive(false);
-                Shared.DebugLogHelper.LogErrorLimited(log, "ExtraFeatures/src/ExtraFeaturesRuntime.cs:430", "Building repair HUD installation failed: " + ex);
+                Shared.DebugLogHelper.LogErrorLimited(log, "ExtraFeatures/ExtraFeaturesRuntime/OnBuildingRepairApiReady.installation-failed", "Building repair HUD installation failed: " + ex);
             }
         }
 
@@ -558,7 +558,7 @@ namespace ExtraFeatures
                 {
                     ApplyPlagueApothecarySearchRangeSetting();
                     if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                        Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/ExtraFeaturesRuntime.cs:541", $"Extra Features apothecary plague-search distance changed to " +
+                        Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/ExtraFeaturesRuntime/CreateGatedSettingHandlers", $"Extra Features apothecary plague-search distance changed to " +
                             $"{settings.ApothecaryPlagueSearchDistance}.");
                 },
                 [nameof(ExtraFeaturesViewModel.HumanLordHealthPercent)] = health,
@@ -632,7 +632,7 @@ namespace ExtraFeatures
                 try { monkAlwaysRunPatch?.Deactivate(); } catch { }
                 monkAlwaysRunPatch = null;
                 monkAlwaysRunPatchUnavailable = true;
-                Shared.DebugLogHelper.LogErrorLimited(log, "ExtraFeatures/src/ExtraFeaturesRuntime.cs:620", "Extra Features Monks Always Run is disabled for this process; " +
+                Shared.DebugLogHelper.LogErrorLimited(log, "ExtraFeatures/ExtraFeaturesRuntime/InitializeMonkAlwaysRunPatch", "Extra Features Monks Always Run is disabled for this process; " +
                     $"all other features remain available: {ex}");
             }
         }
@@ -691,7 +691,7 @@ namespace ExtraFeatures
 
                 if (!fixedLayoutHashValidated)
                 {
-                    Shared.DebugLogHelper.LogWarningLimited(log, "ExtraFeatures/src/ExtraFeaturesRuntime.cs:678", "Extra Features plague duration is running on an unknown CrusaderDE.dll because its native instruction signature and Vanilla lifetime were validated.");
+                    Shared.DebugLogHelper.LogWarningLimited(log, "ExtraFeatures/ExtraFeaturesRuntime/InitializePlagueDurationPatch", "Extra Features plague duration is running on an unknown CrusaderDE.dll because its native instruction signature and Vanilla lifetime were validated.");
                 }
             }
             catch (Exception ex)
@@ -721,7 +721,7 @@ namespace ExtraFeatures
             catch (Exception ex)
             {
                 plagueApothecarySearchRangePatchUnavailable = true;
-                Shared.DebugLogHelper.LogErrorLimited(log, "ExtraFeatures/src/ExtraFeaturesRuntime.cs:717", $"Extra Features apothecary plague-search range is disabled for this process; " +
+                Shared.DebugLogHelper.LogErrorLimited(log, "ExtraFeatures/ExtraFeaturesRuntime/InitializePlagueApothecarySearchRangePatch", $"Extra Features apothecary plague-search range is disabled for this process; " +
                     $"Vanilla distance 30 and all other features remain active: {ex}");
             }
         }
@@ -766,7 +766,7 @@ namespace ExtraFeatures
                 }
                 catch (Exception fallbackError) { Shared.RuntimeHealth.Report("apothecary-range-fallback", true,
                     "Restoring Vanilla apothecary range failed: " + fallbackError + "; the fallback result is unverified."); }
-                Shared.DebugLogHelper.LogErrorLimited(log, "ExtraFeatures/src/ExtraFeaturesRuntime.cs:763", $"Extra Features apothecary plague-search range is disabled for this process; " +
+                Shared.DebugLogHelper.LogErrorLimited(log, "ExtraFeatures/ExtraFeaturesRuntime/ApplyPlagueApothecarySearchRangeSetting", $"Extra Features apothecary plague-search range is disabled for this process; " +
                     $"Vanilla distance 30 and all other features remain active: {ex}");
             }
         }
@@ -800,7 +800,7 @@ namespace ExtraFeatures
             string restoreDetails = restoreFailure == null
                 ? string.Empty
                 : $" Vanilla restoration also failed: {restoreFailure}";
-            Shared.DebugLogHelper.LogErrorLimited(log, "ExtraFeatures/src/ExtraFeaturesRuntime.cs:798", $"Extra Features plague duration multiplier is disabled for this process; all other features remain available: {failure}.{restoreDetails}");
+            Shared.DebugLogHelper.LogErrorLimited(log, "ExtraFeatures/ExtraFeaturesRuntime/DisablePlagueDurationPatch", $"Extra Features plague duration multiplier is disabled for this process; all other features remain available: {failure}.{restoreDetails}");
         }
 
         private void RestoreDefaultSettings()
@@ -860,13 +860,13 @@ namespace ExtraFeatures
 
             if (!IsMapActive())
             {
-                Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/ExtraFeaturesRuntime.cs:864", "Extra Features campfire peasants setting deferred until a map is active.");
+                Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/ExtraFeaturesRuntime/ApplyCampfirePeasantsLimit.campfire-peasants-setting-deferred", "Extra Features campfire peasants setting deferred until a map is active.");
                 return;
             }
 
             if (GameGlobalsManager.Instance.CampPeasantsCap == null)
             {
-                Shared.DebugLogHelper.LogWarningLimited(log, "ExtraFeatures/src/ExtraFeaturesRuntime.cs:870", "Extra Features campfire peasants setting skipped: CampPeasantsCap global was not found.");
+                Shared.DebugLogHelper.LogWarningLimited(log, "ExtraFeatures/ExtraFeaturesRuntime/ApplyCampfirePeasantsLimit.campfire-peasants-setting-skipped", "Extra Features campfire peasants setting skipped: CampPeasantsCap global was not found.");
                 return;
             }
 
@@ -875,7 +875,7 @@ namespace ExtraFeatures
 
             ushort value = (ushort)Math.Min(CampfirePeasantsMaximum, Math.Max(0, settings.CampfirePeasantsLimit));
             GameGlobalsManager.Instance.CampPeasantsCap.SetValue(value);
-            Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/ExtraFeaturesRuntime.cs:879", "Extra Features applied campfire peasants limit:", value);
+            Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/ExtraFeaturesRuntime/ApplyCampfirePeasantsLimit.applied-campfire-peasants-limit", "Extra Features applied campfire peasants limit:", value);
         }
 
         // sessionStarted also covers a session that started while the mod was disabled and is
@@ -889,7 +889,7 @@ namespace ExtraFeatures
                 return;
 
             GameGlobalsManager.Instance.CampPeasantsCap.SetValue(originalCampPeasantsCap.Value);
-            Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/ExtraFeaturesRuntime.cs:909", "Extra Features restored campfire peasants limit:", originalCampPeasantsCap.Value);
+            Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/ExtraFeaturesRuntime/RestoreCampfirePeasantsCap", "Extra Features restored campfire peasants limit:", originalCampPeasantsCap.Value);
             originalCampPeasantsCap = null;
         }
 

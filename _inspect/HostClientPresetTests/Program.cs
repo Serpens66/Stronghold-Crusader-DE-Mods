@@ -3544,16 +3544,18 @@ internal static class Program
             "the same unchanged ExtraFeatures Chore packet did not serialize deterministically twice");
 
         string workspaceRoot = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", ".."));
-        foreach (string fileName in new[] { "GatehouseAutomationRuntime.cs", "KnightDismountRuntime.cs" })
+        // The knight runtime is one partial class spread over KnightDismountRuntime*.cs.
+        string extraSource = Path.Combine(workspaceRoot, "ExtraFeatures", "src");
+        foreach (string pattern in new[] { "GatehouseAutomationRuntime.cs", "KnightDismountRuntime*.cs" })
         {
-            string source = File.ReadAllText(Path.Combine(workspaceRoot, "ExtraFeatures", "src", fileName));
-            Check(source.Contains("APIShared.Networking.ChoreTransport.TrySend("),
-                fileName + " does not use the fail-closed Chore sender contract");
+            string source = string.Join("\n", Directory.GetFiles(extraSource, pattern).Select(File.ReadAllText));
+            Check(source.Length > 0 && source.Contains("APIShared.Networking.ChoreTransport.TrySend("),
+                pattern + " does not use the fail-closed Chore sender contract");
             Check(!source.Contains("ChoreNetworkTransport") && !source.Contains("SendRawBlob"),
-                fileName + " retains the removed raw Chore transport");
+                pattern + " retains the removed raw Chore transport");
         }
 
-        string knight = File.ReadAllText(Path.Combine(workspaceRoot, "ExtraFeatures", "src", "KnightDismountRuntime.cs"));
+        string knight = string.Join("\n", Directory.GetFiles(extraSource, "KnightDismountRuntime*.cs").Select(File.ReadAllText));
         Check(knight.Contains("APIShared.LocalSelectionSnapshot selection") && knight.Contains("selection[i].UnitId") &&
               knight.Contains("i < selection.Count") &&
               !knight.Contains("return GamePlayerManagerAPI.Instance.GetSelectedChimps();"),
