@@ -118,6 +118,14 @@ function Get-ModCheckpointFingerprint($Context) {
     $python='D:/CDesktopLink/Portable/Python/WinPy64/python/python.exe'
     if([IO.File]::Exists($python)){[void]$inputs.Add([IO.Path]::GetFullPath($python))}
     $rows=[Collections.Generic.List[string]]::new()
+    # Explicit build contract: BugfixesAndQoL/build.bat compiles native Assassin
+    # search with MSVC. Other mods do not consume or hash this native toolchain.
+    if($Context.ModName -ceq 'BugfixesAndQoL') {
+        $nativeResolver=Join-Path $PSScriptRoot 'MsvcToolchain.ps1'
+        if(-not [IO.File]::Exists($nativeResolver)){throw 'Native toolchain resolver missing.'}
+        . $nativeResolver
+        $rows.Add('native-toolchain:'+(Get-MsvcToolchainInputFingerprint (Get-MsvcToolchain)))
+    }
     foreach($file in $inputs){Assert-ModCheckpointPath $file;$rows.Add([IO.Path]::GetFullPath($file)+':'+(Get-ModCheckpointHash $file))}
     # The native baseline's manifest binds the database digest. Record its stat rather
     # than hashing gigabytes on each retry; the existing native audits validate its identity.
