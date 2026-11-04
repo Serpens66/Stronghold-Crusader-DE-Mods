@@ -10,12 +10,10 @@
 
 Spectators in singleplayer and eliminated players with spectator views can use test tools for AI lords: free buildings and units, goods and gold, AI orders, powers and gates. A separate AI lord test mode offers these tools to active single-player participants. Both options are **off by default**, are disabled in real multiplayer and are not available in the map editor.
 
-## Moved from Bugfixes and QoL
-
-The spectator features of Bugfixes and QoL now live in this mod. Your previous spectator-view and eliminated-player settings are taken over once. Bugfixes and QoL keeps surrender and the statistics team badges.
+When you place a building for an AI lord with the test tools, the camera stays where you are looking. Without the test tools, eliminated players with spectator views cannot build from the build menu.
 
 ## Compatibility and diagnostics
 
-This mod requires the Script Extender and **APIShared 0.26.0 or newer**. Subscribe to APIShared separately when using the Steam modpack. Local options (views, control, statistics, lord overview and test tools) can be changed by every player; eliminated-player spectator views and extra enemy statistics follow the host settings.
+This mod requires the Script Extender and **APIShared 0.27.0 or newer**. Subscribe to APIShared separately when using the Steam modpack. Local options (views, control, statistics, lord overview and test tools) can be changed by every player; eliminated-player spectator views and extra enemy statistics follow the host settings.
 
 Repeated diagnostics are limited to reduce log spam; warnings and errors remain available.

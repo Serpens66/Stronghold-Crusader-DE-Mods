@@ -14,6 +14,8 @@
       "Version": "0.8.50",
       "Changes": [
         "Blueprint presentation and the free-castle preview render through APIShared's shared UI work service only while visible or pending.",
+        "Spawned castles now also create the additional stockpile sections of the chosen AIV, like granary and armoury sections: each waits for an initialized neighbouring section and uses normal Vanilla placement rules, including plans with only one extension.",
+        "Eliminated multiplayer players are treated as spectators: they see the read-only AI castle plan of the viewed player, and castle selection, rotation and confirmation are unavailable to them, also from an already open panel.",
         "Require APIShared 0.26.0 or newer."
       ]
     },

@@ -22,6 +22,7 @@ Sobald ein Auslöser zutrifft, die genannte Datei **vor** dem ersten fachlichen 
 | Fehler in Script Extender oder Fixes-Mod; Fixes-bezogene Präferenzen, Presets, Belagerung | [AGENTS/external-components.md](AGENTS/external-components.md) |
 | Build, CRLF-Konvertierung, Versionsänderung, Release, Steam-Modpack | [AGENTS/build-release.md](AGENTS/build-release.md) |
 | PowerShell-/CMD-/BAT-Befehle oder -Skripte, Sandbox-/Berechtigungsfehler | [AGENTS/shell-windows.md](AGENTS/shell-windows.md) |
+| Code, Mod, Diff oder Konzept auf Fehler, Probleme oder Risiken prüfen (Review, Audit); Korrekturen dafür vorschlagen | [AGENTS/code-review.md](AGENTS/code-review.md) |
 | FPS-/Lag-/Startzeit-/Effizienz-Untersuchung, Performance-Messung, neue Hooks/Callbacks/Suchen in heißen Pfaden (pro Tick, Frame, Einheit, Kachel) | [AGENTS/performance.md](AGENTS/performance.md) |
 
 Verschachtelte `AGENTS.md` (z. B. `APIShared/`, `Shared/Tools/ScriptExtenderUpdate/`) gelten zusätzlich in ihrem Ordner.
@@ -34,7 +35,8 @@ Vor jedem Tool- oder Shellaufruf die einschlägigen Punkte prüfen; bereits doku
 - **Runtime-Precheck:** Vor der ersten Änderung an einem Runtime-Mod JSON-Abhängigkeiten, Teardownpfade und den langlebigen Aufrufweg nach dem SHCDE-Startup-Cleanup prüfen und melden; früh erzeugte Plugin-Komponenten werden beim Start zerstört → [runtime-lifecycle.md](AGENTS/runtime-lifecycle.md).
 - **JSON:** in Runtime-Mods ausschließlich `Shared.DependencyFreeJson` per Quelllink; alle anderen Serializer verboten.
 - **Publicized Assembly:** neue Spielmember vor dem Build gegen die echte `Assembly-CSharp.dll` auf Sichtbarkeit prüfen; ein erfolgreicher Build beweist nichts.
-- **Hooks:** veröffentlichte Hooks nie zurück- oder umpatchen; Aktivierung nur logisch → [native-hooks.md](AGENTS/native-hooks.md).
+- **Code-Prüfungen:** Befunde und Korrekturen erst nach Einzelverifikation mit konkretem Fehlerfall und gescheitertem Widerlegungsversuch melden; Unbestätigtes verwerfen oder getrennt kennzeichnen → [code-review.md](AGENTS/code-review.md).
+- **Hooks:** veröffentlichte Hooks standardmäßig nicht zurück- oder umpatchen, sondern logisch aktivieren (verhindert Abstürze und Konflikte); Zurückpatchen nur, wenn für den konkreten Fall nachgewiesen ist, dass kein Problem entstehen kann → [native-hooks.md](AGENTS/native-hooks.md).
 - **XAML-Patches:** `<Content>` mit genau einem Wurzelelement.
 - **Entwicklungsdiagnose:** neue, vor dem Release zu entfernende Diagnose nur über `Shared.DevDiag` und `build.bat /devdiag`; nie über Laufzeitschalter oder Release-Builds → [build-release.md](AGENTS/build-release.md#entwicklungsdiagnose-devdiag).
 - **Events statt Polling:** immer prüfen, ob ein passendes Event existiert (z. B. `OnKeyDown` statt `onBeforeRender`).

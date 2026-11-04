@@ -4,14 +4,16 @@ namespace Spectator
 {
     internal static partial class SpectatorRuntime
     {
-        private sealed class ToolbarHitTestLease
+        // Only OST_Date is borrowed: preserve its binding/local state and never
+        // broaden the lease to the construction HUD or its click masks.
+        private sealed class ToolbarDateHitTestLease
         {
             private ToolbarProperty saved;
-            internal void Update(DependencyObject target, DependencyProperty property, bool active)
+            internal void Update(DependencyObject target, DependencyProperty property, bool visible)
             {
-                if (saved != null && (!active || !ReferenceEquals(saved.Target, target)))
+                if (saved != null && (!visible || !ReferenceEquals(saved.Target, target)))
                 { saved.Restore(); saved = null; }
-                if (!active || target == null || saved != null) return;
+                if (!visible || target == null || saved != null) return;
                 saved = new ToolbarProperty(target, property);
                 target.SetValue(property, false);
             }

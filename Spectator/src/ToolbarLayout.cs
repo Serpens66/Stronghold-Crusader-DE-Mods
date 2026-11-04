@@ -3,6 +3,15 @@ using System.Collections.Generic;
 
 namespace Spectator
 {
+    internal enum ToolbarPaperFade { None, Right, Bottom, Corner }
+    internal readonly struct ToolbarPaperRegion
+    {
+        internal readonly ToolbarRect Bounds;
+        internal readonly ToolbarPaperFade Fade;
+        internal ToolbarPaperRegion(ToolbarRect bounds, ToolbarPaperFade fade = ToolbarPaperFade.None)
+        { Bounds = bounds; Fade = fade; }
+    }
+
     // Canvas coordinates, not physical pixels. Also used by the production-geometry tests.
     internal readonly struct ToolbarRect
     {
@@ -35,7 +44,7 @@ namespace Spectator
         internal const float Gap = 4;
         internal const float Portrait = 36, TargetPortrait = 42, Cell = 38, RosterWidth = 80;
         internal const float Header = 22, Body = 66, Footer = 33;
-        internal const float GoodsWidth = 308;
+        internal const float GoodsWidth = 308, OrderSummaryWidth = 352;
         internal const float ControlWidth = 60, ControlHeight = 22, WindowWidth = 496, FloatingHeader = 40, FloatingGrip = 8;
         internal const float ToggleWidth = 24, DesignWidth = 22;
         internal static float FloatingWidth(int count, bool placement, bool toolControlAvailable = true) =>
@@ -157,7 +166,7 @@ namespace Spectator
         internal static float RosterHeight(int count) => Math.Max(1, (Math.Max(0, Math.Min(8, count)) + 1) / 2) * Cell - 2;
 
         internal static ToolbarPose Arrange(ToolbarRect alignment, ToolbarRect frame, int count, bool details,
-            bool floating = false, ToolbarRect dockControl = default, bool placement = false, bool toolControlAvailable = true)
+            bool floating = false, bool placement = false, bool toolControlAvailable = true)
         {
             details &= toolControlAvailable;
             if (floating)
@@ -171,8 +180,9 @@ namespace Spectator
             var roster = new ToolbarRect(frame.X - (6 + RosterWidth) * scale,
                 alignment.Bottom - RosterHeight(count) * scale, RosterWidth * scale, RosterHeight(count) * scale);
             var tools = details ? Dock(alignment) : default;
-            var control = !toolControlAvailable ? default : dockControl.Empty ? new ToolbarRect(alignment.X + (553 - 2 - ControlWidth) * scale,
-                alignment.Bottom - (ControlHeight + 2) * scale, ControlWidth * scale, ControlHeight * scale) : dockControl;
+            var control = !toolControlAvailable ? default : new ToolbarRect(
+                roster.X + (RosterWidth - ControlWidth) * scale / 2,
+                roster.Y - ControlHeight * scale, ControlWidth * scale, ControlHeight * scale);
             // The doubled grip uses the old blank margin plus six units of HUD gap.
             var grip = new ToolbarRect(roster.Right - 2 * scale, roster.Y, FloatingGrip * scale, roster.Height);
             return new ToolbarPose(roster, tools, control, grip);
@@ -182,7 +192,60 @@ namespace Spectator
         internal static void NumberOffset(float height, float inkX, float inkBottom, out float x, out float y)
         { x = 2 - inkX; y = height - 2 - inkBottom; }
 
-        // Paint every free interval. Choosing content slots must not expose inactive tabs.
+        // The root-sized texture is translated into each clipping patch, so a point
+        // on a body/footer join samples the same texel from either side.
+        internal static ToolbarRect PaperTexture(ToolbarRect patch, float rootWidth, float rootHeight) =>
+            new ToolbarRect(-patch.X, -patch.Y, rootWidth, rootHeight);
+
+        internal static void PaperFadeGradient(ToolbarPaperFade fade, out float endX, out float endY, out float opaqueUntil)
+        {
+            endX = fade == ToolbarPaperFade.Bottom ? 0 : 1;
+            endY = fade == ToolbarPaperFade.Right ? 0 : 1;
+            opaqueUntil = fade == ToolbarPaperFade.Corner ? .5f : 0;
+        }
+
+        // Split visual paper only. A matching diagonal corner keeps opacity continuous
+        // between the footer's right feather and the body's exposed bottom feather.
+        internal static void PaperRegions(IList<ToolbarRect> pieces, bool feather, List<ToolbarPaperRegion> result)
+        {
+            result.Clear();
+            int bodyIndex = -1, footerIndex = -1;
+            if (feather)
+                for (int upperIndex = 0; upperIndex < pieces.Count && bodyIndex < 0; upperIndex++)
+                    for (int lowerIndex = 0; lowerIndex < pieces.Count; lowerIndex++)
+                    {
+                        var upper = pieces[upperIndex]; var lower = pieces[lowerIndex];
+                        if (upperIndex == lowerIndex || upper.Empty || lower.Empty ||
+                            Math.Abs(upper.Bottom - lower.Y) > .01f || lower.X < upper.X ||
+                            lower.Right >= upper.Right || lower.Right <= upper.X) continue;
+                        bodyIndex = upperIndex; footerIndex = lowerIndex; break;
+                    }
+            for (int pieceIndex = 0; pieceIndex < pieces.Count; pieceIndex++)
+            {
+                var area = pieces[pieceIndex];
+                if (area.Empty) continue;
+                if (bodyIndex < 0) { result.Add(new ToolbarPaperRegion(area)); continue; }
+                var body = pieces[bodyIndex]; var footer = pieces[footerIndex];
+                float edge = Math.Min(10, Math.Min(body.Height, footer.Width));
+                if (pieceIndex == bodyIndex)
+                {
+                    AddPaperRegion(result, new ToolbarRect(body.X, body.Y, body.Width, body.Height-edge));
+                    AddPaperRegion(result, new ToolbarRect(body.X, body.Bottom-edge, footer.Right-edge-body.X, edge));
+                    AddPaperRegion(result, new ToolbarRect(footer.Right-edge, body.Bottom-edge, edge, edge), ToolbarPaperFade.Corner);
+                    AddPaperRegion(result, new ToolbarRect(footer.Right, body.Bottom-edge, body.Right-footer.Right, edge), ToolbarPaperFade.Bottom);
+                }
+                else if (pieceIndex == footerIndex)
+                {
+                    AddPaperRegion(result, new ToolbarRect(footer.X, footer.Y, footer.Width-edge, footer.Height));
+                    AddPaperRegion(result, new ToolbarRect(footer.Right-edge, footer.Y, edge, footer.Height), ToolbarPaperFade.Right);
+                }
+                else result.Add(new ToolbarPaperRegion(area));
+            }
+        }
+        private static void AddPaperRegion(List<ToolbarPaperRegion> result, ToolbarRect area, ToolbarPaperFade fade = ToolbarPaperFade.None)
+        { if (!area.Empty) result.Add(new ToolbarPaperRegion(area, fade)); }
+
+        // Find free intervals before choosing the one actually used by footer content.
         internal static void FooterSegments(ToolbarRect band, IList<ToolbarRect> controls, List<ToolbarRect> result)
         {
             result.Clear();
@@ -202,6 +265,16 @@ namespace Spectator
                 if (start >= band.Right) break;
                 cursor = Math.Min(band.Right, Math.Max(cursor + 1, end));
             }
+        }
+
+        internal static void FooterContent(ToolbarRect band, IList<ToolbarRect> controls,
+            float maximumWidth, List<ToolbarRect> result)
+        {
+            FooterSegments(new ToolbarRect(band.X, band.Y, Math.Min(band.Width, maximumWidth), band.Height), controls, result);
+            ToolbarRect content = default;
+            foreach (var segment in result) if (segment.Width > content.Width) content = segment;
+            result.Clear();
+            if (!content.Empty) result.Add(content);
         }
 
     }
@@ -245,17 +318,4 @@ namespace Spectator
         internal void Cancel() { Preview = false; }
     }
 
-    internal readonly struct ToolbarPaperSlices
-    {
-        internal readonly ToolbarRect TopImage, LowerImage;
-        internal readonly float Join;
-        internal ToolbarPaperSlices(ToolbarRect paper, float end)
-        {
-            TopImage = paper;
-            Join = paper.Y + paper.Height * .8f;
-            float stretch = Math.Max(1, (end - Join) / Math.Max(1, paper.Height * .2f));
-            LowerImage = new ToolbarRect(paper.X, Join - paper.Height * .8f * stretch,
-                paper.Width, paper.Height * stretch);
-        }
-    }
 }

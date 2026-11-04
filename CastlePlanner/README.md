@@ -9,13 +9,9 @@
 
 In the lobby, CastlePlanner shows whether the selected AI castles fit on the chosen map, with details for their possible rotations. Hover over a result for warnings about overlaps, elevated moats or drawbridges, and uncertain placement. Results that cannot be evaluated stay marked as unknown; they are not a guarantee that a castle will build successfully. The host can disable these checks in the mod settings.
 
-## Drawbridge blueprint display
-
-Drawbridge images now mirror consistently in composite images, depth fragments, and fallback images. Their direction follows the camera-rotated map grid independently of terrain height and flattened view.
-
 ## AI castle plan for spectators
 
-Multiplayer spectators can view the accepted AI castle plan of the player they are watching as a read-only blueprint, including the source AIV file name when the session provides it. The view only refreshes while it or its panel is shown.
+Multiplayer spectators can view the accepted AI castle plan of the player they are watching as a read-only blueprint, including the source AIV file name when the session provides it. The view only refreshes while it or its panel is shown. Eliminated players get the same view.
 
 ## Compatibility and diagnostics
 
@@ -23,4 +19,4 @@ This mod requires the Script Extender and **APIShared 0.26.0 or newer**. Subscri
 
 Shared HUD services place the Blueprints button alongside buttons from other mods and coordinate GUI updates and preview pause commands.
 
-Routine activity is logged at Debug level. Repeated diagnostics are limited to reduce log spam; warnings and errors remain available. No gameplay setting is needed for this change.
+Routine activity is logged at Debug level. Repeated diagnostics are limited to reduce log spam; warnings and errors remain available.

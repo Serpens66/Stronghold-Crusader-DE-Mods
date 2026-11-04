@@ -59,7 +59,13 @@ namespace Spectator
             toolbarRoot = screen.FindName("TestToolsRoot") as Canvas;
             statusText = screen.FindName("ToolsStatus") as TextBlock;
             orderStatusText = screen.FindName("OrdersStatus") as TextBlock;
-            MenuToolTipSizing.SetReference(humanPanel, humanCanvas);
+            statusShadow = screen.FindName("ToolsStatusShadow") as TextBlock;
+            orderStatusShadow = screen.FindName("OrdersStatusShadow") as TextBlock;
+            if (statusText == null || orderStatusText == null || statusShadow == null || orderStatusShadow == null)
+                throw new MissingMemberException("Status text/shadow layers missing.");
+            StatusInlineFormat.BindShadow(statusShadow, statusText);
+            StatusInlineFormat.BindShadow(orderStatusShadow, orderStatusText);
+            MenuToolTipSizing.SetReference(humanPanel);
             var attackIcon = screen.FindName("AttackActionIcon") as Image;
             if (attackIcon != null) attackIcon.Source = MainViewModel.Instance.getAlliesGoodsIcon(-3);
             currentOrderIcon = screen.FindName("CurrentOrderIcon") as Image;

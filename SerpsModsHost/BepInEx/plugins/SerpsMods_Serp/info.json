@@ -24,7 +24,9 @@
                               "Bugfixes and QoL: new enabled-by-default host option limiting civilian building-action proximity during native Peace Time; a fully rejected manual group move no longer changes the group's movement mode.",
                               "Extra Features: the eight civilian/soldier building-action radius settings are composed through APIShared, keeping Vanilla defaults and existing values.",
                               "Bugfixes and QoL, Extended Data, Random Events, CastlePlanner and Spectator move their UI updates to APIShared's shared UI work service: one-time UI work, coalesced refreshes and frame work only while needed.",
-                              "Require APIShared 0.26.0 or newer."
+                              "Bugfixes and QoL: new enabled-by-default host fix completing missing stockpile, granary and armoury sections in prebuilt AI castles of new games. CastlePlanner: spawned castles also create additional stockpile sections; eliminated multiplayer players see the viewed player's AI castle plan read-only like spectators.",
+                              "Spectator: the test-tool camera no longer jumps while placing a building for an AI lord; eliminated players see the build menu read-only.",
+                              "Require APIShared 0.27.0 or newer."
                             ]
                           },
                           {

@@ -73,8 +73,8 @@ internal static class DockLayoutTests
         // Full semantic tree comparison, not merely an absence check: no original binding,
         // input mask, resource, HUD or command may change when applying this production patch.
         Check(XNode.DeepEquals(before,after), "The complete Vanilla screen must remain unchanged beneath the overlay.");
-        // Use the actual Vanilla margins, including all four placement unit tabs.
-        // The previous 64-unit slot overlapped the last tab by two units.
+        // Use actual Vanilla margins to prove the relocated control leaves every
+        // construction/unit tab and the old trumpet-adjacent slot available.
         var hud = XDocument.Load(args[2]);
         Func<string,XElement> named = name => hud.Descendants().Single(e => (string)e.Attribute("Name")==name || (string)e.Attribute(x+"Name")==name);
         Func<XElement,int,float> margin = (e,index) => {
@@ -94,12 +94,22 @@ internal static class DockLayoutTests
         Check(nativeTabs.Count==10,"The placement fixture must exercise six construction and four unit tabs.");
         var trumpet=named("ButtonAllies");
         var allyBounds=new Spectator.ToolbarRect(margin(trumpet,0),166-(float)trumpet.Attribute("Height"),(float)trumpet.Attribute("Width"),(float)trumpet.Attribute("Height"));
-        var pose=Spectator.ToolbarLayout.Arrange(new Spectator.ToolbarRect(0,0,914,166),new Spectator.ToolbarRect(114,22,800,144),8,false);
-        Check(pose.Control.Width<=60 && Math.Abs(allyBounds.X-pose.Control.Right-2)<.001,"Shared options/stop slot stays at the trumpet with the required gap.");
-        foreach(var tab in nativeTabs) Check(!pose.Control.Intersects(tab),"Stop must not collide with any actual construction/unit tab.");
+        var oldSlot=new Spectator.ToolbarRect(allyBounds.X-62,allyBounds.Bottom-24,60,22);
+        foreach(float scale in new[]{.75f,1f,1.5f,2f,3f}) foreach(int count in Enumerable.Range(1,8))
+        {
+            var pose=Spectator.ToolbarLayout.Arrange(new Spectator.ToolbarRect(0,0,914*scale,166*scale),
+                new Spectator.ToolbarRect(114*scale,22*scale,800*scale,144*scale),count,false);
+            Check(Math.Abs(pose.Roster.Y-pose.Control.Bottom)<.001 &&
+                Math.Abs(pose.Control.X+pose.Control.Width/2-pose.Roster.X-pose.Roster.Width/2)<.001,
+                "Tools/Stop is centered above the unchanged portrait raster.");
+            foreach(var tab in nativeTabs) Check(!pose.Control.Intersects(new Spectator.ToolbarRect(tab.X*scale,tab.Y*scale,tab.Width*scale,tab.Height*scale)),
+                "The relocated control leaves every actual construction/unit tab clear.");
+            Check(!pose.Bounds.Intersects(new Spectator.ToolbarRect(oldSlot.X*scale,oldSlot.Y*scale,oldSlot.Width*scale,oldSlot.Height*scale)),
+                "The closed toolbar owns no background, bounds or click area in the former native slot.");
+        }
         var slot=own.Single(e=>(string)e.Attribute(x+"Name")=="SpectatorControlSlot");
         Check(slot.Descendants().Any(e=>(string)e.Attribute(x+"Name")=="SpectatorExpand") &&
-            slot.Descendants().Any(e=>(string)e.Attribute(x+"Name")=="SpectatorStopPlacement"),"Options and stop share the same physical slot.");
+            slot.Descendants().Any(e=>(string)e.Attribute(x+"Name")=="SpectatorStopPlacement"),"Tools and Stop share the relocated roster control.");
         Console.WriteLine("PASS: real Extender patcher, complete Vanilla tree preserved, single overlay and all actions/goods/tooltips.");
     }
 }

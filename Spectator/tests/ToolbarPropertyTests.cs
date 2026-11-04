@@ -21,23 +21,27 @@ namespace Spectator
             check(ReferenceEquals(BindingOperations.GetBindingBase(host, property), binding) && ReferenceEquals(host.GetValue(property), next),
                 "Releasing the HUD property restores a live binding, never a sampled transform value.");
 
+
             var hit = DependencyProperty.RegisterAttached("DateHitTest", typeof(bool), typeof(FrameworkElement), new PropertyMetadata(true, null));
-            var date = new FrameworkElement(); var replacement = new FrameworkElement();
-            var lease = new ToolbarHitTestLease();
+            var date = new FrameworkElement(); var otherMask = new FrameworkElement(); var replacement = new FrameworkElement();
+            var lease = new ToolbarDateHitTestLease();
             lease.Update(date, hit, true); lease.Update(date, hit, true);
-            check(Equals(date.GetValue(hit), false), "Placement makes only the leased date click-through.");
+            check(Equals(date.GetValue(hit), false) && Equals(otherMask.GetValue(hit), true),
+                "Only the leased date becomes click-through while the Spectator surface is visible.");
             lease.Update(date, hit, false);
             check(date.ReadLocalValue(hit) == DependencyProperty.UnsetValue && Equals(date.GetValue(hit), true),
-                "Ending placement restores the native default, including its unset local value.");
+                "Suspension restores the Vanilla default without adding a local override.");
             date.SetValue(hit, false); lease.Update(date, hit, true); lease.Update(null, hit, false);
-            check(Equals(date.ReadLocalValue(hit), false), "An originally click-through date remains click-through after release.");
+            check(Equals(date.ReadLocalValue(hit), false), "An original explicit date value survives suspension.");
             var hitBinding = new BindingBase { Value = true }; BindingOperations.SetBinding(date, hit, hitBinding);
             lease.Update(date, hit, true); lease.Update(replacement, hit, true);
-            check(ReferenceEquals(BindingOperations.GetBindingBase(date, hit), hitBinding) && Equals(replacement.GetValue(hit), false),
-                "HUD recreation releases the old instance and leases the new one.");
+            hitBinding.Value = false;
+            check(ReferenceEquals(BindingOperations.GetBindingBase(date, hit), hitBinding) && Equals(date.GetValue(hit), false),
+                "HUD rebind restores the live original binding on the old date, rather than a sampled bool.");
+            check(Equals(replacement.GetValue(hit), false), "The replacement HUD receives its own date lease.");
             lease.Update(null, hit, false); lease.Update(null, hit, false);
-            check(replacement.ReadLocalValue(hit) == DependencyProperty.UnsetValue,
-                "Foreign HUD/mission release is idempotent and restores the replacement instance.");
+            check(replacement.ReadLocalValue(hit) == DependencyProperty.UnsetValue && Equals(otherMask.GetValue(hit), true),
+                "Detach and repeated suspension restore the replacement and leave other click masks untouched.");
         }
     }
 }

@@ -20,7 +20,10 @@ The enabled-by-default **Fix Rally Point Terrain Slowdown** setting preserves Va
 
 This setting is independent of **Recruits Run to Rally Points**. It does not add a running bonus or change the unit's animation. With both options enabled, recruits use their own running pace while retaining terrain slowdown. Turning the terrain fix off restores the previous rally movement behavior.
 
-Complete AI starting castles now use the configured "Both" production choices for their workshops.
+Complete AI starting castles use the configured "Both" production choices for their workshops.
+
+### Complete storage sections in prebuilt AI castles
+In new games with complete AI starting castles, Vanilla leaves out some stockpile, granary, and armoury sections planned in the AIV. This enabled-by-default host fix adds them with the normal placement rules; blocked spots stay empty. Loaded games and storage buildings destroyed later are not affected.
 
 ### Skip inaccessible AI raid targets
 
@@ -40,22 +43,22 @@ The off-by-default host option lets bakers and all three mill workers occasional
 The optional host setting skips the extra waiting animation when a poleturner has wood or a tanner has workshop hides or an eligible cow available. Production times and normal positive-fear breaks remain unchanged. Disabled by default, because it is unknown whether the Vanilla delay is intentional.
 
 ### Correct demolition cursor near enemies
-The demolition cursor now changes to the blocked icon when an enemy is close enough to prevent demolition. This restores the visual feedback known from the HD version, so the game no longer appears to accept an action that it will reject.
+The demolition cursor changes to the blocked icon when an enemy is close enough to prevent demolition, as in the HD version, so the game does not appear to accept an action that it will reject.
 
 ### Restore HD-style minimap controls
 Left-clicking the minimap can move the camera even while a building is selected for placement, without cancelling that building. While the minimap is dragged, the camera also follows the mouse position directly instead of retaining an unwanted offset. Together, these changes restore the convenient and precise minimap navigation known from the HD version.
 
 ### Cancel building placement without moving troops
-In DE control mode, right-clicking while any building is selected for placement now only cancels the placement. Selected troops, including engineers placing siege tents and tunnelers placing tunnels, are no longer ordered to move to the clicked location.
+In DE control mode, right-clicking while any building is selected for placement only cancels the placement. Selected troops, including engineers placing siege tents and tunnelers placing tunnels, are not ordered to move to the clicked location.
 
 ### Return to the main market menu with the market hotkey
-Pressing the market hotkey while a market is already selected returns its interface to the main trading menu. You no longer need to close or reselect the market after opening a sub-menu.
+Pressing the market hotkey while a market is already selected returns its interface to the main trading menu, so you do not need to close or reselect the market after opening a sub-menu.
 
 ### Preserve the selected display resolution
 In borderless fullscreen mode, the game can automatically replace the resolution loaded from `settings.cfg` during startup or focus changes. This fix preserves that resolution while still respecting display changes explicitly applied by the user.
 
 ### Fix synchronized movement for mixed troop groups
-With a normal synchronized movement order, every unit in a mixed group now uses the slowest member's maximum speed and a matching animation pace. Units that can all run are no longer incorrectly forced to walk merely because their individual movement speeds differ. Synchronized movement is preserved when saving and loading the game.
+With a normal synchronized movement order, every unit in a mixed group uses the slowest member's maximum speed and a matching animation pace. Units that can all run are not forced to walk merely because their individual movement speeds differ. Synchronized movement is preserved when saving and loading the game.
 
 ### Improve hostile moat filling
 This enabled-by-default host option makes units filling hostile moats choose another free, valid edge tile when the first position is occupied. If an entire moat edge is unsuitable, they continue with the next moat found by Vanilla's normal search instead of becoming idle.
@@ -64,7 +67,7 @@ This enabled-by-default host option makes units filling hostile moats choose ano
 Knights, Horse Archers, Bedouin Camel Lancers, and Heavy Camels can be ordered onto passable stockpile tiles, matching their existing ability to cross them.
 
 ### Keep Healers out of melee attack groups
-When a mixed selection is ordered to attack an enemy unit, Bedouin Healers now remain in place like Engineers instead of following the combat units into melee. Normal movement orders and healing behavior remain unchanged.
+When a mixed selection is ordered to attack an enemy unit, Bedouin Healers remain in place like Engineers instead of following the combat units into melee. Normal movement orders and healing behavior remain unchanged.
 
 ### Attack through ladder-accessible walls
 Vanilla can find a route over a wall with a placed ladder for an ordinary movement order, but rejects the same route while searching for attack positions. This enabled-by-default host fix applies Vanilla's own ladder checks when units attack an enemy unit or building behind such a wall.
@@ -79,16 +82,16 @@ This enabled-by-default host setting prevents AI Assassins from attacking stone 
 This enabled-by-default host setting lets human players and AI choose direct Assassin climbs onto and down from freestanding gatehouses. Existing player climbing restrictions still apply.
 
 ### Fix plague and apothecary behavior
-Each active plague outbreak now applies exactly one point of negative popularity, which is reliably removed after all associated clouds are gone. Apothecary treatments make every affected cloud fade correctly, while reserving the entire treatment area so other healers choose a different useful target. The intended building-exit transition is also completed when a target is found, preventing apothecaries from becoming stuck inside their buildings.
+Each active plague outbreak applies exactly one point of negative popularity, which is reliably removed after all associated clouds are gone. Apothecary treatments make every affected cloud fade correctly, while reserving the entire treatment area so other healers choose a different useful target. The intended building-exit transition is also completed when a target is found, preventing apothecaries from becoming stuck inside their buildings.
 
 ### Allow unrestricted rally-point placement
-Barracks, mercenary posts, engineer guilds, tunneler guilds, keeps, and Bedouin tents no longer reject a rally point merely because the game considers the destination unreachable. Their rally flags can be placed anywhere the normal rally-point controls allow.
+Barracks, mercenary posts, engineer guilds, tunneler guilds, keeps, and Bedouin tents accept a rally point even when the game considers the destination unreachable. Their rally flags can be placed anywhere the normal rally-point controls allow.
 
 ### Rotate Keep flags with their Keeps
 The main flag stays in the same corner relative to the entrance when Vanilla, CastlePlanner, or Fixes rotates a human or AI Keep. This enabled-by-default host fix works in every game mode and supports Keep1, Keep2, and the larger Keep3.
 
 ### Spawn Lords on maps with corrupt Lord data
-Maps that contain stale or corrupt Lord references now correctly spawn Lords for affected human and AI player slots. This includes player slots 7 and 8 on `The Ford Across the River`; valid existing Lords, loaded saves, and unaffected maps remain unchanged.
+Maps that contain stale or corrupt Lord references correctly spawn Lords for affected human and AI player slots. This includes player slots 7 and 8 on `The Ford Across the River`; valid existing Lords, loaded saves, and unaffected maps remain unchanged.
 
 ### Keep buildings away from enemy buildings and moats
 This enabled-by-default host fix requires a one-tile gap around every human-placed building when an enemy completed moat is nearby. Tunnels and tunnel construction sites additionally retain the same gap from enemy buildings and walls (same like woodcutters and so on already do).
@@ -125,10 +128,10 @@ Vanilla does not allow automatic selling when the sell slider is set to zero. Th
 Prevents AI Lords from gaining gold by selling goods they do not own when their sell threshold is negative. This host option is enabled by default.
 
 ### Fix map-origin sorting
-The Origin column in singleplayer and multiplayer map selection now sorts maps like intended.
+The Origin column in singleplayer and multiplayer map selection sorts maps as intended.
 
 ### Restore map sizes for classic HD maps
-Classic Stronghold Crusader HD maps now properly display their map size in the map selection list.
+Classic Stronghold Crusader HD maps display their correct map size in the map selection list.
 
 ### Restore host migration after an abrupt disconnect
 When the host leaves a running two-player match without Vanilla's normal leave packet, for example by using Alt+F4, the sole remaining human player is promoted to host. This allows the match paused by the connection error to continue and leaves Vanilla's normal player-removal flow unchanged.
@@ -148,10 +151,10 @@ This enabled-by-default host fix keeps connected drawbridges intact when a stone
 
 ### Ignore dead units during gatehouse capture
 
-Gatehouses can be captured while dead units are still visible on top. Dead attackers and defenders no longer count; living defenders still block capture. This host setting is enabled by default.
+Gatehouses can be captured while dead units are still visible on top. Dead attackers and defenders do not count; living defenders still block capture. This host setting is enabled by default.
 
 ### Gate distance from center
-Gatehouses now measure the distance to enemy based on their center, not based on on of the gates. It was only noticeable with small closing distance, that the clsing distance was different depending from which side you got closer to the gate.
+Gatehouses measure the distance to enemies from their center instead of from one of the gates, so the closing distance is the same from every side.
 
 ## Quality-of-life features
 
@@ -228,7 +231,7 @@ In the ally goods-transfer panel, Shift multiplies the clicked amount by five an
 Incoming invitations can appear as a Yes/No popup ingame. An optional checkbox permanently suppresses further ingame popups for invites from that Steam user; the complete local invite blacklist can be cleared beside this feature's mod setting.
 
 ### Move the camera while holding Ctrl or Alt
-Keyboard scrolling and edge scrolling now continue to move the camera while Ctrl or Alt is held.
+Keyboard scrolling and edge scrolling continue to move the camera while Ctrl or Alt is held.
 
 ### Jump to selected troops from the troop HUD
 Middle-clicking a selected troop-type icon centers the camera on one selected unit of that type.
@@ -272,7 +275,7 @@ A ready host can load a normal multiplayer save without another human player. Mi
 ### Surrender
 Active players receive a confirmed Surrender button that kills their lord through the normal game rules, preserving the natural defeat and statistics flow.
 
-Spectator perspectives, live match statistics and eliminated players becoming spectators moved to the separate **Spectator** mod, which is part of the Serps Mods pack.
+Spectator perspectives, live match statistics and spectator views for eliminated players are provided by the separate **Spectator** mod, which is part of the Serps Mods pack.
 
 ### Identify and kick a disconnected player during resync
 During a stalled multiplayer resynchronization, the host is shown the human player with the oldest overdue connection heartbeat. A confirmation button lets the host authoritatively remove that player.
@@ -293,7 +296,7 @@ Press Alt+H to show health bars for visible damaged units and buildings without 
 The enabled-by-default per-player **Show timer countdowns** option adds remaining-time numbers to mission objectives and to the bars for Time Until Defeat, victory timers, and Peace Time. It changes only your display and can be turned off in the player QoL settings.
 
 ### Improve and control Assassin climbing
-Assassins choose routes by expected travel time instead of treating every traversable step equally. The calculation includes normal movement speed as well as the additional time for climbing walls, so a nearby open gate can be preferred while climbing remains worthwhile along sufficiently long detours. Wall climbs can now also start and end on walkable reserved building areas, such as barracks forecourts.
+Assassins choose routes by expected travel time instead of treating every traversable step equally. The calculation includes normal movement speed as well as the additional time for climbing walls, so a nearby open gate can be preferred while climbing remains worthwhile along sufficiently long detours. Wall climbs can also start and end on walkable reserved building areas, such as barracks forecourts.
 The host can enable improved pathfinding separately for human and AI Assassins; both options are enabled by default. When an owned Assassin is selected, a troop-action button allows or forbids climbing for that player's Assassins, and this choice survives saving and loading. The setting affects new path requests only. Pressing the normal Stop button or Stop hotkey while an Assassin is climbing cancels the climb now.
 
 ### Control the Lord through the troop HUD
@@ -306,7 +309,7 @@ The enabled-by-default host setting **Improved manual unit commands** allows rea
 Adds more zoom levels (with game setting Extra Zoom enabled) which allows the same zooms on every game resolution.  
 
 ### Team Markers in Statistic
-On Statistic screen you will now see team markers next to the colour-shield.  
+The statistics screen shows team markers next to the colour shields.  
 
 ### Compact lobby chat
 The enabled-by-default local **Compact lobby chat** QoL option shows the shield, sender and message on the same line in multiplayer Skirmish lobbies and all four Coop Trail chats. Long messages wrap automatically. Each player chooses the layout independently of the host; switching the option preserves the current history. Find it under local client options, Menus/Lobby. The in-game chat is unchanged.
@@ -320,4 +323,4 @@ This mod requires the Script Extender and **APIShared 0.26.0 or newer**. Subscri
 
 Shared hooks coordinate command and HUD integrations with other mods; synchronized multiplayer actions use APIShared transport.
 
-Routine activity is logged at Debug level. Repeated diagnostics are limited to reduce log spam; warnings and errors remain available. No gameplay setting is needed for this change. Plague tracking now follows projectile events, and disabled countdown, health and statistics overlays avoid unnecessary refresh work.
+Routine activity is logged at Debug level. Repeated diagnostics are limited to reduce log spam; warnings and errors remain available.

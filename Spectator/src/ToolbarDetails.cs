@@ -14,7 +14,7 @@ namespace Spectator
         private static PresentedAiOrder shownCurrentOrder;
         private static int shownOrderActor = -1;
         private static string shownOrderLocale;
-        private static TextBlock statusText, orderStatusText;
+        private static TextBlock statusText, orderStatusText, statusShadow, orderStatusShadow;
         private static void OnToolsModelChanged(object sender, System.ComponentModel.PropertyChangedEventArgs args)
         {
             ToolbarRefresh refresh = ToolbarRefreshPolicy.ForProperty(args.PropertyName);
@@ -62,15 +62,15 @@ namespace Spectator
 
         private static void RefreshColouredStatus()
         {
-            RenderStatus(statusText);
-            RenderStatus(orderStatusText);
+            RenderStatus(statusText, statusShadow);
+            RenderStatus(orderStatusText, orderStatusShadow);
         }
 
-        private static void RenderStatus(TextBlock text)
+        private static void RenderStatus(TextBlock text, TextBlock shadow)
         {
             if (text == null || toolsModel == null) return;
             string value = toolsModel.Status;
-            FillStatusInlines(text, value, true);
+            FillStatusInlines(text, value, true, shadow);
             var previous = ToolTipService.GetToolTip(text) as ToolTip;
             if (string.IsNullOrEmpty(value))
             {
@@ -79,16 +79,24 @@ namespace Spectator
                 return;
             }
             var rich = new TextBlock { TextWrapping = TextWrapping.Wrap, Foreground = neutralPlayerBrush };
-            FillStatusInlines(rich, value);
+            var richShadow = new TextBlock();
+            StatusInlineFormat.BindShadow(richShadow, rich);
+            FillStatusInlines(rich, value, false, richShadow);
             var tip = previous ?? new ToolTip { Style = humanPanel.TryFindResource("PlayerTooltip") as Style };
-            tip.Content = rich;
+            // The shared scaler owns the ToolTip font; both rich layers follow it.
+            BindingOperations.SetBinding(rich, TextBlock.FontSizeProperty,
+                new Binding(nameof(ToolTip.FontSize)) { Source = tip });
+            var layers = new Grid(); layers.Children.Add(richShadow); layers.Children.Add(rich);
+            tip.Content = layers;
             ToolTipService.SetToolTip(text, tip);
             MenuToolTipSizing.SetEnabled(tip, true);
         }
 
-        private static void FillStatusInlines(TextBlock text, string value, bool emphasize = false)
+        private static void FillStatusInlines(TextBlock text, string value, bool emphasize = false, TextBlock shadow = null)
         {
+            text.Effect = null;
             text.Inlines.Clear();
+            shadow?.Inlines.Clear();
             int offset = 0;
             while (offset < value.Length)
             {
@@ -101,11 +109,17 @@ namespace Spectator
                     if (index >= 0 && (match < 0 || index < match || (index == match && label.Length > labelMatch.Length)))
                     { match = index; playerMatch = player; labelMatch = label; }
                 }
-                if (match < 0) { text.Inlines.Add(StatusInlineFormat.Create(text, value.Substring(offset), null, emphasize)); break; }
-                if (match > offset) text.Inlines.Add(StatusInlineFormat.Create(text, value.Substring(offset, match - offset), null, emphasize));
-                text.Inlines.Add(StatusInlineFormat.Create(text, labelMatch, PlayerBrush(playerMatch), emphasize));
+                if (match < 0) { AddStatusFragment(text, shadow, value.Substring(offset), null, emphasize); break; }
+                if (match > offset) AddStatusFragment(text, shadow, value.Substring(offset, match - offset), null, emphasize);
+                AddStatusFragment(text, shadow, labelMatch, PlayerBrush(playerMatch), emphasize);
                 offset = match + labelMatch.Length;
             }
+        }
+
+        private static void AddStatusFragment(TextBlock text, TextBlock shadow, string value, Brush colour, bool emphasize)
+        {
+            text.Inlines.Add(StatusInlineFormat.Create(text, value, colour, emphasize));
+            shadow?.Inlines.Add(StatusInlineFormat.CreateShadow(text, value, colour, emphasize));
         }
 
         private static void RefreshOrderPresentation(bool force = false)
@@ -122,7 +136,14 @@ namespace Spectator
             currentOrderTarget.Text = selected.Mode == 0 ? "" : selected.Target > 0
                 ? selected.Target.ToString(System.Globalization.CultureInfo.InvariantCulture) : "?";
             if (ToolTipService.GetToolTip(currentOrderTarget) is ToolTip tip)
-                tip.Content = selected.Target > 0 ? PlayerLabel(selected.Target) : SerpLocalization.Get("Tools.UnknownTarget");
+            {
+                tip.Content = new TextBlock {
+                    Text = selected.Target > 0 ? PlayerLabel(selected.Target) : SerpLocalization.Get("Tools.UnknownTarget"),
+                    Foreground = neutralPlayerBrush, TextWrapping = TextWrapping.Wrap,
+                    Effect = StatusInlineFormat.Shadow()
+                };
+                MenuToolTipSizing.SetEnabled(tip, true);
+            }
             currentOrderTarget.Foreground = PlayerBrush(selected.Target);
         }
 

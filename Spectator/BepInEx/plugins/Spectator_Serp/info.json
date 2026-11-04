@@ -29,7 +29,10 @@
         "The detailed Vanilla statistics screen can be opened during the match.",
         "Lord overview via the crown button, with host permission for extra enemy statistics.",
         "Test tools for spectators and an AI lord test mode for active single-player participants; both are off by default, disabled in real multiplayer and not available in the map editor.",
-        "Toolbar, Lord overview and perspective updates run through APIShared's shared UI work service only while they are needed."
+        "While the test tools place a building for an AI lord, the camera no longer jumps to that lord's existing building of the same type (for example stockpile, granary, armoury or barracks); the selection itself stays unchanged.",
+        "Eliminated players watching with spectator views see the build menu read-only; building from it remains possible only while a test-tool placement for an AI lord is active.",
+        "Toolbar, Lord overview and perspective updates run through APIShared's shared UI work service only while they are needed.",
+        "Require APIShared 0.27.0 or newer."
       ]
     }
   ]

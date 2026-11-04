@@ -120,6 +120,9 @@ Tools.SingleplayerTestSettingHelp=Nur Einzelspieler. Standardmäßig aus. Erlaub
 Common.ResetToDefault=Zurücksetzen
 Common.ResetToDefaultHelp=Setzt die Einstellungen zurück, die du im aktuellen Kontext bearbeiten darfst. Der Einzelspieler-Testmodus wird ausgeschaltet.
 Tools.ToolsShort=Tools
+Tools.BackShort=Zurück
+Tools.BackHelp=Testmenü schließen.
+Tools.BackBuildHelp=Testmenü schließen und zum eigenen Baumenü zurückkehren.
 
 # Lord overview
 Overview.Title=Lord-Übersicht

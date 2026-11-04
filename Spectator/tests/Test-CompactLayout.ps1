@@ -92,7 +92,26 @@ foreach ($name in @('ToolsStatus','OrdersStatus','OrderAvailability')) {
 }
 $footerStyle = $xml.SelectSingleNode('//Style[@x:Key="FooterFeedback"]',$ns)
 if ($footerStyle.SelectSingleNode('Setter[@Property="Stroke"]').Value -ne '{Binding MenuForeground}' -or $footerStyle.SelectSingleNode('Setter[@Property="StrokeThickness"]').Value -ne '0.25') { throw 'Footer glyph contours must follow the current palette.' }
-$orderRows = (Named 'OrdersStatus').ParentNode.SelectNodes('Grid.RowDefinitions/RowDefinition')
+$footerEffect = $footerStyle.SelectSingleNode('Setter[@Property="Effect"]')
+if ($footerEffect -and $footerEffect.Value -ne '{x:Null}') { throw 'Uncoloured footer text must not receive a whole-text shadow.' }
+foreach ($pair in @(@('ToolsStatus','ToolsStatusShadow'),@('OrdersStatus','OrdersStatusShadow'))) {
+    $front = Named $pair[0]
+    $shadow = Named $pair[1]
+    $layers = $front.ParentNode
+    if (-not $shadow -or $layers.LocalName -ne 'Grid' -or $shadow.ParentNode -ne $layers -or $shadow.IsHitTestVisible -ne 'False') { throw 'Each status must share its layout cell with one passive rear shadow layer.' }
+    foreach ($attribute in @('Grid.Row','Grid.Column','Grid.RowSpan','Grid.ColumnSpan')) {
+        $default = if ($attribute.EndsWith('Span')) { 1 } else { 0 }
+        $frontValue = if ($front.HasAttribute($attribute)) { [int]$front.GetAttribute($attribute) } else { $default }
+        $shadowValue = if ($shadow.HasAttribute($attribute)) { [int]$shadow.GetAttribute($attribute) } else { $default }
+        if ($frontValue -ne $shadowValue) { throw 'Front and rear status glyphs must overlay the same complete Grid cell.' }
+    }
+    $textLayers = @($layers.SelectNodes('TextBlock'))
+    if ($textLayers.Count -ne 2 -or $textLayers[0] -ne $shadow -or $textLayers[1] -ne $front) { throw 'The shadow must draw behind the unchanged main text, rather than occupy a second row.' }
+}
+$orderHost = (Named 'OrderAvailability').ParentNode
+$orderLayers = (Named 'OrdersStatus').ParentNode
+$orderRows = $orderHost.SelectNodes('Grid.RowDefinitions/RowDefinition')
+if ($orderLayers.ParentNode -ne $orderHost -or $orderLayers.GetAttribute('Grid.Row') -ne '0' -or (Named 'OrderAvailability').GetAttribute('Grid.Row') -ne '1') { throw 'The overlaid order status occupies row zero; availability retains its separate second row.' }
 if ($orderRows.Count -ne 2 -or @($orderRows | Where-Object Height -ne '16').Count -or (Named 'OrdersStatus').MaxHeight -ne '16' -or (Named 'OrderAvailability').MaxHeight -ne '16') { throw 'Order feedback and availability must both fit inside the 33-unit lower surface.' }
 $credit = $xml.SelectSingleNode('//Button[@CommandParameter="Credit"]/TextBlock')
 if ($status.FontSize -ne '14' -or $credit.FontSize -ne '11' -or $status.FontWeight -ne 'Bold' -or

@@ -13,10 +13,11 @@ namespace Spectator
     {
         private readonly Action<string> execute;
         private readonly Func<string, bool> canExecute;
+        private readonly Func<bool> prepareDockedTools;
         private string amount = "0", selectedGood = "";
         private readonly ToolbarFeedback feedback = new ToolbarFeedback();
         private readonly ToolbarMenuState menu = new ToolbarMenuState();
-        private bool powerFlag, force, hasRecipient;
+        private bool powerFlag, force, hasRecipient, ownBuildMenu;
         private bool expanded => menu.Expanded;
         private bool goods => menu.View == "Goods";
         private bool orders => menu.View == "Orders";
@@ -100,9 +101,12 @@ namespace Spectator
         internal void SetFloating(bool value)
         {
             if (!menu.SetFloating(value)) return;
-            Changed(nameof(ExpandLabel)); Changed(nameof(ExpandFontSize));
+            Changed(nameof(ExpandLabel)); Changed(nameof(ExpandFontSize)); Changed(nameof(ExpandHelp));
         }
-        public string ExpandLabel => menu.ControlLabel(SerpLocalization.Get("Tools.ToolsShort"));
+        public string ExpandLabel => menu.ControlLabel(SerpLocalization.Get("Tools.ToolsShort"), SerpLocalization.Get("Tools.BackShort"));
+        public string ExpandHelp => SerpLocalization.Get(menu.ControlHelpKey(ownBuildMenu));
+        internal void SetOwnBuildMenu(bool value)
+        { if (ownBuildMenu == value) return; ownBuildMenu = value; Changed(nameof(ExpandHelp)); }
         public float ExpandFontSize => menu.ControlFontSize;
         public bool CanCredit => ToolsAvailable && hasRecipient && CreditMath.TryParse(amount, out _) && canExecute("Credit");
         public Visibility StatusVisibility => details && !string.IsNullOrEmpty(Status) ? Visibility.Visible : Visibility.Collapsed;
@@ -136,9 +140,9 @@ namespace Spectator
         internal bool Expanded => expanded;
         internal eGoods Good => good;
 
-        internal TestToolsViewModel(Action<string> execute, Func<string, bool> canExecute)
+        internal TestToolsViewModel(Action<string> execute, Func<string, bool> canExecute, Func<bool> prepareDockedTools)
         {
-            this.execute = execute; this.canExecute = canExecute;
+            this.execute = execute; this.canExecute = canExecute; this.prepareDockedTools = prepareDockedTools;
             ActionCommand = new ToolsCommand(Invoke, CanInvoke);
             SelectGood(good);
         }
@@ -150,7 +154,7 @@ namespace Spectator
             if (!CanInvoke(value)) return;
             switch (value)
             {
-                case "Collapse": menu.ToggleExpanded(hudAvailable); RefreshViews(); execute("CancelPower"); return;
+                case "Collapse": menu.ToggleExpanded(hudAvailable, prepareDockedTools); RefreshViews(); execute("CancelPower"); return;
                 case "Goods": menu.ToggleView("Goods"); RefreshViews(); execute("StopCursor"); return;
                 case "Orders": menu.ToggleView("Orders"); RefreshViews(); execute("StopCursor"); return;
                 case "Placement": execute("Placement"); return;
@@ -178,7 +182,7 @@ namespace Spectator
             string current = SerpLocalization.GetActiveLocale();
             if (current == locale) return;
             locale = current;
-            Changed(nameof(Text)); Changed(nameof(DesignHelp)); Changed(nameof(PowersToggleLabel)); Changed(nameof(PowersShortLabel)); Changed(nameof(ExpandLabel));
+            Changed(nameof(Text)); Changed(nameof(DesignHelp)); Changed(nameof(PowersToggleLabel)); Changed(nameof(PowersShortLabel)); Changed(nameof(ExpandLabel)); Changed(nameof(ExpandHelp));
             SelectGood(good);
         }
 
@@ -186,7 +190,7 @@ namespace Spectator
         {
             Changed(nameof(ExpandedVisibility)); Changed(nameof(GoodsVisibility));
             Changed(nameof(OrdersVisibility)); Changed(nameof(PlacementActive));
-            Changed(nameof(ExpandLabel)); Changed(nameof(ActiveViewKey)); Changed(nameof(Status)); Changed(nameof(StatusVisibility)); Changed(nameof(GoodsStatusVisibility));
+            Changed(nameof(ExpandLabel)); Changed(nameof(ExpandHelp)); Changed(nameof(ActiveViewKey)); Changed(nameof(Status)); Changed(nameof(StatusVisibility)); Changed(nameof(GoodsStatusVisibility));
             Changed(nameof(NavigationVisibility)); Changed(nameof(PlacementVisibility)); Changed(nameof(ExpandButtonVisibility));
         }
 

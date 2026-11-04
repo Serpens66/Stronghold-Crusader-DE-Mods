@@ -7,9 +7,10 @@ namespace Spectator
     internal static partial class SpectatorRuntime
     {
         private static Canvas paperSurface;
-        private static ImageSource parchmentSource;
         private static readonly List<PaperPatch> paperPatches = new List<PaperPatch>();
         private static readonly List<ToolbarRect> toolbarPaperPieces = new List<ToolbarRect>(8);
+        private static readonly List<ToolbarPaperRegion> paperRegions = new List<ToolbarPaperRegion>(8);
+        private static Brush paperRightFade, paperBottomFade, paperCornerFade;
         private static readonly Brush paperBase = new SolidColorBrush(Color.FromRgb(235, 204, 150));
         // Same layered colours as the released BFQoL bar. Geometry belongs to Spectator.
         private static readonly Brush classicOuter = new SolidColorBrush(Color.FromArgb(118, 12, 9, 7));
@@ -20,14 +21,12 @@ namespace Spectator
         private sealed class PaperPatch
         {
             internal readonly Border Surface, Inner, Core;
-            internal readonly Canvas Top = new Canvas(), Lower = new Canvas();
-            internal readonly Image TopImage = new Image { Stretch = Stretch.Fill }, LowerImage = new Image { Stretch = Stretch.Fill };
+            internal readonly Canvas TextureHost = new Canvas();
+            internal readonly Border Texture = new Border { IsHitTestVisible = false };
             internal PaperPatch()
             {
-                var images = new Grid();
-                Top.Children.Add(TopImage); Lower.Children.Add(LowerImage);
-                images.Children.Add(Top); images.Children.Add(Lower);
-                Core = new Border { Child = images };
+                TextureHost.Children.Add(Texture);
+                Core = new Border { Child = TextureHost };
                 Inner = new Border { Child = Core };
                 Surface = new Border { Child = Inner, IsHitTestVisible = false, ClipToBounds = true };
             }
@@ -36,39 +35,58 @@ namespace Spectator
         private static void BindToolbarPaper()
         {
             paperSurface = humanScreen.FindName("SpectatorPaperSurface") as Canvas;
-            parchmentSource = humanPanel.TryFindResource("UI-HUD 007") as ImageSource;
-            if (paperSurface == null || parchmentSource == null)
-                throw new MissingMemberException("Spectator parchment surface/resource missing.");
+            if (paperSurface == null)
+                throw new MissingMemberException("Spectator parchment surface missing.");
+            if (paperRightFade == null)
+            {
+                paperRightFade = CreatePaperFade(ToolbarPaperFade.Right);
+                paperBottomFade = CreatePaperFade(ToolbarPaperFade.Bottom);
+                paperCornerFade = CreatePaperFade(ToolbarPaperFade.Corner);
+            }
         }
 
-        private static void RenderToolbarPaper(float width, float height, bool floating, ToolbarRect nativePaper,
-            float end, Image original)
+        private static Brush CreatePaperFade(ToolbarPaperFade fade)
+        {
+            ToolbarLayout.PaperFadeGradient(fade, out float x, out float y, out float opaqueUntil);
+            var brush = new LinearGradientBrush { StartPoint = new Point(0, 0), EndPoint = new Point(x, y),
+                MappingMode = BrushMappingMode.RelativeToBoundingBox };
+            brush.GradientStops.Add(new GradientStop { Color = Color.FromArgb(255, 255, 255, 255), Offset = 0 });
+            if (opaqueUntil > 0)
+                brush.GradientStops.Add(new GradientStop { Color = Color.FromArgb(255, 255, 255, 255), Offset = opaqueUntil });
+            brush.GradientStops.Add(new GradientStop { Color = Color.FromArgb(0, 255, 255, 255), Offset = 1 });
+            return brush;
+        }
+
+        private static void RenderToolbarPaper(float width, float height, bool floating)
         {
             paperSurface.Visibility = toolbarPaperPieces.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
             paperSurface.Width = width; paperSurface.Height = height;
             bool classic = toolsModel.ClassicTheme;
-            // Every patch samples one common image transform. Clipping is local and never
-            // depends on a shared composite geometry or a negative stacking layer.
-            var full = new ToolbarRect(0, 0, width, height);
-            var slices = new ToolbarPaperSlices(nativePaper, end);
-            bool sliced = !floating && !nativePaper.Empty;
-            var upper = sliced ? slices.TopImage : full;
-            var lower = slices.LowerImage;
-            float join = sliced ? Math.Max(0, Math.Min(height, slices.Join)) : height;
-            while (paperPatches.Count < toolbarPaperPieces.Count)
+            ToolbarLayout.PaperRegions(toolbarPaperPieces, !floating && !classic, paperRegions);
+            // Every clipped patch samples the same cropped image in toolbar coordinates.
+            // Restarting/stretching the brush per patch creates a visible footer seam.
+            while (paperPatches.Count < paperRegions.Count)
             {
                 var patch = new PaperPatch(); paperPatches.Add(patch); paperSurface.Children.Add(patch.Surface);
             }
             for (int i = 0; i < paperPatches.Count; i++)
             {
                 var patch = paperPatches[i];
-                patch.Surface.Visibility = i < toolbarPaperPieces.Count ? Visibility.Visible : Visibility.Collapsed;
-                if (i >= toolbarPaperPieces.Count) continue;
-                var area = toolbarPaperPieces[i];
+                patch.Surface.Visibility = i < paperRegions.Count ? Visibility.Visible : Visibility.Collapsed;
+                if (i >= paperRegions.Count) continue;
+                var area = paperRegions[i].Bounds;
                 Place(patch.Surface, area);
-                patch.Surface.CornerRadius = new CornerRadius(floating ? 4 : 1.5f);
+                // Internal split edges must meet without rounded clipping gaps.
+                patch.Surface.CornerRadius = new CornerRadius(floating ? 4 : 0);
                 patch.Surface.Clip = new RectangleGeometry(new Rect(0, 0, area.Width, area.Height),
-                    floating ? 4 : 1.5f, floating ? 4 : 1.5f);
+                    floating ? 4 : 0, floating ? 4 : 0);
+                switch (paperRegions[i].Fade)
+                {
+                    case ToolbarPaperFade.Right: patch.Surface.OpacityMask = paperRightFade; break;
+                    case ToolbarPaperFade.Bottom: patch.Surface.OpacityMask = paperBottomFade; break;
+                    case ToolbarPaperFade.Corner: patch.Surface.OpacityMask = paperCornerFade; break;
+                    default: patch.Surface.OpacityMask = null; break;
+                }
                 patch.Surface.Background = classic ? classicOuter : paperBase;
                 patch.Surface.BorderBrush = classic ? classicBlack : transparentToolbarBrush;
                 patch.Surface.BorderThickness = new Thickness(classic ? 2 : 0);
@@ -78,26 +96,20 @@ namespace Spectator
                 patch.Core.Background = classic ? classicInner : transparentToolbarBrush;
                 patch.Core.BorderBrush = classic ? classicBlack : transparentToolbarBrush;
                 patch.Core.BorderThickness = new Thickness(classic ? 1 : 0);
-                patch.Top.Visibility = classic ? Visibility.Collapsed : Visibility.Visible;
-                patch.Lower.Visibility = !classic && sliced ? Visibility.Visible : Visibility.Collapsed;
-                if (classic) continue;
-                patch.Top.Width = patch.Lower.Width = area.Width;
-                patch.Top.Height = patch.Lower.Height = area.Height;
-                patch.TopImage.Source = patch.LowerImage.Source = parchmentSource;
-                patch.TopImage.FlowDirection = patch.LowerImage.FlowDirection = original?.FlowDirection ?? FlowDirection.LeftToRight;
-                Place(patch.TopImage, new ToolbarRect(upper.X - area.X, upper.Y - area.Y, upper.Width, upper.Height));
-                Place(patch.LowerImage, new ToolbarRect(lower.X - area.X, lower.Y - area.Y, lower.Width, lower.Height));
-                float cut = Math.Max(0, Math.Min(area.Height, join - area.Y));
-                patch.Top.Clip = new RectangleGeometry(new Rect(0, 0, area.Width, cut));
-                patch.Lower.Clip = new RectangleGeometry(new Rect(0, cut, area.Width, area.Height - cut));
+                patch.TextureHost.Visibility = classic ? Visibility.Collapsed : Visibility.Visible;
+                if (!classic)
+                {
+                    patch.Texture.Background = rosterPaper;
+                    Place(patch.Texture, ToolbarLayout.PaperTexture(area, width, height));
+                }
             }
         }
 
         private static void DetachToolbarPaper()
         {
             if (paperSurface != null) { paperSurface.Visibility = Visibility.Collapsed; paperSurface.Children.Clear(); }
-            paperSurface = null; parchmentSource = null;
-            paperPatches.Clear(); toolbarPaperPieces.Clear();
+            paperSurface = null;
+            paperPatches.Clear(); toolbarPaperPieces.Clear(); paperRegions.Clear();
         }
     }
 }

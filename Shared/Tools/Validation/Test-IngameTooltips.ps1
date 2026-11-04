@@ -25,10 +25,10 @@ function Assert-OwnStyle([Xml.XmlElement]$style, [string]$location, [switch]$Men
         if ($style.HasAttribute($name)) { $values[$name] = $style.GetAttribute($name) }
     }
     if ($style.GetAttribute('seui:ToolTipResolutionScale.Enabled') -eq 'True') { $values['seui:ToolTipResolutionScale.Enabled'] = 'True' }
-    # Spectator's in-game toolbar deliberately matches its rendered menu font. Other
-    # owned popups retain the established resolution scaler; colors/template remain common.
+    # Spectator's toolbar supplies a source reference through its lifecycle adapter,
+    # while the shared service remains the only sizing owner for all its popups.
     $menuSizing = $menuRelative -and $values['specui:MenuToolTipSizing.Enabled'] -eq 'True' -and $values['seui:ToolTipResolutionScale.Enabled'] -eq 'False' -and
-        $values['apiui:SharedToolTipSizing.Enabled'] -ne 'True' -and $values['FontSize'] -eq '14' -and $values['MaxWidth'] -eq '420'
+        $values['apiui:SharedToolTipSizing.Enabled'] -eq 'True' -and $values['FontSize'] -eq '15' -and $values['MaxWidth'] -eq '420'
     $sharedSizing = $values['apiui:SharedToolTipSizing.Enabled'] -eq 'True' -and $values['seui:ToolTipResolutionScale.Enabled'] -ne 'True'
     # The ESC renderer owns its popup/button pixel ratio directly; behavior tests execute
     # that production helper. This style check only guards its fallback and exclusive opt-in.

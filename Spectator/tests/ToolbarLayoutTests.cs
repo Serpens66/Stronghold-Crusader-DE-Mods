@@ -7,6 +7,9 @@ internal static class ToolbarLayoutTests
     internal static void Run(Action<bool, string> check)
     {
         CheckReachableDock(check);
+        CheckDockControlProtection(check);
+        CheckPaperFlow(check);
+        CheckPaperFeather(check);
         foreach (float scale in new[] { .75f, 1f, 1.5f, 2f, 3f })
         foreach (int count in new[] { 1,2,3,4,5,6,7,8 })
         {
@@ -31,15 +34,15 @@ internal static class ToolbarLayoutTests
             var design=ToolbarLayout.FloatingDesignRect(count,false);
             check(design.Width==22 && design.Right+2==floating.Control.X &&
                 ToolbarLayout.OwnerCell(count-1,true).Right+2==design.X,"Design button fits precisely between portraits and toggle.");
-            var placing=ToolbarLayout.Arrange(alignment,frame,count,false,true,default,true);
+            var placing=ToolbarLayout.Arrange(alignment,frame,count,false,true,true);
             check(placing.Roster.Width-floating.Roster.Width==36 && placing.Control.Width==60,
                 "Only the additional stop-label width extends the compact row during placement.");
             foreach(bool requestedDetails in new[]{false,true})
             foreach(bool requestedPlacement in new[]{false,true})
             {
-                var unavailableDock=ToolbarLayout.Arrange(alignment,frame,count,requestedDetails,false,compact.Control,requestedPlacement,false);
-                var unavailableFloating=ToolbarLayout.Arrange(alignment,frame,count,requestedDetails,true,default,requestedPlacement,false);
-                var availableFloating=ToolbarLayout.Arrange(alignment,frame,count,false,true,default,requestedPlacement);
+                var unavailableDock=ToolbarLayout.Arrange(alignment,frame,count,requestedDetails,false,requestedPlacement,false);
+                var unavailableFloating=ToolbarLayout.Arrange(alignment,frame,count,requestedDetails,true,requestedPlacement,false);
+                var availableFloating=ToolbarLayout.Arrange(alignment,frame,count,false,true,requestedPlacement);
                 var unavailableDesign=ToolbarLayout.FloatingDesignRect(count,requestedPlacement,false);
                 check(unavailableDock.Control.Empty && unavailableFloating.Control.Empty &&
                     unavailableDock.Tools.Empty && unavailableFloating.Tools.Empty,
@@ -65,12 +68,18 @@ internal static class ToolbarLayoutTests
             check(floating.Roster.Width == ToolbarLayout.FloatingWidth(count,false) && floating.Roster.Height == 40 && floating.Tools.Y == floating.Roster.Bottom &&
                 floating.Control.Right <= floating.Roster.Right && floating.Control.Bottom <= floating.Roster.Bottom,
                 "Floating portraits/control share one header, directly above the tool surface.");
-            check(compact.Control.Right < alignment.X+553*scale && compact.Control.Bottom < alignment.Bottom &&
-                compact.Control.Width==60*scale && !compact.Control.Intersects(compact.Roster),
-                "Dock control fits immediately left of the trumpet without enlarging the roster.");
+            check(Math.Abs(compact.Control.X + compact.Control.Width/2 - (compact.Roster.X + compact.Roster.Width/2))<.001f &&
+                Math.Abs(compact.Roster.Y-compact.Control.Bottom)<.001f &&
+                compact.Control.Width==60*scale && compact.Control.Height==22*scale,
+                "Dock control touches the top of every unchanged two-column raster, centered with zero gap.");
+            check(compact.Control.X==expanded.Control.X && compact.Control.Y==expanded.Control.Y &&
+                compact.Bounds.Y==compact.Control.Y && compact.Bounds.Bottom==compact.Roster.Bottom &&
+                compact.Bounds.X==compact.Roster.X && compact.Bounds.Right==compact.Grip.Right &&
+                !compact.Control.Intersects(frame) && !compact.Control.Intersects(expanded.Tools),
+                "Control participates in clamp bounds without reserving any Vanilla build-menu slot.");
             check(compact.Grip.Right == frame.X && compact.Grip.Y == compact.Roster.Y && compact.Grip.Height == compact.Roster.Height && compact.Grip.Width==8*scale,
                 "The existing gap is the full-height dock grip; no separate side strip remains.");
-            var placed = ToolbarLayout.Arrange(alignment,frame,count,false,true,default,true);
+            var placed = ToolbarLayout.Arrange(alignment,frame,count,false,true,true);
             var closed = ToolbarLayout.Arrange(alignment,frame,count,false,true);
             check(floating.Roster.Width==closed.Roster.Width && floating.Tools.Width==496 && closed.Bounds.Width==closed.Roster.Width,
                 "An open menu retains its width without stretching the compact header or the closed hit bounds.");
@@ -163,14 +172,6 @@ internal static class ToolbarLayoutTests
             }
             drag.Move(insideX,insideY,target,screenScale,screenScale,uiScale,out x,out y);drag.Cancel();
             check(!drag.Preview && drag.Floating,"Hiding or losing capture cancels preview without committing a dock.");
-            var paper=new ToolbarRect(-150,-25,876*uiScale,103*uiScale);
-            var slices=new ToolbarPaperSlices(paper,180*uiScale);
-            float topV=(slices.Join-slices.TopImage.Y)/slices.TopImage.Height;
-            float lowerV=(slices.Join-slices.LowerImage.Y)/slices.LowerImage.Height;
-            check(Math.Abs(topV-lowerV)<.00001f && Math.Abs(topV-.8f)<.00001f &&
-                slices.TopImage.X==slices.LowerImage.X && slices.TopImage.Width==slices.LowerImage.Width,
-                "Paper strips meet at the same source texel and retain horizontal texture coordinates.");
-            check(slices.LowerImage.Bottom>=180*uiScale-.001f,"Paper reaches the bottom edge without restarting the texture.");
         }
         var dock=new ToolbarRect(100,200,600,202);
         foreach(float scale in new[]{1f,1.5f,2f,3f})
@@ -217,7 +218,7 @@ internal static class ToolbarLayoutTests
         foreach(bool details in new[]{false,true})
         foreach(bool placing in new[]{false,true})
         {
-            var pose=ToolbarLayout.Arrange(new ToolbarRect(0,914,914,166),new ToolbarRect(114,936,800,144),count,details,true,default,placing);
+            var pose=ToolbarLayout.Arrange(new ToolbarRect(0,914,914,166),new ToolbarRect(114,936,800,144),count,details,true,placing);
             foreach(var wanted in new[]{new ToolbarRect(0,0,1,1),new ToolbarRect(650,850,1,1),new ToolbarRect(1600,1200,1,1)})
             {
                 check(ToolbarLayout.Position(true,wanted.X,wanted.Y,pose.Bounds.Width,pose.Bounds.Height,1920,1080,
@@ -233,6 +234,145 @@ internal static class ToolbarLayoutTests
         ToolbarLayout.FooterSegments(fullBand,controls,freeParts);
         CheckCoverage(fullBand,controls,freeParts,check);
         foreach(var part in freeParts) check(part.Bottom==166,"Every free strip reaches the screen bottom, including the old nine-unit gap.");
+        foreach(float scale in new[]{.75f,1f,1.5f,2f,3f}) foreach(int count in new[]{1,2,3,4,5,6,7,8})
+        foreach(bool orders in new[]{false,true})
+        {
+            var alignment=new ToolbarRect(0,0,914*scale,166*scale);
+            var frame=new ToolbarRect(114*scale,22*scale,800*scale,144*scale);
+            var pose=ToolbarLayout.Arrange(alignment,frame,count,true);
+            var body=new ToolbarRect(pose.Tools.X,pose.Tools.Y,pose.Tools.Width,(ToolbarLayout.Header+ToolbarLayout.Body)*scale);
+            var footer=new ToolbarRect(body.X,body.Bottom,body.Width,alignment.Bottom-body.Bottom);
+            var reserved=new List<ToolbarRect>{new ToolbarRect(553*scale,131*scale,30*scale,35*scale)};
+            ToolbarLayout.FooterContent(footer,reserved,(orders?ToolbarLayout.OrderSummaryWidth:ToolbarLayout.GoodsWidth)*scale,freeParts);
+            check(freeParts.Count==1&&freeParts[0].Bottom==alignment.Bottom,
+                "Only the active feedback column gets a paper/hit footer, extending to the bottom edge.");
+            var oldSlot=new ToolbarRect(491*scale,142*scale,60*scale,22*scale);
+            foreach(var painted in new[]{body,pose.Roster,pose.Control,pose.Grip})
+                check(!painted.Intersects(oldSlot),"No body, roster or control paper/hit rectangle reclaims the former Tools slot.");
+            foreach(var cover in freeParts)check(!cover.Intersects(oldSlot),"The open Goods/Orders footer leaves the former slot free of paper and click covers.");
+            reserved.Add(new ToolbarRect(footer.X+100*scale,footer.Y,30*scale,footer.Height));
+            ToolbarLayout.FooterContent(footer,reserved,308*scale,freeParts);
+            check(freeParts.Count==1,"Fragmented footer space paints only its single consumed interval.");
+            foreach(var cover in freeParts)foreach(var control in reserved)check(!cover.Intersects(control),"Consumed footer excludes all native controls.");
+        }
+    }
+    private static void CheckPaperFlow(Action<bool,string> check)
+    {
+        foreach(float scale in new[]{.75f,1f,1.5f,2f,3f}) foreach(int count in new[]{1,2,3,4,5,6,7,8})
+        foreach(bool floating in new[]{false,true}) foreach(bool orders in new[]{false,true})
+        {
+            var alignment=new ToolbarRect(0,0,914*scale,166*scale);
+            var pose=ToolbarLayout.Arrange(alignment,new ToolbarRect(114*scale,22*scale,800*scale,144*scale),count,true,floating);
+            float units=floating?1:scale;
+            var body=new ToolbarRect((pose.Tools.X-pose.Bounds.X)/units,(pose.Tools.Y-pose.Bounds.Y)/units,
+                pose.Tools.Width/units,ToolbarLayout.Header+ToolbarLayout.Body);
+            var footer=new ToolbarRect(body.X,body.Bottom,floating?body.Width:orders?ToolbarLayout.OrderSummaryWidth:ToolbarLayout.GoodsWidth,
+                pose.Bounds.Height/units-body.Bottom);
+            float width=pose.Bounds.Width/units,height=pose.Bounds.Height/units;
+            var topImage=ToolbarLayout.PaperTexture(body,width,height);
+            var lowerImage=ToolbarLayout.PaperTexture(footer,width,height);
+            check(topImage.Width==width&&lowerImage.Width==width&&topImage.Height==height&&lowerImage.Height==height,
+                "Body and narrow/wide footer retain one common root-sized parchment scale in every toolbar form.");
+            foreach(float fraction in new[]{0f,.25f,.5f,.75f,1f})
+            {
+                float x=footer.X+footer.Width*fraction,y=footer.Y;
+                float topU=(x-body.X-topImage.X)/topImage.Width,topV=(y-body.Y-topImage.Y)/topImage.Height;
+                float lowerU=(x-footer.X-lowerImage.X)/lowerImage.Width,lowerV=(y-footer.Y-lowerImage.Y)/lowerImage.Height;
+                check(Math.Abs(topU-lowerU)<.00001f&&Math.Abs(topV-lowerV)<.00001f,
+                    "Both sides of every actual body/footer seam sample the identical texture coordinate, without a pattern restart.");
+                check(Math.Abs(lowerU-x/width)<.00001f&&Math.Abs(lowerV-y/height)<.00001f,
+                    "Clipping preserves the global toolbar texture coordinates rather than independently stretching each used surface.");
+            }
+        }
+    }
+    private static float PaperAlpha(ToolbarPaperFade fade, float x, float y)
+    {
+        if(fade==ToolbarPaperFade.None)return 1;
+        ToolbarLayout.PaperFadeGradient(fade,out float endX,out float endY,out float hold);
+        float t=(x*endX+y*endY)/(endX*endX+endY*endY);
+        return Math.Max(0,Math.Min(1,(1-t)/(1-hold)));
+    }
+    private static void CheckPaperFeather(Action<bool,string> check)
+    {
+        foreach(float scale in new[]{.75f,1f,1.5f,2f,3f}) foreach(int count in new[]{1,2,3,4,5,6,7,8})
+        foreach(bool orders in new[]{false,true})
+        {
+            var pose=ToolbarLayout.Arrange(new ToolbarRect(0,0,914*scale,166*scale),
+                new ToolbarRect(114*scale,22*scale,800*scale,144*scale),count,true);
+            var body=new ToolbarRect((pose.Tools.X-pose.Bounds.X)/scale,(pose.Tools.Y-pose.Bounds.Y)/scale,496,88);
+            var footer=new ToolbarRect(body.X,body.Bottom,orders?352:308,(pose.Bounds.Bottom-pose.Tools.Y)/scale-88);
+            var pieces=new List<ToolbarRect>{footer,body};
+            var visual=new List<ToolbarPaperRegion>();
+            ToolbarLayout.PaperRegions(pieces,true,visual);
+            check(visual.Count==6,"Only the joined body/footer background is split into bounded opaque and feathered pieces.");
+            var oldSlot=new ToolbarRect(491-pose.Bounds.X/scale,142-pose.Bounds.Y/scale,60,22);
+            float total=0;int fades=0;
+            foreach(var part in visual)
+            {
+                var area=part.Bounds;total+=area.Width*area.Height;
+                check(area.X>=body.X&&area.Right<=body.Right&&area.Y>=body.Y&&area.Bottom<=footer.Bottom,
+                    "Background feathering never expands the paper footprint or reclaims other HUD space.");
+                check(pieces.Exists(original=>area.X>=original.X&&area.Y>=original.Y&&area.Right<=original.Right&&area.Bottom<=original.Bottom)&&
+                    !area.Intersects(oldSlot),"Each feather region remains inside one original paper piece and leaves the former Tools slot clear.");
+                if(part.Fade!=ToolbarPaperFade.None)
+                {
+                    fades++;
+                    check(part.Fade==ToolbarPaperFade.Bottom?area.Height==10:area.Width==10,
+                        "Only a ten-UI-unit exposed notch edge is feathered.");
+                }
+                var image=ToolbarLayout.PaperTexture(area,pose.Bounds.Width/scale,pose.Bounds.Height/scale);
+                check(Math.Abs(area.X+image.X)<.0001f&&Math.Abs(area.Y+image.Y)<.0001f,
+                    "Every feathered subregion retains the continuous global texture transform.");
+            }
+            check(fades==3&&Math.Abs(total-body.Width*body.Height-footer.Width*footer.Height)<.1f,
+                "Visual regions cover exactly the existing paper areas, without adding an input or paint region.");
+            for(int i=0;i<visual.Count;i++)for(int j=i+1;j<visual.Count;j++)
+                check(!visual[i].Bounds.Intersects(visual[j].Bounds),"Internal feather splits do not overlap and darken the shared texture.");
+            foreach(float fraction in new[]{0f,.1f,.25f,.5f,.75f,.9f,1f})
+            {
+                check(PaperAlpha(ToolbarPaperFade.Corner,fraction,0)==1&&PaperAlpha(ToolbarPaperFade.Corner,0,fraction)==1,
+                    "Corner mask meets both opaque body regions without an interior seam.");
+                check(Math.Abs(PaperAlpha(ToolbarPaperFade.Corner,fraction,1)-PaperAlpha(ToolbarPaperFade.Right,fraction,.5f))<.0001f&&
+                    Math.Abs(PaperAlpha(ToolbarPaperFade.Corner,1,fraction)-PaperAlpha(ToolbarPaperFade.Bottom,.5f,fraction))<.0001f,
+                    "Corner opacity matches footer-right and exposed body-bottom gradients at every join.");
+            }
+            ToolbarLayout.PaperRegions(pieces,false,visual);
+            check(visual.Count==pieces.Count&&visual.TrueForAll(p=>p.Fade==ToolbarPaperFade.None),
+                "Floating/classic paper bypasses all feathering and retains its existing visual layers.");
+        }
+    }
+    private static void CheckDockControlProtection(Action<bool,string> check)
+    {
+        foreach(float scale in new[]{.75f,1f,1.5f,2f,3f}) foreach(int count in new[]{1,2,3,4,5,6,7,8})
+        foreach(bool nativeFrameVisible in new[]{false,true})
+        {
+            float vw=1920*scale,vh=1080*scale;
+            var alignment=new ToolbarRect(vw-914*scale,vh-166*scale,914*scale,166*scale);
+            // When HUD_Main is hidden, production reconstructs this same native frame
+            // from the alignment fallback; a competing troop/building HUD owns its area.
+            var frame=new ToolbarRect(alignment.X+114*scale,alignment.Bottom-144*scale,800*scale,144*scale);
+            var pose=ToolbarLayout.Arrange(alignment,frame,count,false);
+            var solids=new List<ToolbarRect>();
+            foreach(var part in new[]{pose.Roster,pose.Grip,pose.Control})
+                solids.Add(new ToolbarRect(part.X-pose.Bounds.X,part.Y-pose.Bounds.Y,part.Width,part.Height));
+            var controls=new List<ToolbarRect>{
+                new ToolbarRect(alignment.X+380*scale,vh-26*scale,110*scale,26*scale),
+                new ToolbarRect(alignment.X+553*scale,vh-35*scale,30*scale,35*scale),
+                new ToolbarRect(alignment.X+588*scale,vh-35*scale,30*scale,35*scale),
+                new ToolbarRect(vw-128*scale,vh-128*scale,128*scale,128*scale)};
+            // Both the genuine and reconstructed frame must leave the fixed roster
+            // control untouched, rather than make the entire toolbar disappear.
+            if(nativeFrameVisible) controls.Add(frame);
+            else controls.Add(new ToolbarRect(frame.X,frame.Y,frame.Width,frame.Height));
+            check(ToolbarLayout.Position(false,pose.Bounds.X,pose.Bounds.Y,pose.Bounds.Width,pose.Bounds.Height,
+                vw,vh,solids,controls,4*scale,out var safe) && Math.Abs(safe.X-pose.Bounds.X)<.001f &&
+                Math.Abs(safe.Y-pose.Bounds.Y)<.001f,
+                "Docked control remains fixed and clear with visible/hidden build frame and protected Vanilla footer controls.");
+            controls.Clear();controls.Add(pose.Control);
+            bool canStay=ToolbarLayout.Position(false,pose.Bounds.X,pose.Bounds.Y,pose.Bounds.Width,pose.Bounds.Height,
+                vw,vh,solids,controls,4*scale,out safe) && Math.Abs(safe.X-pose.Bounds.X)<.001f && Math.Abs(safe.Y-pose.Bounds.Y)<.001f;
+            check(!canStay,"The control itself participates in protected-surface collision checks, including the former empty space above portraits.");
+        }
     }
     private static void CheckReachableDock(Action<bool,string> check)
     {

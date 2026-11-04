@@ -18,6 +18,7 @@ namespace UiAcceptance
             Runner.Register("Spectator.ExpectStatus", ExpectStatus);
             Runner.Register("Spectator.View", View);
             Runner.Register("Spectator.ExpectNoToolbar", ExpectNoToolbar);
+            Runner.Register("Spectator.TooltipPixels", SpectatorTooltipPixels.Run);
             Runner.Register("Hud", Hud);
             Runner.Register("Power", s => GameSteps.Do(() => CrusaderDE.MainViewModel.Instance.ButtonExtremeCommand.Execute(s.Arg(0))));
             Runner.Register("ExpectGold", ExpectGold);

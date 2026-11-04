@@ -120,6 +120,9 @@ Tools.SingleplayerTestSettingHelp=Single-player only. Off by default. Allows act
 Common.ResetToDefault=Reset to default
 Common.ResetToDefaultHelp=Resets the settings you can edit in the current context. Single-player test mode is turned off.
 Tools.ToolsShort=Tools
+Tools.BackShort=Back
+Tools.BackHelp=Close the test menu.
+Tools.BackBuildHelp=Close the test menu and return to your building menu.
 
 # Lord overview
 Overview.Title=Lord overview

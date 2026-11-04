@@ -39,20 +39,11 @@ namespace Spectator {
    }
    Check(DockHudPolicy.CanShowToolbar(true,true,true,true,false,false,false,8),"Simulation pause alone does not hide the world HUD");
 
-   Check(DockHudPolicy.CanShowControl(true,false,true,true,true,false),"visible construction page exposes the docked Tools control");
-   foreach(bool placement in new[]{false,true}) {
-    // Neither an active Place mode nor player-control permission may override the actual HUD.
-    foreach(bool main in new[]{false,true}) foreach(bool competing in new[]{false,true})
-     Check(DockHudPolicy.CanShowControl(true,false,main,true,true,competing)==(main&&!competing),
-      "normal and foreign troop/building HUDs suppress docked Tools/Stop, including during placement="+placement);
-    Check(!DockHudPolicy.CanShowControl(true,false,true,false,true,false),"report/non-build page hides the docked control");
-    Check(!DockHudPolicy.CanShowControl(true,false,true,true,false,false),"a hidden build frame hides the docked control");
-    Check(DockHudPolicy.CanShowControl(true,false,true,true,true,false),"returning from troop HUD restores Tools/Stop");
-   }
-   foreach(bool main in new[]{false,true}) foreach(bool frame in new[]{false,true}) foreach(bool other in new[]{false,true}) {
-    Check(DockHudPolicy.CanShowControl(true,true,main,false,frame,other),"floating header control stays usable independently of native HUD");
-    Check(!DockHudPolicy.CanShowControl(false,true,main,true,frame,other),"floating header never bypasses tool permission");
-   }
+   foreach(bool tools in new[]{false,true}) foreach(bool roster in new[]{false,true})
+   foreach(bool placement in new[]{false,true}) foreach(bool floating in new[]{false,true})
+   foreach(string hud in new[]{"Build","OwnTroops","ForeignTroops","Building","Other"})
+    Check(DockHudPolicy.CanShowControl(tools,roster)==(tools&&roster),
+     "Tools/Stop follows the roster permission across HUD="+hud+", Place="+placement+", floating="+floating);
 
    var feedback = new ToolbarFeedback();
    Check(feedback.ForPage("Goods") == "" && feedback.ForPage("Orders") == "", "no initial placeholder or tooltip content");
@@ -95,26 +86,46 @@ namespace Spectator {
    Check(!menu.Expanded, "placement from compact restores compact");
    menu.ToggleView("Goods"); menu.ToggleView("Goods"); Check(menu.View == "Goods" && menu.Expanded);
    menu.ToggleView("unknown"); Check(menu.View == "Goods", "unknown navigation leaves a usable page");
-   Check(menu.ControlLabel("Tools")=="Tools" && menu.ControlFontSize==12,"docked control has a readable persistent caption");
+   Check(menu.ControlLabel("Tools","Zurück")=="Zurück" && menu.ControlFontSize==12,"an open docked menu shows the localized Back caption");
+   Check(menu.ControlHelpKey(true)=="Tools.BackBuildHelp" && menu.ControlHelpKey(false)=="Tools.BackHelp",
+    "Back explains the return to the player's own build menu only for the applicable docked role");
    for(int move=0;move<8;move++) {
     bool wasExpanded=menu.Expanded; string page=menu.View;
     Check(menu.SetFloating(true) && menu.Floating && menu.ControlFontSize==18,"floating control uses the larger symbol independently of colour theme");
-    Check(menu.ControlLabel("Tools")== (wasExpanded?"\u2212":"+"),"floating caption follows the existing expansion state");
+    Check(menu.ControlLabel("Tools","Zurück")== (wasExpanded?"\u2212":"+"),"floating caption follows the existing expansion state");
+    Check(menu.ControlHelpKey(true)==(wasExpanded?"Tools.BackHelp":"Tools.CollapseHelp"),"floating help never promises a native build-menu transition");
     Check(!menu.SetFloating(true) && menu.View==page && menu.Expanded==wasExpanded,"unchanged form is silent and preserves navigation");
     menu.SetPlacement(true); Check(menu.Placing && !menu.ShowDetails,"placement still uses the separate stop control");
-    Check(menu.SetFloating(false) && menu.ControlLabel("Tools")=="Tools" && menu.ControlFontSize==12 && menu.Placing,"docking during placement preserves stop and restores the docked caption");
+    Check(menu.SetFloating(false) && menu.ControlLabel("Tools","Zurück")== (menu.Expanded?"Zurück":"Tools") && menu.ControlFontSize==12 && menu.Placing,
+     "docking during placement preserves the separate Stop and the caption for the remembered menu state");
     menu.SetPlacement(false); menu.ToggleExpanded();
    }
-   ToolbarLayoutTests.Run(Check); SpectatorRuntime.TestToolbarProperty(Check);
-   foreach(float menuScale in new[]{1f,1.333333f,2f,2.75f})
-   foreach(float popupScale in new[]{1f,1.5f,2f}) {
-    Check(ToolbarGeometry.TryTooltipScale(menuScale,menuScale,popupScale,popupScale,out float sx,out float sy));
-    Check(System.Math.Abs(ToolbarGeometry.MenuFontSize*sy*popupScale-14*menuScale)<0.001,"popup and menu rendered font sizes match");
+   // The production state invokes the external HUD boundary before publishing an open
+   // menu. Doubles model HUD transitions; they do not duplicate the expansion algorithm.
+   foreach(string hud in new[]{"Build","OwnTroops","ForeignTroops","Building","Eliminated"})
+   foreach(bool floating in new[]{false,true}) {
+    var clickMenu=new ToolbarMenuState(); clickMenu.SetToolsAvailable(true); clickMenu.SetFloating(floating);
+    bool nativeMain=hud=="Build"||hud=="Eliminated"; bool gateLease=hud=="Building";
+    int transitions=0;
+    System.Func<bool> prepare=()=>{Check(!clickMenu.Expanded,"HUD transition precedes first expansion");nativeMain=true;gateLease=false;transitions++;return true;};
+    clickMenu.ToggleExpanded(nativeMain,prepare);
+    Check(clickMenu.Expanded && transitions==(floating?0:1) && clickMenu.ControlLabel("Tools","Back")== (floating?"\u2212":"Back"),"one Tools click opens from "+hud+" with unchanged floating behavior");
+    Check(floating || nativeMain&&!gateLease,"docked Tools retires the building lease and reaches the build HUD first");
+    clickMenu.ToggleExpanded(true,()=>{throw new System.Exception("collapse must not change the native HUD");});
+    Check(!clickMenu.Expanded && clickMenu.ControlLabel("Tools","Back")== (floating?"+":"Tools"),"Back collapses without a HUD transition and restores Tools");
+    Check(clickMenu.ControlHelpKey(true)=="Tools.CollapseHelp","closed Tools restores its opening help after Back");
+    clickMenu.SetPlacement(true);Check(!clickMenu.CanExpand&&!clickMenu.ShowDetails,"Place retains its separate Stop control");
+    clickMenu.SetPlacement(false);Check(clickMenu.CanExpand,"Stop returns the Tools control");
    }
-   Check(!ToolbarGeometry.TryTooltipScale(0,1,1,1,out _,out _),"wait for valid layout");
-   Check(!ToolbarGeometry.TryTooltipScale(1,1,1,0,out _,out _));
-   Check(!ToolbarGeometry.TryTooltipScale(float.NaN,1,1,1,out _,out _));
-   Check(!ToolbarGeometry.TryTooltipScale(float.PositiveInfinity,1,1,1,out _,out _));
+   var hiddenMenu=new ToolbarMenuState();hiddenMenu.SetToolsAvailable(true);hiddenMenu.ToggleExpanded();
+   int hiddenTransition=0;hiddenMenu.ToggleExpanded(false,()=>{hiddenTransition++;Check(hiddenMenu.Expanded);return true;});
+   Check(hiddenTransition==1&&hiddenMenu.Expanded,"Tools reclaims a hidden expanded dock in one click");
+   var failedMenu=new ToolbarMenuState();failedMenu.SetToolsAvailable(true);
+   try {failedMenu.ToggleExpanded(false,()=>{throw new System.InvalidOperationException("HUD unavailable");});}catch(System.InvalidOperationException){}
+   Check(!failedMenu.Expanded,"a failed HUD transition cannot publish the first expansion");
+   failedMenu.ToggleExpanded(false,()=>false);Check(!failedMenu.Expanded,"an unavailable native build HUD refuses expansion without an exception");
+   failedMenu.SetToolsAvailable(false);failedMenu.ToggleExpanded(false,()=>{throw new System.Exception("disabled Tools must stay inert");});
+   ToolbarLayoutTests.Run(Check); SpectatorRuntime.TestToolbarProperty(Check);
    short[] modes = new short[9], targets = new short[9], requesters = new short[9];
    modes[2]=1; targets[2]=4; requesters[2]=7;
    var order = PresentedAiOrder.Read(2,modes,targets,requesters);
@@ -239,8 +250,8 @@ namespace Spectator {
    Check(!observerHud.TryClear(null,6,1,true,clearPage) && !observerHud.TryClear(originalHud,0,1,true,clearPage),"unavailable HUD or ended mission never receives UI writes");
    observerHud.Reset();
    Check(observerHud.TryClear(originalHud,6,22,true,clearPage),"HUD detach drops the old reference and a rebind clears again");
-   Check(DockHudPolicy.CanShowControl(true,false,true,true,true,false),"blank observer page retains docked Tools");
-   Check(!DockHudPolicy.CanShowControl(true,false,false,true,true,true),"clearing a hidden build page does not expose Tools over troop or building HUDs");
+   Check(DockHudPolicy.CanShowControl(true,true),"blank observer page retains roster Tools");
+   Check(DockHudPolicy.CanShowControl(true,true),"an eliminated observer retains roster Tools while another native HUD is shown");
    Check(SpectatorDefeatPolicy.CanPromoteEliminatedPlayerToSpectator(true,true,false,false,true,true,true,8));
    Check(!SpectatorDefeatPolicy.CanPromoteEliminatedPlayerToSpectator(false,true,false,false,true,true,true,8));
    Check(!SpectatorDefeatPolicy.CanPromoteEliminatedPlayerToSpectator(true,true,false,false,true,true,false,8));

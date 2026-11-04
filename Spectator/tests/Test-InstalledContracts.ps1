@@ -40,6 +40,7 @@ try {
         @('GameMap','PreCalcScreenCentre','method'),
         @('CameraControls2D','instance','field'),
         @('CameraControls2D','setCameraPos','method'),
+        @('EngineInterface','StartMapperItem','method'),
         @('PerfectPixelWithZoom','instance','field'),
         @('CrusaderDE.MainViewModel','get_AlliesPanelVisible','method'),
         @('CrusaderDE.MainViewModel','get_MeritPanelVisible','method'),
@@ -82,6 +83,8 @@ try {
     $nameResolver = @($assembly.MainModule.GetType('OnScreenText').Methods | Where-Object { $_.Name -eq 'getComputerName' -and $_.IsPublic -and $_.IsStatic -and $_.Parameters.Count -eq 2 -and $_.ReturnType.FullName -eq 'System.String' })
     if ($nameResolver.Count -ne 1 -or @($nameResolver[0].Parameters | Where-Object { $_.ParameterType.FullName -ne 'System.Int32' }).Count) { throw 'Computer-name resolver contract changed.' }
     $state = $assembly.MainModule.GetType('EngineInterface/PlayState')
+    $mapperStart = @($assembly.MainModule.GetType('EngineInterface').Methods | Where-Object { $_.Name -eq 'StartMapperItem' -and $_.IsPublic -and $_.IsStatic -and $_.ReturnType.FullName -eq 'System.Int32' -and $_.Parameters.Count -eq 1 -and $_.Parameters[0].ParameterType.FullName -eq 'System.Int32' })
+    if ($mapperStart.Count -ne 1) { throw 'Observer mapper-start guard contract changed.' }
     foreach ($name in @('computer_names','computer_register','skirmish_order','skirmish_order_player','skirmish_order_from_player')) {
         if (-not @($state.Fields | Where-Object { $_.Name -eq $name -and $_.IsPublic }).Count) { throw "Missing public snapshot field: $name" }
     }

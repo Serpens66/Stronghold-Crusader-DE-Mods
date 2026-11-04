@@ -17,7 +17,7 @@
 ## Verwurzelung
 
 - Prozessweit benötigte Runtimeobjekte, Logger, native Hooks, Delegates, R3-Subscriptions, Script-Extender-Events und `GameTimeManagerAPI.OnTick`-Handler statisch oder durch nachweislich langlebige Publisher verwurzeln. Statische Felder allein halten einen Callback auf einer zerstörten Komponente nicht am Leben.
-- Solche Objekte nie im Plugin-`OnDestroy()`/`OnDisable()` entfernen, abmelden oder disposen. `Dispose()` darf ausschließlich einen noch nicht veröffentlichten, fehlgeschlagenen Initialisierungskandidaten zurückrollen; kein Plugin-, Startup-, Kartenwechsel- oder Komponentenpfad darf es erreichen.
+- Solche Objekte nie im Plugin-`OnDestroy()`/`OnDisable()` entfernen, abmelden oder disposen. `Dispose()` darf ausschließlich einen noch nicht veröffentlichten, fehlgeschlagenen Initialisierungskandidaten zurückrollen; kein Plugin-, Startup-, Kartenwechsel- oder Komponentenpfad darf es erreichen. Nachweislich sicheres Zurückpatchen veröffentlichter Hooks regelt [native-hooks.md](native-hooks.md#permanente-hooklebensdauer-hard-gate).
 - Langfristige Arbeit nie über `Update`, `LateUpdate`, `FixedUpdate`, `StartCoroutine` oder andere MonoBehaviour-Callbacks einer früh erzeugten Plugin-/Dispatcher-Komponente.
 - Vorlage: `ExtraFeaturesPlugin` (Runtime zuerst durch `CrusaderLibrary.LibraryLoaded` bzw. `CrusaderLibrary.Instance.LibraryLoaded`, dann durch langfristige Publisher-/Event-Subscriptions verwurzelt; kein Startup-Teardown). Unfertige Testmods nicht als Lifecycle-Vorlage verwenden.
 - Echte Bereinigung vor Prozessende nur über einen nachweislich echten Shutdownpfad wie `OnApplicationQuit()`, idempotent und nicht durch das Startup-`OnDestroy()` auslösbar. Sonst Ressourcen dem Betriebssystem überlassen.

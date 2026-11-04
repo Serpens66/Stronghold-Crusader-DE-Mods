@@ -33,26 +33,21 @@ namespace Spectator
         internal bool CanExpand => ToolsAvailable && !Placing;
         internal bool SetFloating(bool value)
         { if (Floating == value) return false; Floating = value; return true; }
-        internal string ControlLabel(string dockedLabel) => Floating ? (Expanded ? "\u2212" : "+") : dockedLabel;
+        internal string ControlLabel(string toolsLabel, string backLabel) =>
+            Floating ? (Expanded ? "\u2212" : "+") : Expanded ? backLabel : toolsLabel;
+        internal string ControlHelpKey(bool ownBuildMenu) => !Expanded ? "Tools.CollapseHelp" :
+            !Floating && ownBuildMenu ? "Tools.BackBuildHelp" : "Tools.BackHelp";
         internal float ControlFontSize => Floating ? 18 : 12;
-        internal void ToggleExpanded(bool currentlyVisible = true)
-        { if (!ToolsAvailable || Expanded && !currentlyVisible) return; Expanded = !Expanded; }
+        internal void ToggleExpanded(bool currentlyVisible = true, Func<bool> beforeDockedOpen = null)
+        {
+            if (!ToolsAvailable) return;
+            if (!Floating && (!Expanded || !currentlyVisible) && beforeDockedOpen != null && !beforeDockedOpen()) return;
+            if (Expanded && !currentlyVisible) return;
+            Expanded = !Expanded;
+        }
         internal void ToggleView(string view) { if (ToolsAvailable && (view == "Goods" || view == "Orders")) { Expanded = true; View = view; } }
         internal void SetPlacement(bool value) { Placing = ToolsAvailable && value; }
         internal bool ShowDetails => ToolsAvailable && Expanded && !Placing;
-    }
-
-    internal static class ToolbarGeometry
-    {
-        internal const float MenuFontSize = 14;
-        internal static bool TryTooltipScale(float menuX, float menuY, float popupX, float popupY, out float x, out float y)
-        {
-            x = y = 0;
-            if (!(menuX > 0) || !(menuY > 0) || !(popupX > 0) || !(popupY > 0)) return false;
-            x = menuX / popupX; y = menuY / popupY;
-            return !float.IsInfinity(x) && !float.IsInfinity(y) && x > 0 && y > 0;
-        }
-
     }
 
     internal readonly struct PresentedAiOrder : IEquatable<PresentedAiOrder>

@@ -88,7 +88,7 @@ namespace Spectator
             TestToolsViewModel boundModel = null;
             boundModel = new TestToolsViewModel(ExecuteToolsCommand, command =>
                 ReferenceEquals(toolsModel, boundModel) && IsCurrentSession(boundSession) &&
-                (command == "ToggleDesign" ? IsToolbarSession() : IsToolsSession()));
+                (command == "ToggleDesign" ? IsToolbarSession() : IsToolsSession()), PrepareDockedToolsHud);
             toolsModel = boundModel;
             toolsModel.PropertyChanged += OnToolsModelChanged;
             toolsModel.SetAvailability(IsToolsSession());
@@ -201,6 +201,7 @@ namespace Spectator
             humanBoundHud = null;
             toolbarRoot = null;
             currentOrderIcon = null; currentOrderText = currentOrderTarget = null;
+            statusText = orderStatusText = statusShadow = orderStatusShadow = null;
             shownOrderActor = -1; shownOrderLocale = null;
             Array.Clear(targetButtons, 0, targetButtons.Length);
             Array.Clear(targetLabels, 0, targetLabels.Length);
@@ -215,6 +216,7 @@ namespace Spectator
             if (humanPanel == null || toolsModel == null) return;
             // Eligibility changes without a roster rebuild, including while the HUD is hidden.
             toolsModel.SetAvailability(IsToolsSession());
+            toolsModel.SetOwnBuildMenu(HasOwnBuildMenu());
             var view = MainViewModel.Instance;
             if (toolbarDirty || toolbarOccupiedCount < 0)
             {
@@ -312,9 +314,8 @@ namespace Spectator
             if (playerTooltipTexts.TryGetValue(button, out string previous) && previous == text) return;
             var style = humanPanel.TryFindResource("PlayerTooltip") as Style;
             if (style == null) throw new MissingMemberException("Test tools popup style missing.");
-            var content = new TextBlock { FontSize = ToolbarGeometry.MenuFontSize,
-                Foreground = neutralPlayerBrush, TextWrapping = TextWrapping.Wrap,
-                MaxWidth = 400 };
+            var content = new TextBlock { Foreground = neutralPlayerBrush,
+                TextWrapping = TextWrapping.Wrap, Effect = StatusInlineFormat.Shadow() };
             // Some player colours are almost black; tooltip names inherit the readable white text.
             content.Inlines.Add(new Run { Text = label });
             content.Inlines.Add(new Run { Text = "\n" + help });
@@ -428,7 +429,7 @@ namespace Spectator
 
         private static void SuspendToolbarInteraction()
         {
-            UpdatePlacementDate(false);
+            UpdateSpectatorDate(false);
             humanDragging = false; toolbarDrag.Cancel();
             if (humanDragHandle?.IsMouseCaptured == true) humanDragHandle.ReleaseMouseCapture();
             amountInput?.EndEditing(); ClosePlayerTooltips();
@@ -526,6 +527,23 @@ namespace Spectator
                     " savedScreen=" + humanSavedScreen);
             }
             RefreshHumanControls(true);
+        }
+
+        private static bool PrepareDockedToolsHud()
+        {
+            try
+            {
+                if (!IsObserverBuildUiThread || !IsToolsSession() || !MainViewModel.viewModelLoaded) return false;
+                var view = MainViewModel.Instance;
+                if (view.HUDmain == null) return false;
+                // Retire a borrowed gate/building panel through the same transition as Place.
+                // The menu publishes expansion only after the native build HUD is available.
+                if (!view.Show_HUD_Main || view.Show_HUD_Troops || view.Show_HUD_Building) EnterPlacementHud(view);
+                if (!view.Show_HUD_Main || view.Show_HUD_Troops || view.Show_HUD_Building) return false;
+                dockBuildMenu.Request();
+                return true;
+            }
+            catch (Exception error) { LogOnce("TEST_TOOLS_HUD_OPEN_ERROR: " + error); return false; }
         }
 
         private static void SelectHumanAi(int owner)
