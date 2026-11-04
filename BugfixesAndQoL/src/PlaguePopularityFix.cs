@@ -522,7 +522,7 @@ namespace BugfixesAndQoL
             {
                 // Diagnostics must never disable a working gameplay correction.
                 diagnosticOpportunities.Remove(playerId);
-                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/PlaguePopularityFix.cs:481", "Plague callback watchdog could not be armed: " + ex);
+                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/PlaguePopularityFix/ArmPopularityDiagnostic", "Plague callback watchdog could not be armed: " + ex);
             }
         }
 
@@ -573,7 +573,7 @@ namespace BugfixesAndQoL
                         LogDebug(() => $"Plague callback watchdog expired without a popularity calculation opportunity: playerId={playerId}, diagnosticRevision={revision}.");
                     return;
                 }
-                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/PlaguePopularityFix.cs:508", $"No plague popularity correction callback was observed despite a popularity calculation opportunity within {MissingPopularityCallbackWarningMilliseconds} ms of simulation time: " +
+                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/PlaguePopularityFix/ReportMissingPopularityCallback", $"No plague popularity correction callback was observed despite a popularity calculation opportunity within {MissingPopularityCallbackWarningMilliseconds} ms of simulation time: " +
                     $"playerId={playerId}, diagnosticRevision={revision}, activeHerds={CountHerds(playerId)}, " +
                     $"livingProjectiles={CountProjectiles(playerId)}, popularityCallbacksObserved={DescribeCallbackCounts()}.");
             }
@@ -670,7 +670,7 @@ namespace BugfixesAndQoL
                 return;
 
             callbackFailureLogged = true;
-            Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/PlaguePopularityFix.cs:606", $"Plague popularity fix disabled for this map; Vanilla behavior restored because {reason}: {ex}");
+            Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/PlaguePopularityFix/DisableCorrectionToVanilla", $"Plague popularity fix disabled for this map; Vanilla behavior restored because {reason}: {ex}");
         }
 
         private static bool IsValidPlayerId(int playerId) =>

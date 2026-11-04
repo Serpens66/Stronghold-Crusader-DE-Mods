@@ -190,7 +190,7 @@ namespace BugfixesAndQoL
             catch (Exception ex)
             {
                 setupBuildingEntrancesOffset = null;
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/QuarryPileRelocationRuntime.cs:186", $"Bugfixes and QoL quarry-pile Vanilla candidate helper was not resolved; relocation remains disabled: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/QuarryPileRelocationRuntime/InstallNativeFunctions", $"Bugfixes and QoL quarry-pile Vanilla candidate helper was not resolved; relocation remains disabled: {ex}");
             }
         }
 
@@ -200,7 +200,7 @@ namespace BugfixesAndQoL
                 out int buildingSize, out int pileIdOffset);
             if (!compatible)
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/QuarryPileRelocationRuntime.cs:198", $"Bugfixes and QoL quarry-pile relocation was disabled because the GameBuilding layout is incompatible with Vanilla's structure-group deletion: size=0x{buildingSize:X}, pileIdOffset=0x{pileIdOffset:X}.");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/QuarryPileRelocationRuntime/ValidateVanillaBuildingLayout", $"Bugfixes and QoL quarry-pile relocation was disabled because the GameBuilding layout is incompatible with Vanilla's structure-group deletion: size=0x{buildingSize:X}, pileIdOffset=0x{pileIdOffset:X}.");
                 return false;
             }
 
@@ -323,7 +323,7 @@ namespace BugfixesAndQoL
             {
                 buttonViewModel.Hide();
                 HideRelocationTooltip();
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/QuarryPileRelocationRuntime.cs:315", $"Bugfixes and QoL quarry-pile button visibility refresh failed: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/QuarryPileRelocationRuntime/RefreshButtonVisibility", $"Bugfixes and QoL quarry-pile button visibility refresh failed: {ex}");
             }
         }
 
@@ -428,7 +428,7 @@ namespace BugfixesAndQoL
 
                 if (!TryFindNextRotationTarget(localPlayerId, quarry, oldPile, operationId, out PlacementPosition target))
                 {
-                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/QuarryPileRelocationRuntime.cs:420", $"Bugfixes and QoL quarry-pile rotation found no valid clockwise position: playerId={localPlayerId}, operationId={operationId}, quarryId={selectedBuildingId}, quarryGlobalId={quarry->r_GlobalId}, oldPileGlobalId={oldPile->r_GlobalId}.");
+                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/QuarryPileRelocationRuntime/OnRelocateCommand.found-no-valid-clockwise", $"Bugfixes and QoL quarry-pile rotation found no valid clockwise position: playerId={localPlayerId}, operationId={operationId}, quarryId={selectedBuildingId}, quarryGlobalId={quarry->r_GlobalId}, oldPileGlobalId={oldPile->r_GlobalId}.");
                     return;
                 }
 
@@ -465,7 +465,7 @@ namespace BugfixesAndQoL
                 if (attemptedOperation != null)
                     RememberFailedRotationTarget(attemptedOperation);
 
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/QuarryPileRelocationRuntime.cs:459", $"Bugfixes and QoL quarry-pile rotation click failed: selectedBuildingId={selectedBuildingId}, playerId={localPlayerId}: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/QuarryPileRelocationRuntime/OnRelocateCommand.click-failed-selected-building", $"Bugfixes and QoL quarry-pile rotation click failed: selectedBuildingId={selectedBuildingId}, playerId={localPlayerId}: {ex}");
                 RefreshButtonVisibility();
             }
         }
@@ -498,7 +498,7 @@ namespace BugfixesAndQoL
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/QuarryPileRelocationRuntime.cs:494", $"Bugfixes and QoL quarry-pile building-spawn handling failed: exception={ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/QuarryPileRelocationRuntime/OnBuildingSpawn", $"Bugfixes and QoL quarry-pile building-spawn handling failed: exception={ex}");
             }
         }
 
@@ -587,7 +587,7 @@ namespace BugfixesAndQoL
                         {
                             // One malformed entry must not postpone the remaining quarries.
                             pendingAIQuarriesByGlobalId.Remove(quarryGlobalId);
-                            Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/QuarryPileRelocationRuntime.cs:585", $"Bugfixes and QoL AI quarry-pile queue entry failed and was discarded: tick={tick}, quarryGlobalId={quarryGlobalId}, exception={ex}");
+                            Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/QuarryPileRelocationRuntime/OnGameTick.queue-entry-failed-discarded", $"Bugfixes and QoL AI quarry-pile queue entry failed and was discarded: tick={tick}, quarryGlobalId={quarryGlobalId}, exception={ex}");
                         }
                     }
                 }
@@ -599,7 +599,7 @@ namespace BugfixesAndQoL
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/QuarryPileRelocationRuntime.cs:599", $"Bugfixes and QoL AI quarry-pile tick processing failed: tick={tick}, exception={ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/QuarryPileRelocationRuntime/OnGameTick.tick-processing-failed-tick", $"Bugfixes and QoL AI quarry-pile tick processing failed: tick={tick}, exception={ex}");
             }
         }
 
@@ -614,7 +614,7 @@ namespace BugfixesAndQoL
                 elapsed >= AIQuarryReadinessTimeoutTicks)
             {
                 pendingAIQuarriesByGlobalId.Remove(quarryGlobalId);
-                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/QuarryPileRelocationRuntime.cs:613", $"Bugfixes and QoL AI quarry-pile placement timed out; the Vanilla pile remains unchanged: playerId={pending.PlayerId}, quarryId={pending.QuarryId}, quarryGlobalId={quarryGlobalId}, tick={tick}.");
+                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/QuarryPileRelocationRuntime/TryProcessPendingAIQuarry.ai-quarry-pile-placement", $"Bugfixes and QoL AI quarry-pile placement timed out; the Vanilla pile remains unchanged: playerId={pending.PlayerId}, quarryId={pending.QuarryId}, quarryGlobalId={quarryGlobalId}, tick={tick}.");
                 return;
             }
 
@@ -657,7 +657,7 @@ namespace BugfixesAndQoL
             if (keepCenterResolution != QuarryKeepCenterResolution.Ready)
             {
                 pendingAIQuarriesByGlobalId.Remove(quarryGlobalId);
-                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/QuarryPileRelocationRuntime.cs:658", $"Bugfixes and QoL discarded an AI quarry-pile queue entry because the Keep geometry is structurally invalid; " +
+                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/QuarryPileRelocationRuntime/TryProcessPendingAIQuarry.discarded-ai-quarry-pile", $"Bugfixes and QoL discarded an AI quarry-pile queue entry because the Keep geometry is structurally invalid; " +
                     $"the Vanilla pile remains unchanged: playerId={pending.PlayerId}, keepId={keepId}, " +
                     $"keepType={keep->r_BuildingType}, keepAliveState={keep->r_AliveState}, " +
                     $"keepGridSize={keep->r_OccupyTileGridSize}, " +
@@ -678,7 +678,7 @@ namespace BugfixesAndQoL
                 out bool currentPositionIsBest))
             {
                 pendingAIQuarriesByGlobalId.Remove(quarryGlobalId);
-                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/QuarryPileRelocationRuntime.cs:681", $"Bugfixes and QoL found no safe Keep-facing pile position for a new AI quarry; the Vanilla pile remains unchanged: playerId={pending.PlayerId}, quarryGlobalId={quarryGlobalId}, operationId={operationId}.");
+                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/QuarryPileRelocationRuntime/TryProcessPendingAIQuarry.found-no-safe-keep", $"Bugfixes and QoL found no safe Keep-facing pile position for a new AI quarry; the Vanilla pile remains unchanged: playerId={pending.PlayerId}, quarryGlobalId={quarryGlobalId}, operationId={operationId}.");
                 return;
             }
 
@@ -706,7 +706,7 @@ namespace BugfixesAndQoL
             if (!applied)
             {
                 RememberFailedRotationTarget(operation);
-                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/QuarryPileRelocationRuntime.cs:710", $"Bugfixes and QoL could not move a new AI quarry pile towards its Keep; the existing pile was retained: playerId={pending.PlayerId}, quarryGlobalId={quarryGlobalId}, operationId={operationId}.");
+                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/QuarryPileRelocationRuntime/TryProcessPendingAIQuarry.could-not-move-new", $"Bugfixes and QoL could not move a new AI quarry pile towards its Keep; the existing pile was retained: playerId={pending.PlayerId}, quarryGlobalId={quarryGlobalId}, operationId={operationId}.");
             }
         }
 
@@ -742,7 +742,7 @@ namespace BugfixesAndQoL
         {
             if (!IsChoreTransportReady())
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/QuarryPileRelocationRuntime.cs:748", $"Bugfixes and QoL quarry-pile rotation refused in multiplayer because the Chore transport is unavailable: operationId={operation.OperationId}.");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/QuarryPileRelocationRuntime/TrySendRotationChore.rotation-refused-multiplayer-because", $"Bugfixes and QoL quarry-pile rotation refused in multiplayer because the Chore transport is unavailable: operationId={operation.OperationId}.");
                 return false;
             }
 
@@ -765,7 +765,7 @@ namespace BugfixesAndQoL
                     out byte[] body,
                     out string rejectionReason))
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/QuarryPileRelocationRuntime.cs:773", $"Bugfixes and QoL quarry-pile Chore was not queued; no local action was applied: operationId={operation.OperationId}, reason={rejectionReason}.");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/QuarryPileRelocationRuntime/TrySendRotationChore.chore-not-queued-no", $"Bugfixes and QoL quarry-pile Chore was not queued; no local action was applied: operationId={operation.OperationId}, reason={rejectionReason}.");
                 return false;
             }
 
@@ -1713,7 +1713,7 @@ namespace BugfixesAndQoL
                         pileGroupId);
                     if (!resolution.CanUse)
                     {
-                        Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/QuarryPileRelocationRuntime.cs:1695", $"Bugfixes and QoL did not alter an inconsistent loaded quarry-pile Vanilla group: quarryId={quarryId}, pileId={pileId}, quarryGroupId={Shared.NativeBuildingCompoundGroup.Read(ref quarry)}, pileGroupId={pileGroupId}, status={resolution.Status}.");
+                        Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/QuarryPileRelocationRuntime/RepairLoadedQuarryPileVanillaGroups.alter-inconsistent-loaded-quarry", $"Bugfixes and QoL did not alter an inconsistent loaded quarry-pile Vanilla group: quarryId={quarryId}, pileId={pileId}, quarryGroupId={Shared.NativeBuildingCompoundGroup.Read(ref quarry)}, pileGroupId={pileGroupId}, status={resolution.Status}.");
                     }
                 }
             }
@@ -1727,7 +1727,7 @@ namespace BugfixesAndQoL
 
             for (int index = 0; index < ambiguousPileIds.Count; index++)
             {
-                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/QuarryPileRelocationRuntime.cs:1711", $"Bugfixes and QoL did not repair an ambiguous loaded quarry-pile group claimed by multiple quarries: pileId={ambiguousPileIds[index]}.");
+                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/QuarryPileRelocationRuntime/RepairLoadedQuarryPileVanillaGroups.repair-ambiguous-loaded-quarry", $"Bugfixes and QoL did not repair an ambiguous loaded quarry-pile group claimed by multiple quarries: pileId={ambiguousPileIds[index]}.");
             }
 
             int groupIdsCorrected = 0;
@@ -1789,11 +1789,11 @@ namespace BugfixesAndQoL
 
         private void LogWarningThreadSafe(string message) =>
             Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
-                () => Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/QuarryPileRelocationRuntime.cs:1774", message));
+                () => Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/QuarryPileRelocationRuntime/LogWarningThreadSafe", message));
 
         private void LogErrorThreadSafe(string message) =>
             Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
-                () => Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/QuarryPileRelocationRuntime.cs:1778", message));
+                () => Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/QuarryPileRelocationRuntime/LogErrorThreadSafe", message));
 
         private void DisposeSubscriptions()
         {

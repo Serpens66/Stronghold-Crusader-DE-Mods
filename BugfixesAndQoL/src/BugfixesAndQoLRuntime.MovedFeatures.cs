@@ -75,7 +75,7 @@ namespace BugfixesAndQoL
                     !quarryFixedLayoutErrorLogged)
                 {
                     quarryFixedLayoutErrorLogged = true;
-                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/BugfixesAndQoLRuntime.MovedFeatures.cs:78", "Bugfixes and QoL quarry-pile relocation remains inactive because its fixed " +
+                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/BugfixesAndQoLRuntime.MovedFeatures/ApplyMovedFeatureSettings", "Bugfixes and QoL quarry-pile relocation remains inactive because its fixed " +
                         "native layout is not validated for this CrusaderDE.dll.");
                 }
             }
@@ -205,7 +205,7 @@ namespace BugfixesAndQoL
 
         private void LogMovedFeatureFailure(string featureName, Exception ex)
         {
-            Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/BugfixesAndQoLRuntime.MovedFeatures.cs:198", $"Bugfixes and QoL feature '{featureName}' failed and remains inactive: {ex}");
+            Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/BugfixesAndQoLRuntime.MovedFeatures/LogMovedFeatureFailure", $"Bugfixes and QoL feature '{featureName}' failed and remains inactive: {ex}");
         }
     }
 }

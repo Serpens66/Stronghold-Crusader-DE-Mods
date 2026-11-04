@@ -275,7 +275,7 @@ namespace BugfixesAndQoL.UnitCommands
                 {
                     assassinExactPublicationLogged = true;
                     try { if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                              Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/UnitCommands/Movement/MovementPathPublication.cs:116", $"Assassin exact route published after native reconstruction; unit={unitId} global={global} start=({sx},{sy}) target=({tx},{ty}) directions={count}."); }
+                              Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/MovementPathPublication/UnitCommandPathRuntime.BeginAssassinRoutePublication", $"Assassin exact route published after native reconstruction; unit={unitId} global={global} start=({sx},{sy}) target=({tx},{ty}) directions={count}."); }
                     catch { /* Logging cannot turn a published route into a native failure. */ }
                 }
                 return count;
@@ -447,7 +447,7 @@ namespace BugfixesAndQoL.UnitCommands
                 {
                     byte* manager = pathManager == nativePathManager ? (byte*)pathManager.ToPointer() : null;
                     UnitMoveFrame frame = GetCurrentUnitMoveFrame();
-                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/UnitCommands/Movement/MovementPathPublication.cs:540", $"Bugfixes and QoL stage=friendly-moat-movement-fallback-contract-rejected unit={plan?.UnitId ?? 0} " +
+                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/MovementPathPublication/UnitCommandPathRuntime.RecordFallbackContractRejection", $"Bugfixes and QoL stage=friendly-moat-movement-fallback-contract-rejected unit={plan?.UnitId ?? 0} " +
                         $"count={fallbackContractRejections} reason={reason} " +
                         $"click=({activeMoveCommand?.TargetX ?? -1},{activeMoveCommand?.TargetY ?? -1}) " +
                         $"request=({frame?.Args.TileX ?? plan?.TargetX ?? -1},{frame?.Args.TileY ?? plan?.TargetY ?? -1}) " +

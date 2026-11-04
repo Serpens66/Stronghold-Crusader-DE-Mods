@@ -115,7 +115,7 @@ namespace BugfixesAndQoL
             }
 
             if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/WaterboyTargetReservationRuntime.cs:102", $"Waterboy QoL hook active: rva=0x{resolution.Rva:X}, " +
+                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/WaterboyTargetReservationRuntime/Constructor", $"Waterboy QoL hook active: rva=0x{resolution.Rva:X}, " +
                     $"scheme={targetSearchScheme}, displaced={targetSearchDisplacedByteCount}, " +
                     $"span=0x{resolution.Rva:X}-0x{resolution.Rva + targetSearchDisplacedByteCount:X}, " +
                     $"stationaryTimeoutTicks={ReservationLedger.StationaryTimeoutTicks}.");
@@ -533,7 +533,7 @@ namespace BugfixesAndQoL
                 return;
             correctionAvailable = false;
             ledger.Clear();
-            Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/WaterboyTargetReservationRuntime.cs:484", $"Waterboy target reservations disabled; Vanilla remains active. reason={reason}; exception={exception}");
+            Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/WaterboyTargetReservationRuntime/DisableCorrection", $"Waterboy target reservations disabled; Vanilla remains active. reason={reason}; exception={exception}");
         }
 
         private readonly struct MaskedFire

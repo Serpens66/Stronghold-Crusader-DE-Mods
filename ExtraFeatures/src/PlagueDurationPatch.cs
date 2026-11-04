@@ -14,7 +14,7 @@ using SHCDESE.Interop;
 
 namespace ExtraFeatures
 {
-    internal sealed unsafe class PlagueDurationPatch : IDisposable
+    internal sealed unsafe class PlagueDurationPatch
     {
         public const double MinimumMultiplier = 0.5;
         // Largest whole multiplier whose lifetime (32000 ticks) stays within MaximumLifetime.
@@ -51,7 +51,6 @@ namespace ExtraFeatures
         private static readonly System.Collections.Generic.List<PlagueDurationPatch> PublishedRoots =
             new System.Collections.Generic.List<PlagueDurationPatch>();
 
-        private readonly IntPtr lifetimeAddress;
         private readonly ManualLogSource log;
         private HookTransaction conditionalTransaction;
         private readonly HookHandle<X64InlineHook> lifetimeComparisonHook = new HookHandle<X64InlineHook>();
@@ -83,7 +82,7 @@ namespace ExtraFeatures
             if (immediateOffset < 0 || immediateOffset + sizeof(int) > memory.Length)
                 throw new InvalidOperationException("The plague lifetime immediate lies outside the game module.");
 
-            lifetimeAddress = IntPtr.Add(libraryHandle, immediateOffset);
+            IntPtr lifetimeAddress = IntPtr.Add(libraryHandle, immediateOffset);
             int currentLifetime = Marshal.ReadInt32(lifetimeAddress);
             if (currentLifetime != VanillaLifetime)
             {
@@ -91,7 +90,7 @@ namespace ExtraFeatures
                     $"The plague lifetime has an unexpected native value: expected={VanillaLifetime}, actual={currentLifetime}.");
             }
 
-            TryInitializeAiFlagException(libraryHandle, region, memory, referenceHashMatches, matchOffset);
+            TryInstallLifetimeComparisonHook(libraryHandle, region, memory, referenceHashMatches, matchOffset);
         }
 
         public void Apply(double multiplier, bool enabled)
@@ -115,7 +114,9 @@ namespace ExtraFeatures
             SetLifetime(VanillaLifetime);
         }
 
-        public void Dispose()
+        // Permanent logical switch-off for this process (later calls throw); the published hooks
+        // stay installed until process exit.
+        public void Deactivate()
         {
             if (disposed)
                 return;
@@ -131,7 +132,7 @@ namespace ExtraFeatures
             }
         }
 
-        private void TryInitializeAiFlagException(
+        private void TryInstallLifetimeComparisonHook(
             IntPtr libraryHandle,
             ScanRegion region,
             ReadOnlySpan<byte> memory,
@@ -199,8 +200,8 @@ namespace ExtraFeatures
                 RollbackUnpublishedLifetimeComparisonHook(candidate, hookPublished);
                 aiFlagDiseaseTracker?.Dispose();
                 aiFlagDiseaseTracker = null;
-                Shared.DebugLogHelper.LogWarningLimited(log, "ExtraFeatures/src/PlagueDurationPatch.cs:178", "Extra Features could not initialize the AI flag and Cesspit Disease lifetime exceptions; " +
-                    $"the configured global plague duration remains active: {ex}");
+                Shared.DebugLogHelper.LogWarningLimited(log, "ExtraFeatures/src/PlagueDurationPatch.cs:178", "Extra Features could not install the plague-lifetime hook; " +
+                    $"the plague duration multiplier is unavailable and Vanilla duration applies for this process: {ex}");
             }
         }
 

@@ -92,7 +92,7 @@ namespace BugfixesAndQoL
                 Platform_Multiplayer multiplayer = Platform_Multiplayer.Instance;
                 bool isHost = multiplayer?.IsGameMemberHost() == true;
                 if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/MultiplayerLobbyReturnFeature.cs:89", $"Post-game lobby handoff armed: host={isHost}, creationRequested={creationRequested}, snapshotReady={snapshot != null}, receivedLobbyId={multiplayer?.CoopContinuationLobbyID ?? 0UL}.");
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/MultiplayerLobbyReturnFeature/OnGameOverState", $"Post-game lobby handoff armed: host={isHost}, creationRequested={creationRequested}, snapshotReady={snapshot != null}, receivedLobbyId={multiplayer?.CoopContinuationLobbyID ?? 0UL}.");
             }
         }
 
@@ -113,7 +113,7 @@ namespace BugfixesAndQoL
             if (snapshot == null)
             {
                 creationFailed = true;
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/MultiplayerLobbyReturnFeature.cs:112", "Post-game lobby creation was skipped because the original lobby metadata was not captured.");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/MultiplayerLobbyReturnFeature/TryCreateReplacementLobby.post-game-lobby-creation-skipped", "Post-game lobby creation was skipped because the original lobby metadata was not captured.");
                 return false;
             }
 
@@ -122,7 +122,7 @@ namespace BugfixesAndQoL
                 Action<string, string, int> chatCallback =
                     MultiplayerLobbyChatCallback.Capture(multiplayer);
                 if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/MultiplayerLobbyReturnFeature.cs:122", $"Creating post-game lobby: trigger={trigger}, name='{snapshot.GameName}', map='{snapshot.MapFileName}', maxPlayers={snapshot.MaxPlayers}, lobbyMode={snapshot.LobbyMode}.");
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/MultiplayerLobbyReturnFeature/TryCreateReplacementLobby.creating-post-game-lobby", $"Creating post-game lobby: trigger={trigger}, name='{snapshot.GameName}', map='{snapshot.MapFileName}', maxPlayers={snapshot.MaxPlayers}, lobbyMode={snapshot.LobbyMode}.");
                 multiplayer.CreateLobby(
                     snapshot.GameName,
                     snapshot.MapName,
@@ -139,14 +139,14 @@ namespace BugfixesAndQoL
                 if (!MultiplayerLobbyChatCallback.IsInstalled(multiplayer, chatCallback))
                     throw new InvalidOperationException(
                         "The replacement multiplayer lobby did not retain its chat callback.");
-                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/MultiplayerLobbyReturnFeature.cs:141", "Post-game host lobby chat callback preserved and verified after CreateLobby.");
+                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/MultiplayerLobbyReturnFeature/TryCreateReplacementLobby.post-game-host-lobby", "Post-game host lobby chat callback preserved and verified after CreateLobby.");
                 ApplySnapshotToPendingLobby(multiplayer.activeLobby, snapshot);
                 return true;
             }
             catch (Exception ex)
             {
                 creationFailed = true;
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/MultiplayerLobbyReturnFeature.cs:150", $"Post-game lobby creation or validation failed; Vanilla exit remains available: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/MultiplayerLobbyReturnFeature/TryCreateReplacementLobby.post-game-lobby-creation-validation", $"Post-game lobby creation or validation failed; Vanilla exit remains available: {ex}");
                 return false;
             }
         }
@@ -176,7 +176,7 @@ namespace BugfixesAndQoL
                 pendingExitIsCurrent = isCurrent;
                 exitWaitStartedAt = Stopwatch.GetTimestamp();
                 exitWork.SetContinuous(true);
-                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/MultiplayerLobbyReturnFeature.cs:178", "Post-game Exit is waiting for the host's replacement lobby ID.");
+                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/MultiplayerLobbyReturnFeature/TryHandleMissionOverExit", "Post-game Exit is waiting for the host's replacement lobby ID.");
             }
             return true;
         }
@@ -212,7 +212,7 @@ namespace BugfixesAndQoL
             {
                 Action fallback = pendingVanillaExit;
                 ClearPendingExit();
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/MultiplayerLobbyReturnFeature.cs:208", $"Post-game lobby handoff failed while waiting; Vanilla exit is used: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/MultiplayerLobbyReturnFeature/OnBeforeRender", $"Post-game lobby handoff failed while waiting; Vanilla exit is used: {ex}");
                 FallbackToVanilla(fallback, "wait-error");
             }
         }
@@ -261,11 +261,11 @@ namespace BugfixesAndQoL
             if (snapshot != null)
             {
                 if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/MultiplayerLobbyReturnFeature.cs:258", $"Captured multiplayer lobby for post-game return: source={source}, name='{snapshot.GameName}', map='{snapshot.MapFileName}', maxPlayers={snapshot.MaxPlayers}, lobbyMode={snapshot.LobbyMode}, mode={mode.ToDiagnosticString()}.");
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/MultiplayerLobbyReturnFeature/CaptureSession.captured-multiplayer-lobby-post", $"Captured multiplayer lobby for post-game return: source={source}, name='{snapshot.GameName}', map='{snapshot.MapFileName}', maxPlayers={snapshot.MaxPlayers}, lobbyMode={snapshot.LobbyMode}, mode={mode.ToDiagnosticString()}.");
             }
             else if (source.StartsWith("session-start", StringComparison.Ordinal))
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/MultiplayerLobbyReturnFeature.cs:264", $"Post-game lobby return was enabled, but no valid original lobby snapshot was available after map start: mode={mode.ToDiagnosticString()}.");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/MultiplayerLobbyReturnFeature/CaptureSession.post-game-lobby-return", $"Post-game lobby return was enabled, but no valid original lobby snapshot was available after map start: mode={mode.ToDiagnosticString()}.");
             }
         }
 
@@ -334,12 +334,12 @@ namespace BugfixesAndQoL
                 // and AI members, while SendGameData rejects kicked recipients.
                 multiplayer.SendCoopContinuationLobby(created.identifier);
                 if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/MultiplayerLobbyReturnFeature.cs:334", $"Post-game lobby created and announced to connected peers: lobbyId={created.identifier}, steamMembers={created.numLobbyMembers}, eligibleGamePeers={eligiblePeers}.");
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/MultiplayerLobbyReturnFeature/OnHostLobbyCreated.announced-connected-peers-lobby", $"Post-game lobby created and announced to connected peers: lobbyId={created.identifier}, steamMembers={created.numLobbyMembers}, eligibleGamePeers={eligiblePeers}.");
             }
             catch (Exception ex)
             {
                 creationFailed = true;
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/MultiplayerLobbyReturnFeature.cs:341", $"Post-game lobby was created but could not be announced; Vanilla exit remains available: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/MultiplayerLobbyReturnFeature/OnHostLobbyCreated.but-could-not-announced", $"Post-game lobby was created but could not be announced; Vanilla exit remains available: {ex}");
             }
         }
 
@@ -366,14 +366,14 @@ namespace BugfixesAndQoL
                     JoinClientLobby(multiplayer, lobbyId);
 
                 if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/MultiplayerLobbyReturnFeature.cs:369", $"Post-game lobby transition started: role={(transitionAsHost ? "host" : "client")}, lobbyId={lobbyId}.");
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/MultiplayerLobbyReturnFeature/TryTransitionToLobby.started-role-lobby-id", $"Post-game lobby transition started: role={(transitionAsHost ? "host" : "client")}, lobbyId={lobbyId}.");
                 return true;
             }
             catch (Exception ex)
             {
                 transitionStarted = false;
                 creationFailed = true;
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/MultiplayerLobbyReturnFeature.cs:378", $"Post-game lobby transition failed; Vanilla exit remains available: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/MultiplayerLobbyReturnFeature/TryTransitionToLobby.failed-vanilla-exit-remains", $"Post-game lobby transition failed; Vanilla exit remains available: {ex}");
                 return false;
             }
         }
@@ -444,7 +444,7 @@ namespace BugfixesAndQoL
         {
             if (transitionSnapshot == null)
             {
-                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/MultiplayerLobbyReturnFeature.cs:451", "Post-game host lobby map presentation could not be restored because the captured lobby metadata is unavailable.");
+                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/MultiplayerLobbyReturnFeature/RestoreHostMapPresentation.map-presentation-could-not-restored-because", "Post-game host lobby map presentation could not be restored because the captured lobby metadata is unavailable.");
                 return;
             }
 
@@ -455,7 +455,7 @@ namespace BugfixesAndQoL
                     transitionSnapshot.Crc);
                 if (header == null)
                 {
-                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/MultiplayerLobbyReturnFeature.cs:464", $"Post-game host lobby map presentation could not be restored because the exact map header was not found: map='{transitionSnapshot.MapFileName}', crc={transitionSnapshot.Crc}.");
+                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/MultiplayerLobbyReturnFeature/RestoreHostMapPresentation.map-presentation-could-not-restored-because-2", $"Post-game host lobby map presentation could not be restored because the exact map header was not found: map='{transitionSnapshot.MapFileName}', crc={transitionSnapshot.Crc}.");
                     return;
                 }
 
@@ -468,12 +468,12 @@ namespace BugfixesAndQoL
                     .Invoke(front, new object[] { header, false });
 
                 if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/MultiplayerLobbyReturnFeature.cs:478", $"Post-game host lobby map presentation restored through Vanilla selection: map='{transitionSnapshot.MapFileName}', crc={transitionSnapshot.Crc}.");
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/MultiplayerLobbyReturnFeature/RestoreHostMapPresentation.map-presentation-restored-through", $"Post-game host lobby map presentation restored through Vanilla selection: map='{transitionSnapshot.MapFileName}', crc={transitionSnapshot.Crc}.");
             }
             catch (Exception ex)
             {
                 // The replacement Steam lobby is already valid; presentation recovery is cosmetic.
-                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/MultiplayerLobbyReturnFeature.cs:485", $"Post-game host lobby opened, but its map presentation could not be restored: map='{transitionSnapshot.MapFileName}', crc={transitionSnapshot.Crc}, error={ex}");
+                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/MultiplayerLobbyReturnFeature/RestoreHostMapPresentation.opened-but-map-presentation", $"Post-game host lobby opened, but its map presentation could not be restored: map='{transitionSnapshot.MapFileName}', crc={transitionSnapshot.Crc}, error={ex}");
             }
         }
 
@@ -512,14 +512,14 @@ namespace BugfixesAndQoL
             catch (Exception ex)
             {
                 // The Steam lobby is already valid. A cosmetic refresh failure must not leave it.
-                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/MultiplayerLobbyReturnFeature.cs:526", $"Post-game host lobby opened, but its preserved player rows could not be refreshed immediately: {ex}");
+                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/MultiplayerLobbyReturnFeature/RefreshHostLobbyRows", $"Post-game host lobby opened, but its preserved player rows could not be refreshed immediately: {ex}");
             }
         }
 
         private void FallbackToVanilla(Action vanillaExit, string reason)
         {
             transitionStarted = true;
-            Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/MultiplayerLobbyReturnFeature.cs:535", $"Post-game lobby handoff fell back to Vanilla Exit: reason={reason}, requested={creationRequested}, failed={creationFailed}.");
+            Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/MultiplayerLobbyReturnFeature/FallbackToVanilla", $"Post-game lobby handoff fell back to Vanilla Exit: reason={reason}, requested={creationRequested}, failed={creationFailed}.");
             vanillaExit?.Invoke();
         }
 
@@ -546,7 +546,7 @@ namespace BugfixesAndQoL
                 Platform_Multiplayer.Instance.CoopContinuationLobbyID = 0UL;
 
             if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/MultiplayerLobbyReturnFeature.cs:563", $"Post-game lobby handoff state reset: reason={reason}.");
+                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/MultiplayerLobbyReturnFeature/Reset", $"Post-game lobby handoff state reset: reason={reason}.");
         }
 
         private void ClearPendingExit()

@@ -73,7 +73,7 @@ namespace BugfixesAndQoL
                 }
                 catch (Exception ex)
                 {
-                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/AssassinClimbCancellationRuntime.cs:76", $"Bugfixes and QoL Assassin climb cancellation failed before Vanilla Stop: {ex}");
+                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/AssassinClimbCancellationRuntime/OnSelectedUnitCommand", $"Bugfixes and QoL Assassin climb cancellation failed before Vanilla Stop: {ex}");
                 }
             }
         }
@@ -136,7 +136,7 @@ namespace BugfixesAndQoL
             if (invalidTribeLogged)
                 return;
             invalidTribeLogged = true;
-            Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/AssassinClimbCancellationRuntime.cs:141", $"Bugfixes and QoL could not safely resolve Assassin Stop tribe {tribeId}; Vanilla behavior remains active.");
+            Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/AssassinClimbCancellationRuntime/LogInvalidTribeOnce", $"Bugfixes and QoL could not safely resolve Assassin Stop tribe {tribeId}; Vanilla behavior remains active.");
         }
 
     }

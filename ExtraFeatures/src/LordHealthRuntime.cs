@@ -13,19 +13,28 @@ using System.Collections.Generic;
 
 namespace ExtraFeatures
 {
-    internal sealed unsafe class LordHealthRuntime : IDisposable
+    internal sealed unsafe class LordHealthRuntime
     {
         internal const string SaveDataIdentifier = "ExtraFeatures.LordHealth.v1";
         private bool simulationTickRegistered;
-        private const string ArchiveFileName = "_SE_ModData_" + SaveDataIdentifier + ".msgpack";
+        // Bytes of the last archive load, with the archive object they came from. Every load
+        // creates a new MapArchive, so BeginMap applies them only while that same archive is
+        // still the loaded one: exactly what reading the archive there would have returned.
+        // Load and session-start callbacks may run on different threads.
+        private readonly object archivedStateSync = new object();
+        private byte[] archivedState;
+        private object archivedStateSource;
         private const int FirstPlayerId = 1;
-        private const int LastPlayerId = 8;
+        private const int LastPlayerId = GamePlayerManagerAPI.MAX_PLAYERS;
+        // Bit per player ID 1..MAX_PLAYERS (bit 0 unused), as used by pendingPlayersMask.
+        private const int AllPlayersMask = ((1 << (LastPlayerId + 1)) - 1) & ~1;
         private const int ScanTickInterval = 10;
         private readonly ManualLogSource log;
         private readonly ExtraFeaturesViewModel settings;
-        private readonly LordHealthBasis[] bases = new LordHealthBasis[9];
-        private readonly uint[] appliedGlobalIds = new uint[9];
-        private readonly uint[] createdGlobalIds = new uint[9];
+        // Indexed by player ID; slot 0 stays unused.
+        private readonly LordHealthBasis[] bases = new LordHealthBasis[LastPlayerId + 1];
+        private readonly uint[] appliedGlobalIds = new uint[LastPlayerId + 1];
+        private readonly uint[] createdGlobalIds = new uint[LastPlayerId + 1];
         private IDisposable unitCreatedSubscription;
         private int pendingPlayersMask;
         private int warnedPlayersMask;
@@ -47,8 +56,10 @@ namespace ExtraFeatures
             if (initialized) return;
             unitCreatedSubscription = UnitR3EventHooks.OnUnitCreate.Observable.Subscribe(OnUnitCreated);
             // Archive callbacks run in Pre and Post, before managed initialization is
-            // complete. BeginMap reads the final archive instead of applying early data.
-            if (!ModSaveDataAPI.Instance.RegisterModDataHandler(SaveDataIdentifier, SaveState, IgnoreEarlyLoad))
+            // complete. They only buffer the bytes; BeginMap applies them for that file.
+            // ClearArchivedState is only a courtesy unload callback; correctness relies on the
+            // archive identity check, not on the Script Extender raising it.
+            if (!ModSaveDataAPI.Instance.RegisterModDataHandler(SaveDataIdentifier, SaveState, BufferArchivedState, ClearArchivedState))
             {
                 unitCreatedSubscription.Dispose();
                 unitCreatedSubscription = null;
@@ -63,20 +74,54 @@ namespace ExtraFeatures
             initialized = true;
         }
 
-        private static void IgnoreEarlyLoad(byte[] bytes, LoadContext context) { }
+        // Called during the archive load, only when it has a non-empty entry for SaveDataIdentifier.
+        private void BufferArchivedState(byte[] bytes, LoadContext context)
+        {
+            object source = GameMapArchiveManagerAPI.Instance.GetMapArchive();
+            lock (archivedStateSync)
+            {
+                archivedState = bytes;
+                archivedStateSource = source;
+            }
+        }
+
+        private void ClearArchivedState()
+        {
+            lock (archivedStateSync)
+            {
+                archivedState = null;
+                archivedStateSource = null;
+            }
+        }
+
+        // The buffered bytes, only if they came from the archive that is loaded now; always clears.
+        private byte[] TakeArchivedStateForCurrentArchive()
+        {
+            object current = GameMapArchiveManagerAPI.Instance.GetMapArchive();
+            lock (archivedStateSync)
+            {
+                byte[] bytes = current != null && ReferenceEquals(archivedStateSource, current)
+                    ? archivedState
+                    : null;
+                archivedState = null;
+                archivedStateSource = null;
+                return bytes;
+            }
+        }
 
         public void BeginMap(long newSessionId, bool isLoadedSave)
         {
             if (sessionId == newSessionId) return;
             ResetMapState();
             sessionId = newSessionId;
+            byte[] archivedBytes = TakeArchivedStateForCurrentArchive();
             if (!IsFeatureModeAllowed()) return;
             loadedSave = isLoadedSave;
             if (loadedSave)
             {
                 try
                 {
-                    byte[] bytes = GameMapArchiveManagerAPI.Instance.TryReadBinaryFile(ArchiveFileName, ignoreCase: true);
+                    byte[] bytes = archivedBytes;
                     if (bytes == null || bytes.Length == 0)
                     {
                         log?.LogInfo($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] Extra Features Lord health inactive: this save has no recorded Vanilla HP basis. Legacy saves are not supported.");
@@ -93,7 +138,7 @@ namespace ExtraFeatures
             }
             humanPercent = LordHealthMultiplierPolicy.NormalizePercent(settings.HumanLordHealthPercent);
             aiPercent = LordHealthMultiplierPolicy.NormalizePercent(settings.AILordHealthPercent);
-            pendingPlayersMask = 0x1FE;
+            pendingPlayersMask = AllPlayersMask;
             mapActive = true;
             if (Shared.DebugLogHelper.DiagnosticsEnabled)
                 Shared.DebugLogHelper.LogDebug(log,
@@ -111,19 +156,6 @@ namespace ExtraFeatures
             Array.Clear(bases, 0, bases.Length);
             Array.Clear(appliedGlobalIds, 0, appliedGlobalIds.Length);
             Array.Clear(createdGlobalIds, 0, createdGlobalIds.Length);
-        }
-
-        // Only an unpublished initialization candidate may be disposed.
-        // Ordinary sessions retain these process-rooted registrations.
-        public void Dispose()
-        {
-            ResetMapState();
-            if (!initialized) return;
-            // Process-owned tick registration remains rooted; feature state gates execution.
-            ModSaveDataAPI.Instance.UnregisterModDataHandler(SaveDataIdentifier);
-            unitCreatedSubscription?.Dispose();
-            unitCreatedSubscription = null;
-            initialized = false;
         }
 
         private void OnGameTick(int tick)

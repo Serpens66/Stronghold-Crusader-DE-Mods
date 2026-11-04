@@ -91,7 +91,7 @@ namespace ExtendedData
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(Logger, "ExtendedData/src/ExtendedDataPlugin.cs:74", "ExtendedData initialization failed: " + ex);
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "ExtendedData/ExtendedDataPlugin/OnLibraryLoaded", "ExtendedData initialization failed: " + ex);
             }
         }
 

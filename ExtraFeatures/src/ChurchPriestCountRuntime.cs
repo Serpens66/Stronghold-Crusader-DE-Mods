@@ -222,10 +222,5 @@ namespace ExtraFeatures
         {
             Shared.DebugLogHelper.LogErrorLimited(log, callerFile + ":" + callerLine, message);
         }
-
-        private static string TimestampNow()
-        {
-            return DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.InvariantCulture);
-        }
     }
 }

@@ -54,7 +54,7 @@ namespace BugfixesAndQoL
                 vanillaViewModel.MultiplayerMenuCommand == null)
             {
                 SetRuntimeAvailable(false);
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/SkirmishGameOptionsAccessViewModel.cs:57", "BUGFIXES_AND_QOL_SKIRMISH_GAME_OPTIONS_BUTTON_BIND_FAILED: " +
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/SkirmishGameOptionsAccessViewModel/OnNoesisElementBound.bind-failed", "BUGFIXES_AND_QOL_SKIRMISH_GAME_OPTIONS_BUTTON_BIND_FAILED: " +
                     $"hostAvailable={element != null}, buttonAvailable={button != null}, " +
                     $"mainViewModelAvailable={vanillaViewModel != null}, " +
                     $"commandAvailable={vanillaViewModel?.MultiplayerMenuCommand != null}.");
@@ -63,7 +63,7 @@ namespace BugfixesAndQoL
 
             button.DataContext = vanillaViewModel;
             if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SkirmishGameOptionsAccessViewModel.cs:67", "BUGFIXES_AND_QOL_SKIRMISH_GAME_OPTIONS_BUTTON_BOUND: " +
+                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/SkirmishGameOptionsAccessViewModel/OnNoesisElementBound.bound", "BUGFIXES_AND_QOL_SKIRMISH_GAME_OPTIONS_BUTTON_BOUND: " +
                     "commandAvailable=true, " +
                     "dataContext=MainViewModel.Instance.");
         }

@@ -30,7 +30,7 @@ using System.Runtime.InteropServices;
 
 namespace ExtraFeatures
 {
-    internal sealed unsafe class AIDefenseRepairRuntime : IDisposable
+    internal sealed unsafe class AIDefenseRepairRuntime
     {
         // Dispatcher 0x539B0 uses 0x52270 only for AIV entries whose +0x14 field is zero;
         // otherwise it iterates the finished-castle frames through 0x51790. The 2026-08-24
@@ -93,7 +93,6 @@ namespace ExtraFeatures
         private bool gameModeFailureLogged;
         private bool invalidFrameWarningLogged;
         private bool clockUnavailableLogged;
-        private bool disposed;
 
         private bool IsConfigured =>
             Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) &&
@@ -290,36 +289,14 @@ namespace ExtraFeatures
                     $"AI defense placement hook installed as a pass-through at RVA 0x{placement.Rva:X}.");
         }
 
-        public void Dispose()
-        {
-            if (disposed)
-                return;
-            disposed = true;
-            foreach (IDisposable subscription in subscriptions)
-                subscription.Dispose();
-            subscriptions.Clear();
-            // Process-owned tick registration remains rooted; feature state gates execution.
-            // The published placement detour is process-wide because APIShared retains this
-            // observer. Dispose is only allowed to roll back an unpublished candidate.
-            if (!nativeInitialized && !placementHook.Success)
-            {
-                transaction?.Dispose();
-                transaction = null;
-            }
-            ResetMap();
-        }
 
+        // Subscribed with an IsBeforeInitialization filter.
         private void OnStartMap(APIShared.MissionLifecycleNotification args)
         {
-            if (args.IsBeforeInitialization)
-            {
-                mapActive = false;
-                ResetState();
-                CaptureGameMode(args.Context.IsSave && args.Context.Mode.IsRealMultiplayer);
-                mapPrepared = true;
-                return;
-            }
-
+            mapActive = false;
+            ResetState();
+            CaptureGameMode();
+            mapPrepared = true;
         }
 
         private void OnSessionStarted(Shared.GameplaySessionStartedContext context)
@@ -327,14 +304,14 @@ namespace ExtraFeatures
             if (context.IsEditor)
             {
                 ResetMap();
-                CaptureGameMode(multiplayerSave: false);
+                CaptureGameMode();
                 mapPrepared = true;
                 BeginMap();
                 return;
             }
             if (context.IsLoadedSave)
             {
-                CaptureGameMode(multiplayerSave: context.Mode.IsRealMultiplayer);
+                CaptureGameMode();
                 // Native save restore need not publish building-spawn events. Read the restored
                 // live buildings before the first finished-castle build step can run.
                 mapPrepared = true;
@@ -366,7 +343,7 @@ namespace ExtraFeatures
                     if (building.r_AliveState != AliveState.IsAlive || building.r_GlobalId == 0 ||
                         building.r_CurrentHealth <= 0 ||
                         IsTowerRuin(building.r_BuildingType) || !IsTrackedDefenseType(building.r_BuildingType) ||
-                        playerId < 1 || playerId > 8 || !IsAI(playerId) ||
+                        playerId < 1 || playerId > GamePlayerManagerAPI.MAX_PLAYERS || !IsAI(playerId) ||
                         !TryCreateTargetKey(playerId, building.r_TilePositionXBegin,
                             building.r_TilePositionYBegin, building.r_BuildingType,
                             out DefenseTargetKey target))
@@ -397,7 +374,7 @@ namespace ExtraFeatures
             ResetState();
         }
 
-        private void CaptureGameMode(bool multiplayerSave)
+        private void CaptureGameMode()
         {
             try
             {
@@ -515,7 +492,7 @@ namespace ExtraFeatures
 
         private EnemyProximityDecision OnRepairProximity(EnemyProximityContext args)
         {
-            if (disposed || !Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) || !mapActive)
+            if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) || !mapActive)
                 return EnemyProximityDecision.None;
 
             try
@@ -605,7 +582,7 @@ namespace ExtraFeatures
 
         private EnemyProximityDecision ApplyHumanPlacementProximity(EnemyProximityContext args)
         {
-            if (args.PlayerId < 1 || args.PlayerId > 8 || !gameModeKnown)
+            if (args.PlayerId < 1 || args.PlayerId > GamePlayerManagerAPI.MAX_PLAYERS || !gameModeKnown)
                 return EnemyProximityDecision.None;
 
             if (!EnemyProximityPolicy.IsOrdinaryHumanRadius(args.OriginalRadius)) return EnemyProximityDecision.None;
@@ -648,7 +625,7 @@ namespace ExtraFeatures
 
         private IAivBuildStepInvocation TryBeginBuildStep(AivBuildStepContext invocation)
         {
-            if (disposed || !nativeInitialized || !IsConfigured || !mapActive)
+            if (!nativeInitialized || !IsConfigured || !mapActive)
                 return null;
 
             int playerId = invocation.PlayerId;
@@ -715,7 +692,7 @@ namespace ExtraFeatures
                     : new BuildStepContext();
                 if (previous == null)
                     reusableContext = null;
-                context.Reset(playerId, frameIndex, now, key, history);
+                context.Reset(playerId, frameIndex, now, history);
                 activeContext = context;
             }
             catch (Exception ex)
@@ -741,14 +718,13 @@ namespace ExtraFeatures
                 LogFailure("ExecuteBuildStep breadcrumb preparation", ex);
                 return null;
             }
-            return new BuildStepInvocation(this, previous, context, history, key, breadcrumb);
+            return new BuildStepInvocation(this, previous, context, history, breadcrumb);
         }
 
         private void CompleteBuildStep(
             BuildStepContext previous,
             BuildStepContext context,
             BuildStepHistory history,
-            BuildStepKey key,
             AivBuildStepCompletion completion,
             Shared.CrashBreadcrumbScope breadcrumb)
         {
@@ -1137,7 +1113,7 @@ namespace ExtraFeatures
         private static int ElapsedTicks(int now, int previous) =>
             unchecked((int)Math.Min((uint)(now - previous), int.MaxValue));
         private static bool IsAI(int playerId) =>
-            playerId >= 1 && playerId <= 8 && GamePlayerManagerAPI.Instance.IsAIPlayer(playerId);
+            playerId >= 1 && playerId <= GamePlayerManagerAPI.MAX_PLAYERS && GamePlayerManagerAPI.Instance.IsAIPlayer(playerId);
 
         private static bool IsDefenseMapper(short value)
         {
@@ -1176,7 +1152,6 @@ namespace ExtraFeatures
             private readonly BuildStepContext previous;
             private readonly BuildStepContext context;
             private readonly BuildStepHistory history;
-            private readonly BuildStepKey key;
             private readonly Shared.CrashBreadcrumbScope breadcrumb;
             private bool completed;
 
@@ -1185,14 +1160,12 @@ namespace ExtraFeatures
                 BuildStepContext previous,
                 BuildStepContext context,
                 BuildStepHistory history,
-                BuildStepKey key,
                 Shared.CrashBreadcrumbScope breadcrumb)
             {
                 this.owner = owner;
                 this.previous = previous;
                 this.context = context;
                 this.history = history;
-                this.key = key;
                 this.breadcrumb = breadcrumb;
             }
 
@@ -1201,7 +1174,7 @@ namespace ExtraFeatures
                 if (completed)
                     return;
                 completed = true;
-                owner.CompleteBuildStep(previous, context, history, key, completion, breadcrumb);
+                owner.CompleteBuildStep(previous, context, history, completion, breadcrumb);
             }
         }
 
@@ -1210,19 +1183,17 @@ namespace ExtraFeatures
             internal int PlayerId { get; private set; }
             internal int FrameIndex { get; private set; }
             internal int Tick { get; private set; }
-            internal BuildStepKey Key { get; private set; }
             internal BuildStepHistory History { get; private set; }
             internal bool DelayBlocked { get; private set; }
             internal bool DefenseSpawned { get; private set; }
 
             internal void Reset(
                 int playerId, int frameIndex, int tick,
-                BuildStepKey key, BuildStepHistory history)
+                BuildStepHistory history)
             {
                 PlayerId = playerId;
                 FrameIndex = frameIndex;
                 Tick = tick;
-                Key = key;
                 History = history;
                 DelayBlocked = false;
                 DefenseSpawned = false;

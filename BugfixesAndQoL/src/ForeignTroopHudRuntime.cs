@@ -94,7 +94,7 @@ namespace BugfixesAndQoL
             lastCameraErrorKey = null;
             lastHealthErrorKey = null;
             if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/ForeignTroopHudRuntime.cs:91", () => "FOREIGN_TROOP_HUD_SESSION_READY: session=" + activeSession.SessionId + ", mode=" + activeSession.Mode.Kind);
+                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/ForeignTroopHudRuntime/OnSessionStarted", () => "FOREIGN_TROOP_HUD_SESSION_READY: session=" + activeSession.SessionId + ", mode=" + activeSession.Mode.Kind);
         }
 
         private static void OnSessionEnded(MissionLifecycleNotification notification)
@@ -336,7 +336,7 @@ namespace BugfixesAndQoL
                 {
                     lastSpectatorSelectionKey = selectionKey;
                     if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                        Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/ForeignTroopHudRuntime.cs:324", "FOREIGN_TROOP_HUD_SPECTATOR_SELECTION: perspectivePlayer=" + perspectivePlayer +
+                        Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/ForeignTroopHudRuntime/Refresh", "FOREIGN_TROOP_HUD_SPECTATOR_SELECTION: perspectivePlayer=" + perspectivePlayer +
                             ", editorPlayer=" + editorPlayer + ", selectedUnits=" + hoveredCount +
                             ", groups=" + entries.Count + ", samples=" + BuildSpectatorSamples(units, selection));
                 }

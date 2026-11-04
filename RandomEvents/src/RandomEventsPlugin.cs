@@ -39,7 +39,7 @@ namespace RandomEvents
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(Logger, "RandomEvents/src/RandomEventsPlugin.cs:41", $"Random Events packet registration failed; synchronized events remain unavailable: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "RandomEvents/RandomEventsPlugin/OnCrusaderLibraryLoaded.packet-registration-failed-synchronized", $"Random Events packet registration failed; synchronized events remain unavailable: {ex}");
             }
 
             try
@@ -55,7 +55,7 @@ namespace RandomEvents
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(Logger, "RandomEvents/src/RandomEventsPlugin.cs:56", $"Random Events settings registration failed; gameplay runtime stopped fail-closed: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "RandomEvents/RandomEventsPlugin/OnCrusaderLibraryLoaded.settings-registration-failed-gameplay", $"Random Events settings registration failed; gameplay runtime stopped fail-closed: {ex}");
                 return;
             }
 
@@ -69,7 +69,7 @@ namespace RandomEvents
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(Logger, "RandomEvents/src/RandomEventsPlugin.cs:70", $"Random Events native version check failed; compatible managed features continue: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "RandomEvents/RandomEventsPlugin/OnCrusaderLibraryLoaded.native-version-check-failed", $"Random Events native version check failed; compatible managed features continue: {ex}");
             }
 
             try
@@ -78,7 +78,7 @@ namespace RandomEvents
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(Logger, "RandomEvents/src/RandomEventsPlugin.cs:79", $"Random Events native initialization stage failed; lifecycle initialization continues: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "RandomEvents/RandomEventsPlugin/OnCrusaderLibraryLoaded.native-initialization-stage-failed", $"Random Events native initialization stage failed; lifecycle initialization continues: {ex}");
             }
 
             try
@@ -88,7 +88,7 @@ namespace RandomEvents
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(Logger, "RandomEvents/src/RandomEventsPlugin.cs:89", $"Random Events lifecycle initialization failed; already initialized event types remain available: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "RandomEvents/RandomEventsPlugin/OnCrusaderLibraryLoaded.lifecycle-initialization-failed-already", $"Random Events lifecycle initialization failed; already initialized event types remain available: {ex}");
             }
         }
 

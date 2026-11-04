@@ -78,13 +78,5 @@ namespace ExtraFeatures
                 }
             }
         }
-
-        internal void Deactivate()
-        {
-            lock (ProcessPatchSync)
-                processPatch?.UpdateSettings(false, false);
-            ElevatedMoatAiCapability.Publish(ElevatedMoatAiState.Disabled);
-            context = null;
-        }
     }
 }

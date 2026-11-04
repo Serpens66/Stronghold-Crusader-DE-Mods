@@ -620,7 +620,7 @@ namespace BugfixesAndQoL
                 {
                     inaccessibleDiagnosticSamplingCompleteLogged = true;
                     if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                        Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/AIEconomyProtectionHook.cs:621", $"Bugfixes and QoL AI inaccessible-building diagnostics sampled " +
+                        Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/AIEconomyProtectionHook/LogInaccessibleBuildingComparison.diagnostics-sampled", $"Bugfixes and QoL AI inaccessible-building diagnostics sampled " +
                             $"{MaximumInaccessibleDiagnosticSamplesPerMap} distinct outcomes; further samples on this map are omitted.");
                 }
                 return;
@@ -628,7 +628,7 @@ namespace BugfixesAndQoL
             inaccessibleDiagnosticSamples.Add(sampleKey);
 
             if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/AIEconomyProtectionHook.cs:630", $"Bugfixes and QoL AI inaccessible-building sample: " +
+                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/AIEconomyProtectionHook/LogInaccessibleBuildingComparison.sample", $"Bugfixes and QoL AI inaccessible-building sample: " +
                     $"tick={tick}, buildingId={buildingId}, buildingGlobalId={building->r_GlobalId}, " +
                     $"buildingType={building->r_BuildingType}, owner={playerId}, " +
                     $"vanillaAccessibilityResult={vanillaResult}, effectiveAccessibilityResult={effectiveResult}, " +

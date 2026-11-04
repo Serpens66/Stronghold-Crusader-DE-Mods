@@ -87,7 +87,7 @@ namespace BugfixesAndQoL
                 if (!retiring) DeactivateLordOnlyMode(false);
                 if (callbackErrorLogged) return;
                 callbackErrorLogged = true;
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/LordUnitControlsFeature.cs:69", $"Lord action HUD failed closed; Vanilla presentation remains active: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/LordUnitControlsFeature/OnBeforeRender", $"Lord action HUD failed closed; Vanilla presentation remains active: {ex}");
             }
             finally { if (retiring && lordModeActive) frameWork.RequestAfter(TimeSpan.FromMilliseconds(100)); }
         }
@@ -134,11 +134,11 @@ namespace BugfixesAndQoL
             if (action == LordDisbandAction.UseVanilla) { disbandOriginal(self, parameter); return; }
             if (action == LordDisbandAction.RejectUnsafeMixedSelection)
             {
-                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/LordUnitControlsFeature.cs:112", "Mixed Lord disband rejected because its native ignore contract is unavailable.");
+                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/LordUnitControlsFeature/ButtonUnitDisbandHook.mixed-lord-disband-rejected", "Mixed Lord disband rejected because its native ignore contract is unavailable.");
                 return;
             }
             if (!surrenderFeature.TryRequestSurrenderFromLordHud())
-                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/LordUnitControlsFeature.cs:116", "Lord surrender request was rejected; Vanilla disband was not called.");
+                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/LordUnitControlsFeature/ButtonUnitDisbandHook.lord-surrender-request-rejected", "Lord surrender request was rejected; Vanilla disband was not called.");
         }
 
         private void BeforeTooltip(PresentationPreEventArgs args)

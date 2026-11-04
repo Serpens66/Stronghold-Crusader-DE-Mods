@@ -118,7 +118,7 @@ namespace BugfixesAndQoL
             catch (Exception ex)
             {
                 ClearTarget(clearViewModel: true);
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/ResyncHostKickFeature.cs:121", $"Bugfixes and QoL resync host-kick update failed closed: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/ResyncHostKickFeature/ResyncUpdateHook", $"Bugfixes and QoL resync host-kick update failed closed: {ex}");
             }
         }
 
@@ -149,7 +149,7 @@ namespace BugfixesAndQoL
             {
                 ClearTarget(clearViewModel: false);
                 MainViewModel.Instance.MPConectionIssueButtonVisible = false;
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/ResyncHostKickFeature.cs:152", $"Bugfixes and QoL connection-issue host-kick setup failed closed: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/ResyncHostKickFeature/ConnectionIssueShowHook", $"Bugfixes and QoL connection-issue host-kick setup failed closed: {ex}");
             }
         }
 
@@ -180,11 +180,11 @@ namespace BugfixesAndQoL
                         "BugfixesAndQoL.ResyncKickConfirmationMessage",
                         "PlayerName", playerName));
                 if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/ResyncHostKickFeature.cs:182", $"Displayed resync host-kick confirmation: playerId={playerId}, playerName={playerName}.");
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/ResyncHostKickFeature/ConnectionIssueButtonHook.displayed-resync-host-kick", $"Displayed resync host-kick confirmation: playerId={playerId}, playerName={playerName}.");
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/ResyncHostKickFeature.cs:186", $"Bugfixes and QoL could not display the host-kick confirmation: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/ResyncHostKickFeature/ConnectionIssueButtonHook.could-not-display-host", $"Bugfixes and QoL could not display the host-kick confirmation: {ex}");
             }
         }
 
@@ -197,19 +197,19 @@ namespace BugfixesAndQoL
             {
                 if (!TryResolveValidatedTarget(DateTime.UtcNow, out Platform_Multiplayer.MPGameMember member))
                 {
-                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/ResyncHostKickFeature.cs:199", $"Cancelled confirmed host kick because the target recovered or became invalid: playerId={playerId}, playerName={playerName}.");
+                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/ResyncHostKickFeature/ConfirmKick.cancelled-confirmed-host-kick", $"Cancelled confirmed host kick because the target recovered or became invalid: playerId={playerId}, playerName={playerName}.");
                     ClearTarget(clearViewModel: true);
                     return;
                 }
 
                 forcedHostKickMethod.Invoke(Platform_Multiplayer.Instance, new object[] { member, true });
                 if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/ResyncHostKickFeature.cs:205", $"Executed authoritative resync host kick: playerId={playerId}, playerName={playerName}.");
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/ResyncHostKickFeature/ConfirmKick.executed-authoritative-resync-host", $"Executed authoritative resync host kick: playerId={playerId}, playerName={playerName}.");
                 ClearTarget(clearViewModel: true);
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/ResyncHostKickFeature.cs:210", $"Bugfixes and QoL authoritative host kick failed closed: playerId={playerId}, playerName={playerName}, error={ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/ResyncHostKickFeature/ConfirmKick.authoritative-host-kick-failed", $"Bugfixes and QoL authoritative host kick failed closed: playerId={playerId}, playerName={playerName}, error={ex}");
             }
         }
 
@@ -218,7 +218,7 @@ namespace BugfixesAndQoL
             if (sequence == promptSequence)
                 {
                     if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                        Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/ResyncHostKickFeature.cs:217", $"Cancelled resync host kick: playerId={playerId}, playerName={playerName}.");
+                        Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/ResyncHostKickFeature/CancelKick", $"Cancelled resync host kick: playerId={playerId}, playerName={playerName}.");
                 }
         }
 

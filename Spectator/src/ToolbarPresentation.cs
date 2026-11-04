@@ -125,7 +125,7 @@ namespace Spectator
             bool enemy = actor && target && state != null && humanSelectedOwner != toolsModel.Target &&
                 state.teams[humanSelectedOwner] != state.teams[toolsModel.Target];
             toolsModel?.SetOrderAvailability(actor && backend && enemy, actor && backend && target, actor && backend,
-                !actor ? "InvalidTarget" : !backend ? "NativeUnavailable" : !target ? "SelectTarget" : !enemy ? "EnemyRequired" : "");
+                OrderTargetPolicy.AvailabilityReason(actor, actor || IsOrderTarget(humanSelectedOwner), backend, target, enemy));
         }
     }
 }

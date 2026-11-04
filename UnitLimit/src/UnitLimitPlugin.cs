@@ -70,7 +70,7 @@ namespace UnitLimit
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(Logger, "UnitLimit/src/UnitLimitPlugin.cs:70", $"UnitLimit settings registration failed; gameplay runtime stopped fail-closed: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "UnitLimit/UnitLimitPlugin/OnCrusaderLibraryLoaded.settings-registration-failed-gameplay", $"UnitLimit settings registration failed; gameplay runtime stopped fail-closed: {ex}");
                 return;
             }
 
@@ -82,7 +82,7 @@ namespace UnitLimit
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(Logger, "UnitLimit/src/UnitLimitPlugin.cs:96", $"Error while initializing UnitLimit after library load: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "UnitLimit/UnitLimitPlugin/OnCrusaderLibraryLoaded.error-while-initializing-after", $"Error while initializing UnitLimit after library load: {ex}");
             }
         }
 

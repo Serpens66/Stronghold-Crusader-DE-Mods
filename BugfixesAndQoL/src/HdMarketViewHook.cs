@@ -108,7 +108,7 @@ namespace BugfixesAndQoL
             previousImageHook?.Undo();
             previousImageHook?.Dispose();
             previousImageHook = null;
-            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/HdMarketViewHook.cs:111", "Bugfixes and QoL HD market view hooks disposed.");
+            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/HdMarketViewHook/Dispose", "Bugfixes and QoL HD market view hooks disposed.");
         }
 
         private static MethodInfo FindSetter(string propertyName)
@@ -166,7 +166,7 @@ namespace BugfixesAndQoL
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/HdMarketViewHook.cs:169", $"Bugfixes and QoL HD market navigation failed: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/HdMarketViewHook/CycleTradeGoodsHook", $"Bugfixes and QoL HD market navigation failed: {ex}");
                 cycleTradeGoodsTrampoline(self, parameter);
             }
         }
@@ -198,14 +198,14 @@ namespace BugfixesAndQoL
                         if (!ready && !missingMarketSpriteLogged)
                         {
                             missingMarketSpriteLogged = true;
-                            Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/HdMarketViewHook.cs:201", "Bugfixes and QoL kept Vanilla market-neighbor icons because a configured goods sprite was unavailable.");
+                            Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/HdMarketViewHook/BeforeGuiUpdate.kept-vanilla-market-neighbor", "Bugfixes and QoL kept Vanilla market-neighbor icons because a configured goods sprite was unavailable.");
                         }
                     }
                 }
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/HdMarketViewHook.cs:209", $"Bugfixes and QoL HD market icon preparation failed: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/HdMarketViewHook/BeforeGuiUpdate.hd-market-icon-preparation", $"Bugfixes and QoL HD market icon preparation failed: {ex}");
             }
 
             if (!ready) return;
@@ -235,7 +235,7 @@ namespace BugfixesAndQoL
                     Shared.DebugLogHelper.LogDebug(log,
                         "Bugfixes and QoL HD market UI writes suppressed after startup cleanup.");
                 else
-                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/HdMarketViewHook.cs:239", $"Bugfixes and QoL HD market UI suppression intercepted {suppressedWriteCount}/4 Vanilla writes; check managed hook compatibility.");
+                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/HdMarketViewHook/AfterGuiUpdate.ui-suppression-intercepted-4", $"Bugfixes and QoL HD market UI suppression intercepted {suppressedWriteCount}/4 Vanilla writes; check managed hook compatibility.");
             }
 
             try
@@ -245,7 +245,7 @@ namespace BugfixesAndQoL
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/HdMarketViewHook.cs:250", $"Bugfixes and QoL HD market icon update failed: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/HdMarketViewHook/AfterGuiUpdate.icon-update-failed", $"Bugfixes and QoL HD market icon update failed: {ex}");
             }
         }
 

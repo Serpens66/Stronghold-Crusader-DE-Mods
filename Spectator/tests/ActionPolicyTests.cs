@@ -166,6 +166,23 @@ namespace Spectator
             Expect(OrderTargetPolicy.Revalidate(4, targetAvailable) == 4, "available target can be explicitly selected again");
             actionableTargets[4] = false;
             Expect(OrderTargetPolicy.Revalidate(4, targetAvailable) == 0, "missing resource/slot invalidates target even without elimination evidence");
+            foreach (bool backend in new[] { false, true })
+            foreach (bool target in new[] { false, true })
+            foreach (bool enemy in new[] { false, true })
+            {
+                Expect(OrderTargetPolicy.AvailabilityReason(false, true, backend, target, enemy) == "AiPlayerRequired",
+                    "living human recipient needs an AI, regardless of backend or target selection");
+                Expect(OrderTargetPolicy.AvailabilityReason(false, false, backend, target, enemy) == "InvalidTarget",
+                    "eliminated or unavailable recipient keeps the unavailable-player hint");
+            }
+            Expect(OrderTargetPolicy.AvailabilityReason(true, true, false, false, false) == "NativeUnavailable",
+                "available AI reports missing backend before target hints");
+            Expect(OrderTargetPolicy.AvailabilityReason(true, true, true, false, false) == "SelectTarget",
+                "available AI without a target keeps the selection hint");
+            Expect(OrderTargetPolicy.AvailabilityReason(true, true, true, true, false) == "EnemyRequired",
+                "available AI with itself or an ally as target keeps the enemy hint");
+            Expect(OrderTargetPolicy.AvailabilityReason(true, true, true, true, true) == "",
+                "available AI with an enemy target has no availability warning");
             Expect(ToolPolicy.SameBuilding(10, 10, 2, 2, 3, 3, 99, 99, true), "same gate identity accepted");
             Expect(!ToolPolicy.SameBuilding(10, 11, 2, 2, 3, 3, 99, 99, true), "gate from old session rejected");
             Expect(!ToolPolicy.SameBuilding(10, 10, 2, 4, 3, 3, 99, 99, true), "captured gate rejected");

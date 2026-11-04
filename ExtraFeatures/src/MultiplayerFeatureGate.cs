@@ -27,7 +27,7 @@ namespace ExtraFeatures
             }
         }
 
-        public void CaptureMapMode(bool multiplayerSave)
+        public void CaptureMapMode()
         {
             try
             {

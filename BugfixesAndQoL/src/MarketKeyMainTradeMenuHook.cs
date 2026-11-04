@@ -77,12 +77,12 @@ namespace BugfixesAndQoL
                     // Keep captures inside the enabled scope; otherwise the compiler can allocate them before the guard.
                     var diagnosticSelectedBuildingId = @selectedBuildingId;
                     var diagnosticSubMode = @subMode;
-                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/MarketKeyMainTradeMenuHook.cs:75", () => $"Bugfixes and QoL reset tradepost menu from market key: selectedBuildingId={diagnosticSelectedBuildingId}, previousSubMode={diagnosticSubMode}.");
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/MarketKeyMainTradeMenuHook/OnKeyDown.reset-tradepost-menu-market", () => $"Bugfixes and QoL reset tradepost menu from market key: selectedBuildingId={diagnosticSelectedBuildingId}, previousSubMode={diagnosticSubMode}.");
                 }
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/MarketKeyMainTradeMenuHook.cs:79", $"Bugfixes and QoL market key tradepost menu reset failed: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/MarketKeyMainTradeMenuHook/OnKeyDown.market-key-tradepost-menu", $"Bugfixes and QoL market key tradepost menu reset failed: {ex}");
             }
         }
 

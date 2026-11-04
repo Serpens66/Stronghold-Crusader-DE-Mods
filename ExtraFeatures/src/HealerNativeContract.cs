@@ -24,8 +24,8 @@ namespace ExtraFeatures
         internal const int PlayerSlots = 9;
         internal const int ExpectedDisplacedBytes = 10;
         // Raw GameUnit record fields that exclude a unit from the appended healer targets.
-        // 0x458 is the Script Extender's unnamed GameUnit.N000000DE (layout checked below);
-        // 0x29C has no Extender field and is only valid for the audited native hash.
+        // Both are read by raw offset and are only valid for the audited native hash; they do
+        // not depend on the Script Extender's (unnamed, renameable) field declarations.
         internal const int TargetExclusionWordOffset = 0x29C;
         internal const int TargetExclusionByteOffset = 0x458;
 
@@ -45,9 +45,8 @@ namespace ExtraFeatures
             if (!string.Equals(actual, NativeSha256, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidOperationException("Installed CrusaderDE.dll differs from the audited native build: " + actual);
 
-            if (typeof(NativeDetour<>).Assembly.GetName().Version != new Version(1, 5, 0, 0))
-                throw new InvalidOperationException("Installed RedBird NativeX64 backend version differs from 1.5.0.0.");
-
+            // No RedBird version pin: ProbeBackend and ValidateInstalledDetour check the detour
+            // contract (scheme, displaced bytes, patch shape, pointer slot) on the installed backend.
             byte[] live = Capture(imageBase + ListBuilderRva, EntryBytes.Length);
             for (int index = 0; index < EntryBytes.Length; index++)
                 if (live[index] != EntryBytes[index])
@@ -76,9 +75,7 @@ namespace ExtraFeatures
                 Marshal.OffsetOf<GameUnit>(nameof(GameUnit.r_SelectionAllowed)).ToInt32() != 0x2A0 ||
                 Marshal.OffsetOf<GameUnit>(nameof(GameUnit.r_AIState)).ToInt32() != 0x2BC ||
                 Marshal.OffsetOf<GameUnit>(nameof(GameUnit.r_CurrentHealth)).ToInt32() != 0x3C4 ||
-                Marshal.OffsetOf<GameUnit>(nameof(GameUnit.r_MaxHealth)).ToInt32() != 0x3C8 ||
-                Marshal.OffsetOf<GameUnit>(nameof(GameUnit.N000000DD)).ToInt32() != 0x450 ||
-                Marshal.OffsetOf<GameUnit>(nameof(GameUnit.N000000DE)).ToInt32() != TargetExclusionByteOffset)
+                Marshal.OffsetOf<GameUnit>(nameof(GameUnit.r_MaxHealth)).ToInt32() != 0x3C8)
                 throw new InvalidOperationException("Script Extender unit layout differs from the audited native layout.");
         }
 
@@ -104,38 +101,52 @@ namespace ExtraFeatures
 
         internal static void ProbeBackend<T>(ulong entryAddress, T callback) where T : Delegate
         {
-            IntPtr copy = Marshal.AllocHGlobal(64);
             byte[] entry = Capture(entryAddress, 64);
-            NativeDetour<T> probe = null;
+            IntPtr copy = Marshal.AllocHGlobal(entry.Length);
+            // If RedBird could not release the probe it may still reference the copy: leak it then.
+            bool copyReleasable = true;
             try
             {
                 Marshal.Copy(entry, 0, copy, entry.Length);
-                var request = new DetourRequest<T>
+                NativeDetour<T> probe = null;
+                try
                 {
-                    Name = "ExtraFeatures healer copied-entry probe",
-                    TargetAddress = unchecked((ulong)copy.ToInt64()),
-                    Callback = callback
-                };
-                // Same options as the real installation; no thread can execute this private copy.
-                probe = ExtraFeaturesHookInfrastructure.DetourBackend(NativeDetourBackend.Instance)
-                    .CreateDetour(in request) as NativeDetour<T>;
-                if (probe == null || probe.Scheme.ToString() != "Indirect" ||
-                    probe.DisplacedByteCount != ExpectedDisplacedBytes || probe.IsInstalled ||
-                    probe.TargetAddress != unchecked((ulong)copy.ToInt64()) ||
-                    probe.PointerSlot == IntPtr.Zero || probe.HookEntryPointAddress == IntPtr.Zero)
-                    throw new InvalidOperationException("Installed RedBird backend rejects the copied healer entry contract.");
-                probe.Enable();
-                ValidateInstalledDetour(probe, unchecked((ulong)copy.ToInt64()));
-            }
-            finally
-            {
-                probe?.Dispose();
+                    var request = new DetourRequest<T>
+                    {
+                        Name = "ExtraFeatures healer copied-entry probe",
+                        TargetAddress = unchecked((ulong)copy.ToInt64()),
+                        Callback = callback
+                    };
+                    // Same options as the real installation; no thread can execute this private copy.
+                    probe = ExtraFeaturesHookInfrastructure.DetourBackend(NativeDetourBackend.Instance)
+                        .CreateDetour(in request) as NativeDetour<T>;
+                    if (probe == null || probe.Scheme.ToString() != "Indirect" ||
+                        probe.DisplacedByteCount != ExpectedDisplacedBytes || probe.IsInstalled ||
+                        probe.TargetAddress != unchecked((ulong)copy.ToInt64()) ||
+                        probe.PointerSlot == IntPtr.Zero || probe.HookEntryPointAddress == IntPtr.Zero)
+                        throw new InvalidOperationException("Installed RedBird backend rejects the copied healer entry contract.");
+                    probe.Enable();
+                    ValidateInstalledDetour(probe, unchecked((ulong)copy.ToInt64()));
+                }
+                catch
+                {
+                    // Keep the probe failure; a secondary cleanup failure must not replace it.
+                    try { probe?.Dispose(); } catch { copyReleasable = false; }
+                    throw;
+                }
+
+                try { probe.Dispose(); }
+                catch { copyReleasable = false; throw; }
                 byte[] restored = new byte[entry.Length];
                 Marshal.Copy(copy, restored, 0, restored.Length);
                 for (int index = 0; index < entry.Length; index++)
                     if (restored[index] != entry[index])
                         throw new InvalidOperationException("Copied RedBird backend probe did not restore its entry.");
-                Marshal.FreeHGlobal(copy);
+            }
+            finally
+            {
+                if (copyReleasable)
+                    Marshal.FreeHGlobal(copy);
                 GC.KeepAlive(callback);
             }
         }

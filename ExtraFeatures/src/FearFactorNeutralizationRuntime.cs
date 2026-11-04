@@ -16,6 +16,8 @@ namespace ExtraFeatures
 {
     internal sealed class FearFactorNeutralizationRuntime
     {
+        // Vanilla's "fear factor" label in the TEXT_REPORT_BUTTONS text section.
+        private const int FearFactorReportLabelTextIndex = 31;
         private readonly ManualLogSource log;
         private readonly CrusaderLibraryLoadContext context;
         private readonly HookHandle<X64InlineHook> damageHook =
@@ -76,12 +78,9 @@ namespace ExtraFeatures
                 throw new InvalidOperationException("A fear-factor hook resolved outside its audited RVA.");
             }
 
+            // Pattern uniqueness is proven offline for the required hash (FearFactor tests);
+            // a startup scan would only repeat it.
             FearFactorNativeDefinition.Validate(memory, imageBase);
-            if (Shared.NativePatternResolver.FindUniquePattern(memory,
-                    FearFactorNativeDefinition.DamageFunctionPattern, "fear damage") != damageResolution.Rva ||
-                Shared.NativePatternResolver.FindUniquePattern(memory,
-                    FearFactorNativeDefinition.UiFearLoadPattern, "fear overlay") != uiHookRva)
-                throw new InvalidOperationException("Fear-factor patterns are not unique at the audited targets.");
             // Decode through the actual backend before writing either native patch.
             ProbeSpan(imageBase + (ulong)damageResolution.Rva, FearFactorNativeDefinition.DamageHookLength, "damage");
             ProbeSpan(imageBase + (ulong)uiHookRva, FearFactorNativeDefinition.UiHookLength, "UI");
@@ -220,7 +219,7 @@ namespace ExtraFeatures
             if (!enabled || viewModel == null)
                 return;
 
-            string label = Translate.Instance.lookUpText(Enums.eTextSections.TEXT_REPORT_BUTTONS, 31);
+            string label = Translate.Instance.lookUpText(Enums.eTextSections.TEXT_REPORT_BUTTONS, FearFactorReportLabelTextIndex);
             string zeroText = FatControler.turkish || FatControler.arabic
                 ? label + " %0"
                 : label + " 0%";

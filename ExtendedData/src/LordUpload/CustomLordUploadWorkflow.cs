@@ -348,7 +348,7 @@ namespace ExtendedData
         }
 
         private void Info(string message) => Shared.DebugLogHelper.LogInfo(log, message);
-        private void Warning(string message) => Shared.DebugLogHelper.LogWarningLimited(log, "ExtendedData/src/LordUpload/CustomLordUploadWorkflow.cs:320", message);
-        private void Error(string message) => Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/LordUpload/CustomLordUploadWorkflow.cs:321", message);
+        private void Warning(string message) => Shared.DebugLogHelper.LogWarningLimited(log, "ExtendedData/CustomLordUploadWorkflow/Warning", message);
+        private void Error(string message) => Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/CustomLordUploadWorkflow/Error", message);
     }
 }

@@ -27,7 +27,7 @@ namespace StartConditions
                 string reason = referenceHashMatches
                     ? "an incomplete native library context"
                     : "an unrecognized CrusaderDE.dll";
-                Shared.DebugLogHelper.LogWarningLimited(log, "StartConditions/src/VanillaStartTroopSpawnState.cs:30", $"Start Conditions cannot safely read Vanilla's start-troop completion state because of {reason}. " +
+                Shared.DebugLogHelper.LogWarningLimited(log, "StartConditions/VanillaStartTroopSpawnState/Initialize", $"Start Conditions cannot safely read Vanilla's start-troop completion state because of {reason}. " +
                     "Start-troop multiplication uses its legacy timing.");
                 return;
             }
@@ -56,7 +56,7 @@ namespace StartConditions
                 return;
 
             readFailureLogged = true;
-            Shared.DebugLogHelper.LogWarningLimited(log, "StartConditions/src/VanillaStartTroopSpawnState.cs:61", "Start Conditions could no longer use Vanilla's start-troop completion state. " +
+            Shared.DebugLogHelper.LogWarningLimited(log, "StartConditions/VanillaStartTroopSpawnState/LogReadFailureOnce", "Start Conditions could no longer use Vanilla's start-troop completion state. " +
                 $"Start-troop multiplication falls back to its legacy timing. Reason: {reason}");
         }
     }

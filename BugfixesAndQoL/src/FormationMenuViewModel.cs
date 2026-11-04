@@ -86,7 +86,7 @@ namespace BugfixesAndQoL
             {
                 if (!FeatureAvailable || rememberAspect.Value == value) return;
                 try { rememberAspect.Value = value; SaveConfiguration("rememberAspect", value.ToString()); }
-                catch (Exception ex) { Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/FormationMenuViewModel.cs:77", "Arrangement preference save failed: " + ex.Message); }
+                catch (Exception ex) { Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/FormationMenuViewModel/RememberAspectRatio", "Arrangement preference save failed: " + ex.Message); }
             });
         }
 
@@ -107,7 +107,7 @@ namespace BugfixesAndQoL
             {
                 if (!rememberAspect.Value || rememberedAspects[index].Value == selectedAspect) return;
                 try { rememberedAspects[index].Value = selectedAspect; SaveConfiguration("remembered" + kind + "Aspect", selectedAspect); }
-                catch (Exception ex) { Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/FormationMenuViewModel.cs:97", "Arrangement preference save failed: " + ex.Message); }
+                catch (Exception ex) { Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/FormationMenuViewModel/RememberSelectedAspect", "Arrangement preference save failed: " + ex.Message); }
             });
         }
 

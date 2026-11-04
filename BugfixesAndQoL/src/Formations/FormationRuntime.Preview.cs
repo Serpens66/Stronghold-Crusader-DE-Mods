@@ -136,7 +136,7 @@ namespace BugfixesAndQoL.UnitCommands
                 Shared.DevDiag.Count("manual.preview.slotsFailure");
                 ClearPreview();
                 if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/Formations/FormationRuntime.Preview.cs:129", $"Formation preview unavailable for this target: {exception.Message}");
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/FormationRuntime.Preview/PublishPreviewLocked", $"Formation preview unavailable for this target: {exception.Message}");
             }
         }
 

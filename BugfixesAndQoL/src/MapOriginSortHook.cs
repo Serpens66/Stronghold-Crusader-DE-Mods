@@ -189,7 +189,7 @@ namespace BugfixesAndQoL
             DisposeHook(multiplayerHeaderHook);
             DisposeHook(standalonePopulateHook);
             DisposeHook(standaloneHeaderHook);
-            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/MapOriginSortHook.cs:192", "Bugfixes and QoL map-origin sorting hooks disposed.");
+            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/MapOriginSortHook/Dispose", "Bugfixes and QoL map-origin sorting hooks disposed.");
         }
 
         private bool IsActive => LobbyMapSelectionPolicy.IsFeatureEnabled(
@@ -307,7 +307,7 @@ namespace BugfixesAndQoL
 
             result.world_size = worldSize;
             if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/MapOriginSortHook.cs:311", $"Recovered classic map size {worldSize} from section 1050: {path}");
+                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/MapOriginSortHook/GetFileInfoHook", $"Recovered classic map size {worldSize} from section 1050: {path}");
             return result;
         }
 
@@ -387,7 +387,7 @@ namespace BugfixesAndQoL
                 return;
 
             sortingFailureLogged = true;
-            Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/MapOriginSortHook.cs:393", $"Bugfixes and QoL map-origin sorting failed; the Vanilla map list remains usable: {exception}");
+            Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/MapOriginSortHook/LogSortingFailure", $"Bugfixes and QoL map-origin sorting failed; the Vanilla map list remains usable: {exception}");
         }
 
         private void TryRestoreEstablishedSetup(FRONT_Multiplayer self)
@@ -601,7 +601,7 @@ namespace BugfixesAndQoL
 
         private void LogMemoryFailure(string action, Exception exception)
         {
-            Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/MapOriginSortHook.cs:609", $"Bugfixes and QoL could not {action}; Vanilla behavior remains active: {exception}");
+            Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/MapOriginSortHook/LogMemoryFailure", $"Bugfixes and QoL could not {action}; Vanilla behavior remains active: {exception}");
         }
 
         private static int CompareRows(IndexedRow left, IndexedRow right, bool ascending)

@@ -10,17 +10,35 @@ namespace ExtraFeatures
 {
     public sealed partial class ExtraFeaturesRuntime
     {
+        // Market base prices are per lot of five goods (APIShared MarketPriceEvents.CalculateTradeTotal).
+        private const double MarketPriceLotSize = 5.0;
+
         private void OnGoodsyardAddGood(AddGoodToGoodsyardEventArgs args)
         {
             // Raised for every stockpile change of every player (both phases, additions and
             // removals): the event-shape checks come before any native lookup or key.
             if (args.Phase != EventHookPhase.Post || !args.Add || args.AddAmount <= 0)
                 return;
-            int playerId = GameBuildingManagerAPI.Instance.GetOwner(args.BuildingId);
-            if (!GamePlayerManagerAPI.Instance.IsPlayerIdValid(playerId))
-                return;
-            long key = ResourceEventKey(playerId, args.Good);
+            try
+            {
+                int playerId = GameBuildingManagerAPI.Instance.GetOwner(args.BuildingId);
+                if (!GamePlayerManagerAPI.Instance.IsPlayerIdValid(playerId))
+                    return;
+                long key = ResourceEventKey(playerId, args.Good);
 
+                lock (resourceGuardSync)
+                    ApplyGoodsGain(args, playerId, key);
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogErrorLimited(log, "ExtraFeatures/GoodsMultipliers/goods-gain",
+                    $"Extra Features goods-gain multiplier failed: {ex}");
+            }
+        }
+
+        // Caller holds resourceGuardSync.
+        private void ApplyGoodsGain(AddGoodToGoodsyardEventArgs args, int playerId, long key)
+        {
             PruneExpiredResourceGuards();
             if (resourceAddReentryGuards.Contains(key))
                 return;
@@ -52,7 +70,7 @@ namespace ExtraFeatures
             if (multiplyMoney > 0)
             {
                 PackedGoodPrice price = GamePlayerManagerAPI.Instance.GetTradeBasePrice(args.Good);
-                int money = (int)Math.Round(args.AddAmount * (price.SellPrice / 5.0) * multiplyMoney, MidpointRounding.AwayFromZero);
+                int money = (int)Math.Round(args.AddAmount * (price.SellPrice / MarketPriceLotSize) * multiplyMoney, MidpointRounding.AwayFromZero);
                 if (money != 0)
                     GamePlayerManagerAPI.Instance.AddPlayerGold(playerId, money);
             }

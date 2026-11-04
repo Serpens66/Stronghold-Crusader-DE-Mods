@@ -170,7 +170,7 @@ namespace BugfixesAndQoL.VanillaPerformance
         {
             Volatile.Write(ref enabled, 0);
             if (Interlocked.Exchange(ref failed, 1) == 0)
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/VanillaPerformance/MinimapRefreshThrottle.cs:159",
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/MinimapRefreshThrottle/FailOpen",
                     "VANILLA_PERF_MINIMAP_THROTTLE_DISABLED: Vanilla minimap retained; " + exception);
         }
     }

@@ -21,11 +21,18 @@ namespace ExtraFeatures
 
     internal static class KnightTransformationTooltipPolicy
     {
+        // Same bounds as the KnightTransformation* settings setters in ExtraFeaturesViewModel.
+        internal const int MaximumGoldCost = 1000;
+        internal const int MaximumDelaySeconds = 120;
+
+        internal static int ClampGoldCost(int goldCost) => Math.Max(0, Math.Min(MaximumGoldCost, goldCost));
+        internal static int ClampDelaySeconds(int delaySeconds) => Math.Max(0, Math.Min(MaximumDelaySeconds, delaySeconds));
+
         public static KnightTransformationTooltipMetadata Create(int goldCost, int delaySeconds)
         {
             return new KnightTransformationTooltipMetadata(
-                Math.Max(0, Math.Min(1000, goldCost)),
-                Math.Max(0, Math.Min(120, delaySeconds)));
+                ClampGoldCost(goldCost),
+                ClampDelaySeconds(delaySeconds));
         }
     }
 }

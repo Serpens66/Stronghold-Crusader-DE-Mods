@@ -44,7 +44,7 @@ namespace BuildingLimit
                 {
                     {
                         if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                            LogDebug("BuildingLimit/src/BuildingLimitRuntime.Helpers.cs:45", "Invalid setting line:", line);
+                            LogDebug("BuildingLimit/BuildingLimitRuntime.Helpers/ParseEnumAmounts.invalid-setting-line", "Invalid setting line:", line);
                     }
                     continue;
                 }
@@ -55,7 +55,7 @@ namespace BuildingLimit
                 {
                     {
                         if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                            LogDebug("BuildingLimit/src/BuildingLimitRuntime.Helpers.cs:53", "Unknown enum value:", enumName);
+                            LogDebug("BuildingLimit/BuildingLimitRuntime.Helpers/ParseEnumAmounts.unknown-enum-value", "Unknown enum value:", enumName);
                     }
                     continue;
                 }
@@ -64,7 +64,7 @@ namespace BuildingLimit
                 {
                     {
                         if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                            LogDebug("BuildingLimit/src/BuildingLimitRuntime.Helpers.cs:59", "Invalid amount for", enumName, ":", amountText);
+                            LogDebug("BuildingLimit/BuildingLimitRuntime.Helpers/ParseEnumAmounts.invalid-amount", "Invalid amount for", enumName, ":", amountText);
                     }
                     continue;
                 }

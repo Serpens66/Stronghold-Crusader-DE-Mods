@@ -68,7 +68,7 @@ namespace ExtendedData
                     else
                         lastUploadPageMismatchCount = count;
                 }
-                Shared.DebugLogHelper.LogWarningLimited(log, "ExtendedData/src/LordUpload/CustomLordPopupPatchVerifier.cs:73", description + " XAML patch verification found " + count +
+                Shared.DebugLogHelper.LogWarningLimited(log, "ExtendedData/CustomLordPopupPatchVerifier/VerifyPatchedPopup", description + " XAML patch verification found " + count +
                     " markers; expected exactly one. Review the XAML patch for this game/Extender version.");
             }
         }

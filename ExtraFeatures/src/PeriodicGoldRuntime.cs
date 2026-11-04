@@ -18,6 +18,7 @@ namespace ExtraFeatures
 
     internal sealed class PeriodicGoldRuntime
     {
+        private const uint PayoutIntervalTicks = 400;
         private readonly ManualLogSource log;
         private readonly ExtraFeaturesViewModel settings;
         private readonly IPeriodicGoldWorld world;
@@ -143,7 +144,7 @@ namespace ExtraFeatures
                 // A publisher may already have captured this delegate while activation
                 // is changing; the current gate remains authoritative at execution.
                 // Schedule from the saved 32-bit counter bits, including its signed Int32 wrap.
-                if (unchecked((uint)tick) % 400 != 0 || !Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod)) return;
+                if (unchecked((uint)tick) % PayoutIntervalTicks != 0 || !Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod)) return;
                 try { world.VisitAlivePlayers(applyPlayer); }
                 catch (Exception ex) { Error(ex); }
             }

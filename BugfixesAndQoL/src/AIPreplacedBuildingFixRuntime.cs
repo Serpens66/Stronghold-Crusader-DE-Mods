@@ -224,7 +224,7 @@ namespace BugfixesAndQoL
         {
             if (!hashMatches)
             {
-                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/AIPreplacedBuildingFixRuntime.cs:227", "PREPLACED_NATIVE_INCOMPLETE: native hash differs; all native fixes remain atomically disabled.");
+                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/AIPreplacedBuildingFixRuntime/TryInstallNativeFixes.preplaced-native-incomplete-native", "PREPLACED_NATIVE_INCOMPLETE: native hash differs; all native fixes remain atomically disabled.");
                 return;
             }
             try
@@ -295,7 +295,7 @@ namespace BugfixesAndQoL
                 nativeReady = false;
                 initializeEconomyAvailabilityNative = null;
                 lastAivState = 0;
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/AIPreplacedBuildingFixRuntime.cs:299", $"AI_PREPLACED_BUILDING_FIX_NATIVE_INCOMPLETE: signature/ABI/address validation failed; native hook set rolled back. {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/AIPreplacedBuildingFixRuntime/TryInstallNativeFixes.ai-preplaced-building-fix", $"AI_PREPLACED_BUILDING_FIX_NATIVE_INCOMPLETE: signature/ABI/address validation failed; native hook set rolled back. {ex}");
             }
         }
 
@@ -421,7 +421,7 @@ namespace BugfixesAndQoL
             if (diagnose)
             {
                 try { Diagnostics.AiBuildObservation.PublishEconomyGridEvidence("economy-grid-before", state, mode); }
-                catch (Exception ex) { Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/AIPreplacedBuildingFixRuntime.cs:424", "AI grid pre-observation failed: " + ex.Message); }
+                catch (Exception ex) { Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/AIPreplacedBuildingFixRuntime/EconomyGridUpdate.pre-observation-failed", "AI grid pre-observation failed: " + ex.Message); }
             }
             try { economyGridUpdateHook.Original(state, mode); }
             finally
@@ -429,7 +429,7 @@ namespace BugfixesAndQoL
                 if (diagnose)
                 {
                     try { Diagnostics.AiBuildObservation.PublishEconomyGridEvidence("economy-grid-after", state, mode); }
-                    catch (Exception ex) { Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/AIPreplacedBuildingFixRuntime.cs:432", "AI grid post-observation failed: " + ex.Message); }
+                    catch (Exception ex) { Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/AIPreplacedBuildingFixRuntime/EconomyGridUpdate.post-observation-failed", "AI grid post-observation failed: " + ex.Message); }
                 }
             }
             // AIBuildDiagnoseTest END
@@ -532,7 +532,7 @@ namespace BugfixesAndQoL
                 if (verified != 0)
                     throw new InvalidOperationException("The eligible legacy crushed-building timer could not be normalized.");
                 if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/AIPreplacedBuildingFixRuntime.cs:533", $"PREPLACED_LEGACY_TIMER_FIX_APPLIED: player={playerId}; timer=1->0; " +
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/AIPreplacedBuildingFixRuntime/ApplyLegacyRuinTimerFix", $"PREPLACED_LEGACY_TIMER_FIX_APPLIED: player={playerId}; timer=1->0; " +
                         $"matchingDestroyedTowers={matchingTowers.Length}.");
             }
         }
@@ -922,7 +922,7 @@ namespace BugfixesAndQoL
                     economyFixEligiblePlayers.Remove(playerId);
                     session.EconomyFixState = EconomyFixActivationState.Suspended;
                     if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                        Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/AIPreplacedBuildingFixRuntime.cs:893", $"PREPLACED_ECONOMY_FIX_SUSPENDED: player={playerId}; mode={activationState}.");
+                        Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/AIPreplacedBuildingFixRuntime/TryActivateOrRefreshEconomyFix.suspended-player-mode", $"PREPLACED_ECONOMY_FIX_SUSPENDED: player={playerId}; mode={activationState}.");
                     activationState = EconomyFixActivationState.Suspended;
                 }
 
@@ -952,7 +952,7 @@ namespace BugfixesAndQoL
                 session.EconomyFixValidatedRevision = economyTopologyRevision;
                 economyFixEligiblePlayers.Add(playerId);
                 if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/AIPreplacedBuildingFixRuntime.cs:923", $"PREPLACED_ECONOMY_FIX_ACTIVATED: player={playerId}; mode={session.EconomyFixState}.");
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/AIPreplacedBuildingFixRuntime/TryActivateOrRefreshEconomyFix.activated-player-mode", $"PREPLACED_ECONOMY_FIX_ACTIVATED: player={playerId}; mode={session.EconomyFixState}.");
             }
             catch (Exception ex)
             {
@@ -991,7 +991,7 @@ namespace BugfixesAndQoL
             dirtyBreachPlayers.Remove(playerId);
             InvalidateEconomyOverlayCaches();
             if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/AIPreplacedBuildingFixRuntime.cs:961", $"PREPLACED_CONFIRMED_WALL_BREACH: player={playerId}; wallTile={confirmed.WallTileId}.");
+                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/AIPreplacedBuildingFixRuntime/TryConfirmDirtyWallBreach", $"PREPLACED_CONFIRMED_WALL_BREACH: player={playerId}; wallTile={confirmed.WallTileId}.");
         }
 
         private bool ReconcileEconomyAvailability(ulong state, PlayerSession session)
@@ -1359,7 +1359,7 @@ namespace BugfixesAndQoL
             economyFixEnabled = false;
             if (economyFixFailureLogged) return;
             economyFixFailureLogged = true;
-            Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/AIPreplacedBuildingFixRuntime.cs:1330", $"PREPLACED_ECONOMY_FIX_DISABLED: stage={stage}; Vanilla searches will be used for the rest of this map; exception={ex}");
+            Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/AIPreplacedBuildingFixRuntime/DisableEconomyFix", $"PREPLACED_ECONOMY_FIX_DISABLED: stage={stage}; Vanilla searches will be used for the rest of this map; exception={ex}");
         }
 
         private int CountPclTilesOutsideSet(int coarseX, int coarseY, HashSet<int> reachablePcls)
@@ -1435,7 +1435,7 @@ namespace BugfixesAndQoL
                         if (args.Context.IsSave)
                             Shared.DebugLogHelper.LogInfo(log, "PREPLACED_BASELINE_UNAVAILABLE: loaded save has no new-map pre-AIV baseline; " + detail);
                         else
-                            Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/AIPreplacedBuildingFixRuntime.cs:1394",
+                            Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/AIPreplacedBuildingFixRuntime/ProcessMapStart",
                                 "PREPLACED_BASELINE_MISSING: new-map allocation checkpoint was not observed; " + detail);
                     }
                 }
@@ -1550,7 +1550,7 @@ namespace BugfixesAndQoL
             try { ProcessBuildingDamage(args); }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/AIPreplacedBuildingFixRuntime.cs:1510", "PREPLACED_EVENT_ERROR: building-damage; " + ex);
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/AIPreplacedBuildingFixRuntime/OnBuildingDamage", "PREPLACED_EVENT_ERROR: building-damage; " + ex);
             }
         }
 
@@ -1642,7 +1642,7 @@ namespace BugfixesAndQoL
             try { RecordRemoval("bulldoze", args.Phase, args.BuildingId); }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/AIPreplacedBuildingFixRuntime.cs:1602", "PREPLACED_EVENT_ERROR: building-bulldoze; " + ex);
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/AIPreplacedBuildingFixRuntime/OnBuildingBulldoze", "PREPLACED_EVENT_ERROR: building-bulldoze; " + ex);
             }
         }
 
@@ -1652,7 +1652,7 @@ namespace BugfixesAndQoL
             try { RecordRemoval("delete", args.Phase, args.BuildingId); }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/AIPreplacedBuildingFixRuntime.cs:1612", "PREPLACED_EVENT_ERROR: building-delete; " + ex);
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/AIPreplacedBuildingFixRuntime/OnBuildingDelete", "PREPLACED_EVENT_ERROR: building-delete; " + ex);
             }
         }
 
@@ -2156,7 +2156,7 @@ namespace BugfixesAndQoL
         {
             string signature = source + "/" + tileId;
             if (emittedInvalidPclAccesses.Add(signature))
-                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/AIPreplacedBuildingFixRuntime.cs:2116", $"PREPLACED_INVALID_PCL_TILE_ACCESS: source={source}; tileId={tileId}; actualGridLength={gridLength}; expectedGridLength={NativePclEntryCount}; valid=0..{gridLength - 1}; " +
+                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/AIPreplacedBuildingFixRuntime/RecordInvalidPclAccess", $"PREPLACED_INVALID_PCL_TILE_ACCESS: source={source}; tileId={tileId}; actualGridLength={gridLength}; expectedGridLength={NativePclEntryCount}; valid=0..{gridLength - 1}; " +
                     $"reason={(gridLength != NativePclEntryCount ? "grid-capacity-contract" : "tile-id-out-of-range")}; action=reject-access.");
         }
 
@@ -2196,7 +2196,7 @@ namespace BugfixesAndQoL
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/AIPreplacedBuildingFixRuntime.cs:2156", "PREPLACED_EVENT_ERROR: damage-context; " + ex);
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/AIPreplacedBuildingFixRuntime/CaptureDamageContext", "PREPLACED_EVENT_ERROR: damage-context; " + ex);
             }
             return null;
         }
@@ -2212,7 +2212,7 @@ namespace BugfixesAndQoL
         private void Safe(Action action)
         {
             try { action(); }
-            catch (Exception ex) { Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/AIPreplacedBuildingFixRuntime.cs:2173", "PREPLACED_CALLBACK_ERROR: Vanilla result was preserved. " + ex); }
+            catch (Exception ex) { Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/AIPreplacedBuildingFixRuntime/Safe", "PREPLACED_CALLBACK_ERROR: Vanilla result was preserved. " + ex); }
         }
 
         private readonly struct NativeDefinition

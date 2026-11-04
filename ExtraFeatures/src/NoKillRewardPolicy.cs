@@ -2,19 +2,23 @@ namespace ExtraFeatures
 {
     internal static class NoKillRewardPolicy
     {
+        // Vanilla's kill reward: this share of the defeated lord's gold and goods, with a gold floor
+        // and cap. A negative configured percent means "Vanilla".
+        internal const int VanillaRewardPercent = 25;
+        internal const int VanillaMinimumGold = 500;
         internal const int VanillaMaximumGold = 100000;
         // Both halves of Vanilla's gold notification are signed 16-bit values.
         internal const int MaximumMessageChunk = 900000000;
 
         internal static int Gold(int defeatedGold, int percent, int maximum)
         {
-            long amount = (long)System.Math.Max(0, defeatedGold) * (percent < 0 ? 25 : percent) / 100;
-            if (percent < 0) amount = System.Math.Max(500, amount);
+            long amount = (long)System.Math.Max(0, defeatedGold) * (percent < 0 ? VanillaRewardPercent : percent) / 100;
+            if (percent < 0) amount = System.Math.Max(VanillaMinimumGold, amount);
             return (int)System.Math.Min(amount, maximum < 0 ? VanillaMaximumGold : maximum);
         }
 
         internal static int Goods(int total, int percent) =>
-            (int)((long)System.Math.Max(0, total) * (percent < 0 ? 25 : percent) / 100);
+            (int)((long)System.Math.Max(0, total) * (percent < 0 ? VanillaRewardPercent : percent) / 100);
 
         internal static int LimitCredit(int amount, int current) =>
             (int)System.Math.Max(0, System.Math.Min((long)amount, (long)int.MaxValue - current));

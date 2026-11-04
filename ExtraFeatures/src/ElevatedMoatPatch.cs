@@ -656,7 +656,8 @@ namespace ExtraFeatures
                     tileBase + ElevatedMoatNativeContract.TileHeightGridOffset,
                     tileBase + ElevatedMoatNativeContract.TileDefaultHeightGridOffset,
                     "aiv",
-                    $"{unchecked((int)context.Pointer->R15)},{unchecked((int)context.Pointer->R14)}");
+                    unchecked((int)context.Pointer->R15),
+                    unchecked((int)context.Pointer->R14));
             }
             catch (Exception exception)
             {
@@ -773,7 +774,8 @@ namespace ExtraFeatures
                     managerAddress + (ulong)tileId + ElevatedMoatNativeContract.TileHeightGridOffset,
                     managerAddress + (ulong)tileId + ElevatedMoatNativeContract.TileDefaultHeightGridOffset,
                     source,
-                    tileId.ToString());
+                    tileId,
+                    NoSecondTileCoordinate);
             }
             catch (Exception exception)
             {
@@ -781,11 +783,16 @@ namespace ExtraFeatures
             }
         }
 
+        // Marks a tile identified by one ID instead of an x,y pair in the failure message.
+        private const long NoSecondTileCoordinate = long.MinValue;
+
+        // Runs for every corrected moat tile: the tile text is formatted only on failure.
         private void ApplyCompletedHeight(
             ulong heightAddress,
             ulong defaultHeightAddress,
             string source,
-            string tile)
+            long tile,
+            long secondTileCoordinate)
         {
             byte* current = (byte*)heightAddress;
             byte vanillaHeight = *current;
@@ -794,8 +801,11 @@ namespace ExtraFeatures
             *current = completedHeight;
             if (*current != completedHeight)
             {
+                string tileText = secondTileCoordinate == NoSecondTileCoordinate
+                    ? tile.ToString()
+                    : $"{tile},{secondTileCoordinate}";
                 throw new InvalidOperationException(
-                    $"{source} did not apply the calculated height to tile {tile}; " +
+                    $"{source} did not apply the calculated height to tile {tileText}; " +
                     $"defaultHeight={defaultHeight}, vanillaHeight={vanillaHeight}.");
             }
 

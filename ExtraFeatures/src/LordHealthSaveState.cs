@@ -19,6 +19,9 @@ namespace ExtraFeatures
     {
         internal const uint Version = 1;
         internal const int MaximumRecords = 8;
+        // Literal on purpose: _inspect/ExtraFeaturesSessionTests compiles this file against a
+        // Script Extender stub. Value of GamePlayerManagerAPI.MAX_PLAYERS.
+        internal const int MaximumPlayerId = 8;
         [IgnoreMember] internal LordHealthBasis[] Records;
 
         internal static byte[] Encode(LordHealthBasis[] records) =>
@@ -76,7 +79,7 @@ namespace ExtraFeatures
 
         private static void Validate(LordHealthBasis basis, ref int players)
         {
-            if (basis.PlayerId < 1 || basis.PlayerId > 8 || basis.GlobalId == 0 ||
+            if (basis.PlayerId < 1 || basis.PlayerId > LordHealthSaveState.MaximumPlayerId || basis.GlobalId == 0 ||
                 basis.GlobalId > int.MaxValue || basis.VanillaMaximum == 0 || (players & (1 << basis.PlayerId)) != 0)
                 throw new MessagePackSerializationException("Invalid or duplicate Lord HP basis identity.");
             players |= 1 << basis.PlayerId;

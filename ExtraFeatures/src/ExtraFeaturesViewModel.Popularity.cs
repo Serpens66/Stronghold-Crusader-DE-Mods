@@ -29,7 +29,9 @@ namespace ExtraFeatures
         }
         private bool ChangePopularity<T>(ref T field, T value, [CallerMemberName] string name = null)
         {
-            if (!PopularityBetweenMissions || !CanMutateSetting(name) || Equals(field, value)) return false;
+            // Settings snapshots (host sync, mission presets) must still apply while a mission runs;
+            // the running mission keeps the values it captured at its start.
+            if ((!PopularityBetweenMissions && !IsApplyingSettingsSnapshot) || !CanMutateSetting(name) || Equals(field, value)) return false;
             field = value; OnPropertyChanged(name); return true;
         }
         private void RefreshPopularityEditors()

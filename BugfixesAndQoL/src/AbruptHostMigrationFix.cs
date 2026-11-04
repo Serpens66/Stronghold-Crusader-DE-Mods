@@ -125,7 +125,7 @@ namespace BugfixesAndQoL
             kickHook = null;
             kickOriginal = null;
             ResetMapState();
-            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/AbruptHostMigrationFix.cs:128", "Bugfixes and QoL abrupt host-migration hook disposed.");
+            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/AbruptHostMigrationFix/Dispose", "Bugfixes and QoL abrupt host-migration hook disposed.");
         }
 
         internal void ResetMapState()
@@ -156,12 +156,12 @@ namespace BugfixesAndQoL
                     GameData.Instance?.lastGameState != null)
                 {
                     GameData.Instance.lastGameState = null;
-                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/AbruptHostMigrationFix.cs:157", "Cleared the previous multiplayer play state before Vanilla enabled lost-player monitoring for a new game.");
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/AbruptHostMigrationFix/StartMultiplayerGameHook.cleared-previous-multiplayer-play", "Cleared the previous multiplayer play state before Vanilla enabled lost-player monitoring for a new game.");
                 }
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/AbruptHostMigrationFix.cs:164", $"Could not clear the previous multiplayer play state; Vanilla startup continues: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/AbruptHostMigrationFix/StartMultiplayerGameHook.could-not-clear-previous", $"Could not clear the previous multiplayer play state; Vanilla startup continues: {ex}");
             }
 
             startMultiplayerGameOriginal(self);
@@ -183,14 +183,14 @@ namespace BugfixesAndQoL
                     // promotion routine so native state and localized chat stay authoritative.
                     promoteNewHostMethod.Invoke(self, new object[] { kickMember });
                     if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                        Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/AbruptHostMigrationFix.cs:187", $"Promoted the sole local survivor after an abrupt host disconnect: " +
+                        Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/AbruptHostMigrationFix/KickPlayerFromGameHook.promoted-sole-local-survivor", $"Promoted the sole local survivor after an abrupt host disconnect: " +
                             $"departingPlayerId={kickMember.playerID}, successorPlayerId={successorPlayerId}.");
                 }
             }
             catch (Exception ex)
             {
                 // Host migration is optional; never prevent Vanilla from removing a stale peer.
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/AbruptHostMigrationFix.cs:196", $"Abrupt host migration failed; Vanilla removal continues: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/AbruptHostMigrationFix/KickPlayerFromGameHook.abrupt-host-migration-failed", $"Abrupt host migration failed; Vanilla removal continues: {ex}");
             }
 
             kickOriginal(self, kickMember, forceKickFromHost);
@@ -206,7 +206,7 @@ namespace BugfixesAndQoL
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/AbruptHostMigrationFix.cs:214", $"Connection-recovery save Chore observation failed; the 30-second fail-open timeout remains active: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/AbruptHostMigrationFix/SendChoresHook", $"Connection-recovery save Chore observation failed; the 30-second fail-open timeout remains active: {ex}");
             }
         }
 
@@ -235,7 +235,7 @@ namespace BugfixesAndQoL
                 {
                     lastCompatibilityFailure = compatibilityFailure;
                     if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                        Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/AbruptHostMigrationFix.cs:244", $"Connection-recovery save remains fail-open because participant compatibility is unconfirmed: {compatibilityFailure}.");
+                        Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/AbruptHostMigrationFix/TryDelayNativeLagKick.remains-fail-open-because", $"Connection-recovery save remains fail-open because participant compatibility is unconfirmed: {compatibilityFailure}.");
                 }
 
                 shouldDelay = MultiplayerSafetyPolicy.ShouldDelayNativeLagKick(
@@ -252,7 +252,7 @@ namespace BugfixesAndQoL
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/AbruptHostMigrationFix.cs:263", $"Connection-recovery save eligibility failed; Vanilla removal continues: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/AbruptHostMigrationFix/TryDelayNativeLagKick.eligibility-failed-vanilla-removal", $"Connection-recovery save eligibility failed; Vanilla removal continues: {ex}");
                 ResetRecoveryState();
                 return false;
             }
@@ -305,7 +305,7 @@ namespace BugfixesAndQoL
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/AbruptHostMigrationFix.cs:318", $"Could not identify the host for the connection-recovery save; Vanilla removal continues: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/AbruptHostMigrationFix/BeginRecoverySave.could-not-identify-host", $"Could not identify the host for the connection-recovery save; Vanilla removal continues: {ex}");
                 ResetRecoveryState();
                 return false;
             }
@@ -313,7 +313,7 @@ namespace BugfixesAndQoL
             if (!recoveryLocalIsHost)
             {
                 if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/AbruptHostMigrationFix.cs:327", $"Delaying native lag removal for up to {MultiplayerSafetyPolicy.RecoveryTimeoutSeconds} seconds while the host creates [{MultiplayerSafetyPolicy.RecoverySaveFileName}].");
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/AbruptHostMigrationFix/BeginRecoverySave.delaying-native-lag-removal", $"Delaying native lag removal for up to {MultiplayerSafetyPolicy.RecoveryTimeoutSeconds} seconds while the host creates [{MultiplayerSafetyPolicy.RecoverySaveFileName}].");
                 return true;
             }
 
@@ -321,12 +321,12 @@ namespace BugfixesAndQoL
             {
                 EngineInterface.TriggerMPSave(MultiplayerSafetyPolicy.RecoverySaveFileName);
                 if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/AbruptHostMigrationFix.cs:336", $"Host queued connection-recovery save [{MultiplayerSafetyPolicy.RecoverySaveFileName}] before native lag removal; targets={string.Join(",", recoveryTargets)}.");
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/AbruptHostMigrationFix/BeginRecoverySave.host-queued-connection-recovery", $"Host queued connection-recovery save [{MultiplayerSafetyPolicy.RecoverySaveFileName}] before native lag removal; targets={string.Join(",", recoveryTargets)}.");
                 return true;
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/AbruptHostMigrationFix.cs:343", $"Host could not queue [{MultiplayerSafetyPolicy.RecoverySaveFileName}]; Vanilla removal continues immediately: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/AbruptHostMigrationFix/BeginRecoverySave.host-could-not-queue", $"Host could not queue [{MultiplayerSafetyPolicy.RecoverySaveFileName}]; Vanilla removal continues immediately: {ex}");
                 ResetRecoveryState();
                 return false;
             }
@@ -347,14 +347,14 @@ namespace BugfixesAndQoL
                     ? $"host file=[{GetRecoverySavePath()}] was updated"
                     : "the synchronized Chore 94 completion was observed";
                 if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/AbruptHostMigrationFix.cs:365", $"Connection-recovery save completed before native lag removal: {outcome}, targets={string.Join(",", recoveryTargets)}.");
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/AbruptHostMigrationFix/CompleteRecoveryAttempt.completed-before-native-lag", $"Connection-recovery save completed before native lag removal: {outcome}, targets={string.Join(",", recoveryTargets)}.");
             }
             else
             {
                 string reason = timedOut
                     ? $"the {MultiplayerSafetyPolicy.RecoveryTimeoutSeconds}-second timeout expired"
                     : "Chore 94 completed but the host recovery file was not updated";
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/AbruptHostMigrationFix.cs:373", $"Connection-recovery save was not verified because {reason}; Vanilla removal continues fail-open, targets={string.Join(",", recoveryTargets)}.");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/AbruptHostMigrationFix/CompleteRecoveryAttempt.not-verified-because-vanilla", $"Connection-recovery save was not verified because {reason}; Vanilla removal continues fail-open, targets={string.Join(",", recoveryTargets)}.");
             }
         }
 

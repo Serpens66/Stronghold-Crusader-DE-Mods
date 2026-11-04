@@ -59,7 +59,7 @@ namespace BuildingCosts
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(Logger, "BuildingCosts/src/BuildingCostsPlugin.cs:61", $"BuildingCosts settings registration failed; gameplay runtime stopped fail-closed: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "BuildingCosts/BuildingCostsPlugin/OnCrusaderLibraryLoaded.settings-registration-failed-gameplay", $"BuildingCosts settings registration failed; gameplay runtime stopped fail-closed: {ex}");
                 return;
             }
 
@@ -70,7 +70,7 @@ namespace BuildingCosts
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(Logger, "BuildingCosts/src/BuildingCostsPlugin.cs:79", $"Error while initializing BuildingCosts after library load: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "BuildingCosts/BuildingCostsPlugin/OnCrusaderLibraryLoaded.error-while-initializing-after", $"Error while initializing BuildingCosts after library load: {ex}");
             }
         }
 

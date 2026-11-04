@@ -52,6 +52,10 @@ namespace ExtraFeatures
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             if (libraryHandle == IntPtr.Zero || memory.Length == 0)
                 throw new ArgumentException("The Crusader library is unavailable.");
+            // Hash-bound: the stub calls DistanceCalculationRva and jumps to RejectRva as absolute
+            // audited RVAs, which a pattern match near the hook cannot confirm on an unknown build.
+            if (!referenceHashMatches)
+                throw new InvalidOperationException("The apothecary plague-search range requires the audited CrusaderDE.dll build.");
 
             int patternRva = Shared.NativePatternResolver.ResolveUnique(
                 memory,
@@ -187,14 +191,10 @@ namespace ExtraFeatures
 
         private void RollbackUnpublishedCandidate()
         {
+            // The constructor disposes its uncommitted transaction itself; this frees the native maximum.
             if (published)
                 return;
 
-            if (transaction != null)
-            {
-                try { transaction.Dispose(); } catch { }
-                transaction = null;
-            }
             if (effectiveMaximumAddress != IntPtr.Zero)
             {
                 Marshal.FreeHGlobal(effectiveMaximumAddress);

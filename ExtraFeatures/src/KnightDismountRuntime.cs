@@ -192,13 +192,15 @@ namespace ExtraFeatures
         }
     }
 
-    internal sealed unsafe partial class KnightDismountRuntime : IDisposable
+    internal sealed unsafe partial class KnightDismountRuntime
     {
         private const int StableHorseSlotCount = 4;
         private const int ChoreProtocolVersion = 2;
         private const int MountAction = KnightTransformationPacket.StartMountAction;
         private const int DismountAction = KnightTransformationPacket.StartDismountAction;
         private const string MissingWeaponsSpeechFileName = "Other_Warning6.wav";
+        // First argument of SFXManager.playSpeech that Vanilla uses for unit and warning speech.
+        private const int VoiceSpeechChannel = 1;
         private static readonly string[] MountSpeechFileNames = { "Knight_m1.wav", "Knight_m2.wav", "Knight_m3.wav" };
         private static readonly string[] DismountSpeechFileNames = { "Sword_s4.wav", "Sword_s5.wav", "Sword_s6.wav" };
         private static readonly Random SpeechRandom = new Random();
@@ -219,7 +221,7 @@ namespace ExtraFeatures
         private bool tooltipMetadataElementsMissingLogged;
         private bool tooltipGoldIconMissingLogged;
         private bool initialized;
-        private bool disposed;
+        private bool deactivated;
         private bool networkInitialized;
         private int nextOperationId;
         private R3PacketEventHook<KnightTransformationPacket> transformationPacketHook;
@@ -276,22 +278,43 @@ namespace ExtraFeatures
             if (initialized)
                 return;
 
-            disposed = false;
+            deactivated = false;
             initialized = true;
-            buttonViewModel.Hide();
+            // A full refresh instead of a plain Hide: when queued from another thread it may run
+            // after a newer HUD refresh and must not hide a button that is valid by then.
+            Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(RefreshButtonVisibility);
         }
 
-        public void Dispose()
+        // Logical switch-off: cancels pending work; process-rooted hooks and subscriptions stay.
+        public void Deactivate()
         {
-            if (disposed)
+            if (deactivated)
                 return;
 
-            disposed = true;
+            deactivated = true;
             initialized = false;
-            CancelAllPending("feature-disabled", refundGold: true, releaseReservedHorse: true);
-            pendingSelectionRequestIds.Clear();
-            pendingSelectionTransferIds.Clear();
-            pendingSelectionTransferTicks = 0;
+            // Without the monitor the persistent infrastructure never published, so nothing is pending.
+            if (EngineLock.TryGetGate(out object engineGate))
+            {
+                lock (engineGate)
+                {
+                    CancelAllPending("feature-disabled", refundGold: true, releaseReservedHorse: true);
+                    pendingSelectionRequestIds.Clear();
+                    pendingSelectionTransferIds.Clear();
+                    pendingSelectionTransferTicks = 0;
+                }
+            }
+
+            // Settings and mission-end paths are not guaranteed to run on the main thread.
+            Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(HideButtonAndUnhook);
+        }
+
+        private void HideButtonAndUnhook()
+        {
+            // A later Initialize may already have re-enabled the feature before this ran.
+            if (!deactivated)
+                return;
+
             buttonViewModel.Hide();
             UnhookButtonEvents();
         }
@@ -641,7 +664,7 @@ namespace ExtraFeatures
             APIShared.LocalSelectionSnapshot selection, out bool knight, out bool swordsman)
         {
             knight = swordsman = false;
-            if (localPlayerId < 1 || localPlayerId > 8)
+            if (localPlayerId < 1 || localPlayerId > GamePlayerManagerAPI.MAX_PLAYERS)
                 return;
             GameUnitManagerAPI unitApi = GameUnitManagerAPI.Instance;
 
@@ -693,7 +716,7 @@ namespace ExtraFeatures
                     return;
                 }
 
-                int goldCost = Math.Max(0, Math.Min(1000, settings.KnightTransformationGoldCost));
+                int goldCost = KnightTransformationTooltipPolicy.ClampGoldCost(settings.KnightTransformationGoldCost);
                 if (goldCost > 0 && GamePlayerManagerAPI.Instance.GetPlayerGold(localPlayerId) < goldCost)
                 {
                     PlayMissingGoldSpeech();
@@ -709,7 +732,9 @@ namespace ExtraFeatures
                 }
                 else
                 {
-                    StartPendingBatch(localPlayerId, DismountAction, snapshots, localAction: true, "local-click");
+                    // Noesis commands run on the main thread; the engine owns this state.
+                    lock (EngineLock.Gate)
+                        StartPendingBatch(localPlayerId, DismountAction, snapshots, localAction: true, "local-click");
                 }
 
                 RefreshButtonVisibility();
@@ -738,7 +763,7 @@ namespace ExtraFeatures
                     return;
                 }
 
-                int goldCost = Math.Max(0, Math.Min(1000, settings.KnightTransformationGoldCost));
+                int goldCost = KnightTransformationTooltipPolicy.ClampGoldCost(settings.KnightTransformationGoldCost);
                 if (goldCost > 0 && GamePlayerManagerAPI.Instance.GetPlayerGold(localPlayerId) < goldCost)
                 {
                     PlayMissingGoldSpeech();
@@ -761,7 +786,9 @@ namespace ExtraFeatures
                 }
                 else
                 {
-                    StartPendingBatch(localPlayerId, MountAction, snapshots, localAction: true, "local-click");
+                    // Noesis commands run on the main thread; the engine owns this state.
+                    lock (EngineLock.Gate)
+                        StartPendingBatch(localPlayerId, MountAction, snapshots, localAction: true, "local-click");
                 }
 
                 RefreshButtonVisibility();
@@ -774,7 +801,10 @@ namespace ExtraFeatures
 
         private bool IsFeatureActive()
         {
-            return Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) &&
+            // Pending transformations need the published tick/save infrastructure (and with it the
+            // engine monitor); without it a click would stop the troops and then fail.
+            return initialized && !deactivated && ReferenceEquals(activeRuntime, this) &&
+                Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) &&
                 settings.EnableKnightDismount &&
                 (!RequiresChoreTransport() || IsChoreTransportReady());
         }
@@ -950,30 +980,25 @@ namespace ExtraFeatures
             return snapshots;
         }
 
-        private void PlayMissingWeaponsSpeech()
+        private void PlayMissingWeaponsSpeech() =>
+            PlaySpeech(MissingWeaponsSpeechFileName, "mount missing stable horse");
+
+        private void PlayRandomLocalSpeech(string[] fileNames, string label) =>
+            PlaySpeech(GetRandomSpeechFileName(fileNames), label);
+
+        // Unity audio belongs to the main thread. Always queued: Chore batches run on the engine
+        // thread, and single-player batches hold the engine monitor, which clip loading would extend.
+        private void PlaySpeech(string speechFileName, string label)
         {
-            try
-            {
-                SFXManager.instance?.playSpeech(
-                    1,
-                    MissingWeaponsSpeechFileName,
-                    1f);
-            }
-            catch (Exception ex)
-            {
-                LogError($"Could not play knight mount missing stable horse speech: {ex}");
-            }
+            if (!Shared.UnityMainThreadDispatch.TryEnqueue(() => PlaySpeechNow(speechFileName, label)))
+                LogError($"Could not schedule knight {label} speech on the main thread.");
         }
 
-        private void PlayRandomLocalSpeech(string[] fileNames, string label)
+        private void PlaySpeechNow(string speechFileName, string label)
         {
             try
             {
-                string speechFileName = GetRandomSpeechFileName(fileNames);
-                SFXManager.instance?.playSpeech(
-                    1,
-                    speechFileName,
-                    1f);
+                SFXManager.instance?.playSpeech(VoiceSpeechChannel, speechFileName, 1f);
             }
             catch (Exception ex)
             {
@@ -992,7 +1017,7 @@ namespace ExtraFeatures
         private List<UnitTransformSnapshot> CaptureSelectedUnitSnapshots(int localPlayerId, eChimps unitType)
         {
             List<UnitTransformSnapshot> snapshots = new List<UnitTransformSnapshot>();
-            if (localPlayerId < 1 || localPlayerId > 8)
+            if (localPlayerId < 1 || localPlayerId > GamePlayerManagerAPI.MAX_PLAYERS)
                 return snapshots;
             TryCaptureSelectedUnits(localPlayerId, out APIShared.LocalSelectionSnapshot selection);
             GameUnitManagerAPI unitApi = GameUnitManagerAPI.Instance;
@@ -1053,71 +1078,6 @@ namespace ExtraFeatures
             };
         }
 
-        private void ApplyDismountBatch(List<UnitTransformSnapshot> snapshots, string reason, List<UnitTransformSnapshot> appliedSnapshots)
-        {
-            if (snapshots == null || snapshots.Count == 0)
-                return;
-
-            List<ResolvedTransformSnapshot> resolvedSnapshots = new List<ResolvedTransformSnapshot>(snapshots.Count);
-            HashSet<int> seenCurrentUnitIds = new HashSet<int>();
-
-            for (int i = 0; i < snapshots.Count; i++)
-            {
-                UnitTransformSnapshot snapshot = snapshots[i];
-                if (!TryResolveAliveUnitByUnitId(snapshot, eChimps.CHIMP_TYPE_KNIGHT, out int currentUnitId))
-                    continue;
-
-                if (!seenCurrentUnitIds.Add(currentUnitId))
-                    continue;
-
-                resolvedSnapshots.Add(new ResolvedTransformSnapshot
-                {
-                    Snapshot = snapshot,
-                    CurrentUnitId = currentUnitId
-                });
-            }
-
-            resolvedSnapshots.Sort((left, right) => right.CurrentUnitId.CompareTo(left.CurrentUnitId));
-            for (int i = 0; i < resolvedSnapshots.Count; i++)
-            {
-                ResolvedTransformSnapshot resolved = resolvedSnapshots[i];
-                if (!TryResolveAliveUnitByUnitId(resolved.Snapshot, eChimps.CHIMP_TYPE_KNIGHT, out int deleteUnitId))
-                    continue;
-
-                if (!APIShared.UnitAccess.TryGetById(deleteUnitId, out GameUnit* deleteUnit, out _))
-                    continue;
-
-                UnitTransformSnapshot currentSnapshot = CreateSnapshotFromUnit(deleteUnitId, deleteUnit);
-                int swordsmanUnitId = CreateUnitFromSnapshot(currentSnapshot, eChimps.CHIMP_TYPE_SWORDSMAN, "dismount", reason);
-                if (swordsmanUnitId <= 0)
-                    continue;
-
-                if (!TryResolveAliveUnitByGlobalId(currentSnapshot, eChimps.CHIMP_TYPE_KNIGHT, out int currentKnightId) ||
-                    !APIShared.UnitAccess.TryGetById(currentKnightId, out GameUnit* currentKnight, out _))
-                {
-                    LogError($"Knight dismount could not reacquire the original knight after spawning its replacement: reason={reason}, originalUnitId={deleteUnitId}, globalId={currentSnapshot.GlobalId}.");
-                    if (APIShared.UnitAccess.TryGetById(swordsmanUnitId, out _, out _)) GameUnitManagerAPI.Instance.DeleteUnit(swordsmanUnitId);
-                    continue;
-                }
-
-                if (!TryConsumeLinkedStableHorse(currentKnightId, currentKnight, reason, out ConsumedStableHorse consumedHorse))
-                {
-                    if (APIShared.UnitAccess.TryGetById(swordsmanUnitId, out _, out _)) GameUnitManagerAPI.Instance.DeleteUnit(swordsmanUnitId);
-                    continue;
-                }
-
-                if (!(APIShared.UnitAccess.TryGetById(currentKnightId, out _, out _) && GameUnitManagerAPI.Instance.DeleteUnitSafe(currentKnightId)))
-                {
-                    RollbackConsumedStableHorse(consumedHorse, reason);
-                    LogError($"Knight dismount could not mark the original knight for Vanilla deletion: reason={reason}, unitId={currentKnightId}, globalId={currentSnapshot.GlobalId}.");
-                    if (APIShared.UnitAccess.TryGetById(swordsmanUnitId, out _, out _)) GameUnitManagerAPI.Instance.DeleteUnit(swordsmanUnitId);
-                    continue;
-                }
-
-                appliedSnapshots?.Add(currentSnapshot);
-            }
-        }
-
         private bool ApplyDismount(UnitTransformSnapshot snapshot, string reason, long limitReservationId, out int selectedReplacementUnitId)
         {
             selectedReplacementUnitId = 0;
@@ -1168,83 +1128,6 @@ namespace ExtraFeatures
                     $"Knight dismount completed: reason={reason}, sourceGlobalId={currentSnapshot.GlobalId}, " +
                     $"swordsmanUnitId={swordsmanUnitId}, linkedHorseConsumed={consumedHorse.IsActive}.");
             return true;
-        }
-
-        private void ApplyMountBatch(
-            List<UnitTransformSnapshot> snapshots,
-            List<HorseAllocation> allocations,
-            int applyCount,
-            string reason,
-            List<AppliedMountSnapshot> appliedSnapshots)
-        {
-            if (snapshots == null || allocations == null || applyCount <= 0)
-                return;
-
-            List<ResolvedMountSnapshot> resolvedSnapshots = new List<ResolvedMountSnapshot>(applyCount);
-            HashSet<int> seenCurrentUnitIds = new HashSet<int>();
-
-            for (int i = 0; i < applyCount; i++)
-            {
-                UnitTransformSnapshot snapshot = snapshots[i];
-                if (!TryResolveAliveUnitByUnitId(snapshot, eChimps.CHIMP_TYPE_SWORDSMAN, out int currentUnitId))
-                    continue;
-
-                if (!seenCurrentUnitIds.Add(currentUnitId))
-                    continue;
-
-                resolvedSnapshots.Add(new ResolvedMountSnapshot
-                {
-                    Snapshot = snapshot,
-                    Allocation = allocations[i],
-                    CurrentUnitId = currentUnitId
-                });
-            }
-
-            List<AppliedMountSnapshot> deletedSnapshots = new List<AppliedMountSnapshot>(resolvedSnapshots.Count);
-            resolvedSnapshots.Sort((left, right) => right.CurrentUnitId.CompareTo(left.CurrentUnitId));
-            for (int i = 0; i < resolvedSnapshots.Count; i++)
-            {
-                ResolvedMountSnapshot resolved = resolvedSnapshots[i];
-                if (!TryResolveAliveUnitByUnitId(resolved.Snapshot, eChimps.CHIMP_TYPE_SWORDSMAN, out int deleteUnitId))
-                    continue;
-
-                if (!APIShared.UnitAccess.TryGetById(deleteUnitId, out GameUnit* deleteUnit, out _))
-                    continue;
-
-                UnitTransformSnapshot currentSnapshot = CreateSnapshotFromUnit(deleteUnitId, deleteUnit);
-                if (APIShared.UnitAccess.TryGetById(deleteUnitId, out _, out _)) GameUnitManagerAPI.Instance.DeleteUnit(deleteUnitId);
-                deletedSnapshots.Add(new AppliedMountSnapshot
-                {
-                    Snapshot = currentSnapshot,
-                    Allocation = resolved.Allocation
-                });
-            }
-
-            for (int i = 0; i < deletedSnapshots.Count; i++)
-            {
-                AppliedMountSnapshot applied = deletedSnapshots[i];
-                if (CreateMountedKnightFromSnapshot(applied.Snapshot, applied.Allocation, reason))
-                    appliedSnapshots?.Add(applied);
-            }
-        }
-
-        private bool ApplyMount(UnitTransformSnapshot snapshot, HorseAllocation allocation, string reason)
-        {
-            if (!TryResolveAliveUnitByGlobalId(snapshot, eChimps.CHIMP_TYPE_SWORDSMAN, out int currentUnitId))
-                return false;
-
-            if (!APIShared.UnitAccess.TryGetById(currentUnitId, out GameUnit* currentUnit, out _))
-                return false;
-
-            UnitTransformSnapshot currentSnapshot = CreateSnapshotFromUnit(currentUnitId, currentUnit);
-            if (APIShared.UnitAccess.TryGetById(currentUnitId, out _, out _)) GameUnitManagerAPI.Instance.DeleteUnit(currentUnitId);
-            return CreateMountedKnightFromSnapshot(currentSnapshot, allocation, reason);
-        }
-
-        private bool TryResolveAliveUnitByUnitId(UnitTransformSnapshot snapshot, eChimps expectedType, out int currentUnitId)
-        {
-            currentUnitId = snapshot.UnitId;
-            return ValidateAliveUnit(snapshot, expectedType, currentUnitId);
         }
 
         private bool TryResolveAliveUnitByGlobalId(UnitTransformSnapshot snapshot, eChimps expectedType, out int currentUnitId)
@@ -1315,37 +1198,6 @@ namespace ExtraFeatures
 
             ApplyHealthRatio((int)createdId, snapshot.CurrentHealth, snapshot.MaxHealth, label);
             return (int)createdId;
-        }
-
-        private bool CreateMountedKnightFromSnapshot(UnitTransformSnapshot snapshot, HorseAllocation allocation, string reason)
-        {
-            int knightUnitId = CreateUnitFromSnapshot(snapshot, eChimps.CHIMP_TYPE_KNIGHT, "mount", reason);
-            if (knightUnitId <= 0)
-            {
-                if (CreateUnitFromSnapshot(snapshot, eChimps.CHIMP_TYPE_SWORDSMAN, "mount-spawn-rollback", reason) <= 0)
-                    LogError($"Knight mount spawn rollback could not restore swordsman: reason={reason}, sourceGlobalId={snapshot.GlobalId}.");
-                return false;
-            }
-
-            if (!APIShared.UnitAccess.TryGetById(knightUnitId, out GameUnit* knight, out _))
-            {
-                LogError($"Knight mount could not resolve spawned knight: reason={reason}, knightUnitId={knightUnitId}, sourceGlobalId={snapshot.GlobalId}.");
-                if (APIShared.UnitAccess.TryGetById(knightUnitId, out _, out _)) GameUnitManagerAPI.Instance.DeleteUnit(knightUnitId);
-                if (CreateUnitFromSnapshot(snapshot, eChimps.CHIMP_TYPE_SWORDSMAN, "mount-resolve-rollback", reason) <= 0)
-                    LogError($"Knight mount resolve rollback could not restore swordsman: reason={reason}, sourceGlobalId={snapshot.GlobalId}.");
-                return false;
-            }
-
-            if (!TryConsumeStableHorse(allocation, knightUnitId, (int)knight->r_GlobalId, reason))
-            {
-                LogError($"Knight mount could not link stable horse: reason={reason}, knightUnitId={knightUnitId}, stableId={allocation.StableId}, slot={allocation.Slot}.");
-                if (APIShared.UnitAccess.TryGetById(knightUnitId, out _, out _)) GameUnitManagerAPI.Instance.DeleteUnit(knightUnitId);
-                if (CreateUnitFromSnapshot(snapshot, eChimps.CHIMP_TYPE_SWORDSMAN, "mount-rollback", reason) <= 0)
-                    LogError($"Knight mount rollback could not restore swordsman: reason={reason}, sourceGlobalId={snapshot.GlobalId}.");
-                return false;
-            }
-
-            return true;
         }
 
         private int CountAvailableHorseSlots(int playerId)
@@ -1841,8 +1693,6 @@ namespace ExtraFeatures
             return GamePlayerManagerAPI.Instance?.GetLocalPlayerId() ?? -1;
         }
 
-        private static bool IsMapEditor() => APIShared.GameModes.GameModeHelper.IsMapEditor();
-
         private void LogDebug(string message, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0)
         {
             // Diagnostics are a startup snapshot; skip the closure and dispatch when they are off.
@@ -1861,11 +1711,6 @@ namespace ExtraFeatures
         {
             Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
                 () => Shared.DebugLogHelper.LogWarningLimited(log, callerFile + ":" + callerLine, message));
-        }
-
-        private static string TimestampNow()
-        {
-            return DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.InvariantCulture);
         }
 
         private struct UnitTransformSnapshot
@@ -1902,25 +1747,5 @@ namespace ExtraFeatures
             public int UsedBefore;
             public int RechargeBefore;
         }
-
-        private struct ResolvedTransformSnapshot
-        {
-            public UnitTransformSnapshot Snapshot;
-            public int CurrentUnitId;
-        }
-
-        private struct ResolvedMountSnapshot
-        {
-            public UnitTransformSnapshot Snapshot;
-            public HorseAllocation Allocation;
-            public int CurrentUnitId;
-        }
-
-        private struct AppliedMountSnapshot
-        {
-            public UnitTransformSnapshot Snapshot;
-            public HorseAllocation Allocation;
-        }
-
     }
 }

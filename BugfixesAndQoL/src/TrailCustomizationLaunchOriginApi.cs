@@ -50,7 +50,7 @@ namespace BugfixesAndQoL
                     LoadState,
                     OnMapUnloaded))
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/TrailCustomizationLaunchOriginApi.cs:53", "Could not register Trail customization launch-origin data; restored saves will fail closed.");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/TrailCustomizationLaunchOriginApi/Initialize", "Could not register Trail customization launch-origin data; restored saves will fail closed.");
             }
         }
 
@@ -89,7 +89,7 @@ namespace BugfixesAndQoL
             if (previous != TrailCustomizationLaunchOriginKind.None)
                 {
                     if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                        Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/TrailCustomizationLaunchOriginApi.cs:92", $"Cleared Trail customization origin: previous={previous}.");
+                        Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/TrailCustomizationLaunchOriginApi/Clear", $"Cleared Trail customization origin: previous={previous}.");
                 }
         }
 
@@ -147,7 +147,7 @@ namespace BugfixesAndQoL
                     MessagePackSerializer.Deserialize<TrailCustomizationOriginSaveData>(bytes);
                 if (!IsValid(data))
                 {
-                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/TrailCustomizationLaunchOriginApi.cs:149", "Ignored invalid Trail customization origin save data.");
+                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/TrailCustomizationLaunchOriginApi/LoadState.invalid-trail-customization-origin", "Ignored invalid Trail customization origin save data.");
                     return;
                 }
                 Set((TrailCustomizationLaunchOriginKind)data.Origin, data.TrailId, data.MissionId, true);
@@ -155,7 +155,7 @@ namespace BugfixesAndQoL
             catch (Exception exception)
             {
                 Clear();
-                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/TrailCustomizationLaunchOriginApi.cs:157", "Ignored unreadable Trail customization origin save data: " + exception.Message);
+                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/TrailCustomizationLaunchOriginApi/LoadState.unreadable-trail-customization-origin", "Ignored unreadable Trail customization origin save data: " + exception.Message);
             }
         }
 
@@ -181,7 +181,7 @@ namespace BugfixesAndQoL
                 launchPending = true;
             }
             if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/TrailCustomizationLaunchOriginApi.cs:184", $"Set Trail customization origin: origin={value}, trailId={selectedTrailId}, " +
+                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/TrailCustomizationLaunchOriginApi/Set", $"Set Trail customization origin: origin={value}, trailId={selectedTrailId}, " +
                     $"missionId={selectedMissionId}, restored={restored}.");
         }
 

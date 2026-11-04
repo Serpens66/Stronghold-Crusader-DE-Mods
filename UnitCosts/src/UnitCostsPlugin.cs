@@ -62,7 +62,7 @@ namespace UnitCosts
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(Logger, "UnitCosts/src/UnitCostsPlugin.cs:63", $"UnitCosts settings registration failed; gameplay runtime stopped fail-closed: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "UnitCosts/UnitCostsPlugin/OnCrusaderLibraryLoaded.settings-registration-failed-gameplay", $"UnitCosts settings registration failed; gameplay runtime stopped fail-closed: {ex}");
                 return;
             }
 
@@ -77,7 +77,7 @@ namespace UnitCosts
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(Logger, "UnitCosts/src/UnitCostsPlugin.cs:82", $"Error while initializing UnitCosts after library load: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "UnitCosts/UnitCostsPlugin/OnCrusaderLibraryLoaded.error-while-initializing-after", $"Error while initializing UnitCosts after library load: {ex}");
             }
         }
 

@@ -65,13 +65,13 @@ namespace CastlePlanner
                 SHCDESE.BepInEx.Bootstrap.Plugin.ModSettingsHubViewModel;
             if (view == null || comboBox == null || settingsHub == null)
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "CastlePlanner/src/CastleDropDownHeightController.cs:68", "CastlePlanner castle dropdown height controller could not attach; " +
+                Shared.DebugLogHelper.LogErrorLimited(log, "CastlePlanner/CastleDropDownHeightController/Attach.height-controller-could-not", "CastlePlanner castle dropdown height controller could not attach; " +
                     "the safe fixed height remains active.");
                 return null;
             }
 
             if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastleDropDownHeightController.cs:75", "CastlePlanner castle dropdown controller attached; " +
+                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/CastleDropDownHeightController/Attach.controller-attached", "CastlePlanner castle dropdown controller attached; " +
                     $"desiredMaximum={DesiredMaximumHeight:0}, " +
                     $"fallback={SafeFallbackHeight:0}.");
             return new CastleDropDownHeightController(
@@ -134,7 +134,7 @@ namespace CastlePlanner
             EnsurePopupPlacementBelow();
             UpdateDropDownHeight();
             if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastleDropDownHeightController.cs:139", $"CastlePlanner {(loaded ? "loaded" : "reused")} the cached AIVJSON catalog when mod settings opened; " +
+                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/CastleDropDownHeightController/OnSettingsHubPropertyChanged", $"CastlePlanner {(loaded ? "loaded" : "reused")} the cached AIVJSON catalog when mod settings opened; " +
                     $"count={settings.AvailableFileCount}.");
         }
 
@@ -152,7 +152,7 @@ namespace CastlePlanner
                 if (!missingPopupLogged)
                 {
                     missingPopupLogged = true;
-                    Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner/src/CastleDropDownHeightController.cs:159", "CastlePlanner could not resolve the ComboBox PART_Popup; " +
+                    Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner/CastleDropDownHeightController/EnsurePopupPlacementBelow", "CastlePlanner could not resolve the ComboBox PART_Popup; " +
                         "the directional height limit remains active without an explicit Bottom placement.");
                 }
                 return;
@@ -202,7 +202,7 @@ namespace CastlePlanner
                 return;
 
             invalidGeometryLogged = true;
-            Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner/src/CastleDropDownHeightController.cs:211", "CastlePlanner castle dropdown used its safe height fallback because " +
+            Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner/CastleDropDownHeightController/ApplyFallback", "CastlePlanner castle dropdown used its safe height fallback because " +
                 $"Noesis geometry was not ready: viewHeight={viewHeight:0.0}, " +
                 $"comboHeight={comboHeight:0.0}, available={availableHeight:0.0}.");
         }
@@ -220,7 +220,7 @@ namespace CastlePlanner
 
             lastAppliedHeight = height;
             if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastleDropDownHeightController.cs:230", "CastlePlanner castle dropdown height updated from current Noesis " +
+                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/CastleDropDownHeightController/ApplyHeight", "CastlePlanner castle dropdown height updated from current Noesis " +
                     $"geometry: viewHeight={viewHeight:0.0}, " +
                     $"comboBottom={comboBottom:0.0}, available={availableHeight:0.0}, " +
                     $"applied={height:0.0}.");

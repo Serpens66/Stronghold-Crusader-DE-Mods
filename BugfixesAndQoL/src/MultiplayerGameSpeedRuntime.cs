@@ -944,6 +944,6 @@ namespace BugfixesAndQoL
 
         private void QueueLogError(string message) =>
             Shared.UnityMainThreadDispatch.TryEnqueue(() =>
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/MultiplayerGameSpeedRuntime.cs:932", $"Bugfixes and QoL multiplayer game speed: {message}"));
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/MultiplayerGameSpeedRuntime/QueueLogError", $"Bugfixes and QoL multiplayer game speed: {message}"));
     }
 }

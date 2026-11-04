@@ -357,7 +357,7 @@ namespace ExtendedData
                 }
                 catch (Exception exception)
                 {
-                    Shared.DebugLogHelper.LogWarningLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:371", "Extended Data upload checkbox binding failed; additional files remain enabled: " + exception);
+                    Shared.DebugLogHelper.LogWarningLimited(log, "ExtendedData/TrailMissionSettingsCoordinator/Initialize", "Extended Data upload checkbox binding failed; additional files remain enabled: " + exception);
                 }
                 CaptureVanillaCoopTrailTitles();
                 R3PacketEventHook<CoopCustomizePacket> packetHook =
@@ -496,7 +496,7 @@ namespace ExtendedData
                 catch (Exception exception)
                 {
                     if (ModSettingsApplication.HasApplicationEndpoints || ModSettingsApplication.HasRestartPreparation || ModSettingsApplication.HasActivationFailures) throw;
-                    Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:503", $"Could not load {source} mod settings; sidecar mod settings are ignored: {exception}");
+                    Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/TrailMissionSettingsCoordinator/Enter", $"Could not load {source} mod settings; sidecar mod settings are ignored: {exception}");
                     ApplyDocument(ModSettingsDefinition.CreateModDefaults(), editable, presetLabel);
                     activeCreatorDocument = ModSettingsDefinition.CreateModDefaults();
                     return Array.Empty<string>();
@@ -678,7 +678,7 @@ namespace ExtendedData
                         {
                             workingEndpoints[id].System_ApplyMissionPresetSnapshot(rollback[id], activeContextLabel);
                         }
-                        catch (Exception rollbackException) { Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:630", "Could not roll back source application for [" + id + "]: " + rollbackException); }
+                        catch (Exception rollbackException) { Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/TrailMissionSettingsCoordinator/ApplyMany", "Could not roll back source application for [" + id + "]: " + rollbackException); }
                     }
                     // Restore all desired snapshots before any backend/journal commit. Do
                     // not apply untouched backends or replace a failed backend's old package.
@@ -905,7 +905,7 @@ namespace ExtendedData
                     (pending == MissionPresetLaunchKind.TrailMakerTest && actual == GameModeKind.CustomGame);
                 if (!matches || !missionPresetLifecycle.ConfirmStarted(pending))
                 {
-                    Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:810", "The prepared Map/Trail mod-settings preset did not match the started mission; " +
+                    Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/TrailMissionSettingsCoordinator/HandleMissionStarted", "The prepared Map/Trail mod-settings preset did not match the started mission; " +
                         "expected=" + pending + ", actual=" + actual + ".");
                     ExitContext(force: true);
                     return false;
@@ -945,7 +945,7 @@ namespace ExtendedData
                 }
                 catch (Exception error)
                 {
-                    Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:845", "Configuration launch preparation failed: " + error);
+                    Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/TrailMissionSettingsCoordinator/TryPrepareRestartSettings", "Configuration launch preparation failed: " + error);
                     reason = error.GetBaseException().Message;
                 }
                 // Button callers use their contextual reporter; other launch routes retain one dialog.
@@ -992,7 +992,7 @@ namespace ExtendedData
                 }
                 catch (Exception exception)
                 {
-                    Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:874", "Could not prepare Trail Maker test mod settings: " + exception);
+                    Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/TrailMissionSettingsCoordinator/PrepareTrailMakerTestLaunch", "Could not prepare Trail Maker test mod settings: " + exception);
                     ExitContext(force: true);
                     ShowInformation(
                         SerpLocalization.Get("ExtendedData.StartBlockedTitle"),
@@ -1044,7 +1044,7 @@ namespace ExtendedData
                 }
                 catch (Exception exception)
                 {
-                    Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:928", $"Could not capture the Trail Maker working settings before saving [{trailPath}]: {exception}");
+                    Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/TrailMissionSettingsCoordinator/SaveCustomTrailMapHook.could-not-capture-trail", $"Could not capture the Trail Maker working settings before saving [{trailPath}]: {exception}");
                     ShowInformation(
                         SerpLocalization.Get("EditorSave.ModSettingsSaveFailedTitle"),
                         SerpLocalization.Get("EditorSave.ModSettingsSaveFailed"));
@@ -1095,7 +1095,7 @@ namespace ExtendedData
                 }
                 catch (Exception exception)
                 {
-                    Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:964", $"Could not publish the selected Trail mod-settings state for [{trailPath}]: {exception}");
+                    Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/TrailMissionSettingsCoordinator/SaveCustomTrailMapHook.could-not-publish-selected", $"Could not publish the selected Trail mod-settings state for [{trailPath}]: {exception}");
                     ShowInformation(
                         SerpLocalization.Get("EditorSave.ModSettingsSaveFailedTitle"),
                         SerpLocalization.Get("EditorSave.ModSettingsSaveFailed"));
@@ -1128,7 +1128,7 @@ namespace ExtendedData
                 }
                 catch (Exception exception)
                 {
-                    Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:995", $"Saved Trail mod settings for [{trailPath}], but could not reactivate the editable Trail preset: {exception}");
+                    Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/TrailMissionSettingsCoordinator/SaveCustomTrailMapHook.saved-trail-mod-settings", $"Saved Trail mod settings for [{trailPath}], but could not reactivate the editable Trail preset: {exception}");
                 }
             }
 
@@ -1218,7 +1218,7 @@ namespace ExtendedData
                     }
                     catch (Exception exception)
                     {
-                        Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:1021", $"Could not load editable Trail mod settings: {exception}");
+                        Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/TrailMissionSettingsCoordinator/ManageTrailButtonHook", $"Could not load editable Trail mod settings: {exception}");
                     }
                 }
                 pendingTrailMakerLoad = string.Equals(command, "Load", StringComparison.Ordinal);
@@ -1295,7 +1295,7 @@ namespace ExtendedData
                     string itemName = isTrail ? selectedRow.trail.Name : selectedRow.lord.lordName;
                     if (!WorkshopUploadStaging.TryResetDirectChild(uploadRoot, itemName, out _, out string cleanupError))
                     {
-                        Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:1058", $"Extended Data Workshop staging cleanup failed for [{itemName}]: {cleanupError}");
+                        Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/TrailMissionSettingsCoordinator/EditorSetupButtonHook.workshop-staging-cleanup-failed", $"Extended Data Workshop staging cleanup failed for [{itemName}]: {cleanupError}");
                         HUD_ConfirmationPopup.ShowOK(
                             SerpLocalization.Get("WorkshopUpload.StagingCleanupFailed"),
                             delegate { });
@@ -1310,7 +1310,7 @@ namespace ExtendedData
                         }
                         catch (Exception exception)
                         {
-                            Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:1073", $"Could not upload the Coop Trail package to Steam Workshop: {exception}");
+                            Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/TrailMissionSettingsCoordinator/EditorSetupButtonHook.could-not-upload-coop", $"Could not upload the Coop Trail package to Steam Workshop: {exception}");
                             HUD_ConfirmationPopup.ShowOK(
                                 Translate.Instance.lookUpText(Enums.eTextSections.TEXT_NEW_TEXT, 125),
                                 delegate { });
@@ -1422,7 +1422,7 @@ namespace ExtendedData
                                 out string stagingChild,
                                 out string resolutionError))
                         {
-                            Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:1170", $"Extended CPU Lord upload [{mapTitle}] aborted because JSON staging failed: {resolutionError}");
+                            Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/TrailMissionSettingsCoordinator/UploadWorkshopMapHook.cpu-lord-upload-aborted-because-json-staging", $"Extended CPU Lord upload [{mapTitle}] aborted because JSON staging failed: {resolutionError}");
                             InvokeUploadFailure(mapTitle, terminalFailure);
                             return;
                         }
@@ -1435,7 +1435,7 @@ namespace ExtendedData
                                 out long packageBytes,
                                 out string stagingError))
                         {
-                            Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:1185", $"Extended CPU Lord upload [{mapTitle}] aborted because JSON staging failed: {stagingError}");
+                            Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/TrailMissionSettingsCoordinator/UploadWorkshopMapHook.cpu-lord-upload-aborted-because-json-staging-2", $"Extended CPU Lord upload [{mapTitle}] aborted because JSON staging failed: {stagingError}");
                             InvokeUploadFailure(mapTitle, terminalFailure);
                             return;
                         }
@@ -1443,7 +1443,7 @@ namespace ExtendedData
                     }
                     catch (Exception exception)
                     {
-                        Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:1197", $"Extended CPU Lord upload [{mapTitle}] aborted because JSON staging failed: {exception}");
+                        Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/TrailMissionSettingsCoordinator/UploadWorkshopMapHook.cpu-lord-upload-aborted-because-json-staging-3", $"Extended CPU Lord upload [{mapTitle}] aborted because JSON staging failed: {exception}");
                         InvokeUploadFailure(mapTitle, terminalFailure);
                         return;
                     }
@@ -1455,7 +1455,7 @@ namespace ExtendedData
                     if (!WorkshopUploadStaging.TryStageTrailJsonFiles(source, destination,
                             out int requiredFiles, out string requiredError, requirementsOnly: true))
                     {
-                        Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:1211", $"Custom Trail Lord requirements could not be staged for [{mapTitle}]; upload aborted: {requiredError}");
+                        Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/TrailMissionSettingsCoordinator/UploadWorkshopMapHook.custom-trail-lord-requirements", $"Custom Trail Lord requirements could not be staged for [{mapTitle}]; upload aborted: {requiredError}");
                         InvokeUploadFailure(mapTitle, terminalFailure);
                         return;
                     }
@@ -1471,7 +1471,7 @@ namespace ExtendedData
                         if (!WorkshopUploadStaging.TryStageTrailJsonFiles(source, destination,
                                 out int copiedFiles, out string error))
                         {
-                            Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:1222", $"Custom Trail JSON files could not be staged for [{mapTitle}]; upload aborted: {error}");
+                            Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/TrailMissionSettingsCoordinator/UploadWorkshopMapHook.custom-trail-json-files", $"Custom Trail JSON files could not be staged for [{mapTitle}]; upload aborted: {error}");
                             InvokeUploadFailure(mapTitle, terminalFailure);
                             return;
                         }
@@ -1502,7 +1502,7 @@ namespace ExtendedData
                 }
                 catch (Exception exception)
                 {
-                    Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:1255", $"Vanilla's Workshop failure callback failed for [{mapTitle}]: {exception}");
+                    Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/TrailMissionSettingsCoordinator/InvokeUploadFailure", $"Vanilla's Workshop failure callback failed for [{mapTitle}]: {exception}");
                 }
             }
 
@@ -1816,7 +1816,7 @@ namespace ExtendedData
                 var roots = new List<string> { localRoot };
                 if (includeWorkshop)
                     roots.AddRange(Shared.WorkshopContentPaths.GetSubscribedItemRoots(message =>
-                        Shared.DebugLogHelper.LogWarningLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:1562", message)));
+                        Shared.DebugLogHelper.LogWarningLimited(log, "ExtendedData/TrailMissionSettingsCoordinator/GetImportableCoopSources", message)));
                 return makerSources.Discover(roots, localRoot, message =>
                     Shared.DebugLogHelper.LogWarningLimited(log, "trail-maker-discovery", message));
             }
@@ -1913,7 +1913,7 @@ namespace ExtendedData
                     // A later Maker mission can fail after the Coop package was already staged.
                     prepared?.Dispose();
                     TrailLordAuthoringUnavailableException gap = FindAuthoringGap(exception);
-                    Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:1663", "Could not prepare Trail export: " + exception);
+                    Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/TrailMissionSettingsCoordinator/ExportTrail.prepare-trail-export", "Could not prepare Trail export: " + exception);
                     if (gap != null && !allowEmbeddedValuesOnly)
                         OfferEmbeddedValuesOnlyExport(self, destination, exception as CoopMissionExportException, gap);
                     else
@@ -1951,7 +1951,7 @@ namespace ExtendedData
                 }
                 catch (Exception exception)
                 {
-                    Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:1695", "Could not finish Trail export: " + exception);
+                    Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/TrailMissionSettingsCoordinator/ExportTrail.finish-trail-export", "Could not finish Trail export: " + exception);
                     ShowExportFailure();
                 }
                 finally
@@ -2050,7 +2050,7 @@ namespace ExtendedData
                 }
                 catch (Exception exception)
                 {
-                    Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:1790", "Could not show the embedded-data export decision: " + exception);
+                    Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/TrailMissionSettingsCoordinator/OfferEmbeddedValuesOnlyExport", "Could not show the embedded-data export decision: " + exception);
                     ShowExportFailure(missionFailure);
                 }
             }
@@ -2177,7 +2177,7 @@ namespace ExtendedData
                     }
                     catch (Exception exception)
                     {
-                        Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:1822", "Could not save Coop Trail Maker state: " + exception);
+                        Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/TrailMissionSettingsCoordinator/EnsureTrailMakerCoopCheckbox", "Could not save Coop Trail Maker state: " + exception);
                         checkbox.IsChecked = IsMakerCoopEnabled();
                     }
                 };
@@ -2317,7 +2317,7 @@ namespace ExtendedData
                 }
                 catch (Exception exception)
                 {
-                    Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:1941", "Could not display the Trail export error popup: " + exception);
+                    Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/TrailMissionSettingsCoordinator/ShowExportFailure", "Could not display the Trail export error popup: " + exception);
                 }
             }
             private static void ShowInformation(string title, string message)
@@ -2366,7 +2366,7 @@ namespace ExtendedData
                     catch (Exception exception)
                     {
                         ExtendedDataLaunchOriginApi.Clear();
-                        Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:1990", $"Could not prepare Custom Trail mod settings: {exception}");
+                        Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/TrailMissionSettingsCoordinator/StartCustomTrailHook.could-not-prepare-custom", $"Could not prepare Custom Trail mod settings: {exception}");
                         if (ModSettingsApplication.HasApplicationEndpoints || ModSettingsApplication.HasRestartPreparation || ModSettingsApplication.HasActivationFailures)
                         {
                             ReportLaunchBlock(exception.GetBaseException().Message, exception.ToString());
@@ -2410,7 +2410,7 @@ namespace ExtendedData
                 {
                     LordDataCoordinator?.SetEmbeddedTrailSlots(null);
                     LordDataCoordinator?.PrepareTrail(null, null, false, out _);
-                    Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:2029", "Blocked Custom Trail launch: " + exception);
+                    Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/TrailMissionSettingsCoordinator/StartCustomTrailHook.blocked-custom-trail-launch", "Blocked Custom Trail launch: " + exception);
                     ReportLaunchBlock(exception.Message, exception.ToString());
                     RecoverCoopDraft();
                     return;
@@ -2514,7 +2514,7 @@ namespace ExtendedData
                         ActivateTrailMakerLobby(restartInfo);
                     else
                     {
-                        Shared.DebugLogHelper.LogWarningLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:2124", "Trail Maker lobby transition did not complete; discarded its pending mod-settings state.");
+                        Shared.DebugLogHelper.LogWarningLimited(log, "ExtendedData/TrailMissionSettingsCoordinator/MultiplayerOpenHook", "Trail Maker lobby transition did not complete; discarded its pending mod-settings state.");
                         ExitContext(force: true);
                     }
                 }
@@ -2627,7 +2627,7 @@ namespace ExtendedData
                         {
                             LordDataCoordinator?.SetEmbeddedTrailSlots(null);
                             LordDataCoordinator?.PrepareTrail(null, null, false, out _);
-                            Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:2211", "Blocked customized Custom Trail launch: " + exception);
+                            Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/TrailMissionSettingsCoordinator/StartSkirmishGameHook.customized-custom-trail-launch", "Blocked customized Custom Trail launch: " + exception);
                             ReportLaunchBlock(exception.Message, exception.ToString());
                             return;
                         }
@@ -2646,7 +2646,7 @@ namespace ExtendedData
                         }
                         catch (Exception exception)
                         {
-                            Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:2229",
+                            Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/TrailMissionSettingsCoordinator/StartSkirmishGameHook.custom-coop-trail-launch",
                                 "Blocked Custom Coop Trail launch: trail=" + (self.currentLobby?.coopTrailID + 1) +
                                 ", mission=" + self.currentLobby?.coopSelectedMission + ", route=" +
                                 (MissionRestart.IsInProgress ? "restart" : ExtendedDataLaunchOriginApi.RestoredFromSave ? "restore" :
@@ -2772,7 +2772,7 @@ namespace ExtendedData
                     {
                         preserveContextForLaunch = false;
                         ExtendedDataLaunchOriginApi.Clear();
-                        Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:2348", $"Could not open Custom Trail setup: {exception}");
+                        Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/TrailMissionSettingsCoordinator/FrontendButtonHook", $"Could not open Custom Trail setup: {exception}");
                     }
                     return;
                 }
@@ -2923,7 +2923,7 @@ namespace ExtendedData
                         return;
                     }
 
-                    Shared.DebugLogHelper.LogWarningLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:2499", "Could not find the logical title element after Loaded for Coop Trail " +
+                    Shared.DebugLogHelper.LogWarningLimited(log, "ExtendedData/TrailMissionSettingsCoordinator/InitializeCoopPage", "Could not find the logical title element after Loaded for Coop Trail " +
                         (zeroBasedTrail + 1).ToString(CultureInfo.InvariantCulture) + ".");
                 };
                 page.Loaded += loaded;
@@ -2948,7 +2948,7 @@ namespace ExtendedData
                 }
                 catch (Exception exception)
                 {
-                    Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:2530", $"Could not select Custom Trail mod settings: {exception}");
+                    Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/TrailMissionSettingsCoordinator/EnterSelectedCustomTrail", $"Could not select Custom Trail mod settings: {exception}");
                     ApplyDocument(ModSettingsDefinition.CreateModDefaults(), editable: false);
                 }
             }
@@ -3267,7 +3267,7 @@ namespace ExtendedData
                     }
                     catch (Exception exception)
                     {
-                        Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:2851", $"Could not open Coop Trail setup: {exception}");
+                        Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/TrailMissionSettingsCoordinator/InjectCoopCustomizeButton", $"Could not open Coop Trail setup: {exception}");
                     }
                 };
                 host.Children.Add(button);
@@ -3289,7 +3289,7 @@ namespace ExtendedData
 
                 if (!self.singlePlayerCoop && !self.currentLobby.isHost)
                 {
-                    Shared.DebugLogHelper.LogWarningLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:2873", "Ignored Coop Trail Customize click from a non-host client.");
+                    Shared.DebugLogHelper.LogWarningLimited(log, "ExtendedData/TrailMissionSettingsCoordinator/CustomizeCurrentCoopTrail", "Ignored Coop Trail Customize click from a non-host client.");
                     return;
                 }
 
@@ -3414,7 +3414,7 @@ namespace ExtendedData
                 if (!BuiltInCustomizeOriginPacket.IsValid(packet))
                 {
                     ExtendedDataLaunchOriginApi.Clear();
-                    Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:2997", "Refused to broadcast an invalid Built-in Customize origin.");
+                    Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/TrailMissionSettingsCoordinator/BroadcastBuiltInCustomizeOrigin", "Refused to broadcast an invalid Built-in Customize origin.");
                     return;
                 }
 
@@ -3485,14 +3485,14 @@ namespace ExtendedData
                     CSteamID? host = GameNetworkAPI.GetHostSteamId();
                     if (!host.HasValue || senderSteamId != host.Value)
                     {
-                        Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:3067", "Rejected Coop Trail transition from a sender that is not the lobby host.");
+                        Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/TrailMissionSettingsCoordinator/ProcessCoopCustomizePacket.rejected-coop-trail-transition", "Rejected Coop Trail transition from a sender that is not the lobby host.");
                         return;
                     }
 
                     if (packet == null || packet.ProtocolVersion != CoopCustomizeProtocolVersion ||
                         packet.TrailId < 0 || packet.TrailId > 3 || packet.MissionId < 1 || packet.MissionId > 10)
                     {
-                        Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:3076", "Rejected invalid Coop Trail transition packet.");
+                        Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/TrailMissionSettingsCoordinator/ProcessCoopCustomizePacket.rejected-invalid-coop-trail", "Rejected invalid Coop Trail transition packet.");
                         return;
                     }
 
@@ -3500,7 +3500,7 @@ namespace ExtendedData
                     if ((!enabled && !(packet.Launch && CoopEnabled)) || self?.currentLobby == null || self.currentLobby.isHost ||
                         self.singlePlayerCoop || !self.currentLobby.coopTrailGame)
                     {
-                        Shared.DebugLogHelper.LogWarningLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:3084", "Ignored Coop Trail transition outside an active client Coop lobby.");
+                        Shared.DebugLogHelper.LogWarningLimited(log, "ExtendedData/TrailMissionSettingsCoordinator/ProcessCoopCustomizePacket.ignored-coop-trail-transition", "Ignored Coop Trail transition outside an active client Coop lobby.");
                         return;
                     }
 
@@ -3519,7 +3519,7 @@ namespace ExtendedData
                 }
                 catch (Exception exception)
                 {
-                    Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:3103", "Could not apply Coop Trail transition from host: " + exception);
+                    Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/TrailMissionSettingsCoordinator/ProcessCoopCustomizePacket.could-not-apply-coop", "Could not apply Coop Trail transition from host: " + exception);
                 }
             }
 
@@ -3554,14 +3554,14 @@ namespace ExtendedData
                     CSteamID? host = GameNetworkAPI.GetHostSteamId();
                     if (!host.HasValue || senderSteamId != host.Value)
                     {
-                        Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:3133", "Rejected Built-in Customize origin from a sender that is not the lobby host.");
+                        Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/TrailMissionSettingsCoordinator/ProcessBuiltInCustomizeOriginPacket.rejected-built-customize-origin", "Rejected Built-in Customize origin from a sender that is not the lobby host.");
                         return;
                     }
 
                     if (!BuiltInCustomizeOriginPacket.IsValid(packet))
                     {
                         ExtendedDataLaunchOriginApi.Clear();
-                        Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:3142", "Rejected invalid Built-in Customize origin packet.");
+                        Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/TrailMissionSettingsCoordinator/ProcessBuiltInCustomizeOriginPacket.rejected-invalid-built-customize", "Rejected invalid Built-in Customize origin packet.");
                         return;
                     }
 
@@ -3569,7 +3569,7 @@ namespace ExtendedData
                     if (self?.currentLobby == null || self.currentLobby.isHost ||
                         !FRONT_Multiplayer.skirmishGame || FRONT_Multiplayer.coopGame)
                     {
-                        Shared.DebugLogHelper.LogWarningLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:3150", "Ignored Built-in Customize origin outside an active client Skirmish lobby.");
+                        Shared.DebugLogHelper.LogWarningLimited(log, "ExtendedData/TrailMissionSettingsCoordinator/ProcessBuiltInCustomizeOriginPacket.ignored-built-customize-origin", "Ignored Built-in Customize origin outside an active client Skirmish lobby.");
                         return;
                     }
 
@@ -3580,7 +3580,7 @@ namespace ExtendedData
                 catch (Exception exception)
                 {
                     ExtendedDataLaunchOriginApi.Clear();
-                    Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:3165", "Could not apply Built-in Customize origin from host: " + exception);
+                    Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/TrailMissionSettingsCoordinator/ProcessBuiltInCustomizeOriginPacket.could-not-apply-built", "Could not apply Built-in Customize origin from host: " + exception);
                 }
             }
 
@@ -3641,7 +3641,7 @@ namespace ExtendedData
                 }
                 catch (Exception exception)
                 {
-                    Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:3228", "Could not activate the Trail Maker mod-settings draft; applying editable defaults: " + exception);
+                    Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/TrailMissionSettingsCoordinator/ActivateTrailMakerLobby.activate-trail-maker-mod", "Could not activate the Trail Maker mod-settings draft; applying editable defaults: " + exception);
                     try
                     {
                         ModSettingsDefinition defaults = ModSettingsDefinition.CreateModDefaults();
@@ -3653,7 +3653,7 @@ namespace ExtendedData
                     }
                     catch (Exception fallbackException)
                     {
-                        Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:3244", "Could not activate fail-closed Trail Maker defaults; leaving the authoring context: " +
+                        Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/TrailMissionSettingsCoordinator/ActivateTrailMakerLobby.activate-fail-closed-trail", "Could not activate fail-closed Trail Maker defaults; leaving the authoring context: " +
                             fallbackException);
                         try
                         {
@@ -3661,7 +3661,7 @@ namespace ExtendedData
                         }
                         catch (Exception cleanupException)
                         {
-                            Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:3254", "Could not fully clean up the failed Trail Maker context: " + cleanupException);
+                            Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/TrailMissionSettingsCoordinator/ActivateTrailMakerLobby.fully-clean-up-failed", "Could not fully clean up the failed Trail Maker context: " + cleanupException);
                         }
                     }
                 }
@@ -3683,7 +3683,7 @@ namespace ExtendedData
                     trailMakerWorkingDocument = ModSettingsDefinition.CreateModDefaults();
                     trailMakerTrailPath = null;
                     trailMakerAuthoringActive = true;
-                    Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:3280", "Could not capture the Trail Maker mod-settings draft before " + transition +
+                    Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/TrailMissionSettingsCoordinator/CaptureTrailMakerWorkingDocument", "Could not capture the Trail Maker mod-settings draft before " + transition +
                         "; the return will use editable defaults: " + exception);
                 }
             }
@@ -3922,7 +3922,7 @@ namespace ExtendedData
                         else
                         {
                             skipped.Add(IOPath.GetFileName(requirements));
-                            Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:3395", $"Did not copy Lord requirements [{requirements}]: {problem}.");
+                            Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/TrailMissionSettingsCoordinator/CopySidecars.did-not-copy-lord", $"Did not copy Lord requirements [{requirements}]: {problem}.");
                         }
                     }
                     foreach (string sidecar in sidecars)
@@ -3933,7 +3933,7 @@ namespace ExtendedData
                         if (!overwrite && File.Exists(target))
                         {
                             skipped.Add(IOPath.GetFileName(sidecar));
-                            Shared.DebugLogHelper.LogWarningLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:3405", $"Kept existing sidecar [{target}] instead of importing [{sidecar}].");
+                            Shared.DebugLogHelper.LogWarningLimited(log, "ExtendedData/TrailMissionSettingsCoordinator/CopySidecars.kept-existing-sidecar-instead", $"Kept existing sidecar [{target}] instead of importing [{sidecar}].");
                             continue;
                         }
                         File.Copy(sidecar, target, overwrite);
@@ -3968,7 +3968,7 @@ namespace ExtendedData
                 }
                 catch (Exception exception)
                 {
-                    Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/TrailMissionSettingsCoordinator.cs:3632", $"Could not {action}: {exception}");
+                    Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/TrailMissionSettingsCoordinator/TryFileOperation", $"Could not {action}: {exception}");
                 }
             }
 

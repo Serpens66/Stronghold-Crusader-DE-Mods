@@ -1,4 +1,5 @@
 Tools.AiNotRunning=In diesem Platz existiert keine initialisierte KI mit Lord. Befehle benötigen eine laufende KI.
+Tools.AiPlayerRequired=KI-Befehle können nur an KI-Spieler erteilt werden.
 Tools.Amount=Menge
 Tools.AmountHelp=Ganze Zahl von 0 bis 2147483647. Gutschreiben fügt die Menge hinzu; Abziehen entfernt sie aus Bestand und Lieferreserve, höchstens bis 0. Ein leeres Feld wird beim Verlassen zu 0.
 Tools.Attack=Ziel angreifen

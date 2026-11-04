@@ -378,7 +378,7 @@ namespace BugfixesAndQoL
                 return;
             lastEditorVisibilityDiagnostic = state;
             if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SelectedUnitHealthFeature.cs:372", $"Bugfixes and QoL selected-unit health editor state: {state}.");
+                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/SelectedUnitHealthFeature/LogEditorVisibilityState", $"Bugfixes and QoL selected-unit health editor state: {state}.");
         }
 
     }

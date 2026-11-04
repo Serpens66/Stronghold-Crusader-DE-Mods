@@ -74,7 +74,7 @@ namespace CastlePlanner
             if (failureLogged)
                 return;
             failureLogged = true;
-            Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner/src/ExtraFeaturesFlagBridge.cs:77", message);
+            Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner/ExtraFeaturesFlagBridge/LogFailureOnce", message);
         }
     }
 }

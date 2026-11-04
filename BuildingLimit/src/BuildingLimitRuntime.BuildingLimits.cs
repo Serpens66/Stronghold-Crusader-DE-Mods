@@ -176,7 +176,7 @@ namespace BuildingLimit
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "BuildingLimit/src/BuildingLimitRuntime.BuildingLimits.cs:169", "Error updating building limit tooltip:", ex);
+                Shared.DebugLogHelper.LogErrorLimited(log, "BuildingLimit/BuildingLimitRuntime.BuildingLimits/UpdateBuildingLimitTooltip", "Error updating building limit tooltip:", ex);
                 ClearBuildingLimitTooltip();
                 ResetBuildingLimitTooltipCache();
                 return Array.Empty<BuildingTooltipLine>();
@@ -223,7 +223,7 @@ namespace BuildingLimit
         {
             {
                 if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    LogDebug("BuildingLimit/src/BuildingLimitRuntime.BuildingLimits.cs:213", "Building limit notification shown:", building, message);
+                    LogDebug("BuildingLimit/BuildingLimitRuntime.BuildingLimits/ShowBuildingLimitMessage", "Building limit notification shown:", building, message);
             }
             DisplayLimitNotification(message);
         }
@@ -278,7 +278,7 @@ namespace BuildingLimit
             {
                 {
                     if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                        LogDebug("BuildingLimit/src/BuildingLimitRuntime.BuildingLimits.cs:265", "Could not cancel building limit message timer:", ex.Message);
+                        LogDebug("BuildingLimit/BuildingLimitRuntime.BuildingLimits/CancelBuildingLimitMessageTimer", "Could not cancel building limit message timer:", ex.Message);
                 }
             }
 
@@ -297,7 +297,7 @@ namespace BuildingLimit
                 {
                     {
                         if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                            LogDebug("BuildingLimit/src/BuildingLimitRuntime.BuildingLimits.cs:281", "Building limit mapper is not a supported limit key:", entry.Key);
+                            LogDebug("BuildingLimit/BuildingLimitRuntime.BuildingLimits/ApplyBuildingLimits.mapper-not-supported-key", "Building limit mapper is not a supported limit key:", entry.Key);
                     }
                     continue;
                 }
@@ -327,7 +327,7 @@ namespace BuildingLimit
                         string structures = string.Join(",", Array.ConvertAll(definition.Structures, structure => structure.ToString()));
                         {
                             if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                                LogDebug("BuildingLimit/src/BuildingLimitRuntime.BuildingLimits.cs:308",
+                                LogDebug("BuildingLimit/BuildingLimitRuntime.BuildingLimits/ApplyBuildingLimits.active",
                             "Active building limit:",
                             entry.Key,
                             "=",
@@ -343,7 +343,7 @@ namespace BuildingLimit
 
             {
                 if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    LogDebug("BuildingLimit/src/BuildingLimitRuntime.BuildingLimits.cs:321", "Applied active building limit rules:", activeBuildingLimitRules.Count);
+                    LogDebug("BuildingLimit/BuildingLimitRuntime.BuildingLimits/ApplyBuildingLimits.applied-active-rules", "Applied active building limit rules:", activeBuildingLimitRules.Count);
             }
             ResetBuildingLimitTooltipCache();
         }

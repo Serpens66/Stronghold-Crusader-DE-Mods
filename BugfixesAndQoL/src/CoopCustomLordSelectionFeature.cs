@@ -300,16 +300,16 @@ namespace BugfixesAndQoL
                 partnerId,
                 enhancementsEnabled: true);
             if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/CoopCustomLordSelectionFeature.cs:294", $"Bugfixes and QoL Coop progress delete clicked: row={rowIndex + 1}, partnerId={partnerId}.");
+                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/CoopCustomLordSelectionFeature/RequestProgressDeletion.delete-clicked-row-partner", $"Bugfixes and QoL Coop progress delete clicked: row={rowIndex + 1}, partnerId={partnerId}.");
             HUD_ConfirmationPopup.ShowConfirmationMessage(
                 SerpLocalization.Get("BugfixesAndQoL.CoopDeleteProgressTitle"),
                 () =>
                 {
                     if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                        Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/CoopCustomLordSelectionFeature.cs:301", $"Bugfixes and QoL Coop progress deletion confirmed: row={rowIndex + 1}, partnerId={partnerId}.");
+                        Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/CoopCustomLordSelectionFeature/RequestProgressDeletion.deletion-confirmed-row-partner", $"Bugfixes and QoL Coop progress deletion confirmed: row={rowIndex + 1}, partnerId={partnerId}.");
                     DeleteProgressConfirmed(self, rowIndex, partnerId);
                 },
-                () => Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/CoopCustomLordSelectionFeature.cs:306", $"Bugfixes and QoL Coop progress deletion cancelled: row={rowIndex + 1}, partnerId={partnerId}."),
+                () => Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/CoopCustomLordSelectionFeature/RequestProgressDeletion.deletion-cancelled-row-partner", $"Bugfixes and QoL Coop progress deletion cancelled: row={rowIndex + 1}, partnerId={partnerId}."),
                 SerpLocalization.Get(
                     "BugfixesAndQoL.CoopDeleteProgressMessage",
                     "PartnerName",
@@ -402,10 +402,10 @@ namespace BugfixesAndQoL
                 }
                 catch (Exception rollbackException)
                 {
-                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/CoopCustomLordSelectionFeature.cs:401", "Could not roll back the failed Coop progress deletion: " + rollbackException);
+                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/CoopCustomLordSelectionFeature/DeleteProgressConfirmed.roll-back-failed-coop", "Could not roll back the failed Coop progress deletion: " + rollbackException);
                 }
 
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/CoopCustomLordSelectionFeature.cs:406", "Could not delete Coop progress: " + ex);
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/CoopCustomLordSelectionFeature/DeleteProgressConfirmed.delete-coop-progress", "Could not delete Coop progress: " + ex);
                 ShowMultiplayerConfirmationOkMessage(
                     SerpLocalization.Get("BugfixesAndQoL.CoopDeleteProgressErrorTitle"),
                     SerpLocalization.Get("BugfixesAndQoL.CoopDeleteProgressErrorMessage"));
@@ -499,7 +499,7 @@ namespace BugfixesAndQoL
             OnPropertyChanged(nameof(Choices));
             UpdateCoopSelectionUi(self);
             if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/CoopCustomLordSelectionFeature.cs:499", () => $"Bugfixes and QoL refreshed Coop partner choices: count={choices.Count}, customEnabled={settings.EnableMod && settings.EnableCustomLordListEnhancements}.");
+                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/CoopCustomLordSelectionFeature/RefreshChoices", () => $"Bugfixes and QoL refreshed Coop partner choices: count={choices.Count}, customEnabled={settings.EnableMod && settings.EnableCustomLordListEnhancements}.");
         }
 
         private void SelectCustom(CustomisationFileManager.CustomLord lord) =>
@@ -549,11 +549,11 @@ namespace BugfixesAndQoL
                 MainViewModel.Instance.Show_CoopMapIcons = true;
                 MainViewModel.Instance.Show_CoopHostJoinedPane = true;
                 if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/CoopCustomLordSelectionFeature.cs:550", $"Bugfixes and QoL selected Coop custom lord '{selectedLordName}' in player slot 2.");
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/CoopCustomLordSelectionFeature/SelectCustom.selected-coop-custom-lord", $"Bugfixes and QoL selected Coop custom lord '{selectedLordName}' in player slot 2.");
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/CoopCustomLordSelectionFeature.cs:556", "Could not select the Coop custom lord: " + ex);
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/CoopCustomLordSelectionFeature/SelectCustom.could-not-select-coop", "Could not select the Coop custom lord: " + ex);
                 ShowMissingLordMessage();
             }
         }
@@ -599,7 +599,7 @@ namespace BugfixesAndQoL
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/CoopCustomLordSelectionFeature.cs:602", "Could not restore the Coop custom lord after mission change: " + ex);
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/CoopCustomLordSelectionFeature/CoopMissionChangedHook", "Could not restore the Coop custom lord after mission change: " + ex);
                 ShowMissingLordMessage();
             }
         }
@@ -697,7 +697,7 @@ namespace BugfixesAndQoL
             }
 
             if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/CoopCustomLordSelectionFeature.cs:714", $"Bugfixes and QoL registering Coop custom lord: playerId={playerId}, lordType={lordType}, subType={subType}, lobbyTeam={self.currentLobby.getTeam(partner)}, requestedTeam={team}, playerTeam={playerTeam}, playerTeamMembers={playerTeamMemberCount}, effectiveTeam={effectiveTeam}.");
+                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/CoopCustomLordSelectionFeature/RegisterSkirmishUserHook", $"Bugfixes and QoL registering Coop custom lord: playerId={playerId}, lordType={lordType}, subType={subType}, lobbyTeam={self.currentLobby.getTeam(partner)}, requestedTeam={team}, playerTeam={playerTeam}, playerTeamMembers={playerTeamMemberCount}, effectiveTeam={effectiveTeam}.");
             registerSkirmishUserOriginal(playerId, lordType, subType, effectiveTeam);
         }
 
@@ -708,7 +708,7 @@ namespace BugfixesAndQoL
             int subType,
             int requestedTeam)
         {
-            Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/CoopCustomLordSelectionFeature.cs:727", $"Bugfixes and QoL: {message} playerId={playerId}, lordType={lordType}, subType={subType}, requestedTeam={requestedTeam}.");
+            Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/CoopCustomLordSelectionFeature/CreatePartnerRegistrationFailure", $"Bugfixes and QoL: {message} playerId={playerId}, lordType={lordType}, subType={subType}, requestedTeam={requestedTeam}.");
             return new InvalidOperationException(message);
         }
 
@@ -1036,7 +1036,7 @@ namespace BugfixesAndQoL
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/CoopCustomLordSelectionFeature.cs:1069", "Could not append the Vanilla Coop lord power: " + ex.Message);
+                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/CoopCustomLordSelectionFeature/AiLordEnterHook", "Could not append the Vanilla Coop lord power: " + ex.Message);
             }
         }
 
@@ -1143,7 +1143,7 @@ namespace BugfixesAndQoL
                 }
                 deleteButtonsByPage.Add(page, buttons);
                 if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/CoopCustomLordSelectionFeature.cs:1177", $"Bugfixes and QoL created {buttons.Length} Coop progress delete buttons for {page.GetType().Name}.");
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/CoopCustomLordSelectionFeature/InjectDeleteButtons", $"Bugfixes and QoL created {buttons.Length} Coop progress delete buttons for {page.GetType().Name}.");
             }
             catch (Exception ex)
             {
@@ -1210,7 +1210,7 @@ namespace BugfixesAndQoL
             if (!deleteButtonFailureTypes.Add(key))
                 return;
             string suffix = exception == null ? string.Empty : ": " + exception;
-            Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/CoopCustomLordSelectionFeature.cs:1246", message + suffix);
+            Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/CoopCustomLordSelectionFeature/LogDeleteButtonFailure", message + suffix);
         }
 
         private void DeleteProgressButtonClicked(object sender, RoutedEventArgs args)
@@ -1288,7 +1288,7 @@ namespace BugfixesAndQoL
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/CoopCustomLordSelectionFeature.cs:1324", "Could not read the shared custom-lord Coop name: " + ex.Message);
+                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/CoopCustomLordSelectionFeature/GetStoredCustomDisplayName", "Could not read the shared custom-lord Coop name: " + ex.Message);
             }
             return !string.IsNullOrWhiteSpace(selectedDisplayName)
                 ? selectedDisplayName
@@ -1473,7 +1473,7 @@ namespace BugfixesAndQoL
                 {
                     // Keep captures inside the enabled scope; otherwise the compiler can allocate them before the guard.
                     var diagnosticReason = @reason;
-                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/CoopCustomLordSelectionFeature.cs:1504", () => "Bugfixes and QoL cleared Coop custom-lord state: " + diagnosticReason + ".");
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/CoopCustomLordSelectionFeature/ClearSelection", () => "Bugfixes and QoL cleared Coop custom-lord state: " + diagnosticReason + ".");
                 }
             }
         selectedLordName = string.Empty;

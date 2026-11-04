@@ -101,7 +101,7 @@ namespace BugfixesAndQoL
                 initializationFailed = true;
                 MovementCadenceIntegration.StateChanged -= ApplySetting;
                 Disable();
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/TroopMovementFix3Runtime.cs:102", $"Bugfixes and QoL Troop Movement Fix could not be initialized and remains inactive: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/TroopMovementFix3Runtime/InitializeNative", $"Bugfixes and QoL Troop Movement Fix could not be initialized and remains inactive: {ex}");
             }
         }
 
@@ -126,7 +126,7 @@ namespace BugfixesAndQoL
                 !fixedLayoutErrorLogged)
             {
                 fixedLayoutErrorLogged = true;
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/TroopMovementFix3Runtime.cs:129", "Bugfixes and QoL movement hooks remain inactive because their fixed native tribe and unit field layouts are not validated for this CrusaderDE.dll.");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/TroopMovementFix3Runtime/ApplySetting", "Bugfixes and QoL movement hooks remain inactive because their fixed native tribe and unit field layouts are not validated for this CrusaderDE.dll.");
             }
 
             if (shouldEnableCadencePatch && cadencePatch == null)

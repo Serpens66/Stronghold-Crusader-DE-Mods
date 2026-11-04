@@ -190,7 +190,7 @@ namespace UnitLimit
 
             {
                 if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    LogDebug("UnitLimit/src/UnitLimitRuntime.Integration.cs:191", "Clearing external unit reservations:", reason, "count", count);
+                    LogDebug("UnitLimit/UnitLimitRuntime.Integration/ClearExternalReservations", "Clearing external unit reservations:", reason, "count", count);
             }
             UnitLimitIntegration.NotifyStateChanged();
         }

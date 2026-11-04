@@ -135,7 +135,7 @@ namespace BugfixesAndQoL
             {
                 if (Interlocked.Exchange(ref callbackFailureLogged, 1) == 0)
                 {
-                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/AssassinCombatResumeRuntime.cs:137", $"Assassin post-combat path-context callback failed; further callback errors are suppressed and Vanilla behavior continues: {ex}");
+                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/AssassinCombatResumeRuntime/PreparePostCombatPathContext", $"Assassin post-combat path-context callback failed; further callback errors are suppressed and Vanilla behavior continues: {ex}");
                 }
             }
         }

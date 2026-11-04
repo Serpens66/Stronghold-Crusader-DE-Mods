@@ -245,7 +245,7 @@ namespace BugfixesAndQoL
             showSkirmishRandomAiSetterHook?.Dispose();
             aiSettingsButtonClickedHook?.Dispose();
             aiSettingsAddSelectedHook?.Dispose();
-            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SkirmishAiSelectionMemoryHook.cs:244", "Bugfixes and QoL AI selection memory hooks disposed.");
+            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/SkirmishAiSelectionMemoryHook/Dispose", "Bugfixes and QoL AI selection memory hooks disposed.");
         }
 
         private void MultiplayerButtonClickedHook(FRONT_Multiplayer self, string param)
@@ -287,7 +287,7 @@ namespace BugfixesAndQoL
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/SkirmishAiSelectionMemoryHook.cs:286", $"Bugfixes and QoL AI selection apply after ButtonClicked({param}) failed: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/SkirmishAiSelectionMemoryHook/MultiplayerButtonClickedHook", $"Bugfixes and QoL AI selection apply after ButtonClicked({param}) failed: {ex}");
             }
         }
 
@@ -406,7 +406,7 @@ namespace BugfixesAndQoL
             catch (Exception ex)
             {
                 // Never hand a protected random command to Vanilla after a partial mutation.
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/SkirmishAiSelectionMemoryHook.cs:407", protectedRandomCommand
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/SkirmishAiSelectionMemoryHook/SkirmishAiAddClickHook.protected-random-lord-selection", protectedRandomCommand
                         ? $"Bugfixes and QoL protected random-lord selection failed; the command was stopped without calling Vanilla: {ex}"
                         : $"Bugfixes and QoL filtered random-lord selection failed; falling back to Vanilla: {ex}");
                 handled = protectedRandomCommand;
@@ -438,7 +438,7 @@ namespace BugfixesAndQoL
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/SkirmishAiSelectionMemoryHook.cs:441", $"Bugfixes and QoL AI selection apply after SkirmishAIAddClick({param}) failed: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/SkirmishAiSelectionMemoryHook/SkirmishAiAddClickHook.ai-selection-apply-after", $"Bugfixes and QoL AI selection apply after SkirmishAIAddClick({param}) failed: {ex}");
             }
         }
 
@@ -453,13 +453,13 @@ namespace BugfixesAndQoL
 
             if (!FRONT_Multiplayer.skirmishGame && !self.currentLobby.isHost)
             {
-                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/SkirmishAiSelectionMemoryHook.cs:458", "Bugfixes and QoL rejected a random-opponent command from a multiplayer client.");
+                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/SkirmishAiSelectionMemoryHook/TryCreateFilteredRandomAi.rejected-random-opponent-command-multiplayer", "Bugfixes and QoL rejected a random-opponent command from a multiplayer client.");
                 return true;
             }
 
             if (!TryGetMaximumAiCount(self, out int maximumAiCount))
             {
-                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/SkirmishAiSelectionMemoryHook.cs:466", $"Bugfixes and QoL rejected a random-opponent command before mutation because " +
+                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/SkirmishAiSelectionMemoryHook/TryCreateFilteredRandomAi.rejected-random-opponent-command-before", $"Bugfixes and QoL rejected a random-opponent command before mutation because " +
                     $"the lobby capacity is invalid. requested={requestedCount}, {BuildCapacityDiagnostic(self)}");
                 return true;
             }
@@ -470,7 +470,7 @@ namespace BugfixesAndQoL
                 if (!emptyRandomLordSelectionLogged)
                 {
                     emptyRandomLordSelectionLogged = true;
-                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/SkirmishAiSelectionMemoryHook.cs:479", "Bugfixes and QoL did not create random opponents because no enabled lord source contains an available lord.");
+                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/SkirmishAiSelectionMemoryHook/TryCreateFilteredRandomAi.did-not-create-random", "Bugfixes and QoL did not create random opponents because no enabled lord source contains an available lord.");
                 }
                 return true;
             }
@@ -552,7 +552,7 @@ namespace BugfixesAndQoL
                 var diagnosticHumans = @humans;
                 var diagnosticHumansUnchanged = @humansUnchanged;
                 var diagnosticCandidates = @candidates;
-                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SkirmishAiSelectionMemoryHook.cs:552", () =>
+                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/SkirmishAiSelectionMemoryHook/TryCreateFilteredRandomAi.created-protected-random-opponents", () =>
                         $"Bugfixes and QoL created protected random opponents. lobby={GetLobbyKind(diagnosticSelf)}, " +
                         $"requested={diagnosticRequestedCount}, maximum={diagnosticMaximumAiCount}, removed={diagnosticRemovedCount}, added={diagnosticAddedCount}, " +
                         $"humans={diagnosticHumans.Count}, humansUnchanged={diagnosticHumansUnchanged}, " +
@@ -626,7 +626,7 @@ namespace BugfixesAndQoL
                     humanCountBefore,
                     aiCountBefore,
                     vanillaCompleted),
-                ex => Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/SkirmishAiSelectionMemoryHook.cs:627", $"Bugfixes and QoL final multiplayer AI seat cleanup failed for {source}: {ex}"));
+                ex => Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/SkirmishAiSelectionMemoryHook/InvokeWithFinalAiSeatReleased", $"Bugfixes and QoL final multiplayer AI seat cleanup failed for {source}: {ex}"));
         }
 
         private void FinalizeFinalAiSeatRelease(
@@ -662,13 +662,13 @@ namespace BugfixesAndQoL
                     $"playerCap={playerCap}, lobbyMaxPlayers={lobbyMaxPlayers}, " +
                     $"selectedMapMaxPlayers={selectedMapMaxPlayers}, added={added}.";
                 if (vanillaCompleted)
-                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SkirmishAiSelectionMemoryHook.cs:665", message);
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/SkirmishAiSelectionMemoryHook/FinalizeFinalAiSeatRelease", message);
                 else
-                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/SkirmishAiSelectionMemoryHook.cs:667", message);
+                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/SkirmishAiSelectionMemoryHook/FinalizeFinalAiSeatRelease-2", message);
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/SkirmishAiSelectionMemoryHook.cs:671", $"Bugfixes and QoL could not finalize the final multiplayer AI seat for {source}: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/SkirmishAiSelectionMemoryHook/FinalizeFinalAiSeatRelease.could-not-finalize-final", $"Bugfixes and QoL could not finalize the final multiplayer AI seat for {source}: {ex}");
             }
         }
 
@@ -757,7 +757,7 @@ namespace BugfixesAndQoL
                     }
                 },
                 null,
-                ex => Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/SkirmishAiSelectionMemoryHook.cs:762", $"Bugfixes and QoL could not restore random-opponent speech state: {ex}"));
+                ex => Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/SkirmishAiSelectionMemoryHook/RemoveExistingRandomOpponents", $"Bugfixes and QoL could not restore random-opponent speech state: {ex}"));
             return removedCount;
         }
 
@@ -813,7 +813,7 @@ namespace BugfixesAndQoL
                     currentColour != snapshot.ColourId ||
                     currentTeam != snapshot.Team)
                 {
-                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/SkirmishAiSelectionMemoryHook.cs:820", $"Bugfixes and QoL detected a changed human lobby member {phase}; " +
+                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/SkirmishAiSelectionMemoryHook/VerifyHumanMembers", $"Bugfixes and QoL detected a changed human lobby member {phase}; " +
                         $"steamId={snapshot.SteamId}, player={snapshot.PlayerId}->{currentPlayerId}, " +
                         $"colour={snapshot.ColourId}->{currentColour}, team={snapshot.Team}->{currentTeam}. " +
                         "Random-opponent processing was stopped.");
@@ -878,7 +878,7 @@ namespace BugfixesAndQoL
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/SkirmishAiSelectionMemoryHook.cs:887", $"Bugfixes and QoL could not {step}; remaining finalization steps continue: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/SkirmishAiSelectionMemoryHook/TryFinalizationStep", $"Bugfixes and QoL could not {step}; remaining finalization steps continue: {ex}");
             }
         }
 
@@ -908,13 +908,13 @@ namespace BugfixesAndQoL
                     $"members={memberCountBefore}->{memberCountAfter}, humans={humanCountBefore}->{humanCountAfter}, " +
                     $"ai={aiCountBefore}->{aiCountAfter}, {BuildCapacityDiagnostic(self)}.";
                 if (completed)
-                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SkirmishAiSelectionMemoryHook.cs:919", message);
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/SkirmishAiSelectionMemoryHook/LogRandomOpponentMutationResult", message);
                 else
-                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/SkirmishAiSelectionMemoryHook.cs:921", message);
+                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/SkirmishAiSelectionMemoryHook/LogRandomOpponentMutationResult-2", message);
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/SkirmishAiSelectionMemoryHook.cs:925", $"Bugfixes and QoL could not log random-opponent mutation finalization: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/SkirmishAiSelectionMemoryHook/LogRandomOpponentMutationResult.could-not-log-random", $"Bugfixes and QoL could not log random-opponent mutation finalization: {ex}");
             }
         }
 
@@ -988,7 +988,7 @@ namespace BugfixesAndQoL
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/SkirmishAiSelectionMemoryHook.cs:1001", $"Bugfixes and QoL AI selection save failed after ButtonClicked({param}): {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/SkirmishAiSelectionMemoryHook/AiSettingsButtonClickedHook", $"Bugfixes and QoL AI selection save failed after ButtonClicked({param}): {ex}");
             }
         }
 
@@ -1012,7 +1012,7 @@ namespace BugfixesAndQoL
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/SkirmishAiSelectionMemoryHook.cs:1027", $"Bugfixes and QoL AI selection save failed after loading a named preset: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/SkirmishAiSelectionMemoryHook/RecordSelection", $"Bugfixes and QoL AI selection save failed after loading a named preset: {ex}");
             }
         }
 
@@ -1025,7 +1025,7 @@ namespace BugfixesAndQoL
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/SkirmishAiSelectionMemoryHook.cs:1042", $"Bugfixes and QoL AI selection save failed while closing settings: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/SkirmishAiSelectionMemoryHook/SaveActiveAiSettings", $"Bugfixes and QoL AI selection save failed while closing settings: {ex}");
             }
         }
 
@@ -1068,7 +1068,7 @@ namespace BugfixesAndQoL
                 var diagnosticHadExisting = @hadExisting;
                 var diagnosticInfo = @info;
                 var diagnosticEncoded = @encoded;
-                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SkirmishAiSelectionMemoryHook.cs:1080", () =>
+                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/SkirmishAiSelectionMemoryHook/SaveAiSettings", () =>
                         $"Bugfixes and QoL saved AI AIV/AIC selection: key={diagnosticKey}, hadExisting={diagnosticHadExisting}, " +
                         $"{BuildInfoSummary(diagnosticInfo)}, encodedLength={diagnosticEncoded.Length}.");
             }
@@ -1113,13 +1113,13 @@ namespace BugfixesAndQoL
                         out _,
                         out string decodeError))
                 {
-                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/SkirmishAiSelectionMemoryHook.cs:1121", $"Bugfixes and QoL ignored invalid stored AI selection for {key}: {decodeError}");
+                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/SkirmishAiSelectionMemoryHook/ApplyStoredSelectionsToNewAiSlots.ignored-invalid-stored-ai", $"Bugfixes and QoL ignored invalid stored AI selection for {key}: {decodeError}");
                     continue;
                 }
                 string decodedKey = AiAivSelectionCodec.BuildLordKey(decoded);
                 if (!string.Equals(decodedKey, key, StringComparison.OrdinalIgnoreCase))
                 {
-                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/SkirmishAiSelectionMemoryHook.cs:1129", $"Bugfixes and QoL ignored stored AI selection for {key}: decoded lord is {decodedKey}.");
+                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/SkirmishAiSelectionMemoryHook/ApplyStoredSelectionsToNewAiSlots.ignored-stored-ai-selection", $"Bugfixes and QoL ignored stored AI selection for {key}: decoded lord is {decodedKey}.");
                     continue;
                 }
 
@@ -1151,7 +1151,7 @@ namespace BugfixesAndQoL
                 if ((result.MissingAivs > 0 || result.MissingAic || result.UsedBuiltInFallback) &&
                     missingAssetLogGate.TryReserve("remembered-ai-missing-assets", 30, out long suppressed))
                 {
-                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/SkirmishAiSelectionMemoryHook.cs:1162", $"Bugfixes and QoL restored AI selection for {key} with missing current files: " +
+                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/SkirmishAiSelectionMemoryHook/ApplyStoredSelectionsToNewAiSlots.restored-ai-selection-missing", $"Bugfixes and QoL restored AI selection for {key} with missing current files: " +
                         $"missingAivs={result.MissingAivs}, missingAic={result.MissingAic}, " +
                         $"references=[{DescribeMissingAsset(result.MissingAiv1)}; {DescribeMissingAsset(result.MissingAiv2)}; " +
                         $"{DescribeMissingAsset(result.MissingAiv3)}; {DescribeMissingAsset(result.MissingAiv4)}], " +
@@ -1169,7 +1169,7 @@ namespace BugfixesAndQoL
                     var diagnosticPlayerId = @playerId;
                     var diagnosticResult = @result;
                     var diagnosticTarget = @target;
-                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SkirmishAiSelectionMemoryHook.cs:1175", () =>
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/SkirmishAiSelectionMemoryHook/ApplyStoredSelectionsToNewAiSlots.restored-shared-ai-aiv", () =>
                             $"Bugfixes and QoL restored shared AI AIV/AIC selection: reason={diagnosticReason}, key={diagnosticKeyValue}, " +
                             $"player={diagnosticPlayerId}, loadedAivs={diagnosticResult.LoadedAivs}, {BuildInfoSummary(diagnosticTarget)}.");
                 }
@@ -1299,7 +1299,7 @@ namespace BugfixesAndQoL
             if (!File.Exists(storePath))
             {
                 if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SkirmishAiSelectionMemoryHook.cs:1296", () => $"Bugfixes and QoL shared AI AIV/AIC selection file not found: {storePath}");
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/SkirmishAiSelectionMemoryHook/LoadStore.shared-ai-aiv-aic", () => $"Bugfixes and QoL shared AI AIV/AIC selection file not found: {storePath}");
                 return;
             }
 
@@ -1308,7 +1308,7 @@ namespace BugfixesAndQoL
                 FileInfo fileInfo = new FileInfo(storePath);
                 if (fileInfo.Length > MaxStoreFileBytes)
                 {
-                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/SkirmishAiSelectionMemoryHook.cs:1307", $"Bugfixes and QoL ignored oversized AI selection store: path={storePath}, " +
+                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/SkirmishAiSelectionMemoryHook/LoadStore.ignored-oversized-ai-selection", $"Bugfixes and QoL ignored oversized AI selection store: path={storePath}, " +
                         $"size={fileInfo.Length}, maximum={MaxStoreFileBytes}.");
                     storeUnreadable = true;
                     return;
@@ -1324,13 +1324,13 @@ namespace BugfixesAndQoL
                             out bool legacyPayload,
                             out string decodeError))
                     {
-                        Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/SkirmishAiSelectionMemoryHook.cs:1324", $"Bugfixes and QoL ignored invalid AI selection entry for {entry.Key}: {decodeError}");
+                        Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/SkirmishAiSelectionMemoryHook/LoadStore.ignored-invalid-ai-selection", $"Bugfixes and QoL ignored invalid AI selection entry for {entry.Key}: {decodeError}");
                         continue;
                     }
                     string decodedKey = AiAivSelectionCodec.BuildLordKey(snapshot);
                     if (!string.Equals(decodedKey, entry.Key, StringComparison.OrdinalIgnoreCase))
                     {
-                        Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/SkirmishAiSelectionMemoryHook.cs:1332", $"Bugfixes and QoL ignored stored AI selection for {entry.Key}: decoded lord is {decodedKey}.");
+                        Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/SkirmishAiSelectionMemoryHook/LoadStore.ignored-stored-ai-selection", $"Bugfixes and QoL ignored stored AI selection for {entry.Key}: decoded lord is {decodedKey}.");
                         continue;
                     }
 
@@ -1343,18 +1343,18 @@ namespace BugfixesAndQoL
                 if (migratedStore)
                 {
                     SaveStore();
-                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SkirmishAiSelectionMemoryHook.cs:1347", () => "Bugfixes and QoL migrated AI AIV/AIC selection memory to file references.");
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/SkirmishAiSelectionMemoryHook/LoadStore.migrated-ai-aiv-aic", () => "Bugfixes and QoL migrated AI AIV/AIC selection memory to file references.");
                 }
 
                 if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SkirmishAiSelectionMemoryHook.cs:1352", () =>
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/SkirmishAiSelectionMemoryHook/LoadStore.loaded-shared-ai-aiv", () =>
                             $"Bugfixes and QoL loaded {storedSelections.Count} shared AI AIV/AIC selections from {storePath}.");
             }
             catch (Exception ex)
             {
                 storedSelections.Clear();
                 storeUnreadable = true;
-                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/SkirmishAiSelectionMemoryHook.cs:1359", $"Bugfixes and QoL could not load AI selection store from {storePath}: {ex.Message}");
+                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/SkirmishAiSelectionMemoryHook/LoadStore.could-not-load-ai", $"Bugfixes and QoL could not load AI selection store from {storePath}: {ex.Message}");
             }
         }
 
@@ -1368,7 +1368,7 @@ namespace BugfixesAndQoL
                     string backupPath = storePath + ".unreadable-" +
                         DateTime.Now.ToString("yyyyMMdd-HHmmss-fff", System.Globalization.CultureInfo.InvariantCulture) + ".bak";
                     File.Copy(storePath, backupPath, overwrite: false);
-                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/SkirmishAiSelectionMemoryHook.cs:1385", $"Bugfixes and QoL kept the unreadable AI selection store as {backupPath} before writing a new one.");
+                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/SkirmishAiSelectionMemoryHook/SaveStore.kept-unreadable-ai-selection", $"Bugfixes and QoL kept the unreadable AI selection store as {backupPath} before writing a new one.");
                 }
                 storeUnreadable = false;
                 // Write a complete temporary file first, so a crash during saving cannot
@@ -1385,7 +1385,7 @@ namespace BugfixesAndQoL
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/SkirmishAiSelectionMemoryHook.cs:1377", $"Bugfixes and QoL could not save AI selection store to {storePath}: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/SkirmishAiSelectionMemoryHook/SaveStore.could-not-save-ai", $"Bugfixes and QoL could not save AI selection store to {storePath}: {ex}");
             }
         }
 

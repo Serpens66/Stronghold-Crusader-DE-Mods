@@ -73,7 +73,7 @@ namespace BugfixesAndQoL
             Version extenderVersion = typeof(GameAIVManagerAPI).Assembly.GetName().Version;
             if (workaroundActive)
             {
-                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/AiStoneReserveFix.cs:76", $"{ShcdeSeCoarseGridBufferWorkaround.Marker}: compatibility workaround active; " +
+                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/AiStoneReserveFix/Constructor.compatibility-workaround-active", $"{ShcdeSeCoarseGridBufferWorkaround.Marker}: compatibility workaround active; " +
                     $"SHCDE-SE {extenderVersion} could not initialize GameAIVManagerAPI. " +
                     $"The official API will be selected automatically after the Extender is fixed. " +
                     $"Detected failure: {knownScriptExtenderFailure.Message}");
@@ -81,7 +81,7 @@ namespace BugfixesAndQoL
             else
             {
                 if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/AiStoneReserveFix.cs:85", $"AI stone-reserve AIV backend: official SHCDE-SE {extenderVersion} API; " +
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/AiStoneReserveFix/Constructor.ai-stone-reserve-aiv", $"AI stone-reserve AIV backend: official SHCDE-SE {extenderVersion} API; " +
                         $"{ShcdeSeCoarseGridBufferWorkaround.Marker} workaround inactive.");
             }
 
@@ -126,7 +126,7 @@ namespace BugfixesAndQoL
                         $"nativeHookActive={reserveHook.IsInstalled}, enabled={IsEnabled}.");
                 if (!referenceHashMatches)
                 {
-                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/AiStoneReserveFix.cs:131", "Bugfixes and QoL AI stone-reserve fix is running on an unknown CrusaderDE.dll because the seller, AIV layout, first-build lifecycle, and typed Script Extender views were validated.");
+                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/AiStoneReserveFix/Constructor.ai-stone-reserve-fix", "Bugfixes and QoL AI stone-reserve fix is running on an unknown CrusaderDE.dll because the seller, AIV layout, first-build lifecycle, and typed Script Extender views were validated.");
                 }
             }
             catch
@@ -163,7 +163,7 @@ namespace BugfixesAndQoL
                 {
                     correctionAvailable = false;
                     logicallyEnabled = false;
-                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/AiStoneReserveFix.cs:170", "Bugfixes and QoL AI stone-reserve fix was disabled because its permanent native hook is no longer installed.");
+                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/AiStoneReserveFix/ApplySetting", "Bugfixes and QoL AI stone-reserve fix was disabled because its permanent native hook is no longer installed.");
                     return;
                 }
 
@@ -258,14 +258,14 @@ namespace BugfixesAndQoL
                     {
                         firstCalculationLogged = true;
                         if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/AiStoneReserveFix.cs:266", $"AI stone-reserve first live calculation succeeded: player={playerId}, " +
+                            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/AiStoneReserveFix/RefreshStoneBuildingReserve.live-calculation-succeeded-player", $"AI stone-reserve first live calculation succeeded: player={playerId}, " +
                                 $"slot={villageSlot}, maximumBuildStep={maximumBuildStep}, reserve={reserve}.");
                     }
                     if (reserve > 0 && !firstPositiveReserveLogged)
                     {
                         firstPositiveReserveLogged = true;
                         if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/AiStoneReserveFix.cs:274", $"AI stone-reserve first positive first-build buffer observed: " +
+                            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/AiStoneReserveFix/RefreshStoneBuildingReserve.positive-first-build-buffer", $"AI stone-reserve first positive first-build buffer observed: " +
                                 $"player={playerId}, reserve={reserve}.");
                     }
                 }
@@ -312,7 +312,7 @@ namespace BugfixesAndQoL
 
             correctionAvailable = false;
             logicallyEnabled = false;
-            Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/AiStoneReserveFix.cs:323", $"Bugfixes and QoL AI stone-reserve fix disabled logically for this process; " +
+            Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/AiStoneReserveFix/DisableCorrectionToVanilla", $"Bugfixes and QoL AI stone-reserve fix disabled logically for this process; " +
                 $"the permanent native hook remains installed and its callback is now a no-op: {ex}");
         }
 

@@ -7,8 +7,6 @@ namespace ExtraFeatures
     {
         internal const string ReferenceSha256 =
             "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2";
-        internal const string AuditedScriptExtenderCommit =
-            "5d5719c1002aec043d331162d72b2e7f3111b34b";
         internal const ulong PreferredImageBase = 0x180000000;
 
         internal const int DamageFunctionRva = 0x180560;

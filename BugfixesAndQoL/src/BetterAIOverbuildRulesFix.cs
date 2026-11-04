@@ -159,7 +159,7 @@ namespace BugfixesAndQoL
                 !narrowBlockerProtectionHook.IsInstalled)
             {
                 logicallyEnabled = false;
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/BetterAIOverbuildRulesFix.cs:162", "Better AI overbuild rules were disabled because a permanent native hook is no longer installed.");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/BetterAIOverbuildRulesFix/ApplySetting", "Better AI overbuild rules were disabled because a permanent native hook is no longer installed.");
                 return;
             }
 
@@ -506,7 +506,7 @@ namespace BugfixesAndQoL
             if (callbackFailureLogged)
                 return;
             callbackFailureLogged = true;
-            Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/BetterAIOverbuildRulesFix.cs:512", $"Better AI overbuild rules failed during {operation}; the affected call remains Vanilla: {ex}");
+            Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/BetterAIOverbuildRulesFix/LogCallbackFailure", $"Better AI overbuild rules failed during {operation}; the affected call remains Vanilla: {ex}");
         }
 
     }

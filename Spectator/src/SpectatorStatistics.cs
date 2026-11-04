@@ -139,7 +139,7 @@ namespace Spectator
             EngineInterface.MPScoreData snapshot = EngineInterface.GetMPScoreData();
             if (!ValidateStatisticsSnapshot(snapshot))
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "Spectator/src/SpectatorStatistics.cs:1078", "Spectator rejected an invalid spectator-statistics snapshot.");
+                Shared.DebugLogHelper.LogErrorLimited(log, "Spectator/SpectatorStatistics/TryOpenStatisticsPreview.rejected-invalid-statistics-snapshot", "Spectator rejected an invalid spectator-statistics snapshot.");
                 return false;
             }
 
@@ -152,7 +152,7 @@ namespace Spectator
             if (view == null)
             {
                 viewModel.Show_HUD_MissionOver = false;
-                Shared.DebugLogHelper.LogErrorLimited(log, "Spectator/src/SpectatorStatistics.cs:1091", "Spectator could not resolve exactly one visible in-game statistics view.");
+                Shared.DebugLogHelper.LogErrorLimited(log, "Spectator/SpectatorStatistics/TryOpenStatisticsPreview.could-not-resolve-exactly", "Spectator could not resolve exactly one visible in-game statistics view.");
                 return false;
             }
 
@@ -166,7 +166,7 @@ namespace Spectator
             if (!preview.Acquire(view)) return false;
             SpectatorRuntime.InvalidateToolbar();
             controls?.Refresh();
-            Shared.DebugLogHelper.LogDebugLimited(log, "Spectator/src/SpectatorStatistics.cs:1105", "Opened spectator statistics from the current local simulation snapshot without entering Vanilla game over.");
+            Shared.DebugLogHelper.LogDebugLimited(log, "Spectator/SpectatorStatistics/TryOpenStatisticsPreview.opened-statistics-current-local", "Opened spectator statistics from the current local simulation snapshot without entering Vanilla game over.");
             return true;
         }
 
@@ -185,7 +185,7 @@ namespace Spectator
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "Spectator/src/SpectatorStatistics.cs:1124", $"Spectator could not apply the spectator-statistics snapshot: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "Spectator/SpectatorStatistics/TryApplyStatisticsSnapshot.apply-statistics-snapshot", $"Spectator could not apply the spectator-statistics snapshot: {ex}");
                 if (!initializeView && ValidateStatisticsSnapshot(previousSnapshot))
                 {
                     try
@@ -194,7 +194,7 @@ namespace Spectator
                     }
                     catch (Exception rollbackEx)
                     {
-                        Shared.DebugLogHelper.LogErrorLimited(log, "Spectator/src/SpectatorStatistics.cs:1133", $"Spectator could not restore the previous spectator-statistics snapshot: {rollbackEx}");
+                        Shared.DebugLogHelper.LogErrorLimited(log, "Spectator/SpectatorStatistics/TryApplyStatisticsSnapshot.restore-previous-statistics-snapshot", $"Spectator could not restore the previous spectator-statistics snapshot: {rollbackEx}");
                     }
                 }
                 return false;
@@ -276,7 +276,7 @@ namespace Spectator
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "Spectator/src/SpectatorStatistics.cs:1414", $"Spectator spectator-statistics video cleanup failed: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "Spectator/SpectatorStatistics/CloseStatisticsPreview.statistics-video-cleanup-failed", $"Spectator spectator-statistics video cleanup failed: {ex}");
             }
 
             MainViewModel viewModel = MainViewModel.viewModelLoaded ? MainViewModel.Instance : null;
@@ -287,7 +287,7 @@ namespace Spectator
                 viewModel.Show_HUD_MissionOver = false;
             }
 
-            Shared.DebugLogHelper.LogDebugLimited(log, "Spectator/src/SpectatorStatistics.cs:1425", $"Closed spectator statistics preview: reason={reason}.");
+            Shared.DebugLogHelper.LogDebugLimited(log, "Spectator/SpectatorStatistics/CloseStatisticsPreview.closed-statistics-preview-reason", $"Closed spectator statistics preview: reason={reason}.");
         }
 
         private static bool ValidateStatisticsSnapshot(EngineInterface.MPScoreData snapshot)

@@ -17,7 +17,9 @@ using System.Collections.Generic;
 
 namespace ExtraFeatures
 {
-    public sealed partial class ExtraFeaturesRuntime : IDisposable
+    // Process-lifetime: rooted by CrusaderLibrary.LibraryLoaded and its subscriptions. Native hooks
+    // stay installed until process exit and are only switched logically.
+    public sealed partial class ExtraFeaturesRuntime
     {
         private static readonly int GoodsCount = (int)eGoods.Count;
         // Guard windows are measured in simulation ticks, not wall-clock time, so every
@@ -47,6 +49,10 @@ namespace ExtraFeatures
         private readonly List<IDisposable> lifecycleSubscriptions = new List<IDisposable>();
         private bool missionLifecycleSubscribed;
         // Keys pack (player, good) without allocation; see ResourceEventKey.
+        // Guards the resource-event state below and pendingStockpileRefund: the simulation's
+        // building and market hooks use it while settings and lifecycle callbacks clear it.
+        // Re-entrant on purpose: adding goods raises OnGoodsyardAddGood on the same thread.
+        private readonly object resourceGuardSync = new object();
         private readonly HashSet<long> resourceAddReentryGuards = new HashSet<long>();
         private readonly Dictionary<long, ResourceEventCountGuard> marketBuyResourceGuards = new Dictionary<long, ResourceEventCountGuard>();
         private readonly Dictionary<long, ResourceEventCountGuard> refundResourceGuards = new Dictionary<long, ResourceEventCountGuard>();
@@ -75,13 +81,13 @@ namespace ExtraFeatures
         private PlagueDurationPatch plagueDurationPatch;
         private PlagueApothecarySearchRangePatch plagueApothecarySearchRangePatch;
         private IntPtr libraryHandle;
-        private int libraryLength;
         private ScanRegion nativeRegion;
         private bool nativeLibraryAvailable;
         private bool fixedLayoutHashValidated;
         private bool monkAlwaysRunPatchUnavailable;
         private bool hooksSubscribed;
-        private bool settingsSubscribed;
+        // Set by every session start, enabled or not; cleared with the map session.
+        private volatile bool sessionStarted;
         private bool plagueDurationPatchUnavailable;
         private bool plagueApothecarySearchRangePatchUnavailable;
         private bool mapActive;
@@ -105,7 +111,6 @@ namespace ExtraFeatures
             elevatedMoatRuntime = new ElevatedMoatRuntime(log);
             noKillRewardHook = new NoKillRewardHook(log);
             settings.SettingChanged += OnSettingChanged;
-            settingsSubscribed = true;
         }
 
         public object KnightDismountButton => knightDismountRuntime.ButtonViewModel;
@@ -177,7 +182,7 @@ namespace ExtraFeatures
                 lifecycleSubscriptions.Add(Shared.MissionEvents.Ended.Subscribe(OnUnloadMap));
                 lifecycleSubscriptions.Add(Shared.MissionEvents.Initialization
                     .Where(e => e.Phase == APIShared.MissionInitializationPhase.NativeLoaded)
-                    .Subscribe(_ => { ClearResourceEventGuards(); pendingStockpileRefund = null; }));
+                    .Subscribe(_ => ClearResourceEventGuards()));
             }
             catch (Exception ex)
             {
@@ -197,7 +202,6 @@ namespace ExtraFeatures
                 throw new ArgumentException("The Crusader library is unavailable.");
 
             libraryHandle = newLibraryHandle;
-            libraryLength = memory.Length;
             nativeRegion = context.Region;
             fixedLayoutHashValidated = isFixedLayoutHashValidated;
             nativeLibraryAvailable = true;
@@ -235,7 +239,7 @@ namespace ExtraFeatures
 
             // Settings may be restored before LibraryLoaded. Retry activation now that the native
             // library is available instead of waiting for a later setting change.
-            ReconcileFixedLayoutFeatures();
+            ReconcileKnightAndElevatedMoat();
         }
 
         public void ApplySettings()
@@ -290,39 +294,6 @@ namespace ExtraFeatures
             }
         }
 
-        public void Dispose()
-        {
-            Shared.GameplayModActivationGate.StateChanged -= OnModeStateChanged;
-            RestoreCampfirePeasantsCap();
-            UnsubscribeHooks();
-            aiMarketVanillaPriceHook?.Dispose();
-            aiMarketVanillaPriceHook = null;
-            monkAlwaysRunPatch?.Dispose();
-            monkAlwaysRunPatch = null;
-            plagueDurationPatch?.Dispose();
-            plagueDurationPatch = null;
-            TryRunFeature("apothecary plague-search restoration", () =>
-                plagueApothecarySearchRangePatch?.SetEffectiveMaximum(
-                    false,
-                    PlagueApothecarySearchRangePatch.VanillaMaximumDistance));
-            knightDismountRuntime.Dispose();
-            gatehouseAutomationRuntime.Dispose();
-            aiDefenseRepairRuntime.Dispose();
-            marketTradeGuardBridge.Dispose();
-            lordHealthRuntime.Dispose();
-            elevatedMoatRuntime.Deactivate();
-            nativeLibraryAvailable = false;
-            libraryHandle = IntPtr.Zero;
-            libraryLength = 0;
-            nativeRegion = null;
-
-            if (settingsSubscribed)
-            {
-                settings.SettingChanged -= OnSettingChanged;
-                settingsSubscribed = false;
-            }
-        }
-
         private void SubscribeHooks()
         {
             if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) || hooksSubscribed)
@@ -340,7 +311,7 @@ namespace ExtraFeatures
                 BuildingR3EventHooks.OnBuildingSpawn.Observable.Subscribe(churchPriestCountRuntime.ApplySpawnedBuilding));
             TryRunFeature("Lord health tick", ReconcileLordHealthRuntime);
             hooksSubscribed = true;
-            ReconcileFixedLayoutFeatures();
+            ReconcileKnightAndElevatedMoat();
             Shared.DebugLogHelper.LogDebug(log, "Extra Features feature hooks reconciled.");
         }
 
@@ -349,10 +320,9 @@ namespace ExtraFeatures
             foreach (IDisposable subscription in subscriptions)
                 TryRunFeature("event subscription cleanup", subscription.Dispose);
             subscriptions.Clear();
-            TryRunFeature("knight mount/dismount cleanup", knightDismountRuntime.Dispose);
+            TryRunFeature("knight mount/dismount cleanup", knightDismountRuntime.Deactivate);
             TryRunFeature("Lord health cleanup", lordHealthRuntime.ResetMapState);
             ClearResourceEventGuards();
-            pendingStockpileRefund = null;
             hooksSubscribed = false;
         }
 
@@ -387,13 +357,13 @@ namespace ExtraFeatures
             Shared.DebugLogHelper.LogErrorLimited(log, "ExtraFeatures/src/ExtraFeaturesRuntime.cs:336", $"Extra Features feature '{featureName}' failed and remains inactive: {ex}");
         }
 
-        private void ReconcileFixedLayoutFeatures()
+        private void ReconcileKnightAndElevatedMoat()
         {
             ReconcileElevatedMoatRuntime();
 
             if (!nativeLibraryAvailable || !Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod))
             {
-                TryRunFeature("knight mount/dismount cleanup", knightDismountRuntime.Dispose);
+                TryRunFeature("knight mount/dismount cleanup", knightDismountRuntime.Deactivate);
                 return;
             }
 
@@ -402,7 +372,7 @@ namespace ExtraFeatures
             if (settings.EnableKnightDismount)
                 TryRunFeature("knight mount/dismount", knightDismountRuntime.Initialize);
             else
-                TryRunFeature("knight mount/dismount cleanup", knightDismountRuntime.Dispose);
+                TryRunFeature("knight mount/dismount cleanup", knightDismountRuntime.Deactivate);
 
         }
 
@@ -518,6 +488,8 @@ namespace ExtraFeatures
                 }
                 else
                 {
+                    // Restores Vanilla's distance 30, as ApplySettings does when the mod is disabled.
+                    ApplyPlagueApothecarySearchRangeSetting();
                     TryRunFeature("enemy proximity restoration", ReconcileAIDefenseRepairRuntime);
                     TryRunFeature("gatehouse automation", gatehouseAutomationRuntime.ApplySettings);
                     TryRunFeature("Vanilla value restoration", RestoreDefaultSettings);
@@ -554,7 +526,7 @@ namespace ExtraFeatures
 
             if (propertyName == nameof(ExtraFeaturesViewModel.EnableKnightDismount))
             {
-                ReconcileFixedLayoutFeatures();
+                ReconcileKnightAndElevatedMoat();
                 TryRunFeature("knight mount/dismount visibility", knightDismountRuntime.RefreshButtonVisibility);
                 return;
             }
@@ -624,10 +596,10 @@ namespace ExtraFeatures
         {
             settings.SetKillRewardMissionLocked(false);
             mapActive = false;
+            sessionStarted = false;
             aiMarketVanillaPriceHook?.SetSessionOverride(false);
             lordHealthRuntime.ResetMapState();
             ClearResourceEventGuards();
-            pendingStockpileRefund = null;
             multiplayerFeatureGate.Reset();
             gatehouseAutomationRuntime.EndMap();
         }
@@ -665,15 +637,10 @@ namespace ExtraFeatures
                     memory,
                     fixedLayoutHashValidated);
                 ApplyMonkAlwaysRunSetting();
-                if (!fixedLayoutHashValidated)
-                {
-                    Shared.DebugLogHelper.LogWarningLimited(log, "ExtraFeatures/src/ExtraFeaturesRuntime.cs:609", "Extra Features Monks Always Run is operating on an unknown " +
-                        "CrusaderDE.dll after its signature, hook span, branch targets, and movement semantics were validated.");
-                }
             }
             catch (Exception ex)
             {
-                try { monkAlwaysRunPatch?.Dispose(); } catch { }
+                try { monkAlwaysRunPatch?.Deactivate(); } catch { }
                 monkAlwaysRunPatch = null;
                 monkAlwaysRunPatchUnavailable = true;
                 Shared.DebugLogHelper.LogErrorLimited(log, "ExtraFeatures/src/ExtraFeaturesRuntime.cs:620", "Extra Features Monks Always Run is disabled for this process; " +
@@ -696,6 +663,7 @@ namespace ExtraFeatures
 
         private void OnSessionStarted(Shared.GameplaySessionStartedContext context)
         {
+            sessionStarted = true;
             settings.SetKillRewardMissionLocked(true);
             // The subscription is process-permanent; only enabled sessions are initialized,
             // exactly as when it was part of the toggled feature subscriptions.
@@ -703,10 +671,7 @@ namespace ExtraFeatures
                 return;
 
             TryRunFeature("fear-factor army report", () => fearFactorRuntime?.TryAttachArmyReportViewModel());
-            bool multiplayerSave = context.IsLoadedSave
-                ? context.Mode.IsRealMultiplayer
-                : context.Notification != null && context.Notification.Context.IsSave && context.Mode.IsRealMultiplayer;
-            multiplayerFeatureGate.CaptureMapMode(multiplayerSave);
+            multiplayerFeatureGate.CaptureMapMode();
 
             ApplyMapLoadedSettings(context.IsEditor);
 
@@ -763,11 +728,6 @@ namespace ExtraFeatures
                     memory,
                     fixedLayoutHashValidated);
                 ApplyPlagueApothecarySearchRangeSetting();
-                if (!fixedLayoutHashValidated)
-                {
-                    Shared.DebugLogHelper.LogWarningLimited(log, "ExtraFeatures/src/ExtraFeaturesRuntime.cs:708", "Extra Features apothecary plague-search range is running on an unknown " +
-                        "CrusaderDE.dll because its native instruction signature was validated.");
-                }
             }
             catch (Exception ex)
             {
@@ -838,7 +798,7 @@ namespace ExtraFeatures
             {
                 try
                 {
-                    plagueDurationPatch.Dispose();
+                    plagueDurationPatch.Deactivate();
                 }
                 catch (Exception ex)
                 {
@@ -888,7 +848,7 @@ namespace ExtraFeatures
                 !settings.MarketPricesAlsoForAI);
         }
 
-        private unsafe ReadOnlySpan<byte> GetNativeLibraryMemory()
+        private ReadOnlySpan<byte> GetNativeLibraryMemory()
         {
             // The game DLL stays loaded for the process lifetime.
             return nativeRegion == null ? ReadOnlySpan<byte>.Empty : nativeRegion.Span;
@@ -929,26 +889,10 @@ namespace ExtraFeatures
             Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/ExtraFeaturesRuntime.cs:879", "Extra Features applied campfire peasants limit:", value);
         }
 
-        private bool IsMapActive()
-        {
-            if (mapActive)
-                return true;
-
-            try
-            {
-                if (!string.IsNullOrEmpty(GamePlayerManagerAPI.Instance.GetCurrentMapName()))
-                {
-                    mapActive = true;
-                    return true;
-                }
-            }
-            catch (Exception ex)
-            {
-                Shared.DebugLogHelper.LogErrorLimited(log, "ExtraFeatures/src/ExtraFeaturesRuntime.cs:897", "Extra Features could not determine active map state:", ex);
-            }
-
-            return false;
-        }
+        // sessionStarted also covers a session that started while the mod was disabled and is
+        // enabled later. It replaces a map-name probe that could latch a previous map's name
+        // during the next map's initialization.
+        private bool IsMapActive() => mapActive || sessionStarted;
 
         private void RestoreCampfirePeasantsCap()
         {
@@ -966,17 +910,20 @@ namespace ExtraFeatures
 
         private void ClearResourceEventGuards()
         {
-            activeRefundGuardKeys.Clear();
-            resourceAddReentryGuards.Clear();
-            marketBuyResourceGuards.Clear();
-            refundResourceGuards.Clear();
+            lock (resourceGuardSync)
+            {
+                activeRefundGuardKeys.Clear();
+                resourceAddReentryGuards.Clear();
+                marketBuyResourceGuards.Clear();
+                refundResourceGuards.Clear();
+                pendingStockpileRefund = null;
+            }
         }
 
         private sealed class PendingStockpileRefund
         {
             public int PlayerId;
             public int Owner;
-            public int RefundBuildingId;
             public int? CreatedTick;
             public int PartsRemaining;
             public HashSet<int> ProcessedBuildingIds = new HashSet<int>();

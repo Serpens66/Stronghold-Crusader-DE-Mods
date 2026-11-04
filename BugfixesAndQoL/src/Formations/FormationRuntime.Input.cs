@@ -151,7 +151,7 @@ namespace BugfixesAndQoL.UnitCommands
                     return;
                 ClearPreview();
                 if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/Formations/FormationRuntime.Input.cs:145", $"FORMATION_RELEASE_EVENT: button={state.CommandButton}, " +
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/FormationRuntime.Input/OnKeyUp", $"FORMATION_RELEASE_EVENT: button={state.CommandButton}, " +
                         $"thread={Environment.CurrentManagedThreadId}; awaiting native release.");
             }
             catch (Exception exception)

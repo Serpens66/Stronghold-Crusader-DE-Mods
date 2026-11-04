@@ -13,6 +13,12 @@ namespace Spectator
 
         internal static bool CanExecute(TestActionKind kind, bool actorAvailable, bool targetAvailable)
         { return actorAvailable && (kind == TestActionKind.Cancel || targetAvailable); }
+
+        internal static string AvailabilityReason(bool actor, bool playerAvailable, bool backend, bool target, bool enemy)
+        {
+            if (!actor) return playerAvailable ? "AiPlayerRequired" : "InvalidTarget";
+            return !backend ? "NativeUnavailable" : !target ? "SelectTarget" : !enemy ? "EnemyRequired" : "";
+        }
     }
 
     internal static class ToolPolicy

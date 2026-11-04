@@ -69,7 +69,7 @@ namespace ExtendedData
                 OnMapUnloaded);
             if (!registered)
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/ExtendedDataLaunchOriginApi.cs:71", "Could not register persistent Custom Trail launch-origin data; restored saves will fail closed.");
+                Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/ExtendedDataLaunchOriginApi/Initialize", "Could not register persistent Custom Trail launch-origin data; restored saves will fail closed.");
             }
         }
 
@@ -260,7 +260,7 @@ namespace ExtendedData
                 LaunchOriginSaveData data = MessagePackSerializer.Deserialize<LaunchOriginSaveData>(bytes);
                 if (!IsValid(data))
                 {
-                    Shared.DebugLogHelper.LogWarningLimited(log, "ExtendedData/src/ExtendedDataLaunchOriginApi.cs:219", "Ignored invalid Custom Trail launch-origin save data.");
+                    Shared.DebugLogHelper.LogWarningLimited(log, "ExtendedData/ExtendedDataLaunchOriginApi/LoadState.invalid-custom-trail-launch", "Ignored invalid Custom Trail launch-origin save data.");
                     return;
                 }
                 Set((ExtendedDataLaunchOriginKind)data.Origin,
@@ -273,7 +273,7 @@ namespace ExtendedData
             catch (Exception exception)
             {
                 Clear();
-                Shared.DebugLogHelper.LogWarningLimited(log, "ExtendedData/src/ExtendedDataLaunchOriginApi.cs:234", "Ignored unreadable Custom Trail launch-origin save data: " + exception.Message);
+                Shared.DebugLogHelper.LogWarningLimited(log, "ExtendedData/ExtendedDataLaunchOriginApi/LoadState.unreadable-custom-trail-launch", "Ignored unreadable Custom Trail launch-origin save data: " + exception.Message);
             }
         }
 

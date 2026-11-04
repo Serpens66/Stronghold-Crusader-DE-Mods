@@ -18,14 +18,17 @@ namespace ExtraFeatures
         public int PeriodicGoldHuman
         {
             get => periodicGoldHuman;
-            set { if (!periodicGoldMissionLocked) SetIntSetting(ref periodicGoldHuman, value, int.MinValue, int.MaxValue, nameof(PeriodicGoldHuman), nameof(PeriodicGoldHumanValueText)); }
+            set { if (CanChangePeriodicGold) SetIntSetting(ref periodicGoldHuman, value, int.MinValue, int.MaxValue, nameof(PeriodicGoldHuman), nameof(PeriodicGoldHumanValueText)); }
         }
         [SyncHostOnly]
         public int PeriodicGoldAI
         {
             get => periodicGoldAI;
-            set { if (!periodicGoldMissionLocked) SetIntSetting(ref periodicGoldAI, value, int.MinValue, int.MaxValue, nameof(PeriodicGoldAI), nameof(PeriodicGoldAIValueText)); }
+            set { if (CanChangePeriodicGold) SetIntSetting(ref periodicGoldAI, value, int.MinValue, int.MaxValue, nameof(PeriodicGoldAI), nameof(PeriodicGoldAIValueText)); }
         }
+        // Settings snapshots (host sync, mission presets) must still apply while a mission runs;
+        // PeriodicGoldRuntime keeps the amounts it captured at mission start.
+        private bool CanChangePeriodicGold => !periodicGoldMissionLocked || IsApplyingSettingsSnapshot;
         public string PeriodicGoldHumanValueText
         {
             get => PeriodicGoldHuman.ToString(CultureInfo.InvariantCulture);

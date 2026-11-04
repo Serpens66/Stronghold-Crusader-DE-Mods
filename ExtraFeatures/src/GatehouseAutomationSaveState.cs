@@ -95,6 +95,12 @@ namespace ExtraFeatures
     [MessagePackFormatter(typeof(GatehouseMapLocatorFormatter))]
     internal sealed class GatehouseMapLocator
     {
+        // Literals on purpose: _inspect/HostClientPresetTests compiles this file against a
+        // Script Extender stub. Values of GamePlayerManagerAPI.MAX_PLAYERS and
+        // GameTileManagerAPI.MAX_WIDTH / MAX_HEIGHT.
+        private const int MaximumPlayerId = 8;
+        private const int MapAxisTiles = 800;
+
         [Key(0)] public int OwnerPlayerId;
         [Key(1)] public int BuildingType;
         [Key(2)] public int TileXBegin;
@@ -103,9 +109,9 @@ namespace ExtraFeatures
         [Key(5)] public int AccessTileY;
 
         internal bool HasValidShape =>
-            OwnerPlayerId >= 1 && OwnerPlayerId <= 8 && BuildingType > 0 &&
+            OwnerPlayerId >= 1 && OwnerPlayerId <= MaximumPlayerId && BuildingType > 0 &&
             TileXBegin >= 0 && TileYBegin >= 0 &&
-            AccessTileX >= 0 && AccessTileX < 800 && AccessTileY >= 0 && AccessTileY < 800;
+            AccessTileX >= 0 && AccessTileX < MapAxisTiles && AccessTileY >= 0 && AccessTileY < MapAxisTiles;
 
         internal string IdentityKey =>
             $"{OwnerPlayerId}:{BuildingType}:origin={TileXBegin},{TileYBegin}:access={AccessTileX},{AccessTileY}";

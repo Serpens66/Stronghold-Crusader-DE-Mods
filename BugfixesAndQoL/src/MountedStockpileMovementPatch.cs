@@ -201,7 +201,7 @@ namespace BugfixesAndQoL
         internal void SetEnabled(bool value)
         {
             Volatile.Write(ref enabled, value ? 1 : 0);
-            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/MountedStockpileMovementPatch.cs:203", value
+            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/MountedStockpileMovementPatch/SetEnabled", value
                     ? "Bugfixes and QoL mounted-stockpile movement hooks enabled logically."
                     : "Bugfixes and QoL mounted-stockpile movement hooks disabled logically.");
         }
@@ -256,7 +256,7 @@ namespace BugfixesAndQoL
                 if (!classificationCallbackFailureLogged)
                 {
                     classificationCallbackFailureLogged = true;
-                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/MountedStockpileMovementPatch.cs:260", $"Mounted-stockpile classification callback failed closed; Vanilla result is retained: {ex}");
+                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/MountedStockpileMovementPatch/CorrectMountedClassification", $"Mounted-stockpile classification callback failed closed; Vanilla result is retained: {ex}");
                 }
             }
         }
@@ -318,7 +318,7 @@ namespace BugfixesAndQoL
                 if (!endpointCallbackFailureLogged)
                 {
                     endpointCallbackFailureLogged = true;
-                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/MountedStockpileMovementPatch.cs:324", $"Mounted-stockpile endpoint callback failed closed; Vanilla rejection is retained: {ex}");
+                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/MountedStockpileMovementPatch/PermitMountedGoodsyardEndpoint", $"Mounted-stockpile endpoint callback failed closed; Vanilla rejection is retained: {ex}");
                 }
             }
         }

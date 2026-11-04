@@ -311,6 +311,8 @@ namespace ExtraFeatures
         [SyncHostOnly] public bool EnableMonksAlwaysRun { get => enableMonksAlwaysRun; set => SetSetting(ref enableMonksAlwaysRun, value, nameof(EnableMonksAlwaysRun)); }
         [SyncHostOnly] public bool EnableKnightDismount { get => enableKnightDismount; set => SetSetting(ref enableKnightDismount, value, nameof(EnableKnightDismount)); }
         [SyncHostOnly] public bool InstantHorse { get => instantHorse; set => SetSetting(ref instantHorse, value, nameof(InstantHorse)); }
+        // 1000 / 120 must match KnightTransformationTooltipPolicy.MaximumGoldCost / MaximumDelaySeconds
+        // (that file is not part of the preset test build that compiles this view model).
         [SyncHostOnly] public int KnightTransformationGoldCost { get => knightTransformationGoldCost; set => SetIntSetting(ref knightTransformationGoldCost, value, 0, 1000, nameof(KnightTransformationGoldCost), nameof(KnightTransformationGoldCostValueText)); }
         [SyncHostOnly] public int KnightTransformationDelaySeconds { get => knightTransformationDelaySeconds; set => SetIntSetting(ref knightTransformationDelaySeconds, value, 0, 120, nameof(KnightTransformationDelaySeconds), nameof(KnightTransformationDelayValueText)); }
         public string KnightTransformationGoldCostValueText { get => KnightTransformationGoldCost.ToString(CultureInfo.InvariantCulture); set => SetIntValueText(value, parsed => KnightTransformationGoldCost = parsed, nameof(KnightTransformationGoldCostValueText)); }

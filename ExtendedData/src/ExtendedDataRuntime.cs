@@ -1513,7 +1513,7 @@ namespace ExtendedData
             lastPackageRosterDiagnostic = diagnostic;
             if (!string.IsNullOrEmpty(diagnostic))
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/ExtendedDataRuntime.cs:1370", $"Custom Coop package player identity mismatch; launch remains blocked until the roster converges: {diagnostic}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/ExtendedDataRuntime/ReportPackageRosterDiagnostic", $"Custom Coop package player identity mismatch; launch remains blocked until the roster converges: {diagnostic}");
             }
         }
 

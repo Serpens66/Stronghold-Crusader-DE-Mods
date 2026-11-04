@@ -99,7 +99,7 @@ namespace BugfixesAndQoL.VanillaPerformance
             catch (Exception exception)
             {
                 Volatile.Write(ref decided, 1);
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/VanillaPerformance/SpriteSheetMergeOptimization.cs:96",
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/SpriteSheetMergeOptimization/Arm",
                     "SPRITE_SHEET_MERGE_DISABLED: could not arm; Vanilla sprites retained; " + exception);
             }
         }
@@ -125,7 +125,7 @@ namespace BugfixesAndQoL.VanillaPerformance
             try { Decide(loader); }
             catch (Exception exception)
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/VanillaPerformance/SpriteSheetMergeOptimization.cs:120",
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/SpriteSheetMergeOptimization/WaitForSprites",
                     "SPRITE_SHEET_MERGE_FAILED: Vanilla sprites retained; " + exception);
             }
         }
@@ -174,7 +174,7 @@ namespace BugfixesAndQoL.VanillaPerformance
             catch (Exception exception)
             {
                 // The loader is already consistent; renderers keep their own consistent original pair.
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/VanillaPerformance/SpriteSheetMergeOptimization.cs:159",
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/SpriteSheetMergeOptimization/Decide",
                     "SPRITE_SHEET_MERGE_LIVE_RENDERERS_FAILED: " + exception);
             }
             double ms = (Stopwatch.GetTimestamp() - started) * 1000.0 / Stopwatch.Frequency;

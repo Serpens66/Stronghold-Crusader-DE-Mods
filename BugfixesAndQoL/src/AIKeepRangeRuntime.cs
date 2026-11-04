@@ -90,11 +90,11 @@ namespace BugfixesAndQoL
             {
                 Volatile.Write(ref enabled, 0);
                 if (Interlocked.Exchange(ref faulted, 1) == 0)
-                    try { Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/AIKeepRangeRuntime.cs:92", "AI_KEEP_RANGE_INACTIVE: classification failed; Vanilla preserved until restart: " + ex); } catch { }
+                    try { Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/AIKeepRangeRuntime/OnDistanceCheck.inactive-classification-failed-vanilla", "AI_KEEP_RANGE_INACTIVE: classification failed; Vanilla preserved until restart: " + ex); } catch { }
             }
             // One post-startup marker, not per-cell diagnostics or continually incremented counters.
             if (Volatile.Read(ref firstCallback) == 0 && Interlocked.Exchange(ref firstCallback, 1) == 0)
-                try { Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/AIKeepRangeRuntime.cs:96", "AI_KEEP_RANGE_CALLBACK: permanent runtime reached native distance check after startup."); } catch { }
+                try { Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/AIKeepRangeRuntime/OnDistanceCheck.callback-permanent-runtime-reached", "AI_KEEP_RANGE_CALLBACK: permanent runtime reached native distance check after startup."); } catch { }
             return AIKeepRangeDecision.Execute(bypass, original, manager, playerId, x, y, range);
         }
     }

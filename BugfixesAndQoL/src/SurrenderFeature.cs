@@ -156,7 +156,7 @@ namespace BugfixesAndQoL
                 RefreshButtonState();
                 if (buttonViewModel.SurrenderButtonVisibility != Visibility.Visible || !buttonViewModel.SurrenderButtonEnabled)
                 {
-                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:750", "Bugfixes and QoL surrender click was rejected because the action is unavailable.");
+                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/SurrenderFeature/OnSurrenderCommand.surrender-click-rejected-because", "Bugfixes and QoL surrender click was rejected because the action is unavailable.");
                     return;
                 }
 
@@ -165,7 +165,7 @@ namespace BugfixesAndQoL
             catch (Exception ex)
             {
                 ReopenIngameMenu();
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:759", $"Bugfixes and QoL could not display the surrender confirmation: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/SurrenderFeature/OnSurrenderCommand.could-not-display-surrender", $"Bugfixes and QoL could not display the surrender confirmation: {ex}");
             }
         }
 
@@ -185,7 +185,7 @@ namespace BugfixesAndQoL
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:779", $"Bugfixes and QoL could not display the Lord-disband surrender confirmation: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/SurrenderFeature/TryRequestSurrenderFromLordHud", $"Bugfixes and QoL could not display the Lord-disband surrender confirmation: {ex}");
                 return false;
             }
         }
@@ -203,7 +203,7 @@ namespace BugfixesAndQoL
                 () => CancelSurrender(sequence),
                 SerpLocalization.Get("BugfixesAndQoL.SurrenderConfirmationMessage"));
             if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:798", $"Displayed surrender confirmation: source={(openedFromIngameMenu ? "ingame-menu" : "lord-disband")}, sequence={sequence}.");
+                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/SurrenderFeature/ShowSurrenderConfirmation", $"Displayed surrender confirmation: source={(openedFromIngameMenu ? "ingame-menu" : "lord-disband")}, sequence={sequence}.");
         }
 
         private void ConfirmSurrender(long sequence)
@@ -228,7 +228,7 @@ namespace BugfixesAndQoL
                     IsStartSpectator(),
                     lord))
                 {
-                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:1535", "Confirmed surrender was rejected because the local lord or match state changed.");
+                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/SurrenderFeature/ConfirmSurrender.confirmed-surrender-rejected-because", "Confirmed surrender was rejected because the local lord or match state changed.");
                     return;
                 }
 
@@ -237,20 +237,20 @@ namespace BugfixesAndQoL
                     if (APIShared.UnitAccess.TryGetById(lord.UnitId, out _, out _)) GameUnitManagerAPI.Instance.KillUnit(lord.UnitId);
                     ClearSurrenderLordSelection(lord.PlayerId, lord.UnitId, lord.GlobalId);
                     if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                        Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:1543", $"Singleplayer surrender executed through lord death: playerId={lord.PlayerId}, unitId={lord.UnitId}, globalId={lord.GlobalId}.");
+                        Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/SurrenderFeature/ConfirmSurrender.singleplayer-surrender-executed-through", $"Singleplayer surrender executed through lord death: playerId={lord.PlayerId}, unitId={lord.UnitId}, globalId={lord.GlobalId}.");
                     return;
                 }
 
                 if (!IsChoreTransportReady())
                 {
-                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:1549", "Multiplayer surrender was rejected because the Chore transport is unavailable; no local kill was applied.");
+                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/SurrenderFeature/ConfirmSurrender.multiplayer-surrender-rejected-because", "Multiplayer surrender was rejected because the Chore transport is unavailable; no local kill was applied.");
                     return;
                 }
 
                 if (GameNetworkAPI.IsLocalHost())
                 {
                     if (!TryQueueExecution(lord))
-                        Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:1556", "Host surrender could not be queued; no local kill was applied.");
+                        Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/SurrenderFeature/ConfirmSurrender.host-surrender-could-not", "Host surrender could not be queued; no local kill was applied.");
                     return;
                 }
 
@@ -262,11 +262,11 @@ namespace BugfixesAndQoL
                 };
                 GameNetworkAPI.SendPacketToPlayerId(1, request, requestPacketHook.GetPacketId());
                 if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:1567", $"Sent targetless surrender request to host: requestId={requestId}, localPlayerId={localPlayerId}.");
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/SurrenderFeature/ConfirmSurrender.sent-targetless-surrender-request", $"Sent targetless surrender request to host: requestId={requestId}, localPlayerId={localPlayerId}.");
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:1571", $"Bugfixes and QoL confirmed surrender failed closed: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/SurrenderFeature/ConfirmSurrender.confirmed-surrender-failed-closed", $"Bugfixes and QoL confirmed surrender failed closed: {ex}");
             }
         }
 
@@ -279,7 +279,7 @@ namespace BugfixesAndQoL
             confirmationOpenedFromMenuSequence = 0;
             if (reopenMenu)
                 ReopenIngameMenu();
-            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:1584", reopenMenu
+            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/SurrenderFeature/CancelSurrender", reopenMenu
                     ? "Cancelled surrender and reopened the in-game menu."
                     : "Cancelled surrender from the Lord troop HUD.");
         }
@@ -308,20 +308,20 @@ namespace BugfixesAndQoL
             {
                 if (request == null || request.ProtocolVersion != RequestProtocolVersion || request.RequestId == 0)
                 {
-                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:1612", "Rejected surrender request with an invalid payload.");
+                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/SurrenderFeature/ProcessRequest.rejected-surrender-request-invalid", "Rejected surrender request with an invalid payload.");
                     return;
                 }
 
                 if (!TryResolveHumanSender(senderSteamId, out int playerId))
                 {
-                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:1618", "Rejected surrender request without a known authenticated human sender.");
+                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/SurrenderFeature/ProcessRequest.rejected-surrender-request-without", "Rejected surrender request without a known authenticated human sender.");
                     return;
                 }
 
                 string requestKey = senderSteamId.m_SteamID + ":" + request.RequestId;
                 if (acceptedRequests.Contains(requestKey))
                 {
-                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:1625", $"Rejected duplicate surrender request: playerId={playerId}, requestId={request.RequestId}.");
+                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/SurrenderFeature/ProcessRequest.rejected-duplicate-surrender-request", $"Rejected duplicate surrender request: playerId={playerId}, requestId={request.RequestId}.");
                     return;
                 }
 
@@ -336,7 +336,7 @@ namespace BugfixesAndQoL
                     lord);
                 if (!accepted)
                 {
-                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:1640", $"Rejected authenticated surrender request after host validation: playerId={playerId}, requestId={request.RequestId}.");
+                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/SurrenderFeature/ProcessRequest.rejected-authenticated-surrender-request", $"Rejected authenticated surrender request after host validation: playerId={playerId}, requestId={request.RequestId}.");
                     return;
                 }
 
@@ -345,7 +345,7 @@ namespace BugfixesAndQoL
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:1649", $"Bugfixes and QoL host surrender-request handling failed closed: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/SurrenderFeature/ProcessRequest.host-surrender-request-handling", $"Bugfixes and QoL host surrender-request handling failed closed: {ex}");
             }
         }
 
@@ -398,15 +398,15 @@ namespace BugfixesAndQoL
 
         private void LogPacketInfo(string message) =>
             Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
-                () => Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:1702", message));
+                () => Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/SurrenderFeature/LogPacketInfo", message));
 
         private void LogPacketWarning(string message) =>
             Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
-                () => Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:1706", message));
+                () => Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/SurrenderFeature/LogPacketWarning", message));
 
         private void LogPacketError(string message) =>
             Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
-                () => Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:1710", message));
+                () => Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/SurrenderFeature/LogPacketError", message));
 
         private bool TryQueueExecution(SurrenderLordSnapshot lord)
         {
@@ -434,7 +434,7 @@ namespace BugfixesAndQoL
                     out byte[] body,
                     out string rejectionReason))
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:1738", $"Surrender Chore was not queued; no local kill was applied: playerId={lord.PlayerId}, reason={rejectionReason}.");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/SurrenderFeature/TryQueueExecution", $"Surrender Chore was not queued; no local kill was applied: playerId={lord.PlayerId}, reason={rejectionReason}.");
                 return false;
             }
 
@@ -553,19 +553,19 @@ namespace BugfixesAndQoL
             playerId = identity.PlayerId;
             if (!identity.IsResolved)
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:1872", $"Surrender sender identity resolution failed closed: steamId={sender.m_SteamID}, error={identity.Error}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/SurrenderFeature/TryResolveHumanSender.resolution-failed-closed-steam", $"Surrender sender identity resolution failed closed: steamId={sender.m_SteamID}, error={identity.Error}");
                 return false;
             }
             if (!string.IsNullOrEmpty(identity.Diagnostic))
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:1879", $"Surrender sender identity source mismatch: {identity.Diagnostic}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/SurrenderFeature/TryResolveHumanSender.source-mismatch", $"Surrender sender identity source mismatch: {identity.Diagnostic}");
             }
 
             Platform_Multiplayer multiplayer = Platform_Multiplayer.Instance;
             Platform_Multiplayer.MPGameMember member = multiplayer?.getPlayer(playerId);
             if (!IsHumanMember(member) || member.steamID != sender.m_SteamID)
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/SurrenderFeature.cs:1888", $"Surrender sender identity did not resolve back to the authenticated human: " +
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/SurrenderFeature/TryResolveHumanSender.did-not-resolve-back", $"Surrender sender identity did not resolve back to the authenticated human: " +
                     $"steamId={sender.m_SteamID}, playerId={playerId}.");
                 playerId = 0;
                 return false;

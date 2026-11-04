@@ -216,7 +216,7 @@ namespace RandomEvents
 
         private void LogFeatureFailure(string featureName, Exception ex)
         {
-            Shared.DebugLogHelper.LogErrorLimited(log, "RandomEvents/src/RandomEventsRuntime.cs:198", $"Random Events feature '{featureName}' failed and remains inactive; independent event types continue: {ex}");
+            Shared.DebugLogHelper.LogErrorLimited(log, "RandomEvents/RandomEventsRuntime/LogFeatureFailure", $"Random Events feature '{featureName}' failed and remains inactive; independent event types continue: {ex}");
         }
 
         public void Dispose()
