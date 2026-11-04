@@ -78,7 +78,7 @@ internal static class FixesSourceFormatTests
             string current = File.ReadAllText(path);
             foreach (int version in new[] { 1, 2, 3 })
             {
-                File.WriteAllText(path, current.Replace("\"version\": 4", "\"version\": " + version));
+                File.WriteAllText(path, current.Replace("\"version\": " + TrailLordRequirements.CurrentVersion, "\"version\": " + version));
                 var restored = TrailLordRequirements.Read(mission).Slots[0];
                 Check(restored.FixesSources == null && restored.EmbeddedValuesOnly == (version >= 3),
                     "Historical Trail format changed meaning.");

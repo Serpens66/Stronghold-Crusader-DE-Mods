@@ -1,0 +1,4 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><TargetFramework>net10.0</TargetFramework><ImportDirectoryBuildTargets>false</ImportDirectoryBuildTargets><NuGetAudit>false</NuGetAudit><AssemblyName>NavigationClientProbe</AssemblyName><HostAssembly Condition="'$(HostAssembly)'==''">../bin/Release/net10.0/BetterPathfindingTest.Tests.dll</HostAssembly></PropertyGroup>
+  <ItemGroup><Reference Include="NavigationHost"><HintPath>$(HostAssembly)</HintPath><Private>false</Private></Reference></ItemGroup>
+</Project>

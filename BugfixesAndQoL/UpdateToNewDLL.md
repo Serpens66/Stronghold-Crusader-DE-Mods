@@ -24,6 +24,15 @@ see [ENGINE_PRESENTATION_BRIDGE.md](../_inspect/CrusaderDE-Native-Baseline/sem/F
 - Fallback: none (hash-bound). Another hash, prologue or member layout leaves Vanilla unchanged and logs `VANILLA_PERF_MINIMAP_THROTTLE_DISABLED`.
 - Update checks: find the pass again (only writer of `radarMap` and `*(radar+0x70)`, no simulation writes), re-check the call ABI, the displaced span and the managed buffer ring; audit: [RADAR_PASS_F5A40.md](../_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/RADAR_PASS_F5A40.md).
 
+## Tribe member lookup V14 (2026-11-02)
+
+- Owner: `src/VanillaPerformance/TribeMemberLookupCode.cs` (machine code) and `TribeMemberLookupOptimization.cs` (installation), enabled with `VanillaPerformanceOptimizationsActive`.
+- Reference: hash `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`, RVA `0x119F90` ("unit id of the i-th tribe member"), body `0x8C` bytes with SHA-256 `CD5DAE0B455BA6CBFC20D0193849591A8250C710C8B77BBDCFFF6908FBD1544F` (shared constant with `TribeFloodMembership`). `X64InlineHook` at the entry with exactly 18 displaced bytes: `mov [rsp+8],rbx; movsxd rax,edx; xor r9d,r9d; imul rdx,rax,0x688` (no RIP-relative operand, no branch of the body into `0x119F91..0x119FA1`); absolute-indirect jump and padding validated after commit; exclusive `NativeSiteRegistry` span.
+- Contract: `rcx` tribe manager, `edx` tribe id, `r8d` ordinal; 0 unless `(short)tribe+0x40 == 2` and `0 <= i < (short)tribe+0x5C`; otherwise `word*16+bit` of the i-th set bit of the 625 words at `+0x60`, else 0. The stub writes only `rax, rdx, r9, r10, r11` (a subset of the original's) and keeps `r8` as the original does. Disabled: the displaced instructions and the original body run.
+- Fallback: none (hash- and body-bound). A different hash, body or an occupied entry leaves Vanilla unchanged and logs `VANILLA_PERF_TRIBE_MEMBER_LOOKUP_UNAVAILABLE`.
+- Tests: `tests/TribeMemberLookup.Tests` copies the installed body into executable memory (it is position independent) and compares Vanilla's copy with a copy hooked through the real `X64InlineHook` backend, flag on and off, on random and edge-case tribe records; registers `r8`/`rbx` are checked.
+- Update checks: re-audit `0x119F90` and its callers (stride `0x688`, kind `+0x40`, count `+0x5C`, words `+0x60`, 625 words), the displaced span and incoming branches; re-run the machine test against the new DLL.
+
 ## AI keep-range probe allocation (2026-10-05)
 
 The 18:51 startup failed before the actual EEF90 hook: the copied-entry probe
@@ -1184,6 +1193,18 @@ Additional audited data: GameUnit base65C, GlobalId +94 (native6F0), native mobi
 field +442 (nativeA9E), query mode +35C. Independent mobility writer 19A44C reads
 3226B0[type*4]. Player wrapper 196100 writes tribe+56C before the group event;
 fully rejected invocations restore only that earlier flag through a nested frame.
+Owner: the 196100 detour (reference RVA 0x196100, entry bytes
+`48 83 EC 48 48 63 C2 4C 8D 1D 12 06 B3 07`, NativeX64 Indirect) is published in the
+same transaction as the 118F50 admission gate, so the restore works without a
+traversal provider. Its only caller is Chore-17 consumer 10AE0; without a provider it
+calls the original exactly once. A provider registered later (MoatMove) only becomes
+its logical target; if admission failed, `InstallTraversalCommandHooks` installs the
+detour itself as before. Neither the Extender, Fixes nor APIShared hooks 196100
+(checked 2026-11-03; the Extender hooks 11B520).
+Argument contract: 10AE0 passes the unit manager 67E8400 in rcx (lea at 10C7C, call at
+10CAB); 196100 ignores it and writes tribe manager 7CC6720 + tribe*688 + 56C. The
+restore therefore addresses the runtime's validated tribe manager, never the first
+argument (the earlier `manager == tribe manager` guard never matched Vanilla input).
 118E00 clears native748/74C (GameUnit EC/EE/F0), NOT path flags F2/native74E.
 196305/19630F read flags F2 and substep F4/native750: current only at flags0 AND
 substep8, otherwise next2. Reuse GetNativeMovementStart; preserve unknown native
@@ -1202,9 +1223,10 @@ Real game/editor latency and host/client results remain independent acceptance.
 Owner: Improved Manual Commands / Formation Enhancements. Reference native SHA-256:
 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
 
-The new permanent demand-gated context hook enters `41D60` before its first
-instruction. NativeX64 inline/context minimum 14 displaces exactly three 5-byte
-nonvolatile saves (`48895C2410 48896C2418 4889742420`), resumes at `41D6F`.
+APIShared VisibleMapRenderEvents now owns the permanent demand-gated entry at
+`41D60`; BFQ registers its preparation callback there. The former BFQ context hook
+is removed. The shared Indirect/10 publication displaces the first two 5-byte saves
+(`48895C2410 48896C2418`) and resumes at `41D6A`; see the shared contract below.
 The complete renderer range is `41D60..4580E` (exclusive end), body SHA-256
 `3EF71AC141815F4AAD74E1A20B6991425175728DA09EC4F07E2C813DF8533FFF`.
 `DLL_RunTick` calls cursor selection at `86920 -> 8C5F0`, then renderer at
@@ -1343,3 +1365,399 @@ freezes held controls. Released/deferred previews cannot republish markers.
 The original input contract is documented in MOVE_COMMAND_RELEASE.md. Two-thread
 speech, actual gesture/packet/formatter/dispatcher/slot/unit-state fixtures and
 native mask/entry machines remain separate from actual editor/host-client acceptance.
+
+## Endansicht nach der Zuschauer-Auslagerung (2026-10-27)
+
+Die verwalteten Einstiegspunkte `HUD_MissionOver.ButtonClicked(string)`,
+`GameData.Scenarios.setGameOverState(int,int,int)` und
+`OnScreenText.addOSTEntry(eOnScreenText,int,int,int,int,int)` besitzen genau einen
+APIShared-Hook je Stelle. Keine direkten Hooks der beiden Verbraucher mehr.
+Bei einem Spielupdate Signaturen und Reihenfolge erneut prüfen: Spielende-OST
+bereitet den Lobbyersatz vor dem Abbau der Teilnehmer vor; positive Endzustände
+verwerfen eine Statistikvorschau vor dem Vanilla-Aufbau. Vorschau-Exit unterdrückt
+Vanilla und Lobby-Deferral unabhängig von der Registrierungsreihenfolge.
+Verzögerte Originalfortsetzungen sind an Aufrufthread, Sitzung und Ansicht gebunden.
+
+Spectator besitzt Perspektive, Berichte/Verbündete, Save-Herkunft, Statistikvorschau
+und den synchronisierten Zuschauerwechsel nach Ausscheiden. BugfixesAndQoL behält
+Aufgeben, Lobby-Rückkehr und allgemeine Statistikabzeichen. Die native Niederlage
+bleibt beim vorhandenen PlayerDefeat-Dienst; keine neue native Eingriffsstelle.
+
+## Shared presentation ownership, 2026-10-27
+
+APIShared 0.18.0 now owns the `0x41D60` visible-map entry. This mod registers its
+render observer and toggles demand; it no longer installs a competing frame hook.
+The original parameters and execution remain unchanged. Native contract and ABI
+coverage are maintained in APIShared/UpdateToNewDLL.md and VisibleMapRenderTests.
+Pause-menu extras use IngameMenuActions; Vanilla Quit keeps its original command.
+Spectator statistics use the existing menu Close path (pause restoration), refresh
+inside MissionOver, and the MissionOverEvents preview-exit contract. The Spectator
+placement freeze exemption is scoped to active placement; report access independently
+requires its enabled spectator perspective. BFQ retains no spectator report hook.
+
+## Human Lord return teleport guard (2026-10-28)
+
+Reference SHA-256 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+
+### Ownership and activation
+
+This feature owns only the permanent inline entry `[0x19BA40,0x19BA50)`.
+APIShared.NativeSites group `Lord.HomeTeleportGuard` claims it exclusively before installation.
+The unit-manager and lineup anchors and the standing-rescue CALL are registered as Observe. No APIShared/SE/Fixes source is changed.
+Installed RedBird.X64 1.5.0 X64InlineHook decodes at least 14 bytes, emits the supplied generator,
+then appends `FF 25 00000000` and the eight-byte continuation address. Here its actual displacement
+is exactly 16 bytes. The prepared backend stub and installed patch are compared byte-for-byte.
+
+Original instructions and lengths: `mov [rsp+18h],rbp` (5), `push rsi` (1), `push rdi` (1),
+`push r14` (2), `sub rsp,20h` (4), `movsxd rsi,r8d` (3). Resume at `0x19BA50` is `mov r14,rcx`.
+Direct-flow scan of all installed PE `.pdata` functions and existing semantic Xrefs found no target
+inside the span; raw absolute-pointer scan found no pointer to an interior byte.
+No neighboring foreign hook is bypassed: the normal branch resumes at the live continuation.
+
+The hook is installed in LibraryLoaded even with the option disabled. Its logical flag is published as
+installed && EnableMod && EnableLordReturnTeleportFix and is refreshed through ApplySettings.
+Its runtime, hook and activation flag are process-rooted. There is no OnDestroy/OnDisable,
+map-change disposal, live unpatch or delayed installation. Settings change only the atomic data flag. Only unpublished failure candidates
+can roll back. A failed rollback retains storage and ownership with flag zero.
+
+### Function and state flow
+
+`0x19BA40(manager, oneBasedUnitId, signedTileX, signedTileY, height)` is a void relocation helper
+(Windows x64 ABI: RCX/EDX/R8D/R9D, fifth argument on caller stack). It removes old occupancy through
+`0x186AD0`, resets movement fields, writes next/current tile coordinates and fine coordinates `tile*8+4`,
+height and compact tile ID, then adds occupancy through `0x180230` and refreshes view offsets `0x18BE50`.
+
+Lord update `0x15A950`, CALL `0x15ABD1`, invokes it after `0x196280` returns zero in state 1 with
+the new-route flag set. Return address `0x15ABD6`; Vanilla then clears the route flag and normally enters
+state `0x6D`, resume state 2. Unit dispatcher `0x182B00`, CALL `0x18300F`, is the second rescue:
+the current compact tile has component zero, lacks tile bit `0x40000000`, passes its building/special-unit
+gates, is not state `0x6E`, and the unit age is at least 1000 ticks. It checks one of sixteen unit-ID buckets
+per pass. It relocates Lords home and then sets state 1/new-route flag zero. Return address `0x183014`.
+
+Important trigger correction: closing a gate and waiting is insufficient. In native nonzero game mode,
+a human Lord finishing an ordinary move goes to state 13 and its normal idle handler does not automatically
+leave that state. The building-attack state `0x6B` has target-loss/completion branches returning to state 0
+(or state 1 for native zero mode), which reaches the return-path attempt. The user confirmed the video
+shows a teleport after destruction of a building. Full user gameplay reproduction remains separate.
+
+The standing-tile rescue is deliberately preserved for all players. The native stub compares the original
+return address with image+0x183014 before inspecting unit data and runs Vanilla for this caller. Four
+saved stack slots (flags/RAX/R10/R11) put that address at [rsp+32]. The five-byte CALL at 0x18300F is
+validated against the captured image and registered as Observe. No caller or terrain code is patched.
+
+For all other callers the patch suppresses only a live Lord with controlling player 1..8, lineup entry zero (SK_NULL), and both
+requested coordinates equal to its stored home coordinates. It does not use local selection, local-player
+identity, a managed roster, AI portrait or wall/tile searches. It changes no caller state or route result.
+The blocked exit restores scratch registers and incoming flags before RET; the pass-through exit restores
+them before replaying the original prologue and its normal flag effects. No XMM instruction or managed call
+exists in the production predicate. Completed trace buffers, counters and per-teleport diagnostics have been removed.
+
+### Address and layout map
+
+| Contract | Reference RVA / offset | Evidence and update policy |
+|---|---|---|
+| Relocation entry | `0x19BA40`, resume `0x19BA50` | 31-byte exact semantic entry signature; executable PE sections only. Known hash checks reference bytes first, then unique signature fallback. A moved entry is refused because the rest of this prototype is hash-bound. |
+| Standing rescue exemption | CALL `0x18300F`, return `0x183014` | Decode the five-byte direct CALL in captured memory, require relocation entry as target and the exact continuation; derive native comparison from validated image base. A changed contract refuses installation. |
+| Unit manager | `0x67E8400` | RIP-relative LEA RBP at `0x15AB83`; independently CDE60 caller and native relocation member accesses. Runtime decodes the seven-byte anchor. |
+| AI lineup | `0x8574C44` | RIP-relative LEA RAX at `0x28A7D`; same table as SE GamePlayerManagerAPI.GetAILord/IsAIPlayer. Int32 slots 0..8; zero is human/non-AI. Runtime decodes the anchor. |
+| Unit addressing | `manager + id*0x490 + 0x65C` | Reserved slot zero, live IDs 1..9999; native loop bounds and installed GameUnitManager constants/layout. No `id-1` for this manager-relative formula. |
+| Life/type/control/global | GameUnit `+0x88/+0x8A/+0x92/+0x94` | Manager working offsets `0x6E4/0x6E6/0x6EE/0x6F0`; layout checked against installed SHCDESE.dll. |
+| Home X/Y | GameUnit `+0x336/+0x338` | Working offsets `0x992/0x994`; periodically written by `0xC23C0` from Keep position (Y-1 except Keep type `0x28`). |
+| Current X/Y/height | GameUnit `+0xC0/+0xC2/+0xB6` | Working offsets `0x71C/0x71E/0x712`; actual native relocation writer and installed layout. |
+| AI state | GameUnit `+0x2BC` | Working offset `0x918`; layout validation and test fixture only; caller writes checked by executed fixture. |
+
+All current direct/derived RVAs used by runtime code are listed above. The standing-rescue CALL/return
+is a validated gameplay exemption; other CALL/return addresses describe audited call flow and are not hook targets. Test-only native fixture references are the documented callees and caller blocks,
+map validity `0x3A11EA4`, row-offset table `0x402FF2C`, tile height `0x4DDD350`, current-unit context `0x9302C4`,
+route builder `0x196280`, completion query `0x188340`, Lord exit `0x15D3C5` and dispatcher continuation `0x183041`.
+These fixture addresses never address the game process and are bound to the full reference file hash.
+
+No data/layout fallback is claimed on a new hash: interop compatibility does not prove native storage or
+player-table semantics. Unsupported hash, anchor, bytes, span or ownership disables only this feature with
+LORD_TELEPORT_GUARD_UNAVAILABLE; no partial patch is published. Re-audit all writers/readers and both callers
+before changing the hash, including zero/nonzero mode and human idle behavior. Do not merely update a pin.
+
+
+Migrated production sources: src/LordTeleportGuard; native execution suite: tests/LordTeleportGuard.Tests.
+NativeSiteRegistry owner is BugfixesAndQoL_Serp, registration Lord.HomeTeleportGuard.
+The host-only EnableLordReturnTeleportFix defaults and resets to true; the client UI switch is unrelated.
+No managed call or setting lookup is introduced in the native stub. The static feature root retains
+its published hook independently of Unity cleanup; no tick observer is required. BepInIncompatibility
+rejects LordTeleportGuardTest_Serp. Runtime logging keeps the shared once-only native address resolution
+and the single LORD_TELEPORT_GUARD_UNAVAILABLE initialization failure; there is no success dump,
+heartbeat, teleport trace, trace allocation or counter, including in /devdiag builds.
+The user confirmed the integrated fix works on 2026-10-28. This is user-reported gameplay acceptance;
+no additional editor, save/load or real host/client acceptance is inferred. Historical records remain unchanged.
+
+## Native weighted Assassin search (2026-10-30, `native/AssassinSearch.cpp`, `src/AssassinNativeSearch.cs`)
+
+`BfqolAssassinSearch.dll` (contract `0x01000002`) runs the bucket variant of `TryBuildWeightedRoute` with identical
+results. It adds no RVA of its own: it reads exactly the tables the managed search binds in `InitializeNative`
+(valid coordinates, row lookup, tile flags, building, height, occupancy and direction masks) and calls the special
+tile predicate `0x107160` with context `0x32DE440` through the same addresses. Gate policy masks come from the
+published `RouteTilePolicySnapshot` bytes; masked edges, other policy shapes and direct gatehouse endpoints call back
+into the managed predicates. On a new DLL nothing changes here beyond the managed search's own RVA checks; the
+offline comparison (`tests/AssassinPathfinding.Tests`, `VerifyNative`) must stay identical on every fixture terrain.
+Without the DLL, or on a contract mismatch, a warning is logged and the managed search runs.
+`VerifyNative` also compares the production policy shape (byte mask read by the kernel, tiles beyond
+the mask allowed, masked climb callbacks answering true at a live gate) and a throwing managed callback: callbacks never
+let an exception unwind through the kernel; a failed callback discards the native call, the managed search repeats it
+and fails at the same predicate, and the following searches still agree. `GateRouting.Tests` checks that
+`DirectionMask` and `IsDirectionAllowed` of every captured gate snapshot decide identically.
+
+### Group fields of Assassin group moves (2026-11-03, contract `0x01000002`)
+
+`bfq_assassin_field_create`/`bfq_assassin_field_route` answer the members of one Assassin move command with one
+backward Dijkstra from the move target over exactly `Search::Run`'s edges and costs (`Search::Edge`): each member
+follows the exact descent along it until the box around target and slot (margin 8), then `Run`'s A* to its own slot.
+Near-optimal like MoatMove's anchor routes (user decision 2026-11-03), never cheaper than the per-unit optimum
+(`VerifyNative`); the per-unit `Run` is unchanged. Reference SHA-256
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`. Managed contract (`TryStageGroupRoute`,
+`UnitCommandPathRuntime.TryPublishAssassinGroupRoute`):
+- Fields are built only inside a move command scope (`TribeIssueOrderMoveHere`, target tile = anchor), for the path manager singleton
+  `0x60AD660` with `+0x88 != 0`, `+0x84 == 0` and `+0x80 == 0` (F4930's Assassin branch, audit `ASSASSIN_RECONSTRUCTION_REPAIR.md`),
+  request start/target from `+0x08..+0x14`, and a qualified single-unit frame (`AssassinPathAPI.TryGetCurrentWeightedRequest`).
+- The staged route is published through the frame without calling F4930 (no `0xD9C40`, `0xE1640`, second `+0x94`
+  pass), the precedent of MoatMove's single routes. The frame's `+0x94` identity test is skipped while Vanilla's
+  builder did not run, because `+0x94` then holds the value of an earlier reconstruction (`E1110`/`E1640` are its only writers).
+- `Complete` follows `Stage` directly, with no game code in between: the group route's validator validates in full at
+  `Stage` and answers `Complete`'s repeat once with that result (`CachedRoute.GetGroupRouteValidator`; the unit identity is
+  still rechecked). Any other outcome, including an exception after staging, replaces the frame, so no group route
+  reaches the builder path.
+- Every other request, a rejected or unpublished route, keeps the unchanged per-unit path (Vanilla builder + weighted search).
+- Recent fields (as many as the native pool keeps) are reused for 400 map ticks by later move commands to the same
+  target with the same profile key, and by single requests outside a command scope whose target is a slot such a field
+  answered (post-combat resumption, `AssassinCombatResumeRuntime`). A single request never builds a field.
+On a new DLL: re-audit F4930's Assassin branch, the writers of `+0x94` and the frame publication fields before enabling it.
+
+## One-pass flood member check (2026-10-30, `src/UnitCommands/Native/TribeFloodMembership.cs`)
+
+Feature owner: BugfixesAndQoL's tribe flood hook (`AllowTribeFloodFillForMoveOrder`). Reference SHA-256
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`. Instead of calling Vanilla's `0x124740`, the hook
+computes its result in one pass (audit: `MANUAL_GROUP_ADMISSION.md` "Admission flood and member check 0x124740").
+
+| Entry | Reference RVA | Binding |
+|---|---|---|
+| Member check | `0x124740` | Resolved RVA must equal the reference; body `0xAC` bytes, SHA-256 `FFB294BD...C9817C`. |
+| Group member lookup | `0x119F90` | Resolved RVA must equal the reference; body `0x8C` bytes, SHA-256 `CD5DAE0B...BD1544F`. |
+| Data | tribe stride `0x688` (`+0x40`, `+0x5C`, bitset `+0x60`, 625 words); unit stride `0x490` from `0x67E8400` (`+0x6E4`, `+0x8F8`, `+0x72C`); stamps `0x52C2550` | Read exactly as the two bodies read them. |
+
+No pattern fallback: the replica is bound to the two audited bodies. A different RVA or body leaves
+`exactFloodMembership` false and the hook calls Vanilla's original as before. On a new DLL repeat the audit of both
+bodies and of `0x11B520`'s retry loop, update the hashes, and run the replica test in MoatMove's harness
+(`FloodMembershipExactTests`) plus a DEVDIAG run (`uc.flood.exactMismatch` must stay absent).
+
+## Shared command runtime: address inventory and recovery contract (moved from MoatMove, 2026-10-30)
+
+Feature owner: BugfixesAndQoL's shared command runtime (`src/UnitCommands`). MoatMove registers only as its
+traversal provider and owns none of these entries. Reference SHA-256
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`. Until 2026-10-30 this inventory was kept in
+MoatMove's `UpdateToNewDLL.md` with references to MoatMove's former copy of the runtime; the source locations below
+are the current ones (`NativeDetourContracts.cs` remains the function-prefix catalog, see "Command engine ownership").
+
+### Resolution, signatures and failure contracts
+
+- Named function targets use their `*Pattern` constant and `UnitCommandPathRuntime.Resolve`. On the reference hash the
+  bytes at the reference RVA are used first; otherwise `Shared.NativePatternResolver` searches executable PE sections
+  for one match. `Resolve` additionally requires the resolved RVA to equal the reference.
+- The group movement helper at `0x117C70` has a three-match fallback pattern; a fallback attempt fails closed.
+- Observer entries use inline exact byte strings plus an executable-section uniqueness check; a changed entry fails
+  before installation. Reconstruction at `0xE32B0` validates all 56 bytes including its call to `0xE1640`; its detour
+  target is the function entry, not that call site.
+- Call-site entries validate complete five-byte `E8` instructions and signed relative targets. Cursor gate and consumer
+  entries are validated read contexts, not global patches.
+- Fixed data/table RVAs, manager prefixes and unit/tribe/moat/path-buffer offsets have no semantic relocation fallback;
+  a code pattern does not prove these layouts. Keep the dependent features hash-gated on an update.
+- Initialization failure logs an error and rolls back only an unpublished candidate; optional cursor/attack/work groups
+  fail independently and can leave ordinary movement installed. Inspect every group in a test.
+
+### Pre-builder recovery inline hook (`src/UnitCommands/Movement/NativeMovementRecovery.cs`)
+
+The only inline hook of this group is `[0x19664B, 0x196659)`, exactly 14 bytes: `33 C0 8B D6 48 89 05 8E 70 F1 05 49 8B CF`
+(`xor eax,eax; mov edx,esi; mov [RIP+...],rax; mov rcx,r15`). RedBird's installed implementation decodes at least
+max(requested length, 14) whole bytes; the decode-only installed-assembly test confirms `DisplacedByteCount = 14`.
+
+RSP is aligned at the site. RSI/RDI/RBP/R12-R15 stay live and ABI-preserved; volatile GPRs and flags are dead on both
+audited continuations, and the containing function has no XMM operands. The adapter reserves 0x30 bytes, reads the
+original start coordinates at the adjusted RSP+0xA0/+0xA8 before writing the argument slots at RSP+0x20/+0x28, and
+passes manager R15 and the 1-based unit ID ESI. A positive callback branches to the original buffer initialization at
+`0x196585`; otherwise all displaced instructions are replayed and RedBird returns to `0x196659`. The emitted 73-byte
+body is decoded and checked in MoatMove's harness ("actual recovery emitter assembled and decoded"), including its
+RIP-relative store. Local branches and the hash-matched baseline cross-references show no entry into the span's
+interior. Recheck instruction, branch and ABI contracts on any native or RedBird update.
+
+### Address inventory
+
+Names follow the source constants; they are not an independent proof of native parameter semantics.
+
+| Source symbol / derivation | Reference RVA | Current source |
+| --- | --- | --- |
+| CentralMovementPlanRva | `0x18E1E0` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:35 |
+| TribeFloodFillMembershipRva | `0x124740` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:36 |
+| FirstGroupUnitOnCompletedMoatRva | `0x117BC0` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:37 |
+| GetGroupUnitIdRva | `0x119F90` | BugfixesAndQoL/src/Formations/FormationRuntime.State.cs:40, BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:38 |
+| GetTribeMovementModeRva | `0x117C70` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:39 |
+| OrdinaryMovementGroupModeCallRva | `0x11B736` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:40 |
+| GroupMoatModeCallRva | `0x11B666` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:41 |
+| UnitStandingOnCompletedMoatRva | `0x196840` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:42 |
+| RegionReachabilityRva | `0xE7C40` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:43 |
+| CursorReachabilityRva | `0xE9FF0` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:44 |
+| CursorTilePairFallbackSelectionRva | `0x196870` | Entry owned by the Script Extender; its six call sites are adapted in BugfixesAndQoL/src/UnitCommands/Integration/AssassinSelectionAdapters.cs (see "preserve native ground cursor permission") |
+| SelectionCanDigMoatRva | `0x191C00` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:45 |
+| SelectionCanDigMoatCallRva | `0x8D3CE` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:46 |
+| CursorTilePairReachabilityRva | `0xE2CA0` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:47 |
+| GetRepresentativeSelectedUnitRva | `0x18D460` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:48 |
+| CursorRegionPrecheckRva | `0xE9D90` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:49 |
+| PathBuilderRva | `0xF4930` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:50 |
+| GroundPathBuilderRva | `0xDA590` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:51 |
+| AlternativePathBuilderRva | `0xDB650` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:52 |
+| GetMoatIdAtTileRva | `0x69560` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:53 |
+| AttackApproachFloodBuilderRva | `0xDBC60` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:54 |
+| BuildingApproachBuilderRva | `0xDA020` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:55 |
+| BuildingCandidateConsumerRva | `0x123090` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:56 |
+| RegionPairReachabilityRva | `0xE2610` | BugfixesAndQoL/src/AIPreplacedBuildingFixRuntime.cs:89, BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:57 |
+| AttackApproachFloodCallRva | `0x11EE47` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:58 |
+| AttackApproachFloodAlternativeCallRva | `0x11F46B` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:59 |
+| BuildingApproachCallRva | `0x11FF9A` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:60 |
+| BuildingCandidateConsumerCallRva | `0x11FFA7` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:61 |
+| BuildingCandidateConsumerAlternativeCallRva | `0x1206DF` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:62 |
+| BuildingCandidateConsumerForceCallRva | `0x120CCD` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:63 |
+| AttackFloodRegionPairCallRva | `0xDBF0D` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:64 |
+| AttackFloodTilePairCallRva | `0xDBF33` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:65 |
+| BuildingApproachRegionPairCallRva | `0xDA1F9` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:66 |
+| BuildingApproachTilePairCallRva | `0xDA232` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:67 |
+| BuildingApproachAlternativeRegionPairCallRva | `0xDA47C` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:68 |
+| BuildingApproachAlternativeTilePairCallRva | `0xDA4B1` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:69 |
+| OrdinaryMovementLadderPrecheckCallRva | `0x11B768` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:70 |
+| OrdinaryMovementLadderReachabilityCallRva | `0x11B785` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:71 |
+| BuildingConsumerFallbackBuilderCallRva | `0x123102` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:72 |
+| BuildingConsumerGroundBuilderCallRva | `0x12312C` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:73 |
+| BuildingCursorReachabilityRva | `0xB70C0` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:74 |
+| BuildingCursorReachabilityCallRva | `0x8DFF6` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:75 |
+| CombatFinishResumeRva | `0x1853F0` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:76 |
+| CombatFinishPostCombatCallRva | `0x18540D` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:77 |
+| PostCombatRepathRva | `0x1976C0` | BugfixesAndQoL/src/AssassinCombatResumeNativeDefinition.cs:27, BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:78 |
+| PostCombatMoveHereCallRva | `0x19772B` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:79 |
+| CursorMoveStagerRva | `0x195E30` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:80 |
+| NativeSpecialStructurePredicateRva | `0x107160` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:81 |
+| NativeSpecialStructureContextRva | `0x32DE440` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:82 |
+| NativeBuildingTypeBiasRva | `0x64CCCDE` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:83 |
+| CursorMoveStagerRegionPairCallRva | `0x195F46` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:84 |
+| Inline expression / observer / address array | `0x8F7BA` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:86 |
+| Inline expression / observer / address array | `0x8FD3C` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:86 |
+| Inline expression / observer / address array | `0x8FDC6` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:86 |
+| Inline expression / observer / address array | `0x8FE54` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:86 |
+| Inline expression / observer / address array | `0xE7F60` | BugfixesAndQoL/src/UnitCommands/Native/NativeDetourContracts.cs:76, BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:87 |
+| DirectFillApproachRva | `0xE7F60` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:87 |
+| DirectFillApproachRegionPairCallRva | `0xE81EB` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:88 |
+| DirectFillApproachCommandCallRva | `0x120E9D` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:89 |
+| MovementTerrainPhaseRva | `0x19B506` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:90 |
+| MovementCadenceRva | `0x184203` | BugfixesAndQoL/src/TroopMovementFix3SynchronizedMovementCadencePatch.cs:125, BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:91 |
+| MovementSubstepRva | `0x1855A0` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:92 |
+| MovementAdditionalSubstepsRva | `0x1857AA` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:93 |
+| MoatPathConsumptionReadRva | `0x185934` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:94 |
+| MoatPathConsumptionPersistRva | `0x19670C` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:95 |
+| CursorCurrentTileFlagGateRva | `0x8F388` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:96 |
+| CursorCurrentTileFlagGateJumpRva | `0x8F393` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:97 |
+| AttackUnitPairGateJumpRva | `0x8D72B` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:98 |
+| AttackBuildingPairGateJumpRva | `0x8E2C6` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:99 |
+| AttackAlternativePairGateJumpRva | `0x8E557` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:100 |
+| TileFlagsRva | `0x48F71B0` | BugfixesAndQoL/src/AssassinPathfindingRuntime.cs:36, BugfixesAndQoL/src/Formations/Markers/LargeMoveTargetMarkerRenderer.cs:35, BugfixesAndQoL/src/MountedStockpileMovementPatch.cs:59 |
+| MovementTargetAvailabilityRva | `0x3A11EA4` | BugfixesAndQoL/src/Formations/FormationRuntime.State.cs:43, BugfixesAndQoL/src/MountedStockpileMovementPatch.cs:56, BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:102 |
+| NativeMovementMaskRva | `0x51890D0` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:103 |
+| RowLookupRva | `0x402FF2C` | BugfixesAndQoL/src/AssassinPathfindingRuntime.cs:35, BugfixesAndQoL/src/MountedStockpileMovementPatch.cs:58, BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:104 |
+| NativeBuildingLayerRva | `0x4B6AA50` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:105 |
+| NativeHeightLayerRva | `0x4DDD350` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:106 |
+| NativeDirectionMaskRva | `0x312620` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:107 |
+| CursorTargetXRva | `0x3A11E2C` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:108 |
+| CursorTargetYRva | `0x3A11E30` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:109 |
+| PathRegionGridRva | `0x50EC690` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:110 |
+| MoatPathModeRva | `0x60AD6E4` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:111 |
+| NativePathManagerRva | `0x60AD660` | BugfixesAndQoL/src/AIBuildingTemporaryAccessClassifier.cs:48, BugfixesAndQoL/src/Formations/FormationRuntime.State.cs:41, BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:112 |
+| NativeUnitManagerRva | `0x67E8400` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:113 |
+| NativeTribeManagerRva | `0x7CC6720` | BugfixesAndQoL/src/Formations/FormationRuntime.State.cs:42, BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:114 |
+| Inline expression / observer / address array | `0xDB29A` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:117 |
+| Inline expression / observer / address array | `0xDB2EC` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:117 |
+| Inline expression / observer / address array | `0xDB37A` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:117 |
+| Inline expression / observer / address array | `0xE1856` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:119 |
+| Inline expression / observer / address array | `0xE18DF` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:119 |
+| Inline expression / observer / address array | `0xE195B` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:119 |
+| Module-relative expression | `0xE32B0` | BugfixesAndQoL/src/UnitCommands/Native/NativeDetourContracts.cs:70, BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.Initialization.cs:461, BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.Initialization.cs:462 |
+| Module-relative expression | `0x51D75F0` | BugfixesAndQoL/src/UnitCommands/Moat/MoatPlacement.cs:96 |
+| Module-relative expression | `0x9302C4` | BugfixesAndQoL/src/Formations/FormationSpeechNative.cs:18, BugfixesAndQoL/src/GateRouting/DiagnosticCallbackAdapterEmitter.DevDiag.cs:28, BugfixesAndQoL/src/GateRouting/NativeAssassinMovementDiagnostics.DevDiag.cs:77 |
+| Inline expression / observer / address array | `0x118E00` | BugfixesAndQoL/src/Formations/FormationRuntime.State.cs:38, BugfixesAndQoL/src/UnitCommands/Moat/MoatPlacement.cs:101, BugfixesAndQoL/src/UnitCommands/Moat/MoatPlacement.cs:120 |
+| Inline expression / observer / address array | `0x181890` | BugfixesAndQoL/src/UnitCommands/Moat/MoatPlacement.cs:104, BugfixesAndQoL/src/UnitCommands/Moat/MoatPlacement.cs:120, BugfixesAndQoL/src/UnitCommands/Native/NativeDetourContracts.cs:120 |
+| Inline expression / observer / address array | `0xF03C0` | BugfixesAndQoL/src/UnitCommands/Moat/MoatPlacement.cs:107, BugfixesAndQoL/src/UnitCommands/Moat/MoatPlacement.cs:120, BugfixesAndQoL/src/UnitCommands/Native/NativeDetourContracts.cs:80 |
+| FindMoatWorkTargetRva | `0x69D60` | BugfixesAndQoL/src/UnitCommands/Moat/UnitCommandPathRuntime.WorkTargetState.cs:14 |
+| ResolveMoatWorkTileRva | `0x6AF60` | BugfixesAndQoL/src/UnitCommands/Moat/UnitCommandPathRuntime.WorkTargetState.cs:15 |
+| HasFillMoatApproachRva | `0x6C490` | BugfixesAndQoL/src/UnitCommands/Moat/UnitCommandPathRuntime.WorkTargetState.cs:16 |
+| FillApproachCallRva | `0x69EE6` | BugfixesAndQoL/src/UnitCommands/Moat/UnitCommandPathRuntime.WorkTargetState.cs:17 |
+| DigStandingOnMoatCallRva | `0x69F91` | BugfixesAndQoL/src/UnitCommands/Moat/UnitCommandPathRuntime.WorkTargetState.cs:18 |
+| DigRegionSearchCallRva | `0x69FE3` | BugfixesAndQoL/src/UnitCommands/Moat/UnitCommandPathRuntime.WorkTargetState.cs:19 |
+| DigRegionPairCallRva | `0x6A014` | BugfixesAndQoL/src/UnitCommands/Moat/UnitCommandPathRuntime.WorkTargetState.cs:20 |
+| DigAlternativeRegionPairCallRva | `0x6A0C2` | BugfixesAndQoL/src/UnitCommands/Moat/UnitCommandPathRuntime.WorkTargetState.cs:21 |
+| MovementPlannerLowFlagGateRva | `0x196464` | BugfixesAndQoL/src/UnitCommands/Moat/UnitCommandPathRuntime.WorkTargetState.cs:22 |
+| MovementPlannerStructureFlagGateRva | `0x19648D` | BugfixesAndQoL/src/UnitCommands/Moat/UnitCommandPathRuntime.WorkTargetState.cs:23 |
+| Inline expression / observer / address array | `0xE1D30` | BugfixesAndQoL/src/Formations/FormationRuntime.State.cs:36, BugfixesAndQoL/src/UnitCommands/Formation/NativeFormationSlots.cs:41, BugfixesAndQoL/src/UnitCommands/Moat/MoatPlacement.cs:120 |
+| Inline expression / observer / address array | `0xE0970` | BugfixesAndQoL/src/Formations/FormationRuntime.State.cs:37, BugfixesAndQoL/src/UnitCommands/Formation/NativeFormationSlots.cs:47, BugfixesAndQoL/src/UnitCommands/Moat/MoatPlacement.cs:120 |
+| UnitTypeUpdateDispatchRva | `0x18410C` | BugfixesAndQoL/src/TroopMovementFix3SynchronizedMovementCadencePatch.cs:124, BugfixesAndQoL/src/UnitCommands/Movement/NativeMovementCadenceResolver.cs:18 |
+| Module-relative expression | `0x64CCED2` | BugfixesAndQoL/src/UnitCommands/Movement/NativeMovementRecovery.cs:52 |
+| Inline expression / observer / address array | `0xD90D0` | BugfixesAndQoL/src/UnitCommands/Movement/NativeMovementRecovery.cs:55, BugfixesAndQoL/src/UnitCommands/Native/NativeDetourContracts.cs:44 |
+| Inline expression / observer / address array | `0x59210` | BugfixesAndQoL/src/MoatTerrain/NativeDefinition.cs:32, BugfixesAndQoL/src/UnitCommands/Movement/NativeMovementRecovery.cs:61, BugfixesAndQoL/src/UnitCommands/Native/NativeDetourContracts.cs:24 |
+| Inline expression / observer / address array | `0x61E70` | BugfixesAndQoL/src/UnitCommands/Movement/NativeMovementRecovery.cs:73, BugfixesAndQoL/src/UnitCommands/Native/NativeDetourContracts.cs:25 |
+| Inline expression / observer / address array | `0xDAA50` | BugfixesAndQoL/src/UnitCommands/Movement/NativeMovementRecovery.cs:80, BugfixesAndQoL/src/UnitCommands/Movement/TraversalProvider.cs:67, BugfixesAndQoL/src/UnitCommands/Native/NativeDetourContracts.cs:48 |
+| failureRva | `0x19664B` | BugfixesAndQoL/src/UnitCommands/Movement/NativeMovementRecovery.cs:90 |
+| Module-relative expression | `0x196585` | BugfixesAndQoL/src/UnitCommands/Movement/NativeMovementRecovery.cs:163, BugfixesAndQoL/src/UnitCommands/Movement/NativeMovementRecovery.cs:93 |
+
+### Preview map-edge handling, 2026-10-31
+
+Reference native SHA-256 remains FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2; no new RVA or hook. FootprintMarker.TryApply returns false with a default result when any XY cell is outside the 800-axis buffer or native validity mask. Full-footprint validation still precedes every construction-grid write; packed-row overflow, invalid packed indices and unsupported scales remain contract errors. The callback clears its captured ground snapshot on a skipped footprint without disabling readiness or activation. The next complete footprint is sampled normally, and Vanilla Original still runs exactly once.
+
+Client evidence: CenterOfPower.map, 2026-10-30 14:11:18.354, BUILD_PREVIEW_CALLBACK_ERROR. The user reproduced with apple farm and quarry below their BuildingLimit caps. Do not attribute this reproduction to an exhausted limit. Vanilla's validator (0x78768..0x7879D -> 0x798D1) writes state 2 for invalid footprint coordinates/mask; 0x5DD70 normally omits that state. The Extender's post-validation overrides can replace it, but the concrete mapper/XY/state transition was not logged, so the reason this particular callback passed admission remains unresolved. Geometry is checked independently of that admission state.
+
+Regression: existing BuildPreview.Tests production memory fixture covers all seven supported mappers, first/last invalid mask cells, both coordinate axes including extremes, valid-edge-valid recovery, unchanged complete-placement sampling, and fatal corrupt-row/scale contracts. Existing snapshot tests cover retirement and generation safety. This is offline evidence, not in-game acceptance; retest apple farm and quarry below and at their building limits.
+
+## Peace-time civilian building proximity (2026-11-02)
+
+This consumer adds no native site. It registers a civilian-only Limit of3 through
+APIShared.Buildings.EnemyProximityPolicies and reads actual active peace through
+APIShared.Simulation.PeaceTimeState. APIShared/UpdateToNewDLL.md owns those native
+contracts. Existing VanillaPeaceTimeNativeContract patches remain independent.
+Recheck standalone operation, legacy-ExtraFeatures refusal, native expiry/save
+state, soldier/building exclusions and priority of ExtraFeatures rebuild vetoes
+when either SDK or native library changes.
+
+## Delayed prebuilt AI storage sections (2026-11-04)
+
+Reference native SHA-256:
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+`PrebuiltAiStorageFixRuntime` adds no native hook. Its prebuilt-player bitfield
+reference is the `MOV ECX,[RIP+disp32]` at RVA `0x95FF8`, validated against the
+same instruction pattern as the existing prebuilt-workshop correction. The
+target is derived from displacement bytes `+2..+5` and instruction end `+6`;
+the following player-bit setting and `0x55F50(...,100)` call establish the role.
+Only the audited native hash is admitted. There is no unknown-build layout
+fallback: a matching code reference cannot establish the fixed building and
+AIV structure contracts. Resolution/layout failure leaves this feature inactive.
+
+The storage adjacency branch at `0x7897F` (stores), `0x789FF` (granary), and
+`0x78A7F` (armoury) calls `0xC72C0`, which requires an initialized same-owner,
+same-type neighbor. `0xB47E0` creates `NeedsInit` records and immediately registers
+the first yard through `0xD0630`; only the later `0xC60F0` dispatcher changes
+state 1 to 2. The shared startup queue waits for that regular initialization.
+Creation uses the Extender's `CreatePrefab` with active Vanilla placement rules.
+
+The success bookkeeping mirrors `0x51790`: RVA `0x5214D` writes ushort 1 at
+building-manager + id*`0x32C` + `0x324` (GameBuilding + `0x2C8`, named
+`p_UnknownRelevant17`); `0x52174` writes step state 3 and `0x5219F..0x521B1`
+writes rebuild delay 10 on success. The manager prefix is `0x5C`. A yard consists
+of four records; mark the final record captured from that synchronous constructor,
+not an assumed adjacent ID. `0x31000` only adjusts workshop goods and has no
+storage effect. Existing confirmed sections retain their building flags while
+matching prepared AIV retry frames become Built/10.
+
+Recheck public SE AivVillageState stride `0x6D98`, MaximumBuildStep +`0x20`,
+BuildStep stride `0x0C` with state/delay/type/payload at `0/1/2/8`, the real
+selected-village mapping, all four yard records, first-yard Fixes policy, and
+new-game/save/replay/multiplayer behavior when updating Native or Extender.
+Source and offline tests do not establish actual game or peer acceptance.

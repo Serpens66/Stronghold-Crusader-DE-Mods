@@ -6,7 +6,14 @@ namespace BetterPathfindingTest.Core
     {
         private Func<long> read;
         internal AllocationCounter(Func<Func<long>> factory)
-        { try { read = factory(); } catch (Exception) { read = null; } }
+        {
+            try
+            {
+                read = factory();
+                if (read != null) { long before = read(); var probe = new byte[4096]; long after = read(); GC.KeepAlive(probe); if (before < 0 || after <= before) read = null; }
+            }
+            catch (Exception) { read = null; }
+        }
         internal long Read()
         {
             if (read == null) return -1;
@@ -17,11 +24,6 @@ namespace BetterPathfindingTest.Core
     {
         internal static Exception Execute(Action work, Action cleanup)
         { try { work(); return null; } catch (Exception ex) { return ex; } finally { cleanup(); } }
-    }
-    internal static class RunPhases
-    {
-        internal static void Execute(bool hasPrevious, Action controlled, Action update, Action workloads)
-        { controlled(); if (hasPrevious) update(); workloads(); }
     }
     internal sealed class ProgressPulse
     {

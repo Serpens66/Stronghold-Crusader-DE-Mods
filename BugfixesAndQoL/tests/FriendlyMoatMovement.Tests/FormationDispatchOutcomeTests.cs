@@ -52,21 +52,26 @@ namespace BugfixesAndQoL.UnitCommands {
                 if(!f.ApplyPacket(new(),"fallback")||api.Calls!=0||f.dispatchDepth!=0)
                     throw new Exception("Already issued fallback cannot authorize another whole-group command");
             }
-            IntPtr tribes=Marshal.AllocHGlobal(0x2000);
+            // Vanilla's Chore-17 handler (10AE0) passes the unit manager (67E8400); 196100 ignores
+            // that argument and writes the tribe manager's +56C. The restore must use the tribe manager.
+            IntPtr tribes=Marshal.AllocHGlobal(0x2000);IntPtr units=Marshal.AllocHGlobal(0x2000);
             try{
+                ushort* unitAlias=(ushort*)((byte*)units+TribeRecordSize+0x56C);
                 foreach(bool reject in new[]{false,true}){
-                    var f=new OutcomeFixture{nativeTribeManager=tribes};ushort* mode=(ushort*)((byte*)tribes+TribeRecordSize+0x56C);*mode=17;
-                    f.nativePlayerMove=(m,t,x,y,p,n)=>{f.playerMoveEntries++;*mode=0;f.manualPlayerMove.GroupSeen=true;f.manualPlayerMove.Rejected=reject;};
-                    f.DispatchPlayerMove(tribes,1,20,20,0,0);
-                    if(*mode!=(reject?17:0)||f.manualPlayerMove.Valid)throw new Exception("Player flag restore/teardown mismatch");
+                    var f=new OutcomeFixture{nativeTribeManager=tribes};ushort* mode=(ushort*)((byte*)tribes+TribeRecordSize+0x56C);*mode=17;*unitAlias=29;
+                    f.nativePlayerMove=(m,t,x,y,p,n)=>{
+                        if(m!=units)throw new Exception("The original must receive Vanilla's unit-manager argument");
+                        f.playerMoveEntries++;*mode=0;f.manualPlayerMove.GroupSeen=true;f.manualPlayerMove.Rejected=reject;};
+                    f.DispatchPlayerMove(units,1,20,20,0,0);
+                    if(*mode!=(reject?17:0)||*unitAlias!=29||f.manualPlayerMove.Valid)throw new Exception("Player flag restore/teardown mismatch");
                 }
                 var nested=new OutcomeFixture{nativeTribeManager=tribes};ushort* flag=(ushort*)((byte*)tribes+TribeRecordSize+0x56C);*flag=17;int calls=0;
                 nested.nativePlayerMove=(m,t,x,y,p,n)=>{nested.playerMoveEntries++;calls++;*flag=0;
                     nested.manualPlayerMove.GroupSeen=true;
-                    if(calls==1)nested.DispatchPlayerMove(tribes,1,20,20,0,0);else nested.manualPlayerMove.Rejected=true;};
-                nested.DispatchPlayerMove(tribes,1,20,20,0,0);
+                    if(calls==1)nested.DispatchPlayerMove(units,1,20,20,0,0);else nested.manualPlayerMove.Rejected=true;};
+                nested.DispatchPlayerMove(units,1,20,20,0,0);
                 if(*flag!=0||calls!=2||nested.manualPlayerMove.Valid)throw new Exception("Child rejection rolled back an accepted parent player's order");
-            }finally{Marshal.FreeHGlobal(tribes);}
+            }finally{Marshal.FreeHGlobal(tribes);Marshal.FreeHGlobal(units);}
         }
     }
 }

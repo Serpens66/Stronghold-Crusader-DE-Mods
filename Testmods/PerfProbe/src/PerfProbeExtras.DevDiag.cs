@@ -701,7 +701,10 @@ namespace PerfProbe
                 " noBuffer=" + System.Threading.Interlocked.Read(ref PerfProbeRunTiming.BuffersUnavailable) +
                 " nativeCallsStarted=" + System.Threading.Interlocked.Read(ref PerfProbeRunTiming.NativeCallsStarted) +
                 " nativeCallsCompleted=" + System.Threading.Interlocked.Read(ref PerfProbeRunTiming.NativeCallsCompleted) +
+                " skipCalls=" + System.Threading.Interlocked.Read(ref PerfProbeRunTiming.SkipCalls) +
                 " runPhasesMeasured=" + PerfProbeRunTiming.Instrumented);
+            string ticks = PerfProbeTickMonitor.Summary(seconds);
+            Shared.DevDiag.Log(() => ticks);
             if (GcTracking) Guard("gc", LogGc);
             if (EngineCalls) Guard("engineCalls", () => LogEngineCalls(seconds));
             Shared.DevDiagRuntime.Add("probe.summary", 1, Stopwatch.GetTimestamp() - now);

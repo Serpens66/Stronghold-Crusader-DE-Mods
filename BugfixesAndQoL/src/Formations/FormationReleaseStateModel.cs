@@ -33,6 +33,18 @@ namespace BugfixesAndQoL.UnitCommands
         internal static FormationMouseState Consume() =>
             new FormationMouseState(0, false, false, true, false);
 
+        // Restore just the deferred command edge. A new down supersedes the old edge;
+        // input for the other mouse button must survive the handoff.
+        internal static FormationMouseState RestoreDeferredForVanilla(
+            FormationMouseState current, FormationMouseState deferred, int commandButton) =>
+            commandButton == 0
+                ? current.LeftState == 1 || current.LeftState == 2 ? current :
+                    new FormationMouseState(deferred.LeftState, current.RightDown, current.RightUp,
+                        deferred.StateRead, deferred.UpPending)
+                : current.RightDown ? current :
+                    new FormationMouseState(current.LeftState, current.RightDown, deferred.RightUp,
+                        current.StateRead, current.UpPending);
+
         // Remove only the old command edge; a new down or the opposite button
         // may already have been published by Unity when the deferred gesture aborts.
         internal static FormationMouseState DiscardDeferred(FormationMouseState state, int commandButton) =>

@@ -232,7 +232,7 @@ namespace CastlePlanner
                 // Keep captures inside the enabled scope; otherwise the compiler can allocate them before the guard.
                 var diagnosticRenderedTiles = @renderedTiles;
                 var diagnosticRenderedIcons = @renderedIcons;
-                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/BlueprintRenderer.cs:230", () => $"Blueprint first visible output prepared: tiles={diagnosticRenderedTiles}, " +
+                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/BlueprintRenderer/Render", () => $"Blueprint first visible output prepared: tiles={diagnosticRenderedTiles}, " +
                     $"icons={diagnosticRenderedIcons}, depthReady={CompletedDepthCaptureCount}/" +
                     $"{RequestedDepthCaptureCount}, elapsedMs={progressiveLoadTimer.Elapsed.TotalMilliseconds:F1}.");
             }
@@ -407,7 +407,7 @@ namespace CastlePlanner
                 return;
             progressiveCompletionLogged = true;
             if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/BlueprintRenderer.cs:405", () => $"Blueprint progressive rendering complete: depthCaptures=" +
+                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/BlueprintRenderer/LogProgressiveCompletionIfReady", () => $"Blueprint progressive rendering complete: depthCaptures=" +
                     $"{CompletedDepthCaptureCount}/{RequestedDepthCaptureCount}, " +
                     $"elapsedMs={progressiveLoadTimer.Elapsed.TotalMilliseconds:F1}.");
         }
@@ -794,7 +794,7 @@ namespace CastlePlanner
             catch (Exception ex)
             {
                 missingIconKeys.Add(iconKey);
-                Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner/src/BlueprintRenderer.cs:801", $"Blueprint icon unavailable for mapper {mapperValue}; " +
+                Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner/BlueprintRenderer/GetBlueprintIcon", $"Blueprint icon unavailable for mapper {mapperValue}; " +
                     $"the colored footprint remains visible: {ex.Message}");
                 return default;
             }
@@ -901,7 +901,7 @@ namespace CastlePlanner
                     var diagnosticTexture = @texture;
                     var diagnosticPivotPixelsFromBottom = @pivotPixelsFromBottom;
                     var diagnosticFullPath = @fullPath;
-                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/BlueprintRenderer.cs:903", () => $"Loaded bundled directional Drawbridge Blueprint: " +
+                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/BlueprintRenderer/TryGetBundledDrawbridgeSprite.loaded-bundled-directional-drawbridge", () => $"Loaded bundled directional Drawbridge Blueprint: " +
                         $"file='{diagnosticFileName}', size={diagnosticTexture.width}x{diagnosticTexture.height}, " +
                         $"pivotPixels={diagnosticPivotPixelsFromBottom:F1}, " +
                         $"path={diagnosticFullPath}.");
@@ -911,7 +911,7 @@ namespace CastlePlanner
             catch (Exception ex)
             {
                 failedHelpImages.Add(cacheKey);
-                Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner/src/BlueprintRenderer.cs:914", $"Bundled directional Drawbridge image '{fileName}' " +
+                Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner/BlueprintRenderer/TryGetBundledDrawbridgeSprite.bundled-directional-drawbridge-image", $"Bundled directional Drawbridge image '{fileName}' " +
                     $"is unavailable; falling back to ST49: {ex.Message}");
                 return false;
             }
@@ -1050,7 +1050,7 @@ namespace CastlePlanner
             string reason = position == BlueprintDrawbridgePosition.Unknown
                 ? "no unique adjacent directional gatehouse was found"
                 : "a dedicated view from behind the gatehouse is still missing";
-            Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner/src/BlueprintRenderer.cs:1055", $"Drawbridge Blueprint uses a temporary image: " +
+            Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner/BlueprintRenderer/ReportDrawbridgePlaceholder", $"Drawbridge Blueprint uses a temporary image: " +
                 $"position={position}, reason={reason}. " +
                 $"Replace this position's directional image when available.");
         }
@@ -1175,7 +1175,7 @@ namespace CastlePlanner
                     var diagnosticTextureValue = @texture;
                     var diagnosticAlphaBounds = @alphaBounds;
                     var diagnosticCleanup = @cleanup;
-                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/BlueprintRenderer.cs:1181", () => $"Loaded clean Vanilla help image for Blueprint: " +
+                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/BlueprintRenderer/TryGetHelpImageSprite.loaded-clean-vanilla-help", () => $"Loaded clean Vanilla help image for Blueprint: " +
                         $"file='{diagnosticFileNameValue}', source={diagnosticTextureValue.width}x{diagnosticTextureValue.height}, " +
                         $"alphaBounds={diagnosticAlphaBounds}, cleanup={diagnosticCleanup}.");
                 }
@@ -1184,7 +1184,7 @@ namespace CastlePlanner
             catch (Exception ex)
             {
                 failedHelpImages.Add(fileName);
-                Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner/src/BlueprintRenderer.cs:1191", $"Vanilla help image '{fileName}' is unavailable; " +
+                Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner/BlueprintRenderer/TryGetHelpImageSprite.vanilla-help-image-unavailable", $"Vanilla help image '{fileName}' is unavailable; " +
                     $"falling back to its build-menu icon: {ex.Message}");
                 return false;
             }
@@ -1718,7 +1718,7 @@ namespace CastlePlanner
                     visualHeight);
             if (missingGroundOffsetMappers.Add(placement.MapperValue))
             {
-                Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner/src/BlueprintRenderer.cs:1732", $"Blueprint icon uses a geometric ground-alignment " +
+                Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner/BlueprintRenderer/ResolveVisualCenterOffset", $"Blueprint icon uses a geometric ground-alignment " +
                     $"fallback: mapper={mapper.Name} " +
                     $"({placement.MapperValue}), footprint={placement.Size}, " +
                     $"visualHeight={visualHeight:F4}, offset=(0," +
@@ -1775,7 +1775,7 @@ namespace CastlePlanner
             {
                 if (missingScaleMappers.Add(placement.MapperValue))
                 {
-                    Shared.DebugLogHelper.LogErrorLimited(log, "CastlePlanner/src/BlueprintRenderer.cs:1791", $"Blueprint icon uses an estimated scale: " +
+                    Shared.DebugLogHelper.LogErrorLimited(log, "CastlePlanner/BlueprintRenderer/TryResolveBuildingScale.uses-estimated-scale", $"Blueprint icon uses an estimated scale: " +
                         $"no measured or fixed scale is defined for " +
                         $"mapper={mapper.Name} " +
                         $"({placement.MapperValue}); the complete " +
@@ -1788,7 +1788,7 @@ namespace CastlePlanner
 
             if (missingScaleMappers.Add(placement.MapperValue))
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "CastlePlanner/src/BlueprintRenderer.cs:1806", $"Blueprint icon skipped: no scale is " +
+                Shared.DebugLogHelper.LogErrorLimited(log, "CastlePlanner/BlueprintRenderer/TryResolveBuildingScale.skipped-no-scale", $"Blueprint icon skipped: no scale is " +
                     $"defined and no meaningful footprint " +
                     $"estimate is possible for mapper=" +
                     $"{mapper.Name} ({placement.MapperValue}), " +
@@ -1989,7 +1989,7 @@ namespace CastlePlanner
             int newFailures = terrainProjectionFailureCount -
                 reportedTerrainProjectionFailureCount;
             reportedTerrainProjectionFailureCount = terrainProjectionFailureCount;
-            Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner/src/BlueprintRenderer.cs:2009", $"Blueprint terrain projection skipped cells: phase={phase}, " +
+            Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner/BlueprintRenderer/LogTerrainProjectionFailuresIfPending", $"Blueprint terrain projection skipped cells: phase={phase}, " +
                 $"newFailures={newFailures}, totalFailures={terrainProjectionFailureCount}, " +
                 $"uniqueTiles={invalidTerrainHeightTiles.Count}, " +
                 $"firstFailure={firstTerrainProjectionFailure}.");

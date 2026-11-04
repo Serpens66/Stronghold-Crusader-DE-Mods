@@ -1314,6 +1314,8 @@ namespace ExtendedData
             if (!lordDataCoordinator.PrepareTrail(selected?.Loaded.LordRequirements,
                 CurrentLordInfoMap(self), true, out reason, captureLocalReplacements))
                 return false;
+            if (selected != null && selected.Loaded.LordRequirements == null)
+                lordDataCoordinator.PrepareLegacyTrailPresentation(CurrentLordInfoMap(self), self?.singlePlayerCoop != true);
             if (self?.currentLobby != null && !self.currentLobby.isHost && !self.singlePlayerCoop)
             {
                 var localInfos = self.AIVs?.Take(8).Select((info, index) => new { info, index })
@@ -1511,7 +1513,7 @@ namespace ExtendedData
             lastPackageRosterDiagnostic = diagnostic;
             if (!string.IsNullOrEmpty(diagnostic))
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/src/ExtendedDataRuntime.cs:1370", $"Custom Coop package player identity mismatch; launch remains blocked until the roster converges: {diagnostic}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/ExtendedDataRuntime/ReportPackageRosterDiagnostic", $"Custom Coop package player identity mismatch; launch remains blocked until the roster converges: {diagnostic}");
             }
         }
 

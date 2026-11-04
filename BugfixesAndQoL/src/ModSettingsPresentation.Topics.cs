@@ -56,6 +56,7 @@ namespace BugfixesAndQoL
         public SettingsOptionPresentation EnableCorruptLordDataSpawnFix => options["EnableCorruptLordDataSpawnFix"];
         public SettingsOptionPresentation EnableMultiplayerStartupStateFix => options["EnableMultiplayerStartupStateFix"];
         public SettingsOptionPresentation EnablePeaceTimeGameplayFixes => options["EnablePeaceTimeGameplayFixes"];
+        public SettingsOptionPresentation EnablePeaceTimeCivilianProximityReduction => options["EnablePeaceTimeCivilianProximityReduction"];
         public SettingsOptionPresentation ShowMpAdvancedSettingsInSingleplayer => options["ShowMpAdvancedSettingsInSingleplayer"];
         public SettingsOptionPresentation EnableCustomLordListEnhancements => options["EnableCustomLordListEnhancements"];
         public SettingsOptionPresentation EnableTrailCustomizationButtons => options["EnableTrailCustomizationButtons"];
@@ -65,13 +66,12 @@ namespace BugfixesAndQoL
         public SettingsOptionPresentation MultiplayerGameSpeedMaximum => options["MultiplayerGameSpeedMaximum"];
         public SettingsOptionPresentation EnableShiftGameSpeedSteps => options["EnableShiftGameSpeedSteps"];
         public SettingsOptionPresentation EnableSurrenderAndStatistics => options["EnableSurrenderAndStatistics"];
-        public SettingsOptionPresentation EnableEliminatedPlayersBecomeSpectators => options["EnableEliminatedPlayersBecomeSpectators"];
-        public SettingsOptionPresentation EnableSpectatorPerspective => options["EnableSpectatorPerspective"];
         public SettingsOptionPresentation EnableRandomOpponentSelectionEnhancements => options["EnableRandomOpponentSelectionEnhancements"];
         public SettingsOptionPresentation EnableAiStoneReserveFix => options["EnableAiStoneReserveFix"];
         public SettingsOptionPresentation EnableAiDefensePatrolFix => options["EnableAiDefensePatrolFix"];
         public SettingsOptionPresentation EnableAiWallTargetingFix => options["EnableAiWallTargetingFix"];
         public SettingsOptionPresentation EnablePrebuiltAiWorkshopBothFix => options["EnablePrebuiltAiWorkshopBothFix"];
+        public SettingsOptionPresentation EnablePrebuiltAiStorageFix => options["EnablePrebuiltAiStorageFix"];
         public SettingsOptionPresentation EnableAivDefenderPositionFix => options["EnableAivDefenderPositionFix"];
         public SettingsOptionPresentation FixAIPreplacedMapBuildings => options["FixAIPreplacedMapBuildings"];
         public SettingsOptionPresentation FixAITowerRepair => options["FixAITowerRepair"];
@@ -87,6 +87,7 @@ namespace BugfixesAndQoL
         public SettingsOptionPresentation EnableTroopMovementFix => options["EnableTroopMovementFix"];
         public SettingsOptionPresentation EnableMountedStockpileMovementFix => options["EnableMountedStockpileMovementFix"];
         public SettingsOptionPresentation EnableHealerAttackCommandFix => options["EnableHealerAttackCommandFix"];
+        public SettingsOptionPresentation EnableLordReturnTeleportFix => options["EnableLordReturnTeleportFix"];
         public SettingsOptionPresentation EnableAssassinCombatResumeFix => options["EnableAssassinCombatResumeFix"];
         public SettingsOptionPresentation EnableAssemblyPointPlacementFix => options["EnableAssemblyPointPlacementFix"];
         public SettingsOptionPresentation EnableExtendedShiftCommandQueue => options["EnableExtendedShiftCommandQueue"];
@@ -174,6 +175,7 @@ namespace BugfixesAndQoL
             AddOption("EnableCorruptLordDataSpawnFix", "bugfixes.enable-corrupt-lord-data-spawn-fix", SettingsCategory.Fixes, HostSetup);
             AddOption("EnableMultiplayerStartupStateFix", "bugfixes.enable-multiplayer-startup-state-fix", SettingsCategory.Fixes, HostSetup);
             AddOption("EnablePeaceTimeGameplayFixes", "bugfixes.enable-peace-time-gameplay-fixes", SettingsCategory.Fixes, HostSetup);
+            AddOption("EnablePeaceTimeCivilianProximityReduction", "bugfixes.enable-peace-time-civilian-proximity-reduction", SettingsCategory.Qol, HostSetup);
             AddOption("ShowMpAdvancedSettingsInSingleplayer", "bugfixes.show-mp-advanced-settings-in-sp", SettingsCategory.Qol, HostSetup);
             AddOption("EnableCustomLordListEnhancements", "bugfixes.enable-custom-lord-list-enhancements", SettingsCategory.Qol, HostSetup);
             AddOption("EnableTrailCustomizationButtons", "bugfixes.enable-trail-customization-buttons", SettingsCategory.Qol, HostSetup);
@@ -184,14 +186,13 @@ namespace BugfixesAndQoL
             AddOption("EnableShiftGameSpeedSteps", "bugfixes.enable-shift-game-speed-steps", SettingsCategory.Qol, HostSetup);
             AddOption("EnableMinimapRefreshThrottle", "bugfixes.minimap-refresh-throttle", SettingsCategory.Fixes, HostSetup);
             AddOption("EnableSurrenderAndStatistics", "bugfixes.enable-surrender-and-statistics", SettingsCategory.Qol, HostSetup);
-            AddOption("EnableEliminatedPlayersBecomeSpectators", "bugfixes.enable-eliminated-players-become-spectators", SettingsCategory.Qol, HostSetup);
-            AddOption("EnableSpectatorPerspective", "bugfixes.enable-spectator-perspective", SettingsCategory.Qol, HostSetup);
             AddOption("EnableRandomOpponentSelectionEnhancements", "bugfixes.enable-random-opponent-selection-enhancements", SettingsCategory.Qol, HostSetup);
             HostAi = AddTopic("HostAi", "bugfixes.topic.host-ai", true);
             AddOption("EnableAiStoneReserveFix", "bugfixes.enable-ai-stone-reserve-fix", SettingsCategory.Fixes, HostAi);
             AddOption("EnableAiDefensePatrolFix", "bugfixes.enable-ai-defense-patrol-fix", SettingsCategory.Fixes, HostAi);
             AddOption("EnableAiWallTargetingFix", "bugfixes.enable-ai-wall-targeting-fix", SettingsCategory.Fixes, HostAi);
             AddOption("EnablePrebuiltAiWorkshopBothFix", "bugfixes.enable-prebuilt-ai-workshop-both-fix", SettingsCategory.Fixes, HostAi);
+            AddOption("EnablePrebuiltAiStorageFix", "bugfixes.enable-prebuilt-ai-storage-fix", SettingsCategory.Fixes, HostAi);
             AddOption("EnableAivDefenderPositionFix", "bugfixes.enable-aiv-defender-position-fix", SettingsCategory.Fixes, HostAi);
             AddOption("FixAIPreplacedMapBuildings", "bugfixes.fix-ai-preplaced-map-buildings", SettingsCategory.Fixes, HostAi);
             AddOption("FixAITowerRepair", "bugfixes.fix-aitower-repair", SettingsCategory.Fixes, HostAi);
@@ -209,6 +210,7 @@ namespace BugfixesAndQoL
             AddOption("EnableMountedStockpileMovementFix", "bugfixes.enable-mounted-stockpile-movement-fix", SettingsCategory.Fixes, HostTroops);
             AddOption("EnableHealerAttackCommandFix", "bugfixes.enable-healer-attack-command-fix", SettingsCategory.Fixes, HostTroops);
             AddOption("EnableAssassinCombatResumeFix", "bugfixes.enable-assassin-combat-resume-fix", SettingsCategory.Fixes, HostTroops);
+            AddOption("EnableLordReturnTeleportFix", "bugfixes.lord-return-teleport-fix", SettingsCategory.Fixes, HostTroops);
             AddOption("EnableAssemblyPointPlacementFix", "bugfixes.enable-assembly-point-placement-fix", SettingsCategory.Fixes, HostTroops);
             AddOption("EnableExtendedShiftCommandQueue", "bugfixes.enable-extended-shift-command-queue", SettingsCategory.Qol, HostTroops);
             AddOption("EnableFastRecruitRallyMovement", "bugfixes.fast-recruit-rally", SettingsCategory.Qol, HostTroops);

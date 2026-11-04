@@ -43,6 +43,7 @@ namespace BugfixesAndQoL.VanillaPerformance
         private static ManualLogSource log;
         private static Func<SpriteSheetMergeMode> selectedMode;
         private static int armed, decided, applied, loadCalls;
+        private static APIShared.Presentation.IUiFrameWorkRegistration spriteWaitWork;
 
         private sealed class Sheet
         {
@@ -89,13 +90,16 @@ namespace BugfixesAndQoL.VanillaPerformance
                 if (load == null || load.ReturnType != typeof(void))
                     throw new MissingMethodException("spriteLoader.loadSprites signature differs from the audit.");
                 harmony.Patch(load, prefix: new HarmonyMethod(typeof(SpriteSheetMergeOptimization), nameof(BeforeLoadSprites)));
-                // No public "sprites loaded" event exists; after the decision this is a single int read per frame.
-                Application.onBeforeRender += WaitForSprites;
+                // No public "sprites loaded" event exists; frame demand ends with the startup decision.
+                if (!APIShared.ApiShared.ForMod(BugfixesAndQoLPlugin.PluginGuid).Ui.TryRegisterBeforeRender(
+                    "sprite-sheet-startup", WaitForSprites, out spriteWaitWork, out string reason, 100))
+                    throw new InvalidOperationException("Sprite readiness scheduling unavailable: " + reason);
+                spriteWaitWork.SetContinuous(true);
             }
             catch (Exception exception)
             {
                 Volatile.Write(ref decided, 1);
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/VanillaPerformance/SpriteSheetMergeOptimization.cs:96",
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/SpriteSheetMergeOptimization/Arm",
                     "SPRITE_SHEET_MERGE_DISABLED: could not arm; Vanilla sprites retained; " + exception);
             }
         }
@@ -117,10 +121,11 @@ namespace BugfixesAndQoL.VanillaPerformance
             spriteLoader loader = spriteLoader.instance;
             if (loader == null || !loader.spritesLoaded) return;
             Volatile.Write(ref decided, 1);
+            spriteWaitWork.SetContinuous(false);
             try { Decide(loader); }
             catch (Exception exception)
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/VanillaPerformance/SpriteSheetMergeOptimization.cs:120",
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/SpriteSheetMergeOptimization/WaitForSprites",
                     "SPRITE_SHEET_MERGE_FAILED: Vanilla sprites retained; " + exception);
             }
         }
@@ -169,7 +174,7 @@ namespace BugfixesAndQoL.VanillaPerformance
             catch (Exception exception)
             {
                 // The loader is already consistent; renderers keep their own consistent original pair.
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/VanillaPerformance/SpriteSheetMergeOptimization.cs:159",
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/SpriteSheetMergeOptimization/Decide",
                     "SPRITE_SHEET_MERGE_LIVE_RENDERERS_FAILED: " + exception);
             }
             double ms = (Stopwatch.GetTimestamp() - started) * 1000.0 / Stopwatch.Frequency;

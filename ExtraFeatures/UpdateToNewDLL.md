@@ -103,7 +103,8 @@ unchanged.
 1. Require one match for every relevant entry and verify hook boundaries,
    delegates, register/stack assumptions and RIP-relative target bounds.
 2. Verify the complete Vanilla worker table and its table-start calculation.
-3. Revalidate plague lifetime value `800`, the comparison hook's `R8+RBX`
+3. Revalidate plague lifetime value `800`, the 16-bit age limit behind
+   `MaximumLifetime` (see below), the comparison hook's `R8+RBX`
    projectile pointer, and Vanilla distance comparison `30`. Confirm that the
    AI flag routine still calls the generic projectile spawn synchronously and
    does not call `c_game_disease_create_one_herd`.
@@ -155,6 +156,24 @@ the flag path. At the Disease lifetime comparison at RVA `0x9A176`, `R8+RBX`
 is the current `GameProjectile`; the conditional hook therefore substitutes
 Vanilla lifetime `800` only for an identity captured during the synchronous AI
 flag call.
+
+Plague lifetime limit (audit 2026-11-02, same hash): `0x9A080` increments the
+cloud age at `+0xD0` as a signed 16-bit value (`inc word`, once per call from
+the projectile update `0x9F960`, which runs the type-22 handler on every pass)
+and compares it with `cmp word [age], ax; jl`, so only `AX` of the substituted
+lifetime counts. New records start with age `0` (`0x9B2B0`). Once the age
+reaches the lifetime, phase `1016` is set; on every later call the loop branch
+resets it to `8` and sets `1016` again while age >= lifetime, until the
+Disease phase step (period `4` from table `0x2DAF70` entry 22, applied in
+`0x9F960` before the handler) moves it to `1017`. The fade branch no longer
+reads the age. The age therefore reaches lifetime + 3 while still compared, and
+must not wrap past `32767`: `PlagueDurationPatch.MaximumLifetime` is `32764`
+and `MaximumMultiplier` is `40` (lifetime `32000`). Larger values would fade
+clouds at once (`AX` negative) or truncate the lifetime modulo `65536`. On an
+update, revalidate the 16-bit age increment and compare, the phase reset of
+`1016`, and the type-22 phase period; `ExtraFeaturesNativeTests` checks the
+period on the reference hash. The unknown-hash scan validates the compare but
+not the period.
 
 The Monk update handler starts at RVA `0x151040`; unit-dispatch entry 37 points
 to it. Its audited movement block chooses walking at RVA `0x151413`
@@ -393,9 +412,13 @@ Migration acceptance: testmod editor logs on 2026-09-07 at 20:33:43 showed base 
 ### No Kill Reward (native lord-defeat loot)
 
 - Reference SHA-256: `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`. Owner: lord-death state function RVA `0x15A950`. The feature remains hash-bound because its resource layout, cleanup contract and message ordering are not derived for other builds.
-- Reward hook RVA `0x15C4EA`, exact 14-byte span ending at `0x15C4F8`: `4C 69 D5 0F 16 00 00 4C 69 ED 3C 58 00 00`. The native pattern resolver requires a unique match in the mapped image and the audited RVA. The first reward write follows at `0x15C4FC`; suppression branches to cleanup RVA `0x15C980`. The callback supplies resource-base RVA `0x366C210` in RCX, zeroes R12D and uses RDX for the generated post-callback decision.
-- Gold-message hook RVA `0x15CA65`, exact 15-byte span ending at `0x15CA74`: `8B D6 44 2B E0 44 89 64 24 20 E8 5C FE EB FF`. With zero reward it skips only the gold-message call; the preceding victory message and later follow-up remain Vanilla. The pattern resolver again requires a unique audited RVA. Both copied-buffer RedBird probes must match these complete spans and generated continuations.
+- Reward hook RVA `0x15C4EA`, exact 14-byte span ending at `0x15C4F8`: `4C 69 D5 0F 16 00 00 4C 69 ED 3C 58 00 00`. The native pattern resolver requires a unique match in the mapped image and the audited RVA. The first reward write follows at `0x15C4FC`; suppression branches to cleanup RVA `0x15C980`. The callback supplies resource-base RVA `0x366C210` in RCX, places the actual credited gold in R12D and uses RDX for the generated post-callback decision.
+- Gold-message hook RVA `0x15CA65`, exact 15-byte span ending at `0x15CA74`: `8B D6 44 2B E0 44 89 64 24 20 E8 5C FE EB FF`. With zero reward it skips only the gold-message call; positive rewards are emitted as one or more base-30000 messages of at most 900,000,000 gold each to fit the native signed-short payload. The preceding victory message and later follow-up remain Vanilla. The pattern resolver again requires a unique audited RVA. Both copied-buffer RedBird probes must match these complete spans and generated continuations.
 - Before committing the two hooks, compare both complete spans in the current executable pages with the validated load-time snapshot; repeat immediately before commit. A mismatch or failed native contract leaves the feature disabled and is logged once by the feature initialization guard. Published hooks remain rooted until process exit; settings change only the atomic role mask. The local Fixes and Script Extender sources and active own-mod hook sites have no known overlap at these spans.
+
+- Configurable reward data (2026-10-27): raw player-zero resources RVA `0x379ADD0`, stride `0x583C`; source totals `+0x4D0`, incoming `+0x46C`, gold `+0x50C`, goods notification `+0x3C`; winner award statistic RVA `0x087EED98` plus one-based winnerId*4. Resolve it from LEA R13,[RIP+disp32] at `0x15C988` (next RIP `0x15C98F`, displacement `0x08417991`) and ADD [R13+RBP*4+disp32],R12D at `0x15C997` (displacement `0x0027AA78`). Validate the complete zero-through-MAX_PLAYERS Int32 range against SizeOfImage and a writable non-executable PE data section before publishing either hook; recheck both live anchor instructions immediately before commit. The previous `0x887EED98` was an erroneous RVA outside this image and must be rejected. The twenty goods indices come from the native table RVA `0x3327B0`, validated against the installed Extender enums. Bases follow the gold/goods writers at `0x15C4FC..0x15C977` and statistic writer `0x15C997`; Extender pointer equality and struct offsets are checked before writing. There is no unknown-hash layout fallback: only this feature fails closed on hash/layout mismatch. Source data and all credit amounts are staged before the first write; no throwing API follows crediting.
+- Cleanup clears the loser's incoming goods table, not its totals. Actual credited gold is bounded by both current-gold and award-statistic signed Int32 headroom before the original cleanup adds the statistic. The message continuation uses only Win64 nonvolatile RBP/RSI/R12/R13 across calls; R12 is dead before Vanilla overwrites it at `0x15CA7B`. Executed native fixtures verify chunking through Int32.MaxValue with volatile-clobbering recorders.
+- Full current audit: `../_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/KILL_REWARD_PERCENT.md`. Update checks include both original guards/cleanup paths, all twenty source/destination entries, field/table/stride anchors, positive-only goods notification, zero gold, three-chunk gold messages, statistic bounds, peer determinism, and profile/Trail migration.
 
 ## 2026-10-05: manual-only drawbridges
 
@@ -473,3 +496,19 @@ publishes its host-synchronized Walls/Gates/Towers/Keeps policy at tolerance 20.
 Defaults are true/true/true/false; global host activation and mission mode gate
 control this owner's activation. No own native plague-height hooks remain here.
 Vanilla apothecary resistance and Tweaker damage remain unchanged.
+
+## Enemy proximity settings
+
+ExtraFeatures delegates category evaluation to `APIShared.Buildings.EnemyProximityPolicies`
+(Override registration `ExtraFeatures_Serp / enemy-proximity`); APIShared/UpdateToNewDLL.md
+owns the native predicate contract. Vanilla audit and field/caller evidence:
+`_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/ENEMY_BUILD_PROXIMITY.md`.
+ExtraFeatures keeps its human/AI scope, the resolution of its -1 (Vanilla) setting, which
+contributes no category radius, and the authoritative AI rebuild-delay veto. It installs no
+native code and has no direct SE proximity-event subscription.
+
+The common-radius properties are import aliases only; the eight category settings are the
+active host-controlled values. On storage changes, check the migration reader's
+personal-path candidates and schema-1/2/3 envelope keys against APIShared. All writes use
+its working-copy endpoint; explicit values beat aliases. Human special radii and
+unclassified AI first placements stay Vanilla.

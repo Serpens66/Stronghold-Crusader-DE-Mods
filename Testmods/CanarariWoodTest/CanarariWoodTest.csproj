@@ -19,12 +19,15 @@
   <PropertyGroup Condition="'$(GameDir)' == ''"><GameDir>E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition</GameDir></PropertyGroup>
   <PropertyGroup Condition="'$(ExtenderDir)' == ''"><ExtenderDir>$(GameDir)\BepInEx\plugins\000shcdese</ExtenderDir></PropertyGroup>
   <PropertyGroup Condition="'$(ApiSharedDir)' == ''"><ApiSharedDir>$(GameDir)\BepInEx\plugins\APIShared_Serp</ApiSharedDir></PropertyGroup>
+  <PropertyGroup Condition="'$(GeneralDiagnosticDir)' == ''"><GeneralDiagnosticDir>..\AIBuildDiagnoseTest\BepInEx\plugins\AIBuildDiagnoseTest_Serp</GeneralDiagnosticDir></PropertyGroup>
+  <PropertyGroup Condition="'$(BugfixesDir)' == '' and Exists('$(GameDir)\BepInEx\plugins\SerpsMods_Serp\Mods\BugfixesAndQoL_Serp\BugfixesAndQoL.dll')"><BugfixesDir>$(GameDir)\BepInEx\plugins\SerpsMods_Serp\Mods\BugfixesAndQoL_Serp</BugfixesDir></PropertyGroup>
+  <PropertyGroup Condition="'$(BugfixesDir)' == ''"><BugfixesDir>$(GameDir)\BepInEx\plugins\BugfixesAndQoL_Serp</BugfixesDir></PropertyGroup>
   <ItemGroup>
-    <Reference Include="AIBuildDiagnoseTest"><HintPath>..\AIBuildDiagnoseTest\BepInEx\plugins\AIBuildDiagnoseTest_Serp\AIBuildDiagnoseTest.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="AIBuildDiagnoseTest"><HintPath>$(GeneralDiagnosticDir)\AIBuildDiagnoseTest.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="Iced"><HintPath>$(ExtenderDir)\Iced.dll</HintPath><Private>false</Private></Reference>
-    <Reference Include="BugfixesAndQoL"><HintPath>..\..\BugfixesAndQoL\BepInEx\plugins\BugfixesAndQoL_Serp\BugfixesAndQoL.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="BugfixesAndQoL"><HintPath>$(BugfixesDir)\BugfixesAndQoL.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.CoreModule"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.CoreModule.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="Assembly-CSharp"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\Assembly-CSharp.dll</HintPath><Private>false</Private></Reference>

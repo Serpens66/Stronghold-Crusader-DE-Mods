@@ -43,14 +43,19 @@ namespace BugfixesAndQoL.UnitCommands
             }
             try
             {
-                result = BuildPathWithCompletedMoatRouteVariantWithMoat(
-                    pathManager, movementClass, movementProfile);
+                // Assassin group moves: a published group route replaces Vanilla's builder for this member.
+                if (TryPublishAssassinGroupRoute(pathManager, ref assassinRoute, out int grouped)) result = grouped;
+                else
+                {
+                    result = BuildPathWithCompletedMoatRouteVariantWithMoat(
+                        pathManager, movementClass, movementProfile);
 #if SERP_DEVDIAG
-                ObserveTemporaryNativeBuilderOutput(temporaryRoute, result);
+                    ObserveTemporaryNativeBuilderOutput(temporaryRoute, result);
 #endif
 
-                try { result = assassinRoute.Complete(result); }
-                catch (Exception ex) { TryLogDiagnosticFailure("assassin-route-publication", ex); }
+                    try { result = assassinRoute.Complete(result); }
+                    catch (Exception ex) { TryLogDiagnosticFailure("assassin-route-publication", ex); }
+                }
                 try { ObserveCursorGroundBuilder(pathManager, movementClass, movementProfile, result); }
                 catch (Exception ex) { TryLogDiagnosticFailure("cursor-ground-reject-capture", ex); }
                 completed = true;
@@ -70,6 +75,44 @@ namespace BugfixesAndQoL.UnitCommands
                 GateAttackFreezeCapture.Leave(freeze, result, completed);
 #endif
             }
+        }
+
+        // Set once by the Assassin pathfinding runtime (AssassinPathfindingRuntime.TryStageGroupRoute): stages a
+        // group route for the request of the current frame, or returns false.
+        internal static Func<IntPtr, bool> AssassinGroupRouteStager;
+        // While set, the frame's identity check skips F4930's +0x94 test: Vanilla's builder did not run, so +0x94
+        // still holds an older route's value, and no second F4930 pass can replace the staged route.
+        private bool assassinBuilderSkipped;
+
+        // F4930 replacement for a member of an Assassin group move: publishes the staged group route without
+        // Vanilla's builder. Without a published route the frame is replaced by a fresh one (dropping anything
+        // staged) and the caller runs the unchanged per-unit path.
+        private bool TryPublishAssassinGroupRoute(IntPtr pathManager, ref AssassinRouteOutputFrame frame, out int published)
+        {
+            published = 0;
+            Func<IntPtr, bool> stager = AssassinGroupRouteStager;
+            if (stager == null || nativeManualProbe || pathManager != nativePathManager) return false;
+            bool staged = false;
+            assassinBuilderSkipped = true;
+            try
+            {
+                staged = stager(pathManager);
+                if (staged) published = frame.Complete(0);
+            }
+            // A route may already be staged: the frame is replaced below, so no group route reaches the builder path
+            // (its validator skips Complete's repeat, see AssassinPathfindingRuntime.CachedRoute.GetGroupRouteValidator).
+            catch (Exception ex) { TryLogDiagnosticFailure("assassin-group-route", ex); published = 0; staged = true; }
+            finally { assassinBuilderSkipped = false; }
+            if (published > 0) return true;
+            if (!staged) return false;
+            frame.Leave();
+            try { frame = BeginAssassinRoutePublication(pathManager); }
+            catch (Exception ex)
+            {
+                TryLogDiagnosticFailure("assassin-route-capture", ex);
+                frame = AssassinPathAPI.BeginRouteOutput(pathManager, 0, 0, 0, 0, 0, null, null);
+            }
+            return false;
         }
 
         private AssassinRouteOutputFrame BeginAssassinRoutePublication(IntPtr pathManager)
@@ -198,7 +241,7 @@ namespace BugfixesAndQoL.UnitCommands
 
                 // F4930 can replace the Assassin reconstruction with a later normal route when +94 != 0.
                 // Keep this exclusion: publishing the staged route would overwrite that native output.
-                if (*(int*)(m + 0x94) != 0)
+                if (!assassinBuilderSkipped && *(int*)(m + 0x94) != 0)
 #if SERP_DEVDIAG
             return TemporaryAssassinPublicationRejected("output-mode94");
 #else
@@ -232,7 +275,7 @@ namespace BugfixesAndQoL.UnitCommands
                 {
                     assassinExactPublicationLogged = true;
                     try { if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                              Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/UnitCommands/Movement/MovementPathPublication.cs:116", $"Assassin exact route published after native reconstruction; unit={unitId} global={global} start=({sx},{sy}) target=({tx},{ty}) directions={count}."); }
+                              Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/MovementPathPublication/UnitCommandPathRuntime.BeginAssassinRoutePublication", $"Assassin exact route published after native reconstruction; unit={unitId} global={global} start=({sx},{sy}) target=({tx},{ty}) directions={count}."); }
                     catch { /* Logging cannot turn a published route into a native failure. */ }
                 }
                 return count;
@@ -404,7 +447,7 @@ namespace BugfixesAndQoL.UnitCommands
                 {
                     byte* manager = pathManager == nativePathManager ? (byte*)pathManager.ToPointer() : null;
                     UnitMoveFrame frame = GetCurrentUnitMoveFrame();
-                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/UnitCommands/Movement/MovementPathPublication.cs:540", $"Bugfixes and QoL stage=friendly-moat-movement-fallback-contract-rejected unit={plan?.UnitId ?? 0} " +
+                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/MovementPathPublication/UnitCommandPathRuntime.RecordFallbackContractRejection", $"Bugfixes and QoL stage=friendly-moat-movement-fallback-contract-rejected unit={plan?.UnitId ?? 0} " +
                         $"count={fallbackContractRejections} reason={reason} " +
                         $"click=({activeMoveCommand?.TargetX ?? -1},{activeMoveCommand?.TargetY ?? -1}) " +
                         $"request=({frame?.Args.TileX ?? plan?.TargetX ?? -1},{frame?.Args.TileY ?? plan?.TargetY ?? -1}) " +

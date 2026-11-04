@@ -3,13 +3,31 @@
   "Author": "Serpens66",
   "Name": "CastlePlanner",
   "Description": "Displays AIVJSON blueprints, spawns personal human castles, and contains the gated AI lobby placement workflow.",
-  "Version": "0.8.47",
+  "Version": "0.8.50",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.10.4",
   "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "0.8.50",
+      "Changes": [
+        "Include additional stockpile, granary and armoury sections when spawning a chosen castle, including a single extension. Sections wait for their neighbour to be ready and follow normal placement rules; blocked spots stay empty.",
+        "Let eliminated multiplayer players view the watched AI player's castle plan read-only, like spectators. Choosing, rotating or confirming a castle is unavailable after elimination, including from a previously opened panel.",
+        "Distinguish normal placement omissions from unexplained or technical spawn failures in the reported castle-spawn results.",
+        "Require APIShared 0.26.0 or newer."
+      ]
+    },
+    {
+      "Version": "0.8.49",
+      "Changes": ["Use native map ticks for deferred compound-building placement; preserve synchronous castle initialization and start the deadline on first processing."]
+    },
+    {
+      "Version": "0.8.48",
+      "Changes": ["Show multiplayer spectators the accepted AI castle plan of the viewed player as a read-only Blueprint, including the source AIV file name when the session provides it; the projection refreshes every 40 simulation ticks only while it or its panel is shown.",
+        "Require APIShared 0.14.0 or newer for the perspective-change notifications used by this view."]
+    },
     {
       "Version": "0.8.47",
       "Changes": ["Skip castle flags, braziers and siege engines on water and impassable terrain while preserving walkable stone resources and placements on fortifications.",
@@ -958,7 +976,7 @@
   "Dependencies": [
     {
       "GUID": "APIShared_Serp",
-      "MinimumVersion": "0.11.1"
+      "MinimumVersion": "0.26.0"
     }
   ]
 }

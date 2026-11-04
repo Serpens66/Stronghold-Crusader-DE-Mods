@@ -1,0 +1,11 @@
+{
+  "GUID": "RuleConsumerProbe_Serp",
+  "Author": "Serpens66",
+  "Name": "RuleConsumerProbe",
+  "Description": "Test utility: sets APIShared route tile rules and a route cost observer under load (off by default).",
+  "Version": "0.1.0",
+  "MinimumScriptExtenderVersion": "2.14.0",
+  "Dependencies": [{ "GUID": "APIShared_Serp", "MinimumVersion": "0.18.0" }],
+  "Manifest": 1,
+  "NetworkMode": 1
+}

@@ -37,6 +37,8 @@ namespace BugfixesAndQoL.UnitCommands
                 RequireMainThread("input-down");
                 if (args.Phase != EventHookPhase.Post)
                     return;
+                if (args.Key == ToKeyCode(GetCommandMouseButton()))
+                    lock (stateSync) inputAttempt++;
                 ActiveDrag state;
                 lock (stateSync)
                     state = drag;
@@ -58,7 +60,9 @@ namespace BugfixesAndQoL.UnitCommands
 
                 int commandButton = GetCommandMouseButton();
                 if (args.Key == ToKeyCode(commandButton))
+                {
                     TryStartDrag(commandButton);
+                }
             }
             catch (Exception exception)
             {
@@ -85,7 +89,7 @@ namespace BugfixesAndQoL.UnitCommands
                     EvaluateCommandMode();
                 if (modeRejection != APIShared.Internal.GroundMovePreviewRejection.None)
                 {
-                    AbortDrag("command-" + ToRejectionReason(modeRejection));
+                    AbortCommandMode("held-command", modeRejection);
                     return;
                 }
                 APIShared.Internal.GroundMovePreviewRejection targetRejection =
@@ -132,8 +136,7 @@ namespace BugfixesAndQoL.UnitCommands
                     EvaluateCommandMode();
                 if (modeRejection != APIShared.Internal.GroundMovePreviewRejection.None)
                 {
-                    AbortDrag("release-command-" +
-                        ToRejectionReason(modeRejection));
+                    AbortCommandMode("input-release-command", modeRejection);
                     return;
                 }
 
@@ -148,7 +151,7 @@ namespace BugfixesAndQoL.UnitCommands
                     return;
                 ClearPreview();
                 if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/Formations/FormationRuntime.Input.cs:145", $"FORMATION_RELEASE_EVENT: button={state.CommandButton}, " +
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/FormationRuntime.Input/OnKeyUp", $"FORMATION_RELEASE_EVENT: button={state.CommandButton}, " +
                         $"thread={Environment.CurrentManagedThreadId}; awaiting native release.");
             }
             catch (Exception exception)
@@ -160,7 +163,7 @@ namespace BugfixesAndQoL.UnitCommands
         private void UpdateGesture(ActiveDrag state)
         {
             bool abort;
-            int changedRows = 0;
+            FormationAspectRatio? changedAspect = null;
             lock (stateSync)
             {
                 if (!ReferenceEquals(drag, state) || !state.ReleaseGate.CanModify)
@@ -169,13 +172,18 @@ namespace BugfixesAndQoL.UnitCommands
                 if (!abort)
                 {
                     int frame = Time.frameCount;
-                    float wheel = state.Authorization.IsConfirmed ? Input.mouseScrollDelta.y : 0f;
+                    // Persist proportions only from a coherent admitted preview, never
+                    // from the full selection while its island filter is still pending.
+                    bool admitted = state.PreviewAdmissionCaptured &&
+                        state.PreviewAdmissionRevision == commandRuntime.placementRevision &&
+                        state.PreviewUnits != null && state.PreviewUnits.Length != 0;
+                    float wheel = state.Authorization.IsConfirmed && admitted ? Input.mouseScrollDelta.y : 0f;
                     if (wheel != 0f && lastWheelFrame != frame)
                     {
                         lastWheelFrame = frame;
-                        int oldRows = state.Geometry.RequestedRows;
+                        FormationAspectRatio oldAspect = state.Geometry.Aspect;
                         state.Geometry.ApplyWheel(wheel, frame);
-                        if (state.Geometry.RequestedRows != oldRows) changedRows = state.Geometry.RequestedRows;
+                        if (state.Geometry.Aspect != oldAspect) changedAspect = state.Geometry.Aspect;
                     }
 
                     if (TryCaptureTarget(out GroundTarget endpoint))
@@ -191,7 +199,7 @@ namespace BugfixesAndQoL.UnitCommands
             else
             {
                 PublishPreview(state, force: false);
-                if (changedRows != 0) menuViewModel.RememberSelectedRows(state.Kind, changedRows);
+                if (changedAspect.HasValue) menuViewModel.RememberSelectedAspect(state.Kind, changedAspect.Value);
             }
         }
 
@@ -222,7 +230,7 @@ namespace BugfixesAndQoL.UnitCommands
                 Kind = kind,
                 Density = FormationModel.NormalizeDensity(densityConfig.Value),
                 PlacementMode = FormationModel.NormalizePlacementMode((int)placementModeConfig.Value),
-                RememberedRows = menuViewModel.GetRememberedRows(kind)
+                RememberedAspect = menuViewModel.GetRememberedAspect(kind)
             };
             SelectionIdentity[] selection;
             int tribeId;
@@ -258,7 +266,7 @@ namespace BugfixesAndQoL.UnitCommands
                 start.Kind,
                 start.Density,
                 start.PlacementMode,
-                start.RememberedRows);
+                start.RememberedAspect);
             state.MapEpoch = start.MapEpoch;
             state.PlayerId = start.PlayerId;
             var previewUnits = new FormationUnit[selection.Length];
@@ -307,7 +315,8 @@ namespace BugfixesAndQoL.UnitCommands
 
         private sealed class PendingDragStart
         {
-            internal int CommandButton, MapEpoch, PlayerId, Density, RememberedRows;
+            internal int CommandButton, MapEpoch, PlayerId, Density;
+            internal FormationAspectRatio RememberedAspect;
             internal GroundTarget Target;
             internal FormationKind Kind;
             internal RangedPlacementMode PlacementMode;

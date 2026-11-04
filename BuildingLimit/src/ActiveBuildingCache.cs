@@ -49,7 +49,7 @@ namespace BuildingLimit
                 subscribed = true;
                 {
                     if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                        LogDebug("BuildingLimit/src/ActiveBuildingCache.cs:50", "ActiveBuildingCache hooks subscribed.");
+                        LogDebug("BuildingLimit/ActiveBuildingCache/SubscribeHooks", "ActiveBuildingCache hooks subscribed.");
                 }
             }
             catch
@@ -64,7 +64,7 @@ namespace BuildingLimit
             foreach (IDisposable subscription in subscriptions)
             {
                 try { subscription.Dispose(); }
-                catch (Exception ex) { Shared.DebugLogHelper.LogErrorLimited(log, "BuildingLimit/src/ActiveBuildingCache.cs:64", "ActiveBuildingCache subscription cleanup failed:", ex); }
+                catch (Exception ex) { Shared.DebugLogHelper.LogErrorLimited(log, "BuildingLimit/ActiveBuildingCache/Dispose", "ActiveBuildingCache subscription cleanup failed:", ex); }
             }
 
             subscriptions.Clear();
@@ -161,7 +161,7 @@ namespace BuildingLimit
             {
                 {
                     if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                        LogDebug("BuildingLimit/src/ActiveBuildingCache.cs:159",
+                        LogDebug("BuildingLimit/ActiveBuildingCache/ResyncAll",
                     "ActiveBuildingCache ResyncAll:",
                     "raiseEvents", raiseEvents,
                     "scanned", scannedBuildings,
@@ -326,7 +326,7 @@ namespace BuildingLimit
                     if (ShouldLogPlayer(pair.Key.PlayerId))
                     {
                         if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                            LogDebug("BuildingLimit/src/ActiveBuildingCache.cs:351",
+                            LogDebug("BuildingLimit/ActiveBuildingCache/ApplyCountDelta",
                                 "ActiveBuildingCache count changed:",
                                 "player", pair.Key.PlayerId,
                                 "type", pair.Key.BuildingType,
@@ -387,7 +387,7 @@ namespace BuildingLimit
             if (humanCountKeys > 0)
                 {
                     if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                        LogDebug("BuildingLimit/src/ActiveBuildingCache.cs:410", "ActiveBuildingCache RebuildCounts:", "humanCountKeys", humanCountKeys);
+                        LogDebug("BuildingLimit/ActiveBuildingCache/RebuildCounts", "ActiveBuildingCache RebuildCounts:", "humanCountKeys", humanCountKeys);
                 }
         }
 
@@ -511,7 +511,7 @@ namespace BuildingLimit
 
             {
                 if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    LogDebug("BuildingLimit/src/ActiveBuildingCache.cs:537", "ActiveBuildingCache cleared.");
+                    LogDebug("BuildingLimit/ActiveBuildingCache/Clear", "ActiveBuildingCache cleared.");
             }
         }
 

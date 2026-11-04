@@ -67,7 +67,7 @@ namespace BugfixesAndQoL
             getFileInfoHook?.Undo();
             getFileInfoHook?.Dispose();
             getFileInfoHook = null;
-            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/CustomTrailExtremeGoldFixHook.cs:70", "Bugfixes and QoL Custom Trail starting-gold fix hooks disposed.");
+            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/CustomTrailExtremeGoldFixHook/Dispose", "Bugfixes and QoL Custom Trail starting-gold fix hooks disposed.");
         }
 
         private FileHeader GetFileInfoHook(
@@ -86,13 +86,13 @@ namespace BugfixesAndQoL
                 if (Normalize(result?.restartSkirmishInfo))
                 {
                     if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                        Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/CustomTrailExtremeGoldFixHook.cs:88", $"Ignored customisedExtremeTrail=true while reading Custom Trail [{realFilePath ?? filePath}].");
+                        Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/CustomTrailExtremeGoldFixHook/GetFileInfoHook.ignored-customised-extreme-trail", $"Ignored customisedExtremeTrail=true while reading Custom Trail [{realFilePath ?? filePath}].");
                 }
             }
             catch (Exception ex)
             {
                 // Reading the Vanilla result must remain successful even if this optional fix fails.
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/CustomTrailExtremeGoldFixHook.cs:96", $"Custom Trail starting-gold read fix failed: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/CustomTrailExtremeGoldFixHook/GetFileInfoHook.custom-trail-starting-gold", $"Custom Trail starting-gold read fix failed: {ex}");
             }
 
             return result;
@@ -112,13 +112,13 @@ namespace BugfixesAndQoL
                     if (Normalize(restartInfo))
                     {
                         if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/CustomTrailExtremeGoldFixHook.cs:115", $"Writing Custom Trail [{trailPath}] with customisedExtremeTrail=false.");
+                            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/CustomTrailExtremeGoldFixHook/SaveCustomTrailMapHook.writing-custom-trail-customised", $"Writing Custom Trail [{trailPath}] with customisedExtremeTrail=false.");
                     }
                 }
                 catch (Exception ex)
                 {
                     // A diagnostics failure must not prevent Vanilla from saving the mission.
-                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/CustomTrailExtremeGoldFixHook.cs:123", $"Custom Trail starting-gold save fix failed: {ex}");
+                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/CustomTrailExtremeGoldFixHook/SaveCustomTrailMapHook.custom-trail-starting-gold", $"Custom Trail starting-gold save fix failed: {ex}");
                 }
             }
 

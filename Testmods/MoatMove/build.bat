@@ -37,7 +37,7 @@ echo [%date% %time%] Workspace source and runtime preflight
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\..\Shared\Tools\Validation\Test-SharedBoundaries.ps1"
 if not "%ERRORLEVEL%"=="0" exit /b 1
 echo [%date% %time%] PowerShell checks / build step
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\..\Shared\Tools\Validation\Test-UnitCommandSplit.ps1"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\..\Shared\Tools\Validation\Test-UnitCommandSplit.ps1" -ModDirectory Testmods/MoatMove
 if not "%ERRORLEVEL%"=="0" exit /b 1
 setlocal EnableExtensions
 set "PROJECT_DIR=%~dp0"
@@ -69,11 +69,19 @@ if not "%ERRORLEVEL%"=="0" goto failed
 if not exist "%API_SHARED_DIR%\APIShared.dll" goto failed
 rem A branch build copy has no built APIShared next to it; the regression needs the selected package.
 set "MOAT_TEST_API_SHARED_DLL=%API_SHARED_DIR%\APIShared.dll"
+rem The anchor integration test loads the real native core, so it is compiled first.
+echo [%date% %time%] Compile native anchor core
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%native\Build-MoatMoveAnchor.ps1"
+if not "%ERRORLEVEL%"=="0" goto failed
+set "MOAT_TEST_ANCHOR_DIR=%PROJECT_DIR%.local\anchor"
 echo [%date% %time%] Run tests
 dotnet run --project "%PROJECT_DIR%tests\MoatMove.Tests.csproj" -- "%PROJECT_DIR%..\.."
 if not "%ERRORLEVEL%"=="0" goto failed
 echo [%date% %time%] Compile projects
 "%MSBUILD%" "%PROJECT_DIR%MoatMove.csproj" /t:Build /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /p:ApiSharedDir="%API_SHARED_DIR%" /nologo /v:minimal
+if not "%ERRORLEVEL%"=="0" goto failed
+echo [%date% %time%] Package native anchor core
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%native\Build-MoatMoveAnchor.ps1" -CopyOnly -OutputDirectory "%PROJECT_DIR%BepInEx\plugins\MoatMove_Serp"
 if not "%ERRORLEVEL%"=="0" goto failed
 if "%NO_INSTALL%"=="1" goto built_without_install
 echo [%date% %time%] PowerShell checks / build step

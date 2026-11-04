@@ -118,13 +118,15 @@
                         IsEnabled="{Binding CanToggle}"
                         Style="{StaticResource CastlePlannerParchmentButton}"/>
 
-                <TextBlock Text="AIVJSON" Foreground="#FFF1E2B7"
+                <TextBlock Visibility="{Binding ManualCastleVisibility}" Text="AIVJSON" Foreground="#FFF1E2B7"
                            FontWeight="Bold" Margin="3,7,0,3"/>
 
                 <!-- Noesis has no searchable ComboBox. This Popup overlays the
                      closed selector with its search field, so keyboard input and
                      the result list remain in the same popup focus scope. -->
-                <Grid x:Name="CastlePlannerCastleSelector" Height="30"
+                <TextBlock Text="{Binding SpectatorCastleText}" Foreground="{Binding SpectatorCastleColour}" Visibility="{Binding SpectatorCastleVisibility}" Margin="3,7,3,3" TextWrapping="Wrap"/>
+                <TextBlock Text="{Binding SpectatorAivFileText}" Foreground="#FFF1E2B7" Visibility="{Binding SpectatorCastleVisibility}" Margin="3,0,3,3" TextWrapping="Wrap"/>
+                <Grid x:Name="CastlePlannerCastleSelector" Visibility="{Binding ManualCastleVisibility}" Height="30"
                       IsEnabled="{Binding CanSelectCastle}">
                   <!-- A transparent hit surface leaves the native ComboBox template
                        untouched, so the closed selector retains Vanilla behavior. -->

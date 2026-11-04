@@ -87,6 +87,66 @@ namespace StartConditions {
 Run("Settings", new[] { vm, Read("StartConditions/src/IStartConditionsSettings.cs"), enums,
     settingsDoubles.Replace("__KEYS__", keys) }, "StartConditions.SettingsCases");
 
+// Production readiness handle, broker, native-read decisions, clock math and event registry.
+// Doubles replace engine pointers, roster/memory readiness and the upstream SE publisher only.
+if (!baseline) Run("SimulationReadiness", new[] {
+    Read("Shared/Adapters/APIShared/ActivePlayerKeepReadiness.cs"),
+    Read("APIShared/src/Simulation/SimulationClock.cs"),
+    Read("APIShared/src/Simulation/SimulationTickRegistry.cs"),
+    Read("APIShared/src/Core/Events/OwnedCallbacks.cs"),
+    """
+using System; using System.Collections.Generic; using System.Runtime.InteropServices;
+namespace SHCDESE.Interop { public enum eStructs { STRUCT_KEEP_ONE,STRUCT_KEEP_TWO,STRUCT_KEEP_THREE,STRUCT_KEEP_FOUR,STRUCT_KEEP_FIVE }
+ public struct GameBuilding { public int r_PlayerIdOwner; public eStructs r_BuildingType; public Enums.AliveState r_AliveState; } }
+namespace SHCDESE.Interop.Enums { public enum AliveState { NeedsInit,IsAlive } }
+namespace SHCDESE.API {
+ public class GameTimeManagerAPI { public static readonly GameTimeManagerAPI Instance=new(); public event Action<int> OnTick; }
+ public class GamePlayerManagerAPI { public static readonly GamePlayerManagerAPI Instance=new(); public bool IsPlayerIdValid(int p)=>p==1; public int GetPlayerKeepId(int p)=>1; }
+ public unsafe class GameBuildingManagerAPI { public static readonly GameBuildingManagerAPI Instance=new();
+  public bool TryGetBuildingById(int id,out SHCDESE.Interop.GameBuilding* b) { b=(SHCDESE.Interop.GameBuilding*)Shared.World.Building; return Shared.World.KeepReady; } }
+}
+namespace APIShared { public sealed class MissionContext {} }
+namespace APIShared.Simulation {
+ internal static class SimulationTickSource { internal static bool TryRead(APIShared.MissionContext c,out int t) { t=Shared.World.Tick;return Shared.World.Available; } internal static void Report(string s,Exception e) {} }
+ public static class SimulationTickEvents {
+  internal static readonly SimulationTickRegistry Registry=new((out long session,out int tick)=>{session=Shared.World.Session;tick=Shared.World.Tick;return Shared.World.Available;}, cb=>Shared.World.Source=cb);
+  public static bool TryRegister(string owner,string id,Action<int> cb,out string reason,int order=0)=>Registry.TryRegister(owner,id,cb,order,out reason);
+ }
+}
+namespace Shared {
+ internal static class MissionEvents { internal static bool TryGetCurrentMapTick(out int t) {t=World.Tick;return World.Available;} }
+ public static class ActivePlayerHelper { public static int[] GetActivePlayerIds()=>new[]{1}; }
+ public static class World {
+  public static int Tick; public static long Session; public static bool Available=true,KeepReady; public static Action<int> Source;
+  public static readonly IntPtr Building=Marshal.AllocHGlobal(Marshal.SizeOf<SHCDESE.Interop.GameBuilding>());
+  public static void Emit(int native,int local){Tick=native;Source(local);}
+ }
+ public static class ReadinessCases {
+  static void Check(bool value,string message){if(!value)throw new Exception(message);}
+  static ActivePlayerKeepWaitHandle Wait(int ticks,Action<ActivePlayerKeepSnapshot> cb=null)=>ActivePlayerKeepReadiness.WaitForSimulationTicks(cb??(_=>{}),ticks,null,"test",null);
+  static void Begin(int tick){World.Session++;World.Tick=tick;World.KeepReady=false;World.Available=true;}
+  public static unsafe void Run() {
+   *(SHCDESE.Interop.GameBuilding*)World.Building=new(){r_PlayerIdOwner=1,r_BuildingType=SHCDESE.Interop.eStructs.STRUCT_KEEP_ONE,r_AliveState=SHCDESE.Interop.Enums.AliveState.IsAlive};
+   ActivePlayerKeepReadiness.InitializeSimulationTicks("test");
+   Begin(0);var timeout=Wait(1200);World.Emit(1199,7000);Check(!timeout.IsCompleted,"early timeout");
+   World.Emit(1199,8000);Check(!timeout.IsCompleted,"pause consumed duration");World.Emit(1200,9000);Check(timeout.Result.Status==ActivePlayerKeepWaitStatus.TimedOut,"deadline boundary");
+   Begin(800);var saved=Wait(1200);World.Emit(1999,4);Check(!saved.IsCompleted,"save-relative deadline");World.Emit(2000,5);Check(saved.Result.Status==ActivePlayerKeepWaitStatus.TimedOut,"save deadline");
+   Begin(int.MaxValue-600);var wrapped=Wait(1200);World.Emit(unchecked(World.Tick+1199),1);Check(!wrapped.IsCompleted,"wrap early timeout");World.Emit(unchecked(int.MaxValue+600),2);Check(wrapped.Result.Status==ActivePlayerKeepWaitStatus.TimedOut,"wrap timeout");
+   Begin(0);var calls=new List<string>();var atBoundary=Wait(1200,_=>calls.Add("start"));
+   APIShared.Simulation.SimulationTickEvents.TryRegister("test","gold",_=>calls.Add("gold"),out _,700);
+   World.KeepReady=true;World.Emit(1200,83);Check(atBoundary.Result.Succeeded,"readiness wins exact boundary");Check(string.Join(",",calls)=="start,gold","callback dependency order");
+   Begin(10);var cancelled=Wait(1200);cancelled.Dispose();World.KeepReady=true;World.Emit(11,42);Check(cancelled.Result.Status==ActivePlayerKeepWaitStatus.Cancelled,"cancelled work replayed");
+   Begin(10);var unavailable=Wait(1200);World.Available=false;World.KeepReady=true;World.Emit(11,500);Check(!unavailable.IsCompleted,"invented unavailable notification");World.Available=true;World.Emit(11,501);Check(unavailable.Result.Succeeded,"availability recovery");
+   Begin(0);var failing=Wait(1200,_=>throw new Exception("callback"));var other=Wait(1200);World.KeepReady=true;World.Emit(1,1);Check(failing.Result.Status==ActivePlayerKeepWaitStatus.CallbackFailed&&other.Result.Succeeded,"wait callback isolation");
+   string Peer(int factor){Begin(400);var payments=new List<int>();var wait=Wait(1200,_=>payments.Add(World.Tick));foreach(int t in new[]{401,799,800}){World.KeepReady=t>=800;World.Emit(t,t*factor+19);}Check(wait.Result.Succeeded,"peer readiness");return string.Join(",",payments);}
+   Check(Peer(1)==Peer(3),"peer local counters changed gameplay");
+   Marshal.FreeHGlobal(World.Building);
+  }
+ }
+}
+"""
+}, "Shared.ReadinessCases");
+
 void Run(string name, IEnumerable<string> sources, string typeName)
 {
     var refs = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")).Split(Path.PathSeparator)

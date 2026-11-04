@@ -41,7 +41,7 @@ namespace UnitLimit
                 {
                     {
                         if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                            LogDebug("UnitLimit/src/UnitLimitRuntime.Helpers.cs:45", "Invalid setting line:", line);
+                            LogDebug("UnitLimit/UnitLimitRuntime.Helpers/ParseEnumAmounts.invalid-setting-line", "Invalid setting line:", line);
                     }
                     continue;
                 }
@@ -52,7 +52,7 @@ namespace UnitLimit
                 {
                     {
                         if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                            LogDebug("UnitLimit/src/UnitLimitRuntime.Helpers.cs:53", "Unknown enum value:", enumName);
+                            LogDebug("UnitLimit/UnitLimitRuntime.Helpers/ParseEnumAmounts.unknown-enum-value", "Unknown enum value:", enumName);
                     }
                     continue;
                 }
@@ -61,7 +61,7 @@ namespace UnitLimit
                 {
                     {
                         if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                            LogDebug("UnitLimit/src/UnitLimitRuntime.Helpers.cs:59", "Invalid amount for", enumName, ":", amountText);
+                            LogDebug("UnitLimit/UnitLimitRuntime.Helpers/ParseEnumAmounts.invalid-amount", "Invalid amount for", enumName, ":", amountText);
                     }
                     continue;
                 }

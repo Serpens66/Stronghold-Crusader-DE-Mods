@@ -220,6 +220,8 @@ internal static class TrailRuntimeRegressionTests
     {
         using var fixture = new Scope();
         var lord = fixture.InstallLord("Example", "installed", unsupported: false);
+        const string metadata = "{\"LocalizedDisplayName\":{\"de-DE\":\"Beispiel\"},\"Future\":{\"preserved\":[1,true,null]}}";
+        File.WriteAllText(Path.Combine(lord.configs[0].path, "lordmeta.json"), metadata);
         var restart = new HUD_IngameMenu.RestartSkirmishMapInfo
         {
             lordTypes = new List<int> { -1, 100, 200 },
@@ -231,14 +233,14 @@ internal static class TrailRuntimeRegressionTests
         File.WriteAllText(trail, "saved");
         TrailLordRequirementSource.Resolution first = TrailLordRequirementSource.Resolve(trail, restart, null, false);
         Check(first.Slots.Single().PlayerId == 3 && first.InstalledSources.ContainsKey(3) &&
-            first.Slots[0].ModLordJson != null && first.ReusedPlayerIds.Count == 0, "installed author capture failed");
+            first.Slots[0].ModLordJson != null && first.Slots[0].Presentation.MetadataJson == metadata && first.ReusedPlayerIds.Count == 0, "installed author capture failed");
         TrailLordRequirements.Create(trail, first.Slots).Write(trail);
 
         File.AppendAllText(trail, " re-saved");
         CustomisationFileManager.Instance.CustomLords.Clear();
         TrailLordRequirementSource.Resolution reused = TrailLordRequirementSource.Resolve(trail, restart, null, false);
         Check(reused.ReusedPlayerIds.SequenceEqual(new[] { 3 }) && reused.InstalledSources.Count == 0 &&
-            reused.Slots.Single().ModLordJson == first.Slots[0].ModLordJson,
+            reused.Slots.Single().ModLordJson == first.Slots[0].ModLordJson && reused.Slots[0].Presentation.MetadataJson == metadata,
             "stored values of an unchanged slot were not reused without the installation");
 
         restart.aivs[2].lordConfig = new CustomisationFileManager.CustomLordConfig

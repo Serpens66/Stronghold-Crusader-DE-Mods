@@ -199,7 +199,7 @@ internal static class Program
         RequireContains(isolation, "OnTribeAssignUnit.Observable");
         RequireContains(isolation, "OnTribeDelete.Observable");
         RequireContains(isolation, "OnUnitDelete.Observable");
-        RequireContains(isolation, "GameTimeManagerAPI.Instance.OnTick += OnAIStartTroopValidationTick;");
+        RequireContains(isolation, "SimulationTickEvents.TryRegister(StartConditionsPlugin.PluginGuid, \"ai-start-troop-validation\", OnAIStartTroopValidationTick");
         RequireContains(isolation, "failed.PendingDeletion = true;");
         RequireContains(isolation, "if (protectedTroop.PendingDeletion)");
         RequireContains(isolation, "unit->r_GlobalId > int.MaxValue");

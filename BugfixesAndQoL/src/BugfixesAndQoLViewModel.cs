@@ -14,12 +14,14 @@ using UnityEngine;
 
 namespace BugfixesAndQoL
 {
-    public sealed class BugfixesAndQoLViewModel : APIShared.ModSettings.PresetLobbyModSettingsViewModel, IUnitCommandSettings
+    public sealed partial class BugfixesAndQoLViewModel : APIShared.ModSettings.PresetLobbyModSettingsViewModel, IUnitCommandSettings
     {
         // EnableSpriteSheetMerge (Boolean, unreleased develop) was replaced by SpriteSheetMergeMode.
         protected override bool IsRetiredPresetProperty(string propertyName) =>
             string.Equals(propertyName, "FriendlyMoatMovementMode", StringComparison.Ordinal) ||
-            string.Equals(propertyName, "EnableSpriteSheetMerge", StringComparison.Ordinal);
+            string.Equals(propertyName, "EnableSpriteSheetMerge", StringComparison.Ordinal) ||
+            string.Equals(propertyName, "EnableSpectatorPerspective", StringComparison.Ordinal) ||
+            string.Equals(propertyName, "EnableEliminatedPlayersBecomeSpectators", StringComparison.Ordinal);
 
         public event Action<string> SettingChanged;
 
@@ -27,6 +29,8 @@ namespace BugfixesAndQoL
 
         private void OnSettingsPresentationPropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs args)
         {
+            if (args.PropertyName == nameof(CanEditHostSettings))
+                OnPropertyChanged(nameof(CanConfigurePeaceTimeCivilianProximity));
             if (args.PropertyName == nameof(System_ModSettingsSearchText) ||
                 args.PropertyName == nameof(System_ModSettingsSearchIncludeToolTips) ||
                 args.PropertyName == nameof(System_ModSettingsSearchExactKey) ||
@@ -73,6 +77,7 @@ namespace BugfixesAndQoL
         private bool enableAssassinCapturedGateProtectionFix = true;
         private bool enableAiWallTargetingFix = true;
         private bool enablePrebuiltAiWorkshopBothFix = true;
+        private bool enablePrebuiltAiStorageFix = true;
         private bool enableBakerMillerBreaks;
         private bool enableWorkshopIdleDelayFix;
         private bool removeAIKeepRangeLimit = true;
@@ -93,6 +98,7 @@ namespace BugfixesAndQoL
         private bool enableImprovedAssassinPathfinding = true;
         private bool enableImprovedAssassinPathfindingAI = true;
         private bool enableAssassinCombatResumeFix = true;
+        private bool enableLordReturnTeleportFix = true;
         private bool enablePlaguePopularityFix = true;
         private bool enablePlagueCloudRemovalFix = true;
         private bool enableStuckApothecaryFix = true;
@@ -105,8 +111,6 @@ namespace BugfixesAndQoL
         private bool enableFairSiegeAmmoRestock = true;
         private bool enableSurrenderAndStatistics = true;
         private bool enableLordUnitControls = true;
-        private bool enableEliminatedPlayersBecomeSpectators = true;
-        private bool enableSpectatorPerspective = true;
         private bool enableAbruptHostMigrationFix = true;
         private bool enableConnectionRecoverySave = true;
         private bool enableResyncHostKick = true;
@@ -544,6 +548,8 @@ namespace BugfixesAndQoL
         public string EnableCorruptLordDataSpawnFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableCorruptLordDataSpawnFixHelp");
         public string EnablePrebuiltAiWorkshopBothFixText => SerpLocalization.Get("BugfixesAndQoL.EnablePrebuiltAiWorkshopBothFix");
         public string EnablePrebuiltAiWorkshopBothFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnablePrebuiltAiWorkshopBothFixHelp");
+        public string EnablePrebuiltAiStorageFixText => SerpLocalization.Get("BugfixesAndQoL.EnablePrebuiltAiStorageFix");
+        public string EnablePrebuiltAiStorageFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnablePrebuiltAiStorageFixHelp");
         public string EnableTunnelPlacementDistanceFixText => SerpLocalization.Get("BugfixesAndQoL.EnableTunnelPlacementDistanceFix");
         public string EnableTunnelPlacementDistanceFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableTunnelPlacementDistanceFixHelp");
         public string EnableFairSiegeAmmoRestockText => SerpLocalization.Get("BugfixesAndQoL.EnableFairSiegeAmmoRestock");
@@ -552,10 +558,6 @@ namespace BugfixesAndQoL
         public string EnableSurrenderAndStatisticsHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableSurrenderAndStatisticsHelp");
         public string EnableLordUnitControlsText => SerpLocalization.Get("BugfixesAndQoL.EnableLordUnitControls");
         public string EnableLordUnitControlsHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableLordUnitControlsHelp");
-        public string EnableEliminatedPlayersBecomeSpectatorsText => SerpLocalization.Get("BugfixesAndQoL.EnableEliminatedPlayersBecomeSpectators");
-        public string EnableEliminatedPlayersBecomeSpectatorsHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableEliminatedPlayersBecomeSpectatorsHelp");
-        public string EnableSpectatorPerspectiveText => SerpLocalization.Get("BugfixesAndQoL.EnableSpectatorPerspective");
-        public string EnableSpectatorPerspectiveHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableSpectatorPerspectiveHelp");
         public string EnableCustomTrailExtremeGoldFixText => SerpLocalization.Get("BugfixesAndQoL.EnableCustomTrailExtremeGoldFix");
         public string EnableCustomTrailExtremeGoldFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableCustomTrailExtremeGoldFixHelp");
         public string EnableTrailCustomizationButtonsText => SerpLocalization.Get(SerpLocalization.EnableTrailCustomizationButtons);
@@ -688,11 +690,11 @@ namespace BugfixesAndQoL
         {
             if (steamInviteBlacklist.TryClear(out string error))
             {
-                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/BugfixesAndQoLViewModel.cs:553", "Cleared the local Steam invite blacklist.");
+                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/BugfixesAndQoLViewModel/ClearSteamInviteBlacklist.cleared-local-steam-invite", "Cleared the local Steam invite blacklist.");
                 return;
             }
 
-            Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/BugfixesAndQoLViewModel.cs:557", $"Could not clear the local Steam invite blacklist: {error}");
+            Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/BugfixesAndQoLViewModel/ClearSteamInviteBlacklist.could-not-clear-local", $"Could not clear the local Steam invite blacklist: {error}");
         }
 
         private void OnSteamInviteBlacklistChanged()
@@ -971,13 +973,18 @@ namespace BugfixesAndQoL
             set => SetSetting(ref enableGatehouseTargetMarkerHeightFix, value, nameof(EnableGatehouseTargetMarkerHeightFix));
         }
 
-        // Local presentation optimizations (V1/V5); no simulation effect, therefore not synchronized.
+        // Local presentation optimizations (V1/V5) and result-identical replacements of Vanilla simulation
+        // code (one-pass group admission member check); neither changes a result, therefore not synchronized.
         [APIShared.ModSettings.PresetLocal]
         public bool EnableVanillaPerformanceOptimizations
         {
             get => enableVanillaPerformanceOptimizations;
             set => SetSetting(ref enableVanillaPerformanceOptimizations, value, nameof(EnableVanillaPerformanceOptimizations));
         }
+
+        // Effective switch of all of them. Not public, so it is no setting of its own.
+        internal bool VanillaPerformanceOptimizationsActive => EnableClientFeatures && EnableVanillaPerformanceOptimizations;
+        bool IUnitCommandSettings.VanillaPerformanceOptimizationsActive => VanillaPerformanceOptimizationsActive;
 
         // V13 minimap throttle (drawn at most every 100 ms). Presentation only, so a mismatch cannot
         // desync; it is a host value because a lockstep match runs at the speed of its slowest peer.
@@ -1105,7 +1112,7 @@ namespace BugfixesAndQoL
 
                 if (!valid && value != null)
                 {
-                    Shared.DebugLogHelper.LogWarningLimited(marketGoodsLog, "BugfixesAndQoL/src/BugfixesAndQoLViewModel.cs:898", "Bugfixes and QoL rejected an invalid market-goods order and restored the HD order.");
+                    Shared.DebugLogHelper.LogWarningLimited(marketGoodsLog, "BugfixesAndQoL/BugfixesAndQoLViewModel/MarketGoodsOrder", "Bugfixes and QoL rejected an invalid market-goods order and restored the HD order.");
                 }
 
                 if (MarketGoodsOrderDefinition.AreEqual(marketGoodsOrder.Value, normalized))
@@ -1446,6 +1453,15 @@ namespace BugfixesAndQoL
             set => SetSetting(ref enableImprovedAssassinPathfindingAI, value, nameof(EnableImprovedAssassinPathfindingAI));
         }
 
+        public string EnableLordReturnTeleportFixText => SerpLocalization.Get("BugfixesAndQoL.EnableLordReturnTeleportFix");
+        public string EnableLordReturnTeleportFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableLordReturnTeleportFixHelp");
+        [SyncHostOnly]
+        public bool EnableLordReturnTeleportFix
+        {
+            get => enableLordReturnTeleportFix;
+            set => SetSetting(ref enableLordReturnTeleportFix, value, nameof(EnableLordReturnTeleportFix));
+        }
+
         [SyncHostOnly]
         public bool EnableAssassinCombatResumeFix
         {
@@ -1517,6 +1533,13 @@ namespace BugfixesAndQoL
         }
 
         [SyncHostOnly]
+        public bool EnablePrebuiltAiStorageFix
+        {
+            get => enablePrebuiltAiStorageFix;
+            set => SetSetting(ref enablePrebuiltAiStorageFix, value, nameof(EnablePrebuiltAiStorageFix));
+        }
+
+        [SyncHostOnly]
         public bool EnableTunnelPlacementDistanceFix
         {
             get => enableTunnelPlacementDistanceFix;
@@ -1542,20 +1565,6 @@ namespace BugfixesAndQoL
         {
             get => enableLordUnitControls;
             set => SetSetting(ref enableLordUnitControls, value, nameof(EnableLordUnitControls));
-        }
-
-        [SyncHostOnly]
-        public bool EnableEliminatedPlayersBecomeSpectators
-        {
-            get => enableEliminatedPlayersBecomeSpectators;
-            set => SetSetting(ref enableEliminatedPlayersBecomeSpectators, value, nameof(EnableEliminatedPlayersBecomeSpectators));
-        }
-
-        [SyncHostOnly]
-        public bool EnableSpectatorPerspective
-        {
-            get => enableSpectatorPerspective;
-            set => SetSetting(ref enableSpectatorPerspective, value, nameof(EnableSpectatorPerspective));
         }
 
         [SyncHostOnly]
@@ -1663,6 +1672,7 @@ namespace BugfixesAndQoL
                 EnableRandomOpponentSelectionEnhancements = true;
                 EnableMultiplayerStartupStateFix = true;
                 EnablePeaceTimeGameplayFixes = true;
+                EnablePeaceTimeCivilianProximityReduction = true;
                 AllowFullAiMultiplayerLobby = true;
                 ShowMpAdvancedSettingsInSingleplayer = true;
                 EnableAiStoneReserveFix = true;
@@ -1711,6 +1721,7 @@ namespace BugfixesAndQoL
                 EnableImprovedAssassinPathfinding = true;
                 EnableImprovedAssassinPathfindingAI = true;
                 EnableAssassinCombatResumeFix = true;
+                EnableLordReturnTeleportFix = true;
                 EnablePlaguePopularityFix = true;
                 EnablePlagueCloudRemovalFix = true;
                 EnableStuckApothecaryFix = true;
@@ -1720,12 +1731,11 @@ namespace BugfixesAndQoL
                 EnableTanneryAnimationFix = true;
                 EnableCorruptLordDataSpawnFix = true;
                 EnablePrebuiltAiWorkshopBothFix = true;
+                EnablePrebuiltAiStorageFix = true;
                 EnableTunnelPlacementDistanceFix = true;
                 EnableFairSiegeAmmoRestock = true;
                 EnableSurrenderAndStatistics = true;
                 EnableLordUnitControls = true;
-                EnableEliminatedPlayersBecomeSpectators = true;
-                EnableSpectatorPerspective = true;
                 EnableAbruptHostMigrationFix = true;
                 EnableConnectionRecoverySave = true;
                 EnableResyncHostKick = true;

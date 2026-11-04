@@ -2,6 +2,8 @@ using System;
 
 namespace BugfixesAndQoL
 {
+    internal enum MoveMarkerAddResult { Added, Duplicate, InvalidTile, CapacityReached }
+
     internal readonly struct LargeMoveTargetOverflowRecord
     {
         public LargeMoveTargetOverflowRecord(
@@ -50,7 +52,13 @@ namespace BugfixesAndQoL
 
         public LargeMoveTargetOverflowRecord GetRecord(int index) => records[index];
 
-        public bool TryAdd(
+        public bool TryAdd(int category, int spriteId, int layer, int verticalOffset, int tileId, int flags)
+        {
+            MoveMarkerAddResult result = Add(category, spriteId, layer, verticalOffset, tileId, flags);
+            return result == MoveMarkerAddResult.Added || result == MoveMarkerAddResult.Duplicate;
+        }
+
+        internal MoveMarkerAddResult Add(
             int category,
             int spriteId,
             int layer,
@@ -59,18 +67,18 @@ namespace BugfixesAndQoL
             int flags)
         {
             if ((uint)tileId >= LargeMoveTargetOverflowModel.NativeTileCount)
-                return false;
+                return MoveMarkerAddResult.InvalidTile;
 
             int head = headByTile[tileId];
             for (int index = head; index != 0; index = records[index].Next)
             {
                 LargeMoveTargetOverflowRecord record = records[index];
                 if (record.Category == category && record.SpriteId == spriteId)
-                    return true;
+                    return MoveMarkerAddResult.Duplicate;
             }
 
             if (Count >= LargeMoveTargetOverflowModel.MaximumOverflowMarkers)
-                return false;
+                return MoveMarkerAddResult.CapacityReached;
 
             if (head == 0)
                 touchedTiles[touchedTileCount++] = tileId;
@@ -84,7 +92,7 @@ namespace BugfixesAndQoL
                 flags,
                 head);
             headByTile[tileId] = recordIndex;
-            return true;
+            return MoveMarkerAddResult.Added;
         }
 
         public void Clear()

@@ -10,7 +10,7 @@ internal static class FormationCommandPipelineTests
         var runtime = CSharpSyntaxTree.ParseText(FeatureSourceModel.Read(root,
             "FormationRuntime", "BugfixesAndQoL/src/Formations")).GetRoot();
         string[] methods = { "TryCreatePacket", "ValidatePacket", "ApplyPacket", "ApplyPacketLocked", "TryIssuePacketVanillaFallback",
-            "OnTribeIssueOrderMoveHere", "OnUnitMoveHere", "PruneUnitAssignmentFrames", "ClearUnitAssignmentFrames",
+            "OnTribeIssueOrderMoveHere", "PublishFormationDestinations", "OnUnitMoveHere", "PruneUnitAssignmentFrames", "ClearUnitAssignmentFrames",
             "FinishUnitAssignmentFrame", "TryGetMatchingUnit", "RunUnitFallbacks", "LogFormationOrderResult",
             "BuildManagedDestinations", "BuildDirectionIndicator", "BuildVanillaSlotMetadata", "SnapSlots",
             "CaptureVanillaDestinations", "CaptureGroundSlots", "RentVisited", "ReturnVisited", "TryEnqueueVanillaCandidate",
@@ -43,6 +43,6 @@ internal static class FormationCommandPipelineTests
         if (!result.Success) throw new Exception(string.Join("\n", result.Diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error)));
         try { Assembly.Load(output.ToArray()).GetType("BugfixesAndQoL.UnitCommands.PipelineFixture")!.GetMethod("Run")!.Invoke(null, null); }
         catch (TargetInvocationException e) { throw e.InnerException ?? e; }
-        Console.WriteLine("PASS: production gesture/packet/formatter/validation/dispatch/admission/slot/event pipeline; six shapes, 100/200/550/1000/1300, zero/one/all admitted, current identities and bounded shared search.");
+        Console.WriteLine("PASS: production gesture/packet/formatter/validation/dispatch/admission/slot/event pipeline; six shapes through 1300, Line 4001/10000, zero/one/all admitted, current identities and bounded shared search.");
     }
 }

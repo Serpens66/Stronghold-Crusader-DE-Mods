@@ -141,7 +141,6 @@ namespace MoatMove
 
             // Real shared placement callbacks, including the main-mod-only state.
             int nativeSavedMode = TestSettings.Settings.RouteMode;
-            bool nativeSavedFast = TestSettings.Settings.NativeFast;
             var nativeSavedBuilder = originalPathBuilder;
             var nativeSavedProbe = nativeManualPathProbe;
             GameTribe nativeTribe = new GameTribe { r_PlayerIdOwner = 1 };
@@ -149,11 +148,10 @@ namespace MoatMove
             manualCommandsEnabled = true;
             try
             {
-                foreach (int providerMode in new[] { -1, 0, 1, 2 })
+                foreach (int providerMode in new[] { -1, 1 })
                 foreach (int count in new[] { 1, 120, 680 })
                 {
                     TestSettings.Settings.RouteMode = Math.Min(1, Math.Max(0, providerMode));
-                    TestSettings.Settings.NativeFast = providerMode == 2;
                     nativeTraversalDisabled = providerMode < 0;
                     ResetUnits(count); activeMoveCommand.NativeCommonFallback = true;
                     for (int x = 10; x <= 750; x++) movementTargetAvailability[10 * 800 + x] = 1;
@@ -201,12 +199,11 @@ namespace MoatMove
                     Console.WriteLine($"NATIVE PLACEMENT provider={providerMode} units={count} unique={goals.Count} probes={probes} ms={watch.Elapsed.TotalMilliseconds:F3}");
                 }
 
-                foreach (int providerMode in new[] { -1, 0, 1, 2 })
+                foreach (int providerMode in new[] { -1, 1 })
                 foreach (int leader in new[] { 1, 2 })
                 foreach (bool reverse in new[] { false, true })
                 {
                     TestSettings.Settings.RouteMode = Math.Min(1, Math.Max(0, providerMode));
-                    TestSettings.Settings.NativeFast = providerMode == 2;
                     nativeTraversalDisabled = providerMode < 0;
                     ResetUnits(4); activeMoveCommand.NativeCommonFallback = true;
                     nativeTribe.r_LeaderUnitId = leader;
@@ -293,7 +290,6 @@ namespace MoatMove
             finally
             {
                 TestSettings.Settings.RouteMode = nativeSavedMode;
-                TestSettings.Settings.NativeFast = nativeSavedFast;
                 originalPathBuilder = nativeSavedBuilder; nativeManualPathProbe = nativeSavedProbe;
                 nativeTraversalDisabled = false; manualCommandsEnabled = false;
                 GameTribeManagerAPI.Instance.Tribe = null;

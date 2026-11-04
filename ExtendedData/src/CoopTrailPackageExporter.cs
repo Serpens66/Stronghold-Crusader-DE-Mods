@@ -35,6 +35,7 @@ namespace ExtendedData
             // Editable Maker sources are staged here and replaced together with the missions.
             internal string TrailMakerSourceStaging =>
                 Path.Combine(stagingRoot, CoopTrailPackagePublication.TrailMakerSourceDirectory);
+            internal string LordMediaStaging => Path.Combine(stagingRoot, CoopTrailPackagePublication.MissionsDirectory);
 
             internal void Publish(string destination)
             {
@@ -79,6 +80,7 @@ namespace ExtendedData
                     {
                         CoopMissionDefinition definition = CreateDefinition(trailPath, ordinal, missionsRoot,
                             resolveLordRequirements, out IReadOnlyList<TrailLordSlot> lordSlots);
+                        TrailLordMediaStore.Stage(lordSlots.Select(x => x.Presentation), missionsRoot);
                         MissionLoader.WriteAtomic(jsonPath, definition);
                         TrailLordRequirements.Create(jsonPath, lordSlots).Write(jsonPath);
                         ModSettingsDefinition modSettings = readModSettings != null

@@ -22,7 +22,7 @@ namespace ExtraFeatures
         private void OnPrice(MarketPricePreEventArgs args)
         {
             if (disposed || args.SkipOriginalFunction || !useVanillaAIPricesForSession || !args.HasNativeManager ||
-                args.PlayerId < 1 || args.PlayerId > 8 || args.Good < 0 || args.Good >= (int)eGoods.Count ||
+                args.PlayerId < 1 || args.PlayerId > GamePlayerManagerAPI.MAX_PLAYERS || args.Good < 0 || args.Good >= (int)eGoods.Count ||
                 !GamePlayerManagerAPI.Instance.IsAIPlayer(args.PlayerId)) return;
             PackedGoodPrice price = GamePlayerManagerAPI.Instance.GetDefaultTradeBasePrice((eGoods)args.Good);
             args.ReplacementTotal = MarketPriceEvents.CalculateTradeTotal(

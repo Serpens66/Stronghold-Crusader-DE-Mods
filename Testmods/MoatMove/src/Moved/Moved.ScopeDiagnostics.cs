@@ -44,7 +44,7 @@ namespace MoatMove
             }
 
             lastAttackCommandCandidates[unitId] = signature;
-            LogCommandDiagnostic(
+            runtime.LogCommandDiagnostic(
                 $"stage=attack-command-candidate phase=sync unit={unitId} " +
                 $"type={unit->r_UnitChimp} global={unit->r_GlobalId} player={unit->r_ControllableForPlayerId} " +
                 $"tribe={unit->r_TribeId}/{scope.TribeId} aiState={unit->r_AIState} " +
@@ -68,7 +68,7 @@ namespace MoatMove
 #if SERP_DEVDIAG
             AttackCommandScope scope = activeAttackCommand;
             string signature =
-                $"{stage}:{mapEpoch}:{scope?.TribeId}:{scope?.Command}:{scope?.TargetValue1}:" +
+                $"{stage}:{runtime.mapEpoch}:{scope?.TribeId}:{scope?.Command}:{scope?.TargetValue1}:" +
                 $"{scope?.TargetValue2}:{unit->r_AIState}:{unit->r_AttackMoveToTargetTileX}:" +
                 $"{unit->r_AttackMoveToTargetTileY}:{reason}:{summary.RouteFound}";
             if (scope != null && scope.LastDecisionByUnit.TryGetValue(unitId, out string previous) &&
@@ -90,7 +90,7 @@ namespace MoatMove
                 buildingPair = $" buildingPair={approachTileId}->{footprintTileId}";
             }
 
-            LogCommandDiagnostic(
+            runtime.LogCommandDiagnostic(
                 $"stage={stage} unit={unitId} type={unit->r_UnitChimp} " +
                 $"player={unit->r_ControllableForPlayerId} tribe={unit->r_TribeId}/{scope?.TribeId} " +
                 $"command={(TribeAICommand)unit->r_AI_LastIssuedTribeCommand}/{scope?.Command} " +

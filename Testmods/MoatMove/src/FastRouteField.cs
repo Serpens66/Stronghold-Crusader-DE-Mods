@@ -18,8 +18,8 @@ namespace MoatMove
     // state, unit pointers, timers or publication side effects belong in this class.
     internal sealed class FastRouteField : IFastRouteField
     {
-        private static readonly int[] Dx = { 0, 1, 1, 1, 0, -1, -1, -1 };
-        private static readonly int[] Dy = { -1, -1, 0, 1, 1, 1, 0, -1 };
+        internal static readonly int[] Dx = { 0, 1, 1, 1, 0, -1, -1, -1 };
+        internal static readonly int[] Dy = { -1, -1, 0, 1, 1, 1, 0, -1 };
         private readonly int width, height;
         private readonly MoatSearchEdge edge;
         private readonly int[] distances, queue;

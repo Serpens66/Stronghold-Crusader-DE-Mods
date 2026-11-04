@@ -25,6 +25,7 @@ internal static class Program
             CheckPolicyForAllWorkers();
             CheckCandidateResetsAndExclusions();
             CheckRepairVerificationAndCooldown();
+            CheckWrappedNativeDeadline();
             CheckSourceContracts();
             Console.WriteLine($"PASS: StockpileAccessFixTest tests ({assertions} assertions).");
             return 0;
@@ -215,6 +216,20 @@ internal static class Program
             "slot reuse during verification fails closed");
     }
 
+    private static void CheckWrappedNativeDeadline()
+    {
+        var stuck = Observation(StockpileWorkerContracts.All[5]);
+        var policy = new StockpileAccessEpisodePolicy();
+        int begin = int.MaxValue - 25;
+        for (int i = 0; i < StockpileAccessEpisodePolicy.RequiredConsecutiveTicks - 1; i++)
+            policy.Observe(stuck, unchecked(begin + i));
+        int repair = unchecked(begin + StockpileAccessEpisodePolicy.RequiredConsecutiveTicks - 1);
+        Check(policy.Observe(stuck, repair) == StockpileEpisodeAction.ConfirmAndRepair, "confirmation survives native signed wrap");
+        policy.RecordRepairOutcome(stuck, repair, routeAccepted: false);
+        Check(policy.Observe(stuck, unchecked(repair + 199)) == StockpileEpisodeAction.None, "native cooldown keeps tick 199");
+        Check(policy.Observe(stuck, unchecked(repair + 200)) == StockpileEpisodeAction.CandidateStarted, "native cooldown ends at 200");
+    }
+
     private static void CheckSourceContracts()
     {
         string workspace = FindWorkspace();
@@ -264,8 +279,8 @@ internal static class Program
             "a synthetic registered blocker is returned through Vanilla movement");
         Check(runtime.Contains("tileApi.GetTileUnitId(originTileId) != 0"),
             "only a moving Fletcher absent from the native origin occupancy grid may be teleported");
-        Check(runtime.Contains("nextAutomaticTriggerTick = checked") &&
-            runtime.Contains("tick >= nextAutomaticTriggerTick") &&
+        Check(runtime.Contains("nextAutomaticTriggerTick = unchecked") &&
+            runtime.Contains("unchecked(tick - nextAutomaticTriggerTick) >= 0") &&
             runtime.Contains("AutomaticTriggerRetryTicks"),
             "one global trigger cooldown prevents alternating routes from bypassing throttling");
         Check(runtime.Contains("TryRestoreTestBlocker(\"diagnostic disabled after runtime failure\")") &&

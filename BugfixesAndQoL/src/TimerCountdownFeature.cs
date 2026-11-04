@@ -17,6 +17,8 @@ namespace BugfixesAndQoL
         private int lastRenderedFrame = -1;
         private volatile bool enabled;
         private int clearPending;
+        private readonly APIShared.Presentation.IUiFrameWorkRegistration frameWork;
+        private volatile bool missionActive;
 
         internal TimerCountdownFeature(ManualLogSource log, BugfixesAndQoLViewModel settings)
         {
@@ -27,8 +29,16 @@ namespace BugfixesAndQoL
             GameXAMLManagerAPI.Instance.RegisterBinding("BugfixesAndQoLCountdownOst", viewModel);
             enabled = settings.EnableClientFeatures && settings.ShowCountdownTimers;
             settings.SettingChanged += OnSettingChanged;
-            // Unity's static publisher keeps this callback alive after BepInEx startup cleanup.
-            Application.onBeforeRender += OnBeforeRender;
+            var client = APIShared.ApiShared.ForMod(BugfixesAndQoLPlugin.PluginGuid);
+            if (!client.Ui.TryRegisterBeforeRender("countdown-timers", OnBeforeRender, out frameWork, out string reason, 100))
+                throw new InvalidOperationException("Countdown scheduling unavailable: " + reason);
+            if (!client.TryGetMissionLifecycle(out APIShared.IMissionLifecycleCapability lifecycle, out APIShared.NativeCapabilityDiagnostic diagnostic) ||
+                !lifecycle.TryRegisterObserver("countdown-timers", _ => {
+                    missionActive = true; frameWork.Request();
+                }, _ => {
+                    missionActive = false; Interlocked.Exchange(ref clearPending, 1); frameWork.Request();
+                }, null, out diagnostic))
+                throw new InvalidOperationException("Countdown mission observation unavailable: " + diagnostic?.Reason);
         }
 
         private void OnSettingChanged(string propertyName)
@@ -37,8 +47,8 @@ namespace BugfixesAndQoL
                 propertyName != nameof(BugfixesAndQoLViewModel.EnableClientFeatures))
                 return;
             enabled = settings.EnableClientFeatures && settings.ShowCountdownTimers;
-            if (enabled) return;
-            Interlocked.Exchange(ref clearPending, 1);
+            if (!enabled) Interlocked.Exchange(ref clearPending, 1);
+            frameWork.Request();
         }
 
         private void OnBeforeRender()
@@ -48,11 +58,13 @@ namespace BugfixesAndQoL
             if (lastRenderedFrame == frame) return;
             lastRenderedFrame = frame;
             bool clear = Interlocked.Exchange(ref clearPending, 0) != 0;
-            if (!enabled)
+            if (!enabled || !missionActive)
             {
                 if (clear) UpdateViewModel(string.Empty, string.Empty);
                 return;
             }
+            // Only cosmetic text is delayed. Requests from settings/lifecycle still run next frame.
+            frameWork.RequestAfter(TimeSpan.FromMilliseconds(100));
             string objective = string.Empty;
             string ost = string.Empty;
             try
@@ -76,14 +88,18 @@ namespace BugfixesAndQoL
         {
             // A failed Noesis notification must not trigger a second notification in this frame.
             if (!viewModel.TrySetRemaining(objective, ost, out Exception failure))
+            {
+                Interlocked.Exchange(ref clearPending, 1);
+                frameWork.RequestAfter(TimeSpan.FromMilliseconds(100));
                 LogFailureOnce("view-model notification", failure);
+            }
         }
 
         private void LogFailureOnce(string phase, Exception failure)
         {
             string kind = phase + ":" + failure.GetType().FullName;
             if (loggedFailureKinds.Add(kind))
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/TimerCountdownFeature.cs:86", "Countdown " + phase + " failed: " + failure);
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/TimerCountdownFeature/LogFailureOnce", "Countdown " + phase + " failed: " + failure);
         }
 
         private static bool IsGameplayReady()

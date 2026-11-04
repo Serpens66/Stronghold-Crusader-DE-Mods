@@ -19,7 +19,8 @@ namespace PerfProbe
             internal bool Active, BufferObserved, NoBuffer, NativeEntered, NativeCompleted, Skip;
         }
         [ThreadStatic] private static State current;
-        internal static long CallsStarted, CallsCompleted, BuffersUnavailable, NativeCallsStarted, NativeCallsCompleted;
+        // SkipCalls: run(true) from Vanilla's low-FPS compensation or multiplayer frame skipping.
+        internal static long CallsStarted, CallsCompleted, BuffersUnavailable, NativeCallsStarted, NativeCallsCompleted, SkipCalls;
         internal static volatile bool Instrumented;
 
         internal static State Begin(bool skip)
@@ -27,6 +28,7 @@ namespace PerfProbe
             State parent = current;
             current = new State { Started = Stopwatch.GetTimestamp(), Active = true, Skip = skip, NativeCpu = -1 };
             Interlocked.Increment(ref CallsStarted);
+            if (skip) Interlocked.Increment(ref SkipCalls);
             return parent;
         }
         internal static State Complete(State parent)
@@ -81,6 +83,8 @@ namespace PerfProbe
                 value.NativeEntered, value.NativeCompleted,
                 value.NativeCompleted && value.Released != 0 ? Ms(value.Released - value.NativeEnded) : -1,
                 value.NativeCpu < 0 ? -1 : value.NativeCpu / 10000.0) +
+                // Time before the original body: other mods' prefixes (PerfProbe's prefix runs first).
+                " preBodyMs=" + (value.BufferObserved ? Ms(value.BufferStarted - value.Started) : -1).ToString("F3", CultureInfo.InvariantCulture) +
                 " lockWaitMs=" + (value.LockStarted != 0 && value.Acquired != 0 ? Ms(value.Acquired - value.LockStarted) : -1).ToString("F3", CultureInfo.InvariantCulture) +
                 " lockReleaseMs=" + (value.ReleaseEnded != 0 ? Ms(value.ReleaseEnded - value.Released) : -1).ToString("F3", CultureInfo.InvariantCulture);
         }

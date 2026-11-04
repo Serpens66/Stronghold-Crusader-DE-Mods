@@ -30,6 +30,8 @@ namespace PerfProbe
                 config.Bind("Spikes", "MainThreadMs", 100, "Minimum Director.Update / GUI-check duration for a spike line.").Value,
                 config.Bind("Spikes", "FrameGapMs", 100, "Minimum gap between two rendered frames for a spike line.").Value,
                 config.Bind("Spikes", "FreezeMs", 400, "Spike lines at or above this duration are marked freeze=true.").Value);
+            PerfProbeTickMonitor.BindConfig(config);
+            PerfProbeInputMarks.BindConfig(config);
             PerfProbeExtras.BindConfig(config);
             PerfProbeThreadSampler.BindConfig(config);
             // The sampler starts in Awake to cover plugin startup; DevDiag output needs the logger now.
@@ -89,6 +91,7 @@ namespace PerfProbe
             Patch(typeof(FatControler), nameof(FatControler.NoesisGUIUpdateChecksInGame), Type.EmptyTypes, nameof(EndGuiChecks), nameof(BeginMainSpikeWatch));
             // Runs on Director's simulation thread; DevDiag aggregation is thread-safe.
             InstallRunTiming();
+            PerfProbeTickMonitor.InstallTimerProbe(harmony);
             PerfProbeExtras.Install(log, harmony);
             PerfProbeSimSampler.Install();
             // Deferred samplers start from OnBeforeRender after plugin startup instead.
@@ -99,17 +102,19 @@ namespace PerfProbe
             Application.onBeforeRender += OnBeforeRender;
             Shared.DevDiag.Log(() => string.Format(CultureInfo.InvariantCulture,
                 "PERFPROBE_READY: timing patches published; frame sampler attached; renderSnapshots={0} " +
-                "spikeLines={1} simMs={2} mainMs={3} frameGapMs={4} freezeMs={5}.", RenderSnapshots, SpikeLines,
+                "spikeLines={1} simMs={2} mainMs={3} frameGapMs={4} freezeMs={5} tickMonitor={6}.", RenderSnapshots, SpikeLines,
                 SimSpikeTicks * 1000 / Stopwatch.Frequency, MainSpikeTicks * 1000 / Stopwatch.Frequency,
-                FrameSpikeTicks * 1000 / Stopwatch.Frequency, FreezeTicks * 1000 / Stopwatch.Frequency));
+                FrameSpikeTicks * 1000 / Stopwatch.Frequency, FreezeTicks * 1000 / Stopwatch.Frequency, PerfProbeTickMonitor.Configuration));
         }
 
         private static void InstallRunTiming()
         {
             MethodInfo target = AccessTools.Method(typeof(EngineInterface), nameof(EngineInterface.run), new[] { typeof(bool) });
-            var prefix = new HarmonyMethod(typeof(PerfProbeRuntime), nameof(BeginEngineRun));
-            var postfix = new HarmonyMethod(typeof(PerfProbeRuntime), nameof(EndEngineRun));
-            var finalizer = new HarmonyMethod(typeof(PerfProbeRuntime), nameof(FailedEngineRun));
+            // Outermost timing: other mods' run prefixes/postfixes are inside the measured call
+            // (2026-10-28: two BFQoL diagnostic prefixes ran before this one and were unmeasured).
+            var prefix = new HarmonyMethod(typeof(PerfProbeRuntime), nameof(BeginEngineRun)) { priority = Priority.First };
+            var postfix = new HarmonyMethod(typeof(PerfProbeRuntime), nameof(EndEngineRun)) { priority = Priority.Last };
+            var finalizer = new HarmonyMethod(typeof(PerfProbeRuntime), nameof(FailedEngineRun)) { priority = Priority.Last };
             try
             {
                 harmony.Patch(target, prefix: prefix, postfix: postfix, finalizer: finalizer,
@@ -183,10 +188,18 @@ namespace PerfProbe
         private static long Ticks(int ms) => Math.Max(1, ms) * Stopwatch.Frequency / 1000;
 
         private static string Freeze(long elapsed) => elapsed >= FreezeTicks ? " freeze=true" : "";
+        internal static string FreezeMark(long elapsed) => Freeze(elapsed);
+
+        // Sum of completed outermost run calls on the simulation thread (busy share of a tick gap).
+        private static long simBusyTicks;
+        internal static long SimBusyTicks => Interlocked.Read(ref simBusyTicks);
+        internal static int FramesRendered => Volatile.Read(ref framesRendered);
+        // Main thread; read only for spike lines (boxing).
+        internal static int LowFpsLevel => lowFpsField != null && Director.instance != null ? (int)lowFpsField.GetValue(Director.instance) : -1;
 
         private struct RunWatch
         {
-            internal long Started, Allocated;
+            internal long Started, Allocated, Ticks;
             internal int Frames;
             internal bool Completed;
             internal PerfProbeRunTiming.State Parent;
@@ -194,7 +207,7 @@ namespace PerfProbe
         private static void BeginEngineRun(bool __0, out RunWatch __state)
         {
             __state = new RunWatch { Started = Stopwatch.GetTimestamp(), Frames = Volatile.Read(ref framesRendered),
-                Allocated = PerfProbeExtras.ThreadAllocated(), Parent = PerfProbeRunTiming.Begin(__0) };
+                Allocated = PerfProbeExtras.ThreadAllocated(), Ticks = PerfProbeTickMonitor.Ticks, Parent = PerfProbeRunTiming.Begin(__0) };
             Volatile.Write(ref simRunStarted, __state.Started);
             PerfProbeSimSampler.OnRunBegin(__state.Started);
         }
@@ -220,10 +233,17 @@ namespace PerfProbe
             {
             if (state.Allocated >= 0) PerfProbeExtras.AddSimAlloc(PerfProbeExtras.ThreadAllocated() - state.Allocated);
             Shared.DevDiagRuntime.Add("sim:EngineInterface.run", 1, elapsed);
+            long gameTicks = PerfProbeTickMonitor.Ticks - state.Ticks;
+            if (!state.Parent.Active)
+            {
+                Interlocked.Add(ref simBusyTicks, elapsed);
+                PerfProbeTickMonitor.OnRunCompleted(now, gameTicks, phases.NativeCompleted);
+            }
             if (!SpikeLines || elapsed < SimSpikeTicks) return;
             int frames = Volatile.Read(ref framesRendered) - state.Frames;
             ReportSpike("sim:EngineInterface.run", state.Started, now,
-                "framesDuring=" + frames.ToString(CultureInfo.InvariantCulture) + " " + PerfProbeRunTiming.Detail(phases) +
+                "framesDuring=" + frames.ToString(CultureInfo.InvariantCulture) + " gameTicksDuring=" +
+                (PerfProbeTickMonitor.TicksObserved ? gameTicks.ToString(CultureInfo.InvariantCulture) : "unavailable") + " " + PerfProbeRunTiming.Detail(phases) +
                 " error=" + (error?.GetType().Name ?? "none") + Freeze(elapsed));
             }
             catch (Exception) { /* Telemetry must not replace the original result/exception. */ }
@@ -307,13 +327,17 @@ namespace PerfProbe
                     catch (Exception exception) { LogFrameExtrasError(exception); }
                     long simStart = Volatile.Read(ref simRunStarted);
                     ReportSpike("frame:interval", started, now, string.Format(CultureInfo.InvariantCulture,
-                        "simRunActiveNow={0} simRunMsSoFar={1:F1} paused={2} directorInclusiveMs={3:F1} guiInclusiveMs={4:F1} mapInclusiveMs={5:F1}", simStart != 0,
+                        "simRunActiveNow={0} simRunMsSoFar={1:F1} paused={2} directorInclusiveMs={3:F1} guiInclusiveMs={4:F1} mapInclusiveMs={5:F1} lastTickAgeMs={6:F1}", simStart != 0,
                         simStart == 0 ? 0 : (now - simStart) * 1000.0 / Stopwatch.Frequency,
                         Director.instance != null && !Director.instance.SimRunning,
                         frameDirectorTicks * 1000.0 / Stopwatch.Frequency, frameGuiTicks * 1000.0 / Stopwatch.Frequency,
-                        frameMapTicks * 1000.0 / Stopwatch.Frequency) + frameContext + Freeze(gap));
+                        frameMapTicks * 1000.0 / Stopwatch.Frequency, PerfProbeTickMonitor.LastTickAgeMs(now)) + frameContext + Freeze(gap));
                 }
             }
+            // Input markers (subscribed once), pause/load observation and tick-gap lines (game time can
+            // stall while frames stay smooth).
+            try { PerfProbeInputMarks.Subscribe(); PerfProbeTickMonitor.ObserveFrame(now); }
+            catch (Exception exception) { LogFrameExtrasError(exception); }
             frameDirectorTicks = frameGuiTicks = frameMapTicks = frameRecords = 0;
             try { PerfProbeExtras.EndFrame(); }
             catch (Exception exception) { LogFrameExtrasError(exception); }

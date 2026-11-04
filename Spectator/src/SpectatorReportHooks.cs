@@ -26,7 +26,8 @@ namespace Spectator
             // Install the read-only guard first. Published patches stay installed for the process lifetime.
             harmony.Patch(foodAction, prefix: new HarmonyMethod(typeof(SpectatorReportHooks), nameof(AllowFoodChange)));
             harmony.Patch(nameSetter, prefix: new HarmonyMethod(typeof(SpectatorReportHooks), nameof(UseSelectedReportName)));
-            harmony.Patch(reportsAction, transpiler: new HarmonyMethod(typeof(SpectatorReportHooks), nameof(ReportTranspiler)));
+            harmony.Patch(reportsAction, prefix: new HarmonyMethod(typeof(SpectatorReportHooks), nameof(AllowReports)),
+                transpiler: new HarmonyMethod(typeof(SpectatorReportHooks), nameof(ReportTranspiler)));
             installed = true;
         }
 
@@ -35,6 +36,8 @@ namespace Spectator
             return !SpectatorPerspectiveRuntime.IsSpectatorActionRestricted();
         }
 
+        private static bool AllowReports() => SpectatorPerspectiveRuntime.CanOpenReports();
+
         private static void UseSelectedReportName(ref string value)
         {
             if (SpectatorPerspectiveRuntime.TryGetSelectedReportName(out string selectedName)) value = selectedName;
@@ -42,7 +45,9 @@ namespace Spectator
 
         private static bool ShouldForceArmy(MainViewModel viewModel)
         {
-            return viewModel.FreezeMainControls && !SpectatorPerspectiveRuntime.IsActiveSpectator();
+            // Test placement can temporarily unlock build tabs, never information rights.
+            return SpectatorFeatureActivation.ForceArmyReport(viewModel.FreezeMainControls,
+                SpectatorPerspectiveRuntime.IsSpectatorObserver(), SpectatorPerspectiveRuntime.IsActiveSpectator());
         }
 
         private static IEnumerable<CodeInstruction> ReportTranspiler(IEnumerable<CodeInstruction> instructions)

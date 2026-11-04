@@ -11,7 +11,19 @@ namespace Spectator
         private string validText;
         private int validStart, validLength;
         private bool restoring;
-        private bool ownsKeyboard, previousKeyboard;
+        private volatile bool ownsKeyboard;
+        private bool previousKeyboard;
+        internal bool OwnsKeyboard => ownsKeyboard;
+
+        internal void OutsidePointerDown(bool insideInput)
+        { if (!insideInput && ownsKeyboard) EndEditing(); }
+
+        internal void PointerDown(MouseButtonEventArgs args)
+        {
+            Point point = args.GetPosition(control);
+            OutsidePointerDown(control.IsVisible && point.X >= 0 && point.Y >= 0 &&
+                point.X < control.ActualWidth && point.Y < control.ActualHeight);
+        }
 
         internal CreditAmountInput(TextBox control, TestToolsViewModel model)
         {
@@ -20,12 +32,30 @@ namespace Spectator
             validText = model.Amount;
             control.Text = validText;
             control.PreviewTextInput += BeforeTextInput;
+            control.PreviewKeyDown += BeforeKeyDown;
             control.TextChanged += TextChanged;
             control.SelectionChanged += SelectionChanged;
             control.LostFocus += LostFocus;
             control.GotKeyboardFocus += GotKeyboardFocus;
             control.LostKeyboardFocus += LostKeyboardFocus;
             control.IsVisibleChanged += VisibilityChanged;
+            model.PropertyChanged += ModelChanged;
+        }
+
+        private void ModelChanged(object sender, System.ComponentModel.PropertyChangedEventArgs args)
+        {
+            if (args.PropertyName != nameof(TestToolsViewModel.Amount) || restoring) return;
+            // The other surface can edit/reset this value. Its valid rollback buffer must follow too.
+            restoring = true;
+            try
+            {
+                validText = model.Amount;
+                if (control.Text != validText) control.Text = validText;
+                control.SelectionStart = System.Math.Min(control.SelectionStart, validText.Length);
+                control.SelectionLength = System.Math.Min(control.SelectionLength, validText.Length - control.SelectionStart);
+                RememberSelection();
+            }
+            finally { restoring = false; }
         }
 
         private static bool IsTextInput(UIElement element) => element is TextBoxBase || element is PasswordBox;
@@ -54,8 +84,10 @@ namespace Spectator
 
         internal void EndEditing()
         {
-            control.Text = CreditInput.Normalize(control.Text);
             Keyboard keyboard = control.Keyboard;
+            // Hiding the other surface must not normalize an empty edit in the focused field.
+            if (control.IsKeyboardFocused || !IsTextInput(keyboard?.FocusedElement))
+                control.Text = CreditInput.Normalize(control.Text);
             if (control.IsKeyboardFocused) keyboard?.ClearFocus();
             ReleaseKeyboard(keyboard?.FocusedElement);
         }
@@ -73,6 +105,13 @@ namespace Spectator
         {
             if (!CreditInput.TryReplace(control.Text ?? "", control.SelectionStart,
                 control.SelectionLength, args.Text, out _)) args.Handled = true;
+        }
+
+        private void BeforeKeyDown(object sender, KeyEventArgs args)
+        {
+            if (!control.IsKeyboardFocused || (args.Key != Key.Escape && args.Key != Key.Enter)) return;
+            args.Handled = true;
+            EndEditing();
         }
 
         private void TextChanged(object sender, RoutedEventArgs args)
@@ -108,10 +147,12 @@ namespace Spectator
         internal void Detach()
         {
             EndEditing();
+            model.PropertyChanged -= ModelChanged;
             control.GotKeyboardFocus -= GotKeyboardFocus;
             control.LostKeyboardFocus -= LostKeyboardFocus;
             control.IsVisibleChanged -= VisibilityChanged;
             control.PreviewTextInput -= BeforeTextInput;
+            control.PreviewKeyDown -= BeforeKeyDown;
             control.TextChanged -= TextChanged;
             control.SelectionChanged -= SelectionChanged;
             control.LostFocus -= LostFocus;

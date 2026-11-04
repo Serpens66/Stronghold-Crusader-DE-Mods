@@ -31,6 +31,7 @@ Buildbezogene Abläufe und Prüfungslisten in diesen Anweisungen sind Empfehlung
 
 ## Build-Ablauf
 
+- Wird APIShared installiert oder aktualisiert, müssen dessen Dateien unter `BepInEx/plugins` und `BepInEx/patchers` gemeinsam aus demselben gewählten Build beziehungsweise Paket aktualisiert werden; siehe [APIShared nutzen](apishared.md#apishared-nutzen).
 - Nach dem Erstellen oder Ändern eines Mods empfohlen: zunächst die nach der [Prüfauswahl](#auswahl-der-prüfungen) relevanten Prüfungen und Codekontrollen abschließen (z. B. modbezogene Shared-Boundary- und Abhängigkeitsprüfungen, mod-eigene `verify.ps1`, bei betroffenen Modsettings-/UI-Funktionen die einschlägigen Tests aus [modsettings-ui.md](modsettings-ui.md)), damit unnötige Rebuilds entfallen; der Nutzer kann einen anderen Prüfungsumfang wählen.
 - Danach einmal die passende `build.bat` direkt mit erhöhten Rechten (bzw. außerhalb der Sandbox) und `/nopause` gemäß der Nutzerwahl ausführen. Standardmäßig übernimmt `build.bat` Build und Installation; andere ausdrücklich gewünschte Buildwege sind zulässig. Nach Codeänderungen ist ein erneuter Lauf erlaubt.
 
@@ -59,6 +60,13 @@ Buildbezogene Abläufe und Prüfungslisten in diesen Anweisungen sind Empfehlung
 ## Hashprüfungen in Treibern
 
 - Kritische Datei-/Paket-Hashprüfungen in Build-/Release-Treibern nutzen die vorhandenen gemeinsamen .NET-SHA-256-Helfer statt `Get-FileHash` (Verfügbarkeit/Modulauflösung nicht vorausgesetzt). Streams und Hashobjekte zuverlässig freigeben; bei Fehlern abbrechen, nie überspringen oder schwächer vergleichen.
+
+## Lokale Mod-Buildcheckpoints
+
+- Release-, Kompatibilitäts- und Hostbuilds mit explizitem `/noinstall` können vollständig erfolgreiche Builds samt Prüfungen über `Shared/Tools/BuildCache/ModBuildCheckpoint.ps1` wiederverwenden. Installierende Aufrufe führen ihre Buildaktion immer aus, weil vorhandene Paketdateien keine erfolgreiche Installation belegen. Dies überspringt keine aktuellen Git-, Abhängigkeits-, Versions-, Paket-, DEVDIAG- oder Veröffentlichungssperren. Teilweise bestandene Prüfungen eines fehlgeschlagenen Builds werden nicht als Erfolg gespeichert.
+- Ein Treffer verlangt denselben vollständigen Commit, Quell-/Paketpfad, Argumente, geerbte Umgebung sowie unveränderte relevante Quellen, Tests, Quelllinks, Werkzeuge, SDK-, Spiel-/Native- und Compilerreferenzen. Die ausgewählte Native-Baseline bindet aktuelle Metadaten, Ressourcen und den manifestierten Datenbankdigest samt Dateistatus ein; keine erneute pauschale Gigabyte-Datenbankkopie oder -Hashprüfung.
+- Zusätzlich muss der ursprüngliche Paketdateisatz vollständig vorhanden sein und alle SHA-256-Werte müssen stimmen. Fehlende oder veränderte Ausgaben erfordern einen echten Build; der Checkpoint stellt keine Binärdateien wieder her. Ursprünglicher Buildcommit und Buildzeit bleiben bei Wiederverwendung erhalten und werden in der Release-Provenance gekennzeichnet.
+- Unter `.release-output/checkpoints/mod-builds` des koordinierenden Workspaces liegen höchstens 32 Erfolgsnachweise mit jeweils maximal 1 MiB, keine Binär-, Quell- oder Paketkopien. Jeder echte Neuversuch entfernt den bisherigen Nachweis vor Ausführung, auch wenn sein Fingerprint nicht mehr berechenbar ist. Unsichere Cachepfade werden nicht verwendet. Gezielt prüfen: `powershell.exe -NoProfile -ExecutionPolicy Bypass -File Shared/Tools/BuildCache/Test-ModBuildCheckpoint.ps1`.
 
 ## Versionen
 
@@ -89,6 +97,10 @@ arguments retain the branch menu.
 Do not combine it with `/branch`. Every branch or working build removes its copy
 afterwards (about 5 GB, mostly tracked `_inspect` data); the `.build.json` record and
 local provenance stay beside it. Pass `/keepsource` only to inspect a copy, then remove it.
+`/syncpackage` (working-tree mod builds only; rejected with `/branch`) mirrors the built
+`<Mod>/BepInEx/plugins/<Guid>` folders back into the tracked workspace package after a successful
+build, removes files the build no longer produced and verifies each file by SHA-256; use it to
+refresh the tracked packages before committing them.
 The record hashes only files that differ from its commit (working overlays, adapter
 rewrites, untracked inputs); the commit identifies everything else.
 An APIShared `main`/`develop` SDK is built and fully tested once per input state and kept

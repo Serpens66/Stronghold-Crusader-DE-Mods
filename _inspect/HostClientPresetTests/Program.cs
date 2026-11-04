@@ -69,7 +69,7 @@ internal static class Program
             changes.Contains(nameof(settings.HostSettingsOpacity)) && changes.Contains(nameof(settings.ClientSettingsOpacity)),
             "reset did not refresh opacity");
         settings.System_EnterMissionPreset(snapshot, "Trail", false);
-        Check(settings.HostSettingsOpacity == 0.65f && !settings.CanEditHostSettings && !settings.CanEditClientSettings,
+        Check(settings.HostSettingsOpacity == 0.65f && !settings.CanEditHostSettings && settings.CanEditClientSettings,
             "mission opacity changed read-only policy");
         settings.System_ExitMissionPreset();
         Check(settings.HostSettingsOpacity == 1f && settings.ClientSettingsOpacity == 1f,
@@ -101,7 +101,9 @@ internal static class Program
     private static int Main(string[] args)
     {
         APIShared.Localization.UiText.Configure(() => "en-US");
-        string documentsRoot = Path.Combine(Path.GetTempPath(), "HostClientDocuments-" + Guid.NewGuid().ToString("N"));
+        // Ordinary preset fixtures use the shared short work root. Long-path boundaries are
+        // exercised separately; sandbox temp prefixes must not accidentally choose those cases.
+        string documentsRoot = TestWorkDirectory.New("host-client");
         PresetFixtureInstallRoot = Path.Combine(documentsRoot, "installation");
         Directory.CreateDirectory(PresetFixtureInstallRoot);
         PersonalSettingsPaths.TestDocumentsDirectory = assembly =>
@@ -112,6 +114,24 @@ internal static class Program
         };
         try
         {
+            if (args != null && args.Length == 1 && args[0] == "gameplay-gate")
+            {
+                TestGameplayGateSourceIntegration();
+                Console.WriteLine("PASS: gameplay gate source integration and direct-editor HUD bootstrap.");
+                return 0;
+            }
+            if (args != null && args.Length == 1 && args[0] == "peace-proximity")
+            {
+                PeaceTimeProximityPresetTests.Run();
+                return 0;
+            }
+            if (args != null && args.Length == 1 && args[0] == "spectator-migration")
+            {
+                TestSurrenderAndStatisticsSettingAndPolicy();
+                TestMultiplayerLobbyReturnPolicy();
+                Console.WriteLine("PASS: retained surrender preference, host authority, packet contracts and lobby policy.");
+                return 0;
+            }
             if (args != null && args.Length == 1 && args[0] == "plague-height") { PlagueHeightPresetTests.Run(); return 0; }
             if (args != null && args.Length == 1 && args[0] == "castle-rotation")
             {
@@ -130,6 +150,7 @@ internal static class Program
                 return 0;
             }
             if (args != null && args.Length == 1 && args[0] == "ai-sell-threshold") { AiSellThresholdPresetTests.Run(); return 0; }
+            if (args != null && args.Length == 1 && args[0] == "lord-teleport") { LordReturnTeleportPresetTests.Run(); return 0; }
             if (args != null && args.Length == 1 && args[0] == "settings-opacity")
             {
                 TestSettingsOpacity();
@@ -203,6 +224,14 @@ internal static class Program
                 return 0;
             }
 
+            if (args != null && args.Length == 1 && args[0] == "kill-reward")
+            {
+                TestNoKillRewardHostSettings();
+                Console.WriteLine("PASS: ExtraFeatures victory-loot host classifications, XAML and permanent-hook integration.");
+                return 0;
+            }
+
+            PeaceTimeProximityPresetTests.Run();
             FearFactorPresetTests.Run();
             AssassinCapturedGatePresetTests.Run();
             EnemyGateRoutingPresetTests.Run();
@@ -355,6 +384,15 @@ internal static class Program
                 "Trail",
                 editable: false);
             AssertState(vm, host: false, mission: true, editable: false, false, false, false, "client read-only Trail");
+            vm.EphemeralChoice = true;
+            Check(vm.EphemeralChoice && !vm.System_CreateCurrentWorkingSnapshot().ContainsKey(nameof(vm.EphemeralChoice)),
+                "non-persistent personal option was locked or entered a stored snapshot");
+            int ownPersonalHost = vm.PersonalHostValue;
+            vm.PersonalHostValue = 909;
+            Check(vm.PersonalHostValue == ownPersonalHost, "client edited a mission-independent host property");
+            GameXAMLManagerAPI.Instance.ApplyNetworkSync(vm, () => vm.PersonalHostValue = 919);
+            Check(vm.PersonalHostValue == 919, "authenticated independent host sync failed");
+            AssertNoSentinel(settingsPath, 919);
             AssertNoSentinel(settingsPath, TrailSentinel);
             byte[] beforeTrailReceive = File.ReadAllBytes(settingsPath);
             GameXAMLManagerAPI.Instance.ApplyNetworkSync(
@@ -381,8 +419,8 @@ internal static class Program
                 "restoring the Trail preset lost authoritative host state or changed personal client settings");
             vm.ClientValue = 244;
             vm.LocalValue = 344;
-            Check(vm.ClientValue == 233 && vm.LocalValue == 333,
-                "read-only Trail accepted personal setting edits");
+            Check(vm.ClientValue == 244 && vm.LocalValue == 344,
+                "read-only Trail rejected personal setting edits");
             AssertNoSentinel(settingsPath, TrailSentinel);
             AssertStoredHostValue(settingsPath, 122);
 
@@ -394,8 +432,8 @@ internal static class Program
             GameXAMLManagerAPI.Instance.ApplyNetworkSync(vm, () => vm.HostValue = RemoteSentinel + 2);
             vm.SelectedPreset = 1;
             Check(vm.HostValue == RemoteSentinel + 2, "client preset changed a host property");
-            Check(vm.ClientValue == 233, "normal working client value changed unexpectedly");
-            Check(vm.LocalValue == 333, "normal working local value changed unexpectedly");
+            Check(vm.ClientValue == 244, "normal working client value reverted the personal mission edit");
+            Check(vm.LocalValue == 344, "normal working local value reverted the personal mission edit");
 
             var compound = new CompoundViewModel();
             int originalMinimum = compound.Minimum;
@@ -424,6 +462,9 @@ internal static class Program
                 "Trail",
                 editable: false);
             AssertState(vm, host: true, mission: true, editable: false, false, false, false, "host read-only Trail");
+            vm.PersonalHostValue = 929;
+            Check(vm.PersonalHostValue == 929 && ReadInt(MessagePackSerializer.Deserialize<Dictionary<string, byte[]>>(File.ReadAllBytes(settingsPath)), nameof(vm.PersonalHostValue)) == 929,
+                "locked mission did not personally persist the independent host setting");
             vm.SelectedPreset = 0;
             Check(vm.IsMissionPresetActive && !vm.CanEditHostSettings && vm.HostValue == TrailSentinel,
                 "read-only Trail allowed switching to normal working settings");
@@ -533,7 +574,7 @@ internal static class Program
         finally
         {
             PersonalSettingsPaths.TestDocumentsDirectory = null;
-            if (Directory.Exists(documentsRoot)) Directory.Delete(documentsRoot, true);
+            if (TestWorkDirectory.IsOwned(documentsRoot) && Directory.Exists(documentsRoot)) Directory.Delete(documentsRoot, true);
         }
     }
 
@@ -1753,25 +1794,22 @@ internal static class Program
 
     private static void TestNoKillRewardHostSettings()
     {
+        // Limited integration guardrail. Production behavior, migration and persistence
+        // execute in ExtraFeatures.PresetTests; generated native stubs execute separately.
         string root = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", ".."));
-        string viewModel = File.ReadAllText(Path.Combine(root, "ExtraFeatures", "src", "ExtraFeaturesViewModel.cs"));
+        string viewModel = File.ReadAllText(Path.Combine(root, "ExtraFeatures", "src", "ExtraFeaturesViewModel.KillReward.cs"));
         string runtime = File.ReadAllText(Path.Combine(root, "ExtraFeatures", "src", "ExtraFeaturesRuntime.cs"));
         string xaml = File.ReadAllText(Path.Combine(root, "ExtraFeatures", "Override", "ScriptExtenderUI", "ExtraFeaturesSettings.xaml"));
         foreach (string role in new[] { "Human", "AI" })
+        foreach (string kind in new[] { "Gold", "Goods", "GoldMaximum" })
         {
-            string property = "NoKillReward" + role;
-            Check(viewModel.Contains("[SyncHostOnly] public bool " + property), property + " is not host synchronized");
-            Check(viewModel.Contains(property + " = false;"), property + " does not reset to Vanilla");
-            Check(xaml.Contains("IsChecked=\"{Binding " + property + ", Mode=TwoWay}\""), property + " is not bound in the UI");
-            Check(xaml.Contains("ToolTip=\"{Binding " + property + "HelpText}\""), property + " has no role-specific tooltip");
-            Check(runtime.Contains("settings." + property), property + " does not reach the runtime");
+            string property = "KillReward" + kind + role;
+            Check(viewModel.Contains("[SyncHostOnly] public int " + property), property + " is host synchronized");
+            Check(xaml.Contains("{Binding " + property + (kind == "GoldMaximum" ? "Text" : "") + ", Mode=TwoWay"), property + " is bound in the table");
+            Check(runtime.Contains("settings." + property), property + " reaches the permanent hook");
         }
-        Check(runtime.Contains("ApplyNoKillRewardSetting();") &&
-              runtime.Contains("noKillRewardHook.SetEnabled("),
-            "No Kill Reward settings do not update the permanent hook");
-        Check(viewModel.Contains("NoKillRewardSearchHelpText => NoKillRewardHumanHelpText + \" \" + NoKillRewardAIHelpText") &&
-              xaml.Contains("shared:ModSettingsSearch.ToolTipText=\"{Binding NoKillRewardSearchHelpText}\""),
-            "No Kill Reward search does not include both role tooltips");
+        Check(runtime.Contains("noKillRewardHook.Configure("), "Victory loot updates permanent hook configuration");
+        Check(xaml.Contains("{Binding CanConfigureKillReward}"), "Victory loot respects mission and host editor locking");
     }
 
     private static void TestP2aMigrationContracts()
@@ -1895,7 +1933,8 @@ internal static class Program
               !bugfixRuntimeSource.Contains("BeginEditorMapIfApplicable") &&
               assassinClimbSource.Contains("initialized = true;") &&
               assassinClimbSource.Contains("RefreshButtonVisibility();") &&
-              assassinClimbSource.Contains("Application.onBeforeRender += OnBeforeRender") &&
+              assassinClimbSource.Contains("TryRegisterBeforeRender") &&
+              assassinClimbSource.Contains("UpdatePresentationDemand()") &&
               assassinClimbSource.Contains("lastRenderFrame == Time.frameCount") &&
               assassinClimbSource.Contains("APIShared.LocalSelectionAPI.TryCapture(") &&
               assassinClimbSource.Contains("editor && (!hasSnapshot || selected.Count > 0)") &&
@@ -1994,63 +2033,6 @@ internal static class Program
         Check(SurrenderPolicy.CanEnableButton(true, false, false),
             "singleplayer surrender incorrectly required Chore transport");
 
-        Check(SurrenderPolicy.IsStatisticsViewer(true, 0, missingLord),
-            "start spectator was not accepted as a statistics viewer");
-        Check(SurrenderPolicy.IsStatisticsViewer(false, 2, deadLord),
-            "eliminated player with a dead lord was not accepted as a statistics viewer");
-        Check(SurrenderPolicy.IsStatisticsViewer(false, 2, missingLord),
-            "eliminated player without a lord was not accepted as a statistics viewer");
-        Check(!SurrenderPolicy.IsStatisticsViewer(false, 2, validLord),
-            "active player with a living lord was accepted as a statistics viewer");
-        Check(!SurrenderPolicy.IsStatisticsViewer(false, 0, missingLord),
-            "non-spectator without a player slot was accepted as a statistics viewer");
-
-        Check(SurrenderPolicy.CanShowStatisticsButton(true, true, false, true, true, true),
-            "spectator statistics rejected a valid spectator");
-        Check(!SurrenderPolicy.CanShowStatisticsButton(false, true, false, true, true, true),
-            "disabled shared setting exposed spectator statistics");
-        Check(!SurrenderPolicy.CanShowStatisticsButton(true, false, false, true, true, true),
-            "spectator statistics appeared outside an active match");
-        Check(!SurrenderPolicy.CanShowStatisticsButton(true, true, true, true, true, true),
-            "spectator statistics appeared in the map editor");
-        Check(!SurrenderPolicy.CanShowStatisticsButton(true, true, false, false, true, true),
-            "spectator statistics appeared for an active player");
-        Check(!SurrenderPolicy.CanShowStatisticsButton(true, true, false, true, false, true),
-            "spectator statistics accepted an unsupported game mode");
-        Check(!SurrenderPolicy.CanShowStatisticsButton(true, true, false, true, true, false),
-            "spectator statistics appeared without a validated runtime");
-
-        Check(SurrenderPolicy.CanPromoteEliminatedPlayerToSpectator(
-                true, true, false, false, true, true, true, 2),
-            "eligible eliminated player was not promoted to spectator");
-        Check(!SurrenderPolicy.CanPromoteEliminatedPlayerToSpectator(
-                false, true, false, false, true, true, true, 2),
-            "disabled eliminated-player spectator setting still promoted a player");
-        Check(!SurrenderPolicy.CanPromoteEliminatedPlayerToSpectator(
-                true, false, false, false, true, true, true, 2),
-            "player outside an active match was promoted to spectator");
-        Check(!SurrenderPolicy.CanPromoteEliminatedPlayerToSpectator(
-                true, true, true, false, true, true, true, 2),
-            "map-editor player was promoted to spectator");
-        Check(!SurrenderPolicy.CanPromoteEliminatedPlayerToSpectator(
-                true, true, false, true, true, true, true, 2),
-            "existing spectator was promoted again");
-        Check(!SurrenderPolicy.CanPromoteEliminatedPlayerToSpectator(
-                true, true, false, false, true, true, false, 2),
-            "player without a previously validated living lord was promoted during initialization");
-        Check(!SurrenderPolicy.CanPromoteEliminatedPlayerToSpectator(
-                true, true, false, false, true, true, true, 0),
-            "invalid local player slot was promoted to spectator");
-        Check(!SurrenderPolicy.CanPromoteEliminatedPlayerToSpectator(
-                true, true, false, false, true, true, true, 9),
-            "out-of-range local player slot was promoted to spectator");
-        Check(!SurrenderPolicy.CanPromoteEliminatedPlayerToSpectator(
-                true, true, false, false, false, true, true, 2),
-            "unsupported campaign/tutorial mode promoted an eliminated player");
-        Check(!SurrenderPolicy.CanPromoteEliminatedPlayerToSpectator(
-                true, true, false, false, true, false, true, 2),
-            "unverified local multiplayer participant was promoted to spectator");
-
         Check(SurrenderPolicy.CanAcceptRequest(true, true, true, true, true, validLord),
             "host rejected an authenticated human surrender request");
         Check(!SurrenderPolicy.CanAcceptRequest(true, true, true, false, true, validLord),
@@ -2118,8 +2100,6 @@ internal static class Program
         Check(setting.EnableAiFixes, "EnableAiFixes did not default to true");
         Check(setting.EnableSurrenderAndStatistics, "EnableSurrenderAndStatistics did not default to true");
         Check(setting.EnableLordUnitControls, "EnableLordUnitControls did not default to true");
-        Check(setting.EnableEliminatedPlayersBecomeSpectators,
-            "EnableEliminatedPlayersBecomeSpectators did not default to true");
         Check(setting.EnableAbruptHostMigrationFix,
             "EnableAbruptHostMigrationFix did not default to true");
         Check(setting.EnableReturnToMultiplayerLobby,
@@ -2135,7 +2115,6 @@ internal static class Program
         setting.EnableAiFixes = false;
         setting.EnableSurrenderAndStatistics = false;
         setting.EnableLordUnitControls = false;
-        setting.EnableEliminatedPlayersBecomeSpectators = false;
         setting.EnableAbruptHostMigrationFix = false;
         setting.EnableReturnToMultiplayerLobby = false;
         setting.AllowFullAiMultiplayerLobby = false;
@@ -2146,8 +2125,6 @@ internal static class Program
         Check(!setting.EnableAiFixes, "EnableAiFixes did not round-trip through presets");
         Check(!setting.EnableSurrenderAndStatistics, "shared host value did not round-trip through presets");
         Check(!setting.EnableLordUnitControls, "Lord-controls host value did not round-trip through presets");
-        Check(!setting.EnableEliminatedPlayersBecomeSpectators,
-            "spectator-promotion host value did not round-trip through presets");
         Check(!setting.EnableAbruptHostMigrationFix,
             "abrupt host-migration value did not round-trip through presets");
         Check(!setting.EnableReturnToMultiplayerLobby,
@@ -2313,7 +2290,6 @@ internal static class Program
         setting.EnableAiFixes = true;
         setting.EnableSurrenderAndStatistics = true;
         setting.EnableLordUnitControls = true;
-        setting.EnableEliminatedPlayersBecomeSpectators = true;
         setting.EnableAbruptHostMigrationFix = true;
         setting.EnableReturnToMultiplayerLobby = true;
         setting.AllowFullAiMultiplayerLobby = true;
@@ -2322,8 +2298,6 @@ internal static class Program
             "client EnableAiFixes mutation changed the local preset file");
         Check(!setting.EnableSurrenderAndStatistics, "client mutated the host-only EnableSurrenderAndStatistics setting");
         Check(!setting.EnableLordUnitControls, "client mutated the host-only EnableLordUnitControls setting");
-        Check(!setting.EnableEliminatedPlayersBecomeSpectators,
-            "client mutated the host-only EnableEliminatedPlayersBecomeSpectators setting");
         Check(!setting.EnableAbruptHostMigrationFix,
             "client mutated the host-only EnableAbruptHostMigrationFix setting");
         Check(!setting.EnableReturnToMultiplayerLobby,
@@ -2347,7 +2321,6 @@ internal static class Program
             setting.EnableAiFixes = true;
             setting.EnableSurrenderAndStatistics = true;
             setting.EnableLordUnitControls = true;
-            setting.EnableEliminatedPlayersBecomeSpectators = true;
             setting.EnableAbruptHostMigrationFix = true;
             setting.EnableReturnToMultiplayerLobby = true;
             setting.AllowFullAiMultiplayerLobby = true;
@@ -2367,8 +2340,6 @@ internal static class Program
         Check(setting.EnableAiFixes, "authoritative host sync did not update EnableAiFixes");
         Check(setting.EnableSurrenderAndStatistics, "authoritative host sync did not update EnableSurrenderAndStatistics");
         Check(setting.EnableLordUnitControls, "authoritative host sync did not update EnableLordUnitControls");
-        Check(setting.EnableEliminatedPlayersBecomeSpectators,
-            "authoritative host sync did not update EnableEliminatedPlayersBecomeSpectators");
         Check(setting.EnableAbruptHostMigrationFix,
             "authoritative host sync did not update EnableAbruptHostMigrationFix");
         Check(setting.EnableReturnToMultiplayerLobby,
@@ -2384,7 +2355,6 @@ internal static class Program
                 [nameof(setting.EnableAiFixes)] = MessagePackSerializer.Serialize(false),
                 [nameof(setting.EnableSurrenderAndStatistics)] = MessagePackSerializer.Serialize(false),
                 [nameof(setting.EnableLordUnitControls)] = MessagePackSerializer.Serialize(false),
-                [nameof(setting.EnableEliminatedPlayersBecomeSpectators)] = MessagePackSerializer.Serialize(false),
                 [nameof(setting.EnableAbruptHostMigrationFix)] = MessagePackSerializer.Serialize(false),
                 [nameof(setting.EnableReturnToMultiplayerLobby)] = MessagePackSerializer.Serialize(false),
                 [nameof(setting.AllowFullAiMultiplayerLobby)] = MessagePackSerializer.Serialize(false)
@@ -2402,8 +2372,6 @@ internal static class Program
         Check(!setting.EnableSurrenderAndStatistics && !setting.CanEditHostSettings,
             "read-only Trail did not apply and lock EnableSurrenderAndStatistics");
         Check(!setting.EnableLordUnitControls, "read-only Trail did not apply EnableLordUnitControls");
-        Check(!setting.EnableEliminatedPlayersBecomeSpectators,
-            "read-only Trail did not apply EnableEliminatedPlayersBecomeSpectators");
         Check(!setting.EnableAbruptHostMigrationFix,
             "read-only Trail did not apply EnableAbruptHostMigrationFix");
         Check(!setting.EnableReturnToMultiplayerLobby,
@@ -2413,15 +2381,12 @@ internal static class Program
         setting.EnableAiFixes = true;
         setting.EnableSurrenderAndStatistics = true;
         setting.EnableLordUnitControls = true;
-        setting.EnableEliminatedPlayersBecomeSpectators = true;
         setting.EnableAbruptHostMigrationFix = true;
         setting.EnableReturnToMultiplayerLobby = true;
         setting.AllowFullAiMultiplayerLobby = true;
         Check(!setting.EnableAiFixes, "client changed EnableAiFixes inside a read-only Trail");
         Check(!setting.EnableSurrenderAndStatistics, "client changed EnableSurrenderAndStatistics inside a read-only Trail");
         Check(!setting.EnableLordUnitControls, "client changed EnableLordUnitControls inside a read-only Trail");
-        Check(!setting.EnableEliminatedPlayersBecomeSpectators,
-            "client changed EnableEliminatedPlayersBecomeSpectators inside a read-only Trail");
         Check(!setting.EnableAbruptHostMigrationFix,
             "client changed EnableAbruptHostMigrationFix inside a read-only Trail");
         Check(!setting.EnableReturnToMultiplayerLobby,
@@ -2436,8 +2401,6 @@ internal static class Program
         Check(setting.EnableAiFixes, "EnableAiFixes reset value was not true");
         Check(setting.EnableSurrenderAndStatistics, "EnableSurrenderAndStatistics reset value was not true");
         Check(setting.EnableLordUnitControls, "EnableLordUnitControls reset value was not true");
-        Check(setting.EnableEliminatedPlayersBecomeSpectators,
-            "EnableEliminatedPlayersBecomeSpectators reset value was not true");
         Check(setting.EnableAbruptHostMigrationFix,
             "EnableAbruptHostMigrationFix reset value was not true");
         Check(setting.EnableReturnToMultiplayerLobby,
@@ -2819,26 +2782,11 @@ internal static class Program
     private static void TestEnemyProximityPolicy()
     {
         Check(EnemyProximityPolicy.SelectConfiguredRadius(false, 31, 16) == 31 &&
-              EnemyProximityPolicy.SelectConfiguredRadius(true, 31, 16) == 16,
-            "enemy proximity did not select independent Singleplayer and real-Multiplayer values");
-        Check(EnemyProximityPolicy.ResolveHumanImmediateRadius(-1, 30) == 30 &&
-              EnemyProximityPolicy.ResolveHumanImmediateRadius(-1, 15) == 15,
-            "Vanilla human immediate proximity values were not restored for -1/disable");
-        Check(EnemyProximityPolicy.ApplyHumanPlacementRadius(30, -1) == 30 &&
-              EnemyProximityPolicy.ApplyHumanPlacementRadius(15, -1) == 15,
-            "human -1 mode changed an original proximity parameter");
-        Check(EnemyProximityPolicy.ApplyHumanPlacementRadius(30, 44) == 44 &&
-              EnemyProximityPolicy.ApplyHumanPlacementRadius(15, 7) == 7,
-            "normal human 30/15 placement paths did not use the configured radius");
-        Check(EnemyProximityPolicy.ApplyHumanPlacementRadius(3, 44) == 3 &&
-              EnemyProximityPolicy.ApplyHumanPlacementRadius(5, 44) == 5,
-            "special human placement paths were incorrectly overridden");
-        Check(EnemyProximityPolicy.ApplyAIRadius(15, 42, false) == 15,
-            "an unclassified AI initial placement was overridden");
-        Check(EnemyProximityPolicy.ApplyAIRadius(5, -1, true) == 5,
-            "classified AI -1 mode changed its context-specific Vanilla radius");
-        Check(EnemyProximityPolicy.ApplyAIRadius(5, 42, true) == 42,
-            "a classified AI repair/rebuild did not use the active configured radius");
+              EnemyProximityPolicy.SelectConfiguredRadius(true, 31, 16) == 16, "Independent SP/MP radii");
+        Check(EnemyProximityPolicy.ConfiguredContribution(-1) == null, "Vanilla mode contributes no category, so the context-specific radius stays");
+        Check(EnemyProximityPolicy.ConfiguredContribution(0) == 0 && EnemyProximityPolicy.ConfiguredContribution(100) == 100, "Zero and maximum category radii");
+        foreach (int original in new[] { 3, 5, 15, 30 })
+            Check(EnemyProximityPolicy.IsOrdinaryHumanRadius(original) == (original == 15 || original == 30), "Special human placement scope preserved");
     }
 
     private static void TestAssassinClimbCostPolicy()
@@ -4840,13 +4788,19 @@ internal static class Program
             vm.System_TestLoadPreset(external.StableId);
             Check(vm.HostValue == 503 && vm.ClientValue == 611 && vm.LocalValue == 301,
                 "Customize load did not resolve player values from the suspended normal working state");
-            Check(vm.System_TestPresetStatusText == "Based on: Same name · External presets: External Provider",
-                "loading a preset into editable Trail did not show its actual source");
+            Check(vm.System_TestPresetStatusText == "Trail · Based on: Same name · External presets: External Provider",
+                "loading a preset into editable Trail lost its mission context or actual preset source");
             Check(normalWorkingFile.SequenceEqual(File.ReadAllBytes(new PersonalSettingsPaths(pluginPath, targetGuid).SettingsFile)),
                 "loading a preset into editable Trail changed the normal working-state file");
             vm.HostValue = 777;
-            Check(vm.System_TestPresetStatusText == "Based on: Same name · External presets: External Provider (modified)",
+            Check(vm.System_TestPresetStatusText == "Trail · Based on: Same name · External presets: External Provider (modified)",
                 "editing the loaded Trail working copy did not mark its preset source modified");
+            vm.System_ApplyMissionPresetSnapshot(vm.System_CreatePlayerMissionPresetSnapshot(), "Personal Settings");
+            Check(vm.HostValue == 505 && vm.ClientValue == 611 && vm.LocalValue == 301 && vm.IsMissionPresetActive,
+                "personal reset used the published/mission values or left the mission context");
+            Check(vm.System_TestPresetStatusText == "Trail · Based on: Personal Settings" &&
+                  normalWorkingFile.SequenceEqual(File.ReadAllBytes(new PersonalSettingsPaths(pluginPath, targetGuid).SettingsFile)),
+                "personal reset changed personal storage or lost source attribution");
             vm.System_ApplyMissionPresetSnapshot(
                 new Dictionary<string, byte[]> { [nameof(MixedViewModel.HostValue)] = MessagePackSerializer.Serialize(900) },
                 "Trail");
@@ -4855,10 +4809,10 @@ internal static class Program
             Check(vm.System_TestPresetStatusText == "Trail",
                 "resetting to Trail did not restore the Trail source label");
             vm.System_ApplyMissionPresetSnapshot(new Dictionary<string, byte[]>(), "Map");
-            Check(vm.System_TestPresetStatusText == "Map",
+            Check(vm.System_TestPresetStatusText == "Trail · Based on: Map",
                 "resetting to Map retained the previous published preset source");
             vm.System_ApplyMissionPresetSnapshot(new Dictionary<string, byte[]>(), "Mod defaults");
-            Check(vm.System_TestPresetStatusText == "Mod defaults",
+            Check(vm.System_TestPresetStatusText == "Trail · Based on: Mod defaults",
                 "resetting to Mod defaults retained the previous published preset source");
             Check(normalWorkingFile.SequenceEqual(File.ReadAllBytes(new PersonalSettingsPaths(pluginPath, targetGuid).SettingsFile)),
                 "editing or resetting the Trail working copy changed the normal working-state file");
@@ -5051,7 +5005,7 @@ internal static class Program
         Check(vm.IsMissionPresetActive == mission, context + ": mission state");
         Check(vm.MissionPresetEditable == editable, context + ": editable state");
         Check(vm.CanEditHostSettings == canEditHost, context + ": host editability");
-        Check(vm.CanEditClientSettings == (!mission || editable), context + ": client editability");
+        Check(vm.CanEditClientSettings, context + ": client editability");
         Check(vm.CanResetSettings == canReset, context + ": reset availability");
         Check(vm.CanChangePreset == canChangePreset, context + ": preset availability");
     }
@@ -5832,6 +5786,12 @@ internal sealed class MixedViewModel : PresetLobbyModSettingsViewModel
     private int clientValue = 201;
     private int localValue = 301;
     private int transientHostValue = 401;
+    private int personalHostValue = 501;
+    private bool ephemeralChoice;
+    [PresetLocal, DoNotPersist]
+    public bool EphemeralChoice { get => ephemeralChoice; set { if (!CanMutateSetting()) return; ephemeralChoice = value; OnPropertyChanged(nameof(EphemeralChoice)); } }
+    [SyncHostOnly, MissionIndependent]
+    public int PersonalHostValue { get => personalHostValue; set { if (!CanMutateSetting() || personalHostValue == value) return; personalHostValue = value; OnPropertyChanged(nameof(PersonalHostValue)); } }
 
     [SyncHostOnly]
     public int HostValue
@@ -6019,7 +5979,6 @@ internal sealed class SurrenderAndStatisticsSettingViewModel : PresetLobbyModSet
     private bool enableAssassinGatehouseClimbFix = true;
     private bool enableSurrenderAndStatistics = true;
     private bool enableLordUnitControls = true;
-    private bool enableEliminatedPlayersBecomeSpectators = true;
     private bool enableAbruptHostMigrationFix = true;
     private bool enableReturnToMultiplayerLobby = true;
     private bool allowFullAiMultiplayerLobby = true;
@@ -6116,22 +6075,6 @@ internal sealed class SurrenderAndStatisticsSettingViewModel : PresetLobbyModSet
     }
 
     [SyncHostOnly]
-    public bool EnableEliminatedPlayersBecomeSpectators
-    {
-        get => enableEliminatedPlayersBecomeSpectators;
-        set
-        {
-            if (!CanMutateSetting(nameof(EnableEliminatedPlayersBecomeSpectators)) ||
-                enableEliminatedPlayersBecomeSpectators == value)
-            {
-                return;
-            }
-            enableEliminatedPlayersBecomeSpectators = value;
-            OnPropertyChanged(nameof(EnableEliminatedPlayersBecomeSpectators));
-        }
-    }
-
-    [SyncHostOnly]
     public bool EnableAbruptHostMigrationFix
     {
         get => enableAbruptHostMigrationFix;
@@ -6186,7 +6129,6 @@ internal sealed class SurrenderAndStatisticsSettingViewModel : PresetLobbyModSet
         EnableAiFixes = true;
         EnableSurrenderAndStatistics = true;
         EnableLordUnitControls = true;
-        EnableEliminatedPlayersBecomeSpectators = true;
         EnableAbruptHostMigrationFix = true;
         EnableReturnToMultiplayerLobby = true;
         AllowFullAiMultiplayerLobby = true;
@@ -6528,7 +6470,7 @@ namespace BepInEx
     }
 }
 
-namespace BepInEx.Logging { public sealed class ManualLogSource { } }
+namespace BepInEx.Logging { public sealed class ManualLogSource { public void LogMessage(object data) { } } }
 
 namespace Noesis
 {

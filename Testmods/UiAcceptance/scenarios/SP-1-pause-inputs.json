@@ -1,0 +1,29 @@
+{
+  "enabled": true,
+  "series": "SP-1",
+  "role": "sp",
+  "steps": [
+    { "id": "menu", "do": "WaitMainMenu", "timeoutMs": 180000, "stopOnFail": true, "allowErrors": true },
+    { "id": "settings-before", "do": "DumpSettings", "args": ["Spectator.SpectatorPlugin::processRoot.Settings"] },
+    { "id": "tools-on", "do": "SetModSetting", "args": ["Spectator.SpectatorPlugin::processRoot.Settings", "EnableTestTools", "true"], "stopOnFail": true },
+    { "id": "load", "do": "LoadSave", "args": ["test_dustynoattack.sav"], "timeoutMs": 120000, "stopOnFail": true },
+    { "id": "toolbar", "do": "Spectator.WaitToolbar", "timeoutMs": 20000, "stopOnFail": true },
+    { "id": "pause", "do": "Pause", "args": ["on"], "timeoutMs": 10000 },
+    { "id": "goods", "do": "Spectator.Cmd", "args": ["Goods"] },
+    { "id": "count-rebuild", "do": "CountCalls", "args": ["rebuild", "Spectator.TestToolsViewModel", "RefreshLocale"] },
+    { "id": "click-amount", "do": "NoesisClick", "args": ["TestToolsAmount"], "timeoutMs": 10000 },
+    { "id": "type-amount", "do": "NoesisType", "args": ["250"] },
+    { "id": "no-rebuild", "do": "ExpectCalls", "args": ["rebuild", "0", "0"] },
+    { "id": "amount", "do": "Spectator.Amount", "args": ["500"] },
+    { "id": "view-2", "do": "Spectator.View", "args": ["2"] },
+    { "id": "view-1", "do": "Spectator.View", "args": ["1"] },
+    { "id": "owner-click", "do": "NoesisClick", "args": ["SpectatorEditorHumanOwner1"], "timeoutMs": 10000 },
+    { "id": "mark-fifo", "do": "Mark", "args": ["fifo"] },
+    { "id": "credit-x5", "do": "Spectator.Cmd", "args": ["Credit", "5"] },
+    { "id": "fifo", "do": "ExpectSequence", "args": ["fifo", "TEST_ACTION session=\\d+ operation=(\\d+) kind=Credit", "5"], "timeoutMs": 5000 },
+    { "id": "status", "do": "Spectator.ExpectStatus", "args": [""], "timeoutMs": 2000 },
+    { "id": "unpause", "do": "Pause", "args": ["off"], "timeoutMs": 10000 },
+    { "id": "shot", "do": "Screenshot", "args": ["tools"] },
+    { "id": "quit", "do": "QuitToMenu", "timeoutMs": 60000 }
+  ]
+}

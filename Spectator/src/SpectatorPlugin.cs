@@ -7,17 +7,18 @@ using SHCDESE.API.LowLevel;
 
 namespace Spectator
 {
-    [BepInPlugin(PluginGuid, "Spectator", "0.1.0")]
+    [BepInPlugin(PluginGuid, "Spectator", PluginVersion)]
     [BepInDependency("000shcdese", "2.14.0")]
-    [BepInDependency("APIShared_Serp", "0.12.2")]
+    [BepInDependency("APIShared_Serp", "0.27.0")]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("fixes", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("CheatMod_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("ExtremePowers_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("ExtraFeatures_Serp", BepInDependency.DependencyFlags.SoftDependency)]
-    public sealed class SpectatorPlugin : BaseUnityPlugin
+    public sealed partial class SpectatorPlugin : BaseUnityPlugin
     {
         public const string PluginGuid = "Spectator_Serp";
+        public const string PluginVersion = "0.1.0";
         private static SpectatorPlugin processRoot;
         private static SpectatorStatistics statistics;
         private static SpectatorDefeat spectatorDefeat;
@@ -27,9 +28,9 @@ namespace Spectator
         private void Awake()
         {
             processRoot = this;
-            Shared.UnityMainThreadDispatch.InitializeForCurrentThread();
             Shared.DebugLogHelper.InitializeDiagnostics(Config, Logger);
             SerpLocalization.SetRoutineLoggingEnabled(false);
+            ToolbarThemePreference.Initialize(Config);
             Settings = new SpectatorViewModel();
             SpectatorRuntime.Initialize(Logger, Settings);
             CrusaderLibrary.Instance.LibraryLoaded += OnLibraryLoaded;
@@ -38,9 +39,17 @@ namespace Spectator
         private void OnLibraryLoaded(CrusaderLibraryLoadContext context)
         {
             if (Interlocked.Exchange(ref initialized, 1) != 0) return;
-            InitializeFeature("settings", () => LobbyModSettingsPresetRegistration.Register(this,
-                Shared.DebugLogHelper.ForExternalCode(Logger), PluginGuid, Settings,
-                "ScriptExtenderUI/SpectatorSettings.xaml", logRoutineActivity: false));
+            InitializeFeature("legacy-settings", PrepareLegacySettings);
+            InitializeFeature("settings", () => {
+                if (legacySettings?.RegistrationSafe == false)
+                    throw new InvalidOperationException("Settings registration deferred: the initial settings/migration journal could not be read or saved safely. Retry after fixing the logged file error.");
+                LobbyModSettingsPresetRegistration.Register(this,
+                    Shared.DebugLogHelper.ForExternalCode(Logger), PluginGuid, Settings,
+                    "ScriptExtenderUI/SpectatorSettings.xaml", logRoutineActivity: false);
+                settingsRegistered = true;
+                TryMigrateLegacySettings();
+            });
+            InitializeFeature("overview", () => LordOverview.OverviewRuntime.Start(Logger, Settings.Overview));
             InitializeFeature("perspective", () => SpectatorPerspectiveRuntime.Initialize(Logger, Settings));
             InitializeFeature("statistics", () => {
                 statistics = new SpectatorStatistics(Logger, Settings);

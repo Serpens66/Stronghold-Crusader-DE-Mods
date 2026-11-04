@@ -8,6 +8,7 @@ internal static class Replay
     internal static int Run(string[] args)
     {
         if (args.Length != 2) throw new ArgumentException("--replay <queries.bpf.gz>");
+        if (File.Exists(args[1] + ".tape.json")) return TraceTape.Replay(args[1]);
         RouteQuery[] queries = SnapshotCodec.ReadQueries(args[1], out GridSnapshot map);
         var budget = new WorkBudget(); var oracle = new ProductionOracle(map);
         BenchmarkResult result = Benchmark.Run(map, queries, budget, q => oracle.Find(q));

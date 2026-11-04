@@ -52,7 +52,7 @@ namespace ExtendedData
             catch (Exception exception)
             {
                 refreshMethod = null;
-                Shared.DebugLogHelper.LogWarningLimited(log, "ExtendedData/src/BugfixesAndQoLTrailCustomizationBridge.cs:57", "BugfixesAndQoL Trail customization integration is unavailable; " +
+                Shared.DebugLogHelper.LogWarningLimited(log, "ExtendedData/BugfixesAndQoLTrailCustomizationBridge/TryRegister", "BugfixesAndQoL Trail customization integration is unavailable; " +
                     "ExtendedData keeps standalone button ownership: " + exception.Message);
                 return false;
             }
@@ -66,7 +66,7 @@ namespace ExtendedData
             }
             catch (Exception exception)
             {
-                Shared.DebugLogHelper.LogWarningLimited(log, "ExtendedData/src/BugfixesAndQoLTrailCustomizationBridge.cs:73", "Could not refresh BugfixesAndQoL Trail button visibility: " + exception.Message);
+                Shared.DebugLogHelper.LogWarningLimited(log, "ExtendedData/BugfixesAndQoLTrailCustomizationBridge/Refresh", "Could not refresh BugfixesAndQoL Trail button visibility: " + exception.Message);
             }
         }
     }

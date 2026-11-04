@@ -41,7 +41,7 @@ namespace BugfixesAndQoL.UnitCommands
             try { Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(menuViewModel.RefreshHostState); } catch { }
             try
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/Formations/FormationRuntime.Diagnostics.cs:44", $"Formation native assignment failed open at {stage}; " +
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/FormationRuntime.Diagnostics/DisableAfterNativeFailure", $"Formation native assignment failed open at {stage}; " +
                     $"future formation commands are disabled: {exception}");
             }
             catch
@@ -55,7 +55,7 @@ namespace BugfixesAndQoL.UnitCommands
             {
                 try
                 {
-                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/Formations/FormationRuntime.Diagnostics.cs:60", message);
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/FormationRuntime.Diagnostics/LogDebugNoThrow", message);
                 }
                 catch
                 {
@@ -69,7 +69,7 @@ namespace BugfixesAndQoL.UnitCommands
             {
                 try
                 {
-                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/Formations/FormationRuntime.Diagnostics.cs:74", message);
+                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/FormationRuntime.Diagnostics/LogWarningNoThrow", message);
                 }
                 catch
                 {
@@ -83,7 +83,7 @@ namespace BugfixesAndQoL.UnitCommands
             {
                 try
                 {
-                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/Formations/FormationRuntime.Diagnostics.cs:88", message);
+                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/FormationRuntime.Diagnostics/LogErrorNoThrow", message);
                 }
                 catch
                 {

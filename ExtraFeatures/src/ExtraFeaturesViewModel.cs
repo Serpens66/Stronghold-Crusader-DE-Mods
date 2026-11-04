@@ -28,17 +28,18 @@ namespace ExtraFeatures
         public string GateClosingDistanceTitleText => SerpLocalization.Get("ExtraFeatures.SettingsLayout.ClosingDistance");
         public string SingleplayerText => SerpLocalization.Get("ExtraFeatures.SettingsLayout.Singleplayer");
         public string MultiplayerText => SerpLocalization.Get("ExtraFeatures.SettingsLayout.Multiplayer");
-        public string HumanEnemyProximitySingleplayerSearchTitle => EnemyProximityTitleText + " – " + HumanEnemyProximitySingleplayerText;
-        public string HumanEnemyProximityMultiplayerSearchTitle => EnemyProximityTitleText + " – " + HumanEnemyProximityMultiplayerText;
-        public string AIEnemyProximitySingleplayerSearchTitle => EnemyProximityTitleText + " – " + AIEnemyProximitySingleplayerText;
-        public string AIEnemyProximityMultiplayerSearchTitle => EnemyProximityTitleText + " – " + AIEnemyProximityMultiplayerText;
         private string settingsSearchLanguage;
         private string settingsSearchGoodsTitles;
 
         private void OnSettingsPresentationPropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs args)
         {
             if (args.PropertyName == nameof(CanEditHostSettings))
+            {
+                NormalizeOwnedKillReward();
                 OnPropertyChanged(nameof(CanConfigurePeriodicGold));
+                OnPropertyChanged(nameof(CanConfigureKillReward));
+                OnPropertyChanged(nameof(CanConfigureEnemyProximity));
+            }
             if (args.PropertyName == nameof(System_ModSettingsSearchText) ||
                 args.PropertyName == nameof(System_ModSettingsSearchIncludeToolTips) ||
                 args.PropertyName == nameof(System_ModSettingsSearchExactKey) ||
@@ -109,8 +110,6 @@ namespace ExtraFeatures
         private bool enableFearFactorNeutralization;
         private bool allowElevatedMoatAI = true;
         private bool allowElevatedMoatHuman;
-        private bool noKillRewardHuman;
-        private bool noKillRewardAI;
         private bool healCivilianTargets;
         private bool healSiegeTargets;
         private bool enableKnightDismount = true;
@@ -165,10 +164,6 @@ namespace ExtraFeatures
         public string EnableFearFactorNeutralizationHelpText => SerpLocalization.Get(SerpLocalization.EnableFearFactorNeutralizationHelp);
         public string AllowElevatedMoatText => SerpLocalization.Get("SomeSettings.AllowElevatedMoat");
         public string AllowElevatedMoatHelpText => SerpLocalization.Get("SomeSettings.AllowElevatedMoatHelp");
-        public string NoKillRewardText => SerpLocalization.Get("SomeSettings.NoKillReward");
-        public string NoKillRewardHumanHelpText => SerpLocalization.Get("SomeSettings.NoKillRewardHumanHelp");
-        public string NoKillRewardAIHelpText => SerpLocalization.Get("SomeSettings.NoKillRewardAIHelp");
-        public string NoKillRewardSearchHelpText => NoKillRewardHumanHelpText + " " + NoKillRewardAIHelpText;
         public string HealerTargetsText => SerpLocalization.Get("ExtraFeatures.HealerTargets");
         public string HealerTargetsCivilianText => SerpLocalization.Get("ExtraFeatures.HealerTargetsCivilian");
         public string HealerTargetsSiegeText => SerpLocalization.Get("ExtraFeatures.HealerTargetsSiege");
@@ -311,13 +306,13 @@ namespace ExtraFeatures
         [SyncHostOnly] public bool EnableFearFactorNeutralization { get => enableFearFactorNeutralization; set => SetSetting(ref enableFearFactorNeutralization, value, nameof(EnableFearFactorNeutralization)); }
         [SyncHostOnly] public bool AllowElevatedMoatAI { get => allowElevatedMoatAI; set => SetSetting(ref allowElevatedMoatAI, value, nameof(AllowElevatedMoatAI)); }
         [SyncHostOnly] public bool AllowElevatedMoatHuman { get => allowElevatedMoatHuman; set => SetSetting(ref allowElevatedMoatHuman, value, nameof(AllowElevatedMoatHuman)); }
-        [SyncHostOnly] public bool NoKillRewardHuman { get => noKillRewardHuman; set => SetSetting(ref noKillRewardHuman, value, nameof(NoKillRewardHuman)); }
-        [SyncHostOnly] public bool NoKillRewardAI { get => noKillRewardAI; set => SetSetting(ref noKillRewardAI, value, nameof(NoKillRewardAI)); }
         [SyncHostOnly] public bool HealCivilianTargets { get => healCivilianTargets; set => SetSetting(ref healCivilianTargets, value, nameof(HealCivilianTargets)); }
         [SyncHostOnly] public bool HealSiegeTargets { get => healSiegeTargets; set => SetSetting(ref healSiegeTargets, value, nameof(HealSiegeTargets)); }
         [SyncHostOnly] public bool EnableMonksAlwaysRun { get => enableMonksAlwaysRun; set => SetSetting(ref enableMonksAlwaysRun, value, nameof(EnableMonksAlwaysRun)); }
         [SyncHostOnly] public bool EnableKnightDismount { get => enableKnightDismount; set => SetSetting(ref enableKnightDismount, value, nameof(EnableKnightDismount)); }
         [SyncHostOnly] public bool InstantHorse { get => instantHorse; set => SetSetting(ref instantHorse, value, nameof(InstantHorse)); }
+        // 1000 / 120 must match KnightTransformationTooltipPolicy.MaximumGoldCost / MaximumDelaySeconds
+        // (that file is not part of the preset test build that compiles this view model).
         [SyncHostOnly] public int KnightTransformationGoldCost { get => knightTransformationGoldCost; set => SetIntSetting(ref knightTransformationGoldCost, value, 0, 1000, nameof(KnightTransformationGoldCost), nameof(KnightTransformationGoldCostValueText)); }
         [SyncHostOnly] public int KnightTransformationDelaySeconds { get => knightTransformationDelaySeconds; set => SetIntSetting(ref knightTransformationDelaySeconds, value, 0, 120, nameof(KnightTransformationDelaySeconds), nameof(KnightTransformationDelayValueText)); }
         public string KnightTransformationGoldCostValueText { get => KnightTransformationGoldCost.ToString(CultureInfo.InvariantCulture); set => SetIntValueText(value, parsed => KnightTransformationGoldCost = parsed, nameof(KnightTransformationGoldCostValueText)); }
@@ -328,10 +323,10 @@ namespace ExtraFeatures
         [SyncHostOnly] public double AIGateReopenDelaySeconds { get => aiGateReopenDelaySeconds; set => SetDoubleSetting(ref aiGateReopenDelaySeconds, RoundToStep(value, 2.5), GatehouseTimingValues.MinimumAiDelaySeconds, GatehouseTimingValues.MaximumAiDelaySeconds, nameof(AIGateReopenDelaySeconds), nameof(AIGateReopenDelayValueText)); }
         [SyncHostOnly] public double HumanGateClosingDistanceTiles { get => humanGateClosingDistanceTiles; set => SetDoubleSetting(ref humanGateClosingDistanceTiles, RoundToStep(value, 0.5), GatehouseTimingValues.MinimumDistanceTiles, GatehouseTimingValues.MaximumDistanceTiles, nameof(HumanGateClosingDistanceTiles), nameof(HumanGateClosingDistanceValueText)); }
         [SyncHostOnly] public double AIGateClosingDistanceTiles { get => aiGateClosingDistanceTiles; set => SetDoubleSetting(ref aiGateClosingDistanceTiles, RoundToStep(value, 0.5), GatehouseTimingValues.MinimumDistanceTiles, GatehouseTimingValues.MaximumDistanceTiles, nameof(AIGateClosingDistanceTiles), nameof(AIGateClosingDistanceValueText)); }
-        [SyncHostOnly] public int HumanEnemyProximitySingleplayer { get => humanEnemyProximitySingleplayer; set => SetIntSetting(ref humanEnemyProximitySingleplayer, value, EnemyProximityPolicy.MinimumRadius, EnemyProximityPolicy.MaximumRadius, nameof(HumanEnemyProximitySingleplayer), nameof(HumanEnemyProximitySingleplayerValueText)); }
-        [SyncHostOnly] public int HumanEnemyProximityMultiplayer { get => humanEnemyProximityMultiplayer; set => SetIntSetting(ref humanEnemyProximityMultiplayer, value, EnemyProximityPolicy.MinimumRadius, EnemyProximityPolicy.MaximumRadius, nameof(HumanEnemyProximityMultiplayer), nameof(HumanEnemyProximityMultiplayerValueText)); }
-        [SyncHostOnly] public int AIEnemyProximitySingleplayer { get => aiEnemyProximitySingleplayer; set => SetIntSetting(ref aiEnemyProximitySingleplayer, value, EnemyProximityPolicy.MinimumRadius, EnemyProximityPolicy.MaximumRadius, nameof(AIEnemyProximitySingleplayer), nameof(AIEnemyProximitySingleplayerValueText)); }
-        [SyncHostOnly] public int AIEnemyProximityMultiplayer { get => aiEnemyProximityMultiplayer; set => SetIntSetting(ref aiEnemyProximityMultiplayer, value, EnemyProximityPolicy.MinimumRadius, EnemyProximityPolicy.MaximumRadius, nameof(AIEnemyProximityMultiplayer), nameof(AIEnemyProximityMultiplayerValueText)); }
+        [SyncHostOnly] public int HumanEnemyProximitySingleplayer { get => humanEnemyProximitySingleplayer; set { if (CanMutateSetting(nameof(HumanEnemyProximitySingleplayer))) humanEnemyProximitySingleplayer = Math.Max(-1, Math.Min(100, value)); } }
+        [SyncHostOnly] public int HumanEnemyProximityMultiplayer { get => humanEnemyProximityMultiplayer; set { if (CanMutateSetting(nameof(HumanEnemyProximityMultiplayer))) humanEnemyProximityMultiplayer = Math.Max(-1, Math.Min(100, value)); } }
+        [SyncHostOnly] public int AIEnemyProximitySingleplayer { get => aiEnemyProximitySingleplayer; set { if (CanMutateSetting(nameof(AIEnemyProximitySingleplayer))) aiEnemyProximitySingleplayer = Math.Max(-1, Math.Min(100, value)); } }
+        [SyncHostOnly] public int AIEnemyProximityMultiplayer { get => aiEnemyProximityMultiplayer; set { if (CanMutateSetting(nameof(AIEnemyProximityMultiplayer))) aiEnemyProximityMultiplayer = Math.Max(-1, Math.Min(100, value)); } }
         [SyncHostOnly]
         public int AITowerGateRebuildDelaySeconds
         {
@@ -370,10 +365,6 @@ namespace ExtraFeatures
         public string AIGateReopenDelayValueText { get => FormatSeconds(AIGateReopenDelaySeconds); set => SetDoubleValueText(value, parsed => AIGateReopenDelaySeconds = parsed, nameof(AIGateReopenDelayValueText)); }
         public string HumanGateClosingDistanceValueText { get => FormatTiles(HumanGateClosingDistanceTiles); set => SetDoubleValueText(value, parsed => HumanGateClosingDistanceTiles = parsed, nameof(HumanGateClosingDistanceValueText)); }
         public string AIGateClosingDistanceValueText { get => FormatTiles(AIGateClosingDistanceTiles); set => SetDoubleValueText(value, parsed => AIGateClosingDistanceTiles = parsed, nameof(AIGateClosingDistanceValueText)); }
-        public string HumanEnemyProximitySingleplayerValueText { get => FormatWholeTiles(HumanEnemyProximitySingleplayer); set => SetIntValueText(value, parsed => HumanEnemyProximitySingleplayer = parsed, nameof(HumanEnemyProximitySingleplayerValueText)); }
-        public string HumanEnemyProximityMultiplayerValueText { get => FormatWholeTiles(HumanEnemyProximityMultiplayer); set => SetIntValueText(value, parsed => HumanEnemyProximityMultiplayer = parsed, nameof(HumanEnemyProximityMultiplayerValueText)); }
-        public string AIEnemyProximitySingleplayerValueText { get => FormatWholeTiles(AIEnemyProximitySingleplayer); set => SetIntValueText(value, parsed => AIEnemyProximitySingleplayer = parsed, nameof(AIEnemyProximitySingleplayerValueText)); }
-        public string AIEnemyProximityMultiplayerValueText { get => FormatWholeTiles(AIEnemyProximityMultiplayer); set => SetIntValueText(value, parsed => AIEnemyProximityMultiplayer = parsed, nameof(AIEnemyProximityMultiplayerValueText)); }
         public string AITowerGateRebuildDelayValueText { get => FormatWholeSeconds(AITowerGateRebuildDelaySeconds); set => SetIntValueText(value, parsed => AITowerGateRebuildDelaySeconds = parsed, nameof(AITowerGateRebuildDelayValueText)); }
         public string HumanLordHealthPercentText { get => FormatPercent(HumanLordHealthPercent); set => SetIntValueText(value, parsed => HumanLordHealthPercent = parsed, nameof(HumanLordHealthPercentText)); }
         public string AILordHealthPercentText { get => FormatPercent(AILordHealthPercent); set => SetIntValueText(value, parsed => AILordHealthPercent = parsed, nameof(AILordHealthPercentText)); }
@@ -427,8 +418,7 @@ namespace ExtraFeatures
                 EnableFearFactorNeutralization = false;
                 AllowElevatedMoatAI = true;
                 AllowElevatedMoatHuman = false;
-                NoKillRewardHuman = false;
-                NoKillRewardAI = false;
+                ResetKillRewardDefaults();
                 HealCivilianTargets = false;
                 HealSiegeTargets = false;
                 EnableKnightDismount = true;
@@ -441,6 +431,7 @@ namespace ExtraFeatures
                 AIGateReopenDelaySeconds = GatehouseTimingValues.VanillaAiDelaySeconds;
                 HumanGateClosingDistanceTiles = GatehouseTimingValues.VanillaHumanDistanceTiles;
                 AIGateClosingDistanceTiles = GatehouseTimingValues.VanillaAiDistanceTiles;
+                ResetEnemyProximityDefaults();
                 HumanEnemyProximitySingleplayer = EnemyProximityPolicy.VanillaMode;
                 HumanEnemyProximityMultiplayer = EnemyProximityPolicy.VanillaMode;
                 AIEnemyProximitySingleplayer = EnemyProximityPolicy.VanillaMode;

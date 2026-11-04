@@ -94,6 +94,26 @@ namespace BugfixesAndQoL.UnitCommands
             }
         }
 
+        // The traversal provider (MoatMove anchor mode) may plan all members of this move at once.
+        // A provider failure never affects the formation command itself.
+        private void PublishFormationDestinations(int tribeId, FormationUnit[] units, NativeDestination[] destinations)
+        {
+            UnitCommandTraversalProvider provider = UnitCommandPathAPI.Traversal;
+            if (provider == null || units == null || destinations == null || units.Length != destinations.Length) return;
+            try
+            {
+                var ids = new int[units.Length]; var globals = new uint[units.Length];
+                var xs = new int[units.Length]; var ys = new int[units.Length];
+                for (int i = 0; i < units.Length; i++)
+                { ids[i] = units[i].UnitId; globals[i] = units[i].GlobalId; xs[i] = destinations[i].X; ys[i] = destinations[i].Y; }
+                provider.ObserveFormationDestinations(tribeId, ids, globals, xs, ys);
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogWarningLimited(log, "formation-provider-plan", "Formation plan not delivered to the traversal provider: " + ex.GetType().Name);
+            }
+        }
+
         internal void OnUnitMoveHere(UnitMoveHereEventArgs args)
         {
             if (!Enabled || args == null)

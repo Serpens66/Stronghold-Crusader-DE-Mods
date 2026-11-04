@@ -1,0 +1,20 @@
+{
+  "enabled": true,
+  "series": "SP-11",
+  "role": "sp",
+  "steps": [
+    { "id": "menu", "do": "WaitMainMenu", "timeoutMs": 180000, "stopOnFail": true, "allowErrors": true },
+    { "id": "tools-on", "do": "SetModSetting", "args": ["Spectator.SpectatorPlugin::processRoot.Settings", "EnableTestTools", "true"], "stopOnFail": true },
+    { "id": "participant-tools-on", "do": "SetModSetting", "args": ["Spectator.SpectatorPlugin::processRoot.Settings", "EnableSingleplayerTestMode", "true"], "stopOnFail": true },
+    { "id": "load", "do": "LoadSave", "args": ["test_dustynoattack.sav"], "timeoutMs": 120000, "stopOnFail": true },
+    { "id": "toolbar", "do": "Spectator.WaitToolbar", "timeoutMs": 20000, "stopOnFail": true },
+    { "id": "select-ai", "do": "NoesisClick", "args": ["SpectatorEditorHumanOwner2"], "timeoutMs": 10000, "stopOnFail": true },
+    { "id": "goods", "do": "Spectator.Cmd", "args": ["Goods"], "stopOnFail": true },
+    { "id": "lord-tooltip", "do": "Spectator.TooltipPixels", "args": ["SpectatorEditorHumanOwner2", "15"], "timeoutMs": 10000 },
+    { "id": "goods-tooltip", "do": "Spectator.TooltipPixels", "args": ["command:Goods", "15"], "timeoutMs": 10000 },
+    { "id": "place-tooltip", "do": "Spectator.TooltipPixels", "args": ["SpectatorEditorHumanToggle", "15"], "timeoutMs": 10000 },
+    { "id": "place", "do": "Spectator.Cmd", "args": ["Placement"], "stopOnFail": true },
+    { "id": "stop-tooltip", "do": "Spectator.TooltipPixels", "args": ["SpectatorStopPlacement", "15"], "timeoutMs": 10000 },
+    { "id": "quit", "do": "QuitToMenu", "timeoutMs": 60000 }
+  ]
+}

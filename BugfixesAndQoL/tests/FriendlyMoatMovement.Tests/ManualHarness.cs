@@ -80,8 +80,10 @@ namespace CommandFixture
         private MaintenanceProvider Traversal;
         private sealed class MaintenanceProvider
         {
-            internal int Invalidations, Resets, Clears;
+            internal int Invalidations, TileInvalidations, DirectionInvalidations, Resets, Clears;
             internal void InvalidateFastMoatData()=>Invalidations++;
+            internal void InvalidateFastMoatTile(int tile)=>TileInvalidations++;
+            internal void InvalidateFastMoatDirections()=>DirectionInvalidations++;
             internal void LogAndResetFastMoatMetrics()=>Resets++;
             internal void ClearDeferredFastMoveScope()=>Clears++;
         }
@@ -154,10 +156,10 @@ namespace CommandFixture
         private void DispatchTests()
         {
             Traversal=new MaintenanceProvider(); TraversalEnabled=false; ManualCommandsEnabled=false;
-            InvalidateFastMoatData();LogAndResetFastMoatMetrics();ClearDeferredFastMoveScope();
-            Check(Traversal.Invalidations==1 && Traversal.Resets==1 && Traversal.Clears==1,
+            InvalidateFastMoatData();InvalidateFastMoatTile(5);InvalidateFastMoatDirections();LogAndResetFastMoatMetrics();ClearDeferredFastMoveScope();
+            Check(Traversal.Invalidations==1 && Traversal.TileInvalidations==1 && Traversal.DirectionInvalidations==1 && Traversal.Resets==1 && Traversal.Clears==1,
                 "disabled traversal policy still receives topology invalidation and context cleanup");
-            Traversal=null;InvalidateFastMoatData();ClearDeferredFastMoveScope();
+            Traversal=null;InvalidateFastMoatData();InvalidateFastMoatTile(5);InvalidateFastMoatDirections();ClearDeferredFastMoveScope();
             ManualCommandsEnabled=true;
             var parent=new MoveCommandScope(); activeMoveCommand=parent;
             queueMoveEvent=a=>order.Add("queue-"+a.Phase);

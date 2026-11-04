@@ -16,6 +16,7 @@ namespace StockpileAccessFixTest
 {
     internal sealed unsafe class StockpileAccessFixTestRuntime : IDisposable
     {
+        private bool simulationTickRegistered;
         private const int AutomaticNoBugTimeoutTicks = 400;
         private const int BlockerOccupancyTimeoutTicks = 50;
         internal const int BlockerApproachSearchRadius = 8;
@@ -124,7 +125,12 @@ namespace StockpileAccessFixTest
             subscriptions.Add(UnitR3EventHooks.OnUnitMoveHere.Observable
                 .Where(args => args.Phase == EventHookPhase.Post)
                 .Subscribe(CaptureMoveResult));
-            GameTimeManagerAPI.Instance.OnTick += OnGameTick;
+            if (!simulationTickRegistered)
+            {
+                if (!APIShared.Simulation.SimulationTickEvents.TryRegister("StockpileAccessFixTest_Serp", "stockpile-access-experiment", OnGameTick, out string tickReason, 300))
+                    throw new InvalidOperationException("Native simulation ticks unavailable: " + tickReason);
+                simulationTickRegistered = true;
+            }
             applied = true;
 
             LogInfo(
@@ -146,7 +152,7 @@ namespace StockpileAccessFixTest
                 return;
 
             TryRestoreTestBlocker("runtime dispose");
-            GameTimeManagerAPI.Instance.OnTick -= OnGameTick;
+            // Process-owned tick registration remains rooted; feature state gates execution.
             foreach (IDisposable subscription in subscriptions)
                 subscription.Dispose();
             subscriptions.Clear();
@@ -159,8 +165,8 @@ namespace StockpileAccessFixTest
         {
             ClearTracking();
             automaticTestCompleted = false;
-            latestSimulationTick = 0;
-            nextAutomaticTriggerTick = 0;
+            latestSimulationTick = Shared.MissionEvents.RequireCurrentMapTick();
+            nextAutomaticTriggerTick = latestSimulationTick;
             mapActive = true;
             disabledForMap = false;
             trackedCount = 0;
@@ -321,7 +327,7 @@ namespace StockpileAccessFixTest
                 return;
 
             if (!automaticTestCompleted && testInjectionPhase == TestInjectionPhase.None &&
-                !hasTriggerRoute && tick >= nextAutomaticTriggerTick &&
+                !hasTriggerRoute && unchecked(tick - nextAutomaticTriggerTick) >= 0 &&
                 observation.UnitType == eChimps.CHIMP_TYPE_FLETCHER)
             {
                 triggerRoute = new TriggerRoute(observation);
@@ -1066,7 +1072,7 @@ namespace StockpileAccessFixTest
 
         private void RejectTriggerRoute(string reason)
         {
-            nextAutomaticTriggerTick = checked(latestSimulationTick + AutomaticTriggerRetryTicks);
+            nextAutomaticTriggerTick = unchecked(latestSimulationTick + AutomaticTriggerRetryTicks);
             hasTriggerRoute = false;
             Shared.DebugLogHelper.LogWarning(
                 log,

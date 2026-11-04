@@ -78,7 +78,7 @@ namespace BugfixesAndQoL
             Version extenderVersion = typeof(GameAIVManagerAPI).Assembly.GetName().Version;
             if (workaroundActive)
             {
-                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/ShcdeSeCoarseGridBufferWorkaround.cs:81", $"{Marker}: {consumer} compatibility workaround active; " +
+                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/ShcdeSeCoarseGridBufferWorkaround/CreateAivImportBackend.compatibility-workaround-active", $"{Marker}: {consumer} compatibility workaround active; " +
                     $"SHCDE-SE {extenderVersion} could not initialize GameAIVManagerAPI. " +
                     $"AIV imports use Vanilla's EngineInterface.ImportAIV wrapper. " +
                     $"The official API will be selected automatically after the Extender is fixed. " +
@@ -87,7 +87,7 @@ namespace BugfixesAndQoL
             else
             {
                 if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/ShcdeSeCoarseGridBufferWorkaround.cs:91", $"{consumer} AIV import backend: official SHCDE-SE {extenderVersion} " +
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/ShcdeSeCoarseGridBufferWorkaround/CreateAivImportBackend.aiv-import-backend-official", $"{consumer} AIV import backend: official SHCDE-SE {extenderVersion} " +
                         $"GameAIVManagerAPI; {Marker} workaround inactive.");
             }
             return backend;

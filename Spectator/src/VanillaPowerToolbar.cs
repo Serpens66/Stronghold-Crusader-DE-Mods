@@ -18,27 +18,6 @@ namespace Spectator
         private static bool powerToolbarOwned;
         private static DateTime nextToolbarSearch;
 
-        // Preserve bindings themselves: restoring a sampled bool would permanently detach Vanilla updates.
-        private sealed class ToolbarProperty
-        {
-            internal DependencyObject Target;
-            internal DependencyProperty Property;
-            internal BindingBase Binding;
-            internal object Local;
-            internal ToolbarProperty(DependencyObject target, DependencyProperty property)
-            {
-                Target = target; Property = property;
-                Binding = BindingOperations.GetBindingBase(target, property);
-                Local = target.ReadLocalValue(property);
-            }
-            internal void Restore()
-            {
-                if (Binding != null) BindingOperations.SetBinding(Target, Property, Binding);
-                else if (Local == DependencyProperty.UnsetValue) Target.ClearValue(Property);
-                else Target.SetValue(Property, Local);
-            }
-        }
-
         private sealed class ToolbarRequest
         {
             internal long Session, Generation;
@@ -58,7 +37,7 @@ namespace Spectator
             }, args => {
                 if (!(args.State is ToolbarRequest request)) return;
                 // Never run UI/native actions recursively inside the shared GameAction publisher.
-                presentationCallbacks.Enqueue(() => {
+                PostPresentation(() => {
                     if (!IsCurrentSession(request.Session) || !ToolPolicy.PowerContextMatches(request.Session, CurrentSessionId,
                         request.Actor, humanSelectedOwner, request.Generation, powerGeneration, HasPowerTestContext())) return;
                     SelectPower(request.Power);
@@ -114,10 +93,14 @@ namespace Spectator
                 foreach (Button button in vanillaPowerButtons) toolbarProperties.Add(new ToolbarProperty(button, UIElement.IsEnabledProperty));
                 powerToolbarOwned = true;
             }
-            powerToolbarHost.Visibility = MainViewModel.Instance.UIVisible && !MainViewModel.Instance.Show_HUD_Briefing
+            Visibility visibility = MainViewModel.Instance.UIVisible && !MainViewModel.Instance.Show_HUD_Briefing
                 ? Visibility.Visible : Visibility.Collapsed;
-            if (powerMeter != null) powerMeter.Height = 236;
-            for (int id = 0; id < 8; id++) vanillaPowerButtons[id].IsEnabled = toolsModel.Powers[id].Enabled;
+            // Inspect actual properties: Vanilla may have overwritten our last desired value.
+            if (powerToolbarHost.Visibility != visibility) powerToolbarHost.Visibility = visibility;
+            if (powerMeter != null && powerMeter.Height != 236) powerMeter.Height = 236;
+            for (int id = 0; id < 8; id++)
+                if (vanillaPowerButtons[id].IsEnabled != toolsModel.Powers[id].Enabled)
+                    vanillaPowerButtons[id].IsEnabled = toolsModel.Powers[id].Enabled;
         }
 
         private static void RestoreVanillaPowerToolbar(bool detach)

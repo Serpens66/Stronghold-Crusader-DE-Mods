@@ -179,7 +179,7 @@ namespace CastlePlanner
                         new InvalidOperationException(
                             $"AIVJSON catalog task ended with {completed.Status}.");
                     nextCatalogRetryUtc = DateTime.UtcNow.AddSeconds(5);
-                    Shared.DebugLogHelper.LogErrorLimited(log, "CastlePlanner/src/CastlePlannerSettingsViewModel.cs:180", $"Asynchronous AIVJSON catalog loading failed and will be retried: {error}");
+                    Shared.DebugLogHelper.LogErrorLimited(log, "CastlePlanner/CastlePlannerSettingsViewModel/PumpCastleCatalogLoad.asynchronous-aivjson-catalog-loading-failed", $"Asynchronous AIVJSON catalog loading failed and will be retried: {error}");
                     Task.Delay(TimeSpan.FromSeconds(5)).ContinueWith(_ =>
                         Shared.UnityMainThreadDispatch.TryEnqueue(PumpCastleCatalogLoad));
                     return;
@@ -201,7 +201,7 @@ namespace CastlePlanner
                 // Unity/Steam-backed source discovery stays on the main thread. All recursive
                 // filesystem work and hashing then runs incrementally on a worker.
                 AivFileCatalog.DiscoveryPlan plan = AivFileCatalog.PrepareDiscovery(
-                    message => Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner/src/CastlePlannerSettingsViewModel.cs:204", message));
+                    message => Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner/CastlePlannerSettingsViewModel/PumpCastleCatalogLoad", message));
                 castleCatalogTask = Task.Run(() =>
                 {
                     var workerCatalog = new AivFileCatalog();
@@ -216,12 +216,12 @@ namespace CastlePlanner
                 });
                 castleCatalogTask.ContinueWith(_ =>
                     Shared.UnityMainThreadDispatch.TryEnqueue(PumpCastleCatalogLoad));
-                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerSettingsViewModel.cs:219", "Asynchronous AIVJSON catalog loading started; recursive discovery and hashing will not block the game thread.");
+                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/CastlePlannerSettingsViewModel/PumpCastleCatalogLoad.asynchronous-aivjson-catalog-loading-started", "Asynchronous AIVJSON catalog loading started; recursive discovery and hashing will not block the game thread.");
             }
             catch (Exception ex)
             {
                 nextCatalogRetryUtc = DateTime.UtcNow.AddSeconds(5);
-                Shared.DebugLogHelper.LogErrorLimited(log, "CastlePlanner/src/CastlePlannerSettingsViewModel.cs:226", $"AIVJSON catalog source preparation failed and will be retried: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "CastlePlanner/CastlePlannerSettingsViewModel/PumpCastleCatalogLoad.aivjson-catalog-source-preparation", $"AIVJSON catalog source preparation failed and will be retried: {ex}");
                 Task.Delay(TimeSpan.FromSeconds(5)).ContinueWith(_ =>
                     Shared.UnityMainThreadDispatch.TryEnqueue(PumpCastleCatalogLoad));
             }
@@ -232,7 +232,7 @@ namespace CastlePlanner
             if (result == null)
                 throw new InvalidOperationException("The AIVJSON catalog task returned no result.");
             foreach (string warning in result.Warnings)
-                Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner/src/CastlePlannerSettingsViewModel.cs:239", warning);
+                Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner/CastlePlannerSettingsViewModel/ApplyCastleCatalog", warning);
 
             catalog = result.Catalog;
             RefreshCastleOptions(result.Options);
@@ -265,7 +265,7 @@ namespace CastlePlanner
             if (selectionChanged)
                 OnPropertyChanged(nameof(SelectedCastle));
             if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerSettingsViewModel.cs:271", $"CastlePlanner cached AIVJSON choices including Steam Workshop content; " +
+                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/CastlePlannerSettingsViewModel/RefreshCastleOptions", $"CastlePlanner cached AIVJSON choices including Steam Workshop content; " +
                     $"unique={CastleOptions.Count}, identicalDuplicatesIgnored={catalog.IdenticalFileCount}, " +
                     $"nonAivContainersIgnored={catalog.IgnoredNonAivContainerCount}.");
         }
@@ -343,7 +343,7 @@ namespace CastlePlanner
                 OnPropertyChanged(nameof(EnableClientFeatures));
                 OnPropertyChanged(nameof(IsBlueprintMode));
                 if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerSettingsViewModel.cs:348", $"CastlePlanner local activation changed to {enableClientFeatures}.");
+                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/CastlePlannerSettingsViewModel/EnableClientFeatures", $"CastlePlanner local activation changed to {enableClientFeatures}.");
                 PumpCastleCatalogLoad();
                 SettingsChanged?.Invoke();
             }
@@ -362,7 +362,7 @@ namespace CastlePlanner
                 OnPropertyChanged(nameof(EnableMod));
                 OnPropertyChanged(nameof(IsSpawnMode));
                 if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerSettingsViewModel.cs:368", $"CastlePlanner host activation changed to {enableMod}.");
+                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/CastlePlannerSettingsViewModel/EnableMod", $"CastlePlanner host activation changed to {enableMod}.");
                 PumpCastleCatalogLoad();
                 SettingsChanged?.Invoke();
             }
@@ -383,7 +383,7 @@ namespace CastlePlanner
                 enableAivPlacementLobby = value;
                 OnPropertyChanged(nameof(EnableAivPlacementLobby));
                 if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerSettingsViewModel.cs:390", $"CastlePlanner host AIV placement feature changed to {enableAivPlacementLobby}.");
+                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/CastlePlannerSettingsViewModel/EnableAivPlacementLobby", $"CastlePlanner host AIV placement feature changed to {enableAivPlacementLobby}.");
             }
         }
 
@@ -400,7 +400,7 @@ namespace CastlePlanner
                 OnPropertyChanged(nameof(Blueprints));
                 OnPropertyChanged(nameof(IsBlueprintMode));
                 if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerSettingsViewModel.cs:408", $"CastlePlanner local Blueprints changed to {blueprints}.");
+                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/CastlePlannerSettingsViewModel/Blueprints", $"CastlePlanner local Blueprints changed to {blueprints}.");
                 PumpCastleCatalogLoad();
                 SettingsChanged?.Invoke();
             }
@@ -470,7 +470,7 @@ namespace CastlePlanner
                 OnPropertyChanged(nameof(SpawnCastle));
                 OnPropertyChanged(nameof(IsSpawnMode));
                 if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerSettingsViewModel.cs:479", $"CastlePlanner host Spawn Castle changed to {spawnCastle}.");
+                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/CastlePlannerSettingsViewModel/SpawnCastle", $"CastlePlanner host Spawn Castle changed to {spawnCastle}.");
                 PumpCastleCatalogLoad();
                 SettingsChanged?.Invoke();
             }
@@ -494,7 +494,7 @@ namespace CastlePlanner
                 OnPropertyChanged(nameof(CastleSelectionTimeoutSeconds));
                 OnPropertyChanged(nameof(CastleSelectionTimeoutValueText));
                 if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerSettingsViewModel.cs:504", $"CastlePlanner host castle-selection timeout changed to {castleSelectionTimeoutSeconds} real seconds.");
+                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/CastlePlannerSettingsViewModel/CastleSelectionTimeoutSeconds", $"CastlePlanner host castle-selection timeout changed to {castleSelectionTimeoutSeconds} real seconds.");
             }
         }
 
@@ -566,7 +566,7 @@ namespace CastlePlanner
                 selectedCastle = normalized;
                 OnPropertyChanged(nameof(SelectedCastle));
                 if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerSettingsViewModel.cs:570", $"CastlePlanner local AIVJSON selection changed to '{selectedCastle}'.");
+                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/CastlePlannerSettingsViewModel/SelectedCastle", $"CastlePlanner local AIVJSON selection changed to '{selectedCastle}'.");
                 SettingsChanged?.Invoke();
             }
         }
@@ -687,7 +687,7 @@ namespace CastlePlanner
             field = value;
             OnPropertyChanged(propertyName);
             if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerSettingsViewModel.cs:689", $"CastlePlanner local {propertyName} changed to {value}.");
+                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/CastlePlannerSettingsViewModel/SetBlueprintContentOption", $"CastlePlanner local {propertyName} changed to {value}.");
             BlueprintContentSettingsChanged?.Invoke();
         }
 
@@ -742,7 +742,7 @@ namespace CastlePlanner
             OnPropertyChanged(nameof(HasSpawnContent));
             PumpCastleCatalogLoad();
             if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerSettingsViewModel.cs:741", $"CastlePlanner host {propertyName} changed to {value}.");
+                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/CastlePlannerSettingsViewModel/SetHostSpawnOption", $"CastlePlanner host {propertyName} changed to {value}.");
             SettingsChanged?.Invoke();
         }
 
@@ -781,14 +781,14 @@ namespace CastlePlanner
                 NormalizeUnitValue(normalizedY);
             runtimeStorage.Save(runtimeState);
             if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerSettingsViewModel.cs:778", $"Blueprint HUD position saved: " +
+                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/CastlePlannerSettingsViewModel/SaveBlueprintHudPosition", $"Blueprint HUD position saved: " +
                     $"x={runtimeState.BlueprintHudPositionX:0.000}, " +
                     $"y={runtimeState.BlueprintHudPositionY:0.000}.");
         }
 
         internal void LogBlueprintHudMessage(string message)
         {
-            Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerSettingsViewModel.cs:787", message);
+            Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/CastlePlannerSettingsViewModel/LogBlueprintHudMessage", message);
         }
 
         internal bool TryResolveSelectedFile(out string fullPath)
@@ -828,7 +828,7 @@ namespace CastlePlanner
             try
             {
                 if (!string.IsNullOrEmpty(flagWarning))
-                    Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner/src/CastlePlannerSettingsViewModel.cs:827", flagWarning);
+                    Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner/CastlePlannerSettingsViewModel/TryPrepareSelectedCastle", flagWarning);
                 string json = File.ReadAllText(filePath);
                 short[] raw = AivRawDataEncoder.Encode(AivJsonReader.Parse(json));
                 selection = new FreeCastleSelection
@@ -1090,7 +1090,7 @@ namespace CastlePlanner
             OnPropertyChanged(nameof(BlueprintHotkey));
             OnPropertyChanged(nameof(HotkeyDisplayText));
             if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/CastlePlannerSettingsViewModel.cs:1088", $"Blueprint toggle hotkey changed to '{HotkeyDisplayText}' ({blueprintHotkey}).");
+                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/CastlePlannerSettingsViewModel/SetHotkey", $"Blueprint toggle hotkey changed to '{HotkeyDisplayText}' ({blueprintHotkey}).");
         }
 
         private string NormalizeCastle(string value, string fallback)
@@ -1112,7 +1112,7 @@ namespace CastlePlanner
                     return candidate;
                 }
 
-                Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner/src/CastlePlannerSettingsViewModel.cs:1112", $"Stored AIVJSON is no longer available: '{candidate}'.");
+                Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner/CastlePlannerSettingsViewModel/NormalizeCastle", $"Stored AIVJSON is no longer available: '{candidate}'.");
             }
 
             return fallback;

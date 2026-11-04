@@ -21,6 +21,7 @@ namespace BugfixesAndQoL
 {
     internal sealed unsafe class ExtendedShiftCommandQueueRuntime
     {
+        private bool simulationTickRegistered;
         private const int ReferenceWaypointAppendRva = 0x11C3A0;
         private const int ReferenceMovementCompleteRva = 0x1178D0;
         private const int ReferenceTribeOverlayRenderRva = 0x1222A0;
@@ -180,7 +181,7 @@ namespace BugfixesAndQoL
             UnitCommandPathRuntime sharedCommands = UnitCommandPathAPI.Runtime;
             if (sharedCommands == null)
             {
-                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/ExtendedShiftCommandQueueRuntime.cs:182", "SHIFT_QUEUE_UNAVAILABLE: shared command runtime is unavailable; Vanilla remains active.");
+                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/ExtendedShiftCommandQueueRuntime/Install.shift-queue-unavailable-shared", "SHIFT_QUEUE_UNAVAILABLE: shared command runtime is unavailable; Vanilla remains active.");
                 return;
             }
 
@@ -216,7 +217,7 @@ namespace BugfixesAndQoL
                 actualBuildingGlobalIdOffset == QueueNativeContract.GameBuildingGlobalIdOffset;
             if (!targetMarkerProjectionAvailable)
             {
-                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/ExtendedShiftCommandQueueRuntime.cs:219", $"VISUAL_TARGET_MARKER_FALLBACK: layout mismatch; " +
+                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/ExtendedShiftCommandQueueRuntime/Install.visual-target-marker-fallback", $"VISUAL_TARGET_MARKER_FALLBACK: layout mismatch; " +
                     $"unit=0x{actualUnitSize:X}/0x{actualUnitGlobalIdOffset:X}, " +
                     $"building=0x{actualBuildingSize:X}/0x{actualBuildingGlobalIdOffset:X}. " +
                     "Command queues and destination flags remain enabled; attack icons are unavailable.");
@@ -330,7 +331,12 @@ namespace BugfixesAndQoL
                 .Subscribe(args => ResetMapState()));
             subscriptions.Add(Shared.MissionEvents.Ended
                 .Subscribe(args => ResetMapState()));
-            GameTimeManagerAPI.Instance.OnTick += OnTick;
+            if (!simulationTickRegistered)
+            {
+                if (!APIShared.Simulation.SimulationTickEvents.TryRegister(BugfixesAndQoLPlugin.PluginGuid, "shift-command-queue", OnTick, out string tickReason, 500))
+                    throw new InvalidOperationException("Native simulation ticks unavailable: " + tickReason);
+                simulationTickRegistered = true;
+            }
 
             installed = true;
             ApplySetting();
@@ -365,7 +371,7 @@ namespace BugfixesAndQoL
             {
                 // Keep captures inside the enabled scope; otherwise the compiler can allocate them before the guard.
                 var diagnosticEnabled = @enabled;
-                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/ExtendedShiftCommandQueueRuntime.cs:364", () => $"Extended Shift command queue setting applied: enabled={diagnosticEnabled}.");
+                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/ExtendedShiftCommandQueueRuntime/ApplySetting", () => $"Extended Shift command queue setting applied: enabled={diagnosticEnabled}.");
             }
         }
 
@@ -424,7 +430,7 @@ namespace BugfixesAndQoL
             {
                 multiplayerSynchronizationReady = false;
 
-                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/ExtendedShiftCommandQueueRuntime.cs:423", $"MULTIPLAYER_QUEUE_DISABLED: Vanilla multiplayer orders remain unchanged; {exception.Message}");
+                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/ExtendedShiftCommandQueueRuntime/InstallMultiplayerSynchronization", $"MULTIPLAYER_QUEUE_DISABLED: Vanilla multiplayer orders remain unchanged; {exception.Message}");
             }
         }
 
@@ -585,7 +591,7 @@ namespace BugfixesAndQoL
             if (multiplayerMarkerFailureLogged)
                 return;
             multiplayerMarkerFailureLogged = true;
-            Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/ExtendedShiftCommandQueueRuntime.cs:585", $"MULTIPLAYER_MARKER_FAIL_OPEN: {chore}; Vanilla order retained; {exception.Message}");
+            Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/ExtendedShiftCommandQueueRuntime/LogMultiplayerMarkerFailure", $"MULTIPLAYER_MARKER_FAIL_OPEN: {chore}; Vanilla order retained; {exception.Message}");
         }
 
         private void InstallOptionalDrawFilter(
@@ -623,7 +629,7 @@ namespace BugfixesAndQoL
             catch (Exception exception)
             {
                 drawFilterInstalled = false;
-                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/ExtendedShiftCommandQueueRuntime.cs:625", $"VISUAL_FLAG_FILTER_FALLBACK: command queues and all destination flags remain enabled, " +
+                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/ExtendedShiftCommandQueueRuntime/InstallOptionalDrawFilter", $"VISUAL_FLAG_FILTER_FALLBACK: command queues and all destination flags remain enabled, " +
                     $"but hidden markers and future-page numbers may remain visible; {exception.Message}");
             }
         }
@@ -778,7 +784,7 @@ namespace BugfixesAndQoL
                 observedAttacks.Remove(args.TribeId);
                 if (loggedUnsupportedCommands.Add(commandValue))
                 {
-                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/ExtendedShiftCommandQueueRuntime.cs:773", $"UNSUPPORTED_SHIFT_COMMAND: command={args.AICommand}/{commandValue}, " +
+                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/ExtendedShiftCommandQueueRuntime/OnTargetOrderCore", $"UNSUPPORTED_SHIFT_COMMAND: command={args.AICommand}/{commandValue}, " +
                         $"arg1={args.TargetValue1}, arg2={args.TargetValue2}, arg3={args.a6}; Vanilla handles it.");
                 }
                 return;
@@ -951,6 +957,7 @@ namespace BugfixesAndQoL
             int sourceTribeId,
             int targetTribeId)
         {
+            if (signals.Count == 0 || !Shared.MissionEvents.TryGetCurrentMapTick(out currentTick)) return;
             PruneExpectedMoveSignals(signals);
             int sourceCount = signals.Count;
             for (int sourceIndex = 0; sourceIndex < sourceCount; sourceIndex++)
@@ -1079,6 +1086,8 @@ namespace BugfixesAndQoL
                 return;
             }
 
+            // Validate time before changing queue state; native initialization has no stamp.
+            if (!Shared.MissionEvents.TryGetCurrentMapTick(out currentTick)) return;
             QueueCommand command = new QueueCommand(
                 QueueCommandKind.Move,
                 args.TileX,
@@ -1097,7 +1106,7 @@ namespace BugfixesAndQoL
                     // The already-created input chore can still reach the native append helper
                     // even though this order callback is skipped. Match it there and suppress it.
                     expectedMoveChores.Add(new RuntimeExpectedMove(
-                        args.TribeId, command, currentTick + ExpectedMoveChoreLifetimeTicks));
+                        args.TribeId, command, unchecked(currentTick + ExpectedMoveChoreLifetimeTicks)));
                 }
             }
 
@@ -1153,6 +1162,7 @@ namespace BugfixesAndQoL
                 // the Move a second time, which breaks mixed-command ordering.
                 if (installed && FeatureEnabled && !internalDispatch)
                 {
+                    if (!Shared.MissionEvents.TryGetCurrentMapTick(out currentTick)) goto Vanilla;
                     // Chore 71 is also emitted for AI movement. It has no Shift semantics.
                     if (IsAiOwnedAliveTribe(tribeId))
                         goto Vanilla;
@@ -1192,8 +1202,8 @@ namespace BugfixesAndQoL
                         {
                             // Some native input paths may reach the Chore hook first. In that
                             // case this is the authoritative insertion and the later event is deduplicated.
-                            expectedMoveEvents.Add(new RuntimeExpectedMove(
-                                tribeId, command, currentTick + ExpectedMoveChoreLifetimeTicks));
+                                    expectedMoveEvents.Add(new RuntimeExpectedMove(
+                                tribeId, command, unchecked(currentTick + ExpectedMoveChoreLifetimeTicks)));
                         }
                         else
                         {
@@ -1209,7 +1219,7 @@ namespace BugfixesAndQoL
                 if (ShouldLogUnexpectedOnce(
                     "ShiftQueueWaypoint:" + exception.GetType().FullName))
                 {
-                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/ExtendedShiftCommandQueueRuntime.cs:1165", $"WAYPOINT_HOOK_FAIL_OPEN: {exception}");
+                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/ExtendedShiftCommandQueueRuntime/AppendMovementWaypointCore", $"WAYPOINT_HOOK_FAIL_OPEN: {exception}");
                 }
             }
 
@@ -1239,7 +1249,7 @@ namespace BugfixesAndQoL
                 if (ShouldLogUnexpectedOnce(
                     "ShiftQueueOverlay:" + exception.GetType().FullName))
                 {
-                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/ExtendedShiftCommandQueueRuntime.cs:1197", $"OVERLAY_HOOK_FAIL_OPEN: {exception}");
+                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/ExtendedShiftCommandQueueRuntime/RenderTribeOverlay", $"OVERLAY_HOOK_FAIL_OPEN: {exception}");
                 }
                 if (!trampolineEntered)
                     InvokeOriginalTribeOverlay(tribeManager, tribeId);
@@ -1255,7 +1265,7 @@ namespace BugfixesAndQoL
                 outcome: -1);
             if (ShouldLogUnexpectedOnce("ShiftQueueFull"))
             {
-                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/ExtendedShiftCommandQueueRuntime.cs:1213", $"QUEUE_FULL: tribeId={tribeId}, limit={MaximumPendingCommands}, rejected={command}. " +
+                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/ExtendedShiftCommandQueueRuntime/RecordQueueFull", $"QUEUE_FULL: tribeId={tribeId}, limit={MaximumPendingCommands}, rejected={command}. " +
                     "Further occurrences in this session are aggregated by crash diagnostics.");
             }
         }
@@ -1581,7 +1591,7 @@ namespace BugfixesAndQoL
                 if (!drawFilterFailureLogged)
                 {
                     drawFilterFailureLogged = true;
-                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/ExtendedShiftCommandQueueRuntime.cs:1541", $"VISUAL_FLAG_FILTER_FAIL_OPEN: {exception.Message}");
+                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/ExtendedShiftCommandQueueRuntime/SubmitOverlayMarker", $"VISUAL_FLAG_FILTER_FAIL_OPEN: {exception.Message}");
                 }
             }
 
@@ -1604,7 +1614,7 @@ namespace BugfixesAndQoL
             try { OnTickCore(tick); }
             catch (Exception exception)
             {
-                try { Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/ExtendedShiftCommandQueueRuntime.cs:1548", $"Extended Shift command queue tick failed: tick={tick}, error={exception}"); }
+                try { Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/ExtendedShiftCommandQueueRuntime/OnTick", $"Extended Shift command queue tick failed: tick={tick}, error={exception}"); }
                 catch { }
             }
         }
@@ -1681,7 +1691,7 @@ namespace BugfixesAndQoL
                         if (loggedPredecessorRedispatchFailures.Add(cohortId) &&
                             ShouldLogUnexpectedOnce("ShiftQueuePredecessorRedispatchFailure"))
                         {
-                            Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/ExtendedShiftCommandQueueRuntime.cs:1635", $"PREDECESSOR_REDISPATCH_FAILED: tribeId={tribeId}, " +
+                            Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/ExtendedShiftCommandQueueRuntime/ProcessCohort", $"PREDECESSOR_REDISPATCH_FAILED: tribeId={tribeId}, " +
                                 $"command={state.ExternalAttack}; retrying.");
                         }
                         return;
@@ -2172,7 +2182,7 @@ namespace BugfixesAndQoL
             if (loggedIsolationFailures.Add(state.CohortId) &&
                 ShouldLogUnexpectedOnce("ShiftQueueIsolationRetry"))
             {
-                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/ExtendedShiftCommandQueueRuntime.cs:2114", $"COHORT_ISOLATION_RETRY: cohort={state.CohortId}, " +
+                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/ExtendedShiftCommandQueueRuntime/LogIsolationFailure", $"COHORT_ISOLATION_RETRY: cohort={state.CohortId}, " +
                     $"tribeId={state.BoundTribeId}, reason={reason}.");
             }
         }
@@ -2199,7 +2209,7 @@ namespace BugfixesAndQoL
                         outcome: -1);
                     if (ShouldLogUnexpectedOnce("ShiftQueueRollbackFailure"))
                     {
-                        Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/ExtendedShiftCommandQueueRuntime.cs:2143", $"Queue rollback could not unassign unitId={member.UnitId} from tribeId={newTribeId}. " +
+                        Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/ExtendedShiftCommandQueueRuntime/RollBackTribeSplit", $"Queue rollback could not unassign unitId={member.UnitId} from tribeId={newTribeId}. " +
                             "Further occurrences are aggregated by crash diagnostics.");
                     }
                     continue;
@@ -2415,6 +2425,7 @@ namespace BugfixesAndQoL
             int tribeId,
             QueueCommand command)
         {
+            if (signals.Count == 0 || !Shared.MissionEvents.TryGetCurrentMapTick(out currentTick)) return false;
             PruneExpectedMoveSignals(signals);
             for (int index = 0; index < signals.Count; index++)
             {
@@ -2429,9 +2440,10 @@ namespace BugfixesAndQoL
 
         private void PruneExpectedMoveSignals(List<RuntimeExpectedMove> signals)
         {
+            if (signals.Count == 0 || !Shared.MissionEvents.TryGetCurrentMapTick(out currentTick)) return;
             for (int index = signals.Count - 1; index >= 0; index--)
             {
-                if (signals[index].ExpiresAfterTick < currentTick)
+                if (unchecked(currentTick - signals[index].ExpiresAfterTick) > 0)
                     signals.RemoveAt(index);
             }
         }
@@ -2462,7 +2474,7 @@ namespace BugfixesAndQoL
             if (!ShouldLogUnexpectedOnce(diagnosticOperation))
                 return;
 
-            Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/ExtendedShiftCommandQueueRuntime.cs:2408", $"{logCode}: tribeId={tribeId}, command={command}; {disposition}. " +
+            Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/ExtendedShiftCommandQueueRuntime/LogCommandFailureOnce", $"{logCode}: tribeId={tribeId}, command={command}; {disposition}. " +
                 "Further occurrences are aggregated by crash diagnostics.");
         }
 
@@ -2629,7 +2641,7 @@ namespace BugfixesAndQoL
                 {
                     // Keep captures inside the enabled scope; otherwise the compiler can allocate them before the guard.
                     var diagnosticRealMultiplayer = @realMultiplayer;
-                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/ExtendedShiftCommandQueueRuntime.cs:2572", () => $"Extended Shift queue mode: realMultiplayer={diagnosticRealMultiplayer}, " +
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/ExtendedShiftCommandQueueRuntime/IsRealMultiplayer", () => $"Extended Shift queue mode: realMultiplayer={diagnosticRealMultiplayer}, " +
                             $"synchronizedQueueing={(diagnosticRealMultiplayer && multiplayerSynchronizationReady)}.");
                 }
             }

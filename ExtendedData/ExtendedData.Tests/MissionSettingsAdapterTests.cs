@@ -1,9 +1,14 @@
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+using System.Reflection;
 using ExtendedData.Core;
 
 internal static class MissionSettingsAdapterTests
 {
     internal static void Run()
     {
+        MissionClassification();
         var entry = new ModSettingsEntry { PlayerSettings = new[] { "z", "a", "z" } };
         var document = new ModSettingsDefinition {
             Mods = new Dictionary<string, ModSettingsEntry>(StringComparer.OrdinalIgnoreCase) {
@@ -57,6 +62,63 @@ internal static class MissionSettingsAdapterTests
         try { action(); }
         catch (InvalidDataException) { return; }
         throw new Exception("Expected InvalidDataException");
+    }
+
+    private static void MissionClassification()
+    {
+        string root = AppContext.BaseDirectory;
+        while (!File.Exists(Path.Combine(root, "ExtendedData/src/TrailMissionSettingsCoordinator.cs")))
+            root = Directory.GetParent(root)?.FullName ?? throw new Exception("Workspace not found.");
+        string Methods(string path, params string[] names) => string.Join("\n", CSharpSyntaxTree.ParseText(
+            File.ReadAllText(Path.Combine(root, path))).GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>()
+            .Where(method => names.Contains(method.Identifier.Text)).Select(method => method.ToFullString()));
+        // Execute the production catalog and group builders. The diagnostic service is the
+        // boundary double; APIShared's separate tests verify its actual attribute filtering.
+        string fixture = """
+using System; using System.Text; using System.Collections.Generic; using System.Linq; using System.Reflection; using ExtendedData;
+class LobbyModSettingsEntry { public string Guid; public object ViewModel; }
+class Report { public string ModGuid,Diagnostic; public bool IsCompatible=true; public int Status;
+ public object Endpoint; public IReadOnlyList<PropertyInfo> HostProperties; }
+enum ModSettingsParticipantPurpose { MissionAuthoring }
+static class SavegameModSettings { public static List<Report> Reports=new(); public static IEnumerable<Report> GetParticipantDiagnostics(ModSettingsParticipantPurpose p)=>Reports; }
+static class ExtendedDataPlugin { public const string PluginGuid="ExtendedData"; }
+static class SerpLocalization { public static string Get(string key)=>key; }
+class TrailSettingGroupDefinition { public string Key,DisplayName; public string[] PropertyNames;
+ public TrailSettingGroupDefinition(string key,string display,string[] names){Key=key;DisplayName=display;PropertyNames=names;} }
+class Fixture {
+ class Properties { public int UnitCosts {get;set;} public int HumanExtraUnitCosts {get;set;} public int Local {get;set;} }
+ List<LobbyModSettingsEntry> registrations=new();
+ IEnumerable<IGrouping<string,LobbyModSettingsEntry>> GetRegistrationGroups()=>registrations.GroupBy(item=>item.Guid);
+ bool IsRegistrationGroupOptedOut(IEnumerable<LobbyModSettingsEntry> entries)=>false;
+ string GetModDisplayName(LobbyModSettingsEntry entry)=>entry.Guid;
+ void LogChangedCompatibilityFailures(IEnumerable<TrailModCompatibilityInfo> catalog){}
+ __DISCOVER__
+ __GROUPS__
+ public static void Run(){
+  var fixture=new Fixture();var endpoint=new Properties();
+  fixture.registrations.Add(new(){Guid="UnitCosts_Serp",ViewModel=endpoint});
+  fixture.registrations.Add(new(){Guid="OnlyIndependent",ViewModel=endpoint});
+  SavegameModSettings.Reports.Add(new(){ModGuid="UnitCosts_Serp",Endpoint=endpoint,HostProperties=new[]{typeof(Properties).GetProperty("UnitCosts")}});
+  SavegameModSettings.Reports.Add(new(){ModGuid="OnlyIndependent",Endpoint=endpoint,HostProperties=Array.Empty<PropertyInfo>()});
+  var catalog=fixture.DiscoverModCompatibility();
+  if(catalog.Count!=1 || catalog[0].ModId!="UnitCosts_Serp")throw new Exception("Empty mission provider remained in the classification catalog.");
+  var groups=BuildSettingGroups(catalog[0]);
+  if(groups.SelectMany(group=>group.PropertyNames).Any(name=>name!="UnitCosts") || groups.Length!=1)
+   throw new Exception("Known setting group reintroduced an excluded property.");
+ }
+}
+""";
+        fixture = fixture.Replace("__DISCOVER__", Methods("ExtendedData/src/TrailMissionSettingsCoordinator.cs", "DiscoverModCompatibility"))
+            .Replace("__GROUPS__", Methods("ExtendedData/src/ExtendedDataSettingsViewModel.cs", "BuildSettingGroups", "AddKnownGroup", "PropertyOrder", "HumanizePropertyName"));
+        var references = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")).Split(Path.PathSeparator).Select(path => MetadataReference.CreateFromFile(path));
+        var compilation = CSharpCompilation.Create("MissionClassification", new[] { CSharpSyntaxTree.ParseText(fixture),
+            CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "ExtendedData/src/TrailModCompatibilityInfo.cs"))) }, references,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        using var output = new MemoryStream();
+        var result = compilation.Emit(output);
+        if (!result.Success) throw new Exception(string.Join("\n", result.Diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error)));
+        try { Assembly.Load(output.ToArray()).GetType("Fixture").GetMethod("Run").Invoke(null, null); }
+        catch (TargetInvocationException e) { System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(e.InnerException ?? e).Throw(); }
     }
 
     private static void Require(bool condition, string message)

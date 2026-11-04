@@ -32,6 +32,7 @@ namespace BugfixesAndQoL
             TestInvalidationPaths();
             TestStationaryTimeoutAndSuppression();
             TestLongRouteAndTickReset();
+            TestStationaryTimeoutAcrossSignedWrap();
             TestExtinguishingStateDoesNotTimeout();
             TestNearestTakeoverPolicy();
             TestPerPlayerIsolationAndTransfer();
@@ -189,6 +190,18 @@ namespace BugfixesAndQoL
             Check(compoundLedger.Claim(1, owner, Id(22, 303), 0, 9, 9, 601) == ReservationClaimResult.Claimed &&
                   compoundLedger.SuppressionCount == 0,
                 "selecting an alternative target clears suppression");
+        }
+
+        private static void TestStationaryTimeoutAcrossSignedWrap()
+        {
+            var ledger = new ReservationLedger();
+            NativeIdentity owner = Id(1, 101), target = Id(11, 201);
+            int start = int.MaxValue - 300;
+            ledger.Claim(1, owner, target, 0, 5, 5, start);
+            Check(ReconcileFirst(ledger, true, ReservationLedger.WalkingState, target, true, 0, 5, 5,
+                unchecked(start + 599)) == ReservationReconcileResult.Kept, "wrapped native timer retains tick 599");
+            Check(ReconcileFirst(ledger, true, ReservationLedger.WalkingState, target, true, 0, 5, 5,
+                unchecked(start + 600)) == ReservationReconcileResult.Stalled, "wrapped native timer expires at tick 600");
         }
 
         private static void TestLongRouteAndTickReset()

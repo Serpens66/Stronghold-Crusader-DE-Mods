@@ -1,0 +1,16 @@
+{
+  "enabled": true,
+  "series": "SP-9",
+  "role": "sp",
+  "steps": [
+    { "id": "menu", "do": "WaitMainMenu", "timeoutMs": 180000, "stopOnFail": true, "allowErrors": true },
+    { "id": "resolution", "do": "Resolution", "args": ["cfg"], "timeoutMs": 15000 },
+    { "id": "tools-on", "do": "SetModSetting", "args": ["Spectator.SpectatorPlugin::processRoot.Settings", "EnableTestTools", "true"] },
+    { "id": "load", "do": "LoadSave", "args": ["test_dustynoattack.sav"], "timeoutMs": 120000, "stopOnFail": true },
+    { "id": "toolbar", "do": "Spectator.WaitToolbar", "timeoutMs": 20000 },
+    { "id": "goods", "do": "Spectator.Cmd", "args": ["Goods"] },
+    { "id": "settle", "do": "Wait", "args": ["1000"] },
+    { "id": "shot", "do": "Screenshot", "args": ["toolbar"] },
+    { "id": "quit", "do": "QuitToMenu", "timeoutMs": 60000 }
+  ]
+}

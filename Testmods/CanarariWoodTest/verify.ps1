@@ -3,9 +3,10 @@ $project = Split-Path -Parent $MyInvocation.MyCommand.Path
 $workspace = [IO.Path]::GetFullPath((Join-Path $project '..\..'))
 $general = Join-Path $workspace 'Testmods\AIBuildDiagnoseTest'
 $sourceFiles = @(Get-ChildItem -LiteralPath (Join-Path $project 'src') -File -Recurse -Filter '*.cs')
-$runtimeText = (($sourceFiles | ForEach-Object { [IO.File]::ReadAllText($_.FullName) }) +
-    [IO.File]::ReadAllText((Join-Path $general 'src\Diagnostics\NearbyWoodEvidence.cs'))) -join "`n"
-$functions = Join-Path $workspace '_inspect\CrusaderDE-Native-Baseline\sem\FBCB9319\exports\semantic-functions.jsonl'
+$runtimeText = ($sourceFiles | ForEach-Object { [IO.File]::ReadAllText($_.FullName) }) -join "`n"
+$baselineRoot = Join-Path $workspace '_inspect\CrusaderDE-Native-Baseline'
+$current = Get-Content -LiteralPath (Join-Path $baselineRoot 'CURRENT.json') -Raw | ConvertFrom-Json
+$functions = Join-Path (Join-Path $baselineRoot $current.semanticDirectory) 'exports\semantic-functions.jsonl'
 $plugin = [IO.File]::ReadAllText((Join-Path $project 'src\CanarariWoodPlugin.cs'))
 if ($runtimeText -match 'HookTransaction|NativeDetour|VirtualProtect|CodePatch\.Write|X64InlineHook|Newtonsoft|System\.Text\.Json|JavaScriptSerializer|JsonUtility' -or
     $runtimeText -match '\b(OnDestroy|OnDisable|Update|LateUpdate|FixedUpdate|StartCoroutine)\s*\(') { throw 'Unexpected companion hook, JSON or lifecycle ownership.' }
@@ -96,3 +97,6 @@ foreach ($file in @($sourceFiles) + @(Get-Item (Join-Path $project 'CanarariWood
     if ($content -match '(?<!\r)\n|\r(?!\n)') { throw "Non-CRLF: $($file.FullName)" }
 }
 Write-Host 'PASS: companion owns opt-in copy-only experiments, bounded overlay/restoration and explicit Fixes override; no native hooks.'
+
+& (Join-Path $project 'Verify-PassiveNative.ps1')
+if (-not $?) { throw 'Passive native contracts failed.' }

@@ -12,8 +12,13 @@ try {
     $Repository = [IO.Path]::GetFullPath($Repository).TrimEnd('\','/')
     $null = Get-BranchTestSelection $Driver $DriverArguments
     $branch = Get-BranchChoice $DriverArguments
+    # The workspace package folders may only receive the build of the workspace's own sources.
+    $syncPackage = $DriverArguments -icontains '/syncpackage'
+    if ($syncPackage -and ($branch -ne 'working' -or $Api)) { throw '/syncpackage requires a mod build of the current working tree (/source:working or the automated default).' }
     $source = if ($branch -eq 'working') { New-WorkingSource $Repository } else { New-BranchSource $Repository $branch }
     $null = Invoke-SelectedBranchBuild -Repository $Repository -Driver $Driver -Branch $branch -DriverArguments $DriverArguments -ControllerRoot $Repository -Api:$Api -SourceSelection $source
+    # Reached only after a successful build; a failure throws before and mirrors nothing.
+    if ($syncPackage) { $null = Sync-BranchPackages $Repository $source.Root $Driver }
 } catch {
     Write-BranchMessage ('ERROR: ' + $_.Exception.Message)
     $exitCode = if ($_.Exception.Data.Contains('BuildExitCode')) { [int]$_.Exception.Data['BuildExitCode'] } else { 1 }

@@ -10,6 +10,7 @@ namespace Spectator
         private long pendingGeneration;
         internal long Generation { get; private set; }
         internal bool Owned { get; private set; }
+        internal bool Pending { get { return pending; } }
         internal void Request(long revision) { readyAfter = revision + 1; pendingGeneration = Generation; pending = true; }
         internal bool TryConsume(long revision, bool ready)
         {

@@ -2,15 +2,15 @@
   "GUID": "MoatMove_Serp",
   "Author": "Serpens66",
   "Name": "MoatMove",
-  "Description": "Friendly/allied moat traversal addon for BugfixesAndQoL and APIShared. Precise, Fast and FastNative modes; shares the main mod command hooks.",
-  "Version": "0.1.5",
+  "Description": "Friendly/allied moat traversal and weighted group routes (native anchor core, Fast fallback) for BugfixesAndQoL and APIShared; shares the main mod command hooks.",
+  "Version": "0.1.6",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.0",
   "MaximumScriptExtenderVersion": "",
   "Dependencies": [
     {
       "GUID": "APIShared_Serp",
-      "MinimumVersion": "0.4.10"
+      "MinimumVersion": "0.24.0"
     },
     {
       "GUID": "BugfixesAndQoL_Serp",
@@ -23,6 +23,10 @@
     "2.8.0.1"
   ],
   "SerpChangelog": [
+    {
+      "Version": "0.1.6",
+      "Changes": ["Use native map ticks for gameplay scheduling and deadlines, preserving initialization, save behavior and logical activation."]
+    },
     {
       "Version": "0.1.5",
       "Changes": [

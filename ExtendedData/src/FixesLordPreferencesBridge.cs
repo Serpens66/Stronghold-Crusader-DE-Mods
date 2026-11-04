@@ -195,7 +195,7 @@ namespace ExtendedData
             LordDataSlot[] slots = snapshot.Slots.Select(slot => new LordDataSlot
             {
                 PlayerId = slot.PlayerId, LordType = ResolveLordType(slot), LordName = slot.LordName,
-                ConfigName = slot.ConfigName, ConfigChecksum = slot.ConfigChecksum, ModLordJson = slot.ModLordJson,
+                ConfigName = slot.ConfigName, ConfigChecksum = slot.ConfigChecksum, ModLordJson = slot.ModLordJson, Presentation = slot.Presentation,
                 FixesJson = slot.FixesJson,
                 FixesSources = slot.FixesSources ?? CaptureSources(slot.LordName, ResolveLordType(slot),
                     resolveBase != null ? resolveBase(slot) : ResolveConfiguration(slot).lordData.opponent_type, recorded),

@@ -13,6 +13,7 @@ namespace ExtendedData
         // null identifies a legacy payload; -1 is Custom, >=0 is the configuration Lord type.
         public int? LordType { get; set; }
         public string LordName { get; set; }
+        public LordPresentationData Presentation { get; set; }
         public string ConfigName { get; set; }
         public string ConfigChecksum { get; set; }
         public IReadOnlyList<string> AivChecksums { get; set; }
@@ -29,6 +30,7 @@ namespace ExtendedData
     public sealed class TrailLordRequirements
     {
         public const string Suffix = ".lordrequirements.json";
+        public const int CurrentVersion = 5;
         public const int MaximumBytes = 512 * 1024;
         public string MissionDigest { get; private set; }
         public IReadOnlyList<TrailLordSlot> Slots { get; private set; }
@@ -62,7 +64,7 @@ namespace ExtendedData
             bool embeddedOnly = Slots.Any(slot => slot.EmbeddedValuesOnly);
             string json = Shared.DependencyFreeJson.Serialize(new Dictionary<string, object>
             {
-                ["version"] = 4,
+                ["version"] = CurrentVersion,
                 ["missionDigest"] = MissionDigest,
                 ["slots"] = Slots.Select(slot =>
                 {
@@ -71,6 +73,7 @@ namespace ExtendedData
                         ["playerId"] = slot.PlayerId,
                         ["lordType"] = slot.LordType,
                         ["lordName"] = slot.LordName,
+                        ["presentation"] = LordPresentationData.Encode(slot.Presentation),
                         ["configName"] = slot.ConfigName,
                         ["configChecksum"] = slot.ConfigChecksum,
                         ["aivChecksums"] = slot.AivChecksums.Cast<object>().ToList(),
@@ -98,11 +101,14 @@ namespace ExtendedData
             finally { if (File.Exists(temporary)) File.Delete(temporary); }
         }
 
-        public static TrailLordRequirements Read(string missionPath)
+        public static TrailLordRequirements Read(string missionPath) => Read(missionPath, out _);
+
+        internal static TrailLordRequirements Read(string missionPath, out IReadOnlyList<string> mediaFiles)
         {
             TrailLordRequirements result = ReadUnbound(missionPath, out bool bound);
             if (result != null && !bound)
                 throw new InvalidDataException("Lord requirements do not match this mission.");
+            mediaFiles = result == null ? Array.Empty<string>() : TrailLordMediaStore.BindAndVerify(result.Slots.Select(x => x.Presentation), Path.GetDirectoryName(Path.GetFullPath(missionPath)));
             return result;
         }
 
@@ -117,7 +123,7 @@ namespace ExtendedData
             if (bytes.Length > MaximumBytes) throw new InvalidDataException("Lord requirements exceed 512 KiB.");
             var root = Object(Shared.DependencyFreeJson.Parse(new UTF8Encoding(false, true).GetString(bytes)));
             int version = Convert.ToInt32(root["version"]);
-            if (version < 1 || version > 4)
+            if (version < 1 || version > CurrentVersion)
                 throw new InvalidDataException("Unsupported Lord requirements version.");
             var rows = root["slots"] as List<object> ?? throw new InvalidDataException("Invalid Lord requirements slots.");
             var slots = rows.Select(value =>
@@ -129,6 +135,7 @@ namespace ExtendedData
                     PlayerId = Convert.ToInt32(row["playerId"]),
                     LordType = version >= 2 && row.TryGetValue("lordType", out object identity) && identity != null ? (int?)Convert.ToInt32(identity) : null,
                     LordName = row["lordName"] as string,
+                    Presentation = version >= 5 && row.TryGetValue("presentation", out object presentation) ? LordPresentationData.Decode(presentation) : null,
                     ConfigName = row["configName"] as string,
                     ConfigChecksum = row["configChecksum"] as string,
                     AivChecksums = aivs.Select(item => item as string ?? throw new InvalidDataException("Invalid AIV checksum.")).ToArray(),
@@ -176,6 +183,7 @@ namespace ExtendedData
                 if (slot.EmbeddedValuesOnly && (slot.RequiresInstalledPackage || slot.ModLordJson != null ||
                         slot.FixesJson != null || slot.FixesSources != null))
                     throw new InvalidDataException("An embedded-only Lord slot cannot carry extra values.");
+                LordPresentationData.Validate(slot.Presentation);
                 LordDataSnapshot.ValidateModLord(slot.ModLordJson);
             }
             LordDataSnapshot.CreateTrail("trail:" + value.MissionDigest,
@@ -187,7 +195,7 @@ namespace ExtendedData
                     LordName = slot.LordName,
                     ConfigName = slot.ConfigName,
                     ConfigChecksum = slot.ConfigChecksum,
-                    ModLordJson = slot.ModLordJson,
+                    ModLordJson = slot.ModLordJson, Presentation = slot.Presentation,
                     FixesJson = slot.FixesJson,
                     FixesSources = slot.FixesSources,
                 }));

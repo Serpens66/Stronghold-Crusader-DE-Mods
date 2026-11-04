@@ -18,7 +18,7 @@ using UnityEngine;
 namespace AivLobbyPresetTest
 {
     [BepInDependency("000shcdese", "2.9.0")]
-    [BepInDependency("APIShared_Serp", "0.4.0")]
+    [BepInDependency("APIShared_Serp", "0.26.0")]
     [BepInDependency("BugfixesAndQoL_Serp")]
     [BepInDependency("ActiveAIVDetector_Serp")]
     [BepInPlugin("AivLobbyPresetTest_Serp", "AIV Lobby Preset Test", "0.1.0")]
@@ -180,7 +180,11 @@ namespace AivLobbyPresetTest
                 if (!File.Exists(SeriesPath) && File.Exists(sampleSeries))
                     File.Copy(sampleSeries, SeriesPath);
                 LobbyPreparationOverride.Register("AivLobbyPresetTest_Serp", Prepare, Apply);
-                Application.onBeforeRender += ObserveLobbyBeforeRender;
+                // The lobby preparation bridge requires its existing rendered-frame cadence.
+                if (!APIShared.ApiShared.ForMod("AivLobbyPresetTest_Serp").Ui.TryRegisterBeforeRender(
+                    "lobby-preparation", ObserveLobbyBeforeRender, out var lobbyWork, out string reason, 100))
+                    throw new InvalidOperationException(reason);
+                lobbyWork.SetContinuous(true);
                 CrusaderLibrary.Instance.LibraryLoaded += OnLibraryLoaded;
                 Logger.LogInfo("AIV lobby preset registered; config=" + PresetPath);
                 Logger.LogInfo("Lobby bridge after registration: " + DescribeBridgeState(null));

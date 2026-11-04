@@ -74,6 +74,45 @@ try {
         }
         $count++
     }
+    # Native 0x9A080 compares a signed 16-bit cloud age; lifetimes above 32764 ticks make clouds
+    # fade at once or never fade (audit 2026-11-02, UpdateToNewDLL.md). Extreme multipliers must
+    # stay within that native limit, while ordinary values keep their exact Vanilla-scaled lifetime.
+    $plague = $assembly.GetType('ExtraFeatures.PlagueDurationPatch', $true)
+    $resolveLifetime = $plague.GetMethod('ResolveLifetime', $flags)
+    if (-not $resolveLifetime) { throw 'Plague lifetime test adapter needs updating.' }
+    foreach ($case in @(@(1.0, $true, 800), @(4.0, $true, 3200), @(0.5, $true, 400), @(20.0, $true, 16000),
+            @(40.0, $true, 32000), @(4.0, $false, 800), @([double]::NaN, $true, 800))) {
+        $lifetime = [int]$resolveLifetime.Invoke($null, @([double]$case[0], [bool]$case[1]))
+        if ($lifetime -ne $case[2]) { throw "Plague lifetime mismatch for $($case[0])x (enabled=$($case[1])): $lifetime" }
+    }
+    foreach ($multiplier in @(40.96, 41.0, 1000.0, [double]::MaxValue, [double]::PositiveInfinity)) {
+        $lifetime = [int]$resolveLifetime.Invoke($null, @([double]$multiplier, $true))
+        if ($lifetime -lt 800 -or $lifetime -gt 32764) { throw "Plague lifetime exceeds the native limit for ${multiplier}x: $lifetime" }
+    }
+    Write-Host 'PASS: compiled plague lifetime stays within the native signed 16-bit age limit.'
+    # Exercise the actual broker-adapter method without constructing a runtime or
+    # game object. A saved -1 (Vanilla) must never reach the broker as -1 (that would
+    # discard the whole contribution); it supplies no category (null), so the incoming
+    # Vanilla or earlier-participant radius stays, as the Override contract requires.
+    $proximity = $assembly.GetType('ExtraFeatures.AIDefenseRepairRuntime', $true)
+    $override = $proximity.GetMethod('CategoryProximityOverride', $flags)
+    if (-not $override) { throw 'Enemy proximity adapter needs updating.' }
+    $none = $override.Invoke($null, @([int]-1, [int]-1))
+    if ($null -ne $none.CivilianRadius -or $null -ne $none.MilitaryRadius -or $none.Block) {
+        throw 'Vanilla categories unexpectedly contribute an override.'
+    }
+    foreach ($civilianRadius in @(-1, 0, 1, 2, 3, 100)) {
+        foreach ($militaryRadius in @(-1, 0, 15, 100)) {
+            if ($civilianRadius -eq -1 -and $militaryRadius -eq -1) { continue }
+            $decision = $override.Invoke($null, @([int]$civilianRadius, [int]$militaryRadius))
+            $civilianOk = if ($civilianRadius -eq -1) { $null -eq $decision.CivilianRadius } else { $decision.CivilianRadius -eq $civilianRadius }
+            $militaryOk = if ($militaryRadius -eq -1) { $null -eq $decision.MilitaryRadius } else { $decision.MilitaryRadius -eq $militaryRadius }
+            if (-not $civilianOk -or -not $militaryOk -or $decision.Block) {
+                throw "Enemy proximity override differs for civilians=$civilianRadius, military=$militaryRadius."
+            }
+        }
+    }
+    Write-Host 'PASS: compiled enemy proximity adapter resolves Vanilla before category composition and retains explicit zero.'
     $viewModel = $assembly.GetType('ExtraFeatures.ExtraFeaturesViewModel', $true)
     foreach ($name in @('KeepBuildRange','HealCivilianTargets','HealSiegeTargets','EnableBuildingRepair')) {
         $property = $viewModel.GetProperty($name)

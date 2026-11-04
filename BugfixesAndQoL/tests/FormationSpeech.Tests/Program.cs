@@ -127,7 +127,8 @@ string Read(string path) => File.ReadAllText(Path.Combine(root, path));
 string Methods(string file, params string[] names) => string.Join("\n",
     CSharpSyntaxTree.ParseText(Read(file)).GetRoot().DescendantNodes().Where(m => m is MethodDeclarationSyntax method && names.Contains(method.Identifier.Text) || m is EnumDeclarationSyntax type && names.Contains(type.Identifier.Text)).Select(m => m.ToFullString()));
 string engineMethods = Methods("BugfixesAndQoL/src/Formations/FormationRuntime.EngineAndCameraHooks.cs",
-    "EngineRunHook", "RunOriginalAfterReleaseConsumed", "RunOriginalOnce", "PrepareFormationRelease", "ConsumeGestureRelease", "RunOriginalWithDeferredRelease", "FormationReleaseDisposition", "DiscardDeferredRelease");
+    "EngineRunHook", "RunOriginalAfterReleaseConsumed", "RunOriginalOnce", "PrepareFormationRelease", "ConsumeGestureRelease", "RunOriginalWithDeferredRelease", "FormationReleaseDisposition", "DiscardDeferredRelease",
+    "LogDispatchRejected");
 string rendererMethod = Methods("BugfixesAndQoL/src/Formations/Markers/LargeMoveTargetMarkerRenderer.cs", "ResetDrawList");
 Type enumType = typeof(eChimps);
 string enumSource = "namespace SHCDESE.Interop { public enum eChimps : ushort {" +
@@ -135,7 +136,8 @@ string enumSource = "namespace SHCDESE.Interop { public enum eChimps : ushort {"
 string fixture = Read("BugfixesAndQoL/tests/FormationSpeech.Tests/RuntimeFixture.cs.txt")
     .Replace("__ENGINE__", engineMethods).Replace("__RENDERER__", rendererMethod);
 string[] sources = { fixture, enumSource, Read("BugfixesAndQoL/src/Formations/FormationRuntime.Speech.cs"),
-    Read("BugfixesAndQoL/src/Formations/FormationSpeechModel.cs"), Read("BugfixesAndQoL/src/Formations/FormationNativeRunContext.cs"), Read("BugfixesAndQoL/src/Formations/FormationSpeechNative.cs") };
+    Read("BugfixesAndQoL/src/Formations/FormationSpeechModel.cs"), Read("BugfixesAndQoL/src/Formations/FormationNativeRunContext.cs"), Read("BugfixesAndQoL/src/Formations/FormationSpeechNative.cs"),
+    Read("BugfixesAndQoL/src/Formations/FormationFailurePolicy.cs") };
 var references = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")).Split(Path.PathSeparator)
     .Where(p => Path.GetDirectoryName(p) == Path.GetDirectoryName(typeof(object).Assembly.Location))
     .Select(p => MetadataReference.CreateFromFile(p));

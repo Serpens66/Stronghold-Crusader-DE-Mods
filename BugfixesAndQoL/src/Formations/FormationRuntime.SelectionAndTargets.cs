@@ -42,7 +42,7 @@ namespace BugfixesAndQoL.UnitCommands
                 return false;
             }
             if (!APIShared.LocalSelectionAPI.TryCapture(playerId, out APIShared.LocalSelectionSnapshot selected) ||
-                selected.Count < 2 || selected.Count > FormationPreviewMarkerModel.MaximumMarkers)
+                selected.Count < 2 || selected.Count > MaximumUnitCount)
             {
                 identities = Array.Empty<SelectionIdentity>();
                 tribeId = 0;
@@ -123,8 +123,11 @@ namespace BugfixesAndQoL.UnitCommands
         {
             if (commandModeReader == null)
                 return APIShared.Internal.GroundMovePreviewRejection.NonMoveCommandMode;
-            return APIShared.Internal.GroundMovePreviewEligibility.EvaluateCommandMode(
-                commandModeReader.Read());
+            var manager = GameTribeManagerAPI.Instance.GetTribeManager();
+            if (manager.Pointer == null)
+                return APIShared.Internal.GroundMovePreviewRejection.NonMoveCommandMode;
+            return APIShared.Internal.GroundMovePreviewEligibility.EvaluateFormationCommandMode(
+                commandModeReader.Read(), manager.Pointer->r_TroopsPatrolMode);
         }
 
         private APIShared.Internal.GroundMovePreviewRejection EvaluateFormationTargetBounds(

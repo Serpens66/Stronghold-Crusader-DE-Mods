@@ -6,7 +6,6 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Remove="StandaloneContracts.cs" />
     <Compile Remove="FillFormationTests.cs" />
     <Compile Remove="DigWorkFallbackTests.cs" />
     <Compile Remove="FormationBoundaryFixture.cs" />
@@ -14,10 +13,10 @@
     <Compile Remove="RouteSearchEventIntegrationTests.cs" />
     <Compile Remove="CursorTests.cs" />
     <Compile Remove="PlacementTests.cs" />
+    <Compile Remove="AnchorIntegrationTests.cs" />
     <Compile Remove="SearchKernelTests.cs" />
     <Compile Remove="FastRouteFieldTests.cs" />
     <Compile Remove="FastStateTests.cs" />
-    <Compile Remove="FastNativeFixtures.cs" />
     <Reference Include="Microsoft.CodeAnalysis">
       <HintPath>$(MSBuildSDKsPath)\..\Roslyn\bincore\Microsoft.CodeAnalysis.dll</HintPath>
     </Reference>

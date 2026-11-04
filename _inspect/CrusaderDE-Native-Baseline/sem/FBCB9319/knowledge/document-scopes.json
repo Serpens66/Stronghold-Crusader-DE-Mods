@@ -21,6 +21,73 @@
   },
   "documents": [
     {
+      "file": "ENEMY_HP_MULTIPLIER.md",
+      "scope": "vanilla",
+      "components": [],
+      "integrationSections": []
+    },
+    {
+      "file": "PLAYER_CONTROL_CONTEXT.md",
+      "scope": "vanilla+integration",
+      "components": ["APIShared", "Spectator", "BugfixesAndQoL"],
+      "integrationSections": ["APIShared adapter", "Unfinished control backend", "Player-view identity and spectator input control", "Audit limits"]
+    },
+    {
+      "file": "PITCH_STAIRS_HEIGHT.md",
+      "scope": "vanilla+integration",
+      "components": ["PitchStairsTest"],
+      "integrationSections": ["PitchStairsTest measurements"],
+      "note": "Live counters of the PitchStairsTest testmod; all other sections are Vanilla."
+    },
+    {
+      "file": "SAVE_WRITER_ROUTES.md",
+      "scope": "vanilla",
+      "components": [],
+      "integrationSections": []
+    },
+    {
+      "file": "AI_WOODCUTTER_RETIREMENT.md",
+      "scope": "vanilla",
+      "components": [],
+      "integrationSections": []
+    },
+    {
+      "file": "DESYNC_CAPTURE.md",
+      "scope": "vanilla+integration",
+      "components": ["DesyncTest"],
+      "integrationSections": ["DesyncTest evidence"]
+    },
+    {
+      "file": "ENEMY_BUILD_PROXIMITY.md",
+      "scope": "vanilla+integration",
+      "components": ["ExtraFeatures"],
+      "integrationSections": ["ExtraFeatures integration"]
+    },
+    {
+      "file": "LORD_HOME_TELEPORT.md",
+      "scope": "vanilla+integration",
+      "components": ["BugfixesAndQoL", "LordTeleportGuardTest (historical)"],
+      "integrationSections": ["Selective prototype", "Runtime acceptance 2026-10-28", "Rescue policy revision 2026-10-28", "BugfixesAndQoL integration 2026-10-28", "Integrated gameplay report and diagnosis cleanup 2026-10-28"]
+    },
+    {
+      "file": "KILL_REWARD_PERCENT.md",
+      "scope": "vanilla+integration",
+      "components": ["ExtraFeatures"],
+      "integrationSections": ["ExtraFeatures integration"]
+    },
+    {
+      "file": "LINEUP_MARKERS.md",
+      "scope": "vanilla+integration",
+      "components": ["BugfixesAndQoL"],
+      "integrationSections": ["Renderer recovery"]
+    },
+    {
+      "file": "LORD_MEDIA_LOOKUP.md",
+      "scope": "vanilla+integration",
+      "components": ["APIShared", "Script Extender"],
+      "integrationSections": ["Script Extender and APIShared"]
+    },
+    {
       "file": "AIV_BUILD_RANGE.md",
       "scope": "vanilla+integration",
       "components": [
@@ -606,7 +673,8 @@
         "BugfixesAndQoL"
       ],
       "integrationSections": [
-        "Region proof and integration"
+        "Region proof and integration",
+        "One-pass member check in BugfixesAndQoL"
       ]
     },
     {
@@ -728,11 +796,13 @@
       "scope": "vanilla+integration",
       "components": [
         "PlagueHeightTest",
-        "BugfixesAndQoL"
+        "BugfixesAndQoL",
+        "MoatMove"
       ],
       "integrationSections": [
         "Testmod evidence and limits",
-        "Integration observation, 2026-10-23"
+        "Integration observation, 2026-10-23",
+        "MoatMove plague avoidance [mod integration]"
       ]
     },
     {
@@ -878,13 +948,32 @@
       "vanillaSections": []
     },
     {
-      "file": "SIM_TICK_SPIKE_PATHING.md",
+      "file": "FIRE_EFFECTS.md",
       "scope": "vanilla+integration",
       "components": [
-        "PerfProbe"
+        "MoatMove"
       ],
+      "integrationSections": [
+        "Mod integration [mod integration]"
+      ]
+    },
+    {
+      "file": "GROUND_ROUTE_BUILDERS.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "MoatMove"
+      ],
+      "integrationSections": [
+        "Consequences in MoatMove anchor mode [mod integration]"
+      ],
+      "note": "Runtime samples from the MoatMove anchor diagnosis."
+    },
+    {
+      "file": "SIM_TICK_SPIKE_PATHING.md",
+      "scope": "vanilla",
+      "components": [],
       "integrationSections": [],
-      "note": "Measured with the PerfProbe testmod."
+      "note": "Measured with the PerfProbe testmod; some runs also loaded MoatMove and BugfixesAndQoL. Mod contracts and mod measurements are only linked (BugfixesAndQoL/UpdateToNewDLL.md, VanillaOptimization.md)."
     },
     {
       "file": "SITUATIONAL_UNIT_AUDIO.md",
@@ -1048,6 +1137,17 @@
         "Optional poleturner/tanner workshop idle delay"
       ],
       "note": "Not tagged in file: bytes are pinned by tools/semantic/audited-models.json."
+    },
+    {
+      "file": "GAMEACTION_OBSERVER_CLASSES.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "Spectator",
+        "APIShared"
+      ],
+      "integrationSections": [
+        "Spectator observer command policy"
+      ]
     }
   ]
 }

@@ -331,8 +331,10 @@ namespace BugfixesAndQoL
 
         private static void CountdownTests()
         {
+            APIShared.UiWorkBoundary.Reset();
             var countdownSettings = new BugfixesAndQoLViewModel();
             new TimerCountdownFeature(new BepInEx.Logging.ManualLogSource(), countdownSettings);
+            APIShared.UiWorkBoundary.Missions.Start();
             int writes = TimerCountdownViewModel.Writes, reads = CrusaderDE.GameData.scenario.Reads;
             for (int index = 0; index < 50; index++) UnityEngine.Application.Render();
             Check(TimerCountdownViewModel.Writes == writes && CrusaderDE.GameData.scenario.Reads == reads, "cold-disabled countdown does no presentation/timer work");
@@ -340,13 +342,35 @@ namespace BugfixesAndQoL
             {
                 countdownSettings.ShowCountdownTimers = enabled;
                 countdownSettings.EnableClientFeatures = enabled;
-                UnityEngine.Application.Render();
+                UnityEngine.Application.Render(0);
                 writes = TimerCountdownViewModel.Writes; reads = CrusaderDE.GameData.scenario.Reads;
-                for (int index = 0; index < 50; index++) UnityEngine.Application.Render();
-                Check(enabled ? CrusaderDE.GameData.scenario.Reads == reads + 50 :
+                for (int index = 0; index < 9; index++) UnityEngine.Application.Render(10);
+                Check(CrusaderDE.GameData.scenario.Reads == reads, "cosmetic countdown waits for its 100 ms deadline");
+                UnityEngine.Application.Render(10);
+                Check(enabled ? CrusaderDE.GameData.scenario.Reads == reads + 1 :
                     CrusaderDE.GameData.scenario.Reads == reads && TimerCountdownViewModel.Writes == writes,
-                    "countdown off/on/off/on retains active cadence and disabled idle");
+                    "countdown off/on/off/on retains 100 ms cadence and disabled idle");
             }
+            countdownSettings.ShowCountdownTimers = countdownSettings.EnableClientFeatures = true;
+            UnityEngine.Application.Render(0);
+            reads = CrusaderDE.GameData.scenario.Reads;
+            UnityEngine.Application.Render(500);
+            Check(CrusaderDE.GameData.scenario.Reads == reads + 1, "slow frames refresh once without catch-up work");
+            reads = CrusaderDE.GameData.scenario.Reads; writes = TimerCountdownViewModel.Writes;
+            TimerCountdownViewModel.FailNext = true;
+            APIShared.UiWorkBoundary.Missions.End();
+            UnityEngine.Application.Render(0);
+            Check(CrusaderDE.GameData.scenario.Reads == reads && TimerCountdownViewModel.Writes == writes + 1,
+                "mission end clears on the next frame without a timer read");
+            Check(APIShared.UiWorkBoundary.ActiveCount == 1, "failed mission-end clear retains scheduled cleanup demand");
+            UnityEngine.Application.Render(99);
+            Check(TimerCountdownViewModel.Writes == writes + 1, "failed clear is not retried before its deadline");
+            UnityEngine.Application.Render(1);
+            Check(TimerCountdownViewModel.Writes == writes + 2 && APIShared.UiWorkBoundary.ActiveCount == 0,
+                "successful delayed clear retires cleanup demand without a duplicate same-frame attempt");
+            for (int index = 0; index < 50; index++) UnityEngine.Application.Render(100);
+            Check(CrusaderDE.GameData.scenario.Reads == reads && APIShared.UiWorkBoundary.ActiveCount == 0,
+                "countdown stops scheduling outside a mission");
         }
 
         // Automatic must not merge on 6-8 GB cards (~4 GB texture use with the merge), an explicit

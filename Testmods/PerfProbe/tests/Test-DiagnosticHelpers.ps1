@@ -15,9 +15,12 @@ Add-Type -Path @(
     (Join-Path $probeRoot 'src\PerfProbeAnalysisBuffers.DevDiag.cs'),
     (Join-Path $probeRoot 'src\PerfProbeSampleHistory.DevDiag.cs'),
     (Join-Path $probeRoot 'src\PerfProbeCadence.DevDiag.cs'),
+    (Join-Path $probeRoot 'src\PerfProbeTickGap.DevDiag.cs'),
     (Join-Path $PSScriptRoot 'CadenceTests.cs'),
+    (Join-Path $PSScriptRoot 'TickGapTests.cs'),
     (Join-Path $PSScriptRoot 'DiagnosticHelperTests.cs')
     (Join-Path $PSScriptRoot 'RunIlFixture.cs')
 ) -ReferencedAssemblies $references -CompilerOptions '/nowarn:0649'
 [PerfProbe.DiagnosticHelperTests]::Run()
 [PerfProbe.CadenceTests]::Run()
+[PerfProbe.TickGapTests]::Run()

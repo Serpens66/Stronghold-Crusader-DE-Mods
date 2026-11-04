@@ -27,6 +27,7 @@ namespace BugfixesAndQoL
         private SaveSettingsDelegate saveSettingsOriginal;
         private OptionsButtonDelegate optionsButtonOriginal;
         private long recoveryStartedTimestamp;
+        private APIShared.Presentation.IUiFrameWorkRegistration recoveryWork;
         private int lastRecoveryFrame = -1;
         private int manualApplyDepth;
         private bool settingsLoaded;
@@ -44,6 +45,9 @@ namespace BugfixesAndQoL
 
             try
             {
+                if (!APIShared.ApiShared.ForMod(BugfixesAndQoLPlugin.PluginGuid).Ui.TryRegisterBeforeRender(
+                    "display-resolution-recovery", ObserveRecoveryBeforeRender, out recoveryWork, out string reason, 100))
+                    throw new InvalidOperationException("Display recovery scheduling unavailable: " + reason);
                 loadSettingsHook = new Hook(
                     FindMethod(typeof(ConfigSettings), nameof(ConfigSettings.LoadSettings), true, Type.EmptyTypes),
                     (LoadSettingsDelegate)LoadSettingsHook);
@@ -125,7 +129,7 @@ namespace BugfixesAndQoL
                         if (!interceptedSaveLogged)
                         {
                             interceptedSaveLogged = true;
-                            Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/DisplayResolutionPersistenceHook.cs:140", "Bugfixes and QoL prevented an automatic borderless resolution change " +
+                            Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/DisplayResolutionPersistenceHook/SaveSettingsHook", "Bugfixes and QoL prevented an automatic borderless resolution change " +
                                 $"from reaching settings.cfg: observed={current}, protected={protectedSettings}, " +
                                 $"focused={Application.isFocused}.");
                         }
@@ -270,10 +274,9 @@ namespace BugfixesAndQoL
                 target.FullscreenRefresh > 0 ? target.FullscreenRefresh : 0);
             recoveryStartedTimestamp = Stopwatch.GetTimestamp();
             lastRecoveryFrame = -1;
-            Application.onBeforeRender -= ObserveRecoveryBeforeRender;
-            Application.onBeforeRender += ObserveRecoveryBeforeRender;
-            Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/DisplayResolutionPersistenceHook.cs:297", $"Bugfixes and QoL requested borderless resolution recovery ({reason}): " +
-                $"target={target}, observedBeforeRequest={DescribeActual()}.");
+            recoveryWork.SetContinuous(true);
+            Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/DisplayResolutionPersistenceHook/RecoverProtectedTarget", $"Bugfixes and QoL requested borderless resolution recovery ({reason}): " +
+                $"target={target}, observedAtRequest={DescribeActual()}; request issued, application not yet confirmed.");
         }
 
         private void ObserveRecoveryBeforeRender()
@@ -287,9 +290,10 @@ namespace BugfixesAndQoL
                 long elapsed = ElapsedMilliseconds(
                     recoveryStartedTimestamp,
                     Stopwatch.GetTimestamp());
+                bool focused = Application.isFocused;
                 DisplayRecoveryAction action = state.ObserveRecovery(
                     IsEnabled,
-                    Application.isFocused,
+                    focused,
                     state.IsArmed && ResolutionMatches(state.Snapshot),
                     elapsed >= RecoveryTimeoutMilliseconds);
 
@@ -299,12 +303,13 @@ namespace BugfixesAndQoL
                 if (action == DisplayRecoveryAction.Completed)
                 {
                     if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                        Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/DisplayResolutionPersistenceHook.cs:325", $"Bugfixes and QoL confirmed borderless resolution recovery after two rendered frames: actual={DescribeActual()}.");
+                        Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/DisplayResolutionPersistenceHook/ObserveRecoveryBeforeRender.confirmed-borderless-resolution-recovery", $"Bugfixes and QoL confirmed borderless resolution recovery after two rendered frames: actual={DescribeActual()}.");
                 }
                 else if (action == DisplayRecoveryAction.TimedOut)
                 {
-                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/DisplayResolutionPersistenceHook.cs:331", $"Bugfixes and QoL stopped temporary resolution verification after {RecoveryTimeoutMilliseconds} ms; " +
-                        $"save protection remains armed for the next focus gain. actual={DescribeActual()}.");
+                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/DisplayResolutionPersistenceHook/ObserveRecoveryBeforeRender.stopped-temporary-resolution-verification", $"Bugfixes and QoL stopped temporary resolution verification after {RecoveryTimeoutMilliseconds} ms; " +
+                        $"target={state.Snapshot}, elapsedMs={elapsed}, focused={focused}; " +
+                        $"save protection remains armed for the next focus gain. actual={DescribeActual()}; saved target retained, underlying display rejection cause unknown.");
                 }
             }
             catch (Exception ex)
@@ -323,7 +328,8 @@ namespace BugfixesAndQoL
 
         private void StopRecoveryObservation()
         {
-            Application.onBeforeRender -= ObserveRecoveryBeforeRender;
+            recoveryWork?.SetContinuous(false);
+            recoveryWork?.CancelPending();
             recoveryStartedTimestamp = 0;
             lastRecoveryFrame = -1;
         }
@@ -391,7 +397,7 @@ namespace BugfixesAndQoL
                 return;
 
             failureLogged = true;
-            Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/DisplayResolutionPersistenceHook.cs:436", $"Bugfixes and QoL display-resolution protection failed {phase}; Vanilla remains active: {ex}");
+            Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/DisplayResolutionPersistenceHook/LogFailureOnce", $"Bugfixes and QoL display-resolution protection failed {phase}; Vanilla remains active: {ex}");
         }
 
         private static MethodInfo FindMethod(

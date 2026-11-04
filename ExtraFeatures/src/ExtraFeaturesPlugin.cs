@@ -9,7 +9,7 @@ using System;
 namespace ExtraFeatures
 {
     [BepInDependency(ScriptExtenderGuid, "2.14.0")]
-    [BepInDependency(ApiSharedGuid, "0.16.1")]
+    [BepInDependency(ApiSharedGuid, "0.25.0")]
     [BepInDependency(LegacySomeSettingsGuid, BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("FearFactorNeutralizationTest_Serp", BepInDependency.DependencyFlags.SoftDependency)]
@@ -25,7 +25,7 @@ namespace ExtraFeatures
 
         public const string PluginGuid = "ExtraFeatures_Serp";
         public const string PluginName = "Extra Features";
-        public const string PluginVersion = "1.0.122";
+        public const string PluginVersion = "1.0.129";
 
         private ExtraFeaturesRuntime runtime;
         private bool marketGoodPriceVisualRefreshFailureLogged;
@@ -97,6 +97,9 @@ namespace ExtraFeatures
             try
             {
                 Shared.DirectLaunchSettingsNotice.Configure(Settings, PluginGuid);
+                if (!Settings.TryCaptureEnemyProximityStartup(Info.Location, PluginGuid, PluginGuid, out Exception migrationFailure))
+                    Shared.DebugLogHelper.LogWarningLimited(Logger, "ExtraFeatures/enemy-proximity-migration",
+                        "Extra Features could not read the previous enemy-proximity setting; the stored new values or defaults apply: " + migrationFailure);
                 APIShared.ModSettings.LobbyModSettingsPresetRegistration.Register(
                     this,
                     Shared.DebugLogHelper.ForExternalCode(Logger),
@@ -104,6 +107,7 @@ namespace ExtraFeatures
                     Settings,
                     "ScriptExtenderUI/ExtraFeaturesSettings.xaml",
                     logRoutineActivity: Shared.DebugLogHelper.DiagnosticsEnabled);
+                Settings.CompleteKillRewardRegistration();
             }
             catch (Exception ex)
             {

@@ -29,8 +29,9 @@ namespace BepInEx.Configuration {
         public T Value {get=>value;set {this.value=value;SettingChanged?.Invoke(this,EventArgs.Empty);} }
         public event EventHandler SettingChanged;
     }
+    public class ConfigDefinition { public string Key; public ConfigDefinition(string section,string key){Key=key;} }
     public class ConfigFile {
-        public string ConfigFilePath=>"__missing_formation_fixture__.cfg";
+        public string ConfigFilePath {get;set;}="__missing_formation_fixture__.cfg";
         // The fixture entries do not auto-save, so the production code must save explicitly.
         public bool SaveOnConfigSet { get; set; }
         public readonly Dictionary<string,object> Entries=new Dictionary<string,object>();
@@ -38,6 +39,7 @@ namespace BepInEx.Configuration {
         public ConfigEntry<T> Bind<T>(string section,string key,T initial,object description) {
             var entry=new ConfigEntry<T>(Stored.TryGetValue(key,out var saved)?(T)saved:initial);Entries[key]=entry;return entry;
         }
+        public bool Remove(ConfigDefinition definition) {Stored.Remove(definition.Key);return Entries.Remove(definition.Key);}
         public int Saves; public void Save() {
             Saves++;foreach(var pair in Entries)Stored[pair.Key]=pair.Value.GetType().GetProperty("Value").GetValue(pair.Value);
         }
@@ -163,15 +165,15 @@ namespace BugfixesAndQoL {
             Require(((ConfigEntry<FormationKind>)config.Entries["Kind"]).Value==FormationKind.Vanilla &&
                 ((ConfigEntry<int>)config.Entries["Density"]).Value==2 &&
                 !((ConfigEntry<bool>)config.Entries["ShowRoleMarkers"]).Value &&
-                ((ConfigEntry<bool>)config.Entries["RememberRows"]).Value,"Fresh installation defaults changed");
+                ((ConfigEntry<bool>)config.Entries["RememberAspectRatio"]).Value,"Fresh installation defaults changed");
             var savedConfig=new ConfigFile();
             savedConfig.Stored["Kind"]=FormationKind.Circle;savedConfig.Stored["Density"]=4;
-            savedConfig.Stored["ShowRoleMarkers"]=true;savedConfig.Stored["RememberRows"]=false;
+            savedConfig.Stored["ShowRoleMarkers"]=true;savedConfig.Stored["RememberAspectRatio"]=false;
             Configure(savedConfig,options);
             Require(((ConfigEntry<FormationKind>)savedConfig.Entries["Kind"]).Value==FormationKind.Circle &&
                 ((ConfigEntry<int>)savedConfig.Entries["Density"]).Value==4 &&
                 ((ConfigEntry<bool>)savedConfig.Entries["ShowRoleMarkers"]).Value &&
-                !((ConfigEntry<bool>)savedConfig.Entries["RememberRows"]).Value,"Existing configuration overwritten");
+                !((ConfigEntry<bool>)savedConfig.Entries["RememberAspectRatio"]).Value,"Existing configuration overwritten");
             manager.Hosts.Clear();manager.Attempts.Clear();
             menu=Configure(config,options);
             Require(manager.Hosts.Count==2 && manager.Attempts.Count==2,"Early registration needs successful native initialization");
@@ -244,7 +246,7 @@ namespace BugfixesAndQoL {
                 object doubled=converter.Convert(size,typeof(float),null,System.Globalization.CultureInfo.InvariantCulture);
                 Require(doubled is float f && f==size*2f,"Scaled tooltip font is not doubled float");
             }
-            RememberedRowsFixture.Run(menu,config,options);
+            RememberedAspectFixture.Run(menu,config,options);
         }
     }
 }
@@ -260,6 +262,8 @@ namespace BugfixesAndQoL.UnitCommands {
         private readonly object stateSync=new object(); private ActiveDrag drag;
         private int lastWheelFrame=-1;private const int MinimumDragTileDistance=2;
         private IFormationPresentation menuViewModel;private bool valid=true;
+        private readonly Commands commandRuntime=new Commands();
+        private sealed class Commands {internal long placementRevision;}
         private struct GroundTarget { internal int NativeX,NativeY; }
         private sealed class Gate { internal bool CanModify=true; }
         private sealed class ActiveDrag {
@@ -267,6 +271,9 @@ namespace BugfixesAndQoL.UnitCommands {
             internal FormationGestureState Geometry;
             internal Gate ReleaseGate=new Gate();internal int Rows=>Geometry.Rows;
             internal GroundTarget Target;
+            internal bool PreviewAdmissionCaptured=true;
+            internal long PreviewAdmissionRevision;
+            internal object[] PreviewUnits=new object[31];
             internal AuthorizationFixture Authorization=new AuthorizationFixture();
         }
         private sealed class AuthorizationFixture { internal bool IsConfirmed=true; }
@@ -278,66 +285,87 @@ namespace BugfixesAndQoL.UnitCommands {
         __PRODUCTION_UPDATE__
         internal static void Run(IFormationPresentation menu) {
             var f=new RuntimeGestureFixture {menuViewModel=menu};
-            f.drag=new ActiveDrag {Geometry=new FormationGestureState(FormationKind.Block,31,0,menu.GetRememberedRows(FormationKind.Block))};
+            f.drag=new ActiveDrag {Geometry=new FormationGestureState(FormationKind.Block,31,0,menu.GetRememberedAspect(FormationKind.Block))};
             int start=f.drag.Rows;
+            f.drag.PreviewAdmissionCaptured=false;Time.frameCount=99;Input.mouseScrollDelta=(0,-2);f.UpdateGesture(f.drag);
+            if(!menu.GetRememberedAspect(FormationKind.Block).IsAutomatic||f.drag.Rows!=start)throw new Exception("Pending island admission changed stored proportions");
+            f.drag.PreviewAdmissionCaptured=true;
             Time.frameCount=100;Input.mouseScrollDelta=(0,-0.5f);f.UpdateGesture(f.drag);
-            if(menu.GetRememberedRows(FormationKind.Block)!=0 || f.drag.Rows!=start)throw new Exception("Partial wheel saved automatic rows");
+            if(!menu.GetRememberedAspect(FormationKind.Block).IsAutomatic || f.drag.Rows!=start)throw new Exception("Partial wheel saved automatic rows");
             Time.frameCount=101;f.UpdateGesture(f.drag);
-            if(f.drag.Rows!=start+1 || menu.GetRememberedRows(FormationKind.Block)!=start+1)throw new Exception("Production wheel change was not remembered");
+            if(f.drag.Rows!=start+1 || menu.GetRememberedAspect(FormationKind.Block)!=f.drag.Geometry.Aspect)throw new Exception("Production wheel change was not remembered");
             int direction=f.drag.Geometry.Direction;
             Time.frameCount=102;Input.mouseScrollDelta=(0,3);f.UpdateGesture(f.drag);
             if(f.drag.Rows!=Math.Max(1,start-2) || direction!=f.drag.Geometry.Direction)throw new Exception("Multi-step wheel changed facing or wrong rows");
-            int saved=f.drag.Rows;f.valid=false;Time.frameCount=103;f.UpdateGesture(f.drag);
-            if(f.drag!=null || menu.GetRememberedRows(FormationKind.Block)!=saved)throw new Exception("Abort lost remembered wheel selection");
+            var saved=f.drag.Geometry.Aspect;f.valid=false;Time.frameCount=103;f.UpdateGesture(f.drag);
+            if(f.drag!=null || menu.GetRememberedAspect(FormationKind.Block)!=saved)throw new Exception("Abort lost remembered wheel selection");
         }
     }
 }
 namespace BugfixesAndQoL {
-    internal static class RememberedRowsFixture {
+    internal static class RememberedAspectFixture {
         private static void Check(bool value,string message) { if(!value)throw new Exception(message); }
+        private static FormationMenuViewModel Configure(ConfigFile config,BugfixesAndQoLViewModel options) {
+            FormationFeature.Configure(new ManualLogSource(),config,options);
+            return (FormationMenuViewModel)SHCDESE.API.GameXAMLManagerAPI.Instance.Hosts["BugfixesAndQoLFormationMenuHost"];
+        }
         internal static void Run(FormationMenuViewModel menu,ConfigFile config,BugfixesAndQoLViewModel options) {
-            Check(menu.RememberRows && menu.GetRememberedRows(FormationKind.Block)==0,"Remember default or automatic start failed");
+            Check(menu.RememberAspectRatio&&menu.GetRememberedAspect(FormationKind.Block).IsAutomatic,"Remember default or automatic start failed");
             RuntimeGestureFixture.Run(menu);
-            menu.RememberSelectedRows(FormationKind.Block,3);
-            Check(new FormationGestureState(FormationKind.Block,31,0,menu.GetRememberedRows(FormationKind.Block)).Rows==3,"31-unit rows not restored");
-            Check(new FormationGestureState(FormationKind.Block,2,0,menu.GetRememberedRows(FormationKind.Block)).Rows==2,"Small group was not clamped");
-            Check(menu.GetRememberedRows(FormationKind.Block)==3 && new FormationGestureState(FormationKind.Block,31,0,menu.GetRememberedRows(FormationKind.Block)).Rows==3,"Clamp overwrote remembered count");
+            var desired=FormationAspectRatio.Create(1,1);
+            menu.RememberSelectedAspect(FormationKind.Block,desired);
+            foreach(int count in new[]{1,2,10,100,500,1000,10000}) {
+                var gesture=new FormationGestureState(FormationKind.Block,count,0,menu.GetRememberedAspect(FormationKind.Block));
+                gesture=gesture.WithCount(2).WithCount(count);
+                Check(gesture.Aspect==desired&&menu.GetRememberedAspect(FormationKind.Block)==desired,"Group resize overwrote desired aspect");
+            }
             foreach(var kind in new[]{FormationKind.Line,FormationKind.Column,FormationKind.Wedge}) {
-                Check(menu.GetRememberedRows(kind)==0,"Another kind inherited block rows");
-                menu.RememberSelectedRows(kind,4+(int)kind);
-                Check(menu.GetRememberedRows(kind)==4+(int)kind && menu.GetRememberedRows(FormationKind.Block)==3,"Kinds not independent");
+                Check(menu.GetRememberedAspect(kind).IsAutomatic,"Another kind inherited block aspect");
+                var chosen=FormationAspectRatio.Create(4+(int)kind,3);
+                menu.RememberSelectedAspect(kind,chosen);
+                Check(menu.GetRememberedAspect(kind)==chosen&&menu.GetRememberedAspect(FormationKind.Block)==desired,"Kinds not independent");
             }
             int saves=config.Saves;
-            menu.RememberSelectedRows(FormationKind.Circle,12);menu.RememberSelectedRows(FormationKind.Vanilla,12);
-            menu.RememberSelectedRows(FormationKind.Block,0);menu.RememberSelectedRows(FormationKind.Block,10001);
-            menu.RememberSelectedRows(FormationKind.Block,3);
-            Check(config.Saves==saves,"Fixed shapes, invalid or unchanged rows were saved");
+            menu.RememberSelectedAspect(FormationKind.Circle,desired);menu.RememberSelectedAspect(FormationKind.Vanilla,desired);
+            menu.RememberSelectedAspect(FormationKind.Block,default);menu.RememberSelectedAspect(FormationKind.Block,desired);
+            Check(config.Saves==saves,"Fixed shapes, automatic or unchanged aspect were saved");
             var notifications=new List<string>();menu.PropertyChanged+=(_,e)=>notifications.Add(e.PropertyName);
-            menu.RememberRows=false;
-            Check(!menu.RememberRows && notifications.Contains("RememberRows"),"Checkbox did not notify/configure");
-            menu.RememberSelectedRows(FormationKind.Block,9);
-            Check(menu.GetRememberedRows(FormationKind.Block)==0 && ((ConfigEntry<int>)config.Entries["RememberedBlockRows"]).Value==3,"Disabled remembering overwrote stored rows");
-            Check(new FormationGestureState(FormationKind.Block,31,0,menu.GetRememberedRows(FormationKind.Block)).Rows==FormationModel.ResolveAutomaticRows(FormationKind.Block,31),"Disabled mode not automatic");
+            menu.RememberAspectRatio=false;
+            Check(!menu.RememberAspectRatio&&notifications.Contains("RememberAspectRatio"),"Checkbox did not notify/configure");
+            menu.RememberSelectedAspect(FormationKind.Block,FormationAspectRatio.Create(9,1));
+            Check(menu.GetRememberedAspect(FormationKind.Block).IsAutomatic&&((ConfigEntry<string>)config.Entries["RememberedBlockAspectRatio"]).Value=="1:1","Disabled remembering overwrote stored aspect");
             var reload=new ConfigFile {Stored=new Dictionary<string,object>(config.Stored)};
-            FormationFeature.Configure(new ManualLogSource(),reload,options);
-            var restored=(FormationMenuViewModel)SHCDESE.API.GameXAMLManagerAPI.Instance.Hosts["BugfixesAndQoLFormationMenuHost"];
-            Check(!restored.RememberRows,"Checkbox persistence failed");restored.RememberRows=true;
-            Check(restored.GetRememberedRows(FormationKind.Block)==3 && restored.GetRememberedRows(FormationKind.Wedge)==8,"Rows persistence or re-enable failed");
+            var restored=Configure(reload,options);
+            Check(!restored.RememberAspectRatio,"Checkbox persistence failed");restored.RememberAspectRatio=true;
+            Check(restored.GetRememberedAspect(FormationKind.Block)==desired&&restored.GetRememberedAspect(FormationKind.Wedge)==FormationAspectRatio.Create(8,3),"Aspect persistence or re-enable failed");
             foreach(int count in new[]{1,2,31,10000})foreach(var kind in Enum.GetValues<FormationKind>()) {
-                var g=new FormationGestureState(kind,count,7,restored.GetRememberedRows(kind));
-                int rows=g.Rows;g.UpdateDirection(15,4,2);Check(g.Rows==rows,"Facing changed remembered rows");
-                int direction=g.Direction;g.ApplyWheel(10001,1);Check(g.Direction==direction && g.Rows>=1 && g.Rows<=count,"Wheel limits or facing failed");
-                if(kind==FormationKind.Circle || kind==FormationKind.Vanilla)Check(g.Rows==rows,"Fixed shape geometry changed");
+                var g=new FormationGestureState(kind,count,7,restored.GetRememberedAspect(kind));
+                int rows=g.Rows;g.UpdateDirection(15,4,2);Check(g.Rows==rows,"Facing changed remembered shape");
+                int direction=g.Direction;g.ApplyWheel(10001,1);Check(g.Direction==direction&&g.Rows>=1&&g.Rows<=count,"Wheel limits or facing failed");
+                if(kind==FormationKind.Circle||kind==FormationKind.Vanilla)Check(g.Rows==rows&&g.Aspect.IsAutomatic,"Fixed shape changed");
             }
-            reload.Stored["RememberedBlockRows"]=-1;reload.Stored["RememberedLineRows"]=10001;
+            reload.Stored["RememberedBlockAspectRatio"]="NaN";reload.Stored["RememberedLineAspectRatio"]="1:10001";
             var invalid=new ConfigFile {Stored=new Dictionary<string,object>(reload.Stored)};
-            FormationFeature.Configure(new ManualLogSource(),invalid,options);
-            var repaired=(FormationMenuViewModel)SHCDESE.API.GameXAMLManagerAPI.Instance.Hosts["BugfixesAndQoLFormationMenuHost"];
-            Check(repaired.GetRememberedRows(FormationKind.Block)==0 && repaired.GetRememberedRows(FormationKind.Line)==0,"Invalid config did not select automatic rows");
+            var repaired=Configure(invalid,options);
+            Check(repaired.GetRememberedAspect(FormationKind.Block).IsAutomatic&&repaired.GetRememberedAspect(FormationKind.Line).IsAutomatic,"Invalid config did not select automatic proportions");
+            foreach(bool enabled in new[]{false,true})foreach(bool hasNew in new[]{false,true}) {
+                var legacy=new ConfigFile {SaveOnConfigSet=true};
+                legacy.Stored["RememberRows"]=enabled;legacy.Stored["RememberedBlockRows"]=28;legacy.Stored["RememberedLineRows"]=5;
+                legacy.Stored["UnrelatedSetting"]="keep";
+                if(hasNew){legacy.Stored["RememberAspectRatio"]=!enabled;legacy.Stored["RememberedBlockAspectRatio"]="8:6";}
+                legacy.ConfigFilePath=System.IO.Path.Combine("__CONFIG_TEST_ROOT__",enabled+"-"+hasNew+".cfg");
+                System.IO.File.WriteAllText(legacy.ConfigFilePath,"[Formation]\r\n"+string.Join("\r\n",System.Linq.Enumerable.Select(legacy.Stored,p=>p.Key+" = "+p.Value)));
+                var migrated=Configure(legacy,options);
+                Check(legacy.SaveOnConfigSet&&migrated.RememberAspectRatio==(hasNew?!enabled:enabled),"Migration changed the selected switch or autosave mode");
+                Check(!legacy.Stored.ContainsKey("RememberRows")&&!legacy.Stored.ContainsKey("RememberedBlockRows")&&!legacy.Stored.ContainsKey("RememberedLineRows"),"Old row keys remained after migration");
+                Check((string)legacy.Stored["UnrelatedSetting"]=="keep","Migration changed an unrelated setting");
+                Check(((ConfigEntry<string>)legacy.Entries["RememberedBlockAspectRatio"]).Value==(hasNew?"4:3":"auto"),"Migration invented a ratio or discarded the new value");
+            }
         }
     }
+
 }
-""".Replace("__PRODUCTION_UPDATE__", gestureUpdate);
+""".Replace("__PRODUCTION_UPDATE__", gestureUpdate).Replace("__CONFIG_TEST_ROOT__", TestWorkDirectory.New("formation-aspect").Replace("\\", "\\\\"));
         var references = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!).Split(Path.PathSeparator)
             .Select(p => MetadataReference.CreateFromFile(p));
         var trees = paths.Select(p => CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,p))))
@@ -348,6 +376,6 @@ namespace BugfixesAndQoL {
         if(!result.Success)throw new Exception(string.Join("\n",result.Diagnostics.Where(d=>d.Severity==DiagnosticSeverity.Error)));
         try { Assembly.Load(output.ToArray()).GetType("BugfixesAndQoL.StartupFixture")!.GetMethod("Run")!.Invoke(null,null); }
         catch(TargetInvocationException e) { throw e.InnerException??e; }
-        Console.WriteLine("PASS: actual Configure/Initialize/menu commands executed: independent early hosts, initialization/runtime failure, checkbox, six icons/config changes, close/open and map/selection recovery; production wheel update, remembered rows, group clamping, independent kinds and config reload; own/foreign HUD menu isolation and doubled Noesis font presets.");
+        Console.WriteLine("PASS: actual Configure/Initialize/menu commands executed: independent early hosts, initialization/runtime failure, checkbox, six icons/config changes, close/open and map/selection recovery; coherent wheel update, remembered proportions, count changes, independent kinds, legacy migration and config reload; own/foreign HUD isolation and scaled tooltip fonts.");
     }
 }

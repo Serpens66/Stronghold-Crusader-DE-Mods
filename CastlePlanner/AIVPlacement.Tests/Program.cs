@@ -10,6 +10,22 @@ using System.Collections.Concurrent;
 
 internal static class Program
 {
+    private static void TestsBlueprintSpectator()
+    {
+        Assert(BlueprintSpectatorPolicy.IsSpectator(true,false,true,true,0), "original spectator must use automatic AI plans");
+        Assert(BlueprintSpectatorPolicy.IsSpectator(true,false,true,true,-1), "eliminated spectator must use automatic AI plans");
+        Assert(!BlueprintSpectatorPolicy.IsSpectator(true,false,true,true,1), "controlled player keeps Blueprints");
+        Assert(!BlueprintSpectatorPolicy.IsSpectator(true,false,true,false,0), "a changed viewpoint does not grant spectator identity");
+        Assert(!BlueprintSpectatorPolicy.IsSpectator(true,true,true,true,0), "editor tools remain available");
+        Assert(!BlueprintSpectatorPolicy.IsSpectator(false,false,true,true,0), "stale map state does not count");
+        Assert(!BlueprintSpectatorPolicy.IsSpectator(true,false,false,true,0), "unconfirmed game type does not count");
+        Assert(BlueprintSpectatorPolicy.IsSpectator(true,false,true,false,3,true), "confirmed positive participant switches before a spectator flag or view change");
+        Assert(BlueprintSpectatorPolicy.IsSpectator(true,false,true,false,0,true), "confirmed actual participant loss remains independent of the viewed player ID");
+        Assert(!BlueprintSpectatorPolicy.IsSpectator(true,true,true,true,3,true), "elimination never replaces editor controls");
+        Assert(!BlueprintSpectatorPolicy.IsSpectator(false,false,true,true,3,true), "ended maps cannot retain observer controls");
+        Assert(!BlueprintSpectatorPolicy.IsSpectator(true,false,false,true,3,true), "confirmed loss does not invent a supported game type");
+        BlueprintRoleBoundaryTests.Run();
+    }
     private static int Main(string[] args)
     {
         if (args.Length == 3 && string.Equals(args[0], "--integration", StringComparison.Ordinal))
@@ -33,6 +49,8 @@ internal static class Program
             ("resolves Vanilla map-facing start rotations", ResolvesMapFacingRotations),
             ("tracks retained starts in native player order", TracksRetainedStartsInNativePlayerOrder),
             ("keeps archived native start interactions conservative", KeepsArchivedNativeStartInteractionsConservative),
+            ("recognizes confirmed spectators independently of the view", TestsBlueprintSpectator),
+            ("projects prepared AI plans without a second rotation", SpectatorBlueprintTests.Run),
             ("evaluates AI starts sequentially", EvaluatesAiStartsSequentially),
             ("reuses multiplayer tie choice for sequential starts", ReusesTieChoiceForSequentialStarts),
             ("propagates a certain start rotation across an uncertain AIV choice", PropagatesCertainRotationAcrossTie),
@@ -2757,6 +2775,11 @@ internal static class Program
                 },
                 new CastlePlanner.AivJsonFrame
                 {
+                    itemType = (int)eMappers.MAPPER_STORES,
+                    tilePositionOfsets = [5455, 5460]
+                },
+                new CastlePlanner.AivJsonFrame
+                {
                     itemType = (int)eMappers.MAPPER_ARMOURY,
                     tilePositionOfsets = [5542, 5546]
                 }
@@ -2771,7 +2794,7 @@ internal static class Program
                 274,
                 AivRotation.Degrees90);
 
-        Equal(4, placements.Count);
+        Equal(6, placements.Count);
         Equal(eMappers.MAPPER_GRANARY, placements[0].Mapper);
         Equal(5338, placements[0].EncodedPosition);
         Equal(528, placements[0].BuildOrigin.X);
@@ -2780,10 +2803,39 @@ internal static class Program
         Equal(4938, placements[1].EncodedPosition);
         Equal(532, placements[1].BuildOrigin.X);
         Equal(289, placements[1].BuildOrigin.Y);
-        Equal(eMappers.MAPPER_ARMOURY, placements[2].Mapper);
-        Equal(eMappers.MAPPER_ARMOURY, placements[3].Mapper);
+        Equal(eMappers.MAPPER_STORES, placements[2].Mapper);
+        Equal(eMappers.MAPPER_STORES, placements[3].Mapper);
+        Equal(eMappers.MAPPER_ARMOURY, placements[4].Mapper);
+        Equal(eMappers.MAPPER_ARMOURY, placements[5].Mapper);
         Equal(0, placements[0].SourceOrdinal);
-        Equal(3, placements[3].SourceOrdinal);
+        Equal(5, placements[5].SourceOrdinal);
+
+        // A stockpile's 5x5 footprint rotates around the complete native AIV grid.
+        // Fixed expected origins catch anchor-only projection of the delayed plan.
+        var expectedStores = new Dictionary<AivRotation, (int X, int Y)>
+        {
+            [AivRotation.Degrees0] = (537, 276),
+            [AivRotation.Degrees90] = (527, 271),
+            [AivRotation.Degrees180] = (522, 281),
+            [AivRotation.Degrees270] = (532, 286)
+        };
+        foreach (var pair in expectedStores)
+        {
+            var rotated = CastlePlanner.AivCompoundBuildingPlan.Create(document, 525, 274, pair.Key);
+            Equal(6, rotated.Count);
+            Equal(pair.Value.X, rotated[2].BuildOrigin.X);
+            Equal(pair.Value.Y, rotated[2].BuildOrigin.Y);
+            Equal(5455, rotated[2].EncodedPosition);
+        }
+
+        var singleExtension = new CastlePlanner.AivJsonDocument
+        {
+            frames = [new CastlePlanner.AivJsonFrame
+                { itemType = (int)eMappers.MAPPER_STORES, tilePositionOfsets = [5455] }],
+            miscItems = []
+        };
+        Equal(1, CastlePlanner.AivCompoundBuildingPlan.Create(singleExtension, 525, 274,
+            AivRotation.Degrees0).Count);
     }
 
     private static LobbyAiSlotInput Slot(

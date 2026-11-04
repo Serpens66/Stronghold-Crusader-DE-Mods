@@ -58,9 +58,13 @@ namespace Spectator
 
         private static bool EnsureVisibility(HUD_Main hud, string name, Visibility visibility)
         {
-            var element = hud.FindName(name) as FrameworkElement;
+            if (!ReferenceEquals(hud, placementLayoutHud))
+            { placementElements.Clear(); placementLayoutHud = hud; }
+            if (!placementElements.TryGetValue(name, out FrameworkElement element))
+            { element = hud.FindName(name) as FrameworkElement; if (element != null) placementElements.Add(name, element); }
             if (element == null) throw new MissingMemberException("HUD_Main", name);
             if (element.Visibility == visibility) return false;
+            RememberPlacementLayout(element);
             element.Visibility = visibility;
             return true;
         }
@@ -79,59 +83,98 @@ namespace Spectator
             return result;
         }
 
+        // Development diagnostics. The implementations exist only in SpectatorRuntime.Placement.DevDiag.cs
+        // (build.bat /devdiag); otherwise the compiler removes every call including its arguments.
+        static partial void DiagLimited(string counter, int limit, Func<string> message);
+        static partial void DiagResetSession();
+        static partial void DiagSubscribe();
+        static partial void DiagPlacingUnit(int owner);
+        static partial void DiagIconsChanged(HUD_Main hud, string reason, int screen, int owner);
+        static partial void DiagIconsSettled(HUD_Main hud);
+        static partial void DiagForgetIcons();
+        static partial void DiagSimulationTick(int tick);
+        static partial void DiagPlacementInput(eMappers mapper, int owner, int x, int y, bool constructingOnly, int mouseState);
+        static partial void DiagPlacementInputEnd();
+        static partial void DiagBuildExpired(int tick, BuildingRequest request);
+        static partial void DiagBuildFinished(BuildStructureEventArgs args, BuildingRequest request);
+
         private static void AfterSetupNewBuildScreen(HUD_Main __instance)
         {
-            if (!IsPlacementSession() || IsEditorToolsSession()) return;
-            try { RefreshBuildIcons(__instance, CurrentAiOwner(), "tab"); }
-            catch (Exception error) { LogOnce("SPECTATOR_EDITOR_ICONS_ERROR: " + error); }
+            try
+            {
+                if (ReconcileObserverBuildHud(__instance)) return;
+                // Page changes also change ownership of the spectator tool surface.
+                if (ReferenceEquals(__instance, humanBoundHud)) RequestToolbarLayout();
+                if (buildPageMutation == 0)
+                    dockBuildMenu.ObserveNativePage(__instance, MainViewModel.Instance.buildScreenID, humanPlacementMode);
+                if (!IsPlacementSession() || IsEditorToolsSession()) return;
+                try { RefreshBuildIcons(__instance, CurrentAiOwner(), "tab"); }
+                catch (Exception error) { LogOnce("SPECTATOR_EDITOR_ICONS_ERROR: " + error); }
+            }
+            catch (Exception error) { LogOnce("SPECTATOR_BUILD_SCREEN_HOOK_ERROR: " + error); }
         }
+
+        // Spectator input control uses the normal build menu of the controlled player.
+        private static bool IsControlledBuildSession() => !IsPlacementSession() && IsSpectatorSession() &&
+            SpectatorPerspectiveRuntime.IsInputControlled();
 
         private static bool BeforeNewBuildScreenBlank()
         {
-            if (!IsPlacementSession() || IsEditorToolsSession()) return true;
-            if (++suppressedBlankCalls <= 3)
-                log.LogInfo("SPECTATOR_EDITOR_BLANK_SUPPRESSED screen=" +
-                    MainViewModel.Instance.buildScreenID);
-            return false;
-        }
-
-        private static bool BeforeBuildControlsFreeze(bool Mode)
-        {
-            if (!Mode || !IsSpectatorSession()) return true;
-            if (++suppressedFreezeCalls <= 3)
-                log.LogInfo("SPECTATOR_EDITOR_FREEZE_SUPPRESSED frozen=" +
-                    MainViewModel.Instance.FreezeMainControls);
-            return false;
-        }
-
-        private static void LogVisibilityAfterAnimation(HUD_Main hud)
-        {
-            if (MainViewModel.Instance.buildScreenID != pendingVisibilityScreen ||
-                CurrentAiOwner() != pendingVisibilityOwner)
-                return;
-            int[,] lists = (int[,])buildIconListsField.GetValue(hud);
-            Button[] buttons = (Button[])buildButtonsField.GetValue(hud);
-            int selected = 0;
-            int visible = 0;
-            int rendered = 0;
-            int enabled = 0;
-            for (int slot = 0; slot < lists.GetLength(1); slot++)
+            try
             {
-                int index = lists[pendingVisibilityScreen, slot];
-                if (index <= 0) break;
-                Button button = buttons[AlternateBuildingButton(index)];
-                if (button == null) continue;
-                selected++;
-                if (button.Visibility == Visibility.Visible) visible++;
-                if (button.IsVisible) rendered++;
-                if (button.IsEnabled) enabled++;
+                // Vanilla's per-frame spectator blank stays suppressed; our own lease/restore page changes pass.
+                if (IsControlledBuildSession()) return buildPageMutation > 0;
+                if (!IsPlacementSession() || IsEditorToolsSession()) return true;
+                DiagLimited("blank-suppressed", 3, () => "SPECTATOR_EDITOR_BLANK_SUPPRESSED screen=" +
+                    MainViewModel.Instance.buildScreenID);
+                return false;
             }
-            visibilityDiagnostics++;
-            log.LogInfo("SPECTATOR_EDITOR_ICONS_SETTLED screen=" + pendingVisibilityScreen +
-                " owner=" + pendingVisibilityOwner + " selected=" + selected +
-                " visible=" + visible + " rendered=" + rendered + " enabled=" +
-                enabled + " frozen=" + MainViewModel.Instance.FreezeMainControls +
-                " blankSuppressed=" + suppressedBlankCalls);
+            catch (Exception error)
+            {
+                LogOnce("SPECTATOR_BLANK_HOOK_ERROR: " + error);
+                return true;
+            }
+        }
+
+        private static MainViewModel placementFreezeView;
+        private static long placementFreezeSession;
+        private static void RememberPlacementFreeze()
+        {
+            placementFreezeView = MainViewModel.Instance;
+            placementFreezeSession = CurrentSessionId;
+        }
+        private static void RestorePlacementFreeze()
+        {
+            var previous = placementFreezeView;
+            long session = placementFreezeSession;
+            placementFreezeView = null;
+            placementFreezeSession = 0;
+            if (previous != null && MainViewModel.viewModelLoaded && ReferenceEquals(previous, MainViewModel.Instance) &&
+                IsCurrentSession(session) && IsSpectatorSession()) previous.buildControlsFreeze(true);
+        }
+
+        private static bool BeforeBuildControlsFreeze(ref bool Mode)
+        {
+            bool requested = Mode;
+            try
+            {
+                // A defeated participant retains its positive identity, but normal controls stay read-only.
+                bool runOriginal = SpectatorFeatureActivation.ResolveControlFreeze(Mode, SpectatorDefeat.IsEliminatedSpectator,
+                    IsSpectatorSession() && (IsPlacementSession() || SpectatorPerspectiveRuntime.IsInputControlled()), out bool effective);
+                Mode = effective;
+                if (runOriginal) return true;
+                RememberPlacementFreeze();
+                DiagLimited("freeze-suppressed", 3, () => "SPECTATOR_EDITOR_FREEZE_SUPPRESSED frozen=" +
+                    MainViewModel.Instance.FreezeMainControls);
+                return false;
+            }
+            catch (Exception error)
+            {
+                // Vanilla receives its own request unchanged.
+                Mode = requested;
+                LogOnce("SPECTATOR_FREEZE_HOOK_ERROR: " + error);
+                return true;
+            }
         }
 
         private static void RefreshBuildIcons(HUD_Main hud, int owner, string reason)
@@ -166,23 +209,15 @@ namespace Spectator
                 if (selected[index] && buttons[index] == null)
                     throw new MissingMemberException("HUD_Main", "buildButtons[" + index + "]");
 
-            int selectedCount = 0;
-            int visibleCount = 0;
-            int renderedCount = 0;
-            int enabledCount = 0;
             for (int index = 1; index < buttons.Length; index++)
             {
                 if (!known[index] || buttons[index] == null) continue;
                 Button button = buttons[index];
                 if (selected[index])
                 {
-                    selectedCount++;
                     button.IsEnabled = owner > 0 &&
                         MainViewModel.Instance.CanPlaceMapper(button.CommandParameter);
                     button.Visibility = Visibility.Visible;
-                    if (button.Visibility == Visibility.Visible) visibleCount++;
-                    if (button.IsVisible) renderedCount++;
-                    if (button.IsEnabled) enabledCount++;
                 }
                 else
                 {
@@ -192,22 +227,11 @@ namespace Spectator
             }
 
             bool changed = !ReferenceEquals(hud, activeHud) || owner != lastOwner || screen != lastScreen;
+            if (changed) RequestToolbarLayout();
             activeHud = hud;
             lastOwner = owner;
             lastScreen = screen;
-            if (changed)
-            {
-                log.LogInfo("SPECTATOR_EDITOR_ICONS reason=" + reason + " screen=" + screen +
-                    " owner=" + owner + " selected=" + selectedCount + " visible=" +
-                    visibleCount + " rendered=" + renderedCount + " enabled=" + enabledCount);
-                if (visibilityDiagnostics < 32)
-                {
-                    pendingVisibilityHud = hud;
-                    pendingVisibilityScreen = screen;
-                    pendingVisibilityOwner = owner;
-                    pendingVisibilityAt = DateTime.UtcNow.AddMilliseconds(650);
-                }
-            }
+            if (changed) DiagIconsChanged(hud, reason, screen, owner);
         }
 
         private static int AlternateBuildingButton(int index)
@@ -230,17 +254,27 @@ namespace Spectator
 
         private static void AfterCanPlaceMapper(MainViewModel __instance, object parameter, ref bool __result)
         {
-            if (!IsPlacementSession() || IsEditorToolsSession()) return;
-            string key = parameter as string;
-            if (string.IsNullOrEmpty(key)) return;
-            if (key == "STRUCT_MENU_RETURN_KEEPS")
+            bool vanilla = __result;
+            try
             {
+                if (IsReadOnlyObserverBuild()) { __result = false; return; }
+                if (!IsPlacementSession() || IsEditorToolsSession()) return;
+                string key = parameter as string;
+                if (string.IsNullOrEmpty(key)) return;
+                if (key == "STRUCT_MENU_RETURN_KEEPS")
+                {
+                    __result = CurrentAiOwner() > 0;
+                    return;
+                }
+                eMappers mapper = (eMappers)(int)__instance.getStructToMapperEnum(key);
+                if (!IsAllowedMapper(mapper)) return;
                 __result = CurrentAiOwner() > 0;
-                return;
             }
-            eMappers mapper = (eMappers)(int)__instance.getStructToMapperEnum(key);
-            if (!IsAllowedMapper(mapper)) return;
-            __result = CurrentAiOwner() > 0;
+            catch (Exception error)
+            {
+                __result = vanilla;
+                LogOnce("SPECTATOR_CAN_PLACE_HOOK_ERROR: " + error);
+            }
         }
 
         private static bool BeforeReportSubModeTabChange(int newMode)
@@ -252,12 +286,17 @@ namespace Spectator
 
         private static void AfterGetMouseStateForEngine(ref int __result, ref bool rightDown, ref bool rightUp)
         {
+            // Empty map areas may have no Noesis hit target, so their native input notification
+            // complements the root preview event. It neither consumes nor replays the click.
+            if ((__result == 1 || rightDown) && EditorDirector.instance != null && !EditorDirector.instance.overUI())
+                ReleaseAmountForMapClick();
             try { ObserveToolMouse(ref __result, ref rightDown, ref rightUp); }
             catch (Exception error) { CancelPowerSelection(); LogOnce("TEST_POWER_INPUT_ERROR: " + error); }
             lastEditorMouseState = __result;
-            if (activeWall != null && __result == 3 && wallReleaseDiagnostics++ < 16)
-                log.LogInfo("SPECTATOR_EDITOR_WALL_MOUSE state=" + __result +
-                    " owner=" + activeWall.Owner + " mapper=" + activeWall.Mapper +
+            WallRequest wall = activeWall;
+            if (wall != null && __result == 3)
+                DiagLimited("wall-release", 16, () => "SPECTATOR_EDITOR_WALL_MOUSE state=3" +
+                    " owner=" + wall.Owner + " mapper=" + wall.Mapper +
                     " overUI=" + EditorDirector.instance.overUI());
         }
 
@@ -284,21 +323,21 @@ namespace Spectator
             catch (Exception error) { CancelPowerSelection(); LogOnce("TEST_TOOL_SELECTION_ERROR: " + error); }
             WallRequest wall = activeWall;
             int state = lastEditorMouseState;
+            int tileX = mouseOverX;
+            int tileY = mouseOverY;
             lastEditorMouseState = 0;
             if ((wall != null || activeSpecial != null) && state == 0 &&
                 rawMouseReleasePending &&
                 EditorDirector.instance != null && !EditorDirector.instance.overUI())
             {
                 state = 3;
-                if (wallReleaseDiagnostics++ < 16)
-                    log.LogInfo("SPECTATOR_EDITOR_RELEASE_RECOVERED tile=" +
-                        mouseOverX + "," + mouseOverY);
+                DiagLimited("wall-release", 16, () => "SPECTATOR_EDITOR_RELEASE_RECOVERED tile=" +
+                    tileX + "," + tileY);
             }
             rawMouseReleasePending = false;
-            if (wall != null && (state == 1 || state == 3) &&
-                wallInputDiagnostics++ < 24)
-                log.LogInfo("SPECTATOR_EDITOR_WALL_FORWARD state=" + state +
-                    " tile=" + mouseOverX + "," + mouseOverY +
+            if (wall != null && (state == 1 || state == 3))
+                DiagLimited("wall-input", 24, () => "SPECTATOR_EDITOR_WALL_FORWARD state=" + state +
+                    " tile=" + tileX + "," + tileY +
                     " action=" + MainControls.instance?.CurrentAction);
             ForwardSpecialDrag(state, mouseOverX, mouseOverY);
             if (wall == null || (state != 2 && state != 3)) return;
@@ -315,8 +354,6 @@ namespace Spectator
                 activeWall = null;
                 return;
             }
-            int tileX = mouseOverX;
-            int tileY = mouseOverY;
             if (tileX < 0 || tileY < 0)
             {
                 if (state != 3) return;
@@ -339,13 +376,10 @@ namespace Spectator
             EngineInterface.PlaceMapperItem((int)wall.Mapper, tileX, tileY,
                 0, wall.Owner, false, state == 2, state);
             if (state == 3)
-            {
-                wallQueueDiagnostics++;
-                log.LogInfo("SPECTATOR_EDITOR_WALL_REQUEST session=" + wall.SessionId +
+                Shared.DevDiag.Log(() => "SPECTATOR_EDITOR_WALL_REQUEST session=" + wall.SessionId +
                     " owner=" + wall.Owner +
                     " mapper=" + wall.Mapper + " start=" + wall.StartX + "," + wall.StartY +
                     " end=" + wall.EndX + "," + wall.EndY);
-            }
         }
 
         private static void ForwardSpecialDrag(int state, int tileX, int tileY)
@@ -370,10 +404,9 @@ namespace Spectator
             }
             EngineInterface.PlaceMapperItem((int)special.Mapper, tileX, tileY, 0,
                 special.Owner, false, false, state);
-            if (specialInputDiagnostics++ < 24 || state == 3)
-                log.LogInfo("SPECTATOR_EDITOR_SPECIAL_FORWARD owner=" + special.Owner +
-                    " mapper=" + special.Mapper + " tile=" + tileX + "," + tileY +
-                    " state=" + state);
+            DiagLimited("special-input", state == 3 ? int.MaxValue : 24, () => "SPECTATOR_EDITOR_SPECIAL_FORWARD owner=" +
+                special.Owner + " mapper=" + special.Mapper + " tile=" + tileX + "," + tileY +
+                " state=" + state);
             if (state == 3) activeSpecial = null;
         }
 
@@ -382,7 +415,14 @@ namespace Spectator
             out WallStoneScope __state)
         {
             __state = null;
-            if (!IsPlacementSession()) return true;
+            if (!IsPlacementSession())
+            {
+                // Vanilla passes the spectator's nonpositive managed ID; control builds as the
+                // controlled player with Vanilla's normal (paid) in-game semantics.
+                int controlled = IsSpectatorSession() ? SpectatorPerspectiveRuntime.InputControlledPlayer() : 0;
+                if (controlled > 0) player = controlled;
+                return true;
+            }
             eMappers mapper = (eMappers)item;
             // The real editor already owns free placement, input state and visual registration.
             // Only route its building/unit owner; keep its complete native editor path.
@@ -404,22 +444,23 @@ namespace Spectator
             // Moat drawing is a live-game dig order. Keep Vanilla's in-game flag;
             // editor placement semantics are only needed by the other mappers.
             inGameNotEditor = mapper == eMappers.MAPPER_MOAT;
+            DiagPlacementInput(mapper, owner, x, y, constructingOnly, mouseState);
             if (IsWallMapper(mapper))
             {
-                if (!TryRaiseStone(owner, out __state)) return false;
-                if (mouseState != 0 ? wallInputDiagnostics++ < 40 :
-                    wallPreviewDiagnostics++ < 12)
-                    log.LogInfo("SPECTATOR_EDITOR_WALL_NATIVE state=" + mouseState +
+                bool raised = TryRaiseStone(owner, out WallStoneScope stone);
+                __state = stone;
+                if (!raised) return false;
+                DiagLimited(mouseState != 0 ? "wall-input" : "wall-preview", mouseState != 0 ? 40 : 12,
+                    () => "SPECTATOR_EDITOR_WALL_NATIVE state=" + mouseState +
                         " owner=" + owner + " mapper=" + mapper + " tile=" + x + "," + y +
-                        " stone=" + __state.OriginalStone);
+                        " stone=" + stone.OriginalStone);
                 if (mouseState == 1 && constructingOnly)
                 {
                     activeWall = new WallRequest { Owner = owner, Mapper = mapper,
                         StartX = x, StartY = y, EndX = x, EndY = y,
                         SessionId = CurrentSessionId };
-                    if (wallPressDiagnostics++ < 16)
-                        log.LogInfo("SPECTATOR_EDITOR_WALL_PRESS owner=" + owner +
-                            " mapper=" + mapper + " tile=" + x + "," + y);
+                    DiagLimited("wall-press", 16, () => "SPECTATOR_EDITOR_WALL_PRESS owner=" + owner +
+                        " mapper=" + mapper + " tile=" + x + "," + y);
                 }
                 return true;
             }
@@ -452,9 +493,8 @@ namespace Spectator
                         }
                     }
                     pitchClickScope = pitch;
-                    if (specialInputDiagnostics++ < 24)
-                        log.LogInfo("SPECTATOR_EDITOR_PITCH_REQUEST owner=" + owner +
-                            " tile=" + x + "," + y + " state=" + mouseState);
+                    DiagLimited("special-input", 24, () => "SPECTATOR_EDITOR_PITCH_REQUEST owner=" + owner +
+                        " tile=" + x + "," + y + " state=" + mouseState);
                 }
                 return true;
             }
@@ -462,10 +502,9 @@ namespace Spectator
             {
                 if (mouseState == 3 && !constructingOnly)
                 {
-                    placingUnitOwner = owner;
-                    if (unitRequests++ < 32)
-                        log.LogInfo("SPECTATOR_EDITOR_UNIT_REQUEST owner=" + owner + " mapper=" +
-                            mapper + " tile=" + x + "," + y);
+                    DiagPlacingUnit(owner);
+                    DiagLimited("unit-request", 32, () => "SPECTATOR_EDITOR_UNIT_REQUEST owner=" + owner + " mapper=" +
+                        mapper + " tile=" + x + "," + y);
                 }
                 return true;
             }
@@ -487,7 +526,7 @@ namespace Spectator
                 ExpiresAtUtc = DateTime.UtcNow.AddSeconds(5) };
             buildingClickScope = request;
             pendingBuilding = request;
-            log.LogInfo("SPECTATOR_EDITOR_BUILD_REQUEST owner=" + owner + " mapper=" + mapper +
+            Shared.DevDiag.Log(() => "SPECTATOR_EDITOR_BUILD_REQUEST owner=" + owner + " mapper=" + mapper +
                 " cursor=" + x + "," + y + " origin=" + (x - scale / 2) + "," +
                 (y - scale / 2));
             return true;
@@ -496,29 +535,33 @@ namespace Spectator
         private static bool BeforeDeleteBuilding(int x, int y, ref int player,
             ref bool inGameNotEditor, int mouseState)
         {
+            if (!IsPlacementSession())
+            {
+                int controlled = IsSpectatorSession() ? SpectatorPerspectiveRuntime.InputControlledPlayer() : 0;
+                if (controlled > 0) { player = controlled; return true; }
+            }
             if (!humanPlacementMode || !IsHumanSingleplayerSession() ||
                 MainControls.instance == null || MainControls.instance.CurrentAction != 6)
                 return true;
             int owner = CurrentAiOwner();
             if (owner < 1)
             {
-                if (deleteDiagnostics++ < 16)
-                    log.LogInfo("SPECTATOR_EDITOR_DELETE_BLOCKED tile=" + x + "," + y +
-                        " state=" + mouseState + " owner=" + owner);
+                DiagLimited("delete", 16, () => "SPECTATOR_EDITOR_DELETE_BLOCKED tile=" + x + "," + y +
+                    " state=" + mouseState + " owner=" + owner);
                 return false;
             }
             player = owner;
             if (!IsEditorToolsSession()) inGameNotEditor = true;
-            if (deleteDiagnostics++ < 32)
-                log.LogInfo("SPECTATOR_EDITOR_DELETE_REQUEST session=" + CurrentSessionId +
-                    " owner=" + owner + " tile=" + x + "," + y +
-                    " state=" + mouseState);
+            DiagLimited("delete", 32, () => "SPECTATOR_EDITOR_DELETE_REQUEST session=" + CurrentSessionId +
+                " owner=" + owner + " tile=" + x + "," + y +
+                " state=" + mouseState);
             return true;
         }
 
         private static void AfterPlaceMapperItem()
         {
-            placingUnitOwner = 0;
+            DiagPlacementInputEnd();
+            DiagPlacingUnit(0);
             pitchClickScope = null;
             BuildingRequest request = buildingClickScope;
             if (request != null)
@@ -531,11 +574,12 @@ namespace Spectator
         private static Exception FinalizePlaceMapperItem(Exception __exception,
             WallStoneScope __state)
         {
+            DiagPlacementInputEnd();
             if (__state != null) RestoreStone(__state.Owner, __state.OriginalStone);
             if (__exception != null && pitchClickScope != null)
                 lock (pitchLock) pendingPitch.Remove(pitchClickScope);
             pitchClickScope = null;
-            placingUnitOwner = 0;
+            DiagPlacingUnit(0);
             if (__exception != null && buildingClickScope != null &&
                 ReferenceEquals(pendingBuilding, buildingClickScope))
                 pendingBuilding = null;
@@ -629,13 +673,12 @@ namespace Spectator
             if (args.Phase == EventHookPhase.Pre)
             {
                 WallRequest request = pendingWall;
-                if (wallOrderDiagnostics++ < 40)
-                    log.LogInfo("SPECTATOR_EDITOR_WALL_EVENT phase=Pre owner=" + args.PlayerId +
-                        " mapper=" + args.WallType + " start=" + args.TileXBegin + "," +
-                        args.TileYBegin + " end=" + args.TileXEnd + "," + args.TileYEnd +
-                        " pending=" + (request == null ? "none" : request.Owner + "/" +
-                            request.Mapper + "/" + request.StartX + "," + request.StartY + "-" +
-                            request.EndX + "," + request.EndY));
+                DiagLimited("wall-order", 40, () => "SPECTATOR_EDITOR_WALL_EVENT phase=Pre owner=" + args.PlayerId +
+                    " mapper=" + args.WallType + " start=" + args.TileXBegin + "," +
+                    args.TileYBegin + " end=" + args.TileXEnd + "," + args.TileYEnd +
+                    " pending=" + (request == null ? "none" : request.Owner + "/" +
+                        request.Mapper + "/" + request.StartX + "," + request.StartY + "-" +
+                        request.EndX + "," + request.EndY));
                 int nativeOwner = args.PlayerId;
                 if (!WallMatches(request, args) ||
                     (nativeOwner != request.Owner &&
@@ -653,16 +696,17 @@ namespace Spectator
                     hasNativeResources = true;
                 }
                 pendingWall = null;
-                buildingWall = new WallBuildScope { Request = request,
+                var started = new WallBuildScope { Request = request,
                     OriginalStone = resources->r_TotalGoodsStoneBlocks,
                     OriginalCost = resources->r_LastBoughtWallStoneCost,
                     NativeOwner = nativeOwner, NativeOwnerStone = nativeStone,
                     NativeOwnerCost = nativeCost,
                     HasNativeOwnerResources = hasNativeResources };
+                buildingWall = started;
                 args.PlayerId = request.Owner;
-                log.LogInfo("SPECTATOR_EDITOR_WALL_MATCH session=" + request.SessionId +
+                Shared.DevDiag.Log(() => "SPECTATOR_EDITOR_WALL_MATCH session=" + request.SessionId +
                     " owner=" + request.Owner + " nativeOwner=" + nativeOwner +
-                    " mapper=" + request.Mapper + " stone=" + resources->r_TotalGoodsStoneBlocks);
+                    " mapper=" + request.Mapper + " stone=" + started.OriginalStone);
                 if (resources->r_TotalGoodsStoneBlocks < 125)
                     resources->r_TotalGoodsStoneBlocks = 125;
                 return;
@@ -671,7 +715,7 @@ namespace Spectator
             if (scope == null || !WallCoordinatesMatch(scope.Request, args)) return;
             RestoreWallResources(scope);
             buildingWall = null;
-            log.LogInfo("SPECTATOR_EDITOR_WALL_BUILT owner=" + args.PlayerId +
+            Shared.DevDiag.Log(() => "SPECTATOR_EDITOR_WALL_BUILT owner=" + args.PlayerId +
                 " mapper=" + args.WallType + " start=" + args.TileXBegin + "," +
                 args.TileYBegin + " end=" + args.TileXEnd + "," + args.TileYEnd +
                 " stone=" + scope.OriginalStone + " skippedDeductions=" +
@@ -688,10 +732,9 @@ namespace Spectator
                             PitchChoreMatches(pitch))
                         {
                             args.SkipOriginalFunction = true;
-                            if (pitchCostDiagnostics++ < 24)
-                                log.LogInfo("SPECTATOR_EDITOR_PITCH_COST_SKIPPED owner=" +
-                                    args.PlayerId + " tile=" + pitch.X + "," + pitch.Y +
-                                    " amount=" + args.Amount);
+                            DiagLimited("pitch-cost", 24, () => "SPECTATOR_EDITOR_PITCH_COST_SKIPPED owner=" +
+                                args.PlayerId + " tile=" + pitch.X + "," + pitch.Y +
+                                " amount=" + args.Amount);
                             return;
                         }
             }
@@ -700,9 +743,8 @@ namespace Spectator
                 args.Good != eGoods.STORED_STONE_BLOCKS) return;
             args.SkipOriginalFunction = true;
             scope.Subtractions++;
-            if (wallCostDiagnostics++ < 40)
-                log.LogInfo("SPECTATOR_EDITOR_WALL_COST_SKIPPED owner=" + args.PlayerId +
-                    " good=" + args.Good + " amount=" + args.Amount);
+            DiagLimited("wall-cost", 40, () => "SPECTATOR_EDITOR_WALL_COST_SKIPPED owner=" + args.PlayerId +
+                " good=" + args.Good + " amount=" + args.Amount);
         }
 
         private static void OnBuildPitchDitch(BuildPitchDitchEventArgs args)
@@ -713,10 +755,9 @@ namespace Spectator
                         PitchChoreMatches(pitch))
                     {
                         if (args.Phase == EventHookPhase.Post) pitch.Built = args.ReturnValue > 0;
-                        if (pitchCostDiagnostics++ < 24)
-                            log.LogInfo("SPECTATOR_EDITOR_PITCH_BUILD phase=" + args.Phase +
-                                " owner=" + args.PlayerId + " tile=" + args.TileX + "," +
-                                args.TileY + " result=" + args.ReturnValue);
+                        DiagLimited("pitch-cost", 24, () => "SPECTATOR_EDITOR_PITCH_BUILD phase=" + args.Phase +
+                            " owner=" + args.PlayerId + " tile=" + args.TileX + "," +
+                            args.TileY + " result=" + args.ReturnValue);
                         return;
                     }
         }
@@ -753,7 +794,7 @@ namespace Spectator
                 };
                 pendingMoat.Add(probeNew);
                 moatInputDiagnostics++;
-                log.LogInfo("SPECTATOR_EDITOR_MOAT_INPUT session=" + probeNew.SessionId +
+                Shared.DevDiag.Log(() => "SPECTATOR_EDITOR_MOAT_INPUT session=" + probeNew.SessionId +
                     " owner=" + owner + " tile=" + x + "," + y +
                     " state=" + mouseState + " priorTask=" + probeNew.BeforeIndex +
                     " priorFlags=0x" + probeNew.BeforeFlags.ToString("X8") +
@@ -793,14 +834,13 @@ namespace Spectator
                         ((flags ^ probe.BeforeFlags) & (uint)TilePropertyFlag.PlannedMoat) != 0;
                     if (!completed && probe.Samples < 5 &&
                         DateTime.UtcNow < probe.ExpiresAtUtc) continue;
-                    if (moatOutcomeDiagnostics++ < 32)
-                        log.LogInfo("SPECTATOR_EDITOR_MOAT_OUTCOME tick=" + tick +
-                            " session=" + probe.SessionId + " owner=" + probe.Owner +
-                            " tile=" + probe.X + "," + probe.Y +
-                            " task=" + taskIndex + " taskOwner=" + taskOwner +
-                            " flags=0x" + flags.ToString("X8") +
-                            " activeTasks=" + tiles.GetMoatWorkTaskActiveCount() +
-                            " samples=" + probe.Samples);
+                    DiagLimited("moat-outcome", 32, () => "SPECTATOR_EDITOR_MOAT_OUTCOME tick=" + tick +
+                        " session=" + probe.SessionId + " owner=" + probe.Owner +
+                        " tile=" + probe.X + "," + probe.Y +
+                        " task=" + taskIndex + " taskOwner=" + taskOwner +
+                        " flags=0x" + flags.ToString("X8") +
+                        " activeTasks=" + tiles.GetMoatWorkTaskActiveCount() +
+                        " samples=" + probe.Samples);
                     pendingMoat.RemoveAt(index);
                     if (completed && taskOwner == probe.Owner &&
                         humanPlacementMode && IsHumanSingleplayerSession())
@@ -813,36 +853,19 @@ namespace Spectator
         {
             try { CheckMoatProbes(tick); }
             catch (Exception error) { LogOnce("SPECTATOR_EDITOR_MOAT_DIAGNOSTIC_ERROR: " + error); }
-            lock (visualSamplesLock)
-            {
-                for (int index = visualSamples.Count - 1; index >= 0; index--)
-                {
-                    BuildingVisualSample sample = visualSamples[index];
-                    if (tick < sample.NextTick) continue;
-                    log.LogInfo("SPECTATOR_EDITOR_BUILD_VISUAL_LATER tick=" + tick +
-                        " source=" + sample.Source + " buildingId=" + sample.BuildingId +
-                        " " + DescribeBuildingVisual(sample.BuildingId, sample.X, sample.Y));
-                    sample.Samples++;
-                    if (sample.Samples >= 3) visualSamples.RemoveAt(index);
-                    else sample.NextTick = tick + (sample.Samples == 1 ? 4 : 16);
-                }
-            }
+            DiagSimulationTick(tick);
             BuildingRequest request = pendingBuilding;
             if (request != null && DateTime.UtcNow > request.ExpiresAtUtc)
             {
                 pendingBuilding = null;
-                if (buildingDiagnostics++ < 20)
-                    log.LogInfo("SPECTATOR_EDITOR_BUILD_EXPIRED tick=" + tick +
-                        " owner=" + request.Owner + " mapper=" + request.Mapper +
-                        " spawned=" + request.Spawned);
+                DiagBuildExpired(tick, request);
             }
             WallRequest wall = pendingWall;
             if (wall != null && DateTime.UtcNow > wall.ExpiresAtUtc)
             {
                 pendingWall = null;
-                if (wallOrderDiagnostics++ < 40)
-                    log.LogInfo("SPECTATOR_EDITOR_WALL_EXPIRED tick=" + tick +
-                        " owner=" + wall.Owner + " mapper=" + wall.Mapper);
+                DiagLimited("wall-order", 40, () => "SPECTATOR_EDITOR_WALL_EXPIRED tick=" + tick +
+                    " owner=" + wall.Owner + " mapper=" + wall.Mapper);
             }
             lock (pitchLock)
                 pendingPitch.RemoveAll(pitch => DateTime.UtcNow > pitch.ExpiresAtUtc ||
@@ -863,89 +886,16 @@ namespace Spectator
             {
                 request.BuildStarted = true;
                 args.IsFree = true;
-                if (buildingDiagnostics++ < 24)
-                    log.LogInfo("SPECTATOR_EDITOR_BUILD_NATIVE owner=" + args.PlayerId +
-                        " mapper=" + args.Mappers + " tile=" + args.TileX + "," +
-                        args.TileY + " scale=" + args.BuildingScaleUnknown +
-                        " variant=" + args.Unknown1 + " free=True");
+                DiagLimited("building", 24, () => "SPECTATOR_EDITOR_BUILD_NATIVE owner=" + args.PlayerId +
+                    " mapper=" + args.Mappers + " tile=" + args.TileX + "," +
+                    args.TileY + " scale=" + args.BuildingScaleUnknown +
+                    " variant=" + args.Unknown1 + " free=True");
             }
             else if (request.BuildStarted)
             {
                 pendingBuilding = null;
-                if (buildingDiagnostics++ < 24)
-                    log.LogInfo("SPECTATOR_EDITOR_BUILD_FINISHED owner=" + args.PlayerId +
-                        " mapper=" + args.Mappers + " spawned=" + request.Spawned);
+                DiagBuildFinished(args, request);
             }
-        }
-
-        private static unsafe void OnBuildingSpawn(BuildingSpawnEventArgs args)
-        {
-            if (args.Building != eStructs.STRUCT_WELL && pendingBuilding == null) return;
-            BuildingRequest request = pendingBuilding;
-            bool ours = request != null && request.BuildStarted &&
-                request.Owner == args.PlayerId &&
-                request.X - request.Scale / 2 == args.TileX &&
-                request.Y - request.Scale / 2 == args.TileY;
-            if (!ours && (args.Building != eStructs.STRUCT_WELL ||
-                vanillaWellDiagnostics++ >= 8)) return;
-            if (args.Phase == EventHookPhase.Post && ours)
-                request.Spawned = args.ReturnValue > 0;
-            log.LogInfo("SPECTATOR_EDITOR_BUILD_VISUAL source=" + (ours ? "spectator" : "vanilla") +
-                " phase=" + args.Phase + " owner=" + args.PlayerId +
-                " building=" + args.Building + " tile=" + args.TileX + "," + args.TileY +
-                " buildingId=" + args.ReturnValue + " visualOwner=" + args.VisualPlayerId +
-                " variation=" + args.SpriteVariationIndex + " " +
-                DescribeBuildingVisual((int)args.ReturnValue, args.TileX, args.TileY));
-            if (args.Phase == EventHookPhase.Post && args.ReturnValue > 0 &&
-                args.Building == eStructs.STRUCT_WELL)
-                lock (visualSamplesLock)
-                    visualSamples.Add(new BuildingVisualSample {
-                        BuildingId = (int)args.ReturnValue, X = args.TileX, Y = args.TileY,
-                        Source = ours ? "spectator" : "vanilla"
-                    });
-        }
-
-        private static unsafe string DescribeBuildingVisual(int buildingId, int x, int y)
-        {
-            try
-            {
-                int tileId = GameTileManagerAPI.Instance.GetTileId(x, y);
-                var gfx = GameTileManagerAPI.Instance.GetGfxLayer();
-                var alpha = GameTileManagerAPI.Instance.GetAlphaGfxLayer();
-                var structure = GameTileManagerAPI.Instance.GetStructureLayer();
-                string tiles = tileId >= 0 && tileId < gfx.Length &&
-                    tileId < alpha.Length && tileId < structure.Length ?
-                    "gfx=" + gfx[tileId] + " alpha=" + alpha[tileId] +
-                    " structure=" + structure[tileId] : "tile=invalid";
-                if (buildingId > 0 && GameBuildingManagerAPI.Instance.TryGetBuildingById(
-                    buildingId, out GameBuilding* building) && building != null)
-                    return tiles + " record=" + building->r_BuildingType + "/" +
-                        building->r_SpriteVariationIndex + "/" +
-                        building->r_SpritePlayerColorId + "/" +
-                        building->r_TilePositionXBegin + "," + building->r_TilePositionYBegin;
-                return tiles + " record=none";
-            }
-            catch (Exception error)
-            {
-                LogOnce("SPECTATOR_EDITOR_VISUAL_DIAGNOSTIC_ERROR: " + error);
-                return "visual=unavailable";
-            }
-        }
-
-        private static unsafe void OnTribeAssigned(TribeAssignUnitEventArgs args)
-        {
-            int owner = placingUnitOwner;
-            if (owner <= 0 || unitDiagnostics >= 32) return;
-            try
-            {
-                if (!APIShared.UnitAccess.TryGetById(args.UnitId, out GameUnit* unit, out _) ||
-                    unit == null || unit->r_ControllableForPlayerId != owner)
-                    return;
-                unitDiagnostics++;
-                log.LogInfo("SPECTATOR_EDITOR_UNIT_GROUP owner=" + owner + " unitId=" +
-                    args.UnitId + " tribeId=" + args.TribeId + " aiRole=" + unit->r_AITribeRole);
-            }
-            catch (Exception error) { LogOnce("SPECTATOR_EDITOR_UNIT_DIAGNOSTIC_ERROR: " + error); }
         }
 
         private static bool IsAllowedMapper(eMappers mapper)

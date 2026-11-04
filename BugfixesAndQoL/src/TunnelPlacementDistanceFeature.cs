@@ -79,7 +79,7 @@ namespace BugfixesAndQoL
                     if (!invalidPlayerLogged)
                     {
                         invalidPlayerLogged = true;
-                        Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/TunnelPlacementDistanceFeature.cs:82", $"Building placement-clearance validation ignored invalid player ID {args.PlayerId}.");
+                        Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/TunnelPlacementDistanceFeature/OnPlacementValidation.ignored-invalid-player-id", $"Building placement-clearance validation ignored invalid player ID {args.PlayerId}.");
                     }
                     return;
                 }
@@ -131,7 +131,7 @@ namespace BugfixesAndQoL
                 if (callbackFailureLogged)
                     return;
                 callbackFailureLogged = true;
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/TunnelPlacementDistanceFeature.cs:136", $"Building placement-clearance validation failed and left Vanilla behavior unchanged: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/TunnelPlacementDistanceFeature/OnPlacementValidation.failed-left-vanilla-behavior", $"Building placement-clearance validation failed and left Vanilla behavior unchanged: {ex}");
             }
         }
 
@@ -151,7 +151,7 @@ namespace BugfixesAndQoL
                 if (!unavailableMoatLayoutLogged)
                 {
                     unavailableMoatLayoutLogged = true;
-                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/TunnelPlacementDistanceFeature.cs:158", "Building placement-clearance validation cannot resolve completed-moat ownership because the native layout is not validated; Vanilla behavior remains unchanged for moat clearance.");
+                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/TunnelPlacementDistanceFeature/IsHostileCompletedMoatTile", "Building placement-clearance validation cannot resolve completed-moat ownership because the native layout is not validated; Vanilla behavior remains unchanged for moat clearance.");
                 }
                 return false;
             }
@@ -197,7 +197,7 @@ namespace BugfixesAndQoL
             if (!invalidMoatRecordLogged)
             {
                 invalidMoatRecordLogged = true;
-                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/TunnelPlacementDistanceFeature.cs:206", $"Building placement-clearance validation ignored an invalid completed-moat record at tile {tileId}: {reason}. Vanilla behavior remains unchanged for that tile.");
+                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/TunnelPlacementDistanceFeature/LogInvalidMoatRecordOnce", $"Building placement-clearance validation ignored an invalid completed-moat record at tile {tileId}: {reason}. Vanilla behavior remains unchanged for that tile.");
             }
             return false;
         }
@@ -224,7 +224,7 @@ namespace BugfixesAndQoL
                 else if (!invalidBuildingLogged)
                 {
                     invalidBuildingLogged = true;
-                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/TunnelPlacementDistanceFeature.cs:235", $"Tunnel placement-distance validation could not resolve building ID {buildingId}; that tile remains governed by Vanilla.");
+                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/TunnelPlacementDistanceFeature/IsHostileStructureTile.could-not-resolve-building", $"Tunnel placement-distance validation could not resolve building ID {buildingId}; that tile remains governed by Vanilla.");
                 }
             }
 
@@ -238,7 +238,7 @@ namespace BugfixesAndQoL
                 if (!invalidWallOwnerLogged)
                 {
                     invalidWallOwnerLogged = true;
-                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/TunnelPlacementDistanceFeature.cs:251", $"Tunnel placement-distance validation ignored invalid wall owner ID {wallOwnerId}.");
+                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/TunnelPlacementDistanceFeature/IsHostileStructureTile.ignored-invalid-wall-owner", $"Tunnel placement-distance validation ignored invalid wall owner ID {wallOwnerId}.");
                 }
                 return false;
             }
@@ -255,7 +255,7 @@ namespace BugfixesAndQoL
                 if (!invalidBuildingLogged)
                 {
                     invalidBuildingLogged = true;
-                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/TunnelPlacementDistanceFeature.cs:270", $"Building placement-clearance validation ignored invalid building owner ID {ownerId}.");
+                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/TunnelPlacementDistanceFeature/IsHostilePlayer", $"Building placement-clearance validation ignored invalid building owner ID {ownerId}.");
                 }
                 return false;
             }
@@ -270,7 +270,7 @@ namespace BugfixesAndQoL
             if (unexpectedScaleLogged)
                 return;
             unexpectedScaleLogged = true;
-            Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/TunnelPlacementDistanceFeature.cs:287", "Building placement-clearance validation left Vanilla behavior unchanged because " +
+            Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/TunnelPlacementDistanceFeature/LogUnexpectedScaleOnce", "Building placement-clearance validation left Vanilla behavior unchanged because " +
                 $"the footprint contract was unexpected: mapper={mapper}, apiScale={apiScale}, eventScale={eventScale}.");
         }
 

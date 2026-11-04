@@ -22,6 +22,8 @@ namespace ExtraFeatures
     internal sealed unsafe class AiFlagDiseaseTracker : IDisposable
     {
         private const string SaveDataIdentifier = "ExtraFeatures.AiFlagDisease.v1";
+        // log2 of the eight native world units per map tile.
+        private const int WorldUnitsPerTileShift = 3;
 
         // AI decoration/flag update, reference RVA 0x504F0 for CrusaderDE.dll SHA-256
         // FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
@@ -226,7 +228,7 @@ namespace ExtraFeatures
             {
                 try
                 {
-                    bool spawnedByAiFlag = playerId >= 1 && playerId <= 8 &&
+                    bool spawnedByAiFlag = playerId >= 1 && playerId <= GamePlayerManagerAPI.MAX_PLAYERS &&
                         args.PlayerSourceId == playerId;
                     bool spawnedOverCesspit = !spawnedByAiFlag && IsSpawnedOverCesspit(args);
                     if (!spawnedByAiFlag && !spawnedOverCesspit)
@@ -266,8 +268,8 @@ namespace ExtraFeatures
             }
 
             // Projectile world coordinates use eight native units per map tile.
-            int sourceTileX = args.SourceWorldTileX >> 3;
-            int sourceTileY = args.SourceWorldTileY >> 3;
+            int sourceTileX = args.SourceWorldTileX >> WorldUnitsPerTileShift;
+            int sourceTileY = args.SourceWorldTileY >> WorldUnitsPerTileShift;
             GameTileManagerAPI tiles = GameTileManagerAPI.Instance;
             if (!tiles.IsTileInsideMapBounds(sourceTileX, sourceTileY))
                 return false;

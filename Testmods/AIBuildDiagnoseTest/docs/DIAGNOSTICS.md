@@ -1,5 +1,65 @@
 # General AI construction diagnostics
 
+## Current ownership after the general/special split
+
+Use **AIBuildDiagnoseTest without CanarariWoodTest** for the initial investigation
+of an arbitrary AI construction case. It retains scheduler/AIV, resource/site
+selection, scalar route results, build/spawn and actual wall-change observations,
+along with the existing economy, trade, protection-availability and removal records.
+Wood and farm construction still appear in these general records.
+
+Installing **CanarariWoodTest** additionally activates its passive wood/farm detail
+observer for arbitrary supported sessions. The companion now owns the large native
+snapshots, search replays and alternatives, candidate scans, orchard/parcel tracking,
+route-connection interpretation and wood-target/wall correlations. Without the
+companion none of these captures, scans or subscriptions run. The general tick does
+not wait for an orchard scan. Special capture failures do not stop scalar results.
+
+The native hooks and the nine-member Bugfix sink keep their existing single owners.
+The internal companion bridge requests snapshots synchronously at the same native
+boundaries; it neither repeats native searches nor changes public APIShared contracts.
+The general mod retains 56 MiB of construction logs plus the 8 MiB economy reserve.
+The companion has its own 56 MiB session budget, including experiment records;
+`AI_BUILD_SPECIAL_SUMMARY`, `AI_BUILD_SPECIAL_BUDGET` and overflow records identify it.
+
+Active experiments remain separate, default-off and restricted by their existing
+copy/calibration/hash guards. Installing the companion alone performs no experiment
+and does not enable the Fixes filter override. BugfixesAndQoL remains a hard
+dependency: a general observation run is not automatically a Vanilla-only baseline.
+Choose the gameplay-mod configuration explicitly for a Vanilla comparison.
+
+The general test project compiles no companion sources. Companion integration and
+disposable-copy tests are under `CanarariWoodTest/tests/Companion.Tests`; native
+wood/farm audit checks moved with their readers. Both build drivers support
+`/noinstall`. Current dependency paths/versions must be verified at build time;
+the dated validation entries below describe their original runs only.
+
+## Optional AIWoodSafetyTest intervention
+
+Without AIWoodSafetyTest the general diagnostic remains passive. The separate
+singleplayer testmod owns the active safety policy; install only a paired build
+when an intervention is explicitly wanted. It needs no Canari companion. The
+private WoodSafetyBridge adds no public APIShared or Bugfix-sink member and no
+competing hook. Existing general owners publish nested synchronous wood-build
+scopes and the current worker-counter point; observer errors are caught separately.
+End coverage includes the process-wide woodSafetyCallbackFailuresProcess count.
+
+At the existing post-ADD point, identities and nativeAfter are copied before the
+optional intervention. The general observer then samples the actual remaining
+counter. WORKER_COUNTER_CORRECTION distinguishes nativeAdd=10, nativeAfter,
+remainingCounter, correctionConfirmed and netAdd. A confirmed undone contribution
+does not enter the effective-increment ledger. Any unacknowledged change remains
+unknown. Worker snapshots additionally retain the native death-marker raw value.
+No saved counter is reset; missing or conflicting identities cannot authorize a write.
+The regular death/removal/rebuild evidence and existing budgets remain in place.
+
+Detailed rules, configuration, native update contract and pending affected-save
+comparison: ../AIWoodSafetyTest/docs/DIAGNOSTICS.md (from the mod directory).
+Builds of the pair do not install either mod by default. Existing historical
+installation/acceptance records below do not certify the new testfix.
+
+The following original description and validation records predate this split.
+
 AIBuildDiagnoseTest observes new and loaded games for all AI player slots,
 including custom Lords. Editor and replay sessions are excluded. It records
 AIV steps, resource/site searches, routes, construction events, positive-ID spawns,
@@ -46,10 +106,97 @@ in game. Source/build tests do not establish that these game runs occurred.
 
 ## Economy, decision and removal records
 
+### Confirming a repeated woodcutter demolition
+
+`WORKER_DEATH` copies an Extender melee/projectile kill event, including unit and
+linked building identities, health, worker tile and movement target. Melee attacker
+identity and raw team IDs are copied when resolvable. Projectile source-player
+fields stay raw: a source slot alone does not identify the historical shooter.
+These events never change event arguments. `WORKER_EVENT_SOURCE` confirms the
+first actual source callback per session; registration alone is not execution proof.
+
+`WORKER_RETURN_FAILURE` identifies the observed return-helper-zero branch before
+Vanilla writes worker state 110. Building/global-ID mismatch is separate from an
+effective accessibility rejection; deeper tile/path rejection remains unknown.
+`WORKER_COUNTER_INCREMENT` observes the real hut counter immediately after its
+native +10 write. It links a recorded death or return failure only when unit and
+building identities agree. Conflicting triggers, changed assignments, positive
+health after a death report and missing history remain explicit unknowns.
+Repeated increments for one unit do not become additional unique deaths.
+
+The causal records flow into `REMOVAL_MARKED`, `REMOVAL_CAUSE_CONFIRMED` and
+`REBUILD_AFTER_REMOVAL` as immutable `workerEvidence`. The rebuild record also
+carries the active construction frame's search, route and pre-build site state.
+The last recorded wood eligibility and resource decision include their own tick,
+operation, arguments and captured inputs; an older/unmatched check is not claimed
+as the particular spawn's current prerequisite call.
+Death positions, movement targets and hut positions are distinct. Initial save
+counters have unknown history; their values alone prove no previous worker deaths.
+
+The general mod alone emits these passive `AI_ECONOMY_` records:
+
+- `REMOVAL_DECISION`: the actual retirement return and entry inputs. `wood-distance`
+  requires at least 21 wood planks, two fully staffed huts and stored worst path
+  length at least 25. `wood-grid-empty` uses the map-wide grid wood weight, not
+  nearby visible trees. `wood-counter` uses the signed hut counter at least 20
+  and the recorded native guards; the counter's full meaning remains unestablished.
+- `REMOVAL_CELL`: only the affected 5-by-5 cell before/after Vanilla updates its
+  retry delay and removal count. Delay steps are coarse refreshes, not game ticks.
+- `REMOVAL_MARKED`: the same slot/global ID is actually marked for deletion.
+  `accessibility-sweep` identifies the executed sweep removal path, including
+  any retained protection effect; its original/effective numerical return and
+  deeper classification remain unavailable. `accessibility-group-followup`
+  identifies a marked member of the propagated group; its prior state is unknown.
+- `REMOVAL_CAUSE_CONFIRMED`: the marked identity is subsequently zeroed or replaced.
+  Missing lookups are gaps, not successful removals. Marking/refund/return alone
+  never produces this confirmation.
+- `REBUILD_AFTER_REMOVAL`: a new spawn of the same player/type lies in the same
+  coarse cell or one of its eight neighbors. It names the latest confirmed removal,
+  both positions, elapsed ticks and repetition count. This is spatial correlation,
+  not proof that the new hut will fail for the same reason.
+
+Follow the chain `REMOVAL_DECISION` / accessibility `REMOVAL_CELL` ->
+`REMOVAL_MARKED` -> `REMOVAL_CAUSE_CONFIRMED` -> `REBUILD_AFTER_REMOVAL` using
+session, operation, slot and global ID. For a distance finding, the stored value
+is a calculated worker route length; these records do not establish why the route
+was long or why a particular tree was selected. That may require a later detail run.
+Initial save contents have unknown history. Session replacement/failed loading
+clears pending marks and spatial history. Summaries report pending marks, reason
+counters and `removalStateOmitted`; each state table is capped at 8192 entries.
+No companion or experiment is needed. The existing 8 MiB economy budget is split:
+4 MiB routine details, 4 MiB cause evidence including a separate 64 KiB final reserve.
+Periodic summaries use the routine share. Compact end summaries, coverage and budget
+totals remain available when routine/cause details are full. `routineBytes`,
+`causeBytes`, `finalBytes` and per-category omissions show which evidence is incomplete.
+Non-removing decisions are sampled on predicate/identity changes; actual return-1
+decisions always retain their full inputs subject to the byte budget. Suppressed
+samples are counted as `removal-input-same-gates`. Counter-call totals include
+zero-counter updates even though those allocate no detailed operation.
+The counter path no longer emits duplicate generic `DECISION_RESULT` rows. Generic
+decision deduplication includes its argument context, so alternating huts/mappers
+cannot defeat suppression by overwriting a single per-player cache entry.
+
+For acceptance on another save, capture a complete chain and repeat it with new
+unit/building identities, checking coverage and capture failures. Machine tests
+and builds do not count as a completed game run.
+
+Dated acceptance, 2026-10-31: `test_stresstest4.sav`, installed dependencies and
+current gameplay settings, 120-second automated run, tick 19895 at shutdown.
+Player 3 had seven distinct removed hut identities with observed combat increments,
+confirmed removal and nearby rebuilding; twelve distinct worker identities were
+linked. Five of those hut histories contain two distinct observed combat deaths.
+Unobserved prior counter history remains unknown. No capture failures
+or worker/removal state-cap omissions occurred. Routine logging reached 4 MiB;
+cause evidence used 869798 bytes, final records 37516 bytes before the budget line,
+with no cause/final budget omissions. Local evidence: `.work/a/wood-causes/001/`
+(`game-result.json`, `player3-causes.log`, complete original log and test/build logs).
+This is a run of the installed mod configuration, not an isolated Vanilla comparison.
+
 `AI_ECONOMY_*` records extend the same BepInEx log, without additional output files.
 Every event includes observed wall-clock time, session, simulation tick, player and
 operation identity. Native capture only queues immutable strings; the persistent
-render publisher drains them, with a queue-only flush at real process exit.
+render publisher drains them. Real process exit adds compact summaries from copied
+counters and flushes the queue without querying native game state.
 
 PLAYER/AIC/STOCK/BUILDINGS establish the loaded/new state for every AI, then log
 changes. AIC records contain the effective native profile index and custom Lord name,
@@ -67,7 +214,8 @@ remaining unattributed difference. Tax Pre events are not booked; the native all
 settlement's measured net change is booked separately. Nested resource notifications
 are evidence, never a second transaction. A unit spawn is not a recruitment purchase.
 
-The user-selected installed BugfixesAndQoL 1.0.192 remains unchanged. SETTINGS reads
+The installed BugfixesAndQoL (at least the info.json minimum 1.0.192, with the same
+9-member observation sink and no economy publisher) remains unchanged. SETTINGS reads
 its current hook settings, support flags and published-hook status through its
 verified managed contract. It does not expose per-decision protection observations:
 original/effective emergency/hovel/accessibility decisions, gate classification and
@@ -92,9 +240,10 @@ nativeOriginalEvaluated=false identifies its override and never proves native
 eligibility. An old or failed owner reports unavailable coverage. Summary call counts
 include zeroes; those require available coverage before interpreting a missing call.
 
-Builds and regression compilation reference the installed old Bugfix DLL under
-`BepInEx/plugins/SerpsMods_Serp/Mods/BugfixesAndQoL_Serp`, not the developing workspace
-package. No Bugfix build/install is performed. APIShared remains pinned to main 0.9.2.
+Builds and regression compilation reference the installed Bugfix DLL under
+`BepInEx/plugins/SerpsMods_Serp/Mods/BugfixesAndQoL_Serp`, otherwise under
+`BepInEx/plugins/BugfixesAndQoL_Serp` (override: `/p:BugfixesDir=...`), never the
+developing workspace package. No Bugfix build/install is performed. APIShared remains pinned to main 0.9.2.
 
 ## Validation, 2026-10-16
 

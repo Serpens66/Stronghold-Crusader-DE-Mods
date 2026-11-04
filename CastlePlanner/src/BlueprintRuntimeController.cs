@@ -21,7 +21,7 @@ using UnityEngine;
 
 namespace CastlePlanner
 {
-    internal sealed class BlueprintRuntimeController
+    internal sealed partial class BlueprintRuntimeController
     {
         private delegate void CameraUpdateDelegate(CameraControls2D self);
         private delegate void EditorPlayerActionDelegate(EditorDirector self, int playerId);
@@ -64,6 +64,7 @@ namespace CastlePlanner
         private bool beforeRenderCallbackObserved;
         private bool depthLoadReady;
         private bool hudObserverPending;
+        private APIShared.Presentation.IUiFrameWorkRegistration frameWork;
         private MainViewModel observedHudViewModel;
         private APIShared.IHudExtrasButtonRegistration hudExtrasRegistration;
         private Hook cameraUpdateHook;
@@ -101,8 +102,14 @@ namespace CastlePlanner
                 log,
                 sizeCalibration,
                 buildingImageLibrary);
-            Hud = new BlueprintHudViewModel(ToggleBlueprint, settings, preview);
+            Hud = new BlueprintHudViewModel(ToggleBlueprint, settings, preview, CanUseManualBlueprintControls);
+            if (!APIShared.ApiShared.ForMod(CastlePlannerPlugin.PluginGuid).Ui.TryRegisterBeforeRender(
+                "blueprint-presentation", OnBeforeRender, out frameWork, out string schedulingReason, 100))
+                throw new InvalidOperationException("Blueprint scheduling unavailable: " + schedulingReason);
+            Hud.PropertyChanged += (_, __) => RequestFrame();
             RegisterHudExtrasButton();
+            InitializeSpectatorBlueprints();
+            InitializeBlueprintRole();
             InstallEditorPlayerHook();
             InstallCameraWheelGuard();
 
@@ -121,6 +128,7 @@ namespace CastlePlanner
                 log,
                 context =>
                 {
+                    observerRole.Begin(context.SessionId);
                     if (context.IsEditor)
                         OnEditorMapReady();
                     else if (context.IsLoadedSave)
@@ -137,13 +145,13 @@ namespace CastlePlanner
             // Blueprint input, camera, and overlay work must follow rendered frames even while
             // simulation ticks are paused. This verified static callback survives startup, and
             // TickOncePerFrame deduplicates multiple callbacks within the same rendered frame.
-            Application.onBeforeRender += OnBeforeRender;
+            RequestFrame();
             Application.focusChanged += OnApplicationFocusChanged;
             if (Shared.DebugLogHelper.DiagnosticsEnabled)
                 Shared.DebugLogHelper.LogDebug(
                     log,
                     "Persistent local blueprint runtime initialized; " +
-                    "Application.onBeforeRender frame loop and focus-loss guard " +
+                    "APIShared presentation work and focus-loss guard " +
                     "registered.");
         }
 
@@ -157,13 +165,13 @@ namespace CastlePlanner
                 if (Hud?.CloseSearchPopupForApplicationFocusLoss() == true)
                 {
                     if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                        Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/BlueprintRuntimeController.cs:158", () => "Blueprint AIVJSON search popup closed because the " +
+                        Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/BlueprintRuntimeController/OnApplicationFocusChanged.blueprint-aivjson-search-popup", () => "Blueprint AIVJSON search popup closed because the " +
                             "application lost focus.");
                 }
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "CastlePlanner/src/BlueprintRuntimeController.cs:166", $"Failed to close the Blueprint AIVJSON search popup " +
+                Shared.DebugLogHelper.LogErrorLimited(log, "CastlePlanner/BlueprintRuntimeController/OnApplicationFocusChanged.failed-close-blueprint-aivjson", $"Failed to close the Blueprint AIVJSON search popup " +
                     $"during application focus loss: {ex}");
             }
         }
@@ -186,12 +194,12 @@ namespace CastlePlanner
                             PropEx.SetSprite1(button, normal); PropEx.SetSprite2(button, highlight);
                             PropEx.SetSprite3(button, highlight); PropEx.SetSprite4(button, normal);
                             return button;
-                        });
+                        }, order: 100);
                     if (!buttons.TryRegisterButton(definition, out hudExtrasRegistration, out diagnostic))
                         throw new InvalidOperationException(diagnostic.Reason);
                     hudExtrasRegistration.SetVisible(Hud.HudVisible);
                 }
-                catch (Exception ex) { Shared.DebugLogHelper.LogErrorLimited(log, "CastlePlanner/src/BlueprintRuntimeController.cs:196", "Blueprint side-HUD registration failed: " + ex); }
+                catch (Exception ex) { Shared.DebugLogHelper.LogErrorLimited(log, "CastlePlanner/BlueprintRuntimeController/RegisterHudExtrasButton", "Blueprint side-HUD registration failed: " + ex); }
             });
         }
 
@@ -201,8 +209,65 @@ namespace CastlePlanner
                 hudExtrasRegistration?.SetVisible(Hud.HudVisible);
         }
 
+        private bool spectatorSuppressed;
+        private bool HasSpectatorIdentity
+        {
+            get
+            {
+                if (!mapActive || editorSessionActive) return false;
+                var state = GameData.Instance?.lastGameState;
+                var director = EditorDirector.instance;
+                return state != null && director != null && BlueprintSpectatorPolicy.IsSpectator(true, false,
+                    state.game_type == (int)eGameTypeModes.GAMETYPE_MULTIPLAYER,
+                    state.spectatorMode != 0, director.ActivePlayerID,
+                    observerRole.HasConfirmedLoss);
+            }
+        }
         private void OnBeforeRender()
         {
+            if (!initialized) return;
+            try { PresentFrame(); }
+            finally { frameWork.SetContinuous(NeedsFrames()); }
+        }
+
+        private void RequestFrame() => frameWork?.Request();
+
+        private bool NeedsFrames() => blueprintVisible || hotkeyCapturePending || depthLoadReady ||
+            mapActive && buildingImageLibrary.HasCompletedDepthRead || (Hud?.RequiresFrameInput ?? false) ||
+            hudObserverPending || editorSessionActive && editorControlledPlayerId < 1;
+
+        private void ApplyBlueprintRoleTransition()
+        {
+            // Reuse the existing frame path: only cached identity fields, no native query.
+            try
+            {
+                bool spectator = HasSpectatorIdentity;
+                if (spectator != spectatorSuppressed)
+                {
+                    spectatorSuppressed = spectator;
+                    bool wanted = blueprintVisible;
+                    ResetSpectatorBlueprints();
+                    renderer?.Clear(); layout = null; blueprintVisible = false;
+                    preparePending = false; showAfterPrepare = false;
+                    pendingViewSettleTime = -1f; suppressOverlayUntilViewSettled = false;
+                    layoutKeepX = int.MinValue; layoutKeepY = int.MinValue;
+                    if (spectator) { spectatorRequested = wanted; RefreshSpectatorIdentity(true); }
+                    else if (EffectiveBlueprintMode) SchedulePrepare(false);
+                    RefreshHud();
+                }
+            }
+            catch (Exception error)
+            {
+                Shared.DebugLogHelper.LogErrorLimited(log, "BlueprintSpectatorIdentity", "Blueprint spectator transition failed: " + error);
+            }
+        }
+
+        private void PresentFrame()
+        {
+            if (observerRole.TakeInvalidation()) RefreshBlueprintRoleEvidence();
+            ApplyBlueprintRoleTransition();
+            spectatorSampling = HasSpectatorIdentity && EffectiveBlueprintMode && (spectatorRequested || Hud.SettingsPanelVisible);
+            if (HasSpectatorIdentity && System.Threading.Volatile.Read(ref spectatorDirty) != 0) UpdateSpectatorBlueprint();
             // A hidden projection has no frame-dependent work after its one-time preparation.
             if (!blueprintVisible && !hotkeyCapturePending && !depthLoadReady &&
                 !(mapActive && buildingImageLibrary.HasCompletedDepthRead) &&
@@ -216,7 +281,7 @@ namespace CastlePlanner
                 beforeRenderCallbackObserved = true;
                 Shared.DebugLogHelper.LogDebug(
                     log,
-                    "Persistent Application.onBeforeRender blueprint callback is active.");
+                    "Persistent APIShared blueprint presentation callback is active.");
             }
 
             try
@@ -230,7 +295,7 @@ namespace CastlePlanner
                 if (Time.unscaledTime >= nextRuntimeErrorLogTime)
                 {
                     nextRuntimeErrorLogTime = Time.unscaledTime + 5f;
-                    Shared.DebugLogHelper.LogErrorLimited(log, "CastlePlanner/src/BlueprintRuntimeController.cs:235", $"Blueprint frame loop recovered from an error: {ex}");
+                    Shared.DebugLogHelper.LogErrorLimited(log, "CastlePlanner/BlueprintRuntimeController/PresentFrame", $"Blueprint frame loop recovered from an error: {ex}");
                 }
             }
         }
@@ -376,12 +441,13 @@ namespace CastlePlanner
                 TryPrepareBlueprint();
             }
             RefreshHud();
-            Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/BlueprintRuntimeController.cs:386", () => "Blueprint map-start lifecycle received; visibility reset to hidden.");
+            Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/BlueprintRuntimeController/OnStartMap", () => "Blueprint map-start lifecycle received; visibility reset to hidden.");
         }
 
         private void OnLoadSave(APIShared.MissionLifecycleNotification args)
         {
             ResetMapState();
+            spectatorSaveLoaded = true;
             editorSessionActive = false;
             editorControlledPlayerId = -1;
             mapActive = true;
@@ -391,18 +457,19 @@ namespace CastlePlanner
                 TryPrepareBlueprint();
             }
             RefreshHud();
-            Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/BlueprintRuntimeController.cs:403", () => "Blueprint save-load lifecycle received; visibility reset to hidden.");
+            Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/BlueprintRuntimeController/OnLoadSave", () => "Blueprint save-load lifecycle received; visibility reset to hidden.");
         }
 
         private void OnUnloadMap(APIShared.MissionLifecycleNotification args)
         {
+            observerRole.End();
             ResetMapState();
             hudObserverPending = false;
             mapActive = false;
             editorSessionActive = false;
             editorControlledPlayerId = -1;
             RefreshHud();
-            Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/BlueprintRuntimeController.cs:416", () => "Blueprint overlay cleared for map unload.");
+            Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/BlueprintRuntimeController/OnUnloadMap", () => "Blueprint overlay cleared for map unload.");
         }
 
         private void OnSettingsChanged()
@@ -488,6 +555,7 @@ namespace CastlePlanner
         private void OnHotkeyCaptureRequested()
         {
             hotkeyCapturePending = true;
+            RequestFrame();
             hotkeyCaptureStartFrame = Time.frameCount;
             hotkeyCaptureIgnoredKeys.Clear();
 
@@ -499,7 +567,7 @@ namespace CastlePlanner
             }
 
             if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/BlueprintRuntimeController.cs:517", () => $"Blueprint hotkey capture armed; ignoredHeldMouseButtons=" +
+                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/BlueprintRuntimeController/OnHotkeyCaptureRequested", () => $"Blueprint hotkey capture armed; ignoredHeldMouseButtons=" +
                     $"{hotkeyCaptureIgnoredKeys.Count}.");
         }
 
@@ -534,7 +602,7 @@ namespace CastlePlanner
             {
                 settings.CancelHotkeyCapture();
                 StopHotkeyCapture();
-                Shared.DebugLogHelper.LogErrorLimited(log, "CastlePlanner/src/BlueprintRuntimeController.cs:554", $"Blueprint hotkey capture failed: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "CastlePlanner/BlueprintRuntimeController/OnKeyDown", $"Blueprint hotkey capture failed: {ex}");
             }
         }
 
@@ -599,7 +667,7 @@ namespace CastlePlanner
                 // Keep captures inside the enabled scope; otherwise the compiler can allocate them before the guard.
                 var diagnosticKey = @key;
                 var diagnosticSource = @source;
-                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/BlueprintRuntimeController.cs:614", () => $"Blueprint hotkey capture finished: key={diagnosticKey}, " +
+                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/BlueprintRuntimeController/CompleteHotkeyCapture", () => $"Blueprint hotkey capture finished: key={diagnosticKey}, " +
                     $"value={(int)diagnosticKey}, source={diagnosticSource}.");
             }
             return true;
@@ -634,6 +702,7 @@ namespace CastlePlanner
 
         private void TryPrepareBlueprint()
         {
+            if (HasSpectatorIdentity) { preparePending = false; System.Threading.Interlocked.Exchange(ref spectatorDirty, 1); UpdateSpectatorBlueprint(); return; }
             if (!TryFindControlledKeep(out int keepX, out int keepY))
             {
                 if (controlledKeepAvailable)
@@ -669,6 +738,7 @@ namespace CastlePlanner
         private void OnDepthReadCompleted()
         {
             depthLoadReady = mapActive;
+            RequestFrame();
         }
 
         private void OnBuildingSpawned(BuildingSpawnEventArgs args)
@@ -712,7 +782,7 @@ namespace CastlePlanner
                 layoutKeepX = int.MinValue;
                 layoutKeepY = int.MinValue;
                 renderer.Clear();
-                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/BlueprintRuntimeController.cs:737", () => "Blueprint hidden during the active start preview because no castle is selected.");
+                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/BlueprintRuntimeController/TryBuildBlueprintLayout.hidden-during-active-start", () => "Blueprint hidden during the active start preview because no castle is selected.");
                 return false;
             }
 
@@ -727,11 +797,11 @@ namespace CastlePlanner
                     // The host AIV dropdown is irrelevant while Spawn Castle is disabled.
                     // A stale local Blueprint choice therefore disables only the optional overlay.
                     if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                        Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/BlueprintRuntimeController.cs:753", () => $"Blueprint preparation skipped because the local AIVJSON is unavailable and Spawn Castle is disabled: '{settings.SelectedCastle}'.");
+                        Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/BlueprintRuntimeController/TryBuildBlueprintLayout.preparation-skipped-because-local", () => $"Blueprint preparation skipped because the local AIVJSON is unavailable and Spawn Castle is disabled: '{settings.SelectedCastle}'.");
                     return false;
                 }
 
-                Shared.DebugLogHelper.LogErrorLimited(log, "CastlePlanner/src/BlueprintRuntimeController.cs:759", $"Blueprint preparation failed; overlay remains unavailable: " +
+                Shared.DebugLogHelper.LogErrorLimited(log, "CastlePlanner/BlueprintRuntimeController/TryBuildBlueprintLayout.preparation-failed-overlay-remains-unavailable", $"Blueprint preparation failed; overlay remains unavailable: " +
                     $"Selected AIVJSON is unavailable while Spawn Castle is enabled: '{settings.SelectedCastle}'.");
                 return false;
             }
@@ -767,7 +837,7 @@ namespace CastlePlanner
                     var diagnosticKeepX = @keepX;
                     var diagnosticKeepY = @keepY;
                     var diagnosticFilteredDocument = @filteredDocument;
-                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/BlueprintRuntimeController.cs:788", () => $"Blueprint prepared locally: reason={diagnosticReason}, " +
+                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/BlueprintRuntimeController/TryBuildBlueprintLayout.prepared-locally-reason", () => $"Blueprint prepared locally: reason={diagnosticReason}, " +
                         $"file={diagnosticFullPath}, keep=({diagnosticKeepX},{diagnosticKeepY}), " +
                         $"projectedKeep=({layout.ProjectedKeep.X},{layout.ProjectedKeep.Y}), " +
                         $"castleRotation={(int)layout.CastleRotation}, " +
@@ -783,7 +853,7 @@ namespace CastlePlanner
                 layoutKeepX = int.MinValue;
                 layoutKeepY = int.MinValue;
                 renderer.Clear();
-                Shared.DebugLogHelper.LogErrorLimited(log, "CastlePlanner/src/BlueprintRuntimeController.cs:805", $"Blueprint preparation failed; overlay remains unavailable: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "CastlePlanner/BlueprintRuntimeController/TryBuildBlueprintLayout.preparation-failed-overlay-remains-unavailable-2", $"Blueprint preparation failed; overlay remains unavailable: {ex}");
                 return false;
             }
         }
@@ -849,9 +919,14 @@ namespace CastlePlanner
 
         private void ToggleBlueprint()
         {
+            RefreshBlueprintRoleEvidence();
+            ApplyBlueprintRoleTransition();
+            if (HasSpectatorIdentity && spectatorPlayer != APIShared.PlayerPerspectiveAPI.GetViewedPlayerId())
+                RefreshSpectatorIdentity(true);
+            if (HasSpectatorIdentity && EffectiveBlueprintMode) { ToggleSpectatorBlueprint(); return; }
             if (!EffectiveBlueprintMode || !mapActive)
             {
-                Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner/src/BlueprintRuntimeController.cs:876", "Blueprint toggle ignored because Blueprint mode or the map is inactive.");
+                Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner/BlueprintRuntimeController/ToggleBlueprint.toggle-ignored-because-blueprint", "Blueprint toggle ignored because Blueprint mode or the map is inactive.");
                 RefreshHud();
                 return;
             }
@@ -867,7 +942,7 @@ namespace CastlePlanner
                 layoutKeepY = int.MinValue;
                 blueprintVisible = false;
                 SchedulePrepare(false);
-                Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner/src/BlueprintRuntimeController.cs:894", "Blueprint remains hidden because no live local Keep was found during activation.");
+                Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner/BlueprintRuntimeController/ToggleBlueprint.remains-hidden-because-no", "Blueprint remains hidden because no live local Keep was found during activation.");
                 RefreshHud();
                 return;
             }
@@ -930,7 +1005,7 @@ namespace CastlePlanner
                 {
                     // Keep captures inside the enabled scope; otherwise the compiler can allocate them before the guard.
                     var diagnosticReasonValue = @reason;
-                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/BlueprintRuntimeController.cs:949", () => $"Blueprint hidden locally: reason={diagnosticReasonValue}.");
+                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/BlueprintRuntimeController/SetBlueprintVisible", () => $"Blueprint hidden locally: reason={diagnosticReasonValue}.");
                 }
             }
 
@@ -974,7 +1049,7 @@ namespace CastlePlanner
             {
                 // Keep captures inside the enabled scope; otherwise the compiler can allocate them before the guard.
                 var diagnosticRotation = @rotation;
-                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/BlueprintRuntimeController.cs:990", () => $"Blueprint temporarily hidden while the normal map " +
+                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/BlueprintRuntimeController/SuppressOverlayUntilViewSettled", () => $"Blueprint temporarily hidden while the normal map " +
                     $"projection settles: delay={ViewSettleDelaySeconds:F2}s, " +
                     $"flattened=false, rotation={diagnosticRotation}.");
             }
@@ -993,7 +1068,7 @@ namespace CastlePlanner
                 // Keep captures inside the enabled scope; otherwise the compiler can allocate them before the guard.
                 var diagnosticFlattened = @flattened;
                 var diagnosticRotationValue = @rotation;
-                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/BlueprintRuntimeController.cs:1005", () => $"Blueprint view settle rebuild scheduled: " +
+                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/BlueprintRuntimeController/ScheduleViewSettleRebuild", () => $"Blueprint view settle rebuild scheduled: " +
                     $"delay={ViewSettleDelaySeconds:F2}s, " +
                     $"flattened={diagnosticFlattened}, rotation={diagnosticRotationValue}.");
             }
@@ -1017,7 +1092,7 @@ namespace CastlePlanner
                     var diagnosticReasonValue = @reason;
                     var diagnosticResult = @result;
                     var diagnosticStopwatch = @stopwatch;
-                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/BlueprintRuntimeController.cs:1024", () => $"Blueprint rendered locally: reason={diagnosticReasonValue}, " +
+                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/BlueprintRuntimeController/RenderCurrentLayout.rendered-locally-reason", () => $"Blueprint rendered locally: reason={diagnosticReasonValue}, " +
                         $"tiles={diagnosticResult.RenderedTiles}, icons={diagnosticResult.RenderedIcons}, " +
                         $"clipped={diagnosticResult.ClippedTiles}, " +
                         $"depthReady={renderer.CompletedDepthCaptureCount}/" +
@@ -1030,13 +1105,18 @@ namespace CastlePlanner
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "CastlePlanner/src/BlueprintRuntimeController.cs:1038", $"Blueprint rendering failed: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "CastlePlanner/BlueprintRuntimeController/RenderCurrentLayout.rendering-failed", $"Blueprint rendering failed: {ex}");
                 return false;
             }
         }
 
         private void ResetMapState()
         {
+            RequestFrame();
+            spectatorSuppressed = false;
+            observerRole.Invalidate();
+            spectatorSaveLoaded = false;
+            ResetSpectatorBlueprints();
             if (observedHudViewModel != null)
                 observedHudViewModel.PropertyChanged -= OnHudPropertyChanged;
             observedHudViewModel = null;
@@ -1095,7 +1175,24 @@ namespace CastlePlanner
 
         private void RefreshHud()
         {
-            Hud?.Update(
+            RequestFrame();
+            if (Hud == null) return;
+            bool spectator = HasSpectatorIdentity;
+            string name = spectator && spectatorPlayer >= 1 && spectatorPlayer <= 8 ? Platform_Multiplayer.Instance.getSkirmishName(spectatorPlayer) : "";
+            Noesis.Brush colour = Noesis.Brushes.White;
+            if (spectator && spectatorPlayer >= 1 && spectatorPlayer <= 8 && OnScreenText.Instance != null)
+            {
+                // Player colours are fixed for a session; keep one brush per viewed player.
+                if (spectatorBrush == null || spectatorBrushPlayer != spectatorPlayer)
+                {
+                    var c = GameMap.Lighten(OnScreenText.Instance.MPTeamColours[SpriteMapping.remapColours[SpriteMapping.RemapMPLoadedColour(spectatorPlayer)]], 0.3f);
+                    spectatorBrush = new Noesis.SolidColorBrush(Noesis.Color.FromArgb(255,(byte)(c.r*255),(byte)(c.g*255),(byte)(c.b*255)));
+                    spectatorBrushPlayer = spectatorPlayer;
+                }
+                colour = spectatorBrush;
+            }
+            Hud.SetSpectatorContext(spectator, name, colour, spectatorAivFileName);
+            Hud.Update(
                 EffectiveBlueprintMode,
                 mapActive,
                 controlledKeepAvailable,
@@ -1150,7 +1247,7 @@ namespace CastlePlanner
                 var diagnosticPreviousPlayerId = @previousPlayerId;
                 var diagnosticActivePlayerId = @activePlayerId;
                 var diagnosticRestoreVisibility = @restoreVisibility;
-                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/BlueprintRuntimeController.cs:1154", () => diagnosticPreviousPlayerId > 0
+                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/BlueprintRuntimeController/RefreshEditorPlayer", () => diagnosticPreviousPlayerId > 0
                         ? $"Blueprint editor player changed: previousActivePlayerId={diagnosticPreviousPlayerId}, activePlayerId={diagnosticActivePlayerId}, restoreVisibility={diagnosticRestoreVisibility}."
                         : $"Blueprint editor lifecycle started: activePlayerId={diagnosticActivePlayerId}.");
             }

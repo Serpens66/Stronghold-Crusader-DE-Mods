@@ -182,6 +182,57 @@ Assert-True ((Assert-ScriptExtenderXamlPatchContract -Directory (Join-Path $work
 . (Join-Path $PSScriptRoot '../Paths/WorkPaths.ps1')
 $testRoot = New-ShortWorkDirectory -Root ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))) -Kind t -Name 'SteamPackPolicy'
 try {
+    # Execute the production source guard without starting the publishing driver. These
+    # fixtures cover attribute-list syntax and ownership; they are not compiler/runtime proofs.
+    $parserTokens=$null; $parserErrors=$null
+    $activationAst=[Management.Automation.Language.Parser]::ParseFile((Join-Path $PSScriptRoot 'Create-SteamModPack.ps1'),[ref]$parserTokens,[ref]$parserErrors)
+    foreach ($name in @('Test-PublicBooleanProperty','Test-ClassifiedBooleanProperty','Test-ActivationSettingContract')) {
+        $node=$activationAst.Find({param($item) $item -is [Management.Automation.Language.FunctionDefinitionAst] -and $item.Name -ceq $name},$true)
+        if (-not $node) { throw "Missing production activation guard: $name" }
+        . ([scriptblock]::Create($node.Extent.Text))
+    }
+    function Fail-Pack($Code,$Message) { throw $Message }
+    function Write-RunLog($Message) { }
+    $activationRoot=Join-Path $testRoot 'activation'
+    [void][IO.Directory]::CreateDirectory($activationRoot)
+    $activationChecks=0
+    function Assert-ActivationCase([string]$Source,[string]$Role,[bool]$Expected) {
+        $sourcePath=Join-Path $activationRoot 'Settings.cs'
+        [IO.File]::WriteAllText($sourcePath,$Source,[Text.UTF8Encoding]::new($false))
+        $xaml='<Grid><Border Style="{StaticResource '+$Role+'ActivationBorder}"><CheckBox IsChecked="{Binding EnableMod}"/></Border></Grid>'
+        [IO.File]::WriteAllText((Join-Path $activationRoot 'Settings.xaml'),$xaml,[Text.UTF8Encoding]::new($false))
+        $accepted=$true
+        try { Test-ActivationSettingContract -ModName Fixture -ModDirectory $activationRoot -SourceFiles @(Get-Item -LiteralPath $sourcePath) }
+        catch { $accepted=$false; if ($_.Exception.Message -notmatch 'activation property.*classified') { throw } }
+        Assert-True ($accepted -eq $Expected) ("activation classification: role=$Role; expected=$Expected; source=$Source")
+        $script:activationChecks++
+    }
+    foreach ($attributes in @('[SyncHostOnly, MissionIndependent]','[MissionIndependent, SyncHostOnly]',
+        "[SyncHostOnly]`r`n[MissionIndependent]",'[global::SHCDESE.API.Components.Network.SyncHostOnlyAttribute, APIShared.ModSettings.MissionIndependentAttribute]',
+        '[Other(new[] { 1, 2 }), SyncHostOnly]','[Other("]", "SyncPerPlayer"), SyncHostOnly]')) {
+        Assert-ActivationCase ($attributes+' public bool EnableMod { get; set; }') Host $true
+    }
+    Assert-ActivationCase '[PresetLocal, Other] public bool EnableMod { get; set; }' Client $true
+    Assert-ActivationCase '[Other, SHCDESE.API.Components.Network.SyncPerPlayerAttribute] public bool EnableMod { get; set; }' Client $true
+    Assert-ActivationCase '[SyncHostOnly] public bool EnableMod { get; set; }' Client $false
+    Assert-ActivationCase '[PresetLocal] public bool EnableMod { get; set; }' Host $false
+    foreach ($source in @('public bool EnableMod { get; set; }',
+        '[SyncHostOnly] public bool Other { get; set; } public bool EnableMod { get; set; }',
+        "// [SyncHostOnly]`r`npublic bool EnableMod { get; set; }",
+        '/* [SyncHostOnly] */ public bool EnableMod { get; set; }',
+        '[Other("SyncHostOnly, PresetLocal")] public bool EnableMod { get; set; }',
+        'const string Fake = "[SyncHostOnly] public bool EnableMod { get; set; }"; public bool EnableMod { get; set; }',
+        '[Other(typeof(SyncHostOnly))] public bool EnableMod { get; set; }')) {
+        Assert-ActivationCase $source Host $false
+    }
+    . (Join-Path $PSScriptRoot 'WorkshopConfiguration.ps1')
+    foreach ($modName in (Get-WorkshopConfiguration).Mods) {
+        $modRoot=Join-Path $workspace $modName
+        $sources=@(Get-ChildItem -LiteralPath $modRoot -Recurse -File -Filter '*.cs' | Where-Object { $_.FullName -notmatch '\\(bin|obj|BepInEx)\\' })
+        Test-ActivationSettingContract -ModName $modName -ModDirectory $modRoot -SourceFiles $sources
+        $activationChecks++
+    }
+    Write-Host "PASS: $activationChecks activation attribute-list, property ownership, role and actual configured-mod checks."
     $zipPackage = Join-Path $testRoot 'zip-stage\SerpsMods_Serp'
     [void](New-Item -ItemType Directory -Path (Join-Path $zipPackage 'Mods\Example_Serp') -Force)
     [IO.File]::WriteAllText((Join-Path $zipPackage 'SerpsModsHost.dll'), 'host')
@@ -249,9 +300,9 @@ Assert-True ($createScriptText.Contains("State = 'External'; RelativePath = ''")
 Assert-True ($createScriptText.Contains('EXTERNAL-V1|')) 'old bundled content signatures must not be reused'
 Assert-True ($createScriptText.Contains('Get-LegacyApiSharedFiles -History $uploadHistory')) 'migration evidence must cover confirmed historical deliveries'
 Assert-True ($createScriptText.Contains('New-ApiWorkshopInventory -Directory $hostStage -LegacyFiles $legacyApiSharedFiles')) 'the final host payload must ship its historical migration inventory'
-Assert-True ($createScriptText.Contains("-Arguments @('/nopause','/noinstall') -FailureCode 4")) 'compatibility builds must not install'
+Assert-True ($createScriptText.Contains("-Arguments @('/nopause','/noinstall','/syncpackage') -FailureCode 4")) 'compatibility builds must not install and must audit the mirrored built package'
 Assert-True ($createScriptText.IndexOf("Fail-Pack 2 'Prepare APIShared first") -lt $createScriptText.IndexOf('foreach ($mod in @($mods | Where-Object NeedsSourceEdit)) { Set-ModCompatibility')) 'missing APIShared releases must fail before consumer source changes'
-foreach ($modName in @('BugfixesAndQoL','BuildingCosts','BuildingLimit','ExtraFeatures','RandomEvents','CastlePlanner','StartConditions','UnitCosts','UnitLimit','ExtendedData')) {
+foreach ($modName in @('BugfixesAndQoL','BuildingCosts','BuildingLimit','ExtraFeatures','RandomEvents','CastlePlanner','StartConditions','UnitCosts','UnitLimit','ExtendedData','Spectator')) {
     $driver = [IO.File]::ReadAllText((Join-Path $workspace "$modName/build.bat"))
     Assert-True ($driver.Contains('if "%NO_INSTALL%"=="1" goto prepared_no_install')) "$modName must support preparation without touching installed files"
 }

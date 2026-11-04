@@ -24,6 +24,7 @@ namespace PerfProbe
                     " stopwatchFrequency=" + Stopwatch.Frequency + " gameMvid=" + typeof(EngineInterface).Module.ModuleVersionId +
                     " perfProbeMvid=" + typeof(PerfProbeContext).Module.ModuleVersionId +
                     " sampler=" + PerfProbeThreadSampler.Configuration + " " + PerfProbeRuntime.ThresholdConfiguration +
+                    " tickMonitor=" + PerfProbeTickMonitor.Configuration + " inputMarks=" + PerfProbeInputMarks.Configuration +
                     " engineCalls=" + PerfProbeExtras.EngineCalls + " gcTracking=" + PerfProbeExtras.GcTracking +
                     " updateSweep=" + PerfProbeExtras.UpdateSweep + " engineMarkers=" + PerfProbeExtras.EngineMarkers +
                     " batchCensus=" + PerfProbeExtras.BatchCensus + " recordBreakdown=" + PerfProbeExtras.RecordBreakdown +

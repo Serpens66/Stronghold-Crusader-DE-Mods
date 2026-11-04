@@ -141,3 +141,10 @@ $markers = Select-String -LiteralPath (Join-Path $OutputDirectory ($Label + '_Lo
 "run=$Label duration=" + [int]((Get-Date) - $started).TotalSeconds + 's' + $(if ($affinityApplied) { " affinity=$affinityApplied" } else { '' }) + $(if ($stalled) { " STALLED: no log output for $StallSeconds s, test instance stopped" } else { '' })
 $gfx
 $markers
+# Lag overview of the saved log (offline parser; event details: Analyze-Spikes.ps1 -LogPath <saved log>).
+try {
+    . (Join-Path $PSScriptRoot 'SpikeAnalysis.ps1')
+    $savedLog = (Resolve-Path -LiteralPath (Join-Path $OutputDirectory ($Label + '_LogOutput.log'))).ProviderPath
+    Format-PerfProbeSummary -Analysis (Get-PerfProbeAnalysis -Lines ([IO.File]::ReadAllLines($savedLog)))
+}
+catch { "lag overview unavailable: $($_.Exception.Message)" }

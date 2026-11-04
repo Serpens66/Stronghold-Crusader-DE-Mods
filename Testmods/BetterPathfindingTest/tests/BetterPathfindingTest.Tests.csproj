@@ -2,12 +2,16 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework><AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <ImportDirectoryBuildTargets>false</ImportDirectoryBuildTargets><Optimize>true</Optimize><ImplicitUsings>disable</ImplicitUsings><NuGetAudit>false</NuGetAudit>
+    <DefineConstants>$(DefineConstants);SERP_DEVDIAG</DefineConstants>
     <GameDir Condition="'$(GameDir)' == ''">E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition</GameDir>
     <ApiSharedDir Condition="'$(ApiSharedDir)' == ''">$(GameDir)\BepInEx\plugins\APIShared_Serp</ApiSharedDir>
   </PropertyGroup>
   <ItemGroup>
     <Compile Remove="engine/**/*.cs" />
+    <Compile Remove="client/**/*.cs" />
     <Compile Include="../src/Core/*.cs" Link="Core/%(Filename)%(Extension)" />
+    <Compile Include="../src/Api/*.cs" Link="Api/%(Filename)%(Extension)" />
+    <Compile Include="../src/Service/*.cs" Link="Service/%(Filename)%(Extension)" />
     <!-- Current production sources, offline only. No historical blobs or runtime source coupling. -->
     <Compile Include="../../../BugfixesAndQoL/src/UnitCommands/Movement/WeightedGridSearchKernel.cs" Link="Oracle/WeightedGridSearchKernel.cs" />
     <Compile Include="../../../BugfixesAndQoL/src/UnitCommands/Movement/WeightedMoatRoutePlanner.cs" Link="Oracle/WeightedMoatRoutePlanner.cs" />
@@ -15,4 +19,11 @@
     <Compile Include="../../../BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandContracts.cs" Link="Oracle/UnitCommandContracts.cs" />
     <Reference Include="APIShared"><HintPath>$(ApiSharedDir)\APIShared.dll</HintPath></Reference>
   </ItemGroup>
+  <!-- Intentional pipeline step: Build.ps1 first compiles the native backend and its proof
+       (.local/native/build.json, checked by BackendEvidence.cs); non-DEVDIAG builds delete the DLL
+       afterwards. Build these tests only through build.bat / Build.ps1. -->
+  <ItemGroup><None Include="../BepInEx/plugins/BetterPathfindingTest_Serp/BetterPathfindingNative.dll" Link="BetterPathfindingNative.dll" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
+  <Target Name="RequireBuildScriptNativeBackend" BeforeTargets="BeforeBuild">
+    <Error Condition="!Exists('$(MSBuildThisFileDirectory)../BepInEx/plugins/BetterPathfindingTest_Serp/BetterPathfindingNative.dll')" Text="BetterPathfindingNative.dll is produced by Build.ps1 together with its compile proof. Build these tests only through Testmods\BetterPathfindingTest\build.bat (or Build.ps1)." />
+  </Target>
 </Project>

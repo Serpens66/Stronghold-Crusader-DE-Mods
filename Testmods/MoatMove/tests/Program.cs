@@ -8,7 +8,6 @@ try
 // Compile actual runtime methods against an in-memory native-grid fixture. No game
 // assembly is produced or installed by this standalone regression runner.
 string root = Path.GetFullPath(args.Length == 0 ? "." : args[0]);
-if (args.Contains("--native-only")) { FastNativeBackendTests.Validate(root); return; }
 if (args.Contains("--redbird-only")) { InstalledRedBirdContract.Validate(); return; }
 string sourceDir = Path.Combine(root, "Testmods", "MoatMove", "src");
 string testDir = Path.Combine(root, "Testmods", "MoatMove", "tests");
@@ -80,6 +79,9 @@ if (args.Contains("--standalone-only"))
     InstalledRedBirdContract.Validate();
     return;
 }
+// The anchor integration test loads the real native core; build.bat compiles it here first.
+if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("MOAT_TEST_ANCHOR_DIR")))
+    Environment.SetEnvironmentVariable("MOAT_TEST_ANCHOR_DIR", Path.Combine(root, "Testmods", "MoatMove", ".local", "anchor"));
 string apiSharedPath=Environment.GetEnvironmentVariable("MOAT_TEST_API_SHARED_DLL") ??
     Path.Combine(root,"APIShared","BepInEx","plugins","APIShared_Serp","APIShared.dll");
 if (!File.Exists(apiSharedPath))
@@ -88,8 +90,8 @@ string[] runtimeSourceNames =
 {
     "AssassinSelectionAdapters.cs",
     "CursorConnectivity.cs", "CursorRegionGraph.cs", "DirectMoatCommandScopes.cs",
-    "FastIntegration.cs", "DigWorkFallback.cs", "IFastRouteField.cs", "FastRouteField.cs", "FastCommandQueue.cs", "FastRoutePool.cs", "FastTraversalCache.cs",
-    "FastMoatRouting.cs", "FastMovementScheduler.cs", "FastGroupDistribution.cs", "FillWeightedRoutes.cs", "FriendlyMoatMovementPolicy.cs",
+    "AnchorRouting.cs", "RouteReplanWatch.cs", "FireEscape.cs", "SoldierTribeMoves.cs", "MovementCaseSave.cs", "AnchorEdgeMemo.cs", "PlagueDamageModel.cs", "GroundFailureProofs.cs", "MoatFailureProofs.cs", "FastIntegration.cs", "DigWorkFallback.cs", "IFastRouteField.cs", "FastRouteField.cs", "FastCommandQueue.cs", "FastRoutePool.cs", "FastTraversalCache.cs",
+    "FastMoatRouting.cs", "FastMovementScheduler.cs", "FastGroupDistribution.cs", "FillWeightedRoutes.cs",
     "FriendlyMoatMovementRuntime.cs",
     "MoatPlacement.cs", "MoatPlacementSearch.cs",
     "MoatSearchKernel.cs", "MovementOptionsSnapshot.cs",
@@ -125,7 +127,7 @@ var methods = new HashSet<string>(new[] {
     "RentBuildingFallbackWorkBuffers", "ReturnBuildingFallbackWorkBuffers", "BuildPathWithCompletedMoatRouteVariantWithMoat", "ObserveUnitMoveOrder", "GetCurrentUnitMoveFrame", "AbandonUnitMoveFrame", "ClearUnitMoveFrames",
     "GetUnitMovePlan", "CopyMovementPlan", "GetNativeMovementStart", "TryAuditFallbackPath", "TryAuditFallbackPathCore", "IsCompletedEnemyMoatForPlayer",
     "DescribeFallbackContractFailure",
-    "EnableCompletedMoatModeForScopedMovement", "ResolveScopedCompletedMoatMode", "GetBuilderPlan", "MatchesBuilderPlan", "BeginAssassinRoutePublication",
+    "EnableCompletedMoatModeForScopedMovement", "ResolveScopedCompletedMoatMode", "GetBuilderPlan", "MatchesBuilderPlan", "BeginAssassinRoutePublication", "TryPublishAssassinGroupRoute",
     "TryCaptureUnitFallbackPathBuffer", "RestoreFallbackPathBuffer",
     "CaptureAttackApproachState",
     "TryHandleVanillaLadderRegionPair", "RestoreVanillaLadderBuildingCandidates", "GetBuildingApproachPairKey",
@@ -133,7 +135,7 @@ var methods = new HashSet<string>(new[] {
     "TryFindRequiredFriendlyCompletedMoatRouteForPlan", "TryGetCachedRequiredFriendlyRouteForPlan",
     "EnsureMoatWorkReachability", "TryGetMoatWorkRoute",
     "TryFindRequiredFriendlyCompletedMoatRouteToFillEndpoint",
-    "EnsureReachabilityMap", "AdvanceReachabilityMap", "EnsureReachabilityStorage", "VisitNeighbour",
+    "EnsureReachabilityMap", "AdvanceReachabilityMap", "EnsureReachabilityStorage", "VisitNeighbour", "EnqueueNeighbour", "Has", "ProvesUnreachedByExhaustedSearch", "KeepExhaustedSearch", "InvalidateExhaustedReachability",
     "GetRouteVisitedMap", "GetRouteDistanceMap", "GetRouteDistance", "ObserveTraversedRegion",
     "GetCachedRouteSummaryForTarget", "GetCachedRouteSummaryForRegion"
 });
@@ -155,7 +157,7 @@ var constants = new HashSet<string>(new[] {
     "MovementBlockedLowTileFlagMask", "CompletedMoatTileFlag", "CursorSpecialStructureTileFlagMask", "PathManagerOutputBufferOffset",
     "PathManagerOutputLengthOffset", "NativeUnitPathBufferOffset", "NativeUnitPathBufferStride",
     "PathManagerRouteVariantOffset", "OrdinaryWalkableTileFlag", "MoatWorkNeighbourX", "MoatWorkNeighbourY"
-    , "FastSearchNodeBudget", "WeightedPublicationSafetyMarginTicks", "weightedPhaseTimingActive", "attackQualificationTimingDepth", "requiredPublicationTimingDepth"
+    , "FastSearchNodeBudget", "WeightedPublicationSafetyMarginTicks", "weightedPhaseTimingActive", "attackQualificationTimingDepth", "requiredPublicationTimingDepth", "AssassinGroupRouteStager", "assassinBuilderSkipped"
 });
 var selected = new List<MemberDeclarationSyntax>();
 // Members the harness stubs deliberately (state, diagnostics, qualification) keep their stub,
@@ -242,6 +244,7 @@ var comparisonPlannerTree = CSharpSyntaxTree.ParseText("using APIShared; using S
 var compilation = CSharpCompilation.Create("Assembly-CSharp", new[] {
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared/src/Pathfinding/Routes/RouteSearchContracts.cs"))),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared/src/Pathfinding/Routes/RouteSearchEvents.cs"))),
+    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared/src/Pathfinding/Routes/RouteTileRules.cs"))),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "RouteSearchEventIntegrationTests.cs"))),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared", "src", "Units", "UnitAccess.cs"))
         .Replace("using SHCDESE.API;", "using GameUnitManagerAPI = MoatMove.GameUnitManagerAPI;")
@@ -269,9 +272,6 @@ var compilation = CSharpCompilation.Create("Assembly-CSharp", new[] {
     CSharpSyntaxTree.ParseText(RuntimeSource("WeightedGridSearchKernel.cs")),
     CSharpSyntaxTree.ParseText(RuntimeSource("MoatCandidateField.cs")),
     CSharpSyntaxTree.ParseText("namespace MoatMove {" + CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandContracts.cs"))).GetRoot().DescendantNodes().OfType<InterfaceDeclarationSyntax>().Single(n => n.Identifier.Text == "IMoatSearchKernel") + "}"),
-    CSharpSyntaxTree.ParseText(RuntimeSource("FastNativeKernel.cs")),
-    CSharpSyntaxTree.ParseText(RuntimeSource("FastNativeRouteField.cs")),
-    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "FastNativeFixtures.cs"))),
     CSharpSyntaxTree.ParseText(RuntimeSource("IFastRouteField.cs")),
     CSharpSyntaxTree.ParseText(RuntimeSource("FastRouteField.cs")),
     CSharpSyntaxTree.ParseText(RuntimeSource("FastCommandQueue.cs")),
@@ -280,6 +280,17 @@ var compilation = CSharpCompilation.Create("Assembly-CSharp", new[] {
     CSharpSyntaxTree.ParseText(RuntimeSource("FastMoatRouting.cs").Replace("using SHCDESE.API;", "").Replace("using SHCDESE.Interop;", "")),
     CSharpSyntaxTree.ParseText(RuntimeSource("FastGroupDistribution.cs").Replace("using SHCDESE.API;", "")),
     CSharpSyntaxTree.ParseText(RuntimeSource("FastIntegration.cs").Replace("using SHCDESE.API;", "")),
+    CSharpSyntaxTree.ParseText(RuntimeSource("AnchorRouting.cs").Replace("using SHCDESE.API;", "").Replace("using SHCDESE.Interop;", "")),
+    CSharpSyntaxTree.ParseText(RuntimeSource("RouteReplanWatch.cs")),
+    CSharpSyntaxTree.ParseText(RuntimeSource("FireEscape.cs")),
+    CSharpSyntaxTree.ParseText(RuntimeSource("SoldierTribeMoves.cs")),
+    CSharpSyntaxTree.ParseText(RuntimeSource("MovementCaseSave.cs")),
+    CSharpSyntaxTree.ParseText(RuntimeSource("AnchorEdgeMemo.cs")),
+    CSharpSyntaxTree.ParseText(RuntimeSource("PlagueDamageModel.cs")),
+    CSharpSyntaxTree.ParseText(RuntimeSource("GroundFailureProofs.cs")),
+    CSharpSyntaxTree.ParseText(RuntimeSource("MoatFailureProofs.cs")),
+    CSharpSyntaxTree.ParseText(RuntimeSource("TribeFloodMembership.cs")),
+    CSharpSyntaxTree.ParseText(RuntimeSource("CursorGroundRejectProof.cs")),
     CSharpSyntaxTree.ParseText(RuntimeSource("TraversalCommandState.cs")),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared/src/Pathfinding/GateRoutes/EnemyBridgeDiagnosticBridge.cs"))),
     CSharpSyntaxTree.ParseText(RuntimeSource("EnemyGatePolicyIntegration.cs")),
@@ -294,6 +305,7 @@ var compilation = CSharpCompilation.Create("Assembly-CSharp", new[] {
     CSharpSyntaxTree.ParseText(RuntimeSource("CursorConnectivity.cs").Replace("using SHCDESE.API;", "").Replace("using SHCDESE.Interop;", "").Replace("using SHCDESE.Interop.Enums;", "")),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "CursorTests.cs"))),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "PlacementTests.cs"))),
+    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "AnchorIntegrationTests.cs"))),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "FormationBoundaryFixture.cs"))),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "FillFormationTests.cs"))),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "DigWorkFallbackTests.cs"))),
@@ -312,7 +324,7 @@ var assembly = Assembly.Load(output.ToArray(), symbols.ToArray());
 try
 {
     assembly.GetType("MoatMove.RouteSearchEventIntegrationTests").GetMethod("Run").Invoke(null, null);
-    assembly.GetType("MoatMove.FriendlyMoatMovementRuntime").GetMethod(args.Contains("--runtime-native") ? "RunNativeTests" : "RunTests").Invoke(null, null);
+    assembly.GetType("MoatMove.FriendlyMoatMovementRuntime").GetMethod("RunTests").Invoke(null, null);
     assembly.GetType("MoatMove.SearchKernelTests").GetMethod("Run").Invoke(null, null);
     assembly.GetType("MoatMove.FastRouteFieldTests").GetMethod("Run").Invoke(null, null);
     assembly.GetType("MoatMove.FastStateTests").GetMethod("Run").Invoke(null, null);

@@ -22,33 +22,8 @@ namespace ExtraFeatures
                     return;
                 }
 
-                PendingStockpileRefund pending = pendingStockpileRefund;
-                if (pending == null || IsTickWindowExpired(pending.CreatedTick, CurrentGameTick(), StockpileRefundLifetimeTicks))
-                {
-                    pendingStockpileRefund = null;
-                    return;
-                }
-
-                if (building->r_PlayerIdOwner != pending.Owner ||
-                    !pending.ProcessedBuildingIds.Add(args.BuildingId))
-                {
-                    return;
-                }
-
-                int[] goods = CopyLocalGoods(building);
-                RestoreGoods(pending.PlayerId, goods);
-                pending.PartsRemaining--;
-                if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                {
-                    // Keep captures inside the enabled scope; otherwise the compiler can allocate them before the guard.
-                    var diagnosticArgs = @args;
-                    var diagnosticPending = @pending;
-                    var diagnosticGoods = @goods;
-                    Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/ExtraFeaturesRuntime.RestoreStorageGoods.cs:41", () => $"Extra Features restored stockpile part goods: buildingId={diagnosticArgs.BuildingId}, playerId={diagnosticPending.PlayerId}, goods={BuildGoodsSummary(diagnosticGoods)}, partsRemaining={diagnosticPending.PartsRemaining}.");
-                }
-
-                if (pending.PartsRemaining <= 0)
-                    pendingStockpileRefund = null;
+                lock (resourceGuardSync)
+                    RestoreStockpilePart(args, building);
             }
             catch (Exception ex)
             {
@@ -56,54 +31,92 @@ namespace ExtraFeatures
             }
         }
 
+        // Caller holds resourceGuardSync.
+        private unsafe void RestoreStockpilePart(BuildingBulldozeEventArgs args, GameBuilding* building)
+        {
+            PendingStockpileRefund pending = pendingStockpileRefund;
+            if (pending == null || IsTickWindowExpired(pending.CreatedTick, CurrentGameTick(), StockpileRefundLifetimeTicks))
+            {
+                pendingStockpileRefund = null;
+                return;
+            }
+
+            if (building->r_PlayerIdOwner != pending.Owner ||
+                !pending.ProcessedBuildingIds.Add(args.BuildingId))
+            {
+                return;
+            }
+
+            int[] goods = CopyLocalGoods(building);
+            RestoreGoods(pending.PlayerId, goods);
+            pending.PartsRemaining--;
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+            {
+                // Keep captures inside the enabled scope; otherwise the compiler can allocate them before the guard.
+                var diagnosticArgs = @args;
+                var diagnosticPending = @pending;
+                var diagnosticGoods = @goods;
+                Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/ExtraFeaturesRuntime.RestoreStorageGoods.cs:41", () => $"Extra Features restored stockpile part goods: buildingId={diagnosticArgs.BuildingId}, playerId={diagnosticPending.PlayerId}, goods={BuildGoodsSummary(diagnosticGoods)}, partsRemaining={diagnosticPending.PartsRemaining}.");
+            }
+
+            if (pending.PartsRemaining <= 0)
+                pendingStockpileRefund = null;
+        }
+
         private unsafe void OnBuildingRefund(BuildingRefundEventArgs args)
         {
             try
             {
-                NormalizeRefundPercentage(args);
-                AddResourceRefundGuards(args);
-                RemoveResourceRefundGuards(args);
-
-                if (args.Phase != EventHookPhase.Pre || args.BuildingId <= 0 || !settings.KeepStorageContent ||
-                    !GameBuildingManagerAPI.Instance.TryGetBuildingById(args.BuildingId, out GameBuilding* building))
-                {
-                    return;
-                }
-
-                eStructs structure = building->r_BuildingType;
-                if (!IsRestorableStorageBuilding(structure))
-                    return;
-
-                if (structure == eStructs.STRUCT_GOODS_YARD)
-                {
-                    pendingStockpileRefund = new PendingStockpileRefund
-                    {
-                        PlayerId = args.PlayerId,
-                        Owner = building->r_PlayerIdOwner,
-                        RefundBuildingId = args.BuildingId,
-                        CreatedTick = CurrentGameTick(),
-                        PartsRemaining = 4
-                    };
-                    return;
-                }
-
-                int[] goods = CopyLocalGoods(building);
-                RestoreGoods(args.PlayerId, goods);
-                uint buildingGlobalId = building->r_GlobalId;
-                if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                {
-                    // Keep captures inside the enabled scope; otherwise the compiler can allocate them before the guard.
-                    var diagnosticStructure = @structure;
-                    var diagnosticArgsValue = @args;
-                    var diagnosticBuildingGlobalId = @buildingGlobalId;
-                    var diagnosticGoodsValue = @goods;
-                    Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/ExtraFeaturesRuntime.RestoreStorageGoods.cs:87", () => $"Extra Features restored storage goods: type={diagnosticStructure}, buildingId={diagnosticArgsValue.BuildingId}, " +
-                            $"buildingGlobalId={diagnosticBuildingGlobalId}, playerId={diagnosticArgsValue.PlayerId}, goods={BuildGoodsSummary(diagnosticGoodsValue)}.");
-                }
+                lock (resourceGuardSync)
+                    HandleBuildingRefund(args);
             }
             catch (Exception ex)
             {
                 Shared.DebugLogHelper.LogErrorLimited(log, "ExtraFeatures/src/ExtraFeaturesRuntime.RestoreStorageGoods.cs:94", $"Extra Features storage restore hook failed: {ex}");
+            }
+        }
+
+        // Caller holds resourceGuardSync.
+        private unsafe void HandleBuildingRefund(BuildingRefundEventArgs args)
+        {
+            NormalizeRefundPercentage(args);
+            AddResourceRefundGuards(args);
+            RemoveResourceRefundGuards(args);
+
+            if (args.Phase != EventHookPhase.Pre || args.BuildingId <= 0 || !settings.KeepStorageContent ||
+                !GameBuildingManagerAPI.Instance.TryGetBuildingById(args.BuildingId, out GameBuilding* building))
+            {
+                return;
+            }
+
+            eStructs structure = building->r_BuildingType;
+            if (!IsRestorableStorageBuilding(structure))
+                return;
+
+            if (structure == eStructs.STRUCT_GOODS_YARD)
+            {
+                pendingStockpileRefund = new PendingStockpileRefund
+                {
+                    PlayerId = args.PlayerId,
+                    Owner = building->r_PlayerIdOwner,
+                    CreatedTick = CurrentGameTick(),
+                    PartsRemaining = 4
+                };
+                return;
+            }
+
+            int[] goods = CopyLocalGoods(building);
+            RestoreGoods(args.PlayerId, goods);
+            uint buildingGlobalId = building->r_GlobalId;
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+            {
+                // Keep captures inside the enabled scope; otherwise the compiler can allocate them before the guard.
+                var diagnosticStructure = @structure;
+                var diagnosticArgsValue = @args;
+                var diagnosticBuildingGlobalId = @buildingGlobalId;
+                var diagnosticGoodsValue = @goods;
+                Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/ExtraFeaturesRuntime.RestoreStorageGoods.cs:87", () => $"Extra Features restored storage goods: type={diagnosticStructure}, buildingId={diagnosticArgsValue.BuildingId}, " +
+                        $"buildingGlobalId={diagnosticBuildingGlobalId}, playerId={diagnosticArgsValue.PlayerId}, goods={BuildGoodsSummary(diagnosticGoodsValue)}.");
             }
         }
 

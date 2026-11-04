@@ -32,6 +32,7 @@ namespace CastlePlanner
         private readonly Action toggle;
         private readonly CastlePlannerSettingsViewModel settings;
         private readonly FreeCastlePreviewRuntime preview;
+        private readonly Func<bool> manualControlsAllowed;
         private readonly BulkObservableCollection<string> filteredCastleOptions =
             new BulkObservableCollection<string>();
         private bool hudVisible;
@@ -72,12 +73,15 @@ namespace CastlePlanner
         public BlueprintHudViewModel(
             Action toggle,
             CastlePlannerSettingsViewModel settings,
-            FreeCastlePreviewRuntime preview)
+            FreeCastlePreviewRuntime preview,
+            Func<bool> manualControlsAllowed)
         {
             this.toggle = toggle ?? throw new ArgumentNullException(nameof(toggle));
             this.settings = settings ??
                 throw new ArgumentNullException(nameof(settings));
             this.preview = preview ?? throw new ArgumentNullException(nameof(preview));
+            this.manualControlsAllowed = manualControlsAllowed ?? throw new ArgumentNullException(nameof(manualControlsAllowed));
+            ConfirmCastleCommand = new BlueprintParticipantCommand(preview.ConfirmCommand, () => ManualControlsAllowed);
             ToggleCommand = new RelayCommand(
                 () => this.toggle(),
                 () => CanToggle);
@@ -87,15 +91,16 @@ namespace CastlePlanner
             // same selection and visual values.
             this.settings.PropertyChanged += OnSettingsPropertyChanged;
             this.preview.PropertyChanged += OnPreviewPropertyChanged;
-            RefreshCastleOptionsFilter();
+            // Castle choices are populated lazily when the manual selector is opened.
         }
 
         public event PropertyChangedEventHandler PropertyChanged;
 
         public ICommand ToggleCommand { get; }
         public ICommand ToggleSettingsPanelCommand { get; }
-        public ICommand ConfirmCastleCommand => preview.ConfirmCommand;
-        public bool PreviewVisible => preview.IsPreviewActive;
+        public ICommand ConfirmCastleCommand { get; }
+        private bool ManualControlsAllowed => !SpectatorMode && manualControlsAllowed();
+        public bool PreviewVisible => ManualControlsAllowed && preview.IsPreviewActive;
         public bool NormalBlueprintSettingsVisible => !PreviewVisible;
         public string PreviewTitleText => preview.TitleText;
         public string PreviewTimerText => preview.TimerText;
@@ -104,9 +109,32 @@ namespace CastlePlanner
         public string RotationText => preview.RotationText;
         public ObservableCollection<string> RotationOptions =>
             preview.RotationChoices;
-        public bool CanConfirmCastle => preview.CanConfirm;
-        public bool CanSelectCastle => !PreviewVisible || preview.CanConfirm;
-        public bool CanSelectRotation => settings.AllowRotation && preview.CanConfirm && preview.HasRotatableSelection;
+        public bool CanConfirmCastle => ManualControlsAllowed && preview.CanConfirm;
+        public bool SpectatorMode { get; private set; }
+        public Noesis.Visibility ManualCastleVisibility => SpectatorMode ? Noesis.Visibility.Collapsed : Noesis.Visibility.Visible;
+        public Noesis.Visibility SpectatorCastleVisibility => SpectatorMode ? Noesis.Visibility.Visible : Noesis.Visibility.Collapsed;
+        public string SpectatorCastleText { get; private set; } = "";
+        public string SpectatorAivFileText { get; private set; } = "";
+        public Noesis.Brush SpectatorCastleColour { get; private set; } = Noesis.Brushes.White;
+        internal void SetSpectatorContext(bool enabled, string name, Noesis.Brush colour, string aivFileName)
+        {
+            if (enabled != SpectatorMode)
+            {
+                CloseSearchPopupForApplicationFocusLoss();
+                if (enabled && rotationComboBox != null) rotationComboBox.IsDropDownOpen = false;
+                SpectatorMode = enabled;
+                foreach (string property in new[] { nameof(SpectatorMode), nameof(ManualCastleVisibility), nameof(SpectatorCastleVisibility), nameof(CanSelectCastle), nameof(CanSelectRotation), nameof(SelectedCastle), nameof(SelectedRotation), nameof(PreviewVisible), nameof(NormalBlueprintSettingsVisible), nameof(PanelHeight), nameof(CanConfirmCastle) }) OnPropertyChanged(property);
+                ((BlueprintParticipantCommand)ConfirmCastleCommand).NotifyChanged();
+            }
+            string text = SerpLocalization.Get("CastlePlanner.Hud.AiPlan").Replace("{Lord}", name);
+            if (text != SpectatorCastleText) { SpectatorCastleText = text; OnPropertyChanged(nameof(SpectatorCastleText)); }
+            string sourceText = SerpLocalization.Get("CastlePlanner.Hud.AiPlanFile").Replace("{File}",
+                aivFileName ?? SerpLocalization.Get("CastlePlanner.Hud.AiPlanFileUnknown"));
+            if (sourceText != SpectatorAivFileText) { SpectatorAivFileText = sourceText; OnPropertyChanged(nameof(SpectatorAivFileText)); }
+            if (!ReferenceEquals(colour, SpectatorCastleColour)) { SpectatorCastleColour = colour; OnPropertyChanged(nameof(SpectatorCastleColour)); }
+        }
+        public bool CanSelectCastle => ManualControlsAllowed && (!PreviewVisible || preview.CanConfirm);
+        public bool CanSelectRotation => ManualControlsAllowed && settings.AllowRotation && preview.CanConfirm && preview.HasRotatableSelection;
         public double PanelWidth => ClampPanelExtent(
             DesiredPanelWidth,
             viewportWidth);
@@ -117,7 +145,7 @@ namespace CastlePlanner
         public string SelectedRotation
         {
             get => preview.SelectedRotation;
-            set => preview.SelectedRotation = value;
+            set { if (ManualControlsAllowed) preview.SelectedRotation = value; }
         }
 
         public ObservableCollection<string> CastleOptions =>
@@ -127,6 +155,7 @@ namespace CastlePlanner
         {
             get
             {
+                if (SpectatorMode) return SpectatorCastleText;
                 string option = PreviewVisible
                     ? preview.SelectedChoice
                     : settings.SelectedCastle;
@@ -136,6 +165,7 @@ namespace CastlePlanner
             }
             set
             {
+                if (!ManualControlsAllowed) return;
                 if (PreviewVisible)
                 {
                     if (IsPreviewSpecialChoice(value))
@@ -313,6 +343,7 @@ namespace CastlePlanner
         {
             get
             {
+                if (SpectatorMode && displayState == BlueprintHudDisplayState.Unavailable) return SerpLocalization.Get("CastlePlanner.Hud.AiPlanUnavailable");
                 switch (displayState)
                 {
                     case BlueprintHudDisplayState.Loading:
@@ -349,7 +380,7 @@ namespace CastlePlanner
                 this.completedDepthCaptures,
                 this.requestedDepthCaptures);
             HudVisible = isBlueprintMode && isMapActive;
-            CanToggle = HudVisible && isReady;
+            CanToggle = HudVisible && (isReady || SpectatorMode);
             BlueprintVisible = isVisible;
             if (!HudVisible)
                 CloseSettingsPanel();
@@ -693,7 +724,7 @@ namespace CastlePlanner
             object sender,
             Noesis.MouseButtonEventArgs args)
         {
-            if (castleSearchPopup == null || castleSearchPopup.IsOpen)
+            if (!CanSelectCastle || castleSearchPopup == null || castleSearchPopup.IsOpen)
                 return;
 
             // Rebuild the complete result set while the popup is still closed.
@@ -725,6 +756,7 @@ namespace CastlePlanner
 
         private void BeginCastleSearch()
         {
+            if (!CanSelectCastle) { if (castleSearchPopup != null) castleSearchPopup.IsOpen = false; return; }
             if (castleSearchTextBox == null)
                 return;
 
@@ -1264,6 +1296,7 @@ namespace CastlePlanner
 
         private void RefreshCastleOptionsFilter()
         {
+            if (SpectatorMode || (GameData.Instance?.lastGameState?.spectatorMode != null && GameData.Instance.lastGameState.spectatorMode != 0 && EditorDirector.instance != null && EditorDirector.instance.ActivePlayerID <= 0)) return;
             ObservableCollection<string> source = PreviewVisible
                 ? preview.CastleChoices
                 : settings.CastleOptions;

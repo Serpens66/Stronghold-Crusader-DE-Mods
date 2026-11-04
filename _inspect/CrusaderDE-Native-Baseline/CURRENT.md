@@ -46,6 +46,12 @@ Semantic reverse-engineering baseline:
 
 ## Vanilla behavior audits
 
+- [Enemy HP: offline team reference and real multiplayer gate](./sem/FBCB9319/knowledge/ENEMY_HP_MULTIPLIER.md): spectator reference AI/team exemption, per-owner HP consumers, and the mode-1 network-start bypass; static evidence, no new game/host-client acceptance run.
+
+- [Save writer routes and synchronized saves](./sem/FBCB9319/knowledge/SAVE_WRITER_ROUTES.md): autosave/Chore 39, ordinary export and Trail-template routes; shared writer and MP Lord-name limits.
+
+- [AI woodcutter retirement and repeated construction](./sem/FBCB9319/knowledge/AI_WOODCUTTER_RETIREMENT.md): retirement thresholds, worker path/counter writers, accessibility propagation and temporary coarse-cell avoidance; static audit, no save-specific cause claim.
+
 Only Vanilla behavior; Script Extender names appear only as vocabulary.
 
 - [AI resource reserve audit](./sem/FBCB9319/knowledge/AI_RESOURCE_RESERVE.md)
@@ -55,13 +61,19 @@ Only Vanilla behavior; Script Extender names appear only as vocabulary.
 - [Health-bar rendering audit](./sem/FBCB9319/knowledge/HEALTH_BAR_RENDERING.md): visible-map render paths, selection gates, HP storage and candidate hook spans.
 - [Keep and campground ground: verified records](./sem/FBCB9319/knowledge/KEEP_CAMPGROUND_GROUND.md)
 - [Keep main-flag rotation audit](./sem/FBCB9319/knowledge/KEEP_FLAG_ROTATION.md): view-dependent Vanilla micro-anchors, Keep-relative rotation, and projectile coordinate contracts.
+- [Long simulation ticks from AI group movement (FBCB9319)](./sem/FBCB9319/knowledge/SIM_TICK_SPIKE_PATHING.md): AI group-order stalls, `0x119F90` member lookup, Assassin per-member `0xD9C40` and the `+0x94` route output; mod contracts and mod measurements are only linked.
 - [Minimap (radar) pass 0xF5A40 (FBCB9319)](./sem/FBCB9319/knowledge/RADAR_PASS_F5A40.md)
 - [Surrender selection and multiplayer checksum audit](./sem/FBCB9319/knowledge/SURRENDER_SELECTION.md): selected Lord field, checksum buckets, deselection and trace evidence.
 
 ## Vanilla audits with mod integration
 
+- [Player-control context and Chore issuer](./sem/FBCB9319/knowledge/PLAYER_CONTROL_CONTEXT.md): transport-source flow, identity-only native helper, view-dependent enqueue, selection reservation side effects and the additive APIShared adapter; foreign-control backend and peer acceptance remain pending.
+
+- [Desync capture and native unit wire-record prefix](./sem/FBCB9319/knowledge/DESYNC_CAPTURE.md): independently decoded four-byte wire/typed-view distinction, exact signed-byte checksum inputs, disabled native timeout logger and local-immediate dispatch boundary; fixture evidence with real multiplayer acceptance pending.
+
 Vanilla audits that also contain mod-specific parts; see the `[mod integration]` headings and `document-scopes.json`.
 
+- [Lord home relocation](./sem/FBCB9319/knowledge/LORD_HOME_TELEPORT.md): failed return paths, building-attack target-loss trigger and deliberately preserved invalid-component rescue, now integrated into BugfixesAndQoL with a default-enabled host option; human return-path suppression confirmed by four real blocked calls in singleplayer, other gameplay/MP cases pending.
 - [AI economy observation boundaries](./sem/FBCB9319/knowledge/AI_ECONOMY_OBSERVATION.md): tax settlement ABI, Pre-only tax notifications, separate AI trade execution and accessibility-group/removal evidence; static audit, runtime acceptance pending.
 - [AI negative sell thresholds](./sem/FBCB9319/knowledge/AI_SELL_THRESHOLDS.md): phantom-credit cause, all eight categories, native decision/transaction guards and original-function execution evidence; in-game acceptance pending.
 - [AI woodcutter construction gate](./sem/FBCB9319/knowledge/AI_WOODCUTTER_BUILD.md)
@@ -69,6 +81,7 @@ Vanilla audits that also contain mod-specific parts; see the `[mod integration]`
 - [AIV lobby selection audit](./sem/FBCB9319/knowledge/AIV_LOBBY_SELECTION.md): candidate order, rotation branches, thresholds, and completed-castle state boundary.
 - [Assassin direct gatehouse climb: native audit](./sem/FBCB9319/knowledge/ASSASSIN_DIRECT_GATEHOUSE_CLIMB.md)
 - [Assassin reconstruction repair](./sem/FBCB9319/knowledge/ASSASSIN_RECONSTRUCTION_REPAIR.md): E1640 mode-3 one-way connection failure, per-unit full-map repair cost and the APIShared 0xE19C0 correction; confirmed by runtime replay and executed fixture.
+- [Enemy-unit proximity during building actions](./sem/FBCB9319/knowledge/ENEMY_BUILD_PROXIMITY.md): separate civilian/military radii, unchanged building/wall restrictions, native predicate and migration contracts.
 - [Building repair contract (CrusaderDE.dll FBCB9319…F2831E2)](./sem/FBCB9319/knowledge/BUILDING_REPAIR.md)
 - [Building sleep and local selection audit](./sem/FBCB9319/knowledge/BUILDING_SLEEP_SELECTION.md): Chore 43's building-type payload, local selection use and runtime-confirmed resource divergence.
 - [Civilian worker pause audit](./sem/FBCB9319/knowledge/WORKER_PAUSES.md): shared fear-building visit logic, worker comparisons, and the baker/miller post-delivery branches.
@@ -88,17 +101,21 @@ Vanilla audits that also contain mod-specific parts; see the `[mod integration]`
 - [Foreign troop HUD player colors](./sem/FBCB9319/knowledge/FOREIGN_TROOP_PLAYER_COLORS.md): current owner mapping, loaded-player remapping, material tint versus UI portrait order, and pending in-game acceptance.
 - [Foreign troop HUD skins](./sem/FBCB9319/knowledge/FOREIGN_TROOP_SKINS.md): current unit material, Monk/Temple Guard render flow, colored portrait variants and isolated view regression coverage; in-game visual acceptance remains separate.
 - [Formation fallback and native movement permission](./sem/FBCB9319/knowledge/FORMATION_MOVEMENT_PERMISSION.md)
+- [Selected movement marker records](./sem/FBCB9319/knowledge/LINEUP_MARKERS.md): native sprite/category order, bounded marker identities, frame reset and isolated LineUp recovery.
 - [Gatehouse capture and true unit life](./sem/FBCB9319/knowledge/GATEHOUSE_LIVING_CAPTURE.md): complete capture/death/removal flow, low-word death marker, combat predicate and permanent capture-filter boundary.
 - [Gatehouse damage and drawbridge destruction](./sem/FBCB9319/knowledge/DRAWBRIDGE_DESTRUCTION.md): native bridge damage immunity, premature direct-hit removal, lethal/demolition paths and pending standalone fix acceptance.
 - [Gatehouse policy: native baseline and evidence limits (2026-10-13)](./sem/FBCB9319/knowledge/ENEMY_GATE_VANILLA_EVIDENCE.md)
 - [Gatehouse target marker height](./sem/FBCB9319/knowledge/GATEHOUSE_TARGET_MARKER_HEIGHT.md): complete marker render path, gate wall-height discrepancy, tower/keep counterchecks and managed consumer correction.
+- [Ground route builders F4930, DAAC0 and DA590](./sem/FBCB9319/knowledge/GROUND_ROUTE_BUILDERS.md): region gate, builder order, breadth-first edge rules of the direction table, unreported direction byte changes.
+- [Fire on the ground: effect records, pitch ignition and unit route storage](./sem/FBCB9319/knowledge/FIRE_EFFECTS.md): type-9 effect records and tile lists, pitch OnFire as ignition only, stored route start versus next tile while moving.
 - [HUD presentation scheduling audit](./sem/FBCB9319/knowledge/HUD_PRESENTATION.md): Vanilla writers, render-state flow, visibility and active-consumer boundaries.
 - [Incoming gold and periodic amounts](./sem/FBCB9319/knowledge/PERIODIC_GOLD.md): signed positive-only delivery, pending versus direct debit, overflow limits and static evidence.
 - [Independent manual gatehouse and drawbridge control](./sem/FBCB9319/knowledge/GATE_BRIDGE_AUTOMATION.md)
 - [Lobby chat layout](./sem/FBCB9319/knowledge/LOBBY_CHAT_LAYOUT.md): shared Coop/Skirmish managed renderer, fixed-width name and forced line break, local compact presentation and foreach/finally insertion boundary; native visual acceptance pending.
 - [Lobby save loading and Skirmish load-button visibility](./sem/FBCB9319/knowledge/LOBBY_SAVE_LOADING.md): solo-host eligibility, absent-human removal, persistent frontend path and consumer acceptance limits.
-- [Long simulation ticks from AI group movement (FBCB9319)](./sem/FBCB9319/knowledge/SIM_TICK_SPIKE_PATHING.md)
 - [Lord defeat loot audit](./sem/FBCB9319/knowledge/DEFEAT_LOOT.md): winner attribution, direct gold and incoming-goods awards, and the native skip branch.
+- [Lord defeat percentages and message capacity](./sem/FBCB9319/knowledge/KILL_REWARD_PERCENT.md): exact goods/cleanup fields, signed-short gold messages, bounded transfer and existing-span integration.
+- [Lord AIC slots and optional media lookup](./sem/FBCB9319/knowledge/LORD_MEDIA_LOOKUP.md): Vanilla AIC-slot remapping, normal media fallback and independently reachable SE registration failures.
 - [Minimap last-frame HD speech wait](./sem/FBCB9319/knowledge/NOTIFICATION_LAST_FRAME.md): native presentation ordering, archived HD last-frame/20-second bound, managed completion safeguards and isolated regression limits.
 - [Moat terrain restoration](./sem/FBCB9319/knowledge/MOAT_TERRAIN_RESTORATION.md): confirmed soil-zero writer, direct placement ordering, bridge conversion/removal, explicit replacement boundaries and private native fixture evidence; in-game acceptance pending.
 - [Modsettings activation: peace time and No Dogs](./sem/FBCB9319/knowledge/MODSETTINGS_ACTIVATION.md)
@@ -109,6 +126,7 @@ Vanilla audits that also contain mod-specific parts; see the `[mod integration]`
 - [Outpost static audit](./sem/FBCB9319/knowledge/OUTPOSTS.md): profiles, spawn/guard/group flows, selection, rally scope and documented runtime gaps.
 - [Packaged Coop maps and Ready admission](./sem/FBCB9319/knowledge/COOP_PACKAGE_MAP_READINESS.md): direct package headers versus Vanilla multiplayer catalogs, cached verification, silent Ready rejection and lobby system-message rendering; confirmed-static managed path, two-peer acceptance pending.
 - [Pause and zoom automation boundaries](./sem/FBCB9319/knowledge/AUTOMATION_PAUSE_ZOOM.md): native versus managed pause, multiplayer transport asymmetry, public camera methods and static validation limits.
+- [Pitch traps and stairs](./sem/FBCB9319/knowledge/PITCH_STAIRS_HEIGHT.md): direction/search height inconsistency, stale direction bytes after pitch placement, AIV/manual construction over pitch, building-access and demolition checks, pitch-drop writer/compensation inventory and fire path; original-code isolated execution plus PitchStairsTest live counters under `[mod integration]`; no multiplayer acceptance.
 - [Plague cloud height and damage](./sem/FBCB9319/knowledge/PLAGUE_HEIGHT.md): explicit wall/roof immunity, standing-height contracts and standalone PlagueHeightTest native fixture evidence.
 - [Plague popularity: scheduling and identity contract](./sem/FBCB9319/knowledge/PLAGUE_POPULARITY.md)
 - [Player defeat observation audit](./sem/FBCB9319/knowledge/PLAYER_DEFEAT.md)
@@ -123,6 +141,7 @@ Vanilla audits that also contain mod-specific parts; see the `[mod integration]`
 - [Savegame metadata without the original map](./sem/FBCB9319/knowledge/SAVEGAME_MISSING_MAP_METADATA.md): confirmed Vanilla map-availability rejection, embedded Lord presentation, safe serialization boundary and desktop-tested managed testmod.
 - [Savegame modsettings load boundaries](./sem/FBCB9319/knowledge/SAVEGAME_MODSETTINGS_LOAD.md): multiplayer map-load routing, installed archive-context mismatch, Solo/Coop boundaries and readiness validation limits.
 - [Situational unit audio](./sem/FBCB9319/knowledge/SITUATIONAL_UNIT_AUDIO.md): complete Arabian idle sword-draw production, buffer transport, per-play volume and permanent hook contracts.
+- [GameAction classes for a foreign-view observer](./sem/FBCB9319/knowledge/GAMEACTION_OBSERVER_CLASSES.md): every DLL_GameAction command classified as acting as the native viewpoint or not, open tick/autotrade paths, and the Spectator observer policy.
 - [Spectator building and wall placement](./sem/FBCB9319/knowledge/SPECTATOR_BUILD_PLACEMENT.md)
 - [Spectator report path](./sem/FBCB9319/knowledge/SPECTATOR_REPORTS.md): selected view index, native report buffer, managed Army gate, and Food action controls.
 - [Tannery animation transparency audit](./sem/FBCB9319/knowledge/TANNER_ALPHA.md): native building updater, alpha source, renderer, and simulation tick boundary.
@@ -161,7 +180,7 @@ Third-party components; not Vanilla evidence by themselves.
 - [Script Extender 2.11.0 speech-path hook audit](./sem/FBCB9319/knowledge/SE_2_11_SPEECH_PATH.md): module-bound signature, RedBird displacement, continuation, and the earlier path-length defect.
 - [Script Extender 2.14.1 engage-range audit](./sem/FBCB9319/knowledge/SE_2_14_1_ENGAGE_RANGE.md): full native feature path, all 35 actual RedBird spans, generated-code checks, consumer compatibility and acceptance limits.
 - [Script Extender 2.14.2 source compatibility review](../../Shared/Tools/ScriptExtenderUpdate/2.14.1-2.14.2.review.md): music-only managed change; source baseline refresh, installed extender remains 2.14.1; runtime acceptance pending.
-- [Script Extender 2.14.3 interop additions](./sem/FBCB9319/knowledge/SE_2_14_3_INTEROP_ADDITIONS.md): additive upstream field names, types and offsets; generated baseline remains on its recorded 2.14.2 provenance.
+- [Script Extender 2.14.3 interop additions](./sem/FBCB9319/knowledge/SE_2_14_3_INTEROP_ADDITIONS.md): additive upstream field names, types and offsets; since 2026-10-27 the generated baseline itself is on 2.14.3.
 - [UU-ImGUI shutdown audit](./sem/FBCB9319/knowledge/UU_IMGUI_SHUTDOWN.md): dependency context teardown race, normal exit path, binary identities, controlled tests, exact Unity Mono backend checks and four successful game shutdown paths.
 
 ## Queries
@@ -183,8 +202,8 @@ If the local database is absent after a fresh clone, rebuild it from the tracked
 
 The Analysis stage adds hash-bound instruction facts, conservative liveness, selected High P-code, feature dossiers and installed-backend hook checks. See [operation and limitations](./tools/semantic/ANALYSIS.md). Queries: `instructions`, `flow`, `trace`, `global`, `feature`, `hookcheck`, `coverage`. The current database manifest selects the published schema-6 analysis generation; failed flows and unresolved audit boundaries remain explicit.
 
-Published coverage: 4,478 native functions, 436,211 independently verified instructions, 2,601 complete selected High P-code flows and 69 existing audit dossiers. Three decompiler failures remain explicit; 1,874 functions have no selected deep flow. [Acceptance record](./sem/FBCB9319/analysis/g1E2FBFF53E33/acceptance.json) confirms fresh Windows PowerShell queries, unchanged reference projects and exact schema-6 analysis reconstruction.
+Published coverage (generation `g72CA4AA9715C`, 2026-10-27, Script Extender 2.14.3 knowledge): 4,478 native functions, 436,211 independently verified instructions, 2,752 complete selected High P-code flows and 99 existing audit dossiers. Three decompiler failures remain explicit; 1,723 functions have no selected deep flow. [Acceptance record](./sem/FBCB9319/analysis/g72CA4AA9715C/acceptance.json) confirms fresh Windows PowerShell queries, unchanged reference projects and exact schema-6 analysis reconstruction.
 
-Additional offline queries: `slice`, `memory`, `switch`, `summary`, `type` and `changes`. They expose bounded value slices, 76,794 reconstructed memory accesses, 788 recovered layouts and 3,818 historical function comparisons. Reconstruction and audited contracts remain separate; partial flows, aliasing and decompiler diagnostics are explicit. See [usage and limits](./tools/semantic/ANALYSIS.md).
+Additional offline queries: `slice`, `memory`, `switch`, `summary`, `type` and `changes`. They expose bounded value slices, 79,169 reconstructed memory accesses, 932 recovered layouts and 3,818 historical function comparisons. Reconstruction and audited contracts remain separate; partial flows, aliasing and decompiler diagnostics are explicit. See [usage and limits](./tools/semantic/ANALYSIS.md).
 
-Mod sources are mutable integration snapshots. Later edits do not invalidate Vanilla machine facts or block feature and summary queries. Hook checks retain machine evidence but report incomplete current ownership when the source inventory has changed. Concurrent baseline knowledge is preserved by publication guards.
+Mod sources are mutable integration snapshots. Later edits do not invalidate Vanilla machine facts or block feature and summary queries. Hook checks retain machine evidence but report incomplete current ownership when the source inventory has changed. A newly installed Script Extender assembly is reported the same way and needs `Build-SemanticBaseline.ps1 UpdateForScriptExtender`, not a new analysis generation. Concurrent baseline knowledge is preserved by publication guards.

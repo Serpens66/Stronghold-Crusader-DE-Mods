@@ -266,8 +266,8 @@ internal static class Program
         Check(!plugin.Contains("runtime?.Dispose"), "plugin never disposes process-wide hooks during startup cleanup");
         Check(!plugin.Contains("LibraryLoaded -= OnCrusaderLibraryLoaded"),
             "plugin never removes its process-wide library subscription during startup cleanup");
-        Check(runtime.Contains("GameTimeManagerAPI.Instance.OnTick += OnGameTick"),
-            "simulation diagnostics use the long-lived Script Extender tick publisher");
+        Check(runtime.Contains("APIShared.Simulation.SimulationTickEvents.TryRegister"),
+            "simulation repairs use the process-owned native map-tick publisher");
         Check(runtime.Contains("SIEGE_TICK_HEARTBEAT"),
             "the first verified tick callbacks emit bounded lifecycle evidence");
         Check(runtime.IndexOf("SIEGE_TICK_HEARTBEAT", StringComparison.Ordinal) <

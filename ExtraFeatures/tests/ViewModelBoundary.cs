@@ -275,7 +275,7 @@ public static class SerpLocalization {
 }
 namespace ExtraFeatures {
     public static class ExtraFeaturesPlugin { public const string PluginGuid = "ExtraFeatures_Serp", PluginName = "Extra Features"; }
-    public static class PlagueDurationPatch { public const double MinimumMultiplier = 0.5, MaximumMultiplier = 1000; }
+    public static class PlagueDurationPatch { public const double MinimumMultiplier = 0.5, MaximumMultiplier = 40; }
     public static class PlagueApothecarySearchRangePatch { public const int MinimumDistance = 20, MaximumDistance = 200; }
     public static class ExtraFeaturesRuntime { public const int CampfirePeasantsMaximum = 200; }
 }

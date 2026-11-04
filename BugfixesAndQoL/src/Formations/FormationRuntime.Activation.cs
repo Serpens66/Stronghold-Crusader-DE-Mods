@@ -55,20 +55,51 @@ namespace BugfixesAndQoL.UnitCommands
             (FatControler.instance == null || !FatControler.instance.overNoesisGUI()) &&
             GetCommandMouseButton() == state.CommandButton;
 
-        private void AbortDrag(string reason)
+        private void AbortDrag(string reason, bool preserveRelease = false)
         {
             ActiveDrag state;
             lock (stateSync)
             {
                 state = drag;
+                if (state != null && preserveRelease) state.ReleasePassThrough = true;
                 drag = null;
                 pendingStart = null;
                 RefreshNativeObserverDemand();
             }
             if (state == null)
                 return;
-            DiscardDeferredRelease(state);
+            if (preserveRelease)
+            {
+                // If the original run is currently hiding the edge, its finally hands it
+                // back. Otherwise the already restored input remains for Vanilla's next run.
+                LogCommandHandoff(state, reason);
+            }
+            else DiscardDeferredRelease(state);
             ClearPreview();
+        }
+
+        private void AbortCommandMode(string phase, APIShared.Internal.GroundMovePreviewRejection rejection) =>
+            AbortDrag(phase,
+                preserveRelease: rejection == APIShared.Internal.GroundMovePreviewRejection.PatrolCommandMode);
+
+        private void LogCommandHandoff(ActiveDrag state, string reason)
+        {
+            if (!formationSupportLogGate.TryReserve("patrol-handoff", 30, out long suppressed)) return;
+            EmitCommandHandoff(state, reason, suppressed);
+        }
+
+        private readonly Shared.LogRateGate formationSupportLogGate = new Shared.LogRateGate();
+
+        private void EmitCommandHandoff(ActiveDrag state, string reason, long suppressed)
+        {
+            // Rare transition only; no capture, formatting or lookup on ordinary input.
+            string message =
+                $"FORMATION_INPUT_HANDOFF: reason={reason}, attempt={inputAttempt}, mapEpoch={state.MapEpoch}, " +
+                $"player={state.PlayerId}, tribe={state.TribeId}, selection={state.Selection.Length}, " +
+                $"anchor=({state.Target.NativeX},{state.Target.NativeY}), button={state.CommandButton}, " +
+                $"patrol=active, deferred={state.ReleaseDeferred}, releaseClaimed={state.ReleaseGate.VanillaReleaseClaimed}, suppressed={suppressed}; " +
+                "action=pass-original-input-to-vanilla.";
+            Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(() => Shared.DebugLogHelper.LogInfo(log, message));
         }
 
         // Simulation-side contract failure (native selector): synchronized execution stops.
@@ -91,10 +122,17 @@ namespace BugfixesAndQoL.UnitCommands
         private void FailOpen(string contract, Exception exception)
         {
             groundFrameObserver?.SetActive(false);
-            localInputFailed = true;
             ActiveDrag abandoned;
+            bool permanent;
+            int failures;
             lock (stateSync)
             {
+                bool camera = contract == "camera-presentation";
+                FormationFailurePolicy policy = camera ? cameraFailures : inputFailures;
+                permanent = policy.RecordFailure(contract, exception,
+                    camera ? cameraAttempt : inputAttempt, critical: failed);
+                failures = policy.ConsecutiveFailures;
+                localInputFailed |= permanent;
                 speechQueue.Clear();
                 abandoned = drag;
                 drag = null;
@@ -108,7 +146,8 @@ namespace BugfixesAndQoL.UnitCommands
             try { Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(menuViewModel.RefreshHostState); } catch { }
             try
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/Formations/FormationRuntime.Activation.cs:88", $"FORMATION_DISABLED: contract={contract}; Vanilla remains active; {exception}");
+                LogErrorNoThrow($"FORMATION_{(permanent ? "DISABLED" : "GESTURE_ABORTED")}: " +
+                    $"contract={contract}; failures={failures}; Vanilla remains active; {exception}");
             }
             catch { }
         }

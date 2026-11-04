@@ -3,9 +3,6 @@ ExtraFeatures adds configurable gameplay, economy, building, and AI options to S
 
 ## Convenience and unit features
 
-### No Kill Reward
-Separate host checkboxes disable gold and goods rewards when human or AI players defeat an enemy Lord. The victory message remains; both options are disabled by default.
-
 ### Disable fear-factor effects on soldiers
 An optional host setting removes both the fear-factor damage bonus and penalty for all human and AI soldiers. Fear values, popularity and productivity effects remain unchanged. Disabled by default; also works in the map editor when ExtraFeatures and this option are enabled.
 
@@ -50,16 +47,35 @@ Set separate refund percentages from 0% to 100% for wood, stone, iron, pitch, an
 Goods inside a granary, stockpile, or armory are returned as incoming goods when the building is demolished instead of being lost. Contents of a granary that was built for free cannot be restored, which can occur when no wood was available during construction.
 
 ### Customize enemy proximity for building actions
-Set separate Singleplayer and Multiplayer enemy-exclusion radii for human and AI building actions. Human values apply to normal building placement, repair, and demolition; the demolition cursor from BugfixesAndQoL reads the same active range. AI values apply only to safely classified repairs of damaged defenses and walls and to rebuilding previously built towers and gatehouses, while initial placements and unclassified AI building calls remain unchanged.
+Eight host sliders set separate enemy **civilian** and **soldier** exclusion radii for human and AI building actions in Singleplayer and Multiplayer. Each accepts whole numbers from **-1 to 100 tiles**: -1 keeps the actual Vanilla radius and 0 removes that category's distance restriction. All default to -1. Existing common-radius settings migrate to both categories while preserving explicitly stored category values. Enemy-building, wall, terrain and direct-occupancy checks remain in effect.
+
+Human values apply to normal building placement, repair and demolition. AI values apply only to safely classified repairs of damaged defenses and walls and to rebuilding previously built towers and gatehouses; initial placements and unclassified AI calls retain their normal radii. Civilian workers, economic transports and civilian castle residents follow the civilian slider. Engineers, tunnelers, Fighting Monks and Arabian Slaves remain in the military category.
+
+With [BugfixesAndQoL's Peace Time reduction](../BugfixesAndQoL/README.md#reduce-civilian-building-restrictions-during-peace-time) enabled, the effective civilian radius becomes `min(3, effective civilian radius)` during active Peace Time. Values 0, 1 and 2 are preserved, and -1 resolves to the actual Vanilla radius first. That separate rule also covers normal AI initial-placement proximity queries. Soldier and building restrictions and AI rebuild-delay vetoes remain in effect. ExtraFeatures alone keeps its configured radii throughout the match.
 
 ## Economy features
+
+### Customize victory loot
+The host can configure gold and goods percentages and an absolute gold limit independently for human and AI winners. The settings apply when the winner defeats an enemy Lord and can be changed between matches.
+
+Both percentage sliders range from -1 to 100 in steps of 1. All six settings default to -1, preserving Vanilla rewards:
+
+| Setting | -1: Vanilla | Custom value |
+|---|---|---|
+| Gold share | 25% of the defeated player's gold, at least 500 before applying the gold limit | 0-100% of the defeated player's gold, without a minimum |
+| Goods share | 25% of each eligible goods stock | 0-100% of each eligible goods stock |
+| Gold limit | At most 100,000 gold per defeated Lord | Any positive whole number sets the absolute limit |
+
+Percentages are rounded down, separately for each goods type. A percentage of 0 gives no reward of that kind. The gold limit applies after calculating the gold share, including when the share is left at Vanilla: a limit below 500 overrides the Vanilla minimum, and a larger limit can allow rewards above 100,000. Goods have no separate loot limit. Gold is credited immediately; goods enter the incoming-goods queue. The victory message remains even when both shares are 0.
+
+Existing profiles and Trails that enabled **No Kill Reward** automatically use 0% for both gold and goods for the affected winner role. Migration happens when settings are loaded, before editing. Human and AI settings remain independent, and subsequent changes are preserved in presets and multiplayer synchronization.
 
 ### Gold every 400 ticks
 Set separate whole-number gold amounts for human and AI players in the Economy settings. Both default to 0; positive and negative values are supported. The host chooses these settings between matches, and they are included in presets and multiplayer synchronization. The Active/Inactive search filter treats 0 as inactive and either sign as active.
 
 Every 400 simulation ticks (about 10 seconds at game speed 40), living players receive their configured amount. Positive amounts enter the normal incoming-gold queue and are credited gradually; negative amounts immediately reduce stored gold, stopping at 0 and leaving pending incoming gold intact. Positive amounts are limited to the remaining capacity of the stored and queued gold balances.
 
-Payments follow the saved simulation tick: 400, 800, 1200, and so on. Starting or loading a map never triggers an immediate or catch-up payment. The same rules apply in the map editor when the simulation is running and living players exist. When both amounts are 0, the gold tick callback is unsubscribed.
+Payments follow the saved simulation tick: 400, 800, 1200, and so on, using the same timing for every multiplayer participant regardless of frame rate. Starting or loading a map never triggers an immediate or catch-up payment. The same rules apply in the map editor when the simulation is running and living players exist.
 
 ### Customize popularity
 Adjust popularity values independently for human and AI players in the Popularity section of the mod settings.
@@ -79,15 +95,13 @@ Multiply all market buying and selling prices globally, then fine-tune the buyin
 Plague clouds can also damage units on nearby walls, gates, towers and keeps when their heights are close enough. The host controls each of these four surfaces separately: walls, gates and towers are enabled by default, keeps are disabled; normal damage and apothecary protection still apply.
 
 ### Customize plague-cloud duration
-Set how long plague clouds remain active from 0.5 to 20 times the Vanilla duration. Longer durations also extend how long a cloud can cause damage. By default set to *4.
+Set how long plague clouds remain active from 0.5 to 40 times the Vanilla duration; the game cannot count longer cloud lifetimes. Longer durations also extend how long a cloud can cause damage. By default set to *4.
 
 ### Customize apothecary search range
 Set how far an apothecary searches from its assigned building for plague clouds. The range can be adjusted from 20 to 200 tiles; Vanilla uses 30.
 
-## Compatibility and diagnostics
+## Compatibility
 
-This mod requires the Script Extender and **APIShared 0.16.1 or newer**. Subscribe to APIShared separately when using the Steam modpack. Mod settings indicate when gameplay changes are inactive for a direct mission or Trail launch. Use **Customize** where available to start with those changes; edits made while inactive are saved for later games.
+This mod requires the Script Extender and **APIShared 0.25.0 or newer**. Subscribe to APIShared separately when using the Steam modpack. Mod settings indicate when gameplay changes are inactive for a direct mission or Trail launch. Use **Customize** where available to start with those changes; edits made while inactive are saved for later games.
 
-Plague-height, market-price, repair-HUD and troop-command integrations use coordinated APIShared hooks. Gatehouse and mount/dismount actions use its synchronized multiplayer transport.
-
-Routine activity is logged at Debug level. Repeated diagnostics are limited to reduce log spam; warnings and errors remain available. No gameplay setting is needed for this change.
+All multiplayer participants need matching modpack and APIShared versions.

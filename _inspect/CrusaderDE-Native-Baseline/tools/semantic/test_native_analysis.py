@@ -32,6 +32,26 @@ class NativeAnalysisTests(unittest.TestCase):
                 result=q.run(self.db,argv)
             self.assertEqual(result['status'],expected);self.assertEqual(result['instructions'],[1]);self.assertTrue(result['gaps'])
 
+    def test_extender_assembly_change_is_a_snapshot_observation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            files={name:Path(directory)/name for name in ['SHCDESE.dll','RedBird.X64.dll','native.dll']}
+            for path in files.values():path.write_bytes(path.name.encode())
+            installed={name:{'path':str(path),'sha256':a.sha(path)} for name,path in files.items() if name!='native.dll'}
+            profile={'binaryHash':a.sha(files['native.dll']),'digest':'D','nativePath':str(files['native.dll']),'installed':installed,'sourceHashes':{}}
+            self.db.execute('INSERT INTO analysis_profiles VALUES(?,?)',('active',json.dumps(profile)))
+            identity=({'currentNativeHash':profile['binaryHash']},{'analysis':{'digest':'D'}},Path(directory))
+            files['SHCDESE.dll'].write_bytes(b'updated extender')
+            with patch.object(q,'identity',return_value=identity):
+                _,stale=q.freshness(self.db)
+                self.assertEqual(stale,['extender changed: SHCDESE.dll changed'])
+                with patch.object(q,'dispatch',return_value={'status':'observations'}):
+                    result=q.run(self.db,['--database','fixture','coverage'])
+                self.assertEqual(result['status'],'observations');self.assertIn('UpdateForScriptExtender',result['sourceSnapshot']['meaning'])
+                # Hook backends stay machine inputs: their change still withholds all analysis results.
+                files['RedBird.X64.dll'].write_bytes(b'updated backend')
+                result=q.run(self.db,['--database','fixture','coverage'])
+                self.assertEqual(result['status'],'stale');self.assertIn('RedBird.X64.dll changed',result['reasons'])
+
     def test_source_inventory_is_an_observation(self):
         with patch.object(a,'source_files',return_value=[('mod','mod',Path('new.cs')),('mod','mod',Path('edited.cs'))]),patch.object(a,'sha',return_value='new'):
             self.assertEqual(a.source_snapshot_changes({'discoveryHashes':{'edited.cs':'old','removed.cs':'old'}}),['edited.cs','new.cs','removed.cs'])

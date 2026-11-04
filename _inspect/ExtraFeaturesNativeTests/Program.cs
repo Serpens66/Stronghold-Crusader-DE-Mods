@@ -25,6 +25,7 @@ namespace ExtraFeatures
                 byte[] image = MapPeImage(file);
                 TestPermanentRuntimeContracts(FindWorkspace());
                 TestNativeTargetMap(image);
+                TestMonkHookHasNoIncomingDirectBranches(image);
                 TestApothecarySearchRangeHook(image);
                 NoKillRewardContractTests.Run(image);
                 HealerTargetsContractTests.Run(image, FindWorkspace());
@@ -107,7 +108,7 @@ namespace ExtraFeatures
                   !runtime.Contains("plagueApothecarySearchRangePatch = null"),
                 "apothecary enable-disable-enable retains the same published hook");
             Check(noKillReward.Contains("rootedPublishedInstance = this;") &&
-                  noKillReward.Contains("Volatile.Write(ref suppressionMask") &&
+                  noKillReward.Contains("Volatile.Write(ref configuration") &&
                   noKillReward.Contains("if (!published)"),
                 "No Kill Reward source guardrail retains rooted hooks and atomic logical settings");
             int finalLiveCheck = noKillReward.LastIndexOf("VerifyLiveSpans(memory);", StringComparison.Ordinal);
@@ -150,7 +151,57 @@ namespace ExtraFeatures
             CheckPattern(image, 0x9F866, "E8 ?? ?? ?? ?? 83 3D ?? ?? ?? ?? 1E 7F ?? 0F BF 4B 1C 48 8D 15 ?? ?? ?? ??", "apothecary distance hook span and return boundary");
             CheckPattern(image, 0x151436, "66 46 39 B4 2B 14 09 00 00 75 22 66 46 39 B4 2B 9E 09 00 00 74 17", "Monk movement hook and following branch");
             Check(ReadInt32(image, 0x9A16D) == 800, "plague lifetime immediate");
+            // PlagueDurationPatch.MaximumLifetime (32767 - 3) assumes a Disease (type 22) phase step every 4 calls.
+            Check(ReadUInt16(image, 0x2DAF70 + 22 * 4) == 4, "Disease phase period behind the plague lifetime limit");
             Check(image[0x9F871] == 30, "apothecary Vanilla distance immediate");
+        }
+
+        // MonkAlwaysRunPatch is bound to SupportedBuildHash and no longer scans the image at
+        // startup; this is the same direct-branch scan, proven once for that build.
+        private static void TestMonkHookHasNoIncomingDirectBranches(byte[] image)
+        {
+            const int hookStart = 0x151436;
+            const int hookEnd = hookStart + 20;
+            ReadOnlySpan<byte> memory = image;
+            int interiorTargets = 0;
+            foreach (Shared.NativeCodeRange range in Shared.NativePatternResolver.GetExecutableCodeRanges(memory))
+            {
+                int end = checked(range.Offset + range.Length);
+                for (int source = range.Offset; source < end; source++)
+                {
+                    int instructionLength;
+                    int displacement;
+                    byte opcode = memory[source];
+                    if ((opcode == 0xE8 || opcode == 0xE9) && source <= end - 5)
+                    {
+                        instructionLength = 5;
+                        displacement = Shared.NativePatternResolver.ReadInt32(memory, source + 1);
+                    }
+                    else if ((opcode == 0xEB || (opcode >= 0x70 && opcode <= 0x7F) ||
+                        (opcode >= 0xE0 && opcode <= 0xE3)) && source <= end - 2)
+                    {
+                        instructionLength = 2;
+                        displacement = unchecked((sbyte)memory[source + 1]);
+                    }
+                    else if (opcode == 0x0F && source <= end - 6 &&
+                        memory[source + 1] >= 0x80 && memory[source + 1] <= 0x8F)
+                    {
+                        instructionLength = 6;
+                        displacement = Shared.NativePatternResolver.ReadInt32(memory, source + 2);
+                    }
+                    else
+                    {
+                        continue;
+                    }
+
+                    long target = (long)source + instructionLength + displacement;
+                    bool sourceInsideSpan = source >= hookStart && source < hookEnd;
+                    if (!sourceInsideSpan && target > hookStart && target < hookEnd)
+                        interiorTargets++;
+                }
+            }
+
+            Check(interiorTargets == 0, "no direct control transfer targets the Monk movement hook interior");
         }
 
         private static void TestApothecarySearchRangeHook(byte[] image)

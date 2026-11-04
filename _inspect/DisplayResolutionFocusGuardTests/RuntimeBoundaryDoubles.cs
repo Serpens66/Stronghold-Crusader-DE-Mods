@@ -66,10 +66,10 @@ namespace UnityEngine
         public static bool isFocused;
         public static event Action<bool> focusChanged;
         public static event Action onBeforeRender;
-        public static int RenderObservers => onBeforeRender?.GetInvocationList().Length ?? 0;
+        public static int RenderObservers => APIShared.UiWorkBoundary.ActiveCount;
         public static void Focus(bool focused) { isFocused = focused; focusChanged?.Invoke(focused); }
-        public static void Render(bool nextFrame = true) { if (nextFrame) Time.frameCount++; onBeforeRender?.Invoke(); }
-        public static void ResetProcess() { focusChanged = null; onBeforeRender = null; }
+        public static void Render(bool nextFrame = true) { if (nextFrame) Time.frameCount++; APIShared.UiWorkBoundary.Pump(Time.frameCount); onBeforeRender?.Invoke(); }
+        public static void ResetProcess() { focusChanged = null; onBeforeRender = null; APIShared.UiWorkBoundary.Reset(); }
     }
 }
 
@@ -107,6 +107,7 @@ namespace CrusaderDE
 
 namespace BugfixesAndQoL
 {
+    internal static class BugfixesAndQoLPlugin { internal const string PluginGuid = "BugfixesAndQoL_Serp"; }
     public sealed class BugfixesAndQoLViewModel
     {
         public bool PreserveDisplayResolution { get; set; } = true;

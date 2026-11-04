@@ -21,6 +21,8 @@ namespace AIBuildDiagnoseTest.Tests
             foreach (string field in new[] { "observer", "woodBuildGate", "nearbyWoodOverlay", "woodAttempts" })
                 typeof(AiBuildDiagnostic).GetField(field, BindingFlags.NonPublic | BindingFlags.Static).SetValue(null, null);
             typeof(AiBuildExperimentBridge).GetField("observer", BindingFlags.NonPublic | BindingFlags.Static).SetValue(null, null);
+            typeof(AiBuildExperimentBridge).GetField("capture", BindingFlags.NonPublic | BindingFlags.Static).SetValue(null, null);
+            typeof(AiBuildExperimentBridge).GetField("wallObserver", BindingFlags.NonPublic | BindingFlags.Static).SetValue(null, null);
             typeof(AiBuildObservation).GetField("sink", BindingFlags.NonPublic | BindingFlags.Static).SetValue(null, null);
         }
         private static void Observe(Action<AiBuildDiagnosticRecord> observer)
@@ -142,5 +144,68 @@ namespace AIBuildDiagnoseTest.Tests
             Assert.IsFalse(AiBuildDiagnostic.ShouldDeferWoodBuild(2));
         }
         private const string AIBuildDiagnosePluginGuid = "AIBuildDiagnoseTest_Serp";
+
+        [TestMethod]
+        public void GeneralObservationWithoutCompanionDoesNotCaptureSpecialSnapshots()
+        {
+            var records = new List<AiBuildDiagnosticRecord>();
+            Observe(records.Add);
+            long attempt = AiBuildDiagnostic.BeginWoodAttempt(6);
+            Assert.IsFalse(AiBuildExperimentBridge.HasDetails);
+            // Deliberately non-dereferenceable: absent demand must return before a read.
+            AiBuildDiagnostic.PublishEconomyGridEvidence("economy-grid-before", 1, 0);
+            AiBuildDiagnostic.PublishNearbyPathEvidence("wood-nearby-path-before", 6, 1, 2, 3, -1, -1);
+            Assert.AreEqual(0, records.Count);
+            AiBuildDiagnostic.Publish("route-result", 6, 0, 3, 10, 15);
+            Assert.AreEqual(1, records.Count);
+            Assert.AreEqual(attempt, records[0].AttemptId);
+            AiBuildDiagnostic.EndWoodAttempt(attempt);
+        }
+
+        [TestMethod]
+        public void GeneralAndCompanionFailuresAreIndependentInProductionDispatch()
+        {
+            Observe(_ => { });
+            int general = 0, companion = 0;
+            Assert.IsTrue(AiBuildExperimentBridge.TryRegister("CanarariWoodTest_Serp", _ =>
+                { companion++; throw new InvalidOperationException("companion"); }, out _));
+            var record = new AiBuildDiagnosticRecord("scheduler-before", 2, 0, 0, 0, 0, 0);
+            AiBuildExperimentBridge.Dispatch(record, _ =>
+                { general++; throw new InvalidOperationException("general"); }, null);
+            AiBuildExperimentBridge.Dispatch(record, _ => general++, null);
+            Assert.AreEqual(2, general);
+            Assert.AreEqual(2, companion);
+        }
+
+        [TestMethod]
+        public void DetailRegistrationDoesNotEnableAnyMutationGate()
+        {
+            var records = new List<AiBuildDiagnosticRecord>();
+            Observe(records.Add);
+            Assert.IsTrue(AiBuildExperimentBridge.TryRegister("CanarariWoodTest_Serp", _ => { }, out _));
+            var capture = new DetailCapture();
+            Assert.IsTrue(AiBuildExperimentBridge.TryRegisterDetails("CanarariWoodTest_Serp", capture, _ => { }, out _));
+            Assert.IsTrue(AiBuildExperimentBridge.HasDetails);
+            AiBuildDiagnostic.PublishEconomyGridEvidence("economy-grid-before", 1, 0);
+            long attempt = AiBuildDiagnostic.BeginWoodAttempt(2);
+            AiBuildDiagnostic.PublishNearbyPathEvidence("wood-nearby-path-before", 2, 1, 2, 3, -1, -1);
+            AiBuildDiagnostic.EndWoodAttempt(attempt);
+            Assert.AreEqual(2, capture.Calls);
+            Assert.AreEqual(2, records.Count);
+            Assert.IsFalse(AiBuildDiagnostic.ShouldDeferWoodBuild(2));
+        }
+
+        private sealed class DetailCapture : IAiBuildDetailCapture
+        {
+            internal int Calls;
+            public AiEconomyGridEvidence CaptureEconomyGridEvidence(ulong state, int mode)
+            { Calls++; return new AiEconomyGridEvidence("fixture", state, mode, 1, 2, 0, 0, 0, null); }
+            public AiEconomyGridEvidence CaptureEconomyGridEvidence(int x, int y) => CaptureEconomyGridEvidence(0, -1);
+            public AiEconomyGridEvidence CaptureEconomyGridEvidence(ulong state, int mode, int x, int y) => CaptureEconomyGridEvidence(state, mode);
+            public AiNearbyPathEvidence CaptureNearbyPathEvidence(ulong state, int x, int y, int rx, int ry, bool before)
+            { Calls++; return new AiNearbyPathEvidence("fixture", x, y, rx, ry, null, null, null, null, null); }
+            public AiRouteEvidence CaptureRouteEvidence(int player, int mapper, int x, int y) => null;
+            public IReadOnlyList<AiPathTileSample> CaptureTiles(int x, int y, int w, int h) => Array.Empty<AiPathTileSample>();
+        }
     }
 }

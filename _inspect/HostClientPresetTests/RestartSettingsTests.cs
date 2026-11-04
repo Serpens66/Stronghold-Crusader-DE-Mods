@@ -23,6 +23,7 @@ internal static class RestartSettingsTests
         vm.Source.Working["live"] = 4L;
         Check(vm.System_ApplyConfiguration("mission") && vm.Source.Staged == 1, "restart change not staged");
         Check((long)vm.Source.Active["live"] == 2 && (long)vm.Source.Pending["live"] == 4, "mixed configuration partly applied");
+        Check((long)vm.Source.Own["live"] == 4, "direct backend commit did not personally persist the Local value");
         vm.Source.FailStage = true;
         vm.Source.Working["startup"] = 9L;
         try { vm.System_ApplyConfiguration("mission"); throw new Exception("failure not propagated"); }
@@ -54,6 +55,13 @@ internal static class RestartSettingsTests
         try { ModSettingsApplication.Commit("RestartProbe"); throw new Exception("failed stage accepted"); }
         catch (IOException) { }
         Check(validJournal.SequenceEqual(File.ReadAllBytes(journal)), "failed replacement changed durable preparation");
+        vm.Source.Working["live"] = 20L;
+        try { ModSettingsApplication.Commit("RestartProbe"); throw new Exception("failed mixed stage accepted"); }
+        catch (IOException) { }
+        Check((long)vm.Source.Own["live"] == 20L && MessagePack.MessagePackSerializer.Deserialize<long>(ModSettingsApplication.ResumeSnapshot("RestartProbe")["startup"]) == 13L,
+            "failed host staging reverted accepted personal values or replaced the prepared Host snapshot");
+        ModSettingsApplication.EnterContext("mission|original-content");
+        validJournal = File.ReadAllBytes(journal);
         try { ModSettingsApplication.PrepareLaunch(); throw new Exception("failed launch stage accepted"); }
         catch (IOException) { }
         Check(validJournal.SequenceEqual(File.ReadAllBytes(journal)), "failed launch stage changed durable preparation");
@@ -117,6 +125,26 @@ internal static class RestartSettingsTests
             "runtime upgrade still staged restoration instead of applying personal values");
         vm.Source.NetworkClient = false;
         Console.WriteLine("PASS: personal versus desired sources, unchanged personal persistence and network-owned client admission");
+        // A personal reset keeps the mission identity even when personal startup
+        // values differ from both the active process and the current mission draft.
+        vm.Source.Options[0].RequiresRestart = true;
+        vm.Source.Own["startup"] = 4L;
+        vm.Source.Own["live"] = 5L;
+        vm.Source.Active["startup"] = 8L;
+        vm.Source.Working["startup"] = 9L;
+        vm.Source.Working["live"] = 10L;
+        vm.System_EnterMissionPreset(vm.System_CreateCurrentWorkingSnapshot(), "Map", true);
+        vm.System_ApplyMissionPresetSnapshot(vm.System_CreatePlayerMissionPresetSnapshot(), "Personal Settings");
+        Check(vm.IsMissionPresetActive && (long)vm.Source.Working["startup"] == 4L && (long)vm.Source.Working["live"] == 10L,
+            "personal mission reset used desired/active values or exited its context");
+        Check(vm.System_ApplyConfiguration("map:personal-reset", true) && vm.Source.PendingContext == "map:personal-reset" &&
+              (long)vm.Source.Pending["startup"] == 4L && (long)vm.Source.Active["startup"] == 8L && (long)vm.Source.Own["startup"] == 4L,
+            "personal reset failed to stage the owning mission or changed active/personal values");
+        vm.Source.Restart();
+        Check((long)vm.Source.Active["startup"] == 4L && vm.Source.ActiveContextId == "map:personal-reset",
+            "personal reset restart lost its configuration or mission identity");
+        vm.System_ExitMissionPreset();
+        Console.WriteLine("PASS: temporary personal reset uses backend own values and retains mission restart identity");
     }
     private static void Check(bool condition, string message) { if (!condition) throw new Exception(message); }
     private sealed class Attributed { [RequiresRestart] public long Startup { get; set; } }
@@ -125,7 +153,7 @@ internal static class RestartSettingsTests
         internal readonly Backend Source = new Backend();
         protected override IDynamicPresetSettingsProvider DynamicSettingsProvider => Source;
     }
-    private sealed class Backend : IDynamicPresetSettingsProvider, IModSettingsApplicationBackend, INetworkModSettingsApplicationBackend
+    private sealed class Backend : IDynamicPresetSettingsProvider, IModSettingsApplicationBackend, INetworkModSettingsApplicationBackend, IModSettingsPersonalPersistenceBackend
     {
         internal readonly DynamicPresetSetting[] Options = {
             new DynamicPresetSetting { Key = "startup", ValueType = typeof(long), DefaultValue = 1L, Scope = PresetSettingScope.Host, RequiresRestart = true },
@@ -155,6 +183,11 @@ internal static class RestartSettingsTests
         public void ApplyValues(Dictionary<string, object> values, string contextId) { Active = Copy(values); ActiveContextId = contextId; Applied++; }
         public void ReturnToOwnConfiguration() => StageValues(Own, "");
         public void DiscardPendingConfiguration() { Pending = null; }
+        public void PersistPersonalValues(Dictionary<string, object> values)
+        {
+            if (values.Keys.Any(key => key != "live")) throw new InvalidDataException("Host value in personal subset");
+            foreach (var pair in values) { Own[pair.Key] = pair.Value; if (Pending != null) Pending[pair.Key] = pair.Value; }
+        }
         internal void Restart() { Active = Copy(Pending); ActiveContextId = PendingContext; Pending = null; }
     }
 }

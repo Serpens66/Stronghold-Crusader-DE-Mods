@@ -10,15 +10,18 @@ namespace Spectator
         private readonly ManualLogSource source;
         private readonly int mainThread = Thread.CurrentThread.ManagedThreadId;
         private readonly ConcurrentQueue<Tuple<LogLevel, string>> pending = new ConcurrentQueue<Tuple<LogLevel, string>>();
+        private readonly Action onQueued;
         private int queued;
-        internal TimestampLog(ManualLogSource source) { this.source = source; }
+        // onQueued lets the owner schedule a main-thread flush for messages from other threads.
+        internal TimestampLog(ManualLogSource source, Action onQueued = null) { this.source = source; this.onQueued = onQueued; }
         private static string Stamp(object value) => "[" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff") + "] " + value;
         internal bool IsMainThread => Thread.CurrentThread.ManagedThreadId == mainThread;
+        internal bool HasPending => Volatile.Read(ref queued) > 0;
         private void Write(LogLevel level, object value)
         {
             string text = Stamp(value);
             if (IsMainThread) source.Log(level, text);
-            else if (Interlocked.Increment(ref queued) <= 1024) pending.Enqueue(Tuple.Create(level, text));
+            else if (Interlocked.Increment(ref queued) <= 1024) { pending.Enqueue(Tuple.Create(level, text)); onQueued?.Invoke(); }
             else Interlocked.Decrement(ref queued);
         }
         internal void Flush()

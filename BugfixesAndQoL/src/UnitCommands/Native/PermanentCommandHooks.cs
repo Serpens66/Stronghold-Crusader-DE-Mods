@@ -38,6 +38,9 @@ namespace BugfixesAndQoL.UnitCommands
             internal FastAppendDelegate Append;
         }
         private TraversalCommandHooks traversalCommandHooks;
+        // Player move wrapper (Chore 17 consumer 10AE0): writes tribe+56C, then calls 11B520.
+        private const int PlayerMoveRva = 0x196100;
+        private const string PlayerMoveEntryBytes = "48 83 EC 48 48 63 C2 4C 8D 1D 12 06 B3 07";
 
         internal FastAppendDelegate queueAppendProvider;
         internal FastChoreDelegate queueTargetProvider;
@@ -60,8 +63,11 @@ namespace BugfixesAndQoL.UnitCommands
         {
             long entries = playerMoveEntries;
             ManualPlayerMoveFrame parentPlayerMove = manualPlayerMove;
-            bool preserve = manualAdmissionReady && manager == nativeTribeManager && tribe > 0 && tribe < MaximumTribeCount;
-            ushort previousMode = preserve ? *(ushort*)((byte*)manager + tribe * TribeRecordSize + 0x56C) : (ushort)0;
+            // 196100 ignores its first argument (Vanilla's Chore-17 handler 10AE0 passes the unit
+            // manager 67E8400) and always writes the tribe manager's +56C for this tribe.
+            bool preserve = manualAdmissionReady && nativeTribeManager != IntPtr.Zero && tribe > 0 && tribe < MaximumTribeCount;
+            ushort* movementMode = preserve ? (ushort*)((byte*)nativeTribeManager + tribe * TribeRecordSize + 0x56C) : null;
+            ushort previousMode = preserve ? *movementMode : (ushort)0;
             manualPlayerMove = new ManualPlayerMoveFrame { Valid = preserve, Tribe = tribe };
             try
             {
@@ -80,7 +86,7 @@ namespace BugfixesAndQoL.UnitCommands
                 // 196100 updates this group flag before the 11B520 event. A fully
                 // rejected order must preserve that earlier write as well.
                 if (preserve && manualPlayerMove.Rejected)
-                    *(ushort*)((byte*)manager + tribe * TribeRecordSize + 0x56C) = previousMode;
+                    *movementMode = previousMode;
                 manualPlayerMove = parentPlayerMove;
             }
         }
@@ -253,11 +259,22 @@ namespace BugfixesAndQoL.UnitCommands
         {
             if (traversalCommandHooks != null) throw new InvalidOperationException("Traversal command hooks already registered with BugfixesAndQoL.");
             if (nativeAppend == null || nativeTarget == null) throw new InvalidOperationException("Main queue hook infrastructure unavailable.");
+            // Manual group admission normally owns the published 196100 wrapper already; the
+            // provider then only becomes its logical target.
+            if (nativePlayerMove != null)
+            {
+                traversalCommandHooks = new TraversalCommandHooks {
+                    Move = nativePlayerMove, Target = ContinueTraversalTarget, Append = nativeAppend };
+                traversalMoveProvider = move;
+                traversalTargetProvider = target;
+                traversalAppendProvider = append;
+                return traversalCommandHooks;
+            }
             HookTransaction candidate = CreateOwnedHookTransaction();
             try
             {
-                var moveHook = InstallConnectivityObserver(candidate, memory, libraryBase, 0x196100,
-                    "48 83 EC 48 48 63 C2 4C 8D 1D 12 06 B3 07", (FastPlayerMoveDelegate)DispatchPlayerMove);
+                var moveHook = InstallConnectivityObserver(candidate, memory, libraryBase, PlayerMoveRva,
+                    PlayerMoveEntryBytes, (FastPlayerMoveDelegate)DispatchPlayerMove);
                 CommitResult result = CommitPermanentHooks(candidate);
                 nativePlayerMove = CountPlayerMove(moveHook.Original);
                 var originals = new TraversalCommandHooks {

@@ -71,7 +71,7 @@ namespace CastlePlanner
                 }
                 overriddenData = data;
                 if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/FixesKeepRotationCompatibility.cs:73", $"Temporarily aligned Fixes keep rotations for CastlePlanner players " +
+                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/FixesKeepRotationCompatibility/Apply", $"Temporarily aligned Fixes keep rotations for CastlePlanner players " +
                         $"[{string.Join(",", originalValues.Keys)}].");
             }
             catch
@@ -105,11 +105,11 @@ namespace CastlePlanner
                 foreach (KeyValuePair<int, object> pair in originalValues)
                     overriddenData.SetValue(pair.Value, pair.Key);
                 if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/FixesKeepRotationCompatibility.cs:108", $"Restored Fixes keep rotations after CastlePlanner spawn ({reason}).");
+                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/FixesKeepRotationCompatibility/Restore.restored-fixes-keep-rotations", $"Restored Fixes keep rotations after CastlePlanner spawn ({reason}).");
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "CastlePlanner/src/FixesKeepRotationCompatibility.cs:114", $"Fixes keep rotations could not be restored ({reason}): {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "CastlePlanner/FixesKeepRotationCompatibility/Restore.fixes-keep-rotations-could", $"Fixes keep rotations could not be restored ({reason}): {ex}");
             }
             finally
             {

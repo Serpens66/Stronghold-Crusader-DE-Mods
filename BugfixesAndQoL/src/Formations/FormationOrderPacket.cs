@@ -19,14 +19,15 @@ namespace BugfixesAndQoL.UnitCommands
         [Key(9)] public byte PlacementMode;
         [Key(10)] public byte DirectionSector;
         [Key(12)] public ushort UnitCount;
-        // Keys 11 and 13 are reserved: dimensions and preview hashes are not command intent.
-        [Key(14)] public ushort RequestedRows;
+        // Keys 11/13/14 are reserved; rounded dimensions are not command intent.
         [Key(15)] public ulong SelectionHash;
+        [Key(16)] public ushort AspectWidth;
+        [Key(17)] public ushort AspectDepth;
     }
 
     internal sealed class FormationOrderPacketFormatter : IMessagePackFormatter<FormationOrderPacket>
     {
-        private const int FieldCount = 16;
+        private const int FieldCount = 18;
 
         // MessagePack's attribute resolver instantiates this formatter by reflection.
         public FormationOrderPacketFormatter() { }
@@ -57,8 +58,10 @@ namespace BugfixesAndQoL.UnitCommands
             writer.WriteNil();
             writer.Write(value.UnitCount);
             writer.WriteNil();
-            writer.Write(value.RequestedRows);
+            writer.WriteNil();
             writer.Write(value.SelectionHash);
+            writer.Write(value.AspectWidth);
+            writer.Write(value.AspectDepth);
         }
 
         public FormationOrderPacket Deserialize(
@@ -88,8 +91,10 @@ namespace BugfixesAndQoL.UnitCommands
                     case 11: reader.Skip(); break;
                     case 12: packet.UnitCount = reader.ReadUInt16(); break;
                     case 13: reader.Skip(); break;
-                    case 14: packet.RequestedRows = reader.ReadUInt16(); break;
+                    case 14: reader.Skip(); break;
                     case 15: packet.SelectionHash = reader.ReadUInt64(); break;
+                    case 16: packet.AspectWidth = reader.ReadUInt16(); break;
+                    case 17: packet.AspectDepth = reader.ReadUInt16(); break;
                     default: reader.Skip(); break;
                 }
             }

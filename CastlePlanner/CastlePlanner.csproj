@@ -213,6 +213,8 @@
     <Compile Include="src\AivRawDataEncoder.cs" />
     <Compile Include="src\AivSpawnPlan.cs" />
     <Compile Include="src\AivWorldCoordinateTransform.cs" />
+    <Compile Include="..\Shared\Runtime\Gameplay\DeferredStoragePlacements.cs"><Link>Shared\Runtime\Gameplay\DeferredStoragePlacements.cs</Link></Compile>
+    <Compile Include="..\Shared\Runtime\Gameplay\StoragePlacementBackend.cs"><Link>Shared\Runtime\Gameplay\StoragePlacementBackend.cs</Link></Compile>
     <Compile Include="src\AIVPlacement\AivPlacementRuntime.cs" />
     <Compile Include="src\AIVPlacement\BugfixAivStatusBridge.cs" />
     <Compile Include="src\AIVPlacement\KeepRangeSettingsBridge.cs" />
@@ -230,6 +232,12 @@
     <Compile Include="src\BlueprintRenderer.cs" />
     <Compile Include="src\BlueprintSortingPolicy.cs" />
     <Compile Include="src\BlueprintRuntimeController.cs" />
+    <Compile Include="src\BlueprintSpectatorPolicy.cs" />
+    <Compile Include="src\BlueprintLivePlan.cs" />
+    <Compile Include="src\BlueprintAivNames.cs" />
+    <Compile Include="src\BlueprintRuntimeController.AivNames.cs" />
+    <Compile Include="src\BlueprintRuntimeController.Spectator.cs" />
+    <Compile Include="src\BlueprintRuntimeController.Role.cs" />
     <Compile Include="src\CastlePlannerPlugin.cs" />
     <Compile Include="src\CastleRotationOptions.cs" />
     <Compile Include="src\CastleSpawnContentPolicy.cs" />

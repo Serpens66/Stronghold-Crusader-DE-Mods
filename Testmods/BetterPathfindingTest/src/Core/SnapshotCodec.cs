@@ -71,7 +71,7 @@ namespace BetterPathfindingTest.Core
             {
                 if (r.ReadInt32() != QueryMagic || r.ReadInt32() != 1) throw new InvalidDataException("Query replay version.");
                 int width = r.ReadInt32(), height = r.ReadInt32(), player = r.ReadInt32(); byte[] valid = Bytes(r, 640000); uint[] words = new uint[Count(r, 640000)]; for (int i = 0; i < words.Length; i++) words[i] = r.ReadUInt32(); map = new GridSnapshot(width, height, valid, words, player);
-                var queries = new RouteQuery[Count(r, 4096)];
+                var queries = new RouteQuery[Count(r, 10000)];
                 for (int i = 0; i < queries.Length; i++)
                 {
                     var q = new RouteQuery { Start = r.ReadInt32(), Target = r.ReadInt32(), GroundCost = r.ReadInt64(), MoatCost = r.ReadInt64(), MaximumEdges = r.ReadInt32(), RequireMoat = r.ReadBoolean(), ExcludeStructures = r.ReadBoolean() };

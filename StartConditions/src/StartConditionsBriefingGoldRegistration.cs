@@ -31,7 +31,7 @@ namespace StartConditions
                     adjust,
                     out diagnostic))
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "StartConditions/src/StartConditionsBriefingGoldRegistration.cs:34", $"Start Conditions briefing-gold adjustment is unavailable: state={diagnostic?.State}, reason={diagnostic?.Reason}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "StartConditions/StartConditionsBriefingGoldRegistration/Register", $"Start Conditions briefing-gold adjustment is unavailable: state={diagnostic?.State}, reason={diagnostic?.Reason}");
                 return;
             }
 

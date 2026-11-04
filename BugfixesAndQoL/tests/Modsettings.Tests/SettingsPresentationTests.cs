@@ -198,6 +198,18 @@ internal static partial class Program
             SearchAttribute(keepRow, "Key") == "bugfixes.remove-ai-keep-range-limit" &&
             keepEditor.Node.Attributes?["IsChecked"]?.Value == "{Binding RemoveAIKeepRangeLimit, Mode=TwoWay}",
             "AI keep range is recommended and appears once at the end of AI fixes with its original binding and search identity");
+        object lordFix = options.Single(o => (string)Get(o, "PropertyName") == "EnableLordReturnTeleportFix");
+        var lordEditor = editors.Single(e => e.Property == "EnableLordReturnTeleportFix");
+        XmlNode lordRow = Ancestors(lordEditor.Node).First(a => SearchAttribute(a, "Key") != null);
+        Check(Get(lordFix,"Category").ToString() == "Fixes" && (string)Get(lordFix,"Symbol") == "★" &&
+            lordRow.ParentNode.Attributes?["Visibility"]?.Value == "{Binding SettingsPresentation.HostTroops.FixesVisibility}" &&
+            SearchAttribute(lordRow,"Key") == "bugfixes.lord-return-teleport-fix" &&
+            lordEditor.Node.SelectSingleNode("ancestor::*[@IsEnabled='{Binding CanEditHostSettings}']") != null,
+            "Lord teleport is a recommended host troop fix with a unique search identity");
+        var troopRows = lordRow.ParentNode.ChildNodes.Cast<XmlNode>().Where(n => n.LocalName == "Grid").ToArray();
+        int lordOrdinal = Array.IndexOf(troopRows, lordRow);
+        Check(lordOrdinal > 0 && SearchAttribute(troopRows[lordOrdinal-1],"Key") == "bugfixes.enable-assassin-combat-resume-fix",
+            "Lord option directly follows Assassin combat correction");
         object treeDecay = options.Single(o => (string)Get(o, "PropertyName") == "EnableTreeBlightDecayFix");
         var treeEditor = editors.Single(e => e.Property == "EnableTreeBlightDecayFix");
         XmlNode treeRow = Ancestors(treeEditor.Node).First(a => SearchAttribute(a, "Key") != null);

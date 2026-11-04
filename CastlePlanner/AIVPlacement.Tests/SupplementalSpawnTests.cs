@@ -12,6 +12,7 @@ internal static class SupplementalSpawnTests
     internal static void Run()
     {
         CheckMiscPlacement();
+        CheckSpawnReports();
         int mapper = (int)eMappers.MAPPER_STORES;
         int size = AivMapperCatalog.Resolve(mapper).FootprintSize.Value;
         foreach (AivRotation rotation in Enum.GetValues<AivRotation>())
@@ -43,8 +44,8 @@ internal static class SupplementalSpawnTests
                 _ => throw new Exception("invalid anchor reached map lookup"), out _), "invalid source anchor rejected before lookup");
 
         var spawner = new SupplementalPrefabSpawner();
-        eMappers prefabMapper = eMappers.MAPPER_GRANARY;
-        eStructs type = eStructs.STRUCT_GRANARY;
+        eMappers prefabMapper = eMappers.MAPPER_GARDEN1;
+        eStructs type = prefabMapper.ConvertToEStructs();
         var pool = new Dictionary<int, SupplementalBuildingIdentity>();
         SupplementalBuildingIdentity? Lookup(int id) => pool.TryGetValue(id, out var value) ? value : null;
         SupplementalBuildingIdentity Identity(uint global = 100, int owner = 1, int x = 20, int y = 30,
@@ -99,9 +100,7 @@ internal static class SupplementalSpawnTests
         // Enumerate the actual catalog-driven routes rather than assuming future
         // FearFactor additions automatically accept the same native argument.
         var expected = Enum.GetValues<eMappers>().Distinct().Where(value =>
-            AivSpawnPlan.ClassifyFrame((int)value) == AivFrameSpawnCategory.FearFactor ||
-            value == eMappers.MAPPER_STORES || value == eMappers.MAPPER_GRANARY ||
-            value == eMappers.MAPPER_ARMOURY).ToHashSet();
+            AivSpawnPlan.ClassifyFrame((int)value) == AivFrameSpawnCategory.FearFactor).ToHashSet();
         foreach (eMappers value in Enum.GetValues<eMappers>().Distinct())
         {
             Check(SupplementalPrefabVisualPolicy.TryGetVariation(value, out int variation) == expected.Contains(value),
@@ -128,10 +127,60 @@ internal static class SupplementalSpawnTests
             _ => throw new Exception("unsupported mapper reached native creation"),
             _ => throw new Exception("unsupported mapper reached lookup"), out string unsupported) < 0 &&
             unsupported.Contains("unsupported-supplemental-visual"), "unknown visual contract rejected without side effects");
+    }
+
+    private static void CheckSpawnReports()
+    {
         var report = new SupplementalSpawnReport();
-        for (int index = 0; index < 50; index++) report.Add("river", "object " + index);
-        Check(report.Count == 50 && report.ToString().Contains("river=50") &&
-            !report.ToString().Contains("object 5:"), "skips are aggregated with bounded examples");
+        Check(report.Count == 0 && !report.Summaries.Any(), "successful spawn batch has no omission summary");
+        string[] expected = { "out-of-bounds", "footprint-out-of-bounds", "water-terrain",
+            "impassable-terrain", "physical-terrain-obstacle", "occupied-or-already-created",
+            "duplicate-prefab-request", "decoration-already-present-or-queued" };
+        string[] technical = { "source-anchor-out-of-bounds", "source-footprint-out-of-bounds",
+            "invalid-map-tile", "unknown-misc", "unsupported-supplemental-visual(mapper=-1)",
+            "creation-threw", "unit-creation-threw", "decoration-creation-threw",
+            "invalid-decoration-coordinate", "invalid-projectile-id" };
+        string[] unexplained = { "unit-creation-failed", "decoration-creation-failed",
+            "decoration-verification-failed", "unconfirmed-spawn(events=0, capturedId=0)",
+            "changed-spawn-identity(id=12, globalId=100)", "new-native-rejection",
+            "water-terrain(unrecognized-extension)", "", null };
+        foreach (string reason in expected)
+        {
+            Check(SupplementalSpawnReport.CategoryFor(reason) == "expected", "known normal omission: " + reason);
+            report.Add(reason, "expected object");
+        }
+        foreach (string reason in technical)
+        {
+            Check(SupplementalSpawnReport.CategoryFor(reason) == "technical", "technical failure: " + reason);
+            report.Add(reason, "technical object");
+        }
+        foreach (string reason in unexplained)
+        {
+            Check(SupplementalSpawnReport.CategoryFor(reason) == "unexplained", "no inferred space problem: " + reason);
+            report.Add(reason, "state=MarkedForDeletion, flyGrid=0, buildingId=7, tileFlags=IsWall");
+        }
+        Check(report.Count == expected.Length + technical.Length + unexplained.Length && report.Summaries.Count() == 3,
+            "mixed batch keeps separate category totals");
+        foreach (SupplementalSpawnSummary summary in report.Summaries)
+        {
+            int count = summary.IsExpected ? expected.Length : summary.Category == "technical" ? technical.Length : unexplained.Length;
+            Check(summary.Count == count && summary.Reasons.Values.Sum() == count, "category conserves omission count");
+            Check(summary.IsExpected == (summary.Category == "expected"), "only expected category routes to Info");
+            Check(summary.Examples.Count == 5, "examples bounded separately for every category");
+            Check(summary.ToString().Contains("category=" + summary.Category), "summary carries its classification");
+        }
+
+        var repeated = new SupplementalSpawnReport();
+        for (int index = 0; index < 50; index++)
+            repeated.Add($"unconfirmed-spawn(events={index}, capturedId=0)", "object " + index);
+        SupplementalSpawnSummary grouped = repeated.Summaries.Single();
+        Check(grouped.Category == "unexplained" && grouped.Count == 50 && grouped.Reasons.Count == 1 &&
+            grouped.Reasons["unconfirmed-spawn"] == 50 && grouped.Examples.Count == 5 &&
+            !grouped.ToString().Contains("object 5:"), "variable capture observations preserve bounded aggregation");
+        for (int index = 0; index < 50; index++) repeated.Add("unknown-reason-" + index, "unknown object");
+        Check(grouped.Count == 100 && grouped.Reasons.Count <= 17 && grouped.Reasons.Values.Sum() == 100 &&
+            grouped.Examples.Count == 5 && grouped.Reasons.ContainsKey("other-reasons"),
+            "new reasons stay warning-classified and bounded without dropping counts");
     }
 
     private static void CheckMiscPlacement()

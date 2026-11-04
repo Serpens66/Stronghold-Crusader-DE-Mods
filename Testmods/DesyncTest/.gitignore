@@ -1,0 +1,6 @@
+/BepInEx/
+/obj/
+/bin/
+/tests/bin/
+/tests/obj/
+**/__pycache__/

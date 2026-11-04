@@ -13,13 +13,13 @@ internal static partial class Program
         var controlled = UpdateComparison.Controlled(new WorkBudget());
         Check((bool)controlled["passed"], "Controlled closure and shorter path outside old route, including prepared field invalidation.");
         var map = Grid(3, 3);
-        using (var nav = new HierarchicalNavigator(map, new WorkBudget()))
+        using (var nav = new AreaNavigator(map, new WorkBudget()))
         {
             var candidates = nav.EvaluateCandidates(new RouteQuery { Start = 0, Target = 8, Terminals = new[] { new TerminalEdge(7, 8, true) } }, new[] { 2, 8 });
             Check(candidates.Length == 2 && candidates[0].Status == SearchStatus.Found && candidates[1].Status == SearchStatus.Found, "Candidate-specific terminal overlays do not leak into other targets.");
         }
         var budget = new WorkBudget(8L * 1024 * 1024, 0);
-        bool timed = false; try { using (var nav = new HierarchicalNavigator(map, budget)) { } } catch (SearchBudgetException) { timed = true; }
+        bool timed = false; try { using (var nav = new AreaNavigator(map, budget)) { } } catch (SearchBudgetException) { timed = true; }
         Check(timed, "Expired budget never produces unreachable.");
         var cancel = new CancellationTokenSource(); cancel.Cancel();
         bool cancelled = false; try { ReferenceSearch.Find(map, new RouteQuery { Start = 0, Target = 8 }, new WorkBudget(cancellation: cancel.Token)); } catch (OperationCanceledException) { cancelled = true; }
@@ -38,7 +38,7 @@ internal static partial class Program
         foreach (int x in new[] { 31, 127 })
         {
             var cross = Grid(x + 3, 3, (a, b, d) => d == 1 || d == 3 || d == 2 ? (1U << d) | (b % (x + 3) == x + 1 ? 1U << (d + 8) : 0) : 0);
-            using (var nav = new HierarchicalNavigator(cross, new WorkBudget()))
+            using (var nav = new AreaNavigator(cross, new WorkBudget()))
                 Compare(nav, cross, new RouteQuery { Start = x, Target = 2 * (x + 3) + x + 2, GroundCost = 2, MoatCost = 11, RequireMoat = true });
         }
         Directory.CreateDirectory(Evidence);

@@ -111,7 +111,7 @@ namespace BugfixesAndQoL
             }
             catch (Exception exception)
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/WorkshopUploadLordSelectionFix.cs:114", $"Bugfixes and QoL could not restore Workshop upload Lord slot {restoredLordType}; delegating to Vanilla: {exception}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/WorkshopUploadLordSelectionFix/ButtonClickedHook.could-not-restore-workshop", $"Bugfixes and QoL could not restore Workshop upload Lord slot {restoredLordType}; delegating to Vanilla: {exception}");
                 buttonOriginal(self, command);
                 return;
             }
@@ -120,7 +120,7 @@ namespace BugfixesAndQoL
             {
                 firstRestoreLogged = true;
                 if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/WorkshopUploadLordSelectionFix.cs:124", $"Bugfixes and QoL preserved Workshop upload Lord slot {restoredLordType} after a successful {refresh} upload.");
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/WorkshopUploadLordSelectionFix/ButtonClickedHook.preserved-workshop-upload-lord", $"Bugfixes and QoL preserved Workshop upload Lord slot {restoredLordType} after a successful {refresh} upload.");
             }
         }
 

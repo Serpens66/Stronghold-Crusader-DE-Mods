@@ -18,6 +18,11 @@ namespace BugfixesAndQoL.GateRouting
             check(!first.IsDirectionAllowed(0, 2) && first.IsDirectionAllowed(1, 2));
             check(source.TryCaptureRoutePolicy(2, out var again) && ReferenceEquals(first, again));
             check(source.TryCaptureRoutePolicy(1, out var own) && own.IsDirectionAllowed(0, 2));
+            // Player-neutral table: tile 0 differs (player 2 restricted), tile 1 is equal for all players;
+            // tiles beyond every mask and empty snapshots are neutral.
+            var neutralSnapshot = new RouteTilePolicySnapshot(masks, 1);
+            check(!neutralSnapshot.IsPlayerNeutral(0) && neutralSnapshot.IsPlayerNeutral(1) && neutralSnapshot.IsPlayerNeutral(5));
+            check(new RouteTilePolicySnapshot(new byte[9][], 1).IsPlayerNeutral(0));
             var outer = source.Enter(2, false, true);
             check(!source.TryCaptureRoutePolicy(1, out _));
             var inner = source.Enter(2, true, true);
@@ -62,6 +67,27 @@ namespace BugfixesAndQoL.GateRouting
             source.Leave(reference);
             source.Publish(RouteTilePolicySnapshot.Empty);
             check(!typed.TryGetBlockedGateIdentity(0,2,out _,out _,out _,out _));
+            // The native Assassin kernel reads DirectionMask instead of calling IsDirectionAllowed: both views of a
+            // captured snapshot must decide identically (no mask, tiles beyond a mask, players beyond the table,
+            // unmasked scopes), or native and managed searches would differ between multiplayer peers.
+            foreach (byte[][] viewMasks in new[] {
+                new byte[9][] { null, null, new byte[] { 0xFB, 0x00 }, null, null, new byte[] { 0x55, 0xAA, 0x0F }, null, null, null },
+                new byte[4][] { null, null, new byte[] { 0x01 }, null } })
+            {
+                source.Publish(new RouteTilePolicySnapshot(viewMasks, 200));
+                for (int player = 1; player <= 8; player++)
+                    foreach (bool unmaskedView in new[] { false, true })
+                    {
+                        var scope = unmaskedView ? source.Enter(player, true, true) : null;
+                        check(source.TryCaptureRoutePolicy(player, out var view));
+                        if (scope != null) source.Leave(scope);
+                        byte[] bytes = ((IAssassinDirectionMaskSource)view).DirectionMask;
+                        for (int tile = 0; tile < 5; tile++)
+                            for (int direction = 0; direction < 8; direction++)
+                                check(view.IsDirectionAllowed(tile, direction) ==
+                                    (bytes == null || tile >= bytes.Length || (bytes[tile] & (1 << direction)) != 0));
+                    }
+            }
             return count;
         }
     }

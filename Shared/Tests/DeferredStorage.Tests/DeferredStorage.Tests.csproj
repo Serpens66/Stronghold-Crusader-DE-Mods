@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework><OutputType>Exe</OutputType>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks><ImplicitUsings>enable</ImplicitUsings>
+    <GameDir Condition="'$(GameDir)' == ''">E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition</GameDir>
+    <ExtenderDir Condition="'$(ExtenderDir)' == ''">$(GameDir)\BepInEx\plugins\000shcdese</ExtenderDir>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="..\..\Runtime\Gameplay\DeferredStoragePlacements.cs" Link="DeferredStoragePlacements.cs" />
+    <Compile Include="..\..\Runtime\Gameplay\StoragePlacementBackend.cs" Link="StoragePlacementBackend.cs" />
+    <!-- Consumer contract: exercise the real native-success writes, not a test replica. -->
+    <Compile Include="..\..\..\BugfixesAndQoL\src\PrebuiltAiStorageCompletionPolicy.cs" Link="PrebuiltAiStorageCompletionPolicy.cs" />
+    <Reference Include="SHCDESE"><HintPath>$(ExtenderDir)\SHCDESE.dll</HintPath></Reference>
+  </ItemGroup>
+</Project>

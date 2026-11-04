@@ -8,6 +8,7 @@ using RedBird.X64.Hooks.Context;
 using RedBird.X64.Hooks.Transaction;
 using SHCDESE.API;
 using SHCDESE.API.LowLevel;
+using SHCDESE.Interop;
 using System;
 using System.Runtime.InteropServices;
 using System.Threading;
@@ -23,6 +24,17 @@ namespace ExtraFeatures
         internal const int GoldMessageLength = 15;
         internal const int GoldMessageReturnRva = 0x15CA74;
         internal const int ResourceBaseRva = 0x366C210;
+        // Hash-bound native contracts: player zero precedes Extender's one-based resource view.
+        internal const int ResourcesZeroRva = 0x379ADD0;
+        internal const int GoodsNotificationOffset = 0x3C;
+        internal static readonly eGoods[] RewardGoods = {
+            eGoods.STORED_MACES, eGoods.STORED_SWORDS, eGoods.STORED_METAL_ARMOUR, eGoods.STORED_CROSSBOWS,
+            eGoods.STORED_IRON_INGOTS, eGoods.STORED_PIKES, eGoods.STORED_BOWS, eGoods.STORED_PITCH_RAW,
+            eGoods.STORED_PITCH_REFINED, eGoods.STORED_LEATHER_ARMOUR, eGoods.STORED_RAW_WHEAT,
+            eGoods.STORED_FOOD_ALE, eGoods.STORED_SPEARS, eGoods.STORED_RAW_HOPS, eGoods.STORED_STONE_BLOCKS,
+            eGoods.STORED_FOOD_BREAD, eGoods.STORED_FOOD_CHEESE, eGoods.STORED_FOOD_MEAT,
+            eGoods.STORED_FOOD_FRUIT, eGoods.STORED_WOOD_PLANKS
+        };
         internal const string RewardPattern = "4C 69 D5 0F 16 00 00 4C 69 ED 3C 58 00 00";
         internal const string GoldMessagePattern = "8B D6 44 2B E0 44 89 64 24 20 E8 5C FE EB FF";
 
@@ -32,7 +44,8 @@ namespace ExtraFeatures
         private readonly HookHandle<X64InlineHook> goldMessageHandle = new HookHandle<X64InlineHook>();
         private HookTransaction transaction;
         private ulong moduleBase;
-        private int suppressionMask;
+        private int awardStatisticsRva;
+        private KillRewardConfiguration configuration = KillRewardConfiguration.Vanilla;
         private bool installed;
 
         internal NoKillRewardHook(ManualLogSource log)
@@ -65,6 +78,8 @@ namespace ExtraFeatures
                 throw new InvalidOperationException("The audited defeat-loot control flow changed.");
 
             moduleBase = unchecked((ulong)context.ModuleHandle.ToInt64());
+            VerifyResourceContract(memory);
+            awardStatisticsRva = ResolveAwardStatisticsRva(memory);
             Probe(memory, RewardRva, RewardLength, (probe, copiedAddress) =>
                 NoKillRewardStubContract.VerifyReward(
                     probe, SuppressForSelectedWinner,
@@ -116,7 +131,7 @@ namespace ExtraFeatures
             }
             catch
             {
-                Volatile.Write(ref suppressionMask, 0);
+                Volatile.Write(ref configuration, KillRewardConfiguration.Vanilla);
                 if (!published)
                 {
                     transaction.Dispose();
@@ -125,13 +140,77 @@ namespace ExtraFeatures
                 throw;
             }
 
-            Shared.DebugLogHelper.LogDebug(log, "Extra Features No Kill Reward hooks installed.");
+            Shared.DebugLogHelper.LogInfo(log, "Extra Features victory-loot hooks installed: reward RVA 0x15C4EA (14 bytes), gold message RVA 0x15CA65 (15 bytes).");
         }
 
-        internal void SetEnabled(bool human, bool ai)
+        internal void Configure(KillRewardConfiguration value)
         {
-            Volatile.Write(ref suppressionMask, installed ? NoKillRewardPolicy.ComposeMask(human, ai) : 0);
+            Volatile.Write(ref configuration, installed ? value : KillRewardConfiguration.Vanilla);
         }
+
+        internal static void VerifyResourceContract(ReadOnlySpan<byte> memory)
+        {
+            if (Marshal.SizeOf(typeof(GamePlayerResources)) != 0x583C ||
+                Marshal.OffsetOf(typeof(GamePlayerResources), nameof(GamePlayerResources.r_TotalGoodsNull)).ToInt32() != 0x4D0 ||
+                Marshal.OffsetOf(typeof(GamePlayerResources), nameof(GamePlayerResources.r_incomingNull)).ToInt32() != 0x46C ||
+                Marshal.OffsetOf(typeof(GamePlayerResources), nameof(GamePlayerResources.r_TotalGoodsGold)).ToInt32() != 0x50C)
+                throw new InvalidOperationException("The Extender defeat-loot resource layout changed.");
+            for (int index = 0; index < RewardGoods.Length; index++)
+                if (BitConverter.ToInt32(memory.Slice(0x3327B0 + index * 4, 4).ToArray(), 0) != (int)RewardGoods[index])
+                    throw new InvalidOperationException("The Vanilla defeat-loot goods table changed.");
+        }
+
+        internal static int ResolveAwardStatisticsRva(ReadOnlySpan<byte> image)
+        {
+            // LEA R13,[RIP+disp32], then ADD [R13+RBP*4+disp32],R12D.
+            // Decode both operands instead of copying an absolute VA into an RVA constant.
+            if (image.Length < 0x15C99F ||
+                !image.Slice(0x15C988, 3).SequenceEqual(new byte[] { 0x4C, 0x8D, 0x2D }) ||
+                !image.Slice(0x15C997, 4).SequenceEqual(new byte[] { 0x45, 0x01, 0xA4, 0xAD }))
+                throw new InvalidOperationException("The native award statistic anchor instructions changed.");
+            long rva = 0x15C98FL + ReadInt32(image, 0x15C98B) + ReadInt32(image, 0x15C99B);
+            VerifyWritablePlayerStatistics(image, rva);
+            return checked((int)rva);
+        }
+
+        internal static void VerifyWritablePlayerStatistics(ReadOnlySpan<byte> image, long rva)
+        {
+            // Validate the entire one-based player view (including its zero slot) against
+            // both the loaded image and a writable PE data section before publishing hooks.
+            long end = rva + ((long)GamePlayerManagerAPI.MAX_PLAYERS + 1) * sizeof(int);
+            if (rva < 0 || (rva & 3) != 0 || end < rva || end > image.Length || image.Length < 64 ||
+                image[0] != 'M' || image[1] != 'Z')
+                throw new InvalidOperationException("The native award statistic range is outside the loaded image.");
+            int pe = ReadInt32(image, 0x3C);
+            if (pe < 0 || pe > image.Length - 24 || ReadInt32(image, pe) != 0x4550)
+                throw new InvalidOperationException("The native PE header is invalid.");
+            int optionalSize = ReadUInt16(image, pe + 20);
+            int optional = pe + 24;
+            if (optionalSize < 60 || optionalSize > image.Length - optional ||
+                ReadUInt16(image, optional) != 0x20B || end > (uint)ReadInt32(image, optional + 56))
+                throw new InvalidOperationException("The native award statistic range exceeds SizeOfImage.");
+            int sections = ReadUInt16(image, pe + 6), table = optional + optionalSize;
+            if (sections > (image.Length - table) / 40)
+                throw new InvalidOperationException("The native section table is invalid.");
+            for (int index = 0; index < sections; index++)
+            {
+                int section = table + index * 40;
+                long start = (uint)ReadInt32(image, section + 12);
+                long sectionEnd = start + (uint)ReadInt32(image, section + 8);
+                uint flags = (uint)ReadInt32(image, section + 36);
+                if (rva >= start && end <= sectionEnd && (flags & 0x80000040U) == 0x80000040U &&
+                    (flags & 0x20000000U) == 0) return;
+            }
+            throw new InvalidOperationException("The native award statistic range is not in writable data.");
+        }
+
+        private static int ReadInt32(ReadOnlySpan<byte> image, int offset) =>
+            BitConverter.ToInt32(image.Slice(offset, 4).ToArray(), 0);
+        private static int ReadUInt16(ReadOnlySpan<byte> image, int offset) =>
+            image[offset] | (image[offset + 1] << 8);
+
+        internal static int* AwardStatistic(ulong imageBase, int resolvedRva, int winnerId) =>
+            (int*)(imageBase + (ulong)resolvedRva + (ulong)winnerId * sizeof(int));
 
         private static void Probe(ReadOnlySpan<byte> memory, int rva, int length,
             Action<X64InlineHook, ulong> verify)
@@ -158,6 +237,8 @@ namespace ExtraFeatures
         {
             VerifyLiveSpan(snapshot, RewardRva, RewardLength);
             VerifyLiveSpan(snapshot, GoldMessageRva, GoldMessageLength);
+            VerifyLiveSpan(snapshot, 0x15C988, 7);
+            VerifyLiveSpan(snapshot, 0x15C997, 8);
         }
 
         private void VerifyLiveSpan(ReadOnlySpan<byte> snapshot, int rva, int length)
@@ -179,6 +260,31 @@ namespace ExtraFeatures
             };
         }
 
+        internal static int ApplyReward(GamePlayerResources* winner, GamePlayerResources* defeated,
+            int* statistic, int goldPercent, int goodsPercent, int maximum)
+        {
+            int gold = NoKillRewardPolicy.Gold(defeated->r_TotalGoodsGold,
+                goldPercent, maximum);
+            gold = NoKillRewardPolicy.LimitCredit(gold, winner->r_TotalGoodsGold);
+            gold = NoKillRewardPolicy.LimitCredit(gold, *statistic);
+            int* incoming = (int*)&winner->r_incomingNull;
+            int* totals = (int*)&defeated->r_TotalGoodsNull;
+            int* credits = stackalloc int[RewardGoods.Length];
+            bool receivedGoods = false;
+            for (int index = 0; index < RewardGoods.Length; index++)
+            {
+                int good = (int)RewardGoods[index];
+                credits[index] = NoKillRewardPolicy.LimitCredit(
+                    NoKillRewardPolicy.Goods(totals[good], goodsPercent), incoming[good]);
+                receivedGoods |= credits[index] > 0;
+            }
+            winner->r_TotalGoodsGold += gold;
+            for (int index = 0; index < RewardGoods.Length; index++) incoming[(int)RewardGoods[index]] += credits[index];
+            if (receivedGoods) *(int*)((byte*)winner + GoodsNotificationOffset) = 2;
+
+            return gold;
+        }
+
         private void SuppressForSelectedWinner(NativePointer<X64SmartCPUContext> context)
         {
             X64SmartCPUContext* registers = context.Pointer;
@@ -188,8 +294,8 @@ namespace ExtraFeatures
             // RDX is dead here and will be overwritten by Vanilla on either path.
             // The generated TEST executes after RedBird's flag-changing wrapper.
             registers->RDX = 1; // Fail open to the unchanged reward path.
-            int mask = Volatile.Read(ref suppressionMask);
-            if (mask == 0)
+            KillRewardConfiguration current = Volatile.Read(ref configuration);
+            if (ReferenceEquals(current, KillRewardConfiguration.Vanilla))
                 return;
             int winnerId = unchecked((int)(uint)registers->RBP);
             int defeatedId = unchecked((int)(uint)registers->RBX);
@@ -203,20 +309,32 @@ namespace ExtraFeatures
             try
             {
                 bool isAI = GamePlayerManagerAPI.Instance.IsAIPlayer(winnerId);
-                if (!NoKillRewardPolicy.Suppresses(mask, isAI))
+                if (current.IsVanilla(isAI))
                     return;
+                if (!GamePlayerManagerAPI.Instance.TryGetPlayerResourcesById(winnerId, out GamePlayerResources* winner) ||
+                    !GamePlayerManagerAPI.Instance.TryGetPlayerResourcesById(defeatedId, out GamePlayerResources* defeated) ||
+                    (ulong)winner != moduleBase + ResourcesZeroRva + (ulong)winnerId * 0x583C ||
+                    (ulong)defeated != moduleBase + ResourcesZeroRva + (ulong)defeatedId * 0x583C)
+                    throw new InvalidOperationException("The Extender resource pointers do not match the audited victory-loot layout.");
 
-                // At 15C4EA Vanilla already incremented the victory counter and
-                // initialized RBX, R14 and R11. The first award write is at 15C4FC.
-                // Cleanup at 15C980 needs RCX as the resource base and zero R12D.
+                int* statistic = AwardStatistic(moduleBase, awardStatisticsRva, winnerId);
+                // Validate and stage everything before the first native write. No throwing API
+                // calls occur after crediting, so fail-open cannot award the Vanilla loot twice.
+                int gold = ApplyReward(winner, defeated, statistic, isAI ? current.AIGold : current.HumanGold,
+                    isAI ? current.AIGoods : current.HumanGoods, isAI ? current.AIMaximum : current.HumanMaximum);
+
+                // Skip the Vanilla award writes, preserving its cleanup, statistic update,
+                // victory notification and follow-up. R12D carries the actual gold credited.
                 registers->RCX = moduleBase + ResourceBaseRva;
-                registers->R12 = 0;
+                registers->R12 = (uint)gold;
                 registers->RDX = 0;
             }
-            catch
+            catch (Exception error)
             {
                 // A classification failure preserves Vanilla's complete reward path.
                 registers->RDX = 1;
+                Shared.DebugLogHelper.LogErrorLimited(log, "ExtraFeatures/kill-reward/callback",
+                    "Victory-loot calculation failed; using Vanilla: " + error);
             }
         }
     }

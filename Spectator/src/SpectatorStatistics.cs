@@ -3,71 +3,93 @@ using APIShared.GameModes;
 using APIShared;
 using BepInEx.Logging;
 using CrusaderDE;
-using MonoMod.RuntimeDetour;
 using Noesis;
-using R3;
 using SHCDESE.API;
-using SHCDESE.API.Components.Network;
-using SHCDESE.EventAPI;
-using SHCDESE.EventAPI.Network;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
-using SHCDESE.NoesisUtil;
-using SHCDESE.ViewModels;
 using System;
-using System.Collections.Generic;
 using System.Reflection;
-using System.Threading;
-using Steamworks;
-using HarmonyLib;
+using APIShared.Presentation;
 
 namespace Spectator
 {
     internal sealed class SpectatorStatistics
     {
-        private static SpectatorStatistics instance;
         private readonly ManualLogSource log;
         private readonly SpectatorViewModel settings;
-        private readonly Harmony hooks = new Harmony("Spectator_Serp.Statistics");
         private MethodInfo prepMpScoresMethod, showMpScoreMethod, updateHelpTextMethod, clearWeaselTextMethod;
         private FieldInfo lastStatsField, mpSortTypeField, sortReversedField, missionOverInstance1Field, missionOverInstance2Field;
         private readonly StatisticsPreviewController preview = new StatisticsPreviewController();
         private HUD_MissionOver statisticsPreviewView => preview.View as HUD_MissionOver;
         private bool statisticsPreviewActive => preview.Active;
-        private bool ready;
+        private bool ready, statisticsViewer, lastAvailable;
+        private EngineInterface.PlayState observedState;
         private long session;
+        private StatisticsControlsViewModel controls;
+        private IngameMenuActionRegistration menuRegistration;
+        private IDisposable menuPerspectiveSubscription;
         internal bool Active => statisticsPreviewActive;
         internal bool Available => ready && !preview.VanillaEnded && session > 0 && settings.Activation.Statistics &&
-            MainViewModel.viewModelLoaded && GameData.Instance?.lastGameState != null && GameData.Instance.lastGameState.spectatorMode != 0 &&
+            MainViewModel.viewModelLoaded && GameData.Instance?.lastGameState != null && statisticsViewer &&
             !GameModeHelper.IsMapEditor() && (GameModeHelper.IsRealMultiplayer() || GameModeHelper.IsSingleplayerSkirmishMode());
         internal SpectatorStatistics(ManualLogSource log, SpectatorViewModel settings) { this.log = log; this.settings = settings; }
         internal void Initialize()
         {
-            instance = this;
             InitializeStatisticsPreview();
-            hooks.Patch(FindRequiredMethod(typeof(HUD_MissionOver), "ButtonClicked", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, typeof(string)),
-                prefix: new HarmonyMethod(typeof(SpectatorStatistics), nameof(BeforeButton)));
-            hooks.Patch(FindRequiredMethod(typeof(GameData.Scenarios), "setGameOverState", BindingFlags.Instance | BindingFlags.Public, typeof(int), typeof(int), typeof(int)),
-                prefix: new HarmonyMethod(typeof(SpectatorStatistics), nameof(BeforeGameOver)));
+            controls = new StatisticsControlsViewModel(() => Active, Refresh);
+            GameXAMLManagerAPI.Instance.RegisterBinding("SpectatorStatisticsRefreshHost", controls);
+            if (!IngameMenuActions.TryRegister(SpectatorPlugin.PluginGuid, "statistics",
+                () => { ObserveAvailability(true); return new IngameMenuActionState(SerpLocalization.Get("Tools.Statistics"), Available, Available); },
+                Open, new IngameMenuActionOptions(IngameMenuRow.QuitMission, IngameMenuSlot.Left,
+                    replaceExisting: true), out menuRegistration, out string menuReason)) throw new InvalidOperationException(menuReason);
+            settings.PropertyChanged += (sender, args) => InvalidateMenu();
+            menuPerspectiveSubscription = PlayerPerspectiveAPI.SubscribeChanges(SpectatorPlugin.PluginGuid,
+                "statistics-menu", _ => InvalidateMenu());
+            if (!MissionOverEvents.TryRegister(MissionOverOperation.Button, SpectatorPlugin.PluginGuid, "statistics-close",
+                args => { if (statisticsPreviewActive && ReferenceEquals(statisticsPreviewView, args.View) && args.Button == "Exit")
+                    { args.State = preview.Generation; args.SkipOriginalFunction = true; } },
+                args => { if (args.State is long generation && generation == preview.Generation && args.WasSkipped) CloseStatisticsPreview("exit"); },
+                out string reason)) throw new InvalidOperationException(reason);
+            if (!MissionOverEvents.TryRegister(MissionOverOperation.State, SpectatorPlugin.PluginGuid, "statistics-vanilla-end",
+                null, null, out reason, accepted: args => {
+                    if (args.Result <= 0) return;
+                    bool wasEnded = preview.VanillaEnded;
+                    preview.EndVanilla(); // Invalidate ownership before Vanilla replaces the same view instance.
+                    if (!wasEnded) InvalidateMenu();
+                    SpectatorRuntime.PostPresentation(() => { controls?.Refresh(); SpectatorRuntime.InvalidateToolbar(); });
+                })) throw new InvalidOperationException(reason);
             if (!ApiShared.Current.TryGetMissionLifecycle(SpectatorPlugin.PluginGuid, out var lifecycle, out var diagnostic) ||
-                !lifecycle.TryRegisterObserver("statistics", n => { session = n.Context.SessionId; long expected = session; SpectatorRuntime.PostPresentation(() => { if (session == expected) { preview.Start(expected); SpectatorRuntime.InvalidateToolbar(); } }); },
-                    n => { session = 0; long generation = preview.Generation; SpectatorRuntime.PostPresentation(() => { if (generation == preview.Generation) CloseStatisticsPreview("session-ended"); }); }, null, out diagnostic))
+                !lifecycle.TryRegisterObserver("statistics", n => { session = n.Context.SessionId; long expected = session; SpectatorRuntime.PostPresentation(() => { if (session == expected) { preview.Start(expected); observedState = null; statisticsViewer = false; SpectatorRuntime.InvalidateToolbar(); InvalidateMenu(); } }); },
+                    n => { session = 0; InvalidateMenu(); long generation = preview.Generation; SpectatorRuntime.PostPresentation(() => { if (generation == preview.Generation) CloseStatisticsPreview("session-ended"); }); }, null, out diagnostic))
                 throw new InvalidOperationException("Statistics lifecycle unavailable: " + diagnostic?.Reason);
             ready = true;
+            InvalidateMenu();
         }
-        private static bool BeforeButton(HUD_MissionOver __instance, string __0)
+        internal void InvalidateMenu() => menuRegistration?.Invalidate();
+        internal void ObserveAvailability(bool force = false)
         {
-            if (instance?.statisticsPreviewActive == true && ReferenceEquals(instance.statisticsPreviewView, __instance) && __0 == "Exit")
-            { instance.CloseStatisticsPreview("exit"); return false; }
-            return true;
+            var state = GameData.Instance?.lastGameState;
+            if (force || !ReferenceEquals(state, observedState))
+            {
+                observedState = state;
+                // APIShared's defeat state instead of the Lord record: a not yet spawned Lord is not a
+                // defeat, so availability stays stable when the Lord appears.
+                int player = PlayerPerspectiveAPI.GetControlledPlayerId();
+                bool validLord = !SpectatorDefeat.IsPlayerEliminated(player);
+                statisticsViewer = state != null && (SpectatorDefeatPolicy.IsStatisticsViewer(state.spectatorMode != 0, player, validLord) ||
+                    SpectatorDefeat.IsEliminatedParticipant);
+            }
+            bool available = Available;
+            if (lastAvailable != available) { lastAvailable = available; SpectatorRuntime.InvalidateToolbar(); }
+            if (Active && (!available || !ReferenceEquals(statisticsPreviewView, ResolveVisibleMissionOverView())))
+                CloseStatisticsPreview("availability-or-view-changed");
         }
-        private static void BeforeGameOver(int __0)
+        internal void Open()
         {
-            if (__0 <= 0 || instance == null) return;
-            instance.preview.EndVanilla(); // Vanilla owns all subsequent visibility changes.
-            SpectatorRuntime.PostPresentation(SpectatorRuntime.InvalidateToolbar);
+            if (!Available) return;
+            if (MainViewModel.Instance.Show_HUD_IngameMenu) MainViewModel.Instance.HUDIngameMenu.Close();
+            TryOpenStatisticsPreview();
         }
-        internal void Open() { if (Available) TryOpenStatisticsPreview(); }
         internal void Close() => CloseStatisticsPreview("toolbar");
         internal void Refresh()
         {
@@ -111,13 +133,13 @@ namespace Spectator
 
         private bool TryOpenStatisticsPreview()
         {
-            if (!CanUseStatisticsPreview())
+            if (Active || !CanUseStatisticsPreview())
                 return false;
 
             EngineInterface.MPScoreData snapshot = EngineInterface.GetMPScoreData();
             if (!ValidateStatisticsSnapshot(snapshot))
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "Spectator/src/SpectatorStatistics.cs:1078", "Spectator rejected an invalid spectator-statistics snapshot.");
+                Shared.DebugLogHelper.LogErrorLimited(log, "Spectator/SpectatorStatistics/TryOpenStatisticsPreview.rejected-invalid-statistics-snapshot", "Spectator rejected an invalid spectator-statistics snapshot.");
                 return false;
             }
 
@@ -130,7 +152,7 @@ namespace Spectator
             if (view == null)
             {
                 viewModel.Show_HUD_MissionOver = false;
-                Shared.DebugLogHelper.LogErrorLimited(log, "Spectator/src/SpectatorStatistics.cs:1091", "Spectator could not resolve exactly one visible in-game statistics view.");
+                Shared.DebugLogHelper.LogErrorLimited(log, "Spectator/SpectatorStatistics/TryOpenStatisticsPreview.could-not-resolve-exactly", "Spectator could not resolve exactly one visible in-game statistics view.");
                 return false;
             }
 
@@ -143,7 +165,8 @@ namespace Spectator
 
             if (!preview.Acquire(view)) return false;
             SpectatorRuntime.InvalidateToolbar();
-            Shared.DebugLogHelper.LogDebugLimited(log, "Spectator/src/SpectatorStatistics.cs:1105", "Opened spectator statistics from the current local simulation snapshot without entering Vanilla game over.");
+            controls?.Refresh();
+            Shared.DebugLogHelper.LogDebugLimited(log, "Spectator/SpectatorStatistics/TryOpenStatisticsPreview.opened-statistics-current-local", "Opened spectator statistics from the current local simulation snapshot without entering Vanilla game over.");
             return true;
         }
 
@@ -162,7 +185,7 @@ namespace Spectator
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "Spectator/src/SpectatorStatistics.cs:1124", $"Spectator could not apply the spectator-statistics snapshot: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "Spectator/SpectatorStatistics/TryApplyStatisticsSnapshot.apply-statistics-snapshot", $"Spectator could not apply the spectator-statistics snapshot: {ex}");
                 if (!initializeView && ValidateStatisticsSnapshot(previousSnapshot))
                 {
                     try
@@ -171,7 +194,7 @@ namespace Spectator
                     }
                     catch (Exception rollbackEx)
                     {
-                        Shared.DebugLogHelper.LogErrorLimited(log, "Spectator/src/SpectatorStatistics.cs:1133", $"Spectator could not restore the previous spectator-statistics snapshot: {rollbackEx}");
+                        Shared.DebugLogHelper.LogErrorLimited(log, "Spectator/SpectatorStatistics/TryApplyStatisticsSnapshot.restore-previous-statistics-snapshot", $"Spectator could not restore the previous spectator-statistics snapshot: {rollbackEx}");
                     }
                 }
                 return false;
@@ -245,6 +268,7 @@ namespace Spectator
 
             bool ownsVisible = preview.Release(preview.Generation, ResolveVisibleMissionOverView());
             SpectatorRuntime.InvalidateToolbar();
+            controls?.Refresh();
 
             try
             {
@@ -252,10 +276,10 @@ namespace Spectator
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "Spectator/src/SpectatorStatistics.cs:1414", $"Spectator spectator-statistics video cleanup failed: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "Spectator/SpectatorStatistics/CloseStatisticsPreview.statistics-video-cleanup-failed", $"Spectator spectator-statistics video cleanup failed: {ex}");
             }
 
-            MainViewModel viewModel = MainViewModel.Instance;
+            MainViewModel viewModel = MainViewModel.viewModelLoaded ? MainViewModel.Instance : null;
             if (viewModel != null && ownsVisible)
             {
                 viewModel.Show_HUD_MissionOver_Video = false;
@@ -263,7 +287,7 @@ namespace Spectator
                 viewModel.Show_HUD_MissionOver = false;
             }
 
-            Shared.DebugLogHelper.LogDebugLimited(log, "Spectator/src/SpectatorStatistics.cs:1425", $"Closed spectator statistics preview: reason={reason}.");
+            Shared.DebugLogHelper.LogDebugLimited(log, "Spectator/SpectatorStatistics/CloseStatisticsPreview.closed-statistics-preview-reason", $"Closed spectator statistics preview: reason={reason}.");
         }
 
         private static bool ValidateStatisticsSnapshot(EngineInterface.MPScoreData snapshot)

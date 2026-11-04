@@ -33,6 +33,7 @@
     <Compile Include="..\src\TrailLordSourceSelector.cs"><Link>TrailLordSourceSelector.cs</Link></Compile>
     <Compile Include="..\ExtendedData.Core\LordPackageManifest.cs"><Link>LordPackageManifest.cs</Link></Compile>
     <Compile Include="..\ExtendedData.Core\LordDataSnapshot.cs"><Link>LordDataSnapshot.cs</Link></Compile>
+    <Compile Include="..\ExtendedData.Core\LordPresentationData.cs"><Link>LordPresentationData.cs</Link></Compile>
     <Compile Include="..\ExtendedData.Core\FixesPreferenceSources.cs"><Link>FixesPreferenceSources.cs</Link></Compile>
     <Compile Include="..\src\LordUpload\CustomLordWorkshopPreflight.cs"><Link>CustomLordWorkshopPreflight.cs</Link></Compile>
     <Compile Include="..\..\Shared\Runtime\Persistence\DependencyFreeJson.cs"><Link>DependencyFreeJson.cs</Link></Compile>

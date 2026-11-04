@@ -3,8 +3,8 @@ namespace BugfixesAndQoL.UnitCommands
 {
     internal interface IFormationPresentation
     {
-        int GetRememberedRows(FormationKind kind);
-        void RememberSelectedRows(FormationKind kind, int rows);
+        FormationAspectRatio GetRememberedAspect(FormationKind kind);
+        void RememberSelectedAspect(FormationKind kind, FormationAspectRatio aspect);
         void CloseMenu();
         void RefreshHostState();
         void RefreshPreview();

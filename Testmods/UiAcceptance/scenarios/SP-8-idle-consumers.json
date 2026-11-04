@@ -1,0 +1,18 @@
+{
+  "enabled": true,
+  "series": "SP-8",
+  "role": "sp",
+  "steps": [
+    { "id": "menu", "do": "WaitMainMenu", "timeoutMs": 180000, "stopOnFail": true, "allowErrors": true },
+    { "id": "tools-off", "do": "SetModSetting", "args": ["Spectator.SpectatorPlugin::processRoot.Settings", "EnableTestTools", "false"] },
+    { "id": "sp-test-off", "do": "SetModSetting", "args": ["Spectator.SpectatorPlugin::processRoot.Settings", "EnableSingleplayerTestMode", "false"] },
+    { "id": "settings", "do": "DumpSettings", "args": ["Spectator.SpectatorPlugin::processRoot.Settings"] },
+    { "id": "menu-idle", "do": "UiWork.ExpectIdle", "args": ["3000", "Spectator_Serp", "CastlePlanner_Serp", "RandomEvents_Serp", "ExtendedData_Serp"], "timeoutMs": 10000 },
+    { "id": "load", "do": "LoadSave", "args": ["test_gates.sav"], "timeoutMs": 120000, "stopOnFail": true },
+    { "id": "dump", "do": "UiWork.Dump" },
+    { "id": "active-player-idle", "do": "UiWork.ExpectIdle", "args": ["5000", "Spectator_Serp", "CastlePlanner_Serp", "RandomEvents_Serp", "ExtendedData_Serp"], "timeoutMs": 15000 },
+    { "id": "no-toolbar", "do": "Spectator.ExpectNoToolbar", "args": ["1000"], "timeoutMs": 5000 },
+    { "id": "shot", "do": "Screenshot", "args": ["idle"] },
+    { "id": "quit", "do": "QuitToMenu", "timeoutMs": 60000 }
+  ]
+}

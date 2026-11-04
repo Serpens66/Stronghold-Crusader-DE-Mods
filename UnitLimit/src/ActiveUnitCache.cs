@@ -57,7 +57,7 @@ namespace UnitLimit
                 subscribed = true;
                 {
                     if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                        LogDebug("UnitLimit/src/ActiveUnitCache.cs:58", "ActiveUnitCache hooks subscribed.");
+                        LogDebug("UnitLimit/ActiveUnitCache/SubscribeHooks", "ActiveUnitCache hooks subscribed.");
                 }
             }
             catch
@@ -72,7 +72,7 @@ namespace UnitLimit
             foreach (IDisposable subscription in subscriptions)
             {
                 try { subscription.Dispose(); }
-                catch (Exception ex) { Shared.DebugLogHelper.LogErrorLimited(log, "UnitLimit/src/ActiveUnitCache.cs:72", "ActiveUnitCache subscription cleanup failed:", ex); }
+                catch (Exception ex) { Shared.DebugLogHelper.LogErrorLimited(log, "UnitLimit/ActiveUnitCache/Dispose", "ActiveUnitCache subscription cleanup failed:", ex); }
             }
 
             subscriptions.Clear();
@@ -144,7 +144,7 @@ namespace UnitLimit
             {
                 {
                     if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                        LogDebug("UnitLimit/src/ActiveUnitCache.cs:142",
+                        LogDebug("UnitLimit/ActiveUnitCache/ResyncAll",
                     "ActiveUnitCache ResyncAll:",
                     "raiseEvents", raiseEvents,
                     "scanned", scannedUnits,
@@ -286,7 +286,7 @@ namespace UnitLimit
                 {
                     {
                         if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                            LogDebug("UnitLimit/src/ActiveUnitCache.cs:314",
+                            LogDebug("UnitLimit/ActiveUnitCache/NotifyNativeSnapshotChanged",
                         "ActiveUnitCache NotifyNativeSnapshotChanged missing snapshot:",
                         "unitId", unitId,
                         "reason", fallbackReason,
@@ -418,7 +418,7 @@ namespace UnitLimit
             if (ShouldLogCacheChange(reason, key.PlayerId))
             {
                 if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    LogDebug("UnitLimit/src/ActiveUnitCache.cs:479",
+                    LogDebug("UnitLimit/ActiveUnitCache/ApplyCountDelta",
                         "ActiveUnitCache count changed:",
                         "player", key.PlayerId,
                         "type", key.UnitType,
@@ -464,7 +464,7 @@ namespace UnitLimit
             if (humanCountKeys > 0)
                 {
                     if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                        LogDebug("UnitLimit/src/ActiveUnitCache.cs:523", "ActiveUnitCache RebuildCounts:", "humanCountKeys", humanCountKeys);
+                        LogDebug("UnitLimit/ActiveUnitCache/RebuildCounts", "ActiveUnitCache RebuildCounts:", "humanCountKeys", humanCountKeys);
                 }
         }
 
@@ -651,7 +651,7 @@ namespace UnitLimit
             }
             {
                 if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    LogDebug("UnitLimit/src/ActiveUnitCache.cs:713", "ActiveUnitCache cleared.");
+                    LogDebug("UnitLimit/ActiveUnitCache/Clear", "ActiveUnitCache cleared.");
             }
         }
 

@@ -21,12 +21,10 @@ namespace Spectator
         {
             if (!Chainloader.PluginInfos.TryGetValue("ExtraFeatures_Serp", out var plugin)) return;
             Type root = plugin.Instance.GetType();
-            // Internal integration is intentionally restricted to the audited provider contract.
-            if (plugin.Metadata.Version != new Version(1, 0, 114) && plugin.Metadata.Version != new Version(1, 0, 115))
-                throw new NotSupportedException("ExtraFeatures gate adapter requires an audited provider contract (1.0.114 or 1.0.115).");
+            // Bind the provider contract, independent of its release number.
             object owner = root.GetField("runtime", Private)?.GetValue(plugin.Instance);
             runtime = owner?.GetType().GetField("gatehouseAutomationRuntime", Private)?.GetValue(owner);
-            if (runtime == null) return;
+            if (runtime == null) throw new MissingMemberException("ExtraFeatures gate runtime is unavailable.");
             Type type = runtime.GetType();
             automationReady = RequireField(type, "automationReady", typeof(bool));
             mapActive = RequireField(type, "mapActive", typeof(bool));
@@ -52,8 +50,12 @@ namespace Spectator
             model = Activator.CreateInstance(vm, new object[] { toggle });
             show = vm.GetMethod("Show", new[] { typeof(bool), typeof(bool) });
             hide = vm.GetMethod("Hide", Type.EmptyTypes);
-            vm.GetMethod("SetIcon").Invoke(model, new[] { vm.GetProperty("IconImageSource").GetValue(original, null) });
-            if (show == null || hide == null) throw new MissingMemberException("ExtraFeatures gate button contract changed.");
+            PropertyInfo icon = vm.GetProperty("IconImageSource");
+            MethodInfo setIcon = icon == null ? null : vm.GetMethod("SetIcon", new[] { icon.PropertyType });
+            if (show?.ReturnType != typeof(void) || hide?.ReturnType != typeof(void) ||
+                icon?.GetGetMethod() == null || setIcon?.ReturnType != typeof(void))
+                throw new MissingMemberException("ExtraFeatures gate button contract changed.");
+            setIcon.Invoke(model, new[] { icon.GetValue(original, null) });
         }
 
         internal bool Ready

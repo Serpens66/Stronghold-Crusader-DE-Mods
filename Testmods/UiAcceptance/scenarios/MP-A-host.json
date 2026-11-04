@@ -1,0 +1,24 @@
+{
+  "enabled": true,
+  "series": "MP-A-host",
+  "role": "host",
+  "steps": [
+    { "id": "menu", "do": "WaitMainMenu", "timeoutMs": 180000, "stopOnFail": true, "allowErrors": true },
+    { "id": "host", "do": "Mp.Host", "args": ["DoHost"], "timeoutMs": 60000, "stopOnFail": true },
+    { "id": "map", "do": "Lobby.SelectMap", "args": ["4spielerkarte.map"], "timeoutMs": 30000 },
+    { "id": "ai", "do": "Lobby.AddAI", "args": ["1", "1"], "timeoutMs": 30000 },
+    { "id": "members", "do": "Mp.WaitMembers", "args": ["2"], "timeoutMs": 900000, "stopOnFail": true },
+    { "id": "settle-join", "do": "Wait", "args": ["5000"] },
+    { "id": "ready", "do": "Mp.Ready", "timeoutMs": 300000, "stopOnFail": true },
+    { "id": "play", "do": "Lobby.Play", "timeoutMs": 240000, "stopOnFail": true },
+    { "id": "real-mp", "do": "Mp.ExpectRealMultiplayer", "timeoutMs": 30000 },
+    { "id": "describe-start", "do": "Describe" },
+    { "id": "before-save", "do": "WaitMissionTicks", "args": ["100"], "timeoutMs": 120000 },
+    { "id": "save", "do": "Mp.Save", "args": ["uiaccept_mp"] },
+    { "id": "client-surrenders", "do": "WaitMissionTicks", "args": ["900"], "timeoutMs": 300000 },
+    { "id": "describe-after-surrender", "do": "Describe" },
+    { "id": "shot", "do": "Screenshot", "args": ["host"] },
+    { "id": "after", "do": "WaitMissionTicks", "args": ["1300"], "timeoutMs": 300000 },
+    { "id": "exit", "do": "Mp.Exit", "timeoutMs": 30000 }
+  ]
+}

@@ -75,7 +75,7 @@ namespace ExtraFeatures
         }
     }
 
-    internal sealed unsafe class GatehouseAutomationRuntime : IDisposable
+    internal sealed unsafe class GatehouseAutomationRuntime
     {
         private delegate void BuildingHudActionDelegate(MainViewModel self);
         private delegate void EditorPlayerActionDelegate(EditorDirector self, int playerId);
@@ -88,6 +88,10 @@ namespace ExtraFeatures
         private readonly ExtraFeaturesViewModel settings;
         private readonly MultiplayerFeatureGate multiplayerFeatureGate;
         private readonly GatehouseAutomationButtonViewModel buttonViewModel;
+        // Guards manualOnlyGateGlobalIds and pendingMapLocators, which the simulation (queries,
+        // Chore packets), the main thread (HUD, clicks) and lifecycle callbacks share. Methods that
+        // also write native gate timers take EngineLock.Gate first; never in the reverse order.
+        private readonly object stateLock = new object();
         private readonly HashSet<int> manualOnlyGateGlobalIds = new HashSet<int>();
         private readonly List<GatehouseMapLocator> pendingMapLocators = new List<GatehouseMapLocator>();
         private IDisposable gatehouseQuerySubscription;
@@ -99,11 +103,9 @@ namespace ExtraFeatures
         private string lastTimingFailure;
         private bool initialized;
         private bool networkInitialized;
-        private bool saveHandlerRegistered;
         private bool mapActive;
         private bool editorSessionActive;
         private bool loadedMapStatePending;
-        private bool disposed;
         private bool firstQueryLogged;
         private bool iconLoadAttempted;
         private int failureLogs;
@@ -135,6 +137,8 @@ namespace ExtraFeatures
             if (initialized)
                 return;
 
+            // Resolve before any registration: every gate-timer write depends on this monitor.
+            _ = EngineLock.Gate;
             // Script Extender 2.4.0 supplies one-based game IDs here. Keep the
             // boundary validation because index/ID confusion usually resolves a neighbour.
             gatehouseQuerySubscription = BuildingR3EventHooks.OnGatehouseQuery.Observable.Subscribe(OnGatehouseQuery);
@@ -149,7 +153,6 @@ namespace ExtraFeatures
                 throw new InvalidOperationException("Gatehouse automation save-data registration failed.");
             }
 
-            saveHandlerRegistered = true;
             try
             {
                 buildingDeleteSubscription = BuildingR3EventHooks.OnBuildingDelete.Observable.Subscribe(OnBuildingDeleted);
@@ -163,7 +166,6 @@ namespace ExtraFeatures
                 buildingSpawnSubscription?.Dispose();
                 buildingSpawnSubscription = null;
                 ModSaveDataAPI.Instance.UnregisterModDataHandler(SaveDataIdentifier);
-                saveHandlerRegistered = false;
                 gatehouseQuerySubscription?.Dispose();
                 gatehouseQuerySubscription = null;
                 throw;
@@ -217,9 +219,15 @@ namespace ExtraFeatures
             editorSessionActive = false;
             ResolvePendingMapLocators(removeUnresolved: true);
             ReconcileManualGateTimers(removeMissing: true);
-            RefreshButtonVisibility();
+            Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(RefreshButtonVisibilitySafely);
             if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                LogInfo($"gatehouse map state {(wasActive ? "resumed" : "started")}: manualOnly={manualOnlyGateGlobalIds.Count}.");
+                LogInfo($"gatehouse map state {(wasActive ? "resumed" : "started")}: manualOnly={ManualOnlyCount()}.");
+        }
+
+        private int ManualOnlyCount()
+        {
+            lock (stateLock)
+                return manualOnlyGateGlobalIds.Count;
         }
 
         public void EndMap()
@@ -252,7 +260,8 @@ namespace ExtraFeatures
             if (!mapActive)
             {
                 buttonViewModel.Hide();
-                LogVisibilityState($"hidden: map-inactive, editor={IsMapEditor()}");
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogVisibilityState($"hidden: map-inactive, editor={IsMapEditor()}");
                 return;
             }
             if (multiplayerFeatureGate.BlocksLocalStateChanges && !IsChoreTransportReady())
@@ -267,42 +276,20 @@ namespace ExtraFeatures
             if (!TryGetOwnedGatehouse(selectedBuildingId, localPlayerId, out GameBuilding* building, out string failure))
             {
                 buttonViewModel.Hide();
-                LogVisibilityState($"hidden: editor={IsMapEditor()}, playerId={localPlayerId}, selectedBuildingId={selectedBuildingId}, reason={failure}, selection={DescribeBuilding(selectedBuildingId)}");
+                // Runs on every HUD action; build the diagnostic text only when it is logged.
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogVisibilityState($"hidden: editor={IsMapEditor()}, playerId={localPlayerId}, selectedBuildingId={selectedBuildingId}, reason={failure}, selection={DescribeBuilding(selectedBuildingId)}");
                 return;
             }
 
-            bool automaticEnabled = !manualOnlyGateGlobalIds.Contains((int)building->r_GlobalId);
+            bool automaticEnabled;
+            lock (stateLock)
+                automaticEnabled = !manualOnlyGateGlobalIds.Contains((int)building->r_GlobalId);
             buttonViewModel.Show(automaticEnabled, building->r_BuildingType == eStructs.STRUCT_DRAWBRIDGE);
-            LogVisibilityState($"visible: editor={IsMapEditor()}, playerId={localPlayerId}, selectedBuildingId={selectedBuildingId}, globalId={building->r_GlobalId}, automaticEnabled={automaticEnabled}");
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                LogVisibilityState($"visible: editor={IsMapEditor()}, playerId={localPlayerId}, selectedBuildingId={selectedBuildingId}, globalId={building->r_GlobalId}, automaticEnabled={automaticEnabled}");
         }
 
-        public void Dispose()
-        {
-            if (disposed)
-                return;
-
-            disposed = true;
-            if (observedHudViewModel != null)
-            {
-                observedHudViewModel.PropertyChanged -= OnHudPropertyChanged;
-                observedHudViewModel = null;
-            }
-            buildingDeleteSubscription?.Dispose();
-            buildingDeleteSubscription = null;
-            buildingSpawnSubscription?.Dispose();
-            buildingSpawnSubscription = null;
-            gatehouseQuerySubscription?.Dispose();
-            gatehouseQuerySubscription = null;
-            packetSubscription?.Dispose();
-            packetSubscription = null;
-            if (saveHandlerRegistered)
-            {
-                ModSaveDataAPI.Instance.UnregisterModDataHandler(SaveDataIdentifier);
-                saveHandlerRegistered = false;
-            }
-            ReleaseManualGateTimers();
-            ResetMapState();
-        }
 
         private void OnApiSharedReady(IApiShared api)
         {
@@ -508,7 +495,9 @@ namespace ExtraFeatures
                 }
 
                 int globalId = (int)building->r_GlobalId;
-                bool automaticEnabled = manualOnlyGateGlobalIds.Contains(globalId);
+                bool automaticEnabled;
+                lock (stateLock)
+                    automaticEnabled = manualOnlyGateGlobalIds.Contains(globalId);
                 if (multiplayerFeatureGate.BlocksLocalStateChanges)
                 {
                     if (!TrySendChore(playerId, globalId, automaticEnabled))
@@ -590,27 +579,35 @@ namespace ExtraFeatures
         {
             if (!automationReady || !Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod))
                 return;
-            if (!TryFindGatehouseByGlobalId(globalId, out GameBuilding* building, out int buildingId) ||
-                building->r_PlayerIdOwner != playerId)
-            {
-                LogError($"gatehouse state change rejected because the owned gatehouse could not be resolved: source={source}, globalId={globalId}, playerId={playerId}.");
-                return;
-            }
 
-            if (automaticEnabled)
+            // Chore packets already hold the monitor on the engine thread (re-entrant); the
+            // single-player click arrives on the main thread and must not race the simulation.
+            int buildingId;
+            byte gateState;
+            lock (EngineLock.Gate)
             {
-                manualOnlyGateGlobalIds.Remove(globalId);
-                SetManualGateTimer(building, false);
-            }
-            else
-            {
-                manualOnlyGateGlobalIds.Add(globalId);
-                SetManualGateTimer(building, true);
+                if (!TryFindGatehouseByGlobalId(globalId, out GameBuilding* building, out buildingId) ||
+                    building->r_PlayerIdOwner != playerId)
+                {
+                    LogError($"gatehouse state change rejected because the owned gatehouse could not be resolved: source={source}, globalId={globalId}, playerId={playerId}.");
+                    return;
+                }
+
+                lock (stateLock)
+                {
+                    if (automaticEnabled)
+                        manualOnlyGateGlobalIds.Remove(globalId);
+                    else
+                        manualOnlyGateGlobalIds.Add(globalId);
+                }
+
+                SetManualGateTimer(building, !automaticEnabled);
+                gateState = building->r_GateState;
             }
 
             Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(RefreshButtonVisibility);
             if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                LogInfo($"gatehouse automatic state applied: source={source}, buildingId={buildingId}, globalId={globalId}, owner={playerId}, automaticEnabled={automaticEnabled}, gateState={building->r_GateState}.");
+                LogInfo($"gatehouse automatic state applied: source={source}, buildingId={buildingId}, globalId={globalId}, owner={playerId}, automaticEnabled={automaticEnabled}, gateState={gateState}.");
         }
 
         private void OnGatehouseQuery(GatehouseQueryEventArgs args)
@@ -695,12 +692,17 @@ namespace ExtraFeatures
             if ((!context.IsSaveFile && !editorMapSave) || (!mapActive && !editorMapSave))
                 return null;
 
-            int[] ids = new int[manualOnlyGateGlobalIds.Count];
-            manualOnlyGateGlobalIds.CopyTo(ids);
+            int[] ids;
+            GatehouseMapLocator[] locators;
+            lock (stateLock)
+            {
+                ids = new int[manualOnlyGateGlobalIds.Count];
+                manualOnlyGateGlobalIds.CopyTo(ids);
+                locators = editorMapSave
+                    ? BuildMapLocators()
+                    : Array.Empty<GatehouseMapLocator>();
+            }
             Array.Sort(ids);
-            GatehouseMapLocator[] locators = editorMapSave
-                ? BuildMapLocators()
-                : Array.Empty<GatehouseMapLocator>();
             byte[] bytes = MessagePackSerializer.Serialize(new GatehouseAutomationSaveState
             {
                 Version = GatehouseAutomationSaveState.CurrentVersion,
@@ -733,22 +735,31 @@ namespace ExtraFeatures
 
             ValidateLocators(savedLocators);
 
-            manualOnlyGateGlobalIds.Clear();
-            pendingMapLocators.Clear();
-            loadedMapStatePending = true;
-            if (context.IsSaveFile)
+            int manualOnlyCount;
+            int pendingLocatorCount;
+            lock (stateLock)
             {
-                manualOnlyGateGlobalIds.UnionWith(loadedIds);
-            }
-            else
-            {
-                pendingMapLocators.AddRange(savedLocators);
+                manualOnlyGateGlobalIds.Clear();
+                pendingMapLocators.Clear();
+                loadedMapStatePending = true;
+                if (context.IsSaveFile)
+                {
+                    manualOnlyGateGlobalIds.UnionWith(loadedIds);
+                }
+                else
+                {
+                    pendingMapLocators.AddRange(savedLocators);
+                }
+
+                manualOnlyCount = manualOnlyGateGlobalIds.Count;
+                pendingLocatorCount = pendingMapLocators.Count;
             }
 
             if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                LogInfo($"gatehouse state loaded: context={(context.IsSaveFile ? "save-file" : "map")}, version={state.Version}, manualOnly={manualOnlyGateGlobalIds.Count}, pendingLocators={pendingMapLocators.Count}, payloadBytes={bytes.Length}.");
+                LogInfo($"gatehouse state loaded: context={(context.IsSaveFile ? "save-file" : "map")}, version={state.Version}, manualOnly={manualOnlyCount}, pendingLocators={pendingLocatorCount}, payloadBytes={bytes.Length}.");
         }
 
+        // Caller holds stateLock.
         private GatehouseMapLocator[] BuildMapLocators()
         {
             var locators = new List<GatehouseMapLocator>(manualOnlyGateGlobalIds.Count + pendingMapLocators.Count);
@@ -767,7 +778,17 @@ namespace ExtraFeatures
             return locators.ToArray();
         }
 
+        // Without the engine monitor Initialize failed closed, so no gate state was ever loaded.
         private void ResolvePendingMapLocators(bool removeUnresolved)
+        {
+            if (!EngineLock.TryGetGate(out object engineGate))
+                return;
+            lock (engineGate)
+            lock (stateLock)
+                ResolvePendingMapLocatorsLocked(removeUnresolved);
+        }
+
+        private void ResolvePendingMapLocatorsLocked(bool removeUnresolved)
         {
             if (pendingMapLocators.Count == 0)
                 return;
@@ -809,15 +830,21 @@ namespace ExtraFeatures
             loadedMapStatePending = false;
             mapActive = true;
             editorSessionActive = true;
-            RefreshButtonVisibility();
+            Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(RefreshButtonVisibilitySafely);
         }
 
         private void RefreshEditorReadiness()
         {
             if (!editorSessionActive || !mapActive) return;
+            // Runs on every HUD refresh; take the engine monitor below only when there is work.
+            lock (stateLock)
+            {
+                if (pendingMapLocators.Count == 0 && manualOnlyGateGlobalIds.Count == 0)
+                    return;
+            }
 
             int activePlayerId = EditorDirector.instance?.ActivePlayerID ?? -1;
-            if (activePlayerId < 1 || activePlayerId > 8 ||
+            if (activePlayerId < 1 || activePlayerId > GamePlayerManagerAPI.MAX_PLAYERS ||
                 GameData.Instance?.lastGameState == null || !MainViewModel.viewModelLoaded ||
                 MainViewModel.Instance?.HUDBuildingPanel == null)
             {
@@ -912,6 +939,15 @@ namespace ExtraFeatures
 
         private void ReconcileManualGateTimers(bool removeMissing)
         {
+            if (!EngineLock.TryGetGate(out object engineGate))
+                return;
+            lock (engineGate)
+            lock (stateLock)
+                ReconcileManualGateTimersLocked(removeMissing);
+        }
+
+        private void ReconcileManualGateTimersLocked(bool removeMissing)
+        {
             if (!automationReady || !Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) || manualOnlyGateGlobalIds.Count == 0)
                 return;
 
@@ -935,6 +971,15 @@ namespace ExtraFeatures
 
         private void ReleaseManualGateTimers()
         {
+            if (!EngineLock.TryGetGate(out object engineGate))
+                return;
+            lock (engineGate)
+            lock (stateLock)
+                ReleaseManualGateTimersLocked();
+        }
+
+        private void ReleaseManualGateTimersLocked()
+        {
             foreach (int globalId in manualOnlyGateGlobalIds)
             {
                 if (TryFindGatehouseByGlobalId(globalId, out GameBuilding* building, out _))
@@ -944,24 +989,51 @@ namespace ExtraFeatures
 
         private void ResetMapState()
         {
-            // The mode gate can close while the current native map is still alive.
-            // Release our permanent-manual sentinel before discarding its identities.
-            if (!loadedMapStatePending)
-                ReleaseManualGateTimers();
-            if (mapActive)
+            int manualOnlyCount;
+            if (EngineLock.TryGetGate(out object engineGate))
             {
-                if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    LogInfo($"gatehouse map state cleared: manualOnly={manualOnlyGateGlobalIds.Count}.");
+                lock (engineGate)
+                    manualOnlyCount = ClearMapGateState();
             }
+            else
+            {
+                // Initialize failed closed: there are no native gate timers to release.
+                manualOnlyCount = ClearMapGateState();
+            }
+
+            if (mapActive && Shared.DebugLogHelper.DiagnosticsEnabled)
+                LogInfo($"gatehouse map state cleared: manualOnly={manualOnlyCount}.");
             mapActive = false;
             editorSessionActive = false;
             loadedMapStatePending = false;
-            manualOnlyGateGlobalIds.Clear();
-            pendingMapLocators.Clear();
-            buttonViewModel.Hide();
+            // Also the save-data unload callback and mission end, which may run off the main thread.
+            Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(HideButtonIfMapInactive);
             lastVisibilityState = null;
             firstQueryLogged = false;
             failureLogs = 0;
+        }
+
+        // Caller holds the engine monitor whenever it is available.
+        private int ClearMapGateState()
+        {
+            lock (stateLock)
+            {
+                // The mode gate can close while the current native map is still alive.
+                // Release our permanent-manual sentinel before discarding its identities.
+                if (!loadedMapStatePending)
+                    ReleaseManualGateTimersLocked();
+                int manualOnlyCount = manualOnlyGateGlobalIds.Count;
+                manualOnlyGateGlobalIds.Clear();
+                pendingMapLocators.Clear();
+                return manualOnlyCount;
+            }
+        }
+
+        // A next map may already have shown the button before this queued Hide runs.
+        private void HideButtonIfMapInactive()
+        {
+            if (!mapActive)
+                buttonViewModel.Hide();
         }
 
         private static bool TryGetOwnedGatehouse(int buildingId, int playerId, out GameBuilding* building, out string failure)
@@ -1043,7 +1115,13 @@ namespace ExtraFeatures
             automationReady && mapActive && !loadedMapStatePending &&
             Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) &&
             TryGetLiveGatehouse(buildingId, out GameBuilding* building, out _) &&
-            manualOnlyGateGlobalIds.Contains((int)building->r_GlobalId);
+            IsManualOnlyGlobalId((int)building->r_GlobalId);
+
+        private bool IsManualOnlyGlobalId(int globalId)
+        {
+            lock (stateLock)
+                return manualOnlyGateGlobalIds.Contains(globalId);
+        }
 
         private static bool IsGatehouseType(eStructs type) =>
             type == eStructs.STRUCT_GATE_MAIN || type == eStructs.STRUCT_GATE_INNER ||
@@ -1123,7 +1201,5 @@ namespace ExtraFeatures
             () => Shared.DebugLogHelper.LogWarningLimited(log, callerFile + ":" + callerLine, message));
         private void LogError(string message, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0) => Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
             () => Shared.DebugLogHelper.LogErrorLimited(log, callerFile + ":" + callerLine, message));
-        private static string TimestampNow() => DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.InvariantCulture);
-
     }
 }

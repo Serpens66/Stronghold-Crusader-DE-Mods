@@ -6,7 +6,7 @@ using System.Collections.Generic;
 namespace BepInEx.Logging { public sealed class ManualLogSource { } }
 namespace Shared
 {
-    internal static class DebugLogHelper
+    internal static partial class DebugLogHelper
     {
         internal static bool FailLogging;
         internal static void LogInfo(object log, string text) { }
@@ -16,7 +16,7 @@ namespace Shared
 }
 namespace BugfixesAndQoL
 {
-    internal sealed class BugfixesAndQoLViewModel
+    internal sealed partial class BugfixesAndQoLViewModel
     {
         public bool EnableClientFeatures { get; set; } = true;
         public bool EnableCompactLobbyChat { get; set; } = true;

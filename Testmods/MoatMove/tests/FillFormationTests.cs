@@ -66,144 +66,8 @@ namespace MoatMove
                 try{WeightedMoatRoutePlanner.FilterNativeAttackCandidates(attackRecords,2,t=>t==1?true:throw new InvalidOperationException());}
                 catch(InvalidOperationException){filterThrew=true;}
                 Check(filterThrew && attackRecords[0]==1 && attackRecords[3]==2,"filter exception does not partially mutate output");
-                api.TileManager = (IntPtr)records;
-                *(int*)(records + MoatRecordCountOffset) = 951;
-                byte* record = records + MoatRecordArrayOffset + 950 * MoatRecordSize;
-                *(int*)record=1016; *(short*)(record+4)=16; *(short*)(record+6)=10;
-                getMoatIdAtTile=(m,t)=>t==1016?950:0;
-                originalHasFillMoatApproach=(m,s,t,y)=>1;
-                api.Occupants[1015]=2; // force the same native far-side approach
-                int selections=0, reservations=0, mode1=0, mode2=0;
-                originalFindMoatWorkTarget=(m,p,u,r)=> {
-                    selections++;
-                    if(AllowFillMoatApproachThroughFriendlyMoat(m,1,1016,10)==0)return -1;
-                    reservations++; return 950;
-                };
-                originalResolveMoatWorkTile=(m,id,mode,sx,sy)=> {
-                    if(mode==1)mode1++;else mode2++;
-                    *(int*)((byte*)m+SelectedMoatTileIdOffset)=1016;
-                    *(int*)((byte*)m+SelectedMoatApproachXOffset)=mode==1?16:17;
-                    *(int*)((byte*)m+SelectedMoatApproachYOffset)=10;
-                    return mode==1?1016:1017;
-                };
-                int NativeBuilderPath(IntPtr m)
-                {
-                    byte* path=*(byte**)((byte*)m+PathManagerOutputBufferOffset);
-                    for(int i=0;i<9;i++)path[i]=0;
-                    // Five east, five west, then seven east: exact work contact at node 16.
-                    for(int i=0;i<17;i++)path[i>>1]|=(byte)((i>=5 && i<10?6:2)<<((i&1)*4));
-                    *(int*)((byte*)m+PathManagerOutputLengthOffset)=17; return 17;
-                }
-                originalPathBuilder=(m,c,p)=>NativeBuilderPath(m);
-                originalPathReconstruction=NativeBuilderPath;
-                originalUnitStandingOnCompletedMoat=(m,id)=>0;
-                originalRegionPairReachability=null;
-                captureWeighted=true;
-                foreach(bool reconstruction in new[]{false,true})
-                {
-                    tick++; cacheMapEpoch=-1; placementRevision++;
-                    Check(FindMoatWorkTargetWithOwnerRoute((IntPtr)records,1,1,2)==950,"real fill selector chooses one work target");
-                    Check(ResolveMoatWorkTileWithOwnerRoute((IntPtr)records,950,1,10,10)==1016 && pendingFillMoatApproach!=null,
-                        "mode one preserves actual selection handoff");
-                    Check(ResolveMoatWorkTileWithOwnerRoute((IntPtr)records,950,2,10,10)==1017 && pendingPlan.MoatWorkTargetTileId==1016,
-                        "mode two binds actual work contact and approach");
-                    var pre=new UnitMoveHereEventArgs(EventHookPhase.Pre,1,17,10,0);ObserveUnitMoveOrder(pre);
-                    *moatPathMode=EnableCompletedMoatModeForScopedMovement((IntPtr)nativeUnitManager,1);
-                    *(int*)(manager+8)=10;*(int*)(manager+12)=10;*(int*)(manager+16)=17;*(int*)(manager+20)=10;
-                    *(int*)(manager+PathManagerRouteVariantOffset)=0;
-                    byte* buffer=nativeUnitManager+NativeUnitPathBufferOffset+NativeUnitPathBufferStride;
-                    *(byte**)(manager+PathManagerOutputBufferOffset)=buffer;
-                    *(int*)(manager+PathManagerOutputLengthOffset)=0;
-                    int result=reconstruction?BuildReconstructedUnitPath(nativePathManager):BuildPathWithCompletedMoatRouteVariant(nativePathManager,1,1);
-                    Check(result==7 && *(int*)(manager+PathManagerOutputLengthOffset)==7,
-                        "full native fill chain optimizes positive terminal path through both builders");
-                    Check(TryAuditFallbackPath(nativePathManager,buffer,result,unitMoveFrame.Plan,units+1,out _),"published fill retains exact owner audit");
-                    var shadow=TryCaptureBuilderWeightedScope(nativePathManager);
-                    Check(shadow!=null && shadow.FillPlan!=null,"weighted capture binds the actual work plan");
-                    Check(DescribeWeightedRoute(shadow,buffer,result,out var costs) && costs.RouteLength==7 && costs.MoatEdges==4,
-                        "cost description counts the entire prefix and both contact edges");
-                    byte savedByte=buffer[0];
-                    Check(!TryPublishSafelyFasterWeightedRoute(nativePathManager,buffer,7,shadow,costs,out _,out _,out _,out _) &&
-                        buffer[0]==savedByte && *(int*)(manager+PathManagerOutputLengthOffset)==7,
-                        "already shortest contact route keeps bytes and length when forty ticks cannot be saved");
-                    Check(!weightedMoatRoutePlanner.TryDescribeEncodedPath(1,10,10,17,10,shadow.CostProfile,buffer,7,false,out _),
-                        "ordinary decoder still rejects enemy contact");
-                    uint global=units[1].r_GlobalId; units[1].r_GlobalId++;
-                    Check(!DescribeWeightedRoute(shadow,buffer,7,out _),"work contact fails on ID reuse"); units[1].r_GlobalId=global;
-                    enemyTiles.Add(1013);
-                    Check(!DescribeWeightedRoute(shadow,buffer,7,out _),"second enemy contact on the prefix remains forbidden");enemyTiles.Remove(1013);
-                    shadow.TargetX=18;
-                    Check(!DescribeWeightedRoute(shadow,buffer,7,out _),"changed builder endpoint cannot borrow work contact");shadow.TargetX=17;
-                    // The unchanged two-edge suffix is still valid with an empty prefix.
-                    units[1].r_CurrentTilePositionX=units[1].r_NextTilePositionX2=15;shadow.StartX=15;
-                    byte* detour=stackalloc byte[6];for(int i=0;i<6;i++)detour[i]=0;
-                    for(int i=0;i<12;i++)detour[i>>1]|=(byte)((i<5?6:2)<<((i&1)*4));
-                    var generous=new[]{new MoatSearchLimit(shadow.CostProfile.GetEdgeFixedCost(false),shadow.CostProfile.GetEdgeFixedCost(true),long.MaxValue/4)};
-                    Check(TryImproveFillPrefix(shadow,detour,12,generous,out var emptyCosts,out var emptyRoute) && emptyRoute.DirectionCount==2 && emptyCosts.MoatEdges==2,
-                        "empty friendly prefix retains both counted terminal edges");
-                    units[1].r_CurrentTilePositionX=units[1].r_NextTilePositionX2=10;shadow.StartX=10;
-                    if(!reconstruction)
-                    {
-                        // Add a fully friendly, cheaper route around the contact field.
-                        api.Rows[11*3]=2000;nativeMovementMasks[1015]|=0x10;
-                        for(int x=15;x<=17;x++){tileFlags[2000+x]=0x8000;nativeMovementMasks[2000+x]=0x45;nativeHeightLayer[2000+x]=0;}
-                        InvalidateMovementSearchData();
-                        NativeBuilderPath(nativePathManager);
-                        Check(DescribeWeightedRoute(shadow,buffer,17,out var longCosts),"native incumbent valid with friendly alternative");
-                        bool directPublished=TryPublishSafelyFasterWeightedRoute(nativePathManager,buffer,17,shadow,longCosts,out var directCosts,out _,out _,out string whyDirect);
-                        Check(directPublished &&
-                            directCosts.MoatEdges==2 && directCosts.RouteLength==9,
-                            $"cheaper fully friendly alternative beats preserved terminal suffix under all profiles: {whyDirect} length={directCosts.RouteLength} moat={directCosts.MoatEdges}");
-                        api.Rows[11*3]=NativeTileCount;nativeMovementMasks[1015]=0x44;
-                        for(int x=15;x<=17;x++)tileFlags[2000+x]=0x100;
-                        InvalidateMovementSearchData();
-                    }
-                    shadow.FillPlan.MoatWorkTargetTileId=1013;
-                    Check(!DescribeWeightedRoute(shadow,buffer,7,out _),"unrelated work tile never authorizes enemy contact");
-                    ObserveUnitMoveOrder(new UnitMoveHereEventArgs(EventHookPhase.Post,1,17,10,0){ReturnValue=result});
-                }
-                Check(selections==2 && reservations==2 && mode1==2 && mode2==2,"one selection and reservation per complete later work cycle");
-                // Real UnitPre -> mode -> both builders -> publication -> UnitPost.
-                pendingPlan=activePlan=null;ClearUnitMoveFrames();enemyTiles.Clear();api.Occupants.Clear();
-                tileFlags[1016]=0x8000;tileFlags[1055]=CompletedMoatTileFlag;
-                for(int x=50;x<=130;x++)pathRegionGrid[1000+x]=(ushort)(x<55?1:2);
-                originalPathBuilder=(m,c,p)=>0;originalPathReconstruction=m=>0;
-                captureWeighted=true;
-                foreach(int count in new[]{1,120,680})
-                {
-                    tick++;InvalidateMovementSearchData();
-                    activeMoveCommand=new MoveCommandScope{TribeId=1,TargetX=90,TargetY=10};
-                    long beginNodes=weightedMoatRoutePlanner.SearchNodes,allocated=GC.GetAllocatedBytesForCurrentThread();
-                    var timer=Stopwatch.StartNew();
-                    for(int id=1;id<=count;id++)
-                    {
-                        int target=60+id%60;
-                        units[id]=new GameUnit{Digger=true,r_GlobalId=(uint)(8000+id),r_ControllableForPlayerId=1,r_TribeId=1,
-                            r_CurrentTilePositionX=50,r_CurrentTilePositionY=10,r_NextTilePositionX2=50,r_NextTilePositionY2=10,r_MovementSubstep=8};
-                        ObserveUnitMoveOrder(new UnitMoveHereEventArgs(EventHookPhase.Pre,id,target,10,0));
-                        *moatPathMode=EnableCompletedMoatModeForScopedMovement((IntPtr)nativeUnitManager,id);
-                        var bound=GetCurrentUnitMoveFrame().Plan;
-                        Check(GetReusableQualifiedRoute(bound,units+id)!=null,"mode retains exact encoded qualification");
-                        long searches=weightedMoatRoutePlanner.SearchRuns;
-                        *(int*)(manager+8)=50;*(int*)(manager+12)=10;*(int*)(manager+16)=target;*(int*)(manager+20)=10;
-                        *(byte**)(manager+PathManagerOutputBufferOffset)=nativeUnitManager+NativeUnitPathBufferOffset+id*NativeUnitPathBufferStride;
-                        *(int*)(manager+PathManagerOutputLengthOffset)=0;*(int*)(manager+PathManagerRouteVariantOffset)=0;
-                        int result=id%2==0?BuildReconstructedUnitPath(nativePathManager):BuildPathWithCompletedMoatRouteVariant(nativePathManager,1,0);
-                        Check(result==target-50,"qualified path published to individual unit");
-                        Check(weightedMoatRoutePlanner.SearchRuns==searches,"builder and optimality check do not repeat qualification search");
-                        long savedRevision=placementRevision;placementRevision++;
-                        Check(GetReusableQualifiedRoute(bound,units+id)==null,"revision invalidates retained path");placementRevision=savedRevision;
-                        units[id].r_GlobalId++;
-                        Check(GetReusableQualifiedRoute(bound,units+id)==null,"reused game ID does not reuse a bound plan");units[id].r_GlobalId--;
-                        units[id].r_CurrentTilePositionX++;
-                        Check(GetReusableQualifiedRoute(bound,units+id)==null,"changed actual start rejects retained path");units[id].r_CurrentTilePositionX--;
-                        tick++;
-                        Check(GetReusableQualifiedRoute(bound,units+id)==null,"later tick rejects retained path");tick--;
-                        ObserveUnitMoveOrder(new UnitMoveHereEventArgs(EventHookPhase.Post,id,target,10,0){ReturnValue=result});
-                    }
-                    Console.WriteLine($"GROUP PRODUCTION units={count} ms={timer.Elapsed.TotalMilliseconds:F3} nodes={weightedMoatRoutePlanner.SearchNodes-beginNodes} bytes={GC.GetAllocatedBytesForCurrentThread()-allocated}");
-                }
-                tileFlags[1055]=0x8000;
+                // The weighted fill and group qualification chain of MoatMove's former exact mode was removed with it
+                // (2026-10-30): with MoatMove, BugfixesAndQoL skips weighted publication in the required-only flow.
                 captureWeighted=false; activePlan=pendingPlan=null; ClearUnitMoveFrames(); api.Occupants.Clear();
                 tileFlags[1016]=0x8000; enemyTiles.Clear(); nativeTribeManager=(IntPtr)tribes;
                 *(int*)(tribes+TribeRecordSize+0x2C)=1;
@@ -505,7 +369,9 @@ namespace MoatMove
                                 Check(MatchesSynchronousAttackMovementContext(units+id,command,out _),"published staging target is a bound movement context");
                                 ObserveUnitMoveOrder(new UnitMoveHereEventArgs(EventHookPhase.Pre,id,x,10,0));
                                 *moatPathMode=EnableCompletedMoatModeForScopedMovement((IntPtr)nativeUnitManager,id);
-                                Check(ReferenceEquals(nativeGroundOwner,command),"attack search owner survives successive unit frames");
+                                // Fast flow: the place qualifies at the validated pre-builder failure, not at the mode event.
+                                Check(*moatPathMode==0 && TryRecoverBeforeBuilder((IntPtr)nativeUnitManager,id,50,10,x,10)==1,
+                                    "staging place qualifies at the validated pre-builder failure");
                                 byte* m=(byte*)nativePathManager;*(int*)(m+8)=50;*(int*)(m+12)=10;*(int*)(m+16)=x;*(int*)(m+20)=10;
                                 *(byte**)(m+PathManagerOutputBufferOffset)=nativeUnitManager+NativeUnitPathBufferOffset+id*NativeUnitPathBufferStride;
                                 *(int*)(m+PathManagerOutputLengthOffset)=0;

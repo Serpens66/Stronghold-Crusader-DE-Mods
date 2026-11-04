@@ -34,6 +34,15 @@ namespace ExtraFeatures
         {
             FearFactorNativeDefinition.Validate(image, PreferredImageBase);
             check(true, "fear-factor production validation accepts the canonical image");
+            // The runtime no longer repeats these scans at startup; it relies on the pinned hash.
+            check(Shared.NativePatternResolver.FindUniquePattern(
+                    image, FearFactorNativeDefinition.DamageFunctionPattern, "fear damage") ==
+                    FearFactorNativeDefinition.DamageFunctionRva,
+                "fear-factor damage pattern is unique at the audited RVA");
+            check(Shared.NativePatternResolver.FindUniquePattern(
+                    image, FearFactorNativeDefinition.UiFearLoadPattern, "fear overlay") ==
+                    FearFactorNativeDefinition.UiPatternRva,
+                "fear-factor unit-overlay pattern is unique at the audited RVA");
             CheckRedBirdSpan(image, FearFactorNativeDefinition.DamageFunctionRva,
                 FearFactorNativeDefinition.DamageHookLength, check, "damage");
             CheckRedBirdSpan(image, FearFactorNativeDefinition.UiHookRva,

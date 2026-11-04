@@ -87,3 +87,64 @@ Task evidence is retained under `.work/t/perf-opt/001` in this workspace.
 No mod build, installation or new in-game acceptance was performed in this task.
 The next game comparison must establish the effect on frame lags; static and
 fixture results alone do not prove their elimination or native tick speedups.
+
+## Raw history export and completed-buffer readback (2026-10-31)
+
+For the same native/managed hashes above, public `DLL_GetMPScoreData(byte*)`
+dispatches to RVA 83CB0. Its managed explicit `multiplayer_stats_export` contains
+nine-entry Int32 player arrays and the 81-entry killer-row/victim-column matrix.
+The last `teams` array begins at byte 1392 and ends at 1428; use the managed
+type's aligned size, not just the final array end. The public convenience wrapper
+allocates raw storage, takes threadLock for the export, then builds the full
+MPScoreData including arrays, identities and colour data outside that lock.
+Merit raw storage is 45 Int32 slots; absent player records only receive the
+presence marker, so reused buffers must be reset before each export.
+
+[mod integration] APIShared's existing run/returnBuffer interception can execute
+requested prepared reads before publishing a beingFilled buffer. The additional
+readback gate checks a thread-local run scope and Monitor.IsEntered on the real
+engine lock. Main-thread TryEnter alone has no fairness guarantee: in an eight-Lord
+stress pilot all active-phase overview attempts were skipped, while paused raw
+copies succeeded in roughly 5 microseconds after warm-up. This is evidence about
+that pilot, not a guarantee for every machine or save. The Spectator refresh button
+uses GetMPScoreData synchronously; the BFQoL merit optimization instead refreshes
+requested merit at its already-locked pre-publication run bridge.
+
+## Greatest Lord score [Vanilla facts] (2026-10-31)
+
+The installed pair still matches the native/managed hashes at the top of this
+document. DLL_GetMeritData (84140, confirmed export) places the return from the
+unnamed helper 1E20 in signed Int32 column 1 of each present player's five-value
+record. Player IDs are 1..8; index zero is not a participant. Absent players get
+only the invalid presence marker, leaving other columns untouched. If helper
+187E60 cannot resolve a living identified Lord and game time exceeds the start
+reference plus 200, the export instead writes score -1, gold 0 and army 0.
+This initial grace condition is strictly greater, not greater-or-equal.
+
+The read-only helper 1E20 uses player stride 583C. Its quantities align with
+GamePlayerResources: goods start at 04D0, gold at 050C, population at 2180 and
+approximate army strength at 38E8. For each included good g, helper CEB30 reads
+the current base SellPrice (player manager +1817BC + g*8), divided by 5 using
+signed integer division. The native sum is:
+
+    trunc(sum(quantity[g] * trunc(SellPrice[g]/5), g in A)/10)
+    + trunc(sum(quantity[g] * trunc(SellPrice[g]/5), g in B)/10)
+    + trunc(sum(quantity[g] * trunc(SellPrice[g]/5), g in C)/10)
+    + population*10 + approximateArmyStrength + trunc(gold/10)
+
+A = wood planks, hops, stone, iron, refined pitch, ale, flour (goods 2,3,4,6,8,14,16).
+B = bows, crossbows, spears, pikes, maces, swords, leather and metal armour (17..24).
+C = bread, cheese, meat, fruit (10..13). Gold is not clamped by this score helper;
+the export separately clamps the displayed gold column. The score arithmetic is
+native signed Int32; no floating-point weighting or cumulative production totals
+are involved. Resource names/IDs were matched against the Extender enum/struct
+as vocabulary; consumers need only the public export, not any of these offsets.
+
+The army component is a prepared strength accumulator, rather than the exported
+troop count: unit traversal 182B00 adds per-chimp weights from 112540 on its
+64-tick phase. This observation explains its distinction from headcount; it is
+not a promise of a freshly recomputed army term for each score export.
+HUD_MeritPanel.populateList's Lord branch compares score descending, then gold
+descending, and optionally reverses the resulting rank list. Its crown button
+Merit_SortLordScore references UI-Buttons S045/S046/S047. These statements concern
+the current Merit ranking, not a separate mission-over award calculation.

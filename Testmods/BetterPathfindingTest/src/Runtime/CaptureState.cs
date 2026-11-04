@@ -10,18 +10,20 @@ namespace BetterPathfindingTest
         internal int Captures { get; private set; }
         internal bool Stopped { get; private set; }
         private double due;
+        private double lastCapture = double.NegativeInfinity;
         internal string WaitingReason = "engine-lock";
         internal CaptureState(Func<double> seconds) { this.seconds = seconds; }
         internal bool Start(long id)
         {
             if (id <= Session) return false; // Session IDs are process-local and monotonic.
-            Session = id; Captures = 0; Stopped = false; due = seconds(); WaitingReason = "engine-lock"; return true;
+            Session = id; Captures = 0; Stopped = false; due = seconds(); lastCapture = double.NegativeInfinity; WaitingReason = "engine-lock"; return true;
         }
         internal void Retire(long id) { if (Session == id) Stopped = true; }
-        internal bool Pending => !Stopped && Session != 0 && Captures < 2 && seconds() >= due;
+        internal bool Pending => !Stopped && Session != 0 && seconds() >= due;
         internal double WaitMilliseconds => Math.Max(0, seconds() - due) * 1000;
         internal bool Expired => Pending && seconds() - due >= 30;
-        internal void Captured() { Captures++; due = seconds() + 10; WaitingReason = "engine-lock"; }
+        internal void Captured() { Captures++; lastCapture = seconds(); due = lastCapture + 0.5; WaitingReason = "engine-lock"; }
+        internal void Hint() { due = Math.Min(due, Math.Max(lastCapture + 0.25, seconds())); }
         internal void Fail() { Stopped = true; }
     }
     internal sealed class CaptureNotReadyException : Exception

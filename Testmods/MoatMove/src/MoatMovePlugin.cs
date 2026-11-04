@@ -10,13 +10,13 @@ using SHCDESE.EventAPI;
 using System;
 using System.Reflection;
 
-[assembly: AssemblyVersion("0.1.5.0")]
-[assembly: AssemblyFileVersion("0.1.5.0")]
-[assembly: AssemblyInformationalVersion("0.1.5")]
+[assembly: AssemblyVersion("0.1.6.0")]
+[assembly: AssemblyFileVersion("0.1.6.0")]
+[assembly: AssemblyInformationalVersion("0.1.6")]
 
 namespace MoatMove
 {
-    [BepInDependency("APIShared_Serp", "0.4.10")]
+    [BepInDependency("APIShared_Serp", "0.24.0")]
     [BepInPlugin(PluginGuid, "MoatMove", PluginVersion)]
     [BepInDependency("000shcdese", "2.14.0")]
     [BepInDependency("BugfixesAndQoL_Serp", "1.0.181")]
@@ -24,7 +24,7 @@ namespace MoatMove
     public sealed class MoatMovePlugin : BaseUnityPlugin
     {
         public const string PluginGuid = "MoatMove_Serp";
-        public const string PluginVersion = "0.1.5";
+        public const string PluginVersion = "0.1.6";
         private static ManualLogSource persistentLog;
         private static FriendlyMoatTraversalProvider runtime;
         private static MoatMoveOptions options;
@@ -40,12 +40,58 @@ namespace MoatMove
             if (initialized) return;
             initialized = true;
             persistentLog = Logger;
-            string mode = Config.Bind("Movement", "Mode", "precise",
-                new ConfigDescription(
-                    "precise: weighted friendly/allied moat routes. fast: moat only when no ground alternative exists, shared group calculations, no extra moat cost. FastNative: Fast rules with a private native shared field. Restart the game after changing this setting. Use the same mode on all multiplayer peers.")).Value;
-            options = new MoatMoveOptions(mode);
+            // DEVDIAG builds only: Shared.DevDiag measuring points write through this log.
+            Shared.DevDiag.Attach(Logger);
+            bool singleMoves = Config.Bind("Movement", "AnchorSingleMoves", false,
+                new ConfigDescription("Experimental: single-unit ground moves outside group commands also use the native core (exact cheapest routes, route tile rules) instead of Vanilla's per-unit search. Routes can differ from Vanilla's. Restart the game after changing this setting. Use the same value on all multiplayer peers.")).Value;
+            bool avoidFire = Config.Bind("Movement", "AvoidFire", false,
+                new ConfigDescription("Experimental: routes avoid burning pitch and other fire on the ground. With AnchorSingleMoves, soldiers that are already walking when fire starts on their route re-plan 3 tiles before it (detour rule: FireDetourPercent/FireDetourMinTiles) or stop and wait (FireWaitSeconds); without a fire-free route by then the move is aborted. Restart the game after changing this setting. Use the same value on all multiplayer peers.")).Value;
+            int fireWaitSeconds = Config.Bind("Movement", "FireWaitSeconds", 60,
+                new ConfigDescription("With AvoidFire: seconds of game time a soldier waits in front of fire before its move is aborted, and in which a soldier that left a fire while walking continues to its move target. Restart the game after changing this setting. Use the same value on all multiplayer peers.",
+                    new AcceptableValueRange<int>(1, 1800))).Value;
+            int fireReturnSeconds = Config.Bind("Movement", "FireReturnSeconds", 120,
+                new ConfigDescription("With EscapeFire: seconds of game time, counted from reaching a fire-free tile, in which a soldier that left a fire while standing returns to its old position once that is free of fire; afterwards it stays. Restart the game after changing this setting. Use the same value on all multiplayer peers.",
+                    new AcceptableValueRange<int>(1, 1800))).Value;
+            int fireDetourPercent = Config.Bind("Movement", "FireDetourPercent", 50,
+                new ConfigDescription("With AvoidFire: a fire-free detour may be this many percent longer than the remaining route (or FireDetourMinTiles steps longer, whichever is more); a longer detour counts as no route. Restart the game after changing this setting. Use the same value on all multiplayer peers.",
+                    new AcceptableValueRange<int>(0, 1000))).Value;
+            int fireDetourMinTiles = Config.Bind("Movement", "FireDetourMinTiles", 10,
+                new ConfigDescription("With AvoidFire: extra steps a fire-free detour may always add, also for short remaining routes. Restart the game after changing this setting. Use the same value on all multiplayer peers.",
+                    new AcceptableValueRange<int>(0, 2000))).Value;
+            bool escapeFire = Config.Bind("Movement", "EscapeFire", true,
+                new ConfigDescription("With AvoidFire: soldiers standing on a burning tile move to the nearest tile without fire (preferably not next to fire or on unburnt pitch) and later return (see FireReturnSeconds and FireWaitSeconds). Workers, firemen, siege equipment and units on walls are not moved. Restart the game after changing this setting. Use the same value on all multiplayer peers.")).Value;
+            bool avoidPlague = Config.Bind("Movement", "AvoidPlague", false,
+                new ConfigDescription("Experimental: routes avoid tiles where a plague cloud damages units (on walls, gates, towers and keeps only where the active plague height rules of APIShared, e.g. ExtraFeatures' PlagueDamage settings, let it damage). With AnchorSingleMoves, walking soldiers re-plan, wait (PlagueWaitSeconds) or abort like for fire. Restart the game after changing this setting. Use the same value on all multiplayer peers.")).Value;
+            int plagueWaitSeconds = Config.Bind("Movement", "PlagueWaitSeconds", 90,
+                new ConfigDescription("With AvoidPlague: seconds of game time a soldier waits in front of plague before its move is aborted, and in which a soldier that left plague while walking continues to its move target. A cloud an apothecary removes clears the way at once. Restart the game after changing this setting. Use the same value on all multiplayer peers.",
+                    new AcceptableValueRange<int>(1, 1800))).Value;
+            int plagueReturnSeconds = Config.Bind("Movement", "PlagueReturnSeconds", 180,
+                new ConfigDescription("With EscapePlague: seconds of game time, counted from reaching a safe tile, in which a soldier that left plague while standing returns to its old position once that is free; afterwards it stays. Restart the game after changing this setting. Use the same value on all multiplayer peers.",
+                    new AcceptableValueRange<int>(1, 1800))).Value;
+            bool escapePlague = Config.Bind("Movement", "EscapePlague", true,
+                new ConfigDescription("With AvoidPlague: soldiers standing where a plague cloud damages them move to the nearest safe tile and later return (see PlagueReturnSeconds). Soldiers on walls, gates, towers and keeps only with EscapePlagueRaised. Restart the game after changing this setting. Use the same value on all multiplayer peers.")).Value;
+            bool escapePlagueRaised = Config.Bind("Movement", "EscapePlagueRaised", false,
+                new ConfigDescription("With EscapePlague: soldiers on walls, gates, towers and keeps also leave plague that damages them there, even if that means leaving the wall or tower. Restart the game after changing this setting. Use the same value on all multiplayer peers.")).Value;
+#if SERP_DEVDIAG
+            int ruleProbeTicks = Config.Bind("Diagnostics", "RuleProbeTicks", 0,
+                new ConfigDescription("DEVDIAG only: simulation ticks after a map start at which a forbidden test band (x 399..401, every row except 380..420) is set for all players; 0 = off.")).Value;
+            int moatCostProbeTicks = Config.Bind("Diagnostics", "MoatCostProbeTicks", 0,
+                new ConfigDescription("DEVDIAG only: simulation ticks after a map start from which a RouteSearchEvents observer makes moat edges 50 times as expensive as ground edges; 0 = off.")).Value;
+            int topologyProbeTicks = Config.Bind("Diagnostics", "TopologyProbeTicks", 0,
+                new ConfigDescription("DEVDIAG only: simulation ticks after a map start at which every player's cursor topology is rebuilt once with the table-based and the per-tile build (both timed); 0 = off.")).Value;
+#else
+            int ruleProbeTicks = 0, moatCostProbeTicks = 0, topologyProbeTicks = 0;
+#endif
+            // Clamped defensively: RouteReplanPolicy rejects values outside these ranges.
+            options = new MoatMoveOptions { PluginDirectory = System.IO.Path.GetDirectoryName(Info.Location), AnchorSingleMoves = singleMoves, AvoidFire = avoidFire,
+                FireWaitSeconds = Math.Min(1800, Math.Max(1, fireWaitSeconds)), FireDetourPercent = Math.Min(1000, Math.Max(0, fireDetourPercent)),
+                FireDetourMinTiles = Math.Min(2000, Math.Max(0, fireDetourMinTiles)), EscapeFire = escapeFire,
+                FireReturnSeconds = Math.Min(1800, Math.Max(1, fireReturnSeconds)),
+                AvoidPlague = avoidPlague, PlagueWaitSeconds = Math.Min(1800, Math.Max(1, plagueWaitSeconds)),
+                PlagueReturnSeconds = Math.Min(1800, Math.Max(1, plagueReturnSeconds)), EscapePlague = escapePlague, EscapePlagueRaised = escapePlagueRaised,
+                RuleProbeTicks = ruleProbeTicks, MoatCostProbeTicks = moatCostProbeTicks, TopologyProbeTicks = topologyProbeTicks };
             Shared.DebugLogHelper.LogInfo(persistentLog,
-                $"MoatMove {PluginVersion} loaded; mode={options.ModeName}, commandPolicy=BugfixesAndQoL, hookOwner=BugfixesAndQoL; awaiting native library.");
+                $"MoatMove {PluginVersion} loaded; anchorSingleMoves={options.AnchorSingleMoves}, avoidFire={options.AvoidFire}, escapeFire={options.EscapeFire}, avoidPlague={options.AvoidPlague}, escapePlague={options.EscapePlague}, escapePlagueRaised={options.EscapePlagueRaised}, commandPolicy=BugfixesAndQoL, hookOwner=BugfixesAndQoL; awaiting native library.");
             CrusaderLibrary.Instance.LibraryLoaded += OnLibraryLoaded;
         }
 
@@ -62,7 +108,7 @@ namespace MoatMove
                 runtime = new FriendlyMoatTraversalProvider(persistentLog, options);
                 runtime.Install(context);
                 Shared.DebugLogHelper.LogInfo(persistentLog,
-                    $"MoatMove runtime published; mode={options.ModeName}; shared command hooks owned by BugfixesAndQoL; detailed diagnostics disabled.");
+                    $"MoatMove runtime published; shared command hooks owned by BugfixesAndQoL; detailed diagnostics disabled.");
             }
             catch (Exception ex)
             {
@@ -91,7 +137,7 @@ namespace MoatMove
             mapSequence++;
             mapActive = true;
             mapTickObserved = false;
-            Shared.DebugLogHelper.LogInfo(persistentLog, $"MoatMove map-start sequence={mapSequence}; mode={options.ModeName} active.");
+            Shared.DebugLogHelper.LogInfo(persistentLog, $"MoatMove map-start sequence={mapSequence}; runtime active.");
         }
 
         private static void ObserveMapTick(int tick)

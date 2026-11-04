@@ -48,6 +48,7 @@
     <Compile Include="..\src\NativeInstructionReplayEmitter.cs"><Link>NativeInstructionReplayEmitter.cs</Link></Compile>
     <Compile Include="KeepFlagRotationTests.cs" />
     <Compile Include="CorruptLordDataSpawnTests.cs" />
+    <Compile Include="SpectatorInputControlTests.cs" />
     <Compile Include="AIPreplacedBuildingFixTests.cs" />
     <Compile Include="SkirmishGameOptionsTests.cs" />
     <Compile Include="MovementFastPathParityHarness.cs" />
@@ -77,6 +78,8 @@
     <Compile Include="..\src\StartupUiReadinessGuardIlContract.cs"><Link>StartupUiReadinessGuardIlContract.cs</Link></Compile>
     <Compile Include="..\src\ResolutionAwareZoomPolicy.cs"><Link>ResolutionAwareZoomPolicy.cs</Link></Compile>
     <Compile Include="..\src\SurrenderPolicy.cs"><Link>SurrenderPolicy.cs</Link></Compile>
+    <Compile Include="..\src\LordUnitControlsPolicy.cs"><Link>LordUnitControlsPolicy.cs</Link></Compile>
+    <Compile Include="..\src\SpectatorInputControlPolicy.cs"><Link>SpectatorInputControlPolicy.cs</Link></Compile>
     <Compile Include="..\src\SurrenderSelectionCleanup.cs"><Link>SurrenderSelectionCleanup.cs</Link></Compile>
     <Compile Include="..\src\LocalPerPlayerSetting.cs"><Link>LocalPerPlayerSetting.cs</Link></Compile>
     <Compile Include="..\src\TimerCountdownPolicy.cs"><Link>TimerCountdownPolicy.cs</Link></Compile>

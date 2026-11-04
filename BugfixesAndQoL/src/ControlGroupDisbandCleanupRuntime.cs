@@ -102,7 +102,7 @@ namespace BugfixesAndQoL
                 if (!callbackErrorLogged)
                 {
                     callbackErrorLogged = true;
-                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/ControlGroupDisbandCleanupRuntime.cs:105", $"Bugfixes and QoL disbanded-unit control-group cleanup failed; Vanilla behavior remains active: {ex}");
+                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/ControlGroupDisbandCleanupRuntime/DisbandUnit", $"Bugfixes and QoL disbanded-unit control-group cleanup failed; Vanilla behavior remains active: {ex}");
                 }
             }
             return result;

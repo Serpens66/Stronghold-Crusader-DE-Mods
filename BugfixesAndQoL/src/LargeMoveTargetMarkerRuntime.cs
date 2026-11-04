@@ -57,7 +57,7 @@ namespace BugfixesAndQoL
             }
             catch (Exception exception)
             {
-                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/LargeMoveTargetMarkerRuntime.cs:60", $"MOVE_TARGET_MARKER_HOOK_FAIL_OPEN: Vanilla markers retained; {exception.Message}");
+                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/LargeMoveTargetMarkerRuntime/Install", $"MOVE_TARGET_MARKER_HOOK_FAIL_OPEN: Vanilla markers retained; {exception.Message}");
             }
         }
 

@@ -409,6 +409,10 @@ namespace BugfixesAndQoL.UnitCommands
             nativeProbeGrid = (byte*)(libraryBase + 0x5225B10);
             nativeProbeRectangle = (byte*)(libraryBase + 0x34A9F50);
             InitializeCursorGroundContract(memory, libraryBase);
+            floodStamps = (short*)(nativeProbeGrid + NativeProbeGridBytes / 2);
+            exactFloodMembership = floodResolution.Rva == TribeFloodMembership.MembershipRva && groupUnitResolution.Rva == TribeFloodMembership.GroupUnitRva &&
+                TribeFloodMembership.BodyMatches(memory, TribeFloodMembership.MembershipRva, TribeFloodMembership.MembershipBodyLength, TribeFloodMembership.MembershipBodySha256) &&
+                TribeFloodMembership.BodyMatches(memory, TribeFloodMembership.GroupUnitRva, TribeFloodMembership.GroupUnitBodyLength, TribeFloodMembership.GroupUnitBodySha256);
             nativeTribeManager = (IntPtr)(libraryBase + NativeTribeManagerRva);
             nativeSpecialStructureContext =
                 (IntPtr)(libraryBase + NativeSpecialStructureContextRva);
@@ -447,7 +451,7 @@ namespace BugfixesAndQoL.UnitCommands
             {
                 // Cadence qualification is optional; keep shared commands and selectors available.
                 nativeMovementCadenceResolver = null;
-                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.Initialization.cs:448", "CADENCE_RESOLVER_UNAVAILABLE: weighted route publication disabled; " +
+                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/UnitCommandPathRuntime.Initialization/Constructor.cadence-resolver-unavailable-weighted", "CADENCE_RESOLVER_UNAVAILABLE: weighted route publication disabled; " +
                     "shared movement commands remain available: " + exception);
             }
             // Native callbacks enter through exception barriers (NativeDetourBarriers.cs).
@@ -568,7 +572,7 @@ namespace BugfixesAndQoL.UnitCommands
                 catch (Exception exception)
                 {
                     disposed = true;
-                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.Initialization.cs:568", "Friendly moat movement disabled after a committed mode-detour contract mismatch: " + exception);
+                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/UnitCommandPathRuntime.Initialization/Constructor.friendly-moat-movement-disabled", "Friendly moat movement disabled after a committed mode-detour contract mismatch: " + exception);
                 }
 
                 centralMovementPlanDetour = pendingPlanDetour;
@@ -611,7 +615,7 @@ namespace BugfixesAndQoL.UnitCommands
                     $"0x{postCombatRepathResolution.Rva:X}->0x196280, " +
                     $"directCursorMove=0x{cursorMoveStagerResolution.Rva:X}, " +
                     $"selectionCanDigMoat=0x{selectionCanDigResolution.Rva:X}/call=0x{SelectionCanDigMoatCallRva:X}, " +
-                    $"tribeFloodFill=0x{floodResolution.Rva:X}, moatLookup=0x{moatLookupResolution.Rva:X}; " +
+                    $"tribeFloodFill=0x{floodResolution.Rva:X}/exact={exactFloodMembership}, moatLookup=0x{moatLookupResolution.Rva:X}; " +
                     $"groupMoatMode=0x{groupMoatResolution.Rva:X}/iterator=0x{groupUnitResolution.Rva:X}/" +
                     $"call=0x{GroupMoatModeCallRva:X}; " +
                     "additionalMoatEntry=provider-only, " +
@@ -628,7 +632,11 @@ namespace BugfixesAndQoL.UnitCommands
                 InstallConnectivityAndRecovery(memory, libraryBase);
                 InstallManualGroupAdmission(memory, libraryBase);
 #if SERP_DEVDIAG
-                UnityEngine.Application.onBeforeRender += ObserveCursorPerformance;
+                if (!APIShared.ApiShared.ForMod(BugfixesAndQoLPlugin.PluginGuid).Ui.TryRegisterBeforeRender(
+                    "cursor-performance-diagnostics", ObserveCursorPerformance,
+                    out APIShared.Presentation.IUiFrameWorkRegistration cursorDiagnostics, out string schedulingReason, 100))
+                    throw new InvalidOperationException("Cursor diagnostics scheduling unavailable: " + schedulingReason);
+                cursorDiagnostics.SetContinuous(true);
 #endif
             }
             catch

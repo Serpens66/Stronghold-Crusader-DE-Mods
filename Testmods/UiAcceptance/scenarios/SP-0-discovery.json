@@ -1,0 +1,25 @@
+{
+  "enabled": true,
+  "series": "SP-0",
+  "role": "sp",
+  "steps": [
+    { "id": "menu", "do": "WaitMainMenu", "timeoutMs": 180000, "stopOnFail": true, "allowErrors": true },
+    { "id": "bfq-wrapper", "do": "WaitMarker", "args": ["player-move wrapper reference-rva=0x196100", "any"], "timeoutMs": 5000, "allowErrors": true },
+    { "id": "uiwork-menu", "do": "UiWork.Dump", "allowErrors": true },
+    { "id": "load-gates", "do": "LoadSave", "args": ["test_gates.sav"], "timeoutMs": 120000, "allowErrors": true },
+    { "id": "describe-gates", "do": "Describe", "allowErrors": true },
+    { "id": "uiwork-gates", "do": "UiWork.Dump", "allowErrors": true },
+    { "id": "shot-gates", "do": "Screenshot", "args": ["gates"], "allowErrors": true },
+    { "id": "quit-gates", "do": "QuitToMenu", "timeoutMs": 60000, "allowErrors": true },
+    { "id": "load-pitch", "do": "LoadSave", "args": ["test2_pitchstrais3.sav"], "timeoutMs": 120000, "allowErrors": true },
+    { "id": "describe-pitch", "do": "Describe", "allowErrors": true },
+    { "id": "shot-pitch", "do": "Screenshot", "args": ["pitch"], "allowErrors": true },
+    { "id": "quit-pitch", "do": "QuitToMenu", "timeoutMs": 60000, "allowErrors": true },
+    { "id": "load-spectator", "do": "LoadSave", "args": ["test_dustynoattack.sav"], "timeoutMs": 120000, "allowErrors": true },
+    { "id": "describe-spectator", "do": "Describe", "allowErrors": true },
+    { "id": "toolbar", "do": "Spectator.WaitToolbar", "timeoutMs": 15000, "allowErrors": true },
+    { "id": "uiwork-spectator", "do": "UiWork.Dump", "allowErrors": true },
+    { "id": "shot-spectator", "do": "Screenshot", "args": ["spectator"], "allowErrors": true },
+    { "id": "quit-spectator", "do": "QuitToMenu", "timeoutMs": 60000, "allowErrors": true }
+  ]
+}

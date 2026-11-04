@@ -12,6 +12,7 @@ using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using System.Threading;
 using UnityEngine;
 
 namespace ExtraFeatures
@@ -37,11 +38,25 @@ namespace ExtraFeatures
         // Ordered copy of the pending keys; UpdatePendingTransformations is never re-entered.
         private readonly List<int> pendingGlobalIdBuffer = new List<int>();
         private readonly HashSet<int> pendingSelectionRequestIds = new HashSet<int>();
+        private readonly List<int> invalidSelectionRequestIds = new List<int>();
         private readonly HashSet<int> pendingSelectionTransferIds = new HashSet<int>();
         private int pendingSelectionTransferTicks;
+        // Main thread only: Unity objects are created and destroyed there.
         private readonly Dictionary<int, ProgressVisual> progressVisuals =
             new Dictionary<int, ProgressVisual>();
+        private readonly List<int> progressSweepBuffer = new List<int>();
+        private Action progressSweepAction;
+        private int progressSweepQueued;
+
+        // The pending state above changes only on the engine thread or under EngineLock.Gate.
+        // Render and movement callbacks read this immutable copy instead.
+        private static readonly Dictionary<int, PendingProgress> NoPendingProgress =
+            new Dictionary<int, PendingProgress>();
+        private Dictionary<int, PendingProgress> pendingView = NoPendingProgress;
+        private bool pendingViewStale;
         private DeferredSaveRequest deferredSave;
+        // Handed to the main thread after the synchronized cleanup; map unload revokes it.
+        private DeferredSaveRequest scheduledSave;
         private long deferredSaveReadyAfterTick = long.MaxValue;
 
         private delegate bool EngineInterfaceSaveDelegate(
@@ -77,6 +92,8 @@ namespace ExtraFeatures
 
                 if (saveMethod == null)
                     throw new MissingMethodException(typeof(EngineInterface).FullName, nameof(EngineInterface.SaveSaveGame));
+                // Resolve before publication: every main-thread command depends on this monitor.
+                _ = EngineLock.Gate;
 
                 Hook saveCandidate = null;
                 var subscriptionCandidates = new List<IDisposable>();
@@ -100,10 +117,8 @@ namespace ExtraFeatures
                     persistentSaveHook = saveCandidate;
                     PersistentSubscriptions.AddRange(subscriptionCandidates);
                     activeRuntime = this;
-                    {
-                        if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                            LogDebug("Knight transformation persistent Stop/Save/movement/visual infrastructure installed.");
-                    }
+                    if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                        LogDebug("Knight transformation persistent Stop/Save/movement/visual infrastructure installed.");
                 }
                 catch
                 {
@@ -163,7 +178,7 @@ namespace ExtraFeatures
         {
             KnightDismountRuntime runtime = activeRuntime;
             if (runtime == null || !runtime.IsPendingRuntimeActive() || mapSave ||
-                (runtime.pendingTransformations.Count == 0 && runtime.deferredSave == null))
+                (Volatile.Read(ref runtime.pendingView).Count == 0 && runtime.deferredSave == null))
             {
                 return persistentSaveTrampoline(
                     path, screenCentreX, screenCentreY, realScreenCentreX, realScreenCentreY,
@@ -178,11 +193,24 @@ namespace ExtraFeatures
         private static void PersistentGameTick(int tick)
         {
             KnightDismountRuntime runtime = activeRuntime;
+            // pendingViewStale catches up a view that an exception in a command path left behind.
             if (runtime != null && runtime.IsPendingRuntimeActive() &&
-                (runtime.pendingTransformations.Count != 0 || runtime.deferredSave != null))
+                (runtime.pendingTransformations.Count != 0 || runtime.deferredSave != null || runtime.pendingViewStale))
             {
-                runtime.UpdatePendingTransformations();
-                runtime.TryCompleteDeferredSave(tick);
+                try
+                {
+                    runtime.UpdatePendingTransformations();
+                    runtime.TryCompleteDeferredSave(tick);
+                }
+                catch (Exception ex)
+                {
+                    // An escaping exception would also skip every later OnTick subscriber of this tick.
+                    runtime.LogError($"Knight transformation tick failed: {ex}");
+                }
+                finally
+                {
+                    runtime.PublishPendingView();
+                }
             }
         }
 
@@ -190,7 +218,7 @@ namespace ExtraFeatures
         {
             KnightDismountRuntime runtime = activeRuntime;
             if (runtime != null && runtime.IsPendingRuntimeActive() &&
-                runtime.pendingTransformations.Count != 0 &&
+                Volatile.Read(ref runtime.pendingView).Count != 0 &&
                 args != null && args.Phase == EventHookPhase.Pre && runtime.IsPendingUnitId(args.UnitId))
             {
                 args.SkipOriginalFunction = true;
@@ -201,7 +229,7 @@ namespace ExtraFeatures
         {
             KnightDismountRuntime runtime = activeRuntime;
             // Runs per visible unit per frame: the empty-queue test comes first.
-            if (runtime != null && runtime.pendingTransformations.Count != 0 &&
+            if (runtime != null && Volatile.Read(ref runtime.pendingView).Count != 0 &&
                 args?.Chimp != null && runtime.IsPendingRuntimeActive())
                 runtime.UpdateProgressVisual(args.Chimp);
         }
@@ -216,21 +244,24 @@ namespace ExtraFeatures
         private static void PersistentMapUnload(APIShared.MissionLifecycleNotification args)
         {
             KnightDismountRuntime runtime = activeRuntime;
-            if (runtime == null || args == null || false)
+            if (runtime == null || args == null)
                 return;
 
-            runtime.CancelAllPending("map-unload", refundGold: true, releaseReservedHorse: true);
-            runtime.pendingSelectionRequestIds.Clear();
-            runtime.pendingSelectionTransferIds.Clear();
-            runtime.pendingSelectionTransferTicks = 0;
-            runtime.ClearAllProgressVisuals();
-            runtime.deferredSave = null;
-            runtime.deferredSaveReadyAfterTick = long.MaxValue;
+            lock (EngineLock.Gate)
+            {
+                runtime.CancelAllPending("map-unload", refundGold: true, releaseReservedHorse: true);
+                runtime.pendingSelectionRequestIds.Clear();
+                runtime.pendingSelectionTransferIds.Clear();
+                runtime.pendingSelectionTransferTicks = 0;
+                runtime.deferredSave = null;
+                runtime.scheduledSave = null;
+                runtime.deferredSaveReadyAfterTick = long.MaxValue;
+            }
         }
 
         private bool IsPendingRuntimeActive()
         {
-            return initialized && !disposed && Shared.GameplayModActivationGate.IsAllowed;
+            return initialized && !deactivated && Shared.GameplayModActivationGate.IsAllowed;
         }
 
         private void IssueInternalStop()
@@ -253,8 +284,8 @@ namespace ExtraFeatures
                 return;
             }
 
-            int goldCost = Math.Max(0, Math.Min(1000, settings.KnightTransformationGoldCost));
-            int delaySeconds = Math.Max(0, Math.Min(120, settings.KnightTransformationDelaySeconds));
+            int goldCost = KnightTransformationTooltipPolicy.ClampGoldCost(settings.KnightTransformationGoldCost);
+            int delaySeconds = KnightTransformationTooltipPolicy.ClampDelaySeconds(settings.KnightTransformationDelaySeconds);
             var ordered = new List<UnitTransformSnapshot>(snapshots);
             ordered.Sort((left, right) => left.GlobalId.CompareTo(right.GlobalId));
 
@@ -338,6 +369,7 @@ namespace ExtraFeatures
                         Allocation = allocation
                     });
                     pendingAdded = true;
+                    pendingViewStale = true;
                     started++;
                 }
                 catch (Exception ex)
@@ -372,24 +404,14 @@ namespace ExtraFeatures
 
             if (delaySeconds == 0 && started > 0)
                 UpdatePendingTransformations();
+            PublishPendingView();
 
-            {
-                if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    LogDebug($"Knight transformation pending batch: reason={reason}, action={action}, requested={ordered.Count}, affordable={affordableCount}, started={started}, goldCost={goldCost}, delaySeconds={delaySeconds}.");
-            }
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                LogDebug($"Knight transformation pending batch: reason={reason}, action={action}, requested={ordered.Count}, affordable={affordableCount}, started={started}, goldCost={goldCost}, delaySeconds={delaySeconds}.");
         }
 
-        private void PlayMissingGoldSpeech()
-        {
-            try
-            {
-                SFXManager.instance?.playSpeech(1, MissingGoldSpeechFileName, 1f);
-            }
-            catch (Exception ex)
-            {
-                LogError($"Could not play knight transformation missing-gold speech: {ex}");
-            }
-        }
+        private void PlayMissingGoldSpeech() =>
+            PlaySpeech(MissingGoldSpeechFileName, "transformation missing-gold");
 
         private void UpdatePendingTransformations()
         {
@@ -434,7 +456,6 @@ namespace ExtraFeatures
                 }
 
                 pending.Snapshot = CreateSnapshotFromUnit(currentUnitId, unit);
-                pendingTransformations[globalId] = pending;
                 if (pending.HasHorseAllocation && !ReservationMatches(pending, currentUnitId, unit))
                 {
                     CancelPending(pending, "horse-reservation-invalid", refundGold: true, releaseReservedHorse: true);
@@ -543,18 +564,20 @@ namespace ExtraFeatures
                 return;
 
             int localPlayerId = GetSelectionPlayerId();
-            var invalidIds = new List<int>();
+            // Runs every tick until the selection settles; reuse the removal buffer.
+            invalidSelectionRequestIds.Clear();
             foreach (int unitId in pendingSelectionRequestIds)
             {
                 if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
                     !APIShared.UnitAccess.IsReallyAlive(unit) ||
                     unit->r_ControllableForPlayerId != localPlayerId)
                 {
-                    invalidIds.Add(unitId);
+                    invalidSelectionRequestIds.Add(unitId);
                 }
             }
-            foreach (int unitId in invalidIds)
+            foreach (int unitId in invalidSelectionRequestIds)
                 pendingSelectionRequestIds.Remove(unitId);
+            invalidSelectionRequestIds.Clear();
 
             foreach (int unitId in pendingSelectionRequestIds)
             {
@@ -836,7 +859,7 @@ namespace ExtraFeatures
         private void FinishPending(PendingKnightTransformation pending)
         {
             pendingTransformations.Remove(pending.Snapshot.GlobalId);
-            RemoveProgressVisual(pending.Snapshot.GlobalId);
+            pendingViewStale = true;
             unitLimitBridge.ReleaseReservation(pending.LimitReservationId);
         }
 
@@ -847,7 +870,7 @@ namespace ExtraFeatures
             bool releaseReservedHorse)
         {
             pendingTransformations.Remove(pending.Snapshot.GlobalId);
-            RemoveProgressVisual(pending.Snapshot.GlobalId);
+            pendingViewStale = true;
             unitLimitBridge.ReleaseReservation(pending.LimitReservationId);
 
             if (releaseReservedHorse && pending.HasHorseAllocation)
@@ -872,17 +895,22 @@ namespace ExtraFeatures
 
         private void CancelAllPending(string reason, bool refundGold, bool releaseReservedHorse)
         {
-            if (pendingTransformations.Count == 0)
+            try
             {
-                ClearAllProgressVisuals();
-                return;
+                if (pendingTransformations.Count != 0)
+                {
+                    PendingKnightTransformation[] pending = new PendingKnightTransformation[pendingTransformations.Count];
+                    pendingTransformations.Values.CopyTo(pending, 0);
+                    for (int index = 0; index < pending.Length; index++)
+                        CancelPending(pending[index], reason, refundGold, releaseReservedHorse);
+                }
             }
-
-            PendingKnightTransformation[] pending = new PendingKnightTransformation[pendingTransformations.Count];
-            pendingTransformations.Values.CopyTo(pending, 0);
-            for (int index = 0; index < pending.Length; index++)
-                CancelPending(pending[index], reason, refundGold, releaseReservedHorse);
-            ClearAllProgressVisuals();
+            finally
+            {
+                // Also sweeps visuals left over without pending state (map unload, feature reset).
+                pendingViewStale = true;
+                PublishPendingView();
+            }
         }
 
         private void CancelPendingByGlobalIds(int playerId, int[] globalIds, string reason)
@@ -891,35 +919,46 @@ namespace ExtraFeatures
                 return;
 
             var seen = new HashSet<int>();
-            for (int index = 0; index < globalIds.Length; index++)
+            try
             {
-                int globalId = globalIds[index];
-                if (!seen.Add(globalId) ||
-                    !pendingTransformations.TryGetValue(globalId, out PendingKnightTransformation pending) ||
-                    pending.PlayerId != playerId)
+                for (int index = 0; index < globalIds.Length; index++)
                 {
-                    continue;
-                }
+                    int globalId = globalIds[index];
+                    if (!seen.Add(globalId) ||
+                        !pendingTransformations.TryGetValue(globalId, out PendingKnightTransformation pending) ||
+                        pending.PlayerId != playerId)
+                    {
+                        continue;
+                    }
 
-                CancelPending(pending, reason, refundGold: true, releaseReservedHorse: true);
+                    CancelPending(pending, reason, refundGold: true, releaseReservedHorse: true);
+                }
+            }
+            finally
+            {
+                PublishPendingView();
             }
         }
 
         private void OnPlayerStopCommand()
         {
-            int playerId = GetSelectionPlayerId();
-            int[] globalIds = CaptureSelectedPendingGlobalIds(playerId);
-            if (globalIds.Length == 0)
-                return;
+            // The accepted Stop action can arrive outside the engine thread; the monitor is re-entrant.
+            lock (EngineLock.Gate)
+            {
+                int playerId = GetSelectionPlayerId();
+                int[] globalIds = CaptureSelectedPendingGlobalIds(playerId);
+                if (globalIds.Length == 0)
+                    return;
 
-            if (RequiresChoreTransport())
-            {
-                if (IsChoreTransportReady())
-                    TrySendTransformationPacket(playerId, KnightTransformationPacket.CancelSelectedAction, globalIds);
-            }
-            else
-            {
-                CancelPendingByGlobalIds(playerId, globalIds, "local-stop");
+                if (RequiresChoreTransport())
+                {
+                    if (IsChoreTransportReady())
+                        TrySendTransformationPacket(playerId, KnightTransformationPacket.CancelSelectedAction, globalIds);
+                }
+                else
+                {
+                    CancelPendingByGlobalIds(playerId, globalIds, "local-stop");
+                }
             }
         }
 
@@ -967,7 +1006,7 @@ namespace ExtraFeatures
                 return false;
 
             int globalId = (int)unit->r_GlobalId;
-            return globalId > 0 && pendingTransformations.ContainsKey(globalId);
+            return globalId > 0 && Volatile.Read(ref pendingView).ContainsKey(globalId);
         }
 
         private bool PreparePendingSave(
@@ -982,37 +1021,42 @@ namespace ExtraFeatures
         {
             if (!RequiresChoreTransport())
             {
-                CancelAllPending("singleplayer-save", refundGold: true, releaseReservedHorse: true);
+                // Vanilla's SaveSaveGame takes the same monitor only around the native save.
+                lock (EngineLock.Gate)
+                    CancelAllPending("singleplayer-save", refundGold: true, releaseReservedHorse: true);
                 return persistentSaveTrampoline(
                     path, screenCentreX, screenCentreY, realScreenCentreX, realScreenCentreY,
                     lockMap, tempLockOnly, mapSave);
             }
 
-            if (deferredSave != null)
+            lock (EngineLock.Gate)
             {
-                LogError("A save was refused while another Knight transformation cleanup save is pending.");
-                return false;
-            }
+                if (deferredSave != null || scheduledSave != null)
+                {
+                    LogError("A save was refused while another Knight transformation cleanup save is pending.");
+                    return false;
+                }
 
-            deferredSave = new DeferredSaveRequest
-            {
-                Path = path,
-                ScreenCentreX = screenCentreX,
-                ScreenCentreY = screenCentreY,
-                RealScreenCentreX = realScreenCentreX,
-                RealScreenCentreY = realScreenCentreY,
-                LockMap = lockMap,
-                TempLockOnly = tempLockOnly,
-                MapSave = mapSave
-            };
-            deferredSaveReadyAfterTick = long.MaxValue;
+                deferredSave = new DeferredSaveRequest
+                {
+                    Path = path,
+                    ScreenCentreX = screenCentreX,
+                    ScreenCentreY = screenCentreY,
+                    RealScreenCentreX = realScreenCentreX,
+                    RealScreenCentreY = realScreenCentreY,
+                    LockMap = lockMap,
+                    TempLockOnly = tempLockOnly,
+                    MapSave = mapSave
+                };
+                deferredSaveReadyAfterTick = long.MaxValue;
 
-            int playerId = GetControlledPlayerId();
-            if (!IsChoreTransportReady() ||
-                !TrySendTransformationPacket(playerId, KnightTransformationPacket.CancelAllAction, Array.Empty<int>()))
-            {
-                deferredSave = null;
-                LogError("Save was not started because synchronized Knight transformation cleanup could not be queued.");
+                int playerId = GetControlledPlayerId();
+                if (!IsChoreTransportReady() ||
+                    !TrySendTransformationPacket(playerId, KnightTransformationPacket.CancelAllAction, Array.Empty<int>()))
+                {
+                    deferredSave = null;
+                    LogError("Save was not started because synchronized Knight transformation cleanup could not be queued.");
+                }
             }
 
             return false;
@@ -1025,10 +1069,8 @@ namespace ExtraFeatures
 
             int currentTick = GameTimeManagerAPI.Instance.CaptureTimeStamp().CapturedGameTick;
             deferredSaveReadyAfterTick = (long)currentTick + 1L;
-            {
-                if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    LogDebug($"Knight transformation save cleanup completed; save deferred until tick {deferredSaveReadyAfterTick}.");
-            }
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                LogDebug($"Knight transformation save cleanup completed; save deferred until tick {deferredSaveReadyAfterTick}.");
         }
 
         private void TryCompleteDeferredSave(int currentTick)
@@ -1046,6 +1088,43 @@ namespace ExtraFeatures
             deferredSave = null;
             if (request == null || persistentSaveTrampoline == null)
                 return;
+
+            // This runs inside EngineInterface.run. Vanilla's SaveSaveGame first waits for the
+            // engine to leave the tick (Director.SafeToSave) and would give up here without saving.
+            scheduledSave = request;
+            if (!Shared.UnityMainThreadDispatch.TryEnqueue(() => RunDeferredSave(request)))
+            {
+                scheduledSave = null;
+                LogError("The synchronized Knight transformation cleanup finished, but the save could not be scheduled on the main thread.");
+            }
+        }
+
+        // Main thread, outside the engine monitor so Vanilla can pause the engine before saving.
+        private void RunDeferredSave(DeferredSaveRequest request)
+        {
+            bool revoked;
+            bool transformationStarted;
+            lock (EngineLock.Gate)
+            {
+                revoked = !ReferenceEquals(scheduledSave, request);
+                if (!revoked)
+                    scheduledSave = null;
+                transformationStarted = pendingTransformations.Count != 0;
+            }
+
+            // The map ended before the main thread got here.
+            if (revoked)
+                return;
+
+            // Paid gold and horse links of a transformation that started after the cleanup would be
+            // written into the save without their pending state. A Chore applied while Vanilla's
+            // SafeToSave waits for the engine (after this check) can still slip in; closing that
+            // window would need the monitor held across SaveSaveGame, which makes the save fail.
+            if (transformationStarted)
+            {
+                LogError("The save was skipped because a Knight transformation started during the synchronized save cleanup. Save again.");
+                return;
+            }
 
             persistentSaveTrampoline(
                 request.Path,
@@ -1065,7 +1144,7 @@ namespace ExtraFeatures
                 return;
 
             int globalId = (int)unit->r_GlobalId;
-            if (!pendingTransformations.TryGetValue(globalId, out PendingKnightTransformation pending) ||
+            if (!Volatile.Read(ref pendingView).TryGetValue(globalId, out PendingProgress pending) ||
                 chimp.gameObject == null || chimp.gameObject5 == null || chimp.sprRenderer5?.sprite == null)
             {
                 RemoveProgressVisual(globalId);
@@ -1135,16 +1214,46 @@ namespace ExtraFeatures
                 UnityEngine.Object.Destroy(visual.GameObject);
         }
 
-        private void ClearAllProgressVisuals()
+        // Called by the owner of the pending state at the end of each change.
+        private void PublishPendingView()
         {
-            ProgressVisual[] visuals = new ProgressVisual[progressVisuals.Count];
-            progressVisuals.Values.CopyTo(visuals, 0);
-            progressVisuals.Clear();
-            for (int index = 0; index < visuals.Length; index++)
+            if (!pendingViewStale)
+                return;
+
+            pendingViewStale = false;
+            Dictionary<int, PendingProgress> view = NoPendingProgress;
+            if (pendingTransformations.Count != 0)
             {
-                if (visuals[index].GameObject != null)
-                    UnityEngine.Object.Destroy(visuals[index].GameObject);
+                view = new Dictionary<int, PendingProgress>(pendingTransformations.Count);
+                foreach (KeyValuePair<int, PendingKnightTransformation> entry in pendingTransformations)
+                    view.Add(entry.Key, new PendingProgress(entry.Value.StartTime, entry.Value.DelayMilliseconds));
             }
+
+            Volatile.Write(ref pendingView, view);
+            if (Interlocked.Exchange(ref progressSweepQueued, 1) == 0 &&
+                !Shared.UnityMainThreadDispatch.TryEnqueue(progressSweepAction ?? (progressSweepAction = SweepProgressVisuals)))
+            {
+                Volatile.Write(ref progressSweepQueued, 0);
+            }
+        }
+
+        // Removes visuals of transformations that ended, including units that are not rendered.
+        private void SweepProgressVisuals()
+        {
+            // Full fence: the view read below must not move before the reset, or a publish
+            // in between could skip its enqueue and leave a stale bar.
+            Interlocked.Exchange(ref progressSweepQueued, 0);
+            Dictionary<int, PendingProgress> view = Volatile.Read(ref pendingView);
+            progressSweepBuffer.Clear();
+            foreach (int globalId in progressVisuals.Keys)
+            {
+                if (!view.ContainsKey(globalId))
+                    progressSweepBuffer.Add(globalId);
+            }
+
+            for (int index = 0; index < progressSweepBuffer.Count; index++)
+                RemoveProgressVisual(progressSweepBuffer[index]);
+            progressSweepBuffer.Clear();
         }
 
         private sealed class PendingKnightTransformation
@@ -1162,6 +1271,18 @@ namespace ExtraFeatures
             public eChimps ExpectedType => Action == MountAction
                 ? eChimps.CHIMP_TYPE_SWORDSMAN
                 : eChimps.CHIMP_TYPE_KNIGHT;
+        }
+
+        private readonly struct PendingProgress
+        {
+            public readonly GameTimeStamp StartTime;
+            public readonly int DelayMilliseconds;
+
+            public PendingProgress(GameTimeStamp startTime, int delayMilliseconds)
+            {
+                StartTime = startTime;
+                DelayMilliseconds = delayMilliseconds;
+            }
         }
 
         private sealed class ProgressVisual

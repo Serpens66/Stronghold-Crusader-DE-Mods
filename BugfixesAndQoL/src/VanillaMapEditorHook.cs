@@ -319,7 +319,7 @@ namespace BugfixesAndQoL
                 if (!listFailureLogged)
                 {
                     listFailureLogged = true;
-                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/VanillaMapEditorHook.cs:315", $"Bugfixes and QoL could not add Vanilla maps to the editor; Vanilla's user-map list remains active: {ex}");
+                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/VanillaMapEditorHook/GetMapEditableMapsHook", $"Bugfixes and QoL could not add Vanilla maps to the editor; Vanilla's user-map list remains active: {ex}");
                 }
                 return vanilla;
             }
@@ -344,7 +344,7 @@ namespace BugfixesAndQoL
                     mapSave);
                 if (!string.Equals(safePath, path, StringComparison.OrdinalIgnoreCase))
                 {
-                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/VanillaMapEditorHook.cs:342", $"Bugfixes and QoL redirected a protected Vanilla map save from [{path}] to [{safePath}].");
+                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/VanillaMapEditorHook/SaveSaveGameOrMapHook.redirected-protected-vanilla-map", $"Bugfixes and QoL redirected a protected Vanilla map save from [{path}] to [{safePath}].");
                 }
             }
             catch (Exception ex)
@@ -352,7 +352,7 @@ namespace BugfixesAndQoL
                 if (!saveFailureLogged)
                 {
                     saveFailureLogged = true;
-                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/VanillaMapEditorHook.cs:352", $"Bugfixes and QoL could not validate map save path [{path}]; Vanilla behavior remains active: {ex}");
+                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/VanillaMapEditorHook/SaveSaveGameOrMapHook.could-not-validate-map", $"Bugfixes and QoL could not validate map save path [{path}]; Vanilla behavior remains active: {ex}");
                 }
             }
 
@@ -542,7 +542,7 @@ namespace BugfixesAndQoL
         {
             if (!TryGetSelectedDeletableSave(out FileHeader header, out string safePath))
             {
-                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/VanillaMapEditorHook.cs:544", "Bugfixes and QoL rejected a save deletion because the selection was not a direct user Saves file.");
+                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/VanillaMapEditorHook/DeleteSelectedSave.rejected-save-deletion-because", "Bugfixes and QoL rejected a save deletion because the selection was not a direct user Saves file.");
                 ShowDeleteSaveError(string.Empty);
                 RefreshUiState();
                 return;
@@ -567,7 +567,7 @@ namespace BugfixesAndQoL
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/VanillaMapEditorHook.cs:571", $"Bugfixes and QoL could not open the delete confirmation for [{safePath}]: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/VanillaMapEditorHook/DeleteSelectedSave.could-not-open-delete", $"Bugfixes and QoL could not open the delete confirmation for [{safePath}]: {ex}");
                 ShowDeleteSaveError(saveName);
             }
         }
@@ -590,7 +590,7 @@ namespace BugfixesAndQoL
                         File.Exists,
                         out string safePath))
                 {
-                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/VanillaMapEditorHook.cs:596", $"Bugfixes and QoL rejected a save deletion after confirmation because the path was no longer safe: [{requestedPath}].");
+                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/VanillaMapEditorHook/DeleteSaveConfirmed.rejected-save-deletion-after", $"Bugfixes and QoL rejected a save deletion after confirmation because the path was no longer safe: [{requestedPath}].");
                     ShowDeleteSaveError(saveName);
                     return;
                 }
@@ -609,7 +609,7 @@ namespace BugfixesAndQoL
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/VanillaMapEditorHook.cs:617", $"Bugfixes and QoL could not delete user save [{requestedPath}]: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/VanillaMapEditorHook/DeleteSaveConfirmed.could-not-delete-user", $"Bugfixes and QoL could not delete user save [{requestedPath}]: {ex}");
                 ShowDeleteSaveError(saveName);
             }
             finally
@@ -733,7 +733,7 @@ namespace BugfixesAndQoL
         {
             if (!TryGetSelectedDeletableMap(out FileHeader header, out string safePath))
             {
-                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/VanillaMapEditorHook.cs:743", "Bugfixes and QoL rejected a map deletion because the selection was not a direct user Maps file.");
+                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/VanillaMapEditorHook/DeleteSelectedMap.rejected-map-deletion-because", "Bugfixes and QoL rejected a map deletion because the selection was not a direct user Maps file.");
                 ShowDeleteError(string.Empty);
                 RefreshUiState();
                 return;
@@ -756,7 +756,7 @@ namespace BugfixesAndQoL
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/VanillaMapEditorHook.cs:768", $"Bugfixes and QoL could not open the delete confirmation for [{safePath}]: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/VanillaMapEditorHook/DeleteSelectedMap.could-not-open-delete", $"Bugfixes and QoL could not open the delete confirmation for [{safePath}]: {ex}");
                 ShowDeleteError(mapName);
             }
         }
@@ -776,7 +776,7 @@ namespace BugfixesAndQoL
                         File.Exists,
                         out string safePath))
                 {
-                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/VanillaMapEditorHook.cs:790", $"Bugfixes and QoL rejected a map deletion after confirmation because the path was no longer safe: [{requestedPath}].");
+                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/VanillaMapEditorHook/DeleteMapConfirmed.rejected-map-deletion-after", $"Bugfixes and QoL rejected a map deletion after confirmation because the path was no longer safe: [{requestedPath}].");
                     ShowDeleteError(mapName);
                     return;
                 }
@@ -793,7 +793,7 @@ namespace BugfixesAndQoL
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/VanillaMapEditorHook.cs:809", $"Bugfixes and QoL could not delete user map [{requestedPath}]: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/VanillaMapEditorHook/DeleteMapConfirmed.could-not-delete-user", $"Bugfixes and QoL could not delete user map [{requestedPath}]: {ex}");
                 ShowDeleteError(mapName);
             }
             finally
@@ -929,7 +929,7 @@ namespace BugfixesAndQoL
                 return;
 
             uiFailureLogged = true;
-            Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/VanillaMapEditorHook.cs:947", $"Bugfixes and QoL could not {action}; Vanilla map-menu behavior remains available: {ex}");
+            Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/VanillaMapEditorHook/LogUiFailure", $"Bugfixes and QoL could not {action}; Vanilla map-menu behavior remains available: {ex}");
         }
 
         private Enums.RequesterTypes GetActiveRequesterType() =>

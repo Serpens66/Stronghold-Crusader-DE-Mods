@@ -317,7 +317,11 @@ Lua that changes resources, units, buildings, terrain, AI behavior, or other sim
 
 ExtendedData's Trail export writes a matching `.lordrequirements.json` sidecar for each exported mission. A normal exported mission uses `Trail_Mission_1.lordrequirements.json` beside `Trail_Mission_1.trail`; a Coop package uses `CoopMissions/01.lordrequirements.json` beside `01.coopmission.json`. The sidecar records the mission digest and, for selected Custom Lords, the configuration and AIV checksums plus available `.modlord.json` and Fixes values. Keep it with the mission when distributing the Trail.
 
-The AIC and castles come from the Trail itself; an installed Lord with matching checksums only provides optional media. If the Lord package has additional gameplay files, the matching complete package must be installed and registered by Script Extender at startup. ExtendedData checks this before the mission starts and blocks a missing or different required package. Portraits, audio, video, and other presentation files are optional for this package check. In a Coop Trail, every participant must also have the same Coop package contents.
+The AIC and castles come from the Trail itself. When a selected Lord has a valid `lordmeta.json`, the sidecar also retains its complete contents, even without embedded media. In the Trail Maker, **Embed Custom Lord media** optionally includes referenced images, audio and videos when exporting a normal or Coop Trail; it is disabled by default. Distribute the resulting `LordMedia/` folders with their relative locations intact alongside the missions and sidecars.
+
+Without embedded media, a registered installed Lord package can provide optional media only when its `lordmeta.json` is text-identical to the saved metadata. Matching AIC/AIV checksums alone is insufficient. The Workshop upload page reports the exported Trail's metadata/media status; its **Include modsettings** option independently controls modsettings sidecars and does not remove embedded Lord media. To change media inclusion, re-export from the Trail Maker. See [Custom Lord metadata and media in Trails](Custom%20Trail%20Mod%20Settings.md#custom-lord-metadata-and-media).
+
+If the Lord package has additional gameplay files, the matching complete package must still be installed and registered by Script Extender at startup. ExtendedData checks this before the mission starts and blocks a missing or different required package. Portraits, audio, video, and other presentation files are optional for this package check. In a Coop Trail, every participant must also have the same Coop package contents.
 
 #### Publishing with ExtendedData
 
@@ -327,7 +331,8 @@ The game handles direct root `.lordjson`, `.aivjson`, and optional `avatar.png`.
 
 | Location | Files added by ExtendedData |
 |---|---|
-| Lord root | direct `*.json` and `*.lua` |
+| Any directory, including the Lord root | `*.json` |
+| Lord root | direct `*.lua` |
 | `Scripts/**` | `*.lua` |
 | `MapAreas/**` | `*.sema` |
 | `Locales/<locale>/` | exactly `crusader.txt` |
@@ -335,7 +340,7 @@ The game handles direct root `.lordjson`, `.aivjson`, and optional `avatar.png`.
 
 Direct root `.data` and `.ldata` files are local uploader controls and are not uploaded. Other files are inventoried but excluded. The confirmation warning reports the count and examples; the complete sorted list is written to `BepInEx/LogOutput.log`. If an allowed file cannot be staged safely, the upload is cancelled instead of publishing an incomplete package.
 
-Packages requiring DDS, XAML patches, atlases, AssetBundles, nested JSON resources, or other excluded files need a separate complete Steam UGC publishing workflow.
+Packages requiring DDS, XAML patches, AssetBundles, or other files outside this allowlist need a separate complete Steam UGC publishing workflow. JSON resources are supported in subdirectories too, including under `Override/`.
 
 #### Test checklist
 
@@ -672,17 +677,22 @@ Lua, das Ressourcen, Einheiten, Gebäude, Gelände, KI-Verhalten oder anderen Si
 
 Der Trail-Export von ExtendedData schreibt für jede exportierte Mission ein passendes `.lordrequirements.json`-Sidecar. Eine normale exportierte Mission verwendet `Trail_Mission_1.lordrequirements.json` neben `Trail_Mission_1.trail`; ein Koop-Paket verwendet `CoopMissions/01.lordrequirements.json` neben `01.coopmission.json`. Das Sidecar enthält den Missions-Hash und für ausgewählte Custom Lords die Konfigurations- und AIV-Prüfsummen sowie vorhandene `.modlord.json`- und Fixes-Werte. Gib es beim Verteilen des Trails zusammen mit der Mission weiter.
 
-AIC und Burgen stammen aus dem Trail selbst; ein installierter Lord mit übereinstimmenden Prüfsummen liefert nur optionale Medien. Enthält das Lord-Paket zusätzliche Gameplay-Dateien, muss das passende vollständige Paket installiert und beim Spielstart vom Script Extender registriert sein. ExtendedData prüft dies vor Missionsbeginn und blockiert fehlende oder abweichende erforderliche Pakete. Porträts, Audio, Video und andere Darstellungsdateien sind für diese Paketprüfung optional. In einem Koop-Trail müssen außerdem alle Teilnehmer dieselben Koop-Paketinhalte besitzen.
+AIC und Burgen stammen aus dem Trail selbst. Besitzt ein ausgewählter Lord eine gültige `lordmeta.json`, bewahrt das Sidecar außerdem deren vollständigen Inhalt auf, auch ohne eingebettete Medien. Im Trail Maker nimmt **Medien der Custom Lords einbetten** optional referenzierte Bilder, Audio und Videos beim Export eines normalen oder Koop-Trails auf; die Option ist standardmäßig deaktiviert. Gib die erzeugten `LordMedia/`-Ordner mit unveränderten relativen Speicherorten zusammen mit den Missionen und Sidecars weiter.
+
+Ohne eingebettete Medien kann ein registriertes installiertes Lord-Paket optionale Medien nur liefern, wenn seine `lordmeta.json` mit den gespeicherten Metadaten textidentisch ist. Übereinstimmende AIC-/AIV-Prüfsummen allein reichen nicht. Die Workshop-Upload-Seite zeigt den Metadaten-/Medienstatus des exportierten Trails an; ihre Option **Modsettings aufnehmen** steuert unabhängig davon die Modsettings-Sidecars und entfernt keine eingebetteten Lord-Medien. Um die Medienauswahl zu ändern, exportiere erneut aus dem Trail Maker. Siehe [Custom-Lord-Metadaten und Medien in Trails](Custom%20Trail%20Mod%20Settings.md#custom-lord-metadaten-und-medien).
+
+Enthält das Lord-Paket zusätzliche Gameplay-Dateien, muss das passende vollständige Paket weiterhin installiert und beim Spielstart vom Script Extender registriert sein. ExtendedData prüft dies vor Missionsbeginn und blockiert fehlende oder abweichende erforderliche Pakete. Porträts, Audio, Video und andere Darstellungsdateien sind für diese Paketprüfung optional. In einem Koop-Trail müssen außerdem alle Teilnehmer dieselben Koop-Paketinhalte besitzen.
 
 #### Veröffentlichung mit ExtendedData
 
-Ein Workshop-Element muss das Lord-Verzeichnis als direktes Kind seines Inhaltsverzeichnisses installieren. Lasse auf der Upload-Seite **Upload additional files for mod support** aktiviert, um unterstützte erweiterte Dateien bereitzustellen.
+Ein Workshop-Element muss das Lord-Verzeichnis als direktes Kind seines Inhaltsverzeichnisses installieren. Lasse auf der Upload-Seite **Zusätzliche Dateien für Mod-Unterstützung hochladen** aktiviert, um unterstützte erweiterte Dateien bereitzustellen.
 
 Das Spiel verarbeitet direkte `.lordjson`, `.aivjson` und eine optionale `avatar.png` an der Wurzel. ExtendedData ergänzt diese Allowlist ohne Beachtung der Groß-/Kleinschreibung:
 
 | Ort | Von ExtendedData ergänzte Dateien |
 |---|---|
-| Lord-Wurzel | direkte `*.json` und `*.lua` |
+| Jedes Verzeichnis einschließlich der Lord-Wurzel | `*.json` |
+| Lord-Wurzel | direkte `*.lua` |
 | `Scripts/**` | `*.lua` |
 | `MapAreas/**` | `*.sema` |
 | `Locales/<locale>/` | exakt `crusader.txt` |
@@ -690,7 +700,7 @@ Das Spiel verarbeitet direkte `.lordjson`, `.aivjson` und eine optionale `avatar
 
 Direkte `.data`- und `.ldata`-Dateien an der Wurzel sind lokale Uploader-Steuerdateien und werden nicht hochgeladen. Andere Dateien werden inventarisiert, aber ausgeschlossen. Die Bestätigungswarnung nennt Anzahl und Beispiele; die vollständige sortierte Liste wird in `BepInEx/LogOutput.log` geschrieben. Kann eine erlaubte Datei nicht sicher bereitgestellt werden, wird der Upload abgebrochen, statt ein unvollständiges Paket zu veröffentlichen.
 
-Pakete, die DDS, XAML-Patches, Atlanten, AssetBundles, verschachtelte JSON-Ressourcen oder andere ausgeschlossene Dateien benötigen, brauchen einen separaten vollständigen Steam-UGC-Veröffentlichungsablauf.
+Pakete, die DDS, XAML-Patches, AssetBundles oder andere Dateien außerhalb dieser Allowlist benötigen, brauchen einen separaten vollständigen Steam-UGC-Veröffentlichungsablauf. JSON-Ressourcen werden auch in Unterordnern unterstützt, einschließlich unter `Override/`.
 
 #### Prüfliste
 

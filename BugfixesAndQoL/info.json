@@ -3,19 +3,76 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.203",
+  "Version": "1.0.211",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.0",
   "MaximumScriptExtenderVersion": "",
   "Dependencies": [
     {
       "GUID": "APIShared_Serp",
-      "MinimumVersion": "0.16.0"
+      "MinimumVersion": "0.26.0"
     }
   ],
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.211",
+      "Changes": [
+        "Complete missing AIV-planned stockpile, granary and armoury sections in new games with complete AI starting castles. This host fix is enabled by default, follows normal placement rules and leaves blocked locations empty; loaded games and storage buildings destroyed later are unchanged.",
+        "Keep timed gameplay features consistent between multiplayer participants with different frame rates, and refresh HUD displays only when needed.",
+        "Require APIShared 0.26.0 or newer."
+      ]
+    },
+    {
+      "Version": "1.0.210",
+      "Changes": ["Improved manual unit commands: a fully rejected group move no longer changes the group's fast/formation movement mode. The restore previously never applied to real player orders and now also works without the separate MoatMove test mod."]
+    },
+    {
+      "Version": "1.0.209",
+      "Changes": [
+        "Add an enabled-by-default host option capping civilian building-action proximity at min(3, effective radius) during active native Peace Time for humans and AI; preserve smaller ExtraFeatures values and soldier, building, wall and occupancy restrictions.",
+        "Work without ExtraFeatures and independently of the singleplayer Peace Time extension; restore normal radii immediately after peace ends and disable only this reduction with incompatible older ExtraFeatures versions.",
+        "Lock local changes to this option during missions, including preset loading and reset, while retaining authoritative mission restores and host synchronization."
+      ]
+    },
+    {
+      "Version": "1.0.208",
+      "Changes": ["Use native map ticks for gameplay scheduling and deadlines, preserving initialization, save behavior and logical activation."]
+    },
+    {
+      "Version": "1.0.207",
+      "Changes": [
+        "Add a default-enabled host option preventing human Lord return-to-Keep teleport exploits while preserving invalid-standing-tile rescue and AI behavior.",
+        "Integrate the native guard and its executed machine-code regressions; retire the standalone LordTeleportGuardTest.",
+        "Move the spectator perspective, eliminated players becoming spectators and the live spectator statistics into the separate Spectator mod; Bugfixes and QoL keeps surrender and the statistics team badges, and their previous host options are retired.",
+        "Native Assassin route search: an error in one of its managed rule queries now discards the native result and falls back exactly like the managed search, so the native and managed searches keep identical results for every multiplayer peer."
+      ]
+    },
+    {
+      "Version": "1.0.206",
+      "Changes": [
+        "Keep Patrol commands on the Vanilla input and movement path while LineUp is enabled, including HUD/hotkey activation, delayed gestures and exactly one handoff of a deferred release.",
+        "Add bounded formation rejection and handoff diagnostics with operation/input phase, patrol state, selection/group identity and release handling.",
+        "Report concrete AI retargeting exclusions and unresolved saved AIV/AIC references with available identities, paths and the fallback used; limit repetitions and retain Vanilla decisions."
+      ]
+    },
+    {
+      "Version": "1.0.205",
+      "Changes": [
+        "Remember width/depth proportions independently for Block, Line, Column and Wedge instead of an absolute row count. Resolve the formation again for its reachable group size without changing the saved wish after casualties, island filtering or terrain adjustment.",
+        "Migrate the previous memory switch and retire absolute row preferences; each formation starts with its existing automatic proportions until manually adjusted. Update the in-game setting and help in every locale.",
+        "Send proportion intent in formation protocol 12; receivers resolve rows after synchronized admission independently of their local preferences. All multiplayer participants must use matching builds."
+      ]
+    },
+    {
+      "Version": "1.0.204",
+      "Changes": [
+        "Keep LineUp available after invalid movement marker tiles or an exhausted additional-marker budget; correct native marker duplicate recognition and recover from isolated presentation or gesture failures. Stop the affected path only for critical contracts or three consecutive independent failures with the same cause.",
+        "Separate the 10000-unit formation command limit from the safe 4000 additional-marker limit, and retain bounded shared placement for large selections. Formation protocol is now 11; all multiplayer participants must use this mod version.",
+        "Apply manual movement and preview reachability filtering to all eight editor players regardless of saved AI flags; preserve excluded units' existing orders and regular game AI behavior."
+      ]
+    },
     {
       "Version": "1.0.203",
       "Changes": [

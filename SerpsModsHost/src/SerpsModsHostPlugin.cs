@@ -477,7 +477,6 @@ namespace SerpsModsHost
                 Interlocked.Exchange(ref settingsSortQueued, 0);
                 try
                 {
-                    StatsTweakerPresetAdapter.TryAttach(instance.owner.Info.Location, instance.Logger);
                     var registrations = GameXAMLManagerAPI.Instance.RegisteredModSettings;
                     LobbyModSettingsEntry host = registrations.FirstOrDefault(entry =>
                         string.Equals(entry.Name, PluginGuid, StringComparison.Ordinal));
@@ -485,7 +484,7 @@ namespace SerpsModsHost
                 }
                 catch (Exception ex)
                 {
-                    Shared.DebugLogHelper.LogErrorLimited(instance.Logger, "SerpsModsHost/src/SerpsModsHostPlugin.cs:485", $"Modsettings ordering failed: {ex}");
+                    Shared.DebugLogHelper.LogErrorLimited(instance.Logger, "SerpsModsHost/SerpsModsHostPlugin/SerpsModsHostRuntime.QueueModSettingsSort", $"Modsettings ordering failed: {ex}");
                 }
             });
         }
@@ -613,7 +612,7 @@ namespace SerpsModsHost
             catch (Exception ex)
             {
                 if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    Shared.DebugLogHelper.LogDebugLimited(Logger, "SerpsModsHost/src/SerpsModsHostPlugin.cs:612", $"[{PluginName}] Could not refine the load diagnostic for {mod.Guid}: {ex.Message}");
+                    Shared.DebugLogHelper.LogDebugLimited(Logger, "SerpsModsHost/SerpsModsHostPlugin/SerpsModsHostRuntime.TryGetScriptExtenderMismatchMessage", $"[{PluginName}] Could not refine the load diagnostic for {mod.Guid}: {ex.Message}");
                 return false;
             }
         }
@@ -649,7 +648,7 @@ namespace SerpsModsHost
         {
             string full = $"[{PluginName}] ERROR {code}: {message}";
             diagnostics?.RecordError(full);
-            Shared.DebugLogHelper.LogErrorLimited(Logger, "SerpsModsHost/src/SerpsModsHostPlugin.cs:650", full);
+            Shared.DebugLogHelper.LogErrorLimited(Logger, "SerpsModsHost/SerpsModsHostPlugin/SerpsModsHostRuntime.ReportError", full);
         }
 
         private static string ResolveContainedPath(string parent, string relative)

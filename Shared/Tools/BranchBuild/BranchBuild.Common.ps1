@@ -15,6 +15,42 @@ function Get-BranchHash([string]$Path) {
     try { return [BitConverter]::ToString($sha.ComputeHash($stream)).Replace('-', '').ToLowerInvariant() }
     finally { $sha.Dispose(); $stream.Dispose() }
 }
+# /syncpackage: mirrors the freshly built package folders <Mod>/BepInEx/plugins/<Guid> of a working
+# build copy back into the tracked workspace folders (deleting files the build no longer produced)
+# and verifies every file by SHA-256. Only called after a successful working-tree build.
+function Sync-BranchPackages([string]$Repository, [string]$CopyRoot, [string]$Driver) {
+    $project = Split-Path -Parent ($Driver.Replace('/', '\'))
+    $source = Join-Path $CopyRoot "$project\BepInEx\plugins"
+    $target = Join-Path $Repository "$project\BepInEx\plugins"
+    if (-not (Test-Path -LiteralPath $source -PathType Container)) { throw "/syncpackage: the build produced no package folder: $source" }
+    $packages = @(Get-ChildItem -LiteralPath $source -Directory)
+    if ($packages.Count -eq 0) { throw "/syncpackage: no package below $source" }
+    $mirrored = 0
+    foreach ($package in $packages) {
+        $destination = Join-Path $target $package.Name
+        Assert-BranchUnlinkedPath $destination
+        [void][IO.Directory]::CreateDirectory($destination)
+        $built = @{}
+        foreach ($file in @(Get-ChildItem -LiteralPath $package.FullName -File -Recurse)) {
+            $relative = $file.FullName.Substring($package.FullName.Length).TrimStart('\')
+            $built[$relative.ToLowerInvariant()] = $true
+            $copy = Join-Path $destination $relative
+            [void][IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($copy))
+            [IO.File]::Copy($file.FullName, $copy, $true)
+            if ((Get-BranchHash $copy) -cne (Get-BranchHash $file.FullName)) { throw "/syncpackage: hash mismatch after copy: $copy" }
+            $mirrored++
+        }
+        foreach ($stale in @(Get-ChildItem -LiteralPath $destination -File -Recurse)) {
+            $relative = $stale.FullName.Substring($destination.Length).TrimStart('\')
+            if (-not $built.ContainsKey($relative.ToLowerInvariant())) { [IO.File]::Delete($stale.FullName); Write-BranchMessage "/syncpackage removed stale $project\BepInEx\plugins\$($package.Name)\$relative" }
+        }
+        foreach ($directory in @(Get-ChildItem -LiteralPath $destination -Directory -Recurse | Sort-Object { $_.FullName.Length } -Descending)) {
+            if (@(Get-ChildItem -LiteralPath $directory.FullName -Force).Count -eq 0) { [IO.Directory]::Delete($directory.FullName) }
+        }
+    }
+    Write-BranchMessage "/syncpackage mirrored $mirrored files into $target"
+    return $mirrored
+}
 function Invoke-BranchGit([string]$Root, [string[]]$Arguments) {
     $output = @(& git -C $Root @Arguments)
     if ($LASTEXITCODE -ne 0) { throw "Git failed in ${Root}: $($Arguments -join ' ')" }
@@ -264,7 +300,7 @@ function Convert-BranchBatch([string]$Text, [string]$Relative, [string]$Suffix) 
     $Text = [regex]::Replace($Text, '(?im)^(set "(?:API_SHARED_DIR|LOCAL_API_SHARED_DIR|SHCDE_API_SHARED_DIR)=[^\r\n]*")\r?(?:\n|$)', {
         param($m)
         $name = [regex]::Match($m.Value, '(?i)set "([^=]+)=').Groups[1].Value
-        return $m.Groups[1].Value + "`r`n" + 'if defined SHCDE_BRANCH_API_ROOT set "' + $name + '=%SHCDE_BRANCH_API_ROOT%\BepInEx\plugins\APIShared_Serp"' + "`r`n"
+        return $m.Groups[1].Value + "`r`n" + 'if defined SHCDE_BRANCH_API_PACKAGE set "' + $name + '=%SHCDE_BRANCH_API_PACKAGE%"' + "`r`n"
     })
     # A few diagnostic projects unconditionally set ApiSharedDir in their project.
     # Only an MSBuild global property can override that; an environment variable cannot.
@@ -381,9 +417,9 @@ function Invoke-SelectedBranchBuild {
     }
     $overrides = @(Set-BranchBuildTools $selection $ControllerRoot -Api:$Api -DriverArguments $DriverArguments)
     $oldEnvironment = @{}
-    $names = @('SHCDE_BRANCH_SOURCE_ROOT','SHCDE_BRANCH_INSTALL_SUFFIX','SHCDE_BRANCH_NOINSTALL','SHCDE_BRANCH_API_ROOT','SHCDE_BRANCH_API_COMMIT',
+    $names = @('SHCDE_BRANCH_SOURCE_ROOT','SHCDE_BRANCH_INSTALL_SUFFIX','SHCDE_BRANCH_NOINSTALL','SHCDE_BRANCH_API_ROOT','SHCDE_BRANCH_API_COMMIT','SHCDE_BRANCH_API_PACKAGE',
         'SHCDE_API_SHARED_DIR','SHCDE_API_SHARED_BRANCH','SHCDE_API_SHARED_MAIN_SELECTION','SHCDE_BRANCH_NAME','SHCDE_BRANCH_COMMIT','SHCDE_BRANCH_MSBUILD_API',
-        'SHCDE_GAME_DIR','SHCDESE_EXTENDER_DIR','SHCDE_MSBUILD','SHCDE_NATIVE_BASELINE_ROOT','SHCDE_DEVDIAG')
+        'SHCDE_GAME_DIR','SHCDESE_EXTENDER_DIR','SHCDE_MSBUILD','SHCDE_NATIVE_BASELINE_ROOT','SHCDE_DEVDIAG','SHCDE_MODPACK_COORDINATOR')
     foreach ($name in $names) { $oldEnvironment[$name] = [Environment]::GetEnvironmentVariable($name, 'Process') }
     $oldDirectory = (Get-Location).Path
     # DEVDIAG is an explicit per-build opt-in; an inherited variable never enables it.
@@ -398,9 +434,10 @@ function Invoke-SelectedBranchBuild {
         $env:SHCDE_BRANCH_NAME = $Branch; $env:SHCDE_BRANCH_COMMIT = $selection.Commit
         $env:SHCDE_BRANCH_INSTALL_SUFFIX = Get-BranchInstallSuffix $Branch $DriverArguments
         $env:SHCDE_BRANCH_NOINSTALL = if ($DriverArguments -icontains '/noinstall' -or $env:SHCDE_PREPARE_ONLY -eq '1') { '1' } else { '0' }
-        $env:SHCDE_BRANCH_API_ROOT = $null; $env:SHCDE_BRANCH_API_COMMIT = $null
+        $env:SHCDE_BRANCH_API_ROOT = $null; $env:SHCDE_BRANCH_API_COMMIT = $null; $env:SHCDE_BRANCH_API_PACKAGE = $null
         $env:SHCDE_BRANCH_MSBUILD_API = $null
-        $env:SHCDE_API_SHARED_MAIN_SELECTION = $null
+        $publishedSdk = -not $Api -and -not [string]::IsNullOrWhiteSpace($env:SHCDE_API_SHARED_RELEASE_PROOF)
+        if (-not $publishedSdk) { $env:SHCDE_API_SHARED_MAIN_SELECTION = $null }
         if (-not $Api -and -not $env:SHCDE_NATIVE_BASELINE_ROOT) {
             $baselineRoot=Join-Path $ControllerRoot '_inspect/CrusaderDE-Native-Baseline'
             if (Test-Path -LiteralPath (Join-Path $baselineRoot 'CURRENT.json')) { $env:SHCDE_NATIVE_BASELINE_ROOT=$baselineRoot }
@@ -418,9 +455,22 @@ function Invoke-SelectedBranchBuild {
             if ($env:SHCDE_API_SHARED_BRANCH) { $apiChoices += $env:SHCDE_API_SHARED_BRANCH.ToLowerInvariant() }
             $apiChoices = @($apiChoices | Sort-Object -Unique)
             if ($apiChoices.Count -gt 1) { throw 'Conflicting APIShared branch requests.' }
-            $apiBranch = if ($apiChoices.Count) { $apiChoices[0] } elseif ($Branch -eq 'working') { 'dev' } else { $Branch }
+            if ($publishedSdk -and $apiChoices.Count) { throw 'An explicit APIShared branch cannot override the release SDK pinned by the Workshop driver.' }
+            $apiBranch = if ($publishedSdk) { 'published' } elseif ($apiChoices.Count) { $apiChoices[0] } elseif ($Branch -eq 'working') { 'dev' } else { $Branch }
             $apiRepository = Join-Path $Repository 'APIShared'
-            if ($apiBranch -eq 'package') {
+            if ($apiBranch -eq 'published') {
+                # Published packages contain binaries and provenance, not a source checkout or build proof.
+                # Keep their exact path while source preflight inspects the pinned public-main inputs.
+                . (Join-Path $ControllerRoot 'Shared/Tools/ApiSharedRepository/ApiShared.Common.ps1')
+                if (-not $env:SHCDE_API_SHARED_MAIN_SELECTION -or -not $env:SHCDE_API_SHARED_DIR) { throw 'Published SDK builds require a pinned main selection and package directory.' }
+                $env:SHCDE_MODPACK_COORDINATOR = Get-ApiMainWorkspace $Repository
+                $main = Assert-ApiMainSelection $Repository $env:SHCDE_API_SHARED_MAIN_SELECTION
+                $proof = Assert-ApiConsumerPackage $Repository $env:SHCDE_API_SHARED_DIR
+                $sdk = [pscustomobject]@{ Root=$main.Root; Branch='published'; Commit=$main.Commit;
+                    PackageDirectory=[IO.Path]::GetFullPath($env:SHCDE_API_SHARED_DIR); PublishedCommit=$proof.Commit;
+                    ProvenancePath=$env:SHCDE_API_SHARED_RELEASE_PROOF; ProvenanceSha256=$env:SHCDE_API_SHARED_RELEASE_PROOF_SHA256 }
+                $null = New-BranchSource $main.Root $main.Commit (Join-Path $selection.Root 'APIShared')
+            } elseif ($apiBranch -eq 'package') {
                 if (-not $env:SHCDE_API_SHARED_DIR) { throw '/apishared:package requires SHCDE_API_SHARED_DIR.' }
                 $apiPackage = [IO.Path]::GetFullPath($env:SHCDE_API_SHARED_DIR)
                 $apiRoot = Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $apiPackage))
@@ -448,11 +498,14 @@ function Invoke-SelectedBranchBuild {
             } else { throw "Unsupported APIShared source: $apiBranch" }
             $env:SHCDE_BRANCH_API_ROOT = $sdk.Root
             $env:SHCDE_BRANCH_API_COMMIT = $sdk.Commit
-            $env:SHCDE_API_SHARED_DIR = Join-Path $sdk.Root 'BepInEx/plugins/APIShared_Serp'
+            $env:SHCDE_API_SHARED_DIR = if ($publishedSdk) { $sdk.PackageDirectory } else { Join-Path $sdk.Root 'BepInEx/plugins/APIShared_Serp' }
+            $env:SHCDE_BRANCH_API_PACKAGE = $env:SHCDE_API_SHARED_DIR
             $env:SHCDE_BRANCH_MSBUILD_API = '"/p:ApiSharedDir=' + $env:SHCDE_API_SHARED_DIR + '"'
             $env:SHCDE_API_SHARED_BRANCH = $null
-            . (Join-Path $sdk.Root 'tools/BuildProof.ps1')
-            $null = Assert-ApiBuildProof $sdk.Root
+            if (-not $publishedSdk) {
+                . (Join-Path $sdk.Root 'tools/BuildProof.ps1')
+                $null = Assert-ApiBuildProof $sdk.Root
+            }
             Write-BranchMessage "APIShared: $($sdk.Branch) / $($sdk.Commit) / $env:SHCDE_API_SHARED_DIR"
         }
         $sdkWatch.Stop()
@@ -502,7 +555,7 @@ function Invoke-SelectedBranchBuild {
         foreach ($target in $targets) { Write-BranchMessage "Installation: $target" }
         # Run the selected BAT directly; preserve error codes and argument boundaries.
         Set-Location -LiteralPath $projectRoot
-        $arguments = @($DriverArguments | Where-Object { $_ -notmatch '^/branch:' -and $_ -ine '/keepsource' })
+        $arguments = @($DriverArguments | Where-Object { $_ -notmatch '^/branch:' -and $_ -ine '/keepsource' -and $_ -ine '/syncpackage' })
         if ($arguments -inotcontains '/nopause') { $arguments += '/nopause' }
         if ($env:SHCDE_BRANCH_NOINSTALL -eq '1' -and $arguments -inotcontains '/noinstall') { $arguments += '/noinstall' }
         Assert-ToolPathBudget -Path $selectedDriver

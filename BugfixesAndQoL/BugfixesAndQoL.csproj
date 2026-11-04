@@ -8,8 +8,8 @@
     <OutputType>Library</OutputType>
     <RootNamespace>BugfixesAndQoL</RootNamespace>
     <AssemblyName>BugfixesAndQoL</AssemblyName>
-    <AssemblyVersion>1.0.203.0</AssemblyVersion>
-    <FileVersion>1.0.203.0</FileVersion>
+    <AssemblyVersion>1.0.211.0</AssemblyVersion>
+    <FileVersion>1.0.211.0</FileVersion>
     <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
     <LangVersion>latest</LangVersion>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
@@ -42,6 +42,8 @@
     <Compile Include="src\VanillaPerformance\SpriteSheetMergeMode.cs" />
     <Compile Include="src\VanillaPerformance\MinimapRefreshThrottle.cs" />
     <Compile Include="src\VanillaPerformance\RadarThrottlePolicy.cs" />
+    <Compile Include="src\VanillaPerformance\TribeMemberLookupCode.cs" />
+    <Compile Include="src\VanillaPerformance\TribeMemberLookupOptimization.cs" />
     <Compile Include="src\GatehouseLivingCapture\CaptureAdapterEmitter.cs" />
     <Compile Include="src\GatehouseLivingCapture\NativeDefinition.cs" />
     <Compile Include="src\GatehouseLivingCapture\CaptureDecision.cs" />
@@ -159,6 +161,7 @@
     <Compile Include="src\AssassinPathReconstructionNativeDefinition.cs" />
     <Compile Include="src\AssassinPathReconstructionPatch.cs" />
     <Compile Include="src\AssassinPathfindingRuntime.cs" />
+    <Compile Include="src\AssassinNativeSearch.cs" />
     <Compile Include="src\BugfixesAndQoLRuntime.CtrlMarketTrade.cs" />
     <Compile Include="src\BugfixesAndQoLRuntime.MovedFeatures.cs" />
 
@@ -236,6 +239,10 @@
     <Compile Include="src\CorruptLordDataSpawnPolicy.cs" />
     <Compile Include="src\CorruptLordDataSpawnRuntime.cs" />
     <Compile Include="src\PrebuiltAiWorkshopBothFixRuntime.cs" />
+    <Compile Include="src\PrebuiltAiStorageFixRuntime.cs" />
+    <Compile Include="src\PrebuiltAiStorageCompletionPolicy.cs" />
+    <Compile Include="..\Shared\Runtime\Gameplay\DeferredStoragePlacements.cs"><Link>Shared\Runtime\Gameplay\DeferredStoragePlacements.cs</Link></Compile>
+    <Compile Include="..\Shared\Runtime\Gameplay\StoragePlacementBackend.cs"><Link>Shared\Runtime\Gameplay\StoragePlacementBackend.cs</Link></Compile>
     <Compile Include="src\NativeTannerFade.cs" />
     <Compile Include="src\NativeTannerFadeState.cs" />
     <Compile Include="src\NotificationQueueNativeContract.cs" />
@@ -288,6 +295,7 @@
     <Compile Include="src\LordControlGroupNativeDefinition.cs" />
     <Compile Include="src\LordControlGroupNativePatch.cs" />
     <Compile Include="src\LordUnitControlsPolicy.cs" />
+    <Compile Include="src\SpectatorInputControlPolicy.cs" />
     <Compile Include="src\MovementCadenceIntegration.cs" />
     <Compile Include="src\MovementLoggingStateTracker.cs" />
     <Compile Include="src\PlaguePopularityFix.cs" />
@@ -334,6 +342,9 @@
     <Compile Include="src\NoDogsNativePatch.cs" />
     <Compile Include="src\VanillaPeaceTimeNativeContract.cs" />
     <Compile Include="src\VanillaPeaceTimeGameplayPatch.cs" />
+    <Compile Include="src\PeaceTimeCivilianProximityFeature.cs" />
+    <Compile Include="src\PeaceTimeCivilianProximityPolicy.cs" />
+    <Compile Include="src\BugfixesAndQoLViewModel.PeaceTime.cs" />
     <Compile Include="src\SteamLobbyInvitePrompt.cs" />
     <Compile Include="src\SteamLobbyInvitePolicy.cs" />
     <Compile Include="src\SteamInviteBlacklistStore.cs" />
@@ -344,12 +355,7 @@
     <Compile Include="src\ShiftRepairAllBuildingsHook.cs" />
     <Compile Include="src\ShiftRepairAllBuildingsPolicy.cs" />
     <Compile Include="src\SurrenderFeature.cs" />
-    <Compile Include="src\SpectatorPerspectiveRuntime.cs" />
-    <Compile Include="src\SpectatorPerspectiveHud.cs" />
-    <Compile Include="src\SpectatorReportHooks.cs" />
-    <Compile Include="src\SpectatorAllyHooks.cs" />
-    <Compile Include="src\SpectatorSavePolicy.cs" />
-    <Compile Include="src\SpectatorSaveMarker.cs" />
+    <Compile Include="src\StatisticsTeamBadges.cs" />
     <Compile Include="src\SurrenderSelectionCleanup.cs" />
     <Compile Include="src\SurrenderPackets.cs" />
     <Compile Include="src\SurrenderPolicy.cs" />
@@ -372,12 +378,9 @@
     <Compile Include="src\TunnelPlacementDistancePolicy.cs" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="Locales\*.txt"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
-    <Content Include="Patches\Assets\GUI\XAMLResources\HUD_Buildings.xaml"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
-    <Content Include="Patches\Assets\GUI\XAMLResources\HUD_Objectives.xaml"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
-    <Content Include="Patches\Assets\GUI\XAMLResources\HUD_Briefing.xaml"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
-    <Content Include="Patches\Assets\GUI\XAMLResources\OST_StartingGoods.xaml"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
-    <Content Include="Patches\Assets\GUI\XAML\IngameUIScreens.xaml"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <!-- Published neutral replacements are package content too. Always replace stale outputs,
+         even when checkout timestamps are older than a previously generated package. -->
+    <Content Include="Patches\**\*;Override\**\*;Locales\**\*;info.json"><CopyToOutputDirectory>Always</CopyToOutputDirectory></Content>
   </ItemGroup>
   <ItemGroup>
     <Reference Include="MessagePack"><HintPath>$(ExtenderDir)\MessagePack.dll</HintPath><Private>false</Private></Reference>
@@ -392,6 +395,9 @@
     <Compile Include="..\Shared\Runtime\UI\ToolTipPresentation.cs"><Link>Shared\Runtime\UI\ToolTipPresentation.cs</Link></Compile>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <Target Name="VerifyPackageResources" AfterTargets="Build" Condition="'$(DesignTimeBuild)' != 'true'">
+    <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\Test-PackageResources.ps1&quot; -SourceDirectory &quot;$(MSBuildProjectDirectory)&quot; -PackageDirectory &quot;$(TargetDir).&quot;" />
+  </Target>
   <ItemGroup>
     <Compile Include="src\AIKeepRangeRuntime.cs" />
     <Compile Include="src\AIKeepRangeNativeContract.cs" />
@@ -435,4 +441,9 @@
 <ItemGroup><Compile Include="src\GateRouting\GateRoutingFeature.cs" /><Compile Include="src\GateRouting\GateDiagnosticConfiguration.cs" /></ItemGroup>
 <ItemGroup><Compile Include="src\Assassins\AssassinGatehouseDescentFeature.cs" /></ItemGroup>
   <ItemGroup><Compile Include="src\PermanentNativeSwitch.cs"/><Compile Include="src\NativeSwitchCatalog.cs"/></ItemGroup>
+  <ItemGroup>
+    <Compile Include="src\LordTeleportGuard\LordTeleportNative.cs" />
+    <Compile Include="src\LordTeleportGuard\LordTeleportGuardRuntime.cs" />
+    <Compile Include="src\BugfixesAndQoLRuntime.LordTeleport.cs" />
+  </ItemGroup>
 </Project>

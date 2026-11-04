@@ -108,7 +108,7 @@ namespace BugfixesAndQoL
                 {
                     TreatmentResult result = AdvanceTreatedDiseasesToFade(nativeUnitId);
                     if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                        Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/PlagueTreatmentFadeFix.cs:110", $"Bugfixes and QoL plague-cloud removal applied: unit={nativeUnitId}, " +
+                        Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/PlagueTreatmentFadeFix/TreatNearHealer.cloud-removal-applied-unit", $"Bugfixes and QoL plague-cloud removal applied: unit={nativeUnitId}, " +
                             $"directTargetAdvancedTo1017={result.DirectTargetAdvanced}, " +
                             $"nearbyAdvancedTo1017={result.NearbyAdvancedCount}.");
                 }
@@ -127,7 +127,7 @@ namespace BugfixesAndQoL
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/PlagueTreatmentFadeFix.cs:131", $"Bugfixes and QoL plague reservation treatment notification failed; " +
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/PlagueTreatmentFadeFix/TreatNearHealer.reservation-treatment-notification-failed", $"Bugfixes and QoL plague reservation treatment notification failed; " +
                     $"Vanilla and plague-cloud removal already completed: {ex}");
             }
         }
@@ -185,7 +185,7 @@ namespace BugfixesAndQoL
                 return;
 
             correctionAvailable = false;
-            Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/PlagueTreatmentFadeFix.cs:191", $"Bugfixes and QoL plague-cloud removal fix disabled for this process because {reason}: {ex}");
+            Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/PlagueTreatmentFadeFix/DisableCorrection", $"Bugfixes and QoL plague-cloud removal fix disabled for this process because {reason}: {ex}");
         }
 
         private static bool TryGetHealer(int unitId, out GameUnit* healer)

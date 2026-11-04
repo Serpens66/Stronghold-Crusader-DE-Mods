@@ -13,7 +13,7 @@ using static Iced.Intel.AssemblerRegisters;
 
 namespace ExtraFeatures
 {
-    internal sealed class MonkAlwaysRunPatch : IDisposable
+    internal sealed class MonkAlwaysRunPatch
     {
         // Monk handler movement decision. Both the Fighting Monk and Temple
         // Guard skin use this same native unit handler; only their material is
@@ -55,6 +55,11 @@ namespace ExtraFeatures
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             if (libraryHandle == IntPtr.Zero || memory.Length == 0)
                 throw new ArgumentException("The Crusader native library is unavailable.");
+            // Hash-bound: the hook span, its branch targets and the absence of incoming branches
+            // into the span are audited for this build (ExtraFeaturesNativeTests); an unknown
+            // CrusaderDE.dll is not scanned at startup.
+            if (!referenceHashMatches)
+                throw new InvalidOperationException("Monks Always Run requires the audited CrusaderDE.dll build.");
 
             int decisionRva = Shared.NativePatternResolver.ResolveUnique(
                 memory,
@@ -138,7 +143,9 @@ namespace ExtraFeatures
                     "the native Monk movement decision applies to both skins.");
         }
 
-        public void Dispose()
+        // Permanent logical switch-off for this process (later calls throw); the published hook
+        // stays installed until process exit.
+        public void Deactivate()
         {
             if (disposed)
                 return;
@@ -252,55 +259,6 @@ namespace ExtraFeatures
                 !first.IsIPRelativeMemoryOperand && !third.IsIPRelativeMemoryOperand;
             if (!expected)
                 throw new InvalidOperationException("The Monk movement hook span no longer matches its audited semantics.");
-
-            ValidateNoIncomingDirectBranchTargets(memory, hookRva, hookRva + HookSize);
-        }
-
-        private static void ValidateNoIncomingDirectBranchTargets(
-            ReadOnlySpan<byte> memory,
-            int hookStart,
-            int hookEnd)
-        {
-            foreach (Shared.NativeCodeRange range in Shared.NativePatternResolver.GetExecutableCodeRanges(memory))
-            {
-                int end = checked(range.Offset + range.Length);
-                for (int source = range.Offset; source < end; source++)
-                {
-                    int instructionLength;
-                    int displacement;
-                    byte opcode = memory[source];
-                    if ((opcode == 0xE8 || opcode == 0xE9) && source <= end - 5)
-                    {
-                        instructionLength = 5;
-                        displacement = Shared.NativePatternResolver.ReadInt32(memory, source + 1);
-                    }
-                    else if ((opcode == 0xEB || (opcode >= 0x70 && opcode <= 0x7F) ||
-                        (opcode >= 0xE0 && opcode <= 0xE3)) && source <= end - 2)
-                    {
-                        instructionLength = 2;
-                        displacement = unchecked((sbyte)memory[source + 1]);
-                    }
-                    else if (opcode == 0x0F && source <= end - 6 &&
-                        memory[source + 1] >= 0x80 && memory[source + 1] <= 0x8F)
-                    {
-                        instructionLength = 6;
-                        displacement = Shared.NativePatternResolver.ReadInt32(memory, source + 2);
-                    }
-                    else
-                    {
-                        continue;
-                    }
-
-                    long target = (long)source + instructionLength + displacement;
-                    bool sourceInsideSpan = source >= hookStart && source < hookEnd;
-                    if (!sourceInsideSpan && target > hookStart && target < hookEnd)
-                    {
-                        throw new InvalidOperationException(
-                            $"A direct control transfer at RVA 0x{source:X} targets the interior " +
-                            $"of the Monk movement hook at RVA 0x{target:X}.");
-                    }
-                }
-            }
         }
 
         private void ThrowIfDisposed()

@@ -20,7 +20,8 @@ namespace ExtendedData
 
         internal static LordSnapshotSlotSelection Inspect(LordDataSnapshot snapshot,
             FRONT_Multiplayer.MPAIVInfo[] infos, Func<int, bool> isActiveAi,
-            ISet<int> embeddedPlayers, LordDataSnapshot preparedTrail)
+            ISet<int> embeddedPlayers, LordDataSnapshot preparedTrail,
+            IReadOnlyList<string> extendedNames = null)
         {
             var expected = new List<int>();
             var invalid = new List<int>();
@@ -34,19 +35,24 @@ namespace ExtendedData
                 LordDataSlot prepared = preparedTrail?.GetSlot(playerId);
                 LordDataSlot published = snapshot?.GetSlot(playerId);
                 bool bound = embedded && MatchesConfiguration(prepared, info);
+                bool extendedIdentity = !embedded && published != null && info?.lordConfig != null &&
+                    MatchesConfiguration(published, info) && info.lordConfig.lordType >= 0 &&
+                    extendedNames != null && info.lordConfig.lordType < extendedNames.Count &&
+                    !string.IsNullOrWhiteSpace(extendedNames[info.lordConfig.lordType]) &&
+                    string.Equals(published.LordName, extendedNames[info.lordConfig.lordType], StringComparison.OrdinalIgnoreCase);
                 if (activeAi && (info == null || embedded && info.builtInLord)) invalid.Add(playerId);
                 if (activeAi && info?.builtInLord == false)
                 {
                     expected.Add(playerId);
-                    // An empty name is valid only for a verified embedded configuration.
+                    // Empty names require an exact embedded binding or a published Extended identity.
                     // Claimed embedded slots must retain that binding even if media supplies a name.
                     if (info.lordConfig == null || embedded && !bound ||
                         published != null && !MatchesConfiguration(published, info) ||
-                        string.IsNullOrWhiteSpace(info.lordName) && !bound) invalid.Add(playerId);
+                        string.IsNullOrWhiteSpace(info.lordName) && !bound && !extendedIdentity) invalid.Add(playerId);
                 }
                 details.Add("player=" + playerId + ",activeAi=" + activeAi +
                     ",selectionPresent=" + (info != null) + ",builtInLord=" + info?.builtInLord +
-                    ",embedded=" + embedded + ",preparedBinding=" + bound +
+                    ",embedded=" + embedded + ",preparedBinding=" + bound + ",extendedIdentity=" + extendedIdentity +
                     ",lord=" + Label(info?.lordName) +
                     ",lordType=" + info?.lordType + ",configType=" + info?.lordConfig?.lordType +
                     ",config=" + Label(info?.lordConfig?.name) +
@@ -75,6 +81,24 @@ namespace ExtendedData
                 "]; invalidBindings=[" + string.Join(",", result.InvalidPlayers) +
                 "]; current=[" + string.Join("; ", details) + "]";
             return result;
+        }
+
+        // Names in Vanilla's MP restart block are optional media identities. The two
+        // caller-supplied envelopes must already have passed their digest/schema checks.
+        internal static bool MatchesSavedIdentity(string savedName, LordDataSlot slot,
+            LordPackageSlot package, IReadOnlyList<string> extendedNames)
+        {
+            if (slot == null) return false;
+            if (!string.IsNullOrWhiteSpace(savedName))
+                return string.Equals(savedName, slot.LordName, StringComparison.OrdinalIgnoreCase);
+            if (package?.EmbeddedTrail == true && package.PlayerId == slot.PlayerId &&
+                package.LordType == slot.LordType &&
+                string.Equals(package.LordName, slot.LordName, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(package.ConfigName, slot.ConfigName, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(package.ConfigChecksum, slot.ConfigChecksum, StringComparison.Ordinal)) return true;
+            return slot.LordType.HasValue && slot.LordType.Value >= 0 && extendedNames != null &&
+                slot.LordType.Value < extendedNames.Count && !string.IsNullOrWhiteSpace(extendedNames[slot.LordType.Value]) &&
+                string.Equals(extendedNames[slot.LordType.Value], slot.LordName, StringComparison.OrdinalIgnoreCase);
         }
 
         private static bool MatchesConfiguration(LordDataSlot slot, FRONT_Multiplayer.MPAIVInfo info) =>

@@ -9,21 +9,92 @@ namespace CastlePlanner
 {
     internal sealed class SupplementalSpawnReport
     {
+        private readonly SortedDictionary<string, SupplementalSpawnSummary> summaries =
+            new SortedDictionary<string, SupplementalSpawnSummary>(StringComparer.Ordinal);
+        internal int Count { get; private set; }
+        internal IEnumerable<SupplementalSpawnSummary> Summaries => summaries.Values;
+
+        internal static string CategoryFor(string reason)
+        {
+            switch (ReasonCode(reason))
+            {
+                case "out-of-bounds":
+                case "footprint-out-of-bounds":
+                case "water-terrain":
+                case "impassable-terrain":
+                case "physical-terrain-obstacle":
+                case "occupied-or-already-created":
+                case "duplicate-prefab-request":
+                case "decoration-already-present-or-queued":
+                    return "expected";
+                case "source-anchor-out-of-bounds":
+                case "source-footprint-out-of-bounds":
+                case "invalid-map-tile":
+                case "unknown-misc":
+                case "unsupported-supplemental-visual":
+                case "creation-threw":
+                case "unit-creation-threw":
+                case "decoration-creation-threw":
+                case "invalid-decoration-coordinate":
+                case "invalid-projectile-id":
+                    return "technical";
+                default:
+                    // A failed native call or identity check does not prove lack of space.
+                    return "unexplained";
+            }
+        }
+
+        internal static string ReasonCode(string reason)
+        {
+            if (string.IsNullOrEmpty(reason)) return "unspecified";
+            // Prefab capture reasons carry variable observations in parentheses.
+            if (reason.StartsWith("unconfirmed-spawn(", StringComparison.Ordinal)) return "unconfirmed-spawn";
+            if (reason.StartsWith("changed-spawn-identity(", StringComparison.Ordinal)) return "changed-spawn-identity";
+            if (reason.StartsWith("unsupported-supplemental-visual(", StringComparison.Ordinal)) return "unsupported-supplemental-visual";
+            return reason;
+        }
+
+        internal void Add(string reason, string detail)
+        {
+            string category = CategoryFor(reason);
+            if (!summaries.TryGetValue(category, out SupplementalSpawnSummary summary))
+            {
+                summary = new SupplementalSpawnSummary(category);
+                summaries.Add(category, summary);
+            }
+            summary.Add(reason, detail);
+            Count++;
+        }
+    }
+
+    internal sealed class SupplementalSpawnSummary
+    {
+        private const int MaximumReasonKinds = 16;
         private readonly SortedDictionary<string, int> counts = new SortedDictionary<string, int>(StringComparer.Ordinal);
         private readonly List<string> examples = new List<string>();
+        internal string Category { get; }
+        internal bool IsExpected => Category == "expected";
         internal int Count { get; private set; }
+        internal IReadOnlyDictionary<string, int> Reasons => counts;
+        internal IReadOnlyList<string> Examples => examples;
+
+        internal SupplementalSpawnSummary(string category) { Category = category; }
+
         internal void Add(string reason, string detail)
         {
             Count++;
-            counts.TryGetValue(reason, out int previous);
-            counts[reason] = previous + 1;
+            string code = SupplementalSpawnReport.ReasonCode(reason);
+            if (!counts.ContainsKey(code) && counts.Count >= MaximumReasonKinds)
+                code = "other-reasons";
+            counts.TryGetValue(code, out int previous);
+            counts[code] = previous + 1;
             if (examples.Count < 5) examples.Add(detail + ": " + reason);
         }
         public override string ToString()
         {
             var reasons = new List<string>();
             foreach (KeyValuePair<string, int> pair in counts) reasons.Add(pair.Key + "=" + pair.Value);
-            return $"skipped={Count}, reasons=[{string.Join(", ", reasons)}], examples=[{string.Join("; ", examples)}]";
+            return $"category={Category}, skipped={Count}, reasons=[{string.Join(", ", reasons)}], examples=[{string.Join("; ", examples)}]";
         }
     }
 

@@ -1,0 +1,20 @@
+{
+  "enabled": true,
+  "series": "SP-6",
+  "role": "sp",
+  "steps": [
+    { "id": "menu", "do": "WaitMainMenu", "timeoutMs": 180000, "stopOnFail": true, "allowErrors": true },
+    { "id": "settings", "do": "DumpSettings", "args": ["Spectator.SpectatorPlugin::processRoot.Settings"] },
+    { "id": "load", "do": "LoadSave", "args": ["test_gates.sav"], "timeoutMs": 120000, "stopOnFail": true },
+    { "id": "active", "do": "ExpectGameState", "args": ["spectatorMode", "0"], "timeoutMs": 5000 },
+    { "id": "surrender", "do": "MenuAction", "args": ["BugfixesAndQoL_Serp", "surrender"], "timeoutMs": 15000, "stopOnFail": true },
+    { "id": "confirm", "do": "Confirm", "args": ["1"], "timeoutMs": 15000, "stopOnFail": true },
+    { "id": "spectator", "do": "ExpectGameState", "args": ["spectatorMode", "1"], "timeoutMs": 60000 },
+    { "id": "describe", "do": "Describe" },
+    { "id": "toolbar", "do": "Spectator.WaitToolbar", "timeoutMs": 20000 },
+    { "id": "shot", "do": "Screenshot", "args": ["eliminated"] },
+    { "id": "statistics", "do": "MenuAction", "args": ["Spectator_Serp", "statistics"], "timeoutMs": 15000 },
+    { "id": "statistics-wait", "do": "Wait", "args": ["1500"] },
+    { "id": "shot-statistics", "do": "Screenshot", "args": ["statistics"] }
+  ]
+}

@@ -90,7 +90,7 @@ namespace BugfixesAndQoL.VanillaPerformance
             boundTexture = null;
             boundImage = null;
             if (Interlocked.Exchange(ref failed, 1) == 0)
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/VanillaPerformance/RadarRebindOptimization.cs:94",
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/RadarRebindOptimization/FailOpen",
                     "VANILLA_PERF_RADAR_DISABLED: Vanilla minimap binding retained; " + exception);
         }
     }

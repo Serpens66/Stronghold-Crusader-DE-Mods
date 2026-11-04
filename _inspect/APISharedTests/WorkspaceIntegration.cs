@@ -118,9 +118,14 @@ namespace APISharedTests
             Assert(Count(unitHud, "setupTroopsOriginal(panel)") == 1 &&
                 Count(unitHud, "populateGroupsOriginal(panel)") == 1 &&
                 Count(unitHud, "gameActionOriginal(command, value1, value2, value3)") == 1 &&
-                Count(unitHud, "updateSpritesOriginal(self, colour, arabic)") == 1 &&
-                Count(unitHud, "updateSpritesOriginal(main, lastSpriteColour, lastSpriteArabic)") == 2,
-                "central HUD sprite handling retains the hook, explicit refresh and activation-restoration paths");
+                // The hook draws Vanilla's request with the effective (possibly leased) colour; every redraw
+                // (explicit refresh, activation restoration, lease replay) goes through the single DrawSprites.
+                Count(unitHud, "updateSpritesOriginal(self, drawColour, drawArabic)") == 1 &&
+                Count(unitHud, "updateSpritesOriginal(main, colour, arabic)") == 1 &&
+                Count(unitHud, "updateSpritesOriginal(") == 2 &&
+                Count(unitHud, "DrawSprites(main, clearRecorded: false, applyOverrides: true)") == 1 &&
+                Count(unitHud, "DrawSprites(main, clearRecorded: true, applyOverrides: activeImages") == 2,
+                "central HUD sprite handling retains the hook, explicit refresh, activation-restoration and lease replay paths");
             string beforeRenderMethod = ExtractSourceMethod(unitHud, "private void OnBeforeRender()");
             int idleGuard = beforeRenderMethod.IndexOf("if (activeSurfaces == UnitHudSurface.None && !hasActionButtons && !pendingPresentation && !refreshRequested && recruitmentLease == null) return;", StringComparison.Ordinal);
             Assert(idleGuard >= 0 && idleGuard < beforeRenderMethod.IndexOf("OnActiveBeforeRender();", StringComparison.Ordinal) && !beforeRenderMethod.Contains("Time.frameCount"),
@@ -143,12 +148,11 @@ namespace APISharedTests
                 : string.Empty;
             Assert(selectionRefreshBlock.Contains("SetupSelectedTroops()") &&
                 !selectionRefreshBlock.Contains("HUDControlGroups") &&
-                !selectionRefreshBlock.Contains("updateSpritesOriginal") &&
+                !selectionRefreshBlock.Contains("updateSpritesOriginal") && !selectionRefreshBlock.Contains("DrawSprites") &&
                 !selectionRefreshBlock.Contains("ApplyImageOverrides"),
                 "selection-only refreshes must update the troop HUD without touching control groups or global images");
             Assert(explicitRefreshBlock.Contains("HUDControlGroups?.Update()") &&
-                explicitRefreshBlock.Contains("updateSpritesOriginal(main, lastSpriteColour, lastSpriteArabic)") &&
-                explicitRefreshBlock.Contains("ApplyImageOverrides(main, lastSpriteColour, lastSpriteArabic)"),
+                explicitRefreshBlock.Contains("DrawSprites(main, clearRecorded: false, applyOverrides: true)"),
                 "explicit refreshes must retain control-group and legitimate global image updates");
             string ensureButtonsMethod = ExtractSourceMethod(unitHud, "private void EnsureCategoryButtons(");
             string hideButtonsMethod = ExtractSourceMethod(unitHud, "private void HideCategoryButtons()");
@@ -307,7 +311,9 @@ namespace APISharedTests
                 castleBindings.Contains("executeToPercentage = Bind<ExecuteToPercentageDelegate>") &&
                 !castleBindings.Contains("AddDetour") && !castleBindings.Contains("AddContextHook"),
                 "CastlePlanner AIV targets 0x54EC0, 0x54DE0, 0x53D00, and 0x55F50 must remain bind-only");
-            Assert(Count(lobbyState, "Application.onBeforeRender += OnBeforeRender") == 1 &&
+            // Limited integration guardrail: scheduler/lobby behavior is covered by their
+            // production-core tests; this retains single-owner registration and detour checks.
+            Assert(Count(lobbyState, "Presentation.UiWorkRuntime.TryRegister(") == 1 &&
                 lobbyState.Contains("ObserveDirtyNow();") &&
                 Count(lobbyState, "getActiveLobbyMembersOriginal(self, coopGame)") == 1 &&
                 Count(lobbyState, "leaveLobbyOriginal(self, startGame)") == 1 &&

@@ -20,6 +20,13 @@ namespace BugfixesAndQoL.UnitCommands
         {
             reached = new int[nodeCount]; queue = new int[nodeCount];
         }
+        // Removes every edge for reuse by a new topology. Revision still increases, so a cache that
+        // stored this graph and an older revision no longer matches.
+        public void Reset()
+        {
+            reverse.Clear(); forward = null; forwardRevision = -1; target = -1;
+            Revision++;
+        }
         public void ChangeEdge(int from, int to, int delta)
         {
             if (from < 0 || to < 0 || from == to) return;

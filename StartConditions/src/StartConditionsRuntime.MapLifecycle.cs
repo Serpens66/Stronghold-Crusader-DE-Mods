@@ -51,11 +51,11 @@ namespace StartConditions
             // Capture once so readiness and delayed troop processing use the same mission settings.
             activeSettings = StartConditionsIntegration.GetEffectiveSettings(settings);
             activePlayerIds = Array.Empty<int>();
-            pendingKeepReadiness = Shared.ActivePlayerKeepReadiness.Wait(
+            pendingKeepReadiness = Shared.ActivePlayerKeepReadiness.WaitForSimulationTicks(
                 OnActivePlayerKeepsReady,
-                KeepReadinessTimeout,
+                KeepReadinessTimeoutTicks,
                 message => LogError(message),
-                "Start Conditions could not apply start resources or troops within 30 seconds because not every active player had a ready Keep.",
+                "Start Conditions could not apply start resources or troops within 1200 simulation ticks because not every active player had a ready Keep.",
                 OnKeepReadinessCompleted);
         }
 

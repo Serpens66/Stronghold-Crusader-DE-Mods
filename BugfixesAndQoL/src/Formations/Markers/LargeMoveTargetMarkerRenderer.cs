@@ -143,6 +143,11 @@ namespace BugfixesAndQoL
         private PreviewPublication previewCheckedThisPass;
         private bool previewAllowedThisPass;
         private bool failureLogged;
+        private readonly FormationFailurePolicy renderFailures = new FormationFailurePolicy();
+        private long renderAttempt;
+        private bool frameFailed, frameHadDrawAttempt;
+        private int invalidTiles, capacityDrops;
+        private bool limitsReported;
         // Internal local feedback only; the existing reset detour owns the native frame boundary.
         internal Action NativeFrameCompleted { private get; set; }
 
@@ -261,9 +266,10 @@ namespace BugfixesAndQoL
         {
             lock (stateRoot)
             {
-                overlayPassActive = enabled && ReplacementAvailable && publishedPreview.Count == 0;
+                overlayPassActive = enabled && !frameFailed && ReplacementAvailable && publishedPreview.Count == 0;
                 stagingBuffer = ReferenceEquals(publishedOverflow, firstBuffer) ? secondBuffer : firstBuffer;
                 stagingBuffer.Clear();
+                invalidTiles = capacityDrops = 0;
             }
         }
 
@@ -273,15 +279,18 @@ namespace BugfixesAndQoL
         {
             if (!overlayPassActive || failed || publishedPreview.Count != 0)
                 return true;
+            if ((uint)tileId >= LargeMoveTargetOverflowModel.NativeTileCount)
+            {
+                invalidTiles++;
+                return false;
+            }
             if (NativeContainsDuplicate(drawManager, tileId, category, spriteId))
                 return true;
             LargeMoveTargetOverflowBuffer buffer = stagingBuffer;
-            if (buffer != null &&
-                buffer.TryAdd(category, spriteId, layer, verticalOffset, tileId, flags))
-                return true;
-            FailOpen(new InvalidOperationException(
-                "The validated Move marker overflow capacity was exceeded."));
-            return false;
+            if (buffer == null) return false; // An abandoned pass has no publication.
+            MoveMarkerAddResult result = buffer.Add(category, spriteId, layer, verticalOffset, tileId, flags);
+            if (result == MoveMarkerAddResult.CapacityReached) capacityDrops++;
+            return result == MoveMarkerAddResult.Added || result == MoveMarkerAddResult.Duplicate;
         }
 
         private bool NativeContainsDuplicate(
@@ -303,8 +312,8 @@ namespace BugfixesAndQoL
                 IntPtr record = IntPtr.Add(
                     drawManager,
                     DrawRecordBaseOffset + recordIndex * DrawRecordSize);
-                if (Marshal.ReadInt32(record) == category &&
-                    Marshal.ReadInt32(IntPtr.Add(record, sizeof(int))) == spriteId)
+                if (Marshal.ReadInt32(record) == spriteId &&
+                    Marshal.ReadInt32(IntPtr.Add(record, sizeof(int))) == category)
                 {
                     return true;
                 }
@@ -318,6 +327,13 @@ namespace BugfixesAndQoL
             lock (stateRoot)
             {
                 overlayPassActive = false;
+                if (completed && !limitsReported && (invalidTiles != 0 || capacityDrops != 0))
+                {
+                    limitsReported = true;
+                    ReportMarkerIssue("move-marker-budget",
+                        $"MOVE_TARGET_MARKERS_LIMITED: invalidTiles={invalidTiles}; capacityDrops={capacityDrops}; " +
+                        $"published={stagingBuffer?.Count ?? 0}; limit={LargeMoveTargetOverflowModel.MaximumOverflowMarkers}; LineUp remains available.", false);
+                }
                 if (!completed || failed || publishedPreview.Count != 0 ||
                     stagingBuffer == null || stagingBuffer.Count == 0)
                 {
@@ -390,6 +406,8 @@ namespace BugfixesAndQoL
                 publishedPreview = EmptyPreview;
                 previewCheckedThisPass = null;
                 previewRequestBuffer.Clear();
+                invalidTiles = capacityDrops = 0;
+                limitsReported = false;
                 if (ReplacementAvailable)
                     SetRenderingActiveCore(false);
             }
@@ -432,6 +450,16 @@ namespace BugfixesAndQoL
                 {
                     FailOpen(exception);
                 }
+                finally
+                {
+                    lock (stateRoot)
+                    {
+                        if (!frameFailed && !failed && frameHadDrawAttempt) renderFailures.RecordSuccess(renderAttempt);
+                        frameFailed = false;
+                        frameHadDrawAttempt = false;
+                        renderAttempt++;
+                    }
+                }
             }
         }
 
@@ -453,19 +481,20 @@ namespace BugfixesAndQoL
         private void SetRenderingActiveCore(bool shouldBeActive)
         {
             if (visibleTileHook == null || !visibleTileHook.IsInstalled)
-                throw new InvalidOperationException("Visible-tile marker hook is no longer installed.");
+                throw new FormationNativeContractException("Visible-tile marker hook is no longer installed.");
             renderingActive = shouldBeActive;
         }
 
         private void RenderVisibleLargeMoveTarget(NativePointer<X64SmartCPUContext> context)
         {
-            if (!renderingActive || context.Pointer == null)
+            if (!renderingActive || frameFailed || context.Pointer == null)
                 return;
             PreviewPublication publication = publishedPreview;
             Dictionary<int, int> preview = publication.Tiles;
             LargeMoveTargetOverflowBuffer overflow = publishedOverflow;
             if ((preview.Count == 0 && overflow == null) || !featureEnabled())
                 return;
+            frameHadDrawAttempt = true;
             try
             {
                 X64SmartCPUContext* registers = context.Pointer;
@@ -561,17 +590,42 @@ namespace BugfixesAndQoL
 
         private void FailOpenCore(Exception exception)
         {
-            failed = true;
+            frameFailed = true;
+            failed = renderFailures.RecordFailure("marker-render", exception, renderAttempt);
             overlayPassActive = false;
             stagingBuffer = null;
             publishedOverflow = null;
-            publishedPreview = EmptyPreview;
-            previewRequestBuffer.Clear();
-            renderingActive = false;
-            if (failureLogged)
+            if (failed)
+            {
+                publishedPreview = EmptyPreview;
+                previewRequestBuffer.Clear();
+            }
+            // A transient preview exception skips this frame; the same publication may
+            // retry after the real native frame boundary, never once per visible tile.
+            renderingActive = !failed && publishedPreview.Count != 0;
+            if (failureLogged && failed)
                 return;
-            failureLogged = true;
-            Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/Formations/Markers/LargeMoveTargetMarkerRenderer.cs:502", $"MOVE_TARGET_MARKER_RENDER_FAIL_OPEN: Vanilla markers retained; {exception}");
+            failureLogged = failed;
+            ReportMarkerIssue("move-marker-render-" + (failed ? "disabled" : "retry"),
+                $"MOVE_TARGET_MARKER_RENDER_{(failed ? "DISABLED" : "RETRY")}: failures={renderFailures.ConsecutiveFailures}; Vanilla markers retained; {exception}", true);
+        }
+
+        // Render callbacks are simulation-thread callbacks. Allocate/dispatch only on
+        // this exceptional path; logging failures cannot interfere with native drawing.
+        private void ReportMarkerIssue(string site, string message, bool error)
+        {
+            try
+            {
+                Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(() => {
+                    try
+                    {
+                        if (error) Shared.DebugLogHelper.LogErrorLimited(log, site, message);
+                        else Shared.DebugLogHelper.LogWarningLimited(log, site, message);
+                    }
+                    catch { }
+                });
+            }
+            catch { }
         }
     }
 }

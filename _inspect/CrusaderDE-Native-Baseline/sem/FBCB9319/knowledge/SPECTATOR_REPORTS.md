@@ -38,3 +38,97 @@ The installed native hash remains `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A67
 - `HUD_AlliesPanel.ButtonClicked` sends `Ally_Orders` through `Ally_CancelOrders` (`1061..1066`) to `EngineInterface.GameAction`. `DLL_GameAction` at RVA `0x81870` (confirmed export) uses the current native view index `DAT_1888e3d70` as the ally-command sender. Order/cancel/confirm branches enqueue opcode `113`; send/request-goods branches check or use sender resources before enqueuing. The producer for orders at RVA `0xD7520` is candidate by generic function name but its argument flow and caller are statically traced.
 - The opcode `113` handler at RVA `0x1A6F0` (candidate function label, confirmed static producer/handler association) decodes a 16-bit operation and four 32-bit values. Its branches at RVAs `0xD7580`, `0xD78C0`, `0xD7AD0`, `0xD7450`, `0xD7360`, and `0xD77D0` update ally orders, resources, requests and notifications. `DLL_RunTick` at RVA `0x86680` (confirmed) restores the chosen index after suppressing spectator map input, so the ally UI's direct `GameAction` path can still enqueue these commands.
 - The managed ally menu has no multiplayer-specific command implementation. The native Chore scheduler at RVA `0x23990` takes different local/network timing branches, but the same ally payload handler is used. Static analysis does not establish whether a spectator-origin packet is accepted and remains synchronized on every peer; this requires a host/client runtime test.
+
+## Report access versus temporary build controls, 2026-10-27 [mod integration]
+
+For the native and managed hashes above, `MainViewModel.ButtonReports` reads
+`FreezeMainControls` once to choose the forced Army page. `FatControler` freezes
+build controls for a nonpositive active player. Therefore a placement-only mod
+that suppresses this freeze also unintentionally changes report access unless it
+separately preserves that report decision. Spectator now restricts the build
+exemption to an explicitly active placement session and restores a suppressed
+freeze only for its current session/view. Its report predicate independently
+requires spectator-perspective permission, including when test tools alone are
+active. BugfixesAndQoL contains no remaining report hook after the migration.
+The production predicate is covered by the Spectator controller activation matrix;
+actual book navigation and snapshot freshness remain an in-game check.
+
+The shared render entry at `0x41D60` is now owned by APIShared 0.18.0, with BFQ
+marker observation before Spectator's temporary visibility scope. This changes
+hook ownership, not Vanilla input/order semantics. The exact Indirect/10 ABI and
+native demand-bridge tests are documented in APIShared/UpdateToNewDLL.md.
+
+## Eliminated participants and retained action panels, 2026-11-02 [Vanilla facts]
+
+Rechecked against the native and managed hashes recorded above. The confirmed
+`DLL_GameAction` export at RVA `0x81870` handles `SpectatorMode` (`0x431`) by
+setting only the local spectator flag, with return value zero. The managed
+`EngineInterface.GameAction` monitor encloses the native call; return zero has no
+managed role/UI branch. An eliminated positive participant therefore does not
+become a nonpositive original spectator through this action.
+
+The installed `MainViewModel.buildControlsFreeze(bool)` changes the six build
+tabs and its freeze field; it does not close an already open building, market or
+troop panel. `ButtonChangeRations(object)` calls `SetRationing` directly and
+`ButtonAdjustTax(object)` calls `SetTaxRate` directly. The native branches
+`0x3ED` and `0x3EC`, respectively, have no spectator-flag admission check; the
+tax writer uses the native viewpoint's resources. Retaining the positive ID and
+freezing only build tabs is consequently insufficient protection for a foreign
+report viewpoint. These are static call/data-flow facts, not a live MP exploit
+or a network-acceptance result.
+
+The audited local presentation/camera/pause branches are `0x402`, `0x404`,
+`0x405`, `0x406`, `0x413`, `0x415`, `0x416`, `0x418`, `0x42B`, and `0x431`.
+`CloseTroopsPanel` (`0x410`) also reaches deselection handling and is not classified
+as a pure presentation action. These command values identify switch branches,
+not an extensible permission policy for other native builds.
+
+## Eliminated-view consumer integration, 2026-11-02 [mod integration]
+
+Spectator closes old interactive HUDs/cursors before confirming the positive
+observer role. It uses APIShared's existing managed GameAction broker to reject
+ordinary gameplay/unknown actions, with the audited local exceptions and its
+explicit singleplayer ally policy. Already consumed offline power selections
+remain with the existing validated tool path. Explicit placement unfreezing is
+separate from the ordinary build-tab freeze. APIShared's participant view keeps
+the original positive local identity; common saves and complete raw Chore
+submissions temporarily use that identity under the engine monitor. No second
+native GameAction/queue hook is introduced. Offline fixtures and real host/client
+acceptance remain distinct evidence.
+
+## Campfire floating popularity mask, 2026-11-03 [Vanilla facts]
+
+Canonical native SHA-256 remains `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`;
+managed SHA-256 remains `BC8B6A395F01D48557DB413600C8DD8D1FDFD3ABDF97BFBBB68A3C56B04FD789`.
+This is a Unity Fly popup, independent of Noesis WGT_Popularity and the scribe book.
+Producer `0xB5690` uses the campground owner's resources, creates projectile type
+41 through `0x9B2B0`, then writes current popularity divided by 100 into the
+projectile's `0xD8` field at `0xB5845`. Spawn has already called the projectile
+updater through table `0x2DA9C0` at `0x9BA06` before that new value is installed.
+Canonical instructions were read directly where semantic pseudocode is absent.
+
+Type 41's updater is `0x9AC20`. Instructions `0x9ACAC..0x9ACCF` read that same
+`0xD8` snapshot and select mask 130 below 40, 129 from 40 through 59, and 128 from
+60 upward; the result goes to `0xD4`. These are the world popup's thresholds,
+distinct from the book's 50-point color threshold and sign-based report masks.
+No viewpoint identity supplies the icon's band. The number remains an immutable
+snapshot during this popup's life; `0xA12C0` suppresses another active popup of the
+same type/owner, while `0xCAA70` schedules later changed-popularity snapshots.
+
+Packet builder `0x1A13C0` writes projectile `0xD4` to short-record index 17, and
+splits `0xD8` into indices 18 and 19. GameMap.processTestMap case 3 reconstructs
+infoType and infoData and calls the public fourteen-parameter addUpdateFly.
+That method stores IL arguments 12/13/14 into Fly.gameObjectType/infoType/infoData
+when creating a new Fly. It creates its body_info icon and numeric child sprites
+only on that path; later updates change the parent and position/transparency but
+never refresh those children. SpriteMapping maps file 202 and image N to
+GM_BODY_INFO sprite N-1: extracted body_info-127/128/129 are green/neutral/red masks.
+Thus an initial stale red mask can be retained beside the new number 98 even
+after native `0x9AC20` computes the correct green mask. This is a static ordering
+and cache finding; the exact screenshot allocation was not instrumented live.
+
+Evidence and canonical instruction bytes: `.work/a/spec-ui/001/campfire-popularity-audit.json`.
+Extracted resource previews remain beside it. No raw baseline or binary identity
+was rewritten. APIShared's internal managed correction normalizes only the type41
+mask argument from the same numeric snapshot before Vanilla cache creation; it
+does not change native state, digits, player identity or other popup types.

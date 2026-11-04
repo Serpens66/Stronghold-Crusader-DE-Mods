@@ -970,6 +970,18 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}" sha
           </StackPanel>
           <StackPanel Visibility="{Binding SettingsPresentation.HostSetup.QolVisibility}">
             <TextBlock Text="{Binding QolTitleText}" Style="{StaticResource CategoryHeader}" Margin="28,8,0,4" shared:ModSettingsSearch.Exclude="True"/>
+            <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-peace-time-civilian-proximity-reduction" shared:ModSettingsSearch.Title="{Binding EnablePeaceTimeCivilianProximityReductionText}" shared:ModSettingsSearch.ToolTipText="{Binding EnablePeaceTimeCivilianProximityReductionHelpText}">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="28"/>
+                <ColumnDefinition Width="*"/>
+              </Grid.ColumnDefinitions>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnablePeaceTimeCivilianProximityReduction}"/>
+              <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
+                <CheckBox IsEnabled="{Binding CanConfigurePeaceTimeCivilianProximity}" IsChecked="{Binding EnablePeaceTimeCivilianProximityReduction, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnablePeaceTimeCivilianProximityReductionHelpText}" Margin="0,0,14,8">
+                  <TextBlock Text="{Binding EnablePeaceTimeCivilianProximityReductionText}" Foreground="White" TextWrapping="Wrap"/>
+                </CheckBox>
+              </Grid>
+            </Grid>
             <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.show-mp-advanced-settings-in-sp" shared:ModSettingsSearch.Title="{Binding ShowMpAdvancedSettingsInSingleplayerText}" shared:ModSettingsSearch.ToolTipText="{Binding ShowMpAdvancedSettingsInSingleplayerHelpText}">
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="28"/>
@@ -1093,30 +1105,6 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}" sha
                 </CheckBox>
               </Grid>
             </Grid>
-            <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-eliminated-players-become-spectators" shared:ModSettingsSearch.Title="{Binding EnableEliminatedPlayersBecomeSpectatorsText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableEliminatedPlayersBecomeSpectatorsHelpText}">
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="28"/>
-                <ColumnDefinition Width="*"/>
-              </Grid.ColumnDefinitions>
-              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableEliminatedPlayersBecomeSpectators}"/>
-              <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
-                <CheckBox IsChecked="{Binding EnableEliminatedPlayersBecomeSpectators, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableEliminatedPlayersBecomeSpectatorsHelpText}" Margin="0,0,14,8">
-                  <TextBlock Text="{Binding EnableEliminatedPlayersBecomeSpectatorsText}" Foreground="White" TextWrapping="Wrap"/>
-                </CheckBox>
-              </Grid>
-            </Grid>
-            <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-spectator-perspective" shared:ModSettingsSearch.Title="{Binding EnableSpectatorPerspectiveText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableSpectatorPerspectiveHelpText}">
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="28"/>
-                <ColumnDefinition Width="*"/>
-              </Grid.ColumnDefinitions>
-              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableSpectatorPerspective}"/>
-              <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
-                <CheckBox IsChecked="{Binding EnableSpectatorPerspective, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableSpectatorPerspectiveHelpText}" Margin="0,0,14,8">
-                  <TextBlock Text="{Binding EnableSpectatorPerspectiveText}" Foreground="White" TextWrapping="Wrap"/>
-                </CheckBox>
-              </Grid>
-            </Grid>
             <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-random-opponent-selection-enhancements" shared:ModSettingsSearch.Title="{Binding EnableRandomOpponentSelectionEnhancementsText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableRandomOpponentSelectionEnhancementsHelpText}">
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="28"/>
@@ -1195,6 +1183,18 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}" sha
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnablePrebuiltAiWorkshopBothFix, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnablePrebuiltAiWorkshopBothFixHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnablePrebuiltAiWorkshopBothFixText}" Foreground="White" TextWrapping="Wrap"/>
+                </CheckBox>
+              </Grid>
+            </Grid>
+            <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-prebuilt-ai-storage-fix" shared:ModSettingsSearch.Title="{Binding EnablePrebuiltAiStorageFixText}" shared:ModSettingsSearch.ToolTipText="{Binding EnablePrebuiltAiStorageFixHelpText}">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="28"/>
+                <ColumnDefinition Width="*"/>
+              </Grid.ColumnDefinitions>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnablePrebuiltAiStorageFix}"/>
+              <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
+                <CheckBox IsChecked="{Binding EnablePrebuiltAiStorageFix, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnablePrebuiltAiStorageFixHelpText}" Margin="0,0,14,8">
+                  <TextBlock Text="{Binding EnablePrebuiltAiStorageFixText}" Foreground="White" TextWrapping="Wrap"/>
                 </CheckBox>
               </Grid>
             </Grid>
@@ -1417,6 +1417,18 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}" sha
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnableAssassinCombatResumeFix, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableAssassinCombatResumeFixHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnableAssassinCombatResumeFixText}" Foreground="White" TextWrapping="Wrap"/>
+                </CheckBox>
+              </Grid>
+            </Grid>
+            <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.lord-return-teleport-fix" shared:ModSettingsSearch.Title="{Binding EnableLordReturnTeleportFixText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableLordReturnTeleportFixHelpText}">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="28"/>
+                <ColumnDefinition Width="*"/>
+              </Grid.ColumnDefinitions>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableLordReturnTeleportFix}"/>
+              <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
+                <CheckBox IsChecked="{Binding EnableLordReturnTeleportFix, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableLordReturnTeleportFixHelpText}" Margin="0,0,14,8">
+                  <TextBlock Text="{Binding EnableLordReturnTeleportFixText}" Foreground="White" TextWrapping="Wrap"/>
                 </CheckBox>
               </Grid>
             </Grid>

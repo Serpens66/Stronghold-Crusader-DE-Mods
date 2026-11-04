@@ -24,9 +24,14 @@ namespace Shared
 
         // A caller supplying canReplace permits only its own previous value or an accepted base.
         internal bool Apply(TKey key, TValue desired, Predicate<TValue> canReplace = null)
+            => Apply(key, desired, out _, out _, canReplace);
+
+        // Return the values already read for this decision; support logs must not reread live cells.
+        internal bool Apply(TKey key, TValue desired, out TValue current, out bool owned,
+            Predicate<TValue> canReplace = null)
         {
-            TValue current = read(key);
-            bool owned = entries.TryGetValue(key, out Entry entry) && equality.Equals(current, entry.Written);
+            current = read(key);
+            owned = entries.TryGetValue(key, out Entry entry) && equality.Equals(current, entry.Written);
             if (!owned)
             {
                 entries.Remove(key);

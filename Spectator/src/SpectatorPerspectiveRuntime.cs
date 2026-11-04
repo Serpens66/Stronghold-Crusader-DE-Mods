@@ -1,25 +1,28 @@
 using APIShared.GameModes;
 using System;
 using APIShared;
+using APIShared.Presentation;
 using BepInEx.Logging;
 using CrusaderDE;
 using Noesis;
 using Shared;
 using SHCDESE.API;
 using SHCDESE.API.Components.SaveData;
-using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using UnityEngine;
 
 namespace Spectator
 {
-    internal static class SpectatorPerspectiveRuntime
+    internal static partial class SpectatorPerspectiveRuntime
     {
         private static ManualLogSource log;
         private static SpectatorViewModel settings;
         private static bool initialized;
         private static bool featureReady;
         private static bool sessionEnabled;
+        // Spectator input control for this mission; settings only change between missions.
+        private static bool sessionControl;
+        private static bool controlFailureLogged;
         private static long preparedSessionId;
         private static long announcedSessionId;
         private static bool mapReady;
@@ -28,24 +31,24 @@ namespace Spectator
         private static int savedView;
         private static bool recoveryIdentityApplied;
         private static bool spectatorActive;
+        private static bool perspectiveUncertain;
         private static bool initializationPending;
         private static bool hudPending;
         private static bool resetHudPending;
-        private static bool renderSubscribed;
+        private static IUiFrameWorkRegistration pendingRenderWork;
+        private static bool pendingRenderActive;
         private static bool failureLogged;
-        private static bool cameraFailureLogged;
         private static int selectedPlayer;
-        private static int lastPendingFrame = -1;
         private static float pendingSince;
         private static string selectedName;
         private static bool[] occupiedSlots;
         private static EngineInterface.PlayState stateBeforeLoad;
-        private static EngineInterface.PlayState reportStateBeforeSwitch;
         private static EngineInterface.PlayState alliesStateBeforeSwitch;
         private static Noesis.Grid hiddenReportPanel;
-        private static Visibility reportPanelVisibility;
+        private static PanelInputLease reportPanelLease;
         private static HUD_AlliesPanel hiddenAlliesPanel;
-        private static Visibility alliesPanelVisibility;
+        private static readonly PanelRefreshState alliesRefresh = new PanelRefreshState();
+        internal static bool AlliesRefreshing => alliesRefresh.Pending;
         private static Noesis.Grid guardedFoodPanel;
         private static readonly Button[] guardedFoodButtons = new Button[4];
         private static readonly bool[] foodButtonHitTestBeforeGuard = new bool[4];
@@ -63,7 +66,11 @@ namespace Spectator
                     SaveSpectatorMarker, IgnoreLoadedMarker))
                     throw new InvalidOperationException("Spectator save-data handler already registered.");
                 SpectatorReportHooks.Install();
+                InitializeReportRefresh();
                 SpectatorAllyHooks.Install();
+                if (!ApiShared.ForMod(SpectatorPlugin.PluginGuid).Ui.TryRegisterBeforeRender("perspective-pending",
+                    OnPendingRender, out pendingRenderWork, out string renderReason, order: 110))
+                    throw new InvalidOperationException("Perspective UI scheduling unavailable: " + renderReason);
                 if (!ApiShared.Current.TryGetMissionLifecycle(SpectatorPlugin.PluginGuid,
                     out IMissionLifecycleCapability lifecycle, out NativeCapabilityDiagnostic diagnostic))
                     throw new InvalidOperationException("Mission lifecycle unavailable: " + diagnostic?.Reason);
@@ -75,6 +82,32 @@ namespace Spectator
             catch (Exception error)
             {
                 log.LogError($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] SPECTATOR_PERSPECTIVE_INITIALIZATION_FAILED: {error}");
+            }
+            // Installs APIShared's input boundaries only when the option is used: now (LibraryLoaded,
+            // no thread suspension) or when it is enabled later between missions.
+            EnsureControlRegistration();
+            settings.SettingsChanged += EnsureControlRegistration;
+        }
+
+        private static bool controlRegistered, controlRegistrationLogged;
+
+        private static void EnsureControlRegistration()
+        {
+            // APIShared installs only between missions; a refusal inside one is no failure to report.
+            if (controlRegistered || !featureReady || !settings.Activation.Control || mapReady) return;
+            try
+            {
+                controlRegistered = PlayerPerspectiveAPI.TryRegisterSpectatorControl(SpectatorPlugin.PluginGuid, out string reason);
+                if (controlRegistered || controlRegistrationLogged) return;
+                controlRegistrationLogged = true;
+                Shared.DebugLogHelper.LogWarning(log, "SPECTATOR_CONTROL_UNAVAILABLE: " + reason +
+                    " Selecting a player keeps the view only.");
+            }
+            catch (Exception error)
+            {
+                if (controlRegistrationLogged) return;
+                controlRegistrationLogged = true;
+                Shared.DebugLogHelper.LogError(log, "SPECTATOR_CONTROL_REGISTRATION_FAILED: " + error);
             }
         }
 
@@ -103,6 +136,7 @@ namespace Spectator
                 if (System.Threading.Interlocked.Read(ref announcedSessionId) != session) return;
                 if (preparedSessionId != session) PrepareSession(session);
                 sessionEnabled = settings.Activation.Perspective;
+                sessionControl = settings.Activation.Control;
                 mapReady = true;
                 loadedFromSave = notification.Context.IsSave;
                 initializationPending = true;
@@ -123,50 +157,55 @@ namespace Spectator
 
         private static void BeginMapLoad()
         {
+            PlayerPerspectiveAPI.ClearEliminatedPlayerView();
             PlayerPerspectiveAPI.ClearSpectatorView();
-            RestoreReportPanel();
+            ClearReportCache();
             RestoreAllyPanel();
             RestoreFoodControls();
             SpectatorAllyHooks.RestoreControls();
             mapReady = false;
             sessionEnabled = false;
+            sessionControl = false;
+            controlFailureLogged = false;
             loadedFromSave = false;
             saveRecoveryStage = 0;
             savedView = 0;
             recoveryIdentityApplied = false;
             spectatorActive = false;
+            perspectiveUncertain = false;
             initializationPending = false;
             hudPending = false;
             selectedPlayer = 0;
             selectedName = null;
             failureLogged = false;
-            cameraFailureLogged = false;
             occupiedSlots = null;
             stateBeforeLoad = null;
             resetHudPending = true;
             ArmRenderIfNeeded();
+            // An option enabled during a mission can only install between missions.
+            EnsureControlRegistration();
         }
 
         private static void ArmRenderIfNeeded()
         {
-            if (renderSubscribed) return;
+            if (pendingRenderWork == null || pendingRenderActive) return;
             pendingSince = Time.realtimeSinceStartup;
-            renderSubscribed = true;
-            Application.onBeforeRender += OnPendingRender;
+            pendingRenderActive = true;
+            pendingRenderWork.SetContinuous(true);
+            pendingRenderWork.Request();
         }
 
         private static void StopRenderIfIdle()
         {
-            if (!renderSubscribed || resetHudPending || initializationPending || hudPending ||
-                reportStateBeforeSwitch != null || alliesStateBeforeSwitch != null) return;
-            Application.onBeforeRender -= OnPendingRender;
-            renderSubscribed = false;
+            if (!pendingRenderActive || resetHudPending || initializationPending || hudPending ||
+                reportRefresh.Pending || alliesStateBeforeSwitch != null) return;
+            pendingRenderWork.SetContinuous(false);
+            pendingRenderWork.CancelPending();
+            pendingRenderActive = false;
         }
 
         private static void OnPendingRender()
         {
-            if (lastPendingFrame == Time.frameCount) return;
-            lastPendingFrame = Time.frameCount;
             try
             {
                 if (resetHudPending)
@@ -189,19 +228,19 @@ namespace Spectator
                     {
                         hudPending = false;
                         if (selectedName == null) CacheSelectedName();
-                        GuardFoodControls();
+                        ApplyControlPresentation();
                     }
                     else if ((MainViewModel.viewModelLoaded && MainViewModel.Instance.Show_HUD_Briefing))
                         hudPending = false;
                 }
-                RefreshPendingReport(GameData.Instance?.lastGameState);
+                RefreshPendingReport();
                 RefreshPendingAllies(GameData.Instance?.lastGameState);
-                if ((initializationPending || hudPending || reportStateBeforeSwitch != null || alliesStateBeforeSwitch != null) &&
+                if ((initializationPending || hudPending || reportRefresh.Pending || alliesStateBeforeSwitch != null) &&
                     Time.realtimeSinceStartup - pendingSince > 15f)
                 {
                     string pending = initializationPending ? saveRecoveryStage == 1 ? "restored spectator PlayState" :
                         saveRecoveryStage == 2 ? "selected-player PlayState" : "PlayState" : hudPending ? "IngameUI" :
-                        reportStateBeforeSwitch != null ? "report PlayState" : "allies PlayState";
+                        reportRefresh.Pending ? "report PlayState" : "allies PlayState";
                     Shared.DebugLogHelper.LogWarning(log, "SPECTATOR_PERSPECTIVE_READY_TIMEOUT: " + pending +
                         " did not become ready within 15 seconds.");
                     initializationPending = false;
@@ -280,9 +319,10 @@ namespace Spectator
                 pendingSince = Time.realtimeSinceStartup;
                 return;
             }
-            if (sessionEnabled && state.spectatorMode != 0 && EditorDirector.instance.ActivePlayerID <= 0)
+            if (sessionEnabled && state.spectatorMode != 0 && IsSpectatorObserver())
             {
-                if (InitializePerspective(state, 0, false))
+                int initialView = SpectatorDefeat.IsEliminatedSpectator ? PlayerPerspectiveAPI.GetControlledPlayerId() : 0;
+                if (InitializePerspective(state, initialView, false))
                 {
                     spectatorActive = true;
                     hudPending = true;
@@ -359,12 +399,15 @@ namespace Spectator
             {
                 occupiedSlots[player] = cpuOnly ? state.is_skirmish_player(player) :
                     state.is_human_or_skirmish_player(player);
-                if (occupiedSlots[player] && first == 0) first = player;
+                if (occupiedSlots[player] && first == 0 && !SpectatorDefeat.IsPlayerEliminated(player)) first = player;
             }
             if (first == 0) return false;
-            int initialView = requestedView >= 1 && requestedView <= 8 && occupiedSlots[requestedView]
-                ? requestedView : first;
-            if (!PlayerPerspectiveAPI.TrySetSpectatorView(initialView))
+            // An eliminated participant starts on its own view (no foreign-view lease needed) even
+            // though defeated players are not listed; every other request must be an undefeated slot.
+            bool ownEliminatedView = SpectatorDefeat.IsEliminatedSpectator && requestedView == PlayerPerspectiveAPI.GetControlledPlayerId();
+            int initialView = requestedView >= 1 && requestedView <= 8 && occupiedSlots[requestedView] &&
+                (ownEliminatedView || !SpectatorDefeat.IsPlayerEliminated(requestedView)) ? requestedView : first;
+            if (!TrySetView(initialView))
             {
                 Shared.DebugLogHelper.LogError(log, "SPECTATOR_PERSPECTIVE_SELECT_FAILED: APIShared rejected the initial spectator view.");
                 return false;
@@ -374,22 +417,100 @@ namespace Spectator
             return true;
         }
 
+        // The controlled player's own Vanilla actions are not spectator actions.
         internal static bool IsSpectatorActionRestricted() => featureReady &&
-            (recoveryIdentityApplied || IsActiveSpectator() || IsOriginalSpectator());
+            (recoveryIdentityApplied || IsActiveSpectator() || IsSpectatorObserver()) && !IsInputControlled();
 
-        private static bool IsOriginalSpectator()
+        // True only while APIShared confirms control of exactly the selected player in this mission.
+        // Cheap field checks first: without the registered option no APIShared call happens per frame.
+        internal static bool IsInputControlled() => controlRegistered && sessionControl && featureReady && mapReady &&
+            selectedPlayer > 0 && PlayerPerspectiveAPI.GetInputControlledPlayerId() == selectedPlayer;
+
+        internal static int InputControlledPlayer() => IsInputControlled() ? selectedPlayer : 0;
+
+        // Spectator restrictions follow the actual control state after every selection.
+        private static void ApplyControlPresentation()
+        {
+            if (IsInputControlled()) RestoreFoodControls();
+            else if (spectatorActive && SpectatorRuntime.ToolbarReady) GuardFoodControls();
+            if (MainViewModel.viewModelLoaded) SpectatorAllyHooks.RefreshControlState();
+            SpectatorRuntime.InvalidateToolbar();
+        }
+
+        // Information and offline tool permissions must not depend on a nonpositive participant ID.
+        internal static bool IsSpectatorObserver() =>
+            SpectatorDefeatPolicy.IsSpectatorObserver(IsOriginalSpectator(), SpectatorDefeat.IsEliminatedSpectator);
+
+        internal static void OnEliminatedSpectatorConfirmed()
+        {
+            if (!featureReady || !mapReady || !sessionEnabled || spectatorActive) return;
+            // Promotion can happen long after the one-time mission initialization has completed.
+            stateBeforeLoad = null;
+            initializationPending = true;
+            pendingSince = Time.realtimeSinceStartup;
+            ArmRenderIfNeeded();
+        }
+
+        private static bool TrySetView(int player)
+        {
+            if (SpectatorDefeat.IsEliminatedSpectator) return PlayerPerspectiveAPI.TrySetEliminatedPlayerView(player);
+            // Original offline spectators with the option control the selected player. If APIShared
+            // rejects control (unsupported image or state), the plain report view stays available.
+            if (sessionControl && controlRegistered && IsOriginalSpectator() && !GameModeHelper.IsRealMultiplayer())
+            {
+                if (PlayerPerspectiveAPI.TrySetSpectatorControl(player)) return true;
+                if (!controlFailureLogged)
+                {
+                    controlFailureLogged = true;
+                    Shared.DebugLogHelper.LogWarning(log, "SPECTATOR_CONTROL_UNAVAILABLE: player=" + player +
+                        "; APIShared rejected spectator input control, selecting the view only.");
+                }
+            }
+            return PlayerPerspectiveAPI.TrySetSpectatorView(player);
+        }
+
+        internal static bool IsOriginalSpectator()
         {
             var state = GameData.Instance?.lastGameState;
             return mapReady && state != null && state.game_type == (int)eGameTypeModes.GAMETYPE_MULTIPLAYER && state.spectatorMode != 0 &&
                    EditorDirector.instance != null && EditorDirector.instance.ActivePlayerID <= 0;
         }
 
+        // The spectator roster is shown as soon as the new mission's PlayState is present, before
+        // perspective initialization completes; selection itself still requires IsActiveSpectator.
+        internal static bool IsSpectatorRoster()
+        {
+            if (IsActiveSpectator()) return true;
+            var state = GameData.Instance?.lastGameState;
+            return featureReady && sessionEnabled && mapReady && !perspectiveUncertain && state != null &&
+                (stateBeforeLoad == null || !ReferenceEquals(state, stateBeforeLoad)) &&
+                state.game_type == (int)eGameTypeModes.GAMETYPE_MULTIPLAYER && state.spectatorMode != 0 &&
+                EditorDirector.instance != null && IsSpectatorObserver();
+        }
+
+        // Presentation thread, after an APIShared defeat-state change: a defeated selected player is
+        // replaced by the next listed, undefeated occupied slot.
+        internal static void OnDefeatStateChanged()
+        {
+            if (!spectatorActive || selectedPlayer < 1 || occupiedSlots == null ||
+                !SpectatorDefeat.IsPlayerEliminated(selectedPlayer)) return;
+            // An eliminated participant's deliberate own view is kept.
+            if (SpectatorDefeat.IsEliminatedSpectator && selectedPlayer == PlayerPerspectiveAPI.GetControlledPlayerId()) return;
+            for (int step = 1; step < 8; step++)
+            {
+                int candidate = (selectedPlayer - 1 + step) % 8 + 1;
+                if (!occupiedSlots[candidate] || SpectatorDefeat.IsPlayerEliminated(candidate)) continue;
+                SelectPlayer(candidate);
+                return;
+            }
+        }
+
         internal static bool IsActiveSpectator()
         {
             var state = GameData.Instance?.lastGameState;
-            return preparedSessionId > 0 && preparedSessionId == System.Threading.Interlocked.Read(ref announcedSessionId) && featureReady && sessionEnabled && mapReady && spectatorActive && selectedPlayer > 0 && state != null &&
+            return preparedSessionId > 0 && preparedSessionId == System.Threading.Interlocked.Read(ref announcedSessionId) && featureReady && sessionEnabled && mapReady && spectatorActive && !perspectiveUncertain && selectedPlayer > 0 && PlayerPerspectiveAPI.GetViewedPlayerId() >= 0 && state != null &&
                    state.game_type == (int)eGameTypeModes.GAMETYPE_MULTIPLAYER && state.spectatorMode != 0 &&
-                   EditorDirector.instance != null && EditorDirector.instance.ActivePlayerID <= 0;
+                   EditorDirector.instance != null && IsSpectatorObserver();
         }
 
         internal static int GetAllyViewPlayerId(GameData data)
@@ -407,7 +528,7 @@ namespace Spectator
         internal static bool CanInteractWithAllies()
         {
             var state = GameData.Instance?.lastGameState;
-            return IsActiveSpectator() && !GameModeHelper.IsRealMultiplayer() && state != null &&
+            return !AlliesRefreshing && IsActiveSpectator() && !GameModeHelper.IsRealMultiplayer() && state != null &&
                    state.is_skirmish_player(selectedPlayer) && !state.is_valid_player(selectedPlayer) &&
                    EngineInterface.GetMeritData()[selectedPlayer, 1] >= 0;
         }
@@ -442,44 +563,51 @@ namespace Spectator
         {
             string name = Platform_Multiplayer.Instance?.getSkirmishName(selectedPlayer);
             selectedName = string.IsNullOrWhiteSpace(name) ? "-" : name;
-            if (GameData.Instance?.app_mode == 16 && GameData.Instance.app_sub_mode == 71 && MainViewModel.Instance != null)
+            if (!reportRefresh.Pending && GameData.Instance?.app_mode == 16 && GameData.Instance.app_sub_mode == 71 && MainViewModel.Instance != null)
                 MainViewModel.Instance.PlayerNameText = selectedName;
         }
 
-        private static void WaitForFreshReport(EngineInterface.PlayState oldState)
+        private static void WaitForFreshReport()
         {
             if (GameData.Instance?.app_mode != 16) return;
             var panel = MainViewModel.Instance?.HUDBuildingPanel?.RefBuildingPanel;
             if (panel == null) return;
             if (hiddenReportPanel != null && !ReferenceEquals(hiddenReportPanel, panel)) RestoreReportPanel();
-            reportStateBeforeSwitch = oldState;
-            pendingSince = Time.realtimeSinceStartup;
-            if (hiddenReportPanel == null)
+            try
             {
-                hiddenReportPanel = panel;
-                reportPanelVisibility = panel.Visibility;
+                int boundary = SpectatorRuntime.CaptureReportFrame(reportClock);
+                reportRefresh.Begin(preparedSessionId, panel, selectedPlayer, GameData.Instance.app_sub_mode, boundary);
+                pendingSince = Time.realtimeSinceStartup;
+                if (hiddenReportPanel == null)
+                {
+                    hiddenReportPanel = panel;
+                    reportPanelLease = new PanelInputLease(panel);
+                    HoldReportValues();
+                }
+                ArmRenderIfNeeded();
             }
-            panel.Visibility = Visibility.Hidden;
-            ArmRenderIfNeeded();
-        }
-
-        private static void RefreshPendingReport(EngineInterface.PlayState state)
-        {
-            if (reportStateBeforeSwitch == null) return;
-            if (!mapReady || GameData.Instance?.app_mode != 16)
+            catch (Exception error)
             {
                 RestoreReportPanel();
-                return;
+                Shared.DebugLogHelper.LogError(log, "SPECTATOR_REPORT_REFRESH_FAILED: " + error);
             }
-            if (ReferenceEquals(state, reportStateBeforeSwitch)) return;
-            RestoreReportPanel();
+        }
+
+        private static void RefreshPendingReport()
+        {
+            if (reportRefresh.Pending && !ReportContextCurrent()) RestoreReportPanel();
+            // Completion is handled after Vanilla's GUI writes, never on an arbitrary render frame.
         }
 
         private static void RestoreReportPanel()
         {
-            if (hiddenReportPanel != null) hiddenReportPanel.Visibility = reportPanelVisibility;
+            reportRefresh.Cancel();
+            var display = reportDisplay; reportDisplay = null;
+            var input = reportPanelLease; reportPanelLease = null;
             hiddenReportPanel = null;
-            reportStateBeforeSwitch = null;
+            Exception failure = display?.Restore();
+            try { input?.Restore(); } catch (Exception error) { if (failure == null) failure = error; }
+            if (failure != null) Shared.DebugLogHelper.LogError(log, "SPECTATOR_REPORT_RESTORE_FAILED: " + failure);
         }
 
         private static void WaitForFreshAllies(EngineInterface.PlayState oldState)
@@ -493,21 +621,23 @@ namespace Spectator
             if (hiddenAlliesPanel == null)
             {
                 hiddenAlliesPanel = panel;
-                alliesPanelVisibility = panel.Visibility;
+                panel.IsVisibleChanged += OnPendingAllyVisibilityChanged;
             }
-            panel.Visibility = Visibility.Hidden;
+            alliesRefresh.Begin(preparedSessionId, panel, oldState);
+            SpectatorAllyHooks.RefreshControlState();
             ArmRenderIfNeeded();
         }
 
         private static void RefreshPendingAllies(EngineInterface.PlayState state)
         {
             if (alliesStateBeforeSwitch == null) return;
-            if (!mapReady || MainViewModel.Instance?.AlliesPanelVisible != true)
+            if (!mapReady || !alliesRefresh.IsCurrent(preparedSessionId,
+                MainViewModel.Instance?.HUDAlliesPanel, MainViewModel.Instance?.AlliesPanelVisible == true))
             {
                 RestoreAllyPanel();
                 return;
             }
-            if (ReferenceEquals(state, alliesStateBeforeSwitch)) return;
+            if (!alliesRefresh.HasFreshState(state)) return;
             try { SpectatorAllyHooks.RefreshOpenPanel(); }
             finally { RestoreAllyPanel(); }
         }
@@ -519,11 +649,17 @@ namespace Spectator
             RestoreAllyPanel();
         }
 
+        private static void OnPendingAllyVisibilityChanged(object sender, DependencyPropertyChangedEventArgs args)
+        {
+            if (hiddenAlliesPanel?.IsVisible != true) RestoreAllyPanel();
+        }
         private static void RestoreAllyPanel()
         {
-            if (hiddenAlliesPanel != null) hiddenAlliesPanel.Visibility = alliesPanelVisibility;
+            if (hiddenAlliesPanel != null) hiddenAlliesPanel.IsVisibleChanged -= OnPendingAllyVisibilityChanged;
+            alliesRefresh.Cancel();
             hiddenAlliesPanel = null;
             alliesStateBeforeSwitch = null;
+            if (MainViewModel.viewModelLoaded) SpectatorAllyHooks.RefreshControlState();
         }
 
         private static void GuardFoodControls()
@@ -556,7 +692,7 @@ namespace Spectator
         internal static void OnHudUnavailable()
         {
             RestoreFoodControls();
-            RestoreReportPanel();
+            ClearReportCache();
             RestoreAllyPanel();
             if (!mapReady || !spectatorActive) return;
             hudPending = true;
@@ -565,105 +701,105 @@ namespace Spectator
 
         internal static void OnHudAvailable()
         {
+            CacheReportValues(MainViewModel.Instance.HUDBuildingPanel);
             if (!mapReady || !spectatorActive) return;
             hudPending = true;
             ArmRenderIfNeeded();
         }
 
-        private static void OnBriefingChanged(bool visible)
-        {
-            if (!mapReady || !spectatorActive) return;
-            if (visible)
-            {
-                SpectatorRuntime.InvalidateToolbar();
-                hudPending = false;
-                StopRenderIfIdle();
-            }
-            else
-            {
-                hudPending = true;
-                ArmRenderIfNeeded();
-            }
-        }
-
         internal static void ObservePerspective(int player)
         {
-            if (!spectatorActive || player == selectedPlayer) return;
+            if (player < 1 || player > 8)
+            {
+                if (!mapReady || (!spectatorActive && !perspectiveUncertain)) return;
+                spectatorActive = false;
+                perspectiveUncertain = true;
+                selectedPlayer = 0;
+                selectedName = null;
+                initializationPending = hudPending = false;
+                ClearReportCache();
+                ClosePendingAllies();
+                CloseUncertainPresentation();
+                SpectatorRuntime.InvalidateToolbar();
+                return;
+            }
+            if ((!spectatorActive && !perspectiveUncertain) || player == selectedPlayer) return;
             var state = GameData.Instance?.lastGameState;
-            if (player < 1 || player > 8 || state == null || !state.is_human_or_skirmish_player(player)) return;
+            if (state == null || !state.is_human_or_skirmish_player(player) ||
+                !sessionEnabled || !IsSpectatorObserver()) return;
+            perspectiveUncertain = false;
+            spectatorActive = true;
             selectedPlayer = player;
+            WaitForFreshReport();
             CacheSelectedName();
-            WaitForFreshReport(state);
             WaitForFreshAllies(state);
         }
 
+        internal static bool CanOpenReports() => SpectatorFeatureActivation.CanOpenReports(IsSpectatorObserver(),
+            perspectiveUncertain || PlayerPerspectiveAPI.GetViewedPlayerId() < 0);
+
+        private static void CloseUncertainPresentation()
+        {
+            if (!MainViewModel.viewModelLoaded) return;
+            var view = MainViewModel.Instance;
+            view.AlliesPanelVisible = false;
+            // This public Vanilla helper only changes HUD flags. Preserve unrelated modal overlays.
+            if (GameData.Instance?.app_mode == (int)Enums.AppModes.APP_MODE_IN_BUILDING && view.Show_HUD_Building &&
+                !view.Show_HUD_MissionOver && !view.Show_HUD_Briefing)
+                view.DefaultGameUIGameAction();
+        }
+
+        // Switch measurements and their state exist only in the /devdiag build.
+        static partial void DiagPerspectiveSwitchBegin(int player);
+        static partial void DiagPerspectiveSwitchStage(string stage, bool completed);
+
         internal static void SelectPlayer(int player)
         {
-            if (!spectatorActive || player < 1 || player > 8 || occupiedSlots == null || !occupiedSlots[player]) return;
-            var state = GameData.Instance?.lastGameState;
-            if (state == null || state.spectatorMode == 0 || state.game_type != (int)eGameTypeModes.GAMETYPE_MULTIPLAYER ||
-                EditorDirector.instance == null || EditorDirector.instance.ActivePlayerID > 0 ||
-                !state.is_human_or_skirmish_player(player) || selectedPlayer == player) return;
+            DiagPerspectiveSwitchBegin(player);
+#if SERP_DEVDIAG
             try
             {
-                if (!PlayerPerspectiveAPI.TrySetSpectatorView(player)) return;
+#endif
+            if (!spectatorActive || player < 1 || player > 8 || occupiedSlots == null || !occupiedSlots[player] ||
+                SpectatorDefeat.IsPlayerEliminated(player))
+            { DiagPerspectiveSwitchStage("rejected/selection", true); return; }
+            var state = GameData.Instance?.lastGameState;
+            if (state == null || state.spectatorMode == 0 || state.game_type != (int)eGameTypeModes.GAMETYPE_MULTIPLAYER ||
+                EditorDirector.instance == null || !IsSpectatorObserver() ||
+                !state.is_human_or_skirmish_player(player) || selectedPlayer == player)
+            { DiagPerspectiveSwitchStage("rejected/state-or-unchanged", true); return; }
+            DiagPerspectiveSwitchStage("validated", false);
+            try
+            {
+                if (!TrySetView(player))
+                { DiagPerspectiveSwitchStage("try-set-view/rejected", true); return; }
+                DiagPerspectiveSwitchStage("try-set-view", false);
             }
             catch (Exception error)
             {
+                DiagPerspectiveSwitchStage("try-set-view/exception/" + error.GetType().Name, true);
                 Shared.DebugLogHelper.LogError(log, $"SPECTATOR_PERSPECTIVE_SELECT_FAILED: player={player}, error={error}.");
                 return;
             }
             selectedPlayer = player;
+            WaitForFreshReport();
+            DiagPerspectiveSwitchStage("wait-report", false);
             CacheSelectedName();
+            DiagPerspectiveSwitchStage("cache-name", false);
             SpectatorRuntime.AcceptPerspective(player);
-            WaitForFreshReport(state);
+            DiagPerspectiveSwitchStage("accept-selection", false);
             WaitForFreshAllies(state);
-        }
-
-        internal static unsafe void JumpToPlayer(int player, MouseButton button)
-        {
-            if (player < 1 || player > 8 || !IsActiveSpectator() ||
-                occupiedSlots == null || !occupiedSlots[player] ||
-                !GameData.Instance.lastGameState.is_human_or_skirmish_player(player)) return;
-
-            try
-            {
-                GamePlayerManagerAPI players = GamePlayerManagerAPI.Instance;
-                if (players == null) return;
-
-                if (button == MouseButton.Right)
-                {
-                    GameBuildingManagerAPI buildings = GameBuildingManagerAPI.Instance;
-                    if (buildings == null) return;
-                    int keepId = players.GetPlayerKeepId(player);
-                    if (keepId <= 0 || !buildings.TryGetBuildingById(keepId, out GameBuilding* keep) ||
-                        keep == null || keep->r_AliveState != AliveState.IsAlive ||
-                        keep->r_PlayerIdOwner != player || keep->r_GlobalId == 0 ||
-                        keep->r_BuildingType < eStructs.STRUCT_KEEP_ONE ||
-                        keep->r_BuildingType > eStructs.STRUCT_KEEP_FIVE) return;
-                    players.SetScreenCenterToBuilding(keepId);
-                }
-                else if (button == MouseButton.Middle)
-                {
-                    GameUnitManagerAPI units = GameUnitManagerAPI.Instance;
-                    if (units == null) return;
-                    int lordId = players.GetLordUnitId(player);
-                    int lordGlobalId = players.GetLordUnitGlobalId(player);
-                    if (lordId <= 0 || lordGlobalId == 0 ||
-                        !APIShared.UnitAccess.TryGetById(units, lordId, out GameUnit* lord, out _) || lord == null ||
-                        !APIShared.UnitAccess.IsReallyAlive(lord) ||
-                        lord->r_ControllableForPlayerId != player ||
-                        lord->r_UnitChimp != eChimps.CHIMP_TYPE_LORD ||
-                        lord->r_CurrentHealth == 0 || lord->r_GlobalId != unchecked((uint)lordGlobalId)) return;
-                    players.SetScreenCenterToUnit(lordId);
-                }
+            DiagPerspectiveSwitchStage("wait-allies", false);
+            ApplyControlPresentation();
+            DiagPerspectiveSwitchStage("apply-presentation", true);
+#if SERP_DEVDIAG
             }
             catch (Exception error)
             {
-                if (cameraFailureLogged) return;
-                cameraFailureLogged = true;
-                Shared.DebugLogHelper.LogError(log, $"SPECTATOR_PERSPECTIVE_CAMERA_FAILED: player={player}, button={button}, error={error}.");
+                DiagPerspectiveSwitchStage("exception/" + error.GetType().Name, true);
+                throw;
             }
+#endif
         }
 
     }

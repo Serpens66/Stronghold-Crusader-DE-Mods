@@ -38,6 +38,7 @@ namespace Spectator
             harmony.Patch(open, postfix: new HarmonyMethod(typeof(SpectatorAllyHooks), nameof(AfterOpen)));
             if (!GameActionEvents.TryRegister(SpectatorPlugin.PluginGuid, "SpectatorAllySafety", args => {
                 if (args.Command < Enums.GameActionCommand.Ally_Orders || args.Command > Enums.GameActionCommand.Ally_CancelOrders) return;
+                // Normal spectator actions retain their existing authority boundary.
                 if (SpectatorPerspectiveRuntime.IsNetworkSpectator() || (SpectatorPerspectiveRuntime.IsSpectatorActionRestricted() &&
                     !SpectatorPerspectiveRuntime.CanIssueAllyAction(args.Command, args.StructureId, args.ActionState, args.Value2)))
                     args.SkipOriginalFunction = true;
@@ -97,7 +98,7 @@ namespace Spectator
                 guardedPanel = panel;
             }
             if (originalButtonStates.Count < 12) FindActionButtons(panel);
-            bool enabled = SpectatorPerspectiveRuntime.CanInteractWithAllies();
+            bool enabled = !SpectatorPerspectiveRuntime.AlliesRefreshing && SpectatorPerspectiveRuntime.CanInteractWithAllies();
             foreach (var entry in originalButtonStates)
             {
                 bool shouldEnable = enabled && entry.Value;

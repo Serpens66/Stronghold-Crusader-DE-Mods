@@ -12,7 +12,7 @@ using System.Reflection;
 namespace BugfixesAndQoL
 {
     [BepInDependency(ScriptExtenderGuid, "2.14.0")]
-    [BepInDependency(ApiSharedGuid, "0.16.0")]
+    [BepInDependency(ApiSharedGuid, "0.26.0")]
     [BepInDependency("ActiveAIVDetector_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("ExtraFeatures_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency(LegacySomeSettingsGuid, BepInDependency.DependencyFlags.SoftDependency)]
@@ -27,6 +27,7 @@ namespace BugfixesAndQoL
     [BepInIncompatibility(PreplacedTestGuid)]
     [BepInIncompatibility("GatehouseLivingCaptureTest_Serp")]
     [BepInIncompatibility("DrawbridgeDestructionFixTest_Serp")]
+    [BepInIncompatibility("LordTeleportGuardTest_Serp")]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
 
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
@@ -44,7 +45,7 @@ namespace BugfixesAndQoL
 
         public const string PluginGuid = "BugfixesAndQoL_Serp";
         public const string PluginName = "Bugfixes and QoL";
-        public const string PluginVersion = "1.0.203";
+        public const string PluginVersion = "1.0.211";
 
         private static DisplayResolutionPersistenceHook displayResolutionPersistenceHook;
         private static DamagedHealthBarsRuntime damagedHealthBarsRuntime;
@@ -56,11 +57,13 @@ namespace BugfixesAndQoL
         private static SkirmishGameOptionsRuntime skirmishGameOptionsRuntime;
         private static SkirmishGameOptionsAccessViewModel skirmishGameOptionsAccess;
         private static VanillaPeaceTimeGameplayPatch vanillaPeaceTimeGameplayPatch;
+        private static PeaceTimeCivilianProximityFeature peaceTimeCivilianProximityFeature;
         private static TimerCountdownFeature timerCountdownFeature;
         private static TrailDeletionViewModel trailDeletionViewModel;
         private static NoDogsNativePatch noDogsNativePatch;
         private static bool skirmishGameOptionsCompatible;
         private BugfixesAndQoLRuntime runtime;
+        private static StatisticsTeamBadges statisticsTeamBadges;
         private bool marketGoodsVisualRefreshFailureLogged;
 
         public BugfixesAndQoLViewModel Settings { get; private set; }
@@ -82,12 +85,12 @@ namespace BugfixesAndQoL
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/src/BugfixesAndQoLPlugin.cs:82", $"Bugfixes and QoL startup UI-readiness guard could not be initialized; Vanilla behavior remains active: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/BugfixesAndQoLPlugin/Awake.startup-ui-readiness-guard", $"Bugfixes and QoL startup UI-readiness guard could not be initialized; Vanilla behavior remains active: {ex}");
             }
             bool legacySomeSettingsLoaded = Chainloader.PluginInfos.ContainsKey(LegacySomeSettingsGuid);
             if (legacySomeSettingsLoaded)
             {
-                Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/src/BugfixesAndQoLPlugin.cs:89", $"The obsolete mod '{LegacySomeSettingsGuid}' is loaded together with {PluginName}. " +
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/BugfixesAndQoLPlugin/Awake.obsolete-mod-loaded-together", $"The obsolete mod '{LegacySomeSettingsGuid}' is loaded together with {PluginName}. " +
                     "Uninstall it to avoid duplicate or conflicting features.");
             }
 
@@ -110,7 +113,7 @@ namespace BugfixesAndQoL
             }
             else
             {
-                Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/src/BugfixesAndQoLPlugin.cs:110", "BUGFIXES_AND_QOL_SKIRMISH_GAME_OPTIONS_DISABLED_LEGACY_EXTRAFEATURES: " +
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/BugfixesAndQoLPlugin/Awake.skirmish-game-options-disabled", "BUGFIXES_AND_QOL_SKIRMISH_GAME_OPTIONS_DISABLED_LEGACY_EXTRAFEATURES: " +
                     "the installed ExtraFeatures still owns the synchronized Peace Time setting. " +
                     "Update ExtraFeatures before enabling the integrated Singleplayer Game Options dialog.");
             }
@@ -121,7 +124,7 @@ namespace BugfixesAndQoL
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/src/BugfixesAndQoLPlugin.cs:123", $"Bugfixes and QoL resolution-aware extended zoom could not be initialized; Vanilla zoom remains active: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/BugfixesAndQoLPlugin/Awake.resolution-aware-extended-zoom", $"Bugfixes and QoL resolution-aware extended zoom could not be initialized; Vanilla zoom remains active: {ex}");
             }
             try
             {
@@ -131,7 +134,7 @@ namespace BugfixesAndQoL
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/src/BugfixesAndQoLPlugin.cs:135", $"Bugfixes and QoL display-resolution persistence could not be initialized; Vanilla behavior remains active: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/BugfixesAndQoLPlugin/Awake.display-resolution-persistence-could", $"Bugfixes and QoL display-resolution persistence could not be initialized; Vanilla behavior remains active: {ex}");
             }
             runtime = new BugfixesAndQoLRuntime(Logger, Settings);
             CrusaderLibrary.Instance.LibraryLoaded += OnCrusaderLibraryLoaded;
@@ -163,14 +166,14 @@ namespace BugfixesAndQoL
                             if (!marketGoodsVisualRefreshFailureLogged)
                             {
                                 marketGoodsVisualRefreshFailureLogged = true;
-                                Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/src/BugfixesAndQoLPlugin.cs:169", $"Bugfixes and QoL market-goods visual refresh failed; text controls remain usable: {ex}");
+                                Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/BugfixesAndQoLPlugin/InitializePersistentUiAndMapCallbacks.market-goods-visual-refresh", $"Bugfixes and QoL market-goods visual refresh failed; text controls remain usable: {ex}");
                             }
                         }
                     };
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/src/BugfixesAndQoLPlugin.cs:178", $"Bugfixes and QoL market-goods visual callback could not be registered; other callbacks continue: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/BugfixesAndQoLPlugin/InitializePersistentUiAndMapCallbacks.market-goods-visual-callback", $"Bugfixes and QoL market-goods visual callback could not be registered; other callbacks continue: {ex}");
             }
 
             try
@@ -184,7 +187,7 @@ namespace BugfixesAndQoL
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/src/BugfixesAndQoLPlugin.cs:194", $"Bugfixes and QoL Steam invite map callback could not be registered; other callbacks continue: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/BugfixesAndQoLPlugin/InitializePersistentUiAndMapCallbacks.steam-invite-map-callback", $"Bugfixes and QoL Steam invite map callback could not be registered; other callbacks continue: {ex}");
             }
         }
 
@@ -217,7 +220,7 @@ namespace BugfixesAndQoL
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/src/BugfixesAndQoLPlugin.cs:215", $"Bugfixes and QoL Chore registration failed; synchronized game-speed changes remain unavailable: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/BugfixesAndQoLPlugin/InitializeLibraryRuntime.chore-registration-failed-synchronized", $"Bugfixes and QoL Chore registration failed; synchronized game-speed changes remain unavailable: {ex}");
             }
 
             // Construct the editor rows before subscribing to hub changes, so even an early
@@ -228,7 +231,7 @@ namespace BugfixesAndQoL
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/src/BugfixesAndQoLPlugin.cs:228", $"Bugfixes and QoL market-order editor initialization failed: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/BugfixesAndQoLPlugin/InitializeLibraryRuntime.market-order-editor-initialization", $"Bugfixes and QoL market-order editor initialization failed: {ex}");
             }
 
             try
@@ -243,7 +246,7 @@ namespace BugfixesAndQoL
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/src/BugfixesAndQoLPlugin.cs:242", $"Bugfixes and QoL settings registration failed; gameplay runtime stopped fail-closed: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/BugfixesAndQoLPlugin/InitializeLibraryRuntime.settings-registration-failed-gameplay", $"Bugfixes and QoL settings registration failed; gameplay runtime stopped fail-closed: {ex}");
                 return false;
             }
 
@@ -255,18 +258,16 @@ namespace BugfixesAndQoL
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/src/BugfixesAndQoLPlugin.cs:256", "Bugfixes and QoL Trail deletion binding failed: " + ex);
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/BugfixesAndQoLPlugin/InitializeLibraryRuntime.trail-deletion-binding-failed", "Bugfixes and QoL Trail deletion binding failed: " + ex);
             }
             InitializePersistentUiAndMapCallbacks();
 
             try
             {
-                SpectatorPerspectiveRuntime.Initialize(Logger, Settings);
+                statisticsTeamBadges = new StatisticsTeamBadges(Logger, Settings);
+                statisticsTeamBadges.Initialize();
             }
-            catch (Exception ex)
-            {
-                Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/src/BugfixesAndQoLPlugin.cs:266", "Bugfixes and QoL spectator perspective could not initialize; other features remain available: " + ex);
-            }
+            catch (Exception error) { Shared.DebugLogHelper.LogErrorLimited(Logger, "statistics-badges-init", "Statistics team badges unavailable: " + error); }
 
             try
             {
@@ -279,7 +280,7 @@ namespace BugfixesAndQoL
             {
                 skirmishGameOptionsRuntime = null;
                 skirmishGameOptionsAccess.SetRuntimeAvailable(false);
-                Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/src/BugfixesAndQoLPlugin.cs:281", "BUGFIXES_AND_QOL_SKIRMISH_GAME_OPTIONS_MANAGED_FAILED: " + ex);
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/BugfixesAndQoLPlugin/InitializeLibraryRuntime.skirmish-game-options-managed", "BUGFIXES_AND_QOL_SKIRMISH_GAME_OPTIONS_MANAGED_FAILED: " + ex);
             }
 
             try
@@ -290,7 +291,7 @@ namespace BugfixesAndQoL
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/src/BugfixesAndQoLPlugin.cs:294", $"Bugfixes and QoL Assassin climb button binding failed: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/BugfixesAndQoLPlugin/InitializeLibraryRuntime.assassin-climb-button-binding", $"Bugfixes and QoL Assassin climb button binding failed: {ex}");
             }
 
             try
@@ -301,22 +302,16 @@ namespace BugfixesAndQoL
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/src/BugfixesAndQoLPlugin.cs:307", $"Bugfixes and QoL quarry button binding failed: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/BugfixesAndQoLPlugin/InitializeLibraryRuntime.quarry-button-binding-failed", $"Bugfixes and QoL quarry button binding failed: {ex}");
             }
 
             try
             {
                 runtime.InitializeSurrenderFeature();
-                GameXAMLManagerAPI.Instance.RegisterBinding(
-                    "BugfixesAndQoLSurrenderButtonHost",
-                    runtime.SurrenderAndStatisticsUi);
-                GameXAMLManagerAPI.Instance.RegisterBinding(
-                    "BugfixesAndQoLSpectatorStatisticsRefreshHost",
-                    runtime.SurrenderAndStatisticsUi);
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/src/BugfixesAndQoLPlugin.cs:324", $"Bugfixes and QoL surrender/statistics UI/network initialization failed; both buttons remain inactive: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/BugfixesAndQoLPlugin/InitializeLibraryRuntime.surrender-ui-network-initialization", $"Bugfixes and QoL surrender UI/network initialization failed; surrender remains inactive: {ex}");
             }
 
             try
@@ -328,7 +323,7 @@ namespace BugfixesAndQoL
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/src/BugfixesAndQoLPlugin.cs:336", $"Bugfixes and QoL selected-unit health UI initialization failed; the display remains hidden: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/BugfixesAndQoLPlugin/InitializeLibraryRuntime.selected-unit-health-ui", $"Bugfixes and QoL selected-unit health UI initialization failed; the display remains hidden: {ex}");
             }
 
             try
@@ -338,7 +333,7 @@ namespace BugfixesAndQoL
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/src/BugfixesAndQoLPlugin.cs:348", "Bugfixes and QoL countdown UI initialization failed: " + ex);
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/BugfixesAndQoLPlugin/InitializeLibraryRuntime.countdown-ui-initialization-failed", "Bugfixes and QoL countdown UI initialization failed: " + ex);
             }
 
             // Keep UI registration independent so one native feature cannot hide the whole mod.
@@ -358,7 +353,7 @@ namespace BugfixesAndQoL
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/src/BugfixesAndQoLPlugin.cs:353", "BUGFIXES_AND_QOL_VANILLA_PERFORMANCE_DISABLED: Vanilla behavior retained; " + ex);
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/BugfixesAndQoLPlugin/InitializeLibraryRuntime.vanilla-performance-disabled-vanilla", "BUGFIXES_AND_QOL_VANILLA_PERFORMANCE_DISABLED: Vanilla behavior retained; " + ex);
             }
             try
             {
@@ -367,7 +362,7 @@ namespace BugfixesAndQoL
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/src/BugfixesAndQoLPlugin.cs:361", "BUGFIXES_AND_QOL_DAMAGED_HEALTH_BARS_DISABLED: " + ex);
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/BugfixesAndQoLPlugin/InitializeLibraryRuntime.damaged-health-bars-disabled", "BUGFIXES_AND_QOL_DAMAGED_HEALTH_BARS_DISABLED: " + ex);
             }
 
             try
@@ -378,7 +373,17 @@ namespace BugfixesAndQoL
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/src/BugfixesAndQoLPlugin.cs:373", $"Bugfixes and QoL native runtime initialization failed; unaffected features may continue: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/BugfixesAndQoLPlugin/InitializeLibraryRuntime.native-runtime-initialization-failed", $"Bugfixes and QoL native runtime initialization failed; unaffected features may continue: {ex}");
+            }
+
+            try
+            {
+                if (peaceTimeCivilianProximityFeature == null)
+                    peaceTimeCivilianProximityFeature = new PeaceTimeCivilianProximityFeature(Logger, Settings);
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(Logger, "PEACE_CIVILIAN_PROXIMITY_UNAVAILABLE: existing building rules remain active; " + ex);
             }
 
             FormationFeature.Initialize(context);
@@ -399,7 +404,7 @@ namespace BugfixesAndQoL
                 catch (Exception ex)
                 {
                     skirmishGameOptionsRuntime?.SetPeaceTimeNativeAvailable(false);
-                    Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/src/BugfixesAndQoLPlugin.cs:394", "BUGFIXES_AND_QOL_VANILLA_PEACE_TIME_PATCH_FAILED: " + ex);
+                    Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/BugfixesAndQoLPlugin/InitializeLibraryRuntime.vanilla-peace-time-patch", "BUGFIXES_AND_QOL_VANILLA_PEACE_TIME_PATCH_FAILED: " + ex);
                 }
 
                 if (skirmishGameOptionsRuntime != null)
@@ -417,7 +422,7 @@ namespace BugfixesAndQoL
                     catch (Exception ex)
                     {
                         skirmishGameOptionsRuntime.SetNoDogsNativeAvailable(false);
-                        Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/src/BugfixesAndQoLPlugin.cs:414", "BUGFIXES_AND_QOL_SKIRMISH_GAME_OPTIONS_NO_DOGS_PATCH_FAILED: " + ex);
+                        Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/BugfixesAndQoLPlugin/InitializeLibraryRuntime.skirmish-game-options-no", "BUGFIXES_AND_QOL_SKIRMISH_GAME_OPTIONS_NO_DOGS_PATCH_FAILED: " + ex);
                     }
                 }
             }
@@ -436,7 +441,7 @@ namespace BugfixesAndQoL
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/src/BugfixesAndQoLPlugin.cs:435", $"Bugfixes and QoL ally amount display binding failed: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/BugfixesAndQoLPlugin/InitializeLibraryRuntime.ally-amount-display-binding", $"Bugfixes and QoL ally amount display binding failed: {ex}");
             }
 
             try
@@ -446,7 +451,7 @@ namespace BugfixesAndQoL
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/src/BugfixesAndQoLPlugin.cs:445", $"Bugfixes and QoL Steam lobby-invite prompt could not be initialized; Vanilla invite handling remains active: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/BugfixesAndQoLPlugin/InitializeLibraryRuntime.steam-lobby-invite-prompt", $"Bugfixes and QoL Steam lobby-invite prompt could not be initialized; Vanilla invite handling remains active: {ex}");
             }
 
             try
@@ -456,7 +461,7 @@ namespace BugfixesAndQoL
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/src/BugfixesAndQoLPlugin.cs:455", $"Bugfixes and QoL settings reconciliation failed; already initialized features remain active: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/BugfixesAndQoLPlugin/InitializeLibraryRuntime.settings-reconciliation-failed-already", $"Bugfixes and QoL settings reconciliation failed; already initialized features remain active: {ex}");
             }
             // Results of a one-time native fallback (unknown game build) are reused on the next start.
             BfqolNativeCache.Save();

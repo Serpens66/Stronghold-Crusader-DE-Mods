@@ -14,6 +14,7 @@ namespace ExtendedData
         private bool includeExtendedData = true;
         private Visibility optionVisibility = Visibility.Collapsed;
         private WorkshopUploadOptionKind optionKind;
+        public string LordMediaStatusText { get; private set; }
 
         public event PropertyChangedEventHandler PropertyChanged;
 
@@ -50,14 +51,16 @@ namespace ExtendedData
                 ? "WorkshopUpload.IncludeAdditionalFilesHelp"
                 : "WorkshopUpload.IncludeModSettingsHelp");
 
-        internal void Open(WorkshopUploadOptionKind kind)
+        internal void Open(WorkshopUploadOptionKind kind, string lordMediaStatus = null)
         {
             optionKind = kind;
+            LordMediaStatusText = lordMediaStatus ?? "";
             includeExtendedData = true;
             OptionVisibility = Visibility.Visible;
             Changed(nameof(IncludeExtendedData));
             Changed(nameof(LabelText));
             Changed(nameof(HelpText));
+            Changed(nameof(LordMediaStatusText));
         }
 
         internal void Close() => OptionVisibility = Visibility.Collapsed;

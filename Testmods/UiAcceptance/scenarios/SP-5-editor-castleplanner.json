@@ -1,0 +1,26 @@
+{
+  "enabled": true,
+  "series": "SP-5",
+  "role": "sp",
+  "steps": [
+    { "id": "menu", "do": "WaitMainMenu", "timeoutMs": 180000, "stopOnFail": true, "allowErrors": true },
+    { "id": "tools-on", "do": "SetModSetting", "args": ["Spectator.SpectatorPlugin::processRoot.Settings", "EnableTestTools", "true"], "stopOnFail": true },
+    { "id": "editor", "do": "Editor.Start", "timeoutMs": 120000, "stopOnFail": true },
+    { "id": "describe", "do": "Describe" },
+    { "id": "no-toolbar", "do": "Spectator.ExpectNoToolbar", "args": ["3000"], "timeoutMs": 10000 },
+    { "id": "uiwork-editor", "do": "UiWork.ExpectIdle", "args": ["3000", "Spectator_Serp"], "timeoutMs": 10000 },
+    { "id": "shot-editor", "do": "Screenshot", "args": ["editor"] },
+    { "id": "quit-editor", "do": "QuitToMenu", "timeoutMs": 60000 },
+    { "id": "load", "do": "LoadSave", "args": ["test_gates.sav"], "timeoutMs": 120000, "stopOnFail": true },
+    { "id": "count-depth", "do": "CountCalls", "args": ["depth", "CastlePlanner.BlueprintRenderer", "TryCreateFlattenedMesh"], "allowErrors": true },
+    { "id": "flatten", "do": "Log", "args": ["flatten/rotate through the public engine commands"] },
+    { "id": "rotate-left", "do": "Camera", "args": ["rotate-left"] },
+    { "id": "flatten-on", "do": "Camera", "args": ["flatten"] },
+    { "id": "settle", "do": "Wait", "args": ["2000"] },
+    { "id": "flatten-off", "do": "Camera", "args": ["flatten"] },
+    { "id": "rotate-right", "do": "Camera", "args": ["rotate-right"] },
+    { "id": "depth-per-frame", "do": "ExpectCalls", "args": ["depth", "0", "100000", "1"] },
+    { "id": "shot-cp", "do": "Screenshot", "args": ["castleplanner"] },
+    { "id": "quit", "do": "QuitToMenu", "timeoutMs": 60000 }
+  ]
+}

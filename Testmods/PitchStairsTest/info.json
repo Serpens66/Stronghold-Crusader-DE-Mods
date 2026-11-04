@@ -1,0 +1,20 @@
+{
+  "GUID": "PitchStairsTest_Serp",
+  "Author": "Serpens66",
+  "Name": "Pitch Stairs Test",
+  "Description": "Experimental variant B: pitch keeps the ground height so stairs behind pitch stay reachable; fire spread keeps Vanilla heights.",
+  "Version": "0.1.1",
+  "MinimumScriptExtenderVersion": "2.14.3",
+  "MaximumScriptExtenderVersion": "",
+  "Dependencies": [
+    {
+      "GUID": "APIShared_Serp",
+      "MinimumVersion": "0.23.0"
+    }
+  ],
+  "Manifest": 1,
+  "NetworkMode": 1,
+  "SupportedGameVersions": [
+    "2.8.0.2"
+  ]
+}

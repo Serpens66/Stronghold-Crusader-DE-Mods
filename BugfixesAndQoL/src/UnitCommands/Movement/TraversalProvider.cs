@@ -61,6 +61,17 @@ namespace BugfixesAndQoL.UnitCommands
         internal abstract bool Enabled { get; }
         internal abstract IMoatSearchKernel CreateKernel(int width, int height, MoatSearchEdge edge);
         internal abstract void InvalidateFastMoatData();
+        // Terrain changed around one tile (native 3x3 tile/moat update): a provider may refresh
+        // only the affected area. The default keeps the global invalidation.
+        internal virtual void InvalidateFastMoatTile(int tile) => InvalidateFastMoatData();
+        // Native mask rebuild (0xDAA50, FBCB9319): every tile's direction byte (0x51890D0) was
+        // recomputed by 0xD86F0, which writes nothing else a traversal predicate reads. A provider
+        // that observes those bytes itself may skip the global invalidation. Default: global.
+        internal virtual void InvalidateFastMoatDirections() => InvalidateFastMoatData();
+        // A formation group move (11B520 Pre) assigned these per-unit target tiles; 196280 later
+        // moves each unit there. Simulation-deterministic, called once per formation command.
+        // Arrays are owned by the caller and must not be kept. The default ignores the plan.
+        internal virtual void ObserveFormationDestinations(int tribeId, int[] unitIds, uint[] globalIds, int[] targetX, int[] targetY) { }
         internal abstract void LogAndResetFastMoatMetrics();
         internal abstract bool HasFastFriendlyMoatBridge(int playerId, int startTileId, int targetTileId);
         internal abstract void ClearDeferredFastMoveScope();

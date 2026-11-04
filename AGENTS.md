@@ -18,10 +18,11 @@ Sobald ein Auslöser zutrifft, die genannte Datei **vor** dem ersten fachlichen 
 | Modsettings, Presets, Modsettings-XAML, Tooltips, Locales | [AGENTS/modsettings-ui.md](AGENTS/modsettings-ui.md) |
 | Custom-Pakete, Chores, `[SyncPerPlayer]`, Netzwerkautorität, Spielmodus-Freigaben, MP-Tests | [AGENTS/multiplayer-network.md](AGENTS/multiplayer-network.md) |
 | Kartenstart, Save-Laden, Editor-Start, Missionsende, verzögerte Aktionen, Timeline | [AGENTS/mission-lifecycle.md](AGENTS/mission-lifecycle.md) |
-| APIShared nutzen/erweitern/veröffentlichen, Dateien unter `Shared/`, Mod-Abhängigkeiten | [AGENTS/apishared.md](AGENTS/apishared.md) |
+| APIShared nutzen/erweitern/installieren/aktualisieren/veröffentlichen, Dateien unter `Shared/`, Mod-Abhängigkeiten | [AGENTS/apishared.md](AGENTS/apishared.md) |
 | Fehler in Script Extender oder Fixes-Mod; Fixes-bezogene Präferenzen, Presets, Belagerung | [AGENTS/external-components.md](AGENTS/external-components.md) |
 | Build, CRLF-Konvertierung, Versionsänderung, Release, Steam-Modpack | [AGENTS/build-release.md](AGENTS/build-release.md) |
 | PowerShell-/CMD-/BAT-Befehle oder -Skripte, Sandbox-/Berechtigungsfehler | [AGENTS/shell-windows.md](AGENTS/shell-windows.md) |
+| Code, Mod, Diff oder Konzept auf Fehler, Probleme oder Risiken prüfen (Review, Audit); Korrekturen dafür vorschlagen | [AGENTS/code-review.md](AGENTS/code-review.md) |
 | FPS-/Lag-/Startzeit-/Effizienz-Untersuchung, Performance-Messung, neue Hooks/Callbacks/Suchen in heißen Pfaden (pro Tick, Frame, Einheit, Kachel) | [AGENTS/performance.md](AGENTS/performance.md) |
 
 Verschachtelte `AGENTS.md` (z. B. `APIShared/`, `Shared/Tools/ScriptExtenderUpdate/`) gelten zusätzlich in ihrem Ordner.
@@ -34,7 +35,8 @@ Vor jedem Tool- oder Shellaufruf die einschlägigen Punkte prüfen; bereits doku
 - **Runtime-Precheck:** Vor der ersten Änderung an einem Runtime-Mod JSON-Abhängigkeiten, Teardownpfade und den langlebigen Aufrufweg nach dem SHCDE-Startup-Cleanup prüfen und melden; früh erzeugte Plugin-Komponenten werden beim Start zerstört → [runtime-lifecycle.md](AGENTS/runtime-lifecycle.md).
 - **JSON:** in Runtime-Mods ausschließlich `Shared.DependencyFreeJson` per Quelllink; alle anderen Serializer verboten.
 - **Publicized Assembly:** neue Spielmember vor dem Build gegen die echte `Assembly-CSharp.dll` auf Sichtbarkeit prüfen; ein erfolgreicher Build beweist nichts.
-- **Hooks:** veröffentlichte Hooks nie zurück- oder umpatchen; Aktivierung nur logisch → [native-hooks.md](AGENTS/native-hooks.md).
+- **Code-Prüfungen:** Befunde und Korrekturen erst nach Einzelverifikation mit konkretem Fehlerfall und gescheitertem Widerlegungsversuch melden; Unbestätigtes verwerfen oder getrennt kennzeichnen → [code-review.md](AGENTS/code-review.md).
+- **Hooks:** veröffentlichte Hooks standardmäßig nicht zurück- oder umpatchen, sondern logisch aktivieren (verhindert Abstürze und Konflikte); Zurückpatchen nur, wenn für den konkreten Fall nachgewiesen ist, dass kein Problem entstehen kann → [native-hooks.md](AGENTS/native-hooks.md).
 - **XAML-Patches:** `<Content>` mit genau einem Wurzelelement.
 - **Entwicklungsdiagnose:** neue, vor dem Release zu entfernende Diagnose nur über `Shared.DevDiag` und `build.bat /devdiag`; nie über Laufzeitschalter oder Release-Builds → [build-release.md](AGENTS/build-release.md#entwicklungsdiagnose-devdiag).
 - **Events statt Polling:** immer prüfen, ob ein passendes Event existiert (z. B. `OnKeyDown` statt `onBeforeRender`).
@@ -49,6 +51,13 @@ Vor jedem Tool- oder Shellaufruf die einschlägigen Punkte prüfen; bereits doku
 - Vom Nutzer übergebene Pfade/URLs können durch Markdown verfälscht sein (`\_` statt `_`). Existiert der Literalpfad mit `\_` nicht, die Variante mit `_` prüfen und die korrigierte Interpretation ausdrücklich nennen; nicht ungeprüft korrigieren, wenn beide existieren oder plausibel sind.
 - Ist eine vollständig in Markdown formatierte Antwort verlangt: genau ein äußerer Codeblock ab ` ```markdown ` bis ganz zum Ende, darin keine weiteren dreifachen Backticks (Code mit vier Leerzeichen einrücken).
 - Lange Prozesse: Fortschritt beobachtbar machen (getrennte Logs, Zeitstempel, CPU, Loggröße, Zwischenstände); nicht wegen eines kurzen Shell-Timeouts als hängend behandeln. Bei voraussichtlich > 5 Minuten den Nutzer fragen, ob fortgesetzt werden soll; ein sicher laufender Prozess darf währenddessen weiterlaufen.
+
+### Unteragenten und Aufgabenverteilung
+
+- Chats dürfen jederzeit eigenständig und ohne zusätzliche Rückfrage Unteragenten zur Aufgabenverteilung einsetzen, wenn dies die Arbeit voraussichtlich beschleunigt, ohne die Qualität zu mindern. Dies gilt im Rahmen der verfügbaren Werkzeuge und übergeordneten Vorgaben.
+- Geeignete, klar abgegrenzte Teilaufgaben delegieren und unabhängig bearbeitbare Aufgaben parallel ausführen. Umfang und Anzahl der Unteragenten am tatsächlichen Nutzen und Koordinationsaufwand ausrichten.
+- Unteragenten erhalten Ziel, relevanten Kontext, geltende Arbeitsanweisungen, Zuständigkeiten und erwartete Ergebnisse. Gleichzeitige Änderungen so abstimmen, dass keine Arbeit überschrieben wird.
+- Der koordinierende Chat bleibt für Gesamtlösung, Zusammenführung und Qualität verantwortlich. Ergebnisse und Nachweise der Unteragenten prüfen sowie die relevanten Prüfungen des integrierten Stands durchführen; Delegation ersetzt keine vorgeschriebenen Audits oder Qualitätsprüfungen.
 
 ## 4. Dateien, Änderungen und Builds
 

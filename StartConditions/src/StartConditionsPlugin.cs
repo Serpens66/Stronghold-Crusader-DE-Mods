@@ -9,7 +9,7 @@ namespace StartConditions
 {
     [BepInDependency(ScriptExtenderGuid, "2.14.0")]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
-    [BepInDependency("APIShared_Serp", "0.5.0")]
+    [BepInDependency("APIShared_Serp", "0.23.0")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class StartConditionsPlugin : BaseUnityPlugin
     {
@@ -17,7 +17,7 @@ namespace StartConditions
 
         public const string PluginGuid = "StartConditions_Serp";
         public const string PluginName = "Start Conditions";
-        public const string PluginVersion = "1.0.33";
+        public const string PluginVersion = "1.0.34";
 
         private StartConditionsRuntime runtime;
         private int libraryInitializationStarted;
@@ -62,7 +62,7 @@ namespace StartConditions
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(Logger, "StartConditions/src/StartConditionsPlugin.cs:64", $"StartConditions settings registration failed; gameplay runtime stopped fail-closed: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "StartConditions/StartConditionsPlugin/OnCrusaderLibraryLoaded.settings-registration-failed-gameplay", $"StartConditions settings registration failed; gameplay runtime stopped fail-closed: {ex}");
                 return;
             }
 
@@ -72,7 +72,7 @@ namespace StartConditions
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(Logger, "StartConditions/src/StartConditionsPlugin.cs:74", $"Error while initializing StartConditions after library load: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "StartConditions/StartConditionsPlugin/OnCrusaderLibraryLoaded.error-while-initializing-after", $"Error while initializing StartConditions after library load: {ex}");
             }
         }
 

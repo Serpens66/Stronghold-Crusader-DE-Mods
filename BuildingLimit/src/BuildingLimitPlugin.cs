@@ -18,7 +18,7 @@ namespace BuildingLimit
 
         public const string PluginGuid = "BuildingLimit_Serp";
         public const string PluginName = "Building Limit";
-        public const string PluginVersion = "1.0.33";
+        public const string PluginVersion = "1.0.34";
 
         private static BuildingLimitRuntime runtime;
         private int libraryInitializationStarted;
@@ -57,7 +57,7 @@ namespace BuildingLimit
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(Logger, "BuildingLimit/src/BuildingLimitPlugin.cs:58", $"BuildingLimit settings registration failed; gameplay runtime stopped fail-closed: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "BuildingLimit/BuildingLimitPlugin/OnCrusaderLibraryLoaded.settings-registration-failed-gameplay", $"BuildingLimit settings registration failed; gameplay runtime stopped fail-closed: {ex}");
                 return;
             }
 
@@ -71,7 +71,7 @@ namespace BuildingLimit
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(Logger, "BuildingLimit/src/BuildingLimitPlugin.cs:79", $"Error while initializing BuildingLimit after library load: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "BuildingLimit/BuildingLimitPlugin/OnCrusaderLibraryLoaded.error-while-initializing-after", $"Error while initializing BuildingLimit after library load: {ex}");
             }
         }
 

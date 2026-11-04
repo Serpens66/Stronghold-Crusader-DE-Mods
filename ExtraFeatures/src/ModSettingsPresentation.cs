@@ -44,12 +44,12 @@ namespace ExtraFeatures
         public SettingsGroupPresentation GateReopenOptions { get; } = new SettingsGroupPresentation("human-gate-reopen-delay", "ai-gate-reopen-delay");
         public SettingsGroupPresentation GateDistanceOptions { get; } = new SettingsGroupPresentation("human-gate-closing-distance", "ai-gate-closing-distance");
         public SettingsGroupPresentation BuildingOptions { get; } = new SettingsGroupPresentation("building-repair", "keep-build-range");
-        public SettingsGroupPresentation EnemyProximityOptions { get; } = new SettingsGroupPresentation("human-enemy-proximity-singleplayer", "ai-enemy-proximity-singleplayer", "human-enemy-proximity-multiplayer", "ai-enemy-proximity-multiplayer");
-        public SettingsGroupPresentation EnemySingleplayerOptions { get; } = new SettingsGroupPresentation("human-enemy-proximity-singleplayer", "ai-enemy-proximity-singleplayer");
-        public SettingsGroupPresentation EnemyMultiplayerOptions { get; } = new SettingsGroupPresentation("human-enemy-proximity-multiplayer", "ai-enemy-proximity-multiplayer");
+        public SettingsGroupPresentation EnemyProximityOptions { get; } = new SettingsGroupPresentation("human-civilian-enemy-proximity-singleplayer", "human-military-enemy-proximity-singleplayer", "ai-civilian-enemy-proximity-singleplayer", "ai-military-enemy-proximity-singleplayer", "human-civilian-enemy-proximity-multiplayer", "human-military-enemy-proximity-multiplayer", "ai-civilian-enemy-proximity-multiplayer", "ai-military-enemy-proximity-multiplayer");
+        public SettingsGroupPresentation EnemySingleplayerOptions { get; } = new SettingsGroupPresentation("human-civilian-enemy-proximity-singleplayer", "human-military-enemy-proximity-singleplayer", "ai-civilian-enemy-proximity-singleplayer", "ai-military-enemy-proximity-singleplayer");
+        public SettingsGroupPresentation EnemyMultiplayerOptions { get; } = new SettingsGroupPresentation("human-civilian-enemy-proximity-multiplayer", "human-military-enemy-proximity-multiplayer", "ai-civilian-enemy-proximity-multiplayer", "ai-military-enemy-proximity-multiplayer");
         public SettingsGroupPresentation AiRebuildOptions { get; } = new SettingsGroupPresentation("ai-tower-gate-rebuild-delay");
         public SettingsGroupPresentation PopulationOptions { get; } = new SettingsGroupPresentation("extra-church-priests", "campfire-peasants");
-        public SettingsGroupPresentation KillRewardOptions { get; } = new SettingsGroupPresentation("no-kill-reward");
+        public SettingsGroupPresentation KillRewardOptions { get; } = new SettingsGroupPresentation("kill-reward-gold", "kill-reward-goods", "kill-reward-maximum");
         public SettingsGroupPresentation EconomyBonusOptions { get; } = new SettingsGroupPresentation("multiply-goods-gain", "multiply-goods-as-money");
         public SettingsGroupPresentation PeriodicGoldOptions { get; } = new SettingsGroupPresentation("periodic-gold-human", "periodic-gold-ai");
         public SettingsGroupPresentation RefundOptions { get; } = new SettingsGroupPresentation("wood-refund", "stone-refund", "iron-refund", "pitch-refund", "gold-refund");
@@ -78,19 +78,35 @@ namespace ExtraFeatures
                 (stateFilter == ModSettingsSearchStateFilter.All || (!entry.IsSection && ModSettingsSearchStateMatcher.IsMatch(
                     stateFilter, ModSettingsSearchCatalog.GetState(model, entry.Key)))) &&
                 ModSettingsSearchMatcher.IsMatch(text, includeToolTips, exactKey, entry.Key, entry.Title, entry.ToolTip, entry.SectionKey, entry.SectionTitle);
+            // Evaluate each entry once per keystroke instead of once per topic and group.
+            IReadOnlyList<ModSettingsSearchEntry> all = entries ?? Array.Empty<ModSettingsSearchEntry>();
+            var matched = new bool[all.Count];
+            var matchedKeys = new HashSet<string>(StringComparer.Ordinal);
+            for (int index = 0; index < all.Count; index++)
+            {
+                matched[index] = Matches(all[index]);
+                if (matched[index])
+                    matchedKeys.Add(all[index].Key);
+            }
+
             foreach (SettingsTopicPresentation topic in Topics)
             {
-                ModSettingsSearchEntry[] section = (entries ?? Array.Empty<ModSettingsSearchEntry>())
-                    .Where(entry => entry.SectionKey == topic.Key).ToArray();
                 // Count the full catalog, never the filtered result or individual editor controls.
-                int count = section.Where(entry => !entry.IsSection).Select(entry => entry.Key)
-                    .Distinct(StringComparer.Ordinal).Count();
-                bool matches = section.Any(entry => Matches(entry));
-                topic.Refresh(searchActive, matches, count);
+                var sectionKeys = new HashSet<string>(StringComparer.Ordinal);
+                bool matches = false;
+                for (int index = 0; index < all.Count; index++)
+                {
+                    ModSettingsSearchEntry entry = all[index];
+                    if (entry.SectionKey != topic.Key)
+                        continue;
+                    if (!entry.IsSection)
+                        sectionKeys.Add(entry.Key);
+                    matches |= matched[index];
+                }
+                topic.Refresh(searchActive, matches, sectionKeys.Count);
             }
             foreach (SettingsGroupPresentation group in Groups)
-                group.Refresh(searchActive, (entries ?? Array.Empty<ModSettingsSearchEntry>()).Any(entry =>
-                    group.Contains(entry.Key) && Matches(entry)));
+                group.Refresh(searchActive, group.ContainsAny(matchedKeys));
             foreach (string property in new[] { nameof(BulkActionsVisibility), nameof(ExpandAllText),
                 nameof(CollapseAllText), nameof(ExpandAllHelpText), nameof(CollapseAllHelpText), nameof(TopicToggleHelpText) })
                 PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(property));
@@ -110,6 +126,7 @@ namespace ExtraFeatures
         internal SettingsGroupPresentation(params string[] suffixes) =>
             keys = new HashSet<string>(suffixes.Select(key => "extra." + key), StringComparer.Ordinal);
         internal bool Contains(string key) => keys.Contains(key);
+        internal bool ContainsAny(HashSet<string> candidates) => keys.Overlaps(candidates);
         public Visibility Visibility => visibility;
         public event PropertyChangedEventHandler PropertyChanged;
         internal void Refresh(bool searching, bool matches)

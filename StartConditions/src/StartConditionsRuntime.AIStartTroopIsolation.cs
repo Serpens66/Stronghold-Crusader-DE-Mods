@@ -13,6 +13,7 @@ namespace StartConditions
 {
     public sealed unsafe partial class StartConditionsRuntime
     {
+        private bool simulationTickRegistered;
         private const string AIStartTroopSaveDataIdentifier = "StartConditions_Serp.AIStartTroops";
         private const int AIStartTroopSaveSchemaVersion = AIStartTroopIsolationSaveState.SchemaVersionCurrent;
         private const int AIStartTroopValidationIntervalTicks = 250;
@@ -32,6 +33,7 @@ namespace StartConditions
         private bool aiStartTroopIsolationInitialized;
         private bool aiStartTroopMapActive;
         private int nextAIStartTroopValidationTick;
+        private bool aiStartTroopValidationRequired;
         private int permittedAIStartTroopAssignmentUnitId;
         private int permittedAIStartTroopAssignmentTribeId;
         private AIStartTroopIsolationSaveState pendingAIStartTroopSaveState;
@@ -80,7 +82,12 @@ namespace StartConditions
                 foreach (IDisposable candidate in candidates)
                     aiStartTroopLifetimeSubscriptions.Add(candidate);
 
-                GameTimeManagerAPI.Instance.OnTick += OnAIStartTroopValidationTick;
+                if (!simulationTickRegistered)
+                {
+                    if (!APIShared.Simulation.SimulationTickEvents.TryRegister(StartConditionsPlugin.PluginGuid, "ai-start-troop-validation", OnAIStartTroopValidationTick, out string tickReason, 300))
+                        throw new InvalidOperationException("Native simulation ticks unavailable: " + tickReason);
+                    simulationTickRegistered = true;
+                }
                 tickHandlerSubscribed = true;
                 aiStartTroopIsolationInitialized = true;
             }
@@ -88,7 +95,7 @@ namespace StartConditions
             {
                 // Disposal is permitted here because initialization has not been published.
                 if (tickHandlerSubscribed)
-                    GameTimeManagerAPI.Instance.OnTick -= OnAIStartTroopValidationTick;
+                    // Process-owned tick registration remains rooted; feature state gates execution.
                 foreach (IDisposable candidate in candidates)
                     candidate.Dispose();
                 if (saveHandlerRegistered)
@@ -102,14 +109,14 @@ namespace StartConditions
             ClearAIStartTroopTracking();
             pendingAIStartTroopSaveState = null;
             aiStartTroopMapActive = true;
-            nextAIStartTroopValidationTick = GetCurrentGameTick() + AIStartTroopValidationIntervalTicks;
+            nextAIStartTroopValidationTick = unchecked(GetCurrentGameTick() + AIStartTroopValidationIntervalTicks);
         }
 
         private void BeginLoadedAIStartTroopIsolationMap()
         {
             ClearAIStartTroopTracking();
             aiStartTroopMapActive = true;
-            nextAIStartTroopValidationTick = GetCurrentGameTick() + AIStartTroopValidationIntervalTicks;
+            nextAIStartTroopValidationTick = unchecked(GetCurrentGameTick() + AIStartTroopValidationIntervalTicks);
 
             AIStartTroopIsolationSaveState state = pendingAIStartTroopSaveState;
             pendingAIStartTroopSaveState = null;
@@ -146,7 +153,7 @@ namespace StartConditions
 
         private int GetCurrentGameTick()
         {
-            return GameTimeManagerAPI.Instance.GetFrameProvider().CurrentGameTick;
+            return Shared.MissionEvents.RequireCurrentMapTick();
         }
 
         private void ClearAIStartTroopIsolationState()
@@ -158,6 +165,7 @@ namespace StartConditions
 
         private void ClearAIStartTroopTracking()
         {
+            aiStartTroopValidationRequired = false;
             protectedAIStartTroopsByUnitId.Clear();
             protectedAIStartTroopsByTribeId.Clear();
             permittedAIStartTroopAssignmentUnitId = 0;
@@ -359,7 +367,7 @@ namespace StartConditions
                     {
                         EnsureProtectedAIStartTroopBehaviour(failedUnit);
                         failed.PendingDeletion = true;
-                        nextAIStartTroopValidationTick = 0;
+                        aiStartTroopValidationRequired = true;
                     }
                 }
 
@@ -456,10 +464,11 @@ namespace StartConditions
 
         private void OnAIStartTroopValidationTick(int tick)
         {
-            if (!aiStartTroopMapActive || tick < nextAIStartTroopValidationTick)
+            if (!aiStartTroopMapActive || (!aiStartTroopValidationRequired && unchecked(tick - nextAIStartTroopValidationTick) < 0))
                 return;
 
-            nextAIStartTroopValidationTick = tick + AIStartTroopValidationIntervalTicks;
+            aiStartTroopValidationRequired = false;
+            nextAIStartTroopValidationTick = unchecked(tick + AIStartTroopValidationIntervalTicks);
             var snapshot = new List<ProtectedAIStartTroop>(protectedAIStartTroopsByUnitId.Values);
             foreach (ProtectedAIStartTroop protectedTroop in snapshot)
             {

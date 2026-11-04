@@ -142,7 +142,7 @@ namespace Shared
 }
 namespace UnityEngine
 {
-    public static class Application { public static event Action onBeforeRender; public static void Render() { Time.frameCount++; onBeforeRender?.Invoke(); } }
+    public static class Application { public static event Action onBeforeRender; public static void Render(int elapsedMilliseconds = 16) { Time.frameCount++; APIShared.UiWorkBoundary.Pump(Time.frameCount, elapsedMilliseconds); onBeforeRender?.Invoke(); } }
     public static class Time { public static int frameCount; }
 }
 namespace CrusaderDE
@@ -155,6 +155,7 @@ namespace CrusaderDE
 }
 namespace BugfixesAndQoL
 {
+    internal static class BugfixesAndQoLPlugin { internal const string PluginGuid = "BugfixesAndQoL_Serp"; }
     internal static class BugfixesHookInfrastructure
     {
         public static RedBird.X64.Hooks.Transaction.HookTransaction CreateOwnedTransaction(RedBird.Core.Memory.ScanRegion region) => new RedBird.X64.Hooks.Transaction.HookTransaction();
@@ -173,7 +174,9 @@ namespace BugfixesAndQoL
     internal sealed class TimerCountdownViewModel
     {
         public static int Writes;
-        public bool TrySetRemaining(string a, string b, out Exception failure) { Writes++; failure = null; return true; }
+        public static bool FailNext;
+        public bool TrySetRemaining(string a, string b, out Exception failure)
+        { Writes++; failure = FailNext ? new InvalidOperationException("Transient notification failure") : null; FailNext = false; return failure == null; }
     }
 }
 

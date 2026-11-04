@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.IO;
@@ -9,6 +10,8 @@ namespace MoatMove
 {
     internal sealed unsafe partial class FriendlyMoatMovementRuntime
     {
+        // A native tile change, as NativeMovementRecovery reports it: search data (Fast fields) and cursor topology.
+        private void TileChanged(int tile) { InvalidateMovementSearchData(tile); DirtyCursorTile(tile); }
         public static void RunMachineContract(string root)
         {
             const ulong library=0x180000000, stub=0x181000000;
@@ -210,16 +213,16 @@ namespace MoatMove
                 EngineInterface.Selection=new[]{1,0};
                 tileFlags[1015]=CompletedMoatTileFlag;
                 for(int x=16;x<=18;x++) pathRegionGrid[1000+x]=3;
-                (*(int*)((byte*)nativePathManager+0x74))++; DirtyCursorTile(1015);
+                (*(int*)((byte*)nativePathManager+0x74))++; TileChanged(1015);
                 Check(Hover()==1,"two friendly moat crossings remain reachable");
-                enemyTiles.Add(1015); DirtyCursorTile(1015);
+                enemyTiles.Add(1015); TileChanged(1015);
                 Check(Hover()==0,"enemy moat blocks full cursor chain");
                 enemyTiles.Remove(1015); tileFlags[1015]=0x8000;
                 for(int x=16;x<=18;x++) pathRegionGrid[1000+x]=2;
-                (*(int*)((byte*)nativePathManager+0x74))++; DirtyCursorTile(1015);
+                (*(int*)((byte*)nativePathManager+0x74))++; TileChanged(1015);
                 foreach(uint flags in new uint[]{0x100,0x200,0x10000000})
                 {
-                    tileFlags[1017]=flags; nativeMovementMasks[1017]=0; DirtyCursorTile(1017);
+                    tileFlags[1017]=flags; nativeMovementMasks[1017]=0; TileChanged(1017);
                     Check(Hover()==1,"structure bits do not veto reachable directed endpoint");
                     units[1001]=new GameUnit { r_GlobalId=9001,r_AliveState=AliveState.IsAlive,r_ControllableForPlayerId=1,r_CurrentTilePositionX=17,r_CurrentTilePositionY=10 };
                     GameTileManagerAPI.Instance.Occupants[1017]=1001;
@@ -227,10 +230,10 @@ namespace MoatMove
                     cursor->r_HoverOverUnitId=1001;
                     Check(Hover()==1,"friendly structure sprite hover does not become an attack or veto movement reachability");
                     cursor->r_HoverOverUnitId=0; GameTileManagerAPI.Instance.Occupants.Clear();
-                    Check(ProbeCursorConnectivity(1,1017,1010,out var reverse) && !reverse.RouteFound,"incoming structure endpoint invents no reverse edge");
-                    nativeHeightLayer[1017]=100; DirtyCursorTile(1017);
+                    Check(!ProbeCursorConnectivity(1,1017,1010,out var reverse) && !reverse.RouteFound && reverse.AttackProbeEvaluated,"incoming structure endpoint invents no reverse edge");
+                    nativeHeightLayer[1017]=100; TileChanged(1017);
                     Check(Hover()==0,"inaccessible structure height remains blocked");
-                    nativeHeightLayer[1017]=0; DirtyCursorTile(1017);
+                    nativeHeightLayer[1017]=0; TileChanged(1017);
                 }
                 GameBuilding* gate=(GameBuilding*)NativeMemory.AllocZeroed((nuint)sizeof(GameBuilding));
                 GameBuildingManagerAPI.Instance.Building=gate;
@@ -240,15 +243,15 @@ namespace MoatMove
                 nativeBuildingLayer[1017]=1; portals[0]=2;
                 portals[portal+0x809]=1; portals[portal+0x80C]=1; portals[portal+0x80F]=1;
                 portals[portal+0x882]=1; portals[portal+0x80A]=1;
-                DirtyCursorTile(1017);
+                TileChanged(1017);
                 Check(Hover()==0,"blocked portal prevents structure cursor connection");
                 portals[portal+0x80A]=2; portals[portal+0x882]=2;
                 Check(Hover()==0,"foreign portal prevents structure cursor connection");
                 portals[portal+0x882]=1;
                 Check(Hover()==1,"owned allowed portal restores structure cursor connection");
                 nativeBuildingLayer[1017]=0; portals[0]=0; portals[portal+0x80C]=0;
-                DirtyCursorTile(1017); GameBuildingManagerAPI.Instance.Building=null; NativeMemory.Free(gate);
-                tileFlags[1017]=0x8000; nativeMovementMasks[1017]=0x44; DirtyCursorTile(1017);
+                TileChanged(1017); GameBuildingManagerAPI.Instance.Building=null; NativeMemory.Free(gate);
+                tileFlags[1017]=0x8000; nativeMovementMasks[1017]=0x44; TileChanged(1017);
                 units[1001]=new GameUnit { r_GlobalId=9001,r_AliveState=AliveState.IsAlive,r_ControllableForPlayerId=2,r_CurrentTilePositionX=17,r_CurrentTilePositionY=10 };
                 cursor->r_HoverOverUnitId=1001; GameTileManagerAPI.Instance.Occupants[1017]=1001;
                 // The sprite lies over 1018; Vanilla passes the physical target tile 1017.
@@ -289,6 +292,134 @@ namespace MoatMove
             }
         }
 
+        // The table-based full build (BuildCursorTopology) gives exactly the per-tile path's boundary
+        // records (keys, edge order) and graph edge counts, here with regions, a friendly moat, a
+        // building, a special structure tile and map-edge tiles; a seeded change of one input
+        // (gate flag) must show up as a difference, so the comparison is not vacuous.
+        private void CursorTopologyBuildEquivalence()
+        {
+            var savedFlags = new Dictionary<int, uint>(); var savedRegions = new Dictionary<int, ushort>(); var savedMasks = new Dictionary<int, byte>();
+            void Flag(int tile, uint value) { if (!savedFlags.ContainsKey(tile)) savedFlags[tile] = tileFlags[tile]; tileFlags[tile] = value; }
+            void Region(int tile, ushort value) { if (!savedRegions.ContainsKey(tile)) savedRegions[tile] = pathRegionGrid[tile]; pathRegionGrid[tile] = value; }
+            void Mask(int tile, byte value) { if (!savedMasks.ContainsKey(tile)) savedMasks[tile] = nativeMovementMasks[tile]; nativeMovementMasks[tile] = value; }
+            for (int x = 20; x <= 26; x++) { Flag(1000 + x, 0x8000); Region(1000 + x, (ushort)(x < 23 ? 3 : 4)); Mask(1000 + x, 0x44); }
+            Flag(1024, CursorSpecialStructureTileFlagMask & 0x100);
+            Flag(0, 0x8000); Region(0, 5);
+            CursorTopology Build(bool fast)
+            {
+                cursorTopologies.Remove(1);
+                CursorTopology t = EnsureCursorTopology(1, false);
+                if (fast) BuildCursorTopology(t, 1); else for (int tile = 0; tile < NativeTileCount; tile++) UpdateCursorBoundary(t, 1, tile);
+                t.Ready = true;
+                return t;
+            }
+            bool SameRecords(Dictionary<int, long[]> a, Dictionary<int, long[]> b) =>
+                a.Count == b.Count && a.All(e => b.TryGetValue(e.Key, out long[] o) && o.SequenceEqual(e.Value));
+            bool SameGraph(CursorRegionGraph a, CursorRegionGraph b) =>
+                a.reverse.Count == b.reverse.Count && a.reverse.All(e => b.reverse.TryGetValue(e.Key, out var o) &&
+                    o.Count == e.Value.Count && e.Value.All(v => o.TryGetValue(v.Key, out int c) && c == v.Value));
+            bool Same(CursorTopology a, CursorTopology b) => SameRecords(a.Boundaries, b.Boundaries) && SameGraph(a.Graph, b.Graph);
+            try
+            {
+                CursorTopology slow = Build(false), fast = Build(true);
+                Check(slow.Boundaries.Count > 0, "equivalence fixture has cursor boundaries");
+                Check(Same(slow, fast), "table-based cursor topology build equals the per-tile build");
+                // A new region generation reuses the replaced topology's graphs: same objects, higher
+                // revisions (MoatPlacement's graph/revision cache), same contents as a fresh build.
+                CursorRegionGraph graph = fast.Graph; long revision = graph.Revision;
+                int* generationField = (int*)((byte*)nativePathManager + 0x74); int savedGeneration = *generationField;
+                (*generationField)++;
+                try
+                {
+                    CursorTopology reused = EnsureCursorTopology(1);
+                    Check(!ReferenceEquals(reused, fast) && ReferenceEquals(reused.Graph, graph) && graph.Revision > revision && Same(slow, reused),
+                        "replaced cursor topology reuses its graphs with the per-tile build's contents");
+                }
+                finally { *generationField = savedGeneration; }
+                Flag(1022, CursorSpecialStructureTileFlagMask & 0x100);
+                Check(!Same(slow, Build(true)), "changed structure tile changes the table-based build");
+            }
+            finally
+            {
+                foreach (var e in savedFlags) tileFlags[e.Key] = e.Value;
+                foreach (var e in savedRegions) pathRegionGrid[e.Key] = e.Value;
+                foreach (var e in savedMasks) nativeMovementMasks[e.Key] = e.Value;
+                cursorTopologies.Remove(1);
+            }
+        }
+
+        // The one-pass member check (TribeFloodMembership.Check) against a direct transcription of
+        // 0x124740 and 0x119F90 as disassembled (FBCB9319): random member bitsets, tribe kinds, group sizes
+        // above the set bits, unit fields and signed stamps; plus a seeded mismatch, so the comparison bites.
+        private void FloodMembershipExactTests()
+        {
+            const int units = 10000, tiles = 4096;
+            byte* tribe = (byte*)NativeMemory.AllocZeroed(0x688); byte* unitRecords = (byte*)NativeMemory.AllocZeroed((nuint)(units * 0x490));
+            short* stamps = (short*)NativeMemory.AllocZeroed(tiles * 2);
+            int ReferenceUnit(int index)
+            {
+                if (*(short*)(tribe + 0x40) != 2) return 0;
+                int count = *(short*)(tribe + 0x5C);
+                if (index >= count || index < 0) return 0;
+                int seen = 0;
+                for (int word = 0; word < 0x271; word++)
+                {
+                    short value = ((short*)(tribe + 0x60))[word];
+                    if (value == 0) continue;
+                    for (int bit = 0; bit < 16; bit++)
+                        if (((int)value >> bit & 1) != 0) { if (seen == index) return bit + word * 16; seen++; }
+                }
+                return 0;
+            }
+            int Reference(int stamp)
+            {
+                int count = *(short*)(tribe + 0x5C);
+                for (int i = 0; i < count; i++)
+                {
+                    byte* unit = unitRecords + (long)ReferenceUnit(i) * 0x490;
+                    if (*(short*)(unit + 0x6E4) == 2 && *(short*)(unit + 0x8F8) == 0 && stamps[*(int*)(unit + 0x72C)] != stamp) return 0;
+                }
+                return 1;
+            }
+            try
+            {
+                var random = new Random(4711); int failures = 0, positives = 0;
+                for (int trial = 0; trial < 400; trial++)
+                {
+                    for (int i = 0; i < 0x688; i++) tribe[i] = 0;
+                    *(short*)(tribe + 0x40) = (short)(trial % 7 == 0 ? 1 : 2);
+                    int members = random.Next(0, 40);
+                    for (int m = 0; m < members; m++) { int u = random.Next(0, units); ((short*)(tribe + 0x60))[u >> 4] |= (short)(1 << (u & 15)); }
+                    *(short*)(tribe + 0x5C) = (short)(trial % 5 == 0 ? members + random.Next(0, 4) : trial % 11 == 0 ? -1 : members);
+                    int stamp = random.Next(-3, 4);
+                    for (int u = 0; u < units; u += 1 + random.Next(0, 3))
+                    {
+                        byte* unit = unitRecords + (long)u * 0x490;
+                        *(short*)(unit + 0x6E4) = (short)(random.Next(0, 4) == 0 ? 1 : 2);
+                        *(short*)(unit + 0x8F8) = (short)(random.Next(0, 6) == 0 ? 1 : 0);
+                        *(int*)(unit + 0x72C) = random.Next(0, tiles);
+                    }
+                    for (int t = 0; t < tiles; t++) stamps[t] = (short)(random.Next(0, 3) == 0 ? stamp + 1 : stamp);
+                    int expected = Reference(stamp), actual = TribeFloodMembership.Check(tribe, unitRecords, stamps, stamp);
+                    if (expected != actual) failures++;
+                    if (expected == 1) positives++;
+                }
+                Check(failures == 0, $"one-pass flood member check differs from 0x124740 in {failures} of 400 cases");
+                Check(positives > 20 && positives < 380, $"flood member fixture lacks both outcomes (positives={positives})");
+                // Seeded mismatch: an unstamped active member must fail both.
+                for (int i = 0; i < 0x688; i++) tribe[i] = 0;
+                *(short*)(tribe + 0x40) = 2; *(short*)(tribe + 0x5C) = 1; ((short*)(tribe + 0x60))[3] = 1 << 5;
+                byte* member = unitRecords + (long)(3 * 16 + 5) * 0x490;
+                *(short*)(member + 0x6E4) = 2; *(short*)(member + 0x8F8) = 0; *(int*)(member + 0x72C) = 9; stamps[9] = 0;
+                Check(Reference(7) == 0 && TribeFloodMembership.Check(tribe, unitRecords, stamps, 7) == 0 && TribeFloodMembership.Check(tribe, unitRecords, stamps, 0) == 1,
+                    "one-pass flood member check ignores the member's stamp");
+            }
+            finally
+            {
+                NativeMemory.Free(tribe); NativeMemory.Free(unitRecords); NativeMemory.Free(stamps);
+            }
+        }
+
         private void CursorAdapterTests()
         {
             cursorTopologies.Clear(); enemyTiles.Clear();
@@ -306,29 +437,18 @@ namespace MoatMove
             Check(ProbeCursorConnectivity(1,1010,1017,out var route) && route.RouteFound && route.ReachedWithMoat,
                 "production cursor topology joins regions through friendly moat");
             long builds=cursorTopologyBuilds, pathRuns=weightedMoatRoutePlanner.SearchRuns;
-            Check(ProbeGroundConnection(1,1010,1017)==GroundConnectionDecision.Excluded,
-                "complete ground upper graph excludes a moat-only connection");
-            Check(ProbeGroundConnection(1,1010,1011)==GroundConnectionDecision.Unknown,
-                "merged region is not a concrete positive path proof");
-            cursorTopologies[1].Dirty.Add(1013);
-            Check(ProbeGroundConnection(1,1010,1017)==GroundConnectionDecision.Unknown,
-                "dirty graph never supplies a negative proof");
-            cursorTopologies[1].Dirty.Remove(1013);
-            for(int sx=10;sx<=18;sx++)for(int tx=10;tx<=18;tx++)
-            {
-                bool actual=weightedMoatRoutePlanner.TryProbeReachability(1,sx,10,tx,10,false,
-                    MoatTraversalPolicy.GroundOnly,out _);
-                Check(ProbeGroundConnection(1,1000+sx,1000+tx)!=GroundConnectionDecision.Excluded || !actual,
-                    "negative upper-graph proof agrees with actual directed ground search");
-            }
+
             pathRuns=weightedMoatRoutePlanner.SearchRuns;
             Check(ProbeCursorConnectivity(1,1013,1017,out route) && route.RouteFound,"cursor start on moat has its own node");
-            enemyTiles.Add(1013); DirtyCursorTile(1013);
-            Check(ProbeCursorConnectivity(1,1010,1017,out route) && !route.RouteFound,"owner change removes cached positive connection");
-            enemyTiles.Clear(); DirtyCursorTile(1013);
+            enemyTiles.Add(1013); TileChanged(1013);
+            // Fast's cursor answer returns RouteFound itself; AttackProbeEvaluated marks a decided (not pending) answer.
+            Check(!ProbeCursorConnectivity(1,1010,1017,out route) && !route.RouteFound && route.AttackProbeEvaluated,"owner change removes cached positive connection");
+            enemyTiles.Clear(); TileChanged(1013);
             Check(ProbeCursorConnectivity(1,1010,1017,out route) && route.RouteFound,"owner change removes cached negative connection");
             Check(cursorTopologyBuilds==builds,"local changes do not rebuild the full map");
             Check(weightedMoatRoutePlanner.SearchRuns==pathRuns,"cursor creates no route searches");
+            CursorTopologyBuildEquivalence();
+            FloodMembershipExactTests();
 
             int nativePairs = 0;
             originalCursorTilePairReachability = (manager,target,start,cache) => { nativePairs++; return 7; };
@@ -337,10 +457,10 @@ namespace MoatMove
             pendingAttackCursorPair = DirectScope();
             Check(AllowAttackCursorTilePairThroughCompletedMoat(nativePathManager,1017,1010,1)==1 && nativePairs==0,
                 "actual cursor adapter answers before native area search");
-            enemyTiles.Add(1013); DirtyCursorTile(1013); pendingAttackCursorPair=DirectScope();
+            enemyTiles.Add(1013); TileChanged(1013); pendingAttackCursorPair=DirectScope();
             Check(AllowAttackCursorTilePairThroughCompletedMoat(nativePathManager,1017,1010,1)==0 && nativePairs==0,
                 "negative cursor decision also avoids native area search");
-            enemyTiles.Clear(); DirtyCursorTile(1013);
+            enemyTiles.Clear(); TileChanged(1013);
             Check(AllowAttackCursorTilePairThroughCompletedMoat(nativePathManager,1017,1010,1)==7 && nativePairs==1,
                 "unbound native consumer retains original result");
             activeAttackApproachDiagnostic=new object(); pendingAttackCursorPair=DirectScope();
@@ -396,13 +516,12 @@ namespace MoatMove
             originalBuildingCursorReachability = cursorOriginal;
             GameBuildingManagerAPI.Instance.Building=null;
 
-            // Native first-phase portal filter: owned open connection, then blocked kind.
+            // Native first-phase portal filter: a blocked portal (Fast reads tile edges, not portal records).
             int* context=(int*)nativePathManager;
             context[0]=2; int index=0x81;
             context[index+0x809]=1; context[index+0x80A]=2;
             context[index+0x80F]=1; context[index+0x882]=1;
             context[index+0x816]=1; context[index+0x817]=2;
-            Check(ProbeCursorConnectivity(1,1010,1017,out route) && route.ReachedWithoutMoat,"native portal connects ground regions without a path probe");
             context[index+0x80A]=1;
             Check(ProbeCursorConnectivity(1,1010,1017,out route) && !route.ReachedWithoutMoat && route.ReachedWithMoat,
                 "blocked native portal does not erase the additional friendly connection");

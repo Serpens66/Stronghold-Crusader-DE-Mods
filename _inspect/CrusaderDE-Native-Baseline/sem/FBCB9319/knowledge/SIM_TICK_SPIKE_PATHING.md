@@ -1,4 +1,4 @@
-# Long simulation ticks from AI group movement (FBCB9319) [Scope: Vanilla + mod integration]
+# Long simulation ticks from AI group movement (FBCB9319) [Scope: Vanilla]
 
 Native DLL SHA-256: `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`. The addresses below are RVAs for this binary only.
 
@@ -30,3 +30,38 @@ lock. Managed Monitor waiting, pre-native work, the inclusive native call (inclu
 SE/mod callbacks), and post-native publication must be measured separately. This
 clarifies managed observation boundaries; it does not add a native address or
 attribute every future native-time spike to the AI movement path observed above.
+
+## Periodic AI group orders with 10,000 units, 2026-11-02 [Vanilla facts]
+
+Evidence: a manual run on `test_stresstest5.sav` (800x800, 8 AI lords, 9,988 alive units) with PerfProbe's sampler (`SimOutsideRun`); MoatMove and BugfixesAndQoL were loaded. It covers 52 s of play after load.
+
+- **Cadence:** Every 200 game ticks, one `EngineInterface.run` took long; the map ticks were 121907, 122107, 122307, and so on. Rendering, camera and hover continued (`framesDuring` 818-1084), so only the simulation stopped. AI group orders with up to 593 members fell into the same windows. This matches the per-AI scheduler `0x2AE40` issuing group orders through `0x11B520`.
+- **Cost without a mod route:** such an order runs one `0xF4930` search per member; the sampled self time sits in `0xDA5EF`/`0xDAB1D`.
+- Mod behaviour and the measured costs on this save: [VanillaOptimization.md, Gruppenbefehle großer Armeen](../../../../../VanillaOptimization.md#gruppenbefehle-großer-armeen-0203112026).
+
+### Tribe member lookup and Assassin armies, 2026-11-02 [Vanilla facts]
+
+Release runs on the same save at game speed 215 with Script Extender, APIShared and PerfProbe only (`ai-lag-se-1`; logs under `Testmods/MoatMove/.local/runs`).
+
+- **Vanilla stalls on this save:** 24 runs over 100 ms, the longest 1.75 s.
+  - Samples point to Assassin BFS `0xD9C40` and the ground searches `0xDA5EF`/`0xDAB1D`.
+  - In several ticks `0x119F90` takes 46-71 %. That is the ordinal member lookup: it scans the 625 member words from the start on every call, and `0x11B520` walks all members through it about six times per order.
+- **`0x119F90` contract (pseudocode and disassembly, high confidence):**
+  - Register use: `rcx` tribe manager, `edx` tribe id, `r8d` ordinal.
+  - Returns 0 unless `(short)tribe+0x40 == 2` and `0 <= i < (short)tribe+0x5C`. Otherwise it returns `word*16+bit` of the i-th set bit, or 0 when there are fewer set bits.
+  - No call and no RIP-relative operand: the body is position independent. Writes only `rax, rcx, rdx, r9, r10, r11`; `rbx` is restored.
+- **Assassin armies:**
+  - An AI order to 1,148 Assassins costs one fresh `0xD9C40` per member in `0xF4930`, about 2.4 ms each. The group field built by `0x11B520` is never reused per member.
+  - On a zero result `0xF4930` returns immediately (`LAB_1800f4a85`, no `0xE1640`).
+  - **`+0x94` is a per-route output of `0xE1640` (high confidence, pseudocode):** `0xE1640` sets `DAT_1860AD6F4` (context `+0x94`) to 0 and counts the route tiles with flags `0x10000100`, without flag 2 and without a building whose type entry is non-zero. `0xF4930` then runs `0xDB650` (or `0xDA590`) and `0xE1640` mode 1 when it is non-zero, which recounts it. When `0xD9C40` finds no route, `+0x94` keeps the value of the previous `0xE1640` call.
+  - Consequence: skipping `0xD9C40` for an already known route is not behavior-preserving for any decision that reads `+0x94` afterwards.
+- **Path manager `+0xBC`:** `0xD9C40` increments it on every call. A scan of all executable sections found no RIP-relative access to `0x1860AD71C` and no manager-relative reader near manager loads. It looks like a statistic (medium confidence).
+- Mod contract of the exact member lookup: [BugfixesAndQoL/UpdateToNewDLL.md, Tribe member lookup V14](../../../../../BugfixesAndQoL/UpdateToNewDLL.md#tribe-member-lookup-v14-2026-11-02).
+
+### Assassin group moves, 2026-11-03 [Vanilla facts]
+
+- **Assassin group move members (`0x11B520`, confirmed by pseudocode):** the Assassin branch builds its own `0xD9C40` flood from the move target (target `-1`, budget raised in steps of 5000), assigns formation slots from it (`0xE0970`/`0xE0AC0`/`0xE1D30`), sets context `+0x88` and calls `0x196280` per member with the member's slot. Every member's `0xF4930` then runs a fresh `0xD9C40` to its slot; the group flood is not reused.
+- **Repeated orders:** `0x11B520` replans a member only when its formation slot or route state changed (`d34/d36 != b20/b22` or `b4e != 2`).
+- **Cost per member:** each fresh `0xD9C40` expanded ~208,000 tiles before reaching the slot. With Script Extender only, PerfProbe counted 1,023 Assassin searches (`assassinSearches` = `+0xBC`) in 90 s. In the siege phase the AI re-issues `move/NoChange` to its ~1,100 Assassins every 6-8 s.
+- **`+0x94` writers:** only `0xE1110`/`0xE1640` write it, so before or without them it holds an earlier route's value. Testing `+0x94` at `0xD9C40` time reads an earlier route's value (measured: ~78 % of a wave without weighted route).
+- Mod contract of the group fields: [BugfixesAndQoL/UpdateToNewDLL.md, Group fields of Assassin group moves](../../../../../BugfixesAndQoL/UpdateToNewDLL.md#group-fields-of-assassin-group-moves-2026-11-03-contract-0x01000002).

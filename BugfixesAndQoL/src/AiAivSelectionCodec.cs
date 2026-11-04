@@ -111,6 +111,7 @@ namespace BugfixesAndQoL
             target.rotation = snapshot.Rotation;
 
             int missingAivs = 0;
+            AivAicAssetReference missing1 = null, missing2 = null, missing3 = null, missing4 = null;
             target.aivs.Clear();
             foreach (AivAicAssetReference reference in snapshot.Aivs)
             {
@@ -119,6 +120,10 @@ namespace BugfixesAndQoL
                 if (resolved == null)
                 {
                     missingAivs++;
+                    // Keep bounded existing references in the value result. Formatting
+                    // and collections belong after the caller's diagnostic gate.
+                    switch (missingAivs) { case 1: missing1 = reference; break; case 2: missing2 = reference; break;
+                        case 3: missing3 = reference; break; case 4: missing4 = reference; break; }
                     continue;
                 }
                 if (!target.aivs.Exists(item => item.checksum == resolved.checksum))
@@ -159,7 +164,8 @@ namespace BugfixesAndQoL
                 target.aivs.Count,
                 missingAivs,
                 missingAic,
-                usedBuiltInFallback);
+                usedBuiltInFallback,
+                missing1, missing2, missing3, missing4, missingAic ? snapshot.Aic : null);
         }
 
         public static string BuildLordKey(AiAivSelectionSnapshot snapshot)
@@ -436,17 +442,29 @@ namespace BugfixesAndQoL
             int loadedAivs,
             int missingAivs,
             bool missingAic,
-            bool usedBuiltInFallback)
+            bool usedBuiltInFallback,
+            AivAicAssetReference missingAiv1 = null,
+            AivAicAssetReference missingAiv2 = null,
+            AivAicAssetReference missingAiv3 = null,
+            AivAicAssetReference missingAiv4 = null,
+            AivAicAssetReference missingAicReference = null)
         {
             LoadedAivs = loadedAivs;
             MissingAivs = missingAivs;
             MissingAic = missingAic;
             UsedBuiltInFallback = usedBuiltInFallback;
+            MissingAiv1 = missingAiv1; MissingAiv2 = missingAiv2; MissingAiv3 = missingAiv3; MissingAiv4 = missingAiv4;
+            MissingAicReference = missingAicReference;
         }
 
         public int LoadedAivs { get; }
         public int MissingAivs { get; }
         public bool MissingAic { get; }
         public bool UsedBuiltInFallback { get; }
+        internal AivAicAssetReference MissingAiv1 { get; }
+        internal AivAicAssetReference MissingAiv2 { get; }
+        internal AivAicAssetReference MissingAiv3 { get; }
+        internal AivAicAssetReference MissingAiv4 { get; }
+        internal AivAicAssetReference MissingAicReference { get; }
     }
 }

@@ -38,16 +38,20 @@ public class FormationGeometryTests
         foreach (FormationKind kind in Enum.GetValues<FormationKind>())
         {
             bool fixedShape = kind == FormationKind.Vanilla || kind == FormationKind.Circle;
-            var gesture = new FormationGestureState(kind, 1300, 0, 37);
+            var aspect = FormationAspectRatio.Create(3, 2);
+            var gesture = new FormationGestureState(kind, 1300, 0, aspect);
             gesture.UpdateDirection(20, 0, 2);
             gesture.ApplyWheel(-0.5f, 1);
             gesture = gesture.WithCount(3);
-            Assert.AreEqual(fixedShape ? 0 : 37, gesture.RequestedRows);
+            Assert.AreEqual(fixedShape ? default : aspect, gesture.Aspect);
             gesture = gesture.WithCount(650);
-            Assert.AreEqual(fixedShape ? FormationModel.ResolveAutomaticRows(kind, 650) : 37, gesture.Rows);
+            Assert.AreEqual(FormationModel.ResolveGeometryRows(kind, 650, fixedShape ? default : aspect), gesture.Rows);
             Assert.IsTrue(gesture.ExplicitDirection);
+            int before = gesture.Rows;
             gesture.ApplyWheel(-0.5f, 2);
-            Assert.AreEqual(fixedShape ? 0 : 38, gesture.RequestedRows);
+            Assert.AreEqual(fixedShape ? before : before + 1, gesture.Rows);
+            Assert.AreEqual(fixedShape ? default : FormationAspectRatio.Create(
+                FormationModel.ResolveWidthForRows(kind, 650, gesture.Rows), gesture.Rows), gesture.Aspect);
         }
     }
 
@@ -165,7 +169,7 @@ public class FormationGeometryTests
     [TestMethod]
     public void WheelIsSampledOncePerFrameAndAccumulatesFractionalSteps()
     {
-        var gesture = new FormationGestureState(FormationKind.Block, 100, 0, rememberedRows: 5);
+        var gesture = new FormationGestureState(FormationKind.Block, 100, 0, FormationAspectRatio.Create(4, 1));
         gesture.ApplyWheel(0.25f, 1);
         gesture.ApplyWheel(0.25f, 1);
         gesture.ApplyWheel(0.75f, 2);

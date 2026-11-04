@@ -9,32 +9,31 @@ namespace MoatMove
 {
     internal sealed unsafe partial class FriendlyMoatTraversalProvider
     {
-        private long fastVanillaBypasses, fastSearches;
+        private long fastVanillaBypasses, fastAnchorSkips;
         private IFastRouteField fastCandidateField;
         private MoatSearchEdge fastCandidateEdge;
         private bool fastCandidateBusy;
         private long fastMaximumSynchronousTicks, fastMaximumQueueWaitTicks;
+        // Move capture support metric: 0 calls, 1 captured, 2 state, 3 queued flags, 4 target, 5 tribe,
+        // 6 AI/invalid owner, 7 no members, 8 patrol, 9 no digger, 10 ground reachable,
+        // 11 anchor mode (served at 11B520 instead), 12 exception.
+        private readonly long[] fastCaptureCounts = new long[13];
 
         private static long StartFastMeasurement() => System.Diagnostics.Stopwatch.GetTimestamp();
         private void FinishFastMeasurement(long started)
         { fastMaximumSynchronousTicks = Math.Max(fastMaximumSynchronousTicks, System.Diagnostics.Stopwatch.GetTimestamp() - started); }
 
-        private IFastRouteField CreateFastCandidateField(MoatSearchEdge edge) => settings.NativeFast
-            ? (IFastRouteField)new FastNativeRouteField(MapWidth, MapWidth, edge)
-            : new FastRouteField(MapWidth, MapWidth, edge);
-
-        internal override int[] ResolveMovementCandidates(MoatCandidateField precise, IList<int> starts,
+        // The exact candidate field of the interface is not used: candidates come from Fast's field.
+        internal override int[] ResolveMovementCandidates(MoatCandidateField exact, IList<int> starts,
             IList<int> targets, MoatSearchEdge edge, MoatSearchEdge terminal, out int expanded)
         {
-            if (!RequiredOnlyMode)
-            { var result = precise.Resolve(starts, targets, edge, terminal); expanded = precise.Expanded; return result; }
             if (fastCandidateBusy) throw new InvalidOperationException("Nested Fast candidate field lease.");
             fastCandidateBusy = true;
             try
             {
                 fastCandidateEdge = edge;
                 if (fastCandidateField == null)
-                    fastCandidateField = CreateFastCandidateField(
+                    fastCandidateField = new FastRouteField(MapWidth, MapWidth,
                         (int a, int b, int d, out bool wet, out bool structure) =>
                             fastCandidateEdge(b, a, (d + 4) & 7, out wet, out structure));
                 fastCandidateField.ResetRoots(starts);
@@ -95,24 +94,24 @@ namespace MoatMove
 
         internal override void LogAndResetFastMoatMetrics()
         {
-            if (settings.NativeFast)
-            {
-                long maskBytes = (fastCandidateField as FastNativeRouteField)?.PreparationMaskBytes ?? 0;
-                if (fastSimulationRouting != null) foreach (var mask in fastSimulationRouting.NativeMasks.Values) maskBytes += mask.Bytes.LongLength;
-                if (fastCursorRouting != null) foreach (var mask in fastCursorRouting.NativeMasks.Values) maskBytes += mask.Bytes.LongLength;
-                Shared.DebugLogHelper.LogInfo(log, $"MoatMove stage=fast-native-performance preparedNodes={FastNativeMask.PreparedNodes} preparationMs={FastNativeMask.PreparationTicks * 1000.0 / System.Diagnostics.Stopwatch.Frequency:F3} nativeCalls={FastNativeRouteField.NativeCalls} nativeMs={FastNativeRouteField.NativeTicks * 1000.0 / System.Diagnostics.Stopwatch.Frequency:F3} maskBytes={maskBytes}; cumulative=true.");
-            }
-            if (fastNewQueries == 0 && fastQueuedCommands == 0 && fastExecutedCommands == 0 && fastCommands.Commands.Count == 0) return;
+            LogAndResetAnchorMetrics();
+            if (fastNewQueries == 0 && fastQueuedCommands == 0 && fastExecutedCommands == 0 && fastCommands.Commands.Count == 0 &&
+                fastCaptureCounts[0] == 0) return;
             Shared.DebugLogHelper.LogInfo(log, "MoatMove stage=fast-performance " +
                 $"queued={fastQueuedCommands} completed={fastExecutedCommands} pending={fastCommands.Commands.Count} " +
-                $"queries={fastNewQueries} expanded={fastNewExpanded} tooLong={fastNewTooLong} " +
+                $"captureCalls={fastCaptureCounts[0]} captured={fastCaptureCounts[1]} " +
+                $"captureRejects(state,queuedFlags,target,tribe,owner,members,patrol,noDigger,ground,anchorMode,exception)=" +
+                $"{fastCaptureCounts[2]},{fastCaptureCounts[3]},{fastCaptureCounts[4]},{fastCaptureCounts[5]},{fastCaptureCounts[6]}," +
+                $"{fastCaptureCounts[7]},{fastCaptureCounts[8]},{fastCaptureCounts[9]},{fastCaptureCounts[10]},{fastCaptureCounts[11]},{fastCaptureCounts[12]} " +
+                $"queries={fastNewQueries} anchorSkips={fastAnchorSkips} expanded={fastNewExpanded} tooLong={fastNewTooLong} " +
                 $"retries={fastCommandRetries} topologyChanges={fastNewInvalidations} " +
                 $"maxWaitTicks={fastMaximumQueueWaitTicks} maxSynchronousMs={fastMaximumSynchronousTicks * 1000.0 / System.Diagnostics.Stopwatch.Frequency:F3} " +
                 $"fields={fastSimulationRouting?.Pool.Builds ?? 0} reused={fastSimulationRouting?.Pool.Hits ?? 0} " +
                 $"fieldBytes={(fastSimulationRouting?.Pool.BufferBytes ?? 0) + (fastCandidateField?.BufferBytes ?? 0)}.");
             fastNewQueries = fastNewExpanded = fastNewTooLong = fastNewInvalidations = 0;
-            fastQueuedCommands = fastExecutedCommands = fastCommandRetries = fastVanillaBypasses = 0;
+            fastQueuedCommands = fastExecutedCommands = fastCommandRetries = fastVanillaBypasses = fastAnchorSkips = 0;
             fastMaximumSynchronousTicks = fastMaximumQueueWaitTicks = 0;
+            Array.Clear(fastCaptureCounts, 0, fastCaptureCounts.Length);
         }
     }
 }

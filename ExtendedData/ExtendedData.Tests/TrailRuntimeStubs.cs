@@ -64,8 +64,25 @@ namespace SHCDESE.API
     public sealed class GameAIManagerAPI
     {
         public static readonly GameAIManagerAPI Instance = new();
+        public sealed class LordEntry { public string AssetProviderGuid; }
+        public readonly Dictionary<string, LordEntry> Entries = new(StringComparer.Ordinal);
+        public int RegistryReads;
+        public Dictionary<string, LordEntry> LordDataDict { get { RegistryReads++; return Entries; } }
         public readonly HashSet<string> Supported = new(StringComparer.OrdinalIgnoreCase);
         public bool IsSupportedCustomLord(string name) => Supported.Contains(name);
+    }
+    public sealed class GameAssetManagerAPI
+    {
+        public static readonly GameAssetManagerAPI Instance = new();
+        public int Reads;
+        public string Provider, Json;
+        public bool GetModFileTextContent(string provider, string path, out string json)
+        {
+            Reads++; json = Json;
+            if (provider != Provider || path != "override/fixes/preferences.json")
+                throw new InvalidOperationException("Unexpected asset identity.");
+            return json != null;
+        }
     }
 }
 namespace SHCDESE.API.Components.ModManager

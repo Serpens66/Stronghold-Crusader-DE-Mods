@@ -23,7 +23,6 @@ namespace Spectator
         private static TestToolsViewModel toolsModel;
         private static IDisposable forceAttackSubscription, forceDefendSubscription;
         [ThreadStatic] private static ForcedOrderContext forcedOrder;
-        private static int lastRenderFrame = -1;
         private static readonly ConcurrentQueue<Action> presentationCallbacks = new ConcurrentQueue<Action>();
         private static object engineLock;
 
@@ -31,12 +30,15 @@ namespace Spectator
         {
             internal long Session, Operation, PowerGeneration;
             internal TestActionKind Kind;
+            internal string StatusPage;
             internal int Actor, Target, Requester, Amount;
             internal eGoods Good;
             internal bool Force;
             internal ToolPower Power;
             internal int Tile;
             internal GateSelection Gate;
+            internal CreditTrace Credit;
+            internal string CreditError;
         }
 
         private static void RegisterTestActions()
@@ -66,15 +68,30 @@ namespace Spectator
         private static bool IsToolsSession()
         {
             // Avoid touching mode services before the managed game view exists.
-            if (settings?.Activation.TestTools != true || !IsCurrentSession(CurrentSessionId) ||
+            if (settings == null || !IsCurrentSession(CurrentSessionId) ||
                 !MainViewModel.viewModelLoaded || GameData.Instance?.lastGameState == null) return false;
-            return ToolSessionPolicy.CanMutate(settings?.Activation.TestTools == true,
+            bool enabled = ToolSessionPolicy.Enabled(settings.Activation.TestTools, settings.Activation.SingleplayerTest,
+                GameModeHelper.IsMapEditor(), SpectatorPerspectiveRuntime.IsSpectatorObserver(),
+                PlayerPerspectiveAPI.GetControlledPlayerId() > 0);
+            return ToolSessionPolicy.CanMutate(enabled,
                 IsCurrentSession(CurrentSessionId), MainViewModel.viewModelLoaded,
                 GameData.Instance?.lastGameState != null, GameModeHelper.IsRealMultiplayer(),
                 Director.instance != null, Director.instance != null && Director.instance.MultiplayerGame);
         }
 
         private static bool IsEditorToolsSession() => IsToolsSession() && GameModeHelper.IsMapEditor();
+
+        private static bool IsActivePlayerTestSession() => IsToolsSession() && !GameModeHelper.IsMapEditor() &&
+            !SpectatorPerspectiveRuntime.IsSpectatorObserver() && PlayerPerspectiveAPI.GetControlledPlayerId() > 0;
+
+        // The local view uses a normal build menu: an active test player or an input-controlled spectator.
+        private static bool HasOwnBuildMenu() => IsActivePlayerTestSession() || IsControlledBuildSession();
+
+        private static bool IsPlacementPlayer(int owner) => IsSelectableAi(owner) ||
+            IsActivePlayerTestSession() && owner == PlayerPerspectiveAPI.GetControlledPlayerId() && IsToolsPlayer(owner, false);
+
+        private static bool IsOrderTarget(int owner) => OrderTargetPolicy.IsAvailable(
+            IsToolsPlayer(owner, false), SpectatorDefeat.IsPlayerEliminated(owner));
 
         private static unsafe bool IsToolsPlayer(int owner, bool requireAi)
         {
@@ -89,7 +106,7 @@ namespace Spectator
             return resources->r_WinLossState != WinLossState.Loss && resources->r_LordUnitId > 0;
         }
 
-        private static string PlayerLabel(int owner)
+        private static string PlayerLabel(int owner, bool includeNumber = true)
         {
             string name = null;
             try
@@ -103,12 +120,12 @@ namespace Spectator
             }
             catch (Exception error) { LogOnce("TEST_PLAYER_NAME_ERROR: " + error); }
             if (string.IsNullOrWhiteSpace(name)) name = SerpLocalization.Get("Tools.Player");
-            return owner + " · " + name;
+            return includeNumber ? owner + " · " + name : name;
         }
 
-        private static void QueueCredit(eGoods good, string text)
+        private static void QueueCredit(eGoods good, string text, bool debit)
         {
-            if (!CreditMath.TryParse(text, out int amount)) { toolsModel.Status = SerpLocalization.Get("Tools.InvalidAmount"); return; }
+            if (!CreditMath.TryAmount(text, debit, out int amount)) { toolsModel.SetActionStatus(TestActionKind.Credit, SerpLocalization.Get("Tools.InvalidAmount")); return; }
             QueueTestAction(new TestAction { Kind = TestActionKind.Credit, Actor = humanSelectedOwner,
                 Good = good, Amount = amount });
         }
@@ -123,13 +140,20 @@ namespace Spectator
 
         private static void QueueTestAction(TestAction action)
         {
-            if (!IsToolsSession() || (action.Kind != TestActionKind.PowerToggle && !IsToolsPlayer(action.Actor, true)))
-            { if (toolsModel != null) toolsModel.Status = SerpLocalization.Get("Tools.InvalidTarget"); return; }
+            action.StatusPage = toolsModel?.ActiveViewKey;
+            if (!IsToolsSession() || (action.Kind != TestActionKind.PowerToggle && !IsToolsPlayer(action.Actor, action.Kind != TestActionKind.Credit)))
+            { ReportTestAction(action, SerpLocalization.Get("Tools.InvalidTarget")); return; }
             action.Session = CurrentSessionId;
             action.PowerGeneration = powerGeneration;
             action.Operation = Interlocked.Increment(ref nextTestAction);
             testActions.Enqueue(action);
-            toolsModel.Status = SerpLocalization.Get("Tools.Queued");
+            RequestRender();
+            ReportTestAction(action, SerpLocalization.Get("Tools.Queued"));
+        }
+
+        private static void ReportTestAction(TestAction action, string message)
+        {
+            toolsModel?.SetActionStatus(action.Kind, message, action.StatusPage);
         }
 
         private static void DrainTestActions()
@@ -144,7 +168,7 @@ namespace Spectator
                     {
                         if (!IsToolsSession() || !IsCurrentSession(action.Session) ||
                             !actionLedger.TryBegin(action.Session, action.Operation) ||
-                            (action.Kind != TestActionKind.PowerToggle && !IsToolsPlayer(action.Actor, true)))
+                            (action.Kind != TestActionKind.PowerToggle && !IsToolsPlayer(action.Actor, action.Kind != TestActionKind.Credit)))
                             continue;
                         switch (action.Kind)
                         {
@@ -161,52 +185,115 @@ namespace Spectator
                                 CancelPowerSelection();
                                 GamePlayerManagerAPI.Instance.SetLocalPlayerExtremePowersEnabled(action.Force);
                                 toolsModel?.RefreshPowerFlag(GamePlayerManagerAPI.Instance.IsLocalPlayerExtremePowersEnabled());
-                                result = SerpLocalization.Get(action.Force ? "Tools.PowersOn" : "Tools.PowersOff"); break;
+                                result = ""; break;
                             default: result = ExecuteOrder(action); break;
                         }
                     }
-                    if (toolsModel != null) toolsModel.Status = result;
+                    ReportTestAction(action, result);
                     log.LogInfo("TEST_ACTION session=" + action.Session + " operation=" + action.Operation +
                         " kind=" + action.Kind + " actor=" + action.Actor + " target=" + action.Target +
                         " force=" + action.Force + " amount=" + action.Amount + " good=" + action.Good +
-                        " power=" + action.Power?.Id + " tile=" + action.Tile + " building=" + action.Gate?.Id + " result=" + result);
+                        " power=" + action.Power?.Id + " tile=" + action.Tile + " building=" + action.Gate?.Id +
+                        action.Credit?.LogFields + " result=" + result);
+                    if (action.CreditError != null)
+                        log.LogError("TEST_CREDIT_ERROR session=" + action.Session + " operation=" + action.Operation +
+                            " actor=" + action.Actor + " amount=" + action.Amount + " good=" + action.Good +
+                            action.Credit?.LogFields + ": " + action.CreditError);
                 }
-                catch (Exception error) { LogOnce("TEST_ACTION_ERROR: " + error); if (toolsModel != null) toolsModel.Status = SerpLocalization.Get("Tools.Failed"); }
+                catch (Exception error) { LogOnce("TEST_ACTION_ERROR: " + error); ReportTestAction(action, SerpLocalization.Get("Tools.Failed")); }
             }
         }
 
         private static unsafe string ExecuteCredit(TestAction action)
         {
-            if (!TestToolsViewModel.IsGrantable(action.Good) || action.Amount <= 0 ||
+            if (!TestToolsViewModel.IsGrantable(action.Good) || action.Amount == 0 ||
                 !GamePlayerManagerAPI.Instance.TryGetPlayerResourcesById(action.Actor, out GamePlayerResources* resources))
                 return SerpLocalization.Get("Tools.InvalidTarget");
             var players = GamePlayerManagerAPI.Instance;
-            if (action.Good == eGoods.STORED_GOLD)
+            bool gold = action.Good == eGoods.STORED_GOLD;
+            bool reserveOnly = !gold && action.Amount < 0 &&
+                players.GetCurrentGameTypeMode() == eGameTypeModes.GAMETYPE_SIEGE_THAT_BUILDER;
+            // Immediate gold credits affect stored gold only; debits still include the delivery reserve.
+            action.Credit = new CreditTrace(ReadDebitBalance(action.Actor, action.Good), action.Amount,
+                gold && action.Amount > 0, reserveOnly);
+            try
             {
-                int before = players.GetPlayerGold(action.Actor);
-                if (!CreditMath.Fits(before, action.Amount)) return SerpLocalization.Get("Tools.Overflow");
-                if (!players.AddPlayerGold(action.Actor, action.Amount) || players.GetPlayerGold(action.Actor) != before + action.Amount)
-                    throw new InvalidOperationException("Gold postcondition failed.");
-                return SerpLocalization.Get("Tools.GoldCredited", "Amount", action.Amount, "Player", PlayerLabel(action.Actor));
+                if (action.Amount < 0)
+                {
+                    long actual = CreditDebit.Execute(action.Amount, reserveOnly,
+                        () => action.Credit.Observe(ReadDebitBalance(action.Actor, action.Good)),
+                        value => {
+                            if (gold) { if (!players.AddPlayerGold(action.Actor, -value)) throw new InvalidOperationException("Gold debit failed."); }
+                            else players.RemoveGood(action.Actor, action.Good, value);
+                        }, value => players.SubtractIncomingGood(action.Actor, action.Good, value));
+                    return SerpLocalization.Get(gold ? "Tools.GoldRemoved" : "Tools.GoodsRemoved",
+                        "Amount", actual, "Player", PlayerLabel(action.Actor));
+                }
+                action.Credit.Failure = CreditMath.Check(action.Credit.Before, action.Amount, gold);
+                if (action.Credit.Failure != CreditFailure.None)
+                {
+                    action.Credit.Observe(action.Credit.Before);
+                    return CreditFailureText(action);
+                }
+                if (gold)
+                {
+                    if (!players.AddPlayerGold(action.Actor, action.Amount))
+                        throw new InvalidOperationException("Gold credit failed.");
+                }
+                else players.AddIncomingGood(action.Actor, action.Good, action.Amount);
+                GoodsBalance after = action.Credit.Observe(ReadDebitBalance(action.Actor, action.Good));
+                if (action.Credit.Actual != action.Credit.Expected ||
+                    (!gold && (long)after.Incoming != (long)action.Credit.Before.Incoming + action.Amount))
+                    throw new CreditAccountingException(CreditFailure.Postcondition, "Credit postcondition failed.");
+                return SerpLocalization.Get(gold ? "Tools.GoldCredited" : "Tools.GoodsCredited",
+                    "Amount", action.Amount, "Player", PlayerLabel(action.Actor));
             }
+            catch (Exception error)
+            {
+                action.Credit.Failure = error is CreditAccountingException accounting ? accounting.Failure : CreditFailure.Provider;
+                action.CreditError = error.ToString();
+                // A provider may have changed an account before failing. Observe under the same engine lock.
+                action.Credit.ActualKnown = false;
+                try { action.Credit.Observe(ReadDebitBalance(action.Actor, action.Good)); }
+                catch (Exception readError) { action.CreditError += "\nBalance read failed: " + readError; }
+                return CreditFailureText(action);
+            }
+        }
+
+        private static string CreditFailureText(TestAction action)
+        {
+            CreditTrace trace = action.Credit;
+            string reason = trace.Failure == CreditFailure.NegativeBalance ? "Tools.NegativeBalance" :
+                trace.Failure == CreditFailure.Overflow ? "Tools.Overflow" :
+                trace.Failure == CreditFailure.Postcondition ? "Tools.BalancePostcondition" : "Tools.BalanceOperationFailed";
+            string details = SerpLocalization.Get("Tools.BalanceDetails", "Player", PlayerLabel(action.Actor),
+                "Good", Translate.Instance.lookUpText(Enums.eTextSections.TEXT_GOODS, (int)action.Good),
+                "Current", trace.Current, "Stored", trace.Before.Stored, "Incoming", trace.Before.Incoming,
+                "Amount", trace.Amount, "Expected", trace.Expected,
+                "Actual", trace.ActualKnown ? (object)trace.Actual : SerpLocalization.Get("Tools.BalanceUnknown"),
+                "Limit", int.MaxValue);
+            return SerpLocalization.Get(reason) + " " + details;
+        }
+
+        private static unsafe GoodsBalance ReadDebitBalance(int actor, eGoods good)
+        {
+            var players = GamePlayerManagerAPI.Instance;
+            if (!players.TryGetPlayerResourcesById(actor, out GamePlayerResources* resources) || resources == null)
+                throw new InvalidOperationException("Resource owner disappeared.");
             int* incoming = (int*)(&resources->r_incomingNull);
-            int value = incoming[(int)action.Good];
-            int stored = players.GetGoodAmount(action.Actor, action.Good);
-            if (value < 0 || stored < 0 || !CreditMath.Fits((long)value + stored, action.Amount))
-                return SerpLocalization.Get("Tools.Overflow");
-            players.AddIncomingGood(action.Actor, action.Good, action.Amount);
-            if (incoming[(int)action.Good] != value + action.Amount) throw new InvalidOperationException("Incoming goods postcondition failed.");
-            return SerpLocalization.Get("Tools.GoodsCredited", "Amount", action.Amount, "Player", PlayerLabel(action.Actor));
+            return new GoodsBalance(good == eGoods.STORED_GOLD ? players.GetPlayerGold(actor) : players.GetGoodAmount(actor, good), incoming[(int)good]);
         }
 
         private static unsafe string ExecuteOrder(TestAction action)
         {
             if (nativeOrder == null) return SerpLocalization.Get("Tools.NativeUnavailable");
+            if (!OrderTargetPolicy.CanExecute(action.Kind, IsOrderTarget(action.Actor),
+                action.Kind == TestActionKind.Cancel || IsOrderTarget(action.Target)))
+                return SerpLocalization.Get("Tools.InvalidTarget");
             var players = GamePlayerManagerAPI.Instance;
             if (!players.IsAIPlayer(action.Actor) || !players.TryGetPlayerResourcesById(action.Actor, out GamePlayerResources* resources) ||
                 resources->r_LordUnitId == 0 || !IsToolsPlayer(action.Requester, false))
                 return SerpLocalization.Get("Tools.AiNotRunning");
-            if (action.Kind != TestActionKind.Cancel && !IsToolsPlayer(action.Target, false)) return SerpLocalization.Get("Tools.InvalidTarget");
             if (action.Kind == TestActionKind.Attack)
             {
                 var state = GameData.Instance.lastGameState;
@@ -226,7 +313,7 @@ namespace Spectator
             bool accepted = resources->r_AIAllyOrderMode == expected &&
                 (expected == 0 || resources->r_AIAllyOrderRequesterPlayerId == action.Requester) &&
                 (action.Kind != TestActionKind.Attack || resources->r_AIRequestedAttackTargetPlayerId == action.Target);
-            return SerpLocalization.Get(accepted ? "Tools.OrderAccepted" : "Tools.OrderRejected");
+            return SerpLocalization.Get(accepted ? (action.Kind == TestActionKind.Cancel ? "Tools.OrderCancelled" : "Tools.OrderAccepted") : "Tools.OrderRejected");
         }
 
         private static void ResetTestActions(long session)

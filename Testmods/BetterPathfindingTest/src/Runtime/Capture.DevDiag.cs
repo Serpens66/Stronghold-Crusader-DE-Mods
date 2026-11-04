@@ -16,19 +16,21 @@ namespace BetterPathfindingTest
     {
         internal CapturedMap Map;
         internal ManagedEvidence Evidence;
+        internal int LocalPlayer;
         internal IEnemyGateRoutePolicySnapshot[] Gates;
         internal void MaterializeGates(WorkBudget budget)
         {
+            if (Gates != null) GateCapture.Validate(Gates);
             SnapshotCapture.DeriveStructures(Map);
             for (int player = 1; player <= 8; player++)
             {
-                IEnemyGateRoutePolicySnapshot snapshot = Gates[player]; if (snapshot == null) continue;
+                IEnemyGateRoutePolicySnapshot snapshot = Gates == null ? null : Gates[player]; if (snapshot == null) continue;
                 var mask = new byte[Map.Flags.Length];
                 // Pure immutable provider contract: never read native state on the worker.
                 for (int tile = 0; tile < mask.Length; tile++) { if ((tile & 1023) == 0) budget.Check(); for (int d = 0; d < 8; d++) if (snapshot.IsDirectionAllowed(tile, d)) mask[tile] |= (byte)(1 << d); }
                 Map.GateMasks[player] = mask;
             }
-            Gates = null;
+            if (Gates != null) GateCapture.Validate(Gates); Gates = null;
         }
     }
     internal sealed class SnapshotCapture
@@ -92,7 +94,7 @@ namespace BetterPathfindingTest
             GateCapture.Validate(gates);
             if (policy != null) map.GateCoverage = published ? "captured-immutable-published-policy" : "provider-present-without-published-mask";
             map.CopyMilliseconds = watch.Elapsed.TotalMilliseconds; map.Validate();
-            return new CaptureEnvelope { Map = map, Gates = gates, Evidence = evidence };
+            return new CaptureEnvelope { Map = map, Gates = gates, Evidence = evidence, LocalPlayer = players.GetLocalPlayerId() };
         }
         private static short StructureHeight(eStructs type)
         {

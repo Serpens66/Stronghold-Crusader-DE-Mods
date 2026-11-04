@@ -390,12 +390,20 @@ namespace BugfixesAndQoL.GateRouting
 
         // Runs in the same simulation tick directly after OnGameTick, so a detected
         // capture/owner change is republished before any pathfinding of that tick.
+        private int? scheduleTick;
+        private long scheduleTime;
         internal void ProcessTick(long now)
         {
             if (Volatile.Read(ref epochActive) == 0)
                 return;
             try
             {
+                int raw = unchecked((int)now);
+                if (!scheduleTick.HasValue || initializedDeferredEpoch != Volatile.Read(ref epochNumber))
+                    scheduleTime = unchecked((uint)raw);
+                else scheduleTime += unchecked((uint)(raw - scheduleTick.Value));
+                scheduleTick = raw;
+                now = scheduleTime;
                 InitializeDeferredEpochIfNeeded(now);
                 bool capturePost = captureEvents.Consume();
                 if (capturePost | captureRefresh.Consume(Volatile.Read(ref epochNumber)))

@@ -1,5 +1,5 @@
 $ErrorActionPreference = 'Stop'
-$gameDirectory = 'E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition'
+$gameDirectory = if ($env:SHCDE_GAME_DIR) { $env:SHCDE_GAME_DIR } else { 'E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition' }
 # Metadata-only reader; loading its bytes avoids mutating Windows Zone.Identifier on game files.
 [void][Reflection.Assembly]::Load([IO.File]::ReadAllBytes((Join-Path $gameDirectory 'BepInEx\core\Mono.Cecil.dll')))
 # Optional reflection contracts must match real access modifiers, not just the fixture signatures.
@@ -16,9 +16,44 @@ foreach ($providerFile in Get-ChildItem -LiteralPath (Join-Path $gameDirectory '
 $managed = Join-Path $gameDirectory 'Stronghold Crusader Definitive Edition_Data\Managed\Assembly-CSharp.dll'
 $assembly = [Mono.Cecil.AssemblyDefinition]::ReadAssembly($managed)
 try {
+    foreach($entry in @(@('bufferPool','System.Collections.Generic.List`1<MemoryBuffers/MemBuffer>',$false),@('commonFrameID','System.Int32',$true))) {
+        $field = @($assembly.MainModule.GetType('MemoryBuffers').Fields | Where-Object Name -eq $entry[0])
+        if ($field.Count -ne 1 -or -not $field[0].IsPrivate -or $field[0].IsStatic -ne $entry[2] -or $field[0].FieldType.FullName -cne $entry[1]) { throw 'Report buffer reflection contract changed.' }
+    }
     foreach ($entry in @(
         @('CrusaderDE.MainViewModel','viewModelLoaded','field'),
+        @('CrusaderDE.MainViewModel','HUDMPChatPanel','field'),
+        @('CrusaderDE.MainViewModel','HUDMeritPanel','field'),
+        @('CrusaderDE.WGT_Popularity','popValueProperty','field'),
+        @('MemoryBuffers','instance','field'),
+        @('MemoryBuffers/MemBuffer','frameID','field'),
+        @('MemoryBuffers/MemBuffer','gameState','field'),
+        @('CrusaderDE.MainViewModel','buildScreenID','field'),
+        @('CrusaderDE.MainViewModel','get_Show_HUD_Extras','method'),
+        @('CrusaderDE.MainViewModel','get_Show_HUD_IngameMenu','method'),
+        @('CrusaderDE.MainViewModel','get_MEMode','method'),
+        @('CrusaderDE.HUD_Main','NewBuildScreenBlank','method'),
+        @('GameMap','instance','field'),
+        @('GameMap','ignoreNextCachedBounds','field'),
+        @('GameMap','mapGameTileToTilemapCoord','method'),
+        @('GameMap','getMapTile','method'),
+        @('GameMap','PreCalcScreenCentre','method'),
+        @('CameraControls2D','instance','field'),
+        @('CameraControls2D','setCameraPos','method'),
+        @('EngineInterface','StartMapperItem','method'),
+        @('PerfectPixelWithZoom','instance','field'),
+        @('CrusaderDE.MainViewModel','get_AlliesPanelVisible','method'),
+        @('CrusaderDE.MainViewModel','get_MeritPanelVisible','method'),
+        @('CrusaderDE.MainViewModel','get_MPChatVisible','method'),
         @('CrusaderDE.MainViewModel','getAIFace','method'),
+        @('CrusaderDE.MainViewModel','getAIFaceBackground','method'),
+        @('Platform_Multiplayer','GetUserAvatar','method'),
+        @('Platform_Multiplayer','getPlayerSteamID','method'),
+        @('CrusaderDE.PropEx','SetSprite1','method'),
+        @('CrusaderDE.PropEx','SetSprite2','method'),
+        @('CrusaderDE.PropEx','SetSprite3','method'),
+        @('CrusaderDE.PropEx','SetSprite4','method'),
+        @('CrusaderDE.MainViewModel','getAlliesGoodsIcon','method'),
         @('CrusaderDE.MainViewModel','SetNoesisKeyboardState','method'),
         @('FatControler','get_NoesisHasKeyboard','method'),
         @('FatControler','SetNoesisKeyboardState','method'),
@@ -36,7 +71,7 @@ try {
         @('CrusaderDE.HUD_Buildings','RefHUDBuildingFullClickMask','field')
     )) {
         $type = $assembly.MainModule.GetType($entry[0])
-        if (-not $type -or -not $type.IsPublic) { throw "Missing public game type: $($entry[0])" }
+        if (-not $type -or -not ($type.IsPublic -or ($type.IsNestedPublic -and $type.DeclaringType.IsPublic))) { throw "Missing public game type: $($entry[0])" }
         $members = if ($entry[2] -eq 'field') { @($type.Fields) } else { @($type.Methods) }
         $member = @($members | Where-Object { $_.Name -eq $entry[1] -and $_.IsPublic })
         if ($member.Count -eq 0) { throw "Missing public game member: $($entry -join '.')" }
@@ -48,31 +83,62 @@ try {
     $nameResolver = @($assembly.MainModule.GetType('OnScreenText').Methods | Where-Object { $_.Name -eq 'getComputerName' -and $_.IsPublic -and $_.IsStatic -and $_.Parameters.Count -eq 2 -and $_.ReturnType.FullName -eq 'System.String' })
     if ($nameResolver.Count -ne 1 -or @($nameResolver[0].Parameters | Where-Object { $_.ParameterType.FullName -ne 'System.Int32' }).Count) { throw 'Computer-name resolver contract changed.' }
     $state = $assembly.MainModule.GetType('EngineInterface/PlayState')
-    foreach ($name in @('computer_names','computer_register')) {
+    $mapperStart = @($assembly.MainModule.GetType('EngineInterface').Methods | Where-Object { $_.Name -eq 'StartMapperItem' -and $_.IsPublic -and $_.IsStatic -and $_.ReturnType.FullName -eq 'System.Int32' -and $_.Parameters.Count -eq 1 -and $_.Parameters[0].ParameterType.FullName -eq 'System.Int32' })
+    if ($mapperStart.Count -ne 1) { throw 'Observer mapper-start guard contract changed.' }
+    foreach ($name in @('computer_names','computer_register','skirmish_order','skirmish_order_player','skirmish_order_from_player')) {
         if (-not @($state.Fields | Where-Object { $_.Name -eq $name -and $_.IsPublic }).Count) { throw "Missing public snapshot field: $name" }
     }
 } finally { $assembly.Dispose() }
 $noesis = [Mono.Cecil.AssemblyDefinition]::ReadAssembly((Join-Path $gameDirectory 'Stronghold Crusader Definitive Edition_Data\Managed\Noesis.NoesisGUI.dll'))
 try {
-    foreach ($entry in @(@('Noesis.UIElement','PreviewTextInput'),@('Noesis.UIElement','LostFocus'),@('Noesis.UIElement','GotKeyboardFocus'),@('Noesis.UIElement','LostKeyboardFocus'),@('Noesis.UIElement','IsVisibleChanged'),@('Noesis.TextBoxBase','TextChanged'),@('Noesis.TextBoxBase','SelectionChanged'))) {
+    foreach ($entry in @(@('Noesis.UIElement','PreviewKeyDown'),@('Noesis.UIElement','PreviewMouseDown'),@('Noesis.UIElement','PreviewTextInput'),@('Noesis.UIElement','LostFocus'),@('Noesis.UIElement','GotKeyboardFocus'),@('Noesis.UIElement','LostKeyboardFocus'),@('Noesis.UIElement','IsVisibleChanged'),@('Noesis.TextBoxBase','TextChanged'),@('Noesis.TextBoxBase','SelectionChanged'))) {
         $type = $noesis.MainModule.GetType($entry[0])
         if (-not @($type.Events | Where-Object { $_.Name -eq $entry[1] -and $_.AddMethod.IsPublic -and $_.RemoveMethod.IsPublic }).Count) { throw "Missing public input event: $($entry -join '.')" }
     }
     foreach ($name in @('SelectionStart','SelectionLength')) {
         if (-not @($noesis.MainModule.GetType('Noesis.TextBox').Properties | Where-Object { $_.Name -eq $name -and $_.GetMethod.IsPublic -and $_.SetMethod.IsPublic }).Count) { throw "Missing public selection property: $name" }
     }
+    foreach ($entry in @(@('Noesis.KeyEventArgs','Key'),@('Noesis.FrameworkElement','ActualWidth'),@('Noesis.FrameworkElement','ActualHeight'))) {
+        if (-not @($noesis.MainModule.GetType($entry[0]).Properties | Where-Object { $_.Name -eq $entry[1] -and $_.GetMethod.IsPublic }).Count) { throw "Missing public input property: $($entry -join '.')" }
+    }
+    foreach ($name in @('Enter','Escape')) {
+        if (-not @($noesis.MainModule.GetType('Noesis.Key').Fields | Where-Object { $_.Name -eq $name -and $_.IsPublic -and $_.HasConstant }).Count) { throw "Missing public editing exit key: $name" }
+    }
+    foreach ($name in @('Stroke','StrokeThickness','LineHeight','LineStackingStrategy')) {
+        if (-not @($noesis.MainModule.GetType('Noesis.TextBlock').Properties | Where-Object { $_.Name -eq $name -and $_.GetMethod.IsPublic -and $_.SetMethod.IsPublic }).Count) { throw "Missing public glyph property: $name" }
+    }
+    foreach ($entry in @(@('Noesis.TextBlock','get_FormattedText'),@('Noesis.FormattedText','get_Bounds'),@('Noesis.Rect','get_X'),@('Noesis.Rect','get_Bottom'),@('Noesis.UIElement','get_IsHitTestVisibleProperty'))) {
+        if (-not @($noesis.MainModule.GetType($entry[0]).Methods | Where-Object { $_.Name -eq $entry[1] -and $_.IsPublic }).Count) { throw "Missing public number/date member: $($entry -join '.')" }
+    }
+    foreach ($name in @('GetZIndex','SetZIndex')) {
+        if (-not @($noesis.MainModule.GetType('Noesis.Panel').Methods | Where-Object { $_.Name -eq $name -and $_.IsPublic -and $_.IsStatic }).Count) { throw "Missing public stacking member: $name" }
+    }
+    foreach ($name in @('SetInitialShowDelay','SetBetweenShowDelay')) {
+        if (-not @($noesis.MainModule.GetType('Noesis.ToolTipService').Methods | Where-Object { $_.Name -eq $name -and $_.IsPublic -and $_.IsStatic }).Count) { throw "Missing public immediate-tooltip member: $name" }
+    }
     $binding = $noesis.MainModule.GetType('Noesis.Binding')
     if (-not @($binding.Properties | Where-Object { $_.Name -eq 'Source' -and $_.GetMethod.IsPublic -and $_.SetMethod.IsPublic }).Count -or
         -not @($binding.Methods | Where-Object { $_.IsConstructor -and $_.IsPublic -and $_.Parameters.Count -eq 1 -and $_.Parameters[0].ParameterType.FullName -eq 'System.String' }).Count) { throw 'Missing public explicit-source Binding contract.' }
     Write-Host 'PASS: Noesis input, paste rollback, focus and explicit-source binding contracts.'
-    foreach ($entry in @(@('Noesis.BindingOperations','GetBindingBase'),@('Noesis.BindingOperations','SetBinding'),@('Noesis.DependencyObject','ReadLocalValue'),@('Noesis.Keyboard','ClearFocus'),@('Noesis.Keyboard','get_FocusedElement'),@('Noesis.VisualTreeHelper','GetChild'),@('Noesis.VisualTreeHelper','GetChildrenCount'))) {
+    foreach ($entry in @(@('Noesis.BindingOperations','GetBindingBase'),@('Noesis.BindingOperations','SetBinding'),@('Noesis.DependencyObject','ReadLocalValue'),@('Noesis.Keyboard','ClearFocus'),@('Noesis.Keyboard','get_FocusedElement'),@('Noesis.VisualTreeHelper','GetChild'),@('Noesis.VisualTreeHelper','GetChildrenCount'),@('Noesis.Visual','PointToScreen'),@('Noesis.Grid','SetRow'),@('Noesis.Grid','SetColumn'),@('Noesis.FrameworkElement','add_Loaded'),@('Noesis.FrameworkElement','add_SizeChanged'),@('Noesis.ToolTip','add_Opened'),@('Noesis.ToolTip','add_Closed'),@('Noesis.ToolTip','get_PlacementTarget'))) {
         if (-not @($noesis.MainModule.GetType($entry[0]).Methods | Where-Object { $_.Name -eq $entry[1] -and $_.IsPublic }).Count) { throw "Missing public toolbar/focus member: $($entry -join '.')" }
     }
 } finally { $noesis.Dispose() }
 $extender = [Mono.Cecil.AssemblyDefinition]::ReadAssembly((Join-Path $gameDirectory 'BepInEx\plugins\000shcdese\SHCDESE.dll'))
 try {
     $player = $extender.MainModule.GetType('SHCDESE.API.GamePlayerManagerAPI')
-    foreach ($name in @('AddIncomingGood','AddPlayerGold','GetPlayerGold','TryGetPlayerResourcesById','SetLocalPlayerExtremePowersEnabled','IsLocalPlayerExtremePowersEnabled','GetLordUnitId','GetLordUnitGlobalId')) {
+    $converter = @($extender.MainModule.GetType('SHCDESE.CoordinateConverter').Methods | Where-Object {
+        $_.Name -eq 'ConvertLocalTileToCameraWorld' -and $_.IsPublic -and $_.IsStatic -and
+        $_.ReturnType.FullName -eq 'System.Numerics.Vector2' -and $_.Parameters.Count -eq 1 -and
+        $_.Parameters[0].ParameterType.FullName -eq 'System.Numerics.Vector2'
+    })
+    if ($converter.Count -ne 1) { throw 'Public synchronous camera coordinate conversion contract changed.' }
+    foreach ($name in @('r_FirstGoodsyardId','r_FirstGranaryId','r_FirstArmouryId','r_TradePostId','r_EuroMercPostId','r_EngineersGuildId','r_TunnelersGuildId')) {
+        if (@($extender.MainModule.GetType('SHCDESE.Interop.GamePlayerResources').Fields | Where-Object {
+            $_.Name -eq $name -and $_.IsPublic -and $_.FieldType.FullName -eq 'System.UInt32'
+        }).Count -ne 1) { throw "Public first-building resource field contract changed: $name" }
+    }
+    foreach ($name in @('SubtractIncomingGood','RemoveGood','GetCurrentGameTypeMode','AddIncomingGood','AddPlayerGold','GetPlayerGold','TryGetPlayerResourcesById','SetLocalPlayerExtremePowersEnabled','IsLocalPlayerExtremePowersEnabled','GetLordUnitId','GetLordUnitGlobalId')) {
         $method = @($player.Methods | Where-Object { $_.Name -eq $name -and $_.IsPublic })
         if ($method.Count -ne 1) { throw "Missing or ambiguous Extender player API: $name" }
         Write-Host ('Validated Extender API: ' + $method[0].FullName)

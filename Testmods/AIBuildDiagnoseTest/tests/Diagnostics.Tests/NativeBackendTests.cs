@@ -110,6 +110,42 @@ namespace AIBuildDiagnoseTest.Tests
                 Assert.IsTrue(VirtualFree(copy, UIntPtr.Zero, 0x8000));
             }
         }
+        [TestMethod]
+        public void NewRemovalProloguesExecuteWithUnchangedArgumentsAndSingleOriginalCall()
+        {
+            foreach (int rva in new[] { 0x3B270, 0xC8F50, 0x55E10 })
+            {
+                var contract = EconomyHookContract.Find(rva);
+                IntPtr copy = VirtualAlloc(IntPtr.Zero, new UIntPtr(0x10000), 0x3000, 0x40);
+                Assert.AreNotEqual(IntPtr.Zero, copy);
+                NativeDetour<EconomyNativeHooks.QuadResult> hook = null;
+                EconomyNativeHooks.QuadResult original = null;
+                int calls = 0;
+                EconomyNativeHooks.QuadResult callback = (state, a, b, c) => { calls++; return original(state, a, b, c); };
+                try
+                {
+                    Marshal.Copy(contract.Prefix, 0, copy, contract.Prefix.Length);
+                    // Pure synthetic body returns argument 2 + argument 3. The sweep prologue
+                    // pushes RSI/RDI/R14 and reserves 32 bytes; restore exactly that frame.
+                    byte[] body = rva == 0xC8F50
+                        ? new byte[] { 0x8B, 0xC2, 0x44, 0x01, 0xC0, 0x48, 0x83, 0xC4, 0x20, 0x41, 0x5E, 0x5F, 0x5E, 0xC3 }
+                        : new byte[] { 0x8B, 0xC2, 0x44, 0x01, 0xC0, 0xC3 };
+                    Marshal.Copy(body, 0, copy + contract.Length, body.Length);
+                    var request = new DetourRequest<EconomyNativeHooks.QuadResult>
+                    { Name = "private removal entry execution", TargetAddress = unchecked((ulong)copy.ToInt64()), Callback = callback };
+                    hook = NativeDetourBackend.Instance.CreateDetour(in request) as NativeDetour<EconomyNativeHooks.QuadResult>;
+                    EconomyNativeHooks.Validate(hook, unchecked((ulong)copy.ToInt64()), contract.Length, false);
+                    original = Marshal.GetDelegateForFunctionPointer<EconomyNativeHooks.QuadResult>(hook.TrampolineAddress);
+                    hook.Enable();
+                    EconomyNativeHooks.Validate(hook, unchecked((ulong)copy.ToInt64()), contract.Length, true);
+                    var entry = Marshal.GetDelegateForFunctionPointer<EconomyNativeHooks.QuadResult>(copy);
+                    Assert.AreEqual(23, entry(0x12345678, 17, 6, 0));
+                    Assert.AreEqual(-17, entry(0x12345678, -23, 6, 0));
+                    Assert.AreEqual(2, calls);
+                }
+                finally { hook?.Dispose(); GC.KeepAlive(callback); GC.KeepAlive(original); Assert.IsTrue(VirtualFree(copy, UIntPtr.Zero, 0x8000)); }
+            }
+        }
         [DllImport("kernel32.dll", SetLastError = true)]
         private static extern IntPtr VirtualAlloc(IntPtr address, UIntPtr size, uint allocationType, uint protection);
         [DllImport("kernel32.dll", SetLastError = true)]

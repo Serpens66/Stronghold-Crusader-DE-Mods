@@ -237,7 +237,6 @@ namespace Spectator
         {
             if (visualMapDetour != null) return;
             NativeDetour<VisualMapDelegate> map = null;
-            NativeDetour<VisualFrameDelegate> frame = null;
             NativeDetour<VisualResourceDelegate> resource = null;
             bool published = false;
             try
@@ -245,19 +244,19 @@ namespace Spectator
                 ulong image = unchecked((ulong)context.ModuleHandle.ToInt64());
                 map = CreateVisualDetour("map", image + VisualMapRva,
                     VisualMapEntry, (VisualMapDelegate)UpdateVisualMap);
-                frame = CreateVisualDetour("frame", image + VisualFrameRva,
-                    VisualFrameEntry, (VisualFrameDelegate)DrawVisualFrame);
+                if (!APIShared.Presentation.VisibleMapRenderEvents.TryRegister(SpectatorPlugin.PluginGuid,
+                    "placement-visibility", args => EnterVisualSpectator(args),
+                    args => { if (args.State is int previous) LeaveVisualSpectator(previous); },
+                    out visualFrameRegistration, out string reason, order: 20))
+                    throw new InvalidOperationException(reason);
                 resource = CreateVisualDetour("resource", image + VisualResourceRva,
                     VisualResourceEntry, (VisualResourceDelegate)UpdateVisualResource);
                 visualMapDetour = map;
-                visualFrameDetour = frame;
                 visualResourceDetour = resource;
                 published = true; // Retain all roots once any live publication is attempted.
                 map.Enable();
-                frame.Enable();
                 resource.Enable();
                 VerifyVisualPatch(map, image + VisualMapRva, VisualMapEntry.Length);
-                VerifyVisualPatch(frame, image + VisualFrameRva, VisualFrameEntry.Length);
                 VerifyVisualPatch(resource, image + VisualResourceRva, VisualResourceEntry.Length);
                 visualsReady = true;
                 log.LogInfo("SPECTATOR_EDITOR_VISUAL_READY map=0x65830 frame=0x41D60 resource=0x6E620");
@@ -265,15 +264,13 @@ namespace Spectator
             catch (Exception error)
             {
                 visualsReady = false;
-                Interlocked.Exchange(ref revealHiddenActive, 0);
+                SetRevealHidden(0);
                 if (!published)
                 {
-                    Interlocked.Exchange(ref revealHiddenActive, 0);
+                    SetRevealHidden(0);
                     visualResourceDetour = null;
-                    visualFrameDetour = null;
                     visualMapDetour = null;
                     resource?.Dispose();
-                    frame?.Dispose();
                     map?.Dispose();
                 }
                 log.LogError("SPECTATOR_EDITOR_VISUAL_DISABLED: " + error);
@@ -381,11 +378,19 @@ namespace Spectator
                 throw new InvalidOperationException("Visual detour patch form differs.");
         }
 
-        private static unsafe int EnterVisualSpectator()
+        private static void SetRevealHidden(int active)
+        {
+            Interlocked.Exchange(ref revealHiddenActive, active);
+            visualFrameRegistration?.SetEnabled(active != 0 && visualsReady);
+        }
+
+        private static unsafe int EnterVisualSpectator(APIShared.Presentation.VisibleMapRenderEventArgs scope = null)
         {
             if (!visualsReady || Volatile.Read(ref revealHiddenActive) == 0 || nativeImageBase == 0) return -1;
             int* flag = (int*)(nativeImageBase + SpectatorFlagRva);
             int previous = *flag;
+            // Store (and box) rollback state before changing native memory.
+            if (scope != null) scope.State = previous;
             *flag = 1;
             return previous;
         }
@@ -404,19 +409,6 @@ namespace Spectator
                 if (previous >= 0 && Interlocked.Exchange(ref visualMapLogged, 1) == 0)
                     log.LogInfo("SPECTATOR_EDITOR_VISUAL_ACTIVE source=map");
                 visualMapDetour.Original(tileManager);
-            }
-            finally { LeaveVisualSpectator(previous); }
-        }
-
-        private static void DrawVisualFrame(IntPtr map, int left, int right,
-            int top, int bottom, int zoom)
-        {
-            int previous = EnterVisualSpectator();
-            try
-            {
-                if (previous >= 0 && Interlocked.Exchange(ref visualFrameLogged, 1) == 0)
-                    log.LogInfo("SPECTATOR_EDITOR_VISUAL_ACTIVE source=frame");
-                visualFrameDetour.Original(map, left, right, top, bottom, zoom);
             }
             finally { LeaveVisualSpectator(previous); }
         }

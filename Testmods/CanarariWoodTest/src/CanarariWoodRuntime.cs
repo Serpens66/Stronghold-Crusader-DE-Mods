@@ -1,5 +1,5 @@
 using AIBuildDiagnoseTest;
-using static AIBuildDiagnoseTest.NearbyWoodEvidence;
+using static CanarariWoodTest.NearbyWoodEvidence;
 using APIShared;
 using BepInEx.Logging;
 using SHCDESE.API;
@@ -24,14 +24,17 @@ namespace CanarariWoodTest
         private readonly FarmSiteContractProbe farmContractProbe;
         private readonly CanariFarmSwapProbe canariFarmSwapProbe;
         private readonly Dictionary<long, Attempt> attempts = new Dictionary<long, Attempt>();
+        private readonly Action<string> diagnosticWriter;
         private readonly bool[] nearbyDetailedByPlayer = new bool[9];
         private bool active, probeSession, probePending, probeDone, probeRunning;
         private bool nearbyCopySession, nearbyCalibrated, nearbyTestDisabled;
         private int nearbyCopyApplications, nearbyAlternativeTraces, nearbyCalibrationAttempts, lastTick;
         private long sessionId, probeAttemptId, probeSpawnId;
-        internal CanarariWoodRuntime(ManualLogSource logger, ulong moduleBase, bool placement, bool nearby, bool farms, bool swap)
+        internal CanarariWoodRuntime(ManualLogSource logger, ulong moduleBase, bool placement, bool nearby, bool farms, bool swap,
+            Action<string> writer = null)
         {
             log = logger;
+            diagnosticWriter = writer ?? (value => Shared.DebugLogHelper.LogInfo(log, value));
             nativeModuleBase = string.Equals(Shared.DebugLogHelper.CurrentNativeSha256,
                 NativeDiagnosticContracts.SupportedHash, StringComparison.OrdinalIgnoreCase) ? moduleBase : 0;
             placementProbeEnabled = placement && nativeModuleBase != 0;
@@ -110,7 +113,7 @@ namespace CanarariWoodTest
             if (probeRunning && args.PlayerId == ProbePlayer && args.Mappers == eMappers.MAPPER_WOODSMAN)
                 Log($"AI_BUILD_PROBE_STRUCTURE: session={sessionId}, attempt={probeAttemptId}, phase={args.Phase}, tile=({args.TileX},{args.TileY}), scale={args.BuildingScaleUnknown}, free={args.IsFree}.");
         }
-        private void Log(string value) => Shared.DebugLogHelper.LogInfo(log, value);
+        private void Log(string value) => diagnosticWriter(value);
         private void QueueDiagnostic(string value, bool preserve = false) => Log(value);
         private sealed class Attempt
         {

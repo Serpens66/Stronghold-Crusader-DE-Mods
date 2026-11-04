@@ -26,21 +26,25 @@ internal static partial class Program
             .GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().First();
         string[] excluded = { "InitializeNative", "Dispose", "BuildWeightedPath", "DescribeNativeAssassinState",
             "ObservePreparedAssassinRoute", "ObserveMoveCommand", "ObserveTargetCommand", "CloseCommandScope",
-            "CompleteCommand", "ClearTransientState", "ResetMapValidation", "ApplySetting", "BeginMap", "EndMap", "LogDebug", "LogInfo", "LogWarning", "LogError", "TimestampNow" };
+            "CompleteCommand", "ClearTransientState", "ResetMapValidation", "HasAssassinSearchObservers", "ApplySetting", "BeginMap", "EndMap", "LogDebug", "LogInfo", "LogWarning", "LogError", "TimestampNow" };
         var members = runtime.Members.Where(m => m is FieldDeclarationSyntax || m is DelegateDeclarationSyntax ||
             m is MethodDeclarationSyntax method && !excluded.Contains(method.Identifier.Text) ||
             m is BaseTypeDeclarationSyntax type && type.Identifier.Text != "AssassinObservation" ||
             m is PropertyDeclarationSyntax property && property.Identifier.Text is "PerformanceDiagnosticsEnabled" or "DetailedDiagnosticsEnabled");
         string body = string.Join("\n", members.Select(m => ActiveDiagnosticFixtureCode(m)));
         if (before) body = "private const bool PerformanceDiagnosticsEnabled = true;\n" + body;
+        // The fixture has no diagnostic observers (their bridges are outside it).
+        body += "\nprivate static bool HasAssassinSearchObservers(IEnemyGatePathPolicy provider)=>false;\n";
         body = System.Text.RegularExpressions.Regex.Replace(body, @"(?:const bool PerformanceDiagnosticsEnabled = false|static bool PerformanceDiagnosticsEnabled => Shared.DebugLogHelper.DiagnosticsEnabled)", diagnostics ? "const bool PerformanceDiagnosticsEnabled = true" : "const bool PerformanceDiagnosticsEnabled = false");
         // Identical counters in both revisions; no search decision is changed.
         body = body.Replace("int result = heap[0];", "fixturePops++; int result = heap[0];")
             .Replace("heapOperations++;", "heapOperations++; fixtureHeapOperations++;");
         var publication = CSharpSyntaxTree.ParseText(Read("BugfixesAndQoL/src/UnitCommands/Movement/MovementPathPublication.cs"), parseOptions);
         string publishing = string.Join("\n", publication.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>()
-            .Where(m => m.Identifier.Text is "BuildPathWithCompletedMoatRouteVariant" or "BeginAssassinRoutePublication")
+            .Where(m => m.Identifier.Text is "BuildPathWithCompletedMoatRouteVariant" or "BeginAssassinRoutePublication" or "TryPublishAssassinGroupRoute")
             .Select(m => ActiveDiagnosticFixtureCode(m)));
+        // Without a stager (none is registered in this fixture) the group route path keeps the per-unit builder.
+        publishing += "\ninternal static Func<IntPtr,bool> AssassinGroupRouteStager; private bool assassinBuilderSkipped;\n";
         // This kernel fixture has no active cursor proof scope; the observation
         // boundary itself is exercised with real snapshots by ManualHarness.
         publishing += "\nprivate void ObserveCursorGroundBuilder(IntPtr manager,int player,int profile,int result){}\n";
@@ -102,6 +106,13 @@ internal static partial class Program
     Assert(ReferenceEquals(prepared.GetPackedDirections(),prepared.GetPackedDirections()),"cached encoding reused");
     Assert(ReferenceEquals(prepared.GetValidator(),prepared.GetValidator()),"bound validator reused");
     Assert(prepared.GetValidator()(),"cached validator proves current route");
+    // Group routes: Stage's full validation answers Complete's immediate repeat once; every later call validates in full.
+    var group=prepared.GetGroupRouteValidator();
+    Assert(group(),"group validator validates in full at Stage");
+    direct.climbRuntime.Allowed=false;
+    Assert(group()&&!group()&&!group(),"Complete takes Stage's result once, later calls validate in full");
+    direct.climbRuntime.Allowed=true;
+    Assert(group()&&group()&&group(),"valid group route passes full validation again");
     // SPLIT_SETTINGS_BEGIN separate host settings for human players and AI lords (player table kind).
     direct.settings.EnableImprovedAssassinPathfindingAI=false;
     Assert(direct.IsWeightedEnabledFor(false)&&!direct.IsWeightedEnabledFor(true),"AI setting disables only AI lords");
@@ -147,10 +158,13 @@ internal static partial class Program
             "APIShared/src/Pathfinding/GateRoutes/EnemyGatePathPolicyBridge.cs", "BugfixesAndQoL/src/AssassinGateRoutePolicy.cs",
             "BugfixesAndQoL/src/AssassinPathfindingRuntime.CacheKeys.cs", "BugfixesAndQoL/src/AssassinAStarPolicy.cs",
             "BugfixesAndQoL/src/AssassinClimbCostPolicy.cs", "BugfixesAndQoL/src/AssassinClimbTransitionPolicy.cs",
-            "BugfixesAndQoL/src/AssassinRouteEncoding.cs",
+            "BugfixesAndQoL/src/AssassinRouteEncoding.cs", "BugfixesAndQoL/src/AssassinNativeSearch.cs",
             // Real development-diagnostics facade: without SERP_DEVDIAG every call compiles away.
             "Shared/Runtime/Diagnostics/DevDiag.cs" };
-        var trees = files.Select(f => CSharpSyntaxTree.ParseText(Read(f), parseOptions)).Append(CSharpSyntaxTree.ParseText(fixture, parseOptions));
+        // The policy byte-mask view lives with BugfixesAndQoL's gate policy publication (not compiled here).
+        const string maskSource = "namespace BugfixesAndQoL.GateRouting { internal interface IAssassinDirectionMaskSource { byte[] DirectionMask { get; } } }";
+        var trees = files.Select(f => CSharpSyntaxTree.ParseText(Read(f), parseOptions)).Append(CSharpSyntaxTree.ParseText(fixture, parseOptions))
+            .Append(CSharpSyntaxTree.ParseText(maskSource, parseOptions));
         var refs = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")).Split(Path.PathSeparator)
             .Select(p => MetadataReference.CreateFromFile(p));
         var compilation = CSharpCompilation.Create("ProductionAssassin" + (before ? "Before" : "After"), trees, refs,
@@ -179,6 +193,9 @@ internal static partial class Program
         Type disabled = CompileProductionKernel(root, false), enabled = CompileProductionKernel(root, false, true);
         InvokeKernel(disabled, "Verify");
         InvokeKernel(enabled, "Verify");
+        // The packaged native kernel (build.bat compiles it before the tests) must equal the managed search.
+        string nativeDirectory = Environment.GetEnvironmentVariable("BFQOL_ASSASSIN_NATIVE_DIR") ?? Path.Combine(root, "BugfixesAndQoL", "obj", "native");
+        Console.WriteLine("PASS: native Assassin search equals managed: " + InvokeKernel(disabled, "VerifyNative", nativeDirectory));
         Type developmentKernel = CompileProductionKernel(root, false, development: true);
         InvokeKernel(developmentKernel, "VerifyTemporaryDecisions");
         Check(true, "actual gate transition observer on/off preserves predicates, results and legitimate climbing");

@@ -185,7 +185,7 @@ namespace EnemyBridgePathTest
         }
         private static void LatestOwnPlanningEvidence()
         {
-            string folder=Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"..","..","..","..","_inspect","BridgePlanningTests","historical-20261013-1154"));
+            string folder=PrimaryCheckoutEvidence(Path.Combine("_inspect","BridgePlanningTests","historical-20261013-1154"),"bridge-1-3.bin");
             foreach(var entry in new[]{Tuple.Create("bridge-1-3.bin","BE7B97100EC6E84A16E2ECBF37DDD7645D55DE9B373F821C7C5CF94778472318"),Tuple.Create("bridge-2-13.bin","4EA2B9E111473C1DE57F901B7DCC911752E2F9CEF9C5D8A0309920337B8F79ED")})
             {
                 BridgePlanningImporter.Artifact artifact;string reason;Check(BridgePlanningImporter.TryRead(Path.Combine(folder,entry.Item1),out artifact,out reason)&&artifact.Hash==entry.Item2,"latest complete original remains hash-bound");
@@ -226,9 +226,23 @@ namespace EnemyBridgePathTest
             }
             var failed=new BridgeVirtualShadow((_,__)=>{},_=>0);failed.Begin(1);failed.MilitaryOpened(1,9,2);failed.MilitaryClosed(1,9,false);Check(!failed.HasPublishedGroup,"failed root without own command fabricates no artifact");failed.End();
         }
+        // Large original captures are untracked and exist only in the primary checkout. Branch
+        // build copies and other worktrees share its Git directory, so read them from there.
+        private static string PrimaryCheckoutEvidence(string relative,string probe)
+        {
+            string workspace=Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"..","..","..",".."));
+            string local=Path.Combine(workspace,relative);
+            if(File.Exists(Path.Combine(local,probe))) return local;
+            var start=new System.Diagnostics.ProcessStartInfo("git","rev-parse --path-format=absolute --git-common-dir"){RedirectStandardOutput=true,UseShellExecute=false,CreateNoWindow=true,WorkingDirectory=workspace};
+            using(var git=System.Diagnostics.Process.Start(start))
+            {
+                string common=git.StandardOutput.ReadToEnd().Trim();git.WaitForExit();
+                return git.ExitCode==0&&common.Length>0?Path.Combine(Path.GetDirectoryName(Path.GetFullPath(common)),relative):local;
+            }
+        }
         private static void LatestExactCountPair()
         {
-            string dir=Path.GetFullPath(Path.Combine("..","..","_inspect","BridgePlanningTests","historical-20261013-2129"));string reason;
+            string dir=PrimaryCheckoutEvidence(Path.Combine("_inspect","BridgePlanningTests","historical-20261013-2129"),"planning.bin");string reason;
             Check(BridgePlanningImporter.TryRead(Path.Combine(dir,"planning.bin"),out var plan,out reason)&&BridgePlanningImporter.TryRead(Path.Combine(dir,"command.bin"),out var command,out reason),"latest original pair imports");
             // Declare separately for definite assignment; corrupted inputs never fill from Post.
             Check(BridgePlanningImporter.TryRead(Path.Combine(dir,"command.bin"),out var own,out reason),"own command imports independently");

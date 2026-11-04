@@ -63,14 +63,14 @@ namespace BuildingLimit
 
             {
                 if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    LogDebug("BuildingLimit/src/BuildingLimitRuntime.cs:65", "Subscribing building limit runtime hooks");
+                    LogDebug("BuildingLimit/BuildingLimitRuntime/SubscribeHooks.subscribing-runtime-hooks", "Subscribing building limit runtime hooks");
             }
             if (!TryInitializeFeature("active-building cache", activeBuildingCache.SubscribeHooks))
             {
                 TryInitializeFeature("active-building cache rollback", activeBuildingCache.Dispose);
                 {
                     if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                        LogDebug("BuildingLimit/src/BuildingLimitRuntime.cs:69", "Building limit enforcement remains inactive because its required cache is unavailable.");
+                        LogDebug("BuildingLimit/BuildingLimitRuntime/SubscribeHooks.enforcement-remains-inactive-because", "Building limit enforcement remains inactive because its required cache is unavailable.");
                 }
                 return;
             }
@@ -78,7 +78,7 @@ namespace BuildingLimit
             if (!towerSiegeCacheAvailable)
                 {
                     if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                        LogDebug("BuildingLimit/src/BuildingLimitRuntime.cs:74", "Tower-siege limits remain inactive because their unit cache is unavailable.");
+                        LogDebug("BuildingLimit/BuildingLimitRuntime/SubscribeHooks.tower-siege-limits-remain", "Tower-siege limits remain inactive because their unit cache is unavailable.");
                 }
             try
             {
@@ -86,7 +86,7 @@ namespace BuildingLimit
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "BuildingLimit/src/BuildingLimitRuntime.cs:81", "Could not install building limit tooltip hook:", ex);
+                Shared.DebugLogHelper.LogErrorLimited(log, "BuildingLimit/BuildingLimitRuntime/SubscribeHooks.could-not-install-tooltip", "Could not install building limit tooltip hook:", ex);
             }
             if (towerSiegeCacheAvailable)
             {
@@ -111,7 +111,7 @@ namespace BuildingLimit
 
             {
                 if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    LogDebug("BuildingLimit/src/BuildingLimitRuntime.cs:104", "Building limit runtime hooks subscribed");
+                    LogDebug("BuildingLimit/BuildingLimitRuntime/SubscribeHooks.runtime-hooks-subscribed", "Building limit runtime hooks subscribed");
             }
             hooksSubscribed = true;
         }
@@ -126,7 +126,7 @@ namespace BuildingLimit
             ApplyBuildingLimits();
             {
                 if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    LogDebug("BuildingLimit/src/BuildingLimitRuntime.cs:116", "Applied building limit settings");
+                    LogDebug("BuildingLimit/BuildingLimitRuntime/InitializeAfterLibraryLoaded", "Applied building limit settings");
             }
             libraryInitialized = true;
         }
@@ -137,7 +137,7 @@ namespace BuildingLimit
             try
             {
                 if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    LogDebug("BuildingLimit/src/BuildingLimitRuntime.cs:124", "Gameplay session started: " + context.Kind);
+                    LogDebug("BuildingLimit/BuildingLimitRuntime/OnSessionStarted.started", "Gameplay session started: " + context.Kind);
                 if (Shared.DebugLogHelper.DiagnosticsEnabled)
                     Shared.DebugLogHelper.LogDebug(log, "BuildingLimit persistent runtime active after startup cleanup: " + context.Kind);
                 ClearTowerSiegeReservations();
@@ -146,7 +146,7 @@ namespace BuildingLimit
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "BuildingLimit/src/BuildingLimitRuntime.cs:132", "Gameplay session initialization failed:", ex);
+                Shared.DebugLogHelper.LogErrorLimited(log, "BuildingLimit/BuildingLimitRuntime/OnSessionStarted.initialization-failed", "Gameplay session initialization failed:", ex);
             }
         }
 
@@ -155,7 +155,7 @@ namespace BuildingLimit
             lastPlacementBlocked = false;
             {
                 if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    LogDebug("BuildingLimit/src/BuildingLimitRuntime.cs:138", "OnUnloadMap");
+                    LogDebug("BuildingLimit/BuildingLimitRuntime/OnUnloadMap", "OnUnloadMap");
             }
             ClearTowerSiegeReservations();
             HideBuildingLimitMessage();
@@ -214,7 +214,7 @@ namespace BuildingLimit
                 if (subscription != null)
                     subscriptions.Add(subscription);
             }
-            catch (Exception ex) { Shared.DebugLogHelper.LogErrorLimited(log, "BuildingLimit/src/BuildingLimitRuntime.cs:209", "Building limit subscription failed; independent features continue:", featureName, ex); }
+            catch (Exception ex) { Shared.DebugLogHelper.LogErrorLimited(log, "BuildingLimit/BuildingLimitRuntime/TrySubscribeFeature", "Building limit subscription failed; independent features continue:", featureName, ex); }
         }
 
         private void ClearBuildingLimitTooltip()

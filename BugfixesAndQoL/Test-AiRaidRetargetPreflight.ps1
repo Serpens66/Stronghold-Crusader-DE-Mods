@@ -10,7 +10,7 @@ if ([regex]::Matches($runtime, '\bEvaluate\(').Count -ne 1 -or
     $evaluation -notmatch 'freshness != "nativeSearchObserved"' -or
     $runtime -notmatch 'pre.Evidence.PlayerId == raidPlayer && pre.Evidence.RaidRole == raidGroup') { throw 'Single authoritative search classifier changed.' }
 if ($runtime -match 'OnUnitMoveHere|OnBuildingDamage|OnBuildingDelete|RAID_DIAG_|RAID_DIAG_CONTROL_ATTACK|\b(?:OnDestroy|OnDisable|OnApplicationQuit|Update|LateUpdate|FixedUpdate|StartCoroutine)\s*\(') { throw 'Diagnostic spam or lifecycle callback in raid runtime.' }
-if ($runtime -notmatch 'GameTimeManagerAPI.Instance.OnTick \+= OnTick' -or
+if ($runtime -notmatch 'APIShared.Simulation.SimulationTickEvents.TryRegister' -or
     $owner -notmatch 'static AiRaidRetargetFixRuntime processAiRaidRetargetFixRuntime' -or
     $owner -notmatch 'settings.EnableMod && settings.EnableAiRaidRetargetFix' -or
     $runtime -notmatch 'if \(wasActive != active\) ClearObservations\(\)' -or
@@ -38,6 +38,7 @@ if ($retry -notmatch '(?s)if \(!commandIssued \|\| fallbackResult == AttackResul
 $guard=$runtime.IndexOf('if (args.Phase != EventHookPhase.Post || !buildingCommand || !raid) return;')
 if($guard -lt $runtime.IndexOf('pre = TakePostFrame(postStack);') -or $guard -gt $runtime.IndexOf('AttackResult result = Evaluate(')) { throw 'Manual command nesting barrier changed.' }
 # Frame cancellation and runtime publication are managed contracts, not new native hooks.
+# Expiry uses the same wraparound-safe tick boundary as IsRejectedTarget; a null schedule prunes on the next tick.
 if ($runtime -notmatch 'internal readonly TribeIssueOrderWithTargetEventArgs PreEvent;' -or
     $runtime -notmatch 'stack.Peek\(\).PreEvent.SkipOriginalFunction' -or
     $runtime -notmatch 'PeekSearchFrame\(stack\) == null' -or
@@ -49,8 +50,8 @@ if ($runtime -notmatch 'internal readonly TribeIssueOrderWithTargetEventArgs Pre
     $runtime -notmatch 'FailInitialization\(\);' -or
     $runtime -notmatch 'RejectionCleanupIntervalTicks = 200;' -or
     $runtime -notmatch 'RejectedTargetDurationTicks = 300;' -or
-    $runtime -notmatch 'if \(target.Value <= lastTick\) expired.Add\(target.Key\)' -or
-    $runtime -notmatch 'nextRejectionCleanupTick = 0;') { throw 'Raid cancellation, initialization or expiry cleanup contract changed.' }
+    $runtime -notmatch 'if \(unchecked\(lastTick - target.Value\) >= 0\) expired.Add\(target.Key\)' -or
+    $runtime -notmatch 'nextRejectionCleanupTick = null;') { throw 'Raid cancellation, initialization or expiry cleanup contract changed.' }
 $preStart=$runtime.IndexOf('if (args.Phase == EventHookPhase.Pre)')
 $preEnd=$runtime.IndexOf('else if (args.Phase == EventHookPhase.Post',$preStart)
 if($runtime.Substring($preStart,$preEnd-$preStart) -match 'PeekSearchFrame|TakePostFrame|SkipOriginalFunction') { throw 'New Pre must not prune a still running outer publisher.' }

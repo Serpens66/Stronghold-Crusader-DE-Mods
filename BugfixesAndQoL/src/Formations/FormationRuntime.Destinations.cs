@@ -86,8 +86,10 @@ namespace BugfixesAndQoL.UnitCommands
             {
                 slots = FormationModel.BuildRelativeSlots(
                     kind, units.Length, rows, density, direction);
+                // Command capacity is independent of sprite identities. Retain the
+                // previous search budget for small groups; larger groups need slots too.
                 List<NativeDestination> candidates = CaptureReachableCandidates(
-                    anchorX, anchorY, Math.Min(MaximumPreviewCandidates,
+                    anchorX, anchorY, Math.Min(Math.Max(MaximumPreviewCandidates, units.Length + 1),
                         Math.Max(256, units.Length * 16)), assassinOnly, slots);
                 if (candidates.Count == 0)
                     return Array.Empty<NativeDestination>();
@@ -196,7 +198,7 @@ namespace BugfixesAndQoL.UnitCommands
                 queue.Enqueue(new VanillaSearchNode(anchorTile, anchorX, anchorY, 1));
                 int inspected = 0;
                 while (queue.Count != 0 &&
-                       inspected < MaximumVanillaSelectorCandidates &&
+                       inspected < Math.Max(MaximumVanillaSelectorCandidates, Math.Min(requiredCount, MaximumUnitCount) + 1) &&
                        result.Count < requiredCount)
                 {
                     VanillaSearchNode current = queue.Dequeue();

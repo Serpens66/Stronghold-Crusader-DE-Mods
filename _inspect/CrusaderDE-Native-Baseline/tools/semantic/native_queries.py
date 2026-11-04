@@ -6,6 +6,9 @@ import json
 from pathlib import Path
 from native_analysis import COMMANDS, coordinate, hx, identity, sha,source_files
 
+# Installed assemblies recorded in a profile whose change is a snapshot observation, not a machine change.
+EXTENDER_ASSEMBLIES={"SHCDESE.dll"}
+
 def parser():
     p=argparse.ArgumentParser();p.add_argument("--database",required=True)
     sub=p.add_subparsers(dest="command",required=True)
@@ -57,7 +60,8 @@ def freshness(connection):
     if p["digest"]!=manifest.get("analysis",{}).get("digest"):failures.append("analysis/manifest generation mismatch")
     if sha(p["nativePath"])!=p["binaryHash"]:failures.append("installed native changed")
     for name,assembly in p["installed"].items():
-        if sha(assembly["path"])!=assembly["sha256"]:failures.append(name+" changed")
+        # SHCDESE.dll is captured provenance only: no machine fact, backend contract or hook span is derived from it.
+        if sha(assembly["path"])!=assembly["sha256"]:failures.append(("extender changed: " if name in EXTENDER_ASSEMBLIES else "")+name+" changed")
     observed=p.get('discoveryHashes',p['sourceHashes'])
     for path,digest in observed.items():
         try:matches=sha(path)==digest
@@ -194,14 +198,16 @@ def trace(connection, root, max_functions, max_operations):
 
 def run(connection,argv):
     args=parser().parse_args(argv);p,stale=freshness(connection)
-    snapshot_changes=[s for s in stale if s.startswith(('source changed:','audit changed:'))]
+    snapshot_changes=[s for s in stale if s.startswith(('source changed:','audit changed:','extender changed:'))]
     machine_changes=[s for s in stale if s not in snapshot_changes]
     if machine_changes:
         return {"status":"stale","reasons":stale,"remedy":"Build-SemanticBaseline.ps1 Analysis"}
     result=dispatch(connection,args,p)
     if snapshot_changes:
-        result['sourceSnapshot']={'status':'stale','changes':snapshot_changes,
-            'meaning':'Machine facts remain hash-bound; source ownership and current feature contracts need refresh.'}
+        meaning='Machine facts remain hash-bound; source ownership and current feature contracts need refresh.'
+        if any(s.startswith('extender changed:') for s in snapshot_changes):
+            meaning+=' An Extender assembly change needs Build-SemanticBaseline.ps1 UpdateForScriptExtender, not a new analysis generation.'
+        result['sourceSnapshot']={'status':'stale','changes':snapshot_changes,'meaning':meaning}
         if args.command=='hookcheck':
             result.setdefault('gaps',[]).append('Current source ownership is not verified; recorded overlaps describe the captured snapshot.')
             if result.get('status')=='statically-passed':result['status']='incomplete'

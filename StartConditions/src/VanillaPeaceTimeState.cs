@@ -26,7 +26,7 @@ namespace StartConditions
 
             if (!referenceHashMatches)
             {
-                Shared.DebugLogHelper.LogWarningLimited(log, "StartConditions/src/VanillaPeaceTimeState.cs:29", "Start Conditions cannot safely read Vanilla's peace-time state for this CrusaderDE.dll. " +
+                Shared.DebugLogHelper.LogWarningLimited(log, "StartConditions/VanillaPeaceTimeState/Initialize.cannot-safely-read-vanilla", "Start Conditions cannot safely read Vanilla's peace-time state for this CrusaderDE.dll. " +
                     "Start-troop processing uses its legacy timing.");
                 return;
             }
@@ -34,7 +34,7 @@ namespace StartConditions
             if (context == null || context.ModuleHandle == IntPtr.Zero ||
                 context.Memory.Length <= ActiveFlagRva)
             {
-                Shared.DebugLogHelper.LogWarningLimited(log, "StartConditions/src/VanillaPeaceTimeState.cs:39", "Start Conditions received an incomplete native library context. " +
+                Shared.DebugLogHelper.LogWarningLimited(log, "StartConditions/VanillaPeaceTimeState/Initialize.received-incomplete-native-library", "Start Conditions received an incomplete native library context. " +
                     "Start-troop processing uses its legacy timing.");
                 return;
             }
@@ -63,7 +63,7 @@ namespace StartConditions
                 if (!readFailureLogged)
                 {
                     readFailureLogged = true;
-                    Shared.DebugLogHelper.LogWarningLimited(log, "StartConditions/src/VanillaPeaceTimeState.cs:70", "Start Conditions could no longer read Vanilla's peace-time state. " +
+                    Shared.DebugLogHelper.LogWarningLimited(log, "StartConditions/VanillaPeaceTimeState/TryGetIsActive", "Start Conditions could no longer read Vanilla's peace-time state. " +
                         $"Start-troop processing falls back to its legacy timing. Reason: {ex.Message}");
                 }
                 return false;

@@ -2,6 +2,25 @@ using System;
 
 namespace Spectator
 {
+    internal static class OrderTargetPolicy
+    {
+        // A remaining resource/Lord record does not keep an eliminated player selectable.
+        internal static bool IsAvailable(bool actionable, bool eliminated)
+        { return actionable && !eliminated; }
+
+        internal static int Revalidate(int selected, Func<int, bool> available)
+        { return selected > 0 && available(selected) ? selected : 0; }
+
+        internal static bool CanExecute(TestActionKind kind, bool actorAvailable, bool targetAvailable)
+        { return actorAvailable && (kind == TestActionKind.Cancel || targetAvailable); }
+
+        internal static string AvailabilityReason(bool actor, bool playerAvailable, bool backend, bool target, bool enemy)
+        {
+            if (!actor) return playerAvailable ? "AiPlayerRequired" : "InvalidTarget";
+            return !backend ? "NativeUnavailable" : !target ? "SelectTarget" : !enemy ? "EnemyRequired" : "";
+        }
+    }
+
     internal static class ToolPolicy
     {
         internal static bool PowerContextMatches(long expectedSession, long session, int actor, int selectedActor,

@@ -53,13 +53,18 @@ namespace Spectator
             return power;
         }
 
-        private static void RefreshPowers()
+        private static void RefreshPowerSelection()
         {
-            if (toolsModel == null) return;
             if (pendingPower != null && (!IsCurrentSession(pendingPower.Session) || pendingPower.Actor != humanSelectedOwner ||
                 !GamePlayerManagerAPI.Instance.IsLocalPlayerExtremePowersEnabled())) CancelPowerSelection();
             else if (pendingPower != null && powerContext?.Ready == true && powerContext.Mode != 4 && powerContext.Mode != 5)
                 pendingPower = null; // Native confirmation/cancellation finished; no synthetic key handling.
+        }
+
+        private static void RefreshPowers()
+        {
+            if (toolsModel == null) return;
+            RefreshPowerSelection();
             toolsModel.RefreshPowerFlag(GamePlayerManagerAPI.Instance.IsLocalPlayerExtremePowersEnabled());
             if (!toolsModel.PowersEnabled) { powerRefreshActor = 0; return; }
             // Optional API has no metadata-change event; refresh only the active vanilla bar.
@@ -89,6 +94,7 @@ namespace Spectator
                 if (!power.Enabled) { toolsModel.Status = SerpLocalization.Get("Tools.PowerUnavailable"); return; }
                 pendingPower = new PowerSelection { Session = CurrentSessionId, Generation = powerGeneration,
                     Actor = humanSelectedOwner, Power = power };
+                RequestRender();
                 selectingTestPower = true;
                 try
                 {

@@ -19,5 +19,7 @@ namespace Spectator
             publish(player);
             return true;
         }
+        internal bool Revalidate(bool selectable)
+        { return PlayerId > 0 && !selectable && Select(-1); }
     }
 }

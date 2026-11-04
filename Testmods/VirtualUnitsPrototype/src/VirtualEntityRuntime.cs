@@ -60,6 +60,8 @@ namespace VirtualUnitsPrototype
         internal VirtualEntityRuntime(ManualLogSource log) { this.log = log ?? throw new ArgumentNullException(nameof(log)); }
         internal static VirtualEntityRuntime Current { get; set; }
         internal bool CanMutate { get { lock (sync) return initialized && mapActive && modeAllowed; } }
+        internal bool HasPresentationWork => !visualResetQueue.IsEmpty || !unitTintRestoreQueue.IsEmpty ||
+            !availabilityQueue.IsEmpty || !completionQueue.IsEmpty;
 
         internal void Initialize(VirtualUnitsPlugin plugin)
         {
@@ -203,7 +205,7 @@ namespace VirtualUnitsPrototype
             }
             snapshot = stored.Snapshot;
             if (kind == VirtualEntityKind.Building) RefreshBuilding(gameId);
-            else unitTintRestoreQueue.Enqueue(gameId);
+            else { unitTintRestoreQueue.Enqueue(gameId); spawnController?.RequestPresentation(); }
             VirtualApiResult success = VirtualApiResult.Success("Assignment removed."); VirtualEntityApi.RaiseRemoved(stored.Snapshot, success); return success;
         }
 
@@ -579,7 +581,8 @@ namespace VirtualUnitsPrototype
 
         private void CompleteOperation(VirtualOperationTicket ticket, VirtualApiResult result, VirtualEntityInstance instance)
         {
-            if (ticket.RequestId > 0) completionQueue.Enqueue(new OperationCompletion(ticket, result, instance));
+            if (ticket.RequestId > 0)
+            { completionQueue.Enqueue(new OperationCompletion(ticket, result, instance)); spawnController?.RequestPresentation(); }
         }
 
         internal void RecordUnitRendererBinding(int unitId)
@@ -789,6 +792,7 @@ namespace VirtualUnitsPrototype
         {
             lock (sync) { mapActive = true; modeAllowed = mode.IsSingleplayerSkirmish && !mode.IsRealMultiplayer && !mode.IsMapEditor; }
             availabilityQueue.Enqueue(modeAllowed);
+            spawnController?.RequestPresentation();
             Shared.DebugLogHelper.LogInfo(log, $"Map lifecycle: diagnosticMutationAllowed={modeAllowed}; {mode.ToDiagnosticString()}.");
         }
 
@@ -944,6 +948,7 @@ namespace VirtualUnitsPrototype
             while (recruitmentTransitions.TryDequeue(out RecruitmentTransition ignoredTransition)) { }
             visualResetQueue.Enqueue(true);
             availabilityQueue.Enqueue(false);
+            spawnController?.RequestPresentation();
         }
 
         private bool TryValidateTile(int x, int y, bool requireFreeWalkable, out int tileId)

@@ -7,6 +7,44 @@ namespace BetterPathfindingTest.Core
     // It never calls the hierarchy or consumes any of its rows/fields.
     public static class ReferenceSearch
     {
+        // Independent forward Dijkstra on the ORIGINAL grid, with a wet-visit bit.
+        // A feasible scalar optimum is also optimal for all additional bounds. If
+        // it violates them, the independent Pareto search below remains necessary.
+        private static RouteResult Scalar(GridSnapshot map, RouteQuery query, WorkBudget budget)
+        {
+            int n = checked(map.Count * (query.RequireMoat ? 2 : 1));
+            long arrays = n * 13L, queued = 0; budget.Reserve(arrays);
+            try
+            {
+                var distance = new long[n]; var parent = new int[n]; var direction = new byte[n];
+                for (int i = 0; i < n; i++) { distance[i] = long.MaxValue; parent[i] = -1; }
+                var frontier = new SortedSet<Tuple<long, int>>();
+                distance[query.Start] = 0; budget.Reserve(96); queued += 96; frontier.Add(Tuple.Create(0L, query.Start));
+                while (frontier.Count != 0)
+                {
+                    var item = frontier.Min; frontier.Remove(item); budget.Release(96); queued -= 96;
+                    int state = item.Item2; if (distance[state] != item.Item1) continue;
+                    budget.Step(); int node = state % map.Count; bool seen = state >= map.Count;
+                    if (node == query.Target && (!query.RequireMoat || seen))
+                    {
+                        var path = new List<byte>(); for (int at = state; parent[at] >= 0; at = parent[at]) path.Add(direction[at]); path.Reverse();
+                        RouteResult result = map.Describe(query, path.ToArray());
+                        return result.Status == SearchStatus.Found ? result : null;
+                    }
+                    for (int d = 0; d < 8; d++) if (map.Edge(node, d, query, out int to, out bool wet, out _))
+                    {
+                        int next = to + (query.RequireMoat && (seen || wet) ? map.Count : 0);
+                        long increment = wet ? query.MoatCost : query.GroundCost;
+                        if (item.Item1 > long.MaxValue - increment) continue; long candidate = item.Item1 + increment;
+                        if (candidate >= distance[next]) continue;
+                        distance[next] = candidate; parent[next] = state; direction[next] = (byte)d;
+                        budget.Reserve(96); queued += 96; frontier.Add(Tuple.Create(candidate, next));
+                    }
+                }
+                return RouteResult.Failed(SearchStatus.Unreachable, "reference-grid-exhausted");
+            }
+            finally { budget.Release(arrays + queued); }
+        }
         private sealed class State
         {
             internal int Node, Ground, Moat, Parent, Direction; internal long Cost; internal bool Removed;
@@ -16,6 +54,8 @@ namespace BetterPathfindingTest.Core
             query.Validate(map); long owned = 0, before = budget.Expanded;
             try
             {
+                RouteResult scalar = Scalar(map, query, budget);
+                if (scalar != null) { scalar.Expanded = budget.Expanded - before; return scalar; }
                 var states = new List<State>();
                 var byNode = new Dictionary<int, List<int>>();
                 var frontier = new SortedSet<Tuple<long, int>>();

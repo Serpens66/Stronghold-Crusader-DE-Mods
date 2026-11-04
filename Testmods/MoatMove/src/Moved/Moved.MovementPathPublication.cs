@@ -38,10 +38,16 @@ namespace MoatMove
                 try { return EnemyBridgeDiagnosticBridge.NativeResult(runtime.originalPathBuilder(pathManager, movementClass, movementProfile)); }
                 finally { *runtime.moatPathMode = inheritedMode; }
             }
+            // Anchor dispatch: units that cannot enter moats have no BugfixesAndQoL plan; their
+            // ground route comes from the group's ground-only task instead of Vanilla's search.
+            if (plan == null && !reconstruction && !runtime.disposed &&
+                TryPublishAnchorGroundWithoutPlan(pathManager, frame, out int anchorPublished))
+            { RecordBuilderResult(command, anchorPublished); return anchorPublished; }
+            if (plan != null) anchorDecline = "builder:noDiggerOrManager";
             if (runtime.disposed || pathManager != runtime.nativePathManager || plan == null ||
                 !APIShared.UnitAccess.TryGetById(plan.UnitId, out GameUnit* unit, out _) ||
                 unit == null || !runtime.CanDigMoat(unit))
-                return runtime.CallVanillaBuilder(pathManager, movementClass, movementProfile, reconstruction);
+                return CallVanillaBuilderTimed(pathManager, movementClass, movementProfile, reconstruction, plan?.UnitId ?? frame?.Args.UnitId ?? 0, plan);
 
             if (command != null) { command.BuilderCalls++; command.BuilderReached = true; }
             runtime.PrepareMovementSearch(plan, unit->r_ControllableForPlayerId);
@@ -53,17 +59,22 @@ namespace MoatMove
                 out byte* path, out int beforeLength, out byte[] backup);
             bool qualified = plan.FriendlyRouteQualified && plan.ModeObserved;
             bool groundReconstruction = false;
-            if (runtime.RequiredOnlyMode && reconstruction && owned && (originalVariant == 0 || originalVariant == 1))
-            {
+            if (reconstruction && owned && (originalVariant == 0 || originalVariant == 1))
                 groundReconstruction = TryPrepareGroundReconstruction(plan, unit);
-
-            }
-            if (runtime.RequiredOnlyMode && owned && (qualified || groundReconstruction) && (originalVariant == 0 || originalVariant == 1))
+            anchorDecline = reconstruction ? "builder:reconstruction" : qualified ? "builder:qualifiedMoat" : !owned ? "builder:buffer" :
+                originalVariant != 0 && originalVariant != 1 ? "builder:variant" : "builder:notRequiredMode";
+            // Anchor dispatch, ground decision: the core's ground route replaces Vanilla's search.
+            bool anchorGround = !reconstruction && !qualified && owned &&
+                (originalVariant == 0 || originalVariant == 1) && TryPrepareAnchorGround(plan, unit);
+            if (owned && (qualified || groundReconstruction || anchorGround) && (originalVariant == 0 || originalVariant == 1))
             {
                 // 196280 has already bound its real unit buffer. A ready shared field
                 // supplies the route without running F4930 again for this member.
-                if (TryReplaceUnsafeFallbackPath(pathManager, path, backup, beforeLength, plan, unit,
-                    out int ready, out _, requireMoat: !groundReconstruction))
+                long publishStarted = System.Diagnostics.Stopwatch.GetTimestamp();
+                bool replaced = TryReplaceUnsafeFallbackPath(pathManager, path, backup, beforeLength, plan, unit,
+                    out int ready, out string publishDetails, requireMoat: !groundReconstruction && !anchorGround);
+                RecordAnchorPublish(publishStarted, replaced, anchorGround ? "ground" : groundReconstruction ? "reconstruction" : "qualified", publishDetails);
+                if (replaced)
                 {
                     // Same terminal publication state as the shared fallback below:
                     // the native consumer latches this mode after the builder returns.
@@ -84,12 +95,20 @@ namespace MoatMove
                     *variant = originalVariant; *runtime.moatPathMode = mode;
                     RecordBuilderResult(command, 0); return 0;
                 }
+                if (anchorGround)
+                {
+                    // Rejected anchor route: restore and let Vanilla's builder run unchanged.
+                    anchorDecline = "builder:publishReject";
+                    RestoreFallbackPathBuffer(pathManager, path, backup, beforeLength);
+                    *variant = originalVariant; *runtime.moatPathMode = mode;
+                    plan.QualifiedRoute = null;
+                }
             }
             int vanilla;
             if (plan.ModeObserved) *runtime.moatPathMode = plan.VanillaModeDetected ? 1 : 0;
             AttackCommandScope measuredBuilderCommand = activeAttackCommand;
             long nativeBuilderStarted = (DetailedDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0L);
-            try { vanilla = runtime.CallVanillaBuilder(pathManager, movementClass, movementProfile, reconstruction); }
+            try { vanilla = CallVanillaBuilderTimed(pathManager, movementClass, movementProfile, reconstruction, plan.UnitId, plan); }
             finally
             {
                 *runtime.moatPathMode = mode;
@@ -116,7 +135,7 @@ namespace MoatMove
             // E32B0 consumes a previously populated native field. Changing the mode byte
             // does not undo that field, so a mod-qualified positive result needs an audit.
             bool auditRequired = qualified || reconstruction;
-            RequiredRouteMetrics requiredMetrics = runtime.RequiredOnlyMode && qualified && !reconstruction
+            RequiredRouteMetrics requiredMetrics = qualified && !reconstruction
                 ? activeMoveCommand?.Required ?? activeAttackCommand?.Required
                 : null;
             long requiredPublicationStarted = requiredMetrics != null
@@ -290,20 +309,23 @@ namespace MoatMove
             return length < 0 || length > WeightedMoatRoutePlanner.MaximumRouteEdges ? "length" : "retry-contract";
         }
 
+        // edgesAudited: the route bytes passed the anchor core's live edge audit in this tick and
+        // placement revision under a stricter policy (FriendlyOnly/GroundOnly reject every edge
+        // AllowEnemyForDiagnostic rejects); only the per-edge traversal check is skipped then.
         internal bool TryAuditFallbackPath(
             IntPtr pathManager,
             byte* path,
             int result,
             PlanScope plan,
             GameUnit* unit,
-            out string details)
+            out string details, bool edgesAudited = false)
         {
             AttackCommandScope command = activeAttackCommand;
             long started = (DetailedDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0L);
             try
             {
                 return TryAuditFallbackPathCore(
-                    pathManager, path, result, plan, unit, out details);
+                    pathManager, path, result, plan, unit, out details, edgesAudited);
             }
             finally
             {
@@ -329,7 +351,7 @@ namespace MoatMove
             int result,
             PlanScope plan,
             GameUnit* unit,
-            out string details)
+            out string details, bool edgesAudited = false)
         {
             details = "invalid-contract";
             if (pathManager == IntPtr.Zero || path == null || result <= 0 ||
@@ -403,11 +425,22 @@ namespace MoatMove
                     (runtime.IsCompletedEnemyMoatForPlayer(playerId, GameTileManagerAPI.Instance.GetTileId(nextX, y)) ||
                      runtime.IsCompletedEnemyMoatForPlayer(playerId, GameTileManagerAPI.Instance.GetTileId(x, nextY))))
                 { details = "enemy-moat-diagonal-corner"; return false; }
-                if (!IsValidTileId(nextTileId) ||
-                    !runtime.weightedMoatRoutePlanner.TryGetTraversalEdge(
+                if (!IsValidTileId(nextTileId))
+                {
+                    details = "native-edge-invalid";
+                    return false;
+                }
+                if (edgesAudited)
+                {
+                    x = nextX;
+                    y = nextY;
+                    continue;
+                }
+                if (!runtime.weightedMoatRoutePlanner.TryGetTraversalEdge(
                         playerId, x, y, tileId, nextX, nextY, nextTileId,
                         direction, nodeIndex == result - 1,
-                        runtime.IsPublishedWalkableBuildingApproach(plan.UnitId, nextTileId),
+                        // A reserved target concerns only the final edge (once per route, not per step).
+                        nodeIndex == result - 1 && runtime.IsPublishedWalkableBuildingApproach(plan.UnitId, nextTileId),
                         MoatTraversalPolicy.AllowEnemyForDiagnostic,
                         out MoatTraversalEdgeKind edgeKind, out _))
                 {
@@ -482,22 +515,17 @@ namespace MoatMove
             WeightedMoatEncodedRoute route = plan.QualifiedTerminalRoute;
             QualifiedMovementRoute reusable = runtime.GetReusableQualifiedRoute(plan, unit);
             if (reusable != null) { route = reusable.Route; summary = reusable.Summary; }
+            bool edgesAudited = reusable != null && IsAnchorAuditedRoute(reusable);
             targetedRouteProbeBusy = true;
             try
             {
+                // Only a route the core or Fast qualified earlier is published; nothing is searched here.
                 bool found = route.IsValid;
-                if (!found && !runtime.RequiredOnlyMode)
-                {
-                    found = TryBuildMovementReachabilityEncoded(
-                        playerId, startX, startY, targetX, targetY, allowReservedTarget,
-                        out summary, out route) || TryBuildTerminalFillRoute(
-                        plan, unit, startX, startY, out summary, out route);
-                }
                 if (!found ||
                     !route.IsValid || (requireMoat && summary.MoatEdges <= 0) ||
                     route.Bytes.Length > NativeUnitPathBufferStride)
                 {
-                    details = runtime.RequiredOnlyMode && !found
+                    details = !found
                         ? "qualified-route-unavailable-fast"
                         : $"no-owner-safe-replacement:{summary.Reason}";
                     return false;
@@ -508,6 +536,7 @@ namespace MoatMove
                 targetedRouteProbeBusy = false;
             }
 
+            string audit = null;
             try
             {
                 for (int index = 0; index < NativeUnitPathBufferStride; index++)
@@ -515,7 +544,7 @@ namespace MoatMove
                 *(int*)(manager + PathManagerOutputLengthOffset) = route.DirectionCount;
                 if (!TryAuditFallbackPath(
                         pathManager, path, route.DirectionCount, plan, unit,
-                        out string audit))
+                        out audit, edgesAudited))
                 {
                     throw new InvalidOperationException(
                         $"Owner-safe replacement failed roundtrip audit: {audit}");
@@ -529,7 +558,8 @@ namespace MoatMove
             catch (Exception ex)
             {
                 RestoreFallbackPathBuffer(pathManager, path, backup, originalLength);
-                details = $"replacement-rollback:{ex.GetType().Name}";
+                // The audit's own reason when the roundtrip audit rejected the route.
+                details = $"replacement-rollback:{(audit != null && ex is InvalidOperationException ? audit + (edgesAudited ? "/edgesAudited" : "/edgesLive") : ex.GetType().Name)}";
                 try
                 {
                     Shared.DebugLogHelper.LogWarningLimited(runtime.log, "BugfixesAndQoL/src/UnitCommands/Movement/MovementPathPublication.cs:812", $"Bugfixes and QoL stage=friendly-moat-movement-replacement-rollback unit={plan?.UnitId ?? 0} " +

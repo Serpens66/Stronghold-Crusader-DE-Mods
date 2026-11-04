@@ -1,0 +1,7 @@
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup><ImportDirectoryBuildTargets>false</ImportDirectoryBuildTargets><BaseIntermediateOutputPath>obj\framework\</BaseIntermediateOutputPath><MSBuildProjectExtensionsPath>$(MSBuildThisFileDirectory)obj\framework\</MSBuildProjectExtensionsPath></PropertyGroup>
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" />
+  <PropertyGroup><OutputType>Library</OutputType><AssemblyName>NavigationClientProbe</AssemblyName><TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion><LangVersion>latest</LangVersion><OutputPath>bin\framework\</OutputPath><IntermediateOutputPath>obj\framework\</IntermediateOutputPath></PropertyGroup>
+  <ItemGroup><Reference Include="System" /><Reference Include="System.Core" /><Reference Include="NavigationHost"><HintPath>$(HostAssembly)</HintPath><Private>false</Private></Reference><Compile Include="ClientProbe.cs" /></ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>

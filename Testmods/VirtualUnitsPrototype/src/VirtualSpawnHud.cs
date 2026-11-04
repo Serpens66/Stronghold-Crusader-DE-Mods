@@ -27,6 +27,7 @@ namespace VirtualUnitsPrototype
         private WorldClickCandidate pendingWorldClick;
         private string lastRejectedReason;
         private bool unityThreadLogged;
+        private APIShared.Presentation.IUiFrameWorkRegistration frameWork;
 
         public VirtualSpawnController(VirtualEntityRuntime runtime, ManualLogSource log)
         {
@@ -36,10 +37,14 @@ namespace VirtualUnitsPrototype
         public VirtualSpawnHudViewModel Hud { get; }
         public void Initialize()
         {
-            Application.onBeforeRender += OnBeforeRender;
+            if (!APIShared.ApiShared.ForMod(VirtualUnitsPlugin.PluginGuid).Ui.TryRegisterBeforeRender(
+                "spawn-presentation", OnBeforeRender, out frameWork, out string reason, 100))
+                throw new InvalidOperationException(reason);
             Application.focusChanged += OnFocusChanged;
             ApplyAvailability(false);
+            frameWork.Request();
         }
+        internal void RequestPresentation() => frameWork?.Request();
         public void ResetForMapLifecycle() { pendingWorldClick = null; DetachHud(); Cancel(); }
         public void ApplyAvailability(bool available) { if (!available) Cancel(); Hud.SetAvailability(available); }
         public void ReportRuntimeResult(VirtualApiResult result) { Hud.SetResult(result.ToString()); }
@@ -49,14 +54,16 @@ namespace VirtualUnitsPrototype
             VirtualUnitDefinition definition = runtime.VisibleUnits().FirstOrDefault();
             if (definition == null) { Hud.SetResult("Keine Unit-Definition verfügbar."); return; }
             selection = SelectionKind.Unit; selectedTypeId = definition.TypeId; waitForRelease = true; Hud.SetSelection(definition.DisplayName);
+            frameWork.SetContinuous(true);
         }
         private void SelectBuilding()
         {
             VirtualBuildingDefinition definition = runtime.VisibleBuildings().FirstOrDefault();
             if (definition == null) { Hud.SetResult("Keine Gebäude-Definition verfügbar."); return; }
             selection = SelectionKind.Building; selectedTypeId = definition.TypeId; waitForRelease = true; Hud.SetSelection(definition.DisplayName);
+            frameWork.SetContinuous(true);
         }
-        private void Cancel() { selection = SelectionKind.None; selectedTypeId = null; waitForRelease = false; pendingWorldClick = null; Hud?.SetSelection("Keine"); }
+        private void Cancel() { selection = SelectionKind.None; selectedTypeId = null; waitForRelease = false; pendingWorldClick = null; Hud?.SetSelection("Keine"); frameWork?.SetContinuous(false); }
 
         private void OnBeforeRender()
         {
@@ -64,6 +71,14 @@ namespace VirtualUnitsPrototype
             lastFrame = Time.frameCount;
             try { Tick(); }
             catch (Exception ex) { Shared.DebugLogHelper.LogError(log, $"HUD frame loop recovered from an error: {ex}"); Cancel(); }
+            finally
+            {
+                bool placing = selection != SelectionKind.None || pendingWorldClick != null;
+                frameWork.SetContinuous(placing);
+                // Only passive HUD discovery uses the cosmetic retry interval. Input stays frame-bound.
+                if (!placing && runtime.CanMutate) frameWork.RequestAfter(TimeSpan.FromMilliseconds(100));
+                if (runtime.HasPresentationWork) frameWork.Request();
+            }
         }
         private void Tick()
         {
@@ -73,7 +88,7 @@ namespace VirtualUnitsPrototype
                 Shared.DebugLogHelper.LogInfo(log, $"Unity input and completion context established: thread={Thread.CurrentThread.ManagedThreadId}.");
             }
             runtime.DrainMainThreadWork();
-            EnsureHudAttached();
+            if (runtime.CanMutate) EnsureHudAttached();
             EvaluatePendingWorldClick();
             if (!runtime.CanMutate || selection == SelectionKind.None) return;
             if (Input.GetKeyDown(KeyCode.Escape) || Input.GetMouseButtonDown(1)) { Cancel(); Hud.SetResult("Platzierung abgebrochen."); return; }

@@ -5,6 +5,7 @@ using System.Runtime.InteropServices;
 using BugfixesAndQoL.UnitCommands;
 
 namespace APIShared.Internal {internal static class GroundMovePreviewEligibility {internal const int OrdinaryMoveCommandMode=1;}}
+namespace APIShared.GameModes { internal static class GameModeHelper { internal static bool Editor; internal static bool IsMapEditor()=>Editor; } }
 namespace SHCDESE.Interop { internal enum eChimps { CHIMP_TYPE_ARAB_ASSASIN = 73, CHIMP_TYPE_TREBUCHET=40,CHIMP_TYPE_MANGONEL=41,CHIMP_TYPE_BALLISTA=61 } }
 namespace CommandFixture
 {
@@ -71,6 +72,26 @@ namespace CommandFixture
                     EndManualGroupAdmission(parent);
                 }
                 GamePlayerManagerAPI.Instance.Ai=false;getGroupUnitId=originalGroupLookup;
+                // Editor control is independent of the saved AI flag, for every player.
+                APIShared.GameModes.GameModeHelper.Editor = true;
+                GamePlayerManagerAPI.Instance.Ai = true;
+                foreach (int player in Enumerable.Range(1, 8))
+                {
+                    Setup(1300, 650);
+                    tribe->r_PlayerIdOwner = player;
+                    for (int id = 1; id <= 1300; id++) units[id].r_ControllableForPlayerId = player;
+                    var editorArgs = new TribeIssueOrderMoveHereEventArgs();
+                    var editorParent = BeginManualGroupAdmission(editorArgs);
+                    Check(manualAdmission?.Supported == true && manualAdmission.Reachable == 650,
+                        "Editor admission accepts controlled units of all eight players regardless of AI flag");
+                    var selected = Enumerable.Range(1, 1300).Select(id => new FormationUnit {
+                        UnitId=id, GlobalId=units[id].r_GlobalId }).ToArray();
+                    Check(CapturePreviewFormationAdmission(selected,1,20,20,out _).Length == 650,
+                        "Editor preview and actual admission agree on island survivors");
+                    EndManualGroupAdmission(editorParent);
+                }
+                APIShared.GameModes.GameModeHelper.Editor = false;
+                GamePlayerManagerAPI.Instance.Ai = false;
                 foreach(int count in new[]{100,200,550,1000,1300})
                 foreach(int blocked in new[]{0,count/2,count})
                 {

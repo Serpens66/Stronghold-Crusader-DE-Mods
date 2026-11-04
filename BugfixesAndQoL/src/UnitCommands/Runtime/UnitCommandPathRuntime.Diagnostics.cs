@@ -338,7 +338,7 @@ namespace BugfixesAndQoL.UnitCommands
             if (callbackFailureReported)
                 return;
             callbackFailureReported = true;
-            Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.Diagnostics.cs:405", $"Bugfixes and QoL friendly-moat-movement {stage} callback failed once; Vanilla behavior remains active: {ex}");
+            Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/UnitCommandPathRuntime.Diagnostics/LogFailure", $"Bugfixes and QoL friendly-moat-movement {stage} callback failed once; Vanilla behavior remains active: {ex}");
         }
 
         // Last-resort barrier of a native detour: reports once per stage and never throws.
@@ -348,7 +348,7 @@ namespace BugfixesAndQoL.UnitCommands
             {
                 if (!reportedDiagnosticFailureStages.Add("barrier:" + stage))
                     return;
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.Diagnostics.cs:425", $"Bugfixes and QoL native detour barrier stage={stage} caught an exception; " +
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/UnitCommandPathRuntime.Diagnostics/ReportNativeDetourBarrier", $"Bugfixes and QoL native detour barrier stage={stage} caught an exception; " +
                     $"the native caller receives the Vanilla-equivalent fallback: {ex}");
             }
             catch
@@ -363,7 +363,7 @@ namespace BugfixesAndQoL.UnitCommands
             {
                 if (!reportedDiagnosticFailureStages.Add(stage))
                     return;
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.Diagnostics.cs:416", $"Bugfixes and QoL friendly-moat-movement read-only diagnostic stage={stage} failed; " +
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/UnitCommandPathRuntime.Diagnostics/TryLogDiagnosticFailure", $"Bugfixes and QoL friendly-moat-movement read-only diagnostic stage={stage} failed; " +
                     $"Vanilla behavior remains unchanged: {ex}");
             }
             catch

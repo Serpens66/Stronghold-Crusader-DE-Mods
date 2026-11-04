@@ -33,6 +33,9 @@ namespace Spectator
     internal static partial class SpectatorRuntime
     {
         private static CreditAmountInput amountInput;
+        private static Border humanDetails;
+        private static UIElement inputRoot;
+        private static int toolbarOccupiedCount = -1;
         private static readonly Dictionary<Button, string> playerTooltipTexts = new Dictionary<Button, string>();
         private static void EnsureHumanControls()
         {
@@ -43,12 +46,12 @@ namespace Spectator
             {
                 MainControls.instance?.StopAllPlacement();
                 humanPlacementMode = false;
-                Interlocked.Exchange(ref revealHiddenActive, 0);
+                RestorePlacementFreeze();
+                SetRevealHidden(0);
                 ApplyHumanAi(-1);
                 humanSavedTabs = null;
                 activeWall = null;
                 activeSpecial = null;
-                RestoreDateLayout();
                 activeHud = null;
                 DetachHumanControls();
                 log.LogInfo("SPECTATOR_EDITOR_HUMAN_HUD_CHANGED");
@@ -60,8 +63,9 @@ namespace Spectator
             Button toggle = screen.FindName("SpectatorEditorHumanToggle") as Button;
             TextBlock toggleText = screen.FindName("SpectatorEditorHumanToggleText") as TextBlock;
             Panel owners = screen.FindName("SpectatorEditorHumanOwners") as Panel;
+            Border details = screen.FindName("SpectatorDetails") as Border;
             if (canvas == null || panel == null || dragHandle == null || toggle == null ||
-                toggleText == null || owners == null)
+                toggleText == null || owners == null || details == null)
                 return;
             var found = new Button[9];
             var numbers = new TextBlock[9];
@@ -73,29 +77,43 @@ namespace Spectator
             }
             humanScreen = screen;
             humanBoundHud = hud;
+            ReconcileObserverBuildHud(hud);
             humanCanvas = canvas;
             humanPanel = panel;
+            humanDetails = details;
             humanDragHandle = dragHandle;
             humanToggle = toggle;
             humanToggleText = toggleText;
-            humanOwners = owners;
-            toolsModel = new TestToolsViewModel(ExecuteToolsCommand, IsToolbarSession);
-            toolsModel.PropertyChanged += (sender, args) => toolbarDirty = true;
+            long boundSession = CurrentSessionId;
+            TestToolsViewModel boundModel = null;
+            boundModel = new TestToolsViewModel(ExecuteToolsCommand, command =>
+                ReferenceEquals(toolsModel, boundModel) && IsCurrentSession(boundSession) &&
+                (command == "ToggleDesign" ? IsToolbarSession() : IsToolsSession()), PrepareDockedToolsHud);
+            toolsModel = boundModel;
+            toolsModel.PropertyChanged += OnToolsModelChanged;
+            toolsModel.SetAvailability(IsToolsSession());
+            // A reused view must not flash at its old/default coordinates before HUD layout is ready.
+            panel.Opacity = 0; panel.IsHitTestVisible = false;
             panel.DataContext = toolsModel;
+            humanDetails.DataContext = toolsModel;
             CacheToolbarElements(screen);
             toolbarDirty = true;
             SpectatorPerspectiveRuntime.OnHudAvailable();
-            toolsModel.Status = SerpLocalization.Get("Tools.Ready");
             var amount = screen.FindName("TestToolsAmount") as TextBox;
             if (amount == null) throw new MissingMemberException("Test tools amount field missing.");
             amountInput = new CreditAmountInput(amount, toolsModel);
             panel.SizeChanged += OnHumanPanelSizeChanged;
-            toggle.Click += ToggleHumanMode;
+            // Listen at the whole Noesis view root, including non-focusable map surfaces.
+            inputRoot = screen;
+            while (VisualTreeHelper.GetParent(inputRoot) is UIElement parent) inputRoot = parent;
+            inputRoot.PreviewMouseDown += OnToolbarOutsideClick;
             dragHandle.MouseLeftButtonDown += OnHumanDragDown;
             dragHandle.MouseMove += OnHumanDragMove;
             dragHandle.MouseLeftButtonUp += OnHumanDragUp;
             dragHandle.LostMouseCapture += OnHumanLostCapture;
             canvas.SizeChanged += OnHumanCanvasSizeChanged;
+            canvas.IsVisibleChanged += OnHumanCanvasVisibilityChanged;
+            toolbarOccupiedCount = -1;
             for (int owner = 1; owner <= 8; owner++)
             {
                 int selected = owner;
@@ -114,14 +132,26 @@ namespace Spectator
                 };
                 found[owner].PreviewMouseDown += humanJumpHandlers[owner];
             }
-            humanPositioned = false;
-            humanUserMoved = false;
+            BindToolbarLayout();
             log.LogInfo("SPECTATOR_EDITOR_HUMAN_CONTROLS_READY");
         }
 
         private static void DetachHumanControls()
         {
+            toolbarPortraits.Reset();
+            ReleaseActivePlayerBuildMenu();
+            observerBuildHud.Reset();
             toolbarDirty = true;
+            DetachPortraitNumbers();
+            DetachToolbarLayout();
+            // The same IngameUIScreens can survive a map transition. Hide before dropping references.
+            if (humanPanel != null) { humanPanel.Visibility = Visibility.Collapsed; humanPanel.DataContext = null; }
+            // The collapsed common parent already hides the content. Preserve its
+            // visibility binding so the same Noesis view can serve another mission.
+            if (humanDetails != null) humanDetails.DataContext = null;
+            ClosePlayerTooltips();
+            foreach (var button in playerTooltipTexts.Keys)
+                if (ToolTipService.GetToolTip(button) is ToolTip tip) { MenuToolTipSizing.SetEnabled(tip, false); ToolTipService.SetToolTip(button, null); }
             SpectatorPerspectiveRuntime.OnHudUnavailable();
             RestoreVanillaPowerToolbar(true);
             CancelPowerSelection();
@@ -130,9 +160,11 @@ namespace Spectator
             observedGate = null;
             amountInput?.Detach();
             amountInput = null;
-            playerTooltipTexts.Clear();
+            MenuToolTipSizing.SetReference(null);
+            playerTooltipTexts.Clear(); statusText = orderStatusText = null;
             if (humanPanel != null) humanPanel.SizeChanged -= OnHumanPanelSizeChanged;
-            if (humanToggle != null) humanToggle.Click -= ToggleHumanMode;
+            if (inputRoot != null) inputRoot.PreviewMouseDown -= OnToolbarOutsideClick;
+            inputRoot = null;
             if (humanDragHandle != null)
             {
                 humanDragHandle.MouseLeftButtonDown -= OnHumanDragDown;
@@ -141,7 +173,11 @@ namespace Spectator
                 humanDragHandle.LostMouseCapture -= OnHumanLostCapture;
                 if (humanDragHandle.IsMouseCaptured) humanDragHandle.ReleaseMouseCapture();
             }
-            if (humanCanvas != null) humanCanvas.SizeChanged -= OnHumanCanvasSizeChanged;
+            if (humanCanvas != null)
+            {
+                humanCanvas.SizeChanged -= OnHumanCanvasSizeChanged;
+                humanCanvas.IsVisibleChanged -= OnHumanCanvasVisibilityChanged;
+            }
             for (int owner = 1; owner <= 8; owner++)
             {
                 if (humanOwnerButtons[owner] != null && humanOwnerHandlers[owner] != null)
@@ -155,112 +191,145 @@ namespace Spectator
                 humanDisplayedColours[owner] = -1;
             }
             humanDragging = false;
-            humanPositioned = false;
-            humanUserMoved = false;
             humanPanel = null;
+            humanDetails = null;
             humanDragHandle = null;
             humanCanvas = null;
             humanToggle = null;
             humanToggleText = null;
-            humanOwners = null;
             humanScreen = null;
             humanBoundHud = null;
             toolbarRoot = null;
+            currentOrderIcon = null; currentOrderText = currentOrderTarget = null;
+            statusText = orderStatusText = statusShadow = orderStatusShadow = null;
+            shownOrderActor = -1; shownOrderLocale = null;
             Array.Clear(targetButtons, 0, targetButtons.Length);
             Array.Clear(targetLabels, 0, targetLabels.Length);
             Array.Clear(ownerFaces, 0, ownerFaces.Length);
             Array.Clear(targetFaces, 0, targetFaces.Length);
+            if (toolsModel != null) toolsModel.PropertyChanged -= OnToolsModelChanged;
             toolsModel = null;
         }
 
         private static void RefreshHumanControls(bool eligible)
         {
             if (humanPanel == null || toolsModel == null) return;
-            bool show = eligible && MainViewModel.Instance.UIVisible && MainViewModel.Instance.Show_InGameUI &&
-                !MainViewModel.Instance.Show_HUD_Briefing && (!MainViewModel.Instance.Show_HUD_MissionOver || Statistics?.Active == true);
+            // Eligibility changes without a roster rebuild, including while the HUD is hidden.
+            toolsModel.SetAvailability(IsToolsSession());
+            toolsModel.SetOwnBuildMenu(HasOwnBuildMenu());
+            var view = MainViewModel.Instance;
+            if (toolbarDirty || toolbarOccupiedCount < 0)
+            {
+                toolbarOccupiedCount = 0;
+                if (eligible) for (int player = 1; player <= 8; player++) if (IsSelectableView(player)) toolbarOccupiedCount++;
+            }
+            bool show = humanCanvas.IsVisible && DockHudPolicy.CanShowToolbar(eligible, view.UIVisible, view.Show_InGameUI,
+                view.Show_HUD_Extras, view.Show_HUD_Briefing, view.Show_HUD_MissionOver, view.Show_HUD_IngameMenu, toolbarOccupiedCount);
+            bool wasShown = humanPanel.Visibility == Visibility.Visible;
             humanPanel.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
-            if (!show) { amountInput?.EndEditing(); return; }
-            string currentLocale = SerpLocalization.GetActiveLocale();
-            if (currentLocale != toolbarLocale) { toolbarLocale = currentLocale; toolbarDirty = true; }
+            if (!show)
+            {
+                if (wasShown || humanDragging || toolbarDrag.Preview || amountInput?.OwnsKeyboard == true)
+                    SuspendToolbarInteraction();
+                return;
+            }
+            toolsModel.PlacementActive = humanPlacementMode;
+            RefreshPendingToolbarPortraits();
+            string currentLocale = ActiveLocale();
+            if (currentLocale != toolbarLocale)
+            {
+                toolbarLocale = currentLocale; toolbarDirty = true;
+                foreach (var number in portraitNumbers) number?.Invalidate();
+            }
             if (!toolbarDirty) return;
             toolbarDirty = false;
+            toolbarLayoutDirty = true;
             toolsModel.RefreshLocale();
-            int firstAi = -1;
+            int firstAi = -1, portraitMask = 0;
             for (int owner = 1; owner <= 8; owner++)
             {
                 bool available = IsSelectableView(owner);
                 if (available && firstAi < 0) firstAi = owner;
                 Button button = humanOwnerButtons[owner];
                 button.Visibility = available ? Visibility.Visible : Visibility.Collapsed;
-                if (available && toolsModel.Expanded)
+                MarkOwnerButton(button, owner == humanSelectedOwner);
+                if (available)
                 {
                     RefreshHumanOwnerColour(owner);
-                    string label = PlayerLabel(owner);
-                    humanOwnerNumbers[owner].Text = label;
-                    SetPlayerTooltip(button, label);
-                    RefreshPlayerFace("OwnerFace" + owner, owner);
+                    humanOwnerNumbers[owner].Text = owner.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                    SetPlayerTooltip(button, PlayerLabel(owner, false), owner);
+                    portraitMask |= 1 << owner;
                 }
                 var target = targetButtons[owner];
-                bool targetAvailable = IsToolsPlayer(owner, false);
+                bool targetAvailable = IsOrderTarget(owner);
                 target.Visibility = targetAvailable ? Visibility.Visible : Visibility.Collapsed;
-                target.Background = owner == toolsModel.Target ? ownerSelectedBrush : ownerNormalBrush;
-                if (targetAvailable && toolsModel.ActiveViewKey == "Orders" && toolsModel.Expanded)
+                MarkOwnerButton(target, owner == toolsModel.Target);
+                if (targetAvailable)
                 {
-                    string label = PlayerLabel(owner);
-                    var targetText = targetLabels[owner];
-                    targetText.Text = label;
+                    targetLabels[owner].Text = owner.ToString(System.Globalization.CultureInfo.InvariantCulture);
                     RefreshHumanOwnerColour(owner);
-                    targetText.Foreground = humanOwnerNumbers[owner].Foreground;
-                    SetPlayerTooltip(target, label);
-                    RefreshPlayerFace("TargetFace" + owner, owner);
+                    targetLabels[owner].Foreground = humanOwnerNumbers[owner].Foreground;
+                    SetPlayerTooltip(target, PlayerLabel(owner, false), owner, true);
+                    portraitMask |= 1 << owner;
                 }
             }
+            RefreshToolbarPortraits(portraitMask);
             if (!spectatorSelectionLinked && humanSelectedOwner == -1 && !initialSelectionChosen && firstAi > 0)
-            { initialSelectionChosen = true; ApplyHumanAi(firstAi); }
+            {
+                int self = PlayerPerspectiveAPI.GetControlledPlayerId();
+                initialSelectionChosen = true;
+                ApplyHumanAi(IsActivePlayerTestSession() && IsSelectableView(self) ? self : firstAi);
+            }
             else if (!IsSelectableView(humanSelectedOwner)) ApplyHumanAi(-1);
-            for (int owner = 1; owner <= 8; owner++)
-                humanOwnerButtons[owner].Background = owner == humanSelectedOwner ? ownerSelectedBrush : ownerNormalBrush;
-            toolsModel.SetRecipientAvailable(IsSelectableAi(humanSelectedOwner));
-            toolsModel.SetAvailability(IsToolsSession(), SpectatorPerspectiveRuntime.IsActiveSpectator(), Statistics?.Available == true, Statistics?.Active == true);
+            for (int owner = 1; owner <= 8; owner++) MarkOwnerButton(humanOwnerButtons[owner], owner == humanSelectedOwner);
+            toolsModel.SetRecipientAvailable(IsPlacementPlayer(humanSelectedOwner));
             RefreshOrderAvailability();
-            humanToggle.IsEnabled = humanPlacementMode || IsSelectableAi(humanSelectedOwner);
-            humanToggleText.Text = SerpLocalization.Get(humanPlacementMode ? "Tools.StopPlacement" : "Tools.Placement");
-            humanOwners.Visibility = toolsModel.Expanded ? Visibility.Visible : Visibility.Collapsed;
-            toolsModel.SelectedPlayer = SerpLocalization.Get("Tools.Actor") + ": " +
-                (humanSelectedOwner > 0 ? PlayerLabel(humanSelectedOwner) : SerpLocalization.Get("Tools.NoAi"));
-            toolsModel.SelectedTarget = SerpLocalization.Get("Tools.Target") + ": " +
-                (IsToolsPlayer(toolsModel.Target, false) ? PlayerLabel(toolsModel.Target) : SerpLocalization.Get("Tools.SelectTarget"));
-            humanPanel.Width = Math.Min(toolsModel.Expanded ? 640f : 300f, Math.Max(120f, humanCanvas.ActualWidth - 20f));
-            toolbarRoot.Width = Math.Max(100f, humanPanel.Width - 2f);
-            humanOwners.Width = Math.Max(152f, Math.Min(608f, humanPanel.Width - 24f));
-            // Height is measured from the actual visible tool page, not from a fixed canvas.
-            humanPanel.Height = float.NaN;
-            humanPanel.MaxHeight = Math.Max(36f, humanCanvas.ActualHeight - 20f);
-            PositionHumanPanel();
+            humanToggle.IsEnabled = IsPlacementPlayer(humanSelectedOwner);
+            humanToggleText.Text = SerpLocalization.Get("Tools.PlacementShort");
+            RefreshOrderPresentation(true);
+            RequestToolbarStatus();
+            RequestToolbarLayout();
         }
 
-        private static void SetPlayerTooltip(Button button, string label)
+        private static string cachedLocale;
+        private static long cachedLocaleAt;
+
+        // The language is resolved from Extender and Steam settings. The per-frame toolbar
+        // refresh re-checks it at most once per second; a change still rebuilds the toolbar.
+        private static string ActiveLocale()
         {
-            string text = label + " — " + SerpLocalization.Get("Tools.SelectHelp");
+            long now = System.Diagnostics.Stopwatch.GetTimestamp();
+            if (cachedLocale == null || now - cachedLocaleAt >= System.Diagnostics.Stopwatch.Frequency)
+            {
+                cachedLocale = SerpLocalization.GetActiveLocale();
+                cachedLocaleAt = now;
+            }
+            return cachedLocale;
+        }
+
+        private static void SetPlayerTooltip(Button button, string label, int player, bool target = false)
+        {
+            string help = SerpLocalization.Get(target ? "Tools.TargetHelp" : "Tools.SelectHelp");
+            string text = label + "\n" + help;
             if (playerTooltipTexts.TryGetValue(button, out string previous) && previous == text) return;
-            var style = humanPanel.TryFindResource("ToolsTooltip") as Style;
+            var style = humanPanel.TryFindResource("PlayerTooltip") as Style;
             if (style == null) throw new MissingMemberException("Test tools popup style missing.");
-            ToolTipService.SetToolTip(button, new ToolTip { Style = style, Content = text });
+            var content = new TextBlock { Foreground = neutralPlayerBrush,
+                TextWrapping = TextWrapping.Wrap, Effect = StatusInlineFormat.Shadow() };
+            // Some player colours are almost black; tooltip names inherit the readable white text.
+            content.Inlines.Add(new Run { Text = label });
+            content.Inlines.Add(new Run { Text = "\n" + help });
+            var tip = new ToolTip { Style = style, Content = content };
+            MenuToolTipSizing.SetEnabled(tip, true);
+            if (ToolTipService.GetToolTip(button) is ToolTip previousTip) { previousTip.IsOpen = false; MenuToolTipSizing.SetEnabled(previousTip, false); }
+            ToolTipService.SetToolTip(button, tip);
             ToolTipService.SetShowDuration(button, 60000);
+            ToolTipService.SetInitialShowDelay(button, 0);
+            ToolTipService.SetBetweenShowDelay(button, 0);
             playerTooltipTexts[button] = text;
         }
 
-        private static void OnHumanPanelSizeChanged(object sender, SizeChangedEventArgs args) => ClampHumanPanel();
-
-        private static void RefreshPlayerFace(string element, int owner)
-        {
-            var image = element.StartsWith("Owner", StringComparison.Ordinal) ? ownerFaces[owner] : targetFaces[owner];
-            if (image == null) return;
-            var state = GameData.Instance.lastGameState;
-            ImageSource face = state.is_skirmish_player(owner)
-                ? MainViewModel.Instance.getAIFace(state.computer_register[owner], true) : null;
-            if (!ReferenceEquals(image.Source, face)) image.Source = face;
-        }
+        private static void OnHumanPanelSizeChanged(object sender, SizeChangedEventArgs args) => RequestToolbarLayout();
 
         private static void ExecuteToolsCommand(string command)
         {
@@ -275,28 +344,25 @@ namespace Spectator
         private static void ExecuteToolsCommandCore(string command)
         {
             if (!IsToolbarSession() || toolsModel == null) return;
-            toolbarDirty = true;
-            if (command == "Statistics") { Statistics?.Open(); return; }
-            if (command == "RefreshStatistics") { Statistics?.Refresh(); return; }
-            if (command == "CloseStatistics") { Statistics?.Close(); return; }
-            if (command == "Reports" && SpectatorPerspectiveRuntime.IsActiveSpectator())
-            { AccessTools.Method(typeof(MainViewModel), "ButtonReports", new[] { typeof(object) }).Invoke(MainViewModel.Instance, new object[] { "0" }); return; }
-            if (command == "Allies" && SpectatorPerspectiveRuntime.IsActiveSpectator())
-            { HUD_AlliesPanel.Open(true); return; }
+            InvalidateToolbar();
+            if (command == "ToggleDesign")
+            { ToolbarThemePreference.Toggle(); toolbarLayoutDirty = true; return; }
             if (!IsToolsSession()) return;
             SyncSpectatorSelection();
-            if (command == "StopCursor" || command == "CancelPower") amountInput?.EndEditing();
-            if (command == "StopCursor") { CancelPowerSelection(); if (humanPlacementMode) ToggleHumanMode(null, null); else MainControls.instance?.StopAllPlacement(); return; }
-            if (command == "CancelPower") { CancelPowerSelection(); return; }
+            if (command == "StopCursor" || command == "CancelPower") { amountInput?.EndEditing(); }
+            if (command == "StopCursor") { dockBuildMenu.Request(); CancelPowerSelection(); if (humanPlacementMode) ToggleHumanMode(null, null); else MainControls.instance?.StopAllPlacement(); return; }
+            if (command == "CancelPower") { dockBuildMenu.Request(); CancelPowerSelection(); return; }
             if (command == "EnablePowers" || command == "DisablePowers")
             { QueueTestAction(new TestAction { Kind = TestActionKind.PowerToggle, Actor = humanSelectedOwner, Force = command == "EnablePowers" }); return; }
+            if (command == "Placement") { ToggleHumanMode(null, null); return; }
             if (command == "ResetAmount") { amountInput?.ResetAmount(); return; }
-            if (command == "Credit") { QueueCredit(toolsModel.Good, toolsModel.Amount); return; }
+            if (command == "Credit" || command == "Debit")
+            { amountInput?.EndEditing(); QueueCredit(toolsModel.Good, toolsModel.Amount, command == "Debit"); return; }
             if (command == "Attack") { QueueOrder(TestActionKind.Attack, toolsModel.Target, toolsModel.ForceAcceptance); return; }
             if (command == "Defend") { QueueOrder(TestActionKind.Defend, toolsModel.Target, toolsModel.ForceAcceptance); return; }
             if (command == "Cancel") { QueueOrder(TestActionKind.Cancel, 0, false); return; }
             if (command != null && command.StartsWith("Target", StringComparison.Ordinal) &&
-                int.TryParse(command.Substring(6), out int target) && IsToolsPlayer(target, false))
+                int.TryParse(command.Substring(6), out int target) && IsOrderTarget(target))
                 toolsModel.Target = target;
         }
 
@@ -319,38 +385,14 @@ namespace Spectator
             humanDisplayedColours[owner] = rgb;
         }
 
-        private static void PositionHumanPanel()
-        {
-            if (humanCanvas == null || humanPanel == null ||
-                humanCanvas.ActualWidth <= 0f || humanCanvas.ActualHeight <= 0f) return;
-            if (!humanPositioned || !humanUserMoved)
-            {
-                Canvas.SetLeft(humanPanel,
-                    Math.Max(0f, humanCanvas.ActualWidth - humanPanel.Width - 52f));
-                Canvas.SetTop(humanPanel, 54f);
-                humanPositioned = true;
-            }
-            ClampHumanPanel();
-        }
-
-        private static void ClampHumanPanel()
-        {
-            if (!humanPositioned || humanCanvas == null || humanPanel == null ||
-                humanCanvas.ActualWidth <= 0f || humanCanvas.ActualHeight <= 0f) return;
-            float maxLeft = Math.Max(0f, humanCanvas.ActualWidth - humanPanel.Width);
-            float maxTop = Math.Max(0f, humanCanvas.ActualHeight - humanPanel.ActualHeight);
-            Canvas.SetLeft(humanPanel, Math.Max(0f, Math.Min(maxLeft, (float)Canvas.GetLeft(humanPanel))));
-            Canvas.SetTop(humanPanel, Math.Max(0f, Math.Min(maxTop, (float)Canvas.GetTop(humanPanel))));
-        }
-
         private static void OnHumanDragDown(object sender, MouseButtonEventArgs args)
         {
-            if (humanCanvas == null || humanPanel == null || humanDragHandle == null) return;
-            humanDragStart = args.GetPosition(humanCanvas);
-            humanDragOriginLeft = (float)Canvas.GetLeft(humanPanel);
-            humanDragOriginTop = (float)Canvas.GetTop(humanPanel);
+            if (humanCanvas == null || humanPanel == null || humanDragHandle == null ||
+                !layoutCached || !humanPanel.IsHitTestVisible) return;
+            Point pointer = args.GetPosition(humanCanvas);
+            toolbarDrag.Begin(pointer.X, pointer.Y, toolbarVisibleGrip, !toolbarMoved);
             humanDragging = humanDragHandle.CaptureMouse();
-            if (humanDragging) humanUserMoved = true;
+            RequestToolbarLayout();
             args.Handled = true;
         }
 
@@ -358,27 +400,48 @@ namespace Spectator
         {
             if (!humanDragging || humanCanvas == null || humanPanel == null) return;
             Point current = args.GetPosition(humanCanvas);
-            Canvas.SetLeft(humanPanel,
-                humanDragOriginLeft + (float)(current.X - humanDragStart.X));
-            Canvas.SetTop(humanPanel,
-                humanDragOriginTop + (float)(current.Y - humanDragStart.Y));
-            ClampHumanPanel();
+            SnapToolbarDrag(current.X, current.Y);
+            RequestToolbarLayout();
             args.Handled = true;
         }
 
         private static void OnHumanDragUp(object sender, MouseButtonEventArgs args)
         {
+            if (humanDragging && humanCanvas != null)
+            {
+                Point current = args.GetPosition(humanCanvas);
+                Point origin = humanCanvas.PointToScreen(new Point(0, 0));
+                Point unit = humanCanvas.PointToScreen(new Point(100, 100));
+                toolbarMoved = !toolbarDrag.Drop(current.X, current.Y, ToolbarDropTarget((unit.Y - origin.Y) / 100),
+                    (unit.X - origin.X) / 100, (unit.Y - origin.Y) / 100, toolbarFloatingScale,
+                    out toolbarDesiredX, out toolbarDesiredY);
+                if (!toolbarMoved) dockBuildMenu.Request();
+            }
             humanDragging = false;
-            if (humanDragHandle != null && humanDragHandle.IsMouseCaptured)
-                humanDragHandle.ReleaseMouseCapture();
+            RequestToolbarLayout();
+            if (humanDragHandle != null && humanDragHandle.IsMouseCaptured) humanDragHandle.ReleaseMouseCapture();
             args.Handled = true;
         }
 
-        private static void OnHumanLostCapture(object sender, MouseEventArgs args) =>
-            humanDragging = false;
-
+        private static void OnHumanLostCapture(object sender, MouseEventArgs args)
+        { humanDragging = false; toolbarDrag.Cancel(); RequestToolbarLayout(); }
         private static void OnHumanCanvasSizeChanged(object sender, SizeChangedEventArgs args)
-        { toolbarDirty = true; PositionHumanPanel(); }
+        { InvalidateToolbar(); }
+
+        private static void SuspendToolbarInteraction()
+        {
+            UpdateSpectatorDate(false);
+            humanDragging = false; toolbarDrag.Cancel();
+            if (humanDragHandle?.IsMouseCaptured == true) humanDragHandle.ReleaseMouseCapture();
+            amountInput?.EndEditing(); ClosePlayerTooltips();
+            HideDockGuides();
+        }
+
+        private static void OnHumanCanvasVisibilityChanged(object sender, DependencyPropertyChangedEventArgs args)
+        {
+            InvalidateToolbar();
+            if (humanCanvas?.IsVisible != true) SuspendToolbarInteraction();
+        }
 
         private static RadioButton[] NormalTabs(HUD_Main hud) => new[] {
             hud.RefTabBuildCastle, hud.RefTabBuildIndustry, hud.RefTabBuildFarms,
@@ -387,10 +450,18 @@ namespace Spectator
 
         private static void ToggleHumanMode(object sender, RoutedEventArgs args)
         {
+            buildPageMutation++;
+            try { ToggleHumanModeCore(); }
+            finally { buildPageMutation--; }
+        }
+
+        private static void ToggleHumanModeCore()
+        {
             if (!IsHumanSingleplayerSession()) return;
             SyncSpectatorSelection();
-            if (!humanPlacementMode && !IsSelectableAi(humanSelectedOwner)) return;
+            if (!humanPlacementMode && !IsPlacementPlayer(humanSelectedOwner)) return;
             CancelPowerSelection();
+            InvalidateToolbar();
             amountInput?.EndEditing();
             HUD_Main hud = MainViewModel.Instance.HUDmain;
             if (hud == null || MainControls.instance == null) return;
@@ -399,22 +470,24 @@ namespace Spectator
                 EnterPlacementHud(MainViewModel.Instance);
                 MainControls.instance.StopAllPlacement();
                 humanPlacementMode = !humanPlacementMode;
-                Interlocked.Exchange(ref revealHiddenActive, 0);
+                SetRevealHidden(0);
                 RefreshHumanControls(true);
                 return;
             }
             if (humanPlacementMode)
             {
                 humanPlacementMode = false;
-                Interlocked.Exchange(ref revealHiddenActive, 0);
+                RestorePlacementLayout(); playerPlacementPage = null;
+                RestorePlacementFreeze();
+                SetRevealHidden(0);
                 MainControls.instance.StopAllPlacement();
                 activeWall = null;
                 activeSpecial = null;
-                RestoreDateLayout();
                 MainViewModel.Instance.SubMode = humanSavedSubMode;
                 hud.SetupNewBuildScreen(-1000);
                 EnterPlacementHud(MainViewModel.Instance);
-                hud.SetupNewBuildScreen(GateHudLifecycle.IsBuildScreen(humanSavedScreen) ? humanSavedScreen : 1);
+                if (humanSavedScreen == DockHudPolicy.BlankBuildScreen) hud.NewBuildScreenBlank();
+                else hud.SetupNewBuildScreen(GateHudLifecycle.IsBuildScreen(humanSavedScreen) ? humanSavedScreen : 1);
                 hud.StartScrollSwish();
                 RadioButton[] tabs = NormalTabs(hud);
                 if (humanSavedTabs != null)
@@ -429,20 +502,22 @@ namespace Spectator
             {
                 int firstAi = -1;
                 for (int owner = 1; owner <= 8; owner++)
-                    if (IsSelectableAi(owner)) { firstAi = owner; break; }
+                    if (IsPlacementPlayer(owner)) { firstAi = owner; break; }
                 if (firstAi < 0) return;
                 humanSavedScreen = MainViewModel.Instance.buildScreenID;
-                if (!GateHudLifecycle.IsBuildScreen(humanSavedScreen)) humanSavedScreen = 1;
+                if (!GateHudLifecycle.IsBuildScreen(humanSavedScreen) && humanSavedScreen != DockHudPolicy.BlankBuildScreen) humanSavedScreen = 1;
                 humanSavedSubMode = MainViewModel.Instance.SubMode;
+                if (IsActivePlayerTestSession())
+                    playerPlacementPage = new BuildMenuSnapshot(hud, humanSavedScreen, humanSavedSubMode, CaptureBuildTabs(hud));
                 RadioButton[] tabs = NormalTabs(hud);
                 humanSavedTabs = new bool?[tabs.Length];
                 for (int index = 0; index < tabs.Length; index++)
                     humanSavedTabs[index] = tabs[index]?.IsChecked;
                 MainControls.instance.StopAllPlacement();
-                if (!IsSelectableAi(humanSelectedOwner)) humanSelectedOwner = firstAi;
+                if (!IsPlacementPlayer(humanSelectedOwner)) humanSelectedOwner = firstAi;
                 humanPlacementMode = true;
-                Interlocked.Exchange(ref revealHiddenActive,
-                    visualMapDetour != null && visualFrameDetour != null &&
+                SetRevealHidden(
+                    visualMapDetour != null && visualFrameRegistration != null &&
                     visualResourceDetour != null ? 1 : 0);
                 if (Volatile.Read(ref revealHiddenActive) == 0)
                     log.LogWarning("SPECTATOR_EDITOR_VISUAL_UNAVAILABLE: audited native hooks are not installed");
@@ -455,11 +530,30 @@ namespace Spectator
             RefreshHumanControls(true);
         }
 
+        private static bool PrepareDockedToolsHud()
+        {
+            try
+            {
+                if (!IsObserverBuildUiThread || !IsToolsSession() || !MainViewModel.viewModelLoaded) return false;
+                var view = MainViewModel.Instance;
+                if (view.HUDmain == null) return false;
+                // Retire a borrowed gate/building panel through the same transition as Place.
+                // The menu publishes expansion only after the native build HUD is available.
+                if (!view.Show_HUD_Main || view.Show_HUD_Troops || view.Show_HUD_Building) EnterPlacementHud(view);
+                if (!view.Show_HUD_Main || view.Show_HUD_Troops || view.Show_HUD_Building) return false;
+                dockBuildMenu.Request();
+                return true;
+            }
+            catch (Exception error) { LogOnce("TEST_TOOLS_HUD_OPEN_ERROR: " + error); return false; }
+        }
+
         private static void SelectHumanAi(int owner)
         {
             if (!IsToolbarSession() || !IsSelectableView(owner)) return;
-            if (SpectatorPerspectiveRuntime.IsActiveSpectator())
+            if (SpectatorPerspectiveRuntime.IsSpectatorRoster())
             {
+                // The roster is shown before perspective initialization; selection waits for it.
+                if (!SpectatorPerspectiveRuntime.IsActiveSpectator()) return;
                 SpectatorPerspectiveRuntime.SelectPlayer(owner);
                 SyncSpectatorSelection();
             }
@@ -511,45 +605,184 @@ namespace Spectator
             }
         }
 
-        private static void OnBeforeRender()
+        internal static void PrepareEliminatedObserverHud()
         {
-            int frame = UnityEngine.Time.frameCount;
-            if (lastRenderFrame == frame) return;
-            lastRenderFrame = frame;
+            // The old positive participant can still own market, troop and building controls.
+            // Retire their cursors and borrowed pages before the first foreign report viewpoint.
+            // Vanilla's own deselection while the native view is still the participant's own: a queued
+            // deselect then carries the participant as its source. Afterwards CloseTroopsPanel (ESC,
+            // Reports) has no selection left that it could deselect as a foreign view.
+            try { EngineInterface.GameAction(Enums.GameActionCommand.CloseTroopsPanel, 0, 0); }
+            catch (Exception error) { LogOnce("SPECTATOR_OBSERVER_DESELECT_FAILED: " + error); }
+            humanPlacementMode = false;
+            CancelSelectionActions();
+            RestorePlacementLayout(); playerPlacementPage = null;
+            dockBuildMenu.Release(); dockBuildMenu.Reset();
+            RestorePlacementFreeze();
+            ReleaseGateHud(false);
+            SetRevealHidden(0);
+            ApplyHumanAi(-1);
+            InvalidateToolbar();
+            if (!MainViewModel.viewModelLoaded) return;
+            var view = MainViewModel.Instance;
+            view.AlliesPanelVisible = false;
+            // Preserve an actual defeat/briefing overlay while hiding interactive panels behind it.
+            if (!view.Show_HUD_MissionOver && !view.Show_HUD_Briefing) view.DefaultGameUIGameAction();
+            else { view.Show_HUD_Building = false; view.Show_HUD_Troops = false; }
+            view.buildControlsFreeze(true);
+            // Promotion is confirmed only after this method returns. Clear explicitly
+            // now, before a first foreign viewpoint can make the old icons selectable.
+            ReconcileObserverBuildHud(preparingPromotion: true);
+        }
+
+        private static int controlUnfreezeDiagnostics;
+        private static int spriteLeasePlayer;
+        private static bool spriteLeaseFailureLogged;
+
+        // Unit HUD sprites (troop tab, recruitment, portraits) follow the player placed for, otherwise the
+        // input-controlled player. Only a change calls APIShared; the editor recolours by itself.
+        private static void UpdateSpriteColourLease()
+        {
+            int desired = IsEditorToolsSession() ? 0 : CurrentAiOwner();
+            if (desired < 1) desired = SpectatorPerspectiveRuntime.InputControlledPlayer();
+            if (desired == spriteLeasePlayer) return;
+            spriteLeasePlayer = desired;
+            if (desired < 1) { APIShared.UnitHudSpriteColours.Release(Guid); return; }
+            // A refused lease is not retried per frame; the next change of player tries again.
+            if (!APIShared.UnitHudSpriteColours.TryLease(Guid, desired, out string reason) && !spriteLeaseFailureLogged)
+            {
+                spriteLeaseFailureLogged = true;
+                log.LogWarning("SPECTATOR_SPRITE_COLOUR_UNAVAILABLE: player=" + desired + "; " + reason);
+            }
+        }
+
+        private static void ResetSpriteColourLease()
+        {
+            // APIShared also ends the lease at mission end; this only clears our cached player.
+            if (spriteLeasePlayer > 0) APIShared.UnitHudSpriteColours.Release(Guid);
+            spriteLeasePlayer = 0;
+        }
+
+        // Vanilla freezes build tabs for a nonpositive managed player; the controlled player
+        // uses them like a normal player. RestorePlacementFreeze re-freezes after control ends.
+        private static void UnfreezeControlledBuild()
+        {
+            var view = MainViewModel.Instance;
+            if (!view.FreezeMainControls) return;
+            RememberPlacementFreeze();
+            view.buildControlsFreeze(false);
+            // An open Tools panel keeps its leased blank page; otherwise show the castle page. Marked
+            // as our own page change, so the lease observer does not treat it as a Vanilla choice.
+            if (dockBuildMenu.Saved == null && view.HUDmain != null)
+            {
+                buildPageMutation++;
+                try { view.HUDmain.SetupNewBuildScreen(1); }
+                finally { buildPageMutation--; }
+            }
+            if (controlUnfreezeDiagnostics++ < 8)
+                log.LogInfo("SPECTATOR_CONTROL_BUILD_UNFROZEN player=" + SpectatorPerspectiveRuntime.InputControlledPlayer());
+        }
+
+        private static void RenderFrame()
+        {
             log.Flush();
             while (presentationCallbacks.TryDequeue(out Action pending))
                 try { pending(); } catch (Exception error) { LogOnce("TEST_SESSION_PRESENTATION_ERROR: " + error); }
             if (!MainViewModel.viewModelLoaded) return;
             try
             {
-                ObserveRoster();
-                bool humanEligible = IsHumanSingleplayerSession();
-                Interlocked.Exchange(ref revealHiddenActive,
+                // Disabling the last applicable feature must retire the old UI too;
+                // it cannot depend on another feature keeping presentation alive.
+                if (!SessionNeedsPresentation())
+                {
+                    // Pending mutations must neither keep waking this hidden UI nor
+                    // execute belatedly when a test mode is enabled again.
+                    while (testActions.TryDequeue(out _)) { }
+                    RetireUnavailablePlacement();
+                    if (toolsModel?.ToolsAvailable == true)
+                    {
+                        RestoreVanillaPowerToolbar(false);
+                        CancelPowerSelection();
+                        ClearGateSelection();
+                        SetRevealHidden(0);
+                        ReleaseActivePlayerBuildMenu();
+                        if (!IsControlledBuildSession()) RestorePlacementFreeze();
+                        toolsModel.SetAvailability(false);
+                    }
+                    if (humanPanel?.Visibility == Visibility.Visible)
+                    {
+                        humanPanel.Visibility = Visibility.Collapsed;
+                        SuspendToolbarInteraction();
+                    }
+                    return;
+                }
+                // Identity is an input safety guard, independent of the slower status cadence.
+                ObservePresentedPerspective();
+                if (!presentationRefresh.Ready(System.Diagnostics.Stopwatch.GetTimestamp())) return;
+                ObservePresentationView(MainViewModel.Instance);
+                bool stateCheck = TakePresentationStatusCheck();
+                if (stateCheck) ObservePresentationColours();
+                bool rosterChanged = rosterPending && (stateCheck || toolbarDirty);
+                bool contentChanged = toolbarDirty;
+                if (stateCheck || rosterChanged || contentChanged)
+                {
+                    if (SpectatorDefeat.NeedsPresentation) SpectatorDefeat.ObservePresentedState();
+                    ReconcileObserverBuildHud();
+                    Statistics?.ObserveAvailability(contentChanged);
+                    if (rosterChanged) { rosterPending = false; ObserveRoster(); }
+                    RetireUnavailablePlacement();
+                    if (toolbarDirty) SyncSpectatorSelection();
+                    UpdateSpriteColourLease();
+                    presentedToolsEligible = IsHumanSingleplayerSession();
+                    presentedToolbarEligible = IsToolbarSession();
+                }
+                bool humanEligible = presentedToolsEligible;
+                if (stateCheck || contentChanged) SetRevealHidden(
                     humanEligible && humanPlacementMode && !IsEditorToolsSession() && visualMapDetour != null &&
-                    visualFrameDetour != null && visualResourceDetour != null ? 1 : 0);
-                bool toolbarEligible = IsToolbarSession();
-                if (toolbarEligible) EnsureHumanControls();
-                SyncSpectatorSelection();
-                RefreshHumanControls(toolbarEligible);
-                if (humanEligible) { RefreshPowers(); RefreshVanillaPowerToolbar(); RefreshGateState(); }
-                else { RestoreVanillaPowerToolbar(false); CancelPowerSelection(); ClearGateSelection(); }
+                    visualFrameRegistration != null && visualResourceDetour != null ? 1 : 0);
+                bool toolbarEligible = presentedToolbarEligible;
+                if (toolbarEligible && (stateCheck || humanPanel == null)) EnsureHumanControls();
+                if (stateCheck || toolbarDirty) RefreshHumanControls(toolbarEligible);
+                if (humanEligible)
+                {
+                    if (stateCheck || contentChanged) RefreshPowers();
+                    else if (pendingPower != null) RefreshPowerSelection();
+                    if (stateCheck || contentChanged || powerToolbarOwned) RefreshVanillaPowerToolbar();
+                    if (gateHudLifecycle.Pending || selectedGate != null || observedGate != null)
+                        RefreshGateState(stateCheck || contentChanged);
+                }
+                else if (stateCheck || contentChanged)
+                { RestoreVanillaPowerToolbar(false); CancelPowerSelection(); ClearGateSelection(); }
                 DrainTestActions();
+                if (HasToolbarViewport() && (stateCheck || contentChanged || toolbarLayoutDirty)) UpdateActivePlayerBuildMenu();
+                if (toolbarStatusDirty && humanPanel?.Visibility == Visibility.Visible)
+                {
+                    toolbarStatusDirty = false;
+                    RefreshColouredStatus();
+                    RefreshOrderPresentation();
+                }
                 if (!IsPlacementSession())
                 {
-                    RestoreDateLayout();
+                    if (IsControlledBuildSession()) UnfreezeControlledBuild();
+                    else RestorePlacementFreeze();
                     activeHud = null;
                     initialLayoutLoggedHud = null;
                     lastOwner = int.MinValue;
                     lastScreen = int.MinValue;
-                    pendingVisibilityHud = null;
-                    pendingVisibilityAt = DateTime.MaxValue;
+                    DiagForgetIcons();
                     activeWall = null;
                     activeSpecial = null;
+                    PositionToolbar();
                     return;
                 }
                 MainViewModel view = MainViewModel.Instance;
                 HUD_Main hud = view.HUDmain;
-                if (hud == null || !view.Show_HUD_Main) return;
+                if (hud == null || !view.Show_HUD_Main)
+                {
+                    // Placement may remain active while troop/building HUDs replace the build menu.
+                    PositionToolbar();
+                    return;
+                }
                 if (IsEditorToolsSession()) return;
                 bool layoutChanged = EnsurePlacementHudLayout(hud);
                 bool firstLayout = !ReferenceEquals(hud, initialLayoutLoggedHud);
@@ -564,6 +797,7 @@ namespace Spectator
                 }
                 if (IsSpectatorSession() && view.FreezeMainControls)
                 {
+                    RememberPlacementFreeze();
                     view.buildControlsFreeze(false);
                     log.LogInfo("SPECTATOR_EDITOR_FREEZE_RECOVERED");
                 }
@@ -571,8 +805,7 @@ namespace Spectator
                 int screen = view.buildScreenID;
                 if (!ReferenceEquals(hud, activeHud) || owner != lastOwner || screen != lastScreen)
                 {
-                    if (screen <= 0 || screen == 15 || screen == 17 ||
-                        screen == 18 || screen == 21 || screen == 22 || screen >= 23)
+                    if (!GateHudLifecycle.IsBuildScreen(screen))
                         hud.SetupNewBuildScreen(1);
                     else
                         RefreshBuildIcons(hud, owner, "session");
@@ -583,105 +816,17 @@ namespace Spectator
                     log.LogInfo("SPECTATOR_EDITOR_RUNTIME_AFTER_STARTUP: HUD active; owner=" +
                         owner + " screen=" + view.buildScreenID);
                 }
-                if (ReferenceEquals(hud, pendingVisibilityHud) &&
-                    DateTime.UtcNow >= pendingVisibilityAt)
-                {
-                    LogVisibilityAfterAnimation(hud);
-                    pendingVisibilityHud = null;
-                    pendingVisibilityAt = DateTime.MaxValue;
-                }
-                PositionDate(hud);
+                DiagIconsSettled(hud);
+                PositionToolbar();
             }
             catch (Exception error)
             {
+                // Earlier consumers can have cleared their flags before a later UI write failed.
+                // Retry the reconcile, not the already-dequeued commands or presentation callbacks.
+                rosterState = null;
+                presentationRefresh.Failed(System.Diagnostics.Stopwatch.GetTimestamp(), System.Diagnostics.Stopwatch.Frequency);
+                renderWork.RequestAfter(presentationStatusInterval);
                 LogOnce("SPECTATOR_EDITOR_HUD_ERROR: " + error);
-            }
-        }
-
-        private static void PositionDate(HUD_Main hud)
-        {
-            var date = hud.FindName("OST_Date") as TextBlock;
-            var lastTab = hud.FindName("RadioButtonMEBedouin") as FrameworkElement;
-            var allies = hud.FindName("ButtonAllies") as FrameworkElement;
-            var merit = hud.FindName("ButtonMerit") as FrameworkElement;
-            if (date == null || lastTab == null || merit == null) return;
-            if (dateLayout == null || !ReferenceEquals(dateLayout.Hud, hud) ||
-                !ReferenceEquals(dateLayout.Date, date))
-            {
-                RestoreDateLayout();
-                var group = date.RenderTransform as TransformGroup;
-                var translate = group != null && group.Children.Count > 0
-                    ? group.Children[0] as TranslateTransform : null;
-                if (translate == null)
-                    throw new MissingMemberException("HUD_Main", "OST_Date translation");
-                dateLayout = new DateLayoutState { Hud = hud, Date = date,
-                    Translate = translate, OriginalX = translate.X,
-                    OriginalFontSize = date.FontSize,
-                    OriginalHitTest = date.IsHitTestVisible };
-            }
-            date.IsHitTestVisible = false;
-            if (!lastTab.IsVisible || lastTab.ActualWidth <= 0) return;
-            double left = lastTab.TranslatePoint(new Point(lastTab.ActualWidth, 0), hud).X;
-            double right = allies != null && allies.IsVisible
-                ? allies.TranslatePoint(new Point(0, 0), hud).X
-                : merit.TranslatePoint(new Point(0, 0), hud).X;
-            if (right <= left + 8) return;
-            DateLayoutState state = dateLayout;
-            string text = date.Text ?? "";
-            if (state.LastLeft == left && state.LastRight == right &&
-                state.LastHudWidth == hud.ActualWidth && state.LastText == text &&
-                state.LastTranslation == state.Translate.X &&
-                state.LastFontSize == date.FontSize)
-                return;
-
-            state.Translate.X = 0;
-            if (date.FontSize != state.OriginalFontSize)
-                date.FontSize = state.OriginalFontSize;
-            date.UpdateLayout();
-            double available = right - left - 8;
-            double naturalWidth = date.ActualWidth;
-            if (naturalWidth <= 0) return;
-            if (naturalWidth > available)
-            {
-                date.FontSize = (float)Math.Max(1,
-                    state.OriginalFontSize * available / naturalWidth);
-                date.UpdateLayout();
-                if (date.ActualWidth > available)
-                {
-                    date.FontSize *= (float)(available / date.ActualWidth);
-                    date.UpdateLayout();
-                }
-            }
-            double baseX = date.TranslatePoint(new Point(0, 0), hud).X;
-            double targetX = left + 4 + (available - date.ActualWidth) / 2;
-            state.Translate.X = (float)(targetX - baseX);
-            state.LastLeft = left;
-            state.LastRight = right;
-            state.LastHudWidth = hud.ActualWidth;
-            state.LastText = text;
-            state.LastTranslation = state.Translate.X;
-            state.LastFontSize = date.FontSize;
-            if (dateLayoutDiagnostics++ < 24)
-                log.LogInfo("SPECTATOR_EDITOR_DATE_LAYOUT left=" + left +
-                    " right=" + right + " textWidth=" + date.ActualWidth +
-                    " font=" + date.FontSize + " target=" + targetX +
-                    " translation=" + state.Translate.X + " text=" + text);
-        }
-
-        private static void RestoreDateLayout()
-        {
-            DateLayoutState state = dateLayout;
-            dateLayout = null;
-            if (state == null) return;
-            try
-            {
-                state.Translate.X = state.OriginalX;
-                state.Date.FontSize = state.OriginalFontSize;
-                state.Date.IsHitTestVisible = state.OriginalHitTest;
-            }
-            catch (Exception error)
-            {
-                LogOnce("SPECTATOR_EDITOR_DATE_RESTORE_ERROR: " + error);
             }
         }
 

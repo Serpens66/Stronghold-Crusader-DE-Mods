@@ -15,9 +15,6 @@ namespace CastlePlanner
             variation = AutomaticSpriteVariation;
             switch (mapper)
             {
-                case eMappers.MAPPER_STORES:
-                case eMappers.MAPPER_GRANARY:
-                case eMappers.MAPPER_ARMOURY:
                 case eMappers.MAPPER_GARDEN1:
                 case eMappers.MAPPER_GARDEN7:
                 case eMappers.MAPPER_GARDEN10:

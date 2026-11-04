@@ -120,6 +120,13 @@ if exist "%LOCAL_SCRIPT_EXTENDER_MOD_OUTPUT%\SHCDESE.dll" (
 ) else goto build_failed
 if not exist "%API_SHARED_DIR%\APIShared.dll" goto build_failed
 
+rem The Assassin tests compare the native search kernel with the managed search, so it is compiled first.
+echo [%date% %time%] Compile native Assassin search
+call :step_start "compile" "05-Build-AssassinSearch.ps1"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%native\Build-AssassinSearch.ps1"
+call :step_end %ERRORLEVEL%
+if not "%ERRORLEVEL%"=="0" goto build_failed
+
 rem /checks:notifications selects the relevant behavior suite for a notification-only change.
 rem Checked builds run the common source and runtime safety checks once.
 set "NOTIFICATION_CHECKS=0"
@@ -245,10 +252,6 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-Notif
 call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 echo [%date% %time%] PowerShell checks / build step
-call :step_start "tests" "23-Test-SpectatorPerspectivePreflight.ps1"
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-SpectatorPerspectivePreflight.ps1"
-call :step_end %ERRORLEVEL%
-if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 echo [%date% %time%] PowerShell checks / build step
 call :step_start "tests" "24-Test-DamagedHealthBarsPreflight.ps1"
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-DamagedHealthBarsPreflight.ps1"
@@ -281,6 +284,10 @@ call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 call :step_start "tests" "30-HostClientPresetTests.exe"
 "%PROJECT_DIR%..\_inspect\HostClientPresetTests\bin\HostClientPresetTests.exe"
+call :step_end %ERRORLEVEL%
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+call :step_start "tests" "Lord return teleport host/client presets"
+"%PROJECT_DIR%..\_inspect\HostClientPresetTests\bin\HostClientPresetTests.exe" lord-teleport
 call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 echo [%date% %time%] Run tests
@@ -409,6 +416,15 @@ call :step_start "tests" "55-AssassinCapturedGateProtectionTests.exe"
 "%PROJECT_DIR%tests\AssassinCapturedGateProtection.Tests\bin\AssassinCapturedGateProtectionTests.exe"
 call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+echo [%date% %time%] Tribe member lookup machine tests (V14 against Vanilla's 0x119F90 copy)
+call :step_start "tests" "55b-TribeMemberLookup.Tests.csproj"
+"%MSBUILD%" "tests\TribeMemberLookup.Tests\TribeMemberLookup.Tests.csproj" /p:Configuration=Release /p:ExtenderDir="%EXTENDER_DIR%"
+call :step_end %ERRORLEVEL%
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+call :step_start "tests" "55c-TribeMemberLookup.Tests.exe"
+"%PROJECT_DIR%tests\TribeMemberLookup.Tests\bin\TribeMemberLookup.Tests.exe" "%GAME_DIR%\Stronghold Crusader Definitive Edition_Data\Plugins\x86_64\CrusaderDE.dll"
+call :step_end %ERRORLEVEL%
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 set "MOAT_TEST_API_SHARED_DLL=%API_SHARED_DIR%\APIShared.dll"
 echo [%date% %time%] Run tests
 call :step_start "tests" "56-FriendlyMoatMovement.Tests.csproj"
@@ -513,6 +529,12 @@ call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 
 :foreign_hud_checks_completed
+if not "%BUILD_TEST_MODE%"=="full" goto resource_package_checks_completed
+call :step_start "tests" "resource-packaging-regression"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%tests\Test-PackageResources.ps1" -ApiSharedDir "%API_SHARED_DIR%" -MSBuild "%MSBUILD%"
+call :step_end %ERRORLEVEL%
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+:resource_package_checks_completed
 popd
 
 if exist "%LOCAL_PLUGIN_DIR%\" rmdir /S /Q "%LOCAL_PLUGIN_DIR%"
@@ -529,17 +551,28 @@ call :step_start "tests" "73-Test-Modsettings.ps1"
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-Modsettings.ps1" -AssemblyPath "%LOCAL_PLUGIN_DIR%\BugfixesAndQoL.dll" -ApiSharedDir "%API_SHARED_DIR%" -ExtenderDir "%EXTENDER_DIR%" %MODSETTINGS_NATIVE_OPTION%
 call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+call :step_start "tests" "LordTeleportGuard.Tests build"
+"%MSBUILD%" "%PROJECT_DIR%tests\LordTeleportGuard.Tests\LordTeleportGuard.Tests.csproj" /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
+call :step_end %ERRORLEVEL%
+if not "%ERRORLEVEL%"=="0" goto build_failed
+call :step_start "tests" "LordTeleportGuard.Tests execution"
+"%PROJECT_DIR%tests\LordTeleportGuard.Tests\bin\LordTeleportGuard.Tests.exe" "%GAME_DIR%\Stronghold Crusader Definitive Edition_Data\Plugins\x86_64\CrusaderDE.dll" "%LOCAL_PLUGIN_DIR%\BugfixesAndQoL.dll"
+call :step_end %ERRORLEVEL%
+if not "%ERRORLEVEL%"=="0" goto build_failed
+
 :artifact_tests_completed
 popd
 
-echo [%date% %time%] Copy package files
-copy /Y "%PROJECT_DIR%info.json" "%LOCAL_PLUGIN_DIR%\info.json" >nul
-echo [%date% %time%] Copy package files
-xcopy "%PROJECT_DIR%Override" "%LOCAL_PLUGIN_DIR%\Override\" /E /I /Q /Y >nul
-echo [%date% %time%] Copy package files
-xcopy "%PROJECT_DIR%Patches" "%LOCAL_PLUGIN_DIR%\Patches\" /E /I /Q /Y >nul
+echo [%date% %time%] Package native Assassin search
+call :step_start "package" "73-Package-AssassinSearch.ps1"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%native\Build-AssassinSearch.ps1" -CopyOnly -OutputDirectory "%LOCAL_PLUGIN_DIR%"
+call :step_end %ERRORLEVEL%
+if not "%ERRORLEVEL%"=="0" goto package_failed
+
+rem The project copies every resource and hash-verifies the package, including neutral patches.
 if not exist "%LOCAL_PLUGIN_DIR%\BugfixesAndQoL.dll" goto package_failed
 if not exist "%LOCAL_PLUGIN_DIR%\info.json" goto package_failed
+if not exist "%LOCAL_PLUGIN_DIR%\BfqolAssassinSearch.dll" goto package_failed
 
 if "%NO_INSTALL%"=="1" goto prepared_no_install
 call :step_start "package" "74-Disable-LegacyGateTest.ps1"
@@ -565,6 +598,10 @@ if exist "%GAME_PLUGIN_DIR%\" (
 )
 echo [%date% %time%] Copy package files
 xcopy "%LOCAL_PLUGIN_DIR%" "%GAME_PLUGIN_DIR%\" /E /I /Q /Y >nul
+if not "%ERRORLEVEL%"=="0" goto copy_failed
+call :step_start "package" "installed-resource-hashes"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-PackageResources.ps1" -PackageDirectory "%GAME_PLUGIN_DIR%" -ReferencePackage "%LOCAL_PLUGIN_DIR%" -Installed
+call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto copy_failed
 echo [%date% %time%] PowerShell checks / build step
 call :step_start "package" "75-Write-LocalBuildManifest.ps1"

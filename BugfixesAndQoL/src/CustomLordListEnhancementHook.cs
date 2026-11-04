@@ -184,7 +184,7 @@ namespace BugfixesAndQoL
             updateHook?.Dispose();
             addClickHook?.Undo();
             addClickHook?.Dispose();
-            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/CustomLordListEnhancementHook.cs:187", "Bugfixes and QoL custom-lord list hook disposed.");
+            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/CustomLordListEnhancementHook/Dispose", "Bugfixes and QoL custom-lord list hook disposed.");
         }
 
         private void SkirmishAiAddClickHook(FRONT_Multiplayer self, string param)
@@ -200,7 +200,7 @@ namespace BugfixesAndQoL
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/CustomLordListEnhancementHook.cs:203", $"Bugfixes and QoL could not enhance the custom-lord list; the Vanilla list remains usable: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/CustomLordListEnhancementHook/SkirmishAiAddClickHook", $"Bugfixes and QoL could not enhance the custom-lord list; the Vanilla list remains usable: {ex}");
             }
         }
 
@@ -216,7 +216,7 @@ namespace BugfixesAndQoL
                 if (!keyboardRoutingFailureLogged)
                 {
                     keyboardRoutingFailureLogged = true;
-                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/CustomLordListEnhancementHook.cs:221", $"Bugfixes and QoL could not route custom-lord arrow-key input; Vanilla input remains active: {ex}");
+                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/CustomLordListEnhancementHook/FrontMultiplayerUpdateHook", $"Bugfixes and QoL could not route custom-lord arrow-key input; Vanilla input remains active: {ex}");
                 }
             }
 
@@ -277,7 +277,7 @@ namespace BugfixesAndQoL
             if (!keyboardRoutingLogged)
             {
                 keyboardRoutingLogged = true;
-                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/CustomLordListEnhancementHook.cs:284", "Bugfixes and QoL routed arrow-key navigation to the open custom-lord list.");
+                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/CustomLordListEnhancementHook/MoveCustomLordSelection", "Bugfixes and QoL routed arrow-key navigation to the open custom-lord list.");
             }
         }
 
@@ -489,7 +489,7 @@ namespace BugfixesAndQoL
             {
                 firstRefreshLogged = true;
                 if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/CustomLordListEnhancementHook.cs:497", $"Bugfixes and QoL custom-lord list refreshed. enabled={active}, entries={rows.Count}");
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/CustomLordListEnhancementHook/RefreshActiveView", $"Bugfixes and QoL custom-lord list refreshed. enabled={active}, entries={rows.Count}");
             }
         }
 

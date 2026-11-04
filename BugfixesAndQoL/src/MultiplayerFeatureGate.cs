@@ -33,7 +33,7 @@ namespace BugfixesAndQoL
                     if (!detectionFailureLogged)
                     {
                         detectionFailureLogged = true;
-                        Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/MultiplayerFeatureGate.cs:36", $"Bugfixes and QoL could not determine the game mode; synchronized state changes remain required as a precaution: {ex}");
+                        Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/MultiplayerFeatureGate/BlocksLocalStateChanges", $"Bugfixes and QoL could not determine the game mode; synchronized state changes remain required as a precaution: {ex}");
                     }
 
                     return true;
@@ -50,14 +50,14 @@ namespace BugfixesAndQoL
                 hasMapSnapshot = true;
                 detectionFailureLogged = false;
                 if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/MultiplayerFeatureGate.cs:54", $"Bugfixes and QoL multiplayer feature gate captured map mode: {snapshot.ToDiagnosticString()}.");
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/MultiplayerFeatureGate/CaptureMapMode.multiplayer-feature-gate-captured", $"Bugfixes and QoL multiplayer feature gate captured map mode: {snapshot.ToDiagnosticString()}.");
             }
             catch (Exception ex)
             {
                 blocksLocalStateChanges = true;
                 hasMapSnapshot = true;
                 detectionFailureLogged = true;
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/MultiplayerFeatureGate.cs:63", $"Bugfixes and QoL could not capture the map mode; synchronized state changes remain required as a precaution: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/MultiplayerFeatureGate/CaptureMapMode.could-not-capture-map", $"Bugfixes and QoL could not capture the map mode; synchronized state changes remain required as a precaution: {ex}");
             }
         }
 

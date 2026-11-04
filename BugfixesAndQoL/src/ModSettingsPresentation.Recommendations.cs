@@ -51,6 +51,7 @@ namespace BugfixesAndQoL
             options["EnableCorruptLordDataSpawnFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableCorruptLordDataSpawnFix");
             options["EnableMultiplayerStartupStateFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableMultiplayerStartupStateFix");
             options["EnablePeaceTimeGameplayFixes"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnablePeaceTimeGameplayFixes");
+            options["EnablePeaceTimeCivilianProximityReduction"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnablePeaceTimeCivilianProximityReduction");
             options["ShowMpAdvancedSettingsInSingleplayer"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.ShowMpAdvancedSettingsInSingleplayer");
             options["EnableCustomLordListEnhancements"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableCustomLordListEnhancements");
             options["EnableTrailCustomizationButtons"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableTrailCustomizationButtons");
@@ -60,13 +61,12 @@ namespace BugfixesAndQoL
             options["MultiplayerGameSpeedMaximum"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.MultiplayerGameSpeedMaximum");
             options["EnableShiftGameSpeedSteps"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableShiftGameSpeedSteps");
             options["EnableSurrenderAndStatistics"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableSurrenderAndStatistics");
-            options["EnableEliminatedPlayersBecomeSpectators"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableEliminatedPlayersBecomeSpectators");
-            options["EnableSpectatorPerspective"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableSpectatorPerspective");
             options["EnableRandomOpponentSelectionEnhancements"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableRandomOpponentSelectionEnhancements");
             options["EnableAiStoneReserveFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableAiStoneReserveFix");
             options["EnableAiDefensePatrolFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableAiDefensePatrolFix");
             options["EnableAiWallTargetingFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableAiWallTargetingFix");
             options["EnablePrebuiltAiWorkshopBothFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnablePrebuiltAiWorkshopBothFix");
+            options["EnablePrebuiltAiStorageFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnablePrebuiltAiStorageFix");
             options["EnableAivDefenderPositionFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableAivDefenderPositionFix");
             options["FixAIPreplacedMapBuildings"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.FixAIPreplacedMapBuildings");
             options["FixAITowerRepair"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.FixAITowerRepair");
@@ -83,6 +83,7 @@ namespace BugfixesAndQoL
             options["EnableMountedStockpileMovementFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableMountedStockpileMovementFix");
             options["EnableHealerAttackCommandFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableHealerAttackCommandFix");
             options["EnableAssassinCombatResumeFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableAssassinCombatResumeFix");
+            options["EnableLordReturnTeleportFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableLordReturnTeleportFix");
             options["EnableAssemblyPointPlacementFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableAssemblyPointPlacementFix");
             options["EnableExtendedShiftCommandQueue"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableExtendedShiftCommandQueue");
             options["EnableFastRecruitRallyMovement"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableFastRecruitRallyMovement");

@@ -9,6 +9,7 @@ using APIShared.GameModes;
 // Tower-ruin cleanup is deliberately handled by BugfixesAndQoL and is independent of this gate.
 using BepInEx.Logging;
 using APIShared;
+using APIShared.Buildings;
 using RedBird.Abstractions.Hooks;
 using RedBird.Abstractions.Hooks.Transaction;
 using RedBird.Core.Memory;
@@ -29,11 +30,12 @@ using System.Runtime.InteropServices;
 
 namespace ExtraFeatures
 {
-    internal sealed unsafe class AIDefenseRepairRuntime : IDisposable
+    internal sealed unsafe class AIDefenseRepairRuntime
     {
         // Dispatcher 0x539B0 uses 0x52270 only for AIV entries whose +0x14 field is zero;
         // otherwise it iterates the finished-castle frames through 0x51790. The 2026-08-24
         // finished-castle trace consequently reached 0x51790 repeatedly and never 0x52270.
+        private bool simulationTickRegistered;
         private const string PlacementPattern =
             "44 89 4C 24 20 44 89 44 24 18 89 54 24 10 53 55 56 57 41 54 41 55 41 56 41 57 48 83 EC 48 44 8B BC 24 B8 00 00 00";
         private const int PlacementRva = 0x5CD90;
@@ -78,6 +80,7 @@ namespace ExtraFeatures
         private readonly DetourHandle<PlacementDelegate> placementHook =
             new DetourHandle<PlacementDelegate>();
         private readonly IAivBuildStepObserver buildStepObserver;
+        private EnemyProximityRegistration proximityRegistration;
         private bool initialized;
         private bool nativeInitialized;
         private bool nativeUnavailable;
@@ -90,20 +93,25 @@ namespace ExtraFeatures
         private bool gameModeFailureLogged;
         private bool invalidFrameWarningLogged;
         private bool clockUnavailableLogged;
-        private bool disposed;
 
         private bool IsConfigured =>
             Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) &&
-            (settings.HumanEnemyProximitySingleplayer >= 0 ||
-             settings.HumanEnemyProximityMultiplayer >= 0 ||
-             settings.AIEnemyProximitySingleplayer >= 0 ||
-             settings.AIEnemyProximityMultiplayer >= 0 ||
+            (settings.HumanCivilianEnemyProximitySingleplayer >= 0 ||
+             settings.HumanMilitaryEnemyProximitySingleplayer >= 0 ||
+             settings.HumanCivilianEnemyProximityMultiplayer >= 0 ||
+             settings.HumanMilitaryEnemyProximityMultiplayer >= 0 ||
+             settings.AICivilianEnemyProximitySingleplayer >= 0 ||
+             settings.AIMilitaryEnemyProximitySingleplayer >= 0 ||
+             settings.AICivilianEnemyProximityMultiplayer >= 0 ||
+             settings.AIMilitaryEnemyProximityMultiplayer >= 0 ||
              settings.AITowerGateRebuildDelaySeconds >= 0);
 
         private bool NeedsNativeRebuildHooks =>
             Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) &&
-            (settings.AIEnemyProximitySingleplayer >= 0 ||
-             settings.AIEnemyProximityMultiplayer >= 0 ||
+            (settings.AICivilianEnemyProximitySingleplayer >= 0 ||
+             settings.AIMilitaryEnemyProximitySingleplayer >= 0 ||
+             settings.AICivilianEnemyProximityMultiplayer >= 0 ||
+             settings.AIMilitaryEnemyProximityMultiplayer >= 0 ||
              settings.AITowerGateRebuildDelaySeconds >= 0);
 
         public AIDefenseRepairRuntime(ManualLogSource log, ExtraFeaturesViewModel settings)
@@ -115,15 +123,20 @@ namespace ExtraFeatures
 
         public void Initialize()
         {
+            RegisterProximityPolicy();
             if (initialized)
                 return;
 
-            subscriptions.Add(BuildingR3EventHooks.OnBuildingAllowRepairInProximity.Observable.Subscribe(OnRepairProximity));
             subscriptions.Add(AIR3EventHooks.OnAIBuildWall.Observable.Subscribe(OnAIBuildWall));
             subscriptions.Add(BuildingR3EventHooks.OnBuildingSpawn.Observable.Subscribe(OnBuildingSpawn));
             subscriptions.Add(BuildingR3EventHooks.OnBuildingTileTakeDamage.Observable.Subscribe(OnDefenseDamage));
             // The game-time publisher outlives BepInEx's startup component.
-            GameTimeManagerAPI.Instance.OnTick += OnGameTick;
+            if (!simulationTickRegistered)
+            {
+                if (!APIShared.Simulation.SimulationTickEvents.TryRegister(ExtraFeaturesPlugin.PluginGuid, "ai-defense-repair", OnGameTick, out string tickReason, 200))
+                    throw new InvalidOperationException("Native simulation ticks unavailable: " + tickReason);
+                simulationTickRegistered = true;
+            }
             // SaveLifecycle: NewMapOnly - Pre surrounds Vanilla's initial finished-castle spawns.
             subscriptions.Add(Shared.MissionEvents.NativeStart
                 .Where(args => args.IsBeforeInitialization)
@@ -139,7 +152,6 @@ namespace ExtraFeatures
         public void ReconcileConfiguration()
         {
             Initialize();
-            ApplyHumanImmediateRanges();
 
             if (!IsConfigured)
             {
@@ -156,6 +168,7 @@ namespace ExtraFeatures
             ReadOnlySpan<byte> memory,
             bool referenceHashMatches)
         {
+            RegisterProximityPolicy();
             if (nativeInitialized || nativeUnavailable)
                 return;
 
@@ -216,6 +229,24 @@ namespace ExtraFeatures
                 "AI defense rebuild registered through APIShared.");
         }
 
+        private void RegisterProximityPolicy()
+        {
+            // Presence also identifies this version as a cooperating broker consumer when
+            // every radius is Vanilla or the mod is disabled. Register before unrelated native
+            // features can fail; the callback itself gates changes and APIShared owns preparation.
+            if (proximityRegistration == null)
+            {
+                try
+                {
+                    if (!EnemyProximityPolicies.TryRegister(ExtraFeaturesPlugin.PluginGuid, "enemy-proximity",
+                        EnemyProximityPhase.Override, OnRepairProximity, out proximityRegistration, out string reason))
+                        throw new InvalidOperationException("Shared enemy proximity registration unavailable: " + reason);
+                    proximityRegistration.SetEnabled(true);
+                }
+                catch (Exception ex) { LogFailure("shared proximity registration; radii stay Vanilla", ex); }
+            }
+        }
+
         private void InstallPlacementHook(
             IntPtr libraryHandle,
             ScanRegion region,
@@ -258,37 +289,14 @@ namespace ExtraFeatures
                     $"AI defense placement hook installed as a pass-through at RVA 0x{placement.Rva:X}.");
         }
 
-        public void Dispose()
-        {
-            if (disposed)
-                return;
-            disposed = true;
-            RestoreHumanImmediateRanges();
-            foreach (IDisposable subscription in subscriptions)
-                subscription.Dispose();
-            subscriptions.Clear();
-            GameTimeManagerAPI.Instance.OnTick -= OnGameTick;
-            // The published placement detour is process-wide because APIShared retains this
-            // observer. Dispose is only allowed to roll back an unpublished candidate.
-            if (!nativeInitialized && !placementHook.Success)
-            {
-                transaction?.Dispose();
-                transaction = null;
-            }
-            ResetMap();
-        }
 
+        // Subscribed with an IsBeforeInitialization filter.
         private void OnStartMap(APIShared.MissionLifecycleNotification args)
         {
-            if (args.IsBeforeInitialization)
-            {
-                mapActive = false;
-                ResetState();
-                CaptureGameMode(args.Context.IsSave && args.Context.Mode.IsRealMultiplayer);
-                mapPrepared = true;
-                return;
-            }
-
+            mapActive = false;
+            ResetState();
+            CaptureGameMode();
+            mapPrepared = true;
         }
 
         private void OnSessionStarted(Shared.GameplaySessionStartedContext context)
@@ -296,14 +304,14 @@ namespace ExtraFeatures
             if (context.IsEditor)
             {
                 ResetMap();
-                CaptureGameMode(multiplayerSave: false);
+                CaptureGameMode();
                 mapPrepared = true;
                 BeginMap();
                 return;
             }
             if (context.IsLoadedSave)
             {
-                CaptureGameMode(multiplayerSave: context.Mode.IsRealMultiplayer);
+                CaptureGameMode();
                 // Native save restore need not publish building-spawn events. Read the restored
                 // live buildings before the first finished-castle build step can run.
                 mapPrepared = true;
@@ -335,7 +343,7 @@ namespace ExtraFeatures
                     if (building.r_AliveState != AliveState.IsAlive || building.r_GlobalId == 0 ||
                         building.r_CurrentHealth <= 0 ||
                         IsTowerRuin(building.r_BuildingType) || !IsTrackedDefenseType(building.r_BuildingType) ||
-                        playerId < 1 || playerId > 8 || !IsAI(playerId) ||
+                        playerId < 1 || playerId > GamePlayerManagerAPI.MAX_PLAYERS || !IsAI(playerId) ||
                         !TryCreateTargetKey(playerId, building.r_TilePositionXBegin,
                             building.r_TilePositionYBegin, building.r_BuildingType,
                             out DefenseTargetKey target))
@@ -366,7 +374,7 @@ namespace ExtraFeatures
             ResetState();
         }
 
-        private void CaptureGameMode(bool multiplayerSave)
+        private void CaptureGameMode()
         {
             try
             {
@@ -482,18 +490,17 @@ namespace ExtraFeatures
                     $"globalId={identity.GlobalId}, tick={tick}, source={source}.");
         }
 
-        private void OnRepairProximity(BuildingAllowRepairInProximityEventArgs args)
+        private EnemyProximityDecision OnRepairProximity(EnemyProximityContext args)
         {
-            if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) || !mapActive || args.Phase != EventHookPhase.Pre)
-                return;
+            if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) || !mapActive)
+                return EnemyProximityDecision.None;
 
             try
             {
                 bool isAi = IsAI(args.PlayerId);
                 if (!isAi)
                 {
-                    ApplyHumanPlacementProximity(args);
-                    return;
+                    return ApplyHumanPlacementProximity(args);
                 }
 
                 // AI wall repair is not a GameBuilding repair. ExecuteBuildStep calls the
@@ -502,17 +509,15 @@ namespace ExtraFeatures
                 // Bind only that synchronous, coordinate-identical call. This preserves all
                 // first placements while avoiding the old tower-spawn-history heuristic.
                 bool isWallRepair = pendingWallRepair.Matches(
-                    args.PlayerId, args.TileX, args.TileY, args.Proximity);
+                    args.PlayerId, args.TileX, args.TileY, args.OriginalRadius);
                 if (pendingWallRepair.IsSet)
                     pendingWallRepair = default;
                 if (isWallRepair)
                 {
-                    if (!TryGetConfiguredAIRadius(out int wallRadius))
-                        return;
+                    if (!TryGetConfiguredAIRadii(out int wallCivilian, out int wallMilitary))
+                        return EnemyProximityDecision.None;
 
-                    args.Proximity = EnemyProximityPolicy.ApplyAIRadius(
-                        args.Proximity, wallRadius, isClassifiedRepairOrRebuild: true);
-                    return;
+                    return CategoryProximityOverride(wallCivilian, wallMilitary);
                 }
 
                 BuildStepContext context = activeContext;
@@ -521,33 +526,31 @@ namespace ExtraFeatures
                     // The measured ExecuteBuildStep path asks this native question after the
                     // placement helper and before spawning. Returning Vanilla's blocked value
                     // leaves the frame scheduler intact, so other frame targets still run.
-                    args.ReturnValue = 1;
-                    args.SkipOriginalFunction = true;
-                    return;
+                    return EnemyProximityDecision.Blocked;
                 }
 
                 // 0xEE640 is a general placement helper, not a standing-building repair API.
                 // Calls outside the explicitly classified wall/rebuild contexts remain Vanilla.
                 if (context == null || context.History == null ||
                     !context.History.EverSpawnedDefense ||
-                    !TryGetConfiguredAIRadius(out int rebuildRadius))
-                    return;
+                    !TryGetConfiguredAIRadii(out int rebuildCivilian, out int rebuildMilitary))
+                    return EnemyProximityDecision.None;
 
                 // Live AI calls supplied context-specific Vanilla radii 3, 5 and 15. A custom
                 // mode value replaces them only after the call was safely classified as rebuild.
-                args.Proximity = EnemyProximityPolicy.ApplyAIRadius(
-                    args.Proximity, rebuildRadius, isClassifiedRepairOrRebuild: true);
+                return CategoryProximityOverride(rebuildCivilian, rebuildMilitary);
             }
             catch (Exception ex)
             {
                 LogFailure("repair proximity", ex);
+                return EnemyProximityDecision.None;
             }
         }
 
         private void OnAIBuildWall(AIBuildWallEventArgs args)
         {
             pendingWallRepair = default;
-            if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) || !mapActive || !TryGetConfiguredAIRadius(out _) ||
+            if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) || !mapActive || !TryGetConfiguredAIRadii(out _, out _) ||
                 !IsAI(args.PlayerId))
             {
                 return;
@@ -577,66 +580,38 @@ namespace ExtraFeatures
             }
         }
 
-        private void ApplyHumanPlacementProximity(BuildingAllowRepairInProximityEventArgs args)
+        private EnemyProximityDecision ApplyHumanPlacementProximity(EnemyProximityContext args)
         {
-            if (args.PlayerId < 1 || args.PlayerId > 8 || !gameModeKnown)
-                return;
+            if (args.PlayerId < 1 || args.PlayerId > GamePlayerManagerAPI.MAX_PLAYERS || !gameModeKnown)
+                return EnemyProximityDecision.None;
 
-            int configuredRadius = EnemyProximityPolicy.SelectConfiguredRadius(
-                realMultiplayer,
-                settings.HumanEnemyProximitySingleplayer,
-                settings.HumanEnemyProximityMultiplayer);
-            args.Proximity = EnemyProximityPolicy.ApplyHumanPlacementRadius(
-                args.Proximity, configuredRadius);
+            if (!EnemyProximityPolicy.IsOrdinaryHumanRadius(args.OriginalRadius)) return EnemyProximityDecision.None;
+            return CategoryProximityOverride(
+                EnemyProximityPolicy.SelectConfiguredRadius(realMultiplayer,
+                    settings.HumanCivilianEnemyProximitySingleplayer, settings.HumanCivilianEnemyProximityMultiplayer),
+                EnemyProximityPolicy.SelectConfiguredRadius(realMultiplayer,
+                    settings.HumanMilitaryEnemyProximitySingleplayer, settings.HumanMilitaryEnemyProximityMultiplayer));
         }
 
-        private bool TryGetConfiguredAIRadius(out int radius)
+        private bool TryGetConfiguredAIRadii(out int civilian, out int military)
         {
-            radius = EnemyProximityPolicy.VanillaMode;
-            if (!gameModeKnown)
-                return false;
-
-            radius = EnemyProximityPolicy.SelectConfiguredRadius(
-                realMultiplayer,
-                settings.AIEnemyProximitySingleplayer,
-                settings.AIEnemyProximityMultiplayer);
-            return radius != EnemyProximityPolicy.VanillaMode;
+            civilian = military = -1;
+            if (!gameModeKnown) return false;
+            civilian = EnemyProximityPolicy.SelectConfiguredRadius(realMultiplayer,
+                settings.AICivilianEnemyProximitySingleplayer, settings.AICivilianEnemyProximityMultiplayer);
+            military = EnemyProximityPolicy.SelectConfiguredRadius(realMultiplayer,
+                settings.AIMilitaryEnemyProximitySingleplayer, settings.AIMilitaryEnemyProximityMultiplayer);
+            return civilian >= 0 || military >= 0;
         }
 
-        private void ApplyHumanImmediateRanges()
+        // A Vanilla-mode category contributes nothing (null), as the Override contract requires: only
+        // configured categories are replaced, so earlier participants keep theirs.
+        private static EnemyProximityDecision CategoryProximityOverride(int civilian, int military)
         {
-            int singleplayerConfigured = Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod)
-                ? settings.HumanEnemyProximitySingleplayer
-                : EnemyProximityPolicy.VanillaMode;
-            int multiplayerConfigured = Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod)
-                ? settings.HumanEnemyProximityMultiplayer
-                : EnemyProximityPolicy.VanillaMode;
-            SetHumanImmediateRanges(
-                EnemyProximityPolicy.ResolveHumanImmediateRadius(
-                    singleplayerConfigured, EnemyProximityPolicy.VanillaHumanSingleplayerRadius),
-                EnemyProximityPolicy.ResolveHumanImmediateRadius(
-                    multiplayerConfigured, EnemyProximityPolicy.VanillaHumanMultiplayerRadius));
-        }
-
-        private void RestoreHumanImmediateRanges() => SetHumanImmediateRanges(
-            EnemyProximityPolicy.VanillaHumanSingleplayerRadius,
-            EnemyProximityPolicy.VanillaHumanMultiplayerRadius);
-
-        private void SetHumanImmediateRanges(int singleplayerRadius, int multiplayerRadius)
-        {
-            GameGlobalsManager globals = GameGlobalsManager.Instance;
-            if (globals?.BuildingRepairProximityCheckRange == null ||
-                globals.BuildingRepairProximityCheckExRange == null)
-            {
-                return;
-            }
-
-            ushort normal = checked((ushort)singleplayerRadius);
-            ushort reduced = checked((ushort)multiplayerRadius);
-            if (globals.BuildingRepairProximityCheckRange.GetValue() != normal)
-                globals.BuildingRepairProximityCheckRange.SetValue(normal);
-            if (globals.BuildingRepairProximityCheckExRange.GetValue() != reduced)
-                globals.BuildingRepairProximityCheckExRange.SetValue(reduced);
+            if (civilian < 0 && military < 0) return EnemyProximityDecision.None;
+            return new EnemyProximityDecision(
+                civilianRadius: EnemyProximityPolicy.ConfiguredContribution(civilian),
+                militaryRadius: EnemyProximityPolicy.ConfiguredContribution(military));
         }
 
         private void LogGameModeFailure(string context, Exception ex)
@@ -650,7 +625,7 @@ namespace ExtraFeatures
 
         private IAivBuildStepInvocation TryBeginBuildStep(AivBuildStepContext invocation)
         {
-            if (disposed || !nativeInitialized || !IsConfigured || !mapActive)
+            if (!nativeInitialized || !IsConfigured || !mapActive)
                 return null;
 
             int playerId = invocation.PlayerId;
@@ -687,8 +662,7 @@ namespace ExtraFeatures
             {
                 if (settings.AITowerGateRebuildDelaySeconds > 0)
                 {
-                    now = SafeCurrentTick();
-                    if (now < 0)
+                    if (!Shared.MissionEvents.TryGetCurrentMapTick(out now))
                     {
                         LogClockUnavailable();
                         return null;
@@ -718,7 +692,7 @@ namespace ExtraFeatures
                     : new BuildStepContext();
                 if (previous == null)
                     reusableContext = null;
-                context.Reset(playerId, frameIndex, now, key, history);
+                context.Reset(playerId, frameIndex, now, history);
                 activeContext = context;
             }
             catch (Exception ex)
@@ -744,14 +718,13 @@ namespace ExtraFeatures
                 LogFailure("ExecuteBuildStep breadcrumb preparation", ex);
                 return null;
             }
-            return new BuildStepInvocation(this, previous, context, history, key, breadcrumb);
+            return new BuildStepInvocation(this, previous, context, history, breadcrumb);
         }
 
         private void CompleteBuildStep(
             BuildStepContext previous,
             BuildStepContext context,
             BuildStepHistory history,
-            BuildStepKey key,
             AivBuildStepCompletion completion,
             Shared.CrashBreadcrumbScope breadcrumb)
         {
@@ -871,8 +844,8 @@ namespace ExtraFeatures
 
                         if (rebuildDelays.TryGetValue(target, out RebuildDelayState delay))
                         {
-                            int spawnTick = SafeCurrentTick();
-                            int elapsed = spawnTick >= 0 ? ElapsedTicks(spawnTick, delay.FirstDetectedTick) : -1;
+                            int? spawnTick = SafeCurrentTick();
+                            int elapsed = spawnTick.HasValue ? ElapsedTicks(spawnTick.Value, delay.FirstDetectedTick) : -1;
                             string message = $"AI defense rebuild spawn: target={target}, tick={spawnTick}, " +
                                 $"startTick={delay.FirstDetectedTick}, elapsedTicks={elapsed}, " +
                                 $"requiredTicks={(long)settings.AITowerGateRebuildDelaySeconds * TicksPerSecond}, " +
@@ -964,10 +937,10 @@ namespace ExtraFeatures
                     QueueDamageWatch(observation.Target, identity);
                     return;
                 }
-                int now = SafeCurrentTick();
-                if (now >= 0)
+                int? now = SafeCurrentTick();
+                if (now.HasValue)
                 {
-                    RecordDestruction(observation.Target, identity, now, "damage-post");
+                    RecordDestruction(observation.Target, identity, now.Value, "damage-post");
                     damagedDefenseWatches.Remove(observation.Target);
                 }
                 else
@@ -1135,12 +1108,12 @@ namespace ExtraFeatures
             Shared.DebugLogHelper.LogWarningLimited(log, "ExtraFeatures/src/AIDefenseRepairRuntime.cs:1096", "AI defense rebuild clock was unavailable; affected attempts remain Vanilla until the clock recovers.");
         }
 
-        private static int CurrentTick() => GameTimeManagerAPI.Instance.CaptureTimeStamp().CapturedGameTick;
-        private static int SafeCurrentTick() { try { return CurrentTick(); } catch { return -1; } }
+        private static int CurrentTick() => Shared.MissionEvents.RequireCurrentMapTick();
+        private static int? SafeCurrentTick() { try { return CurrentTick(); } catch { return null; } }
         private static int ElapsedTicks(int now, int previous) =>
             unchecked((int)Math.Min((uint)(now - previous), int.MaxValue));
         private static bool IsAI(int playerId) =>
-            playerId >= 1 && playerId <= 8 && GamePlayerManagerAPI.Instance.IsAIPlayer(playerId);
+            playerId >= 1 && playerId <= GamePlayerManagerAPI.MAX_PLAYERS && GamePlayerManagerAPI.Instance.IsAIPlayer(playerId);
 
         private static bool IsDefenseMapper(short value)
         {
@@ -1179,7 +1152,6 @@ namespace ExtraFeatures
             private readonly BuildStepContext previous;
             private readonly BuildStepContext context;
             private readonly BuildStepHistory history;
-            private readonly BuildStepKey key;
             private readonly Shared.CrashBreadcrumbScope breadcrumb;
             private bool completed;
 
@@ -1188,14 +1160,12 @@ namespace ExtraFeatures
                 BuildStepContext previous,
                 BuildStepContext context,
                 BuildStepHistory history,
-                BuildStepKey key,
                 Shared.CrashBreadcrumbScope breadcrumb)
             {
                 this.owner = owner;
                 this.previous = previous;
                 this.context = context;
                 this.history = history;
-                this.key = key;
                 this.breadcrumb = breadcrumb;
             }
 
@@ -1204,7 +1174,7 @@ namespace ExtraFeatures
                 if (completed)
                     return;
                 completed = true;
-                owner.CompleteBuildStep(previous, context, history, key, completion, breadcrumb);
+                owner.CompleteBuildStep(previous, context, history, completion, breadcrumb);
             }
         }
 
@@ -1213,19 +1183,17 @@ namespace ExtraFeatures
             internal int PlayerId { get; private set; }
             internal int FrameIndex { get; private set; }
             internal int Tick { get; private set; }
-            internal BuildStepKey Key { get; private set; }
             internal BuildStepHistory History { get; private set; }
             internal bool DelayBlocked { get; private set; }
             internal bool DefenseSpawned { get; private set; }
 
             internal void Reset(
                 int playerId, int frameIndex, int tick,
-                BuildStepKey key, BuildStepHistory history)
+                BuildStepHistory history)
             {
                 PlayerId = playerId;
                 FrameIndex = frameIndex;
                 Tick = tick;
-                Key = key;
                 History = history;
                 DelayBlocked = false;
                 DefenseSpawned = false;

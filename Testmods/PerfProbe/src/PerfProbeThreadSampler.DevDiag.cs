@@ -33,7 +33,7 @@ namespace PerfProbe
 
         private static bool enabled, sampleMain = true, sampleSim = true;
         internal static bool IsEnabled => enabled;
-        private static bool longRunOnly;
+        private static bool longRunOnly, simOutsideRun;
         private static PerfProbeCadence cadence;
         internal static void InstallLongRunSampler()
         {
@@ -41,7 +41,8 @@ namespace PerfProbe
             enabled = true; sampleMain = false; sampleSim = true; longRunOnly = true;
             Install();
         }
-        internal static string Configuration => "enabled:" + enabled + ",intervalUs:" + intervalUs + ",windowS:" + windowSeconds + ",main:" + sampleMain + ",sim:" + sampleSim + ",longRunOnly:" + longRunOnly;
+        internal static string Configuration => "enabled:" + enabled + ",intervalUs:" + intervalUs + ",windowS:" + windowSeconds + ",main:" + sampleMain + ",sim:" + sampleSim + ",longRunOnly:" + longRunOnly + ",simOutsideRun:" + SimOutsideRunActive;
+        private static bool SimOutsideRunActive => simOutsideRun && !longRunOnly;
         private static int intervalUs = 1000, windowSeconds = 2;
         private static int mainThreadId;
         private static ulong gameBase, gameEnd;
@@ -75,6 +76,10 @@ namespace PerfProbe
             windowSeconds = Math.Max(2, config.Bind("Sampler", "WindowSeconds", 2, "Aggregation window in seconds.").Value);
             sampleMain = config.Bind("Sampler", "MainThread", true, "Sample the Unity main thread.").Value;
             sampleSim = config.Bind("Sampler", "SimThread", true, "Sample the simulation thread while EngineInterface.run is active.").Value;
+            // Vanilla's sim thread only sleeps between run calls; this shows where it is held when the
+            // timer requested frames (FramesToProcess) but no run call follows.
+            simOutsideRun = config.Bind("Sampler", "SimOutsideRun", false,
+                "Also sample the simulation thread between run calls (Director loop). About 1000 extra suspensions per second while it idles.").Value;
             // Awake runs on the Unity main thread: sampling starts here so plugin startup is covered too.
             if (enabled) mainThreadId = (int)GetCurrentThreadId();
         }
@@ -140,8 +145,8 @@ namespace PerfProbe
                     if (sampleMain && mainThreadId != 0) SampleLane(main, mainThreadId, context, scratch);
                     int simId = PerfProbeSimSampler.SimThreadId;
                     long simStarted = PerfProbeSimSampler.RunStart;
-                    if (sampleSim && simId != 0 && simStarted != 0 &&
-                        (!longRunOnly || Stopwatch.GetTimestamp() - simStarted >= Stopwatch.Frequency * 80 / 1000))
+                    if (sampleSim && simId != 0 && (SimOutsideRunActive || simStarted != 0 &&
+                        (!longRunOnly || Stopwatch.GetTimestamp() - simStarted >= Stopwatch.Frequency * 80 / 1000)))
                         SampleLane(sim, simId, context, scratch);
                     long now = Stopwatch.GetTimestamp();
                     if (now - windowStart >= Stopwatch.Frequency * windowSeconds)
@@ -443,7 +448,7 @@ namespace PerfProbe
             for (int i = 0; i < count; i++) { maxGap = Math.Max(maxGap, lane.Stamps[i] - previous); previous = lane.Stamps[i]; }
             maxGap = Math.Max(maxGap, end - previous);
             string head = string.Format(C, "threadSample thread={0} windowS={1:0.0} samples={2} dropped={3} osThread={4} startStamp={5} endStamp={6} maxSampleGapMs={7:F3} simOnlyWhileRunActive={8}",
-                lane.Name, seconds, count, dropped, lane.OsThreadId, start, end, maxGap * 1000.0 / Stopwatch.Frequency, lane.Name == "sim");
+                lane.Name, seconds, count, dropped, lane.OsThreadId, start, end, maxGap * 1000.0 / Stopwatch.Frequency, lane.Name == "sim" && !SimOutsideRunActive);
             string selfText = Top(self, 15), asmText = Top(asm, 12), inclText = Top(incl, 25), entryText = Top(entry, 25);
             Shared.DevDiag.Log(() => head + " self: " + selfText);
             Shared.DevDiag.Log(() => head + " asm: " + asmText);

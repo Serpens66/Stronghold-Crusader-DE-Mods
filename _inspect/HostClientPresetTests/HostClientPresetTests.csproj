@@ -78,6 +78,8 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Program.cs" />
+    <Compile Include="PeaceTimeProximityPresetTests.cs" />
+    <Compile Include="..\..\BugfixesAndQoL\src\BugfixesAndQoLViewModel.PeaceTime.cs" />
     <Compile Include="ExtremePowersPresetTests.cs" />
     <Compile Include="RandomEventsChatPresetTests.cs" />
     <Compile Include="..\..\RandomEvents\src\RandomEventsSettingsViewModel.cs" />
@@ -85,12 +87,8 @@
     <Compile Include="..\..\Shared\Runtime\UI\NumericTextInput.cs" />
     <Compile Include="..\..\ExtremePowers\src\Settings\ExtremePowersSettings.cs" />
     <Compile Include="DynamicPresetTests.cs" />
+    <Compile Include="BackendDefaultResetTests.cs" />
     <Compile Include="RestartSettingsTests.cs" />
-    <Compile Include="TweakerProviderTests.cs" />
-    <Compile Include="TweakerDefaultResetTests.cs" />
-    <Compile Include="OptionalIntegrationTests.cs" />
-    <Compile Include="..\..\SerpsModsHost\src\OptionalSettingsIntegration.cs" />
-    <Compile Include="..\..\SerpsModsHost\src\StatsTweakerConfigurationProvider.cs" />
     <Compile Include="..\..\APIShared\src\ModSettings\Presets\DynamicPresetSettings.cs" />
     <Compile Include="..\..\APIShared\src\ModSettings\ModSettingsApplication.cs" />
     <Compile Include="..\..\APIShared\src\ModSettings\Presets\ModSettingsPresetContracts.cs"><Link>ModSettingsPresetContracts.cs</Link></Compile>
@@ -280,7 +278,7 @@
       <Link>TroopActionHudLayoutPolicy.cs</Link>
     </Compile>
   </ItemGroup>
-  <ItemGroup><Compile Include="PlagueHeightPresetTests.cs" /><Compile Include="FearFactorPresetTests.cs" /><Compile Include="AssassinCapturedGatePresetTests.cs" /><Compile Include="AiSellThresholdPresetTests.cs" /><Compile Include="EnemyGateRoutingPresetTests.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="PlagueHeightPresetTests.cs" /><Compile Include="FearFactorPresetTests.cs" /><Compile Include="AssassinCapturedGatePresetTests.cs" /><Compile Include="AiSellThresholdPresetTests.cs" /><Compile Include="LordReturnTeleportPresetTests.cs" /><Compile Include="EnemyGateRoutingPresetTests.cs" /></ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <ItemGroup>
     <Compile Include="..\..\APIShared\src\ModSettings\Internal\AtomicFileReplacement.cs" />

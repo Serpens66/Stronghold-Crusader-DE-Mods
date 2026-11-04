@@ -352,7 +352,7 @@ namespace BugfixesAndQoL
                 return;
 
             failureLogged = true;
-            Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/MinimapInputFeature.cs:355", $"Bugfixes and QoL event-driven minimap input failed closed; Vanilla handling continues: {ex}");
+            Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/MinimapInputFeature/FailClosed", $"Bugfixes and QoL event-driven minimap input failed closed; Vanilla handling continues: {ex}");
         }
     }
 }

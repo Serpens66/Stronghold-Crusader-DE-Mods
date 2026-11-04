@@ -74,8 +74,8 @@ internal static class ActivationTests {
   Check(lines.Count==3 && (int)Field("suppressedMessageCount").GetValue(runtime)==9999,"Warnings bounded but distinct validation reasons retained");
   runtime.OnSessionEnded();
   Check(lines.Count==4 && lines[3].Contains("selected=24000") && lines[3].Contains("suppressedWarnings=9999"),"Single correct session summary after long stream");
-  Check(levels[0]==LogLevel.Debug && levels[1]==LogLevel.Warning && levels[2]==LogLevel.Warning && levels[3]==LogLevel.Debug,
-   "Retry confirmation and summary are Debug; validation warnings remain Warning");
+  Check(levels[0]==LogLevel.Debug && levels[1]==LogLevel.Warning && levels[2]==LogLevel.Warning && levels[3]==LogLevel.Info,
+   "Suppression totals remain visible in support logs; validation warnings remain Warning");
   int bytes=System.Text.Encoding.UTF8.GetByteCount(String.Join("\r\n",lines));
   Check(bytes<100000,"Minimal logging below 100 KB for 34001 simulated operations");
   lines.Clear(); levels.Clear();

@@ -87,6 +87,8 @@ namespace BugfixesAndQoL
                 result.UsedBuiltInFallback,
                 "missing AIV files left an unstartable custom AI slot");
             Assert(result.MissingAivs == 1 && result.MissingAic, "missing files were not reported");
+            Assert(result.MissingAiv2 == null && ReferenceEquals(result.MissingAiv1, snapshot.Aivs[0]) &&
+                ReferenceEquals(result.MissingAicReference, snapshot.Aic), "Support details must name exactly the unresolved saved references.");
 
             CustomisationFileManager.CustomLordConfig availableAic = BuildAic(23, 12);
             target = new FRONT_Multiplayer.MPAIVInfo();
@@ -98,6 +100,7 @@ namespace BugfixesAndQoL
             Assert(result.UsedBuiltInFallback && !result.MissingAic &&
                   target.builtInLord && target.lordConfig == null,
                 "built-in AIV fallback retained an incompatible custom AIC");
+            Assert(result.MissingAicReference == null, "Available AIC was falsely reported missing because fallback discarded it.");
         }
 
         private static void EmptyCustomSelectionFallsBack()

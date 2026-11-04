@@ -26,6 +26,14 @@ internal static partial class Program
                 Console.WriteLine($"PASS: {assertions} revision comparison assertions.");
                 return 0;
             }
+            if (args.Contains("--native-benchmark"))
+            {
+                Type kernel = CompileProductionKernel(Path.GetFullPath(args[0]), false);
+                string directory = Environment.GetEnvironmentVariable("BFQOL_ASSASSIN_NATIVE_DIR") ?? Path.Combine(Path.GetFullPath(args[0]), "BugfixesAndQoL", "obj", "native");
+                foreach (var (terrain, count) in new[] { ("castle", 200), ("detour", 2000), ("gate", 2000), ("open", 2000) })
+                    Console.WriteLine("NATIVE BENCH " + InvokeKernel(kernel, "BenchNative", directory, terrain, count));
+                return 0;
+            }
             if (args.Contains("--performance") || args.Contains("--performance-spread"))
             {
                 BenchmarkProduction(Path.GetFullPath(args[0]), args.Contains("--performance-spread"));
@@ -242,6 +250,13 @@ internal static partial class Program
             "runtime heap uses the exact A* estimate");
         Check(runtime.Split("AssassinPathAPI.RunVanillaBuilder(context").Length == 2,
             "the native builder executes exactly once per request");
+        // Source guardrail only: the fixtures exclude the map lifecycle. Group-field reuse caches must start
+        // empty in every mission, otherwise peers with different play history route differently (desync).
+        string clear = runtime.Substring(runtime.IndexOf("private void ClearTransientState()", StringComparison.Ordinal));
+        clear = clear.Substring(0, clear.IndexOf('}') + 1);
+        Check(clear.Contains("Array.Clear(recentGroupFields") && clear.Contains("slotGroupFields.Clear()") &&
+              System.Text.RegularExpressions.Regex.Matches(runtime, @"public void (?:Begin|End)Map\(\)\s*\{\s*mapEpoch\+\+;\s*ClearTransientState\(\);").Count == 2,
+            "map begin/end clears the group-field reuse caches");
         // Source guardrail only (behavior: the masked Dijkstra comparisons). A gated edge may be
         // rejected early by the pure cost bound, but nothing is admitted before the gate filter.
         string expansion = runtime.Substring(runtime.IndexOf("private bool TryBuildWeightedRoute", StringComparison.Ordinal));

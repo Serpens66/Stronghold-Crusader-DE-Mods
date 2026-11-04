@@ -1,0 +1,11 @@
+{
+  "status": "ok",
+  "queryCases": 18,
+  "negativeCliCases": 1,
+  "databaseUnchanged": true,
+  "referenceProjectUnchanged": true,
+  "featureCount": 99,
+  "marketDisplacement": 10,
+  "workshopDisplacement": 17,
+  "restoration": "not-requested"
+}

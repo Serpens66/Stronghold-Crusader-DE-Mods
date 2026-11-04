@@ -2,11 +2,11 @@
   "GUID": "BetterPathfindingTest_Serp",
   "Author": "Serpens66",
   "Name": "BetterPathfindingTest",
-  "Description": "Read-only exact directed navigation hierarchy prototype. Automatic comparisons in explicitly built DEVDIAG packages only.",
-  "Version": "0.1.1",
+  "Description": "Read-only resident ground-navigation prototype with experimental readiness and asynchronous batch API. Runtime active only in explicitly built DEVDIAG packages; performance target remains open.",
+  "Version": "0.3.0",
   "MinimumScriptExtenderVersion": "2.14.3",
   "MaximumScriptExtenderVersion": "",
-  "Dependencies": [{ "GUID": "APIShared_Serp", "MinimumVersion": "0.16.3" }],
+  "Dependencies": [{ "GUID": "APIShared_Serp", "MinimumVersion": "0.26.0" }],
   "Manifest": 1,
   "NetworkMode": 0
 }

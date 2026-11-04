@@ -16,34 +16,51 @@ namespace ExtraFeatures
             if (args.ShiftModifier == SingleMarketTradeMode || args.Selling)
                 return;
 
-            long key = ResourceEventKey(args.PlayerId, args.Good);
-            if (args.Phase == EventHookPhase.Pre)
+            try
             {
-                PruneExpiredResourceGuards();
-                marketBuyResourceGuards[key] = new ResourceEventCountGuard
+                long key = ResourceEventKey(args.PlayerId, args.Good);
+                lock (resourceGuardSync)
                 {
-                    RemainingAmount = args.ShiftModifier != 0 ? MarketBuyShiftAmount : MarketBuyAmount,
-                    CreatedTick = CurrentGameTick()
-                };
+                    if (args.Phase == EventHookPhase.Pre)
+                    {
+                        PruneExpiredResourceGuards();
+                        marketBuyResourceGuards[key] = new ResourceEventCountGuard
+                        {
+                            RemainingAmount = args.ShiftModifier != 0 ? MarketBuyShiftAmount : MarketBuyAmount,
+                            CreatedTick = CurrentGameTick()
+                        };
+                    }
+                    else if (args.Phase == EventHookPhase.Post)
+                    {
+                        marketBuyResourceGuards.Remove(key);
+                    }
+                }
             }
-            else if (args.Phase == EventHookPhase.Post)
+            catch (Exception ex)
             {
-                marketBuyResourceGuards.Remove(key);
+                Shared.DebugLogHelper.LogErrorLimited(log, "ExtraFeatures/MarketTradeTracking/market-buy-guard",
+                    $"Extra Features market-purchase guard failed; the purchase may count as gained goods: {ex}");
             }
         }
 
         internal void BeginSingleMarketBuyGuard(int playerId, eGoods good)
         {
             long key = ResourceEventKey(playerId, good);
-            PruneExpiredResourceGuards();
-            marketBuyResourceGuards[key] = new ResourceEventCountGuard
+            lock (resourceGuardSync)
             {
-                RemainingAmount = 1,
-                CreatedTick = CurrentGameTick()
-            };
+                PruneExpiredResourceGuards();
+                marketBuyResourceGuards[key] = new ResourceEventCountGuard
+                {
+                    RemainingAmount = 1,
+                    CreatedTick = CurrentGameTick()
+                };
+            }
         }
 
-        internal void EndSingleMarketBuyGuard(int playerId, eGoods good) =>
-            marketBuyResourceGuards.Remove(ResourceEventKey(playerId, good));
+        internal void EndSingleMarketBuyGuard(int playerId, eGoods good)
+        {
+            lock (resourceGuardSync)
+                marketBuyResourceGuards.Remove(ResourceEventKey(playerId, good));
+        }
     }
 }

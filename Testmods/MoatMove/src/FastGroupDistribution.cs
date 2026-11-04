@@ -23,7 +23,7 @@ namespace MoatMove
 
         private void RetainFastDistribution(MoveCommandScope command)
         {
-            if (!RequiredOnlyMode || command == null) return;
+            if (command == null) return;
             foreach (int id in command.ActiveUnitIdsAtDispatch)
                 if (APIShared.UnitAccess.TryGetById(id, out var unit, out _) && unit != null)
                 {
@@ -36,7 +36,9 @@ namespace MoatMove
         internal override bool TryChooseFastFormation(IntPtr manager, int x, int y, out int tile)
         {
             tile = 0;
-            if (!RequiredOnlyMode || !runtime.IsScopedPureMoveFormationCall(manager, x, y, activeMoveCommand)) return false;
+            // Anchor mode answers any slot per unit; BFQoL formation or Vanilla selects slots.
+            if (anchorDispatchTask != 0 || anchorGroundTask != 0) return false;
+            if (!runtime.IsScopedPureMoveFormationCall(manager, x, y, activeMoveCommand)) return false;
             MoveCommandScope command = activeMoveCommand;
             runtime.EnsureMoveCommandGroupSummary(command);
             if (!command.MoatRelevant || command.ActiveUnitsAtDispatch == 0 ||

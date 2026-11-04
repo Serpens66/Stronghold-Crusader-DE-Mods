@@ -10,7 +10,7 @@
   "Dependencies": [
     {
       "GUID": "APIShared_Serp",
-      "MinimumVersion": "0.12.2"
+      "MinimumVersion": "0.27.0"
     }
   ],
   "Manifest": 1,
@@ -22,7 +22,15 @@
     {
       "Version": "0.1.0",
       "Changes": [
-        "Development version: shared spectator and local testing toolbar."
+        "First release in the Serps Mods pack. Spectator features previously included in Bugfixes and QoL now live in this mod; existing perspective and post-elimination settings are transferred once.",
+        "Switch the displayed player, reports and ally view through the portrait bar as a spectator or an eliminated player with host permission.",
+        "Open detailed match statistics and the Lord overview during play; the host can allow extra enemy statistics for active players.",
+        "Optionally control the viewed player as a spectator from the start of a singleplayer skirmish. Off by default; the selected player's AI remains active.",
+        "Use optional AI test tools for buildings, units, goods, gold, orders, powers and gates. Spectator tools and active-player singleplayer test mode are both off by default and unavailable in real multiplayer and the map editor.",
+        "Keep the camera in place when placing test buildings for an AI lord. Eliminated spectators see the build menu read-only unless an allowed singleplayer test placement is active.",
+        "Credit gold immediately or add goods as storage space becomes available; debit removes stored and incoming reserves down to zero. Rejected amounts show the reason.",
+        "Edit the amount only by clicking its field. Enter and Esc finish editing without sending a credit or debit and return keyboard control to the game; an empty field becomes zero.",
+        "Require APIShared 0.27.0 or newer."
       ]
     }
   ]

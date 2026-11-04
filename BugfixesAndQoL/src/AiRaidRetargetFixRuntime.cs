@@ -16,6 +16,7 @@ namespace BugfixesAndQoL
 {
     internal sealed unsafe class AiRaidRetargetFixRuntime
     {
+        private bool simulationTickRegistered;
         private const int MaxPlayers = 8;
         private const int RaidGroupCount = 6;
         private const int RetargetCounterOffset = 0x2B78;
@@ -49,7 +50,7 @@ namespace BugfixesAndQoL
         private readonly HashSet<string> warningReasons = new HashSet<string>();
         private IDisposable sessionSubscription, orderSubscription;
         private long sessionId, attackSequence, observationEpoch;
-        private long nextRejectionCleanupTick;
+        private int? nextRejectionCleanupTick;
         private bool initialized, sessionStarted, firstTickLogged, searchConfirmed, firstRetryLogged, issuingFallback;
         private volatile bool active;
         private int lastTick = -1, fallbackTribeId, fallbackBuildingId;
@@ -76,25 +77,28 @@ namespace BugfixesAndQoL
             }
             if (!available) { Info("AI_RAID_READY: available=False; Vanilla preserved."); return; }
             IDisposable pendingSession = null, pendingOrder = null;
-            bool pendingTick = false;
             try
             {
                 pendingOrder = TribeR3EventHooks.OnTribeIssueOrderWithTarget.Observable.Subscribe(OnTribeOrder);
                 pendingSession = Shared.GameplaySessionLifecycle.SubscribeStarted(log, OnSessionStarted, OnSessionEnded);
-                GameTimeManagerAPI.Instance.OnTick += OnTick;
-                pendingTick = true;
+                if (!simulationTickRegistered)
+                {
+                    if (!APIShared.Simulation.SimulationTickEvents.TryRegister(BugfixesAndQoLPlugin.PluginGuid, "ai-raid-retarget", OnTick, out string tickReason, 500))
+                        throw new InvalidOperationException("Native simulation ticks unavailable: " + tickReason);
+                    simulationTickRegistered = true;
+                }
                 CompleteInitialization(pendingOrder, pendingSession);
             }
             catch (System.Exception ex)
             {
                 // Only event candidates not yet published by this runtime are rolled back.
                 FailInitialization();
-                if (pendingTick) GameTimeManagerAPI.Instance.OnTick -= OnTick;
+
                 pendingSession?.Dispose();
                 pendingOrder?.Dispose();
                 Warn("AI_RAID_INACTIVE: event initialization failed; Vanilla preserved: " + ex);
             }
-            Info($"AI_RAID_READY: available={activation.Available && initialized}, requested={enabled}, publisher=GameTimeManagerAPI.OnTick,roles=6,tribeTarget=0x622/0x626,candidates=resource+0x35BC/0x3684,bias=-0x5C.");
+            Info($"AI_RAID_READY: available={activation.Available && initialized}, requested={enabled}, publisher=APIShared.SimulationTickEvents,roles=6,tribeTarget=0x622/0x626,candidates=resource+0x35BC/0x3684,bias=-0x5C.");
         }
 
         private void CompleteInitialization(IDisposable pendingOrder, IDisposable pendingSession)
@@ -170,9 +174,8 @@ namespace BugfixesAndQoL
                     if (!firstTickLogged)
                     {
                         firstTickLogged = true;
-                        Info($"AI_RAID_RUNTIME_CONFIRMED: session={sessionId}, tick={tick}, publisher=GameTimeManagerAPI.OnTick,roles=6,tribeTarget=0x622/0x626,candidates=resource+0x35BC/0x3684,bias=-0x5C.");
+                        Info($"AI_RAID_RUNTIME_CONFIRMED: session={sessionId}, tick={tick}, publisher=APIShared.SimulationTickEvents,roles=6,tribeTarget=0x622/0x626,candidates=resource+0x35BC/0x3684,bias=-0x5C.");
                     }
-                    if (lastTick >= 0 && tick < lastTick) ClearObservations();
                     lastTick = tick;
                     PruneExpiredRejectedTargets();
                     PruneReplacedRaidGroups();
@@ -326,16 +329,24 @@ namespace BugfixesAndQoL
                     args.TribeId, tribeGlobalId, failedBuilding->r_PlayerIdOwner,
                     args.TargetValue1, targetGlobalId, priorityTableRva, lastTick);
             }
-            else if (result == AttackResult.Unknown)
-                LogRepeated($"uncertain:{freshness}:{validation}:{raidPlayer}/{raidGroup}",
+            else if (result == AttackResult.Unknown && Shared.DebugLogHelper.DiagnosticsEnabled &&
+                ShouldLogRepeated($"uncertain:{freshness}:{validation}"))
+                Info(
                     $"AI_RAID_UNCERTAIN: session={sessionId}, tick={lastTick}, " +
                     $"tribe={args.TribeId}/{tribeGlobalId}, target={args.TargetValue1}/{targetGlobalId}, " +
-                    $"freshness={freshness}, validation={validation}; vanillaPreserved=true.", false);
+                    $"freshness={freshness}, validation={validation}; vanillaPreserved=true.");
             else if (result == AttackResult.NoAttackPoint)
-                LogRepeated($"uncertain:{eligibilityReason}:{raidPlayer}/{raidGroup}",
-                    $"AI_RAID_UNCERTAIN: session={sessionId}, tick={lastTick}, " +
+            {
+                string reason = eligible ? "priorityOrBuildingUnavailable" : eligibilityReason;
+                if (!ShouldLogRepeated("composition:" + reason)) return;
+                string message = $"AI_RAID_SKIPPED: session={sessionId}, tick={lastTick}, player={raidPlayer}, role={raidGroup}, " +
                     $"tribe={args.TribeId}/{tribeGlobalId}, target={args.TargetValue1}/{targetGlobalId}, " +
-                    $"reason={(eligible ? "priorityOrBuildingUnavailable" : eligibilityReason)}; vanillaPreserved=true.", true);
+                    $"reason={reason}; action=preserve-vanilla; correctionApplied=false.";
+                if (reason.StartsWith("knownExcludedUnit:", StringComparison.Ordinal) ||
+                    reason.StartsWith("buildingCapableSiegeUnit:", StringComparison.Ordinal) || reason == "noMeleeAttackers")
+                    SupportInfo(message);
+                else Warn(message);
+            }
         }
         internal void OnSearchObserved(int tribeId, int buildingId, IntPtr context)
         {
@@ -435,14 +446,14 @@ namespace BugfixesAndQoL
 
         private void PruneExpiredRejectedTargets()
         {
-            if (lastTick < nextRejectionCleanupTick) return;
-            nextRejectionCleanupTick = (long)lastTick + RejectionCleanupIntervalTicks;
+            if (nextRejectionCleanupTick.HasValue && unchecked(lastTick - nextRejectionCleanupTick.Value) < 0) return;
+            nextRejectionCleanupTick = unchecked(lastTick + RejectionCleanupIntervalTicks);
             foreach (RaidGroupKey key in new List<RaidGroupKey>(rejectedRaidTargets.Keys))
             {
                 Dictionary<ulong, int> rejected = rejectedRaidTargets[key];
                 var expired = new List<ulong>();
                 foreach (KeyValuePair<ulong, int> target in rejected)
-                    if (target.Value <= lastTick) expired.Add(target.Key);
+                    if (unchecked(lastTick - target.Value) >= 0) expired.Add(target.Key);
                 foreach (ulong identity in expired) rejected.Remove(identity);
                 if (rejected.Count == 0) rejectedRaidTargets.Remove(key);
             }
@@ -536,6 +547,10 @@ namespace BugfixesAndQoL
                     case eChimps.CHIMP_TYPE_BATTERING_RAM:
                         reason = $"buildingCapableSiegeUnit:{unit->r_UnitChimp}";
                         return false;
+                    case eChimps.CHIMP_TYPE_PEASANT:
+                    case eChimps.CHIMP_TYPE_BEDOUIN_SKIRMISHER:
+                        reason = $"knownExcludedUnit:{unit->r_UnitChimp}";
+                        return false; // Same conservative exclusion; this is not an unknown enum/layout.
                     default:
                         reason = $"unknownOrSpecialUnit:{unit->r_UnitChimp}";
                         return false;
@@ -556,13 +571,13 @@ namespace BugfixesAndQoL
                 rejectedRaidTargets.Add(groupKey, rejected);
             }
             rejected[BuildingIdentity(buildingId, globalId)] =
-                lastTick + RejectedTargetDurationTicks;
+                unchecked(lastTick + RejectedTargetDurationTicks);
         }
 
         private bool IsRejectedTarget(RaidGroupKey groupKey, int buildingId, uint globalId) =>
             rejectedRaidTargets.TryGetValue(groupKey, out Dictionary<ulong, int> rejected) &&
             rejected.TryGetValue(BuildingIdentity(buildingId, globalId), out int until) &&
-            until > lastTick;
+            unchecked(lastTick - until) < 0;
 
         private static bool IsCurrentRaidGroup(RaidGroupKey key)
         {
@@ -898,9 +913,12 @@ namespace BugfixesAndQoL
                     string reasonKey = outcome.StartsWith("candidateListUncertain:", StringComparison.Ordinal)
                         ? "candidateList:" + outcome.Split(':')[1].Split(';')[0]
                         : "retry:" + DetailReason(fallbackDetails, "freshness=") + ":" + DetailReason(fallbackDetails, "validation=");
-                    LogRepeated(reasonKey,
-                        $"AI_RAID_RETRY_ABORT: session={sessionId}, tick={lastTick}, player={retry.PlayerId}, role={retry.Group}, tribe={retry.TribeId}/{retry.TribeGlobalId}, " +
-                        $"original={retry.OriginalFailedId}/{retry.OriginalFailedGlobalId}, stored={storedId}/{storedGlobalId}, attempts=[{String.Join(";", retry.Attempts)}], reason={outcome}.", true);
+                    if (!ShouldLogRepeated(reasonKey)) return;
+                    string message = $"AI_RAID_RETRY_ABORT: session={sessionId}, tick={lastTick}, player={retry.PlayerId}, role={retry.Group}, tribe={retry.TribeId}/{retry.TribeGlobalId}, " +
+                        $"original={retry.OriginalFailedId}/{retry.OriginalFailedGlobalId}, targetPlayerExpected={retry.TargetPlayerId}, " +
+                        $"stored={storedId}/{storedGlobalId}, attempts=[{String.Join(";", retry.Attempts)}], reason={outcome}; action=preserve-vanilla.";
+                    if (outcome.StartsWith("candidateListUncertain:nativeTargetPlayerMismatch:", StringComparison.Ordinal)) SupportInfo(message);
+                    else Warn(message);
                 }
             }
         }
@@ -914,17 +932,27 @@ namespace BugfixesAndQoL
 
         private void LogRepeated(string key, string message, bool warning)
         {
-            // Once per reason/session, rather than per changing group or target ID.
-            string[] parts = key.Split(':');
-            key = parts[0] + (parts.Length > 1 ? ":" + parts[1] : "") + (parts.Length > 2 ? ":" + parts[2] : "");
-            if (!warningReasons.Add(key)) { suppressedMessageCount++; return; }
+            if (!ShouldLogRepeated(key)) return;
             if (warning) Warn(message);
             else Info(message);
         }
 
+        private bool ShouldLogRepeated(string key)
+        {
+            // Once per reason/session, rather than per changing group or target ID.
+            string[] parts = key.Split(':');
+            key = parts[0] + (parts.Length > 1 ? ":" + parts[1] : "") + (parts.Length > 2 ? ":" + parts[2] : "");
+            if (!warningReasons.Add(key)) { suppressedMessageCount++; return false; }
+            return true;
+        }
+
+        private void SupportInfo(string message) => Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
+            () => Shared.DebugLogHelper.LogInfo(log, message));
+
         private void LogSummary(string reason)
         {
-            Info($"AI_RAID_SUMMARY: session={sessionId}, tick={lastTick}, reason={reason}, attacks={attackCommandCount}, valid={validCount}, negative={negativeCount}, unknown={unknownCount}, " +
+            if (suppressedMessageCount == 0 && !Shared.DebugLogHelper.IsDebugEnabled()) return;
+            SupportInfo($"AI_RAID_SUMMARY: session={sessionId}, tick={lastTick}, reason={reason}, attacks={attackCommandCount}, valid={validCount}, negative={negativeCount}, unknown={unknownCount}, " +
                 $"retries={retryCount}, selected={selectedCount}, aborted={abortedCount}, pending={pendingRaidRetries.Count}, suppressedWarnings={suppressedMessageCount}.");
         }
 
@@ -941,7 +969,7 @@ namespace BugfixesAndQoL
             fallbackResult = AttackResult.Unknown;
             fallbackDetails = fallbackSummary = null;
             lastTick = -1;
-            nextRejectionCleanupTick = 0;
+            nextRejectionCleanupTick = null;
         }
 
         private void Info(string value, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0) { try { if (Shared.DebugLogHelper.DiagnosticsEnabled)

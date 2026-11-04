@@ -5,6 +5,8 @@ namespace ExtraFeatures
     // Own only the value we last wrote; never reset a foreign replacement.
     internal sealed class KeepBuildRangeOverride
     {
+        // Same upper bound as the KeepBuildRange setting (ExtraFeaturesViewModel).
+        internal const int MaximumRange = 500;
         // Protects our ownership bookkeeping only, not external ManagedValue readers.
         private readonly object sync = new object();
         private bool ownsValue;
@@ -15,7 +17,7 @@ namespace ExtraFeatures
         internal int Preview(int requested, int current)
         {
             lock (sync)
-                return requested > 0 ? Math.Min(500, requested) :
+                return requested > 0 ? Math.Min(MaximumRange, requested) :
                     ownsValue && current == writtenValue ? previousValue : current;
         }
 
@@ -36,7 +38,7 @@ namespace ExtraFeatures
                     return;
                 }
 
-                requested = Math.Min(500, requested);
+                requested = Math.Min(MaximumRange, requested);
                 if (current == requested)
                     return;
                 if (!ownsValue)

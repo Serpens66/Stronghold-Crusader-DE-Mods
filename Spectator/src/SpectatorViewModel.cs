@@ -5,32 +5,43 @@ using System;
 
 namespace Spectator
 {
-    public sealed class SpectatorViewModel : PresetLobbyModSettingsViewModel
+    public sealed partial class SpectatorViewModel : PresetLobbyModSettingsViewModel
     {
         private bool enableClientFeatures = true, enableMod = true, enableSpectatorPerspective = true, enableStatistics = true,
-            enableEliminatedPlayersBecomeSpectators = true, enableTestTools = true;
+            enableEliminatedPlayersBecomeSpectators = true;
+        // Test and cheat tools are opt-in.
+        private bool enableTestTools, enableSingleplayerTestMode, enableSpectatorControl;
         public ToolsText Text { get; } = new ToolsText();
         public RelayCommand ResetToDefaultCommand { get; }
+        public string ResetToDefaultText => SerpLocalization.Get(SerpLocalization.ResetToDefault);
+        public string ResetToDefaultHelpText => SerpLocalization.Get(SerpLocalization.ResetToDefaultHelp);
         public event Action SettingsChanged;
+        internal bool IsRestoringSnapshot => IsApplyingSettingsSnapshot;
 
-        public SpectatorViewModel() { RefreshActivation(); ResetToDefaultCommand = new RelayCommand(ResetDefaults); }
+        public SpectatorViewModel() { Overview = new LordOverview.OverviewSettings(this); RefreshActivation(); ResetToDefaultCommand = new RelayCommand(ResetDefaults); }
         protected override string ResolveSettingsUiText(string key, string fallback) => SerpLocalization.Get(key);
 
         [PresetLocal]
         public bool EnableClientFeatures { get => enableClientFeatures; set => Set(ref enableClientFeatures, value, nameof(EnableClientFeatures)); }
         [PresetLocal]
         public bool EnableTestTools { get => enableTestTools; set => Set(ref enableTestTools, value, nameof(EnableTestTools)); }
+        [PresetLocal]
+        public bool EnableSingleplayerTestMode { get => enableSingleplayerTestMode; set => Set(ref enableSingleplayerTestMode, value, nameof(EnableSingleplayerTestMode)); }
         internal SpectatorFeatureActivation Activation { get; private set; }
         private void RefreshActivation() => Activation = new SpectatorFeatureActivation(EnableMod,
             EnableClientFeatures, EnableSpectatorPerspective, EnableStatistics,
-            EnableEliminatedPlayersBecomeSpectators, EnableTestTools);
-        [SyncHostOnly]
+            EnableEliminatedPlayersBecomeSpectators, EnableTestTools, EnableSingleplayerTestMode, EnableLordOverview,
+            EnableSpectatorControl);
+        [SyncHostOnly, MissionIndependent]
         public bool EnableMod { get => enableMod; set => Set(ref enableMod, value, nameof(EnableMod)); }
-        [SyncHostOnly]
+        [PresetLocal]
         public bool EnableSpectatorPerspective { get => enableSpectatorPerspective; set => Set(ref enableSpectatorPerspective, value, nameof(EnableSpectatorPerspective)); }
-        [SyncHostOnly]
+        // Original singleplayer spectators control the player chosen in the portrait bar.
+        [PresetLocal]
+        public bool EnableSpectatorControl { get => enableSpectatorControl; set => Set(ref enableSpectatorControl, value, nameof(EnableSpectatorControl)); }
+        [PresetLocal]
         public bool EnableStatistics { get => enableStatistics; set => Set(ref enableStatistics, value, nameof(EnableStatistics)); }
-        [SyncHostOnly]
+        [SyncHostOnly, MissionIndependent]
         public bool EnableEliminatedPlayersBecomeSpectators { get => enableEliminatedPlayersBecomeSpectators; set => Set(ref enableEliminatedPlayersBecomeSpectators, value, nameof(EnableEliminatedPlayersBecomeSpectators)); }
 
         private void Set(ref bool field, bool value, string name)
@@ -44,8 +55,7 @@ namespace Spectator
         private void ResetDefaults()
         {
             if (!CanResetSettings) return;
-            if (CanEditClientSettings) { EnableClientFeatures = true; EnableTestTools = true; }
-            if (CanEditHostSettings) { EnableMod = true; EnableSpectatorPerspective = true; EnableStatistics = true; EnableEliminatedPlayersBecomeSpectators = true; }
+            System_LoadModDefaults();
         }
     }
 }

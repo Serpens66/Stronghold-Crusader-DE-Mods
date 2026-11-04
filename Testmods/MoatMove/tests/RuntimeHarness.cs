@@ -8,8 +8,23 @@ using System.Runtime.InteropServices;
 namespace MoatMove
 {
     internal enum AliveState { IsAlive, Dead }
-    internal enum eStructs { STRUCT_NULL }
-    internal static class eChimps { internal const int CHIMP_TYPE_ARAB_ASSASIN = 0x49; }
+    // Extender eStructs values used by PlagueDamageModel (keeps, gates, towers, roof table).
+    internal enum eStructs
+    {
+        STRUCT_NULL, STRUCT_KEEP_ONE = 40, STRUCT_KEEP_TWO = 41, STRUCT_KEEP_THREE = 42, STRUCT_KEEP_FOUR = 43, STRUCT_KEEP_FIVE = 44,
+        STRUCT_GATE_MAIN = 45, STRUCT_GATE_INNER = 46, STRUCT_GATE_WOOD = 47, STRUCT_GATE_POSTERN = 48, STRUCT_DRAWBRIDGE = 49, STRUCT_GATEHOUSE = 60,
+        STRUCT_TOWER = 61, STRUCT_SIEGE_TOWER = 69, STRUCT_KEEPDOOR_LEFT = 71, STRUCT_KEEPDOOR_RIGHT = 72, STRUCT_KEEPDOOR = 73,
+        STRUCT_TOWER1 = 74, STRUCT_TOWER2 = 75, STRUCT_TOWER3 = 76, STRUCT_TOWER4 = 77, STRUCT_TOWER5 = 78, STRUCT_TOWER5_DESTROYED = 79,
+        STRUCT_TOWER1_DESTROYED = 86, STRUCT_TOWER2_DESTROYED = 87, STRUCT_TOWER3_DESTROYED = 88, STRUCT_TOWER4_DESTROYED = 89,
+        STRUCT_GATE_WOOD1A = 127, STRUCT_GATE_WOOD1B = 128, STRUCT_GATE_WOOD1C = 129, STRUCT_GATE_WOOD1D = 130,
+        STRUCT_GATE_STONE1A = 131, STRUCT_GATE_STONE1B = 132, STRUCT_GATE_STONE2A = 133, STRUCT_GATE_STONE2B = 134
+    }
+    internal static class eChimps
+    {
+        internal const int CHIMP_TYPE_ARAB_ASSASIN = 0x49, CHIMP_TYPE_CATAPULT = 0x27, CHIMP_TYPE_TREBUCHET = 0x28, CHIMP_TYPE_MANGONEL = 0x29,
+            CHIMP_TYPE_SIEGE_TOWER = 0x3A, CHIMP_TYPE_BATTERING_RAM = 0x3B, CHIMP_TYPE_PORTABLE_SHIELD = 0x3C, CHIMP_TYPE_BALLISTA = 0x3D,
+            CHIMP_TYPE_ARAB_BALLISTA = 0x4D, CHIMP_TYPE_HEALER = 34, CHIMP_TYPE_LORD = 55;
+    }
     internal enum TribeAICommand { Move, AttackUnit=4, AttackBuilding=5, DigMoatTileId = 6, Unknown7 = 7 }
     internal enum EventHookPhase { Pre, Post }
     internal class UnitMoveHereEventArgs
@@ -24,6 +39,8 @@ namespace MoatMove
     internal struct UnmanagedVector2<T> { public T X, Y; }
     internal struct SelectedUnitInfo { public int UnitId, UnitType; }
     internal enum AttackPipelineStage { Mode, Builder }
+    // BugfixesAndQoL RouteTilePolicySnapshot.cs contract (not compiled into this harness).
+    internal static class GatePolicyNeutrality { internal static System.Func<int, bool> Current; }
     [StructLayout(LayoutKind.Sequential, Size = 0x490)]
     internal unsafe struct GameUnit
     {
@@ -32,12 +49,14 @@ namespace MoatMove
         public ushort r_AttackMoveToTargetTileX, r_AttackMoveToTargetTileY;
         public int r_ControllableForPlayerId, r_CurrentTilePositionX, r_CurrentTilePositionY;
         public int r_NextTilePositionX2, r_NextTilePositionY2, r_PathPlanStateBitFlags, r_MovementSubstep;
+        public int r_CurrentPathPlanIndex, r_PathPlanLength, r_TargetTilePositionX2, r_TargetTilePositionY2, r_PreviousTilePositionX, r_PreviousTilePositionY;
         public int r_AI_LastIssuedTribeCommand;
         public int r_AIState;
         public AliveState r_AliveState;
         public int r_UnitSelected, r_UnitHover;
         public bool Digger;
         public int r_UnitChimp;
+        public int r_SelectionAllowed;
         public int r_IsKilledByProjectile;
         public int r_CurrentSpeed;
     }
@@ -68,13 +87,20 @@ namespace MoatMove
         public bool IsValidId(int id) => id > 0 && id < 1025;
         public bool TryGetUnitById(int id, out GameUnit* unit)
         { LookupCalls++; unit = id > 0 && id < 1025 ? Units + id : null; return unit != null; }
+        // Extender MoveToTile (196280): calls are recorded; MoveHandler plays the native result.
+        public readonly System.Collections.Generic.List<int[]> Moves = new System.Collections.Generic.List<int[]>();
+        public System.Action<int, int, int> MoveHandler;
+        public void MoveToTile(int unitId, int tileX, int tileY, int unknown = 0)
+        { Moves.Add(new[] { unitId, tileX, tileY }); MoveHandler?.Invoke(unitId, tileX, tileY); }
     }
     internal unsafe class GamePlayerManagerAPI
     {
         public static GamePlayerManagerAPI Instance = new GamePlayerManagerAPI();
         public GameCursorManager* Cursor;
         public CursorPointer GetCursorManager() => new CursorPointer { Pointer=Cursor };
-        public bool IsAIPlayer(int id) => false;
+        // Bit p: player p is an AI.
+        public int AIPlayerMask;
+        public bool IsAIPlayer(int id) => id >= 0 && id < 31 && (AIPlayerMask & (1 << id)) != 0;
         public bool IsPlayerIdValid(int id) => id > 0 && id <= 8;
         public bool IsPlayerAlliedTo(int a, int b) => a == b;
         public int GetLocalPlayerId() => 1;
@@ -108,6 +134,7 @@ namespace MoatMove
         public UnmanagedVector2<ushort> GetTileVectorFromId(int tile) =>
             new UnmanagedVector2<ushort> { X = (ushort)(tile % 1000), Y = (ushort)(tile >= 2000 ? 11 : 10) };
         public bool IsValidTileId(int tile) => tile >= 0 && tile < 640000;
+        public bool HasTilePropertyFlag(int tile, TilePropertyFlag flag) => tile >= 0 && tile < TileManager.LogicGrid.Length && (TileManager.LogicGrid[tile] & (int)flag) != 0;
     }
     internal sealed unsafe partial class FriendlyMoatMovementRuntime
     {
@@ -148,7 +175,7 @@ namespace MoatMove
         private static int tick = 10;
         private object log;
         private readonly MoatMoveOptions settings = TestSettings.Settings;
-        private static int CaptureCurrentGameTick() => tick;
+        internal static int CaptureCurrentGameTick() => tick;
         private bool disposed, targetedRouteProbeBusy, weightedShadowBusy;
         private int mapEpoch = 1;
         private PlanScope activePlan, pendingPlan;
@@ -196,6 +223,10 @@ namespace MoatMove
         private int[] observedRouteRegions, reachedGroundRegions, reachedFriendlyMoatRegions, reachedEnemyMoatRegions;
         private int gridGeneration, cacheMapEpoch = -1, cachePlayerId, cacheStartX, cacheStartY;
         private bool cacheIncludesEnemyRoutes;
+        internal bool DisableWordReachability;
+        private sealed class ExhaustedReachability { internal long Forgets; internal ulong[] Ground, Any; }
+        private readonly ExhaustedReachability[] exhaustedReachability = new ExhaustedReachability[9];
+        internal long ExhaustedReachabilityHits, ExhaustedReachabilityKept;
         private int reachabilityQueueHead, reachabilityQueueTail, reachabilityTick;
         private object reachabilityOwner;
         private readonly Dictionary<long, bool> nativeGroundDecisions = new Dictionary<long, bool>();
@@ -345,18 +376,6 @@ namespace MoatMove
         private static void Check(bool result, string message)
         { assertions++; if (!result) throw new Exception("FAIL: " + message); }
 
-        public static void RunNativeTests()
-        {
-            FastNativeFixtures.Initialize(); TestSettings.Settings.NativeFast = true;
-            long before = FastNativeRouteField.NativeCalls;
-            try
-            {
-                RunTests();
-                Check(FastNativeRouteField.NativeCalls > before, "Native runtime fixture did not execute the native backend");
-                Console.WriteLine($"NATIVE RUNTIME calls={FastNativeRouteField.NativeCalls - before} maskNodes={FastNativeMask.PreparedNodes} maskMs={FastNativeMask.PreparationTicks * 1000.0 / Stopwatch.Frequency:F3}");
-            }
-            finally { TestSettings.Settings.NativeFast = false; }
-        }
         public static void RunTests()
         {
             var f = new FriendlyMoatMovementRuntime();
@@ -569,9 +588,6 @@ namespace MoatMove
                     fastSimulationRouting.Pool.Builds == 2,
                     "ground proof reuses the common field without a new search");
                 Check(activeMoveCommand.Options.RequiredOnly, "command captures required-only mode");
-                TestSettings.Settings.RouteMode = 0;
-                Check(activeMoveCommand.Options.RequiredOnly, "command snapshot survives nested settings change");
-                TestSettings.Settings.RouteMode = 1;
                 for (int x = 13; x <= 18; x++) pathRegionGrid[1000 + x] = 2;
                 tileFlags[1013] = CompletedMoatTileFlag;
                 placementRevision++; MarkFastTopologyAll();
@@ -616,11 +632,9 @@ namespace MoatMove
                 Check(activeMoveCommand.TargetedRouteSearches == searched, "negative cache avoids new search");
                 activeMoveCommand = null; pendingPlan = null;
 
-                captureWeighted=true;TestSettings.Settings.RouteMode=0;
+                captureWeighted=true;
                 TestUnitMovePipeline(manager, units);
-                TestSettings.Settings.RouteMode=1;
-                TestUnitMovePipeline(manager, units);
-                captureWeighted=false;TestSettings.Settings.RouteMode=0;
+                captureWeighted=false;
 
                 DigWorkFallbackTests();
                 MoatWorkSelectionScope NewScope() => new MoatWorkSelectionScope(mapEpoch, (IntPtr)1, 1, 1, 2, 10, 10, 1010, 1);
@@ -716,6 +730,7 @@ namespace MoatMove
                 CursorAdapterTests();
                 FillSelectionTests();
                 PlacementTests();
+                AnchorIntegrationTests();
                 FillFormationTests();
                 BuildingCandidateTests();
             }
@@ -747,16 +762,13 @@ namespace MoatMove
                 activePlan = pendingPlan = null;
                 activeMoveCommand = new MoveCommandScope {
                     TargetX = x, TargetY = 10, MoatRelevant = true };
-                if(TestSettings.Settings.RouteMode==1)
+                activeMoveCommand.ActiveUnitIdsAtDispatch=System.Linq.Enumerable.Range(1,120).ToArray();
+                cursorTopologies[1] = new CursorTopology
                 {
-                    activeMoveCommand.ActiveUnitIdsAtDispatch=System.Linq.Enumerable.Range(1,120).ToArray();
-                    cursorTopologies[1] = new CursorTopology
-                    {
-                        Ready = true,
-                        Epoch = mapEpoch,
-                        RegionGeneration = 0
-                    };
-                }
+                    Ready = true,
+                    Epoch = mapEpoch,
+                    RegionGeneration = 0
+                };
             }
             int nativeCalls = 0;
             originalPathBuilder = (m, c, p) =>
@@ -776,34 +788,29 @@ namespace MoatMove
             foreach (bool formation in new[] { false, true })
             {
                 NewCommand();
-                if(TestSettings.Settings.RouteMode==1)activeMoveCommand.ActiveUnitIdsAtDispatch=Enumerable.Range(1,count).ToArray();
+                activeMoveCommand.ActiveUnitIdsAtDispatch=Enumerable.Range(1,count).ToArray();
                 for (int id = 1; id <= count; id++)
                 {
                     int target = formation ? 14 + id % 5 : 17;
                     Pre(id, target);
                     *moatPathMode = EnableCompletedMoatModeForScopedMovement((IntPtr)nativeUnitManager, id);
-                    Check(*moatPathMode == (TestSettings.Settings.RouteMode==1 ? 0 : 1),
-                        "fast defers while exact may qualify at the native mode event");
-                    Check(AllowBuilderAfterFailedRegionSearch(nativePathManager, 1, 2, 10, 10) ==
-                        (TestSettings.Settings.RouteMode==1 ? 0 : 2),
+                    Check(*moatPathMode == 0, "fast defers at the native mode event");
+                    Check(AllowBuilderAfterFailedRegionSearch(nativePathManager, 1, 2, 10, 10) == 0,
                         "fast leaves the region gate native until a proven failure");
                     SetBuilder(id, target);
-                    if(TestSettings.Settings.RouteMode==1)
-                    {
-                        movementTargetAvailability[10 * MapWidth + target] = 1;
-                        GetNativeMovementStart(units + id, out int recoveryStartX, out int recoveryStartY);
-                        Check(TryRecoverBeforeBuilder((IntPtr)nativeUnitManager,id,recoveryStartX,recoveryStartY,target,10)==1,
-                            $"fast qualifies only at the validated pre-builder failure ({unitMoveFrame?.RecoveryRejection})");
-                    }
+                    movementTargetAvailability[10 * MapWidth + target] = 1;
+                    GetNativeMovementStart(units + id, out int recoveryStartX, out int recoveryStartY);
+                    Check(TryRecoverBeforeBuilder((IntPtr)nativeUnitManager,id,recoveryStartX,recoveryStartY,target,10)==1,
+                        $"fast qualifies only at the validated pre-builder failure ({unitMoveFrame?.RecoveryRejection})");
                     PlanScope request = unitMoveFrame.Plan;
                     Check(request.UnitId == id && request.TargetX == target && activeMoveCommand.TargetX == 17,
                         "request identity is separate from click target");
                     int before = nativeCalls;
-                    int result = TestSettings.Settings.RouteMode==1 && id%2==0
+                    int result = id%2==0
                         ? BuildReconstructedUnitPath(nativePathManager)
                         : BuildPathWithCompletedMoatRouteVariant(nativePathManager, 1, 1);
-                    Check(result == target - 10 && nativeCalls == before + (RequiredOnlyMode ? 0 : 1),
-                        "ready Fast route publishes without another native flood; Precise retains native-first behavior");
+                    Check(result == target - 10 && nativeCalls == before,
+                        "ready Fast route publishes without another native flood");
                     Check(TryAuditFallbackPath(nativePathManager, Buffer(id), result, request, units + id, out _),
                         "published path bytes pass actual owner and endpoint audit");
                     Check(*moatPathMode == 1 && *(int*)(manager + PathManagerRouteVariantOffset) == 0,
@@ -815,16 +822,11 @@ namespace MoatMove
                 Check(activeMoveCommand.UnitMoveCalls == count && activeMoveCommand.UnitMoveCompleted == count &&
                     activeMoveCommand.UnitMovePositive == count && activeMoveCommand.BuilderCalls == count &&
                     activeMoveCommand.FallbackContractRejections == 0, "all eligible formation members accounted for");
-                Check(RequiredOnlyMode || activeMoveCommand.TargetedRouteSearches == (formation ? Math.Min(count, 5) : 1),
-                    "Precise exact endpoint decision cache unchanged");
-                if (TestSettings.Settings.RouteMode == 1)
-                {
-                    Check(activeMoveCommand.WeightedDecisions == 0 && activeMoveCommand.WeightedPublished == 0,
-                        "required-only group performs no weighted decisions or publications");
-                    Check(fastSimulationRouting.Pool.Hits > 0 &&
-                        fastSimulationRouting.Pool.BufferBytes + (fastCandidateField?.BufferBytes ?? 0) <= 64L * 1024 * 1024,
-                        "Fast groups reuse bounded fields");
-                }
+                Check(activeMoveCommand.WeightedDecisions == 0 && activeMoveCommand.WeightedPublished == 0,
+                    "required-only group performs no weighted decisions or publications");
+                Check(fastSimulationRouting.Pool.Hits > 0 &&
+                    fastSimulationRouting.Pool.BufferBytes + (fastCandidateField?.BufferBytes ?? 0) <= 64L * 1024 * 1024,
+                    "Fast groups reuse bounded fields");
             }
 
             NewCommand();
@@ -920,9 +922,8 @@ namespace MoatMove
             Pre(1, 17);
             *moatPathMode = EnableCompletedMoatModeForScopedMovement((IntPtr)nativeUnitManager, 1);
             SetBuilder(1, 17, 11);
-            if (TestSettings.Settings.RouteMode == 1)
-                Check(TryRecoverBeforeBuilder((IntPtr)nativeUnitManager, 1, 11, 10, 17, 10) == 1,
-                    "moving unit qualifies only after the native failure");
+            Check(TryRecoverBeforeBuilder((IntPtr)nativeUnitManager, 1, 11, 10, 17, 10) == 1,
+                "moving unit qualifies only after the native failure");
             Check(unitMoveFrame.Plan.RouteStartX == 11 && BuildPathWithCompletedMoatRouteVariantCore(nativePathManager, 1, 1) == 6,
                 "moving unit qualifies and publishes from native next tile");
             Post(1, 17);
@@ -962,6 +963,8 @@ namespace MoatMove
             enemyTiles.Add(1013);
             Check(!TryAuditFallbackPath(nativePathManager, Buffer(1), 7, new PlanScope(1, 17, 10), units + 1, out _),
                 "actual audit rejects enemy crossing despite valid direction bytes");
+            Check(!TryAuditFallbackPath(nativePathManager, Buffer(1), 7, new PlanScope(1, 17, 10), units + 1, out _, edgesAudited: true),
+                "an anchor-audited route skips the owner check, not only the edge check");
             enemyPlayerId = 1;
             SetBuilder(2, 17);
             for (int i = 0; i < 4; i++) Buffer(2)[i] = 0x22;
@@ -996,9 +999,8 @@ namespace MoatMove
                 ReferenceEquals(unitMoveFrame.Plan.MoatWorkSearch, workSource.MoatWorkSearch),
                 "matching work handoff retains work identity and shared selection graph");
             SetBuilder(1, 17);
-            if (TestSettings.Settings.RouteMode == 1)
-                Check(TryRecoverBeforeBuilder((IntPtr)nativeUnitManager, 1, 10, 10, 17, 10) == 1,
-                    "work handoff is recovered after the native failure");
+            Check(TryRecoverBeforeBuilder((IntPtr)nativeUnitManager, 1, 10, 10, 17, 10) == 1,
+                "work handoff is recovered after the native failure");
             Check(BuildPathWithCompletedMoatRouteVariant(nativePathManager, 1, 1) == 7 && pendingPlan == null,
                 "actual wrapper consumes copied work handoff after builder");
             Post(1, 17);
@@ -1024,32 +1026,26 @@ namespace MoatMove
             Check(!unitMoveFrame.Plan.AttackMovementQualified, "different request target cannot inherit old attack context");
             Post(1, 18);
 
-            if (TestSettings.Settings.RouteMode == 1)
-            {
-                NewCommand();
-                activeMoveCommand.MoatRelevant = false;
-                Pre(1, 17);
-                *moatPathMode = EnableCompletedMoatModeForScopedMovement(
-                    (IntPtr)nativeUnitManager, 1);
-                long fastRecruitRuns = weightedMoatRoutePlanner.SearchRuns;
-                Check(TryRecoverBeforeBuilder((IntPtr)nativeUnitManager, 1,
-                    10, 10, 17, 10) == 1 &&
-                    weightedMoatRoutePlanner.SearchRuns == fastRecruitRuns,
-                    "internal scoped move uses the new unweighted Fast field");
-                Post(1, 17, 0);
-            }
+            NewCommand();
+            activeMoveCommand.MoatRelevant = false;
+            Pre(1, 17);
+            *moatPathMode = EnableCompletedMoatModeForScopedMovement(
+                (IntPtr)nativeUnitManager, 1);
+            long fastRecruitRuns = weightedMoatRoutePlanner.SearchRuns;
+            Check(TryRecoverBeforeBuilder((IntPtr)nativeUnitManager, 1,
+                10, 10, 17, 10) == 1 &&
+                weightedMoatRoutePlanner.SearchRuns == fastRecruitRuns,
+                "internal scoped move uses the new unweighted Fast field");
+            Post(1, 17, 0);
 
             NewCommand(); activeMoveCommand = null;
             Pre(1, 17);
             *moatPathMode = EnableCompletedMoatModeForScopedMovement((IntPtr)nativeUnitManager, 1);
             SetBuilder(1, 12);
-            if (TestSettings.Settings.RouteMode == 1)
-            {
-                long unboundSearchRuns = weightedMoatRoutePlanner.SearchRuns;
-                Check(TryRecoverBeforeBuilder((IntPtr)nativeUnitManager, 1, 10, 10, 17, 10) == 1 &&
-                    weightedMoatRoutePlanner.SearchRuns == unboundSearchRuns,
-                    "later native unit move uses its bound frame without expiring authority");
-            }
+            long unboundSearchRuns = weightedMoatRoutePlanner.SearchRuns;
+            Check(TryRecoverBeforeBuilder((IntPtr)nativeUnitManager, 1, 10, 10, 17, 10) == 1 &&
+                weightedMoatRoutePlanner.SearchRuns == unboundSearchRuns,
+                "later native unit move uses its bound frame without expiring authority");
             int beforeStandalone = nativeCalls;
             Check(BuildPathWithCompletedMoatRouteVariant(nativePathManager, 1, 1) == 0 && nativeCalls == beforeStandalone + 1,
                 "standalone intermediate also restores vanilla mode without group context");
@@ -1067,13 +1063,10 @@ namespace MoatMove
             {
                 Pre(id,17);
                 *moatPathMode=EnableCompletedMoatModeForScopedMovement((IntPtr)nativeUnitManager,id);
-                if (TestSettings.Settings.RouteMode == 1)
-                {
-                    Check(*moatPathMode==0 && !unitMoveFrame.Plan.NativeGroundPrecheck,
-                        "fast defers directly to vanilla without duplicating E2610");
-                    Check(*(int*)(manager+0xC0)==41 && *(int*)(manager+0xC4)==42 && *(int*)(manager+0x98)==43,
-                        "fast leaves every native PCL scratch value untouched");
-                }
+                Check(*moatPathMode==0 && !unitMoveFrame.Plan.NativeGroundPrecheck,
+                    "fast defers directly to vanilla without duplicating E2610");
+                Check(*(int*)(manager+0xC0)==41 && *(int*)(manager+0xC4)==42 && *(int*)(manager+0x98)==43,
+                    "fast leaves every native PCL scratch value untouched");
                 SetBuilder(id,17);
                 Check(TryRecoverBeforeBuilder((IntPtr)nativeUnitManager,id,10,10,17,10)==1,
                     "native failure performs the late moat qualification");
@@ -1081,15 +1074,13 @@ namespace MoatMove
                     "failed vanilla path still receives exact late moat qualification");
                 Post(id,17);
             }
-            if (TestSettings.Settings.RouteMode == 1)
-                Check(pclCalls==0,"fast performs no duplicate native PCL precheck");
+            Check(pclCalls==0,"fast performs no duplicate native PCL precheck");
             // Positive second-phase E2610 answers only describe a blocked portal route.
             NewCommand();
             originalRegionPairReachability=(p,player,source,target,mode)=> { *(int*)(manager+0x98)=1; return target; };
             Pre(1,17); *moatPathMode=EnableCompletedMoatModeForScopedMovement((IntPtr)nativeUnitManager,1);
-            if (TestSettings.Settings.RouteMode == 1)
-                Check(!unitMoveFrame.Plan.NativeGroundPrecheck && *moatPathMode==0,
-                    "fast does not probe or override mode before the native failure");
+            Check(!unitMoveFrame.Plan.NativeGroundPrecheck && *moatPathMode==0,
+                "fast does not probe or override mode before the native failure");
             Post(1,17,0);
             originalRegionPairReachability=null;
             // Model the actual native failure branch, before buffer initialization.
@@ -1134,30 +1125,23 @@ namespace MoatMove
             Check(BuildReconstructedUnitPath(nativePathManager)==7 && reconstructionCalls==1 && nativeCalls==oldNativeCalls,
                 "E32B0 positive path uses its own audited adapter without F4930");
             Post(1,17,1,1);
-            if (TestSettings.Settings.RouteMode == 1)
-            {
-                tileFlags[1013] = 0x8000; placementRevision++; MarkFastTopologyAll();
-                NewCommand(); Pre(1,17,1);
-                *moatPathMode = EnableCompletedMoatModeForScopedMovement((IntPtr)nativeUnitManager,1);
-                SetBuilder(1,17);
-                int beforeGroundReconstruction = reconstructionCalls;
-                Check(BuildReconstructedUnitPath(nativePathManager) == 7 &&
-                    reconstructionCalls == beforeGroundReconstruction && *moatPathMode == 0,
-                    "Fast reconstruction publishes shared ground alternative instead of consuming another member's moat field");
-                Post(1,17,1,1);
-                tileFlags[1013] = CompletedMoatTileFlag; placementRevision++; MarkFastTopologyAll();
-            }
+            tileFlags[1013] = 0x8000; placementRevision++; MarkFastTopologyAll();
+            NewCommand(); Pre(1,17,1);
+            *moatPathMode = EnableCompletedMoatModeForScopedMovement((IntPtr)nativeUnitManager,1);
+            SetBuilder(1,17);
+            int beforeGroundReconstruction = reconstructionCalls;
+            Check(BuildReconstructedUnitPath(nativePathManager) == 7 &&
+                reconstructionCalls == beforeGroundReconstruction && *moatPathMode == 0,
+                "Fast reconstruction publishes shared ground alternative instead of consuming another member's moat field");
+            Post(1,17,1,1);
+            tileFlags[1013] = CompletedMoatTileFlag; placementRevision++; MarkFastTopologyAll();
             NewCommand(); Pre(1,17,1);
             *moatPathMode=EnableCompletedMoatModeForScopedMovement((IntPtr)nativeUnitManager,1);
             SetBuilder(1,17); originalPathReconstruction=m=>0;
             long unqualifiedReconstructionRuns=weightedMoatRoutePlanner.SearchRuns;
             int unqualifiedReconstruction=BuildReconstructedUnitPath(nativePathManager);
-            if(TestSettings.Settings.RouteMode==1)
-                Check(unqualifiedReconstruction==0 && weightedMoatRoutePlanner.SearchRuns==unqualifiedReconstructionRuns,
-                    "unqualified Fast E32B0 failure stays fail-closed without a second search");
-            else
-                Check(unqualifiedReconstruction==7,
-                    "Exact E32B0 failure retains its managed replacement search");
+            Check(unqualifiedReconstruction==0 && weightedMoatRoutePlanner.SearchRuns==unqualifiedReconstructionRuns,
+                "unqualified Fast E32B0 failure stays fail-closed without a second search");
             Post(1,17,unqualifiedReconstruction>0?1:0,1);
 
             NewCommand(); Pre(1,17,1);
@@ -1218,20 +1202,10 @@ namespace MoatMove
             Pre(1,17);
             *moatPathMode=EnableCompletedMoatModeForScopedMovement((IntPtr)nativeUnitManager,1);
             SetBuilder(1,17);
-            if (TestSettings.Settings.RouteMode == 0)
-            {
-                Check(*moatPathMode==1 && unitMoveFrame.Plan.QualifiedTerminalRoute.IsValid,
-                    "exact mode qualifies the bound terminal fill endpoint");
-                Check(BuildPathWithCompletedMoatRouteVariant(nativePathManager,1,1)==7,
-                    "exact managed fallback preserves terminal fill contact without enemy transit");
-            }
-            else
-            {
-                Check(*moatPathMode==0 && !unitMoveFrame.Plan.QualifiedTerminalRoute.IsValid,
-                    "required-only fails closed on an enemy terminal moat");
-                Check(BuildPathWithCompletedMoatRouteVariant(nativePathManager,1,1)==0,
-                    "required-only leaves enemy terminal moat handling to vanilla");
-            }
+            Check(*moatPathMode==0 && !unitMoveFrame.Plan.QualifiedTerminalRoute.IsValid,
+                "required-only fails closed on an enemy terminal moat");
+            Check(BuildPathWithCompletedMoatRouteVariant(nativePathManager,1,1)==0,
+                "required-only leaves enemy terminal moat handling to vanilla");
             Post(1,17);
             enemyTiles.Clear(); tileFlags[1016]=0x8000; units[1].r_AI_LastIssuedTribeCommand=0;
 
@@ -1263,14 +1237,14 @@ namespace Shared {
  using MoatMove;
  internal readonly struct GameBuildingFootprintBounds { public GameBuildingFootprintBounds(int minX,int minY,int maxX,int maxY){MinX=minX;MinY=minY;MaxX=maxX;MaxY=maxY;} public int MinX{get;} public int MinY{get;} public int MaxX{get;} public int MaxY{get;} public int CenterXTimesTwo=>MinX+MaxX; public int CenterYTimesTwo=>MinY+MaxY; }
  internal static unsafe class GameBuildingFootprint { public const int MaximumGridSize=6; public static bool TryGetBounds(GameBuilding* building,out GameBuildingFootprintBounds bounds){bounds=default;if(building==null||building->r_OccupyTileGridSize==0||building->r_OccupyTileGridSize>MaximumGridSize)return false;int count=checked((int)(building->r_OccupyTileGridSize*building->r_OccupyTileGridSize));uint* ids=&building->r_OccupiedTileIdsArrayBegin;int minX=int.MaxValue,minY=int.MaxValue,maxX=int.MinValue,maxY=int.MinValue;for(int index=0;index<count;index++){if(ids[index]>int.MaxValue||!GameTileManagerAPI.Instance.IsValidTileId((int)ids[index]))return false;var p=GameTileManagerAPI.Instance.GetTileVectorFromId((int)ids[index]);if(p.X<minX)minX=p.X;if(p.Y<minY)minY=p.Y;if(p.X>maxX)maxX=p.X;if(p.Y>maxY)maxY=p.Y;}bounds=new GameBuildingFootprintBounds(minX,minY,maxX,maxY);return true;} public static bool TryGetBounds(GameBuilding building,out GameBuildingFootprintBounds bounds)=>TryGetBounds(&building,out bounds); public static bool TryGetBounds(ref GameBuilding building,out GameBuildingFootprintBounds bounds){fixed(GameBuilding* pointer=&building)return TryGetBounds(pointer,out bounds);} public static bool ContainsTileId(GameBuilding* building,int tileId){if(building==null||tileId<0||building->r_OccupyTileGridSize==0||building->r_OccupyTileGridSize>MaximumGridSize)return false;int count=checked((int)(building->r_OccupyTileGridSize*building->r_OccupyTileGridSize));uint* ids=&building->r_OccupiedTileIdsArrayBegin;for(int index=0;index<count;index++)if(ids[index]==(uint)tileId)return true;return false;} public static bool ContainsTileId(GameBuilding building,int tileId)=>ContainsTileId(&building,tileId); }
- internal static class DebugLogHelper { public static bool DiagnosticsEnabled => false; public static void LogInfo(object log,string text) {} public static void LogWarning(object log,string text) {} public static void LogDebug(object log,string text) {} public static void LogDebugLimited(object log,string key,string text) {} public static void LogWarningLimited(object log,string key,string text) {} } }
+ internal static class DebugLogHelper { public static bool DiagnosticsEnabled => false; public static void LogInfo(object log,string text) {} public static void LogWarning(object log,string text) {} public static void LogError(object log,string text) {} public static void LogDebug(object log,string text) {} public static void LogDebugLimited(object log,string key,string text) {} public static void LogWarningLimited(object log,string key,string text) {} } }
 
 // The historical comparison keeps Shared; current API bodies use their independently owned internals.
 namespace APIShared.Internal {
  using MoatMove;
  internal readonly struct GameBuildingFootprintBounds { public GameBuildingFootprintBounds(int minX,int minY,int maxX,int maxY){MinX=minX;MinY=minY;MaxX=maxX;MaxY=maxY;} public int MinX{get;} public int MinY{get;} public int MaxX{get;} public int MaxY{get;} public int CenterXTimesTwo=>MinX+MaxX; public int CenterYTimesTwo=>MinY+MaxY; }
  internal static unsafe class GameBuildingFootprint { public const int MaximumGridSize=6; public static bool TryGetBounds(GameBuilding* building,out GameBuildingFootprintBounds bounds){bounds=default;if(building==null||building->r_OccupyTileGridSize==0||building->r_OccupyTileGridSize>MaximumGridSize)return false;int count=checked((int)(building->r_OccupyTileGridSize*building->r_OccupyTileGridSize));uint* ids=&building->r_OccupiedTileIdsArrayBegin;int minX=int.MaxValue,minY=int.MaxValue,maxX=int.MinValue,maxY=int.MinValue;for(int index=0;index<count;index++){if(ids[index]>int.MaxValue||!GameTileManagerAPI.Instance.IsValidTileId((int)ids[index]))return false;var p=GameTileManagerAPI.Instance.GetTileVectorFromId((int)ids[index]);if(p.X<minX)minX=p.X;if(p.Y<minY)minY=p.Y;if(p.X>maxX)maxX=p.X;if(p.Y>maxY)maxY=p.Y;}bounds=new GameBuildingFootprintBounds(minX,minY,maxX,maxY);return true;} public static bool TryGetBounds(GameBuilding building,out GameBuildingFootprintBounds bounds)=>TryGetBounds(&building,out bounds); public static bool TryGetBounds(ref GameBuilding building,out GameBuildingFootprintBounds bounds){fixed(GameBuilding* pointer=&building)return TryGetBounds(pointer,out bounds);} public static bool ContainsTileId(GameBuilding* building,int tileId){if(building==null||tileId<0||building->r_OccupyTileGridSize==0||building->r_OccupyTileGridSize>MaximumGridSize)return false;int count=checked((int)(building->r_OccupyTileGridSize*building->r_OccupyTileGridSize));uint* ids=&building->r_OccupiedTileIdsArrayBegin;for(int index=0;index<count;index++)if(ids[index]==(uint)tileId)return true;return false;} public static bool ContainsTileId(GameBuilding building,int tileId)=>ContainsTileId(&building,tileId); }
- internal static class DebugLogHelper { public static bool DiagnosticsEnabled => false; public static void LogInfo(object log,string text) {} public static void LogWarning(object log,string text) {} public static void LogDebug(object log,string text) {} public static void LogDebugLimited(object log,string key,string text) {} public static void LogWarningLimited(object log,string key,string text) {} } }
+ internal static class DebugLogHelper { public static bool DiagnosticsEnabled => false; public static void LogInfo(object log,string text) {} public static void LogWarning(object log,string text) {} public static void LogError(object log,string text) {} public static void LogDebug(object log,string text) {} public static void LogDebugLimited(object log,string key,string text) {} public static void LogWarningLimited(object log,string key,string text) {} } }
 
 namespace MoatMove {
  internal enum RouteCalculationMode { Exact = 0, RequiredOnly = 1 }
@@ -1290,18 +1264,69 @@ namespace MoatMove {
   internal bool EnableMod=true;
   internal bool EnableImprovedMoatFilling=true;
   internal bool EnableLadderAttackPathfindingFix=true;
+  // 1: MoatMove's required-only flow (its only mode); 0 only models BugfixesAndQoL without MoatMove.
   internal int RouteMode=1;
-  internal bool NativeFast;
+  internal bool AnchorSingleMoves;
+  internal string PluginDirectory;
  }
 }
 
 namespace APIShared.GameModes { internal static class GameModeHelper { internal static bool IsMapEditor()=>true; } }
 namespace MoatMove {
- internal unsafe struct GameTribe { public int r_LeaderUnitId, r_PlayerIdOwner; }
+ internal enum TribeStance : ushort { Hold = 0, Defensive = 1, Aggressive = 2 }
+ internal enum TribeMoveType { NoChange = 0, DefaultInSync = 1, Fast = -255 }
+ internal enum TilePropertyFlag { PitchTrap = 1 << 3 }
+ internal unsafe struct GameTribe {
+  public int r_LeaderUnitId, r_PlayerIdOwner, r_UnitsInGroup;
+  public uint r_GlobalId;
+  public AliveState r_AliveState;
+  public TribeStance r_TribeStance;
+  public ushort r_PatrolPoint2TileX, r_PatrolPoint2TileY, r_PatrolCurrentTargetIndex, r_CurrentPatrolPoints;
+ }
  internal unsafe sealed class GameTribeManagerAPI {
   internal static readonly GameTribeManagerAPI Instance=new GameTribeManagerAPI();
   internal GameTribe* Tribe;
-  internal bool TryGetTribeById(int id,out GameTribe* tribe) { tribe=Tribe;return tribe!=null; }
+  // Tribe table for tribe commands (ids 1..TableSize-1); without it every id resolves to Tribe.
+  internal GameTribe* Table; internal int TableSize; internal uint NextGlobal=50000;
+  internal bool FailCreate, FailAssign;
+  internal readonly List<int[]> Moves=new List<int[]>();
+  // IssueMoveHereCommand (0x11B520): calls are recorded; MoveHandler plays the native member moves.
+  internal Func<int,int,int,bool> MoveHandler;
+  internal readonly List<int> Deleted=new List<int>();
+  internal bool TryGetTribeById(int id,out GameTribe* tribe) {
+   if(Table==null){tribe=Tribe;return tribe!=null;}
+   tribe=id>0&&id<TableSize?Table+id:null;return tribe!=null;
+  }
+  internal long Create(int owner,bool unknown) {
+   if(FailCreate||Table==null)return -1;
+   for(int id=1;id<TableSize;id++)
+    if(Table[id].r_AliveState!=AliveState.IsAlive)
+    { Table[id]=new GameTribe{r_PlayerIdOwner=owner,r_GlobalId=NextGlobal++,r_AliveState=AliveState.IsAlive,r_TribeStance=TribeStance.Defensive};return id; }
+   return -1;
+  }
+  internal bool AssignUnit(int tribeId,int unitId) {
+   if(FailAssign||!TryGetTribeById(tribeId,out GameTribe* tribe))return false;
+   GameUnit* unit=GameUnitManagerAPI.Instance.Units+unitId;
+   if(unit->r_TribeId!=0)return true;
+   unit->r_TribeId=tribeId;tribe->r_UnitsInGroup++;return true;
+  }
+  internal bool UnassignUnit(int tribeId,int unitId) {
+   if(!TryGetTribeById(tribeId,out GameTribe* tribe))return false;
+   GameUnit* unit=GameUnitManagerAPI.Instance.Units+unitId;
+   if(unit->r_TribeId!=tribeId)return false;
+   unit->r_TribeId=0;tribe->r_UnitsInGroup--;return true;
+  }
+  internal bool DeleteTribeSafe(int tribeId) {
+   if(!TryGetTribeById(tribeId,out GameTribe* tribe)||tribe->r_UnitsInGroup!=0)return false;
+   tribe->r_AliveState=AliveState.Dead;Deleted.Add(tribeId);return true;
+  }
+  internal bool IssueMoveHereCommand(int tribeId,int x,int y,bool isPatrolPath=false,int bIsNewOrder=1,TribeMoveType tribeMoveType=TribeMoveType.DefaultInSync) {
+   Moves.Add(new[]{tribeId,x,y});
+   // 11B520 writes the two-point order (leader tile, commanded tile) only for a new order.
+   if(bIsNewOrder!=0&&TryGetTribeById(tribeId,out GameTribe* tribe))
+   {tribe->r_PatrolPoint2TileX=(ushort)x;tribe->r_PatrolPoint2TileY=(ushort)y;tribe->r_CurrentPatrolPoints=2;tribe->r_PatrolCurrentTargetIndex=1;}
+   return MoveHandler==null||MoveHandler(tribeId,x,y);
+  }
  }
  internal sealed class GameTileManagerView {
   internal const int NativePackedTileCapacity=320800;
@@ -1341,8 +1366,14 @@ namespace Shared {
   [System.Diagnostics.Conditional("SERP_DEVDIAG")] internal static void Start(ref long timestamp) {}
   [System.Diagnostics.Conditional("SERP_DEVDIAG")] internal static void Stop(ref long timestamp,string name) {}
   [System.Diagnostics.Conditional("SERP_DEVDIAG")] internal static void StopSpike(ref long timestamp,string name,long threshold,System.Func<string> details=null) {}
+  [System.Diagnostics.Conditional("SERP_DEVDIAG")] internal static void Log(System.Func<string> message) {}
  }
 }
 
 // Ordinary Move mode is the validated external cursor command contract.
 namespace APIShared.Internal { internal static class GroundMovePreviewEligibility {internal const int OrdinaryMoveCommandMode=1;} }
+
+// Native clock boundary shares the deterministic fixture's map tick.
+namespace Shared { internal static class MissionEvents {
+ internal static bool TryGetCurrentMapTick(out int tick) { tick=MoatMove.FriendlyMoatMovementRuntime.CaptureCurrentGameTick(); return true; }
+} }

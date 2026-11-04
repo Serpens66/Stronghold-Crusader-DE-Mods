@@ -40,6 +40,7 @@ if (-not $env:SHCDE_NATIVE_BASELINE_ROOT) {
 . (Join-Path $PSScriptRoot 'WorkshopConfiguration.ps1')
 . (Join-Path $PSScriptRoot 'ReleaseAssetCache.ps1')
 . (Join-Path $PSScriptRoot 'WorkshopChangelog.ps1')
+. (Join-Path $PSScriptRoot '../BuildCache/ModBuildCheckpoint.ps1')
 . (Join-Path $script:ApiMainRoot 'tools/WorkshopPackage.ps1')
 
 class SteamPackFailure : System.Exception {
@@ -293,11 +294,47 @@ function Test-ClassifiedBooleanProperty {
         [Parameter(Mandatory)][string]$ClassificationPattern
     )
 
-    $propertyPattern = '(?s)' + $ClassificationPattern + '.{0,500}?public\s+bool\s+' +
+    $propertyPattern = 'public\s+bool\s+' +
         [regex]::Escape($PropertyName) + '\s*(?:\{|=>)'
     foreach ($sourceFile in $SourceFiles) {
-        if ([IO.File]::ReadAllText($sourceFile.FullName) -match $propertyPattern) {
-            return $true
+        # This source guard recognizes the declaration's own attribute lists, not arbitrary
+        # earlier settings. Compiled dependency/attribute contracts are checked by the build.
+        $ignored = '(?s)/\*.*?\*/|//[^\r\n]*|@"(?:""|[^"])*"|"(?:\\.|[^"\\])*"|''(?:\\.|[^''\\])*'''
+        $text = [regex]::Replace([IO.File]::ReadAllText($sourceFile.FullName), $ignored, {
+            param($match) ' ' * $match.Length
+        })
+        foreach ($property in [regex]::Matches($text, $propertyPattern)) {
+            $cursor = $property.Index - 1
+            while ($cursor -ge 0) {
+                while ($cursor -ge 0 -and [char]::IsWhiteSpace($text[$cursor])) { $cursor-- }
+                if ($cursor -lt 0 -or $text[$cursor] -ne ']') { break }
+                $end = $cursor
+                $depth = 1; $cursor--
+                while ($cursor -ge 0 -and $depth -gt 0) {
+                    if ($text[$cursor] -eq ']') { $depth++ }
+                    elseif ($text[$cursor] -eq '[') { $depth-- }
+                    $cursor--
+                }
+                if ($depth -ne 0) { break }
+                $attributes = $text.Substring($cursor + 2, $end - $cursor - 2)
+                # Split only between attributes; commas in an unrelated attribute's
+                # constructor arguments or arrays do not introduce another attribute.
+                $start = 0; $nesting = 0
+                for ($index = 0; $index -le $attributes.Length; $index++) {
+                    if ($index -lt $attributes.Length) {
+                        if ($attributes[$index] -in @('(', '[', '{')) { $nesting++ }
+                        elseif ($attributes[$index] -in @(')', ']', '}')) { $nesting-- }
+                    }
+                    if ($index -ne $attributes.Length -and ($attributes[$index] -ne ',' -or $nesting -ne 0)) { continue }
+                    $attribute = $attributes.Substring($start, $index - $start)
+                    $name = [regex]::Match($attribute, '^\s*(?:property\s*:\s*)?(?<Name>(?:global::)?[A-Za-z_]\w*(?:\s*\.\s*[A-Za-z_]\w*)*)\s*(?:\(|$)')
+                    if ($name.Success) {
+                        $attributeName = $name.Groups['Name'].Value -replace '\s', '' -replace '^global::', ''
+                        if ($attributeName -cmatch $ClassificationPattern) { return $true }
+                    }
+                    $start = $index + 1
+                }
+            }
         }
     }
     return $false
@@ -353,8 +390,8 @@ function Test-ActivationSettingContract {
         Fail-Pack 3 "$ModName does not expose a recognizable activation setting contract in its Modsettings XAML."
     }
 
-    $hostClassificationPattern = '\[(?:Shared\.)?SyncHostOnly(?:Attribute)?\]'
-    $clientClassificationPattern = '\[(?:(?:APIShared\.ModSettings\.)?PresetLocal(?:Attribute)?|(?:Shared\.)?SyncPerPlayer(?:Attribute)?)\]'
+    $hostClassificationPattern = '^(?:(?:Shared|SHCDESE\.API\.Components\.Network)\.)?SyncHostOnly(?:Attribute)?$'
+    $clientClassificationPattern = '^(?:(?:APIShared\.ModSettings\.)?PresetLocal(?:Attribute)?|(?:(?:Shared|SHCDESE\.API\.Components\.Network)\.)?SyncPerPlayer(?:Attribute)?)$'
     $usesSharedActivationProxy = $false
 
     foreach ($contract in $contracts) {
@@ -822,7 +859,18 @@ function Add-ReleaseProjectIfNeeded {
 function Invoke-ModBuild {
     param([Parameter(Mandatory)]$Mod)
     Write-RunLog "Building $($Mod.Name) for compatibility validation."
-    Invoke-Checked -FilePath $Mod.BuildBat -Arguments @('/nopause','/noinstall') -FailureCode 4 -WorkingDirectory $Mod.Directory | Out-Null
+    # The build runs in a .work/b copy; /syncpackage mirrors its package back so the audit and the
+    # following commit see the package that was actually built, not the stale tracked folder.
+    $checkpointConfig=Get-ReleaseConfiguration
+    $checkpointExtender=Get-ExtenderDirectory ([pscustomobject]@{Config=$checkpointConfig})
+    $checkpointOptions=@{Workspace=$script:Root;Coordinator=(Get-ApiMainWorkspace $script:Root);ModName=$Mod.Name;ModDirectory=$Mod.Directory;
+        PackageDirectory=$Mod.PackageDirectory;Driver=$Mod.BuildBat;Arguments=@('/nopause','/noinstall','/syncpackage');
+        Commit=(((Invoke-Git @('rev-parse','HEAD')).Output -join '').Trim());GameDirectory=$checkpointConfig.GameDir;
+        ExtenderDirectory=$checkpointExtender;Compiler=$checkpointConfig.MSBuild;ApiSharedDirectory=$env:SHCDE_API_SHARED_DIR;
+        ApiSourceDirectory=(Get-WorkshopApiRoot $script:Root)}
+    Invoke-ModBuildCheckpoint @checkpointOptions -Action {
+        Invoke-Checked -FilePath $Mod.BuildBat -Arguments @('/nopause','/noinstall','/syncpackage') -FailureCode 4 -WorkingDirectory $Mod.Directory
+    } | Out-Null
     try { [void](Assert-ScriptExtenderXamlPatchContract -Directory $Mod.PackageDirectory) }
     catch { Fail-Pack 4 "Built package for $($Mod.Name) violates the XAML patch contract: $($_.Exception.Message)" }
     $built = Get-CecilPluginMetadata -Directory $Mod.PackageDirectory
@@ -1772,7 +1820,15 @@ try {
     $previousHostBranchPinned = $env:SHCDE_BRANCH_PINNED
     try {
         $env:SHCDE_BRANCH_PINNED = ((Invoke-Git @('rev-parse','HEAD')).Output -join '').Trim()
-        Invoke-Checked -FilePath (Join-Path $hostDir 'build.bat') -Arguments @('/nopause','/noinstall') -FailureCode 8 -WorkingDirectory $hostDir | Out-Null
+        $checkpointConfig=Get-ReleaseConfiguration
+        $hostCheckpoint=@{Workspace=$script:Root;Coordinator=(Get-ApiMainWorkspace $script:Root);ModName='SerpsModsHost';ModDirectory=$hostDir;
+            PackageDirectory=(Join-Path $hostDir 'BepInEx/plugins/SerpsMods_Serp');Driver=(Join-Path $hostDir 'build.bat');Arguments=@('/nopause','/noinstall');
+            Commit=$env:SHCDE_BRANCH_PINNED;GameDirectory=$checkpointConfig.GameDir;Compiler=$checkpointConfig.MSBuild;
+            ExtenderDirectory=(Get-ExtenderDirectory ([pscustomobject]@{Config=$checkpointConfig}));ApiSharedDirectory=$env:SHCDE_API_SHARED_DIR;
+            ApiSourceDirectory=(Get-WorkshopApiRoot $script:Root)}
+        Invoke-ModBuildCheckpoint @hostCheckpoint -Action {
+            Invoke-Checked -FilePath (Join-Path $hostDir 'build.bat') -Arguments @('/nopause','/noinstall') -FailureCode 8 -WorkingDirectory $hostDir
+        } | Out-Null
     } finally { $env:SHCDE_BRANCH_PINNED = $previousHostBranchPinned }
 
     $runRoot = Join-Path $script:OutputRoot "v$packVersion"

@@ -27,7 +27,7 @@ $foreign = Read-Source 'ForeignTroopHudRuntime'
 if (-not $foreign.Contains('surfaces == 0 && Volatile.Read(ref resetPending) == 0') -or
     -not $foreign.Contains('Interlocked.Exchange(ref activeSurfaces, next)') -or
     -not $foreign.Contains('else if ((surfaces & 2) != 0) RefreshOwnHealth()') -or
-    -not $foreign.Contains('nextRefreshAt = now + 0.1f')) { throw 'Foreign/health HUD idle gate or active cadence changed.' }
+    -not $foreign.Contains('frameWork.RequestAfter(TimeSpan.FromMilliseconds(100))')) { throw 'Foreign/health HUD idle gate or active cadence changed.' }
 $health = Read-Source 'SelectedUnitHealthFeature'
 $refresh = $health.Substring($health.IndexOf('internal void Refresh()'))
 if ($refresh.IndexOf('if (!settings.EnableClientFeatures') -gt $refresh.IndexOf('MainViewModel.Instance')) {
@@ -36,12 +36,18 @@ if ($refresh.IndexOf('if (!settings.EnableClientFeatures') -gt $refresh.IndexOf(
 $countdown = Read-Source 'TimerCountdownFeature'
 if (-not $countdown.Contains('if (!enabled && Volatile.Read(ref clearPending) == 0) return;') -or
     -not $countdown.Contains('private volatile bool enabled;')) { throw 'Countdown idle/atomic activation contract missing.' }
-$surrender = Read-Source 'SurrenderFeature'
-foreach ($required in @('Interlocked.Exchange(ref statisticsBadgeModeSnapshot, next)',
-    'Interlocked.Exchange(ref statisticsBadgeClearPending, 0)',
-    'lobbyReturnFeature.OnBeforeRender()',
-    'if (spectatorPromotionActivated && !spectatorPromotionConfirmed) ConfirmSpectatorPromotion()')) {
-    if (-not $surrender.Contains($required)) { throw "Missing independent surrender task gate: $required" }
+# Statistics badges run in their own frame callback since the surrender split. Pending
+# lobby-return work has its own APIShared UI work registration that runs continuously only
+# while a Vanilla exit is pending. Spectator promotion now belongs to the Spectator mod and
+# is no longer a BugfixesAndQoL frame task.
+$lobbyReturn = Read-Source 'MultiplayerLobbyReturnFeature'
+$badges = Read-Source 'StatisticsTeamBadges'
+foreach ($check in @(@($badges, 'Interlocked.Exchange(ref statisticsBadgeModeSnapshot, next)'),
+    @($badges, 'Interlocked.Exchange(ref statisticsBadgeClearPending, 0)'),
+    @($lobbyReturn, '"multiplayer-lobby-return", OnBeforeRender, out exitWork'),
+    @($lobbyReturn, 'exitWork.SetContinuous(true)'),
+    @($lobbyReturn, 'exitWork?.SetContinuous(false)'))) {
+    if (-not $check[0].Contains($check[1])) { throw "Missing independent surrender task gate: $($check[1])" }
 }
 if ($RunTests) {
     $msbuild = 'C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\MSBuild.exe'
@@ -50,4 +56,4 @@ if ($RunTests) {
     & (Join-Path $PSScriptRoot 'tests\ModOptions.Tests\bin\ModOptions.Tests.exe')
     if ($LASTEXITCODE -ne 0) { throw 'Mod-option runtime regression failed.' }
 }
-Write-Output 'PASS: mod-option performance source contracts; active HUD cadence and pending lobby/spectator work preserved.'
+Write-Output 'PASS: mod-option performance source contracts; active HUD cadence, pending lobby work and statistics-badge gates preserved.'

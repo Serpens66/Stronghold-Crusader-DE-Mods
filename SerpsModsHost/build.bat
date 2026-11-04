@@ -118,9 +118,9 @@ echo [%date% %time%] Copy package files
 xcopy "%PROJECT_DIR%Override" "%LOCAL_PLUGIN_DIR%\Override\" /E /I /Q /Y >nul
 echo [%date% %time%] Copy package files
 xcopy "%PROJECT_DIR%Locales" "%LOCAL_PLUGIN_DIR%\Locales\" /E /I /Q /Y >nul
-if not exist "%LOCAL_PLUGIN_DIR%\SerpsModsHost.dll" goto package_failed
-if not exist "%LOCAL_PLUGIN_DIR%\info.json" goto package_failed
-if not exist "%LOCAL_PLUGIN_DIR%\serps-modpack.json" goto package_failed
+echo [%date% %time%] Validate assembled host package
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%tools\Test-HostPackage.ps1" -PackageDirectory "%LOCAL_PLUGIN_DIR%"
+if not "%ERRORLEVEL%"=="0" goto package_failed
 
 if "%NO_INSTALL%"=="1" (
   echo Serps Mods Host vorbereitet; Installation uebersprungen.

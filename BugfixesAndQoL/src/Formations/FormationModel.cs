@@ -334,27 +334,70 @@ namespace BugfixesAndQoL.UnitCommands
         }
     }
 
+    internal readonly struct FormationAspectRatio : IEquatable<FormationAspectRatio>
+    {
+        internal const int MaximumDimension = 10000;
+        internal int Width { get; }
+        internal int Depth { get; }
+        internal bool IsAutomatic => Width == 0 && Depth == 0;
+        private FormationAspectRatio(int width, int depth) { Width = width; Depth = depth; }
+        internal static bool IsValidPair(int width, int depth) =>
+            (width == 0 && depth == 0) ||
+            (width >= 1 && width <= MaximumDimension && depth >= 1 && depth <= MaximumDimension);
+        internal static FormationAspectRatio Create(int width, int depth)
+        {
+            if (!IsValidPair(width, depth) || width == 0) return default;
+            int a = width, b = depth;
+            while (b != 0) { int remainder = a % b; a = b; b = remainder; }
+            return new FormationAspectRatio(width / a, depth / a);
+        }
+        internal static bool TryParse(string value, out FormationAspectRatio aspect)
+        {
+            aspect = default;
+            value = value?.Trim();
+            if (string.Equals(value, "auto", StringComparison.OrdinalIgnoreCase)) return true;
+            if (string.IsNullOrEmpty(value)) return false;
+            int separator = value.IndexOf(':');
+            if (separator <= 0 || separator != value.LastIndexOf(':')) return false;
+            if (!int.TryParse(value.Substring(0, separator).Trim(), System.Globalization.NumberStyles.None,
+                    System.Globalization.CultureInfo.InvariantCulture, out int width) ||
+                !int.TryParse(value.Substring(separator + 1).Trim(), System.Globalization.NumberStyles.None,
+                    System.Globalization.CultureInfo.InvariantCulture, out int depth) ||
+                !IsValidPair(width, depth) || width == 0) return false;
+            aspect = Create(width, depth);
+            return true;
+        }
+        public override string ToString() => IsAutomatic ? "auto" :
+            Width.ToString(System.Globalization.CultureInfo.InvariantCulture) + ":" +
+            Depth.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        public bool Equals(FormationAspectRatio other) => Width == other.Width && Depth == other.Depth;
+        public override bool Equals(object value) => value is FormationAspectRatio other && Equals(other);
+        public override int GetHashCode() => unchecked(Width * 397 ^ Depth);
+        public static bool operator ==(FormationAspectRatio left, FormationAspectRatio right) => left.Equals(right);
+        public static bool operator !=(FormationAspectRatio left, FormationAspectRatio right) => !left.Equals(right);
+    }
+
     internal sealed class FormationGestureState
     {
         private readonly FormationKind kind;
         private readonly int count;
         private double wheelRemainder;
         private int lastWheelFrame = -1;
-        internal FormationGestureState(FormationKind kind, int count, int direction, int rememberedRows = 0)
+        internal FormationGestureState(FormationKind kind, int count, int direction, FormationAspectRatio aspect = default)
         {
             this.kind = kind;
-            this.count = count;
-            int selectedRows = FormationModel.NormalizeRememberedRows(rememberedRows);
-            RequestedRows = kind == FormationKind.Circle || kind == FormationKind.Vanilla ? 0 : selectedRows;
+            this.count = Math.Max(1, Math.Min(FormationAspectRatio.MaximumDimension, count));
+            Aspect = kind == FormationKind.Circle || kind == FormationKind.Vanilla ? default : aspect;
+            Rows = FormationModel.ResolveGeometryRows(kind, this.count, Aspect);
             Direction = direction & 7;
         }
-        internal int RequestedRows { get; private set; }
-        internal int Rows => FormationModel.ResolveGeometryRows(kind, count, RequestedRows);
+        internal FormationAspectRatio Aspect { get; private set; }
+        internal int Rows { get; private set; }
         internal int Direction { get; private set; }
         internal bool ExplicitDirection { get; private set; }
         internal FormationGestureState WithCount(int admittedCount)
         {
-            return new FormationGestureState(kind, Math.Max(1, admittedCount), Direction, RequestedRows) {
+            return new FormationGestureState(kind, Math.Max(1, admittedCount), Direction, Aspect) {
                 wheelRemainder = this.wheelRemainder, lastWheelFrame = this.lastWheelFrame,
                 ExplicitDirection = this.ExplicitDirection
             };
@@ -367,7 +410,11 @@ namespace BugfixesAndQoL.UnitCommands
             wheelRemainder += delta;
             double steps = Math.Truncate(wheelRemainder);
             wheelRemainder -= steps;
-            if (steps != 0) RequestedRows = (int)Math.Max(1, Math.Min(count, Rows - steps));
+            if (steps == 0) return;
+            int rows = (int)Math.Max(1, Math.Min(count, Rows - steps));
+            if (rows == Rows) return;
+            Rows = rows;
+            Aspect = FormationAspectRatio.Create(FormationModel.ResolveWidthForRows(kind, count, rows), rows);
         }
         internal void UpdateDirection(int deltaX, int deltaY, int threshold)
         {
@@ -379,10 +426,31 @@ namespace BugfixesAndQoL.UnitCommands
 
     internal static class FormationModel
     {
-        // Carry intent across temporary admission clamps; never infer rows from a stale width.
-        internal static int ResolveGeometryRows(FormationKind kind, int count, int requestedRows) =>
-            kind == FormationKind.Circle || kind == FormationKind.Vanilla || requestedRows == 0
-                ? ResolveAutomaticRows(kind, count) : NormalizeRows(requestedRows, count);
+        // Re-resolve immutable proportion intent only when count/intent changes, never
+        // from the footprint after terrain snapping or an earlier rounded selection.
+        internal static int ResolveGeometryRows(FormationKind kind, int count, FormationAspectRatio aspect)
+        {
+            count = Math.Max(1, Math.Min(FormationAspectRatio.MaximumDimension, count));
+            if (kind == FormationKind.Circle || kind == FormationKind.Vanilla || aspect.IsAutomatic)
+                return ResolveAutomaticRows(kind, count);
+            int low = 1, high = count;
+            while (low < high)
+            {
+                int middle = low + (high - low) / 2;
+                if ((long)ResolveWidthForRows(kind, count, middle) * aspect.Depth <= (long)aspect.Width * middle)
+                    high = middle;
+                else low = middle + 1;
+            }
+            if (low == 1) return low;
+            int previous = low - 1;
+            long a = (long)ResolveWidthForRows(kind, count, previous) * aspect.Depth;
+            long b = (long)aspect.Width * previous;
+            long c = (long)ResolveWidthForRows(kind, count, low) * aspect.Depth;
+            long d = (long)aspect.Width * low;
+            // Multiplicative error is symmetric for wide/deep shapes. Values are at
+            // most 10^8; cross products fit Int64. Equal error prefers fewer rows.
+            return Math.Max(a, b) * Math.Min(c, d) <= Math.Max(c, d) * Math.Min(a, b) ? previous : low;
+        }
 
         private static readonly int[] ForwardX = { 0, 1, 1, 1, 0, -1, -1, -1 };
         private static readonly int[] ForwardY = { -1, -1, 0, 1, 1, 1, 0, -1 };
@@ -391,9 +459,6 @@ namespace BugfixesAndQoL.UnitCommands
             value >= (int)FormationKind.Vanilla && value <= (int)FormationKind.Circle
                 ? (FormationKind)value
                 : FormationKind.Vanilla;
-
-        internal static int NormalizeRememberedRows(int value) =>
-            value >= 1 && value <= 10000 ? value : 0;
 
         internal static int NormalizeDensity(int value) =>
             value < 1 || value > 4 ? 2 : value;
@@ -514,10 +579,13 @@ namespace BugfixesAndQoL.UnitCommands
         {
             if (kind == FormationKind.Circle || kind == FormationKind.Vanilla)
                 return ResolveAutomaticWidth(kind, count);
-            int[] counts = BuildRowCounts(kind, count, rows);
-            int width = 1;
-            foreach (int size in counts) width = Math.Max(width, size);
-            return width;
+            rows = NormalizeRows(rows, count);
+            if (kind != FormationKind.Wedge || rows == 1)
+                return Math.Max(1, (count + rows - 1) / rows);
+            long denominator = (long)(rows - 1) * (rows - 1);
+            long numerator = (long)(count - rows) * (2 * rows - 3);
+            // Exact maximum of BuildRowCounts, including its remainder distribution.
+            return 1 + (int)((numerator + denominator - 1) / denominator);
         }
 
         private static int[] BuildRowCounts(FormationKind kind, int count, int rows)

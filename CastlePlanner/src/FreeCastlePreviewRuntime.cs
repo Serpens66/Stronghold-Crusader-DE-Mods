@@ -123,6 +123,7 @@ namespace CastlePlanner
         private long lastAbortSent;
         private string pendingAbortReason;
         private int lastFrame = -1;
+        private APIShared.Presentation.IUiFrameWorkRegistration frameWork;
         private int lastDisplayedTimerSeconds = int.MinValue;
         private string selectedChoice = string.Empty;
         private string selectedRotation;
@@ -241,7 +242,7 @@ namespace CastlePlanner
                     return;
                 selectedRotation = normalized;
                 if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/FreeCastlePreviewRuntime.cs:217", $"Free-castle rotation changed: ui={selectedRotation}, native={SelectedNativeRotation}.");
+                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/FreeCastlePreviewRuntime/SelectedRotation", $"Free-castle rotation changed: ui={selectedRotation}, native={SelectedNativeRotation}.");
                 Notify(nameof(SelectedRotation));
                 Notify(nameof(SelectedNativeRotation));
                 SelectionVisualChanged?.Invoke();
@@ -321,7 +322,10 @@ namespace CastlePlanner
             delayShowDisconnectHook = new Hook(
                 delayShowDisconnect,
                 (DelayShowDisconnectDelegate)DelayShowDisconnectHook);
-            Application.onBeforeRender += OnBeforeRender;
+            if (!APIShared.ApiShared.ForMod(CastlePlannerPlugin.PluginGuid).Ui.TryRegisterBeforeRender(
+                "free-castle-preview", OnBeforeRender, out frameWork, out string schedulingReason, 110))
+                throw new InvalidOperationException("Free-castle preview scheduling unavailable: " + schedulingReason);
+            frameWork.SetContinuous(IsPreviewPendingOrActive);
             if (Shared.DebugLogHelper.DiagnosticsEnabled)
                 Shared.DebugLogHelper.LogDebug(
                     log,
@@ -426,7 +430,7 @@ namespace CastlePlanner
             if (args.Command == Enums.GameActionCommand.Game_Paused && args.ActionState == 0 &&
                 !bypassPauseHook && IsPreviewPendingOrActive && IsFeatureModeAllowed())
             {
-                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/FreeCastlePreviewRuntime.cs:401", "Unpause command suppressed during castle selection.");
+                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/FreeCastlePreviewRuntime/BeforeGameAction", "Unpause command suppressed during castle selection.");
                 args.SkipOriginalFunction = true;
             }
         }
@@ -435,7 +439,7 @@ namespace CastlePlanner
             if (IsFeatureModeAllowed() &&
                 !bypassLeaveLobbyHook && IsPreviewPendingOrActive && realMultiplayer)
             {
-                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/FreeCastlePreviewRuntime.cs:410", "Vanilla lobby departure deferred during castle selection.");
+                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/FreeCastlePreviewRuntime/LeaveLobbyHook", "Vanilla lobby departure deferred during castle selection.");
                 return;
             }
             leaveLobbyTrampoline(self, preserveGameMembers);
@@ -475,7 +479,7 @@ namespace CastlePlanner
                 if (livenessReady)
                 {
                     if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                        Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/FreeCastlePreviewRuntime.cs:449", $"Castle preview pause armed in OnStartMap(Pre): operation={operationId}, localPlayer={localPlayerId}, multiplayer={realMultiplayer}, roster=[{string.Join(",", roster.OrderBy(id => id))}].");
+                        Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/FreeCastlePreviewRuntime/OnStartMap.preview-pause-armed-start", $"Castle preview pause armed in OnStartMap(Pre): operation={operationId}, localPlayer={localPlayerId}, multiplayer={realMultiplayer}, roster=[{string.Join(",", roster.OrderBy(id => id))}].");
                 }
                 if (!livenessReady) FailBeforeCommit(livenessError);
                 return;
@@ -486,7 +490,7 @@ namespace CastlePlanner
             {
                 ApplyPause(true);
                 settings.PumpCastleCatalogLoad();
-                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/FreeCastlePreviewRuntime.cs:471", "Castle selection is waiting for Vanilla's start-situation screen to close.");
+                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/FreeCastlePreviewRuntime/OnStartMap.selection-waiting-vanilla-start", "Castle selection is waiting for Vanilla's start-situation screen to close.");
             }
         }
 
@@ -563,7 +567,7 @@ namespace CastlePlanner
             }
             if (IsPreviewPendingOrActive)
             {
-                Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner/src/FreeCastlePreviewRuntime.cs:499", "Castle preview map unloaded before a decision; state discarded.");
+                Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner/FreeCastlePreviewRuntime/OnUnloadMap", "Castle preview map unloaded before a decision; state discarded.");
                 ResetPreview();
             }
         }
@@ -617,7 +621,7 @@ namespace CastlePlanner
             try
             {
                 if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/FreeCastlePreviewRuntime.cs:549", $"Free-castle confirmation requested: playerId={localPlayerId}, " +
+                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/FreeCastlePreviewRuntime/ConfirmLocalSelection.free-confirmation-requested-player", $"Free-castle confirmation requested: playerId={localPlayerId}, " +
                         $"choice='{SelectedChoice}', uiRotation={SelectedRotation}, " +
                         $"nativeRotation={SelectedNativeRotation}.");
                 FreeCastleSelection selection;
@@ -671,7 +675,7 @@ namespace CastlePlanner
             {
                 statusText = ex.GetBaseException().Message;
                 NotifyAll();
-                Shared.DebugLogHelper.LogErrorLimited(log, "CastlePlanner/src/FreeCastlePreviewRuntime.cs:607", $"Castle selection could not be confirmed: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "CastlePlanner/FreeCastlePreviewRuntime/ConfirmLocalSelection.selection-could-not-confirmed", $"Castle selection could not be confirmed: {ex}");
             }
         }
 
@@ -755,7 +759,7 @@ namespace CastlePlanner
             manifestAcks.Clear();
             manifestAcks.Add(SteamUser.GetSteamID().m_SteamID);
             SendManifestToPeers(encoded);
-            Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/FreeCastlePreviewRuntime.cs:689", "Castle manifest distributed; waiting for every participant without a connection-speed deadline.");
+            Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/FreeCastlePreviewRuntime/TryFinalizeAsHost", "Castle manifest distributed; waiting for every participant without a connection-speed deadline.");
             NotifyAll();
             TryCommitRestartWhenManifestReady();
         }
@@ -796,7 +800,7 @@ namespace CastlePlanner
         {
             if (!IsOnUnityMainThread)
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "CastlePlanner/src/FreeCastlePreviewRuntime.cs:732", "Free-castle packet dispatch was rejected outside Unity's main thread.");
+                Shared.DebugLogHelper.LogErrorLimited(log, "CastlePlanner/FreeCastlePreviewRuntime/DispatchQueuedPacket.packet-dispatch-rejected-outside", "Free-castle packet dispatch was rejected outside Unity's main thread.");
                 return;
             }
 
@@ -806,7 +810,7 @@ namespace CastlePlanner
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "CastlePlanner/src/FreeCastlePreviewRuntime.cs:744", $"Free-castle main-thread packet dispatch failed: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "CastlePlanner/FreeCastlePreviewRuntime/DispatchQueuedPacket.main-thread-packet-dispatch", $"Free-castle main-thread packet dispatch failed: {ex}");
                 if (IsPreviewPendingOrActive)
                     FailBeforeCommit(ex.GetBaseException().Message);
             }
@@ -825,7 +829,7 @@ namespace CastlePlanner
                 return;
             if (host && PlayerIdForSteam(sender) < 1)
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "CastlePlanner/src/FreeCastlePreviewRuntime.cs:765", $"Ignored free-castle packet from unauthenticated transport sender {sender}.");
+                Shared.DebugLogHelper.LogErrorLimited(log, "CastlePlanner/FreeCastlePreviewRuntime/ProcessQueuedPacket.ignored-free-packet-unauthenticated", $"Ignored free-castle packet from unauthenticated transport sender {sender}.");
                 return;
             }
             if (packet.ProtocolVersion != FreeCastleProtocol.ProtocolVersion)
@@ -865,7 +869,7 @@ namespace CastlePlanner
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "CastlePlanner/src/FreeCastlePreviewRuntime.cs:807", $"Rejected free-castle packet: kind={kind}, sender={sender}, error={ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "CastlePlanner/FreeCastlePreviewRuntime/ProcessQueuedPacket.rejected-free-packet-kind", $"Rejected free-castle packet: kind={kind}, sender={sender}, error={ex}");
                 FailBeforeCommit(ex.GetBaseException().Message);
             }
         }
@@ -1119,7 +1123,7 @@ namespace CastlePlanner
             ApplyPause(true);
             state = PreviewState.Loading;
             NotifyAll();
-            Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/FreeCastlePreviewRuntime.cs:1057", briefingObserved
+            Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/FreeCastlePreviewRuntime/TryBeginSelectionAfterVanillaStartScreen", briefingObserved
                     ? "Vanilla start-situation screen closed; castle selection opened."
                     : "Gameplay HUD became active without a start-situation screen; castle selection opened.");
             TryFinishCatalogLoading();
@@ -1150,7 +1154,7 @@ namespace CastlePlanner
                 if (!catalogWaitLogged)
                 {
                     catalogWaitLogged = true;
-                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/FreeCastlePreviewRuntime.cs:1075", "Castle selection is waiting for asynchronous AIVJSON catalog loading without blocking rendered frames.");
+                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/FreeCastlePreviewRuntime/TryFinishCatalogLoading.waiting-asynchronous-aivjson-catalog", "Castle selection is waiting for asynchronous AIVJSON catalog loading without blocking rendered frames.");
                 }
                 return;
             }
@@ -1158,7 +1162,7 @@ namespace CastlePlanner
             RebuildChoices();
             localCatalogReady = true;
             if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/FreeCastlePreviewRuntime.cs:1084", $"Castle selection catalog is ready; choices={castleChoices.Count}.");
+                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/FreeCastlePreviewRuntime/TryFinishCatalogLoading.catalog-ready-choices", $"Castle selection catalog is ready; choices={castleChoices.Count}.");
             MarkLocalReady();
         }
 
@@ -1186,7 +1190,7 @@ namespace CastlePlanner
                     throw new InvalidOperationException("The multiplayer platform is unavailable.");
 
                 if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/FreeCastlePreviewRuntime.cs:1103", $"Free-castle multiplayer restart reset beginning: " +
+                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/FreeCastlePreviewRuntime/CommitRestartCore.reset-beginning", $"Free-castle multiplayer restart reset beginning: " +
                         $"operation={operationId}, mpGameActive={Platform_Multiplayer.MPGameActive}, " +
                         $"gameMembers={platform.gameMembers?.Count ?? 0}.");
                 Director.instance.stopSimThread();
@@ -1198,7 +1202,7 @@ namespace CastlePlanner
                 platform.initFastFollowOn();
                 RelinquishMultiplayerLivenessGuardAfterVanillaReset();
                 if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/FreeCastlePreviewRuntime.cs:1116", $"Free-castle multiplayer restart reset completed: " +
+                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/FreeCastlePreviewRuntime/CommitRestartCore.reset-completed", $"Free-castle multiplayer restart reset completed: " +
                         $"operation={operationId}, mpGameActive={Platform_Multiplayer.MPGameActive}, " +
                         $"gameMembers={platform.gameMembers?.Count ?? 0}.");
                 try
@@ -1220,7 +1224,7 @@ namespace CastlePlanner
                 // activation so messages and host acknowledgements are processed.
                 Director.instance.StartMultiplayerGame();
                 if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/FreeCastlePreviewRuntime.cs:1139", $"Free-castle multiplayer restart handshake activated: " +
+                    Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/FreeCastlePreviewRuntime/CommitRestartCore.handshake-activated", $"Free-castle multiplayer restart handshake activated: " +
                         $"operation={operationId}, mpGameActive={Platform_Multiplayer.MPGameActive}, " +
                         $"gameMembers={platform.gameMembers?.Count ?? 0}.");
             }
@@ -1297,7 +1301,7 @@ namespace CastlePlanner
             string normalizedReason = string.IsNullOrWhiteSpace(reason)
                 ? "Unknown castle-preview protocol error."
                 : reason.Trim();
-            Shared.DebugLogHelper.LogErrorLimited(log, "CastlePlanner/src/FreeCastlePreviewRuntime.cs:1223",
+            Shared.DebugLogHelper.LogErrorLimited(log, "CastlePlanner/FreeCastlePreviewRuntime/FailBeforeCommit",
                 $"CASTLE_PREVIEW_ABORT: session={identityReadiness.SessionId}, operation={operationId}, state={state}, " +
                 $"multiplayer={realMultiplayer}, missionReady={identityReadiness.HasStarted}, identityReady={identityReadiness.IsReady}, " +
                 $"localPlayerId={localPlayerId}, roster=[{string.Join(",", roster.OrderBy(id => id))}], reason={normalizedReason}; " +
@@ -1339,23 +1343,23 @@ namespace CastlePlanner
                     localPlayerId);
                 request.Message = pendingAbortReason;
                 SendToHost(request);
-                Shared.DebugLogHelper.LogErrorLimited(log, "CastlePlanner/src/FreeCastlePreviewRuntime.cs:1263", "Castle-preview abort request sent to the host; this client remains paused until the host broadcasts the shared outcome.");
+                Shared.DebugLogHelper.LogErrorLimited(log, "CastlePlanner/FreeCastlePreviewRuntime/TryPropagateSynchronizedAbort.abort-request-sent-host", "Castle-preview abort request sent to the host; this client remains paused until the host broadcasts the shared outcome.");
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "CastlePlanner/src/FreeCastlePreviewRuntime.cs:1269", $"Castle-preview synchronized abort transmission failed and will be retried: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "CastlePlanner/FreeCastlePreviewRuntime/TryPropagateSynchronizedAbort.synchronized-abort-transmission-failed", $"Castle-preview synchronized abort transmission failed and will be retried: {ex}");
             }
         }
 
         private void CompleteSynchronizedAbort(string reason)
         {
-            Shared.DebugLogHelper.LogErrorLimited(log, "CastlePlanner/src/FreeCastlePreviewRuntime.cs:1277", $"Free-castle preview aborted consistently for this session; continuing without castles: {reason}");
+            Shared.DebugLogHelper.LogErrorLimited(log, "CastlePlanner/FreeCastlePreviewRuntime/CompleteSynchronizedAbort", $"Free-castle preview aborted consistently for this session; continuing without castles: {reason}");
             ContinueCurrentGame();
         }
 
         private void FailAfterCommit(Exception error)
         {
-            Shared.DebugLogHelper.LogErrorLimited(log, "CastlePlanner/src/FreeCastlePreviewRuntime.cs:1285", $"Free-castle restart failed after commit; returning to frontend fail-closed: {error}");
+            Shared.DebugLogHelper.LogErrorLimited(log, "CastlePlanner/FreeCastlePreviewRuntime/FailAfterCommit", $"Free-castle restart failed after commit; returning to frontend fail-closed: {error}");
             state = PreviewState.Inactive;
             if (realMultiplayer)
             {
@@ -1405,7 +1409,7 @@ namespace CastlePlanner
             platform.resyncingOrSaving = true;
             multiplayerLivenessGuardArmed = true;
             if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/FreeCastlePreviewRuntime.cs:1334", $"Castle-preview multiplayer liveness guard armed: operation={operationId}, " +
+                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/FreeCastlePreviewRuntime/TryArmMultiplayerLivenessGuard", $"Castle-preview multiplayer liveness guard armed: operation={operationId}, " +
                     $"previousResyncingOrSaving={previousResyncingOrSaving}, " +
                     $"mpGameActive={Platform_Multiplayer.MPGameActive}.");
             return true;
@@ -1454,7 +1458,7 @@ namespace CastlePlanner
             }
 
             if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/FreeCastlePreviewRuntime.cs:1384", $"Castle-preview multiplayer liveness guard released: operation={operationId}, " +
+                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/FreeCastlePreviewRuntime/ReleaseMultiplayerLivenessGuard", $"Castle-preview multiplayer liveness guard released: operation={operationId}, " +
                     $"reason={reason}, restoredResyncingOrSaving={restoreValue}, " +
                     $"refreshedRemoteHumans={refreshedPlayers}.");
         }
@@ -1467,7 +1471,7 @@ namespace CastlePlanner
             multiplayerLivenessGuardArmed = false;
             previousResyncingOrSaving = false;
             if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/src/FreeCastlePreviewRuntime.cs:1398", $"Castle-preview multiplayer liveness guard ownership relinquished after Vanilla reset: operation={operationId}.");
+                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/FreeCastlePreviewRuntime/RelinquishMultiplayerLivenessGuardAfterVanillaReset", $"Castle-preview multiplayer liveness guard ownership relinquished after Vanilla reset: operation={operationId}.");
         }
 
         private void BuildRoster(out string error, out bool isConflict)
@@ -1553,7 +1557,7 @@ namespace CastlePlanner
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner/src/FreeCastlePreviewRuntime.cs:1493", $"Preview-ready transmission will be retried: {ex.GetBaseException().Message}");
+                Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner/FreeCastlePreviewRuntime/TrySendPreviewReady", $"Preview-ready transmission will be retried: {ex.GetBaseException().Message}");
             }
         }
 
@@ -1670,6 +1674,8 @@ namespace CastlePlanner
 
         private void NotifyAll()
         {
+            // Protocol retries and readiness barriers keep their original rendered-frame cadence.
+            frameWork?.SetContinuous(IsPreviewPendingOrActive);
             Notify(nameof(IsPreviewActive));
             Notify(nameof(IsSpawnMapPass));
             Notify(nameof(IsLocalConfirmed));

@@ -27,9 +27,7 @@ if ($package -ieq $target -or $package.StartsWith($target + '\', [StringComparis
 }
 if (Get-Process -Name 'Stronghold Crusader Definitive Edition' -ErrorAction SilentlyContinue) { throw 'Close the game before installing.' }
 foreach ($path in @($package,$plugins,$target)) { Assert-UnlinkedPath $path }
-foreach ($name in @('SerpsModsHost.dll','info.json','serps-modpack.json')) {
-    if (-not (Test-Path -LiteralPath (Join-Path $package $name) -PathType Leaf)) { throw "Missing host package file: $name" }
-}
+& (Join-Path $PSScriptRoot 'Test-HostPackage.ps1') -PackageDirectory $package
 $protected = @('LobbyModSettings','Infrastructure')
 foreach ($name in $protected) {
     if (Test-Path -LiteralPath (Join-Path $package $name)) { throw "Host package must not replace independently owned data: $name" }

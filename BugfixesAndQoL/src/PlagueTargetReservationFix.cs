@@ -434,7 +434,7 @@ namespace BugfixesAndQoL
             if (disableOnFailure)
                 DisableCorrection("temporary disease phases could not be restored safely", firstFailure);
             else
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/PlagueTargetReservationFix.cs:421", $"Bugfixes and QoL plague reservation mask rollback failed: {firstFailure}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/PlagueTargetReservationFix/RestoreMaskedDiseases", $"Bugfixes and QoL plague reservation mask rollback failed: {firstFailure}");
         }
 
         private void PruneInvalidReservations()
@@ -520,7 +520,7 @@ namespace BugfixesAndQoL
 
             correctionAvailable = false;
             ClearReservations("feature disabled", logRelease: false);
-            Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/PlagueTargetReservationFix.cs:509", $"Bugfixes and QoL plague target-reservation fix disabled for this map because" +
+            Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/PlagueTargetReservationFix/DisableCorrection", $"Bugfixes and QoL plague target-reservation fix disabled for this map because" +
                 $"{reason}; other plague fixes remain active: {ex}");
         }
 
@@ -530,7 +530,7 @@ namespace BugfixesAndQoL
             {
                 detailedLogCount++;
                 if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/PlagueTargetReservationFix.cs:520", $"Bugfixes and QoL {message}");
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/PlagueTargetReservationFix/LogDetail", $"Bugfixes and QoL {message}");
                 return;
             }
             if (detailLimitLogged)
@@ -538,7 +538,7 @@ namespace BugfixesAndQoL
 
             detailLimitLogged = true;
             if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/src/PlagueTargetReservationFix.cs:527", $"Bugfixes and QoL plague reservation detailed-log limit of " +
+                Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/PlagueTargetReservationFix/LogDetail.plague-reservation-detailed-log", $"Bugfixes and QoL plague reservation detailed-log limit of " +
                     $"{MaximumDetailedLogs} reached; repeated details are suppressed.");
         }
 

@@ -45,9 +45,9 @@ Forced acceptance does not bypass life, team, path, troop or objective validity.
 ## Existing placement and presentation contracts
 
 The original placement behavior remains hash-bound. The native availability hook
-owns 0xCC420 (10 displaced bytes, NativeX64 Indirect). Visual hooks own 0x65830,
-0x41D60 and 0x6E620; their prologues, exact displacement and installed backend are
-validated in `SpectatorPlugin.Native.cs`. Published hooks remain
+owns 0xCC420 (10 displaced bytes, NativeX64 Indirect). The mod owns visual hooks at 0x65830 and 0x6E620; their prologues, exact displacement
+and installed backend are validated in `SpectatorRuntime.Native.cs`. The 0x41D60
+frame boundary is owned exclusively by APIShared VisibleMapRenderEvents. Published hooks remain
 installed until process exit. RedBird's audited assembly version is 1.5.0.0.
 
 The visual spectator flag is at RVA 0x3666080. Placement also reads the Chore kind
@@ -253,10 +253,317 @@ register/branch contract. No existing game instructions are rewritten on activat
 
 StatisticsPreviewController owns the current preview identity and generation. A real
 Vanilla end notification revokes that ownership without rewriting the new end screen.
-Settings use the shared preset base: local tools activation is PresetLocal, perspective,
-statistics and eliminated-player permissions are SyncHostOnly. No foreign settings migrate.
+Settings use the shared preset base: local tools, perspective, control and statistics are
+PresetLocal; only eliminated-player promotion (EnableEliminatedPlayersBecomeSpectators) and
+AllowEnemyDetails are SyncHostOnly behind the host switch EnableMod. LegacySpectatorSettings
+migrates exactly two BugfixesAndQoL settings once: EnableSpectatorPerspective and
+EnableEliminatedPlayersBecomeSpectators. Test tools are off by default; the map editor has
+no toolbar and no tool session.
 
-The development package is not on the main-mod release whitelist. Build via build.bat
-with the verified SDK selected through SHCDE_API_SHARED_DIR; /noinstall preserves the
-current game installation. Automated tests do not establish in-game delivery, effects,
+Spectator is a Serps Mods pack member (release-projects.json, WorkshopConfiguration.ps1).
+Build via build.bat (shared branch dispatch, SDK via /apishared:...); /noinstall preserves
+the current game installation. Automated tests do not establish in-game delivery, effects,
 layout at different resolutions or interoperability after the user cleans BugfixesAndQoL.
+
+## Endansicht nach der Zuschauer-Auslagerung (2026-10-27)
+
+Die verwalteten Einstiegspunkte `HUD_MissionOver.ButtonClicked(string)`,
+`GameData.Scenarios.setGameOverState(int,int,int)` und
+`OnScreenText.addOSTEntry(eOnScreenText,int,int,int,int,int)` besitzen genau einen
+APIShared-Hook je Stelle. Keine direkten Hooks der beiden Verbraucher mehr.
+Bei einem Spielupdate Signaturen und Reihenfolge erneut prüfen: Spielende-OST
+bereitet den Lobbyersatz vor dem Abbau der Teilnehmer vor; positive Endzustände
+verwerfen eine Statistikvorschau vor dem Vanilla-Aufbau. Vorschau-Exit unterdrückt
+Vanilla und Lobby-Deferral unabhängig von der Registrierungsreihenfolge.
+Verzögerte Originalfortsetzungen sind an Aufrufthread, Sitzung und Ansicht gebunden.
+
+Spectator besitzt Perspektive, Berichte/Verbündete, Save-Herkunft, Statistikvorschau
+und den synchronisierten Zuschauerwechsel nach Ausscheiden. BugfixesAndQoL behält
+Aufgeben, Lobby-Rückkehr und allgemeine Statistikabzeichen. Die native Niederlage
+bleibt beim vorhandenen PlayerDefeat-Dienst; keine neue native Eingriffsstelle.
+
+ExtraFeatures wird anhand der tatsächlich benötigten Methoden, Signaturen und
+ViewModel-Member geprüft, unabhängig von seiner Versionsnummer. Eigentümer und
+Gebäude-Global-ID werden vor jeder Automatikänderung erneut geprüft; Speicherung
+und Automatikzustand verbleiben beim Anbieter. Fehlende oder abweichende Verträge
+schalten nur diese optionale Integration ab. Die historischen Hinweise vom
+21.10.2026 zur noch ausstehenden BugfixesAndQoL-Bereinigung beschreiben den damaligen
+Stand und werden durch diese Zuständigkeitsbeschreibung abgelöst.
+
+## Shared presentation ownership, 2026-10-27
+
+APIShared 0.18.0 now owns the `0x41D60` visible-map entry. This mod registers its
+render observer and toggles demand; it no longer installs a competing frame hook.
+The original parameters and execution remain unchanged. Native contract and ABI
+coverage are maintained in APIShared/UpdateToNewDLL.md and VisibleMapRenderTests.
+Pause-menu extras use IngameMenuActions; Vanilla Quit keeps its original command.
+Spectator statistics use the existing menu Close path (pause restoration), refresh
+inside MissionOver, and the MissionOverEvents preview-exit contract. The Spectator
+placement freeze exemption is scoped to active placement; report access independently
+requires its enabled spectator perspective. BFQ retains no spectator report hook.
+
+## Live AI order presentation (managed snapshot)
+
+The toolbar reads the same public `EngineInterface.PlayState` arrays as Vanilla
+`HUD_AlliesPanel.UpdateAllies`: `skirmish_order`, `skirmish_order_player`, and
+`skirmish_order_from_player`. Managed player slots are 1..8 (the managed converter
+copies native slot i to managed i+1). Mode 1 displays the attack target; mode 2
+displays the requester/protected player. Mode 0 removes the marker. Unknown modes
+or missing arrays must not index a player slot. The existing D7580 audit above
+covers acceptance and cancellation; 2F670 also clears invalid requests and 3D020
+can abandon protection. The UI follows subsequent snapshots, not a cached click.
+`MainViewModel.getAlliesGoodsIcon(-3/-4)` supplies Vanilla's attack/defend markers.
+There is no new native read, hook or mutation in this presentation path.
+
+The existing EditorDirector mouse-state notification additionally releases owned
+amount-field keyboard focus for map presses with no Noesis hit target. This is a
+read-only observation of the original result/rightDown; original clicks remain
+unchanged. UI cleanup is performed on the main thread, and deferred cleanup checks
+both session and input-instance identity.
+
+## Additional idle-HUD presentation (2026-10-28)
+
+This is a managed/XAML addition; no new native hook or mutation is introduced.
+Audited against native SHA-256 FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2
+and managed SHA-256 BC8B6A395F01D48557DB413600C8DD8D1FDFD3ABDF97BFBBB68A3C56B04FD789.
+`HUD_Main.NewBuildScreenBlank` selects build page 22 and submode 48; `FatControler`
+requests it for Vanilla's blank spectator/build-control cases. Normal construction
+and editor terrain pages are not empty merely because a player cannot use them.
+`MainViewModel`'s normal building/report and troop transitions own their own HUD
+containers. BFQ's foreign troop view can leave Show_HUD_Main set while clipping
+its centre; Show_HUD_Troops is therefore an explicit veto, alongside building,
+briefing, end, allies, merits and chat presentations. The new content remains inside
+HUD_Main's LayoutRoot and respects its inherited clip and visibility.
+
+Only our additional AlignmentGrid child and the separate placement header are shown/hidden. Neither restores
+Vanilla bindings, clipping, build-control freezes or DataContexts. The placement
+header uses the existing selection/cancellation path and remembers page 22 as a
+valid return destination. No delayed UI transition is enqueued by this view.
+HUD identity and current session/eligibility are checked before display; deferred
+map-focus cleanup additionally checks its input instance. Detached controls have
+their bindings, focus and event handlers released before references are discarded.
+
+Revalidate the blank-page contract, HUD_Main AlignmentGrid/frame dimensions and
+the public members in Test-InstalledContracts on game updates. Test-DockLayout
+executes the current Extender patcher against the selected Vanilla XAML export;
+it verifies the host, namespaces and unchanged original visual tree. It does not
+claim to test Noesis rendering or in-game input routing.
+
+## Dock hit routing and signed resource removal (2026-10-28)
+
+Reference native SHA-256: FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
+No new native hook, direct call address or public API is introduced.
+HUD_Main.LayoutRoot contains transparent top-edge mask siblings after AlignmentGrid.
+Their Ignore/IgnoreNotME tags affect FatControler.overNoesisGUI, not Noesis event targeting.
+The placement header is now a separately hidden, content-width LayoutRoot child above those
+masks, anchored to the same HUD edge. Vanilla masks remain unchanged. Check the real patched
+tree and full button hit areas after game updates; child-only ZIndex cannot solve this overlap.
+The header shares the guarded tools model, selection and camera handlers, and explicitly
+releases its own DataContext on teardown. No fullscreen overlay is introduced.
+
+Extender RemoveGood calls the existing OnPlayerSubtractResource pre/original/post dispatcher
+at native RVA 0xB7D80. The audited normal branch maps goods via 0xBFD30, drains eligible live
+storage buildings and updates resource visuals (0xC05B0, 0x6E620) and totals (0xC1CE0).
+Native game mode 6 instead subtracts from incoming goods directly; its operation is bounded
+by incoming quantity, not the storage total. This is the explicit
+eGameTypeModes.GAMETYPE_SIEGE_THAT_BUILDER contract, not a general editor-mode assumption.
+GetCurrentGameTypeMode supplies that native mode. Storage removal and reserve subtraction
+are not a single combined Vanilla command. SubtractIncomingGood changes only the named reserve.
+Gold uses AddPlayerGold with a bounded negative delta, then SubtractIncomingGood for pending gold;
+StartConditions similarly distinguishes reserve clearing from setting the current gold balance.
+
+CreditDebit reads both accounts before/after the existing API calls under EngineInterface's
+monitor. Signed Int32 input is negated in Int64, every call is capped by its actual account,
+and results describe measured removal rather than the requested amount. The mode-6 native
+path is invoked only once, with no direct-reserve retry that would bypass an event cancellation.
+Any physical stock remaining in that special native mode is reported through the partial result;
+the mod does not change game mode or manually rewrite storage objects. Provider changes beyond
+the requested debit or negative account states are rejected as contract failures, never reported
+as successful transactions. Future native updates must re-audit these branches and accounting.
+
+The production transaction tests substitute only API boundaries; the real XAML patcher tests
+prove mask sibling ordering and unchanged Vanilla XML, not rendered hit testing. Full Noesis
+input/rendering and physical storage visuals still require in-game acceptance.
+
+## Allies test-mode presentation (managed contract)
+
+The existing `HUD_AlliesPanel` is retained, including its root Visibility binding to
+`MainViewModel.AlliesPanelVisible`. Perspective refresh never writes this property.
+Close, session replacement and HUD replacement invalidate the pending refresh;
+report refresh borrows only opacity/input properties and restores bindings, leaving
+newer foreign values alone.
+
+The independent eight-player roster does not modify Vanilla's six-slot ally/enemy
+arrays. Only the original goods page is shared. `selectedGoods` and
+`selectedGoodsAmount` are private Int32 fields; `UpdateGoods()` is a private void
+method without parameters, checked against the real installed managed assembly.
+The original amount commands, including BFQ's installed detour and its modifier
+labels, remain the execution path. An amount-command wrapper forwards exactly once
+and saturates Vanilla Int32 wraparound; no second modifier calculation is installed.
+Test confirmation buttons enqueue explicit actor/good/amount snapshots and never
+invoke `ConfirmGoods`, `Ally_SendGoods` or `Ally_RequestGoods`. The existing action
+guard vetoes all ordinary ally actions while this test mode is enabled.
+
+Credit permits a live human or AI recipient; orders still require an AI. Test-mode
+attack/cancel requester is the ordered AI; defense requester is the protected
+player. The existing audited native call and validation remain unchanged. The other
+two tool views retain their separate selection and requester behavior.
+
+Only named footer/back-button Visibility, amount-button Command and goods-counter
+Text properties are borrowed; their original bindings are restored on mode exit or
+HUD teardown. No host DataContext, global identity, alliances or native hook changes.
+
+# Statistics capture contracts
+
+Audit: 2026-10-30. Native SHA-256
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`;
+Assembly-CSharp SHA-256
+`BC8B6A395F01D48557DB413600C8DD8D1FDFD3ABDF97BFBBB68A3C56B04FD789`.
+
+The mod calls Vanilla's public P/Invoke methods, not computed addresses. It installs
+no native hook or competing managed patch. The RVAs below identify audit evidence;
+they are not runtime dispatch constants and need no mod-owned pattern fallback.
+
+- `DLL_GetMeritData(int*)`, RVA `0x84140`: caller supplies 45 Int32 slots.
+  Player IDs are 1–8; each player occupies five slots: presence/ID, merit/alive,
+  gold, army, alliance. Native processing uses helpers `0x187E60` and `0x1E20`
+  as documented in the shared `ENGINE_PRESENTATION_BRIDGE.md` audit. An absent
+  player only receives the invalid presence marker; other slots may be untouched.
+  Clear the working buffer before entering the monitor, as the original wrapper's
+  fresh array did. Never interpret other fields unless presence is positive.
+- `DLL_GetMPScoreData(byte*)`, RVA `0x83CB0`: writes the caller-owned public
+  `EngineInterface.multiplayer_stats_export` layout. The player arrays contain
+  nine Int32 entries, the killer/victim matrix 81. Its last array starts at 1392
+  and ends at 1428; the managed type includes the required alignment padding.
+  Buffer size comes from the real managed type, not a duplicate hardcoded layout.
+  Read fields through that type after releasing the lock. Matrix rows are killers,
+  columns victims; losses include killer zero (environment), kills exclude victim
+  zero, and both exclude the diagonal. Only selected historical values demand
+  this export; no full MPScoreData conversion, metadata or avatar resolution runs.
+
+Both wrappers in the audited real assembly use the same private static object
+`EngineInterface.threadLock`; `run(bool)` holds it through native simulation and
+buffer publication. Resolve it once by validated reflection, use zero-wait
+`Monitor.TryEnter`, and release in finally. All raw reads, including player-resource
+and identified-local-Lord fields, are protected by this monitor. Native pointers
+never leave the copy operation. Formatting, permission projection, providers and
+Noesis run outside it. The mod's read path works without BugfixesAndQoL and does
+not alter its wrappers, caches, patches or the simulation.
+
+Under sustained simulation load, zero-wait main-thread attempts can starve. The
+mod therefore queues a prepared raw read through APIShared EngineReadbacks after
+a failed immediate attempt. APIShared uses its existing run/returnBuffer hooks,
+with a thread-local run scope and actual Monitor.IsEntered check before executing
+callbacks. No extra hook is installed by this mod. A single atomic job owns the
+back buffer; pause fallback and simulation producer cannot copy concurrently.
+Completion is consumed by the existing GUI publisher without waiting for the next
+cadence interval. Cancellation never clears a running producer's storage. Session,
+rights, HUD generation and controlled-player identity are checked before delivery;
+obsolete completed data is discarded and cleared. All managed/UI identity reads
+are prepared or evaluated on the main thread, not inside the simulation callback.
+
+On an update, verify the P/Invoke signatures/visibility, original wrapper locking,
+native write bounds, fixed-buffer counts/types and export field meanings against
+the matching native/managed pair. Runtime initialization validates the lock and
+typed fixed-buffer layout; offline appearance checks validate the real assembly.
+Unsupported contracts fail closed for this overview through its existing error
+path; there is no blocking or guessed-offset fallback. Recheck standalone and
+Fixes/BugfixesAndQoL coexistence, unknown/absent players, rights changes, save/map
+replacement and actual allocation/timing measurements before claiming acceptance.
+
+## Vanilla presentation and world input (2026-10-31)
+
+For the same managed/native pair, `FatControler.overNoesisGUI()` calls the raw
+VisualTreeHelper.HitTest and walks logical Parent, with visual-parent fallback.
+Tag `Ignore` returns false for a complete subtree; `IgnoreSelf` returns false only
+when that tagged node is the original hit. IsHitTestVisible=false alone is not the
+game's world-input exemption. The statistic root uses Ignore outside editing and
+IgnoreSelf during header editing. Passive leaves/backgrounds and the view-owned
+tooltip use Ignore; the settings window is outside that statistic subtree.
+
+`FatControler.NoesisGUIUpdateChecksInGame()` makes BookPopularityColour green at
+popularity >= 50, otherwise red. WGT_Popularity.SetPopHead maps positive/neutral/
+negative to MainViewModel.GameSprites[0/1/2]. Cards use only the permitted projected
+value; list/menu headers stay green and unknown card values use the neutral mask.
+
+HUD_MissionOver.xaml supplies the atlas keys UI-Buttons S048 (gold), S051 (army),
+S055/S058 (kills/losses), S061/S064/S067/S070/S073/S076 (production), S079 (population),
+S082 (fear), S085/S088 (buildings), S091 (troops made), S094/S097 (trade).
+MP_Star represents lords_killed in the result rows. Sources are cached per HUD;
+extension metadata sources additionally invalidate on catalog changes. No native
+RVA or gameplay hook is introduced by these presentation changes.
+
+The prepared resource copy also retains each player's typed official
+WinLossState.Loss flag. Combined with negative merit this marks eliminated rows,
+without extra exports, retained pointers or managed allocation under threadLock.
+
+## Greatest Lord and trimmed icon sources (2026-10-31)
+
+The same installed native/managed hashes were rechecked. Merit column 1 is the
+signed current Greatest Lord score, not a rank number or historical total.
+DLL_GetMeritData (84140) calls 1E20 for present eligible players; a missing living
+Lord after native time exceeds the start reference by 200 marks the score -1
+and exports zero gold/army. Presence must still be positive before reading it.
+HUD_MeritPanel.populateList sorts score descending, then gold descending.
+The consumer copies the already captured score outside the engine lock, through
+the existing permission projection. It never recalculates it or requests history
+for it. Historical metric classification ends at LordsKilled; the new metric ID
+is appended so old persisted identifiers and indices remain valid.
+
+UI-MasterAtlas's normal stat sprites are 129x200 with considerable transparent
+padding; Merit_SortLordScore uses S045 (1000x288), MP_Star is 90x128. The source
+relative alpha bounds in OverviewPresentationPolicy preserve arrows and sword
+tips. EnsureMetricIcons validates each original bitmap extent before constructing
+one CroppedBitmap per distinct builtin source/HUD; gold shares its cached source.
+The crown crop is (308,25,383,263), the star (26,46,40,39). No runtime pixel scans,
+new textures, hooks, exports or repeated render-time crop construction are used.
+Images use uniform scaling in 28x28 boxes; header templates bind their two-unit
+padding so the existing 32x32 drag cells contain them. Recheck atlas mappings,
+dimensions, bounds and real Noesis presentation after asset updates.
+
+## Current fear pie presentation (2026-11-01)
+
+HUD_MissionOver computes fearPie = fearfactor*6 - minfearfactor and obtains
+MainViewModel.GameSprites[115+fearPie]. MainViewModel.setupSprites inserts
+Pie 001..036 at indices 115..150. Five null placeholders precede this block;
+count actual List.Add operations, not only resource string literals. For the overview's existing current signed
+level n (-5..5), use only fearPie = n>0 ? n*6 : -n: white for zero, green for
+positive and red for negative. This is a current-value adapter, not a change
+to the result window's historical fields. No MP history export is added for Fear.
+
+The eleven applicable existing ImageSources are retained per HUD, lazily on first
+Fear cell construction. Row visuals keep the last permitted band; a changed band
+only replaces Source/Visibility, with no Image creation, resource lookup or value
+formatting on the warm update path. Unknown/revoked values clear Source and show
+the existing question-mark text. Numeric snapshots and sorting remain unchanged;
+passive pie cells retain Vanilla Tag Ignore and hit-test exclusion. HUD detach
+clears the palette and visual replacement initializes a fresh band state.
+
+## Human portraits and delayed cached sources (2026-11-01)
+
+The native and managed reference hashes above still match the installed game.
+This change calls public managed presentation methods; it adds no native address,
+engine export, Steam request, texture creation or APIShared hook.
+
+Platform_Multiplayer.getPlayerSteamID returns zero when gameMembers has no matching
+slot. GetUserAvatar only reads Vanilla's cache (and delegates the local Steam ID
+to GetLocalAvatar). Singleplayer does not require a multiplayer roster: Vanilla's
+OnScreenText and MainViewModel briefing use GetLocalAvatar instead, respecting the
+configured Steam image/coat of arms. EditorDirector already initiates local Steam
+avatar loading; Avatars.CreateLocalUserAvatar produces the configured local coat
+of arms. Lobby preparation owns remote Steam/coat-of-arms cache population.
+
+OverviewPortraits follows that presentation split. Known non-MP human slots use
+GetLocalAvatar; MP slots require a validated per-slot CSteamID and use GetUserAvatar.
+Unknown MP identities never inherit the local user's picture. AI faces still use
+getAIFace with extended remapping enabled. Revalidate these public methods and
+Steamworks.CSteamID.IsValid/m_SteamID against the real assemblies after updates.
+
+PlayerPortraits retains the borrowed source per slot/identity, throttles source
+reads to one second and drops old sources on identity changes. The existing GUI
+publisher checks missing sources while the overview is visible, independently of
+simulation ticks and statistics capture, so delayed images can appear during pause.
+It only changes an existing Image.Source when its reference changes. Closing,
+HUD replacement and mission replacement retire the cache; a retired read cannot
+publish a source to the replacement view. Null results remain eligible for retry.
+No render/layout rebuild or statistics/provider query is part of that retry path.

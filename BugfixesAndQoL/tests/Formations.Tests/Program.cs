@@ -56,11 +56,11 @@ internal static class Program
         Check(Activator.CreateInstance(typeof(FormationOrderPacketFormatter)) != null,
             "attribute formatter has a public reflection constructor");
         var packet = new FormationOrderPacket {
-            ProtocolVersion = 10, OperationId = 42, TribeId = 4499,
+            ProtocolVersion = 12, OperationId = 42, TribeId = 4499,
             TargetX = 399, TargetY = 398, IsNewOrder = 1, MoveType = -255,
             Formation = (byte)FormationKind.Wedge, Density = 4,
             PlacementMode = (byte)RangedPlacementMode.Rear, DirectionSector = 7,
-            RequestedRows = 20, UnitCount = 4000, SelectionHash = 0xDEADBEEF12345678
+            AspectWidth = 4, AspectDepth = 3, UnitCount = 4000, SelectionHash = 0xDEADBEEF12345678
         };
         byte[] wire = MessagePack.MessagePackSerializer.Serialize(packet);
         FormationOrderPacket restored = MessagePack.MessagePackSerializer.Deserialize<FormationOrderPacket>(wire);
@@ -70,8 +70,16 @@ internal static class Program
             restored.IsNewOrder == packet.IsNewOrder && restored.MoveType == packet.MoveType &&
             restored.Formation == packet.Formation && restored.Density == packet.Density &&
             restored.PlacementMode == packet.PlacementMode && restored.DirectionSector == packet.DirectionSector &&
-            restored.RequestedRows == packet.RequestedRows && restored.UnitCount == packet.UnitCount && restored.SelectionHash == packet.SelectionHash,
+            restored.AspectWidth == packet.AspectWidth && restored.AspectDepth == packet.AspectDepth && restored.UnitCount == packet.UnitCount && restored.SelectionHash == packet.SelectionHash,
             "all selection and order fields round-trip using the installed MessagePack resolver");
+        var reader = new MessagePack.MessagePackReader(new ReadOnlyMemory<byte>(wire));
+        Check(reader.ReadArrayHeader() == 18, "aspect wire schema contains its two appended fields");
+        for (int index = 0; index < 18; index++)
+        {
+            if (index == 11 || index == 13 || index == 14)
+                Check(reader.TryReadNil(), "reserved formation field was reused");
+            else reader.Skip();
+        }
     }
 
     private static void TestGroundMovePreviewEligibility()

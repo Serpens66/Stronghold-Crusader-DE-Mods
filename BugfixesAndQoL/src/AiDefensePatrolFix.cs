@@ -101,7 +101,7 @@ namespace BugfixesAndQoL
                 {
                     correctionAvailable = false;
                     logicallyEnabled = false;
-                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/AiDefensePatrolFix.cs:103", "Bugfixes and QoL AI defense patrol fix was disabled because its permanent native hook is no longer installed.");
+                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/AiDefensePatrolFix/ApplySetting", "Bugfixes and QoL AI defense patrol fix was disabled because its permanent native hook is no longer installed.");
                     return;
                 }
 
@@ -166,7 +166,7 @@ namespace BugfixesAndQoL
                         return;
 
                     callbackFailureLogged = true;
-                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/AiDefensePatrolFix.cs:170", $"AI_DEFENSE_PATROL_CALLBACK_FALLBACK: Vanilla assignment retained; exception={exception}");
+                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/AiDefensePatrolFix/CorrectAssignmentDecision", $"AI_DEFENSE_PATROL_CALLBACK_FALLBACK: Vanilla assignment retained; exception={exception}");
                 }
             }
         }

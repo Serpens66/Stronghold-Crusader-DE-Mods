@@ -1,5 +1,5 @@
 $ErrorActionPreference = 'Stop'
-$gameDirectory = 'E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition'
+$gameDirectory = if ($env:SHCDE_GAME_DIR) { $env:SHCDE_GAME_DIR } else { 'E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition' }
 $bytes = [IO.File]::ReadAllBytes((Join-Path $gameDirectory 'Stronghold Crusader Definitive Edition_Data\Plugins\x86_64\CrusaderDE.dll'))
 $sha = [Security.Cryptography.SHA256]::Create()
 try { $hash = [BitConverter]::ToString($sha.ComputeHash($bytes)).Replace('-','') } finally { $sha.Dispose() }

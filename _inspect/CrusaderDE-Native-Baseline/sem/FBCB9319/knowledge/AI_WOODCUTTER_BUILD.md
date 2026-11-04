@@ -2,6 +2,42 @@
 
 Native SHA-256: `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`. Evidence: installed `CrusaderDE.dll`, direct Rizin disassembly, and `exports/semantic-decompiled-functions.c` plus `exports/semantic-functions.jsonl` for RVAs `0x51540`, `0x58020`, `0x58950`, `0x58BE0`, and `0xC3BF0`. The 29 September 2026 re-audit corrected the earlier conflation of `0x58950` and `0x58BE0`.
 
+## Safety-test integration audit, 31 October 2026
+
+Same native hash. The complete 0x58950 decode identifies a candidate-acceptance
+block at 0x58BAE: two MOVs (7+7 bytes) write R11D/R10D to the result pair.
+Its direct predecessor 0x58B28 branches to the block start; no incoming branch
+or indexed xref enters its interior. The exhausted search jumps from 0x58BAC
+to 0x58BBC, the exact end boundary. At 0x58BBC the normal register-restoring
+epilogue begins; later ADD RSP regenerates flags. The normal reject/enqueue
+continuation at 0x58B2E first MOVZX-writes EAX. Thus RAX and old flags are dead
+on both continuations; the other queue/search registers remain live. The full
+function contains neither calls nor SIMD. Confidence: high, direct image decode
+and all selected-baseline xrefs, reproduced by AIWoodSafetyTest/tools/Verify-Native.py.
+
+The external Fixes farmland inline begins at 0x58B12, requests 0x1A bytes but
+requires 0x1C complete instruction bytes through the conditional branch ending
+at 0x58B2E. Its accepted path targets 0x58BAE. A separate interception at the
+latter block composes with that filter without overlapping it or any entry hook.
+Only a verified woodsman context may activate such an interception because the
+Vanilla function also serves other building searches. Live bytes still require
+validation against the actual installed owners before publication.
+
+Mapper woodsman uses scale3 and footprint offsets0..2 on each axis through
+0x6A190/0x619C0/0x69850. Current Interop building origin and grid size describe
+the full square footprint. The Extender GetUnitAttackRange for ARCHER/ARAB_BOW
+reads their effective attack range; Vanilla ArcherArrow in table0x2DA8F0 has54.
+These are inputs to the new mod policy; Vanilla does not itself forbid huts in
+that radius. OnPlacementValidation Pre rules can be overwritten by the Extender's
+global placement override. Its Post event runs after that override, before the
+native construction caller checks the placement-blocked result.
+
+A private executable copy of the full Vanilla BFS plus its real neighbor table
+at0x2D2E50 verifies the safety test's generated candidate stub. Rejection resumes
+the same queue, producing the same alternate result/queue as Vanilla with the
+corresponding cells ineligible; exhausting the bounded fixture returns(-1,-1).
+This is offline machine evidence, not affected-save or performance acceptance.
+
 ## Current conclusion, 7 October 2026
 
 - **Confirmed native defect:** Woodsman caller `0x51540` accepts the first coarse candidate returned by `0x58950` without checking its fixed 3-by-3 footprint or anchor path component. A rejected route or placement does not resume that same search. The defect is a mismatch between coarse candidate eligibility and later fine-tile checks; one faulty coarse-grid writer has **not** been established.

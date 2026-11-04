@@ -16,6 +16,8 @@ $releases = @((($result.Output -join "`n") | ConvertFrom-Json) | Where-Object { 
 $rows = [System.Collections.Generic.List[string]]::new()
 foreach ($entry in @(Get-ReleaseIndexEntries -Config $config)) {
     $project = [string]$entry.Project
+    # APIShared releases belong to its independent repository; the README links there.
+    if ($project -eq 'APIShared') { continue }
     $matchingReleases = @($releases | Where-Object { ([string]$_.tagName).StartsWith("$project/v", [StringComparison]::Ordinal) } | Sort-Object publishedAt -Descending)
     $version = $null
     $url = $null
@@ -60,9 +62,9 @@ $sectionLines = @(
     $startMarker,
     '## Latest Mod Releases',
     '',
-    'These archives are produced by the repository release scripts from the linked public commit. The provenance file records the exact package, tool, and dependency hashes. This is a documented statement by the repository owner, not an independently executed build.',
+    'Choose a published release below. APIShared is installed separately from its [official releases](https://github.com/SHCDE-APIShared/APIShared/releases) or [Steam Workshop page](https://steamcommunity.com/workshop/filedetails/?id=3818609220).',
     '',
-    'Where shown, the code-status badge compares a release with the current relevant mod sources on `main`. Click it to open the mod-specific filtered diff report.',
+    'The code-status badge shows whether newer changes are waiting for release. Use the linked download; unreleased source changes are not included in older packages.',
     '',
     '| Mod | Latest release | Code status | Source commit | ZIP SHA-256 |',
     '| --- | --- | --- | --- | --- |'

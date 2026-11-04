@@ -29,6 +29,8 @@ namespace BugfixesAndQoL
         private int lastFrame = -1;
         private bool lordModeActive;
         private bool callbackErrorLogged;
+        private APIShared.Presentation.IUiFrameWorkRegistration frameWork;
+        private volatile bool presentationSession;
 
         internal LordUnitControlsFeature(ManualLogSource log, BugfixesAndQoLViewModel settings, SurrenderFeature surrenderFeature, Func<bool> isMixedDisbandContractValidated)
         {
@@ -45,30 +47,53 @@ namespace BugfixesAndQoL
                     "LordStanceTooltip", BeforeTooltip, AfterTooltip, out string reason)) throw new InvalidOperationException(reason);
             }
             catch { DisposeHooks(); throw; }
-            UnityEngine.Application.onBeforeRender += OnBeforeRender;
+            if (!APIShared.ApiShared.ForMod(BugfixesAndQoLPlugin.PluginGuid).Ui.TryRegisterBeforeRender(
+                "lord-unit-controls", OnBeforeRender, out frameWork, out string schedulingReason, 100))
+                throw new InvalidOperationException("Lord HUD scheduling unavailable: " + schedulingReason);
+            var client = APIShared.ApiShared.ForMod(BugfixesAndQoLPlugin.PluginGuid);
+            if (!client.TryGetMissionLifecycle(out APIShared.IMissionLifecycleCapability lifecycle, out APIShared.NativeCapabilityDiagnostic diagnostic) ||
+                !lifecycle.TryRegisterObserver("lord-unit-controls-presentation", _ => {
+                    presentationSession = true; UpdatePresentationDemand(); frameWork.Request();
+                }, _ => {
+                    presentationSession = false; frameWork.SetContinuous(false); frameWork.Request();
+                }, null, out diagnostic))
+                throw new InvalidOperationException("Lord HUD mission observation unavailable: " + diagnostic?.Reason);
+            RefreshSetting();
         }
 
         internal void RefreshSetting()
         {
+            UpdatePresentationDemand();
+            frameWork?.Request();
             if (!settings.EnableMod || !settings.EnableLordUnitControls)
                 DeactivateLordOnlyMode(true);
         }
 
         private void OnBeforeRender()
         {
-            if ((!settings.EnableMod || !settings.EnableLordUnitControls) && !lordModeActive) return;
-            if (!MainViewModel.viewModelLoaded || MainViewModel.Instance?.HUDmain == null) return;
+            bool retiring = !presentationSession || !settings.EnableMod || !settings.EnableLordUnitControls;
+            if (retiring && !lordModeActive) return;
+            if (!MainViewModel.viewModelLoaded || MainViewModel.Instance?.HUDmain == null)
+            { if (lordModeActive) frameWork.RequestAfter(TimeSpan.FromMilliseconds(100)); return; }
             if (lastFrame == UnityEngine.Time.frameCount) return;
             lastFrame = UnityEngine.Time.frameCount;
-            try { RefreshLordOnlyHud(); }
+            try
+            {
+                if (retiring) DeactivateLordOnlyMode(true);
+                else RefreshLordOnlyHud();
+            }
             catch (Exception ex)
             {
-                DeactivateLordOnlyMode(false);
+                if (!retiring) DeactivateLordOnlyMode(false);
                 if (callbackErrorLogged) return;
                 callbackErrorLogged = true;
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/src/LordUnitControlsFeature.cs:69", $"Lord action HUD failed closed; Vanilla presentation remains active: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/LordUnitControlsFeature/OnBeforeRender", $"Lord action HUD failed closed; Vanilla presentation remains active: {ex}");
             }
+            finally { if (retiring && lordModeActive) frameWork.RequestAfter(TimeSpan.FromMilliseconds(100)); }
         }
+
+        private void UpdatePresentationDemand() => frameWork?.SetContinuous(
+            presentationSession && settings.EnableMod && settings.EnableLordUnitControls);
 
         private void RefreshLordOnlyHud()
         {
@@ -109,11 +134,11 @@ namespace BugfixesAndQoL
             if (action == LordDisbandAction.UseVanilla) { disbandOriginal(self, parameter); return; }
             if (action == LordDisbandAction.RejectUnsafeMixedSelection)
             {
-                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/LordUnitControlsFeature.cs:112", "Mixed Lord disband rejected because its native ignore contract is unavailable.");
+                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/LordUnitControlsFeature/ButtonUnitDisbandHook.mixed-lord-disband-rejected", "Mixed Lord disband rejected because its native ignore contract is unavailable.");
                 return;
             }
             if (!surrenderFeature.TryRequestSurrenderFromLordHud())
-                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/src/LordUnitControlsFeature.cs:116", "Lord surrender request was rejected; Vanilla disband was not called.");
+                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/LordUnitControlsFeature/ButtonUnitDisbandHook.lord-surrender-request-rejected", "Lord surrender request was rejected; Vanilla disband was not called.");
         }
 
         private void BeforeTooltip(PresentationPreEventArgs args)
@@ -140,7 +165,11 @@ namespace BugfixesAndQoL
             int selectedId = count == 1 && state.selectedChimps != null && state.selectedChimps.Length > 0 ? state.selectedChimps[0] : -1;
             int player = GetControlledPlayerId(editor);
             lord = CaptureLord(player);
-            return LordUnitControlsPolicy.CanActivate(settings.EnableMod, settings.EnableLordUnitControls, IsActiveMatch(), editor, state != null && state.spectatorMode != 0, count, selectedId, player, lord);
+            // GetLocalPlayerId already reports the input-controlled player; only an uncontrolled spectator is blocked.
+            int spectatorMode = state?.spectatorMode ?? 0;
+            int inputControlledPlayerId = spectatorMode != 0 ? APIShared.PlayerPerspectiveAPI.GetInputControlledPlayerId() : 0;
+            bool spectator = SpectatorInputControlPolicy.IsObservingSpectator(spectatorMode, inputControlledPlayerId);
+            return LordUnitControlsPolicy.CanActivate(settings.EnableMod, settings.EnableLordUnitControls, IsActiveMatch(), editor, spectator, count, selectedId, player, lord);
         }
 
         private bool ShouldIncludeControlledLord(out SurrenderLordSnapshot lord)
@@ -177,8 +206,11 @@ namespace BugfixesAndQoL
         {
             if (!lordModeActive) return;
             if (!MainViewModel.viewModelLoaded || MainViewModel.Instance?.HUDmain == null) return;
+            MainViewModel current = MainViewModel.Instance;
+            // A delayed retirement must never restore a cached panel from a replaced HUD.
+            if (refresh && current.Show_HUD_Troops && ReferenceEquals(activePanel, current.HUDTroopPanel))
+                activePanel?.SelectedTroops();
             lordModeActive = false;
-            if (refresh && MainViewModel.Instance?.Show_HUD_Troops == true) activePanel?.SelectedTroops();
         }
 
         private static SurrenderLordSnapshot CaptureLord(int playerId)

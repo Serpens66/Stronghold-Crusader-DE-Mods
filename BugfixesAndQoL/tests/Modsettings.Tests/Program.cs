@@ -55,6 +55,13 @@ internal static partial class Program
     {
         try
         {
+            if (args.Length == 1 && args[0] == "--peace-policy-only")
+            {
+                PeaceTimeCivilianPolicyTests();
+                PeaceTimeCivilianRuntimeTests();
+                Console.WriteLine("PASS: peace-time civilian policy checks: " + checks);
+                return 0;
+            }
             string workspace=Path.GetFullPath(args[0]), dll=Path.GetFullPath(args[1]);
             string game=@"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition";
             string api=args.Length>2?args[2]:Environment.GetEnvironmentVariable("API_SHARED_DIR");
@@ -67,6 +74,11 @@ internal static partial class Program
                 foreach(string dir in dirs){if(string.IsNullOrWhiteSpace(dir))continue;string path=Path.Combine(dir,name);if(File.Exists(path))return (name=="BepInEx.dll" || name.StartsWith("Mono.",StringComparison.Ordinal) || name.StartsWith("MonoMod.",StringComparison.Ordinal))?Assembly.Load(File.ReadAllBytes(path)):Assembly.LoadFrom(path);}return null;
             };
             mod=Assembly.LoadFrom(dll);modelType=mod.GetType("BugfixesAndQoL.BugfixesAndQoLViewModel",true);
+            object presetModel = FormatterServices.GetUninitializedObject(modelType);
+            var retired = modelType.GetMethod("IsRetiredPresetProperty", All);
+            foreach (string key in new[] { "EnableSpectatorPerspective", "EnableEliminatedPlayersBecomeSpectators" })
+                Check((bool)retired.Invoke(presetModel, new object[] { key }), "known removed spectator preference is retired: " + key);
+            Check(!(bool)retired.Invoke(presetModel, new object[] { "UnknownSpectatorPreference" }), "unknown properties still fail preset validation");
             string manifest=File.ReadAllText(Path.Combine(workspace,"BugfixesAndQoL/info.json"));
             string version=System.Text.RegularExpressions.Regex.Match(manifest,"\"Version\"\\s*:\\s*\"([^\"]+)\"").Groups[1].Value;
             Check(mod.GetName().Version.ToString()==version+".0","built assembly version matches manifest");
@@ -101,6 +113,7 @@ internal static partial class Program
                 new[]{"SkirmishGameOptionsRuntime","Enabled","ShowMpAdvancedSettingsInSingleplayer"},
                 new[]{"NoDogsNativePatch","DesiredEnabled","ShowMpAdvancedSettingsInSingleplayer"},
                 new[]{"VanillaPeaceTimeGameplayPatch","DesiredEnabled","EnablePeaceTimeGameplayFixes"},
+                new[]{"PeaceTimeCivilianProximityFeature","DesiredEnabled","EnablePeaceTimeCivilianProximityReduction"},
                 new[]{"AbruptHostMigrationFix","StartupStateFixEnabled","EnableMultiplayerStartupStateFix"}})
                 Matrix(test[0],test[1],test[2],true);
             Matrix("SkirmishAiSelectionMemoryHook","RandomEnhancementsEnabled","EnableRandomOpponentSelectionEnhancements",true);
@@ -113,7 +126,7 @@ internal static partial class Program
                 Check(!Bool(runtime,"PeaceAvailable"),"failed native capability never exposes a usable peace setting");
             }
             foreach(bool h in new[]{false,true})foreach(bool c in new[]{false,true})
-                Check(Bool(Feature("SurrenderFeature",Model(h,c,null,false)),"StatisticsTeamBadgesEnabled")==c,"real independent badge snapshot gate");
+                Check(Bool(Feature("StatisticsTeamBadges",Model(h,c,null,false)),"StatisticsTeamBadgesEnabled")==c,"real independent badge snapshot gate");
             foreach(bool h in new[]{false,true})foreach(bool c in new[]{false,true})foreach(bool selection in new[]{false,true})foreach(bool presentation in new[]{false,true})
             {
                 object vm=Model(h,c,"EnableCustomLordListEnhancements",selection);Set(vm,"EnableLordAndMapListEnhancements",presentation);
@@ -141,11 +154,29 @@ internal static partial class Program
                 }
             }
             finally { System.Runtime.InteropServices.Marshal.FreeHGlobal(treeState); }
+            Type lordRuntime = mod.GetType("BugfixesAndQoL.LordTeleportGuard.LordTeleportGuardRuntime", true);
+            IntPtr lordFlag = System.Runtime.InteropServices.Marshal.AllocHGlobal(4);
+            try
+            {
+                object lord = FormatterServices.GetUninitializedObject(lordRuntime);
+                lordRuntime.GetField("enabled", All).SetValue(lord, lordFlag);
+                foreach(bool ready in new[]{false,true}) foreach(bool main in new[]{false,true}) foreach(bool option in new[]{false,true})
+                {
+                    lordRuntime.GetField("ready", All).SetValue(lord, ready);
+                    lordRuntime.GetMethod("SetEnabled", All).Invoke(lord,new object[]{main,option});
+                    Check(System.Runtime.InteropServices.Marshal.ReadInt32(lordFlag) == (ready && main && option ? 1 : 0),
+                        "integrated Lord native flag follows readiness/main/host option");
+                }
+            }
+            finally { System.Runtime.InteropServices.Marshal.FreeHGlobal(lordFlag); }
             Policies();
             object protectedMap=Feature("VanillaMapEditorHook",Model(false,false,"ShowLoadSaveDialogControls",false));
             Check(!Bool(protectedMap,"OriginalMapProtectionEnabled"),"unused map protection has no hidden feature activation");
             protectedMap.GetType().GetField("preserveOriginalMapProtection",All).SetValue(protectedMap,true);
             Check(Bool(protectedMap,"OriginalMapProtectionEnabled") && !Bool(protectedMap,"FeatureEnabled"),"already exposed original stays protected while optional dialogs are off");
+            PeaceTimeCivilianPolicyTests();
+            PeaceTimeCivilianRuntimeTests();
+            PeaceTimeCivilianCompiledTests(workspace);
             Metadata(workspace);
             SettingsPresentationTests(workspace);
             CompactLobbyChatTests(workspace, game);
@@ -193,7 +224,7 @@ internal static partial class Program
     }
     private static void Metadata(string workspace)
     {
-        var scopes=new Dictionary<string,bool>{{"EnableCompactLobbyChat",false},{"EnableLordAndMapListEnhancements",false},{"EnableMissingMapSaveRecovery",false},{"EnableRandomOpponentSelectionEnhancements",true},{"EnableMultiplayerStartupStateFix",true},{"EnablePeaceTimeGameplayFixes",true},{"EnableTreeBlightDecayFix",true}};
+        var scopes=new Dictionary<string,bool>{{"EnableCompactLobbyChat",false},{"EnableLordAndMapListEnhancements",false},{"EnableMissingMapSaveRecovery",false},{"EnableRandomOpponentSelectionEnhancements",true},{"EnableMultiplayerStartupStateFix",true},{"EnablePeaceTimeGameplayFixes",true},{"EnablePeaceTimeCivilianProximityReduction",true},{"EnableTreeBlightDecayFix",true},{"EnablePrebuiltAiStorageFix",true}};
         MethodBase ctor=modelType.GetConstructors(All).Single();
         List<Tuple<OpCode,object>> body=Instructions(ctor);
         var xaml=new XmlDocument();xaml.Load(Path.Combine(workspace,"BugfixesAndQoL/Override/ScriptExtenderUI/BugfixesAndQoLSettings.xaml"));
