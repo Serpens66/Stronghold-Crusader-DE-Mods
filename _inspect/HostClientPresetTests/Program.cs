@@ -2620,8 +2620,7 @@ internal static class Program
               page2.SequenceEqual(new[] { 9, 10, 11, 12, 13, 14, 15, 16 }) &&
               page3.SequenceEqual(new[] { 17, 18, 19, 20, 21, 22, 23, 24 }) &&
               page4.SequenceEqual(new[] { 25, 26, 27, 28, 29, 30, 31, 32 }) &&
-              page5.SequenceEqual(new[] { 33, 34, 35, 55, -1, -1, -1, -1 }) &&
-              SelectedUnitHealthPageLayout.GetPageCount(selectedTypes) == 5,
+              page5.SequenceEqual(new[] { 33, 34, 35, 55, -1, -1, -1, -1 }),
             "shared troop/health page slots were not contiguous or omitted the Lord");
 
         var reusablePage = Enumerable.Repeat(999, SelectedUnitHealthPageLayout.SlotCount).ToArray();
@@ -2643,7 +2642,6 @@ internal static class Program
             boundary[55] = 1;
             int expectedPages = (typeCount + 7) / 8;
             Check(SelectedUnitHealthPageLayout.CountVisibleTypes(boundary) == typeCount &&
-                  SelectedUnitHealthPageLayout.GetPageCount(boundary) == expectedPages &&
                   SelectedUnitHealthPageLayout.GetVisibleTypes(
                       boundary,
                       expectedPages - 1).Contains(55),

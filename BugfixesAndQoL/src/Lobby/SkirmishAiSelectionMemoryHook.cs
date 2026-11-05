@@ -13,8 +13,6 @@ namespace BugfixesAndQoL
 {
     internal sealed class SkirmishAiSelectionMemoryHook : INotifyPropertyChanged
     {
-        internal const int MaxStoredAivEntriesPerLord = 50;
-
         private delegate void MultiplayerButtonClickedDelegate(FRONT_Multiplayer self, string param);
         private delegate void MultiplayerUpdateRandomAiButtonsDelegate(FRONT_Multiplayer self);
         private delegate void ShowSkirmishRandomAiSetterDelegate(MainViewModel self, bool value);

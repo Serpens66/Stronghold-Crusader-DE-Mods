@@ -9,7 +9,7 @@ using System.Reflection;
 
 namespace BugfixesAndQoL
 {
-    internal sealed class AutoTradeSellZeroHook : IDisposable
+    internal sealed class AutoTradeSellZeroHook
     {
         private delegate void AutoTradeSellSliderValueChangedDelegate(HUD_Buildings self, object sender, RoutedPropertyChangedEventArgs<float> e);
 
@@ -22,7 +22,6 @@ namespace BugfixesAndQoL
         private readonly BugfixesAndQoLViewModel settings;
         private readonly Hook hook;
         private readonly AutoTradeSellSliderValueChangedDelegate trampoline;
-        private bool disposed;
 
         public AutoTradeSellZeroHook(ManualLogSource log, BugfixesAndQoLViewModel settings)
         {
@@ -32,17 +31,6 @@ namespace BugfixesAndQoL
             hook = new Hook(FindSellSliderValueChangedMethod(), (AutoTradeSellSliderValueChangedDelegate)SellSliderValueChangedHook);
             trampoline = hook.GenerateTrampoline<AutoTradeSellSliderValueChangedDelegate>();
             Shared.DebugLogHelper.LogDebug(log, "Bugfixes and QoL auto-trade sell zero hook installed.");
-        }
-
-        public void Dispose()
-        {
-            if (disposed)
-                return;
-
-            disposed = true;
-            hook?.Undo();
-            hook?.Dispose();
-            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/AutoTradeSellZeroHook/Dispose", "Bugfixes and QoL auto-trade sell zero hook disposed.");
         }
 
         private static MethodInfo FindSellSliderValueChangedMethod()

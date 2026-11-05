@@ -57,12 +57,6 @@ namespace BugfixesAndQoL
     {
         internal const int SlotCount = 8;
 
-        internal static int GetPageCount(int[] selectedTypeCounts)
-        {
-            int typeCount = CountVisibleTypes(selectedTypeCounts);
-            return Math.Max(1, (typeCount + SlotCount - 1) / SlotCount);
-        }
-
         internal static int CountVisibleTypes(int[] selectedTypeCounts)
         {
             if (selectedTypeCounts == null)

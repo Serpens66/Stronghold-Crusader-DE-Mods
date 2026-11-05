@@ -33,9 +33,6 @@ namespace BugfixesAndQoL.UnitCommands
         private delegate void FormationSlotDelegate(IntPtr manager, int spacing, int x, int y);
 
         [UnmanagedFunctionPointer(CallingConvention.Winapi)]
-        private delegate int AssassinFormationSlotDelegate(IntPtr manager, int spacing, int x, int y);
-
-        [UnmanagedFunctionPointer(CallingConvention.Winapi)]
         private delegate long CommonGroupMoveDelegate(
             IntPtr manager, int tribeId, short x, short y, short patrol, int newOrder);
 
