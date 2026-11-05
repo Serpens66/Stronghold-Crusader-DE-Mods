@@ -447,7 +447,7 @@ namespace BugfixesAndQoL
             }
 
             // In multiplayer only the host chooses and broadcasts the explicit target.
-            if (RequiresChoreTransport() && !GameNetworkAPI.IsLocalHost())
+            if (RequiresChoreTransport() && !MultiplayerRoster.IsLocalHost())
                 return;
 
             int quarryId = (int)args.ReturnValue;
