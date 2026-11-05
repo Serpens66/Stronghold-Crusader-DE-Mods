@@ -342,6 +342,7 @@
     <Compile Include="src\SiegeAmmoRestockPacket.cs" />
     <Compile Include="src\SiegeAmmoRestockPolicy.cs" />
     <Compile Include="src\SkirmishAiSelectionMemoryHook.cs" />
+    <Compile Include="src\AiSelectionMemoryStore.cs" />
     <Compile Include="src\SkirmishGameOptionsAccessViewModel.cs" />
     <Compile Include="src\SkirmishGameOptionsPolicy.cs" />
     <Compile Include="src\SkirmishGameOptionsRuntime.cs" />
