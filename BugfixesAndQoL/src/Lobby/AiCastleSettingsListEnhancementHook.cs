@@ -14,6 +14,8 @@ using System.Reflection;
 
 namespace BugfixesAndQoL
 {
+    // The preset section stays in this class. Moving it would hand five delegates back and split the
+    // LoadPreset flow across two types.
     internal sealed class AiCastleSettingsListEnhancementHook : INotifyPropertyChanged
     {
         private delegate void ShowDelegate(

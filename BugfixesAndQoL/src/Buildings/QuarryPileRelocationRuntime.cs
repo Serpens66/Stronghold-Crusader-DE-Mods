@@ -446,7 +446,8 @@ namespace BugfixesAndQoL
                 return;
             }
 
-            // In multiplayer only the host chooses and broadcasts the explicit target.
+            // In multiplayer only the host chooses and broadcasts the explicit target. Entries pending
+            // on a departed host are not taken over; those quarries keep their Vanilla pile.
             if (RequiresChoreTransport() && !MultiplayerRoster.IsLocalHost())
                 return;
 

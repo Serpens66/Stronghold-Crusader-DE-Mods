@@ -73,6 +73,8 @@ namespace BugfixesAndQoL
         public static bool TryGetLobbyAIKeepRangeBypass(out bool bypass) =>
             BugfixesAndQoLRuntime.TryGetLobbyAIKeepRangeBypass(out bypass);
 
+        // The try blocks of the start path stay written out. Several catch blocks have side effects
+        // or return early, so a shared helper would only save about 33 lines.
         private void Awake()
         {
             Shared.DebugLogHelper.InitializeDiagnostics(Config, Logger);

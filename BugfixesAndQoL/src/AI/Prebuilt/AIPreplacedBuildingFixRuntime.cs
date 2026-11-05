@@ -1070,6 +1070,8 @@ namespace BugfixesAndQoL
             }
         }
 
+        // The overlay stays in this class. Only a small core could move (estimated below 3%), and the
+        // rest would reach back into this runtime's per-player state on the per-tile lookup path.
         private EconomyGridOverlayScope TryApplyEconomyGridOverlay(ulong state, int playerId, string helper,
             bool allowPendingActivation)
         {
@@ -1837,6 +1839,7 @@ namespace BugfixesAndQoL
                 { bestWallCount = wallCount; best = component; }
             }
             if (best.Count == 0 && candidateComponents.Count != 0)
+                // OrderByDescending is stable, so ties keep the first component found. List.Sort is not.
                 best = candidateComponents.OrderByDescending(value => value.Count(walls.ContainsKey)).First();
             return best;
         }

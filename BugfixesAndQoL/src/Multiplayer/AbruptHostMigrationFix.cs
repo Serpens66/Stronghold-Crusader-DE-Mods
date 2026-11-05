@@ -46,6 +46,8 @@ namespace BugfixesAndQoL
         private readonly BugfixesAndQoLViewModel settings;
         private readonly MultiplayerFeatureGate multiplayerFeatureGate;
         private readonly MethodInfo promoteNewHostMethod;
+        // No cleanup for a recovered target is needed. In native FBCB9319 the lag-kick flag behind
+        // mpkick is only set during a match; DLL_RemapPlayers alone clears it, so a waiting target stays due.
         private readonly HashSet<int> recoveryTargets = new HashSet<int>();
         private Hook kickHook;
         private Hook sendChoresHook;

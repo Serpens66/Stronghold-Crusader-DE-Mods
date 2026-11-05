@@ -45,6 +45,7 @@ namespace BugfixesAndQoL
             (decimal)current >= (decimal)maximum * 0.40m ? SelectedUnitHealthBand.Yellow :
             SelectedUnitHealthBand.Red;
 
+        // Thin test seams over ScaleForDisplay, used by HostClientPresetTests.
         public string FormatCurrent() => ScaleForDisplay(CurrentHealth).ToString();
 
         public string FormatMaximum() => ScaleForDisplay(MaximumHealth).ToString();
@@ -71,6 +72,7 @@ namespace BugfixesAndQoL
             return result;
         }
 
+        // Thin test seam over FillVisibleTypes, used by HostClientPresetTests.
         internal static int[] GetVisibleTypes(int[] selectedTypeCounts, int currentPage)
         {
             var result = new int[SlotCount];

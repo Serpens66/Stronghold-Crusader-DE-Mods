@@ -369,6 +369,8 @@ namespace BugfixesAndQoL
                 int resolvedUnitId = lord.GlobalId > 0
                     ? GameUnitManagerAPI.Instance.GetByGlobalId(lord.GlobalId)
                     : -1;
+                // Local state inside a lockstep chore, kept on purpose. Peers can only disagree before
+                // their first tick, and a request needs a visible button plus the host's confirmation.
                 if (!IsActiveMatch() ||
                     !APIShared.GameModes.GameModeHelper.IsRealMultiplayer() ||
                     !SurrenderPolicy.CanExecute(

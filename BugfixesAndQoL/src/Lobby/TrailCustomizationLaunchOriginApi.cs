@@ -120,6 +120,8 @@ namespace BugfixesAndQoL
 
         private static byte[] SaveState(SaveContext context)
         {
+            // Multiplayer saves keep the origin as well. That is harmless: BFQoL reads Origin only
+            // when it starts or restarts a Custom Trail.
             if (context == null || !context.IsSaveFile || context.IsMapEditorSave)
                 return null;
             lock (Sync)

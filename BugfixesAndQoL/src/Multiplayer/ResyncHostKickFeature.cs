@@ -186,6 +186,9 @@ namespace BugfixesAndQoL
                     return;
                 }
 
+                // DLL_KickMPPlayer sends no chore, so clients drop this peer through their own lag
+                // timeout and may wait for a recovery save (read from native FBCB9319, not measured).
+                // The kick still completes everywhere; shortening the wait would need a new packet.
                 MultiplayerSafetyPolicy.RunExplicitHostKick(
                     () => forcedHostKickMethod.Invoke(Platform_Multiplayer.Instance, new object[] { member, true }));
                 if (Shared.DebugLogHelper.DiagnosticsEnabled)

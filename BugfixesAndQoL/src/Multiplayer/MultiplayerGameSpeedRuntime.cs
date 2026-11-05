@@ -643,6 +643,8 @@ namespace BugfixesAndQoL
                     return;
                 }
 
+                // Local cap inside a lockstep chore, kept on purpose. Peers only differ with a deviating
+                // Extender MaxGameSpeed, which changes the tick pace; no simulation divergence was found.
                 if (!MultiplayerGameSpeedPolicy.TryResolvePacket(
                         GetCurrentSpeed(),
                         packet.ProtocolVersion,
