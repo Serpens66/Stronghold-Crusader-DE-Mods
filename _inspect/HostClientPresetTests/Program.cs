@@ -2316,6 +2316,7 @@ internal static class Program
             "AIEconomyProtectionHook.cs",
             "BugfixesAndQoLRuntime.MovedFeatures.cs",
             "QuarryPileRelocationRuntime.cs",
+            "QuarryPileTargetSearch.cs",
             "ReachableEnemyGatehouseRuntime.cs",
             "SingleBuildingPauseHook.cs"
         };

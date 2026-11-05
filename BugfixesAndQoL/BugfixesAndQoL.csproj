@@ -321,6 +321,7 @@
     <Compile Include="src\QuarryPileVanillaGroupPolicy.cs" />
     <Compile Include="src\QuarryPileRelocationPacket.cs" />
     <Compile Include="src\QuarryPileRelocationRuntime.cs" />
+    <Compile Include="src\QuarryPileTargetSearch.cs" />
     <Compile Include="src\QuarryKeepCenterPolicy.cs" />
     <Compile Include="src\QuarryPileTargetSelectionPolicy.cs" />
     <Compile Include="src\ReachableEnemyGatehouseRuntime.cs" />
