@@ -77,7 +77,7 @@ namespace BugfixesAndQoL
                     multiplayer == null ||
                     !Platform_Multiplayer.MPGameActive ||
                     !multiplayer.resyncing ||
-                    !GameNetworkAPI.IsLocalHost())
+                    !MultiplayerRoster.IsLocalHost())
                 {
                     if (targetFromResync)
                         ClearTarget(clearViewModel: true);
@@ -118,7 +118,7 @@ namespace BugfixesAndQoL
                     kickNotLeave &&
                     member != null &&
                     IsValidHumanTarget(member) &&
-                    GameNetworkAPI.IsLocalHost())
+                    MultiplayerRoster.IsLocalHost())
                 {
                     SetTarget(member, fromResync: false);
                     MainViewModel.Instance.MPConectionIssueButtonVisible = true;
@@ -214,7 +214,7 @@ namespace BugfixesAndQoL
             if (!FeatureEnabled ||
                 multiplayer == null ||
                 !Platform_Multiplayer.MPGameActive ||
-                !GameNetworkAPI.IsLocalHost())
+                !MultiplayerRoster.IsLocalHost())
             {
                 return false;
             }

@@ -238,10 +238,17 @@ namespace BugfixesAndQoL
                     return;
                 }
 
-                if (GameNetworkAPI.IsLocalHost())
+                if (MultiplayerRoster.IsLocalHost())
                 {
                     if (!TryQueueExecution(lord))
                         Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/SurrenderFeature/ConfirmSurrender.host-surrender-could-not", "Host surrender could not be queued; no local kill was applied.");
+                    return;
+                }
+
+                if (!MultiplayerTimeControlRosterPolicy.TryGetActiveHostPlayerId(
+                        MultiplayerRoster.Snapshot(), out int hostPlayerId))
+                {
+                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/SurrenderFeature/ConfirmSurrender.no-active-host", "Surrender request was not sent because no unique active host is known.");
                     return;
                 }
 
@@ -251,9 +258,9 @@ namespace BugfixesAndQoL
                     ProtocolVersion = RequestProtocolVersion,
                     RequestId = requestId
                 };
-                GameNetworkAPI.SendPacketToPlayerId(1, request, requestPacketHook.GetPacketId());
+                GameNetworkAPI.SendPacketToPlayerId(hostPlayerId, request, requestPacketHook.GetPacketId());
                 if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/SurrenderFeature/ConfirmSurrender.sent-targetless-surrender-request", $"Sent targetless surrender request to host: requestId={requestId}, localPlayerId={localPlayerId}.");
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/SurrenderFeature/ConfirmSurrender.sent-targetless-surrender-request", $"Sent targetless surrender request to host: requestId={requestId}, localPlayerId={localPlayerId}, hostPlayerId={hostPlayerId}.");
             }
             catch (Exception ex)
             {
@@ -321,7 +328,7 @@ namespace BugfixesAndQoL
                 bool accepted = SurrenderPolicy.CanAcceptRequest(
                     FeatureEnabled,
                     IsActiveMatch() && APIShared.GameModes.GameModeHelper.IsRealMultiplayer(),
-                    GameNetworkAPI.IsLocalHost(),
+                    MultiplayerRoster.IsLocalHost(),
                     playerId > 0,
                     IsHumanMember(member),
                     lord);
@@ -401,7 +408,7 @@ namespace BugfixesAndQoL
 
         private bool TryQueueExecution(SurrenderLordSnapshot lord)
         {
-            if (!GameNetworkAPI.IsLocalHost() ||
+            if (!MultiplayerRoster.IsLocalHost() ||
                 !FeatureEnabled ||
                 !IsActiveMatch() ||
                 !APIShared.GameModes.GameModeHelper.IsRealMultiplayer() ||

@@ -310,7 +310,7 @@ namespace BugfixesAndQoL
 
             try
             {
-                recoveryLocalIsHost = GameNetworkAPI.IsLocalHost();
+                recoveryLocalIsHost = MultiplayerRoster.IsLocalHost();
             }
             catch (Exception ex)
             {

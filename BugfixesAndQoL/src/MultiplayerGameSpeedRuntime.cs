@@ -429,7 +429,7 @@ namespace BugfixesAndQoL
             try
             {
                 if (!MultiplayerTimeControlRosterPolicy.TryGetLocalSendAuthorization(
-                        SnapshotGameMembers(), out bool isLocalHost, out bool hostChanged))
+                        MultiplayerRoster.Snapshot(), out bool isLocalHost, out bool hostChanged))
                     return false;
 
                 return settings.EnableMod &&
@@ -586,7 +586,7 @@ namespace BugfixesAndQoL
             if (directDelivery)
             {
                 if (!MultiplayerTimeControlRosterPolicy.IsActiveHumanSender(
-                        SnapshotGameMembers(), senderSteamId))
+                        MultiplayerRoster.Snapshot(), senderSteamId))
                 {
                     LogError("rejected a direct multiplayer time-control packet from an unknown or departed game member.");
                     return;
@@ -822,24 +822,6 @@ namespace BugfixesAndQoL
             return plugin?.MaxGameSpeed != null
                 ? Math.Max(MultiplayerGameSpeedPolicy.MinimumSpeed, (int)plugin.MaxGameSpeed.Value)
                 : MultiplayerGameSpeedPolicy.MaximumSpeed;
-        }
-
-        private static List<MultiplayerTimeControlMember> SnapshotGameMembers()
-        {
-            var members = Platform_Multiplayer.Instance?.gameMembers;
-            if (members == null)
-                return null;
-
-            var snapshot = new List<MultiplayerTimeControlMember>(members.Count);
-            foreach (Platform_Multiplayer.MPGameMember member in members)
-            {
-                if (member == null)
-                    continue;
-                snapshot.Add(new MultiplayerTimeControlMember(
-                    member.steamID, member.playerID, member.isSelf, member.isHost,
-                    member.skirmishAI, member.kicked, member.pendingKick));
-            }
-            return snapshot;
         }
 
         private static int CountConnectedHumans(Platform_Multiplayer multiplayer)

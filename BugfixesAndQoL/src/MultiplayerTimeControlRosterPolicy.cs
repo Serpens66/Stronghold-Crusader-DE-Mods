@@ -32,6 +32,32 @@ namespace BugfixesAndQoL
 
     internal static class MultiplayerTimeControlRosterPolicy
     {
+        // The unique active host's current slot. It can differ from slot 1 after a host
+        // migration or a multiplayer save remap.
+        internal static bool TryGetActiveHostPlayerId(
+            IEnumerable<MultiplayerTimeControlMember> members,
+            out int hostPlayerId)
+        {
+            hostPlayerId = 0;
+            if (members == null)
+                return false;
+
+            int activeHosts = 0;
+            foreach (MultiplayerTimeControlMember member in members)
+            {
+                if (member.IsActiveHuman && member.IsHost)
+                {
+                    activeHosts++;
+                    hostPlayerId = member.PlayerId;
+                }
+            }
+
+            if (activeHosts == 1)
+                return true;
+            hostPlayerId = 0;
+            return false;
+        }
+
         internal static bool TryGetLocalSendAuthorization(
             IEnumerable<MultiplayerTimeControlMember> members,
             out bool isLocalHost,

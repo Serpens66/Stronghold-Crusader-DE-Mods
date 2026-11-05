@@ -2372,6 +2372,34 @@ namespace BugfixesAndQoL
                         new[] { originalRoster[1], originalRoster[1] }, 1002),
                 "ambiguous host and duplicate sender mappings fail closed");
 
+            var remappedRoster = new[]
+            {
+                new MultiplayerTimeControlMember(1002, 1, true, false, false, false, false),
+                new MultiplayerTimeControlMember(1001, 3, false, true, false, false, false)
+            };
+            var pendingHostRoster = new[]
+            {
+                new MultiplayerTimeControlMember(1001, 1, false, true, false, false, true),
+                new MultiplayerTimeControlMember(1002, 2, true, false, false, false, false)
+            };
+            var noHostRoster = new[]
+            {
+                new MultiplayerTimeControlMember(1002, 2, true, false, false, false, false)
+            };
+            Check(MultiplayerTimeControlRosterPolicy.TryGetActiveHostPlayerId(originalRoster, out int originalHostId) &&
+                    originalHostId == 1 &&
+                    MultiplayerTimeControlRosterPolicy.TryGetActiveHostPlayerId(migratedRoster, out int migratedHostId) &&
+                    migratedHostId == 2 &&
+                    MultiplayerTimeControlRosterPolicy.TryGetActiveHostPlayerId(remappedRoster, out int remappedHostId) &&
+                    remappedHostId == 3,
+                "surrender requests reach the current active host after a migration or save remap");
+            Check(!MultiplayerTimeControlRosterPolicy.TryGetActiveHostPlayerId(ambiguousRoster, out int ambiguousHostId) &&
+                    ambiguousHostId == 0 &&
+                    !MultiplayerTimeControlRosterPolicy.TryGetActiveHostPlayerId(pendingHostRoster, out _) &&
+                    !MultiplayerTimeControlRosterPolicy.TryGetActiveHostPlayerId(noHostRoster, out _) &&
+                    !MultiplayerTimeControlRosterPolicy.TryGetActiveHostPlayerId(null, out _),
+                "the active host lookup fails closed without one unique active host");
+
             Check(MultiplayerSafetyPolicy.IsConnectedHuman(1001, false, false) &&
                     !MultiplayerSafetyPolicy.IsConnectedHuman(1000, false, false) &&
                     !MultiplayerSafetyPolicy.IsConnectedHuman(1001, true, false) &&
