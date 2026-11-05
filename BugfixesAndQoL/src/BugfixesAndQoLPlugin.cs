@@ -12,7 +12,7 @@ using System.Reflection;
 namespace BugfixesAndQoL
 {
     [BepInDependency(ScriptExtenderGuid, "2.14.3")]
-    [BepInDependency(ApiSharedGuid, "0.30.0")]
+    [BepInDependency(ApiSharedGuid, "0.31.0")]
     [BepInDependency("ActiveAIVDetector_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("ExtraFeatures_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency(LegacySomeSettingsGuid, BepInDependency.DependencyFlags.SoftDependency)]
@@ -282,17 +282,6 @@ namespace BugfixesAndQoL
                 skirmishGameOptionsRuntime = null;
                 skirmishGameOptionsAccess.SetRuntimeAvailable(false);
                 Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/BugfixesAndQoLPlugin/InitializeLibraryRuntime.skirmish-game-options-managed", "BUGFIXES_AND_QOL_SKIRMISH_GAME_OPTIONS_MANAGED_FAILED: " + ex);
-            }
-
-            try
-            {
-                GameXAMLManagerAPI.Instance.RegisterBinding(
-                    "SerpTroopAction_0200_BugfixesAndQoLAssassinClimb",
-                    runtime.AssassinClimbButton);
-            }
-            catch (Exception ex)
-            {
-                Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/BugfixesAndQoLPlugin/InitializeLibraryRuntime.assassin-climb-button-binding", $"Bugfixes and QoL Assassin climb button binding failed: {ex}");
             }
 
             try

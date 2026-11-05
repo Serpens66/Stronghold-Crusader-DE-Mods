@@ -9,7 +9,7 @@ using System;
 namespace ExtraFeatures
 {
     [BepInDependency(ScriptExtenderGuid, "2.14.0")]
-    [BepInDependency(ApiSharedGuid, "0.28.0")]
+    [BepInDependency(ApiSharedGuid, "0.31.0")]
     [BepInDependency(LegacySomeSettingsGuid, BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("FearFactorNeutralizationTest_Serp", BepInDependency.DependencyFlags.SoftDependency)]
@@ -113,17 +113,6 @@ namespace ExtraFeatures
             {
                 Shared.DebugLogHelper.LogErrorLimited(Logger, "ExtraFeatures/ExtraFeaturesPlugin/InitializeLibraryRuntime.settings-ui-registration-failed", $"Extra Features settings UI registration failed: {ex}");
                 return;
-            }
-
-            try
-            {
-                GameXAMLManagerAPI.Instance.RegisterBinding(
-                    "SerpTroopAction_0100_ExtraFeaturesKnightTransform",
-                    runtime.KnightDismountButton);
-            }
-            catch (Exception ex)
-            {
-                Shared.DebugLogHelper.LogErrorLimited(Logger, "ExtraFeatures/ExtraFeaturesPlugin/InitializeLibraryRuntime.knight-button-binding-failed", $"Extra Features knight button binding failed: {ex}");
             }
 
             try

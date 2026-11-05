@@ -21,41 +21,15 @@ namespace BugfixesAndQoL
     internal sealed class AssassinClimbButtonViewModel : LobbyModSettingsBaseViewModel
     {
         private bool wantsVisibility;
-        private bool layoutAvailable = true;
         private Visibility forbiddenMarkVisibility = Visibility.Hidden;
 
-        public AssassinClimbButtonViewModel(Action toggle, Action showTooltip, Action hideTooltip)
+        public AssassinClimbButtonViewModel(Action toggle)
         {
             ToggleCommand = new RelayCommand(toggle ?? throw new ArgumentNullException(nameof(toggle)));
-            MouseEnterCommand = new RelayCommand(showTooltip ?? throw new ArgumentNullException(nameof(showTooltip)));
-            MouseLeaveCommand = new RelayCommand(hideTooltip ?? throw new ArgumentNullException(nameof(hideTooltip)));
         }
 
         public RelayCommand ToggleCommand { get; }
-        public RelayCommand MouseEnterCommand { get; }
-        public RelayCommand MouseLeaveCommand { get; }
-
-        public int TroopActionLayoutVersion => 1;
-        public string TroopActionId => "BugfixesAndQoL_Serp.AssassinClimb";
-        public int TroopActionPriority => 200;
         public bool WantsVisibility => wantsVisibility;
-
-        public bool LayoutAvailable
-        {
-            get => layoutAvailable;
-            set
-            {
-                if (layoutAvailable == value)
-                    return;
-                layoutAvailable = value;
-                OnPropertyChanged(nameof(LayoutAvailable));
-                OnPropertyChanged(nameof(ButtonVisibility));
-            }
-        }
-
-        public Visibility ButtonVisibility => wantsVisibility && layoutAvailable
-            ? Visibility.Visible
-            : Visibility.Hidden;
 
         public Visibility ForbiddenMarkVisibility
         {
@@ -87,7 +61,6 @@ namespace BugfixesAndQoL
                 return;
             wantsVisibility = value;
             OnPropertyChanged(nameof(WantsVisibility));
-            OnPropertyChanged(nameof(ButtonVisibility));
         }
     }
 
@@ -124,7 +97,7 @@ namespace BugfixesAndQoL
         private bool lastSelectionHasAssassinType;
         private int lastSelectionAssassinUnitId;
         private int nextOperationId;
-        private Button hookedButton;
+        private APIShared.Presentation.ITroopActionButtonRegistration actionRegistration;
         private bool tooltipVisible;
 
         public AssassinClimbRuntime(ManualLogSource log, BugfixesAndQoLViewModel settings, MultiplayerFeatureGate multiplayerFeatureGate)
@@ -132,11 +105,45 @@ namespace BugfixesAndQoL
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
             this.multiplayerFeatureGate = multiplayerFeatureGate ?? throw new ArgumentNullException(nameof(multiplayerFeatureGate));
-            buttonViewModel = new AssassinClimbButtonViewModel(OnToggleCommand, ShowTooltip, HideTooltip);
+            buttonViewModel = new AssassinClimbButtonViewModel(OnToggleCommand);
+            buttonViewModel.PropertyChanged += (sender, args) => PublishButtonState();
             ResetPlayerStates();
         }
 
-        public AssassinClimbButtonViewModel ButtonViewModel => buttonViewModel;
+        public void RegisterActionButton()
+        {
+            if (actionRegistration != null) return;
+            var definition = new APIShared.Presentation.TroopActionButtonDefinition(
+                "AssassinClimb", buttonViewModel.ToggleCommand,
+                SerpLocalization.Get(SerpLocalization.AssassinClimbingToggleTooltip), CreateActionButton,
+                priority: 200, hoverChanged: hovered => { if (hovered) ShowTooltip(); else HideTooltip(); });
+            if (!APIShared.Presentation.TroopActionHud.TryRegisterButton(
+                BugfixesAndQoLPlugin.PluginGuid, definition, out actionRegistration, out string reason))
+                throw new InvalidOperationException(reason);
+            PublishButtonState();
+        }
+
+        private Button CreateActionButton(APIShared.UnitHudActionButtonContext context)
+        {
+            var button = new Button { Width = 36, Height = 37, Padding = new Thickness(0),
+                Style = context.Hud.TryFindResource("BugfixesAndQoLAssassinActionButtonStyle") as Style,
+                DataContext = buttonViewModel };
+            if (button.Style == null) throw new InvalidOperationException("Assassin action button style is unavailable.");
+            object normal = context.Hud.TryFindResource("UI-Buttons K043");
+            object hover = context.Hud.TryFindResource("UI-Buttons K044");
+            if (normal == null || hover == null) throw new InvalidOperationException("Vanilla Assassin action sprites are unavailable.");
+            PropEx.SetSprite1(button, normal);
+            PropEx.SetSprite2(button, hover);
+            PropEx.SetSprite3(button, hover);
+            PropEx.SetSprite4(button, hover);
+            return button;
+        }
+
+        private void PublishButtonState()
+        {
+            actionRegistration?.SetVisible(buttonViewModel.WantsVisibility);
+            actionRegistration?.SetTooltip(SerpLocalization.Get(SerpLocalization.AssassinClimbingToggleTooltip));
+        }
 
         public bool IsClimbingAllowed(int playerId)
         {
@@ -178,7 +185,6 @@ namespace BugfixesAndQoL
             frameWork?.CancelPending();
             InvalidateRenderState();
             HideTooltip();
-            UnhookButtonEvents();
             buttonViewModel.Hide();
         }
 
@@ -254,8 +260,6 @@ namespace BugfixesAndQoL
             {
                 if (troopPanel == null)
                     TryGetHudTroopPanel(out troopPanel);
-
-                HookButtonEvents(troopPanel);
 
                 MainViewModel viewModel = MainViewModel.viewModelLoaded ? MainViewModel.Instance : null;
                 bool featureActive = initialized && troopPanel != null &&
@@ -516,44 +520,12 @@ namespace BugfixesAndQoL
                 unit->r_UnitChimp == eChimps.CHIMP_TYPE_ARAB_ASSASIN && unit->r_ControllableForPlayerId == playerId;
         }
 
-        private void HookButtonEvents(HUD_Troops troopPanel)
-        {
-            Button button = troopPanel?.FindName("BugfixesAndQoLAssassinClimbButton") as Button;
-            if (button == null || ReferenceEquals(button, hookedButton))
-                return;
-
-            UnhookButtonEvents();
-            hookedButton = button;
-            hookedButton.MouseEnter += OnButtonMouseEnter;
-            hookedButton.MouseLeave += OnButtonMouseLeave;
-        }
-
-        private void UnhookButtonEvents()
-        {
-            if (hookedButton == null)
-                return;
-
-            hookedButton.MouseEnter -= OnButtonMouseEnter;
-            hookedButton.MouseLeave -= OnButtonMouseLeave;
-            hookedButton = null;
-        }
-
-        private void OnButtonMouseEnter(object sender, Noesis.MouseEventArgs e)
-        {
-            ShowTooltip();
-        }
-
-        private void OnButtonMouseLeave(object sender, Noesis.MouseEventArgs e)
-        {
-            HideTooltip();
-        }
-
         private void ShowTooltip()
         {
             try
             {
                 int playerId = GetControlledPlayerId();
-                MainViewModel viewModel = MainViewModel.Instance;
+                MainViewModel viewModel = MainViewModel.viewModelLoaded ? MainViewModel.Instance : null;
                 HUD_Troops troopPanel = viewModel?.HUDTroopPanel;
                 if (viewModel == null || troopPanel == null)
                     return;

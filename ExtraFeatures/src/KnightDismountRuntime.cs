@@ -36,8 +36,11 @@ namespace ExtraFeatures
         private readonly MultiplayerFeatureGate multiplayerFeatureGate;
         private readonly UnitLimitBridge unitLimitBridge;
         private readonly KnightDismountButtonViewModel buttonViewModel;
-        private Button hookedDismountButton;
-        private Button hookedMountButton;
+        private APIShared.Presentation.ITroopActionButtonRegistration actionRegistration;
+        private Button actionButton;
+        private object[] actionSprites;
+        private bool? actionButtonMounting;
+        private bool actionHovered;
         private HUD_Troops tooltipMetadataPanel;
         private StackPanel tooltipMetadataHost;
         private Image tooltipGoldIcon;
@@ -66,13 +69,78 @@ namespace ExtraFeatures
             selectionWorld = new KnightSelectionWorld(this);
             buttonViewModel = new KnightDismountButtonViewModel(
                 () => OnTransformationCommand(DismountAction),
-                () => OnTransformationCommand(MountAction),
-                ShowDismountTooltip,
-                ShowMountTooltip,
-                HideTooltip);
+                () => OnTransformationCommand(MountAction));
+            buttonViewModel.PropertyChanged += (sender, args) => PublishButtonState();
         }
 
-        public KnightDismountButtonViewModel ButtonViewModel => buttonViewModel;
+        public void RegisterActionButton()
+        {
+            if (actionRegistration != null) return;
+            var definition = new APIShared.Presentation.TroopActionButtonDefinition(
+                "KnightTransform", buttonViewModel.TransformCommand,
+                SerpLocalization.Get(SerpLocalization.KnightDismountTooltip), CreateActionButton,
+                priority: 100, hoverChanged: OnActionHoverChanged);
+            if (!APIShared.Presentation.TroopActionHud.TryRegisterButton(
+                ExtraFeaturesPlugin.PluginGuid, definition, out actionRegistration, out string reason))
+                throw new InvalidOperationException(reason);
+            PublishButtonState();
+        }
+
+        private Button CreateActionButton(APIShared.UnitHudActionButtonContext context)
+        {
+            var button = new Button { Width = 36, Height = 37, Padding = new Thickness(0),
+                Style = context.Hud.TryFindResource("BTN_Image") as Style };
+            if (button.Style == null) throw new InvalidOperationException("Vanilla troop button style is unavailable.");
+            var sprites = new object[6];
+            string[] names = { "UI-Buttons O016", "UI-Buttons O017", "UI-Buttons O018",
+                "UI-Buttons O019", "UI-Buttons O020", "UI-Buttons O021" };
+            for (int index = 0; index < sprites.Length; index++)
+            {
+                sprites[index] = context.Hud.TryFindResource(names[index]);
+                if (sprites[index] == null)
+                    throw new InvalidOperationException("Vanilla knight transformation button sprite is unavailable: " + names[index]);
+            }
+            actionButton = button;
+            actionSprites = sprites;
+            actionButtonMounting = null;
+            ApplyActionSprites();
+            return button;
+        }
+
+        private void PublishButtonState()
+        {
+            actionRegistration?.SetVisible(buttonViewModel.WantsVisibility);
+            actionRegistration?.SetEnabled(buttonViewModel.Enabled);
+            actionRegistration?.SetTooltip(SerpLocalization.Get(buttonViewModel.MountSelected
+                ? SerpLocalization.KnightMountTooltip : SerpLocalization.KnightDismountTooltip));
+            ApplyActionSprites();
+            if (!buttonViewModel.WantsVisibility) OnActionHoverChanged(false);
+            else if (actionHovered) ShowCurrentTooltip();
+        }
+
+        private void ApplyActionSprites()
+        {
+            if (actionButton == null || actionSprites == null || actionButtonMounting == buttonViewModel.MountSelected) return;
+            bool mounting = buttonViewModel.MountSelected;
+            int offset = mounting ? 3 : 0;
+            PropEx.SetSprite1(actionButton, actionSprites[offset]);
+            PropEx.SetSprite2(actionButton, actionSprites[offset + 1]);
+            PropEx.SetSprite3(actionButton, actionSprites[offset + 1]);
+            PropEx.SetSprite4(actionButton, actionSprites[offset + 2]);
+            actionButtonMounting = mounting;
+        }
+
+        private void OnActionHoverChanged(bool hovered)
+        {
+            if (actionHovered == hovered) return;
+            actionHovered = hovered;
+            if (hovered) ShowCurrentTooltip(); else HideTooltip();
+        }
+
+        private void ShowCurrentTooltip()
+        {
+            if (buttonViewModel.MountSelected) ShowMountTooltip(); else ShowDismountTooltip();
+        }
 
         public void InitializeNetwork()
         {
@@ -131,17 +199,17 @@ namespace ExtraFeatures
             }
 
             // Settings and mission-end paths are not guaranteed to run on the main thread.
-            Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(HideButtonAndUnhook);
+            Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(HideButtonAndTooltip);
         }
 
-        private void HideButtonAndUnhook()
+        private void HideButtonAndTooltip()
         {
             // A later Initialize may already have re-enabled the feature before this ran.
             if (!deactivated)
                 return;
 
             buttonViewModel.Hide();
-            UnhookButtonEvents();
+            OnActionHoverChanged(false);
         }
 
         public void RefreshButtonVisibility()
@@ -171,8 +239,6 @@ namespace ExtraFeatures
                     return;
                 }
 
-                HookButtonEvents(troopPanel);
-
                 int localPlayerId = GetSelectionPlayerId();
                 TryCaptureSelectedUnits(localPlayerId, out APIShared.LocalSelectionSnapshot selection);
                 FindSelectedOwnKnightOrSwordsman(localPlayerId, selection, out bool knight, out bool swordsman);
@@ -197,61 +263,6 @@ namespace ExtraFeatures
             }
         }
 
-        private void HookButtonEvents(HUD_Troops troopPanel)
-        {
-            if (troopPanel == null)
-                return;
-
-            RebindButton(ref hookedDismountButton,
-                troopPanel.FindName("ExtraFeaturesKnightDismountButton") as Button, OnDismountButtonMouseEnter);
-            RebindButton(ref hookedMountButton,
-                troopPanel.FindName("ExtraFeaturesKnightMountButton") as Button, OnMountButtonMouseEnter);
-        }
-
-        // Moves the tooltip handlers to the button instance the HUD currently resolves.
-        private void RebindButton(ref Button hooked, Button button, MouseEventHandler onMouseEnter)
-        {
-            if (button == null || ReferenceEquals(button, hooked))
-                return;
-
-            UnbindButton(ref hooked, onMouseEnter);
-            hooked = button;
-            hooked.MouseEnter += onMouseEnter;
-            hooked.MouseLeave += OnButtonMouseLeave;
-        }
-
-        private void UnbindButton(ref Button hooked, MouseEventHandler onMouseEnter)
-        {
-            if (hooked == null)
-                return;
-
-            hooked.MouseEnter -= onMouseEnter;
-            hooked.MouseLeave -= OnButtonMouseLeave;
-            hooked = null;
-        }
-
-        private void UnhookButtonEvents()
-        {
-            UnbindButton(ref hookedDismountButton, OnDismountButtonMouseEnter);
-            UnbindButton(ref hookedMountButton, OnMountButtonMouseEnter);
-            ResetTooltipMetadata();
-        }
-
-        private void OnDismountButtonMouseEnter(object sender, MouseEventArgs e)
-        {
-            ShowDismountTooltip();
-        }
-
-        private void OnMountButtonMouseEnter(object sender, MouseEventArgs e)
-        {
-            ShowMountTooltip();
-        }
-
-        private void OnButtonMouseLeave(object sender, MouseEventArgs e)
-        {
-            HideTooltip();
-        }
-
         private void ShowDismountTooltip()
         {
             ShowTooltip(
@@ -274,7 +285,7 @@ namespace ExtraFeatures
         {
             try
             {
-                MainViewModel mainViewModel = MainViewModel.Instance;
+                MainViewModel mainViewModel = MainViewModel.viewModelLoaded ? MainViewModel.Instance : null;
                 HUD_Troops troopPanel = mainViewModel == null ? null : mainViewModel.HUDTroopPanel;
                 if (mainViewModel == null || troopPanel == null)
                     return;
@@ -304,7 +315,7 @@ namespace ExtraFeatures
         {
             try
             {
-                HUD_Troops troopPanel = MainViewModel.Instance == null ? null : MainViewModel.Instance.HUDTroopPanel;
+                HUD_Troops troopPanel = MainViewModel.viewModelLoaded ? MainViewModel.Instance?.HUDTroopPanel : null;
                 if (troopPanel != null)
                 {
                     ResetTooltipMetadata();
