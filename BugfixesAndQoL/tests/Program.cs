@@ -123,7 +123,7 @@ namespace BugfixesAndQoL
             TestAiDefensePatrolIntegration();
             AIPreplacedBuildingFixTests.Run(Check);
             TestAiStoneReservePolicy();
-            TestShcdeSeCoarseGridBufferWorkaround();
+            TestAivApiConsumers();
             TestAiStoneReserveIntegration();
             TestQuarryKeepCenterPolicy();
             TestNativeBuildingCompoundGroup();
@@ -4780,9 +4780,6 @@ namespace BugfixesAndQoL
             string projectDirectory = FindProjectDirectory();
             string sourceDirectory = Path.Combine(projectDirectory, "src");
             string fix = File.ReadAllText(Path.Combine(sourceDirectory, "AI/Fixes/AiStoneReserveFix.cs"));
-            string workaround = File.ReadAllText(Path.Combine(
-                sourceDirectory,
-                "AI/Fixes/ShcdeSeCoarseGridBufferWorkaround.cs"));
             string viewModel = File.ReadAllText(Path.Combine(sourceDirectory, "Settings/BugfixesAndQoLViewModel.cs"));
             string xaml = File.ReadAllText(Path.Combine(
                 projectDirectory,
@@ -4794,23 +4791,12 @@ namespace BugfixesAndQoL
 
             Check(fix.Contains("settings.EnableMod && settings.EnableAiStoneReserveFix"),
                 "AI stone-reserve runtime uses the mod and specific host setting gates");
-            Check(fix.Contains("aivDataSource.GetLiveVillageSlots()") &&
-                    fix.Contains("aivDataSource.GetBuildSteps(villageSlot)") &&
+            Check(fix.Contains("aivManager.GetLiveVillageSlots()") &&
+                    fix.Contains("aivManager.GetBuildSteps(villageSlot)") &&
                     fix.Contains("ref AivBuildStep step") &&
                     !fix.Contains("GetAIVSystemPointer()") &&
                     !fix.Contains("ReadOnlySpan<byte>(aivTable"),
-                "AI stone-reserve runtime uses its validated typed AIV data-source boundary");
-            Check(fix.Contains("ShcdeSeCoarseGridBufferWorkaround.SelectBackend") &&
-                    workaround.Contains("SHCDESE_COARSE_GRID_BUFFER_WORKAROUND") &&
-                    workaround.Contains("CreateAivImportBackend(") &&
-                    workaround.Contains("new OfficialAivImportBackend(GameAIVManagerAPI.Instance)") &&
-                    workaround.Contains("new EngineInterfaceAivImportBackend()") &&
-                    workaround.Contains("officialFactory()") &&
-                    workaround.IndexOf("officialFactory()", StringComparison.Ordinal) <
-                    workaround.IndexOf("workaroundFactory()", StringComparison.Ordinal) &&
-                    workaround.Contains("internal const string Marker = \"SHCDESE_COARSE_GRID_BUFFER_WORKAROUND\"") &&
-                    workaround.Contains("IsKnownFailure(Exception exception)"),
-                "shared AIV workarounds are isolated, searchable, failure-scoped, and official-first");
+                "AI stone-reserve runtime uses the typed official AIV views");
             Check(viewModel.Contains("private bool enableAiStoneReserveFix = true;") &&
                     viewModel.Contains("public bool EnableAiStoneReserveFix") &&
                     viewModel.Contains("EnableAiStoneReserveFix = true;"),
@@ -4839,80 +4825,8 @@ namespace BugfixesAndQoL
                 "the removed aggregate AI-fixes setting is absent from active sources, XAML, and localization");
         }
 
-        private static void TestShcdeSeCoarseGridBufferWorkaround()
+        private static void TestAivApiConsumers()
         {
-            int officialCalls = 0;
-            int workaroundCalls = 0;
-            string selected = ShcdeSeCoarseGridBufferWorkaround.SelectBackend(
-                () =>
-                {
-                    officialCalls++;
-                    return "official";
-                },
-                () =>
-                {
-                    workaroundCalls++;
-                    return "workaround";
-                },
-                out bool workaroundActive,
-                out Exception knownFailure);
-            Check(selected == "official" && officialCalls == 1 && workaroundCalls == 0 &&
-                    !workaroundActive && knownFailure == null,
-                "AIV compatibility selects the official Extender API before considering its workaround");
-
-            var monoFailure = new InvalidOperationException(
-                "outer",
-                new TypeLoadException(
-                    "Could not set up field 'CoarseGridBuffer': type <CoarseGridBuffer>e__FixedBuffer " +
-                    "has value type instance size 1228816 bigger than 1Mb"));
-            selected = ShcdeSeCoarseGridBufferWorkaround.SelectBackend(
-                () => throw monoFailure,
-                () => "workaround",
-                out workaroundActive,
-                out knownFailure);
-            Check(selected == "workaround" && workaroundActive &&
-                    ReferenceEquals(knownFailure, monoFailure),
-                "AIV compatibility recognizes the exact nested Unity Mono fixed-buffer failure");
-
-            bool unrelatedRethrown = false;
-            try
-            {
-                ShcdeSeCoarseGridBufferWorkaround.SelectBackend(
-                    () => throw new TypeLoadException("CoarseGridBuffer failed for another reason"),
-                    () => "workaround",
-                    out _,
-                    out _);
-            }
-            catch (TypeLoadException)
-            {
-                unrelatedRethrown = true;
-            }
-            Check(unrelatedRethrown,
-                "AIV compatibility rejects similar but unrecognized Extender failures");
-
-            short[] payload = { 1 };
-            Check(
-                ShcdeSeCoarseGridBufferWorkaround.AreValidImportArguments(0, 0, payload) &&
-                ShcdeSeCoarseGridBufferWorkaround.AreValidImportArguments(7, 999, payload) &&
-                !ShcdeSeCoarseGridBufferWorkaround.AreValidImportArguments(-1, 0, payload) &&
-                !ShcdeSeCoarseGridBufferWorkaround.AreValidImportArguments(8, 0, payload) &&
-                !ShcdeSeCoarseGridBufferWorkaround.AreValidImportArguments(0, -1, payload) &&
-                !ShcdeSeCoarseGridBufferWorkaround.AreValidImportArguments(0, 1000, payload) &&
-                !ShcdeSeCoarseGridBufferWorkaround.AreValidImportArguments(0, 0, null) &&
-                !ShcdeSeCoarseGridBufferWorkaround.AreValidImportArguments(0, 0, Array.Empty<short>()),
-                "AIV import workaround mirrors the official bank, candidate and payload validation");
-
-            const ulong moduleAddress = 0x180000000;
-            int moduleLength = 0x4000000;
-            ulong validAivAddress = moduleAddress + 0x34A9F70;
-            Check(ShcdeSeCoarseGridBufferWorkaround.IsAivSystemRangeInsideModule(
-                        validAivAddress, moduleAddress, moduleLength) &&
-                    !ShcdeSeCoarseGridBufferWorkaround.IsAivSystemRangeInsideModule(
-                        validAivAddress + 1, moduleAddress, moduleLength) &&
-                    !ShcdeSeCoarseGridBufferWorkaround.IsAivSystemRangeInsideModule(
-                        moduleAddress + (ulong)moduleLength - 4, moduleAddress, moduleLength),
-                "AI stone-reserve raw fallback validates AIVSystem alignment and complete module range");
-
             string sourceDirectory = Path.Combine(FindProjectDirectory(), "src");
             string[] sourceFiles = Directory.GetFiles(sourceDirectory, "*.cs", SearchOption.AllDirectories);
             string[] officialApiFiles = sourceFiles
@@ -4926,10 +4840,10 @@ namespace BugfixesAndQoL
                     {
                         "AIPreplacedBuildingFixRuntime.cs",
                         "AiStoneReserveFix.cs",
+                        "MultiplayerAivSyncRuntime.cs",
                         // Typed, bounds-checked village/build-step accessors only; every call runs
                         // inside the capture or tick try/catch, so failures leave Vanilla active.
-                        "PrebuiltAiStorageFixRuntime.cs",
-                        "ShcdeSeCoarseGridBufferWorkaround.cs"
+                        "PrebuiltAiStorageFixRuntime.cs"
                     }),
                 "all BugfixesAndQoL GameAIVManagerAPI references are confined to audited consumers");
 
@@ -4939,8 +4853,8 @@ namespace BugfixesAndQoL
                 .OrderBy(name => name, StringComparer.Ordinal)
                 .ToArray();
             Check(
-                directImportFiles.SequenceEqual(new[] { "ShcdeSeCoarseGridBufferWorkaround.cs" }),
-                "direct Vanilla AIV imports remain isolated in the marked compatibility workaround");
+                directImportFiles.Length == 0,
+                "AIV imports go through the Script Extender's validated API");
 
             string coopSource = File.ReadAllText(Path.Combine(
                 sourceDirectory,
@@ -4958,11 +4872,9 @@ namespace BugfixesAndQoL
                 !coopSource.Contains("GameAIVManagerAPI.Instance"),
                 "Coop custom-lord imports are planned through APIShared's single upload owner");
             Check(
-                multiplayerSource.Contains("IAivImportBackend importBackend = GetAivImportBackend();") &&
                 multiplayerSource.Contains("for (int candidateId = 1; candidateId < slot.Candidates.Count; candidateId++)") &&
-                multiplayerSource.Contains("importBackend.ImportAIV(") &&
-                !multiplayerSource.Contains("GameAIVManagerAPI.Instance"),
-                "multiplayer AIV synchronization uses the protected backend only for extra candidates");
+                multiplayerSource.Contains("aivManager.ImportAIV("),
+                "multiplayer AIV synchronization imports only the extra candidates");
         }
 
         private static void TestQuarryKeepCenterPolicy()

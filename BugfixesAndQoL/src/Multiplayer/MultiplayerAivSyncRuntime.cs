@@ -48,7 +48,6 @@ namespace BugfixesAndQoL
         private StartGameDelegate startGameTrampoline;
         private LoadMultiplayerMapDelegate loadMapTrampoline;
         private FrontendUpdateDelegate updateTrampoline;
-        private IAivImportBackend aivImportBackend;
         private MultiplayerAivManifest confirmedManifest;
         private MultiplayerAivManifest activeStartManifest;
         private MultiplayerAivManifest pendingClientManifest;
@@ -667,12 +666,12 @@ namespace BugfixesAndQoL
             if (!multiplayerSave && activeStartManifest != null)
             {
                 ValidateManifestAgainstLobby(Platform_Multiplayer.Instance, activeStartManifest);
-                IAivImportBackend importBackend = GetAivImportBackend();
+                GameAIVManagerAPI aivManager = GameAIVManagerAPI.Instance;
                 foreach (MultiplayerAivSlot slot in activeStartManifest.Slots)
                 {
                     for (int candidateId = 1; candidateId < slot.Candidates.Count; candidateId++)
                     {
-                        if (!importBackend.ImportAIV(
+                        if (!aivManager.ImportAIV(
                                 slot.PlayerId - 1,
                                 candidateId,
                                 slot.Candidates[candidateId].Data,
@@ -691,17 +690,6 @@ namespace BugfixesAndQoL
                         $"candidates={DescribeManifest(activeStartManifest)}.");
             }
             return loadMapTrampoline(mapName, multiplayerSave);
-        }
-
-        private IAivImportBackend GetAivImportBackend()
-        {
-            if (aivImportBackend == null)
-            {
-                aivImportBackend = ShcdeSeCoarseGridBufferWorkaround.CreateAivImportBackend(
-                    log,
-                    "Multiplayer AIV synchronization");
-            }
-            return aivImportBackend;
         }
 
         private void FrontendUpdateHook(FRONT_Multiplayer self)

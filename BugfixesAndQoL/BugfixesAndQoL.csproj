@@ -142,7 +142,6 @@
     <Compile Include="src\AI\Fixes\AiStoneReserveFix.cs" />
     <Compile Include="src\AI\Fixes\AiStoneReserveNativeDefinition.cs" />
     <Compile Include="src\AI\Fixes\AiStoneReservePolicy.cs" />
-    <Compile Include="src\AI\Fixes\ShcdeSeCoarseGridBufferWorkaround.cs" />
     <Compile Include="src\AI\Fixes\AiWallTargetingFix.cs" />
     <Compile Include="src\AI\Fixes\AivDefenderPositionFix.cs" />
     <Compile Include="src\AI\Fixes\AITowerRuinRepairFix.cs" />
