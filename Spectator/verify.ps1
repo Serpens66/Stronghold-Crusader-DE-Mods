@@ -10,7 +10,7 @@ Check (Join-Path $workspace 'Shared/Tools/Validation/Test-SharedBoundaries.ps1')
 Check (Join-Path $workspace 'Shared/Tools/Validation/Test-IngameTooltips.ps1') @('-Workspace',$workspace,'-ModDirectories',$PSScriptRoot)
 & dotnet run --project (Join-Path $PSScriptRoot 'tests/Overview/OverviewTests.csproj') -c Release
 if ($LASTEXITCODE -ne 0) { throw 'Overview controller checks failed.' }
-foreach ($name in @('Presets','Allies','ActionPolicy','SpectatorSelection','SpectatorControllers','MapperCamera','SavePolicy','CreditFocus','OptionalGates','OptionalPowers','CompactLayout','DockLayout','Theme','NativeActions','NativeOrderContract','NativePowerContext','InstalledContracts')) {
+foreach ($name in @('Presets','Allies','ActionPolicy','SpectatorSelection','SpectatorControllers','AiPlacement','MapperCamera','SavePolicy','CreditFocus','OptionalGates','OptionalPowers','CompactLayout','DockLayout','Theme','NativeActions','NativeOrderContract','NativePowerContext','InstalledContracts')) {
     Write-Host "[Spectator] $name"
     Check (Join-Path $PSScriptRoot "tests/Test-$name.ps1")
 }

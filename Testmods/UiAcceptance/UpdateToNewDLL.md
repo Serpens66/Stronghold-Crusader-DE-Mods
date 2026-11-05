@@ -11,9 +11,12 @@ file before first use; an unknown DLL fails the probe step, no fallback). Test u
 | Unit manager | 0x67E8400 | First argument of the probe call (ignored by 0x196100). | DLL bytes at 0x10C7C |
 | Path region grid | 0x50EC690 | ushort per tile id; RegionScan candidate selection only. | `BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:110` |
 | Move target availability | 0x3A11EA4 | byte at y*800+x; RegionScan only. | same file, line 102 |
+| UI mapper fixture | 0x87830, 0x8BD60, 0x90CD0, 0x93750 | Read-only native audit: pause must be zero for mapper start and placement; primary-unit brush size is zero, native count is fixed to one. Engineer/archer tile logic rejects mask 0x40501481. Runtime uses existing public GameTileManagerAPI bounds, packed IDs and named TilePropertyFlag values to select an unoccupied fixture tile; it does not call these native helpers directly. | Canonical FBCB9319 export and Iced instructions; dated evidence `../../.work/a/ai-game/001/ui-mapper-fixture-audit.md` |
+| Current mapper observation | 0x60AD45C reference data | Reads the existing public Script Extender `GameGlobalsManager.CurrentContextMapperValueVA`, whose DLL_StartMapAction pattern resolves this field. A missing SDK address fails only the UI fixture; no private resolver or hardcoded-address fallback. | Same audit; `GameGlobalsManager.cs` current context mapper resolver. |
 
 Managed members reached by reflection (not public in the real Assembly-CSharp; `verify.ps1` rejects
 any compiled nonpublic access): `EngineInterface.threadLock`, `FRONT_Multiplayer.RefFileLists`,
+`EditorDirector.placeEditorTroop(Enums.eMappers)` (validated private instance void; the real editor command),
 `selectedMPHeader`, `MPMapValid`, `EditorDirector.preDLLCallActions`/`getMouseStateForEngine`
 (Harmony postfixes, priority First, active only during a MapClick step), the Noesis component's
 `View`, APIShared internals `IngameMenuActions.registry` and `UiWorkRuntime.scheduler`, and

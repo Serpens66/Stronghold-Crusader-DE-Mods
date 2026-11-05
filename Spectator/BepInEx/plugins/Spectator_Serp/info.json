@@ -3,14 +3,14 @@
   "Author": "Serpens66",
   "Name": "Spectator",
   "Description": "Spectator perspectives, live statistics and local AI testing tools.",
-  "Version": "0.1.0",
+  "Version": "0.2.0",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.0",
   "MaximumScriptExtenderVersion": "",
   "Dependencies": [
     {
       "GUID": "APIShared_Serp",
-      "MinimumVersion": "0.27.0"
+      "MinimumVersion": "0.30.0"
     }
   ],
   "Manifest": 1,
@@ -19,6 +19,15 @@
     "2.8.0.2"
   ],
   "SerpChangelog": [
+    {
+      "Version": "0.2.0",
+      "Changes": [
+        "Choose the military AI assignment and regular or additional recruitment accounting for newly placed units. No AI is the default; incompatible types, missing crews and unsupported current orders are rejected explicitly.",
+        "Save authored unit assignments in maps and saves. The map editor can declare tasks before an AI exists and optionally apply a validated preview to its current AI.",
+        "Integrate new members into the running group order without reissuing commands to existing members. Local placement mutations remain unavailable in real multiplayer.",
+        "Require APIShared 0.30.0 or newer."
+      ]
+    },
     {
       "Version": "0.1.0",
       "Changes": [

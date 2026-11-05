@@ -11,6 +11,8 @@ using SHCDESE.API;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
+using System.Threading;
+using APIShared.Units.AiMilitary;
 
 namespace BugfixesAndQoL
 {
@@ -29,6 +31,7 @@ namespace BugfixesAndQoL
         private volatile bool logicallyEnabled;
         private bool callbackFailureLogged;
         private bool disposed;
+        private static IAiMilitaryCapability militaryQuota;
 
         public AiDefensePatrolFix(
             ManualLogSource log,
@@ -48,6 +51,9 @@ namespace BugfixesAndQoL
 
             AiDefensePatrolNativeDefinition.ValidateManagedLayout();
             AiDefensePatrolNativeDefinition.Validate(memory);
+            APIShared.ApiShared.ForMod(BugfixesAndQoLPlugin.PluginGuid).WhenReady(client => {
+                if (client.TryGetAiMilitary(out var capability, out _)) Volatile.Write(ref militaryQuota, capability);
+            });
 
             try
             {
@@ -182,6 +188,7 @@ namespace BugfixesAndQoL
             // DEVDIAG: one full scan per AI defensive recruit; measure frequency and cost on big maps.
             long measured = 0;
             Shared.DevDiag.Start(ref measured);
+            var quota = Volatile.Read(ref militaryQuota);
             for (int spanIndex = 0; spanIndex < units.Length; spanIndex++)
             {
                 GameUnit* unit = units.GetValuePointer(spanIndex);
@@ -193,6 +200,10 @@ namespace BugfixesAndQoL
                 }
 
                 short role = (short)unit->r_AITribeRole;
+                // Only this recruitment decision uses the exclusion marker. Native group sizes,
+                // actual military strength and this fix's live/death/owner predicates stay intact.
+                if ((role == CastleDefenseRole || role == OuterPatrolRole) && quota != null &&
+                    quota.IsExcludedFromRecruitmentQuota(new AiUnitRef(spanIndex + 1, unit->r_GlobalId))) continue;
                 if (role == CastleDefenseRole)
                     role1Count++;
                 else if (role == OuterPatrolRole)

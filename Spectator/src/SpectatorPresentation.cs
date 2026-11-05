@@ -63,7 +63,7 @@ namespace Spectator
         private static bool SessionNeedsPresentation()
         {
             if (settings == null || !IsCurrentSession(CurrentSessionId) || !(sessionMode is GameModeSnapshot mode) ||
-                mode.IsMapEditor) return false;
+                mode.IsMapEditor) return IsEditorAiPlacementSession();
             var activation = settings.Activation;
             if (!mode.IsRealMultiplayer && (activation.TestTools || activation.SingleplayerTest)) return true;
             if (!activation.Perspective && !activation.Statistics && !activation.Defeat) return false;
@@ -74,7 +74,7 @@ namespace Spectator
         private static bool SessionAwaitingPresentationReadiness()
         {
             if (settings == null || !IsCurrentSession(CurrentSessionId) || !(sessionMode is GameModeSnapshot mode) ||
-                mode.IsMapEditor) return false;
+                mode.IsMapEditor) return IsEditorAiPlacementSession() && !MainViewModel.viewModelLoaded;
             var activation = settings.Activation;
             bool configured = activation.Perspective || activation.Statistics || activation.Defeat ||
                 !mode.IsRealMultiplayer && (activation.TestTools || activation.SingleplayerTest);
@@ -169,7 +169,7 @@ namespace Spectator
                     // work also retain their original render phase. Hidden idle content is sampled.
                     bool continuous = applicable && (humanPanel?.Visibility == Visibility.Visible && humanCanvas?.IsVisible == true ||
                         humanPlacementMode || IsControlledBuildSession() || powerToolbarOwned || pendingPower != null ||
-                        gateHudLifecycle.Pending || selectedGate != null || observedGate != null);
+                        gateHudLifecycle.Pending || selectedGate != null || observedGate != null || IsEditorAiPlacementSession());
                     renderWork.SetContinuous(continuous);
                     if (!continuous && (applicable || SessionAwaitingPresentationReadiness()))
                         renderWork.RequestAfter(presentationStatusInterval);

@@ -4,7 +4,7 @@ using Noesis;
 
 namespace AutoSendTest
 {
-    internal sealed class AutoSendView
+    internal sealed partial class AutoSendView
     {
         private readonly AutoSendRuntime runtime;
         private Border root;
@@ -32,6 +32,7 @@ namespace AutoSendTest
             paused = Action(switches, "PausedHelp", TogglePaused);
             body.Children.Add(switches);
             status = Text(15); status.Margin = new Thickness(0, 7, 0, 0); body.Children.Add(status);
+            AddDiagnostics(body);
             Refresh(); return root;
         }
         private static TextBlock Text(float size) => new TextBlock { Foreground = new SolidColorBrush(Colors.White), FontSize = size, TextWrapping = TextWrapping.Wrap };
@@ -58,13 +59,15 @@ namespace AutoSendTest
             Label(reserve, "Reserve", data.Reserve); Label(minimum, "Minimum", data.Rule.Minimum); Label(maximum, "Maximum", data.Rule.Maximum);
             Content(enabled, AutoSendText.Get(data.Rule.Enabled ? "EnabledOn" : "EnabledOff"));
             Content(paused, AutoSendText.Get(data.Paused ? "Resume" : "Pause"));
-            string state = !data.Ready ? AutoSendText.Get(data.IdentityMismatch ? "IdentityMismatch" : "NotReady") :
+            string state = data.TransferUnavailable ? AutoSendText.Get("TransferUnavailable") :
+                !data.Ready ? AutoSendText.Get(data.IdentityMismatch ? "IdentityMismatch" : "NotReady") :
                 data.Pending ? AutoSendText.Get("Pending") : data.Paused ? AutoSendText.Get("Paused") :
                 !data.Rule.Enabled ? AutoSendText.Get("Inactive") : data.SourceStock <= data.Reserve ? AutoSendText.Get("ReserveWait") :
                 data.RecipientStock >= data.Rule.Maximum ? AutoSendText.Get("TargetReached") : data.Capacity <= 0 ? AutoSendText.Get("Full") :
                 data.RecipientStock < data.Rule.Minimum ? AutoSendText.Get("Emergency") : AutoSendText.Get("Supplying");
             Set(status, AutoSendText.Get("Stocks").Replace("{Own}", data.SourceStock.ToString()).Replace("{Ally}", data.RecipientStock.ToString()) +
                 "  " + state + (string.IsNullOrEmpty(data.Feedback) ? "" : "\n" + data.Feedback));
+            RefreshDiagnostics();
         }
         private static void Set(TextBlock block, string value) { if (block.Text != value) block.Text = value; }
         private static void Content(Button button, string value)
@@ -92,5 +95,7 @@ namespace AutoSendTest
             var data = runtime.ReadDisplay(context);
             if (data.Ready && !data.Pending) runtime.Edit(AutoSendEdit.Paused, 0, 0, 0, !data.Paused);
         }
+        partial void AddDiagnostics(StackPanel body);
+        partial void RefreshDiagnostics();
     }
 }

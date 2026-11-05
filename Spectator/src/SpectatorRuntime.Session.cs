@@ -35,6 +35,7 @@ namespace Spectator
             sessionMode = mode;
             Interlocked.Exchange(ref activeSessionId, sessionId);
             actionLedger.Reset(sessionId);
+            DiagAiPlacementSessionStarted(sessionId);
             log?.LogInfo("SPECTATOR_EDITOR_SESSION_START id=" + sessionId);
             RequestRender();
         }
@@ -59,6 +60,8 @@ namespace Spectator
 
         private static void ResetSessionState()
         {
+            DiagAiPlacementReset();
+            aiPlacement.Reset();
             ResetPresentationScheduling();
             ResetTestActions(0);
             ResetSpriteColourLease();

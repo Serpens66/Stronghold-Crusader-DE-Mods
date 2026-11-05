@@ -225,14 +225,22 @@ namespace UiAcceptance
         private static PlayerMoveDelegate playerMove;
         private static ulong image;
         private static object engineLock;
+        private static bool nativeHashVerified;
+
+        internal static void RequireNativeReferenceHash()
+        {
+            if (nativeHashVerified) return;
+            string file = Path.Combine(BepInEx.Paths.GameRootPath, "Stronghold Crusader Definitive Edition_Data", "Plugins", "x86_64", "CrusaderDE.dll");
+            using (var sha = SHA256.Create())
+                if (BitConverter.ToString(sha.ComputeHash(File.ReadAllBytes(file))).Replace("-", "") != NativeSha256)
+                    throw new StepFailure("unknown CrusaderDE.dll; native fixture contracts are hash-bound");
+            nativeHashVerified = true;
+        }
 
         private static void Bind()
         {
             if (playerMove != null) return;
-            string file = Path.Combine(BepInEx.Paths.GameRootPath, "Stronghold Crusader Definitive Edition_Data", "Plugins", "x86_64", "CrusaderDE.dll");
-            using (var sha = SHA256.Create())
-                if (BitConverter.ToString(sha.ComputeHash(File.ReadAllBytes(file))).Replace("-", "") != NativeSha256)
-                    throw new StepFailure("unknown CrusaderDE.dll; the 196100 probe is hash-bound");
+            RequireNativeReferenceHash();
             IntPtr module = GetModuleHandle("CrusaderDE.dll");
             Runner.Require(module != IntPtr.Zero, "CrusaderDE.dll not loaded");
             image = (ulong)module.ToInt64();

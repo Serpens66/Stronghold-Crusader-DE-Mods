@@ -17,7 +17,7 @@ namespace AutoSendTest
 {
     // The engine owns simulation access; this lock only protects our save/presentation
     // snapshots. Unity never calls the engine or submits a Chore while holding it.
-    internal sealed class AutoSendRuntime : IAutoSendWorld
+    internal sealed partial class AutoSendRuntime : IAutoSendWorld
     {
         private readonly object sync = new object();
         private readonly ModApiClient api;
@@ -32,7 +32,6 @@ namespace AutoSendTest
         private MissionContext mission;
         private readonly AutoSendEpochs epochs = new AutoSendEpochs();
         private readonly AutoSendInitialRoster initialRoster = new AutoSendInitialRoster();
-        private readonly uint[] identities = new uint[9];
         private readonly ulong[] humanIdentities = new ulong[9];
         private uint[] loadedIdentities;
         private ulong[] loadedHumanIdentities;
@@ -61,6 +60,7 @@ namespace AutoSendTest
                     Diagnostic = e => Report(e.Reason) });
             if (!api.Ui.TryRegisterBeforeRender("presentation", Present, out presentation, out string reason))
                 throw new InvalidOperationException(reason);
+            InitializeDiagnostics();
             view = new AutoSendView(this);
             if (!AllyGoodsPanelExtensions.TryRegisterSection(AutoSendPlugin.Guid, "auto-send", view.Create,
                 out _, out reason, 100)) throw new InvalidOperationException(reason);
@@ -142,6 +142,7 @@ namespace AutoSendTest
             {
                 mission = null; initializedMap = false; editPending = false; localEpoch = 0;
                 loadedState = null; loadedIdentities = null; loadedHumanIdentities = null; loadFailure = false;
+                EndDiagnostics();
             }
             RequestPresentation();
         }
@@ -250,13 +251,14 @@ namespace AutoSendTest
                 if (mission == null) return;
                 if (!firstTick) { firstTick = true; Report("First native mission tick reached; startup cleanup survived."); }
                 if (!AllyTransfers.IsAvailable) return;
+                TickDiagnostics(tick);
                 if (!initializedMap)
                 {
                     var players = GamePlayerManagerAPI.Instance;
                     for (int player = 1; player <= 8; player++)
                     {
-                        identities[player] = players.TryGetPlayerResourcesById(player, out GamePlayerResources* data) && data != null ? data->r_LordUnitGlobalId : 0;
-                        if (loadedIdentities != null && loadedIdentities[player] != identities[player]) identityMismatch = true;
+                        uint currentIdentity = players.TryGetPlayerResourcesById(player, out GamePlayerResources* data) && data != null ? data->r_LordUnitGlobalId : 0;
+                        if (loadedIdentities != null && loadedIdentities[player] != currentIdentity) identityMismatch = true;
                         if (loadedHumanIdentities != null && loadedHumanIdentities[player] != humanIdentities[player]) identityMismatch = true;
                     }
                     loadedIdentities = null; loadedHumanIdentities = null;
@@ -270,7 +272,9 @@ namespace AutoSendTest
                 state.MarkProcessedTick(tick);
                 if (!identityMismatch && epochs.IsReady(expectedMask))
                 {
+                    BeforeDiagnosticRound(tick);
                     var result = planner.Run(this);
+                    AfterDiagnosticRound();
                     if (result.UncertainTransfers > 0)
                     { identityMismatch = true; Report("Supply stopped: a transfer had unequal or unknown stock changes. No retry was issued."); }
                 }
@@ -311,8 +315,10 @@ namespace AutoSendTest
         public AutoSendTransferResult Transfer(int sender, int recipient, int good, int amount)
         {
             var rule = state.GetRule(sender, recipient, good);
+            BeforeDiagnosticTransfer(sender, recipient, good, amount);
             AllyTransfers.TryExecute(new AllyTransferRequest(sender, recipient, (eGoods)good, amount,
                 state.GetReserve(sender, good), rule.Maximum), out var result, out _);
+            AfterDiagnosticTransfer(sender, recipient, good, amount, result);
             if (result == null || !result.OriginalWasCalled) return new AutoSendTransferResult(0, 0, true);
             if (result.Status == AllyTransferStatus.Faulted || result.Status == AllyTransferStatus.Uncertain)
                 return new AutoSendTransferResult(0, 0, false);
@@ -347,6 +353,7 @@ namespace AutoSendTest
                 int good = context?.Good.HasValue == true ? (int)context.Good.Value : 0;
                 bool selected = sender >= 1 && sender <= 8 && recipient >= 1 && recipient <= 8 && AutoSendGoods.Contains(good);
                 var result = new AutoSendDisplay { Selected = selected, Pending = editPending, Feedback = feedback,
+                    TransferUnavailable = !AllyTransfers.IsAvailable,
                     Ready = mission != null && initializedMap && epochs.IsReady(expectedMask) && AllyTransfers.IsAvailable && !identityMismatch && selected && sender == localPlayer &&
                         context.ViewedPlayerId == sender && allies[sender, recipient], IdentityMismatch = identityMismatch };
                 if (!selected) return result;
@@ -363,13 +370,22 @@ namespace AutoSendTest
             }
         }
 
-        private bool Capture(VersionedSaveWriter writer)
+        private unsafe bool Capture(VersionedSaveWriter writer)
         {
             lock (sync)
             {
                 if (mission == null || !initializedMap || identityMismatch) return false;
+                // Native Lords can spawn after our first tick. The native save writer
+                // owns the stopped/locked world here; snapshot the identities it saves.
+                var currentIdentities = new uint[9];
+                var players = GamePlayerManagerAPI.Instance;
+                for (int player = 1; player <= 8; player++)
+                {
+                    if (!players.TryGetPlayerResourcesById(player, out GamePlayerResources* data) || data == null) return false;
+                    currentIdentities[player] = data->r_LordUnitGlobalId;
+                }
                 writer.Write("rules", AutoSendSaveCodec.Encode(state));
-                writer.Write("players", AutoSendSavedPlayers.EncodePlayers(identities, humanIdentities)); return true;
+                writer.Write("players", AutoSendSavedPlayers.EncodePlayers(currentIdentities, humanIdentities)); return true;
             }
         }
         private void Loaded(VersionedSaveLoad load)
@@ -390,6 +406,7 @@ namespace AutoSendTest
         }
         private void Present()
         {
+            PresentDiagnostics();
             long currentSession;
             lock (sync) currentSession = mission?.SessionId ?? 0;
             if (currentSession != 0 && channel.IsAvailable) Announce(currentSession);
@@ -408,10 +425,18 @@ namespace AutoSendTest
             RequestPresentation();
         }
         private void RequestPresentation() => presentation?.Request();
+        partial void InitializeDiagnostics();
+        partial void EndDiagnostics();
+        partial void TickDiagnostics(int tick);
+        partial void BeforeDiagnosticRound(int tick);
+        partial void AfterDiagnosticRound();
+        partial void BeforeDiagnosticTransfer(int sender, int recipient, int good, int amount);
+        partial void AfterDiagnosticTransfer(int sender, int recipient, int good, int amount, AllyTransferResult result);
+        partial void PresentDiagnostics();
     }
     internal sealed class AutoSendDisplay
     {
-        internal bool Selected, Ready, Pending, Paused, IdentityMismatch;
+        internal bool Selected, Ready, Pending, Paused, IdentityMismatch, TransferUnavailable;
         internal int Reserve, SourceStock, RecipientStock, Capacity, ActiveRules;
         internal AutoSendRule Rule;
         internal string Feedback;

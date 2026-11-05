@@ -9,7 +9,7 @@ namespace Spectator
 {
     [BepInPlugin(PluginGuid, "Spectator", PluginVersion)]
     [BepInDependency("000shcdese", "2.14.0")]
-    [BepInDependency("APIShared_Serp", "0.27.0")]
+    [BepInDependency("APIShared_Serp", "0.30.0")]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("fixes", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("CheatMod_Serp", BepInDependency.DependencyFlags.SoftDependency)]
@@ -18,7 +18,7 @@ namespace Spectator
     public sealed partial class SpectatorPlugin : BaseUnityPlugin
     {
         public const string PluginGuid = "Spectator_Serp";
-        public const string PluginVersion = "0.1.0";
+        public const string PluginVersion = "0.2.0";
         private static SpectatorPlugin processRoot;
         private static SpectatorStatistics statistics;
         private static SpectatorDefeat spectatorDefeat;

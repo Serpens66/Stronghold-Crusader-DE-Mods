@@ -67,7 +67,7 @@ Only Vanilla behavior; Script Extender names appear only as vocabulary.
 
 ## Vanilla audits with mod integration
 
-- [Ally goods gifts and transfer boundaries](./sem/FBCB9319/knowledge/ALLY_GOODS_TRANSFERS.md): complete send/Chore/storage/Gold path, actual-transfer event boundary and nine-byte entry audit; static evidence, game acceptance pending.
+- [Ally goods gifts and transfer boundaries](./sem/FBCB9319/knowledge/ALLY_GOODS_TRANSFERS.md): complete send/Chore/storage/Gold path and actual-transfer boundary; corrective 2026-11-05 audit reuses the existing Extender owner; game acceptance pending.
 
 - [Player-control context and Chore issuer](./sem/FBCB9319/knowledge/PLAYER_CONTROL_CONTEXT.md): transport-source flow, identity-only native helper, view-dependent enqueue, selection reservation side effects and the additive APIShared adapter; foreign-control backend and peer acceptance remain pending.
 

@@ -3,19 +3,26 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.213",
+  "Version": "1.0.214",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.3",
   "MaximumScriptExtenderVersion": "",
   "Dependencies": [
     {
       "GUID": "APIShared_Serp",
-      "MinimumVersion": "0.26.0"
+      "MinimumVersion": "0.30.0"
     }
   ],
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.214",
+      "Changes": [
+        "Keep additional AI troops out of the castle-defense replenishment quota when deciding whether to grow outer patrols, while retaining their actual membership and combat strength.",
+        "Require APIShared 0.30.0 or newer."
+      ]
+    },
     {
       "Version": "1.0.213",
       "Changes": [

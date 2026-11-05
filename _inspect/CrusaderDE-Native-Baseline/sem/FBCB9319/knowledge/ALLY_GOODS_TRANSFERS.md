@@ -116,27 +116,28 @@ balance headroom are checked immediately; one safe call is capped to 32767 for
 the message quantity contract. This service is not a synchronization protocol.
 The consumer authorizes the sender and schedules identical operations on all peers.
 
-The shared native execution broker owns only `D7AD0..D7AD9`: `40 55` (push rbp),
-`56` (push rsi), `41 54` (push r12), `48 83 EC 40` (sub rsp,40h). NativeX64 Indirect
-requires at least six bytes and rounds to these nine complete bytes. There is no
-RIP-relative operand or branch inside the displaced span. The complete current
-xref dataset has no target in its interior; direct calls and data references hit
-the entry itself. The body contains no branch into the displaced interior. Exact
-backend validation covers scheme, 9-byte displacement, target, pointer slot,
-trampoline, patch padding and continuation `D7AD9`.
+Corrective inspection, 2026-11-05: the earlier integration inventory missed
+`BulkPlayerDetours.c_game_player_ai_send_good_hook`, whose signature starts
+`40 55 56 41 54 48 83 EC` and resolves to `D7AD0`. The installed Extender assembly
+SHA-256 is `5CB1C33BE5463086505A17F5C48AAA357D733CFFF7240E101C821F0E3C668498`;
+the corresponding local source commit is `4014ca67c96974a5e6d697665baf5351cbfebde6`.
+The first live game test refused APIShared's second hook at startup, as expected
+for an occupied entry. This corrects the former no-competing-owner claim.
 
-Actual installed-backend fixture execution on 2026-11-04 showed relocated bytes
-`55 56 41 54 48 83 EC 40`, followed by the return jump: Iced removes the redundant
-REX `40` prefix from `push rbp`. The overwritten source span is still nine bytes;
-the relocated four-instruction span is eight. The shared validator accepts only
-the exact original nine bytes or this exact normalized eight-byte equivalent,
-then decodes the following jump and requires original continuation `D7AD9`.
+The loaded managed wrapper raises mutable `OnPlayerAIRequestReceivedGoods` Pre,
+checks `SkipOriginalFunction`, then invokes its Original delegate using the final
+recipient/good/amount/sender properties. It raises Post only after that invocation;
+Post arguments are the wrapper's initial tuple, not the mutated tuple. Its Boolean
+return derives from an opaque native integer and is not a resource receipt.
 
-Full pristine/live bytes of both functions are verified before publication.
-Capacity remains unpatched; the registry records it and the transfer continuation
-as Observe evidence and the displaced transfer entry as Exclusive. The current
-SE/Fixes/APIShared inventory contained no competing owner at D7AD0/C5AD0. SE owns
-downstream B58B0/B7D80 resource hooks, which remain in the normal call chain.
+APIShared now adapts the single Original invocation in that managed wrapper,
+without another native entry hook. Its events bracket the actual primitive after
+SE Pre; an SE veto therefore produces no primitive event. Service calls use the
+same wrapper and report zero-effect veto when its Original invocation is skipped.
+Final redirected service arguments are rejected and service bounds are rechecked.
+Both pristine native bodies remain pinned; capacity remains read-only. The native
+site evidence is observational, with no APIShared-exclusive transfer entry. SE
+also owns downstream B58B0/B7D80 resource hooks, which remain in the normal chain.
 
 The primitive's implicit global addresses, record strides, table contracts,
 quantity representation and local presentation are pinned by the complete native

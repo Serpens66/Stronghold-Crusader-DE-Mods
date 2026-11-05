@@ -173,10 +173,15 @@ namespace BugfixesAndQoL
                 project,
                 @"Override\ScriptExtenderUI\BugfixesAndQoLSettings.xaml");
             XDocument settingsXaml = XDocument.Load(settingsPath);
+            // Fixes/QoL subfilters share the topic key; only the owning searchable
+            // section carries IsSection=True and contains all of these controls.
             XElement hostInterface = settingsXaml.Descendants().Single(element =>
                 element.Attributes().Any(attribute =>
                     attribute.Name.LocalName == "ModSettingsSearch.SectionKey" &&
-                    (string)attribute == "bugfixes.topic.host-setup"));
+                    (string)attribute == "bugfixes.topic.host-setup") &&
+                element.Attributes().Any(attribute =>
+                    attribute.Name.LocalName == "ModSettingsSearch.IsSection" &&
+                    (string)attribute == "True"));
             string[] interfaceSettingKeys =
             {
                 "bugfixes.show-mp-advanced-settings-in-sp",

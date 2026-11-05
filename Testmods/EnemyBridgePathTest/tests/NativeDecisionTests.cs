@@ -69,6 +69,9 @@ namespace EnemyBridgePathTest
                 Check(trace.NativeReadiness.Contains("topologyAvailable=False")&&!trace.Summary().Contains("nativeCoverageComplete=True"),"missing shared publisher cannot claim full coverage");
                 APIShared.EnemyBridgeDiagnosticBridge.PublishTopologyOwner();
                 Check(trace.NativeReadiness.Contains("nativeCallsObserved=True")&&trace.Summary().Contains("nativeCoverageComplete=True"),"ready and completed current-map calls are separate evidence");
+                trace.SharedCommandsReady=()=>false;
+                Check(trace.NativeReadiness.Contains("sharedCommandsReady=False")&&trace.Summary().Contains("nativeCoverageComplete=False"),"missing shared command registrations cannot claim native coverage");
+                trace.SharedCommandsReady=()=>true;
                 trace.StartSession(2);
                 Check(trace.NativeReadiness.Contains("nativeCallsObserved=False")&&trace.Summary().Contains("nativeCoverageComplete=False"),"previous map native counts cannot satisfy new-map coverage");
             }

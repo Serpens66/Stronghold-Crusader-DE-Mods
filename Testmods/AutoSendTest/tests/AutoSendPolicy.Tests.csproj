@@ -8,10 +8,12 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Program.cs" />
+    <Compile Include="ProbeTests.cs" />
     <Compile Include="../src/AutoSendPolicy.cs" Link="AutoSendPolicy.cs" />
     <Compile Include="../src/AutoSendSaveCodec.cs" Link="AutoSendSaveCodec.cs" />
     <Compile Include="../src/AutoSendSavedPlayers.cs" Link="AutoSendSavedPlayers.cs" />
     <Compile Include="../src/AutoSendEpochs.cs" Link="AutoSendEpochs.cs" />
     <Compile Include="../src/AutoSendInitialRoster.cs" Link="AutoSendInitialRoster.cs" />
+    <Compile Include="../src/AutoSendProbe.DevDiag.cs" Link="AutoSendProbe.DevDiag.cs" />
   </ItemGroup>
 </Project>

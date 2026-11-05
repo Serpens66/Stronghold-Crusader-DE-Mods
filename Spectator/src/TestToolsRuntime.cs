@@ -48,6 +48,7 @@ namespace Spectator
             if (monitor == null || !monitor.IsPrivate || monitor.FieldType != typeof(object) ||
                 (engineLock = monitor.GetValue(null)) == null)
                 throw new MissingFieldException("EngineInterface", "private static object threadLock");
+            InitializeAiPlacement();
             // Retain subscribers for process lifetime. No global AI acceptance override exists.
             forceAttackSubscription = PlayerR3EventHooks.OnPlayerAIEvaluateAttackOrder.Observable.Subscribe(args => {
                 if (args.Phase != EventHookPhase.Pre || forcedOrder == null ||

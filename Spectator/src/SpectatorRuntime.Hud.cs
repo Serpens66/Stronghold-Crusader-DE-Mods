@@ -138,6 +138,7 @@ namespace Spectator
 
         private static void DetachHumanControls()
         {
+            DetachAiPlacementPanel();
             toolbarPortraits.Reset();
             ReleaseActivePlayerBuildMenu();
             observerBuildHud.Reset();
@@ -691,6 +692,9 @@ namespace Spectator
             if (!MainViewModel.viewModelLoaded) return;
             try
             {
+                // Editor AI placement has its own host and never activates the Spectator toolbar.
+                if (sessionMode?.IsMapEditor == true || aiEditorCanvas != null)
+                    RefreshAiPlacementPanel();
                 // Disabling the last applicable feature must retire the old UI too;
                 // it cannot depend on another feature keeping presentation alive.
                 if (!SessionNeedsPresentation())
@@ -716,6 +720,8 @@ namespace Spectator
                     }
                     return;
                 }
+                if (sessionMode?.IsMapEditor == true)
+                { ObservePresentationView(MainViewModel.Instance); return; }
                 // Identity is an input safety guard, independent of the slower status cadence.
                 ObservePresentedPerspective();
                 if (!presentationRefresh.Ready(System.Diagnostics.Stopwatch.GetTimestamp())) return;
@@ -743,6 +749,7 @@ namespace Spectator
                 bool toolbarEligible = presentedToolbarEligible;
                 if (toolbarEligible && (stateCheck || humanPanel == null)) EnsureHumanControls();
                 if (stateCheck || toolbarDirty) RefreshHumanControls(toolbarEligible);
+                RefreshAiPlacementPanel();
                 if (humanEligible)
                 {
                     if (stateCheck || contentChanged) RefreshPowers();

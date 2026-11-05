@@ -100,8 +100,8 @@ namespace EnemyBridgePathTest
                 var observer = new Observer();
                 Check(EnemyBridgeDiagnosticBridge.TryRegister(observer), "passive registration");
                 Check(EnemyGatePathPolicyBridge.Current == null, "observer cannot claim gate policy");
-                Check(BridgeNativeDefinition.OwnedCount==30&&Array.FindAll(BridgeNativeDefinition.Sites,BridgeNativeDefinition.OwnsEntry).Length==30,"exact thirty own detours");
-                Check(!BridgeNativeDefinition.OwnsEntry(Array.Find(BridgeNativeDefinition.Sites,x=>x.Rva==0xE49D0))&&!BridgeNativeDefinition.OwnsEntry(Array.Find(BridgeNativeDefinition.Sites,x=>x.Rva==0x111C00)),"external owners excluded unconditionally");
+                Check(BridgeNativeDefinition.OwnedCount==28&&Array.FindAll(BridgeNativeDefinition.Sites,BridgeNativeDefinition.OwnsEntry).Length==28,"exact twenty-eight own detours");
+                Check(!BridgeNativeDefinition.OwnsEntry(Array.Find(BridgeNativeDefinition.Sites,x=>x.Rva==0xE49D0))&&!BridgeNativeDefinition.OwnsEntry(Array.Find(BridgeNativeDefinition.Sites,x=>x.Rva==0x111C00))&&!BridgeNativeDefinition.OwnsEntry(Array.Find(BridgeNativeDefinition.Sites,x=>x.Rva==0x122B40))&&!BridgeNativeDefinition.OwnsEntry(Array.Find(BridgeNativeDefinition.Sites,x=>x.Rva==0x10DF60)),"external owners excluded unconditionally");
                 var owner=new BugfixesAndQoL.UnitCommands.UnitCommandPathRuntime();
                 foreach(int value in new[]{0,1}) {owner.ReturnValue=value;Check(owner.Invoke(false)==value,"production topology owner preserves result");Check(observer.TopologyCalled&&observer.TopologyNative==value,"native topology result observed");}
                 int ownerCalls=owner.Calls;Check(owner.Invoke(true)==0&&owner.Calls==ownerCalls&&!observer.TopologyCalled&&observer.TopologyNative==null,"suppressed production repair does not call original");
@@ -147,6 +147,8 @@ namespace EnemyBridgePathTest
                 rows = aggregate.Drain(out definitions);
                 Check(definitions.Length == 1 && definitions[0].Epoch == 2 && rows[0].Count == 1, "map state reset");
                 string runtime = File.ReadAllText("src/BridgeDiagnostics.cs");
+                Check(runtime.Contains("AiStrategicOrderEvents.TryRegister") && runtime.Contains("strategicScopes.Remove(observation.InvocationId)") && runtime.Contains("observation.OriginalCompleted ? (long?)observation.NativeResult : null"), "shared strategic invocation pairing retains actual completion and result");
+                Check(runtime.Contains("AiGlobalTaskEvents.TryRegister") && runtime.Contains("globalTaskScopes.Remove(observation.InvocationId)"), "shared global task invocation pairing keeps its own identity domain");
                 string snapshot = File.ReadAllText("src/BridgeSnapshot.cs");
                 Check(runtime.Contains("same-pcl-with-no-region-call") && runtime.Contains("region-query-executed"), "same PCL bypass is explicit");
                 Check(runtime.Contains("WorkBefore") && runtime.Contains("command-or-context-changed") && runtime.Contains("execution=not-proven"), "work call lifetime evidence");

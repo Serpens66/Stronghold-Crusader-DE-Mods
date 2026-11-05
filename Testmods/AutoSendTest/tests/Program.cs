@@ -12,6 +12,7 @@ internal static class Program
         EqualShareAndCappedRedistribution(); EmergencyTier(); RemainderRotation(); ReserveAndCapacity();
         PauseAndInvalidPlayers(); CycleAdmission(); MultipleSenders(); KnownPartialAndVeto(); UncertaintyStopsEntireRun();
         RechecksBeforeExecution(); SaveRoundTrip(); MalformedSaves(); ForgedRuleSaves(); SavedBundleIsAtomic(); EpochRequiresAuthenticatedLocalIdentity(); RendezvousRequiresEveryExpectedPeer(); InitialRosterDoesNotUseLaterLossState(); BoundedWork(); DormantRulesDoNotReadWorld();
+        checks += ProbeTests.Run();
         Console.WriteLine("AutoSend policy: " + checks + " checks passed.");
     }
     private static AutoSendState State(int batch = 100) => new AutoSendState(new[] { Resource, OtherResource }, new[] { batch, 1000 });

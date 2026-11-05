@@ -9,6 +9,9 @@ namespace UiAcceptance
             InputSteps.Register();
             ProbeSteps.Register();
             LobbySteps.Register();
+            AutoSendSteps.Register();
+            RuntimeAiSteps.Register();
+            RuntimeAiUiSteps.Register();
         }
     }
 }
