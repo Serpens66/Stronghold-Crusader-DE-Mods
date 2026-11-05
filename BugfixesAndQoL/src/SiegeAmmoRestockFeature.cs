@@ -182,7 +182,8 @@ namespace BugfixesAndQoL
                     return;
                 }
 
-                ApplyValidated(playerId, modifier, baseStoneCost, baseAmmunitionAmount, globalUnitIds, "local click");
+                lock (EngineThreadLock.Gate)
+                    ApplyValidated(playerId, modifier, baseStoneCost, baseAmmunitionAmount, globalUnitIds, "local click");
             }
             catch (Exception ex)
             {

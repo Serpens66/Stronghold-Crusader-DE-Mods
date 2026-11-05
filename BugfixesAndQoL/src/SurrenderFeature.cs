@@ -225,8 +225,11 @@ namespace BugfixesAndQoL
 
                 if (!realMultiplayer)
                 {
-                    if (APIShared.UnitAccess.TryGetById(lord.UnitId, out _, out _)) GameUnitManagerAPI.Instance.KillUnit(lord.UnitId);
-                    ClearSurrenderLordSelection(lord.PlayerId, lord.UnitId, lord.GlobalId);
+                    lock (EngineThreadLock.Gate)
+                    {
+                        if (APIShared.UnitAccess.TryGetById(lord.UnitId, out _, out _)) GameUnitManagerAPI.Instance.KillUnit(lord.UnitId);
+                        ClearSurrenderLordSelection(lord.PlayerId, lord.UnitId, lord.GlobalId);
+                    }
                     if (Shared.DebugLogHelper.DiagnosticsEnabled)
                         Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/SurrenderFeature/ConfirmSurrender.singleplayer-surrender-executed-through", $"Singleplayer surrender executed through lord death: playerId={lord.PlayerId}, unitId={lord.UnitId}, globalId={lord.GlobalId}.");
                     return;

@@ -415,50 +415,55 @@ namespace BugfixesAndQoL
                 if (!IsManualFeatureActive())
                     return;
 
-                localPlayerId = GetControlledPlayerId();
-                selectedBuildingId = GamePlayerManagerAPI.Instance.GetSelectedBuildingId();
-
-                if (!TryGetRelocatableQuarry(selectedBuildingId, localPlayerId, out GameBuilding* quarry, out GameBuilding* oldPile))
+                // Target validation writes TileManager.IsPlacementBlocked, and the validated target
+                // is not checked again before the spawn. A tick must not run in between.
+                lock (EngineThreadLock.Gate)
                 {
-                    RefreshButtonVisibility();
-                    return;
-                }
+                    localPlayerId = GetControlledPlayerId();
+                    selectedBuildingId = GamePlayerManagerAPI.Instance.GetSelectedBuildingId();
 
-                int operationId = NextOperationId();
-
-                if (!TryFindNextRotationTarget(localPlayerId, quarry, oldPile, operationId, out PlacementPosition target))
-                {
-                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/QuarryPileRelocationRuntime/OnRelocateCommand.found-no-valid-clockwise", $"Bugfixes and QoL quarry-pile rotation found no valid clockwise position: playerId={localPlayerId}, operationId={operationId}, quarryId={selectedBuildingId}, quarryGlobalId={quarry->r_GlobalId}, oldPileGlobalId={oldPile->r_GlobalId}.");
-                    return;
-                }
-
-                attemptedOperation = new QuarryPileRelocationOperation
-                {
-                    PlayerId = localPlayerId,
-                    OperationId = operationId,
-                    QuarryGlobalId = (int)quarry->r_GlobalId,
-                    OldPileGlobalId = (int)oldPile->r_GlobalId,
-                    TargetTileX = target.X,
-                    TargetTileY = target.Y
-                };
-
-                if (RequiresChoreTransport())
-                {
-                    if (!TrySendRotationChore(attemptedOperation))
+                    if (!TryGetRelocatableQuarry(selectedBuildingId, localPlayerId, out GameBuilding* quarry, out GameBuilding* oldPile))
                     {
                         RefreshButtonVisibility();
+                        return;
                     }
-                    return;
-                }
 
-                if (!TryApplyRotation(attemptedOperation, "singleplayer-local-click", targetAlreadyValidated: true))
-                {
-                    RememberFailedRotationTarget(attemptedOperation);
+                    int operationId = NextOperationId();
+
+                    if (!TryFindNextRotationTarget(localPlayerId, quarry, oldPile, operationId, out PlacementPosition target))
+                    {
+                        Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/QuarryPileRelocationRuntime/OnRelocateCommand.found-no-valid-clockwise", $"Bugfixes and QoL quarry-pile rotation found no valid clockwise position: playerId={localPlayerId}, operationId={operationId}, quarryId={selectedBuildingId}, quarryGlobalId={quarry->r_GlobalId}, oldPileGlobalId={oldPile->r_GlobalId}.");
+                        return;
+                    }
+
+                    attemptedOperation = new QuarryPileRelocationOperation
+                    {
+                        PlayerId = localPlayerId,
+                        OperationId = operationId,
+                        QuarryGlobalId = (int)quarry->r_GlobalId,
+                        OldPileGlobalId = (int)oldPile->r_GlobalId,
+                        TargetTileX = target.X,
+                        TargetTileY = target.Y
+                    };
+
+                    if (RequiresChoreTransport())
+                    {
+                        if (!TrySendRotationChore(attemptedOperation))
+                        {
+                            RefreshButtonVisibility();
+                        }
+                        return;
+                    }
+
+                    if (!TryApplyRotation(attemptedOperation, "singleplayer-local-click", targetAlreadyValidated: true))
+                    {
+                        RememberFailedRotationTarget(attemptedOperation);
+                        RefreshButtonVisibility();
+                        return;
+                    }
+
                     RefreshButtonVisibility();
-                    return;
                 }
-
-                RefreshButtonVisibility();
             }
             catch (Exception ex)
             {

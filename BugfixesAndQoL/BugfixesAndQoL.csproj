@@ -30,6 +30,7 @@
   <PropertyGroup Condition="'$(ExtenderDir)' == '' and Exists('$(LocalScriptExtenderModOutput)\SHCDESE.dll')"><ExtenderDir>$(LocalScriptExtenderModOutput)</ExtenderDir></PropertyGroup>
   <ItemGroup>
     <Compile Include="src\BfqolNativeCache.cs" />
+    <Compile Include="src\EngineThreadLock.cs" />
     <Compile Include="src\BugfixesAndQoLViewModel.PitchStairs.cs" />
     <Compile Include="src\BugfixesAndQoLRuntime.PitchStairs.cs" />
     <Compile Include="src\PitchStairs\NativeCode.cs" />
