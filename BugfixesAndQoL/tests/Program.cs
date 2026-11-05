@@ -4823,7 +4823,7 @@ namespace BugfixesAndQoL
             string removedSettingName = "EnableAi" + "Fixes";
             bool removedFromActiveSources = !viewModel.Contains(removedSettingName) &&
                 !xaml.Contains(removedSettingName);
-            foreach (string sourceFile in Directory.GetFiles(sourceDirectory, "*.cs"))
+            foreach (string sourceFile in Directory.GetFiles(sourceDirectory, "*.cs", SearchOption.AllDirectories))
                 removedFromActiveSources &= !File.ReadAllText(sourceFile).Contains(removedSettingName);
             foreach (string localeFile in Directory.GetFiles(
                 Path.Combine(projectDirectory, "Locales"),
@@ -4914,7 +4914,7 @@ namespace BugfixesAndQoL
                 "AI stone-reserve raw fallback validates AIVSystem alignment and complete module range");
 
             string sourceDirectory = Path.Combine(FindProjectDirectory(), "src");
-            string[] sourceFiles = Directory.GetFiles(sourceDirectory, "*.cs");
+            string[] sourceFiles = Directory.GetFiles(sourceDirectory, "*.cs", SearchOption.AllDirectories);
             string[] officialApiFiles = sourceFiles
                 .Where(path => File.ReadAllText(path).Contains("GameAIVManagerAPI"))
                 .Select(Path.GetFileName)

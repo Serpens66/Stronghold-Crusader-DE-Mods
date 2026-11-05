@@ -347,9 +347,16 @@ $permanentManagedContracts = @(
     }
 )
 
+# A contract for a file of the scoped mod must fail when the file is gone. Skipping it would
+# silently drop the guard after a move or rename.
+function Test-OutsideScopedMod([string]$Path) {
+    return $ModDirectory -and -not $selectedFiles.Contains($Path) -and
+        -not $Path.StartsWith($modRoot + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)
+}
+
 foreach ($contract in $permanentManagedContracts) {
     $path = Join-Path $workspace $contract.Path
-    if ($ModDirectory -and -not $selectedFiles.Contains($path)) { continue }
+    if (Test-OutsideScopedMod $path) { continue }
     if (-not (Test-Path -LiteralPath $path)) {
         $errors.Add("$path`: permanent managed-hook contract source is missing")
         continue
@@ -369,7 +376,10 @@ foreach ($contract in $permanentManagedContracts) {
 }
 
 $workshopPath = Join-Path $workspace 'BugfixesAndQoL\src\WorkshopIdleDelayHook.cs'
-if ((-not $ModDirectory -or $selectedFiles.Contains($workshopPath)) -and (Test-Path -LiteralPath $workshopPath)) {
+if (-not (Test-OutsideScopedMod $workshopPath)) {
+    if (-not (Test-Path -LiteralPath $workshopPath)) {
+        throw "$workshopPath`: workshop hook contract source is missing"
+    }
     $workshop = [IO.File]::ReadAllText($workshopPath)
     if (-not $workshop.Contains('private readonly HookTransaction transaction;') -or
         -not $workshop.Contains('Volatile.Write(ref *(int*)enabledFlag') -or
