@@ -2436,6 +2436,21 @@ namespace BugfixesAndQoL
                         true, true, true, true, true, true, 1001, false, false, 1),
                 "recovery save delays only the native forced lag kick in compatible real multiplayer");
 
+            bool activeDuringKick = false;
+            MultiplayerSafetyPolicy.RunExplicitHostKick(
+                () => activeDuringKick = MultiplayerSafetyPolicy.ExplicitHostKickActive);
+            bool clearedAfterFailure = false;
+            try
+            {
+                MultiplayerSafetyPolicy.RunExplicitHostKick(() => throw new InvalidOperationException());
+            }
+            catch (InvalidOperationException)
+            {
+                clearedAfterFailure = !MultiplayerSafetyPolicy.ExplicitHostKickActive;
+            }
+            Check(activeDuringKick && clearedAfterFailure && !MultiplayerSafetyPolicy.ExplicitHostKickActive,
+                "a confirmed host kick bypasses the recovery delay only during its own call, even after a failure");
+
             string viewModelSource = File.ReadAllText(Path.Combine("src", "BugfixesAndQoLViewModel.cs"));
             string xamlSource = File.ReadAllText(Path.Combine(
                 "Override",

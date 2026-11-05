@@ -172,7 +172,9 @@ namespace BugfixesAndQoL
             Platform_Multiplayer.MPGameMember kickMember,
             bool forceKickFromHost)
         {
-            if (TryDelayNativeLagKick(self, kickMember, forceKickFromHost))
+            if (MultiplayerSafetyPolicy.ExplicitHostKickActive)
+                ForgetRecoveryTarget(kickMember);
+            else if (TryDelayNativeLagKick(self, kickMember, forceKickFromHost))
                 return;
 
             try
@@ -288,6 +290,13 @@ namespace BugfixesAndQoL
             if (recoveryTargets.Count == 0)
                 ResetRecoveryState();
             return false;
+        }
+
+        // A kicked peer gets no further native call, so it must not keep an old attempt alive.
+        private void ForgetRecoveryTarget(Platform_Multiplayer.MPGameMember member)
+        {
+            if (member != null && recoveryTargets.Remove(member.playerID) && recoveryTargets.Count == 0)
+                ResetRecoveryState();
         }
 
         private bool BeginRecoverySave(DateTime now)

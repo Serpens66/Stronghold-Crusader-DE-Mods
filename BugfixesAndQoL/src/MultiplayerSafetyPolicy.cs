@@ -40,6 +40,17 @@ namespace BugfixesAndQoL
             return steps * MultiplayerGameSpeedPolicy.SpeedStep;
         }
 
+        // True only while the host executes a kick the user confirmed. Such a kick never waits
+        // for a recovery save. Every kick path runs on the Unity main thread.
+        internal static bool ExplicitHostKickActive { get; private set; }
+
+        internal static void RunExplicitHostKick(Action kick)
+        {
+            ExplicitHostKickActive = true;
+            try { kick(); }
+            finally { ExplicitHostKickActive = false; }
+        }
+
         internal static bool ShouldDelayNativeLagKick(
             bool mainModEnabled,
             bool recoverySaveEnabled,

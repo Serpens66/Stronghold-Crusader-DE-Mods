@@ -186,7 +186,8 @@ namespace BugfixesAndQoL
                     return;
                 }
 
-                forcedHostKickMethod.Invoke(Platform_Multiplayer.Instance, new object[] { member, true });
+                MultiplayerSafetyPolicy.RunExplicitHostKick(
+                    () => forcedHostKickMethod.Invoke(Platform_Multiplayer.Instance, new object[] { member, true }));
                 if (Shared.DebugLogHelper.DiagnosticsEnabled)
                     Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/ResyncHostKickFeature/ConfirmKick.executed-authoritative-resync-host", $"Executed authoritative resync host kick: playerId={playerId}, playerName={playerName}.");
                 ClearTarget(clearViewModel: true);
