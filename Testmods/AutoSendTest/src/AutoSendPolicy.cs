@@ -93,6 +93,30 @@ namespace AutoSendTest
             rules[sender, recipient, g] = new AutoSendRule(minimum, maximum, enabled);
             revisions[sender]++; return true;
         }
+        internal bool TryEditRule(int sender, int recipient, int good, AutoSendEdit operation, int amount, bool enabled, out string reason)
+        {
+            if (!ValidPlayer(sender) || !ValidPlayer(recipient) || !ContainsGood(good))
+            { reason = "Unknown player or good."; return false; }
+            if (!AutoSendRuleEdits.TryApply(GetRule(sender, recipient, good), operation, amount, enabled, out var next, out reason)) return false;
+            return TrySetRule(sender, recipient, good, next.Minimum, next.Maximum, next.Enabled, out reason);
+        }
+        internal void MigrateLegacyPausedRules()
+        {
+            for (int sender = 1; sender <= PlayerCount; sender++)
+            {
+                if (!paused[sender]) continue;
+                for (int g = 0; g < goods.Length; g++)
+                {
+                    for (int recipient = 1; recipient <= PlayerCount; recipient++)
+                    {
+                        var old = rules[sender, recipient, g];
+                        rules[sender, recipient, g] = new AutoSendRule(old.Minimum, old.Maximum, false);
+                    }
+                    activeCounts[sender, g] = 0;
+                }
+                paused[sender] = false;
+            }
+        }
         private bool CanChange(int sender, int goodIndex, out string reason)
         {
             reason = string.Empty;

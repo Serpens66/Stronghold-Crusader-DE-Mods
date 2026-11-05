@@ -17,7 +17,7 @@ namespace UiAcceptance
 {
     // Deliberately destructive fixtures are confined to the fresh SP session explicitly
     // claimed by this scenario. No work occurs in another map or outside a queued case.
-    internal static class AutoSendSteps
+    internal static partial class AutoSendSteps
     {
         private static readonly object gate = new object();
         private static long session;
@@ -45,6 +45,7 @@ namespace UiAcceptance
             Runner.Register("AutoSend.Case", Case);
             Runner.Register("AutoSend.Manual", Manual);
             Runner.Register("AutoSend.UiClicks", UiClicks);
+            Runner.Register("AutoSend.InputRegression", InputRegression);
             Runner.Register("AutoSend.Save", Save);
             Runner.Register("AutoSend.Reload", Reload);
             Runner.Register("AutoSend.Empty", Empty);
@@ -183,14 +184,7 @@ namespace UiAcceptance
 
         private static IEnumerable<Wait> UiClicks(Step step)
         {
-            yield return new Until("vanilla wood amount 10 for actual UI clicks", () => OpenSelection(first, eGoods.STORED_WOOD_PLANKS));
-            foreach (Wait wait in ClickAndAcknowledge("reserve", d => Number(d, "Reserve") == 10)) yield return wait;
-            foreach (Wait wait in ClickAndAcknowledge("maximum", d => Number(Read(d, "Rule"), "Maximum") == 10)) yield return wait;
-            foreach (Wait wait in ClickAndAcknowledge("minimum", d => Number(Read(d, "Rule"), "Minimum") == 10)) yield return wait;
-            foreach (Wait wait in ClickAndAcknowledge("enabled", d => Flag(Read(d, "Rule"), "Enabled"))) yield return wait;
-            foreach (Wait wait in ClickAndAcknowledge("paused", d => Flag(d, "Paused"))) yield return wait;
-            foreach (Wait wait in ClickAndAcknowledge("paused", d => !Flag(d, "Paused"))) yield return wait;
-            AcceptLog.Info("AUTOSEND_UI_CLICKS six actual Noesis mouse clicks acknowledged; reserve/min/max=10 enabled=True paused=False");
+            foreach (Wait wait in CompactUi()) yield return wait;
         }
 
         private static IEnumerable<Wait> ClickAndAcknowledge(string member, Func<object, bool> acknowledged)
@@ -231,9 +225,10 @@ namespace UiAcceptance
             foreach (Wait wait in Configure(first, eGoods.STORED_WOOD_PLANKS, 25, 125, true)) yield return wait;
             foreach (Wait wait in Configure(second, eGoods.STORED_WOOD_PLANKS, 5, 75, true)) yield return wait;
             yield return new Until("save gold selection", () => OpenSelection(first, eGoods.STORED_GOLD));
-            foreach (Wait wait in Change("Reserve", first, eGoods.STORED_GOLD, 777, false, d => Number(d, "Reserve") == 777)) yield return wait;
+            foreach (Wait wait in Change("Reserve", first, eGoods.STORED_GOLD, 17777, false, d => Number(d, "Reserve") == 17777)) yield return wait;
             foreach (Wait wait in Configure(first, eGoods.STORED_GOLD, 200, 800, true)) yield return wait;
             foreach (Wait wait in Configure(second, eGoods.STORED_GOLD, 50, 600, true)) yield return wait;
+            foreach (Wait wait in Change("Paused", 0, eGoods.STORED_GOLD, 0, false, d => !Flag(d, "Paused"))) yield return wait;
             var snapshots = new List<SavedRule>();
             foreach (eGoods good in new[] { eGoods.STORED_WOOD_PLANKS, eGoods.STORED_GOLD })
                 foreach (int recipient in new[] { first, second })
@@ -246,9 +241,9 @@ namespace UiAcceptance
                         Enabled = Flag(rule, "Enabled"), Paused = Flag(display, "Paused") });
                 }
             // A missing mod record cannot accidentally satisfy the later restore check:
-            // every captured rule is enabled with positive minimum/reserve and paused.
+            // every captured rule is enabled with positive minimum/reserve.
             foreach (var snapshot in snapshots)
-                Runner.Require(snapshot.Enabled && snapshot.Paused && snapshot.Minimum > 0 && snapshot.Reserve > 0,
+                Runner.Require(snapshot.Enabled && !snapshot.Paused && snapshot.Minimum > 0 && snapshot.Reserve > 0,
                     "save fixture is not a nondefault rule: " + snapshot.Describe());
             string directory = Path.GetFullPath(ConfigSettings.GetSavesPath());
             Runner.Require(Directory.Exists(directory), "native saves directory missing");
@@ -390,10 +385,8 @@ namespace UiAcceptance
 
         private static bool RenderedValue(object view, string member, int expected)
         {
-            var button = Read(view, member) as Button;
-            var label = button?.Content as TextBlock;
-            return label != null && label.Text.EndsWith(": " + expected.ToString(System.Globalization.CultureInfo.InvariantCulture),
-                StringComparison.Ordinal);
+            var box = Read(Read(view, member), "Box") as TextBox;
+            return box != null && box.Text == expected.ToString(System.Globalization.CultureInfo.InvariantCulture);
         }
 
         private static object Display()
@@ -433,10 +426,12 @@ namespace UiAcceptance
         private static void CheckButtons()
         {
             object view = Read(runtime, "view");
-            foreach (string member in new[] { "reserve", "minimum", "maximum", "enabled", "paused" })
+            foreach (string member in new[] { "reserve", "minimum", "maximum" })
             {
-                var button = Read(view, member) as Button;
-                Runner.Require(button != null && button.IsEnabled, "actual Noesis button " + member + " is disabled/missing");
+                var slider = Read(Read(view, member), "Slider") as Slider;
+                var box = Read(Read(view, member), "Box") as TextBox;
+                Runner.Require(slider != null && box != null && slider.IsEnabled && box.IsEnabled,
+                    "actual Noesis numeric editor " + member + " is disabled/missing");
             }
             var root = Read(view, "root") as FrameworkElement;
             Runner.Require(root != null && root.Visibility == Visibility.Visible && root.ActualWidth > 0 && root.ActualHeight > 0,

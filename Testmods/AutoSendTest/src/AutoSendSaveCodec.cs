@@ -6,7 +6,7 @@ namespace AutoSendTest
     internal static class AutoSendSaveCodec
     {
         // These numbers identify our binary format, not game-domain values.
-        private const int Magic = 0x41535431, FormatVersion = 1, MaximumBytes = 1024 * 1024;
+        private const int Magic = 0x41535431, FormatVersion = 2, MaximumBytes = 1024 * 1024;
         internal static byte[] Encode(AutoSendState state)
         {
             if (state == null) throw new ArgumentNullException(nameof(state));
@@ -45,7 +45,8 @@ namespace AutoSendTest
                 using (var stream = new MemoryStream(bytes, false))
                 using (var reader = new BinaryReader(stream))
                 {
-                    if (reader.ReadInt32() != Magic || reader.ReadInt32() != FormatVersion)
+                    int magic = reader.ReadInt32(), format = reader.ReadInt32();
+                    if (magic != Magic || format < 1 || format > FormatVersion)
                     { reason = "Unknown AutoSend save format."; return false; }
                     if (reader.ReadInt32() != candidate.GoodCount) throw new InvalidDataException("Goods set changed.");
                     int senderCursor = reader.ReadInt32();
@@ -87,6 +88,7 @@ namespace AutoSendTest
                     }
                     if (stream.Position != stream.Length) throw new InvalidDataException("Trailing save bytes.");
                     for (int player = 1; player <= AutoSendState.PlayerCount; player++) candidate.RestoreMeta(player, paused[player], revision[player]);
+                    if (format == 1) candidate.MigrateLegacyPausedRules();
                 }
                 state = candidate; reason = string.Empty; return true;
             }

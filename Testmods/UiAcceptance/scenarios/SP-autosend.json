@@ -14,6 +14,7 @@
     { "id": "initial-game-screenshot", "do": "Screenshot", "args": ["autosend-initial-game"], "stopOnFail": true },
     { "id": "arm-ui-native", "do": "AutoSend.Arm", "timeoutMs": 30000, "stopOnFail": true },
     { "id": "ui-enabled-screenshot", "do": "Screenshot", "args": ["autosend-ui-enabled"], "stopOnFail": true },
+    { "id": "cancel-drag-foreign-focus", "do": "AutoSend.InputRegression", "timeoutMs": 30000, "stopOnFail": true },
     { "id": "ui-clicks-chore-ack", "do": "AutoSend.UiClicks", "timeoutMs": 45000, "stopOnFail": true },
     { "id": "wood-equal-30-30", "do": "AutoSend.Case", "args": ["fair"], "timeoutMs": 45000, "stopOnFail": true },
     { "id": "minimum-60-0", "do": "AutoSend.Case", "args": ["emergency"], "timeoutMs": 45000, "stopOnFail": true },

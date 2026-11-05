@@ -1,101 +1,39 @@
-AutoSendTest: Spieltest
-======================
+AutoSendTest: kompakte Versandautomatik
+=====================================
 
-Vorbereitung
-------------
-Ein eigener Spieler und zwei lebende Verbündete A/B; Menschen, KI oder gemischt.
-Alle benötigen passende Lager. Für den kontrollierten Mengenvergleich sind ruhende
-menschliche Wirtschaften am einfachsten. Holzproduktion, Bauaufträge, Verbrauch,
-Marktautomatik und fremde Spenden während des Vergleichs anhalten. Bei KI nur einen
-tatsächlich passenden ersten Versanddurchlauf auswerten: ihre Wirtschaft läuft
-weiter und kann Bestände verändern. Anfangsbestände der KI niemals voraussetzen.
+Im Vanilla-Allies-Menü einen lebenden Verbündeten, Waren senden und eine Ware
+wählen. Die eigene Reserve gilt pro Ware für alle Verbündeten gemeinsam.
+Empfänger-Minimum, Maximum und Aktivierung gelten für Ware und Verbündeten.
 
-Im Allies-Menü den Empfänger, dann "Güter senden", Ware und Menge wählen. Die neuen
-Buttons übernehmen diese Menge als Reserve, Empfänger-Minimum oder -Maximum.
-Jede Änderung erst nach der gemeinsamen Ausführungsbestätigung weiterbearbeiten.
-Zum Einrichten die eigene Automatik pausieren; die Simulation muss zur Verarbeitung
-der Befehle gegebenenfalls kurz laufen. Regeln erst nach vollständiger Einrichtung
-aktivieren. Der Test erzeugt selbst weder Waren noch Einstellungen.
+Waren-Slider: 0 bis 100, Schritt 1. Gold: 0 bis 10000, Schritt 10. Textboxen
+akzeptieren größere nichtnegative Ganzzahlen und einzelne Goldstücke. Der
+Slider darf diese Werte beim Anzeigen niemals überschreiben.
 
-Diagnoselauf (/devdiag)
+Slider beim Loslassen übernehmen, Texte bei Enter oder Fokusverlust. Escape
+verwirft die Eingabe. Minimum über Maximum hebt das Maximum an; Maximum unter
+Minimum senkt das Minimum. Maximum 0 stoppt die Regel. Der Button zeigt den
+bestätigten Zustand; ausstehende Änderungen sperren nicht die Zahlenfelder.
+Der Kreispfeil am Warenicon kennzeichnet die eingeschaltete Regel für den gerade
+gewählten Verbündeten, auch wenn momentan keine Lieferung möglich ist.
+Das Empfänger-Minimum priorisiert Bedarf; übrigen Überschuss fair verteilen.
+
+Automatischer Spieltest
 ----------------------
-Im erweiterten Sendedialog die zu prüfende Ware und eigene Spieleransicht wählen,
-dann "Test starten". Der Lauf beobachtet die aktiven Empfängerregeln dieser Ware.
-Die eigene Automatik anschließend fortsetzen. Er endet nach 60 Spielsekunden oder
-über "Test beenden". Der Start wird am nächsten Simulationstick bestätigt; während
-Spielpause wartet er. Spielpause verlängert die benötigte Echtzeit. Ein späterer
-Warenwechsel ändert die beobachtete Ware nicht: für Gold einen neuen Lauf starten.
+UiAcceptance/scenarios/SP-autosend.json startet über tools/Run-Acceptance.ps1
+einen eigenen frischen SP-Skirmish mit drei KIs. Nur diese Testpartie erhält
+geänderte Teams/Bestände. Ein eindeutig benannter AutoSendCheck-Spielstand wird
+erzeugt. Persönliche APIShared-Einstellungen und Bildschirmkonfiguration werden
+vom Treiber wiederhergestellt. Logs/Screenshots vor weiteren Starts sichern.
 
-Im BepInEx/LogOutput.log die Marker test:start, test:case und test:summary prüfen.
-Die Zusammenfassung unterscheidet PASS, FAIL, INCONCLUSIVE und UNTESTED je Fall.
-UNTESTED bedeutet: Die nötigen Voraussetzungen wurden nicht beobachtet. Ein Lauf
-ohne passende Transfers beweist weder Mengenrichtigkeit noch faire Verteilung.
-INCONCLUSIVE bedeutet: etwa fremde Bestandsänderungen oder unklare Rückmeldungen
-verhindern den Nachweis. base, fair und emergency einzeln auswerten; ein allgemeines
-PASS ersetzt keine ungeprüfte oder unklare Teilprüfung. Für einen Transfernachweis
-sind passende tatsächlich ausgeführte Lieferungen nötig. Die einzelnen Szenarien
-unten zusätzlich anhand ihrer beobachteten Bestände prüfen.
+Geprüft: echte Noesis-Eingaben, freie Zahlen, gekoppelte Grenzen, Aktivierung,
+Auswahlwechsel bei ausstehenden Chores, stabile Controls, zwei Markeranbieter,
+native Verteilung (fair, Notversorgung, Maximum, Reserve, Pause, Abschalten,
+Gold), manueller Versand, vier gespeicherte Regeln und frische Standardwerte.
+Nur SUMMARY PASS ohne FAIL/SKIP gilt als vollständiger Lauf. Der einmalige
+Autostart deaktiviert sich selbst und bleibt anschließend aus.
 
-1. Gleiche Anteile und eigene Reserve
-------------------------------------
-Für Holz beide Minima auf 0 setzen. Jedes Maximum mindestens 100 über den jeweiligen
-aktuellen Empfängerbestand setzen; beide Lager benötigen mindestens 100 freie
-Holzplätze. Reserve 100, beide Regeln aktiv. Den eigenen Holzbestand kontrolliert
-auf genau 160 bringen, während die Automatik noch pausiert ist.
-
-Diagnose starten und Automatik fortsetzen. Wenn unmittelbar vor dem ersten
-Versanddurchlauf tatsächlich 160 Holz vorhanden sind und beide Empfänger die oben
-genannte Luft haben, muss der Überschuss von 60 als 30/30 verteilt werden. Danach
-bleiben beim Sender 100. Empfänger-Endbestände sind jeweils Anfangsbestand + 30.
-Bei Produktion, Verbrauch oder Spenden den Durchlauf nicht als 30/30-Beleg werten.
-
-2. Notversorgung, Maximum, Pause und Abschalten
----------------------------------------------
-Notversorgung: Neu vorbereiten, Sender wieder 160 Holz, Reserve 100. A mindestens
-100 unter seinem eingestellten Minimum, sein Maximum noch höher; B Minimum 0.
-Genug Lagerplatz und beide Regeln aktiv: Die ersten 60 gehen vollständig an A,
-solange sein tatsächlicher Mindestbedarf zu diesem Zeitpunkt mindestens 60 ist.
-
-Maximum: B deaktivieren, A Minimum 0. A ein Maximum nur wenig über seinem aktuellen
-Bestand geben, etwa +10. Tatsächlichen Rest d notieren; es muss 0 < d < 60 gelten.
-Bei erneut 160/100 und ausreichendem Lagerplatz darf A nur d erhalten. Sender bleibt
-bei 160 - d; weitere Automatik darf den Zielbestand nicht überschreiten.
-
-Pause/Abschalten: Wieder echten Überschuss und Empfängerbedarf herstellen. Alle
-Lieferungen pausieren, später fortsetzen; danach die einzelne Regel deaktivieren.
-Jeweils auf die synchrone Bestätigung warten. Während bestätigter Pause bzw. bei
-deaktivierter Regel darf keine neue automatische Lieferung dieser Regel erfolgen.
-Ohne vorhandenen Überschuss und Bedarf wäre dieser Nachweis UNTESTED.
-
-3. Manueller Versand und Gold
-----------------------------
-Bei ausgeschalteter Automatik mit den normalen Vanilla-Buttons eine kleine Menge
-manuell senden. Nur die beabsichtigte Menge darf übertragen werden; anschließend
-weiterhin Waren auswählen und die Automatikwerte über dieselbe Mengenauswahl ändern.
-Shift/Ctrl-Mengenmodifikatoren mit BugfixesAndQoL gesondert prüfen, falls installiert.
-
-Gold wie Holz testen: beispielsweise 1600 eigenes Gold, Reserve 1000, Minima 0 und
-bei beiden Verbündeten mindestens 1000 Luft bis zum Maximum. Ohne andere Goldflüsse
-ergeben 600 Überschuss 300/300 und 1000 Rest. Steuern, Rekrutierung und KI-Ausgaben
-können den äußeren Bestandsvergleich stören; die Diagnose der unmittelbaren
-Geschenk-Debits/-Credits ist davon getrennt auszuwerten.
-
-4. Spielstand, neue Partie und Multiplayer
-----------------------------------------
-Mit aktiven Regeln speichern, laden und die Werte/Schalter vergleichen. Die Regel
-muss bei passenden Spieleridentitäten weiterlaufen, ohne eine gespeicherte Grenze
-doppelt auszuführen. Eine neu begonnene Partie beginnt ohne aktive Regeln. Beim
-Neustart den tatsächlichen Weg unterscheiden: neu gestartete Ursprungskarte ohne
-Regeln, erneut geladener Spielstand mit dessen gespeicherten Regeln. Neue und
-geladene Editorkarten ebenfalls gesondert prüfen.
-
-Für echten MP auf Host und Client dieselbe geprüfte APIShared-Version und denselben
-AutoSendTest-Build verwenden. APIShared umfasst Plugins UND Patcher aus einem Paket;
-eine einzelne kopierte DLL genügt nicht. Zunächst Host -> Mensch/KI prüfen, danach
-Client -> Verbündeter. Anschließend beide Spender mit derselben Ware und gleichem
-Zielmaximum testen. Lagerplatz und Bestände müssen auf beiden Rechnern übereinstimmen;
-jedes Geschenk darf pro Spielwelt genau einmal wirken. Beide Logs sichern und auf
-gemeinsame Bereitschaft, ausgeführte Transfers, FAIL und Desync-Meldungen prüfen.
-
-Ein lokaler KI-Lauf ist kein Host-/Client-Nachweis. Nicht ausgeführte Szenarien bleiben
-offen; bestandene Build-/Policytests ersetzen keine Sichtprüfung oder MP-Abnahme.
+Zusätzlich prüfen: Darstellung und Fokus bei 1080p/1440p/4K, manuelle Strg-/Shift-
+Mengen mit BugfixesAndQoL, Editorstart und geladene Editorkarten. Echter Host/Client
+benötigt identische Mod- und APIShared-Pakete (Plugin UND Bootstrap aus demselben
+Build). Beide Sender, Menschen/KI, gemeinsamen Empfänger, gleiche Bestände und
+einmalige Ausführung prüfen. Ein lokaler KI-Lauf beweist weder MP noch Editor.

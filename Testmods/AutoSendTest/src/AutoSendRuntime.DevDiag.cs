@@ -145,29 +145,4 @@ namespace AutoSendTest
         }
     }
 
-    internal sealed partial class AutoSendView
-    {
-        private Button probeButton;
-        private TextBlock probeText;
-        partial void AddDiagnostics(StackPanel body)
-        {
-            var row = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 8, 0, 0) };
-            probeButton = Action(row, "ProbeHelp", () => {
-                if (AllyGoodsPanelExtensions.TryGetContext(out var context)) runtime.ToggleProbe(context);
-            });
-            probeText = Text(14); probeText.Margin = new Thickness(0, 5, 0, 0);
-            body.Children.Add(row); body.Children.Add(probeText);
-        }
-        partial void RefreshDiagnostics()
-        {
-            if (probeButton == null) return;
-            string status = runtime.ProbeStatus(out bool running);
-            bool canStart = false;
-            if (AllyGoodsPanelExtensions.TryGetContext(out var context) && context.IsSendMode && context.Good.HasValue)
-            { var display = runtime.ReadDisplay(context); canStart = display.Ready && !display.Pending; }
-            probeButton.IsEnabled = running || canStart;
-            Content(probeButton, AutoSendText.Get(running ? "ProbeStop" : "ProbeStart"));
-            Set(probeText, status);
-        }
-    }
 }

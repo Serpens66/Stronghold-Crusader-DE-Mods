@@ -31,6 +31,7 @@ namespace AutoSendTest
         private AutoSendView view;
         private MissionContext mission;
         private readonly AutoSendEpochs epochs = new AutoSendEpochs();
+        private readonly AutoSendEditQueue edits = new AutoSendEditQueue();
         private readonly AutoSendInitialRoster initialRoster = new AutoSendInitialRoster();
         private readonly ulong[] humanIdentities = new ulong[9];
         private uint[] loadedIdentities;
@@ -46,7 +47,7 @@ namespace AutoSendTest
         private int expectedMask;
         private readonly long[] readyEpoch = new long[9], readyProof = new long[9];
         private readonly int[] readyRoster = new int[9];
-        private bool initializedMap, identityMismatch, editPending, firstTick, loadFailure, helloSubmitted, readySubmitted;
+        private bool initializedMap, identityMismatch, firstTick, loadFailure, helloSubmitted, readySubmitted;
         private AllyGoodsPanelContext selectedContext;
         private int helloAttempts;
         private long nextHelloAttempt;
@@ -64,9 +65,11 @@ namespace AutoSendTest
             view = new AutoSendView(this);
             if (!AllyGoodsPanelExtensions.TryRegisterSection(AutoSendPlugin.Guid, "auto-send", view.Create,
                 out _, out reason, 100)) throw new InvalidOperationException(reason);
+            if (!AllyGoodsPanelExtensions.TryRegisterGoodsAdornment(AutoSendPlugin.Guid, "active-goods", view.CreateAdornment,
+                out _, out reason, 100)) throw new InvalidOperationException(reason);
             if (!AllyGoodsPanelExtensions.TrySubscribeContext(AutoSendPlugin.Guid, "selection", SelectionChanged,
                 out reason)) throw new InvalidOperationException(reason);
-            var save = new VersionedSaveDataRegistration(AutoSendPlugin.Guid, AutoSendPlugin.Guid + ".rules", 1, 1,
+            var save = new VersionedSaveDataRegistration(AutoSendPlugin.Guid, AutoSendPlugin.Guid + ".rules", 2, 2,
                 new[] { "rules", "players" }, Capture, Loaded) { SimulationRelevant = true };
             if (!VersionedSaveData.TryRegister(save, out _, out reason)) throw new InvalidOperationException(reason);
             if (!api.TryGetMissionLifecycle(out missions, out var diagnostic) ||
@@ -78,11 +81,14 @@ namespace AutoSendTest
                 throw new InvalidOperationException(reason);
         }
 
-        private static bool ValidPacket(AutoSendPacket p) => p != null && p.Protocol == 1 && p.Epoch != 0 &&
-            p.Revision >= 0 && p.Operation >= (int)AutoSendEdit.Hello && p.Operation <= (int)AutoSendEdit.Ready &&
-            p.Amount >= 0 && p.Recipient >= 0 && p.Recipient <= 8 &&
-            ((AutoSendEdit)p.Operation == AutoSendEdit.Hello || (AutoSendEdit)p.Operation == AutoSendEdit.Ready ||
-                (AutoSendEdit)p.Operation == AutoSendEdit.Paused || AutoSendGoods.Contains(p.Good));
+        private static bool ValidPacket(AutoSendPacket p)
+        {
+            if (p == null || p.Protocol != 2 || p.Epoch == 0 || p.Revision < 0 || p.Amount < 0 ||
+                p.Minimum < 0 || p.Maximum < 0 || p.Recipient < 0 || p.Recipient > 8) return false;
+            var operation = (AutoSendEdit)p.Operation;
+            return operation == AutoSendEdit.Hello || operation == AutoSendEdit.Ready || operation == AutoSendEdit.Paused ||
+                (operation == AutoSendEdit.Reserve || operation == AutoSendEdit.SetRule) && AutoSendGoods.Contains(p.Good);
+        }
 
         private void Start(MissionLifecycleNotification note)
         {
@@ -93,7 +99,8 @@ namespace AutoSendTest
                 planner = new AutoSendPlanner(state);
                 epochs.Reset(); expectedLocalPlayer = expectedMask = 0;
                 Array.Clear(readyEpoch, 0, readyEpoch.Length); Array.Clear(readyProof, 0, readyProof.Length); Array.Clear(readyRoster, 0, readyRoster.Length);
-                initializedMap = editPending = firstTick = helloSubmitted = readySubmitted = false;
+                initializedMap = firstTick = helloSubmitted = readySubmitted = false;
+                edits.Reset();
                 helloAttempts = 0; nextHelloAttempt = 0;
                 identityMismatch = loadFailure;
                 Array.Clear(stocks, 0, stocks.Length); Array.Clear(capacities, 0, capacities.Length); Array.Clear(allies, 0, allies.Length);
@@ -140,7 +147,7 @@ namespace AutoSendTest
         {
             lock (sync)
             {
-                mission = null; initializedMap = false; editPending = false; localEpoch = 0;
+                mission = null; initializedMap = false; edits.Reset(); localEpoch = 0;
                 loadedState = null; loadedIdentities = null; loadedHumanIdentities = null; loadFailure = false;
                 EndDiagnostics();
             }
@@ -161,7 +168,7 @@ namespace AutoSendTest
                 if (now < nextHelloAttempt) return;
                 if (helloAttempts == 0) helloAttempts = 1; else helloAttempts = 2;
                 nextHelloAttempt = now + Stopwatch.Frequency;
-                hello = new AutoSendPacket { Protocol = 1, Epoch = localEpoch, Operation = (int)AutoSendEdit.Hello };
+                hello = new AutoSendPacket { Protocol = 2, Epoch = localEpoch, Operation = (int)AutoSendEdit.Hello };
             }
             // Authenticated submission rejects spectators and foreign viewpoints. It is
             // safe to try again on the next actual UI edit; never retry a submitted edit.
@@ -181,7 +188,7 @@ namespace AutoSendTest
             {
                 if (mission == null || readySubmitted || !epochs.AllKnown(expectedMask) || localPlayer < 1 || localPlayer > 8 ||
                     epochs.Get(localPlayer) != localEpoch || (expectedMask & (1 << localPlayer)) == 0) return;
-                packet = new AutoSendPacket { Protocol = 1, Epoch = localEpoch, Operation = (int)AutoSendEdit.Ready,
+                packet = new AutoSendPacket { Protocol = 2, Epoch = localEpoch, Operation = (int)AutoSendEdit.Ready,
                     Good = expectedMask, Revision = epochs.Fingerprint(expectedMask) };
             }
             var result = channel.Send(packet);
@@ -223,23 +230,21 @@ namespace AutoSendTest
                     PromoteReadiness(); RequestPresentation(); return;
                 }
                 if (!epochs.IsReady(expectedMask)) return;
-                if (epochs.Get(sender) != p.Epoch || state.GetRevision(sender) == long.MaxValue || p.Revision != state.GetRevision(sender) + 1) return;
+                if (epochs.Get(sender) != p.Epoch) return;
                 string reason = string.Empty;
                 bool accepted = false;
                 var operation = (AutoSendEdit)p.Operation;
-                if (operation == AutoSendEdit.Paused) accepted = state.TrySetPaused(sender, p.Enabled, out reason);
+                if (state.GetRevision(sender) == long.MaxValue || p.Revision != state.GetRevision(sender) + 1)
+                    reason = "The rule revision changed before this command was applied.";
+                else if (operation == AutoSendEdit.Paused) accepted = state.TrySetPaused(sender, p.Enabled, out reason);
                 else if (operation == AutoSendEdit.Reserve) accepted = state.TrySetReserve(sender, p.Good, p.Amount, out reason);
-                else if (p.Recipient != sender && IsAlliedLiving(sender, p.Recipient))
+                else if (operation == AutoSendEdit.SetRule && p.Recipient != sender && IsAlliedLiving(sender, p.Recipient))
                 {
-                    var old = state.GetRule(sender, p.Recipient, p.Good);
-                    int minimum = operation == AutoSendEdit.Minimum ? p.Amount : old.Minimum;
-                    int maximum = operation == AutoSendEdit.Maximum ? p.Amount : old.Maximum;
-                    bool enabled = operation == AutoSendEdit.Enabled ? p.Enabled : old.Enabled;
-                    accepted = state.TrySetRule(sender, p.Recipient, p.Good, minimum, maximum, enabled, out reason);
+                    accepted = state.TrySetRule(sender, p.Recipient, p.Good, p.Minimum, p.Maximum, p.Enabled, out reason);
                 }
                 else reason = "The selected recipient is no longer a living ally.";
-                if (sender == localPlayer && p.Epoch == localEpoch)
-                { editPending = false; feedback = accepted ? string.Empty : reason; }
+                if (sender == localPlayer && p.Epoch == localEpoch && edits.Acknowledge(mission.SessionId, sender, p.Epoch, p.Revision))
+                    feedback = accepted ? string.Empty : reason;
                 RequestPresentation();
             }
         }
@@ -330,34 +335,89 @@ namespace AutoSendTest
 
         internal void Edit(AutoSendEdit operation, int recipient, int good, int amount, bool enabled)
         {
-            AutoSendPacket packet; long session;
+            long session;
+            lock (sync) session = mission?.SessionId ?? 0;
+            EditCaptured(session, operation, recipient, good, amount, enabled);
+        }
+        internal void EditCaptured(long session, AutoSendEdit operation, int recipient, int good, int amount, bool enabled)
+        {
             lock (sync)
             {
-                if (mission == null || editPending || localPlayer < 1 || localPlayer > 8 || identityMismatch) return;
-                session = mission.SessionId;
-                packet = new AutoSendPacket { Protocol = 1, Epoch = localEpoch, Revision = state.GetRevision(localPlayer) + 1,
-                    Operation = (int)operation, Recipient = recipient, Good = good, Amount = amount, Enabled = enabled };
-                editPending = true; feedback = string.Empty;
+                if (mission == null || mission.SessionId != session || localPlayer < 1 || localPlayer > 8 || identityMismatch ||
+                    !initializedMap || !epochs.IsReady(expectedMask) || !AllyTransfers.IsAvailable) return;
+                if (state.GetRevision(localPlayer) == long.MaxValue)
+                { feedback = "Revision range exhausted."; RequestPresentation(); return; }
+                bool field = operation == AutoSendEdit.Reserve || operation == AutoSendEdit.Minimum || operation == AutoSendEdit.Maximum;
+                bool toggle = operation == AutoSendEdit.Enabled || operation == AutoSendEdit.Paused;
+                if ((!field && !toggle) || amount < 0 || operation != AutoSendEdit.Paused && !AutoSendGoods.Contains(good)) return;
+                if (toggle && edits.Pending) return;
+                if (operation != AutoSendEdit.Paused && (recipient < 1 || recipient > 8 || recipient == localPlayer)) return;
+                var intent = new AutoSendEditIntent(session, localPlayer, operation, recipient, good, amount, enabled);
+                if (operation == AutoSendEdit.Enabled && enabled)
+                {
+                    int reserve = state.GetReserve(localPlayer, good); var rule = state.GetRule(localPlayer, recipient, good);
+                    edits.Project(session, localPlayer, recipient, good, ref reserve, ref rule);
+                    if (!AutoSendRuleEdits.TryApply(rule, operation, amount, enabled, out _, out string reason))
+                    { feedback = reason; RequestPresentation(); return; }
+                }
+                edits.Enqueue(intent); feedback = string.Empty;
             }
-            Announce(session);
-            var result = channel.Send(packet);
-            if (!result.Submitted) lock (sync) { editPending = false; feedback = result.Reason; }
+            RequestPresentation();
+        }
+
+        private void SendNextEdit()
+        {
+            AutoSendPacket packet = null; AutoSendEditIntent intent;
+            lock (sync)
+            {
+                if (mission == null || identityMismatch || !initializedMap || !epochs.IsReady(expectedMask) ||
+                    localPlayer < 1 || localPlayer > 8 || state.GetRevision(localPlayer) == long.MaxValue) return;
+                if (!edits.TryBegin(mission.SessionId, localPlayer, localEpoch, state.GetRevision(localPlayer) + 1, out intent)) return;
+                packet = new AutoSendPacket { Protocol = 2, Epoch = localEpoch, Revision = state.GetRevision(localPlayer) + 1,
+                    Operation = (int)intent.Operation, Recipient = intent.Recipient, Good = intent.Good,
+                    Amount = intent.Amount, Enabled = intent.Enabled };
+                if (intent.Operation != AutoSendEdit.Reserve && intent.Operation != AutoSendEdit.Paused)
+                {
+                    var old = state.GetRule(intent.Player, intent.Recipient, intent.Good);
+                    if (!AutoSendRuleEdits.TryApply(old, intent.Operation, intent.Amount, intent.Enabled, out var rule, out string reason))
+                    { edits.Failed(intent); feedback = reason; RequestPresentation(); return; }
+                    packet.Operation = (int)AutoSendEdit.SetRule;
+                    packet.Minimum = rule.Minimum; packet.Maximum = rule.Maximum; packet.Enabled = rule.Enabled;
+                }
+            }
+            // The native queue can deliver synchronously. The flight is already bound;
+            // no engine/transport operation is made while holding our snapshot lock.
+            var sent = channel.Send(packet);
+            if (!sent.Submitted) lock (sync)
+            {
+                if (mission?.SessionId == intent.Session)
+                { edits.Failed(intent); feedback = sent.Reason; }
+            }
             RequestPresentation();
         }
 
         internal AutoSendDisplay ReadDisplay(AllyGoodsPanelContext context)
+            => ReadDisplayCore(context, context?.Good.HasValue == true ? (int)context.Good.Value : 0);
+
+        internal AutoSendDisplay ReadDisplayForGood(AllyGoodsPanelContext context, eGoods good)
+            => ReadDisplayCore(context, (int)good);
+
+        private AutoSendDisplay ReadDisplayCore(AllyGoodsPanelContext context, int good)
         {
             lock (sync)
             {
                 int sender = context?.LocalPlayerId ?? 0, recipient = context?.RecipientPlayerId ?? 0;
-                int good = context?.Good.HasValue == true ? (int)context.Good.Value : 0;
                 bool selected = sender >= 1 && sender <= 8 && recipient >= 1 && recipient <= 8 && AutoSendGoods.Contains(good);
-                var result = new AutoSendDisplay { Selected = selected, Pending = editPending, Feedback = feedback,
+                var result = new AutoSendDisplay { Selected = selected, Pending = edits.Pending, Feedback = feedback,
+                    SessionId = mission?.SessionId ?? 0, SenderPlayerId = localPlayer,
                     TransferUnavailable = !AllyTransfers.IsAvailable,
                     Ready = mission != null && initializedMap && epochs.IsReady(expectedMask) && AllyTransfers.IsAvailable && !identityMismatch && selected && sender == localPlayer &&
                         context.ViewedPlayerId == sender && allies[sender, recipient], IdentityMismatch = identityMismatch };
                 if (!selected) return result;
                 result.Reserve = state.GetReserve(sender, good); result.Rule = state.GetRule(sender, recipient, good);
+                int desiredReserve = result.Reserve; var desiredRule = result.Rule;
+                result.HasDesiredValues = edits.Project(result.SessionId, sender, recipient, good, ref desiredReserve, ref desiredRule);
+                result.DesiredReserve = desiredReserve; result.DesiredRule = desiredRule;
                 result.Paused = state.IsPaused(sender);
                 for (int g = 0; g < state.GoodCount; g++)
                 {
@@ -411,6 +471,7 @@ namespace AutoSendTest
             lock (sync) currentSession = mission?.SessionId ?? 0;
             if (currentSession != 0 && channel.IsAvailable) Announce(currentSession);
             if (currentSession != 0 && channel.IsAvailable) AnnounceReady();
+            if (currentSession != 0 && channel.IsAvailable) SendNextEdit();
             while (messages.TryDequeue(out string message)) log.LogInfo("[" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff") + "] AutoSend: " + message);
             view?.Refresh();
         }
@@ -436,6 +497,10 @@ namespace AutoSendTest
     }
     internal sealed class AutoSendDisplay
     {
+        internal long SessionId;
+        internal int SenderPlayerId, DesiredReserve;
+        internal AutoSendRule DesiredRule;
+        internal bool HasDesiredValues;
         internal bool Selected, Ready, Pending, Paused, IdentityMismatch, TransferUnavailable;
         internal int Reserve, SourceStock, RecipientStock, Capacity, ActiveRules;
         internal AutoSendRule Rule;

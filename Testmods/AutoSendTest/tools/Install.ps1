@@ -13,7 +13,6 @@ Assert-ShortWorkDirectory $EvidenceDirectory
 if (Test-Path -LiteralPath (Join-Path $EvidenceDirectory 'installation.json')) { throw 'Installation evidence already exists; allocate a fresh run.' }
 $game = [IO.Path]::GetFullPath($GameDir).TrimEnd('\','/')
 $build = Get-Content -LiteralPath $BuildRecord -Raw | ConvertFrom-Json
-if (!$build.DevDiag) { throw 'This prepared game test requires the explicit diagnostic artifact.' }
 $frozen = Get-Content -LiteralPath $ApiPackageRecord -Raw | ConvertFrom-Json
 $sdkPackage = [IO.Path]::GetFullPath($frozen.PackageDirectory)
 Assert-ApiBootstrapPair $sdkPackage
@@ -58,7 +57,10 @@ $assembly = [Mono.Cecil.AssemblyDefinition]::ReadAssembly((Join-Path $modPackage
 try {
     $marker = @($assembly.CustomAttributes | Where-Object { $_.AttributeType.FullName -eq 'System.Reflection.AssemblyMetadataAttribute' -and
         $_.ConstructorArguments.Count -eq 2 -and $_.ConstructorArguments[0].Value -eq 'SerpDevDiagnostics' -and $_.ConstructorArguments[1].Value -eq 'true' })
-    if ($marker.Count -ne 1 -or !($assembly.MainModule.Types | Where-Object { $_.FullName -eq 'Shared.DevDiagRuntime' })) { throw 'Diagnostic compilation marker missing.' }
+    $diagnosticRuntime = @($assembly.MainModule.Types | Where-Object { $_.FullName -eq 'Shared.DevDiagRuntime' })
+    if ($build.DevDiag) {
+        if ($marker.Count -ne 1 -or $diagnosticRuntime.Count -ne 1) { throw 'Diagnostic compilation marker missing.' }
+    } elseif ($marker.Count -ne 0 -or $diagnosticRuntime.Count -ne 0) { throw 'Diagnostic code found in normal artifact.' }
 } finally { $assembly.Dispose() }
 function Snapshot {
     @(Get-ChildItem -LiteralPath (Join-Path $game 'BepInEx\plugins'),(Join-Path $game 'BepInEx\patchers') -Recurse -File |
@@ -101,7 +103,7 @@ $after | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $Evidence
 $otherBefore = @($before | Where-Object { !$targets.Contains($_.Path) } | ForEach-Object { $_.Path + '|' + $_.Sha256 })
 $otherAfter = @($after | Where-Object { !$targets.Contains($_.Path) } | ForEach-Object { $_.Path + '|' + $_.Sha256 })
 if (Compare-Object $otherBefore $otherAfter) { throw 'Unrelated installed files changed; inspect snapshots.' }
-[ordered]@{InstalledUtc=[DateTime]::UtcNow.ToString('o');Installed=$true;Diagnostic=$true;GameDir=$game;
+[ordered]@{InstalledUtc=[DateTime]::UtcNow.ToString('o');Installed=$true;Diagnostic=[bool]$build.DevDiag;GameDir=$game;
     BuildRecord=[IO.Path]::GetFullPath($BuildRecord);ApiPackageRecord=[IO.Path]::GetFullPath($ApiPackageRecord);ApiSharedVersion=$frozen.ApiSharedVersion;Files=$payload;
     UnrelatedFilesVerified=$otherBefore.Count;GameAcceptance='Prepared, not executed; no game launched.'} |
     ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $EvidenceDirectory 'installation.json') -Encoding UTF8
