@@ -10,7 +10,7 @@ using System.Runtime.InteropServices;
 
 namespace BugfixesAndQoL
 {
-    internal sealed unsafe class ControlGroupDisbandCleanupRuntime : IDisposable
+    internal sealed unsafe class ControlGroupDisbandCleanupRuntime
     {
         [UnmanagedFunctionPointer(CallingConvention.Winapi)]
         private delegate byte DisbandUnitDelegate(IntPtr unitManager, int unitId, byte playSound);
@@ -69,11 +69,6 @@ namespace BugfixesAndQoL
                 transaction = null;
                 throw;
             }
-        }
-
-        public void Dispose()
-        {
-            // Published process-lifetime detour remains rooted and installed.
         }
 
         private byte DisbandUnit(IntPtr unitManager, int unitId, byte playSound)

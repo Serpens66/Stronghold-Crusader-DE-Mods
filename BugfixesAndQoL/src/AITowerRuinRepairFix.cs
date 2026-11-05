@@ -31,7 +31,7 @@ using RedBird.X64.Hooks.Context;
 
 namespace BugfixesAndQoL
 {
-    internal sealed unsafe class AITowerRuinRepairFix : IDisposable
+    internal sealed unsafe class AITowerRuinRepairFix
     {
         // movabs rax,0x3C0100038 is encoded little-endian as 38 00 10 C0 03...
         // The earlier 38 00 01 C0 diagnostic pattern described a different mask.
@@ -63,7 +63,6 @@ namespace BugfixesAndQoL
         private bool callbackFailureLogged;
         private bool mapActive;
         private volatile bool logicallyEnabled;
-        private bool disposed;
 
         public AITowerRuinRepairFix(
             ManualLogSource log,
@@ -148,7 +147,7 @@ namespace BugfixesAndQoL
 
         public void ApplySetting()
         {
-            if (disposed || !narrowRuinClassifierHook.Success || !broadRuinClassifierHook.Success)
+            if (!narrowRuinClassifierHook.Success || !broadRuinClassifierHook.Success)
                 return;
 
             if (!narrowRuinClassifierHook.IsInstalled || !broadRuinClassifierHook.IsInstalled)
@@ -159,15 +158,6 @@ namespace BugfixesAndQoL
             }
 
             logicallyEnabled = settings.EnableMod && settings.FixAITowerRepair;
-        }
-
-        public void Dispose()
-        {
-            if (disposed)
-                return;
-            logicallyEnabled = false;
-            disposed = true;
-            runtimeRuins.Clear();
         }
 
         private void RouteTrackedRuinThroughNarrowCleanup(NativePointer<X64SmartCPUContext> context) =>

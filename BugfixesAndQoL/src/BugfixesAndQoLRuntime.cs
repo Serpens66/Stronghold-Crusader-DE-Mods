@@ -11,7 +11,7 @@ using System;
 
 namespace BugfixesAndQoL
 {
-    public sealed partial class BugfixesAndQoLRuntime : IDisposable
+    public sealed partial class BugfixesAndQoLRuntime
     {
         private readonly ManualLogSource log;
         private readonly BugfixesAndQoLViewModel settings;
@@ -126,11 +126,9 @@ namespace BugfixesAndQoL
         private CtrlMarketTradeHook ctrlMarketTradeHook;
         private NotificationSkipFeature notificationSkipFeature;
         private IntPtr libraryHandle;
-        private int libraryLength;
         private ScanRegion nativeRegion;
         private bool nativeLibraryAvailable;
         private bool fixedLayoutHashValidated;
-        private bool settingsSubscribed;
         private bool enemyProximityFixedLayoutErrorLogged;
         private bool assemblyPointPlacementPatchUnavailable;
         private bool healerAttackCommandPatchUnavailable;
@@ -178,7 +176,6 @@ namespace BugfixesAndQoL
             EnsureBriefingNoStartingGoldFixRegistration();
             InitializeMovedFeatures();
             settings.SettingChanged += OnSettingChanged;
-            settingsSubscribed = true;
         }
 
         public object SelectedUnitHealthUi => selectedUnitHealthFeature?.ViewModel;
@@ -354,7 +351,6 @@ namespace BugfixesAndQoL
                 throw new ArgumentException("The Crusader library is unavailable.");
 
             libraryHandle = newLibraryHandle;
-            libraryLength = memory.Length;
             nativeRegion = context.Region;
             fixedLayoutHashValidated = isFixedLayoutHashValidated;
             nativeLibraryAvailable = true;
@@ -793,86 +789,6 @@ namespace BugfixesAndQoL
             var candidate = new PrebuiltAiStorageFixRuntime(log, settings, context);
             candidate.Install();
             processPrebuiltAiStorageFixRuntime = candidate;
-        }
-
-        public void Dispose()
-        {
-            UnsubscribeHooks();
-            DisposeMovedFeatures();
-            assassinPathfindingRuntime.Dispose();
-            shiftRepairAllBuildingsHook?.Dispose();
-            shiftRepairAllBuildingsHook = null;
-            skirmishAiSelectionMemoryHook?.Dispose();
-            skirmishAiSelectionMemoryHook = null;
-            customLordListEnhancementHook?.Dispose();
-            customLordListEnhancementHook = null;
-            aiCastleSettingsListEnhancementHook?.Dispose();
-            aiCastleSettingsListEnhancementHook = null;
-            mapOriginSortHook?.Dispose();
-            mapOriginSortHook = null;
-            vanillaMapEditorHook?.Dispose();
-            vanillaMapEditorHook = null;
-            resyncHostKickFeature?.Dispose();
-            resyncHostKickFeature = null;
-            abruptHostMigrationFix?.Dispose();
-            abruptHostMigrationFix = null;
-            // Lord action hooks are process-lifetime registrations and are not torn down here.
-            surrenderFeature?.Dispose();
-            surrenderFeature = null;
-            // The static HUD publisher owns this view model for the lifetime of the process.
-            DisableAssemblyPointPlacementPatch();
-            DisableHealerAttackCommandPatch();
-            DisableMountedStockpileMovementPatch();
-            DisableLordControlGroupNativePatch();
-            controlGroupDisbandCleanupRuntime?.Dispose();
-            controlGroupDisbandCleanupRuntime = null;
-            aiStoneReserveFix?.Dispose();
-            aiStoneReserveFix = null;
-            aiDefensePatrolFix?.Dispose();
-            aiDefensePatrolFix = null;
-            aiWallTargetingFix?.Dispose();
-            aiWallTargetingFix = null;
-            aivDefenderPositionFix?.Dispose();
-            aivDefenderPositionFix = null;
-            aiTowerRuinRepairFix?.Dispose();
-            aiTowerRuinRepairFix = null;
-            betterAIOverbuildRulesFix?.Dispose();
-            betterAIOverbuildRulesFix = null;
-            plaguePopularityFix?.Dispose();
-            plaguePopularityFix = null;
-            plagueTreatmentFadeFix?.SetTreatmentCompletedObserver(null);
-            plagueTargetReservationFix?.Dispose();
-            plagueTargetReservationFix = null;
-            plagueTreatmentFadeFix?.Dispose();
-            plagueTreatmentFadeFix = null;
-            plagueApothecaryStateTransitionFix?.Dispose();
-            plagueApothecaryStateTransitionFix = null;
-            troopMovementFixRuntime.Dispose();
-            assassinClimbRuntime.Dispose();
-            assassinClimbCancellationRuntime.Dispose();
-            ctrlMarketTradeHook?.Dispose();
-            ctrlMarketTradeHook = null;
-            multiplayerGameSpeedRuntime.Dispose();
-            multiplayerAivSyncRuntime.Dispose();
-            siegeAmmoRestockFeature.Dispose();
-            tunnelPlacementDistanceFeature.Dispose();
-            trailCustomizationFeature.Dispose();
-            playerMarketSubscription?.Dispose();
-            playerMarketSubscription = null;
-            mapStartSubscription?.Dispose();
-            mapStartSubscription = null;
-            mapUnloadSubscription?.Dispose();
-            mapUnloadSubscription = null;
-            nativeLibraryAvailable = false;
-            libraryHandle = IntPtr.Zero;
-            libraryLength = 0;
-            nativeRegion = null;
-
-            if (settingsSubscribed)
-            {
-                settings.SettingChanged -= OnSettingChanged;
-                settingsSubscribed = false;
-            }
         }
 
         private void SubscribeHooks()
@@ -1352,19 +1268,6 @@ namespace BugfixesAndQoL
             }
             catch (Exception ex)
             {
-                try
-                {
-                    aiDefensePatrolFix?.Dispose();
-                }
-                catch (Exception rollbackEx)
-                {
-                    ex = new AggregateException(
-                        "The AI defense patrol fix failed and cleanup also failed.",
-                        ex,
-                        rollbackEx);
-                }
-
-                aiDefensePatrolFix = null;
                 aiDefensePatrolFixUnavailable = true;
                 Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/BugfixesAndQoLRuntime/EnsureAiDefensePatrolFix", $"Bugfixes and QoL AI defense patrol fix could not be installed; " +
                     $"only this AI fix remains inactive and Vanilla behavior remains active: {ex}");

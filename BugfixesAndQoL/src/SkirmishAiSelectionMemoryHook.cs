@@ -13,7 +13,7 @@ using System.Text;
 
 namespace BugfixesAndQoL
 {
-    internal sealed class SkirmishAiSelectionMemoryHook : INotifyPropertyChanged, IDisposable
+    internal sealed class SkirmishAiSelectionMemoryHook : INotifyPropertyChanged
     {
         internal const int MaxStoredAivEntriesPerLord = 50;
 
@@ -83,7 +83,6 @@ namespace BugfixesAndQoL
         private bool includeLocalCustomLords = true;
         private bool includeWorkshopCustomLords = true;
         private bool emptyRandomLordSelectionLogged;
-        private bool disposed;
 
         public SkirmishAiSelectionMemoryHook(
             ManualLogSource log,
@@ -223,27 +222,6 @@ namespace BugfixesAndQoL
         {
             OnPropertyChanged(nameof(RandomLordFiltersVisibility));
             RefreshRandomAiControlsInEditableLobby();
-        }
-
-        public void Dispose()
-        {
-            if (disposed)
-                return;
-
-            disposed = true;
-            multiplayerButtonClickedHook?.Undo();
-            skirmishAiAddClickHook?.Undo();
-            multiplayerUpdateRandomAiButtonsHook?.Undo();
-            showSkirmishRandomAiSetterHook?.Undo();
-            aiSettingsButtonClickedHook?.Undo();
-            aiSettingsAddSelectedHook?.Undo();
-            multiplayerButtonClickedHook?.Dispose();
-            skirmishAiAddClickHook?.Dispose();
-            multiplayerUpdateRandomAiButtonsHook?.Dispose();
-            showSkirmishRandomAiSetterHook?.Dispose();
-            aiSettingsButtonClickedHook?.Dispose();
-            aiSettingsAddSelectedHook?.Dispose();
-            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/SkirmishAiSelectionMemoryHook/Dispose", "Bugfixes and QoL AI selection memory hooks disposed.");
         }
 
         private void MultiplayerButtonClickedHook(FRONT_Multiplayer self, string param)

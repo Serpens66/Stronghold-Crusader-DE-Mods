@@ -14,7 +14,7 @@ using System.Reflection;
 
 namespace BugfixesAndQoL
 {
-    internal sealed class AiCastleSettingsListEnhancementHook : INotifyPropertyChanged, IDisposable
+    internal sealed class AiCastleSettingsListEnhancementHook : INotifyPropertyChanged
     {
         private delegate void ShowDelegate(
             int thisPlayer,
@@ -80,7 +80,6 @@ namespace BugfixesAndQoL
         private bool suppressAicDropdownSelection;
         private string aicDropdownSearchText = string.Empty;
         private AicDropdownEntry selectedAicDropdownEntry;
-        private bool disposed;
         private string aivSearchText = string.Empty;
         private string aicSearchText = string.Empty;
         private SortField aivSortField;
@@ -319,20 +318,6 @@ namespace BugfixesAndQoL
             if (IsActive) AttachAndRefresh(activeView, "settings changed");
             else RestoreVanillaPresentation(activeView);
             UpdateDialogKeyboardState();
-        }
-
-        public void Dispose()
-        {
-            if (disposed)
-                return;
-            disposed = true;
-            selectionList.RemoveRequested -= RemoveSelectedAiv;
-            addSelectedHook?.Undo();
-            buttonClickedHook?.Undo();
-            showHook?.Undo();
-            addSelectedHook?.Dispose();
-            buttonClickedHook?.Dispose();
-            showHook?.Dispose();
         }
 
         private void ShowHook(

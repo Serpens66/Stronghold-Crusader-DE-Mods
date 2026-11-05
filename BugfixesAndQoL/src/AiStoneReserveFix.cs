@@ -15,7 +15,7 @@ using RedBird.X64.Hooks.Context;
 
 namespace BugfixesAndQoL
 {
-    internal sealed unsafe class AiStoneReserveFix : IDisposable
+    internal sealed unsafe class AiStoneReserveFix
     {
         private readonly ManualLogSource log;
         private readonly BugfixesAndQoLViewModel settings;
@@ -136,19 +136,6 @@ namespace BugfixesAndQoL
                 transaction = null;
                 disposed = true;
                 throw;
-            }
-        }
-
-        public void Dispose()
-        {
-            lock (stateLock)
-            {
-                if (disposed)
-                    return;
-
-                correctionAvailable = false;
-                logicallyEnabled = false;
-                disposed = true;
             }
         }
 

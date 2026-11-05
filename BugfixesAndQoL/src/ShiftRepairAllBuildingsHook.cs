@@ -11,7 +11,7 @@ using System.Reflection;
 
 namespace BugfixesAndQoL
 {
-    internal sealed class ShiftRepairAllBuildingsHook : IDisposable
+    internal sealed class ShiftRepairAllBuildingsHook
     {
         private delegate void ButtonRepairDelegate(MainViewModel self, object parameter);
 
@@ -20,7 +20,6 @@ namespace BugfixesAndQoL
         private readonly List<int> buildingIds = new List<int>(256);
         private Hook hook;
         private ButtonRepairDelegate trampoline;
-        private bool disposed;
 
         public ShiftRepairAllBuildingsHook(ManualLogSource log, BugfixesAndQoLViewModel settings)
         {
@@ -40,20 +39,6 @@ namespace BugfixesAndQoL
                 installedHook?.Dispose();
                 throw;
             }
-        }
-
-        public void Dispose()
-        {
-            if (disposed)
-                return;
-
-            disposed = true;
-            Hook current = hook;
-            current?.Undo();
-            current?.Dispose();
-            hook = null;
-            trampoline = null;
-            buildingIds.Clear();
         }
 
         private static MethodInfo FindButtonRepairMethod()
@@ -78,8 +63,7 @@ namespace BugfixesAndQoL
             original(self, parameter);
 
             KeyManager keys = KeyManager.instance;
-            if (disposed ||
-                !settings.EnableMod ||
+            if (!settings.EnableMod ||
                 !settings.EnableShiftRepairAllBuildings ||
                 keys == null ||
                 !keys.isShiftDown())

@@ -20,7 +20,7 @@ using RedBird.X64.Hooks.Transaction;
 
 namespace BugfixesAndQoL
 {
-    internal sealed unsafe class CtrlMarketTradeHook : IDisposable
+    internal sealed unsafe class CtrlMarketTradeHook
     {
         internal const int NormalTradeMode = 0;
         internal const int SingleTradeMode = 2;
@@ -69,7 +69,6 @@ namespace BugfixesAndQoL
         private int* marketActionMode;
         private int* marketSellGoldStatistic;
         private bool nativeReady;
-        private bool disposed;
 
         public CtrlMarketTradeHook(
             ManualLogSource log,
@@ -105,16 +104,6 @@ namespace BugfixesAndQoL
                 RollbackUnpublishedInitialization();
                 throw;
             }
-        }
-
-        public void Dispose()
-        {
-            if (disposed)
-                return;
-
-            disposed = true;
-            nativeReady = false;
-            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/CtrlMarketTradeHook/Dispose", "Bugfixes and QoL Ctrl single-unit market hooks disabled logically.");
         }
 
         private void RollbackUnpublishedInitialization()

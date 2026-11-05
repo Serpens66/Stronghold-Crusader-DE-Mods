@@ -21,7 +21,7 @@ using UnityEngine;
 
 namespace BugfixesAndQoL
 {
-    internal sealed class SingleBuildingPauseHook : IDisposable
+    internal sealed class SingleBuildingPauseHook
     {
         private delegate void ButtonToggleZzzModeDelegate(MainViewModel self, object parameter);
         private delegate bool AddChimpActionsDelegate(
@@ -110,18 +110,6 @@ namespace BugfixesAndQoL
                 installedButtonHook?.Dispose();
                 throw;
             }
-        }
-
-        public void Dispose()
-        {
-            pausePacketSubscription?.Dispose();
-            pausePacketSubscription = null;
-            buildingDeleteSubscription?.Dispose();
-            buildingDeleteSubscription = null;
-            pausePacketHook = null;
-            networkInitialized = false;
-            UninstallLocalHooks();
-            ClearManualSleepOverrides();
         }
 
         public void UninstallLocalHooks()

@@ -192,17 +192,6 @@ namespace BugfixesAndQoL
             singleBuildingPauseHook?.RestoreFromSave(context);
         }
 
-        private void DisposeMovedFeatures()
-        {
-            reachableEnemyGatehouseRuntime?.Dispose();
-            quarryPileRelocationRuntime?.Dispose();
-            singleBuildingPauseHook?.Dispose();
-            singleBuildingPauseHook = null;
-            aiEconomyProtectionHook?.Dispose();
-            aiEconomyProtectionHook = null;
-            fastRecruitMovementBridge?.SetEnabled(false);
-        }
-
         private void LogMovedFeatureFailure(string featureName, Exception ex)
         {
             Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/BugfixesAndQoLRuntime.MovedFeatures/LogMovedFeatureFailure", $"Bugfixes and QoL feature '{featureName}' failed and remains inactive: {ex}");

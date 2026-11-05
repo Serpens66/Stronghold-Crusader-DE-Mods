@@ -15,7 +15,7 @@ using UnityEngine;
 
 namespace BugfixesAndQoL
 {
-    internal sealed class VanillaMapEditorHook : INotifyPropertyChanged, IDisposable
+    internal sealed class VanillaMapEditorHook : INotifyPropertyChanged
     {
         private delegate void PopulateListDelegate(HUD_LoadSaveRequester self);
         private delegate void FileListHeaderClickedDelegate(
@@ -88,7 +88,6 @@ namespace BugfixesAndQoL
         private bool saveFailureLogged;
         private bool uiFailureLogged;
         private HUD_LoadSaveRequester activeRequester;
-        private bool disposed;
 
         internal VanillaMapEditorHook(ManualLogSource log, BugfixesAndQoLViewModel settings)
         {
@@ -154,26 +153,6 @@ namespace BugfixesAndQoL
                 DisposeHook(ref populateListHook);
                 throw;
             }
-        }
-
-        public void Dispose()
-        {
-            if (disposed)
-                return;
-
-            disposed = true;
-            settings.PropertyChanged -= SettingsPropertyChanged;
-            foreach (KeyValuePair<ListView, HUD_LoadSaveRequester> pair in requesterByList)
-                pair.Key.SelectionChanged -= RequesterSelectionChanged;
-            foreach (GridViewColumnHeader header in requesterByPlayerHeader.Keys)
-                header.Click -= PlayerCountHeaderClicked;
-            requesterByList.Clear();
-            requesterByPlayerHeader.Clear();
-            playerSortByRequester.Clear();
-            DisposeHook(ref saveMapHook);
-            DisposeHook(ref editableMapsHook);
-            DisposeHook(ref fileListHeaderClickedHook);
-            DisposeHook(ref populateListHook);
         }
 
         public event PropertyChangedEventHandler PropertyChanged;

@@ -4190,8 +4190,7 @@ namespace BugfixesAndQoL
                 "placement clearance has no extra native hook and preserves one-based IDs");
             Check(runtime.Contains("new TunnelPlacementDistanceFeature(log, settings)") &&
                     runtime.Contains("tunnelPlacementDistanceFeature.Initialize") &&
-                    runtime.Contains("tunnelPlacementDistanceFeature.SetFixedNativeLayoutValidated") &&
-                    runtime.Contains("tunnelPlacementDistanceFeature.Dispose()"),
+                    runtime.Contains("tunnelPlacementDistanceFeature.SetFixedNativeLayoutValidated"),
                 "placement clearance is registered persistently and receives hash validation");
             Check(viewModel.Contains("[SyncHostOnly]") &&
                     viewModel.Contains("public bool EnableTunnelPlacementDistanceFix") &&
@@ -4666,9 +4665,8 @@ namespace BugfixesAndQoL
                     runtime.Contains("for (int spanIndex = 0; spanIndex < units.Length; spanIndex++)"),
                 "AI defense patrol retains Vanilla fallback and explicit ID/index contracts");
             Check(orchestrator.Contains("EnsureAiDefensePatrolFix") &&
-                    orchestrator.Contains("aiDefensePatrolFix?.ApplySetting()") &&
-                    orchestrator.Contains("aiDefensePatrolFix?.Dispose()"),
-                "AI defense patrol participates in native initialization, setting reconciliation and final disposal");
+                    orchestrator.Contains("aiDefensePatrolFix?.ApplySetting()"),
+                "AI defense patrol participates in native initialization and setting reconciliation");
             Check(viewModel.Contains("private bool enableAiDefensePatrolFix = true;") &&
                     viewModel.Contains("public bool EnableAiDefensePatrolFix") &&
                     viewModel.Contains("EnableAiDefensePatrolFix = true;"),
@@ -4980,7 +4978,7 @@ namespace BugfixesAndQoL
             Check(runtime.Contains("EnsureAiWallTargetingFix") &&
                     runtime.Contains("aiWallTargetingFix?.Dispose()") &&
                     runtime.Contains("aiWallTargetingFix.ApplySetting()"),
-                "AI wall-targeting fix participates in initialization, reconciliation, and final disposal");
+                "AI wall-targeting fix participates in initialization, reconciliation, and candidate rollback");
             Check(viewModel.Contains("private bool enableAiWallTargetingFix = true;") &&
                     viewModel.Contains("[SyncHostOnly]") &&
                     viewModel.Contains("public bool EnableAiWallTargetingFix") &&
@@ -5065,8 +5063,6 @@ namespace BugfixesAndQoL
                 projectDirectory, "src", "AIEconomyProtectionHook.cs"));
             string singlePause = File.ReadAllText(Path.Combine(
                 projectDirectory, "src", "SingleBuildingPauseHook.cs"));
-            string movedFeatures = File.ReadAllText(Path.Combine(
-                projectDirectory, "src", "BugfixesAndQoLRuntime.MovedFeatures.cs"));
             string english = File.ReadAllText(Path.Combine(projectDirectory, "Locales", "en-US.txt"));
             string german = File.ReadAllText(Path.Combine(projectDirectory, "Locales", "de-DE.txt"));
 
@@ -5092,9 +5088,7 @@ namespace BugfixesAndQoL
                     singlePause.Contains("addChimpActions") &&
                     !singlePause.Contains("addChimpActionsHook.Apply()") &&
                     !singlePause.Contains("addChimpActionsHook.Undo()") &&
-                    singlePause.Contains("!localHooksInstalled || !IsFeatureActive()") &&
-                    singlePause.Contains("buildingDeleteSubscription?.Dispose()") &&
-                    movedFeatures.Contains("singleBuildingPauseHook?.Dispose()"),
+                    singlePause.Contains("!localHooksInstalled || !IsFeatureActive()"),
                 "single-building pause keeps its published UI hook permanent and logically gated");
             int nativeCommit = runtime.IndexOf("CommitResult commitResult = transaction.Commit()", StringComparison.Ordinal);
             int initialLogicalDisable = runtime.IndexOf(

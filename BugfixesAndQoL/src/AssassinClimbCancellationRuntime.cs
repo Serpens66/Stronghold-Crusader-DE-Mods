@@ -10,7 +10,7 @@ using System;
 
 namespace BugfixesAndQoL
 {
-    internal sealed unsafe class AssassinClimbCancellationRuntime : IDisposable
+    internal sealed unsafe class AssassinClimbCancellationRuntime
     {
         private const int SelectionBitmapWordCount = 625;
         private const int UnitIdBitsPerWord = 16;
@@ -46,13 +46,6 @@ namespace BugfixesAndQoL
         public void SetFixedUnitLayoutValidated(bool value)
         {
             fixedUnitLayoutValidated = value;
-        }
-
-        public void Dispose()
-        {
-            selectedUnitCommandSubscription?.Dispose();
-            selectedUnitCommandSubscription = null;
-            fixedUnitLayoutValidated = false;
         }
 
         private void OnSelectedUnitCommand(TribeIssueOrderWithTargetEventArgs args)

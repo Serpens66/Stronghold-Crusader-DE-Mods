@@ -11,7 +11,7 @@ using System;
 
 namespace BugfixesAndQoL
 {
-    internal sealed class TunnelPlacementDistanceFeature : IDisposable
+    internal sealed class TunnelPlacementDistanceFeature
     {
         private readonly ManualLogSource log;
         private readonly BugfixesAndQoLViewModel settings;
@@ -272,12 +272,6 @@ namespace BugfixesAndQoL
             unexpectedScaleLogged = true;
             Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/TunnelPlacementDistanceFeature/LogUnexpectedScaleOnce", "Building placement-clearance validation left Vanilla behavior unchanged because " +
                 $"the footprint contract was unexpected: mapper={mapper}, apiScale={apiScale}, eventScale={eventScale}.");
-        }
-
-        public void Dispose()
-        {
-            placementSubscription?.Dispose();
-            placementSubscription = null;
         }
     }
 }

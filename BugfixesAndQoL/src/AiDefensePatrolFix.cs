@@ -16,7 +16,7 @@ using APIShared.Units.AiMilitary;
 
 namespace BugfixesAndQoL
 {
-    internal sealed unsafe class AiDefensePatrolFix : IDisposable
+    internal sealed unsafe class AiDefensePatrolFix
     {
         // The current Script Extender does not name these two confirmed Vanilla roles.
         private const short CastleDefenseRole = 1;
@@ -112,19 +112,6 @@ namespace BugfixesAndQoL
                 }
 
                 logicallyEnabled = settings.EnableMod && settings.EnableAiDefensePatrolFix;
-            }
-        }
-
-        public void Dispose()
-        {
-            lock (stateLock)
-            {
-                if (disposed)
-                    return;
-
-                correctionAvailable = false;
-                logicallyEnabled = false;
-                disposed = true;
             }
         }
 

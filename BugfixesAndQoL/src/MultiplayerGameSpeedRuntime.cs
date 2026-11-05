@@ -17,7 +17,7 @@ using System.Reflection;
 
 namespace BugfixesAndQoL
 {
-    internal sealed class MultiplayerGameSpeedRuntime : IDisposable
+    internal sealed class MultiplayerGameSpeedRuntime
     {
         private delegate void KeyManagerUpdateDelegate(KeyManager self);
         private delegate bool IsActionPressedDelegate(KeyManager self, Enums.KeyFunctions function);
@@ -52,7 +52,6 @@ namespace BugfixesAndQoL
         private bool suppressVanillaSpeedKeybinds;
         private bool networkInitialized;
         private bool hooksInstalled;
-        private bool disposed;
 
         public MultiplayerGameSpeedRuntime(
             ManualLogSource log,
@@ -168,25 +167,6 @@ namespace BugfixesAndQoL
             suppressSliderEvent = false;
             suppressVanillaSpeedKeybinds = false;
             ResetRepeatState();
-        }
-
-        public void Dispose()
-        {
-            if (disposed)
-                return;
-
-            disposed = true;
-            sliderChangedHook?.Undo();
-            sliderChangedHook?.Dispose();
-            optionsInitHook?.Undo();
-            optionsInitHook?.Dispose();
-            keyManagerUpdateHook?.Undo();
-            keyManagerUpdateHook?.Dispose();
-            isActionPressedHook?.Undo();
-            isActionPressedHook?.Dispose();
-            packetSubscription?.Dispose();
-            hooksInstalled = false;
-            networkInitialized = false;
         }
 
         private void KeyManagerUpdateHook(KeyManager self)

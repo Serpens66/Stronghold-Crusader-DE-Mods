@@ -19,7 +19,7 @@ using RedBird.X64.Hooks.Context;
 
 namespace BugfixesAndQoL
 {
-    internal sealed unsafe class BetterAIOverbuildRulesFix : IDisposable
+    internal sealed unsafe class BetterAIOverbuildRulesFix
     {
         private const string MapperSelectionPattern =
             "83 EB 36 74 ?? 83 EB 19 74 ?? 83 EB 07 74 ?? 83 FB 01 74 ??";
@@ -58,7 +58,6 @@ namespace BugfixesAndQoL
         private readonly HookHandle<X64InlineHook> narrowBlockerProtectionHook = new HookHandle<X64InlineHook>();
         private bool callbackFailureLogged;
         private volatile bool logicallyEnabled;
-        private bool disposed;
 
         internal BetterAIOverbuildRulesFix(
             ManualLogSource log,
@@ -151,7 +150,7 @@ namespace BugfixesAndQoL
 
         internal void ApplySetting()
         {
-            if (disposed || !mapperSelectionHook.Success || !broadBlockerProtectionHook.Success ||
+            if (!mapperSelectionHook.Success || !broadBlockerProtectionHook.Success ||
                 !narrowBlockerProtectionHook.Success)
                 return;
 
@@ -169,15 +168,6 @@ namespace BugfixesAndQoL
                 ResetConflictState();
             }
 
-        }
-
-        public void Dispose()
-        {
-            if (disposed)
-                return;
-            logicallyEnabled = false;
-            disposed = true;
-            conflictState.Reset();
         }
 
         private void PromoteAddedMapper(NativePointer<X64SmartCPUContext> context)

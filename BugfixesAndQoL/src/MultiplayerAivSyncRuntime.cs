@@ -18,7 +18,7 @@ using System.Runtime.InteropServices;
 
 namespace BugfixesAndQoL
 {
-    internal sealed class MultiplayerAivSyncRuntime : INotifyPropertyChanged, IDisposable
+    internal sealed class MultiplayerAivSyncRuntime : INotifyPropertyChanged
     {
         private delegate void HostStartGameDelegate(Platform_Multiplayer self);
         private delegate void StartGameDelegate(
@@ -962,25 +962,6 @@ namespace BugfixesAndQoL
             pendingClientOwner = new CSteamID(0UL);
             if (clearConfirmed)
                 confirmedManifest = null;
-        }
-
-        public void Dispose()
-        {
-            packetSubscription?.Dispose();
-            packetSubscription = null;
-            Release(ref updateHook);
-            Release(ref loadMapHook);
-            Release(ref startGameHook);
-            Release(ref hostStartHook);
-            initialized = false;
-        }
-
-        private static void Release(ref Hook hook)
-        {
-            Hook value = hook;
-            hook = null;
-            value?.Undo();
-            value?.Dispose();
         }
 
         private static MethodInfo FindMethod(Type type, string name, params Type[] parameters) =>

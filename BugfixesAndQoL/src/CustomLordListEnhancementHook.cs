@@ -13,7 +13,7 @@ using System.Reflection;
 
 namespace BugfixesAndQoL
 {
-    internal sealed class CustomLordListEnhancementHook : INotifyPropertyChanged, IDisposable
+    internal sealed class CustomLordListEnhancementHook : INotifyPropertyChanged
     {
         private delegate void SkirmishAiAddClickDelegate(FRONT_Multiplayer self, string param);
         private delegate void FrontMultiplayerUpdateDelegate(FRONT_Multiplayer self);
@@ -55,7 +55,6 @@ namespace BugfixesAndQoL
         private bool firstRefreshLogged;
         private bool keyboardRoutingLogged;
         private bool keyboardRoutingFailureLogged;
-        private bool disposed;
 
         public CustomLordListEnhancementHook(ManualLogSource log, BugfixesAndQoLViewModel settings)
         {
@@ -170,21 +169,6 @@ namespace BugfixesAndQoL
             OnPropertyChanged(nameof(SearchPlaceholderVisibility));
             RandomCustomLordCommand.RaiseCanExecuteChanged();
             RefreshActiveView();
-        }
-
-        public void Dispose()
-        {
-            if (disposed)
-                return;
-
-            disposed = true;
-            if (activeList != null)
-                activeList.SelectionChanged -= CustomLordSelectionChanged;
-            updateHook?.Undo();
-            updateHook?.Dispose();
-            addClickHook?.Undo();
-            addClickHook?.Dispose();
-            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/CustomLordListEnhancementHook/Dispose", "Bugfixes and QoL custom-lord list hook disposed.");
         }
 
         private void SkirmishAiAddClickHook(FRONT_Multiplayer self, string param)

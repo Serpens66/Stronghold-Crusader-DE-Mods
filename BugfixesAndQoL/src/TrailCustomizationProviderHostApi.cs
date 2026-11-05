@@ -67,15 +67,6 @@ namespace BugfixesAndQoL
             refresh?.Invoke();
         }
 
-        internal static void Detach(Action refresh)
-        {
-            lock (Sync)
-            {
-                if (refreshVisibility == refresh)
-                    refreshVisibility = null;
-            }
-        }
-
         internal static bool IsProviderEnabled()
         {
             Func<bool> callback;

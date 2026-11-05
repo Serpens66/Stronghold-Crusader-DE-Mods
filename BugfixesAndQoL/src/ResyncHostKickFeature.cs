@@ -8,7 +8,7 @@ using System.Reflection;
 
 namespace BugfixesAndQoL
 {
-    internal sealed class ResyncHostKickFeature : IDisposable
+    internal sealed class ResyncHostKickFeature
     {
         private delegate void ResyncUpdateDelegate(HUD_MPResync self);
         private delegate void ConnectionIssueShowDelegate(HUD_MPConnectionIssue self, string message, bool kickNotLeave, int playerId);
@@ -27,7 +27,6 @@ namespace BugfixesAndQoL
         private string targetPlayerName = string.Empty;
         private bool targetFromResync;
         private long promptSequence;
-        private bool disposed;
 
         internal ResyncHostKickFeature(ManualLogSource log, BugfixesAndQoLViewModel settings)
         {
@@ -55,21 +54,6 @@ namespace BugfixesAndQoL
             connectionIssueButtonOriginal = connectionIssueButtonHook.GenerateTrampoline<ConnectionIssueButtonDelegate>();
 
             Shared.DebugLogHelper.LogDebug(log, "Bugfixes and QoL resync host-kick hooks installed.");
-        }
-
-        public void Dispose()
-        {
-            if (disposed)
-                return;
-
-            disposed = true;
-            connectionIssueButtonHook?.Undo();
-            connectionIssueButtonHook?.Dispose();
-            connectionIssueShowHook?.Undo();
-            connectionIssueShowHook?.Dispose();
-            resyncUpdateHook?.Undo();
-            resyncUpdateHook?.Dispose();
-            ClearTarget(clearViewModel: true);
         }
 
         private static MethodInfo FindPublicInstanceMethod(Type type, string name, Type[] parameters)

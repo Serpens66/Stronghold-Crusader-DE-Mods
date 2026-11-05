@@ -13,7 +13,7 @@ using System.Globalization;
 
 namespace BugfixesAndQoL
 {
-    internal sealed unsafe partial class ReachableEnemyGatehouseRuntime : IDisposable
+    internal sealed unsafe partial class ReachableEnemyGatehouseRuntime
     {
         private const int MaximumFailureLogs = 20;
         private const int MaximumSaneFootprintSize = 512;
@@ -61,13 +61,6 @@ namespace BugfixesAndQoL
                     "gatehouse PCL reachability filtering is unavailable because the installed DLL " +
                     "differs from the audited build; Vanilla candidate handling remains active.");
             }
-        }
-
-        public void Dispose()
-        {
-            gatehouseQuerySubscription?.Dispose();
-            gatehouseQuerySubscription = null;
-            ClearCache();
         }
 
         private void OnGatehouseQuery(GatehouseQueryEventArgs args)

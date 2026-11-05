@@ -16,7 +16,7 @@ using RedBird.X64.Hooks.Transaction;
 
 namespace BugfixesAndQoL
 {
-    internal sealed unsafe class AIEconomyProtectionHook : IDisposable
+    internal sealed unsafe class AIEconomyProtectionHook
     {
         // c_game_building_sync_sleep_state:
         // cmp [r8], cl; je unchanged; mov [r8], cl; begin destructive reset block
@@ -92,7 +92,6 @@ namespace BugfixesAndQoL
         private int lastInaccessibleDiagnosticTick = int.MinValue;
         private bool inaccessibleDiagnosticSamplingCompleteLogged;
         private volatile bool singleBuildingOverrideInterceptionEnabled;
-        private bool disposed;
 
         public AIEconomyProtectionHook(
             ManualLogSource log,
@@ -339,8 +338,6 @@ namespace BugfixesAndQoL
 
         internal void SetSingleBuildingOverrideInterceptionEnabled(bool enabled)
         {
-            if (disposed)
-                throw new ObjectDisposedException(nameof(AIEconomyProtectionHook));
             if (!sleepStateHook.Success)
                 throw new InvalidOperationException("The single-building sleep-state hook is unavailable.");
             if (!sleepStateHook.IsInstalled)
@@ -349,19 +346,10 @@ namespace BugfixesAndQoL
             singleBuildingOverrideInterceptionEnabled = enabled;
         }
 
-        public void Dispose()
-        {
-            if (disposed)
-                return;
-
-            singleBuildingOverrideInterceptionEnabled = false;
-            disposed = true;
-        }
-
         private void ApplySingleBuildingSleepOverrideDuringSynchronization(
             NativePointer<X64SmartCPUContext> context)
         {
-            if (disposed || !singleBuildingOverrideInterceptionEnabled)
+            if (!singleBuildingOverrideInterceptionEnabled)
                 return;
 
             ApplySingleBuildingSleepOverride(context.Pointer);

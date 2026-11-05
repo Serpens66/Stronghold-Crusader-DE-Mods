@@ -40,7 +40,7 @@ namespace BugfixesAndQoL
         }
         internal void RefreshText() { OnPropertyChanged(nameof(SurrenderButtonText)); }
     }
-    internal sealed unsafe class SurrenderFeature : IDisposable
+    internal sealed unsafe class SurrenderFeature
     {
         private const int RequestProtocolVersion = 1;
         private readonly ManualLogSource log;
@@ -56,7 +56,7 @@ namespace BugfixesAndQoL
         private IDisposable requestPacketSubscription, executionPacketSubscription;
         private int nextRequestId;
         private long confirmationSequence, confirmationOpenedFromMenuSequence, presentationGeneration;
-        private bool initialized, disposed;
+        private bool initialized;
         internal SurrenderFeature(ManualLogSource log, BugfixesAndQoLViewModel settings)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
@@ -64,7 +64,7 @@ namespace BugfixesAndQoL
             lobbyReturnFeature = new MultiplayerLobbyReturnFeature(log, settings);
             buttonViewModel = new SurrenderViewModel();
         }
-        private bool FeatureEnabled => !disposed && settings.EnableMod && settings.EnableSurrenderAndStatistics;
+        private bool FeatureEnabled => settings.EnableMod && settings.EnableSurrenderAndStatistics;
         internal void Initialize()
         {
             if (initialized) return;
@@ -100,10 +100,10 @@ namespace BugfixesAndQoL
         {
             if (!MissionOverEvents.TryRegister(MissionOverOperation.Button, BugfixesAndQoLPlugin.PluginGuid, "lobby-exit",
                 args => {
-                    if (disposed || args.Button != "Exit" || !lobbyReturnFeature.CanHandleMissionOverExit) return;
+                    if (args.Button != "Exit" || !lobbyReturnFeature.CanHandleMissionOverExit) return;
                     long generation = presentationGeneration;
                     HUD_MissionOver view = args.View;
-                    Func<bool> isCurrent = () => !disposed && generation == presentationGeneration &&
+                    Func<bool> isCurrent = () => generation == presentationGeneration &&
                         MainViewModel.viewModelLoaded && ReferenceEquals(MainViewModel.Instance.HUDMissionOver, view) && view.IsVisible;
                     args.DeferOriginal(continuation => {
                         if (!lobbyReturnFeature.TryHandleMissionOverExit(() => continuation.TryInvoke(), isCurrent)) continuation.TryInvoke();
@@ -111,13 +111,13 @@ namespace BugfixesAndQoL
                 }, null, out string reason)) throw new InvalidOperationException(reason);
             if (!MissionOverEvents.TryRegister(MissionOverOperation.State, BugfixesAndQoLPlugin.PluginGuid, "lobby-game-over",
                 null, null, out reason, accepted: args => {
-                    if (!disposed) lobbyReturnFeature.OnGameOverState(args.Result);
+                    lobbyReturnFeature.OnGameOverState(args.Result);
                     if (lastMenuGameOverState != args.Result)
                     { lastMenuGameOverState = args.Result; menuRegistration.Invalidate(); }
                 }))
                 throw new InvalidOperationException(reason);
             if (!MissionOverEvents.TryRegister(MissionOverOperation.Text, BugfixesAndQoLPlugin.PluginGuid, "lobby-game-over-text",
-                null, args => { if (!disposed && args.OriginalCompleted) lobbyReturnFeature.OnGameOverPresentation(); }, out reason))
+                null, args => { if (args.OriginalCompleted) lobbyReturnFeature.OnGameOverPresentation(); }, out reason))
                 throw new InvalidOperationException(reason);
         }
         internal void RefreshButtonState()
@@ -132,21 +132,12 @@ namespace BugfixesAndQoL
             }
             catch (Exception error) { buttonViewModel.SetMenuState(false, false); Shared.DebugLogHelper.LogErrorLimited(log, "surrender-menu", "Surrender menu unavailable: " + error); }
         }
-        public void Dispose()
-        {
-            disposed = true; presentationGeneration++;
-            requestPacketSubscription?.Dispose(); executionPacketSubscription?.Dispose();
-            lobbyReturnFeature.Dispose();
-            foreach (IDisposable subscription in subscriptions) subscription.Dispose();
-            subscriptions.Clear(); buttonViewModel.SetMenuState(false, false);
-            menuRegistration?.Invalidate();
-        }
         private void ResetSession(string reason)
         {
             presentationGeneration++; acceptedRequests.Clear(); nextRequestId = 0;
             confirmationSequence++; confirmationOpenedFromMenuSequence = 0;
             menuRegistration?.Invalidate();
-            Shared.UnityMainThreadDispatch.TryEnqueue(() => { if (!disposed) buttonViewModel.SetMenuState(false, false); });
+            Shared.UnityMainThreadDispatch.TryEnqueue(() => buttonViewModel.SetMenuState(false, false));
         }
 
         private void OnSurrenderCommand()
@@ -297,7 +288,7 @@ namespace BugfixesAndQoL
             ulong senderSteamId = args.SenderSteamId.Value.m_SteamID;
             long sessionSnapshot = Interlocked.Read(ref presentationGeneration);
             Shared.UnityMainThreadDispatch.TryEnqueue(() => {
-                if (!disposed && sessionSnapshot == Interlocked.Read(ref presentationGeneration))
+                if (sessionSnapshot == Interlocked.Read(ref presentationGeneration))
                     ProcessRequest(request, new CSteamID(senderSteamId));
             });
         }

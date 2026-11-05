@@ -11,7 +11,7 @@ using System.Reflection;
 
 namespace BugfixesAndQoL
 {
-    internal sealed class MapOriginSortHook : IDisposable
+    internal sealed class MapOriginSortHook
     {
         private delegate void StandaloneHeaderDelegate(
             FRONT_StandaloneMission self,
@@ -79,7 +79,6 @@ namespace BugfixesAndQoL
         private bool setupRestorePending;
         private bool restoringSetup;
         private bool sortingFailureLogged;
-        private bool disposed;
 
         internal MapOriginSortHook(ManualLogSource log, BugfixesAndQoLViewModel settings)
         {
@@ -175,21 +174,6 @@ namespace BugfixesAndQoL
             Shared.DebugLogHelper.LogDebug(
                 log,
                 "Bugfixes and QoL map-origin sorting hooks installed.");
-        }
-
-        public void Dispose()
-        {
-            if (disposed)
-                return;
-
-            disposed = true;
-            DisposeHook(getFileInfoHook);
-            DisposeHook(multiplayerShowSetupHook);
-            DisposeHook(multiplayerPopulateHook);
-            DisposeHook(multiplayerHeaderHook);
-            DisposeHook(standalonePopulateHook);
-            DisposeHook(standaloneHeaderHook);
-            Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/MapOriginSortHook/Dispose", "Bugfixes and QoL map-origin sorting hooks disposed.");
         }
 
         private bool IsActive => LobbyMapSelectionPolicy.IsFeatureEnabled(

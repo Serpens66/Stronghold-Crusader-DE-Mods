@@ -16,7 +16,7 @@ using System.Reflection;
 
 namespace BugfixesAndQoL
 {
-    internal sealed class TrailCustomizationFeature : IDisposable
+    internal sealed class TrailCustomizationFeature
     {
         private delegate void FrontendOpenCustomTrailDelegate(FrontendMenus self, string trailName, int level);
         private delegate void FrontendButtonDelegate(FrontendMenus self, string command);
@@ -542,23 +542,6 @@ namespace BugfixesAndQoL
             var hook = new Hook(target, detour);
             original = hook.GenerateTrampoline<TDelegate>();
             return hook;
-        }
-
-        public void Dispose()
-        {
-            TrailCustomizationProviderHostApi.Detach(RefreshVisibility);
-            foreach (Button button in injectedButtons)
-            {
-                button.Click -= OnCoopCustomizeClicked;
-                button.Visibility = Visibility.Collapsed;
-            }
-            foreach (IDisposable subscription in subscriptions)
-                subscription.Dispose();
-            subscriptions.Clear();
-            frontendOpenCustomTrailHook?.Dispose();
-            frontendButtonHook?.Dispose();
-            multiplayerButtonHook?.Dispose();
-            startSkirmishGameHook?.Dispose();
         }
     }
 }

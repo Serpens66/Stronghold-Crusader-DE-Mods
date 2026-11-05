@@ -14,7 +14,7 @@ using RedBird.Core.Memory;
 
 namespace BugfixesAndQoL
 {
-    internal sealed unsafe class TroopMovementFix3Runtime : IDisposable
+    internal sealed unsafe class TroopMovementFix3Runtime
     {
         private const int ExpectedMaximumTrackedUnits = 10000;
 
@@ -181,15 +181,6 @@ namespace BugfixesAndQoL
                     $"rallyTerrain={settings.EnableMod && settings.EnableRallyTerrainSlowdownFix && cadencePatch?.IsTerrainAvailable == true}, " +
                     $"nativeFastpaths={nativeFastpathsActive}.");
             }
-        }
-
-        public void Dispose()
-        {
-            // Script Extender publishers and committed native hooks are
-            // process-lifetime objects. Only deactivate their mutable state.
-            DeactivateTroopMovementFix();
-            cadencePatch?.SetRallyEnabled(false);
-            cadencePatch?.SetTerrainEnabled(false);
         }
 
         // The native save keeps the synchronized tribe speed (+0x54E) and the cleared free-unit
