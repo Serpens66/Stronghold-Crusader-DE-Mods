@@ -112,7 +112,7 @@ namespace BugfixesAndQoL
             }
         }
 
-        public void UninstallLocalHooks()
+        public void DeactivateLocalHooks()
         {
             if (!localHooksInstalled)
                 return;

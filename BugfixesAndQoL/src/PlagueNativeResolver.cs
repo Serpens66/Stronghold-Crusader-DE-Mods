@@ -4,7 +4,7 @@ using System;
 
 namespace BugfixesAndQoL
 {
-    internal static class PlagueNativePatternValidator
+    internal static class PlagueNativeResolver
     {
         public static int Resolve(
             ManualLogSource log,

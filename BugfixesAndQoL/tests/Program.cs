@@ -1689,7 +1689,7 @@ namespace BugfixesAndQoL
                         Environment.NewLine + "                return;") &&
                   !ReadCommandFeature("", "UnitCommandPathRuntime.*.cs")
                     .Contains("if (disposed || args.SkipOriginalFunction)") &&
-                  !File.ReadAllText(Path.Combine("src", "TroopMovementFix3Runtime.cs"))
+                  !File.ReadAllText(Path.Combine("src", "TroopMovementFixRuntime.cs"))
                     .Contains("if (!IsFeatureEnabled || args.SkipOriginalFunction"),
                 "placement-cancel handling no longer patches individual MoveHere consumers");
 
@@ -2200,7 +2200,7 @@ namespace BugfixesAndQoL
 
             string projectDirectory = FindProjectDirectory();
             string cadence = File.ReadAllText(Path.Combine(
-                projectDirectory, "src", "TroopMovementFix3SynchronizedMovementCadencePatch.cs"));
+                projectDirectory, "src", "SynchronizedMovementCadencePatch.cs"));
             string cadenceDiscovery = File.ReadAllText(Path.Combine(
                 projectDirectory, "src", "MovementCadenceNativeDiscovery.cs"));
             Check(cadence.Contains("UnitAnimationStateManagerOffset = 0x660") &&
@@ -4440,11 +4440,11 @@ namespace BugfixesAndQoL
             string fastRecruit = File.ReadAllText(Path.Combine(
                 projectDirectory, "src", "FastRecruitRallyMovementRuntime.cs"));
             string troopMovement = File.ReadAllText(Path.Combine(
-                projectDirectory, "src", "TroopMovementFix3Runtime.cs"));
+                projectDirectory, "src", "TroopMovementFixRuntime.cs"));
             string cadencePatch = File.ReadAllText(Path.Combine(
                 projectDirectory,
                 "src",
-                "TroopMovementFix3SynchronizedMovementCadencePatch.cs"));
+                "SynchronizedMovementCadencePatch.cs"));
             string cadenceDiscovery = File.ReadAllText(Path.Combine(
                 projectDirectory,
                 "src",
@@ -4503,7 +4503,7 @@ namespace BugfixesAndQoL
             string groupSynchronization = troopMovement.Substring(
                 groupSynchronizationStart,
                 groupSynchronizationEnd - groupSynchronizationStart);
-            Check(groupSynchronization.Contains("TroopMovementFix3ModLog.Warning"),
+            Check(groupSynchronization.Contains("TroopMovementFixModLog.Warning"),
                 "movement synchronization retains its warning path");
             int assignHandlerStart = troopMovement.IndexOf(
                 "private void OnTribeAssignUnit(",

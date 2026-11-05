@@ -15,7 +15,7 @@ namespace BugfixesAndQoL
     {
         private readonly ManualLogSource log;
         private readonly BugfixesAndQoLViewModel settings;
-        private readonly TroopMovementFix3Runtime troopMovementFixRuntime;
+        private readonly TroopMovementFixRuntime troopMovementFixRuntime;
         private readonly MultiplayerFeatureGate multiplayerFeatureGate;
         private readonly AssassinClimbRuntime assassinClimbRuntime;
         private readonly AssassinClimbCancellationRuntime assassinClimbCancellationRuntime;
@@ -154,7 +154,7 @@ namespace BugfixesAndQoL
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
-            troopMovementFixRuntime = new TroopMovementFix3Runtime(log, settings);
+            troopMovementFixRuntime = new TroopMovementFixRuntime(log, settings);
             multiplayerFeatureGate = new MultiplayerFeatureGate(log);
             assassinClimbRuntime = new AssassinClimbRuntime(log, settings, multiplayerFeatureGate);
             assassinClimbCancellationRuntime = new AssassinClimbCancellationRuntime(log, settings);
@@ -174,7 +174,7 @@ namespace BugfixesAndQoL
             trailCustomizationFeature = new TrailCustomizationFeature(log, settings);
             coopCustomLordSelectionFeature = new CoopCustomLordSelectionFeature(log, settings);
             EnsureBriefingNoStartingGoldFixRegistration();
-            InitializeMovedFeatures();
+            InitializeBuildingAndEconomyFeatures();
             settings.SettingChanged += OnSettingChanged;
         }
 
@@ -201,14 +201,14 @@ namespace BugfixesAndQoL
                 EnsureShiftRepairAllBuildingsHook);
             TryInitializePersistentFeature(
                 "moved synchronized feature group",
-                InitializeMovedFeatureNetwork);
+                InitializeBuildingFeatureNetwork);
             TryInitializePersistentFeature(
                 "Assassin climb-state synchronization",
                 assassinClimbRuntime.InitializeNetwork);
             // Map-scoped fix state that the native save omits. Each record fails independently.
             TryInitializePersistentFeature(
                 "single-building pause save data",
-                InitializeMovedFeatureSaveData);
+                InitializeSingleBuildingPauseSaveData);
             TryInitializePersistentFeature(
                 "Assassin climb-state save data",
                 assassinClimbRuntime.InitializeSaveData);
@@ -280,7 +280,7 @@ namespace BugfixesAndQoL
         {
             processNotificationSpeechPlayback?.Invalidate();
             processNotificationLastFrameFeature?.ResetMapState();
-            ResetMovedFeatureMapState();
+            ClearSingleBuildingPauseOverrides();
             multiplayerGameSpeedRuntime.ResetMapState();
             abruptHostMigrationFix?.ResetMapState();
             assassinClimbRuntime.EndMap();
@@ -302,7 +302,7 @@ namespace BugfixesAndQoL
             assassinPathfindingRuntime.BeginMap();
             assassinCapturedGateProtectionRuntime.BeginMap();
             assassinClimbRuntime.BeginMap(context);
-            TryApplyFeature("single-building pause save restore", () => RestoreMovedFeatureSaveState(context));
+            TryApplyFeature("single-building pause save restore", () => RestoreSingleBuildingPauseSaveState(context));
             TryApplyFeature("troop movement save restore", () => troopMovementFixRuntime.RestoreSessionState(context));
             multiplayerGameSpeedRuntime.ApplySetting();
             APIShared.Presentation.TroopActionHud.RefreshCurrentPanel();
@@ -466,7 +466,7 @@ namespace BugfixesAndQoL
             {
                 Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/BugfixesAndQoLRuntime/InitializeNative.feature-troop-movement-fix", $"Bugfixes and QoL feature 'troop movement fix' could not be initialized and remains inactive: {ex}");
             }
-            InitializeMovedFeatureNative(
+            InitializeBuildingAndEconomyNative(
                 newLibraryHandle,
                 memory,
                 isFixedLayoutHashValidated);
@@ -604,7 +604,7 @@ namespace BugfixesAndQoL
                     settings.EnableMod && settings.EnableNearestWaterboyTargeting));
             TryApplyFeature("Trail Customize buttons", trailCustomizationFeature.RefreshVisibility);
             TryApplyFeature("Coop custom-lord selection", coopCustomLordSelectionFeature.ApplySetting);
-            TryApplyFeature("moved feature settings", ApplyMovedFeatureSettings);
+            TryApplyFeature("moved feature settings", ApplyBuildingAndEconomySettings);
             TryInitializeFeature("AI tower-ruin repair fix", EnsureAiTowerRuinRepairFix);
             TryInitializeFeature("better AI overbuild rules", EnsureBetterAIOverbuildRulesFix);
             TryInitializeFeature("AI defense patrol fix", EnsureAiDefensePatrolFix);

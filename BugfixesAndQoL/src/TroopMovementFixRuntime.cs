@@ -14,7 +14,7 @@ using RedBird.Core.Memory;
 
 namespace BugfixesAndQoL
 {
-    internal sealed unsafe class TroopMovementFix3Runtime
+    internal sealed unsafe class TroopMovementFixRuntime
     {
         private const int ExpectedMaximumTrackedUnits = 10000;
 
@@ -59,7 +59,7 @@ namespace BugfixesAndQoL
         private bool fixedLayoutErrorLogged;
         private bool initializationFailed;
 
-        public TroopMovementFix3Runtime(
+        public TroopMovementFixRuntime(
             ManualLogSource log,
             BugfixesAndQoLViewModel settings)
         {
@@ -174,7 +174,7 @@ namespace BugfixesAndQoL
                     rallyActive,
                     nativeFastpathsActive))
             {
-                TroopMovementFix3ModLog.Debug(
+                TroopMovementFixModLog.Debug(
                     log,
                     $"Movement features: sameSpeed={sameSpeedActive}, " +
                     $"rally={rallyActive}, " +
@@ -236,7 +236,7 @@ namespace BugfixesAndQoL
                 return;
             if (!nativeLibraryAvailable || initializationFailed || !fixedLayoutHashValidated)
             {
-                TroopMovementFix3ModLog.Warning(
+                TroopMovementFixModLog.Warning(
                     log,
                     $"Troop movement save data ignored because the native tribe layout is unavailable: tribes={state.Entries.Length}.");
                 return;
@@ -281,7 +281,7 @@ namespace BugfixesAndQoL
                 restored++;
             }
 
-            TroopMovementFix3ModLog.Debug(
+            TroopMovementFixModLog.Debug(
                 log,
                 $"Troop movement synchronization restored from save: restored={restored}, " +
                 $"revertedToVanilla={reverted}, rejected={rejected}.");
@@ -560,7 +560,7 @@ namespace BugfixesAndQoL
         {
             if (!TryGetTribe(tribeId, out GameTribe* tribe))
             {
-                TroopMovementFix3ModLog.Warning(
+                TroopMovementFixModLog.Warning(
                     log,
                     $"Mixed-group synchronization could not access " +
                     $"tribeId={tribeId}; this order remains Vanilla.");

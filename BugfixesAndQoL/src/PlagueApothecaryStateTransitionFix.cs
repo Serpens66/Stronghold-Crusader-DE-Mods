@@ -53,14 +53,14 @@ namespace BugfixesAndQoL
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
-            int periodicDiseaseFoundRva = PlagueNativePatternValidator.Resolve(
+            int periodicDiseaseFoundRva = PlagueNativeResolver.Resolve(
                 log,
                 memory,
                 PeriodicDiseaseFoundPattern,
                 PeriodicDiseaseFoundRva,
                 referenceHashMatches,
                 "apothecary state-2 disease-found branch");
-            PlagueNativePatternValidator.Resolve(
+            PlagueNativeResolver.Resolve(
                 log,
                 memory,
                 WorkingBuildingExitReferencePattern,

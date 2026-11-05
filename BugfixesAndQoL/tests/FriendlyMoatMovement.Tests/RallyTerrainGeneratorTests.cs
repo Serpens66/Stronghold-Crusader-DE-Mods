@@ -18,7 +18,7 @@ internal static unsafe class RallyTerrainGeneratorTests
         if (!OperatingSystem.IsWindows() || !Environment.Is64BitProcess)
             throw new Exception("Rally terrain native tests require Windows x64.");
         var tree = CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,
-            "BugfixesAndQoL/src/TroopMovementFix3SynchronizedMovementCadencePatch.cs")));
+            "BugfixesAndQoL/src/SynchronizedMovementCadencePatch.cs")));
         var type = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>()
             .Single(c => c.Identifier.Text == "SynchronizedMovementCadencePatch");
         var methods = new HashSet<string> { "GenerateTerrainCaptureFastPath", "EmitTerrainRestore", "EmitTerrainEligibility",

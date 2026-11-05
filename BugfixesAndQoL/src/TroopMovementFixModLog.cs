@@ -3,7 +3,7 @@ using BepInEx.Logging;
 
 namespace BugfixesAndQoL
 {
-    internal static class TroopMovementFix3ModLog
+    internal static class TroopMovementFixModLog
     {
         public static void Debug(ManualLogSource log, string message, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0)
         {

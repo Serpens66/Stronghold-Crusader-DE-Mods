@@ -86,9 +86,9 @@ namespace BugfixesAndQoL
             isLivingProjectile = IsLivingDiseaseProjectile;
             correctionEnabled = settings.EnableMod && settings.EnablePlaguePopularityFix;
 
-            int createHerdRva = PlagueNativePatternValidator.Resolve(
+            int createHerdRva = PlagueNativeResolver.Resolve(
                 log, memory, CreateHerdPattern, CreateHerdRva, referenceHashMatches, "plague herd creation");
-            int popularityExitPatternRva = PlagueNativePatternValidator.Resolve(
+            int popularityExitPatternRva = PlagueNativeResolver.Resolve(
                 log, memory, PopularityExitPattern, PopularityExitPatternRva, referenceHashMatches, "plague popularity exit");
 
             try

@@ -81,14 +81,14 @@ namespace BugfixesAndQoL
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
-            int diseaseSearchRva = PlagueNativePatternValidator.Resolve(
+            int diseaseSearchRva = PlagueNativeResolver.Resolve(
                 log,
                 memory,
                 DiseaseSearchPattern,
                 DiseaseSearchRva,
                 referenceHashMatches,
                 "apothecary nearest-disease search function");
-            int healerUpdateExitRva = PlagueNativePatternValidator.Resolve(
+            int healerUpdateExitRva = PlagueNativeResolver.Resolve(
                 log,
                 memory,
                 HealerUpdateExitPattern,

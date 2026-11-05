@@ -52,7 +52,7 @@ namespace BugfixesAndQoL
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
-            int areaTreatmentRva = PlagueNativePatternValidator.Resolve(
+            int areaTreatmentRva = PlagueNativeResolver.Resolve(
                 log,
                 memory,
                 AreaTreatmentPattern,

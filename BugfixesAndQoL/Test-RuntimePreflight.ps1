@@ -114,8 +114,8 @@ if ($xamlViolations.Count -ne 0) {
 
 }
 $viewModel = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\BugfixesAndQoLViewModel.cs'))
-$movementRuntime = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\TroopMovementFix3Runtime.cs'))
-$cadence = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\TroopMovementFix3SynchronizedMovementCadencePatch.cs'))
+$movementRuntime = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\TroopMovementFixRuntime.cs'))
+$cadence = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\SynchronizedMovementCadencePatch.cs'))
 if (-not $viewModel.Contains('private bool enableRallyTerrainSlowdownFix = true;') -or
     -not $viewModel.Contains('[SyncHostOnly]' + [Environment]::NewLine + '        public bool EnableRallyTerrainSlowdownFix') -or
     -not $viewModel.Contains('EnableRallyTerrainSlowdownFix = true;') -or

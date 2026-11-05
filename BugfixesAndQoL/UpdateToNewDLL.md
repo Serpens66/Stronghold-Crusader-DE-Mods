@@ -1652,7 +1652,7 @@ Names follow the source constants; they are not an independent proof of native p
 | DirectFillApproachRegionPairCallRva | `0xE81EB` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:88 |
 | DirectFillApproachCommandCallRva | `0x120E9D` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:89 |
 | MovementTerrainPhaseRva | `0x19B506` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:90 |
-| MovementCadenceRva | `0x184203` | BugfixesAndQoL/src/TroopMovementFix3SynchronizedMovementCadencePatch.cs:125, BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:91 |
+| MovementCadenceRva | `0x184203` | BugfixesAndQoL/src/SynchronizedMovementCadencePatch.cs:125, BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:91 |
 | MovementSubstepRva | `0x1855A0` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:92 |
 | MovementAdditionalSubstepsRva | `0x1857AA` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:93 |
 | MoatPathConsumptionReadRva | `0x185934` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:94 |
@@ -1700,7 +1700,7 @@ Names follow the source constants; they are not an independent proof of native p
 | MovementPlannerStructureFlagGateRva | `0x19648D` | BugfixesAndQoL/src/UnitCommands/Moat/UnitCommandPathRuntime.WorkTargetState.cs:23 |
 | Inline expression / observer / address array | `0xE1D30` | BugfixesAndQoL/src/Formations/FormationRuntime.State.cs:36, BugfixesAndQoL/src/UnitCommands/Formation/NativeFormationSlots.cs:41, BugfixesAndQoL/src/UnitCommands/Moat/MoatPlacement.cs:120 |
 | Inline expression / observer / address array | `0xE0970` | BugfixesAndQoL/src/Formations/FormationRuntime.State.cs:37, BugfixesAndQoL/src/UnitCommands/Formation/NativeFormationSlots.cs:47, BugfixesAndQoL/src/UnitCommands/Moat/MoatPlacement.cs:120 |
-| UnitTypeUpdateDispatchRva | `0x18410C` | BugfixesAndQoL/src/TroopMovementFix3SynchronizedMovementCadencePatch.cs:124, BugfixesAndQoL/src/UnitCommands/Movement/NativeMovementCadenceResolver.cs:18 |
+| UnitTypeUpdateDispatchRva | `0x18410C` | BugfixesAndQoL/src/SynchronizedMovementCadencePatch.cs:124, BugfixesAndQoL/src/UnitCommands/Movement/NativeMovementCadenceResolver.cs:18 |
 | Module-relative expression | `0x64CCED2` | BugfixesAndQoL/src/UnitCommands/Movement/NativeMovementRecovery.cs:52 |
 | Inline expression / observer / address array | `0xD90D0` | BugfixesAndQoL/src/UnitCommands/Movement/NativeMovementRecovery.cs:55, BugfixesAndQoL/src/UnitCommands/Native/NativeDetourContracts.cs:44 |
 | Inline expression / observer / address array | `0x59210` | BugfixesAndQoL/src/MoatTerrain/NativeDefinition.cs:32, BugfixesAndQoL/src/UnitCommands/Movement/NativeMovementRecovery.cs:61, BugfixesAndQoL/src/UnitCommands/Native/NativeDetourContracts.cs:24 |

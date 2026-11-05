@@ -2314,7 +2314,7 @@ internal static class Program
         string[] unrestrictedMovedRuntimeFiles =
         {
             "AIEconomyProtectionHook.cs",
-            "BugfixesAndQoLRuntime.MovedFeatures.cs",
+            "BugfixesAndQoLRuntime.BuildingAndEconomy.cs",
             "QuarryPileRelocationRuntime.cs",
             "QuarryPileTargetSearch.cs",
             "ReachableEnemyGatehouseRuntime.cs",

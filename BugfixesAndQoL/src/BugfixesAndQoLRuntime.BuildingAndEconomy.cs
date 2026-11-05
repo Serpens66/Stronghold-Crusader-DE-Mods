@@ -15,7 +15,7 @@ namespace BugfixesAndQoL
 
         public object QuarryPileRelocationButton => quarryPileRelocationRuntime.ButtonViewModel;
 
-        private void InitializeMovedFeatures()
+        private void InitializeBuildingAndEconomyFeatures()
         {
             quarryPileRelocationRuntime = new QuarryPileRelocationRuntime(
                 log,
@@ -24,7 +24,7 @@ namespace BugfixesAndQoL
             reachableEnemyGatehouseRuntime = new ReachableEnemyGatehouseRuntime(log, settings);
         }
 
-        private void InitializeMovedFeatureNetwork()
+        private void InitializeBuildingFeatureNetwork()
         {
             InstallSingleBuildingPauseHook();
 
@@ -34,7 +34,7 @@ namespace BugfixesAndQoL
             reachableEnemyGatehouseRuntime.Initialize();
         }
 
-        private void InitializeMovedFeatureNative(
+        private void InitializeBuildingAndEconomyNative(
             IntPtr nativeLibraryHandle,
             ReadOnlySpan<byte> memory,
             bool referenceHashMatches)
@@ -51,21 +51,21 @@ namespace BugfixesAndQoL
                 }
                 catch (Exception ex)
                 {
-                    LogMovedFeatureFailure("quarry-pile relocation native functions", ex);
+                    LogBuildingFeatureFailure("quarry-pile relocation native functions", ex);
                 }
             }
 
             InstallAIEconomyProtectionHook(nativeLibraryHandle, memory);
         }
 
-        private void ApplyMovedFeatureSettings()
+        private void ApplyBuildingAndEconomySettings()
         {
             if (!nativeLibraryAvailable || !settings.EnableMod)
             {
                 quarryPileRelocationRuntime.Dispose();
                 fastRecruitMovementBridge?.SetEnabled(false);
                 singleBuildingPauseHook?.ClearOverrides("mod disabled");
-                singleBuildingPauseHook?.UninstallLocalHooks();
+                singleBuildingPauseHook?.DeactivateLocalHooks();
                 return;
             }
 
@@ -75,7 +75,7 @@ namespace BugfixesAndQoL
                     !quarryFixedLayoutErrorLogged)
                 {
                     quarryFixedLayoutErrorLogged = true;
-                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/BugfixesAndQoLRuntime.MovedFeatures/ApplyMovedFeatureSettings", "Bugfixes and QoL quarry-pile relocation remains inactive because its fixed " +
+                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/BugfixesAndQoLRuntime.BuildingAndEconomy/ApplyBuildingAndEconomySettings", "Bugfixes and QoL quarry-pile relocation remains inactive because its fixed " +
                         "native layout is not validated for this CrusaderDE.dll.");
                 }
             }
@@ -94,7 +94,7 @@ namespace BugfixesAndQoL
             else
             {
                 singleBuildingPauseHook?.ClearOverrides("setting disabled");
-                singleBuildingPauseHook?.UninstallLocalHooks();
+                singleBuildingPauseHook?.DeactivateLocalHooks();
             }
 
             ApplyFastRecruitRallyMovementSetting();
@@ -132,7 +132,7 @@ namespace BugfixesAndQoL
             }
             catch (Exception ex)
             {
-                LogMovedFeatureFailure("AI economy protection hook", ex);
+                LogBuildingFeatureFailure("AI economy protection hook", ex);
             }
         }
 
@@ -175,26 +175,26 @@ namespace BugfixesAndQoL
                 bridge.Dispose();
         }
 
-        private void ResetMovedFeatureMapState()
+        private void ClearSingleBuildingPauseOverrides()
         {
             singleBuildingPauseHook?.ClearOverrides("map unload");
         }
 
-        private void InitializeMovedFeatureSaveData()
+        private void InitializeSingleBuildingPauseSaveData()
         {
             if (singleBuildingPauseHook == null)
                 throw new InvalidOperationException("The single-building pause feature is unavailable.");
             singleBuildingPauseHook.InitializeSaveData();
         }
 
-        private void RestoreMovedFeatureSaveState(Shared.GameplaySessionStartedContext context)
+        private void RestoreSingleBuildingPauseSaveState(Shared.GameplaySessionStartedContext context)
         {
             singleBuildingPauseHook?.RestoreFromSave(context);
         }
 
-        private void LogMovedFeatureFailure(string featureName, Exception ex)
+        private void LogBuildingFeatureFailure(string featureName, Exception ex)
         {
-            Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/BugfixesAndQoLRuntime.MovedFeatures/LogMovedFeatureFailure", $"Bugfixes and QoL feature '{featureName}' failed and remains inactive: {ex}");
+            Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/BugfixesAndQoLRuntime.BuildingAndEconomy/LogBuildingFeatureFailure", $"Bugfixes and QoL feature '{featureName}' failed and remains inactive: {ex}");
         }
     }
 }
