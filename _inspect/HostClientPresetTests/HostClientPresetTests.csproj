@@ -219,9 +219,6 @@
     <Compile Include="..\..\BugfixesAndQoL\src\Assassins\AssassinClimbTransitionPolicy.cs">
       <Link>AssassinClimbTransitionPolicy.cs</Link>
     </Compile>
-    <Compile Include="..\..\BugfixesAndQoL\src\Assassins\AssassinPathReconstructionNativeDefinition.cs">
-      <Link>AssassinPathReconstructionNativeDefinition.cs</Link>
-    </Compile>
     <Compile Include="..\..\BugfixesAndQoL\src\Buildings\QuarryPileTargetSelectionPolicy.cs">
       <Link>QuarryPileTargetSelectionPolicy.cs</Link>
     </Compile>

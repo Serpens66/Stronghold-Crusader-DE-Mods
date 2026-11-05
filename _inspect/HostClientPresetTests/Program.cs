@@ -270,7 +270,6 @@ internal static class Program
             TestAssassinClimbCostPolicy();
             TestAssassinCombatResumePolicy();
             TestAssassinCombatResumeNativeDefinition();
-            TestAssassinPathReconstructionNativeDefinition();
             TestTroopActionButtonLayoutPolicy();
             TestQuarryPileTargetSelectionPolicy();
             TestQuarryPileVanillaGroupPolicy();
@@ -2884,56 +2883,6 @@ internal static class Program
             "Assassin stair ascent was not interpolated by height");
         Check(AssassinClimbCostPolicy.GetAdditionalTicks(true, 135, false, true, true) == 600,
             "Assassin high stair ascent did not continue the interpolation slope");
-    }
-
-    private static void TestAssassinPathReconstructionNativeDefinition()
-    {
-        const string dllPath = @"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Plugins\x86_64\CrusaderDE.dll";
-        byte[] file = File.ReadAllBytes(dllPath);
-        string hash;
-        using (System.Security.Cryptography.SHA256 sha256 = System.Security.Cryptography.SHA256.Create())
-            hash = BitConverter.ToString(sha256.ComputeHash(file)).Replace("-", string.Empty);
-        Check(
-            string.Equals(
-                hash,
-                AssassinPathReconstructionNativeDefinition.ReferenceSha256,
-                StringComparison.OrdinalIgnoreCase),
-            "canonical CrusaderDE.dll hash changed for the Assassin reconstruction contract");
-
-        byte[] image = LoadPeImage(file);
-        NativeResolution reference = NativePatternResolver.ResolveUnique(
-            image,
-            AssassinPathReconstructionNativeDefinition.EndpointBuildingGuardsPattern,
-            AssassinPathReconstructionNativeDefinition.EndpointBuildingGuardsPatternRva,
-            referenceHashMatches: true,
-            "test Assassin reconstruction endpoint guards");
-        Check(
-            reference.Rva == AssassinPathReconstructionNativeDefinition.EndpointBuildingGuardsPatternRva &&
-            reference.Method == "reference-rva",
-            "Assassin reconstruction source signature did not match the canonical DLL at its reference RVA");
-
-        NativeResolution fallback = NativePatternResolver.ResolveUnique(
-            image,
-            AssassinPathReconstructionNativeDefinition.EndpointBuildingGuardsPattern,
-            AssassinPathReconstructionNativeDefinition.EndpointBuildingGuardsPatternRva,
-            referenceHashMatches: false,
-            "test Assassin reconstruction endpoint guards");
-        Check(
-            fallback.Rva == reference.Rva && fallback.Method == "signature-fallback",
-            "Assassin reconstruction source signature was not unique in the canonical DLL");
-
-        int currentJumpRva = reference.Rva +
-            AssassinPathReconstructionNativeDefinition.CurrentTileRejectJumpOffset;
-        int neighborJumpRva = reference.Rva +
-            AssassinPathReconstructionNativeDefinition.NeighborTileRejectJumpOffset;
-        Check(
-            image.Skip(currentJumpRva)
-                .Take(AssassinPathReconstructionNativeDefinition.OriginalCurrentTileRejectJump.Length)
-                .SequenceEqual(AssassinPathReconstructionNativeDefinition.OriginalCurrentTileRejectJump) &&
-            image.Skip(neighborJumpRva)
-                .Take(AssassinPathReconstructionNativeDefinition.OriginalNeighborTileRejectJump.Length)
-                .SequenceEqual(AssassinPathReconstructionNativeDefinition.OriginalNeighborTileRejectJump),
-            "Assassin reconstruction jump offsets no longer select both audited Vanilla guards");
     }
 
     private static void TestAssassinCombatResumePolicy()

@@ -63,7 +63,6 @@ internal static class Program
             ["BroadBlockerLoadPattern"] = 0x5D016,
             ["NarrowBlockerLoadPattern"] = 0x5D045,
             ["AssassinBuilderPattern"] = 0xD9C40,
-            ["EndpointBuildingGuardsPattern"] = 0xE19D4,
             ["DispatcherAssassinBranchPattern"] = 0xF4B0C,
             ["State106CombatFinishCallSequence"] = 0x16DFCE,
             ["CombatFinishHelperSequence"] = 0x1853F0,

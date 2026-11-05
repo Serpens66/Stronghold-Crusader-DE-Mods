@@ -165,7 +165,6 @@
     <Compile Include="src\Assassins\AssassinCombatResumeRuntime.cs" />
     <Compile Include="src\Assassins\AssassinCapturedGateProtectionPolicy.cs" />
     <Compile Include="src\Assassins\AssassinCapturedGateProtectionRuntime.cs" />
-    <Compile Include="src\Assassins\AssassinPathReconstructionNativeDefinition.cs" />
     <Compile Include="src\Assassins\AssassinPathReconstructionPatch.cs" />
     <Compile Include="src\Assassins\AssassinPathfindingRuntime.cs" />
     <Compile Include="src\Assassins\AssassinNativeSearch.cs" />
