@@ -1037,80 +1037,44 @@ namespace BugfixesAndQoL
 
         private void InstallCtrlMarketTradeHook()
         {
-            if (ctrlMarketTradeHook != null || ctrlMarketTradeHookUnavailable || !nativeLibraryAvailable)
-                return;
-
-            try
-            {
-                ctrlMarketTradeHook = new CtrlMarketTradeHook(
-                    log,
-                    settings,
-                    nativeRegion,
-                    libraryHandle,
-                    GetNativeLibraryMemory(),
-                    fixedLayoutHashValidated);
-                if (!fixedLayoutHashValidated)
+            InstallOnce(ref ctrlMarketTradeHook, ref ctrlMarketTradeHookUnavailable,
+                () =>
                 {
-                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/BugfixesAndQoLRuntime/InstallCtrlMarketTradeHook.running-unknown-crusader-de", "Bugfixes and QoL Ctrl single-unit market hooks are running on an unknown CrusaderDE.dll because all required native instruction patterns were validated.");
-                }
-            }
-            catch (Exception ex)
-            {
-                ctrlMarketTradeHookUnavailable = true;
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/BugfixesAndQoLRuntime/InstallCtrlMarketTradeHook.could-not-installed", $"Bugfixes and QoL Ctrl single-unit market hooks could not be installed: {ex}");
-            }
+                    var hook = new CtrlMarketTradeHook(log, settings, nativeRegion, libraryHandle, nativeRegion.Span, fixedLayoutHashValidated);
+                    if (!fixedLayoutHashValidated)
+                        Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/BugfixesAndQoLRuntime/InstallCtrlMarketTradeHook.running-unknown-crusader-de", "Bugfixes and QoL Ctrl single-unit market hooks are running on an unknown CrusaderDE.dll because all required native instruction patterns were validated.");
+                    return hook;
+                },
+                ex => Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/BugfixesAndQoLRuntime/InstallCtrlMarketTradeHook.could-not-installed", $"Bugfixes and QoL Ctrl single-unit market hooks could not be installed: {ex}"));
         }
 
-        private void TryInitializeFeature(string featureName, Action initialize)
+        private void TryInitializeFeature(string featureName, Action initialize) =>
+            RunIsolated("FeatureInitialize", featureName, initialize,
+                $"Bugfixes and QoL feature '{featureName}' could not be initialized and remains inactive");
+
+        private void TryInitializePersistentFeature(string featureName, Action initialize) =>
+            RunIsolated("PersistentInitialize", featureName, initialize,
+                $"Bugfixes and QoL persistent feature '{featureName}' could not be initialized; independent features continue");
+
+        private void TryApplyFeature(string featureName, Action apply) =>
+            RunIsolated("FeatureApply", featureName, apply,
+                $"Bugfixes and QoL feature '{featureName}' could not apply its setting; independent features continue");
+
+        // One feature's failure must never stop the features after it.
+        private void RunIsolated(string breadcrumbCategory, string featureName, Action action, string failureMessage)
         {
             using (Shared.CrashBreadcrumbScope diagnostic =
-                (Shared.CrashBreadcrumbDiagnostics.IsEnabled ? Shared.CrashBreadcrumbDiagnostics.Enter("FeatureInitialize", featureName.GetHashCode()) : default(Shared.CrashBreadcrumbScope)))
+                (Shared.CrashBreadcrumbDiagnostics.IsEnabled ? Shared.CrashBreadcrumbDiagnostics.Enter(breadcrumbCategory, featureName.GetHashCode()) : default(Shared.CrashBreadcrumbScope)))
             {
                 try
                 {
-                    initialize();
+                    action();
                     diagnostic.Complete();
                 }
                 catch (Exception ex)
                 {
                     diagnostic.Complete(-1);
-                    Shared.RuntimeHealth.Failure(log, featureName, true, $"Bugfixes and QoL feature '{featureName}' could not be initialized and remains inactive: {ex}");
-                }
-            }
-        }
-
-        private void TryInitializePersistentFeature(string featureName, Action initialize)
-        {
-            using (Shared.CrashBreadcrumbScope diagnostic =
-                (Shared.CrashBreadcrumbDiagnostics.IsEnabled ? Shared.CrashBreadcrumbDiagnostics.Enter("PersistentInitialize", featureName.GetHashCode()) : default(Shared.CrashBreadcrumbScope)))
-            {
-                try
-                {
-                    initialize();
-                    diagnostic.Complete();
-                }
-                catch (Exception ex)
-                {
-                    diagnostic.Complete(-1);
-                    Shared.RuntimeHealth.Failure(log, featureName, true, $"Bugfixes and QoL persistent feature '{featureName}' could not be initialized; independent features continue: {ex}");
-                }
-            }
-        }
-
-        private void TryApplyFeature(string featureName, Action apply)
-        {
-            using (Shared.CrashBreadcrumbScope diagnostic =
-                (Shared.CrashBreadcrumbDiagnostics.IsEnabled ? Shared.CrashBreadcrumbDiagnostics.Enter("FeatureApply", featureName.GetHashCode()) : default(Shared.CrashBreadcrumbScope)))
-            {
-                try
-                {
-                    apply();
-                    diagnostic.Complete();
-                }
-                catch (Exception ex)
-                {
-                    diagnostic.Complete(-1);
-                    Shared.RuntimeHealth.Failure(log, featureName, true, $"Bugfixes and QoL feature '{featureName}' could not apply its setting; independent features continue: {ex}");
+                    Shared.RuntimeHealth.Failure(log, featureName, true, $"{failureMessage}: {ex}");
                 }
             }
         }
@@ -1186,58 +1150,42 @@ namespace BugfixesAndQoL
                 DisableLordControlGroupNativePatch();
         }
 
-        private unsafe ReadOnlySpan<byte> GetNativeLibraryMemory()
+        private ulong LibraryBase => unchecked((ulong)libraryHandle.ToInt64());
+
+        // Install once. After a failed install the feature stays inactive and is not retried.
+        private void InstallOnce<T>(ref T field, ref bool unavailable, Func<T> create, Action<Exception> reportFailure)
+            where T : class
         {
-            // The game DLL stays loaded for the process lifetime.
-            return nativeRegion == null ? ReadOnlySpan<byte>.Empty : nativeRegion.Span;
+            if (!nativeLibraryAvailable || field != null || unavailable)
+                return;
+
+            try
+            {
+                field = create();
+            }
+            catch (Exception ex)
+            {
+                unavailable = true;
+                reportFailure(ex);
+            }
         }
 
         private void EnsurePlaguePopularityFix()
         {
-            if (!nativeLibraryAvailable || plaguePopularityFix != null || plaguePopularityFixUnavailable)
-                return;
-
-            try
-            {
-                // This hook remains installed while disabled so an in-progress herd can
-                // still be identified if the host enables the setting later.
-                plaguePopularityFix = new PlaguePopularityFix(
-                    log,
-                    settings,
-                    nativeRegion,
-                    GetNativeLibraryMemory(),
-                    unchecked((ulong)libraryHandle.ToInt64()),
-                    fixedLayoutHashValidated);
-            }
-            catch (Exception ex)
-            {
-                plaguePopularityFixUnavailable = true;
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/BugfixesAndQoLRuntime/EnsurePlaguePopularityFix", $"Bugfixes and QoL plague popularity fix could not be installed; Vanilla behavior remains active: {ex}");
-            }
+            // This hook remains installed while disabled so an in-progress herd can
+            // still be identified if the host enables the setting later.
+            InstallOnce(ref plaguePopularityFix, ref plaguePopularityFixUnavailable,
+                () => new PlaguePopularityFix(log, settings, nativeRegion, nativeRegion.Span, LibraryBase, fixedLayoutHashValidated),
+                ex => Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/BugfixesAndQoLRuntime/EnsurePlaguePopularityFix", $"Bugfixes and QoL plague popularity fix could not be installed; Vanilla behavior remains active: {ex}"));
         }
 
         private void EnsureAiStoneReserveFix()
         {
-            if (!nativeLibraryAvailable || aiStoneReserveFix != null || aiStoneReserveFixUnavailable)
-                return;
-
-            try
-            {
-                // The hook stays installed. ApplySetting only changes its logical activation.
-                aiStoneReserveFix = new AiStoneReserveFix(
-                    log,
-                    settings,
-                    nativeRegion,
-                    GetNativeLibraryMemory(),
-                    unchecked((ulong)libraryHandle.ToInt64()),
-                    fixedLayoutHashValidated);
-            }
-            catch (Exception ex)
-            {
-                aiStoneReserveFixUnavailable = true;
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/BugfixesAndQoLRuntime/EnsureAiStoneReserveFix", $"Bugfixes and QoL AI stone-reserve fix could not be installed; " +
-                    $"only this AI fix remains inactive and Vanilla behavior remains active: {ex}");
-            }
+            // The hook stays installed. ApplySetting only changes its logical activation.
+            InstallOnce(ref aiStoneReserveFix, ref aiStoneReserveFixUnavailable,
+                () => new AiStoneReserveFix(log, settings, nativeRegion, nativeRegion.Span, LibraryBase, fixedLayoutHashValidated),
+                ex => Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/BugfixesAndQoLRuntime/EnsureAiStoneReserveFix", $"Bugfixes and QoL AI stone-reserve fix could not be installed; " +
+                    $"only this AI fix remains inactive and Vanilla behavior remains active: {ex}"));
         }
 
         private void EnsureAiDefensePatrolFix()
@@ -1247,30 +1195,16 @@ namespace BugfixesAndQoL
                 aiDefensePatrolFix.ApplySetting();
                 return;
             }
-            if (!nativeLibraryAvailable || aiDefensePatrolFixUnavailable)
-                return;
 
             // Avoid installing a dormant native hook. A later synchronized enable change
             // retries this method while the validated native mapping remains available.
             if (!settings.EnableMod || !settings.EnableAiDefensePatrolFix)
                 return;
 
-            try
-            {
-                aiDefensePatrolFix = new AiDefensePatrolFix(
-                    log,
-                    settings,
-                    nativeRegion,
-                    GetNativeLibraryMemory(),
-                    unchecked((ulong)libraryHandle.ToInt64()),
-                    fixedLayoutHashValidated);
-            }
-            catch (Exception ex)
-            {
-                aiDefensePatrolFixUnavailable = true;
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/BugfixesAndQoLRuntime/EnsureAiDefensePatrolFix", $"Bugfixes and QoL AI defense patrol fix could not be installed; " +
-                    $"only this AI fix remains inactive and Vanilla behavior remains active: {ex}");
-            }
+            InstallOnce(ref aiDefensePatrolFix, ref aiDefensePatrolFixUnavailable,
+                () => new AiDefensePatrolFix(log, settings, nativeRegion, nativeRegion.Span, LibraryBase, fixedLayoutHashValidated),
+                ex => Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/BugfixesAndQoLRuntime/EnsureAiDefensePatrolFix", $"Bugfixes and QoL AI defense patrol fix could not be installed; " +
+                    $"only this AI fix remains inactive and Vanilla behavior remains active: {ex}"));
         }
 
         private void EnsureWorkshopIdleDelayHook()
@@ -1281,8 +1215,8 @@ namespace BugfixesAndQoL
                 try
                 {
                     processWorkshopIdleDelayHook = new WorkshopIdleDelayHook(
-                        log, nativeRegion, GetNativeLibraryMemory(),
-                        unchecked((ulong)libraryHandle.ToInt64()), fixedLayoutHashValidated);
+                        log, nativeRegion, nativeRegion.Span,
+                        LibraryBase, fixedLayoutHashValidated);
                 }
                 catch (Exception ex)
                 {
@@ -1314,8 +1248,8 @@ namespace BugfixesAndQoL
                 try
                 {
                     processWorkerBreakPauseHook = new WorkerBreakPauseHook(
-                        log, nativeRegion, GetNativeLibraryMemory(),
-                        unchecked((ulong)libraryHandle.ToInt64()), fixedLayoutHashValidated);
+                        log, nativeRegion, nativeRegion.Span,
+                        LibraryBase, fixedLayoutHashValidated);
                 }
                 catch (Exception ex)
                 {
@@ -1359,8 +1293,8 @@ namespace BugfixesAndQoL
                     log,
                     settings,
                     nativeRegion,
-                    GetNativeLibraryMemory(),
-                    unchecked((ulong)libraryHandle.ToInt64()),
+                    nativeRegion.Span,
+                    LibraryBase,
                     fixedLayoutHashValidated);
                 aiWallTargetingFix.ApplySetting();
             }
@@ -1403,8 +1337,8 @@ namespace BugfixesAndQoL
                     log,
                     settings,
                     nativeRegion,
-                    GetNativeLibraryMemory(),
-                    unchecked((ulong)libraryHandle.ToInt64()),
+                    nativeRegion.Span,
+                    LibraryBase,
                     fixedLayoutHashValidated);
                 aivDefenderPositionFix.ApplySetting();
             }
@@ -1436,28 +1370,15 @@ namespace BugfixesAndQoL
                 aiTowerRuinRepairFix.ApplySetting();
                 return;
             }
-            if (!nativeLibraryAvailable || aiTowerRuinRepairFixUnavailable)
-                return;
+
             // Avoid installing the native classifiers in Vanilla mode. If the setting is enabled
             // later, ApplySettings retries this method with the retained DLL mapping.
             if (!settings.EnableMod || !settings.FixAITowerRepair)
                 return;
 
-            try
-            {
-                aiTowerRuinRepairFix = new AITowerRuinRepairFix(
-                    log,
-                    settings,
-                    nativeRegion,
-                    GetNativeLibraryMemory(),
-                    unchecked((ulong)libraryHandle.ToInt64()),
-                    fixedLayoutHashValidated);
-            }
-            catch (Exception ex)
-            {
-                aiTowerRuinRepairFixUnavailable = true;
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/BugfixesAndQoLRuntime/EnsureAiTowerRuinRepairFix", $"Bugfixes and QoL AI tower-ruin repair could not be installed; Vanilla behavior remains active: {ex}");
-            }
+            InstallOnce(ref aiTowerRuinRepairFix, ref aiTowerRuinRepairFixUnavailable,
+                () => new AITowerRuinRepairFix(log, settings, nativeRegion, nativeRegion.Span, LibraryBase, fixedLayoutHashValidated),
+                ex => Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/BugfixesAndQoLRuntime/EnsureAiTowerRuinRepairFix", $"Bugfixes and QoL AI tower-ruin repair could not be installed; Vanilla behavior remains active: {ex}"));
         }
 
         private void EnsureBetterAIOverbuildRulesFix()
@@ -1467,81 +1388,32 @@ namespace BugfixesAndQoL
                 betterAIOverbuildRulesFix.ApplySetting();
                 return;
             }
-            if (!nativeLibraryAvailable || betterAIOverbuildRulesFixUnavailable)
-                return;
+
             // Keep a fully disabled configuration physically Vanilla. Enabling the synchronized
             // host setting later retries installation with the retained DLL mapping.
             if (!settings.EnableMod || !settings.BetterAIOverbuildRules)
-            {
                 return;
-            }
 
-            try
-            {
-                betterAIOverbuildRulesFix = new BetterAIOverbuildRulesFix(
-                    log,
-                    settings,
-                    nativeRegion,
-                    GetNativeLibraryMemory(),
-                    unchecked((ulong)libraryHandle.ToInt64()),
-                    fixedLayoutHashValidated);
-            }
-            catch (Exception ex)
-            {
-                betterAIOverbuildRulesFixUnavailable = true;
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/BugfixesAndQoLRuntime/EnsureBetterAIOverbuildRulesFix", $"Bugfixes and QoL better AI overbuild rules could not be installed; " +
-                    $"Vanilla behavior remains active: {ex}");
-            }
+            InstallOnce(ref betterAIOverbuildRulesFix, ref betterAIOverbuildRulesFixUnavailable,
+                () => new BetterAIOverbuildRulesFix(log, settings, nativeRegion, nativeRegion.Span, LibraryBase, fixedLayoutHashValidated),
+                ex => Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/BugfixesAndQoLRuntime/EnsureBetterAIOverbuildRulesFix", $"Bugfixes and QoL better AI overbuild rules could not be installed; " +
+                    $"Vanilla behavior remains active: {ex}"));
         }
 
         private void EnsurePlagueTreatmentFadeFix()
         {
-            if (!nativeLibraryAvailable || plagueTreatmentFadeFix != null || plagueTreatmentFadeFixUnavailable)
-                return;
-
-            try
-            {
-                plagueTreatmentFadeFix = new PlagueTreatmentFadeFix(
-                    log,
-                    settings,
-                    nativeRegion,
-                    GetNativeLibraryMemory(),
-                    unchecked((ulong)libraryHandle.ToInt64()),
-                    fixedLayoutHashValidated);
-            }
-            catch (Exception ex)
-            {
-                plagueTreatmentFadeFixUnavailable = true;
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/BugfixesAndQoLRuntime/EnsurePlagueTreatmentFadeFix", $"Bugfixes and QoL plague-cloud removal fix could not be installed; " +
-                    $"only this fix remains inactive and Vanilla treatment remains active: {ex}");
-            }
+            InstallOnce(ref plagueTreatmentFadeFix, ref plagueTreatmentFadeFixUnavailable,
+                () => new PlagueTreatmentFadeFix(log, settings, nativeRegion, nativeRegion.Span, LibraryBase, fixedLayoutHashValidated),
+                ex => Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/BugfixesAndQoLRuntime/EnsurePlagueTreatmentFadeFix", $"Bugfixes and QoL plague-cloud removal fix could not be installed; " +
+                    $"only this fix remains inactive and Vanilla treatment remains active: {ex}"));
         }
 
         private void EnsurePlagueApothecaryStateTransitionFix()
         {
-            if (!nativeLibraryAvailable ||
-                plagueApothecaryStateTransitionFix != null ||
-                plagueApothecaryStateTransitionFixUnavailable)
-            {
-                return;
-            }
-
-            try
-            {
-                plagueApothecaryStateTransitionFix = new PlagueApothecaryStateTransitionFix(
-                    log,
-                    settings,
-                    nativeRegion,
-                    GetNativeLibraryMemory(),
-                    unchecked((ulong)libraryHandle.ToInt64()),
-                    fixedLayoutHashValidated);
-            }
-            catch (Exception ex)
-            {
-                plagueApothecaryStateTransitionFixUnavailable = true;
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/BugfixesAndQoLRuntime/EnsurePlagueApothecaryStateTransitionFix", $"Bugfixes and QoL stuck-apothecary fix could not be installed; " +
-                    $"only this fix remains inactive and Vanilla behavior remains active: {ex}");
-            }
+            InstallOnce(ref plagueApothecaryStateTransitionFix, ref plagueApothecaryStateTransitionFixUnavailable,
+                () => new PlagueApothecaryStateTransitionFix(log, settings, nativeRegion, nativeRegion.Span, LibraryBase, fixedLayoutHashValidated),
+                ex => Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/BugfixesAndQoLRuntime/EnsurePlagueApothecaryStateTransitionFix", $"Bugfixes and QoL stuck-apothecary fix could not be installed; " +
+                    $"only this fix remains inactive and Vanilla behavior remains active: {ex}"));
         }
 
         private void EnsurePlagueTargetReservationFix()
@@ -1567,8 +1439,8 @@ namespace BugfixesAndQoL
                     log,
                     settings,
                     nativeRegion,
-                    GetNativeLibraryMemory(),
-                    unchecked((ulong)libraryHandle.ToInt64()),
+                    nativeRegion.Span,
+                    LibraryBase,
                     fixedLayoutHashValidated);
                 plagueTreatmentFadeFix.SetTreatmentCompletedObserver(
                     plagueTargetReservationFix.OnTreatmentCompleted);
@@ -1591,24 +1463,11 @@ namespace BugfixesAndQoL
                 assemblyPointPlacementPatch.SetEnabled(true);
                 return;
             }
-            if (assemblyPointPlacementPatchUnavailable)
-                return;
 
-            try
-            {
-                assemblyPointPlacementPatch = new AssemblyPointPlacementPatch(
-                    log,
-                    nativeRegion,
-                    GetNativeLibraryMemory(),
-                    unchecked((ulong)libraryHandle.ToInt64()),
-                    fixedLayoutHashValidated);
-            }
-            catch (Exception ex)
-            {
-                // A changed or already hooked signature cannot become valid later in this process.
-                assemblyPointPlacementPatchUnavailable = true;
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/BugfixesAndQoLRuntime/InstallAssemblyPointPlacementPatch", $"Bugfixes and QoL assembly-point placement patch could not be installed: {ex}");
-            }
+            // A changed or already hooked signature cannot become valid later in this process.
+            InstallOnce(ref assemblyPointPlacementPatch, ref assemblyPointPlacementPatchUnavailable,
+                () => new AssemblyPointPlacementPatch(log, nativeRegion, nativeRegion.Span, LibraryBase, fixedLayoutHashValidated),
+                ex => Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/BugfixesAndQoLRuntime/InstallAssemblyPointPlacementPatch", $"Bugfixes and QoL assembly-point placement patch could not be installed: {ex}"));
         }
 
         private void DisableAssemblyPointPlacementPatch()
@@ -1623,23 +1482,10 @@ namespace BugfixesAndQoL
                 mountedStockpileMovementPatch.SetEnabled(true);
                 return;
             }
-            if (mountedStockpileMovementPatchUnavailable)
-                return;
 
-            try
-            {
-                mountedStockpileMovementPatch = new MountedStockpileMovementPatch(
-                    log,
-                    nativeRegion,
-                    GetNativeLibraryMemory(),
-                    unchecked((ulong)libraryHandle.ToInt64()),
-                    fixedLayoutHashValidated);
-            }
-            catch (Exception ex)
-            {
-                mountedStockpileMovementPatchUnavailable = true;
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/BugfixesAndQoLRuntime/InstallMountedStockpileMovementPatch", $"Bugfixes and QoL mounted-stockpile movement patch could not be installed; Vanilla behavior remains active: {ex}");
-            }
+            InstallOnce(ref mountedStockpileMovementPatch, ref mountedStockpileMovementPatchUnavailable,
+                () => new MountedStockpileMovementPatch(log, nativeRegion, nativeRegion.Span, LibraryBase, fixedLayoutHashValidated),
+                ex => Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/BugfixesAndQoLRuntime/InstallMountedStockpileMovementPatch", $"Bugfixes and QoL mounted-stockpile movement patch could not be installed; Vanilla behavior remains active: {ex}"));
         }
 
         private void InstallHealerAttackCommandPatch()
@@ -1649,23 +1495,10 @@ namespace BugfixesAndQoL
                 healerAttackCommandPatch.SetEnabled(true);
                 return;
             }
-            if (healerAttackCommandPatchUnavailable)
-                return;
 
-            try
-            {
-                healerAttackCommandPatch = new HealerAttackCommandPatch(
-                    log,
-                    nativeRegion,
-                    GetNativeLibraryMemory(),
-                    unchecked((ulong)libraryHandle.ToInt64()),
-                    fixedLayoutHashValidated);
-            }
-            catch (Exception ex)
-            {
-                healerAttackCommandPatchUnavailable = true;
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/BugfixesAndQoLRuntime/InstallHealerAttackCommandPatch", $"Bugfixes and QoL Healer attack-command patch could not be installed; Vanilla behavior remains active: {ex}");
-            }
+            InstallOnce(ref healerAttackCommandPatch, ref healerAttackCommandPatchUnavailable,
+                () => new HealerAttackCommandPatch(log, nativeRegion, nativeRegion.Span, LibraryBase, fixedLayoutHashValidated),
+                ex => Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/BugfixesAndQoLRuntime/InstallHealerAttackCommandPatch", $"Bugfixes and QoL Healer attack-command patch could not be installed; Vanilla behavior remains active: {ex}"));
         }
 
         private void DisableHealerAttackCommandPatch()
@@ -1680,48 +1513,18 @@ namespace BugfixesAndQoL
                 lordControlGroupNativePatch.SetEnabled(true);
                 return;
             }
-            if (lordControlGroupNativePatchUnavailable)
-                return;
 
-            try
-            {
-                lordControlGroupNativePatch = new LordControlGroupNativePatch(
-                    nativeRegion,
-                    GetNativeLibraryMemory(),
-                    unchecked((ulong)libraryHandle.ToInt64()),
-                    fixedLayoutHashValidated);
-            }
-            catch (Exception ex)
-            {
-                lordControlGroupNativePatchUnavailable = true;
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/BugfixesAndQoLRuntime/InstallLordControlGroupNativePatch", $"Bugfixes and QoL Lord control-group patch could not be installed; Vanilla behavior remains active: {ex}");
-            }
+            InstallOnce(ref lordControlGroupNativePatch, ref lordControlGroupNativePatchUnavailable,
+                () => new LordControlGroupNativePatch(nativeRegion, nativeRegion.Span, LibraryBase, fixedLayoutHashValidated),
+                ex => Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/BugfixesAndQoLRuntime/InstallLordControlGroupNativePatch", $"Bugfixes and QoL Lord control-group patch could not be installed; Vanilla behavior remains active: {ex}"));
         }
 
         private void EnsureControlGroupDisbandCleanup()
         {
-            if (!nativeLibraryAvailable || controlGroupDisbandCleanupRuntime != null ||
-                controlGroupDisbandCleanupUnavailable)
-            {
-                return;
-            }
-
-            try
-            {
-                // Keep the detour installed; the local setting is checked inside the callback.
-                controlGroupDisbandCleanupRuntime = new ControlGroupDisbandCleanupRuntime(
-                    log,
-                    settings,
-                    nativeRegion,
-                    GetNativeLibraryMemory(),
-                    unchecked((ulong)libraryHandle.ToInt64()),
-                    fixedLayoutHashValidated);
-            }
-            catch (Exception ex)
-            {
-                controlGroupDisbandCleanupUnavailable = true;
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/BugfixesAndQoLRuntime/EnsureControlGroupDisbandCleanup", $"Bugfixes and QoL disbanded-unit control-group cleanup could not be installed; Vanilla behavior remains active: {ex}");
-            }
+            // Keep the detour installed; the local setting is checked inside the callback.
+            InstallOnce(ref controlGroupDisbandCleanupRuntime, ref controlGroupDisbandCleanupUnavailable,
+                () => new ControlGroupDisbandCleanupRuntime(log, settings, nativeRegion, nativeRegion.Span, LibraryBase, fixedLayoutHashValidated),
+                ex => Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/BugfixesAndQoLRuntime/EnsureControlGroupDisbandCleanup", $"Bugfixes and QoL disbanded-unit control-group cleanup could not be installed; Vanilla behavior remains active: {ex}"));
         }
 
         private void DisableLordControlGroupNativePatch()
