@@ -15,6 +15,7 @@ using RedBird.X64.Assembly;
 using RedBird.X64.Hooks;
 using RedBird.X64.Hooks.Transaction;
 using static Iced.Intel.AssemblerRegisters;
+using static BugfixesAndQoL.UnitCommands.NativeMovementCadenceResolver;
 
 namespace BugfixesAndQoL
 {
@@ -1952,28 +1953,6 @@ namespace BugfixesAndQoL
             return false;
         }
 
-        private static Dictionary<Register, HashSet<long>> FindPreSwitchConstants(
-            List<Instruction> instructions,
-            int stateLoadIndex)
-        {
-            Dictionary<Register, HashSet<long>> constants =
-                new Dictionary<Register, HashSet<long>>();
-            for (int index = 0;
-                 index < stateLoadIndex;
-                 index++)
-            {
-                Instruction instruction = instructions[index];
-                ApplyConstantTransfer(instruction, constants);
-                if (instruction.FlowControl == FlowControl.Call ||
-                    instruction.FlowControl == FlowControl.IndirectCall)
-                {
-                    RemoveVolatileRegisterConstants(constants);
-                }
-            }
-
-            return constants;
-        }
-
         private static bool TryResolveMemoryTableAddress(
             List<Instruction> instructions,
             int instructionIndex,
@@ -2003,45 +1982,6 @@ namespace BugfixesAndQoL
 
             address = baseAddress + memoryInstruction.MemoryDisplacement64;
             return true;
-        }
-
-        private static bool TryResolveRegisterAddress(
-            List<Instruction> instructions,
-            int startIndex,
-            Register register,
-            out ulong address)
-        {
-            address = 0;
-            register = NormalizeRegister(register);
-            for (int index = startIndex;
-                 index >= 0 && startIndex - index <= 80;
-                 index--)
-            {
-                Instruction instruction = instructions[index];
-                if (instruction.Op0Kind != OpKind.Register ||
-                    NormalizeRegister(instruction.Op0Register) != register)
-                {
-                    continue;
-                }
-
-                if (instruction.Mnemonic == Mnemonic.Lea &&
-                    instruction.IsIPRelativeMemoryOperand)
-                {
-                    address = instruction.IPRelativeMemoryAddress;
-                    return true;
-                }
-
-                if (instruction.Mnemonic == Mnemonic.Mov &&
-                    IsImmediate(instruction.Op1Kind))
-                {
-                    address = instruction.GetImmediate(1);
-                    return true;
-                }
-
-                return false;
-            }
-
-            return false;
         }
 
         private static bool IsModuleRange(
@@ -2178,7 +2118,7 @@ namespace BugfixesAndQoL
                 new Dictionary<int, CadenceFieldWrite>();
 
             inputConstantsByIndex[caseStartIndex] =
-                CloneConstantState(preSwitchConstants);
+                CloneConstants(preSwitchConstants);
             pending.Enqueue(caseStartIndex);
 
             while (pending.Count != 0)
@@ -2186,7 +2126,7 @@ namespace BugfixesAndQoL
                 int index = pending.Dequeue();
                 Instruction instruction = instructions[index];
                 Dictionary<Register, HashSet<long>> constants =
-                    CloneConstantState(inputConstantsByIndex[index]);
+                    CloneConstants(inputConstantsByIndex[index]);
 
                 if (instruction.Mnemonic == Mnemonic.Mov &&
                     instruction.Op0Kind == OpKind.Memory &&
@@ -2233,7 +2173,7 @@ namespace BugfixesAndQoL
 
                 if (instruction.FlowControl == FlowControl.ConditionalBranch)
                 {
-                    EnqueueCadenceSuccessor(
+                    EnqueueSuccessor(
                         index + 1,
                         instructions,
                         caseStartIndex,
@@ -2245,7 +2185,7 @@ namespace BugfixesAndQoL
                             instruction.NearBranchTarget,
                             out int branchIndex))
                     {
-                        EnqueueCadenceSuccessor(
+                        EnqueueSuccessor(
                             branchIndex,
                             instructions,
                             caseStartIndex,
@@ -2264,7 +2204,7 @@ namespace BugfixesAndQoL
                             instruction.NearBranchTarget,
                             out int branchIndex))
                     {
-                        EnqueueCadenceSuccessor(
+                        EnqueueSuccessor(
                             branchIndex,
                             instructions,
                             caseStartIndex,
@@ -2284,7 +2224,7 @@ namespace BugfixesAndQoL
                     continue;
                 }
 
-                EnqueueCadenceSuccessor(
+                EnqueueSuccessor(
                     index + 1,
                     instructions,
                     caseStartIndex,
@@ -2296,79 +2236,6 @@ namespace BugfixesAndQoL
 
             animationWrites.AddRange(animationWritesByIndex.Values);
             speedBonusWrites.AddRange(speedBonusWritesByIndex.Values);
-        }
-
-        private static void EnqueueCadenceSuccessor(
-            int successorIndex,
-            List<Instruction> instructions,
-            int caseStartIndex,
-            ulong caseEnd,
-            Dictionary<Register, HashSet<long>> constants,
-            Dictionary<int, Dictionary<Register, HashSet<long>>>
-                inputConstantsByIndex,
-            Queue<int> pending)
-        {
-            if (successorIndex < caseStartIndex ||
-                successorIndex >= instructions.Count ||
-                instructions[successorIndex].IP >= caseEnd)
-            {
-                return;
-            }
-
-            if (!inputConstantsByIndex.TryGetValue(
-                    successorIndex,
-                    out Dictionary<Register, HashSet<long>> existing))
-            {
-                inputConstantsByIndex[successorIndex] =
-                    CloneConstantState(constants);
-                pending.Enqueue(successorIndex);
-                return;
-            }
-
-            if (MergeConstantStates(existing, constants))
-                pending.Enqueue(successorIndex);
-        }
-
-        private static bool MergeConstantStates(
-            Dictionary<Register, HashSet<long>> existing,
-            Dictionary<Register, HashSet<long>> incoming)
-        {
-            bool changed = false;
-            var knownRegisters = new List<Register>(existing.Keys);
-            foreach (Register register in knownRegisters)
-            {
-                if (!incoming.TryGetValue(
-                        register,
-                        out HashSet<long> incomingValues))
-                {
-                    existing.Remove(register);
-                    changed = true;
-                    continue;
-                }
-
-                int previousCount = existing[register].Count;
-                existing[register].UnionWith(incomingValues);
-                if (existing[register].Count > 32)
-                {
-                    existing.Remove(register);
-                    changed = true;
-                }
-                else if (existing[register].Count != previousCount)
-                {
-                    changed = true;
-                }
-            }
-
-            return changed;
-        }
-
-        private static Dictionary<Register, HashSet<long>> CloneConstantState(
-            Dictionary<Register, HashSet<long>> source)
-        {
-            var clone = new Dictionary<Register, HashSet<long>>(source.Count);
-            foreach (KeyValuePair<Register, HashSet<long>> entry in source)
-                clone[entry.Key] = new HashSet<long>(entry.Value);
-            return clone;
         }
 
         private static void RecordCadenceFieldWrite(
@@ -2389,353 +2256,6 @@ namespace BugfixesAndQoL
                 instructionIndex,
                 instructionPointer,
                 new HashSet<long>(values));
-        }
-
-        private static void ApplyConstantTransfer(
-            Instruction instruction,
-            Dictionary<Register, HashSet<long>> constants)
-        {
-            if (instruction.Op0Kind != OpKind.Register)
-                return;
-
-            Register destination = NormalizeRegister(
-                instruction.Op0Register);
-            if (instruction.Mnemonic == Mnemonic.Cmp ||
-                instruction.Mnemonic == Mnemonic.Test)
-            {
-                // Comparisons read operand zero but do not replace it.
-                return;
-            }
-
-            if (instruction.Mnemonic.ToString().StartsWith(
-                    "Cmov",
-                    StringComparison.Ordinal))
-            {
-                if (constants.TryGetValue(
-                        destination,
-                        out HashSet<long> previousValues) &&
-                    TryGetOperandConstants(
-                        instruction,
-                        1,
-                        constants,
-                        out HashSet<long> selectedValues))
-                {
-                    var combined = new HashSet<long>(previousValues);
-                    combined.UnionWith(selectedValues);
-                    SetRegisterConstants(constants, destination, combined);
-                }
-                else
-                {
-                    constants.Remove(destination);
-                }
-
-                return;
-            }
-
-            if (instruction.Mnemonic == Mnemonic.Lea)
-            {
-                if (TryEvaluateLeaConstants(
-                        instruction,
-                        constants,
-                        out HashSet<long> addressValues))
-                {
-                    SetRegisterConstants(
-                        constants,
-                        destination,
-                        addressValues);
-                }
-                else
-                {
-                    constants.Remove(destination);
-                }
-
-                return;
-            }
-
-            if (instruction.Mnemonic == Mnemonic.Mov ||
-                instruction.Mnemonic == Mnemonic.Movzx ||
-                instruction.Mnemonic == Mnemonic.Movsx ||
-                instruction.Mnemonic == Mnemonic.Movsxd)
-            {
-                if (TryGetOperandConstants(
-                        instruction,
-                        1,
-                        constants,
-                        out HashSet<long> movedValues))
-                {
-                    SetRegisterConstants(constants, destination, movedValues);
-                }
-                else
-                {
-                    constants.Remove(destination);
-                }
-
-                return;
-            }
-
-            if ((instruction.Mnemonic == Mnemonic.Xor ||
-                 instruction.Mnemonic == Mnemonic.Sub) &&
-                instruction.Op1Kind == OpKind.Register &&
-                NormalizeRegister(instruction.Op1Register) == destination)
-            {
-                constants[destination] = new HashSet<long> { 0 };
-                return;
-            }
-
-            if ((instruction.Mnemonic == Mnemonic.Add ||
-                 instruction.Mnemonic == Mnemonic.Sub) &&
-                constants.TryGetValue(
-                    destination,
-                    out HashSet<long> destinationValues) &&
-                TryGetOperandConstants(
-                    instruction,
-                    1,
-                    constants,
-                    out HashSet<long> operandValues))
-            {
-                var results = new HashSet<long>();
-                foreach (long left in destinationValues)
-                {
-                    foreach (long right in operandValues)
-                    {
-                        results.Add(instruction.Mnemonic == Mnemonic.Add
-                            ? unchecked(left + right)
-                            : unchecked(left - right));
-                    }
-                }
-
-                SetRegisterConstants(constants, destination, results);
-                return;
-            }
-
-            constants.Remove(destination);
-        }
-
-        private static bool TryEvaluateLeaConstants(
-            Instruction instruction,
-            Dictionary<Register, HashSet<long>> constants,
-            out HashSet<long> values)
-        {
-            values = new HashSet<long>
-            {
-                unchecked((long)instruction.MemoryDisplacement64)
-            };
-
-            Register baseRegister = NormalizeRegister(
-                instruction.MemoryBase);
-            if (baseRegister != Register.None)
-            {
-                if (!constants.TryGetValue(
-                        baseRegister,
-                        out HashSet<long> baseValues))
-                {
-                    values = null;
-                    return false;
-                }
-
-                values = AddConstantProducts(values, baseValues, 1);
-            }
-
-            Register indexRegister = NormalizeRegister(
-                instruction.MemoryIndex);
-            if (indexRegister != Register.None)
-            {
-                if (!constants.TryGetValue(
-                        indexRegister,
-                        out HashSet<long> indexValues))
-                {
-                    values = null;
-                    return false;
-                }
-
-                values = AddConstantProducts(
-                    values,
-                    indexValues,
-                    instruction.MemoryIndexScale);
-            }
-
-            return values.Count != 0 && values.Count <= 32;
-        }
-
-        private static HashSet<long> AddConstantProducts(
-            HashSet<long> leftValues,
-            HashSet<long> rightValues,
-            int multiplier)
-        {
-            var results = new HashSet<long>();
-            foreach (long left in leftValues)
-            {
-                foreach (long right in rightValues)
-                {
-                    results.Add(unchecked(left + right * multiplier));
-                }
-            }
-
-            return results;
-        }
-
-        private static bool TryGetOperandConstants(
-            Instruction instruction,
-            int operand,
-            Dictionary<Register, HashSet<long>> constants,
-            out HashSet<long> values)
-        {
-            OpKind kind = instruction.GetOpKind(operand);
-            if (IsImmediate(kind))
-            {
-                values = new HashSet<long>
-                {
-                    unchecked((long)instruction.GetImmediate(operand))
-                };
-                return true;
-            }
-
-            if (kind == OpKind.Register &&
-                constants.TryGetValue(
-                    NormalizeRegister(instruction.GetOpRegister(operand)),
-                    out HashSet<long> registerValues))
-            {
-                values = new HashSet<long>(registerValues);
-                return true;
-            }
-
-            values = null;
-            return false;
-        }
-
-        private static void SetRegisterConstants(
-            Dictionary<Register, HashSet<long>> constants,
-            Register register,
-            HashSet<long> values)
-        {
-            if (values.Count == 0 || values.Count > 32)
-                constants.Remove(register);
-            else
-                constants[register] = new HashSet<long>(values);
-        }
-
-        private static void RemoveVolatileRegisterConstants(
-            Dictionary<Register, HashSet<long>> constants)
-        {
-            constants.Remove(Register.RAX);
-            constants.Remove(Register.RCX);
-            constants.Remove(Register.RDX);
-            constants.Remove(Register.R8);
-            constants.Remove(Register.R9);
-            constants.Remove(Register.R10);
-            constants.Remove(Register.R11);
-        }
-
-        private static bool IsImmediate(OpKind operandKind)
-        {
-            switch (operandKind)
-            {
-                case OpKind.Immediate8:
-                case OpKind.Immediate8_2nd:
-                case OpKind.Immediate16:
-                case OpKind.Immediate32:
-                case OpKind.Immediate64:
-                case OpKind.Immediate8to16:
-                case OpKind.Immediate8to32:
-                case OpKind.Immediate8to64:
-                case OpKind.Immediate32to64:
-                    return true;
-                default:
-                    return false;
-            }
-        }
-
-        private static Register NormalizeRegister(Register register)
-        {
-            switch (register)
-            {
-                case Register.AL:
-                case Register.AH:
-                case Register.AX:
-                case Register.EAX:
-                case Register.RAX:
-                    return Register.RAX;
-                case Register.CL:
-                case Register.CH:
-                case Register.CX:
-                case Register.ECX:
-                case Register.RCX:
-                    return Register.RCX;
-                case Register.DL:
-                case Register.DH:
-                case Register.DX:
-                case Register.EDX:
-                case Register.RDX:
-                    return Register.RDX;
-                case Register.BL:
-                case Register.BH:
-                case Register.BX:
-                case Register.EBX:
-                case Register.RBX:
-                    return Register.RBX;
-                case Register.SPL:
-                case Register.SP:
-                case Register.ESP:
-                case Register.RSP:
-                    return Register.RSP;
-                case Register.BPL:
-                case Register.BP:
-                case Register.EBP:
-                case Register.RBP:
-                    return Register.RBP;
-                case Register.SIL:
-                case Register.SI:
-                case Register.ESI:
-                case Register.RSI:
-                    return Register.RSI;
-                case Register.DIL:
-                case Register.DI:
-                case Register.EDI:
-                case Register.RDI:
-                    return Register.RDI;
-                case Register.R8L:
-                case Register.R8W:
-                case Register.R8D:
-                case Register.R8:
-                    return Register.R8;
-                case Register.R9L:
-                case Register.R9W:
-                case Register.R9D:
-                case Register.R9:
-                    return Register.R9;
-                case Register.R10L:
-                case Register.R10W:
-                case Register.R10D:
-                case Register.R10:
-                    return Register.R10;
-                case Register.R11L:
-                case Register.R11W:
-                case Register.R11D:
-                case Register.R11:
-                    return Register.R11;
-                case Register.R12L:
-                case Register.R12W:
-                case Register.R12D:
-                case Register.R12:
-                    return Register.R12;
-                case Register.R13L:
-                case Register.R13W:
-                case Register.R13D:
-                case Register.R13:
-                    return Register.R13;
-                case Register.R14L:
-                case Register.R14W:
-                case Register.R14D:
-                case Register.R14:
-                    return Register.R14;
-                case Register.R15L:
-                case Register.R15W:
-                case Register.R15D:
-                case Register.R15:
-                    return Register.R15;
-                default:
-                    return register;
-            }
         }
 
         private sealed class CadenceFieldWrite
