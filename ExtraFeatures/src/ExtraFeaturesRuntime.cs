@@ -115,7 +115,6 @@ namespace ExtraFeatures
             settings.SettingChanged += OnSettingChanged;
         }
 
-        public object KnightDismountButton => knightDismountRuntime.ButtonViewModel;
         public object GatehouseAutomationButton => gatehouseAutomationRuntime.ButtonViewModel;
         public void InitializeNetwork()
         {
@@ -125,9 +124,10 @@ namespace ExtraFeatures
                     processKeepBuildRangeRuntime = new KeepBuildRangeRuntime(log, settings);
                 processKeepBuildRangeRuntime.Initialize();
             });
-            // APIShared owns the single troop-action setup hook and lays out every mod's host once.
+            // APIShared owns the button, overflow placement and the single troop-action setup hook.
             TryRunFeature("troop action HUD registration", () =>
             {
+                knightDismountRuntime.RegisterActionButton();
                 if (!APIShared.Presentation.TroopActionHud.TryRegister(ExtraFeaturesPlugin.PluginGuid, "KnightDismount",
                     knightDismountRuntime.RefreshButtonVisibility, out string reason))
                     throw new InvalidOperationException(reason);

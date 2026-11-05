@@ -184,7 +184,6 @@ namespace BugfixesAndQoL
         public object SelectedUnitHealthUi => selectedUnitHealthFeature?.ViewModel;
         public object AllyGoodsAmountDisplay => processAllyGoodsAmountModifierHook;
         public object MultiplayerAivSyncUi => multiplayerAivSyncRuntime;
-        public object AssassinClimbButton => assassinClimbRuntime.ButtonViewModel;
 
         private bool MissingMapRecoveryEnabled => settings.EnableClientFeatures && settings.EnableMissingMapSaveRecovery;
 
@@ -222,11 +221,12 @@ namespace BugfixesAndQoL
             TryInitializePersistentFeature(
                 "Assassin climb cancellation event",
                 assassinClimbCancellationRuntime.Initialize);
-            // APIShared owns the single troop-action setup hook and lays out every mod's host once.
+            // APIShared owns the button, overflow placement and the single troop-action setup hook.
             TryInitializePersistentFeature(
                 "troop action HUD registration",
                 () =>
                 {
+                    assassinClimbRuntime.RegisterActionButton();
                     if (!APIShared.Presentation.TroopActionHud.TryRegister(BugfixesAndQoLPlugin.PluginGuid, "AssassinClimb",
                         assassinClimbRuntime.RefreshButtonVisibility, out string reason))
                         throw new InvalidOperationException(reason);
