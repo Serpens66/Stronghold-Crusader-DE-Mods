@@ -376,6 +376,7 @@
     <Compile Include="src\TroopMovementFix3SpearmanMovementPatch.cs" />
     <Compile Include="src\NativeHandlerSnapshot.cs" />
     <Compile Include="src\TroopMovementFix3SynchronizedMovementCadencePatch.cs" />
+    <Compile Include="src\MovementCadenceNativeDiscovery.cs" />
     <Compile Include="src\TemporaryGateBlockagePolicy.cs" />
     <Compile Include="src\TimerCountdownPolicy.cs" />
     <Compile Include="src\TimerCountdownViewModel.cs" />

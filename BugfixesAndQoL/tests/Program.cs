@@ -2201,9 +2201,12 @@ namespace BugfixesAndQoL
             string projectDirectory = FindProjectDirectory();
             string cadence = File.ReadAllText(Path.Combine(
                 projectDirectory, "src", "TroopMovementFix3SynchronizedMovementCadencePatch.cs"));
+            string cadenceDiscovery = File.ReadAllText(Path.Combine(
+                projectDirectory, "src", "MovementCadenceNativeDiscovery.cs"));
             Check(cadence.Contains("UnitAnimationStateManagerOffset = 0x660") &&
                     cadence.Contains("UnitAnimationStateManagerOffset") &&
-                    !cadence.Contains("N000000F4"),
+                    !cadence.Contains("N000000F4") &&
+                    !cadenceDiscovery.Contains("N000000F4"),
                 "native movement fastpath uses the audited SE 2.6 sprite-animation group offset");
         }
 
@@ -4442,6 +4445,10 @@ namespace BugfixesAndQoL
                 projectDirectory,
                 "src",
                 "TroopMovementFix3SynchronizedMovementCadencePatch.cs"));
+            string cadenceDiscovery = File.ReadAllText(Path.Combine(
+                projectDirectory,
+                "src",
+                "MovementCadenceNativeDiscovery.cs"));
             string integration = File.ReadAllText(Path.Combine(
                 projectDirectory, "src", "MovementCadenceIntegration.cs"));
             string bridge = File.ReadAllText(Path.Combine(
@@ -4526,6 +4533,9 @@ namespace BugfixesAndQoL
             Check(!cadencePatch.Contains("AddContextHook") &&
                     !cadencePatch.Contains("NativePointer<X64SmartCPUContext>") &&
                     !cadencePatch.Contains("TryGetCadenceDelegate") &&
+                    !cadenceDiscovery.Contains("AddContextHook") &&
+                    !cadenceDiscovery.Contains("NativePointer<X64SmartCPUContext>") &&
+                    !cadenceDiscovery.Contains("TryGetCadenceDelegate") &&
                     !integration.Contains("Func<IntPtr, bool>") &&
                     !integration.Contains("Action<IntPtr>") &&
                     cadencePatch.Contains("transaction.AddInline(") &&
@@ -4552,15 +4562,15 @@ namespace BugfixesAndQoL
                     cadencePatch.IndexOf("applyRallyProfile", StringComparison.Ordinal) <
                         cadencePatch.IndexOf("applyRunningProfile", StringComparison.Ordinal),
                 "native tables preserve rally identity, interrupted-path state and rally precedence");
-            Check(cadencePatch.Contains(
-                      "SetAuditedProfile(eChimps.CHIMP_TYPE_ARAB_BOW, 1, 0x81);") &&
+            Check(cadenceDiscovery.Contains(
+                      "SetAuditedProfile(animationTransitionsByType, eChimps.CHIMP_TYPE_ARAB_BOW, 1, 0x81);") &&
                     parityHarness.Contains(
                       "arab-bow-vanilla-running-pair") &&
                     parityHarness.Contains(
                       "tableUnit.Animation != 0x81 || tableUnit.SpeedBonus != 1"),
                 "Arab bow rally cadence preserves Vanilla Animation 0x81 and SpeedBonus 1");
-            Check(cadencePatch.Contains(
-                      "SetAuditedProfile(eChimps.CHIMP_TYPE_KNIGHT, 2, 0x81);") &&
+            Check(cadenceDiscovery.Contains(
+                      "SetAuditedProfile(animationTransitionsByType, eChimps.CHIMP_TYPE_KNIGHT, 2, 0x81);") &&
                     parityHarness.Contains(
                       "tableUnit.SpeedBonus != 2"),
                 "Knight rally cadence preserves Vanilla Animation 0x81 and SpeedBonus 2");
