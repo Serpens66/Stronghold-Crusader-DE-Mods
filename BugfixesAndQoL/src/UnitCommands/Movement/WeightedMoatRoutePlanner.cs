@@ -230,18 +230,6 @@ namespace BugfixesAndQoL.UnitCommands
             return true;
         }
 
-        public bool HasSameNormalizedCadence(WeightedMovementCostProfile other) =>
-            SpeedBonus == other.SpeedBonus &&
-            AdditionalSubsteps == other.AdditionalSubsteps &&
-            ExtraDelay == other.ExtraDelay &&
-            NormalizedDelay == other.NormalizedDelay &&
-            CadenceProgress == other.CadenceProgress;
-
-        public bool HasSameBaseCadenceExceptSpeedBonus(WeightedMovementCostProfile other) =>
-            AdditionalSubsteps == other.AdditionalSubsteps &&
-            ExtraDelay == other.ExtraDelay &&
-            NormalizedDelay == other.NormalizedDelay;
-
         public bool Equals(WeightedMovementCostProfile other) =>
             CurrentSpeed == other.CurrentSpeed &&
             CurrentSpeed2 == other.CurrentSpeed2 &&
@@ -379,94 +367,6 @@ namespace BugfixesAndQoL.UnitCommands
             this.resolveSpecialStructure = resolveSpecialStructure ??
                 throw new ArgumentNullException(nameof(resolveSpecialStructure));
 
-        }
-
-        public bool TryBuild(
-            int playerId,
-            int startX,
-            int startY,
-            int requestedTargetX,
-            int requestedTargetY,
-            WeightedMovementCostProfile costProfile,
-            bool allowReservedTarget,
-            out WeightedMoatRouteSummary summary)
-        {
-            return TryBuildCore(
-                playerId, startX, startY, requestedTargetX, requestedTargetY,
-                costProfile, allowReservedTarget, captureEncodedRoute: false,
-                MoatTraversalPolicy.FriendlyOnly,
-                out summary, out _);
-        }
-
-        public bool TryBuildEncoded(
-            int playerId,
-            int startX,
-            int startY,
-            int requestedTargetX,
-            int requestedTargetY,
-            WeightedMovementCostProfile costProfile,
-            bool allowReservedTarget,
-            out WeightedMoatRouteSummary summary,
-            out WeightedMoatEncodedRoute encodedRoute)
-        {
-            return TryBuildCore(
-                playerId, startX, startY, requestedTargetX, requestedTargetY,
-                costProfile, allowReservedTarget, captureEncodedRoute: true,
-                MoatTraversalPolicy.FriendlyOnly,
-                out summary, out encodedRoute);
-        }
-
-        public bool TryProbeReachability(
-            int playerId,
-            int startX,
-            int startY,
-            int requestedTargetX,
-            int requestedTargetY,
-            bool allowReservedTarget,
-            MoatTraversalPolicy policy,
-            out WeightedMoatRouteSummary summary,
-            int maximumExpanded = int.MaxValue)
-        {
-            if (!WeightedMovementCostProfile.TryCreate(
-                    1, 1, 0, 0, 0, 0, false,
-                    out WeightedMovementCostProfile reachabilityProfile, out _))
-            {
-                summary = WeightedMoatRouteSummary.Failed("invalid-reachability-profile", 0);
-                return false;
-            }
-
-            return TryBuildCore(
-                playerId, startX, startY, requestedTargetX, requestedTargetY,
-                reachabilityProfile, allowReservedTarget, captureEncodedRoute: false,
-                policy, out summary, out _, reachability: true,
-                maximumExpanded: maximumExpanded);
-        }
-
-        public bool TryBuildReachabilityEncoded(
-            int playerId,
-            int startX,
-            int startY,
-            int requestedTargetX,
-            int requestedTargetY,
-            bool allowReservedTarget,
-            out WeightedMoatRouteSummary summary,
-            out WeightedMoatEncodedRoute encodedRoute,
-            int maximumExpanded = int.MaxValue)
-        {
-            if (!WeightedMovementCostProfile.TryCreate(
-                    1, 1, 0, 0, 0, 0, false,
-                    out WeightedMovementCostProfile reachabilityProfile, out _))
-            {
-                summary = WeightedMoatRouteSummary.Failed("invalid-reachability-profile", 0);
-                encodedRoute = default;
-                return false;
-            }
-
-            return TryBuildCore(
-                playerId, startX, startY, requestedTargetX, requestedTargetY,
-                reachabilityProfile, allowReservedTarget, captureEncodedRoute: true,
-                MoatTraversalPolicy.FriendlyOnly, out summary, out encodedRoute,
-                reachability: true, maximumExpanded: maximumExpanded);
         }
 
         internal Func<int, int, MoatSearchEdge, IMoatSearchKernel> KernelFactory =
@@ -1153,16 +1053,6 @@ namespace BugfixesAndQoL.UnitCommands
             for (int index = 0; index < classifiedSpecialStructureCount; index++)
                 specialStructureClassification[classifiedSpecialStructureTiles[index]] = 0;
             classifiedSpecialStructureCount = 0;
-        }
-
-        internal static int FindDirection(int dx, int dy)
-        {
-            for (int direction = 0; direction < DirectionX.Length; direction++)
-            {
-                if (DirectionX[direction] == dx && DirectionY[direction] == dy)
-                    return direction;
-            }
-            return -1;
         }
     }
 

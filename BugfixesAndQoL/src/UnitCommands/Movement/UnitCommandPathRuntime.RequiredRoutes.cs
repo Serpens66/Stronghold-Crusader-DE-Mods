@@ -134,24 +134,6 @@ namespace BugfixesAndQoL.UnitCommands
             public double ExclusiveSearchMilliseconds =>
                 Math.Max(0, SearchTicks - NestedSearchTicks) * 1000.0 / Stopwatch.Frequency;
 
-            public void RecordDecisionCacheHit(TargetedRouteDecision decision)
-            {
-                DecisionCacheHits++;
-                if (decision.Summary.ReachedWithoutMoat) GroundDecisionCacheHits++;
-            }
-
-            public void RecordNestedGroundTicks(long ticks)
-            {
-                if (attackQualificationTimingDepth > 0)
-                    NestedGroundTicks += ticks;
-            }
-
-            public void RecordNestedSearchTicks(long ticks)
-            {
-                if (attackQualificationTimingDepth > 0)
-                    NestedSearchTicks += ticks;
-            }
-
             public bool TryTrackUnit(int unitId)
             {
                 if (trackedUnitIds.Contains(unitId)) return true;
