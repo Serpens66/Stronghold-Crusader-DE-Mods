@@ -1,9 +1,9 @@
 # PlayerControlRelayTest native contract
 
-Audit observation: 2026-11-04. This document covers the first experimental backend:
-Move and Stop for complete, unchanged existing tribes. It does not authorize
-arbitrary unit subsets, tribe allocation, selection changes, native Chore producers
-or new native hooks.
+Audit observation: 2026-11-05. This document covers the experimental backend:
+Move and Stop for exactly the units a player selected. It regroups them through the
+public tribe calls inside the Chore. It does not authorize native Chore producers,
+selection changes on the owner's PC or new native hooks.
 
 ## Identity and provenance
 
@@ -40,23 +40,38 @@ read/call requires ownership of that same still-current monitor.
 The authenticated Chore receiver is the only gameplay mutation boundary. Every
 peer executes the same accepted command there, once. Submission or a Steam-packet
 callback never calls the terminal APIs. Capture and execution both identify the
-native world and the actual tribe ID/global-ID/owner tuple.
+native world; execution resolves each requested unit again.
 
-Immediately before a terminal call, compare the complete native membership with
-the captured selected unit set. Each unit needs its one-based ID, global identity,
-current tribe ID and matching `r_ControllableForPlayerId`; use public
-`APIShared.UnitAccess.IsReallyAlive` for the established AliveState/death-marker
-predicate. Reject changed membership, dead or recycled units, mixed tribes and
-proper subsets. Never widen a requested subset silently to its whole tribe.
-The leader must be an actual live member of that exact tribe. Counts and IDs must
-be bounded against the actual native tables before dereferencing them.
+A command names unit slots, its owner and the highest global ID among those units at
+capture. Unit global IDs come from the monotonic native counter at `0x183665F84`, shared
+with tribes, so a reused slot carries a higher global ID and is skipped. The slot list is
+sorted and LEB128-delta encoded with at most 1000 bytes; `RelaySlotCodec.Split` divides
+larger selections into separate commands.
+
+Execution rechecks each unit with the selection filter described under Input observation,
+plus owner and global ID. It also skips units the owner has selected (`r_UnitSelected`):
+only the simulation writes that field, so all peers decide alike, and regrouping them
+would change the tribe behind the owner's live selection. A command without any remaining
+unit is rejected without a native call.
+
+If the remaining units are exactly all members of one tribe, that tribe receives the
+order. Otherwise `TryRegroup` creates a tribe with `Create` and the majority stance
+(tie rule of `0x11B150`), then moves every unit with `UnassignUnit` and `AssignUnit`.
+It verifies `r_TribeId` per unit and rolls back on failure. Vanilla's opcode 16 handler
+`0x10960 -> 0x191250` builds a tribe from a selection in the same spirit, but its selection
+is per issuing player, so it is not reused. Exactly one native Move or Stop follows.
+
+A false return from `0x11B520` happens before its per-member loop; only group
+fields may have been written. Stop returns 1 from case `0x1F`. A thrown exception ends
+the command as `Uncertain`, without a retry.
 
 Admission does not invent a new unit-type movement permission rule. The group
 dispatcher retains Vanilla's per-member type, deployment, life and state filters.
-Consequently an accepted complete-group request need not move every member.
+Consequently an accepted request need not move every member.
 An AI may issue a later order to its own group; this backend does not pause the AI
-or modify its role references. No additional AI-role exclusion is established by
-this audit. Consumer authorization and scenario scope decide which owners may be
+or modify its role references. Whether AI role tables cope with regrouped units in a long
+match is not audited; the acceptance scenario only covers 45 s without a fault.
+No additional AI-role exclusion is established by this audit. Consumer authorization and scenario scope decide which owners may be
 requested, independently of whether the group can be resolved safely.
 
 ## Move call and downstream behavior
@@ -95,13 +110,16 @@ Current native chain:
   behavior and shared scratch lifetime.
 
 This is an execution call, not a read-only probe. A false return can follow native
-state changes or partial per-member work. Never retry it, replay a consumed input
+group-field writes. Never retry it, replay a consumed input
 edge or issue direct per-unit movement as a fallback. A true return establishes
 the API result, not arrival at the target or successful movement of every member.
 
 The normal Vanilla Chore-17 route is different at its entry:
-`0x10AE0 -> 0x196100 -> 0x11B520`. Wrapper `0x196100` first writes the tribe flag at
-raw manager `tribe*0x688+0x56C` from the signed move flag. The public group API
+`0x10AE0 -> 0x196100 -> 0x11B520`. Wrapper `0x196100` passes a fixed `1` as new-order
+argument and the move flags without bit 7 as move type; a normal click has flags 1,
+which matches this backend's arguments. It first writes the tribe flag at
+raw manager `tribe*0x688+0x56C` from the signed move flag (input bit 7, toggled by a
+repeated click on the same tile within 500 ms). The public group API
 enters `0x11B520` directly and does not perform that write. This testmod deliberately
 tests the public group API semantics; it must not promise byte-for-byte parity
 with ordinary Chore-17 input or add a private field write to mimic it.
@@ -147,58 +165,67 @@ Move: no automatic retries or transactional rollback are inferred.
   order is the requested effect. Third-party native-order participants retain
   their own documented ability to alter or veto execution.
 
-## Arbitrary-subset gate
+## Regrouping contract
 
 The public `Create(owner,false)` resolves to `0x119C00` in this image. It selects
 an inactive tribe by its state at raw manager `slot*0x688+0x40`, clears its whole
 record and assigns a global identity. It does not test the local pending-selection
 reservation at `+0x2A`. Native selection reservation `0x11D1B0` does test that field
 and partitions MP slots by player. The reservation is local bookkeeping and must
-not be treated as common simulation state. Therefore `Create` is not yet a proven
-deterministic, reservation-safe allocator for this experiment.
+not be treated as common simulation state. The allocation itself is deterministic
+and used by Vanilla's multiplayer recruit Chore
+(`0x127A0 -> 0xD5250 -> 0x190CA0 -> 0x117000 -> 0x119C00`), so the reservation
+collision exists in Vanilla as well; it requires all lower slots to be occupied.
+Why `0x1142E0` uses `0x119D60` in multiplayer instead is not established.
 
 `AssignUnit` resolves to `0x11D370`: it inserts into the new bitmap/count and
-overwrites the unit's tribe identity. It does not remove the old bitmap entry.
-Public `UnassignUnit` and the remaining leader/rest-group behavior require their
-own closed contract before enabling any subset backend. The present feature
-never calls Create/Assign/Unassign, never submits synthetic Select/Deselect
-Chores and never calls `SetSelectedChimps` to borrow the owner's selection.
+overwrites the unit's tribe identity. It does not remove the old bitmap entry, so
+`UnassignUnit` comes first. Public `UnassignUnit` resolves to `0x123EA0`; its pattern
+matches this one site in this image. It elects a new leader and marks an emptied tribe
+with state 3. Maintenance `0x1261F0` runs every simulation pass after unit loop
+`0x182B00` and clears tribes without living members through `0x118C70`.
 
-## Modal proxy input boundary
+The production precedent for this call order, stance copy (raw `+0x634`, typed
+`r_TribeStance`) and rollback is `BugfixesAndQoL/src/ExtendedShiftCommandQueueRuntime.cs`.
+The feature never submits synthetic Select/Deselect Chores and never calls
+`SetSelectedChimps` to borrow the owner's selection.
 
-The testmod uses a Noesis modal proxy surface and permanent managed hooks on the
-public instance method `FatControler.overNoesisGUI()` and the public
-`FatControler.NoesisHasKeyboard` getter. Both wrappers call their original exactly
-once, preserving existing bookkeeping, then report GUI ownership while the proxy
-is open or its closing physical input is still held. These are logical flags;
-panel toggles do not install, remove or modify executable hook code. The testmod
-does not hook managed `EngineInterface.TroopSelection` or native `DLL_TroopSelection`.
+## Input observation
+
+The testmod has no panel, no HUD button and no modal surface. It adds two Harmony
+postfixes. The public managed `EngineInterface.TroopSelection` is the method where
+APIShared's marked selection and the Extender's selection override also observe input.
+Its `mousePosX/Y` are screen pixels, so the postfix only stores a released gesture. The
+postfix on its caller `EditorDirector.preDLLCallActions` then dispatches it with
+`mouseOverX/Y`, the tile `DLL_RunTick` receives. Both only read their arguments, so
+Vanilla keeps handling the local player's units. They stay installed for the process and
+return without allocating unless the left button was released or the right button
+changed. They run on the simulation thread inside the engine pass.
 
 Managed baseline `BC8B6A395F01D48557DB413600C8DD8D1FDFD3ABDF97BFBBB68A3C56B04FD789`:
-`EditorDirector.Update` copies the query result into `overNoesisUI`. New left-down
-troop gesture starts and right-down/right-up producers require `!overNoesisUI`.
-`preDLLCallActions` suppresses ordinary world hover/placement when that flag is
-true and still calls the existing managed `TroopSelection` path normally. The
-Script Extender's managed selection detour and APIShared's selection observer
-therefore retain their owners and call chains.
+`EditorDirector.preDLLCallActions` calls `TroopSelection` once per pass, with mouse
+state 3 for a release, 0 while paused or over GUI, and the unit IDs of `grabTroopsOnScreen`
+for all owners. `mouseOverX/Y` hold `gameMapX/Y` of the tile under the cursor, or -1 over
+GUI. A finished drag is back at `CurrentAction == 0` by then; placement and other tools are not, and those gestures
+are ignored. The native marking `0x1904C0` marks only units of the local view, so
+foreign units cannot use Vanilla's selection or its highlight. `TryGetSelectableUnit`
+applies that function's per-unit filter without its owner test. It reads
+`r_SelectionAllowed`, `r_AIObjectiveState`, `r_AIState` (0x6D is the disband state
+written by `0x186D10`), and the unnamed field at typed `+0xAC`. Lords are excluded
+like in `0x1904C0`. Their offsets are part of the initialization layout check.
 
-The GUI query alone does not cancel an input gesture already staged before opening.
-`Update` explicitly continues an existing `CurrentAction == 8` troop drag despite
-the GUI flag; its release publishes action 9 and mouse state 3.
-`preDLLCallActions` has an explicit action-9 exception. The runtime therefore admits
-opening only with no held mouse buttons, `MainControls.CurrentAction == 0`,
-`peekleftMouseStateForEngine() == 0` and no active/established TroopSelector drag.
-It does not clear the owner's existing selection to establish that transition.
+Gestures: a click selects the topmost selectable allied unit, a box selects all hit
+allied units, and Shift adds. A right click, a click on
+an own unit and a box without allied units clear the selection. A click without a
+selectable unit orders Move to the tile under the cursor, while Vanilla handles its
+own selected units as usual. A click on an enemy is ignored. Stop uses
+`KeyManager.IsActionPressed(KeyFunctions.Stop)`, whose key edges respect bindings and
+GUI keyboard ownership; it is only queried while a selection exists. Markers are
+screen-space lines of the same library as Vanilla's selection rectangle.
 
-`KeyManager.Update` reads `NoesisHasKeyboard` before creating its normal key-state
-edges: GUI keyboard ownership prevents a held physical key from becoming a fresh
-Vanilla key-down. Closing retains both query guards until the main thread observes
-`Input.anyKey == false`; a held Escape/hotkey cannot immediately leak a new native
-key-down into the closed proxy's following frame. This covers Vanilla's ordinary
-keyboard channel, not arbitrary direct commands from third-party mods. Synthetic
-selection producers also remain a separate class: no claim is made to intercept
-every other mod's public calls. Real game acceptance includes opening/closing
-around held buttons, staged input, native selection drags and keyboard shortcuts.
+A click on an own building also counts as a click without a unit and therefore moves
+the selected allied units there. Spectators have no participating player and no
+alliance; the relay stays inactive and logs that once.
 
 ## Update and acceptance checks
 
@@ -208,18 +235,25 @@ unit/tribe layouts and existing hook/event ownership. Retain independent source
 and installed-assembly identities. A changed native hash disables this backend
 until those checks succeed; there is no guessed RVA or pattern fallback.
 
-Offline behavior tests should cover exact-group admission, global-ID recycling,
-membership/owner/death changes, proper subsets, invalid target coordinates,
-duplicate requests and single terminal invocation on false/throwing results.
-These tests model terminal boundaries; they do not execute the game's simulation.
+Offline behavior tests cover the slot codec and splitting, order planning, global-ID
+recycling, owner changes, whole-group detection, invalid target coordinates, duplicate
+requests and the wire limit of the largest command. They model these boundaries; they do
+not execute the game's simulation or the terminal calls.
+
+`UiAcceptance` scenario `SP-relay.json` runs the real `preDLLCallActions` in a skirmish and
+replaces only Unity's mouse values. It checks real picking of foreign units, 1, 7, 2 and
+140 exact units, their target change, unchanged nonmembers, Stop up to the native call,
+regrouped AI units over 45 s and no freeze with the Spectator placement mode. It proves no
+physical mouse input and no network behavior.
 
 Game acceptance must compare standalone dependencies with the normal mod set,
-then real matching-build host/client peers: own and allied full groups, owner
+then real matching-build host/client peers: own and allied units, owner
 selection changing while a request is pending, overlapping Move/Stop, AI issuing
-a later order, stationary/special members, unreachable targets, Save/Load and
-world replacement. Record identical accepted request/tribe/unit identities and
+a later order, stationary/special members, losses during a pending order, selections
+above the packet limit, a target without a route, Save/Load
+and world replacement. Record identical accepted request/tribe identities and
 execution ticks on both peers, unchanged nonmembers and the next native checksum.
-Proper-subset attempts must reject with an explicit reason and zero native work.
+All peers need the same build: the two packet types shift later extender packet IDs.
 
 Evidence is in the current Native Baseline's `PLAYER_CONTROL_CONTEXT.md`,
 `MOVE_COMMAND_RELEASE.md`, `MANUAL_GROUP_ADMISSION.md`,

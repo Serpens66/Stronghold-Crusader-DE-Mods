@@ -12,6 +12,7 @@ namespace UiAcceptance
             AutoSendSteps.Register();
             RuntimeAiSteps.Register();
             RuntimeAiUiSteps.Register();
+            RelaySteps.Register();
         }
     }
 }

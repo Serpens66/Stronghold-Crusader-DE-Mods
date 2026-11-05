@@ -1,0 +1,69 @@
+{
+  "enabled": true,
+  "series": "SP-relay",
+  "role": "sp",
+  "quitWhenDone": true,
+  "steps": [
+    { "id": "menu", "do": "WaitMainMenu", "timeoutMs": 60000, "stopOnFail": true, "allowErrors": true },
+    { "id": "client-enabled", "do": "SetModSetting", "args": ["Spectator.SpectatorPlugin::processRoot.Settings", "EnableClientFeatures", "true"], "stopOnFail": true },
+    { "id": "sp-tools", "do": "SetModSetting", "args": ["Spectator.SpectatorPlugin::processRoot.Settings", "EnableSingleplayerTestMode", "true"], "stopOnFail": true },
+    { "id": "skirmish", "do": "Skirmish.Open", "timeoutMs": 15000, "stopOnFail": true },
+    { "id": "map", "do": "Lobby.SelectMap", "args": ["4spielerkarte.map"], "timeoutMs": 15000, "stopOnFail": true },
+    { "id": "ai", "do": "Lobby.AddAI", "args": ["1", "3"], "timeoutMs": 15000, "stopOnFail": true },
+    { "id": "play", "do": "Lobby.Play", "timeoutMs": 45000, "stopOnFail": true },
+    { "id": "briefing", "do": "AiMilitary.ResumeBriefing", "timeoutMs": 15000 },
+    { "id": "warmup-unpause", "do": "Pause", "args": ["off"], "stopOnFail": true },
+    { "id": "ready", "do": "WaitMarker", "args": ["Relay ready", "any"], "timeoutMs": 15000, "stopOnFail": true },
+    { "id": "toolbar", "do": "Spectator.WaitToolbar", "timeoutMs": 20000, "stopOnFail": true },
+    { "id": "ai-settle", "do": "Wait", "args": ["4000"] },
+    { "id": "fixture", "do": "Relay.Fixture", "args": ["2", "150", "300"], "stopOnFail": true },
+
+    { "id": "pick", "do": "Relay.PickCheck", "stopOnFail": true },
+
+    { "id": "click-one", "do": "Relay.ClickUnit", "args": ["0"], "stopOnFail": true },
+    { "id": "selected-one", "do": "WaitMarker", "args": ["Selected allied units: 1 ", "any"], "timeoutMs": 5000, "stopOnFail": true },
+    { "id": "markers-settle", "do": "Wait", "args": ["300"] },
+    { "id": "markers-one", "do": "Screenshot", "args": ["markers-one"] },
+    { "id": "move-one", "do": "Relay.MoveExpect", "args": ["0", "1"], "timeoutMs": 60000, "stopOnFail": true, "allowErrors": true },
+    { "id": "right-click", "do": "Relay.RightClick", "stopOnFail": true },
+    { "id": "cleared", "do": "WaitMarker", "args": ["Allied selection cleared", "any"], "timeoutMs": 5000, "stopOnFail": true },
+
+    { "id": "box-part", "do": "Relay.BoxUnits", "args": ["1", "7"], "stopOnFail": true },
+    { "id": "selected-part", "do": "WaitMarker", "args": ["Selected allied units: 7 ", "any"], "timeoutMs": 5000, "stopOnFail": true },
+    { "id": "move-part", "do": "Relay.MoveExpect", "args": ["1", "7"], "timeoutMs": 60000, "stopOnFail": true, "allowErrors": true },
+    { "id": "right-click-2", "do": "Relay.RightClick", "stopOnFail": true },
+
+    { "id": "click-shift-1", "do": "Relay.ClickUnit", "args": ["8"], "stopOnFail": true },
+    { "id": "click-shift-2", "do": "Relay.ClickUnit", "args": ["9", "shift"], "stopOnFail": true },
+    { "id": "selected-shift", "do": "WaitMarker", "args": ["Selected allied units: 2 ", "any"], "timeoutMs": 5000, "stopOnFail": true },
+    { "id": "move-shift", "do": "Relay.MoveExpect", "args": ["8", "2"], "timeoutMs": 60000, "stopOnFail": true, "allowErrors": true },
+    { "id": "right-click-3", "do": "Relay.RightClick", "stopOnFail": true },
+
+    { "id": "box-many", "do": "Relay.BoxUnits", "args": ["10", "140"], "stopOnFail": true },
+    { "id": "selected-many", "do": "WaitMarker", "args": ["Selected allied units: 140 ", "any"], "timeoutMs": 5000, "stopOnFail": true },
+    { "id": "markers-many-settle", "do": "Wait", "args": ["300"] },
+    { "id": "markers-many", "do": "Screenshot", "args": ["markers-many"] },
+    { "id": "move-many", "do": "Relay.MoveExpect", "args": ["10", "140"], "timeoutMs": 60000, "stopOnFail": true, "allowErrors": true },
+    { "id": "right-click-4", "do": "Relay.RightClick", "stopOnFail": true },
+
+    { "id": "click-stop", "do": "Relay.ClickUnit", "args": ["10"], "stopOnFail": true },
+    { "id": "selected-stop", "do": "WaitMarker", "args": ["Selected allied units: 1 ", "any"], "timeoutMs": 5000, "stopOnFail": true },
+    { "id": "stop", "do": "Relay.PressStop", "args": ["10", "1"], "timeoutMs": 15000, "stopOnFail": true },
+    { "id": "right-click-5", "do": "Relay.RightClick", "stopOnFail": true },
+
+    { "id": "motion-wait", "do": "Wait", "args": ["6000"] },
+    { "id": "motion", "do": "Relay.CheckMotion", "args": ["10", "11"], "stopOnFail": true },
+    { "id": "soak", "do": "Wait", "args": ["45000"], "timeoutMs": 60000 },
+    { "id": "soak-groups", "do": "Relay.CheckGroups", "stopOnFail": true },
+    { "id": "soak-alive", "do": "Log", "args": ["regrouped-ai-units-still-running"] },
+
+    { "id": "select-self", "do": "NoesisClick", "args": ["SpectatorEditorHumanOwner1"], "timeoutMs": 10000 },
+    { "id": "settle-select", "do": "Wait", "args": ["500"] },
+    { "id": "placement", "do": "Spectator.Cmd", "args": ["Placement"], "stopOnFail": true },
+    { "id": "settle-after", "do": "Wait", "args": ["4000"] },
+    { "id": "alive", "do": "Log", "args": ["still-responsive"] },
+    { "id": "placement-off", "do": "Spectator.Cmd", "args": ["Placement"] },
+    { "id": "settle-off", "do": "Wait", "args": ["1000"] },
+    { "id": "quit", "do": "QuitToMenu", "timeoutMs": 25000 }
+  ]
+}

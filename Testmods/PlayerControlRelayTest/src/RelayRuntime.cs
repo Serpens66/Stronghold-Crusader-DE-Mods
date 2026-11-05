@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
@@ -18,7 +17,7 @@ namespace PlayerControlRelayTest
 {
     internal sealed class RelayRuntime
     {
-        private const string Contract = "relay-v1";
+        private const string Contract = "relay-v4";
         private readonly ManualLogSource log;
         private readonly int mainThread = Thread.CurrentThread.ManagedThreadId;
         private readonly ModApiClient api = ApiShared.ForMod(PlayerControlRelayPlugin.Guid);
@@ -27,19 +26,18 @@ namespace PlayerControlRelayTest
         private readonly List<RelayUnit> selected = new List<RelayUnit>();
         private readonly Dictionary<ulong, string> challenges = new Dictionary<ulong, string>();
         private readonly HashSet<ulong> acknowledged = new HashSet<ulong>();
-        private readonly RelayPendingRequests pending = new RelayPendingRequests();
+        private readonly RelayMarkers markers;
         private MessageChannel<RelayEnvelope> messages;
-        private AuthenticatedChoreChannel<RelayEnvelope> chores;
+        private AuthenticatedChoreChannel<RelayChoreEnvelope> chores;
         private IUiFrameWorkRegistration frame;
         private IMissionLifecycleCapability lifecycle;
-        private RelayPanel panel;
         private volatile Session session, offer;
         private volatile RelayWorldReadiness.Token worldToken;
         private MissionContext starting;
         private long world, requestId;
-        private string localChallenge, hostEpoch, status = "Waiting for a mission.";
-        private bool initialized, readyQueued, moveArmed;
-        private int selectedPlayer, lastMarkers;
+        private string localChallenge, hostEpoch;
+        private bool initialized, readyQueued, inactiveReported;
+        private int hasSelection, lastInputFailureHash;
         private double nextHello;
 
         private sealed class Peer
@@ -56,9 +54,8 @@ namespace PlayerControlRelayTest
             internal ulong SteamOf(int player) { foreach (var p in Humans) if (p.Player == player) return p.Steam; return 0; }
         }
 
-        internal RelayRuntime(ManualLogSource log) { this.log = log; }
+        internal RelayRuntime(ManualLogSource log) { this.log = log; markers = new RelayMarkers(Report); }
         internal void Report(string text) => log.LogInfo("[" + DateTime.Now.ToString("HH:mm:ss.fff") + "] Relay: " + text);
-        private void State(string text) { status = text; Report(text); frame?.Request(); }
         private void Post(Action action) { if (!api.Ui.TryPost(action) && Thread.CurrentThread.ManagedThreadId == mainThread)
                 Report("Main-thread presentation unavailable; operation not posted."); }
         private void AssertMain() { if (Thread.CurrentThread.ManagedThreadId != mainThread) throw new InvalidOperationException("Unity-thread operation required."); }
@@ -67,32 +64,21 @@ namespace PlayerControlRelayTest
         {
             AssertMain(); if (initialized) return;
             if (!RelayWorld.Initialize(context, out string unavailable)) throw new InvalidOperationException(unavailable);
-            RelayInputGuard.Initialize();
             // Both types are always registered in this order, before any mission or setting.
             messages = api.Network.RegisterMessage<RelayEnvelope>("control", ReceiveMessage,
                 new MessageChannelOptions<RelayEnvelope> { Snapshot = p => p?.Clone(), MaximumBodyBytes = 8192,
                     Diagnostic = d => Report(d.Reason) });
-            chores = api.Network.RegisterAuthenticatedChore<RelayEnvelope>("execution", ReceiveChore,
-                new AuthenticatedChoreChannelOptions<RelayEnvelope> { ValidatePayload = p => p != null &&
-                    (p.Kind == RelayEnvelope.Ready || p.Kind == RelayEnvelope.Execute), Diagnostic = d => Report(d.Reason) });
-            panel = new RelayPanel(PlayerControlRelayPlugin.Guid,
-                () => Application.systemLanguage == SystemLanguage.German,
-                player => { selectedPlayer = player; frame.Request(); },
-                () => { moveArmed = true; State("Select a move destination on the map."); },
-                () => Submit(RelayAction.Stop, 0, 0), ClearSelection);
-            panel.SelectionGesture += SelectRectangle;
-            panel.WorldTarget += CaptureTarget;
-            panel.CancelRequested += () => { moveArmed = false; frame?.Request(); };
-            panel.OpenChanged += open => { RelayInputGuard.SetActive(open); frame?.SetContinuous(open); frame?.Request(); };
-            panel.OpenAllowed = CanOpenProxy;
-            panel.Initialize();
-            if (!api.Ui.TryRegisterBeforeRender("relay-panel", Tick, out frame, out string reason)) throw new InvalidOperationException(reason);
+            chores = api.Network.RegisterAuthenticatedChore<RelayChoreEnvelope>("execution", ReceiveChore,
+                new AuthenticatedChoreChannelOptions<RelayChoreEnvelope> { ValidatePayload = p => p?.Inner != null &&
+                    (p.Inner.Kind == RelayEnvelope.Ready || p.Inner.Kind == RelayEnvelope.Execute), Diagnostic = d => Report(d.Reason) });
+            if (!api.Ui.TryRegisterBeforeRender("relay-frame", Tick, out frame, out string reason)) throw new InvalidOperationException(reason);
             if (!api.TryGetMissionLifecycle(out lifecycle, out var diagnostic)) throw new InvalidOperationException(diagnostic.Reason);
+            RelayInput.Initialize(OnTroopInput, OnInputFailure);
             initialized = true;
             if (!lifecycle.TryRegisterObserver("relay-world", Started, Ended, n => {
                 if (n.Phase == MissionInitializationPhase.BeforeLoad) Retire();
             }, out diagnostic)) throw new InvalidOperationException(diagnostic.Reason);
-            State("Ready; private selection and full-existing-group Move/Stop. Subsets are rejected.");
+            Report("Ready; allied units can be selected and ordered with the normal mouse input.");
         }
         private void Started(MissionLifecycleNotification notification)
         {
@@ -104,18 +90,18 @@ namespace PlayerControlRelayTest
             }
             Post(() => {
                 if (!ReferenceEquals(worldToken, next)) return;
-                panel.Reset();
+                ResetSelection();
                 lock (RelayWorld.EngineGate) {
                     if (!ReferenceEquals(worldToken, next) || Volatile.Read(ref world) != next.World) return;
                     session = null; offer = null;
                     starting = notification.Context;
                     localChallenge = Guid.NewGuid().ToString("N"); hostEpoch = Guid.NewGuid().ToString("N");
-                    challenges.Clear(); acknowledged.Clear(); pending.Clear(); selected.Clear();
-                    readyQueued = false; nextHello = 0;
+                    challenges.Clear(); acknowledged.Clear();
+                    readyQueued = false; inactiveReported = false; nextHello = 0;
                     if (!readiness.Prepare(next)) return;
                 }
                 frame.Request();
-                State("Mission ready; negotiating relay session.");
+                Report("Mission ready; negotiating relay session.");
             });
         }
         private void Ended(MissionLifecycleNotification notification) => Retire();
@@ -123,10 +109,14 @@ namespace PlayerControlRelayTest
         {
             lock (RelayWorld.EngineGate) { readiness.Reset(); worldToken = null;
                 Interlocked.Exchange(ref world, 0); session = null; offer = null; }
-            RelayInputGuard.SetActive(false);
             Post(() => { if (Volatile.Read(ref world) != 0) return;
-                starting = null; moveArmed = false; selected.Clear(); pending.Clear();
-                panel?.Reset(); frame?.SetContinuous(false); frame?.Request(); });
+                starting = null; ResetSelection(); frame?.Request(); });
+        }
+        private void ResetSelection()
+        {
+            selected.Clear(); Volatile.Write(ref hasSelection, 0);
+            markers.Reset();
+            frame?.SetContinuous(false);
         }
         private bool Current(Session s) => s != null && Volatile.Read(ref world) == s.World &&
             readiness.IsPrepared(s.Token) && lifecycle.Current?.SessionId == s.World;
@@ -176,14 +166,14 @@ namespace PlayerControlRelayTest
         private bool RosterCurrent(Session s)
         {
             var captured = CaptureSession(s.Epoch);
-            if (captured == null || captured.RosterHash != s.RosterHash) { State("Roster changed; relay requires a new mission session."); return false; }
+            if (captured == null || captured.RosterHash != s.RosterHash) { Report("Roster changed; relay requires a new mission session."); return false; }
             return true;
         }
         private void SendTo(ulong steam, RelayEnvelope packet)
         {
             var s = session ?? offer;
             if (s != null && steam == s.LocalSteam) ReceiveLocal(packet, steam);
-            else { var result = messages.SendToSteamPeer(packet, steam); if (!result.Submitted) State("Control send failed: " + result.Reason); }
+            else { var result = messages.SendToSteamPeer(packet, steam); if (!result.Submitted) Report("Control send failed: " + result.Reason); }
         }
         private void ReceiveMessage(NetworkMessage<RelayEnvelope> message) => ReceiveLocal(message.Packet, message.SenderSteamId);
         private void ReceiveLocal(RelayEnvelope p, ulong sender)
@@ -218,13 +208,10 @@ namespace PlayerControlRelayTest
                     HandleRequest(s, p, sender); return;
                 case RelayEnvelope.Reply:
                     if (session == null || p.Command == null || p.Epoch != session.Epoch ||
-                        p.Command.Requester != session.LocalSteam || !pending.TryGet(p.Command.Owner, out var sent) ||
-                        !sent.ComputeDigest().SequenceEqual(p.Command.ComputeDigest())) return;
+                        p.Command.Requester != session.LocalSteam) return;
                     int expected = Responsible(session, p.Command.Owner);
                     if (expected == 0 || session.SteamOf(expected) != sender) return;
-                    State("Request " + sent.RequestId + ": " + (RelayOutcome)p.Outcome + " — " + p.Text);
-                    if ((RelayOutcome)p.Outcome != RelayOutcome.Submitted && (RelayOutcome)p.Outcome != RelayOutcome.Accepted)
-                        pending.RemoveIfMatches(sent);
+                    Report("Request " + p.Command.RequestId + ": " + (RelayOutcome)p.Outcome + " - " + p.Text);
                     return;
             }
         }
@@ -232,8 +219,8 @@ namespace PlayerControlRelayTest
         {
             if (readyQueued || session != null) return;
             var packet = Envelope(RelayEnvelope.Ready, hostEpoch); packet.Text = s.RosterHash;
-            var result = chores.Send(packet); readyQueued = result.Submitted;
-            if (!result.Submitted) State("Cannot synchronize relay readiness: " + result.Reason);
+            var result = chores.Send(new RelayChoreEnvelope(packet)); readyQueued = result.Submitted;
+            if (!result.Submitted) Report("Cannot synchronize relay readiness: " + result.Reason);
         }
         private int Responsible(Session s, int owner)
         {
@@ -242,8 +229,14 @@ namespace PlayerControlRelayTest
         }
         private void HandleRequest(Session s, RelayEnvelope p, ulong sender)
         {
-            if (!ReferenceEquals(session, s) || p.Command == null || p.Epoch != s.Epoch || p.Command.Requester != sender ||
+            if (p.Command == null || p.Epoch != s.Epoch || p.Command.Requester != sender ||
                 Responsible(s, p.Command.Owner) != s.LocalPlayer) return;
+            if (!ReferenceEquals(session, s))
+            {
+                // Nothing was reserved or queued, so the requester may send a new request.
+                Reply(s, p.Command, RelayOutcome.Rejected, "Owner relay session is not ready yet.");
+                return;
+            }
             var command = p.Command;
             string reason = "Relay session changed."; bool duplicate; RelayOutcome outcome;
             lock (RelayWorld.EngineGate)
@@ -257,7 +250,7 @@ namespace PlayerControlRelayTest
                 }
             }
             var authorized = Envelope(RelayEnvelope.Execute, s.Epoch); authorized.Player = command.Owner; authorized.Command = command;
-            var result = chores.Send(authorized);
+            var result = chores.Send(new RelayChoreEnvelope(authorized));
             outcome = result.Submitted ? RelayOutcome.Submitted : RelayOutcome.Uncertain;
             reason = result.Submitted ? "Queued for synchronized execution; not an arrival acknowledgement." : result.Reason;
             lock (RelayWorld.EngineGate) admission.Record(command, outcome, reason);
@@ -273,9 +266,9 @@ namespace PlayerControlRelayTest
             if (Thread.CurrentThread.ManagedThreadId == mainThread) SendTo(command.Requester, reply);
             else Post(() => { if (Current(s) && ReferenceEquals(session, s)) SendTo(command.Requester, reply); });
         }
-        private void ReceiveChore(AuthenticatedChoreMessage<RelayEnvelope> message)
+        private void ReceiveChore(AuthenticatedChoreMessage<RelayChoreEnvelope> message)
         {
-            var packet = message.Packet;
+            var packet = message.Packet.Inner;
             if (!Compatible(packet)) return;
             lock (RelayWorld.EngineGate)
             {
@@ -285,7 +278,7 @@ namespace PlayerControlRelayTest
                     if (!Current(candidate) || packet.Epoch != candidate.Epoch || packet.Text != candidate.RosterHash ||
                         message.SenderPlayerId != candidate.HostPlayer || session != null) return;
                     admission.Clear(candidate.Epoch); execution.Clear(candidate.Epoch); session = candidate;
-                    Post(() => { if (ReferenceEquals(session, candidate)) State("Relay ready. Select units; Move/Stop executes only complete existing groups."); });
+                    Post(() => { if (ReferenceEquals(session, candidate)) Report("Relay ready; allied units can be selected with the normal mouse input."); });
                     return;
                 }
                 var s = session; var command = packet.Command;
@@ -309,98 +302,122 @@ namespace PlayerControlRelayTest
                 }
                 // Authorization was accepted by the real owner (or the host for AI).
                 // Later revocation does not retract an already submitted Vanilla-like order.
-                bool success = false;
-                try { success = RelayWorld.Execute(command, () => Current(s) && ReferenceEquals(session, s), out reason); }
-                catch (Exception error) { reason = "Native execution failed; no retry: " + error.Message; }
-                var outcome = success ? RelayOutcome.Executed : RelayOutcome.Uncertain;
+                bool success = false, nativeCalled = false;
+                try { success = RelayWorld.Execute(command, () => Current(s) && ReferenceEquals(session, s), out reason, out nativeCalled); }
+                catch (Exception error) { nativeCalled = true; reason = "Native execution failed; no retry: " + error.Message; }
+                var outcome = success ? RelayOutcome.Executed : nativeCalled ? RelayOutcome.Uncertain : RelayOutcome.Rejected;
                 execution.Record(command, outcome, reason);
                 if (s.LocalPlayer == responsible) admission.Record(command, outcome, reason);
                 string captured = "tick=" + message.ScheduledTick + " request=" + command.RequestId + " owner=" + command.Owner + " " + outcome + ": " + reason;
-                Post(() => { Report(captured); if (ReferenceEquals(session, s) && command.Requester == s.LocalSteam) {
-                    if (pending.RemoveIfMatches(command)) State(captured); } });
+                Post(() => Report(captured));
                 if (s.LocalPlayer == responsible) Reply(s, command, outcome, reason);
             }
         }
         private void Submit(RelayAction action, int x, int y)
         {
             AssertMain(); var s = session;
-            if (!Current(s) || !RosterCurrent(s)) { State("Relay session is not ready."); return; }
-            if (selected.Count == 0) { State("Select units first."); return; }
-            moveArmed = false;
-            foreach (var group in selected.GroupBy(unit => unit.Owner))
+            if (!Current(s) || !RosterCurrent(s)) { Report("Relay session is not ready."); return; }
+            if (selected.Count == 0) return;
+            foreach (var group in selected.GroupBy(entry => entry.Owner))
             {
-                if (pending.ContainsOwner(group.Key)) { State("An earlier request for player " + group.Key + " is still pending; no automatic retry."); continue; }
                 int executor = Responsible(s, group.Key);
-                if (executor == 0) { State("No active owner or AI host for player " + group.Key); continue; }
-                var command = new RelayCommand(s.Epoch, group.Key, s.LocalSteam, ++requestId, action, x, y, group.ToArray());
-                if (!pending.TryAdd(command)) continue;
-                var packet = Envelope(RelayEnvelope.Request, s.Epoch); packet.Command = command; packet.Player = group.Key;
-                State("Request " + command.RequestId + " sent to player " + executor + ".");
-                SendTo(s.SteamOf(executor), packet);
-            }
-        }
-        private void ClearSelection() { selected.Clear(); moveArmed = false; frame?.Request(); }
-        private void CaptureTarget(float x, float y)
-        {
-            AssertMain();
-            if (!moveArmed || !panel.IsOpen || !Current(session) || GameMap.instance == null) return;
-            // Convert the captured screen point, never a later cached mouse position.
-            var position = Vector3.zero; var cell = Vector3Int.zero; int depth = 0;
-            GameMap.instance.CalcMapTileFromMousePos(new Vector3(x, Screen.height - y, 0), ref position, ref cell, ref depth);
-            var tile = GameMap.instance.getMapTile(cell.x, cell.y);
-            if (tile == null) { State("Destination is outside the map."); return; }
-            Submit(RelayAction.Move, tile.gameMapX, tile.gameMapY);
-        }
-        private bool CanOpenProxy()
-        {
-            AssertMain();
-            bool idle = Current(session) && !Input.GetMouseButton(0) && !Input.GetMouseButton(1) && !Input.GetMouseButton(2) &&
-                MainControls.instance != null && MainControls.instance.CurrentAction == 0 &&
-                EditorDirector.instance != null && EditorDirector.instance.peekleftMouseStateForEngine() == 0 &&
-                (TroopSelector.instance == null || !TroopSelector.instance.selection_on && !TroopSelector.instance.selection_established);
-            if (!idle) State("Finish the current native mouse gesture/placement before opening the relay.");
-            return idle;
-        }
-        private void SelectRectangle(float startX, float startY, float endX, float endY, bool add)
-        {
-            AssertMain(); var s = session;
-            if (!Current(s) || !panel.IsOpen) return;
-            if (!Monitor.TryEnter(RelayWorld.EngineGate)) { State("Simulation busy; repeat selection."); return; }
-            try
-            {
-                var units = RelayWorld.SnapshotLiveUnits();
-                bool click = Math.Abs(endX - startX) < 5 && Math.Abs(endY - startY) < 5;
-                var found = new List<RelayUnit>(); float nearest = 22 * 22;
-                foreach (var unit in units)
+                if (executor == 0) { Report("No active owner or AI host for player " + group.Key); continue; }
+                uint maxGlobalId = group.Max(unit => unit.GlobalId);
+                var slots = group.Select(unit => unit.Slot).OrderBy(slot => slot).ToArray();
+                // A very large selection needs several Chores; each chunk becomes its own native group.
+                foreach (int[] chunk in RelaySlotCodec.Split(slots))
                 {
-                    if (selectedPlayer != 0 && unit.Owner != selectedPlayer || !RelayWorld.CanControl(s.LocalPlayer, unit.Owner)) continue;
-                    if (!Project(unit, out var point)) continue;
-                    if (click)
-                    {
-                        float distance = (point.X - endX) * (point.X - endX) + (point.Y - endY) * (point.Y - endY);
-                        if (distance < nearest) { nearest = distance; found.Clear(); found.Add(unit); }
-                    }
-                    else if (point.X >= Math.Min(startX, endX) && point.X <= Math.Max(startX, endX) &&
-                        point.Y >= Math.Min(startY, endY) && point.Y <= Math.Max(startY, endY)) found.Add(unit);
+                    var command = new RelayCommand(s.Epoch, group.Key, s.LocalSteam, ++requestId, action, x, y, maxGlobalId, chunk);
+                    var packet = Envelope(RelayEnvelope.Request, s.Epoch); packet.Command = command; packet.Player = group.Key;
+                    Report("Request " + command.RequestId + " (" + action + ", " + chunk.Length + " units) sent to player " + executor + ".");
+                    SendTo(s.SteamOf(executor), packet);
                 }
-                var next = add ? new List<RelayUnit>(selected) : new List<RelayUnit>();
-                foreach (var unit in found) if (!next.Contains(unit)) next.Add(unit);
-                if (next.Count > RelayCommand.MaximumUnits) { State("Selection exceeds 64 units; selection was not shortened."); return; }
-                selected.Clear(); selected.AddRange(next);
-                State(selected.Count + " private unit selections. Partial native groups will be rejected.");
             }
-            finally { Monitor.Exit(RelayWorld.EngineGate); }
+        }
+
+        // Runs on the simulation thread inside the engine pass; only reads simulation state
+        // and hands an immutable result to Unity. Gestures stay local until they become a request.
+        private void OnTroopInput(bool right, int[] boxed, bool box, int[] underCursor, int tileX, int tileY)
+        {
+            var s = session;
+            if (s == null) return;
+            bool hasGroups = Volatile.Read(ref hasSelection) != 0;
+            if (right) { if (hasGroups) Post(ClearSelection); return; }
+            // Placement and other tools own the mouse; a finished drag is back at idle here.
+            if (MainControls.instance == null || MainControls.instance.CurrentAction != 0) return;
+            bool add = EditorDirector.instance != null && EditorDirector.instance.shiftPressed;
+            int[] ids = box ? boxed : underCursor;
+            var chosen = new List<RelayUnit>();
+            bool hitOther = false, hitEnemy = false;
+            lock (RelayWorld.EngineGate)
+            {
+                if (!Current(s) || !ReferenceEquals(session, s)) return;
+                if (ids != null)
+                    foreach (int id in ids)
+                    {
+                        if (!RelayWorld.TryGetSelectableUnit(id, out var unit)) continue;
+                        if (unit.Owner == s.LocalPlayer) hitOther = true;
+                        else if (!RelayWorld.CanControl(s.LocalPlayer, unit.Owner)) hitEnemy = true;
+                        else chosen.Add(unit);
+                        // A click belongs to the topmost selectable unit only.
+                        if (!box) break;
+                    }
+            }
+            if (chosen.Count > 0) { var units = chosen.ToArray(); Post(() => ApplySelection(units, add)); return; }
+            if (box || hitOther) { if (hasGroups && !add) Post(ClearSelection); return; }
+            // Clicking an enemy is reserved for a later attack order.
+            if (!hitEnemy && hasGroups && tileX >= 0 && tileY >= 0) Post(() => Submit(RelayAction.Move, tileX, tileY));
+        }
+        private void OnInputFailure(Exception error)
+        {
+            // Bounded: repeated identical failures in this per-pass callback are not logged again.
+            int hash = error.GetType().GetHashCode() ^ error.Message.GetHashCode();
+            if (Interlocked.Exchange(ref lastInputFailureHash, hash) == hash) return;
+            string text = error.ToString();
+            Post(() => Report("Troop input observer failed: " + text));
+        }
+        private void ApplySelection(RelayUnit[] units, bool add)
+        {
+            AssertMain();
+            if (session == null) return;
+            if (!add) selected.Clear();
+            var known = new HashSet<RelayUnit>(selected);
+            foreach (var unit in units) if (known.Add(unit)) selected.Add(unit);
+            Volatile.Write(ref hasSelection, selected.Count > 0 ? 1 : 0);
+            Report("Selected allied units: " + selected.Count + " (" + string.Join(", ", selected.Take(12).Select(u => u.Slot + "@" + u.Owner)) + (selected.Count > 12 ? ", ..." : "") + ")");
+            frame.SetContinuous(selected.Count > 0);
+            frame.Request();
+        }
+        private void ClearSelection()
+        {
+            AssertMain();
+            if (selected.Count == 0) return;
+            selected.Clear(); Volatile.Write(ref hasSelection, 0);
+            markers.Hide();
+            frame.SetContinuous(false);
+            Report("Allied selection cleared.");
+        }
+        // Engine gate held. Drops dead units from the selection.
+        private RelayMarker[] RefreshSelection()
+        {
+            var result = new List<RelayMarker>();
+            for (int i = selected.Count - 1; i >= 0; i--)
+            {
+                if (!RelayWorld.IsSameLiveUnit(selected[i])) { selected.RemoveAt(i); continue; }
+                if (result.Count < RelayMarkers.MaximumMarkers && Project(selected[i], out var marker)) result.Add(marker);
+            }
+            return result.ToArray();
         }
         private static unsafe bool Project(RelayUnit unit, out RelayMarker marker)
         {
             marker = default;
-            if (!RelayWorld.ResolveUnit(unit, out _, out _) || Camera.main == null) return false;
+            if (Camera.main == null) return false;
             var position = APIShared.UnitAccess.TryGetById(unit.Slot, out _, out _)
                 ? GameUnitManagerAPI.Instance.GetCurrentUnityPosition(unit.Slot) : default;
             if (position == default(System.Numerics.Vector3)) return false; // No Unity sprite snapshot available.
             var point = Camera.main.WorldToScreenPoint(new Vector3(position.X, position.Y, position.Z));
             if (point.z < 0 || point.x < 0 || point.x > Screen.width || point.y < 0 || point.y > Screen.height) return false;
-            marker = new RelayMarker(point.x, Screen.height - point.y); return true;
+            marker = new RelayMarker(point.x, point.y); return true;
         }
         private void Tick()
         {
@@ -412,46 +429,41 @@ namespace PlayerControlRelayTest
             try
             {
                 var s = session;
-                if (s == null && Time.realtimeSinceStartup >= nextHello)
+                if (s == null) { Negotiate(); frame.RequestAfter(TimeSpan.FromMilliseconds(500)); return; }
+                if (selected.Count == 0) return;
+                // A busy engine monitor only delays this frame's marker update.
+                if (Monitor.TryEnter(RelayWorld.EngineGate))
                 {
-                    nextHello = Time.realtimeSinceStartup + 1;
-                    var candidate = CaptureSession(hostEpoch);
-                    if (candidate != null)
-                    {
-                        lock (RelayWorld.EngineGate) {
-                            if (Current(candidate) && candidate.LocalPlayer == candidate.HostPlayer && offer == null) offer = candidate;
-                        }
-                        var hello = Envelope(RelayEnvelope.Hello); hello.Nonce = localChallenge;
-                        if (candidate.LocalPlayer == candidate.HostPlayer) ReceiveLocal(hello, candidate.LocalSteam);
-                        else SendTo(candidate.HostSteam, hello);
-                    }
-                }
-                var choices = new List<RelayPlayerChoice> { new RelayPlayerChoice(0, "All authorized owners / Alle freigegebenen Spieler") };
-                if (s != null && Monitor.TryEnter(RelayWorld.EngineGate))
-                {
-                    try
-                    {
-                        for (int player = 1; player <= 8; player++)
-                            if (RelayWorld.CanControl(s.LocalPlayer, player) && (s.SteamOf(player) != 0 || GamePlayerManagerAPI.Instance.IsAIPlayer(player)))
-                                choices.Add(new RelayPlayerChoice(player, "Player " + player + (s.SteamOf(player) != 0 ? " (human)" : " (AI / host)")));
-                        if (panel.IsOpen && lastMarkers != Time.frameCount)
-                        {
-                            lastMarkers = Time.frameCount;
-                            var markers = new List<RelayMarker>();
-                            foreach (var unit in selected) if (Project(unit, out var marker)) markers.Add(marker);
-                            panel.SetMarkers(markers.ToArray());
-                        }
-                    }
+                    try { markers.Show(RefreshSelection()); }
                     finally { Monitor.Exit(RelayWorld.EngineGate); }
+                    if (selected.Count == 0) { ClearSelection(); return; }
                 }
-                panel.SetViewport(Screen.width, Screen.height);
-                panel.Refresh(new RelayPanelState(Current(s), status, choices.ToArray(), selectedPlayer, selected.Count,
-                    string.Join(", ", selected.Select(u => u.Slot + "@" + u.Owner)), moveArmed));
-                frame.SetContinuous(panel.IsOpen);
-                if (s == null) frame.RequestAfter(TimeSpan.FromMilliseconds(500));
-                else if (!panel.IsOpen) frame.RequestAfter(TimeSpan.FromMilliseconds(250));
+                // KeyManager's key edges already respect GUI keyboard ownership and bindings.
+                if (KeyManager.instance != null && KeyManager.instance.IsActionPressed(Enums.KeyFunctions.Stop))
+                    Submit(RelayAction.Stop, 0, 0);
             }
-            catch (Exception error) { State("Relay presentation unavailable: " + error.Message); frame.RequestAfter(TimeSpan.FromSeconds(1)); }
+            catch (Exception error) { Report("Relay frame failed: " + error.Message); frame.RequestAfter(TimeSpan.FromSeconds(1)); }
+        }
+        private void Negotiate()
+        {
+            if (Time.realtimeSinceStartup < nextHello) return;
+            nextHello = Time.realtimeSinceStartup + 1;
+            var candidate = CaptureSession(hostEpoch);
+            if (candidate == null)
+            {
+                if (!inactiveReported)
+                {
+                    inactiveReported = true;
+                    Report("Inactive for now: this client has no participating player (spectator) or the roster is unresolved.");
+                }
+                return;
+            }
+            lock (RelayWorld.EngineGate) {
+                if (Current(candidate) && candidate.LocalPlayer == candidate.HostPlayer && offer == null) offer = candidate;
+            }
+            var hello = Envelope(RelayEnvelope.Hello); hello.Nonce = localChallenge;
+            if (candidate.LocalPlayer == candidate.HostPlayer) ReceiveLocal(hello, candidate.LocalSteam);
+            else SendTo(candidate.HostSteam, hello);
         }
     }
 }

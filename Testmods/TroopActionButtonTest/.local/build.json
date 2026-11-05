@@ -1,0 +1,51 @@
+﻿{
+    "CreatedUtc":  "2026-11-05T11:23:20.4901843Z",
+    "Installed":  false,
+    "Sdk":  "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\a\\button-test\\001\\sdk\\BepInEx\\plugins\\APIShared_Serp\\APIShared.dll",
+    "SdkSha256":  "109bca11171bfff1284ba28527bcd5ad8996adf0742810ef60c2642da70ecdd4",
+    "Package":  "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\TroopActionButtonTest\\.local\\TroopActionButtonTest.zip",
+    "PackageSha256":  "c2833db3dd65697e0176d1eae4ad2abf213b9a7e6a84c4c88d464fa4d2d49849",
+    "Sources":  [
+                    {
+                        "Path":  "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\TroopActionButtonTest\\build.bat",
+                        "Sha256":  "ac56d30cb269431136832d9df986071d736b75c2122e441e3fbe5d8465e8b75b"
+                    },
+                    {
+                        "Path":  "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\TroopActionButtonTest\\info.json",
+                        "Sha256":  "36cdaf6c5da7a31f208cef93503a571656abf5a9c82f0f3663adf746c5830eef"
+                    },
+                    {
+                        "Path":  "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\TroopActionButtonTest\\Properties\\AssemblyInfo.cs",
+                        "Sha256":  "0524bea0fd7281a1f521b278c983883050140daf244b3b6d8e43ff0a85fb977c"
+                    },
+                    {
+                        "Path":  "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\TroopActionButtonTest\\src\\ButtonTestCommand.cs",
+                        "Sha256":  "958364c3ada6420f8328cb6a551b89aa5716916dc566ef8046feae42a2858ad2"
+                    },
+                    {
+                        "Path":  "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\TroopActionButtonTest\\src\\TroopActionButtonTestPlugin.cs",
+                        "Sha256":  "e08573975ebf8629ed8419012d2636b828e8987a8e5fc918717392612926a972"
+                    },
+                    {
+                        "Path":  "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\TroopActionButtonTest\\TESTING.md",
+                        "Sha256":  "67c323744657e8c3f28fd2fd03f48129f04c14face1041420918242036c6b5a4"
+                    },
+                    {
+                        "Path":  "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\TroopActionButtonTest\\tests\\Program.cs",
+                        "Sha256":  "0b32b4681996c32974c5cfcc698d6ca619978fee93012d770af10f96b14f74e1"
+                    },
+                    {
+                        "Path":  "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\TroopActionButtonTest\\tests\\TroopActionButtonTest.Tests.csproj",
+                        "Sha256":  "74d29bc645aea6d07538ff363b871730d53a29001d4e4ad2c2b3a71f608f7ce6"
+                    },
+                    {
+                        "Path":  "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\TroopActionButtonTest\\tools\\Build.ps1",
+                        "Sha256":  "97622e2a425ea679b8f2507033c9505232372bde2e50bce95b4be11959413b39"
+                    },
+                    {
+                        "Path":  "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\TroopActionButtonTest\\TroopActionButtonTest.csproj",
+                        "Sha256":  "b491508a648c8f907a91468aebeef5124dd5f6b068254f0e4a0c987def91f7b9"
+                    }
+                ],
+    "GameAcceptance":  "Pending: actual Noesis rendering, mixed selection, checkbox, world-click shielding, editor and save/map transitions."
+}

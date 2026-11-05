@@ -75,7 +75,7 @@ namespace PlayerControlRelayTest
         }
         private static bool CanAdvance(RelayOutcome previous, RelayOutcome next) => previous == next ||
             previous == RelayOutcome.Accepted && next != RelayOutcome.Accepted ||
-            previous == RelayOutcome.Submitted && (next == RelayOutcome.Executed || next == RelayOutcome.Uncertain) ||
+            previous == RelayOutcome.Submitted && (next == RelayOutcome.Executed || next == RelayOutcome.Uncertain || next == RelayOutcome.Rejected) ||
             previous == RelayOutcome.Uncertain && next == RelayOutcome.Executed;
         private static bool Equal(byte[] left, byte[] right)
         {

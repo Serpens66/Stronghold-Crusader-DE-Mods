@@ -13,13 +13,14 @@ using System.Threading;
 
 namespace PlayerControlRelayTest
 {
-    // Native access is immediate and serialized by the actual game's monitor. This
-    // adapter never changes selection, ownership, membership or native hook code.
+    // Native access is immediate and serialized by the actual game's monitor. Group changes
+    // happen only inside the authenticated Chore, identically on every peer. Local selection,
+    // ownership and native hook code stay untouched.
     internal static unsafe class RelayWorld
     {
         private const string SupportedNativeHash = "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2";
-        // Hash-bound GameTribe membership layout: 625 words encode unit IDs 0..9999.
-        private const int MembershipWords = 625;
+        // Vanilla's disband state, excluded by its marking function 0x1904C0.
+        private const int NativeDisbandingState = 0x6D;
         private static readonly FieldInfo EngineGateField = FindEngineGateField();
         internal static readonly object EngineGate = ReadEngineGate();
         private static volatile bool ready;
@@ -55,11 +56,15 @@ namespace PlayerControlRelayTest
                         throw new InvalidOperationException("Native relay commands require the audited CrusaderDE.dll image.");
                     // Public typed access still depends on the installed interop layout.
                     if (Marshal.SizeOf(typeof(GameTribe)) != 0x688 || Marshal.SizeOf(typeof(GameUnit)) != 0x490 ||
-                        Marshal.OffsetOf(typeof(GameTribe), nameof(GameTribe.r_UnitIdsInGroupBitfield)).ToInt32() != 0x36 ||
                         Marshal.OffsetOf(typeof(GameTribe), nameof(GameTribe.r_UnitsInGroup)).ToInt32() != 0x32 ||
-                        Marshal.OffsetOf(typeof(GameTribe), nameof(GameTribe.r_LeaderUnitId)).ToInt32() != 0x30 ||
+                        Marshal.OffsetOf(typeof(GameTribe), nameof(GameTribe.r_TribeStance)).ToInt32() != 0x60A ||
                         Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.r_GlobalId)).ToInt32() != 0x94 ||
                         Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.r_ControllableForPlayerId)).ToInt32() != 0x92 ||
+                        Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.N0000011E)).ToInt32() != 0xAC ||
+                        Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.r_UnitSelected)).ToInt32() != 0xAE ||
+                        Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.r_SelectionAllowed)).ToInt32() != 0x2A0 ||
+                        Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.r_AIState)).ToInt32() != 0x2BC ||
+                        Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.r_AIObjectiveState)).ToInt32() != 0x354 ||
                         Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.r_TribeId)).ToInt32() != 0x2D4)
                         throw new InvalidOperationException("Installed unit/tribe interop differs from the audited layout.");
                     nativeModule = context.ModuleHandle;
@@ -76,11 +81,6 @@ namespace PlayerControlRelayTest
             }
         }
 
-        internal static void Initialize(CrusaderLibraryLoadContext context)
-        {
-            if (!Initialize(context, out string reason)) throw new InvalidOperationException(reason);
-        }
-
         internal static int MapSize()
         {
             RequireEngineGate();
@@ -89,72 +89,25 @@ namespace PlayerControlRelayTest
             return size > 0 && size <= GameTileManagerAPI.MAX_WIDTH ? size : 0;
         }
 
-        // Called for an explicit UI refresh, never from a permanent per-unit hook.
-        internal static RelayUnit[] SnapshotLiveUnits()
+        // Uses the per-unit filter of Vanilla's selection marking 0x1904C0, without its owner
+        // test. The raw native field at +0xAC has no Extender name yet.
+        internal static bool TryGetSelectableUnit(int id, out RelayUnit result)
         {
             RequireEngineGate();
-            if (!Available() || MapSize() == 0) return Array.Empty<RelayUnit>();
-            var result = new List<RelayUnit>();
-            var units = GameUnitManagerAPI.Instance;
-            int capacity = units.GetUnitArray().Length;
-            for (int id = 1; id <= capacity; id++)
-            {
-                if (!UnitAccess.TryGetById(units, id, out GameUnit* unit, out _) || !UnitAccess.IsReallyAlive(unit) ||
-                    unit->r_GlobalId == 0 || !ValidPlayer(unit->r_ControllableForPlayerId) || unit->r_TribeId == 0)
-                    continue;
-                result.Add(new RelayUnit(id, unit->r_GlobalId, unit->r_ControllableForPlayerId));
-            }
-            return result.ToArray();
-        }
-
-        internal static bool ResolveUnit(RelayUnit captured, out RelayUnit live, out int tribeSlot)
-        {
-            RequireEngineGate();
-            live = default; tribeSlot = 0;
-            if (!Available() || captured.Slot <= 0 || captured.GlobalId == 0 || !ValidPlayer(captured.Owner) ||
-                !UnitAccess.TryGetById(captured.Slot, out GameUnit* unit, out _) || !UnitAccess.IsReallyAlive(unit) ||
-                unit->r_GlobalId != captured.GlobalId || unit->r_ControllableForPlayerId != captured.Owner ||
-                !GameTribeManagerAPI.Instance.IsValidId(unit->r_TribeId)) return false;
-            live = new RelayUnit(captured.Slot, unit->r_GlobalId, unit->r_ControllableForPlayerId);
-            tribeSlot = unit->r_TribeId;
+            result = default;
+            if (!Available() || id <= 0 || !UnitAccess.TryGetById(id, out GameUnit* unit, out _) || !UnitAccess.IsReallyAlive(unit) ||
+                unit->r_SelectionAllowed == 0 || unit->r_AIObjectiveState != 0 || unit->r_AIState == NativeDisbandingState ||
+                unit->N0000011E != 0 || unit->r_UnitChimp == eChimps.CHIMP_TYPE_LORD ||
+                unit->r_GlobalId == 0 || !ValidPlayer(unit->r_ControllableForPlayerId)) return false;
+            result = new RelayUnit(id, unit->r_GlobalId, unit->r_ControllableForPlayerId);
             return true;
         }
 
-        internal static bool ResolveTribe(int tribeSlot, out RelayTribe result)
+        internal static bool IsSameLiveUnit(RelayUnit captured)
         {
             RequireEngineGate();
-            result = null;
-            if (!Available()) return false;
-            var tribes = GameTribeManagerAPI.Instance;
-            if (!tribes.IsValidId(tribeSlot) || !tribes.TryGetTribeById(tribeSlot, out GameTribe* tribe) || tribe == null ||
-                tribe->r_AliveState != AliveState.IsAlive || tribe->r_GlobalId == 0 || !ValidPlayer(tribe->r_PlayerIdOwner) ||
-                tribe->r_UnitsInGroup < 1 || tribe->r_UnitsInGroup > RelayCommand.MaximumUnits) return false;
-
-            int owner = tribe->r_PlayerIdOwner, expectedCount = tribe->r_UnitsInGroup;
-            uint identity = tribe->r_GlobalId;
-            var members = new List<RelayUnit>(expectedCount);
-            bool leaderFound = false;
-            ushort* bitmap = &tribe->r_UnitIdsInGroupBitfield;
-            // Scan the COMPLETE bitmap. GetUnits stops at the recorded count, which
-            // cannot prove that no extra, unrequested membership bit is present.
-            for (int word = 0; word < MembershipWords; word++)
-            {
-                ushort bits = bitmap[word];
-                if (bits == 0) continue;
-                for (int bit = 0; bit < 16; bit++)
-                {
-                    if ((bits & (1 << bit)) == 0) continue;
-                    int id = word * 16 + bit; // The native bit position is the one-based game ID.
-                    if (members.Count >= expectedCount || !UnitAccess.TryGetById(id, out GameUnit* unit, out _) ||
-                        !UnitAccess.IsReallyAlive(unit) || unit->r_GlobalId == 0 ||
-                        unit->r_ControllableForPlayerId != owner || unit->r_TribeId != tribeSlot) return false;
-                    members.Add(new RelayUnit(id, unit->r_GlobalId, owner));
-                    if (id == tribe->r_LeaderUnitId) leaderFound = true;
-                }
-            }
-            if (members.Count != expectedCount || !leaderFound) return false;
-            result = new RelayTribe(tribeSlot, identity, owner, members.ToArray());
-            return true;
+            return Available() && UnitAccess.TryGetById(captured.Slot, out GameUnit* unit, out _) && UnitAccess.IsReallyAlive(unit) &&
+                unit->r_GlobalId == captured.GlobalId && unit->r_ControllableForPlayerId == captured.Owner;
         }
 
         internal static bool CanControl(int requester, int owner)
@@ -164,65 +117,102 @@ namespace PlayerControlRelayTest
                 (requester == owner || GamePlayerManagerAPI.Instance.IsPlayerAlliedTo(requester, owner));
         }
 
-        internal static bool TryPlan(RelayCommand command, out RelayGroupPlan plan, out string reason)
+        internal static bool TryPlan(RelayCommand command, out RelayOrderPlan plan, out string reason)
         {
             RequireEngineGate();
             plan = null; reason = null;
             if (!Available()) { reason = unavailableReason ?? "Native relay backend is unavailable."; return false; }
             if (MapSize() == 0) { reason = "No ready native map."; return false; }
             if (!RelayValidation.TryPlan(command, GameTileManagerAPI.MAX_WIDTH, GameTileManagerAPI.MAX_HEIGHT,
-                ResolveUnit, ResolveTribe, out plan, out reason)) return false;
+                ResolveOrderUnit, TribeMemberCount, out plan, out reason)) return false;
             if (command.Action == RelayAction.Move &&
                 !GameTileManagerAPI.Instance.IsTileInsideMapBounds(command.TargetX, command.TargetY))
             { plan = null; reason = "Move target is outside the playable map."; return false; }
             return true;
         }
 
-        internal static bool Execute(RelayCommand command, out string reason) => Execute(command, null, out reason);
-
-        // The lifecycle owner may supply its epoch guard. Reentrant native-order
-        // participants cannot make an old batch continue in a replacement world.
-        internal static bool Execute(RelayCommand command, Func<bool> isCurrent, out string reason)
+        // Units the owner has selected stay with the owner: the owner's next order refers to
+        // them, and r_UnitSelected is simulation state, so every peer decides alike.
+        private static bool ResolveOrderUnit(int slot, int owner, uint maxGlobalId, out int tribeId, out int stance)
         {
-            RequireEngineGate();
-            reason = null;
-            if (isCurrent != null && !isCurrent()) { reason = "Relay world changed before execution."; return false; }
-            if (!TryPlan(command, out RelayGroupPlan plan, out reason)) return false;
-            foreach (RelayTribe captured in plan.Groups)
-            {
-                if (isCurrent != null && !isCurrent())
-                { reason = "Relay world changed during execution; no further group was called."; return false; }
-                if (!ResolveTribe(captured.Slot, out RelayTribe current) || !SameTribe(captured, current))
-                { reason = "A tribe changed before its terminal call; no further group was called."; return false; }
-                bool success;
-                try
-                {
-                    success = command.Action == RelayAction.Move
-                        ? GameTribeManagerAPI.Instance.IssueMoveHereCommand(captured.Slot, command.TargetX, command.TargetY,
-                            isPatrolPath: false, bIsNewOrder: 1, tribeMoveType: TribeMoveType.DefaultInSync)
-                        : GameTribeManagerAPI.Instance.Stop(captured.Slot);
-                }
-                catch (Exception error)
-                {
-                    reason = "Native " + command.Action + " threw " + error.GetType().Name + "; effects may be partial; no retry.";
-                    return false;
-                }
-                if (!success)
-                { reason = "Native " + command.Action + " returned failure; effects may be partial; no retry."; return false; }
-                if (isCurrent != null && !isCurrent())
-                { reason = "Relay world changed in the terminal callback; effects are not confirmed."; return false; }
-            }
-            reason = "Native group API calls completed; movement/arrival is not confirmed.";
+            tribeId = 0; stance = 0;
+            if (!TryGetSelectableUnit(slot, out RelayUnit live) || live.Owner != owner || live.GlobalId > maxGlobalId ||
+                !UnitAccess.TryGetById(slot, out GameUnit* unit, out _) || unit->r_UnitSelected != 0) return false;
+            tribeId = unit->r_TribeId;
+            if (tribeId > 0 && GameTribeManagerAPI.Instance.TryGetTribeById(tribeId, out GameTribe* tribe) && tribe != null)
+                stance = (int)tribe->r_TribeStance;
             return true;
         }
 
-        private static bool SameTribe(RelayTribe left, RelayTribe right)
+        private static int TribeMemberCount(int tribeId) =>
+            GameTribeManagerAPI.Instance.TryGetTribeById(tribeId, out GameTribe* tribe) && tribe != null &&
+            tribe->r_AliveState == AliveState.IsAlive ? tribe->r_UnitsInGroup : -1;
+
+        // The lifecycle owner may supply its epoch guard. Reentrant native-order
+        // participants cannot make an old batch continue in a replacement world.
+        // nativeCalled tells a clean rejection apart from possible partial effects.
+        internal static bool Execute(RelayCommand command, Func<bool> isCurrent, out string reason, out bool nativeCalled)
         {
-            if (left == null || right == null || left.Slot != right.Slot || left.GlobalId != right.GlobalId ||
-                left.Owner != right.Owner || left.Members.Count != right.Members.Count) return false;
-            for (int i = 0; i < left.Members.Count; i++)
-                if (!left.Members[i].Equals(right.Members[i])) return false;
+            RequireEngineGate();
+            reason = null; nativeCalled = false;
+            if (isCurrent != null && !isCurrent()) { reason = "Relay world changed before execution."; return false; }
+            if (!TryPlan(command, out RelayOrderPlan plan, out reason)) return false;
+            int tribeId = plan.ExistingTribe;
+            nativeCalled = true;
+            if (tribeId <= 0 && !TryRegroup(command.Owner, plan, out tribeId, out reason)) return false;
+            bool success;
+            try
+            {
+                success = command.Action == RelayAction.Move
+                    ? GameTribeManagerAPI.Instance.IssueMoveHereCommand(tribeId, command.TargetX, command.TargetY,
+                        isPatrolPath: false, bIsNewOrder: 1, tribeMoveType: TribeMoveType.DefaultInSync)
+                    : GameTribeManagerAPI.Instance.Stop(tribeId);
+            }
+            catch (Exception error)
+            {
+                reason = "Native " + command.Action + " threw " + error.GetType().Name + "; effects may be partial; no retry.";
+                return false;
+            }
+            if (isCurrent != null && !isCurrent()) { reason = "Relay world changed in the terminal callback; effects are not confirmed."; return false; }
+            reason = (success ? plan.Slots.Count + " units ordered" : "Native order for " + plan.Slots.Count + " units returned failure") +
+                "; group=" + tribeId + "; skipped=" + plan.Skipped + "; movement/arrival is not confirmed.";
+            return success;
+        }
+
+        // Same public calls and order as BugfixesAndQoL's EnsureDedicatedTribe, and the same native
+        // functions as Vanilla's recruit path. Vanilla's maintenance 0x1261F0 clears emptied groups.
+        private static bool TryRegroup(int owner, RelayOrderPlan plan, out int created, out string reason)
+        {
+            reason = null;
+            var tribes = GameTribeManagerAPI.Instance;
+            long value = tribes.Create(owner, false);
+            if (value <= 0 || value > int.MaxValue) { created = 0; reason = "No native group could be created."; return false; }
+            created = (int)value;
+            tribes.SetStance(created, (TribeStance)plan.Stance);
+            for (int index = 0; index < plan.Slots.Count; index++)
+            {
+                int slot = plan.Slots[index], source = plan.SourceTribes[index];
+                bool moved = (source <= 0 || tribes.UnassignUnit(source, slot)) && tribes.AssignUnit(created, slot) &&
+                    UnitAccess.TryGetById(slot, out GameUnit* unit, out _) && unit->r_TribeId == created;
+                if (moved) continue;
+                RollBack(plan, index, created);
+                reason = "Native regrouping failed for unit " + slot + " and was rolled back.";
+                return false;
+            }
             return true;
+        }
+
+        private static void RollBack(RelayOrderPlan plan, int failedIndex, int created)
+        {
+            var tribes = GameTribeManagerAPI.Instance;
+            for (int index = failedIndex; index >= 0; index--)
+            {
+                int slot = plan.Slots[index], source = plan.SourceTribes[index];
+                if (!UnitAccess.TryGetById(slot, out GameUnit* unit, out _)) continue;
+                if (unit->r_TribeId == created) tribes.UnassignUnit(created, slot);
+                if (unit->r_TribeId == 0 && source > 0) tribes.AssignUnit(source, slot);
+            }
+            tribes.DeleteTribeSafe(created);
         }
 
         private static bool ValidPlayer(int id) => id > 0 && id <= GamePlayerManagerAPI.MAX_PLAYERS;

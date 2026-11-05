@@ -4,31 +4,28 @@ using System.Collections.ObjectModel;
 
 namespace PlayerControlRelayTest
 {
-    internal sealed class RelayTribe
+    // Decides what one command does in the current simulation state. Identical on every peer.
+    internal sealed class RelayOrderPlan
     {
-        internal RelayTribe(int slot, uint globalId, int owner, RelayUnit[] members)
+        internal RelayOrderPlan(int[] slots, int[] sourceTribes, int existingTribe, int stance, int skipped)
         {
-            if (members == null) throw new ArgumentNullException(nameof(members));
-            Slot = slot; GlobalId = globalId; Owner = owner;
-            Members = Array.AsReadOnly((RelayUnit[])members.Clone());
+            Slots = Array.AsReadOnly(slots); SourceTribes = Array.AsReadOnly(sourceTribes);
+            ExistingTribe = existingTribe; Stance = stance; Skipped = skipped;
         }
-        internal int Slot { get; }
-        internal uint GlobalId { get; }
-        internal int Owner { get; }
-        internal ReadOnlyCollection<RelayUnit> Members { get; }
+        internal ReadOnlyCollection<int> Slots { get; }
+        internal ReadOnlyCollection<int> SourceTribes { get; }
+        // Positive when the units are exactly one whole native group, so no regrouping is needed.
+        internal int ExistingTribe { get; }
+        internal int Stance { get; }
+        internal int Skipped { get; }
     }
-    internal sealed class RelayGroupPlan
-    {
-        internal RelayGroupPlan(List<RelayTribe> groups) { Groups = Array.AsReadOnly(groups.ToArray()); }
-        internal ReadOnlyCollection<RelayTribe> Groups { get; }
-    }
-    internal delegate bool RelayUnitResolver(RelayUnit captured, out RelayUnit live, out int tribeSlot);
-    internal delegate bool RelayTribeResolver(int tribeSlot, out RelayTribe tribe);
+    internal delegate bool RelayUnitResolver(int slot, int owner, uint maxGlobalId, out int tribe, out int stance);
+    internal delegate int RelayTribeMemberCount(int tribe);
 
-    // Resolvers must inspect one world under the caller's engine serialization scope.
-    // Admission never expands a subset into a whole tribe and never mutates selection.
     internal static class RelayValidation
     {
+        internal const int StanceCount = 3;
+
         internal static bool TryValidate(RelayCommand command, int mapWidth, int mapHeight, out string reason)
         {
             reason = null;
@@ -39,39 +36,36 @@ namespace PlayerControlRelayTest
             { reason = "Move target is outside the current map."; return false; }
             return true;
         }
-        internal static bool TryPlan(RelayCommand command, int mapWidth, int mapHeight,
-            RelayUnitResolver resolveUnit, RelayTribeResolver resolveTribe, out RelayGroupPlan plan, out string reason)
+
+        internal static bool TryPlan(RelayCommand command, int mapWidth, int mapHeight, RelayUnitResolver resolveUnit,
+            RelayTribeMemberCount memberCount, out RelayOrderPlan plan, out string reason)
         {
             plan = null;
             if (!TryValidate(command, mapWidth, mapHeight, out reason)) return false;
-            if (resolveUnit == null || resolveTribe == null) { reason = "Live object resolution is unavailable."; return false; }
-            var selected = new Dictionary<int, RelayUnit>();
-            var assigned = new Dictionary<int, int>();
-            var tribeSlots = new SortedSet<int>();
-            foreach (var captured in command.Units)
+            if (resolveUnit == null || memberCount == null) { reason = "Live object resolution is unavailable."; return false; }
+            var slots = new List<int>(command.Slots.Count);
+            var tribes = new List<int>(command.Slots.Count);
+            var stances = new int[StanceCount];
+            foreach (int slot in command.Slots)
             {
-                if (!resolveUnit(captured, out var live, out int tribeSlot) || !live.Equals(captured) || tribeSlot <= 0)
-                { reason = "A selected unit changed identity, ownership or tribe."; return false; }
-                selected.Add(captured.Slot, captured); assigned.Add(captured.Slot, tribeSlot); tribeSlots.Add(tribeSlot);
+                // Units that died or may not be ordered right now drop out; the others still obey.
+                if (!resolveUnit(slot, command.Owner, command.MaxGlobalId, out int tribe, out int stance) ||
+                    stance < 0 || stance >= StanceCount) continue;
+                slots.Add(slot); tribes.Add(tribe); stances[stance]++;
             }
-            var groups = new List<RelayTribe>();
-            var covered = new HashSet<int>();
-            foreach (int slot in tribeSlots)
-            {
-                if (!resolveTribe(slot, out var tribe) || tribe == null || tribe.Slot != slot || tribe.GlobalId == 0 ||
-                    tribe.Owner != command.Owner || tribe.Members.Count < 1 || tribe.Members.Count > command.Units.Count)
-                { reason = "A selected tribe is missing or changed identity/ownership."; return false; }
-                foreach (var member in tribe.Members)
-                {
-                    if (!selected.TryGetValue(member.Slot, out var requested) || !requested.Equals(member) ||
-                        assigned[member.Slot] != slot || !covered.Add(member.Slot))
-                    { reason = "Selection must contain every member of each existing tribe exactly once."; return false; }
-                }
-                groups.Add(tribe);
-            }
-            if (covered.Count != selected.Count)
-            { reason = "A selected unit is absent from its current tribe."; return false; }
-            plan = new RelayGroupPlan(groups); return true;
+            if (slots.Count == 0) { reason = "None of the requested units can be ordered any more."; return false; }
+            int shared = tribes[0];
+            foreach (int tribe in tribes) if (tribe != shared) { shared = 0; break; }
+            if (shared > 0 && memberCount(shared) != slots.Count) shared = 0;
+            plan = new RelayOrderPlan(slots.ToArray(), tribes.ToArray(), shared, MajorityStance(stances), command.Slots.Count - slots.Count);
+            return true;
+        }
+
+        // Same rule and tie order as Vanilla's selection (0x11B150).
+        internal static int MajorityStance(int[] counts)
+        {
+            if (counts[1] <= counts[2] && counts[0] <= counts[2]) return 2;
+            return counts[0] <= counts[1] ? 1 : 0;
         }
     }
 }

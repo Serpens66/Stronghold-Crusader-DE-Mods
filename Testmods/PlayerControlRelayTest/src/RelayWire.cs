@@ -23,8 +23,27 @@ namespace PlayerControlRelayTest
             Kind = Kind, Epoch = Epoch, Nonce = Nonce, Player = Player, Outcome = Outcome, Text = Text,
             MessagePacketId = MessagePacketId, ChorePacketId = ChorePacketId,
             Command = Command == null ? null : new RelayCommand(Command.Epoch, Command.Owner, Command.Requester,
-                Command.RequestId, Command.Action, Command.TargetX, Command.TargetY, Command.CopyUnits())
+                Command.RequestId, Command.Action, Command.TargetX, Command.TargetY, Command.MaxGlobalId, Command.Slots)
         };
+    }
+
+    // Same bytes as RelayEnvelope. A separate packet type keeps Steam deliveries away
+    // from the Chore-only receiver and Chore deliveries away from the message receiver.
+    [MessagePackFormatter(typeof(RelayChoreEnvelopeFormatter))]
+    internal sealed class RelayChoreEnvelope
+    {
+        internal RelayChoreEnvelope(RelayEnvelope inner) { Inner = inner; }
+        internal RelayEnvelope Inner { get; }
+    }
+
+    internal sealed class RelayChoreEnvelopeFormatter : IMessagePackFormatter<RelayChoreEnvelope>
+    {
+        private static readonly RelayEnvelopeFormatter Inner = new RelayEnvelopeFormatter();
+        public RelayChoreEnvelopeFormatter() { }
+        public void Serialize(ref MessagePackWriter writer, RelayChoreEnvelope value, MessagePackSerializerOptions options) =>
+            Inner.Serialize(ref writer, value?.Inner, options);
+        public RelayChoreEnvelope Deserialize(ref MessagePackReader reader, MessagePackSerializerOptions options) =>
+            new RelayChoreEnvelope(Inner.Deserialize(ref reader, options));
     }
 
     // Exact schema, no contractless/reflection serialization. Wire limits are checked
@@ -65,28 +84,22 @@ namespace PlayerControlRelayTest
         private static void WriteCommand(ref MessagePackWriter writer, RelayCommand command)
         {
             if (command == null) { writer.WriteNil(); return; }
-            writer.WriteArrayHeader(8); writer.Write(command.Epoch); writer.Write(command.Owner); writer.Write(command.Requester);
+            writer.WriteArrayHeader(9); writer.Write(command.Epoch); writer.Write(command.Owner); writer.Write(command.Requester);
             writer.Write(command.RequestId); writer.Write((int)command.Action); writer.Write(command.TargetX); writer.Write(command.TargetY);
-            writer.WriteArrayHeader(command.Units.Count);
-            foreach (var unit in command.Units)
-            { writer.WriteArrayHeader(3); writer.Write(unit.Slot); writer.Write(unit.GlobalId); writer.Write(unit.Owner); }
+            writer.Write(command.MaxGlobalId); writer.Write(command.EncodedSlots);
         }
         private static RelayCommand ReadCommand(ref MessagePackReader reader)
         {
             if (reader.TryReadNil()) return null;
-            if (reader.ReadArrayHeader() != 8) throw Bad("Relay command must have exactly eight fields.");
+            if (reader.ReadArrayHeader() != 9) throw Bad("Relay command must have exactly nine fields.");
             string epoch = ReadText(ref reader, 64);
             int owner = reader.ReadInt32(); ulong requester = reader.ReadUInt64(); long requestId = reader.ReadInt64();
             var action = (RelayAction)reader.ReadInt32(); int x = reader.ReadInt32(), y = reader.ReadInt32();
-            int count = reader.ReadArrayHeader();
-            if (count < 1 || count > RelayCommand.MaximumUnits) throw Bad("Relay selection exceeds its unit limit.");
-            var units = new RelayUnit[count];
-            for (int i = 0; i < count; i++)
-            {
-                if (reader.ReadArrayHeader() != 3) throw Bad("Relay unit must have exactly three fields.");
-                units[i] = new RelayUnit(reader.ReadInt32(), reader.ReadUInt32(), reader.ReadInt32());
-            }
-            return new RelayCommand(epoch, owner, requester, requestId, action, x, y, units);
+            uint maxGlobalId = reader.ReadUInt32();
+            var encoded = reader.ReadBytes();
+            if (!encoded.HasValue || encoded.Value.Length > RelaySlotCodec.MaximumEncodedBytes) throw Bad("Relay unit list is missing or exceeds its size limit.");
+            int[] slots = RelaySlotCodec.Decode(System.Buffers.BuffersExtensions.ToArray(encoded.Value));
+            return new RelayCommand(epoch, owner, requester, requestId, action, x, y, maxGlobalId, slots);
         }
         private static string ReadText(ref MessagePackReader reader, int maximumCharacters)
         {
