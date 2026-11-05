@@ -23,7 +23,7 @@ internal static class Program
     }
     private static void Main()
     {
-        ImmutableRequests(); SlotEncoding(); ReplayProtection(); OrderPlans(); WorldPreparation();
+        ImmutableRequests(); Gestures(); SlotEncoding(); ReplayProtection(); OrderPlans(); WorldPreparation();
         Console.WriteLine("PASS: " + assertions + " core assertions; no game, transport or native execution is simulated.");
     }
     private static void ImmutableRequests()
@@ -48,6 +48,65 @@ internal static class Program
         Check(!RelayValidation.TryValidate(Command(x: 100), 100, 100, out _), "Outside target admitted.");
         Check(!RelayValidation.TryValidate(Command(x: -1), 100, 100, out _), "Negative target admitted.");
         Check(!RelayValidation.TryValidate(Command(), 0, 100, out _), "Unknown map admitted.");
+    }
+    private static RelayGestureResult Gesture(bool rightCommands, bool left = false, bool down = false, bool up = false, bool box = false,
+        bool shift = false, RelayGestureHit hit = RelayGestureHit.None, bool tile = true, bool paused = false, bool selection = true, bool tool = false) =>
+        RelayGesture.Decide(rightCommands, left, down, up, box, shift, hit, tile, paused, selection, tool);
+    private static RelayCommand Action(RelayAction action, int x) => new RelayCommand("epoch", 2, 123, 1, action, x, 20, 500, new[] { 1 });
+    private static void Gestures()
+    {
+        foreach (bool right in new[] { false, true })
+        {
+            Check(Gesture(right, left: true, hit: RelayGestureHit.Allied, selection: false) == RelayGestureResult.Select, "Allied click does not select.");
+            Check(Gesture(right, left: true, box: true, hit: RelayGestureHit.Allied, selection: false) == RelayGestureResult.Select, "Allied box does not select.");
+            Check(Gesture(right, left: true, hit: RelayGestureHit.Own) == RelayGestureResult.Clear, "Own click keeps the selection.");
+            Check(Gesture(right, left: true, box: true) == RelayGestureResult.Clear, "Empty box keeps the selection.");
+            Check(Gesture(right, left: true, box: true, shift: true) == RelayGestureResult.None, "Shift box loses the selection.");
+            Check(Gesture(right, left: true, hit: RelayGestureHit.Own, shift: true) == RelayGestureResult.None, "Shift click loses the selection.");
+            Check(Gesture(right, left: true, hit: RelayGestureHit.Allied, tool: true) == RelayGestureResult.None, "An active tool lost the left button.");
+            Check(Gesture(right) == RelayGestureResult.None, "No edge produced a result.");
+        }
+        // Commands on the left button, the right button clears.
+        Check(Gesture(false, left: true) == RelayGestureResult.Move, "Left ground click does not command.");
+        Check(Gesture(false, left: true, selection: false) == RelayGestureResult.None, "Command without a selection.");
+        Check(Gesture(false, left: true, tile: false) == RelayGestureResult.None, "Command without a tile.");
+        Check(Gesture(false, left: true, hit: RelayGestureHit.Enemy) == RelayGestureResult.None, "Enemy click commands.");
+        Check(Gesture(false, down: true) == RelayGestureResult.Clear, "Right press does not clear.");
+        Check(Gesture(false, down: true, selection: false) == RelayGestureResult.None, "Clear without a selection.");
+        Check(Gesture(false, up: true) == RelayGestureResult.None, "Right release commands in left-button mode.");
+        // Commands on the right button, the left button clears.
+        Check(Gesture(true, up: true) == RelayGestureResult.Move, "Right release does not command.");
+        Check(Gesture(true, up: true, hit: RelayGestureHit.Allied) == RelayGestureResult.Move, "Right release over an ally does not command.");
+        Check(Gesture(true, up: true, hit: RelayGestureHit.Enemy) == RelayGestureResult.None, "Right release over an enemy commands.");
+        Check(Gesture(true, up: true, tile: false) == RelayGestureResult.None, "Right command without a tile.");
+        Check(Gesture(true, up: true, paused: true) == RelayGestureResult.None, "Right command while paused.");
+        Check(Gesture(true, up: true, selection: false) == RelayGestureResult.None, "Right command without a selection.");
+        Check(Gesture(true, up: true, tool: true) == RelayGestureResult.None, "Right command while a tool is active.");
+        Check(Gesture(true, down: true) == RelayGestureResult.None, "Right press clears in right-button mode.");
+        Check(Gesture(true, left: true) == RelayGestureResult.Clear, "Left ground click does not clear.");
+        Check(Gesture(true, left: true, shift: true) == RelayGestureResult.None, "Shift ground click loses the selection.");
+        Check(Gesture(true, left: true, hit: RelayGestureHit.Enemy) == RelayGestureResult.Clear, "Left enemy click does not clear.");
+        // An armed patrol or attack: left confirms, right cancels, in both modes.
+        foreach (bool right in new[] { false, true })
+        {
+            Check(RelayGesture.Decide(right, true, false, false, false, false, RelayGestureHit.None, true, false, true, false, true) == RelayGestureResult.Commit, "Armed click does not confirm.");
+            Check(RelayGesture.Decide(right, true, false, false, false, false, RelayGestureHit.Allied, true, false, true, false, true) == RelayGestureResult.Commit, "Armed click on an ally selects.");
+            Check(RelayGesture.Decide(right, true, false, false, false, false, RelayGestureHit.None, false, false, true, false, true) == RelayGestureResult.None, "Armed click without a tile confirms.");
+            Check(RelayGesture.Decide(right, false, true, false, false, false, RelayGestureHit.None, true, false, true, false, true) == RelayGestureResult.Disarm, "Right press does not cancel.");
+            Check(RelayGesture.Decide(right, false, false, true, false, false, RelayGestureHit.None, true, false, true, false, true) == RelayGestureResult.None, "Right release gives an order while armed.");
+        }
+        // New actions carry and validate their own target.
+        Check(RelayValidation.TryValidate(Action(RelayAction.Stance, 2), 100, 100, out _), "Valid stance rejected.");
+        Check(!RelayValidation.TryValidate(Action(RelayAction.Stance, 3), 100, 100, out _), "Unknown stance admitted.");
+        Check(!RelayValidation.TryValidate(Action(RelayAction.Stance, -1), 100, 100, out _), "Negative stance admitted.");
+        Check(RelayValidation.TryValidate(Action(RelayAction.Disband, 0), 100, 100, out _), "Disband rejected.");
+        foreach (var tiled in new[] { RelayAction.Move, RelayAction.Patrol, RelayAction.AttackHere })
+        {
+            Check(RelayValidation.TryValidate(Action(tiled, 99), 100, 100, out _), "Valid tile rejected.");
+            Check(!RelayValidation.TryValidate(Action(tiled, 100), 100, 100, out _), "Outside tile admitted.");
+        }
+        Reject(() => Action((RelayAction)0, 0));
+        Reject(() => Action((RelayAction)7, 0));
     }
     private static void SlotEncoding()
     {

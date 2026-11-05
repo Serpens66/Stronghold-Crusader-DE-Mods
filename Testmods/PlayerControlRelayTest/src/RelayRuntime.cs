@@ -5,6 +5,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using APIShared;
+using APIShared.Commands;
 using APIShared.Networking;
 using APIShared.Presentation;
 using BepInEx.Logging;
@@ -17,7 +18,7 @@ namespace PlayerControlRelayTest
 {
     internal sealed class RelayRuntime
     {
-        private const string Contract = "relay-v4";
+        private const string Contract = "relay-v5";
         private readonly ManualLogSource log;
         private readonly int mainThread = Thread.CurrentThread.ManagedThreadId;
         private readonly ModApiClient api = ApiShared.ForMod(PlayerControlRelayPlugin.Guid);
@@ -37,7 +38,8 @@ namespace PlayerControlRelayTest
         private long world, requestId;
         private string localChallenge, hostEpoch;
         private bool initialized, readyQueued, inactiveReported;
-        private int hasSelection, lastInputFailureHash;
+        private int hasSelection, lastInputFailureHash, armedAction;
+        private bool suppressRightUp; // Simulation thread only.
         private double nextHello;
 
         private sealed class Peer
@@ -74,6 +76,9 @@ namespace PlayerControlRelayTest
             if (!api.Ui.TryRegisterBeforeRender("relay-frame", Tick, out frame, out string reason)) throw new InvalidOperationException(reason);
             if (!api.TryGetMissionLifecycle(out lifecycle, out var diagnostic)) throw new InvalidOperationException(diagnostic.Reason);
             RelayInput.Initialize(OnTroopInput, OnInputFailure);
+            RelayHud.Initialize(OnInputFailure, ArmPatrolFromKey);
+            if (!GameActionEvents.TryRegister(PlayerControlRelayPlugin.Guid, "relay-troop-actions", OnGameAction, null, out string actions))
+                throw new InvalidOperationException(actions);
             initialized = true;
             if (!lifecycle.TryRegisterObserver("relay-world", Started, Ended, n => {
                 if (n.Phase == MissionInitializationPhase.BeforeLoad) Retire();
@@ -115,6 +120,8 @@ namespace PlayerControlRelayTest
         private void ResetSelection()
         {
             selected.Clear(); Volatile.Write(ref hasSelection, 0);
+            Volatile.Write(ref armedAction, 0);
+            RelayHud.Publish(null);
             markers.Reset();
             frame?.SetContinuous(false);
         }
@@ -337,18 +344,22 @@ namespace PlayerControlRelayTest
 
         // Runs on the simulation thread inside the engine pass; only reads simulation state
         // and hands an immutable result to Unity. Gestures stay local until they become a request.
-        private void OnTroopInput(bool right, int[] boxed, bool box, int[] underCursor, int tileX, int tileY)
+        private void OnTroopInput(RelayInputGesture input)
         {
             var s = session;
             if (s == null) return;
             bool hasGroups = Volatile.Read(ref hasSelection) != 0;
-            if (right) { if (hasGroups) Post(ClearSelection); return; }
-            // Placement and other tools own the mouse; a finished drag is back at idle here.
-            if (MainControls.instance == null || MainControls.instance.CurrentAction != 0) return;
+            // The release that ends a cancelled patrol or attack gesture gives no order.
+            if (input.RightUp && suppressRightUp) { suppressRightUp = false; if (!input.LeftReleased) return; }
+            int armed = Volatile.Read(ref armedAction);
             bool add = EditorDirector.instance != null && EditorDirector.instance.shiftPressed;
-            int[] ids = box ? boxed : underCursor;
+            // Read per gesture: Vanilla's own input follows a change of this setting at once.
+            bool rightCommands = !ConfigSettings.Settings_SH1RTSControls;
+            bool toolActive = MainControls.instance == null || MainControls.instance.CurrentAction != 0;
+            bool paused = Director.instance == null || Director.instance.Paused;
+            int[] ids = input.Box ? input.Boxed : input.UnderCursor;
             var chosen = new List<RelayUnit>();
-            bool hitOther = false, hitEnemy = false;
+            var hit = RelayGestureHit.None;
             lock (RelayWorld.EngineGate)
             {
                 if (!Current(s) || !ReferenceEquals(session, s)) return;
@@ -356,17 +367,31 @@ namespace PlayerControlRelayTest
                     foreach (int id in ids)
                     {
                         if (!RelayWorld.TryGetSelectableUnit(id, out var unit)) continue;
-                        if (unit.Owner == s.LocalPlayer) hitOther = true;
-                        else if (!RelayWorld.CanControl(s.LocalPlayer, unit.Owner)) hitEnemy = true;
-                        else chosen.Add(unit);
+                        bool lord = RelayWorld.IsLord(id);
+                        if (unit.Owner == s.LocalPlayer)
+                        {
+                            // Vanilla keeps handling the own Lord; he does not count as a hit.
+                            if (lord) continue;
+                            if (hit == RelayGestureHit.None) hit = RelayGestureHit.Own;
+                        }
+                        else if (!RelayWorld.CanControl(s.LocalPlayer, unit.Owner))
+                        { if (hit == RelayGestureHit.None) hit = RelayGestureHit.Enemy; }
+                        else if (lord && input.Box) continue; // Vanilla's box leaves Lords out; a click selects him.
+                        else { chosen.Add(unit); hit = RelayGestureHit.Allied; }
                         // A click belongs to the topmost selectable unit only.
-                        if (!box) break;
+                        if (!input.Box) break;
                     }
             }
-            if (chosen.Count > 0) { var units = chosen.ToArray(); Post(() => ApplySelection(units, add)); return; }
-            if (box || hitOther) { if (hasGroups && !add) Post(ClearSelection); return; }
-            // Clicking an enemy is reserved for a later attack order.
-            if (!hitEnemy && hasGroups && tileX >= 0 && tileY >= 0) Post(() => Submit(RelayAction.Move, tileX, tileY));
+            int x = input.TileX, y = input.TileY;
+            switch (RelayGesture.Decide(rightCommands, input.LeftReleased, input.RightDown, input.RightUp, input.Box, add, hit,
+                x >= 0 && y >= 0, paused, hasGroups, toolActive, armed != 0))
+            {
+                case RelayGestureResult.Commit: Post(() => CommitArmed(x, y)); break;
+                case RelayGestureResult.Disarm: suppressRightUp = true; Post(Disarm); break;
+                case RelayGestureResult.Select: var units = chosen.ToArray(); Post(() => ApplySelection(units, add)); break;
+                case RelayGestureResult.Clear: Post(ClearSelection); break;
+                case RelayGestureResult.Move: Post(() => Submit(RelayAction.Move, x, y)); break;
+            }
         }
         private void OnInputFailure(Exception error)
         {
@@ -384,6 +409,8 @@ namespace PlayerControlRelayTest
             var known = new HashSet<RelayUnit>(selected);
             foreach (var unit in units) if (known.Add(unit)) selected.Add(unit);
             Volatile.Write(ref hasSelection, selected.Count > 0 ? 1 : 0);
+            Volatile.Write(ref armedAction, 0);
+            PublishHud();
             Report("Selected allied units: " + selected.Count + " (" + string.Join(", ", selected.Take(12).Select(u => u.Slot + "@" + u.Owner)) + (selected.Count > 12 ? ", ..." : "") + ")");
             frame.SetContinuous(selected.Count > 0);
             frame.Request();
@@ -393,9 +420,99 @@ namespace PlayerControlRelayTest
             AssertMain();
             if (selected.Count == 0) return;
             selected.Clear(); Volatile.Write(ref hasSelection, 0);
+            Volatile.Write(ref armedAction, 0);
+            RelayHud.Publish(null);
             markers.Hide();
             frame.SetContinuous(false);
             Report("Allied selection cleared.");
+        }
+        private void PublishHud() => RelayHud.Publish(selected.Count == 0 ? null :
+            new RelayHudSelection(selected.ToArray(), Volatile.Read(ref armedAction) == (int)RelayAction.Patrol));
+        private bool OwnUnitsSelected()
+        {
+            var state = GameData.Instance?.lastGameState;
+            return state != null && state.numSelectedChimps > selected.Count;
+        }
+        private void Arm(RelayAction action)
+        {
+            int next = Volatile.Read(ref armedAction) == (int)action ? 0 : (int)action;
+            Volatile.Write(ref armedAction, next);
+            PublishHud();
+            Report(next == 0 ? "Disarmed " + action + "." : "Armed " + action + ".");
+        }
+        private void Disarm()
+        {
+            AssertMain();
+            int previous = Interlocked.Exchange(ref armedAction, 0);
+            if (previous == 0) return;
+            PublishHud();
+            Report("Disarmed " + (RelayAction)previous + ".");
+        }
+        private void CommitArmed(int x, int y)
+        {
+            AssertMain();
+            int action = Interlocked.Exchange(ref armedAction, 0);
+            if (action == 0) return;
+            PublishHud();
+            Submit((RelayAction)action, x, y);
+        }
+        // Vanilla's hotkey would open its own placement cursor. True: the mod took the key.
+        private bool ArmPatrolFromKey()
+        {
+            if (Thread.CurrentThread.ManagedThreadId != mainThread || selected.Count == 0 || OwnUnitsSelected()) return false;
+            Arm(RelayAction.Patrol);
+            return true;
+        }
+        // All of Vanilla's troop buttons and hotkeys end here. Alone, the allied selection takes the
+        // action away from the native side, which would otherwise act for the own player. Next to own
+        // units Vanilla keeps acting for those, and cursor actions stay Vanilla's.
+        private void OnGameAction(GameActionPreEventArgs args)
+        {
+            if (Thread.CurrentThread.ManagedThreadId != mainThread || selected.Count == 0 || !IsTroopAction(args.Command)) return;
+            bool own = OwnUnitsSelected();
+            switch (args.Command)
+            {
+                case Enums.GameActionCommand.Troops_Stop: Submit(RelayAction.Stop, 0, 0); break;
+                case Enums.GameActionCommand.Troops_ChangeStance:
+                    if (TryGetStance(args.ActionState, out int stance)) Submit(RelayAction.Stance, stance, 0);
+                    break;
+                case Enums.GameActionCommand.Troops_Disband:
+                    Submit(RelayAction.Disband, 0, 0);
+                    ClearSelection();
+                    break;
+                case Enums.GameActionCommand.Troops_Patrol: if (!own) Arm(RelayAction.Patrol); break;
+                case Enums.GameActionCommand.Troops_AttackHere: if (!own) Arm(RelayAction.AttackHere); break;
+                case Enums.GameActionCommand.Troops_DeSelectType: FilterSelection(args.ActionState, false); break;
+                case Enums.GameActionCommand.Troops_DeSelectExceptType: FilterSelection(args.ActionState, true); break;
+                case Enums.GameActionCommand.CloseTroopsPanel: ClearSelection(); break;
+                default:
+                    if (!own) Report("Troop action " + args.Command + " is not available for allied units yet.");
+                    break;
+            }
+            if (!own) args.SkipOriginalFunction = true;
+        }
+        private static bool IsTroopAction(Enums.GameActionCommand command)
+        {
+            if (command == Enums.GameActionCommand.CloseTroopsPanel) return true;
+            string name = command.ToString();
+            return name.StartsWith("Troops_", StringComparison.Ordinal) || name.StartsWith("EngBuild_", StringComparison.Ordinal);
+        }
+        // DLL_GameAction 0x3FC accepts 0..2 and Vanilla's command values 287..289.
+        private static bool TryGetStance(int value, out int stance)
+        {
+            stance = value >= 287 ? value - 287 : value;
+            return stance >= 0 && stance < RelayValidation.StanceCount;
+        }
+        private void FilterSelection(int type, bool keepType)
+        {
+            var kept = new List<RelayUnit>(selected.Count);
+            lock (RelayWorld.EngineGate)
+                foreach (var unit in selected)
+                    if (RelayWorld.TryGetHudUnit(unit, out int unitType, out _) && (unitType == type) == keepType) kept.Add(unit);
+            if (kept.Count == 0) { ClearSelection(); return; }
+            selected.Clear(); selected.AddRange(kept);
+            PublishHud();
+            Report("Selected allied units: " + selected.Count + " (filtered by type)");
         }
         // Engine gate held. Drops dead units from the selection.
         private RelayMarker[] RefreshSelection()
@@ -403,7 +520,7 @@ namespace PlayerControlRelayTest
             var result = new List<RelayMarker>();
             for (int i = selected.Count - 1; i >= 0; i--)
             {
-                if (!RelayWorld.IsSameLiveUnit(selected[i])) { selected.RemoveAt(i); continue; }
+                if (!RelayWorld.IsSameLiveUnit(selected[i])) { selected.RemoveAt(i); PublishHud(); continue; }
                 if (result.Count < RelayMarkers.MaximumMarkers && Project(selected[i], out var marker)) result.Add(marker);
             }
             return result.ToArray();
@@ -438,9 +555,6 @@ namespace PlayerControlRelayTest
                     finally { Monitor.Exit(RelayWorld.EngineGate); }
                     if (selected.Count == 0) { ClearSelection(); return; }
                 }
-                // KeyManager's key edges already respect GUI keyboard ownership and bindings.
-                if (KeyManager.instance != null && KeyManager.instance.IsActionPressed(Enums.KeyFunctions.Stop))
-                    Submit(RelayAction.Stop, 0, 0);
             }
             catch (Exception error) { Report("Relay frame failed: " + error.Message); frame.RequestAfter(TimeSpan.FromSeconds(1)); }
         }

@@ -1,9 +1,9 @@
 # PlayerControlRelayTest native contract
 
 Audit observation: 2026-11-05. This document covers the experimental backend:
-Move and Stop for exactly the units a player selected. It regroups them through the
-public tribe calls inside the Chore. It does not authorize native Chore producers,
-selection changes on the owner's PC or new native hooks.
+Move, Stop, Stance, Patrol, Disband and Attack Here for exactly the units a player selected. It
+regroups them through the public tribe calls inside the Chore. It does not authorize native Chore
+producers, selection changes on the owner's PC or new native hooks.
 
 ## Identity and provenance
 
@@ -49,10 +49,11 @@ sorted and LEB128-delta encoded with at most 1000 bytes; `RelaySlotCodec.Split` 
 larger selections into separate commands.
 
 Execution rechecks each unit with the selection filter described under Input observation,
-plus owner and global ID. It also skips units the owner has selected (`r_UnitSelected`):
-only the simulation writes that field, so all peers decide alike, and regrouping them
-would change the tribe behind the owner's live selection. A command without any remaining
-unit is rejected without a native call.
+plus owner and global ID. A command without any remaining unit is rejected without a native call.
+Units the owner has selected are ordered too: `0x1173F0`, `0x1918A0`, `0x19A5D0` and `0x19A700` read
+the unit's current tribe, and `0x123EA0` checks it, so no crash path is visible after regrouping.
+The owner keeps seeing such a unit as selected; the next order to the old tribe does not reach it
+until the owner selects again. This is static evidence; a real match has not confirmed it.
 
 If the remaining units are exactly all members of one tribe, that tribe receives the
 order. Otherwise `TryRegroup` creates a tribe with `Create` and the majority stance
@@ -211,21 +212,45 @@ are ignored. The native marking `0x1904C0` marks only units of the local view, s
 foreign units cannot use Vanilla's selection or its highlight. `TryGetSelectableUnit`
 applies that function's per-unit filter without its owner test. It reads
 `r_SelectionAllowed`, `r_AIObjectiveState`, `r_AIState` (0x6D is the disband state
-written by `0x186D10`), and the unnamed field at typed `+0xAC`. Lords are excluded
-like in `0x1904C0`. Their offsets are part of the initialization layout check.
+written by `0x186D10`), and the unnamed field at typed `+0xAC`. Lords pass this filter, because `0x1904C0` only keeps them out of box marking and Vanilla has own
+Lord paths (`0x191C90`, `lordOnlySelected`). The input applies the box rule locally, so execution stays
+peer-independent. Their offsets are part of the initialization layout check.
 
-Gestures: a click selects the topmost selectable allied unit, a box selects all hit
-allied units, and Shift adds. A right click, a click on
-an own unit and a box without allied units clear the selection. A click without a
-selectable unit orders Move to the tile under the cursor, while Vanilla handles its
-own selected units as usual. A click on an enemy is ignored. Stop uses
-`KeyManager.IsActionPressed(KeyFunctions.Stop)`, whose key edges respect bindings and
-GUI keyboard ownership; it is only queried while a selection exists. Markers are
-screen-space lines of the same library as Vanilla's selection rectangle.
+Gestures follow `ConfigSettings.Settings_SH1RTSControls`, which `DLL_RunTick` passes as argument 26 to
+input `0x8C5F0` as `param_4`, and which the mod reads per gesture. `true`: left release orders, right press
+clears (`0x1800897F0`). `false`: right release (`param_5`) orders, a left click without Shift clears.
+`preDLLCallActions` zeroes only the left state while paused, so `RelayGesture` checks the pause for the right
+button itself. A release BugfixesAndQoL suppresses after a placement cancel does not reach the mod either.
+In both modes a left click selects the topmost selectable allied unit, a box selects all hit
+allied units without Lords, and Shift adds. A click on an enemy gives no order. An armed patrol or attack
+behaves like Vanilla's placement cursor: left confirms, right cancels.
 
 A click on an own building also counts as a click without a unit and therefore moves
-the selected allied units there. Spectators have no participating player and no
-alliance; the relay stays inactive and logs that once.
+the selected allied units there; Vanilla's building-specific order codes (`DAT_1860ad560`) are not used.
+Spectators have no participating player and no alliance; the relay stays inactive and logs that once.
+
+## Vanilla troop HUD
+
+Managed baseline as above. `GameData` opens the HUD at `app_mode == 14` and `app_sub_mode` 61 or 62 through
+`TroopsSelectedGameAction`, and `updateDLLSelectedTroops` feeds the portraits from `numSelectedChimps`,
+`selectedChimps` and `selectedChimpTypes`. KeyManager's Stop, stance and Attack Here keys and FatControler's
+stance display read the same state. `RelayHud` extends only the managed result of
+`EngineInterface.CopyPlayStateStruct` by a Harmony postfix. It sets sub-mode 61, the unit lists,
+`troops_show_stance`, `troops_show_disband`, `troops_show_patrol`, `troops_patrol_mode`, `lordOnlySelected` and
+`troops_show_attack_here_and_type` 5. Native `0x19D960` writes that last field with 1 for oil, 2 for tunnel and
+3 to 5 for other fighters; the mod does not reproduce this per-type rule, so Attack Here is shown for every
+allied selection. All other `troops_show_*` stay 0, which hides the special buttons. Nothing reaches the
+simulation or the native selection. BugfixesAndQoL's foreign HUD leaves by its own rule
+(`ForeignTroopHudRuntime`: `vanilla-troop-selection`).
+
+All buttons end in `EngineInterface.GameAction`. APIShared's `GameActionEvents` Pre vetoes `Troops_*`, `EngBuild_*` and
+`CloseTroopsPanel` for a purely allied selection, because `DLL_GameAction` would otherwise act for the view
+(Stop `0x3F2`, Disband `0x3F3`, stance `0x3FC`; `0x3F4` and `0x3FB` arm a placement cursor). Next to own units
+Vanilla keeps acting for those, and the mod orders the allied units as well, except for the cursor actions.
+A prefix on `EditorDirector.placeBuilding` catches Vanilla's patrol key, which skips `GameAction`.
+
+Public calls in the Chore: `SetStance`, `SetPatrolPath` with `PatrolInfinite` between the leader's tile and the
+target, `IssueTargettedCommand(UnitDissolve, 0, 0, 1)` as in `Stop`, and `AttackTile`.
 
 ## Update and acceptance checks
 
@@ -240,11 +265,11 @@ recycling, owner changes, whole-group detection, invalid target coordinates, dup
 requests and the wire limit of the largest command. They model these boundaries; they do
 not execute the game's simulation or the terminal calls.
 
-`UiAcceptance` scenario `SP-relay.json` runs the real `preDLLCallActions` in a skirmish and
-replaces only Unity's mouse values. It checks real picking of foreign units, 1, 7, 2 and
-140 exact units, their target change, unchanged nonmembers, Stop up to the native call,
-regrouped AI units over 45 s and no freeze with the Spectator placement mode. It proves no
-physical mouse input and no network behavior.
+`UiAcceptance` scenario `SP-relay.json` runs the real `preDLLCallActions` in a skirmish in both mouse modes and
+replaces only Unity's mouse values. It checks real picking of foreign units, exact selections, their target
+change, no outsider in the ordered group, the Vanilla HUD with the foreign HUD closed, Stop, stance, patrol,
+disband, the Lord, regrouped AI units over about 50 s and no freeze with the Spectator placement mode.
+Attack Here is checked only up to the native call. It proves no physical mouse input and no network behavior.
 
 Game acceptance must compare standalone dependencies with the normal mod set,
 then real matching-build host/client peers: own and allied units, owner

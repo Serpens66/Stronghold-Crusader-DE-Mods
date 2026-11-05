@@ -4,23 +4,30 @@ using HarmonyLib;
 
 namespace PlayerControlRelayTest
 {
-    // Vanilla's per-pass troop gesture input: released left button, right button and the unit
+    // Vanilla's per-pass troop gesture input: released left button, both right-button edges and the unit
     // IDs of a selection box or under the cursor (all owners). TroopSelection's mousePosX/Y are
     // screen pixels, so the order target comes from preDLLCallActions' mouseOverX/Y: the same
     // tile DLL_RunTick receives, already -1 over GUI. Both run in one engine pass on one thread.
     // Observes only: Vanilla receives unchanged arguments and keeps handling its own units. The
     // postfixes share the methods' existing Harmony chains and stay installed for the process.
+    internal sealed class RelayInputGesture
+    {
+        internal bool LeftReleased, RightDown, RightUp, Box;
+        internal int[] Boxed, UnderCursor;
+        internal int TileX, TileY;
+    }
+
     internal static class RelayInput
     {
         // EditorDirector's left-button engine state for a release.
         private const int ReleasedLeftButton = 3;
         private static Harmony harmony;
-        private static Action<bool, int[], bool, int[], int, int> gesture;
+        private static Action<RelayInputGesture> gesture;
         private static Action<Exception> failure;
-        private static bool pending, pendingRight, pendingBox;
+        private static bool pending, pendingLeft, pendingRightDown, pendingRightUp, pendingBox;
         private static int[] pendingBoxed, pendingUnderCursor;
 
-        internal static void Initialize(Action<bool, int[], bool, int[], int, int> onGesture, Action<Exception> onFailure)
+        internal static void Initialize(Action<RelayInputGesture> onGesture, Action<Exception> onFailure)
         {
             if (harmony != null) return;
             MethodInfo input = typeof(EngineInterface).GetMethod(nameof(EngineInterface.TroopSelection),
@@ -45,8 +52,8 @@ namespace PlayerControlRelayTest
         // overwritten, so a pass that threw before its dispatch cannot leak a stale gesture.
         private static void AfterTroopSelection(int __0, bool __1, bool __2, int[] __3, bool __4, int[] __6)
         {
-            pendingRight = __1 || __2;
-            pending = __0 == ReleasedLeftButton || pendingRight;
+            pendingLeft = __0 == ReleasedLeftButton; pendingRightDown = __1; pendingRightUp = __2;
+            pending = pendingLeft || pendingRightDown || pendingRightUp;
             if (!pending) return;
             pendingBoxed = __3; pendingBox = __4; pendingUnderCursor = __6;
         }
@@ -57,7 +64,11 @@ namespace PlayerControlRelayTest
             pending = false;
             int[] boxed = pendingBoxed, underCursor = pendingUnderCursor;
             pendingBoxed = pendingUnderCursor = null;
-            try { gesture(pendingRight, boxed, pendingBox, underCursor, mouseOverX, mouseOverY); }
+            try
+            {
+                gesture(new RelayInputGesture { LeftReleased = pendingLeft, RightDown = pendingRightDown, RightUp = pendingRightUp,
+                    Box = pendingBox, Boxed = boxed, UnderCursor = underCursor, TileX = mouseOverX, TileY = mouseOverY });
+            }
             catch (Exception error) { failure(error); }
         }
     }

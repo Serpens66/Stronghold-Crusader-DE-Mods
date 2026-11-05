@@ -7,7 +7,7 @@ using System.Text;
 
 namespace PlayerControlRelayTest
 {
-    internal enum RelayAction { Move = 1, Stop = 2 }
+    internal enum RelayAction { Move = 1, Stop = 2, Stance = 3, Patrol = 4, Disband = 5, AttackHere = 6 }
     internal enum RelayOutcome { Accepted, Rejected, Submitted, Executed, Uncertain }
 
     // Local snapshot for selection and markers.
@@ -101,7 +101,7 @@ namespace PlayerControlRelayTest
             if (string.IsNullOrWhiteSpace(epoch) || epoch.Length > 128) throw new ArgumentException("Invalid relay epoch.", nameof(epoch));
             WireText.GetByteCount(epoch);
             if (owner < 1 || owner > 8 || requester == 0 || requestId <= 0 || maxGlobalId == 0) throw new ArgumentException("Invalid relay request identity.");
-            if (action != RelayAction.Move && action != RelayAction.Stop) throw new ArgumentException("Unknown relay action.", nameof(action));
+            if (action < RelayAction.Move || action > RelayAction.AttackHere) throw new ArgumentException("Unknown relay action.", nameof(action));
             if (unitSlots == null || unitSlots.Count < 1) throw new ArgumentException("A relay command needs at least one unit.", nameof(unitSlots));
             EncodedSlots = RelaySlotCodec.Encode(unitSlots);
             if (EncodedSlots.Length > RelaySlotCodec.MaximumEncodedBytes) throw new ArgumentException("Too many units for one relay command.", nameof(unitSlots));

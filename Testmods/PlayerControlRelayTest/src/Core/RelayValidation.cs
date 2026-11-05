@@ -26,14 +26,19 @@ namespace PlayerControlRelayTest
     {
         internal const int StanceCount = 3;
 
+        internal static bool UsesTile(RelayAction action) =>
+            action == RelayAction.Move || action == RelayAction.Patrol || action == RelayAction.AttackHere;
+
         internal static bool TryValidate(RelayCommand command, int mapWidth, int mapHeight, out string reason)
         {
             reason = null;
             if (command == null) { reason = "No relay command."; return false; }
             if (mapWidth < 1 || mapHeight < 1) { reason = "Map bounds are unavailable."; return false; }
-            if (command.Action == RelayAction.Move &&
+            if (UsesTile(command.Action) &&
                 (command.TargetX < 0 || command.TargetY < 0 || command.TargetX >= mapWidth || command.TargetY >= mapHeight))
-            { reason = "Move target is outside the current map."; return false; }
+            { reason = "Order target is outside the current map."; return false; }
+            if (command.Action == RelayAction.Stance && (command.TargetX < 0 || command.TargetX >= StanceCount))
+            { reason = "Unknown stance."; return false; }
             return true;
         }
 

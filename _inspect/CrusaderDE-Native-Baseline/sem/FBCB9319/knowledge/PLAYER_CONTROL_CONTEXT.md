@@ -441,3 +441,11 @@ Managed baseline `BC8B6A395F01D48557DB413600C8DD8D1FDFD3ABDF97BFBBB68A3C56B04FD7
 Verification: decompiled from the installed managed assembly; `SP-relay.json` drives this path.
 
 Observation from `SP-relay.json`, 2026-11-05, AI player 2, 150 archers spawned into a separate tribe: within 300 ms the AI moved them into its own tribes in high slots (for example 4482, 4490, 4498), and the emptied tribe became free for `0x119C00` again. Tribes built later with `Create`/`UnassignUnit`/`AssignUnit` kept their members for the 51 s observed. One run on one map; it does not establish a general AI rule.
+
+## Mouse mode and troop HUD inputs (2026-11-05)
+
+`ConfigSettings.Settings_SH1RTSControls` is `DLL_RunTick` argument 26 and `param_4` of input `0x8C5F0`. True: left release orders, right press deselects through `0x1800897F0`. False: right release (`param_5`) orders, a left press without Shift deselects and reruns the input as release. Type 0x37 (55) is the Lord: `0x1904C0` leaves him out of box marking, while `0x191C90` finds a selectable Lord for the local view and the HUD reads `lordOnlySelected`.
+
+`0x19D960` writes the play-state troop fields: `troops_show_attack_here_and_type` is 1 (`0x1968B0` and `0x1968F0`), 2 (`0x196CB0`), 3 (types 0x27/0x28, with `0x40A` as ammunition), 4 (`0x196A30`), 5 or 0 (`0x196AC0` true gives 0). `DLL_GameAction` maps Stop 0x3F2 and Disband 0x3F3 to queued group commands 0x1F and 0x1E, arms Attack Here 0x3F4 through `0x90510`, and returns mapper 0x22 for Patrol 0x3FB, which the managed wrapper turns into `placeBuilding`.
+
+Evidence: decompiled current image and managed export. Observed through `SP-relay.json`; the classification of the `0x196A30` and `0x196AC0` type lists was not resolved to unit names.

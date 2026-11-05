@@ -61,7 +61,6 @@ namespace PlayerControlRelayTest
                         Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.r_GlobalId)).ToInt32() != 0x94 ||
                         Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.r_ControllableForPlayerId)).ToInt32() != 0x92 ||
                         Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.N0000011E)).ToInt32() != 0xAC ||
-                        Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.r_UnitSelected)).ToInt32() != 0xAE ||
                         Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.r_SelectionAllowed)).ToInt32() != 0x2A0 ||
                         Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.r_AIState)).ToInt32() != 0x2BC ||
                         Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.r_AIObjectiveState)).ToInt32() != 0x354 ||
@@ -89,17 +88,36 @@ namespace PlayerControlRelayTest
             return size > 0 && size <= GameTileManagerAPI.MAX_WIDTH ? size : 0;
         }
 
-        // Uses the per-unit filter of Vanilla's selection marking 0x1904C0, without its owner
-        // test. The raw native field at +0xAC has no Extender name yet.
+        // Uses the per-unit filter of Vanilla's selection marking 0x1904C0, without its owner and
+        // Lord tests. The raw native field at +0xAC has no Extender name yet.
         internal static bool TryGetSelectableUnit(int id, out RelayUnit result)
         {
             RequireEngineGate();
             result = default;
             if (!Available() || id <= 0 || !UnitAccess.TryGetById(id, out GameUnit* unit, out _) || !UnitAccess.IsReallyAlive(unit) ||
                 unit->r_SelectionAllowed == 0 || unit->r_AIObjectiveState != 0 || unit->r_AIState == NativeDisbandingState ||
-                unit->N0000011E != 0 || unit->r_UnitChimp == eChimps.CHIMP_TYPE_LORD ||
+                unit->N0000011E != 0 ||
                 unit->r_GlobalId == 0 || !ValidPlayer(unit->r_ControllableForPlayerId)) return false;
             result = new RelayUnit(id, unit->r_GlobalId, unit->r_ControllableForPlayerId);
+            return true;
+        }
+
+        // 0x1904C0 leaves Lords out of box marking. Input applies that locally; execution stays
+        // independent of it, so all peers decide alike.
+        internal static bool IsLord(int id)
+        {
+            RequireEngineGate();
+            return UnitAccess.TryGetById(id, out GameUnit* unit, out _) && unit->r_UnitChimp == eChimps.CHIMP_TYPE_LORD;
+        }
+
+        // What Vanilla's troop HUD needs to know about a selected unit. Engine gate held.
+        internal static bool TryGetHudUnit(RelayUnit captured, out int type, out int stance)
+        {
+            type = 0; stance = -1;
+            if (!IsSameLiveUnit(captured) || !UnitAccess.TryGetById(captured.Slot, out GameUnit* unit, out _)) return false;
+            type = (int)unit->r_UnitChimp;
+            if (unit->r_TribeId > 0 && GameTribeManagerAPI.Instance.TryGetTribeById(unit->r_TribeId, out GameTribe* tribe) && tribe != null)
+                stance = (int)tribe->r_TribeStance;
             return true;
         }
 
@@ -125,19 +143,19 @@ namespace PlayerControlRelayTest
             if (MapSize() == 0) { reason = "No ready native map."; return false; }
             if (!RelayValidation.TryPlan(command, GameTileManagerAPI.MAX_WIDTH, GameTileManagerAPI.MAX_HEIGHT,
                 ResolveOrderUnit, TribeMemberCount, out plan, out reason)) return false;
-            if (command.Action == RelayAction.Move &&
+            if (RelayValidation.UsesTile(command.Action) &&
                 !GameTileManagerAPI.Instance.IsTileInsideMapBounds(command.TargetX, command.TargetY))
-            { plan = null; reason = "Move target is outside the playable map."; return false; }
+            { plan = null; reason = "Order target is outside the playable map."; return false; }
             return true;
         }
 
-        // Units the owner has selected stay with the owner: the owner's next order refers to
-        // them, and r_UnitSelected is simulation state, so every peer decides alike.
+        // A unit the owner has selected is ordered too: Vanilla's selection code (0x1173F0, 0x19A5D0,
+        // 0x19A700) reads the unit's current group, so it reaches the unit in its new group.
         private static bool ResolveOrderUnit(int slot, int owner, uint maxGlobalId, out int tribeId, out int stance)
         {
             tribeId = 0; stance = 0;
             if (!TryGetSelectableUnit(slot, out RelayUnit live) || live.Owner != owner || live.GlobalId > maxGlobalId ||
-                !UnitAccess.TryGetById(slot, out GameUnit* unit, out _) || unit->r_UnitSelected != 0) return false;
+                !UnitAccess.TryGetById(slot, out GameUnit* unit, out _)) return false;
             tribeId = unit->r_TribeId;
             if (tribeId > 0 && GameTribeManagerAPI.Instance.TryGetTribeById(tribeId, out GameTribe* tribe) && tribe != null)
                 stance = (int)tribe->r_TribeStance;
@@ -163,10 +181,7 @@ namespace PlayerControlRelayTest
             bool success;
             try
             {
-                success = command.Action == RelayAction.Move
-                    ? GameTribeManagerAPI.Instance.IssueMoveHereCommand(tribeId, command.TargetX, command.TargetY,
-                        isPatrolPath: false, bIsNewOrder: 1, tribeMoveType: TribeMoveType.DefaultInSync)
-                    : GameTribeManagerAPI.Instance.Stop(tribeId);
+                success = Issue(command, tribeId);
             }
             catch (Exception error)
             {
@@ -177,6 +192,31 @@ namespace PlayerControlRelayTest
             reason = (success ? plan.Slots.Count + " units ordered" : "Native order for " + plan.Slots.Count + " units returned failure") +
                 "; group=" + tribeId + "; skipped=" + plan.Skipped + "; movement/arrival is not confirmed.";
             return success;
+        }
+
+        // One public group call; each reads and writes simulation state only, so all peers agree.
+        private static bool Issue(RelayCommand command, int tribeId)
+        {
+            var tribes = GameTribeManagerAPI.Instance;
+            switch (command.Action)
+            {
+                case RelayAction.Move:
+                    return tribes.IssueMoveHereCommand(tribeId, command.TargetX, command.TargetY,
+                        isPatrolPath: false, bIsNewOrder: 1, tribeMoveType: TribeMoveType.DefaultInSync);
+                case RelayAction.Stop: return tribes.Stop(tribeId);
+                case RelayAction.Stance: return tribes.SetStance(tribeId, (TribeStance)command.TargetX);
+                case RelayAction.Disband: return tribes.IssueTargettedCommand(tribeId, TribeAICommand.UnitDissolve, 0, 0, 1);
+                case RelayAction.AttackHere: return tribes.AttackTile(tribeId, command.TargetX, command.TargetY);
+                case RelayAction.Patrol:
+                    // Between the group's current place and the clicked tile, as endless patrol.
+                    if (!tribes.TryGetTribeById(tribeId, out GameTribe* tribe) || tribe == null ||
+                        !UnitAccess.TryGetById(tribe->r_LeaderUnitId, out GameUnit* leader, out _)) return false;
+                    var path = new[] {
+                        new UnmanagedVector2<ushort>((ushort)leader->r_CurrentTilePositionX, (ushort)leader->r_CurrentTilePositionY),
+                        new UnmanagedVector2<ushort>((ushort)command.TargetX, (ushort)command.TargetY) };
+                    return tribes.SetPatrolPath(tribeId, path, TribePatrolMode.PatrolInfinite, 1);
+                default: return false;
+            }
         }
 
         // Same public calls and order as BugfixesAndQoL's EnsureDedicatedTribe, and the same native
