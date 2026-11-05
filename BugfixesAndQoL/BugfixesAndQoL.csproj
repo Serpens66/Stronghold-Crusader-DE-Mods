@@ -262,6 +262,7 @@
     <Compile Include="src\EnemyProximityBulldozeCursorHook.cs" />
     <Compile Include="src\ExtendedShiftCommandQueueModel.cs" />
     <Compile Include="src\ExtendedShiftCommandQueueRuntime.cs" />
+    <Compile Include="src\ExtendedShiftOverlayRenderer.cs" />
     <Compile Include="src\FormationFeature.cs" />
     <Compile Include="src\UnitCommands\**\*.cs" />
     <Compile Include="src\Formations\*.cs" />
