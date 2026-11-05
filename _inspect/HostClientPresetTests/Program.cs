@@ -2022,10 +2022,10 @@ internal static class Program
               !LordUnitControlsPolicy.CanShowDisband(true, false, false) &&
               !LordUnitControlsPolicy.CanShowDisband(true, true, true),
             "Lord disband visibility ignored surrender availability");
-        Check(LordUnitControlsPolicy.ShouldReturnToDefaultHud(true, true, 0) &&
-              !LordUnitControlsPolicy.ShouldReturnToDefaultHud(false, true, 0) &&
-              !LordUnitControlsPolicy.ShouldReturnToDefaultHud(true, false, 0) &&
-              !LordUnitControlsPolicy.ShouldReturnToDefaultHud(true, true, 1),
+        Check(LordUnitControlsPolicy.ShouldReturnToDefaultHud(true, true, false) &&
+              !LordUnitControlsPolicy.ShouldReturnToDefaultHud(false, true, false) &&
+              !LordUnitControlsPolicy.ShouldReturnToDefaultHud(true, false, false) &&
+              !LordUnitControlsPolicy.ShouldReturnToDefaultHud(true, true, true),
             "Lord troop HUD default-HUD transition policy was incorrect");
         Check(LordUnitControlsPolicy.GetDisbandAction(true, true, true, false, true) ==
               LordDisbandAction.RequestSurrender,

@@ -64,8 +64,8 @@ namespace BugfixesAndQoL
         internal static bool ShouldReturnToDefaultHud(
             bool lordModeWasActive,
             bool troopHudVisible,
-            int selectedCount) =>
-            lordModeWasActive && troopHudVisible && selectedCount == 0;
+            bool selectionContainsNormalUnit) =>
+            lordModeWasActive && troopHudVisible && !selectionContainsNormalUnit;
 
         internal static LordStanceTooltipAction GetStanceTooltipAction(
             bool lordModeActive,

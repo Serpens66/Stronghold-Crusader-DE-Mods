@@ -101,7 +101,11 @@ namespace BugfixesAndQoL
             bool active = TryGetSoleControlledLord(out _);
             if (!active || main == null)
             {
-                bool returnToDefaultHud = lordModeActive && main?.Show_HUD_Troops == true && !SelectionContainsNormalUnit();
+                // The selection is only scanned on the one call that leaves Lord mode.
+                bool returnToDefaultHud = LordUnitControlsPolicy.ShouldReturnToDefaultHud(
+                    lordModeActive,
+                    main?.Show_HUD_Troops == true,
+                    lordModeActive && SelectionContainsNormalUnit());
                 DeactivateLordOnlyMode(!returnToDefaultHud);
                 if (returnToDefaultHud)
                 {
