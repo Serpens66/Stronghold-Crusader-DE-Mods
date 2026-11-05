@@ -23,6 +23,9 @@ namespace BugfixesAndQoL
             new Dictionary<string, List<AivAicPresetDefinition>>(StringComparer.OrdinalIgnoreCase);
         private readonly ManualLogSource log;
         private readonly string storePath;
+        // Set when loading could not take over the file's presets. The next write keeps a copy
+        // first, so presets from an unreadable or partly invalid store are not lost.
+        private bool keepExistingFileBeforeWrite;
 
         public AivAicPresetStore(ManualLogSource log)
         {
@@ -273,12 +276,18 @@ namespace BugfixesAndQoL
                 foreach (KeyValuePair<string, object> lordEntry in lords)
                 {
                     if (string.IsNullOrWhiteSpace(lordEntry.Key) || !(lordEntry.Value is List<object> values))
+                    {
+                        keepExistingFileBeforeWrite = true;
                         continue;
+                    }
                     var parsed = new List<AivAicPresetDefinition>();
                     foreach (object value in values)
                     {
                         if (parsed.Count >= MaximumPresetsPerLord)
+                        {
+                            keepExistingFileBeforeWrite = true;
                             break;
+                        }
                         try
                         {
                             AivAicPresetDefinition preset = ParsePreset(value);
@@ -293,6 +302,7 @@ namespace BugfixesAndQoL
                                 Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/AivAicPresetStore/Load.migrated-aiv-aic-preset", $"Bugfixes and QoL migrated AIV/AIC preset '{preset.Name}' for " +
                                     $"{lordEntry.Key}: truncated {originalCount} AIV entries to {MaximumAivEntries}.");
                                 migrated = true;
+                                keepExistingFileBeforeWrite = true;
                             }
                             if (preset != null && !parsed.Exists(item => string.Equals(
                                     item.Name, preset.Name, StringComparison.OrdinalIgnoreCase)))
@@ -300,6 +310,7 @@ namespace BugfixesAndQoL
                         }
                         catch (Exception ex)
                         {
+                            keepExistingFileBeforeWrite = true;
                             Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/AivAicPresetStore/Load.ignored-invalid-aiv-aic", $"Bugfixes and QoL ignored an invalid AIV/AIC preset for {lordEntry.Key}: {ex.Message}");
                         }
                     }
@@ -311,6 +322,7 @@ namespace BugfixesAndQoL
             }
             catch (Exception ex)
             {
+                keepExistingFileBeforeWrite = true;
                 Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/AivAicPresetStore/Load.could-not-load-aiv", $"Bugfixes and QoL could not load AIV/AIC presets from {storePath}: {ex.Message}");
             }
         }
@@ -335,6 +347,14 @@ namespace BugfixesAndQoL
                     ["lords"] = lords,
                 };
                 Directory.CreateDirectory(directory);
+                if (keepExistingFileBeforeWrite && File.Exists(storePath))
+                {
+                    string backupPath = storePath + ".unreadable-" +
+                        DateTime.Now.ToString("yyyyMMdd-HHmmss-fff", CultureInfo.InvariantCulture) + ".bak";
+                    File.Copy(storePath, backupPath, overwrite: false);
+                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/AivAicPresetStore/Write.kept-previous-file", $"Bugfixes and QoL kept the previous AIV/AIC preset file as {backupPath} before writing a new one.");
+                }
+                keepExistingFileBeforeWrite = false;
                 File.WriteAllText(temporaryPath, Shared.DependencyFreeJson.Serialize(root),
                     new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
                 if (File.Exists(storePath))
