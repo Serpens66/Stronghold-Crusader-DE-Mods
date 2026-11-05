@@ -108,9 +108,7 @@ namespace BugfixesAndQoL
             {
                 // Only one origin provider may be active. An enabled external provider owns the
                 // complete transition, while this component remains the physical button owner.
-                TrailCustomizationLaunchOriginApi.Clear();
-                customTrailSetupRestartInfo = null;
-                customTrailSetupHeader = null;
+                ClearCustomTrailLaunch();
             }
 
             foreach (Button button in injectedButtons)
@@ -142,10 +140,19 @@ namespace BugfixesAndQoL
             }
         }
 
+        // Leaving a customized Custom Trail setup must not leave its restart data behind:
+        // StartSkirmishGameHook would apply it to the next plain skirmish start.
+        private void ClearCustomTrailLaunch()
+        {
+            TrailCustomizationLaunchOriginApi.Clear();
+            customTrailSetupRestartInfo = null;
+            customTrailSetupHeader = null;
+        }
+
         private void FrontendOpenCustomTrailHook(FrontendMenus self, string trailName, int level)
         {
             frontendOpenCustomTrailOriginal(self, trailName, level);
-            TrailCustomizationLaunchOriginApi.Clear();
+            ClearCustomTrailLaunch();
             RefreshVisibility();
         }
 
@@ -168,9 +175,7 @@ namespace BugfixesAndQoL
                 }
                 catch (Exception exception)
                 {
-                    customTrailSetupRestartInfo = null;
-                    customTrailSetupHeader = null;
-                    TrailCustomizationLaunchOriginApi.Clear();
+                    ClearCustomTrailLaunch();
                     Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/TrailCustomizationFeature/FrontendButtonHook.could-not-open-custom", "Could not open Custom Trail setup: " + exception);
                 }
                 return;
@@ -178,7 +183,7 @@ namespace BugfixesAndQoL
 
             frontendButtonOriginal(self, command);
             if (IsContextChangeCommand(command))
-                TrailCustomizationLaunchOriginApi.Clear();
+                ClearCustomTrailLaunch();
             if (IsCoopTrailOpenCommand(command) || string.Equals(command, "Coops", StringComparison.Ordinal))
                 EnsureCoopButtons();
         }
