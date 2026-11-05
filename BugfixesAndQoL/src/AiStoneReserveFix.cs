@@ -51,8 +51,8 @@ namespace BugfixesAndQoL
             ValidateAivNativeLayout(memory, referenceHashMatches);
 
             // SHCDESE_COARSE_GRID_BUFFER_WORKAROUND: the official API is always attempted
-            // first. See Findings/SHCDESE-CoarseGridBuffer-TypeLoadException.md. Remove the
-            // marked fallback after the official live-village and build-step views load on Mono.
+            // first. Remove the marked fallback after the official live-village and
+            // build-step views load on Mono.
             int moduleLength = memory.Length;
             aivDataSource = ShcdeSeCoarseGridBufferWorkaround.SelectBackend(
                 () => new OfficialAiStoneReserveAivDataSource(GameAIVManagerAPI.Instance),

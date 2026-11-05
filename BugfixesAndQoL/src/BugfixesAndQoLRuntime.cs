@@ -1223,8 +1223,7 @@ namespace BugfixesAndQoL
 
             try
             {
-                // The hook object remains available for synchronized setting changes, but
-                // ApplySetting physically restores Vanilla bytes while either switch is off.
+                // The hook stays installed. ApplySetting only changes its logical activation.
                 aiStoneReserveFix = new AiStoneReserveFix(
                     log,
                     settings,
