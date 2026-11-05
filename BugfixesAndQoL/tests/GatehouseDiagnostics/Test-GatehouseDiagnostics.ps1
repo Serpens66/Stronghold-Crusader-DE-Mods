@@ -2,11 +2,11 @@ param([switch]$Diagnostic, [string]$BaselineRef)
 $ErrorActionPreference='Stop'
 if($PSVersionTable.PSVersion.Major -lt 7){throw 'Use pwsh for this in-memory source fixture.'}
 $root=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
-$files=@('BugfixesAndQoL/src/ReachableEnemyGatehouseRuntime.cs','BugfixesAndQoL/src/SynchronizedGatehouseReachabilityPolicy.cs',
+$files=@('BugfixesAndQoL/src/GateRouting/ReachableEnemyGatehouseRuntime.cs','BugfixesAndQoL/src/GateRouting/SynchronizedGatehouseReachabilityPolicy.cs',
     'APIShared/src/Buildings/Gatehouse/GatehouseDrawbridgeCoupling.cs','Shared/Runtime/Gameplay/GatehouseQueryUnitIdPolicy.cs',
     'BugfixesAndQoL/tests/GatehouseDiagnostics/GatehouseFixture.cs')
 $options=@('/unsafe','/nowarn:0649,0414')
-if($Diagnostic){$files+='BugfixesAndQoL/src/ReachableEnemyGatehouseRuntime.DevDiag.cs';$options+='/define:SERP_DEVDIAG'}
+if($Diagnostic){$files+='BugfixesAndQoL/src/GateRouting/ReachableEnemyGatehouseRuntime.DevDiag.cs';$options+='/define:SERP_DEVDIAG'}
 if($BaselineRef){
     $commit=(& git -C $root rev-parse --verify ($BaselineRef+'^{commit}')) -join ''
     if($LASTEXITCODE -ne 0 -or $commit -notmatch '^[0-9a-f]{40}$'){throw 'Invalid baseline commit.'}
@@ -21,8 +21,8 @@ if($BaselineRef){
         }else{Join-Path $root $file}
     })
 }else{
-    $files+='BugfixesAndQoL/src/GatehouseFootprintGeometryCache.cs'
-    $files+='BugfixesAndQoL/src/SimulationRunScope.cs'
+    $files+='BugfixesAndQoL/src/GateRouting/GatehouseFootprintGeometryCache.cs'
+    $files+='BugfixesAndQoL/src/Core/Common/SimulationRunScope.cs'
     $files+='BugfixesAndQoL/tests/GatehouseDiagnostics/GeometryCacheTests.cs'
     $options+='/define:GEOMETRY_OPTIMIZED'
     $files=@($files|ForEach-Object{Join-Path $root $_})

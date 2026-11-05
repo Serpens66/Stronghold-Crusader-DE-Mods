@@ -226,7 +226,7 @@ internal static partial class Program
         string root = args.Length > 0
             ? Path.GetFullPath(args[0])
             : Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
-        string runtimePath = Path.Combine(root, "BugfixesAndQoL", "src", "AssassinPathfindingRuntime.cs");
+        string runtimePath = Path.Combine(root, "BugfixesAndQoL", "src", "Assassins/AssassinPathfindingRuntime.cs");
         string runtime = File.ReadAllText(runtimePath);
         Check(runtime.Contains("AssassinPathAPI.RunVanillaBuilder(context, startX, startY, targetX, targetY, maximumNodes, continuation)"),
             "Vanilla builder remains in the Assassin request path");

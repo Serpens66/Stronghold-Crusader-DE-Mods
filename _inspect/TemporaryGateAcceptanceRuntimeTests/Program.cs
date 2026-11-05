@@ -13,7 +13,7 @@ string Render(SyntaxNode node) => node.ReplaceTrivia(node.DescendantTrivia()
     .Where(t => t.IsDirective || t.IsKind(SyntaxKind.DisabledTextTrivia)), (old, _) => default).ToFullString();
 string[] files = {
     "APIShared/src/Pathfinding/GateRoutes/GateAccessRules.cs",
-    "BugfixesAndQoL/src/RaidAttackFieldEvaluation.cs",
+    "BugfixesAndQoL/src/AI/Raid/RaidAttackFieldEvaluation.cs",
     "APIShared/src/Pathfinding/Assassin/AssassinGateTransitionPolicy.cs", "APIShared/src/Pathfinding/GateRoutes/TemporaryGateRouteAcceptanceBridge.cs", "APIShared/src/Units/UnitAccess.cs", "Shared/Runtime/Native/TemporaryPackedRouteInspection.cs",
     "BugfixesAndQoL/src/UnitCommands/Movement/TemporaryGateRouteReporting.cs", "BugfixesAndQoL/src/GateRouting/TemporaryGateRouteAcceptance.DevDiag.cs",
     "BugfixesAndQoL/src/GateRouting/NativeAssassinTrace.DevDiag.cs", "BugfixesAndQoL/src/GateRouting/TemporaryGateAcceptanceAggregate.DevDiag.cs", "BugfixesAndQoL/src/GateRouting/RouteTilePolicySnapshot.cs",
@@ -22,7 +22,7 @@ string[] files = {
     "Shared/Runtime/Diagnostics/DevDiag.cs"
 };
 var trees = files.Select(f => Parse(File.ReadAllText(Path.Combine(root, f)), path: f)).ToList();
-var production = Parse(File.ReadAllText(Path.Combine(root, "BugfixesAndQoL/src/AssassinPathfindingRuntime.cs")));
+var production = Parse(File.ReadAllText(Path.Combine(root, "BugfixesAndQoL/src/Assassins/AssassinPathfindingRuntime.cs")));
 string producer = Render(production.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>()
     .Single(m => m.Identifier.ValueText == "ObservePreparedAssassinRoute"));
 string searchWrapper = Render(production.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>()
@@ -51,7 +51,7 @@ var nativeHooks = Parse(File.ReadAllText(Path.Combine(root,"BugfixesAndQoL/src/G
 string observeNative = Render(nativeHooks.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single(m => m.Identifier.ValueText == "Observe"));
 trees.Add(Parse(File.ReadAllText(Path.Combine(root,"_inspect/TemporaryGateAcceptanceRuntimeTests/NativeTraceFixture.cs"))
     .Replace("/* ACTUAL_NATIVE_OBSERVER */",observeNative),path:"NativeTraceFixture.cs"));
-var raid = Parse(File.ReadAllText(Path.Combine(root, "BugfixesAndQoL/src/AiRaidRetargetFixRuntime.cs"))).GetRoot();
+var raid = Parse(File.ReadAllText(Path.Combine(root, "BugfixesAndQoL/src/AI/Raid/AiRaidRetargetFixRuntime.cs"))).GetRoot();
 string retry = Render(raid.DescendantNodes().OfType<MethodDeclarationSyntax>().Single(m => m.Identifier.ValueText == "ProcessRaidRetries"));
 string retryTypes = string.Join("\n", raid.DescendantNodes().OfType<TypeDeclarationSyntax>()
     .Where(t => t.Identifier.ValueText is "RaidGroupKey" or "RaidRetry" or "BuildingTarget").Select(t => Render(t)));

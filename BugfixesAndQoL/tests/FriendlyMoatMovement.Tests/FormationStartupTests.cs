@@ -8,9 +8,9 @@ internal static class FormationStartupTests
     internal static void Validate(string root)
     {
         string[] paths = {
-            "BugfixesAndQoL/src/FormationFeature.cs", "BugfixesAndQoL/src/FormationMenuViewModel.cs",
-            "BugfixesAndQoL/src/FormationSelectionMigration.cs", "BugfixesAndQoL/src/Formations/FormationModel.cs",
-            "BugfixesAndQoL/src/Formations/FormationPresentation.cs", "BugfixesAndQoL/src/ArrangementTooltipFontConverter.cs"
+            "BugfixesAndQoL/src/Formations/Feature/FormationFeature.cs", "BugfixesAndQoL/src/Formations/Feature/FormationMenuViewModel.cs",
+            "BugfixesAndQoL/src/Formations/Feature/FormationSelectionMigration.cs", "BugfixesAndQoL/src/Formations/FormationModel.cs",
+            "BugfixesAndQoL/src/Formations/FormationPresentation.cs", "BugfixesAndQoL/src/Formations/Feature/ArrangementTooltipFontConverter.cs"
         };
         var gestureUpdate = CSharpSyntaxTree.ParseText(FeatureSourceModel.Read(root, "FormationRuntime", "BugfixesAndQoL/src/Formations")).GetRoot().DescendantNodes()
             .OfType<MethodDeclarationSyntax>().Single(m => m.Identifier.Text == "UpdateGesture").ToFullString();

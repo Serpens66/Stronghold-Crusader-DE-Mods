@@ -22,9 +22,9 @@ if ([Reflection.AssemblyName]::GetAssemblyName((Join-Path $extender 'RedBird.X64
     throw 'Health-bar RedBird backend differs from the audited version.'
 }
 
-$runtime = [IO.File]::ReadAllText((Join-Path $root 'src\DamagedHealthBarsRuntime.cs'))
-$contract = [IO.File]::ReadAllText((Join-Path $root 'src\HealthBarNativeContract.cs'))
-$settings = [IO.File]::ReadAllText((Join-Path $root 'src\BugfixesAndQoLViewModel.cs'))
+$runtime = [IO.File]::ReadAllText((Join-Path $root 'src\Hud\DamagedHealthBarsRuntime.cs'))
+$contract = [IO.File]::ReadAllText((Join-Path $root 'src\Hud\HealthBarNativeContract.cs'))
+$settings = [IO.File]::ReadAllText((Join-Path $root 'src\Settings\BugfixesAndQoLViewModel.cs'))
 $plugin = [IO.File]::ReadAllText((Join-Path $root 'src\BugfixesAndQoLPlugin.cs'))
 $xaml = [IO.File]::ReadAllText((Join-Path $root 'Override\ScriptExtenderUI\BugfixesAndQoLSettings.xaml'))
 if ($runtime -notmatch 'InputR3EventHooks\.OnKeyDown' -or
@@ -67,10 +67,10 @@ if ($xaml -notmatch 'IsChecked="\{Binding EnableDamagedHealthBars, Mode=TwoWay\}
 }
 
 $files = @(
-    (Join-Path $root 'src\BugfixesAndQoLViewModel.cs'),
+    (Join-Path $root 'src\Settings\BugfixesAndQoLViewModel.cs'),
     (Join-Path $root 'src\BugfixesAndQoLPlugin.cs'),
-    (Join-Path $root 'src\DamagedHealthBarsRuntime.cs'),
-    (Join-Path $root 'src\HealthBarNativeContract.cs'),
+    (Join-Path $root 'src\Hud\DamagedHealthBarsRuntime.cs'),
+    (Join-Path $root 'src\Hud\HealthBarNativeContract.cs'),
     (Join-Path $root 'Override\ScriptExtenderUI\BugfixesAndQoLSettings.xaml')
 ) + @(Get-ChildItem -LiteralPath (Join-Path $root 'Locales') -Filter '*.txt' -File | ForEach-Object FullName)
 foreach ($path in $files) {

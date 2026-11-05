@@ -1,11 +1,11 @@
 $ErrorActionPreference = 'Stop'
 $project = $PSScriptRoot
 $workspace = (Resolve-Path -LiteralPath (Join-Path $project '..')).Path
-$runtime = [IO.File]::ReadAllText((Join-Path $project 'src\AiRaidRetargetFixRuntime.cs'))
-$observer = [IO.File]::ReadAllText((Join-Path $project 'src\RaidSearchObserver.cs'))
-$evaluation = [IO.File]::ReadAllText((Join-Path $project 'src\RaidAttackFieldEvaluation.cs'))
-$viewModel = [IO.File]::ReadAllText((Join-Path $project 'src\BugfixesAndQoLViewModel.cs'))
-$owner = [IO.File]::ReadAllText((Join-Path $project 'src\BugfixesAndQoLRuntime.cs'))
+$runtime = [IO.File]::ReadAllText((Join-Path $project 'src\AI\Raid\AiRaidRetargetFixRuntime.cs'))
+$observer = [IO.File]::ReadAllText((Join-Path $project 'src\AI\Raid\RaidSearchObserver.cs'))
+$evaluation = [IO.File]::ReadAllText((Join-Path $project 'src\AI\Raid\RaidAttackFieldEvaluation.cs'))
+$viewModel = [IO.File]::ReadAllText((Join-Path $project 'src\Settings\BugfixesAndQoLViewModel.cs'))
+$owner = [IO.File]::ReadAllText((Join-Path $project 'src\Core\Bootstrap\BugfixesAndQoLRuntime.cs'))
 if ([regex]::Matches($runtime, '\bEvaluate\(').Count -ne 1 -or
     $evaluation -notmatch 'freshness != "nativeSearchObserved"' -or
     $runtime -notmatch 'pre.Evidence.PlayerId == raidPlayer && pre.Evidence.RaidRole == raidGroup') { throw 'Single authoritative search classifier changed.' }

@@ -27,7 +27,7 @@
     <Reference Include="System.Memory"><HintPath>$(GameDir)\BepInEx\plugins\000shcdese\System.Memory.dll</HintPath></Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="..\..\BugfixesAndQoL\src\VanillaPeaceTimeNativeContract.cs"><Link>VanillaPeaceTimeNativeContract.cs</Link></Compile>
+    <Compile Include="..\..\BugfixesAndQoL\src\PeaceTime\VanillaPeaceTimeNativeContract.cs"><Link>VanillaPeaceTimeNativeContract.cs</Link></Compile>
     <Compile Include="Program.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

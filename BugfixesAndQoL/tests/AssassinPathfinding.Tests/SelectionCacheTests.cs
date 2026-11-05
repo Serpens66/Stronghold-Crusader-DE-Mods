@@ -8,7 +8,7 @@ internal static partial class Program
     private static void TestSelectionCache(string root)
     {
         var syntax = CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,
-            "BugfixesAndQoL/src/AssassinClimbRuntime.cs"))).GetRoot();
+            "BugfixesAndQoL/src/Assassins/AssassinClimbRuntime.cs"))).GetRoot();
         var runtime = syntax.DescendantNodes().OfType<ClassDeclarationSyntax>()
             .Single(type => type.Identifier.Text == "AssassinClimbRuntime");
         string[] methods = { "CaptureSelectionState", "IsOwnAssassin", "InvalidateRenderState" };

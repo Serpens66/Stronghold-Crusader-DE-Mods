@@ -11,7 +11,7 @@ internal static class CircleProjectionTests
             CSharpSyntaxTree.ParseText(text).GetRoot().DescendantNodes().Where(node =>
                 node is MethodDeclarationSyntax method && methods.Contains(method.Identifier.Text) ||
                 node is BaseTypeDeclarationSyntax type && types.Contains(type.Identifier.Text)).Select(node => node.ToFullString()));
-        string projection = Extract(File.ReadAllText(Path.Combine(root, "BugfixesAndQoL/src/FormationPreviewOverlay.cs")),
+        string projection = Extract(File.ReadAllText(Path.Combine(root, "BugfixesAndQoL/src/Formations/Feature/FormationPreviewOverlay.cs")),
             new[] { "TryProject", "RenderArrow", "SetLine", "HideArrow" }, Array.Empty<string>());
         string destinations = Extract(File.ReadAllText(Path.Combine(root, "BugfixesAndQoL/src/Formations/FormationRuntime.Destinations.cs")),
             new[] { "BuildManagedDestinations", "BuildDirectionIndicator", "SnapSlots" }, new[] { "NativeDestination" });

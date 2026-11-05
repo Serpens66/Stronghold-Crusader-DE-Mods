@@ -9,7 +9,7 @@ string root = args.Length >= 1 ? Path.GetFullPath(args[0]) : Directory.GetCurren
 bool baseline = args.Contains("--baseline");
 string Read(string path)
 {
-    if (!baseline || path != "BugfixesAndQoL/src/ExtendedShiftCommandQueueRuntime.cs")
+    if (!baseline || path != "BugfixesAndQoL/src/CommandQueue/ExtendedShiftCommandQueueRuntime.cs")
         return File.ReadAllText(Path.Combine(root, path));
     var start = new System.Diagnostics.ProcessStartInfo("git") { WorkingDirectory=root, RedirectStandardOutput=true, UseShellExecute=false };
     start.ArgumentList.Add("show"); start.ArgumentList.Add("SerpsMods/v1.0.28:"+path);
@@ -30,7 +30,7 @@ string EnumSource(string name)
 }
 string enums = "using System; namespace SHCDESE.Interop {" + EnumSource("eGoods") + EnumSource("eChimps") + "}"
     + "namespace SHCDESE.Interop.Enums {" + EnumSource("TribePatrolMode") + EnumSource("TribeMoveType") + "}";
-var queueTree = Parse(Read("BugfixesAndQoL/src/ExtendedShiftCommandQueueRuntime.cs"));
+var queueTree = Parse(Read("BugfixesAndQoL/src/CommandQueue/ExtendedShiftCommandQueueRuntime.cs"));
 string[] names = { "HandleMoveChore", "ShouldMarkOutgoingMultiplayerOrder", "OnMoveOrderCore",
     "AppendMovementWaypointCore", "TryEnqueueSynchronizedCommand", "CancelQueueForPatrol" };
 string members = string.Join("\n", queueTree.DescendantNodes().OfType<MethodDeclarationSyntax>()
@@ -121,7 +121,7 @@ Run("Patrol", new[] { enums, Read("BugfixesAndQoL/src/UnitCommands/Movement/Queu
 if (!baseline)
 {
     string[] waterboyMethods = { "OnNativeLoaded", "SeedMap", "ApplyPendingLedgerReset", "OnMapUnload", "DisableCorrection" };
-    string waterboyMembers = string.Join("\n", Parse(Read("BugfixesAndQoL/src/WaterboyTargetReservationRuntime.cs"))
+    string waterboyMembers = string.Join("\n", Parse(Read("BugfixesAndQoL/src/Buildings/WaterboyTargetReservationRuntime.cs"))
         .DescendantNodes().OfType<MethodDeclarationSyntax>().Where(m => waterboyMethods.Contains(m.Identifier.Text)).Select(m => m.ToFullString()));
     Run("WaterboyInitialization", new[] { """
 using System;using System.Collections.Generic;

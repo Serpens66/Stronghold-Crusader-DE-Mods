@@ -949,7 +949,7 @@ internal static class Program
         string root = Path.GetFullPath(Path.Combine(
             AppDomain.CurrentDomain.BaseDirectory, "..", "..", ".."));
         string bugfixes = File.ReadAllText(Path.Combine(
-            root, "BugfixesAndQoL", "src", "BugfixesAndQoLViewModel.cs"));
+            root, "BugfixesAndQoL", "src", "Settings/BugfixesAndQoLViewModel.cs"));
         var personalSettings = System.Text.RegularExpressions.Regex.Matches(
             bugfixes, @"\[SyncPerPlayer(?:\s*,[^\]]+)?\]\s*public\s+[\w<>,.\[\]\s]+?\s+(?<name>\w+)\s*\{");
         Check(personalSettings.Count > 0 && bugfixes.Contains("ConfigurePerPlayerLobbySettings("),
@@ -1967,9 +1967,9 @@ internal static class Program
         string hudCoordinatorSource = File.ReadAllText(
             Path.Combine(workspaceRoot, "APIShared", "src", "Presentation", "TroopActions", "TroopActionHud.cs"));
         string bugfixRuntimeSource = File.ReadAllText(
-            Path.Combine(workspaceRoot, "BugfixesAndQoL", "src", "BugfixesAndQoLRuntime.cs"));
+            Path.Combine(workspaceRoot, "BugfixesAndQoL", "src", "Core/Bootstrap/BugfixesAndQoLRuntime.cs"));
         string assassinClimbSource = File.ReadAllText(
-            Path.Combine(workspaceRoot, "BugfixesAndQoL", "src", "AssassinClimbRuntime.cs"));
+            Path.Combine(workspaceRoot, "BugfixesAndQoL", "src", "Assassins/AssassinClimbRuntime.cs"));
         Check(hudCoordinatorSource.Contains("A direct editor launch can build the HUD") &&
               bugfixRuntimeSource.Contains("BeginGameplaySession") &&
               bugfixRuntimeSource.Contains("Subscribe(_ => EndGameplaySession())") &&
@@ -2218,7 +2218,7 @@ internal static class Program
         Check(missingGatehouseSetting.EnableAssassinGatehouseClimbFix, "missing gatehouse preset key did not retain true default");
         string workspaceRoot = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", ".."));
         string bugfixesViewModelSource = File.ReadAllText(
-            Path.Combine(workspaceRoot, "BugfixesAndQoL", "src", "BugfixesAndQoLViewModel.cs"));
+            Path.Combine(workspaceRoot, "BugfixesAndQoL", "src", "Settings/BugfixesAndQoLViewModel.cs"));
         Check(!bugfixesViewModelSource.Contains("EnableCustomLordExtendedPackages"),
             "the obsolete Custom Lord package setting remains in the BugfixesAndQoL view model");
         string normalizedBugfixesViewModelSource = bugfixesViewModelSource.Replace(Environment.NewLine, "\n");
@@ -2250,14 +2250,14 @@ internal static class Program
               bugfixesViewModelSource.Contains("SetSetting(ref enableDrawbridgeDestructionFix, value, nameof(EnableDrawbridgeDestructionFix))"),
             "drawbridge production setting is not default-enabled, resettable and host-managed");
         string bugfixesRuntimeSource = File.ReadAllText(
-            Path.Combine(workspaceRoot, "BugfixesAndQoL", "src", "BugfixesAndQoLRuntime.cs"));
+            Path.Combine(workspaceRoot, "BugfixesAndQoL", "src", "Core/Bootstrap/BugfixesAndQoLRuntime.cs"));
         Check(bugfixesRuntimeSource.Contains(
                   "settings.EnableMod && settings.EnableMountedStockpileMovementFix") &&
               bugfixesRuntimeSource.Contains("InstallMountedStockpileMovementPatch") &&
               bugfixesRuntimeSource.Contains("DisableMountedStockpileMovementPatch"),
             "mounted stockpile movement is not reconciled with its host setting and EnableMod");
         string shiftRepairHookSource = File.ReadAllText(
-            Path.Combine(workspaceRoot, "BugfixesAndQoL", "src", "ShiftRepairAllBuildingsHook.cs"));
+            Path.Combine(workspaceRoot, "BugfixesAndQoL", "src", "Buildings/ShiftRepairAllBuildingsHook.cs"));
         Check(shiftRepairHookSource.Contains("original(self, parameter);") &&
               shiftRepairHookSource.IndexOf("original(self, parameter);", StringComparison.Ordinal) <
               shiftRepairHookSource.IndexOf("QueueAdditionalRepairs(self);", StringComparison.Ordinal),
@@ -2267,7 +2267,7 @@ internal static class Program
               shiftRepairHookSource.Contains("PlayerRelationship.Self"),
             "Shift-repair does not reuse Vanilla repair classification/action for owned buildings");
         string combatResumeRuntimeSource = File.ReadAllText(
-            Path.Combine(workspaceRoot, "BugfixesAndQoL", "src", "AssassinCombatResumeRuntime.cs"));
+            Path.Combine(workspaceRoot, "BugfixesAndQoL", "src", "Assassins/AssassinCombatResumeRuntime.cs"));
         Check(combatResumeRuntimeSource.Contains("settings.EnableAssassinCombatResumeFix") &&
               !combatResumeRuntimeSource.Contains("EnableImprovedAssassinPathfinding"),
             "Assassin combat resume is not initialized independently from improved pathfinding");
@@ -2323,7 +2323,7 @@ internal static class Program
         foreach (string fileName in unrestrictedMovedRuntimeFiles)
         {
             string source = File.ReadAllText(
-                Path.Combine(workspaceRoot, "BugfixesAndQoL", "src", fileName));
+                Directory.GetFiles(Path.Combine(workspaceRoot, "BugfixesAndQoL", "src"), fileName, SearchOption.AllDirectories).Single());
             Check(!source.Contains("GameplayModActivationGate") &&
                   !source.Contains("GameplayFeatureModePolicy"),
                 fileName + " still restricts a transferred BugfixesAndQoL feature by game mode");
@@ -3569,7 +3569,7 @@ internal static class Program
         };
         foreach (string fileName in senderFiles)
         {
-            string source = File.ReadAllText(Path.Combine(workspaceRoot, "BugfixesAndQoL", "src", fileName));
+            string source = File.ReadAllText(Directory.GetFiles(Path.Combine(workspaceRoot, "BugfixesAndQoL", "src"), fileName, SearchOption.AllDirectories).Single());
             Check(source.Contains("APIShared.Networking.ChoreTransport.TrySend("),
                 fileName + " does not use the fail-closed Chore sender contract");
             Check(!source.Contains("ChoreNetworkTransport") && !source.Contains("SendRawBlob"),

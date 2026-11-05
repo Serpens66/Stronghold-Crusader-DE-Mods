@@ -26,9 +26,9 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Program.cs" />
-    <Compile Include="..\..\src\LobbySaveLoadingFeature.cs" />
-    <Compile Include="..\..\src\LobbySaveLoadingIl.cs" />
-    <Compile Include="..\..\src\LobbySaveLoadingPolicy.cs" />
+    <Compile Include="..\..\src\Lobby\LobbySaveLoadingFeature.cs" />
+    <Compile Include="..\..\src\Lobby\LobbySaveLoadingIl.cs" />
+    <Compile Include="..\..\src\Lobby\LobbySaveLoadingPolicy.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

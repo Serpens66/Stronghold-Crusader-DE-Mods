@@ -43,7 +43,7 @@ namespace BugfixesAndQoL
             if (args.Length == 1 && args[0] == "--ui-work")
             {
                 TestTimerCountdownMigration();
-                TestStatisticsTeamBadgeIntegration(File.ReadAllText(Path.Combine(FindProjectDirectory(), "src", "StatisticsTeamBadges.cs")));
+                TestStatisticsTeamBadgeIntegration(File.ReadAllText(Path.Combine(FindProjectDirectory(), "src", "Hud/StatisticsTeamBadges.cs")));
                 TestMultiplayerLobbyReturnIntegration();
                 TestPacketThreadMarshallingContracts();
                 Console.WriteLine("Shared UI work integration: failures=" + failures);
@@ -53,7 +53,7 @@ namespace BugfixesAndQoL
             {
                 TestSurrenderSelectionCleanup();
                 TestStatisticsTeamBadgePolicy();
-                TestStatisticsTeamBadgeIntegration(File.ReadAllText(Path.Combine(FindProjectDirectory(), "src", "StatisticsTeamBadges.cs")));
+                TestStatisticsTeamBadgeIntegration(File.ReadAllText(Path.Combine(FindProjectDirectory(), "src", "Hud/StatisticsTeamBadges.cs")));
                 TestMultiplayerLobbyReturnIntegration();
                 TestPacketThreadMarshallingContracts();
                 Console.WriteLine("Surrender, lobby, statistics badges and packet dispatch: failures=" + failures);
@@ -72,7 +72,7 @@ namespace BugfixesAndQoL
                 TestTimerCountdownMigration();
                 TestWaterboyTargetReservationIntegration();
                 TestKeepFlagRotationIntegration();
-                TestStatisticsTeamBadgeIntegration(File.ReadAllText(Path.Combine(FindProjectDirectory(), "src", "StatisticsTeamBadges.cs")));
+                TestStatisticsTeamBadgeIntegration(File.ReadAllText(Path.Combine(FindProjectDirectory(), "src", "Hud/StatisticsTeamBadges.cs")));
                 TestPlacementCancelMoveSuppressionIntegration();
                 TestNotificationSkipIntegration();
                 TestResolutionAwareZoomIntegration();
@@ -241,8 +241,8 @@ namespace BugfixesAndQoL
                   recoveringViewModel.ObjectiveVisibility == Noesis.Visibility.Collapsed && recoveringViewModel.OstVisibility == Noesis.Visibility.Collapsed,
                 "retry finishes both text and visibility notifications after partial clear failure");
 
-            string feature = File.ReadAllText(Path.Combine("src", "TimerCountdownFeature.cs"));
-            string settings = File.ReadAllText(Path.Combine("src", "BugfixesAndQoLViewModel.cs"));
+            string feature = File.ReadAllText(Path.Combine("src", "Hud/TimerCountdownFeature.cs"));
+            string settings = File.ReadAllText(Path.Combine("src", "Settings/BugfixesAndQoLViewModel.cs"));
             string xaml = File.ReadAllText(Path.Combine(
                 "Override", "ScriptExtenderUI", "BugfixesAndQoLSettings.xaml"));
             // The runtime fixture verifies scheduling behavior; these checks retain the local
@@ -264,12 +264,12 @@ namespace BugfixesAndQoL
 
         private static void TestPermanentManagedRuntimeHooks()
         {
-            string runtime = File.ReadAllText(Path.Combine("src", "BugfixesAndQoLRuntime.cs"));
-            string autoTrade = File.ReadAllText(Path.Combine("src", "AutoTradeSellZeroHook.cs"));
-            string hdMarket = File.ReadAllText(Path.Combine("src", "HdMarketViewHook.cs"));
-            string camera = File.ReadAllText(Path.Combine("src", "CameraMovementModifierHook.cs"));
-            string customTrail = File.ReadAllText(Path.Combine("src", "CustomTrailExtremeGoldFixHook.cs"));
-            string enemyCursor = File.ReadAllText(Path.Combine("src", "EnemyProximityBulldozeCursorHook.cs"));
+            string runtime = File.ReadAllText(Path.Combine("src", "Core/Bootstrap/BugfixesAndQoLRuntime.cs"));
+            string autoTrade = File.ReadAllText(Path.Combine("src", "Market/AutoTradeSellZeroHook.cs"));
+            string hdMarket = File.ReadAllText(Path.Combine("src", "Market/HdMarketViewHook.cs"));
+            string camera = File.ReadAllText(Path.Combine("src", "CameraDisplay/CameraMovementModifierHook.cs"));
+            string customTrail = File.ReadAllText(Path.Combine("src", "Lobby/CustomTrailExtremeGoldFixHook.cs"));
+            string enemyCursor = File.ReadAllText(Path.Combine("src", "Buildings/EnemyProximityBulldozeCursorHook.cs"));
 
             Check(!runtime.Contains("DisposeFeature(\"market autotrade sell threshold\"") &&
                   !runtime.Contains("DisposeFeature(\"enemy-proximity bulldoze cursor\"") &&
@@ -287,9 +287,9 @@ namespace BugfixesAndQoL
 
         private static void TestWaterboyTargetReservationIntegration()
         {
-            string viewModel = File.ReadAllText(Path.Combine("src", "BugfixesAndQoLViewModel.cs"));
-            string orchestrator = File.ReadAllText(Path.Combine("src", "BugfixesAndQoLRuntime.cs"));
-            string runtime = File.ReadAllText(Path.Combine("src", "WaterboyTargetReservationRuntime.cs"));
+            string viewModel = File.ReadAllText(Path.Combine("src", "Settings/BugfixesAndQoLViewModel.cs"));
+            string orchestrator = File.ReadAllText(Path.Combine("src", "Core/Bootstrap/BugfixesAndQoLRuntime.cs"));
+            string runtime = File.ReadAllText(Path.Combine("src", "Buildings/WaterboyTargetReservationRuntime.cs"));
             string project = File.ReadAllText("BugfixesAndQoL.csproj");
             string xaml = File.ReadAllText(Path.Combine(
                 "Override", "ScriptExtenderUI", "BugfixesAndQoLSettings.xaml"));
@@ -314,9 +314,9 @@ namespace BugfixesAndQoL
                   runtime.Contains("!correctionAvailable || !optimizationEnabled") &&
                   !runtime.Contains("public void Dispose()"),
                 "Waterboy detour validates committed targets, rolls back unpublished candidates and switches logically");
-            Check(project.Contains("src\\WaterboyReservationLedger.cs") &&
-                  project.Contains("src\\WaterboyNativeDefinition.cs") &&
-                  project.Contains("src\\WaterboyTargetReservationRuntime.cs") &&
+            Check(project.Contains("src\\Buildings\\WaterboyReservationLedger.cs") &&
+                  project.Contains("src\\Buildings\\WaterboyNativeDefinition.cs") &&
+                  project.Contains("src\\Buildings\\WaterboyTargetReservationRuntime.cs") &&
                   xaml.Contains(
                       "IsChecked=\"{Binding EnableNearestWaterboyTargeting, Mode=TwoWay}\""),
                 "Waterboy sources and host QoL control are included in BugfixesAndQoL");
@@ -375,9 +375,9 @@ namespace BugfixesAndQoL
         private static void TestMountedStockpilePermanentLifecycle()
         {
             string runtime = File.ReadAllText(Path.Combine(
-                FindProjectDirectory(), "src", "BugfixesAndQoLRuntime.cs"));
+                FindProjectDirectory(), "src", "Core/Bootstrap/BugfixesAndQoLRuntime.cs"));
             string patch = File.ReadAllText(Path.Combine(
-                FindProjectDirectory(), "src", "MountedStockpileMovementPatch.cs"));
+                FindProjectDirectory(), "src", "TroopMovement/MountedStockpileMovementPatch.cs"));
             Check(runtime.Contains("mountedStockpileMovementPatch.SetEnabled(true)") &&
                     runtime.Contains("mountedStockpileMovementPatch?.SetEnabled(false)") &&
                     !runtime.Contains("mountedStockpileMovementPatch?.Dispose()") &&
@@ -439,9 +439,9 @@ namespace BugfixesAndQoL
 
             string projectDirectory = FindProjectDirectory();
             string hook = File.ReadAllText(Path.Combine(
-                projectDirectory, "src", "VanillaMapEditorHook.cs"));
+                projectDirectory, "src", "Lobby/VanillaMapEditorHook.cs"));
             string behavior = File.ReadAllText(Path.Combine(
-                projectDirectory, "src", "MapPlayerCountCellBehavior.cs"));
+                projectDirectory, "src", "Lobby/MapPlayerCountCellBehavior.cs"));
             string xaml = File.ReadAllText(Path.Combine(
                 projectDirectory,
                 "Patches",
@@ -506,9 +506,9 @@ namespace BugfixesAndQoL
 
         private static void TestKeepFlagRotationIntegration()
         {
-            string viewModel = File.ReadAllText(Path.Combine("src", "BugfixesAndQoLViewModel.cs"));
-            string runtime = File.ReadAllText(Path.Combine("src", "KeepFlagRotationRuntime.cs"));
-            string orchestrator = File.ReadAllText(Path.Combine("src", "BugfixesAndQoLRuntime.cs"));
+            string viewModel = File.ReadAllText(Path.Combine("src", "Settings/BugfixesAndQoLViewModel.cs"));
+            string runtime = File.ReadAllText(Path.Combine("src", "AI/Fixes/KeepFlagRotationRuntime.cs"));
+            string orchestrator = File.ReadAllText(Path.Combine("src", "Core/Bootstrap/BugfixesAndQoLRuntime.cs"));
             string plugin = File.ReadAllText(Path.Combine("src", "BugfixesAndQoLPlugin.cs"));
             string manifest = File.ReadAllText("info.json");
             string xaml = File.ReadAllText(Path.Combine(
@@ -544,7 +544,7 @@ namespace BugfixesAndQoL
                 "\\\"MinimumScriptExtenderVersion\\\"\\s*:\\s*\\\"([^\\\"]+)\\\"").Groups[1].Value;
             Check(!string.IsNullOrEmpty(requiredExtender) &&
                   plugin.Contains("[BepInDependency(ScriptExtenderGuid, \"" + requiredExtender + "\")]") &&
-                  File.ReadAllText(Path.Combine("src", "LocalSelectionSnapshot.cs")).Contains("LocalSelectionAPI.TryCapture") &&
+                  File.ReadAllText(Path.Combine("src", "Core/Common/LocalSelectionSnapshot.cs")).Contains("LocalSelectionAPI.TryCapture") &&
                   System.Text.RegularExpressions.Regex.IsMatch(plugin, @"BepInDependency\(ApiSharedGuid, ""[0-9.]+""\)"),
                 "BugfixesAndQoL selection API and dependencies agree with the manifest");
         }
@@ -585,12 +585,12 @@ namespace BugfixesAndQoL
 
         private static void TestPacketThreadMarshallingContracts()
         {
-            string aiv = File.ReadAllText(Path.Combine("src", "MultiplayerAivSyncRuntime.cs"));
-            string gameSpeed = File.ReadAllText(Path.Combine("src", "MultiplayerGameSpeedRuntime.cs"));
-            string surrender = File.ReadAllText(Path.Combine("src", "SurrenderFeature.cs"));
-            string trail = File.ReadAllText(Path.Combine("src", "TrailCustomizationFeature.cs"));
-            string singlePause = File.ReadAllText(Path.Combine("src", "SingleBuildingPauseHook.cs"));
-            string siegeAmmo = File.ReadAllText(Path.Combine("src", "SiegeAmmoRestockFeature.cs"));
+            string aiv = File.ReadAllText(Path.Combine("src", "Multiplayer/MultiplayerAivSyncRuntime.cs"));
+            string gameSpeed = File.ReadAllText(Path.Combine("src", "Multiplayer/MultiplayerGameSpeedRuntime.cs"));
+            string surrender = File.ReadAllText(Path.Combine("src", "Multiplayer/SurrenderFeature.cs"));
+            string trail = File.ReadAllText(Path.Combine("src", "Lobby/TrailCustomizationFeature.cs"));
+            string singlePause = File.ReadAllText(Path.Combine("src", "Buildings/SingleBuildingPauseHook.cs"));
+            string siegeAmmo = File.ReadAllText(Path.Combine("src", "UnitOrders/SiegeAmmoRestockFeature.cs"));
             string project = File.ReadAllText("BugfixesAndQoL.csproj");
 
             Check(aiv.Contains("new MultiplayerAivSyncPacket") &&
@@ -677,7 +677,7 @@ namespace BugfixesAndQoL
                   second.r_UnitSelected == 0 && secondCount == 0 && unit.r_UnitSelected == 1,
                 "a second Surrender on the same map cleans only its own Lord");
 
-            string feature = File.ReadAllText(Path.Combine("src", "SurrenderFeature.cs"));
+            string feature = File.ReadAllText(Path.Combine("src", "Multiplayer/SurrenderFeature.cs"));
             string singleplayer = feature.Substring(
                 feature.IndexOf("private void ConfirmSurrender(", StringComparison.Ordinal),
                 feature.IndexOf("private void CancelSurrender(", StringComparison.Ordinal) -
@@ -905,7 +905,7 @@ namespace BugfixesAndQoL
                     !patchSource.Contains("MO_MP_PlayersShields0}\" />"),
                 "team-badge patch leaves Vanilla row backgrounds, visibility, and personal shield bindings unchanged");
 
-            string viewModel = File.ReadAllText(Path.Combine("src", "BugfixesAndQoLViewModel.cs"));
+            string viewModel = File.ReadAllText(Path.Combine("src", "Settings/BugfixesAndQoLViewModel.cs"));
             string settingsXaml = File.ReadAllText(Path.Combine(
                 "Override", "ScriptExtenderUI", "BugfixesAndQoLSettings.xaml"));
             string plugin = File.ReadAllText(Path.Combine("src", "BugfixesAndQoLPlugin.cs"));
@@ -1037,8 +1037,8 @@ namespace BugfixesAndQoL
 
             CheckStartupUiGuardManualApplyRollback();
 
-            string hook = File.ReadAllText(Path.Combine("src", "StartupUiReadinessGuardHook.cs"));
-            string contract = File.ReadAllText(Path.Combine("src", "StartupUiReadinessGuardIlContract.cs"));
+            string hook = File.ReadAllText(Path.Combine("src", "CameraDisplay/StartupUiReadinessGuardHook.cs"));
+            string contract = File.ReadAllText(Path.Combine("src", "CameraDisplay/StartupUiReadinessGuardIlContract.cs"));
             string plugin = File.ReadAllText(Path.Combine("src", "BugfixesAndQoLPlugin.cs"));
             string project = File.ReadAllText("BugfixesAndQoL.csproj");
             Check(hook.Contains("ManualApply = true") &&
@@ -1069,9 +1069,9 @@ namespace BugfixesAndQoL
                     hook.Contains("RequireStaticField(typeof(MainControls), nameof(MainControls.instance), typeof(MainControls))") &&
                     plugin.Contains("private static StartupUiReadinessGuardHook startupUiReadinessGuardHook;") &&
                     plugin.Contains("new StartupUiReadinessGuardHook(Logger)") &&
-                    project.Contains("src\\StartupUiReadinessGuardHook.cs") &&
-                    project.Contains("src\\StartupUiReadinessGuardIlContract.cs") &&
-                    project.Contains("src\\StartupUiReadinessGuardPolicy.cs") &&
+                    project.Contains("src\\CameraDisplay\\StartupUiReadinessGuardHook.cs") &&
+                    project.Contains("src\\CameraDisplay\\StartupUiReadinessGuardIlContract.cs") &&
+                    project.Contains("src\\CameraDisplay\\StartupUiReadinessGuardPolicy.cs") &&
                     !project.Contains("StartupRolloverNullGuard"),
                 "startup UI guard latches before its permanent identity fast path and validates UI member types");
         }
@@ -1523,8 +1523,8 @@ namespace BugfixesAndQoL
 
         private static void TestAllyGoodsTransferIntegration()
         {
-            string hook = File.ReadAllText(Path.Combine("src", "AllyGoodsAmountModifierHook.cs"));
-            string runtime = File.ReadAllText(Path.Combine("src", "BugfixesAndQoLRuntime.cs"));
+            string hook = File.ReadAllText(Path.Combine("src", "Market/AllyGoodsAmountModifierHook.cs"));
+            string runtime = File.ReadAllText(Path.Combine("src", "Core/Bootstrap/BugfixesAndQoLRuntime.cs"));
             int confirmationStart = hook.IndexOf(
                 "private void HandleSendConfirmation",
                 StringComparison.Ordinal);
@@ -1633,9 +1633,9 @@ namespace BugfixesAndQoL
         private static void TestPlacementCancelMoveSuppressionIntegration()
         {
             string feature = File.ReadAllText(
-                Path.Combine("src", "PlacementCancelMoveSuppressionFeature.cs"));
-            string runtime = File.ReadAllText(Path.Combine("src", "BugfixesAndQoLRuntime.cs"));
-            string viewModel = File.ReadAllText(Path.Combine("src", "BugfixesAndQoLViewModel.cs"));
+                Path.Combine("src", "Buildings/PlacementCancelMoveSuppressionFeature.cs"));
+            string runtime = File.ReadAllText(Path.Combine("src", "Core/Bootstrap/BugfixesAndQoLRuntime.cs"));
+            string viewModel = File.ReadAllText(Path.Combine("src", "Settings/BugfixesAndQoLViewModel.cs"));
             string project = File.ReadAllText("BugfixesAndQoL.csproj");
             string settingsXaml = File.ReadAllText(Path.Combine(
                 "Override", "ScriptExtenderUI", "BugfixesAndQoLSettings.xaml"));
@@ -1684,12 +1684,12 @@ namespace BugfixesAndQoL
                   settingsXaml.Contains("PreventMoveOrderOnPlacementCancel, Mode=TwoWay"),
                 "placement-cancel suppression is an enabled-by-default per-player client setting");
 
-            Check(!File.ReadAllText(Path.Combine("src", "AssassinPathfindingRuntime.cs"))
+            Check(!File.ReadAllText(Path.Combine("src", "Assassins/AssassinPathfindingRuntime.cs"))
                     .Contains("if (args.SkipOriginalFunction)" +
                         Environment.NewLine + "                return;") &&
                   !ReadCommandFeature("", "UnitCommandPathRuntime.*.cs")
                     .Contains("if (disposed || args.SkipOriginalFunction)") &&
-                  !File.ReadAllText(Path.Combine("src", "TroopMovementFixRuntime.cs"))
+                  !File.ReadAllText(Path.Combine("src", "TroopMovement/TroopMovementFixRuntime.cs"))
                     .Contains("if (!IsFeatureEnabled || args.SkipOriginalFunction"),
                 "placement-cancel handling no longer patches individual MoveHere consumers");
 
@@ -1812,11 +1812,11 @@ namespace BugfixesAndQoL
 
         private static void TestNotificationSkipIntegration()
         {
-            string feature = File.ReadAllText(Path.Combine("src", "NotificationSkipFeature.cs"));
-            string speechPlayback = File.ReadAllText(Path.Combine("src", "NotificationSpeechPlayback.cs"));
-            string behavior = File.ReadAllText(Path.Combine("src", "NotificationSkipBehavior.cs"));
-            string viewModel = File.ReadAllText(Path.Combine("src", "BugfixesAndQoLViewModel.cs"));
-            string runtime = File.ReadAllText(Path.Combine("src", "BugfixesAndQoLRuntime.cs"));
+            string feature = File.ReadAllText(Path.Combine("src", "Notifications/NotificationSkipFeature.cs"));
+            string speechPlayback = File.ReadAllText(Path.Combine("src", "Notifications/NotificationSpeechPlayback.cs"));
+            string behavior = File.ReadAllText(Path.Combine("src", "Notifications/NotificationSkipBehavior.cs"));
+            string viewModel = File.ReadAllText(Path.Combine("src", "Settings/BugfixesAndQoLViewModel.cs"));
+            string runtime = File.ReadAllText(Path.Combine("src", "Core/Bootstrap/BugfixesAndQoLRuntime.cs"));
             string xaml = File.ReadAllText(Path.Combine(
                 "Override", "ScriptExtenderUI", "BugfixesAndQoLSettings.xaml"));
             string mainHudPatchPath = Path.Combine(
@@ -1984,7 +1984,7 @@ namespace BugfixesAndQoL
                     "notification last-frame localization exists in " + Path.GetFileName(locale));
             }
 
-            string lastFrame = File.ReadAllText(Path.Combine("src", "NotificationLastFrameFeature.cs"));
+            string lastFrame = File.ReadAllText(Path.Combine("src", "Notifications/NotificationLastFrameFeature.cs"));
             Check(viewModel.Contains("enableNotificationLastFrame = new LocalPerPlayerSetting<bool>(false)") &&
                   viewModel.Contains("public bool EnableNotificationLastFrame") &&
                   viewModel.Contains("EnableNotificationLastFrame = false;") &&
@@ -2046,8 +2046,8 @@ namespace BugfixesAndQoL
 
         private static void TestMinimapInputIntegration()
         {
-            string input = File.ReadAllText(Path.Combine("src", "MinimapInputFeature.cs"));
-            string runtime = File.ReadAllText(Path.Combine("src", "BugfixesAndQoLRuntime.cs"));
+            string input = File.ReadAllText(Path.Combine("src", "CameraDisplay/MinimapInputFeature.cs"));
+            string runtime = File.ReadAllText(Path.Combine("src", "Core/Bootstrap/BugfixesAndQoLRuntime.cs"));
             string project = File.ReadAllText("BugfixesAndQoL.csproj");
 
             Check(input.Contains("element.PreviewMouseDown += OnPreviewMouseDown") &&
@@ -2104,7 +2104,7 @@ namespace BugfixesAndQoL
             Check(runtime.Contains("private MinimapInputFeature minimapInputFeature;") &&
                   runtime.Contains("new MinimapInputFeature(log, settings)") &&
                   runtime.Contains("DeactivateMinimapInputFeature") &&
-                  project.Contains("src\\MinimapInputFeature.cs") &&
+                  project.Contains("src\\CameraDisplay\\MinimapInputFeature.cs") &&
                   !project.Contains("MinimapPlacementClickHook.cs") &&
                   !project.Contains("MinimapBuildingPlacementFeature.cs") &&
                   !project.Contains("MinimapCursorFollowFeature.cs"),
@@ -2131,9 +2131,9 @@ namespace BugfixesAndQoL
 
         private static void TestResolutionAwareZoomIntegration()
         {
-            string hook = File.ReadAllText(Path.Combine("src", "ResolutionAwareZoomHook.cs"));
+            string hook = File.ReadAllText(Path.Combine("src", "CameraDisplay/ResolutionAwareZoomHook.cs"));
             string plugin = File.ReadAllText(Path.Combine("src", "BugfixesAndQoLPlugin.cs"));
-            string viewModel = File.ReadAllText(Path.Combine("src", "BugfixesAndQoLViewModel.cs"));
+            string viewModel = File.ReadAllText(Path.Combine("src", "Settings/BugfixesAndQoLViewModel.cs"));
             string xaml = File.ReadAllText(Path.Combine(
                 "Override", "ScriptExtenderUI", "BugfixesAndQoLSettings.xaml"));
 
@@ -2200,9 +2200,9 @@ namespace BugfixesAndQoL
 
             string projectDirectory = FindProjectDirectory();
             string cadence = File.ReadAllText(Path.Combine(
-                projectDirectory, "src", "SynchronizedMovementCadencePatch.cs"));
+                projectDirectory, "src", "TroopMovement/SynchronizedMovementCadencePatch.cs"));
             string cadenceDiscovery = File.ReadAllText(Path.Combine(
-                projectDirectory, "src", "MovementCadenceNativeDiscovery.cs"));
+                projectDirectory, "src", "TroopMovement/MovementCadenceNativeDiscovery.cs"));
             Check(cadence.Contains("UnitAnimationStateManagerOffset = 0x660") &&
                     cadence.Contains("UnitAnimationStateManagerOffset") &&
                     !cadence.Contains("N000000F4") &&
@@ -2482,12 +2482,12 @@ namespace BugfixesAndQoL
             Check(activeDuringKick && clearedAfterFailure && !MultiplayerSafetyPolicy.ExplicitHostKickActive,
                 "a confirmed host kick bypasses the recovery delay only during its own call, even after a failure");
 
-            string viewModelSource = File.ReadAllText(Path.Combine("src", "BugfixesAndQoLViewModel.cs"));
+            string viewModelSource = File.ReadAllText(Path.Combine("src", "Settings/BugfixesAndQoLViewModel.cs"));
             string xamlSource = File.ReadAllText(Path.Combine(
                 "Override",
                 "ScriptExtenderUI",
                 "BugfixesAndQoLSettings.xaml"));
-            string recoverySource = File.ReadAllText(Path.Combine("src", "AbruptHostMigrationFix.cs"));
+            string recoverySource = File.ReadAllText(Path.Combine("src", "Multiplayer/AbruptHostMigrationFix.cs"));
             Check(viewModelSource.Contains("private bool enableConnectionRecoverySave = true;") &&
                     viewModelSource.Contains(
                         "[SyncHostOnly]" + Environment.NewLine +
@@ -2722,11 +2722,11 @@ namespace BugfixesAndQoL
 
             string hookSource = File.ReadAllText(Path.Combine(
                 "src",
-                "WorkshopUploadLordSelectionFix.cs"));
+                "Lobby/WorkshopUploadLordSelectionFix.cs"));
             string policySource = File.ReadAllText(Path.Combine(
                 "src",
-                "WorkshopUploadLordSelectionPolicy.cs"));
-            string runtimeSource = File.ReadAllText(Path.Combine("src", "BugfixesAndQoLRuntime.cs"));
+                "Lobby/WorkshopUploadLordSelectionPolicy.cs"));
+            string runtimeSource = File.ReadAllText(Path.Combine("src", "Core/Bootstrap/BugfixesAndQoLRuntime.cs"));
             Check(hookSource.Contains("FindRequiredMethod(\"UpdateUploadAIVList\")") &&
                     hookSource.Contains("FindRequiredMethod(\"UpdateUploadLordList\")") &&
                     hookSource.Contains("selectedLordTypeField.SetValue(self, restoredLordType);") &&
@@ -2750,7 +2750,7 @@ namespace BugfixesAndQoL
         private static void TestMultiplayerLobbyReturnIntegration()
         {
             string source = File.ReadAllText(Path.Combine(
-                "src", "MultiplayerLobbyReturnFeature.cs"));
+                "src", "Multiplayer/MultiplayerLobbyReturnFeature.cs"));
 
             FieldInfo callbackField = typeof(Platform_Multiplayer).GetField(
                 "LobbyChatDelegate", BindingFlags.Instance | BindingFlags.NonPublic);
@@ -3037,7 +3037,7 @@ namespace BugfixesAndQoL
                 xamlContractsValid,
                 "all four Coop Trail patches preserve Vanilla portraits, order, hover and DLC visibility while adding custom slots");
 
-            string featureSource = File.ReadAllText(Path.Combine("src", "CoopCustomLordSelectionFeature.cs"));
+            string featureSource = File.ReadAllText(Path.Combine("src", "Lobby/CoopCustomLordSelectionFeature.cs"));
             Check(
                 featureSource.Contains("api.TryGetLordDetails(lord.lordName, out LordDetails details);") &&
                 featureSource.Contains("viewModel.SkirmishLordRolloverDesc = details?.Description ?? string.Empty;") &&
@@ -3114,7 +3114,7 @@ namespace BugfixesAndQoL
                 "Coop restoration configures the existing slot and publishes once; the final launch validates its identity");
 
             string multiplayerHookSource = File.ReadAllText(
-                Path.Combine("src", "SkirmishAiSelectionMemoryHook.cs"));
+                Path.Combine("src", "Lobby/SkirmishAiSelectionMemoryHook.cs"));
             Check(
                 multiplayerHookSource.Contains(
                     "CoopCustomLordSelectionFeature.OnMultiplayerButtonStarting(self, param);") &&
@@ -3372,11 +3372,11 @@ namespace BugfixesAndQoL
 
             string projectDirectory = FindProjectDirectory();
             string viewModel = File.ReadAllText(Path.Combine(
-                projectDirectory, "src", "BugfixesAndQoLViewModel.cs"));
+                projectDirectory, "src", "Settings/BugfixesAndQoLViewModel.cs"));
             string registration = File.ReadAllText(Path.Combine(
-                projectDirectory, "src", "BriefingNoStartingGoldFixRegistration.cs"));
+                projectDirectory, "src", "Lobby/BriefingNoStartingGoldFixRegistration.cs"));
             string runtime = File.ReadAllText(Path.Combine(
-                projectDirectory, "src", "BugfixesAndQoLRuntime.cs"));
+                projectDirectory, "src", "Core/Bootstrap/BugfixesAndQoLRuntime.cs"));
             string xaml = File.ReadAllText(Path.Combine(
                 projectDirectory, "Override", "ScriptExtenderUI", "BugfixesAndQoLSettings.xaml"));
             Check(
@@ -3473,11 +3473,11 @@ namespace BugfixesAndQoL
 
             string projectDirectory = FindProjectDirectory();
             string feature = File.ReadAllText(Path.Combine(
-                projectDirectory, "src", "LobbyYellowContrastFeature.cs"));
+                projectDirectory, "src", "Lobby/LobbyYellowContrastFeature.cs"));
             string runtime = File.ReadAllText(Path.Combine(
-                projectDirectory, "src", "BugfixesAndQoLRuntime.cs"));
+                projectDirectory, "src", "Core/Bootstrap/BugfixesAndQoLRuntime.cs"));
             string policy = File.ReadAllText(Path.Combine(
-                projectDirectory, "src", "LobbyYellowContrastPolicy.cs"));
+                projectDirectory, "src", "Lobby/LobbyYellowContrastPolicy.cs"));
             Check(
                 feature.Contains("\"UI-Buttons H013\"") &&
                 feature.Contains("\"UI-Buttons H014\"") &&
@@ -4024,13 +4024,13 @@ namespace BugfixesAndQoL
 
             string projectDirectory = FindProjectDirectory();
             string feature = File.ReadAllText(Path.Combine(
-                projectDirectory, "src", "TrailCustomizationFeature.cs"));
+                projectDirectory, "src", "Lobby/TrailCustomizationFeature.cs"));
             string viewModel = File.ReadAllText(Path.Combine(
-                projectDirectory, "src", "BugfixesAndQoLViewModel.cs"));
+                projectDirectory, "src", "Settings/BugfixesAndQoLViewModel.cs"));
             string xaml = File.ReadAllText(Path.Combine(
                 projectDirectory, "Override", "ScriptExtenderUI", "BugfixesAndQoLSettings.xaml"));
             string runtime = File.ReadAllText(Path.Combine(
-                projectDirectory, "src", "BugfixesAndQoLRuntime.cs"));
+                projectDirectory, "src", "Core/Bootstrap/BugfixesAndQoLRuntime.cs"));
             Check(feature.Contains("Name = \"SharedTrailCustomize\"") &&
                     feature.Contains("foreach (UIElement child in host.Children)") &&
                     feature.Contains("TryCustomizeCustomTrail(out bool providerActive)") &&
@@ -4188,9 +4188,9 @@ namespace BugfixesAndQoL
         {
             string projectDirectory = FindProjectDirectory();
             string feature = File.ReadAllText(Path.Combine(
-                projectDirectory, "src", "TunnelPlacementDistanceFeature.cs"));
-            string runtime = File.ReadAllText(Path.Combine(projectDirectory, "src", "BugfixesAndQoLRuntime.cs"));
-            string viewModel = File.ReadAllText(Path.Combine(projectDirectory, "src", "BugfixesAndQoLViewModel.cs"));
+                projectDirectory, "src", "Buildings/TunnelPlacementDistanceFeature.cs"));
+            string runtime = File.ReadAllText(Path.Combine(projectDirectory, "src", "Core/Bootstrap/BugfixesAndQoLRuntime.cs"));
+            string viewModel = File.ReadAllText(Path.Combine(projectDirectory, "src", "Settings/BugfixesAndQoLViewModel.cs"));
             string xaml = File.ReadAllText(Path.Combine(
                 projectDirectory, "Override", "ScriptExtenderUI", "BugfixesAndQoLSettings.xaml"));
 
@@ -4255,7 +4255,7 @@ namespace BugfixesAndQoL
 
         private static void TestFriendlyMoatMovementPolicy()
         {
-            string source = File.ReadAllText(Path.Combine(FindProjectDirectory(), "src", "BugfixesAndQoLViewModel.cs"));
+            string source = File.ReadAllText(Path.Combine(FindProjectDirectory(), "src", "Settings/BugfixesAndQoLViewModel.cs"));
             Check(source.Contains("private bool enableImprovedManualUnitCommands = true;") &&
                 source.Contains("EnableImprovedManualUnitCommands = true;"), "manual commands default on and reset on");
             Check(!source.Contains("public int FriendlyMoatMovementMode") &&
@@ -4298,7 +4298,7 @@ namespace BugfixesAndQoL
         {
             string projectDirectory = FindProjectDirectory();
             string hook = File.ReadAllText(Path.Combine(
-                projectDirectory, "src", "AiCastleSettingsListEnhancementHook.cs"));
+                projectDirectory, "src", "Lobby/AiCastleSettingsListEnhancementHook.cs"));
             string xaml = File.ReadAllText(Path.Combine(
                 projectDirectory, "Patches", "Assets", "GUI", "XAMLResources",
                 "FRONT_Multiplayer_AISettings.xaml"));
@@ -4353,12 +4353,12 @@ namespace BugfixesAndQoL
         private static void TestFriendlyMoatMovementIntegration()
         {
             string projectDirectory = FindProjectDirectory();
-            string runtime = File.ReadAllText(Path.Combine(projectDirectory, "src", "BugfixesAndQoLRuntime.cs"));
+            string runtime = File.ReadAllText(Path.Combine(projectDirectory, "src", "Core/Bootstrap/BugfixesAndQoLRuntime.cs"));
             string friendlyRuntime = ReadCommandFeature("", "UnitCommandPathRuntime.*.cs");
             string selectionAdapters = File.ReadAllText(Path.Combine(
                 projectDirectory, "..", "BugfixesAndQoL", "src", "UnitCommands", "Integration", "AssassinSelectionAdapters.cs"));
             string moatWork = ReadCommandFeature("Moat", "UnitCommandPathRuntime.WorkTarget*.cs");
-            string viewModel = File.ReadAllText(Path.Combine(projectDirectory, "src", "BugfixesAndQoLViewModel.cs"));
+            string viewModel = File.ReadAllText(Path.Combine(projectDirectory, "src", "Settings/BugfixesAndQoLViewModel.cs"));
             string xaml = File.ReadAllText(Path.Combine(
                 projectDirectory, "Override", "ScriptExtenderUI", "BugfixesAndQoLSettings.xaml"));
             string english = File.ReadAllText(Path.Combine(projectDirectory, "Locales", "en-US.txt"));
@@ -4438,21 +4438,21 @@ namespace BugfixesAndQoL
         {
             string projectDirectory = FindProjectDirectory();
             string fastRecruit = File.ReadAllText(Path.Combine(
-                projectDirectory, "src", "FastRecruitRallyMovementRuntime.cs"));
+                projectDirectory, "src", "TroopMovement/FastRecruitRallyMovementRuntime.cs"));
             string troopMovement = File.ReadAllText(Path.Combine(
-                projectDirectory, "src", "TroopMovementFixRuntime.cs"));
+                projectDirectory, "src", "TroopMovement/TroopMovementFixRuntime.cs"));
             string cadencePatch = File.ReadAllText(Path.Combine(
                 projectDirectory,
                 "src",
-                "SynchronizedMovementCadencePatch.cs"));
+                "TroopMovement/SynchronizedMovementCadencePatch.cs"));
             string cadenceDiscovery = File.ReadAllText(Path.Combine(
                 projectDirectory,
                 "src",
-                "MovementCadenceNativeDiscovery.cs"));
+                "TroopMovement/MovementCadenceNativeDiscovery.cs"));
             string integration = File.ReadAllText(Path.Combine(
-                projectDirectory, "src", "MovementCadenceIntegration.cs"));
+                projectDirectory, "src", "TroopMovement/MovementCadenceIntegration.cs"));
             string bridge = File.ReadAllText(Path.Combine(
-                projectDirectory, "src", "FastRecruitMovementBridge.cs"));
+                projectDirectory, "src", "TroopMovement/FastRecruitMovementBridge.cs"));
             string parityHarness = File.ReadAllText(Path.Combine(
                 projectDirectory, "tests", "MovementFastPathParityHarness.cs"));
             string english = File.ReadAllText(Path.Combine(
@@ -4698,9 +4698,9 @@ namespace BugfixesAndQoL
         private static void TestAiDefensePatrolIntegration()
         {
             string projectDirectory = FindProjectDirectory();
-            string runtime = File.ReadAllText(Path.Combine(projectDirectory, "src", "AiDefensePatrolFix.cs"));
-            string orchestrator = File.ReadAllText(Path.Combine(projectDirectory, "src", "BugfixesAndQoLRuntime.cs"));
-            string viewModel = File.ReadAllText(Path.Combine(projectDirectory, "src", "BugfixesAndQoLViewModel.cs"));
+            string runtime = File.ReadAllText(Path.Combine(projectDirectory, "src", "AI/Fixes/AiDefensePatrolFix.cs"));
+            string orchestrator = File.ReadAllText(Path.Combine(projectDirectory, "src", "Core/Bootstrap/BugfixesAndQoLRuntime.cs"));
+            string viewModel = File.ReadAllText(Path.Combine(projectDirectory, "src", "Settings/BugfixesAndQoLViewModel.cs"));
             string xaml = File.ReadAllText(Path.Combine(
                 projectDirectory,
                 "Override",
@@ -4779,11 +4779,11 @@ namespace BugfixesAndQoL
         {
             string projectDirectory = FindProjectDirectory();
             string sourceDirectory = Path.Combine(projectDirectory, "src");
-            string fix = File.ReadAllText(Path.Combine(sourceDirectory, "AiStoneReserveFix.cs"));
+            string fix = File.ReadAllText(Path.Combine(sourceDirectory, "AI/Fixes/AiStoneReserveFix.cs"));
             string workaround = File.ReadAllText(Path.Combine(
                 sourceDirectory,
-                "ShcdeSeCoarseGridBufferWorkaround.cs"));
-            string viewModel = File.ReadAllText(Path.Combine(sourceDirectory, "BugfixesAndQoLViewModel.cs"));
+                "AI/Fixes/ShcdeSeCoarseGridBufferWorkaround.cs"));
+            string viewModel = File.ReadAllText(Path.Combine(sourceDirectory, "Settings/BugfixesAndQoLViewModel.cs"));
             string xaml = File.ReadAllText(Path.Combine(
                 projectDirectory,
                 "Override",
@@ -4944,10 +4944,10 @@ namespace BugfixesAndQoL
 
             string coopSource = File.ReadAllText(Path.Combine(
                 sourceDirectory,
-                "CoopCustomLordSelectionFeature.cs"));
+                "Lobby/CoopCustomLordSelectionFeature.cs"));
             string multiplayerSource = File.ReadAllText(Path.Combine(
                 sourceDirectory,
-                "MultiplayerAivSyncRuntime.cs"));
+                "Multiplayer/MultiplayerAivSyncRuntime.cs"));
             // Guardrail only: the Coop upload has one owner in APIShared; this feature supplies plans and
             // must neither hook UploadDefaultAIV again nor import AIVs itself.
             Check(
@@ -4996,7 +4996,7 @@ namespace BugfixesAndQoL
             string runtime = File.ReadAllText(Path.Combine(
                 projectDirectory,
                 "src",
-                "QuarryPileRelocationRuntime.cs"));
+                "Buildings/QuarryPileRelocationRuntime.cs"));
             Check(runtime.Contains("QuarryKeepCenterPolicy.Resolve") &&
                     runtime.Contains("QuarryKeepCenterResolution.NotReady") &&
                     runtime.Contains("Keep geometry is structurally invalid") &&
@@ -5008,9 +5008,9 @@ namespace BugfixesAndQoL
         private static void TestAiWallTargetingIntegration()
         {
             string projectDirectory = FindProjectDirectory();
-            string patch = File.ReadAllText(Path.Combine(projectDirectory, "src", "AiWallTargetingFix.cs"));
-            string runtime = File.ReadAllText(Path.Combine(projectDirectory, "src", "BugfixesAndQoLRuntime.cs"));
-            string viewModel = File.ReadAllText(Path.Combine(projectDirectory, "src", "BugfixesAndQoLViewModel.cs"));
+            string patch = File.ReadAllText(Path.Combine(projectDirectory, "src", "AI/Fixes/AiWallTargetingFix.cs"));
+            string runtime = File.ReadAllText(Path.Combine(projectDirectory, "src", "Core/Bootstrap/BugfixesAndQoLRuntime.cs"));
+            string viewModel = File.ReadAllText(Path.Combine(projectDirectory, "src", "Settings/BugfixesAndQoLViewModel.cs"));
             string xaml = File.ReadAllText(Path.Combine(
                 projectDirectory,
                 "Override",
@@ -5113,9 +5113,9 @@ namespace BugfixesAndQoL
         {
             string projectDirectory = FindProjectDirectory();
             string runtime = File.ReadAllText(Path.Combine(
-                projectDirectory, "src", "AIEconomyProtectionHook.cs"));
+                projectDirectory, "src", "AI/Economy/AIEconomyProtectionHook.cs"));
             string singlePause = File.ReadAllText(Path.Combine(
-                projectDirectory, "src", "SingleBuildingPauseHook.cs"));
+                projectDirectory, "src", "Buildings/SingleBuildingPauseHook.cs"));
             string english = File.ReadAllText(Path.Combine(projectDirectory, "Locales", "en-US.txt"));
             string german = File.ReadAllText(Path.Combine(projectDirectory, "Locales", "de-DE.txt"));
 
@@ -5256,7 +5256,7 @@ namespace BugfixesAndQoL
             Check(selected.Length == 1 && selected[0].BuildingId == 5 && store.Count == 3,
                 "single-building goods snapshot includes only affected owner and type without clearing overrides");
 
-            string hook = File.ReadAllText(Path.Combine("src", "SingleBuildingPauseHook.cs"));
+            string hook = File.ReadAllText(Path.Combine("src", "Buildings/SingleBuildingPauseHook.cs"));
             Check(hook.Contains("building->r_IronIngotsAmount = snapshot.Iron;") &&
                 hook.Contains("building->r_StoneBlocksAmount = snapshot.Stone;") &&
                 hook.Contains("building->r_WoodLogsAmount = snapshot.WoodLogs;") &&
@@ -5337,9 +5337,9 @@ namespace BugfixesAndQoL
         {
             string projectDirectory = FindProjectDirectory();
             string hook = File.ReadAllText(Path.Combine(
-                projectDirectory, "src", "AIEconomyProtectionHook.cs"));
+                projectDirectory, "src", "AI/Economy/AIEconomyProtectionHook.cs"));
             string classifier = File.ReadAllText(Path.Combine(
-                projectDirectory, "src", "AIBuildingTemporaryAccessClassifier.cs"));
+                projectDirectory, "src", "AI/Economy/AIBuildingTemporaryAccessClassifier.cs"));
 
             Check(hook.Contains("InaccessibleBuildingDecisionRva = 0xC8FD7") &&
                     hook.Contains("BuildingAccessibilityFunctionRva = 0xC90E0") &&
@@ -5385,7 +5385,7 @@ namespace BugfixesAndQoL
 
             string projectDirectory = FindProjectDirectory();
             string source = File.ReadAllText(Path.Combine(
-                projectDirectory, "src", "ReachableEnemyGatehouseRuntime.cs"));
+                projectDirectory, "src", "GateRouting/ReachableEnemyGatehouseRuntime.cs"));
             Check(!source.Contains("zero-based span index") &&
                     !source.Contains("rawUnitSpanIndex") &&
                     source.Contains("one-based Unit game ID") &&
@@ -5428,7 +5428,7 @@ namespace BugfixesAndQoL
             // Footprint candidates come from the pure-coordinate cache over APIShared's ordered footprint;
             // the first-distinct drawbridge selection and the exterior-approach route test are inline.
             string footprintCache = File.ReadAllText(Path.Combine(
-                projectDirectory, "src", "GatehouseFootprintGeometryCache.cs"));
+                projectDirectory, "src", "GateRouting/GatehouseFootprintGeometryCache.cs"));
             Check(source.Contains("STRUCT_DRAWBRIDGE") &&
                     source.Contains("MaximumSynchronizedDrawbridges") &&
                     source.Contains("GatehouseFootprintGeometryCache.Get(") &&
@@ -5572,7 +5572,7 @@ namespace BugfixesAndQoL
 
             string projectDirectory = FindProjectDirectory();
             string runtime = File.ReadAllText(Path.Combine(
-                projectDirectory, "src", "ReachableEnemyGatehouseRuntime.cs"));
+                projectDirectory, "src", "GateRouting/ReachableEnemyGatehouseRuntime.cs"));
             Check(!runtime.Contains("OpenState") &&
                     !runtime.Contains("previouslyOpen") &&
                     runtime.Contains("tick != lastCacheTick") &&
@@ -5619,7 +5619,7 @@ namespace BugfixesAndQoL
                 "compound-key detach and rollback leave the adjacent SE field unchanged");
 
             string root = FindProjectDirectory();
-            string runtime = File.ReadAllText(Path.Combine(root, "src", "QuarryPileRelocationRuntime.cs"));
+            string runtime = File.ReadAllText(Path.Combine(root, "src", "Buildings/QuarryPileRelocationRuntime.cs"));
             string detector = File.ReadAllText(Path.GetFullPath(Path.Combine(root,
                 "..", "Helpers", "ActiveAIVDetector", "src", "OraclePrebuildStateCapture.cs")));
             Check(!runtime.Contains("r_UsedInSiegeAttemptId") &&

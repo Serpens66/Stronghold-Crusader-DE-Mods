@@ -15,7 +15,7 @@ internal static partial class Program
     private static void TestHostBoolSetting(string[] args, string propertyName, string fieldName, string label)
     {
         var root = CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(args[0],
-            "BugfixesAndQoL/src/BugfixesAndQoLViewModel.cs"))).GetRoot();
+            "BugfixesAndQoL/src/Settings/BugfixesAndQoLViewModel.cs"))).GetRoot();
         var prop = root.DescendantNodes().OfType<PropertyDeclarationSyntax>()
             .Single(p => p.Identifier.Text == propertyName);
         Check(prop.AttributeLists.ToString().Contains("SyncHostOnly"), label + " setting is host-only");

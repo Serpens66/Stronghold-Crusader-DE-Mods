@@ -44,14 +44,14 @@ if ($api -match '\b(transaction|endpointHooks|builderHook)\??\.Dispose\s*\(' -or
 }
 # The selected SDK build checks NativeHookPublicationTests. Matching private helper
 # names here cannot prove partial-publication safety and rejects equivalent owners.
-$main = [IO.File]::ReadAllText((Join-Path $workspace 'BugfixesAndQoL\src\AssassinPathfindingRuntime.cs'))
-$reconstruction = [IO.File]::ReadAllText((Join-Path $workspace 'BugfixesAndQoL\src\AssassinPathReconstructionPatch.cs'))
+$main = [IO.File]::ReadAllText((Join-Path $workspace 'BugfixesAndQoL\src\Assassins\AssassinPathfindingRuntime.cs'))
+$reconstruction = [IO.File]::ReadAllText((Join-Path $workspace 'BugfixesAndQoL\src\Assassins\AssassinPathReconstructionPatch.cs'))
 if ($main -match 'AddDetour|AddInline|new HookTransaction' -or $reconstruction -match 'AddDetour|AddInline|new HookTransaction' -or
     -not $main.Contains('if (sharedBuilderRegistered) throw;') -or -not $main.Contains('if (sharedBuilderRegistered) return;')) {
     throw 'Duplicate Assassin hook ownership or published consumer teardown'
 }
-$runtime = [IO.File]::ReadAllText((Join-Path $workspace 'BugfixesAndQoL\src\BugfixesAndQoLRuntime.cs'))
-$view = [IO.File]::ReadAllText((Join-Path $workspace 'BugfixesAndQoL\src\BugfixesAndQoLViewModel.cs'))
+$runtime = [IO.File]::ReadAllText((Join-Path $workspace 'BugfixesAndQoL\src\Core\Bootstrap\BugfixesAndQoLRuntime.cs'))
+$view = [IO.File]::ReadAllText((Join-Path $workspace 'BugfixesAndQoL\src\Settings\BugfixesAndQoLViewModel.cs'))
 foreach ($required in @('TryInitializePersistentFeature("Assassin gatehouse climb", ApplyAssassinGatehouseClimbFix);', 'TryApplyFeature("Assassin gatehouse climb", ApplyAssassinGatehouseClimbFix);', 'BugfixesAndQoLPlugin.PluginGuid, settings.EnableMod && settings.EnableAssassinGatehouseClimbFix')) {
     if (-not $runtime.Contains($required)) { throw "Missing integrated climb contract: $required" }
 }

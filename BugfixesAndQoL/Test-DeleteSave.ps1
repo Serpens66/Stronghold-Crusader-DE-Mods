@@ -2,7 +2,7 @@
 param()
 
 $ErrorActionPreference = 'Stop'
-$policyPath = Join-Path $PSScriptRoot 'src\SaveDeletionPolicy.cs'
+$policyPath = Join-Path $PSScriptRoot 'src\Lobby\SaveDeletionPolicy.cs'
 $bridge = @'
 public static class SaveDeletionPolicyTestBridge
 {

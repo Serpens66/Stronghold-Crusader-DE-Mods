@@ -17,7 +17,7 @@ internal static class FormationMarkerFallbackTests
             new[] { "RunUnitFallbacks", "LogFormationOrderResult" },
             new[] { "UnitFallbackAttempt", "UnitFallbackRequest", "UnitFallbackSummary" });
         string overlay = Members(File.ReadAllText(Path.Combine(root,
-            "BugfixesAndQoL/src/FormationPreviewOverlay.cs")),
+            "BugfixesAndQoL/src/Formations/Feature/FormationPreviewOverlay.cs")),
             new[] { "Render", "Publish", "Clear", "Refresh", "SetNativeAllowed", "SetRoleMarkersVisible", "HideAll", "HideArrow" },
             new[] { "PreviewSnapshot" });
         string fixture = """

@@ -8,7 +8,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="..\..\..\BugfixesAndQoL\src\UnitCommands\Cursor\GroundMovePreviewAuthorization.cs" Link="GroundMovePreviewAuthorization.cs" />
-    <Compile Include="..\..\src\ExtendedShiftCommandQueueModel.cs" Link="ExtendedShiftCommandQueueModel.cs" />
+    <Compile Include="..\..\src\CommandQueue\ExtendedShiftCommandQueueModel.cs" Link="ExtendedShiftCommandQueueModel.cs" />
     <Compile Include="..\..\..\Shared\Runtime\Gameplay\GroundMovePreviewEligibility.cs" Link="GroundMovePreviewEligibility.cs" />
     <Compile Include="..\..\..\BugfixesAndQoL\src\UnitCommands\Movement\QueueNativeContract.cs" Link="QueueNativeContract.cs" />
   </ItemGroup>

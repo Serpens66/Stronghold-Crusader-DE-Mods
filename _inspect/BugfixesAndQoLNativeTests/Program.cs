@@ -201,7 +201,7 @@ internal static class Program
     private static void CheckHighFrequencyFastPathContracts(string workspace)
     {
         string sourceRoot = Path.Combine(workspace, "BugfixesAndQoL", "src");
-        string allyGoods = File.ReadAllText(Path.Combine(sourceRoot, "AllyGoodsAmountModifierHook.cs"));
+        string allyGoods = File.ReadAllText(Path.Combine(sourceRoot, "Market/AllyGoodsAmountModifierHook.cs"));
         Check(!allyGoods.Contains("Application.onBeforeRender"),
             "Ally-Goods no longer owns a per-render callback");
         Check(allyGoods.Contains("InputR3EventHooks.OnKeyDown.Observable") &&
@@ -219,13 +219,13 @@ internal static class Program
               !allyGoods.Contains("updateGoodsMethod.Invoke(panel, null);"),
             "Ally-Goods captures both modifier sides and refreshes settings without touching the MainViewModel factory");
 
-        string runtime = File.ReadAllText(Path.Combine(sourceRoot, "BugfixesAndQoLRuntime.cs"));
+        string runtime = File.ReadAllText(Path.Combine(sourceRoot, "Core/Bootstrap/BugfixesAndQoLRuntime.cs"));
         Check(runtime.Contains("private static AllyGoodsAmountModifierHook processAllyGoodsAmountModifierHook;") &&
               runtime.Contains("processAllyGoodsAmountModifierHook?.RefreshSetting()") &&
               !runtime.Contains("processAllyGoodsAmountModifierHook?.Dispose"),
             "Ally-Goods settings refresh is wired to the process-rooted runtime");
 
-        string health = File.ReadAllText(Path.Combine(sourceRoot, "SelectedUnitHealthFeature.cs"));
+        string health = File.ReadAllText(Path.Combine(sourceRoot, "Hud/SelectedUnitHealthFeature.cs"));
         Check(health.Contains("readonly SelectedUnitHealthSummary[] summaries") &&
               health.Contains("readonly int[] visibleTypes") &&
               health.Contains("Array.Clear(summaries, 0, summaries.Length)") &&
@@ -260,7 +260,7 @@ internal static class Program
               marker.Contains("if (!previewAllowedThisPass) return;"),
             "marker tiles and native authorization are published atomically and observed once per pass");
 
-        string invite = File.ReadAllText(Path.Combine(sourceRoot, "SteamLobbyInvitePrompt.cs"));
+        string invite = File.ReadAllText(Path.Combine(sourceRoot, "Multiplayer/SteamLobbyInvitePrompt.cs"));
         int expireMethod = invite.IndexOf("private void ExpirePendingInvites", StringComparison.Ordinal);
         int emptyInviteGuard = invite.IndexOf(
             "pendingInvites.Count == 0 && recentInvites.Count == 0", expireMethod, StringComparison.Ordinal);
@@ -306,9 +306,9 @@ internal static class Program
     {
         foreach (string relativePath in new[]
         {
-            @"BugfixesAndQoL\src\AssassinClimbRuntime.cs",
-            @"BugfixesAndQoL\src\MountedStockpileMovementPatch.cs",
-            @"BugfixesAndQoL\src\SiegeAmmoRestockFeature.cs"
+            @"BugfixesAndQoL\src\Assassins\AssassinClimbRuntime.cs",
+            @"BugfixesAndQoL\src\TroopMovement\MountedStockpileMovementPatch.cs",
+            @"BugfixesAndQoL\src\UnitOrders\SiegeAmmoRestockFeature.cs"
         })
         {
             string source = File.ReadAllText(Path.Combine(workspace, relativePath));
@@ -409,7 +409,7 @@ internal static class Program
         }
 
         string notificationContract = File.ReadAllText(
-            Path.Combine(sourceDirectory, "NotificationQueueNativeContract.cs"));
+            Path.Combine(sourceDirectory, "Notifications/NotificationQueueNativeContract.cs"));
         Match callOffsetMatch = Regex.Match(
             notificationContract,
             @"const\s+int\s+CompletionCallOffset\s*=\s*(?<value>\d+)\s*;");
@@ -536,7 +536,7 @@ internal static class Program
             workspace,
             "BugfixesAndQoL",
             "src",
-            "AivDefenderPositionFix.cs"));
+            "AI/Fixes/AivDefenderPositionFix.cs"));
         Check(source.Contains("private const int DecisionHookOffset = 15;") &&
               source.Contains("private const int ReferenceDecisionHookRva = 0x5471F;") &&
               source.Contains("RejectJumpInstructionIndex = 4"),
@@ -661,7 +661,7 @@ internal static class Program
             "disband cleanup respects both local switches");
 
         string runtime = File.ReadAllText(Path.Combine(
-            workspace, "BugfixesAndQoL", "src", "ControlGroupDisbandCleanupRuntime.cs"));
+            workspace, "BugfixesAndQoL", "src", "LordAndControlGroups/ControlGroupDisbandCleanupRuntime.cs"));
         int originalCall = runtime.IndexOf(
             "detour.Original(unitManager, unitId, playSound)", StringComparison.Ordinal);
         int sharedRemoval = runtime.IndexOf(
@@ -679,14 +679,14 @@ internal static class Program
             "native cleanup calls Vanilla first, is locally gated, validates its target, and delegates membership mutation to APIShared");
 
         string viewModel = File.ReadAllText(Path.Combine(
-            workspace, "BugfixesAndQoL", "src", "BugfixesAndQoLViewModel.cs"));
+            workspace, "BugfixesAndQoL", "src", "Settings/BugfixesAndQoLViewModel.cs"));
         Check(viewModel.Contains("[APIShared.ModSettings.PresetLocal]" + Environment.NewLine +
               "        public bool EnableDisbandedUnitControlGroupCleanup") &&
               viewModel.Contains("EnableDisbandedUnitControlGroupCleanup = true;"),
             "disband cleanup setting is preset-local and enabled by default");
 
         string lordFeature = File.ReadAllText(Path.Combine(
-            workspace, "BugfixesAndQoL", "src", "LordUnitControlsFeature.cs"));
+            workspace, "BugfixesAndQoL", "src", "LordAndControlGroups/LordUnitControlsFeature.cs"));
         Check(!lordFeature.Contains("RemoveUnitFromAllGroups") &&
               lordFeature.Contains("disbandOriginal(self, parameter);"),
             "Lord HUD disband routing remains separate from control-group cleanup");
@@ -796,7 +796,7 @@ internal static class Program
             "the consumer patch augments Vanilla buttons without installing a private Lord presentation slot");
 
         string lordHudFeature = File.ReadAllText(Path.Combine(
-            modRoot, "src", "LordUnitControlsFeature.cs"));
+            modRoot, "src", "LordAndControlGroups/LordUnitControlsFeature.cs"));
         Check(lordHudFeature.Contains("shared troop presentation lives in APIShared") &&
               lordHudFeature.Contains("ButtonUnitDisbandHook") &&
               lordHudFeature.Contains("LordDisbandAction.RejectUnsafeMixedSelection") &&
@@ -806,7 +806,7 @@ internal static class Program
             "the consumer retains Lord-specific actions without a private troop-presentation hook");
 
         string registration = File.ReadAllText(Path.Combine(
-            modRoot, "src", "LordUnitHudRegistration.cs"));
+            modRoot, "src", "LordAndControlGroups/LordUnitHudRegistration.cs"));
         Check(registration.Contains("ApiShared.WhenReady(Register)") &&
               registration.Contains("TryGetUnitHudPresentation") &&
               registration.Contains("TryRegisterCategory") &&
@@ -933,7 +933,7 @@ internal static class Program
         // be the binary selected by this build. This is only a negative source
         // guard; skip/queue behavior is exercised by the notification regressions.
         string notification = File.ReadAllText(Path.Combine(
-            workspace, "BugfixesAndQoL", "src", "NotificationSkipFeature.cs"));
+            workspace, "BugfixesAndQoL", "src", "Notifications/NotificationSkipFeature.cs"));
         Check(!notification.Contains("c_game_ai_enqueue_message") &&
               !notification.Contains("SetSuppressMessages") &&
               !notification.Contains("GetSuppressMessages"),
@@ -942,11 +942,11 @@ internal static class Program
 
     private static void CheckUnknownHashPolicy(string workspace)
     {
-        string plague = File.ReadAllText(Path.Combine(workspace, "BugfixesAndQoL", "src", "PlagueNativeResolver.cs"));
-        string mountedStockpile = File.ReadAllText(Path.Combine(workspace, "BugfixesAndQoL", "src", "MountedStockpileMovementPatch.cs"));
-        string healerAttackCommand = File.ReadAllText(Path.Combine(workspace, "BugfixesAndQoL", "src", "HealerAttackCommandPatch.cs"));
-        string lordControlGroups = File.ReadAllText(Path.Combine(workspace, "BugfixesAndQoL", "src", "LordControlGroupNativePatch.cs"));
-        string runtime = File.ReadAllText(Path.Combine(workspace, "BugfixesAndQoL", "src", "BugfixesAndQoLRuntime.cs"));
+        string plague = File.ReadAllText(Path.Combine(workspace, "BugfixesAndQoL", "src", "Plague/PlagueNativeResolver.cs"));
+        string mountedStockpile = File.ReadAllText(Path.Combine(workspace, "BugfixesAndQoL", "src", "TroopMovement/MountedStockpileMovementPatch.cs"));
+        string healerAttackCommand = File.ReadAllText(Path.Combine(workspace, "BugfixesAndQoL", "src", "UnitOrders/HealerAttackCommandPatch.cs"));
+        string lordControlGroups = File.ReadAllText(Path.Combine(workspace, "BugfixesAndQoL", "src", "LordAndControlGroups/LordControlGroupNativePatch.cs"));
+        string runtime = File.ReadAllText(Path.Combine(workspace, "BugfixesAndQoL", "src", "Core/Bootstrap/BugfixesAndQoLRuntime.cs"));
         Check(plague.Contains("if (!referenceHashMatches)"), "plague fixed-layout unknown-hash gate");
         Check(mountedStockpile.Contains("if (!referenceHashMatches)"), "mounted-stockpile unknown-hash gate");
         Check(healerAttackCommand.Contains("if (!referenceHashMatches)"),
@@ -1092,7 +1092,7 @@ internal static class Program
             "const\\s+string\\s+(?<name>[A-Za-z0-9_]+)\\s*=\\s*(?<value>(?:\\s*\"(?:[^\"\\\\]|\\\\.)*\"\\s*\\+?)+)\\s*;",
             RegexOptions.Singleline);
         var literal = new Regex("\"(?<text>(?:[^\"\\\\]|\\\\.)*)\"");
-        foreach (string file in Directory.GetFiles(sourceDirectory, "*.cs"))
+        foreach (string file in Directory.GetFiles(sourceDirectory, "*.cs", SearchOption.AllDirectories))
         {
             string source = File.ReadAllText(file);
             foreach (Match match in declaration.Matches(source))

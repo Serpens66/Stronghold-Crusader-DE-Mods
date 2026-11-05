@@ -17,11 +17,11 @@
     <Compile Include="Program.cs"/>
     <Compile Include="../../src/VanillaPerformance/EnginePresentationBridge.cs"/>
     <Compile Include="../../src/VanillaPerformance/EnginePresentationBridge.IL.cs"/>
-    <Compile Include="../../src/SimulationRunScope.cs"/>
+    <Compile Include="../../src/Core/Common/SimulationRunScope.cs"/>
     <Compile Include="../../src/VanillaPerformance/AchievementDataOptimization.cs"/>
     <Compile Include="../../src/VanillaPerformance/MeritDataLockOptimization.cs"/>
     <Compile Include="../../src/VanillaPerformance/MeritDataLockOptimization.DevDiag.cs" Condition="'$(SerpDevDiagnostics)'=='true'"/>
-    <Compile Include="../../src/GateAttackFreezeCapture.DevDiag.cs" Condition="'$(SerpDevDiagnostics)'=='true'"/>
+    <Compile Include="../../src/GateRouting/GateAttackFreezeCapture.DevDiag.cs" Condition="'$(SerpDevDiagnostics)'=='true'"/>
     <Compile Include="../../src/VanillaPerformance/GateAttackFreezeRun.DevDiag.cs" Condition="'$(SerpDevDiagnostics)'=='true'"/>
     <Compile Include="FreezeTests.cs" Condition="'$(SerpDevDiagnostics)'=='true'"/>
     <Compile Include="../../src/UnitCommands/Runtime/ManualProbeCapture.DevDiag.cs" Condition="'$(SerpDevDiagnostics)'=='true'"/>

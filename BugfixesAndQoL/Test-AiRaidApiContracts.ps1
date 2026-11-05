@@ -21,7 +21,7 @@ $rows=@(foreach($name in $contracts.Keys) {
   foreach($member in $members) { $member.FullName }
  }
 })
-$source=[IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\AiRaidRetargetFixRuntime.cs'))
+$source=[IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\AI\Raid\AiRaidRetargetFixRuntime.cs'))
 $fields=@([regex]::Matches($source,'->(r_[A-Za-z0-9_]+)') | ForEach-Object {$_.Groups[1].Value} | Sort-Object -Unique)
 foreach($name in $fields) {
  $members=@($assembly.MainModule.Types | Where-Object Name -in 'GameTribe','GameBuilding','GameUnit' | ForEach-Object {$_.Fields} | Where-Object { $_.Name -eq $name -and $_.IsPublic })

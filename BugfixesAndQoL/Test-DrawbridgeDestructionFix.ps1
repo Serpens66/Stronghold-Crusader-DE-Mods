@@ -3,8 +3,8 @@ param([switch]$RunTests)
 $ErrorActionPreference = 'Stop'
 $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $game = 'E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition'
-$view = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\BugfixesAndQoLViewModel.cs'))
-$main = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\BugfixesAndQoLRuntime.cs'))
+$view = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\Settings\BugfixesAndQoLViewModel.cs'))
+$main = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\Core\Bootstrap\BugfixesAndQoLRuntime.cs'))
 $runtime = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\DrawbridgeDestructionFix\FixRuntime.cs'))
 foreach ($required in @('private bool enableDrawbridgeDestructionFix = true;', "[SyncHostOnly]`r`n        public bool EnableDrawbridgeDestructionFix", 'EnableDrawbridgeDestructionFix = true;', 'SetSetting(ref enableDrawbridgeDestructionFix, value, nameof(EnableDrawbridgeDestructionFix))')) {
     if (-not $view.Contains($required)) { throw "Missing host/default/reset/preset contract: $required" }
@@ -42,7 +42,7 @@ try {
         if (-not @($api.Methods | Where-Object { $_.Name -eq $name -and $_.IsPublic }).Count) { throw "Installed public building API missing: $name" }
     }
 } finally { $assembly.Dispose() }
-$targets = @('src\DrawbridgeDestructionFix\FixRuntime.cs','src\DrawbridgeDestructionFix\NativeContract.cs','src\BugfixesAndQoLRuntime.cs','src\BugfixesAndQoLViewModel.cs','src\BugfixesAndQoLPlugin.cs','BugfixesAndQoL.csproj','Override\ScriptExtenderUI\BugfixesAndQoLSettings.xaml','Test-DrawbridgeDestructionFix.ps1')
+$targets = @('src\DrawbridgeDestructionFix\FixRuntime.cs','src\DrawbridgeDestructionFix\NativeContract.cs','src\Core\Bootstrap\BugfixesAndQoLRuntime.cs','src\Settings\BugfixesAndQoLViewModel.cs','src\BugfixesAndQoLPlugin.cs','BugfixesAndQoL.csproj','Override\ScriptExtenderUI\BugfixesAndQoLSettings.xaml','Test-DrawbridgeDestructionFix.ps1')
 foreach ($relative in $targets) { if ([IO.File]::ReadAllText((Join-Path $PSScriptRoot $relative)) -match '(?<!\r)\n|\r(?!\n)') { throw "Invalid CRLF: $relative" } }
 & 'D:\CDesktopLink\Portable\Python\WinPy64\python\python.exe' (Join-Path $PSScriptRoot 'tests\DrawbridgeDestructionFix.Tests\audit_native.py') $workspace
 if ($LASTEXITCODE -ne 0) { throw 'Native static audit failed.' }

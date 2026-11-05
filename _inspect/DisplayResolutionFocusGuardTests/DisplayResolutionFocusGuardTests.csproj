@@ -14,8 +14,8 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
-    <Compile Include="..\..\BugfixesAndQoL\src\DisplayResolutionFocusState.cs"><Link>DisplayResolutionFocusState.cs</Link></Compile>
-    <Compile Include="..\..\BugfixesAndQoL\src\DisplayResolutionPersistenceHook.cs"><Link>DisplayResolutionPersistenceHook.cs</Link></Compile>
+    <Compile Include="..\..\BugfixesAndQoL\src\CameraDisplay\DisplayResolutionFocusState.cs"><Link>DisplayResolutionFocusState.cs</Link></Compile>
+    <Compile Include="..\..\BugfixesAndQoL\src\CameraDisplay\DisplayResolutionPersistenceHook.cs"><Link>DisplayResolutionPersistenceHook.cs</Link></Compile>
     <Compile Include="RuntimeBoundaryDoubles.cs" />
     <Compile Include="..\UiWorkBoundaryDouble.cs" />
     <Compile Include="..\..\APIShared\src\Presentation\UiWork\UiWorkContracts.cs" />

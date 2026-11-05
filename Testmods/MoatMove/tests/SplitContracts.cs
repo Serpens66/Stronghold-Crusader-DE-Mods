@@ -22,7 +22,7 @@ internal static class SplitContracts
         string main = Read("BugfixesAndQoL/BugfixesAndQoL.csproj");
         string addon = Read("Testmods/MoatMove/MoatMove.csproj");
         string plugin = Read("Testmods/MoatMove/src/MoatMovePlugin.cs");
-        string settings = Read("BugfixesAndQoL/src/BugfixesAndQoLViewModel.cs");
+        string settings = Read("BugfixesAndQoL/src/Settings/BugfixesAndQoLViewModel.cs");
         string api = Read("BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathAPI.cs");
         string policy = Read("BugfixesAndQoL/src/UnitCommands/Movement/TraversalDispatch.cs");
         Check(plugin.Contains("BepInDependency(\"BugfixesAndQoL_Serp\"") &&

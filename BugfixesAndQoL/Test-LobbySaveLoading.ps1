@@ -2,9 +2,9 @@
 param([switch]$RunTests)
 $ErrorActionPreference = 'Stop'
 $modRoot = $PSScriptRoot
-$view = [IO.File]::ReadAllText((Join-Path $modRoot 'src\BugfixesAndQoLViewModel.cs'))
+$view = [IO.File]::ReadAllText((Join-Path $modRoot 'src\Settings\BugfixesAndQoLViewModel.cs'))
 $plugin = [IO.File]::ReadAllText((Join-Path $modRoot 'src\BugfixesAndQoLPlugin.cs'))
-$feature = [IO.File]::ReadAllText((Join-Path $modRoot 'src\LobbySaveLoadingFeature.cs'))
+$feature = [IO.File]::ReadAllText((Join-Path $modRoot 'src\Lobby\LobbySaveLoadingFeature.cs'))
 if (-not $plugin.Contains('LobbySaveLoadingFeature.Initialize(Logger, Settings);')) { throw 'Missing rooted bootstrap.' }
 if ($feature -match '\b(?:OnDestroy|OnDisable|OnApplicationQuit|Update|LateUpdate|FixedUpdate|StartCoroutine)\s*\(' -or
     $feature -match '\b(?:soloHook|visibilityHook)\s*\.\s*(?:Undo|Dispose|Disable)\s*\(') {
@@ -33,7 +33,7 @@ foreach ($name in @('EnableSoloMultiplayerSaveLoading', 'FixSkirmishLoadButtonVi
         }
     }
 }
-foreach ($file in @('src\LobbySaveLoadingFeature.cs','src\LobbySaveLoadingIl.cs','src\LobbySaveLoadingPolicy.cs',
+foreach ($file in @('src\Lobby\LobbySaveLoadingFeature.cs','src\Lobby\LobbySaveLoadingIl.cs','src\Lobby\LobbySaveLoadingPolicy.cs',
     'tests\LobbySaveLoading.Tests\Program.cs','tests\LobbySaveLoading.Tests\LobbySaveLoading.Tests.csproj','Test-LobbySaveLoading.ps1')) {
     $text = [IO.File]::ReadAllText((Join-Path $modRoot $file))
     if ($text -match '(?<!\r)\n') { throw "Non-CRLF text: $file" }

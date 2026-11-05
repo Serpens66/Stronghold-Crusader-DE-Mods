@@ -31,10 +31,10 @@ foreach ($address in @('1864ccc28', '1864cccca', '1864ccd24')) {
     }
 }
 
-$source = [IO.File]::ReadAllText((Join-Path $root 'src\NativeTannerFade.cs'))
-$state = [IO.File]::ReadAllText((Join-Path $root 'src\NativeTannerFadeState.cs'))
-$runtime = [IO.File]::ReadAllText((Join-Path $root 'src\BugfixesAndQoLRuntime.cs'))
-$view = [IO.File]::ReadAllText((Join-Path $root 'src\BugfixesAndQoLViewModel.cs'))
+$source = [IO.File]::ReadAllText((Join-Path $root 'src\Buildings\NativeTannerFade.cs'))
+$state = [IO.File]::ReadAllText((Join-Path $root 'src\Buildings\NativeTannerFadeState.cs'))
+$runtime = [IO.File]::ReadAllText((Join-Path $root 'src\Core\Bootstrap\BugfixesAndQoLRuntime.cs'))
+$view = [IO.File]::ReadAllText((Join-Path $root 'src\Settings\BugfixesAndQoLViewModel.cs'))
 $xaml = [IO.File]::ReadAllText((Join-Path $root 'Override\ScriptExtenderUI\BugfixesAndQoLSettings.xaml'))
 [xml]$xamlDocument = $xaml
 foreach ($contract in @(
@@ -91,10 +91,10 @@ foreach ($file in $locales) {
 }
 
 $paths = @(
-    (Join-Path $root 'src\NativeTannerFade.cs'),
-    (Join-Path $root 'src\NativeTannerFadeState.cs'),
-    (Join-Path $root 'src\BugfixesAndQoLRuntime.cs'),
-    (Join-Path $root 'src\BugfixesAndQoLViewModel.cs'),
+    (Join-Path $root 'src\Buildings\NativeTannerFade.cs'),
+    (Join-Path $root 'src\Buildings\NativeTannerFadeState.cs'),
+    (Join-Path $root 'src\Core\Bootstrap\BugfixesAndQoLRuntime.cs'),
+    (Join-Path $root 'src\Settings\BugfixesAndQoLViewModel.cs'),
     (Join-Path $root 'Override\ScriptExtenderUI\BugfixesAndQoLSettings.xaml'),
     (Join-Path $root 'tests\TannerFade.Tests\Program.cs'),
     (Join-Path $root 'tests\TannerFade.Tests\TannerFade.Tests.csproj'),

@@ -41,7 +41,7 @@
     <Compile Include="..\..\src\Formations\FormationPreviewMarkerModel.cs"><Link>FormationPreviewMarkerModel.cs</Link></Compile>
     <Compile Include="..\..\src\Formations\FormationReleaseStateModel.cs"><Link>FormationReleaseStateModel.cs</Link></Compile>
     <Compile Include="NativeDetourEntryContract.cs" />
-    <Compile Include="..\..\src\FormationSelectionMigration.cs"><Link>FormationSelectionMigration.cs</Link></Compile>
+    <Compile Include="..\..\src\Formations\Feature\FormationSelectionMigration.cs"><Link>FormationSelectionMigration.cs</Link></Compile>
     <Compile Include="..\..\..\Shared\Runtime\Gameplay\GroundMovePreviewEligibility.cs"><Link>GroundMovePreviewEligibility.cs</Link></Compile>
   </ItemGroup>
   <Target Name="ValidateReferences" BeforeTargets="BeforeBuild">

@@ -68,7 +68,7 @@
     <Compile Include="..\..\..\APIShared\src\Pathfinding\GateRoutes\Native\DirectCursorCallAdapterEmitter.cs"><Link>DirectCursorCallAdapterEmitter.cs</Link></Compile>
     <Compile Include="..\..\..\APIShared\src\Pathfinding\GateRoutes\Native\CapturerComparisonAdapterEmitter.cs"><Link>CapturerComparisonAdapterEmitter.cs</Link></Compile>
     <Compile Include="CapturerAdapterMachineTests.cs" />
-    <Compile Include="..\..\src\DemandGatedContextHook.cs"><Link>DemandGatedContextHook.cs</Link></Compile>
+    <Compile Include="..\..\src\Core\Native\DemandGatedContextHook.cs"><Link>DemandGatedContextHook.cs</Link></Compile>
     <Compile Include="DemandGatedContextHookTests.cs" />
     <Compile Include="LargeGateFootprintTests.cs" />
     <Compile Include="DirectionAdapterExecutionTests.cs" />

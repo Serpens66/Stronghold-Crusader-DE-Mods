@@ -159,7 +159,7 @@ foreach ($file in $files) {
 
 $permanentManagedContracts = @(
     @{
-        Path = 'BugfixesAndQoL\src\GatehouseTargetMarkerHeightHook.cs'
+        Path = 'BugfixesAndQoL\src\GateRouting\GatehouseTargetMarkerHeightHook.cs'
         Required = @('private static readonly Harmony harmony', 'harmony.Patch(target, prefix:', 'Volatile.Write(ref enabled', 'Volatile.Read(ref enabled)', 'Interlocked.Exchange(ref attempted, 1)')
         Forbidden = @('Unpatch(', 'UnpatchAll(', 'Dispose(', 'Undo(', 'CodePatch', 'VirtualProtect', 'Marshal.Write')
     },
@@ -198,7 +198,7 @@ $permanentManagedContracts = @(
         Forbidden = @('public void Dispose()', 'new Hook(', 'new ILHook(', 'installed = false')
     },
     @{
-        Path = 'BugfixesAndQoL\src\SiegeAmmoRestockFeature.cs'
+        Path = 'BugfixesAndQoL\src\UnitOrders\SiegeAmmoRestockFeature.cs'
         Required = @('if (eventsRegistered) return;', 'PresentationEvents.TryRegister(', 'args.Replacement = parameter')
         Forbidden = @('new Hook(', 'buttonHook', 'mouseEnterHook', 'mouseLeaveHook')
     },
@@ -280,7 +280,7 @@ $permanentManagedContracts = @(
         Forbidden = @('runtime = null')
     },
     @{
-        Path = 'BugfixesAndQoL\src\BugfixesAndQoLRuntime.cs'
+        Path = 'BugfixesAndQoL\src\Core\Bootstrap\BugfixesAndQoLRuntime.cs'
         Required = @('ReconcilePermanentClientHook(')
         Forbidden = @(
             'DisposeFeature("market autotrade sell threshold"',
@@ -291,12 +291,12 @@ $permanentManagedContracts = @(
         )
     },
     @{
-        Path = 'BugfixesAndQoL\src\SingleBuildingPauseHook.cs'
+        Path = 'BugfixesAndQoL\src\Buildings\SingleBuildingPauseHook.cs'
         Required = @('!localHooksInstalled || !IsFeatureActive()')
         Forbidden = @('addChimpActionsHook.Apply()', 'addChimpActionsHook.Undo()')
     },
     @{
-        Path = 'BugfixesAndQoL\src\QuarryPileRelocationRuntime.cs'
+        Path = 'BugfixesAndQoL\src\Buildings\QuarryPileRelocationRuntime.cs'
         Required = @('Keep the published', 'MonoMod hook')
         Forbidden = @('setUpInbuildingHook?.Undo()', 'setUpInbuildingHook?.Dispose()')
     },
@@ -327,7 +327,7 @@ $permanentManagedContracts = @(
         )
     },
     @{
-        Path = 'BugfixesAndQoL\src\WaterboyTargetReservationRuntime.cs'
+        Path = 'BugfixesAndQoL\src\Buildings\WaterboyTargetReservationRuntime.cs'
         Required = @(
             'private readonly HookTransaction transaction;',
             'private readonly DetourHandle<FindNearestBurningBuildingDelegate> targetSearchHook',
@@ -375,7 +375,7 @@ foreach ($contract in $permanentManagedContracts) {
     }
 }
 
-$workshopPath = Join-Path $workspace 'BugfixesAndQoL\src\WorkshopIdleDelayHook.cs'
+$workshopPath = Join-Path $workspace 'BugfixesAndQoL\src\Buildings\WorkshopIdleDelayHook.cs'
 if (-not (Test-OutsideScopedMod $workshopPath)) {
     if (-not (Test-Path -LiteralPath $workshopPath)) {
         throw "$workshopPath`: workshop hook contract source is missing"

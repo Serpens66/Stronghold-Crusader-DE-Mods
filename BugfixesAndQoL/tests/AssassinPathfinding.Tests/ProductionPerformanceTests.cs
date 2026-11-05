@@ -22,7 +22,7 @@ internal static partial class Program
             return File.ReadAllText(before && File.Exists(saved) ? saved : Path.Combine(root, relative));
         }
         var parseOptions = development ? CSharpParseOptions.Default.WithPreprocessorSymbols("SERP_DEVDIAG") : CSharpParseOptions.Default;
-        var runtime = CSharpSyntaxTree.ParseText(Read("BugfixesAndQoL/src/AssassinPathfindingRuntime.cs"), parseOptions)
+        var runtime = CSharpSyntaxTree.ParseText(Read("BugfixesAndQoL/src/Assassins/AssassinPathfindingRuntime.cs"), parseOptions)
             .GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().First();
         string[] excluded = { "InitializeNative", "Dispose", "BuildWeightedPath", "DescribeNativeAssassinState",
             "ObservePreparedAssassinRoute", "ObserveMoveCommand", "ObserveTargetCommand", "CloseCommandScope",
@@ -155,10 +155,10 @@ internal static partial class Program
             if (begin >= 0 && end > begin) fixture = fixture.Remove(begin, end - begin);
         }
         string[] files = { "APIShared/src/Pathfinding/Assassin/AssassinRouteHandoff.cs", "APIShared/src/Pathfinding/Assassin/AssassinGateTransitionPolicy.cs", "APIShared/src/Pathfinding/GateRoutes/TemporaryGateRouteAcceptanceBridge.cs",
-            "APIShared/src/Pathfinding/GateRoutes/EnemyGatePathPolicyBridge.cs", "BugfixesAndQoL/src/AssassinGateRoutePolicy.cs",
-            "BugfixesAndQoL/src/AssassinPathfindingRuntime.CacheKeys.cs", "BugfixesAndQoL/src/AssassinAStarPolicy.cs",
-            "BugfixesAndQoL/src/AssassinClimbCostPolicy.cs", "BugfixesAndQoL/src/AssassinClimbTransitionPolicy.cs",
-            "BugfixesAndQoL/src/AssassinRouteEncoding.cs", "BugfixesAndQoL/src/AssassinNativeSearch.cs",
+            "APIShared/src/Pathfinding/GateRoutes/EnemyGatePathPolicyBridge.cs", "BugfixesAndQoL/src/Assassins/AssassinGateRoutePolicy.cs",
+            "BugfixesAndQoL/src/Assassins/AssassinPathfindingRuntime.CacheKeys.cs", "BugfixesAndQoL/src/Assassins/AssassinAStarPolicy.cs",
+            "BugfixesAndQoL/src/Assassins/AssassinClimbCostPolicy.cs", "BugfixesAndQoL/src/Assassins/AssassinClimbTransitionPolicy.cs",
+            "BugfixesAndQoL/src/Assassins/AssassinRouteEncoding.cs", "BugfixesAndQoL/src/Assassins/AssassinNativeSearch.cs",
             // Real development-diagnostics facade: without SERP_DEVDIAG every call compiles away.
             "Shared/Runtime/Diagnostics/DevDiag.cs" };
         // The policy byte-mask view lives with BugfixesAndQoL's gate policy publication (not compiled here).

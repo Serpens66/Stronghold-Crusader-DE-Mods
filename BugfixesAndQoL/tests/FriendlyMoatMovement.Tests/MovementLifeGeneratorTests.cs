@@ -9,7 +9,7 @@ internal static class MovementLifeGeneratorTests
 {
     internal static void Validate(string root)
     {
-        string path = Path.Combine(root, "BugfixesAndQoL/src/SynchronizedMovementCadencePatch.cs");
+        string path = Path.Combine(root, "BugfixesAndQoL/src/TroopMovement/SynchronizedMovementCadencePatch.cs");
         var syntax = CSharpSyntaxTree.ParseText(File.ReadAllText(path)).GetRoot();
         var type = syntax.DescendantNodes().OfType<ClassDeclarationSyntax>()
             .Single(c => c.Identifier.Text == "SynchronizedMovementCadencePatch");

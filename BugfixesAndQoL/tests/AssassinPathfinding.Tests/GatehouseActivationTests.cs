@@ -8,7 +8,7 @@ internal static partial class Program
     private static void TestGatehouseActivation(string[] args)
     {
         var tree = CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(args[0],
-            "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs")));
+            "BugfixesAndQoL/src/Core/Bootstrap/BugfixesAndQoLRuntime.cs")));
         string method = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>()
             .Single(m => m.Identifier.Text == "ApplyAssassinGatehouseClimbFix").ToFullString();
         string fixture = """

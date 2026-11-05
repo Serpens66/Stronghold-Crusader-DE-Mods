@@ -22,7 +22,7 @@ $plugin = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\BuildPreview\Buil
 if ([regex]::Matches($plugin, 'permanentHook\.Original\(').Count -ne 1) { throw 'Vanilla must be called exactly once.' }
 if ([regex]::Matches($plugin, 'candidate\?\.Dispose\(').Count -ne 1 -or $plugin -notmatch 'if \(!published\)\s*\{[^}]*candidate\?\.Dispose\(') { throw 'Candidate rollback must be guarded before publication.' }
 if ($runtime -notmatch 'State.IsCurrent\(capture\)' -or $runtime -notmatch 'State.SetEnabled\(false\)' -or $runtime -notmatch 'BUILD_PREVIEW_RUNTIME_CONFIRMED') { throw 'Permanent logical gate/runtime marker missing.' }
-$viewModel = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\BugfixesAndQoLViewModel.cs'))
+$viewModel = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\Settings\BugfixesAndQoLViewModel.cs'))
 if ($viewModel -notmatch 'private bool enableImprovedBuildPreview = true;' -or
     $viewModel -notmatch '\[APIShared.ModSettings.PresetLocal\]\s*public bool EnableImprovedBuildPreview' -or
     $viewModel -notmatch 'EnableImprovedBuildPreview = true;' -or
@@ -33,7 +33,7 @@ $textFiles = @(
     Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot 'src\BuildPreview') -File
     Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot 'tests\BuildPreview.Tests') -File
     Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot 'Locales') -File
-    foreach ($relative in @('src\BugfixesAndQoLPlugin.cs','src\BugfixesAndQoLViewModel.cs','src\Properties\AssemblyInfo.cs','Override\ScriptExtenderUI\BugfixesAndQoLSettings.xaml','BugfixesAndQoL.csproj','info.json','build.bat','Test-BuildPreviewPreflight.ps1','UpdateToNewDLL.md')) { Get-Item -LiteralPath (Join-Path $PSScriptRoot $relative) }
+    foreach ($relative in @('src\BugfixesAndQoLPlugin.cs','src\Settings\BugfixesAndQoLViewModel.cs','src\Properties\AssemblyInfo.cs','Override\ScriptExtenderUI\BugfixesAndQoLSettings.xaml','BugfixesAndQoL.csproj','info.json','build.bat','Test-BuildPreviewPreflight.ps1','UpdateToNewDLL.md')) { Get-Item -LiteralPath (Join-Path $PSScriptRoot $relative) }
 )
 foreach ($file in $textFiles) {
     $content = [IO.File]::ReadAllText($file.FullName)

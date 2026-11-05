@@ -83,9 +83,9 @@ namespace BugfixesAndQoL
                 "economy overlay is byte-exact after an exception");
 
             string root = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", ".."));
-            string runtime = File.ReadAllText(Path.Combine(root, "src", "AIPreplacedBuildingFixRuntime.cs"));
+            string runtime = File.ReadAllText(Path.Combine(root, "src", "AI/Prebuilt/AIPreplacedBuildingFixRuntime.cs"));
             string plugin = File.ReadAllText(Path.Combine(root, "src", "BugfixesAndQoLPlugin.cs"));
-            string viewModel = File.ReadAllText(Path.Combine(root, "src", "BugfixesAndQoLViewModel.cs"));
+            string viewModel = File.ReadAllText(Path.Combine(root, "src", "Settings/BugfixesAndQoLViewModel.cs"));
             string processMapLoad = ExtractMethod(runtime, "ProcessMapLoad");
             string processMapStart = ExtractMethod(runtime, "ProcessMapStart");
             string allocateSpec = ExtractMethod(runtime, "AllocateSpec");

@@ -16,7 +16,7 @@
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Compile Include="Program.cs" />
-    <Compile Include="..\..\src\NativeTannerFadeState.cs"><Link>NativeTannerFadeState.cs</Link></Compile>
+    <Compile Include="..\..\src\Buildings\NativeTannerFadeState.cs"><Link>NativeTannerFadeState.cs</Link></Compile>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

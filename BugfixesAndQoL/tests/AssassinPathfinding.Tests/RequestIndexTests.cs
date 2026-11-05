@@ -9,7 +9,7 @@ internal static partial class Program
     {
         string root = Path.GetFullPath(args[0]);
         var runtime = CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,
-            "BugfixesAndQoL/src/AssassinPathfindingRuntime.cs"))).GetRoot();
+            "BugfixesAndQoL/src/Assassins/AssassinPathfindingRuntime.cs"))).GetRoot();
         string methods = string.Join("\n", runtime.DescendantNodes().OfType<MethodDeclarationSyntax>()
             .Where(m => m.Identifier.Text is "BuildRequestIndex" or "GetCoordinateIndex")
             .Select(m => m.ToFullString()));

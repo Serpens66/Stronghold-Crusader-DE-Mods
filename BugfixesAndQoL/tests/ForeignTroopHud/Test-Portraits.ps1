@@ -3,7 +3,7 @@
 param([string]$ModDirectory = (Join-Path $PSScriptRoot '..\..'))
 $ErrorActionPreference = 'Stop'
 $modRoot = [IO.Path]::GetFullPath($ModDirectory)
-$runtime = [IO.File]::ReadAllText((Join-Path $modRoot 'src\ForeignTroopHudRuntime.cs'))
+$runtime = [IO.File]::ReadAllText((Join-Path $modRoot 'src\Hud\ForeignTroopHudRuntime.cs'))
 $entryStart = $runtime.IndexOf('    internal sealed class ForeignTroopEntry')
 if ($entryStart -lt 0) { throw 'Cannot find production entry type.' }
 $entryEnd = $runtime.IndexOf('    internal static class ForeignTroopHudRuntime', $entryStart)
@@ -20,8 +20,8 @@ if (-not $fixture.Contains('/* PRODUCTION_CAPTURE_BLOCK */')) { throw 'Capture f
 $fixture = $fixture.Replace('/* PRODUCTION_CAPTURE_BLOCK */', $capture)
 $sources = @(
     $entry,
-    [IO.File]::ReadAllText((Join-Path $modRoot 'src\ForeignTroopPortraits.cs')),
-    [IO.File]::ReadAllText((Join-Path $modRoot 'src\ForeignTroopHudView.cs')),
+    [IO.File]::ReadAllText((Join-Path $modRoot 'src\Hud\ForeignTroopPortraits.cs')),
+    [IO.File]::ReadAllText((Join-Path $modRoot 'src\Hud\ForeignTroopHudView.cs')),
     $fixture
 )
 # Compile the actual helper, entry and complete view; doubles replace only game/Noesis boundaries.

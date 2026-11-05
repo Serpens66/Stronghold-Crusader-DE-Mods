@@ -36,8 +36,8 @@ foreach ($file in $pluginSources) {
     }
 }
 
-$woodScopeSource = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\AiWoodBuildCallScope.cs'))
-$woodWrapperSource = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\AIPreplacedBuildingFixRuntime.cs'))
+$woodScopeSource = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\AI\Prebuilt\AiWoodBuildCallScope.cs'))
+$woodWrapperSource = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\AI\Prebuilt\AIPreplacedBuildingFixRuntime.cs'))
 if ($woodWrapperSource -notmatch 'AiWoodBuildCallScope\.Enter\(playerId\)' -or
     $woodWrapperSource -notmatch 'AiWoodBuildCallScope\.Leave\(woodScope\)' -or
     $woodScopeSource -notmatch '\[ThreadStatic\]' -or
@@ -68,10 +68,10 @@ if ([BugfixesAndQoL.AiWoodBuildCallScope]::TryGetCurrent([ref]$scopePlayer, [ref
     throw 'Wood-call context leaked after leaving the wrapper.'
 }
 
-$waterboyRuntimePath = Join-Path $PSScriptRoot 'src\WaterboyTargetReservationRuntime.cs'
+$waterboyRuntimePath = Join-Path $PSScriptRoot 'src\Buildings\WaterboyTargetReservationRuntime.cs'
 $waterboyRuntime = [System.IO.File]::ReadAllText($waterboyRuntimePath)
 $waterboyViewModel = [System.IO.File]::ReadAllText(
-    (Join-Path $PSScriptRoot 'src\BugfixesAndQoLViewModel.cs'))
+    (Join-Path $PSScriptRoot 'src\Settings\BugfixesAndQoLViewModel.cs'))
 if ($waterboyRuntime -match 'AuditedScriptExtenderAssemblyVersion|AuditedRedBirdAssemblyVersion|Unaudited dependencies') {
     throw 'Exact Script Extender or RedBird version gating was reintroduced for Waterboy targeting.'
 }
@@ -113,9 +113,9 @@ if ($xamlViolations.Count -ne 0) {
 }
 
 }
-$viewModel = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\BugfixesAndQoLViewModel.cs'))
-$movementRuntime = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\TroopMovementFixRuntime.cs'))
-$cadence = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\SynchronizedMovementCadencePatch.cs'))
+$viewModel = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\Settings\BugfixesAndQoLViewModel.cs'))
+$movementRuntime = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\TroopMovement\TroopMovementFixRuntime.cs'))
+$cadence = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\TroopMovement\SynchronizedMovementCadencePatch.cs'))
 if (-not $viewModel.Contains('private bool enableRallyTerrainSlowdownFix = true;') -or
     -not $viewModel.Contains('[SyncHostOnly]' + [Environment]::NewLine + '        public bool EnableRallyTerrainSlowdownFix') -or
     -not $viewModel.Contains('EnableRallyTerrainSlowdownFix = true;') -or

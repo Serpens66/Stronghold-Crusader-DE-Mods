@@ -5,8 +5,8 @@ $ErrorActionPreference = 'Stop'
 $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $testRoot = Join-Path $PSScriptRoot 'tests\TrailDeletion.Tests'
 Add-Type -Path @(
-    (Join-Path $PSScriptRoot 'src\TrailDeletionPolicy.cs'),
-    (Join-Path $PSScriptRoot 'src\TrailDeletionViewModel.cs'),
+    (Join-Path $PSScriptRoot 'src\Lobby\TrailDeletionPolicy.cs'),
+    (Join-Path $PSScriptRoot 'src\Lobby\TrailDeletionViewModel.cs'),
     (Join-Path $testRoot 'Stubs.cs'),
     (Join-Path $testRoot 'Program.cs'))
 $fixture = Join-Path ([IO.Path]::GetTempPath()) ('BugfixesAndQoL-DeleteTrail-' + [guid]::NewGuid().ToString('N'))

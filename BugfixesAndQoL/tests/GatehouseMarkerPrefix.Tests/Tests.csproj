@@ -7,7 +7,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Program.cs" />
-    <Compile Include="../../src/GatehouseTargetMarkerHeightHook.cs" Link="ProductionHook.cs" />
-    <Compile Include="../../src/GatehouseTargetMarkerHeightPolicy.cs" Link="ProductionPolicy.cs" />
+    <Compile Include="../../src/GateRouting/GatehouseTargetMarkerHeightHook.cs" Link="ProductionHook.cs" />
+    <Compile Include="../../src/GateRouting/GatehouseTargetMarkerHeightPolicy.cs" Link="ProductionPolicy.cs" />
   </ItemGroup>
 </Project>

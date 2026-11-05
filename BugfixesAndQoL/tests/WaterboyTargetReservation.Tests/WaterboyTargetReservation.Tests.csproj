@@ -24,8 +24,8 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Program.cs" />
-    <Compile Include="..\..\src\WaterboyReservationLedger.cs"><Link>WaterboyReservationLedger.cs</Link></Compile>
-    <Compile Include="..\..\src\WaterboyNativeDefinition.cs"><Link>WaterboyNativeDefinition.cs</Link></Compile>
+    <Compile Include="..\..\src\Buildings\WaterboyReservationLedger.cs"><Link>WaterboyReservationLedger.cs</Link></Compile>
+    <Compile Include="..\..\src\Buildings\WaterboyNativeDefinition.cs"><Link>WaterboyNativeDefinition.cs</Link></Compile>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Target Name="ValidateReferences" BeforeTargets="BeforeBuild">

@@ -876,10 +876,10 @@ before the next game start; retain sources/evidence rather than deleting it.
 Procedure: [AGENTS/native-analysis.md](../AGENTS/native-analysis.md), section â€žPrÃ¼fkostenâ€œ.
 - **Known native hash:** reference bytes only.
 - **Unknown hash:** one section-limited pattern fallback whose result is cached in `BepInEx/cache/BugfixesAndQoL_Serp.native-cache.tsv`. The cache key is the native SHA-256 plus the mod version.
-- The shared cache is `src/BfqolNativeCache.cs` over `Shared/Runtime/Native/NativeResolutionCache.cs`, saved once at the end of LibraryLoaded.
+- The shared cache is `src/Core/Native/BfqolNativeCache.cs` over `Shared/Runtime/Native/NativeResolutionCache.cs`, saved once at the end of LibraryLoaded.
 - The CrusaderDE.dll hash itself is cached across starts by path, size and write time (`Serp.file-hashes.tsv`).
 
-**Notification queue (`src/NotificationQueueNativeContract.cs`)**
+**Notification queue (`src/Notifications/NotificationQueueNativeContract.cs`)**
 
 The eight patterns previously had no reference RVA and were scanned on every start. The references below come from the installed FBCB9319 DLL; each pattern matched exactly once, and the fixed distances in the contract hold:
 
@@ -911,7 +911,7 @@ The SHA-256 gate of `Assembly-CSharp.dll` was removed. The fix is gated by the I
 
 An update that keeps these methods keeps the fix; any IL change fails closed with `FIX_DISABLED`.
 
-**Peace time / native switches (`src/PermanentNativeSwitch.cs`)**
+**Peace time / native switches (`src/Core/Native/PermanentNativeSwitch.cs`)**
 
 Instruction boundaries are proven on the unmodified load image. Live, a foreign hook may already start at the boundary after a span; for example, the Script Extender's wall-targeting context hook starts at `0x8EA60` right after the peace-time span `0x8EA59..0x8EA5F`. Only `jmp rel32` or `jmp [rip+disp32]` is accepted there; any other live change fails closed.
 
@@ -1489,7 +1489,7 @@ heartbeat, teleport trace, trace allocation or counter, including in /devdiag bu
 The user confirmed the integrated fix works on 2026-10-28. This is user-reported gameplay acceptance;
 no additional editor, save/load or real host/client acceptance is inferred. Historical records remain unchanged.
 
-## Native weighted Assassin search (2026-10-30, `native/AssassinSearch.cpp`, `src/AssassinNativeSearch.cs`)
+## Native weighted Assassin search (2026-10-30, `native/AssassinSearch.cpp`, `src/Assassins/AssassinNativeSearch.cs`)
 
 `BfqolAssassinSearch.dll` (contract `0x01000002`) runs the bucket variant of `TryBuildWeightedRoute` with identical
 results. It adds no RVA of its own: it reads exactly the tables the managed search binds in `InitializeNative`
@@ -1615,7 +1615,7 @@ Names follow the source constants; they are not an independent proof of native p
 | AttackApproachFloodBuilderRva | `0xDBC60` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:54 |
 | BuildingApproachBuilderRva | `0xDA020` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:55 |
 | BuildingCandidateConsumerRva | `0x123090` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:56 |
-| RegionPairReachabilityRva | `0xE2610` | BugfixesAndQoL/src/AIPreplacedBuildingFixRuntime.cs:89, BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:57 |
+| RegionPairReachabilityRva | `0xE2610` | BugfixesAndQoL/src/AI/Prebuilt/AIPreplacedBuildingFixRuntime.cs:89, BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:57 |
 | AttackApproachFloodCallRva | `0x11EE47` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:58 |
 | AttackApproachFloodAlternativeCallRva | `0x11F46B` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:59 |
 | BuildingApproachCallRva | `0x11FF9A` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:60 |
@@ -1636,7 +1636,7 @@ Names follow the source constants; they are not an independent proof of native p
 | BuildingCursorReachabilityCallRva | `0x8DFF6` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:75 |
 | CombatFinishResumeRva | `0x1853F0` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:76 |
 | CombatFinishPostCombatCallRva | `0x18540D` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:77 |
-| PostCombatRepathRva | `0x1976C0` | BugfixesAndQoL/src/AssassinCombatResumeNativeDefinition.cs:27, BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:78 |
+| PostCombatRepathRva | `0x1976C0` | BugfixesAndQoL/src/Assassins/AssassinCombatResumeNativeDefinition.cs:27, BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:78 |
 | PostCombatMoveHereCallRva | `0x19772B` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:79 |
 | CursorMoveStagerRva | `0x195E30` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:80 |
 | NativeSpecialStructurePredicateRva | `0x107160` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:81 |
@@ -1652,7 +1652,7 @@ Names follow the source constants; they are not an independent proof of native p
 | DirectFillApproachRegionPairCallRva | `0xE81EB` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:88 |
 | DirectFillApproachCommandCallRva | `0x120E9D` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:89 |
 | MovementTerrainPhaseRva | `0x19B506` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:90 |
-| MovementCadenceRva | `0x184203` | BugfixesAndQoL/src/SynchronizedMovementCadencePatch.cs:125, BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:91 |
+| MovementCadenceRva | `0x184203` | BugfixesAndQoL/src/TroopMovement/SynchronizedMovementCadencePatch.cs:125, BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:91 |
 | MovementSubstepRva | `0x1855A0` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:92 |
 | MovementAdditionalSubstepsRva | `0x1857AA` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:93 |
 | MoatPathConsumptionReadRva | `0x185934` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:94 |
@@ -1662,10 +1662,10 @@ Names follow the source constants; they are not an independent proof of native p
 | AttackUnitPairGateJumpRva | `0x8D72B` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:98 |
 | AttackBuildingPairGateJumpRva | `0x8E2C6` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:99 |
 | AttackAlternativePairGateJumpRva | `0x8E557` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:100 |
-| TileFlagsRva | `0x48F71B0` | BugfixesAndQoL/src/AssassinPathfindingRuntime.cs:36, BugfixesAndQoL/src/Formations/Markers/LargeMoveTargetMarkerRenderer.cs:35, BugfixesAndQoL/src/MountedStockpileMovementPatch.cs:59 |
-| MovementTargetAvailabilityRva | `0x3A11EA4` | BugfixesAndQoL/src/Formations/FormationRuntime.State.cs:43, BugfixesAndQoL/src/MountedStockpileMovementPatch.cs:56, BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:102 |
+| TileFlagsRva | `0x48F71B0` | BugfixesAndQoL/src/Assassins/AssassinPathfindingRuntime.cs:36, BugfixesAndQoL/src/Formations/Markers/LargeMoveTargetMarkerRenderer.cs:35, BugfixesAndQoL/src/TroopMovement/MountedStockpileMovementPatch.cs:59 |
+| MovementTargetAvailabilityRva | `0x3A11EA4` | BugfixesAndQoL/src/Formations/FormationRuntime.State.cs:43, BugfixesAndQoL/src/TroopMovement/MountedStockpileMovementPatch.cs:56, BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:102 |
 | NativeMovementMaskRva | `0x51890D0` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:103 |
-| RowLookupRva | `0x402FF2C` | BugfixesAndQoL/src/AssassinPathfindingRuntime.cs:35, BugfixesAndQoL/src/MountedStockpileMovementPatch.cs:58, BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:104 |
+| RowLookupRva | `0x402FF2C` | BugfixesAndQoL/src/Assassins/AssassinPathfindingRuntime.cs:35, BugfixesAndQoL/src/TroopMovement/MountedStockpileMovementPatch.cs:58, BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:104 |
 | NativeBuildingLayerRva | `0x4B6AA50` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:105 |
 | NativeHeightLayerRva | `0x4DDD350` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:106 |
 | NativeDirectionMaskRva | `0x312620` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:107 |
@@ -1673,7 +1673,7 @@ Names follow the source constants; they are not an independent proof of native p
 | CursorTargetYRva | `0x3A11E30` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:109 |
 | PathRegionGridRva | `0x50EC690` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:110 |
 | MoatPathModeRva | `0x60AD6E4` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:111 |
-| NativePathManagerRva | `0x60AD660` | BugfixesAndQoL/src/AIBuildingTemporaryAccessClassifier.cs:48, BugfixesAndQoL/src/Formations/FormationRuntime.State.cs:41, BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:112 |
+| NativePathManagerRva | `0x60AD660` | BugfixesAndQoL/src/AI/Economy/AIBuildingTemporaryAccessClassifier.cs:48, BugfixesAndQoL/src/Formations/FormationRuntime.State.cs:41, BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:112 |
 | NativeUnitManagerRva | `0x67E8400` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:113 |
 | NativeTribeManagerRva | `0x7CC6720` | BugfixesAndQoL/src/Formations/FormationRuntime.State.cs:42, BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:114 |
 | Inline expression / observer / address array | `0xDB29A` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:117 |
@@ -1700,7 +1700,7 @@ Names follow the source constants; they are not an independent proof of native p
 | MovementPlannerStructureFlagGateRva | `0x19648D` | BugfixesAndQoL/src/UnitCommands/Moat/UnitCommandPathRuntime.WorkTargetState.cs:23 |
 | Inline expression / observer / address array | `0xE1D30` | BugfixesAndQoL/src/Formations/FormationRuntime.State.cs:36, BugfixesAndQoL/src/UnitCommands/Formation/NativeFormationSlots.cs:41, BugfixesAndQoL/src/UnitCommands/Moat/MoatPlacement.cs:120 |
 | Inline expression / observer / address array | `0xE0970` | BugfixesAndQoL/src/Formations/FormationRuntime.State.cs:37, BugfixesAndQoL/src/UnitCommands/Formation/NativeFormationSlots.cs:47, BugfixesAndQoL/src/UnitCommands/Moat/MoatPlacement.cs:120 |
-| UnitTypeUpdateDispatchRva | `0x18410C` | BugfixesAndQoL/src/SynchronizedMovementCadencePatch.cs:124, BugfixesAndQoL/src/UnitCommands/Movement/NativeMovementCadenceResolver.cs:18 |
+| UnitTypeUpdateDispatchRva | `0x18410C` | BugfixesAndQoL/src/TroopMovement/SynchronizedMovementCadencePatch.cs:124, BugfixesAndQoL/src/UnitCommands/Movement/NativeMovementCadenceResolver.cs:18 |
 | Module-relative expression | `0x64CCED2` | BugfixesAndQoL/src/UnitCommands/Movement/NativeMovementRecovery.cs:52 |
 | Inline expression / observer / address array | `0xD90D0` | BugfixesAndQoL/src/UnitCommands/Movement/NativeMovementRecovery.cs:55, BugfixesAndQoL/src/UnitCommands/Native/NativeDetourContracts.cs:44 |
 | Inline expression / observer / address array | `0x59210` | BugfixesAndQoL/src/MoatTerrain/NativeDefinition.cs:32, BugfixesAndQoL/src/UnitCommands/Movement/NativeMovementRecovery.cs:61, BugfixesAndQoL/src/UnitCommands/Native/NativeDetourContracts.cs:24 |
