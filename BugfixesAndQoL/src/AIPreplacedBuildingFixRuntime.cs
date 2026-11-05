@@ -158,7 +158,6 @@ namespace BugfixesAndQoL
 
         [ThreadStatic] private static int nearbyEconomyPlayerId;
         [ThreadStatic] private static ulong nearbyEconomyState;
-        [ThreadStatic] private static bool resolvingEconomyOverlayRoutes;
         [ThreadStatic] private static bool reconcilingEconomyAvailability;
         [ThreadStatic] private static Stack<EconomyGridOverlayScope> activeEconomyOverlayScopes;
 
@@ -1164,28 +1163,19 @@ namespace BugfixesAndQoL
             // decision. A portal is relevant only if one of its PCL edges occurs on
             // an actual ExcludeLadderClimb chain from the keep to a reachable target.
             GamePathingManagerAPI pathing = GamePathingManagerAPI.Instance;
-            bool wasResolvingRoutes = resolvingEconomyOverlayRoutes;
-            resolvingEconomyOverlayRoutes = true;
-            try
+            foreach (int targetPcl in reachablePcls)
             {
-                foreach (int targetPcl in reachablePcls)
+                if (targetPcl == startPcl) continue;
+                int currentPcl = startPcl;
+                var seen = new HashSet<int> { currentPcl };
+                while (currentPcl != targetPcl && seen.Count <= reachablePcls.Length)
                 {
-                    if (targetPcl == startPcl) continue;
-                    int currentPcl = startPcl;
-                    var seen = new HashSet<int> { currentPcl };
-                    while (currentPcl != targetPcl && seen.Count <= reachablePcls.Length)
-                    {
-                        int nextPcl = pathing.FindNextComponentTowardDestination(playerId,
-                            currentPcl, targetPcl, PathConnectionQueryMode.ExcludeLadderClimb);
-                        if (nextPcl <= 0 || nextPcl == currentPcl || !seen.Add(nextPcl)) break;
-                        if (portalEdges.Any(edge => edge.Connects(currentPcl, nextPcl))) return true;
-                        currentPcl = nextPcl;
-                    }
+                    int nextPcl = pathing.FindNextComponentTowardDestination(playerId,
+                        currentPcl, targetPcl, PathConnectionQueryMode.ExcludeLadderClimb);
+                    if (nextPcl <= 0 || nextPcl == currentPcl || !seen.Add(nextPcl)) break;
+                    if (portalEdges.Any(edge => edge.Connects(currentPcl, nextPcl))) return true;
+                    currentPcl = nextPcl;
                 }
-            }
-            finally
-            {
-                resolvingEconomyOverlayRoutes = wasResolvingRoutes;
             }
             return false;
         }
@@ -1275,21 +1265,12 @@ namespace BugfixesAndQoL
             }
 
             reachablePcls.Add(keepPcl);
-            bool wasResolvingRoutes = resolvingEconomyOverlayRoutes;
-            resolvingEconomyOverlayRoutes = true;
-            try
+            for (int pcl = 1; pcl < present.Length; pcl++)
             {
-                for (int pcl = 1; pcl < present.Length; pcl++)
-                {
-                    if (!present[pcl] || pcl == keepPcl) continue;
-                    int next = pathing.FindNextComponentTowardDestination(
-                        playerId, keepPcl, pcl, PathConnectionQueryMode.ExcludeLadderClimb);
-                    if (next > 0) reachablePcls.Add(pcl);
-                }
-            }
-            finally
-            {
-                resolvingEconomyOverlayRoutes = wasResolvingRoutes;
+                if (!present[pcl] || pcl == keepPcl) continue;
+                int next = pathing.FindNextComponentTowardDestination(
+                    playerId, keepPcl, pcl, PathConnectionQueryMode.ExcludeLadderClimb);
+                if (next > 0) reachablePcls.Add(pcl);
             }
             if (!reachablePcls.Contains(searchStartPcl)) return false;
             return true;
@@ -1988,7 +1969,6 @@ namespace BugfixesAndQoL
             economyProfileResolved = false;
             economyMapRelevant = false;
             reconcilingEconomyAvailability = false;
-            resolvingEconomyOverlayRoutes = false;
             economyTopologyRevision = 0;
             lastAivState = 0;
         }
