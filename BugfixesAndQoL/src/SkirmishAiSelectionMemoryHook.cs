@@ -51,8 +51,6 @@ namespace BugfixesAndQoL
         };
         private static readonly MethodInfo MultiplayerUpdateHostInfoMethod =
             FindMethod(typeof(FRONT_Multiplayer), "UpdateHostInfo", typeof(bool));
-        private static readonly MethodInfo MultiplayerUpdateSteamMappingsMethod =
-            FindMethod(typeof(FRONT_Multiplayer), "updateSteamIDMappings");
         private static readonly MethodInfo MultiplayerReSortTeamInfoMethod =
             FindMethod(typeof(FRONT_Multiplayer), "ReSortTeamInfo");
         private static readonly MethodInfo MultiplayerCreateTeamShieldsMethod =

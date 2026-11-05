@@ -274,8 +274,6 @@ namespace BugfixesAndQoL
 
         public bool RemoveMember(QueueUnitIdentity member) => members.Remove(member);
 
-        public bool ContainsMember(QueueUnitIdentity member) => members.Contains(member);
-
         public int SmallestUnitId => members.Count == 0 ? int.MaxValue : members[0].UnitId;
 
         public uint SmallestGlobalId => members.Count == 0 ? uint.MaxValue : members[0].GlobalId;

@@ -1,7 +1,5 @@
 // Feature: Timestamped logging helpers for the Troop Speed Fix.
 using BepInEx.Logging;
-using System;
-using System.Globalization;
 
 namespace BugfixesAndQoL
 {
@@ -16,11 +14,6 @@ namespace BugfixesAndQoL
         public static void Warning(ManualLogSource log, string message, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0)
         {
             Shared.DebugLogHelper.LogWarningLimited(log, callerFile + ":" + callerLine, message);
-        }
-
-        private static string WithTimestamp(string message)
-        {
-            return $"[{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.InvariantCulture)}] {message ?? string.Empty}";
         }
     }
 }

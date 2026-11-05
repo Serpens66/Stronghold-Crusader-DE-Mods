@@ -66,15 +66,6 @@ namespace BugfixesAndQoL
             "48 22 62 00 44 8B DA 4C 8B D1 85 DB 0F 88 AC 00 00 00 81 FF FA 00";
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        private delegate void AppendMovementWaypointDelegate(
-            IntPtr tribeManager,
-            int tribeId,
-            ushort tileX,
-            ushort tileY,
-            int waypointIndex,
-            short moveMode);
-
-        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private delegate long IsTribeMovementCompleteDelegate(IntPtr tribeManager, int tribeId);
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]

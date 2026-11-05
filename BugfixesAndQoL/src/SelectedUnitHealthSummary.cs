@@ -63,9 +63,6 @@ namespace BugfixesAndQoL
             return Math.Max(1, (typeCount + SlotCount - 1) / SlotCount);
         }
 
-        internal static int ClampPage(int currentPage, int[] selectedTypeCounts) =>
-            Math.Max(0, Math.Min(currentPage, GetPageCount(selectedTypeCounts) - 1));
-
         internal static int CountVisibleTypes(int[] selectedTypeCounts)
         {
             if (selectedTypeCounts == null)

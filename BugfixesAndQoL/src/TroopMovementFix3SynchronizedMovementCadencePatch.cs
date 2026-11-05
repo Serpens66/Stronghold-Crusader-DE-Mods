@@ -2846,68 +2846,6 @@ namespace BugfixesAndQoL
                 return new List<KeyValuePair<uint, uint>>(mappings);
             }
 
-            public bool TryGetRunningState(
-                uint currentState,
-                out uint runningState)
-            {
-                if (walkingToRunning.TryGetValue(
-                        currentState,
-                        out runningState))
-                {
-                    return true;
-                }
-
-                if (runningToWalking.ContainsKey(currentState))
-                {
-                    runningState = currentState;
-                    return true;
-                }
-
-                // Do not force a merely similar or sole decoded state. Only
-                // exact audited walking/running pairs are safe to translate.
-                runningState = currentState;
-                return false;
-            }
-
-            public bool TryGetRallyRunningState(
-                uint currentState,
-                out uint runningState)
-            {
-                if (TryGetRunningState(currentState, out runningState))
-                    return true;
-
-                if (allowSoleStateFallbackForRally &&
-                    runningStates.Count == 1)
-                {
-                    runningState = runningStates[0];
-                    return true;
-                }
-
-                runningState = currentState;
-                return false;
-            }
-
-            public bool TryGetWalkingState(
-                uint currentState,
-                out uint walkingState)
-            {
-                if (runningToWalking.TryGetValue(
-                        currentState,
-                        out walkingState))
-                {
-                    return true;
-                }
-
-                if (walkingToRunning.ContainsKey(currentState))
-                {
-                    walkingState = currentState;
-                    return true;
-                }
-
-                walkingState = currentState;
-                return false;
-            }
-
             private static uint InferWalkingState(
                 uint runningState,
                 int candidateCount)

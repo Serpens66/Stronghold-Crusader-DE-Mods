@@ -1,7 +1,6 @@
 using BepInEx.Logging;
 using SHCDESE.API.LowLevel;
 using System;
-using System.Collections.Generic;
 using System.Runtime.InteropServices;
 
 namespace BugfixesAndQoL
@@ -38,9 +37,6 @@ namespace BugfixesAndQoL
             settings.EnableMod && settings.EnableMoveFormationEnhancements && FormationFeature.RuntimeAvailable;
 
         public bool MarkerReplacementAvailable => renderer.ReplacementAvailable;
-
-        public void SetPreview(IEnumerable<int> tileIds, Func<bool> authorization) =>
-            renderer.SetPreviewMarkerTiles(tileIds, authorization);
 
         public void ClearPreview() => renderer.ClearPreviewMarkerTiles();
 

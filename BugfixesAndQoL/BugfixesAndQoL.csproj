@@ -179,7 +179,6 @@
     <Compile Include="src\CtrlMarketTradeHook.cs" />
     <Compile Include="src\GameSpeedRepeatScheduler.cs" />
     <Compile Include="src\FastRecruitMovementBridge.cs" />
-    <Compile Include="src\FastRecruitRallyMovementModLog.cs" />
     <Compile Include="src\FastRecruitRallyMovementRuntime.cs" />
     <Compile Include="src\MarketTradeIntegration.cs" />
     <Compile Include="src\MarketGoldPolicy.cs" />
