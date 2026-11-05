@@ -220,7 +220,7 @@ namespace BugfixesAndQoL
             if (kickMember == null)
                 return false;
 
-            int connectedHumanCount = CountConnectedHumans(multiplayer);
+            int connectedHumanCount = MultiplayerRoster.CountConnectedHumans(multiplayer);
             bool shouldDelay;
             try
             {
@@ -421,26 +421,6 @@ namespace BugfixesAndQoL
             Path.Combine(
                 ConfigSettings.GetSavesPath(),
                 MultiplayerSafetyPolicy.RecoverySaveFileName);
-
-        private static int CountConnectedHumans(Platform_Multiplayer multiplayer)
-        {
-            int count = 0;
-            if (multiplayer?.gameMembers == null)
-                return count;
-
-            foreach (Platform_Multiplayer.MPGameMember member in multiplayer.gameMembers)
-            {
-                if (member != null && MultiplayerSafetyPolicy.IsConnectedHuman(
-                        member.steamID,
-                        member.skirmishAI,
-                        member.kicked))
-                {
-                    count++;
-                }
-            }
-
-            return count;
-        }
 
         private bool TryConfirmRecoveryCompatibility(
             Platform_Multiplayer multiplayer,

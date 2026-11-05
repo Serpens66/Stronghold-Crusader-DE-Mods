@@ -90,7 +90,7 @@ namespace BugfixesAndQoL
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
-            storePath = Path.Combine(GetPluginDirectory(), "LobbyModSettings", StoreFileName);
+            storePath = Path.Combine(AivAicPresetStore.GetPluginDirectory(), "LobbyModSettings", StoreFileName);
             LoadStore();
 
             // Both random-lord panels share these properties and therefore stay synchronized.
@@ -1363,21 +1363,6 @@ namespace BugfixesAndQoL
             {
                 Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/SkirmishAiSelectionMemoryHook/SaveStore.could-not-save-ai", $"Bugfixes and QoL could not save AI selection store to {storePath}: {ex}");
             }
-        }
-
-        private static string GetPluginDirectory()
-        {
-            try
-            {
-                string assemblyLocation = Assembly.GetExecutingAssembly().Location;
-                if (!string.IsNullOrEmpty(assemblyLocation))
-                    return Path.GetDirectoryName(assemblyLocation);
-            }
-            catch
-            {
-            }
-
-            return AppDomain.CurrentDomain.BaseDirectory;
         }
 
         private static MethodInfo FindMethod(Type type, string methodName, params Type[] parameterTypes)

@@ -91,7 +91,7 @@ namespace BugfixesAndQoL
                 self == null ||
                 MainViewModel.Instance == null ||
                 Translate.Instance == null ||
-                !IsSelectedTradepostControlled())
+                !MapEditorTradepostSelection.IsControlled())
             {
                 trampoline(self, sender, e);
                 return;
@@ -160,23 +160,6 @@ namespace BugfixesAndQoL
             {
                 SetBool(self, InsideValueChangedField, previousInsideValueChanged);
             }
-        }
-
-        private static bool IsMapEditor() => APIShared.GameModes.GameModeHelper.IsMapEditor();
-
-        private static unsafe bool IsSelectedTradepostControlled()
-        {
-            if (!IsMapEditor())
-                return true;
-
-            int activePlayerId = EditorDirector.instance?.ActivePlayerID ?? -1;
-            int buildingId = SHCDESE.API.GamePlayerManagerAPI.Instance.GetSelectedBuildingId();
-            return activePlayerId > 0 && buildingId > 0 &&
-                SHCDESE.API.GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out SHCDESE.Interop.GameBuilding* building) &&
-                building != null &&
-                building->r_AliveState == SHCDESE.Interop.Enums.AliveState.IsAlive &&
-                building->r_BuildingType == SHCDESE.Interop.eStructs.STRUCT_TRADEPOST &&
-                building->r_PlayerIdOwner == activePlayerId;
         }
     }
 }

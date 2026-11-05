@@ -795,7 +795,7 @@ namespace BugfixesAndQoL
 
         private int GetMaximumSpeed()
         {
-            int connectedHumanCount = CountConnectedHumans(Platform_Multiplayer.Instance);
+            int connectedHumanCount = MultiplayerRoster.CountConnectedHumans(Platform_Multiplayer.Instance);
             bool realMultiplayer;
             try
             {
@@ -822,26 +822,6 @@ namespace BugfixesAndQoL
             return plugin?.MaxGameSpeed != null
                 ? Math.Max(MultiplayerGameSpeedPolicy.MinimumSpeed, (int)plugin.MaxGameSpeed.Value)
                 : MultiplayerGameSpeedPolicy.MaximumSpeed;
-        }
-
-        private static int CountConnectedHumans(Platform_Multiplayer multiplayer)
-        {
-            int count = 0;
-            if (multiplayer?.gameMembers == null)
-                return count;
-
-            foreach (Platform_Multiplayer.MPGameMember member in multiplayer.gameMembers)
-            {
-                if (member != null && MultiplayerSafetyPolicy.IsConnectedHuman(
-                        member.steamID,
-                        member.skirmishAI,
-                        member.kicked))
-                {
-                    count++;
-                }
-            }
-
-            return count;
         }
 
         private static bool TryGetLoadedMainViewModel(out MainViewModel main)

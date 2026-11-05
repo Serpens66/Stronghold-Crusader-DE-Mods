@@ -188,7 +188,7 @@ namespace BugfixesAndQoL
             Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/PlagueTreatmentFadeFix/DisableCorrection", $"Bugfixes and QoL plague-cloud removal fix disabled for this process because {reason}: {ex}");
         }
 
-        private static bool TryGetHealer(int unitId, out GameUnit* healer)
+        internal static bool TryGetHealer(int unitId, out GameUnit* healer)
         {
             healer = null;
             return unitId > 0 &&

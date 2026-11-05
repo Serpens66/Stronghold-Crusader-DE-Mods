@@ -519,7 +519,7 @@ namespace BugfixesAndQoL
                 string.Equals(left, right.Replace('/', '\\').TrimEnd('\\'), StringComparison.OrdinalIgnoreCase);
         }
 
-        private static string GetPluginDirectory()
+        internal static string GetPluginDirectory()
         {
             try
             {

@@ -9,6 +9,26 @@ namespace BugfixesAndQoL
         internal static bool IsLocalHost() =>
             Platform_Multiplayer.Instance?.IsGameMemberHost() == true;
 
+        internal static int CountConnectedHumans(Platform_Multiplayer multiplayer)
+        {
+            int count = 0;
+            if (multiplayer?.gameMembers == null)
+                return count;
+
+            foreach (Platform_Multiplayer.MPGameMember member in multiplayer.gameMembers)
+            {
+                if (member != null && MultiplayerSafetyPolicy.IsConnectedHuman(
+                        member.steamID,
+                        member.skirmishAI,
+                        member.kicked))
+                {
+                    count++;
+                }
+            }
+
+            return count;
+        }
+
         internal static List<MultiplayerTimeControlMember> Snapshot()
         {
             var members = Platform_Multiplayer.Instance?.gameMembers;

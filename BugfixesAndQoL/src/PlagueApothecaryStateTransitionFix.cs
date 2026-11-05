@@ -114,7 +114,7 @@ namespace BugfixesAndQoL
             try
             {
                 int unitId = checked((int)context.Pointer->RBP);
-                if (!TryGetHealer(unitId, out GameUnit* healer))
+                if (!PlagueTreatmentFadeFix.TryGetHealer(unitId, out GameUnit* healer))
                 {
                     throw new InvalidOperationException(
                         $"The native healer ID did not resolve to a living apothecary: unit={unitId}.");
@@ -154,16 +154,6 @@ namespace BugfixesAndQoL
 
             correctionAvailable = false;
             Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/PlagueApothecaryStateTransitionFix/DisableCorrection", $"Bugfixes and QoL stuck-apothecary fix disabled for this process because {reason}: {ex}");
-        }
-
-        private static bool TryGetHealer(int unitId, out GameUnit* healer)
-        {
-            healer = null;
-            return unitId > 0 &&
-                APIShared.UnitAccess.TryGetById(unitId, out healer, out _) &&
-                healer != null &&
-                APIShared.UnitAccess.IsReallyAlive(healer) &&
-                healer->r_UnitChimp == eChimps.CHIMP_TYPE_HEALER;
         }
     }
 

@@ -195,6 +195,7 @@
     <Compile Include="src\MultiplayerTimeControlPermission.cs" />
     <Compile Include="src\MultiplayerTimeControlRosterPolicy.cs" />
     <Compile Include="src\MultiplayerRoster.cs" />
+    <Compile Include="src\MapEditorTradepostSelection.cs" />
     <Compile Include="src\WorkshopUploadLordSelectionFix.cs" />
     <Compile Include="src\WorkshopUploadLordSelectionPolicy.cs" />
     <Compile Include="src\MultiplayerLobbyReturnFeature.cs" />

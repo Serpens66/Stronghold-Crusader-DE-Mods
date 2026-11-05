@@ -11,7 +11,6 @@ using SHCDESE.GameGlobals;
 using SHCDESE.Interop;
 using System;
 using System.Collections.Generic;
-using System.Reflection;
 using R3;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
@@ -50,10 +49,7 @@ namespace BugfixesAndQoL.PitchStairs
         {
             this.log = log;
             this.settings = settings;
-            FieldInfo gate = typeof(EngineInterface).GetField("threadLock", BindingFlags.Static | BindingFlags.NonPublic);
-            if (gate == null || gate.FieldType != typeof(object) || gate.GetValue(null) is not object engineGate)
-                throw new MissingFieldException("EngineInterface.threadLock");
-            activation = new PitchStairsActivation(engineGate, value =>
+            activation = new PitchStairsActivation(EngineThreadLock.Gate, value =>
             {
                 if (state != IntPtr.Zero) Volatile.Write(ref *(int*)state, value ? 1 : 0);
             });
