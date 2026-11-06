@@ -308,5 +308,213 @@ namespace ImprovedHunters
             a.Label(ref vanilla);
             a.AddInstruction(instructions[2]);
         }
+
+        /// <summary>Addresses of the native helpers the Tanner meat stubs use.</summary>
+        internal sealed class TannerMeatAddresses
+        {
+            public ulong CurrentUnit, LocalPlayer, ArmouryFind, GranaryFind, GranaryMissingWarning,
+                GranaryAccept, Deposit, StatsManager, StatsAdd, SoundManager, SoundPlay,
+                FoodDeliveredStat, AfterFindWarning, AcceptFail, DepositDone, RunTable;
+        }
+
+        private const int BuildingStride = 0x32C;
+        // Manager-relative fields of the building record; the Extender's struct starts 0x5C later.
+        private const int BuildingGlobalId = 0x134;
+        private const int BuildingHides = 0x190;
+        private const int TannerWorkplace = 0x990;
+        private const int TannerCarried = 0x9E0;
+        private const int TannerSoundPlayed = 0xAA6;
+        private const int TannerTileX = 0x71C;
+        private const int TannerTileY = 0x71E;
+        // Vanilla's constants on the Hunter's meat path.
+        private const int GranaryFoodCapacity = 0xFA;
+        private const int DeliverySoundMeat = 0x21;
+        private const int StatsFoodCategory = 2;
+
+        /// <summary>Jumps to the label unless this Tanner's current run carries meat. Only R10 and R11 are touched.</summary>
+        private static void BranchUnlessMeatRun(Assembler a, AssemblerRegister64 unitOffset, ulong flag, ulong table, Label vanilla)
+        {
+            a.mov(r10, flag);
+            a.cmp(__dword_ptr[r10], 0);
+            a.je(vanilla);
+            a.movsx(r10, __word_ptr[unitOffset + r12 + TannerWorkplace]);
+            a.cmp(r10, TannerRunTable.Capacity);
+            a.jae(vanilla);
+            a.mov(r11, table);
+            a.lea(r11, __[r11 + r10 * TannerRunTable.EntrySize]);
+            a.cmp(__byte_ptr[r11 + TannerRunTable.MeatTripOffset], 0);
+            a.je(vanilla);
+            a.imul(r10, r10, BuildingStride);
+            a.mov(r10d, __dword_ptr[r10 + rsi + BuildingGlobalId]);
+            a.cmp(r10d, __dword_ptr[r11 + TannerRunTable.GlobalIdOffset]);
+            a.jne(vanilla);
+        }
+
+        private static void CallAbsolute(Assembler a, ulong target)
+        {
+            a.mov(rax, target);
+            a.call(rax);
+        }
+
+        /// <summary>
+        /// At the end of a run: decides for this trip whether it carries meat. RSI is the building
+        /// manager, RBX the unit offset. The yield helper runs either way, with the configured base
+        /// amount on a meat trip, so meat gets the same Vanilla bonus as every other product.
+        /// Vanilla's arguments are still in RCX, RDX and R8; RAX, R10 and R11 are free here.
+        /// </summary>
+        internal static void EmitTannerYield(Assembler a, ReadOnlySpan<Instruction> instructions, ulong flag, ulong table, ulong meatAmount, ulong yieldHelper)
+        {
+            Require(instructions, 2, "Tanner run yield");
+            Label call = a.CreateLabel("tannerYieldCall");
+            a.mov(r10, flag);
+            a.cmp(__dword_ptr[r10], 0);
+            a.je(call);
+            a.movsx(r11, __word_ptr[rbx + r12 + TannerWorkplace]);
+            a.cmp(r11, TannerRunTable.Capacity);
+            a.jae(call);
+            a.mov(r10, table);
+            a.lea(r10, __[r10 + r11 * TannerRunTable.EntrySize]);
+            a.imul(r11, r11, BuildingStride);
+            a.add(r11, rsi);
+            a.mov(eax, __dword_ptr[r11 + BuildingGlobalId]);
+            a.cmp(eax, __dword_ptr[r10 + TannerRunTable.GlobalIdOffset]);
+            a.jne(call);
+            a.mov(__byte_ptr[r10 + TannerRunTable.MeatTripOffset], 0);
+            a.movzx(eax, __byte_ptr[r10 + TannerRunTable.MeatRunsOffset]);
+            a.cmp(__dword_ptr[r11 + BuildingHides], eax);
+            a.jge(call);
+            a.mov(__byte_ptr[r10 + TannerRunTable.MeatTripOffset], 1);
+            a.mov(r10, meatAmount);
+            a.mov(edx, __dword_ptr[r10]);
+            a.Label(ref call);
+            CallAbsolute(a, yieldHelper);
+            a.AddInstruction(instructions[1]);
+        }
+
+        /// <summary>State 7: a meat run searches a granary and warns like the Hunter when there is none.</summary>
+        internal static void EmitTannerFind(Assembler a, ReadOnlySpan<Instruction> instructions, ulong flag, TannerMeatAddresses addresses, int meat)
+        {
+            Require(instructions, 4, "Tanner storage search");
+            Label vanilla = a.CreateLabel("tannerFindVanilla");
+            Label found = a.CreateLabel("tannerFindFound");
+            a.AddInstruction(instructions[0]);
+            a.AddInstruction(instructions[1]);
+            BranchUnlessMeatRun(a, rbx, flag, addresses.RunTable, vanilla);
+            a.mov(edx, meat);
+            a.mov(r8d, 1);
+            CallAbsolute(a, addresses.GranaryFind);
+            a.movsxd(rbx, eax);
+            a.test(eax, eax);
+            a.jne(found);
+            a.mov(rax, addresses.CurrentUnit);
+            a.movsxd(rcx, __dword_ptr[rax]);
+            a.imul(rdx, rcx, UnitStride);
+            a.movsx(ecx, __word_ptr[rdx + r12 + UnitOwnerOffset]);
+            a.mov(rax, addresses.LocalPlayer);
+            a.cmp(ecx, __dword_ptr[rax]);
+            a.jne(found);
+            CallAbsolute(a, addresses.GranaryMissingWarning);
+            a.Label(ref found);
+            JumpAbsolute(a, addresses.AfterFindWarning);
+            a.Label(ref vanilla);
+            CallAbsolute(a, addresses.ArmouryFind);
+            a.AddInstruction(instructions[3]);
+        }
+
+        /// <summary>State 8: on arrival a meat run asks the granary instead of the armoury. RCX is the unit offset.</summary>
+        internal static void EmitTannerAccept(Assembler a, ReadOnlySpan<Instruction> instructions, ulong flag, TannerMeatAddresses addresses, int meat)
+        {
+            Require(instructions, 4, "Tanner storage acceptance");
+            Label vanilla = a.CreateLabel("tannerAcceptVanilla");
+            Label check = a.CreateLabel("tannerAcceptCheck");
+            Label pass = a.CreateLabel("tannerAcceptPass");
+            BranchUnlessMeatRun(a, rcx, flag, addresses.RunTable, vanilla);
+            a.mov(rcx, rsi);
+            a.mov(r8d, meat);
+            a.mov(r9d, GranaryFoodCapacity);
+            CallAbsolute(a, addresses.GranaryAccept);
+            a.jmp(check);
+            a.Label(ref vanilla);
+            a.mov(rcx, rsi);
+            CallAbsolute(a, addresses.ArmouryFind);
+            a.Label(ref check);
+            a.test(eax, eax);
+            a.jne(pass);
+            JumpAbsolute(a, addresses.AcceptFail);
+            a.Label(ref pass);
+            a.nop();
+        }
+
+        /// <summary>
+        /// State 8: a meat run stores meat and counts it as delivered food, exactly like the
+        /// Hunter's delivery, instead of counting armour. RDI is zero and R13D one in this path.
+        /// </summary>
+        internal static void EmitTannerDeposit(Assembler a, ReadOnlySpan<Instruction> instructions, ulong flag, TannerMeatAddresses addresses, int meat)
+        {
+            Require(instructions, 3, "Tanner deposit");
+            Label vanilla = a.CreateLabel("tannerDepositVanilla");
+            Label done = a.CreateLabel("tannerDepositDone");
+            BranchUnlessMeatRun(a, rcx, flag, addresses.RunTable, vanilla);
+            a.AddInstruction(instructions[0]);
+            a.mov(rcx, rsi);
+            a.mov(r9d, meat);
+            a.mov(__dword_ptr[rsp + 0x28], GranaryFoodCapacity);
+            CallAbsolute(a, addresses.Deposit);
+
+            a.mov(rax, addresses.CurrentUnit);
+            a.movsxd(rax, __dword_ptr[rax]);
+            a.imul(rcx, rax, UnitStride);
+            a.movsx(rdx, __word_ptr[rcx + r12 + UnitOwnerOffset]);
+            a.mov(r9d, edx);
+            a.mov(rax, addresses.FoodDeliveredStat);
+            a.inc(__dword_ptr[rax + rdx * 4]);
+            a.mov(edx, StatsFoodCategory);
+            a.mov(r8d, r13d);
+            a.mov(rcx, addresses.StatsManager);
+            CallAbsolute(a, addresses.StatsAdd);
+
+            a.mov(rax, addresses.CurrentUnit);
+            a.movsxd(rbx, __dword_ptr[rax]);
+            a.imul(rcx, rbx, UnitStride);
+            a.dec(__word_ptr[rcx + r12 + TannerCarried]);
+            a.cmp(__byte_ptr[rcx + r12 + TannerSoundPlayed], dil);
+            a.jne(done);
+            a.movsx(r8d, __word_ptr[rcx + r12 + TannerTileY]);
+            a.mov(r9d, DeliverySoundMeat);
+            a.movsx(edx, __word_ptr[rcx + r12 + TannerTileX]);
+            a.mov(rcx, addresses.SoundManager);
+            CallAbsolute(a, addresses.SoundPlay);
+            a.mov(rax, addresses.CurrentUnit);
+            a.movsxd(rbx, __dword_ptr[rax]);
+            a.imul(rcx, rbx, UnitStride);
+            a.mov(__byte_ptr[rcx + r12 + TannerSoundPlayed], r13b);
+            a.Label(ref done);
+            JumpAbsolute(a, addresses.DepositDone);
+
+            a.Label(ref vanilla);
+            a.AddInstruction(instructions[0]);
+            a.mov(rcx, rsi);
+            CallAbsolute(a, addresses.Deposit);
+        }
+
+        /// <summary>State 8: when the storage no longer accepts, a meat run looks for another granary. RCX is the unit offset.</summary>
+        internal static void EmitTannerRefind(Assembler a, ReadOnlySpan<Instruction> instructions, ulong flag, TannerMeatAddresses addresses, int meat)
+        {
+            Require(instructions, 4, "Tanner storage re-search");
+            Label vanilla = a.CreateLabel("tannerRefindVanilla");
+            Label done = a.CreateLabel("tannerRefindDone");
+            BranchUnlessMeatRun(a, rcx, flag, addresses.RunTable, vanilla);
+            a.mov(rcx, rsi);
+            a.mov(edx, meat);
+            a.mov(r8d, 1);
+            CallAbsolute(a, addresses.GranaryFind);
+            a.jmp(done);
+            a.Label(ref vanilla);
+            a.mov(rcx, rsi);
+            a.AddInstruction(instructions[1]);
+            CallAbsolute(a, addresses.ArmouryFind);
+            a.Label(ref done);
+            a.AddInstruction(instructions[3]);
+        }
     }
 }

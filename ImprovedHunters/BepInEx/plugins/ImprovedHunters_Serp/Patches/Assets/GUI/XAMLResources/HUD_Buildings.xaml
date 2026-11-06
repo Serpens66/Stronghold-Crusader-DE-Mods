@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Patch xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Operation Type="InsertAfter" XPath="//n:Grid[@Name='FletchersPanel']">
+    <Content>
+      <Grid x:Name="ImprovedHuntersTannerPanel"
+            Width="800"
+            Height="170"
+            Visibility="Hidden"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Bottom">
+        <!-- Above the place of Vanilla's workshop product buttons (380,0,0,28; 114x57), which stays
+             free for mods that add goods to the Tannery. -->
+        <StackPanel x:Name="ImprovedHuntersTannerControls"
+                    Height="32"
+                    Margin="270,0,0,87"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Bottom"
+                    Orientation="Horizontal">
+          <Image Width="32"
+                 Height="32"
+                 VerticalAlignment="Center"
+                 Source="{StaticResource UISprites I017}" />
+          <TextBlock x:Name="ImprovedHuntersTannerMeatRuns"
+                     Width="18"
+                     VerticalAlignment="Center"
+                     FontSize="18"
+                     FontWeight="Bold"
+                     Foreground="#FF3A2412"
+                     Text="0"
+                     TextAlignment="Center" />
+          <Slider x:Name="ImprovedHuntersTannerSlider"
+                  Width="120"
+                  Margin="4,0"
+                  VerticalAlignment="Center"
+                  Focusable="False"
+                  LargeChange="1"
+                  IsSnapToTickEnabled="True"
+                  Maximum="3"
+                  Minimum="0"
+                  TickFrequency="1"
+                  Value="3" />
+          <TextBlock x:Name="ImprovedHuntersTannerGoodRuns"
+                     Width="18"
+                     VerticalAlignment="Center"
+                     FontSize="18"
+                     FontWeight="Bold"
+                     Foreground="#FF3A2412"
+                     Text="3"
+                     TextAlignment="Center" />
+          <Image Width="32"
+                 Height="32"
+                 VerticalAlignment="Center"
+                 Source="{StaticResource UISprites I039}" />
+        </StackPanel>
+      </Grid>
+    </Content>
+  </Operation>
+</Patch>

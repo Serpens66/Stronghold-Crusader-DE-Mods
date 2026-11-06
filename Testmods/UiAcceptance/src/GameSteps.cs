@@ -27,6 +27,7 @@ namespace UiAcceptance
             Runner.Register("WaitMarker", WaitMarker);
             Runner.Register("Screenshot", Screenshot);
             Runner.Register("SetModSetting", SetModSetting);
+            Runner.Register("RandomEvents", RandomEventsSwitch);
             Runner.Register("ExpectModSetting", ExpectModSetting);
             Runner.Register("Log", s => Do(() => AcceptLog.Info("NOTE " + string.Join(" ", s.Args))));
             Runner.Register("Describe", s => Do(Describe));
@@ -181,7 +182,7 @@ namespace UiAcceptance
         }
 
         // Vanilla's FrontendMenus load confirmation sequence (same as AutoLoadSave), repeatable.
-        private static IEnumerable<Wait> LoadSave(Step step)
+        internal static IEnumerable<Wait> LoadSave(Step step)
         {
             yield return new Until("main menu", MenuReady);
             string path = step.Arg(0);
@@ -287,6 +288,27 @@ namespace UiAcceptance
             Runner.Require(Equals(property.GetValue(model, null), value), step.Arg(1) + " did not accept " + step.Arg(2));
             AcceptLog.Info("SETTING " + step.Arg(0) + "." + step.Arg(1) + "=" + value);
             yield break;
+        }
+
+        // Scripted fixtures must not meet wolves, fires or plague. The mod keeps its settings on the plugin
+        // instance. args: on | off; its absence is fine, there are no events then.
+        private static IEnumerable<Wait> RandomEventsSwitch(Step step)
+        {
+            Runner.Require(FatControler.currentScene == Enums.SceneIDS.FrontEnd, "settings change only outside missions");
+            if (!BepInEx.Bootstrap.Chainloader.PluginInfos.TryGetValue("RandomEvents_Serp", out BepInEx.PluginInfo info))
+            {
+                AcceptLog.Info("RANDOM_EVENTS not installed");
+                yield break;
+            }
+
+            // The object stays usable after BepInEx's manager is destroyed; only its Unity side is gone.
+            object plugin = info.Instance;
+            object settings = plugin.GetType().GetProperty("Settings").GetValue(plugin, null);
+            PropertyInfo enable = settings.GetType().GetProperty("EnableMod");
+            bool value = step.Arg(0) == "on";
+            enable.SetValue(settings, value, null);
+            Runner.Require((bool)enable.GetValue(settings, null) == value, "RandomEvents did not accept " + step.Arg(0));
+            AcceptLog.Info("RANDOM_EVENTS " + step.Arg(0));
         }
 
         private static IEnumerable<Wait> ExpectModSetting(Step step)

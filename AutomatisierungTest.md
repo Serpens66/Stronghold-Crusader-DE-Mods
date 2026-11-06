@@ -200,6 +200,17 @@ Stand 06.11.2026, DLL `FBCB9319…`, im Spiel geprüft mit `Testmods/UiAcceptanc
 - **Niederlage verhindern:** Auf hoher Spielgeschwindigkeit kann die KI den Lord schon nach wenigen Minuten töten. Danach steht das Spiel auf dem Defeat-Bildschirm, kein Schritt läuft mehr, und erst die Hängererkennung beendet den Prozess. Tests ohne Soldaten laufen deshalb mit Friedenszeit: Schritt `Lobby.PeaceTime` (Knopf `Setup`, Regler, `ApplySettings`) und danach `Hunt.ExpectPeace` als Nachweis. Friedenszeit bleibt aus, wenn Soldaten angreifen sollen.
 - **Testmod installiert?** Fehlt `BepInEx/plugins/UiAcceptance_Serp`, bleibt das Spiel im Hauptmenü stehen. Vorher `Testmods/UiAcceptance/build.bat /nopause` ausführen.
 
+### Tiere und Lager in Spieltests
+
+Stand 06.11.2026, DLL `FBCB9319…`.
+
+- **Ruhige Testwelt:** Szenarien mit Tieren oder Wirtschaft laufen mit Friedenszeit (`Lobby.PeaceTime`) und ohne den RandomEvents-Mod (Schritt `RandomEvents off`, am Ende `RandomEvents on`). Sonst stören Wölfe, Brände, Seuchen oder Angriffe den Aufbau und machen Mengen und Ablauf unbrauchbar. Bricht ein Lauf vor dem letzten Schritt ab, bleibt RandomEvents aus; danach wieder einschalten.
+- **Kühe nur mit Rinderfarm:** Eine einzeln erzeugte Kuh löscht sich im ersten Update, weil sie zu einer Farm gehören muss. Im Test deshalb `MAPPER_CATTLEFARM` bauen. Auf Wüstenstarts braucht die Farm dafür den Bypass von `CreatePrefab`.
+- **Echte Maus im Testlauf:** `NoesisView` schickt den echten Mauszeiger an die Oberfläche, sobald er sich bewegt. Wer während eines Laufs die Maus bewegt, zieht einen gerade gehaltenen Slider-Griff zum Zeiger; solche Schritte scheitern dann scheinbar zufällig. Schritte mit Ziehen oder Halten setzen deshalb `NGview.EnableMouse = false` und danach wieder `true`.
+- **Tempo beim Messen:** Bei Geschwindigkeit 120 fragt ein Testschritt so selten ab, dass ein Jäger dazwischen einen ganzen Weg erledigt. Mengen, die während eines Wegs gelesen werden, deshalb bei normalem Tempo messen.
+- **Fleischmengen messen:** Die Bevölkerung isst Fleisch aus dem Kornspeicher, das Lager allein beweist also keine Menge. Vorher Vanillas Schalter nutzen: `GameAction(SetFoodEaten, in_structure, 2)`. Der Zähler `0x87EEF64` hilft nicht, er zählt alle Lebensmittel einschließlich Käse.
+- **Offen:** In zwei Läufen kam `Tanner.Open` direkt nach `Skirmish → Spielstand laden` nicht durch (Klick nicht gelesen), wenn zuvor `Pause off` und `Speed` liefen. Auch mit `WaitTicks` als erstem Schritt trat es am 06.11.2026 einmal auf. Die Ursache ist nicht geklärt; `Tanner.Open` klickt deshalb bis zu viermal.
+
 ### Spiel beenden und Logs sichern
 
 - `Application.Quit()` direkt nach dem Ergebnis verliert die letzten Sekunden in `LogOutput.log`. BepInEx 5.4.23 schreibt das Disk-Log zeitgesteuert. Lösung: `DiskLogListener.LogWriter.Flush()` über `BepInEx.Logging.Logger.Listeners` aufrufen und ~2 s warten, dann beenden.

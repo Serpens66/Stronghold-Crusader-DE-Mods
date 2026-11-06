@@ -5,6 +5,7 @@
   "quitWhenDone": true,
   "steps": [
     { "id": "menu", "do": "WaitMainMenu", "timeoutMs": 60000, "stopOnFail": true, "allowErrors": true },
+    { "id": "no-random-events", "do": "RandomEvents", "args": ["off"], "timeoutMs": 10000, "stopOnFail": true },
     { "id": "enable", "do": "SetModSetting", "args": ["ImprovedHunters.ImprovedHuntersPlugin::persistentSettings", "EnableMod", "true"], "stopOnFail": true },
     { "id": "hunt", "do": "SetModSetting", "args": ["ImprovedHunters.ImprovedHuntersPlugin::persistentSettings", "HuntChicken", "true"], "stopOnFail": true },
     { "id": "count", "do": "SetModSetting", "args": ["ImprovedHunters.ImprovedHuntersPlugin::persistentSettings", "ChickensPerPlayer", "4"], "stopOnFail": true },
@@ -13,6 +14,7 @@
     { "id": "skirmish", "do": "Skirmish.Open", "timeoutMs": 15000, "stopOnFail": true },
     { "id": "map", "do": "Lobby.SelectMap", "args": ["4spielerkarte.map"], "timeoutMs": 15000, "stopOnFail": true },
     { "id": "ai", "do": "Lobby.AddAI", "args": ["1", "1"], "timeoutMs": 15000, "stopOnFail": true },
+    { "id": "peace", "do": "Lobby.PeaceTime", "args": ["60"], "timeoutMs": 15000, "stopOnFail": true },
     { "id": "play", "do": "Lobby.Play", "timeoutMs": 45000, "stopOnFail": true },
     { "id": "briefing", "do": "AiMilitary.ResumeBriefing", "timeoutMs": 15000 },
     { "id": "unpause", "do": "Pause", "args": ["off"], "stopOnFail": true },
@@ -30,11 +32,13 @@
     { "id": "chickens", "do": "Hunt.ExpectChickens", "args": ["4", "1"], "timeoutMs": 120000 },
     { "id": "chickens-walk", "do": "Hunt.ExpectChickens", "args": ["4", "6"], "timeoutMs": 90000 },
     { "id": "shot-chickens", "do": "Screenshot", "args": ["chickens"] },
-    { "id": "cycle", "do": "Hunt.Cycle", "args": ["37"], "timeoutMs": 240000, "stopOnFail": true },
+    { "id": "speed-cycle", "do": "Speed", "args": ["40"] },
+    { "id": "cycle", "do": "Hunt.Cycle", "args": ["37", "55"], "timeoutMs": 240000, "stopOnFail": true },
     { "id": "shot-after", "do": "Screenshot", "args": ["after-cycle"] },
     { "id": "refill", "do": "Hunt.ExpectChickens", "args": ["4", "1"], "timeoutMs": 90000 },
     { "id": "menu-back", "do": "QuitToMenu", "timeoutMs": 30000 },
     { "id": "restore-count", "do": "SetModSetting", "args": ["ImprovedHunters.ImprovedHuntersPlugin::persistentSettings", "ChickensPerPlayer", "10"] },
-    { "id": "restore-meat", "do": "SetModSetting", "args": ["ImprovedHunters.ImprovedHuntersPlugin::persistentSettings", "ChickenMeat", "1"] }
+    { "id": "restore-meat", "do": "SetModSetting", "args": ["ImprovedHunters.ImprovedHuntersPlugin::persistentSettings", "ChickenMeat", "1"] },
+    { "id": "restore-random-events", "do": "RandomEvents", "args": ["on"], "timeoutMs": 10000 }
   ]
 }

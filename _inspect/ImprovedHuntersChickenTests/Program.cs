@@ -162,9 +162,9 @@ static class Program
             }
         }
 
-        Assert(definitions.Count == 33, $"Expected 33 native pattern definitions, found {definitions.Count}.");
-        Assert(uniquelyResolvedNames.Count == 25,
-            $"Expected 25 uniquely resolved pattern contracts, found {uniquelyResolvedNames.Count}.");
+        Assert(definitions.Count == 41, $"Expected 41 native pattern definitions, found {definitions.Count}.");
+        Assert(uniquelyResolvedNames.Count == 33,
+            $"Expected 33 uniquely resolved pattern contracts, found {uniquelyResolvedNames.Count}.");
         int uniqueFallbackPatterns = 0;
         int ambiguousReferencePatterns = 0;
         foreach ((string name, byte?[] bytes, int expectedRva) in definitions)
@@ -354,6 +354,11 @@ static class Program
         Assert(GranaryChickenSpawnPolicy.ClampTarget(101) == 100, "Population maximum clamp failed.");
         Assert(GranaryChickenSpawnPolicy.ClampTarget(10) == 10, "Population value changed unexpectedly.");
         Assert(GranaryChickenSpawnPolicy.DefaultTargetPerPlayer == 10, "The population default changed.");
+        Assert(TannerMeatPolicy.DefaultMeatPerTrip == 5, "The Tanner default changed.");
+        TestTannerRunTable();
+        Assert(TannerMeatPolicy.ClampMeatPerTrip(0) == 1 && TannerMeatPolicy.ClampMeatPerTrip(101) == 100, "The meat per trip clamp failed.");
+        Assert(TannerMeatPolicy.MeatRunsFromSliderValue(3) == 0 && TannerMeatPolicy.MeatRunsFromSliderValue(0) == 3 &&
+            TannerMeatPolicy.SliderValueFromMeatRuns(1) == 2, "The slider must run from only meat on the left to no meat on the right.");
     }
 
     private static void TestHunterQueryActorPolicy()
@@ -376,6 +381,36 @@ static class Program
             "A capture from another candidate must be rejected.");
         Assert(!HunterQueryActorPolicy.IsMatchingCapture(170, 170, 0),
             "A capture without a reconstructed Hunter must be rejected.");
+    }
+
+    private static unsafe void TestTannerRunTable()
+    {
+        var table = new TannerRunTable();
+        Assert(table.GetMeatRuns(7, 100) == 0, "A new Tannery starts without meat.");
+        table.SetMeatRuns(7, 100, 2);
+        table.SetMeatRuns(3, 50, 1);
+        Assert(table.GetMeatRuns(7, 100) == 2, "The table must return the chosen runs.");
+        Assert(table.GetMeatRuns(7, 101) == 0, "Another building on the same slot must not inherit them.");
+        byte* entry = (byte*)table.Address + 7 * TannerRunTable.EntrySize;
+        entry[TannerRunTable.MeatTripOffset] = 1;
+        table.SetMeatRuns(7, 100, 0);
+        Assert(entry[TannerRunTable.MeatTripOffset] == 1, "A Tanner on his way keeps the good he carries.");
+        table.SetMeatRuns(7, 101, 3);
+        Assert(entry[TannerRunTable.MeatTripOffset] == 0, "A new building must not inherit a trip.");
+        table.SetMeatRuns(7, 101, 4);
+        Assert(table.GetMeatRuns(7, 101) == 3, "An invalid value must be ignored.");
+        entry[TannerRunTable.MeatTripOffset] = 1;
+
+        byte[] saved = table.Encode();
+        var restored = new TannerRunTable();
+        Assert(restored.TryRestore(saved) && restored.GetMeatRuns(7, 101) == 3 && restored.GetMeatRuns(3, 50) == 1, "The save record must restore the table.");
+        Assert(((byte*)restored.Address + 7 * TannerRunTable.EntrySize)[TannerRunTable.MeatTripOffset] == 1, "The save record must restore a trip on its way.");
+        Assert(restored.Encode().AsSpan().SequenceEqual(saved), "The same state must give the same bytes on every peer.");
+
+        byte[] damaged = (byte[])saved.Clone();
+        damaged[sizeof(int) + 6] = 9;
+        Assert(!restored.TryRestore(damaged) && restored.GetMeatRuns(7, 101) == 0, "A damaged record must leave the table empty.");
+        Assert(!restored.TryRestore(new byte[3]) && !restored.TryRestore(null!), "A truncated record must be refused.");
     }
 
     private static void Assert(bool condition, string message)

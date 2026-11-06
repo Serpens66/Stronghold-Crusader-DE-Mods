@@ -5,6 +5,7 @@
   "quitWhenDone": true,
   "steps": [
     { "id": "menu", "do": "WaitMainMenu", "timeoutMs": 60000, "stopOnFail": true, "allowErrors": true },
+    { "id": "no-random-events", "do": "RandomEvents", "args": ["off"], "timeoutMs": 10000, "stopOnFail": true },
     {"id": "enable", "do": "SetModSetting", "args": ["ImprovedHunters.ImprovedHuntersPlugin::persistentSettings", "EnableMod", "true"], "timeoutMs": 15000, "stopOnFail": true},
     {"id": "rule", "do": "SetModSetting", "args": ["ImprovedHunters.ImprovedHuntersPlugin::persistentSettings", "RabbitsOnlyOnOrder", "true"], "timeoutMs": 15000},
     {"id": "no-chickens", "do": "SetModSetting", "args": ["ImprovedHunters.ImprovedHuntersPlugin::persistentSettings", "HuntChicken", "false"], "timeoutMs": 15000},
@@ -20,9 +21,10 @@
     {"id": "speed", "do": "Speed", "args": ["120"], "timeoutMs": 15000},
     {"id": "hut", "do": "Hunt.PlaceHut", "timeoutMs": 15000, "stopOnFail": true},
     {"id": "deer", "do": "Hunt.Deer", "args": ["5", "14"], "timeoutMs": 15000, "stopOnFail": true},
-    {"id": "deer-cycle", "do": "Hunt.DeerCycle", "args": ["3", "0"], "timeoutMs": 300000},
+    {"id": "deer-cycle", "do": "Hunt.DeerCycle", "args": ["3", "0", "9"], "timeoutMs": 300000},
     {"id": "shot", "do": "Screenshot", "args": ["deer-after"], "timeoutMs": 15000},
     {"id": "menu-back", "do": "QuitToMenu", "timeoutMs": 30000},
-    {"id": "restore", "do": "SetModSetting", "args": ["ImprovedHunters.ImprovedHuntersPlugin::persistentSettings", "HuntChicken", "true"], "timeoutMs": 15000}
+    {"id": "restore", "do": "SetModSetting", "args": ["ImprovedHunters.ImprovedHuntersPlugin::persistentSettings", "HuntChicken", "true"], "timeoutMs": 15000},
+    { "id": "restore-random-events", "do": "RandomEvents", "args": ["on"], "timeoutMs": 10000 }
   ]
 }

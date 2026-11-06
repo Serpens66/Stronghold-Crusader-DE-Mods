@@ -62,7 +62,9 @@ namespace UiAcceptance
         // the button state (1 = down, then 3 = up). Priority.First lets Spectator's own postfixes see it.
         private static int clickX = -1, clickY = -1, clickState;
         private static bool patched;
-        private static IEnumerable<Wait> MapClick(Step step)
+        private static IEnumerable<Wait> MapClick(Step step) => ClickTile(step.Int(0), step.Int(1));
+
+        internal static IEnumerable<Wait> ClickTile(int x, int y)
         {
             if (!patched)
             {
@@ -73,7 +75,7 @@ namespace UiAcceptance
                     postfix: new HarmonyMethod(typeof(InputSteps), nameof(AfterMouseState)) { priority = Priority.First });
                 patched = true;
             }
-            clickX = step.Int(0); clickY = step.Int(1);
+            clickX = x; clickY = y;
             clickState = 1;
             yield return new Until("engine read the button-down", () => clickState == 3);
             yield return new Until("engine read the button-up", () => clickState == 0);

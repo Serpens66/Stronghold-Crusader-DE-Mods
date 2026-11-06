@@ -141,6 +141,11 @@
     <Compile Include="src\OwnedChickenHuntPatch.cs" />
     <Compile Include="src\PreyReservationHeartbeatPatch.cs" />
     <Compile Include="src\RabbitMeleeOrderPatch.cs" />
+    <Compile Include="src\TannerMeatPatch.cs" />
+    <Compile Include="src\TannerMeatPolicy.cs" />
+    <Compile Include="src\TannerModePanel.cs" />
+    <Compile Include="src\TannerRatioSync.cs" />
+    <Compile Include="src\TannerRunTable.cs" />
     <Compile Include="src\GranaryChickenLimitPatch.cs" />
     <Compile Include="src\GranaryChickenSpawnPolicy.cs" />
     <Compile Include="src\HunterQueryActorPolicy.cs" />

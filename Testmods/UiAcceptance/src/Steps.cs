@@ -15,6 +15,7 @@ namespace UiAcceptance
             RelaySteps.Register();
             HuntSteps.Register();
             HuntMpSteps.Register();
+            TannerSteps.Register();
         }
     }
 }

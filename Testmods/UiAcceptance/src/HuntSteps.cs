@@ -45,7 +45,7 @@ namespace UiAcceptance
             }));
         }
 
-        private static object Engine()
+        internal static object Engine()
         {
             if (engine != null) return engine;
             FieldInfo field = typeof(EngineInterface).GetField("threadLock", BindingFlags.NonPublic | BindingFlags.Static);
@@ -53,14 +53,14 @@ namespace UiAcceptance
             return engine = field.GetValue(null);
         }
 
-        private static int Local()
+        internal static int Local()
         {
             int local = PlayerPerspectiveAPI.GetControlledPlayerId();
             Runner.Require(local >= 1, "needs a participating local player");
             return local;
         }
 
-        private static bool TryFindBuilding(int owner, eStructs type, out int x, out int y)
+        internal static bool TryFindBuilding(int owner, eStructs type, out int x, out int y)
         {
             x = y = 0;
             SimpleNativeArray<GameBuilding> buildings = GameBuildingManagerAPI.Instance.GetBuildingsArray();
@@ -109,7 +109,7 @@ namespace UiAcceptance
             return count;
         }
 
-        private static bool Place(int local, int x, int y, eMappers mapper, eStructs type, int firstRadius, out int placedX, out int placedY)
+        internal static bool Place(int local, int x, int y, eMappers mapper, eStructs type, int firstRadius, out int placedX, out int placedY, bool bypassGroundRules = false)
         {
             placedX = x;
             placedY = y;
@@ -120,7 +120,7 @@ namespace UiAcceptance
                 foreach ((int dx, int dy) in new[] { (radius, 0), (-radius, 0), (0, radius), (0, -radius), (radius, radius), (-radius, -radius), (radius, -radius), (-radius, radius) })
                 {
                     // The return value is a native status residue, not proof: a rejected site can return non-zero.
-                    GameBuildingManagerAPI.Instance.CreatePrefab(local, x + dx, y + dy, mapper, scale, AutomaticSpriteVariation, true, false);
+                    GameBuildingManagerAPI.Instance.CreatePrefab(local, x + dx, y + dy, mapper, scale, AutomaticSpriteVariation, true, bypassGroundRules);
                     if (CountBuildings(local, type) == before)
                         continue;
                     placedX = x + dx;
@@ -174,7 +174,8 @@ namespace UiAcceptance
         // so a delivery of it cannot be another animal's.
         private static IEnumerable<Wait> Cycle(Step step)
         {
-            int local = Local(), meat = step.Int(0);
+            // args: meat setting, expected carried amount with Vanilla's bonus (first kill of this Hunter).
+            int local = Local(), meat = step.Int(0), expectedCarry = step.Int(1, 0), maxCarry = 0;
             int startMeat;
             lock (Engine()) startMeat = GamePlayerManagerAPI.Instance.GetGoodAmount(local, eGoods.STORED_FOOD_MEAT);
             int targetId = 0, hunterId = 0;
@@ -182,25 +183,53 @@ namespace UiAcceptance
             foreignTargets = 0;
             yield return new Until("Hunter targets its own chicken", () =>
             {
-                lock (Engine()) return FindChickenHunter(local, ref hunterId, ref targetId, ref targetGlobal);
+                lock (Engine())
+                {
+                    // The Hunter can finish a whole trip between two polls of this wait.
+                    maxCarry = Math.Max(maxCarry, HunterCarry(local));
+                    return FindChickenHunter(local, ref hunterId, ref targetId, ref targetGlobal);
+                }
             });
             AcceptLog.Info("HUNT_TARGET hunter=" + hunterId + " chicken=" + targetId + "/" + targetGlobal);
             bool neutralSeen = false;
             int lastChicken = targetId;
             yield return new Until("chicken killed by the Hunter", () =>
             {
-                lock (Engine()) return ChickenKilled(local, ref hunterId, ref lastChicken, ref targetGlobal, ref neutralSeen);
+                lock (Engine())
+                {
+                    maxCarry = Math.Max(maxCarry, HunterCarry(local));
+                    return ChickenKilled(local, ref hunterId, ref lastChicken, ref targetGlobal, ref neutralSeen);
+                }
             });
             Runner.Require(!neutralSeen, "the hunted chicken changed owner");
             AcceptLog.Info("HUNT_KILLED chicken=" + lastChicken + "/" + targetGlobal + " foreignTargets=" + foreignTargets);
             int delivered = 0;
             yield return new Until("meat delivered", () =>
             {
-                lock (Engine()) delivered = GamePlayerManagerAPI.Instance.GetGoodAmount(local, eGoods.STORED_FOOD_MEAT) - startMeat;
+                lock (Engine())
+                {
+                    delivered = GamePlayerManagerAPI.Instance.GetGoodAmount(local, eGoods.STORED_FOOD_MEAT) - startMeat;
+                    maxCarry = Math.Max(maxCarry, HunterCarry(local));
+                }
                 return delivered >= meat;
             });
-            AcceptLog.Info("HUNT_DELIVERED meat=" + delivered + " expectedPerChicken=" + meat);
+            AcceptLog.Info("HUNT_DELIVERED meat=" + delivered + " setting=" + meat + " maxCarried=" + maxCarry);
+            // The bonus fraction of an earlier kill can add one more.
+            Runner.Require(expectedCarry == 0 || maxCarry == expectedCarry || maxCarry == expectedCarry + 1, "the Hunter carried " + maxCarry + ", expected " + expectedCarry);
             Runner.Require(foreignTargets == 0, "a Hunter targeted a foreign chicken");
+        }
+
+        private static int HunterCarry(int local)
+        {
+            int carry = 0;
+            SimpleNativeArray<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitArray();
+            for (int index = 0; index < units.Length; index++)
+            {
+                GameUnit* unit = units.GetValuePointer(index);
+                if (unit->r_AliveState == AliveState.IsAlive && unit->r_ControllableForPlayerId == local && unit->r_UnitChimp == eChimps.CHIMP_TYPE_HUNTER)
+                    carry = Math.Max(carry, unit->r_CarryGoodAmount);
+            }
+            return carry;
         }
 
         private static bool ChickenKilled(int local, ref int hunterId, ref int chickenId, ref uint chickenGlobal, ref bool neutralSeen)
@@ -327,7 +356,7 @@ namespace UiAcceptance
         // lives is a lost hunt, which is what the post-shot continuation has to prevent.
         private static IEnumerable<Wait> DeerCycle(Step step)
         {
-            int local = Local(), kills = step.Int(0), maxSwitches = step.Int(1, 0);
+            int local = Local(), kills = step.Int(0), maxSwitches = step.Int(1, 0), expectedCarry = step.Int(2, 0), maxCarry = 0;
             int startMeat;
             lock (Engine()) startMeat = GamePlayerManagerAPI.Instance.GetGoodAmount(local, eGoods.STORED_FOOD_MEAT);
             int current = 0, switches = 0;
@@ -339,10 +368,13 @@ namespace UiAcceptance
                 {
                     ObserveDeerHunter(ref current, ref switches, dead);
                     delivered = GamePlayerManagerAPI.Instance.GetGoodAmount(local, eGoods.STORED_FOOD_MEAT) - startMeat;
+                    maxCarry = Math.Max(maxCarry, HunterCarry(local));
                 }
                 return dead.Count >= kills && delivered > 0;
             });
-            AcceptLog.Info("HUNT_DEER_RESULT killed=" + dead.Count + " meat=" + delivered + " switchesFromLiveDeer=" + switches);
+            AcceptLog.Info("HUNT_DEER_RESULT killed=" + dead.Count + " meat=" + delivered + " switchesFromLiveDeer=" + switches + " maxCarried=" + maxCarry);
+            // The bonus fraction of an earlier kill can add one more.
+            Runner.Require(expectedCarry == 0 || maxCarry == expectedCarry || maxCarry == expectedCarry + 1, "the Hunter carried " + maxCarry + ", expected " + expectedCarry);
             Runner.Require(switches <= maxSwitches, "the Hunter left a living deer " + switches + " times");
         }
 

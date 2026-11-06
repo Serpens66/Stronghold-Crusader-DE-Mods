@@ -124,6 +124,8 @@ namespace ImprovedHunters
         private GranaryChickenLimitPatch granaryChickenLimitPatch;
         private PreyReservationHeartbeatPatch preyReservationHeartbeatPatch;
         private RabbitMeleeOrderPatch rabbitMeleeOrderPatch;
+        private TannerMeatPatch tannerMeatPatch;
+        private TannerRatioSync tannerRatioSync;
         private HunterQueryActorWorkaround hunterQueryActorWorkaround;
         private HunterHutVisibilityPatch hunterHutVisibilityPatch;
         private HunterNativeVisibilityProbe hunterNativeVisibilityProbe;
@@ -163,6 +165,7 @@ namespace ImprovedHunters
             InitializeGranaryChickenLimitPatch(memory, imageBase, referenceHashMatches);
             InitializePreyReservationHeartbeatPatch(memory, imageBase, referenceHashMatches);
             InitializeRabbitMeleeOrderPatch(memory, imageBase, referenceHashMatches);
+            InitializeTannerMeatPatch(memory, imageBase, referenceHashMatches);
             InitializeHunterQueryActorWorkaround(memory, imageBase, referenceHashMatches);
             InitializeHunterNativeVisibilityProbe(memory, imageBase, referenceHashMatches);
             InitializeHunterHutVisibilityPatch(memory, imageBase, referenceHashMatches);
@@ -200,6 +203,7 @@ namespace ImprovedHunters
                     $"granaryChickenLimitAvailable={granaryChickenLimitPatch?.IsAvailable == true}, " +
                     $"preyReservationHeartbeatAvailable={preyReservationHeartbeatPatch?.IsAvailable == true}, " +
                     $"rabbitMeleeOrderAvailable={rabbitMeleeOrderPatch?.IsAvailable == true}, " +
+                    $"tannerMeatAvailable={tannerMeatPatch?.IsAvailable == true}, " +
                     $"hunterQueryActorWorkaroundAvailable={hunterQueryActorWorkaround?.IsAvailable == true}, " +
                     $"hunterHutVisibilityAvailable={hunterHutVisibilityPatch?.IsAvailable == true}, " +
                     $"hunterHutVisibilityApplied={hunterHutVisibilityPatch?.IsApplied == true}, " +
@@ -480,6 +484,11 @@ namespace ImprovedHunters
                 if (!settings.IsKnownAnimal(target->r_UnitChimp))
                     continue;
 
+                // The yield is decided at the hut, when the corpse is long gone, and a Hunter with meat
+                // in his hut searches no new target (0x12FC70). Simulation data on fixed ticks, as on all peers.
+                if (target->r_GlobalId == targetGlobalId)
+                    hunterPreyTypes[hunterId] = target->r_UnitChimp;
+
                 byte* targetBytes = (byte*)target;
                 if (*(ushort*)(hunterBytes + 0x2BC) != 0x02 ||
                     !IsShortLivedPrey(target->r_UnitChimp) ||
@@ -668,26 +677,9 @@ namespace ImprovedHunters
             }
 
             hunterMeatPickupTimestamps[args.UnitId] = HunterSimulationTime.Now;
-            RememberCarriedPreyType(args.UnitId);
             TryDeleteCollectedShortLivedCorpse(args.UnitId);
             activeHunterTargets.Remove(args.UnitId);
             bestTargetCache.Remove(args.UnitId);
-        }
-
-        // Taken from the Hunter's own target at pickup: simulation data, identical on all peers.
-        private unsafe void RememberCarriedPreyType(int hunterUnitId)
-        {
-            hunterPreyTypes.Remove(hunterUnitId);
-            if (!TryGetCollectedCorpseTarget(hunterUnitId, out HunterTargetSnapshot target) ||
-                !APIShared.UnitAccess.TryGetById(target.UnitId, out GameUnit* prey, out _) ||
-                prey == null ||
-                prey->r_GlobalId != target.GlobalId ||
-                !settings.IsKnownAnimal(prey->r_UnitChimp))
-            {
-                return;
-            }
-
-            hunterPreyTypes[hunterUnitId] = prey->r_UnitChimp;
         }
 
         private void OnHunterDropOffMeat(UnitHunterDropOffMeatEventArgs args)
@@ -898,13 +890,8 @@ namespace ImprovedHunters
                 return;
             }
 
-            int configuredMeatAmount = settings.GetMeatAmount(preyType);
-            if (configuredMeatAmount < 0)
-                return;
-
-            args.GoodAmount = configuredMeatAmount;
-            args.ReturnValue = args.GoodAmount;
-            args.SkipOriginalFunction = true;
+            // The setting replaces Vanilla's base amount; Vanilla still adds its bonus, as for all meat.
+            args.GoodAmount = settings.GetMeatAmount(preyType);
         }
 
         private void OnSettingChanged(string propertyName)
@@ -936,6 +923,13 @@ namespace ImprovedHunters
                 propertyName == nameof(ImprovedHuntersViewModel.RabbitsOnlyOnOrder))
             {
                 ApplyRabbitMeleeOrderRule();
+            }
+
+            if (propertyName == nameof(ImprovedHuntersViewModel.EnableMod) ||
+                propertyName == nameof(ImprovedHuntersViewModel.TannerMeatMode) ||
+                propertyName == nameof(ImprovedHuntersViewModel.TannerMeatPerTrip))
+            {
+                ApplyTannerMeatRule();
             }
 
             if (propertyName == nameof(ImprovedHuntersViewModel.EnableMod) ||
@@ -1070,6 +1064,29 @@ namespace ImprovedHunters
                 Shared.DebugLogHelper.LogError(
                     log,
                     $"Improved Hunters melee rabbit rule is unavailable; melee units keep Vanilla's behaviour: {exception}");
+            }
+        }
+
+        private void InitializeTannerMeatPatch(
+            ReadOnlySpan<byte> memory,
+            ulong imageBase,
+            bool referenceHashMatches)
+        {
+            var table = new TannerRunTable();
+            try
+            {
+                tannerRatioSync = new TannerRatioSync(log, table, () => tannerMeatPatch?.IsAvailable == true && IsTannerMeatModeEnabled);
+                tannerMeatPatch = new TannerMeatPatch(log, hookRegion, memory, imageBase, referenceHashMatches, table);
+                ApplyTannerMeatRule();
+                TannerModePanel.Install(log, () => tannerMeatPatch?.IsAvailable == true && IsTannerMeatModeEnabled, table, tannerRatioSync);
+            }
+            catch (Exception exception)
+            {
+                tannerMeatPatch?.Dispose();
+                tannerMeatPatch = null;
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Improved Hunters Tanner meat mode is unavailable; Tanneries keep Vanilla's behaviour: {exception}");
             }
         }
 
@@ -1519,6 +1536,14 @@ namespace ImprovedHunters
             ownedChickenHuntPatch?.SetEnabled(IsOwnedChickenHuntingEnabled);
         }
 
+        private bool IsTannerMeatModeEnabled =>
+            Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) && settings.TannerMeatMode;
+
+        private void ApplyTannerMeatRule()
+        {
+            tannerMeatPatch?.Configure(IsTannerMeatModeEnabled, settings.TannerMeatPerTrip);
+        }
+
         private void ApplyRabbitMeleeOrderRule()
         {
             rabbitMeleeOrderPatch?.SetEnabled(
@@ -1911,6 +1936,8 @@ namespace ImprovedHunters
             preyReservationHeartbeatPatch = null;
             rabbitMeleeOrderPatch?.Dispose();
             rabbitMeleeOrderPatch = null;
+            tannerMeatPatch?.Dispose();
+            tannerMeatPatch = null;
 
             // RabbitDespawnTickTime belongs to the Script Extender. Release only our
             // override; never dispose or reset the shared site itself.

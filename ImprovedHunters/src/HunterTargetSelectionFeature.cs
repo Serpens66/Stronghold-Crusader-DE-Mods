@@ -538,7 +538,7 @@ namespace ImprovedHunters
                     eligibility.Type,
                     eligibility.TileX,
                     eligibility.TileY,
-                    settings.GetExpectedMeatAmount(eligibility.Type)));
+                    settings.GetMeatAmount(eligibility.Type)));
 
                 IncrementAnimalCount(
                     eligibility.Type,

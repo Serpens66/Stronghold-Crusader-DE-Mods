@@ -11,10 +11,9 @@ namespace ImprovedHunters
 {
     public sealed class ImprovedHuntersViewModel : APIShared.ModSettings.PresetLobbyModSettingsViewModel
     {
-        private const int DefaultDeerMeat = -1;
-        private const int DefaultGoatMeat = -1;
-        private const int VanillaDeerMeat = 6;
-        private const int VanillaGoatMeat = 4;
+        // Vanilla's Hunter passes 6 for every prey (0x12FC70).
+        private const int DefaultDeerMeat = 6;
+        private const int DefaultGoatMeat = 6;
         private const int DefaultRabbitMeat = 2;
         private const int DefaultCamelMeat = 8;
         private const int DefaultChickenMeat = 1;
@@ -33,6 +32,8 @@ namespace ImprovedHunters
         private int rabbitMeat = DefaultRabbitMeat;
         private int camelMeat = DefaultCamelMeat;
         private int chickenMeat = DefaultChickenMeat;
+        private bool tannerMeatMode = true;
+        private int tannerMeatPerTrip = TannerMeatPolicy.DefaultMeatPerTrip;
         private int chickensPerPlayer = GranaryChickenSpawnPolicy.DefaultTargetPerPlayer;
 
         public event Action<string> SettingChanged;
@@ -62,6 +63,19 @@ namespace ImprovedHunters
         public string ImprovedPathfindingHelpText => SerpLocalization.Get("ImprovedHunters.ImprovedPathfindingHelp");
         public string RabbitsOnlyOnOrderText => SerpLocalization.Get("ImprovedHunters.RabbitsOnlyOnOrder");
         public string RabbitsOnlyOnOrderHelpText => SerpLocalization.Get("ImprovedHunters.RabbitsOnlyOnOrderHelp");
+        public string TannerTitleText => SerpLocalization.Get("ImprovedHunters.TannerTitle");
+        public string TannerMeatModeText => SerpLocalization.Get("ImprovedHunters.TannerMeatMode");
+        public string TannerMeatModeHelpText => SerpLocalization.Get("ImprovedHunters.TannerMeatModeHelp");
+        public string TannerMeatPerTripText => SerpLocalization.Get("ImprovedHunters.TannerMeatPerTrip");
+        public string TannerMeatPerTripHelpText => SerpLocalization.Get("ImprovedHunters.TannerMeatPerTripHelp");
+        public string TannerMeatPerTripValueText
+        {
+            get => string.Format(
+                CultureInfo.CurrentCulture,
+                SerpLocalization.Get("ImprovedHunters.TannerMeatPerTripValueFormat"),
+                TannerMeatPerTrip);
+            set => SetBoundedIntText(value, parsed => TannerMeatPerTrip = parsed, nameof(TannerMeatPerTripValueText));
+        }
         public string DeerText => SerpLocalization.Get("ImprovedHunters.Deer");
         public string GoatText => SerpLocalization.Get("ImprovedHunters.Goat");
         public string RabbitText => SerpLocalization.Get("ImprovedHunters.Rabbit");
@@ -86,6 +100,18 @@ namespace ImprovedHunters
         [SyncHostOnly] public bool ImprovedTargetSelection { get => improvedTargetSelection; set => SetSetting(ref improvedTargetSelection, value, nameof(ImprovedTargetSelection)); }
         [SyncHostOnly] public bool ImprovedPathfinding { get => improvedPathfinding; set => SetSetting(ref improvedPathfinding, value, nameof(ImprovedPathfinding)); }
         [SyncHostOnly] public bool RabbitsOnlyOnOrder { get => rabbitsOnlyOnOrder; set => SetSetting(ref rabbitsOnlyOnOrder, value, nameof(RabbitsOnlyOnOrder)); }
+        [SyncHostOnly] public bool TannerMeatMode { get => tannerMeatMode; set => SetSetting(ref tannerMeatMode, value, nameof(TannerMeatMode)); }
+        [SyncHostOnly] public int TannerMeatPerTrip
+        {
+            get => tannerMeatPerTrip;
+            set => SetBoundedIntSetting(
+                ref tannerMeatPerTrip,
+                value,
+                TannerMeatPolicy.MinimumMeatPerTrip,
+                TannerMeatPolicy.MaximumMeatPerTrip,
+                nameof(TannerMeatPerTrip),
+                nameof(TannerMeatPerTripValueText));
+        }
         [SyncHostOnly] public bool HuntDeer { get => huntDeer; set => SetSetting(ref huntDeer, value, nameof(HuntDeer)); }
         [SyncHostOnly] public bool HuntGoat { get => huntGoat; set => SetSetting(ref huntGoat, value, nameof(HuntGoat)); }
         [SyncHostOnly] public bool HuntRabbit { get => huntRabbit; set => SetSetting(ref huntRabbit, value, nameof(HuntRabbit)); }
@@ -103,11 +129,11 @@ namespace ImprovedHunters
                 nameof(ChickensPerPlayerValueText));
         }
 
-        [SyncHostOnly] public int DeerMeat { get => deerMeat; set => SetMeatSetting(ref deerMeat, value, true, nameof(DeerMeat), nameof(DeerMeatText)); }
-        [SyncHostOnly] public int GoatMeat { get => goatMeat; set => SetMeatSetting(ref goatMeat, value, true, nameof(GoatMeat), nameof(GoatMeatText)); }
-        [SyncHostOnly] public int RabbitMeat { get => rabbitMeat; set => SetMeatSetting(ref rabbitMeat, value, false, nameof(RabbitMeat), nameof(RabbitMeatText)); }
-        [SyncHostOnly] public int CamelMeat { get => camelMeat; set => SetMeatSetting(ref camelMeat, value, false, nameof(CamelMeat), nameof(CamelMeatText)); }
-        [SyncHostOnly] public int ChickenMeat { get => chickenMeat; set => SetMeatSetting(ref chickenMeat, value, false, nameof(ChickenMeat), nameof(ChickenMeatText)); }
+        [SyncHostOnly] public int DeerMeat { get => deerMeat; set => SetMeatSetting(ref deerMeat, value, DefaultDeerMeat, nameof(DeerMeat), nameof(DeerMeatText)); }
+        [SyncHostOnly] public int GoatMeat { get => goatMeat; set => SetMeatSetting(ref goatMeat, value, DefaultGoatMeat, nameof(GoatMeat), nameof(GoatMeatText)); }
+        [SyncHostOnly] public int RabbitMeat { get => rabbitMeat; set => SetMeatSetting(ref rabbitMeat, value, DefaultRabbitMeat, nameof(RabbitMeat), nameof(RabbitMeatText)); }
+        [SyncHostOnly] public int CamelMeat { get => camelMeat; set => SetMeatSetting(ref camelMeat, value, DefaultCamelMeat, nameof(CamelMeat), nameof(CamelMeatText)); }
+        [SyncHostOnly] public int ChickenMeat { get => chickenMeat; set => SetMeatSetting(ref chickenMeat, value, DefaultChickenMeat, nameof(ChickenMeat), nameof(ChickenMeatText)); }
 
         public string DeerMeatText { get => DeerMeat.ToString(); set => SetMeatText(value, parsed => DeerMeat = parsed, nameof(DeerMeatText)); }
         public string GoatMeatText { get => GoatMeat.ToString(); set => SetMeatText(value, parsed => GoatMeat = parsed, nameof(GoatMeatText)); }
@@ -161,25 +187,6 @@ namespace ImprovedHunters
                 case eChimps.CHIMP_TYPE_CHICKEN:
                     return ChickenMeat;
                 default:
-                    return DefaultDeerMeat;
-            }
-        }
-
-        public int GetExpectedMeatAmount(eChimps type)
-        {
-            int configured = GetMeatAmount(type);
-            if (configured >= 0)
-                return configured;
-
-            // Only Vanilla Hunter prey may use -1. Keep target scoring stable
-            // while the actual yield event remains entirely Vanilla-owned.
-            switch (type)
-            {
-                case eChimps.CHIMP_TYPE_DEER:
-                    return VanillaDeerMeat;
-                case eChimps.CHIMP_TYPE_GOAT:
-                    return VanillaGoatMeat;
-                default:
                     return 0;
             }
         }
@@ -204,6 +211,8 @@ namespace ImprovedHunters
             RabbitMeat = DefaultRabbitMeat;
             CamelMeat = DefaultCamelMeat;
             ChickenMeat = DefaultChickenMeat;
+            TannerMeatMode = true;
+            TannerMeatPerTrip = TannerMeatPolicy.DefaultMeatPerTrip;
         }
 
         private void SetSetting<T>(ref T field, T value, string propertyName)
@@ -222,14 +231,14 @@ namespace ImprovedHunters
         private void SetMeatSetting(
             ref int field,
             int value,
-            bool allowVanilla,
+            int defaultValue,
             string propertyName,
             string textPropertyName)
         {
             if (!CanMutateSettingWithDependents(propertyName, textPropertyName))
                 return;
 
-            int clamped = ClampMeat(value, allowVanilla);
+            int clamped = ClampMeat(value, defaultValue);
             if (field == clamped)
                 return;
 
@@ -284,16 +293,13 @@ namespace ImprovedHunters
             OnPropertyChanged(textPropertyName);
         }
 
-        private static int ClampMeat(int value, bool allowVanilla)
+        // A stored -1 from a pre-release build meant Vanilla's yield, which is the default now.
+        private static int ClampMeat(int value, int defaultValue)
         {
-            int minimum = allowVanilla ? -1 : 0;
-            if (value < minimum)
-                return minimum;
+            if (value < 0)
+                return defaultValue;
 
-            if (value > 100)
-                return 100;
-
-            return value;
+            return Math.Min(value, 100);
         }
     }
 }

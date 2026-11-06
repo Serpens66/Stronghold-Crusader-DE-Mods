@@ -307,6 +307,47 @@ that describe them as disabled there or as using `Stopwatch` are history. All ho
 `NativeSiteRegistry` after installation. The multiplayer check is
 `Testmods/UiAcceptance/scenarios/MP-hunters-*.json`, compared with `tools/Compare-HuntHashes.py`.
 
+## Tanner meat path
+
+Owner: `TannerMeatPatch` with `HunterNativeStubs.EmitTanner*`; state `TannerRunTable`, sync and save
+`TannerRatioSync`, panel `TannerModePanel` and `Patches/Assets/GUI/XAMLResources/HUD_Buildings.xaml`.
+Bound to the audited hash: the building fields have no second anchor, so an unknown DLL leaves Tanneries
+on Vanilla's behaviour (error log, no hook). Pattern and offsets are in `TannerMeatPatch.cs`;
+`_inspect/ImprovedHuntersChickenTests` checks the patterns against the DLL and executes all stubs.
+
+| RVA | Span | Purpose |
+|---|---|---|
+| `0x13EBF7` | 14 | end of a run: decide the trip from the table, then call `0x18D940` (base amount `TannerMeatPerTrip` on a meat trip) |
+| `0x13ED8B` | 16 | state 7 search: `0xBF9F0` instead of `0xB9AA0`, granary warning `0x17FB80` |
+| `0x13EEFB` | 16 | state 8 acceptance: `0xBD470` instead of `0xB9AA0` |
+| `0x13EF38` | 16 | state 8 deposit: good, capacity `0xFA`, food statistic, sound `0x21` |
+| `0x13F009` | 15 | state 8 re-search: `0xBF9F0` |
+
+All spans have no incoming branches. R10/R11 are dead at all of them because each sits directly
+before or around a call; RAX is dead except where the stub replays Vanilla's value first. RSI holds the
+building manager, R12 the unit manager, R13D is one, RDI zero. At `0x13EBF7` RCX, EDX and R8D already
+hold Vanilla's arguments for `0x18D940`; the stub only replaces EDX on a meat trip.
+
+State: `TannerRunTable` is indexed by building ID and holds the global ID (`+0x134`), the meat runs per cow
+and whether the current trip carries meat. Stubs read it directly and ignore an entry with another
+global ID. A run carries meat if fewer hides than meat runs remain after it took its own hide.
+Do not store this in the building record: `+0x2EC`/`+0x2EA` are Vanilla's workshop choice and stay free
+for mods that add goods to the Tannery. Non-meat runs replay the displaced Vanilla instructions unchanged.
+
+Sync: a slider change is `RegisterAuthenticatedChore` (`tanner-ratio`), checked on every peer against the
+live building, its type, global ID and owner; never applied locally. Saved as the simulation-relevant
+record `ImprovedHunters.Tanneries`; a load without a record and a mission without an archive load clear it.
+
+Bonus: every meat setting is a base amount passed to `0x18D940`; the Hunter through
+`OnCalculateBonusYield` without skipping the original, the Tanner through EDX. See the Vanilla rule in
+the baseline's `HUNTER_PREY_RULES.md`. The Hunter's prey type comes from his last target in the tick scan,
+because the corpse may be gone when the yield runs; after loading a save during that trip the type is
+unknown until his next target, and that one yield stays at Vanilla's base 6.
+
+Update audit: confirm that `0x13E0B0` still adds three hides, that `+0x134` is still the global ID and
+`+0x190` the hides, that the Hunter's meat path matches the stubs, and that `0x18D940` still takes
+(unit, base amount, bonus flag).
+
 ## Required update audit
 
 1. Require one semantic match for both despawn patterns and verify that operand 1 at
