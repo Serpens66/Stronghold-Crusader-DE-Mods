@@ -93,7 +93,7 @@ internal static unsafe class NativeStubExecutionTests
 
     private sealed class Registers
     {
-        public ulong Rax, Rbx, Rcx, Rdx, Rbp, Rsi, Rdi, R8, R9, R10, R11, R12, R13, R14, R15;
+        public ulong Rax, Rbx, Rcx, Rdx, Rbp, Rsi, Rdi, R8, R9, R10, R11, R12, R13, R15;
         public ushort StackWord78;
     }
 
@@ -118,7 +118,7 @@ internal static unsafe class NativeStubExecutionTests
         a.mov(__qword_ptr[rsp + 0xA0], rax);
         a.mov(rbx, r.Rbx); a.mov(rcx, r.Rcx); a.mov(rdx, r.Rdx); a.mov(rbp, r.Rbp); a.mov(rsi, r.Rsi); a.mov(rdi, r.Rdi);
         a.mov(r8, r.R8); a.mov(r9, r.R9); a.mov(r10, r.R10); a.mov(r11, r.R11);
-        a.mov(r12, r.R12); a.mov(r13, r.R13); a.mov(r14, r.R14); a.mov(r15, r.R15);
+        a.mov(r12, r.R12); a.mov(r13, r.R13); a.mov(r15, r.R15);
         a.mov(rax, r.Rax);
         a.call(__qword_ptr[rsp + 0xA0]);
         a.mov(rcx, Address(output));
@@ -797,34 +797,39 @@ internal static unsafe class NativeStubExecutionTests
             *(ushort*)(entries + Hunter * 8 + 4) = entry ? (ushort)Corpse : (ushort)0;
         }
 
-        ulong liveSearch = ExitBlock(ResultMiss);
-        ulong search = BuildStub(image, 0x12FDB7, 19, ReturnPlain,
-            (a, i) => HunterNativeStubs.EmitCorpseChoiceInSearch(a, i, Address(flag), Address(entries), liveSearch, Address(walk)));
-        int Search(bool enabled)
+        int* currentHunter = (int*)Alloc(16);
+        *currentHunter = 0x70;
+        ulong noPrey = ExitBlock(ResultMiss);
+        // add eax, edx; ret: shows both the found prey and the reloaded current Hunter.
+        ulong search = BuildStub(image, 0x12FE07, 15, new byte[] { 0x01, 0xD0, 0xC3 },
+            (a, i) => HunterNativeStubs.EmitCorpseChoiceInSearch(a, i, Address(flag), Address(entries), Address((byte*)currentHunter), noPrey, Address(walk)));
+        int Search(bool enabled, int found = 0)
         {
             SetFlag(enabled);
-            return Run(search, new Registers { Rbx = Hunter, R13 = Address(units), R14 = Address(units) }).Result;
+            return Run(search, new Registers { Rax = (ulong)found, Rbx = Hunter, R13 = Address(units) }).Result;
         }
 
         Fixture();
-        Check(Search(false) == ResultMiss, "a disabled rule keeps Vanilla's search.");
+        Check(Search(false) == ResultMiss, "a disabled rule keeps Vanilla's search without prey.");
+        Check(Search(false, 9) == 0x79, "a disabled rule keeps the prey Vanilla found.");
         Check(*(short*)(Unit(Corpse) + 0xAA4) == 0, "a disabled rule reserves nothing.");
         Fixture(entry: false);
-        Check(Search(true) == ResultMiss, "without a choice Vanilla searches.");
+        Check(Search(true) == ResultMiss, "without a choice and prey Vanilla goes on without prey.");
+        Check(Search(true, 9) == 0x79, "without a choice Vanilla keeps its prey.");
         Fixture();
-        Check(Search(true) == WalkMarker + Corpse, "a valid choice walks to that corpse.");
+        Check(Search(true, 9) == WalkMarker + Corpse, "a valid choice walks to that corpse, ahead of found prey.");
         Check(*(short*)(Unit(Corpse) + 0xAA4) == 2, "the Hunter reserves the corpse at once.");
         Check(*(ushort*)(entries + Hunter * 8 + 4) == 0, "the choice is used up.");
         Check(Search(true) == ResultMiss, "a used choice is not taken twice.");
         Fixture(global: Global + 1);
-        Check(Search(true) == ResultMiss, "another unit on that ID is no choice.");
+        Check(Search(true, 9) == 0x79, "another unit on that ID is no choice.");
         Check(*(short*)(Unit(Corpse) + 0xAA4) == 0, "another unit on that ID stays unreserved.");
         Fixture(alive: 1);
-        Check(Search(true) == ResultMiss, "a deleted unit is no choice.");
+        Check(Search(true, 9) == 0x79, "a deleted unit is no choice.");
         Fixture(corpse: 0);
-        Check(Search(true) == ResultMiss, "a living animal is no corpse choice.");
+        Check(Search(true, 9) == 0x79, "a living animal is no corpse choice.");
         Fixture(reservation: 1);
-        Check(Search(true) == ResultMiss, "a reserved corpse is not stolen.");
+        Check(Search(true, 9) == 0x79, "a reserved corpse is not stolen.");
         Check(*(short*)(Unit(Corpse) + 0xAA4) == 1, "a foreign reservation stays.");
 
         byte* vanillaFound = Alloc(16);

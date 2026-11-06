@@ -21,6 +21,12 @@
   },
   "documents": [
     {
+      "file": "WORKER_PRODUCTION_BONUS.md",
+      "scope": "vanilla+integration",
+      "components": ["APIShared", "ExtraFeatures", "ImprovedHunters"],
+      "integrationSections": ["Shared implementation and evidence"]
+    },
+    {
       "file": "HUNTER_PREY_RULES.md",
       "scope": "vanilla+integration",
       "components": ["ImprovedHunters"],

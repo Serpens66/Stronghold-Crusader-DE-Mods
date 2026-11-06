@@ -119,6 +119,9 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../src/ExtraFeaturesViewModel.Popularity.cs" />
+    <Compile Include="../src/ExtraFeaturesViewModel.ProductionBonus.cs" />
+    <Compile Include="../src/WorkerProductionBonusRuntime.cs" />
+    <Compile Include="WorkerProductionBonusTests.cs" />
     <Compile Include="../src/ExtraFeaturesViewModel.PeriodicGold.cs" />
     <Compile Include="../src/ExtraFeaturesViewModel.KillReward.cs" /><Compile Include="../src/ExtraFeaturesViewModel.EnemyProximity.cs" /><Compile Include="EnemyProximityTests.cs" /><Compile Include="HealthMultiplierTests.cs" />
     <Compile Include="../src/NoKillRewardPolicy.cs" />

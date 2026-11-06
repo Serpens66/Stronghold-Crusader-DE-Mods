@@ -23,7 +23,11 @@ Abschnitte zu `1.1.64` bis `1.1.66` bleiben als Verlauf erhalten, ihre Deutung i
   „nicht tödlichen Schüsse“ des `1.1.66`-Tests waren nie abgefeuert. Das Überspringen ist entfernt.
 - **Reservierung `1` geklärt:** `+0x448` ist ein Countdown, kein Besitzer. Der Jäger schreibt 2,
   Reh und Ziege zählen herunter. Hase, Kamel und Huhn zählen jetzt ebenso.
-- Die Pakete F, D und C bleiben offen; `AllowDeadTargets` ist bis Paket F entfernt.
+- **Stand `2026-11-06`, später am Tag:** Geschwindigkeits-Nachprüfung und die Pakete F und D sind im
+  Einzelspieler abgenommen, Paket C bleibt offen. Die Einstellung heißt `CollectFreeCorpses`, weil ältere
+  Versionen ein ungenutztes `AllowDeadTargets` mit dem Wert `false` gespeichert haben; Abschnitte unten mit
+  dem alten Namen meinen sie. Belege und Grenzen: `knowledge/HUNTER_PREY_RULES.md` der Baseline, Abschnitt
+  „Evidence and limits“; Stellen und Registervertrag: `UpdateToNewDLL.md`, Abschnitt „Free corpses“.
 - Echter Multiplayer: Alle Zeitentscheidungen laufen auf dem Map-Tick von APIShared, die Modus-Policy
   erlaubt die Hunter-Features dort. Noch nicht in einer echten Mehrspieler-Partie geprüft; der Test
   dafür ist `MP-hunters-*.json`. Ungeprüft bleibt auch ein nativer Resync mit laufender Jagd.

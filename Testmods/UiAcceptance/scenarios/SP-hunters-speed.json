@@ -22,7 +22,7 @@
     {"id": "animals", "do": "Hunt.LogAnimals"},
     {"id": "hut", "do": "Hunt.PlaceHut", "timeoutMs": 15000, "stopOnFail": true},
     {"id": "speed", "do": "Speed", "args": ["40"]},
-    {"id": "both-ways", "do": "Hunt.SpeedBothWays", "args": ["120000", "2"], "timeoutMs": 150000, "stopOnFail": true},
+    {"id": "both-ways", "do": "Hunt.SpeedBothWays", "args": ["120000", "1"], "timeoutMs": 150000, "stopOnFail": true},
     {"id": "menu-back", "do": "QuitToMenu", "timeoutMs": 30000},
     {"id": "restore-chickens", "do": "SetModSetting", "args": ["ImprovedHunters.ImprovedHuntersPlugin::persistentSettings", "HuntChicken", "true"]},
     {"id": "restore-rabbits", "do": "SetModSetting", "args": ["ImprovedHunters.ImprovedHuntersPlugin::persistentSettings", "HuntRabbit", "true"]},

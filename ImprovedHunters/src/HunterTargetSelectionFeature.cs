@@ -20,6 +20,14 @@ namespace ImprovedHunters
         // Candidate discovery, cost ranking, initial reachability and State-0 selection handoff.
         private unsafe void OnHunterQueryTarget(UnitHunterQueryTargetEventArgs args)
         {
+            long measured = 0;
+            Shared.DevDiag.Start(ref measured);
+            OnHunterQueryTargetCore(args);
+            Shared.DevDiag.Stop(ref measured, "hunters.query");
+        }
+
+        private unsafe void OnHunterQueryTargetCore(UnitHunterQueryTargetEventArgs args)
+        {
             if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod))
                 return;
 

@@ -15,6 +15,7 @@ namespace ImprovedHunters
         private const int CorpseCostBonus = 50;
         private const int MaximumCorpsesPerHunter = 24;
         private const int CorpseChoiceEveryScans = 10;
+        private const ushort HunterWalksToCorpseState = 0xB;
 
         private readonly List<int> freeCorpses = new List<int>();
         private readonly Dictionary<int, int> hunterHitCorpses = new Dictionary<int, int>();
@@ -25,7 +26,7 @@ namespace ImprovedHunters
         private bool IsCorpseChoiceEnabled =>
             hunterCorpseChoicePatch?.IsAvailable == true &&
             Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) &&
-            settings.AllowDeadTargets &&
+            settings.CollectFreeCorpses &&
             targetSelectionModeAllowed;
 
         private void InitializeHunterCorpseChoicePatch(ReadOnlySpan<byte> memory, ulong imageBase, bool referenceHashMatches)
@@ -44,12 +45,13 @@ namespace ImprovedHunters
         }
 
         private void ApplyCorpseChoiceRule() =>
-            hunterCorpseChoicePatch?.SetEnabled(Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) && settings.AllowDeadTargets);
+            hunterCorpseChoicePatch?.SetEnabled(Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) && settings.CollectFreeCorpses);
 
         private void ResetCorpseChoices()
         {
             hunterCorpseChoicePatch?.Clear();
             hunterHitCorpses.Clear();
+            freeCorpses.Clear();
         }
 
         // A Hunter's own arrow killed an animal he was not aiming at: he takes it if it is free.
@@ -108,6 +110,7 @@ namespace ImprovedHunters
                     continue;
 
                 int hunterUnitId = checked((int)(hunter - units._array) + 1);
+                KeepCorpseForWalkingHunter(units, hunter);
                 if (hunterHitCorpses.TryGetValue(hunterUnitId, out int hitCorpse))
                 {
                     // Stays his until it is taken or no longer free, ahead of the normal ranking.
@@ -134,6 +137,20 @@ namespace ImprovedHunters
 
                 ChooseCorpseForHunter(units, hunter, hunterUnitId, timestamp);
             }
+        }
+
+        // Vanilla only sends a Hunter to a deer or goat corpse beside him, which outlasts that walk. A free corpse
+        // from farther away would vanish on the way, so its timer waits until he has arrived and Vanilla sets it.
+        private static unsafe void KeepCorpseForWalkingHunter(SimpleNativeArray<GameUnit> units, GameUnit* hunter)
+        {
+            byte* bytes = (byte*)hunter;
+            int target = *(ushort*)(bytes + 0x39A);
+            if (*(ushort*)(bytes + 0x2BC) != HunterWalksToCorpseState || target <= 0 || target > units.Length)
+                return;
+
+            GameUnit* corpse = units.GetValuePointer(target - 1);
+            if (corpse->r_GlobalId == *(uint*)(bytes + 0x39C) && *(ushort*)((byte*)corpse + 0x29C) != 0)
+                *(ushort*)((byte*)corpse + 0x2C4) = 0;
         }
 
         private unsafe bool TryOfferCorpse(SimpleNativeArray<GameUnit> units, GameUnit* hunter, int hunterUnitId, int corpseUnitId, long timestamp)

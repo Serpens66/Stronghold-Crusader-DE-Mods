@@ -42,7 +42,7 @@ namespace ImprovedHunters
         private int tannerMeatPerTrip = TannerMeatPolicy.DefaultMeatPerTrip;
         private int hunterSearchRange = HunterSearchRangePolicy.Unlimited;
         private bool hunterHutAlwaysAvailable = true;
-        private bool allowDeadTargets = true;
+        private bool collectFreeCorpses = true;
         private bool deerFleeOnlyInSight = true;
         private bool respawnWildlife;
         private int respawnMinimum = DefaultRespawnMinimum;
@@ -72,8 +72,8 @@ namespace ImprovedHunters
         public string MeatHelpText => SerpLocalization.Get("ImprovedHunters.MeatHelp");
         public string ImprovedTargetSelectionText => SerpLocalization.Get("ImprovedHunters.ImprovedTargetSelection");
         public string ImprovedTargetSelectionHelpText => SerpLocalization.Get("ImprovedHunters.ImprovedTargetSelectionHelp");
-        public string AllowDeadTargetsText => SerpLocalization.Get("ImprovedHunters.AllowDeadTargets");
-        public string AllowDeadTargetsHelpText => SerpLocalization.Get("ImprovedHunters.AllowDeadTargetsHelp");
+        public string CollectFreeCorpsesText => SerpLocalization.Get("ImprovedHunters.CollectFreeCorpses");
+        public string CollectFreeCorpsesHelpText => SerpLocalization.Get("ImprovedHunters.CollectFreeCorpsesHelp");
         public string HunterHutAlwaysAvailableText => SerpLocalization.Get("ImprovedHunters.HunterHutAlwaysAvailable");
         public string HunterHutAlwaysAvailableHelpText => SerpLocalization.Get("ImprovedHunters.HunterHutAlwaysAvailableHelp");
         public string DeerFleeOnlyInSightText => SerpLocalization.Get("ImprovedHunters.DeerFleeOnlyInSight");
@@ -156,7 +156,7 @@ namespace ImprovedHunters
                 nameof(TannerMeatPerTrip),
                 nameof(TannerMeatPerTripValueText));
         }
-        [SyncHostOnly] public bool AllowDeadTargets { get => allowDeadTargets; set => SetSetting(ref allowDeadTargets, value, nameof(AllowDeadTargets)); }
+        [SyncHostOnly] public bool CollectFreeCorpses { get => collectFreeCorpses; set => SetSetting(ref collectFreeCorpses, value, nameof(CollectFreeCorpses)); }
         [SyncHostOnly] public bool HunterHutAlwaysAvailable { get => hunterHutAlwaysAvailable; set => SetSetting(ref hunterHutAlwaysAvailable, value, nameof(HunterHutAlwaysAvailable)); }
         [SyncHostOnly] public bool DeerFleeOnlyInSight { get => deerFleeOnlyInSight; set => SetSetting(ref deerFleeOnlyInSight, value, nameof(DeerFleeOnlyInSight)); }
         [SyncHostOnly] public bool RespawnWildlife { get => respawnWildlife; set => SetSetting(ref respawnWildlife, value, nameof(RespawnWildlife)); }
@@ -284,7 +284,7 @@ namespace ImprovedHunters
             TannerMeatPerTrip = TannerMeatPolicy.DefaultMeatPerTrip;
             HunterSearchRange = HunterSearchRangePolicy.Unlimited;
             HunterHutAlwaysAvailable = true;
-            AllowDeadTargets = true;
+            CollectFreeCorpses = true;
             DeerFleeOnlyInSight = true;
             RespawnWildlife = false;
             RespawnMinimum = DefaultRespawnMinimum;

@@ -181,5 +181,28 @@ Real single-player skirmish, Script Extender, APIShared, BugfixesAndQoL and Fixe
   `SP-hunters-deer` and `SP-hunters-chase` passed and `SP-hunters-followup` passed after removing
   its deer part and its known default-stance chase step. Hunting works during peace time.
 
-Not observed: real multiplayer (also not for the Tannery), a native resync with hunters active, an AI Tannery with the mod, a truly non-lethal arrow on deer, the absence of the warning
+- Hunter's hut, range, closer prey (2026-11-06, `SP-hunters-hut`, `-hut-off`, `-range`, `-switch`): on a skirmish map
+  without deer and goats the build button is disabled with the setting off and works with it on, also by click. A deer out
+  of range stays unhunted until the range is raised. One change of target from a far to a clearly closer deer, none back.
+- Herd flight (`SP-hunters-flee`, `-flee-off`): a soldier in a closed wall ring in the leader's sector left the herd calm for
+  16 s while `cell +0x48` was set, with the setting on; beside the herd in the open it fled 94 ms later. With the setting off the
+  ringed soldier sets it off, as in Vanilla. Walls: ground may refuse them, and a line stops when the stone is gone.
+- Speed stage (`SP-hunters-speed`): the same live deer, stage 1 to 2 at Manhattan 37 to 40, then back to 1 within one update
+  when it was moved to 67 to 70. In this test the deer jumps, because a deer ignores `MoveToTile` often enough to make it walking
+  unusable. The sight change and the detour of the plan's check are covered by the matrix below, not with stage logging.
+- Free corpses (`SP-hunters-corpse`, `-corpse-off`, `-corpse-hit`): an idle Hunter took a corpse he had not shot, deer 9 meat and rabbit
+  3, each the base amount plus Vanilla's 50 percent. A corpse with a renewed foreign reservation stayed untouched for 15 s and was
+  taken after it ended. Two Hunters, one corpse: one went. Setting off: left alone. A Hunter on his way switched to the corpse of a
+  hit in 78 ms (hit injected) and delivered it. With a real arrow whose aim was cleared in flight, the event and the shooter read
+  from the arrow led to the same handoff. A natural hit on an unaimed animal was not seen in 150 s on eight deer on one tile.
+- Matrix (`SP-hunters-matrix-*`): deer, goat, rabbit, camel: free, sight blocked by a wall, sight blocked by a building, walled in and
+  ignored for 15 s then opened and hunted, cut off while approached and dropped. Each hunt delivered (deer and goat 9, rabbit 3, camel
+  12). Deer also with two Hunters, 1147 frames both hunting, never one animal. Chicken: the free case only, because at a chicken
+  target of 0 the granary rule above kills the fixture and at any other it spawns nearer chickens; delivered 1.
+- Cost, DevDiag build, tick time on the simulation thread (`SP-hunters-perf*`). `test_stresstest5.sav`, 800 by 800, about 10,000 units:
+  the whole scan 4.5 ms per second of play, 1.5 ms at most per call; herd rule 1.1 ms, corpse rule 0.6 ms per second. 300
+  fixture animals and 6 huts on a 400 map at speed 80: 8 to 9 ms per second, at most 2 ms. On maps of size 200 and 160 it ran without
+  error (15 to 17 and 9 ms per second, at most 4 ms). The size comes from `GetCurrentMapSize`; a large map file need not be a large map.
+
+Not observed: real multiplayer (also not for the Tannery), free corpses and the respawn in multiplayer, a native resync with hunters active, an AI Tannery with the mod, a truly non-lethal arrow on deer, the absence of the warning
 sound (executed in the fixture only), statistics after own-chicken kills.

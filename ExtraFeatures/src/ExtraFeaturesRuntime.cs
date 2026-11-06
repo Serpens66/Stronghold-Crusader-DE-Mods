@@ -78,6 +78,7 @@ namespace ExtraFeatures
         private FearFactorNeutralizationRuntime fearFactorRuntime;
         private PopularityRuntime popularityRuntime;
         private PeriodicGoldRuntime periodicGoldRuntime;
+        private WorkerProductionBonusRuntime workerProductionBonusRuntime;
         private PlagueDurationPatch plagueDurationPatch;
         private PlagueApothecarySearchRangePatch plagueApothecarySearchRangePatch;
         private IntPtr libraryHandle;
@@ -150,6 +151,13 @@ namespace ExtraFeatures
             TryRunFeature("health lifecycle", healthModifierRuntime.Initialize);
             TryRunFeature("building repair HUD lifecycle", InitializeBuildingRepairHud);
             InitializeMissionLifecycle();
+            TryRunFeature("worker production bonus lifecycle", () =>
+            {
+                if (workerProductionBonusRuntime != null) return;
+                var candidate = new WorkerProductionBonusRuntime(log, settings);
+                candidate.Register();
+                workerProductionBonusRuntime = candidate;
+            });
             TryRunFeature("periodic gold lifecycle", () =>
             {
                 if (periodicGoldRuntime != null) return;
@@ -463,7 +471,8 @@ namespace ExtraFeatures
         {
             // The independent gold runtime captures these at completed mission start.
             // Editing an amount must not reapply unrelated native feature settings.
-            if (propertyName == nameof(ExtraFeaturesViewModel.PeriodicGoldHuman) ||
+            if (propertyName == nameof(ExtraFeaturesViewModel.FixedProductionBonusPercent) ||
+                propertyName == nameof(ExtraFeaturesViewModel.PeriodicGoldHuman) ||
                 propertyName == nameof(ExtraFeaturesViewModel.PeriodicGoldAI)) return;
             if (propertyName == nameof(ExtraFeaturesViewModel.EnableMod)) popularityRuntime?.RefreshActivation();
             if (propertyName == nameof(ExtraFeaturesViewModel.EnableMod) || propertyName.StartsWith("PlagueDamage", StringComparison.Ordinal))

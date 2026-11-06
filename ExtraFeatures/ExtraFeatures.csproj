@@ -73,6 +73,8 @@
     <Compile Include="src\ExtraFeaturesViewModel.Popularity.cs" />
     <Compile Include="src\PopularityCatalog.cs" />
     <Compile Include="src\PopularityRuntime.cs" />
+    <Compile Include="src\WorkerProductionBonusRuntime.cs" />
+    <Compile Include="src\ExtraFeaturesViewModel.ProductionBonus.cs" />
     <Compile Include="src\PeriodicGoldRuntime.cs" />
     <Compile Include="src\PeriodicGoldGameWorld.cs" />
     <Compile Include="src\ExtraFeaturesViewModel.PeriodicGold.cs" />

@@ -13,11 +13,14 @@ namespace ImprovedHunters
     /// </summary>
     internal sealed unsafe class HunterCorpseChoicePatch : IDisposable
     {
-        private const int SearchSiteRva = 0x12FDB7;
+        // After Vanilla's search and its check that the hut still stands, ahead of its "found prey" branch.
+        // The two hooks of HunterTargetSearchFallbackDiagnostic sit directly before this and must stay clear.
+        private const int SearchSiteRva = 0x12FE07;
         private const string SearchSitePattern =
-            "8B D3 49 8B CD E8 ?? ?? ?? ?? 49 0F BF 8C 3E FC 01 00 00 48 69 D1 90 04 00 00";
-        private const int SearchDisplaced = 19;
-        private const int SearchCallOperand = 6;
+            "85 C0 0F 84 ?? ?? ?? ?? 48 63 15 ?? ?? ?? ?? 41 BE 02 00 00 00 48 69 CA 90 04 00 00";
+        private const int SearchDisplaced = 15;
+        private const int SearchNoPreyOperand = 4;
+        private const int SearchCurrentHunterOperand = 11;
 
         private const int AfterShotSiteRva = 0x13053A;
         private const string AfterShotSitePattern =
@@ -51,8 +54,10 @@ namespace ImprovedHunters
             int afterShot = Shared.NativePatternResolver.ResolveUnique(
                 memory, AfterShotSitePattern, AfterShotSiteRva, referenceHashMatches, "Hunter corpse search", log).Rva;
 
-            ulong liveSearch = imageBase + (ulong)Shared.NativePatternResolver.ResolveRelativeTarget(
-                memory, search + SearchCallOperand, search + SearchCallOperand + 4);
+            ulong noPrey = imageBase + (ulong)Shared.NativePatternResolver.ResolveRelativeTarget(
+                memory, search + SearchNoPreyOperand, search + SearchNoPreyOperand + 4);
+            ulong currentHunter = imageBase + (ulong)Shared.NativePatternResolver.ResolveRelativeTarget(
+                memory, search + SearchCurrentHunterOperand, search + SearchCurrentHunterOperand + 4);
             ulong corpseSearch = imageBase + (ulong)Shared.NativePatternResolver.ResolveRelativeTarget(
                 memory, afterShot + AfterShotCallOperand, afterShot + AfterShotCallOperand + 4);
             ulong noCorpse = imageBase + (ulong)(afterShot + AfterShotBranchOperand + 1 + (sbyte)memory[afterShot + AfterShotBranchOperand]);
@@ -68,7 +73,7 @@ namespace ImprovedHunters
             {
                 ulong flag = candidate.FlagAddress;
                 candidate.AddSite(memory, search, SearchDisplaced,
-                    (a, i) => HunterNativeStubs.EmitCorpseChoiceInSearch(a, i, flag, table, liveSearch, walkToCorpse));
+                    (a, i) => HunterNativeStubs.EmitCorpseChoiceInSearch(a, i, flag, table, currentHunter, noPrey, walkToCorpse));
                 candidate.AddSite(memory, afterShot, AfterShotDisplaced,
                     (a, i) => HunterNativeStubs.EmitCorpseChoiceAfterShot(a, i, flag, table, corpseSearch, noCorpse));
                 candidate.Commit();

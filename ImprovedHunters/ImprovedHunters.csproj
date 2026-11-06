@@ -122,6 +122,7 @@
     <Compile Include="..\Shared\Runtime\Diagnostics\CrashBreadcrumbRecorder.cs">
       <Link>Shared\Runtime\Diagnostics\CrashBreadcrumbRecorder.cs</Link>
     </Compile>
+    <Compile Include="..\Shared\Runtime\Diagnostics\DevDiag.cs"><Link>Shared\Runtime\Diagnostics\DevDiag.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\Diagnostics\DebugLogHelper.cs">
       <Link>Shared\Runtime\Diagnostics\DebugLogHelper.cs</Link>
     </Compile>

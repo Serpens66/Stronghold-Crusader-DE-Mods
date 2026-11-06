@@ -380,23 +380,29 @@ simulation data at every scan, so it needs no save. Update audit: `+0x28` and `+
 ## Free corpses
 
 Owner: `HunterCorpseChoicePatch` with `HunterNativeStubs.EmitCorpseChoice*`, logic in `HunterCorpseChoiceFeature`,
-setting `AllowDeadTargets`, which alone decides; it does not need `ImprovedTargetSelection` or
-`ReliableHunterProjectiles`. Bound to the audited hash.
+setting `CollectFreeCorpses`, which alone decides; it does not need `ImprovedTargetSelection` or
+`ReliableHunterProjectiles`. Earlier versions stored an unused `AllowDeadTargets` with the value false, so this one has
+a new name. Bound to the audited hash.
 
 | RVA | Bytes | Behaviour |
 |---|---|---|
-| `0x12FDB7` | 19 | state 0, before `0x18AF50`: a valid choice jumps to `0x130548` with the corpse ID in EAX |
+| `0x12FE07` | 15 | state 0, after `0x18AF50` and the hut check: a valid choice jumps to `0x130548` with the corpse ID in EAX |
 | `0x13053A` | 14 | state 10, before `0x18B640`: a valid choice skips that search and goes on at `0x130548` |
 
 `0x130548` is Vanilla's only corpse handoff: it sets the target (`+0x99C`, `+0x9F6`, `+0x9F8`), state `0xB` and calls
 `0x196280`. It needs R13 (unit manager) and EBP = 0, and reloads RBX itself; both sites have that. Nothing else jumps
-into either span; the only jumps go to their first byte (`0x12FD7A`, `0x1304E8`). Neighbours that must stay clear:
-`HunterTargetSearchFallbackDiagnostic` hooks `0x12FDD9`, `HunterPostShotContinuationDiagnostic` `0x130526` and `0x1305CC`.
+into either span; the only jumps go to their first byte (`0x12FDE4`, `0x1304E8`). Neighbours that must stay clear:
+`HunterTargetSearchFallbackDiagnostic` hooks `0x12FDB7` (19 bytes) and `0x12FDD9` (20 bytes), which is why the search site
+is not at the search call, and `HunterPostShotContinuationDiagnostic` `0x130526` and `0x1305CC`.
 
 The table has 8 bytes per Hunter (global ID, unit ID) and is filled by the tick scan. The stub checks the choice again
 (same global ID, `+0x6E4` == 2, `+0x8F8` != 0, `+0xAA4` == 0), writes reservation 2, which Vanilla would write in state
 `0xB` one tick later, and clears the entry. That closes the gap in which a second Hunter could take the same corpse. No
 save: the table is rebuilt from simulation data.
+
+A deer or goat corpse decays within seconds at speed 80, which a Vanilla handoff next to the Hunter outlasts but a longer
+walk does not. `KeepCorpseForWalkingHunter` therefore holds `+0x2C4` at 0 during state `0xB`, until Vanilla sets it on
+arrival. Reservation does not protect a corpse from that timer.
 
 A kill by a Hunter's own arrow of an animal he did not aim at comes from `UnitR3EventHooks.OnUnitKilledByProjectile`,
 with shooter and aim read from the projectile (`r_SourceUnitId`, `r_TargetUnidId`). A Hunter on his way drops his

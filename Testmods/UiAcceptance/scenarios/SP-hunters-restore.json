@@ -1,0 +1,26 @@
+{
+  "enabled": true,
+  "series": "SP-hunters-restore",
+  "role": "sp",
+  "quitWhenDone": true,
+  "steps": [
+    {"id": "menu", "do": "WaitMainMenu", "timeoutMs": 60000, "stopOnFail": true, "allowErrors": true},
+    {"id": "EnableMod", "do": "SetModSetting", "args": ["ImprovedHunters.ImprovedHuntersPlugin::persistentSettings", "EnableMod", "true"]},
+    {"id": "HuntDeer", "do": "SetModSetting", "args": ["ImprovedHunters.ImprovedHuntersPlugin::persistentSettings", "HuntDeer", "true"]},
+    {"id": "HuntGoat", "do": "SetModSetting", "args": ["ImprovedHunters.ImprovedHuntersPlugin::persistentSettings", "HuntGoat", "true"]},
+    {"id": "HuntRabbit", "do": "SetModSetting", "args": ["ImprovedHunters.ImprovedHuntersPlugin::persistentSettings", "HuntRabbit", "true"]},
+    {"id": "HuntCamel", "do": "SetModSetting", "args": ["ImprovedHunters.ImprovedHuntersPlugin::persistentSettings", "HuntCamel", "true"]},
+    {"id": "HuntChicken", "do": "SetModSetting", "args": ["ImprovedHunters.ImprovedHuntersPlugin::persistentSettings", "HuntChicken", "true"]},
+    {"id": "ChickenMeat", "do": "SetModSetting", "args": ["ImprovedHunters.ImprovedHuntersPlugin::persistentSettings", "ChickenMeat", "1"]},
+    {"id": "ChickensPerPlayer", "do": "SetModSetting", "args": ["ImprovedHunters.ImprovedHuntersPlugin::persistentSettings", "ChickensPerPlayer", "4"]},
+    {"id": "RespawnWildlife", "do": "SetModSetting", "args": ["ImprovedHunters.ImprovedHuntersPlugin::persistentSettings", "RespawnWildlife", "false"]},
+    {"id": "RespawnMinimum", "do": "SetModSetting", "args": ["ImprovedHunters.ImprovedHuntersPlugin::persistentSettings", "RespawnMinimum", "6"]},
+    {"id": "RespawnIntervalSeconds", "do": "SetModSetting", "args": ["ImprovedHunters.ImprovedHuntersPlugin::persistentSettings", "RespawnIntervalSeconds", "120"]},
+    {"id": "DeerFleeOnlyInSight", "do": "SetModSetting", "args": ["ImprovedHunters.ImprovedHuntersPlugin::persistentSettings", "DeerFleeOnlyInSight", "true"]},
+    {"id": "HunterSearchRange", "do": "SetModSetting", "args": ["ImprovedHunters.ImprovedHuntersPlugin::persistentSettings", "HunterSearchRange", "0"]},
+    {"id": "CollectFreeCorpses", "do": "SetModSetting", "args": ["ImprovedHunters.ImprovedHuntersPlugin::persistentSettings", "CollectFreeCorpses", "true"]},
+    {"id": "HunterHutAlwaysAvailable", "do": "SetModSetting", "args": ["ImprovedHunters.ImprovedHuntersPlugin::persistentSettings", "HunterHutAlwaysAvailable", "true"]},
+    {"id": "TannerMeatMode", "do": "SetModSetting", "args": ["ImprovedHunters.ImprovedHuntersPlugin::persistentSettings", "TannerMeatMode", "true"]},
+    {"id": "random-events", "do": "RandomEvents", "args": ["on"], "timeoutMs": 10000}
+  ]
+}

@@ -825,6 +825,18 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}"
             </StackPanel>
             <StackPanel Visibility="{Binding SettingsPresentation.EconomyBonusOptions.Visibility}">
               <TextBlock Text="{Binding EconomyBuffsTitleText}" Style="{StaticResource SubsectionHeader}" />
+              <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" IsEnabled="{Binding CanConfigureFixedProductionBonus}" shared:ModSettingsSearch.Key="extra.fixed-production-bonus" shared:ModSettingsSearch.Title="{Binding FixedProductionBonusTitle}" shared:ModSettingsSearch.ToolTipText="{Binding FixedProductionBonusHelp}">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="Auto" SharedSizeGroup="SettingLabel" MaxWidth="220" />
+                  <ColumnDefinition Width="16" />
+                  <ColumnDefinition Width="Auto" />
+                  <ColumnDefinition Width="8" />
+                  <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="{Binding FixedProductionBonusTitle}" Style="{StaticResource CompactSettingLabel}" Grid.Column="0" />
+                <TextBox ui:KeyboardCaptureBinding.Enabled="True" Text="{Binding FixedProductionBonusValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" shared:ModSettingsSearch.InactiveValues="50" Foreground="White" HorizontalAlignment="Left" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding FixedProductionBonusHelp}" MinWidth="80" Width="96" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1" Margin="0" MinHeight="28" Grid.Column="2" />
+                <TextBlock Text="%" Foreground="White" VerticalAlignment="Center" Grid.Column="4" />
+              </Grid>
               <Grid HorizontalAlignment="Left" Margin="0,0,0,6">
                 <Grid.ColumnDefinitions>
                   <ColumnDefinition Width="Auto" SharedSizeGroup="SettingLabel" MaxWidth="220" />

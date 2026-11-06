@@ -140,11 +140,11 @@
         <Slider Grid.Column="1" Minimum="0" Maximum="200" Value="{Binding HunterSearchRange, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding HunterSearchRangeHelpText}"/>
         <TextBox ui:KeyboardCaptureBinding.Enabled="True" Grid.Column="2" Text="{Binding HunterSearchRangeValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Right" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding HunterSearchRangeHelpText}" MinWidth="56" MaxWidth="120" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1"/>
       </Grid>
-      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="hunters.allow-dead-targets" shared:ModSettingsSearch.Title="{Binding AllowDeadTargetsText}" shared:ModSettingsSearch.ToolTipText="{Binding AllowDeadTargetsHelpText}"><CheckBox IsChecked="{Binding AllowDeadTargets, Mode=TwoWay}"
-                Content="{Binding AllowDeadTargetsText}"
+      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="hunters.collect-free-corpses" shared:ModSettingsSearch.Title="{Binding CollectFreeCorpsesText}" shared:ModSettingsSearch.ToolTipText="{Binding CollectFreeCorpsesHelpText}"><CheckBox IsChecked="{Binding CollectFreeCorpses, Mode=TwoWay}"
+                Content="{Binding CollectFreeCorpsesText}"
                 Foreground="White"
                 Margin="0,0,14,8"
-                ToolTipService.ShowDuration="60000" ToolTip="{Binding AllowDeadTargetsHelpText}"/></Grid>
+                ToolTipService.ShowDuration="60000" ToolTip="{Binding CollectFreeCorpsesHelpText}"/></Grid>
       <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="hunters.hut-always-available" shared:ModSettingsSearch.Title="{Binding HunterHutAlwaysAvailableText}" shared:ModSettingsSearch.ToolTipText="{Binding HunterHutAlwaysAvailableHelpText}"><CheckBox IsChecked="{Binding HunterHutAlwaysAvailable, Mode=TwoWay}"
                 Content="{Binding HunterHutAlwaysAvailableText}"
                 Foreground="White"

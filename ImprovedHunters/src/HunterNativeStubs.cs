@@ -390,21 +390,27 @@ namespace ImprovedHunters
         }
 
         /// <summary>
-        /// State 0, before Vanilla looks for living prey: a chosen corpse goes straight to the code
-        /// that points the Hunter at a corpse and walks there. EBP is zero there, as this function needs.
+        /// State 0, after Vanilla's search and its hut check: a chosen corpse goes straight to the code that
+        /// points the Hunter at a corpse and walks there, otherwise Vanilla goes on with what it found in EAX.
+        /// EBP is zero there, as that code needs. RCX and RDX are dead here; R8 still holds the found prey.
         /// </summary>
-        internal static void EmitCorpseChoiceInSearch(Assembler a, ReadOnlySpan<Instruction> instructions, ulong flag, ulong table, ulong liveSearch, ulong walkToCorpse)
+        internal static void EmitCorpseChoiceInSearch(Assembler a, ReadOnlySpan<Instruction> instructions, ulong flag, ulong table, ulong currentHunter, ulong noPrey, ulong walkToCorpse)
         {
-            Require(instructions, 4, "Hunter target search");
+            Require(instructions, 3, "Hunter target search");
             Label none = a.CreateLabel("corpseSearchNone");
+            Label found = a.CreateLabel("corpseSearchFound");
+            a.mov(edx, eax);
             TakeCorpseChoice(a, flag, table, none);
             a.mov(r10, walkToCorpse);
             a.jmp(r10);
             a.Label(ref none);
-            a.AddInstruction(instructions[0]);
-            a.AddInstruction(instructions[1]);
-            CallAbsolute(a, liveSearch);
-            a.AddInstruction(instructions[3]);
+            a.mov(eax, edx);
+            a.test(eax, eax);
+            a.jne(found);
+            JumpAbsolute(a, noPrey);
+            a.Label(ref found);
+            a.mov(rdx, currentHunter);
+            a.movsxd(rdx, __dword_ptr[rdx]);
         }
 
         /// <summary>After a shot that left the target alive: the chosen corpse comes before Vanilla's own search.</summary>

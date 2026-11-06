@@ -37,6 +37,7 @@ namespace ExtraFeatures
             {
                 NormalizeOwnedKillReward();
                 OnPropertyChanged(nameof(CanConfigurePeriodicGold));
+                OnPropertyChanged(nameof(CanConfigureFixedProductionBonus));
                 OnPropertyChanged(nameof(CanConfigureKillReward));
                 OnPropertyChanged(nameof(CanConfigureEnemyProximity));
             }
@@ -429,6 +430,7 @@ namespace ExtraFeatures
                 MultiplyGoodsGainHuman = 1;
                 MultiplyGoodsGainInMoneyAI = 0;
                 MultiplyGoodsGainInMoneyHuman = 0;
+                FixedProductionBonusPercent = 50;
                 PeriodicGoldHuman = 0;
                 PeriodicGoldAI = 0;
                 MarketBuyPriceMultiplier = 1.0;

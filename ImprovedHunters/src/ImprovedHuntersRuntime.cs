@@ -178,6 +178,7 @@ namespace ImprovedHunters
             InitializeHunterQueryActorWorkaround(memory, imageBase, referenceHashMatches);
             InitializeHunterNativeVisibilityProbe(memory, imageBase, referenceHashMatches);
             InitializeHunterHutVisibilityPatch(memory, imageBase, referenceHashMatches);
+            Shared.DevDiag.Attach(log);
             InitializeWildlifeFeatures(memory, imageBase, referenceHashMatches);
             InitializeHunterCorpseChoicePatch(memory, imageBase, referenceHashMatches);
             TryInitializeFeature("PCL reachability", () => InitializeHunterPclReachability(referenceHashMatches));
@@ -249,7 +250,12 @@ namespace ImprovedHunters
                 wildlifeRespawn?.OnTick(mapTick);
 
             if (unchecked((uint)mapTick) % NativeScanIntervalMapTicks == 0)
+            {
+                long measured = 0;
+                Shared.DevDiag.Start(ref measured);
                 RunNativeScan(mapTick);
+                Shared.DevDiag.StopSpike(ref measured, "hunters.scan", 5000);
+            }
         }
 
         private unsafe void RunNativeScan(long timestamp)
@@ -309,8 +315,13 @@ namespace ImprovedHunters
                 hunterActiveTargetVisibilitySnapshot?.ProcessNativeScan(units, timestamp);
                 RequeryHuntersWithUnreachableActivePrey(units, hunters, timestamp);
                 RequeryHuntersWithBetterPrey(units, hunters, timestamp);
+                long measured = 0;
+                Shared.DevDiag.Start(ref measured);
                 herdFleeSight?.Update(units);
+                Shared.DevDiag.Stop(ref measured, "hunters.herdSight");
+                Shared.DevDiag.Start(ref measured);
                 UpdateCorpseChoices(units, hunters, timestamp);
+                Shared.DevDiag.Stop(ref measured, "hunters.corpseChoice");
                 TrackHunterPreyAndExpireCollectedCorpses(units, hunters, timestamp);
                 RequeryIdleHuntersNearPrey(units, hunters, eligiblePrey, timestamp);
             }
@@ -1027,7 +1038,7 @@ namespace ImprovedHunters
             }
 
             if (propertyName == nameof(ImprovedHuntersViewModel.EnableMod) ||
-                propertyName == nameof(ImprovedHuntersViewModel.AllowDeadTargets))
+                propertyName == nameof(ImprovedHuntersViewModel.CollectFreeCorpses))
             {
                 ApplyCorpseChoiceRule();
             }
