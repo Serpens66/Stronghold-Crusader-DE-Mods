@@ -74,7 +74,8 @@ namespace ImprovedHunters
             uint preyGlobalId,
             eChimps preyType,
             long timestamp,
-            out bool reachable)
+            out bool reachable,
+            bool allowCorpse = false)
         {
             reachable = true;
             if (!IsAvailable)
@@ -91,7 +92,8 @@ namespace ImprovedHunters
                         preyGlobalId,
                         preyType,
                         out ReachabilityInputs inputs,
-                        out string failure))
+                        out string failure,
+                        allowCorpse))
                 {
                     LogFailure(
                         $"Improved Hunters native PCL reachability input rejected: hunter={hunterUnitId}, " +
@@ -233,7 +235,8 @@ namespace ImprovedHunters
             uint preyGlobalId,
             eChimps preyType,
             out ReachabilityInputs inputs,
-            out string failure)
+            out string failure,
+            bool allowCorpse = false)
         {
             inputs = default;
             failure = string.Empty;
@@ -253,8 +256,7 @@ namespace ImprovedHunters
             if (preyUnitId <= 0 ||
                 !APIShared.UnitAccess.TryGetById(unitApi, preyUnitId, out GameUnit* prey, out _) ||
                 prey == null ||
-                !APIShared.UnitAccess.IsReallyAlive(prey) ||
-                prey->r_CurrentHealth == 0 ||
+                (!allowCorpse && (!APIShared.UnitAccess.IsReallyAlive(prey) || prey->r_CurrentHealth == 0)) ||
                 prey->r_GlobalId != preyGlobalId ||
                 prey->r_UnitChimp != preyType)
             {

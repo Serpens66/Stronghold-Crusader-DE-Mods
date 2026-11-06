@@ -309,6 +309,125 @@ namespace ImprovedHunters
             a.AddInstruction(instructions[2]);
         }
 
+        /// <summary>
+        /// Availability check of the Hunter's hut. Vanilla answers "not available" in skirmish and
+        /// multiplayer (R10D not zero) on a map without deer and goats; with the flag set it goes on as usual.
+        /// </summary>
+        internal static void EmitHutAlwaysAvailable(Assembler a, ReadOnlySpan<Instruction> instructions, ulong flag, ulong hasPrey, ulong available)
+        {
+            Require(instructions, 4, "Hunter's hut availability");
+            Label proceed = a.CreateLabel("hutAvailable");
+            Label unavailable = a.CreateLabel("hutUnavailable");
+            a.AddInstruction(instructions[0]);
+            a.je(proceed);
+            a.mov(rax, flag);
+            a.cmp(__dword_ptr[rax], 0);
+            a.jne(proceed);
+            a.mov(rax, hasPrey);
+            a.cmp(__dword_ptr[rax], 0);
+            a.je(unavailable);
+            a.Label(ref proceed);
+            JumpAbsolute(a, available);
+            a.Label(ref unavailable);
+            a.nop();
+        }
+
+        /// <summary>
+        /// Deer and goat herd update, reading the threats of its sector into EDI. RBP is the herd.
+        /// A herd marked calm sees none. RAX and RCX are written again before they are read here.
+        /// </summary>
+        internal static void EmitHerdFleeGate(Assembler a, ReadOnlySpan<Instruction> instructions, ulong flag, ulong calmHerds)
+        {
+            Require(instructions, 4, "herd threat read");
+            Label done = a.CreateLabel("herdFleeDone");
+            foreach (Instruction instruction in instructions)
+                a.AddInstruction(instruction);
+            a.mov(rax, flag);
+            a.cmp(__dword_ptr[rax], 0);
+            a.je(done);
+            a.mov(rax, calmHerds);
+            a.cmp(__byte_ptr[rax + rbp], 0);
+            a.je(done);
+            a.xor(edi, edi);
+            a.Label(ref done);
+            a.nop();
+        }
+
+        internal const int CorpseEntrySize = 8;
+        internal const int CorpseEntryGlobalId = 0;
+        internal const int CorpseEntryUnitId = 4;
+        private const int ManagerUnitGlobalId = 0x6F0;
+        private const int ManagerUnitAliveState = 0x6E4;
+        private const short UnitAliveValue = 2;
+
+        /// <summary>
+        /// Leaves the chosen corpse's ID in EAX and reserves it, or goes to the label when this Hunter
+        /// (RBX) has no choice that is still valid. R13 is the unit manager; RAX, RCX, R10 and R11 are free.
+        /// </summary>
+        private static void TakeCorpseChoice(Assembler a, ulong flag, ulong table, Label none)
+        {
+            a.mov(rax, flag);
+            a.cmp(__dword_ptr[rax], 0);
+            a.je(none);
+            a.mov(r10, table);
+            a.lea(r10, __[r10 + rbx * CorpseEntrySize]);
+            a.movzx(eax, __word_ptr[r10 + CorpseEntryUnitId]);
+            a.test(eax, eax);
+            a.je(none);
+            a.imul(r11, rax, UnitStride);
+            a.add(r11, r13);
+            a.mov(ecx, __dword_ptr[r10 + CorpseEntryGlobalId]);
+            a.cmp(ecx, __dword_ptr[r11 + ManagerUnitGlobalId]);
+            a.jne(none);
+            a.cmp(__word_ptr[r11 + ManagerUnitAliveState], UnitAliveValue);
+            a.jne(none);
+            a.cmp(__word_ptr[r11 + UnitDeadOffset], 0);
+            a.je(none);
+            a.cmp(__word_ptr[r11 + ManagerToReservation], 0);
+            a.jne(none);
+            a.mov(__word_ptr[r11 + ManagerToReservation], 2);
+            a.mov(__word_ptr[r10 + CorpseEntryUnitId], 0);
+        }
+
+        /// <summary>
+        /// State 0, before Vanilla looks for living prey: a chosen corpse goes straight to the code
+        /// that points the Hunter at a corpse and walks there. EBP is zero there, as this function needs.
+        /// </summary>
+        internal static void EmitCorpseChoiceInSearch(Assembler a, ReadOnlySpan<Instruction> instructions, ulong flag, ulong table, ulong liveSearch, ulong walkToCorpse)
+        {
+            Require(instructions, 4, "Hunter target search");
+            Label none = a.CreateLabel("corpseSearchNone");
+            TakeCorpseChoice(a, flag, table, none);
+            a.mov(r10, walkToCorpse);
+            a.jmp(r10);
+            a.Label(ref none);
+            a.AddInstruction(instructions[0]);
+            a.AddInstruction(instructions[1]);
+            CallAbsolute(a, liveSearch);
+            a.AddInstruction(instructions[3]);
+        }
+
+        /// <summary>After a shot that left the target alive: the chosen corpse comes before Vanilla's own search.</summary>
+        internal static void EmitCorpseChoiceAfterShot(Assembler a, ReadOnlySpan<Instruction> instructions, ulong flag, ulong table, ulong corpseSearch, ulong noCorpse)
+        {
+            Require(instructions, 5, "Hunter corpse search");
+            Label none = a.CreateLabel("corpseShotNone");
+            Label check = a.CreateLabel("corpseShotCheck");
+            Label found = a.CreateLabel("corpseShotFound");
+            TakeCorpseChoice(a, flag, table, none);
+            a.jmp(check);
+            a.Label(ref none);
+            a.AddInstruction(instructions[0]);
+            a.AddInstruction(instructions[1]);
+            CallAbsolute(a, corpseSearch);
+            a.Label(ref check);
+            a.test(eax, eax);
+            a.jne(found);
+            JumpAbsolute(a, noCorpse);
+            a.Label(ref found);
+            a.nop();
+        }
+
         /// <summary>Addresses of the native helpers the Tanner meat stubs use.</summary>
         internal sealed class TannerMeatAddresses
         {

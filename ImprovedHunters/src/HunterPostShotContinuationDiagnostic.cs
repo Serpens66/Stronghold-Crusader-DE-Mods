@@ -482,6 +482,17 @@ namespace ImprovedHunters
             }
         }
 
+        /// <summary>Whether this Hunter has shot at his prey and is still dealing with the outcome.</summary>
+        public bool HasShotInProgress(int hunterUnitId)
+        {
+            lock (stateLock)
+            {
+                return activeShots.ContainsKey(hunterUnitId) ||
+                    pendingStateZeroHandoffs.ContainsKey(hunterUnitId) ||
+                    recoveryAttempts.ContainsKey(hunterUnitId);
+            }
+        }
+
         public bool TryPrepareStateZeroContinuation(
             int hunterUnitId,
             long timestamp,

@@ -97,6 +97,32 @@ Chore 33 (`0x128F0`) carries the structure as 2 bytes, the good as **1 byte**, t
 from `+0x2EC` again (`0x89F40`, `0x97380`) and only those panels read it (`0x19D960`). Native readers of
 `+0x2EC`/`+0x2EA` are the workers of those three types, `0x189220` and `0x19D960`; none is for the Tanner.
 
+## Corpses [Scope: Vanilla]
+
+- `0x18B640` is the corpse search. Filter: `+0x6E4` == 2, `+0x8F8` != 0, owner `+0x6EE` == 0, type `0x2C` (deer) or `0x56`
+  (goat), reservation `+0xAA4` == 0. It keeps the nearest over Chebyshev 20, then over 5, with a sight check below 54, no
+  upper limit. It does not reserve. Only state 10 calls it; an idle Hunter never looks for corpses.
+- Handoff at `0x130548`: target fields, state `0xB`, `0x196280`. State `0xB` (`0x1305E0`) writes reservation 2 on every
+  update while the global ID still fits, sets the corpse's `+0x920` to 1000 on arrival and starts state 2.
+- `+0xA0C` on the Hunter is 0 for deer, 1 for anything else; it picks the animation in state 2.
+
+## Hunter speed stage [Scope: Vanilla]
+
+State 1 (`0x12FF38`) decides the stage (`+0x348`, read at manager `+0x9A4`) anew on every update from the Manhattan
+distance EDI to the target: over 40 stage 1, over 36 stage 2, over 34 stage 3, over 32 stage 4, over 30 stage 6, over 28
+stage 8, otherwise 10. Nothing in Vanilla holds a stage once chosen. Chebyshev 20 or less on the tile fields triggers the new search.
+
+## Herd flight and respawn [Scope: Vanilla]
+
+- `0x124E80` (deer) and `0x125290` (goats): `EDI = cell +0x28 + cell +0x48` for the sector of the herd's leader (`+0x5A`), grid
+  `0x3395E10`, 80 by 80 sectors of 10 by 10 tiles, stride `0xA0`. Not zero and `+0x5F4` == 0 means flight (`0x127E60`,
+  `0x11DFE0`). `+0x48` counts non-animals of any player and fleeing herds, `+0x28` rabbits and types `0x57`/`0x58`. The grid knows
+  neither sight nor connection, so a unit behind a wall in the sector scares a herd.
+- `0x123670`, from `0xCDE60`, only in mode 0 and below 6 animals: `0x11E150(0x7CC6720, art, x, y, height)`. `0xDC` makes a deer
+  herd of 9 to 12, `0xE2` a goat herd of 4 to 5. Tile mask `0x4A5014B1` refuses a spot. Points `0x37EDBC0`, `0x39C94B0`.
+- `0xFFC70` case `0x4E`: outside mode 0 the Hunter's hut button is off when `0x37EF97C` is 0 (deer and goats at map start,
+  `0x94350`, `0x1860E0`). Confirmed in skirmish: with the setting off the button is disabled on a map without them.
+
 ## ImprovedHunters integration [mod integration]
 
 `HunterNativeStubs.cs` holds machine-code gates without managed transitions:

@@ -348,6 +348,63 @@ Update audit: confirm that `0x13E0B0` still adds three hides, that `+0x134` is s
 `+0x190` the hides, that the Hunter's meat path matches the stubs, and that `0x18D940` still takes
 (unit, base amount, bonus flag).
 
+## Hunter's hut availability
+
+Owner: `HunterHutAvailabilityPatch` with `HunterNativeStubs.EmitHutAlwaysAvailable`, setting
+`HunterHutAlwaysAvailable`. Site `0xFFDA6` in `0xFFC70` case `0x4E`: outside single player (`0x8574B90` != 0) the
+build button is off when the map started without deer and goats (`0x37EF97C`, written in `0x94350` from `0x1860E0`).
+Only the UI asks this; placing a hut by code was never blocked. Update audit: the case, the mode read and the counter.
+
+## Search range
+
+Owner: `HunterSearchRangePolicy`, used in `OnHunterQueryTarget` and `TryGetTargetSelectionForHunter`. No native site.
+Update audit: `0x18AF50` still has no upper distance limit and still measures from the Hunter's own tile with
+`0x79C0`, field `+0xC`.
+
+## Wildlife respawn
+
+Owner: `WildlifeRespawnFeature`, addresses `WildlifeNativeAddresses`. Bound to the audited hash. Reads the spawn
+points and calls `0x11E150` as Vanilla's `0x123670` does (deer `0xDC`, goats `0xE2`); the herd size is rolled there. The
+call runs on the simulation tick, in the same place as Vanilla's tick at `0xCE27E`. Update audit: the argument order of
+`0x11E150`, the two herd arts, the mask `0x4A5014B1` and the point tables.
+
+## Herd flight only in sight
+
+Owner: `HerdFleeSightFeature` with `HunterNativeStubs.EmitHerdFleeGate`, setting `DeerFleeOnlyInSight`. Sites `0x124F20`
+(deer) and `0x125330` (goats), 18 bytes each: the stub replays the reads of the sector counters and sets EDI to 0 for a
+herd the tick scan marked calm. The table has one byte per herd (`0x1194`), indexed by EBP, and is rebuilt from
+simulation data at every scan, so it needs no save. Update audit: `+0x28` and `+0x48` of the grid at `0x3395E10`, stride
+`0xA0`, 80 by 80 sectors, EBP as the herd, herd stride `0x688`, leader `+0x5A`, and that the Fixes mod still hooks
+`DeerUpdate` (`0x156130`) and not these functions.
+
+## Free corpses
+
+Owner: `HunterCorpseChoicePatch` with `HunterNativeStubs.EmitCorpseChoice*`, logic in `HunterCorpseChoiceFeature`,
+setting `AllowDeadTargets`, which alone decides; it does not need `ImprovedTargetSelection` or
+`ReliableHunterProjectiles`. Bound to the audited hash.
+
+| RVA | Bytes | Behaviour |
+|---|---|---|
+| `0x12FDB7` | 19 | state 0, before `0x18AF50`: a valid choice jumps to `0x130548` with the corpse ID in EAX |
+| `0x13053A` | 14 | state 10, before `0x18B640`: a valid choice skips that search and goes on at `0x130548` |
+
+`0x130548` is Vanilla's only corpse handoff: it sets the target (`+0x99C`, `+0x9F6`, `+0x9F8`), state `0xB` and calls
+`0x196280`. It needs R13 (unit manager) and EBP = 0, and reloads RBX itself; both sites have that. Nothing else jumps
+into either span; the only jumps go to their first byte (`0x12FD7A`, `0x1304E8`). Neighbours that must stay clear:
+`HunterTargetSearchFallbackDiagnostic` hooks `0x12FDD9`, `HunterPostShotContinuationDiagnostic` `0x130526` and `0x1305CC`.
+
+The table has 8 bytes per Hunter (global ID, unit ID) and is filled by the tick scan. The stub checks the choice again
+(same global ID, `+0x6E4` == 2, `+0x8F8` != 0, `+0xAA4` == 0), writes reservation 2, which Vanilla would write in state
+`0xB` one tick later, and clears the entry. That closes the gap in which a second Hunter could take the same corpse. No
+save: the table is rebuilt from simulation data.
+
+A kill by a Hunter's own arrow of an animal he did not aim at comes from `UnitR3EventHooks.OnUnitKilledByProjectile`,
+with shooter and aim read from the projectile (`r_SourceUnitId`, `r_TargetUnidId`). A Hunter on his way drops his
+target through the same global-ID mismatch `RequeryHuntersWithUnreachableActivePrey` uses.
+
+Update audit: both sequences, the register use above, the fields, and that state `0xB` at `0x1305E0` still writes
+reservation 2 and handles any prey type.
+
 ## Required update audit
 
 1. Require one semantic match for both despawn patterns and verify that operand 1 at

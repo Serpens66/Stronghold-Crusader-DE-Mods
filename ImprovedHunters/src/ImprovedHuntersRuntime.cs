@@ -57,6 +57,11 @@ namespace ImprovedHunters
         // The BepInEx plugin component is short-lived in SHCDE. Repeating work runs on APIShared's
         // process-lived map-tick callback, at the same map ticks on every multiplayer peer.
         private const int NativeScanIntervalMapTicks = HunterSimulationTime.MapTicksPerSecond / 10;
+        // Vanilla's Hunter stops and shoots within this distance (0x12FC70, state 1).
+        private const int HunterShootingDistance = 20;
+        private const int BetterPreyCheckEveryScans = 10;
+        private const int BetterPreyMinimumGainTiles = 10;
+        private const int BetterPreyPauseMapTicks = 10 * HunterSimulationTime.MapTicksPerSecond;
         private static readonly long IdleHunterRequeryInterval = HunterSimulationTime.MapTicksPerSecond;
         private static readonly long PreyCacheRefreshInterval = HunterSimulationTime.MapTicksPerSecond * 5;
         private static readonly long BestTargetCacheInterval = HunterSimulationTime.MapTicksPerSecond / 2;
@@ -69,6 +74,7 @@ namespace ImprovedHunters
         private readonly ImprovedHuntersViewModel settings;
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
         private readonly Dictionary<int, eChimps> hunterPreyTypes = new Dictionary<int, eChimps>();
+        private readonly Dictionary<int, long> nextBetterPreyChecks = new Dictionary<int, long>();
         private readonly Dictionary<int, long> nextIdleHunterRequeryTimestamps = new Dictionary<int, long>();
         private readonly HashSet<uint> loggedCollectedCorpseGlobalIds = new HashSet<uint>();
         private readonly List<PreySnapshot> preyCache = new List<PreySnapshot>();
@@ -126,6 +132,9 @@ namespace ImprovedHunters
         private RabbitMeleeOrderPatch rabbitMeleeOrderPatch;
         private TannerMeatPatch tannerMeatPatch;
         private TannerRatioSync tannerRatioSync;
+        private HunterHutAvailabilityPatch hunterHutAvailabilityPatch;
+        private WildlifeRespawnFeature wildlifeRespawn;
+        private HerdFleeSightFeature herdFleeSight;
         private HunterQueryActorWorkaround hunterQueryActorWorkaround;
         private HunterHutVisibilityPatch hunterHutVisibilityPatch;
         private HunterNativeVisibilityProbe hunterNativeVisibilityProbe;
@@ -169,6 +178,8 @@ namespace ImprovedHunters
             InitializeHunterQueryActorWorkaround(memory, imageBase, referenceHashMatches);
             InitializeHunterNativeVisibilityProbe(memory, imageBase, referenceHashMatches);
             InitializeHunterHutVisibilityPatch(memory, imageBase, referenceHashMatches);
+            InitializeWildlifeFeatures(memory, imageBase, referenceHashMatches);
+            InitializeHunterCorpseChoicePatch(memory, imageBase, referenceHashMatches);
             TryInitializeFeature("PCL reachability", () => InitializeHunterPclReachability(referenceHashMatches));
             TryInitializeFeature("active-target visibility snapshot", InitializeHunterActiveTargetVisibilitySnapshot);
             InitializeHunterPostShotContinuationDiagnostic(memory, imageBase, referenceHashMatches);
@@ -229,13 +240,16 @@ namespace ImprovedHunters
         private void OnSimulationTick(int mapTick)
         {
             if (!applied ||
-                unchecked((uint)mapTick) % NativeScanIntervalMapTicks != 0 ||
                 !Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod))
             {
                 return;
             }
 
-            RunNativeScan(mapTick);
+            if (targetSelectionModeAllowed || pathfindingModeAllowed)
+                wildlifeRespawn?.OnTick(mapTick);
+
+            if (unchecked((uint)mapTick) % NativeScanIntervalMapTicks == 0)
+                RunNativeScan(mapTick);
         }
 
         private unsafe void RunNativeScan(long timestamp)
@@ -294,6 +308,9 @@ namespace ImprovedHunters
                 CleanupShortLivedCorpsePreserveCache(units, timestamp);
                 hunterActiveTargetVisibilitySnapshot?.ProcessNativeScan(units, timestamp);
                 RequeryHuntersWithUnreachableActivePrey(units, hunters, timestamp);
+                RequeryHuntersWithBetterPrey(units, hunters, timestamp);
+                herdFleeSight?.Update(units);
+                UpdateCorpseChoices(units, hunters, timestamp);
                 TrackHunterPreyAndExpireCollectedCorpses(units, hunters, timestamp);
                 RequeryIdleHuntersNearPrey(units, hunters, eligiblePrey, timestamp);
             }
@@ -380,25 +397,102 @@ namespace ImprovedHunters
                     continue;
                 }
 
-                ushort pathState = *(ushort*)(hunterBytes + 0xF2);
-                ushort pathFieldF4 = *(ushort*)(hunterBytes + 0xF4);
-                ushort pathProgress = *(ushort*)(hunterBytes + 0xF6);
-                uint pathLength = *(uint*)(hunterBytes + 0xF8);
-                ushort reservationBefore = *(ushort*)((byte*)prey + 0x448);
-                uint orderTargetGlobalId = *(uint*)(hunterBytes + 0x3FE);
+                if (!TryAbandonHunterTarget(hunterBytes, hunterUnitId))
+                    continue;
 
-                *(uint*)(hunterBytes + 0x39C) = 0;
-                uint targetGlobalIdAfter = *(uint*)(hunterBytes + 0x39C);
-                if (targetGlobalIdAfter != 0)
+                abortedTargetCooldowns.Remove(
+                    new HunterPreyCooldownKey(hunterUnitId, targetGlobalId));
+            }
+        }
+
+        // Invalidating only the stored global ID enters HunterUpdate's own state-1 identity-failure
+        // branch, which stops the old order and runs Vanilla's search. The reservation runs out by itself.
+        private unsafe bool TryAbandonHunterTarget(byte* hunterBytes, int hunterUnitId)
+        {
+            *(uint*)(hunterBytes + 0x39C) = 0;
+            if (*(uint*)(hunterBytes + 0x39C) != 0)
+                return false;
+
+            activeHunterTargets.Remove(hunterUnitId);
+            bestTargetCache.Remove(hunterUnitId);
+            return true;
+        }
+
+        // A Hunter on his way changes his mind only for clearly closer prey the ranking also prefers.
+        // Once he has shot he stays with that prey, and the old target's cooldown prevents a change back.
+        private unsafe void RequeryHuntersWithBetterPrey(
+            SimpleNativeArray<GameUnit> units,
+            List<IntPtr> hunters,
+            long timestamp)
+        {
+            if (!CanRunHunterTargetSelection())
+                return;
+
+            long scan = timestamp / NativeScanIntervalMapTicks;
+            foreach (IntPtr hunterAddress in hunters)
+            {
+                GameUnit* hunter = (GameUnit*)hunterAddress.ToPointer();
+                if (hunter == null || !APIShared.UnitAccess.IsReallyAlive(hunter) || hunter->r_CurrentHealth == 0)
+                    continue;
+
+                byte* hunterBytes = (byte*)hunter;
+                int hunterUnitId = checked((int)(hunter - units._array) + 1);
+                ushort targetUnitId = *(ushort*)(hunterBytes + 0x39A);
+                uint targetGlobalId = *(uint*)(hunterBytes + 0x39C);
+                if ((scan + hunterUnitId) % BetterPreyCheckEveryScans != 0 ||
+                    *(ushort*)(hunterBytes + 0x2BC) != 1 ||
+                    targetUnitId == 0 ||
+                    targetUnitId > units.Length ||
+                    targetGlobalId == 0)
                 {
                     continue;
                 }
 
-                activeHunterTargets.Remove(hunterUnitId);
-                bestTargetCache.Remove(hunterUnitId);
-                abortedTargetCooldowns.Remove(
-                    new HunterPreyCooldownKey(hunterUnitId, targetGlobalId));
-                ushort reservationAfter = *(ushort*)((byte*)prey + 0x448);
+                if (nextBetterPreyChecks.TryGetValue(hunterUnitId, out long nextCheck) && timestamp < nextCheck)
+                    continue;
+
+                GameUnit* current = units.GetValuePointer(targetUnitId - 1);
+                if (current == null || current->r_GlobalId != targetGlobalId ||
+                    hunterPostShotContinuationDiagnostic?.HasShotInProgress(hunterUnitId) == true)
+                {
+                    continue;
+                }
+
+                int currentDistance = GetChebyshevDistance(
+                    hunter->r_CurrentTilePositionX,
+                    hunter->r_CurrentTilePositionY,
+                    current->r_CurrentTilePositionX,
+                    current->r_CurrentTilePositionY);
+                if (currentDistance <= HunterShootingDistance ||
+                    !TryGetTargetSelectionForHunter(hunterUnitId, timestamp, out TargetSelection selection) ||
+                    selection.BestTarget.UnitId == targetUnitId ||
+                    selection.IsAllowed(targetUnitId) ||
+                    selection.BestTarget.UnitId <= 0 ||
+                    selection.BestTarget.UnitId > units.Length)
+                {
+                    continue;
+                }
+
+                GameUnit* better = units.GetValuePointer(selection.BestTarget.UnitId - 1);
+                int betterDistance = GetChebyshevDistance(
+                    hunter->r_CurrentTilePositionX,
+                    hunter->r_CurrentTilePositionY,
+                    better->r_CurrentTilePositionX,
+                    better->r_CurrentTilePositionY);
+                if (currentDistance - betterDistance < BetterPreyMinimumGainTiles ||
+                    !TryAbandonHunterTarget(hunterBytes, hunterUnitId))
+                {
+                    continue;
+                }
+
+                nextBetterPreyChecks[hunterUnitId] = timestamp + BetterPreyPauseMapTicks;
+                SetTargetCooldownUntil(
+                    new HunterPreyCooldownKey(hunterUnitId, targetGlobalId),
+                    timestamp + AbortedTargetCooldownInterval);
+                Shared.DebugLogHelper.LogInfo(
+                    log,
+                    $"Improved Hunters Hunter {hunterUnitId} changed to closer prey: " +
+                    $"{targetUnitId}/{currentDistance} tiles -> {selection.BestTarget.UnitId}/{betterDistance} tiles.");
             }
         }
 
@@ -408,8 +502,11 @@ namespace ImprovedHunters
             List<IntPtr> eligiblePrey,
             long timestamp)
         {
-            if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) || eligiblePrey.Count == 0)
+            if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) ||
+                (eligiblePrey.Count == 0 && freeCorpses.Count == 0))
+            {
                 return;
+            }
 
             foreach (IntPtr hunterAddress in hunters)
             {
@@ -433,7 +530,7 @@ namespace ImprovedHunters
                 short hunterTileX = *(short*)(hunterBytes + 0xC0);
                 short hunterTileY = *(short*)(hunterBytes + 0xC2);
                 int hunterOwner = (APIShared.UnitAccess.TryGetById(hunterId, out _, out _) ? GameUnitManagerAPI.Instance.GetOwner(hunterId) : -1);
-                bool preyInSearchRadius = false;
+                bool preyInSearchRadius = hunterCorpseChoicePatch?.HasChoice(hunterId) == true;
 
                 foreach (IntPtr preyAddress in eligiblePrey)
                 {
@@ -634,7 +731,10 @@ namespace ImprovedHunters
 
         private void OnMapStarted()
         {
+            herdFleeSight?.ResetForMap();
+            ResetCorpseChoices();
             hunterPreyTypes.Clear();
+            nextBetterPreyChecks.Clear();
             nextIdleHunterRequeryTimestamps.Clear();
             loggedCollectedCorpseGlobalIds.Clear();
             shortLivedCorpsePreserveUntil.Clear();
@@ -920,6 +1020,19 @@ namespace ImprovedHunters
             }
 
             if (propertyName == nameof(ImprovedHuntersViewModel.EnableMod) ||
+                propertyName == nameof(ImprovedHuntersViewModel.HunterHutAlwaysAvailable) ||
+                propertyName == nameof(ImprovedHuntersViewModel.DeerFleeOnlyInSight))
+            {
+                ApplyWildlifeRules();
+            }
+
+            if (propertyName == nameof(ImprovedHuntersViewModel.EnableMod) ||
+                propertyName == nameof(ImprovedHuntersViewModel.AllowDeadTargets))
+            {
+                ApplyCorpseChoiceRule();
+            }
+
+            if (propertyName == nameof(ImprovedHuntersViewModel.EnableMod) ||
                 propertyName == nameof(ImprovedHuntersViewModel.RabbitsOnlyOnOrder))
             {
                 ApplyRabbitMeleeOrderRule();
@@ -1065,6 +1178,45 @@ namespace ImprovedHunters
                     log,
                     $"Improved Hunters melee rabbit rule is unavailable; melee units keep Vanilla's behaviour: {exception}");
             }
+        }
+
+        private void InitializeWildlifeFeatures(
+            ReadOnlySpan<byte> memory,
+            ulong imageBase,
+            bool referenceHashMatches)
+        {
+            try
+            {
+                hunterHutAvailabilityPatch = new HunterHutAvailabilityPatch(log, hookRegion, memory, imageBase, referenceHashMatches);
+            }
+            catch (Exception exception)
+            {
+                hunterHutAvailabilityPatch?.Dispose();
+                hunterHutAvailabilityPatch = null;
+                Shared.DebugLogHelper.LogError(log, $"Improved Hunters leaves the Hunter's hut availability to Vanilla: {exception}");
+            }
+
+            try
+            {
+                var addresses = new WildlifeNativeAddresses(log, memory, imageBase, referenceHashMatches);
+                wildlifeRespawn = new WildlifeRespawnFeature(log, settings, addresses);
+                herdFleeSight = new HerdFleeSightFeature(log, hookRegion, memory, imageBase, referenceHashMatches, addresses, hunterNativeVisibilityProbe);
+            }
+            catch (Exception exception)
+            {
+                herdFleeSight?.Dispose();
+                herdFleeSight = null;
+                Shared.DebugLogHelper.LogError(log, $"Improved Hunters wildlife features are unavailable: {exception}");
+            }
+
+            ApplyWildlifeRules();
+        }
+
+        private void ApplyWildlifeRules()
+        {
+            bool modEnabled = Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod);
+            hunterHutAvailabilityPatch?.SetEnabled(modEnabled && settings.HunterHutAlwaysAvailable);
+            herdFleeSight?.SetEnabled(modEnabled && settings.DeerFleeOnlyInSight);
         }
 
         private void InitializeTannerMeatPatch(
@@ -1846,6 +1998,8 @@ namespace ImprovedHunters
                 .Where(args => args.Phase == EventHookPhase.Pre).Subscribe(OnHunterPickUpMeat));
             TrySubscribeFeature("hunter meat dropoff", () => UnitR3EventHooks.OnHunterDropOffMeat.Observable
                 .Where(args => args.Phase == EventHookPhase.Pre).Subscribe(OnHunterDropOffMeat));
+            TrySubscribeFeature("projectile kills", () => UnitR3EventHooks.OnUnitKilledByProjectile.Observable
+                .Where(args => args.Phase == EventHookPhase.Pre).Subscribe(OnUnitKilledByProjectile));
             TrySubscribeFeature("projectile spawning", () => ProjectileR3EventHooks.OnProjectileSpawn.Observable
                 .Where(args => args.Phase == EventHookPhase.Post).Subscribe(OnProjectileSpawn));
             TrySubscribeFeature("projectile deletion", () => ProjectileR3EventHooks.OnProjectileDelete.Observable
@@ -1873,6 +2027,7 @@ namespace ImprovedHunters
             targetSelectionModeAllowed = false;
             pathfindingModeAllowed = false;
             hunterPreyTypes.Clear();
+            nextBetterPreyChecks.Clear();
             nextIdleHunterRequeryTimestamps.Clear();
             ClearTargetSelectionCaches();
         }
@@ -1905,6 +2060,7 @@ namespace ImprovedHunters
 
             UnsubscribeRuntimeEvents();
             hunterPreyTypes.Clear();
+            nextBetterPreyChecks.Clear();
             nextIdleHunterRequeryTimestamps.Clear();
             loggedCollectedCorpseGlobalIds.Clear();
             ClearTargetSelectionCaches();

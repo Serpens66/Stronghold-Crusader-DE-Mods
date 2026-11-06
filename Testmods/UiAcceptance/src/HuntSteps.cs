@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -22,7 +23,16 @@ namespace UiAcceptance
         private static object engine;
         private static readonly HashSet<int> tiles = new HashSet<int>();
         private static readonly List<int> rabbits = new List<int>();
-        private static int rabbitTribe, foreignTargets;
+        private const int MinimumCalmMs = 3000, SpeedDeerDistance = 46, SpeedDeerStep = 30, HunterSpeedStageOffset = 0x348, CalmLeaderMs = 800;
+        private static int rabbitTribe, foreignTargets, nearDeer;
+        private static int soldierSector = -1, corpseFixture;
+        private static int speedTarget, speedLastStage, speedRounds;
+        private static uint speedGlobal;
+        private static bool speedSlowed;
+        // Vanilla's herd records, pinned by this test mod's native audit.
+        private const int HerdManagerRva = 0x7CC6720, HerdStride = 0x688, HerdFleeingOffset = 0x5F4, HerdLeaderOffset = 0x5A;
+        // Index of the food page in HUD_Main.BuildIconLists.
+        private const int FoodBuildScreen = 3;
 
         internal static void Register()
         {
@@ -38,6 +48,29 @@ namespace UiAcceptance
             Runner.Register("Hunt.Stance", s => GameSteps.Do(() => { lock (Engine()) GameTribeManagerAPI.Instance.SetStance(rabbitTribe, (TribeStance)Enum.Parse(typeof(TribeStance), s.Arg(0))); }));
             Runner.Register("Hunt.Deer", s => GameSteps.Do(() => { lock (Engine()) SpawnDeer(s.Int(0), s.Int(1)); }));
             Runner.Register("Hunt.DeerCycle", DeerCycle);
+            Runner.Register("Hunt.LogAnimals", s => GameSteps.Do(() => { lock (Engine()) LogAnimals(); }));
+            Runner.Register("Hunt.BuildHutByHand", BuildHutByHand);
+            Runner.Register("Hunt.DeerNearHunter", s => GameSteps.Do(() => { lock (Engine()) SpawnDeerNearHunter(s.Int(0)); }));
+            Runner.Register("Hunt.ExpectFarFromHunter", ExpectFarFromHunter);
+            Runner.Register("Hunt.ExpectNoDeerTarget", ExpectNoDeerTarget);
+            Runner.Register("Hunt.ExpectDeerTarget", ExpectDeerTarget);
+            Runner.Register("Hunt.ExpectOneSwitch", ExpectOneSwitch);
+            Runner.Register("Hunt.ExpectHutButtonDisabled", ExpectHutButtonDisabled);
+            Runner.Register("Hunt.ExpectWildlife", ExpectWildlife);
+            Runner.Register("Hunt.ExpectHunterCarries", ExpectHunterCarries);
+            Runner.Register("Hunt.SpeedBothWays", SpeedBothWays);
+            Runner.Register("Hunt.WaitHerdCentered", WaitHerdCentered);
+            Runner.Register("Hunt.Corpse", s => GameSteps.Do(() => { lock (Engine()) SpawnCorpse(s.Arg(0), s.Int(1)); }));
+            Runner.Register("Hunt.ReserveCorpse", s => GameSteps.Do(() => { lock (Engine()) ReserveCorpse(s.Int(0)); }));
+            Runner.Register("Hunt.SecondHut", SecondHut);
+            Runner.Register("Hunt.ExpectCorpseTaken", ExpectCorpseTaken);
+            Runner.Register("Hunt.ExpectCorpseIgnored", ExpectCorpseIgnored);
+            Runner.Register("Hunt.ExpectCarries", ExpectCarries);
+            Runner.Register("Hunt.ForeignHit", ForeignHit);
+            Runner.Register("Hunt.DeerPile", s => GameSteps.Do(() => { lock (Engine()) DeerPile(s.Int(0), s.Int(1)); }));
+            Runner.Register("Hunt.WatchForeignHit", WatchForeignHit);
+            Runner.Register("Hunt.UnitInHerdSector", UnitInHerdSector);
+            Runner.Register("Hunt.ExpectHerdFlight", ExpectHerdFlight);
             Runner.Register("Hunt.ExpectPeace", s => GameSteps.Do(() =>
             {
                 lock (Engine())
@@ -350,6 +383,696 @@ namespace UiAcceptance
                 deer.Add(id);
             }
             AcceptLog.Info("HUNT_DEER at=" + (x + distance) + "," + (y - distance) + " deer=" + string.Join(",", deer));
+        }
+
+        private static void LogAnimals()
+        {
+            var counts = new Dictionary<eChimps, int>();
+            SimpleNativeArray<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitArray();
+            for (int index = 0; index < units.Length; index++)
+            {
+                GameUnit* unit = units.GetValuePointer(index);
+                if (unit->r_AliveState == AliveState.IsAlive &&
+                    (unit->r_UnitChimp == eChimps.CHIMP_TYPE_DEER || unit->r_UnitChimp == eChimps.CHIMP_TYPE_GOAT ||
+                     unit->r_UnitChimp == eChimps.CHIMP_TYPE_RABBIT || unit->r_UnitChimp == eChimps.CHIMP_TYPE_CAMEL))
+                {
+                    counts.TryGetValue(unit->r_UnitChimp, out int count);
+                    counts[unit->r_UnitChimp] = count + 1;
+                }
+            }
+            AcceptLog.Info("HUNT_ANIMALS " + string.Join(" ", counts.Select(pair => pair.Key + "=" + pair.Value)));
+        }
+
+        // The Hunter's hut as a player builds it: its button on the food page, then a click on the map.
+        private static IEnumerable<Wait> BuildHutByHand(Step step)
+        {
+            int local = Local();
+            MainViewModel.Instance.HUDmain.SetupNewBuildScreen(FoodBuildScreen);
+            yield return new Delay(300);
+            var button = GameXAMLManagerAPI.Instance.FindGlobalElement("ButtonBuildHunter") as Noesis.Button;
+            Runner.Require(button != null && button.IsVisible && button.IsEnabled, "the Hunter's hut button is not available");
+            AcceptLog.Info("HUNT_HUT_BUTTON visible=" + button.IsVisible + " enabled=" + button.IsEnabled);
+            Noesis.Point center = button.PointToScreen(new Noesis.Point((float)button.ActualWidth / 2, (float)button.ActualHeight / 2));
+            NoesisView view = FatControler.instance.NGview;
+            view.MouseMove((int)center.X, (int)center.Y);
+            yield return new Delay(200);
+            view.MouseButtonDown((int)center.X, (int)center.Y, Noesis.MouseButton.Left);
+            view.MouseButtonUp((int)center.X, (int)center.Y, Noesis.MouseButton.Left);
+            yield return new Delay(300);
+            (int x, int y) = LordTile(local);
+            foreach ((int dx, int dy) in new[] { (14, 0), (-14, 0), (0, 14), (0, -14), (14, 14), (-14, -14), (20, -20), (-20, 20) })
+            {
+                foreach (Wait wait in InputSteps.ClickTile(x + dx, y + dy)) yield return wait;
+                yield return new Delay(400);
+                bool placed;
+                lock (Engine()) placed = TryFindBuilding(local, eStructs.STRUCT_HUNTERS_HUT, out _, out _);
+                if (placed)
+                {
+                    AcceptLog.Info("HUNT_HUT_BUILT at=" + (x + dx) + "," + (y + dy));
+                    yield break;
+                }
+            }
+            throw new StepFailure("no click placed the Hunter's hut");
+        }
+
+        private static IEnumerable<Wait> ExpectHutButtonDisabled(Step step)
+        {
+            MainViewModel.Instance.HUDmain.SetupNewBuildScreen(FoodBuildScreen);
+            yield return new Delay(300);
+            var button = GameXAMLManagerAPI.Instance.FindGlobalElement("ButtonBuildHunter") as Noesis.Button;
+            AcceptLog.Info("HUNT_HUT_BUTTON found=" + (button != null) + " enabled=" + button?.IsEnabled);
+            Runner.Require(button != null && !button.IsEnabled, "Vanilla's rule should disable the Hunter's hut on a map without prey");
+        }
+
+        private static void CountWildlife(out int deerCount, out int goats)
+        {
+            deerCount = 0;
+            goats = 0;
+            SimpleNativeArray<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitArray();
+            for (int index = 0; index < units.Length; index++)
+            {
+                GameUnit* unit = units.GetValuePointer(index);
+                if (unit->r_AliveState != AliveState.IsAlive || unit->r_CurrentHealth == 0)
+                    continue;
+                if (unit->r_UnitChimp == eChimps.CHIMP_TYPE_DEER)
+                    deerCount++;
+                else if (unit->r_UnitChimp == eChimps.CHIMP_TYPE_GOAT)
+                    goats++;
+            }
+        }
+
+        // args: minimum living deer and goats together.
+        private static IEnumerable<Wait> ExpectWildlife(Step step)
+        {
+            int minimum = step.Int(0), deerCount = 0, goats = 0;
+            yield return new Until("wildlife on the map", () =>
+            {
+                lock (Engine()) CountWildlife(out deerCount, out goats);
+                return deerCount + goats >= minimum;
+            });
+            AcceptLog.Info("HUNT_WILDLIFE deer=" + deerCount + " goats=" + goats);
+        }
+
+        // args: expected carried meat, or that plus one from a bonus fraction.
+        private static IEnumerable<Wait> ExpectHunterCarries(Step step)
+        {
+            int local = Local(), expected = step.Int(0), carried = 0;
+            yield return new Until("Hunter carries meat", () =>
+            {
+                lock (Engine()) carried = HunterCarry(local);
+                return carried > 0;
+            });
+            AcceptLog.Info("HUNT_CARRIES " + carried);
+            Runner.Require(carried == expected || carried == expected + 1, "the Hunter carried " + carried + ", expected " + expected);
+        }
+
+        private static GameUnit* FindHerdLeader(out int herd)
+        {
+            herd = 0;
+            SimpleNativeArray<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitArray();
+            for (int index = 0; index < units.Length; index++)
+            {
+                GameUnit* unit = units.GetValuePointer(index);
+                if (unit->r_AliveState == AliveState.IsAlive && unit->r_CurrentHealth > 0 && unit->r_TribeId > 0 &&
+                    (unit->r_UnitChimp == eChimps.CHIMP_TYPE_DEER || unit->r_UnitChimp == eChimps.CHIMP_TYPE_GOAT))
+                {
+                    herd = unit->r_TribeId;
+                    // Vanilla reads the sector of the herd's leader, not of just any member.
+                    byte* record = (byte*)GetModuleHandle("CrusaderDE.dll") + HerdManagerRva + herd * HerdStride;
+                    return APIShared.UnitAccess.TryGetById(*(short*)(record + HerdLeaderOffset), out GameUnit* leader, out _) ? leader : unit;
+                }
+            }
+            return null;
+        }
+
+        // args: walled | open. A soldier in the herd's 10x10 sector; a ring is closed before he stands in it.
+        private static IEnumerable<Wait> UnitInHerdSector(Step step)
+        {
+            bool walled = step.Arg(0) == "walled";
+            int x = 0, y = 0;
+            lock (Engine()) FindSoldierTile(walled, out x, out y);
+            if (walled)
+            {
+                lock (Engine()) BuildRing(x, y);
+                yield return new Until("the ring cuts the sector", () =>
+                {
+                    lock (Engine()) return RingIsClosed(x, y);
+                });
+            }
+            lock (Engine()) PlaceSoldier(walled, x, y);
+        }
+
+        private static void FindSoldierTile(bool walled, out int x, out int y)
+        {
+            GameUnit* animal = FindHerdLeader(out _);
+            Runner.Require(animal != null, "no herd");
+            int sectorX = animal->r_CurrentTilePositionX / 10 * 10, sectorY = animal->r_CurrentTilePositionY / 10 * 10;
+            // The sector corner farthest from the animal, so the ring does not close around it.
+            x = sectorX + (animal->r_CurrentTilePositionX % 10 < 5 ? 7 : 2);
+            y = sectorY + (animal->r_CurrentTilePositionY % 10 < 5 ? 7 : 2);
+            if (!walled)
+            {
+                // Beside the herd in the open, and outside the earlier ring.
+                x = animal->r_CurrentTilePositionX + (animal->r_CurrentTilePositionX % 10 < 5 ? 1 : -1);
+                y = animal->r_CurrentTilePositionY + (animal->r_CurrentTilePositionY % 10 < 5 ? 1 : -1);
+            }
+        }
+
+        private static void BuildRing(int x, int y)
+        {
+            int local = Local();
+            GameBuildingManagerAPI api = GameBuildingManagerAPI.Instance;
+            api.CreateWall(local, x - 2, y - 2, x + 2, y - 2, eMappers.MAPPER_WALL);
+            api.CreateWall(local, x + 2, y - 2, x + 2, y + 2, eMappers.MAPPER_WALL);
+            api.CreateWall(local, x + 2, y + 2, x - 2, y + 2, eMappers.MAPPER_WALL);
+            api.CreateWall(local, x - 2, y + 2, x - 2, y - 2, eMappers.MAPPER_WALL);
+        }
+
+        private static bool RingIsClosed(int x, int y)
+        {
+            GameUnit* animal = FindHerdLeader(out _);
+            Runner.Require(animal != null, "no herd");
+            GameTileManagerAPI tiles = GameTileManagerAPI.Instance;
+            Span<ushort> components = GamePathingManagerAPI.Instance.GetPathComponentGrid();
+            return components[tiles.GetTileId(x, y)] != components[tiles.GetTileId(animal->r_CurrentTilePositionX, animal->r_CurrentTilePositionY)];
+        }
+
+        private static void PlaceSoldier(bool walled, int x, int y)
+        {
+            int local = Local();
+            GameUnit* animal = FindHerdLeader(out int herd);
+            Runner.Require(animal != null, "no herd");
+            Runner.Require(UnitAccessHeight(animal, out int height), "no herd height");
+            long id = GameUnitManagerAPI.Instance.CreateUnitLocal(local, local, x, y, height, eChimps.CHIMP_TYPE_SPEARMAN);
+            Runner.Require(id > 0, "no soldier");
+            soldierSector = walled ? x / 10 * 80 + y / 10 : -1;
+            AcceptLog.Info("HUNT_SECTOR_UNIT walled=" + walled + " at=" + x + "," + y + " herd=" + herd + " animalAt=" + animal->r_CurrentTilePositionX + "," + animal->r_CurrentTilePositionY);
+        }
+
+        private static bool UnitAccessHeight(GameUnit* unit, out int height)
+        {
+            height = unit->r_HeightElevation;
+            return true;
+        }
+
+        private static bool HerdIsFleeing(int herd) =>
+            *(short*)((byte*)GetModuleHandle("CrusaderDE.dll") + HerdManagerRva + herd * HerdStride + HerdFleeingOffset) != 0;
+
+        [System.Runtime.InteropServices.DllImport("kernel32.dll", CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
+        private static extern IntPtr GetModuleHandle(string name);
+
+        // args: milliseconds, rounds. The Hunter closes in on one live deer, then it is far away again; his Vanilla stage has to follow both ways.
+        private static IEnumerable<Wait> SpeedBothWays(Step step)
+        {
+            int local = Local(), end = Environment.TickCount + step.Int(0);
+            speedTarget = speedLastStage = speedRounds = 0;
+            speedSlowed = false;
+            int rounds = step.Int(1);
+            yield return new Until("Hunter at work", () =>
+            {
+                lock (Engine()) return HasHunter(local);
+            });
+            lock (Engine()) SpawnSpeedDeer(local);
+            while (Environment.TickCount < end && speedRounds < rounds)
+            {
+                lock (Engine()) SpeedTick(local);
+                yield return NextFrame.Instance;
+            }
+            AcceptLog.Info("HUNT_SPEED_ROUNDS " + speedRounds);
+            Runner.Require(speedRounds >= rounds, "the Hunter's stage did not follow the distance in both directions");
+        }
+
+        private static bool HasHunter(int local) => FindHunter(local) != null;
+
+        private static void SpawnSpeedDeer(int local)
+        {
+            GameUnit* hunter = FindHunter(local);
+            Runner.Require(hunter != null, "no Hunter");
+            int x = hunter->r_CurrentTilePositionX + (hunter->r_CurrentTilePositionX < 200 ? SpeedDeerDistance : -SpeedDeerDistance);
+            // On one axis, so the Vanilla stages start well before the shooting range.
+            int id = checked((int)GameUnitManagerAPI.Instance.CreateUnitLocal(0, 0, x, hunter->r_CurrentTilePositionY, hunter->r_HeightElevation, eChimps.CHIMP_TYPE_DEER));
+            Runner.Require(id > 0, "speed deer missing");
+            deer.Add(id);
+        }
+
+        private static void SpeedTick(int local)
+        {
+            GameUnit* hunter = FindHunter(local);
+            Runner.Require(hunter != null, "no Hunter");
+            int current = HunterDeerTarget(local, out int state);
+            if (current == 0 || state != 1 || !APIShared.UnitAccess.TryGetById(current, out GameUnit* prey, out _))
+                return;
+
+            if (speedTarget == 0)
+            {
+                speedTarget = current;
+                speedGlobal = prey->r_GlobalId;
+            }
+            Runner.Require(current == speedTarget && prey->r_GlobalId == speedGlobal,
+                "the Hunter changed his target: " + speedTarget + "/" + speedGlobal + " to " + current + "/" + prey->r_GlobalId + " " + prey->r_UnitChimp);
+            int stage = *(ushort*)((byte*)hunter + HunterSpeedStageOffset);
+            int dx = prey->r_CurrentTilePositionX - hunter->r_CurrentTilePositionX;
+            int dy = prey->r_CurrentTilePositionY - hunter->r_CurrentTilePositionY;
+            if (stage != speedLastStage)
+            {
+                AcceptLog.Info("HUNT_SPEED stage=" + stage + " manhattan=" + (Math.Abs(dx) + Math.Abs(dy)) + " chebyshev=" + Math.Max(Math.Abs(dx), Math.Abs(dy)) +
+                    " speed=" + hunter->r_CurrentSpeed + " round=" + speedRounds + " target=" + speedTarget);
+                speedLastStage = stage;
+            }
+            if (!speedSlowed && stage >= 2)
+            {
+                speedSlowed = true;
+                var away = new UnmanagedVector2<ushort>((ushort)(prey->r_CurrentTilePositionX + Math.Sign(dx) * SpeedDeerStep), (ushort)prey->r_CurrentTilePositionY);
+                if (APIShared.UnitAccess.TryGetById(speedTarget, out _, out _))
+                    GameUnitManagerAPI.Instance.SetCurrentLocalTilePosition(speedTarget, away);
+                AcceptLog.Info("HUNT_SPEED_AWAY to=" + away.X + "," + away.Y);
+            }
+            else if (speedSlowed && stage == 1)
+            {
+                speedSlowed = false;
+                speedRounds++;
+            }
+        }
+
+        // The leader rests in the middle of a sector, so the herd stays there for a while.
+        private static IEnumerable<Wait> WaitHerdCentered(Step step)
+        {
+            int since = 0, last = -1;
+            yield return new Until("the herd's leader rests mid-sector", () =>
+            {
+                lock (Engine())
+                {
+                    int here = CenteredLeaderTile();
+                    if (here < 0 || here != last)
+                    {
+                        last = here;
+                        since = Environment.TickCount;
+                        return false;
+                    }
+                    return Environment.TickCount - since >= CalmLeaderMs;
+                }
+            });
+        }
+
+        private static int CenteredLeaderTile()
+        {
+            GameUnit* animal = FindHerdLeader(out _);
+            if (animal == null)
+                return -1;
+            int x = animal->r_CurrentTilePositionX, y = animal->r_CurrentTilePositionY;
+            return x % 10 >= 3 && x % 10 <= 6 && y % 10 >= 3 && y % 10 <= 6 ? x * 10000 + y : -1;
+        }
+
+        // args: deer | goat | rabbit | chicken, distance from the hut. An animal killed by nobody's Hunter.
+        private static void SpawnCorpse(string kind, int distance)
+        {
+            int local = Local();
+            Runner.Require(TryFindBuilding(local, eStructs.STRUCT_HUNTERS_HUT, out int x, out int y), "no hut for the corpse");
+            eChimps type = kind == "goat" ? eChimps.CHIMP_TYPE_GOAT : kind == "rabbit" ? eChimps.CHIMP_TYPE_RABBIT : kind == "chicken" ? eChimps.CHIMP_TYPE_CHICKEN : eChimps.CHIMP_TYPE_DEER;
+            Runner.Require(APIShared.UnitAccess.TryGetById(GamePlayerManagerAPI.Instance.GetLordUnitId(local), out GameUnit* lord, out _), "no local lord");
+            int id = checked((int)GameUnitManagerAPI.Instance.CreateUnitLocal(0, 0, x + distance, y, lord->r_HeightElevation, type));
+            Runner.Require(id > 0, "corpse fixture missing");
+            if (APIShared.UnitAccess.TryGetById(id, out _, out _))
+                GameUnitManagerAPI.Instance.KillUnit(id);
+            corpseFixture = id;
+            Runner.Require(APIShared.UnitAccess.TryGetById(id, out GameUnit* corpse, out _), "the killed animal is gone");
+            AcceptLog.Info("HUNT_CORPSE id=" + id + " type=" + type + " dead=" + *(ushort*)((byte*)corpse + CorpseOffset) +
+                " reservation=" + *(ushort*)((byte*)corpse + 0x448) + " at=" + corpse->r_CurrentTilePositionX + "," + corpse->r_CurrentTilePositionY);
+            Runner.Require(*(ushort*)((byte*)corpse + CorpseOffset) != 0, "the killed animal is no corpse");
+        }
+
+        private static void ReserveCorpse(int value)
+        {
+            Runner.Require(APIShared.UnitAccess.TryGetById(corpseFixture, out GameUnit* corpse, out _), "no corpse");
+            *(ushort*)((byte*)corpse + 0x448) = (ushort)value;
+        }
+
+        private static IEnumerable<Wait> SecondHut(Step step)
+        {
+            int local = Local(), before = 0;
+            lock (Engine())
+            {
+                before = CountBuildings(local, eStructs.STRUCT_HUNTERS_HUT);
+                Runner.Require(TryFindBuilding(local, eStructs.STRUCT_GRANARY, out int gx, out int gy), "no granary");
+                Runner.Require(Place(local, gx, gy, eMappers.MAPPER_HUNTER, eStructs.STRUCT_HUNTERS_HUT, 14, out _, out _), "no site for a second hut");
+            }
+            yield return new Until("second Hunter is at work", () =>
+            {
+                lock (Engine()) return CountBuildings(local, eStructs.STRUCT_HUNTERS_HUT) > before && CountHunters(local) >= 2;
+            });
+        }
+
+        private static int CountHunters(int local)
+        {
+            int count = 0;
+            SimpleNativeArray<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitArray();
+            for (int index = 0; index < units.Length; index++)
+            {
+                GameUnit* unit = units.GetValuePointer(index);
+                if (unit->r_AliveState == AliveState.IsAlive && unit->r_ControllableForPlayerId == local && unit->r_UnitChimp == eChimps.CHIMP_TYPE_HUNTER)
+                    count++;
+            }
+            return count;
+        }
+
+        // How many of this player's Hunters are after the corpse.
+        private static int HuntersOnCorpse(int local, out int reservation, out int firstHunter)
+        {
+            int count = 0;
+            reservation = -1;
+            firstHunter = 0;
+            if (APIShared.UnitAccess.TryGetById(corpseFixture, out GameUnit* corpse, out _))
+                reservation = *(ushort*)((byte*)corpse + 0x448);
+            SimpleNativeArray<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitArray();
+            for (int index = 0; index < units.Length; index++)
+            {
+                GameUnit* unit = units.GetValuePointer(index);
+                if (unit->r_AliveState == AliveState.IsAlive && unit->r_ControllableForPlayerId == local && unit->r_UnitChimp == eChimps.CHIMP_TYPE_HUNTER &&
+                    unit->r_AIState != 0 && *(ushort*)((byte*)unit + HunterTargetIdOffset) == corpseFixture)
+                {
+                    count++;
+                    firstHunter = index + 1;
+                }
+            }
+            return count;
+        }
+
+        // Exactly one Hunter goes for the corpse and holds Vanilla's reservation; none joins him meanwhile.
+        private static IEnumerable<Wait> ExpectCorpseTaken(Step step)
+        {
+            int local = Local(), count = 0, reservation = -1, hunter = 0, most = 0;
+            int nextLog = 0;
+            yield return new Until("a Hunter takes the corpse", () =>
+            {
+                lock (Engine())
+                {
+                    count = HuntersOnCorpse(local, out reservation, out hunter);
+                    if (Environment.TickCount >= nextLog)
+                    {
+                        nextLog = Environment.TickCount + 5000;
+                        LogCorpseWait(local);
+                    }
+                }
+                return count > 0;
+            });
+            AcceptLog.Info("HUNT_CORPSE_TAKEN hunter=" + hunter + " reservation=" + reservation);
+            Runner.Require(reservation == 2, "the corpse holds reservation " + reservation);
+            int end = Environment.TickCount + step.Int(0);
+            while (Environment.TickCount < end)
+            {
+                lock (Engine()) most = Math.Max(most, HuntersOnCorpse(local, out reservation, out _));
+                yield return NextFrame.Instance;
+            }
+            AcceptLog.Info("HUNT_CORPSE_HUNTERS most=" + most);
+            Runner.Require(most <= 1, most + " Hunters went for one corpse");
+        }
+
+        private static void LogCorpseWait(int local)
+        {
+            MethodInfo resolve = typeof(GameSteps).GetMethod("ResolveStatic", BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public);
+            object free = resolve.Invoke(null, new object[] { "ImprovedHunters.ImprovedHuntersPlugin::persistentRuntime.freeCorpses" });
+            object patch = resolve.Invoke(null, new object[] { "ImprovedHunters.ImprovedHuntersPlugin::persistentRuntime.hunterCorpseChoicePatch" });
+            string text = "free=" + (free as ICollection)?.Count + " patch=" + (patch != null) + " hunters=" + CountHunters(local);
+            SimpleNativeArray<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitArray();
+            for (int index = 0; index < units.Length; index++)
+            {
+                GameUnit* unit = units.GetValuePointer(index);
+                if (unit->r_AliveState == AliveState.IsAlive && unit->r_ControllableForPlayerId == local && unit->r_UnitChimp == eChimps.CHIMP_TYPE_HUNTER)
+                {
+                    object choice = patch?.GetType().GetMethod("HasChoice").Invoke(patch, new object[] { index + 1 });
+                    text += " hunter=" + (index + 1) + " state=" + unit->r_AIState + " target=" + *(ushort*)((byte*)unit + HunterTargetIdOffset) + " choice=" + choice +
+                        " at=" + unit->r_CurrentTilePositionX + "," + unit->r_CurrentTilePositionY;
+                }
+            }
+            if (APIShared.UnitAccess.TryGetById(corpseFixture, out GameUnit* corpse, out _))
+                text += " corpseState=" + corpse->r_AliveState + " dead=" + *(ushort*)((byte*)corpse + CorpseOffset) + " owner=" + corpse->r_ControllableForPlayerId + " timer=" + *(ushort*)((byte*)corpse + 0x2C4);
+            else
+                text += " corpse gone";
+            AcceptLog.Info("HUNT_CORPSE_WAIT " + text);
+        }
+
+        private static IEnumerable<Wait> ExpectCorpseIgnored(Step step)
+        {
+            int local = Local(), end = Environment.TickCount + step.Int(0), count = 0, reservation = -1;
+            while (Environment.TickCount < end)
+            {
+                lock (Engine()) count = HuntersOnCorpse(local, out reservation, out _);
+                Runner.Require(count == 0, "a Hunter went for a corpse he should leave");
+                yield return NextFrame.Instance;
+            }
+            AcceptLog.Info("HUNT_CORPSE_IGNORED reservation=" + reservation);
+        }
+
+        private static IDictionary HitCorpses()
+        {
+            object hits = typeof(GameSteps).GetMethod("ResolveStatic", BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public)
+                .Invoke(null, new object[] { "ImprovedHunters.ImprovedHuntersPlugin::persistentRuntime.hunterHitCorpses" });
+            Runner.Require(hits is IDictionary, "no hit list in the mod");
+            return (IDictionary)hits;
+        }
+
+        // The Hunter on his way to a far deer learns of a corpse his arrow made. Only the event that reports the hit is left out.
+        private static IEnumerable<Wait> ForeignHit(Step step)
+        {
+            int local = Local(), before = 0;
+            lock (Engine()) before = InjectForeignHit(local);
+            int start = Environment.TickCount, target = 0;
+            yield return new Until("the Hunter turns to the corpse", () =>
+            {
+                lock (Engine()) target = HunterTargetId(local);
+                return target == corpseFixture;
+            });
+            AcceptLog.Info("HUNT_FOREIGN_TRANSFER from=" + before + " to=" + target + " ms=" + (Environment.TickCount - start));
+        }
+
+        private static int InjectForeignHit(int local)
+        {
+            GameUnit* hunter = FindHunter(local);
+            Runner.Require(hunter != null, "no Hunter");
+            Runner.Require(hunter->r_AIState == 1, "the Hunter is not on his way");
+            int before = *(ushort*)((byte*)hunter + HunterTargetIdOffset);
+            int x = hunter->r_CurrentTilePositionX, y = hunter->r_CurrentTilePositionY;
+            int id = checked((int)GameUnitManagerAPI.Instance.CreateUnitLocal(0, 0, x + 6, y + 6, hunter->r_HeightElevation, eChimps.CHIMP_TYPE_DEER));
+            Runner.Require(id > 0, "corpse fixture missing");
+            if (APIShared.UnitAccess.TryGetById(id, out _, out _))
+                GameUnitManagerAPI.Instance.KillUnit(id);
+            corpseFixture = id;
+            GameUnit* first = GameUnitManagerAPI.Instance.GetUnitArray()._array;
+            HitCorpses()[checked((int)(hunter - first) + 1)] = id;
+            return before;
+        }
+
+        private static int HunterTargetId(int local)
+        {
+            GameUnit* hunter = FindHunter(local);
+            return hunter == null ? 0 : *(ushort*)((byte*)hunter + HunterTargetIdOffset);
+        }
+
+        // Standing deer on one tile, one arrow each: a real arrow may kill another deer than the one aimed at.
+        private static void DeerPile(int count, int distance)
+        {
+            int local = Local();
+            Runner.Require(TryFindBuilding(local, eStructs.STRUCT_HUNTERS_HUT, out int x, out int y), "no hut for the deer");
+            Runner.Require(APIShared.UnitAccess.TryGetById(GamePlayerManagerAPI.Instance.GetLordUnitId(local), out GameUnit* lord, out _), "no local lord");
+            deer.Clear();
+            for (int index = 0; index < count; index++)
+            {
+                int id = checked((int)GameUnitManagerAPI.Instance.CreateUnitLocal(0, 0, x + distance, y, lord->r_HeightElevation, eChimps.CHIMP_TYPE_DEER));
+                Runner.Require(id > 0 && APIShared.UnitAccess.TryGetById(id, out GameUnit* animal, out _), "fixture deer missing");
+                deer.Add(id);
+            }
+        }
+
+        // args: milliseconds. Logs whether the mod's event saw such an arrow and the Hunter then took that corpse.
+        private static IEnumerable<Wait> WatchForeignHit(Step step)
+        {
+            int local = Local(), end = Environment.TickCount + step.Int(0), hit = 0;
+            while (Environment.TickCount < end && hit == 0)
+            {
+                lock (Engine())
+                {
+                    foreach (object value in HitCorpses().Values)
+                        hit = (int)value;
+                }
+                yield return NextFrame.Instance;
+            }
+            if (hit == 0)
+            {
+                AcceptLog.Info("HUNT_FOREIGN_HIT none");
+                yield break;
+            }
+            corpseFixture = hit;
+            AcceptLog.Info("HUNT_FOREIGN_HIT corpse=" + hit);
+            yield return new Until("the shooter takes the corpse his arrow made", () =>
+            {
+                lock (Engine()) return HunterTargetId(local) == hit;
+            });
+            AcceptLog.Info("HUNT_FOREIGN_TAKEN corpse=" + hit);
+        }
+
+        // args: minimum. Meat from the corpse reaches a Hunter of this player.
+        private static IEnumerable<Wait> ExpectCarries(Step step)
+        {
+            int local = Local(), minimum = step.Int(0), carried = 0;
+            yield return new Until("a Hunter carries the corpse's meat", () =>
+            {
+                lock (Engine()) carried = HunterCarry(local);
+                return carried >= minimum;
+            });
+            AcceptLog.Info("HUNT_CARRIES " + carried);
+        }
+
+        private static int HerdSector(int herd)
+        {
+            byte* record = (byte*)GetModuleHandle("CrusaderDE.dll") + HerdManagerRva + herd * HerdStride;
+            Runner.Require(APIShared.UnitAccess.TryGetById(*(short*)(record + HerdLeaderOffset), out GameUnit* leader, out _), "no herd leader");
+            return leader->r_CurrentTilePositionX / 10 * 80 + leader->r_CurrentTilePositionY / 10;
+        }
+
+        private static void ReadHerd(bool expected, out bool fled, out bool left)
+        {
+            GameUnit* animal = FindHerdLeader(out int herd);
+            Runner.Require(animal != null, "no herd");
+            fled = HerdIsFleeing(herd);
+            left = !expected && !fled && soldierSector >= 0 && HerdSector(herd) != soldierSector;
+        }
+
+        // args: yes | no, milliseconds. The sector grid rebuilds in turns, so give it time.
+        // A herd that wanders on may meet units that really see it, so "no" only covers the soldier's sector.
+        private static IEnumerable<Wait> ExpectHerdFlight(Step step)
+        {
+            bool expected = step.Arg(0) == "yes", fled = false, left = false;
+            int start = Environment.TickCount, end = start + step.Int(1);
+            while (Environment.TickCount < end && !fled && !left)
+            {
+                lock (Engine()) ReadHerd(expected, out fled, out left);
+                yield return NextFrame.Instance;
+            }
+            int observed = Environment.TickCount - start;
+            AcceptLog.Info("HUNT_HERD_FLED " + fled + " expected=" + expected + " left=" + left + " ms=" + observed);
+            Runner.Require(fled == expected, expected ? "the herd did not flee" : "the herd fled from a unit that cannot see or reach it");
+            Runner.Require(!left || observed >= MinimumCalmMs, "the herd left the soldier's sector too soon to show anything");
+        }
+
+        private static (int X, int Y) LordTile(int local)
+        {
+            lock (Engine())
+            {
+                Runner.Require(APIShared.UnitAccess.TryGetById(GamePlayerManagerAPI.Instance.GetLordUnitId(local), out GameUnit* lord, out _), "no lord");
+                return (lord->r_CurrentTilePositionX, lord->r_CurrentTilePositionY);
+            }
+        }
+
+        private static GameUnit* FindHunter(int local)
+        {
+            SimpleNativeArray<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitArray();
+            for (int index = 0; index < units.Length; index++)
+            {
+                GameUnit* unit = units.GetValuePointer(index);
+                if (unit->r_AliveState == AliveState.IsAlive && unit->r_ControllableForPlayerId == local && unit->r_UnitChimp == eChimps.CHIMP_TYPE_HUNTER)
+                    return unit;
+            }
+            return null;
+        }
+
+        private static int HunterDeerTarget(int local, out int state)
+        {
+            state = -1;
+            GameUnit* hunter = FindHunter(local);
+            if (hunter == null)
+                return 0;
+            state = hunter->r_AIState;
+            int target = *(ushort*)((byte*)hunter + HunterTargetIdOffset);
+            return deer.Contains(target) ? target : 0;
+        }
+
+        private static void SpawnDeerNearHunter(int distance)
+        {
+            int local = Local();
+            GameUnit* hunter = FindHunter(local);
+            Runner.Require(hunter != null, "no Hunter");
+            int id = checked((int)GameUnitManagerAPI.Instance.CreateUnitLocal(
+                0, 0, hunter->r_CurrentTilePositionX + distance, hunter->r_CurrentTilePositionY - distance, hunter->r_HeightElevation, eChimps.CHIMP_TYPE_DEER));
+            Runner.Require(id > 0, "near deer missing");
+            deer.Add(id);
+            nearDeer = id;
+            AcceptLog.Info("HUNT_NEAR_DEER id=" + id + " hunterTarget=" + *(ushort*)((byte*)hunter + HunterTargetIdOffset));
+        }
+
+        private static bool HunterFarFromDeer(int local, int minimum)
+        {
+            lock (Engine())
+            {
+                int target = HunterDeerTarget(local, out int state);
+                if (target == 0 || state != 1 || !APIShared.UnitAccess.TryGetById(target, out GameUnit* prey, out _))
+                    return false;
+                GameUnit* hunter = FindHunter(local);
+                return Math.Max(Math.Abs(hunter->r_CurrentTilePositionX - prey->r_CurrentTilePositionX),
+                    Math.Abs(hunter->r_CurrentTilePositionY - prey->r_CurrentTilePositionY)) >= minimum;
+            }
+        }
+
+        // args: minimum distance from the Hunter to the held deer.
+        private static IEnumerable<Wait> ExpectFarFromHunter(Step step)
+        {
+            int local = Local(), minimum = step.Int(0);
+            yield return new Until("Hunter walks toward a far deer", () => HunterFarFromDeer(local, minimum));
+        }
+
+        // args: milliseconds. The fixture deer stay outside the search range.
+        private static IEnumerable<Wait> ExpectNoDeerTarget(Step step)
+        {
+            int local = Local(), end = Environment.TickCount + step.Int(0), seen = 0;
+            while (Environment.TickCount < end)
+            {
+                lock (Engine()) seen = Math.Max(seen, HunterDeerTarget(local, out _));
+                Runner.Require(seen == 0, "the Hunter targeted deer " + seen + " outside its range");
+                yield return NextFrame.Instance;
+            }
+            AcceptLog.Info("HUNT_NO_DEER_TARGET");
+        }
+
+        private static IEnumerable<Wait> ExpectDeerTarget(Step step)
+        {
+            int local = Local(), target = 0;
+            yield return new Until("Hunter targets a fixture deer", () =>
+            {
+                lock (Engine()) target = HunterDeerTarget(local, out _);
+                return target != 0;
+            });
+            AcceptLog.Info("HUNT_DEER_TARGET " + target);
+        }
+
+        private static bool NearDeerDead()
+        {
+            return !APIShared.UnitAccess.TryGetById(nearDeer, out GameUnit* prey, out _) || prey->r_CurrentHealth == 0;
+        }
+
+        // args: milliseconds. The Hunter changes to the near deer once and does not change back.
+        private static IEnumerable<Wait> ExpectOneSwitch(Step step)
+        {
+            int local = Local(), end = Environment.TickCount + step.Int(0), last = 0, changes = 0;
+            bool reached = false, dead = false;
+            while (Environment.TickCount < end && !dead)
+            {
+                lock (Engine())
+                {
+                    int target = HunterDeerTarget(local, out _);
+                    if (target != 0 && target != last)
+                    {
+                        if (last != 0)
+                            changes++;
+                        last = target;
+                        AcceptLog.Info("HUNT_TARGET_NOW " + target);
+                    }
+                    reached |= target == nearDeer;
+                    dead = reached && NearDeerDead();
+                }
+                yield return NextFrame.Instance;
+            }
+            AcceptLog.Info("HUNT_SWITCH reached=" + reached + " changes=" + changes + " nearDeerDead=" + dead);
+            Runner.Require(reached, "the Hunter stayed with the far deer");
+            Runner.Require(changes == 1, "the Hunter changed target " + changes + " times");
         }
 
         // Records which deer the Hunter holds. Every switch to another deer while the previous one still

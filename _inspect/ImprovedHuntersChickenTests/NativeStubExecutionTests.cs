@@ -93,7 +93,7 @@ internal static unsafe class NativeStubExecutionTests
 
     private sealed class Registers
     {
-        public ulong Rax, Rbx, Rcx, Rdx, Rbp, Rsi, Rdi, R8, R9, R10, R11, R12, R13, R15;
+        public ulong Rax, Rbx, Rcx, Rdx, Rbp, Rsi, Rdi, R8, R9, R10, R11, R12, R13, R14, R15;
         public ushort StackWord78;
     }
 
@@ -118,7 +118,7 @@ internal static unsafe class NativeStubExecutionTests
         a.mov(__qword_ptr[rsp + 0xA0], rax);
         a.mov(rbx, r.Rbx); a.mov(rcx, r.Rcx); a.mov(rdx, r.Rdx); a.mov(rbp, r.Rbp); a.mov(rsi, r.Rsi); a.mov(rdi, r.Rdi);
         a.mov(r8, r.R8); a.mov(r9, r.R9); a.mov(r10, r.R10); a.mov(r11, r.R11);
-        a.mov(r12, r.R12); a.mov(r13, r.R13); a.mov(r15, r.R15);
+        a.mov(r12, r.R12); a.mov(r13, r.R13); a.mov(r14, r.R14); a.mov(r15, r.R15);
         a.mov(rax, r.Rax);
         a.call(__qword_ptr[rsp + 0xA0]);
         a.mov(rcx, Address(output));
@@ -164,6 +164,9 @@ internal static unsafe class NativeStubExecutionTests
         TestMeleeOrder(image);
         TestStance(image);
         TestTanner(image);
+        TestHutAvailability(image);
+        TestHerdFleeGate(image);
+        TestCorpseChoice(image);
         Console.WriteLine($"ImprovedHunters native stubs executed: assertions={assertions}.");
     }
 
@@ -753,5 +756,129 @@ internal static unsafe class NativeStubExecutionTests
         TestTannerAccept(image, fixture);
         TestTannerDeposit(image, fixture);
         TestTannerRefind(image, fixture);
+    }
+
+    private static void TestHutAvailability(byte[] image)
+    {
+        int* hasPrey = (int*)Alloc(16);
+        ulong available = ExitBlock(ResultContinue);
+        ulong stub = BuildStub(image, 0xFFDAB, 14, new byte[] { 0x33, 0xC0, 0xC3 },
+            (a, i) => HunterNativeStubs.EmitHutAlwaysAvailable(a, i, Address(flag), Address((byte*)hasPrey), available));
+
+        int Check_(bool enabled, ulong mode, int prey)
+        {
+            SetFlag(enabled);
+            *hasPrey = prey;
+            return Run(stub, new Registers { Rax = 7, R10 = mode, Rdx = 0x4E }).Result;
+        }
+
+        Check(Check_(false, 99, 0) == 0, "without the setting Vanilla hides the hut on a map without prey.");
+        Check(Check_(false, 99, 5) == ResultContinue, "a map with prey keeps the hut.");
+        Check(Check_(false, 0, 0) == ResultContinue, "single player keeps the hut.");
+        Check(Check_(true, 99, 0) == ResultContinue, "the setting keeps the hut on a map without prey.");
+    }
+
+    private static void TestCorpseChoice(byte[] image)
+    {
+        const int Hunter = 3, Corpse = 5, Global = 0x1234;
+        const int WalkMarker = 0x1000;
+        byte* entries = Alloc(8 * 16);
+        // Add the marker to the corpse ID, so a result shows both the path and the ID it carried.
+        byte* walk = Alloc(16);
+        new ReadOnlySpan<byte>(new byte[] { 0x05, 0x00, 0x10, 0x00, 0x00, 0xC3 }).CopyTo(new Span<byte>(walk, 16));
+
+        void Fixture(int reservation = 0, int global = Global, short alive = 2, short corpse = 1, bool entry = true)
+        {
+            *(int*)(Unit(Corpse) + 0x6F0) = global;
+            *(short*)(Unit(Corpse) + 0x6E4) = alive;
+            *(short*)(Unit(Corpse) + 0x8F8) = corpse;
+            *(short*)(Unit(Corpse) + 0xAA4) = (short)reservation;
+            *(int*)(entries + Hunter * 8) = Global;
+            *(ushort*)(entries + Hunter * 8 + 4) = entry ? (ushort)Corpse : (ushort)0;
+        }
+
+        ulong liveSearch = ExitBlock(ResultMiss);
+        ulong search = BuildStub(image, 0x12FDB7, 19, ReturnPlain,
+            (a, i) => HunterNativeStubs.EmitCorpseChoiceInSearch(a, i, Address(flag), Address(entries), liveSearch, Address(walk)));
+        int Search(bool enabled)
+        {
+            SetFlag(enabled);
+            return Run(search, new Registers { Rbx = Hunter, R13 = Address(units), R14 = Address(units) }).Result;
+        }
+
+        Fixture();
+        Check(Search(false) == ResultMiss, "a disabled rule keeps Vanilla's search.");
+        Check(*(short*)(Unit(Corpse) + 0xAA4) == 0, "a disabled rule reserves nothing.");
+        Fixture(entry: false);
+        Check(Search(true) == ResultMiss, "without a choice Vanilla searches.");
+        Fixture();
+        Check(Search(true) == WalkMarker + Corpse, "a valid choice walks to that corpse.");
+        Check(*(short*)(Unit(Corpse) + 0xAA4) == 2, "the Hunter reserves the corpse at once.");
+        Check(*(ushort*)(entries + Hunter * 8 + 4) == 0, "the choice is used up.");
+        Check(Search(true) == ResultMiss, "a used choice is not taken twice.");
+        Fixture(global: Global + 1);
+        Check(Search(true) == ResultMiss, "another unit on that ID is no choice.");
+        Check(*(short*)(Unit(Corpse) + 0xAA4) == 0, "another unit on that ID stays unreserved.");
+        Fixture(alive: 1);
+        Check(Search(true) == ResultMiss, "a deleted unit is no choice.");
+        Fixture(corpse: 0);
+        Check(Search(true) == ResultMiss, "a living animal is no corpse choice.");
+        Fixture(reservation: 1);
+        Check(Search(true) == ResultMiss, "a reserved corpse is not stolen.");
+        Check(*(short*)(Unit(Corpse) + 0xAA4) == 1, "a foreign reservation stays.");
+
+        byte* vanillaFound = Alloc(16);
+        vanillaFound[0] = 0xB8;
+        vanillaFound[5] = 0xC3;
+        ulong noCorpse = ExitBlock(ResultMiss);
+        // add eax, marker; ret: the bytes after the span are where Vanilla walks to the corpse.
+        byte[] walkTail = { 0x05, 0x00, 0x10, 0x00, 0x00, 0xC3 };
+        ulong afterShot = BuildStub(image, 0x13053A, 14, walkTail,
+            (a, i) => HunterNativeStubs.EmitCorpseChoiceAfterShot(a, i, Address(flag), Address(entries), Address(vanillaFound), noCorpse));
+        int AfterShot(bool enabled, int vanilla)
+        {
+            SetFlag(enabled);
+            *(int*)(vanillaFound + 1) = vanilla;
+            return Run(afterShot, new Registers { Rbx = Hunter, R13 = Address(units) }).Result;
+        }
+
+        Fixture();
+        Check(AfterShot(false, 0) == ResultMiss, "disabled: no Vanilla corpse goes on to the next search.");
+        Check(AfterShot(false, 7) == WalkMarker + 7, "disabled: Vanilla's corpse is walked to.");
+        Check(AfterShot(true, 7) == WalkMarker + Corpse, "the choice comes before Vanilla's corpse.");
+        Check(*(short*)(Unit(Corpse) + 0xAA4) == 2, "after a shot the choice is reserved as well.");
+        Fixture(entry: false);
+        Check(AfterShot(true, 7) == WalkMarker + 7, "without a choice Vanilla's corpse stays.");
+        Check(AfterShot(true, 0) == ResultMiss, "without any corpse Vanilla goes on.");
+        Fixture(reservation: 2);
+        Check(AfterShot(true, 7) == WalkMarker + 7, "a taken choice falls back to Vanilla's corpse.");
+    }
+
+    private static void TestHerdFleeGate(byte[] image)
+    {
+        byte* cell = Alloc(256);
+        byte* calm = Alloc(64);
+        *(int*)(cell + 0x28) = 2;
+        *(int*)(cell + 0x48) = 3;
+        *(int*)(cell + 0x40) = 11;
+        *(int*)(cell + 0x44) = 12;
+        // mov eax, edi; ret: returns the threat count the herd update goes on with.
+        byte[] tail = { 0x89, 0xF8, 0xC3 };
+        foreach (int site in new[] { 0x124F20, 0x125330 })
+        {
+            ulong stub = BuildStub(image, site, 18, tail,
+                (a, i) => HunterNativeStubs.EmitHerdFleeGate(a, i, Address(flag), Address(calm)));
+
+            int Threats(bool enabled, byte calmValue)
+            {
+                SetFlag(enabled);
+                calm[5] = calmValue;
+                return Run(stub, new Registers { Rax = 0, Rcx = Address(cell), Rbp = 5, Rbx = Address(cell), R13 = 1 }).Result;
+            }
+
+            Check(Threats(false, 1) == 5, "a disabled rule keeps Vanilla's threats.");
+            Check(Threats(true, 0) == 5, "a herd in sight keeps Vanilla's threats.");
+            Check(Threats(true, 1) == 0, "a calm herd sees no threat.");
+        }
     }
 }

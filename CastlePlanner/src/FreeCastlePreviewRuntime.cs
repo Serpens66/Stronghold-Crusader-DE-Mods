@@ -271,6 +271,11 @@ namespace CastlePlanner
                 throw new InvalidOperationException(
                     "Free-castle networking must initialize on Unity's main-thread SynchronizationContext.");
             }
+            if (!APIShared.ApiShared.ForMod(CastlePlannerPlugin.PluginGuid).TryGetMissionPlayStateReadiness(
+                out APIShared.IMissionPlayStateReadinessCapability playStateReadiness, out var readinessDiagnostic) ||
+                !identityReadiness.TryBindPlayStateReadiness(playStateReadiness, OnMissionPlayStateReady, out readinessDiagnostic))
+                throw new InvalidOperationException("Castle-preview PlayState readiness unavailable: " + readinessDiagnostic?.Reason);
+
             packetDispatchQueue =
                 new CoalescedSynchronizationContextQueue<QueuedPacket>(
                     unitySynchronizationContext,
@@ -282,11 +287,6 @@ namespace CastlePlanner
             mapReadySubscription = Shared.MissionEvents.Started.Subscribe(OnMissionReady);
             mapUnloadSubscription = Shared.MissionEvents.Ended
                 .Subscribe(OnUnloadMap);
-            if (!APIShared.ApiShared.ForMod(CastlePlannerPlugin.PluginGuid).TryGetMissionPlayStateReadiness(
-                out APIShared.IMissionPlayStateReadinessCapability playStateReadiness, out var readinessDiagnostic) ||
-                !identityReadiness.TryBindPlayStateReadiness(playStateReadiness, OnMissionPlayStateReady, out readinessDiagnostic))
-                throw new InvalidOperationException("Castle-preview PlayState readiness unavailable: " + readinessDiagnostic?.Reason);
-
             MethodInfo leave = typeof(Platform_Multiplayer).GetMethod(
                 "LeaveLobby",
                 BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance,

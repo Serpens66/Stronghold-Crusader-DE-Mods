@@ -11,6 +11,12 @@ namespace ImprovedHunters
 {
     public sealed class ImprovedHuntersViewModel : APIShared.ModSettings.PresetLobbyModSettingsViewModel
     {
+        private const int DefaultRespawnMinimum = 6;
+        private const int MinimumRespawnMinimum = 1;
+        private const int MaximumRespawnMinimum = 100;
+        private const int DefaultRespawnIntervalSeconds = 120;
+        private const int MinimumRespawnIntervalSeconds = 10;
+        private const int MaximumRespawnIntervalSeconds = 1800;
         // Vanilla's Hunter passes 6 for every prey (0x12FC70).
         private const int DefaultDeerMeat = 6;
         private const int DefaultGoatMeat = 6;
@@ -34,6 +40,13 @@ namespace ImprovedHunters
         private int chickenMeat = DefaultChickenMeat;
         private bool tannerMeatMode = true;
         private int tannerMeatPerTrip = TannerMeatPolicy.DefaultMeatPerTrip;
+        private int hunterSearchRange = HunterSearchRangePolicy.Unlimited;
+        private bool hunterHutAlwaysAvailable = true;
+        private bool allowDeadTargets = true;
+        private bool deerFleeOnlyInSight = true;
+        private bool respawnWildlife;
+        private int respawnMinimum = DefaultRespawnMinimum;
+        private int respawnIntervalSeconds = DefaultRespawnIntervalSeconds;
         private int chickensPerPlayer = GranaryChickenSpawnPolicy.DefaultTargetPerPlayer;
 
         public event Action<string> SettingChanged;
@@ -59,6 +72,37 @@ namespace ImprovedHunters
         public string MeatHelpText => SerpLocalization.Get("ImprovedHunters.MeatHelp");
         public string ImprovedTargetSelectionText => SerpLocalization.Get("ImprovedHunters.ImprovedTargetSelection");
         public string ImprovedTargetSelectionHelpText => SerpLocalization.Get("ImprovedHunters.ImprovedTargetSelectionHelp");
+        public string AllowDeadTargetsText => SerpLocalization.Get("ImprovedHunters.AllowDeadTargets");
+        public string AllowDeadTargetsHelpText => SerpLocalization.Get("ImprovedHunters.AllowDeadTargetsHelp");
+        public string HunterHutAlwaysAvailableText => SerpLocalization.Get("ImprovedHunters.HunterHutAlwaysAvailable");
+        public string HunterHutAlwaysAvailableHelpText => SerpLocalization.Get("ImprovedHunters.HunterHutAlwaysAvailableHelp");
+        public string DeerFleeOnlyInSightText => SerpLocalization.Get("ImprovedHunters.DeerFleeOnlyInSight");
+        public string DeerFleeOnlyInSightHelpText => SerpLocalization.Get("ImprovedHunters.DeerFleeOnlyInSightHelp");
+        public string RespawnWildlifeText => SerpLocalization.Get("ImprovedHunters.RespawnWildlife");
+        public string RespawnWildlifeHelpText => SerpLocalization.Get("ImprovedHunters.RespawnWildlifeHelp");
+        public string RespawnMinimumText => SerpLocalization.Get("ImprovedHunters.RespawnMinimum");
+        public string RespawnMinimumHelpText => SerpLocalization.Get("ImprovedHunters.RespawnMinimumHelp");
+        public string RespawnMinimumValueText
+        {
+            get => string.Format(SerpLocalization.Get("ImprovedHunters.RespawnMinimumValueFormat"), RespawnMinimum);
+            set => SetBoundedIntText(value, parsed => RespawnMinimum = parsed, nameof(RespawnMinimumValueText));
+        }
+        public string RespawnIntervalText => SerpLocalization.Get("ImprovedHunters.RespawnInterval");
+        public string RespawnIntervalHelpText => SerpLocalization.Get("ImprovedHunters.RespawnIntervalHelp");
+        public string RespawnIntervalValueText
+        {
+            get => string.Format(SerpLocalization.Get("ImprovedHunters.RespawnIntervalValueFormat"), RespawnIntervalSeconds);
+            set => SetBoundedIntText(value, parsed => RespawnIntervalSeconds = parsed, nameof(RespawnIntervalValueText));
+        }
+        public string HunterSearchRangeText => SerpLocalization.Get("ImprovedHunters.HunterSearchRange");
+        public string HunterSearchRangeHelpText => SerpLocalization.Get("ImprovedHunters.HunterSearchRangeHelp");
+        public string HunterSearchRangeValueText
+        {
+            get => HunterSearchRange == HunterSearchRangePolicy.Unlimited
+                ? SerpLocalization.Get("ImprovedHunters.HunterSearchRangeUnlimited")
+                : string.Format(SerpLocalization.Get("ImprovedHunters.HunterSearchRangeValueFormat"), HunterSearchRange);
+            set => SetBoundedIntText(value, parsed => HunterSearchRange = parsed, nameof(HunterSearchRangeValueText));
+        }
         public string ImprovedPathfindingText => SerpLocalization.Get("ImprovedHunters.ImprovedPathfinding");
         public string ImprovedPathfindingHelpText => SerpLocalization.Get("ImprovedHunters.ImprovedPathfindingHelp");
         public string RabbitsOnlyOnOrderText => SerpLocalization.Get("ImprovedHunters.RabbitsOnlyOnOrder");
@@ -111,6 +155,31 @@ namespace ImprovedHunters
                 TannerMeatPolicy.MaximumMeatPerTrip,
                 nameof(TannerMeatPerTrip),
                 nameof(TannerMeatPerTripValueText));
+        }
+        [SyncHostOnly] public bool AllowDeadTargets { get => allowDeadTargets; set => SetSetting(ref allowDeadTargets, value, nameof(AllowDeadTargets)); }
+        [SyncHostOnly] public bool HunterHutAlwaysAvailable { get => hunterHutAlwaysAvailable; set => SetSetting(ref hunterHutAlwaysAvailable, value, nameof(HunterHutAlwaysAvailable)); }
+        [SyncHostOnly] public bool DeerFleeOnlyInSight { get => deerFleeOnlyInSight; set => SetSetting(ref deerFleeOnlyInSight, value, nameof(DeerFleeOnlyInSight)); }
+        [SyncHostOnly] public bool RespawnWildlife { get => respawnWildlife; set => SetSetting(ref respawnWildlife, value, nameof(RespawnWildlife)); }
+        [SyncHostOnly] public int RespawnMinimum
+        {
+            get => respawnMinimum;
+            set => SetBoundedIntSetting(ref respawnMinimum, value, MinimumRespawnMinimum, MaximumRespawnMinimum, nameof(RespawnMinimum), nameof(RespawnMinimumValueText));
+        }
+        [SyncHostOnly] public int RespawnIntervalSeconds
+        {
+            get => respawnIntervalSeconds;
+            set => SetBoundedIntSetting(ref respawnIntervalSeconds, value, MinimumRespawnIntervalSeconds, MaximumRespawnIntervalSeconds, nameof(RespawnIntervalSeconds), nameof(RespawnIntervalValueText));
+        }
+        [SyncHostOnly] public int HunterSearchRange
+        {
+            get => hunterSearchRange;
+            set => SetBoundedIntSetting(
+                ref hunterSearchRange,
+                HunterSearchRangePolicy.Clamp(value),
+                HunterSearchRangePolicy.Unlimited,
+                HunterSearchRangePolicy.MaximumRange,
+                nameof(HunterSearchRange),
+                nameof(HunterSearchRangeValueText));
         }
         [SyncHostOnly] public bool HuntDeer { get => huntDeer; set => SetSetting(ref huntDeer, value, nameof(HuntDeer)); }
         [SyncHostOnly] public bool HuntGoat { get => huntGoat; set => SetSetting(ref huntGoat, value, nameof(HuntGoat)); }
@@ -213,6 +282,13 @@ namespace ImprovedHunters
             ChickenMeat = DefaultChickenMeat;
             TannerMeatMode = true;
             TannerMeatPerTrip = TannerMeatPolicy.DefaultMeatPerTrip;
+            HunterSearchRange = HunterSearchRangePolicy.Unlimited;
+            HunterHutAlwaysAvailable = true;
+            AllowDeadTargets = true;
+            DeerFleeOnlyInSight = true;
+            RespawnWildlife = false;
+            RespawnMinimum = DefaultRespawnMinimum;
+            RespawnIntervalSeconds = DefaultRespawnIntervalSeconds;
         }
 
         private void SetSetting<T>(ref T field, T value, string propertyName)

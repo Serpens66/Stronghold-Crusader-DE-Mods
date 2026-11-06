@@ -136,6 +136,13 @@
     <Compile Include="src\PermanentDispatchIndexOverride.cs" />
     <Compile Include="src\DispatchIndexStub.cs" />
     <Compile Include="src\HunterNativeStubs.cs" />
+    <Compile Include="src\HunterSearchRangePolicy.cs" />
+    <Compile Include="src\HunterCorpseChoicePatch.cs" />
+    <Compile Include="src\HunterCorpseChoiceFeature.cs" />
+    <Compile Include="src\HunterHutAvailabilityPatch.cs" />
+    <Compile Include="src\WildlifeNativeAddresses.cs" />
+    <Compile Include="src\WildlifeRespawnFeature.cs" />
+    <Compile Include="src\HerdFleeSightFeature.cs" />
     <Compile Include="src\HunterSimulationTime.cs" />
     <Compile Include="src\PermanentNativeGate.cs" />
     <Compile Include="src\OwnedChickenHuntPatch.cs" />

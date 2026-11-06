@@ -162,9 +162,9 @@ static class Program
             }
         }
 
-        Assert(definitions.Count == 41, $"Expected 41 native pattern definitions, found {definitions.Count}.");
-        Assert(uniquelyResolvedNames.Count == 33,
-            $"Expected 33 uniquely resolved pattern contracts, found {uniquelyResolvedNames.Count}.");
+        Assert(definitions.Count == 48, $"Expected 48 native pattern definitions, found {definitions.Count}.");
+        Assert(uniquelyResolvedNames.Count == 40,
+            $"Expected 40 uniquely resolved pattern contracts, found {uniquelyResolvedNames.Count}.");
         int uniqueFallbackPatterns = 0;
         int ambiguousReferencePatterns = 0;
         foreach ((string name, byte?[] bytes, int expectedRva) in definitions)
@@ -356,6 +356,10 @@ static class Program
         Assert(GranaryChickenSpawnPolicy.DefaultTargetPerPlayer == 10, "The population default changed.");
         Assert(TannerMeatPolicy.DefaultMeatPerTrip == 5, "The Tanner default changed.");
         TestTannerRunTable();
+        Assert(HunterSearchRangePolicy.Clamp(0) == 0 && HunterSearchRangePolicy.Clamp(-3) == 0 && HunterSearchRangePolicy.Clamp(5) == 21 &&
+            HunterSearchRangePolicy.Clamp(40) == 40 && HunterSearchRangePolicy.Clamp(999) == 200, "The search range clamp changed.");
+        Assert(HunterSearchRangePolicy.IsWithin(500, 0) && HunterSearchRangePolicy.IsWithin(30, 30) && !HunterSearchRangePolicy.IsWithin(31, 30),
+            "The search range rule changed.");
         Assert(TannerMeatPolicy.ClampMeatPerTrip(0) == 1 && TannerMeatPolicy.ClampMeatPerTrip(101) == 100, "The meat per trip clamp failed.");
         Assert(TannerMeatPolicy.MeatRunsFromSliderValue(3) == 0 && TannerMeatPolicy.MeatRunsFromSliderValue(0) == 3 &&
             TannerMeatPolicy.SliderValueFromMeatRuns(1) == 2, "The slider must run from only meat on the left to no meat on the right.");

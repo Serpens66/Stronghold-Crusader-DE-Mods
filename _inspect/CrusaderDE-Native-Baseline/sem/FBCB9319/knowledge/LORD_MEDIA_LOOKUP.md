@@ -160,8 +160,19 @@ media aliases. The custom-text hook delegates absent-metadata titles to its orig
 the SE title hook returns false rather than claiming an empty authored suffix or
 reading a different local SE metadata document. The nested SE custom-text hook then
 retains its original `text.txt` result. Explicit `{}` remains an authored document
-with its existing empty-title semantics. Entry equivalence includes metadata
-presence, and identity claims remain available for Coop restart encoding.
+with its existing empty-title semantics. Name/title entry equivalence includes
+metadata presence; non-title queries retain their previous equivalence. Otherwise
+identical null/`{}` entries must still share their empty media claim in either
+order, across player slots or owners. Treating the presence distinction as a
+global conflict would surrender that claim to peer-local SE clip selection and
+could introduce an extra random draw. Identity claims remain available for Coop
+restart encoding.
+
+For an otherwise equivalent null/`{}` conflict the SE title adapter reports no
+unambiguous title instead of consulting the local SE registry. Non-title support
+remains claimed, so forwarding that title query to SE would otherwise log a
+missing registration or substitute a peer-local title. The original custom-text
+path can still retain its `text.txt` result and Vanilla suffix fallback.
 
 This is deliberately a name/title correction. Media, audio, portraits, details,
 subtitle caching and Lua resolution keep their existing ownership rules. A blanket

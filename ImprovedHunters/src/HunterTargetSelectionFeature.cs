@@ -50,6 +50,13 @@ namespace ImprovedHunters
                 return;
             }
 
+            if (settings.HunterSearchRange != HunterSearchRangePolicy.Unlimited &&
+                !IsWithinHunterSearchRange(unitApi, hunterUnitId, args.QueryUnitId))
+            {
+                args.IsValidTarget = false;
+                return;
+            }
+
             bool targetPclUnreachable = false;
             if (targetSelectionActive &&
                 queryGlobalId > 0 &&
@@ -234,6 +241,9 @@ namespace ImprovedHunters
                 return false;
             }
 
+            int candidateRadius = settings.HunterSearchRange == HunterSearchRangePolicy.Unlimited
+                ? HunterTargetCandidateRadius
+                : Math.Min(settings.HunterSearchRange, HunterTargetCandidateRadius);
             List<PreyCandidate> candidates = new List<PreyCandidate>();
             for (int i = 0; i < preyCache.Count; i++)
             {
@@ -245,7 +255,7 @@ namespace ImprovedHunters
                     continue;
 
                 int heuristicDistance = GetChebyshevDistance(originTileX, originTileY, prey.TileX, prey.TileY);
-                if (heuristicDistance > HunterTargetCandidateRadius)
+                if (heuristicDistance > candidateRadius)
                     continue;
 
                 if (hunterPclReachability != null &&
@@ -366,16 +376,24 @@ namespace ImprovedHunters
             return true;
         }
 
-        private unsafe bool TryGetHunterOrigin(
-            GameUnit* hunter,
-            int hunterOwner,
-            out int originTileX,
-            out int originTileY,
-            out int granaryRoundTripHeuristicCost)
+        // The range counts from the Hunter's hut, like the ranking: he may stand at the granary when he searches.
+        private unsafe bool IsWithinHunterSearchRange(GameUnitManagerAPI unitApi, int hunterUnitId, int preyUnitId)
         {
-            originTileX = hunter->r_CurrentTilePositionX;
-            originTileY = hunter->r_CurrentTilePositionY;
-            granaryRoundTripHeuristicCost = 0;
+            if (!APIShared.UnitAccess.TryGetById(unitApi, hunterUnitId, out GameUnit* hunter, out _) || hunter == null ||
+                !APIShared.UnitAccess.TryGetById(unitApi, preyUnitId, out GameUnit* prey, out _) || prey == null)
+            {
+                return true;
+            }
+
+            GetHunterHome(hunter, out int homeTileX, out int homeTileY);
+            int distance = GetChebyshevDistance(homeTileX, homeTileY, prey->r_CurrentTilePositionX, prey->r_CurrentTilePositionY);
+            return HunterSearchRangePolicy.IsWithin(distance, settings.HunterSearchRange);
+        }
+
+        private unsafe void GetHunterHome(GameUnit* hunter, out int tileX, out int tileY)
+        {
+            tileX = hunter->r_CurrentTilePositionX;
+            tileY = hunter->r_CurrentTilePositionY;
 
             ushort linkedBuildingId = hunter->r_LinkedProductionBuildingId;
             if (linkedBuildingId != 0 &&
@@ -384,9 +402,20 @@ namespace ImprovedHunters
                 building->r_AliveState == AliveState.IsAlive &&
                 building->r_BuildingType == eStructs.STRUCT_HUNTERS_HUT)
             {
-                originTileX = building->r_TilePositionXBegin;
-                originTileY = building->r_TilePositionYBegin;
+                tileX = building->r_TilePositionXBegin;
+                tileY = building->r_TilePositionYBegin;
             }
+        }
+
+        private unsafe bool TryGetHunterOrigin(
+            GameUnit* hunter,
+            int hunterOwner,
+            out int originTileX,
+            out int originTileY,
+            out int granaryRoundTripHeuristicCost)
+        {
+            GetHunterHome(hunter, out originTileX, out originTileY);
+            granaryRoundTripHeuristicCost = 0;
 
             GameTileManagerAPI tileApi = GameTileManagerAPI.Instance;
             if (!tileApi.IsTileInsideMapBounds(originTileX, originTileY))

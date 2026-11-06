@@ -130,6 +130,56 @@
                 Foreground="White"
                 Margin="0,0,14,8"
                 ToolTipService.ShowDuration="60000" ToolTip="{Binding ImprovedPathfindingHelpText}"/></Grid>
+      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="hunters.search-range" shared:ModSettingsSearch.Title="{Binding HunterSearchRangeText}" shared:ModSettingsSearch.ToolTipText="{Binding HunterSearchRangeHelpText}" Margin="0,0,0,8">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="220"/>
+          <ColumnDefinition Width="220"/>
+          <ColumnDefinition Width="180"/>
+        </Grid.ColumnDefinitions>
+        <TextBlock Grid.Column="0" Text="{Binding HunterSearchRangeText}" Foreground="White" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding HunterSearchRangeHelpText}"/>
+        <Slider Grid.Column="1" Minimum="0" Maximum="200" Value="{Binding HunterSearchRange, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding HunterSearchRangeHelpText}"/>
+        <TextBox ui:KeyboardCaptureBinding.Enabled="True" Grid.Column="2" Text="{Binding HunterSearchRangeValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Right" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding HunterSearchRangeHelpText}" MinWidth="56" MaxWidth="120" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1"/>
+      </Grid>
+      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="hunters.allow-dead-targets" shared:ModSettingsSearch.Title="{Binding AllowDeadTargetsText}" shared:ModSettingsSearch.ToolTipText="{Binding AllowDeadTargetsHelpText}"><CheckBox IsChecked="{Binding AllowDeadTargets, Mode=TwoWay}"
+                Content="{Binding AllowDeadTargetsText}"
+                Foreground="White"
+                Margin="0,0,14,8"
+                ToolTipService.ShowDuration="60000" ToolTip="{Binding AllowDeadTargetsHelpText}"/></Grid>
+      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="hunters.hut-always-available" shared:ModSettingsSearch.Title="{Binding HunterHutAlwaysAvailableText}" shared:ModSettingsSearch.ToolTipText="{Binding HunterHutAlwaysAvailableHelpText}"><CheckBox IsChecked="{Binding HunterHutAlwaysAvailable, Mode=TwoWay}"
+                Content="{Binding HunterHutAlwaysAvailableText}"
+                Foreground="White"
+                Margin="0,0,14,8"
+                ToolTipService.ShowDuration="60000" ToolTip="{Binding HunterHutAlwaysAvailableHelpText}"/></Grid>
+      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="hunters.flee-only-in-sight" shared:ModSettingsSearch.Title="{Binding DeerFleeOnlyInSightText}" shared:ModSettingsSearch.ToolTipText="{Binding DeerFleeOnlyInSightHelpText}"><CheckBox IsChecked="{Binding DeerFleeOnlyInSight, Mode=TwoWay}"
+                Content="{Binding DeerFleeOnlyInSightText}"
+                Foreground="White"
+                Margin="0,0,14,8"
+                ToolTipService.ShowDuration="60000" ToolTip="{Binding DeerFleeOnlyInSightHelpText}"/></Grid>
+      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="hunters.respawn-wildlife" shared:ModSettingsSearch.Title="{Binding RespawnWildlifeText}" shared:ModSettingsSearch.ToolTipText="{Binding RespawnWildlifeHelpText}"><CheckBox IsChecked="{Binding RespawnWildlife, Mode=TwoWay}"
+                Content="{Binding RespawnWildlifeText}"
+                Foreground="White"
+                Margin="0,0,14,8"
+                ToolTipService.ShowDuration="60000" ToolTip="{Binding RespawnWildlifeHelpText}"/></Grid>
+      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="hunters.respawn-minimum" shared:ModSettingsSearch.Title="{Binding RespawnMinimumText}" shared:ModSettingsSearch.ToolTipText="{Binding RespawnMinimumHelpText}" Margin="0,0,0,8">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="220"/>
+          <ColumnDefinition Width="220"/>
+          <ColumnDefinition Width="180"/>
+        </Grid.ColumnDefinitions>
+        <TextBlock Grid.Column="0" Text="{Binding RespawnMinimumText}" Foreground="White" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding RespawnMinimumHelpText}"/>
+        <Slider Grid.Column="1" Minimum="1" Maximum="100" Value="{Binding RespawnMinimum, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding RespawnMinimumHelpText}"/>
+        <TextBox ui:KeyboardCaptureBinding.Enabled="True" Grid.Column="2" Text="{Binding RespawnMinimumValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Right" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding RespawnMinimumHelpText}" MinWidth="56" MaxWidth="120" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1"/>
+      </Grid>
+      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="hunters.respawn-interval" shared:ModSettingsSearch.Title="{Binding RespawnIntervalText}" shared:ModSettingsSearch.ToolTipText="{Binding RespawnIntervalHelpText}" Margin="0,0,0,8">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="220"/>
+          <ColumnDefinition Width="220"/>
+          <ColumnDefinition Width="180"/>
+        </Grid.ColumnDefinitions>
+        <TextBlock Grid.Column="0" Text="{Binding RespawnIntervalText}" Foreground="White" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding RespawnIntervalHelpText}"/>
+        <Slider Grid.Column="1" Minimum="10" Maximum="1800" Value="{Binding RespawnIntervalSeconds, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding RespawnIntervalHelpText}"/>
+        <TextBox ui:KeyboardCaptureBinding.Enabled="True" Grid.Column="2" Text="{Binding RespawnIntervalValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Right" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding RespawnIntervalHelpText}" MinWidth="56" MaxWidth="120" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1"/>
+      </Grid>
       <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="hunters.rabbits-only-on-order" shared:ModSettingsSearch.Title="{Binding RabbitsOnlyOnOrderText}" shared:ModSettingsSearch.ToolTipText="{Binding RabbitsOnlyOnOrderHelpText}"><CheckBox IsChecked="{Binding RabbitsOnlyOnOrder, Mode=TwoWay}"
                 Content="{Binding RabbitsOnlyOnOrderText}"
                 Foreground="White"

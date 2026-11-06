@@ -95,6 +95,8 @@ namespace ImprovedHunters
             int endY,
             int endHeight);
 
+        private const uint VisibleResultLimit = 0x1B0;
+
         private readonly ManualLogSource log;
         private readonly ImprovedHuntersViewModel settings;
         private NativeVisibilityDelegate visibility;
@@ -185,6 +187,14 @@ namespace ImprovedHunters
             }
 
             return TryInvokeVisibility(hunter, prey, out result, out _);
+        }
+
+        /// <summary>Vanilla's sight rule between two units: a result in 1..0x1AF means visible (0x18AF50).</summary>
+        public bool SeesFromUnit(GameUnit* viewer, GameUnit* target)
+        {
+            return !IsAvailable ||
+                !TryInvokeVisibility(viewer, target, out int result, out _) ||
+                (uint)(result - 1) < VisibleResultLimit;
         }
 
         public bool TryEvaluateNearVisibility(
