@@ -141,6 +141,13 @@ records and installed Extender enums (MAPPER_GRANARY=80, STRUCT_GRANARY=19):
   The ordinary AIV placement path 51790 starts with variant 15 and granary mapper
   80 does not enter its directional/special-building exceptions. Constructor role
   names remain descriptive; the parameter flow and renderer branch are confirmed.
+- Later general rule, confirmed in a real skirmish on 2026-11-06 for the Granary and the Hunter's
+  Hut (`Testmods/UiAcceptance`, screenshots in the run output): `CreatePrefab` a7 `0x0F` draws both
+  correctly and a7 `0` draws them torn. a7 is not a general sprite switch for every mapper; direction
+  and style families use it differently (`CastlePlanner/src/SupplementalPrefabVisualPolicy.cs`).
+- `CreatePrefab`'s return value does not prove construction: on an occupied site (Granary on the
+  starting stockpile, same run) it returned non-zero and no building appeared. A created building is
+  in the building array at once, which is the check to use.
 - Actual UI sprite sets match the unintended offsets exactly: managed camera 7
   gives original 237..252 versus supplemental 269..284 (+32); camera 5 gives
   237..252 versus 301..316 (+64); camera 3 gives 278..293 versus 374..389 (+96).

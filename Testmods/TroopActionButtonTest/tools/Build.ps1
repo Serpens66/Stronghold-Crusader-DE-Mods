@@ -35,6 +35,6 @@ $zip=Join-Path $local 'TroopActionButtonTest.zip'
 Compress-Archive -LiteralPath (Join-Path $project 'BepInEx') -DestinationPath $zip -Force
 [ordered]@{CreatedUtc=[DateTime]::UtcNow.ToString('o');Installed=$false;Sdk=$sdk;SdkSha256=$before;
     Package=$zip;PackageSha256=(Get-ApiRepositoryHash $zip);Sources=$sourceInputs;
-    GameAcceptance='Pending: actual Noesis rendering, mixed selection, checkbox, world-click shielding, editor and save/map transitions.'} |
+    GameAcceptance='Pending: actual Noesis rendering, mixed selection, circular action pages, split navigation hit areas, world-click shielding, editor and save/map transitions.'} |
     ConvertTo-Json -Depth 4|Set-Content -LiteralPath (Join-Path $local 'build.json') -Encoding UTF8
 Write-Host "PASS: $zip (not installed)"

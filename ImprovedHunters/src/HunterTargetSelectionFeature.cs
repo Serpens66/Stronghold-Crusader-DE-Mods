@@ -10,7 +10,6 @@ using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using RedBird.Core.Memory;
 using RedBird.X64.Assembly.Stateful;
 
@@ -24,9 +23,13 @@ namespace ImprovedHunters
             if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod))
                 return;
 
-            long timestamp = Stopwatch.GetTimestamp();
+            long timestamp = HunterSimulationTime.Now;
             if (!IsValidUnitId(args.QueryUnitId))
                 return;
+
+            // Rankings run only where the mode policy allows them.
+            // Elsewhere every enabled candidate of the query is accepted.
+            bool targetSelectionActive = CanRunHunterTargetSelection();
 
             GameUnitManagerAPI unitApi = GameUnitManagerAPI.Instance;
             if (!TryResolveHunterQueryActor(unitApi, args, out int hunterUnitId))
@@ -34,16 +37,6 @@ namespace ImprovedHunters
 
             eChimps queryType = (APIShared.UnitAccess.TryGetById(unitApi, args.QueryUnitId, out _, out _) ? unitApi.GetType(args.QueryUnitId) : eChimps.CHIMP_TYPE_NULL);
             int queryGlobalId = (APIShared.UnitAccess.TryGetById(unitApi, args.QueryUnitId, out _, out _) ? unitApi.GetGlobalId(args.QueryUnitId) : -1);
-            if (settings.IsKnownAnimal(queryType) && queryGlobalId > 0)
-            {
-                hunterNativeVisibilityProbe?.RecordQueryCandidate(
-                    hunterUnitId,
-                    args.QueryUnitId,
-                    queryType,
-                    unchecked((uint)queryGlobalId),
-                    timestamp);
-            }
-
             TrackHunterSearchQuery(hunterUnitId, timestamp);
 
             if (!settings.IsKnownAnimal(queryType))
@@ -57,18 +50,8 @@ namespace ImprovedHunters
                 return;
             }
 
-            if (settings.ImprovedTargetSelection && queryGlobalId > 0)
-            {
-                hunterPclReachabilityDiagnostic?.RecordCandidate(
-                    hunterUnitId,
-                    args.QueryUnitId,
-                    unchecked((uint)queryGlobalId),
-                    queryType,
-                    timestamp);
-            }
-
             bool targetPclUnreachable = false;
-            if (settings.ImprovedTargetSelection &&
+            if (targetSelectionActive &&
                 queryGlobalId > 0 &&
                 hunterPclReachability != null &&
                 hunterPclReachability.TryIsReachable(
@@ -82,14 +65,14 @@ namespace ImprovedHunters
                 targetPclUnreachable = !targetPclReachable;
             }
             bool targetOnCooldown =
-                settings.ImprovedTargetSelection &&
+                targetSelectionActive &&
                 queryGlobalId > 0 &&
                 IsTargetOnCooldown(hunterUnitId, unchecked((uint)queryGlobalId), timestamp);
             bool isValidTarget = !targetPclUnreachable && !targetOnCooldown;
             bool usedFallback = false;
             TargetSelection targetSelection = default;
             BestTarget bestTarget = default;
-            if (!settings.ImprovedTargetSelection)
+            if (!targetSelectionActive)
             {
                 isValidTarget = true;
             }
@@ -118,7 +101,7 @@ namespace ImprovedHunters
 
             args.IsValidTarget = isValidTarget;
             if (isValidTarget &&
-                settings.ImprovedTargetSelection &&
+                targetSelectionActive &&
                 targetSelection.HasTarget &&
                 queryGlobalId > 0)
             {
@@ -134,17 +117,6 @@ namespace ImprovedHunters
             if (isValidTarget)
             {
                 hunterTargetAcceptedEvents++;
-                hunterPreyTypes[hunterUnitId] = queryType;
-                if (queryType == eChimps.CHIMP_TYPE_CHICKEN)
-                {
-                    if (queryGlobalId > 0)
-                    {
-                        hunterVisibilityDiagnostic?.RecordAcceptedChickenTarget(
-                            hunterUnitId,
-                            args.QueryUnitId,
-                            unchecked((uint)queryGlobalId));
-                    }
-                }
             }
             else
             {
@@ -163,7 +135,6 @@ namespace ImprovedHunters
                 targetPclUnreachable,
                 targetOnCooldown,
                 targetSelection);
-            LogHunterTargetQuerySummary();
         }
 
         private unsafe bool TryResolveHunterQueryActor(
@@ -176,11 +147,6 @@ namespace ImprovedHunters
             bool captured = hunterQueryActorWorkaround?.TryConsumeHunterUnitId(
                 args.QueryUnitId,
                 out capturedHunterUnitId) == true;
-            hunterVisibilityDiagnostic?.RecordActorResolution(
-                args.HunterUnitId,
-                capturedHunterUnitId,
-                args.QueryUnitId,
-                captured);
 
             if (captured && IsLiveHunter(unitApi, capturedHunterUnitId))
             {
@@ -595,86 +561,6 @@ namespace ImprovedHunters
                 eligibleRabbit,
                 eligibleCamel,
                 eligibleChicken);
-        }
-
-        private unsafe void ReleaseStalePreyReservationsIfNeeded(SimpleNativeArray<GameUnit> units, long timestamp)
-        {
-            if (timestamp < nextStaleReservationCleanupTimestamp)
-                return;
-
-            nextStaleReservationCleanupTimestamp = timestamp + StaleReservationCleanupInterval;
-
-            HashSet<int> activeHunterTargetUnitIds = new HashSet<int>();
-            for (int index = 0; index < units.Length; index++)
-            {
-                GameUnit* unit = units.GetValuePointer(index);
-                if (!APIShared.UnitAccess.IsReallyAlive(unit) ||
-                    unit->r_UnitChimp != eChimps.CHIMP_TYPE_HUNTER)
-                {
-                    continue;
-                }
-
-                byte* hunterBytes = (byte*)unit;
-                ushort targetUnitId = *(ushort*)(hunterBytes + 0x39A);
-                if (targetUnitId > 0 && targetUnitId <= units.Length)
-                    activeHunterTargetUnitIds.Add(targetUnitId);
-            }
-
-            int reservedKnownPrey = 0;
-            int retainedReservations = 0;
-            int releasedReservations = 0;
-            int failedReadbacks = 0;
-            for (int index = 0; index < units.Length; index++)
-            {
-                GameUnit* unit = units.GetValuePointer(index);
-                int unitId = index + 1;
-                TryGetPreyEligibility(unitId, unit, out PreyEligibility eligibility);
-                if (!eligibility.KnownAnimal ||
-                    !eligibility.RuntimeHuntingEnabled ||
-                    eligibility.AliveState != (short)AliveState.IsAlive ||
-                    eligibility.CorpseFlag != 0 ||
-                    eligibility.Reservation != 2)
-                {
-                    continue;
-                }
-
-                reservedKnownPrey++;
-                if (activeHunterTargetUnitIds.Contains(unitId))
-                {
-                    retainedReservations++;
-                    continue;
-                }
-
-                byte* preyBytes = (byte*)unit;
-                *(ushort*)(preyBytes + 0x448) = 0;
-                ushort readback = *(ushort*)(preyBytes + 0x448);
-                eligibility.Reservation = readback;
-                if (readback == 0)
-                {
-                    releasedReservations++;
-                    LogReservationDiagnostic(
-                        $"Improved Hunters prey reservation: source=periodic-cleanup, outcome=released, " +
-                        $"target={unitId}/{eligibility.Type}, globalId={eligibility.GlobalId}, previous=2, readback={readback}.");
-                }
-                else
-                {
-                    failedReadbacks++;
-                    LogReservationDiagnostic(
-                        $"Improved Hunters prey reservation: source=periodic-cleanup, outcome=readback-failed, " +
-                        $"target={unitId}/{eligibility.Type}, globalId={eligibility.GlobalId}, previous=2, readback={readback}.",
-                        warning: true);
-                }
-            }
-
-            if (releasedReservations > 0 || failedReadbacks > 0)
-            {
-                Shared.DebugLogHelper.LogInfo(
-                    log,
-                    $"Improved Hunters stale prey reservation cleanup: reservedKnownPrey={reservedKnownPrey}, " +
-                    $"retained={retainedReservations}, released={releasedReservations}, failedReadbacks={failedReadbacks}, " +
-                    $"activeHunterTargets={activeHunterTargetUnitIds.Count}, " +
-                    $"invariant={reservedKnownPrey == retainedReservations + releasedReservations + failedReadbacks}.");
-            }
         }
 
         private void LogPreyCacheSummary(

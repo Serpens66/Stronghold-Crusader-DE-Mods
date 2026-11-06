@@ -1,4 +1,5 @@
 using APIShared.GameModes;
+using APIShared.Simulation;
 using Shared;
 using BepInEx.Logging;
 using R3;
@@ -32,9 +33,7 @@ namespace ImprovedHunters
         private const int DefaultPreyHandlingCost = 100;
         private const int MaxPreyCacheDiagnosticLogs = 120;
         private const int MaxHunterTargetDiagnosticLogs = 160;
-        private const int MaxChickenOwnershipDiagnosticLogs = 160;
         private const int MaximumPlayerId = 8;
-        private const int MaxReservationDiagnosticLogs = 80;
         private const int MaxInvalidHunterEventLogs = 20;
         private const int MaxHunterQueryActorWorkaroundLogs = 20;
 
@@ -55,20 +54,16 @@ namespace ImprovedHunters
         private const int CamelDespawnTickTimeRva = 0x1584B8;
         private const int ChickenDespawnTickTimeRva = 0x163465;
 
-        // The BepInEx plugin component is short-lived in SHCDE, so all repeating
-        // work is driven from persistent Script Extender events and Stopwatch.
-        private static readonly long NativeScanInterval = Stopwatch.Frequency / 10;
-        private static readonly long IdleHunterRequeryInterval = Stopwatch.Frequency;
-        private static readonly long PreyCacheRefreshInterval = Stopwatch.Frequency * 5;
-        private static readonly long StaleReservationCleanupInterval = Stopwatch.Frequency * 10;
-        private static readonly long BestTargetCacheInterval = Stopwatch.Frequency / 2;
-        private static readonly long AbortedTargetCooldownInterval = Stopwatch.Frequency * 30;
-        private static readonly long HunterTargetSummaryInterval = Stopwatch.Frequency * 5;
-        private static readonly long HunterSearchDetectionGap = Stopwatch.Frequency / 4;
-        private static readonly long PendingGranaryChickenSpawnTimeout = Stopwatch.Frequency * 2;
-        private static readonly long GranaryChickenCleanupInterval = Stopwatch.Frequency / 10;
+        // The BepInEx plugin component is short-lived in SHCDE. Repeating work runs on APIShared's
+        // process-lived map-tick callback, at the same map ticks on every multiplayer peer.
+        private const int NativeScanIntervalMapTicks = HunterSimulationTime.MapTicksPerSecond / 10;
+        private static readonly long IdleHunterRequeryInterval = HunterSimulationTime.MapTicksPerSecond;
+        private static readonly long PreyCacheRefreshInterval = HunterSimulationTime.MapTicksPerSecond * 5;
+        private static readonly long BestTargetCacheInterval = HunterSimulationTime.MapTicksPerSecond / 2;
+        private static readonly long AbortedTargetCooldownInterval = HunterSimulationTime.MapTicksPerSecond * 30;
+        private static readonly long HunterSearchDetectionGap = HunterSimulationTime.MapTicksPerSecond / 4;
         private const int ShortLivedCorpseVisiblePreserveMapTicksAtSpeed40 = 1800;
-        private static readonly long ShortLivedCorpsePreserveCleanupInterval = Stopwatch.Frequency * 10;
+        private static readonly long ShortLivedCorpsePreserveCleanupInterval = HunterSimulationTime.MapTicksPerSecond * 10;
 
         private readonly ManualLogSource log;
         private readonly ImprovedHuntersViewModel settings;
@@ -77,15 +72,14 @@ namespace ImprovedHunters
         private readonly Dictionary<int, long> nextIdleHunterRequeryTimestamps = new Dictionary<int, long>();
         private readonly HashSet<uint> loggedCollectedCorpseGlobalIds = new HashSet<uint>();
         private readonly List<PreySnapshot> preyCache = new List<PreySnapshot>();
+        // Reused by the scan, which only runs in the simulation tick callback.
+        private readonly List<IntPtr> scanHunters = new List<IntPtr>();
+        private readonly List<IntPtr> scanEligiblePrey = new List<IntPtr>();
         private readonly Dictionary<int, CachedBestTarget> bestTargetCache = new Dictionary<int, CachedBestTarget>();
         private readonly Dictionary<int, HunterTargetSnapshot> activeHunterTargets = new Dictionary<int, HunterTargetSnapshot>();
         private readonly Dictionary<HunterPreyCooldownKey, long> abortedTargetCooldowns = new Dictionary<HunterPreyCooldownKey, long>();
         private readonly Dictionary<int, long> lastHunterQueryTimestamps = new Dictionary<int, long>();
         private readonly Dictionary<int, long> hunterMeatPickupTimestamps = new Dictionary<int, long>();
-        private readonly Dictionary<int, TrackedGranaryChicken> trackedGranaryChickens = new Dictionary<int, TrackedGranaryChicken>();
-        private readonly int[] trackedGranaryChickenCounts = new int[MaximumPlayerId + 1];
-        private readonly Stack<PendingGranaryChickenSpawn> pendingGranaryChickenSpawns = new Stack<PendingGranaryChickenSpawn>();
-        private readonly List<int> staleGranaryChickenUnitIds = new List<int>();
 
         // Keeps short-lived corpses visible long enough for hunters to reach them.
         // The value is either the preserve-until map tick or ExpiredShortLivedCorpsePreserve.
@@ -112,10 +106,8 @@ namespace ImprovedHunters
         private uint desiredCamelHealth;
         private uint lastLoggedDesiredCamelHealth;
         private bool nativeScanFailureLogged;
-        private long nextNativeScanTimestamp;
+        private bool simulationTickRegistered;
         private long nextPreyCacheRefreshTimestamp;
-        private long nextStaleReservationCleanupTimestamp;
-        private long nextHunterTargetSummaryTimestamp;
         private long nextShortLivedCorpsePreserveCleanupTimestamp;
         private int hunterTargetDiagnosticLogs;
         private int preyCacheDiagnosticLogs;
@@ -126,30 +118,24 @@ namespace ImprovedHunters
         private int hunterTargetNoBestEvents;
         private int hunterTargetSearchStarts;
         private int shortLivedCorpsePreserveLogs;
-        private int chickenOwnershipDiagnosticLogs;
-        private int reservationDiagnosticLogs;
         private int invalidHunterEventLogs;
         private int hunterQueryActorWorkaroundLogs;
-        private AutomaticChickenTargetPatch automaticChickenTargetPatch;
-        private ManualChickenAttackPatch manualChickenAttackPatch;
+        private OwnedChickenHuntPatch ownedChickenHuntPatch;
         private GranaryChickenLimitPatch granaryChickenLimitPatch;
+        private PreyReservationHeartbeatPatch preyReservationHeartbeatPatch;
+        private RabbitMeleeOrderPatch rabbitMeleeOrderPatch;
         private HunterQueryActorWorkaround hunterQueryActorWorkaround;
-        private HunterLineOfSightRecovery hunterLineOfSightRecovery;
         private HunterHutVisibilityPatch hunterHutVisibilityPatch;
         private HunterNativeVisibilityProbe hunterNativeVisibilityProbe;
         private HunterActiveTargetVisibilitySnapshot hunterActiveTargetVisibilitySnapshot;
         private HunterPclReachability hunterPclReachability;
-        private HunterPclReachabilityDiagnostic hunterPclReachabilityDiagnostic;
         private HunterRemainingPathSpeedRecovery hunterRemainingPathSpeedRecovery;
         private HunterPostShotContinuationDiagnostic hunterPostShotContinuationDiagnostic;
         private HunterTargetSearchFallbackDiagnostic hunterTargetSearchFallbackDiagnostic;
         private HunterVanillaPathContinuationDiagnostic hunterVanillaPathContinuationDiagnostic;
-        private HunterVisibilityDiagnostic hunterVisibilityDiagnostic;
         private bool referenceHashMatches;
         private bool targetSelectionModeAllowed;
         private bool pathfindingModeAllowed;
-        private bool loadedChickenReconstructionPending;
-        private long nextGranaryChickenCleanupTimestamp;
         private bool applied;
         private bool runtimeEventsSubscribed;
 
@@ -173,21 +159,21 @@ namespace ImprovedHunters
                 return;
 
             this.referenceHashMatches = referenceHashMatches;
-            InitializeAutomaticChickenTargetPatch(memory, imageBase, referenceHashMatches);
-            InitializeManualChickenAttackPatch(memory, imageBase, referenceHashMatches);
+            InitializeOwnedChickenHuntPatch(memory, imageBase, referenceHashMatches);
             InitializeGranaryChickenLimitPatch(memory, imageBase, referenceHashMatches);
+            InitializePreyReservationHeartbeatPatch(memory, imageBase, referenceHashMatches);
+            InitializeRabbitMeleeOrderPatch(memory, imageBase, referenceHashMatches);
             InitializeHunterQueryActorWorkaround(memory, imageBase, referenceHashMatches);
             InitializeHunterNativeVisibilityProbe(memory, imageBase, referenceHashMatches);
             InitializeHunterHutVisibilityPatch(memory, imageBase, referenceHashMatches);
             TryInitializeFeature("PCL reachability", () => InitializeHunterPclReachability(referenceHashMatches));
-            TryInitializeFeature("PCL reachability diagnostics", () => InitializeHunterPclReachabilityDiagnostic(referenceHashMatches));
             TryInitializeFeature("active-target visibility snapshot", InitializeHunterActiveTargetVisibilitySnapshot);
             InitializeHunterPostShotContinuationDiagnostic(memory, imageBase, referenceHashMatches);
             InitializeHunterTargetSearchFallbackDiagnostic(memory, imageBase, referenceHashMatches);
             InitializeHunterRemainingPathSpeedRecovery(memory, imageBase, referenceHashMatches);
             InitializeHunterVanillaPathContinuationDiagnostic(memory, imageBase, referenceHashMatches);
-            TryInitializeFeature("line-of-sight recovery", InitializeHunterLineOfSightRecovery);
-            TryInitializeFeature("visibility diagnostics", InitializeHunterVisibilityDiagnostic);
+
+            TryInitializeFeature("simulation tick", RegisterSimulationTick);
 
             if (Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod))
                 SubscribeRuntimeEvents();
@@ -204,40 +190,52 @@ namespace ImprovedHunters
             InitializeExtraDespawnPatches(memory, imageBase);
             TryInitializeFeature("despawn settings", ApplyDespawnPatches);
             TryInitializeFeature("camel health", ApplyCamelHealthPatch);
+            TryInitializeFeature("native site registry", () => HunterHookInfrastructure.PublishNativeSites(imageBase, log));
 
             applied = true;
             Shared.DebugLogHelper.LogInfo(
                     log,
-                    $"Improved Hunters runtime enabled: automaticChickenTargetAvailable=" +
-                    $"{automaticChickenTargetPatch?.IsAvailable == true}, " +
-                    $"automaticChickenTargetApplied={automaticChickenTargetPatch?.IsApplied == true}, " +
-                    $"manualChickenAttackAvailable={manualChickenAttackPatch?.IsAvailable == true}, " +
+                    $"Improved Hunters runtime enabled: ownedChickenHuntAvailable=" +
+                    $"{ownedChickenHuntPatch?.IsAvailable == true}, " +
                     $"granaryChickenLimitAvailable={granaryChickenLimitPatch?.IsAvailable == true}, " +
+                    $"preyReservationHeartbeatAvailable={preyReservationHeartbeatPatch?.IsAvailable == true}, " +
+                    $"rabbitMeleeOrderAvailable={rabbitMeleeOrderPatch?.IsAvailable == true}, " +
                     $"hunterQueryActorWorkaroundAvailable={hunterQueryActorWorkaround?.IsAvailable == true}, " +
-                    $"hunterLineOfSightRecoveryAvailable={hunterLineOfSightRecovery?.IsAvailable == true}, " +
                     $"hunterHutVisibilityAvailable={hunterHutVisibilityPatch?.IsAvailable == true}, " +
                     $"hunterHutVisibilityApplied={hunterHutVisibilityPatch?.IsApplied == true}, " +
                     $"hunterNativeVisibilityProbeAvailable={hunterNativeVisibilityProbe?.IsAvailable == true}, " +
                     $"hunterActiveTargetVisibilityAvailable={hunterActiveTargetVisibilitySnapshot?.IsAvailable == true}, " +
                     $"hunterPclReachabilityAvailable={hunterPclReachability?.IsAvailable == true}, " +
-                    $"hunterPclReachabilityDiagnosticAvailable={hunterPclReachabilityDiagnostic?.IsAvailable == true}, " +
                     $"hunterRemainingPathSpeedRecoveryAvailable={hunterRemainingPathSpeedRecovery?.IsAvailable == true}, " +
                     $"hunterPostShotContinuationAvailable={hunterPostShotContinuationDiagnostic?.IsAvailable == true}, " +
                     $"hunterTargetSearchFallbackAvailable={hunterTargetSearchFallbackDiagnostic?.IsAvailable == true}, " +
                     $"hunterVanillaPathContinuationAvailable={hunterVanillaPathContinuationDiagnostic?.IsAvailable == true}, " +
-                    $"hunterVisibilityDiagnosticAvailable={hunterVisibilityDiagnostic?.IsAvailable == true}, " +
                     $"referenceHashMatches={referenceHashMatches}.");
         }
 
-        public unsafe void RunNativeScan(bool force = false)
+        private void RegisterSimulationTick()
         {
-            long timestamp = Stopwatch.GetTimestamp();
-            // Triggered by every unit movement/visual event; the throttle test comes before the settings read.
-            if (!applied || (!force && timestamp < nextNativeScanTimestamp) || !Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod))
+            if (!SimulationTickEvents.TryRegister(ImprovedHuntersPlugin.PluginGuid, "hunter-scan", OnSimulationTick, out string reason, 300))
+                throw new InvalidOperationException(reason);
+
+            simulationTickRegistered = true;
+        }
+
+        // Fixed map-tick boundaries keep the scan on the same ticks on all peers, also after a save load.
+        private void OnSimulationTick(int mapTick)
+        {
+            if (!applied ||
+                unchecked((uint)mapTick) % NativeScanIntervalMapTicks != 0 ||
+                !Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod))
+            {
                 return;
+            }
 
-            nextNativeScanTimestamp = timestamp + NativeScanInterval;
+            RunNativeScan(mapTick);
+        }
 
+        private unsafe void RunNativeScan(long timestamp)
+        {
             try
             {
                 // Re-apply cheap native/default patches here because settings and
@@ -245,24 +243,18 @@ namespace ImprovedHunters
                 ApplyDespawnPatches();
                 ApplyCamelHealthPatch();
 
+                if (!targetSelectionModeAllowed && !pathfindingModeAllowed)
+                    return;
+
                 SimpleNativeArray<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitArray();
                 if (units._array == null || units.Length == 0)
                     return;
 
-                RemoveExpiredPendingGranaryChickenSpawns(timestamp);
-                CleanupTrackedGranaryChickens();
-                if (loadedChickenReconstructionPending)
-                    TryReconstructLoadedGranaryChickens(units);
-
-                // Keep stale reservation cleanup independent from future target
-                // queries. A blocked shot can leave an otherwise idle hunter with
-                // no reason to refresh the prey cache again.
-                ReleaseStalePreyReservationsIfNeeded(units, timestamp);
-
-                List<IntPtr> hunters = new List<IntPtr>();
-                List<IntPtr> eligiblePrey = new List<IntPtr>();
+                List<IntPtr> hunters = scanHunters;
+                List<IntPtr> eligiblePrey = scanEligiblePrey;
+                hunters.Clear();
+                eligiblePrey.Clear();
                 int adjustedLiveCamels = 0;
-                long currentMapTick = GameTimeManagerAPI.Instance.GetElapsedMapTicks();
 
                 for (int index = 0; index < units.Length; index++)
                 {
@@ -276,7 +268,7 @@ namespace ImprovedHunters
                         IsRuntimeHuntingEnabled(unit->r_UnitChimp) &&
                         IsOwnerAllowedForAnyHunter(unitId, unit))
                     {
-                        PreserveShortLivedCorpse(unit, currentMapTick);
+                        PreserveShortLivedCorpse(unit, timestamp);
                     }
 
                     if (unit->r_AliveState == AliveState.None)
@@ -296,8 +288,6 @@ namespace ImprovedHunters
                     LogCamelHealthPatch(adjustedLiveCamels);
 
                 CleanupShortLivedCorpsePreserveCache(units, timestamp);
-                hunterVisibilityDiagnostic?.ProcessNativeScan(units, timestamp);
-                hunterNativeVisibilityProbe?.ProcessNativeScan(units, timestamp);
                 hunterActiveTargetVisibilitySnapshot?.ProcessNativeScan(units, timestamp);
                 RequeryHuntersWithUnreachableActivePrey(units, hunters, timestamp);
                 TrackHunterPreyAndExpireCollectedCorpses(units, hunters, timestamp);
@@ -397,38 +387,14 @@ namespace ImprovedHunters
                 uint targetGlobalIdAfter = *(uint*)(hunterBytes + 0x39C);
                 if (targetGlobalIdAfter != 0)
                 {
-                    hunterPclReachabilityDiagnostic?.RecordActiveTargetInvalidation(
-                        $"hunter={hunterUnitId}/{hunter->r_GlobalId}, " +
-                        $"target={targetUnitId}/{targetGlobalId}/{prey->r_UnitChimp}, " +
-                        $"outcome=target-global-readback-failed, readback={targetGlobalIdAfter}, " +
-                        $"path={pathState}/{pathFieldF4}/{pathProgress}/{pathLength}",
-                        warning: true);
                     continue;
                 }
 
-                HunterTargetSnapshot invalidatedTarget =
-                    new HunterTargetSnapshot(targetUnitId, targetGlobalId);
                 activeHunterTargets.Remove(hunterUnitId);
                 bestTargetCache.Remove(hunterUnitId);
                 abortedTargetCooldowns.Remove(
                     new HunterPreyCooldownKey(hunterUnitId, targetGlobalId));
-                TryReleaseAbortedPreyReservation(
-                    units,
-                    hunterUnitId,
-                    invalidatedTarget,
-                    "active-target-pcl-disconnected",
-                    cooldownApplied: false);
-
                 ushort reservationAfter = *(ushort*)((byte*)prey + 0x448);
-                hunterPclReachabilityDiagnostic?.RecordActiveTargetInvalidation(
-                    $"hunter={hunterUnitId}/{hunter->r_GlobalId}, " +
-                    $"target={targetUnitId}/{targetGlobalId}/{prey->r_UnitChimp}, " +
-                    $"outcome=vanilla-requery-armed, targetGlobal={targetGlobalId}->0, " +
-                    $"orderTargetGlobal={orderTargetGlobalId}, reservation={reservationBefore}->{reservationAfter}, " +
-                    $"path={pathState}/{pathFieldF4}/{pathProgress}/{pathLength}, " +
-                    "ownMovement=False, ownAiState=False, " +
-                    "followup=Vanilla-state1-identity-failure-search",
-                    warning: false);
             }
         }
 
@@ -514,10 +480,6 @@ namespace ImprovedHunters
                 if (!settings.IsKnownAnimal(target->r_UnitChimp))
                     continue;
 
-                hunterPreyTypes[hunterId] = target->r_UnitChimp;
-                if (target->r_UnitChimp == eChimps.CHIMP_TYPE_CHICKEN)
-                    hunterVisibilityDiagnostic?.RecordAssignedChickenTarget(hunterId, targetUnitId, targetGlobalId);
-
                 byte* targetBytes = (byte*)target;
                 if (*(ushort*)(hunterBytes + 0x2BC) != 0x02 ||
                     !IsShortLivedPrey(target->r_UnitChimp) ||
@@ -543,7 +505,7 @@ namespace ImprovedHunters
 
             byte* unitBytes = (byte*)unit;
             ushort reservation = *(ushort*)(unitBytes + 0x448);
-            if (reservation != 0 && reservation != 2)
+            if (reservation > 2)
                 return;
 
             // The native timer can jump past small thresholds at high game speed.
@@ -650,16 +612,13 @@ namespace ImprovedHunters
                 eligibility.Type == eChimps.CHIMP_TYPE_CHICKEN ||
                 eligibility.FlagsAt92 == 0;
             bool isLivePrey = eligibility.CorpseFlag == 0 && prey->r_CurrentHealth > 0;
-            bool isAllowedDeadTarget = settings.AllowDeadTargets &&
-                eligibility.CorpseFlag != 0 &&
-                eligibility.AiState == HunterCorpsePickupAiState;
             eligibility.Eligible =
                 eligibility.RuntimeHuntingEnabled &&
                 eligibility.OwnerAllowed &&
                 eligibility.AliveState == (short)AliveState.IsAlive &&
                 eligibility.FlagsAllowed &&
                 eligibility.Reservation == 0 &&
-                (isLivePrey || isAllowedDeadTarget);
+                isLivePrey;
 
             return eligibility.KnownAnimal;
         }
@@ -670,26 +629,21 @@ namespace ImprovedHunters
             nextIdleHunterRequeryTimestamps.Clear();
             loggedCollectedCorpseGlobalIds.Clear();
             shortLivedCorpsePreserveUntil.Clear();
-            ClearTrackedGranaryChickens();
-            pendingGranaryChickenSpawns.Clear();
-            loadedChickenReconstructionPending = true;
             ClearTargetSelectionCaches();
-            hunterLineOfSightRecovery?.ResetForMap();
             hunterNativeVisibilityProbe?.ResetForMap();
             hunterActiveTargetVisibilitySnapshot?.ResetForMap();
             hunterPclReachability?.ResetForMap();
-            hunterPclReachabilityDiagnostic?.ResetForMap();
             hunterPostShotContinuationDiagnostic?.ResetForMap();
             hunterTargetSearchFallbackDiagnostic?.ResetForMap();
             hunterRemainingPathSpeedRecovery?.ResetForMap();
             hunterVanillaPathContinuationDiagnostic?.ResetForMap();
-            hunterVisibilityDiagnostic?.ResetForMap();
             APIShared.GameModes.GameModeSnapshot gameMode = Shared.GameplayModActivationGate.Snapshot;
-            targetSelectionModeAllowed = Shared.GameplayFeatureModePolicy.IsAllowed(
+            // Without the tick callback nothing would maintain the state these features read.
+            targetSelectionModeAllowed = simulationTickRegistered && Shared.GameplayFeatureModePolicy.IsAllowed(
                 ImprovedHuntersPlugin.PluginGuid,
                 Shared.GameplayFeatureId.ImprovedHunterTargetSelection,
                 gameMode);
-            pathfindingModeAllowed = Shared.GameplayFeatureModePolicy.IsAllowed(
+            pathfindingModeAllowed = simulationTickRegistered && Shared.GameplayFeatureModePolicy.IsAllowed(
                 ImprovedHuntersPlugin.PluginGuid,
                 Shared.GameplayFeatureId.ImprovedHunterPathfinding,
                 gameMode);
@@ -700,7 +654,9 @@ namespace ImprovedHunters
                 $"targetSelectionAllowed={targetSelectionModeAllowed}, " +
                 $"pathfindingAllowed={pathfindingModeAllowed}, {gameMode.ToDiagnosticString()}.");
             nativeScanFailureLogged = false;
-            RunNativeScan(force: true);
+            // Simulation state is only written from the tick callback, which follows this start.
+            TryInitializeFeature("despawn settings", ApplyDespawnPatches);
+            TryInitializeFeature("camel health", ApplyCamelHealthPatch);
         }
 
         private void OnHunterPickUpMeat(UnitHunterPickUpMeatEventArgs args)
@@ -711,10 +667,27 @@ namespace ImprovedHunters
                 return;
             }
 
-            hunterMeatPickupTimestamps[args.UnitId] = Stopwatch.GetTimestamp();
+            hunterMeatPickupTimestamps[args.UnitId] = HunterSimulationTime.Now;
+            RememberCarriedPreyType(args.UnitId);
             TryDeleteCollectedShortLivedCorpse(args.UnitId);
             activeHunterTargets.Remove(args.UnitId);
             bestTargetCache.Remove(args.UnitId);
+        }
+
+        // Taken from the Hunter's own target at pickup: simulation data, identical on all peers.
+        private unsafe void RememberCarriedPreyType(int hunterUnitId)
+        {
+            hunterPreyTypes.Remove(hunterUnitId);
+            if (!TryGetCollectedCorpseTarget(hunterUnitId, out HunterTargetSnapshot target) ||
+                !APIShared.UnitAccess.TryGetById(target.UnitId, out GameUnit* prey, out _) ||
+                prey == null ||
+                prey->r_GlobalId != target.GlobalId ||
+                !settings.IsKnownAnimal(prey->r_UnitChimp))
+            {
+                return;
+            }
+
+            hunterPreyTypes[hunterUnitId] = prey->r_UnitChimp;
         }
 
         private void OnHunterDropOffMeat(UnitHunterDropOffMeatEventArgs args)
@@ -729,8 +702,8 @@ namespace ImprovedHunters
                 return;
 
             hunterMeatPickupTimestamps.Remove(args.UnitId);
-            long elapsedTicks = Stopwatch.GetTimestamp() - pickupTimestamp;
-            double elapsedSeconds = elapsedTicks / (double)Stopwatch.Frequency;
+            long elapsedTicks = HunterSimulationTime.Now - pickupTimestamp;
+            double elapsedSeconds = elapsedTicks / (double)HunterSimulationTime.MapTicksPerSecond;
             if (hunterTargetDiagnosticLogs < MaxHunterTargetDiagnosticLogs)
             {
                 Shared.DebugLogHelper.LogInfo(
@@ -810,7 +783,7 @@ namespace ImprovedHunters
             uint targetGlobalId,
             long timestamp)
         {
-            if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) || !settings.ImprovedPathfinding)
+            if (!CanRunHunterPathfinding())
                 return;
 
             bool hasCurrentTarget = targetUnitId != 0 && targetGlobalId != 0;
@@ -831,146 +804,11 @@ namespace ImprovedHunters
 
             activeHunterTargets.Remove(hunterUnitId);
             bestTargetCache.Remove(hunterUnitId);
-            bool recoveryMoveIssued = hunterLineOfSightRecovery?.TryRecoverAfterTargetAbort(
-                    units,
-                    hunterUnitId,
-                    previousTarget.UnitId,
-                    previousTarget.GlobalId,
-                    timestamp) == true;
             HunterPreyCooldownKey cooldownKey = new HunterPreyCooldownKey(hunterUnitId, previousTarget.GlobalId);
-            if (recoveryMoveIssued)
-                abortedTargetCooldowns.Remove(cooldownKey);
-            else
-                SetTargetCooldownUntil(cooldownKey, timestamp + AbortedTargetCooldownInterval);
-            TryReleaseAbortedPreyReservation(
-                units,
-                hunterUnitId,
-                previousTarget,
-                hasCurrentTarget ? "target-changed" : "target-cleared");
+            SetTargetCooldownUntil(cooldownKey, timestamp + AbortedTargetCooldownInterval);
 
-            // MoveToTile replaces the just-observed target order. Do not cache
-            // that stale target as active after a recovery move was issued.
-            if (hasCurrentTarget && !recoveryMoveIssued)
+            if (hasCurrentTarget)
                 activeHunterTargets[hunterUnitId] = new HunterTargetSnapshot(targetUnitId, targetGlobalId);
-        }
-
-        private unsafe void TryReleaseAbortedPreyReservation(
-            SimpleNativeArray<GameUnit> units,
-            int hunterUnitId,
-            HunterTargetSnapshot previousTarget,
-            string transition,
-            bool cooldownApplied = true)
-        {
-            long cooldownSeconds = cooldownApplied
-                ? AbortedTargetCooldownInterval / Stopwatch.Frequency
-                : 0;
-
-            if (previousTarget.UnitId <= 0 || previousTarget.UnitId > units.Length)
-            {
-                LogReservationDiagnostic(
-                    $"Improved Hunters prey reservation: source=target-abort, outcome=target-out-of-range, " +
-                    $"hunter={hunterUnitId}, transition={transition}, target={previousTarget.UnitId}, " +
-                    $"globalId={previousTarget.GlobalId}.",
-                    warning: true);
-                return;
-            }
-
-            GameUnit* prey = units.GetValuePointer(previousTarget.UnitId - 1);
-            if (prey->r_GlobalId != previousTarget.GlobalId)
-            {
-                LogReservationDiagnostic(
-                    $"Improved Hunters prey reservation: source=target-abort, outcome=slot-reused, " +
-                    $"hunter={hunterUnitId}, transition={transition}, target={previousTarget.UnitId}, " +
-                    $"expectedGlobalId={previousTarget.GlobalId}, currentGlobalId={prey->r_GlobalId}.");
-                return;
-            }
-
-            TryGetPreyEligibility(previousTarget.UnitId, prey, out PreyEligibility eligibility);
-            if (!eligibility.KnownAnimal ||
-                eligibility.AliveState != (short)AliveState.IsAlive ||
-                eligibility.CorpseFlag != 0)
-            {
-                LogReservationDiagnostic(
-                    $"Improved Hunters prey reservation: source=target-abort, outcome=not-live-prey, " +
-                    $"hunter={hunterUnitId}, transition={transition}, target={previousTarget.UnitId}/{eligibility.Type}, " +
-                    $"globalId={previousTarget.GlobalId}, aliveState={eligibility.AliveState}, " +
-                    $"corpseFlag={eligibility.CorpseFlag}, reservation={eligibility.Reservation}.");
-                return;
-            }
-
-            if (eligibility.Reservation != 2)
-            {
-                LogReservationDiagnostic(
-                    $"Improved Hunters prey reservation: source=target-abort, outcome=no-stale-reservation, " +
-                    $"hunter={hunterUnitId}, transition={transition}, target={previousTarget.UnitId}/{eligibility.Type}, " +
-                    $"globalId={previousTarget.GlobalId}, reservation={eligibility.Reservation}, " +
-                    $"cooldownSeconds={cooldownSeconds}.");
-                return;
-            }
-
-            if (IsTargetedByAnyLiveHunter(units, previousTarget))
-            {
-                LogReservationDiagnostic(
-                    $"Improved Hunters prey reservation: source=target-abort, outcome=retained-other-hunter, " +
-                    $"hunter={hunterUnitId}, transition={transition}, target={previousTarget.UnitId}/{eligibility.Type}, " +
-                    $"globalId={previousTarget.GlobalId}, reservation={eligibility.Reservation}.");
-                return;
-            }
-
-            byte* preyBytes = (byte*)prey;
-            *(ushort*)(preyBytes + 0x448) = 0;
-            ushort readback = *(ushort*)(preyBytes + 0x448);
-            LogReservationDiagnostic(
-                $"Improved Hunters prey reservation: source=target-abort, " +
-                $"outcome={(readback == 0 ? "released" : "readback-failed")}, hunter={hunterUnitId}, " +
-                $"transition={transition}, target={previousTarget.UnitId}/{eligibility.Type}, " +
-                $"globalId={previousTarget.GlobalId}, previous=2, readback={readback}, " +
-                $"cooldownSeconds={cooldownSeconds}.",
-                warning: readback != 0);
-        }
-
-        private static unsafe bool IsTargetedByAnyLiveHunter(
-            SimpleNativeArray<GameUnit> units,
-            HunterTargetSnapshot target)
-        {
-            for (int index = 0; index < units.Length; index++)
-            {
-                GameUnit* hunter = units.GetValuePointer(index);
-                if (!APIShared.UnitAccess.IsReallyAlive(hunter) ||
-                    hunter->r_UnitChimp != eChimps.CHIMP_TYPE_HUNTER)
-                {
-                    continue;
-                }
-
-                byte* hunterBytes = (byte*)hunter;
-                if (*(ushort*)(hunterBytes + 0x39A) == target.UnitId &&
-                    *(uint*)(hunterBytes + 0x39C) == target.GlobalId)
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        private void LogReservationDiagnostic(string message, bool warning = false)
-        {
-            if (reservationDiagnosticLogs >= MaxReservationDiagnosticLogs)
-                return;
-
-            reservationDiagnosticLogs++;
-            string countedMessage = $"{message} ({reservationDiagnosticLogs}/{MaxReservationDiagnosticLogs}).";
-            if (warning)
-                Shared.DebugLogHelper.LogWarning(log, countedMessage);
-            else
-                Shared.DebugLogHelper.LogInfo(log, countedMessage);
-
-            if (reservationDiagnosticLogs == MaxReservationDiagnosticLogs)
-            {
-                Shared.DebugLogHelper.LogWarning(
-                    log,
-                    "Improved Hunters prey reservation diagnostic limit reached; further repeated outcomes are suppressed.");
-            }
         }
 
         private void LogInvalidHunterEvent(string eventName, int unitId)
@@ -1049,21 +887,6 @@ namespace ImprovedHunters
             }
         }
 
-        private void LogHunterTargetQuerySummary()
-        {
-            long timestamp = Stopwatch.GetTimestamp();
-            if (timestamp < nextHunterTargetSummaryTimestamp)
-                return;
-
-            nextHunterTargetSummaryTimestamp = timestamp + HunterTargetSummaryInterval;
-            Shared.DebugLogHelper.LogInfo(
-                log,
-                $"Improved Hunters target query summary: total={hunterTargetQueryEvents}, accepted={hunterTargetAcceptedEvents}, " +
-                $"rejected={hunterTargetRejectedEvents}, searches={hunterTargetSearchStarts}, fallback={hunterTargetFallbackEvents}, noBest={hunterTargetNoBestEvents}, " +
-                $"preyCache={preyCache.Count}, ranking=bounded-chebyshev-after-PCL, " +
-                $"nativeReachability=({hunterPclReachability?.GetDiagnosticSummary() ?? "unavailable"}).");
-        }
-
         private unsafe void OnCalculateBonusYield(UnitCalculateBonusYieldEventArgs args)
         {
             if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) ||
@@ -1102,28 +925,33 @@ namespace ImprovedHunters
                 propertyName == nameof(ImprovedHuntersViewModel.HuntChicken);
 
             if (propertyName == nameof(ImprovedHuntersViewModel.EnableMod) ||
+                propertyName == nameof(ImprovedHuntersViewModel.HuntRabbit) ||
+                propertyName == nameof(ImprovedHuntersViewModel.HuntCamel) ||
                 propertyName == nameof(ImprovedHuntersViewModel.HuntChicken))
             {
-                ApplyAutomaticChickenTargetPatch();
-                if (Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) && settings.HuntChicken)
-                {
-                    // Recover chickens Vanilla may have created while management was disabled.
-                    loadedChickenReconstructionPending = true;
-                    RunNativeScan(force: true);
-                }
+                ApplyPreyReservationHeartbeat();
+            }
+
+            if (propertyName == nameof(ImprovedHuntersViewModel.EnableMod) ||
+                propertyName == nameof(ImprovedHuntersViewModel.RabbitsOnlyOnOrder))
+            {
+                ApplyRabbitMeleeOrderRule();
+            }
+
+            if (propertyName == nameof(ImprovedHuntersViewModel.EnableMod) ||
+                propertyName == nameof(ImprovedHuntersViewModel.HuntChicken))
+            {
+                ownedChickenHuntPatch?.SetEnabled(IsOwnedChickenHuntingEnabled);
             }
 
             ClearTargetSelectionCaches();
             if (propertyName == nameof(ImprovedHuntersViewModel.EnableMod) ||
                 huntingTargetSettingChanged ||
                 propertyName == nameof(ImprovedHuntersViewModel.ImprovedTargetSelection) ||
-                propertyName == nameof(ImprovedHuntersViewModel.ImprovedPathfinding) ||
-                propertyName == nameof(ImprovedHuntersViewModel.AllowDeadTargets))
+                propertyName == nameof(ImprovedHuntersViewModel.ImprovedPathfinding))
             {
-                hunterLineOfSightRecovery?.ResetForMap();
                 hunterActiveTargetVisibilitySnapshot?.ResetForMap();
                 hunterPclReachability?.ResetForMap();
-                hunterPclReachabilityDiagnostic?.ResetForMap();
                 hunterPostShotContinuationDiagnostic?.ResetForMap();
                 hunterTargetSearchFallbackDiagnostic?.ResetForMap();
                 hunterRemainingPathSpeedRecovery?.ResetForMap();
@@ -1159,29 +987,23 @@ namespace ImprovedHunters
             OnSettingChanged(nameof(ImprovedHuntersViewModel.EnableMod));
         }
 
-        private void InitializeAutomaticChickenTargetPatch(
+        private void InitializeOwnedChickenHuntPatch(
             ReadOnlySpan<byte> memory,
             ulong imageBase,
             bool referenceHashMatches)
         {
             try
             {
-                automaticChickenTargetPatch = new AutomaticChickenTargetPatch(
-                    log,
-                    hookRegion,
-                    memory,
-                    imageBase,
-                    referenceHashMatches);
-                ApplyAutomaticChickenTargetPatch();
+                ownedChickenHuntPatch = new OwnedChickenHuntPatch(log, hookRegion, memory, imageBase, referenceHashMatches);
+                ownedChickenHuntPatch.SetEnabled(IsOwnedChickenHuntingEnabled);
             }
             catch (Exception exception)
             {
-                automaticChickenTargetPatch?.Dispose();
-                automaticChickenTargetPatch = null;
+                ownedChickenHuntPatch?.Dispose();
+                ownedChickenHuntPatch = null;
                 Shared.DebugLogHelper.LogError(
                     log,
-                    $"Improved Hunters automatic chicken target protection is unavailable; " +
-                    $"other prey features remain active, but chicken ownership will not be neutralized: {exception}");
+                    $"Improved Hunters owned-chicken hunting is unavailable; chickens stay Vanilla and other prey features remain active: {exception}");
             }
         }
 
@@ -1199,11 +1021,7 @@ namespace ImprovedHunters
                     memory,
                     imageBase,
                     referenceHashMatches,
-                    getLiveChickenCount: GetLiveTrackedGranaryChickenCount,
-                    canManageChickens: () =>
-                        Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) &&
-                        settings.HuntChicken &&
-                        automaticChickenTargetPatch?.IsApplied == true);
+                    canManageChickens: () => IsOwnedChickenHuntingEnabled);
             }
             catch (Exception exception)
             {
@@ -1211,37 +1029,47 @@ namespace ImprovedHunters
                 granaryChickenLimitPatch = null;
                 Shared.DebugLogHelper.LogError(
                     log,
-                    $"Improved Hunters granary chicken limit is unavailable; Vanilla spawning remains active " +
-                    $"and no chickens will be neutralized: {exception}");
+                    $"Improved Hunters chicken population setting is unavailable; Vanilla's food-based population remains active: {exception}");
             }
         }
 
-        private void InitializeManualChickenAttackPatch(
+        private void InitializePreyReservationHeartbeatPatch(
             ReadOnlySpan<byte> memory,
             ulong imageBase,
             bool referenceHashMatches)
         {
             try
             {
-                manualChickenAttackPatch = new ManualChickenAttackPatch(
-                    log,
-                    hookRegion,
-                    memory,
-                    imageBase,
-                    referenceHashMatches,
-                    canAllowManualChickenAttack: () =>
-                        Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) &&
-                        settings.HuntChicken &&
-                        automaticChickenTargetPatch?.IsApplied == true);
+                preyReservationHeartbeatPatch = new PreyReservationHeartbeatPatch(log, hookRegion, memory, imageBase, referenceHashMatches);
+                ApplyPreyReservationHeartbeat();
             }
             catch (Exception exception)
             {
-                manualChickenAttackPatch?.Dispose();
-                manualChickenAttackPatch = null;
+                preyReservationHeartbeatPatch?.Dispose();
+                preyReservationHeartbeatPatch = null;
                 Shared.DebugLogHelper.LogError(
                     log,
-                    $"Improved Hunters manual chicken AttackUnit correction is unavailable; " +
-                    $"automatic target protection and other prey features remain active: {exception}");
+                    $"Improved Hunters reservation countdown is unavailable; rabbits, camels and chickens are not hunted because their reservations could never expire: {exception}");
+            }
+        }
+
+        private void InitializeRabbitMeleeOrderPatch(
+            ReadOnlySpan<byte> memory,
+            ulong imageBase,
+            bool referenceHashMatches)
+        {
+            try
+            {
+                rabbitMeleeOrderPatch = new RabbitMeleeOrderPatch(log, hookRegion, memory, imageBase, referenceHashMatches);
+                ApplyRabbitMeleeOrderRule();
+            }
+            catch (Exception exception)
+            {
+                rabbitMeleeOrderPatch?.Dispose();
+                rabbitMeleeOrderPatch = null;
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Improved Hunters melee rabbit rule is unavailable; melee units keep Vanilla's behaviour: {exception}");
             }
         }
 
@@ -1267,25 +1095,6 @@ namespace ImprovedHunters
                     log,
                     $"Improved Hunters temporary Script Extender issue-123 workaround is unavailable; " +
                     $"validated Hunter IDs may still be used, but unresolved query actors leave Vanilla unchanged: {exception}");
-            }
-        }
-
-        private void InitializeHunterVisibilityDiagnostic()
-        {
-            try
-            {
-                hunterVisibilityDiagnostic = new HunterVisibilityDiagnostic(
-                    log,
-                    settings);
-            }
-            catch (Exception exception)
-            {
-                hunterVisibilityDiagnostic?.Dispose();
-                hunterVisibilityDiagnostic = null;
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    $"Improved Hunters temporary visibility diagnostic is unavailable; " +
-                    $"Hunter behavior remains unchanged: {exception}");
             }
         }
 
@@ -1381,26 +1190,6 @@ namespace ImprovedHunters
             }
         }
 
-        private void InitializeHunterPclReachabilityDiagnostic(bool referenceHashMatches)
-        {
-            try
-            {
-                hunterPclReachabilityDiagnostic = new HunterPclReachabilityDiagnostic(
-                    log,
-                    referenceHashMatches,
-                    CanRunHunterReachability);
-            }
-            catch (Exception exception)
-            {
-                hunterPclReachabilityDiagnostic?.Dispose();
-                hunterPclReachabilityDiagnostic = null;
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    "Improved Hunters PCL reachability diagnostic is unavailable; " +
-                    $"Hunter behavior remains unchanged: {exception}");
-            }
-        }
-
         private void InitializeHunterPclReachability(bool referenceHashMatches)
         {
             try
@@ -1456,13 +1245,6 @@ namespace ImprovedHunters
                     timestamp);
             }
 
-            hunterPclReachabilityDiagnostic?.RecordMoveHereResult(
-                hunterUnitId,
-                preyUnitId,
-                preyGlobalId,
-                preyType,
-                moveHereResult,
-                timestamp);
         }
 
         private void InitializeHunterActiveTargetVisibilitySnapshot()
@@ -1723,41 +1505,24 @@ namespace ImprovedHunters
                 timestamp + AbortedTargetCooldownInterval);
         }
 
-        private void ApplyAutomaticChickenTargetPatch()
-        {
-            bool requestedEnabled = Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) && settings.HuntChicken;
-            if (automaticChickenTargetPatch == null)
-            {
-                Shared.DebugLogHelper.LogWarning(
-                    log,
-                    $"Improved Hunters automatic chicken target state request skipped: " +
-                    $"requestedEnabled={requestedEnabled}, outcome=patch-not-initialized; " +
-                    "chicken ownership neutralization remains inactive.");
-                return;
-            }
+        private bool IsOwnedChickenHuntingEnabled =>
+            Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) &&
+            settings.HuntChicken &&
+            ownedChickenHuntPatch?.IsAvailable == true &&
+            preyReservationHeartbeatPatch?.IsAvailable == true;
 
-            automaticChickenTargetPatch.TrySetEnabled(requestedEnabled);
+        private void ApplyPreyReservationHeartbeat()
+        {
+            preyReservationHeartbeatPatch?.SetEnabled(
+                Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) &&
+                (settings.HuntRabbit || settings.HuntCamel || settings.HuntChicken));
+            ownedChickenHuntPatch?.SetEnabled(IsOwnedChickenHuntingEnabled);
         }
 
-        private void LogChickenOwnershipDiagnostic(string message, bool warning = false)
+        private void ApplyRabbitMeleeOrderRule()
         {
-            if (chickenOwnershipDiagnosticLogs >= MaxChickenOwnershipDiagnosticLogs)
-                return;
-
-            chickenOwnershipDiagnosticLogs++;
-            string countedMessage =
-                $"{message} ({chickenOwnershipDiagnosticLogs}/{MaxChickenOwnershipDiagnosticLogs}).";
-            if (warning)
-                Shared.DebugLogHelper.LogWarning(log, countedMessage);
-            else
-                Shared.DebugLogHelper.LogInfo(log, countedMessage);
-
-            if (chickenOwnershipDiagnosticLogs == MaxChickenOwnershipDiagnosticLogs)
-            {
-                Shared.DebugLogHelper.LogWarning(
-                    log,
-                    "Improved Hunters chicken ownership diagnostic limit reached; further repeated outcomes are suppressed.");
-            }
+            rabbitMeleeOrderPatch?.SetEnabled(
+                Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) && settings.RabbitsOnlyOnOrder);
         }
 
         private static bool IsValidUnitId(int unitId)
@@ -1768,7 +1533,15 @@ namespace ImprovedHunters
 
         private bool IsRuntimeHuntingEnabled(eChimps type)
         {
-            return settings.IsHuntingEnabled(type);
+            if (!settings.IsHuntingEnabled(type))
+                return false;
+
+            // Without the countdown these prey types would stay reserved forever.
+            if (type == eChimps.CHIMP_TYPE_RABBIT || type == eChimps.CHIMP_TYPE_CAMEL)
+                return preyReservationHeartbeatPatch?.IsAvailable == true;
+            if (type == eChimps.CHIMP_TYPE_CHICKEN)
+                return IsOwnedChickenHuntingEnabled;
+            return true;
         }
 
         private static unsafe void UpdateUnitHealthDisplay(GameUnit* unit)
@@ -1791,12 +1564,17 @@ namespace ImprovedHunters
 
         private unsafe bool IsOwnerAllowed(int hunterOwner, GameUnit* prey)
         {
-            return true;
+            // Hunters only take chickens of their own player; other prey is neutral.
+            return prey->r_UnitChimp != eChimps.CHIMP_TYPE_CHICKEN ||
+                prey->r_ControllableForPlayerId == 0 ||
+                prey->r_ControllableForPlayerId == hunterOwner;
         }
 
-        private bool IsOwnerAllowed(int hunterOwner, int preyUnitId, eChimps preyType)
+        private unsafe bool IsOwnerAllowed(int hunterOwner, int preyUnitId, eChimps preyType)
         {
-            return true;
+            return APIShared.UnitAccess.TryGetById(preyUnitId, out GameUnit* prey, out _) &&
+                prey != null &&
+                IsOwnerAllowed(hunterOwner, prey);
         }
 
         private static bool IsShortLivedPrey(eChimps type)
@@ -1833,14 +1611,11 @@ namespace ImprovedHunters
             lastHunterQueryTimestamps.Clear();
             hunterMeatPickupTimestamps.Clear();
             nextPreyCacheRefreshTimestamp = 0;
-            nextStaleReservationCleanupTimestamp = 0;
-            nextHunterTargetSummaryTimestamp = 0;
             nextShortLivedCorpsePreserveCleanupTimestamp = 0;
             lastLoggedDesiredCamelHealth = 0;
             despawnPatchStateLogged = false;
             hunterTargetDiagnosticLogs = 0;
             preyCacheDiagnosticLogs = 0;
-            reservationDiagnosticLogs = 0;
             invalidHunterEventLogs = 0;
             hunterTargetQueryEvents = 0;
             hunterTargetAcceptedEvents = 0;
@@ -2021,84 +1796,6 @@ namespace ImprovedHunters
             }
         }
 
-        private void InitializeHunterLineOfSightRecovery()
-        {
-            try
-            {
-                hunterLineOfSightRecovery = new HunterLineOfSightRecovery(
-                    log,
-                    settings);
-            }
-            catch (Exception exception)
-            {
-                hunterLineOfSightRecovery?.Dispose();
-                hunterLineOfSightRecovery = null;
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    $"Improved Hunters line-of-sight recovery is unavailable; " +
-                    $"Hunter movement remains Vanilla: {exception}");
-            }
-        }
-
-        private sealed class PendingGranaryChickenSpawn
-        {
-            public readonly int SourcePlayerId;
-            public readonly eChimps UnitType;
-            public readonly int GranaryTileX;
-            public readonly int GranaryTileY;
-            public readonly int HeightElevation;
-            public readonly long CreatedAt;
-            public bool UnitCreateMatched;
-            public int WorldTileX;
-            public int WorldTileY;
-
-            public PendingGranaryChickenSpawn(
-                int sourcePlayerId,
-                eChimps unitType,
-                int granaryTileX,
-                int granaryTileY,
-                int heightElevation,
-                long createdAt)
-            {
-                SourcePlayerId = sourcePlayerId;
-                UnitType = unitType;
-                GranaryTileX = granaryTileX;
-                GranaryTileY = granaryTileY;
-                HeightElevation = heightElevation;
-                CreatedAt = createdAt;
-            }
-        }
-
-        private struct TrackedGranaryChicken
-        {
-            public readonly int UnitId;
-            public readonly uint GlobalId;
-            public readonly int SourcePlayerId;
-
-            public TrackedGranaryChicken(int unitId, uint globalId, int sourcePlayerId)
-            {
-                UnitId = unitId;
-                GlobalId = globalId;
-                SourcePlayerId = sourcePlayerId;
-            }
-        }
-
-        private struct ChickenGranaryCandidate
-        {
-            public readonly int BuildingId;
-            public readonly int PlayerId;
-            public readonly int TileX;
-            public readonly int TileY;
-
-            public ChickenGranaryCandidate(int buildingId, int playerId, int tileX, int tileY)
-            {
-                BuildingId = buildingId;
-                PlayerId = playerId;
-                TileX = tileX;
-                TileY = tileY;
-            }
-        }
-
         private void TryInitializeFeature(string featureName, Action initialize)
         {
             try
@@ -2120,9 +1817,6 @@ namespace ImprovedHunters
                 .Where(args => args.Phase == EventHookPhase.Pre).Subscribe(OnHunterQueryTarget));
             TrySubscribeFeature("bonus yield", () => UnitR3EventHooks.OnCalculateBonusYield.Observable
                 .Where(args => args.Phase == EventHookPhase.Pre).Subscribe(OnCalculateBonusYield));
-            TrySubscribeFeature("granary chicken spawning", () => BuildingR3EventHooks.OnGranarySpawnChicken.Observable
-                .Where(args => args.Phase == EventHookPhase.Pre).Subscribe(OnGranarySpawnChicken));
-            TrySubscribeFeature("unit creation", () => UnitR3EventHooks.OnUnitCreate.Observable.Subscribe(OnUnitCreate));
             TrySubscribeFeature("hunter meat pickup", () => UnitR3EventHooks.OnHunterPickUpMeat.Observable
                 .Where(args => args.Phase == EventHookPhase.Pre).Subscribe(OnHunterPickUpMeat));
             TrySubscribeFeature("hunter meat dropoff", () => UnitR3EventHooks.OnHunterDropOffMeat.Observable
@@ -2137,12 +1831,7 @@ namespace ImprovedHunters
                     targetSelectionModeAllowed = false;
                     pathfindingModeAllowed = false;
                     ClearTargetSelectionCaches();
-                    ClearTrackedGranaryChickens();
-                    pendingGranaryChickenSpawns.Clear();
-                    loadedChickenReconstructionPending = false;
                 }));
-            TrySubscribeFeature("movement scan trigger", () => UnitR3EventHooks.OnUnitMovement.Observable.Subscribe(_ => RunNativeScan()));
-            TrySubscribeFeature("visual scan trigger", () => UnitR3EventHooks.OnUnitUnityVisualInterpolate.Observable.Subscribe(_ => RunNativeScan()));
             runtimeEventsSubscribed = true;
         }
 
@@ -2155,10 +1844,11 @@ namespace ImprovedHunters
             }
             subscriptions.Clear();
             runtimeEventsSubscribed = false;
+            // The gate closes before the mission-end observer of these subscriptions can run.
+            targetSelectionModeAllowed = false;
+            pathfindingModeAllowed = false;
             hunterPreyTypes.Clear();
             nextIdleHunterRequeryTimestamps.Clear();
-            pendingGranaryChickenSpawns.Clear();
-            ClearTrackedGranaryChickens();
             ClearTargetSelectionCaches();
         }
 
@@ -2192,16 +1882,9 @@ namespace ImprovedHunters
             hunterPreyTypes.Clear();
             nextIdleHunterRequeryTimestamps.Clear();
             loggedCollectedCorpseGlobalIds.Clear();
-            ClearTrackedGranaryChickens();
-            pendingGranaryChickenSpawns.Clear();
-            staleGranaryChickenUnitIds.Clear();
-            loadedChickenReconstructionPending = false;
             ClearTargetSelectionCaches();
             nativeScanFailureLogged = false;
-            nextNativeScanTimestamp = 0;
 
-            hunterVisibilityDiagnostic?.Dispose();
-            hunterVisibilityDiagnostic = null;
             hunterTargetSearchFallbackDiagnostic?.Dispose();
             hunterTargetSearchFallbackDiagnostic = null;
             hunterPostShotContinuationDiagnostic?.Dispose();
@@ -2210,8 +1893,6 @@ namespace ImprovedHunters
             hunterVanillaPathContinuationDiagnostic = null;
             hunterActiveTargetVisibilitySnapshot?.Dispose();
             hunterActiveTargetVisibilitySnapshot = null;
-            hunterPclReachabilityDiagnostic?.Dispose();
-            hunterPclReachabilityDiagnostic = null;
             hunterPclReachability?.Dispose();
             hunterPclReachability = null;
             hunterRemainingPathSpeedRecovery?.Dispose();
@@ -2220,16 +1901,16 @@ namespace ImprovedHunters
             hunterNativeVisibilityProbe = null;
             hunterHutVisibilityPatch?.Dispose();
             hunterHutVisibilityPatch = null;
-            hunterLineOfSightRecovery?.Dispose();
-            hunterLineOfSightRecovery = null;
             hunterQueryActorWorkaround?.Dispose();
             hunterQueryActorWorkaround = null;
             granaryChickenLimitPatch?.Dispose();
             granaryChickenLimitPatch = null;
-            manualChickenAttackPatch?.Dispose();
-            manualChickenAttackPatch = null;
-            automaticChickenTargetPatch?.Dispose();
-            automaticChickenTargetPatch = null;
+            ownedChickenHuntPatch?.Dispose();
+            ownedChickenHuntPatch = null;
+            preyReservationHeartbeatPatch?.Dispose();
+            preyReservationHeartbeatPatch = null;
+            rabbitMeleeOrderPatch?.Dispose();
+            rabbitMeleeOrderPatch = null;
 
             // RabbitDespawnTickTime belongs to the Script Extender. Release only our
             // override; never dispose or reset the shared site itself.

@@ -4,7 +4,6 @@ using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 
 namespace ImprovedHunters
 {
@@ -180,7 +179,7 @@ namespace ImprovedHunters
                     $"target={preyUnitId}/{preyGlobalId}/{preyType}, " +
                     $"player={inputs.PlayerId}, mode={inputs.Mode}, " +
                     $"sourcePcl={inputs.SourcePcl}, targetPcl={inputs.TargetPcl}, " +
-                    $"selectionAgeMs={Math.Max(0, timestamp - observedAt) * 1000 / Stopwatch.Frequency}.");
+                    $"selectionAgeMs={Math.Max(0, timestamp - observedAt) * 1000 / HunterSimulationTime.MapTicksPerSecond}.");
             }
             return true;
         }
@@ -238,7 +237,7 @@ namespace ImprovedHunters
                 }
 
                 long ageTicks = Math.Max(0, timestamp - snapshot.ObservedAt);
-                ageMilliseconds = ageTicks * 1000 / Stopwatch.Frequency;
+                ageMilliseconds = ageTicks * 1000 / HunterSimulationTime.MapTicksPerSecond;
                 if (timestamp >= snapshot.UsableUntil)
                 {
                     status = "expired";

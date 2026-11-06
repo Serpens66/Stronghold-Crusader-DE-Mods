@@ -4,7 +4,6 @@ using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 
 namespace ImprovedHunters
 {
@@ -15,10 +14,10 @@ namespace ImprovedHunters
     internal sealed unsafe partial class HunterPclReachability : IDisposable
     {
         private const int MaxFailureLogs = 20;
-        private static readonly long CacheLifetime = Stopwatch.Frequency;
-        private static readonly long ActiveTargetProbeInterval = Stopwatch.Frequency;
-        private static readonly long ActiveTargetSnapshotLifetime = Stopwatch.Frequency * 2;
-        private static readonly long CacheCleanupInterval = Stopwatch.Frequency * 10;
+        private static readonly long CacheLifetime = HunterSimulationTime.MapTicksPerSecond;
+        private static readonly long ActiveTargetProbeInterval = HunterSimulationTime.MapTicksPerSecond;
+        private static readonly long ActiveTargetSnapshotLifetime = HunterSimulationTime.MapTicksPerSecond * 2;
+        private static readonly long CacheCleanupInterval = HunterSimulationTime.MapTicksPerSecond * 10;
 
         private readonly ManualLogSource log;
         private readonly Func<bool> canRun;

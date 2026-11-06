@@ -10,8 +10,8 @@ using RedBird.X64.Hooks.Transaction;
 namespace ImprovedHunters
 {
     /// <summary>
-    /// Normalizes Vanilla's chicken target immediately before its existing
-    /// comparison with the per-player granary chicken counter.
+    /// Replaces Vanilla's food-based chicken target with the configured value immediately
+    /// before its existing comparison with the per-player chicken counter.
     /// </summary>
     internal sealed unsafe class GranaryChickenLimitPatch : IDisposable
     {
@@ -28,7 +28,6 @@ namespace ImprovedHunters
 
         private readonly ManualLogSource log;
         private readonly ImprovedHuntersViewModel settings;
-        private readonly Func<int, int> getLiveChickenCount;
         private readonly Func<bool> canManageChickens;
         private HookTransaction transaction;
         private readonly HookHandle<X64InlineHook> comparisonHook = new HookHandle<X64InlineHook>();
@@ -43,12 +42,10 @@ namespace ImprovedHunters
             ReadOnlySpan<byte> memory,
             ulong libraryBase,
             bool referenceHashMatches,
-            Func<int, int> getLiveChickenCount,
             Func<bool> canManageChickens)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
-            this.getLiveChickenCount = getLiveChickenCount ?? throw new ArgumentNullException(nameof(getLiveChickenCount));
             this.canManageChickens = canManageChickens ?? throw new ArgumentNullException(nameof(canManageChickens));
             if (memory.Length == 0 || libraryBase == 0)
                 throw new ArgumentException("The Crusader library is unavailable.");
@@ -92,7 +89,7 @@ namespace ImprovedHunters
                 Shared.DebugLogHelper.LogInfo(
                     log,
                     $"Improved Hunters granary chicken limit initialized: comparisonRva=0x{hookRva:X}, " +
-                    $"skipSpawnRva=0x{skipSpawnTargetRva:X}, configured={settings.MaxNeutralChickensPerPlayer}.");
+                    $"skipSpawnRva=0x{skipSpawnTargetRva:X}, configured={settings.ChickensPerPlayer}.");
             }
             catch
             {
@@ -118,45 +115,25 @@ namespace ImprovedHunters
                 return;
 
             int playerId;
-            int liveCount;
-            int configuredLimit;
-            bool allowSpawn;
+            int target;
             try
             {
                 if (!canManageChickens())
                     return;
 
                 playerId = checked((int)context.Pointer->RBX);
-                using (Shared.CrashBreadcrumbScope diagnostic =
-                    Shared.CrashBreadcrumbDiagnostics.Enter(
-                        "GranaryChickenLimit",
-                        playerId,
-                        settings.MaxNeutralChickensPerPlayer))
-                {
                 if (playerId < MinimumPlayerId || playerId > MaximumPlayerId)
                 {
                     throw new InvalidOperationException(
                         $"The granary chicken comparison exposed invalid player ID {playerId}.");
                 }
 
-                liveCount = getLiveChickenCount(playerId);
-                configuredLimit = GranaryChickenSpawnPolicy.ClampMaximum(settings.MaxNeutralChickensPerPlayer);
-                if (!GranaryChickenSpawnPolicy.TryGetNormalizedVanillaTarget(
-                    managementEnabled: true,
-                    liveChickenCount: liveCount,
-                    configuredMaximum: configuredLimit,
-                    out int normalizedTarget))
-                {
-                    return;
-                }
-                allowSpawn = normalizedTarget != 0;
+                target = GranaryChickenSpawnPolicy.ClampTarget(settings.ChickensPerPlayer);
 
-                // The displaced instruction is still `cmp eax,[rdi+2048h]`.
-                // INT_MAX always permits its following signed jle to fall through;
-                // zero always takes the skip branch because Vanilla's count is nonnegative.
-                context.Pointer->RAX = unchecked((ulong)normalizedTarget);
-                    diagnostic.Complete(allowSpawn ? 1 : 2);
-                }
+                // The displaced instruction is still `cmp eax,[rdi+2048h]`, Vanilla's own count of
+                // this player's chickens. Its flags decide both following branches: spawn one
+                // below the target, remove one above it (the jge at the jle target reuses them).
+                context.Pointer->RAX = unchecked((ulong)target);
             }
             catch (Exception exception)
             {
@@ -165,28 +142,20 @@ namespace ImprovedHunters
             }
 
             // Diagnostics cannot change a successfully prepared comparison.
-            TryLogDecision(playerId, liveCount, configuredLimit, allowSpawn);
+            TryLogDecision(playerId, target);
         }
 
-        private void TryLogDecision(int playerId, int liveCount, int configuredLimit, bool allowSpawn)
+        private void TryLogDecision(int playerId, int target)
         {
             try
             {
-                if (!hookConfirmed)
-                {
-                    hookConfirmed = true;
-                    Shared.DebugLogHelper.LogInfo(
-                        log,
-                        $"Improved Hunters granary chicken limit hook confirmed: player={playerId}, " +
-                        $"live={liveCount}, limit={configuredLimit}, allowNextSpawn={allowSpawn}.");
-                }
+                if (hookConfirmed)
+                    return;
 
-                Shared.CrashBreadcrumbDiagnostics.Record(
-                    "GranaryChickenDecision",
-                    playerId,
-                    liveCount,
-                    configuredLimit,
-                    allowSpawn ? 1 : 0);
+                hookConfirmed = true;
+                Shared.DebugLogHelper.LogInfo(
+                    log,
+                    $"Improved Hunters chicken population hook confirmed: player={playerId}, target={target}.");
             }
             catch
             {
@@ -202,8 +171,8 @@ namespace ImprovedHunters
             featureAvailable = false;
             Shared.DebugLogHelper.LogError(
                 log,
-                $"Improved Hunters granary chicken limit is disabled for this process; " +
-                $"Vanilla spawning remains active and no further chickens will be neutralized: {failure}");
+                $"Improved Hunters chicken population setting is disabled for this process; " +
+                $"Vanilla's food-based population remains active: {failure}");
         }
     }
 }

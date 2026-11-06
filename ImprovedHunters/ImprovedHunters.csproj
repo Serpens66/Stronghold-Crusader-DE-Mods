@@ -135,9 +135,12 @@
     <Compile Include="src\HunterHookInfrastructure.cs" />
     <Compile Include="src\PermanentDispatchIndexOverride.cs" />
     <Compile Include="src\DispatchIndexStub.cs" />
-    <Compile Include="src\AutomaticChickenTargetPatch.cs" />
-    <Compile Include="src\ManualChickenAttackPolicy.cs" />
-    <Compile Include="src\ManualChickenAttackPatch.cs" />
+    <Compile Include="src\HunterNativeStubs.cs" />
+    <Compile Include="src\HunterSimulationTime.cs" />
+    <Compile Include="src\PermanentNativeGate.cs" />
+    <Compile Include="src\OwnedChickenHuntPatch.cs" />
+    <Compile Include="src\PreyReservationHeartbeatPatch.cs" />
+    <Compile Include="src\RabbitMeleeOrderPatch.cs" />
     <Compile Include="src\GranaryChickenLimitPatch.cs" />
     <Compile Include="src\GranaryChickenSpawnPolicy.cs" />
     <Compile Include="src\HunterQueryActorPolicy.cs" />
@@ -145,21 +148,17 @@
     <Compile Include="src\HunterTargetSelectionFeature.cs" />
     <Compile Include="src\HunterProjectileObservationFeature.cs" />
     <Compile Include="src\HunterAnimalCompatibilityFeature.cs" />
-    <Compile Include="src\HunterChickenCompatibilityFeature.cs" />
-    <Compile Include="src\HunterLineOfSightRecovery.cs" />
     <Compile Include="src\HunterMovementSnapshot.cs" />
     <Compile Include="src\HunterHutVisibilityPatch.cs" />
     <Compile Include="src\HunterNativeVisibilityProbe.cs" />
     <Compile Include="src\HunterActiveTargetVisibilitySnapshot.cs" />
     <Compile Include="src\HunterPclReachability.cs" />
     <Compile Include="src\HunterActiveTargetReachability.cs" />
-    <Compile Include="src\HunterPclReachabilityDiagnostic.cs" />
     <Compile Include="src\HunterRemainingPathSpeedRecovery.cs" />
     <Compile Include="src\HunterPostShotContinuationDiagnostic.cs" />
     <Compile Include="src\HunterTargetSearchFallbackDiagnostic.cs" />
     <Compile Include="src\HunterMovingTargetPathfindingDiagnostic.cs" />
     <Compile Include="src\HunterVanillaPathContinuationDiagnostic.cs" />
-    <Compile Include="src\HunterVisibilityDiagnostic.cs" />
     <Compile Include="src\ImprovedHuntersRuntime.cs" />
     <Compile Include="src\ImprovedHuntersViewModel.cs" />
   </ItemGroup>

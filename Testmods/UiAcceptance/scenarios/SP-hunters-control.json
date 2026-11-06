@@ -1,0 +1,23 @@
+{
+  "enabled": true,
+  "series": "SP-hunters-control",
+  "role": "sp",
+  "quitWhenDone": true,
+  "steps": [
+    { "id": "menu", "do": "WaitMainMenu", "timeoutMs": 60000, "stopOnFail": true, "allowErrors": true },
+    { "id": "enable", "do": "SetModSetting", "args": ["ImprovedHunters.ImprovedHuntersPlugin::persistentSettings", "EnableMod", "true"], "stopOnFail": true },
+    { "id": "rule-off", "do": "SetModSetting", "args": ["ImprovedHunters.ImprovedHuntersPlugin::persistentSettings", "RabbitsOnlyOnOrder", "false"], "stopOnFail": true },
+    { "id": "skirmish", "do": "Skirmish.Open", "timeoutMs": 15000, "stopOnFail": true },
+    { "id": "map", "do": "Lobby.SelectMap", "args": ["4spielerkarte.map"], "timeoutMs": 15000, "stopOnFail": true },
+    { "id": "ai", "do": "Lobby.AddAI", "args": ["1", "1"], "timeoutMs": 15000, "stopOnFail": true },
+    { "id": "play", "do": "Lobby.Play", "timeoutMs": 45000, "stopOnFail": true },
+    { "id": "briefing", "do": "AiMilitary.ResumeBriefing", "timeoutMs": 15000 },
+    { "id": "unpause", "do": "Pause", "args": ["off"], "stopOnFail": true },
+    { "id": "settle", "do": "Wait", "args": ["4000"] },
+    { "id": "speed", "do": "Speed", "args": ["120"] },
+    { "id": "rabbit-fixture", "do": "Hunt.Rabbits", "args": ["3", "3"], "timeoutMs": 10000, "stopOnFail": true },
+    { "id": "vanilla-attacks-rabbits", "do": "Hunt.RabbitDead", "args": ["0"], "timeoutMs": 20000 },
+    { "id": "menu-back", "do": "QuitToMenu", "timeoutMs": 30000 },
+    { "id": "restore-rule", "do": "SetModSetting", "args": ["ImprovedHunters.ImprovedHuntersPlugin::persistentSettings", "RabbitsOnlyOnOrder", "true"] }
+  ]
+}

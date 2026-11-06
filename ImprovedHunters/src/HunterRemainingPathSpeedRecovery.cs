@@ -4,7 +4,6 @@ using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using RedBird.Abstractions.Hooks;
 using RedBird.Abstractions.Hooks.Transaction;
 using RedBird.Core.Memory;
@@ -49,8 +48,8 @@ namespace ImprovedHunters
             "BE 01 00 00 00 42 89 B4 29 60 06 00 00 " +
             "66 42 89 B4 29 A4 09 00 00";
 
-        private static readonly long MaxNoProgressDuration = Stopwatch.Frequency * 3;
-        private static readonly long RetryCooldownDuration = Stopwatch.Frequency * 5;
+        private static readonly long MaxNoProgressDuration = HunterSimulationTime.MapTicksPerSecond * 3;
+        private static readonly long RetryCooldownDuration = HunterSimulationTime.MapTicksPerSecond * 5;
 
         private readonly ManualLogSource log;
         private readonly ImprovedHuntersViewModel settings;
@@ -287,7 +286,7 @@ namespace ImprovedHunters
                 hunter->r_GlobalId,
                 snapshot.PreyUnitId,
                 snapshot.PreyGlobalId);
-            long timestamp = Stopwatch.GetTimestamp();
+            long timestamp = HunterSimulationTime.Now;
             if (!TryContinueAttempt(identity, snapshot, timestamp, nativeDistance))
                 return;
 
@@ -526,7 +525,7 @@ namespace ImprovedHunters
                         "reason=no-progress, " +
                         $"nativeDistance={nativeDistance}, path={snapshot.PathState}/" +
                         $"{snapshot.PathProgress}/{snapshot.PathLength}, selections={attempt.Selections}, " +
-                        $"retryCooldownSeconds={RetryCooldownDuration / Stopwatch.Frequency}, " +
+                        $"retryCooldownSeconds={RetryCooldownDuration / HunterSimulationTime.MapTicksPerSecond}, " +
                         "currentCallbackMutation=False.",
                         warning: true);
                     return false;

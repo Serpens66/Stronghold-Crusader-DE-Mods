@@ -1,0 +1,27 @@
+{
+  "enabled": true,
+  "series": "SP-hunters-mpfixture",
+  "role": "sp",
+  "quitWhenDone": true,
+  "steps": [
+    { "id": "menu", "do": "WaitMainMenu", "timeoutMs": 60000, "stopOnFail": true, "allowErrors": true },
+    { "id": "enable", "do": "SetModSetting", "args": ["ImprovedHunters.ImprovedHuntersPlugin::persistentSettings", "EnableMod", "true"] },
+    { "id": "hunt", "do": "SetModSetting", "args": ["ImprovedHunters.ImprovedHuntersPlugin::persistentSettings", "HuntChicken", "true"] },
+    { "id": "count", "do": "SetModSetting", "args": ["ImprovedHunters.ImprovedHuntersPlugin::persistentSettings", "ChickensPerPlayer", "4"] },
+    { "id": "meat", "do": "SetModSetting", "args": ["ImprovedHunters.ImprovedHuntersPlugin::persistentSettings", "ChickenMeat", "37"] },
+    { "id": "skirmish", "do": "Skirmish.Open", "timeoutMs": 15000, "stopOnFail": true },
+    { "id": "map", "do": "Lobby.SelectMap", "args": ["4spielerkarte.map"], "timeoutMs": 15000, "stopOnFail": true },
+    { "id": "ai", "do": "Lobby.AddAI", "args": ["1", "1"], "timeoutMs": 15000, "stopOnFail": true },
+    { "id": "peace", "do": "Lobby.PeaceTime", "args": ["60"], "timeoutMs": 15000, "stopOnFail": true },
+    { "id": "play", "do": "Lobby.Play", "timeoutMs": 45000, "stopOnFail": true },
+    { "id": "briefing", "do": "AiMilitary.ResumeBriefing", "timeoutMs": 15000 },
+    { "id": "unpause", "do": "Pause", "args": ["off"], "stopOnFail": true },
+    { "id": "arm", "do": "HuntMp.Arm", "args": ["1200"], "timeoutMs": 10000, "stopOnFail": true },
+    { "id": "speed", "do": "Speed", "args": ["120"] },
+    { "id": "run", "do": "WaitMissionTicks", "args": ["9000"], "timeoutMs": 300000 },
+    { "id": "shot", "do": "Screenshot", "args": ["mp-fixture"] },
+    { "id": "menu-back", "do": "QuitToMenu", "timeoutMs": 30000 },
+    { "id": "restore-count", "do": "SetModSetting", "args": ["ImprovedHunters.ImprovedHuntersPlugin::persistentSettings", "ChickensPerPlayer", "10"] },
+    { "id": "restore-meat", "do": "SetModSetting", "args": ["ImprovedHunters.ImprovedHuntersPlugin::persistentSettings", "ChickenMeat", "1"] }
+  ]
+}

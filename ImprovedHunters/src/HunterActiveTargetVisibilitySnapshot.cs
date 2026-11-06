@@ -4,7 +4,6 @@ using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using RedBird.Core.Memory;
 
 namespace ImprovedHunters
@@ -75,11 +74,11 @@ namespace ImprovedHunters
         private const int MaxDiagnosticLogs = 240;
         private const int MaxProbeSampleLogs = 240;
 
-        private static readonly long ProbeInterval = Stopwatch.Frequency;
-        private static readonly long NearTargetProbeInterval = Stopwatch.Frequency / 4;
-        private static readonly long SnapshotLifetime = Stopwatch.Frequency * 2;
-        private static readonly long PendingLifetime = Stopwatch.Frequency * 2;
-        private static readonly long TrackerRetentionInterval = Stopwatch.Frequency * 2;
+        private static readonly long ProbeInterval = HunterSimulationTime.MapTicksPerSecond;
+        private static readonly long NearTargetProbeInterval = HunterSimulationTime.MapTicksPerSecond / 4;
+        private static readonly long SnapshotLifetime = HunterSimulationTime.MapTicksPerSecond * 2;
+        private static readonly long PendingLifetime = HunterSimulationTime.MapTicksPerSecond * 2;
+        private static readonly long TrackerRetentionInterval = HunterSimulationTime.MapTicksPerSecond * 2;
 
         private readonly ManualLogSource log;
         private readonly ImprovedHuntersViewModel settings;
@@ -907,7 +906,7 @@ namespace ImprovedHunters
                 positionsMatch: false);
 
         private static long ToMilliseconds(long ticks) =>
-            Math.Max(0, ticks) * 1000 / Stopwatch.Frequency;
+            Math.Max(0, ticks) * 1000 / HunterSimulationTime.MapTicksPerSecond;
 
         private void LogDiagnostic(string message, bool warning = false)
         {

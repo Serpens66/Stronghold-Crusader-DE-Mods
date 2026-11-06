@@ -10,32 +10,26 @@ SHA-256 der auditierten `CrusaderDE.dll`:
 Abgeschlossene Pakete, historische Zwischenstände und verworfene Ansätze stehen
 in [HunterLineOfSightRecoveryCompletedWork.md](HunterLineOfSightRecoveryCompletedWork.md).
 Vollständige RVA-, Byte-, Resolver- und Updateprüfungen stehen in
-[UpdateToNewDLL.md](UpdateToNewDLL.md).
+[UpdateToNewDLL.md](../UpdateToNewDLL.md).
 
 ## Aktueller Status
 
-- Paket A, die PCL-basierte Erreichbarkeitsprüfung, ist abgeschlossen.
-- Paket B, Vanillas normale Kette aus Schuss, Zielkadaver, Pickup und Abgabe,
-  ist abgeschlossen.
-- Paket E ist aktiv, aber `1.1.66` ist nicht abnahmefähig. Die atomare
-  Nach-Schuss-Komponente wurde erstmals vollständig initialisiert und der
-  Path-complete-Fallback berechnete einen nachweislich veralteten Zielpfad
-  einmal erfolgreich neu. Die frühe State-9-zu-State-0-Umleitung trifft jedoch
-  unmittelbar danach auf den transienten Beute-Reservierungswert `1`; ihre
-  eigene Revalidierung verwirft deshalb jede Fortsetzung. Vanilla wählt dann
-  wiederholt andere Rehe. Zusätzlich setzt ein normales `MoveHere` das
-  Drei-Versuche-Budget selbst bei unveränderter Zielidentität zurück. Diese
-  beiden Regressionen müssen vor der restlichen Paket-E-Matrix stabilisiert
-  werden.
-- Unmittelbar nach Abschluss von Paket E folgt eine verpflichtende
-  bidirektionale Geschwindigkeits-Nachprüfung. Danach folgen Paket F für
-  unreservierte Kadaver, Paket D als gemeinsame Beutetyp-/Mehrjägermatrix und
-  zuletzt Paket C für die Produktionsbereinigung.
-- Ein sichtbarer Jagdsprint ist optional. Echter Multiplayer bleibt bis zur
-  eigenen Chore-Migration deaktiviert; der Transport ist seit Script Extender `1.41.0` verfügbar.
+Stand `2026-11-06`, DLL `FBCB9319…`. Vorrang vor allen älteren Abschnitten dieser Datei; die
+Abschnitte zu `1.1.64` bis `1.1.66` bleiben als Verlauf erhalten, ihre Deutung ist überholt.
 
-Verbindliche Reihenfolge:
-`E → Geschwindigkeits-Nachprüfung → F → D → C`.
+- **Paket-E-Ursache berichtigt:** State 10 ist der Schuss, nicht eine Sitzpause. State 9 dreht
+  nur zum Ziel; der Pfeil fliegt bei Animationsframe `0x16` in State 10 (`0x12FC70`). Das seit
+  `1.1.64` eingebaute Überspringen von State 10 verhinderte also jeden Schuss. Die sieben
+  „nicht tödlichen Schüsse“ des `1.1.66`-Tests waren nie abgefeuert. Das Überspringen ist entfernt.
+- **Reservierung `1` geklärt:** `+0x448` ist ein Countdown, kein Besitzer. Der Jäger schreibt 2,
+  Reh und Ziege zählen herunter. Hase, Kamel und Huhn zählen jetzt ebenso.
+- Die Pakete F, D und C bleiben offen; `AllowDeadTargets` ist bis Paket F entfernt.
+- Echter Multiplayer: Alle Zeitentscheidungen laufen auf dem Map-Tick von APIShared, die Modus-Policy
+  erlaubt die Hunter-Features dort. Noch nicht in einer echten Mehrspieler-Partie geprüft; der Test
+  dafür ist `MP-hunters-*.json`. Ungeprüft bleibt auch ein nativer Resync mit laufender Jagd.
+
+Vanilla- und Hook-Details: `knowledge/HUNTER_PREY_RULES.md` der Baseline und `UpdateToNewDLL.md`.
+Spieltest: `Testmods/UiAcceptance/scenarios/SP-hunters*.json`.
 
 ## Fachliches Ziel
 
@@ -691,10 +685,9 @@ Ein optisch deutlicherer Jagdsprint darf erst nach E, F, D und C rein
 beobachtend kalibriert werden. Er blockiert keinen Pflichtabschluss und darf
 keine eigene Speed-/Animationssteuerung einführen.
 
-Echter Multiplayer bleibt fail-closed, bis die seit Script Extender `1.41.0`
-verfügbare Chore-Synchronisation für dieses Feature implementiert ist. Danach Hostautorität, Snapshot-/
-Reservationseigentum, Join-in-progress, Reconnect und Disconnect-Cleanup separat
-prüfen.
+Echter Multiplayer läuft ohne eigene Chores: Alle Peers berechnen dieselben Entscheidungen aus dem
+gemeinsamen Simulationszustand und dem Map-Tick. Reconnect und nativer Resync sind separat zu prüfen,
+weil der Modzustand dabei nicht mitübertragen wird.
 
 ## Dateien und Verantwortlichkeiten
 
@@ -740,36 +733,6 @@ prüfen.
 
 ## Arbeitsanweisung für einen neuen Chat
 
-Unmittelbarer Übernahmeauftrag ist die Stabilisierung von Paket E. `1.1.66`
-gilt als fehlgeschlagener Ingame-Test und darf nicht einfach erneut durch die
-breite Abnahmematrix geschickt werden. Der nächste Chat soll die folgenden
-Punkte implementieren, statisch prüfen, anschließend genau einmal bauen und
-zuerst nur mit dem beschriebenen engen Einzelzielfall testen.
-
-1. Diesen Plan vollständig lesen. Historie nur bei Bedarf im Archiv und tiefe
-   Native-Details in `UpdateToNewDLL.md` nachschlagen.
-2. Paket A und B nicht erneut öffnen, sofern keine konkrete Regression belegt
-   ist.
-3. In Paket E direkt beim Abschnitt „Ergebnis des `1.1.66`-Tests und neue
-   Ursachenlage“ beginnen. Nicht erneut Sichtlatenz, Restweg, F4 oder die
-   frühere Ursache der State-10-Nullquery untersuchen.
-4. Vor weiteren breiten Tests die frühe State-9-Umleitung stabilisieren:
-   zunächst fail-closed deaktivieren, Reservation `1` am State-0-Einstieg
-   eigentumssicher diagnostizieren und nur bei vollständigem Identitätsbeleg
-   als einmaligen Nach-Schuss-Zwischenzustand zulassen. Parallel darf das
-   Versuchslimit nur bei einer tatsächlich anderen Zielidentität zurückgesetzt
-   werden. Die direkten Codeeinstiege liegen in
-   `src/HunterPostShotContinuationDiagnostic.cs` bei
-   `TrySkipStateTenSitTransition`, `TryPrepareStateZeroContinuation`,
-   `TryValidateCandidate` und `ResetAttemptBudgetForIndependentMove`.
-5. Danach den engen Einzelzieltest und erst anschließend Nach-Schuss-/
-   Fehlangriffshandoff, beide Moving-Target-Replans, Drei-Versuche-Limit, langen
-   fortschreitenden Weg und die vollständige Paket-E-Matrix ausführen.
-6. Nach vollständiger E-Abnahme zwingend die bidirektionale
-   Geschwindigkeits-Nachprüfung abschließen; erst danach Paket F beginnen und
-   anschließend `D → C` bearbeiten.
-7. Bei jeder neuen Hypothese den kleinsten stabilen Vanilla-Übergang erhalten.
-   Diagnose, Korrektur und Vanilla-Aufruf bleiben getrennt. Insbesondere
-   Reservation `1` nicht allein aufgrund des bisherigen Logs allgemein
-   akzeptieren und den belegten Path-complete-Fallback nicht zusammen mit der
-   State-9-Stabilisierung unnötig neu entwerfen.
+Mit dem Abschnitt „Aktueller Status“ beginnen und zuerst die Szenarien `SP-hunters*.json` laufen
+lassen. Die Punkte aus „Verbindlicher nächster Arbeitsschritt“ zu `1.1.66` sind erledigt oder
+überholt. Danach folgen die bidirektionale Geschwindigkeits-Nachprüfung, Paket F, D und C.

@@ -130,7 +130,6 @@ namespace Shared
                 case GameplayFeatureId.ImprovedHunterPathfinding:
                     expectedGuid = "ImprovedHunters_Serp";
                     contexts = NonEditorGameplayContexts;
-                    allowRealMultiplayer = false;
                     break;
                 case GameplayFeatureId.CastleSpawning:
                 case GameplayFeatureId.FreeCastlePreview:

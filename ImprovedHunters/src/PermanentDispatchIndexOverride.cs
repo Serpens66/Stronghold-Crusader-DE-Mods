@@ -32,6 +32,7 @@ namespace ImprovedHunters
             {
                 ulong flagAddress = unchecked((ulong)enabledFlag.ToInt64());
                 transaction = HunterHookInfrastructure.CreateOwnedTransaction(region);
+                HunterHookInfrastructure.TrackNativeSite(address, hook);
                 transaction.AddInline(
                     hook,
                     HookTarget.FromAddress(address),

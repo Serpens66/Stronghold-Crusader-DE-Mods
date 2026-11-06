@@ -13,6 +13,8 @@ namespace UiAcceptance
             RuntimeAiSteps.Register();
             RuntimeAiUiSteps.Register();
             RelaySteps.Register();
+            HuntSteps.Register();
+            HuntMpSteps.Register();
         }
     }
 }

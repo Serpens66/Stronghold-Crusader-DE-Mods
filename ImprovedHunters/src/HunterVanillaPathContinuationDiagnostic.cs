@@ -5,7 +5,6 @@ using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using RedBird.Abstractions.Hooks;
 using RedBird.Abstractions.Hooks.Transaction;
 using RedBird.Core.Memory;
@@ -58,9 +57,9 @@ namespace ImprovedHunters
             "66 42 89 84 29 A4 09 00 00 E9 ? ? ? ? " +
             "BE 0A 00 00 00";
 
-        private static readonly long MaxNoProgressDuration = Stopwatch.Frequency * 3;
-        private static readonly long RetryCooldownDuration = Stopwatch.Frequency * 5;
-        private static readonly long FreshAttackGateSnapshotLifetime = Stopwatch.Frequency / 2;
+        private static readonly long MaxNoProgressDuration = HunterSimulationTime.MapTicksPerSecond * 3;
+        private static readonly long RetryCooldownDuration = HunterSimulationTime.MapTicksPerSecond * 5;
+        private static readonly long FreshAttackGateSnapshotLifetime = HunterSimulationTime.MapTicksPerSecond / 2;
         private readonly ManualLogSource log;
         private readonly ImprovedHuntersViewModel settings;
         private readonly HunterActiveTargetVisibilitySnapshot activeVisibility;
@@ -189,8 +188,8 @@ namespace ImprovedHunters
                     $"forcedDistance={VanillaContinuationDistance}, globalIdentityLimit=None, " +
                     "maxActiveAttempts=one-per-hunter, " +
                     "totalDurationLimit=None, " +
-                    $"maxNoProgressSeconds={MaxNoProgressDuration / Stopwatch.Frequency}, " +
-                    $"boundedRetryCooldownSeconds={RetryCooldownDuration / Stopwatch.Frequency}, " +
+                    $"maxNoProgressSeconds={MaxNoProgressDuration / HunterSimulationTime.MapTicksPerSecond}, " +
+                    $"boundedRetryCooldownSeconds={RetryCooldownDuration / HunterSimulationTime.MapTicksPerSecond}, " +
                     "ownMovement=False, ownAiState=False, ownOrderWrite=False, " +
                     "speedWrite=False, animationWrite=False, " +
                     "registerOverride=RDI-distance-only, preparedTicketRequired=False, " +
@@ -286,7 +285,7 @@ namespace ImprovedHunters
                 return HunterStateOneNearRefreshAction.None;
             }
 
-            long timestamp = Stopwatch.GetTimestamp();
+            long timestamp = HunterSimulationTime.Now;
             lock (stateLock)
             {
                 lastWorldRefreshes[hunterUnitId] = new WorldRefreshObservation(
@@ -433,7 +432,7 @@ namespace ImprovedHunters
                 return;
             }
 
-            long timestamp = Stopwatch.GetTimestamp();
+            long timestamp = HunterSimulationTime.Now;
             if (!TryGetContext(
                     hunterUnitId,
                     out GameUnit* hunter,
@@ -691,7 +690,7 @@ namespace ImprovedHunters
             if (tileAttackDistance < 0 || tileAttackDistance > MaximumPreparedWorldDistance)
                 return;
 
-            long timestamp = Stopwatch.GetTimestamp();
+            long timestamp = HunterSimulationTime.Now;
             if (!TryGetContext(
                     hunterUnitId,
                     out GameUnit* hunter,
@@ -735,7 +734,7 @@ namespace ImprovedHunters
                 !visibility.PositionsMatch ||
                 visibility.SnapshotAgeMilliseconds < 0 ||
                 visibility.SnapshotAgeMilliseconds >
-                    FreshAttackGateSnapshotLifetime * 1000 / Stopwatch.Frequency)
+                    FreshAttackGateSnapshotLifetime * 1000 / HunterSimulationTime.MapTicksPerSecond)
             {
                 return;
             }
@@ -964,8 +963,8 @@ namespace ImprovedHunters
                     worldRefreshDistance = worldRefresh.Distance;
                     worldRefreshAgeMilliseconds = Math.Max(
                             0,
-                            Stopwatch.GetTimestamp() - worldRefresh.ObservedAt) *
-                        1000 / Stopwatch.Frequency;
+                            HunterSimulationTime.Now - worldRefresh.ObservedAt) *
+                        1000 / HunterSimulationTime.MapTicksPerSecond;
                 }
 
                 if (!force &&

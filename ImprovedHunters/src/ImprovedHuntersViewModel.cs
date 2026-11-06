@@ -22,7 +22,7 @@ namespace ImprovedHunters
         private bool enableMod = true;
         private bool improvedTargetSelection = true;
         private bool improvedPathfinding = true;
-        private bool allowDeadTargets;
+        private bool rabbitsOnlyOnOrder = true;
         private bool huntDeer = true;
         private bool huntGoat = true;
         private bool huntRabbit = true;
@@ -33,7 +33,7 @@ namespace ImprovedHunters
         private int rabbitMeat = DefaultRabbitMeat;
         private int camelMeat = DefaultCamelMeat;
         private int chickenMeat = DefaultChickenMeat;
-        private int maxNeutralChickensPerPlayer = GranaryChickenSpawnPolicy.DefaultMaximumPerPlayer;
+        private int chickensPerPlayer = GranaryChickenSpawnPolicy.DefaultTargetPerPlayer;
 
         public event Action<string> SettingChanged;
 
@@ -60,8 +60,8 @@ namespace ImprovedHunters
         public string ImprovedTargetSelectionHelpText => SerpLocalization.Get("ImprovedHunters.ImprovedTargetSelectionHelp");
         public string ImprovedPathfindingText => SerpLocalization.Get("ImprovedHunters.ImprovedPathfinding");
         public string ImprovedPathfindingHelpText => SerpLocalization.Get("ImprovedHunters.ImprovedPathfindingHelp");
-        public string AllowDeadTargetsText => SerpLocalization.Get("ImprovedHunters.AllowDeadTargets");
-        public string AllowDeadTargetsHelpText => SerpLocalization.Get("ImprovedHunters.AllowDeadTargetsHelp");
+        public string RabbitsOnlyOnOrderText => SerpLocalization.Get("ImprovedHunters.RabbitsOnlyOnOrder");
+        public string RabbitsOnlyOnOrderHelpText => SerpLocalization.Get("ImprovedHunters.RabbitsOnlyOnOrderHelp");
         public string DeerText => SerpLocalization.Get("ImprovedHunters.Deer");
         public string GoatText => SerpLocalization.Get("ImprovedHunters.Goat");
         public string RabbitText => SerpLocalization.Get("ImprovedHunters.Rabbit");
@@ -69,38 +69,38 @@ namespace ImprovedHunters
         public string ChickenText => SerpLocalization.Get("ImprovedHunters.Chicken");
         public string ChickenHelpText => SerpLocalization.Get("ImprovedHunters.ChickenHelp");
         public string ChickenPopulationTitleText => SerpLocalization.Get("ImprovedHunters.ChickenPopulationTitle");
-        public string MaxNeutralChickensPerPlayerText => SerpLocalization.Get("ImprovedHunters.MaxNeutralChickensPerPlayer");
-        public string MaxNeutralChickensPerPlayerHelpText => SerpLocalization.Get("ImprovedHunters.MaxNeutralChickensPerPlayerHelp");
-        public string MaxNeutralChickensPerPlayerValueText
+        public string ChickensPerPlayerText => SerpLocalization.Get("ImprovedHunters.ChickensPerPlayer");
+        public string ChickensPerPlayerHelpText => SerpLocalization.Get("ImprovedHunters.ChickensPerPlayerHelp");
+        public string ChickensPerPlayerValueText
         {
             get => string.Format(
                 CultureInfo.CurrentCulture,
-                SerpLocalization.Get("ImprovedHunters.MaxNeutralChickensPerPlayerValueFormat"),
-                MaxNeutralChickensPerPlayer);
+                SerpLocalization.Get("ImprovedHunters.ChickensPerPlayerValueFormat"),
+                ChickensPerPlayer);
             set => SetBoundedIntText(
                 value,
-                parsed => MaxNeutralChickensPerPlayer = parsed,
-                nameof(MaxNeutralChickensPerPlayerValueText));
+                parsed => ChickensPerPlayer = parsed,
+                nameof(ChickensPerPlayerValueText));
         }
         [SyncHostOnly] public bool EnableMod { get => enableMod; set => SetSetting(ref enableMod, value, nameof(EnableMod)); }
         [SyncHostOnly] public bool ImprovedTargetSelection { get => improvedTargetSelection; set => SetSetting(ref improvedTargetSelection, value, nameof(ImprovedTargetSelection)); }
         [SyncHostOnly] public bool ImprovedPathfinding { get => improvedPathfinding; set => SetSetting(ref improvedPathfinding, value, nameof(ImprovedPathfinding)); }
-        [SyncHostOnly] public bool AllowDeadTargets { get => allowDeadTargets; set => SetSetting(ref allowDeadTargets, value, nameof(AllowDeadTargets)); }
+        [SyncHostOnly] public bool RabbitsOnlyOnOrder { get => rabbitsOnlyOnOrder; set => SetSetting(ref rabbitsOnlyOnOrder, value, nameof(RabbitsOnlyOnOrder)); }
         [SyncHostOnly] public bool HuntDeer { get => huntDeer; set => SetSetting(ref huntDeer, value, nameof(HuntDeer)); }
         [SyncHostOnly] public bool HuntGoat { get => huntGoat; set => SetSetting(ref huntGoat, value, nameof(HuntGoat)); }
         [SyncHostOnly] public bool HuntRabbit { get => huntRabbit; set => SetSetting(ref huntRabbit, value, nameof(HuntRabbit)); }
         [SyncHostOnly] public bool HuntCamel { get => huntCamel; set => SetSetting(ref huntCamel, value, nameof(HuntCamel)); }
         [SyncHostOnly] public bool HuntChicken { get => huntChicken; set => SetSetting(ref huntChicken, value, nameof(HuntChicken)); }
-        [SyncHostOnly] public int MaxNeutralChickensPerPlayer
+        [SyncHostOnly] public int ChickensPerPlayer
         {
-            get => maxNeutralChickensPerPlayer;
+            get => chickensPerPlayer;
             set => SetBoundedIntSetting(
-                ref maxNeutralChickensPerPlayer,
+                ref chickensPerPlayer,
                 value,
-                GranaryChickenSpawnPolicy.MinimumMaximumPerPlayer,
-                GranaryChickenSpawnPolicy.MaximumMaximumPerPlayer,
-                nameof(MaxNeutralChickensPerPlayer),
-                nameof(MaxNeutralChickensPerPlayerValueText));
+                GranaryChickenSpawnPolicy.MinimumTargetPerPlayer,
+                GranaryChickenSpawnPolicy.MaximumTargetPerPlayer,
+                nameof(ChickensPerPlayer),
+                nameof(ChickensPerPlayerValueText));
         }
 
         [SyncHostOnly] public int DeerMeat { get => deerMeat; set => SetMeatSetting(ref deerMeat, value, true, nameof(DeerMeat), nameof(DeerMeatText)); }
@@ -192,13 +192,13 @@ namespace ImprovedHunters
             EnableMod = true;
             ImprovedTargetSelection = true;
             ImprovedPathfinding = true;
-            AllowDeadTargets = false;
+            RabbitsOnlyOnOrder = true;
             HuntDeer = true;
             HuntGoat = true;
             HuntRabbit = true;
             HuntCamel = true;
             HuntChicken = true;
-            MaxNeutralChickensPerPlayer = GranaryChickenSpawnPolicy.DefaultMaximumPerPlayer;
+            ChickensPerPlayer = GranaryChickenSpawnPolicy.DefaultTargetPerPlayer;
             DeerMeat = DefaultDeerMeat;
             GoatMeat = DefaultGoatMeat;
             RabbitMeat = DefaultRabbitMeat;

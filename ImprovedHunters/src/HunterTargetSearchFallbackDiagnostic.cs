@@ -5,7 +5,6 @@ using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Threading;
 using RedBird.Abstractions.Hooks;
 using RedBird.Abstractions.Hooks.Transaction;
@@ -81,6 +80,7 @@ namespace ImprovedHunters
         private const int HunterTargetGlobalIdOffset = 0x39C;
         private const int PreyCorpseFlagOffset = 0x29C;
         private const int PreyReservationOffset = 0x448;
+        private const ushort MaximumOwnReservation = 2;
         private const int MinimumMovingTargetAnchorDisplacement = 6;
         private const int MaximumMovingTargetReplans = 3;
         private const int MaxDiagnosticLogs = 160;
@@ -114,7 +114,7 @@ namespace ImprovedHunters
             "4C 69 C2 90 04 00 00 43 38 AC 28 5A 0A 00 00 75 ? " +
             "B8 09 00 00 00";
 
-        private static readonly long RejectedCandidateCooldown = Stopwatch.Frequency * 30;
+        private static readonly long RejectedCandidateCooldown = HunterSimulationTime.MapTicksPerSecond * 30;
         private static long nextGeneration;
 
         [ThreadStatic] private static long activeGeneration;
@@ -395,7 +395,7 @@ namespace ImprovedHunters
                     $"MoveHereRva=0x{moveHereFunctionRva:X}, " +
                     $"stateOneAttackResultRva=0x{stateOneDirectAttackResultRva:X}, " +
                     $"directAttackRva=0x{directAttackFunctionRva:X}, cooldownSeconds=" +
-                    $"{RejectedCandidateCooldown / Stopwatch.Frequency}, ownMovement=False, ownAiState=False, " +
+                    $"{RejectedCandidateCooldown / HunterSimulationTime.MapTicksPerSecond}, ownMovement=False, ownAiState=False, " +
                     $"worldDistanceScratchRva=0x{StateOneWorldDistanceScratchRva:X}, " +
                     $"currentHunterUnitIdRva=0x{StateOneCurrentHunterUnitIdRva:X}, " +
                     "stateOneRefreshOverrides=world-distance-scratch-20-to-21-or-stale-query-ZF-clear-only, " +
@@ -505,7 +505,7 @@ namespace ImprovedHunters
 
             activeGeneration = generation;
             activeHunterUnitId = hunterUnitId;
-            long timestamp = Stopwatch.GetTimestamp();
+            long timestamp = HunterSimulationTime.Now;
             if (canRunPathfinding())
             {
                 try
@@ -670,7 +670,7 @@ namespace ImprovedHunters
                 return;
 
             int moveResult = unchecked((int)(uint)context.Pointer->RAX);
-            long timestamp = Stopwatch.GetTimestamp();
+            long timestamp = HunterSimulationTime.Now;
             string movementSnapshot = TryFormatMovementSnapshot(candidate.HunterUnitId);
             if (candidate.IsPostShotContinuation)
             {
@@ -845,7 +845,7 @@ namespace ImprovedHunters
             bool targetWasCleared = targetUnitId == 0 && targetGlobalId == 0;
             return (targetMatches || (allowReleasedStateZeroTransition && targetWasCleared)) &&
                 *(ushort*)(preyBytes + PreyCorpseFlagOffset) == 0 &&
-                (reservation == 2 || (allowReleasedStateZeroTransition && reservation == 0)) &&
+                reservation <= MaximumOwnReservation &&
                 !IsTargetedByOtherLiveHunter(candidate);
         }
 
@@ -975,7 +975,7 @@ namespace ImprovedHunters
                 $"moveResult=0, targetMatched={targetMatches}, " +
                 $"targetAfter={targetAfter}/{targetGlobalAfter}, reservation={reservationBefore}->{reservationAfter}, " +
                 $"targetedByOtherHunter={targetedByOtherHunter}, cooldownSeconds=" +
-                $"{RejectedCandidateCooldown / Stopwatch.Frequency}, cleanupValid={cleanupValid}, " +
+                $"{RejectedCandidateCooldown / HunterSimulationTime.MapTicksPerSecond}, cleanupValid={cleanupValid}, " +
                 "followup=Vanilla-state7.",
                 warning: !cleanupValid);
         }

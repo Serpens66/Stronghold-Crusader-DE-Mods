@@ -21,6 +21,12 @@
   },
   "documents": [
     {
+      "file": "HUNTER_PREY_RULES.md",
+      "scope": "vanilla+integration",
+      "components": ["ImprovedHunters"],
+      "integrationSections": ["ImprovedHunters integration", "Evidence and limits"]
+    },
+    {
       "file": "KNIGHT_SELECTION_TRANSFERS.md",
       "scope": "mod",
       "components": ["ExtraFeatures", "Script Extender"],

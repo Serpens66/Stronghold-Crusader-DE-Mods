@@ -20,6 +20,7 @@ namespace UiAcceptance
             Runner.Register("Lobby.AddAI", s => Do(view => view.SkirmishAIAddClick(s.Arg(0)), s.Int(1, 1)));
             Runner.Register("Lobby.Button", s => Do(view => view.ButtonClicked(s.Arg(0)), 1));
             Runner.Register("Lobby.Play", Play);
+            Runner.Register("Lobby.PeaceTime", PeaceTime);
             Runner.Register("Editor.Start", EditorStart);
             Runner.Register("Mp.Host", Host);
             Runner.Register("Mp.WaitMembers", WaitMembers);
@@ -83,6 +84,19 @@ namespace UiAcceptance
         {
             yield return new Until("lobby ready", LobbyReady);
             for (int i = 0; i < repeat; i++) { action(Lobby); yield return new Delay(250); }
+        }
+
+        // Through Vanilla's settings panel; its Apply button resets the value if the option is hidden.
+        private static IEnumerable<Wait> PeaceTime(Step step)
+        {
+            yield return new Until("lobby ready", LobbyReady);
+            Lobby.ButtonClicked("Setup");
+            yield return new Delay(250);
+            Runner.Require(MainViewModel.Instance.Show_MPPeacetime, "peace time is not offered in this lobby");
+            FRONT_Multiplayer_Setup.Instance.RefMP_Settings_Peacetime_Slider.Value = step.Int(0);
+            yield return new Delay(250);
+            Lobby.ButtonClicked("ApplySettings");
+            yield return new Delay(250);
         }
 
         private static IEnumerable<Wait> SkirmishOpen(Step step)

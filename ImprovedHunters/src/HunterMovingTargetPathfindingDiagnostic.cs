@@ -5,7 +5,6 @@ using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Threading;
 using RedBird.Abstractions.Hooks;
 using RedBird.Abstractions.Hooks.Transaction;
@@ -165,7 +164,7 @@ namespace ImprovedHunters
 
             int hunterUnitId = unchecked((int)(uint)context.Pointer->RDX);
             int attackResult = unchecked((int)(uint)context.Pointer->RAX);
-            long timestamp = Stopwatch.GetTimestamp();
+            long timestamp = HunterSimulationTime.Now;
             AcceptedMoveObservation observation;
             lock (observationLock)
             {
@@ -229,7 +228,7 @@ namespace ImprovedHunters
                 $"pathFieldF4={*(ushort*)(hunterBytes + HunterPathFieldF4Offset)}, " +
                 $"pathProgress={*(ushort*)(hunterBytes + HunterPathProgressOffset)}, " +
                     $"pathLength={*(uint*)(hunterBytes + HunterPathLengthOffset)}, " +
-                $"acceptedAgeMs={(timestamp - observation.AcceptedAt) * 1000 / Stopwatch.Frequency}, " +
+                $"acceptedAgeMs={(timestamp - observation.AcceptedAt) * 1000 / HunterSimulationTime.MapTicksPerSecond}, " +
                 $"hunterTile={hunter->r_CurrentTilePositionX},{hunter->r_CurrentTilePositionY}, " +
                 $"preyTile={prey->r_CurrentTilePositionX},{prey->r_CurrentTilePositionY}, " +
                 "behaviorMutation=False.");
@@ -392,7 +391,7 @@ namespace ImprovedHunters
                 return false;
             }
 
-            long timestamp = Stopwatch.GetTimestamp();
+            long timestamp = HunterSimulationTime.Now;
             if (!tryValidateContinuation(
                     refreshCandidate.HunterUnitId,
                     refreshCandidate.PreyUnitId,

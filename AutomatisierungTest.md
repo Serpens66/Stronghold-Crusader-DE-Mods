@@ -191,6 +191,15 @@ Stand: 20.10.2026, rund 40 vollständige Läufe mit `test_dustyFPS2.sav`. Refere
 - **Pause:** Der Weg über `GameAction(Game_Paused, s, s)` mit Prüfung über `IsLocalPaused()` funktioniert zuverlässig. Nach dem Entpausieren treffen die ersten 5 Ticks nach ~0,1 s ein. In der Pause rendert Unity weiter, und `Application.onBeforeRender` läuft weiter. Eingriffe in die Darstellung (Renderer umschalten, Sprites tauschen) lassen sich dort fensterweise messen, weil die Simulation nichts zurücksetzt.
 - **Ohne APIShared:** Für Leistungsmessungen ist eine Missionserkennung aus Spielzuständen und beobachteten Ticks ausreichend. Das hält die gemessene Installation minimal (Extender + Testmods). Das ist eine bewusste Ausnahme für Messmods, keine allgemeine Lifecycle-Regel.
 
+### Gebäude und Partie für Spieltests vorbereiten
+
+Stand 06.11.2026, DLL `FBCB9319…`, im Spiel geprüft mit `Testmods/UiAcceptance`.
+
+- **Gebäude korrekt erzeugen:** `GameBuildingManagerAPI.CreatePrefab(player, x, y, mapper, BuildingScales.GetScale(mapper), 0x0F, true, bypass)`. Der sechste Wert (`a7`) ist die Grafikvariante: `0x0F` wählt wie Vanillas AIV-Bauweg die automatischen Sprites, `0` dagegen kamerabezogene Sprites und ergibt zerrissene Gebäudegrafiken. Für Hütte und Kornspeicher im Spiel bestätigt. Das ist nicht auf jeden Mapper übertragbar: Bei manchen Typen bedeutet der Wert Richtung oder Stil; die geprüfte Liste steht in `CastlePlanner/src/SupplementalPrefabVisualPolicy.cs`.
+- **Rückgabewert ist kein Erfolg:** `CreatePrefab` kann auch bei abgelehntem Bauplatz einen Wert ungleich 0 liefern, etwa auf dem Startlager. Das Gebäude deshalb danach in der Gebäudeliste suchen und sonst den nächsten Platz versuchen. Ein Gebäude erscheint dort sofort. Die Startposition wechselt zwischen den Läufen, feste Abstände zum Lord treffen also manchmal belegte Felder.
+- **Niederlage verhindern:** Auf hoher Spielgeschwindigkeit kann die KI den Lord schon nach wenigen Minuten töten. Danach steht das Spiel auf dem Defeat-Bildschirm, kein Schritt läuft mehr, und erst die Hängererkennung beendet den Prozess. Tests ohne Soldaten laufen deshalb mit Friedenszeit: Schritt `Lobby.PeaceTime` (Knopf `Setup`, Regler, `ApplySettings`) und danach `Hunt.ExpectPeace` als Nachweis. Friedenszeit bleibt aus, wenn Soldaten angreifen sollen.
+- **Testmod installiert?** Fehlt `BepInEx/plugins/UiAcceptance_Serp`, bleibt das Spiel im Hauptmenü stehen. Vorher `Testmods/UiAcceptance/build.bat /nopause` ausführen.
+
 ### Spiel beenden und Logs sichern
 
 - `Application.Quit()` direkt nach dem Ergebnis verliert die letzten Sekunden in `LogOutput.log`. BepInEx 5.4.23 schreibt das Disk-Log zeitgesteuert. Lösung: `DiskLogListener.LogWriter.Flush()` über `BepInEx.Logging.Logger.Listeners` aufrufen und ~2 s warten, dann beenden.

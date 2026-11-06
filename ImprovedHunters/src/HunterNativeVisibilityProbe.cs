@@ -4,7 +4,6 @@ using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Threading;
 using RedBird.Core.Memory;
@@ -72,8 +71,6 @@ namespace ImprovedHunters
         private const int FirstCoreCallNextInstructionRva = VisibilityWrapperRva + 0x58;
         private const int ReverseCoreCallDisplacementRva = VisibilityWrapperRva + 0x79;
         private const int ReverseCoreCallNextInstructionRva = VisibilityWrapperRva + 0x7D;
-        private const int MaxProbeLogs = 120;
-        private const int MaxProbesPerScan = 4;
 
         private const string WrapperEntryPattern =
             "48 8B C4 48 89 58 08 48 89 68 10 48 89 70 18 48 89 78 20 41 54 41 56 41 57 48 83 EC 40";
@@ -88,11 +85,6 @@ namespace ImprovedHunters
         private const string HunterDirectOrderCallPattern =
             "E8 ? ? ? ? 8B D0 85 C0 0F 8E EB 00 00 00";
 
-        private static readonly long QueryBurstGap = Stopwatch.Frequency / 4;
-        private static readonly long QueryQuietPeriod = Stopwatch.Frequency / 20;
-        private static readonly long QueryLifetime = Stopwatch.Frequency * 2;
-        private static readonly long RepeatInterval = Stopwatch.Frequency * 2;
-
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private delegate int NativeVisibilityDelegate(
             IntPtr context,
@@ -105,17 +97,10 @@ namespace ImprovedHunters
 
         private readonly ManualLogSource log;
         private readonly ImprovedHuntersViewModel settings;
-        private readonly object stateLock = new object();
-        private readonly Dictionary<int, QueryBatch> queryBatches = new Dictionary<int, QueryBatch>();
-        private readonly Dictionary<ProbeIdentity, ProbeObservation> observations =
-            new Dictionary<ProbeIdentity, ProbeObservation>();
         private NativeVisibilityDelegate visibility;
         private NativeVisibilityDelegate visibilityCore;
         private int probeInProgress;
-        private int probeLogs;
-        private bool invocationConfirmed;
         private bool reentrancyLogged;
-        private bool threadMismatchLogged;
         private bool captureFailureLogged;
         private bool invocationFailureLogged;
         private bool disabled;
@@ -253,137 +238,9 @@ namespace ImprovedHunters
                 out geometry);
         }
 
-        public void RecordQueryCandidate(
-            int hunterUnitId,
-            int preyUnitId,
-            eChimps preyType,
-            uint preyGlobalId,
-            long timestamp)
-        {
-            if (!IsAvailable ||
-                !Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) ||
-                !settings.ImprovedPathfinding ||
-                !settings.IsHuntingEnabled(preyType) ||
-                hunterUnitId <= 0 ||
-                preyUnitId <= 0 ||
-                preyGlobalId == 0)
-            {
-                return;
-            }
-
-            try
-            {
-                GameUnitManagerAPI unitApi = GameUnitManagerAPI.Instance;
-                if (!APIShared.UnitAccess.TryGetById(unitApi, hunterUnitId, out GameUnit* hunter, out _) ||
-                    !APIShared.UnitAccess.TryGetById(unitApi, preyUnitId, out GameUnit* prey, out _) ||
-                    hunter == null ||
-                    prey == null ||
-                    hunter->r_AliveState != AliveState.IsAlive ||
-                    hunter->r_UnitChimp != eChimps.CHIMP_TYPE_HUNTER ||
-                    prey->r_AliveState != AliveState.IsAlive ||
-                    prey->r_UnitChimp != preyType ||
-                    prey->r_GlobalId != preyGlobalId ||
-                    hunter->r_GlobalId == 0)
-                {
-                    return;
-                }
-
-                int manhattanDistance = Math.Abs(
-                    (int)prey->r_CurrentTilePositionX - hunter->r_CurrentTilePositionX) +
-                    Math.Abs((int)prey->r_CurrentTilePositionY - hunter->r_CurrentTilePositionY);
-                QueryPhase phase = ClassifyQueryPhase(manhattanDistance);
-                if (phase == QueryPhase.NotQueried)
-                    return;
-
-                QueryCandidate candidate = new QueryCandidate(
-                    hunterUnitId,
-                    hunter->r_GlobalId,
-                    preyUnitId,
-                    preyGlobalId,
-                    preyType,
-                    manhattanDistance,
-                    phase,
-                    Thread.CurrentThread.ManagedThreadId);
-
-                lock (stateLock)
-                {
-                    if (!queryBatches.TryGetValue(hunterUnitId, out QueryBatch batch) ||
-                        timestamp - batch.LastCandidateTimestamp > QueryBurstGap ||
-                        batch.HunterGlobalId != hunter->r_GlobalId)
-                    {
-                        batch = new QueryBatch(hunter->r_GlobalId);
-                        queryBatches[hunterUnitId] = batch;
-                    }
-
-                    batch.LastCandidateTimestamp = timestamp;
-                    batch.SetNearest(candidate);
-                }
-            }
-            catch (Exception exception)
-            {
-                LogFailureOnce("candidate capture", exception, disableProbe: false);
-            }
-        }
-
-        public void ProcessNativeScan(SimpleNativeArray<GameUnit> units, long timestamp)
-        {
-            if (!IsAvailable ||
-                !Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) ||
-                !settings.ImprovedPathfinding ||
-                units._array == null ||
-                units.Length == 0 ||
-                probeLogs >= MaxProbeLogs)
-            {
-                return;
-            }
-
-            List<QueryCandidate> requests = new List<QueryCandidate>(MaxProbesPerScan);
-            lock (stateLock)
-            {
-                List<int> completedHunters = new List<int>();
-                foreach (KeyValuePair<int, QueryBatch> pair in queryBatches)
-                {
-                    QueryBatch batch = pair.Value;
-                    long age = timestamp - batch.LastCandidateTimestamp;
-                    if (age < QueryQuietPeriod)
-                        continue;
-
-                    completedHunters.Add(pair.Key);
-                    if (age > QueryLifetime)
-                        continue;
-
-                    AddRequestIfDue(batch.FirstPass, timestamp, requests);
-                    AddRequestIfDue(batch.SecondPass, timestamp, requests);
-                    AddRequestIfDue(batch.FarPass, timestamp, requests);
-                    if (requests.Count >= MaxProbesPerScan)
-                        break;
-                }
-
-                foreach (int hunterUnitId in completedHunters)
-                    queryBatches.Remove(hunterUnitId);
-            }
-
-            foreach (QueryCandidate request in requests)
-            {
-                if (!IsAvailable || probeLogs >= MaxProbeLogs)
-                    break;
-
-                Probe(units, request, timestamp);
-            }
-        }
-
         public void ResetForMap()
         {
-            lock (stateLock)
-            {
-                queryBatches.Clear();
-                observations.Clear();
-            }
-
-            probeLogs = 0;
-            invocationConfirmed = false;
             reentrancyLogged = false;
-            threadMismatchLogged = false;
             captureFailureLogged = false;
             invocationFailureLogged = false;
             probeInProgress = 0;
@@ -397,11 +254,6 @@ namespace ImprovedHunters
             disposed = true;
             visibility = null;
             visibilityCore = null;
-            lock (stateLock)
-            {
-                queryBatches.Clear();
-                observations.Clear();
-            }
         }
 
         private static void ValidateNativeCallChain(ReadOnlySpan<byte> memory)
@@ -477,93 +329,6 @@ namespace ImprovedHunters
                 throw new InvalidOperationException(
                     $"{name} resolved RVA 0x{targetRva:X}, expected 0x{expectedTargetRva:X}.");
             }
-        }
-
-        private void AddRequestIfDue(
-            QueryCandidate? candidate,
-            long timestamp,
-            List<QueryCandidate> requests)
-        {
-            if (!candidate.HasValue || requests.Count >= MaxProbesPerScan)
-                return;
-
-            QueryCandidate value = candidate.Value;
-            ProbeIdentity identity = new ProbeIdentity(
-                value.HunterUnitId,
-                value.HunterGlobalId,
-                value.PreyUnitId,
-                value.PreyGlobalId);
-            if (observations.TryGetValue(identity, out ProbeObservation previous) &&
-                timestamp - previous.Timestamp < RepeatInterval)
-            {
-                return;
-            }
-
-            requests.Add(value);
-            observations[identity] = new ProbeObservation(timestamp);
-        }
-
-        private void Probe(
-            SimpleNativeArray<GameUnit> units,
-            QueryCandidate request,
-            long timestamp)
-        {
-            if (request.HunterUnitId > units.Length || request.PreyUnitId > units.Length)
-                return;
-
-            GameUnit* hunter = units.GetValuePointer(request.HunterUnitId - 1);
-            GameUnit* prey = units.GetValuePointer(request.PreyUnitId - 1);
-            if (hunter == null ||
-                prey == null ||
-                hunter->r_GlobalId != request.HunterGlobalId ||
-                prey->r_GlobalId != request.PreyGlobalId ||
-                hunter->r_AliveState != AliveState.IsAlive ||
-                prey->r_AliveState != AliveState.IsAlive ||
-                hunter->r_UnitChimp != eChimps.CHIMP_TYPE_HUNTER ||
-                prey->r_UnitChimp != request.PreyType ||
-                !settings.IsHuntingEnabled(request.PreyType))
-            {
-                return;
-            }
-
-            int currentThreadId = Thread.CurrentThread.ManagedThreadId;
-            if (currentThreadId != request.QueryThreadId)
-            {
-                if (!threadMismatchLogged)
-                {
-                    threadMismatchLogged = true;
-                    Shared.DebugLogHelper.LogWarning(
-                        log,
-                        "Improved Hunters native visibility probe skipped a non-query-thread scan: " +
-                        $"queryThread={request.QueryThreadId}, scanThread={currentThreadId}; behavior remains unchanged.");
-                }
-                return;
-            }
-
-            if (!TryInvokeVisibility(hunter, prey, out int result, out _))
-                return;
-
-            if (!invocationConfirmed)
-            {
-                invocationConfirmed = true;
-                Shared.DebugLogHelper.LogInfo(
-                    log,
-                    "Improved Hunters native visibility probe invocation confirmed: " +
-                    $"hunter={request.HunterUnitId}/{request.HunterGlobalId}, " +
-                    $"prey={request.PreyUnitId}/{request.PreyGlobalId}/{request.PreyType}, " +
-                    $"managedThread={currentThreadId}, privateContext=True.");
-            }
-
-            int currentManhattanDistance = Math.Abs(
-                (int)prey->r_CurrentTilePositionX - hunter->r_CurrentTilePositionX) +
-                Math.Abs((int)prey->r_CurrentTilePositionY - hunter->r_CurrentTilePositionY);
-            probeLogs++;
-            Shared.CrashBreadcrumbDiagnostics.Record(
-                "HunterVisibilityResult",
-                request.HunterUnitId,
-                request.PreyUnitId,
-                result,
-                currentManhattanDistance);
         }
 
         private bool TryInvokeVisibility(
@@ -815,167 +580,6 @@ namespace ImprovedHunters
                 log,
                 $"Improved Hunters native visibility probe {operation} failed; " +
                 $"disabled={disabled}, Hunter behavior remains unchanged: {exception}");
-        }
-
-        private static QueryPhase ClassifyQueryPhase(int manhattanDistance)
-        {
-            if (manhattanDistance >= 54)
-                return QueryPhase.FarQueryBypass;
-            if (manhattanDistance > 20)
-                return QueryPhase.FirstPassLineOfSight;
-            if (manhattanDistance > 5)
-                return QueryPhase.SecondPassLineOfSight;
-            return QueryPhase.NotQueried;
-        }
-
-        private static string DescribePhase(QueryPhase phase)
-        {
-            switch (phase)
-            {
-                case QueryPhase.FirstPassLineOfSight:
-                    return "first-pass-los";
-                case QueryPhase.SecondPassLineOfSight:
-                    return "second-pass-los";
-                case QueryPhase.FarQueryBypass:
-                    return "far-query-bypass";
-                default:
-                    return "not-queried";
-            }
-        }
-
-        private enum QueryPhase
-        {
-            NotQueried,
-            FirstPassLineOfSight,
-            SecondPassLineOfSight,
-            FarQueryBypass
-        }
-
-        private sealed class QueryBatch
-        {
-            public QueryBatch(uint hunterGlobalId)
-            {
-                HunterGlobalId = hunterGlobalId;
-            }
-
-            public uint HunterGlobalId { get; }
-            public long LastCandidateTimestamp { get; set; }
-            public QueryCandidate? FirstPass { get; private set; }
-            public QueryCandidate? SecondPass { get; private set; }
-            public QueryCandidate? FarPass { get; private set; }
-
-            public void SetNearest(QueryCandidate candidate)
-            {
-                switch (candidate.Phase)
-                {
-                    case QueryPhase.FirstPassLineOfSight:
-                        FirstPass = ChooseNearest(FirstPass, candidate);
-                        break;
-                    case QueryPhase.SecondPassLineOfSight:
-                        SecondPass = ChooseNearest(SecondPass, candidate);
-                        break;
-                    case QueryPhase.FarQueryBypass:
-                        FarPass = ChooseNearest(FarPass, candidate);
-                        break;
-                }
-            }
-
-            private static QueryCandidate ChooseNearest(
-                QueryCandidate? current,
-                QueryCandidate candidate)
-            {
-                if (!current.HasValue ||
-                    candidate.ManhattanDistance < current.Value.ManhattanDistance ||
-                    (candidate.ManhattanDistance == current.Value.ManhattanDistance &&
-                        candidate.PreyUnitId < current.Value.PreyUnitId))
-                {
-                    return candidate;
-                }
-
-                return current.Value;
-            }
-        }
-
-        private readonly struct QueryCandidate
-        {
-            public QueryCandidate(
-                int hunterUnitId,
-                uint hunterGlobalId,
-                int preyUnitId,
-                uint preyGlobalId,
-                eChimps preyType,
-                int manhattanDistance,
-                QueryPhase phase,
-                int queryThreadId)
-            {
-                HunterUnitId = hunterUnitId;
-                HunterGlobalId = hunterGlobalId;
-                PreyUnitId = preyUnitId;
-                PreyGlobalId = preyGlobalId;
-                PreyType = preyType;
-                ManhattanDistance = manhattanDistance;
-                Phase = phase;
-                QueryThreadId = queryThreadId;
-            }
-
-            public int HunterUnitId { get; }
-            public uint HunterGlobalId { get; }
-            public int PreyUnitId { get; }
-            public uint PreyGlobalId { get; }
-            public eChimps PreyType { get; }
-            public int ManhattanDistance { get; }
-            public QueryPhase Phase { get; }
-            public int QueryThreadId { get; }
-        }
-
-        private readonly struct ProbeIdentity : IEquatable<ProbeIdentity>
-        {
-            public ProbeIdentity(
-                int hunterUnitId,
-                uint hunterGlobalId,
-                int preyUnitId,
-                uint preyGlobalId)
-            {
-                HunterUnitId = hunterUnitId;
-                HunterGlobalId = hunterGlobalId;
-                PreyUnitId = preyUnitId;
-                PreyGlobalId = preyGlobalId;
-            }
-
-            public int HunterUnitId { get; }
-            public uint HunterGlobalId { get; }
-            public int PreyUnitId { get; }
-            public uint PreyGlobalId { get; }
-
-            public bool Equals(ProbeIdentity other) =>
-                HunterUnitId == other.HunterUnitId &&
-                HunterGlobalId == other.HunterGlobalId &&
-                PreyUnitId == other.PreyUnitId &&
-                PreyGlobalId == other.PreyGlobalId;
-
-            public override bool Equals(object obj) => obj is ProbeIdentity other && Equals(other);
-
-            public override int GetHashCode()
-            {
-                unchecked
-                {
-                    int hash = HunterUnitId;
-                    hash = hash * 397 ^ (int)HunterGlobalId;
-                    hash = hash * 397 ^ PreyUnitId;
-                    hash = hash * 397 ^ (int)PreyGlobalId;
-                    return hash;
-                }
-            }
-        }
-
-        private readonly struct ProbeObservation
-        {
-            public ProbeObservation(long timestamp)
-            {
-                Timestamp = timestamp;
-            }
-
-            public long Timestamp { get; }
         }
     }
 }
