@@ -105,7 +105,6 @@ namespace CastlePlanner
         private int operationId;
         private int unityMainThreadId;
         private int localPlayerId;
-        private EngineInterface.PlayState playStateBeforeStart;
         private int activeTimeoutSeconds =
             FreeCastleProtocol.DefaultPreviewTimeoutSeconds;
         private bool realMultiplayer;
@@ -283,6 +282,10 @@ namespace CastlePlanner
             mapReadySubscription = Shared.MissionEvents.Started.Subscribe(OnMissionReady);
             mapUnloadSubscription = Shared.MissionEvents.Ended
                 .Subscribe(OnUnloadMap);
+            if (!APIShared.ApiShared.ForMod(CastlePlannerPlugin.PluginGuid).TryGetMissionPlayStateReadiness(
+                out APIShared.IMissionPlayStateReadinessCapability playStateReadiness, out var readinessDiagnostic) ||
+                !identityReadiness.TryBindPlayStateReadiness(playStateReadiness, OnMissionPlayStateReady, out readinessDiagnostic))
+                throw new InvalidOperationException("Castle-preview PlayState readiness unavailable: " + readinessDiagnostic?.Reason);
 
             MethodInfo leave = typeof(Platform_Multiplayer).GetMethod(
                 "LeaveLobby",
@@ -465,7 +468,6 @@ namespace CastlePlanner
 
                 ResetPreview();
                 identityReadiness.Begin(args.Context.SessionId);
-                playStateBeforeStart = GameData.Instance?.lastGameState;
                 state = PreviewState.AwaitingGameplay;
                 activeTimeoutSeconds =
                     FreeCastleProtocol.NormalizePreviewTimeoutSeconds(
@@ -503,19 +505,26 @@ namespace CastlePlanner
 
         private static double MonotonicSeconds() => (double)Stopwatch.GetTimestamp() / Stopwatch.Frequency;
 
+        private void OnMissionPlayStateReady(APIShared.MissionPlayStateReadyNotification notification)
+        {
+            // The shared publisher owns world attribution; mutate preview/UI only on our frame callback.
+            frameWork?.Request();
+        }
+
         private bool TryResolvePreviewIdentity()
         {
-            if (identityReadiness.IsReady) return true;
             if (!identityReadiness.HasStarted) return false;
+            if (!identityReadiness.IsCurrentPlayStateReady)
+            {
+                ReportIdentityReadinessDelay("current mission PlayState");
+                return false;
+            }
+            if (identityReadiness.IsReady) return true;
             // A report viewpoint can point at an AI. Only an actual spectator state permits skipping.
             EngineInterface.PlayState playState = GameData.Instance?.lastGameState;
-            // Vanilla publishes a new PlayState object for each copied render buffer.
-            // A previous spectator save must not classify a newly starting human game.
-            if (playState == null || ReferenceEquals(playState, playStateBeforeStart))
+            if (playState == null)
             {
-                if (identityReadiness.Evaluate(MonotonicSeconds(), false, false, false, false, currentPlayState: false)
-                    == FreeCastleIdentityStatus.TimedOut)
-                    FailBeforeCommit("Current mission PlayState did not become ready within 30 seconds.");
+                ReportIdentityReadinessDelay("published PlayState");
                 return false;
             }
             if (!realMultiplayer && playState.spectatorMode != 0)
@@ -523,26 +532,35 @@ namespace CastlePlanner
                 // Local spectator games have no personal decision. Network participants
                 // always retain the synchronized authority/abort path.
                 bool spectator = APIShared.PlayerPerspectiveAPI.GetControlledPlayerId() < 1;
-                FreeCastleIdentityStatus spectatorStatus = identityReadiness.Evaluate(MonotonicSeconds(), false, false, spectator, false);
+                FreeCastleIdentityStatus spectatorStatus = identityReadiness.Evaluate(false, false, spectator, false);
                 if (spectatorStatus == FreeCastleIdentityStatus.Spectator)
                     ContinueCurrentGame();
-                else if (spectatorStatus == FreeCastleIdentityStatus.TimedOut)
-                    FailBeforeCommit("Spectator control identity did not settle within 30 seconds.");
+                else
+                    ReportIdentityReadinessDelay("spectator control identity");
                 return false;
             }
             Shared.PlayerIdentityResolution identity = Shared.PlayerIdentityHelper.CaptureLocalPlayerId(realMultiplayer, preferInGameRoster: true);
             localPlayerId = identity.PlayerId;
             BuildRoster(out string rosterError, out bool rosterConflict);
-            FreeCastleIdentityStatus status = identityReadiness.Evaluate(MonotonicSeconds(),
+            FreeCastleIdentityStatus status = identityReadiness.Evaluate(
                 identity.IsResolved, identity.IsConflict || rosterConflict, false, string.IsNullOrEmpty(rosterError));
-            if (status == FreeCastleIdentityStatus.Conflict || status == FreeCastleIdentityStatus.TimedOut)
+            if (status == FreeCastleIdentityStatus.Conflict)
             {
                 string reason = identity.IsConflict ? identity.Error : rosterConflict ? rosterError :
                     !identity.IsResolved ? identity.Error : rosterError;
-                FailBeforeCommit(status == FreeCastleIdentityStatus.TimedOut
-                    ? "Player identity did not become ready within 30 seconds: " + reason : reason);
+                FailBeforeCommit(reason);
             }
+            else if (status == FreeCastleIdentityStatus.Waiting)
+                ReportIdentityReadinessDelay("player identity or participant roster");
             return status == FreeCastleIdentityStatus.Ready;
+        }
+
+        private void ReportIdentityReadinessDelay(string waitingFor)
+        {
+            if (!identityReadiness.ShouldReportDelay(MonotonicSeconds())) return;
+            Shared.DebugLogHelper.LogInfo(log,
+                $"CASTLE_PREVIEW_WAITING: session={identityReadiness.SessionId}; waitingFor={waitingFor}; " +
+                "castle selection will continue when the current mission is ready.");
         }
 
         private bool ShouldStartPreview(APIShared.MissionLifecycleNotification args)
@@ -1605,7 +1623,6 @@ namespace CastlePlanner
             roster.Clear();
             identityReadiness.Begin(0);
             localPlayerId = 0;
-            playStateBeforeStart = null;
             readyPlayers.Clear();
             decisions.Clear();
             noneDecisions.Clear();

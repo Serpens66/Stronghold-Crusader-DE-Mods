@@ -43,6 +43,7 @@ namespace Spectator
 
         private static void OnReportGuiCompleted(PresentationPostEventArgs args)
         {
+            RequestInitializationIfReady();
             if (spectatorActive && PlayerPerspectiveAPI.GetViewedPlayerId() < 0) ObservePerspective(-1);
             if (perspectiveUncertain) { CloseUncertainPresentation(); return; }
             if (!reportRefresh.Pending) return;

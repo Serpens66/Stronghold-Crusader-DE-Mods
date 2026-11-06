@@ -37,6 +37,27 @@ internal static class LordPresentationTests
         LordDataSaveRecord.Read(LordDataSaveRecord.Write(nextSnapshot, null), out var nextSave, out _);
         Check(nextSave.Slots.Single().LordName == slot.LordName && nextSave.Slots.Single().Presentation.MetadataJson == json,
             "mission transition/save lost identity, titles, locale or unknown metadata fields");
+
+        // Missing metadata must stay distinct from an authored empty object: runtime title fallback depends on it.
+        string missingSource = Path.Combine(root, "no-meta"); Directory.CreateDirectory(missingSource);
+        var missing = TrailLordMediaStore.CaptureOrFallback("123\\Untitled", missingSource, out string problem);
+        Check(problem == null && missing.MetadataJson == null, "absent metadata became an authored empty document");
+        var missingSnapshot = LordDataSnapshot.CreateTrail("trail:no-meta", false, new[] { new LordDataSlot {
+            PlayerId = 4, LordType = -1, LordName = "123\\Untitled", ConfigName = "aic", ConfigChecksum = "22", Presentation = missing } });
+        missingSnapshot = LordDataSnapshot.Parse(missingSnapshot.WireJson);
+        Check(missingSnapshot.Slots.Single().Presentation.MetadataJson == null, "snapshot synthesized absent metadata");
+        for (int pass = 0; pass < 2; pass++)
+        {
+            LordDataSaveRecord.Read(LordDataSaveRecord.Write(missingSnapshot, null), out missingSnapshot, out _);
+            Check(missingSnapshot.Slots.Single().Presentation.MetadataJson == null &&
+                missingSnapshot.Slots.Single().Presentation.DisplayName == "Untitled", "repeated save synthesized metadata or lost the authored name");
+        }
+        string missingMission = Path.Combine(root, "03.trail"); File.WriteAllText(missingMission, "mission without metadata");
+        TrailLordRequirements.Create(missingMission, new[] { new TrailLordSlot { PlayerId = 4, LordType = -1,
+            LordName = "123\\Untitled", ConfigName = "aic", ConfigChecksum = "22", AivChecksums = Array.Empty<string>(),
+            Presentation = missingSnapshot.Slots.Single().Presentation } }).Write(missingMission);
+        Check(TrailLordRequirements.Read(missingMission).Slots.Single().Presentation.MetadataJson == null,
+            "Trail requirements synthesized absent metadata");
     }
     // Presentation is optional: malformed lordmeta.json must not block capturing the Lord itself.
     internal static void InvalidMetadataFallsBack()

@@ -105,3 +105,74 @@ Coop AI names/images immediately before the original encode call, retaining all
 unclaimed selections and gameplay types. Codec tests exercise the real restart
 encode/decode; an IL fixture transforms a copy of the installed StartGame method.
 These checks do not establish Unity rendering, playback or host/client acceptance.
+
+## Saved nickname subtypes and title fallback (2026-11-06) [Vanilla facts]
+
+The installed native and managed files were rehashed and still match the full
+identities above. The native save stores nickname subtypes, not localized title
+strings. Confirmed export `DLL_RegisterSkirmishUser` (RVA `0x86550`) writes the
+supplied `int32` subtype to `module + 0x8574C68 + playerID * 4`. The installed PE's
+save-descriptor table at RVA `0x336B20`, zero-based row 124, contains pointer
+`0x188574C68`, skip flag 0, length `0x24`, compression flag 1 and section ID 1101.
+That section contains nine `int32` values, including slot zero. The common writer
+at RVA `0x52B0` serializes the active descriptor through its regular codec; the
+reader at RVA `0x87D0` matches the section ID against the same table and restores
+it through the regular decoder. These internal function names remain candidates;
+the field/table/section dataflow is backed by native machine evidence. The ordinary
+save/load exports and synchronized writer routes are described in SAVE_WRITER_ROUTES.
+The PlayState producer at RVA `0x19D960` transfers player slots 1 through 8 as
+`int16` values; managed conversion copies these to `computer_names[1..8]`.
+
+`OnScreenText.getComputerName` receives the one-based Lord type and the zero-based
+nickname subtype. Its generic custom-Lord path uses the saved restart identity and
+resolves a suffix from `GetCustomLordText(name.ToLower(), 34 + subtype)` when custom
+media exists; a null/empty result retains
+`Translate.lookUpText(TEXT_CUSTOMISATION, 23 + subtype)`. The latter is the localized
+"Number one" and following suffixes. `GetCustomLordText` removes the Workshop/Trail
+prefix through `SplitCustomTrailName` before reading the `text.txt` tag table.
+
+The public static `Platform_Multiplayer.MPLobbyMember.GetName` instead receives a
+zero-based Lord type. Its generic cases 29 through 37 resolve only the suffix by
+the same custom-text/translation fallback. Passing `(int)Enums.AILords.SK_X1 - 1`
+therefore obtains the custom-Lord suffix without reconstructing or consulting a
+different player's name. This path does not call `OnScreenText.getComputerName`
+and cannot recurse through its name hook. Valid saved nickname subtypes are 0..7;
+the Vanilla custom-text accessor itself does not validate an arbitrary tag index.
+
+## Missing metadata after save loading (2026-11-06) [mod integration]
+
+ExtendedData's normal single-player start publishes selected Lord paths without
+creating a packaged presentation. On save restoration, `RestoreLegacySavedPresentation`
+can instead call `PrepareLegacyEntries` for a named custom Lord absent from the SE
+registry. It publishes an entry with null metadata. Snapshot/trail capture likewise
+preserves absent metadata as null through its own save and network serialization.
+The former APIShared entry constructor parsed null as `{}`; the full-name and title
+hooks then treated the entry as an authored title override and returned the bare
+fallback name or a successful empty title. This bypassed Vanilla's still-valid
+saved subtype and suffix lookup. It was an output-resolution defect, not lost native
+save data.
+
+The corrective integration distinguishes original null metadata internally while
+retaining the public constructor, `MetadataJson` representation and pure metadata
+resolvers. Full-name lookups combine the authenticated authored name with Vanilla's
+suffix resolver when metadata is absent, preserving author names across peer-local
+media aliases. The custom-text hook delegates absent-metadata titles to its original;
+the SE title hook returns false rather than claiming an empty authored suffix or
+reading a different local SE metadata document. The nested SE custom-text hook then
+retains its original `text.txt` result. Explicit `{}` remains an authored document
+with its existing empty-title semantics. Entry equivalence includes metadata
+presence, and identity claims remain available for Coop restart encoding.
+
+This is deliberately a name/title correction. Media, audio, portraits, details,
+subtitle caching and Lua resolution keep their existing ownership rules. A blanket
+fallback to a peer's installed SE media would bypass the exact metadata/provider
+check: `lordmeta.json` and media are excluded from gameplay fingerprints, while SE
+clip selection consumes the shared `DeterministicRandom` also used by gameplay.
+No local media availability may introduce an extra random draw on one peer.
+
+Evidence and limits: native hashes and the PE descriptor were checked directly;
+managed Vanilla, SE and mod call chains were inspected, including the two different
+Lord-index bases and custom-text fallback. Runtime regression fixtures can verify
+hook results, save codecs and unchanged media/RNG behavior; such fixtures do not
+establish Unity rendering, an actual repeated save/load roundtrip or matching
+host/client acceptance. Those in-game checks remain separate from this static audit.

@@ -1,0 +1,24 @@
+{
+  "enabled": true,
+  "series": "SP-mission-readiness",
+  "role": "sp",
+  "quitWhenDone": true,
+  "steps": [
+    { "id": "menu", "do": "WaitMainMenu", "timeoutMs": 180000, "stopOnFail": true, "allowErrors": true },
+    { "id": "client-on", "do": "SetModSetting", "args": ["Spectator.SpectatorPlugin::processRoot.Settings", "EnableClientFeatures", "true"], "stopOnFail": true },
+    { "id": "perspective-on", "do": "SetModSetting", "args": ["Spectator.SpectatorPlugin::processRoot.Settings", "EnableSpectatorPerspective", "true"], "stopOnFail": true },
+    { "id": "tools-off", "do": "SetModSetting", "args": ["Spectator.SpectatorPlugin::processRoot.Settings", "EnableTestTools", "false"], "stopOnFail": true },
+    { "id": "hold-first", "do": "MissionReadiness.Arm", "args": ["test_dustynoattack.sav", "35000"], "stopOnFail": true },
+    { "id": "load-first", "do": "LoadSave", "args": ["test_dustynoattack.sav"], "timeoutMs": 120000, "stopOnFail": true },
+    { "id": "verify-first", "do": "MissionReadiness.ExpectHold", "timeoutMs": 20000, "stopOnFail": true },
+    { "id": "reports-first", "do": "MissionReadiness.Reports", "timeoutMs": 30000, "stopOnFail": true },
+    { "id": "quit-first", "do": "QuitToMenu", "timeoutMs": 60000, "stopOnFail": true },
+    { "id": "retired-first", "do": "MissionReadiness.ExpectRetired", "stopOnFail": true },
+    { "id": "hold-second", "do": "MissionReadiness.Arm", "args": ["test_dustynoattack.sav", "35000"], "stopOnFail": true },
+    { "id": "load-second", "do": "LoadSave", "args": ["test_dustynoattack.sav"], "timeoutMs": 120000, "stopOnFail": true },
+    { "id": "verify-second", "do": "MissionReadiness.ExpectHold", "timeoutMs": 20000, "stopOnFail": true },
+    { "id": "reports-second", "do": "MissionReadiness.Reports", "timeoutMs": 30000, "stopOnFail": true },
+    { "id": "quit-second", "do": "QuitToMenu", "timeoutMs": 60000, "stopOnFail": true },
+    { "id": "retired-second", "do": "MissionReadiness.ExpectRetired", "stopOnFail": true }
+  ]
+}

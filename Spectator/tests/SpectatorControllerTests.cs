@@ -2,6 +2,7 @@ namespace Spectator {
  public static class ControllerTests {
   static void Check(bool value, string reason = "") { if(!value) throw new System.Exception("Controller invariant failed: " + reason); }
   public static void Main() {
+   PerspectiveInitializationWaitTests.Run(Check);
    SpectatorDefeatRuntimeTests.Run(Check);
    MenuToolTipTests.Run();
    StatusInlineFormatTests.Run(Check);

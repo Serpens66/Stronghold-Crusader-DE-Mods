@@ -32,7 +32,9 @@ namespace Spectator
         private static bool recoveryIdentityApplied;
         private static bool spectatorActive;
         private static bool perspectiveUncertain;
-        private static bool initializationPending;
+        private static readonly PerspectiveInitializationWait initializationWait = new PerspectiveInitializationWait();
+        private static bool initializationPending { get => initializationWait.Pending; set => initializationWait.Pending = value; }
+        private static IMissionPlayStateReadinessCapability playStateReadiness;
         private static bool hudPending;
         private static bool resetHudPending;
         private static IUiFrameWorkRegistration pendingRenderWork;
@@ -74,6 +76,10 @@ namespace Spectator
                 if (!ApiShared.Current.TryGetMissionLifecycle(SpectatorPlugin.PluginGuid,
                     out IMissionLifecycleCapability lifecycle, out NativeCapabilityDiagnostic diagnostic))
                     throw new InvalidOperationException("Mission lifecycle unavailable: " + diagnostic?.Reason);
+                if (!ApiShared.ForMod(SpectatorPlugin.PluginGuid).TryGetMissionPlayStateReadiness(
+                    out playStateReadiness, out diagnostic) ||
+                    !playStateReadiness.TryRegisterObserver("perspective/play-state", OnMissionPlayStateReady, out diagnostic))
+                    throw new InvalidOperationException("Mission PlayState readiness unavailable: " + diagnostic?.Reason);
                 if (!lifecycle.TryRegisterObserver("Spectator.SpectatorPerspective",
                     OnMissionStart, OnMissionEnd, OnMissionInitialization, out diagnostic))
                     throw new InvalidOperationException("Mission lifecycle registration failed: " + diagnostic?.Reason);
@@ -117,14 +123,16 @@ namespace Spectator
                 preparedSessionId == notification.Context.SessionId) return;
             long session = notification.Context.SessionId;
             System.Threading.Interlocked.Exchange(ref announcedSessionId, session);
-            SpectatorRuntime.PostPresentation(() => { if (System.Threading.Interlocked.Read(ref announcedSessionId) == session) PrepareSession(session); });
+            SpectatorRuntime.PostPresentation(() => {
+                if (System.Threading.Interlocked.Read(ref announcedSessionId) == session && preparedSessionId != session)
+                    PrepareSession(session);
+            });
         }
 
         private static void PrepareSession(long sessionId)
         {
-            var previousState = GameData.Instance?.lastGameState;
             BeginMapLoad();
-            stateBeforeLoad = previousState;
+            // APIShared owns the pre-load comparison. This reference is only for later save-recovery stages.
             preparedSessionId = sessionId;
         }
 
@@ -139,11 +147,30 @@ namespace Spectator
                 sessionControl = settings.Activation.Control;
                 mapReady = true;
                 loadedFromSave = notification.Context.IsSave;
-                initializationPending = true;
-                pendingSince = Time.realtimeSinceStartup;
+                initializationWait.Begin(session, Time.realtimeSinceStartup);
                 ArmRenderIfNeeded();
             });
         }
+
+        private static void OnMissionPlayStateReady(MissionPlayStateReadyNotification notification)
+        {
+            long session = notification.Context.SessionId;
+            SpectatorRuntime.PostPresentation(() => {
+                if (preparedSessionId == session && System.Threading.Interlocked.Read(ref announcedSessionId) == session)
+                    RequestInitializationIfReady();
+            });
+        }
+
+        // GuiChecks is a wake source, not proof of a new world's state or of successful GUI writes.
+        private static void RequestInitializationIfReady()
+        {
+            if (CanAdvanceInitialization()) pendingRenderWork?.Request();
+        }
+
+        private static bool CanAdvanceInitialization() => mapReady && MainViewModel.viewModelLoaded &&
+            preparedSessionId == System.Threading.Interlocked.Read(ref announcedSessionId) &&
+            initializationWait.CanAdvance(preparedSessionId, playStateReadiness?.Current?.SessionId ?? 0,
+                GameData.Instance?.lastGameState, stateBeforeLoad);
 
         private static void OnMissionEnd(MissionLifecycleNotification notification)
         {
@@ -173,7 +200,7 @@ namespace Spectator
             recoveryIdentityApplied = false;
             spectatorActive = false;
             perspectiveUncertain = false;
-            initializationPending = false;
+            initializationWait.Reset();
             hudPending = false;
             selectedPlayer = 0;
             selectedName = null;
@@ -188,20 +215,33 @@ namespace Spectator
 
         private static void ArmRenderIfNeeded()
         {
-            if (pendingRenderWork == null || pendingRenderActive) return;
-            pendingSince = Time.realtimeSinceStartup;
-            pendingRenderActive = true;
-            pendingRenderWork.SetContinuous(true);
+            if (pendingRenderWork == null) return;
+            bool continuous = resetHudPending || hudPending || reportRefresh.Pending || alliesStateBeforeSwitch != null;
+            if (continuous && !pendingRenderActive) pendingSince = Time.realtimeSinceStartup;
+            pendingRenderActive = continuous;
+            pendingRenderWork.SetContinuous(continuous);
             pendingRenderWork.Request();
         }
 
         private static void StopRenderIfIdle()
         {
-            if (!pendingRenderActive || resetHudPending || initializationPending || hudPending ||
-                reportRefresh.Pending || alliesStateBeforeSwitch != null) return;
+            if (pendingRenderWork == null) return;
+            if (resetHudPending || hudPending || reportRefresh.Pending || alliesStateBeforeSwitch != null)
+            {
+                if (!pendingRenderActive)
+                {
+                    pendingSince = Time.realtimeSinceStartup;
+                    pendingRenderActive = true;
+                    pendingRenderWork.SetContinuous(true);
+                }
+                return;
+            }
             pendingRenderWork.SetContinuous(false);
-            pendingRenderWork.CancelPending();
             pendingRenderActive = false;
+            if (!initializationPending) { pendingRenderWork.CancelPending(); return; }
+            // Wait for the shared ready event/GuiChecks, with just one timed support notification.
+            TimeSpan warningDelay = initializationWait.WarningDelay(Time.realtimeSinceStartup);
+            if (warningDelay > TimeSpan.Zero) pendingRenderWork.RequestAfter(warningDelay);
         }
 
         private static void OnPendingRender()
@@ -213,14 +253,11 @@ namespace Spectator
                     resetHudPending = false;
                     SpectatorRuntime.InvalidateToolbar();
                 }
-                if (initializationPending)
+                if (CanAdvanceInitialization())
                 {
                     var state = GameData.Instance?.lastGameState;
-                    if (state != null && (stateBeforeLoad == null || !ReferenceEquals(state, stateBeforeLoad)))
-                    {
-                        AdvanceInitialization(state);
-                        if (!initializationPending) stateBeforeLoad = null;
-                    }
+                    AdvanceInitialization(state);
+                    if (!initializationPending) stateBeforeLoad = null;
                 }
                 if (hudPending && spectatorActive)
                 {
@@ -235,16 +272,15 @@ namespace Spectator
                 }
                 RefreshPendingReport();
                 RefreshPendingAllies(GameData.Instance?.lastGameState);
-                if ((initializationPending || hudPending || reportRefresh.Pending || alliesStateBeforeSwitch != null) &&
+                if (initializationWait.TryWarn(Time.realtimeSinceStartup))
+                    log.LogInfo($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] SPECTATOR_PERSPECTIVE_WAITING: session={preparedSessionId}; saveStage={saveRecoveryStage}; waiting for current mission PlayState/readiness; initialization remains pending.");
+                if ((hudPending || reportRefresh.Pending || alliesStateBeforeSwitch != null) &&
                     Time.realtimeSinceStartup - pendingSince > 15f)
                 {
-                    string pending = initializationPending ? saveRecoveryStage == 1 ? "restored spectator PlayState" :
-                        saveRecoveryStage == 2 ? "selected-player PlayState" : "PlayState" : hudPending ? "IngameUI" :
+                    string pending = hudPending ? "IngameUI" :
                         reportRefresh.Pending ? "report PlayState" : "allies PlayState";
                     Shared.DebugLogHelper.LogWarning(log, "SPECTATOR_PERSPECTIVE_READY_TIMEOUT: " + pending +
                         " did not become ready within 15 seconds.");
-                    initializationPending = false;
-                    saveRecoveryStage = 0;
                     hudPending = false;
                     RestoreReportPanel();
                     ClosePendingAllies();
@@ -302,6 +338,7 @@ namespace Spectator
                 if (!sessionEnabled) return;
                 spectatorActive = true;
                 hudPending = true;
+                ArmRenderIfNeeded();
                 CacheSelectedName();
                 SpectatorAllyHooks.RefreshOpenPanel();
                 return;
@@ -316,7 +353,6 @@ namespace Spectator
                 savedView = view;
                 stateBeforeLoad = state;
                 saveRecoveryStage = 1;
-                pendingSince = Time.realtimeSinceStartup;
                 return;
             }
             if (sessionEnabled && state.spectatorMode != 0 && IsSpectatorObserver())
@@ -326,6 +362,7 @@ namespace Spectator
                 {
                     spectatorActive = true;
                     hudPending = true;
+                    ArmRenderIfNeeded();
                 }
             }
             initializationPending = false;
@@ -446,8 +483,7 @@ namespace Spectator
             if (!featureReady || !mapReady || !sessionEnabled || spectatorActive) return;
             // Promotion can happen long after the one-time mission initialization has completed.
             stateBeforeLoad = null;
-            initializationPending = true;
-            pendingSince = Time.realtimeSinceStartup;
+            initializationWait.Begin(preparedSessionId, Time.realtimeSinceStartup);
             ArmRenderIfNeeded();
         }
 
@@ -482,7 +518,9 @@ namespace Spectator
         {
             if (IsActiveSpectator()) return true;
             var state = GameData.Instance?.lastGameState;
-            return featureReady && sessionEnabled && mapReady && !perspectiveUncertain && state != null &&
+            return preparedSessionId > 0 && preparedSessionId == System.Threading.Interlocked.Read(ref announcedSessionId) &&
+                playStateReadiness?.Current?.SessionId == preparedSessionId &&
+                featureReady && sessionEnabled && mapReady && !perspectiveUncertain && state != null &&
                 (stateBeforeLoad == null || !ReferenceEquals(state, stateBeforeLoad)) &&
                 state.game_type == (int)eGameTypeModes.GAMETYPE_MULTIPLAYER && state.spectatorMode != 0 &&
                 EditorDirector.instance != null && IsSpectatorObserver();
