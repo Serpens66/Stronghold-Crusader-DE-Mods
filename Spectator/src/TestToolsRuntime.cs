@@ -69,13 +69,13 @@ namespace Spectator
         private static bool IsToolsSession()
         {
             // Avoid touching mode services before the managed game view exists.
-            if (settings == null || !IsCurrentSession(CurrentSessionId) ||
+            if (settings == null || !AllowsGameplayActions ||
                 !MainViewModel.viewModelLoaded || GameData.Instance?.lastGameState == null) return false;
             bool enabled = ToolSessionPolicy.Enabled(settings.Activation.TestTools, settings.Activation.SingleplayerTest,
                 GameModeHelper.IsMapEditor(), SpectatorPerspectiveRuntime.IsSpectatorObserver(),
                 PlayerPerspectiveAPI.GetControlledPlayerId() > 0);
             return ToolSessionPolicy.CanMutate(enabled,
-                IsCurrentSession(CurrentSessionId), MainViewModel.viewModelLoaded,
+                AllowsGameplayActions, MainViewModel.viewModelLoaded,
                 GameData.Instance?.lastGameState != null, GameModeHelper.IsRealMultiplayer(),
                 Director.instance != null, Director.instance != null && Director.instance.MultiplayerGame);
         }

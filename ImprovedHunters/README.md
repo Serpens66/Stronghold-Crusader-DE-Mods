@@ -47,7 +47,7 @@ Off by default. Each deer or goat herd is followed on its own. When one has died
 No limit by default. You can set a size, for example 100 by 100 tiles. Deer and goat herds then do not go far from their start place when wandering or fleeing, which keeps Hunters' walks short and makes these animals easier to hunt. Single animals can briefly cross the border when startled. Other animals are not affected. This works in all game modes except the map editor, where animals do not move.
 
 ### Herds at the players' castles
-Off by default. At the start of a new game every player, AI included, gets a herd about 30 tiles from their castle, either only on maps without deer and goats or on every map. All herds have the same size: 9 deer, or 4 goats if deer cannot be hunted. The Hunter's hut stays available when this is on. These herds return and keep to their area like any other.
+Off by default. At the start of a new game every player, AI included, gets a herd about 55 tiles from their castle, just outside the area an AI castle layout covers, either only on maps without deer and goats or on every map. All herds have the same size: 9 deer, or 4 goats if deer cannot be hunted. The Hunter's hut stays available when this is on. These herds return and keep to their area like any other.
 
 ### Chickens per player
 Each player keeps this number of chickens (default 10, up to 100, or none at all), regardless of food, as long as they own a granary, bakery or mill. Surplus chickens are removed. Only applies while chicken hunting is enabled.

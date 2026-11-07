@@ -110,6 +110,8 @@
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <ItemGroup>
     <Compile Include="..\..\APIShared\src\ModSettings\Internal\AtomicFileReplacement.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Internal\PersonalDataFile.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Internal\PersonalDataIO.cs" />
     <Compile Include="..\..\APIShared\src\ModSettings\Internal\DependencyFreeJson.cs" />
     <Compile Include="..\..\APIShared\src\GameModes\Internal\PlayerIdentityHelper.cs" />
     <Compile Include="..\..\APIShared\src\Missions\Internal\MissionEventRelay.cs" />
@@ -123,6 +125,9 @@
     <Compile Include="../src/WorkerProductionBonusRuntime.cs" />
     <Compile Include="WorkerProductionBonusTests.cs" />
     <Compile Include="../src/ExtraFeaturesViewModel.PeriodicGold.cs" />
+    <Compile Include="../src/ExtraFeaturesViewModel.TreeRespawn.cs" />
+    <Compile Include="../src/TreeRespawnState.cs" />
+    <Compile Include="TreeRespawnTests.cs" />
     <Compile Include="../src/ExtraFeaturesViewModel.KillReward.cs" /><Compile Include="../src/ExtraFeaturesViewModel.EnemyProximity.cs" /><Compile Include="EnemyProximityTests.cs" /><Compile Include="HealthMultiplierTests.cs" />
     <Compile Include="../src/NoKillRewardPolicy.cs" />
     <Compile Include="KillRewardTests.cs" />

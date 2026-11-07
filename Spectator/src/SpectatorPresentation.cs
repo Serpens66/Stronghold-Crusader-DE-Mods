@@ -65,7 +65,7 @@ namespace Spectator
             if (settings == null || !IsCurrentSession(CurrentSessionId) || !(sessionMode is GameModeSnapshot mode) ||
                 mode.IsMapEditor) return IsEditorAiPlacementSession();
             var activation = settings.Activation;
-            if (!mode.IsRealMultiplayer && (activation.TestTools || activation.SingleplayerTest)) return true;
+            if (AllowsGameplayActions && (activation.TestTools || activation.SingleplayerTest)) return true;
             if (!activation.Perspective && !activation.Statistics && !activation.Defeat) return false;
             var state = GameData.Instance?.lastGameState;
             return state != null && state.spectatorMode != 0 || SpectatorDefeat.NeedsPresentation;
@@ -77,7 +77,7 @@ namespace Spectator
                 mode.IsMapEditor) return IsEditorAiPlacementSession() && !MainViewModel.viewModelLoaded;
             var activation = settings.Activation;
             bool configured = activation.Perspective || activation.Statistics || activation.Defeat ||
-                !mode.IsRealMultiplayer && (activation.TestTools || activation.SingleplayerTest);
+                AllowsGameplayActions && (activation.TestTools || activation.SingleplayerTest);
             // A successful mission notification can precede the first view/PlayState. Keep a
             // bounded readiness retry; no later simulation tick or property event is assumed.
             return configured && (!MainViewModel.viewModelLoaded || GameData.Instance?.lastGameState == null);

@@ -158,6 +158,7 @@ Vanilla audits that also contain mod-specific parts; see the `[mod integration]`
 - [Trail import list and local deletion](./sem/FBCB9319/knowledge/TRAIL_IMPORT_DELETION.md)
 - [Trail Maker custom AIC export and confirmation overlay](./sem/FBCB9319/knowledge/TRAIL_CUSTOM_AIC_EXPORT.md)
 - [Tree Blight and woodland decay](./sem/FBCB9319/knowledge/TREE_BLIGHT_DECAY.md): common Vanilla/RandomEvents path, native mode distinction, cumulative thresholds, blocked decay, permanent interception and pending game acceptance.
+- [Original woodland sites and seedling placement](./sem/FBCB9319/knowledge/TREE_RESPAWN.md) describes native vegetation slot identity, full deletion, natural seeding, and the ExtraFeatures integration.
 - [Unified mission lifecycle audit](./sem/FBCB9319/knowledge/MISSION_LIFECYCLE.md): gameplay, save, editor and multiplayer operation boundaries and central mode permissions.
 - [Vanilla peace-time gameplay audit](./sem/FBCB9319/knowledge/VANILLA_PEACE_TIME.md): all 36 active-flag references, mode-gated gameplay predicates, and the starting-troop dispatcher entry contract.
 - [Weighted Assassin search cost](./sem/FBCB9319/knowledge/ASSASSIN_WEIGHTED_SEARCH_COST.md): D9C40 depth limit 800 and climb-fallback rules, the post-load AI target burst with whole-component searches toward unreachable targets, and the exact backward unreachability proof; runtime evidence on the 8-lord stress save.

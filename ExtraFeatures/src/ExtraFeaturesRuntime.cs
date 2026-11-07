@@ -78,6 +78,7 @@ namespace ExtraFeatures
         private FearFactorNeutralizationRuntime fearFactorRuntime;
         private PopularityRuntime popularityRuntime;
         private PeriodicGoldRuntime periodicGoldRuntime;
+        private TreeRespawnRuntime treeRespawnRuntime;
         private WorkerProductionBonusRuntime workerProductionBonusRuntime;
         private PlagueDurationPatch plagueDurationPatch;
         private PlagueApothecarySearchRangePatch plagueApothecarySearchRangePatch;
@@ -164,6 +165,13 @@ namespace ExtraFeatures
                 var candidate = new PeriodicGoldRuntime(log, settings, new PeriodicGoldGameWorld());
                 candidate.Register();
                 periodicGoldRuntime = candidate;
+            });
+            TryRunFeature("tree respawn lifecycle", () =>
+            {
+                if (treeRespawnRuntime != null) return;
+                var candidate = new TreeRespawnRuntime(log, settings);
+                candidate.Register();
+                treeRespawnRuntime = candidate;
             });
             TryRunFeature("popularity lifecycle", () =>
             {
@@ -472,6 +480,7 @@ namespace ExtraFeatures
             // The independent gold runtime captures these at completed mission start.
             // Editing an amount must not reapply unrelated native feature settings.
             if (propertyName == nameof(ExtraFeaturesViewModel.FixedProductionBonusPercent) ||
+                propertyName == nameof(ExtraFeaturesViewModel.TreeRespawnMinutes) ||
                 propertyName == nameof(ExtraFeaturesViewModel.PeriodicGoldHuman) ||
                 propertyName == nameof(ExtraFeaturesViewModel.PeriodicGoldAI)) return;
             if (propertyName == nameof(ExtraFeaturesViewModel.EnableMod)) popularityRuntime?.RefreshActivation();

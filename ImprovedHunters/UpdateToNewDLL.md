@@ -376,7 +376,7 @@ all the record fields above, that newborn animals join the same herd (`0x118130`
 ## Start herds
 
 Owner: `WildlifeRespawnFeature.PlaceStartHerds`, places from `WildlifeStartPlaces`, setting `StartHerdMode`. New maps only, right after the capture above: one herd per player with a keep,
-through `0x11E150` as above, cut to Vanilla's smallest size. Reads keep and door through the Extender (`GetPlayerKeepId`, `GetPlayerKeepDoorPosition`), the path components, and `+0x48` of the
+through `0x11E150` as above, cut to Vanilla's smallest size. Reads the keeps through `ActivePlayerKeepReadiness`, the door through `GetPlayerKeepDoorPosition`, the path components, and `+0x48` of the
 sector grid through `HerdFleeSightFeature.SectorThreats`. The Hunter's hut button (`0xFFC70`, `0x37EF97C`) does not know these herds, so `HunterHutAvailabilityPatch` stays on with them.
 Update audit: the same as for the respawn, and that the door position is a tile on the walkable land around the keep.
 

@@ -126,6 +126,12 @@ internal static class Program
                 Console.WriteLine("PASS: gameplay gate source integration and direct-editor HUD bootstrap.");
                 return 0;
             }
+            if (args != null && args.Length == 1 && args[0] == "spectator-modes")
+            {
+                TestGameplayFeatureModePolicy("Spectator_Serp");
+                Console.WriteLine("PASS: Spectator statistics and gameplay-action permissions across mission modes, saves and restarts.");
+                return 0;
+            }
             if (args != null && args.Length == 1 && args[0] == "peace-proximity")
             {
                 PeaceTimeProximityPresetTests.Run();
@@ -1665,7 +1671,7 @@ internal static class Program
             editor ? GameModeKind.MapEditor : GameModeKind.CustomGame);
 
 
-    private static void TestGameplayFeatureModePolicy()
+    private static void TestGameplayFeatureModePolicy(string modGuid = null)
     {
         CrusaderDE.MainViewModel.Reset();
         GamePlayerManagerAPI.Instance.MapEditor = false;
@@ -1737,7 +1743,9 @@ internal static class Program
             { GameplayFeatureId.ImprovedHunterPathfinding, "ImprovedHunters_Serp" },
             { GameplayFeatureId.CastleSpawning, "CastlePlanner_Serp" },
             { GameplayFeatureId.FreeCastlePreview, "CastlePlanner_Serp" },
-            { GameplayFeatureId.CastleBlueprints, "CastlePlanner_Serp" }
+            { GameplayFeatureId.CastleBlueprints, "CastlePlanner_Serp" },
+            { GameplayFeatureId.SpectatorGameplayActions, "Spectator_Serp" },
+            { GameplayFeatureId.SpectatorStatistics, "Spectator_Serp" }
         };
         var editorAllowed = new HashSet<GameplayFeatureId>
         {
@@ -1746,7 +1754,8 @@ internal static class Program
         var multiplayerBlocked = new HashSet<GameplayFeatureId>
         {
             GameplayFeatureId.ImprovedHunterTargetSelection,
-            GameplayFeatureId.ImprovedHunterPathfinding
+            GameplayFeatureId.ImprovedHunterPathfinding,
+            GameplayFeatureId.SpectatorGameplayActions
         };
 
         GameplayModActivationProfile castlePlannerProfile =
@@ -1757,12 +1766,14 @@ internal static class Program
 
         foreach (KeyValuePair<GameplayFeatureId, string> entry in owners)
         {
+            if (modGuid != null && entry.Value != modGuid) continue;
             GameplayFeatureActivationProfile profile =
                 GameplayFeatureModePolicy.GetProfile(entry.Value, entry.Key);
             Check(GameplayFeatureModePolicy.IsAllowed(profile, customGame, out _) &&
                   customizedModes.All(mode => GameplayFeatureModePolicy.IsAllowed(profile, mode, out _)),
                 $"feature policy rejected a regular gameplay context for {entry.Key}");
-            bool allRecognizedModesAllowed = entry.Key == GameplayFeatureId.CastleBlueprints;
+            bool allRecognizedModesAllowed = entry.Key == GameplayFeatureId.CastleBlueprints ||
+                entry.Key == GameplayFeatureId.SpectatorStatistics;
             Check(recognizedDirectModes.All(mode =>
                       GameplayFeatureModePolicy.IsAllowed(profile, mode, out _) == allRecognizedModesAllowed) &&
                   !GameplayFeatureModePolicy.IsAllowed(profile, default, out _) &&
@@ -1780,6 +1791,28 @@ internal static class Program
                       allRecognizedModesAllowed),
                 $"feature direct-mode multiplayer policy is incorrect for {entry.Key}");
         }
+
+        var spectatorActions = GameplayFeatureModePolicy.GetProfile("Spectator_Serp", GameplayFeatureId.SpectatorGameplayActions);
+        var spectatorStatistics = GameplayFeatureModePolicy.GetProfile("Spectator_Serp", GameplayFeatureId.SpectatorStatistics);
+        foreach (GameModeSnapshot trail in recognizedDirectModes.Where(mode => mode.Kind != GameModeKind.Campaign &&
+                     mode.Kind != GameModeKind.StandaloneMission))
+        {
+            foreach (GameModeLaunchVariant variant in new[] { GameModeLaunchVariant.Standard, GameModeLaunchVariant.RestoredCustomizedSave })
+            {
+                var saved = trail.WithModeEvidenceForTests(trail.Kind, variant, trail.EventTrailType);
+                var restarted = customGame.WithRestartProvenance(saved);
+                bool allowActions = variant == GameModeLaunchVariant.RestoredCustomizedSave;
+                Check(GameplayFeatureModePolicy.IsAllowed(spectatorActions, saved, out _) == allowActions &&
+                      GameplayFeatureModePolicy.IsAllowed(spectatorActions, restarted, out _) == allowActions &&
+                      GameplayFeatureModePolicy.IsAllowed(spectatorStatistics, saved, out _) &&
+                      GameplayFeatureModePolicy.IsAllowed(spectatorStatistics, restarted, out _),
+                    $"Spectator lost save/restart provenance for {trail.Kind} ({variant})");
+            }
+        }
+        var tutorial = customGame.WithModeEvidenceForTests(GameModeKind.Tutorial, GameModeLaunchVariant.Standard, -1);
+        Check(!GameplayFeatureModePolicy.IsAllowed(spectatorActions, tutorial, out _) &&
+              !GameplayFeatureModePolicy.IsAllowed(spectatorStatistics, tutorial, out _),
+            "Spectator gave a gameplay or statistics grant to the tutorial");
 
         bool wrongOwnerRejected = false;
         try

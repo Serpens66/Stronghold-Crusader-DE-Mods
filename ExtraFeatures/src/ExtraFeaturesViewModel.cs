@@ -37,6 +37,7 @@ namespace ExtraFeatures
             {
                 NormalizeOwnedKillReward();
                 OnPropertyChanged(nameof(CanConfigurePeriodicGold));
+                OnPropertyChanged(nameof(CanConfigureTreeRespawn));
                 OnPropertyChanged(nameof(CanConfigureFixedProductionBonus));
                 OnPropertyChanged(nameof(CanConfigureKillReward));
                 OnPropertyChanged(nameof(CanConfigureEnemyProximity));
@@ -433,6 +434,7 @@ namespace ExtraFeatures
                 FixedProductionBonusPercent = 50;
                 PeriodicGoldHuman = 0;
                 PeriodicGoldAI = 0;
+                TreeRespawnMinutes = TreeRespawnState.Off;
                 MarketBuyPriceMultiplier = 1.0;
                 MarketSellPriceMultiplier = 1.0;
                 MarketPricesAlsoForAI = false;

@@ -1101,6 +1101,12 @@
       "note": "Mod usage inline."
     },
     {
+      "file": "TREE_RESPAWN.md",
+      "scope": "vanilla+integration",
+      "components": ["ExtraFeatures", "Script Extender", "APIShared"],
+      "integrationSections": ["ExtraFeatures integration"]
+    },
+    {
       "file": "TREE_BLIGHT_DECAY.md",
       "scope": "vanilla+integration",
       "components": [

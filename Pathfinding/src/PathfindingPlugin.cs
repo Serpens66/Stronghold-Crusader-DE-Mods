@@ -1,0 +1,102 @@
+// Feature: Plugin bootstrap of the Pathfinding mod.
+using BepInEx;
+using SHCDESE.API.LowLevel;
+using System;
+
+namespace Pathfinding
+{
+    [BepInDependency(ScriptExtenderGuid, "2.14.3")]
+    [BepInDependency(ApiSharedGuid, "0.34.0")]
+    [BepInDependency("ExtraFeatures_Serp", BepInDependency.DependencyFlags.SoftDependency)]
+    [BepInDependency("fixes", BepInDependency.DependencyFlags.SoftDependency)]
+    [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
+    // Deliberately incompatible until the moved code is removed from its source mods (MIGRATION.md):
+    // both would own the same native command hooks. BepInEx then skips this plugin.
+    [BepInIncompatibility("BugfixesAndQoL_Serp")]
+    [BepInIncompatibility("MoatMove_Serp")]
+    [BepInIncompatibility("TroopMovementFix_Serp")]
+    [BepInIncompatibility("TroopMovementFix2_Serp")]
+    [BepInIncompatibility("TroopMovementFix3_Serp")]
+    [BepInIncompatibility("MoveMoatTest_Serp")]
+    [BepInIncompatibility("QueueTest_Serp")]
+    [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
+    public sealed class PathfindingPlugin : BaseUnityPlugin
+    {
+        private const string ScriptExtenderGuid = "000shcdese";
+        private const string ApiSharedGuid = "APIShared_Serp";
+
+        public const string PluginGuid = "Pathfinding_Serp";
+        public const string PluginName = "Pathfinding";
+        public const string PluginVersion = "0.1.0";
+
+        // Static roots: the plugin component itself is destroyed by the SHCDE startup cleanup.
+        private static PathfindingPlugin processRoot;
+        private static PathfindingRuntime runtime;
+        private static bool initialized;
+
+        public PathfindingViewModel Settings { get; private set; }
+
+        private void Awake()
+        {
+            if (initialized) return;
+            initialized = true;
+            processRoot = this;
+            Shared.DebugLogHelper.InitializeDiagnostics(Config, Logger);
+            Shared.DevDiag.Attach(Logger);
+            Shared.UnityMainThreadDispatch.InitializeForCurrentThread();
+            Shared.CrashBreadcrumbDiagnostics.Initialize(Logger, PluginGuid, PluginName, PluginVersion);
+            Settings = new PathfindingViewModel();
+            FormationFeature.Configure(Logger, Config, Settings);
+            GateRouting.GateRoutingFeature.Configure(Logger, Config, Settings);
+            runtime = new PathfindingRuntime(Logger, Settings, System.IO.Path.GetDirectoryName(Info.Location));
+            CrusaderLibrary.Instance.LibraryLoaded += OnCrusaderLibraryLoaded;
+            Shared.DebugLogHelper.LogInfo(Logger, $"{PluginName} {PluginVersion} loaded; awaiting native library.");
+        }
+
+        private void OnCrusaderLibraryLoaded(CrusaderLibraryLoadContext context)
+        {
+            using (Shared.CrashBreadcrumbScope diagnostic = Shared.CrashBreadcrumbDiagnostics.Enter("LibraryLoaded"))
+            {
+                // Initial native installation window (see PathfindingHookInfrastructure.DetourBackend).
+                HookInstallPhase.InitialLibraryLoad = true;
+                bool completed;
+                try { completed = InitializeLibraryRuntime(context); }
+                finally { HookInstallPhase.InitialLibraryLoad = false; }
+                if (completed) diagnostic.Complete();
+            }
+        }
+
+        // Runs inside the initial native installation window; false = stopped fail-closed.
+        private bool InitializeLibraryRuntime(CrusaderLibraryLoadContext context)
+        {
+            // Packet types are registered before settings can vary.
+            try { runtime.InitializeNetwork(); }
+            catch (Exception ex) { Shared.DebugLogHelper.LogError(Logger, "PATHFINDING_NETWORK_INIT_FAILED: " + ex); }
+            try
+            {
+                APIShared.ModSettings.LobbyModSettingsPresetRegistration.Register(
+                    this,
+                    Shared.DebugLogHelper.ForExternalCode(Logger),
+                    PluginGuid,
+                    Settings,
+                    "ScriptExtenderUI/PathfindingSettings.xaml",
+                    logRoutineActivity: Shared.DebugLogHelper.DiagnosticsEnabled);
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(Logger, "PATHFINDING_SETTINGS_REGISTRATION_FAILED: gameplay runtime stopped fail-closed; " + ex);
+                return false;
+            }
+            try { runtime.InitializeNative(context, Shared.DebugLogHelper.IsCurrentNativeLibraryVersion()); }
+            catch (Exception ex) { Shared.DebugLogHelper.LogError(Logger, "PATHFINDING_NATIVE_INIT_FAILED: unaffected features may continue; " + ex); }
+            FormationFeature.Initialize(context);
+            try { runtime.InstallEngine(context); }
+            catch (Exception ex) { Shared.DebugLogHelper.LogError(Logger, "PATHFINDING_ENGINE_INIT_FAILED: Vanilla routes stay active; " + ex); }
+            try { runtime.ApplySettings(); }
+            catch (Exception ex) { Shared.DebugLogHelper.LogError(Logger, "PATHFINDING_SETTINGS_APPLY_FAILED: " + ex); }
+            // Results of a one-time native fallback (unknown game build) are reused on the next start.
+            PathfindingNativeCache.Save();
+            return true;
+        }
+    }
+}

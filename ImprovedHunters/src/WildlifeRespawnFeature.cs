@@ -51,6 +51,8 @@ namespace ImprovedHunters
         private readonly SpawnHerdDelegate spawnHerd;
         private bool archiveLoadedForMission;
         private bool startedFromSave;
+        private bool mapHasHerds;
+        private bool startHerdsPending;
         private bool failureLogged;
 
         public WildlifeRespawnFeature(ManualLogSource log, ImprovedHuntersViewModel settings, WildlifeNativeAddresses addresses, WildlifeOriginTable origins, HerdFleeSightFeature sectors)
@@ -89,6 +91,7 @@ namespace ImprovedHunters
             {
                 archiveLoadedForMission = false;
                 startedFromSave = started.Context.IsSave;
+                startHerdsPending = false;
             });
         }
 
@@ -96,7 +99,7 @@ namespace ImprovedHunters
         {
             // Every tick comes through here, so nothing is read beyond these two checks between the boundaries.
             uint tick = unchecked((uint)mapTick);
-            bool captureDue = !origins.IsCaptured && tick % CaptureIntervalTicks == 0;
+            bool captureDue = (!origins.IsCaptured || startHerdsPending) && tick % CaptureIntervalTicks == 0;
             bool checkDue = settings.HerdReturnSeconds != HerdSettingsPolicy.Off && tick % CheckIntervalTicks == 0;
             if (!captureDue && !checkDue)
                 return;
@@ -107,8 +110,13 @@ namespace ImprovedHunters
                 {
                     if (captureDue)
                     {
-                        CaptureHerds();
-                        PlaceStartHerds();
+                        if (!origins.IsCaptured)
+                        {
+                            CaptureHerds();
+                            mapHasHerds = origins.Count > 0;
+                        }
+
+                        startHerdsPending = !TryPlaceStartHerds();
                     }
 
                     if (checkDue && origins.IsCaptured && *(int*)addresses.MultiplayerMode != 0)
@@ -162,60 +170,61 @@ namespace ImprovedHunters
         }
 
         // Only a new map: a save has its herds already, also one that has no record of them.
-        private void PlaceStartHerds()
+        // False while the keeps are not ready yet, so that the next boundary tries again.
+        private bool TryPlaceStartHerds()
         {
             int mode = settings.StartHerdMode;
             bool deerAllowed = settings.HuntDeer;
             if (startedFromSave || *(int*)addresses.MultiplayerMode == 0 ||
-                !HerdSettingsPolicy.WantsStartHerds(mode, origins.Count > 0) || (!deerAllowed && !settings.HuntGoat))
+                !HerdSettingsPolicy.WantsStartHerds(mode, mapHasHerds) || (!deerAllowed && !settings.HuntGoat))
             {
-                return;
+                return true;
             }
 
-            GamePlayerManagerAPI players = GamePlayerManagerAPI.Instance;
-            Span<int> keepX = stackalloc int[MaximumPlayers + 1], keepY = stackalloc int[MaximumPlayers + 1];
-            for (int player = 1; player <= MaximumPlayers; player++)
+            if (!Shared.ActivePlayerKeepReadiness.TryCapture(out Shared.ActivePlayerKeepSnapshot keeps, out string failure))
             {
-                if (players.GetPlayerKeepId(player) <= 0)
-                    continue;
+                Shared.DebugLogHelper.LogDebug(log, $"Improved Hunters start herds wait: {failure}");
+                return false;
+            }
 
-                var door = players.GetPlayerKeepDoorPosition(player);
-                keepX[player] = door.X;
-                keepY[player] = door.Y;
+            int count = keeps.PlayerIds.Length;
+            var centerX = new int[count];
+            var centerY = new int[count];
+            for (int index = 0; index < count; index++)
+            {
+                if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(keeps.KeepBuildingIds[index], out GameBuilding* keep) || keep == null)
+                    return false;
+
+                centerX[index] = (int)keep->r_TilePositionXBegin + (int)keep->r_OccupyTileGridSize / 2;
+                centerY[index] = (int)keep->r_TilePositionYBegin + (int)keep->r_OccupyTileGridSize / 2;
             }
 
             SimpleNativeArray<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitArray();
             int kind = deerAllowed ? DeerHerdKind : GoatHerdKind, animals = deerAllowed ? StartDeer : StartGoats;
-            for (int player = 1; player <= MaximumPlayers; player++)
-            {
-                if (keepX[player] <= 0)
-                    continue;
-
-                TryPlaceStartHerd(units, keepX, keepY, player, kind, animals);
-            }
+            for (int index = 0; index < count; index++)
+                PlaceStartHerd(units, keeps.PlayerIds[index], index, centerX, centerY, kind, animals);
+            return true;
         }
 
-        private void TryPlaceStartHerd(SimpleNativeArray<GameUnit> units, Span<int> keepX, Span<int> keepY, int player, int kind, int animals)
+        private void PlaceStartHerd(SimpleNativeArray<GameUnit> units, int player, int index, int[] centerX, int[] centerY, int kind, int animals)
         {
-            int outside = 0, threats = 0, nearKeep = 0, otherLand = 0, refused = 0;
             GameTileManagerAPI tiles = GameTileManagerAPI.Instance;
             Span<ushort> components = GamePathingManagerAPI.Instance.GetPathComponentGrid();
-            int doorTile = tiles.GetTileId(keepX[player], keepY[player]);
-            if (!tiles.IsValidTileId(doorTile) || (uint)doorTile >= (uint)components.Length)
-            {
-                Shared.DebugLogHelper.LogWarning(log, $"Improved Hunters found no start herd place for player {player}: door=({keepX[player]},{keepY[player]}) is no tile.");
-                return;
-            }
-
-            foreach ((int x, int y) in WildlifeStartPlaces.Around(keepX[player], keepY[player], MapMiddle, MapMiddle))
+            var door = GamePlayerManagerAPI.Instance.GetPlayerKeepDoorPosition(player);
+            int doorTile = tiles.GetTileId(door.X, door.Y);
+            int outside = 0, threats = 0, nearKeep = 0, blocked = 0, otherLand = 0, refused = 0;
+            bool doorOnLand = tiles.IsValidTileId(doorTile) && (uint)doorTile < (uint)components.Length;
+            foreach ((int x, int y) in WildlifeStartPlaces.Around(centerX[index], centerY[index], MapMiddle, MapMiddle))
             {
                 if (!tiles.IsTileInsideMapBounds(x, y)) { outside++; continue; }
                 if (sectors.SectorThreats(x, y) != 0) { threats++; continue; }
-                if (IsNearOtherKeep(keepX, keepY, player, x, y)) { nearKeep++; continue; }
+                if (IsNearOtherKeep(centerX, centerY, index, x, y)) { nearKeep++; continue; }
 
                 int tile = tiles.GetTileId(x, y);
+                if (!tiles.IsValidTileId(tile) || !tiles.IsTileWalkableAndUnoccupied(tile)) { blocked++; continue; }
+
                 // An AI castle's walls can part the door from the land around it, its gates connect them.
-                if (!tiles.IsValidTileId(tile) || (uint)tile >= (uint)components.Length ||
+                if (!doorOnLand || (uint)tile >= (uint)components.Length ||
                     !GamePathingManagerAPI.Instance.ArePathComponentsConnected(player, components[doorTile], components[tile], PathConnectionQueryMode.ExcludeLadderClimb))
                 {
                     otherLand++;
@@ -236,23 +245,20 @@ namespace ImprovedHunters
                     HerdSerial = *(int*)(addresses.GetHerdRecord(herd) + WildlifeNativeAddresses.HerdSerialOffset),
                     ExtinctSinceTick = WildlifeOrigin.NotExtinct
                 });
-                Shared.DebugLogHelper.LogInfo(log, $"Improved Hunters start herd: player={player}, kind=0x{kind:X}, herd={herd}, tile=({x},{y}), door=({keepX[player]},{keepY[player]}).");
+                Shared.DebugLogHelper.LogInfo(log, $"Improved Hunters start herd: player={player}, kind=0x{kind:X}, herd={herd}, tile=({x},{y}), keep=({centerX[index]},{centerY[index]}).");
                 return;
             }
 
-            Shared.DebugLogHelper.LogWarning(log, $"Improved Hunters found no start herd place for player {player}: door=({keepX[player]},{keepY[player]}), doorLand={components[doorTile]}, " +
-                $"outside={outside}, threats={threats}, nearKeep={nearKeep}, otherLand={otherLand}, refused={refused}.");
+            Shared.DebugLogHelper.LogWarning(log, $"Improved Hunters found no start herd place for player {player}: keep=({centerX[index]},{centerY[index]}), door=({door.X},{door.Y}), " +
+                $"outside={outside}, threats={threats}, nearKeep={nearKeep}, blocked={blocked}, otherLand={otherLand}, refused={refused}.");
         }
 
-        private static bool IsNearOtherKeep(Span<int> keepX, Span<int> keepY, int player, int x, int y)
+        private static bool IsNearOtherKeep(int[] centerX, int[] centerY, int index, int x, int y)
         {
-            for (int other = 1; other <= MaximumPlayers; other++)
+            for (int other = 0; other < centerX.Length; other++)
             {
-                if (other != player && keepX[other] > 0 &&
-                    Math.Max(Math.Abs(keepX[other] - x), Math.Abs(keepY[other] - y)) < WildlifeStartPlaces.NearestDistance)
-                {
+                if (other != index && Math.Max(Math.Abs(centerX[other] - x), Math.Abs(centerY[other] - y)) < WildlifeStartPlaces.NearestDistance)
                     return true;
-                }
             }
 
             return false;

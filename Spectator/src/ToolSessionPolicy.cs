@@ -7,7 +7,7 @@ namespace Spectator {
         internal static bool CanSelect(bool spectator, bool test, bool occupied, bool ai, bool self) =>
             occupied && (spectator || test && (ai || self));
 
-        internal static bool CanMutate(bool enabled, bool session, bool model, bool state, bool network, bool director, bool multiplayer) =>
-            enabled && session && model && state && !network && director && !multiplayer;
+        internal static bool CanMutate(bool enabled, bool authorizedSession, bool model, bool state, bool network, bool director, bool multiplayer) =>
+            enabled && authorizedSession && model && state && !network && director && !multiplayer;
     }
 }

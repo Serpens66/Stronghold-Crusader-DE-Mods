@@ -828,6 +828,18 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}"
                 </Grid>
               </Grid>
             </StackPanel>
+            <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" IsEnabled="{Binding CanConfigureTreeRespawn}" shared:ModSettingsSearch.Key="extra.tree-respawn" shared:ModSettingsSearch.Title="{Binding TreeRespawnTitle}" shared:ModSettingsSearch.ToolTipText="{Binding TreeRespawnHelp}">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" SharedSizeGroup="SettingLabel" MaxWidth="220" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="160" />
+                <ColumnDefinition Width="8" />
+                <ColumnDefinition Width="Auto" MinWidth="64" />
+              </Grid.ColumnDefinitions>
+              <TextBlock Text="{Binding TreeRespawnTitle}" Style="{StaticResource CompactSettingLabel}" />
+              <Slider Grid.Column="2" Minimum="-1" Maximum="120" TickFrequency="1" SmallChange="1" LargeChange="1" IsSnapToTickEnabled="True" Value="{Binding TreeRespawnMinutes, Mode=TwoWay}" shared:ModSettingsSearch.InactiveValues="-1" ToolTipService.ShowDuration="60000" ToolTip="{Binding TreeRespawnHelp}" Margin="0" MinHeight="28" VerticalAlignment="Center" />
+              <TextBlock Grid.Column="4" Text="{Binding TreeRespawnValueText}" Foreground="White" VerticalAlignment="Center" TextAlignment="Center" />
+            </Grid>
             <StackPanel Visibility="{Binding SettingsPresentation.EconomyBonusOptions.Visibility}">
               <TextBlock Text="{Binding EconomyBuffsTitleText}" Style="{StaticResource SubsectionHeader}" />
               <TextBlock Text="{Binding EffectiveFixedProductionBonusText}" Foreground="#FFF2D48A" TextWrapping="Wrap" Margin="0,0,0,5"/>

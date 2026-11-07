@@ -1,4 +1,3 @@
-using APIShared.GameModes;
 // Reversible statistics preview; no surrender or mission-end action.
 using APIShared;
 using BepInEx.Logging;
@@ -9,7 +8,9 @@ using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
 using System.Reflection;
+using System.Threading;
 using APIShared.Presentation;
+using Shared;
 
 namespace Spectator
 {
@@ -22,16 +23,17 @@ namespace Spectator
         private readonly StatisticsPreviewController preview = new StatisticsPreviewController();
         private HUD_MissionOver statisticsPreviewView => preview.View as HUD_MissionOver;
         private bool statisticsPreviewActive => preview.Active;
-        private bool ready, statisticsViewer, lastAvailable;
+        private bool ready, statisticsModeAllowed, statisticsViewer, lastAvailable;
         private EngineInterface.PlayState observedState;
         private long session;
         private StatisticsControlsViewModel controls;
         private IngameMenuActionRegistration menuRegistration;
         private IDisposable menuPerspectiveSubscription;
         internal bool Active => statisticsPreviewActive;
-        internal bool Available => ready && !preview.VanillaEnded && session > 0 && settings.Activation.Statistics &&
-            MainViewModel.viewModelLoaded && GameData.Instance?.lastGameState != null && statisticsViewer &&
-            !GameModeHelper.IsMapEditor() && (GameModeHelper.IsRealMultiplayer() || GameModeHelper.IsSingleplayerSkirmishMode());
+        internal bool Available => ready && statisticsModeAllowed && !preview.VanillaEnded &&
+            preview.Session > 0 && preview.Session == Interlocked.Read(ref session) &&
+            settings.Activation.Statistics && MainViewModel.viewModelLoaded &&
+            GameData.Instance?.lastGameState != null && statisticsViewer;
         internal SpectatorStatistics(ManualLogSource log, SpectatorViewModel settings) { this.log = log; this.settings = settings; }
         internal void Initialize()
         {
@@ -59,12 +61,42 @@ namespace Spectator
                     SpectatorRuntime.PostPresentation(() => { controls?.Refresh(); SpectatorRuntime.InvalidateToolbar(); });
                 })) throw new InvalidOperationException(reason);
             if (!ApiShared.Current.TryGetMissionLifecycle(SpectatorPlugin.PluginGuid, out var lifecycle, out var diagnostic) ||
-                !lifecycle.TryRegisterObserver("statistics", n => { session = n.Context.SessionId; long expected = session; SpectatorRuntime.PostPresentation(() => { if (session == expected) { preview.Start(expected); observedState = null; statisticsViewer = false; SpectatorRuntime.InvalidateToolbar(); InvalidateMenu(); } }); },
-                    n => { session = 0; InvalidateMenu(); long generation = preview.Generation; SpectatorRuntime.PostPresentation(() => { if (generation == preview.Generation) CloseStatisticsPreview("session-ended"); }); }, null, out diagnostic))
+                !lifecycle.TryRegisterObserver("statistics", OnMissionStart, OnMissionEnd, null, out diagnostic))
                 throw new InvalidOperationException("Statistics lifecycle unavailable: " + diagnostic?.Reason);
             ready = true;
             InvalidateMenu();
         }
+
+        private void OnMissionStart(MissionLifecycleNotification notification)
+        {
+            long startedSession = notification.Context.SessionId;
+            Interlocked.Exchange(ref session, startedSession);
+            bool modeAllowed = GameplayFeatureModePolicy.IsAllowed(
+                SpectatorPlugin.PluginGuid, GameplayFeatureId.SpectatorStatistics, notification.Context.Mode);
+            SpectatorRuntime.PostPresentation(() =>
+            {
+                if (Interlocked.Read(ref session) != startedSession) return;
+                statisticsModeAllowed = modeAllowed;
+                observedState = null;
+                statisticsViewer = false;
+                preview.Start(startedSession);
+                SpectatorRuntime.InvalidateToolbar();
+                InvalidateMenu();
+            });
+        }
+
+        private void OnMissionEnd(MissionLifecycleNotification notification)
+        {
+            long endedSession = notification.Context.SessionId;
+            if (Interlocked.CompareExchange(ref session, 0, endedSession) != endedSession) return;
+            InvalidateMenu();
+            long generation = preview.Generation;
+            SpectatorRuntime.PostPresentation(() =>
+            {
+                if (generation == preview.Generation) CloseStatisticsPreview("session-ended");
+            });
+        }
+
         internal void InvalidateMenu() => menuRegistration?.Invalidate();
         internal void ObserveAvailability(bool force = false)
         {

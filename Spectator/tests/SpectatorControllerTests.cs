@@ -173,14 +173,15 @@ namespace Spectator {
    }
    foreach(string role in new[]{"active","original spectator","eliminated spectator"})
    foreach(bool spectatorTools in new[]{false,true}) foreach(bool activeTools in new[]{false,true})
-   foreach(bool editor in new[]{false,true}) foreach(bool multiplayer in new[]{false,true}) {
+   foreach(bool editor in new[]{false,true}) foreach(bool multiplayer in new[]{false,true})
+   foreach(bool authorizedSession in new[]{false,true}) {
     bool observer=role!="active";
     bool enabled=ToolSessionPolicy.Enabled(spectatorTools,activeTools,editor,observer,role!="original spectator");
-    bool available=ToolSessionPolicy.CanMutate(enabled,true,true,true,multiplayer,true,multiplayer);
-    bool expected=!editor&&!multiplayer&&(observer?spectatorTools:activeTools);
+    bool available=ToolSessionPolicy.CanMutate(enabled,authorizedSession,true,true,multiplayer,true,multiplayer);
+    bool expected=authorizedSession&&!editor&&!multiplayer&&(observer?spectatorTools:activeTools);
     var roleMenu=new ToolbarMenuState(); roleMenu.SetToolsAvailable(available);
     Check(roleMenu.CanExpand==expected && roleMenu.CanInvoke("Collapse")==expected,
-     "button/open command follow only the current role's setting: "+role);
+     "button/open command require an authorized mission and the current role's setting: "+role);
     roleMenu.ToggleExpanded(); Check(roleMenu.ShowDetails==expected,"detail window follows the same role permission");
     roleMenu.ToggleView("Orders"); roleMenu.SetPlacement(true);
     Check(roleMenu.Placing==expected,"disabled entrypoints cannot start placement");

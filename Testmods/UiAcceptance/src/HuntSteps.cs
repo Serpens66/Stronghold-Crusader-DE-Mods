@@ -614,6 +614,7 @@ namespace UiAcceptance
                     if (players.GetPlayerKeepId(player) <= 0)
                         continue;
                     var door = players.GetPlayerKeepDoorPosition(player);
+                    // From the door, which lies a few tiles from the keep's middle the mod measures from.
                     int distance = Math.Max(Math.Abs(door.X - x), Math.Abs(door.Y - y));
                     if (distance < nearest)
                     {
@@ -627,7 +628,7 @@ namespace UiAcceptance
                 Runner.Require(herdKind == kind, "a herd of the wrong kind");
                 Runner.Require(living == animals, "expected " + animals + " animals, found " + living);
                 Runner.Require(sameLand, "the herd is cut off from its keep");
-                Runner.Require(nearest >= 20 && nearest <= 80, "the herd stands " + nearest + " tiles from the keep");
+                Runner.Require(nearest >= 45 && nearest <= 85, "the herd stands " + nearest + " tiles from the keep");
             }
             // -1: one for each player with a keep; the lobby does not always hold the same players.
             if (expected < 0)

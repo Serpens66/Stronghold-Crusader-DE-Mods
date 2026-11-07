@@ -412,10 +412,11 @@ static class Program
             HerdSettingsPolicy.WantsStartHerds(2, false) && HerdSettingsPolicy.WantsStartHerds(2, true), "Start herds must follow the mode and whether the map has herds.");
 
         var places = WildlifeStartPlaces.Around(100, 400, 400, 400).ToList();
-        Assert(places[0] == (130, 400), "The first place must lie towards the middle of the map.");
-        Assert(places.Count == 16 * 6 && places.Distinct().Count() == places.Count, "Every ring must offer sixteen different places.");
-        Assert(places.All(p => Math.Max(Math.Abs(p.X - 100), Math.Abs(p.Y - 400)) >= 21) && places.Take(16).All(p => Math.Abs(p.X - 100) * Math.Abs(p.X - 100) + Math.Abs(p.Y - 400) * Math.Abs(p.Y - 400) <= 31 * 31),
-            "The first ring must keep its distance from the keep.");
+        Assert(places[0] == (155, 400), "The first place must lie towards the middle of the map.");
+        Assert(places.Distinct().Count() == places.Count, "Every place may be tried once.");
+        Assert(places.All(p => Math.Max(Math.Abs(p.X - 100), Math.Abs(p.Y - 400)) >= WildlifeStartPlaces.NearestDistance),
+            "A start herd must stay outside the 100 x 100 tiles of a castle layout.");
+        Assert(places.All(p => Math.Max(Math.Abs(p.X - 100), Math.Abs(p.Y - 400)) <= 70), "A start herd must stay near its keep.");
         Assert(places.SequenceEqual(WildlifeStartPlaces.Around(100, 400, 400, 400)), "All peers must try the same places.");
     }
 

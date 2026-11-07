@@ -76,6 +76,9 @@
     <Compile Include="src\WorkerProductionBonusRuntime.cs" />
     <Compile Include="src\ExtraFeaturesViewModel.ProductionBonus.cs" />
     <Compile Include="src\PeriodicGoldRuntime.cs" />
+    <Compile Include="src\TreeRespawnRuntime.cs" />
+    <Compile Include="src\TreeRespawnState.cs" />
+    <Compile Include="src\ExtraFeaturesViewModel.TreeRespawn.cs" />
     <Compile Include="src\PeriodicGoldGameWorld.cs" />
     <Compile Include="src\ExtraFeaturesViewModel.PeriodicGold.cs" />
     <Compile Include="src\IndependentFeatureRegistration.cs" />

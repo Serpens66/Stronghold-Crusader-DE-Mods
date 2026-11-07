@@ -2,6 +2,7 @@ using APIShared.GameModes;
 using APIShared;
 using CrusaderDE;
 using SHCDESE.Interop.Enums;
+using Shared;
 using System;
 using System.Threading;
 
@@ -10,12 +11,16 @@ namespace Spectator
     internal static partial class SpectatorRuntime
     {
         private static long announcedSessionId;
+        private static long gameplayActionsSessionId;
         private static GameModeSnapshot? sessionMode;
         private static long CurrentSessionId => Interlocked.Read(ref activeSessionId);
         internal static bool HasMission => CurrentSessionId > 0;
 
         private static bool IsCurrentSession(long sessionId) =>
             sessionId > 0 && sessionId == CurrentSessionId && sessionId == Interlocked.Read(ref announcedSessionId);
+
+        private static bool AllowsGameplayActions =>
+            IsCurrentSession(Interlocked.Read(ref gameplayActionsSessionId));
 
         private static void OnMissionStart(MissionLifecycleNotification notification)
         {
@@ -33,10 +38,13 @@ namespace Spectator
             if (!initialized || sessionId <= 0 || sessionId == CurrentSessionId) return;
             ResetSessionState();
             sessionMode = mode;
+            bool allowsGameplayActions = GameplayFeatureModePolicy.IsAllowed(
+                Guid, GameplayFeatureId.SpectatorGameplayActions, mode);
+            Interlocked.Exchange(ref gameplayActionsSessionId, allowsGameplayActions ? sessionId : 0);
             Interlocked.Exchange(ref activeSessionId, sessionId);
             actionLedger.Reset(sessionId);
             DiagAiPlacementSessionStarted(sessionId);
-            log?.LogInfo("SPECTATOR_EDITOR_SESSION_START id=" + sessionId);
+            log?.LogInfo($"SPECTATOR_EDITOR_SESSION_START id={sessionId}, gameplayActions={allowsGameplayActions}, {mode.ToDiagnosticString()}");
             RequestRender();
         }
 

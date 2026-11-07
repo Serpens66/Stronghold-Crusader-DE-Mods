@@ -285,6 +285,7 @@ namespace ExtraFeatures.Tests
                 EnemyProximityTests.Run(Check);
                 HealthMultiplierTests.Run(Check);
                 PeriodicGoldTests.Run(Check);
+                TreeRespawnTests.Run(Check);
                 WorkerProductionBonusTests.Run(Check);
                 PopularityLifecycleTests.Run(Check);
                 bool independent = false;

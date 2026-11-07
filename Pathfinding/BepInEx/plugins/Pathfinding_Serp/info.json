@@ -1,0 +1,29 @@
+{
+  "GUID": "Pathfinding_Serp",
+  "Author": "Serpens66",
+  "Name": "Pathfinding",
+  "Description": "Faster and smarter unit movement: shared group routes, better commands, gate routing, Assassin climbing, formations, command queue and synchronized troop movement.",
+  "Version": "0.1.0",
+  "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
+  "MinimumScriptExtenderVersion": "2.14.3",
+  "MaximumScriptExtenderVersion": "",
+  "Dependencies": [
+    {
+      "GUID": "APIShared_Serp",
+      "MinimumVersion": "0.34.0"
+    }
+  ],
+  "Manifest": 1,
+  "NetworkMode": 1,
+  "SupportedGameVersions": [
+    "2.8.0.2"
+  ],
+  "SerpChangelog": [
+    {
+      "Version": "0.1.0",
+      "Changes": [
+        "First standalone version, built from the movement features of BugfixesAndQoL and MoatMove. Not compatible with them yet."
+      ]
+    }
+  ]
+}

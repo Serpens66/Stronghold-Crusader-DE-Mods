@@ -1,0 +1,412 @@
+using Pathfinding.UnitCommands;
+using BepInEx.Configuration;
+using BepInEx.Logging;
+using CrusaderDE;
+using Noesis;
+using System;
+using System.ComponentModel;
+using System.Windows.Input;
+
+namespace Pathfinding
+{
+    internal sealed class FormationMenuViewModel : INotifyPropertyChanged, IFormationPresentation
+    {
+        private static SolidColorBrush selectedBrush;
+        private static SolidColorBrush unselectedBrush;
+
+        private readonly ManualLogSource log;
+        internal Func<bool> Enabled = () => false;
+        internal Func<bool> OwnHudAvailable = () => false;
+        internal FormationKind SelectedKind => FormationModel.NormalizeKind((int)formation.Value);
+        private readonly ConfigFile configFile;
+        private readonly ConfigEntry<FormationKind> formation;
+        private readonly ConfigEntry<int> density;
+        private readonly ConfigEntry<RangedPlacementMode> placementMode;
+        private readonly ConfigEntry<bool> showRoleMarkers;
+        private readonly ConfigEntry<bool> rememberAspect;
+        private readonly ConfigEntry<string>[] rememberedAspects;
+        private MainViewModel subscribedMainViewModel;
+        private bool menuVisible;
+        private bool rolloverVisible;
+        private string rolloverText = string.Empty;
+
+        internal FormationMenuViewModel(
+            ManualLogSource log,
+            ConfigFile configFile,
+            ConfigEntry<FormationKind> formation,
+            ConfigEntry<int> density,
+            ConfigEntry<RangedPlacementMode> placementMode,
+            ConfigEntry<bool> showRoleMarkers,
+            ConfigEntry<bool> rememberAspect,
+            ConfigEntry<string>[] rememberedAspects)
+        {
+            this.log = log ?? throw new ArgumentNullException(nameof(log));
+            this.configFile = configFile ?? throw new ArgumentNullException(nameof(configFile));
+            this.formation = formation ?? throw new ArgumentNullException(nameof(formation));
+            this.density = density ?? throw new ArgumentNullException(nameof(density));
+            this.placementMode = placementMode ?? throw new ArgumentNullException(nameof(placementMode));
+            this.showRoleMarkers = showRoleMarkers ?? throw new ArgumentNullException(nameof(showRoleMarkers));
+
+            this.rememberAspect = rememberAspect ?? throw new ArgumentNullException(nameof(rememberAspect));
+            this.rememberedAspects = rememberedAspects ?? throw new ArgumentNullException(nameof(rememberedAspects));
+
+            ToggleMenuCommand = new ParameterCommand(_ => ToggleMenu());
+            SelectFormationCommand = new ParameterCommand(SelectFormation);
+            SelectDensityCommand = new ParameterCommand(SelectDensity);
+            SelectPlacementCommand = new ParameterCommand(SelectPlacement);
+            SelectRoleMarkersCommand = new ParameterCommand(SelectRoleMarkers);
+            ShowRolloverCommand = new ParameterCommand(ShowRollover);
+            HideRolloverCommand = new ParameterCommand(_ => HideRollover());
+
+            formation.SettingChanged += ConfigurationChanged;
+            density.SettingChanged += ConfigurationChanged;
+            placementMode.SettingChanged += ConfigurationChanged;
+            showRoleMarkers.SettingChanged += ConfigurationChanged;
+            rememberAspect.SettingChanged += ConfigurationChanged;
+        }
+
+        public string RememberRowsText => SerpLocalization.Get("Pathfinding.RememberRows");
+        public string RememberRowsHelp => SerpLocalization.Get("Pathfinding.RememberRowsHelp");
+        public string LineupText => SerpLocalization.Get("Pathfinding.ArrangementTooltip");
+        public string DensityText => SerpLocalization.Get("Pathfinding.LineupDensity");
+        public string TightText => SerpLocalization.Get("Pathfinding.LineupTight");
+        public string NormalText => SerpLocalization.Get("Pathfinding.LineupNormal");
+        public string FarText => SerpLocalization.Get("Pathfinding.LineupFar");
+        public string VeryFarText => SerpLocalization.Get("Pathfinding.LineupVeryFar");
+        public string RangedSiegeText => SerpLocalization.Get("Pathfinding.LineupRangedSiege");
+        public string OffText => SerpLocalization.Get("Pathfinding.LineupOff");
+        public string RearText => SerpLocalization.Get("Pathfinding.LineupRear");
+        public string CenterText => SerpLocalization.Get("Pathfinding.LineupCenter");
+        public string RoleMarkersText => SerpLocalization.Get("Pathfinding.LineupRoleMarkers");
+        public string OnText => SerpLocalization.Get("Pathfinding.LineupOn");
+        public bool RememberAspectRatio
+        {
+            get => rememberAspect.Value;
+            set => Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(() =>
+            {
+                if (!FeatureAvailable || rememberAspect.Value == value) return;
+                try { rememberAspect.Value = value; SaveConfiguration("rememberAspect", value.ToString()); }
+                catch (Exception ex) { Shared.DebugLogHelper.LogWarningLimited(log, "Pathfinding/FormationMenuViewModel/RememberAspectRatio", "Arrangement preference save failed: " + ex.Message); }
+            });
+        }
+
+        public FormationAspectRatio GetRememberedAspect(FormationKind kind)
+        {
+            int index = (int)kind;
+            if (rememberAspect.Value && index >= (int)FormationKind.Block && index <= (int)FormationKind.Wedge &&
+                FormationAspectRatio.TryParse(rememberedAspects[index].Value, out FormationAspectRatio aspect)) return aspect;
+            return default;
+        }
+
+        public void RememberSelectedAspect(FormationKind kind, FormationAspectRatio aspect)
+        {
+            int index = (int)kind;
+            if (!rememberAspect.Value || index < (int)FormationKind.Block || index > (int)FormationKind.Wedge || aspect.IsAutomatic) return;
+            string selectedAspect = aspect.ToString();
+            Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(() =>
+            {
+                if (!rememberAspect.Value || rememberedAspects[index].Value == selectedAspect) return;
+                try { rememberedAspects[index].Value = selectedAspect; SaveConfiguration("remembered" + kind + "Aspect", selectedAspect); }
+                catch (Exception ex) { Shared.DebugLogHelper.LogWarningLimited(log, "Pathfinding/FormationMenuViewModel/RememberSelectedAspect", "Arrangement preference save failed: " + ex.Message); }
+            });
+        }
+
+        public void SetPreviewAuthorization(bool allowed) => FormationPreviewOverlay.SetNativeAllowed(allowed);
+        public bool FeatureAvailable => Enabled();
+        private bool lastAvailability;
+        public void RefreshPreview() => FormationPreviewOverlay.Refresh();
+        public void ClearPreview() => FormationPreviewOverlay.Clear();
+        public void PublishPreview(FormationPreviewPoint[] points, FormationDirectionIndicator direction) =>
+            FormationPreviewOverlay.Publish(points, direction);
+
+        public event PropertyChangedEventHandler PropertyChanged;
+
+        public ICommand ToggleMenuCommand { get; }
+        public ICommand SelectFormationCommand { get; }
+        public ICommand SelectDensityCommand { get; }
+        public ICommand SelectPlacementCommand { get; }
+        public ICommand SelectRoleMarkersCommand { get; }
+        public ICommand ShowRolloverCommand { get; }
+        public ICommand HideRolloverCommand { get; }
+
+        public bool MenuVisible => menuVisible && FeatureAvailable;
+        public bool RolloverVisible => rolloverVisible && FeatureAvailable;
+        public string RolloverText => rolloverText;
+        public bool IsVanilla => FormationModel.NormalizeKind((int)formation.Value) == FormationKind.Vanilla;
+        public bool IsBlock => FormationModel.NormalizeKind((int)formation.Value) == FormationKind.Block;
+        public bool IsLine => FormationModel.NormalizeKind((int)formation.Value) == FormationKind.Line;
+        public bool IsColumn => FormationModel.NormalizeKind((int)formation.Value) == FormationKind.Column;
+        public bool IsWedge => FormationModel.NormalizeKind((int)formation.Value) == FormationKind.Wedge;
+        public bool IsCircle => FormationModel.NormalizeKind((int)formation.Value) == FormationKind.Circle;
+        public SolidColorBrush VanillaBackground => FormationBrush(FormationKind.Vanilla);
+        public SolidColorBrush BlockBackground => FormationBrush(FormationKind.Block);
+        public SolidColorBrush LineBackground => FormationBrush(FormationKind.Line);
+        public SolidColorBrush ColumnBackground => FormationBrush(FormationKind.Column);
+        public SolidColorBrush WedgeBackground => FormationBrush(FormationKind.Wedge);
+        public SolidColorBrush CircleBackground => FormationBrush(FormationKind.Circle);
+        public SolidColorBrush TightBackground => DensityBrush(1);
+        public SolidColorBrush NormalBackground => DensityBrush(2);
+        public SolidColorBrush FarBackground => DensityBrush(3);
+        public SolidColorBrush VeryFarBackground => DensityBrush(4);
+        public SolidColorBrush PlacementOffBackground => PlacementBrush(RangedPlacementMode.Off);
+        public SolidColorBrush PlacementRearBackground => PlacementBrush(RangedPlacementMode.Rear);
+        public SolidColorBrush PlacementCenterBackground => PlacementBrush(RangedPlacementMode.Center);
+        public SolidColorBrush RoleMarkersOnBackground => BooleanBrush(showRoleMarkers.Value);
+        public SolidColorBrush RoleMarkersOffBackground => BooleanBrush(!showRoleMarkers.Value);
+
+        internal void RefreshAvailability()
+        {
+            bool available = FeatureAvailable;
+            if (!available)
+            {
+                SetMenuVisible(false);
+                HideRollover();
+            }
+            if (lastAvailability != available)
+            {
+                lastAvailability = available;
+                OnChanged(nameof(FeatureAvailable));
+                OnChanged(nameof(MenuVisible));
+                OnChanged(nameof(RolloverVisible));
+            }
+        }
+
+        public void RefreshHostState()
+        {
+            RefreshAvailability();
+            MainViewModel current = MainViewModel.viewModelLoaded ? MainViewModel.Instance : null;
+            bool hostAvailable = FeatureAvailable && OwnHudAvailable() && current != null && current.Show_HUD_Troops &&
+                FatControler.currentScene == Enums.SceneIDS.ActualMainGame;
+            if (!hostAvailable) { HideRollover(); }
+            if (!ReferenceEquals(current, subscribedMainViewModel))
+            {
+                if (subscribedMainViewModel != null)
+                    subscribedMainViewModel.PropertyChanged -= MainViewModelPropertyChanged;
+                subscribedMainViewModel = current;
+                if (current != null)
+                    current.PropertyChanged += MainViewModelPropertyChanged;
+            }
+            if (menuVisible && !hostAvailable)
+            {
+                SetMenuVisible(false);
+            }
+        }
+
+        public void CloseMenu() => Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(() =>
+        {
+            SetMenuVisible(false);
+            HideRollover();
+            RefreshAvailability();
+        });
+
+        private void ToggleMenu()
+        {
+            if (!Enabled()) return;
+            RefreshHostState();
+            if (!MainViewModel.viewModelLoaded)
+                return;
+            MainViewModel main = MainViewModel.Instance;
+            if (menuVisible)
+            {
+                SetMenuVisible(false);
+                return;
+            }
+            if (!OwnHudAvailable() || main == null || !main.Show_HUD_Troops ||
+                FatControler.currentScene != Enums.SceneIDS.ActualMainGame)
+                return;
+            main.Show_HUD_ControlGroups = false;
+            SetMenuVisible(true);
+        }
+
+        private void SelectFormation(object parameter)
+        {
+            if (!FeatureAvailable) return;
+            if (!Enum.TryParse(parameter as string, true, out FormationKind requested))
+                return;
+            FormationKind normalized = FormationModel.NormalizeKind((int)requested);
+            if (formation.Value == normalized)
+                return;
+            formation.Value = normalized;
+            SaveConfiguration("formation", normalized.ToString());
+        }
+
+        private void SelectDensity(object parameter)
+        {
+            if (!FeatureAvailable) return;
+            if (!int.TryParse(parameter as string, out int requested))
+                return;
+            int normalized = FormationModel.NormalizeDensity(requested);
+            if (density.Value == normalized)
+                return;
+            density.Value = normalized;
+            SaveConfiguration("density", normalized.ToString());
+        }
+
+        private void SelectPlacement(object parameter)
+        {
+            if (!FeatureAvailable) return;
+            if (!Enum.TryParse(parameter as string, true, out RangedPlacementMode requested))
+                return;
+            RangedPlacementMode normalized = FormationModel.NormalizePlacementMode((int)requested);
+            if (placementMode.Value == normalized)
+                return;
+            placementMode.Value = normalized;
+            SaveConfiguration("rangedPlacement", normalized.ToString());
+        }
+
+        private void SelectRoleMarkers(object parameter)
+        {
+            if (!FeatureAvailable) return;
+            if (!bool.TryParse(parameter as string, out bool requested) ||
+                showRoleMarkers.Value == requested)
+                return;
+            showRoleMarkers.Value = requested;
+            FormationPreviewOverlay.SetRoleMarkersVisible(requested);
+            SaveConfiguration("showRoleMarkers", requested.ToString());
+        }
+
+        private void ShowRollover(object parameter)
+        {
+            if (!FeatureAvailable) return;
+            string key;
+            switch (parameter as string)
+            {
+                case "Vanilla": key = "Pathfinding.LineupVanilla"; break;
+                case "Block": key = "Pathfinding.LineupBlock"; break;
+                case "Line": key = "Pathfinding.LineupLine"; break;
+                case "Column": key = "Pathfinding.LineupColumn"; break;
+                case "Wedge": key = "Pathfinding.LineupWedge"; break;
+                case "Circle": key = "Pathfinding.LineupCircle"; break;
+                default: return;
+            }
+            rolloverText = SerpLocalization.Get(key);
+            rolloverVisible = true;
+            OnChanged(nameof(RolloverText));
+            OnChanged(nameof(RolloverVisible));
+        }
+
+        private void HideRollover()
+        {
+            if (!rolloverVisible)
+                return;
+            rolloverVisible = false;
+            OnChanged(nameof(RolloverVisible));
+        }
+
+        private void SaveConfiguration(string setting, string value)
+        {
+            // Callers just assigned a changed ConfigEntry value; with SaveOnConfigSet BepInEx has
+            // already written the file synchronously, so a second write (per wheel notch) is redundant.
+            if (!configFile.SaveOnConfigSet)
+                configFile.Save();
+        }
+
+        private void ConfigurationChanged(object sender, System.EventArgs args)
+        {
+            Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(NotifySelectionsChanged);
+        }
+
+        private void MainViewModelPropertyChanged(
+            object sender,
+            PropertyChangedEventArgs args)
+        {
+            if (args.PropertyName == nameof(MainViewModel.Show_HUD_Troops) &&
+                sender is MainViewModel changedMain && !changedMain.Show_HUD_Troops)
+            if (!menuVisible)
+                return;
+            MainViewModel source = sender as MainViewModel;
+            if (source == null)
+                return;
+            if ((args.PropertyName == nameof(MainViewModel.Show_HUD_ControlGroups) &&
+                 source.Show_HUD_ControlGroups) ||
+                (args.PropertyName == nameof(MainViewModel.Show_HUD_Troops) &&
+                 !source.Show_HUD_Troops))
+            {
+                SetMenuVisible(false);
+            }
+        }
+
+        private SolidColorBrush FormationBrush(FormationKind kind) =>
+            FormationModel.NormalizeKind((int)formation.Value) == kind
+                ? SelectedBrush
+                : UnselectedBrush;
+
+        private SolidColorBrush DensityBrush(int value) =>
+            FormationModel.NormalizeDensity(density.Value) == value
+                ? SelectedBrush
+                : UnselectedBrush;
+
+        private static SolidColorBrush SelectedBrush => selectedBrush ??
+            (selectedBrush = new SolidColorBrush(Color.FromArgb(210, 91, 117, 44)));
+
+        private static SolidColorBrush UnselectedBrush => unselectedBrush ??
+            (unselectedBrush = new SolidColorBrush(Color.FromArgb(145, 0, 0, 0)));
+
+        private void SetMenuVisible(bool value)
+        {
+            if (menuVisible == value)
+                return;
+            menuVisible = value;
+            if (!value)
+                HideRollover();
+            OnChanged(nameof(MenuVisible));
+        }
+
+        private void NotifySelectionsChanged()
+        {
+            OnChanged(nameof(RememberAspectRatio));
+            OnChanged(nameof(IsVanilla));
+            OnChanged(nameof(IsBlock));
+            OnChanged(nameof(IsLine));
+            OnChanged(nameof(IsColumn));
+            OnChanged(nameof(IsWedge));
+            OnChanged(nameof(IsCircle));
+            OnChanged(nameof(VanillaBackground));
+            OnChanged(nameof(BlockBackground));
+            OnChanged(nameof(LineBackground));
+            OnChanged(nameof(ColumnBackground));
+            OnChanged(nameof(WedgeBackground));
+            OnChanged(nameof(CircleBackground));
+            OnChanged(nameof(TightBackground));
+            OnChanged(nameof(NormalBackground));
+            OnChanged(nameof(FarBackground));
+            OnChanged(nameof(VeryFarBackground));
+            OnChanged(nameof(PlacementOffBackground));
+            OnChanged(nameof(PlacementRearBackground));
+            OnChanged(nameof(PlacementCenterBackground));
+            OnChanged(nameof(RoleMarkersOnBackground));
+            OnChanged(nameof(RoleMarkersOffBackground));
+            FormationPreviewOverlay.SetRoleMarkersVisible(showRoleMarkers.Value);
+        }
+
+        private SolidColorBrush PlacementBrush(RangedPlacementMode mode) =>
+            FormationModel.NormalizePlacementMode((int)placementMode.Value) == mode
+                ? SelectedBrush
+                : UnselectedBrush;
+
+        private static SolidColorBrush BooleanBrush(bool selected) =>
+            selected ? SelectedBrush : UnselectedBrush;
+
+        private void OnChanged(string property) =>
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(property));
+
+        private sealed class ParameterCommand : ICommand
+        {
+            private readonly Action<object> execute;
+
+            internal ParameterCommand(Action<object> execute)
+            {
+                this.execute = execute ?? throw new ArgumentNullException(nameof(execute));
+            }
+
+            public event System.EventHandler CanExecuteChanged
+            {
+                add { }
+                remove { }
+            }
+
+            public bool CanExecute(object parameter) => true;
+            public void Execute(object parameter) => execute(parameter);
+        }
+    }
+}

@@ -1,0 +1,1580 @@
+{
+ "schema": 1,
+ "note": "Dated snapshot; check with tools/Test-MigrationDrift.ps1.",
+ "entries": [
+  {
+   "origin": "BugfixesAndQoL/src/Assassins/AssassinAStarPolicy.cs",
+   "originBlob": "41875a42d5b2c0663bfc6267617b611e502a4b4b",
+   "target": "Pathfinding/src/Assassins/AssassinAStarPolicy.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/Assassins/AssassinClimbCancellationPolicy.cs",
+   "originBlob": "e610e6cb375372949dfc772fa0663c5567f3b166",
+   "target": "Pathfinding/src/Assassins/AssassinClimbCancellationPolicy.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/Assassins/AssassinClimbCancellationRuntime.cs",
+   "originBlob": "4ce308ebbfb6fac8b348aaea7d67c622b9c461ed",
+   "target": "Pathfinding/src/Assassins/AssassinClimbCancellationRuntime.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/Assassins/AssassinClimbCostPolicy.cs",
+   "originBlob": "3813c068e67ec24d5939e6c798a6fdad90821b4a",
+   "target": "Pathfinding/src/Assassins/AssassinClimbCostPolicy.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/Assassins/AssassinClimbRuntime.cs",
+   "originBlob": "d52818dff231653fd8cc1f07783af562be397c76",
+   "target": "Pathfinding/src/Assassins/AssassinClimbRuntime.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/Assassins/AssassinClimbStatePacket.cs",
+   "originBlob": "19e8d5885b2f7dbbebcab5f77e23e908d12c1732",
+   "target": "Pathfinding/src/Assassins/AssassinClimbStatePacket.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/Assassins/AssassinClimbTransitionPolicy.cs",
+   "originBlob": "98727c30df43134c69f9f9630eb121ffb9632bd6",
+   "target": "Pathfinding/src/Assassins/AssassinClimbTransitionPolicy.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/Assassins/AssassinCombatResumeNativeDefinition.cs",
+   "originBlob": "4689e2191bae76c36c82879873342b5da6bb87fd",
+   "target": "Pathfinding/src/Assassins/AssassinCombatResumeNativeDefinition.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/Assassins/AssassinCombatResumePolicy.cs",
+   "originBlob": "d454396dae1edec0cc3cd49cc09ea470150610c0",
+   "target": "Pathfinding/src/Assassins/AssassinCombatResumePolicy.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/Assassins/AssassinCombatResumeRuntime.cs",
+   "originBlob": "3b343806425872e7f9819b2fbcc8f2ff059eaa9e",
+   "target": "Pathfinding/src/Assassins/AssassinCombatResumeRuntime.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/Assassins/AssassinGateDescentRule.cs",
+   "originBlob": "84cf9e9261f6785e5d53979425810bce501db11a",
+   "target": "Pathfinding/src/Assassins/AssassinGateDescentRule.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/Assassins/AssassinGateDescentRuntime.cs",
+   "originBlob": "447374b52e2c685559a1bd2f1ef40815032ea2f0",
+   "target": "Pathfinding/src/Assassins/AssassinGateDescentRuntime.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/Assassins/AssassinGateRoutePolicy.cs",
+   "originBlob": "36d2c7bbfaa243bf53c925077adf84244bca7711",
+   "target": "Pathfinding/src/Assassins/AssassinGateRoutePolicy.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/Assassins/AssassinGatehouseDescentFeature.cs",
+   "originBlob": "73ef3913d34134b8f31b532fc09a56d4a636b69b",
+   "target": "Pathfinding/src/Assassins/AssassinGatehouseDescentFeature.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/Assassins/AssassinNativeSearch.cs",
+   "originBlob": "130cc86917d3b0aaf450665b95dfb9213856cb57",
+   "target": "Pathfinding/src/Assassins/AssassinNativeSearch.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/Assassins/AssassinPathReconstructionPatch.cs",
+   "originBlob": "68409de77dcf7717e8b21f2fa08c0734c248b328",
+   "target": "Pathfinding/src/Assassins/AssassinPathReconstructionPatch.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/Assassins/AssassinPathfindingRuntime.CacheKeys.cs",
+   "originBlob": "5f20f6a20cbddd446b47b3df35b27595a8bf1a77",
+   "target": "Pathfinding/src/Assassins/AssassinPathfindingRuntime.CacheKeys.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/Assassins/AssassinPathfindingRuntime.DevDiag.cs",
+   "originBlob": "7d83e1e645b22daff2d6ab30df11ca8cb76e8491",
+   "target": "Pathfinding/src/Assassins/AssassinPathfindingRuntime.DevDiag.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/Assassins/AssassinPathfindingRuntime.cs",
+   "originBlob": "1295fae434d964d27d4e6d7731d4a5d3e06b2227",
+   "target": "Pathfinding/src/Assassins/AssassinPathfindingRuntime.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/Assassins/AssassinRouteEncoding.cs",
+   "originBlob": "1305583845fc27ad43ca334c821a51aa23abe39b",
+   "target": "Pathfinding/src/Assassins/AssassinRouteEncoding.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/CommandQueue/ExtendedShiftCommandQueueModel.cs",
+   "originBlob": "a0ad57f2b4e7758d31ff7049e7d8d58d5d008b88",
+   "target": "Pathfinding/src/CommandQueue/ExtendedShiftCommandQueueModel.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/CommandQueue/ExtendedShiftCommandQueueRuntime.cs",
+   "originBlob": "d3773396e5d4ea79816968482f8a25abdcc4f9be",
+   "target": "Pathfinding/src/CommandQueue/ExtendedShiftCommandQueueRuntime.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/CommandQueue/ExtendedShiftOverlayRenderer.cs",
+   "originBlob": "9af6fbc9fb7d51f391e0619ee478fcb3131a8521",
+   "target": "Pathfinding/src/CommandQueue/ExtendedShiftOverlayRenderer.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/Core/Common/FeatureSaveStates.cs",
+   "originBlob": "e939eaf8d3647fef86139f8f8b28e596833419cf",
+   "target": "Pathfinding/src/Core/Common/FeatureSaveStates.cs",
+   "action": "keep"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/Core/Common/LocalPerPlayerSetting.cs",
+   "originBlob": "f28215fece7bab15c674b3d0d073136d5f6ed30b",
+   "target": "Pathfinding/src/Core/Common/LocalPerPlayerSetting.cs",
+   "action": "keep"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/Core/Common/LocalSelectionSnapshot.cs",
+   "originBlob": "a512ae31072847d34bdd1c9d0371b903e385f720",
+   "target": "Pathfinding/src/Core/Common/LocalSelectionSnapshot.cs",
+   "action": "keep"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/Core/Common/MultiplayerFeatureGate.cs",
+   "originBlob": "ded32da8a21fb8ab75bf6a651f906b96462f8895",
+   "target": "Pathfinding/src/Core/Common/MultiplayerFeatureGate.cs",
+   "action": "keep"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/Core/Common/SessionSaveRecordSlot.cs",
+   "originBlob": "aab3bb04c73de9ac756ab3cc4b591e7d2776db43",
+   "target": "Pathfinding/src/Core/Common/SessionSaveRecordSlot.cs",
+   "action": "keep"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/Core/Common/SimulationRunScope.cs",
+   "originBlob": "ee859ad6f69f548c20d05967a00ac5fbe6535d19",
+   "target": "Pathfinding/src/Core/Common/SimulationRunScope.cs",
+   "action": "keep"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/Core/Native/BfqolNativeCache.cs",
+   "originBlob": "ae0730193f6aadd8acc8d2da1fcb2cb313870dc3",
+   "target": "Pathfinding/src/Core/Native/PathfindingNativeCache.cs",
+   "action": "keep"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/Core/Native/BugfixesHookInfrastructure.cs",
+   "originBlob": "49dbbe90fc49bc424a21a61357f64035e75e374a",
+   "target": "Pathfinding/src/Core/Native/PathfindingHookInfrastructure.cs",
+   "action": "keep"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/Core/Native/DemandGatedContextHook.cs",
+   "originBlob": "d543fd00d743efd0d7330538a08296cda19f82d5",
+   "target": "Pathfinding/src/Core/Native/DemandGatedContextHook.cs",
+   "action": "keep"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/Core/Native/HookInstallPhase.cs",
+   "originBlob": "e6108328011eb6195fad0c8c0e5210198ec05275",
+   "target": "Pathfinding/src/Core/Native/HookInstallPhase.cs",
+   "action": "keep"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/Core/Native/NativeHandlerSnapshot.cs",
+   "originBlob": "e0c6643dd20ec425d34ef83473d025d17fe30f0f",
+   "target": "Pathfinding/src/Core/Native/NativeHandlerSnapshot.cs",
+   "action": "keep"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/Core/Native/NativeInstructionReplayEmitter.cs",
+   "originBlob": "8d6fcaa086186fcf2d5380a1b91acc5051895487",
+   "target": "Pathfinding/src/Core/Native/NativeInstructionReplayEmitter.cs",
+   "action": "keep"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/Core/Native/PermanentInstructionSkipPatch.cs",
+   "originBlob": "b0898098bb217f795b0d4e20accd53c80a943bf4",
+   "target": "Pathfinding/src/Core/Native/PermanentInstructionSkipPatch.cs",
+   "action": "keep"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/Formations/Feature/ArrangementTooltipFontConverter.cs",
+   "originBlob": "86b0ead230ac7e765a250ca6f90ef42811e4c180",
+   "target": "Pathfinding/src/Formations/Feature/ArrangementTooltipFontConverter.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/Formations/Feature/FormationFeature.cs",
+   "originBlob": "19666d782c283b8a070fb1446acff889308cac4d",
+   "target": "Pathfinding/src/Formations/Feature/FormationFeature.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/Formations/Feature/FormationHudButton.cs",
+   "originBlob": "e93734338ae2fe0d68292ab9fb593ec460147f6f",
+   "target": "Pathfinding/src/Formations/Feature/FormationHudButton.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/Formations/Feature/FormationMenuViewModel.cs",
+   "originBlob": "ace6d6032288e84f7ed5f96389c87222a0c43065",
+   "target": "Pathfinding/src/Formations/Feature/FormationMenuViewModel.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/Formations/Feature/FormationPreviewOverlay.cs",
+   "originBlob": "fbaa59f085ab887147313ecb131f0b51a59678d8",
+   "target": "Pathfinding/src/Formations/Feature/FormationPreviewOverlay.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/Formations/Feature/FormationSelectionMigration.cs",
+   "originBlob": "35efc6dc1079e20a13e93795bcb2ee07c62ae18f",
+   "target": "Pathfinding/src/Formations/Feature/FormationSelectionMigration.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/Formations/Feature/LargeMoveTargetMarkerRuntime.cs",
+   "originBlob": "a2b997229eb5c49f53703846e980ea7907ea1e26",
+   "target": "Pathfinding/src/Formations/Feature/LargeMoveTargetMarkerRuntime.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/Formations/FormationFailurePolicy.cs",
+   "originBlob": "42f4f7ae1d172136e317afd010b880197b92317b",
+   "target": "Pathfinding/src/Formations/FormationFailurePolicy.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/Formations/FormationHudIconLayout.cs",
+   "originBlob": "179088bb2a4df167fb6be04a822565a947bcef38",
+   "target": "Pathfinding/src/Formations/FormationHudIconLayout.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/Formations/FormationModel.cs",
+   "originBlob": "32b158d887ba83a196d640196a143af077c5b915",
+   "target": "Pathfinding/src/Formations/FormationModel.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/Formations/FormationNativeRunContext.cs",
+   "originBlob": "c3c7d4dd247bb3ca008d332aa84f1c3b0b1a8742",
+   "target": "Pathfinding/src/Formations/FormationNativeRunContext.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/Formations/FormationOrderPacket.cs",
+   "originBlob": "93dc53ff23bcb2186834e428bd7a5f9ca11db7ff",
+   "target": "Pathfinding/src/Formations/FormationOrderPacket.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/Formations/FormationPresentation.cs",
+   "originBlob": "65c83b395a982967c2dd700ceb78826bbc4c370b",
+   "target": "Pathfinding/src/Formations/FormationPresentation.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/Formations/FormationPreviewMarkerModel.cs",
+   "originBlob": "3a9a42cd25084769299c107f8b835014b45df909",
+   "target": "Pathfinding/src/Formations/FormationPreviewMarkerModel.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/Formations/FormationReleaseStateModel.cs",
+   "originBlob": "457f3014bc8a41a6fc7cc9c9ae4256f7bac7fa07",
+   "target": "Pathfinding/src/Formations/FormationReleaseStateModel.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/Formations/FormationRuntime.Activation.cs",
+   "originBlob": "cec2a3c1a200d694ae9c3e907fc1161902e9e1eb",
+   "target": "Pathfinding/src/Formations/FormationRuntime.Activation.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/Formations/FormationRuntime.Destinations.cs",
+   "originBlob": "51115c91b8fca9198d0bf4aa1551e56951d3906e",
+   "target": "Pathfinding/src/Formations/FormationRuntime.Destinations.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/Formations/FormationRuntime.Diagnostics.cs",
+   "originBlob": "d2a1497dbc09d614fc1855d00108cc63001ff446",
+   "target": "Pathfinding/src/Formations/FormationRuntime.Diagnostics.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/Formations/FormationRuntime.EngineAndCameraHooks.cs",
+   "originBlob": "576e23404c6d9db4c4b8ba3280328d926d2bee5b",
+   "target": "Pathfinding/src/Formations/FormationRuntime.EngineAndCameraHooks.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/Formations/FormationRuntime.Initialization.cs",
+   "originBlob": "a559bcbbdbcf444da25e2ff17305167958115b47",
+   "target": "Pathfinding/src/Formations/FormationRuntime.Initialization.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/Formations/FormationRuntime.Input.cs",
+   "originBlob": "2d01b4f8b03cc68547981c9b0856e4bb829e7cd8",
+   "target": "Pathfinding/src/Formations/FormationRuntime.Input.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/Formations/FormationRuntime.NativeContracts.cs",
+   "originBlob": "5df5bb9db938c0ca843df9d75e574efacde40f11",
+   "target": "Pathfinding/src/Formations/FormationRuntime.NativeContracts.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/Formations/FormationRuntime.NativeDelegates.cs",
+   "originBlob": "bf5e7abadda1697e5d34a51129e8adfb20bd8db6",
+   "target": "Pathfinding/src/Formations/FormationRuntime.NativeDelegates.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/Formations/FormationRuntime.NetworkCommands.cs",
+   "originBlob": "f22a5ca77907e723c88f7c70c08bf1388a596a63",
+   "target": "Pathfinding/src/Formations/FormationRuntime.NetworkCommands.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/Formations/FormationRuntime.OrderEvents.cs",
+   "originBlob": "7e8483d8da4d8e758d808d760f715d3542a942fe",
+   "target": "Pathfinding/src/Formations/FormationRuntime.OrderEvents.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/Formations/FormationRuntime.Preview.cs",
+   "originBlob": "6b9dd5cef5cca9b681aa248122b7ff1f20ff280a",
+   "target": "Pathfinding/src/Formations/FormationRuntime.Preview.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/Formations/FormationRuntime.SelectionAndTargets.cs",
+   "originBlob": "a5ab269b85b4c032b7d7351a853e34ef16287361",
+   "target": "Pathfinding/src/Formations/FormationRuntime.SelectionAndTargets.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/Formations/FormationRuntime.SharedCommands.cs",
+   "originBlob": "128f9bb2861922cd91c1b7b2f15d35cd3a8d4a4d",
+   "target": "Pathfinding/src/Formations/FormationRuntime.SharedCommands.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/Formations/FormationRuntime.SlotHooks.cs",
+   "originBlob": "a74d48139623acb6228c7f28b73a96b8b094adda",
+   "target": "Pathfinding/src/Formations/FormationRuntime.SlotHooks.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/Formations/FormationRuntime.Speech.cs",
+   "originBlob": "de28fc03bd88d45d138906db9c370ab147a90fef",
+   "target": "Pathfinding/src/Formations/FormationRuntime.Speech.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/Formations/FormationRuntime.State.cs",
+   "originBlob": "e8f07b982c8bf478a17f5f0c6bdd731c7646fa66",
+   "target": "Pathfinding/src/Formations/FormationRuntime.State.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/Formations/FormationRuntime.Survivors.cs",
+   "originBlob": "0570b70b5539a651eee71f924212112579b260e1",
+   "target": "Pathfinding/src/Formations/FormationRuntime.Survivors.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/Formations/FormationSpeechModel.cs",
+   "originBlob": "894339f16dc1dd08dd729787a1b3128b93d767ad",
+   "target": "Pathfinding/src/Formations/FormationSpeechModel.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/Formations/FormationSpeechNative.cs",
+   "originBlob": "463619780ba9c3c3e4c43d82fc0dca9f49706bee",
+   "target": "Pathfinding/src/Formations/FormationSpeechNative.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/Formations/GroundMoveFrameObserver.cs",
+   "originBlob": "dc1d8756514fb27312805c94895886d420e064c6",
+   "target": "Pathfinding/src/Formations/GroundMoveFrameObserver.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/Formations/Markers/LargeMoveTargetMarkerRenderer.cs",
+   "originBlob": "91d84222e2ec44936c7a8e15b87328ccf87d2096",
+   "target": "Pathfinding/src/Formations/Markers/LargeMoveTargetMarkerRenderer.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/Formations/Markers/LargeMoveTargetOverflowModel.cs",
+   "originBlob": "b3da29088651f9c3372df93609c7488e03f51305",
+   "target": "Pathfinding/src/Formations/Markers/LargeMoveTargetOverflowModel.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/GateRouting/AttackOrderCorrelationDiagnostics.DevDiag.cs",
+   "originBlob": "60af943784f6f903ac1f6ae16b0f2b85ff2bc7a7",
+   "target": "Pathfinding/src/GateRouting/AttackOrderCorrelationDiagnostics.DevDiag.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/GateRouting/BuildingSearchPlayerResolver.cs",
+   "originBlob": "82066ce2d83f6be71a22a8efc9008bdfe80cb7bb",
+   "target": "Pathfinding/src/GateRouting/BuildingSearchPlayerResolver.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/GateRouting/CaptureTransitionDiagnostics.DevDiag.cs",
+   "originBlob": "924f54843bd7278d1b09a0d67e342f29e13ef629",
+   "target": "Pathfinding/src/GateRouting/CaptureTransitionDiagnostics.DevDiag.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/GateRouting/CaptureTransitionDiagnostics.cs",
+   "originBlob": "70eae2417a657666db93f073f47c7b7dea7c14b2",
+   "target": "Pathfinding/src/GateRouting/CaptureTransitionDiagnostics.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/GateRouting/ConnectedGateFootprint.cs",
+   "originBlob": "da265e47b622e27d968e098ef76b0924f8af793c",
+   "target": "Pathfinding/src/GateRouting/ConnectedGateFootprint.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/GateRouting/CursorPreviewCache.cs",
+   "originBlob": "88d41c90a40d6f5e401d501772458e87d30fd773",
+   "target": "Pathfinding/src/GateRouting/CursorPreviewCache.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/GateRouting/DeferredGateDiagnosticErrors.cs",
+   "originBlob": "71dfa8b766924f3f2fe2c24d7fabd64a23d7be1c",
+   "target": "Pathfinding/src/GateRouting/DeferredGateDiagnosticErrors.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/GateRouting/DiagnosticCallbackAdapterEmitter.DevDiag.cs",
+   "originBlob": "d9724b288452b1652ac4a8d4b0896eadecc810d7",
+   "target": "Pathfinding/src/GateRouting/DiagnosticCallbackAdapterEmitter.DevDiag.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/GateRouting/EnemyGatePathfindingPolicy.cs",
+   "originBlob": "8f889c16cc44f136cf05109d9360486e509d151f",
+   "target": "Pathfinding/src/GateRouting/EnemyGatePathfindingPolicy.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/GateRouting/EnemyGatePathfindingRuntime.DevDiag.cs",
+   "originBlob": "268a216a38de60deeb6129700432d3020325fdc4",
+   "target": "Pathfinding/src/GateRouting/EnemyGatePathfindingRuntime.DevDiag.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/GateRouting/EnemyGatePathfindingRuntime.cs",
+   "originBlob": "6f0c4a3306a91069bdc2c20d9802c36d417f0a9b",
+   "target": "Pathfinding/src/GateRouting/EnemyGatePathfindingRuntime.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/GateRouting/FunctionalGatePolicyAdapter.cs",
+   "originBlob": "2bc14562b5ffe1fddef113f5d5d8014b6d45fe32",
+   "target": "Pathfinding/src/GateRouting/FunctionalGatePolicyAdapter.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/GateRouting/GateAttackFreezeCapture.DevDiag.cs",
+   "originBlob": "91d121bb1be2839d0118c040e204a8a5ef37b210",
+   "target": "Pathfinding/src/GateRouting/GateAttackFreezeCapture.DevDiag.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/GateRouting/GateDiagnosticClassification.cs",
+   "originBlob": "346aaaa0b0f371dd9928a71119ba3cbd2b44b896",
+   "target": "Pathfinding/src/GateRouting/GateDiagnosticClassification.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/GateRouting/GateDiagnosticConfiguration.cs",
+   "originBlob": "109fa3d223f1ad1524232490ea32a8428bd7554c",
+   "target": "Pathfinding/src/GateRouting/GateDiagnosticConfiguration.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/GateRouting/GateEdgeOwnership.cs",
+   "originBlob": "8deeb1d594db22273aaf492cd27843c016d4e61e",
+   "target": "Pathfinding/src/GateRouting/GateEdgeOwnership.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/GateRouting/GatePassageMask.cs",
+   "originBlob": "38061a32819c34769d4f4cda28d10300bc7c9d5f",
+   "target": "Pathfinding/src/GateRouting/GatePassageMask.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/GateRouting/GateRoutePolicySource.cs",
+   "originBlob": "2e5ce9730c2d3152f8bbf57109b53b95d7429275",
+   "target": "Pathfinding/src/GateRouting/GateRoutePolicySource.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/GateRouting/GateRoutingFeature.cs",
+   "originBlob": "fd37c3eaf1101655f5f671cea0de0579fa228684",
+   "target": "Pathfinding/src/GateRouting/GateRoutingFeature.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/GateRouting/GateSearchEvidence.DevDiag.cs",
+   "originBlob": "3b9165d9527ddadc91a4ec293329168ab89a92de",
+   "target": "Pathfinding/src/GateRouting/GateSearchEvidence.DevDiag.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/GateRouting/GateSearchEvidence.cs",
+   "originBlob": "4ef1e9991605871ff06d98ac67c8229a52b12231",
+   "target": "Pathfinding/src/GateRouting/GateSearchEvidence.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/GateRouting/GateTopologySnapshotProvider.cs",
+   "originBlob": "36f652cf251893b923c0c3b090fc3940b21a027a",
+   "target": "Pathfinding/src/GateRouting/GateTopologySnapshotProvider.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/GateRouting/GatehouseFootprintGeometryCache.cs",
+   "originBlob": "e3f0414c0a9de0ddb60ad9935a9c0f81a7e7264c",
+   "target": "Pathfinding/src/GateRouting/GatehouseFootprintGeometryCache.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/GateRouting/IntegrityErrorFlushGate.cs",
+   "originBlob": "c4ec317f5214c3254590222d1147d7878d8a13e8",
+   "target": "Pathfinding/src/GateRouting/IntegrityErrorFlushGate.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/GateRouting/MacemenCommandDiagnostics.DevDiag.cs",
+   "originBlob": "14d3cd485a54597a021eaa9a038584d3058345c6",
+   "target": "Pathfinding/src/GateRouting/MacemenCommandDiagnostics.DevDiag.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/GateRouting/MacemenDiagnosticAggregate.DevDiag.cs",
+   "originBlob": "2cf8e18bbe25dd2371bebd79b108629efd2ed8fe",
+   "target": "Pathfinding/src/GateRouting/MacemenDiagnosticAggregate.DevDiag.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/GateRouting/NativeAssassinDiagnosticHooks.DevDiag.cs",
+   "originBlob": "ca2aa1cdec0f7cf8c37bb3a79c0f0c2067596f41",
+   "target": "Pathfinding/src/GateRouting/NativeAssassinDiagnosticHooks.DevDiag.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/GateRouting/NativeAssassinMovementDiagnostics.DevDiag.cs",
+   "originBlob": "5b4ac273d744055a9c76e54624a5ec5acb7609a0",
+   "target": "Pathfinding/src/GateRouting/NativeAssassinMovementDiagnostics.DevDiag.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/GateRouting/NativeAssassinMovementDiagnostics.Read.DevDiag.cs",
+   "originBlob": "71c497771af4d1cbe0b12a0ec2874354c795a91e",
+   "target": "Pathfinding/src/GateRouting/NativeAssassinMovementDiagnostics.Read.DevDiag.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/GateRouting/NativeAssassinTrace.DevDiag.cs",
+   "originBlob": "4b62dc2d5e0ae42a05addbfdd76b505c7320eccf",
+   "target": "Pathfinding/src/GateRouting/NativeAssassinTrace.DevDiag.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/GateRouting/PathDecisionAggregate.cs",
+   "originBlob": "81d7572a8f8daef4bb9391da65267ed41cb3b5ae",
+   "target": "Pathfinding/src/GateRouting/PathDecisionAggregate.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/GateRouting/PathfindingGlobalsBaseline.cs",
+   "originBlob": "34e3272ba597927b683425fd13c80f96b5ee8fb5",
+   "target": "Pathfinding/src/GateRouting/PathfindingGlobalsBaseline.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/GateRouting/ReachableEnemyGatehouseRuntime.DevDiag.cs",
+   "originBlob": "1c06fe4b18c9fd78c6aaeba24531f27e2873f740",
+   "target": "Pathfinding/src/GateRouting/ReachableEnemyGatehouseRuntime.DevDiag.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/GateRouting/ReachableEnemyGatehouseRuntime.cs",
+   "originBlob": "f5d76308a62ef78fdd1d427abf19c9b836b107ed",
+   "target": "Pathfinding/src/GateRouting/ReachableEnemyGatehouseRuntime.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/GateRouting/RouteTilePolicySnapshot.cs",
+   "originBlob": "c40d0c6990f2da1778bf6341be22883a0110d76b",
+   "target": "Pathfinding/src/GateRouting/RouteTilePolicySnapshot.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/GateRouting/SamePclGateRouteRuntime.DevDiag.cs",
+   "originBlob": "bf000e2fafb173ddb638a772bcfc8de66454cdab",
+   "target": "Pathfinding/src/GateRouting/SamePclGateRouteRuntime.DevDiag.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/GateRouting/SamePclGateRouteRuntime.cs",
+   "originBlob": "c2d633aea63ade89674bf0b485b7381516f31c61",
+   "target": "Pathfinding/src/GateRouting/SamePclGateRouteRuntime.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/GateRouting/SparseBuildingFootprint.cs",
+   "originBlob": "18db2c6398cd2656ef766019fcc22cbc9b3411b7",
+   "target": "Pathfinding/src/GateRouting/SparseBuildingFootprint.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/GateRouting/SynchronizedGatehouseReachabilityPolicy.cs",
+   "originBlob": "15fff0e9c72dfb7f4355c43768b9d993ecee2275",
+   "target": "Pathfinding/src/GateRouting/SynchronizedGatehouseReachabilityPolicy.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/GateRouting/TemporaryGateAcceptanceAggregate.DevDiag.cs",
+   "originBlob": "e005e7f4af81138836eef775efafa54cf14d8386",
+   "target": "Pathfinding/src/GateRouting/TemporaryGateAcceptanceAggregate.DevDiag.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/GateRouting/TemporaryGateCaptureTimeline.DevDiag.cs",
+   "originBlob": "30b781bbd0fb728d84130adec558856b15e70747",
+   "target": "Pathfinding/src/GateRouting/TemporaryGateCaptureTimeline.DevDiag.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/GateRouting/TemporaryGateRouteAcceptance.DevDiag.cs",
+   "originBlob": "a490eafda7102a0ff2459c30e9db65add4174ffd",
+   "target": "Pathfinding/src/GateRouting/TemporaryGateRouteAcceptance.DevDiag.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/TroopMovement/AssemblyPointPlacementPatch.cs",
+   "originBlob": "0ceee7af31bead368a2add5a5775ce8871e8c324",
+   "target": "Pathfinding/src/TroopMovement/AssemblyPointPlacementPatch.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/TroopMovement/FastRecruitMovementBridge.cs",
+   "originBlob": "e3323243740ca214b632c546e1b4865b50a3df6e",
+   "target": "Pathfinding/src/TroopMovement/FastRecruitMovementBridge.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/TroopMovement/FastRecruitRallyMovementRuntime.cs",
+   "originBlob": "d43502454cd72259eaceb5bc57c1b6824972fc83",
+   "target": "Pathfinding/src/TroopMovement/FastRecruitRallyMovementRuntime.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/TroopMovement/MountedStockpileMovementPatch.cs",
+   "originBlob": "58d034a7bbe931438393c9c99749ab6ac79b4948",
+   "target": "Pathfinding/src/TroopMovement/MountedStockpileMovementPatch.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/TroopMovement/MountedStockpileMovementPolicy.cs",
+   "originBlob": "06125b25e766fa660ba87023823198430df79a84",
+   "target": "Pathfinding/src/TroopMovement/MountedStockpileMovementPolicy.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/TroopMovement/MovementCadenceIntegration.cs",
+   "originBlob": "b7ccdb3f68473575fbc0c713a8426450fa94abdf",
+   "target": "Pathfinding/src/TroopMovement/MovementCadenceIntegration.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/TroopMovement/MovementCadenceNativeDiscovery.cs",
+   "originBlob": "b5f8ebea2db12487b99a5731f2f285f22cab9007",
+   "target": "Pathfinding/src/TroopMovement/MovementCadenceNativeDiscovery.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/TroopMovement/MovementLoggingStateTracker.cs",
+   "originBlob": "1b6b8a7c5972741256ba43d94ab24e5d6971c925",
+   "target": "Pathfinding/src/TroopMovement/MovementLoggingStateTracker.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/TroopMovement/SpearmanMovementPatch.cs",
+   "originBlob": "cb8b62214b49b571614d9b3e3180187bedb60ca5",
+   "target": "Pathfinding/src/TroopMovement/SpearmanMovementPatch.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/TroopMovement/SynchronizedMovementCadencePatch.cs",
+   "originBlob": "982d8fb5f4461d2984667c7491811320d5ba65ff",
+   "target": "Pathfinding/src/TroopMovement/SynchronizedMovementCadencePatch.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/TroopMovement/TroopMovementFixModLog.cs",
+   "originBlob": "5e8b0163c92b886889bfe62149a7eecc23b719e5",
+   "target": "Pathfinding/src/TroopMovement/TroopMovementFixModLog.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/TroopMovement/TroopMovementFixRuntime.cs",
+   "originBlob": "983e67f49f3c71be4b11f33cba87825a7918e266",
+   "target": "Pathfinding/src/TroopMovement/TroopMovementFixRuntime.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommandImports.cs",
+   "originBlob": "e97c3f33d203f2b895de2040307ce1edcb8e84d4",
+   "target": "Pathfinding/src/UnitCommandImports.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Attack/ManualProbeRepairGuards.cs",
+   "originBlob": "3e341d9704857ec689ba7e58d3899057906df87c",
+   "target": "Pathfinding/src/UnitCommands/Attack/ManualProbeRepairGuards.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Attack/UnitCommandPathRuntime.ApproachDiagnostics.cs",
+   "originBlob": "cef4a1bb8807398bb7c1bba87b1260abd6c9d2bc",
+   "target": "Pathfinding/src/UnitCommands/Attack/UnitCommandPathRuntime.ApproachDiagnostics.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Attack/UnitCommandPathRuntime.ApproachFlood.cs",
+   "originBlob": "f13aae1f4bd52c2e06c6d0d668ea93685b188657",
+   "target": "Pathfinding/src/UnitCommands/Attack/UnitCommandPathRuntime.ApproachFlood.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Attack/UnitCommandPathRuntime.ApproachPublication.cs",
+   "originBlob": "8d1328c8ed53829c5c9b38eca9a72e7d773c7562",
+   "target": "Pathfinding/src/UnitCommands/Attack/UnitCommandPathRuntime.ApproachPublication.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Attack/UnitCommandPathRuntime.BuildingCandidates.cs",
+   "originBlob": "148707ae5e0e8c657fa6cbc80593409649b0b3b7",
+   "target": "Pathfinding/src/UnitCommands/Attack/UnitCommandPathRuntime.BuildingCandidates.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Attack/UnitCommandPathRuntime.BuildingFallback.cs",
+   "originBlob": "b48f828af15b11815f125a29600d8110b99dd972",
+   "target": "Pathfinding/src/UnitCommands/Attack/UnitCommandPathRuntime.BuildingFallback.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Attack/UnitCommandPathRuntime.LadderAttackFix.cs",
+   "originBlob": "319ac9131c2090ce22468272125b3039ab1579e6",
+   "target": "Pathfinding/src/UnitCommands/Attack/UnitCommandPathRuntime.LadderAttackFix.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Attack/UnitCommandPathRuntime.OrderEvents.cs",
+   "originBlob": "a79bcba14837166ed0c7947a3e21b891faefbdcd",
+   "target": "Pathfinding/src/UnitCommands/Attack/UnitCommandPathRuntime.OrderEvents.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Attack/UnitCommandPathRuntime.RegionFallback.cs",
+   "originBlob": "8b1d4b3bf38d52eba59a6b374e3ea3a3d9f341c8",
+   "target": "Pathfinding/src/UnitCommands/Attack/UnitCommandPathRuntime.RegionFallback.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Attack/UnitCommandPathRuntime.ScopeDiagnostics.cs",
+   "originBlob": "b48f828af15b11815f125a29600d8110b99dd972",
+   "target": "Pathfinding/src/UnitCommands/Attack/UnitCommandPathRuntime.ScopeDiagnostics.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Attack/UnitCommandPathRuntime.Tracking.cs",
+   "originBlob": "30c4dc532e7c1b8de0a514c6d48bfb7c49d43cde",
+   "target": "Pathfinding/src/UnitCommands/Attack/UnitCommandPathRuntime.Tracking.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Cursor/CursorConnectivity.cs",
+   "originBlob": "10279567bf887426085df817fdc09bfa3eb6dba6",
+   "target": "Pathfinding/src/UnitCommands/Cursor/CursorConnectivity.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Cursor/CursorGroundRejectProof.cs",
+   "originBlob": "8a7bfafc0c6b5ca13b2bfe3bdc4543ddc83922d3",
+   "target": "Pathfinding/src/UnitCommands/Cursor/CursorGroundRejectProof.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Cursor/CursorGroundRejectRuntime.cs",
+   "originBlob": "f829ef376620f45c82b179ed44757da97b73b631",
+   "target": "Pathfinding/src/UnitCommands/Cursor/CursorGroundRejectRuntime.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Cursor/CursorRegionGraph.cs",
+   "originBlob": "f8913a208cbe33159da869de1fe5c6d4134ad358",
+   "target": "Pathfinding/src/UnitCommands/Cursor/CursorRegionGraph.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Cursor/CursorRegionRejectPool.cs",
+   "originBlob": "ee576febb8547666687d755cc0676042a60b63c6",
+   "target": "Pathfinding/src/UnitCommands/Cursor/CursorRegionRejectPool.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Cursor/CursorRegionRejectProof.DevDiag.cs",
+   "originBlob": "07f74be9bd25a65b4401dcdcd2d5759c9f33ced4",
+   "target": "Pathfinding/src/UnitCommands/Cursor/CursorRegionRejectProof.DevDiag.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Cursor/CursorRegionRejectProof.cs",
+   "originBlob": "11e80e366852be0f40fa6b47eaae805fd497ac17",
+   "target": "Pathfinding/src/UnitCommands/Cursor/CursorRegionRejectProof.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Cursor/GroundMovePreviewAuthorization.cs",
+   "originBlob": "0667dab8e5dbc2bb6df94bff0fd68a6395ff436f",
+   "target": "Pathfinding/src/UnitCommands/Cursor/GroundMovePreviewAuthorization.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Cursor/GroundMovePreviewEligibility.cs",
+   "originBlob": "c8fa287b08505c1a0bcdebcd617f1b7f01eaa448",
+   "target": "Pathfinding/src/UnitCommands/Cursor/GroundMovePreviewEligibility.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Cursor/UnitCommandPathRuntime.MoatEligibility.cs",
+   "originBlob": "33e10ebd62a4b699bcc84dc53113033413045e07",
+   "target": "Pathfinding/src/UnitCommands/Cursor/UnitCommandPathRuntime.MoatEligibility.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Cursor/UnitCommandPathRuntime.Selection.cs",
+   "originBlob": "819642377da1254d20050742ea16c0aa196156c8",
+   "target": "Pathfinding/src/UnitCommands/Cursor/UnitCommandPathRuntime.Selection.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Cursor/UnitCommandPathRuntime.TargetResolution.cs",
+   "originBlob": "bc33b5eda22c3706a82ee693f2213757c94e1a71",
+   "target": "Pathfinding/src/UnitCommands/Cursor/UnitCommandPathRuntime.TargetResolution.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Formation/IFormationCommandHandler.cs",
+   "originBlob": "1e509708b342a3ad0f5e3f4b36c6dbfed1e2a3c4",
+   "target": "Pathfinding/src/UnitCommands/Formation/IFormationCommandHandler.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Formation/NativeFormationSlots.cs",
+   "originBlob": "6d860b96df18805e76c753ddaae1d6cadf62ad1c",
+   "target": "Pathfinding/src/UnitCommands/Formation/NativeFormationSlots.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Integration/AssassinSelectionAdapters.cs",
+   "originBlob": "e33b9d4694e76035e61fe6586108f231dc03c185",
+   "target": "Pathfinding/src/UnitCommands/Integration/AssassinSelectionAdapters.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Integration/EnemyGatePolicyIntegration.cs",
+   "originBlob": "1ed8e0a211e3fb5548a02d1c55fd05b25c949ca1",
+   "target": "Pathfinding/src/UnitCommands/Integration/EnemyGatePolicyIntegration.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Moat/DirectMoatCommandScopes.cs",
+   "originBlob": "883497a594e44bb7d63fca70921796692e07deb4",
+   "target": "Pathfinding/src/UnitCommands/Moat/DirectMoatCommandScopes.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Moat/MoatCandidateField.cs",
+   "originBlob": "644dbbee154266e01ac3ab58eea971097e5596e3",
+   "target": "Pathfinding/src/UnitCommands/Moat/MoatCandidateField.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Moat/MoatModeFlagIntermediaryFactory.cs",
+   "originBlob": "71af3808a66dc28f7990522cb16e0697cf013b0b",
+   "target": "Pathfinding/src/UnitCommands/Moat/MoatModeFlagIntermediaryFactory.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Moat/MoatPlacement.cs",
+   "originBlob": "b9dfadc2d305e4c29a73e2db27e3993b120e1238",
+   "target": "Pathfinding/src/UnitCommands/Moat/MoatPlacement.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Moat/MoatPlacementSearch.cs",
+   "originBlob": "a72d7413468a449051aab47e7d60352b4e650dc4",
+   "target": "Pathfinding/src/UnitCommands/Moat/MoatPlacementSearch.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Moat/UnitCommandPathRuntime.DiggerSelection.cs",
+   "originBlob": "094572b62ce76f2e88defc8b1786e45becee0ddc",
+   "target": "Pathfinding/src/UnitCommands/Moat/UnitCommandPathRuntime.DiggerSelection.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Moat/UnitCommandPathRuntime.Tracking.cs",
+   "originBlob": "c3be638ab9042d8b984d6a1c89dfcac73f90cf6f",
+   "target": "Pathfinding/src/UnitCommands/Moat/UnitCommandPathRuntime.Tracking.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Moat/UnitCommandPathRuntime.WorkTargetDiagnostics.cs",
+   "originBlob": "2e2b68acf82af48be6b29bb795ae102fdc7dbc1c",
+   "target": "Pathfinding/src/UnitCommands/Moat/UnitCommandPathRuntime.WorkTargetDiagnostics.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Moat/UnitCommandPathRuntime.WorkTargetFillApproach.cs",
+   "originBlob": "256a3516420d8bbade108620bfb9c68e37e18aa5",
+   "target": "Pathfinding/src/UnitCommands/Moat/UnitCommandPathRuntime.WorkTargetFillApproach.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Moat/UnitCommandPathRuntime.WorkTargetHooks.cs",
+   "originBlob": "f4f302febb46619fc9ed02952effe29eea02023e",
+   "target": "Pathfinding/src/UnitCommands/Moat/UnitCommandPathRuntime.WorkTargetHooks.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Moat/UnitCommandPathRuntime.WorkTargetReachability.cs",
+   "originBlob": "d7b841e654fb722d09621cd1f9867267164ff267",
+   "target": "Pathfinding/src/UnitCommands/Moat/UnitCommandPathRuntime.WorkTargetReachability.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Moat/UnitCommandPathRuntime.WorkTargetSelection.cs",
+   "originBlob": "40ec272e446e5ef2a9e35942a60fc31a10bcaf74",
+   "target": "Pathfinding/src/UnitCommands/Moat/UnitCommandPathRuntime.WorkTargetSelection.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Moat/UnitCommandPathRuntime.WorkTargetState.cs",
+   "originBlob": "c855829aedee70de0a2a5eff4a84a906a14d6053",
+   "target": "Pathfinding/src/UnitCommands/Moat/UnitCommandPathRuntime.WorkTargetState.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Moat/UnitCommandPathRuntime.WorkTargetValidation.cs",
+   "originBlob": "48f199f187190c46e8d41ba455ccbd14d29dcb7f",
+   "target": "Pathfinding/src/UnitCommands/Moat/UnitCommandPathRuntime.WorkTargetValidation.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Movement/FillWeightedRoutes.cs",
+   "originBlob": "528485ac1a6237a8030d35dc6a2d9c10c868bf55",
+   "target": "Pathfinding/src/UnitCommands/Movement/FillWeightedRoutes.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Movement/MovementPathPublication.cs",
+   "originBlob": "128cd09e403bc0c9c961372e199c7447e7213942",
+   "target": "Pathfinding/src/UnitCommands/Movement/MovementPathPublication.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Movement/MovementSearchContext.cs",
+   "originBlob": "1fb098fdca742f1a34c11c053d9a4b1d44865357",
+   "target": "Pathfinding/src/UnitCommands/Movement/MovementSearchContext.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Movement/NativeMovementCadenceResolver.cs",
+   "originBlob": "a08f9eb78a72be234b1bd3c433a7e60a1da3db1d",
+   "target": "Pathfinding/src/UnitCommands/Movement/NativeMovementCadenceResolver.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Movement/NativeMovementRecovery.cs",
+   "originBlob": "703d4ae8d93c05fa2dbc848a3854617447e3d004",
+   "target": "Pathfinding/src/UnitCommands/Movement/NativeMovementRecovery.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Movement/QueueNativeContract.cs",
+   "originBlob": "50e9e2fc10d04a4b1bb64d22afef47493eef2040",
+   "target": "Pathfinding/src/UnitCommands/Movement/QueueNativeContract.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Movement/TemporaryGateRouteReporting.cs",
+   "originBlob": "33b459da212fd00a624d79231097ab74b737dcf7",
+   "target": "Pathfinding/src/UnitCommands/Movement/TemporaryGateRouteReporting.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Movement/TemporaryPackedRouteInspection.cs",
+   "originBlob": "c8ee1274fa303e218d9a0a42cf75aa6b7031f6a6",
+   "target": "Pathfinding/src/UnitCommands/Movement/TemporaryPackedRouteInspection.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Movement/TraversalDispatch.cs",
+   "originBlob": "39bd743a2d0665843928032ec113a1f0ea0be805",
+   "target": "Pathfinding/src/UnitCommands/Movement/TraversalDispatch.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Movement/TraversalProvider.cs",
+   "originBlob": "479bfeb45ee3c382ab33b1dab7c71c5369b1b1d3",
+   "target": "Pathfinding/src/UnitCommands/Movement/TraversalProvider.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Movement/UnitCommandPathRuntime.CadenceDiagnostics.cs",
+   "originBlob": "6ddd2713da28c0e57ab7df33fe852046c7301a7a",
+   "target": "Pathfinding/src/UnitCommands/Movement/UnitCommandPathRuntime.CadenceDiagnostics.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Movement/UnitCommandPathRuntime.Planning.cs",
+   "originBlob": "ca6d20b10b50b0cf04bdfaae91dfba03724e40eb",
+   "target": "Pathfinding/src/UnitCommands/Movement/UnitCommandPathRuntime.Planning.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Movement/UnitCommandPathRuntime.QueueTracking.cs",
+   "originBlob": "f398d4bc1cc77ab4c644f4acef130febe7193b25",
+   "target": "Pathfinding/src/UnitCommands/Movement/UnitCommandPathRuntime.QueueTracking.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Movement/UnitCommandPathRuntime.ReachabilityMap.cs",
+   "originBlob": "3d3c83d956251c49b61933d54d52f4a53960d6ac",
+   "target": "Pathfinding/src/UnitCommands/Movement/UnitCommandPathRuntime.ReachabilityMap.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Movement/UnitCommandPathRuntime.RegionEligibility.cs",
+   "originBlob": "007da7cbcd879277b5de1bb959bffc1228033fbb",
+   "target": "Pathfinding/src/UnitCommands/Movement/UnitCommandPathRuntime.RegionEligibility.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Movement/UnitCommandPathRuntime.RequiredRoutes.cs",
+   "originBlob": "f8a2a70d27b93576233d947ad9dfb98f30dc0159",
+   "target": "Pathfinding/src/UnitCommands/Movement/UnitCommandPathRuntime.RequiredRoutes.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Movement/UnitCommandPathRuntime.WeightedContext.cs",
+   "originBlob": "a13b40d53e2341328e4c1e642a34ec8f43085bd6",
+   "target": "Pathfinding/src/UnitCommands/Movement/UnitCommandPathRuntime.WeightedContext.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Movement/UnitMovementContext.cs",
+   "originBlob": "5fc3c157bbccf0809bbb8d2a66b9471d390843ad",
+   "target": "Pathfinding/src/UnitCommands/Movement/UnitMovementContext.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Movement/WeightedGridSearchKernel.cs",
+   "originBlob": "15a6a8ee848788adf60fbbf7fb3b9c773d5dbf71",
+   "target": "Pathfinding/src/UnitCommands/Movement/WeightedGridSearchKernel.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Movement/WeightedMoatPublication.cs",
+   "originBlob": "388d9846e36da55c21b53c4d853cb509acaa2ad2",
+   "target": "Pathfinding/src/UnitCommands/Movement/WeightedMoatPublication.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Movement/WeightedMoatRoutePlanner.cs",
+   "originBlob": "7d21fcd3543ffde9b3db74b484f569667b4a4e00",
+   "target": "Pathfinding/src/UnitCommands/Movement/WeightedMoatRoutePlanner.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Native/ManualGroupAdmissionGate.cs",
+   "originBlob": "b5335a5614ccf693fa25d3befbbc2bd1a4723cfd",
+   "target": "Pathfinding/src/UnitCommands/Native/ManualGroupAdmissionGate.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Native/NativeDetourBarriers.cs",
+   "originBlob": "bac2b6bbbd174bf45a52a71e5ed42a1e9102badc",
+   "target": "Pathfinding/src/UnitCommands/Native/NativeDetourBarriers.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Native/NativeDetourContracts.cs",
+   "originBlob": "1368ce831e4f5e43ad991e96929439481a16af40",
+   "target": "Pathfinding/src/UnitCommands/Native/NativeDetourContracts.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Native/PermanentCommandHooks.cs",
+   "originBlob": "af77340454eac49c27c1e73ebf8119b1db3c0b27",
+   "target": "Pathfinding/src/UnitCommands/Native/PermanentCommandHooks.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Native/TribeFloodMembership.cs",
+   "originBlob": "9870028d6d86da8872e61dbb8542d7887a5b38e2",
+   "target": "Pathfinding/src/UnitCommands/Native/TribeFloodMembership.cs",
+   "action": "move-to-shared"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Native/UnitCommandPathRuntime.AttackHooks.cs",
+   "originBlob": "6128eb72847aa58c024307f7c32a21c2f33da6f5",
+   "target": "Pathfinding/src/UnitCommands/Native/UnitCommandPathRuntime.AttackHooks.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Native/UnitCommandPathRuntime.NativeContracts.cs",
+   "originBlob": "d5ae653ac206bc9a80c7a4a9292ecc3666946cca",
+   "target": "Pathfinding/src/UnitCommands/Native/UnitCommandPathRuntime.NativeContracts.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Native/UnitCommandPathRuntime.NativeDelegates.cs",
+   "originBlob": "da04178917158014fa566eb591d46559cd227721",
+   "target": "Pathfinding/src/UnitCommands/Native/UnitCommandPathRuntime.NativeDelegates.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Runtime/GateAttackFreezeRuntime.DevDiag.cs",
+   "originBlob": "7211b4606d8d4796c8a478fb9e63eb8a0e081222",
+   "target": "Pathfinding/src/UnitCommands/Runtime/GateAttackFreezeRuntime.DevDiag.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Runtime/ManualGroupAdmission.cs",
+   "originBlob": "0d4972cee4102cc06e9b4a52340312ff6192ecef",
+   "target": "Pathfinding/src/UnitCommands/Runtime/ManualGroupAdmission.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Runtime/ManualProbeCapture.DevDiag.cs",
+   "originBlob": "a9eba0f643764198244d7aaa5577d35011644383",
+   "target": "Pathfinding/src/UnitCommands/Runtime/ManualProbeCapture.DevDiag.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Runtime/ManualRegionAdmissionBatch.cs",
+   "originBlob": "8ab48e538921072d5de6602a016dfc7dd212257b",
+   "target": "Pathfinding/src/UnitCommands/Runtime/ManualRegionAdmissionBatch.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Runtime/ManualUnitCommands.cs",
+   "originBlob": "603418b8f71bb51e5b9c658eeb84462b7c37ae86",
+   "target": "Pathfinding/src/UnitCommands/Runtime/ManualUnitCommands.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Runtime/MovementOptionsSnapshot.cs",
+   "originBlob": "9f91988dd3c31a9c123a956482bd19d62b42d7e8",
+   "target": "Pathfinding/src/UnitCommands/Runtime/MovementOptionsSnapshot.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandContracts.cs",
+   "originBlob": "0f95cd6c1c4328f8ab1f1eb5db7101139337ade7",
+   "target": "Pathfinding/src/UnitCommands/Runtime/UnitCommandContracts.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathAPI.cs",
+   "originBlob": "b04fc6ba5ed73124b6d40f2c7d30dd62d670c732",
+   "target": "Pathfinding/src/UnitCommands/Runtime/UnitCommandPathAPI.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.CommandScopes.cs",
+   "originBlob": "64cafe98c9cd68ff8ea34d6914f98e74822e8e7c",
+   "target": "Pathfinding/src/UnitCommands/Runtime/UnitCommandPathRuntime.CommandScopes.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.Diagnostics.cs",
+   "originBlob": "86658f1df86fcb93bdf18ab079d4f2283e78a2a2",
+   "target": "Pathfinding/src/UnitCommands/Runtime/UnitCommandPathRuntime.Diagnostics.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.Initialization.cs",
+   "originBlob": "04f0963e325049cc616ea8dad0c1c1de51783b0e",
+   "target": "Pathfinding/src/UnitCommands/Runtime/UnitCommandPathRuntime.Initialization.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.Spikes.DevDiag.cs",
+   "originBlob": "bb0471217834fd6a435df8310f14d388379de461",
+   "target": "Pathfinding/src/UnitCommands/Runtime/UnitCommandPathRuntime.Spikes.DevDiag.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs",
+   "originBlob": "68a22523a959bfdb1a669e2b3ee506b63bf743f9",
+   "target": "Pathfinding/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "Testmods/MoatMove/src/AnchorEdgeMemo.cs",
+   "originBlob": "dc189e7c0020603f7b55e072585c2a1788d89f4a",
+   "target": "Pathfinding/src/Engine/AnchorEdgeMemo.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "Testmods/MoatMove/src/AnchorRouting.cs",
+   "originBlob": "753b7a627b167d018b3c3387fe6ea60854416eaf",
+   "target": "Pathfinding/src/Engine/AnchorRouting.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "Testmods/MoatMove/src/DigWorkFallback.cs",
+   "originBlob": "46fc8871d33499392e26a6030786f66eb8db1bdf",
+   "target": "Pathfinding/src/Engine/DigWorkFallback.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "Testmods/MoatMove/src/FastCommandQueue.cs",
+   "originBlob": "e977b699261149392ee1dfc909e32759ce7b15fd",
+   "target": "Pathfinding/src/Engine/FastCommandQueue.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "Testmods/MoatMove/src/FastGroupDistribution.cs",
+   "originBlob": "9d097cf730a25df887945204c2ffd9465cda7467",
+   "target": "Pathfinding/src/Engine/FastGroupDistribution.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "Testmods/MoatMove/src/FastIntegration.cs",
+   "originBlob": "1db146435337b6e70714fc155b3b8d7fc0c7f8ef",
+   "target": "Pathfinding/src/Engine/FastIntegration.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "Testmods/MoatMove/src/FastMoatRouting.cs",
+   "originBlob": "e2e0959958ae0dbc18bbd6c6e374096a2154359d",
+   "target": "Pathfinding/src/Engine/FastMoatRouting.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "Testmods/MoatMove/src/FastMovementScheduler.cs",
+   "originBlob": "c955e3855a2c7a7f922604debefe046b181d254e",
+   "target": "Pathfinding/src/Engine/FastMovementScheduler.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "Testmods/MoatMove/src/FastRouteField.cs",
+   "originBlob": "e0aa6767b2a8d3bd3cfd42d2612c0042ca1637e3",
+   "target": "Pathfinding/src/Engine/FastRouteField.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "Testmods/MoatMove/src/FastRoutePool.cs",
+   "originBlob": "898c0e8ab11ce91a1e8fa3640f8c2bfde535a0f3",
+   "target": "Pathfinding/src/Engine/FastRoutePool.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "Testmods/MoatMove/src/FastTraversalCache.cs",
+   "originBlob": "a1f6486e7b62eb7ed309f145589b5ed65a99b1a8",
+   "target": "Pathfinding/src/Engine/FastTraversalCache.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "Testmods/MoatMove/src/FireEscape.cs",
+   "originBlob": "94fdd0258bd72eca42f66f8cf71f871953e76e92",
+   "target": "Pathfinding/src/Engine/FireEscape.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "Testmods/MoatMove/src/FireRouteRules.cs",
+   "originBlob": "30badaa39d173806312963bf4d18841fcb2b80ce",
+   "target": "Pathfinding/src/Engine/FireRouteRules.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "Testmods/MoatMove/src/FriendlyMoatTraversalProvider.cs",
+   "originBlob": "d4c27a81a753db1b51301389de9e3408e2006ff1",
+   "target": "Pathfinding/src/Engine/FriendlyMoatTraversalProvider.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "Testmods/MoatMove/src/GroundFailureProofs.cs",
+   "originBlob": "80627ed595fa7649aae0429c32080d7afae30e4e",
+   "target": "Pathfinding/src/Engine/GroundFailureProofs.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "Testmods/MoatMove/src/IFastRouteField.cs",
+   "originBlob": "0879da1ff0c601f220d5261faabcd01e76baa5d8",
+   "target": "Pathfinding/src/Engine/IFastRouteField.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "Testmods/MoatMove/src/MoatFailureProofs.cs",
+   "originBlob": "1da9f7a71ebc560a077a79424007c02de8528931",
+   "target": "Pathfinding/src/Engine/MoatFailureProofs.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "Testmods/MoatMove/src/MoatMoveOptions.cs",
+   "originBlob": "42b2e7880f17346d8f06cf7bbb594c2349ce1f4f",
+   "target": "Pathfinding/src/Engine/MoatMoveOptions.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "Testmods/MoatMove/src/MoatSearchKernel.cs",
+   "originBlob": "3f440805ce4c7d6913d3e8f9601a888948edc097",
+   "target": "Pathfinding/src/Engine/MoatSearchKernel.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "Testmods/MoatMove/src/Moved/Moved.ApproachDiagnostics.cs",
+   "originBlob": "e7883d0d41e9658e27fcba17e6f8e989afbaac33",
+   "target": "Pathfinding/src/Engine/Moved/Moved.ApproachDiagnostics.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "Testmods/MoatMove/src/Moved/Moved.ApproachFlood.cs",
+   "originBlob": "fbf08f19594c524054ac5b841d3c857a2dd31100",
+   "target": "Pathfinding/src/Engine/Moved/Moved.ApproachFlood.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "Testmods/MoatMove/src/Moved/Moved.ApproachPublication.cs",
+   "originBlob": "a307d1aa67831059c4440fac2c4e72e4539d0cbb",
+   "target": "Pathfinding/src/Engine/Moved/Moved.ApproachPublication.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "Testmods/MoatMove/src/Moved/Moved.BuildingCandidates.cs",
+   "originBlob": "cf6ae37a73bad72aa60bfc7f647776ae89baff7e",
+   "target": "Pathfinding/src/Engine/Moved/Moved.BuildingCandidates.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "Testmods/MoatMove/src/Moved/Moved.BuildingFallback.cs",
+   "originBlob": "89af1a7ed07f66160e77fb4fea926cea4071007f",
+   "target": "Pathfinding/src/Engine/Moved/Moved.BuildingFallback.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "Testmods/MoatMove/src/Moved/Moved.CursorConnectivity.cs",
+   "originBlob": "18f6f722d7034c28a540f1b9de9ed7d6b9e71eed",
+   "target": "Pathfinding/src/Engine/Moved/Moved.CursorConnectivity.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "Testmods/MoatMove/src/Moved/Moved.Diagnostics.cs",
+   "originBlob": "fc2901abfc7135387e2abb9305559c1dd3971a4f",
+   "target": "Pathfinding/src/Engine/Moved/Moved.Diagnostics.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "Testmods/MoatMove/src/Moved/Moved.DirectMoatCommandScopes.cs",
+   "originBlob": "9075d3344ca48ef2949e18d39a89d1aac8294a6b",
+   "target": "Pathfinding/src/Engine/Moved/Moved.DirectMoatCommandScopes.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "Testmods/MoatMove/src/Moved/Moved.MoatPlacement.cs",
+   "originBlob": "81fa0b9e4fb713ad8878ac018acf10f46278e980",
+   "target": "Pathfinding/src/Engine/Moved/Moved.MoatPlacement.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "Testmods/MoatMove/src/Moved/Moved.MovementPathPublication.cs",
+   "originBlob": "c0bdaae9471c46143848c2530a650b36166cb586",
+   "target": "Pathfinding/src/Engine/Moved/Moved.MovementPathPublication.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "Testmods/MoatMove/src/Moved/Moved.MovementSearchContext.cs",
+   "originBlob": "bc58e69d6fe11bcd008b642de7368dc923ca2d97",
+   "target": "Pathfinding/src/Engine/Moved/Moved.MovementSearchContext.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "Testmods/MoatMove/src/Moved/Moved.NativeMovementRecovery.cs",
+   "originBlob": "2da62372d2b9ea8534243be191395987135465d4",
+   "target": "Pathfinding/src/Engine/Moved/Moved.NativeMovementRecovery.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "Testmods/MoatMove/src/Moved/Moved.Planning.cs",
+   "originBlob": "f4ab7babf67ace7c8815308488e0dc0f2d5ea1c5",
+   "target": "Pathfinding/src/Engine/Moved/Moved.Planning.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "Testmods/MoatMove/src/Moved/Moved.ReachabilityMap.cs",
+   "originBlob": "47372a16f65ab10d4bf3e2bb3133bff75e7faae2",
+   "target": "Pathfinding/src/Engine/Moved/Moved.ReachabilityMap.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "Testmods/MoatMove/src/Moved/Moved.RegionEligibility.cs",
+   "originBlob": "09de70cbeef464320099d3c9a2c7f6dad314f191",
+   "target": "Pathfinding/src/Engine/Moved/Moved.RegionEligibility.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "Testmods/MoatMove/src/Moved/Moved.RegionFallback.cs",
+   "originBlob": "dc3f129279348b1044bbd72cde5012bec9bf18f6",
+   "target": "Pathfinding/src/Engine/Moved/Moved.RegionFallback.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "Testmods/MoatMove/src/Moved/Moved.RequiredRoutes.cs",
+   "originBlob": "54de47a28ca6612e0fb7838d072a969bddd25088",
+   "target": "Pathfinding/src/Engine/Moved/Moved.RequiredRoutes.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "Testmods/MoatMove/src/Moved/Moved.ScopeDiagnostics.cs",
+   "originBlob": "2b3056b743821a876a4d7406898beb0c1b02e92a",
+   "target": "Pathfinding/src/Engine/Moved/Moved.ScopeDiagnostics.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "Testmods/MoatMove/src/Moved/Moved.Selection.cs",
+   "originBlob": "d979ace07fd5947ceb53548bb07ff679b8c4bb23",
+   "target": "Pathfinding/src/Engine/Moved/Moved.Selection.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "Testmods/MoatMove/src/Moved/Moved.State.cs",
+   "originBlob": "19370cd23993632ed0ce2b0a02f761b45b14f3c3",
+   "target": "Pathfinding/src/Engine/Moved/Moved.State.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "Testmods/MoatMove/src/Moved/Moved.TargetResolution.cs",
+   "originBlob": "657bd450f444dc155fe07b599969bb690020a477",
+   "target": "Pathfinding/src/Engine/Moved/Moved.TargetResolution.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "Testmods/MoatMove/src/Moved/Moved.Tracking.cs",
+   "originBlob": "57c9d27220b65ff95e6f4e8e79861971fd7fc608",
+   "target": "Pathfinding/src/Engine/Moved/Moved.Tracking.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "Testmods/MoatMove/src/Moved/Moved.TraversalDispatch.cs",
+   "originBlob": "480fe349900a8eb67df9e258e2603a3340a7aa35",
+   "target": "Pathfinding/src/Engine/Moved/Moved.TraversalDispatch.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "Testmods/MoatMove/src/Moved/Moved.UnitMovementContext.cs",
+   "originBlob": "45a316065aa0c177d7e014d8a5fb4691e352f10a",
+   "target": "Pathfinding/src/Engine/Moved/Moved.UnitMovementContext.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "Testmods/MoatMove/src/Moved/Moved.WorkTargetReachability.cs",
+   "originBlob": "e4e8c3d62c90e8bc1ec8c8a3ace1b6d1dc89bfa2",
+   "target": "Pathfinding/src/Engine/Moved/Moved.WorkTargetReachability.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "Testmods/MoatMove/src/Moved/Moved.WorkTargetSelection.cs",
+   "originBlob": "a4facbba9fa9bb38b4e37daa108ada04d42785ab",
+   "target": "Pathfinding/src/Engine/Moved/Moved.WorkTargetSelection.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "Testmods/MoatMove/src/MovementCaseSave.cs",
+   "originBlob": "e72450b812f0fb4db277544a13af152099a278ec",
+   "target": "Pathfinding/src/Engine/MovementCaseSave.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "Testmods/MoatMove/src/PlagueDamageModel.cs",
+   "originBlob": "6b264f89938e7f7c35fbbcd8ebab5cba6c2aeee2",
+   "target": "Pathfinding/src/Engine/PlagueDamageModel.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "Testmods/MoatMove/src/PlagueRouteRules.cs",
+   "originBlob": "0c005066e4aea2b5d1b3510b98587520ade3b455",
+   "target": "Pathfinding/src/Engine/PlagueRouteRules.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "Testmods/MoatMove/src/RouteReplanWatch.cs",
+   "originBlob": "82f76ff2140d16bc8d6c5dc0a4fa158b6ab2cc19",
+   "target": "Pathfinding/src/Engine/RouteReplanWatch.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "Testmods/MoatMove/src/SoldierTribeMoves.cs",
+   "originBlob": "3f82620ddeaef58950b5f7e4f4284cbd9c10cefa",
+   "target": "Pathfinding/src/Engine/SoldierTribeMoves.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "Testmods/MoatMove/src/TraversalCommandState.cs",
+   "originBlob": "2642232660b7916059da64ff41c2f97af647ef82",
+   "target": "Pathfinding/src/Engine/TraversalCommandState.cs",
+   "action": "remove"
+  }
+ ],
+ "createdUtc": "2026-11-07T17:30:37Z",
+ "originHead": "a2fffcced72722f242f072764a8b82865d6cd46b"
+}

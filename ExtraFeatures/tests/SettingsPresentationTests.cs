@@ -21,7 +21,7 @@ public static class SettingsPresentationTests
         { "Units", new[] { "fear-factor-neutralization", "monks-always-run", "knight-dismount", "instant-horse", "knight-transform-gold", "knight-transform-delay", "lord-health", "soldier-health", "civilian-health", "building-health" } },
         { "Gatehouses", new[] { "elevated-moat", "human-gate-reopen-delay", "ai-gate-reopen-delay", "human-gate-closing-distance", "ai-gate-closing-distance" } },
         { "Building", new[] { "building-repair", "keep-build-range", "human-civilian-enemy-proximity-singleplayer", "ai-civilian-enemy-proximity-singleplayer", "human-military-enemy-proximity-singleplayer", "ai-military-enemy-proximity-singleplayer", "human-civilian-enemy-proximity-multiplayer", "ai-civilian-enemy-proximity-multiplayer", "human-military-enemy-proximity-multiplayer", "ai-military-enemy-proximity-multiplayer", "ai-tower-gate-rebuild-delay" } },
-        { "Economy", new[] { "extra-church-priests", "campfire-peasants", "kill-reward-gold", "kill-reward-goods", "kill-reward-maximum", "periodic-gold-human", "periodic-gold-ai", "fixed-production-bonus", "multiply-goods-gain", "multiply-goods-as-money" } },
+        { "Economy", new[] { "extra-church-priests", "campfire-peasants", "kill-reward-gold", "kill-reward-goods", "kill-reward-maximum", "periodic-gold-human", "periodic-gold-ai", "tree-respawn", "fixed-production-bonus", "multiply-goods-gain", "multiply-goods-as-money" } },
         { "Demolition", new[] { "keep-storage-content", "wood-refund", "stone-refund", "iron-refund", "pitch-refund", "gold-refund" } },
         { "Plague", new[] { "plague-damage-walls", "plague-damage-gates", "plague-damage-towers", "plague-damage-keeps", "plague-duration", "apothecary-plague-search-distance", "healer-targets" } },
         { "Market", new[] { "market-prices-also-ai", "market-buy-price-multiplier", "market-sell-price-multiplier" } }
@@ -123,6 +123,14 @@ public static class SettingsPresentationTests
             Check(Ancestors(cell).Any(n => n.Attributes != null && n.Attributes["IsEnabled"] != null &&
                 n.Attributes["IsEnabled"].Value == "{Binding CanConfigurePeriodicGold}"), "gold editors are locked during missions");
         }
+        XmlNode tree = nodes.Single(n => Search(n, "Key") == "extra.tree-respawn");
+        XmlNode treeSlider = tree.SelectNodes(".//*[local-name()='Slider']").Cast<XmlNode>().Single();
+        Check(tree.Attributes["IsEnabled"].Value == "{Binding CanConfigureTreeRespawn}" &&
+            treeSlider.Attributes["Minimum"].Value == "-1" && treeSlider.Attributes["Maximum"].Value == "120" &&
+            treeSlider.Attributes["TickFrequency"].Value == "1" && treeSlider.Attributes["SmallChange"].Value == "1" &&
+            treeSlider.Attributes["LargeChange"].Value == "1" && treeSlider.Attributes["IsSnapToTickEnabled"].Value == "True" &&
+            Search(treeSlider, "InactiveValues") == "-1" && treeSlider.Attributes["ToolTip"].Value == Search(tree, "ToolTipText"),
+            "Tree Respawn slider keeps the one-minute steps, distinct off state, searchable tooltip and mission guard");
         XmlNode production = nodes.Single(n => Search(n, "Key") == "extra.fixed-production-bonus");
         XmlNode productionWarning = nodes.Single(n => n.Attributes != null && n.Attributes["Visibility"] != null &&
             n.Attributes["Visibility"].Value == "{Binding ProductionBonusWarningVisibility}");

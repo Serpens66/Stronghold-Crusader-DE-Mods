@@ -20,7 +20,8 @@ namespace Spectator
         private static bool initialized;
         private static bool featureReady;
         private static bool sessionEnabled;
-        // Spectator input control for this mission; settings only change between missions.
+        // Spectator command rights for this mission; settings only change between missions.
+        private static bool sessionGameplayActions;
         private static bool sessionControl;
         private static bool controlFailureLogged;
         private static long preparedSessionId;
@@ -144,7 +145,9 @@ namespace Spectator
                 if (System.Threading.Interlocked.Read(ref announcedSessionId) != session) return;
                 if (preparedSessionId != session) PrepareSession(session);
                 sessionEnabled = settings.Activation.Perspective;
-                sessionControl = settings.Activation.Control;
+                sessionGameplayActions = Shared.GameplayFeatureModePolicy.IsAllowed(
+                    SpectatorPlugin.PluginGuid, Shared.GameplayFeatureId.SpectatorGameplayActions, notification.Context.Mode);
+                sessionControl = sessionGameplayActions && settings.Activation.Control;
                 mapReady = true;
                 loadedFromSave = notification.Context.IsSave;
                 initializationWait.Begin(session, Time.realtimeSinceStartup);
@@ -192,6 +195,7 @@ namespace Spectator
             SpectatorAllyHooks.RestoreControls();
             mapReady = false;
             sessionEnabled = false;
+            sessionGameplayActions = false;
             sessionControl = false;
             controlFailureLogged = false;
             loadedFromSave = false;
@@ -461,6 +465,7 @@ namespace Spectator
         // True only while APIShared confirms control of exactly the selected player in this mission.
         // Cheap field checks first: without the registered option no APIShared call happens per frame.
         internal static bool IsInputControlled() => controlRegistered && sessionControl && featureReady && mapReady &&
+            preparedSessionId == System.Threading.Interlocked.Read(ref announcedSessionId) &&
             selectedPlayer > 0 && PlayerPerspectiveAPI.GetInputControlledPlayerId() == selectedPlayer;
 
         internal static int InputControlledPlayer() => IsInputControlled() ? selectedPlayer : 0;
@@ -492,7 +497,8 @@ namespace Spectator
             if (SpectatorDefeat.IsEliminatedSpectator) return PlayerPerspectiveAPI.TrySetEliminatedPlayerView(player);
             // Original offline spectators with the option control the selected player. If APIShared
             // rejects control (unsupported image or state), the plain report view stays available.
-            if (sessionControl && controlRegistered && IsOriginalSpectator() && !GameModeHelper.IsRealMultiplayer())
+            if (sessionControl && controlRegistered && preparedSessionId == System.Threading.Interlocked.Read(ref announcedSessionId) &&
+                IsOriginalSpectator() && !GameModeHelper.IsRealMultiplayer())
             {
                 if (PlayerPerspectiveAPI.TrySetSpectatorControl(player)) return true;
                 if (!controlFailureLogged)
@@ -566,7 +572,7 @@ namespace Spectator
         internal static bool CanInteractWithAllies()
         {
             var state = GameData.Instance?.lastGameState;
-            return !AlliesRefreshing && IsActiveSpectator() && !GameModeHelper.IsRealMultiplayer() && state != null &&
+            return sessionGameplayActions && !AlliesRefreshing && IsActiveSpectator() && !GameModeHelper.IsRealMultiplayer() && state != null &&
                    state.is_skirmish_player(selectedPlayer) && !state.is_valid_player(selectedPlayer) &&
                    EngineInterface.GetMeritData()[selectedPlayer, 1] >= 0;
         }
