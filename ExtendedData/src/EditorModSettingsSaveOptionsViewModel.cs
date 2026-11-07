@@ -42,6 +42,7 @@ namespace ExtendedData
         public string IncludeText => SerpLocalization.Get("EditorSave.IncludeModSettings");
         public string MapHelpText => SerpLocalization.Get("EditorSave.IncludeMapModSettingsHelp");
         public string TrailHelpText => SerpLocalization.Get("EditorSave.IncludeTrailModSettingsHelp");
+        public string CoopAdvancedOptionsHint => SerpLocalization.Get("ExtendedData.CoopAdvancedOptionsHint");
 
         internal void SetEnabled(bool value)
         {

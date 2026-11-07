@@ -615,3 +615,5 @@ ExtraFeatures.ProductionBonus.Issue.Unavailable=The required production service 
 ExtraFeatures.TreeRespawn.Title=Tree Respawn
 ExtraFeatures.TreeRespawn.Help=Sets the delay for original map trees at game speed 40. Suggested delay: 10 minutes. At 0, a completely removed tree returns on the next check if its tile is free. Sites are checked once per game minute. Changes apply when starting or loading a map.
 ExtraFeatures.TreeRespawn.Off=Off
+ExtraFeatures.MatureTreeHarvest.Title=Only cut down mature trees
+ExtraFeatures.MatureTreeHarvest.Help=Human and AI woodcutters wait until healthy young trees reach growth stage 3. They can finish cutting damaged young trees and continue harvesting felled logs. Changes apply when starting or loading a map.

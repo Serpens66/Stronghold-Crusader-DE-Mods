@@ -198,6 +198,19 @@ internal static partial class Program
             SearchAttribute(keepRow, "Key") == "bugfixes.remove-ai-keep-range-limit" &&
             keepEditor.Node.Attributes?["IsChecked"]?.Value == "{Binding RemoveAIKeepRangeLimit, Mode=TwoWay}",
             "AI keep range is recommended and appears once at the end of AI fixes with its original binding and search identity");
+        const string outpostOption = "EnableAiOutpostRetargetFix";
+        object outpostFix = options.Single(o => (string)Get(o, "PropertyName") == outpostOption);
+        var outpostEditor = editors.Single(e => e.Property == outpostOption);
+        XmlNode outpostRow = Ancestors(outpostEditor.Node).First(a => SearchAttribute(a, "Key") != null);
+        Check(Get(outpostFix, "Category").ToString() == "Fixes" && (string)Get(outpostFix, "Symbol") == "★" &&
+            outpostRow.ParentNode.Attributes?["Visibility"]?.Value == "{Binding SettingsPresentation.HostAi.FixesVisibility}" &&
+            SearchAttribute(outpostRow, "Key") == "bugfixes.enable-ai-outpost-retarget-fix",
+            "Outpost retarget is discoverable as a recommended AI fix");
+        var outpostReset = Instructions(modelType.GetMethod("ResetToDefault", All));
+        Check(outpostReset.Select((instruction, index) => new { instruction, index }).Any(item =>
+            item.instruction.Item2 is MethodBase method && method.Name == "set_" + outpostOption &&
+            item.index > 0 && outpostReset[item.index - 1].Item1 == OpCodes.Ldc_I4_1),
+            "compiled reset enables the Outpost fix through its synchronized setter");
         object lordFix = options.Single(o => (string)Get(o, "PropertyName") == "EnableLordReturnTeleportFix");
         var lordEditor = editors.Single(e => e.Property == "EnableLordReturnTeleportFix");
         XmlNode lordRow = Ancestors(lordEditor.Node).First(a => SearchAttribute(a, "Key") != null);

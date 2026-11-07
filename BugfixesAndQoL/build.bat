@@ -478,6 +478,15 @@ call :step_start "tests" "LordTeleportGuard.Tests execution"
 call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed
 
+call :step_start "tests" "AiOutpostRetarget.Tests build"
+"%MSBUILD%" "%PROJECT_DIR%tests\AiOutpostRetarget.Tests\AiOutpostRetarget.Tests.csproj" /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
+call :step_end %ERRORLEVEL%
+if not "%ERRORLEVEL%"=="0" goto build_failed
+call :step_start "tests" "AiOutpostRetarget.Tests execution"
+"%PROJECT_DIR%tests\AiOutpostRetarget.Tests\bin\AiOutpostRetarget.Tests.exe"
+call :step_end %ERRORLEVEL%
+if not "%ERRORLEVEL%"=="0" goto build_failed
+
 :artifact_tests_completed
 popd
 

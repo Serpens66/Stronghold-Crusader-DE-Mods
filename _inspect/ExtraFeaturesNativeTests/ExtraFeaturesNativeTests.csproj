@@ -35,6 +35,8 @@
     <Compile Include="..\..\ExtraFeatures\src\ExtraFeaturesHookInfrastructure.cs"><Link>ExtraFeaturesHookInfrastructure.cs</Link></Compile>
     <Compile Include="HealerTargetsContractTests.cs" />
     <Compile Include="FearFactorStubTests.cs" />
+    <Compile Include="MatureTreeHarvestStubTests.cs" />
+    <Compile Include="..\..\ExtraFeatures\src\MatureTreeHarvestNative.cs"><Link>MatureTreeHarvestNative.cs</Link></Compile>
     <Compile Include="KnightSelectionTransferTests.cs" />
     <Compile Include="..\..\ExtraFeatures\src\KnightSelectionTransferQueue.cs"><Link>KnightSelectionTransferQueue.cs</Link></Compile>
     <Compile Include="..\..\ExtraFeatures\src\FearFactorNativeDefinition.cs"><Link>FearFactorNativeDefinition.cs</Link></Compile>

@@ -149,6 +149,9 @@
     <Content Include="Patches\Assets\GUI\XAMLResources\FRONT_ManageTrail.xaml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <Content Include="Patches\Assets\GUI\XAMLResources\FRONT_Multiplayer.xaml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <Content Include="Patches\Assets\GUI\XAML\FrontendMenus.xaml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>

@@ -94,3 +94,30 @@ the existing private `UpdateHostInfo(System.Boolean)` method is accessed through
 a signature-checked reflection adapter. Automated tests execute the production
 configuration and launch-validation helpers against actual game data types.
 Fresh-game visual and spawn acceptance remains a separate in-game check.
+
+## Advanced options in local and network Coop [Vanilla facts]
+
+Static audit on 2026-11-07 against the native and managed hashes above.
+The Trail Maker opens the skirmish setup. Its advanced checkbox writes
+`advanced_skirmish_options`. The host's regular multiplayer setup dialog
+writes `advanced_options`.
+
+Local Coop starts through `FRONT_Multiplayer.StartSkirmishGame`. Network Coop
+starts through `Platform_Multiplayer.StartGame`. The confirmed preinitializer
+`DLL_PreInitMap_Multiplayer` (RVA `0x86270`) sets the native mode at
+RVA `0x8574B90` to 99 for skirmish and 1 for network starts. Both paths
+submit their setup through the confirmed export `DLL_ApplyMultiplayerSetupData`
+(RVA `0x81050`). Its helper at `0x26370` reads the 32-bit flags from
+transfer indices `0x16` and `0x17` and Improved Spearmen from `0x1B`.
+Either advanced flag permits the individual rules to be copied. With both
+flags clear, the helper clears Improved Spearmen. The fresh skirmish map
+initializer at `0x94350` preserves this choice through its reset.
+
+In the ordinary Spearman movement branch at `0x143BD9` of function
+`0x143400`, Improved Spearmen at RVA `0x87EE304` permits running when the
+selected advanced flag is also set. Mode 99 reads the skirmish flag at
+`0x87EE2F4`. Other modes read the multiplayer flag at `0x87EE2F0`.
+Unit-state guards also affect the decision. The projectile hit function
+`0x192750` uses the same flag selection for its Spearman damage adjustment.
+These instruction checks explain the mode difference for unequal flags.
+The player log did not record the values of those flags.

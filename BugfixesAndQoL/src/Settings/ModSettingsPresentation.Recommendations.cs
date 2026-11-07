@@ -65,6 +65,7 @@ namespace BugfixesAndQoL
             options["EnableRandomOpponentSelectionEnhancements"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableRandomOpponentSelectionEnhancements");
             options["EnableAiStoneReserveFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableAiStoneReserveFix");
             options["EnableAiDefensePatrolFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableAiDefensePatrolFix");
+            options["EnableAiOutpostRetargetFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableAiOutpostRetargetFix");
             options["EnableAiWallTargetingFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableAiWallTargetingFix");
             options["EnablePrebuiltAiWorkshopBothFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnablePrebuiltAiWorkshopBothFix");
             options["EnablePrebuiltAiStorageFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnablePrebuiltAiStorageFix");

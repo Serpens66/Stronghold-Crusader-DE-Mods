@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Patch xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Operation Type="InsertAfter" XPath="//n:CheckBox[@Name='EnableAdvancedSkirmishCheck']">
+    <Content>
+      <Grid Margin="0,65,32,0" Width="295"
+            HorizontalAlignment="Right" VerticalAlignment="Top"
+            IsHitTestVisible="False"
+            Visibility="{Binding MultiplayerTrailMakerMode, Converter={StaticResource booleanToVisibilityConverter}}">
+        <TextBlock x:Name="ExtendedDataTrailMakerAdvancedOptionsHint"
+                   Text="{Binding CoopAdvancedOptionsHint}"
+                   Visibility="{Binding TrailOptionVisibility}"
+                   Foreground="Black" FontSize="15" TextWrapping="Wrap" />
+      </Grid>
+    </Content>
+  </Operation>
+</Patch>

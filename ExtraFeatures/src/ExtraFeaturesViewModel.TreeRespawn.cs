@@ -8,6 +8,31 @@ namespace ExtraFeatures
     {
         private int treeRespawnMinutes = TreeRespawnState.Off;
         private volatile bool treeRespawnMissionLocked;
+        private bool matureTreesOnly = true;
+        private volatile bool matureTreeHarvestMissionLocked;
+
+        [SyncHostOnly]
+        public bool MatureTreesOnly
+        {
+            get => matureTreesOnly;
+            set
+            {
+                if (!matureTreeHarvestMissionLocked || IsApplyingSettingsSnapshot)
+                    SetSetting(ref matureTreesOnly, value, nameof(MatureTreesOnly));
+            }
+        }
+
+        public bool CanConfigureMatureTreeHarvest => CanEditHostSettings && !matureTreeHarvestMissionLocked;
+        public string MatureTreeHarvestTitle => SerpLocalization.Get("ExtraFeatures.MatureTreeHarvest.Title");
+        public string MatureTreeHarvestHelp => SerpLocalization.Get("ExtraFeatures.MatureTreeHarvest.Help");
+
+        internal void SetMatureTreeHarvestMissionLocked(bool locked)
+        {
+            if (matureTreeHarvestMissionLocked == locked) return;
+            matureTreeHarvestMissionLocked = locked;
+            if (Thread.CurrentThread.ManagedThreadId == uiThread) OnPropertyChanged(nameof(CanConfigureMatureTreeHarvest));
+            else if (uiContext != null) uiContext.Post(_ => OnPropertyChanged(nameof(CanConfigureMatureTreeHarvest)), null);
+        }
 
         [SyncHostOnly]
         public int TreeRespawnMinutes

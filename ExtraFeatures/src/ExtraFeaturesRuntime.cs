@@ -79,6 +79,8 @@ namespace ExtraFeatures
         private PopularityRuntime popularityRuntime;
         private PeriodicGoldRuntime periodicGoldRuntime;
         private TreeRespawnRuntime treeRespawnRuntime;
+        private MatureTreeHarvestRuntime matureTreeHarvestRuntime;
+        private volatile bool matureTreeHarvestForSession;
         private WorkerProductionBonusRuntime workerProductionBonusRuntime;
         private PlagueDurationPatch plagueDurationPatch;
         private PlagueApothecarySearchRangePatch plagueApothecarySearchRangePatch;
@@ -225,6 +227,8 @@ namespace ExtraFeatures
             nativeLibraryAvailable = true;
             elevatedMoatRuntime.InitializeNative(context, fixedLayoutHashValidated);
             TryRunFeature("No Kill Reward native hooks", () => noKillRewardHook.Install(context));
+            TryRunFeature("mature tree harvesting hooks", () =>
+                matureTreeHarvestRuntime = MatureTreeHarvestRuntime.Install(context, fixedLayoutHashValidated, log));
             TryRunFeature("Bedouin healer targets", () =>
                 healerTargetsRuntime = HealerTargetsRuntime.Install(context, log));
 
@@ -262,6 +266,7 @@ namespace ExtraFeatures
 
         public void ApplySettings()
         {
+            RefreshMatureTreeHarvest();
             popularityRuntime?.RefreshActivation();
             ApplyPlagueHeightSettings();
             processKeepBuildRangeRuntime?.Refresh();
@@ -477,10 +482,10 @@ namespace ExtraFeatures
 
         private void OnSettingChanged(string propertyName)
         {
-            // The independent gold runtime captures these at completed mission start.
-            // Editing an amount must not reapply unrelated native feature settings.
+            // These features capture their options at mission start.
             if (propertyName == nameof(ExtraFeaturesViewModel.FixedProductionBonusPercent) ||
                 propertyName == nameof(ExtraFeaturesViewModel.TreeRespawnMinutes) ||
+                propertyName == nameof(ExtraFeaturesViewModel.MatureTreesOnly) ||
                 propertyName == nameof(ExtraFeaturesViewModel.PeriodicGoldHuman) ||
                 propertyName == nameof(ExtraFeaturesViewModel.PeriodicGoldAI)) return;
             if (propertyName == nameof(ExtraFeaturesViewModel.EnableMod)) popularityRuntime?.RefreshActivation();
@@ -498,6 +503,7 @@ namespace ExtraFeatures
                 TryRunFeature("fear-factor configuration", ApplyFearFactorSetting);
             if (propertyName == nameof(ExtraFeaturesViewModel.EnableMod))
             {
+                RefreshMatureTreeHarvest();
                 TryRunFeature("building repair HUD configuration", ReconcileBuildingRepairHud);
                 ApplyNoKillRewardSetting();
                 ApplyHealerTargetsSetting();
@@ -601,6 +607,9 @@ namespace ExtraFeatures
         // Shared by gate closure and the permanent mission-end subscription; idempotent.
         private void ResetMapSession()
         {
+            matureTreeHarvestForSession = false;
+            RefreshMatureTreeHarvest();
+            settings.SetMatureTreeHarvestMissionLocked(false);
             settings.SetKillRewardMissionLocked(false);
             mapActive = false;
             sessionStarted = false;
@@ -671,6 +680,9 @@ namespace ExtraFeatures
         private void OnSessionStarted(Shared.GameplaySessionStartedContext context)
         {
             sessionStarted = true;
+            settings.SetMatureTreeHarvestMissionLocked(true);
+            matureTreeHarvestForSession = settings.MatureTreesOnly;
+            RefreshMatureTreeHarvest();
             settings.SetKillRewardMissionLocked(true);
             // The subscription is process-permanent; only enabled sessions are initialized,
             // exactly as when it was part of the toggled feature subscriptions.
@@ -693,6 +705,9 @@ namespace ExtraFeatures
             // ApplyMapLoadedSettings already started the gatehouse map state for every start kind.
             TryRunFeature("knight mount/dismount visibility", knightDismountRuntime.RefreshButtonVisibility);
         }
+
+        private void RefreshMatureTreeHarvest() => matureTreeHarvestRuntime?.SetEnabled(
+            matureTreeHarvestForSession && Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod));
 
         private void InitializePlagueDurationPatch(IntPtr nativeLibraryHandle, ScanRegion region, ReadOnlySpan<byte> memory)
         {

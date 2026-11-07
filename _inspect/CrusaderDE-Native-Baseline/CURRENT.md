@@ -63,6 +63,7 @@ Only Vanilla behavior; Script Extender names appear only as vocabulary.
 - [Keep main-flag rotation audit](./sem/FBCB9319/knowledge/KEEP_FLAG_ROTATION.md): view-dependent Vanilla micro-anchors, Keep-relative rotation, and projectile coordinate contracts.
 - [Long simulation ticks from AI group movement (FBCB9319)](./sem/FBCB9319/knowledge/SIM_TICK_SPIKE_PATHING.md): AI group-order stalls, `0x119F90` member lookup, Assassin per-member `0xD9C40` and the `+0x94` route output; mod contracts and mod measurements are only linked.
 - [Minimap (radar) pass 0xF5A40 (FBCB9319)](./sem/FBCB9319/knowledge/RADAR_PASS_F5A40.md)
+- [Outpost attack targets after a defeat](./sem/FBCB9319/knowledge/OUTPOST_ATTACK_RETARGET.md): completion queue, persistent target, native order branches and mid-match Lord validity.
 - [Surrender selection and multiplayer checksum audit](./sem/FBCB9319/knowledge/SURRENDER_SELECTION.md): selected Lord field, checksum buckets, deselection and trace evidence.
 
 - [Weapon workshop production fields](./sem/FBCB9319/knowledge/WEAPON_WORKSHOP_FIELDS.md): current and next goods IDs, interop pointer origin, and verified Vanilla workshop scope.
@@ -159,6 +160,7 @@ Vanilla audits that also contain mod-specific parts; see the `[mod integration]`
 - [Trail Maker custom AIC export and confirmation overlay](./sem/FBCB9319/knowledge/TRAIL_CUSTOM_AIC_EXPORT.md)
 - [Tree Blight and woodland decay](./sem/FBCB9319/knowledge/TREE_BLIGHT_DECAY.md): common Vanilla/RandomEvents path, native mode distinction, cumulative thresholds, blocked decay, permanent interception and pending game acceptance.
 - [Original woodland sites and seedling placement](./sem/FBCB9319/knowledge/TREE_RESPAWN.md) describes native vegetation slot identity, full deletion, natural seeding, and the ExtraFeatures integration.
+- [Woodcutter tree maturity](./sem/FBCB9319/knowledge/WOODCUTTER_TREE_MATURITY.md) describes woodland yield and growth, target selection, and the worker's arrival and strike states.
 - [Unified mission lifecycle audit](./sem/FBCB9319/knowledge/MISSION_LIFECYCLE.md): gameplay, save, editor and multiplayer operation boundaries and central mode permissions.
 - [Vanilla peace-time gameplay audit](./sem/FBCB9319/knowledge/VANILLA_PEACE_TIME.md): all 36 active-flag references, mode-gated gameplay predicates, and the starting-troop dispatcher entry contract.
 - [Weighted Assassin search cost](./sem/FBCB9319/knowledge/ASSASSIN_WEIGHTED_SEARCH_COST.md): D9C40 depth limit 800 and climb-fallback rules, the post-load AI target burst with whole-component searches toward unreachable targets, and the exact backward unreachability proof; runtime evidence on the 8-lord stress save.

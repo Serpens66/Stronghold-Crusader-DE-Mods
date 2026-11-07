@@ -568,3 +568,15 @@ renderer argument order, register liveness) and run `_inspect/ElevatedMoatHeight
 which validate the contract against the canonical DLL and exercise the drawbridge and
 unit-height stub generators.
 Only then update the hash.
+
+## Mature tree harvesting
+
+Re-audit the woodcutter selector, arrival and strike for any new native hash.
+`MatureTreeHarvestNative` pins the three displaced spans, their continuations,
+their rejection entries and the signed current-worker operand. Recheck all
+callers, incoming branches, live registers and flags, and the typed vegetation
+layout. Keep the already-felled fallback and verify that reduced-health standing
+trees can be cleared. Confirm that the Script Extender, Fixes and APIShared
+wood-production sites are disjoint before updating the pinned hash and running
+`_inspect/ExtraFeaturesNativeTests`.
+See the [native baseline](../_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/WOODCUTTER_TREE_MATURITY.md).

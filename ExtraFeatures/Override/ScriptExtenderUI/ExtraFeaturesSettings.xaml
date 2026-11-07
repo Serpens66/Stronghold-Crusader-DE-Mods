@@ -840,6 +840,9 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}"
               <Slider Grid.Column="2" Minimum="-1" Maximum="120" TickFrequency="1" SmallChange="1" LargeChange="1" IsSnapToTickEnabled="True" Value="{Binding TreeRespawnMinutes, Mode=TwoWay}" shared:ModSettingsSearch.InactiveValues="-1" ToolTipService.ShowDuration="60000" ToolTip="{Binding TreeRespawnHelp}" Margin="0" MinHeight="28" VerticalAlignment="Center" />
               <TextBlock Grid.Column="4" Text="{Binding TreeRespawnValueText}" Foreground="White" VerticalAlignment="Center" TextAlignment="Center" />
             </Grid>
+            <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" IsEnabled="{Binding CanConfigureMatureTreeHarvest}" shared:ModSettingsSearch.Key="extra.mature-tree-harvest" shared:ModSettingsSearch.Title="{Binding MatureTreeHarvestTitle}" shared:ModSettingsSearch.ToolTipText="{Binding MatureTreeHarvestHelp}">
+              <CheckBox Content="{Binding MatureTreeHarvestTitle}" IsChecked="{Binding MatureTreesOnly, Mode=TwoWay}" Foreground="White" Margin="0" ToolTipService.ShowDuration="60000" ToolTip="{Binding MatureTreeHarvestHelp}" MinHeight="28" VerticalAlignment="Center" />
+            </Grid>
             <StackPanel Visibility="{Binding SettingsPresentation.EconomyBonusOptions.Visibility}">
               <TextBlock Text="{Binding EconomyBuffsTitleText}" Style="{StaticResource SubsectionHeader}" />
               <TextBlock Text="{Binding EffectiveFixedProductionBonusText}" Foreground="#FFF2D48A" TextWrapping="Wrap" Margin="0,0,0,5"/>

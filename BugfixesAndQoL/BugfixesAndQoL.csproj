@@ -141,6 +141,8 @@
     <Compile Include="src\Lobby\AicDropdownPolicy.cs" />
     <Compile Include="src\Lobby\AiCastleSettingsListEnhancementHook.cs" />
     <Compile Include="src\AI\Fixes\AiDefensePatrolFix.cs" />
+    <Compile Include="src\AI\Fixes\AiOutpostRetargetFix.cs" />
+    <Compile Include="src\AI\Fixes\AiOutpostRetargetNative.cs" />
     <Compile Include="src\AI\Fixes\AiDefensePatrolNativeDefinition.cs" />
     <Compile Include="src\AI\Fixes\AiDefensePatrolPolicy.cs" />
     <Compile Include="src\AI\Fixes\AiStoneReserveFix.cs" />

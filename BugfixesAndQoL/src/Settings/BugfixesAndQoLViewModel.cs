@@ -86,6 +86,7 @@ namespace BugfixesAndQoL
         private bool enableAiStoneReserveFix = true;
         private bool enableAiSellThresholdFix = false;
         private bool enableAiDefensePatrolFix = true;
+        private bool enableAiOutpostRetargetFix = true;
         private bool enableAiRaidRetargetFix = true;
         private bool enableMoatTerrainRestoration = true;
         private bool enableDrawbridgeDestructionFix = true;
@@ -404,7 +405,9 @@ namespace BugfixesAndQoL
         public string EnableAiRaidRetargetFixText => SerpLocalization.Get("BugfixesAndQoL.EnableAiRaidRetargetFix");
         public string EnableAiRaidRetargetFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableAiRaidRetargetFixHelp");
         public string EnableAiDefensePatrolFixText => SerpLocalization.Get("BugfixesAndQoL.EnableAiDefensePatrolFix");
+        public string EnableAiOutpostRetargetFixText => SerpLocalization.Get("BugfixesAndQoL.EnableAiOutpostRetargetFix");
         public string EnableAiDefensePatrolFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableAiDefensePatrolFixHelp");
+        public string EnableAiOutpostRetargetFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableAiOutpostRetargetFixHelp");
         public string EnableAiWallTargetingFixText => SerpLocalization.Get("BugfixesAndQoL.EnableAiWallTargetingFix");
         public string EnableAiWallTargetingFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableAiWallTargetingFixHelp");
         public string EnableAivDefenderPositionFixText => SerpLocalization.Get("BugfixesAndQoL.EnableAivDefenderPositionFix");
@@ -1158,6 +1161,13 @@ namespace BugfixesAndQoL
         }
 
         [SyncHostOnly]
+        public bool EnableAiOutpostRetargetFix
+        {
+            get => enableAiOutpostRetargetFix;
+            set => SetSetting(ref enableAiOutpostRetargetFix, value, nameof(EnableAiOutpostRetargetFix));
+        }
+
+        [SyncHostOnly]
         public bool EnableAiWallTargetingFix
         {
             get => enableAiWallTargetingFix;
@@ -1526,6 +1536,7 @@ namespace BugfixesAndQoL
                 EnableAiStoneReserveFix = true;
                 EnableAiSellThresholdFix = false;
                 EnableAiDefensePatrolFix = true;
+                EnableAiOutpostRetargetFix = true;
                 EnableAiRaidRetargetFix = true;
                 EnableMoatTerrainRestoration = true;
                 EnablePitchStairsFix = true;

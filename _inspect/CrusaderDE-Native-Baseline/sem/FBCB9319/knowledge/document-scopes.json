@@ -793,6 +793,10 @@
       ]
     },
     {
+      "file": "OUTPOST_ATTACK_RETARGET.md",
+      "scope": "vanilla"
+    },
+    {
       "file": "OUTPOSTS.md",
       "scope": "vanilla+integration",
       "components": [
@@ -1104,6 +1108,12 @@
       "file": "TREE_RESPAWN.md",
       "scope": "vanilla+integration",
       "components": ["ExtraFeatures", "Script Extender", "APIShared"],
+      "integrationSections": ["ExtraFeatures integration"]
+    },
+    {
+      "file": "WOODCUTTER_TREE_MATURITY.md",
+      "scope": "vanilla+integration",
+      "components": ["ExtraFeatures", "APIShared", "Script Extender", "Fixes"],
       "integrationSections": ["ExtraFeatures integration"]
     },
     {

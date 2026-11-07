@@ -69,6 +69,7 @@ namespace BugfixesAndQoL
         public SettingsOptionPresentation EnableRandomOpponentSelectionEnhancements => options["EnableRandomOpponentSelectionEnhancements"];
         public SettingsOptionPresentation EnableAiStoneReserveFix => options["EnableAiStoneReserveFix"];
         public SettingsOptionPresentation EnableAiDefensePatrolFix => options["EnableAiDefensePatrolFix"];
+        public SettingsOptionPresentation EnableAiOutpostRetargetFix => options["EnableAiOutpostRetargetFix"];
         public SettingsOptionPresentation EnableAiWallTargetingFix => options["EnableAiWallTargetingFix"];
         public SettingsOptionPresentation EnablePrebuiltAiWorkshopBothFix => options["EnablePrebuiltAiWorkshopBothFix"];
         public SettingsOptionPresentation EnablePrebuiltAiStorageFix => options["EnablePrebuiltAiStorageFix"];
@@ -175,6 +176,7 @@ namespace BugfixesAndQoL
             HostAi = AddTopic("HostAi", "bugfixes.topic.host-ai", true);
             AddOption("EnableAiStoneReserveFix", "bugfixes.enable-ai-stone-reserve-fix", SettingsCategory.Fixes, HostAi);
             AddOption("EnableAiDefensePatrolFix", "bugfixes.enable-ai-defense-patrol-fix", SettingsCategory.Fixes, HostAi);
+            AddOption("EnableAiOutpostRetargetFix", "bugfixes.enable-ai-outpost-retarget-fix", SettingsCategory.Fixes, HostAi);
             AddOption("EnableAiWallTargetingFix", "bugfixes.enable-ai-wall-targeting-fix", SettingsCategory.Fixes, HostAi);
             AddOption("EnablePrebuiltAiWorkshopBothFix", "bugfixes.enable-prebuilt-ai-workshop-both-fix", SettingsCategory.Fixes, HostAi);
             AddOption("EnablePrebuiltAiStorageFix", "bugfixes.enable-prebuilt-ai-storage-fix", SettingsCategory.Fixes, HostAi);

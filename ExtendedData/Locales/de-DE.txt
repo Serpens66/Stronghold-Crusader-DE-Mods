@@ -237,3 +237,4 @@ ExtendedData.EmbedLordMediaHelp=Die vollständige lordmeta.json wird immer gespe
 ExtendedData.LordMediaIncluded=Lord-Metadaten und Medien sind im exportierten Feldzug enthalten.
 ExtendedData.LordMetadataOnly=Lord-Metadaten sind enthalten; Mediendateien sind nicht eingebettet.
 ExtendedData.LordMetadataLegacy=Dieser Feldzug enthält keine eingebetteten Lord-Metadaten.
+ExtendedData.CoopAdvancedOptionsHint=Der Koop-Export übernimmt diese Regeln für KI- und menschliche Mitspieler.

@@ -266,7 +266,7 @@ namespace ExtendedData
             bool barracks = setup.MP_BuildingsAvailable != null && setup.MP_BuildingsAvailable.Length > 0 && setup.MP_BuildingsAvailable[0] != 0;
             bool mercenaryPost = setup.MP_BuildingsAvailable != null && setup.MP_BuildingsAvailable.Length > 1 && setup.MP_BuildingsAvailable[1] != 0;
             bool stockade = setup.MP_BuildingsAvailable != null && setup.MP_BuildingsAvailable.Length > 2 && setup.MP_BuildingsAvailable[2] != 0;
-            return new CoopSettings
+            var settings = new CoopSettings
             {
                 Fairness = Math.Max(1, Math.Min(5, setup.fairness)),
                 StartingGoodsLevel = Math.Max(1, Math.Min(4, setup.starting_goods_level)),
@@ -290,8 +290,6 @@ namespace ExtendedData
                     ExtremePowers = setup.extreme_powers,
                     ExtremePowersAroundLord = setup.extreme_powers_around_lord,
                     AllowOutposts = setup.allow_outposts,
-                    AdvancedOptions = setup.advanced_options,
-                    AdvancedSkirmishOptions = setup.advanced_skirmish_options,
                     PreBuild = setup.advopt_pre_build,
                     ImprovedArabSwordsmen = setup.advopt_improved_arabswordsmen,
                     ImprovedLaddermen = setup.advopt_improved_laddermen,
@@ -311,6 +309,9 @@ namespace ExtendedData
                     TroopsAvailable = CopyRequiredArray(setup.MP_TroopsAvailable, 32, "troops"),
                 },
             };
+            // The Trail Maker edits the skirmish flag. Both Coop start paths should honor it.
+            settings.MultiplayerSetup.SetTrailMakerAdvancedOptions(setup.advanced_skirmish_options);
+            return settings;
         }
 
         private static int[] CopyRequiredArray(int[] source, int expectedLength, string label)

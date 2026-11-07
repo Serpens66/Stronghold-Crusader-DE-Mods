@@ -615,3 +615,5 @@ ExtraFeatures.ProductionBonus.Issue.Unavailable=Der benötigte Produktionsdienst
 ExtraFeatures.TreeRespawn.Title=Bäume nachwachsen lassen
 ExtraFeatures.TreeRespawn.Help=Legt die Wartezeit für ursprüngliche Kartenbäume bei Spieltempo 40 fest. Richtwert: 10 Minuten. Bei 0 wächst der Baum nach vollständiger Entfernung beim nächsten Durchlauf nach, sofern die Stelle frei ist. Die Stellen werden einmal pro Spielminute geprüft. Änderungen gelten ab Kartenstart oder Laden.
 ExtraFeatures.TreeRespawn.Off=Aus
+ExtraFeatures.MatureTreeHarvest.Title=Nur ausgewachsene Bäume fällen
+ExtraFeatures.MatureTreeHarvest.Help=Holzfäller von Menschen und KI warten bei gesunden Jungbäumen bis zur Wachstumsstufe 3. Angeschlagene Jungbäume dürfen fertig gefällt und gefällte Stämme weiter abgeerntet werden. Änderungen gelten ab Kartenstart oder Laden.

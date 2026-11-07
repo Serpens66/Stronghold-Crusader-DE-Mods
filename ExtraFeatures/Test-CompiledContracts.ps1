@@ -50,6 +50,14 @@ try {
     # Private names locate actual compiled production code, rather than prescribing
     # source text or switch layout. A rename changes this adapter, not the policy.
     $flags = [Reflection.BindingFlags]'NonPublic,Static'
+    $matureTrees = $assembly.GetType('ExtraFeatures.ExtraFeaturesViewModel', $true).GetProperty('MatureTreesOnly')
+    if ($matureTrees.PropertyType -ne [bool] -or
+        -not ($matureTrees.GetCustomAttributesData() | Where-Object { $_.AttributeType.Name -eq 'SyncHostOnlyAttribute' })) {
+        throw 'Mature tree harvesting must be a synchronized host setting.'
+    }
+    $matureRuntime = $assembly.GetType('ExtraFeatures.MatureTreeHarvestRuntime', $true)
+    [void]$matureRuntime.GetMethod('ValidateLayout', $flags).Invoke($null, @())
+    Write-Output 'PASS: compiled mature tree host setting and installed Extender vegetation layout.'
     $civilian = $type.GetMethod('IsHumanCivilian', $flags)
     $siege = $type.GetMethod('IsSiegeEngine', $flags)
     if (-not $civilian -or -not $siege) { throw 'Classification test adapter needs updating.' }

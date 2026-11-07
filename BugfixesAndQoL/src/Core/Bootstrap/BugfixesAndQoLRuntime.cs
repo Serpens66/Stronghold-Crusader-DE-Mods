@@ -90,6 +90,7 @@ namespace BugfixesAndQoL
         private static GatehouseLivingCapture.CaptureRuntime processGatehouseLivingCaptureRuntime;
         private static bool gatehouseLivingCaptureInitializationAttempted;
         private static AiRaidRetargetFixRuntime processAiRaidRetargetFixRuntime;
+        private static AiOutpostRetargetFix processAiOutpostRetargetFix;
         private static APIShared.Economy.AiMarketSellRegistration processAiSellThresholdPolicy;
         private static bool aiRaidRetargetInitializationAttempted;
         private static bool workshopIdleTickSubscribed, workshopIdleTickLogged;
@@ -395,6 +396,13 @@ namespace BugfixesAndQoL
                 processGatehouseLivingCaptureRuntime = new GatehouseLivingCapture.CaptureRuntime(log);
                 processGatehouseLivingCaptureRuntime.Install(context, settings.EnableMod, settings.EnableGatehouseLivingCaptureFix);
             });
+            TryInitializePersistentFeature("AI outpost retarget fix", () =>
+            {
+                if (processAiOutpostRetargetFix != null) return;
+                processAiOutpostRetargetFix = new AiOutpostRetargetFix(log);
+                processAiOutpostRetargetFix.Install(context, isFixedLayoutHashValidated,
+                    settings.EnableMod && settings.EnableAiOutpostRetargetFix);
+            });
             TryInitializePersistentFeature("AI melee raid retarget fix", () =>
             {
                 if (aiRaidRetargetInitializationAttempted) return;
@@ -465,6 +473,7 @@ namespace BugfixesAndQoL
             processLordTeleportGuard?.SetEnabled(settings.EnableMod, settings.EnableLordReturnTeleportFix);
             TryApplyFeature("moat terrain restoration", () => processMoatTerrainRuntime?.Refresh());
             processAIKeepRangeRuntime?.Refresh();
+            processAiOutpostRetargetFix?.SetEnabled(settings.EnableMod && settings.EnableAiOutpostRetargetFix);
             TryApplyFeature("AI melee raid retarget fix", () => processAiRaidRetargetFixRuntime?.SetEnabled(
                 settings.EnableMod && settings.EnableAiRaidRetargetFix));
             processNativeTannerFade?.SetEnabled(

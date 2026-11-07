@@ -66,6 +66,7 @@ var tests = new (string Name, Action Run)[]
     ("Maker metadata preserves replicas, conflicts, legacy sources and refreshes", TestMakerPackageMetadata),
     ("selected package session reuses and invalidates validated data", TestPackageSession),
     ("author re-export diverges from the subscribed package only after publication", TestAuthorExportCompatibility),
+    ("Maker export shares the authored advanced rules across Coop modes", TestCoopExportAdvancedOptions),
     ("lazy mission cache resolves only selected slots and retries failures", TestLazyMissionCache),
     ("mission dependencies detect catalog, map and external file changes", TestMissionDependencies),
     ("mission table restoration protects templates and foreign entries", TestMissionTableRestoration),
@@ -2248,6 +2249,39 @@ static void TestAuthorExportCompatibility()
     File.AppendAllText(map, "unverified direct edit");
     ExpectFailure(() => author.GetOrLoad(catalog.Discover(new[] { localRoot }), id, out _),
         "directly changed export was accepted without a matching fingerprint");
+}
+
+static void TestCoopExportAdvancedOptions()
+{
+    using Fixture fixture = Fixture.Create();
+    string packageRoot = CreatePackage(fixture, Path.Combine(fixture.Root, "CustomTrails"), "Author", 2);
+    CoopTrailPackage original = CoopTrailPackageCatalog.Load(packageRoot);
+    var legacy = original.Missions[0].Definition.Settings.MultiplayerSetup;
+    Assert(legacy.AdvancedOptions == 0 && legacy.AdvancedSkirmishOptions == 1,
+        "the reader changed an existing package with separate advanced flags");
+
+    for (int index = 0; index < original.Missions.Count; index++)
+    {
+        LoadedMission mission = original.Missions[index];
+        var setup = mission.Definition.Settings.MultiplayerSetup;
+        setup.SetTrailMakerAdvancedOptions(index == 0 ? 1 : 0);
+        MissionLoader.WriteAtomic(mission.JsonPath, mission.Definition);
+    }
+    RehashTestPackage(packageRoot);
+
+    CoopTrailPackage exported = CoopTrailPackageCatalog.Load(packageRoot);
+    Assert(exported.Manifest.PackageId == original.Manifest.PackageId &&
+        exported.Manifest.ContentFingerprint != original.Manifest.ContentFingerprint,
+        "re-export did not preserve package identity and fingerprint the new mission settings");
+    for (int index = 0; index < exported.Missions.Count; index++)
+    {
+        var setup = exported.Missions[index].Definition.Settings.MultiplayerSetup;
+        int expected = index == 0 ? 1 : 0;
+        Assert(setup.AdvancedOptions == expected && setup.AdvancedSkirmishOptions == expected,
+            "the exported mission did not preserve the author's selection in both flags");
+        Assert(setup.ImprovedSpearmen == 1 && setup.ImprovedLaddermen == 1,
+            "the shared switch changed individual advanced rules");
+    }
 }
 
 static void RehashTestPackage(string root)

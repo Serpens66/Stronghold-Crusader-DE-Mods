@@ -86,6 +86,12 @@ namespace ExtendedData.Core
         public int[] BuildingsAvailable { get; set; }
         public int[] GoodsAvailable { get; set; }
         public int[] TroopsAvailable { get; set; }
+
+        internal void SetTrailMakerAdvancedOptions(int enabled)
+        {
+            AdvancedSkirmishOptions = enabled;
+            AdvancedOptions = enabled;
+        }
     }
 
     public sealed class PlayerDefinition
