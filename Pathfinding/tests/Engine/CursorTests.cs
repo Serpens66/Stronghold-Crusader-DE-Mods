@@ -1,0 +1,595 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Diagnostics;
+using System.Runtime.InteropServices;
+using System.IO;
+using Iced.Intel;
+
+namespace EngineHarness
+{
+    internal sealed unsafe partial class FriendlyMoatMovementRuntime
+    {
+        // A native tile change, as NativeMovementRecovery reports it: search data (Fast fields) and cursor topology.
+        private void TileChanged(int tile) { InvalidateMovementSearchData(tile); DirtyCursorTile(tile); }
+        public static void RunMachineContract(string root)
+        {
+            const ulong library=0x180000000, stub=0x181000000;
+            byte[] bytes={0x33,0xC0,0x8B,0xD6,0x48,0x89,0x05,0x8E,0x70,0xF1,0x05,0x49,0x8B,0xCF};
+            var decoder=Decoder.Create(64,new ByteArrayCodeReader(bytes)); decoder.IP=library+0x19664B;
+            var original=new List<Instruction>();
+            while(decoder.IP<library+0x196659) { decoder.Decode(out Instruction instruction); original.Add(instruction); }
+            var assembler=new Assembler(64);
+            EmitRecoveryAdapter(assembler,original.ToArray(),0x123456789ABCDEF0,library);
+            using var stream=new MemoryStream();
+            assembler.Assemble(new StreamCodeWriter(stream),stub);
+            byte[] encoded=stream.ToArray();
+            File.WriteAllBytes(Path.Combine(root,"Pathfinding","tests","Engine","latest-recovery-stub.bin"),encoded);
+            var checkedDecoder=Decoder.Create(64,new ByteArrayCodeReader(encoded)); checkedDecoder.IP=stub;
+            bool callback=false, continuation=false, nativeStore=false;
+            while(checkedDecoder.IP<stub+(ulong)encoded.Length)
+            {
+                checkedDecoder.Decode(out Instruction instruction);
+                Check(instruction.Code!=Code.INVALID,"actual emitted recovery instruction is valid");
+                if(instruction.Mnemonic==Mnemonic.Call) callback=instruction.Op0Register==Register.RAX;
+                if(instruction.IsJmpShortOrNear && instruction.NearBranchTarget==library+0x196585) continuation=true;
+                if(instruction.IsIPRelativeMemoryOperand && instruction.IPRelativeMemoryAddress==original[2].IPRelativeMemoryAddress) nativeStore=true;
+            }
+            Check(callback&&continuation&&nativeStore,"actual emitter preserves callback, native direct branch and relocated failure store");
+            Console.WriteLine($"PASS: actual recovery emitter assembled and decoded ({encoded.Length} bytes, no native code executed).");
+            int[] sites={0x8D724,0x8E2B8,0x8E550,0x8F325,0xB7161,0xB7321};
+            string[] spans={"E84791100085C07423468B84262C070000","E8B3851000488D153C1DF7FF85C0",
+                "E81B83100085C07423458B842C2C070000","E846751000498BFE85C074348B15F12A9803",
+                "E80AF70D004533F6B90100000085C0","E84AF50D0085C0757E488BF333DB"};
+            for(int site=0;site<sites.Length;site++)
+            {
+                byte[] source=Convert.FromHexString(spans[site]);
+                var input=Decoder.Create(64,new ByteArrayCodeReader(source)); input.IP=library+(uint)sites[site];
+                var instructions=new List<Instruction>();
+                while(input.IP<library+(uint)sites[site]+(uint)source.Length) { input.Decode(out var i); instructions.Add(i); }
+                var adapter=new Assembler(64); EmitSelectionCallAdapter(adapter,instructions.ToArray(),0x123456789ABCDEF0,sites[site]);
+                using var buffer=new MemoryStream(); adapter.Assemble(new StreamCodeWriter(buffer),stub);
+                var emittedBytes=buffer.ToArray();
+                File.WriteAllBytes(Path.Combine(root,"_inspect","MoatMove",$"se26-selection-{sites[site]:X}.bin"),emittedBytes);
+                var outputDecoder=Decoder.Create(64,new ByteArrayCodeReader(emittedBytes)); outputDecoder.IP=stub;
+                var emittedInstructions=new List<Instruction>();
+                while(outputDecoder.IP<stub+(uint)emittedBytes.Length) { outputDecoder.Decode(out var i); Check(i.Code!=Code.INVALID,"selection adapter decode"); emittedInstructions.Add(i); }
+                Check(emittedInstructions.FindAll(i=>i.Mnemonic==Mnemonic.Call).Count==2,"one SE call and one decision call");
+                Check(emittedInstructions.Exists(i=>i.Code==Code.Call_rel32_64 && i.NearBranchTarget==library+0x196870),"live SE entry retained");
+                Check(emittedInstructions.Exists(i=>i.Mnemonic==Mnemonic.Mov && i.Op0Register==Register.R8D && i.Immediate32==(uint)sites[site]),
+                    "adapter supplies its exact call-site context");
+                Check(emittedInstructions.Exists(i=>i.Mnemonic==Mnemonic.Mov && i.Op0Register==Register.R9D &&
+                    (sites[site]==0x8F325 ? i.Op1Register==Register.R15D : i.Op1Kind==OpKind.Immediate32 && i.Immediate32==1)),
+                    "only the ground adapter consumes native R15D");
+                foreach(var reg in new[]{Register.RCX,Register.RDX,Register.R8,Register.R9,Register.R10,Register.R11})
+                    Check(emittedInstructions.Exists(i=>i.Mnemonic==Mnemonic.Mov && i.Op0Register==reg && i.Op1Kind==OpKind.Memory),
+                        "volatile register restored after callback");
+                foreach(var reg in new[]{Register.XMM0,Register.XMM1,Register.XMM2,Register.XMM3,Register.XMM4,Register.XMM5})
+                    Check(emittedInstructions.Exists(i=>i.Mnemonic==Mnemonic.Movdqu && i.Op0Register==reg && i.Op1Kind==OpKind.Memory),
+                        "SIMD register restored after callback");
+                foreach(var i in instructions)
+                {
+                    if(i.IsJccShortOrNear) Check(emittedInstructions.Exists(j=>j.IsJccShortOrNear && j.NearBranchTarget==i.NearBranchTarget),"original branch destination retained");
+                    if(i.IsIPRelativeMemoryOperand) Check(emittedInstructions.Exists(j=>j.IsIPRelativeMemoryOperand && j.IPRelativeMemoryAddress==i.IPRelativeMemoryAddress),"original RIP address retained");
+                }
+            }
+            Console.WriteLine("PASS: six actual SE selection adapters assembled; live call, branches and RIP addresses preserved.");
+        }
+
+        private void FillSelectionTests()
+        {
+            byte* records=(byte*)NativeMemory.AllocZeroed((nuint)(MoatRecordCountOffset+16));
+            var api=GameTileManagerAPI.Instance;
+            IntPtr previous=api.TileManager; api.TileManager=(IntPtr)records;
+            try
+            {
+                *(int*)(records+MoatRecordCountOffset)=64000;
+                int currentId=950;
+                getMoatIdAtTile=(manager,tile)=>tile==1017?currentId:0;
+                foreach(int id in new[]{799,800,32768,63999,950})
+                {
+                    byte* record=records+MoatRecordArrayOffset+id*16;
+                    *(int*)record=1017; *(short*)(record+4)=17; *(short*)(record+6)=10;
+                    currentId=id;
+                    Check(TryGetMoatRecord((IntPtr)records,1017,10,out int readId,out _,out _) && readId==id,
+                        "actual record reader accepts full native capacity");
+                    Check(TryReadMoatRecord((IntPtr)records,id,out _,out _,out _,out _),"resolver record reader shares capacity contract");
+                }
+                for(int x=10;x<=18;x++) { nativeHeightLayer[1000+x]=0; movementTargetAvailability[10*800+x]=1; }
+                tileFlags[1017]=CompletedMoatTileFlag; enemyTiles.Add(1017);
+                originalHasFillMoatApproach=(manager,source,tile,y)=>0;
+                int calls=0;
+                originalFindMoatWorkTarget=(manager,player,unit,mode)=>
+                {
+                    calls++;
+                    if(AllowFillMoatApproachThroughFriendlyMoat(manager,1,1017,10)==0) return -1;
+                    records[MoatRecordArrayOffset+950*16+15]+=20;
+                    return 950;
+                };
+                MoatWorkSelectionScope NewWork()=>new MoatWorkSelectionScope(mapEpoch,(IntPtr)records,1,1,2,10,10,1010,1);
+                var work=NewWork();
+                Check(SelectMoatWorkTarget(work,(IntPtr)records,1,1,2)==950 && calls==1 && work.FillApproaches.ContainsKey(950),
+                    "enemy work behind friendly moat selected by a single native pass");
+                Check(records[MoatRecordArrayOffset+950*16+15]==20,"winner reserved exactly once");
+                api.Occupants[1016]=2; api.Occupants[1018]=2;
+                Check(SelectMoatWorkTarget(NewWork(),(IntPtr)records,1,1,2)==-1 && calls==2,"occupied approaches rejected before reservation");
+                Check(records[MoatRecordArrayOffset+950*16+15]==20,"rejected selection never modifies reservation");
+                api.Occupants.Clear();
+                enemyTiles.Add(1013);
+                Check(SelectMoatWorkTarget(NewWork(),(IntPtr)records,1,1,2)==-1,"next work cycle observes changed moat owner");
+                enemyTiles.Remove(1013);
+                Check(SelectMoatWorkTarget(NewWork(),(IntPtr)records,1,1,2)==950,"next work cycle discards previous negative result");
+                // Height is local to the contact, independently of the worker's elevation.
+                originalHasFillMoatApproach=(manager,source,tile,y)=>1;
+                pathRegionGrid[1016]=1; nativeHeightLayer[1016]=24; nativeHeightLayer[1017]=24;
+                api.Occupants[1018]=2;
+                Check(SelectMoatWorkTarget(NewWork(),(IntPtr)records,1,1,2)==950,"contact-height rule does not compare against distant lower worker");
+                nativeHeightLayer[1017]=0;
+                Check(SelectMoatWorkTarget(NewWork(),(IntPtr)records,1,1,2)==-1,"excessive height rejects even a native-positive candidate");
+            }
+            finally
+            {
+                api.TileManager=previous; api.Occupants.Clear();
+                enemyTiles.Clear(); tileFlags[1017]=0x8000;
+                nativeHeightLayer[1016]=nativeHeightLayer[1017]=0; pathRegionGrid[1016]=2;
+                NativeMemory.Free(records);
+            }
+        }
+
+        private void CursorInvocationTests()
+        {
+            int* coordinates=(int*)NativeMemory.AllocZeroed(8);
+            GameCursorManager* cursor=(GameCursorManager*)NativeMemory.AllocZeroed((nuint)sizeof(GameCursorManager));
+            var player=GamePlayerManagerAPI.Instance;
+            var units=GameUnitManagerAPI.Instance.Units;
+            var savedPair=originalCursorTilePairReachability;
+            cursorTargetX=coordinates; cursorTargetY=coordinates+1; *cursorTargetX=17; *cursorTargetY=10;
+            player.Cursor=cursor; *(int*)nativeUnitManager=1025;
+            EngineInterface.Selection=new[]{1,0}; units[1].r_UnitSelected=1;
+            long nativeSelectionResult=0;
+            getRepresentativeSelectedUnit=(_,kind)=>EngineInterface.Selection.Length==0?0:EngineInterface.Selection[0];
+            selectionCanDigMoat=_=>{
+                for(int i=0;i<EngineInterface.Selection.Length;i+=2)
+                    if(CanDigMoat(units+EngineInterface.Selection[i])) return 1;
+                return 0;
+            };
+            int nativeCalls=0;
+            originalCursorTilePairReachability=(_,target,start,cache)=>{ nativeCalls++; return 7; };
+            int Hover(int pairTarget=1017)
+            {
+                pendingAttackCursorPair=null;
+                long gate=ObserveCursorTilePairFallbackSelection((IntPtr)nativeUnitManager, nativeSelectionResult,0x8F325,1);
+                return gate==0?0:AllowAttackCursorTilePairThroughCompletedMoat(nativePathManager,pairTarget,1010,1);
+            }
+            try
+            {
+                Check(Hover()==1 && nativeCalls==0,"complete selection -> scope -> pair -> native positive cursor branch without a ground detour");
+                int savedType=units[1].r_UnitChimp;
+                bool savedManual=manualCommandsEnabled, savedTraversal=nativeTraversalDisabled;
+                try
+                {
+                    foreach(int type in new[]{0x3D,0x28,0x29,22})
+                    foreach(bool manual in new[]{false,true})
+                    foreach(bool traversal in new[]{false,true})
+                    {
+                        units[1].r_UnitChimp=type;
+                        manualCommandsEnabled=manual; nativeTraversalDisabled=!traversal;
+                        // The permission value is supplied by the real native producer,
+                        // not inferred from these fixture types or path reachability.
+                        pendingAttackCursorPair=new AttackCursorPairScope(1,1,1,10,10,1010,17,10,1017,CursorPairFallbackKind.DirectTile);
+                        int beforeCalls=nativeCalls;
+                        Check(ObserveCursorTilePairFallbackSelection((IntPtr)nativeUnitManager,0,0x8F325,0)==0 &&
+                            pendingAttackCursorPair==null && nativeCalls==beforeCalls,
+                            "native stationary/state/target veto cannot seed cursor or command feedback, with either provider setting");
+                        foreach(long positive in new long[]{1,7,0x100000001L,-1})
+                            Check(ObserveCursorTilePairFallbackSelection((IntPtr)nativeUnitManager,positive,0x8F325,0)==positive &&
+                                pendingAttackCursorPair==null,"original positive/full-width override remains authoritative even with R15D zero");
+                    }
+                }
+                finally { units[1].r_UnitChimp=savedType; manualCommandsEnabled=savedManual; nativeTraversalDisabled=savedTraversal; }
+                Check(Hover()==1,"allowed ground witness still repairs the route after rejected selections");
+                foreach(int attackSite in new[]{0x8D724,0x8E2B8,0x8E550,0xB7161,0xB7321})
+                    Check(ObserveCursorTilePairFallbackSelection((IntPtr)nativeUnitManager,0,attackSite,0)==1,
+                        "other call sites do not interpret R15D as a ground permission or forbid attacks");
+                Check(GamePlayerManagerAPI.Instance.GetSelectedChimps()[0].UnitId==1,
+                    "the selected-unit projection preserves the 1-based unit ID");
+                foreach(int count in new[]{1,120,1000})
+                {
+                    int[] selected=new int[count*2]; for(int i=0;i<count;i++) selected[i*2]=i+1;
+                    EngineInterface.Selection=selected;
+                    for(int warm=0;warm<5;warm++) Hover();
+                    long allocated=GC.GetAllocatedBytesForCurrentThread(), time=Stopwatch.GetTimestamp();
+                    long runs=weightedMoatRoutePlanner.SearchRuns;
+                    bool valid=true; for(int i=0;i<100;i++) valid &= Hover()==1;
+                    double elapsed=(Stopwatch.GetTimestamp()-time)*1000.0/Stopwatch.Frequency;
+                    allocated=GC.GetAllocatedBytesForCurrentThread()-allocated;
+                    Check(valid && runs==weightedMoatRoutePlanner.SearchRuns,"complete cursor chain never searches a route");
+                    Check(allocated < 5000000,
+                        "SelectedUnitInfo projection remains within the bounded cursor allocation budget");
+                    Console.WriteLine($"CURSOR FULL CHAIN units={count} queries=100 ms={elapsed:F3} allocatedBytes={allocated} pathSearches=0");
+                }
+                EngineInterface.Selection=Array.Empty<int>();
+                Check(!CaptureCursorSelection(1,out _,out _) && cursorSelectionAvailable,"empty selection differs from unavailable source");
+                EngineInterface.Selection=new[]{1,0};
+                tileFlags[1015]=CompletedMoatTileFlag;
+                for(int x=16;x<=18;x++) pathRegionGrid[1000+x]=3;
+                (*(int*)((byte*)nativePathManager+0x74))++; TileChanged(1015);
+                Check(Hover()==1,"two friendly moat crossings remain reachable");
+                enemyTiles.Add(1015); TileChanged(1015);
+                Check(Hover()==0,"enemy moat blocks full cursor chain");
+                enemyTiles.Remove(1015); tileFlags[1015]=0x8000;
+                for(int x=16;x<=18;x++) pathRegionGrid[1000+x]=2;
+                (*(int*)((byte*)nativePathManager+0x74))++; TileChanged(1015);
+                foreach(uint flags in new uint[]{0x100,0x200,0x10000000})
+                {
+                    tileFlags[1017]=flags; nativeMovementMasks[1017]=0; TileChanged(1017);
+                    Check(Hover()==1,"structure bits do not veto reachable directed endpoint");
+                    units[1001]=new GameUnit { r_GlobalId=9001,r_AliveState=AliveState.IsAlive,r_ControllableForPlayerId=1,r_CurrentTilePositionX=17,r_CurrentTilePositionY=10 };
+                    GameTileManagerAPI.Instance.Occupants[1017]=1001;
+                    Check(Hover()==1,"friendly occupied structure retains movement cursor across moat");
+                    cursor->r_HoverOverUnitId=1001;
+                    Check(Hover()==1,"friendly structure sprite hover does not become an attack or veto movement reachability");
+                    cursor->r_HoverOverUnitId=0; GameTileManagerAPI.Instance.Occupants.Clear();
+                    Check(!ProbeCursorConnectivity(1,1017,1010,out var reverse) && !reverse.RouteFound && reverse.AttackProbeEvaluated,"incoming structure endpoint invents no reverse edge");
+                    nativeHeightLayer[1017]=100; TileChanged(1017);
+                    Check(Hover()==0,"inaccessible structure height remains blocked");
+                    nativeHeightLayer[1017]=0; TileChanged(1017);
+                }
+                GameBuilding* gate=(GameBuilding*)NativeMemory.AllocZeroed((nuint)sizeof(GameBuilding));
+                GameBuildingManagerAPI.Instance.Building=gate;
+                gate->r_OccupyTileGridSize=1;
+                gate->r_OccupiedTileIdsArrayBegin=1017;
+                int* portals=(int*)nativePathManager; int portal=0x81;
+                nativeBuildingLayer[1017]=1; portals[0]=2;
+                portals[portal+0x809]=1; portals[portal+0x80C]=1; portals[portal+0x80F]=1;
+                portals[portal+0x882]=1; portals[portal+0x80A]=1;
+                TileChanged(1017);
+                Check(Hover()==0,"blocked portal prevents structure cursor connection");
+                portals[portal+0x80A]=2; portals[portal+0x882]=2;
+                Check(Hover()==0,"foreign portal prevents structure cursor connection");
+                portals[portal+0x882]=1;
+                Check(Hover()==1,"owned allowed portal restores structure cursor connection");
+                nativeBuildingLayer[1017]=0; portals[0]=0; portals[portal+0x80C]=0;
+                TileChanged(1017); GameBuildingManagerAPI.Instance.Building=null; NativeMemory.Free(gate);
+                tileFlags[1017]=0x8000; nativeMovementMasks[1017]=0x44; TileChanged(1017);
+                units[1001]=new GameUnit { r_GlobalId=9001,r_AliveState=AliveState.IsAlive,r_ControllableForPlayerId=2,r_CurrentTilePositionX=17,r_CurrentTilePositionY=10 };
+                cursor->r_HoverOverUnitId=1001; GameTileManagerAPI.Instance.Occupants[1017]=1001;
+                // The sprite lies over 1018; Vanilla passes the physical target tile 1017.
+                *cursorTargetX=18;
+                movementTargetAvailability[10*800+17]=0;
+                Check(Hover()==1,"unit attack uses physical target region despite sprite offset and occupied target");
+                ObserveCursorTilePairFallbackSelection((IntPtr)nativeUnitManager, nativeSelectionResult,0x8F325,1);
+                var bound=pendingAttackCursorPair;
+                units[1001].r_GlobalId++;
+                Check(!TryProbeUnitApproachCursorRoute(bound,out _,out _,out _),"reused attack target ID rejected");
+                units[1001].r_GlobalId--;
+                units[1001].r_CurrentTilePositionX=18;
+                Check(!TryProbeUnitApproachCursorRoute(bound,out _,out _,out _),"moved attack target invalidates bound endpoint");
+                units[1001].r_CurrentTilePositionX=17; units[1001].r_ControllableForPlayerId=1;
+                Check(!TryProbeUnitApproachCursorRoute(bound,out _,out _,out _),"friendly target not an attack");
+                units[1001].r_ControllableForPlayerId=2; units[1001].r_AliveState=AliveState.Dead;
+                Check(!TryProbeUnitApproachCursorRoute(bound,out _,out _,out _),"dead target not an attack");
+                cursor->r_HoverOverUnitId=0; GameTileManagerAPI.Instance.Occupants.Clear();
+                movementTargetAvailability[10*800+17]=1; *cursorTargetX=17;
+                units[2].Digger=false; EngineInterface.Selection=new[]{2,0,1,0};
+                Check(Hover()==1,"mixed selection resolves an eligible digger without granting a moat capability to others");
+                EngineInterface.Selection=new[]{2,0}; nativeSelectionResult=1;
+                Check(Hover()==7 && nativeCalls==1,"native special selection without diggers retains original pair behavior");
+                foreach(long result in new long[]{1,7,0x100000001L,-1})
+                {
+                    Check(ObserveCursorTilePairFallbackSelection((IntPtr)nativeUnitManager,result,0x8F325,1)==result && pendingAttackCursorPair==null,
+                        "SE positive/nonzero result is unchanged, including full-width value");
+                }
+                Check(ObserveCursorTilePairFallbackSelection(IntPtr.Zero,0,0x8F325,1)==0,"invalid selection does not gain access");
+            }
+            finally
+            {
+                units[2].Digger=true; units[1].r_UnitSelected=0;
+                EngineInterface.Selection=new[]{1,0}; player.Cursor=null;
+                cursorTargetX=cursorTargetY=null; pendingAttackCursorPair=null;
+                originalCursorTilePairReachability=savedPair;
+                NativeMemory.Free(coordinates); NativeMemory.Free(cursor);
+            }
+        }
+
+        // The table-based full build (BuildCursorTopology) gives exactly the per-tile path's boundary
+        // records (keys, edge order) and graph edge counts, here with regions, a friendly moat, a
+        // building, a special structure tile and map-edge tiles; a seeded change of one input
+        // (gate flag) must show up as a difference, so the comparison is not vacuous.
+        private void CursorTopologyBuildEquivalence()
+        {
+            var savedFlags = new Dictionary<int, uint>(); var savedRegions = new Dictionary<int, ushort>(); var savedMasks = new Dictionary<int, byte>();
+            void Flag(int tile, uint value) { if (!savedFlags.ContainsKey(tile)) savedFlags[tile] = tileFlags[tile]; tileFlags[tile] = value; }
+            void Region(int tile, ushort value) { if (!savedRegions.ContainsKey(tile)) savedRegions[tile] = pathRegionGrid[tile]; pathRegionGrid[tile] = value; }
+            void Mask(int tile, byte value) { if (!savedMasks.ContainsKey(tile)) savedMasks[tile] = nativeMovementMasks[tile]; nativeMovementMasks[tile] = value; }
+            for (int x = 20; x <= 26; x++) { Flag(1000 + x, 0x8000); Region(1000 + x, (ushort)(x < 23 ? 3 : 4)); Mask(1000 + x, 0x44); }
+            Flag(1024, CursorSpecialStructureTileFlagMask & 0x100);
+            Flag(0, 0x8000); Region(0, 5);
+            CursorTopology Build(bool fast)
+            {
+                cursorTopologies.Remove(1);
+                CursorTopology t = EnsureCursorTopology(1, false);
+                if (fast) BuildCursorTopology(t, 1); else for (int tile = 0; tile < NativeTileCount; tile++) UpdateCursorBoundary(t, 1, tile);
+                t.Ready = true;
+                return t;
+            }
+            bool SameRecords(Dictionary<int, long[]> a, Dictionary<int, long[]> b) =>
+                a.Count == b.Count && a.All(e => b.TryGetValue(e.Key, out long[] o) && o.SequenceEqual(e.Value));
+            bool SameGraph(CursorRegionGraph a, CursorRegionGraph b) =>
+                a.reverse.Count == b.reverse.Count && a.reverse.All(e => b.reverse.TryGetValue(e.Key, out var o) &&
+                    o.Count == e.Value.Count && e.Value.All(v => o.TryGetValue(v.Key, out int c) && c == v.Value));
+            bool Same(CursorTopology a, CursorTopology b) => SameRecords(a.Boundaries, b.Boundaries) && SameGraph(a.Graph, b.Graph);
+            try
+            {
+                CursorTopology slow = Build(false), fast = Build(true);
+                Check(slow.Boundaries.Count > 0, "equivalence fixture has cursor boundaries");
+                Check(Same(slow, fast), "table-based cursor topology build equals the per-tile build");
+                // A new region generation reuses the replaced topology's graphs: same objects, higher
+                // revisions (MoatPlacement's graph/revision cache), same contents as a fresh build.
+                CursorRegionGraph graph = fast.Graph; long revision = graph.Revision;
+                int* generationField = (int*)((byte*)nativePathManager + 0x74); int savedGeneration = *generationField;
+                (*generationField)++;
+                try
+                {
+                    CursorTopology reused = EnsureCursorTopology(1);
+                    Check(!ReferenceEquals(reused, fast) && ReferenceEquals(reused.Graph, graph) && graph.Revision > revision && Same(slow, reused),
+                        "replaced cursor topology reuses its graphs with the per-tile build's contents");
+                }
+                finally { *generationField = savedGeneration; }
+                Flag(1022, CursorSpecialStructureTileFlagMask & 0x100);
+                Check(!Same(slow, Build(true)), "changed structure tile changes the table-based build");
+            }
+            finally
+            {
+                foreach (var e in savedFlags) tileFlags[e.Key] = e.Value;
+                foreach (var e in savedRegions) pathRegionGrid[e.Key] = e.Value;
+                foreach (var e in savedMasks) nativeMovementMasks[e.Key] = e.Value;
+                cursorTopologies.Remove(1);
+            }
+        }
+
+        // The one-pass member check (TribeFloodMembership.Check) against a direct transcription of
+        // 0x124740 and 0x119F90 as disassembled (FBCB9319): random member bitsets, tribe kinds, group sizes
+        // above the set bits, unit fields and signed stamps; plus a seeded mismatch, so the comparison bites.
+        private void FloodMembershipExactTests()
+        {
+            const int units = 10000, tiles = 4096;
+            byte* tribe = (byte*)NativeMemory.AllocZeroed(0x688); byte* unitRecords = (byte*)NativeMemory.AllocZeroed((nuint)(units * 0x490));
+            short* stamps = (short*)NativeMemory.AllocZeroed(tiles * 2);
+            int ReferenceUnit(int index)
+            {
+                if (*(short*)(tribe + 0x40) != 2) return 0;
+                int count = *(short*)(tribe + 0x5C);
+                if (index >= count || index < 0) return 0;
+                int seen = 0;
+                for (int word = 0; word < 0x271; word++)
+                {
+                    short value = ((short*)(tribe + 0x60))[word];
+                    if (value == 0) continue;
+                    for (int bit = 0; bit < 16; bit++)
+                        if (((int)value >> bit & 1) != 0) { if (seen == index) return bit + word * 16; seen++; }
+                }
+                return 0;
+            }
+            int Reference(int stamp)
+            {
+                int count = *(short*)(tribe + 0x5C);
+                for (int i = 0; i < count; i++)
+                {
+                    byte* unit = unitRecords + (long)ReferenceUnit(i) * 0x490;
+                    if (*(short*)(unit + 0x6E4) == 2 && *(short*)(unit + 0x8F8) == 0 && stamps[*(int*)(unit + 0x72C)] != stamp) return 0;
+                }
+                return 1;
+            }
+            try
+            {
+                var random = new Random(4711); int failures = 0, positives = 0;
+                for (int trial = 0; trial < 400; trial++)
+                {
+                    for (int i = 0; i < 0x688; i++) tribe[i] = 0;
+                    *(short*)(tribe + 0x40) = (short)(trial % 7 == 0 ? 1 : 2);
+                    int members = random.Next(0, 40);
+                    for (int m = 0; m < members; m++) { int u = random.Next(0, units); ((short*)(tribe + 0x60))[u >> 4] |= (short)(1 << (u & 15)); }
+                    *(short*)(tribe + 0x5C) = (short)(trial % 5 == 0 ? members + random.Next(0, 4) : trial % 11 == 0 ? -1 : members);
+                    int stamp = random.Next(-3, 4);
+                    for (int u = 0; u < units; u += 1 + random.Next(0, 3))
+                    {
+                        byte* unit = unitRecords + (long)u * 0x490;
+                        *(short*)(unit + 0x6E4) = (short)(random.Next(0, 4) == 0 ? 1 : 2);
+                        *(short*)(unit + 0x8F8) = (short)(random.Next(0, 6) == 0 ? 1 : 0);
+                        *(int*)(unit + 0x72C) = random.Next(0, tiles);
+                    }
+                    for (int t = 0; t < tiles; t++) stamps[t] = (short)(random.Next(0, 3) == 0 ? stamp + 1 : stamp);
+                    int expected = Reference(stamp), actual = TribeFloodMembership.Check(tribe, unitRecords, stamps, stamp);
+                    if (expected != actual) failures++;
+                    if (expected == 1) positives++;
+                }
+                Check(failures == 0, $"one-pass flood member check differs from 0x124740 in {failures} of 400 cases");
+                Check(positives > 20 && positives < 380, $"flood member fixture lacks both outcomes (positives={positives})");
+                // Seeded mismatch: an unstamped active member must fail both.
+                for (int i = 0; i < 0x688; i++) tribe[i] = 0;
+                *(short*)(tribe + 0x40) = 2; *(short*)(tribe + 0x5C) = 1; ((short*)(tribe + 0x60))[3] = 1 << 5;
+                byte* member = unitRecords + (long)(3 * 16 + 5) * 0x490;
+                *(short*)(member + 0x6E4) = 2; *(short*)(member + 0x8F8) = 0; *(int*)(member + 0x72C) = 9; stamps[9] = 0;
+                Check(Reference(7) == 0 && TribeFloodMembership.Check(tribe, unitRecords, stamps, 7) == 0 && TribeFloodMembership.Check(tribe, unitRecords, stamps, 0) == 1,
+                    "one-pass flood member check ignores the member's stamp");
+            }
+            finally
+            {
+                NativeMemory.Free(tribe); NativeMemory.Free(unitRecords); NativeMemory.Free(stamps);
+            }
+        }
+
+        private void CursorAdapterTests()
+        {
+            cursorTopologies.Clear(); enemyTiles.Clear();
+            for (int x=10;x<=18;x++) { tileFlags[1000+x]=0x8000; pathRegionGrid[1000+x]=(ushort)(x<13?1:2); }
+            tileFlags[1013]=CompletedMoatTileFlag;
+            nativeHeightLayer[1013]=0;
+            for(int x=10;x<=18;x++) nativeMovementMasks[1000+x]=0x44;
+            long lazyBuilds=cursorTopologyBuilds;
+            Check(ProbeCursorConnectivity(1,1010,1011,out _) && cursorTopologyBuilds==lazyBuilds,
+                "ordinary same-region hover needs no topology build");
+            pathRegionGrid[1010]=pathRegionGrid[1011]=50000;
+            Check(ProbeCursorConnectivity(1,1010,1011,out _) && cursorTopologyBuilds==lazyBuilds,
+                "unsigned high same-region IDs remain a cheap Vanilla-positive result");
+            pathRegionGrid[1010]=pathRegionGrid[1011]=1;
+            Check(ProbeCursorConnectivity(1,1010,1017,out var route) && route.RouteFound && route.ReachedWithMoat,
+                "production cursor topology joins regions through friendly moat");
+            long builds=cursorTopologyBuilds, pathRuns=weightedMoatRoutePlanner.SearchRuns;
+
+            pathRuns=weightedMoatRoutePlanner.SearchRuns;
+            Check(ProbeCursorConnectivity(1,1013,1017,out route) && route.RouteFound,"cursor start on moat has its own node");
+            enemyTiles.Add(1013); TileChanged(1013);
+            // Fast's cursor answer returns RouteFound itself; AttackProbeEvaluated marks a decided (not pending) answer.
+            Check(!ProbeCursorConnectivity(1,1010,1017,out route) && !route.RouteFound && route.AttackProbeEvaluated,"owner change removes cached positive connection");
+            enemyTiles.Clear(); TileChanged(1013);
+            Check(ProbeCursorConnectivity(1,1010,1017,out route) && route.RouteFound,"owner change removes cached negative connection");
+            Check(cursorTopologyBuilds==builds,"local changes do not rebuild the full map");
+            Check(weightedMoatRoutePlanner.SearchRuns==pathRuns,"cursor creates no route searches");
+            CursorTopologyBuildEquivalence();
+            FloodMembershipExactTests();
+
+            int nativePairs = 0;
+            originalCursorTilePairReachability = (manager,target,start,cache) => { nativePairs++; return 7; };
+            EngineInterface.Selection = new[]{1,0};
+            AttackCursorPairScope DirectScope() => new AttackCursorPairScope(mapEpoch,1,1,10,10,1010,17,10,1017,CursorPairFallbackKind.DirectTile);
+            pendingAttackCursorPair = DirectScope();
+            Check(AllowAttackCursorTilePairThroughCompletedMoat(nativePathManager,1017,1010,1)==1 && nativePairs==0,
+                "actual cursor adapter answers before native area search");
+            enemyTiles.Add(1013); TileChanged(1013); pendingAttackCursorPair=DirectScope();
+            Check(AllowAttackCursorTilePairThroughCompletedMoat(nativePathManager,1017,1010,1)==0 && nativePairs==0,
+                "negative cursor decision also avoids native area search");
+            enemyTiles.Clear(); TileChanged(1013);
+            Check(AllowAttackCursorTilePairThroughCompletedMoat(nativePathManager,1017,1010,1)==7 && nativePairs==1,
+                "unbound native consumer retains original result");
+            activeAttackApproachDiagnostic=new object(); pendingAttackCursorPair=DirectScope();
+            Check(AllowAttackCursorTilePairThroughCompletedMoat(nativePathManager,1017,1010,1)==7 && nativePairs==2,
+                "nested real attack consumer retains native contract");
+            activeAttackApproachDiagnostic=null;
+            GameBuilding building = new GameBuilding { r_GlobalId=42 };
+            GameBuildingManagerAPI.Instance.Building=&building;
+            GameUnit* first=GameUnitManagerAPI.Instance.Units+1;
+            first->r_CurrentPositionTileId=1010;
+            originalBuildingCursorReachability=(manager,id,unit)=>AllowAttackCursorTilePairThroughCompletedMoat(nativePathManager,1010,1017,0);
+            Check(CallBuildingCursorWithRegions(IntPtr.Zero,1,1)==1 && nativePairs==2 && activeBuildingCursorConnectivity==null,
+                "native building candidate uses reversed pair and restores scope");
+            // Invalid IDs must not reach either API, including inside an outer scope.
+            var cursorOriginal = originalBuildingCursorReachability;
+            var outerCursor = new BuildingCursorConnectivityScope { UnitId=1, BuildingId=1, UnitGlobalId=first->r_GlobalId, BuildingGlobalId=42 };
+            foreach (var outer in new BuildingCursorConnectivityScope[] { null, outerCursor })
+            foreach (int invalid in new[] { -1, 0 })
+            foreach (bool badUnit in new[] { false, true })
+            {
+                activeBuildingCursorConnectivity = outer;
+                int unitCalls = GameUnitManagerAPI.Instance.LookupCalls;
+                int buildingCalls = GameBuildingManagerAPI.Instance.LookupCalls;
+                int calls = 0, expectedUnit = badUnit ? invalid : 1, expectedBuilding = badUnit ? 1 : invalid;
+                originalBuildingCursorReachability = (manager,id,unit) => {
+                    calls++;
+                    Check(manager==new IntPtr(123) && id==expectedBuilding && unit==expectedUnit, "invalid cursor preserves original arguments");
+                    Check(ReferenceEquals(activeBuildingCursorConnectivity,outer), "invalid cursor creates no additional scope");
+                    return 37;
+                };
+                Check(CallBuildingCursorWithRegions(new IntPtr(123),expectedBuilding,expectedUnit)==37 && calls==1,
+                    "invalid cursor calls original once and preserves its result");
+                Check(GameUnitManagerAPI.Instance.LookupCalls==unitCalls && GameBuildingManagerAPI.Instance.LookupCalls==buildingCalls,
+                    "nonpositive cursor IDs bypass both API lookups");
+                Check(ReferenceEquals(activeBuildingCursorConnectivity,outer), "invalid cursor preserves outer scope");
+            }
+            activeBuildingCursorConnectivity = outerCursor;
+            int validCursorCalls = 0;
+            originalBuildingCursorReachability = (manager,id,unit) => {
+                validCursorCalls++;
+                Check(activeBuildingCursorConnectivity!=null && !ReferenceEquals(activeBuildingCursorConnectivity,outerCursor),
+                    "valid nested cursor creates its own scope");
+                return 41;
+            };
+            Check(CallBuildingCursorWithRegions(IntPtr.Zero,1,1)==41 && validCursorCalls==1 &&
+                ReferenceEquals(activeBuildingCursorConnectivity,outerCursor), "valid cursor restores outer scope and result");
+            originalBuildingCursorReachability = (manager,id,unit) => { throw new InvalidOperationException("cursor-fixture"); };
+            bool cursorThrew = false;
+            try { CallBuildingCursorWithRegions(IntPtr.Zero,1,1); }
+            catch (InvalidOperationException ex) when (ex.Message=="cursor-fixture") { cursorThrew=true; }
+            Check(cursorThrew && ReferenceEquals(activeBuildingCursorConnectivity,outerCursor), "throwing cursor restores outer scope");
+            activeBuildingCursorConnectivity = null;
+            originalBuildingCursorReachability = cursorOriginal;
+            GameBuildingManagerAPI.Instance.Building=null;
+
+            // Native first-phase portal filter: a blocked portal (Fast reads tile edges, not portal records).
+            int* context=(int*)nativePathManager;
+            context[0]=2; int index=0x81;
+            context[index+0x809]=1; context[index+0x80A]=2;
+            context[index+0x80F]=1; context[index+0x882]=1;
+            context[index+0x816]=1; context[index+0x817]=2;
+            context[index+0x80A]=1;
+            Check(ProbeCursorConnectivity(1,1010,1017,out route) && !route.ReachedWithoutMoat && route.ReachedWithMoat,
+                "blocked native portal does not erase the additional friendly connection");
+            context[0]=0;
+
+            CursorInvocationTests();
+            foreach(int count in new[]{1,120,1000})
+            {
+                var ids=new int[count*2];
+                for(int i=0;i<count;i++) ids[i*2]=i+1;
+                EngineInterface.Selection=ids;
+                Check(CaptureCursorSelection(1,out _,out var token),"production selection capture");
+                // Warm the public selection projection and graph paths.
+                for(int i=0;i<5;i++) { CaptureCursorSelection(1,out _,out _); ProbeCursorConnectivity(1,1010,1017,out _); }
+                long allocated=GC.GetAllocatedBytesForCurrentThread();
+                long nodes=cursorTopologies[1].Graph.ExpandedNodes;
+                long before=Stopwatch.GetTimestamp();
+                bool valid=true;
+                for(int i=0;i<1000;i++)
+                {
+                    valid &= CaptureCursorSelection(1,out _,out var current) && current==token;
+                    valid &= ProbeCursorConnectivity(1,1010,1017,out route) && route.RouteFound;
+                }
+                double ms=(Stopwatch.GetTimestamp()-before)*1000.0/Stopwatch.Frequency;
+                allocated=GC.GetAllocatedBytesForCurrentThread()-allocated;
+                Check(valid && allocated < 30000000,
+                    "unchanged cursor/selection stays within the bounded projection budget");
+                Check(cursorTopologies[1].Graph.ExpandedNodes==nodes,"unchanged cursor reuses its regional closure");
+                Console.WriteLine($"CURSOR PRODUCTION ADAPTER units={count} queries=1000 ms={ms:F3} allocatedBytes={allocated} newNodes=0 pathSearches=0");
+                var direct=DirectScope();
+                for(int warm=0;warm<4;warm++) TryQualifySelectedGroupCursorRoute(direct,out _,out _);
+                long groupAllocated=GC.GetAllocatedBytesForCurrentThread();
+                for(int hover=0;hover<100;hover++) TryQualifySelectedGroupCursorRoute(direct,out _,out _);
+                groupAllocated=GC.GetAllocatedBytesForCurrentThread()-groupAllocated;
+                Check(groupAllocated < 5000000,
+                    "group cursor stays within the bounded projection budget");
+                Console.WriteLine($"CURSOR GROUP ADAPTER units={count} queries=100 allocatedBytes={groupAllocated}");
+                GameUnitManagerAPI.Instance.Units[1].r_GlobalId++;
+                Check(CaptureCursorSelection(1,out _,out var replaced) && replaced!=token,"slot reuse invalidates cursor selection identity");
+            }
+        }
+    }
+
+    public static class CursorGraphTests
+    {
+        public static void Run()
+        {
+            int checks=0; var random=new Random(871);
+            // Independent transitive closure on directed graphs, including parallel edges.
+            for(int test=0;test<80;test++)
+            {
+                const int n=18; var graph=new CursorRegionGraph(n); var counts=new int[n,n];
+                for(int change=0;change<60;change++)
+                {
+                    int a=random.Next(n), b=random.Next(n); if(a==b) continue;
+                    int delta=counts[a,b]>0 && random.Next(2)==0 ? -1 : 1;
+                    counts[a,b]+=delta; graph.ChangeEdge(a,b,delta);
+                    var expected=new bool[n,n];
+                    for(int i=0;i<n;i++) for(int j=0;j<n;j++) expected[i,j]=i==j||counts[i,j]>0;
+                    for(int k=0;k<n;k++) for(int i=0;i<n;i++) for(int j=0;j<n;j++) expected[i,j]|=expected[i,k]&&expected[k,j];
+                    for(int j=0;j<n;j++) for(int i=0;i<n;i++)
+                    {
+                        if(graph.CanReach(i,j)!=expected[i,j]) throw new Exception("Cursor directed/reference-count regression");
+                        checks++;
+                    }
+                }
+            }
+            Console.WriteLine($"PASS: {checks} independent cursor connectivity comparisons after edge additions/removals.");
+        }
+    }
+}

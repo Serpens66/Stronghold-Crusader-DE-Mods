@@ -20,7 +20,7 @@ namespace Pathfinding
     [BepInIncompatibility("MoveMoatTest_Serp")]
     [BepInIncompatibility("QueueTest_Serp")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
-    public sealed class PathfindingPlugin : BaseUnityPlugin
+    public sealed partial class PathfindingPlugin : BaseUnityPlugin
     {
         private const string ScriptExtenderGuid = "000shcdese";
         private const string ApiSharedGuid = "APIShared_Serp";
@@ -46,6 +46,7 @@ namespace Pathfinding
             Shared.UnityMainThreadDispatch.InitializeForCurrentThread();
             Shared.CrashBreadcrumbDiagnostics.Initialize(Logger, PluginGuid, PluginName, PluginVersion);
             Settings = new PathfindingViewModel();
+            ImportLegacyFormationConfig();
             FormationFeature.Configure(Logger, Config, Settings);
             GateRouting.GateRoutingFeature.Configure(Logger, Config, Settings);
             runtime = new PathfindingRuntime(Logger, Settings, System.IO.Path.GetDirectoryName(Info.Location));
@@ -72,6 +73,8 @@ namespace Pathfinding
             // Packet types are registered before settings can vary.
             try { runtime.InitializeNetwork(); }
             catch (Exception ex) { Shared.DebugLogHelper.LogError(Logger, "PATHFINDING_NETWORK_INIT_FAILED: " + ex); }
+            try { PrepareLegacySettings(); }
+            catch (Exception ex) { LogMigrationError(ex); }
             try
             {
                 APIShared.ModSettings.LobbyModSettingsPresetRegistration.Register(
@@ -81,6 +84,8 @@ namespace Pathfinding
                     Settings,
                     "ScriptExtenderUI/PathfindingSettings.xaml",
                     logRoutineActivity: Shared.DebugLogHelper.DiagnosticsEnabled);
+                settingsRegistered = true;
+                TryMigrateLegacySettings();
             }
             catch (Exception ex)
             {

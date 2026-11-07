@@ -1741,6 +1741,7 @@ internal static class Program
             { GameplayFeatureId.RandomEventsRuntime, "RandomEvents_Serp" },
             { GameplayFeatureId.ImprovedHunterTargetSelection, "ImprovedHunters_Serp" },
             { GameplayFeatureId.ImprovedHunterPathfinding, "ImprovedHunters_Serp" },
+            { GameplayFeatureId.ImprovedHunterWildlifeRange, "ImprovedHunters_Serp" },
             { GameplayFeatureId.CastleSpawning, "CastlePlanner_Serp" },
             { GameplayFeatureId.FreeCastlePreview, "CastlePlanner_Serp" },
             { GameplayFeatureId.CastleBlueprints, "CastlePlanner_Serp" },
@@ -1751,10 +1752,9 @@ internal static class Program
         {
             GameplayFeatureId.CastleBlueprints
         };
+        // Improved Hunters is allowed in real multiplayer, see ImprovedHunters/UpdateToNewDLL.md.
         var multiplayerBlocked = new HashSet<GameplayFeatureId>
         {
-            GameplayFeatureId.ImprovedHunterTargetSelection,
-            GameplayFeatureId.ImprovedHunterPathfinding,
             GameplayFeatureId.SpectatorGameplayActions
         };
 
@@ -1773,7 +1773,8 @@ internal static class Program
                   customizedModes.All(mode => GameplayFeatureModePolicy.IsAllowed(profile, mode, out _)),
                 $"feature policy rejected a regular gameplay context for {entry.Key}");
             bool allRecognizedModesAllowed = entry.Key == GameplayFeatureId.CastleBlueprints ||
-                entry.Key == GameplayFeatureId.SpectatorStatistics;
+                entry.Key == GameplayFeatureId.SpectatorStatistics ||
+                entry.Key == GameplayFeatureId.ImprovedHunterWildlifeRange;
             Check(recognizedDirectModes.All(mode =>
                       GameplayFeatureModePolicy.IsAllowed(profile, mode, out _) == allRecognizedModesAllowed) &&
                   !GameplayFeatureModePolicy.IsAllowed(profile, default, out _) &&

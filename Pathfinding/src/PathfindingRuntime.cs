@@ -35,6 +35,7 @@ namespace Pathfinding
         private bool nativeLibraryAvailable, fixedLayoutHashValidated;
         private bool assemblyPointPlacementPatchUnavailable, mountedStockpileMovementPatchUnavailable, fastRecruitInitializationAttempted;
         private ulong LibraryBase => unchecked((ulong)libraryHandle.ToInt64());
+        internal static bool HasMission { get; private set; }
 
         public PathfindingRuntime(ManualLogSource log, PathfindingViewModel settings, string pluginDirectory)
         {
@@ -80,6 +81,7 @@ namespace Pathfinding
 
         private void EndGameplaySession()
         {
+            HasMission = false;
             assassinClimbRuntime.EndMap();
             assassinPathfindingRuntime.EndMap();
             multiplayerFeatureGate.Reset();
@@ -87,6 +89,7 @@ namespace Pathfinding
 
         private void BeginGameplaySession(Shared.GameplaySessionStartedContext context)
         {
+            HasMission = true;
             multiplayerFeatureGate.CaptureMapMode(
                 context.Notification != null && context.Notification.Context.IsSave && context.Mode.IsRealMultiplayer);
             assassinPathfindingRuntime.BeginMap();

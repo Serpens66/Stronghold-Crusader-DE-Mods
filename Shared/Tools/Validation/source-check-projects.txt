@@ -32,6 +32,7 @@ ExtremePowers/ExtremePowers.csproj
 Helpers/ActiveAIVDetector/ActiveAIVDetector.csproj
 Helpers/HunterQueryTargetDiagnostic/HunterQueryTargetDiagnostic.csproj
 ImprovedHunters/ImprovedHunters.csproj
+Pathfinding/Pathfinding.csproj
 RandomEvents/RandomEvents.csproj
 SerpsModsHost/SerpsModsHost.csproj
 Shared/Tests/Json.Tests/Shared.Json.Tests.csproj

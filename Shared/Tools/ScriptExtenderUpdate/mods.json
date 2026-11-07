@@ -138,6 +138,18 @@
     "DependsOn": ["APIShared"]
   },
   {
+    "Name": "Pathfinding",
+    "Guid": "Pathfinding_Serp",
+    "Manifest": "Pathfinding\\info.json",
+    "Plugin": "Pathfinding\\src\\PathfindingPlugin.cs",
+    "Project": "Pathfinding\\Pathfinding.csproj",
+    "BuildDriver": "Pathfinding\\build.bat",
+    "Package": "Pathfinding\\BepInEx\\plugins\\Pathfinding_Serp",
+    "Install": "Pathfinding_Serp",
+    "BuildOrder": 100,
+    "DependsOn": ["APIShared"]
+  },
+  {
     "Name": "RandomEvents",
     "Guid": "RandomEvents_Serp",
     "Manifest": "RandomEvents\\info.json",

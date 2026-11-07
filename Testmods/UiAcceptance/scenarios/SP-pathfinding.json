@@ -1,0 +1,24 @@
+{
+  "enabled": true,
+  "series": "SP-pathfinding",
+  "role": "sp",
+  "steps": [
+    { "id": "menu", "do": "WaitMainMenu", "timeoutMs": 180000, "stopOnFail": true, "allowErrors": true },
+    { "id": "page", "do": "OpenModSettings", "args": ["Pathfinding_Serp"], "stopOnFail": true },
+    { "id": "wait-page", "do": "Wait", "args": ["2000"] },
+    { "id": "shot-page", "do": "Screenshot", "args": ["pathfinding-settings"] },
+    { "id": "close-page", "do": "CloseModSettings" },
+    { "id": "wrapper", "do": "WaitMarker", "args": ["player-move wrapper reference-rva=0x196100", "any"], "timeoutMs": 5000, "allowErrors": true },
+    { "id": "load", "do": "LoadSave", "args": ["test_gates.sav"], "timeoutMs": 120000, "stopOnFail": true },
+    { "id": "select", "do": "SelectOwnUnits", "args": ["1", "8"], "stopOnFail": true },
+    { "id": "group", "do": "WaitGroup", "args": ["1", "1"], "timeoutMs": 20000, "stopOnFail": true },
+    { "id": "speed", "do": "Speed", "args": ["250"] },
+    { "id": "mark", "do": "Mark", "args": ["probe"] },
+    { "id": "move", "do": "PlayerMove", "args": ["1", "rel:6:0", "0"] },
+    { "id": "mode-0", "do": "ExpectMoveMode", "args": ["1", "0"] },
+    { "id": "run", "do": "WaitTicks", "args": ["300"], "timeoutMs": 60000 },
+    { "id": "accepted", "do": "ExpectSince", "args": ["probe", "PLAYER_MOVE .*accepted=True", "1"] },
+    { "id": "shot", "do": "Screenshot", "args": ["pathfinding-moved"] },
+    { "id": "quit", "do": "QuitToMenu", "timeoutMs": 90000 }
+  ]
+}

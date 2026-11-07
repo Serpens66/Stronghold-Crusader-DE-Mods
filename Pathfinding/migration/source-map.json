@@ -3,6 +3,18 @@
  "note": "Dated snapshot; check with tools/Test-MigrationDrift.ps1.",
  "entries": [
   {
+   "origin": "BugfixesAndQoL/native/AssassinSearch.cpp",
+   "originBlob": "f8a88cc739a7a9371f7acf78f947d89dca4b6976",
+   "target": "Pathfinding/native/PathfindingAssassin.cpp",
+   "action": "remove"
+  },
+  {
+   "origin": "BugfixesAndQoL/native/Build-AssassinSearch.ps1",
+   "originBlob": "7619071fc77e29df3d34e513cb87db6a3b870515",
+   "target": "Pathfinding/native/Build-PathfindingAssassin.ps1",
+   "action": "remove"
+  },
+  {
    "origin": "BugfixesAndQoL/src/Assassins/AssassinAStarPolicy.cs",
    "originBlob": "41875a42d5b2c0663bfc6267617b611e502a4b4b",
    "target": "Pathfinding/src/Assassins/AssassinAStarPolicy.cs",
@@ -1170,7 +1182,8 @@
    "origin": "BugfixesAndQoL/src/UnitCommands/Native/TribeFloodMembership.cs",
    "originBlob": "9870028d6d86da8872e61dbb8542d7887a5b38e2",
    "target": "Pathfinding/src/UnitCommands/Native/TribeFloodMembership.cs",
-   "action": "move-to-shared"
+   "action": "move-to-shared",
+   "note": "BFQoL V14 braucht BodyMatches."
   },
   {
    "origin": "BugfixesAndQoL/src/UnitCommands/Native/UnitCommandPathRuntime.AttackHooks.cs",
@@ -1266,6 +1279,18 @@
    "origin": "BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs",
    "originBlob": "68a22523a959bfdb1a669e2b3ee506b63bf743f9",
    "target": "Pathfinding/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs",
+   "action": "remove"
+  },
+  {
+   "origin": "Testmods/MoatMove/native/Build-MoatMoveAnchor.ps1",
+   "originBlob": "1030d560f29cef33adae9ebc884e91740f566303",
+   "target": "Pathfinding/native/Build-PathfindingAnchor.ps1",
+   "action": "remove"
+  },
+  {
+   "origin": "Testmods/MoatMove/native/MoatMoveAnchor.cpp",
+   "originBlob": "7946ab58db34848bc5a9f089d3913f0c9bd1d231",
+   "target": "Pathfinding/native/PathfindingAnchor.cpp",
    "action": "remove"
   },
   {
@@ -1373,8 +1398,15 @@
   {
    "origin": "Testmods/MoatMove/src/MoatMoveOptions.cs",
    "originBlob": "42b2e7880f17346d8f06cf7bbb594c2349ce1f4f",
-   "target": "Pathfinding/src/Engine/MoatMoveOptions.cs",
+   "target": "Pathfinding/src/Engine/EngineOptions.cs",
    "action": "remove"
+  },
+  {
+   "origin": "Testmods/MoatMove/src/MoatMovePlugin.cs",
+   "originBlob": "ba57ebb21c98e2ee95057d9d2d9bd130d6353818",
+   "target": "Pathfinding/src/Engine/EngineHost.cs",
+   "action": "remove",
+   "note": "Handgeschrieben übernommen."
   },
   {
    "origin": "Testmods/MoatMove/src/MoatSearchKernel.cs",

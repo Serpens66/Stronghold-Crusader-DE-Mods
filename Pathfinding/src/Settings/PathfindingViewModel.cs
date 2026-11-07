@@ -10,6 +10,7 @@ namespace Pathfinding
     public sealed partial class PathfindingViewModel : PresetLobbyModSettingsViewModel, IUnitCommandSettings
     {
         public event Action<string> SettingChanged;
+        internal bool IsRestoringSnapshot => IsApplyingSettingsSnapshot;
 
         /// <summary>Localized option texts for the settings page; keys follow the property names.</summary>
         public sealed class SettingsTexts

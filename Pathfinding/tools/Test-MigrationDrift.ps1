@@ -1,0 +1,18 @@
+param([switch]$FailOnDrift)
+$ErrorActionPreference = 'Stop'
+# Lists source-mod files that changed since they were copied into this mod, so the changes can be
+# ported before the source code is removed. Blobs compare exact file contents, not paths.
+$modDir = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
+$workspace = [IO.Path]::GetFullPath((Join-Path $modDir '..'))
+$map = Get-Content -LiteralPath (Join-Path $modDir 'migration\source-map.json') -Raw | ConvertFrom-Json
+$changed = @(); $missing = @()
+foreach ($entry in $map.entries) {
+    $origin = Join-Path $workspace $entry.origin
+    if (-not (Test-Path -LiteralPath $origin -PathType Leaf)) { $missing += $entry.origin; continue }
+    $blob = (& git -C $workspace hash-object -- $entry.origin).Trim()
+    if ($blob -cne $entry.originBlob) { $changed += $entry.origin }
+}
+Write-Output ("Checked {0} origins: {1} changed, {2} missing." -f @($map.entries).Count, $changed.Count, $missing.Count)
+foreach ($item in $changed) { Write-Output "CHANGED $item" }
+foreach ($item in $missing) { Write-Output "MISSING $item" }
+if ($FailOnDrift -and ($changed.Count -gt 0 -or $missing.Count -gt 0)) { exit 1 }
