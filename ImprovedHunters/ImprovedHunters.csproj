@@ -149,6 +149,7 @@
     <Compile Include="src\WildlifeRespawnFeature.cs" />
     <Compile Include="src\WildlifeRangeFeature.cs" />
     <Compile Include="src\WildlifeRangePolicy.cs" />
+    <Compile Include="src\HerdSettingsPolicy.cs" />
     <Compile Include="src\WildlifeOriginTable.cs" />
     <Compile Include="src\HerdFleeSightFeature.cs" />
     <Compile Include="src\HunterSimulationTime.cs" />

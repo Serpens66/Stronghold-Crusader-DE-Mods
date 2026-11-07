@@ -35,13 +35,19 @@ In the base game, the Hunter's hut cannot be built in skirmish and multiplayer w
 ## Animals
 
 ### Deer and goats flee only from units in sight
-In the base game, a herd runs from any unit in its area, even one behind a wall. With this option a herd stays calm unless a unit there can both see and reach it. Being shot at and nearby lions, hyenas or crocodiles still make it run, other fleeing herds do not. On by default.
+In the base game, a herd runs from any unit in its area, even one behind a wall. With this option a herd stays calm unless a unit there can both see and reach it. Being shot at and nearby lions, hyenas or crocodiles still make it run. On by default.
 
-### New deer and goats
-Off by default. Each deer or goat herd the map's creator placed is followed on its own. When one has died out completely, two animals return to its start place after a waiting time (default 10 minutes at normal speed) and the herd grows from there by itself. A map without deer and goats gets none. This works in the game modes where the base game brings no new animals, not in the map editor, and has no use while another mod removes all animals.
+### Herds do not scare each other
+In the base game a fleeing herd makes all herds near it run, which on full maps never ends and keeps them from growing. With this option, which is on by default, a herd only runs from units, predators and being shot at.
 
-### Deer and goats stay in their area
-Off by default. Deer and goat herds do not go far from their start place when wandering or fleeing, which keeps Hunters' walks short and makes these animals easier to hunt. You set the size of the area (default 100 by 100 tiles). Single animals can briefly cross the border when startled. Other animals are not affected. This works in all game modes.
+### Extinct herds return
+Off by default. Each deer or goat herd is followed on its own. When one has died out completely, two animals return to its start place after the time you set, and the herd grows from there by itself. About 10 minutes at normal speed is a good start. A map without deer and goats gets none, unless you use herds at the players' castles. This works in the game modes where the base game brings no new animals, not in the map editor, and has no use while another mod removes all animals.
+
+### Area of deer and goats
+No limit by default. You can set a size, for example 100 by 100 tiles. Deer and goat herds then do not go far from their start place when wandering or fleeing, which keeps Hunters' walks short and makes these animals easier to hunt. Single animals can briefly cross the border when startled. Other animals are not affected. This works in all game modes except the map editor, where animals do not move.
+
+### Herds at the players' castles
+Off by default. At the start of a new game every player, AI included, gets a herd about 30 tiles from their castle, either only on maps without deer and goats or on every map. All herds have the same size: 9 deer, or 4 goats if deer cannot be hunted. The Hunter's hut stays available when this is on. These herds return and keep to their area like any other.
 
 ### Chickens per player
 Each player keeps this number of chickens (default 10, up to 100, or none at all), regardless of food, as long as they own a granary, bakery or mill. Surplus chickens are removed. Only applies while chicken hunting is enabled.

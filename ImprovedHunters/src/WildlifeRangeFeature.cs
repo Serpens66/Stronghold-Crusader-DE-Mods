@@ -16,8 +16,8 @@ namespace ImprovedHunters
     /// Keeps deer and goat herds in an area around their start place by shortening their routes right after
     /// Vanilla builds them (0x127E60), the only source of their destinations. Nothing runs between two routes.
     /// When no route stays for a herd in flight, Vanilla scatters it nearby (0x11DFE0); a herd that ended up
-    /// outside goes home on its next route, in flight too. Applies in every game mode and the editor, where
-    /// Vanilla's herds stand still anyway.
+    /// outside goes home on its next route, in flight too. Applies in every game mode but the editor, where
+    /// Vanilla's herds stand still.
     /// </summary>
     internal sealed unsafe class WildlifeRangeFeature
     {
@@ -36,7 +36,7 @@ namespace ImprovedHunters
         private readonly DetourHandle<BuildRouteDelegate> buildRouteHook = new DetourHandle<BuildRouteDelegate>();
         private readonly HookTransaction transaction;
         private volatile bool active;
-        private int size = WildlifeRangePolicy.DefaultSize;
+        private int size;
         private bool failureLogged;
 
         public WildlifeRangeFeature(
@@ -72,19 +72,21 @@ namespace ImprovedHunters
                 throw new InvalidOperationException("The herd route hook was not installed.");
 
             // Not behind the mod's own mode gate, which leaves out modes this feature serves.
-            Shared.MissionEvents.Started.Subscribe(_ => Activate());
+            // Already at the native start: herds can get their first route in the ticks before the mission counts as started.
+            Shared.MissionEvents.NativeStart.Subscribe(start => Activate(start.Context.Mode));
+            Shared.MissionEvents.Started.Subscribe(started => Activate(started.Context.Mode));
             Shared.MissionEvents.Ended.Subscribe(_ => active = false);
             Shared.DebugLogHelper.LogInfo(log, $"Improved Hunters herd range hook installed: route=0x{buildRoute:X}.");
         }
 
-        private void Activate()
+        private void Activate(APIShared.GameModes.GameModeSnapshot mode)
         {
-            size = settings.WildlifeRangeSize;
-            active = settings.EnableMod && settings.LimitWildlifeRange && Shared.GameplayFeatureModePolicy.IsAllowed(
+            size = settings.HerdRangeSize;
+            active = settings.EnableMod && size != HerdSettingsPolicy.Off && Shared.GameplayFeatureModePolicy.IsAllowed(
                 ImprovedHuntersPlugin.PluginGuid,
                 Shared.GameplayFeatureId.ImprovedHunterWildlifeRange,
-                Shared.GameplayModActivationGate.Snapshot);
-            Shared.DebugLogHelper.LogInfo(log, $"Improved Hunters herd range: active={active}, size={size}, {Shared.GameplayModActivationGate.Snapshot.ToDiagnosticString()}.");
+                mode);
+            Shared.DebugLogHelper.LogInfo(log, $"Improved Hunters herd range: active={active}, size={size}, {mode.ToDiagnosticString()}.");
         }
 
         private void OnBuildRoute(IntPtr sectorGrid, int herd, int reach, int mode)

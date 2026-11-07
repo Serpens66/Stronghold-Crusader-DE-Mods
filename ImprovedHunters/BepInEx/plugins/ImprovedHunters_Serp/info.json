@@ -3,13 +3,28 @@
   "Author": "Serpens66",
   "Name": "Improved Hunters",
   "Description": "Adds configurable hunter prey and meat yield for deer, goats, rabbits, camels and chickens.",
-  "Version": "1.1.87",
+  "Version": "1.1.88",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.0",
   "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.1.88",
+      "Changes": [
+        "New: Tannery slider that splits its work between meat and the chosen weapon or armor good.",
+        "New: Hunter search range, and Hunters switch to a nearer animal they see on the way.",
+        "New: Hunters collect free corpses of animals; each corpse feeds only one Hunter.",
+        "New: Hunter's hut stays available on maps without deer and goats.",
+        "New: Deer and goats flee only from units that can see and reach them.",
+        "New: Herds do not scare each other; on full maps Vanilla keeps them running, which also stops them growing.",
+        "New: Extinct deer and goat herds return with two animals to their start place after a set time.",
+        "New: Area limit that keeps deer and goat herds near their start place.",
+        "New: Optional herds at the players' castles at the start of a new game, for maps without deer and goats or for every map.",
+        "Fixed: outdated help text of the mod."
+      ]
+    },
     {
       "Version": "1.1.87",
       "Changes": [

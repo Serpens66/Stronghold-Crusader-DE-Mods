@@ -140,7 +140,8 @@ namespace Shared
                     break;
                 case GameplayFeatureId.ImprovedHunterWildlifeRange:
                     expectedGuid = "ImprovedHunters_Serp";
-                    contexts = AllRecognizedContexts;
+                    // Vanilla's herds stand still in the editor, so there is nothing to limit there.
+                    contexts = AllRecognizedContexts & ~GameplayModAllowedContext.MapEditor;
                     break;
                 case GameplayFeatureId.CastleBlueprints:
                     expectedGuid = "CastlePlanner_Serp";

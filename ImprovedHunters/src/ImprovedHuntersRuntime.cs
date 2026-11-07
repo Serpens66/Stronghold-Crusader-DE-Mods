@@ -1033,7 +1033,9 @@ namespace ImprovedHunters
 
             if (propertyName == nameof(ImprovedHuntersViewModel.EnableMod) ||
                 propertyName == nameof(ImprovedHuntersViewModel.HunterHutAlwaysAvailable) ||
-                propertyName == nameof(ImprovedHuntersViewModel.DeerFleeOnlyInSight))
+                propertyName == nameof(ImprovedHuntersViewModel.DeerFleeOnlyInSight) ||
+                propertyName == nameof(ImprovedHuntersViewModel.HerdsIgnoreFleeingHerds) ||
+                propertyName == nameof(ImprovedHuntersViewModel.StartHerdMode))
             {
                 ApplyWildlifeRules();
             }
@@ -1212,9 +1214,9 @@ namespace ImprovedHunters
             {
                 var addresses = new WildlifeNativeAddresses(log, memory, imageBase, referenceHashMatches);
                 var origins = new WildlifeOriginTable();
-                wildlifeRespawn = new WildlifeRespawnFeature(log, settings, addresses, origins);
-                wildlifeRange = new WildlifeRangeFeature(log, hookRegion, memory, imageBase, referenceHashMatches, settings, addresses, origins);
                 herdFleeSight = new HerdFleeSightFeature(log, hookRegion, memory, imageBase, referenceHashMatches, addresses, hunterNativeVisibilityProbe);
+                wildlifeRespawn = new WildlifeRespawnFeature(log, settings, addresses, origins, herdFleeSight);
+                wildlifeRange = new WildlifeRangeFeature(log, hookRegion, memory, imageBase, referenceHashMatches, settings, addresses, origins);
             }
             catch (Exception exception)
             {
@@ -1229,8 +1231,9 @@ namespace ImprovedHunters
         private void ApplyWildlifeRules()
         {
             bool modEnabled = Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod);
-            hunterHutAvailabilityPatch?.SetEnabled(modEnabled && settings.HunterHutAlwaysAvailable);
-            herdFleeSight?.SetEnabled(modEnabled && settings.DeerFleeOnlyInSight);
+            // A start herd needs its Hunter's hut, and the map's own count at its start does not know that herd.
+            hunterHutAvailabilityPatch?.SetEnabled(modEnabled && (settings.HunterHutAlwaysAvailable || settings.StartHerdMode != HerdSettingsPolicy.StartHerdsOff));
+            herdFleeSight?.Configure(modEnabled && settings.DeerFleeOnlyInSight, modEnabled && settings.HerdsIgnoreFleeingHerds);
         }
 
         private void InitializeTannerMeatPatch(

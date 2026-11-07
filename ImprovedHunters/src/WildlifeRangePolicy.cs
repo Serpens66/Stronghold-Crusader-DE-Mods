@@ -5,10 +5,6 @@ namespace ImprovedHunters
     /// <summary>Which waypoints of a herd's route stay in its area: a square around its start place.</summary>
     internal static class WildlifeRangePolicy
     {
-        public const int DefaultSize = 100;
-        public const int MinimumSize = 40;
-        public const int MaximumSize = 400;
-
         public static bool IsInside(int x, int y, int centerX, int centerY, int size)
         {
             int reach = size / 2;

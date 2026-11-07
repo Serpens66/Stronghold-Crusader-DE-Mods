@@ -364,7 +364,7 @@ Update audit: `0x18AF50` still has no upper distance limit and still measures fr
 ## Wildlife respawn
 
 Owner: `WildlifeRespawnFeature` with `WildlifeOriginTable`, addresses `WildlifeNativeAddresses`. Bound to the audited hash.
-At the first tick of a mission without saved data it reads all herd records (`0x7CC6720`, stride `0x688`) for deer and goats. Every
+At the first tick divisible by 10 of a mission without saved data it reads all herd records (`0x7CC6720`, stride `0x688`) for deer and goats. Every
 30 s of simulation it checks each herd: record state `+0x40`, serial `+0x34`, the leader `+0x5A`, and only for a dead leader the member bits
 at `+0x60` (`0x271` words). A herd without a living animal returns after the waiting time through `0x11E150` as Vanilla's `0x123670` calls it
 (deer `0xDC`, goats `0xE2`), on the simulation tick, in the same place as Vanilla's tick at `0xCE27E`. All members but two get
@@ -373,20 +373,27 @@ through `0x123EA0` and `0x11A2B0`. Save record `ImprovedHunters.WildlifeOrigins`
 the two herd arts, that it refuses a tile by mask `0x4A5014B1` and claims the record first (`0x119C00`; `0x1261F0` frees an empty one next tick),
 all the record fields above, that newborn animals join the same herd (`0x118130` to `0x11D370`) and that herds do not split.
 
+## Start herds
+
+Owner: `WildlifeRespawnFeature.PlaceStartHerds`, places from `WildlifeStartPlaces`, setting `StartHerdMode`. New maps only, right after the capture above: one herd per player with a keep,
+through `0x11E150` as above, cut to Vanilla's smallest size. Reads keep and door through the Extender (`GetPlayerKeepId`, `GetPlayerKeepDoorPosition`), the path components, and `+0x48` of the
+sector grid through `HerdFleeSightFeature.SectorThreats`. The Hunter's hut button (`0xFFC70`, `0x37EF97C`) does not know these herds, so `HunterHutAvailabilityPatch` stays on with them.
+Update audit: the same as for the respawn, and that the door position is a tile on the walkable land around the keep.
+
 ## Herd range
 
-Owner: `WildlifeRangeFeature`, policy `WildlifeRangePolicy`, setting `LimitWildlifeRange`. Function detour on `0x127E60`
+Owner: `WildlifeRangeFeature`, policy `WildlifeRangePolicy`, setting `HerdRangeSize`. Function detour on `0x127E60`
 (entry, signature `(grid, herd, reach, mode)`, `BuildRoutePattern`, unique), bound to the audited hash. No jump inside the function targets its first 20
 bytes (checked over the whole body). After the original it shortens the route in `+0x5B4` (x, y words, at most 10) and `+0x5DE`. All deer and goat routes come from
 there; `0x129010` is used by rabbits only. The fields come from the same record as above. A herd outside gets one waypoint home, in flight too: in a crowded area
 herds set each other off, and with Vanilla's route each flight led further out (seen in the first test). The first waypoint is
 also set for an empty route, because `0x124E80` and `0x125290` read it in their newborn branch and `0x124890` in its state 1 without looking at the count.
-Own mode decision `GameplayFeatureId.ImprovedHunterWildlifeRange`, independent of the mod's gate. Update audit: all callers of `0x127E60` and how each uses
+It is active from the native start on, because herds get their first routes in the ticks before the mission counts as started. Own mode decision `GameplayFeatureId.ImprovedHunterWildlifeRange`, independent of the mod's gate, without the editor, where `0x124E80` and `0x125290` return before any route (`0x3665F28 == 1`). Update audit: all callers of `0x127E60` and how each uses
 the route, that `0x11B520` is what follows a waypoint, and whether another writer of `+0x5DE` (`0x11A980`, `0x11C3A0`, `0x11DB40`, `0x1222A0`) handles animal herds.
 
 ## Herd flight only in sight
 
-Owner: `HerdFleeSightFeature` with `HunterNativeStubs.EmitHerdFleeGate`, setting `DeerFleeOnlyInSight`. Sites `0x124F20`
+Owner: `HerdFleeSightFeature` with `HunterNativeStubs.EmitHerdFleeGate`, settings `DeerFleeOnlyInSight` and `HerdsIgnoreFleeingHerds`, the gate is on with either. Sites `0x124F20`
 (deer) and `0x125330` (goats), 18 bytes each: the stub replays the reads of the sector counters and sets EDI to 0 for a
 herd the tick scan marked calm. The table has one byte per herd (`0x1194`), indexed by EBP, and is rebuilt from
 simulation data at every scan, so it needs no save. Update audit: `+0x28` and `+0x48` of the grid at `0x3395E10`, stride

@@ -35,7 +35,7 @@ namespace UiAcceptance
         private static uint speedGlobal;
         private static bool speedSlowed;
         // Vanilla's herd records, pinned by this test mod's native audit.
-        private const int HerdManagerRva = 0x7CC6720, HerdStride = 0x688, HerdFleeingOffset = 0x5F4, HerdLeaderOffset = 0x5A, HerdCount = 0x1194, MapTickRva = 0x3665F58, HerdGoRva = 0x11B520, SpawnHerdRva = 0x11E150, ReturnPlaceReach = 12, StartDifference = 8;
+        private const int HerdManagerRva = 0x7CC6720, HerdStride = 0x688, HerdFleeingOffset = 0x5F4, HerdLeaderOffset = 0x5A, HerdCount = 0x1194, MapTickRva = 0x3665F58, HerdGoRva = 0x11B520, SpawnHerdRva = 0x11E150, ReturnPlaceReach = 12, StartDifference = 8, BeforeMissionStartTicks = 20;
         // Index of the food page in HUD_Main.BuildIconLists.
         private const int FoodBuildScreen = 3;
 
@@ -59,6 +59,8 @@ namespace UiAcceptance
             Runner.Register("Hunt.RememberStarts", s => GameSteps.Do(() => { lock (Engine()) RememberStarts(); }));
             Runner.Register("Hunt.ClearOtherAnimals", s => GameSteps.Do(() => { lock (Engine()) ClearOtherAnimals(); }));
             Runner.Register("Hunt.PickHerd", PickHerd);
+            Runner.Register("Hunt.WalledUnitThenHerd", WalledUnitThenHerd);
+            Runner.Register("Hunt.ExpectNewHerds", ExpectNewHerds);
             Runner.Register("Hunt.SpawnHerd", s => GameSteps.Do(() => { lock (Engine()) SpawnHerd(s.Arg(0), s.Arg(1, "400"), s.Arg(2, "400")); }));
             Runner.Register("Hunt.KillHerd", s => GameSteps.Do(() => { lock (Engine()) KillHerd(s.Int(0)); }));
             Runner.Register("Hunt.ExpectNoReturn", ExpectNoReturn);
@@ -495,7 +497,7 @@ namespace UiAcceptance
         // Herd fixtures for the wildlife return and range: what the map placed, as the mod should see it.
         private static readonly Dictionary<int, HerdStart> herdStarts = new Dictionary<int, HerdStart>();
         private static HerdStart herdFixture;
-        private static int herdKillTick, routeReports, herdSends;
+        private static int herdKillTick, routeReports, herdSends, worstRoam;
 
         private struct HerdStart
         {
@@ -578,6 +580,67 @@ namespace UiAcceptance
                 }
             }
             return false;
+        }
+
+        // args: deer, goat or none, herds expected, animals in each. Waits for the mod's first second, then counts herds
+        // not there at the start and checks each against the keeps.
+        private static IEnumerable<Wait> ExpectNewHerds(Step step)
+        {
+            int until = 0;
+            lock (Engine()) until = (NativeTick() / 40 + 2) * 40;
+            yield return new Until("the mod's first second", () => { lock (Engine()) return NativeTick() >= until; });
+            lock (Engine()) CheckNewHerds(step.Arg(0), step.Int(1), step.Int(2));
+        }
+
+        private static void CheckNewHerds(string kindName, int expected, int animals)
+        {
+            short kind = kindName == "goat" ? (short)0x28 : (short)0xD;
+            GamePlayerManagerAPI players = GamePlayerManagerAPI.Instance;
+            GameTileManagerAPI tiles = GameTileManagerAPI.Instance;
+            Span<ushort> components = GamePathingManagerAPI.Instance.GetPathComponentGrid();
+            int found = 0;
+            for (int herd = 1; herd < HerdCount; herd++)
+            {
+                short herdKind = *(short*)(HerdRecord(herd) + 0x42);
+                int serial = *(int*)(HerdRecord(herd) + 0x34);
+                if ((herdKind != 0xD && herdKind != 0x28) || herdStarts.ContainsKey(serial) || !LeaderTile(herd, out int x, out int y))
+                    continue;
+
+                found++;
+                int living = LivingMembers(herd), nearest = int.MaxValue, nearestPlayer = 0;
+                bool sameLand = false;
+                for (int player = 1; player <= 8; player++)
+                {
+                    if (players.GetPlayerKeepId(player) <= 0)
+                        continue;
+                    var door = players.GetPlayerKeepDoorPosition(player);
+                    int distance = Math.Max(Math.Abs(door.X - x), Math.Abs(door.Y - y));
+                    if (distance < nearest)
+                    {
+                        nearest = distance;
+                        nearestPlayer = player;
+                        sameLand = GamePathingManagerAPI.Instance.ArePathComponentsConnected(player, components[tiles.GetTileId(door.X, door.Y)], components[tiles.GetTileId(x, y)], PathConnectionQueryMode.ExcludeLadderClimb);
+                    }
+                }
+                AcceptLog.Info("HUNT_NEW_HERD herd=" + herd + " kind=0x" + herdKind.ToString("X") + " at=" + x + "," + y + " living=" + living + " count=" + *(short*)(HerdRecord(herd) + 0x5C) +
+                    " nearestKeep=" + nearestPlayer + " distance=" + nearest + " sameLand=" + sameLand);
+                Runner.Require(herdKind == kind, "a herd of the wrong kind");
+                Runner.Require(living == animals, "expected " + animals + " animals, found " + living);
+                Runner.Require(sameLand, "the herd is cut off from its keep");
+                Runner.Require(nearest >= 20 && nearest <= 80, "the herd stands " + nearest + " tiles from the keep");
+            }
+            // -1: one for each player with a keep; the lobby does not always hold the same players.
+            if (expected < 0)
+            {
+                expected = 0;
+                for (int player = 1; player <= 8; player++)
+                {
+                    if (players.GetPlayerKeepId(player) > 0)
+                        expected++;
+                }
+            }
+            AcceptLog.Info("HUNT_NEW_HERDS found=" + found + " expected=" + expected);
+            Runner.Require(found == expected, "expected " + expected + " new herds, found " + found);
         }
 
         // args: animals to leave alive. The bodies stay, as after a hunt.
@@ -798,9 +861,27 @@ namespace UiAcceptance
                     continue;
 
                 int roam = Math.Max(Math.Abs(x - start.X), Math.Abs(y - start.Y));
+                // Walls of an AI castle can cut a herd off from its start; it stays free on its side of them.
+                Span<ushort> lands = GamePathingManagerAPI.Instance.GetPathComponentGrid();
+                GameTileManagerAPI grid = GameTileManagerAPI.Instance;
+                if (lands[grid.GetTileId(x, y)] != lands[grid.GetTileId(start.X, start.Y)])
+                    continue;
                 farthest.TryGetValue(start.Serial, out int known);
                 if (roam > known)
+                {
                     farthest[start.Serial] = roam;
+                    // Each step of the herd that has gone farthest, to see how it got there.
+                    if (roam > reach + 6 && roam > worstRoam)
+                    {
+                        worstRoam = roam;
+                        byte* far = HerdRecord(start.Herd);
+                        Span<ushort> land = GamePathingManagerAPI.Instance.GetPathComponentGrid();
+                        GameTileManagerAPI map = GameTileManagerAPI.Instance;
+                        AcceptLog.Info("HUNT_RANGE_FAR tick=" + NativeTick() + " herd=" + start.Herd + " start=" + start.X + "," + start.Y + " leader=" + x + "," + y + " roam=" + roam +
+                            " flee=" + *(short*)(far + HerdFleeingOffset) + " route=" + *(short*)(far + 0x5DC) + "/" + *(short*)(far + 0x5DE) + " first=" + *(short*)(far + 0x5B4) + "," + *(short*)(far + 0x5B6) +
+                            " landLeader=" + land[map.GetTileId(x, y)] + " landStart=" + land[map.GetTileId(start.X, start.Y)]);
+                    }
+                }
                 byte* record = HerdRecord(start.Herd);
                 int count = *(short*)(record + 0x5DE);
                 if (roam > reach)
@@ -810,10 +891,14 @@ namespace UiAcceptance
                 {
                     if (Math.Max(Math.Abs(*(short*)(record + 0x5B4 + point * 4) - start.X), Math.Abs(*(short*)(record + 0x5B6 + point * 4) - start.Y)) > reach + StartDifference)
                     {
+                        // A flight that began before the mission had started: nothing could limit that route yet.
+                        int flee = *(short*)(record + HerdFleeingOffset);
+                        if (flee > 0 && NativeTick() - flee <= BeforeMissionStartTicks)
+                            continue;
                         outsideRoutes++;
                         if (routeReports++ < 6)
                             AcceptLog.Info("HUNT_ROUTE_OUTSIDE herd=" + start.Herd + " serial=" + start.Serial + " start=" + start.X + "," + start.Y + " leader=" + x + "," + y +
-                                " flee=" + *(short*)(record + HerdFleeingOffset) + " point=" + point + "/" + count + " at=" + *(short*)(record + 0x5B4 + point * 4) + "," + *(short*)(record + 0x5B6 + point * 4));
+                                " tick=" + NativeTick() + " flee=" + flee + " point=" + point + "/" + count + " at=" + *(short*)(record + 0x5B4 + point * 4) + "," + *(short*)(record + 0x5B6 + point * 4));
                     }
                 }
             }
@@ -827,6 +912,15 @@ namespace UiAcceptance
         private delegate int SpawnHerdDelegate(IntPtr manager, int kind, uint x, uint y, int height);
 
         // args: deer or goat, optionally the tile to start looking from. Vanilla's herd creation, as the editor's placing tool calls it.
+        private static int SpawnHerdAt(string kind, int x, int y)
+        {
+            var spawn = System.Runtime.InteropServices.Marshal.GetDelegateForFunctionPointer<SpawnHerdDelegate>((IntPtr)((byte*)GetModuleHandle("CrusaderDE.dll") + SpawnHerdRva));
+            GameTileManagerAPI tiles = GameTileManagerAPI.Instance;
+            int herd = spawn((IntPtr)((byte*)GetModuleHandle("CrusaderDE.dll") + HerdManagerRva), kind == "goat" ? 0xE2 : 0xDC, (uint)x, (uint)y, tiles.GetTileHeight(tiles.GetTileId(x, y)));
+            AcceptLog.Info("HUNT_SPAWNED herd=" + herd + " at=" + x + "," + y);
+            return herd;
+        }
+
         private static void SpawnHerd(string kind, string centreX, string centreY)
         {
             var spawn = System.Runtime.InteropServices.Marshal.GetDelegateForFunctionPointer<SpawnHerdDelegate>((IntPtr)((byte*)GetModuleHandle("CrusaderDE.dll") + SpawnHerdRva));
@@ -1020,22 +1114,16 @@ namespace UiAcceptance
         {
             bool walled = step.Arg(0) == "walled", closed = !walled;
             int x = 0, y = 0;
+            if (!walled)
+            {
+                // A herd on its way would leave the soldier behind before Vanilla's sector count sees him.
+                foreach (Wait wait in LeaderRests())
+                    yield return wait;
+            }
             while (!closed)
             {
-                int since = Environment.TickCount, last = -1;
-                yield return new Until("the herd's leader rests", () =>
-                {
-                    lock (Engine())
-                    {
-                        int here = LeaderTile();
-                        if (here != last)
-                        {
-                            last = here;
-                            since = Environment.TickCount;
-                        }
-                        return Environment.TickCount - since >= CalmLeaderMs;
-                    }
-                });
+                foreach (Wait wait in LeaderRests())
+                    yield return wait;
                 ringTry++;
                 lock (Engine())
                 {
@@ -1064,6 +1152,108 @@ namespace UiAcceptance
                 lock (Engine()) FindSoldierTile(false, out x, out y);
             }
             lock (Engine()) PlaceSoldier(walled, x, y);
+        }
+
+        // args: deer or goat. Closes the ring on empty land first and only then sets the herd beside it, in the same
+        // sector and outside the ring. A wandering herd leaves its sector before a ring can close around a corner of it.
+        private static IEnumerable<Wait> WalledUnitThenHerd(Step step)
+        {
+            // Near the own keep, where the game lets the player build walls.
+            int doorX = 0, doorY = 0;
+            lock (Engine())
+            {
+                var door = GamePlayerManagerAPI.Instance.GetPlayerKeepDoorPosition(Local());
+                doorX = door.X / 10 * 10;
+                doorY = door.Y / 10 * 10;
+            }
+            foreach ((int dx, int dy) in RingPlaces())
+            {
+                int x = doorX + 2 + dx, y = doorY + 5 + dy;
+                bool usable = false;
+                lock (Engine())
+                {
+                    usable = IsOpenRingPlace(x, y);
+                    if (usable)
+                        BuildRing(x, y);
+                }
+                if (!usable)
+                    continue;
+
+                int end = Environment.TickCount + RingAttemptMs;
+                bool closed = false;
+                while (!closed && Environment.TickCount < end)
+                {
+                    yield return new Delay(100);
+                    lock (Engine()) closed = AreParted(x, y, x + 6, y);
+                }
+                AcceptLog.Info("HUNT_RING_FIRST at=" + x + "," + y + " closed=" + closed);
+                if (!closed)
+                    continue;
+
+                int herd = 0;
+                lock (Engine()) herd = SpawnHerdAt(step.Arg(0), x + 6, y);
+                if (herd <= 0)
+                    continue;
+
+                // A new animal only counts as alive after a moment, and the soldier takes his height from it.
+                yield return new Delay(300);
+                lock (Engine()) PlaceSoldier(true, x, y);
+                yield break;
+            }
+            Runner.Require(false, "no place took a closed ring and a herd");
+        }
+
+        private static IEnumerable<(int X, int Y)> RingPlaces()
+        {
+            for (int reach = 20; reach <= 100; reach += 20)
+            {
+                for (int a = -reach; a <= reach; a += 20)
+                {
+                    for (int b = -reach; b <= reach; b += 20)
+                    {
+                        if (Math.Max(Math.Abs(a), Math.Abs(b)) == reach)
+                            yield return (a, b);
+                    }
+                }
+            }
+        }
+
+        private static bool IsOpenRingPlace(int x, int y)
+        {
+            GameTileManagerAPI tiles = GameTileManagerAPI.Instance;
+            if (!tiles.IsTileInsideMapBounds(x - 2, y - 2) || !tiles.IsTileInsideMapBounds(x + 7, y + 2))
+                return false;
+            Span<ushort> components = GamePathingManagerAPI.Instance.GetPathComponentGrid();
+            int land = components[tiles.GetTileId(x, y)];
+            byte* grid = (byte*)GetModuleHandle("CrusaderDE.dll") + SectorGridRva;
+            return land != 0 && land == components[tiles.GetTileId(x + 6, y)] &&
+                *(int*)(grid + (x / 10 * 80 + y / 10) * SectorStride + SectorUnitsOffset) == 0;
+        }
+
+        private static bool AreParted(int x, int y, int otherX, int otherY)
+        {
+            GameTileManagerAPI tiles = GameTileManagerAPI.Instance;
+            Span<ushort> components = GamePathingManagerAPI.Instance.GetPathComponentGrid();
+            int inner = components[tiles.GetTileId(x, y)], outer = components[tiles.GetTileId(otherX, otherY)];
+            return inner != 0 && outer != 0 && inner != outer;
+        }
+
+        private static IEnumerable<Wait> LeaderRests()
+        {
+            int since = Environment.TickCount, last = -1;
+            yield return new Until("the herd's leader rests", () =>
+            {
+                lock (Engine())
+                {
+                    int here = LeaderTile();
+                    if (here != last)
+                    {
+                        last = here;
+                        since = Environment.TickCount;
+                    }
+                    return Environment.TickCount - since >= CalmLeaderMs;
+                }
+            });
         }
 
         // The corner farthest from the leader first; a corner beside him is no use and is skipped by the next try.
@@ -1115,11 +1305,38 @@ namespace UiAcceptance
             x = sectorX + (animal->r_CurrentTilePositionX % 10 < 5 ? 7 : 2);
             y = sectorY + (animal->r_CurrentTilePositionY % 10 < 5 ? 7 : 2);
             if (!walled)
+                FindOpenTileBesideHerd(animal, sectorX, sectorY, out x, out y);
+        }
+
+        // In the leader's sector and on the land he stands on: a ring can cut him off from the tile next to him,
+        // and a unit that cannot reach the herd must not make it run.
+        private static void FindOpenTileBesideHerd(GameUnit* animal, int sectorX, int sectorY, out int x, out int y)
+        {
+            GameTileManagerAPI tiles = GameTileManagerAPI.Instance;
+            Span<ushort> components = GamePathingManagerAPI.Instance.GetPathComponentGrid();
+            int leaderX = animal->r_CurrentTilePositionX, leaderY = animal->r_CurrentTilePositionY;
+            int home = components[tiles.GetTileId(leaderX, leaderY)];
+            for (int reach = 1; reach < 10; reach++)
             {
-                // Beside the herd in the open, and outside the earlier ring.
-                x = animal->r_CurrentTilePositionX + (animal->r_CurrentTilePositionX % 10 < 5 ? 1 : -1);
-                y = animal->r_CurrentTilePositionY + (animal->r_CurrentTilePositionY % 10 < 5 ? 1 : -1);
+                for (int ox = -reach; ox <= reach; ox++)
+                {
+                    for (int oy = -reach; oy <= reach; oy++)
+                    {
+                        x = leaderX + ox;
+                        y = leaderY + oy;
+                        if (Math.Max(Math.Abs(ox), Math.Abs(oy)) != reach || x / 10 * 10 != sectorX || y / 10 * 10 != sectorY)
+                            continue;
+                        int tile = tiles.GetTileId(x, y);
+                        if (tiles.IsValidTileId(tile) && components[tile] == home)
+                        {
+                            AcceptLog.Info("HUNT_OPEN_TILE at=" + x + "," + y + " home=" + home + " reach=" + reach);
+                            return;
+                        }
+                    }
+                }
             }
+            x = y = 0;
+            Runner.Require(false, "no tile on the herd's land in its sector");
         }
 
         private static void BuildRing(int x, int y)

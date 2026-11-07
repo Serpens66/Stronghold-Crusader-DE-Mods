@@ -96,6 +96,17 @@ namespace ImprovedHunters
             return false;
         }
 
+        /// <summary>A herd the map started with, also when its first route already gave it an entry.</summary>
+        public bool TryMarkRespawning(int herd, int herdSerial)
+        {
+            if (!TryFind(herd, herdSerial, out WildlifeOrigin origin))
+                return false;
+
+            origin.Respawns = true;
+            origins[originByHerd[herd]] = origin;
+            return true;
+        }
+
         public bool TryAdd(WildlifeOrigin origin)
         {
             if (!IsValid(origin) || origins.Count >= HerdCapacity)

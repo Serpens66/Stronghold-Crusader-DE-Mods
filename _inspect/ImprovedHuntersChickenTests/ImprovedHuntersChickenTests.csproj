@@ -12,6 +12,7 @@
     <Compile Include="..\..\ImprovedHunters\src\TannerRunTable.cs" Link="TannerRunTable.cs" />
     <Compile Include="..\..\ImprovedHunters\src\HunterSearchRangePolicy.cs" Link="HunterSearchRangePolicy.cs" />
     <Compile Include="..\..\ImprovedHunters\src\WildlifeRangePolicy.cs" Link="WildlifeRangePolicy.cs" />
+    <Compile Include="..\..\ImprovedHunters\src\HerdSettingsPolicy.cs" Link="HerdSettingsPolicy.cs" />
     <Compile Include="..\..\ImprovedHunters\src\WildlifeOriginTable.cs" Link="WildlifeOriginTable.cs" />
     <Compile Include="..\..\ImprovedHunters\src\HunterQueryActorPolicy.cs" Link="HunterQueryActorPolicy.cs" />
     <Compile Include="..\..\ImprovedHunters\src\HunterNativeStubs.cs" Link="HunterNativeStubs.cs" />

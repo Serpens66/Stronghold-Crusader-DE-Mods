@@ -12,9 +12,9 @@ namespace ImprovedHunters
     /// Deer and goat herds flee from any unit in their 10x10 sector, even behind a wall. Here a herd
     /// stays calm when no unit there can both see and reach it. The tick scan decides per herd, on
     /// simulation data only; a small native gate in each herd update reads the result. Predators in the sector
-    /// remain Vanilla's reason to run, and being shot at does not pass through here. A fleeing herd is no reason:
-    /// Vanilla counts it in the same counter (0x126810), so in crowded land herds kept each other running,
-    /// and a herd could set itself off again from its own stale sector count.
+    /// remain Vanilla's reason to run, and being shot at does not pass through here. Vanilla counts a fleeing
+    /// herd in the same counter as units (0x126810), so in crowded land herds keep each other running. A second
+    /// setting takes that reason away. The two work alone or together, because the gate replaces the whole counter.
     /// </summary>
     internal sealed unsafe class HerdFleeSightFeature : IDisposable
     {
@@ -31,10 +31,12 @@ namespace ImprovedHunters
         private const int GridLeaOperandBeforeSite = 0x23;
 
         private const int HerdCount = 0x1194;
+        private const int HerdFleeingOffset = 0x5F4;
         private const int SectorSize = 10;
         private const int SectorsPerSide = 80;
         private const int SectorStride = 0xA0;
         private const int SectorPredatorsOffset = 0x28;
+        private const int SectorThreatsOffset = 0x48;
         private const int NonAnimalMarkerOffset = 0x328;
 
         private readonly WildlifeNativeAddresses addresses;
@@ -46,9 +48,12 @@ namespace ImprovedHunters
         private readonly int[] herdList = new int[HerdCount];
         private readonly int[] sectorStamp = new int[SectorsPerSide * SectorsPerSide];
         private readonly int[] sectorFirstUnit = new int[SectorsPerSide * SectorsPerSide];
+        private readonly int[] spookedStamp = new int[SectorsPerSide * SectorsPerSide];
         private int[] nextUnitInSector = new int[0];
         private int generation;
         private bool enabled;
+        private bool sightRule;
+        private bool ignoreFleeingHerds;
 
         public HerdFleeSightFeature(
             ManualLogSource log,
@@ -93,10 +98,22 @@ namespace ImprovedHunters
 
         public bool IsAvailable => gate?.IsInstalled == true;
 
-        public void SetEnabled(bool value)
+        public void Configure(bool onlyInSight, bool ignoreFleeing)
         {
-            enabled = value;
-            gate?.SetEnabled(value);
+            sightRule = onlyInSight;
+            ignoreFleeingHerds = ignoreFleeing;
+            enabled = onlyInSight || ignoreFleeing;
+            gate?.SetEnabled(enabled);
+        }
+
+        /// <summary>Vanilla's count of units and fleeing herds in the sector of a tile, or -1 outside the grid.</summary>
+        public int SectorThreats(int x, int y)
+        {
+            int sectorX = x / SectorSize, sectorY = y / SectorSize;
+            if (sectorX < 0 || sectorX >= SectorsPerSide || sectorY < 0 || sectorY >= SectorsPerSide)
+                return -1;
+
+            return *(int*)(grid + (sectorX * SectorsPerSide + sectorY) * SectorStride + SectorThreatsOffset);
         }
 
         public void ResetForMap() => new Span<byte>(calmHerds, HerdCount).Clear();
@@ -121,6 +138,7 @@ namespace ImprovedHunters
         private int CollectHerdsAndUnits(SimpleNativeArray<GameUnit> units)
         {
             int herds = 0;
+            byte* herdManager = (byte*)addresses.HerdManager;
             for (int index = 0; index < units.Length; index++)
             {
                 GameUnit* unit = units.GetValuePointer(index);
@@ -142,6 +160,9 @@ namespace ImprovedHunters
                         herdSeen[herd] = generation;
                         herdList[herds++] = herd;
                     }
+
+                    if (!ignoreFleeingHerds && *(short*)(herdManager + herd * WildlifeNativeAddresses.HerdStride + HerdFleeingOffset) != 0)
+                        spookedStamp[sector] = generation;
                 }
                 else if (*((byte*)unit + NonAnimalMarkerOffset) == 0)
                 {
@@ -171,8 +192,15 @@ namespace ImprovedHunters
             if (sector < 0 || *(int*)(grid + sector * SectorStride + SectorPredatorsOffset) != 0)
                 return false;
 
+            if (!ignoreFleeingHerds && spookedStamp[sector] == generation)
+                return false;
+
             if (sectorStamp[sector] != generation)
                 return true;
+
+            // Without the sight rule any unit in the sector counts, as in Vanilla.
+            if (!sightRule)
+                return false;
 
             for (int index = sectorFirstUnit[sector]; index >= 0; index = nextUnitInSector[index])
             {

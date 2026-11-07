@@ -135,7 +135,7 @@ stage 8, otherwise 10. Nothing in Vanilla holds a stage once chosen. Chebyshev 2
   Every route starts where the herd is, so a herd can wander over its whole connected land. Flight takes the last waypoint at once.
 - Growth (`0x118130`, arguments confirmed at `0x124F96`, `0x1253A6`): each herd update counts up and every 100 updates rolls 28 in 128 for one more animal, whatever the herd's size, also for a
   single animal, not in flight, not in the editor. `0x11B460` removes all above 30. Measured on `testanimals.map` (2026-11-07, `.work/a/hunters/079`, run `rsp`, flight between herds removed by the mod): a herd of 2 reached 30 in at most 12700 ticks, 453 per animal against 457 by the rule, 11 s at 40 ticks per second. In Vanilla's chain flight (97 % of all samples in flight on this map, 2 % with the mod's rule) growth nearly stands still.
-- `0x3665F28 == 1` is the editor: herd updates return before any route or growth.
+- `0x3665F28 == 1` is the editor: herd updates return before any route or growth, confirmed in the editor (2026-11-07, no route and no new animal over 1800 ticks).
 - Camels found new herds of their own (`0x124890`, `0x123C20`, `0x11E150`), seen in the same run as a new record with its own serial.
 - `0xFFC70` case `0x4E`: outside mode 0 the Hunter's hut button is off when `0x37EF97C` is 0 (deer and goats at map start,
   `0x94350`, `0x1860E0`). Confirmed in skirmish: with the setting off the button is disabled on a map without them.

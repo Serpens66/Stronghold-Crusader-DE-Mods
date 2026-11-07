@@ -11,9 +11,6 @@ namespace ImprovedHunters
 {
     public sealed class ImprovedHuntersViewModel : APIShared.ModSettings.PresetLobbyModSettingsViewModel
     {
-        private const int DefaultRespawnIntervalSeconds = 600;
-        private const int MinimumRespawnIntervalSeconds = 30;
-        private const int MaximumRespawnIntervalSeconds = 1800;
         // Vanilla's Hunter passes 6 for every prey (0x12FC70).
         private const int DefaultDeerMeat = 6;
         private const int DefaultGoatMeat = 6;
@@ -41,10 +38,10 @@ namespace ImprovedHunters
         private bool hunterHutAlwaysAvailable = true;
         private bool collectFreeCorpses = true;
         private bool deerFleeOnlyInSight = true;
-        private bool respawnWildlife;
-        private int respawnIntervalSeconds = DefaultRespawnIntervalSeconds;
-        private bool limitWildlifeRange;
-        private int wildlifeRangeSize = WildlifeRangePolicy.DefaultSize;
+        private bool herdsIgnoreFleeingHerds = true;
+        private int herdReturnSeconds = HerdSettingsPolicy.Off;
+        private int herdRangeSize = HerdSettingsPolicy.Off;
+        private int startHerdMode = HerdSettingsPolicy.StartHerdsOff;
         private int chickensPerPlayer = GranaryChickenSpawnPolicy.DefaultTargetPerPlayer;
 
         public event Action<string> SettingChanged;
@@ -76,24 +73,34 @@ namespace ImprovedHunters
         public string HunterHutAlwaysAvailableHelpText => SerpLocalization.Get("ImprovedHunters.HunterHutAlwaysAvailableHelp");
         public string DeerFleeOnlyInSightText => SerpLocalization.Get("ImprovedHunters.DeerFleeOnlyInSight");
         public string DeerFleeOnlyInSightHelpText => SerpLocalization.Get("ImprovedHunters.DeerFleeOnlyInSightHelp");
-        public string RespawnWildlifeText => SerpLocalization.Get("ImprovedHunters.RespawnWildlife");
-        public string RespawnWildlifeHelpText => SerpLocalization.Get("ImprovedHunters.RespawnWildlifeHelp");
-        public string RespawnIntervalText => SerpLocalization.Get("ImprovedHunters.RespawnInterval");
-        public string RespawnIntervalHelpText => SerpLocalization.Get("ImprovedHunters.RespawnIntervalHelp");
-        public string RespawnIntervalValueText
+        public string HerdsIgnoreFleeingHerdsText => SerpLocalization.Get("ImprovedHunters.HerdsIgnoreFleeingHerds");
+        public string HerdsIgnoreFleeingHerdsHelpText => SerpLocalization.Get("ImprovedHunters.HerdsIgnoreFleeingHerdsHelp");
+        public string HerdReturnText => SerpLocalization.Get("ImprovedHunters.HerdReturn");
+        public string HerdReturnHelpText => SerpLocalization.Get("ImprovedHunters.HerdReturnHelp");
+        public string HerdReturnValueText
         {
-            get => string.Format(SerpLocalization.Get("ImprovedHunters.RespawnIntervalValueFormat"), RespawnIntervalSeconds);
-            set => SetBoundedIntText(value, parsed => RespawnIntervalSeconds = parsed, nameof(RespawnIntervalValueText));
+            get => HerdReturnSeconds == HerdSettingsPolicy.Off
+                ? SerpLocalization.Get("ImprovedHunters.HerdReturnOff")
+                : string.Format(SerpLocalization.Get("ImprovedHunters.HerdReturnValueFormat"), HerdReturnSeconds);
+            set => SetBoundedIntText(value, parsed => HerdReturnSeconds = parsed, nameof(HerdReturnValueText));
         }
-        public string LimitWildlifeRangeText => SerpLocalization.Get("ImprovedHunters.LimitWildlifeRange");
-        public string LimitWildlifeRangeHelpText => SerpLocalization.Get("ImprovedHunters.LimitWildlifeRangeHelp");
-        public string WildlifeRangeSizeText => SerpLocalization.Get("ImprovedHunters.WildlifeRangeSize");
-        public string WildlifeRangeSizeHelpText => SerpLocalization.Get("ImprovedHunters.WildlifeRangeSizeHelp");
-        public string WildlifeRangeSizeValueText
+        public string HerdRangeText => SerpLocalization.Get("ImprovedHunters.HerdRange");
+        public string HerdRangeHelpText => SerpLocalization.Get("ImprovedHunters.HerdRangeHelp");
+        public string HerdRangeValueText
         {
-            get => string.Format(SerpLocalization.Get("ImprovedHunters.WildlifeRangeSizeValueFormat"), WildlifeRangeSize);
-            set => SetBoundedIntText(value, parsed => WildlifeRangeSize = parsed, nameof(WildlifeRangeSizeValueText));
+            get => HerdRangeSize == HerdSettingsPolicy.Off
+                ? SerpLocalization.Get("ImprovedHunters.HerdRangeUnlimited")
+                : string.Format(SerpLocalization.Get("ImprovedHunters.HerdRangeValueFormat"), HerdRangeSize);
+            set => SetBoundedIntText(value, parsed => HerdRangeSize = parsed, nameof(HerdRangeValueText));
         }
+        public string StartHerdsText => SerpLocalization.Get("ImprovedHunters.StartHerds");
+        public string StartHerdsHelpText => SerpLocalization.Get("ImprovedHunters.StartHerdsHelp");
+        public string[] StartHerdModeOptions => new[]
+        {
+            SerpLocalization.Get("ImprovedHunters.StartHerdsOff"),
+            SerpLocalization.Get("ImprovedHunters.StartHerdsOnEmptyMaps"),
+            SerpLocalization.Get("ImprovedHunters.StartHerdsAlways")
+        };
         public string HunterSearchRangeText => SerpLocalization.Get("ImprovedHunters.HunterSearchRange");
         public string HunterSearchRangeHelpText => SerpLocalization.Get("ImprovedHunters.HunterSearchRangeHelp");
         public string HunterSearchRangeValueText
@@ -159,17 +166,21 @@ namespace ImprovedHunters
         [SyncHostOnly] public bool CollectFreeCorpses { get => collectFreeCorpses; set => SetSetting(ref collectFreeCorpses, value, nameof(CollectFreeCorpses)); }
         [SyncHostOnly] public bool HunterHutAlwaysAvailable { get => hunterHutAlwaysAvailable; set => SetSetting(ref hunterHutAlwaysAvailable, value, nameof(HunterHutAlwaysAvailable)); }
         [SyncHostOnly] public bool DeerFleeOnlyInSight { get => deerFleeOnlyInSight; set => SetSetting(ref deerFleeOnlyInSight, value, nameof(DeerFleeOnlyInSight)); }
-        [SyncHostOnly] public bool RespawnWildlife { get => respawnWildlife; set => SetSetting(ref respawnWildlife, value, nameof(RespawnWildlife)); }
-        [SyncHostOnly] public int RespawnIntervalSeconds
+        [SyncHostOnly] public bool HerdsIgnoreFleeingHerds { get => herdsIgnoreFleeingHerds; set => SetSetting(ref herdsIgnoreFleeingHerds, value, nameof(HerdsIgnoreFleeingHerds)); }
+        [SyncHostOnly] public int HerdReturnSeconds
         {
-            get => respawnIntervalSeconds;
-            set => SetBoundedIntSetting(ref respawnIntervalSeconds, value, MinimumRespawnIntervalSeconds, MaximumRespawnIntervalSeconds, nameof(RespawnIntervalSeconds), nameof(RespawnIntervalValueText));
+            get => herdReturnSeconds;
+            set => SetBoundedIntSetting(ref herdReturnSeconds, HerdSettingsPolicy.ClampReturnSeconds(value), HerdSettingsPolicy.Off, HerdSettingsPolicy.MaximumReturnSeconds, nameof(HerdReturnSeconds), nameof(HerdReturnValueText));
         }
-        [SyncHostOnly] public bool LimitWildlifeRange { get => limitWildlifeRange; set => SetSetting(ref limitWildlifeRange, value, nameof(LimitWildlifeRange)); }
-        [SyncHostOnly] public int WildlifeRangeSize
+        [SyncHostOnly] public int HerdRangeSize
         {
-            get => wildlifeRangeSize;
-            set => SetBoundedIntSetting(ref wildlifeRangeSize, value, WildlifeRangePolicy.MinimumSize, WildlifeRangePolicy.MaximumSize, nameof(WildlifeRangeSize), nameof(WildlifeRangeSizeValueText));
+            get => herdRangeSize;
+            set => SetBoundedIntSetting(ref herdRangeSize, HerdSettingsPolicy.ClampRangeSize(value), HerdSettingsPolicy.Off, HerdSettingsPolicy.MaximumRangeSize, nameof(HerdRangeSize), nameof(HerdRangeValueText));
+        }
+        [SyncHostOnly] public int StartHerdMode
+        {
+            get => startHerdMode;
+            set => SetBoundedIntSetting(ref startHerdMode, HerdSettingsPolicy.ClampStartHerdMode(value), HerdSettingsPolicy.StartHerdsOff, HerdSettingsPolicy.StartHerdsAlways, nameof(StartHerdMode), nameof(StartHerdModeOptions));
         }
         [SyncHostOnly] public int HunterSearchRange
         {
@@ -287,10 +298,10 @@ namespace ImprovedHunters
             HunterHutAlwaysAvailable = true;
             CollectFreeCorpses = true;
             DeerFleeOnlyInSight = true;
-            RespawnWildlife = false;
-            RespawnIntervalSeconds = DefaultRespawnIntervalSeconds;
-            LimitWildlifeRange = false;
-            WildlifeRangeSize = WildlifeRangePolicy.DefaultSize;
+            HerdsIgnoreFleeingHerds = true;
+            HerdReturnSeconds = HerdSettingsPolicy.Off;
+            HerdRangeSize = HerdSettingsPolicy.Off;
+            StartHerdMode = HerdSettingsPolicy.StartHerdsOff;
         }
 
         private void SetSetting<T>(ref T field, T value, string propertyName)

@@ -63,6 +63,10 @@ With a normal synchronized movement order, every unit in a mixed group uses the 
 ### Improve hostile moat filling
 This enabled-by-default host option makes units filling hostile moats choose another free, valid edge tile when the first position is occupied. If an entire moat edge is unsuitable, they continue with the next moat found by Vanilla's normal search instead of becoming idle.
 
+### Keep stairs behind pitch fields accessible
+
+In some castle designs, pitch fields at the foot of a staircase could make the game treat it as impassable, especially after loading a saved game. This fix restores the route up those stairs for all units, so both player-controlled and AI-controlled units can find their way to the buildings beyond them. The host option is enabled by default.
+
 ### Allow cavalry movement onto stockpiles
 Knights, Horse Archers, Bedouin Camel Lancers, and Heavy Camels can be ordered onto passable stockpile tiles, matching their existing ability to cross them.
 

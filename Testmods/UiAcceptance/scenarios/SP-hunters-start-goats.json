@@ -1,0 +1,27 @@
+{
+  "enabled": true,
+  "series": "SP-hunters-start-goats",
+  "role": "sp",
+  "quitWhenDone": true,
+  "steps": [
+    {"id": "menu", "do": "WaitMainMenu", "timeoutMs": 60000, "stopOnFail": true, "allowErrors": true},
+    {"id": "no-random-events", "do": "RandomEvents", "args": ["off"], "timeoutMs": 10000, "stopOnFail": true},
+    {"id": "set-EnableMod", "do": "SetModSetting", "args": ["ImprovedHunters.ImprovedHuntersPlugin::persistentSettings", "EnableMod", "true"]},
+    {"id": "set-HerdReturnSeconds", "do": "SetModSetting", "args": ["ImprovedHunters.ImprovedHuntersPlugin::persistentSettings", "HerdReturnSeconds", "0"]},
+    {"id": "set-HerdRangeSize", "do": "SetModSetting", "args": ["ImprovedHunters.ImprovedHuntersPlugin::persistentSettings", "HerdRangeSize", "0"]},
+    {"id": "set-HuntDeer", "do": "SetModSetting", "args": ["ImprovedHunters.ImprovedHuntersPlugin::persistentSettings", "HuntDeer", "false"]},
+    {"id": "set-HuntGoat", "do": "SetModSetting", "args": ["ImprovedHunters.ImprovedHuntersPlugin::persistentSettings", "HuntGoat", "true"]},
+    {"id": "set-StartHerdMode", "do": "SetModSetting", "args": ["ImprovedHunters.ImprovedHuntersPlugin::persistentSettings", "StartHerdMode", "1"]},
+    {"id": "skirmish", "do": "Skirmish.Open", "timeoutMs": 15000, "stopOnFail": true},
+    {"id": "map", "do": "Lobby.SelectMap", "args": ["4spielerkarte.map"], "timeoutMs": 15000, "stopOnFail": true},
+    {"id": "ai", "do": "Lobby.AddAI", "args": ["1", "1"], "timeoutMs": 15000},
+    {"id": "peace", "do": "Lobby.PeaceTime", "args": ["60"], "timeoutMs": 15000, "stopOnFail": true},
+    {"id": "play", "do": "Lobby.Play", "timeoutMs": 45000, "stopOnFail": true},
+    {"id": "remember", "do": "Hunt.RememberStarts", "timeoutMs": 15000, "stopOnFail": true},
+    {"id": "briefing", "do": "AiMilitary.ResumeBriefing", "timeoutMs": 15000},
+    {"id": "unpause", "do": "Pause", "args": ["off"], "timeoutMs": 15000, "stopOnFail": true},
+    {"id": "new-herds", "do": "Hunt.ExpectNewHerds", "args": ["goat", "-1", "4"], "timeoutMs": 30000, "stopOnFail": true},
+    {"id": "menu-back", "do": "QuitToMenu", "timeoutMs": 30000},
+    {"id": "restore-random-events", "do": "RandomEvents", "args": ["on"], "timeoutMs": 10000}
+  ]
+}

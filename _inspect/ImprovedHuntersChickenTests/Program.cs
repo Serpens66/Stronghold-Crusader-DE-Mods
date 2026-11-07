@@ -358,6 +358,7 @@ static class Program
         TestTannerRunTable();
         TestWildlifeRange();
         TestWildlifeOrigins();
+        TestHerdSettings();
         Assert(HunterSearchRangePolicy.Clamp(0) == 0 && HunterSearchRangePolicy.Clamp(-3) == 0 && HunterSearchRangePolicy.Clamp(5) == 21 &&
             HunterSearchRangePolicy.Clamp(40) == 40 && HunterSearchRangePolicy.Clamp(999) == 200, "The search range clamp changed.");
         Assert(HunterSearchRangePolicy.IsWithin(500, 0) && HunterSearchRangePolicy.IsWithin(30, 30) && !HunterSearchRangePolicy.IsWithin(31, 30),
@@ -400,6 +401,24 @@ static class Program
         Assert(WildlifeRangePolicy.CountBeforeLeaving(route, 0, 400, 400, 100) == 0, "An empty route must stay empty.");
     }
 
+    private static void TestHerdSettings()
+    {
+        Assert(HerdSettingsPolicy.ClampReturnSeconds(0) == 0 && HerdSettingsPolicy.ClampReturnSeconds(-5) == 0 && HerdSettingsPolicy.ClampReturnSeconds(1) == 30 &&
+            HerdSettingsPolicy.ClampReturnSeconds(600) == 600 && HerdSettingsPolicy.ClampReturnSeconds(9999) == 1800, "The return time must keep 0 as off and stay within its range.");
+        Assert(HerdSettingsPolicy.ClampRangeSize(0) == 0 && HerdSettingsPolicy.ClampRangeSize(10) == 40 && HerdSettingsPolicy.ClampRangeSize(100) == 100 && HerdSettingsPolicy.ClampRangeSize(999) == 400,
+            "The area size must keep 0 as no limit and stay within its range.");
+        Assert(HerdSettingsPolicy.ClampStartHerdMode(-1) == 0 && HerdSettingsPolicy.ClampStartHerdMode(2) == 2 && HerdSettingsPolicy.ClampStartHerdMode(9) == 2, "The start herd mode must be one of its three values.");
+        Assert(!HerdSettingsPolicy.WantsStartHerds(0, false) && !HerdSettingsPolicy.WantsStartHerds(0, true) && HerdSettingsPolicy.WantsStartHerds(1, false) && !HerdSettingsPolicy.WantsStartHerds(1, true) &&
+            HerdSettingsPolicy.WantsStartHerds(2, false) && HerdSettingsPolicy.WantsStartHerds(2, true), "Start herds must follow the mode and whether the map has herds.");
+
+        var places = WildlifeStartPlaces.Around(100, 400, 400, 400).ToList();
+        Assert(places[0] == (130, 400), "The first place must lie towards the middle of the map.");
+        Assert(places.Count == 16 * 6 && places.Distinct().Count() == places.Count, "Every ring must offer sixteen different places.");
+        Assert(places.All(p => Math.Max(Math.Abs(p.X - 100), Math.Abs(p.Y - 400)) >= 21) && places.Take(16).All(p => Math.Abs(p.X - 100) * Math.Abs(p.X - 100) + Math.Abs(p.Y - 400) * Math.Abs(p.Y - 400) <= 31 * 31),
+            "The first ring must keep its distance from the keep.");
+        Assert(places.SequenceEqual(WildlifeStartPlaces.Around(100, 400, 400, 400)), "All peers must try the same places.");
+    }
+
     private static void TestWildlifeOrigins()
     {
         var table = new WildlifeOriginTable();
@@ -411,6 +430,11 @@ static class Program
             "A new herd on a reused record must leave the old start place in the table.");
         Assert(!table.TryAdd(new WildlifeOrigin { X = 1, Y = 1, Herd = 0 }) && !table.TryAdd(new WildlifeOrigin { X = 800, Y = 1, Herd = 6 }) && !table.TryAdd(new WildlifeOrigin { X = 1, Y = 1, Herd = WildlifeOriginTable.HerdCapacity }),
             "Entries outside the game's herds or grid must be refused.");
+        Assert(table.TryMarkRespawning(5, 51) && table.TryFind(5, 51, out WildlifeOrigin marked) && marked.Respawns && marked.X == 100 && !table.TryMarkRespawning(5, 49),
+            "A herd known from its first route must count as a herd of the map, with the same place.");
+        WildlifeOrigin unmarked = table[1];
+        unmarked.Respawns = false;
+        table[1] = unmarked;
         table.MarkCaptured();
 
         byte[] data = table.Encode();
