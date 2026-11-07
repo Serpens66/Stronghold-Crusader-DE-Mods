@@ -103,16 +103,20 @@ namespace BugfixesAndQoL
             if (target == null)
                 throw new ArgumentNullException(nameof(target));
 
-            target.lordType = snapshot.LordType;
-            target.lordName = snapshot.LordName;
-            target.builtIn = snapshot.BuiltIn;
-            target.community = snapshot.Community;
-            target.historical = snapshot.Historical;
-            target.rotation = snapshot.Rotation;
+            if (!string.Equals(snapshot.LordName ?? string.Empty, target.lordName ?? string.Empty,
+                    StringComparison.OrdinalIgnoreCase) ||
+                !AiSelectionRepair.IsCustom(target) && snapshot.LordType != target.lordType)
+                throw new InvalidOperationException("Remembered selection belongs to a different Lord.");
+            // Resolve into a candidate first. Failed package repair leaves the live slot untouched.
+            var candidate = new FRONT_Multiplayer.MPAIVInfo {
+                lordType = target.lordType, lordName = target.lordName,
+                builtIn = snapshot.BuiltIn, community = snapshot.Community,
+                historical = snapshot.Historical, rotation = snapshot.Rotation
+            };
 
             int missingAivs = 0;
             AivAicAssetReference missing1 = null, missing2 = null, missing3 = null, missing4 = null;
-            target.aivs.Clear();
+            candidate.aivs.Clear();
             foreach (AivAicAssetReference reference in snapshot.Aivs)
             {
                 CustomisationFileManager.CustomAIV resolved =
@@ -126,19 +130,8 @@ namespace BugfixesAndQoL
                         case 3: missing3 = reference; break; case 4: missing4 = reference; break; }
                     continue;
                 }
-                if (!target.aivs.Exists(item => item.checksum == resolved.checksum))
-                    target.aivs.Add(resolved);
-            }
-
-            // Vanilla disables the skirmish Play button for a non-built-in AI without
-            // any resolved AIV. Preserve a usable opponent if an old entry is empty or
-            // all referenced files disappeared.
-            bool usedBuiltInFallback = target.aivs.Count == 0 && !target.builtIn;
-            if (usedBuiltInFallback)
-            {
-                target.builtIn = true;
-                target.community = false;
-                target.historical = false;
+                if (!candidate.aivs.Exists(item => item.checksum == resolved.checksum))
+                    candidate.aivs.Add(resolved);
             }
 
             bool missingAic = false;
@@ -148,24 +141,15 @@ namespace BugfixesAndQoL
                 resolvedAic = AivAicPresetStore.ResolveAic(snapshot.Aic, availableAics);
                 missingAic = resolvedAic == null;
             }
-            if (usedBuiltInFallback || snapshot.BuiltInLord || snapshot.Aic == null)
-            {
-                target.builtInLord = true;
-                target.lordConfig = null;
-            }
-            else
-            {
-                target.lordConfig = resolvedAic;
-                target.builtInLord = missingAic;
-            }
-
-            // The current custom-lord image belongs to the package, not this remembered selection.
+            candidate.builtInLord = snapshot.BuiltInLord || resolvedAic == null;
+            candidate.lordConfig = resolvedAic;
+            if (!AiSelectionRepair.TryRepair(candidate, availableAivs, availableAics, out var repair))
+                throw new InvalidOperationException(repair.Failure);
+            AiSelectionRepair.CopySelection(candidate, target);
             return new AiAivSelectionApplyResult(
-                target.aivs.Count,
-                missingAivs,
-                missingAic,
-                usedBuiltInFallback,
-                missing1, missing2, missing3, missing4, missingAic ? snapshot.Aic : null);
+                target.aivs.Count, missingAivs, missingAic,
+                repair.CastleFallback && !AiSelectionRepair.IsCustom(target),
+                missing1, missing2, missing3, missing4, missingAic ? snapshot.Aic : null, repair.Changed);
         }
 
         public static string BuildLordKey(AiAivSelectionSnapshot snapshot)
@@ -205,7 +189,7 @@ namespace BugfixesAndQoL
                     $"{AivAicPresetStore.MaximumAivEntries}.");
             }
 
-            bool storeAsBuiltIn = !info.builtIn && !info.community && !info.historical && aivCount == 0;
+            bool storeAsBuiltIn = !AiSelectionRepair.IsCustom(info) && !info.builtIn && !info.community && !info.historical && aivCount == 0;
             var snapshot = new AiAivSelectionSnapshot
             {
                 LordType = info.lordType,
@@ -447,7 +431,8 @@ namespace BugfixesAndQoL
             AivAicAssetReference missingAiv2 = null,
             AivAicAssetReference missingAiv3 = null,
             AivAicAssetReference missingAiv4 = null,
-            AivAicAssetReference missingAicReference = null)
+            AivAicAssetReference missingAicReference = null,
+            bool repaired = false)
         {
             LoadedAivs = loadedAivs;
             MissingAivs = missingAivs;
@@ -455,12 +440,14 @@ namespace BugfixesAndQoL
             UsedBuiltInFallback = usedBuiltInFallback;
             MissingAiv1 = missingAiv1; MissingAiv2 = missingAiv2; MissingAiv3 = missingAiv3; MissingAiv4 = missingAiv4;
             MissingAicReference = missingAicReference;
+            Repaired = repaired;
         }
 
         public int LoadedAivs { get; }
         public int MissingAivs { get; }
         public bool MissingAic { get; }
         public bool UsedBuiltInFallback { get; }
+        public bool Repaired { get; }
         internal AivAicAssetReference MissingAiv1 { get; }
         internal AivAicAssetReference MissingAiv2 { get; }
         internal AivAicAssetReference MissingAiv3 { get; }

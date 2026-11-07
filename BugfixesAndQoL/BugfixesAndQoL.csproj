@@ -118,6 +118,8 @@
     <Compile Include="..\Shared\Runtime\Native\NativeInstructionOperands.cs"><Link>Shared\Runtime\Native\NativeInstructionOperands.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\Localization\SerpLocalization.cs"><Link>Shared\Runtime\Localization\SerpLocalization.cs</Link></Compile>
     <Compile Include="src\Lobby\AiAivSelectionCodec.cs" />
+    <Compile Include="src\Lobby\AiSelectionRepair.cs" />
+    <Compile Include="src\Lobby\AiSelectionSafety.cs" />
     <Compile Include="src\AI\Economy\AIBuildingTemporaryAccessClassifier.cs" />
     <Compile Include="src\Lobby\LobbySaveLoadingPolicy.cs" />
     <Compile Include="src\Lobby\LobbySaveLoadingIl.cs" />

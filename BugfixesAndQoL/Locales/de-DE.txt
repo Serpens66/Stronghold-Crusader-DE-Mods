@@ -619,3 +619,5 @@ BugfixesAndQoL.SettingsRework.Reason.EnablePeaceTimeCivilianProximityReduction=B
 BugfixesAndQoL.EnablePitchStairsFix=Treppen hinter Pechfeldern begehbar halten
 BugfixesAndQoL.EnablePitchStairsFixHelp=Verhindert, dass Pechfelder den Boden absenken und nahe Treppen blockieren. Feuer breitet sich wie im Originalspiel aus; Beschuss, Treffer und Seuche verwenden die tatsächliche Bodenhöhe. Gilt auch im Karteneditor und beim Laden eines Spielstands. Änderungen gelten ab dem nächsten Kartenstart. Bereits beschädigte Treppen ohne Pechfeld werden nicht repariert. Diese Option kann nur vor oder nach einer Partie geändert werden.
 BugfixesAndQoL.SettingsRework.Reason.EnablePitchStairsFix=Verhindert, dass Pechfelder sonst erreichbare Treppen blockieren, und erhält die ursprüngliche Feuerweitergabe.
+BugfixesAndQoL.AiSelectionTitle=KI-Auswahl konnte nicht vorbereitet werden
+BugfixesAndQoL.AiSelectionInvalid=Lord: {Lord}, Spieler: {Player}. Es konnte keine verwendbare Burg- oder Lord-Auswahl vorbereitet werden. Prüfe das Lord-Paket und wähle Burgen und AIC erneut aus. Details: {Reason}

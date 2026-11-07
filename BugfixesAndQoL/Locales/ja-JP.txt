@@ -619,3 +619,5 @@ BugfixesAndQoL.SettingsRework.Reason.EnablePeaceTimeCivilianProximityReduction=G
 BugfixesAndQoL.EnablePitchStairsFix=Keep stairs behind pitch fields accessible
 BugfixesAndQoL.EnablePitchStairsFixHelp=Prevents pitch fields from lowering the ground and blocking nearby stairs. Fire spreads as in the original game; projectiles, hits and plague use the actual ground height. Also applies in the map editor and when loading a save. Changes take effect from the next map start. Already damaged stairs without pitch are not repaired. This option can only be changed before or after a game.
 BugfixesAndQoL.SettingsRework.Reason.EnablePitchStairsFix=Prevents pitch fields from blocking otherwise accessible stairs while preserving the original fire-spread behavior.
+BugfixesAndQoL.AiSelectionTitle=AI selection could not be prepared
+BugfixesAndQoL.AiSelectionInvalid=Lord: {Lord}, player: {Player}. No usable castle or Lord configuration could be prepared. Check the Lord package and select its castles and AIC again. Details: {Reason}

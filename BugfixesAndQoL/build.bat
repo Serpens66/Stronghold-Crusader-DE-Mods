@@ -157,6 +157,13 @@ dotnet build "%PROJECT_DIR%..\Shared\Tests\CoopAiStart.Tests\Shared.CoopAiStart.
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 "%PROJECT_DIR%..\Shared\Tests\CoopAiStart.Tests\bin\Release\net481\Shared.CoopAiStart.Tests.exe"
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+rem Exercise remembered and named AI selection repairs before a checked build can publish output.
+call :step_start "tests" "ai-selection-memory"
+"%MSBUILD%" "%PROJECT_DIR%..\_inspect\BugfixesAndQoLAivMemoryTests\BugfixesAndQoLAivMemoryTests.csproj" /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /nologo /verbosity:minimal
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+"%PROJECT_DIR%..\_inspect\BugfixesAndQoLAivMemoryTests\bin\BugfixesAndQoLAivMemoryTests.exe"
+call :step_end %ERRORLEVEL%
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 if "%COOP_CHECKS%"=="1" goto coop_checks
 if "%BUILD_TEST_MODE%"=="quick" goto quick_checks
 if "%SETTINGS_CHECKS%"=="1" goto settings_checks

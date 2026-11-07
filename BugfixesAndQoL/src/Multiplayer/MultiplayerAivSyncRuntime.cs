@@ -159,6 +159,10 @@ namespace BugfixesAndQoL
 
         private void HostStartGameHook(Platform_Multiplayer self)
         {
+            FRONT_Multiplayer selectionFrontend = MainViewModel.viewModelLoaded
+                ? MainViewModel.Instance?.FRONTMultiplayer : null;
+            if (self?.activeLobby?.isHost == true &&
+                !AiSelectionSafety.TryPrepareLobby(selectionFrontend, log, settings, "host start")) return;
             if (IsFeatureActive() && FRONT_Multiplayer.coopGame && FRONT_Multiplayer.customCoopGame &&
                 self?.activeLobby?.isHost == true)
             {
@@ -532,6 +536,10 @@ namespace BugfixesAndQoL
             bypassHostStartHook = true;
             try
             {
+                FRONT_Multiplayer selectionFrontend = MainViewModel.viewModelLoaded
+                    ? MainViewModel.Instance?.FRONTMultiplayer : null;
+                if (!AiSelectionSafety.TryPrepareLobby(selectionFrontend, log, settings,
+                    "synchronized host start", allowRepair: false)) return;
                 hostStartTrampoline(platform);
             }
             finally

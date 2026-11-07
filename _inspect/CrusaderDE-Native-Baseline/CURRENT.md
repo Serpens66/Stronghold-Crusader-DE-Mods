@@ -67,6 +67,8 @@ Only Vanilla behavior; Script Extender names appear only as vocabulary.
 
 ## Vanilla audits with mod integration
 
+- [Custom Lord initial selection and failed dialog refresh](./sem/FBCB9319/knowledge/CUSTOM_LORD_AIV_SELECTION.md): package-first defaults, slot-dependent types, invalid Standard flags, interrupted dialog refresh and supplied snapshot evidence; static audit, live callback sequence unverified.
+
 - [Worker production bonus and reduced output](./sem/FBCB9319/knowledge/WORKER_PRODUCTION_BONUS.md): signed fixed contribution, complete producer/completion chains, reduced Ox loads, display and raw save/transfer/checksum contracts; static and isolated execution evidence, game acceptance separate.
 
 - [Hunter prey ownership, reservation and shot states](./sem/FBCB9319/knowledge/HUNTER_PREY_RULES.md): three owner barriers, state 10 as the shot, reservation countdown, chicken population, melee rabbit contact and cow facts; single-player acceptance, multiplayer pending.

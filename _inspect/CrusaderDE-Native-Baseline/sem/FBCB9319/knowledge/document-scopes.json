@@ -21,6 +21,12 @@
   },
   "documents": [
     {
+      "file": "CUSTOM_LORD_AIV_SELECTION.md",
+      "scope": "vanilla+integration",
+      "components": ["BugfixesAndQoL"],
+      "integrationSections": ["Remembered selection and stale enhanced rows", "Supplied evidence and limits"]
+    },
+    {
       "file": "WORKER_PRODUCTION_BONUS.md",
       "scope": "vanilla+integration",
       "components": ["APIShared", "ExtraFeatures", "ImprovedHunters"],

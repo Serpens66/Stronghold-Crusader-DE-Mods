@@ -206,6 +206,7 @@ namespace BugfixesAndQoL
             FRONT_Multiplayer self,
             HUD_IngameMenu.RestartSkirmishMapInfo customTrailRestartInfo)
         {
+            if (!AiSelectionSafety.TryPrepareLobby(self, log, settings, "local start/restart")) return;
             if (!CoopCustomLordSelectionFeature.TryValidateLocalCoopStart(self)) return;
             if (customTrailRestartInfo == null && customTrailSetupRestartInfo != null)
             {

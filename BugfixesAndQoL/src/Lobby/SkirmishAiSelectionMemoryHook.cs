@@ -216,6 +216,18 @@ namespace BugfixesAndQoL
 
         private void MultiplayerButtonClickedHook(FRONT_Multiplayer self, string param)
         {
+            if (settings.EnableMod && string.Equals(param, "CancelAISettings", StringComparison.Ordinal) &&
+                AiSelectionSafety.CanEdit(self))
+            {
+                var currentInfo = GetAivInfo(FRONT_Multiplayer_AISettings.Instance);
+                if (!AiSelectionSafety.TryPrepare(currentInfo, log, "close dialog", true, out string failure))
+                {
+                    AiSelectionSafety.ShowFailure(log, currentInfo?.lordName, 0, failure);
+                    return;
+                }
+            }
+            if (string.Equals(param, "Play", StringComparison.Ordinal) &&
+                !AiSelectionSafety.TryPrepareLobby(self, log, settings, "Play")) return;
             CoopCustomLordSelectionFeature.OnMultiplayerButtonStarting(self, param);
             bool memoryActiveBefore = IsMemoryActive();
             bool mayAddAi = string.Equals(param, "AddCustomLord", StringComparison.Ordinal);
@@ -1013,7 +1025,7 @@ namespace BugfixesAndQoL
 
         private void SaveAiSettings(FRONT_Multiplayer.MPAIVInfo info)
         {
-            if (!IsMemoryActive() || info == null)
+            if (!IsMemoryActive() || !AiSelectionRepair.CanRemember(info))
                 return;
 
             string key = BuildLordKey(info);
@@ -1111,17 +1123,17 @@ namespace BugfixesAndQoL
                     target,
                     availableAivs,
                     availableAics);
-                if ((result.MissingAivs > 0 || result.MissingAic || result.UsedBuiltInFallback) &&
+                if ((result.MissingAivs > 0 || result.MissingAic || result.UsedBuiltInFallback || result.Repaired) &&
                     missingAssetLogGate.TryReserve("remembered-ai-missing-assets", 30, out long suppressed))
                 {
-                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/SkirmishAiSelectionMemoryHook/ApplyStoredSelectionsToNewAiSlots.restored-ai-selection-missing", $"Bugfixes and QoL restored AI selection for {key} with missing current files: " +
+                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/SkirmishAiSelectionMemoryHook/ApplyStoredSelectionsToNewAiSlots.restored-ai-selection-missing", $"Bugfixes and QoL restored AI selection for {key} with unresolved references or repaired selection: " +
                         $"missingAivs={result.MissingAivs}, missingAic={result.MissingAic}, " +
                         $"references=[{DescribeMissingAsset(result.MissingAiv1)}; {DescribeMissingAsset(result.MissingAiv2)}; " +
                         $"{DescribeMissingAsset(result.MissingAiv3)}; {DescribeMissingAsset(result.MissingAiv4)}], " +
                         $"additionalMissingAivs={Math.Max(0, result.MissingAivs - 4)}, suppressed={suppressed}, " +
-                        $"aic={DescribeMissingAsset(result.MissingAicReference)}, builtInFallback={result.UsedBuiltInFallback}; " +
-                        $"reason={(result.MissingAivs > 0 ? "saved-aiv-not-resolved" : result.MissingAic ? "saved-aic-not-resolved" : "empty-custom-aiv-selection")}; " +
-                        "action=use-available-files-or-built-in-fallback; remembered selection retained.");
+                        $"aic={DescribeMissingAsset(result.MissingAicReference)}, builtInFallback={result.UsedBuiltInFallback}, repaired={result.Repaired}; " +
+                        $"reason={(result.MissingAivs > 0 ? "saved-aiv-not-resolved" : result.MissingAic ? "saved-aic-not-resolved" : "invalid-or-empty-selection")}; " +
+                        "action=use-current-lord-files-or-vanilla-defaults; remembered selection retained.");
                 }
                 applied = true;
                 if (Shared.DebugLogHelper.DiagnosticsEnabled)

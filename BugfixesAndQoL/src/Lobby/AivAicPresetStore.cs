@@ -145,28 +145,32 @@ namespace BugfixesAndQoL
                     resolvedAivs.Add(resolved);
             }
 
-            info.builtIn = false;
-            info.community = false;
-            info.historical = false;
-            info.aivs.Clear();
-            info.aivs.AddRange(resolvedAivs);
-            info.rotation = preset.Rotation;
+            var candidate = AiSelectionRepair.Copy(info);
+            candidate.builtIn = false;
+            candidate.community = false;
+            candidate.historical = false;
+            candidate.aivs.Clear();
+            candidate.aivs.AddRange(resolvedAivs);
+            candidate.rotation = preset.Rotation;
 
             bool missingAic = false;
             if (preset.UseVanillaAic)
             {
-                info.builtInLord = true;
-                info.lordConfig = null;
+                candidate.builtInLord = true;
+                candidate.lordConfig = null;
             }
             else
             {
                 CustomisationFileManager.CustomLordConfig resolvedAic = ResolveAic(preset.Aic, availableAics);
                 missingAic = resolvedAic == null;
-                info.builtInLord = missingAic;
-                info.lordConfig = resolvedAic;
+                candidate.builtInLord = missingAic;
+                candidate.lordConfig = resolvedAic;
             }
 
-            return new AivAicPresetApplyResult(resolvedAivs.Count, missingAivs, truncatedAivs, missingAic);
+            if (!AiSelectionRepair.TryRepair(candidate, availableAivs, availableAics, out var repair))
+                throw new InvalidOperationException(repair.Failure);
+            AiSelectionRepair.CopySelection(candidate, info);
+            return new AivAicPresetApplyResult(info.aivs.Count, missingAivs, truncatedAivs, missingAic, repair.Changed);
         }
 
         internal static string BuildLordKey(FRONT_Multiplayer.MPAIVInfo info)
@@ -556,17 +560,19 @@ namespace BugfixesAndQoL
 
     internal readonly struct AivAicPresetApplyResult
     {
-        public AivAicPresetApplyResult(int loadedAivs, int missingAivs, int truncatedAivs, bool missingAic)
+        public AivAicPresetApplyResult(int loadedAivs, int missingAivs, int truncatedAivs, bool missingAic, bool repaired = false)
         {
             LoadedAivs = loadedAivs;
             MissingAivs = missingAivs;
             TruncatedAivs = truncatedAivs;
+            Repaired = repaired;
             MissingAic = missingAic;
         }
 
         public int LoadedAivs { get; }
         public int MissingAivs { get; }
         public int TruncatedAivs { get; }
+        public bool Repaired { get; }
         public bool MissingAic { get; }
     }
 }

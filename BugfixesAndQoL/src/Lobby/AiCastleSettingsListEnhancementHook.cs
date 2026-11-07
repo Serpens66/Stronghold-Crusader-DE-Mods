@@ -95,6 +95,7 @@ namespace BugfixesAndQoL
         private PresetSortField presetSortField = PresetSortField.SavedUtc;
         private bool presetSortAscending;
         private bool activeMpMode;
+        private bool dialogFailed;
         private GridViewColumnHeader hoveredSortHeader;
 
         public AiCastleSettingsListEnhancementHook(
@@ -334,23 +335,71 @@ namespace BugfixesAndQoL
             activeMpMode = mpMode;
             if (!HostEnhancementsEnabled)
                 TrimSelection(aivInfo, mpMode ? 1 : 8, "Vanilla dialog limit");
-            showTrampoline(thisPlayer, aivInfo, mpMode);
-            activeView = FRONT_Multiplayer_AISettings.Instance;
+            dialogFailed = false;
+            if (settings.EnableMod)
+            {
+                var frontend = MainViewModel.Instance.FRONTMultiplayer;
+                if (!AiSelectionSafety.TryPrepare(aivInfo, log, "open dialog",
+                        AiSelectionSafety.CanEdit(frontend), out string failure))
+                {
+                    FailDialog(aivInfo, thisPlayer, failure);
+                    return;
+                }
+            }
+            try
+            {
+                showTrampoline(thisPlayer, aivInfo, mpMode);
+                activeView = FRONT_Multiplayer_AISettings.Instance;
+                if (!IsActive) return;
+                // Wait until Vanilla Init has completely unwound before replacing list sources.
+                MpModeField.SetValue(activeView, HostEnhancementsEnabled ? false : activeMpMode);
+                AttachAndRefresh(activeView, "dialog shown", initializing: true);
+                UpdateDialogKeyboardState();
+            }
+            catch (Exception ex)
+            {
+                if (!settings.EnableMod) throw;
+                FailDialog(aivInfo, thisPlayer, ex.ToString());
+            }
+        }
 
-            if (!IsActive)
-                return;
-
-            // This hook owns the increased capacity; optional status providers only observe it.
-            MpModeField.SetValue(FRONT_Multiplayer_AISettings.Instance, HostEnhancementsEnabled ? false : activeMpMode);
-
-            // Wait until Vanilla Init and every other Init hook have completely unwound before
-            // replacing native Noesis list sources.
-            AttachAndRefresh(FRONT_Multiplayer_AISettings.Instance, "dialog shown");
-            UpdateDialogKeyboardState();
+        private void FailDialog(FRONT_Multiplayer.MPAIVInfo info, int playerId, string failure)
+        {
+            dialogFailed = true;
+            MainViewModel.Instance.Show_MPAISettings = false;
+            // Clear both the enhanced footer and list sources; the reusable Vanilla view may
+            // still display another Lord when Init throws before assigning its ItemsSource.
+            selectionList.Refresh(null, false);
+            suppressAicDropdownSelection = true;
+            try { aicDropdownEntries.Clear(); }
+            finally { suppressAicDropdownSelection = false; }
+            var current = FRONT_Multiplayer_AISettings.Instance;
+            foreach (var view in new[] { activeView, current })
+            {
+                if (view == null) continue;
+                try
+                {
+                    if (view.FindName("AIVList") is ListView aiv)
+                    { aiv.IsEnabled = false; aiv.ItemsSource = null; }
+                    if (view.FindName("LordList") is ListView aic)
+                    { aic.IsEnabled = false; aic.ItemsSource = null; }
+                    AivListField.SetValue(view, new List<CustomisationFileManager.CustomAIV>());
+                    LordListField.SetValue(view, new List<CustomisationFileManager.CustomLordConfig>());
+                }
+                catch (Exception ex)
+                {
+                    // The dialog is already hidden and every action is logically disabled.
+                    Shared.DebugLogHelper.LogErrorLimited(log, "ai-dialog-cleanup", ex.ToString());
+                }
+            }
+            activeView = null;
+            MainViewModel.Instance.Show_MPAISettings = false;
+            AiSelectionSafety.ShowFailure(log, info?.lordName, playerId, failure);
         }
 
         private void ButtonClickedHook(FRONT_Multiplayer_AISettings self, string param)
         {
+            if (dialogFailed && settings.EnableMod) return;
             if (aicDropdownPopup?.IsOpen == true && string.Equals(param, "Back", StringComparison.Ordinal))
             {
                 CloseAicDropdown();
@@ -388,6 +437,7 @@ namespace BugfixesAndQoL
 
         private void AddSelectedHook(FRONT_Multiplayer_AISettings self)
         {
+            if (dialogFailed && settings.EnableMod) return;
             if (!HostEnhancementsEnabled || !IsCustomAivMode(GetAivInfo(self)))
             {
                 addSelectedTrampoline(self);
@@ -438,7 +488,7 @@ namespace BugfixesAndQoL
             AttachAndRefresh(activeView, "removed an AIV candidate");
         }
 
-        private void AttachAndRefresh(FRONT_Multiplayer_AISettings self, string reason)
+        private void AttachAndRefresh(FRONT_Multiplayer_AISettings self, string reason, bool initializing = false)
         {
             try
             {
@@ -449,6 +499,7 @@ namespace BugfixesAndQoL
             }
             catch (Exception ex)
             {
+                if (initializing) throw;
                 Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/AiCastleSettingsListEnhancementHook/AttachAndRefresh.could-not-enhance-ai", $"Bugfixes and QoL could not enhance the AI castle/settings lists after {reason}; Vanilla remains usable: {ex}");
             }
         }
@@ -717,6 +768,10 @@ namespace BugfixesAndQoL
                     availableAivs,
                     availableAics,
                     GetActiveAivLimit(activeView));
+                if (result.Repaired)
+                    Shared.DebugLogHelper.LogWarningLimited(log, "ai-preset-repair",
+                        $"Repaired AI preset selection: lord={info.lordName}, preset={selectedPreset.Name}; " +
+                        "action=use-current-lord-files-or-vanilla-defaults.");
                 MainViewModel.Instance.CustomLordName = info.builtInLord
                     ? string.Empty
                     : info.lordConfig?.name ?? string.Empty;
@@ -1078,7 +1133,7 @@ namespace BugfixesAndQoL
             try
             {
                 aicDropdownEntries.Clear();
-                AddAicDropdownEntry(null, true);
+                if (!AiSelectionRepair.IsCustom(info)) AddAicDropdownEntry(null, true);
                 foreach (CustomisationFileManager.CustomLordConfig config in ordered)
                     AddAicDropdownEntry(config, false);
                 if (aicDropdownResults != null)
@@ -1271,9 +1326,24 @@ namespace BugfixesAndQoL
 
             if (selected.IsDefault)
             {
-                info.builtInLord = true;
-                info.lordConfig = null;
-                MainViewModel.Instance.CustomLordName = string.Empty;
+                if (settings.EnableMod && AiSelectionRepair.IsCustom(info))
+                {
+                    var candidate = AiSelectionRepair.Copy(info);
+                    candidate.builtInLord = true;
+                    candidate.lordConfig = null;
+                    if (!AiSelectionSafety.TryPrepare(candidate, log, "default AIC", true, out string failure))
+                    {
+                        AiSelectionSafety.ShowFailure(log, info.lordName, 0, failure);
+                        return;
+                    }
+                    AiSelectionRepair.CopySelection(candidate, info);
+                }
+                else
+                {
+                    info.builtInLord = true;
+                    info.lordConfig = null;
+                }
+                MainViewModel.Instance.CustomLordName = info.lordConfig?.name ?? string.Empty;
             }
             else if (selected.Config != null)
             {
