@@ -35,10 +35,13 @@ In the base game, the Hunter's hut cannot be built in skirmish and multiplayer w
 ## Animals
 
 ### Deer and goats flee only from units in sight
-In the base game, a herd runs from any unit in its area, even one behind a wall. With this option a herd stays calm unless a unit there can both see and reach it. Being shot at, nearby rabbits and fleeing herds still make it run. On by default.
+In the base game, a herd runs from any unit in its area, even one behind a wall. With this option a herd stays calm unless a unit there can both see and reach it. Being shot at and nearby lions, hyenas or crocodiles still make it run, other fleeing herds do not. On by default.
 
 ### New deer and goats
-Off by default. When switched on, a new herd arrives when too few deer and goats are left on the map, also in the game modes where the base game brings none. You set the minimum number of animals (default 6) and how often this is checked (default every 120 seconds at normal speed). At most one herd comes per check, with the usual size of 9 to 12 deer or 4 to 5 goats. This has no use while another mod removes all animals.
+Off by default. Each deer or goat herd the map's creator placed is followed on its own. When one has died out completely, two animals return to its start place after a waiting time (default 10 minutes at normal speed) and the herd grows from there by itself. A map without deer and goats gets none. This works in the game modes where the base game brings no new animals, not in the map editor, and has no use while another mod removes all animals.
+
+### Deer and goats stay in their area
+Off by default. Deer and goat herds do not go far from their start place when wandering or fleeing, which keeps Hunters' walks short and makes these animals easier to hunt. You set the size of the area (default 100 by 100 tiles). Single animals can briefly cross the border when startled. Other animals are not affected. This works in all game modes.
 
 ### Chickens per player
 Each player keeps this number of chickens (default 10, up to 100, or none at all), regardless of food, as long as they own a granary, bakery or mill. Surplus chickens are removed. Only applies while chicken hunting is enabled.

@@ -612,7 +612,7 @@ internal static unsafe class NativeStubExecutionTests
         byte* unit = units + TannerUnit * UnitStride;
         byte* entry = f.Entry(Tannery);
 
-        (int Base, int Trip) Yield(bool enabled, int meatRuns, int hides, uint entryGlobalId = TanneryGlobalId)
+        (int Base, int Trip) Yield(bool enabled, int meatRuns, int hides, uint entryGlobalId = TanneryGlobalId, int weaponBase = 1)
         {
             SetFlag(enabled);
             f.Table.Clear();
@@ -623,7 +623,7 @@ internal static unsafe class NativeStubExecutionTests
             *(short*)(f.Building(Tannery) + 0x2EA) = 0x52;
             *(int*)(f.Building(Tannery) + 0x190) = hides;
             helper.Reset();
-            Run(stub, f.Registers(0, 21, 1, 1, 0));
+            Run(stub, f.Registers(0, 21, (ulong)weaponBase, 1, 0));
             Check(helper.Calls == 1 && helper.Rcx == 21 && helper.R8 == 1, "the yield helper runs once, with Vanilla's unit and bonus flag.");
             Check(*(short*)(unit + ManagerCarried) == 9, "the helper's result is carried, so its bonus stays.");
             Check(*(short*)(f.Building(Tannery) + 0x2EC) == 0x51 && *(short*)(f.Building(Tannery) + 0x2EA) == 0x52,
@@ -632,6 +632,9 @@ internal static unsafe class NativeStubExecutionTests
         }
 
         Check(Yield(false, 3, 0) == (1, 0x7F), "a disabled patch keeps Vanilla's yield and the table.");
+        Check(Yield(false, 3, 0, weaponBase: 7) == (7, 0x7F), "a disabled meat selector keeps an adjacent weapon base.");
+        Check(Yield(true, 0, 0, weaponBase: 7) == (7, 0), "an armoury trip keeps an adjacent weapon base.");
+        Check(Yield(true, 3, 0, weaponBase: 7) == (5, 1), "a meat trip uses the configured meat base independently of the weapon base.");
         Check(Yield(true, 3, 0, 0x1234) == (1, 0x7F), "a stale entry of an earlier building on this slot does not count.");
         for (int meatRuns = 0; meatRuns <= TannerMeatPolicy.HidesPerCow; meatRuns++)
         {
@@ -708,19 +711,23 @@ internal static unsafe class NativeStubExecutionTests
         byte* unit = units + TannerUnit * UnitStride;
         *(int*)(unit + ManagerDestinationGlobal) = 0x4242;
 
-        int Deposit(bool enabled, int latched, byte soundPlayed)
+        int Deposit(bool enabled, int latched, byte soundPlayed, ulong weaponGood = 0x17)
         {
             SetRun(f, enabled, latched);
             *(short*)(unit + ManagerCarried) = 5;
             *(unit + ManagerSoundPlayed) = soundPlayed;
             f.MeatStat[TannerOwner] = 0;
-            return Run(stub, f.Registers(0, TannerUnit * UnitStride, 6, 0, 0x17)).Result;
+            return Run(stub, f.Registers(0, TannerUnit * UnitStride, 6, 0, weaponGood)).Result;
         }
 
         Check(Deposit(false, Meat, 0) == ResultFallthrough && f.Deposit.Calls == 1 && f.Deposit.R9 == 0x17 && f.Stats.Calls == 0, "disabled keeps Vanilla's deposit.");
         Check(*(short*)(unit + ManagerCarried) == 5 && f.MeatStat[TannerOwner] == 0, "Vanilla's own code counts armour after the deposit.");
         Check(Deposit(true, 0, 0) == ResultFallthrough && f.Deposit.Rcx == manager && f.Deposit.R8 == 0x4242 && f.Deposit.R9 == 0x17, "armour keeps Vanilla's arguments.");
-        Check(Deposit(true, Meat, 0) == ResultContinue, "meat must continue behind the armour bookkeeping.");
+        // Native STORED_CROSSBOWS is an alternate incoming R9D from the adjacent APIShared hook.
+        const ulong crossbow = 0x12;
+        Check(Deposit(false, Meat, 0, crossbow) == ResultFallthrough && f.Deposit.R9 == crossbow, "a disabled meat selector keeps an adjacent weapon good.");
+        Check(Deposit(true, 0, 0, crossbow) == ResultFallthrough && f.Deposit.R9 == crossbow, "an armoury trip keeps an adjacent weapon good.");
+        Check(Deposit(true, Meat, 0, crossbow) == ResultContinue, "meat must continue behind the armour bookkeeping.");
         Check(f.Deposit.Rcx == manager && f.Deposit.Rdx == 6 && f.Deposit.R8 == 0x4242 && f.Deposit.R9 == Meat && (int)f.Deposit.Stack28 == 0xFA,
             "meat must be stored with the Hunter's arguments.");
         Check(f.MeatStat[TannerOwner] == 1 && f.Stats.Calls == 1 && f.Stats.Rcx == 0x1234 && f.Stats.Rdx == 2 && f.Stats.R8 == 1 && f.Stats.R9 == TannerOwner,

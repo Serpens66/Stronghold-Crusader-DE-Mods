@@ -11,11 +11,8 @@ namespace ImprovedHunters
 {
     public sealed class ImprovedHuntersViewModel : APIShared.ModSettings.PresetLobbyModSettingsViewModel
     {
-        private const int DefaultRespawnMinimum = 6;
-        private const int MinimumRespawnMinimum = 1;
-        private const int MaximumRespawnMinimum = 100;
-        private const int DefaultRespawnIntervalSeconds = 120;
-        private const int MinimumRespawnIntervalSeconds = 10;
+        private const int DefaultRespawnIntervalSeconds = 600;
+        private const int MinimumRespawnIntervalSeconds = 30;
         private const int MaximumRespawnIntervalSeconds = 1800;
         // Vanilla's Hunter passes 6 for every prey (0x12FC70).
         private const int DefaultDeerMeat = 6;
@@ -45,8 +42,9 @@ namespace ImprovedHunters
         private bool collectFreeCorpses = true;
         private bool deerFleeOnlyInSight = true;
         private bool respawnWildlife;
-        private int respawnMinimum = DefaultRespawnMinimum;
         private int respawnIntervalSeconds = DefaultRespawnIntervalSeconds;
+        private bool limitWildlifeRange;
+        private int wildlifeRangeSize = WildlifeRangePolicy.DefaultSize;
         private int chickensPerPlayer = GranaryChickenSpawnPolicy.DefaultTargetPerPlayer;
 
         public event Action<string> SettingChanged;
@@ -80,19 +78,21 @@ namespace ImprovedHunters
         public string DeerFleeOnlyInSightHelpText => SerpLocalization.Get("ImprovedHunters.DeerFleeOnlyInSightHelp");
         public string RespawnWildlifeText => SerpLocalization.Get("ImprovedHunters.RespawnWildlife");
         public string RespawnWildlifeHelpText => SerpLocalization.Get("ImprovedHunters.RespawnWildlifeHelp");
-        public string RespawnMinimumText => SerpLocalization.Get("ImprovedHunters.RespawnMinimum");
-        public string RespawnMinimumHelpText => SerpLocalization.Get("ImprovedHunters.RespawnMinimumHelp");
-        public string RespawnMinimumValueText
-        {
-            get => string.Format(SerpLocalization.Get("ImprovedHunters.RespawnMinimumValueFormat"), RespawnMinimum);
-            set => SetBoundedIntText(value, parsed => RespawnMinimum = parsed, nameof(RespawnMinimumValueText));
-        }
         public string RespawnIntervalText => SerpLocalization.Get("ImprovedHunters.RespawnInterval");
         public string RespawnIntervalHelpText => SerpLocalization.Get("ImprovedHunters.RespawnIntervalHelp");
         public string RespawnIntervalValueText
         {
             get => string.Format(SerpLocalization.Get("ImprovedHunters.RespawnIntervalValueFormat"), RespawnIntervalSeconds);
             set => SetBoundedIntText(value, parsed => RespawnIntervalSeconds = parsed, nameof(RespawnIntervalValueText));
+        }
+        public string LimitWildlifeRangeText => SerpLocalization.Get("ImprovedHunters.LimitWildlifeRange");
+        public string LimitWildlifeRangeHelpText => SerpLocalization.Get("ImprovedHunters.LimitWildlifeRangeHelp");
+        public string WildlifeRangeSizeText => SerpLocalization.Get("ImprovedHunters.WildlifeRangeSize");
+        public string WildlifeRangeSizeHelpText => SerpLocalization.Get("ImprovedHunters.WildlifeRangeSizeHelp");
+        public string WildlifeRangeSizeValueText
+        {
+            get => string.Format(SerpLocalization.Get("ImprovedHunters.WildlifeRangeSizeValueFormat"), WildlifeRangeSize);
+            set => SetBoundedIntText(value, parsed => WildlifeRangeSize = parsed, nameof(WildlifeRangeSizeValueText));
         }
         public string HunterSearchRangeText => SerpLocalization.Get("ImprovedHunters.HunterSearchRange");
         public string HunterSearchRangeHelpText => SerpLocalization.Get("ImprovedHunters.HunterSearchRangeHelp");
@@ -160,15 +160,16 @@ namespace ImprovedHunters
         [SyncHostOnly] public bool HunterHutAlwaysAvailable { get => hunterHutAlwaysAvailable; set => SetSetting(ref hunterHutAlwaysAvailable, value, nameof(HunterHutAlwaysAvailable)); }
         [SyncHostOnly] public bool DeerFleeOnlyInSight { get => deerFleeOnlyInSight; set => SetSetting(ref deerFleeOnlyInSight, value, nameof(DeerFleeOnlyInSight)); }
         [SyncHostOnly] public bool RespawnWildlife { get => respawnWildlife; set => SetSetting(ref respawnWildlife, value, nameof(RespawnWildlife)); }
-        [SyncHostOnly] public int RespawnMinimum
-        {
-            get => respawnMinimum;
-            set => SetBoundedIntSetting(ref respawnMinimum, value, MinimumRespawnMinimum, MaximumRespawnMinimum, nameof(RespawnMinimum), nameof(RespawnMinimumValueText));
-        }
         [SyncHostOnly] public int RespawnIntervalSeconds
         {
             get => respawnIntervalSeconds;
             set => SetBoundedIntSetting(ref respawnIntervalSeconds, value, MinimumRespawnIntervalSeconds, MaximumRespawnIntervalSeconds, nameof(RespawnIntervalSeconds), nameof(RespawnIntervalValueText));
+        }
+        [SyncHostOnly] public bool LimitWildlifeRange { get => limitWildlifeRange; set => SetSetting(ref limitWildlifeRange, value, nameof(LimitWildlifeRange)); }
+        [SyncHostOnly] public int WildlifeRangeSize
+        {
+            get => wildlifeRangeSize;
+            set => SetBoundedIntSetting(ref wildlifeRangeSize, value, WildlifeRangePolicy.MinimumSize, WildlifeRangePolicy.MaximumSize, nameof(WildlifeRangeSize), nameof(WildlifeRangeSizeValueText));
         }
         [SyncHostOnly] public int HunterSearchRange
         {
@@ -287,8 +288,9 @@ namespace ImprovedHunters
             CollectFreeCorpses = true;
             DeerFleeOnlyInSight = true;
             RespawnWildlife = false;
-            RespawnMinimum = DefaultRespawnMinimum;
             RespawnIntervalSeconds = DefaultRespawnIntervalSeconds;
+            LimitWildlifeRange = false;
+            WildlifeRangeSize = WildlifeRangePolicy.DefaultSize;
         }
 
         private void SetSetting<T>(ref T field, T value, string propertyName)

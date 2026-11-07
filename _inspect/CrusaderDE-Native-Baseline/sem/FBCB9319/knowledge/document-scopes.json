@@ -39,6 +39,12 @@
       "integrationSections": ["ImprovedHunters integration", "Evidence and limits"]
     },
     {
+      "file": "WEAPON_WORKSHOP_FIELDS.md",
+      "scope": "vanilla",
+      "components": [],
+      "integrationSections": []
+    },
+    {
       "file": "KNIGHT_SELECTION_TRANSFERS.md",
       "scope": "mod",
       "components": ["ExtraFeatures", "Script Extender"],

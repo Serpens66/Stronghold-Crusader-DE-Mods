@@ -97,6 +97,10 @@
       <HintPath>$(ExtenderDir)\RedBird.Abstractions.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <Reference Include="RedBird.Backends.NativeX64">
+      <HintPath>$(ExtenderDir)\RedBird.Backends.NativeX64.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <Reference Include="RedBird.Core">
       <HintPath>$(ExtenderDir)\RedBird.Core.dll</HintPath>
       <Private>false</Private>
@@ -143,6 +147,9 @@
     <Compile Include="src\HunterHutAvailabilityPatch.cs" />
     <Compile Include="src\WildlifeNativeAddresses.cs" />
     <Compile Include="src\WildlifeRespawnFeature.cs" />
+    <Compile Include="src\WildlifeRangeFeature.cs" />
+    <Compile Include="src\WildlifeRangePolicy.cs" />
+    <Compile Include="src\WildlifeOriginTable.cs" />
     <Compile Include="src\HerdFleeSightFeature.cs" />
     <Compile Include="src\HunterSimulationTime.cs" />
     <Compile Include="src\PermanentNativeGate.cs" />

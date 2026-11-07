@@ -134,6 +134,7 @@ namespace ImprovedHunters
         private TannerRatioSync tannerRatioSync;
         private HunterHutAvailabilityPatch hunterHutAvailabilityPatch;
         private WildlifeRespawnFeature wildlifeRespawn;
+        private WildlifeRangeFeature wildlifeRange;
         private HerdFleeSightFeature herdFleeSight;
         private HunterQueryActorWorkaround hunterQueryActorWorkaround;
         private HunterHutVisibilityPatch hunterHutVisibilityPatch;
@@ -1210,7 +1211,9 @@ namespace ImprovedHunters
             try
             {
                 var addresses = new WildlifeNativeAddresses(log, memory, imageBase, referenceHashMatches);
-                wildlifeRespawn = new WildlifeRespawnFeature(log, settings, addresses);
+                var origins = new WildlifeOriginTable();
+                wildlifeRespawn = new WildlifeRespawnFeature(log, settings, addresses, origins);
+                wildlifeRange = new WildlifeRangeFeature(log, hookRegion, memory, imageBase, referenceHashMatches, settings, addresses, origins);
                 herdFleeSight = new HerdFleeSightFeature(log, hookRegion, memory, imageBase, referenceHashMatches, addresses, hunterNativeVisibilityProbe);
             }
             catch (Exception exception)

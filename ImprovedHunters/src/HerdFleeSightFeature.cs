@@ -11,8 +11,10 @@ namespace ImprovedHunters
     /// <summary>
     /// Deer and goat herds flee from any unit in their 10x10 sector, even behind a wall. Here a herd
     /// stays calm when no unit there can both see and reach it. The tick scan decides per herd, on
-    /// simulation data only; a small native gate in each herd update reads the result. Rabbits and fleeing
-    /// herds in the sector remain Vanilla's reasons to run, and being shot at does not pass through here.
+    /// simulation data only; a small native gate in each herd update reads the result. Predators in the sector
+    /// remain Vanilla's reason to run, and being shot at does not pass through here. A fleeing herd is no reason:
+    /// Vanilla counts it in the same counter (0x126810), so in crowded land herds kept each other running,
+    /// and a herd could set itself off again from its own stale sector count.
     /// </summary>
     internal sealed unsafe class HerdFleeSightFeature : IDisposable
     {
@@ -32,7 +34,7 @@ namespace ImprovedHunters
         private const int SectorSize = 10;
         private const int SectorsPerSide = 80;
         private const int SectorStride = 0xA0;
-        private const int SectorRabbitsOffset = 0x28;
+        private const int SectorPredatorsOffset = 0x28;
         private const int NonAnimalMarkerOffset = 0x328;
 
         private readonly WildlifeNativeAddresses addresses;
@@ -44,7 +46,6 @@ namespace ImprovedHunters
         private readonly int[] herdList = new int[HerdCount];
         private readonly int[] sectorStamp = new int[SectorsPerSide * SectorsPerSide];
         private readonly int[] sectorFirstUnit = new int[SectorsPerSide * SectorsPerSide];
-        private readonly int[] spookedStamp = new int[SectorsPerSide * SectorsPerSide];
         private int[] nextUnitInSector = new int[0];
         private int generation;
         private bool enabled;
@@ -120,7 +121,6 @@ namespace ImprovedHunters
         private int CollectHerdsAndUnits(SimpleNativeArray<GameUnit> units)
         {
             int herds = 0;
-            byte* herdManager = (byte*)addresses.HerdManager;
             for (int index = 0; index < units.Length; index++)
             {
                 GameUnit* unit = units.GetValuePointer(index);
@@ -142,10 +142,6 @@ namespace ImprovedHunters
                         herdSeen[herd] = generation;
                         herdList[herds++] = herd;
                     }
-
-                    // Vanilla counts a fleeing herd's animals as a reason to run for their neighbours.
-                    if (*(short*)(herdManager + herd * WildlifeNativeAddresses.HerdStride + WildlifeNativeAddresses.HerdFleeingOffset) != 0)
-                        spookedStamp[sector] = generation;
                 }
                 else if (*((byte*)unit + NonAnimalMarkerOffset) == 0)
                 {
@@ -172,11 +168,8 @@ namespace ImprovedHunters
 
             GameUnit* leader = units.GetValuePointer(leaderId - 1);
             int sector = SectorOf(leader);
-            if (sector < 0 || spookedStamp[sector] == generation ||
-                *(int*)(grid + sector * SectorStride + SectorRabbitsOffset) != 0)
-            {
+            if (sector < 0 || *(int*)(grid + sector * SectorStride + SectorPredatorsOffset) != 0)
                 return false;
-            }
 
             if (sectorStamp[sector] != generation)
                 return true;

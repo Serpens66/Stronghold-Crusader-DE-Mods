@@ -35,7 +35,7 @@ namespace UiAcceptance
         private static uint speedGlobal;
         private static bool speedSlowed;
         // Vanilla's herd records, pinned by this test mod's native audit.
-        private const int HerdManagerRva = 0x7CC6720, HerdStride = 0x688, HerdFleeingOffset = 0x5F4, HerdLeaderOffset = 0x5A;
+        private const int HerdManagerRva = 0x7CC6720, HerdStride = 0x688, HerdFleeingOffset = 0x5F4, HerdLeaderOffset = 0x5A, HerdCount = 0x1194, MapTickRva = 0x3665F58, HerdGoRva = 0x11B520, SpawnHerdRva = 0x11E150, ReturnPlaceReach = 12, StartDifference = 8;
         // Index of the food page in HUD_Main.BuildIconLists.
         private const int FoodBuildScreen = 3;
 
@@ -54,6 +54,23 @@ namespace UiAcceptance
             Runner.Register("Hunt.Deer", s => GameSteps.Do(() => { lock (Engine()) SpawnDeer(s.Int(0), s.Int(1)); }));
             Runner.Register("Hunt.DeerCycle", DeerCycle);
             Runner.Register("Hunt.LogAnimals", s => GameSteps.Do(() => { lock (Engine()) LogAnimals(); }));
+            Runner.Register("Hunt.LogHerds", s => GameSteps.Do(() => { lock (Engine()) LogHerds(s.Arg(0, "")); }));
+            Runner.Register("Hunt.WatchHerds", WatchHerds);
+            Runner.Register("Hunt.RememberStarts", s => GameSteps.Do(() => { lock (Engine()) RememberStarts(); }));
+            Runner.Register("Hunt.ClearOtherAnimals", s => GameSteps.Do(() => { lock (Engine()) ClearOtherAnimals(); }));
+            Runner.Register("Hunt.PickHerd", PickHerd);
+            Runner.Register("Hunt.SpawnHerd", s => GameSteps.Do(() => { lock (Engine()) SpawnHerd(s.Arg(0), s.Arg(1, "400"), s.Arg(2, "400")); }));
+            Runner.Register("Hunt.KillHerd", s => GameSteps.Do(() => { lock (Engine()) KillHerd(s.Int(0)); }));
+            Runner.Register("Hunt.ExpectNoReturn", ExpectNoReturn);
+            Runner.Register("Hunt.WaitSinceKill", WaitSinceKill);
+            Runner.Register("Hunt.ExpectReturn", ExpectReturn);
+            Runner.Register("Hunt.ExpectHerdGrows", ExpectHerdGrows);
+            Runner.Register("Hunt.ExpectHerdKept", s => GameSteps.Do(() => { lock (Engine()) LogHerdKept(); }));
+            Runner.Register("Hunt.ExpectNoWildlife", ExpectNoWildlife);
+            Runner.Register("Hunt.TrackRange", TrackRange);
+            Runner.Register("Hunt.TrackFlight", TrackFlight);
+            Runner.Register("Hunt.SendHerdAway", s => GameSteps.Do(() => { lock (Engine()) SendHerdAway(s.Int(0)); }));
+            Runner.Register("Hunt.ExpectHerdBack", ExpectHerdBack);
             Runner.Register("Hunt.BuildHutByHand", BuildHutByHand);
             Runner.Register("Hunt.DeerNearHunter", s => GameSteps.Do(() => { lock (Engine()) SpawnDeerNearHunter(s.Int(0)); }));
             Runner.Register("Hunt.ExpectFarFromHunter", ExpectFarFromHunter);
@@ -414,6 +431,467 @@ namespace UiAcceptance
                 deer.Add(id);
             }
             AcceptLog.Info("HUNT_DEER at=" + (x + signX * distance) + "," + (y + signY * distance) + " deer=" + string.Join(",", deer));
+        }
+
+        // One line per living herd with its native record, as the mod reads it.
+        private static void LogHerds(string label)
+        {
+            byte* manager = (byte*)GetModuleHandle("CrusaderDE.dll") + HerdManagerRva;
+            int tick = *(int*)((byte*)GetModuleHandle("CrusaderDE.dll") + MapTickRva), herds = 0;
+            for (int herd = 1; herd < HerdCount; herd++)
+            {
+                byte* record = manager + herd * HerdStride;
+                if (*(short*)(record + 0x40) != 2)
+                    continue;
+
+                short kind = *(short*)(record + 0x42);
+                int leader = *(short*)(record + HerdLeaderOffset);
+                if (!APIShared.UnitAccess.TryGetById(leader, out GameUnit* unit, out _) || unit->r_UnitChimp >= eChimps.CHIMP_NUM_TYPES)
+                    continue;
+                if (kind != 0xD && kind != 0x28 && kind != 0xF && kind != 0x10 && kind != 0xE && kind != 0x29 && kind != 0x2A)
+                    continue;
+
+                herds++;
+                int routeCount = *(short*)(record + 0x5DE);
+                var route = new List<string>();
+                for (int point = 0; point < routeCount && point < 10; point++)
+                    route.Add(*(short*)(record + 0x5B4 + point * 4) + "," + *(short*)(record + 0x5B6 + point * 4));
+                AcceptLog.Info("HUNT_HERD " + label + " tick=" + tick + " herd=" + herd + " kind=0x" + kind.ToString("X") + " serial=" + *(int*)(record + 0x34) +
+                    " owner=" + *(int*)(record + 0x2C) + " count=" + *(short*)(record + 0x5C) + " living=" + LivingMembers(herd) + " flee=" + *(short*)(record + HerdFleeingOffset) +
+                    " leader=" + leader + " at=" + unit->r_CurrentTilePositionX + "," + unit->r_CurrentTilePositionY +
+                    " route=" + *(short*)(record + 0x5DC) + "/" + routeCount + " [" + string.Join(" ", route) + "]");
+            }
+            AcceptLog.Info("HUNT_HERDS " + label + " tick=" + tick + " herds=" + herds);
+        }
+
+        private static int LivingMembers(int herd)
+        {
+            int living = 0;
+            SimpleNativeArray<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitArray();
+            for (int index = 0; index < units.Length; index++)
+            {
+                GameUnit* unit = units.GetValuePointer(index);
+                if (unit->r_TribeId == herd && unit->r_AliveState == AliveState.IsAlive && unit->r_CurrentHealth > 0 && *(ushort*)((byte*)unit + CorpseOffset) == 0)
+                    living++;
+            }
+            return living;
+        }
+
+        // args: milliseconds in all, milliseconds between lines.
+        private static IEnumerable<Wait> WatchHerds(Step step)
+        {
+            int end = Environment.TickCount + step.Int(0), next = 0, line = 0;
+            while (Environment.TickCount < end)
+            {
+                if (Environment.TickCount - next >= 0)
+                {
+                    next = Environment.TickCount + step.Int(1);
+                    lock (Engine()) LogHerds("w" + line++);
+                }
+                yield return NextFrame.Instance;
+            }
+        }
+
+        // Herd fixtures for the wildlife return and range: what the map placed, as the mod should see it.
+        private static readonly Dictionary<int, HerdStart> herdStarts = new Dictionary<int, HerdStart>();
+        private static HerdStart herdFixture;
+        private static int herdKillTick, routeReports, herdSends;
+
+        private struct HerdStart
+        {
+            public int Herd, Serial, X, Y;
+            public short Kind;
+        }
+
+        private static byte* HerdRecord(int herd) => (byte*)GetModuleHandle("CrusaderDE.dll") + HerdManagerRva + herd * HerdStride;
+        private static int NativeTick() => *(int*)((byte*)GetModuleHandle("CrusaderDE.dll") + MapTickRva);
+
+        private static bool LeaderTile(int herd, out int x, out int y)
+        {
+            x = y = 0;
+            if (*(short*)(HerdRecord(herd) + 0x40) != 2 ||
+                !APIShared.UnitAccess.TryGetById(*(short*)(HerdRecord(herd) + HerdLeaderOffset), out GameUnit* leader, out _) || leader == null)
+                return false;
+
+            x = leader->r_CurrentTilePositionX;
+            y = leader->r_CurrentTilePositionY;
+            return true;
+        }
+
+        private static void RememberStarts()
+        {
+            herdStarts.Clear();
+            for (int herd = 1; herd < HerdCount; herd++)
+            {
+                short kind = *(short*)(HerdRecord(herd) + 0x42);
+                if ((kind == 0xD || kind == 0x28) && LeaderTile(herd, out int x, out int y))
+                    herdStarts[*(int*)(HerdRecord(herd) + 0x34)] = new HerdStart { Herd = herd, Serial = *(int*)(HerdRecord(herd) + 0x34), X = x, Y = y, Kind = kind };
+            }
+            AcceptLog.Info("HUNT_STARTS herds=" + herdStarts.Count + " deer=" + herdStarts.Values.Count(s => s.Kind == 0xD) + " goats=" + herdStarts.Values.Count(s => s.Kind == 0x28));
+        }
+
+        // Lions, hyenas and crocodiles kill herds, and rabbits scare them: the fixture must only lose what the test kills.
+        private static void ClearOtherAnimals()
+        {
+            int removed = 0;
+            SimpleNativeArray<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitArray();
+            for (int index = 0; index < units.Length; index++)
+            {
+                GameUnit* unit = units.GetValuePointer(index);
+                if (unit->r_AliveState == AliveState.IsAlive && (unit->r_UnitChimp == eChimps.CHIMP_TYPE_LION || unit->r_UnitChimp == eChimps.CHIMP_TYPE_HYENA ||
+                    unit->r_UnitChimp == eChimps.CHIMP_TYPE_CROCODILE || unit->r_UnitChimp == eChimps.CHIMP_TYPE_RABBIT))
+                {
+                    unit->r_AliveState = AliveState.MarkedForDeletion;
+                    removed++;
+                }
+            }
+            AcceptLog.Info("HUNT_CLEARED " + removed);
+        }
+
+        private static int RoamOf(HerdStart start) =>
+            LeaderTile(start.Herd, out int x, out int y) ? Math.Max(Math.Abs(x - start.X), Math.Abs(y - start.Y)) : -1;
+
+        // args: deer or goat, how far the herd must have left its start. Waits for such a herd, not in flight.
+        private static IEnumerable<Wait> PickHerd(Step step)
+        {
+            short kind = step.Arg(0) == "goat" ? (short)0x28 : (short)0xD;
+            int roam = step.Int(1);
+            bool found = false;
+            yield return new Until("a herd that has moved", () =>
+            {
+                lock (Engine()) found = TryPickHerd(kind, roam);
+                return found;
+            });
+            lock (Engine())
+                AcceptLog.Info("HUNT_PICKED herd=" + herdFixture.Herd + " serial=" + herdFixture.Serial + " kind=0x" + herdFixture.Kind.ToString("X") + " start=" + herdFixture.X + "," + herdFixture.Y +
+                    " roam=" + RoamOf(herdFixture) + " living=" + LivingMembers(herdFixture.Herd));
+        }
+
+        private static bool TryPickHerd(short kind, int roam)
+        {
+            foreach (HerdStart start in herdStarts.Values.OrderBy(s => s.Serial))
+            {
+                if (start.Kind == kind && *(int*)(HerdRecord(start.Herd) + 0x34) == start.Serial && LivingMembers(start.Herd) > 0 && RoamOf(start) >= roam)
+                {
+                    herdFixture = start;
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // args: animals to leave alive. The bodies stay, as after a hunt.
+        private static void KillHerd(int keep)
+        {
+            int kept = 0, killed = 0, herd = herdFixture.Herd;
+            SimpleNativeArray<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitArray();
+            for (int index = 0; index < units.Length; index++)
+            {
+                GameUnit* unit = units.GetValuePointer(index);
+                if (unit->r_TribeId != herd || unit->r_AliveState != AliveState.IsAlive || unit->r_CurrentHealth <= 0 || *(ushort*)((byte*)unit + CorpseOffset) != 0)
+                    continue;
+                if (kept++ < keep)
+                    continue;
+                int id = index + 1;
+                if (APIShared.UnitAccess.TryGetById(id, out _, out _))
+                    GameUnitManagerAPI.Instance.KillUnit(id);
+                killed++;
+            }
+            herdKillTick = NativeTick();
+            AcceptLog.Info("HUNT_KILLED herd=" + herd + " killed=" + killed + " left=" + LivingMembers(herd) + " tick=" + herdKillTick);
+            Runner.Require(LivingMembers(herd) == keep, "the herd has other living animals than wanted");
+        }
+
+        private static bool FindReturned(out int herd, out int living)
+        {
+            herd = living = 0;
+            for (int candidate = 1; candidate < HerdCount; candidate++)
+            {
+                int serial = *(int*)(HerdRecord(candidate) + 0x34);
+                if (*(short*)(HerdRecord(candidate) + 0x42) != herdFixture.Kind || herdStarts.ContainsKey(serial) ||
+                    !LeaderTile(candidate, out int x, out int y) || Math.Max(Math.Abs(x - herdFixture.X), Math.Abs(y - herdFixture.Y)) > ReturnPlaceReach)
+                {
+                    continue;
+                }
+
+                herd = candidate;
+                living = LivingMembers(candidate);
+                return true;
+            }
+            return false;
+        }
+
+        // args: map ticks since the kill.
+        private static IEnumerable<Wait> WaitSinceKill(Step step)
+        {
+            int until = herdKillTick + step.Int(0);
+            yield return new Until("ticks since the kill", () => { lock (Engine()) return NativeTick() >= until; });
+        }
+
+        // args: ticks since the kill during which nothing may have returned, also for an animal left alive.
+        private static IEnumerable<Wait> ExpectNoReturn(Step step)
+        {
+            int until = herdKillTick + step.Int(0);
+            while (true)
+            {
+                lock (Engine())
+                {
+                    Runner.Require(!FindReturned(out int herd, out _), "herd " + herd + " returned too early at tick " + NativeTick());
+                    if (NativeTick() >= until)
+                        break;
+                }
+                yield return NextFrame.Instance;
+            }
+            AcceptLog.Info("HUNT_NO_RETURN until=" + until);
+        }
+
+        // args: earliest and latest ticks after the kill. Exactly two animals stay; the fixture becomes the new herd.
+        private static IEnumerable<Wait> ExpectReturn(Step step)
+        {
+            int earliest = step.Int(0), latest = step.Int(1), newHerd = 0, returnedAt = 0;
+            yield return new Until("the herd's return", () =>
+            {
+                lock (Engine())
+                {
+                    Runner.Require(NativeTick() <= herdKillTick + latest, "no return within " + latest + " ticks");
+                    if (!FindReturned(out newHerd, out _))
+                        return false;
+                    returnedAt = NativeTick();
+                    return true;
+                }
+            });
+            // The extra animals leave in the same tick and the herd record follows one tick later.
+            int settled = returnedAt + 5;
+            yield return new Until("the returned herd settling", () => { lock (Engine()) return NativeTick() >= settled; });
+            lock (Engine()) CheckReturned(newHerd, returnedAt, earliest);
+        }
+
+        private static void CheckReturned(int newHerd, int returnedAt, int earliest)
+        {
+            byte* record = HerdRecord(newHerd);
+            int living = LivingMembers(newHerd), count = *(short*)(record + 0x5C), present = 0;
+            SimpleNativeArray<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitArray();
+            for (int index = 0; index < units.Length; index++)
+            {
+                GameUnit* unit = units.GetValuePointer(index);
+                if (unit->r_TribeId == newHerd && unit->r_AliveState != AliveState.None)
+                    present++;
+            }
+            AcceptLog.Info("HUNT_RETURNED herd=" + newHerd + " serial=" + *(int*)(record + 0x34) + " after=" + (returnedAt - herdKillTick) + " living=" + living + " count=" + count + " present=" + present);
+            Runner.Require(returnedAt - herdKillTick >= earliest, "returned after " + (returnedAt - herdKillTick) + " ticks, before the wait was over");
+            Runner.Require(living == 2 && count == 2 && present == 2, "expected exactly 2 animals, living=" + living + " count=" + count + " present=" + present);
+            herdFixture.Herd = newHerd;
+            herdFixture.Serial = *(int*)(record + 0x34);
+            herdStarts[herdFixture.Serial] = herdFixture;
+        }
+
+        // args: animals. The fixture grows by Vanilla's own rule.
+        private static IEnumerable<Wait> ExpectHerdGrows(Step step)
+        {
+            int minimum = step.Int(0), start = 0, living = 0;
+            lock (Engine()) start = NativeTick();
+            yield return new Until("the herd growing", () =>
+            {
+                lock (Engine())
+                {
+                    living = LivingMembers(herdFixture.Herd);
+                    return living >= minimum;
+                }
+            });
+            lock (Engine()) AcceptLog.Info("HUNT_GREW living=" + living + " ticks=" + (NativeTick() - start));
+        }
+
+        private static void LogHerdKept() =>
+            AcceptLog.Info("HUNT_HERD_AFTER_LOAD herd=" + herdFixture.Herd + " serial=" + *(int*)(HerdRecord(herdFixture.Herd) + 0x34) + " tick=" + NativeTick() + " killTick=" + herdKillTick);
+
+        // args: milliseconds. A map without these herds gets none.
+        private static IEnumerable<Wait> ExpectNoWildlife(Step step)
+        {
+            int end = Environment.TickCount + step.Int(0);
+            while (Environment.TickCount < end)
+            {
+                lock (Engine())
+                {
+                    CountWildlife(out int deerCount, out int goats);
+                    Runner.Require(deerCount + goats == 0, "wildlife appeared: deer=" + deerCount + " goats=" + goats);
+                }
+                yield return NextFrame.Instance;
+            }
+            lock (Engine()) AcceptLog.Info("HUNT_NO_WILDLIFE tick=" + NativeTick());
+        }
+
+        // args: area size, milliseconds, inside or free. Measures how far leaders get and whether routes leave the area.
+        private static IEnumerable<Wait> TrackRange(Step step)
+        {
+            int size = step.Int(0), end = Environment.TickCount + step.Int(1), reach = size / 2;
+            bool inside = step.Arg(2) == "inside";
+            int allowedOver = step.Int(3);
+            var farthest = new Dictionary<int, int>();
+            int outsideRoutes = 0, samples = 0;
+            while (Environment.TickCount < end)
+            {
+                lock (Engine()) outsideRoutes += SampleRange(reach, farthest);
+                samples++;
+                yield return new Delay(200);
+            }
+            int deepest = farthest.Count == 0 ? 0 : farthest.Values.Max();
+            var byKind = farthest.GroupBy(pair => herdStarts[pair.Key].Kind).Select(g => "0x" + g.Key.ToString("X") + ":max=" + g.Max(p => p.Value) + ",over=" + g.Count(p => p.Value > reach) + "/" + g.Count());
+            AcceptLog.Info("HUNT_RANGE size=" + size + " samples=" + samples + " max=" + deepest + " routesOutside=" + outsideRoutes + " " + string.Join(" ", byKind));
+            Runner.Require(farthest.Count > 0, "no herd was measured");
+            if (inside)
+            {
+                Runner.Require(outsideRoutes == 0, outsideRoutes + " route points outside the area");
+                Runner.Require(deepest <= reach + allowedOver, "a leader went " + deepest + " tiles from its start");
+            }
+            else
+                Runner.Require(deepest > reach + allowedOver, "without the limit herds stayed within " + deepest + " tiles");
+        }
+
+        // args: milliseconds, highest or lowest allowed share of herds in flight in percent. Reports growth as well.
+        private static IEnumerable<Wait> TrackFlight(Step step)
+        {
+            int end = Environment.TickCount + step.Int(0), limit = step.Int(1);
+            bool atMost = step.Arg(2) == "atmost";
+            long samples = 0, fleeing = 0;
+            int first = -1, last = 0;
+            while (Environment.TickCount < end)
+            {
+                lock (Engine())
+                {
+                    SampleFlight(ref samples, ref fleeing);
+                    last = LivingWildlife();
+                    if (first < 0)
+                        first = last;
+                }
+                yield return new Delay(500);
+            }
+            long share = samples == 0 ? 0 : fleeing * 100 / samples;
+            AcceptLog.Info("HUNT_FLIGHT share=" + share + "% samples=" + samples + " livingFirst=" + first + " livingLast=" + last);
+            Runner.Require(samples > 0, "no herd was measured");
+            Runner.Require(atMost ? share <= limit : share >= limit, "herds in flight: " + share + "%");
+        }
+
+        private static void SampleFlight(ref long samples, ref long fleeing)
+        {
+            foreach (HerdStart start in herdStarts.Values)
+            {
+                if (*(int*)(HerdRecord(start.Herd) + 0x34) != start.Serial || *(short*)(HerdRecord(start.Herd) + 0x40) != 2)
+                    continue;
+                samples++;
+                if (*(short*)(HerdRecord(start.Herd) + HerdFleeingOffset) != 0)
+                    fleeing++;
+            }
+        }
+
+        private static int LivingWildlife()
+        {
+            CountWildlife(out int deerCount, out int goats);
+            return deerCount + goats;
+        }
+
+        private static int SampleRange(int reach, Dictionary<int, int> farthest)
+        {
+            int outsideRoutes = 0;
+            foreach (HerdStart start in herdStarts.Values)
+            {
+                if (*(int*)(HerdRecord(start.Herd) + 0x34) != start.Serial || !LeaderTile(start.Herd, out int x, out int y))
+                    continue;
+
+                int roam = Math.Max(Math.Abs(x - start.X), Math.Abs(y - start.Y));
+                farthest.TryGetValue(start.Serial, out int known);
+                if (roam > known)
+                    farthest[start.Serial] = roam;
+                byte* record = HerdRecord(start.Herd);
+                int count = *(short*)(record + 0x5DE);
+                if (roam > reach)
+                    continue;
+                // The mod reads the start at its first tick, a few tiles on for a herd already in flight.
+                for (int point = 0; point < count && point < 10; point++)
+                {
+                    if (Math.Max(Math.Abs(*(short*)(record + 0x5B4 + point * 4) - start.X), Math.Abs(*(short*)(record + 0x5B6 + point * 4) - start.Y)) > reach + StartDifference)
+                    {
+                        outsideRoutes++;
+                        if (routeReports++ < 6)
+                            AcceptLog.Info("HUNT_ROUTE_OUTSIDE herd=" + start.Herd + " serial=" + start.Serial + " start=" + start.X + "," + start.Y + " leader=" + x + "," + y +
+                                " flee=" + *(short*)(record + HerdFleeingOffset) + " point=" + point + "/" + count + " at=" + *(short*)(record + 0x5B4 + point * 4) + "," + *(short*)(record + 0x5B6 + point * 4));
+                    }
+                }
+            }
+            return outsideRoutes;
+        }
+
+        [System.Runtime.InteropServices.UnmanagedFunctionPointer(System.Runtime.InteropServices.CallingConvention.Cdecl)]
+        private delegate long HerdGoDelegate(IntPtr manager, int herd, uint x, uint y, int a, int b, int c);
+
+        [System.Runtime.InteropServices.UnmanagedFunctionPointer(System.Runtime.InteropServices.CallingConvention.Cdecl)]
+        private delegate int SpawnHerdDelegate(IntPtr manager, int kind, uint x, uint y, int height);
+
+        // args: deer or goat, optionally the tile to start looking from. Vanilla's herd creation, as the editor's placing tool calls it.
+        private static void SpawnHerd(string kind, string centreX, string centreY)
+        {
+            var spawn = System.Runtime.InteropServices.Marshal.GetDelegateForFunctionPointer<SpawnHerdDelegate>((IntPtr)((byte*)GetModuleHandle("CrusaderDE.dll") + SpawnHerdRva));
+            GameTileManagerAPI tiles = GameTileManagerAPI.Instance;
+            byte* grid = (byte*)GetModuleHandle("CrusaderDE.dll") + SectorGridRva;
+            for (int reach = 0; reach < 160; reach += 10)
+            {
+                foreach ((int dx, int dy) in new[] { (1, 0), (-1, 0), (0, 1), (0, -1) })
+                {
+                    int x = int.Parse(centreX) + dx * reach, y = int.Parse(centreY) + dy * reach, tile = tiles.GetTileId(x, y);
+                    // In a quiet sector, or Vanilla's rule sends the herd running at once and it never rests.
+                    if (!tiles.IsTileInsideMapBounds(x, y) || !tiles.IsValidTileId(tile) || *(int*)(grid + (x / 10 * 80 + y / 10) * SectorStride + SectorUnitsOffset) != 0)
+                        continue;
+                    int herd = spawn((IntPtr)((byte*)GetModuleHandle("CrusaderDE.dll") + HerdManagerRva), kind == "goat" ? 0xE2 : 0xDC, (uint)x, (uint)y, tiles.GetTileHeight(tile));
+                    if (herd > 0)
+                    {
+                        AcceptLog.Info("HUNT_SPAWNED herd=" + herd + " at=" + x + "," + y);
+                        return;
+                    }
+                }
+            }
+            Runner.Require(false, "no place for the herd");
+        }
+
+        // args: tiles. Sends the fixture away with Vanilla's own herd order, as if it had got there by itself.
+        private static void SendHerdAway(int distance)
+        {
+            var go = System.Runtime.InteropServices.Marshal.GetDelegateForFunctionPointer<HerdGoDelegate>((IntPtr)((byte*)GetModuleHandle("CrusaderDE.dll") + HerdGoRva));
+            foreach ((int dx, int dy) in new[] { (1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (-1, -1) })
+            {
+                int x = herdFixture.X + dx * distance, y = herdFixture.Y + dy * distance;
+                if (x > 0 && y > 0 && x < 800 && y < 800 && go((IntPtr)((byte*)GetModuleHandle("CrusaderDE.dll") + HerdManagerRva), herdFixture.Herd, (uint)x, (uint)y, 0, 0, 0) != 0)
+                {
+                    if (herdSends++ == 0)
+                        AcceptLog.Info("HUNT_SENT herd=" + herdFixture.Herd + " to=" + x + "," + y);
+                    return;
+                }
+            }
+            Runner.Require(false, "the herd took no order");
+        }
+
+        // args: area size. The fixture first gets out and then comes home on its own.
+        private static IEnumerable<Wait> ExpectHerdBack(Step step)
+        {
+            int reach = step.Int(0) / 2, farthest = 0;
+            // A calm herd soon takes its next route, which replaces one order, so the order is repeated until it is out.
+            int nextOrder = 0, distance = step.Int(1);
+            yield return new Until("the herd outside its area", () =>
+            {
+                lock (Engine())
+                {
+                    farthest = RoamOf(herdFixture);
+                    if (farthest > reach)
+                        return true;
+                    if (Environment.TickCount - nextOrder >= 0)
+                    {
+                        nextOrder = Environment.TickCount + 100;
+                        SendHerdAway(distance);
+                    }
+                    return false;
+                }
+            });
+            lock (Engine()) AcceptLog.Info("HUNT_OUTSIDE roam=" + farthest + " tick=" + NativeTick());
+            yield return new Until("the herd back in its area", () => { lock (Engine()) { int roam = RoamOf(herdFixture); return roam >= 0 && roam <= reach; } });
+            lock (Engine()) AcceptLog.Info("HUNT_BACK roam=" + RoamOf(herdFixture) + " tick=" + NativeTick());
         }
 
         private static void LogAnimals()

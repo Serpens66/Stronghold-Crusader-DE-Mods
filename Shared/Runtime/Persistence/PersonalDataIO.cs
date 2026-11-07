@@ -161,11 +161,14 @@ namespace Shared
 
         // The hash and deletion use the SAME source handle, opened without write/delete sharing.
         // An old mod cannot replace the verified source between the comparison and the delete.
-        internal static bool DeleteUnchanged(string path, string expectedHash, long maximumBytes)
+        internal static bool DeleteUnchanged(string path, string expectedHash, long maximumBytes, string targetPath)
         {
             Before("cleanup", path);
             try
             {
+                // A junction can make distinct names refer to one file. The target
+                // handle denies delete sharing before the source's DELETE open.
+                using (FileStream target = IsWindows ? ProtectExistingTarget(targetPath) : null)
                 using (FileStream stream = Open(path, false, false, true))
                 {
                     if (stream.Length > maximumBytes) return false;
@@ -183,6 +186,13 @@ namespace Shared
             }
             catch (FileNotFoundException) { return true; }
             catch (DirectoryNotFoundException) { return true; }
+        }
+
+        private static FileStream ProtectExistingTarget(string path)
+        {
+            try { return Open(path, false, false); }
+            catch (FileNotFoundException) { return null; }
+            catch (DirectoryNotFoundException) { return null; }
         }
 
         internal static string Hash(byte[] bytes) { using (SHA256 sha = SHA256.Create()) return Hex(sha.ComputeHash(bytes)); }

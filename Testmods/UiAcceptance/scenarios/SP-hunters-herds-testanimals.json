@@ -1,0 +1,23 @@
+{
+  "enabled": true,
+  "series": "SP-hunters-herds-testanimals",
+  "role": "sp",
+  "quitWhenDone": true,
+  "steps": [
+    {"id": "menu", "do": "WaitMainMenu", "timeoutMs": 60000, "stopOnFail": true, "allowErrors": true},
+    {"id": "no-random-events", "do": "RandomEvents", "args": ["off"], "timeoutMs": 10000, "stopOnFail": true},
+    {"id": "enable", "do": "SetModSetting", "args": ["ImprovedHunters.ImprovedHuntersPlugin::persistentSettings", "EnableMod", "true"]},
+    {"id": "skirmish", "do": "Skirmish.Open", "timeoutMs": 15000, "stopOnFail": true},
+    {"id": "map", "do": "Lobby.SelectMap", "args": ["testanimals.map"], "timeoutMs": 15000, "stopOnFail": true},
+    {"id": "ai", "do": "Lobby.AddAI", "args": ["1", "1"], "timeoutMs": 15000},
+    {"id": "peace", "do": "Lobby.PeaceTime", "args": ["60"], "timeoutMs": 15000, "stopOnFail": true},
+    {"id": "play", "do": "Lobby.Play", "timeoutMs": 45000, "stopOnFail": true},
+    {"id": "first", "do": "Hunt.LogHerds", "args": ["start"], "timeoutMs": 15000, "stopOnFail": true},
+    {"id": "briefing", "do": "AiMilitary.ResumeBriefing", "timeoutMs": 15000},
+    {"id": "unpause", "do": "Pause", "args": ["off"], "timeoutMs": 15000, "stopOnFail": true},
+    {"id": "speed", "do": "Speed", "args": ["300"]},
+    {"id": "watch", "do": "Hunt.WatchHerds", "args": ["200000", "10000"], "timeoutMs": 230000, "stopOnFail": true},
+    {"id": "menu-back", "do": "QuitToMenu", "timeoutMs": 30000},
+    {"id": "restore-random-events", "do": "RandomEvents", "args": ["on"], "timeoutMs": 10000}
+  ]
+}

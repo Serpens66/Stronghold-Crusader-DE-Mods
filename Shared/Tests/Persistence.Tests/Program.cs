@@ -13,7 +13,7 @@ internal static class Program
         try
         {
             root = TestWorkDirectory.New("personal-data");
-            Basic(); Precedence(); Failures(); Cleanup(); Bounds(); InvalidBackup(); LongPaths(); Documents(); LegacyPathConstruction(); ExplicitReset();
+            Basic(); Precedence(); Failures(); Cleanup(); Bounds(); InvalidBackup(); LongPaths(); MissingLongLegacy(); Documents(); LegacyPathConstruction(); ExplicitReset();
             Console.WriteLine("PASS: " + checks + " personal-data persistence/migration checks; runtime=" +
                 (Type.GetType("Mono.Runtime") == null ? Environment.Version.ToString() : "Unity Mono") + "; fixture=" + root);
             return 0;
@@ -198,6 +198,38 @@ internal static class Program
         Check(path == Path.Combine(At("documents ä"), "SHCDE", "CastlePlanner", "runtime.msgpack"), "documents resolution injectable without global process path switches");
         PersonalDataFile.TestDocumentsDirectory = null;
         Check(Path.IsPathRooted(PersonalDataFile.GetDocuments()), "production per-user resolution is absolute");
+    }
+
+    private static void MissingLongLegacy()
+    {
+        string directory = At("missing-long");
+        while (directory.Length < 310) directory = Path.Combine(directory, "long-directory-ä");
+        PersonalDataIO.EnsureDirectory(directory);
+        var messages = new List<string>();
+        string target = At("empty-store/settings.json");
+        string legacy = Path.Combine(directory, "settings.json");
+        var file = new PersonalDataFile(target, legacy, messages.Add);
+        PersonalDataIO.TestBeforeOperation = (operation, path) =>
+        {
+            if (operation == "write" && path == target + ".migration.json")
+                throw new UnauthorizedAccessException("Receipt write denied.");
+        };
+        try
+        {
+            Check(file.ReadAllBytes() == null, "missing file at an existing long directory is an empty store");
+            file.Delete();
+            Fails(() => file.WriteAllText("new settings"), "first real save still reports an unwritable destination");
+            Check(messages.Count == 0, "a verified empty read or no-op deletion does not report migration trouble");
+            Check(Read(target) == null, "blocked first write cannot leave a settings file without an adoption receipt");
+        }
+        finally { PersonalDataIO.TestBeforeOperation = null; }
+
+        file.WriteAllText("first settings");
+        Check(file.ReadAllText() == "first settings", "first save retries after the receipt destination becomes writable");
+        string anotherTarget = At("empty-parent/settings.json");
+        var missingParent = new PersonalDataFile(anotherTarget, Path.Combine(directory, "not-created", "settings.json"), messages.Add);
+        Check(missingParent.ReadAllBytes() == null, "missing directory at a long path is an empty store");
+        Check(messages.Count == 0, "empty adoption does not report a warning when its receipt is written");
     }
 
     private static void LegacyPathConstruction()

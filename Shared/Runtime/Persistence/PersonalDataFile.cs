@@ -16,7 +16,7 @@ namespace Shared
         private readonly Action<string> report;
         private readonly long maximumReadBytes;
         private readonly object gate = new object();
-        private bool initialized, writable, preserve;
+        private bool initialized, writable, preserve, emptyWithoutReceipt;
         private byte[] sessionBytes;
         private Exception failure;
 
@@ -67,6 +67,7 @@ namespace Shared
             using (Acquire())
             {
                 Initialize();
+                if (emptyWithoutReceipt) return null;
                 if (!writable)
                 {
                     if (sessionBytes != null) return (byte[])sessionBytes.Clone();
@@ -217,7 +218,13 @@ namespace Shared
         internal void Delete()
         {
             lock (gate)
-            using (Acquire()) { Initialize(); RequireWritable(); PersonalDataIO.Delete(Path); }
+            using (Acquire())
+            {
+                Initialize();
+                if (emptyWithoutReceipt) return;
+                RequireWritable();
+                PersonalDataIO.Delete(Path);
+            }
         }
 
         private void RequireWritable()
@@ -227,8 +234,10 @@ namespace Shared
 
         private void Initialize()
         {
-            if (initialized) return;
+            if (initialized && !emptyWithoutReceipt) return;
             initialized = true;
+            emptyWithoutReceipt = false;
+            failure = null;
             try
             {
                 // A target read error is NEVER absence and must never enable the old source.
@@ -268,9 +277,18 @@ namespace Shared
                 }
                 else if (source != null) Report("existing-target; different legacy source retained");
 
-                SaveReceipt(receipt);
+                bool noData = target == null && source == null;
+                try { SaveReceipt(receipt); }
+                catch (Exception error) when (noData && (error is IOException || error is UnauthorizedAccessException))
+                {
+                    // Absence was verified. A failed attempt to record it must not make
+                    // reads or no-op deletes fail. Retry adoption before a real write.
+                    emptyWithoutReceipt = true;
+                    failure = error;
+                    return;
+                }
                 writable = true;
-                Report(source != null && receipt.CleanupPending ? "migration verified" : "personal location adopted");
+                if (receipt.CleanupPending) Report("migration verified");
                 Cleanup(receipt);
             }
             catch (Exception error)
@@ -319,7 +337,7 @@ namespace Shared
             if (!receipt.CleanupPending) return;
             try
             {
-                bool removed = PersonalDataIO.DeleteUnchanged(receipt.Source, receipt.Hash, maximumReadBytes);
+                bool removed = PersonalDataIO.DeleteUnchanged(receipt.Source, receipt.Hash, maximumReadBytes, Path);
                 receipt.CleanupPending = false;
                 SaveReceipt(receipt);
                 Report(removed ? "legacy cleanup completed" : "legacy source changed; retained");

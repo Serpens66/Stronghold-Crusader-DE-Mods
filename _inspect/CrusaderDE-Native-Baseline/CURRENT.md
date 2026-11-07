@@ -42,7 +42,7 @@ Semantic reverse-engineering baseline:
 
 ## Knowledge tooling
 
-- [NativeKnowledge in Ghidra](./tools/semantic/NATIVE_KNOWLEDGE.md): all 88 APIShared catalog fields and four double-reviewed function records, including newly named building-height-offset and unit-standing-height helpers; confidence, provenance, historical views and reader documentation remain visible; raw baseline unchanged.
+- [NativeKnowledge in Ghidra](./tools/semantic/NATIVE_KNOWLEDGE.md): 88 fields and four reviewed function records in the published catalog snapshot, including the building-height-offset and unit-standing-height helpers. The weapon-workshop field additions are documented below and in APIShared's source catalog.
 
 ## Vanilla behavior audits
 
@@ -64,6 +64,8 @@ Only Vanilla behavior; Script Extender names appear only as vocabulary.
 - [Long simulation ticks from AI group movement (FBCB9319)](./sem/FBCB9319/knowledge/SIM_TICK_SPIKE_PATHING.md): AI group-order stalls, `0x119F90` member lookup, Assassin per-member `0xD9C40` and the `+0x94` route output; mod contracts and mod measurements are only linked.
 - [Minimap (radar) pass 0xF5A40 (FBCB9319)](./sem/FBCB9319/knowledge/RADAR_PASS_F5A40.md)
 - [Surrender selection and multiplayer checksum audit](./sem/FBCB9319/knowledge/SURRENDER_SELECTION.md): selected Lord field, checksum buckets, deselection and trace evidence.
+
+- [Weapon workshop production fields](./sem/FBCB9319/knowledge/WEAPON_WORKSHOP_FIELDS.md): current and next goods IDs, interop pointer origin, and verified Vanilla workshop scope.
 
 ## Vanilla audits with mod integration
 

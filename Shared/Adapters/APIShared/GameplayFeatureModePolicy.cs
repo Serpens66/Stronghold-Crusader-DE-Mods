@@ -26,6 +26,8 @@ namespace Shared
         ImprovedHunterTargetSelection,
         /// <summary>ImprovedHunterPathfinding.</summary>
         ImprovedHunterPathfinding,
+        /// <summary>ImprovedHunterWildlifeRange.</summary>
+        ImprovedHunterWildlifeRange,
         /// <summary>CastleSpawning.</summary>
         CastleSpawning,
         /// <summary>FreeCastlePreview.</summary>
@@ -135,6 +137,10 @@ namespace Shared
                 case GameplayFeatureId.FreeCastlePreview:
                     expectedGuid = "CastlePlanner_Serp";
                     contexts = NonEditorGameplayContexts;
+                    break;
+                case GameplayFeatureId.ImprovedHunterWildlifeRange:
+                    expectedGuid = "ImprovedHunters_Serp";
+                    contexts = AllRecognizedContexts;
                     break;
                 case GameplayFeatureId.CastleBlueprints:
                     expectedGuid = "CastlePlanner_Serp";
@@ -292,6 +298,7 @@ namespace Shared
                 case "ImprovedHunters_Serp":
                     yield return GetProfile(modGuid, GameplayFeatureId.ImprovedHunterTargetSelection);
                     yield return GetProfile(modGuid, GameplayFeatureId.ImprovedHunterPathfinding);
+                    yield return GetProfile(modGuid, GameplayFeatureId.ImprovedHunterWildlifeRange);
                     break;
                 case "CastlePlanner_Serp":
                     yield return GetProfile(modGuid, GameplayFeatureId.CastleSpawning);

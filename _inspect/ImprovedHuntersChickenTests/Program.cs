@@ -162,9 +162,9 @@ static class Program
             }
         }
 
-        Assert(definitions.Count == 48, $"Expected 48 native pattern definitions, found {definitions.Count}.");
-        Assert(uniquelyResolvedNames.Count == 40,
-            $"Expected 40 uniquely resolved pattern contracts, found {uniquelyResolvedNames.Count}.");
+        Assert(definitions.Count == 49, $"Expected 49 native pattern definitions, found {definitions.Count}.");
+        Assert(uniquelyResolvedNames.Count == 41,
+            $"Expected 41 uniquely resolved pattern contracts, found {uniquelyResolvedNames.Count}.");
         int uniqueFallbackPatterns = 0;
         int ambiguousReferencePatterns = 0;
         foreach ((string name, byte?[] bytes, int expectedRva) in definitions)
@@ -356,6 +356,8 @@ static class Program
         Assert(GranaryChickenSpawnPolicy.DefaultTargetPerPlayer == 10, "The population default changed.");
         Assert(TannerMeatPolicy.DefaultMeatPerTrip == 5, "The Tanner default changed.");
         TestTannerRunTable();
+        TestWildlifeRange();
+        TestWildlifeOrigins();
         Assert(HunterSearchRangePolicy.Clamp(0) == 0 && HunterSearchRangePolicy.Clamp(-3) == 0 && HunterSearchRangePolicy.Clamp(5) == 21 &&
             HunterSearchRangePolicy.Clamp(40) == 40 && HunterSearchRangePolicy.Clamp(999) == 200, "The search range clamp changed.");
         Assert(HunterSearchRangePolicy.IsWithin(500, 0) && HunterSearchRangePolicy.IsWithin(30, 30) && !HunterSearchRangePolicy.IsWithin(31, 30),
@@ -385,6 +387,49 @@ static class Program
             "A capture from another candidate must be rejected.");
         Assert(!HunterQueryActorPolicy.IsMatchingCapture(170, 170, 0),
             "A capture without a reconstructed Hunter must be rejected.");
+    }
+
+    private static void TestWildlifeRange()
+    {
+        Assert(WildlifeRangePolicy.IsInside(450, 350, 400, 400, 100) && !WildlifeRangePolicy.IsInside(451, 400, 400, 400, 100) && !WildlifeRangePolicy.IsInside(400, 349, 400, 400, 100),
+            "The area must reach exactly half its size from the start place.");
+        short[] route = { 410, 400, 430, 400, 451, 400, 420, 400 };
+        Assert(WildlifeRangePolicy.CountBeforeLeaving(route, 2, 400, 400, 100) == 2, "A route inside the area must stay whole.");
+        Assert(WildlifeRangePolicy.CountBeforeLeaving(route, 4, 400, 400, 100) == 2, "A route must end before its first waypoint outside, also when a later one is inside again.");
+        Assert(WildlifeRangePolicy.CountBeforeLeaving(new short[] { 460, 400 }, 1, 400, 400, 100) == 0, "A route leaving at once must keep nothing.");
+        Assert(WildlifeRangePolicy.CountBeforeLeaving(route, 0, 400, 400, 100) == 0, "An empty route must stay empty.");
+    }
+
+    private static void TestWildlifeOrigins()
+    {
+        var table = new WildlifeOriginTable();
+        Assert(!table.IsCaptured && !table.TryFind(5, 50, out _), "A new table knows no herd.");
+        var deer = new WildlifeOrigin { IsDeer = true, Respawns = true, X = 400, Y = 300, Herd = 5, HerdSerial = 50, ExtinctSinceTick = WildlifeOrigin.NotExtinct };
+        Assert(table.TryAdd(deer) && table.TryFind(5, 50, out WildlifeOrigin found) && found.X == 400 && found.Y == 300, "An added herd must be found.");
+        Assert(!table.TryFind(5, 51, out _), "A record reused for a new herd must not count as the old one.");
+        Assert(table.TryAdd(new WildlifeOrigin { X = 100, Y = 200, Herd = 5, HerdSerial = 51, ExtinctSinceTick = 1234 }) && table.TryFind(5, 51, out _) && table.Count == 2 && table[0].HerdSerial == 50,
+            "A new herd on a reused record must leave the old start place in the table.");
+        Assert(!table.TryAdd(new WildlifeOrigin { X = 1, Y = 1, Herd = 0 }) && !table.TryAdd(new WildlifeOrigin { X = 800, Y = 1, Herd = 6 }) && !table.TryAdd(new WildlifeOrigin { X = 1, Y = 1, Herd = WildlifeOriginTable.HerdCapacity }),
+            "Entries outside the game's herds or grid must be refused.");
+        table.MarkCaptured();
+
+        byte[] data = table.Encode();
+        var restored = new WildlifeOriginTable();
+        Assert(restored.TryRestore(data) && restored.IsCaptured && restored.Count == 2, "The save record must restore the table.");
+        Assert(restored[0].IsDeer && restored[0].Respawns && restored[0].ExtinctSinceTick == WildlifeOrigin.NotExtinct && !restored[1].IsDeer && !restored[1].Respawns && restored[1].ExtinctSinceTick == 1234 && restored[1].X == 100,
+            "The save record must keep every field.");
+        Assert(restored.TryFind(5, 51, out _) && restored.TryFind(5, 50, out _) && !restored.TryFind(5, 49, out _), "After a load every entry must be found by its serial, also on a shared record.");
+        WildlifeOrigin stale = restored[0];
+        stale.ExtinctSinceTick = 99;
+        restored[0] = stale;
+        Assert(restored.TryFind(5, 51, out WildlifeOrigin current) && current.X == 100 && restored[0].ExtinctSinceTick == 99, "An extinct entry must not take a shared record from the current herd.");
+        stale.ExtinctSinceTick = WildlifeOrigin.NotExtinct;
+        restored[0] = stale;
+        Assert(data.AsSpan().SequenceEqual(restored.Encode()), "The same table must give the same bytes on every peer.");
+        Assert(!restored.TryRestore(data[..^1]) && !restored.IsCaptured && restored.Count == 0, "A damaged record must leave the table empty, so the herds are read again.");
+        Assert(!restored.TryRestore(null!) && !restored.TryRestore(new byte[] { 9, 0, 0, 0, 0 }), "An unknown record must be refused.");
+        table.Clear();
+        Assert(!table.IsCaptured && table.Count == 0 && !table.TryFind(5, 51, out _), "A cleared table must know nothing.");
     }
 
     private static unsafe void TestTannerRunTable()

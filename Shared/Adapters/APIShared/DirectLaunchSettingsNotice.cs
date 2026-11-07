@@ -40,6 +40,8 @@ namespace Shared
             {
                 availability.Configure("hunters.improved-target-selection", ToSharedProfile(modGuid, GameplayFeatureId.ImprovedHunterTargetSelection));
                 availability.Configure("hunters.improved-pathfinding", ToSharedProfile(modGuid, GameplayFeatureId.ImprovedHunterPathfinding));
+                availability.Configure("hunters.limit-wildlife-range", ToSharedProfile(modGuid, GameplayFeatureId.ImprovedHunterWildlifeRange));
+                availability.Configure("hunters.wildlife-range-size", ToSharedProfile(modGuid, GameplayFeatureId.ImprovedHunterWildlifeRange));
                 availability.Configure("hunters.allow-dead-targets", ToSharedProfile(modGuid, GameplayFeatureId.ImprovedHunterTargetSelection));
             }
             if (modGuid == "CastlePlanner_Serp")

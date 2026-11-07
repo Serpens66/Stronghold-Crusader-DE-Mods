@@ -78,8 +78,8 @@ Workshop product: `GameAction(SetNextWeaponMade = 1023, structure, good)` -> `0x
 `0xD5870`, which writes `+0x2EC` without a type check after comparing the global ID. A structure above
 32000 (Vanilla's Shift sends -1) instead selects a building type through `0xC52B0`, falling back to
 Fletchers for every good outside `0x13..0x16`. Readers use `+0x2EC` for the next run and `+0x2EA` as the
-latched run; both exist for type 12, 13 and 14 only in Vanilla. Vanilla's checksum `0x22073` skips
-`+0x2EC` but includes `+0x2EA`. New records are cleared in `0xB47E0`. The Extender names the same fields
+latched run; Vanilla uses them for types 12, 13 and 14. The building CRC in `0x22020` includes both words.
+The temporary zero at `0x22201` addresses `RSI+0x2EC`, with RSI already at public record `+0x10`. New records are cleared in `0xB47E0`. The Extender names the same fields
 `r_ProducedGoodId` (`+0x2EC`) and `r_NextProducedGoodId` (`+0x2EA`), the reverse of what they do.
 
 Worker yield `0x18D940(unit, base, bonusFlag)` (Extender: `b50PercentBonus`), 17 callers:
@@ -121,10 +121,22 @@ stage 8, otherwise 10. Nothing in Vanilla holds a stage once chosen. Chebyshev 2
 
 - `0x124E80` (deer) and `0x125290` (goats): `EDI = cell +0x28 + cell +0x48` for the sector of the herd's leader (`+0x5A`), grid
   `0x3395E10`, 80 by 80 sectors of 10 by 10 tiles, stride `0xA0`. Not zero and `+0x5F4` == 0 means flight (`0x127E60`,
-  `0x11DFE0`). `+0x48` counts non-animals of any player and fleeing herds, `+0x28` rabbits and types `0x57`/`0x58`. The grid knows
+  `0x11DFE0`). `+0x48` counts non-animals of any player and deer and goats of a fleeing herd, `+0x28` lions, hyenas and crocodiles (`0x126810`, one sector column at a time,
+  called from `0xD1AD0`), `+0x54` rabbits, `+0x24` camels; rabbits and camels scare nobody. A fleeing herd counts itself too. The grid knows
   neither sight nor connection, so a unit behind a wall in the sector scares a herd.
 - `0x123670`, from `0xCDE60`, only in mode 0 and below 6 animals: `0x11E150(0x7CC6720, art, x, y, height)`. `0xDC` makes a deer
   herd of 9 to 12, `0xE2` a goat herd of 4 to 5. Tile mask `0x4A5014B1` refuses a spot. Points `0x37EDBC0`, `0x39C94B0`.
+  Those tables only hold the first herd of each kind (`0x1171D0`, `0x117240`), not every placed herd.
+- Herd record (`0x7CC6720`, stride `0x688`): `+0x2C` owner, `+0x34` serial from `0x3665F84` (`0x119C00`), `+0x40` state (2 in use, 3 empty, 0 free), `+0x42` kind
+  (`0xD` deer, `0xE` lion, `0xF` rabbit, `0x10` camel, `0x28` goat, `0x29` hyena, `0x2A` crocodile; `0x117520` picks the update by it), `+0x5A` leader, `+0x5C` count,
+  `+0x60` member bits by unit ID, `+0x5B4` up to 10 route waypoints (x, y words), `+0x5DC` route index, `+0x5DE` route count, `+0x5F4` flight. A map holds its herds in these records, so they
+  are all there at its first tick. Corpses stay members until removed.
+- Routes (`0x127E60`, `0x129010` for rabbits only): a flood over the sectors from the leader, up to 5 sectors for deer (50 tiles) and 3 for goats, then waypoints outward in a direction by chance.
+  Every route starts where the herd is, so a herd can wander over its whole connected land. Flight takes the last waypoint at once.
+- Growth (`0x118130`, arguments confirmed at `0x124F96`, `0x1253A6`): each herd update counts up and every 100 updates rolls 28 in 128 for one more animal, whatever the herd's size, also for a
+  single animal, not in flight, not in the editor. `0x11B460` removes all above 30. Measured on `testanimals.map` (2026-11-07, `.work/a/hunters/079`, run `rsp`, flight between herds removed by the mod): a herd of 2 reached 30 in at most 12700 ticks, 453 per animal against 457 by the rule, 11 s at 40 ticks per second. In Vanilla's chain flight (97 % of all samples in flight on this map, 2 % with the mod's rule) growth nearly stands still.
+- `0x3665F28 == 1` is the editor: herd updates return before any route or growth.
+- Camels found new herds of their own (`0x124890`, `0x123C20`, `0x11E150`), seen in the same run as a new record with its own serial.
 - `0xFFC70` case `0x4E`: outside mode 0 the Hunter's hut button is off when `0x37EF97C` is 0 (deer and goats at map start,
   `0x94350`, `0x1860E0`). Confirmed in skirmish: with the setting off the button is disabled on a map without them.
 
