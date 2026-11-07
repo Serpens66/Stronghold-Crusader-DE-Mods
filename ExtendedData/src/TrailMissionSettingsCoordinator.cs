@@ -2148,15 +2148,14 @@ namespace ExtendedData
                 if (page == null || coopTrailExportCheckbox != null)
                     return;
                 CheckBox anchor = page.FindName("ExportBackup") as CheckBox;
-                Panel host = anchor == null ? null : VisualTreeHelper.GetParent(anchor) as Panel;
+                Grid host = anchor == null ? null : VisualTreeHelper.GetParent(anchor) as Grid;
                 if (anchor == null || host == null)
                     return;
-                Thickness rowMargin = anchor.Margin;
                 var checkbox = new CheckBox
                 {
                     Name = "ExtendedDataCoopExport",
                     Content = SerpLocalization.Get("ExtendedData.TrailMakerCoop"),
-                    ToolTip = SerpLocalization.Get("ExtendedData.TrailMakerCoopHelp"),
+                    ToolTip = Shared.MenuToolTip.Create(SerpLocalization.Get("ExtendedData.TrailMakerCoopHelp")),
                     Foreground = new SolidColorBrush(Color.FromArgb(byte.MaxValue, 0, 0, 0)),
                     FontSize = 20,
                     Style = anchor.Style,
@@ -2167,7 +2166,7 @@ namespace ExtendedData
                     IsChecked = IsMakerCoopEnabled(),
                     Visibility = EditorEnabled ? Visibility.Visible : Visibility.Collapsed,
                 };
-                ToolTipService.SetShowDuration(checkbox, 60000);
+                ToolTipService.SetShowDuration(checkbox, Shared.MenuToolTip.Duration);
                 checkbox.Click += (_, __) =>
                 {
                     try
@@ -2182,24 +2181,31 @@ namespace ExtendedData
                     }
                 };
 
-                // Keep both export options in one centered row. This remains readable with
-                // localized labels and avoids consuming the vertical space above Backup.
+                var options = new StackPanel
+                {
+                    Orientation = Orientation.Vertical,
+                    MaxWidth = 560,
+                    Margin = anchor.Margin,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                };
+                Grid.SetRow(options, Grid.GetRow(anchor));
                 var optionRow = new StackPanel
                 {
                     Orientation = Orientation.Horizontal,
-                    Margin = rowMargin,
                     HorizontalAlignment = HorizontalAlignment.Center,
-                    VerticalAlignment = VerticalAlignment.Bottom,
                 };
+                CheckBox mediaCheckbox = CreateLordMediaCheckbox(checkbox);
                 host.Children.Remove(anchor);
                 anchor.Margin = new Thickness(0);
                 anchor.HorizontalAlignment = HorizontalAlignment.Left;
                 anchor.VerticalAlignment = VerticalAlignment.Center;
                 optionRow.Children.Add(anchor);
                 optionRow.Children.Add(checkbox);
-                host.Children.Add(optionRow);
+                options.Children.Add(optionRow);
+                options.Children.Add(mediaCheckbox);
+                host.Children.Add(options);
                 coopTrailExportCheckbox = checkbox;
-                AddLordMediaCheckbox(host, optionRow);
+                lordMediaExportCheckbox = mediaCheckbox;
             }
 
             private static string GetCoopMarkerPath(string root) => IOPath.Combine(root, "cooptrail.enabled");

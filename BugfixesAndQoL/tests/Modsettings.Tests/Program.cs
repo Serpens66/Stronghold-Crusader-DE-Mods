@@ -66,14 +66,28 @@ internal static partial class Program
             string game=@"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition";
             string api=args.Length>2?args[2]:Environment.GetEnvironmentVariable("API_SHARED_DIR");
             string[] dirs={Path.GetDirectoryName(dll),api,Path.Combine(workspace,"APIShared/BepInEx/plugins/APIShared_Serp"),Path.Combine(game,"BepInEx/plugins/000shcdese"),Path.Combine(game,"BepInEx/core"),Path.Combine(game,"Stronghold Crusader Definitive Edition_Data/Managed")};
+            var byteLoaded = new Dictionary<string, Assembly>(StringComparer.OrdinalIgnoreCase);
             AppDomain.CurrentDomain.AssemblyResolve+=(_,e)=>
             {
                 string name=new AssemblyName(e.Name).Name+".dll";
                 // The explicit BepInEx reference can retain Windows download-zone metadata.
                 // Keep game/Noesis load-context identity; do not change installed files.
-                foreach(string dir in dirs){if(string.IsNullOrWhiteSpace(dir))continue;string path=Path.Combine(dir,name);if(File.Exists(path))return (name=="BepInEx.dll" || name.StartsWith("Mono.",StringComparison.Ordinal) || name.StartsWith("MonoMod.",StringComparison.Ordinal))?Assembly.Load(File.ReadAllBytes(path)):Assembly.LoadFrom(path);}return null;
+                foreach (string dir in dirs)
+                {
+                    if (string.IsNullOrWhiteSpace(dir)) continue;
+                    string path = Path.Combine(dir, name);
+                    if (!File.Exists(path)) continue;
+                    if (name != "BepInEx.dll" && !name.StartsWith("Mono.", StringComparison.Ordinal) &&
+                        !name.StartsWith("MonoMod.", StringComparison.Ordinal)) return Assembly.LoadFrom(path);
+                    // The test runner and production DLL must share the exact Cecil/MonoMod type identities.
+                    if (!byteLoaded.TryGetValue(path, out Assembly loaded))
+                        byteLoaded.Add(path, loaded = Assembly.Load(File.ReadAllBytes(path)));
+                    return loaded;
+                }
+                return null;
             };
             mod=Assembly.LoadFrom(dll);modelType=mod.GetType("BugfixesAndQoL.BugfixesAndQoLViewModel",true);
+            FixesSuppressMessagesSyncTests(game);
             object presetModel = FormatterServices.GetUninitializedObject(modelType);
             var retired = modelType.GetMethod("IsRetiredPresetProperty", All);
             foreach (string key in new[] { "EnableSpectatorPerspective", "EnableEliminatedPlayersBecomeSpectators" })
@@ -185,6 +199,78 @@ internal static partial class Program
         }
         catch(Exception ex){Console.Error.WriteLine(ex);return 1;}
     }
+
+    private sealed class UnrelatedSettings
+    {
+        public bool SuppressMessages { get; set; }
+    }
+
+    private static void FixesSuppressMessagesSyncTests(string game)
+    {
+        string path = Path.Combine(game, "BepInEx/plugins/fixes/fixes.dll");
+        if (!File.Exists(path)) return;
+
+        var feature = mod.GetType("BugfixesAndQoL.FixesSuppressMessagesSync", true);
+        var findProperty = feature.GetMethod("FindLocalProperty", All);
+        Check(findProperty.Invoke(null, new object[] { typeof(Program).Assembly }) == null,
+            "a different mod cannot opt into the Fixes compatibility filter by using the same property name");
+        var property = (PropertyInfo)findProperty.Invoke(null, new object[] { Assembly.LoadFrom(path) });
+        if (property == null) return; // A newer Fixes build can correct the missing companion itself.
+
+        var allowSend = (Func<PropertyInfo, bool, bool>)Delegate.CreateDelegate(typeof(Func<PropertyInfo, bool, bool>),
+            feature.GetMethod("AllowSend", All));
+        var isLocal = (Func<PropertyInfo, bool>)Delegate.CreateDelegate(typeof(Func<PropertyInfo, bool>),
+            feature.GetMethod("IsLocal", All));
+        var active = feature.GetField("localProperty", All);
+        Check(allowSend(property, true) && !isLocal(property), "unpublished compatibility hooks pass through original routing");
+        try
+        {
+            active.SetValue(null, property);
+            var other = property.DeclaringType.GetProperty("PlayerKeepRotation");
+            var namesake = typeof(UnrelatedSettings).GetProperty(nameof(UnrelatedSettings.SuppressMessages));
+            Check(!allowSend(property, true) && isLocal(property), "Fixes suppression stays local in both directions");
+            Check(other != null && allowSend(other, true) && !isLocal(other), "Fixes keep rotation still synchronizes");
+            Check(allowSend(namesake, true) && !isLocal(namesake) && !allowSend(namesake, false),
+                "other mods and Extender routing decisions are preserved");
+        }
+        finally { active.SetValue(null, null); }
+
+        // Transform and compile the real installed Extender bodies, without patching the game or opening a lobby.
+        var manager = Type.GetType("SHCDESE.API.GameXAMLManagerAPI, SHCDESE", true);
+        var change = (MethodInfo)feature.GetMethod("FindChangeHandler", All).Invoke(null, new object[] { manager });
+        var probe = feature.GetMethod("Probe", All);
+        var patchSend = feature.GetMethod("PatchSend", All);
+        MonoMod.Cil.ILContext.Manipulator changePatch = il => patchSend.Invoke(null, new object[] { il, "BroadcastSettingChange" });
+        MonoMod.Cil.ILContext.Manipulator joinPatch = il => patchSend.Invoke(null, new object[] { il, "SendPacketToSteamId" });
+        var receivePatch = (MonoMod.Cil.ILContext.Manipulator)Delegate.CreateDelegate(typeof(MonoMod.Cil.ILContext.Manipulator),
+            feature.GetMethod("PatchReceive", All));
+        var receive = manager.GetMethod("ApplyPerPlayerUpdate", All);
+        probe.Invoke(null, new object[] { change, changePatch });
+        probe.Invoke(null, new object[] { manager.GetMethod("SyncSettingsToNewPlayer", All), joinPatch });
+        using (var definition = new MonoMod.Utils.DynamicMethodDefinition(receive))
+        using (var context = new MonoMod.Cil.ILContext(definition.Definition))
+        {
+            context.ReferenceBag = MonoMod.Cil.RuntimeILReferenceBag.Instance;
+            context.Invoke(il =>
+            {
+                var original = il.Body.Instructions[0];
+                receivePatch(il);
+                var guardReturn = original.Previous;
+                Check(guardReturn.OpCode == Mono.Cecil.Cil.OpCodes.Ret &&
+                    guardReturn.Previous.Operand is MonoMod.Cil.ILLabel continueOriginal && continueOriginal.Target == original,
+                    "the legacy receive guard returns before the original body and other properties branch to it");
+            });
+            var patchedReceive = definition.Generate();
+            try
+            {
+                active.SetValue(null, property);
+                patchedReceive.Invoke(null, new object[] { null, property, null, null, null });
+                Check(true, "the transformed Extender body executes for a legacy Fixes property");
+            }
+            finally { active.SetValue(null, null); }
+        }
+    }
+
     private static void Policies()
     {
         foreach(string name in new[]{"LobbyYellowContrastPolicy","BriefingNoStartingGoldFixPolicy"})
@@ -216,7 +302,9 @@ internal static partial class Program
             Check(body.Select((v,i)=>new{v,i}).Any(x=>x.v.Item1==OpCodes.Stfld && Equals(x.v.Item2,field) && x.i>0 && body[x.i-1].Item1==OpCodes.Ldc_I4_1),"new setting constructor default true: "+pair.Key);
             XmlNode node=xaml.SelectSingleNode("//*[local-name()='CheckBox' and contains(@IsChecked,'"+pair.Key+",')]");
             Check(node!=null,"new setting has a UI editor");
-            Check(node.Attributes["ToolTipService.ShowDuration"]?.Value=="60000" && node.Attributes["ToolTip"]!=null,"new setting tooltip contract");
+            XmlNode popupHelp = node.SelectSingleNode("./*[local-name()='CheckBox.ToolTip']/*[local-name()='ToolTip']/@Content");
+            Check(node.Attributes["ToolTipService.ShowDuration"]?.Value == "60000" &&
+                !string.IsNullOrWhiteSpace(popupHelp?.Value), "new setting tooltip contract");
             string role=pair.Value?"CanEditHostSettings":"CanEditClientSettings";
             Check(Ancestors(node).Any(a=>a.Attributes?["IsEnabled"]?.Value=="{Binding "+role+"}"),"new editor inherits its own role authority");
         }

@@ -8,7 +8,7 @@ namespace CheatMod
 {
     [BepInDependency(ScriptExtenderGuid, "2.3.0")]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
-    [BepInDependency("APIShared_Serp", "0.23.0")]
+    [BepInDependency("APIShared_Serp", "0.27.0")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class CheatModPlugin : BaseUnityPlugin
     {

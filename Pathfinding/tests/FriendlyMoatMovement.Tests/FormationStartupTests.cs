@@ -10,7 +10,7 @@ internal static class FormationStartupTests
         string[] paths = {
             "Pathfinding/src/Formations/Feature/FormationFeature.cs", "Pathfinding/src/Formations/Feature/FormationMenuViewModel.cs",
             "Pathfinding/src/Formations/Feature/FormationSelectionMigration.cs", "Pathfinding/src/Formations/FormationModel.cs",
-            "Pathfinding/src/Formations/FormationPresentation.cs", "Pathfinding/src/Formations/Feature/ArrangementTooltipFontConverter.cs"
+            "Pathfinding/src/Formations/FormationPresentation.cs"
         };
         var gestureUpdate = CSharpSyntaxTree.ParseText(FeatureSourceModel.Read(root, "FormationRuntime", "Pathfinding/src/Formations")).GetRoot().DescendantNodes()
             .OfType<MethodDeclarationSyntax>().Single(m => m.Identifier.Text == "UpdateGesture").ToFullString();
@@ -57,10 +57,6 @@ namespace Noesis {
         public event MouseEventHandler MouseLeave { add {leave+=value;LeaveHandlers++;} remove {leave-=value;LeaveHandlers--;} }
         public void Enter()=>enter?.Invoke(this,new MouseEventArgs());
         public void Leave()=>leave?.Invoke(this,new MouseEventArgs());
-    }
-    public interface IValueConverter {
-        object Convert(object v,Type t,object p,System.Globalization.CultureInfo c);
-        object ConvertBack(object v,Type t,object p,System.Globalization.CultureInfo c);
     }
     public struct Color { public static Color FromArgb(byte a,byte r,byte g,byte b)=>default; }
     public class SolidColorBrush { public SolidColorBrush(Color color) {} }
@@ -241,11 +237,6 @@ namespace Pathfinding {
             menu.ToggleMenuCommand.Execute(null);Require(!menu.MenuVisible,"Foreign HUD opened formation");
             menu.OwnHudAvailable=()=>true;menu.RefreshHostState();menu.ToggleMenuCommand.Execute(null);
             Require(menu.MenuVisible,"Own HUD did not recover");menu.CloseMenu();
-            var converter=new ArrangementTooltipFontConverter();
-            foreach(float size in new[]{16f,20f,36f}) {
-                object doubled=converter.Convert(size,typeof(float),null,System.Globalization.CultureInfo.InvariantCulture);
-                Require(doubled is float f && f==size*2f,"Scaled tooltip font is not doubled float");
-            }
             RememberedAspectFixture.Run(menu,config,options);
         }
     }
@@ -376,6 +367,6 @@ namespace Pathfinding {
         if(!result.Success)throw new Exception(string.Join("\n",result.Diagnostics.Where(d=>d.Severity==DiagnosticSeverity.Error)));
         try { Assembly.Load(output.ToArray()).GetType("Pathfinding.StartupFixture")!.GetMethod("Run")!.Invoke(null,null); }
         catch(TargetInvocationException e) { throw e.InnerException??e; }
-        Console.WriteLine("PASS: actual Configure/Initialize/menu commands executed: independent early hosts, initialization/runtime failure, checkbox, six icons/config changes, close/open and map/selection recovery; coherent wheel update, remembered proportions, count changes, independent kinds, legacy migration and config reload; own/foreign HUD isolation and scaled tooltip fonts.");
+        Console.WriteLine("PASS: actual Configure/Initialize/menu commands executed: independent early hosts, initialization/runtime failure, checkbox, six icons/config changes, close/open and map/selection recovery; coherent wheel update, remembered proportions, count changes, independent kinds, legacy migration and config reload; own/foreign HUD isolation.");
     }
 }

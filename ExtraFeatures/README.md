@@ -55,6 +55,30 @@ With [BugfixesAndQoL's Peace Time reduction](../BugfixesAndQoL/README.md#reduce-
 
 ## Economy features
 
+### Tree Respawn
+
+Set a regrowth delay in **Economy** from **-1 to 120 minutes** in one-minute
+steps. **-1** is off by default. At **0**, a fully removed tree can regrow on the
+next check, which runs once per game minute. A delay of **10 minutes** is a
+starting point at game speed 40. The timer pauses with the game.
+
+Each original woodland tree on the map has its own timer. Once the tree is
+completely removed, a seedling of the same species can grow on its original tile
+when the delay has passed and the tile is clear. A natural tree growing on that
+tile resets the timer. Trees that spread to other tiles do not add respawn
+locations. Savegames created before Tree Respawn was available keep it off for
+that match.
+
+### Only cut down mature trees
+
+This host checkbox is on by default and works independently of Tree Respawn.
+Human and AI woodcutters wait until healthy young woodland trees reach growth
+stage 3, when they give a full wood yield. Woodcutters can finish cutting damaged
+young trees and continue collecting wood from felled logs.
+
+The host sets both options between matches. Changes apply when starting or
+loading a map.
+
 ### Customize the fixed production bonus
 Under **Population and Economy**, the host can set the fixed production bonus from
 **-100% to +1000%** before starting a match. It applies to human and AI production

@@ -145,7 +145,7 @@ internal static partial class Program
             Check(marker.Attributes?["DataContext"]?.Value == "{Binding SettingsPresentation." + editor.Property + "}" &&
                 marker.Attributes?["Content"]?.Value == "{Binding Symbol}" &&
                 marker.Attributes?["Style"]?.Value == "{StaticResource RecommendationMarker}" &&
-                marker.Attributes?["ToolTip"]?.Value == "{Binding ToolTip}" &&
+                marker.SelectSingleNode("./*[local-name()='ContentControl.ToolTip']/*[local-name()='ToolTip']/@Content")?.Value == "{Binding ToolTip}" &&
                 marker.Attributes?["ToolTipService.ShowDuration"]?.Value == "60000" &&
                 SearchAttribute(marker, "Exclude") == "True" &&
                 marker.Attributes?["Grid.Column"] == null &&
@@ -459,7 +459,8 @@ internal static partial class Program
 
         Check(topicNodes.All(n => !n.SelectNodes(".//*[local-name()='ScrollViewer']").Cast<XmlNode>().Any()), "no nested scrolling in topics");
         Check(nodes.Where(n => n.LocalName == "Button" && Ancestors(n).Any(a => SearchAttribute(a, "IsSection") == "True"))
-            .All(n => n.Attributes?["ToolTipService.ShowDuration"]?.Value == "60000" && n.Attributes?["ToolTip"] != null), "new and retained buttons have 60s tooltips");
+            .All(n => n.Attributes?["ToolTipService.ShowDuration"]?.Value == "60000" &&
+                n.SelectSingleNode("./*[local-name()='Button.ToolTip']/*[local-name()='ToolTip']/@Content") != null), "new and retained buttons have 60s tooltips");
         string[] expectedKeys = null;
         foreach (string locale in Directory.GetFiles(Path.Combine(workspace, "BugfixesAndQoL/Locales"), "*.txt"))
         {

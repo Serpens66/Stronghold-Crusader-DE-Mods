@@ -3,7 +3,7 @@
   "Author": "Serpens66",
   "Name": "Extra Features",
   "Description": "Optional gameplay additions and economy customization for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.131",
+  "Version": "1.0.132",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.0",
   "MaximumScriptExtenderVersion": "",
@@ -16,6 +16,13 @@
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.132",
+      "Changes": [
+        "Add Tree Respawn for original woodland trees. Set a delay of 0 to 120 minutes in Economy, or leave it off at -1. Fully removed trees can return as seedlings on their original tiles.",
+        "Add Only cut down mature trees, enabled by default for human and AI woodcutters. Healthy young woodland trees can reach full yield, while damaged trees and felled logs remain harvestable."
+      ]
+    },
     {
       "Version": "1.0.131",
       "Changes": [

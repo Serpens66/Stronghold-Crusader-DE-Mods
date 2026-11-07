@@ -36,7 +36,7 @@ namespace BugfixesAndQoL
 
         public const string PluginGuid = "BugfixesAndQoL_Serp";
         public const string PluginName = "Bugfixes and QoL";
-        public const string PluginVersion = "1.0.214";
+        public const string PluginVersion = "1.0.215";
 
         private static DisplayResolutionPersistenceHook displayResolutionPersistenceHook;
         private static DamagedHealthBarsRuntime damagedHealthBarsRuntime;
@@ -92,6 +92,8 @@ namespace BugfixesAndQoL
                 SteamInviteBlacklistStore.GetDefaultPath(), SteamInviteBlacklistStore.GetLegacyPath(),
                 message => Shared.DebugLogHelper.LogWarningLimited(Logger, "invite-blacklist-storage", message));
             Settings = new BugfixesAndQoLViewModel(legacySomeSettingsLoaded, steamInviteBlacklist, Logger);
+            if (Chainloader.PluginInfos.TryGetValue("fixes", out PluginInfo fixes) && fixes.Instance != null)
+                FixesSuppressMessagesSync.Initialize(Logger, fixes.Instance.GetType().Assembly);
             LobbySaveLoadingFeature.Initialize(Logger, Settings);
             BuildPreview.BuildPreviewRuntime.Configure(Logger, Settings);
             ArabianIdleSoundRuntime.Configure(Logger, Settings);

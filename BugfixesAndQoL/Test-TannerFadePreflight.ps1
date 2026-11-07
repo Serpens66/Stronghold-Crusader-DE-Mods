@@ -47,14 +47,18 @@ foreach ($contract in @(
     'Volatile.Read(ref enabled) == 0')) {
     if (-not $source.Contains($contract)) { throw "Missing tannery native contract: $contract" }
 }
+[xml]$settings = $xaml
+$tanneryEditor = $settings.SelectSingleNode("//*[local-name()='CheckBox'][@IsChecked='{Binding EnableTanneryAnimationFix, Mode=TwoWay}']")
+$tanneryHelp = if ($tanneryEditor) {
+    $tanneryEditor.SelectSingleNode("./*[local-name()='CheckBox.ToolTip']/*[local-name()='ToolTip']/@Content")
+}
 if ($source.Contains('GameTimeManagerAPI.Instance.OnTick') -or
     $source.Contains('PacketWriterRva') -or
     $source -match '\.(Undo|Disable|Apply)\s*\(' -or
     -not $state.Contains('FadeUpdates = 64') -or
     -not $runtime.Contains('private static NativeTannerFade processNativeTannerFade;') -or
     -not [regex]::IsMatch($view, '\[SyncHostOnly\]\s+public bool EnableTanneryAnimationFix') -or
-    -not $xaml.Contains('IsChecked="{Binding EnableTanneryAnimationFix, Mode=TwoWay}"') -or
-    -not $xaml.Contains('ToolTip="{Binding EnableTanneryAnimationFixHelpText}"')) {
+    !$tanneryHelp -or $tanneryHelp.Value -cne '{Binding EnableTanneryAnimationFixHelpText}') {
     throw 'Tannery lifecycle, settings or hook contract failed.'
 }
 

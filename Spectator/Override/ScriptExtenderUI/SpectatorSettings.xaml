@@ -3,7 +3,7 @@
       xmlns:ui="clr-namespace:SHCDESE.UI;assembly=SHCDESE"
       xmlns:sys="clr-namespace:System;assembly=mscorlib"
       xmlns:shared="clr-namespace:Shared;assembly=APIShared"
-      xmlns:apiui="clr-namespace:APIShared.ModSettings;assembly=APIShared" xmlns:seui="clr-namespace:SHCDESE.UI;assembly=SHCDESE"
+      xmlns:apiui="clr-namespace:APIShared.ModSettings;assembly=APIShared"
       shared:ModSettingsMode.Availability="{Binding System_ModeAvailability}"
             shared:ModSettingsSearch.SourceModel="{Binding}"
       shared:ModSettingsSearch.StateFilter="{Binding System_ModSettingsSearchStateFilter}"
@@ -46,15 +46,15 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}"
       <Border Visibility="{Binding System_PresetOperationErrorVisibility}" BorderBrush="#FFFF7777" BorderThickness="1" CornerRadius="3" Padding="8" Margin="0,0,0,8" shared:ModSettingsSearch.Exclude="True">
         <StackPanel Orientation="Horizontal"><TextBlock Text="{Binding System_PresetOperationStatusText}" Foreground="#FFFFAAAA" TextWrapping="Wrap" MaxWidth="650"/><Button Content="{Binding System_PresetStatusDismissText}" Command="{Binding System_DismissPresetStatusCommand}" ToolTipService.ShowDuration="60000" Padding="8,2" Margin="8,0,0,0" VerticalAlignment="Top"><Button.ToolTip><ToolTip Style="{StaticResource SpectatorPopupStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding System_PresetStatusDismissText}"/></Button.ToolTip></Button></StackPanel>
       </Border>
-      <StackPanel Orientation="Horizontal" Visibility="{Binding System_SettingsSourceVisibility}" Margin="0,0,0,8" ToolTipService.ShowDuration="60000" ToolTip="{Binding System_SettingsSourceHelpText}" shared:ModSettingsSearch.Exclude="True">
+      <StackPanel Orientation="Horizontal" Visibility="{Binding System_SettingsSourceVisibility}" Margin="0,0,0,8" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True"><StackPanel.ToolTip><ToolTip Style="{StaticResource SpectatorPopupStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding System_SettingsSourceHelpText}"/></StackPanel.ToolTip>
         <TextBlock Text="{Binding System_SettingsSourceText}" Foreground="White" FontWeight="Bold" VerticalAlignment="Center"/>
-        <ComboBox ItemsSource="{Binding System_SettingsSources}" SelectedItem="{Binding System_SelectedSettingsSource, Mode=TwoWay}" ToolTipService.ShowDuration="60000" ToolTip="{Binding System_SettingsSourceHelpText}" Width="260" Margin="8,0,0,0"/>
+        <ComboBox ItemsSource="{Binding System_SettingsSources}" SelectedItem="{Binding System_SelectedSettingsSource, Mode=TwoWay}" ToolTipService.ShowDuration="60000" Width="260" Margin="8,0,0,0"><ComboBox.ToolTip><ToolTip Style="{StaticResource SpectatorPopupStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding System_SettingsSourceHelpText}"/></ComboBox.ToolTip></ComboBox>
         <Button IsEnabled="{Binding System_CanLoadSettingsSource}" Content="{Binding System_SettingsSourceLoadText}" Command="{Binding System_LoadSettingsSourceCommand}" ToolTipService.ShowDuration="60000" Padding="10,3" Margin="8,0,0,0"><Button.ToolTip><ToolTip Style="{StaticResource SpectatorPopupStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding System_SettingsSourceHelpText}"/></Button.ToolTip></Button>
       </StackPanel>
       <Border Visibility="{Binding System_PresetLoadPanelVisibility}" BorderBrush="#FF77AAFF" BorderThickness="1" CornerRadius="3" Padding="8" Margin="0,0,0,8" shared:ModSettingsSearch.Exclude="True">
         <StackPanel>
           <TextBlock Text="{Binding System_PresetLoadText}" Foreground="White" FontWeight="Bold" Margin="0,0,0,6"/>
-          <ComboBox ItemsSource="{Binding System_PresetLoadEntries}" SelectedItem="{Binding System_SelectedPresetLoadEntry, Mode=TwoWay}" Width="530" HorizontalAlignment="Left" ToolTipService.ShowDuration="60000" ToolTip="{Binding System_SelectedPresetLoadEntry.Description}"/>
+          <ComboBox ItemsSource="{Binding System_PresetLoadEntries}" SelectedItem="{Binding System_SelectedPresetLoadEntry, Mode=TwoWay}" Width="530" HorizontalAlignment="Left" ToolTipService.ShowDuration="60000"><ComboBox.ToolTip><ToolTip Style="{StaticResource SpectatorPopupStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding System_SelectedPresetLoadEntry.Description}"/></ComboBox.ToolTip></ComboBox>
           <TextBlock Text="{Binding System_SelectedPresetLoadEntry.Description}" Foreground="#CCCCCC" TextWrapping="Wrap" MaxWidth="530" HorizontalAlignment="Left" Margin="0,5,0,0"/>
           <TextBlock Text="{Binding System_PresetLoadSelectionHelpText}" Foreground="#FFBFCFE8" TextWrapping="Wrap" MaxWidth="530" HorizontalAlignment="Left" Margin="0,5,0,0"/>
           <StackPanel Orientation="Horizontal" Margin="0,7,0,0">
@@ -69,7 +69,7 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}"
           <TextBlock Text="{Binding System_PresetSaveText}" Foreground="White" FontWeight="Bold" Margin="0,0,0,6"/>
           <StackPanel Orientation="Horizontal" Margin="0,0,0,5">
             <TextBlock Text="{Binding System_PresetSaveTargetText}" Foreground="White" VerticalAlignment="Center" Width="140"/>
-            <ComboBox ItemsSource="{Binding System_PresetSaveTargets}" SelectedItem="{Binding System_SelectedPresetSaveTarget, Mode=TwoWay}" ToolTipService.ShowDuration="60000" ToolTip="{Binding System_PresetSaveTargetText}" Width="260"/>
+            <ComboBox ItemsSource="{Binding System_PresetSaveTargets}" SelectedItem="{Binding System_SelectedPresetSaveTarget, Mode=TwoWay}" ToolTipService.ShowDuration="60000" Width="260"><ComboBox.ToolTip><ToolTip Style="{StaticResource SpectatorPopupStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding System_PresetSaveTargetText}"/></ComboBox.ToolTip></ComboBox>
           </StackPanel>
           <StackPanel Orientation="Horizontal">
             <TextBlock Text="{Binding System_PresetSaveNameText}" Foreground="White" VerticalAlignment="Center" Width="140"/>
@@ -81,7 +81,7 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}"
           </StackPanel>
           <StackPanel Orientation="Horizontal" Margin="0,6,0,4">
             <TextBlock Text="{Binding System_PresetSaveBulkModeText}" ToolTipService.ShowDuration="60000" Foreground="White" VerticalAlignment="Center" Margin="0,0,6,0"><TextBlock.ToolTip><ToolTip Style="{StaticResource SpectatorPopupStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding System_PresetSaveBulkModeHelpText}"/></TextBlock.ToolTip></TextBlock>
-            <ComboBox ItemsSource="{Binding System_PresetSaveBulkModeOptions}" SelectedIndex="{Binding System_PresetSaveBulkModeIndex, Mode=TwoWay}" ToolTipService.ShowDuration="60000" ToolTip="{Binding System_PresetSaveBulkModeHelpText}" Width="150"/>
+            <ComboBox ItemsSource="{Binding System_PresetSaveBulkModeOptions}" SelectedIndex="{Binding System_PresetSaveBulkModeIndex, Mode=TwoWay}" ToolTipService.ShowDuration="60000" Width="150"><ComboBox.ToolTip><ToolTip Style="{StaticResource SpectatorPopupStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding System_PresetSaveBulkModeHelpText}"/></ComboBox.ToolTip></ComboBox>
           </StackPanel>
           <ScrollViewer HorizontalAlignment="Left" Width="530" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto" MaxHeight="220">
             <ScrollViewer.Resources>
@@ -93,7 +93,7 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}"
                 <StackPanel Orientation="Horizontal" Margin="0,1">
                   <TextBlock Text="{Binding PropertyName}" ToolTipService.ShowDuration="60000" Foreground="White" Width="300" VerticalAlignment="Center"><TextBlock.ToolTip><ToolTip Style="{StaticResource SpectatorPopupStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding PropertyName}"/></TextBlock.ToolTip></TextBlock>
                   <TextBlock Text="{Binding ScopeText}" Foreground="#BBBBBB" Width="70" VerticalAlignment="Center"/>
-                  <ComboBox ItemsSource="{Binding ModeOptions}" SelectedIndex="{Binding SelectedModeIndex, Mode=TwoWay}" ToolTipService.ShowDuration="60000" ToolTip="{Binding PropertyName}" Width="130"/>
+                  <ComboBox ItemsSource="{Binding ModeOptions}" SelectedIndex="{Binding SelectedModeIndex, Mode=TwoWay}" ToolTipService.ShowDuration="60000" Width="130"><ComboBox.ToolTip><ToolTip Style="{StaticResource SpectatorPopupStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding PropertyName}"/></ComboBox.ToolTip></ComboBox>
                 </StackPanel>
               </DataTemplate>
             </ItemsControl.ItemTemplate>
@@ -114,7 +114,7 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}"
         </StackPanel>
         <WrapPanel Orientation="Horizontal" Margin="0,5,0,0">
           <TextBlock Text="{Binding System_ModSettingsSearchStateLabelText}" Foreground="White" VerticalAlignment="Center" Margin="0,0,8,0"/>
-          <ComboBox ItemsSource="{Binding System_ModSettingsSearchStateFilters}" SelectedIndex="{Binding System_ModSettingsSearchStateFilterIndex, Mode=TwoWay}" MinWidth="140" ToolTip="{Binding System_ModSettingsSearchStateHelpText}" ToolTipService.ShowDuration="60000"/>
+          <ComboBox ItemsSource="{Binding System_ModSettingsSearchStateFilters}" SelectedIndex="{Binding System_ModSettingsSearchStateFilterIndex, Mode=TwoWay}" MinWidth="140" ToolTipService.ShowDuration="60000"><ComboBox.ToolTip><ToolTip Style="{StaticResource SpectatorPopupStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding System_ModSettingsSearchStateHelpText}"/></ComboBox.ToolTip></ComboBox>
         </WrapPanel>
         <TextBlock Text="{Binding System_ModSettingsSearchNoResultsText}" Visibility="{Binding System_ModSettingsSearchNoResultsVisibility}" Foreground="#FFCC66" HorizontalAlignment="Left" Margin="0,4,0,0"/>
       </StackPanel>

@@ -13,7 +13,11 @@ using BepInEx.Logging;
 using CrusaderDE;
 using MonoMod.RuntimeDetour;
 using SHCDESE.API;
+using BindingBase = Noesis.BindingBase;
+using BindingOperations = Noesis.BindingOperations;
 using Button = Noesis.Button;
+using DependencyProperty = Noesis.DependencyProperty;
+using ToolTip = Noesis.ToolTip;
 using ToolTipService = Noesis.ToolTipService;
 using APIShared;
 
@@ -85,6 +89,9 @@ namespace CastlePlanner.AIVPlacement
         private Button blockedReadyButton;
         private bool blockedReadyButtonWasEnabled;
         private object blockedReadyButtonToolTip;
+        private object blockedReadyButtonToolTipDuration;
+        private object blockedReadyButtonToolTipShowOnDisabled;
+        private ToolTip checkingReadyToolTip;
         private int moatStatusDirty;
 
         public AivPlacementRuntime(ManualLogSource log, Func<bool> isEnabled)
@@ -303,6 +310,8 @@ namespace CastlePlanner.AIVPlacement
                 {
                     lastUiLocale = locale;
                     selectionDialog.RefreshLocalizedStatus();
+                    if (checkingReadyToolTip != null)
+                        checkingReadyToolTip.Content = SerpLocalization.Get(SerpLocalization.AivPlacementChecking);
                 }
                 LobbyStateCapture capture = Capture(frontend);
                 string fingerprint = LobbyRequestBuilder.BuildFingerprint(capture);
@@ -892,12 +901,34 @@ namespace CastlePlanner.AIVPlacement
                 RestoreBlockedReadyButton();
                 blockedReadyButton = readyButton;
                 blockedReadyButtonWasEnabled = readyButton.IsEnabled;
-                blockedReadyButtonToolTip = readyButton.ToolTip;
+                readyButton.IsEnabled = false;
+                ApplyReadyButtonToolTip(readyButton);
             }
+            else if (readyButton.IsEnabled)
+            {
+                // Vanilla can reevaluate readiness while the placement check is still pending.
+                readyButton.IsEnabled = false;
+            }
+        }
 
-            readyButton.IsEnabled = false;
-            readyButton.ToolTip = SerpLocalization.Get(SerpLocalization.AivPlacementChecking);
-            ToolTipService.SetShowOnDisabled(readyButton, true);
+        private void ApplyReadyButtonToolTip(Button button)
+        {
+            try
+            {
+                ToolTip tip = Shared.MenuToolTip.Create(SerpLocalization.Get(SerpLocalization.AivPlacementChecking));
+                blockedReadyButtonToolTip = CaptureLocalProperty(button, ToolTipService.ToolTipProperty);
+                blockedReadyButtonToolTipDuration = CaptureLocalProperty(button, ToolTipService.ShowDurationProperty);
+                blockedReadyButtonToolTipShowOnDisabled = CaptureLocalProperty(button, ToolTipService.ShowOnDisabledProperty);
+                checkingReadyToolTip = tip;
+                button.ToolTip = tip;
+                ToolTipService.SetShowDuration(button, Shared.MenuToolTip.Duration);
+                ToolTipService.SetShowOnDisabled(button, true);
+            }
+            catch (Exception ex)
+            {
+                // A presentation failure must never let the host bypass a pending placement check.
+                LogErrorOnce("ready-tooltip", $"Could not show the AIV placement check tooltip: {ex}");
+            }
         }
 
         private void LeaveLobbyContext(string reason = "context reset")
@@ -951,11 +982,38 @@ namespace CastlePlanner.AIVPlacement
 
             // Restore Vanilla's exact prior state instead of assuming that the button should be enabled.
             blockedReadyButton.IsEnabled = blockedReadyButtonWasEnabled;
-            blockedReadyButton.ToolTip = blockedReadyButtonToolTip;
+            if (checkingReadyToolTip != null)
+            {
+                checkingReadyToolTip.IsOpen = false;
+                RestoreLocalProperty(blockedReadyButton, ToolTipService.ToolTipProperty,
+                    checkingReadyToolTip, blockedReadyButtonToolTip);
+                RestoreLocalProperty(blockedReadyButton, ToolTipService.ShowDurationProperty,
+                    Shared.MenuToolTip.Duration, blockedReadyButtonToolTipDuration);
+                RestoreLocalProperty(blockedReadyButton, ToolTipService.ShowOnDisabledProperty,
+                    true, blockedReadyButtonToolTipShowOnDisabled);
+            }
             blockedReadyButton = null;
             blockedReadyButtonToolTip = null;
+            blockedReadyButtonToolTipDuration = null;
+            blockedReadyButtonToolTipShowOnDisabled = null;
+            checkingReadyToolTip = null;
         }
 
+        private static object CaptureLocalProperty(Button button, DependencyProperty property) =>
+            (object)BindingOperations.GetBindingBase(button, property) ?? button.ReadLocalValue(property);
+
+        private static void RestoreLocalProperty(Button button, DependencyProperty property, object applied, object previous)
+        {
+            if (!Equals(button.ReadLocalValue(property), applied))
+                return;
+
+            if (previous is BindingBase binding)
+                BindingOperations.SetBinding(button, property, binding);
+            else if (previous == DependencyProperty.UnsetValue)
+                button.ClearValue(property);
+            else
+                button.SetValue(property, previous);
+        }
 
         private void LogUnexpectedEvaluationFailure(AivPlacementCheckResult result)
         {

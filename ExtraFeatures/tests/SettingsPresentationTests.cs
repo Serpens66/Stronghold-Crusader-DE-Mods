@@ -46,6 +46,17 @@ public static class SettingsPresentationTests
             .FirstOrDefault(a => a.LocalName == "ModSettingsSearch." + name);
         return attribute == null ? null : attribute.Value;
     }
+    private static XmlAttribute PopupHelp(XmlNode owner)
+    {
+        return owner.SelectSingleNode("./*[local-name()='" + owner.LocalName + ".ToolTip']/*[local-name()='ToolTip']/@Content") as XmlAttribute;
+    }
+
+    private static string PopupHelpText(XmlNode owner)
+    {
+        XmlAttribute help = PopupHelp(owner);
+        return help == null ? null : help.Value;
+    }
+
     private static IEnumerable<XmlNode> Ancestors(XmlNode node)
     {
         for (XmlNode parent = node.ParentNode; parent != null; parent = parent.ParentNode) yield return parent;
@@ -79,7 +90,7 @@ public static class SettingsPresentationTests
         foreach (XmlNode node in nodes.Where(n => new[] { "Button", "CheckBox", "ComboBox", "Slider", "TextBox" }.Contains(n.LocalName)))
         {
             Check(node.Attributes["ToolTipService.ShowDuration"] != null && node.Attributes["ToolTipService.ShowDuration"].Value == "60000" &&
-                node.Attributes["ToolTip"] != null && !string.IsNullOrWhiteSpace(node.Attributes["ToolTip"].Value), "nonempty 60000-ms tooltip: " + node.LocalName);
+                !string.IsNullOrWhiteSpace(PopupHelpText(node)), "nonempty 60000-ms tooltip: " + node.LocalName);
             if (!Ancestors(node).Any(n => Search(n, "IsSection") == "True")) continue;
             if (node.LocalName == "Button" && Search(node, "Exclude") == "True") continue;
             Check(Ancestors(node).Any(HostGuard), "every topic editor remains host guarded");
@@ -94,10 +105,10 @@ public static class SettingsPresentationTests
         {
             string help = Search(row, "ToolTipText");
             Check(!string.IsNullOrWhiteSpace(help) && proximityHelp.Add(help), "each proximity setting has dedicated help");
-            Check(row.Attributes["ToolTip"] != null && row.Attributes["ToolTip"].Value == help,
+            Check(PopupHelpText(row) == help,
                 "proximity row and search use identical help");
             XmlNode[] editors = row.SelectNodes(".//*[local-name()='Slider' or local-name()='TextBox']").Cast<XmlNode>().ToArray();
-            Check(editors.Length == 2 && editors.All(n => n.Attributes["ToolTip"] != null && n.Attributes["ToolTip"].Value == help),
+            Check(editors.Length == 2 && editors.All(n => PopupHelpText(n) == help),
                 "proximity slider and numeric input use their own row's help");
         }
         XmlNode items = nodes.Single(n => n.LocalName == "ItemsControl" && n.Attributes["ItemsSource"] != null && n.Attributes["ItemsSource"].Value == "{Binding MarketGoodPriceItems}");
@@ -129,13 +140,13 @@ public static class SettingsPresentationTests
             treeSlider.Attributes["Minimum"].Value == "-1" && treeSlider.Attributes["Maximum"].Value == "120" &&
             treeSlider.Attributes["TickFrequency"].Value == "1" && treeSlider.Attributes["SmallChange"].Value == "1" &&
             treeSlider.Attributes["LargeChange"].Value == "1" && treeSlider.Attributes["IsSnapToTickEnabled"].Value == "True" &&
-            Search(treeSlider, "InactiveValues") == "-1" && treeSlider.Attributes["ToolTip"].Value == Search(tree, "ToolTipText"),
+            Search(treeSlider, "InactiveValues") == "-1" && PopupHelpText(treeSlider) == Search(tree, "ToolTipText"),
             "Tree Respawn slider keeps the one-minute steps, distinct off state, searchable tooltip and mission guard");
         XmlNode mature = nodes.Single(n => Search(n, "Key") == "extra.mature-tree-harvest");
         XmlNode matureToggle = mature.SelectSingleNode(".//*[local-name()='CheckBox']");
         Check(mature.Attributes["IsEnabled"].Value == "{Binding CanConfigureMatureTreeHarvest}" &&
             matureToggle.Attributes["IsChecked"].Value == "{Binding MatureTreesOnly, Mode=TwoWay}" &&
-            matureToggle.Attributes["ToolTip"].Value == Search(mature, "ToolTipText"),
+            PopupHelpText(matureToggle) == Search(mature, "ToolTipText"),
             "Mature tree harvesting uses its own mission-locked toggle and searchable tooltip");
         XmlNode production = nodes.Single(n => Search(n, "Key") == "extra.fixed-production-bonus");
         XmlNode productionWarning = nodes.Single(n => n.Attributes != null && n.Attributes["Visibility"] != null &&
@@ -153,7 +164,7 @@ public static class SettingsPresentationTests
             "production editor uses the mission and host authority guard");
         XmlNode productionInput = production.SelectNodes(".//*[local-name()='TextBox']").Cast<XmlNode>().Single();
         Check(productionInput.Attributes["Text"].Value == "{Binding FixedProductionBonusValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" &&
-            productionInput.Attributes["ToolTip"].Value == Search(production, "ToolTipText") &&
+            PopupHelpText(productionInput) == Search(production, "ToolTipText") &&
             production.SelectNodes(".//*[local-name()='TextBlock' and @Text='%']").Count == 1,
             "production input shares its searchable help, signed whole-percent setter and visible percent unit");
         Check(items.Attributes["Width"] == null && items.Attributes["HorizontalAlignment"].Value == "Stretch" &&
@@ -170,7 +181,7 @@ public static class SettingsPresentationTests
                 int.Parse(blocks[0].Attributes["Grid.Column"].Value)<int.Parse(blocks[1].Attributes["Grid.Column"].Value),"Human then AI on the same row");
             XmlNode caption=row.SelectNodes("./*[local-name()='TextBlock']").Cast<XmlNode>().Single();
             Check(caption.Attributes["TextWrapping"].Value=="NoWrap" && caption.Attributes["TextTrimming"].Value=="CharacterEllipsis" &&
-                caption.Attributes["ToolTip"]!=null,"long row captions remain single-line and accessible in a tooltip");
+                !string.IsNullOrWhiteSpace(PopupHelpText(caption)),"long row captions remain single-line and accessible in a tooltip");
             foreach(XmlNode block in blocks) {
                 if(block.SelectNodes(".//*[local-name()='Slider']").Count>0)
                     Check(block.SelectNodes(".//*[local-name()='CheckBox' or local-name()='TextBlock']").Count==0,"value cells contain only slider and numeric editor");
@@ -268,14 +279,14 @@ public static class SettingsPresentationTests
         NegativeXaml(document, d => ((XmlElement)d.SelectSingleNode("//*[local-name()='Slider']")).SetAttribute("ToolTipService.ShowDuration", "100"));
         NegativeXaml(document, d => {
             XmlNode row = d.SelectNodes("//*").Cast<XmlNode>().First(n => (Search(n, "Key") ?? "").Contains("-enemy-proximity-"));
-            ((XmlElement)row.SelectSingleNode(".//*[local-name()='Slider']")).SetAttribute("ToolTip", "wrong setting help");
+            PopupHelp(row.SelectSingleNode(".//*[local-name()='Slider']")).Value = "wrong setting help";
         });
         NegativeXaml(document, d => {
             XmlNode[] rows = d.SelectNodes("//*").Cast<XmlNode>().Where(n => (Search(n, "Key") ?? "").Contains("-enemy-proximity-")).ToArray();
             string sharedHelp = Search(rows[0], "ToolTipText");
             rows[1].Attributes.Cast<XmlAttribute>().Single(a => a.LocalName == "ModSettingsSearch.ToolTipText").Value = sharedHelp;
-            ((XmlElement)rows[1]).SetAttribute("ToolTip", sharedHelp);
-            foreach (XmlElement editor in rows[1].SelectNodes(".//*[local-name()='Slider' or local-name()='TextBox']")) editor.SetAttribute("ToolTip", sharedHelp);
+            PopupHelp(rows[1]).Value = sharedHelp;
+            foreach (XmlElement editor in rows[1].SelectNodes(".//*[local-name()='Slider' or local-name()='TextBox']")) PopupHelp(editor).Value = sharedHelp;
         });
         NegativeXaml(document, d => ((XmlElement)d.SelectSingleNode("//*[local-name()='ItemsPanelTemplate']/*[local-name()='WrapPanel']")).SetAttribute("Width", "760"));
         NegativeXaml(document, d => ((XmlElement)d.SelectSingleNode("//*[local-name()='CheckBox' and contains(@IsChecked,'EnableKnightDismount')]")).SetAttribute("MinHeight", "20"));

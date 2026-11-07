@@ -67,7 +67,6 @@
     <Compile Include="..\Shared\Runtime\Localization\SerpLocalization.cs"><Link>Shared\SerpLocalization.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\Gameplay\GroundMovePreviewEligibility.cs"><Link>Shared\GroundMovePreviewEligibility.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\Gameplay\GatehouseQueryUnitIdPolicy.cs"><Link>Shared\GatehouseQueryUnitIdPolicy.cs</Link></Compile>
-    <Compile Include="..\Shared\Runtime\UI\ToolTipPresentation.cs"><Link>Shared\ToolTipPresentation.cs</Link></Compile>
     <Compile Include="..\Shared\Adapters\APIShared\PlayerIdentityHelper.cs"><Link>Shared\PlayerIdentityHelper.cs</Link></Compile>
     <Compile Include="..\Shared\Adapters\APIShared\MissionEventsAdapter.cs"><Link>Shared\MissionEventsAdapter.cs</Link></Compile>
   </ItemGroup>

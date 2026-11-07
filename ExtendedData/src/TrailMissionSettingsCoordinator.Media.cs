@@ -1,5 +1,4 @@
 using Noesis;
-using SHCDESE.UI;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -21,33 +20,32 @@ namespace ExtendedData
             if (enabled) { Directory.CreateDirectory(root); File.WriteAllText(path, "enabled\r\n", new UTF8Encoding(false)); }
             else if (File.Exists(path)) File.Delete(path);
         }
-        private void AddLordMediaCheckbox(Panel host, StackPanel optionRow)
+        private CheckBox CreateLordMediaCheckbox(CheckBox coopCheckbox)
         {
-            var row = new StackPanel { Orientation = Orientation.Vertical, Margin = optionRow.Margin,
-                HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Bottom };
-            host.Children.Remove(optionRow); optionRow.Margin = new Thickness(0); row.Children.Add(optionRow);
-            var tip = new ToolTip { Background = new SolidColorBrush(Color.FromArgb(255,29,23,16)),
-                Foreground = new SolidColorBrush(Colors.White), BorderBrush = new SolidColorBrush(Color.FromArgb(255,242,212,138)),
-                BorderThickness = new Thickness(1), FontSize = Shared.ToolTipPresentation.FontSize,
-                MaxWidth = Shared.ToolTipPresentation.MaximumWidth,
-                Content = SerpLocalization.Get("ExtendedData.EmbedLordMediaHelp") };
-            // The Maker is outside the modsettings resource tree. Explicitly replace Vanilla's popup template.
-            tip.Template = (ControlTemplate)GUI.ParseXaml(@"<ControlTemplate xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation' xmlns:x='http://schemas.microsoft.com/winfx/2006/xaml' TargetType='{x:Type ToolTip}'>
-                <Border Background='{TemplateBinding Background}' BorderBrush='{TemplateBinding BorderBrush}' BorderThickness='{TemplateBinding BorderThickness}' Padding='{TemplateBinding Padding}' MaxWidth='{TemplateBinding MaxWidth}' CornerRadius='2'>
-                    <TextBlock Text='{TemplateBinding Content}' Foreground='{TemplateBinding Foreground}' FontSize='{TemplateBinding FontSize}' TextWrapping='Wrap'/>
-                </Border></ControlTemplate>");
-            ToolTipResolutionScale.SetEnabled(tip, true);
-            lordMediaExportCheckbox = new CheckBox { Content = SerpLocalization.Get("ExtendedData.EmbedLordMedia"),
-                IsChecked = IsMakerMediaEnabled(), Style = coopTrailExportCheckbox.Style,
-                Foreground = new SolidColorBrush(Colors.Black), HorizontalAlignment = HorizontalAlignment.Center,
-                Margin = new Thickness(0,4,0,0), ToolTip = tip };
-            ToolTipService.SetShowDuration(lordMediaExportCheckbox, 60000);
-            lordMediaExportCheckbox.Click += (_, __) => {
-                try { if (EditorEnabled) SetMakerMediaEnabled(lordMediaExportCheckbox.IsChecked == true); }
-                catch (Exception error) { Shared.DebugLogHelper.LogErrorLimited(log, "lord-media-export-option", error.ToString()); }
-                lordMediaExportCheckbox.IsChecked = IsMakerMediaEnabled();
+            var checkbox = new CheckBox
+            {
+                Content = new TextBlock
+                {
+                    Text = SerpLocalization.Get("ExtendedData.EmbedLordMedia"),
+                    TextWrapping = TextWrapping.Wrap,
+                },
+                IsChecked = IsMakerMediaEnabled(),
+                Style = coopCheckbox.Style,
+                FontSize = coopCheckbox.FontSize,
+                MinHeight = coopCheckbox.Height,
+                Foreground = new SolidColorBrush(Colors.Black),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = new Thickness(0, 4, 0, 0),
+                ToolTip = Shared.MenuToolTip.Create(SerpLocalization.Get("ExtendedData.EmbedLordMediaHelp")),
+                Visibility = coopCheckbox.Visibility,
             };
-            row.Children.Add(lordMediaExportCheckbox); host.Children.Add(row);
+            ToolTipService.SetShowDuration(checkbox, Shared.MenuToolTip.Duration);
+            checkbox.Click += (_, __) => {
+                try { if (EditorEnabled) SetMakerMediaEnabled(checkbox.IsChecked == true); }
+                catch (Exception error) { Shared.DebugLogHelper.LogErrorLimited(log, "lord-media-export-option", error.ToString()); }
+                checkbox.IsChecked = IsMakerMediaEnabled();
+            };
+            return checkbox;
         }
         private static void CopyLordPresentationSources(string source, string destination)
         {

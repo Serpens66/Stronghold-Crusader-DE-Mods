@@ -199,8 +199,8 @@
     <Compile Include="..\Shared\Runtime\UI\AiSettingsHelpHover.cs">
       <Link>Shared\Runtime\UI\AiSettingsHelpHover.cs</Link>
     </Compile>
-    <Compile Include="..\Shared\Runtime\UI\ToolTipPresentation.cs">
-      <Link>Shared\Runtime\UI\ToolTipPresentation.cs</Link>
+    <Compile Include="..\Shared\Adapters\APIShared\MenuToolTip.cs">
+      <Link>Shared\Adapters\APIShared\MenuToolTip.cs</Link>
     </Compile>
     <Compile Include="..\Shared\Runtime\Workshop\WorkshopContentPaths.cs">
       <Link>Shared\Runtime\Workshop\WorkshopContentPaths.cs</Link>

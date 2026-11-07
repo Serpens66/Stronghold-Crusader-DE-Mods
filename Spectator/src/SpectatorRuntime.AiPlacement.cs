@@ -213,11 +213,11 @@ namespace Spectator
 
         private static void AiTip(FrameworkElement element, string text)
         {
-            if (ToolTipService.GetToolTip(element) is ToolTip existing && existing.Content is TextBlock old && old.Text == text) return;
+            if (ToolTipService.GetToolTip(element) is ToolTip existing && Equals(existing.Content, text)) return;
             if (ToolTipService.GetToolTip(element) is ToolTip retired)
             { retired.IsOpen = false; MenuToolTipSizing.SetEnabled(retired, false); }
-            var tip = new ToolTip { Content = new TextBlock { Text = text, TextWrapping = TextWrapping.Wrap, MaxWidth = 480 } };
-            ToolTipService.SetToolTip(element, tip); ToolTipService.SetShowDuration(element, 60000);
+            var tip = Shared.MenuToolTip.Create(text);
+            ToolTipService.SetToolTip(element, tip); ToolTipService.SetShowDuration(element, Shared.MenuToolTip.Duration);
             ToolTipService.SetShowOnDisabled(element, true); MenuToolTipSizing.SetEnabled(tip, true);
         }
 
