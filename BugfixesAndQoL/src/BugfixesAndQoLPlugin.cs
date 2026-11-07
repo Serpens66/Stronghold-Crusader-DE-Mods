@@ -12,18 +12,13 @@ using System.Reflection;
 namespace BugfixesAndQoL
 {
     [BepInDependency(ScriptExtenderGuid, "2.14.3")]
-    [BepInDependency(ApiSharedGuid, "0.31.0")]
+    [BepInDependency(ApiSharedGuid, "0.35.0")]
     [BepInDependency("ActiveAIVDetector_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("ExtraFeatures_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency(LegacySomeSettingsGuid, BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("fixes", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("SavegameMissingMapFixTest_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("AIKeepRangeLimitTest_Serp", BepInDependency.DependencyFlags.SoftDependency)]
-    [BepInIncompatibility(LegacyTroopMovementFixGuid)]
-    [BepInIncompatibility(TroopMovementFix2Guid)]
-    [BepInIncompatibility(TroopMovementFix3Guid)]
-    [BepInIncompatibility(LegacyMoveMoatGuid)]
-    [BepInIncompatibility(LegacyQueueTestGuid)]
     [BepInIncompatibility(PreplacedTestGuid)]
     [BepInIncompatibility("GatehouseLivingCaptureTest_Serp")]
     [BepInIncompatibility("DrawbridgeDestructionFixTest_Serp")]
@@ -36,11 +31,6 @@ namespace BugfixesAndQoL
     {
         private const string ScriptExtenderGuid = "000shcdese";
         private const string ApiSharedGuid = "APIShared_Serp";
-        private const string LegacyTroopMovementFixGuid = "TroopMovementFix_Serp";
-        private const string TroopMovementFix2Guid = "TroopMovementFix2_Serp";
-        private const string TroopMovementFix3Guid = "TroopMovementFix3_Serp";
-        private const string LegacyMoveMoatGuid = "MoveMoatTest_Serp";
-        private const string LegacyQueueTestGuid = "QueueTest_Serp";
         private const string LegacySomeSettingsGuid = "SomeSettings_Serp";
         private const string PreplacedTestGuid = "PreplacedTest_Serp";
 
@@ -105,8 +95,6 @@ namespace BugfixesAndQoL
             LobbySaveLoadingFeature.Initialize(Logger, Settings);
             BuildPreview.BuildPreviewRuntime.Configure(Logger, Settings);
             ArabianIdleSoundRuntime.Configure(Logger, Settings);
-            FormationFeature.Configure(Logger, Config, Settings);
-            GateRouting.GateRoutingFeature.Configure(Logger, Config, Settings);
             skirmishGameOptionsCompatible = !HasLegacyExtraFeaturesPeaceTimeSetting();
             skirmishGameOptionsAccess = new SkirmishGameOptionsAccessViewModel(
                 Settings,
@@ -379,8 +367,6 @@ namespace BugfixesAndQoL
             {
                 Shared.DebugLogHelper.LogError(Logger, "PEACE_CIVILIAN_PROXIMITY_UNAVAILABLE: existing building rules remain active; " + ex);
             }
-
-            FormationFeature.Initialize(context);
 
             if (skirmishGameOptionsCompatible)
             {

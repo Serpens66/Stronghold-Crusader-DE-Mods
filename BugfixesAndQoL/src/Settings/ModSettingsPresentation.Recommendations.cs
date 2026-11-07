@@ -80,15 +80,8 @@ namespace BugfixesAndQoL
             options["EnableAIQuarryPileTowardsKeep"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableAIQuarryPileTowardsKeep");
             options["RemoveAIKeepRangeLimit"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.RemoveAIKeepRangeLimit");
             options["EnableAiSellThresholdFix"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableAiSellThresholdFix");
-            options["EnableTroopMovementFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableTroopMovementFix");
-            options["EnableMountedStockpileMovementFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableMountedStockpileMovementFix");
             options["EnableHealerAttackCommandFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableHealerAttackCommandFix");
-            options["EnableAssassinCombatResumeFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableAssassinCombatResumeFix");
             options["EnableLordReturnTeleportFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableLordReturnTeleportFix");
-            options["EnableAssemblyPointPlacementFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableAssemblyPointPlacementFix");
-            options["EnableExtendedShiftCommandQueue"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableExtendedShiftCommandQueue");
-            options["EnableFastRecruitRallyMovement"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableFastRecruitRallyMovement");
-            options["EnableRallyTerrainSlowdownFix"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableRallyTerrainSlowdownFix");
             options["EnableLordUnitControls"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableLordUnitControls");
             options["EnableKeepFlagRotationFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableKeepFlagRotationFix");
             options["EnableTanneryAnimationFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableTanneryAnimationFix");
@@ -106,20 +99,11 @@ namespace BugfixesAndQoL
             options["EnableGatehouseLivingCaptureFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableGatehouseLivingCaptureFix");
             options["EnableTreeBlightDecayFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableTreeBlightDecayFix");
             options["EnableDrawbridgeDestructionFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableDrawbridgeDestructionFix");
-            options["EnableAssassinGatehouseClimbFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableAssassinGatehouseClimbFix");
             options["EnableTunnelPlacementDistanceFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableTunnelPlacementDistanceFix");
             options["EnableCenteredGatehouseDistanceFix"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableCenteredGatehouseDistanceFix");
             options["EnableFairSiegeAmmoRestock"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableFairSiegeAmmoRestock");
             options["EnableAssassinCapturedGateProtectionFix"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableAssassinCapturedGateProtectionFix");
-            options["EnableEnemyGatePathfindingFix"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableEnemyGatePathfindingFix");
             options["EnableAiRaidRetargetFix"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableAiRaidRetargetFix");
-            options["EnableLadderAttackPathfindingFix"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableLadderAttackPathfindingFix");
-            options["EnableImprovedAssassinPathfinding"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableImprovedAssassinPathfinding");
-            options["EnableImprovedAssassinPathfindingAI"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableImprovedAssassinPathfindingAI");
-            options["EnableMoveFormationEnhancements"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableMoveFormationEnhancements");
-            options["EnableImprovedManualUnitCommands"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableImprovedManualUnitCommands");
-            options["EnableImprovedMoatFilling"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableImprovedMoatFilling");
-            options["RequireReachableEnemyForAutomaticGateClosing"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.RequireReachableEnemyForAutomaticGateClosing");
         }
     }
 }

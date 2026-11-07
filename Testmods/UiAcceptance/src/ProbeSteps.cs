@@ -26,6 +26,7 @@ namespace UiAcceptance
             Runner.Register("CountCalls", CountCalls);
             Runner.Register("ExpectCalls", ExpectCalls);
             Runner.Register("SelectOwnUnits", SelectOwnUnits);
+            Runner.Register("SelectOwnUnitsNative", SelectOwnUnitsNative);
             Runner.Register("PlayerMove", PlayerMove);
             Runner.Register("ExpectMoveMode", ExpectMoveMode);
             Runner.Register("RegionScan", RegionScan);
@@ -266,6 +267,18 @@ namespace UiAcceptance
             lastSelection = selected;
             AcceptLog.Info("SELECTED player=" + player + " units=" + string.Join(",", selected));
             yield return new Delay(300);
+        }
+
+        // Native selection of own units through the Extender, which also opens the troop panel. args: player, count.
+        private static IEnumerable<Wait> SelectOwnUnitsNative(Step step)
+        {
+            int player = step.Int(0), count = step.Int(1);
+            List<int> selected = OwnUnits(player, count);
+            Runner.Require(selected.Count == count, "player " + player + " has only " + selected.Count + " alive units");
+            Runner.Require(SHCDESE.API.GamePlayerManagerAPI.Instance.SetSelectedChimps(selected), "native selection was refused");
+            lastSelection = selected;
+            AcceptLog.Info("SELECTED_NATIVE player=" + player + " units=" + string.Join(",", selected));
+            yield return new Until("troop panel", () => MainViewModel.viewModelLoaded && MainViewModel.Instance.Show_HUD_Troops);
         }
 
         private static List<int> OwnUnits(int player, int count)

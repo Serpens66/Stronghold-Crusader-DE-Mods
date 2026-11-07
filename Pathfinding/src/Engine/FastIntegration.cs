@@ -96,6 +96,7 @@ namespace Pathfinding.Engine
             LogAndResetAnchorMetrics();
             if (fastNewQueries == 0 && fastQueuedCommands == 0 && fastExecutedCommands == 0 && fastCommands.Commands.Count == 0 &&
                 fastCaptureCounts[0] == 0) return;
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
             Shared.DebugLogHelper.LogInfo(log, "Pathfinding stage=fast-performance " +
                 $"queued={fastQueuedCommands} completed={fastExecutedCommands} pending={fastCommands.Commands.Count} " +
                 $"captureCalls={fastCaptureCounts[0]} captured={fastCaptureCounts[1]} " +

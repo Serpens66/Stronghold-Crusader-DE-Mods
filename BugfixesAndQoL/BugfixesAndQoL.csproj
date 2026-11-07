@@ -154,24 +154,8 @@
     <Compile Include="src\AI\Fixes\BetterAIOverbuildRulesFix.cs" />
     <Compile Include="src\Market\AllyGoodsAmountModifierHook.cs" />
     <Compile Include="src\Market\AllyGoodsTransferPolicy.cs" />
-    <Compile Include="src\Assassins\AssassinClimbCancellationPolicy.cs" />
-    <Compile Include="src\Assassins\AssassinClimbCancellationRuntime.cs" />
-    <Compile Include="src\Assassins\AssassinAStarPolicy.cs" />
-    <Compile Include="src\Assassins\AssassinGateRoutePolicy.cs" />
-    <Compile Include="src\Assassins\AssassinPathfindingRuntime.CacheKeys.cs" />
-    <Compile Include="src\Assassins\AssassinClimbCostPolicy.cs" />
-    <Compile Include="src\Assassins\AssassinRouteEncoding.cs" />
-    <Compile Include="src\Assassins\AssassinClimbRuntime.cs" />
-    <Compile Include="src\Assassins\AssassinClimbStatePacket.cs" />
-    <Compile Include="src\Assassins\AssassinClimbTransitionPolicy.cs" />
-    <Compile Include="src\Assassins\AssassinCombatResumeNativeDefinition.cs" />
-    <Compile Include="src\Assassins\AssassinCombatResumePolicy.cs" />
-    <Compile Include="src\Assassins\AssassinCombatResumeRuntime.cs" />
     <Compile Include="src\Assassins\AssassinCapturedGateProtectionPolicy.cs" />
     <Compile Include="src\Assassins\AssassinCapturedGateProtectionRuntime.cs" />
-    <Compile Include="src\Assassins\AssassinPathReconstructionPatch.cs" />
-    <Compile Include="src\Assassins\AssassinPathfindingRuntime.cs" />
-    <Compile Include="src\Assassins\AssassinNativeSearch.cs" />
     <Compile Include="src\Core\Bootstrap\BugfixesAndQoLRuntime.CtrlMarketTrade.cs" />
     <Compile Include="src\Core\Bootstrap\BugfixesAndQoLRuntime.BuildingAndEconomy.cs" />
 
@@ -182,8 +166,6 @@
     <Compile Include="src\Core\Native\NativeInstructionReplayEmitter.cs" />
     <Compile Include="src\Market\CtrlMarketTradeHook.cs" />
     <Compile Include="src\Multiplayer\GameSpeedRepeatScheduler.cs" />
-    <Compile Include="src\TroopMovement\FastRecruitMovementBridge.cs" />
-    <Compile Include="src\TroopMovement\FastRecruitRallyMovementRuntime.cs" />
     <Compile Include="src\Market\MarketTradeIntegration.cs" />
     <Compile Include="src\Market\MarketGoldPolicy.cs" />
     <Compile Include="src\Core\Common\MultiplayerFeatureGate.cs" />
@@ -204,11 +186,8 @@
     <Compile Include="src\Multiplayer\MultiplayerLobbyReturnFeature.cs" />
     <Compile Include="src\Multiplayer\MultiplayerLobbyChatCallback.cs" />
     <Compile Include="src\Multiplayer\MultiplayerLobbyReturnPolicy.cs" />
-    <Compile Include="src\TroopMovement\AssemblyPointPlacementPatch.cs" />
     <Compile Include="src\UnitOrders\HealerAttackCommandFixNativeDefinition.cs" />
     <Compile Include="src\UnitOrders\HealerAttackCommandPatch.cs" />
-    <Compile Include="src\TroopMovement\MountedStockpileMovementPatch.cs" />
-    <Compile Include="src\TroopMovement\MountedStockpileMovementPolicy.cs" />
     <Compile Include="src\Market\AutoTradeSellZeroHook.cs" />
     <Compile Include="src\CameraDisplay\CameraMovementModifierHook.cs" />
     <Compile Include="src\CameraDisplay\StartupUiReadinessGuardHook.cs" />
@@ -230,7 +209,7 @@
     <Compile Include="src\CameraDisplay\DisplayResolutionPersistenceHook.cs" />
     <Compile Include="src\CameraDisplay\DisplayResolutionFocusState.cs" />
     <Compile Include="src\BugfixesAndQoLPlugin.cs" />
-    <Compile Include="src\Buildings\ArabianIdleSoundRuntime.cs" /><Compile Include="src\UnitCommandImports.cs" />
+    <Compile Include="src\Buildings\ArabianIdleSoundRuntime.cs" />
     <Compile Include="src\Properties\AssemblyInfo.cs" />
     <Compile Include="src\Core\Bootstrap\BugfixesAndQoLRuntime.cs" />
     <Compile Include="src\Buildings\WaterboyReservationLedger.cs" />
@@ -263,20 +242,10 @@
     <Compile Include="src\Notifications\NotificationSpeechPlayback.cs" />
     <Compile Include="src\Notifications\NotificationSkipPolicy.cs" />
     <Compile Include="src\Buildings\EnemyProximityBulldozeCursorHook.cs" />
-    <Compile Include="src\CommandQueue\ExtendedShiftCommandQueueModel.cs" />
-    <Compile Include="src\CommandQueue\ExtendedShiftCommandQueueRuntime.cs" />
-    <Compile Include="src\CommandQueue\ExtendedShiftOverlayRenderer.cs" />
-    <Compile Include="src\Formations\Feature\FormationFeature.cs" />
-    <Compile Include="src\UnitCommands\**\*.cs" />
-    <Compile Include="src\Formations\*.cs" />
-    <Compile Include="src\Formations\Markers\*.cs" />
+    
+    
+    
     <Compile Include="src\Diagnostics\*.cs" />
-    <Compile Include="src\Formations\Feature\FormationSelectionMigration.cs" />
-    <Compile Include="src\Formations\Feature\FormationMenuViewModel.cs" />
-    <Compile Include="src\Formations\Feature\FormationHudButton.cs" />
-    <Compile Include="src\Formations\Feature\ArrangementTooltipFontConverter.cs" />
-    <Compile Include="src\Formations\Feature\FormationPreviewOverlay.cs" />
-    <Compile Include="src\Formations\Feature\LargeMoveTargetMarkerRuntime.cs" />
     <Compile Include="src\Market\HdMarketViewHook.cs" />
     <Compile Include="src\Market\MarketKeyMainTradeMenuHook.cs" />
     <Compile Include="src\Market\MarketGoodOrderItemViewModel.cs" />
@@ -308,8 +277,6 @@
     <Compile Include="src\LordAndControlGroups\LordControlGroupNativePatch.cs" />
     <Compile Include="src\LordAndControlGroups\LordUnitControlsPolicy.cs" />
     <Compile Include="src\Core\Common\SpectatorInputControlPolicy.cs" />
-    <Compile Include="src\TroopMovement\MovementCadenceIntegration.cs" />
-    <Compile Include="src\TroopMovement\MovementLoggingStateTracker.cs" />
     <Compile Include="src\Plague\PlaguePopularityFix.cs" />
     <Compile Include="src\Plague\PlagueHerdLedger.cs" />
     <Compile Include="src\Plague\PlagueTreatmentFadeFix.cs" />
@@ -328,10 +295,6 @@
     <Compile Include="src\Buildings\QuarryPileTargetSearch.cs" />
     <Compile Include="src\Buildings\QuarryKeepCenterPolicy.cs" />
     <Compile Include="src\Buildings\QuarryPileTargetSelectionPolicy.cs" />
-    <Compile Include="src\GateRouting\ReachableEnemyGatehouseRuntime.cs" />
-    <Compile Include="src\Core\Common\SimulationRunScope.cs" />
-    <Compile Include="src\GateRouting\GatehouseFootprintGeometryCache.cs" />
-    <Compile Include="src\GateRouting\SynchronizedGatehouseReachabilityPolicy.cs" />
     <Compile Include="src\Multiplayer\ResyncHostKickFeature.cs" />
     <Compile Include="src\Multiplayer\ResyncHostKickPolicy.cs" />
     <Compile Include="src\Hud\SelectedUnitHealthFeature.cs" />
@@ -373,12 +336,6 @@
     <Compile Include="src\Multiplayer\SurrenderSelectionCleanup.cs" />
     <Compile Include="src\Multiplayer\SurrenderPackets.cs" />
     <Compile Include="src\Multiplayer\SurrenderPolicy.cs" />
-    <Compile Include="src\TroopMovement\TroopMovementFixModLog.cs" />
-    <Compile Include="src\TroopMovement\TroopMovementFixRuntime.cs" />
-    <Compile Include="src\TroopMovement\SpearmanMovementPatch.cs" />
-    <Compile Include="src\Core\Native\NativeHandlerSnapshot.cs" />
-    <Compile Include="src\TroopMovement\SynchronizedMovementCadencePatch.cs" />
-    <Compile Include="src\TroopMovement\MovementCadenceNativeDiscovery.cs" />
     <Compile Include="src\AI\Economy\TemporaryGateBlockagePolicy.cs" />
     <Compile Include="src\Hud\TimerCountdownPolicy.cs" />
     <Compile Include="src\Hud\TimerCountdownViewModel.cs" />
@@ -429,32 +386,8 @@
   <ItemGroup><Compile Include="..\Shared\Runtime\Native\TemporaryPackedRouteInspection.cs"><Link>Shared\TemporaryPackedRouteInspection.cs</Link></Compile></ItemGroup>
 
   <ItemGroup>
-    <Compile Include="src\Assassins\AssassinGateDescentRule.cs" />
-    <Compile Include="src\Assassins\AssassinGateDescentRuntime.cs" />
-    <Compile Include="src\GateRouting\BuildingSearchPlayerResolver.cs" />
-    <Compile Include="src\GateRouting\CaptureTransitionDiagnostics.cs" />
-    <Compile Include="src\GateRouting\ConnectedGateFootprint.cs" />
-    <Compile Include="src\GateRouting\CursorPreviewCache.cs" />
-    <Compile Include="src\GateRouting\DeferredGateDiagnosticErrors.cs" />
-    <Compile Include="src\GateRouting\IntegrityErrorFlushGate.cs" />
-    <Compile Include="src\GateRouting\EnemyGatePathfindingPolicy.cs" />
-    <Compile Include="src\GateRouting\EnemyGatePathfindingRuntime.cs" />
-    <Compile Include="src\GateRouting\FunctionalGatePolicyAdapter.cs" />
-    <Compile Include="src\GateRouting\GateDiagnosticClassification.cs" />
-    <Compile Include="src\GateRouting\GateEdgeOwnership.cs" />
-    <Compile Include="src\GateRouting\GatePassageMask.cs" />
-    <Compile Include="src\GateRouting\GateRoutePolicySource.cs" />
-    <Compile Include="src\GateRouting\GateSearchEvidence.cs" />
-    <Compile Include="src\GateRouting\GateTopologySnapshotProvider.cs" />
-    <Compile Include="src\GateRouting\PathfindingGlobalsBaseline.cs" />
-    <Compile Include="src\GateRouting\RouteTilePolicySnapshot.cs" />
-    <Compile Include="src\GateRouting\SamePclGateRouteRuntime.cs" />
-    <Compile Include="src\GateRouting\SparseBuildingFootprint.cs" />
-    <Compile Include="src\GateRouting\PathDecisionAggregate.cs" />
     <Compile Include="..\Shared\Runtime\Threading\DeferredSnapshotRefreshRequest.cs" />
   </ItemGroup>
-<ItemGroup><Compile Include="src\GateRouting\GateRoutingFeature.cs" /><Compile Include="src\GateRouting\GateDiagnosticConfiguration.cs" /></ItemGroup>
-<ItemGroup><Compile Include="src\Assassins\AssassinGatehouseDescentFeature.cs" /></ItemGroup>
   <ItemGroup><Compile Include="src\Core\Native\PermanentNativeSwitch.cs"/><Compile Include="src\Core\Native\NativeSwitchCatalog.cs"/></ItemGroup>
   <ItemGroup>
     <Compile Include="src\LordTeleportGuard\LordTeleportNative.cs" />

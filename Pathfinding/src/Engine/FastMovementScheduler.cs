@@ -565,7 +565,7 @@ namespace Pathfinding.Engine
         private void LogAnchorUnreached()
         {
             int unreached = anchorEndedUnreached; anchorEndedUnreached = 0;
-            if (anchorUnreachedLogs >= 40) return;
+            if (anchorUnreachedLogs >= 40 || !Shared.DebugLogHelper.DiagnosticsEnabled) return;
             anchorUnreachedLogs++;
             var sample = new System.Text.StringBuilder();
             for (int i = 0; i < Math.Min(unreached, anchorUnreachedSample.Length); i++)

@@ -18,4 +18,31 @@ $manifest = [IO.File]::ReadAllText((Join-Path $modDir 'info.json')) | ConvertFro
 Assert-PluginDependencyMetadata $plugin $manifest 'Pathfinding'
 if ($manifest.GUID -ne 'Pathfinding_Serp' -or $manifest.NetworkMode -ne 1) { throw 'Manifest identity mismatch.' }
 if ($plugin -notmatch ('PluginVersion = "' + [regex]::Escape([string]$manifest.Version) + '"')) { throw 'Plugin version mismatch.' }
+$viewModel = [IO.File]::ReadAllText((Join-Path $modDir 'src\Settings\PathfindingViewModel.cs'))
+$movementRuntime = [IO.File]::ReadAllText((Join-Path $modDir 'src\TroopMovement\TroopMovementFixRuntime.cs'))
+$cadence = [IO.File]::ReadAllText((Join-Path $modDir 'src\TroopMovement\SynchronizedMovementCadencePatch.cs'))
+if (-not $viewModel.Contains('enableRallyTerrainSlowdownFix = true') -or
+    -not $viewModel.Contains('[SyncHostOnly] public bool EnableRallyTerrainSlowdownFix') -or
+    -not $viewModel.Contains('EnableRallyTerrainSlowdownFix = true;') -or
+    -not $movementRuntime.Contains('SetTerrainEnabled(settings.EnableMod && settings.EnableRallyTerrainSlowdownFix)') -or
+    -not $movementRuntime.Contains('(settings.EnableTroopMovementFix || settings.EnableRallyTerrainSlowdownFix)')) {
+    throw 'Independent host-synchronized rally terrain setting, reset or main switch is missing.'
+}
+if (-not $cadence.Contains('Interlocked.CompareExchange(ref *terrainEnabledFlag,') -or
+    -not $cadence.Contains('terrainCaptureHook.Hook.DisplacedByteCount != 14') -or
+    -not $cadence.Contains('returnAddress != instructions[0].IP + 14') -or
+    -not $cadence.Contains('EmitTerrainRestore(assembler);') -or
+    -not $cadence.Contains('terrainTransaction?.Dispose();')) {
+    throw 'Rally terrain native publication, epoch or boundary contract is missing.'
+}
+foreach ($file in Get-ChildItem -LiteralPath (Join-Path $modDir 'Locales') -Filter '*.txt') {
+    $text = [IO.File]::ReadAllText($file.FullName)
+    foreach ($key in @('Pathfinding.EnableRallyTerrainSlowdownFix', 'Pathfinding.EnableRallyTerrainSlowdownFixHelp')) {
+        if ([regex]::Matches($text, '(?m)^' + [regex]::Escape($key) + '=.+$').Count -ne 1) {
+            throw "Missing or duplicate rally terrain localization: $($file.Name), $key"
+        }
+    }
+}
+[xml]$settingsXaml = [IO.File]::ReadAllText((Join-Path $modDir 'Override\ScriptExtenderUI\PathfindingSettings.xaml'))
+if ($settingsXaml.OuterXml -notmatch 'EnableRallyTerrainSlowdownFix, Mode=TwoWay') { throw 'Rally terrain UI integration is missing.' }
 Write-Output "PASS preflight: $($sources.Count) runtime sources, JSON and lifecycle rules, CRLF, manifest identity."

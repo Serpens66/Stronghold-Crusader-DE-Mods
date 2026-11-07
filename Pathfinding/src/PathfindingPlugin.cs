@@ -6,13 +6,13 @@ using System;
 namespace Pathfinding
 {
     [BepInDependency(ScriptExtenderGuid, "2.14.3")]
-    [BepInDependency(ApiSharedGuid, "0.34.0")]
+    [BepInDependency(ApiSharedGuid, "0.35.0")]
     [BepInDependency("ExtraFeatures_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("fixes", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
-    // Deliberately incompatible until the moved code is removed from its source mods (MIGRATION.md):
-    // both would own the same native command hooks. BepInEx then skips this plugin.
-    [BepInIncompatibility("BugfixesAndQoL_Serp")]
+    // BugfixesAndQoL loads first, as its hooks did when these features still lived there.
+    [BepInDependency("BugfixesAndQoL_Serp", BepInDependency.DependencyFlags.SoftDependency)]
+    // MoatMove is a retired provider of the old command runtime and cannot run against this mod.
     [BepInIncompatibility("MoatMove_Serp")]
     [BepInIncompatibility("TroopMovementFix_Serp")]
     [BepInIncompatibility("TroopMovementFix2_Serp")]

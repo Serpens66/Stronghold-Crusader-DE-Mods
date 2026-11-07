@@ -181,30 +181,9 @@ internal static partial class Program
             SettingsPresentationTests(workspace);
             CompactLobbyChatTests(workspace, game);
             CallerGates();
-            Traversal();
             Console.WriteLine("PASS: built production DLL settings matrices, independent AI-list capacity, callers, classifications/defaults/XAML: "+checks+" checks.");return 0;
         }
         catch(Exception ex){Console.Error.WriteLine(ex);return 1;}
-    }
-    private static void Traversal()
-    {
-        bool[] enabled={false,true,false,true,false,true,true,true};
-        int index=0;
-        foreach(bool h in new[]{false,true})foreach(bool own in new[]{false,true})foreach(bool provider in new[]{false,true})
-        {
-            foreach(bool required in new[]{false,true})
-            {
-                BugfixesAndQoL.UnitCommands.UnitCommandPathAPI.Traversal=new BugfixesAndQoL.UnitCommands.UnitCommandTraversalProvider{Enabled=provider,RequiredOnly=required};
-                var snapshot=BugfixesAndQoL.UnitCommands.MovementOptionsSnapshot.Capture(new BugfixesAndQoL.UnitCommands.TraversalSettings{EnableMod=h,EnableImprovedManualUnitCommands=own});
-                Check(snapshot.Enabled==enabled[index],"production movement demand: own H/option and independent provider");
-                Check(snapshot.TraversalEnabled==provider,"production provider demand is independent of own Host");
-                Check(snapshot.RequiredOnly==required,"provider route mode preserved");
-            }
-            index++;
-        }
-        BugfixesAndQoL.UnitCommands.UnitCommandPathAPI.Traversal=null;
-        var absent=BugfixesAndQoL.UnitCommands.MovementOptionsSnapshot.Capture(new BugfixesAndQoL.UnitCommands.TraversalSettings());
-        Check(!absent.Enabled && !absent.TraversalEnabled,"no hidden command feature without own or foreign demand");
     }
     private static void Policies()
     {

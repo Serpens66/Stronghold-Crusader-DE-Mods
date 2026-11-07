@@ -2,8 +2,8 @@ using System.Threading;
 
 namespace Pathfinding
 {
-    // Identifies one managed EngineInterface.run call on the thread executing it, between entering
-    // the engine lock and publishing the tick (VanillaPerformance.EnginePresentationBridge marks both).
+    // Identifies one managed EngineInterface.run call on the thread executing it
+    // (FormationRuntime.EngineRunHook marks it on every path, independent of the options).
     // Native audit FBCB9319: run calls DLL_RunTick exactly once, which runs the game tick 0xCDE60 at
     // most once; its building dispatcher 0xC60F0 updates every building exactly once. Native work
     // outside run (load/map initialization, editor) never has a current scope.

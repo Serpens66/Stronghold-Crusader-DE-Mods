@@ -187,7 +187,7 @@ with state 3. Maintenance `0x1261F0` runs every simulation pass after unit loop
 `0x182B00` and clears tribes without living members through `0x118C70`.
 
 The production precedent for this call order, stance copy (raw `+0x634`, typed
-`r_TribeStance`) and rollback is `BugfixesAndQoL/src/CommandQueue/ExtendedShiftCommandQueueRuntime.cs`.
+`r_TribeStance`) and rollback is `Pathfinding/src/CommandQueue/ExtendedShiftCommandQueueRuntime.cs`.
 The feature never submits synthetic Select/Deselect Chores and never calls
 `SetSelectedChimps` to borrow the owner's selection.
 

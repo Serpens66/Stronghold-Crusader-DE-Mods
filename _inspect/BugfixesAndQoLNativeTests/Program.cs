@@ -5,6 +5,7 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using BugfixesAndQoL;
+using Pathfinding;
 using Shared;
 
 internal static class Program
@@ -232,7 +233,7 @@ internal static class Program
               !health.Contains("selectedTypeCounts.Clone()"),
             "Selected-health uses reusable summary/page buffers without Lord cloning");
 
-        string cursor = File.ReadAllText(Path.Combine(workspace, "BugfixesAndQoL", "src", "UnitCommands", "Cursor", "CursorConnectivity.cs"));
+        string cursor = File.ReadAllText(Path.Combine(workspace, "Pathfinding", "src", "UnitCommands", "Cursor", "CursorConnectivity.cs"));
         int queryGuard = cursor.IndexOf("if (cursorQueries == cursorLastLogQueries)", StringComparison.Ordinal);
         // Supplementary source guardrail: the dirty check must precede the clock call,
         // including a clock call additionally guarded by the diagnostic-build condition.
@@ -240,7 +241,7 @@ internal static class Program
         Check(queryGuard >= 0 && cursorStopwatch > queryGuard,
             "Friendly-Moat diagnostics check query dirtiness before reading Stopwatch");
 
-        string marker = File.ReadAllText(Path.Combine(workspace, "BugfixesAndQoL", "src", "Formations", "Markers", "LargeMoveTargetMarkerRenderer.cs"));
+        string marker = File.ReadAllText(Path.Combine(workspace, "Pathfinding", "src", "Formations", "Markers", "LargeMoveTargetMarkerRenderer.cs"));
         int markerSnapshot = marker.IndexOf(
             "Dictionary<int, int> preview = publication.Tiles;", StringComparison.Ordinal);
         int overflowSnapshot = marker.IndexOf(
@@ -305,8 +306,8 @@ internal static class Program
     {
         foreach (string relativePath in new[]
         {
-            @"BugfixesAndQoL\src\Assassins\AssassinClimbRuntime.cs",
-            @"BugfixesAndQoL\src\TroopMovement\MountedStockpileMovementPatch.cs",
+            @"Pathfinding\src\Assassins\AssassinClimbRuntime.cs",
+            @"Pathfinding\src\TroopMovement\MountedStockpileMovementPatch.cs",
             @"BugfixesAndQoL\src\UnitOrders\SiegeAmmoRestockFeature.cs"
         })
         {
@@ -396,6 +397,9 @@ internal static class Program
     {
         string sourceDirectory = Path.Combine(workspace, "BugfixesAndQoL", "src");
         Dictionary<string, string> patterns = ReadConstStrings(sourceDirectory);
+        foreach (KeyValuePair<string, string> moved in ReadConstStrings(Path.Combine(workspace, "Pathfinding", "src")))
+            if (!patterns.ContainsKey(moved.Key))
+                patterns.Add(moved.Key, moved.Value);
         foreach (KeyValuePair<string, int> contract in PatternRvas)
         {
             Check(patterns.TryGetValue(contract.Key, out string pattern), contract.Key + " source constant");
@@ -942,7 +946,7 @@ internal static class Program
     private static void CheckUnknownHashPolicy(string workspace)
     {
         string plague = File.ReadAllText(Path.Combine(workspace, "BugfixesAndQoL", "src", "Plague/PlagueNativeResolver.cs"));
-        string mountedStockpile = File.ReadAllText(Path.Combine(workspace, "BugfixesAndQoL", "src", "TroopMovement/MountedStockpileMovementPatch.cs"));
+        string mountedStockpile = File.ReadAllText(Path.Combine(workspace, "Pathfinding", "src", "TroopMovement/MountedStockpileMovementPatch.cs"));
         string healerAttackCommand = File.ReadAllText(Path.Combine(workspace, "BugfixesAndQoL", "src", "UnitOrders/HealerAttackCommandPatch.cs"));
         string lordControlGroups = File.ReadAllText(Path.Combine(workspace, "BugfixesAndQoL", "src", "LordAndControlGroups/LordControlGroupNativePatch.cs"));
         string runtime = File.ReadAllText(Path.Combine(workspace, "BugfixesAndQoL", "src", "Core/Bootstrap/BugfixesAndQoLRuntime.cs"));
@@ -983,7 +987,7 @@ internal static class Program
         Check(mountedStockpile.Contains("MountedEndpointWallGateHookOffset = 0xA") &&
               mountedStockpile.Contains("MountedEndpointWallGateJumpOffset = 11"),
             "mounted-stockpile endpoint hook starts on the complete test/jne pair");
-        Check(mountedStockpile.Contains("BugfixesHookInfrastructure.CreateOwnedTransaction(region)"),
+        Check(mountedStockpile.Contains("PathfindingHookInfrastructure.CreateOwnedTransaction(region)"),
             "mounted-stockpile atomic hook transaction");
         Check(!mountedStockpile.Contains("transaction?.Unload()") &&
               mountedStockpile.Contains("catch") &&

@@ -21,9 +21,5 @@ foreach ($source in [IO.Directory]::GetFiles($localDir, '*', [IO.SearchOption]::
     if ($left -cne $right) { throw "Copy hash mismatch: $relative" }
 }
 Write-Output "Pathfinding installed: $installedDir"
-# The mod refuses to load next to its source mods until their code is removed (MIGRATION.md).
-foreach ($other in 'BugfixesAndQoL_Serp', 'MoatMove_Serp') {
-    if (Test-Path -LiteralPath (Join-Path $gameRoot "BepInEx\plugins\$other")) {
-        Write-Warning "$other is installed; Pathfinding stays inactive until that folder is parked."
-    }
-}
+# MoatMove is retired and blocks this mod while it is still installed.
+if (Test-Path -LiteralPath (Join-Path $gameRoot 'BepInEx\plugins\MoatMove_Serp')) { Write-Warning 'MoatMove_Serp is installed; Pathfinding stays inactive until that folder is removed.' }

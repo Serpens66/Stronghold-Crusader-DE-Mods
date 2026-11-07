@@ -1,80 +1,69 @@
-# Entfernungsliste: Code aus BugfixesAndQoL und MoatMove
+# Auslagerung aus BugfixesAndQoL und MoatMove
 
-Momentaufnahme vom 07.11.2026, Quellstand `develop` (HEAD beim Kopieren siehe `originHead` in `migration/source-map.json`). Prüfweg: `tools/Test-MigrationDrift.ps1` zeigt je Datei, ob sich die Quelle seit dem Kopieren geändert hat. Verweise nutzen Symbolnamen, weil Zeilennummern veralten.
+Momentaufnahme vom 07.11.2026 (Quellstand `develop`, Arbeitsstand). Prüfweg: `git status`, `tools/Test-MigrationDrift.ps1` und `Test-Modsettings.ps1` in BFQoL. Herkunft je Datei mit Git-Blob: `migration/source-map.json`.
 
-Dieser Schritt läuft erst auf ausdrücklichen Nutzerauftrag nach der Abnahme des neuen Mods.
+Pathfinding besitzt jetzt Befehle, Routenkern, Tor-Routing, Assassinen-Wege, Formationen, Shift-Warteschlange und Truppenbewegung. BFQoL und Pathfinding laufen gemeinsam. Nur der alte Testmod MoatMove bleibt inkompatibel (`BepInIncompatibility`).
 
-## Vorher erledigen
+## Entfernt aus BugfixesAndQoL
 
-1. `tools/Test-MigrationDrift.ps1` ausführen und jede Änderung in `Pathfinding/src` nachziehen.
-2. Audit der Hook-Reihenfolge von BFQoL und Pathfinding im gemeinsamen Betrieb (`0x196483` Mounted-Hook zieht mit um; `0x59359` MoatTerrain liegt in `0x59210` Recovery; `0x119F90` V14 neben `0x124740`).
-3. Echten Mehrspielertest und Augentest abschließen (bisher nicht gelaufen).
+- **Quellen:** `src/UnitCommands`, `src/Formations`, `src/CommandQueue`, `src/TroopMovement`, `native/`, `UnitCommandImports.cs`, `Core/Common/SimulationRunScope.cs`, `Core/Native/NativeHandlerSnapshot.cs`, `VanillaPerformance/GateAttackFreezeRun.DevDiag.cs`.
+- **`src/GateRouting`:** bis auf `GatehouseDistanceOriginRegistration`, `GatehouseTargetMarkerHeightHook`, `GatehouseTargetMarkerHeightPolicy`.
+- **`src/Assassins`:** bis auf `AssassinCapturedGateProtectionPolicy`, `AssassinCapturedGateProtectionRuntime`.
+- **Einstellungen:** 16 Schlüssel. Sie stehen in `IsRetiredPresetProperty`, alte Presets bleiben ladbar. Dazu Zeilen in `BugfixesAndQoLSettings.xaml`, `ModSettingsPresentation`, Texte in 21 Sprachen, Hilfetext von `EnableVanillaPerformanceOptimizations`.
+- **XAML-Patches:** Assassinen-Stil, Formationssymbole, Menü- und Rollover-Hosts, Vorschau-Canvas.
+- **Tests und Build:** umgezogene Suiten, `Test-GateRouting.ps1`, zugehörige `build.bat`-Schritte, `/checks:gatehouse`.
 
-## Dateien
+## Gelöste Kopplungen
 
-Vollständige Liste mit Blobs: `migration/source-map.json` (`origin`, `target`, `action`).
-
-| `action` | Bedeutung |
+| Stelle | Lösung |
 |---|---|
-| `remove` | Datei in der Quelle löschen, sie lebt nur noch hier |
-| `keep` | Hilfsquelle, die auch BFQoL weiter braucht; Kopie bleibt oder wandert nach `Shared/Runtime` |
-| `move-to-shared` | Muss nach `Shared/Runtime`, weil beide Mods sie brauchen |
+| `TribeMemberLookupOptimization` | Eigene `BodyMatches` |
+| `ForeignTroopHudRuntime` | Meldet über `TroopActionHud.NotifyForeignPanelActivating()`, Pathfinding hört auf `ForeignPanelActivating` |
+| `FeatureSaveStates` | Jeder Mod hält nur noch seine Datensätze; die IDs `BugfixesAndQoL-AssassinClimb` und `BugfixesAndQoL-TroopMovementSync` bleiben unverändert, damit alte Spielstände lesbar bleiben |
+| `SimulationRunScope` | Pathfinding setzt den Marker auf jedem Pfad seines `EngineInterface.run`-Hooks, unabhängig von den Optionen |
+| Helfer (`DemandGatedContextHook`, `HookInstallPhase`, `BugfixesHookInfrastructure`, `MultiplayerFeatureGate` u. a.) | Bleiben je Mod eine eigene Kopie; ein Umzug nach `Shared/Runtime` wäre nur Aufräumen |
 
-Ordner, die in BFQoL komplett entfallen: `src/UnitCommands`, `src/Formations`, `src/CommandQueue`, `src/TroopMovement`, `native/` und `Build-AssassinSearch.ps1`, dazu `UnitCommandImports.cs`. `Testmods/MoatMove` entfällt ganz.
+## Umgezogene Prüfungen
 
-Bleiben in BFQoL:
-- `src/GateRouting`: nur `GatehouseDistanceOriginRegistration`, `GatehouseTargetMarkerHeightHook`, `GatehouseTargetMarkerHeightPolicy`
-- `src/Assassins`: nur `AssassinCapturedGateProtectionPolicy`, `AssassinCapturedGateProtectionRuntime`
+- **Neu in Pathfinding:** `tests/Movement.Tests` (aus `ImprovedMoatFilling.Tests` und `Modsettings.Tests`), `tests/GatehouseDiagnostics`, Rally-Prüfung in `tests/Test-Preflight.ps1`.
+- **Umgestellt:** `_inspect/FormationIntegration/Verify-Interop.ps1`, `_inspect/AssassinGateClimb/verify.ps1`, `Shared/Tools/Validation/{Test-UnitCommandSplit.ps1,UnitCommandSourceChecks,source-check-projects.txt,Test-PermanentNativeRuntimePatches.ps1}`, `_inspect/HostClientPresetTests`, `_inspect/BugfixesAndQoLNativeTests`, `Testmods/{BetterPathfindingTest,GroupPathProbe,EnemyBridgePathTest}`.
+- **Bewusst geändert:** Die Klettern-Prüfung verlangt die Einordnung als „Fixes“ nicht mehr, weil Pathfinding keine Fix/QoL-Aufteilung hat. Die Host-Berechtigung bleibt Pflicht.
+- **Entfallen:** `FreezeTests` in `EnginePresentation.Tests`, weil der Starter der Gate-Freeze-Diagnose wegfiel. `GateAttackFreezeCapture` liegt in Pathfinding und bleibt ohne Starter inaktiv.
 
-## Offene Kopplungen in BFQoL
+## Gemeinsamer Betrieb
 
-| Stelle | Lösung beim Entfernen |
-|---|---|
-| `VanillaPerformance/TribeMemberLookupOptimization` nutzt `TribeFloodMembership.BodyMatches` | `BodyMatches` nach `Shared/Runtime/Native` |
-| `Hud/ForeignTroopHudRuntime` ruft `FormationHudButton.HideForForeignHud` | Hinweis „fremde Truppen-HUD aktiv“ über APIShared `TroopActionHud`, Pathfinding reagiert darauf |
-| `VanillaPerformance/GateAttackFreezeRun.DevDiag` nutzt `GateAttackFreezeCapture` | Datei und Aufruf `DiagInstallFreeze` aus BFQoL entfernen. In Pathfinding fehlt der Starter noch: die Freeze-Diagnose bleibt im DEVDIAG-Build inaktiv, bis jemand sie wieder braucht |
-| `Core/Common/FeatureSaveStates`: `AssassinClimbSaveState`, `TroopMovementSyncSaveState` | Aus BFQoL entfernen; IDs `BugfixesAndQoL-AssassinClimb` und `BugfixesAndQoL-TroopMovementSync` bleiben im neuen Mod unverändert, damit alte Spielstände lesbar bleiben |
-| `Core/Common/SimulationRunScope` | Wird in BFQoL dann nicht mehr gelesen; Setzer in `EnginePresentationBridge` entfernen, wenn kein Leser bleibt. Pathfinding setzt den Marker im `EngineInterface.run`-Hook (`FormationRuntime.RunOriginalOnce`) |
-| `Core/Native/DemandGatedContextHook`, `HookInstallPhase`, `PermanentInstructionSkipPatch`, `NativeInstructionReplayEmitter`, `NativeHandlerSnapshot`, `BugfixesHookInfrastructure`, `BfqolNativeCache`, `MultiplayerFeatureGate`, `SessionSaveRecordSlot`, `LocalPerPlayerSetting`, `LocalSelectionSnapshot` | Bleiben in BFQoL; bei Bedarf nach `Shared/Runtime` zusammenführen |
-| `InternalsVisibleTo("MoatMove")` in `UnitCommandContracts` | Entfällt mit der Datei |
+Quellaudit vom 07.11.2026: Keine Spanne wird von beiden Mods gehookt. Die Treffer sind Aufrufe, Validierungen gegen das Ladeabbild oder Kommentare.
 
-## BFQoL-Bootstrap
+| Adresse | BFQoL | Pathfinding |
+|---|---|---|
+| `0x119F90` | V14-Inline-Hook | Ruft die Funktion nur auf, liest das Ladeabbild |
+| `0x11FFA7` / `0x123090` | Aufrufstelle | Funktionseintritt; der relozierte Aufruf läuft durch den Detour |
+| `0x59210`, `0x639C0`, `0x69470` | MoatTerrain-Stellen im Funktionsinneren | Funktionseintritt |
+| `EngineInterface.run` | Harmony-Transpiler | MonoMod-Hook; Reihenfolge wie zuvor, die Brücke zuerst |
 
-- `BugfixesAndQoLPlugin`: `FormationFeature.Configure`, `GateRoutingFeature.Configure`, `FormationFeature.Initialize`.
-- `BugfixesAndQoLRuntime`: Felder und Aufrufe von `troopMovementFixRuntime`, `assassinClimbRuntime`, `assassinClimbCancellationRuntime`, `assassinPathfindingRuntime`, `assassinCombatResumeRuntime`, `friendlyMoatMovementRuntime`, `processUnitCommandPathRuntime`, `extendedShiftCommandQueueRuntime`, `assemblyPointPlacementPatch`, `mountedStockpileMovementPatch`; Methoden `InitializeFriendlyMoatMovement`, `InitializeExtendedShiftCommandQueue`, `ApplyAssassinGatehouseClimbFix`, `Apply/Install/Disable…AssemblyPoint…`, `…MountedStockpile…`.
-- `BugfixesAndQoLRuntime.BuildingAndEconomy`: `reachableEnemyGatehouseRuntime`, `fastRecruitMovementBridge`, `ApplyFastRecruitRallyMovementSetting`. Die Paketreihenfolge in `InitializeBuildingFeatureNetwork` ist eine Mehrspieler-Protokollgrenze: Paket-IDs von `ReachableEnemyGatehouseRuntime` beim Entfernen prüfen.
+Pathfinding lädt per Soft-Abhängigkeit nach BFQoL. `NativeSiteRegistry`-Einträge für Pathfinding sind nicht gesetzt; das wäre eine reine Diagnose-Ergänzung.
 
-## Einstellungen
+## Nachweise vom 07.11.2026
 
-`Settings/BugfixesAndQoLViewModel`: Felder, Properties, `…Text`/`…HelpText`, Reset-Einträge, `IUnitCommandSettings`. Die Properties in `IsRetiredPresetProperty` aufnehmen.
+- **Builds:** `BugfixesAndQoL/build.bat` und `Pathfinding/build.bat` mit `/source:working` samt aller Tests grün und installiert.
+- **Spieltest `SP-pathfinding`:** gemeinsam 39 von 39 Schritten, Pathfinding allein 37 von 37 (ohne die zwei Importschritte). Geprüft: Einstellungsseite, Formationsmenü, Befehle, Warteschlange, zwei Spielstände, Editor. BFQoL allein: Spielstart mit zwei Partien ohne Fehler.
+- **Einstellungsimport:** Ein `false` aus der BFQoL-Datei kam in Pathfinding an, ein neues BFQoL lässt die alten Werte beim Start stehen.
+- **Messung `test_stresstest5`, Tempo 250, 120 s, ohne DEVDIAG:**
 
-`EnableImprovedManualUnitCommands`, `EnableImprovedMoatFilling`, `EnableLadderAttackPathfindingFix`, `EnableEnemyGatePathfindingFix`, `RequireReachableEnemyForAutomaticGateClosing`, `EnableImprovedAssassinPathfinding`, `EnableImprovedAssassinPathfindingAI`, `EnableAssassinGatehouseClimbFix`, `EnableAssassinCombatResumeFix`, `EnableMoveFormationEnhancements`, `EnableExtendedShiftCommandQueue`, `EnableTroopMovementFix`, `EnableRallyTerrainSlowdownFix`, `EnableFastRecruitRallyMovement`, `EnableMountedStockpileMovementFix`, `EnableAssemblyPointPlacementFix`
+| Variante | Ticks | Frames > 100 ms | Lag-Summe | Größter Frame |
+|---|---|---|---|---|
+| BFQoL + MoatMove (`pf-cmp-src-1`) | 7888 | 69 | 22,3 s | 2575 ms |
+| BFQoL + Pathfinding (`pf-cmp-both-1`) | 8074 | 71 | 17,0 s | 622 ms |
+| BFQoL + Pathfinding (`pf-cmp-both-2`, Routenstatistik an) | 8222 | 68 | 16,8 s | 540 ms |
 
-- `EnableVanillaPerformanceOptimizations` und `EnableClientFeatures` bleiben auch in BFQoL. Der Hilfetext der BFQoL-Option nennt die Gruppenmitgliedsprüfung und muss angepasst werden.
-- `Settings/ModSettingsPresentation.Topics` und `.Recommendations`: Einträge obiger Schlüssel.
-- `Override/ScriptExtenderUI/BugfixesAndQoLSettings.xaml`: die Zeilen obiger Schlüssel.
-- `Locales/*.txt` (21 Sprachen): `BugfixesAndQoL.<Key>`, `BugfixesAndQoL.<Key>Help`, `BugfixesAndQoL.SettingsRework.Reason.<Key>`, `SomeSettings.EnableTroopMovementFix…`, `SomeSettings.EnableImprovedAssassinPathfinding…`, `BugfixesAndQoL.Lineup*`, `BugfixesAndQoL.ArrangementTooltip`, `BugfixesAndQoL.RememberRows*`.
-- `[Formation]` und DEVDIAG-`[GateMigrationDiagnostics]` in der BFQoL-BepInEx-Config entfallen; `LegacyBfqolSettings` übernimmt die Werte.
+Die Vergleichszeile lief mit Gräbenquerung an und einem älteren MoatMove-Paket, die neuen Zeilen mit den neuen Standardwerten. Protokolle: `.work/a/pathfinding-build/runs`. Größter verbleibender Einzelposten in den Lags ist die native Assassinensuche (`bfq_assassin_field_route`, rund 25 % der Stichproben).
 
-## Tests und Prüfungen
+Die laufenden Routenstatistiken (`stage=anchor-*`, `stage=fast-performance`, `anchor-move-unreached`, `anchor-unreachable-found`, `reachability-slow`) erscheinen nur mit `[Diagnostics] Enabled`. `tools/Run-PathfindingIteration.ps1 -RouteStats` schaltet das für einen Lauf ein.
 
-- BFQoL-Tests: `FriendlyMoatMovement.Tests`, `GateRouting.Tests`, `AssassinPathfinding.Tests`, `Formations.Core.Tests`, `Formations.Tests`, `FormationSpeech.Tests`, `ExtendedShiftCommandQueue.Tests`, `Issue6.Tests`, `ImprovedMoatFilling.Tests.csproj`, die zugehörigen Teile von `Program.cs` und `MovementFastPathParityHarness.cs`, `TribeMemberLookup.Tests` (nur `BodyMatches`), `GatehouseDiagnostics`. Laufen bisher nur gegen die BFQoL-Quellen; beim Entfernen nach `Pathfinding/tests` umziehen und Pfade umstellen.
-- `BugfixesAndQoL/build.bat`: Schritte dieser Suiten, `_inspect/AssassinGateClimb/verify.ps1`, `_inspect/AssassinAttackControlAudit/verify-integrated.ps1`, `_inspect/FormationIntegration/Verify-Interop.ps1`, `_inspect/HostClientPresetTests` (`EnemyGateRoutingPresetTests`), `Test-RuntimePreflight.ps1`, Build der nativen Assassinen-DLL. Modpfad parametrisieren, Garantien behalten.
-- `Testmods/GroupPathProbe` (`AnchorCoreInterop`, `AnchorCoreGate`), `Testmods/BetterPathfindingTest`, `Testmods/EnemyBridgePathTest`, `Testmods/UiAcceptance` (Probe an `0x196100`), `Testmods/PerfProbe/DIAGNOSTICS.md`.
+## Noch offen
 
-## Workspace-Werkzeuge
-
-- `Shared/Tools/Validation/Test-UnitCommandSplit.ps1`, `UnitCommandSourceChecks/Program.cs`, `CommandDependencyReport.cs`, `Test-PermanentNativeRuntimePatches.ps1`: BFQoL/MoatMove durch Pathfinding ersetzen; die Grenze Besitzer/Provider liegt dann innerhalb eines Mods.
-- `Shared/Tools/Validation/source-check-projects.txt`: `Testmods/MoatMove/MoatMove.csproj` und die umgezogenen Testprojekte.
-- `Shared/Tools/BranchBuild/BranchBuild.Common.ps1`, `Test-BranchInstallAdapters.ps1`, `APIShared/tools/BranchBuild/BranchBuild.Common.ps1`: MoatMove-Installationsadapter.
-- `Shared/Tools/ScriptExtenderUpdate/mods.json`: MoatMove-Eintrag; alte Kompatibilitätsdateien bleiben als Historie.
-
-## Veröffentlichung
-
-- `Shared/Tools/Release/release-projects.json`, `Shared/Tools/Steam/WorkshopConfiguration.ps1`, `Test-SteamPackPolicy.ps1`, `ModpackSource.Common.ps1`, `Shared/Docs/runtime-health-coverage.json`, `README.md` (Modtabelle), `SerpsModsHost/info.json`.
-- `[BepInIncompatibility("BugfixesAndQoL_Serp")]` und `("MoatMove_Serp")` in `PathfindingPlugin` entfernen; Abschnitt „Good to know“ der README anpassen.
-- Pack-Regel: Soft-Abhängigkeit `SerpsMods_Serp` ist gesetzt, `EnableMod` ist der Aktivierungsschalter.
-
-## Dokumentation
-
-`BugfixesAndQoL/UpdateToNewDLL.md` (die nach `Pathfinding/UpdateToNewDLL.md` übernommenen Abschnitte), `BugfixesAndQoL/README.md` (nur auf Nutzerauftrag), `AGENTS/apishared.md`, `AGENTS/performance.md`, `Shared/Docs/SOURCE_OWNERSHIP.md`, `APIShared/docs/API_CATALOG.md`, `APIShared/docs/PATHFINDING_RULES.md`, `APIShared/ARCHITECTURE.md`.
+- Echter Mehrspielertest mit zwei Rechnern und Augentest.
+- Veröffentlichung: `Shared/Tools/Release/release-projects.json`, `Shared/Tools/Steam/WorkshopConfiguration.ps1`, `Test-SteamPackPolicy.ps1`, `ModpackSource.Common.ps1`. BFQoL darf ohne Pathfinding nicht in den Pack, sonst fehlen die Funktionen.
+- `BugfixesAndQoL/README.md` nennt die umgezogenen Funktionen noch (nur auf Nutzerauftrag ändern). BFQoL-Version und `SerpChangelog` werden erst zum Abschluss gesetzt.
+- `Testmods/MoatMove` ist ohne BFQoL-Interna nicht mehr baubar; der Ordner und seine Installationsadapter in `Shared/Tools/BranchBuild` bleiben bis zur Entscheidung des Nutzers.
+- Tote Einträge in `Shared/Runtime/Localization/SerpLocalization.cs` (Konstanten und englische Rückfalltexte der umgezogenen Schlüssel) sind harmlos. Das Entfernen würde alle verlinkenden Mods neu bauen und kann mit der nächsten Shared-Änderung erfolgen.

@@ -204,19 +204,19 @@
       <Link>EnemyProximityPolicy.cs</Link>
     </Compile>
 
-    <Compile Include="..\..\BugfixesAndQoL\src\Assassins\AssassinClimbCostPolicy.cs">
+    <Compile Include="..\..\Pathfinding\src\Assassins\AssassinClimbCostPolicy.cs">
       <Link>AssassinClimbCostPolicy.cs</Link>
     </Compile>
-    <Compile Include="..\..\BugfixesAndQoL\src\Assassins\AssassinCombatResumeNativeDefinition.cs">
+    <Compile Include="..\..\Pathfinding\src\Assassins\AssassinCombatResumeNativeDefinition.cs">
       <Link>AssassinCombatResumeNativeDefinition.cs</Link>
     </Compile>
-    <Compile Include="..\..\BugfixesAndQoL\src\Assassins\AssassinCombatResumePolicy.cs">
+    <Compile Include="..\..\Pathfinding\src\Assassins\AssassinCombatResumePolicy.cs">
       <Link>AssassinCombatResumePolicy.cs</Link>
     </Compile>
-    <Compile Include="..\..\BugfixesAndQoL\src\Assassins\AssassinClimbCancellationPolicy.cs">
+    <Compile Include="..\..\Pathfinding\src\Assassins\AssassinClimbCancellationPolicy.cs">
       <Link>AssassinClimbCancellationPolicy.cs</Link>
     </Compile>
-    <Compile Include="..\..\BugfixesAndQoL\src\Assassins\AssassinClimbTransitionPolicy.cs">
+    <Compile Include="..\..\Pathfinding\src\Assassins\AssassinClimbTransitionPolicy.cs">
       <Link>AssassinClimbTransitionPolicy.cs</Link>
     </Compile>
     <Compile Include="..\..\BugfixesAndQoL\src\Buildings\QuarryPileTargetSelectionPolicy.cs">

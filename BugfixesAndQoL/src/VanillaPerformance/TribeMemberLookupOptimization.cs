@@ -25,6 +25,13 @@ namespace BugfixesAndQoL.VanillaPerformance
         private static IntPtr enabledFlag;
         private static int installed, published;
 
+        private static bool BodyMatches(ReadOnlySpan<byte> memory, int rva, int length, string sha256)
+        {
+            if (rva < 0 || length <= 0 || rva > memory.Length - length) return false;
+            using (var sha = System.Security.Cryptography.SHA256.Create())
+                return BitConverter.ToString(sha.ComputeHash(memory.Slice(rva, length).ToArray())).Replace("-", "") == sha256;
+        }
+
         internal static void Install(ManualLogSource log, CrusaderLibraryLoadContext context)
         {
             if (Interlocked.Exchange(ref installed, 1) != 0) return;
@@ -34,7 +41,7 @@ namespace BugfixesAndQoL.VanillaPerformance
                 if (context == null || context.ModuleHandle == IntPtr.Zero || !Shared.DebugLogHelper.IsCurrentNativeLibraryVersion())
                     throw new InvalidOperationException("the tribe member lookup is bound to the audited native DLL " +
                         Shared.DebugLogHelper.CurrentNativeSha256 + ".");
-                if (!UnitCommands.TribeFloodMembership.BodyMatches(context.Memory, TribeMemberLookupCode.Rva,
+                if (!BodyMatches(context.Memory, TribeMemberLookupCode.Rva,
                         TribeMemberLookupCode.BodyLength, TribeMemberLookupCode.BodySha256))
                     throw new InvalidOperationException("the 0x119F90 body differs from the audited 0x8C bytes.");
                 ulong target = unchecked((ulong)context.ModuleHandle.ToInt64()) + TribeMemberLookupCode.Rva;

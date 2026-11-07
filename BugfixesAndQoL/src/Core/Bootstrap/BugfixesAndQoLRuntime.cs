@@ -15,12 +15,7 @@ namespace BugfixesAndQoL
     {
         private readonly ManualLogSource log;
         private readonly BugfixesAndQoLViewModel settings;
-        private readonly TroopMovementFixRuntime troopMovementFixRuntime;
         private readonly MultiplayerFeatureGate multiplayerFeatureGate;
-        private readonly AssassinClimbRuntime assassinClimbRuntime;
-        private readonly AssassinClimbCancellationRuntime assassinClimbCancellationRuntime;
-        private readonly AssassinPathfindingRuntime assassinPathfindingRuntime;
-        private readonly AssassinCombatResumeRuntime assassinCombatResumeRuntime;
         private readonly AssassinCapturedGateProtectionRuntime assassinCapturedGateProtectionRuntime;
         private readonly MultiplayerGameSpeedRuntime multiplayerGameSpeedRuntime;
         private readonly MultiplayerAivSyncRuntime multiplayerAivSyncRuntime;
@@ -35,8 +30,6 @@ namespace BugfixesAndQoL
         private static LobbyYellowContrastFeature processLobbyYellowContrastFeature;
         private static CompactLobbyChatFeature processCompactLobbyChatFeature;
         private static BriefingNoStartingGoldFixRegistration processBriefingNoStartingGoldFixRegistration;
-        private ExtendedShiftCommandQueueRuntime extendedShiftCommandQueueRuntime;
-        private static ExtendedShiftCommandQueueRuntime processExtendedShiftCommandQueueRuntime;
         private IDisposable playerMarketSubscription;
         private IDisposable mapStartSubscription;
         private IDisposable mapUnloadSubscription;
@@ -59,9 +52,7 @@ namespace BugfixesAndQoL
         private LordControlGroupNativePatch lordControlGroupNativePatch;
         private ControlGroupDisbandCleanupRuntime controlGroupDisbandCleanupRuntime;
         private SelectedUnitHealthFeature selectedUnitHealthFeature;
-        private AssemblyPointPlacementPatch assemblyPointPlacementPatch;
         private HealerAttackCommandPatch healerAttackCommandPatch;
-        private MountedStockpileMovementPatch mountedStockpileMovementPatch;
         private ShiftRepairAllBuildingsHook shiftRepairAllBuildingsHook;
         private AiStoneReserveFix aiStoneReserveFix;
         private AiDefensePatrolFix aiDefensePatrolFix;
@@ -73,8 +64,6 @@ namespace BugfixesAndQoL
         private PlagueTreatmentFadeFix plagueTreatmentFadeFix;
         private PlagueTargetReservationFix plagueTargetReservationFix;
         private PlagueApothecaryStateTransitionFix plagueApothecaryStateTransitionFix;
-        private UnitCommandPathRuntime friendlyMoatMovementRuntime;
-        private static UnitCommandPathRuntime processUnitCommandPathRuntime;
         private static AllyGoodsAmountModifierHook processAllyGoodsAmountModifierHook;
         private static WorkshopUploadLordSelectionFix processWorkshopUploadLordSelectionFix;
         private static KeepFlagRotationRuntime processKeepFlagRotationRuntime;
@@ -130,9 +119,7 @@ namespace BugfixesAndQoL
         private bool nativeLibraryAvailable;
         private bool fixedLayoutHashValidated;
         private bool enemyProximityFixedLayoutErrorLogged;
-        private bool assemblyPointPlacementPatchUnavailable;
         private bool healerAttackCommandPatchUnavailable;
-        private bool mountedStockpileMovementPatchUnavailable;
         private bool lordControlGroupNativePatchUnavailable;
         private bool controlGroupDisbandCleanupUnavailable;
         private bool lordMixedDisbandContractValidated;
@@ -154,15 +141,7 @@ namespace BugfixesAndQoL
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
-            troopMovementFixRuntime = new TroopMovementFixRuntime(log, settings);
             multiplayerFeatureGate = new MultiplayerFeatureGate(log);
-            assassinClimbRuntime = new AssassinClimbRuntime(log, settings, multiplayerFeatureGate);
-            assassinClimbCancellationRuntime = new AssassinClimbCancellationRuntime(log, settings);
-            assassinPathfindingRuntime = new AssassinPathfindingRuntime(log, settings, assassinClimbRuntime);
-            // Rooted by the static field for the process; inactive until the runtime is installed.
-            UnitCommands.UnitCommandPathRuntime.AssassinGroupRouteStager = assassinPathfindingRuntime.TryStageGroupRoute;
-            AssassinPathfindingRuntime.MapTickSource = () => GameTimeManagerAPI.Instance.GetElapsedMapTicks();
-            assassinCombatResumeRuntime = new AssassinCombatResumeRuntime(log, settings);
             assassinCapturedGateProtectionRuntime = new AssassinCapturedGateProtectionRuntime(log, settings);
             multiplayerGameSpeedRuntime = new MultiplayerGameSpeedRuntime(log, settings, multiplayerFeatureGate);
             multiplayerAivSyncRuntime = new MultiplayerAivSyncRuntime(log, settings);
@@ -202,32 +181,10 @@ namespace BugfixesAndQoL
             TryInitializePersistentFeature(
                 "moved synchronized feature group",
                 InitializeBuildingFeatureNetwork);
-            TryInitializePersistentFeature(
-                "Assassin climb-state synchronization",
-                assassinClimbRuntime.InitializeNetwork);
             // Map-scoped fix state that the native save omits. Each record fails independently.
             TryInitializePersistentFeature(
                 "single-building pause save data",
                 InitializeSingleBuildingPauseSaveData);
-            TryInitializePersistentFeature(
-                "Assassin climb-state save data",
-                assassinClimbRuntime.InitializeSaveData);
-            TryInitializePersistentFeature(
-                "troop movement synchronization save data",
-                troopMovementFixRuntime.InitializeSaveData);
-            TryInitializePersistentFeature(
-                "Assassin climb cancellation event",
-                assassinClimbCancellationRuntime.Initialize);
-            // APIShared owns the button, overflow placement and the single troop-action setup hook.
-            TryInitializePersistentFeature(
-                "troop action HUD registration",
-                () =>
-                {
-                    assassinClimbRuntime.RegisterActionButton();
-                    if (!APIShared.Presentation.TroopActionHud.TryRegister(BugfixesAndQoLPlugin.PluginGuid, "AssassinClimb",
-                        assassinClimbRuntime.RefreshButtonVisibility, out string reason))
-                        throw new InvalidOperationException(reason);
-                });
             // These registrations serve independent features. Keep each failure isolated so a
             // managed speed-UI hook can never disable Ctrl trading or map-state maintenance.
             TryInitializePersistentFeature(
@@ -283,8 +240,6 @@ namespace BugfixesAndQoL
             ClearSingleBuildingPauseOverrides();
             multiplayerGameSpeedRuntime.ResetMapState();
             abruptHostMigrationFix?.ResetMapState();
-            assassinClimbRuntime.EndMap();
-            assassinPathfindingRuntime.EndMap();
             assassinCapturedGateProtectionRuntime.EndMap();
             plagueTargetReservationFix?.ResetForMap();
             siegeAmmoRestockFeature.ResetForMap();
@@ -299,11 +254,8 @@ namespace BugfixesAndQoL
             // Restored customized-save origins are pending until the destination session exists.
             if (!context.IsEditor)
                 TrailCustomizationLaunchOriginApi.MarkMapStarted();
-            assassinPathfindingRuntime.BeginMap();
             assassinCapturedGateProtectionRuntime.BeginMap();
-            assassinClimbRuntime.BeginMap(context);
             TryApplyFeature("single-building pause save restore", () => RestoreSingleBuildingPauseSaveState(context));
-            TryApplyFeature("troop movement save restore", () => troopMovementFixRuntime.RestoreSessionState(context));
             multiplayerGameSpeedRuntime.ApplySetting();
             APIShared.Presentation.TroopActionHud.RefreshCurrentPanel();
         }
@@ -402,81 +354,16 @@ namespace BugfixesAndQoL
                 lordMixedDisbandContractValidated = false;
                 Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/BugfixesAndQoLRuntime/InitializeNative.mixed-lord-disband-fail", $"Bugfixes and QoL mixed Lord disband is fail-closed because its native contract could not be validated: {ex}");
             }
-            assassinClimbCancellationRuntime.SetFixedUnitLayoutValidated(
-                isFixedLayoutHashValidated);
-            if (!isFixedLayoutHashValidated &&
-                settings.EnableMod &&
-                settings.EnableImprovedAssassinPathfinding)
-            {
-                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/BugfixesAndQoLRuntime/InitializeNative.assassin-climb-cancellation-remains", "Bugfixes and QoL Assassin climb cancellation remains inactive because its fixed unit-field layout is not validated for this CrusaderDE.dll.");
-            }
-
             if (isFixedLayoutHashValidated)
-            {
                 TryInitializePersistentFeature("Assassin captured-gate protection",
                     () => assassinCapturedGateProtectionRuntime.InitializeNative(newLibraryHandle));
 
-                try
-                {
-                    assassinPathfindingRuntime.InitializeNative(
-                        newLibraryHandle,
-                        nativeRegion,
-                        memory,
-                        fixedLayoutHashValidated: true);
-                }
-                catch (Exception ex)
-                {
-                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/BugfixesAndQoLRuntime/InitializeNative.weighted-assassin-pathfinding-could", $"Bugfixes and QoL weighted Assassin pathfinding could not be initialized and remains inactive: {ex}");
-                }
-
-                try
-                {
-                    // This hook is independent of the weighted builder: with that option off,
-                    // Vanilla's own Assassin builder receives the restored post-combat request.
-                    assassinCombatResumeRuntime.InitializeNative(
-                        newLibraryHandle,
-                        nativeRegion,
-                        memory,
-                        fixedLayoutHashValidated: true);
-                }
-                catch (Exception ex)
-                {
-                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/BugfixesAndQoLRuntime/InitializeNative.assassin-combat-resume-fix-could", $"Bugfixes and QoL Assassin combat-resume fix could not be initialized and remains inactive: {ex}");
-                }
-            }
-            else
-            {
-                if (settings.EnableMod && (settings.EnableImprovedAssassinPathfinding || settings.EnableImprovedAssassinPathfindingAI))
-                {
-                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/BugfixesAndQoLRuntime/InitializeNative.weighted-assassin-pathfinding-remains", "Bugfixes and QoL weighted Assassin pathfinding remains inactive because the fixed native layout is not validated for this CrusaderDE.dll; Vanilla pathfinding remains active.");
-                }
-                if (settings.EnableMod && settings.EnableAssassinCombatResumeFix)
-                {
-                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/BugfixesAndQoLRuntime/InitializeNative.assassin-combat-resume-fix-remains", "Bugfixes and QoL Assassin combat-resume fix remains inactive because the fixed native layout is not validated for this CrusaderDE.dll; Vanilla behavior remains active.");
-                }
-            }
-
             // Every native feature has its own compatibility surface. A changed signature in
             // one feature must not prevent unrelated fixes from installing.
-            try
-            {
-                troopMovementFixRuntime.InitializeNative(newLibraryHandle, nativeRegion, memory, isFixedLayoutHashValidated);
-            }
-            catch (Exception ex)
-            {
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/BugfixesAndQoLRuntime/InitializeNative.feature-troop-movement-fix", $"Bugfixes and QoL feature 'troop movement fix' could not be initialized and remains inactive: {ex}");
-            }
             InitializeBuildingAndEconomyNative(
                 newLibraryHandle,
                 memory,
                 isFixedLayoutHashValidated);
-            TryInitializeFeature(
-                "friendly moat movement",
-                () => InitializeFriendlyMoatMovement(context, isFixedLayoutHashValidated));
-            TryInitializePersistentFeature("Assassin gatehouse descent", () =>
-                GateRouting.AssassinGatehouseDescentFeature.Initialize(context, log, settings, isFixedLayoutHashValidated));
-            TryInitializePersistentFeature("Assassin gatehouse climb", ApplyAssassinGatehouseClimbFix);
-            TryInitializePersistentFeature("enemy gate routing", () => GateRouting.GateRoutingFeature.Initialize(context,isFixedLayoutHashValidated));
             TryInitializePersistentFeature("moat terrain restoration", () =>
             {
                 if (moatTerrainInitializationAttempted) return;
@@ -529,16 +416,11 @@ namespace BugfixesAndQoL
                     throw new InvalidOperationException(reason);
                 ApplyAiSellThresholdFix();
             });
-            TryInitializeFeature(
-                "Extended Shift command queue",
-                () => InitializeExtendedShiftCommandQueue(context, isFixedLayoutHashValidated));
             TryInitializeFeature("plague popularity fix", EnsurePlaguePopularityFix);
             TryInitializeFeature("plague cloud removal fix", EnsurePlagueTreatmentFadeFix);
             TryInitializeFeature("plague target-reservation fix", EnsurePlagueTargetReservationFix);
             TryInitializeFeature("stuck-apothecary fix", EnsurePlagueApothecaryStateTransitionFix);
-            TryInitializeFeature("assembly-point placement fix", ApplyAssemblyPointPlacementPatchSetting);
             TryInitializeFeature("Healer attack-command fix", ApplyHealerAttackCommandPatchSetting);
-            TryInitializeFeature("mounted-stockpile movement fix", ApplyMountedStockpileMovementPatchSetting);
             TryInitializeFeature("disbanded-unit control-group cleanup", EnsureControlGroupDisbandCleanup);
             TryInitializeFeature("Lord control groups", ApplyLordControlGroupPatchSetting);
             TryInitializeFeature("AI stone-reserve fix", EnsureAiStoneReserveFix);
@@ -569,16 +451,6 @@ namespace BugfixesAndQoL
             TryInitializeFeature("Ctrl single-unit market trade", InstallCtrlMarketTradeHook);
         }
 
-        // APIShared owns permanent hooks and publishes only a logical activation flag.
-        // Both initialization and host-setting changes use the existing rooted runtime publishers.
-        private void ApplyAssassinGatehouseClimbFix()
-        {
-            if (!nativeLibraryAvailable) return;
-            APIShared.AssassinPathAPI.SetDirectGatehouseClimbing(
-                BugfixesAndQoLPlugin.PluginGuid, settings.EnableMod && settings.EnableAssassinGatehouseClimbFix);
-            GateRouting.AssassinGatehouseDescentFeature.Refresh();
-        }
-
         // The synchronized host value is applied on every peer, including editor missions.
         // APIShared owns the permanent hooks; disabling only withdraws our own request.
         private void ApplyAiSellThresholdFix() => processAiSellThresholdPolicy?.SetEnabled(
@@ -587,7 +459,6 @@ namespace BugfixesAndQoL
         public void ApplySettings()
         {
             TryApplyFeature("AI sell threshold safety", ApplyAiSellThresholdFix);
-            TryApplyFeature("Assassin gatehouse climb", ApplyAssassinGatehouseClimbFix);
             processGatehouseLivingCaptureRuntime?.SetEnabled(settings.EnableMod, settings.EnableGatehouseLivingCaptureFix);
             processDrawbridgeDestructionFixRuntime?.SetEnabled(settings.EnableMod, settings.EnableDrawbridgeDestructionFix);
             processTreeBlightDecayRuntime?.SetEnabled(settings.EnableMod, settings.EnableTreeBlightDecayFix);
@@ -644,70 +515,15 @@ namespace BugfixesAndQoL
             TryApplyFeature("AI castle/settings list enhancements", () => aiCastleSettingsListEnhancementHook?.ApplySetting());
             TryInitializeFeature("map-origin sorting", EnsureMapOriginSortHook);
             TryInitializeFeature("Vanilla maps in the editor", EnsureVanillaMapEditorHook);
-            TryApplyFeature("troop movement fix", troopMovementFixRuntime.ApplySetting);
-            TryApplyFeature(
-                "Extended Shift command queue",
-                () => extendedShiftCommandQueueRuntime?.ApplySetting());
             TryApplyFeature("multiplayer game speed", multiplayerGameSpeedRuntime.ApplySetting);
-            TryApplyFeature("assembly-point placement fix", ApplyAssemblyPointPlacementPatchSetting);
             TryApplyFeature("Healer attack-command fix", ApplyHealerAttackCommandPatchSetting);
-            TryApplyFeature("mounted-stockpile movement fix", ApplyMountedStockpileMovementPatchSetting);
             TryApplyFeature("Lord control groups", ApplyLordControlGroupPatchSetting);
             TryApplyFeature("AI stone-reserve fix", () => aiStoneReserveFix?.ApplySetting());
             TryApplyFeature("AI defense patrol fix", () => aiDefensePatrolFix?.ApplySetting());
-            TryApplyFeature("Assassin path reconstruction", assassinPathfindingRuntime.ApplySetting);
-            if (settings.EnableMod && settings.EnableImprovedAssassinPathfinding && assassinPathfindingRuntime.IsInstalled)
-                TryApplyFeature("Assassin climb button", assassinClimbRuntime.Initialize);
-            else
-                TryApplyFeature("Assassin climb button cleanup", assassinClimbRuntime.Dispose);
-
             if (settings.EnableClientFeatures)
                 SubscribeHooks();
             else
                 UnsubscribeHooks();
-        }
-
-        private void InitializeFriendlyMoatMovement(
-            CrusaderLibraryLoadContext context,
-            bool referenceHashMatches)
-        {
-            if (!nativeLibraryAvailable || friendlyMoatMovementRuntime != null)
-                return;
-            if (processUnitCommandPathRuntime == null)
-            {
-#if SERP_DEVDIAG
-                UnitCommandPathAPI.AssassinReconstructionRelaxation = () => AssassinPathfindingRuntime.TemporaryReconstructionRelaxation;
-#endif
-                processUnitCommandPathRuntime = UnitCommandPathAPI.RegisterCommands(
-                    log, settings, context, referenceHashMatches, BugfixesAndQoLPlugin.PluginGuid);
-            }
-            friendlyMoatMovementRuntime = processUnitCommandPathRuntime;
-            if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                Shared.DebugLogHelper.LogDebug(
-                    log,
-                    "Bugfixes and QoL shared unit commands initialized: " +
-                    $"manualCommands={settings.EnableImprovedManualUnitCommands}, improvedFill=" +
-                    $"{settings.EnableMod && settings.EnableImprovedMoatFilling}, " +
-                    $"ladderAttackFix={settings.EnableMod && settings.EnableLadderAttackPathfindingFix}.");
-        }
-
-        private void InitializeExtendedShiftCommandQueue(
-            CrusaderLibraryLoadContext context,
-            bool referenceHashMatches)
-        {
-            if (!nativeLibraryAvailable || extendedShiftCommandQueueRuntime != null)
-                return;
-
-            // Root the runtime before installing process-lifetime detours so a partial native
-            // transaction can never leave callbacks whose managed owner became collectible.
-            if (processExtendedShiftCommandQueueRuntime == null)
-            {
-                processExtendedShiftCommandQueueRuntime =
-                    new ExtendedShiftCommandQueueRuntime(
-                        log, settings, friendlyMoatMovementRuntime);
-                processExtendedShiftCommandQueueRuntime.Install(context, referenceHashMatches);
-            }
-            extendedShiftCommandQueueRuntime = processExtendedShiftCommandQueueRuntime;
         }
 
         private void EnsureShiftRepairAllBuildingsHook()
@@ -1097,35 +913,7 @@ namespace BugfixesAndQoL
             }
 
             TryApplyFeature("plague target-reservation fix", () => plagueTargetReservationFix?.ApplySetting());
-            if (propertyName == nameof(BugfixesAndQoLViewModel.EnableTroopMovementFix))
-            {
-                TryApplyFeature("troop movement fix", troopMovementFixRuntime.ApplySetting);
-                return;
-            }
-
             ApplySettings();
-        }
-
-        private void ApplyAssemblyPointPlacementPatchSetting()
-        {
-            if (!nativeLibraryAvailable)
-                return;
-
-            if (settings.EnableMod && settings.EnableAssemblyPointPlacementFix)
-                InstallAssemblyPointPlacementPatch();
-            else
-                DisableAssemblyPointPlacementPatch();
-        }
-
-        private void ApplyMountedStockpileMovementPatchSetting()
-        {
-            if (!nativeLibraryAvailable)
-                return;
-
-            if (settings.EnableMod && settings.EnableMountedStockpileMovementFix)
-                InstallMountedStockpileMovementPatch();
-            else
-                DisableMountedStockpileMovementPatch();
         }
 
         private void ApplyHealerAttackCommandPatchSetting()
@@ -1456,38 +1244,6 @@ namespace BugfixesAndQoL
             }
         }
 
-        private void InstallAssemblyPointPlacementPatch()
-        {
-            if (assemblyPointPlacementPatch != null)
-            {
-                assemblyPointPlacementPatch.SetEnabled(true);
-                return;
-            }
-
-            // A changed or already hooked signature cannot become valid later in this process.
-            InstallOnce(ref assemblyPointPlacementPatch, ref assemblyPointPlacementPatchUnavailable,
-                () => new AssemblyPointPlacementPatch(log, nativeRegion, nativeRegion.Span, LibraryBase, fixedLayoutHashValidated),
-                ex => Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/BugfixesAndQoLRuntime/InstallAssemblyPointPlacementPatch", $"Bugfixes and QoL assembly-point placement patch could not be installed: {ex}"));
-        }
-
-        private void DisableAssemblyPointPlacementPatch()
-        {
-            assemblyPointPlacementPatch?.SetEnabled(false);
-        }
-
-        private void InstallMountedStockpileMovementPatch()
-        {
-            if (mountedStockpileMovementPatch != null)
-            {
-                mountedStockpileMovementPatch.SetEnabled(true);
-                return;
-            }
-
-            InstallOnce(ref mountedStockpileMovementPatch, ref mountedStockpileMovementPatchUnavailable,
-                () => new MountedStockpileMovementPatch(log, nativeRegion, nativeRegion.Span, LibraryBase, fixedLayoutHashValidated),
-                ex => Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/BugfixesAndQoLRuntime/InstallMountedStockpileMovementPatch", $"Bugfixes and QoL mounted-stockpile movement patch could not be installed; Vanilla behavior remains active: {ex}"));
-        }
-
         private void InstallHealerAttackCommandPatch()
         {
             if (healerAttackCommandPatch != null)
@@ -1536,11 +1292,6 @@ namespace BugfixesAndQoL
             CrusaderDE.MainViewModel main = CrusaderDE.MainViewModel.Instance;
             if (main?.Show_HUD_ControlGroups == true)
                 main.HUDControlGroups?.Update();
-        }
-
-        private void DisableMountedStockpileMovementPatch()
-        {
-            mountedStockpileMovementPatch?.SetEnabled(false);
         }
 
     }

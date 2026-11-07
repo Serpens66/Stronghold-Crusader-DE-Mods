@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition="'$(Configuration)' == ''">Debug</Configuration>
+    <Platform Condition="'$(Platform)' == ''">AnyCPU</Platform>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Pathfinding.Movement.Tests</RootNamespace>
+    <AssemblyName>Movement.Tests</AssemblyName>
+    <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
+    <LangVersion>latest</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <OutputPath>bin\</OutputPath>
+    <WarningLevel>4</WarningLevel>
+    <PlatformTarget>x64</PlatformTarget>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(GameDir)' == ''">
+    <GameDir>E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition</GameDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(ExtenderDir)' == ''">
+    <ExtenderDir>$(GameDir)\BepInEx\plugins\000shcdese</ExtenderDir>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="Assembly-CSharp"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\Assembly-CSharp.dll</HintPath><Private>true</Private></Reference>
+    <Reference Include="SHCDESE"><HintPath>$(ExtenderDir)\SHCDESE.dll</HintPath><Private>true</Private></Reference>
+    <Reference Include="System.Memory"><HintPath>$(ExtenderDir)\System.Memory.dll</HintPath><Private>true</Private></Reference>
+    <Reference Include="System.Buffers"><HintPath>$(ExtenderDir)\System.Buffers.dll</HintPath><Private>true</Private></Reference>
+    <Reference Include="System.Runtime.CompilerServices.Unsafe"><HintPath>$(ExtenderDir)\System.Runtime.CompilerServices.Unsafe.dll</HintPath><Private>true</Private></Reference>
+    <Reference Include="MessagePack"><HintPath>$(ExtenderDir)\MessagePack.dll</HintPath><Private>true</Private></Reference>
+    <Reference Include="MessagePack.Annotations"><HintPath>$(ExtenderDir)\MessagePack.Annotations.dll</HintPath><Private>true</Private></Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+    <Compile Include="MovementFastPathParityHarness.cs" />
+    <Compile Include="TraversalBoundary.cs" />
+    <Compile Include="..\..\src\Core\Common\FeatureSaveStates.cs"><Link>FeatureSaveStates.cs</Link></Compile>
+    <Compile Include="..\..\src\UnitCommands\Runtime\MovementOptionsSnapshot.cs"><Link>MovementOptionsSnapshot.cs</Link></Compile>
+    <Compile Include="..\..\src\TroopMovement\MovementLoggingStateTracker.cs"><Link>MovementLoggingStateTracker.cs</Link></Compile>
+    <Compile Include="..\..\src\Core\Native\NativeHandlerSnapshot.cs"><Link>NativeHandlerSnapshot.cs</Link></Compile>
+    <Compile Include="..\..\src\GateRouting\SynchronizedGatehouseReachabilityPolicy.cs"><Link>SynchronizedGatehouseReachabilityPolicy.cs</Link></Compile>
+    <Compile Include="..\..\..\Shared\Runtime\Gameplay\GatehouseQueryUnitIdPolicy.cs"><Link>GatehouseQueryUnitIdPolicy.cs</Link></Compile>
+    <Compile Include="..\..\..\APIShared\src\Buildings\Gatehouse\GatehouseDrawbridgeCoupling.cs"><Link>GatehouseDrawbridgeCoupling.cs</Link></Compile>
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>

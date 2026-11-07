@@ -102,7 +102,7 @@ namespace EnemyBridgePathTest
                 Check(EnemyGatePathPolicyBridge.Current == null, "observer cannot claim gate policy");
                 Check(BridgeNativeDefinition.OwnedCount==28&&Array.FindAll(BridgeNativeDefinition.Sites,BridgeNativeDefinition.OwnsEntry).Length==28,"exact twenty-eight own detours");
                 Check(!BridgeNativeDefinition.OwnsEntry(Array.Find(BridgeNativeDefinition.Sites,x=>x.Rva==0xE49D0))&&!BridgeNativeDefinition.OwnsEntry(Array.Find(BridgeNativeDefinition.Sites,x=>x.Rva==0x111C00))&&!BridgeNativeDefinition.OwnsEntry(Array.Find(BridgeNativeDefinition.Sites,x=>x.Rva==0x122B40))&&!BridgeNativeDefinition.OwnsEntry(Array.Find(BridgeNativeDefinition.Sites,x=>x.Rva==0x10DF60)),"external owners excluded unconditionally");
-                var owner=new BugfixesAndQoL.UnitCommands.UnitCommandPathRuntime();
+                var owner=new Pathfinding.UnitCommands.UnitCommandPathRuntime();
                 foreach(int value in new[]{0,1}) {owner.ReturnValue=value;Check(owner.Invoke(false)==value,"production topology owner preserves result");Check(observer.TopologyCalled&&observer.TopologyNative==value,"native topology result observed");}
                 int ownerCalls=owner.Calls;Check(owner.Invoke(true)==0&&owner.Calls==ownerCalls&&!observer.TopologyCalled&&observer.TopologyNative==null,"suppressed production repair does not call original");
                 observer.TopologyThrow=true;long topologyFailures=EnemyBridgeDiagnosticBridge.FailureCount;owner.ReturnValue=1;
@@ -155,7 +155,7 @@ namespace EnemyBridgePathTest
                 Check(snapshot.Contains("moat[tile] == 0") && snapshot.Contains("mask=hypothetical-only"), "record prerequisite and passive mask");
                 Check(snapshot.Contains("grid > 6") && !snapshot.Contains("grid > 10"), "native occupied array bound is 36 cells");
                 string plugin = File.ReadAllText("src/EnemyBridgePathTestPlugin.cs");
-                Check(!plugin.Contains("EnemyGatePathfindingTest_Serp") && plugin.Contains("BugfixesAndQoL_Serp"), "standalone mainmod dependency");
+                Check(!plugin.Contains("EnemyGatePathfindingTest_Serp") && plugin.Contains("Pathfinding_Serp"), "standalone mainmod dependency");
                 Console.WriteLine("PASS: " + count + " bridge geometry/observer/aggregate assertions");
                 return 0;
             }

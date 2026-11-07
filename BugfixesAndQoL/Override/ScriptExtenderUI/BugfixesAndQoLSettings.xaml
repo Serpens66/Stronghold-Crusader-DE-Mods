@@ -1372,30 +1372,6 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}" sha
         <StackPanel Visibility="{Binding SettingsPresentation.HostTroops.ContentVisibility}" Margin="8,2,8,6">
           <StackPanel Visibility="{Binding SettingsPresentation.HostTroops.FixesVisibility}" shared:ModSettingsSearch.SectionKey="bugfixes.topic.host-troops" shared:ModSettingsSearch.SectionTitle="{Binding SettingsPresentation.HostTroops.FixesSearchTitle}">
             <TextBlock Text="{Binding FixesTitleText}" Style="{StaticResource CategoryHeader}" Margin="28,8,0,4" shared:ModSettingsSearch.Exclude="True"/>
-            <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-troop-movement-fix" shared:ModSettingsSearch.Title="{Binding EnableTroopMovementFixText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableTroopMovementFixHelpText}">
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="28"/>
-                <ColumnDefinition Width="*"/>
-              </Grid.ColumnDefinitions>
-              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableTroopMovementFix}"/>
-              <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
-                <CheckBox IsChecked="{Binding EnableTroopMovementFix, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableTroopMovementFixHelpText}" Margin="0,0,14,8">
-                  <TextBlock Text="{Binding EnableTroopMovementFixText}" Foreground="White" TextWrapping="Wrap"/>
-                </CheckBox>
-              </Grid>
-            </Grid>
-            <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-mounted-stockpile-movement-fix" shared:ModSettingsSearch.Title="{Binding EnableMountedStockpileMovementFixText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableMountedStockpileMovementFixHelpText}">
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="28"/>
-                <ColumnDefinition Width="*"/>
-              </Grid.ColumnDefinitions>
-              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableMountedStockpileMovementFix}"/>
-              <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
-                <CheckBox IsChecked="{Binding EnableMountedStockpileMovementFix, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableMountedStockpileMovementFixHelpText}" Margin="0,0,14,8">
-                  <TextBlock Text="{Binding EnableMountedStockpileMovementFixText}" Foreground="White" TextWrapping="Wrap"/>
-                </CheckBox>
-              </Grid>
-            </Grid>
             <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-healer-attack-command-fix" shared:ModSettingsSearch.Title="{Binding EnableHealerAttackCommandFixText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableHealerAttackCommandFixHelpText}">
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="28"/>
@@ -1405,18 +1381,6 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}" sha
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnableHealerAttackCommandFix, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableHealerAttackCommandFixHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnableHealerAttackCommandFixText}" Foreground="White" TextWrapping="Wrap"/>
-                </CheckBox>
-              </Grid>
-            </Grid>
-            <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-assassin-combat-resume-fix" shared:ModSettingsSearch.Title="{Binding EnableAssassinCombatResumeFixText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableAssassinCombatResumeFixHelpText}">
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="28"/>
-                <ColumnDefinition Width="*"/>
-              </Grid.ColumnDefinitions>
-              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableAssassinCombatResumeFix}"/>
-              <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
-                <CheckBox IsChecked="{Binding EnableAssassinCombatResumeFix, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableAssassinCombatResumeFixHelpText}" Margin="0,0,14,8">
-                  <TextBlock Text="{Binding EnableAssassinCombatResumeFixText}" Foreground="White" TextWrapping="Wrap"/>
                 </CheckBox>
               </Grid>
             </Grid>
@@ -1432,57 +1396,9 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}" sha
                 </CheckBox>
               </Grid>
             </Grid>
-            <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-assembly-point-placement-fix" shared:ModSettingsSearch.Title="{Binding EnableAssemblyPointPlacementFixText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableAssemblyPointPlacementFixHelpText}">
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="28"/>
-                <ColumnDefinition Width="*"/>
-              </Grid.ColumnDefinitions>
-              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableAssemblyPointPlacementFix}"/>
-              <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
-                <CheckBox IsChecked="{Binding EnableAssemblyPointPlacementFix, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableAssemblyPointPlacementFixHelpText}" Margin="0,0,14,8">
-                  <TextBlock Text="{Binding EnableAssemblyPointPlacementFixText}" Foreground="White" TextWrapping="Wrap"/>
-                </CheckBox>
-              </Grid>
-            </Grid>
           </StackPanel>
           <StackPanel Visibility="{Binding SettingsPresentation.HostTroops.QolVisibility}" shared:ModSettingsSearch.SectionKey="bugfixes.topic.host-troops" shared:ModSettingsSearch.SectionTitle="{Binding SettingsPresentation.HostTroops.QolSearchTitle}">
             <TextBlock Text="{Binding QolTitleText}" Style="{StaticResource CategoryHeader}" Margin="28,8,0,4" shared:ModSettingsSearch.Exclude="True"/>
-            <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-extended-shift-command-queue" shared:ModSettingsSearch.Title="{Binding EnableExtendedShiftCommandQueueText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableExtendedShiftCommandQueueHelpText}">
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="28"/>
-                <ColumnDefinition Width="*"/>
-              </Grid.ColumnDefinitions>
-              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableExtendedShiftCommandQueue}"/>
-              <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
-                <CheckBox IsChecked="{Binding EnableExtendedShiftCommandQueue, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableExtendedShiftCommandQueueHelpText}" Margin="0,0,14,8">
-                  <TextBlock Text="{Binding EnableExtendedShiftCommandQueueText}" Foreground="White" TextWrapping="Wrap"/>
-                </CheckBox>
-              </Grid>
-            </Grid>
-            <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.fast-recruit-rally" shared:ModSettingsSearch.Title="{Binding EnableFastRecruitRallyMovementText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableFastRecruitRallyMovementHelpText}">
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="28"/>
-                <ColumnDefinition Width="*"/>
-              </Grid.ColumnDefinitions>
-              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableFastRecruitRallyMovement}"/>
-              <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
-                <CheckBox IsChecked="{Binding EnableFastRecruitRallyMovement, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableFastRecruitRallyMovementHelpText}" Margin="0,0,14,8">
-                  <TextBlock Text="{Binding EnableFastRecruitRallyMovementText}" Foreground="White" TextWrapping="Wrap"/>
-                </CheckBox>
-              </Grid>
-            </Grid>
-            <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.rally-terrain" shared:ModSettingsSearch.Title="{Binding EnableRallyTerrainSlowdownFixText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableRallyTerrainSlowdownFixHelpText}">
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="28"/>
-                <ColumnDefinition Width="*"/>
-              </Grid.ColumnDefinitions>
-              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableRallyTerrainSlowdownFix}"/>
-              <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
-                <CheckBox IsChecked="{Binding EnableRallyTerrainSlowdownFix, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableRallyTerrainSlowdownFixHelpText}" Margin="0,0,14,8">
-                  <TextBlock Text="{Binding EnableRallyTerrainSlowdownFixText}" Foreground="White" TextWrapping="Wrap"/>
-                </CheckBox>
-              </Grid>
-            </Grid>
             <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-lord-unit-controls" shared:ModSettingsSearch.Title="{Binding EnableLordUnitControlsText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableLordUnitControlsHelpText}">
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="28"/>
@@ -1760,18 +1676,6 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}" sha
                 </CheckBox>
               </Grid>
             </Grid>
-            <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-assassin-gatehouse-climb-fix" shared:ModSettingsSearch.Title="{Binding EnableAssassinGatehouseClimbFixText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableAssassinGatehouseClimbFixHelpText}">
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="28"/>
-                <ColumnDefinition Width="*"/>
-              </Grid.ColumnDefinitions>
-              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableAssassinGatehouseClimbFix}"/>
-              <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
-                <CheckBox IsChecked="{Binding EnableAssassinGatehouseClimbFix, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableAssassinGatehouseClimbFixHelpText}" Margin="0,0,14,8">
-                  <TextBlock Text="{Binding EnableAssassinGatehouseClimbFixText}" Foreground="White" TextWrapping="Wrap"/>
-                </CheckBox>
-              </Grid>
-            </Grid>
             <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-tunnel-placement-distance-fix" shared:ModSettingsSearch.Title="{Binding EnableTunnelPlacementDistanceFixText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableTunnelPlacementDistanceFixHelpText}">
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="28"/>
@@ -1849,18 +1753,6 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}" sha
           <TextBlock Text="{Binding SettingsPresentation.PerformanceHelpText}" Foreground="#FFCCCCCC" TextWrapping="Wrap" Margin="28,6,0,8" shared:ModSettingsSearch.Exclude="True"/>
           <StackPanel Visibility="{Binding SettingsPresentation.HostPerformance.FixesVisibility}" shared:ModSettingsSearch.SectionKey="bugfixes.topic.host-performance" shared:ModSettingsSearch.SectionTitle="{Binding SettingsPresentation.HostPerformance.FixesSearchTitle}">
             <TextBlock Text="{Binding FixesTitleText}" Style="{StaticResource CategoryHeader}" Margin="28,8,0,4" shared:ModSettingsSearch.Exclude="True"/>
-            <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-enemy-gate-pathfinding-fix" shared:ModSettingsSearch.Title="{Binding EnableEnemyGatePathfindingFixText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableEnemyGatePathfindingFixHelpText}">
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="28"/>
-                <ColumnDefinition Width="*"/>
-              </Grid.ColumnDefinitions>
-              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableEnemyGatePathfindingFix}"/>
-              <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
-                <CheckBox IsChecked="{Binding EnableEnemyGatePathfindingFix, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableEnemyGatePathfindingFixHelpText}" Margin="0,0,14,8">
-                  <TextBlock Text="{Binding EnableEnemyGatePathfindingFixText}" Foreground="White" TextWrapping="Wrap"/>
-                </CheckBox>
-              </Grid>
-            </Grid>
             <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-ai-raid-retarget-fix" shared:ModSettingsSearch.Title="{Binding EnableAiRaidRetargetFixText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableAiRaidRetargetFixHelpText}">
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="28"/>
@@ -1870,93 +1762,6 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}" sha
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
                 <CheckBox IsChecked="{Binding EnableAiRaidRetargetFix, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableAiRaidRetargetFixHelpText}" Margin="0,0,14,8">
                   <TextBlock Text="{Binding EnableAiRaidRetargetFixText}" Foreground="White" TextWrapping="Wrap"/>
-                </CheckBox>
-              </Grid>
-            </Grid>
-            <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-ladder-attack-pathfinding-fix" shared:ModSettingsSearch.Title="{Binding EnableLadderAttackPathfindingFixText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableLadderAttackPathfindingFixHelpText}">
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="28"/>
-                <ColumnDefinition Width="*"/>
-              </Grid.ColumnDefinitions>
-              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableLadderAttackPathfindingFix}"/>
-              <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
-                <CheckBox IsChecked="{Binding EnableLadderAttackPathfindingFix, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableLadderAttackPathfindingFixHelpText}" Margin="0,0,14,8">
-                  <TextBlock Text="{Binding EnableLadderAttackPathfindingFixText}" Foreground="White" TextWrapping="Wrap"/>
-                </CheckBox>
-              </Grid>
-            </Grid>
-          </StackPanel>
-          <StackPanel Visibility="{Binding SettingsPresentation.HostPerformance.QolVisibility}" shared:ModSettingsSearch.SectionKey="bugfixes.topic.host-performance" shared:ModSettingsSearch.SectionTitle="{Binding SettingsPresentation.HostPerformance.QolSearchTitle}">
-            <TextBlock Text="{Binding QolTitleText}" Style="{StaticResource CategoryHeader}" Margin="28,8,0,4" shared:ModSettingsSearch.Exclude="True"/>
-            <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-improved-assassin-pathfinding" shared:ModSettingsSearch.Title="{Binding EnableImprovedAssassinPathfindingText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableImprovedAssassinPathfindingHelpText}">
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="28"/>
-                <ColumnDefinition Width="*"/>
-              </Grid.ColumnDefinitions>
-              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableImprovedAssassinPathfinding}"/>
-              <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
-                <CheckBox IsChecked="{Binding EnableImprovedAssassinPathfinding, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableImprovedAssassinPathfindingHelpText}" Margin="0,0,14,8">
-                  <TextBlock Text="{Binding EnableImprovedAssassinPathfindingText}" Foreground="White" TextWrapping="Wrap"/>
-                </CheckBox>
-              </Grid>
-            </Grid>
-            <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-improved-assassin-pathfinding-ai" shared:ModSettingsSearch.Title="{Binding EnableImprovedAssassinPathfindingAIText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableImprovedAssassinPathfindingAIHelpText}">
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="28"/>
-                <ColumnDefinition Width="*"/>
-              </Grid.ColumnDefinitions>
-              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableImprovedAssassinPathfindingAI}"/>
-              <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
-                <CheckBox IsChecked="{Binding EnableImprovedAssassinPathfindingAI, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableImprovedAssassinPathfindingAIHelpText}" Margin="0,0,14,8">
-                  <TextBlock Text="{Binding EnableImprovedAssassinPathfindingAIText}" Foreground="White" TextWrapping="Wrap"/>
-                </CheckBox>
-              </Grid>
-            </Grid>
-            <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-move-formation-enhancements" shared:ModSettingsSearch.Title="{Binding EnableMoveFormationEnhancementsText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableMoveFormationEnhancementsHelpText}">
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="28"/>
-                <ColumnDefinition Width="*"/>
-              </Grid.ColumnDefinitions>
-              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableMoveFormationEnhancements}"/>
-              <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
-                <CheckBox IsChecked="{Binding EnableMoveFormationEnhancements, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableMoveFormationEnhancementsHelpText}" Margin="0,0,14,8">
-                  <TextBlock Text="{Binding EnableMoveFormationEnhancementsText}" Foreground="White" TextWrapping="Wrap"/>
-                </CheckBox>
-              </Grid>
-            </Grid>
-            <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-improved-manual-unit-commands" shared:ModSettingsSearch.Title="{Binding EnableImprovedManualUnitCommandsText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableImprovedManualUnitCommandsHelpText}">
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="28"/>
-                <ColumnDefinition Width="*"/>
-              </Grid.ColumnDefinitions>
-              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableImprovedManualUnitCommands}"/>
-              <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
-                <CheckBox IsChecked="{Binding EnableImprovedManualUnitCommands, Mode=TwoWay}" Foreground="White" IsEnabled="{Binding CanEditHostSettings}" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableImprovedManualUnitCommandsHelpText}" Margin="0,0,14,8">
-                  <TextBlock Text="{Binding EnableImprovedManualUnitCommandsText}" Foreground="White" TextWrapping="Wrap"/>
-                </CheckBox>
-              </Grid>
-            </Grid>
-            <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-improved-moat-filling" shared:ModSettingsSearch.Title="{Binding EnableImprovedMoatFillingText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableImprovedMoatFillingHelpText}">
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="28"/>
-                <ColumnDefinition Width="*"/>
-              </Grid.ColumnDefinitions>
-              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableImprovedMoatFilling}"/>
-              <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
-                <CheckBox IsChecked="{Binding EnableImprovedMoatFilling, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableImprovedMoatFillingHelpText}" Margin="0,0,14,8">
-                  <TextBlock Text="{Binding EnableImprovedMoatFillingText}" Foreground="White" TextWrapping="Wrap"/>
-                </CheckBox>
-              </Grid>
-            </Grid>
-            <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.gate-reachable-enemy" shared:ModSettingsSearch.Title="{Binding RequireReachableEnemyForAutomaticGateClosingText}" shared:ModSettingsSearch.ToolTipText="{Binding RequireReachableEnemyForAutomaticGateClosingHelpText}">
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="28"/>
-                <ColumnDefinition Width="*"/>
-              </Grid.ColumnDefinitions>
-              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTip="{Binding ToolTip}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.RequireReachableEnemyForAutomaticGateClosing}"/>
-              <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
-                <CheckBox IsChecked="{Binding RequireReachableEnemyForAutomaticGateClosing, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding RequireReachableEnemyForAutomaticGateClosingHelpText}" Margin="0,0,14,8">
-                  <TextBlock Text="{Binding RequireReachableEnemyForAutomaticGateClosingText}" Foreground="White" TextWrapping="Wrap"/>
                 </CheckBox>
               </Grid>
             </Grid>

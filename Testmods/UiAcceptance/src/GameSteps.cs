@@ -26,6 +26,9 @@ namespace UiAcceptance
             Runner.Register("WaitTicks", WaitTicks);
             Runner.Register("WaitMarker", WaitMarker);
             Runner.Register("Screenshot", Screenshot);
+            Runner.Register("ModSettings.SelectTab", SelectModSettingsTab);
+            Runner.Register("ExpectElement", ExpectElement);
+            Runner.Register("InvokeCommand", InvokeCommand);
             Runner.Register("SetModSetting", SetModSetting);
             Runner.Register("RandomEvents", RandomEventsSwitch);
             Runner.Register("ExpectModSetting", ExpectModSetting);
@@ -278,6 +281,39 @@ namespace UiAcceptance
 
         // Mod settings only change outside missions (workspace rule). The setting object is reached
         // through a public static member of the consumer, e.g. Spectator.SpectatorPlugin.Settings.
+        // Selects a tab of the mod settings hub (open it with NoesisClick SE_ModOptionsToggle on a lobby screen).
+        // args: tab name as registered, usually the mod GUID.
+        private static IEnumerable<Wait> SelectModSettingsTab(Step step)
+        {
+            var hub = SHCDESE.BepInEx.Bootstrap.Plugin.ModSettingsHubViewModel;
+            foreach (var tab in hub.ModTabs)
+                if (string.Equals(tab.Name, step.Arg(0), StringComparison.Ordinal)) hub.SelectedTab = tab;
+            Runner.Require(hub.SelectedTab != null && hub.SelectedTab.Name == step.Arg(0), "no settings tab " + step.Arg(0));
+            AcceptLog.Info("SETTINGS_TAB " + hub.SelectedTab.Name);
+            yield break;
+        }
+
+        // A XAML patch of a mod really reached the live visual tree. args: element name.
+        private static IEnumerable<Wait> ExpectElement(Step step)
+        {
+            object element = null;
+            yield return new Until("element " + step.Arg(0), () => (element = SHCDESE.API.GameXAMLManagerAPI.Instance.FindGlobalElement(step.Arg(0))) != null);
+            AcceptLog.Info("ELEMENT " + step.Arg(0) + " type=" + element.GetType().Name);
+        }
+
+        // Runs a command a view model exposes. args: Type::staticField.CommandProperty, optional parameter.
+        private static IEnumerable<Wait> InvokeCommand(Step step)
+        {
+            string path = step.Arg(0);
+            int dot = path.LastIndexOf('.');
+            object model = ResolveStatic(path.Substring(0, dot));
+            PropertyInfo property = model.GetType().GetProperty(path.Substring(dot + 1)) ?? throw new StepFailure("no command " + path);
+            var command = (System.Windows.Input.ICommand)property.GetValue(model, null);
+            command.Execute(step.Args.Length > 1 ? step.Arg(1) : null);
+            AcceptLog.Info("COMMAND " + path);
+            yield break;
+        }
+
         private static IEnumerable<Wait> SetModSetting(Step step)
         {
             Runner.Require(FatControler.currentScene == Enums.SceneIDS.FrontEnd, "settings change only outside missions");

@@ -28,6 +28,7 @@ namespace Pathfinding.Engine
             // policy; published command hooks remain owned by the command runtime.
             runtime = new FriendlyMoatTraversalProvider(log, options);
             runtime.Install(context);
+            ReportEngineState();
             Shared.DebugLogHelper.LogInfo(log, "Pathfinding engine published; anchorSingleMoves=" + options.AnchorSingleMoves +
                 ", avoidFire=" + options.AvoidFire + ", avoidPlague=" + options.AvoidPlague + ".");
             try
@@ -58,9 +59,20 @@ namespace Pathfinding.Engine
             missionOptionsFrozen = true;
             options = EngineOptions.Capture(settings, pluginDirectory);
             runtime.ApplyMissionOptions(options);
+            ReportEngineState();
             Shared.DebugLogHelper.LogInfo(persistentLog, "Pathfinding mission options frozen; core=" + options.EnablePathfindingCore +
                 ", friendlyMoats=" + options.EnableFriendlyMoatTraversal + ", singleMoves=" + options.AnchorSingleMoves +
                 ", avoidFire=" + options.AvoidFire + ", avoidPlague=" + options.AvoidPlague + ".");
+        }
+
+        // Tells rule mods whether their rules apply in this mission (diagnostics and option texts only).
+        private static void ReportEngineState()
+        {
+            if (!options.EnablePathfindingCore) { APIShared.Pathfinding.RouteEngineInfo.Clear(PluginGuid); return; }
+            var features = APIShared.Pathfinding.RouteEngineFeatures.TileRules | APIShared.Pathfinding.RouteEngineFeatures.RouteCosts;
+            if (options.AnchorSingleMoves) features |= APIShared.Pathfinding.RouteEngineFeatures.ReplanPolicies;
+            if (!APIShared.Pathfinding.RouteEngineInfo.TryReport(PluginGuid, features, out string reason))
+                Shared.DebugLogHelper.LogWarning(persistentLog, "Pathfinding engine status not reported: " + reason);
         }
 
         private static void ObserveMapStart()

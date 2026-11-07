@@ -44,7 +44,10 @@ namespace Pathfinding.UnitCommands
                     else AbortDrag("local-input-disabled");
                 }
                 catch (Exception ex) { FailOpen("disabled-reset", ex); }
-                return engineRunOriginal(mpFrameSkip);
+                // The run marker does not depend on the formation options.
+                SimulationRunScope.Enter();
+                try { return engineRunOriginal(mpFrameSkip); }
+                finally { SimulationRunScope.Exit(); }
             }
 
             bool originalEntered = false;

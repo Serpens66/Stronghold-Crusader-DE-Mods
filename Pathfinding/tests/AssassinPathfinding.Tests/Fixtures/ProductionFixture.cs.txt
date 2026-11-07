@@ -1,0 +1,596 @@
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Globalization;
+using System.Runtime.InteropServices;
+using APIShared;
+using APIShared.UnitCommands;
+using BepInEx.Logging;
+enum eChimps { CHIMP_TYPE_ARAB_ASSASIN=73 }
+enum eStructs { STRUCT_GATE_MAIN,STRUCT_GATE_INNER }
+enum AliveState { None,IsAlive,MarkedForDeletion }
+struct GameUnit {
+ public uint r_GlobalId,N0000019A; public eChimps r_UnitChimp; public AliveState r_AliveState;
+ public byte r_ControllableForPlayerId,N00000569; public ushort r_CurrentSpeed;
+ public int r_CurrentTilePositionX,r_CurrentTilePositionY;
+}
+struct GameBuilding { public uint r_GlobalId; public int r_PlayerIdOwner,r_CapturedByPlayerId; public AliveState r_AliveState; public eStructs r_BuildingType; }
+unsafe sealed class GameBuildingManagerAPI {
+ public static readonly GameBuildingManagerAPI Instance=new();
+ public GameBuilding* Building; public int Reads;
+ public bool IsValidId(int id)=>id==578&&Building!=null;
+ public bool TryGetBuildingById(int id,out GameBuilding* b){Reads++;b=IsValidId(id)?Building:null;return b!=null;}
+}
+sealed class GameUnitManagerAPI {
+ public static readonly GameUnitManagerAPI Instance=new(); public GameUnit[] Units;
+ public int Scans;
+ public Span<GameUnit> GetUnitsAsSpan(){Scans++;return Units;}
+ public int GetDefaultSpeed(eChimps c)=>4;
+}
+unsafe static class UnitAccess {
+ internal static GameUnit* Units;
+ internal static bool TryGetById(int id,out GameUnit* unit,out int index){index=id-1;unit=Units+index;return id>=1&&id<=GameUnitManagerAPI.Instance.Units.Length;}
+ internal static bool IsReallyAlive(GameUnit* unit)=>unit!=null&&IsReallyAlive(in *unit);
+ internal static bool IsReallyAlive(in GameUnit unit)=>unit.r_AliveState==AliveState.IsAlive&&(unit.N0000019A&0xffff)==0;
+}
+namespace BepInEx.Logging { sealed class ManualLogSource { public void LogMessage(string text) {} } }
+namespace APIShared.Internal { static class DebugLogHelper { internal static bool DiagnosticsEnabled => true; internal static void LogDebug(object log,string text){} } }
+namespace Shared { static class DebugLogHelper { internal static bool DiagnosticsEnabled => true; internal static void LogInfo(object log,string text){} internal static void LogDebugLimited(object log,string site,params object[] parts){} internal static void LogDebug(object log,string text){} } }
+namespace APIShared {
+ unsafe static class AssassinPathAPI {
+  static string weightedOwner="fixture"; public static bool IsInstalled=>true;
+  internal static bool DirectClimb=true;public static bool DirectGatehouseClimbingEnabled=>DirectClimb;
+  public static bool HasSingleUnitRoutePublication=>AssassinRouteHandoff.HasFrame;
+  public static int NativeCalls; public static long NativeTicks;
+  public static int DirectEndpoint=-1;public static bool IsDirectGatehouseClimbEndpoint(int tile)=>tile==DirectEndpoint;
+  public static int RunVanillaBuilder(IntPtr context,int sx,int sy,int tx,int ty,int max,int continuation){
+   long begin=Stopwatch.GetTimestamp(); NativeCalls++;
+   NativeTicks+=Stopwatch.GetTimestamp()-begin;return 1;
+  }
+  API_BOUNDARY
+ }
+ static class EnemyBridgeDiagnosticBridge { internal static object BeginSearch(string s,int p)=>null;internal static void EndSearch(object s,bool b,int r){} }
+}
+namespace APIShared.UnitCommands {
+ unsafe partial class UnitCommandPathRuntime {
+  const int NativeUnitPathBufferOffset=0xB4FE78,NativeUnitPathBufferStride=1000,MaximumUnitCount=10000;
+  const int PathManagerOutputBufferOffset=0x155F60,PathManagerOutputLengthOffset=0x155F68;
+  bool assassinExactPublicationLogged,nativeManualProbe;IntPtr nativePathManager;byte* nativeUnitManager;object log;
+  Func<int> builder;
+  internal UnitCommandPathRuntime(IntPtr context,byte* manager,Func<int> builder){nativePathManager=context;nativeUnitManager=manager;this.builder=builder;}
+  IEnemyGatePathPolicy BeginEnemyGateSearch(int p,EnemyGateSearchKind k,out object s){s=null;return null;}
+  object BeginTemporaryRouteReport(IntPtr p,string s,int? c=null,int? v=null)=>null;
+  void ObserveTemporaryNativeBuilderOutput(object t,int r){}
+  internal static string CaptureTemporaryAssassinSource()=>"source=unknown";
+  internal static string CaptureTemporaryRouteValidationPhase()=>"post-native-builder";
+  // Optional final-output observation is covered by TemporaryGateAcceptanceRuntimeTests.
+  internal static void BeginTemporaryFinalValidation() { }
+  internal static bool WantsTemporaryFinalValidation;
+  internal static int FinalEvidenceCount;
+  internal static AssassinTransitionKind FinalMovement;
+  internal static void RememberTemporaryFinalEdge(int player,int from,int to,int direction,AssassinTransitionKind movement,bool allowed,int gate,uint global,string evidence) { FinalEvidenceCount++;FinalMovement=movement; }
+  internal static void ReportTemporaryAssassinStage(string stage,string result,string detail,int? player=null) {
+   try{(TemporaryGateRouteAcceptanceBridge.Current as ITemporaryAssassinGateObserver)?.ObserveAssassinStage(null,player??2,stage,result,detail);}catch(Exception e){TemporaryGateRouteAcceptanceBridge.ReportFailure("fixture-observer",e);}
+  }
+  void EndTemporaryRouteReport(IntPtr p,object s,bool b,int r){}
+  void EndEnemyGateSearch(object g,object s,EnemyGateSearchKind k,bool b,bool success){}
+  void TryLogDiagnosticFailure(string s,Exception ex){throw new Exception(s,ex);}
+  int BuildPathWithCompletedMoatRouteVariantWithMoat(IntPtr p,int c,int v){
+   int result=builder();byte* m=(byte*)p;byte* path=*(byte**)(m+PathManagerOutputBufferOffset);
+   path[0]=0;*(int*)(m+PathManagerOutputLengthOffset)=result==0?0:1;return result==0?0:1;
+  }
+  static void GetNativeMovementStart(GameUnit* unit,out int x,out int y){x=unit->r_CurrentTilePositionX;y=unit->r_CurrentTilePositionY;}
+  PUBLICATION_MEMBERS
+ }
+}
+namespace Pathfinding {
+ sealed class FixtureMask:IEnemyGatePathPolicy {
+  public bool Active;public bool HasPublishedMask=>Active;
+  public bool IsDirectionAllowed(int player,int tile,int direction)=>true;
+  public int ResolveTribePlayer(int id)=>2;public int ResolveBuildingPlayer(int p,int t)=>p;public int ResolveCursorPlayer(int t)=>2;
+  public object EnterNativeSearch(int player,EnemyGateSearchKind kind)=>null;
+  public void ExitNativeSearch(object scope,EnemyGateSearchKind kind,bool completed,bool success){}
+ }
+ sealed class PathfindingViewModel { public bool EnableMod=true,EnableImprovedAssassinPathfinding=true,EnableImprovedAssassinPathfindingAI=true; }
+ sealed class GamePlayerManagerAPI { public static readonly GamePlayerManagerAPI Instance=new(); public bool AI; public bool IsAIPlayer(int player)=>AI; }
+ sealed class AssassinClimbRuntime { public bool Allowed=true;public bool IsClimbingAllowed(int player)=>Allowed; }
+ sealed class AssassinPathReconstructionPatch { public bool IsApplied=>true; }
+ static class PathfindingPlugin { public const string PluginGuid="fixture"; }
+ internal unsafe partial class AssassinPathfindingRuntime {
+  sealed class DecisionSink:ITemporaryAssassinGateObserver {
+   internal bool Throw;internal int Decisions;
+   public void ObserveAssassinStage(object t,int p,string s,string r,string d){}
+   public void ObserveAssassinDecision(object t,int p,int f,int to,int d,bool prepared,AssassinTransitionKind m,bool a,int g,uint global,string e){Decisions++;if(Throw)throw new Exception("observer");}
+  }
+  sealed class DecisionMask:IEnemyGateRoutePolicySnapshot,IEnemyGateClimbRoutePolicySnapshot {
+   public int PlayerId=>2;public bool IsCurrent=>true;
+   public bool IsDirectionAllowed(int tile,int direction)=>false;
+   public bool TryGetBlockedGateIdentity(int tile,int direction,out int b,out uint g,out int o,out int c){b=578;g=99;o=3;c=0;return true;}
+  }
+  sealed class ValidationSink:ITemporaryGateRouteAcceptanceObserver,ITemporaryAssassinGateObserver {
+   internal string Last="none",Detail;internal long Checks;internal bool Throw;
+   public object BeginRoute(int p,int t,uint tg,int u,uint ug,int ty,int x,int y,int tx,int tY,string d)=>null;
+   public void RouteEdge(object t,int f,int to,int d){} public void EndRoute(object t,string s,int r){}
+   public void Raid(int p,int role,int t,uint tg,int b,uint bg,string s,string r,string d){}
+   public void ObserveAssassinDecision(object t,int p,int f,int to,int d,bool prep,AssassinTransitionKind m,bool a,int g,uint gl,string e){}
+   public void ObserveAssassinStage(object t,int p,string stage,string result,string detail){
+    if(stage=="route-validation"){Last=result;Detail=detail;Checks++;if(Throw)throw new Exception("fixture-observer");}
+   }
+  }
+  sealed class ValidationMask:IEnemyGateRoutePolicySnapshot {
+   public int PlayerId=>2;internal bool Current=true,Allowed=true;public bool IsCurrent=>Current;
+   public bool IsDirectionAllowed(int tile,int direction)=>Allowed;
+  }
+  // Deterministic partial gate mask: blocks a fixed pattern of tile directions.
+  sealed class StripeMask:IEnemyGateRoutePolicySnapshot {
+   public int PlayerId=>2;public bool IsCurrent=>true;
+   public bool IsDirectionAllowed(int tile,int direction)=>(tile*7+direction)%5!=0;
+  }
+  // Production shape of the gate policy (GateRoutePolicySource.Snapshot): the kernel reads the byte mask directly
+  // (tiles beyond it are allowed) and calls back for masked edges, whose blocked-gate identities allow climbs at
+  // gate 578. ThrowAt makes the identity query throw from that call on (failing-callback contract).
+  sealed class ByteMask:IEnemyGateRoutePolicySnapshot,IEnemyGateClimbRoutePolicySnapshot,GateRouting.IAssassinDirectionMaskSource {
+   readonly byte[] mask;internal int IdentityCalls,IdentityHits,ThrowAt=-1;
+   internal ByteMask(int seed,int length){var random=new Random(seed);mask=new byte[length];for(int i=0;i<length;i++)mask[i]=(byte)(random.Next(256)|random.Next(256));}
+   public int PlayerId=>2;public bool IsCurrent=>true;public byte[] DirectionMask=>mask;
+   public bool IsDirectionAllowed(int tile,int direction)=>tile>=mask.Length||(mask[tile]&(1<<direction))!=0;
+   public bool TryGetBlockedGateIdentity(int tile,int direction,out int b,out uint g,out int o,out int c){
+    b=0;g=0;o=c=0;IdentityCalls++;
+    if(ThrowAt>=0&&IdentityCalls>=ThrowAt)throw new InvalidOperationException("fixture-identity");
+    if(IsDirectionAllowed(tile,direction)||(tile*3+direction)%4==3)return false;
+    b=578;g=99;o=3;IdentityHits++;return true;
+   }
+  }
+#if SERP_DEVDIAG
+  public static void VerifyTemporaryRouteValidation() {
+   var r=new AssassinPathfindingRuntime("open");var mask=new ValidationMask();
+   var key=new RouteCacheKey(5,5,10,5,TileCount,4,2,true,true,mask,true);
+   Assert(r.TryBuildWeightedRoute(5,5,10,5,TileCount,4,true,true,null,mask,out var summary),"reference route");
+   var nodes=new int[summary.RouteLength];Array.Copy(r.route,nodes,nodes.Length);
+   var prepared=new CachedRoute(nodes,summary,r,key,r.mapEpoch);
+   int calls=AssassinPathAPI.NativeCalls;
+   Assert(prepared.GetValidator()(),"validator without observer");
+   var sink=new ValidationSink();TemporaryGateRouteAcceptanceBridge.Register(sink);
+   try {
+    Assert(prepared.GetValidator()()&&sink.Last=="passed","actual validator diagnostic does not change valid route");
+    int publishes=0;var context=new IntPtr(123);
+    var handoff=new AssassinRouteHandoff(context,5,5,10,5,2,()=>true,(bytes,count)=>{publishes++;return count;},2,4);
+    try {
+     Assert(r.TryStagePreparedRoute(context,key,summary,prepared,null),"actual production stage callback validates current route");
+     mask.Allowed=false;
+     Assert(handoff.Complete(8)==8&&publishes==0&&sink.Last=="gate-transition-rejected","changed edge after staging preserves native output and reports exact reason");
+     Assert(sink.Detail.Contains("edgeIndex=0")&&sink.Detail.Contains("fromTile=")&&sink.Detail.Contains("validationPhase=post-native-builder"),"first failing edge is bound to final validation phase");
+    }finally{handoff.Leave();mask.Allowed=true;}
+    foreach(string reason in new[]{"map-epoch","mod-disabled","improvement-disabled","player-climb-switch","direct-climb-switch","gate-policy-stale"}){
+     int oldEpoch=r.mapEpoch;
+     if(reason=="map-epoch")r.mapEpoch++;
+     if(reason=="mod-disabled")r.settings.EnableMod=false;
+     if(reason=="improvement-disabled")r.settings.EnableImprovedAssassinPathfinding=false;
+     if(reason=="player-climb-switch")r.climbRuntime.Allowed=false;
+     if(reason=="direct-climb-switch")AssassinPathAPI.DirectClimb=false;
+     if(reason=="gate-policy-stale")mask.Current=false;
+     Assert(!prepared.GetValidator()()&&sink.Last==reason,"actual first rejection: "+reason);
+     r.mapEpoch=oldEpoch;r.settings.EnableMod=r.settings.EnableImprovedAssassinPathfinding=r.climbRuntime.Allowed=AssassinPathAPI.DirectClimb=mask.Current=true;
+    }
+    foreach(string reason in new[]{"total-cost-mismatch","ground-count-mismatch","climb-count-mismatch"}){
+     var altered=new RouteSearchSummary(summary.RouteLength,summary.GroundEdges+(reason=="ground-count-mismatch"?1:0),summary.ClimbEdges+(reason=="climb-count-mismatch"?1:0),summary.TotalCost+(reason=="total-cost-mismatch"?1:0),0,0,0,0,false);
+     var stale=new CachedRoute(nodes,altered,r,key,r.mapEpoch);
+     Assert(!stale.GetValidator()()&&sink.Last==reason,"existing final comparison rejects without weakening: "+reason);
+     Assert(sink.Detail.Contains("costActual=")&&sink.Detail.Contains("costExpected=")&&sink.Detail.Contains("groundExpected="),"summary keeps raw expected/actual values");
+    }
+    sink.Throw=true;Assert(prepared.GetValidator()(),"throwing diagnostic observer preserves valid callback");sink.Throw=false;
+    long before=sink.Checks;for(int i=0;i<1000;i++)Assert(prepared.GetValidator()(),"repeated validation");
+    Assert(sink.Checks==before+1000&&AssassinPathAPI.NativeCalls==calls,"no validation event cap or extra native search");
+    Console.WriteLine("PASS: actual cached validator/stage/complete reasons, post-stage physical rejection, observer failures and 1000 exact completions.");
+   }finally{r.Release();}
+  }
+  public static void VerifyTemporaryDecisions() {
+   var runtime=new AssassinPathfindingRuntime("open");var sink=new DecisionSink();var mask=new DecisionMask();
+   GameBuildingManagerAPI.Instance.Building=(GameBuilding*)runtime.Allocate(sizeof(GameBuilding));
+   *GameBuildingManagerAPI.Instance.Building=new GameBuilding {r_GlobalId=99,r_PlayerIdOwner=3,r_BuildingType=eStructs.STRUCT_GATE_MAIN,r_AliveState=AliveState.IsAlive};
+   try {
+    int from=runtime.GetTileId(5,5),to=runtime.GetTileId(5,4);
+    runtime.buildingLayer[from]=0;runtime.buildingLayer[to]=578;AssassinPathAPI.DirectEndpoint=to;
+    foreach(bool connected in new[]{false,true}) foreach(bool climb in new[]{false,true}) foreach(bool captured in new[]{false,true}) foreach(bool throwing in new[]{false,true}) {
+     runtime.occupancyLayer[from]=connected?(byte)1:(byte)0;runtime.occupancyLayer[to]=0;
+     runtime.tileFlags[from]=0;runtime.tileFlags[to]=0x100;
+     GameBuildingManagerAPI.Instance.Building->r_CapturedByPlayerId=captured?4:0;
+     activeObservation=null;int before=GameBuildingManagerAPI.Instance.Reads;
+     bool baseline=runtime.AllowsAssassinTransition(mask,from,to,0,climb,true);int reads=GameBuildingManagerAPI.Instance.Reads-before;
+     sink.Throw=throwing;activeObservation=new AssassinObservation {DetailedObserver=sink,ParentDecisions=new()};
+     before=GameBuildingManagerAPI.Instance.Reads;
+     bool observed=runtime.AllowsAssassinTransition(mask,from,to,0,climb,true);
+     Assert(observed==baseline&&GameBuildingManagerAPI.Instance.Reads-before==reads,"optional actual decision observer preserves result and native identity query count");
+     Assert(observed==(!connected&&climb&&!captured),"blocked ground, legitimate gate climb and capture identity retain functional contract");
+     activeObservation=null;UnitCommandPathRuntime.WantsTemporaryFinalValidation=true;
+     int evidenceCount=UnitCommandPathRuntime.FinalEvidenceCount;before=GameBuildingManagerAPI.Instance.Reads;
+     bool finalObserved=runtime.AllowsAssassinTransition(mask,from,to,0,climb,true,publicationValidation:true);
+     Assert(finalObserved==baseline&&GameBuildingManagerAPI.Instance.Reads-before==reads,"post-native evidence preserves decisions and identity reads");
+     Assert(UnitCommandPathRuntime.FinalEvidenceCount==evidenceCount+1,"existing final decision delivered exactly once");
+     if(finalObserved)Assert(UnitCommandPathRuntime.FinalMovement==AssassinTransitionKind.ClimbUp,"actual accepted masked transition retains climb classification");
+     UnitCommandPathRuntime.WantsTemporaryFinalValidation=false;
+    }
+    Assert(sink.Decisions==16,"every masked actual validation is counted, including throwing observer");
+   } finally {activeObservation=null;AssassinPathAPI.DirectEndpoint=-1;GameBuildingManagerAPI.Instance.Building=null;runtime.Release();}
+  }
+#endif
+  RUNTIME_MEMBERS
+  sealed class AssassinObservation { internal object Token;internal int NativeResult,Player,RouteLength;internal string Outcome;internal bool CacheHit;internal long FilteredClimb,FilteredGround;internal bool? EffectiveWeighted,EffectiveClimbing,ReservedEndpoints;
+#if SERP_DEVDIAG
+internal ITemporaryAssassinGateObserver DetailedObserver;internal Dictionary<int,GateTransitionEvidence> ParentDecisions;internal GateTransitionEvidence LastDecision;
+#endif
+ }
+  bool IsInstalled=>true;
+  void ObservePreparedAssassinRoute(int player,int length){}
+  void LogDebug(string message){}
+  void LogWarning(string message){}
+  void LogError(string message){throw new Exception(message);}
+  readonly List<IntPtr> allocations=new();
+  long fixturePops,fixtureHeapOperations;
+  void* Allocate(int bytes){var p=Marshal.AllocHGlobal(bytes);new Span<byte>((void*)p,bytes).Clear();allocations.Add(p);return(void*)p;}
+  void Release(){foreach(var p in allocations)Marshal.FreeHGlobal(p);}
+  AssassinPathfindingRuntime(string terrain){
+   settings=new();climbRuntime=new();reconstructionPatch=new();
+   Array.Fill(costs,int.MaxValue);Array.Fill(parents,-1);Array.Fill(heapPositions,-1);
+   validCoordinates=(byte*)Allocate(CoordinateCount);rowLookup=(int*)Allocate(MapWidth*3*4);
+   tileFlags=(uint*)Allocate(TileCount*4);occupancyLayer=(byte*)Allocate(TileCount);
+   buildingLayer=(ushort*)Allocate(TileCount*2);heightLayer=(byte*)Allocate(TileCount);
+   nativeDistances=(short*)Allocate(TileCount*2);nativeVisitStamps=(short*)Allocate(TileCount*2);
+   directionMasks=(byte*)Allocate(8);
+   for(int d=0;d<8;d++)directionMasks[d]=(byte)(1<<d);
+   if(terrain=="castle"){BuildCastle();if(!EnsureCoordinateTileMappingValidated())throw new Exception("mapping");return;}
+   for(int y=0;y<48;y++){rowLookup[y*3]=y*64;
+    for(int x=0;x<64;x++){validCoordinates[y*800+x]=1;occupancyLayer[y*64+x]=255;}}
+   if(terrain=="gate"){
+    for(int y=0;y<48;y++){int tile=y*64+32;tileFlags[tile]=IsWallFlag;heightLayer[tile]=90;occupancyLayer[tile]=0;}
+    occupancyLayer[24*64+32]=255;tileFlags[24*64+32]=0;heightLayer[24*64+32]=0;
+    // A physical connection must be missing at both ends to enter the climb branch.
+    for(int y=0;y<48;y++)for(int x=0;x<64;x++)for(int d=0;d<8;d++){
+     int nx=x+DirectionX[d],ny=y+DirectionY[d];
+     if(nx>=0&&nx<64&&ny>=0&&ny<48&&tileFlags[ny*64+nx]!=0)
+      occupancyLayer[y*64+x]&=(byte)~(1<<d);
+    }
+   }
+   if(terrain is "detour" or "unreachable"){
+    for(int y=0;y<(terrain=="detour"?46:48);y++)validCoordinates[y*800+32]=0;
+   }
+   if(terrain.StartsWith("random"))BuildRandom(int.Parse(terrain.Substring(6)));
+   // Validate once at setup, matching an already initialized live map.
+   if(!EnsureCoordinateTileMappingValidated())throw new Exception("mapping");
+  }
+  // Random 64 x 48 terrain mixing every tile feature the edge predicates read: holes in the coordinate
+  // grid, random connection masks, walls of random height, low walls, stairs, fallback-blocking flags,
+  // special tiles (managed predicate, also called natively through its pointer), building and reserved
+  // tiles and one direct gatehouse endpoint. Native/managed comparison only.
+  static readonly SpecialTilePredicateDelegate FixtureSpecialTile=(context,tile)=>(byte)((tile*13)%3==0?1:0);
+  void BuildRandom(int seed){
+   var random=new Random(seed);
+   specialTilePredicate=FixtureSpecialTile;
+   for(int y=0;y<48;y++)for(int x=0;x<64;x++){
+    int tile=y*64+x;
+    if(random.Next(40)==0)validCoordinates[y*800+x]=0;
+    occupancyLayer[tile]=(byte)(random.Next(4)==0?random.Next(256):255);
+    int kind=random.Next(10);
+    if(kind<3){tileFlags[tile]=IsWallFlag;heightLayer[tile]=(byte)random.Next(256);occupancyLayer[tile]=(byte)random.Next(4);}
+    else if(kind==3){tileFlags[tile]=IsWallFlag|IsLowWallFlag;heightLayer[tile]=(byte)random.Next(60);}
+    else if(kind==4){tileFlags[tile]=IsWallFlag|IsStairsFlag;heightLayer[tile]=(byte)random.Next(120);}
+    else heightLayer[tile]=(byte)random.Next(8);
+    if(random.Next(12)==0)tileFlags[tile]|=1u<<(new[]{0,4,5,7,8,12,14,20,22,25,27,30})[random.Next(12)];
+    if(random.Next(9)==0)tileFlags[tile]|=NativeSpecialTileFlag|1u;
+    if(random.Next(6)==0)buildingLayer[tile]=(ushort)random.Next(1,600);
+   }
+   // Walls usually cut the physical connection at both ends (as on the "gate" terrain), so the climb
+   // branch, its endpoint rules and its costs decide those edges.
+   for(int y=0;y<48;y++)for(int x=0;x<64;x++)for(int d=0;d<8;d++){
+    int nx=x+DirectionX[d],ny=y+DirectionY[d];
+    if(nx<0||nx>=64||ny<0||ny>=48)continue;
+    if(((tileFlags[y*64+x]|tileFlags[ny*64+nx])&IsWallFlag)!=0&&random.Next(8)!=0){
+     occupancyLayer[y*64+x]&=(byte)~(1<<d);occupancyLayer[ny*64+nx]&=(byte)~(1<<(d^4));}
+   }
+   AssassinPathAPI.DirectEndpoint=random.Next(64*48);
+  }
+  // Castle-scale terrain (performance and oracle evidence for realistic search sizes): three
+  // concentric wall rings of descending height, each with one ordinary opening on a different
+  // side. Walls are climbable (physical connections cut at both ends, as on the "gate" terrain).
+  const int CastleSize=320;
+  void BuildCastle(){
+   for(int y=0;y<CastleSize;y++){rowLookup[y*3]=y*CastleSize;
+    for(int x=0;x<CastleSize;x++){validCoordinates[y*800+x]=1;occupancyLayer[y*CastleSize+x]=255;}}
+   int[] margins={40,90,130};byte[] heights={90,60,90};
+   for(int ring=0;ring<margins.Length;ring++){
+    int low=margins[ring],high=CastleSize-1-margins[ring],middle=CastleSize/2;
+    for(int i=low;i<=high;i++)foreach(var (x,y) in new[]{(i,low),(i,high),(low,i),(high,i)}){
+     bool opening=ring switch{0=>y==low&&Math.Abs(x-middle)<=1,1=>x==high&&Math.Abs(y-middle)<=1,_=>y==high&&Math.Abs(x-middle)<=1};
+     if(opening)continue;
+     int tile=y*CastleSize+x;tileFlags[tile]=IsWallFlag;heightLayer[tile]=heights[ring];occupancyLayer[tile]=0;}
+   }
+   for(int y=0;y<CastleSize;y++)for(int x=0;x<CastleSize;x++)for(int d=0;d<8;d++){
+    int nx=x+DirectionX[d],ny=y+DirectionY[d];
+    if(nx>=0&&nx<CastleSize&&ny>=0&&ny<CastleSize&&tileFlags[ny*CastleSize+nx]!=0)
+     occupancyLayer[y*CastleSize+x]&=(byte)~(1<<d);
+   }
+  }
+  // Production A* and the existence search agree with an independent Dijkstra on long castle
+  // routes, with and without climbing, including a gate mask.
+  public static void VerifyCastle(){
+   var r=new AssassinPathfindingRuntime("castle");
+   try{
+    var random=new Random(9131);
+    for(int i=0;i<12;i++){
+     int sx=random.Next(2,35),sy=random.Next(2,35),tx=CastleSize/2+random.Next(-20,21),ty=CastleSize/2+random.Next(-20,21);
+     r.climbRuntime.Allowed=(i%2)==0;
+     int oracle=r.Oracle(sx,sy,tx,ty);
+     bool found=r.TryBuildWeightedRoute(sx,sy,tx,ty,TileCount,4,r.climbRuntime.Allowed,true,null,null,out var summary);
+     Assert(oracle>=0&&found&&summary.TotalCost==oracle,"castle production A*/Dijkstra");
+     // Undecided means a found route reached the committed-length bound; the caller then runs A*.
+     var existence=r.FindAnyWeightedRoute(sx,sy,tx,ty,4,r.climbRuntime.Allowed,true,null);
+     Assert(existence!=RouteExistence.None,"castle existence search finds the route");
+     IEnemyGateRoutePolicySnapshot gateMask=i%3==0?new ValidationMask{Allowed=false}:new StripeMask();
+     bool maskedFound=r.TryBuildWeightedRoute(sx,sy,tx,ty,TileCount,4,r.climbRuntime.Allowed,true,null,gateMask,out _);
+     var maskedExistence=r.FindAnyWeightedRoute(sx,sy,tx,ty,4,r.climbRuntime.Allowed,true,gateMask);
+     Assert(maskedExistence==(maskedFound?RouteExistence.Exists:RouteExistence.None)||
+      maskedFound&&maskedExistence==RouteExistence.Undecided,"castle existence search applies the same gate mask");
+    }
+   }finally{r.Release();}
+  }
+  AssassinCommandScope NewCommand()=>new(null,1,0,0,1,1,0,0,"fixture",true);
+  static void Assert(bool value,string message){if(!value)throw new Exception(message);}
+  int Oracle(int sx,int sy,int tx,int ty){
+   var distances=new Dictionary<int,int>();var q=new PriorityQueue<int,int>();
+   int start=sy*800+sx,target=ty*800+tx;distances[start]=0;q.Enqueue(start,0);
+   int cardinal=AssassinClimbCostPolicy.GetCardinalMovementTicks(4),diagonal=AssassinClimbCostPolicy.GetDiagonalMovementTicks(4);
+   while(q.TryDequeue(out int node,out int cost)){
+    if(distances[node]!=cost)continue;if(node==target)return cost;
+    int x=node%800,y=node/800,from=GetTileId(x,y);
+    for(int d=0;d<8;d++){
+     int nx=x+DirectionX[d],ny=y+DirectionY[d];if(!IsValidCoordinate(nx,ny))continue;
+     int to=GetTileId(nx,ny);bool ground=(occupancyLayer[from]&(1<<d))!=0||(occupancyLayer[to]&(1<<(d^4)))!=0;
+     if(!ground&&((d&1)!=0||!climbRuntime.Allowed||!IsVanillaAssassinFallback(from,to,tileFlags[from],true)))continue;
+     int edge=(d&1)==0?cardinal:diagonal;if(!ground)edge+=GetClimbTicks(from,to);
+     int next=ny*800+nx,candidate=cost+edge;
+     if(!distances.TryGetValue(next,out int old)||candidate<old){distances[next]=candidate;q.Enqueue(next,candidate);}
+    }
+   }return -1;
+  }
+  public static void Verify(){
+   var totals=new AssassinCommandScope(null,1,0,0,1,1,0,0,"overflow",true);
+   totals.RecordFailedSearch(0,int.MaxValue,int.MaxValue);
+   totals.RecordFailedSearch(0,int.MaxValue,int.MaxValue);
+   Assert(totals.ExpandedNodes==(PerformanceDiagnosticsEnabled ? 2L*int.MaxValue : 0)&&totals.HeapOperations==(PerformanceDiagnosticsEnabled ? 2L*int.MaxValue : 0),"aggregate counters cannot wrap at high search load");
+   foreach(string terrain in new[]{"open","gate","detour","unreachable"}){
+    var r=new AssassinPathfindingRuntime(terrain);
+    try{
+     var random=new Random(5148);
+     var c=r.NewCommand();
+     for(int i=0;i<80;i++){
+      int sx=random.Next(2,30),sy=random.Next(2,46),tx=random.Next(35,62),ty=random.Next(2,46);
+      if(i>=20){tx=60;ty=24;}
+      r.climbRuntime.Allowed=(i%2)==0;
+      int oracle=r.Oracle(sx,sy,tx,ty);
+      bool found=r.TryBuildWeightedRoute(sx,sy,tx,ty,TileCount,4,r.climbRuntime.Allowed,true,c,null,out var summary);
+      Assert(found==(oracle>=0)&&(!found||summary.TotalCost==oracle),"production A*/Dijkstra "+terrain);
+      if(found){var key=new RouteCacheKey(sx,sy,tx,ty,TileCount,4,2,r.climbRuntime.Allowed,true,null,true);
+       r.CachePreparedRoute(c,key,summary);
+       if(c.RouteCache.ContainsKey(key))
+        Assert(r.TryLoadCachedRoute(c,key,out var cached,out _)&&cached.TotalCost==oracle,"validated productive cache");
+       else Assert(c.RouteCache.Count==AssassinCommandScope.MaximumCachedRoutes,"unchanged bounded route cache");}
+      VERIFY_EXISTENCE
+     }
+     if(terrain=="gate"){
+      Assert(r.TryBuildWeightedRoute(5,24,55,24,TileCount,4,true,true,null,null,out var entrance)&&entrance.ClimbEdges==0,"cheap open entrance wins");
+      Assert(r.TryBuildWeightedRoute(5,1,55,1,TileCount,4,true,true,null,null,out var climb)&&climb.ClimbEdges>0,"climbing beats substantial entrance detour");
+      Assert(r.TryBuildWeightedRoute(5,1,55,1,TileCount,4,false,true,null,null,out var walk)&&walk.ClimbEdges==0,"disabled climbing keeps entrance route");
+     }
+    }finally{r.Release();}
+   }
+   VERIFY_BOUND_PROFILE
+  }
+  // Native kernel (PathfindingAssassin.dll) against the managed bucket search on every terrain: found, cost,
+  // route nodes and their costs, edge counts and expansions must be identical, also with climbing off,
+  // reserved endpoints off, small node limits and both policy shapes (mask callback, masked transitions).
+  // Returns the summed native and managed search time per terrain.
+  public static string VerifyNative(string directory){
+   AssassinNativeSearch.Load(directory);
+   var report=new List<string>();int maskedClimbEdges=0,identityHits=0,callbackFailures=0,groupRoutes=0;
+   string[] terrains={"open","gate","detour","unreachable","castle","random1","random2","random3","random4"};
+   for(int terrainIndex=0;terrainIndex<terrains.Length;terrainIndex++){
+    string terrain=terrains[terrainIndex];
+    var r=new AssassinPathfindingRuntime(terrain);
+    try{
+     r.BindNativeSearch(r.specialTilePredicate==null?IntPtr.Zero:Marshal.GetFunctionPointerForDelegate(r.specialTilePredicate),IntPtr.Zero);
+     var random=new Random(7319);int compared=0,foundRoutes=0,overflows=0,earlyExits=0,terrainHits=0;long nativeTicks=0,managedTicks=0;
+     var nativeRoute=new int[2001];var nativeCosts=new int[2001];
+     int width=terrain=="castle"?CastleSize:64,height=terrain=="castle"?CastleSize:48;
+     // Walls and buildings of the random terrains partly become the live gate 578, so the byte-mask policy's
+     // masked callback also allows climbs there (the production shape; the other policies only answer false).
+     if(terrain.StartsWith("random")){
+      GameBuildingManagerAPI.Instance.Building=(GameBuilding*)r.Allocate(sizeof(GameBuilding));
+      *GameBuildingManagerAPI.Instance.Building=new GameBuilding{r_GlobalId=99,r_PlayerIdOwner=3,r_BuildingType=eStructs.STRUCT_GATE_MAIN,r_AliveState=AliveState.IsAlive};
+      for(int tile=0;tile<width*height;tile+=2)if((r.tileFlags[tile]&IsWallFlag)!=0||r.buildingLayer[tile]!=0)r.buildingLayer[tile]=578;
+     }
+     var byteMask=new ByteMask(4100+terrainIndex,width*height*2/3);
+     for(int y=0;y<height;y++)for(int x=0;x<width;x++)for(int d=0;d<8;d+=2){
+      int nx=x+DirectionX[d],ny=y+DirectionY[d];
+      if(!r.IsValidCoordinate(x,y)||!r.IsValidCoordinate(nx,ny))continue;
+      int from=r.GetTileId(x,y);
+      if(!byteMask.IsDirectionAllowed(from,d)&&r.AllowsAssassinTransition(byteMask,from,r.GetTileId(nx,ny),d,true,true))maskedClimbEdges++;
+     }
+     (int,int,int,int) Request()=>terrain=="castle"
+      ?(random.Next(1,CastleSize-1),random.Next(1,CastleSize-1),CastleSize/2-10+random.Next(0,20),CastleSize/2-10+random.Next(0,20))
+      :(random.Next(1,63),random.Next(1,47),random.Next(1,63),random.Next(1,47));
+     for(int i=0;i<240;i++){
+      var(sx,sy,tx,ty)=Request();
+      bool climbing=i%2==0,reserved=i%3!=0;r.climbRuntime.Allowed=climbing;
+      int nodes=i%7==0?20+random.Next(0,600):TileCount;
+      IEnemyGateRoutePolicySnapshot mask=i%5==0?new StripeMask():i%11==0?new ValidationMask{Allowed=false}:i%3==1?byteMask:null;
+      r.nativeSearchBound=true;r.nativeLastStatus=int.MinValue;long t0=Stopwatch.GetTimestamp();
+      bool nf=r.TryBuildWeightedRoute(sx,sy,tx,ty,nodes,4,climbing,reserved,null,mask,out var ns);
+      nativeTicks+=Stopwatch.GetTimestamp()-t0;
+      int length=nf?ns.RouteLength:0;
+      // Only the native kernel leaves exactly the route nodes touched (the managed search touches its whole frontier).
+      // Early exits (invalid endpoints, backward unreachability proof) never reach the kernel; any kernel
+      // error would leave a negative status and the managed search answering.
+      if(r.nativeLastStatus==int.MinValue){Assert(!nf,"early exit without route "+terrain+"#"+i);earlyExits++;}
+      else{Assert(r.nativeLastStatus>=0,"native kernel failed "+terrain+"#"+i+" status="+r.nativeLastStatus);
+       if(r.nativeLastStatus==AssassinNativeSearch.StatusOverflow)overflows++;
+       else Assert(r.touchedCount==length,"native kernel answered "+terrain+"#"+i);}
+      for(int k=0;k<length;k++){nativeRoute[k]=r.route[k];nativeCosts[k]=r.costs[r.route[k]];}
+      // A route edge the byte mask forbids exists only through the kernel's masked callback answering true.
+      if(nf&&mask==byteMask)for(int k=0;k+1<length;k++){
+       int to=nativeRoute[k],from=nativeRoute[k+1];
+       int d=GetDirectionIndex(to%MapWidth-from%MapWidth,to/MapWidth-from/MapWidth);
+       if(!byteMask.IsDirectionAllowed(r.GetTileId(from%MapWidth,from/MapWidth),d))terrainHits++;
+      }
+      r.nativeSearchBound=false;t0=Stopwatch.GetTimestamp();
+      bool mf=r.TryBuildWeightedRoute(sx,sy,tx,ty,nodes,4,climbing,reserved,null,mask,out var ms);
+      managedTicks+=Stopwatch.GetTimestamp()-t0;
+      string where=terrain+"#"+i+" "+sx+","+sy+"->"+tx+","+ty;
+      Assert(nf==mf,"native and managed agree on a route "+where);
+      if(nf){foundRoutes++;
+       Assert(ns.TotalCost==ms.TotalCost&&ns.RouteLength==ms.RouteLength&&ns.GroundEdges==ms.GroundEdges&&ns.ClimbEdges==ms.ClimbEdges&&ns.ExpandedNodes==ms.ExpandedNodes,
+        "native summary equals managed "+where+" native="+ns.TotalCost+"/"+ns.RouteLength+"/"+ns.ExpandedNodes+" managed="+ms.TotalCost+"/"+ms.RouteLength+"/"+ms.ExpandedNodes);
+       for(int k=0;k<length;k++)Assert(nativeRoute[k]==r.route[k]&&nativeCosts[k]==r.costs[r.route[k]],"native route node equals managed "+where+" at "+k);}
+      compared++;
+     }
+     Assert(foundRoutes>0,"native comparison found routes on "+terrain);
+     // A throwing managed callback: the kernel discards its call instead of unwinding through native frames, so
+     // native and managed searches end in the same exception, and later searches on the runtime still agree
+     // (neither queue keeps the aborted search's entries). The throw is placed after the backward proof's own
+     // identity queries, inside the kernel's (native) or the managed search's (managed) half of the queries.
+     int throwChecks=0;
+     for(int attempt=0;attempt<80&&throwChecks<3;attempt++){
+      var(sx,sy,tx,ty)=Request();
+      int start=byteMask.IdentityCalls;
+      if(r.ProvesTargetUnreachable(sx,sy,tx,ty,true,true,byteMask))continue;
+      int proof=byteMask.IdentityCalls-start;start=byteMask.IdentityCalls;
+      r.nativeSearchBound=true;r.TryBuildWeightedRoute(sx,sy,tx,ty,TileCount,4,true,true,null,byteMask,out _);
+      int searchCalls=byteMask.IdentityCalls-start-proof;
+      if(searchCalls<2)continue;
+      foreach(bool native in new[]{true,false}){
+       r.nativeSearchBound=native;r.nativeLastStatus=int.MinValue;byteMask.ThrowAt=byteMask.IdentityCalls+proof+searchCalls/2;bool threw=false;
+       try{r.TryBuildWeightedRoute(sx,sy,tx,ty,TileCount,4,true,true,null,byteMask,out _);}
+       catch(InvalidOperationException e)when(e.Message=="fixture-identity"){threw=true;}
+       finally{byteMask.ThrowAt=-1;}
+       string where=terrain+" "+sx+","+sy+"->"+tx+","+ty;
+       Assert(threw,"failing gate callback ends the "+(native?"native":"managed")+" search in its exception "+where);
+       if(native){Assert(r.nativeLastStatus==NativeCallbackFailedStatus,"kernel discards a failed callback "+where+" status="+r.nativeLastStatus);callbackFailures++;}
+      }
+      r.nativeSearchBound=true;bool nf=r.TryBuildWeightedRoute(sx,sy,tx,ty,TileCount,4,true,true,null,byteMask,out var ns);
+      int length=nf?ns.RouteLength:0;
+      for(int k=0;k<length;k++){nativeRoute[k]=r.route[k];nativeCosts[k]=r.costs[r.route[k]];}
+      r.nativeSearchBound=false;bool mf=r.TryBuildWeightedRoute(sx,sy,tx,ty,TileCount,4,true,true,null,byteMask,out var ms);
+      string after=terrain+" "+sx+","+sy+"->"+tx+","+ty;
+      Assert(nf==mf&&(!nf||ns.TotalCost==ms.TotalCost&&ns.RouteLength==ms.RouteLength&&ns.ExpandedNodes==ms.ExpandedNodes),
+       "search after a failed callback agrees "+after+" native="+nf+"/"+ns.TotalCost+"/"+ns.ExpandedNodes+" managed="+mf+"/"+ms.TotalCost+"/"+ms.ExpandedNodes);
+      for(int k=0;k<length;k++)Assert(nativeRoute[k]==r.route[k]&&nativeCosts[k]==r.costs[r.route[k]],"route after a failed callback equals managed "+after+" at "+k);
+      throwChecks++;
+     }
+     // Group fields of Assassin group moves (TryStageGroupRoute): routes are valid weighted routes and never cheaper
+     // than the per-unit optimum. One field per group of members.
+     for(int group=0;group<8;group++){
+      int ax=random.Next(1,width-1),ay=random.Next(1,height-1);
+      bool climbing=group%2==0,reserved=group%3!=0;r.climbRuntime.Allowed=climbing;
+      IEnemyGateRoutePolicySnapshot policy=group%3==1?byteMask:group%4==3?new StripeMask():null;
+      var key=new SuffixCacheKey(ax,ay,4,climbing,reserved,policy?.PlayerId??0,policy,AssassinPathAPI.DirectGatehouseClimbingEnabled);
+      int card=AssassinClimbCostPolicy.GetCardinalMovementTicks(4),diag=AssassinClimbCostPolicy.GetDiagonalMovementTicks(4);
+      var command=new AssassinCommandScope(null,group+1,0,0,1,MoveCommandKind,ax,ay,"test",true,true);
+      for(int m=0;m<24;m++){
+       int sx=random.Next(1,width-1),sy=random.Next(1,height-1);
+       int tx=Math.Min(width-2,Math.Max(1,ax+random.Next(-6,7))),ty=Math.Min(height-2,Math.Max(1,ay+random.Next(-6,7)));
+       if(!IsNativeTile(r.GetTileId(sx,sy))||!IsNativeTile(r.GetTileId(tx,ty)))continue;
+       int status=r.RunGroupRoute(command,key,sx,sy,tx,ty,card,diag,climbing,reserved,policy,0,out var gr);
+       string where=terrain+" group#"+group+" "+sx+","+sy+"->"+tx+","+ty;
+       if(status!=AssassinNativeSearch.StatusFound)continue;
+       var summary=new RouteSearchSummary(gr.RouteLength,gr.GroundEdges,gr.ClimbEdges,gr.TotalCost,gr.Expanded,0,0,0,cacheHit:false);
+       var routeKey=new RouteCacheKey(sx,sy,tx,ty,TileCount,4,policy?.PlayerId??0,climbing,reserved,policy,AssassinPathAPI.DirectGatehouseClimbingEnabled);
+       var nodes=new int[gr.RouteLength];Array.Copy(r.route,nodes,nodes.Length);
+       Assert(r.ValidateCachedRoute(routeKey,new CachedRoute(nodes,summary,r,routeKey,0)),"group route is a valid weighted route "+where);
+       r.nativeSearchBound=true;
+       Assert(r.TryBuildWeightedRoute(sx,sy,tx,ty,TileCount,4,climbing,reserved,null,policy,out var exact),"per-unit search finds the group route's pair "+where);
+       Assert(gr.TotalCost>=exact.TotalCost,"group route cost "+gr.TotalCost+" against per-unit "+exact.TotalCost+" "+where);
+       groupRoutes++;
+      }
+     }
+     identityHits+=terrainHits;
+     report.Add(terrain+":compared="+compared+",found="+foundRoutes+",heapFallbacks="+overflows+",earlyExits="+earlyExits+",maskedClimbSteps="+terrainHits+",failedCallbacks="+throwChecks+",nativeMs="+(nativeTicks*1000.0/Stopwatch.Frequency).ToString("F1",CultureInfo.InvariantCulture)+
+      ",managedMs="+(managedTicks*1000.0/Stopwatch.Frequency).ToString("F1",CultureInfo.InvariantCulture));
+    }finally{r.Release();AssassinPathAPI.DirectEndpoint=-1;GameBuildingManagerAPI.Instance.Building=null;}
+   }
+   // Coverage of the production policy shape: masked climb edges exist, native routes use them and failing
+   // callbacks were exercised (each comparison above already asserted equality).
+   Assert(maskedClimbEdges>0&&identityHits>0,"byte-mask policy exercises masked climbs: edges="+maskedClimbEdges+" routeSteps="+identityHits);
+   Assert(callbackFailures>0,"failing native callbacks were exercised");
+   Assert(groupRoutes>0,"group field routes were checked");
+   report.Add("groupRoutes="+groupRoutes);
+   return string.Join(" ",report);
+  }
+  // Separate native-only and managed-only passes over the same requests (no policy), twice each (the
+  // first pass warms caches); returns the second passes' times. Benchmark only, no assertions.
+  public static string BenchNative(string directory,string terrain,int count){
+   AssassinNativeSearch.Load(directory);
+   var r=new AssassinPathfindingRuntime(terrain);
+   try{
+    r.BindNativeSearch(IntPtr.Zero,IntPtr.Zero);r.climbRuntime.Allowed=true;AssassinPathAPI.DirectClimb=Environment.GetEnvironmentVariable("BENCH_DIRECT")!="0";
+    var random=new Random(911);var requests=new (int,int,int,int)[count];
+    for(int i=0;i<count;i++){
+     if(terrain=="castle")requests[i]=(random.Next(1,CastleSize-1),random.Next(1,CastleSize-1),CastleSize/2-10+random.Next(0,20),CastleSize/2-10+random.Next(0,20));
+     else requests[i]=(random.Next(1,63),random.Next(1,47),random.Next(1,63),random.Next(1,47));
+    }
+    long expandedTotal=0;
+    double Pass(bool native){
+     r.nativeSearchBound=native;long t0=Stopwatch.GetTimestamp();expandedTotal=0;
+     foreach(var(sx,sy,tx,ty) in requests)if(r.TryBuildWeightedRoute(sx,sy,tx,ty,TileCount,4,true,true,null,null,out var bs))expandedTotal+=bs.ExpandedNodes;
+     return (Stopwatch.GetTimestamp()-t0)*1000.0/Stopwatch.Frequency;
+    }
+    Pass(true);Pass(false);double n=Pass(true);int nativeTouched=r.touchedCount;double m=Pass(false);int managedTouched=r.touchedCount;
+    return terrain+":touched="+nativeTouched+"/"+managedTouched+",expandedFound="+expandedTotal+",native="+n.ToString("F1",CultureInfo.InvariantCulture)+"ms,managed="+m.ToString("F1",CultureInfo.InvariantCulture)+"ms";
+   }finally{r.Release();}
+  }
+  public static string Run(string terrain,int count,string mode,bool warm){
+   var r=new AssassinPathfindingRuntime(terrain);
+   var units=new GameUnit[count];for(int i=0;i<count;i++)units[i]=new GameUnit{
+    r_GlobalId=(uint)(i+1),r_UnitChimp=eChimps.CHIMP_TYPE_ARAB_ASSASIN,r_AliveState=AliveState.IsAlive,
+    r_ControllableForPlayerId=2,r_CurrentSpeed=4,
+    r_CurrentTilePositionX=mode=="spread"?1+(i%30):2+(i%8),
+    r_CurrentTilePositionY=mode=="spread"?1+(i/30%46):2+(i/8%8)};
+   GameUnitManagerAPI.Instance.Units=units;GameUnitManagerAPI.Instance.Scans=0;
+   byte* context=(byte*)r.Allocate(0x155F68+8);byte* manager=(byte*)r.Allocate(0xB4FE78+(count+1)*1000);
+   *(int*)(context+0x88)=1;int sx=0,sy=0,tx=0,ty=0,unitId=1;
+   bool field=mode=="field", independent=mode=="independent";
+   var command=r.NewCommand();r.activeCommand=command;
+   var wrapper=new UnitCommandPathRuntime((IntPtr)context,manager,()=>r.BuildWeightedPathCore((IntPtr)context,sx,sy,tx,ty,TileCount,0));
+   long checksum=0,published=0,expanded=0,heapOps=0,cacheHits=0;
+   fixed(GameUnit* pinned=units){UnitAccess.Units=pinned;
+    try{
+     void Request(int i,bool measured){
+      unitId=i%count+1;sx=units[unitId-1].r_CurrentTilePositionX;sy=units[unitId-1].r_CurrentTilePositionY;
+      if(terrain=="castle"){tx=CastleSize/2-10+(mode=="different"?i%20:0);ty=CastleSize/2-10+(mode=="different"?i/20%20:0);}
+      else{tx=mode=="different"?40+(i%20):60;ty=mode=="different"?15+(i/20%25):24;}
+      *(int*)(context+8)=sx;*(int*)(context+12)=sy;*(int*)(context+16)=tx;*(int*)(context+20)=ty;
+      *(IntPtr*)(context+0x155F60)=(IntPtr)(manager+0xB4FE78+unitId*1000);*(int*)(context+0x155F68)=0;
+      if(independent)r.activeCommand=null;
+      var c=r.activeCommand;int previousHits=c?.CacheHits??0;
+      int result=field?r.BuildWeightedPathCore((IntPtr)context,sx,sy,tx,ty,TileCount,0):wrapper.BuildPathWithCompletedMoatRouteVariant((IntPtr)context,2,0);
+      if(measured){cacheHits+=(c?.CacheHits??0)-previousHits;
+       checksum+=result;
+       if(!field&&result>1){published++;byte* path=manager+0xB4FE78+unitId*1000;
+        int x=sx,y=sy;for(int step=0;step<result;step++){int d=(path[step/2]>>((step&1)*4))&15;Assert(d<8,"encoded direction");checksum=unchecked(checksum*31+d);x+=DirectionX[d];y+=DirectionY[d];}
+        Assert(x==tx&&y==ty,"actual packed publication reaches target");}
+      }
+     }
+     if(warm)for(int i=0;i<Math.Min(count,512);i++)Request(i,false);
+     // Warmup changes only caches; counters and allocation timing start here.
+     AssassinPathAPI.NativeCalls=0;AssassinPathAPI.NativeTicks=0;GameUnitManagerAPI.Instance.Scans=0;
+     r.fixturePops=0;r.fixtureHeapOperations=0;
+     long allocated=GC.GetAllocatedBytesForCurrentThread();int g0=GC.CollectionCount(0),g1=GC.CollectionCount(1),g2=GC.CollectionCount(2);
+     long begin=Stopwatch.GetTimestamp();for(int i=0;i<count;i++)Request(i,true);
+     double ms=(Stopwatch.GetTimestamp()-begin)*1000.0/Stopwatch.Frequency;
+     long bytes=GC.GetAllocatedBytesForCurrentThread()-allocated;
+     return string.Join(",",terrain,count,mode,warm,ms.ToString("F3",CultureInfo.InvariantCulture),(ms*1000/count).ToString("F3",CultureInfo.InvariantCulture),
+      r.fixturePops,r.fixtureHeapOperations,GameUnitManagerAPI.Instance.Scans,bytes,GC.CollectionCount(0)-g0,GC.CollectionCount(1)-g1,GC.CollectionCount(2)-g2,
+      cacheHits,published,(AssassinPathAPI.NativeTicks*1000.0/Stopwatch.Frequency).ToString("F3",CultureInfo.InvariantCulture),AssassinPathAPI.NativeCalls,checksum);
+    }finally{UnitAccess.Units=null;r.Release();}
+   }
+  }
+ }
+}

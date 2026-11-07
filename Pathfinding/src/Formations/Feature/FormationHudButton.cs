@@ -19,6 +19,8 @@ namespace Pathfinding
             menu = model;
             menu.OwnHudAvailable = () => ownContext;
             menu.PropertyChanged += OnMenuChanged;
+            // Another mod's troop panel replaces the regular one; the formation menu must not stay open over it.
+            APIShared.Presentation.TroopActionHud.ForeignPanelActivating += HideForForeignHud;
             ApiShared.ForMod(PathfindingPlugin.PluginGuid).WhenReady(client =>
                 Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(() => {
                     if (!client.TryGetUnitHudPresentation(out var hud, out var diagnostic) ||

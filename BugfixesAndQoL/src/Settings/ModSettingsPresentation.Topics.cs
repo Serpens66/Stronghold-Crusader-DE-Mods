@@ -84,15 +84,8 @@ namespace BugfixesAndQoL
         public SettingsOptionPresentation EnableAIQuarryPileTowardsKeep => options["EnableAIQuarryPileTowardsKeep"];
         public SettingsOptionPresentation RemoveAIKeepRangeLimit => options["RemoveAIKeepRangeLimit"];
         public SettingsOptionPresentation EnableAiSellThresholdFix => options["EnableAiSellThresholdFix"];
-        public SettingsOptionPresentation EnableTroopMovementFix => options["EnableTroopMovementFix"];
-        public SettingsOptionPresentation EnableMountedStockpileMovementFix => options["EnableMountedStockpileMovementFix"];
         public SettingsOptionPresentation EnableHealerAttackCommandFix => options["EnableHealerAttackCommandFix"];
         public SettingsOptionPresentation EnableLordReturnTeleportFix => options["EnableLordReturnTeleportFix"];
-        public SettingsOptionPresentation EnableAssassinCombatResumeFix => options["EnableAssassinCombatResumeFix"];
-        public SettingsOptionPresentation EnableAssemblyPointPlacementFix => options["EnableAssemblyPointPlacementFix"];
-        public SettingsOptionPresentation EnableExtendedShiftCommandQueue => options["EnableExtendedShiftCommandQueue"];
-        public SettingsOptionPresentation EnableFastRecruitRallyMovement => options["EnableFastRecruitRallyMovement"];
-        public SettingsOptionPresentation EnableRallyTerrainSlowdownFix => options["EnableRallyTerrainSlowdownFix"];
         public SettingsOptionPresentation EnableLordUnitControls => options["EnableLordUnitControls"];
         public SettingsOptionPresentation EnableKeepFlagRotationFix => options["EnableKeepFlagRotationFix"];
         public SettingsOptionPresentation EnableTanneryAnimationFix => options["EnableTanneryAnimationFix"];
@@ -112,20 +105,11 @@ namespace BugfixesAndQoL
         public SettingsOptionPresentation EnableMoatTerrainRestoration => options["EnableMoatTerrainRestoration"];
         public SettingsOptionPresentation EnablePitchStairsFix => options["EnablePitchStairsFix"];
         public SettingsOptionPresentation EnableDrawbridgeDestructionFix => options["EnableDrawbridgeDestructionFix"];
-        public SettingsOptionPresentation EnableAssassinGatehouseClimbFix => options["EnableAssassinGatehouseClimbFix"];
         public SettingsOptionPresentation EnableTunnelPlacementDistanceFix => options["EnableTunnelPlacementDistanceFix"];
         public SettingsOptionPresentation EnableCenteredGatehouseDistanceFix => options["EnableCenteredGatehouseDistanceFix"];
         public SettingsOptionPresentation EnableFairSiegeAmmoRestock => options["EnableFairSiegeAmmoRestock"];
         public SettingsOptionPresentation EnableAssassinCapturedGateProtectionFix => options["EnableAssassinCapturedGateProtectionFix"];
-        public SettingsOptionPresentation EnableEnemyGatePathfindingFix => options["EnableEnemyGatePathfindingFix"];
         public SettingsOptionPresentation EnableAiRaidRetargetFix => options["EnableAiRaidRetargetFix"];
-        public SettingsOptionPresentation EnableLadderAttackPathfindingFix => options["EnableLadderAttackPathfindingFix"];
-        public SettingsOptionPresentation EnableImprovedAssassinPathfinding => options["EnableImprovedAssassinPathfinding"];
-        public SettingsOptionPresentation EnableImprovedAssassinPathfindingAI => options["EnableImprovedAssassinPathfindingAI"];
-        public SettingsOptionPresentation EnableMoveFormationEnhancements => options["EnableMoveFormationEnhancements"];
-        public SettingsOptionPresentation EnableImprovedManualUnitCommands => options["EnableImprovedManualUnitCommands"];
-        public SettingsOptionPresentation EnableImprovedMoatFilling => options["EnableImprovedMoatFilling"];
-        public SettingsOptionPresentation RequireReachableEnemyForAutomaticGateClosing => options["RequireReachableEnemyForAutomaticGateClosing"];
 
         private void CreateTopics()
         {
@@ -207,15 +191,8 @@ namespace BugfixesAndQoL
             AddOption("EnableAIQuarryPileTowardsKeep", "bugfixes.ai-quarry-pile-towards-keep", SettingsCategory.Qol, HostAi);
             AddOption("EnableAiSellThresholdFix", "bugfixes.enable-ai-sell-threshold-fix", SettingsCategory.Possible, HostAi);
             HostTroops = AddTopic("HostTroops", "bugfixes.topic.host-troops", true);
-            AddOption("EnableTroopMovementFix", "bugfixes.enable-troop-movement-fix", SettingsCategory.Fixes, HostTroops);
-            AddOption("EnableMountedStockpileMovementFix", "bugfixes.enable-mounted-stockpile-movement-fix", SettingsCategory.Fixes, HostTroops);
             AddOption("EnableHealerAttackCommandFix", "bugfixes.enable-healer-attack-command-fix", SettingsCategory.Fixes, HostTroops);
-            AddOption("EnableAssassinCombatResumeFix", "bugfixes.enable-assassin-combat-resume-fix", SettingsCategory.Fixes, HostTroops);
             AddOption("EnableLordReturnTeleportFix", "bugfixes.lord-return-teleport-fix", SettingsCategory.Fixes, HostTroops);
-            AddOption("EnableAssemblyPointPlacementFix", "bugfixes.enable-assembly-point-placement-fix", SettingsCategory.Fixes, HostTroops);
-            AddOption("EnableExtendedShiftCommandQueue", "bugfixes.enable-extended-shift-command-queue", SettingsCategory.Qol, HostTroops);
-            AddOption("EnableFastRecruitRallyMovement", "bugfixes.fast-recruit-rally", SettingsCategory.Qol, HostTroops);
-            AddOption("EnableRallyTerrainSlowdownFix", "bugfixes.rally-terrain", SettingsCategory.Qol, HostTroops);
             AddOption("EnableLordUnitControls", "bugfixes.enable-lord-unit-controls", SettingsCategory.Qol, HostTroops);
             HostEconomy = AddTopic("HostEconomy", "bugfixes.topic.host-economy", true);
             AddOption("EnableTreeBlightDecayFix", "bugfixes.enable-tree-blight-decay-fix", SettingsCategory.Fixes, HostEconomy);
@@ -237,21 +214,12 @@ namespace BugfixesAndQoL
             AddOption("EnableDrawbridgeDestructionFix", "bugfixes.enable-drawbridge-destruction-fix", SettingsCategory.Fixes, HostSiege);
             AddOption("EnableMoatTerrainRestoration", "bugfixes.moat-terrain-restoration", SettingsCategory.Fixes, HostSiege);
             AddOption("EnablePitchStairsFix", "bugfixes.pitch-stairs-fix", SettingsCategory.Fixes, HostSiege);
-            AddOption("EnableAssassinGatehouseClimbFix", "bugfixes.enable-assassin-gatehouse-climb-fix", SettingsCategory.Fixes, HostSiege);
             AddOption("EnableTunnelPlacementDistanceFix", "bugfixes.enable-tunnel-placement-distance-fix", SettingsCategory.Fixes, HostSiege);
             AddOption("EnableCenteredGatehouseDistanceFix", "bugfixes.centered-gatehouse-distance", SettingsCategory.Qol, HostSiege);
             AddOption("EnableFairSiegeAmmoRestock", "bugfixes.enable-fair-siege-ammo-restock", SettingsCategory.Qol, HostSiege);
             AddOption("EnableAssassinCapturedGateProtectionFix", "bugfixes.enable-assassin-captured-gate-protection-fix", SettingsCategory.Possible, HostSiege);
             HostPerformance = AddTopic("HostPerformance", "bugfixes.topic.host-performance", true);
-            AddOption("EnableEnemyGatePathfindingFix", "bugfixes.enable-enemy-gate-pathfinding-fix", SettingsCategory.Fixes, HostPerformance);
             AddOption("EnableAiRaidRetargetFix", "bugfixes.enable-ai-raid-retarget-fix", SettingsCategory.Fixes, HostPerformance);
-            AddOption("EnableLadderAttackPathfindingFix", "bugfixes.enable-ladder-attack-pathfinding-fix", SettingsCategory.Fixes, HostPerformance);
-            AddOption("EnableImprovedAssassinPathfinding", "bugfixes.enable-improved-assassin-pathfinding", SettingsCategory.Qol, HostPerformance);
-            AddOption("EnableImprovedAssassinPathfindingAI", "bugfixes.enable-improved-assassin-pathfinding-ai", SettingsCategory.Qol, HostPerformance);
-            AddOption("EnableMoveFormationEnhancements", "bugfixes.enable-move-formation-enhancements", SettingsCategory.Qol, HostPerformance);
-            AddOption("EnableImprovedManualUnitCommands", "bugfixes.enable-improved-manual-unit-commands", SettingsCategory.Qol, HostPerformance);
-            AddOption("EnableImprovedMoatFilling", "bugfixes.enable-improved-moat-filling", SettingsCategory.Qol, HostPerformance);
-            AddOption("RequireReachableEnemyForAutomaticGateClosing", "bugfixes.gate-reachable-enemy", SettingsCategory.Qol, HostPerformance);
         }
     }
 }

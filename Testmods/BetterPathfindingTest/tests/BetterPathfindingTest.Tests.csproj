@@ -13,10 +13,10 @@
     <Compile Include="../src/Api/*.cs" Link="Api/%(Filename)%(Extension)" />
     <Compile Include="../src/Service/*.cs" Link="Service/%(Filename)%(Extension)" />
     <!-- Current production sources, offline only. No historical blobs or runtime source coupling. -->
-    <Compile Include="../../../BugfixesAndQoL/src/UnitCommands/Movement/WeightedGridSearchKernel.cs" Link="Oracle/WeightedGridSearchKernel.cs" />
-    <Compile Include="../../../BugfixesAndQoL/src/UnitCommands/Movement/WeightedMoatRoutePlanner.cs" Link="Oracle/WeightedMoatRoutePlanner.cs" />
-    <Compile Include="../../../BugfixesAndQoL/src/UnitCommands/Moat/MoatCandidateField.cs" Link="Oracle/MoatCandidateField.cs" />
-    <Compile Include="../../../BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandContracts.cs" Link="Oracle/UnitCommandContracts.cs" />
+    <Compile Include="../../../Pathfinding/src/UnitCommands/Movement/WeightedGridSearchKernel.cs" Link="Oracle/WeightedGridSearchKernel.cs" />
+    <Compile Include="../../../Pathfinding/src/UnitCommands/Movement/WeightedMoatRoutePlanner.cs" Link="Oracle/WeightedMoatRoutePlanner.cs" />
+    <Compile Include="../../../Pathfinding/src/UnitCommands/Moat/MoatCandidateField.cs" Link="Oracle/MoatCandidateField.cs" />
+    <Compile Include="../../../Pathfinding/src/UnitCommands/Runtime/UnitCommandContracts.cs" Link="Oracle/UnitCommandContracts.cs" />
     <Reference Include="APIShared"><HintPath>$(ApiSharedDir)\APIShared.dll</HintPath></Reference>
   </ItemGroup>
   <!-- Intentional pipeline step: Build.ps1 first compiles the native backend and its proof

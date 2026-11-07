@@ -63,6 +63,10 @@ if not "%ERRORLEVEL%"=="0" (
 if not exist "%MSBUILD%" goto failed
 if not exist "%EXTENDER_DIR%\SHCDESE.dll" goto failed
 if not exist "%API_SHARED_DIR%\APIShared.dll" goto failed
+echo [%date% %time%] Verify the selected APIShared package before anything is replaced
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\Shared\Tools\ApiSharedRepository\Test-ConsumerPackage.ps1" -Workspace "%~dp0.." -PackageDirectory "%API_SHARED_DIR%"
+if not "%ERRORLEVEL%"=="0" goto failed
+set "LOCAL_PLUGIN_DIR=%PROJECT_DIR%BepInEx\plugins\Pathfinding_Serp"
 echo [%date% %time%] Preflight
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%tests\Test-Preflight.ps1"
 if not "%ERRORLEVEL%"=="0" goto failed
@@ -78,14 +82,46 @@ set "MOAT_TEST_ANCHOR_DIR=%PROJECT_DIR%obj\native-anchor"
 echo [%date% %time%] Run tests
 dotnet run --project "%PROJECT_DIR%tests\Engine\Pathfinding.Engine.Tests.csproj" -- "%PROJECT_DIR%.."
 if not "%ERRORLEVEL%"=="0" goto failed
+dotnet test "%PROJECT_DIR%tests\Formations.Core.Tests\Formations.Core.Tests.csproj" --configuration Release
+if not "%ERRORLEVEL%"=="0" goto failed
+dotnet run --project "%PROJECT_DIR%tests\FormationSpeech.Tests\FormationSpeech.Tests.csproj" --configuration Release -p:ExtenderDir="%EXTENDER_DIR%" -- "%PROJECT_DIR%.."
+if not "%ERRORLEVEL%"=="0" goto failed
+"%MSBUILD%" "%PROJECT_DIR%tests\Formations.Tests\Formations.Tests.csproj" /p:Configuration=Release /p:ExtenderDir="%EXTENDER_DIR%" /nologo /v:minimal
+if not "%ERRORLEVEL%"=="0" goto failed
+"%PROJECT_DIR%tests\Formations.Tests\bin\Formations.Tests.exe"
+if not "%ERRORLEVEL%"=="0" goto failed
+dotnet run --project "%PROJECT_DIR%tests\ExtendedShiftCommandQueue.Tests\ExtendedShiftCommandQueue.Tests.csproj"
+if not "%ERRORLEVEL%"=="0" goto failed
+dotnet run --project "%PROJECT_DIR%tests\Issue6.Tests\Issue6.Tests.csproj" -- "%PROJECT_DIR%.."
+if not "%ERRORLEVEL%"=="0" goto failed
+dotnet run --project "%PROJECT_DIR%tests\AssassinPathfinding.Tests\AssassinPathfinding.Tests.csproj" -- "%PROJECT_DIR%.."
+if not "%ERRORLEVEL%"=="0" goto failed
+dotnet run --project "%PROJECT_DIR%tests\FriendlyMoatMovement.Tests\FriendlyMoatMovement.Tests.csproj" -- "%PROJECT_DIR%.."
+if not "%ERRORLEVEL%"=="0" goto failed
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\_inspect\FormationIntegration\Verify-Interop.ps1"
+if not "%ERRORLEVEL%"=="0" goto failed
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\Shared\Tools\Validation\Test-UnitCommandSplit.ps1" -ModDirectory Pathfinding -SkipPermanentHooks -SkipCommonChecks
+if not "%ERRORLEVEL%"=="0" goto failed
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\_inspect\AssassinGateClimb\verify.ps1" -SkipPermanentHooks -SkipCommonChecks
+if not "%ERRORLEVEL%"=="0" goto failed
+"%MSBUILD%" "%PROJECT_DIR%tests\Movement.Tests\Movement.Tests.csproj" /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /nologo /v:minimal
+if not "%ERRORLEVEL%"=="0" goto failed
+"%PROJECT_DIR%tests\Movement.Tests\bin\Movement.Tests.exe"
+if not "%ERRORLEVEL%"=="0" goto failed
+pwsh.exe -NoProfile -File "%PROJECT_DIR%tests\GatehouseDiagnostics\Test-GatehouseDiagnostics.ps1"
+if not "%ERRORLEVEL%"=="0" goto failed
+pwsh.exe -NoProfile -File "%PROJECT_DIR%tests\GatehouseDiagnostics\Test-GatehouseDiagnostics.ps1" -Diagnostic
+if not "%ERRORLEVEL%"=="0" goto failed
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-GateRouting.ps1"
+if not "%ERRORLEVEL%"=="0" goto failed
 :compile_projects
 echo [%date% %time%] Compile projects
 "%MSBUILD%" "%PROJECT_DIR%Pathfinding.csproj" /t:Build /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /p:ApiSharedDir="%API_SHARED_DIR%" %CONFIG_ARGS% /nologo /v:minimal
 if not "%ERRORLEVEL%"=="0" goto failed
 echo [%date% %time%] Package native cores
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%native\Build-PathfindingAnchor.ps1" -CopyOnly -OutputDirectory "%PROJECT_DIR%BepInEx\plugins\Pathfinding_Serp"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%native\Build-PathfindingAnchor.ps1" -CopyOnly -OutputDirectory "%LOCAL_PLUGIN_DIR%"
 if not "%ERRORLEVEL%"=="0" goto failed
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%native\Build-PathfindingAssassin.ps1" -CopyOnly -OutputDirectory "%PROJECT_DIR%BepInEx\plugins\Pathfinding_Serp"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%native\Build-PathfindingAssassin.ps1" -CopyOnly -OutputDirectory "%LOCAL_PLUGIN_DIR%"
 if not "%ERRORLEVEL%"=="0" goto failed
 if "%NO_INSTALL%"=="1" goto built_without_install
 echo [%date% %time%] Install package

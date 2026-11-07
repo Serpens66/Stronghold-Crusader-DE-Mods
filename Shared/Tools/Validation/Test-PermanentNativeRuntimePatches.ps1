@@ -20,7 +20,7 @@ $files = foreach ($relativeRoot in $roots) {
     Get-ChildItem -LiteralPath $root -Recurse -File -Filter '*.cs' -ErrorAction SilentlyContinue | Where-Object {
         $path = '\' + $_.FullName.Substring($workspace.Length).TrimStart('\')
         (-not ($excludedSegments | Where-Object { $path.Contains($_) })) -and
-        (-not $path.Contains('\Testmods\') -or $path.Contains('\Testmods\MoatMove\'))
+        (-not $path.Contains('\Testmods\'))
     }
 }
 

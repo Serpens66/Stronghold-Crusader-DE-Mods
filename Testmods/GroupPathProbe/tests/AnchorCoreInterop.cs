@@ -4,11 +4,11 @@ using System.IO;
 using System.Runtime.InteropServices;
 using GroupPathProbe.Core;
 
-// Offline adapter for Testmods/MoatMove/native/MoatMoveAnchor.cpp (anchor mode, phase 1).
+// Offline adapter for Pathfinding/native/PathfindingAnchor.cpp (anchor mode, phase 1).
 internal sealed class AnchorCoreInterop : IDisposable
 {
     [StructLayout(LayoutKind.Sequential)] private struct QueryResult { internal int Status, Ground, Moat, Length, Flags, Reserved; internal long Cost; }
-    private const string Library = "MoatMoveAnchor.dll";
+    private const string Library = "PathfindingAnchor.dll";
     [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern int mma_contract();
     [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern int mma_recommended_threads();
     [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] private static extern int mma_create(int width, int height, long limit, out IntPtr context);
@@ -42,7 +42,7 @@ internal sealed class AnchorCoreInterop : IDisposable
     internal static void Load()
     {
         if (library != IntPtr.Zero) return;
-        library = NativeLibrary.Load(Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../MoatMove/.local/anchor/MoatMoveAnchor.dll")));
+        library = NativeLibrary.Load(Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../../Pathfinding/obj/native-anchor/PathfindingAnchor.dll")));
         if (mma_contract() != 0x0400000F || Marshal.SizeOf<QueryResult>() != 32) throw new InvalidOperationException("Anchor core ABI");
     }
     internal AnchorCoreInterop(int width, int height, long limit = 512L * 1024 * 1024)
@@ -54,7 +54,7 @@ internal sealed class AnchorCoreInterop : IDisposable
     }
     private static void Code(int value) { if (value == NoMemory) throw new SearchBudgetException("anchor-core-memory"); if (value != 0) throw new InvalidOperationException("Anchor core error=" + value); }
     // GridSnapshot words (allowed 0..7, moat 8..15) to the FastTraversalCache layout used
-    // by MoatMove (friendly 0..7, ground 8..15, wet 16..23). Snapshot words have one edge
+    // by Pathfinding (friendly 0..7, ground 8..15, wet 16..23). Snapshot words have one edge
     // set: its dry edges are the ground edges.
     internal static uint FastWord(uint snapshotWord) =>
         (snapshotWord & 0xFFU) | ((snapshotWord & ~(snapshotWord >> 8) & 0xFFU) << 8) | (((snapshotWord >> 8) & 0xFFU) << 16);
@@ -110,7 +110,7 @@ internal sealed class AnchorCoreInterop : IDisposable
         LastSettles = r.Reserved;
         return Convert(r, buffer, 0);
     }
-    // A* settles of the last single route (QueryResult.reserved), which MoatMove charges to its per-tick budget.
+    // A* settles of the last single route (QueryResult.reserved), which Pathfinding charges to its per-tick budget.
     internal int LastSettles { get; private set; }
     // All units of one task at once (parallel pass, then deferred sub-anchor queries in order).
     internal RouteResult[] QueryBatch(int id, int[] starts, int[] slots, int margin, int threads)

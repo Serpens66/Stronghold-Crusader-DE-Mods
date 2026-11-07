@@ -6,11 +6,8 @@ namespace BugfixesAndQoL
     public sealed partial class BugfixesAndQoLRuntime
     {
         private QuarryPileRelocationRuntime quarryPileRelocationRuntime;
-        private ReachableEnemyGatehouseRuntime reachableEnemyGatehouseRuntime;
         private SingleBuildingPauseHook singleBuildingPauseHook;
         private AIEconomyProtectionHook aiEconomyProtectionHook;
-        private FastRecruitMovementBridge fastRecruitMovementBridge;
-        private bool fastRecruitInitializationAttempted;
         private bool quarryFixedLayoutErrorLogged;
 
         public object QuarryPileRelocationButton => quarryPileRelocationRuntime.ButtonViewModel;
@@ -21,7 +18,6 @@ namespace BugfixesAndQoL
                 log,
                 settings,
                 multiplayerFeatureGate);
-            reachableEnemyGatehouseRuntime = new ReachableEnemyGatehouseRuntime(log, settings);
         }
 
         private void InitializeBuildingFeatureNetwork()
@@ -31,7 +27,6 @@ namespace BugfixesAndQoL
             // This order is a multiplayer protocol boundary and must not depend on settings.
             quarryPileRelocationRuntime.InitializeNetwork();
             singleBuildingPauseHook.InitializeNetwork();
-            reachableEnemyGatehouseRuntime.Initialize();
         }
 
         private void InitializeBuildingAndEconomyNative(
@@ -39,7 +34,6 @@ namespace BugfixesAndQoL
             ReadOnlySpan<byte> memory,
             bool referenceHashMatches)
         {
-            reachableEnemyGatehouseRuntime.SetNativeCompatibility(referenceHashMatches);
             if (referenceHashMatches)
             {
                 try
@@ -63,7 +57,6 @@ namespace BugfixesAndQoL
             if (!nativeLibraryAvailable || !settings.EnableMod)
             {
                 quarryPileRelocationRuntime.Dispose();
-                fastRecruitMovementBridge?.SetEnabled(false);
                 singleBuildingPauseHook?.ClearOverrides("mod disabled");
                 singleBuildingPauseHook?.DeactivateLocalHooks();
                 return;
@@ -97,7 +90,6 @@ namespace BugfixesAndQoL
                 singleBuildingPauseHook?.DeactivateLocalHooks();
             }
 
-            ApplyFastRecruitRallyMovementSetting();
         }
 
         private void InstallSingleBuildingPauseHook()
@@ -145,34 +137,6 @@ namespace BugfixesAndQoL
             singleBuildingPauseHook.SetSleepStateBridge(
                 aiEconomyProtectionHook.SynchronizeSleepStatesNow,
                 aiEconomyProtectionHook.SetSingleBuildingOverrideInterceptionEnabled);
-        }
-
-        private void ApplyFastRecruitRallyMovementSetting()
-        {
-            if (!nativeLibraryAvailable)
-                return;
-
-            if (!settings.EnableMod || !settings.EnableFastRecruitRallyMovement)
-            {
-                fastRecruitMovementBridge?.SetEnabled(false);
-                return;
-            }
-
-            if (fastRecruitMovementBridge != null)
-            {
-                fastRecruitMovementBridge.SetEnabled(true);
-                return;
-            }
-
-            if (fastRecruitInitializationAttempted)
-                return;
-
-            fastRecruitInitializationAttempted = true;
-            var bridge = new FastRecruitMovementBridge(log);
-            if (bridge.IsActive)
-                fastRecruitMovementBridge = bridge;
-            else
-                bridge.Dispose();
         }
 
         private void ClearSingleBuildingPauseOverrides()

@@ -5,6 +5,6 @@
     <Compile Include="..\..\src\Lobby\CompactLobbyChatLayout.cs"/><Compile Include="..\..\src\Lobby\CompactLobbyChatIl.cs"/><Compile Include="..\..\src\Lobby\CompactLobbyChatFeature.cs"/>
     <Reference Include="Mono.Cecil"><HintPath>E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\core\Mono.Cecil.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="MonoMod.Utils"><HintPath>E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\core\MonoMod.Utils.dll</HintPath><Private>false</Private></Reference>
-    <Reference Include="MonoMod.RuntimeDetour"><HintPath>E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\core\MonoMod.RuntimeDetour.dll</HintPath><Private>false</Private></Reference><Compile Include="TraversalBoundary.cs"/><Compile Include="..\..\src\UnitCommands\Runtime\MovementOptionsSnapshot.cs"/></ItemGroup>
+    <Reference Include="MonoMod.RuntimeDetour"><HintPath>E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\core\MonoMod.RuntimeDetour.dll</HintPath><Private>false</Private></Reference></ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets"/>
 </Project>

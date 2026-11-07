@@ -10,11 +10,11 @@ using Microsoft.CodeAnalysis.CSharp;
 var root = Path.GetFullPath(args[0]);
 var game = @"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition";
 var framework = @"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1";
-var projects = new[] {"APIShared/APIShared.csproj", "BugfixesAndQoL/BugfixesAndQoL.csproj", "Testmods/MoatMove/MoatMove.csproj"};
+var projects = new[] {"APIShared/APIShared.csproj", "BugfixesAndQoL/BugfixesAndQoL.csproj", "Pathfinding/Pathfinding.csproj"};
 if (args.Contains("--formation-tests"))
     projects = projects.Concat(new[] {
-        "BugfixesAndQoL/tests/Formations.Tests/Formations.Tests.csproj",
-        "BugfixesAndQoL/tests/ExtendedShiftCommandQueue.Tests/ExtendedShiftCommandQueue.Tests.csproj"
+        "Pathfinding/tests/Formations.Tests/Formations.Tests.csproj",
+        "Pathfinding/tests/ExtendedShiftCommandQueue.Tests/ExtendedShiftCommandQueue.Tests.csproj"
     }).ToArray();
 if (args.Contains("--update-plan"))
 {
@@ -40,7 +40,7 @@ if (args.Contains("--really-alive"))
         "Testmods/AIDefenseTest/AIDefenseTest.csproj",
         "Testmods/EnemyGatePathfindingTest/EnemyGatePathfindingTest.csproj",
         "Testmods/EngineerSiegeFixTest/EngineerSiegeFixTest.csproj",
-        "Testmods/MoatMove/MoatMove.csproj",
+        "Pathfinding/Pathfinding.csproj",
         "Testmods/OutpostTest/OutpostTest.csproj",
         "Testmods/StockpileAccessFixTest/StockpileAccessFixTest.csproj",
         "Testmods/VirtualUnitsPrototype/VirtualUnitsPrototype.csproj"

@@ -208,8 +208,8 @@ internal static partial class Program
             "Lord teleport is a recommended host troop fix with a unique search identity");
         var troopRows = lordRow.ParentNode.ChildNodes.Cast<XmlNode>().Where(n => n.LocalName == "Grid").ToArray();
         int lordOrdinal = Array.IndexOf(troopRows, lordRow);
-        Check(lordOrdinal > 0 && SearchAttribute(troopRows[lordOrdinal-1],"Key") == "bugfixes.enable-assassin-combat-resume-fix",
-            "Lord option directly follows Assassin combat correction");
+        Check(lordOrdinal > 0 && SearchAttribute(troopRows[lordOrdinal-1],"Key") == "bugfixes.enable-healer-attack-command-fix",
+            "Lord option directly follows the healer correction");
         object treeDecay = options.Single(o => (string)Get(o, "PropertyName") == "EnableTreeBlightDecayFix");
         var treeEditor = editors.Single(e => e.Property == "EnableTreeBlightDecayFix");
         XmlNode treeRow = Ancestors(treeEditor.Node).First(a => SearchAttribute(a, "Key") != null);
@@ -346,9 +346,9 @@ internal static partial class Program
         MethodInfo refresh = presentationType.GetMethod("RefreshSearch", All);
         Action<string, bool, string> search = (text, tooltips, exact) => refresh.Invoke(presentation, new[] { (object)text, tooltips, exact, entries, Enum.ToObject(catalog.Assembly.GetType("APIShared.ModSettings.ModSettingsSearchStateFilter", true), 0), fixture });
 
-        object performance = Get(presentation, "HostPerformance"), market = Get(presentation, "ClientMarket");
+        object performance = Get(presentation, "HostTroops"), market = Get(presentation, "ClientMarket");
         string performanceKey = (string)Get(performance, "Key");
-        object assassin = Get(presentation, "EnableImprovedAssassinPathfindingAI");
+        object assassin = Get(presentation, "EnableLordUnitControls");
         string assassinKey = (string)Get(assassin, "Key");
         foreach (string query in new[] { "QoL", "qol", "Fixes", "Fixes?" })
         {
@@ -369,7 +369,7 @@ internal static partial class Program
             "dynamic market goods inherit the QoL category");
         Check(indexed.Any(e => (string)Get(e, "Key") == "bugfixes.restore-hd-market-order" && matches(e, "QoL", false)),
             "auxiliary market actions inherit the QoL category");
-        search("QoL Theme HostPerformance", false, "");
+        search("QoL Theme HostTroops", false, "");
         Check(Visible(performance, "ContentVisibility") && Visible(performance, "QolVisibility") &&
             !Visible(performance, "FixesVisibility") && !Visible(display, "Visibility"),
             "combined theme/category query opens only the matching category");
@@ -385,11 +385,11 @@ internal static partial class Program
         Check(!(bool)Get(performance, "IsExpanded"), "clearing search restores the arrow's manual state");
         search("", false, performanceKey);
         Check(Visible(performance, "FixesVisibility") && Visible(performance, "QolVisibility"), "exact theme hit reveals its categories");
-        search("Theme HostPerformance", false, "");
+        search("Theme HostTroops", false, "");
         Check(Visible(performance, "ContentVisibility"), "theme title text reveals its options");
-        search("Help.EnableImprovedAssassinPathfindingAIHelpText", false, "");
+        search("Help.EnableLordUnitControlsHelpText", false, "");
         Check(!Visible(performance, "Visibility"), "tooltip search can be disabled");
-        search("Help.EnableImprovedAssassinPathfindingAIHelpText", true, "");
+        search("Help.EnableLordUnitControlsHelpText", true, "");
         Check(Visible(performance, "ContentVisibility"), "tooltip search reveals matching closed topic");
         search("", false, "bugfixes.market-good.fixture");
         Check(Visible(market, "ContentVisibility") && Visible(market, "QolVisibility"), "dynamic goods exact hit reveals editor and QoL heading");
@@ -415,7 +415,7 @@ internal static partial class Program
             SearchTopicLabel.QolTitle = "Komfort";
             register.Invoke(null, new object[] { fixture, file, null, "BFQoL localized fixture", null });
             read = new object[] { fixture, null }; catalog.GetMethod("TryGetEntries").Invoke(null, read); entries = read[1];
-            search("Komfort Theme HostPerformance", false, "");
+            search("Komfort Theme HostTroops", false, "");
             Check(Visible(performance, "QolVisibility") && !Visible(performance, "FixesVisibility"),
                 "re-registering localized metadata refreshes category text");
             Check(!((IEnumerable)entries).Cast<object>().Any(e => matches(e, "QoL", false)),
@@ -432,13 +432,13 @@ internal static partial class Program
         Type stateType = catalog.Assembly.GetType("APIShared.ModSettings.ModSettingsSearchStateFilter", true);
         refresh.Invoke(presentation, new object[] { "", false, "", entries, Enum.ToObject(stateType, 1), fixture });
         Check(topics.All(t => !Visible(t, "Visibility")), "unsupported values and unchecked checkboxes do not create active topics");
-        ((SearchFixtureBase)fixture).EnableImprovedAssassinPathfindingAI = true;
+        ((SearchFixtureBase)fixture).EnableLordUnitControls = true;
         refresh.Invoke(presentation, new object[] { "", false, "", entries, Enum.ToObject(stateType, 1), fixture });
         Check(Visible(performance, "ContentVisibility") && !Visible(display, "Visibility"), "status-only search opens the matching topic");
         refresh.Invoke(presentation, new object[] { "QoL", false, "", entries, Enum.ToObject(stateType, 1), fixture });
         Check(Visible(performance, "QolVisibility") && !Visible(performance, "FixesVisibility") && !Visible(display, "Visibility"),
             "category and active-state filters combine");
-        ((SearchFixtureBase)fixture).EnableImprovedAssassinPathfindingAI = false;
+        ((SearchFixtureBase)fixture).EnableLordUnitControls = false;
         refresh.Invoke(presentation, new object[] { "", false, "", entries, Enum.ToObject(stateType, 2), fixture });
         Check(Visible(performance, "ContentVisibility"), "inactive checkbox opens its topic");
         search("", false, "");
@@ -482,7 +482,7 @@ internal static partial class Program
 
 public class SearchFixtureBase
 {
-    public bool EnableImprovedAssassinPathfindingAI { get; set; }
+    public bool EnableLordUnitControls { get; set; }
     public static SearchPresentationLabels Labels;
     public SearchPresentationLabels SettingsPresentation => Labels;
     public SearchGoodFixture[] MarketGoodsOrderItems => new[] { new SearchGoodFixture() };

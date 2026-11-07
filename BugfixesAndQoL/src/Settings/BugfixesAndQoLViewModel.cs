@@ -14,13 +14,29 @@ using UnityEngine;
 
 namespace BugfixesAndQoL
 {
-    public sealed partial class BugfixesAndQoLViewModel : APIShared.ModSettings.PresetLobbyModSettingsViewModel, IUnitCommandSettings
+    public sealed partial class BugfixesAndQoLViewModel : APIShared.ModSettings.PresetLobbyModSettingsViewModel
     {
         // EnableSpriteSheetMerge (Boolean, unreleased develop) was replaced by SpriteSheetMergeMode.
         protected override bool IsRetiredPresetProperty(string propertyName) =>
             string.Equals(propertyName, "FriendlyMoatMovementMode", StringComparison.Ordinal) ||
             string.Equals(propertyName, "EnableSpriteSheetMerge", StringComparison.Ordinal) ||
             string.Equals(propertyName, "EnableSpectatorPerspective", StringComparison.Ordinal) ||
+            string.Equals(propertyName, "EnableImprovedManualUnitCommands", StringComparison.Ordinal) ||
+            string.Equals(propertyName, "EnableImprovedMoatFilling", StringComparison.Ordinal) ||
+            string.Equals(propertyName, "EnableLadderAttackPathfindingFix", StringComparison.Ordinal) ||
+            string.Equals(propertyName, "EnableEnemyGatePathfindingFix", StringComparison.Ordinal) ||
+            string.Equals(propertyName, "RequireReachableEnemyForAutomaticGateClosing", StringComparison.Ordinal) ||
+            string.Equals(propertyName, "EnableImprovedAssassinPathfinding", StringComparison.Ordinal) ||
+            string.Equals(propertyName, "EnableImprovedAssassinPathfindingAI", StringComparison.Ordinal) ||
+            string.Equals(propertyName, "EnableAssassinGatehouseClimbFix", StringComparison.Ordinal) ||
+            string.Equals(propertyName, "EnableAssassinCombatResumeFix", StringComparison.Ordinal) ||
+            string.Equals(propertyName, "EnableMoveFormationEnhancements", StringComparison.Ordinal) ||
+            string.Equals(propertyName, "EnableExtendedShiftCommandQueue", StringComparison.Ordinal) ||
+            string.Equals(propertyName, "EnableTroopMovementFix", StringComparison.Ordinal) ||
+            string.Equals(propertyName, "EnableRallyTerrainSlowdownFix", StringComparison.Ordinal) ||
+            string.Equals(propertyName, "EnableFastRecruitRallyMovement", StringComparison.Ordinal) ||
+            string.Equals(propertyName, "EnableMountedStockpileMovementFix", StringComparison.Ordinal) ||
+            string.Equals(propertyName, "EnableAssemblyPointPlacementFix", StringComparison.Ordinal) ||
             string.Equals(propertyName, "EnableEliminatedPlayersBecomeSpectators", StringComparison.Ordinal);
 
         public event Action<string> SettingChanged;
@@ -71,12 +87,10 @@ namespace BugfixesAndQoL
         private bool enableAiSellThresholdFix = false;
         private bool enableAiDefensePatrolFix = true;
         private bool enableAiRaidRetargetFix = true;
-        private bool enableEnemyGatePathfindingFix = true;
         private bool enableMoatTerrainRestoration = true;
         private bool enableDrawbridgeDestructionFix = true;
         private bool enableTreeBlightDecayFix = true;
         private bool enableGatehouseLivingCaptureFix = true;
-        private bool enableAssassinGatehouseClimbFix = true;
         private bool enableAssassinCapturedGateProtectionFix = true;
         private bool enableAiWallTargetingFix = true;
         private bool enablePrebuiltAiWorkshopBothFix = true;
@@ -88,25 +102,12 @@ namespace BugfixesAndQoL
         private bool fixAIPreplacedMapBuildings = true;
         private bool fixAITowerRepair = true;
         private bool betterAIOverbuildRules = true;
-        private bool enableTroopMovementFix = true;
-        private bool enableExtendedShiftCommandQueue = true;
-        private bool enableMoveFormationEnhancements = true;
-        private bool enableImprovedManualUnitCommands = true;
-        private bool enableImprovedMoatFilling = true;
-        private bool enableMountedStockpileMovementFix = true;
-        private bool enableLadderAttackPathfindingFix = true;
         private bool enableHealerAttackCommandFix = true;
-        private bool enableFastRecruitRallyMovement = true;
-        private bool enableRallyTerrainSlowdownFix = true;
-        private bool enableImprovedAssassinPathfinding = true;
-        private bool enableImprovedAssassinPathfindingAI = true;
-        private bool enableAssassinCombatResumeFix = true;
         private bool enableLordReturnTeleportFix = true;
         private bool enablePlaguePopularityFix = true;
         private bool enablePlagueCloudRemovalFix = true;
         private bool enableStuckApothecaryFix = true;
         private bool enablePlagueTargetReservationFix = true;
-        private bool enableAssemblyPointPlacementFix = true;
         private bool enableKeepFlagRotationFix = true;
         private bool enableTanneryAnimationFix = true;
         private bool enableCorruptLordDataSpawnFix = true;
@@ -124,7 +125,6 @@ namespace BugfixesAndQoL
         private bool enableShiftRepairAllBuildings = true;
         private bool enableQuarryPileRelocation = true;
         private bool enableAIQuarryPileTowardsKeep = true;
-        private bool requireReachableEnemyForAutomaticGateClosing = true;
         private bool enableCenteredGatehouseDistanceFix = true;
         private bool preventAIPause = true;
         private bool preventEmergencyDemolition = true;
@@ -361,8 +361,6 @@ namespace BugfixesAndQoL
         public string EnableGatehouseLivingCaptureFixText => SerpLocalization.Get("BugfixesAndQoL.EnableGatehouseLivingCaptureFix");
         public string EnableAssassinCapturedGateProtectionFixText => SerpLocalization.Get("BugfixesAndQoL.EnableAssassinCapturedGateProtectionFix");
         public string EnableAssassinCapturedGateProtectionFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableAssassinCapturedGateProtectionFixHelp");
-        public string EnableAssassinGatehouseClimbFixText => SerpLocalization.Get("BugfixesAndQoL.EnableAssassinGatehouseClimbFix");
-        public string EnableAssassinGatehouseClimbFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableAssassinGatehouseClimbFixHelp");
         public string EnableGatehouseLivingCaptureFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableGatehouseLivingCaptureFixHelp");
         public string FixesTitleText => SerpLocalization.Get("BugfixesAndQoL.FixesTitle");
         public string PossibleFixesTitleText => SerpLocalization.Get("BugfixesAndQoL.PossibleFixesTitle");
@@ -403,8 +401,6 @@ namespace BugfixesAndQoL
         public string EnableAiSellThresholdFixText => SerpLocalization.Get("BugfixesAndQoL.EnableAiSellThresholdFix");
         public string EnableAiSellThresholdFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableAiSellThresholdFixHelp");
         public string EnableAiStoneReserveFixHelpText => SerpLocalization.Get(SerpLocalization.EnableAiStoneReserveFixHelp);
-        public string EnableEnemyGatePathfindingFixText => SerpLocalization.Get("BugfixesAndQoL.EnableEnemyGatePathfindingFix");
-        public string EnableEnemyGatePathfindingFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableEnemyGatePathfindingFixHelp");
         public string EnableAiRaidRetargetFixText => SerpLocalization.Get("BugfixesAndQoL.EnableAiRaidRetargetFix");
         public string EnableAiRaidRetargetFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableAiRaidRetargetFixHelp");
         public string EnableAiDefensePatrolFixText => SerpLocalization.Get("BugfixesAndQoL.EnableAiDefensePatrolFix");
@@ -430,8 +426,6 @@ namespace BugfixesAndQoL
         public string EnableShiftRepairAllBuildingsHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableShiftRepairAllBuildingsHelp");
         public string EnableQuarryPileRelocationText => SerpLocalization.Get(SerpLocalization.EnableQuarryPileRelocation);
         public string EnableQuarryPileRelocationHelpText => SerpLocalization.Get(SerpLocalization.EnableQuarryPileRelocationHelp);
-        public string RequireReachableEnemyForAutomaticGateClosingText => SerpLocalization.Get("BugfixesAndQoL.RequireReachableEnemyForAutomaticGateClosing");
-        public string RequireReachableEnemyForAutomaticGateClosingHelpText => SerpLocalization.Get("BugfixesAndQoL.RequireReachableEnemyForAutomaticGateClosingHelp");
         public string EnableCenteredGatehouseDistanceFixText => SerpLocalization.Get("BugfixesAndQoL.EnableCenteredGatehouseDistanceFix");
         public string EnableCenteredGatehouseDistanceFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableCenteredGatehouseDistanceFixHelp");
         public string MultiplayerTitleText => SerpLocalization.Get("BugfixesAndQoL.MultiplayerTitle");
@@ -541,8 +535,6 @@ namespace BugfixesAndQoL
             SerpLocalization.Get("BugfixesAndQoL.EnableDisbandedUnitControlGroupCleanup");
         public string EnableDisbandedUnitControlGroupCleanupHelpText =>
             SerpLocalization.Get("BugfixesAndQoL.EnableDisbandedUnitControlGroupCleanupHelp");
-        public string EnableAssemblyPointPlacementFixText => SerpLocalization.Get("BugfixesAndQoL.EnableAssemblyPointPlacementFix");
-        public string EnableAssemblyPointPlacementFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableAssemblyPointPlacementFixHelp");
         public string EnableKeepFlagRotationFixText => SerpLocalization.Get("BugfixesAndQoL.EnableKeepFlagRotationFix");
         public string EnableKeepFlagRotationFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableKeepFlagRotationFixHelp");
         public string EnableTanneryAnimationFixText => SerpLocalization.Get("BugfixesAndQoL.EnableTanneryAnimationFix");
@@ -599,39 +591,11 @@ namespace BugfixesAndQoL
         public string EnableCustomLordListEnhancementsHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableCustomLordListEnhancementsHelp");
         public string EnableWorkshopUploadLordSelectionFixText => SerpLocalization.Get("BugfixesAndQoL.EnableWorkshopUploadLordSelectionFix");
         public string EnableWorkshopUploadLordSelectionFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableWorkshopUploadLordSelectionFixHelp");
-        public string EnableTroopMovementFixText => SerpLocalization.Get(SerpLocalization.EnableTroopMovementFix);
-        public string EnableTroopMovementFixHelpText => SerpLocalization.Get(SerpLocalization.EnableTroopMovementFixHelp);
-        public string EnableExtendedShiftCommandQueueText =>
-            SerpLocalization.Get("BugfixesAndQoL.EnableExtendedShiftCommandQueue");
-        public string EnableExtendedShiftCommandQueueHelpText =>
-            SerpLocalization.Get("BugfixesAndQoL.EnableExtendedShiftCommandQueueHelp");
-        public string EnableMoveFormationEnhancementsText =>
-            SerpLocalization.Get("BugfixesAndQoL.EnableMoveFormationEnhancements");
-        public string EnableMoveFormationEnhancementsHelpText =>
-            SerpLocalization.Get("BugfixesAndQoL.EnableMoveFormationEnhancementsHelp");
-        public string EnableImprovedManualUnitCommandsText => SerpLocalization.Get("BugfixesAndQoL.EnableImprovedManualUnitCommands");
-        public string EnableImprovedManualUnitCommandsHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableImprovedManualUnitCommandsHelp");
 
-        public string EnableImprovedMoatFillingText => SerpLocalization.Get(SerpLocalization.EnableImprovedMoatFilling);
-        public string EnableImprovedMoatFillingHelpText => SerpLocalization.Get(SerpLocalization.EnableImprovedMoatFillingHelp);
-        public string EnableMountedStockpileMovementFixText => SerpLocalization.Get("BugfixesAndQoL.EnableMountedStockpileMovementFix");
-        public string EnableMountedStockpileMovementFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableMountedStockpileMovementFixHelp");
-        public string EnableLadderAttackPathfindingFixText => SerpLocalization.Get("BugfixesAndQoL.EnableLadderAttackPathfindingFix");
-        public string EnableLadderAttackPathfindingFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableLadderAttackPathfindingFixHelp");
         public string EnableHealerAttackCommandFixText => SerpLocalization.Get("BugfixesAndQoL.EnableHealerAttackCommandFix");
         public string EnableHealerAttackCommandFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableHealerAttackCommandFixHelp");
-        public string EnableFastRecruitRallyMovementText => SerpLocalization.Get(SerpLocalization.EnableFastRecruitRallyMovement);
-        public string EnableFastRecruitRallyMovementHelpText => SerpLocalization.Get(SerpLocalization.EnableFastRecruitRallyMovementHelp);
-        public string EnableRallyTerrainSlowdownFixText => SerpLocalization.Get("BugfixesAndQoL.EnableRallyTerrainSlowdownFix");
-        public string EnableRallyTerrainSlowdownFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableRallyTerrainSlowdownFixHelp");
         public string EnableAIQuarryPileTowardsKeepText => SerpLocalization.Get(SerpLocalization.EnableAIQuarryPileTowardsKeep);
         public string EnableAIQuarryPileTowardsKeepHelpText => SerpLocalization.Get(SerpLocalization.EnableAIQuarryPileTowardsKeepHelp);
-        public string EnableImprovedAssassinPathfindingText => SerpLocalization.Get(SerpLocalization.EnableImprovedAssassinPathfinding);
-        public string EnableImprovedAssassinPathfindingHelpText => SerpLocalization.Get(SerpLocalization.EnableImprovedAssassinPathfindingHelp);
-        public string EnableImprovedAssassinPathfindingAIText => SerpLocalization.Get(SerpLocalization.EnableImprovedAssassinPathfindingAI);
-        public string EnableImprovedAssassinPathfindingAIHelpText => SerpLocalization.Get(SerpLocalization.EnableImprovedAssassinPathfindingAIHelp);
-        public string EnableAssassinCombatResumeFixText => SerpLocalization.Get(SerpLocalization.EnableAssassinCombatResumeFix);
-        public string EnableAssassinCombatResumeFixHelpText => SerpLocalization.Get(SerpLocalization.EnableAssassinCombatResumeFixHelp);
         public string EnablePlaguePopularityFixText => SerpLocalization.Get(SerpLocalization.EnablePlaguePopularityFix);
         public string EnablePlaguePopularityFixHelpText => SerpLocalization.Get(SerpLocalization.EnablePlaguePopularityFixHelp);
         public string EnablePlagueCloudRemovalFixText => SerpLocalization.Get(SerpLocalization.EnablePlagueCloudRemovalFix);
@@ -987,7 +951,6 @@ namespace BugfixesAndQoL
 
         // Effective switch of all of them. Not public, so it is no setting of its own.
         internal bool VanillaPerformanceOptimizationsActive => EnableClientFeatures && EnableVanillaPerformanceOptimizations;
-        bool IUnitCommandSettings.VanillaPerformanceOptimizationsActive => VanillaPerformanceOptimizationsActive;
 
         // V13 minimap throttle (drawn at most every 100 ms). Presentation only, so a mismatch cannot
         // desync; it is a host value because a lockstep match runs at the speed of its slowest peer.
@@ -1146,13 +1109,6 @@ namespace BugfixesAndQoL
         }
 
         [SyncHostOnly]
-        public bool EnableEnemyGatePathfindingFix
-        {
-            get => enableEnemyGatePathfindingFix;
-            set => SetSetting(ref enableEnemyGatePathfindingFix,value,nameof(EnableEnemyGatePathfindingFix));
-        }
-
-        [SyncHostOnly]
         public bool EnableAiRaidRetargetFix
         {
             get => enableAiRaidRetargetFix;
@@ -1192,13 +1148,6 @@ namespace BugfixesAndQoL
         {
             get => enableAssassinCapturedGateProtectionFix;
             set => SetSetting(ref enableAssassinCapturedGateProtectionFix, value, nameof(EnableAssassinCapturedGateProtectionFix));
-        }
-
-        [SyncHostOnly]
-        public bool EnableAssassinGatehouseClimbFix
-        {
-            get => enableAssassinGatehouseClimbFix;
-            set => SetSetting(ref enableAssassinGatehouseClimbFix, value, nameof(EnableAssassinGatehouseClimbFix));
         }
 
         [SyncHostOnly]
@@ -1279,79 +1228,10 @@ namespace BugfixesAndQoL
         }
 
         [SyncHostOnly]
-        public bool EnableTroopMovementFix
-        {
-            get => enableTroopMovementFix;
-            set => SetSetting(ref enableTroopMovementFix, value, nameof(EnableTroopMovementFix));
-        }
-
-        [SyncHostOnly]
-        public bool EnableExtendedShiftCommandQueue
-        {
-            get => enableExtendedShiftCommandQueue;
-            set => SetSetting(
-                ref enableExtendedShiftCommandQueue,
-                value,
-                nameof(EnableExtendedShiftCommandQueue));
-        }
-
-        [SyncHostOnly]
-        public bool EnableMoveFormationEnhancements
-        {
-            get => enableMoveFormationEnhancements;
-            set => SetSetting(
-                ref enableMoveFormationEnhancements,
-                value,
-                nameof(EnableMoveFormationEnhancements));
-        }
-
-        [SyncHostOnly]
-        public bool EnableImprovedManualUnitCommands
-        {
-            get => enableImprovedManualUnitCommands;
-            set => SetSetting(ref enableImprovedManualUnitCommands, value, nameof(EnableImprovedManualUnitCommands));
-        }
-
-        [SyncHostOnly]
-        public bool EnableImprovedMoatFilling
-        {
-            get => enableImprovedMoatFilling;
-            set => SetSetting(ref enableImprovedMoatFilling, value, nameof(EnableImprovedMoatFilling));
-        }
-
-        [SyncHostOnly]
-        public bool EnableMountedStockpileMovementFix
-        {
-            get => enableMountedStockpileMovementFix;
-            set => SetSetting(ref enableMountedStockpileMovementFix, value, nameof(EnableMountedStockpileMovementFix));
-        }
-
-        [SyncHostOnly]
-        public bool EnableLadderAttackPathfindingFix
-        {
-            get => enableLadderAttackPathfindingFix;
-            set => SetSetting(ref enableLadderAttackPathfindingFix, value, nameof(EnableLadderAttackPathfindingFix));
-        }
-
-        [SyncHostOnly]
         public bool EnableHealerAttackCommandFix
         {
             get => enableHealerAttackCommandFix;
             set => SetSetting(ref enableHealerAttackCommandFix, value, nameof(EnableHealerAttackCommandFix));
-        }
-
-        [SyncHostOnly]
-        public bool EnableFastRecruitRallyMovement
-        {
-            get => enableFastRecruitRallyMovement;
-            set => SetSetting(ref enableFastRecruitRallyMovement, value, nameof(EnableFastRecruitRallyMovement));
-        }
-
-        [SyncHostOnly]
-        public bool EnableRallyTerrainSlowdownFix
-        {
-            get => enableRallyTerrainSlowdownFix;
-            set => SetSetting(ref enableRallyTerrainSlowdownFix, value, nameof(EnableRallyTerrainSlowdownFix));
         }
 
         [SyncHostOnly]
@@ -1390,13 +1270,6 @@ namespace BugfixesAndQoL
         {
             get => enableAIQuarryPileTowardsKeep;
             set => SetSetting(ref enableAIQuarryPileTowardsKeep, value, nameof(EnableAIQuarryPileTowardsKeep));
-        }
-
-        [SyncHostOnly]
-        public bool RequireReachableEnemyForAutomaticGateClosing
-        {
-            get => requireReachableEnemyForAutomaticGateClosing;
-            set => SetSetting(ref requireReachableEnemyForAutomaticGateClosing, value, nameof(RequireReachableEnemyForAutomaticGateClosing));
         }
 
         [SyncHostOnly]
@@ -1440,22 +1313,8 @@ namespace BugfixesAndQoL
                 nameof(InaccessibleAIBuildingDemolitionProtectionValueText));
         }
 
-        [SyncHostOnly]
-        public bool EnableImprovedAssassinPathfinding
-        {
-            get => enableImprovedAssassinPathfinding;
-            set => SetSetting(ref enableImprovedAssassinPathfinding, value, nameof(EnableImprovedAssassinPathfinding));
-        }
-
         // Same weighted search for the Assassins of AI lords. Separate so that hosts can keep Vanilla
         // pathfinding for AI lords (lower simulation cost on large maps) without losing it for humans.
-        [SyncHostOnly]
-        public bool EnableImprovedAssassinPathfindingAI
-        {
-            get => enableImprovedAssassinPathfindingAI;
-            set => SetSetting(ref enableImprovedAssassinPathfindingAI, value, nameof(EnableImprovedAssassinPathfindingAI));
-        }
-
         public string EnableLordReturnTeleportFixText => SerpLocalization.Get("BugfixesAndQoL.EnableLordReturnTeleportFix");
         public string EnableLordReturnTeleportFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableLordReturnTeleportFixHelp");
         [SyncHostOnly]
@@ -1463,13 +1322,6 @@ namespace BugfixesAndQoL
         {
             get => enableLordReturnTeleportFix;
             set => SetSetting(ref enableLordReturnTeleportFix, value, nameof(EnableLordReturnTeleportFix));
-        }
-
-        [SyncHostOnly]
-        public bool EnableAssassinCombatResumeFix
-        {
-            get => enableAssassinCombatResumeFix;
-            set => SetSetting(ref enableAssassinCombatResumeFix, value, nameof(EnableAssassinCombatResumeFix));
         }
 
         [SyncHostOnly]
@@ -1498,13 +1350,6 @@ namespace BugfixesAndQoL
         {
             get => enablePlagueTargetReservationFix;
             set => SetSetting(ref enablePlagueTargetReservationFix, value, nameof(EnablePlagueTargetReservationFix));
-        }
-
-        [SyncHostOnly]
-        public bool EnableAssemblyPointPlacementFix
-        {
-            get => enableAssemblyPointPlacementFix;
-            set => SetSetting(ref enableAssemblyPointPlacementFix, value, nameof(EnableAssemblyPointPlacementFix));
         }
 
         [SyncHostOnly]
@@ -1682,13 +1527,11 @@ namespace BugfixesAndQoL
                 EnableAiSellThresholdFix = false;
                 EnableAiDefensePatrolFix = true;
                 EnableAiRaidRetargetFix = true;
-                EnableEnemyGatePathfindingFix = true;
                 EnableMoatTerrainRestoration = true;
                 EnablePitchStairsFix = true;
                 EnableDrawbridgeDestructionFix = true;
                 EnableTreeBlightDecayFix = true;
                 EnableGatehouseLivingCaptureFix = true;
-                EnableAssassinGatehouseClimbFix = true;
                 EnableAssassinCapturedGateProtectionFix = true;
                 EnableAiWallTargetingFix = true;
                 EnableBakerMillerBreaks = false;
@@ -1700,37 +1543,23 @@ namespace BugfixesAndQoL
                 BetterAIOverbuildRules = true;
                 RememberAiAivSettings = true;
                 EnableCustomLordListEnhancements = true;
-                EnableTroopMovementFix = true;
-                EnableExtendedShiftCommandQueue = true;
-                EnableMoveFormationEnhancements = true;
-                EnableImprovedManualUnitCommands = true;
-                EnableImprovedMoatFilling = true;
-                EnableMountedStockpileMovementFix = true;
-                EnableLadderAttackPathfindingFix = true;
                 EnableHealerAttackCommandFix = true;
-                EnableFastRecruitRallyMovement = true;
-                EnableRallyTerrainSlowdownFix = true;
                 EnableSingleBuildingPause = true;
                 EnableNearestWaterboyTargeting = true;
                 EnableShiftRepairAllBuildings = true;
                 EnableQuarryPileRelocation = true;
                 EnableAIQuarryPileTowardsKeep = true;
-                RequireReachableEnemyForAutomaticGateClosing = true;
                 EnableCenteredGatehouseDistanceFix = true;
                 PreventAIPause = true;
                 PreventEmergencyDemolition = true;
                 PreventHovelDeletion = true;
                 InaccessibleAIBuildingDemolitionProtection =
                     TemporaryGateBlockagePolicy.ImprovedReachabilityMode;
-                EnableImprovedAssassinPathfinding = true;
-                EnableImprovedAssassinPathfindingAI = true;
-                EnableAssassinCombatResumeFix = true;
                 EnableLordReturnTeleportFix = true;
                 EnablePlaguePopularityFix = true;
                 EnablePlagueCloudRemovalFix = true;
                 EnableStuckApothecaryFix = true;
                 EnablePlagueTargetReservationFix = true;
-                EnableAssemblyPointPlacementFix = true;
                 EnableKeepFlagRotationFix = true;
                 EnableTanneryAnimationFix = true;
                 EnableCorruptLordDataSpawnFix = true;

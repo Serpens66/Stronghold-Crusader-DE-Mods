@@ -69,6 +69,6 @@ Loading a map takes slightly longer, because the route data is prepared in advan
 ## Good to know
 
 - The mod needs APIShared and the Script Extender.
-- Pathfinding currently cannot run together with BugfixesAndQoL or MoatMove, because they contain the same features. If one of them is installed, Pathfinding stays inactive.
+- Do not install the old MoatMove test mod next to it; Pathfinding stays inactive then.
 - Fire and plague avoidance only affects routes the fast search calculates. In the rare moments when the game's own search takes over, a new order can lead past a hazard; soldiers still replan before they reach it.
 - Soldiers waiting in front of fire or plague keep waiting after you save and load.

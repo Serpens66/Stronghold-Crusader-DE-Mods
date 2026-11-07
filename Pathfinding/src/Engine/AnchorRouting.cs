@@ -88,7 +88,7 @@ namespace Pathfinding.Engine
             { if (reachabilityByOwner.Count >= 16) return; reachabilityByOwner[reachabilityOwnerKind] = row = new long[4]; }
             row[0]++; row[1] += expanded; row[2] += elapsed; row[3] = Math.Max(row[3], elapsed);
             // Slow advances (> 15 ms), bounded per map: query shape and whether the frontier ran out.
-            if (elapsed * 1000 < 15 * System.Diagnostics.Stopwatch.Frequency || reachabilitySlowLogs >= 40) return;
+            if (elapsed * 1000 < 15 * System.Diagnostics.Stopwatch.Frequency || reachabilitySlowLogs >= 40 || !Shared.DebugLogHelper.DiagnosticsEnabled) return;
             int tick = CaptureCurrentGameTick();
             if (tick != reachabilitySlowTick) { reachabilitySlowTick = tick; reachabilitySlowInTick = 0; }
             reachabilitySlowLogs++; reachabilitySlowInTick++;
@@ -1258,7 +1258,7 @@ namespace Pathfinding.Engine
         // whether the builder searched another target (region intermediate) or the mask lacks edges.
         private void LogAnchorUnreachableFound(IntPtr pathManager, int unitId, int length)
         {
-            if (anchorUnreachableLogs >= 40) return;
+            if (anchorUnreachableLogs >= 40 || !Shared.DebugLogHelper.DiagnosticsEnabled) return;
             anchorUnreachableLogs++;
             byte* manager = (byte*)pathManager.ToPointer();
             int builderX = *(int*)(manager + 0x10), builderY = *(int*)(manager + 0x14);
@@ -1451,6 +1451,7 @@ namespace Pathfinding.Engine
         {
             // Also while fire burns or fire waits and escapes are open: their outcome follows without group moves.
             if (!anchorAvailable || anchorTasks == 0 && anchorQueries == 0 && anchorMaskPendingMoves == 0 && !FireCasesReportable()) return;
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
             Shared.DebugLogHelper.LogInfo(log, "Pathfinding stage=anchor-performance " +
                 $"tasks={anchorTasks} liveTasks={anchorLiveTasks.Count} queries={anchorQueries} moatRoutes={anchorMoatRoutes} " +
                 $"groundRoutes={anchorGroundRoutes} nonDiggerRoutes={anchorGroundOnlyRoutes} groundDecisions={anchorGroundDecisions} fallbacks={anchorFallbacks} maskPendingMoves={anchorMaskPendingMoves} aiMoves={anchorAiMoves} " +
@@ -1477,6 +1478,7 @@ namespace Pathfinding.Engine
         {
             if (AnchorNative.mma_stats(anchorContext, anchorCoreStats, anchorCoreStats.Length, 1) != 0)
                 Array.Clear(anchorCoreStats, 0, anchorCoreStats.Length);
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
             Shared.DebugLogHelper.LogInfo(log, "Pathfinding stage=anchor-breakdown " +
                 $"humanMoves={anchorHumanMoves} moveMs={AnchorMs(anchorMoveTicks)} maxMoveMs={AnchorMs(anchorMoveMaxTicks)} " +
                 $"preMs={AnchorMs(anchorPreTicks)} maxPreMs={AnchorMs(anchorPreMaxTicks)} queryMs={AnchorMs(anchorQueryTicks)} " +

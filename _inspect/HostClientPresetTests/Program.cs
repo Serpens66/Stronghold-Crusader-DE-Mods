@@ -3,6 +3,7 @@ using APIShared.ModSettings;
 using MessagePack;
 using APIShared;
 using BugfixesAndQoL;
+using Pathfinding;
 using ExtraFeatures;
 using SerpsModsHost;
 using Shared;
@@ -2008,7 +2009,7 @@ internal static class Program
         string bugfixRuntimeSource = File.ReadAllText(
             Path.Combine(workspaceRoot, "BugfixesAndQoL", "src", "Core/Bootstrap/BugfixesAndQoLRuntime.cs"));
         string assassinClimbSource = File.ReadAllText(
-            Path.Combine(workspaceRoot, "BugfixesAndQoL", "src", "Assassins/AssassinClimbRuntime.cs"));
+            Path.Combine(workspaceRoot, "Pathfinding", "src", "Assassins/AssassinClimbRuntime.cs"));
         Check(hudCoordinatorSource.Contains("A direct editor launch can build the HUD") &&
               bugfixRuntimeSource.Contains("BeginGameplaySession") &&
               bugfixRuntimeSource.Contains("Subscribe(_ => EndGameplaySession())") &&
@@ -2261,18 +2262,20 @@ internal static class Program
         Check(!bugfixesViewModelSource.Contains("EnableCustomLordExtendedPackages"),
             "the obsolete Custom Lord package setting remains in the BugfixesAndQoL view model");
         string normalizedBugfixesViewModelSource = bugfixesViewModelSource.Replace(Environment.NewLine, "\n");
-        Check(normalizedBugfixesViewModelSource.Contains("private bool enableAssassinCombatResumeFix = true;") &&
-              normalizedBugfixesViewModelSource.Contains("[SyncHostOnly]\n        public bool EnableAssassinCombatResumeFix") &&
-              bugfixesViewModelSource.Contains("EnableAssassinCombatResumeFix = true;"),
+        string pathfindingViewModelSource = File.ReadAllText(
+            Path.Combine(workspaceRoot, "Pathfinding", "src", "Settings/PathfindingViewModel.cs"));
+        Check(pathfindingViewModelSource.Contains("enableAssassinCombatResumeFix = true") &&
+              pathfindingViewModelSource.Contains("[SyncHostOnly] public bool EnableAssassinCombatResumeFix") &&
+              pathfindingViewModelSource.Contains("EnableAssassinCombatResumeFix = true;"),
             "Assassin combat resume is not a default-enabled, resettable host setting");
-        Check(normalizedBugfixesViewModelSource.Contains("private bool enableMountedStockpileMovementFix = true;") &&
-              normalizedBugfixesViewModelSource.Contains("[SyncHostOnly]\n        public bool EnableMountedStockpileMovementFix") &&
-              bugfixesViewModelSource.Contains("EnableMountedStockpileMovementFix = true;"),
+        Check(pathfindingViewModelSource.Contains("enableMountedStockpileMovementFix = true") &&
+              pathfindingViewModelSource.Contains("[SyncHostOnly] public bool EnableMountedStockpileMovementFix") &&
+              pathfindingViewModelSource.Contains("EnableMountedStockpileMovementFix = true;"),
             "mounted stockpile movement is not a default-enabled, resettable host setting");
-        Check(normalizedBugfixesViewModelSource.Contains("private bool enableImprovedManualUnitCommands = true;") &&
-              normalizedBugfixesViewModelSource.Contains("[SyncHostOnly]\n        public bool EnableImprovedManualUnitCommands") &&
-              bugfixesViewModelSource.Contains("EnableImprovedManualUnitCommands = true;") &&
-              !bugfixesViewModelSource.Contains("public int FriendlyMoatMovementMode"),
+        Check(pathfindingViewModelSource.Contains("enableImprovedManualUnitCommands = true") &&
+              pathfindingViewModelSource.Contains("[SyncHostOnly] public bool EnableImprovedManualUnitCommands") &&
+              pathfindingViewModelSource.Contains("EnableImprovedManualUnitCommands = true;") &&
+              !pathfindingViewModelSource.Contains("public int FriendlyMoatMovementMode"),
             "manual commands are not a default-enabled, resettable host setting");
         Check(normalizedBugfixesViewModelSource.Contains("private bool enableShiftRepairAllBuildings = true;") &&
               normalizedBugfixesViewModelSource.Contains("[SyncHostOnly]\n        public bool EnableShiftRepairAllBuildings") &&
@@ -2288,12 +2291,12 @@ internal static class Program
               bugfixesViewModelSource.Contains("EnableDrawbridgeDestructionFix = true;") &&
               bugfixesViewModelSource.Contains("SetSetting(ref enableDrawbridgeDestructionFix, value, nameof(EnableDrawbridgeDestructionFix))"),
             "drawbridge production setting is not default-enabled, resettable and host-managed");
-        string bugfixesRuntimeSource = File.ReadAllText(
-            Path.Combine(workspaceRoot, "BugfixesAndQoL", "src", "Core/Bootstrap/BugfixesAndQoLRuntime.cs"));
-        Check(bugfixesRuntimeSource.Contains(
+        string pathfindingRuntimeSource = File.ReadAllText(
+            Path.Combine(workspaceRoot, "Pathfinding", "src", "PathfindingRuntime.cs"));
+        Check(pathfindingRuntimeSource.Contains(
                   "settings.EnableMod && settings.EnableMountedStockpileMovementFix") &&
-              bugfixesRuntimeSource.Contains("InstallMountedStockpileMovementPatch") &&
-              bugfixesRuntimeSource.Contains("DisableMountedStockpileMovementPatch"),
+              pathfindingRuntimeSource.Contains("mountedStockpileMovementPatch.SetEnabled(wanted)") &&
+              pathfindingRuntimeSource.Contains("new MountedStockpileMovementPatch("),
             "mounted stockpile movement is not reconciled with its host setting and EnableMod");
         string shiftRepairHookSource = File.ReadAllText(
             Path.Combine(workspaceRoot, "BugfixesAndQoL", "src", "Buildings/ShiftRepairAllBuildingsHook.cs"));
@@ -2306,7 +2309,7 @@ internal static class Program
               shiftRepairHookSource.Contains("PlayerRelationship.Self"),
             "Shift-repair does not reuse Vanilla repair classification/action for owned buildings");
         string combatResumeRuntimeSource = File.ReadAllText(
-            Path.Combine(workspaceRoot, "BugfixesAndQoL", "src", "Assassins/AssassinCombatResumeRuntime.cs"));
+            Path.Combine(workspaceRoot, "Pathfinding", "src", "Assassins/AssassinCombatResumeRuntime.cs"));
         Check(combatResumeRuntimeSource.Contains("settings.EnableAssassinCombatResumeFix") &&
               !combatResumeRuntimeSource.Contains("EnableImprovedAssassinPathfinding"),
             "Assassin combat resume is not initialized independently from improved pathfinding");
@@ -2315,9 +2318,6 @@ internal static class Program
         {
             "EnableAiRaidRetargetFix",
             "EnableSingleBuildingPause",
-            "EnableFastRecruitRallyMovement",
-            "EnableRallyTerrainSlowdownFix",
-            "RequireReachableEnemyForAutomaticGateClosing",
             "EnableQuarryPileRelocation",
             "EnableAIQuarryPileTowardsKeep",
             "PreventAIPause",
@@ -2332,6 +2332,21 @@ internal static class Program
             Check(bugfixesViewModelSource.Contains(propertyName + " = true;"),
                 propertyName + " does not reset to its migrated default true value");
         }
+        string[] pathfindingOwnedSettings =
+        {
+            "EnableFastRecruitRallyMovement",
+            "EnableRallyTerrainSlowdownFix",
+            "RequireReachableEnemyForAutomaticGateClosing"
+        };
+        foreach (string propertyName in pathfindingOwnedSettings)
+        {
+            Check(pathfindingViewModelSource.Contains("[SyncHostOnly] public bool " + propertyName),
+                propertyName + " is not classified as a synchronized host setting");
+            Check(pathfindingViewModelSource.Contains(propertyName + " = true;"),
+                propertyName + " does not reset to its migrated default true value");
+            Check(!bugfixesViewModelSource.Contains("public bool " + propertyName),
+                propertyName + " still has an active BugfixesAndQoL setting");
+        }
         Check(normalizedBugfixesViewModelSource.Contains(
                 "[SyncHostOnly]\n        public int InaccessibleAIBuildingDemolitionProtection"),
             "inaccessible AI building protection is not classified as a synchronized host setting");
@@ -2341,7 +2356,7 @@ internal static class Program
 
         string extraFeaturesViewModelSource = File.ReadAllText(
             Path.Combine(workspaceRoot, "ExtraFeatures", "src", "ExtraFeaturesViewModel.cs"));
-        foreach (string propertyName in movedBooleanSettings)
+        foreach (string propertyName in movedBooleanSettings.Concat(pathfindingOwnedSettings))
         {
             Check(!extraFeaturesViewModelSource.Contains("public bool " + propertyName),
                 propertyName + " still has an active ExtraFeatures setting");
@@ -2356,7 +2371,6 @@ internal static class Program
             "BugfixesAndQoLRuntime.BuildingAndEconomy.cs",
             "QuarryPileRelocationRuntime.cs",
             "QuarryPileTargetSearch.cs",
-            "ReachableEnemyGatehouseRuntime.cs",
             "SingleBuildingPauseHook.cs"
         };
         foreach (string fileName in unrestrictedMovedRuntimeFiles)
@@ -2367,6 +2381,11 @@ internal static class Program
                   !source.Contains("GameplayFeatureModePolicy"),
                 fileName + " still restricts a transferred BugfixesAndQoL feature by game mode");
         }
+        string gatehouseSource = File.ReadAllText(
+            Path.Combine(workspaceRoot, "Pathfinding", "src", "GateRouting", "ReachableEnemyGatehouseRuntime.cs"));
+        Check(!gatehouseSource.Contains("GameplayModActivationGate") &&
+              !gatehouseSource.Contains("GameplayFeatureModePolicy"),
+            "ReachableEnemyGatehouseRuntime.cs restricts a transferred feature by game mode");
         GameNetworkAPI.LocalHost = false;
         setting.System_RefreshSettingsAccess();
         byte[] beforeClientMutation = File.ReadAllBytes(settingsPath);
@@ -3547,7 +3566,6 @@ internal static class Program
         string workspaceRoot = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", ".."));
         string[] senderFiles =
         {
-            "AssassinClimbRuntime.cs",
             "MultiplayerGameSpeedRuntime.cs",
             "QuarryPileRelocationRuntime.cs",
             "SiegeAmmoRestockFeature.cs",
@@ -3562,6 +3580,11 @@ internal static class Program
             Check(!source.Contains("ChoreNetworkTransport") && !source.Contains("SendRawBlob"),
                 fileName + " retains the removed raw Chore transport");
         }
+        string climbSender = File.ReadAllText(Path.Combine(workspaceRoot, "Pathfinding", "src", "Assassins", "AssassinClimbRuntime.cs"));
+        Check(climbSender.Contains("APIShared.Networking.ChoreTransport.TrySend("),
+            "AssassinClimbRuntime.cs does not use the fail-closed Chore sender contract");
+        Check(!climbSender.Contains("ChoreNetworkTransport") && !climbSender.Contains("SendRawBlob"),
+            "AssassinClimbRuntime.cs retains the removed raw Chore transport");
 
     }
 

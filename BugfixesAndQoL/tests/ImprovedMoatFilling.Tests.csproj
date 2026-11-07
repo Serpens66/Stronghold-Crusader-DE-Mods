@@ -51,8 +51,6 @@
     <Compile Include="SpectatorInputControlTests.cs" />
     <Compile Include="AIPreplacedBuildingFixTests.cs" />
     <Compile Include="SkirmishGameOptionsTests.cs" />
-    <Compile Include="MovementFastPathParityHarness.cs" />
-    <Compile Include="..\src\TroopMovement\MovementLoggingStateTracker.cs"><Link>MovementLoggingStateTracker.cs</Link></Compile>
     <Compile Include="..\src\AI\Fixes\AiDefensePatrolNativeDefinition.cs"><Link>AiDefensePatrolNativeDefinition.cs</Link></Compile>
     <Compile Include="..\src\AI\Fixes\AiDefensePatrolPolicy.cs"><Link>AiDefensePatrolPolicy.cs</Link></Compile>
     <Compile Include="..\src\AI\Prebuilt\AIPreplacedBuildingFixPolicy.cs"><Link>AIPreplacedBuildingFixPolicy.cs</Link></Compile>
@@ -70,7 +68,6 @@
     <Compile Include="..\src\Multiplayer\MultiplayerAivSyncPolicy.cs"><Link>MultiplayerAivSyncPolicy.cs</Link></Compile>
     <Compile Include="..\src\Buildings\SingleBuildingPauseOverrideStore.cs"><Link>SingleBuildingPauseOverrideStore.cs</Link></Compile>
     <Compile Include="..\src\AI\Economy\TemporaryGateBlockagePolicy.cs"><Link>TemporaryGateBlockagePolicy.cs</Link></Compile>
-    <Compile Include="..\src\GateRouting\SynchronizedGatehouseReachabilityPolicy.cs"><Link>SynchronizedGatehouseReachabilityPolicy.cs</Link></Compile>
     <Compile Include="..\src\Lobby\TrailCustomizationProviderHostApi.cs"><Link>TrailCustomizationProviderHostApi.cs</Link></Compile>
     <Compile Include="..\src\Buildings\TunnelPlacementDistancePolicy.cs"><Link>TunnelPlacementDistancePolicy.cs</Link></Compile>
     <Compile Include="..\src\CameraDisplay\StartupUiReadinessGuardPolicy.cs"><Link>StartupUiReadinessGuardPolicy.cs</Link></Compile>
@@ -88,7 +85,6 @@
     <Compile Include="..\src\Buildings\QuarryKeepCenterPolicy.cs"><Link>QuarryKeepCenterPolicy.cs</Link></Compile>
     <Compile Include="..\src\AI\Fixes\KeepFlagRotationPolicy.cs"><Link>KeepFlagRotationPolicy.cs</Link></Compile>
     <Compile Include="..\src\AI\Fixes\CorruptLordDataSpawnPolicy.cs"><Link>CorruptLordDataSpawnPolicy.cs</Link></Compile>
-    <Compile Include="..\src\Core\Native\NativeHandlerSnapshot.cs"><Link>NativeHandlerSnapshot.cs</Link></Compile>
     <Compile Include="..\src\Market\AllyGoodsTransferPolicy.cs"><Link>AllyGoodsTransferPolicy.cs</Link></Compile>
     <Compile Include="..\src\Buildings\PlacementCancelRightClickPolicy.cs"><Link>PlacementCancelRightClickPolicy.cs</Link></Compile>
     <Compile Include="..\src\Multiplayer\MultiplayerGameSpeedPolicy.cs"><Link>MultiplayerGameSpeedPolicy.cs</Link></Compile>
