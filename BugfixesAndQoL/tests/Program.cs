@@ -40,6 +40,12 @@ namespace BugfixesAndQoL
 
         private static int Main(string[] args)
         {
+            if (args.Length == 1 && args[0] == "--personal-storage")
+            {
+                TestLobbyMapSelectionMemory();
+                Console.WriteLine("Lobby map persistence checks: failures=" + failures);
+                return failures == 0 ? 0 : 1;
+            }
             if (args.Length == 1 && args[0] == "--ui-work")
             {
                 TestTimerCountdownMigration();

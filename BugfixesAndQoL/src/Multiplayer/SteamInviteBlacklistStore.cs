@@ -16,10 +16,13 @@ namespace BugfixesAndQoL
         private const string StoreFileName = "SteamInviteBlacklist.json";
 
         private HashSet<ulong> blockedIds = new HashSet<ulong>();
+        private readonly Shared.PersonalDataFile storage;
 
-        internal SteamInviteBlacklistStore(string storePath)
+        internal SteamInviteBlacklistStore(string storePath, string legacyPath = null, Action<string> report = null)
         {
             StorePath = storePath ?? throw new ArgumentNullException(nameof(storePath));
+            storage = new Shared.PersonalDataFile(storePath, legacyPath, report,
+                maximumReadBytes: MaximumStoreBytes);
             Load();
         }
 
@@ -31,6 +34,11 @@ namespace BugfixesAndQoL
         internal int Count => blockedIds.Count;
 
         internal static string GetDefaultPath()
+        {
+            return Shared.PersonalDataFile.GetPath("BugfixesAndQoL", StoreFileName);
+        }
+
+        internal static string GetLegacyPath()
         {
             string location = Assembly.GetExecutingAssembly().Location;
             string pluginDirectory = string.IsNullOrEmpty(location)
@@ -74,7 +82,7 @@ namespace BugfixesAndQoL
         internal bool TryClear(out string error)
         {
             var empty = new HashSet<ulong>();
-            if (!TryWrite(empty, out error))
+            if (!TryWrite(empty, out error, explicitReset: true))
                 return false;
 
             blockedIds = empty;
@@ -89,18 +97,15 @@ namespace BugfixesAndQoL
             blockedIds.Clear();
             IsUsable = false;
             LoadError = string.Empty;
-            if (!File.Exists(StorePath))
-            {
-                IsUsable = true;
-                return;
-            }
-
             try
             {
-                if (new FileInfo(StorePath).Length > MaximumStoreBytes)
-                    throw new InvalidDataException("The blacklist file is too large.");
-
-                object parsed = Shared.DependencyFreeJson.Parse(File.ReadAllText(StorePath));
+                string contents = storage.ReadAllText();
+                if (contents == null)
+                {
+                    IsUsable = true;
+                    return;
+                }
+                object parsed = Shared.DependencyFreeJson.Parse(contents);
                 if (!(parsed is Dictionary<string, object> root) ||
                     !TryReadInt(root, "version", out int version) || version != SchemaVersion ||
                     !root.TryGetValue("blockedSteamIds", out object idsValue) ||
@@ -124,14 +129,13 @@ namespace BugfixesAndQoL
             }
             catch (Exception ex)
             {
-                LoadError = ex.Message;
+                storage.PreserveOnNextWrite();
+                LoadError = ex.GetBaseException().Message;
             }
         }
 
-        private bool TryWrite(HashSet<ulong> ids, out string error)
+        private bool TryWrite(HashSet<ulong> ids, out string error, bool explicitReset = false)
         {
-            string directory = Path.GetDirectoryName(StorePath);
-            string temporaryPath = StorePath + ".tmp-" + Guid.NewGuid().ToString("N");
             try
             {
                 var sorted = new List<ulong>(ids);
@@ -145,17 +149,11 @@ namespace BugfixesAndQoL
                     ["blockedSteamIds"] = values,
                 };
 
-                Directory.CreateDirectory(directory);
-                File.WriteAllText(
-                    temporaryPath,
-                    Shared.DependencyFreeJson.Serialize(root),
-                    new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
-                if (new FileInfo(temporaryPath).Length > MaximumStoreBytes)
+                byte[] bytes = new UTF8Encoding(false).GetBytes(Shared.DependencyFreeJson.Serialize(root));
+                if (bytes.Length > MaximumStoreBytes)
                     throw new InvalidDataException("The serialized blacklist is too large.");
-                if (File.Exists(StorePath))
-                    Shared.AtomicFileReplacement.Replace(temporaryPath, StorePath);
-                else
-                    File.Move(temporaryPath, StorePath);
+                if (explicitReset) storage.ResetAllBytes(bytes);
+                else storage.WriteAllBytes(bytes);
                 error = string.Empty;
                 return true;
             }
@@ -163,17 +161,6 @@ namespace BugfixesAndQoL
             {
                 error = ex.Message;
                 return false;
-            }
-            finally
-            {
-                try
-                {
-                    if (File.Exists(temporaryPath))
-                        File.Delete(temporaryPath);
-                }
-                catch
-                {
-                }
             }
         }
 

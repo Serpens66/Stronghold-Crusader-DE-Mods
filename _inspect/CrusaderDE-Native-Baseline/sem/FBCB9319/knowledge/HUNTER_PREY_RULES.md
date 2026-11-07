@@ -105,6 +105,11 @@ from `+0x2EC` again (`0x89F40`, `0x97380`) and only those panels read it (`0x19D
 - Handoff at `0x130548`: target fields, state `0xB`, `0x196280`. State `0xB` (`0x1305E0`) writes reservation 2 on every
   update while the global ID still fits, sets the corpse's `+0x920` to 1000 on arrival and starts state 2.
 - `+0xA0C` on the Hunter is 0 for deer, 1 for anything else; it picks the animation in state 2.
+- Deer corpse (`0x156130`, jump table `0x156CB0`/`0x156CE0`): it counts `+0x2C4` up to 500 (`0x156C25`), then sets state `0x6E`
+  and restarts the count. There it fades (`+0x32A` up to 0x20) and is deleted when the count passes 32 (`0x156C53`). The Hunter's
+  1000 on arrival (`0x1306BD`) therefore means: fade on the next update. The reservation counts down in every state
+  (`0x156203`) and only states 0, 1, 9, 10 and `0xB` renew it, so a corpse being collected shows reservation 0 for about 30 of its
+  last 33 ticks. Vanilla's own `0x18B640` does not check for this either.
 
 ## Hunter speed stage [Scope: Vanilla]
 
@@ -203,6 +208,10 @@ Real single-player skirmish, Script Extender, APIShared, BugfixesAndQoL and Fixe
   the whole scan 4.5 ms per second of play, 1.5 ms at most per call; herd rule 1.1 ms, corpse rule 0.6 ms per second. 300
   fixture animals and 6 huts on a 400 map at speed 80: 8 to 9 ms per second, at most 2 ms. On maps of size 200 and 160 it ran without
   error (15 to 17 and 9 ms per second, at most 4 ms). The size comes from `GetCurrentMapSize`; a large map file need not be a large map.
+
+- One corpse, several Hunters (2026-11-07, `SP-hunters-corpse-once`, three Hunters, the idle ones forced to search right when the first
+  arrives): before `IsFadingCorpse` a second Hunter went for the same corpse, deer and goat, in the one run made. After it only one
+  did, deer and goat, also in one run. Corpses of goat, camel and chicken are taken and bring 9, 12 and 1 (`SP-hunters-corpse-kinds`).
 
 Not observed: real multiplayer (also not for the Tannery), free corpses and the respawn in multiplayer, a native resync with hunters active, an AI Tannery with the mod, a truly non-lethal arrow on deer, the absence of the warning
 sound (executed in the fixture only), statistics after own-chicken kills.

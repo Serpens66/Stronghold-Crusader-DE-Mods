@@ -114,6 +114,12 @@ internal static class Program
         };
         try
         {
+            if (args != null && args.Length == 1 && args[0] == "personal-storage")
+            {
+                TestSteamInviteBlacklistStore();
+                Console.WriteLine("PASS: existing blacklist persistence, validation, limits and explicit invalid-data recovery.");
+                return 0;
+            }
             if (args != null && args.Length == 1 && args[0] == "gameplay-gate")
             {
                 TestGameplayGateSourceIntegration();

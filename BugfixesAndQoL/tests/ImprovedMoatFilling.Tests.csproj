@@ -102,6 +102,8 @@
     <Compile Include="..\..\Shared\Runtime\Persistence\AtomicFileReplacement.cs"><Link>AtomicFileReplacement.cs</Link></Compile>
     <Compile Include="..\..\Shared\Runtime\Diagnostics\DebugLogHelper.cs"><Link>DebugLogHelper.cs</Link></Compile>
     <Compile Include="..\..\Shared\Runtime\Persistence\DependencyFreeJson.cs"><Link>DependencyFreeJson.cs</Link></Compile>
+    <Compile Include="..\..\Shared\Runtime\Persistence\PersonalDataFile.cs"><Link>PersonalDataFile.cs</Link></Compile>
+    <Compile Include="..\..\Shared\Runtime\Persistence\PersonalDataIO.cs"><Link>PersonalDataIO.cs</Link></Compile>
     <Compile Include="..\..\Shared\Runtime\Native\NativeBuildingCompoundGroup.cs"><Link>NativeBuildingCompoundGroup.cs</Link></Compile>
     <Compile Include="..\..\Shared\Runtime\Gameplay\GatehouseQueryUnitIdPolicy.cs"><Link>GatehouseQueryUnitIdPolicy.cs</Link></Compile>
     <Compile Include="..\..\Shared\Runtime\Native\NativePatternResolver.cs"><Link>NativePatternResolver.cs</Link></Compile>

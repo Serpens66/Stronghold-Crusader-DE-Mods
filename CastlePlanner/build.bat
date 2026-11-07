@@ -156,6 +156,15 @@ echo [%date% %time%] Compile projects
 "%MSBUILD%" CastlePlanner.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /p:ApiSharedDir="%API_SHARED_DIR%"
 set "BUILD_EXIT_CODE=%ERRORLEVEL%"
 if "%BUILD_EXIT_CODE%"=="0" (
+  echo [%date% %time%] Compile CastlePlanner persistence tests
+  "%MSBUILD%" Persistence.Tests\CastlePlanner.Persistence.Tests.csproj /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /verbosity:minimal
+  if errorlevel 1 set "BUILD_EXIT_CODE=1"
+)
+if "%BUILD_EXIT_CODE%"=="0" (
+  "%PROJECT_DIR%Persistence.Tests\bin\CastlePlanner.Persistence.Tests.exe" --assembly "%PROJECT_DIR%BepInEx\plugins\CastlePlanner_Serp\CastlePlanner.dll"
+  if errorlevel 1 set "BUILD_EXIT_CODE=1"
+)
+if "%BUILD_EXIT_CODE%"=="0" (
 echo [%date% %time%] PowerShell checks / build step
   powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Prepare-ThinPackage.ps1" -PackageDirectory "%PROJECT_DIR%BepInEx\plugins\CastlePlanner_Serp" -ValidateOnly
   if not errorlevel 0 cmd /c exit 1

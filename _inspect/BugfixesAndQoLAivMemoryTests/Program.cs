@@ -7,7 +7,7 @@ using System.Text;
 
 namespace BugfixesAndQoL
 {
-    internal static class Program
+    internal static partial class Program
     {
         private static int failures;
 
@@ -31,6 +31,7 @@ namespace BugfixesAndQoL
             Run("named preset missing castles repairs the correct source", PresetCastleFallbacks);
             Run("named preset Standard AIC preserves two castles", PresetAicFallbackKeepsCastles);
             Run("failed named preset leaves live selection intact", PresetFailureIsAtomic);
+            Run("personal data migration preserves all four Bugfixes stores", StorageMigration);
             Console.WriteLine(failures == 0
                 ? "BugfixesAndQoL AIV memory tests passed."
                 : $"BugfixesAndQoL AIV memory tests failed: {failures}.");

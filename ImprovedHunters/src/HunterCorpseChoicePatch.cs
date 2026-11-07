@@ -97,6 +97,19 @@ namespace ImprovedHunters
         public bool HasChoice(int hunterUnitId) =>
             hunterUnitId > 0 && hunterUnitId < UnitCapacity && *(ushort*)(entries + hunterUnitId * EntrySize + UnitIdOffset) != 0;
 
+        public bool TryGetChoice(int hunterUnitId, out int corpseUnitId, out uint corpseGlobalId)
+        {
+            corpseUnitId = 0;
+            corpseGlobalId = 0;
+            if (!HasChoice(hunterUnitId))
+                return false;
+
+            byte* entry = entries + hunterUnitId * EntrySize;
+            corpseUnitId = *(ushort*)(entry + UnitIdOffset);
+            corpseGlobalId = *(uint*)(entry + GlobalIdOffset);
+            return true;
+        }
+
         public void Set(int hunterUnitId, int corpseUnitId, uint corpseGlobalId)
         {
             if (hunterUnitId <= 0 || hunterUnitId >= UnitCapacity || corpseUnitId < 0 || corpseUnitId > ushort.MaxValue)

@@ -111,6 +111,7 @@ namespace ImprovedHunters
 
                 int hunterUnitId = checked((int)(hunter - units._array) + 1);
                 KeepCorpseForWalkingHunter(units, hunter);
+                ForgetChoiceNoLongerFree(units, hunterUnitId);
                 if (hunterHitCorpses.TryGetValue(hunterUnitId, out int hitCorpse))
                 {
                     // Stays his until it is taken or no longer free, ahead of the normal ranking.
@@ -149,8 +150,25 @@ namespace ImprovedHunters
                 return;
 
             GameUnit* corpse = units.GetValuePointer(target - 1);
-            if (corpse->r_GlobalId == *(uint*)(bytes + 0x39C) && *(ushort*)((byte*)corpse + 0x29C) != 0)
+            if (corpse->r_GlobalId == *(uint*)(bytes + 0x39C) && *(ushort*)((byte*)corpse + 0x29C) != 0 && !IsFadingCorpse(corpse))
                 *(ushort*)((byte*)corpse + 0x2C4) = 0;
+        }
+
+        // A deer or goat corpse fades out once a Hunter has reached it or its time is over. Its reservation ends
+        // then too, so it must not count as free: its meat is taken, and another Hunter would get it again.
+        // For rabbits, camels and chickens this state is the normal corpse; the mod removes those on arrival.
+        private static unsafe bool IsFadingCorpse(GameUnit* corpse) =>
+            !IsShortLivedPrey(corpse->r_UnitChimp) && *(ushort*)((byte*)corpse + 0x2BC) == HunterCorpsePickupAiState;
+
+        // A choice can be a second old when the Hunter comes to use it, and the native check does not know this state.
+        private unsafe void ForgetChoiceNoLongerFree(SimpleNativeArray<GameUnit> units, int hunterUnitId)
+        {
+            if (!hunterCorpseChoicePatch.TryGetChoice(hunterUnitId, out int corpseUnitId, out uint corpseGlobalId))
+                return;
+
+            GameUnit* corpse = corpseUnitId <= units.Length ? units.GetValuePointer(corpseUnitId - 1) : null;
+            if (corpse == null || corpse->r_GlobalId != corpseGlobalId || !IsFreeUsableCorpse(corpse))
+                hunterCorpseChoicePatch.Set(hunterUnitId, 0, 0);
         }
 
         private unsafe bool TryOfferCorpse(SimpleNativeArray<GameUnit> units, GameUnit* hunter, int hunterUnitId, int corpseUnitId, long timestamp)
@@ -235,6 +253,7 @@ namespace ImprovedHunters
             byte* bytes = (byte*)unit;
             if (*(ushort*)(bytes + 0x29C) == 0 ||
                 *(ushort*)(bytes + 0x448) != 0 ||
+                IsFadingCorpse(unit) ||
                 !settings.IsKnownAnimal(unit->r_UnitChimp) ||
                 !IsRuntimeHuntingEnabled(unit->r_UnitChimp))
             {

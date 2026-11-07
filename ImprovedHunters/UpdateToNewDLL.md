@@ -404,6 +404,12 @@ A deer or goat corpse decays within seconds at speed 80, which a Vanilla handoff
 walk does not. `KeepCorpseForWalkingHunter` therefore holds `+0x2C4` at 0 during state `0xB`, until Vanilla sets it on
 arrival. Reservation does not protect a corpse from that timer.
 
+On arrival Vanilla sets the corpse's timer to 1000 (`0x1306BD`). A deer or goat then enters its fading state `0x6E` on the next
+update and is deleted 33 ticks later, while no one renews the reservation. Such a corpse is not free, or a second Hunter
+collects it and `KeepCorpseForWalkingHunter` keeps it alive for him: `IsFadingCorpse` excludes it from the choice and from
+that timer, and each scan drops a choice whose corpse is no longer free. For rabbits, camels and chickens `0x6E` is the normal
+corpse state and the mod deletes them on arrival. Update audit: the two thresholds in the deer and goat updates (`0x156C25`, `0x156C53`).
+
 A kill by a Hunter's own arrow of an animal he did not aim at comes from `UnitR3EventHooks.OnUnitKilledByProjectile`,
 with shooter and aim read from the projectile (`r_SourceUnitId`, `r_TargetUnidId`). A Hunter on his way drops his
 target through the same global-ID mismatch `RequeryHuntersWithUnreachableActivePrey` uses.

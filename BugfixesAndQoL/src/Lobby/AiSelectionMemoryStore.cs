@@ -17,14 +17,19 @@ namespace BugfixesAndQoL
         private readonly Dictionary<string, string> storedSelections =
             new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         private readonly string storePath;
+        private readonly Shared.PersonalDataFile storage;
         // Set when an existing store could not be read. The next save keeps a backup of the
         // unreadable file instead of silently replacing every remembered selection.
         private bool storeUnreadable;
 
-        internal AiSelectionMemoryStore(ManualLogSource log)
+        internal AiSelectionMemoryStore(ManualLogSource log, string targetPath = null, string legacyPath = null)
         {
             this.log = log;
-            storePath = Path.Combine(AivAicPresetStore.GetPluginDirectory(), "LobbyModSettings", StoreFileName);
+            storePath = targetPath ?? Shared.PersonalDataFile.GetPath("BugfixesAndQoL", StoreFileName);
+            storage = new Shared.PersonalDataFile(storePath,
+                legacyPath ?? (targetPath == null ? Path.Combine(AivAicPresetStore.GetPluginDirectory(), "LobbyModSettings", StoreFileName) : null),
+                message => { if (log != null) Shared.DebugLogHelper.LogWarningLimited(log, "ai-selection-storage", message); },
+                maximumReadBytes: MaxStoreFileBytes);
             LoadStore();
         }
 
@@ -53,25 +58,11 @@ namespace BugfixesAndQoL
         {
             storedSelections.Clear();
             storeUnreadable = false;
-            if (!File.Exists(storePath))
-            {
-                if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/SkirmishAiSelectionMemoryHook/LoadStore.shared-ai-aiv-aic", () => $"Bugfixes and QoL shared AI AIV/AIC selection file not found: {storePath}");
-                return;
-            }
-
             try
             {
-                FileInfo fileInfo = new FileInfo(storePath);
-                if (fileInfo.Length > MaxStoreFileBytes)
-                {
-                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/SkirmishAiSelectionMemoryHook/LoadStore.ignored-oversized-ai-selection", $"Bugfixes and QoL ignored oversized AI selection store: path={storePath}, " +
-                        $"size={fileInfo.Length}, maximum={MaxStoreFileBytes}.");
-                    storeUnreadable = true;
-                    return;
-                }
-
-                Dictionary<string, string> parsed = ParseJsonObject(File.ReadAllText(storePath));
+                string text = storage.ReadAllText();
+                if (text == null) return;
+                Dictionary<string, string> parsed = ParseJsonObject(text);
                 bool migratedStore = false;
                 foreach (KeyValuePair<string, string> entry in parsed)
                 {
@@ -82,12 +73,14 @@ namespace BugfixesAndQoL
                             out string decodeError))
                     {
                         Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/SkirmishAiSelectionMemoryHook/LoadStore.ignored-invalid-ai-selection", $"Bugfixes and QoL ignored invalid AI selection entry for {entry.Key}: {decodeError}");
+                        storeUnreadable = true;
                         continue;
                     }
                     string decodedKey = AiAivSelectionCodec.BuildLordKey(snapshot);
                     if (!string.Equals(decodedKey, entry.Key, StringComparison.OrdinalIgnoreCase))
                     {
                         Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/SkirmishAiSelectionMemoryHook/LoadStore.ignored-stored-ai-selection", $"Bugfixes and QoL ignored stored AI selection for {entry.Key}: decoded lord is {decodedKey}.");
+                        storeUnreadable = true;
                         continue;
                     }
 
@@ -119,26 +112,9 @@ namespace BugfixesAndQoL
         {
             try
             {
-                Directory.CreateDirectory(Path.GetDirectoryName(storePath));
-                if (storeUnreadable && File.Exists(storePath))
-                {
-                    string backupPath = storePath + ".unreadable-" +
-                        DateTime.Now.ToString("yyyyMMdd-HHmmss-fff", System.Globalization.CultureInfo.InvariantCulture) + ".bak";
-                    File.Copy(storePath, backupPath, overwrite: false);
-                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/SkirmishAiSelectionMemoryHook/SaveStore.kept-unreadable-ai-selection", $"Bugfixes and QoL kept the unreadable AI selection store as {backupPath} before writing a new one.");
-                }
+                if (storeUnreadable) storage.PreserveOnNextWrite();
+                storage.WriteAllText(SerializeJsonObject(storedSelections));
                 storeUnreadable = false;
-                // Write a complete temporary file first, so a crash during saving cannot
-                // leave a truncated store behind.
-                string temporaryPath = storePath + ".tmp";
-                File.WriteAllText(
-                    temporaryPath,
-                    SerializeJsonObject(storedSelections),
-                    new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
-                if (File.Exists(storePath))
-                    File.Replace(temporaryPath, storePath, null);
-                else
-                    File.Move(temporaryPath, storePath);
             }
             catch (Exception ex)
             {

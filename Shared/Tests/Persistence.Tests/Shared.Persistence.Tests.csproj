@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFrameworks>net10.0;net481</TargetFrameworks>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="..\..\Runtime\Persistence\PersonalDataFile.cs" />
+    <Compile Include="..\..\Runtime\Persistence\PersonalDataIO.cs" />
+    <Compile Include="..\..\Runtime\Persistence\DependencyFreeJson.cs" />
+  </ItemGroup>
+</Project>

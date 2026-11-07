@@ -40,7 +40,9 @@ namespace ImprovedHunters
                 {
                     table.SetMeatRuns(message.Packet.BuildingId, message.Packet.GlobalId, message.Packet.MeatRuns);
                     // Presentation only: tells this peer's panel that its last change has arrived.
-                    Interlocked.CompareExchange(ref awaitedSerial, 0, message.Packet.Serial);
+                    // Every peer counts its own serials, so another player's may carry the same number.
+                    if (message.SenderPlayerId == PlayerPerspectiveAPI.GetControlledPlayerId())
+                        Interlocked.CompareExchange(ref awaitedSerial, 0, message.Packet.Serial);
                 },
                 new AuthenticatedChoreChannelOptions<TannerRatioPacket>
                 {

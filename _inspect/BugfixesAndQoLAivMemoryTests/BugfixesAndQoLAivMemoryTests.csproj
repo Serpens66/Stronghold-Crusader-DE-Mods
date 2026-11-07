@@ -31,6 +31,12 @@
     <Compile Include="..\..\Shared\Runtime\Gameplay\CoopAiSelectionRules.cs"><Link>CoopAiSelectionRules.cs</Link></Compile>
     <Compile Include="..\..\Shared\Runtime\Persistence\DependencyFreeJson.cs"><Link>DependencyFreeJson.cs</Link></Compile>
     <Compile Include="..\..\Shared\Runtime\Diagnostics\DebugLogHelper.cs"><Link>DebugLogHelper.cs</Link></Compile>
+    <Compile Include="..\..\BugfixesAndQoL\src\Lobby\AiSelectionMemoryStore.cs" />
+    <Compile Include="..\..\BugfixesAndQoL\src\Lobby\LobbyMapSelectionMemory.cs" />
+    <Compile Include="..\..\BugfixesAndQoL\src\Multiplayer\SteamInviteBlacklistStore.cs" />
+    <Compile Include="..\..\Shared\Runtime\Persistence\PersonalDataFile.cs" />
+    <Compile Include="..\..\Shared\Runtime\Persistence\PersonalDataIO.cs" />
+    <Compile Include="StorageMigrationTests.cs" />
     <Compile Include="Program.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

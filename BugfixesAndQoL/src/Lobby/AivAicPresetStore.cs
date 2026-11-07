@@ -23,14 +23,19 @@ namespace BugfixesAndQoL
             new Dictionary<string, List<AivAicPresetDefinition>>(StringComparer.OrdinalIgnoreCase);
         private readonly ManualLogSource log;
         private readonly string storePath;
+        private readonly Shared.PersonalDataFile storage;
         // Set when loading could not take over the file's presets. The next write keeps a copy
         // first, so presets from an unreadable or partly invalid store are not lost.
         private bool keepExistingFileBeforeWrite;
 
-        public AivAicPresetStore(ManualLogSource log)
+        public AivAicPresetStore(ManualLogSource log, string targetPath = null, string legacyPath = null)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
-            storePath = Path.Combine(GetPluginDirectory(), "LobbyModSettings", StoreFileName);
+            storePath = targetPath ?? Shared.PersonalDataFile.GetPath("BugfixesAndQoL", StoreFileName);
+            storage = new Shared.PersonalDataFile(storePath,
+                legacyPath ?? (targetPath == null ? Path.Combine(GetPluginDirectory(), "LobbyModSettings", StoreFileName) : null),
+                message => Shared.DebugLogHelper.LogWarningLimited(log, "aiv-aic-storage-migration", message),
+                maximumReadBytes: MaximumStoreBytes);
             Load();
         }
 
@@ -264,13 +269,11 @@ namespace BugfixesAndQoL
         private void Load()
         {
             presetsByLord.Clear();
-            if (!File.Exists(storePath))
-                return;
             try
             {
-                if (new FileInfo(storePath).Length > MaximumStoreBytes)
-                    throw new InvalidDataException("The preset file is too large.");
-                object rootValue = Shared.DependencyFreeJson.Parse(File.ReadAllText(storePath));
+                string text = storage.ReadAllText();
+                if (text == null) return;
+                object rootValue = Shared.DependencyFreeJson.Parse(text);
                 if (!(rootValue is Dictionary<string, object> root) || ReadInt(root, "version") != SchemaVersion ||
                     !root.TryGetValue("lords", out object lordsValue) ||
                     !(lordsValue is Dictionary<string, object> lords))
@@ -333,8 +336,6 @@ namespace BugfixesAndQoL
 
         private void Write()
         {
-            string directory = Path.GetDirectoryName(storePath);
-            string temporaryPath = storePath + ".tmp-" + Guid.NewGuid().ToString("N");
             try
             {
                 var lords = new Dictionary<string, object>(StringComparer.Ordinal);
@@ -350,21 +351,9 @@ namespace BugfixesAndQoL
                     ["version"] = SchemaVersion,
                     ["lords"] = lords,
                 };
-                Directory.CreateDirectory(directory);
-                if (keepExistingFileBeforeWrite && File.Exists(storePath))
-                {
-                    string backupPath = storePath + ".unreadable-" +
-                        DateTime.Now.ToString("yyyyMMdd-HHmmss-fff", CultureInfo.InvariantCulture) + ".bak";
-                    File.Copy(storePath, backupPath, overwrite: false);
-                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/AivAicPresetStore/Write.kept-previous-file", $"Bugfixes and QoL kept the previous AIV/AIC preset file as {backupPath} before writing a new one.");
-                }
+                if (keepExistingFileBeforeWrite) storage.PreserveOnNextWrite();
+                storage.WriteAllText(Shared.DependencyFreeJson.Serialize(root));
                 keepExistingFileBeforeWrite = false;
-                File.WriteAllText(temporaryPath, Shared.DependencyFreeJson.Serialize(root),
-                    new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
-                if (File.Exists(storePath))
-                    Shared.AtomicFileReplacement.Replace(temporaryPath, storePath);
-                else
-                    File.Move(temporaryPath, storePath);
                 Shared.DebugLogHelper.LogInfo(log,
                     $"AIV_AIC_STORAGE: result=published, path={storePath}, lordGroups={presetsByLord.Count}; scope=personal.");
             }
@@ -373,18 +362,6 @@ namespace BugfixesAndQoL
                 Shared.DebugLogHelper.LogErrorLimited(log, "aiv-aic-storage-write",
                     $"AIV_AIC_STORAGE: result=failed, path={storePath}, exception={ex.GetType().FullName}, hresult=0x{ex.HResult:X8}: {ex}");
                 throw;
-            }
-            finally
-            {
-                try
-                {
-                    if (File.Exists(temporaryPath))
-                        File.Delete(temporaryPath);
-                }
-                catch (Exception ex)
-                {
-                    Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/AivAicPresetStore/Write", $"Bugfixes and QoL could not remove temporary AIV/AIC preset file: {ex.Message}");
-                }
             }
         }
 

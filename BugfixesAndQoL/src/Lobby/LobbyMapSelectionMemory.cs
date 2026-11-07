@@ -322,17 +322,20 @@ namespace BugfixesAndQoL
         private const string StoreFileName = "LobbyMapSelectionMemory.json";
         private readonly ManualLogSource log;
         private readonly string storePath;
+        private readonly Shared.PersonalDataFile storage;
         private LobbyMapSelectionSnapshot current;
 
         internal LobbyMapSelectionStore(ManualLogSource log)
-            : this(log, GetDefaultPath())
+            : this(log, GetDefaultPath(), GetLegacyPath())
         {
         }
 
-        internal LobbyMapSelectionStore(ManualLogSource log, string storePath)
+        internal LobbyMapSelectionStore(ManualLogSource log, string storePath, string legacyPath = null)
         {
             this.log = log;
             this.storePath = storePath ?? throw new ArgumentNullException(nameof(storePath));
+            storage = new Shared.PersonalDataFile(storePath, legacyPath, message => LogWarning(message),
+                maximumReadBytes: MaximumStoreBytes);
             current = new LobbyMapSelectionSnapshot { SortColumn = 0, SortAscending = true };
             Load();
         }
@@ -363,6 +366,11 @@ namespace BugfixesAndQoL
 
         internal static string GetDefaultPath()
         {
+            return Shared.PersonalDataFile.GetPath("BugfixesAndQoL", StoreFileName);
+        }
+
+        internal static string GetLegacyPath()
+        {
             string assemblyLocation = Assembly.GetExecutingAssembly().Location;
             string pluginDirectory = string.IsNullOrEmpty(assemblyLocation)
                 ? AppDomain.CurrentDomain.BaseDirectory
@@ -372,25 +380,16 @@ namespace BugfixesAndQoL
 
         private void Load()
         {
-            if (!File.Exists(storePath))
-                return;
-
             try
             {
-                FileInfo info = new FileInfo(storePath);
-                if (info.Length > MaximumStoreBytes)
-                {
-                    LogWarning(
-                        $"Bugfixes and QoL ignored oversized lobby map-selection memory: " +
-                        $"path={storePath}, size={info.Length}, maximum={MaximumStoreBytes}.");
-                    return;
-                }
-
+                string text = storage.ReadAllText();
+                if (text == null) return;
                 if (!LobbyMapSelectionCodec.TryDeserialize(
-                        File.ReadAllText(storePath),
+                        text,
                         out LobbyMapSelectionSnapshot loaded,
                         out string error))
                 {
+                    storage.PreserveOnNextWrite();
                     LogWarning(
                         $"Bugfixes and QoL ignored invalid lobby map-selection memory at " +
                         $"{storePath}: {error}.");
@@ -406,6 +405,7 @@ namespace BugfixesAndQoL
             }
             catch (Exception exception)
             {
+                storage.PreserveOnNextWrite();
                 LogWarning(
                     $"Bugfixes and QoL could not load lobby map-selection memory from " +
                     $"{storePath}: {exception.Message}");
@@ -414,39 +414,15 @@ namespace BugfixesAndQoL
 
         private void Save()
         {
-            string directory = Path.GetDirectoryName(storePath);
-            string temporaryPath = storePath + ".tmp-" + Guid.NewGuid().ToString("N");
             try
             {
-                Directory.CreateDirectory(directory);
-                File.WriteAllText(
-                    temporaryPath,
-                    LobbyMapSelectionCodec.Serialize(current),
-                    new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
-                if (File.Exists(storePath))
-                    Shared.AtomicFileReplacement.Replace(temporaryPath, storePath);
-                else
-                    File.Move(temporaryPath, storePath);
+                storage.WriteAllText(LobbyMapSelectionCodec.Serialize(current));
             }
             catch (Exception exception)
             {
                 LogError(
                     $"Bugfixes and QoL could not save lobby map-selection memory to " +
                     $"{storePath}: {exception}");
-            }
-            finally
-            {
-                try
-                {
-                    if (File.Exists(temporaryPath))
-                        File.Delete(temporaryPath);
-                }
-                catch (Exception exception)
-                {
-                    LogWarning(
-                        $"Bugfixes and QoL could not remove temporary lobby map-selection " +
-                        $"memory: {exception.Message}");
-                }
             }
         }
 

@@ -27,6 +27,8 @@ namespace UiAcceptance
         private const int MinimumCalmMs = 500, SpeedDeerDistance = 46, SpeedDeerStep = 30, HunterSpeedStageOffset = 0x348, CalmLeaderMs = 800, RingAttemptMs = 2500;
         private static int rabbitTribe, foreignTargets, nearDeer;
         private static int soldierSector = -1, corpseFixture, ringX, ringY, ringPlug, ringTry;
+        private static uint corpseFixtureGlobal;
+        private const int FadingCorpseState = 0x6E, CollectingState = 2, FreshIdleState = 6, HutIdleState = 7, ForcedSearchFrames = 120;
         private const int RingRadius = 3, RingGapHalf = 1;
         private const eMappers RingPlugMapper = eMappers.MAPPER_HOVEL;
         private static int speedTarget, speedLastStage, speedRounds;
@@ -67,6 +69,8 @@ namespace UiAcceptance
             Runner.Register("Hunt.SecondHut", SecondHut);
             Runner.Register("Hunt.ExpectCorpseTaken", ExpectCorpseTaken);
             Runner.Register("Hunt.ExpectCorpseIgnored", ExpectCorpseIgnored);
+            Runner.Register("Hunt.FadingCorpseIgnored", FadingCorpseIgnored);
+            Runner.Register("Hunt.ExpectOneCollector", ExpectOneCollector);
             Runner.Register("Hunt.ExpectCarries", ExpectCarries);
             Runner.Register("Hunt.ForeignHit", ForeignHit);
             Runner.Register("Hunt.Stress", s => GameSteps.Do(() => { lock (Engine()) Stress(s.Int(0), s.Int(1)); }));
@@ -785,7 +789,7 @@ namespace UiAcceptance
         {
             int local = Local();
             Runner.Require(TryFindBuilding(local, eStructs.STRUCT_HUNTERS_HUT, out int x, out int y), "no hut for the corpse");
-            eChimps type = kind == "goat" ? eChimps.CHIMP_TYPE_GOAT : kind == "rabbit" ? eChimps.CHIMP_TYPE_RABBIT : kind == "chicken" ? eChimps.CHIMP_TYPE_CHICKEN : eChimps.CHIMP_TYPE_DEER;
+            eChimps type = PreyType(kind);
             Runner.Require(APIShared.UnitAccess.TryGetById(GamePlayerManagerAPI.Instance.GetLordUnitId(local), out GameUnit* lord, out _), "no local lord");
             int id = checked((int)GameUnitManagerAPI.Instance.CreateUnitLocal(0, 0, x + distance, y, lord->r_HeightElevation, type));
             Runner.Require(id > 0, "corpse fixture missing");
@@ -793,6 +797,7 @@ namespace UiAcceptance
                 GameUnitManagerAPI.Instance.KillUnit(id);
             corpseFixture = id;
             Runner.Require(APIShared.UnitAccess.TryGetById(id, out GameUnit* corpse, out _), "the killed animal is gone");
+            corpseFixtureGlobal = corpse->r_GlobalId;
             AcceptLog.Info("HUNT_CORPSE id=" + id + " type=" + type + " dead=" + *(ushort*)((byte*)corpse + CorpseOffset) +
                 " reservation=" + *(ushort*)((byte*)corpse + 0x448) + " at=" + corpse->r_CurrentTilePositionX + "," + corpse->r_CurrentTilePositionY);
             Runner.Require(*(ushort*)((byte*)corpse + CorpseOffset) != 0, "the killed animal is no corpse");
@@ -923,6 +928,77 @@ namespace UiAcceptance
             else
                 text += " corpse gone";
             AcceptLog.Info("HUNT_CORPSE_WAIT " + text);
+        }
+
+        // args: milliseconds. A deer corpse on its way out, as after a Hunter has reached it: nobody may start on it.
+        private static IEnumerable<Wait> FadingCorpseIgnored(Step step)
+        {
+            int local = Local(), end = Environment.TickCount + step.Int(0), count = 0;
+            while (Environment.TickCount < end)
+            {
+                lock (Engine()) count = HoldFading(local);
+                Runner.Require(count == 0, "a Hunter went for a corpse that is fading");
+                yield return NextFrame.Instance;
+            }
+            AcceptLog.Info("HUNT_FADING_IGNORED");
+        }
+
+        private static int HoldFading(int local)
+        {
+            Runner.Require(APIShared.UnitAccess.TryGetById(corpseFixture, out GameUnit* corpse, out _), "no corpse");
+            *(ushort*)((byte*)corpse + 0x2BC) = FadingCorpseState;
+            *(ushort*)((byte*)corpse + 0x2C4) = 0;
+            return HuntersOnCorpse(local, out _, out _);
+        }
+
+        // args: milliseconds. One carcass feeds one Hunter. The moment the first arrives, the corpse fades and no longer
+        // holds a reservation; the others are sent searching exactly then, as they would at a bad moment.
+        private static IEnumerable<Wait> ExpectOneCollector(Step step)
+        {
+            int local = Local(), end = Environment.TickCount + step.Int(0), forced = 0;
+            var collectors = new HashSet<int>();
+            while (Environment.TickCount < end)
+            {
+                lock (Engine()) WatchCollectors(local, collectors, ref forced);
+                yield return NextFrame.Instance;
+            }
+            AcceptLog.Info("HUNT_COLLECTORS " + string.Join(",", collectors) + " forcedFrames=" + forced);
+            Runner.Require(collectors.Count >= 1, "no Hunter went for the corpse");
+            Runner.Require(forced > 0, "the first Hunter never reached the corpse");
+            Runner.Require(collectors.Count == 1, collectors.Count + " Hunters collected one corpse");
+        }
+
+        private static void WatchCollectors(int local, HashSet<int> collectors, ref int forced)
+        {
+            bool arrived = false;
+            SimpleNativeArray<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitArray();
+            for (int index = 0; index < units.Length; index++)
+            {
+                GameUnit* unit = units.GetValuePointer(index);
+                if (unit->r_AliveState != AliveState.IsAlive || unit->r_ControllableForPlayerId != local || unit->r_UnitChimp != eChimps.CHIMP_TYPE_HUNTER)
+                    continue;
+                if (unit->r_AIState != 0 && *(ushort*)((byte*)unit + HunterTargetIdOffset) == corpseFixture &&
+                    *(uint*)((byte*)unit + HunterTargetGlobalOffset) == corpseFixtureGlobal)
+                {
+                    if (collectors.Add(index + 1))
+                        AcceptLog.Info("HUNT_COLLECTOR " + (index + 1) + " state=" + unit->r_AIState);
+                    arrived |= unit->r_AIState == CollectingState;
+                }
+            }
+            if (!arrived && forced == 0 || forced >= ForcedSearchFrames)
+                return;
+
+            forced++;
+            for (int index = 0; index < units.Length; index++)
+            {
+                GameUnit* unit = units.GetValuePointer(index);
+                if (unit->r_AliveState == AliveState.IsAlive && unit->r_ControllableForPlayerId == local && unit->r_UnitChimp == eChimps.CHIMP_TYPE_HUNTER &&
+                    (unit->r_AIState == FreshIdleState || unit->r_AIState == HutIdleState) && unit->r_CarryGoodAmount == 0)
+                {
+                    *(ushort*)((byte*)unit + 0x2BC) = 0;
+                    *(ushort*)((byte*)unit + 0x2C4) = 0;
+                }
+            }
         }
 
         private static IEnumerable<Wait> ExpectCorpseIgnored(Step step)

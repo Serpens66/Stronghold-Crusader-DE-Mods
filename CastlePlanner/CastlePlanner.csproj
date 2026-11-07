@@ -176,6 +176,8 @@
     <Compile Include="..\Shared\Runtime\Persistence\DependencyFreeJson.cs">
       <Link>Shared\Runtime\Persistence\DependencyFreeJson.cs</Link>
     </Compile>
+    <Compile Include="..\Shared\Runtime\Persistence\PersonalDataFile.cs"><Link>Shared\Runtime\Persistence\PersonalDataFile.cs</Link></Compile>
+    <Compile Include="..\Shared\Runtime\Persistence\PersonalDataIO.cs"><Link>Shared\Runtime\Persistence\PersonalDataIO.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\Native\NativePatternResolver.cs">
       <Link>Shared\Runtime\Native\NativePatternResolver.cs</Link>
     </Compile>
@@ -255,6 +257,7 @@
     <Compile Include="src\FixesKeepRotationCompatibility.cs" />
     <Compile Include="src\CastlePlannerRuntime.cs" />
     <Compile Include="src\CastlePlannerSettingsViewModel.cs" />
+    <Compile Include="src\CastlePlannerRuntimeStorage.cs" />
   </ItemGroup>
 
   <ItemGroup>

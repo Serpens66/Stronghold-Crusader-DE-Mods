@@ -261,6 +261,10 @@
     <Compile Include="..\..\Shared\Runtime\Persistence\DependencyFreeJson.cs">
       <Link>DependencyFreeJson.cs</Link>
     </Compile>
+    <Compile Include="..\..\Shared\Runtime\Persistence\PersonalDataFile.cs" />
+    <Compile Include="..\..\Shared\Runtime\Persistence\PersonalDataIO.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Internal\PersonalDataFile.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Internal\PersonalDataIO.cs" />
     <Compile Include="..\..\Shared\Runtime\Persistence\AtomicFileReplacement.cs">
       <Link>AtomicFileReplacement.cs</Link>
     </Compile>

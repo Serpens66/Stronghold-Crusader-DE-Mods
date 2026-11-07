@@ -35,7 +35,7 @@ namespace CastlePlanner
     {
         private readonly ManualLogSource log;
         private AivFileCatalog catalog = new AivFileCatalog();
-        private readonly LobbyModSettingsStorage runtimeStorage;
+        private readonly CastlePlannerRuntimeStorage runtimeStorage;
         private readonly RuntimePersistedState runtimeState =
             new RuntimePersistedState();
         private bool enableClientFeatures = true;
@@ -117,9 +117,10 @@ namespace CastlePlanner
             blueprintIconScale = 1.0;
             blueprintIconAlpha = 0.3;
 
-            runtimeStorage = new LobbyModSettingsStorage(
+            runtimeStorage = new CastlePlannerRuntimeStorage(
                 pluginAssemblyLocation,
-                CastlePlannerPlugin.PluginGuid + ".Runtime");
+                message => Shared.DebugLogHelper.LogWarningLimited(
+                    log, "CastlePlanner/runtime-storage", message));
             runtimeStorage.Load(runtimeState);
             NormalizeRuntimeState();
             ResetToDefaultCommand = new RelayCommand(ResetToDefault);
@@ -1242,7 +1243,7 @@ namespace CastlePlanner
             }
         }
 
-        private sealed class RuntimePersistedState
+        private sealed class RuntimePersistedState : ICastlePlannerRuntimeState
         {
             // Window position remains independent from the selected settings preset.
             [SyncPerPlayer]

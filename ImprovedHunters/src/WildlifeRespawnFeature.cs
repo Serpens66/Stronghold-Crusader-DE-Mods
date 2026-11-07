@@ -21,6 +21,7 @@ namespace ImprovedHunters
         private const int PlacesTried = 32;
         private const int MinimumDistanceToLord = 40;
         private const int MaximumLords = 8;
+        private const int MapCenter = 400;
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private delegate int SpawnHerdDelegate(IntPtr herdManager, int kind, uint tileX, uint tileY, int height);
@@ -117,33 +118,24 @@ namespace ImprovedHunters
         private bool TrySpawnAtFreePlace(int kind, int mapTick)
         {
             GameTileManagerAPI tiles = GameTileManagerAPI.Instance;
-            int mapSize = GetMapSize(tiles);
-            if (mapSize <= 0)
+            // The map is a diamond of this radius around the middle of the 800 x 800 grid.
+            int radius = tiles.GetCurrentMapSize() / 2;
+            if (radius <= 0)
                 return false;
 
+            uint span = (uint)(radius * 2 + 1);
             uint seed = unchecked((uint)mapTick * 2654435761u + 1u);
             for (int attempt = 0; attempt < PlacesTried; attempt++)
             {
                 seed = unchecked(seed * 1664525u + 1013904223u);
-                int x = (int)((seed >> 8) % (uint)mapSize);
+                int x = MapCenter - radius + (int)((seed >> 8) % span);
                 seed = unchecked(seed * 1664525u + 1013904223u);
-                int y = (int)((seed >> 8) % (uint)mapSize);
+                int y = MapCenter - radius + (int)((seed >> 8) % span);
                 if (tiles.IsTileInsideMapBounds(x, y) && IsReachableFromALord(tiles, x, y) && TrySpawn(kind, x, y))
                     return true;
             }
 
             return false;
-        }
-
-        private static int GetMapSize(GameTileManagerAPI tiles)
-        {
-            for (int size = 800; size >= 100; size -= 100)
-            {
-                if (tiles.IsTileInsideMapBounds(size - 1, size - 1))
-                    return size;
-            }
-
-            return 0;
         }
 
         // Herds nobody can reach are of no use, and a herd beside a keep would run away at once.
