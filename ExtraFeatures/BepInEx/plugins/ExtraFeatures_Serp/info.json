@@ -3,19 +3,27 @@
   "Author": "Serpens66",
   "Name": "Extra Features",
   "Description": "Optional gameplay additions and economy customization for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.130",
+  "Version": "1.0.131",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.0",
   "MaximumScriptExtenderVersion": "",
   "Dependencies": [
     {
       "GUID": "APIShared_Serp",
-      "MinimumVersion": "0.28.0"
+      "MinimumVersion": "0.34.0"
     }
   ],
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.131",
+      "Changes": [
+        "Let the host set the fixed production bonus from -100% to +1000% for skirmishes and multiplayer; 50% keeps the normal bonus and fear-factor productivity still adds to the result.",
+        "Show the effective shared bonus and explain invalid combinations or blocked starts alongside the setting, with synchronized settings, presets and localized help.",
+        "Use APIShared 0.34.0 for shared production rules, safe reduced or empty batches and multiplayer compatibility checks. The default setting leaves other mods' contributions in control."
+      ]
+    },
     {
       "Version": "1.0.130",
       "Changes": [

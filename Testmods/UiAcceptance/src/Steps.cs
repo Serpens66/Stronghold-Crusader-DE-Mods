@@ -17,6 +17,7 @@ namespace UiAcceptance
             HuntMpSteps.Register();
             TannerSteps.Register();
             MissionReadinessSteps.Register();
+            WorkerProductionSteps.Register();
         }
     }
 }

@@ -103,6 +103,11 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}"
                  FontWeight="Bold"
                  TextWrapping="Wrap"
                  Margin="0,0,0,10"/>
+      <Border Visibility="{Binding ProductionBonusWarningVisibility}" Background="#FF352510" BorderBrush="#FFF2D48A" BorderThickness="1" Padding="8" Margin="0,0,0,8" shared:ModSettingsSearch.Exclude="True">
+        <StackPanel><TextBlock Text="{Binding ProductionBonusWarningText}" Foreground="White" TextWrapping="Wrap"/>
+          <Button Content="{Binding ProductionBonusDetailsText}" Command="{Binding ProductionBonusDetailsCommand}" ToolTipService.ShowDuration="60000" ToolTip="{Binding ProductionBonusDetailsHelp}" HorizontalAlignment="Left" Margin="0,5,0,0" Padding="8,3"/>
+        </StackPanel>
+      </Border>
       <StackPanel Orientation="Horizontal" Margin="0,0,0,8" shared:ModSettingsSearch.Exclude="True">
         <TextBlock Text="{Binding ModEnabledText}" Foreground="White" FontWeight="Bold" VerticalAlignment="Center"/>
         <Border Style="{StaticResource HostActivationBorder}" Margin="8,0,0,0">
@@ -825,6 +830,8 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}"
             </StackPanel>
             <StackPanel Visibility="{Binding SettingsPresentation.EconomyBonusOptions.Visibility}">
               <TextBlock Text="{Binding EconomyBuffsTitleText}" Style="{StaticResource SubsectionHeader}" />
+              <TextBlock Text="{Binding EffectiveFixedProductionBonusText}" Foreground="#FFF2D48A" TextWrapping="Wrap" Margin="0,0,0,5"/>
+              <TextBlock Text="{Binding ProductionBonusIssueText}" Visibility="{Binding ProductionBonusIssueVisibility}" Foreground="#FFFFAAAA" TextWrapping="Wrap" Margin="0,0,0,5"/>
               <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" IsEnabled="{Binding CanConfigureFixedProductionBonus}" shared:ModSettingsSearch.Key="extra.fixed-production-bonus" shared:ModSettingsSearch.Title="{Binding FixedProductionBonusTitle}" shared:ModSettingsSearch.ToolTipText="{Binding FixedProductionBonusHelp}">
                 <Grid.ColumnDefinitions>
                   <ColumnDefinition Width="Auto" SharedSizeGroup="SettingLabel" MaxWidth="220" />

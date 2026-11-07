@@ -21,3 +21,61 @@ any compiled nonpublic access): `EngineInterface.threadLock`, `FRONT_Multiplayer
 (Harmony postfixes, priority First, active only during a MapClick step), the Noesis component's
 `View`, APIShared internals `IngameMenuActions.registry` and `UiWorkRuntime.scheduler`, and
 `Spectator.SpectatorPlugin.processRoot`. A missing member fails only the step that needs it.
+
+## Worker production integration acceptance
+
+`WorkerProductionSteps` is armed only by its two explicit local scenarios. It registers
+one desired profile before the fresh world, uses the existing Runner/UI work service
+and mission lifecycle, and adds no publisher, hook, timer or serializer. The SP fixture
+uses real woodcutter/mill buildings and observes a living Miller's GID, three-item cargo,
+persisted batch provenance, complete delivery and stockpile increase. The editor fixture
+uses the existing public CreateUnitLocal path while paused. Manual wood yield calls are
+explicitly labelled integration probes: they do not prove the full wood transport cycle.
+
+The installed Extender's `SHCDESE.Detours.BulkUnitDetours` type is reached by checked
+reflection because the declaring type is internal. Its public static
+`c_game_unit_calculate_worker_good_yield_hook_impl(int,int,int):long` is invoked, so the
+real SE Pre/Post, original-actor context and installed APIShared native Core all run.
+No replacement yield algorithm or additional hook is used. APIShared's internal
+`WorkerProductionStateStore.RowsAddress` supplies a read-only view of the audited32-byte
+rows; its schema is checked by the production owner and save/readback participant.
+
+Additional hash-bound observations/call:
+
+| RVA/layout | Contract |
+|---|---|
+| `22020` | `void(native network manager,int noSend)`; callers15170/15200 pass1,94350/D1AD0 pass0. The complete function checks manager+DA8==0 and manager+279FA4==0, computes per-unit/category checksums, restores temporarily cleared native unit/player/building fields, and publishes Chore12 only when arg2==0. The probe passes1 and never overrides the early gates. |
+| `8574320` | Native network manager passed by all audited22020 callers. |
+| manager+`36FA50` | Checksum storage slot; require0..8 before the call. |
+| manager+`14F0CC + (slot*10000+oneBasedUnitId)*4` | Unit checksum written after the production CRC hook22149. |
+| manager+`14D108 + slot*38` | Unit category sum, including the same changed unit CRC. |
+| `379CEEC + playerId*583C` | Native productivity, also used by Tanner's probe. Require<=100 for the isolated quarter-output fixture; original18D940 floors lower values to100. |
+| `GameUnit pointer-4`,1168bytes | Native saved unit record starts at origin+658, whereas public GameUnit starts+65C. Read only. Before/after manual yield must be byte-identical while the sidecar and actual unit/category CRC change. |
+
+Save/load compares the exact sidecar row and native GID at NativeLoaded before the
+managed simulation start. A linked restart checks its fresh table at that same checkpoint,
+not after an arbitrary number of simulation frames. The actual file is additionally
+inspected through the production owner's archive reader. Randomly named acceptance
+saves/maps are retained as evidence and never overwrite existing player files. These
+local scenarios do not constitute real multiplayer or write-failure acceptance.
+
+The Miller fixture requests physical flour capacity through the existing public
+`AllyTransfers.TryGetCapacity` service inside `SimulationTickEvents`. Setup and any
+ordinary `MAPPER_STORES` extensions run in that same shared simulation scope. At
+most16 successful placement attempts are allowed; the next native tick must confirm
+at least64 free flour units before setup and again before delivery measurement pass.
+The fixture first establishes512 free flour units before placing its production
+buildings, because real wood arrivals can consume a64-unit empty-slot reserve in a
+few seconds. Extensions try every living owned storage anchor with a six-tile
+initial radius, matching76E80's four cells with three-tile spacing. Native placement
+validation remains authoritative; a rejected first anchor does not end the search.
+No inventory is removed and no delivery is injected. The observer is dormant without
+an explicit pending request. Per-building stack fields are displayed only as evidence;
+the shared native query decides capacity.
+
+Miller delivery tracing emits at most20 lines (changed states only, including a reserved
+final result). Read-only hash-bound fields are native unit+918 (public GameUnit+2BC,
+AI and resume-state words), unit+98E (public+332, the Miller's storage target from the
+1377C0/138162/138290 path), and the existing public production-building/tile/cargo fields.
+The final diagnostic timeout includes the last observed identity, state, cargo, marker,
+target, stock changes and last capacity snapshot. No production assertion is weakened.

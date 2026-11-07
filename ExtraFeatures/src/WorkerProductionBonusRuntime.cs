@@ -1,181 +1,156 @@
 using APIShared;
 using APIShared.Economy;
-using APIShared.GameModes;
-using APIShared.Lobby;
+using APIShared.Modifiers;
 using BepInEx.Logging;
+using CrusaderDE;
 using R3;
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
 
 namespace ExtraFeatures
 {
-    // Mission-scoped contribution only. APIShared owns native calculation, zero-output
-    // completion, stone transport, rendering and process-lifetime hooks.
+    // EF owns desired settings and its activation policy. The shared owner performs
+    // preparation, native publication, exact state, and all-peer admission.
     internal sealed class WorkerProductionBonusRuntime
     {
         private readonly ManualLogSource log;
         private readonly ExtraFeaturesViewModel settings;
-        private readonly List<IDisposable> subscriptions = new List<IDisposable>();
-        private readonly object sync = new object();
-        private WorkerProductionBonusOverrideRegistration registration;
+        private readonly Action<string,string> showLocalDialog;
+        private readonly Action<Action> deferPresentation;
+        private readonly Func<Action,Action> registerPresentation;
+        private readonly Func<Action,bool> tryPostPresentation;
+        private Action requestPresentation;
+        private int presentationPosted;
+        private readonly List<IDisposable> subscriptions=new List<IDisposable>();
+        private WorkerProductionModifierRegistration registration;
         private long session;
-        private int capturedPercent = 50;
-        private GameModeSnapshot missionMode;
-        private bool registered, started, peersCompatible;
-
-        internal WorkerProductionBonusRuntime(ManualLogSource log, ExtraFeaturesViewModel settings)
+        private long lastRejectedLaunch;
+        private readonly object faultSync=new object();
+        private long lastLatchedFaultRevision=long.MinValue;
+        private WorkerProductionStatus pendingFault;
+        private bool registered,detailsRequested;
+        internal WorkerProductionBonusRuntime(ManualLogSource log,ExtraFeaturesViewModel settings,Action<string,string> showLocalDialog=null,
+            Action<Action> deferPresentation=null,Func<Action,Action> registerPresentation=null,Func<Action,bool> tryPostPresentation=null)
         {
-            this.log = log;
-            this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
+            this.log=log;this.settings=settings??throw new ArgumentNullException(nameof(settings));
+            this.showLocalDialog=showLocalDialog??ShowLocalDialog;this.deferPresentation=deferPresentation;
+            this.registerPresentation=registerPresentation??RegisterPresentation;
+            this.tryPostPresentation=tryPostPresentation??TryPostPresentation;
         }
-
+        private Action RegisterPresentation(Action callback)
+        {
+#if API_SHARED_PRESET_TESTS
+            return null;
+#else
+            if(ApiShared.ForMod(ExtraFeaturesPlugin.PluginGuid).Ui.TryRegisterBeforeRender("production-status",callback,out var work,out string reason))
+                return work.Request;
+            Shared.DebugLogHelper.LogErrorLimited(log,"ExtraFeatures.WorkerProductionBonus.UI",reason);
+            return null;
+#endif
+        }
+        private static bool TryPostPresentation(Action callback)
+        {
+#if API_SHARED_PRESET_TESTS
+            return false;
+#else
+            return ApiShared.ForMod(ExtraFeaturesPlugin.PluginGuid).Ui.TryPost(callback);
+#endif
+        }
+        private static void ShowLocalDialog(string title,string details)
+        {
+#if !API_SHARED_PRESET_TESTS
+            HUD_ConfirmationPopup.ShowConfirmationOKMessage(title,()=>{},details);
+#endif
+        }
         internal void Register()
         {
-            if (registered) return;
-            registered = true;
-            // Admission must exist even when the local native service fails. Otherwise
-            // this peer could silently use Vanilla while another peer uses a penalty.
-            if (!LobbyLaunchGuards.TryRegister(ExtraFeaturesPlugin.PluginGuid,
-                "fixed-production-bonus", GuardLaunch, out string reason))
-                Error("Worker production bonus launch admission is unavailable: " + reason);
-            else if (!WorkerProductionBonusOverrides.TryRegister(ExtraFeaturesPlugin.PluginGuid,
-                "fixed-production-bonus", out registration, out reason))
-                Error("Worker production bonus is unavailable: " + reason);
-            // Native history guards are eager and remain relevant at 50/disabled.
-            // A failed consumer admission/registration must not hide their presence.
-            settings.WorkerProductionBonusCompatibilityKey = ExtraFeaturesViewModel.CreateWorkerProductionBonusReport(
-                WorkerProductionBonusOverrides.CompatibilityKey, registration != null);
-
-            // These publishers retain the adapter after the startup plugin component is destroyed.
+            if(registered)return;registered=true;
+            if(!WorkerProductionModifiers.TryRegister(ExtraFeaturesPlugin.PluginGuid,"fixed-production-bonus",out registration,out string reason))
+                Shared.DebugLogHelper.LogErrorLimited(log,"ExtraFeatures.WorkerProductionBonus",reason);
+            requestPresentation=registerPresentation(RefreshPresentation);
             subscriptions.Add(Shared.MissionEvents.Initialization.Subscribe(Initializing));
             subscriptions.Add(Shared.MissionEvents.Started.Subscribe(Started));
             subscriptions.Add(Shared.MissionEvents.Ended.Subscribe(Ended));
-            Shared.GameplayModActivationGate.StateChanged += RefreshActivation;
-            settings.SettingChanged += SettingChanged;
-            settings.WorkerProductionBonusPeerReportsChanged += LobbyLaunchStatus.RequestRefresh;
+            settings.SettingChanged+=SettingChanged;
+            settings.ProductionBonusDetailsRequested+=()=>{detailsRequested=true;RequestPresentation();};
+            WorkerProductionModifiers.TryRegisterObserver(ExtraFeaturesPlugin.PluginGuid,"production-status",StatusChanged,out reason);
+            PublishDesired();
         }
-
-        private string GuardLaunch(LobbyLaunchGuardContext context)
+        private void PublishDesired()
         {
-            // The mission activation gate is intentionally closed in the lobby.
-            // Admission follows the host setting, not that mission-only gate.
-            // In-game MP flags are still false in a fresh real lobby. Only the
-            // shared command's proven Vanilla local branch can bypass peer checks.
-            if (!context.RequiresPeerAgreement) return null;
-            if (settings.TryGetWorkerProductionBonusPeerReadiness(out string reason,
-                settings.EnableMod && settings.FixedProductionBonusPercent != 50)) return null;
-            return string.IsNullOrEmpty(reason)
-                ? SerpLocalization.Get("ExtraFeatures.ProductionBonus.PeerWaiting") : reason;
+            registration?.SetProfile(!settings.EnableMod || settings.FixedProductionBonusPercent==50 ? null :
+                new WorkerProductionProfile(fixedBonusPercent:ValueModifierContribution.FixedValue(settings.FixedProductionBonusPercent),
+                    activation:Shared.SerpsModProfiles.GetProfile(ExtraFeaturesPlugin.PluginGuid,ExtraFeaturesPlugin.PluginName)));
         }
-
-        private void Initializing(MissionLifecycleNotification note)
-        {
-            lock (sync)
-            {
-                if (session != note.Context.SessionId)
-                {
-                    EndSession();
-                    session = note.Context.SessionId;
-                }
-                // Save settings are prepared before BeforeLoad. postLoading starts the
-                // independent simulation timer before the enclosing managed root returns,
-                // so waiting for Started could process saved empty batches as Vanilla.
-                if (!started && (note.IsBeforeInitialization ||
-                    note.Phase == MissionInitializationPhase.NativeLoaded))
-                    CaptureSession();
-                // A save's allowed mode can first become known at NativeLoaded. The
-                // relay updates the activation gate before delivering this checkpoint.
-                UpdateAdmission(note.Context.Mode);
-                Reconcile();
-            }
-        }
-
-        private void Started(MissionLifecycleNotification note)
-        {
-            lock (sync)
-            {
-                if (!started || session != note.Context.SessionId)
-                {
-                    EndSession();
-                    session = note.Context.SessionId;
-                    CaptureSession(); // Late registration receives only the ready replay.
-                }
-                UpdateAdmission(note.Context.Mode);
-                Reconcile();
-            }
-        }
-
-        private void CaptureSession()
-        {
-            capturedPercent = settings.FixedProductionBonusPercent;
-            started = true;
-            settings.SetFixedProductionBonusMissionLocked(true);
-        }
-
-        private void UpdateAdmission(GameModeSnapshot mode)
-        {
-            missionMode = mode;
-            // Unknown evidence is not a single-player admission. Save metadata can
-            // become precise only after native load; reevaluate each checkpoint.
-            peersCompatible = mode.Kind != GameModeKind.Unknown &&
-                (!mode.IsRealMultiplayer || settings.TryGetWorkerProductionBonusPeerReadiness(out _,
-                    settings.EnableMod && capturedPercent != 50));
-            if (!peersCompatible && mode.IsRealMultiplayer && mode.Kind != GameModeKind.Unknown)
-                Error("Worker production bonus was not admitted on every multiplayer peer.");
-        }
-
-        private void Ended(MissionLifecycleNotification note)
-        {
-            lock (sync)
-            {
-                if (session != note.Context.SessionId) return;
-                EndSession();
-                session = 0;
-            }
-        }
-
-        private void EndSession()
-        {
-            started = peersCompatible = false;
-            missionMode = default;
-            capturedPercent = 50;
-            registration?.SetPercent(null);
-            settings.SetFixedProductionBonusMissionLocked(false);
-        }
-
         private void SettingChanged(string name)
         {
-            if (name == nameof(ExtraFeaturesViewModel.EnableMod)) RefreshActivation();
-            if (name == nameof(ExtraFeaturesViewModel.EnableMod) ||
-                name == nameof(ExtraFeaturesViewModel.FixedProductionBonusPercent))
-                LobbyLaunchStatus.RequestRefresh();
-            // The percent is frozen before native initialization, including while
-            // the final managed save snapshot is being applied.
+            if(name==nameof(settings.EnableMod) || name==nameof(settings.FixedProductionBonusPercent))PublishDesired();
         }
-
-        private void RefreshActivation(bool allowed)
+        private void Initializing(MissionLifecycleNotification note)
+        {session=note.Context.SessionId;settings.SetFixedProductionBonusMissionLocked(true);}
+        private void Started(MissionLifecycleNotification note)
+        {session=note.Context.SessionId;settings.SetFixedProductionBonusMissionLocked(true);}
+        private void Ended(MissionLifecycleNotification note)
+        {if(session==note.Context.SessionId){session=0;settings.SetFixedProductionBonusMissionLocked(false);}}
+        private void StatusChanged(WorkerProductionStatus status)
         {
-            // Gate updates precede initialization delivery. Opening here could use
-            // admission from the previous checkpoint before its MP evidence updates.
-            if (!allowed) RefreshActivation();
-        }
-        private void RefreshActivation()
-        {
-            lock (sync)
+            // World retirement can clear the live fault before Unity pumps presentation.
+            // Retain an immutable fault snapshot now; never invoke UI on this caller thread.
+            if(status.Issues.Any(value=>value.Code==WorkerProductionIssueCode.RuntimeFault))
             {
-                UpdateAdmission(missionMode);
-                Reconcile();
+                lock(faultSync)
+                {
+                    if(status.Revision>lastLatchedFaultRevision)
+                    {lastLatchedFaultRevision=status.Revision;pendingFault=status;}
+                }
+            }
+            RequestPresentation();
+        }
+        private void RequestPresentation()
+        {
+            if(deferPresentation!=null){deferPresentation(RefreshPresentation);return;}
+            if(requestPresentation!=null){requestPresentation();return;}
+            // Frame-service initialization is independent of the existing Unity context.
+            // Keep failures visible through its public deferred post, coalesced without
+            // capturing an obsolete session/status. The drain reads canonical state.
+            if(Interlocked.CompareExchange(ref presentationPosted,1,0)!=0)return;
+            if(!tryPostPresentation(()=>{Interlocked.Exchange(ref presentationPosted,0);RefreshPresentation();}))
+            {
+                Interlocked.Exchange(ref presentationPosted,0);
+                Shared.DebugLogHelper.LogErrorLimited(log,"ExtraFeatures.WorkerProductionBonus.UI.Post","Unity production presentation is unavailable.");
             }
         }
-
-        private void Reconcile()
+        private static string Text(string code)
         {
-            registration?.SetPercent(started && peersCompatible &&
-                Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) && capturedPercent != 50
-                ? (int?)capturedPercent : null);
+            string key="ExtraFeatures.ProductionBonus.Issue."+code;
+            string translated=SerpLocalization.Get(key);
+            return translated==key?SerpLocalization.Get("ExtraFeatures.ProductionBonus.Issue.Unknown"):translated;
         }
-
-        private void Error(string message) => Shared.DebugLogHelper.LogErrorLimited(log,
-            "ExtraFeatures.WorkerProductionBonus", message);
+        private void RefreshPresentation()
+        {
+            // Callbacks can originate on different threads. Read the registry's current
+            // immutable state here, so a late older notification cannot hide a fault.
+            var state=WorkerProductionModifiers.Status;if(state==null)return;
+            bool rejectedNow=state.RejectedLocalLaunchSequence>lastRejectedLaunch;
+            if(rejectedNow)
+            {lastRejectedLaunch=state.RejectedLocalLaunchSequence;detailsRequested=true;}
+            WorkerProductionStatus fault;
+            lock(faultSync){fault=pendingFault;pendingFault=null;}
+            if(fault!=null)detailsRequested=true;
+            string issue=string.Join(" ",state.Issues.Select(value=>Text(value.Code.ToString())).Distinct());
+            string readiness=state.PeerReadinessCode;
+            string warning=string.IsNullOrEmpty(readiness)?"":Text(readiness);
+            if(registration==null)issue=Text("Unavailable")+(issue.Length==0?"":" "+issue);
+            settings.UpdateProductionBonusPresentation(state.ResolvedFixedBonusPercent,issue,warning,state.CanStart && registration!=null);
+            if(!detailsRequested)return;detailsRequested=false;
+            var dialogState=fault??state;
+            string details=string.Join("\n\n",dialogState.Issues.Select(value=>Text(value.Code.ToString())+"\n"+value.Diagnostic));
+            if(rejectedNow && state.RejectedLocalLaunchCode.Length!=0)details+=(details.Length==0?"":"\n\n")+Text(state.RejectedLocalLaunchCode);
+            if(warning.Length!=0)details+=(details.Length==0?"":"\n\n")+warning+"\n"+state.PeerReadinessDiagnostic;
+            if(details.Length==0)details=SerpLocalization.Get("ExtraFeatures.ProductionBonus.NoIssues");
+            showLocalDialog(SerpLocalization.Get("ExtraFeatures.ProductionBonus.DetailsTitle"),details);
+        }
     }
 }

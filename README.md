@@ -48,6 +48,15 @@ from APIShared and the modpack.
 | [Extended Data](ExtendedData/README.md) | Custom Lords, Trails, map data and saved mod settings. |
 | [Spectator](Spectator/README.md) | Player perspectives, live statistics, Lord overview and optional local AI testing tools. |
 
+### Production bonus
+
+In ExtraFeatures' **Population and Economy** settings, the host can change the
+production bonus for skirmishes, including solo games against AI, and multiplayer.
+**50%** keeps the normal game bonus; **0%** removes it; **-50%** halves base output
+on average. Fear-factor productivity bonuses still add to the result. See
+[ExtraFeatures](ExtraFeatures/README.md#customize-the-fixed-production-bonus) for
+the affected goods, negative values and ingredient consumption.
+
 <!-- RELEASE-INDEX:START -->
 ## Latest Mod Releases
 

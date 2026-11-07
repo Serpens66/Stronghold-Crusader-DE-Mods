@@ -124,6 +124,17 @@ public static class SettingsPresentationTests
                 n.Attributes["IsEnabled"].Value == "{Binding CanConfigurePeriodicGold}"), "gold editors are locked during missions");
         }
         XmlNode production = nodes.Single(n => Search(n, "Key") == "extra.fixed-production-bonus");
+        XmlNode productionWarning = nodes.Single(n => n.Attributes != null && n.Attributes["Visibility"] != null &&
+            n.Attributes["Visibility"].Value == "{Binding ProductionBonusWarningVisibility}");
+        Check(Search(productionWarning, "Exclude") == "True" && !Ancestors(productionWarning).Any(n =>
+            n.Attributes != null && n.Attributes["Visibility"] != null && n.Attributes["Visibility"].Value.Contains("SettingsPresentation.")),
+            "production warning remains independent of topic and search filters");
+        Check(productionWarning.SelectNodes(".//*[local-name()='Button']").Cast<XmlNode>().Any(n =>
+            n.Attributes["Command"].Value == "{Binding ProductionBonusDetailsCommand}"),
+            "production issues provide a local details action outside host-only editors");
+        Check(nodes.Any(n => n.Attributes != null && n.Attributes["Text"] != null &&
+            n.Attributes["Text"].Value == "{Binding EffectiveFixedProductionBonusText}"),
+            "production options show the shared resolved bonus");
         Check(production.Attributes["IsEnabled"].Value == "{Binding CanConfigureFixedProductionBonus}",
             "production editor uses the mission and host authority guard");
         XmlNode productionInput = production.SelectNodes(".//*[local-name()='TextBox']").Cast<XmlNode>().Single();

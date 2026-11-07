@@ -146,3 +146,58 @@ all multipliers, third-party base changes or existing Tweaker fractional state.
 Primary source: [Tweaker yield implementation](https://gitlab.com/ensrick7/crusader-de-tweaker/-/blob/c5886d1a6de775b88ebbcde6bc3659072a631cf2/Config/Core/GoodYield.cs#L194).
 Local audit metadata and limits: `.work/a/tweaker-bonus/001/review.json`. No Tweaker
 checkout, production code, build, installation or live game was changed/run.
+
+## Shared base-output follow-up observed 2026-11-07 [mod integration]
+
+This section supersedes the earlier implementation-only claims that there are
+18 total shared spans and that no extra state or wire data is ever needed. The
+native facts about Vanilla's signed bonus words remain unchanged. The extended
+service separately accumulates rational base-output credit and batch provenance;
+it does not change Vanilla unit records, the two native production words or
+their existing save/checksum meaning. Legacy-only worlds retain native Chore56.
+
+New output boundaries are Wheat `1349B7/16`, Baker `1391F5/17` and `139337/18`,
+Miller prepare `1380A1/17`, pickup `138162/17`, deposit `138290/17`, and finish
+`1383AF/19`. Function hashes, original bytes, footer register contracts and
+incoming-edge validation are in the shared output definition and executable
+tests. Miller's actual output starts at one flour, not the wheat intake helper's
+quantity; repeated native delivery at `B6100` deposits one flour each time. The
+new output spans overlap the old Tweaker Miller patches. Their migration must
+remove those patches, the Yield Pre/Post handlers and the minimum-eight Ox clamp.
+No automatic compatibility with these direct foreign patches is claimed.
+
+Native raw restore `87D0` reads files, with callers `853F0`, `94350`, `100530`.
+The ordinary saved-game/editor-save route `853F0` first calls `87D10`, which sets
+scene DWORD `3665ED8` to40. The save section table does not serialize that DWORD.
+The first `71670 -> CDE60` fold cannot dispatch workers there: helper `7E50`
+accepts scenes12/14/16. Other direct map callers do not provide the same general
+scene40 guarantee. Initialization flag `366A0F8=-1` alone does not prevent the
+fold. No memory-snapshot restore or editor-resize caller of `87D0` was established.
+
+The disk writer `52B0` has46 native calls to CRT write `1DDB94` and a close at
+`1DBB20`; Script Extender's ZIP append calls the same write entry. Write returns
+the actual byte count or -1; close returns0 or -1. Both validated entry spans
+start with two five-byte MOVs and have no incoming edges into the displaced ten
+bytes. The shared critical-save cohort keeps sticky short-write/error/close
+failure state, checks the actual saved sidecar and replaces the target only after
+successful completion. A valid ZIP suffix does not establish native save success.
+
+The Chore56 record begins at raw origin `+658`; its native Global-ID at `+6F0`
+is record offset98 (body9C), and kind at `+6E6` is record8E (body92). The typed
+GameUnit begins four bytes later. Extended worlds append one versioned32-byte
+sidecar; individual checksum injection `22149/16` reaches both category and
+single-unit checksum consumers. Empty normalized rows leave checksum unchanged.
+
+Evidence: `.work/a/prod-state/002/result.json`, maintained shared native execution
+suites and source-linked state/agreement tests. These are isolated execution and
+managed-boundary checks, not game/editor or real host/client acceptance.
+
+The temporary save pathname was separately traced through all three writer
+callers. Within `52B0` it reaches only the no-op logger and physical file open;
+`F4DF0` is the minimap builder and receives no pathname. None of the200 section
+descriptors includes path object `30D0F30`, selector `30D1EE0` or slot `31C74B6`.
+The restart blob at `8EC020/28` is copied from its existing source. Script
+Extender captures its managed logical save path from the original outer argument,
+before the shared writer swaps the native destination. There is no established
+temporary-name leak into the native header, restart source or Extender context.
+Evidence: `.work/a/prod-state/002/temp-routing-review.json`.

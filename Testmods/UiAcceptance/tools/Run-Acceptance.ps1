@@ -153,3 +153,10 @@ if (Test-Path -LiteralPath $shots) { Get-ChildItem -LiteralPath $shots -Filter (
 $restored = [Linq.Enumerable]::SequenceEqual([byte[]]$settingsOriginal, [byte[]][IO.File]::ReadAllBytes($settings))
 "run=$Label duration=" + [int]((Get-Date) - $started).TotalSeconds + "s settingsRestored=$restored modSettingsRestored=$modSettingsRestored files=$($settingsBackup.Count)" + $(if ($stalled) { ' STALLED/TIMEOUT: game stopped' } else { '' })
 Select-String -LiteralPath $savedLog -Pattern 'ACCEPT run=' | ForEach-Object { $_.Line }
+# Process exit alone also occurs after a startup crash. Only this run's complete
+# successful scenario plus verified settings restoration can qualify as acceptance.
+$summaryPattern = 'ACCEPT run=' + [regex]::Escape($Label) + ' step=SUMMARY PASS .* failed=0 skipped=0(?:\s|$)'
+$completeSummary = @(Select-String -LiteralPath $savedLog -Pattern $summaryPattern)
+if ($stalled -or -not $restored -or -not $modSettingsRestored -or $completeSummary.Count -ne 1) {
+    throw "Acceptance did not complete successfully: $Label. Evidence: $OutputDirectory"
+}
