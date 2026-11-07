@@ -61,6 +61,8 @@ Vor jedem Tool- oder Shellaufruf die einschlägigen Punkte prüfen; bereits doku
 
 ## 4. Dateien, Änderungen und Builds
 
+- Neue modbezogene Ingame-Automation über die öffentliche APIShared-Test-API und temporäre `*.DevDiag.cs` im getesteten Mod umsetzen. Bestehende Testmods für ihre spezialisierten Läufe verwenden. Einstieg, Laufwerkzeug und Bereinigung stehen in [AutomatisierungTest.md](AutomatisierungTest.md#neue-modbezogene-spieltests).
+
 - `README.md`-Dateien nur auf ausdrückliche Bitte ändern. Bekommt ein Mod ein neues Feature, fragen, ob es nach Fertigstellung in die README soll.
 - Mod-READMEs richten sich an Spieler. Beschreibe in verständlicher Sprache, welches Problem im Spiel auftritt und was Spieler mit dem Fix oder Feature konkret erleben. Erwähne Einstellungen, Voraussetzungen und Grenzen, wenn sie für Spieler wichtig sind. Technische Details zur Umsetzung gehören in die Entwicklerdokumentation.
 - Bestehende Nutzeränderungen erhalten; keine sachfremden Dateien ändern; Dateien gezielt bearbeiten.

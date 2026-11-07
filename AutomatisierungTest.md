@@ -1,5 +1,46 @@
 # Ingame-Tests per Code automatisieren
 
+## Neue modbezogene Spieltests
+
+Für einen neuen Test das Szenario im betroffenen Mod als `*.DevDiag.cs` anlegen
+und nur über `build.bat /devdiag` einbinden. Der temporäre Einstiegspunkt liest
+und löscht die Anforderung aus `BepInEx/config/SerpAutomation/<ModGuid>.run`
+(Lauf-GUID im N-Format und Szenarioname, je eine Zeile). Auf dem validierten
+Unity-Thread nach der APIShared-Initialisierung startet er den Lauf. Ohne
+Anforderung bleibt der Modstart regulär.
+
+```csharp
+using System;
+using APIShared;
+using APIShared.Automation;
+
+var api = ApiShared.ForMod(PluginGuid);
+api.Automation.Start(runId, new[] {
+    new AutomationStep("save", TimeSpan.FromSeconds(120), run => run.LoadSave("fixture.sav")),
+    new AutomationStep("mod-check", TimeSpan.FromSeconds(20), CheckMod, missionBound: true)
+}, log, quitWhenDone: true);
+
+// CheckMod ist der Iterator des getesteten Mods. Dort zuerst
+// run.WaitForPlayState(run.CurrentMission) abwarten und danach die Wirkung prüfen.
+```
+
+Für ein lokales Gefecht `StartSkirmish` verwenden und das Briefing separat
+per `ClickNoesis` schließen, wenn der Klick mitgeprüft werden soll. Einheiten
+und Mauern über die vorhandenen Extender-Aufrufe in `InSimulation` erzeugen.
+`TrySpawnBuilding` liefert die bestätigte Spiel-ID und Global-ID eines einzelnen
+Gebäudes. Die Spritevariante muss zum gewählten Mapper passen. Kachelkoordinaten
+mit dem Extender-Aufruf `IsTileInsideMapBounds` prüfen, weil die spielbare
+Karte als Raute in einem größeren Raster liegt.
+
+Das [Laufwerkzeug](Shared/Tools/Automation/Invoke-InGameTest.ps1) erhält
+`-GameDir`, `-ModGuid`, `-ModPackage`, `-Scenario` und `-OutputDirectory`.
+Für einen vorbereiteten APIShared-Teststand zusätzlich `-ApiPluginPackage`
+und `-ApiPatcherPackage` gemeinsam übergeben. Das Werkzeug sichert die
+Laufprotokolle und stellt die ersetzten Dateien und gesicherten Einstellungen
+wieder her. Nach Abschluss den temporären Szenariocode samt Einstiegspunkt
+entfernen und den normalen Mod-Build prüfen. Die folgenden Abschnitte
+beschreiben vorhandene spezialisierte Testmods und ihre bisherigen Nachweise.
+
 Stand: 20.10.2026. Untersucht wurden die installierten Spielassemblies, der lokale Script Extender sowie die Arbeitsquellen von BugfixesAndQoL und CastlePlanner.
 
 ## Was bereits möglich ist
