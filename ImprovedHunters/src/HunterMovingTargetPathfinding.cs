@@ -117,15 +117,10 @@ namespace ImprovedHunters
             AcceptedMoveObservation observation;
             lock (observationLock)
             {
+                // No accepted move of ours: a target this mod does not track (another mod's prey type,
+                // a hunt that began before a save was loaded, a mode without target selection). Normal.
                 if (!acceptedMoveObservations.TryGetValue(hunterUnitId, out observation))
-                {
-                    acceptedMoveObservations.Remove(hunterUnitId);
-                    LogInvalidStateOneContextOnce(
-                        hunterUnitId,
-                        attackResult,
-                        "no-recent-correlated-state0-move");
                     return;
-                }
 
                 if (attackResult != 0)
                     acceptedMoveObservations.Remove(hunterUnitId);

@@ -227,3 +227,31 @@ Real single-player skirmish, Script Extender, APIShared, BugfixesAndQoL and Fixe
 
 Not observed: real multiplayer (also not for the Tannery), free corpses and the respawn in multiplayer, a native resync with hunters active, an AI Tannery with the mod, a truly non-lethal arrow on deer, the absence of the warning
 sound (executed in the fixture only), statistics after own-chicken kills.
+
+## Reservation word: complete access list [Scope: Vanilla]
+
+Static audit of 2026-11-08, hash `FBCB9319…31E2`, nothing executed in the game. Public `GameUnit +0x448` is manager form
+`+0xAA4` (manager `0x67E8400`, slot `0x490`, public pointer = manager + id*0x490 + 0x65C); unit loops read it as `[rbx+0x1AC]`
+from `mgr+0xD88`. Found by a .text displacement scan for `0xAA4`/`0x448`, a scan of all stride-`0x490` loops and wider stores,
+and the Ghidra memory database (same set). Struct copies, memcpy sizes, player (`0x583C`), AIC (`0x5E4`) and building records
+with the same displacement were checked and excluded.
+
+- Writers of lease 2 (register r14 = 2): Hunter `0x12FC70` at `0x12FE63` (state 0 after a successful query), `0x130044` (state 1),
+  `0x130259` (state 9), `0x130338` (state 10), `0x13064F` (state `0xB`, corpse). Each renewal first compares the target's global
+  ID (`+0x6F0`) with the Hunter's `+0x9F8` (public `+0x39C`). States 2, carrying, delivering and 6 do not renew.
+- Release: only deer/goat `0x156130` (`0x156203`/`0x156213`, minus 1 while the signed word is above 0, every state).
+- Readers that require 0: query `0x18AF50` at `0x18AFFD` (after the Extender's type hook at `0x18AFE6`), corpse search
+  `0x18B640` at `0x18B6ED`, and through the query the idle-reason helper `0x1940C0` (0x34, caller `0x18CE60`, probable).
+- Other meanings of the same word: the kennel `0xB47E0` writes the war-dog slot index 0..3 (`0xB51E7`, `0xB528C`, `0xB5335`,
+  `0xB53E1`), read by the war dog `0x166FE0` at `0x1671BB` (delay index*8+0x20); the Engineer `0x14AED0` keeps a flag there
+  (`0x14B58D`/`0x14B59B`, `0x14CD7C`, `0x14CF08`). Neither type may be a Hunter target.
+- Never touched by rabbit `0x157810`, camel `0x158020`, chicken `0x162CB0`, lion/hyena `0x156DC0`, crocodile `0x17F2F0`,
+  cow `0x158780`, dog `0x158EF0`, crow `0x158670`, seagull `0x158680`, Tanner `0x13E0B0`, direct attack `0x18E9A0`, spawn
+  `0x17FEF0`, type init `0x19A240`. Removal `0x1869C0` clears the whole slot; spawn takes only alive state 0 slots.
+- Consequence: a huntable type without a release is selected once and then never again until its slot is removed. Units update
+  once per pass of `0x182B00` in ascending ID order (once per tick from `0xCDE60`: probable), so a held lease ends each tick at
+  1 or 2 and a released one reaches 0 within two prey updates.
+- Corpse dead-time thresholds before state `0x6E` (`+0x920`): deer/goat 500, lion/hyena/camel/crocodile/war dog 50, rabbit 5,
+  cow 1000 in state 5, chicken enters `0x6E` directly (+2 per update); fading then removes the unit after 32 (`+0x986` to 0x20).
+  Deer and chicken confirmed, the others probable.
+- Not traced: the clear at mission start, save/load of the word, what `0x18CE60` does with the idle reason.

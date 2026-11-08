@@ -1498,7 +1498,7 @@ namespace BugfixesAndQoL
                   hook.Contains("int result = EngineInterface.GameAction(") &&
                   hook.Contains("IsSendSuccessful(result)") &&
                   hook.Contains("IsSendRejected(result)") &&
-                  !confirmationHandler.Contains("buttonClickedTrampoline") &&
+                  !confirmationHandler.Contains("InvokeOriginal(") &&
                   !confirmationHandler.Contains("SetValue("),
                 "ally goods confirmation submits exactly one Vanilla action and preserves the open panel and selection on success");
             Check(hook.Contains("Space_Warning7.wav") &&
@@ -1518,7 +1518,12 @@ namespace BugfixesAndQoL
                 "ally goods visibility extends Vanilla UpdateGoods without polling");
             Check(hook.Contains("Allies_SendGoodsViewVis") &&
                   !hook.Contains("GameActionCommand.Ally_RequestGoods"),
-                "ally request confirmation remains owned by Vanilla");
+                "ally request confirmation is left to the shared click chain");
+            // Source guardrail for hook ownership. APIShared tests exercise claim arbitration.
+            Check(hook.Contains("AllyPanelButtonEvents.TryRegister(") &&
+                  hook.Contains("args.TryClaim(ConfirmSend)") &&
+                  !hook.Contains("FindMethod(panelType, \"ButtonClicked\""),
+                "ally goods claims send confirmations through APIShared without a second ButtonClicked hook");
             int refreshStart = hook.IndexOf(
                 "internal void RefreshSetting()",
                 StringComparison.Ordinal);

@@ -1,4 +1,5 @@
 // Feature: Local Shift/Ctrl amount modifiers in the allies goods-transfer panel.
+using APIShared.Presentation;
 using BepInEx.Logging;
 using CrusaderDE;
 using MonoMod.RuntimeDetour;
@@ -15,7 +16,6 @@ namespace BugfixesAndQoL
 {
     internal sealed class AllyGoodsAmountModifierHook : INotifyPropertyChanged
     {
-        private delegate void ButtonClickedDelegate(HUD_AlliesPanel self, string parameter);
         private delegate void UpdateGoodsDelegate(HUD_AlliesPanel self);
 
         private readonly ManualLogSource log;
@@ -26,8 +26,6 @@ namespace BugfixesAndQoL
         private readonly FieldInfo allyCountField;
         private readonly FieldInfo allyArrayField;
         private readonly MethodInfo updateGoodsMethod;
-        private readonly Hook buttonClickedHook;
-        private readonly ButtonClickedDelegate buttonClickedTrampoline;
         private readonly Hook updateGoodsHook;
         private readonly UpdateGoodsDelegate updateGoodsTrampoline;
         private readonly IDisposable keyDownSubscription;
@@ -50,7 +48,6 @@ namespace BugfixesAndQoL
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
 
             Type panelType = typeof(HUD_AlliesPanel);
-            MethodInfo buttonClickedMethod = FindMethod(panelType, "ButtonClicked", new[] { typeof(string) });
             updateGoodsMethod = FindMethod(panelType, "UpdateGoods", Type.EmptyTypes);
             selectedGoodsField = FindIntField(panelType, "selectedGoods");
             currentAllyField = FindIntField(panelType, "curr_ally");
@@ -63,17 +60,12 @@ namespace BugfixesAndQoL
             if (selectedGoodsAmountField == null || selectedGoodsAmountField.FieldType != typeof(int))
                 throw new MissingFieldException(panelType.FullName, "selectedGoodsAmount");
 
-            Hook installedHook = null;
             Hook installedUpdateGoodsHook = null;
             IDisposable installedKeyDownSubscription = null;
             IDisposable installedKeyUpSubscription = null;
             bool focusChangedSubscribed = false;
             try
             {
-                installedHook = new Hook(buttonClickedMethod, (ButtonClickedDelegate)ButtonClickedHook);
-                buttonClickedTrampoline = installedHook.GenerateTrampoline<ButtonClickedDelegate>();
-                buttonClickedHook = installedHook;
-
                 installedUpdateGoodsHook = new Hook(updateGoodsMethod, (UpdateGoodsDelegate)UpdateGoodsHook);
                 updateGoodsTrampoline = installedUpdateGoodsHook.GenerateTrampoline<UpdateGoodsDelegate>();
                 updateGoodsHook = installedUpdateGoodsHook;
@@ -87,6 +79,11 @@ namespace BugfixesAndQoL
                 Application.focusChanged += OnFocusChanged;
                 focusChangedSubscribed = true;
                 RefreshDisplayedAmounts();
+
+                // Register last because the broker retains successful registrations for the process.
+                if (!AllyPanelButtonEvents.TryRegister(BugfixesAndQoLPlugin.PluginGuid,
+                    "ally-goods-amount-modifier", OnAllyPanelButton, null, out string reason, order: 100))
+                    throw new InvalidOperationException(reason);
             }
             catch
             {
@@ -96,8 +93,6 @@ namespace BugfixesAndQoL
                 installedKeyDownSubscription?.Dispose();
                 installedUpdateGoodsHook?.Undo();
                 installedUpdateGoodsHook?.Dispose();
-                installedHook?.Undo();
-                installedHook?.Dispose();
                 throw;
             }
 
@@ -122,31 +117,37 @@ namespace BugfixesAndQoL
             return (int)Math.Max(0L, Math.Min(int.MaxValue, result));
         }
 
-        private void ButtonClickedHook(HUD_AlliesPanel self, string parameter)
+        private void OnAllyPanelButton(AllyPanelButtonPreEventArgs args)
         {
-            if (IsSendConfirmationContext(parameter))
+            if (args.SkipOriginalFunction || !settings.EnableClientFeatures ||
+                !settings.EnableAllyGoodsAmountModifiers)
+                return;
+
+            if (IsSendConfirmationContext(args.Button))
             {
-                if (TryGetSendParameters(self, out int allyId, out int goodsId, out int amount))
-                    HandleSendConfirmation(allyId, goodsId, amount);
+                args.TryClaim(ConfirmSend);
                 return;
             }
 
-            if (!settings.EnableClientFeatures ||
-                !settings.EnableAllyGoodsAmountModifiers ||
-                !TryGetKnownAmountButton(parameter, out int buttonAmount, out bool subtract))
-            {
-                buttonClickedTrampoline(self, parameter);
+            if (!TryGetKnownAmountButton(args.Button, out int buttonAmount, out bool subtract))
                 return;
-            }
 
             bool shift = IsHeld(KeyCode.LeftShift, KeyCode.RightShift);
             bool control = IsHeld(KeyCode.LeftControl, KeyCode.RightControl);
-            if (!shift && !control)
-            {
-                buttonClickedTrampoline(self, parameter);
-                return;
-            }
+            if (shift || control)
+                args.TryClaim(click => ApplyAmountModifier(click, buttonAmount, subtract, shift, control));
+        }
 
+        private void ConfirmSend(AllyPanelButtonInvocation click)
+        {
+            if (TryGetSendParameters(click.Panel, out int allyId, out int goodsId, out int amount))
+                HandleSendConfirmation(allyId, goodsId, amount);
+        }
+
+        private void ApplyAmountModifier(AllyPanelButtonInvocation click, int buttonAmount,
+            bool subtract, bool shift, bool control)
+        {
+            HUD_AlliesPanel self = click.Panel;
             int originalAmount = (int)selectedGoodsAmountField.GetValue(self);
             try
             {
@@ -162,20 +163,17 @@ namespace BugfixesAndQoL
                 if (!failureLogged)
                 {
                     failureLogged = true;
-                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/AllyGoodsAmountModifierHook/ButtonClickedHook", $"Bugfixes and QoL ally goods amount modifier failed; this click uses Vanilla behavior: {ex}");
+                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/AllyGoodsAmountModifierHook/ApplyAmountModifier", $"Bugfixes and QoL ally goods amount modifier failed; this click uses Vanilla behavior: {ex}");
                 }
-                buttonClickedTrampoline(self, parameter);
+                click.InvokeOriginal(click.Button);
             }
         }
 
         private bool IsSendConfirmationContext(string parameter)
         {
-            MainViewModel viewModel = MainViewModel.Instance;
-            return settings.EnableClientFeatures &&
-                settings.EnableAllyGoodsAmountModifiers &&
-                string.Equals(parameter, "ConfirmGoods", StringComparison.Ordinal) &&
-                viewModel != null &&
-                viewModel.Allies_SendGoodsViewVis;
+            return string.Equals(parameter, "ConfirmGoods", StringComparison.Ordinal) &&
+                MainViewModel.viewModelLoaded &&
+                MainViewModel.Instance?.Allies_SendGoodsViewVis == true;
         }
 
         private bool TryGetSendParameters(HUD_AlliesPanel self, out int allyId, out int goodsId, out int amount)

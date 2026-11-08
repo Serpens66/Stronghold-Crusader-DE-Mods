@@ -99,6 +99,9 @@ namespace UiAcceptance
             Runner.Register("Hunt.PreyAt", s => GameSteps.Do(() => { lock (Engine()) SpawnPreyAt(s.Arg(0), s.Int(1), s.Int(2)); }));
             Runner.Register("Hunt.Prey", s => GameSteps.Do(() => { lock (Engine()) SpawnPrey(s.Arg(0), s.Arg(1) == "ring" ? int.MinValue : s.Int(1), s.Arg(1) == "ring" ? 0 : s.Int(2)); }));
             Runner.Register("Hunt.ClearPrey", s => GameSteps.Do(() => { lock (Engine()) deer.Clear(); }));
+            Runner.Register("Hunt.RegisterPrey", s => GameSteps.Do(() => RegisterPrey(s.Arg(0))));
+            Runner.Register("Hunt.ExpectTargetType", ExpectTargetType);
+            Runner.Register("Hunt.ExpectLeaseReleased", ExpectLeaseReleased);
             Runner.Register("Hunt.SightWall", s => GameSteps.Do(() => { lock (Engine()) SightWall(s.Int(0), s.Int(1)); }));
             Runner.Register("Hunt.SightBuilding", s => GameSteps.Do(() => { lock (Engine()) SightBuilding(s.Int(0), s.Int(1)); }));
             Runner.Register("Hunt.Ring", Ring);
@@ -1769,7 +1772,110 @@ namespace UiAcceptance
 
         private static eChimps PreyType(string kind) =>
             kind == "goat" ? eChimps.CHIMP_TYPE_GOAT : kind == "rabbit" ? eChimps.CHIMP_TYPE_RABBIT : kind == "camel" ? eChimps.CHIMP_TYPE_CAMEL :
-            kind == "chicken" ? eChimps.CHIMP_TYPE_CHICKEN : eChimps.CHIMP_TYPE_DEER;
+            kind == "chicken" ? eChimps.CHIMP_TYPE_CHICKEN : kind == "crocodile" ? eChimps.CHIMP_TYPE_CROCODILE :
+            kind == "lion" ? eChimps.CHIMP_TYPE_LION : eChimps.CHIMP_TYPE_DEER;
+
+        // APIShared huntable-prey consumer for tests. Registrations are process-held; the step runs at the
+        // menu so the next mission freezes the type. args: kind.
+        private static readonly Dictionary<string, APIShared.Wildlife.HuntablePreyRegistration> preyRegistrations =
+            new Dictionary<string, APIShared.Wildlife.HuntablePreyRegistration>();
+        private const int PreyLeaseOffset = 0x448;
+
+        private static void RegisterPrey(string kind)
+        {
+            eChimps type = PreyType(kind);
+            if (!preyRegistrations.TryGetValue(kind, out var registration))
+            {
+                Runner.Require(APIShared.Wildlife.HuntablePrey.TryRegister(UiAcceptancePlugin.Guid, "test-" + kind,
+                    new APIShared.Wildlife.HuntablePreyDefinition((int)type), out registration, out string reason), "register: " + reason);
+                preyRegistrations.Add(kind, registration);
+            }
+            var catalog = APIShared.Wildlife.HuntablePrey.Current;
+            AcceptLog.Info("HUNT_PREY_REGISTERED kind=" + kind + " type=" + (int)type + " status=" + registration.Status +
+                " huntable=" + catalog.IsHuntable((int)type) + " digest=" + catalog.Digest);
+            Runner.Require(catalog.IsHuntable((int)type), "the registered type is not in the catalog");
+        }
+
+        // args: kind. Waits until an own Hunter holds a fixture of that type as its target.
+        private static IEnumerable<Wait> ExpectTargetType(Step step)
+        {
+            eChimps type = PreyType(step.Arg(0));
+            int local = Local(), hunterId = 0, preyId = 0;
+            yield return new Until("Hunter targets a fixture " + type, () =>
+            {
+                lock (Engine()) return TryFindHunterOnFixture(local, type, out hunterId, out preyId);
+            });
+            int lease;
+            lock (Engine()) lease = PreyLease(preyId);
+            AcceptLog.Info("HUNT_TARGET_TYPE type=" + type + " hunter=" + hunterId + " prey=" + preyId + " lease=" + lease);
+        }
+
+        private static uint NextUnitId() => GameUnitManagerAPI.Instance.GetUnitManager().Pointer->r_NextUnitId;
+
+        // The Hunter's reservation word of a unit, or -1 if the unit is gone.
+        private static int PreyLease(int preyId) =>
+            APIShared.UnitAccess.TryGetById(preyId, out GameUnit* prey, out _) ? *(short*)((byte*)prey + PreyLeaseOffset) : -1;
+
+        private static bool TryFindHunterOnFixture(int local, eChimps type, out int hunterId, out int preyId)
+        {
+            hunterId = preyId = 0;
+            Span<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitsAsSpan();
+            for (int spanIndex = 0; spanIndex < units.Length; spanIndex++)
+            {
+                ref GameUnit hunter = ref units[spanIndex];
+                if (hunter.r_AliveState != AliveState.IsAlive || hunter.r_ControllableForPlayerId != local ||
+                    hunter.r_UnitChimp != eChimps.CHIMP_TYPE_HUNTER || hunter.r_AI_ContextTargetUnitGlobalId == 0)
+                    continue;
+                foreach (int id in deer)
+                    if (APIShared.UnitAccess.TryGetById(id, out GameUnit* prey, out _) && prey->r_UnitChimp == type &&
+                        prey->r_GlobalId == hunter.r_AI_ContextTargetUnitGlobalId)
+                    { hunterId = spanIndex + 1; preyId = id; return true; }
+            }
+            return false;
+        }
+
+        // args: kind, ticks the lease must stay held, maximum ticks until it is free after the Hunter is gone.
+        // Proves APIShared's release: held while the Hunter renews it, zero soon after the Hunter dies.
+        private static IEnumerable<Wait> ExpectLeaseReleased(Step step)
+        {
+            eChimps type = PreyType(step.Arg(0));
+            int holdTicks = step.Int(1), maxTicks = step.Int(2), local = Local(), hunterId = 0, preyId = 0, start = 0, minHeld = int.MaxValue;
+            lock (Engine())
+            {
+                Runner.Require(TryFindHunterOnFixture(local, type, out hunterId, out preyId), "no Hunter holds a fixture " + type);
+                start = NativeTick();
+            }
+            bool lost = false;
+            yield return new Until("lease held for " + holdTicks + " ticks", () =>
+            {
+                lock (Engine())
+                {
+                    if (!TryFindHunterOnFixture(local, type, out int h, out int p) || h != hunterId || p != preyId) { lost = true; return true; }
+                    minHeld = Math.Min(minHeld, PreyLease(preyId));
+                    return NativeTick() - start >= holdTicks;
+                }
+            });
+            Runner.Require(!lost, "the Hunter dropped the fixture before the hold check ended");
+            Runner.Require(minHeld > 0, "the held lease reached zero");
+            int killed;
+            lock (Engine()) { GameUnitManagerAPI.Instance.KillUnit(hunterId); killed = NativeTick(); }
+            int freedAt = -1;
+            yield return new Until("lease released", () =>
+            {
+                lock (Engine())
+                {
+                    int lease = PreyLease(preyId);
+                    Runner.Require(lease >= 0, "fixture gone");
+                    if (lease == 0) freedAt = NativeTick();
+                    return freedAt >= 0 || NativeTick() - killed > maxTicks * 4;
+                }
+            });
+            uint nextUnitId;
+            lock (Engine()) nextUnitId = NextUnitId();
+            AcceptLog.Info("HUNT_LEASE type=" + type + " prey=" + preyId + " heldTicks=" + holdTicks + " minHeld=" + minHeld +
+                " freedAfter=" + (freedAt < 0 ? "never" : (freedAt - killed).ToString()) + " nextUnitId=" + nextUnitId);
+            Runner.Require(freedAt >= 0 && freedAt - killed <= maxTicks, "the lease was not released within " + maxTicks + " ticks");
+        }
 
         private static void HutTile(out int x, out int y, out int height)
         {

@@ -153,3 +153,33 @@ Gold, SE resource-policy veto/mutation and original-call exceptions are separate
 tested cases. Production backend tests execute an isolated native fixture with
 the exact prologue and validate the actual 9-byte trampoline. These tests do not
 establish live game/editor/save/load or real host/client acceptance.
+
+
+## Chore 113 request mode [Vanilla facts]
+
+Static follow-up on 2026-11-08, same native and managed hashes as above.
+`HUD_AlliesPanel.ButtonClicked("ConfirmGoods")` in request mode calls
+`EngineInterface.GameAction(Ally_RequestGoods, requestedPlayer, good, amount)`
+and then issues the panel's nested `Exit` click. The requester is the implicit
+native viewpoint at `DAT_1888E3D70`, and the player IDs are one-based.
+
+Confirmed export `DLL_GameAction` at `0x81870`, case `0x428`, checks the
+requester's physical capacity with `0xC5AD0` and donor availability with
+`0x30290`. Missing storage, insufficient space and donor refusal each return 1.
+Gold skips storage and goes through the donor check. Success submits Chore 113
+through `0x23990` and returns zero. Mode 1 carries signed 32-bit
+`(requestedPlayer, good - 1, amount, requester)` after the signed 16-bit mode.
+The local scheduled branch uses the larger of the current tick and last
+scheduled tick plus the manager delay. The ready-slot scan at `0x21EE0` checks
+the due tick. Submission reserves no storage.
+
+The statically confirmed dispatcher `0x1A6F0` calls `0xD78C0` for mode 1.
+The human target branch stores good and amount in signed 16-bit fields and
+can issue rate-limited local feedback. In the non-gold AI branch, `0xD78C0`
+credits the requester with `0xB58B0`, then debits the donor through `0xB7D80`
+and updates valuation. The credit can fail its execution-time capacity check.
+The outer handler ignores its result and still debits the donor. For example,
+production can consume the last eligible space while a request is queued.
+The managed return and the pre-queue capacity check cannot prove a balanced
+transfer. This case was verified statically and has no live reproduction in
+this audit.
