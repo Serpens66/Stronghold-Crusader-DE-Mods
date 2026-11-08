@@ -119,16 +119,20 @@ function Assert-RuntimePopupFactory {
 function Get-MenuXamlFiles([IO.DirectoryInfo]$directory) {
     $plugins = Join-Path $directory.FullName 'BepInEx/plugins'
     foreach ($folder in 'Patches','Override') {
-        $path = Join-Path $directory.FullName $folder
-        if (Test-Path -LiteralPath $path -PathType Container) {
-            Get-ChildItem -LiteralPath $path -Recurse -File -Filter '*.xaml'
-        } elseif (!$apiOwned -and (Test-Path -LiteralPath $plugins -PathType Container)) {
-            # Several older mods author their XAML directly in the plugin package.
+        $source = Join-Path $directory.FullName $folder
+        if (Test-Path -LiteralPath $source -PathType Container) {
+            Get-ChildItem -LiteralPath $source -Recurse -File -Filter '*.xaml'
+        }
+        if (!$apiOwned -and (Test-Path -LiteralPath $plugins -PathType Container)) {
+            # A mod can author some assets in the package and others in the source tree.
             foreach ($plugin in Get-ChildItem -LiteralPath $plugins -Directory) {
                 $path = Join-Path $plugin.FullName $folder
                 if ((Test-Path -LiteralPath (Join-Path $plugin.FullName 'info.json')) -and
                     (Test-Path -LiteralPath $path -PathType Container)) {
-                    Get-ChildItem -LiteralPath $path -Recurse -File -Filter '*.xaml'
+                    foreach ($file in Get-ChildItem -LiteralPath $path -Recurse -File -Filter '*.xaml') {
+                        $relative = $file.FullName.Substring($path.Length + 1)
+                        if (!(Test-Path -LiteralPath (Join-Path $source $relative) -PathType Leaf)) { $file }
+                    }
                 }
             }
         }

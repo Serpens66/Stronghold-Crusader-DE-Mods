@@ -40,8 +40,9 @@ namespace ImprovedHunters
         private const ushort HunterStateFollowingTarget = 1;
         private const ushort ActivePathState = 2;
         private const int MaximumSelectedDistance = 41;
-        private const int MaximumVisibilityResult = 432;
         private const int MaxDiagnosticLogs = 600;
+        // A Hunter at the end of his path is normal; the failed-attack recovery takes over from there.
+        private const string PathFinishedReason = "path-finished";
 
         private const string DistanceStageSequencePattern =
             "48 69 CB 90 04 00 00 83 FF 28 7E 1B " +
@@ -250,8 +251,7 @@ namespace ImprovedHunters
                     snapshot.PreyGlobalId,
                     prey->r_UnitChimp,
                     out int visibilityResult) ||
-                visibilityResult < 0 ||
-                visibilityResult > MaximumVisibilityResult)
+                visibilityResult < 0)
             {
                 StopAttempt(hunterUnitId, "visibility-probe-unavailable", nativeDistance, logRelease: false);
                 LogSkipOnce("visibility-probe-unavailable-or-invalid", hunterUnitId, nativeDistance);
@@ -360,12 +360,16 @@ namespace ImprovedHunters
             ushort pathProgress = *(ushort*)(hunterBytes + HunterPathProgressOffset);
             uint pathLength = *(uint*)(hunterBytes + HunterPathLengthOffset);
             ushort pathAdvanceControl = *(ushort*)(hunterBytes + HunterPathAdvanceControlOffset);
-            if (pathState != ActivePathState ||
-                pathLength <= 1 ||
-                pathLength > MaximumPathSteps ||
-                pathProgress >= pathLength)
+            if (pathState == ActivePathState && pathLength <= MaximumPathSteps &&
+                (pathLength <= 1 || pathProgress >= pathLength))
             {
-                failureReason = "path-unavailable-complete-or-out-of-range";
+                failureReason = PathFinishedReason;
+                return false;
+            }
+
+            if (pathState != ActivePathState || pathLength > MaximumPathSteps)
+            {
+                failureReason = "path-unavailable-or-out-of-range";
                 return false;
             }
 
@@ -649,7 +653,7 @@ namespace ImprovedHunters
                 "Improved Hunters remaining-path speed recovery skipped: " +
                 $"reason={reason}, hunter={hunterUnitId}, nativeDistance={nativeDistance}, " +
                 "currentCallbackMutation=False.",
-                warning: true);
+                warning: reason != PathFinishedReason);
         }
 
         private void LogDiagnostic(string message, bool warning = false)

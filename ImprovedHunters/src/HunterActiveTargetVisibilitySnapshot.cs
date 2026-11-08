@@ -855,7 +855,9 @@ namespace ImprovedHunters
             state = HunterActiveVisibilityState.Pending;
             classification = string.Empty;
             failure = string.Empty;
-            if (wrapperResult < 0 || wrapperResult > 432)
+            // Core 0x9E350 returns 0 when blocked and otherwise its step count (up to 1000, 100000 for the
+            // same point); Vanilla's Hunter callers only test < 1. Far targets therefore give large valid results.
+            if (wrapperResult < 0)
             {
                 failure = $"wrapper-result-{wrapperResult}";
                 return false;
@@ -868,8 +870,7 @@ namespace ImprovedHunters
                 return true;
             }
 
-            if (hunterToPreyResult < 0 || hunterToPreyResult > 432 ||
-                preyToHunterResult < 0 || preyToHunterResult > 432)
+            if (hunterToPreyResult < 0 || preyToHunterResult < 0)
             {
                 failure = $"directional-results-{hunterToPreyResult}-{preyToHunterResult}";
                 return false;

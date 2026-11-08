@@ -132,7 +132,12 @@ internal static class Program
             AppDomain.CurrentDomain.AssemblyResolve += (_, request) =>
             {
                 string name = new AssemblyName(request.Name).Name + ".dll";
-                foreach (string directory in directories) { string path = Path.Combine(directory, name); if (File.Exists(path)) return Assembly.LoadFrom(path); }
+                foreach (string directory in directories)
+                {
+                    string path = Path.Combine(directory, name);
+                    // Installed references may retain their download-zone marker.
+                    if (File.Exists(path)) return Assembly.Load(File.ReadAllBytes(path));
+                }
                 return null;
             };
             Assembly ed = Assembly.LoadFrom(Path.GetFullPath(args[0])), sp = Assembly.LoadFrom(Path.GetFullPath(args[1]));

@@ -27,6 +27,7 @@ namespace UiAcceptance
             Runner.Register("WaitMarker", WaitMarker);
             Runner.Register("Screenshot", Screenshot);
             Runner.Register("ModSettings.SelectTab", SelectModSettingsTab);
+            Runner.Register("ModSettings.Scroll", ScrollModSettingsPage);
             Runner.Register("ExpectElement", ExpectElement);
             Runner.Register("InvokeCommand", InvokeCommand);
             Runner.Register("SetModSetting", SetModSetting);
@@ -293,6 +294,40 @@ namespace UiAcceptance
             yield break;
         }
 
+        // Scrolls the open settings page of a mod, for screenshots of its lower part.
+        // args: view model type name (e.g. ImprovedHuntersViewModel), position 0..1 of the scrollable height.
+        private static IEnumerable<Wait> ScrollModSettingsPage(Step step)
+        {
+            double position = double.Parse(step.Arg(1), CultureInfo.InvariantCulture);
+            Noesis.ScrollViewer scroll = null;
+            yield return new Until("settings page of " + step.Arg(0), () => (scroll = FindPageScroll(step.Arg(0))) != null);
+            scroll.ScrollToVerticalOffset((float)(Math.Max(0, Math.Min(1, position)) * scroll.ScrollableHeight));
+            yield return new Delay(300);
+            AcceptLog.Info("SETTINGS_SCROLL " + step.Arg(0) + " offset=" + scroll.VerticalOffset.ToString("0", CultureInfo.InvariantCulture) +
+                "/" + scroll.ScrollableHeight.ToString("0", CultureInfo.InvariantCulture));
+        }
+
+        // The first scroll viewer in a live view whose data context is the mod's settings model.
+        private static Noesis.ScrollViewer FindPageScroll(string modelType)
+        {
+            foreach (NoesisView view in UnityEngine.Object.FindObjectsOfType<NoesisView>())
+            {
+                if (view == null || view.Content == null)
+                    continue;
+                var pending = new Queue<Noesis.DependencyObject>();
+                pending.Enqueue(view.Content);
+                for (int visited = 0; pending.Count > 0 && visited < 20000; visited++)
+                {
+                    Noesis.DependencyObject node = pending.Dequeue();
+                    if (node is Noesis.ScrollViewer scroll && scroll.DataContext?.GetType().Name == modelType && scroll.IsVisible)
+                        return scroll;
+                    for (int i = 0; i < Noesis.VisualTreeHelper.GetChildrenCount(node); i++)
+                        pending.Enqueue(Noesis.VisualTreeHelper.GetChild(node, i));
+                }
+            }
+            return null;
+        }
+
         // A XAML patch of a mod really reached the live visual tree. args: element name.
         private static IEnumerable<Wait> ExpectElement(Step step)
         {
@@ -321,7 +356,9 @@ namespace UiAcceptance
             PropertyInfo property = model.GetType().GetProperty(step.Arg(1)) ?? throw new StepFailure("no property " + step.Arg(1));
             object value = Convert.ChangeType(step.Arg(2), property.PropertyType, CultureInfo.InvariantCulture);
             property.SetValue(model, value, null);
-            Runner.Require(Equals(property.GetValue(model, null), value), step.Arg(1) + " did not accept " + step.Arg(2));
+            // Optional fourth argument: the value the setting keeps, for limits that clamp the input.
+            object stored = step.Args.Length > 3 ? Convert.ChangeType(step.Arg(3), property.PropertyType, CultureInfo.InvariantCulture) : value;
+            Runner.Require(Equals(property.GetValue(model, null), stored), step.Arg(1) + " did not keep " + stored + " for " + step.Arg(2));
             AcceptLog.Info("SETTING " + step.Arg(0) + "." + step.Arg(1) + "=" + value);
             yield break;
         }

@@ -22,7 +22,10 @@
         "New: Extinct deer and goat herds return with two animals to their start place after a set time.",
         "New: Area limit that keeps deer and goat herds near their start place.",
         "New: Optional herds at the players' castles at the start of a new game, for maps without deer and goats or for every map.",
-        "Fixed: outdated help text of the mod."
+        "Changed: meat per animal and per Tannery trip can be set up to 50.",
+        "Changed: slider rows in the mod settings keep label, slider and value close together.",
+        "Fixed: outdated help text of the mod.",
+        "Fixed: false warnings in the log when a Hunter saw a far target or reached the end of his path."
       ]
     },
     {

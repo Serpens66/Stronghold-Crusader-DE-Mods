@@ -12,7 +12,7 @@ namespace ImprovedHunters
         public const int HidesPerCow = 3;
         public const int DefaultMeatPerTrip = 5;
         public const int MinimumMeatPerTrip = 1;
-        public const int MaximumMeatPerTrip = 100;
+        public const int MaximumMeatPerTrip = 50;
 
         public static int ClampMeatPerTrip(int value) =>
             Math.Max(MinimumMeatPerTrip, Math.Min(MaximumMeatPerTrip, value));

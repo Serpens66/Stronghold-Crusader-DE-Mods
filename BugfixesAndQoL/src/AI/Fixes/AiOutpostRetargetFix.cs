@@ -16,7 +16,7 @@ using static BugfixesAndQoL.AiOutpostRetargetNative;
 
 namespace BugfixesAndQoL
 {
-    internal sealed unsafe class AiOutpostRetargetFix
+    internal sealed unsafe partial class AiOutpostRetargetFix
     {
         private const string Site = "AI.OutpostRetarget";
         private const string NativeHash = "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2";
@@ -136,7 +136,11 @@ namespace BugfixesAndQoL
             }
             Shared.DebugLogHelper.LogInfo(log, $"AI_OUTPOST_RETARGET_READY: method={resolution.Method}, rva=0x{HookRva:X}, " +
                 $"continuation=0x{ContinueRva:X}, span=22 (8+5+9), selector=0x{SelectorRva:X}, enabled={enabled}.");
+            InstallDiagnostic(context);
         }
+
+        partial void InstallDiagnostic(CrusaderLibraryLoadContext context);
+        partial void ObserveRetarget(int tribeId, uint globalId, int oldTarget, int newTarget);
 
         internal void SetEnabled(bool enabled)
         {
@@ -196,6 +200,8 @@ namespace BugfixesAndQoL
                 {
                     if (!accepted) *target = oldTarget;
                 }
+
+                ObserveRetarget(tribeId, tribe->r_GlobalId, oldTarget, *target);
 
                 if (firstRetarget == 0 && Interlocked.Exchange(ref firstRetarget, 1) == 0)
                 {

@@ -463,13 +463,17 @@ namespace ImprovedHunters
                 pathLength > MaximumPathSteps ||
                 pathProgress >= pathLength)
             {
+                // A finished path is a normal end of the approach and stays with Vanilla; only an unexpected
+                // path state is worth a warning.
+                bool pathFinished = pathState == ActivePathState && pathLength <= MaximumPathSteps &&
+                    (pathLength <= 1 || pathProgress >= pathLength);
                 ClearHunterAttemptState(hunterUnitId);
                 LogPreparationRejection(
                     hunterUnitId,
-                    "tile-attack-path-revalidation-failed",
+                    pathFinished ? "tile-attack-path-finished" : "tile-attack-path-revalidation-failed",
                     $"target={preyUnitId}/{preyGlobalId}, path={pathState}/{pathFieldF4}/" +
                     $"{pathProgress}/{pathLength}",
-                    warning: true);
+                    warning: !pathFinished);
                 return;
             }
 

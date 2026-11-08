@@ -5,17 +5,7 @@ Makes Hunters more useful and gives Tanneries a second purpose. Hunters choose t
 ## Hunters
 
 ### What they hunt and how much meat it gives
-You decide separately for deer, goats, rabbits, camels and chickens whether Hunters hunt them and how much meat one animal gives (0 to 100).
-
-| Animal | Hunted by default | Base meat |
-|---|---|---|
-| Deer | Yes | 6 |
-| Goat | Yes | 6 |
-| Rabbit | Yes | 2 |
-| Camel | Yes | 8 |
-| Chicken | Yes, only your own | 1 |
-
-The meat value is a base amount. The game's usual production bonus still applies, as for all production: +50% in skirmish and multiplayer, more with fear factor. A deer therefore brings 9 meat in a normal skirmish.
+Hunters hunt deer, goats, rabbits, camels and your own chickens. In the mod settings you can switch each animal off and set how much meat it gives.
 
 ### Better choice of prey
 With **Improved Target Selection**, Hunters prefer the animal that brings the most meat for the time it takes, including the walk there and back to the granary. They ignore animals they cannot reach. A Hunter who is already on his way changes his mind once if a clearly closer animal appears, and does not change back.
@@ -59,7 +49,7 @@ Melee units no longer attack rabbits on their own, so your soldiers do not wande
 
 A slider in the Tannery panel divides the three hides of a cow between meat and the Tannery's weapon or armour: far left for meat only, far right for weapon or armour only. Each Tannery is set on its own and starts with no meat. The slider works alongside the Tannery's normal production choice, so weapons or armour added by other mods are produced the same way.
 
-Meat goes to the granary, after the Tanner has finished the other runs of that cow. You set the base amount per trip in the mod settings (default 5, up to 100); the production bonus applies here as well. The slider position is kept in saved games. You can switch the whole feature off in the mod settings.
+Meat goes to the granary, after the Tanner has finished the other runs of that cow. You set the meat per trip in the mod settings. The slider position is kept in saved games. You can switch the whole feature off in the mod settings.
 
 ## Requirements and settings
 

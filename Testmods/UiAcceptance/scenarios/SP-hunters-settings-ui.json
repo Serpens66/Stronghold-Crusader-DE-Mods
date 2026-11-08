@@ -1,0 +1,28 @@
+{
+  "enabled": true,
+  "series": "SP-hunters-settings-ui",
+  "role": "sp",
+  "quitWhenDone": true,
+  "steps": [
+    {"id": "menu", "do": "WaitMainMenu", "timeoutMs": 60000, "stopOnFail": true, "allowErrors": true},
+    {"id": "chicken-high", "do": "SetModSetting", "args": ["ImprovedHunters.ImprovedHuntersPlugin::persistentSettings", "ChickenMeat", "70", "50"]},
+    {"id": "chicken-capped", "do": "ExpectModSetting", "args": ["ImprovedHunters.ImprovedHuntersPlugin::persistentSettings", "ChickenMeat", "50"]},
+    {"id": "tanner-high", "do": "SetModSetting", "args": ["ImprovedHunters.ImprovedHuntersPlugin::persistentSettings", "TannerMeatPerTrip", "80", "50"]},
+    {"id": "tanner-capped", "do": "ExpectModSetting", "args": ["ImprovedHunters.ImprovedHuntersPlugin::persistentSettings", "TannerMeatPerTrip", "50"]},
+    {"id": "chicken-default", "do": "SetModSetting", "args": ["ImprovedHunters.ImprovedHuntersPlugin::persistentSettings", "ChickenMeat", "1"]},
+    {"id": "tanner-default", "do": "SetModSetting", "args": ["ImprovedHunters.ImprovedHuntersPlugin::persistentSettings", "TannerMeatPerTrip", "5"]},
+    {"id": "skirmish", "do": "Skirmish.Open", "timeoutMs": 30000, "stopOnFail": true},
+    {"id": "hub", "do": "InvokeCommand", "args": ["SHCDESE.BepInEx.Bootstrap.Plugin::ModSettingsHubViewModel.ToggleWindowCommand"], "stopOnFail": true},
+    {"id": "tab", "do": "ModSettings.SelectTab", "args": ["ImprovedHunters_Serp"], "stopOnFail": true},
+    {"id": "wait-page", "do": "Wait", "args": ["2500"]},
+    {"id": "scroll-0", "do": "ModSettings.Scroll", "args": ["ImprovedHuntersViewModel", "0"], "timeoutMs": 10000},
+    {"id": "shot-0", "do": "Screenshot", "args": ["hunters-settings-0"]},
+    {"id": "scroll-1", "do": "ModSettings.Scroll", "args": ["ImprovedHuntersViewModel", "0.35"], "timeoutMs": 10000},
+    {"id": "shot-1", "do": "Screenshot", "args": ["hunters-settings-1"]},
+    {"id": "scroll-2", "do": "ModSettings.Scroll", "args": ["ImprovedHuntersViewModel", "0.7"], "timeoutMs": 10000},
+    {"id": "shot-2", "do": "Screenshot", "args": ["hunters-settings-2"]},
+    {"id": "scroll-3", "do": "ModSettings.Scroll", "args": ["ImprovedHuntersViewModel", "1"], "timeoutMs": 10000},
+    {"id": "shot-3", "do": "Screenshot", "args": ["hunters-settings-3"]},
+    {"id": "hub-close", "do": "InvokeCommand", "args": ["SHCDESE.BepInEx.Bootstrap.Plugin::ModSettingsHubViewModel.ToggleWindowCommand"], "allowErrors": true}
+  ]
+}

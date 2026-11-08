@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Patch xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-       xmlns:local="clr-namespace:CrusaderDE">
+       xmlns:local="clr-namespace:CrusaderDE"
+       xmlns:apiui="clr-namespace:APIShared.ModSettings;assembly=APIShared">
+  <Operation Type="AddNamespace" AttributeName="apiui" Value="clr-namespace:APIShared.ModSettings;assembly=APIShared" />
   <Operation Type="Add" XPath="/n:UserControl/n:Grid">
     <Content>
       <!-- This root follows Vanilla's UIScaleValueWidth/Height and therefore
@@ -12,6 +14,27 @@
             Visibility="{Binding HudVisible, Converter={StaticResource booleanToVisibilityConverter}}"
             Tag="IgnoreSelf">
         <Grid.Resources>
+          <Style x:Key="CastlePlannerBlueprintToolTipStyle" TargetType="{x:Type ToolTip}">
+            <Setter Property="Background" Value="#FF1D1710" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="FontSize" Value="{x:Static apiui:ToolTipPresentation.AutomaticFontSize}" />
+            <Setter Property="MaxWidth" Value="{x:Static apiui:ToolTipPresentation.AutomaticMaximumWidth}" />
+            <Setter Property="Padding" Value="24,18" />
+            <Setter Property="BorderThickness" Value="4.5" />
+            <Setter Property="BorderBrush" Value="#FFF2D48A" />
+            <Setter Property="Template">
+              <Setter.Value>
+                <ControlTemplate TargetType="{x:Type ToolTip}">
+                  <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                          BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="2"
+                          Padding="{TemplateBinding Padding}" MaxWidth="{TemplateBinding MaxWidth}">
+                    <TextBlock Text="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}"
+                               FontSize="{TemplateBinding FontSize}" TextWrapping="Wrap" />
+                  </Border>
+                </ControlTemplate>
+              </Setter.Value>
+            </Setter>
+          </Style>
           <!-- The reference UI uses pale parchment actions. Keep their text
                explicitly dark instead of inheriting the light HUD foreground. -->
           <Style x:Key="CastlePlannerParchmentButton"
@@ -183,23 +206,35 @@
                   <CheckBox IsChecked="{Binding BlueprintShowFortifications, Mode=TwoWay}"
                             Content="{Binding ShowFortificationsText}"
                             Foreground="#FFF4E8C4"
-                            ToolTip="{Binding ShowFortificationsHelpText}"
-                            ToolTipService.ShowDuration="60000"/>
+                            ToolTipService.ShowDuration="60000">
+                    <CheckBox.ToolTip><ToolTip Style="{StaticResource CastlePlannerBlueprintToolTipStyle}"
+                                               apiui:SharedToolTipSizing.Enabled="True"
+                                               Content="{Binding ShowFortificationsHelpText}" /></CheckBox.ToolTip>
+                  </CheckBox>
                   <CheckBox IsChecked="{Binding BlueprintShowBuildings, Mode=TwoWay}"
                             Content="{Binding ShowBuildingsText}"
                             Foreground="#FFF4E8C4"
-                            ToolTip="{Binding ShowBuildingsHelpText}"
-                            ToolTipService.ShowDuration="60000" Margin="0,3,0,0"/>
+                            ToolTipService.ShowDuration="60000" Margin="0,3,0,0">
+                    <CheckBox.ToolTip><ToolTip Style="{StaticResource CastlePlannerBlueprintToolTipStyle}"
+                                               apiui:SharedToolTipSizing.Enabled="True"
+                                               Content="{Binding ShowBuildingsHelpText}" /></CheckBox.ToolTip>
+                  </CheckBox>
                   <CheckBox IsChecked="{Binding BlueprintShowDefensiveGroundFeatures, Mode=TwoWay}"
                             Content="{Binding ShowDefensiveGroundFeaturesText}"
                             Foreground="#FFF4E8C4"
-                            ToolTip="{Binding ShowDefensiveGroundFeaturesHelpText}"
-                            ToolTipService.ShowDuration="60000" Margin="0,3,0,0"/>
+                            ToolTipService.ShowDuration="60000" Margin="0,3,0,0">
+                    <CheckBox.ToolTip><ToolTip Style="{StaticResource CastlePlannerBlueprintToolTipStyle}"
+                                               apiui:SharedToolTipSizing.Enabled="True"
+                                               Content="{Binding ShowDefensiveGroundFeaturesHelpText}" /></CheckBox.ToolTip>
+                  </CheckBox>
                   <CheckBox IsChecked="{Binding BlueprintShowFearFactorBuildings, Mode=TwoWay}"
                             Content="{Binding ShowFearFactorBuildingsText}"
                             Foreground="#FFF4E8C4"
-                            ToolTip="{Binding ShowFearFactorBuildingsHelpText}"
-                            ToolTipService.ShowDuration="60000" Margin="0,3,0,0"/>
+                            ToolTipService.ShowDuration="60000" Margin="0,3,0,0">
+                    <CheckBox.ToolTip><ToolTip Style="{StaticResource CastlePlannerBlueprintToolTipStyle}"
+                                               apiui:SharedToolTipSizing.Enabled="True"
+                                               Content="{Binding ShowFearFactorBuildingsHelpText}" /></CheckBox.ToolTip>
+                  </CheckBox>
                 </StackPanel>
 
                 <Grid Margin="3,7,3,0">

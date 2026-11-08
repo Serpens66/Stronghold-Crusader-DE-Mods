@@ -92,6 +92,7 @@ Run("Settings", new[] { vm, Read("StartConditions/src/IStartConditionsSettings.c
 if (!baseline) Run("SimulationReadiness", new[] {
     Read("Shared/Adapters/APIShared/ActivePlayerKeepReadiness.cs"),
     Read("APIShared/src/Simulation/SimulationClock.cs"),
+    Read("APIShared/src/Simulation/SimulationMutationScope.cs"),
     Read("APIShared/src/Simulation/SimulationTickRegistry.cs"),
     Read("APIShared/src/Core/Events/OwnedCallbacks.cs"),
     """

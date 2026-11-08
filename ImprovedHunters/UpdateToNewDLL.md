@@ -50,7 +50,7 @@ only these diagnostic paths.
 | `ComparisonSequencePattern` | `0xD2AB4` | granary chicken target comparison hook at `+11` (`0xD2ABF`) |
 | `HunterQueryCandidateLoopPattern` | `0x18AFC0` | temporary Script Extender issue-123 actor capture |
 | Native Hunter visibility wrapper | `0xA06F0` | behavior-neutral direct probe; seven arguments including context |
-| Native Hunter visibility core | `0x9E350` | wrapper calls forward first and returns immediately when positive; reverse is called only after forward returns zero; `1.1.52` validates the entry and may call both directions explicitly |
+| Native Hunter visibility core | `0x9E350` | wrapper calls forward first and returns immediately when positive; reverse is called only after forward returns zero; `1.1.52` validates the entry and may call both directions explicitly; returns `0` when blocked, otherwise its step count along the line (up to `1000`, `100000` for the same point); Vanilla's Hunter callers only test `< 1`, so any positive value means visible |
 | Shared obstacle-height helper | `0x6B990` | reads tile flags, building identity/type and effective obstacle height |
 | Building-height type switch | `0x6B9F8` | dispatches building types `7..78` |
 | Building-height dispatch targets | `0x6BAB4` | entries `0..3`; entry `3` is the normal fixed-height case |

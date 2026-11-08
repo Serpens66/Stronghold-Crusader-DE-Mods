@@ -17,6 +17,7 @@ namespace ImprovedHunters
         private const int DefaultRabbitMeat = 2;
         private const int DefaultCamelMeat = 8;
         private const int DefaultChickenMeat = 1;
+        private const int MaximumMeat = 50;
 
         private bool enableMod = true;
         private bool improvedTargetSelection = true;
@@ -367,6 +368,8 @@ namespace ImprovedHunters
             }
 
             setValue(parsed);
+            // Shows the clamped value even when the stored value did not change.
+            OnPropertyChanged(textPropertyName);
         }
 
         private void SetBoundedIntText(string text, Action<int> setValue, string textPropertyName)
@@ -388,7 +391,7 @@ namespace ImprovedHunters
             if (value < 0)
                 return defaultValue;
 
-            return Math.Min(value, 100);
+            return Math.Min(value, MaximumMeat);
         }
     }
 }

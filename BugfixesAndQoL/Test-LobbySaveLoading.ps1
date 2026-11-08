@@ -19,7 +19,7 @@ foreach ($name in @('EnableSoloMultiplayerSaveLoading', 'FixSkirmishLoadButtonVi
     }
     $controls = @($xaml.SelectNodes("//*[local-name()='CheckBox'][@IsChecked='{Binding $name, Mode=TwoWay}']"))
     if ($controls.Count -ne 1 -or $controls[0].GetAttribute('Content') -ne "{Binding ${name}Text}" -or
-        $controls[0].GetAttribute('ToolTip') -ne "{Binding ${name}HelpText}" -or
+        $controls[0].SelectSingleNode("./*[local-name()='CheckBox.ToolTip']/*[local-name()='ToolTip']/@Content").Value -ne "{Binding ${name}HelpText}" -or
         $controls[0].GetAttribute('ToolTipService.ShowDuration') -ne '60000') { throw "Invalid setting control: $name" }
     foreach ($file in Get-ChildItem -LiteralPath (Join-Path $modRoot 'Locales') -Filter '*.txt') {
         $text = [IO.File]::ReadAllText($file.FullName)

@@ -20,16 +20,6 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-function Test-SeTooltipScaleStyle([System.Xml.XmlNode] $Style) {
-    foreach ($setter in $Style.SelectNodes("./*[local-name()='Setter' and @Value='True']")) {
-        if ($setter.GetAttribute('Property') -match '^([^:]+):ToolTipResolutionScale\.Enabled$' -and
-            $setter.GetNamespaceOfPrefix($Matches[1]) -eq 'clr-namespace:SHCDESE.UI;assembly=SHCDESE') {
-            return $true
-        }
-    }
-    return $false
-}
-
 $workspace = Split-Path -Parent $PSScriptRoot
 # Windows PowerShell 5.1 has no Path.GetRelativePath. Every audited input is owned
 # by this workspace; verify that boundary before computing its relative spelling.
@@ -77,7 +67,7 @@ $localeDirectories = [ordered]@{
 }
 
 $viewModelSources = @{
-    BugfixesAndQoL = 'BugfixesAndQoL/src/BugfixesAndQoLViewModel.cs'
+    BugfixesAndQoL = 'BugfixesAndQoL/src/Settings/BugfixesAndQoLViewModel.cs'
     BuildingCosts = 'BuildingCosts/src/BuildingCostsLobbyViewModel.cs'
     BuildingLimit = 'BuildingLimit/src/BuildingLimitLobbyViewModel.cs'
     CheatMod = 'CheatMod/src/CheatModSettingsViewModel.cs'
@@ -124,6 +114,43 @@ foreach ($modName in $selectedModNames) {
 function Test-ModSelected([string] $Name) {
     return $selectedModNames -contains $Name
 }
+
+function Get-ViewModelSource([string] $Name) {
+    $main = Join-Path $workspace $viewModelSources[$Name]
+    $stem = [IO.Path]::GetFileNameWithoutExtension($main)
+    $projectRoot = Join-Path $workspace $Name
+    [xml]$project = [IO.File]::ReadAllText((Join-Path $projectRoot "$Name.csproj"))
+    $partials = @(foreach ($compile in $project.SelectNodes("//*[local-name()='Compile' and @Include]")) {
+        $include = $compile.GetAttribute('Include')
+        if ([IO.Path]::GetFileName($include) -like "$stem.*.cs") {
+            Join-Path $projectRoot $include
+        }
+    })
+    return (@($main) + $partials | ForEach-Object { [IO.File]::ReadAllText($_) }) -join [Environment]::NewLine
+}
+
+function Get-ClassifiedEditorProxies([string] $Source, [string[]] $ClassifiedProperties) {
+    # Recognize only known editor routes that forward to a classified setting.
+    # The compiled settings suites verify parsing, normalization and role behavior.
+    $prefix = '(?ms)^\s*public (?:string|int) (?<proxy>\w+)\s*\{(?:(?!\bpublic\s+).)*?\bset\s*'
+    $routes = @(
+        '=>\s*Set(?:BoundedInt|IntValue|DoubleValue)Text\(value,\s*(?<value>\w+)\s*=>\s*(?<target>\w+)\s*=\s*\k<value>,\s*nameof\(\k<proxy>\)\);',
+        '\{\s*if\s*\(int\.TryParse\(value,\s*NumberStyles\.Integer,\s*CultureInfo\.InvariantCulture,\s*out int (?<value>\w+)\)\)\s*(?<target>\w+)\s*=\s*\k<value>;\s*OnPropertyChanged\(nameof\(\k<proxy>\)\);\s*\}',
+        '=>\s*(?<target>\w+)\s*=\s*\(\w+\)value;'
+    )
+    foreach ($match in [regex]::Matches($Source, $prefix + '(?:' + ($routes -join '|') + ')')) {
+        if ($ClassifiedProperties -ccontains $match.Groups['target'].Value) { $match.Groups['proxy'].Value }
+    }
+}
+
+function Get-TooltipBinding([Xml.XmlElement] $Owner) {
+    $popup = $Owner.SelectSingleNode("./*[local-name()='" + $Owner.LocalName + ".ToolTip']/*[local-name()='ToolTip']")
+    if ($null -ne $popup) { return $popup.GetAttribute('Content') }
+    return $Owner.GetAttribute('ToolTip')
+}
+
+& (Join-Path $workspace 'Shared/Tools/Validation/Test-IngameTooltips.ps1') -Workspace $workspace `
+    -ModDirectories @($selectedModNames | ForEach-Object { Join-Path $workspace $_ })
 
 function Test-HasModSettingsSearchTitle([Xml.XmlElement] $Element) {
     $current = $Element
@@ -288,6 +315,8 @@ foreach ($entry in $settings.GetEnumerator()) {
             }
             foreach ($attributeName in @('IsChecked','SelectedValue','SelectedIndex','SelectedItem','Value','Text')) {
                 $binding = $element.GetAttribute($attributeName)
+                if ($binding -match '\bMode\s*=\s*One(?:Way|Time)\b' -or
+                    ($attributeName -eq 'Text' -and $element.GetAttribute('IsReadOnly') -eq 'True')) { continue }
                 if ($binding -match '^\{Binding\s+([^,}\s]+)') {
                     $editableBindings += $matches[1]
                 }
@@ -295,7 +324,7 @@ foreach ($entry in $settings.GetEnumerator()) {
         }
     }
 
-    $viewModelSource = [IO.File]::ReadAllText((Join-Path $workspace $viewModelSources[$entry.Key]))
+    $viewModelSource = Get-ViewModelSource $entry.Key
     $classifiedProperties = @([Text.RegularExpressions.Regex]::Matches(
         $viewModelSource,
         '(?s)\[(?:[^\]]*?)(?:SyncHostOnly|SyncPerPlayer|PresetLocal)(?:[^\]]*?)\]\s*public\s+[\w<>,\.\[\]\s]+?\s+(?<name>\w+)\s*(?:\{|=>)') |
@@ -307,7 +336,7 @@ foreach ($entry in $settings.GetEnumerator()) {
     $hasClientSettings = [Text.RegularExpressions.Regex]::IsMatch(
         $viewModelSource,
         '(?s)\[[^\]]*(?:SyncPerPlayer|PresetLocal)[^\]]*\]\s*public')
-    $allowedProxies = @($editableProxyBindings[$entry.Key])
+    $allowedProxies = @($editableProxyBindings[$entry.Key]) + @(Get-ClassifiedEditorProxies $viewModelSource $classifiedProperties)
     $unclassifiedBindings = @($editableBindings |
         Sort-Object -Unique |
         Where-Object {
@@ -363,33 +392,12 @@ foreach ($entry in $settings.GetEnumerator()) {
     }
 
     $text = [IO.File]::ReadAllText($path)
-    # SE 2.3.0 can supply size presets on the ToolTip itself. Accept only a
-    # real enabled setter in the ToolTip style, not a marker elsewhere in XAML.
-    $usesSeTooltipScale = $false
-    foreach ($style in $xml.SelectNodes("//*[local-name()='Style' and @TargetType='{x:Type ToolTip}']")) {
-        if (Test-SeTooltipScaleStyle $style) {
-            $usesSeTooltipScale = $true
-        }
-    }
     $requiredMarkers = @(
-        'TargetType="{x:Type ToolTip}"',
         'VerticalScrollBarVisibility="Auto"',
-        'HorizontalScrollBarVisibility="Auto"',
-        'Value="#FF1D1710"',
-        'TextWrapping="Wrap"')
-    if ($usesSeTooltipScale) {
-        $requiredMarkers += @(
-            'MaxWidth="{TemplateBinding MaxWidth}"',
-            'FontSize="{TemplateBinding FontSize}"')
-    } else {
-        $requiredMarkers += @(
-            'MaxWidth="{x:Static shared:ToolTipPresentation.MaximumWidth}"',
-            'Value="{x:Static shared:ToolTipPresentation.FontSize}"',
-            'FontSize="{x:Static shared:ToolTipPresentation.FontSize}"')
-    }
+        'HorizontalScrollBarVisibility="Auto"')
     if ($entry.Key -ne 'SerpsModsHost') {
         $requiredMarkers += 'Text="{Binding ModEnabledText}"'
-        $requiredMarkers += if ($entry.Key -eq 'ExtraFeatures') { 'x:Key="TopicHeading"' } else { 'x:Key="SectionHeader"' }
+        $requiredMarkers += if ($entry.Key -in @('BugfixesAndQoL','ExtraFeatures')) { 'x:Key="TopicHeading"' } else { 'x:Key="SectionHeader"' }
         $requiredMarkers += @(
             'Command="{Binding System_DeletePresetCommand}"',
             'IsEnabled="{Binding System_CanDeleteSelectedPreset}"',
@@ -483,60 +491,21 @@ foreach ($entry in $settings.GetEnumerator()) {
             'MarketBuyPriceMultiplierValueText', 'MarketSellPriceMultiplierValueText',
             'MarketPricesAlsoForAI', 'MarketPricesAlsoForAIHelpText',
             'PlagueDurationMultiplierValueText', 'ApothecaryPlagueSearchDistanceValueText',
-            'HumanEnemyProximitySingleplayerValueText',
-            'HumanEnemyProximityMultiplayerValueText',
-            'AIEnemyProximitySingleplayerValueText',
-            'AIEnemyProximityMultiplayerValueText',
             'AITowerGateRebuildDelayValueText')) {
             if (-not $text.Contains($requiredValueBinding)) {
                 throw "ExtraFeatures: Slider unit binding is missing: $requiredValueBinding"
             }
         }
 
-        $viewModelText = [IO.File]::ReadAllText((Join-Path $workspace $viewModelSources.ExtraFeatures))
-        $enemyProximityFields = [ordered]@{
-            HumanEnemyProximitySingleplayer = 'humanEnemyProximitySingleplayer'
-            HumanEnemyProximityMultiplayer = 'humanEnemyProximityMultiplayer'
-            AIEnemyProximitySingleplayer = 'aiEnemyProximitySingleplayer'
-            AIEnemyProximityMultiplayer = 'aiEnemyProximityMultiplayer'
-        }
-        foreach ($propertyName in $enemyProximityFields.Keys) {
-            if ($viewModelText -notmatch "\[SyncHostOnly\]\s+public int $propertyName\b") {
-                throw "ExtraFeatures: enemy-proximity property is not SyncHostOnly: $propertyName"
-            }
-            $fieldName = [Regex]::Escape($enemyProximityFields[$propertyName])
-            if ($viewModelText -notmatch "private int $fieldName = EnemyProximityPolicy\.VanillaMode;") {
-                throw "ExtraFeatures: enemy-proximity default is not Vanilla (-1): $propertyName"
-            }
-            if ($viewModelText -notmatch "$propertyName\s*=\s*EnemyProximityPolicy\.VanillaMode;") {
-                throw "ExtraFeatures: enemy-proximity reset is not Vanilla (-1): $propertyName"
-            }
-            if ($viewModelText -notmatch "SetIntSetting\([^;]*EnemyProximityPolicy\.MinimumRadius, EnemyProximityPolicy\.MaximumRadius, nameof\($propertyName\)") {
-                throw "ExtraFeatures: enemy-proximity range is not the shared -1..100 range: $propertyName"
-            }
-        }
-        if ($viewModelText -match '\bAIRepairEnemyProximity\b') {
+        # Defaults, ranges, migration and host authority are covered by the compiled
+        # ExtraFeatures settings suites for the current civilian and military editors.
+        if ($viewModelSource -match '\bAIRepairEnemyProximity\b') {
             throw 'ExtraFeatures: obsolete AIRepairEnemyProximity property remains in the ViewModel.'
         }
     }
 }
 
-$toolTipPresentationPath = Join-Path $workspace 'Shared/Runtime/UI/ToolTipPresentation.cs'
-$toolTipPresentation = [IO.File]::ReadAllText($toolTipPresentationPath)
-foreach ($required in @(
-    'public static class ToolTipPresentation',
-    'public static float FontSize => 50.0f;',
-    'public static float MaximumWidth => 1000.0f;')) {
-    if (-not $toolTipPresentation.Contains($required)) {
-        throw "Shared fixed tooltip presentation marker is missing: $required"
-    }
-}
-
-# Fixed-size styles bind directly; SE-scaled styles consume the host's preset.
-$sharedToolTipXamlPaths = @($settings.Values)
 if (Test-ModSelected 'BugfixesAndQoL') {
-    $sharedToolTipXamlPaths += @(
-        'BugfixesAndQoL/Patches/Assets/GUI/XAMLResources/FRONT_Multiplayer.xaml')
     # The AI card routes its hover help through Vanilla's bottom help panel;
     # it no longer declares a ToolTip template.
     $aiSettingsPatch = [xml][IO.File]::ReadAllText((Join-Path $workspace 'BugfixesAndQoL/Patches/Assets/GUI/XAMLResources/FRONT_Multiplayer_AISettings.xaml'))
@@ -546,33 +515,6 @@ if (Test-ModSelected 'BugfixesAndQoL') {
         if ([string]::IsNullOrWhiteSpace($node.GetAttribute('AiSettingsHelpHover.Text',
             'clr-namespace:Shared;assembly=BugfixesAndQoL'))) {
             throw 'AI settings card hover help text is empty.'
-        }
-    }
-}
-if (Test-ModSelected 'ExtraFeatures') {
-    $sharedToolTipXamlPaths += 'ExtraFeatures/Patches/Assets/GUI/XAMLResources/HUD_Buildings.xaml'
-}
-foreach ($relativePath in @($sharedToolTipXamlPaths | Sort-Object -Unique)) {
-    $xamlText = [IO.File]::ReadAllText((Join-Path $workspace $relativePath))
-    $tooltipDocument = [xml]$xamlText
-    $contentTextBlocks = $tooltipDocument.SelectNodes("//*[local-name()='TextBlock' and @Text='{TemplateBinding Content}']")
-    if ($contentTextBlocks.Count -eq 0) {
-        throw "Shared tooltip template content TextBlock is missing: $relativePath"
-    }
-    foreach ($contentTextBlock in $contentTextBlocks) {
-        $ownerStyle = $contentTextBlock.SelectSingleNode("ancestor::*[local-name()='Style' and @TargetType='{x:Type ToolTip}'][1]")
-        $scaled = $null -ne $ownerStyle -and (Test-SeTooltipScaleStyle $ownerStyle)
-        $ownerTooltip = $contentTextBlock.SelectSingleNode("ancestor::*[local-name()='ToolTip'][1]")
-        if ($null -ne $ownerTooltip) {
-            $scaleAttribute = $ownerTooltip.GetAttributeNode('ToolTipResolutionScale.Enabled', 'clr-namespace:SHCDESE.UI;assembly=SHCDESE')
-            if ($null -ne $scaleAttribute) { $scaled = $scaleAttribute.Value -eq 'True' }
-        }
-        $expectedFont = if ($scaled) { '{TemplateBinding FontSize}' } else { '{x:Static shared:ToolTipPresentation.FontSize}' }
-        if ($contentTextBlock.GetAttribute('FontSize') -ne $expectedFont) {
-            throw "Tooltip content must use its owning style's font contract ($expectedFont): $relativePath"
-        }
-        if ($contentTextBlock.GetAttribute('TextWrapping') -ne 'Wrap') {
-            throw "Tooltip content must wrap: $relativePath"
         }
     }
 }
@@ -644,24 +586,18 @@ foreach ($required in @(
         throw "CastlePlanner unified preview HUD marker is missing: $required"
     }
 }
-foreach ($required in @(
-    'ToolTip="{Binding ShowFortificationsHelpText}"',
-    'ToolTip="{Binding ShowBuildingsHelpText}"',
-    'ToolTip="{Binding ShowDefensiveGroundFeaturesHelpText}"',
-    'ToolTip="{Binding ShowFearFactorBuildingsHelpText}"')) {
-    if (-not $castleHudXaml.Contains($required)) {
-        throw "CastlePlanner Blueprint filter tooltip is missing: $required"
+[xml]$castleHudDocument = $castleHudXaml
+$castleTooltipOwners = @($castleHudDocument.SelectNodes("//*[@ToolTip or *[contains(local-name(), '.ToolTip')]]"))
+$castleTooltipBindings = @($castleTooltipOwners | ForEach-Object { Get-TooltipBinding $_ })
+foreach ($filter in 'Fortifications','Buildings','DefensiveGroundFeatures','FearFactorBuildings') {
+    if ($castleTooltipBindings -cnotcontains "{Binding Show${filter}HelpText}") {
+        throw "CastlePlanner Blueprint filter tooltip is missing: $filter"
     }
 }
-if ([Text.RegularExpressions.Regex]::Matches(
-        $castleHudXaml,
-        'ToolTip="').Count -ne 4 -or
-    [Text.RegularExpressions.Regex]::Matches(
-        $castleHudXaml,
-        'ToolTipService\.ShowDuration="60000"').Count -ne 4) {
+if ($castleTooltipOwners.Count -ne 4 -or @($castleTooltipOwners | Where-Object { $_.GetAttribute('ToolTipService.ShowDuration') -ne '60000' }).Count) {
     throw 'CastlePlanner must expose exactly four 60-second Blueprint HUD tooltips.'
 }
-if ($castleHudXaml.Contains('ToolTip="{Binding SearchHelpText}"')) {
+if ($castleTooltipBindings -ccontains '{Binding SearchHelpText}') {
     throw 'CastlePlanner search selector must not expose redundant tooltips.'
 }
 if ($castleHudXaml.Contains('VerticalOffset="-30"')) {
@@ -719,8 +655,8 @@ foreach ($required in @(
         throw "CastlePlanner dropdown-exclusive wheel marker is missing: $required"
     }
 }
-if (-not $castleBlueprintRuntimeSource.Contains('preview.IsPreviewActive && !preview.HasSelectedCastle')) {
-    throw 'CastlePlanner does not hide the Blueprint for the No castle preview selection.'
+if ($castleBlueprintRuntimeSource -notmatch '(?s)if\s*\(!BlueprintLayoutPolicy\.CanPrepare\(\s*preview\.IsPreviewActive,\s*preview\.HasSelectedCastle\)\)\s*\{[^}]*renderer\.Clear\(\);[^}]*return false;') {
+    throw 'CastlePlanner must use the tested Blueprint selection policy to clear a rejected preview.'
 }
 $castlePreviewRuntimeSource = [IO.File]::ReadAllText((Join-Path $workspace 'CastlePlanner/src/FreeCastlePreviewRuntime.cs'))
 foreach ($required in @(
@@ -769,18 +705,6 @@ foreach ($forbidden in @(
     }
 }
 }
-foreach ($forbidden in @(
-    'DependencyProperty FontSizeProperty',
-    'DependencyProperty MaximumWidthProperty',
-    'DiagnosticLog',
-    'SERP_TOOLTIP_DIAGNOSTIC',
-    'ToolTipFontSizeExtension',
-    'ToolTipMaximumWidthExtension')) {
-    if ($toolTipPresentation.Contains($forbidden)) {
-        throw "Obsolete tooltip implementation marker is still present: $forbidden"
-    }
-}
-
 $currentTooltipXamlByMod = @{
     BugfixesAndQoL = @(
         'BugfixesAndQoL/Override/ScriptExtenderUI/BugfixesAndQoLSettings.xaml',
@@ -811,21 +735,6 @@ $currentTooltipXaml = @($selectedModNames | ForEach-Object { $currentTooltipXaml
 foreach ($relativeXamlPath in $currentTooltipXaml) {
     $xamlPath = Join-Path $workspace $relativeXamlPath
     $xamlText = [IO.File]::ReadAllText($xamlPath)
-    $tooltipDocument = [xml]$xamlText
-    $usesSeTooltipScale = $false
-    foreach ($style in $tooltipDocument.SelectNodes("//*[local-name()='Style' and @TargetType='{x:Type ToolTip}']")) {
-        if (Test-SeTooltipScaleStyle $style) { $usesSeTooltipScale = $true }
-    }
-    $sizeMarkers = if ($usesSeTooltipScale) {
-        @('FontSize="{TemplateBinding FontSize}"', 'MaxWidth="{TemplateBinding MaxWidth}"')
-    } else {
-        @('x:Static shared:ToolTipPresentation.FontSize', 'x:Static shared:ToolTipPresentation.MaximumWidth')
-    }
-    foreach ($required in $sizeMarkers) {
-        if (-not $xamlText.Contains($required)) {
-            throw "${relativeXamlPath}: fixed shared tooltip marker is missing: $required"
-        }
-    }
     foreach ($forbidden in @('shared:ToolTipFontSize', 'shared:ToolTipMaximumWidth')) {
         if ($xamlText.Contains($forbidden)) {
             throw "${relativeXamlPath}: obsolete tooltip markup extension is still present: $forbidden"
@@ -1101,9 +1010,7 @@ foreach ($required in @(
     'IncludeToolTips',
     'ModSettingsSearch.Exclude="True"',
     'HorizontalScrollBarVisibility="Disabled"',
-    'ToolTip="{Binding DisplayToolTip}"',
     'Text="{Binding GlobalSettingsSourceText}"',
-    'ToolTip="{Binding GlobalSettingsSourceHelpText}"',
     'IsEnabled="{Binding CanSelectGlobalSettingsSource}"',
     'Command="{Binding LoadGlobalSettingsSourceCommand}"',
     'Visibility="{Binding GlobalSettingsResetConfirmationVisibility}"',
@@ -1157,8 +1064,13 @@ $hostSearchIndex = $hostSettingsXaml.IndexOf('x:Name="SerpsModSettingsSearchText
 if ($hostErrorsIndex -lt 0 -or $hostResetIndex -le $hostErrorsIndex -or $hostSearchIndex -le $hostResetIndex) {
     throw 'SerpsModsHost reset controls must follow the current error list and precede the settings search.'
 }
-if ($hostSettingsXaml.Contains('ToolTip="{Binding LoadGlobalSettingsSourceText}"') -or
-    $hostSettingsXaml.Contains('ToolTip="{Binding GlobalSettingsSourceText}"')) {
+[xml]$hostTooltipDocument = $hostSettingsXaml
+$hostTooltipBindings = @($hostTooltipDocument.SelectNodes("//*[@ToolTip or *[contains(local-name(), '.ToolTip')]]") | ForEach-Object { Get-TooltipBinding $_ })
+foreach ($binding in '{Binding DisplayToolTip}','{Binding GlobalSettingsSourceHelpText}') {
+    if ($hostTooltipBindings -cnotcontains $binding) { throw "SerpsModsHost help is missing: $binding" }
+}
+if ($hostTooltipBindings -ccontains '{Binding LoadGlobalSettingsSourceText}' -or
+    $hostTooltipBindings -ccontains '{Binding GlobalSettingsSourceText}') {
     throw 'SerpsModsHost reset controls must use the explanatory reset tooltip instead of their short labels.'
 }
 if ($hostSettingsXaml.Contains('GlobalSettingsResetSuccessVisibility')) {
@@ -1166,9 +1078,10 @@ if ($hostSettingsXaml.Contains('GlobalSettingsResetSuccessVisibility')) {
 }
 foreach ($settingsEntry in $settingsByMod.GetEnumerator()) {
     if (-not (Test-ModSelected $settingsEntry.Key)) { continue }
-    $settingsXaml = [IO.File]::ReadAllText((Join-Path $workspace $settingsEntry.Value))
-    if ($settingsXaml.Contains('ToolTip="{Binding System_SettingsSourceText}"') -or
-        $settingsXaml.Contains('ToolTip="{Binding System_SettingsSourceLoadText}"')) {
+    [xml]$settingsDocument = [IO.File]::ReadAllText((Join-Path $workspace $settingsEntry.Value))
+    $settingsTooltipBindings = @($settingsDocument.SelectNodes("//*[@ToolTip or *[contains(local-name(), '.ToolTip')]]") | ForEach-Object { Get-TooltipBinding $_ })
+    if ($settingsTooltipBindings -ccontains '{Binding System_SettingsSourceText}' -or
+        $settingsTooltipBindings -ccontains '{Binding System_SettingsSourceLoadText}') {
         throw "$($settingsEntry.Key): reset controls must use the explanatory settings-reset tooltip."
     }
 }
@@ -1231,7 +1144,8 @@ foreach ($entry in $settings.GetEnumerator()) {
 
     $searchPath = Join-Path $workspace $entry.Value
     $searchXaml = [IO.File]::ReadAllText($searchPath)
-    $sectionPresentationMarker = if ($entry.Key -eq 'ExtraFeatures') { 'x:Key="TopicHeading"' } else { 'ModSettingsSearchSectionGrid' }
+    $usesTopics = $entry.Key -in @('BugfixesAndQoL','ExtraFeatures')
+    $sectionPresentationMarker = if ($usesTopics) { 'x:Key="TopicHeading"' } else { 'ModSettingsSearchSectionGrid' }
     foreach ($required in @(
         'System_PresetLoadEntries',
         'System_PresetSaveSettings',
@@ -1281,19 +1195,32 @@ foreach ($entry in $settings.GetEnumerator()) {
             }
         }
 
+        $isSectionAttribute = $node.Attributes | Where-Object LocalName -eq 'ModSettingsSearch.IsSection' | Select-Object -First 1
+        $isSection = $null -ne $isSectionAttribute -and $isSectionAttribute.Value -eq 'True'
         $sectionKeyAttribute = $node.Attributes | Where-Object LocalName -eq 'ModSettingsSearch.SectionKey' | Select-Object -First 1
         if ($null -ne $sectionKeyAttribute) {
             $sectionTitleAttribute = $node.Attributes | Where-Object LocalName -eq 'ModSettingsSearch.SectionTitle' | Select-Object -First 1
             if ([string]::IsNullOrWhiteSpace($sectionKeyAttribute.Value) -or $null -eq $sectionTitleAttribute -or [string]::IsNullOrWhiteSpace($sectionTitleAttribute.Value)) {
                 throw "$($entry.Key) contains an incomplete thematic section declaration."
             }
-            $logicalSectionKeys.Add($sectionKeyAttribute.Value)
+            if ($usesTopics -and -not $isSection) {
+                $topic = $node.SelectSingleNode("ancestor::*[@*[local-name()='ModSettingsSearch.IsSection' and .='True']][1]")
+                if ($null -eq $topic -or $topic.GetAttribute($sectionKeyAttribute.LocalName, $sectionKeyAttribute.NamespaceURI) -cne $sectionKeyAttribute.Value) {
+                    throw "$($entry.Key) subsection [$($sectionKeyAttribute.Value)] must use its enclosing topic's search key."
+                }
+            } else {
+                $logicalSectionKeys.Add($sectionKeyAttribute.Value)
+            }
         }
 
-        $isSectionAttribute = $node.Attributes | Where-Object LocalName -eq 'ModSettingsSearch.IsSection' | Select-Object -First 1
-        if ($null -ne $isSectionAttribute -and $isSectionAttribute.Value -eq 'True' -and
-            # ExtraFeatures topic controls are checked by its dedicated section audit below.
-            $entry.Key -ne 'ExtraFeatures' -and
+        if ($isSection -and $usesTopics) {
+            $headings = $node.SelectNodes("./*[local-name()='Button' and @Style='{StaticResource TopicHeading}' and @*[local-name()='ModSettingsSearch.Exclude' and .='True']]")
+            if ($node.LocalName -ne 'StackPanel' -or $headings.Count -ne 1 -or
+                $node.GetAttribute('Visibility') -notmatch '^\{Binding SettingsPresentation\.\w+\.Visibility\}$') {
+                throw "$($entry.Key) topic must use one excluded heading and presentation-controlled visibility."
+            }
+        }
+        if ($isSection -and -not $usesTopics -and
             ($node.LocalName -ne 'Grid' -or $node.GetAttribute('Style') -ne '{StaticResource ModSettingsSearchSectionGrid}')) {
             throw "$($entry.Key) section headings must use a neutral Grid and the declarative section style."
         }
@@ -1345,6 +1272,7 @@ if ([Text.RegularExpressions.Regex]::Matches(
     throw 'Local search focus must target only its visible, enabled TextBox through the shared attached property.'
 }
 
+if (Test-ModSelected 'ExtraFeatures') {
 $extraSearchPath = Join-Path $workspace 'ExtraFeatures/Override/ScriptExtenderUI/ExtraFeaturesSettings.xaml'
 $extraSearchXaml = [IO.File]::ReadAllText($extraSearchPath)
 foreach ($required in @(
@@ -1440,11 +1368,7 @@ $duplicateSectionKeys = @($sectionKeys | Group-Object | Where-Object Count -gt 1
 if ($duplicateSectionKeys.Count -gt 0) {
     throw "ExtraFeatures contains duplicate section keys: $($duplicateSectionKeys.Name -join ', ')"
 }
-# These seven areas are the agreed ExtraFeatures layout; exact membership/order is
-# exercised against the compiled presentation in ExtraFeatures/Test-CompiledContracts.ps1.
-if ($sectionKeys.Count -ne 7) {
-    throw "ExtraFeatures must declare the seven agreed topic sections; found $($sectionKeys.Count)."
-}
+# Exact topic membership and order are checked against the compiled presentation.
 foreach ($target in $extraSearchDocument.SelectNodes('//*[@*[local-name()="ModSettingsSearch.Key"]]')) {
     $sectionOwnerCount = 0
     $cursor = $target.ParentNode
@@ -1458,6 +1382,7 @@ foreach ($target in $extraSearchDocument.SelectNodes('//*[@*[local-name()="ModSe
     if ($sectionOwnerCount -ne 1) {
         throw "ExtraFeatures search target [$($targetKey.Value)] belongs to $sectionOwnerCount thematic sections instead of exactly one."
     }
+}
 }
 if ([Text.RegularExpressions.Regex]::Matches(
         $sharedSettingsSource,
@@ -1556,7 +1481,7 @@ if (Test-ModSelected 'ExtendedData') {
 
 $additionalCrlfTargetsByMod = @{
     BugfixesAndQoL = @(
-        'BugfixesAndQoL/src/BugfixesAndQoLViewModel.cs',
+        $viewModelSources.BugfixesAndQoL,
         'BugfixesAndQoL/src/BugfixesAndQoLPlugin.cs')
     CastlePlanner = @(
         'CastlePlanner/src/CastlePlannerSettingsViewModel.cs',

@@ -20,7 +20,8 @@ $plugin = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\BugfixesAndQoLPlu
 if (-not $plugin.Contains('[BepInIncompatibility("DrawbridgeDestructionFixTest_Serp")]')) { throw 'Old testmod overlap guard missing.' }
 [xml]$xaml = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'Override\ScriptExtenderUI\BugfixesAndQoLSettings.xaml'))
 $rows = @($xaml.SelectNodes("//*[local-name()='CheckBox']") | Where-Object { $_.IsChecked -eq '{Binding EnableDrawbridgeDestructionFix, Mode=TwoWay}' })
-if ($rows.Count -ne 1 -or $rows[0].GetAttribute('ToolTipService.ShowDuration') -ne '60000' -or -not $rows[0].GetAttribute('ToolTip')) { throw 'Missing/invalid checkbox tooltip.' }
+if ($rows.Count -ne 1 -or $rows[0].GetAttribute('ToolTipService.ShowDuration') -ne '60000' -or
+    $rows[0].SelectSingleNode("./*[local-name()='CheckBox.ToolTip']/*[local-name()='ToolTip']/@Content").Value -ne '{Binding EnableDrawbridgeDestructionFixHelpText}') { throw 'Missing/invalid checkbox tooltip.' }
 # Authority/category are contractual; topic IDs and parent depth are presentation details.
 if ($null -eq $rows[0].SelectSingleNode("ancestor::*[@IsEnabled='{Binding CanEditHostSettings}']") -or
     $null -eq $rows[0].SelectSingleNode("ancestor::*[contains(@Visibility, '.FixesVisibility}') ]")) { throw 'Drawbridge checkbox must remain a host-authorized Fix.' }
