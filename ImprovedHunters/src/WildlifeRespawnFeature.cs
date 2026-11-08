@@ -1,4 +1,5 @@
 using APIShared.Savegames;
+using APIShared.Wildlife;
 using BepInEx.Logging;
 using R3;
 using RedBird.Core.Memory;
@@ -6,7 +7,7 @@ using SHCDESE.API;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
-using System.Runtime.InteropServices;
+using System.Collections.Generic;
 
 namespace ImprovedHunters
 {
@@ -15,12 +16,10 @@ namespace ImprovedHunters
     /// where Vanilla's own respawn does not run; the herd then grows by Vanilla's own rule. A new map can also
     /// give every player a herd near the keep. Without that, a map without these herds stays without them.
     /// Everything follows from the map tick and simulation data, so all peers act alike. The start places go
-    /// into the save through WildlifeOriginTable.
+    /// into the save through WildlifeOriginTable. Herds are read and spawned through APIShared's Herds service.
     /// </summary>
     internal sealed unsafe class WildlifeRespawnFeature
     {
-        private const int DeerHerdKind = 0xDC;
-        private const int GoatHerdKind = 0xE2;
         private const int CheckIntervalTicks = 30 * HunterSimulationTime.MapTicksPerSecond;
         // First boundary of the map's time, so peers read the same herds even if one starts a little later.
         // Soon, because a herd already in flight when the map starts moves on quickly.
@@ -40,15 +39,12 @@ namespace ImprovedHunters
         private static readonly (int X, int Y)[] Directions =
             { (1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1), (0, -1), (1, -1) };
 
-        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        private delegate int SpawnHerdDelegate(IntPtr herdManager, int kind, uint tileX, uint tileY, int height);
-
         private readonly ManualLogSource log;
         private readonly ImprovedHuntersViewModel settings;
         private readonly WildlifeNativeAddresses addresses;
         private readonly WildlifeOriginTable origins;
         private readonly HerdFleeSightFeature sectors;
-        private readonly SpawnHerdDelegate spawnHerd;
+        private readonly List<int> members = new List<int>(32);
         private bool archiveLoadedForMission;
         private bool startedFromSave;
         private bool mapHasHerds;
@@ -62,7 +58,6 @@ namespace ImprovedHunters
             this.addresses = addresses;
             this.origins = origins;
             this.sectors = sectors;
-            spawnHerd = Marshal.GetDelegateForFunctionPointer<SpawnHerdDelegate>((IntPtr)(long)addresses.SpawnHerd);
 
             var registration = new VersionedSaveDataRegistration(
                 ImprovedHuntersPlugin.PluginGuid,
@@ -142,13 +137,14 @@ namespace ImprovedHunters
         private void CaptureHerds()
         {
             origins.MarkCaptured();
-            for (int herd = 1; herd < WildlifeNativeAddresses.HerdCount; herd++)
+            for (int herd = 1; herd <= Herds.MaximumHerdId; herd++)
             {
-                byte* record = addresses.GetHerdRecord(herd);
-                int serial = *(int*)(record + WildlifeNativeAddresses.HerdSerialOffset);
-                if (!addresses.IsWildDeerOrGoatHerd(record, out bool isDeer) ||
-                    origins.TryMarkRespawning(herd, serial) ||
-                    !APIShared.UnitAccess.TryGetById(*(short*)(record + WildlifeNativeAddresses.HerdLeaderOffset), out GameUnit* leader, out _) ||
+                if (!Herds.TryGet(herd, out HerdInfo info) || !WildlifeNativeAddresses.IsWildDeerOrGoatHerd(info, out bool isDeer))
+                    continue;
+
+                int serial = unchecked((int)info.GlobalId);
+                if (origins.TryMarkRespawning(herd, serial) ||
+                    !APIShared.UnitAccess.TryGetById(info.LeaderUnitId, out GameUnit* leader, out _) ||
                     leader == null)
                 {
                     continue;
@@ -199,14 +195,14 @@ namespace ImprovedHunters
                 centerY[index] = (int)keep->r_TilePositionYBegin + (int)keep->r_OccupyTileGridSize / 2;
             }
 
-            SimpleNativeArray<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitArray();
-            int kind = deerAllowed ? DeerHerdKind : GoatHerdKind, animals = deerAllowed ? StartDeer : StartGoats;
+            HerdKind kind = deerAllowed ? HerdKind.Deer : HerdKind.Goat;
+            int animals = deerAllowed ? StartDeer : StartGoats;
             for (int index = 0; index < count; index++)
-                PlaceStartHerd(units, keeps.PlayerIds[index], index, centerX, centerY, kind, animals);
+                PlaceStartHerd(keeps.PlayerIds[index], index, centerX, centerY, kind, animals);
             return true;
         }
 
-        private void PlaceStartHerd(SimpleNativeArray<GameUnit> units, int player, int index, int[] centerX, int[] centerY, int kind, int animals)
+        private void PlaceStartHerd(int player, int index, int[] centerX, int[] centerY, HerdKind kind, int animals)
         {
             GameTileManagerAPI tiles = GameTileManagerAPI.Instance;
             Span<ushort> components = GamePathingManagerAPI.Instance.GetPathComponentGrid();
@@ -231,21 +227,19 @@ namespace ImprovedHunters
                     continue;
                 }
 
-                int herd = SpawnAt(kind, x, y);
-                if (herd <= 0) { refused++; continue; }
+                if (!TrySpawn(kind, x, y, animals, out int herd, out int serial)) { refused++; continue; }
 
-                KeepFirstAnimals(units, herd, animals);
                 origins.TryAdd(new WildlifeOrigin
                 {
-                    IsDeer = kind == DeerHerdKind,
+                    IsDeer = kind == HerdKind.Deer,
                     Respawns = true,
                     X = (short)x,
                     Y = (short)y,
                     Herd = herd,
-                    HerdSerial = *(int*)(addresses.GetHerdRecord(herd) + WildlifeNativeAddresses.HerdSerialOffset),
+                    HerdSerial = serial,
                     ExtinctSinceTick = WildlifeOrigin.NotExtinct
                 });
-                Shared.DebugLogHelper.LogInfo(log, $"Improved Hunters start herd: player={player}, kind=0x{kind:X}, herd={herd}, tile=({x},{y}), keep=({centerX[index]},{centerY[index]}).");
+                Shared.DebugLogHelper.LogInfo(log, $"Improved Hunters start herd: player={player}, kind={kind}, herd={herd}, tile=({x},{y}), keep=({centerX[index]},{centerY[index]}).");
                 return;
             }
 
@@ -294,7 +288,7 @@ namespace ImprovedHunters
 
                 if (unchecked(mapTick - origin.ExtinctSinceTick) >= waitTicks &&
                     (origin.IsDeer ? settings.HuntDeer : settings.HuntGoat) &&
-                    TryReturn(units, ref origin))
+                    TryReturn(ref origin))
                 {
                     origins[index] = origin;
                 }
@@ -304,24 +298,17 @@ namespace ImprovedHunters
         // The usual answer needs one look at the leader. The whole herd is only read when it is dead.
         private bool HasDied(SimpleNativeArray<GameUnit> units, WildlifeOrigin origin)
         {
-            byte* record = addresses.GetHerdRecord(origin.Herd);
-            if (*(short*)(record + WildlifeNativeAddresses.HerdStateOffset) != WildlifeNativeAddresses.HerdStateInUse ||
-                *(int*)(record + WildlifeNativeAddresses.HerdSerialOffset) != origin.HerdSerial)
-            {
+            if (!Herds.TryGet(origin.Herd, out HerdInfo herd) || unchecked((int)herd.GlobalId) != origin.HerdSerial)
                 return true;
-            }
 
-            if (IsLivingMember(units, *(short*)(record + WildlifeNativeAddresses.HerdLeaderOffset), origin.Herd))
+            if (IsLivingMember(units, herd.LeaderUnitId, origin.Herd))
                 return false;
 
-            ushort* words = (ushort*)(record + WildlifeNativeAddresses.HerdMemberBitsOffset);
-            for (int word = 0; word < WildlifeNativeAddresses.HerdMemberWords; word++)
+            Herds.TryCopyMemberUnitIds(origin.Herd, members);
+            foreach (int unitId in members)
             {
-                for (int bits = words[word], bit = 0; bits != 0; bits >>= 1, bit++)
-                {
-                    if ((bits & 1) != 0 && IsLivingMember(units, word * 16 + bit, origin.Herd))
-                        return false;
-                }
+                if (IsLivingMember(units, unitId, origin.Herd))
+                    return false;
             }
 
             return true;
@@ -338,61 +325,40 @@ namespace ImprovedHunters
                 (unit->r_AliveState == AliveState.NeedsInit || (unit->r_AliveState == AliveState.IsAlive && unit->r_CurrentHealth > 0));
         }
 
-        private bool TryReturn(SimpleNativeArray<GameUnit> units, ref WildlifeOrigin origin)
+        private bool TryReturn(ref WildlifeOrigin origin)
         {
-            int kind = origin.IsDeer ? DeerHerdKind : GoatHerdKind;
-            int herd = SpawnAt(kind, origin.X, origin.Y);
-            for (int reach = PlaceStep; herd <= 0 && reach <= FarthestPlace; reach += PlaceStep)
+            HerdKind kind = origin.IsDeer ? HerdKind.Deer : HerdKind.Goat;
+            bool spawned = TrySpawn(kind, origin.X, origin.Y, ReturningAnimals, out int herd, out int serial);
+            for (int reach = PlaceStep; !spawned && reach <= FarthestPlace; reach += PlaceStep)
             {
                 foreach ((int x, int y) in Directions)
                 {
-                    herd = SpawnAt(kind, origin.X + x * reach, origin.Y + y * reach);
-                    if (herd > 0)
+                    spawned = TrySpawn(kind, origin.X + x * reach, origin.Y + y * reach, ReturningAnimals, out herd, out serial);
+                    if (spawned)
                         break;
                 }
             }
 
-            if (herd <= 0)
+            if (!spawned)
                 return false;
 
-            KeepFirstAnimals(units, herd, ReturningAnimals);
             origin.Herd = herd;
-            origin.HerdSerial = *(int*)(addresses.GetHerdRecord(herd) + WildlifeNativeAddresses.HerdSerialOffset);
+            origin.HerdSerial = serial;
             origin.ExtinctSinceTick = WildlifeOrigin.NotExtinct;
-            Shared.DebugLogHelper.LogInfo(log, $"Improved Hunters wildlife returned: kind=0x{kind:X}, herd={herd}, start=({origin.X},{origin.Y}).");
+            Shared.DebugLogHelper.LogInfo(log, $"Improved Hunters wildlife returned: kind={kind}, herd={herd}, start=({origin.X},{origin.Y}).");
             return true;
         }
 
-        private int SpawnAt(int kind, int x, int y)
+        // APIShared spawns the way Vanilla's own respawn does (0x11E150, in the simulation tick) and lets all animals
+        // above the wanted number leave in the same tick, Vanilla's own path for animals over its limit.
+        private static bool TrySpawn(HerdKind kind, int x, int y, int animals, out int herd, out int serial)
         {
-            GameTileManagerAPI tiles = GameTileManagerAPI.Instance;
-            if (!tiles.IsTileInsideMapBounds(x, y))
-                return 0;
+            serial = 0;
+            if (!Herds.TrySpawn(kind, x, y, animals, out herd, out _) || !Herds.TryGet(herd, out HerdInfo info))
+                return false;
 
-            int tile = tiles.GetTileId(x, y);
-            return tiles.IsValidTileId(tile)
-                ? spawnHerd((IntPtr)(long)addresses.HerdManager, kind, (uint)x, (uint)y, tiles.GetTileHeight(tile))
-                : 0;
-        }
-
-        // Vanilla always makes a full herd. The rest leaves in the same tick, the way Vanilla removes
-        // animals over its limit (0x11B460); 0x1261F0 then takes them out of the herd, also a leader.
-        private void KeepFirstAnimals(SimpleNativeArray<GameUnit> units, int herd, int animals)
-        {
-            ushort* words = (ushort*)(addresses.GetHerdRecord(herd) + WildlifeNativeAddresses.HerdMemberBitsOffset);
-            int kept = 0;
-            for (int word = 0; word < WildlifeNativeAddresses.HerdMemberWords; word++)
-            {
-                for (int bits = words[word], bit = 0; bits != 0; bits >>= 1, bit++)
-                {
-                    int unitId = word * 16 + bit;
-                    if ((bits & 1) == 0 || unitId <= 0 || unitId > units.Length)
-                        continue;
-
-                    if (kept++ >= animals)
-                        units.GetValuePointer(unitId - 1)->r_AliveState = AliveState.MarkedForDeletion;
-                }
-            }
+            serial = unchecked((int)info.GlobalId);
+            return true;
         }
 
         private bool CaptureForSave(VersionedSaveWriter writer)

@@ -56,7 +56,7 @@ only these diagnostic paths.
 | State-0 query handoff | `0x12FDB7` | query return hook at `0x12FDD9`; query callee `0x18AF50` |
 | State-0 `MoveHere` result | `0x12FE7A` | immediately after call to `0x196280` |
 | State-0 `MoveHere` destination | `0x12FE63` | span `[0x12FE63,0x12FE75)`: reservation write and X load (9 + 9 bytes) right before the call to `0x196280`; firing positions replace R8/R9 (see below) |
-| State-1 near-target refresh | `0x130069` / `0x130072` | safe compare hook and Vanilla actor load; the former query-result hook at `0x12FF7E` was removed in `1.1.88` (see below) |
+| State-1 near-target refresh | `0x130069` / `0x130072` | safe compare hook and Vanilla actor load; the former query-result hook at `0x12FF7E` was removed in `1.2.0` (see below) |
 | State-1 distance-28 compare | `0x13013A` | since `1.1.56` the authoritative snapshot-based attack/continuation decision; sequence begins at `0x130122` |
 | State-1 direct-attack result | `0x130199` | observation-only `test eax,eax` after call to `0x18E9A0` |
 | `StateZeroMoveResultSequencePattern` | `0x12FE63` | unique `.text` fallback; derives result hook `0x12FE7A` and validates `MoveHere` call target |
@@ -78,7 +78,7 @@ only these diagnostic paths.
 
 The source constants contain the complete wildcard patterns.
 
-### Owned chickens, reservation countdown and Hunter query identity (APIShared since 1.2.0)
+### Owned chickens, reservation countdown and Hunter query identity (in APIShared since ImprovedHunters 1.2.0)
 
 APIShared (`APIShared.Wildlife`, see its `UpdateToNewDLL.md` sections "Huntable prey reservation
 word", "Hunter native sites" and "Hunter owner gates") now owns the three owned-chicken gates
@@ -312,43 +312,42 @@ Update audit: `0x18AF50` still has no upper distance limit and still measures fr
 
 ## Wildlife respawn
 
-Owner: `WildlifeRespawnFeature` with `WildlifeOriginTable`, addresses `WildlifeNativeAddresses`. Bound to the audited hash.
-At the first tick divisible by 10 of a mission without saved data it reads all herd records (`0x7CC6720`, stride `0x688`) for deer and goats. Every
-30 s of simulation it checks each herd: record state `+0x40`, serial `+0x34`, the leader `+0x5A`, and only for a dead leader the member bits
-at `+0x60` (`0x271` words). A herd without a living animal returns after the waiting time through `0x11E150` as Vanilla's `0x123670` calls it
-(deer `0xDC`, goats `0xE2`), on the simulation tick, in the same place as Vanilla's tick at `0xCE27E`. All members but two get
-`AliveState.MarkedForDeletion` in that tick, as `0x11B460` does over its limit; `0x1261F0` then removes them from the herd and picks a new leader
-through `0x123EA0` and `0x11A2B0`. Save record `ImprovedHunters.WildlifeOrigins`, version 1. Update audit: the argument order of `0x11E150`,
-the two herd arts, that it refuses a tile by mask `0x4A5014B1` and claims the record first (`0x119C00`; `0x1261F0` frees an empty one next tick),
-all the record fields above, that newborn animals join the same herd (`0x118130` to `0x11D370`) and that herds do not split.
+Owner: `WildlifeRespawnFeature` with `WildlifeOriginTable`. Since 1.2.0 herd records and spawning come from APIShared's
+`Herds` service (`TryGet`, `TryCopyMemberUnitIds`, `TrySpawn`), which owns their native contract (APIShared `UpdateToNewDLL.md`,
+section "Herds"); the mod keeps only `WildlifeNativeAddresses.MultiplayerMode`, the mode word that Vanilla's own respawn `0x123670`
+compares (`RespawnPattern`, the `cmp dword ptr [rip+disp], 0` at +0x33), bound to the audited hash. Vanilla's respawn runs only in
+mode 0; the mod's runs in the other modes. At the first tick divisible by 10 of a mission without saved data it reads all wild deer
+and goat herds. Every 30 s of simulation it checks each herd: in use, the same `GlobalId` (saved as the herd serial), the leader, and
+only for a dead leader the members. A herd without a living animal returns after the waiting time through `Herds.TrySpawn` with two
+animals, on the simulation tick. Save record `ImprovedHunters.WildlifeOrigins`, version 1. Update audit: the mode word above, and
+that newborn animals join the same herd (`0x118130` to `0x11D370`) and herds do not split.
 
 ## Start herds
 
 Owner: `WildlifeRespawnFeature.PlaceStartHerds`, places from `WildlifeStartPlaces`, setting `StartHerdMode`. New maps only, right after the capture above: one herd per player with a keep,
-through `0x11E150` as above, cut to Vanilla's smallest size. Reads the keeps through `ActivePlayerKeepReadiness`, the door through `GetPlayerKeepDoorPosition`, the path components, and `+0x48` of the
-sector grid through `HerdFleeSightFeature.SectorThreats`. The Hunter's hut button (`0xFFC70`, `0x37EF97C`) does not know these herds, so `HunterHutAvailabilityPatch` stays on with them.
+through `Herds.TrySpawn`, cut to Vanilla's smallest size. Reads the keeps through `ActivePlayerKeepReadiness`, the door through `GetPlayerKeepDoorPosition`, the path components, and the sector's unit counter
+through `HerdFlightRules.TryGetSectorThreats`. The Hunter's hut button (`0xFFC70`, `0x37EF97C`) does not know these herds, so `HunterHutAvailabilityPatch` stays on with them.
 Update audit: the same as for the respawn, and that the door position is a tile on the walkable land around the keep.
 
 ## Herd range
 
-Owner: `WildlifeRangeFeature`, policy `WildlifeRangePolicy`, setting `HerdRangeSize`. Function detour on `0x127E60`
-(entry, signature `(grid, herd, reach, mode)`, `BuildRoutePattern`, unique), bound to the audited hash. No jump inside the function targets its first 20
-bytes (checked over the whole body). After the original it shortens the route in `+0x5B4` (x, y words, at most 10) and `+0x5DE`. All deer and goat routes come from
-there; `0x129010` is used by rabbits only. The fields come from the same record as above. A herd outside gets one waypoint home, in flight too: in a crowded area
-herds set each other off, and with Vanilla's route each flight led further out (seen in the first test). The first waypoint is
-also set for an empty route, because `0x124E80` and `0x125290` read it in their newborn branch and `0x124890` in its state 1 without looking at the count.
-It is active from the native start on, because herds get their first routes in the ticks before the mission counts as started. Own mode decision `GameplayFeatureId.ImprovedHunterWildlifeRange`, independent of the mod's gate, without the editor, where `0x124E80` and `0x125290` return before any route (`0x3665F28 == 1`). Update audit: all callers of `0x127E60` and how each uses
-the route, that `0x11B520` is what follows a waypoint, and whether another writer of `+0x5DE` (`0x11A980`, `0x11C3A0`, `0x11DB40`, `0x1222A0`) handles animal herds.
+Owner: `WildlifeRangeFeature`, policy `WildlifeRangePolicy`, setting `HerdRangeSize`. A `HerdRouteEvents` handler of APIShared (route
+builder `0x127E60`, owned there since 1.2.0) shortens deer and goat routes to the area around the start place or replaces them with one
+waypoint home, in flight too: in a crowded area herds set each other off, and with Vanilla's route each flight led further out (seen in
+the first test). APIShared gives an emptied route the leader's tile as its first waypoint. It is active from the native start on,
+because herds get their first routes in the ticks before the mission counts as started. Own mode decision
+`GameplayFeatureId.ImprovedHunterWildlifeRange`, independent of the mod's gate, without the editor, where `0x124E80` and `0x125290`
+return before any route (`0x3665F28 == 1`). Update audit: that `0x11B520` is what follows a waypoint, and whether another writer of
+`+0x5DE` (`0x11A980`, `0x11C3A0`, `0x11DB40`, `0x1222A0`) handles animal herds.
 
 ## Herd flight only in sight
 
-Owner: `HerdFleeSightFeature` with `HunterNativeStubs.EmitHerdFleeGate`, settings `DeerFleeOnlyInSight` and `HerdsIgnoreFleeingHerds`, the gate is on with either. Sites `0x124F20`
-(deer) and `0x125330` (goats), 18 bytes each: the stub replays the reads of the sector counters and sets EDI to 0 for a
-herd the tick scan marked calm. The table has one byte per herd (`0x1194`), indexed by EBP, and is rebuilt from
-simulation data at every scan, so it needs no save. Update audit: `+0x28` and `+0x48` of the grid at `0x3395E10`, stride
-`0xA0`, 80 by 80 sectors, EBP as the herd, herd stride `0x688`, leader `+0x5A`, that `+0x28` still counts predators and `+0x48` units and
-fleeing deer and goats (`0x126810`), and that the Fixes mod still hooks
-`DeerUpdate` (`0x156130`) and not these functions.
+Owner: `HerdFleeSightFeature`, settings `DeerFleeOnlyInSight` and `HerdsIgnoreFleeingHerds`. Since 1.2.0 a `HerdFlightRules` rule of
+APIShared, whose native gates at `0x124F20` (deer) and `0x125330` (goats) give a calm herd no sector threat. The tick scan marks each
+deer and goat herd calm or not from simulation data at every scan; with both settings off it clears its marks. APIShared clears all
+marks at mission start and end, and they need no save. The scan reads the predator counter through `TryGetSectorThreats` and the
+flight state through `HerdInfo.IsFleeing`. Update audit: that the counters still mean predators and units plus fleeing deer and goats
+(`0x126810`), and that the Fixes mod still hooks `DeerUpdate` (`0x156130`) and not these functions.
 
 ## Free corpses
 
@@ -1375,7 +1374,7 @@ the State-9 and failed-attack stride multiplies. The three MOV immediates remain
 `OpKind.Immediate32`; no accepted byte, instruction length, register,
 displacement or branch target changed.
 
-### Firing positions in 1.1.88
+### Firing positions in 1.2.0
 
 Vanilla's Hunter gives up (State 1 to State 6, `HunterUpdate` `0x12FC70`) when his path ends without sight of
 the prey, and a direct attack at tile distance 0 or 1 returns 0. Found 08.11.2026 with a deer at the far corner
@@ -1402,7 +1401,7 @@ picked the same deer again: an endless walk between hut and deer.
 
 On a new DLL hash, revalidate the span and its register contract together with the other `HunterUpdate` hooks.
 
-### Flag-based hooks removed in 1.1.88
+### Flag-based hooks removed in 1.2.0
 
 Two context hooks decided an untouched conditional jump through
 `X64SmartCPUContext.Rflags`. The installed RedBird `ContextAssemblyGenerator`

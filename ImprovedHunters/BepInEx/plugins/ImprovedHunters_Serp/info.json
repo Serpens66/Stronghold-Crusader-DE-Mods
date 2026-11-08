@@ -3,7 +3,7 @@
   "Author": "Serpens66",
   "Name": "Improved Hunters",
   "Description": "Adds configurable hunter prey and meat yield for deer, goats, rabbits, camels and chickens.",
-  "Version": "1.1.88",
+  "Version": "1.2.0",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.0",
   "MaximumScriptExtenderVersion": "",
@@ -11,7 +11,7 @@
   "NetworkMode": 1,
   "SerpChangelog": [
     {
-      "Version": "1.1.88",
+      "Version": "1.2.0",
       "Changes": [
         "New: Tannery slider that splits its work between meat and the chosen weapon or armor good.",
         "New: Hunter search range, and Hunters switch to a nearer animal they see on the way.",
@@ -32,6 +32,7 @@
         "Fixed: a Hunter could walk endlessly between his hut and an animal he cannot shoot at, for example behind a keep; he now looks for a nearby spot with a clear shot, and otherwise turns to other prey for a while.",
         "Changed: far fewer log lines during play; detailed Hunter diagnostics are only in development builds.",
         "Changed: rabbits, camels and chickens are made huntable through APIShared's shared hunting service, so other mods can add their own huntable animals alongside.",
+        "Changed: the herd area, calm herds, returning herds and start herds use APIShared's shared herd service, so other mods can add their own herd rules alongside.",
         "Fixed: after loading a saved game, a Hunter carrying meat could get the base game's amount once instead of the set one."
       ]
     },
@@ -665,7 +666,7 @@
   "Dependencies": [
     {
       "GUID": "APIShared_Serp",
-      "MinimumVersion": "0.27.0"
+      "MinimumVersion": "0.38.0"
     }
   ]
 }

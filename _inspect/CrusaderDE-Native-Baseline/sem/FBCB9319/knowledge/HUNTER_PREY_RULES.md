@@ -325,3 +325,41 @@ query-entry record `0x18AF50`, the corpse-arrival record and corpse removal `0x1
 Script Extender's query and meat-pickup events. ImprovedHunters registers rabbit, camel and chicken there, plus its target
 policy and meat handler; its own `OwnedChickenHuntPatch`, `PreyReservationHeartbeatPatch` and issue-123 capture are gone. The
 "ImprovedHunters integration" section above describes the state before this change.
+
+## Herd kinds, spawn arts and route readers [Scope: Vanilla]
+
+Static audit of 2026-11-08 (hash FBCB9319). The herd dispatcher `0x117520` selects the update by the record kind (`+0x42`) through
+two jump tables: deer `0xD` `0x124E80`, lion `0xE` `0x1259D0`, rabbit `0xF` `0x125D00`, camel `0x10` `0x124890`, goat `0x28`
+`0x125290`, hyena `0x29` `0x1256A0`, crocodile `0x2A` `0x124B90`; kinds `0x2`-`0xC` and `0x13`-`0x27` are troop groups (`0x10AA20`).
+The Extender's `GameTribe` starts `0x2A` after a raw record: owner `+0x2C`, global id `+0x34` (the "serial"), state `+0x40`, leader
+`+0x5A`, count `+0x5C`, member bits `+0x60`, waypoints `+0x5B4`, route index `+0x5DC`, route count `+0x5DE` are its named fields.
+
+- Spawn `0x11E150(manager, art, x, y, height)` arts: deer `0xDC` (9-12 animals), lion `0xDD` (3-4), rabbit `0xDE` (14-21),
+  camel `0xDF` (2-5), goat `0xE2` (4-5), hyena `0xE3` (6-9), crocodile `0xE5` (1). `0xE0`, `0xE1`, `0xE4` call other functions
+  and create no herd. Callers: `0x123670` (deer, goats), `0x1238C0`, `0x1239C0` (camels), `0x123AC0`, `0x123C20` (camels), and
+  map loading paths `0x13CA0`, `0xF82B0`, `0x1045F0`.
+- `0x1261F0` runs every tick right before the dispatcher (`0xCE26D`) over every record in use and removes members whose alive state
+  is not 1, 2 or 4, or that are dead (`+0x8F8`) or in another tribe (`+0x930`), through `0x123EA0`.
+- Route builder `0x127E60` is called by deer, goats, lions, hyenas, rabbits and camels (rabbits also use `0x129010`; crocodiles
+  build no route). It zeroes index and count (`0x1283D6`) before its only early exit (`0x128931`) and appends at most 10 waypoints.
+  Readers right after it either test `count > 0` or walk to `route[index]` without it (`0x1249F2` camel, `0x124FBE` deer,
+  `0x1253CE` goat, `0x125829` hyena, `0x125B6D` lion).
+- Only the deer and goat updates read the sector threat counters (`0x124F20`, `0x125330`, byte-identical functions but for the type
+  constants); rabbits set their flight word elsewhere.
+
+## Animal hostility and target filters [Scope: Vanilla]
+
+Static audit of 2026-11-08 (hash FBCB9319), types by the Extender's `eChimps`. Three independent filters decide whether a unit
+attacks an animal by itself:
+
+- `0x1867A0(manager, attacker, target, r9b)` returns 0 for "may attack". Callers: `0x188A20` (melee contact, r9b 0, from `0x194550`,
+  `0x195170`), `0x187230` (r9b 0, from `0x174F90`), `0x18E9A0` (r9b 1, the ranged target search, 17 callers). Traders, trader horses
+  and ghosts never; a camel never attacks. A non-animal attacker (`+0x984` 0) may attack lions, hyenas, crocodiles and rabbits
+  always, deer and goats only with r9b set, war dogs of another team, ox, cow and dog depending on a mode flag (`0x186964`); never
+  camels or chickens. Lions, hyenas and crocodiles attack deer, rabbits, cows, dogs, goats and non-animals.
+- Melee target search `0x18C160` (through `0x19A1F0`, 16 callers) takes of the animals only lions, war dogs and hyenas (`0x18C731`,
+  mask `0x40000400001` from type `0x2D`).
+- Ranged target search inside `0x18E9A0`, type switch at `0x18F2B2` (types `0x2C`-`0x57`): deer and goats only for Hunters, rabbits
+  only with the attacker's tribe flag `+0x58E` and never for Hunters, lions and hyenas only when their herd attacks (`+0x606`,
+  `+0x608`, or AI state `0xCF` on a non-animal), war dogs of another team; the other types pass this switch and depend on
+  `0x1867A0`. The tribe flag is cleared by every order (`0x11E9CA`) and set only in the ranged branches of orders 4 and `0x20/0x21`.

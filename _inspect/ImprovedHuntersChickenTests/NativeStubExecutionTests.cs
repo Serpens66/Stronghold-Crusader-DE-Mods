@@ -161,7 +161,6 @@ internal static unsafe class NativeStubExecutionTests
         TestStance(image);
         TestTanner(image);
         TestHutAvailability(image);
-        TestHerdFleeGate(image);
         TestCorpseChoice(image);
         Console.WriteLine($"ImprovedHunters native stubs executed: assertions={assertions}.");
     }
@@ -669,33 +668,5 @@ internal static unsafe class NativeStubExecutionTests
         Check(AfterShot(true, 0) == ResultMiss, "without any corpse Vanilla goes on.");
         Fixture(reservation: 2);
         Check(AfterShot(true, 7) == WalkMarker + 7, "a taken choice falls back to Vanilla's corpse.");
-    }
-
-    private static void TestHerdFleeGate(byte[] image)
-    {
-        byte* cell = Alloc(256);
-        byte* calm = Alloc(64);
-        *(int*)(cell + 0x28) = 2;
-        *(int*)(cell + 0x48) = 3;
-        *(int*)(cell + 0x40) = 11;
-        *(int*)(cell + 0x44) = 12;
-        // mov eax, edi; ret: returns the threat count the herd update goes on with.
-        byte[] tail = { 0x89, 0xF8, 0xC3 };
-        foreach (int site in new[] { 0x124F20, 0x125330 })
-        {
-            ulong stub = BuildStub(image, site, 18, tail,
-                (a, i) => HunterNativeStubs.EmitHerdFleeGate(a, i, Address(flag), Address(calm)));
-
-            int Threats(bool enabled, byte calmValue)
-            {
-                SetFlag(enabled);
-                calm[5] = calmValue;
-                return Run(stub, new Registers { Rax = 0, Rcx = Address(cell), Rbp = 5, Rbx = Address(cell), R13 = 1 }).Result;
-            }
-
-            Check(Threats(false, 1) == 5, "a disabled rule keeps Vanilla's threats.");
-            Check(Threats(true, 0) == 5, "a herd in sight keeps Vanilla's threats.");
-            Check(Threats(true, 1) == 0, "a calm herd sees no threat.");
-        }
     }
 }

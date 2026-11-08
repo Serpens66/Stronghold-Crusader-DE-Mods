@@ -707,7 +707,6 @@ namespace ImprovedHunters
 
         private void OnMapStarted()
         {
-            herdFleeSight?.ResetForMap();
             ResetCorpseChoices();
             nextBetterPreyChecks.Clear();
             nextIdleHunterRequeryTimestamps.Clear();
@@ -1072,18 +1071,21 @@ namespace ImprovedHunters
                 Shared.DebugLogHelper.LogError(log, $"Improved Hunters leaves the Hunter's hut availability to Vanilla: {exception}");
             }
 
+            // Herd records, spawning, routes and flight belong to APIShared's Herds service; its route events and
+            // flight gate install on these registrations, which must come during startup.
             try
             {
+                if (!APIShared.Wildlife.Herds.IsAvailable)
+                    throw new InvalidOperationException(APIShared.Wildlife.Herds.UnavailableReason);
+
                 var addresses = new WildlifeNativeAddresses(log, memory, imageBase, referenceHashMatches);
                 var origins = new WildlifeOriginTable();
-                herdFleeSight = new HerdFleeSightFeature(log, hookRegion, memory, imageBase, referenceHashMatches, addresses, hunterNativeVisibilityProbe);
+                herdFleeSight = new HerdFleeSightFeature(log, hunterNativeVisibilityProbe);
                 wildlifeRespawn = new WildlifeRespawnFeature(log, settings, addresses, origins, herdFleeSight);
-                wildlifeRange = new WildlifeRangeFeature(log, hookRegion, memory, imageBase, referenceHashMatches, settings, addresses, origins);
+                wildlifeRange = new WildlifeRangeFeature(log, settings, origins);
             }
             catch (Exception exception)
             {
-                herdFleeSight?.Dispose();
-                herdFleeSight = null;
                 Shared.DebugLogHelper.LogError(log, $"Improved Hunters wildlife features are unavailable: {exception}");
             }
 

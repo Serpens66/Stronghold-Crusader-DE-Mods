@@ -93,7 +93,7 @@ static class Program
             !allSource.Contains("HookRef<", StringComparison.Ordinal) &&
             !allSource.Contains(".Unload()", StringComparison.Ordinal),
             "A legacy Zhuqiaomon hook or teardown contract remains.");
-        // 1.1.88 removed the two hooks that steered a jump through Rflags (attack gate, State-1 query result)
+        // 1.2.0 removed the two hooks that steered a jump through Rflags (attack gate, State-1 query result)
         // and added the State-0 MoveHere destination hook for firing positions. Since 1.2.0 APIShared owns
         // the Hunter query identity (the issue-123 capture hook and its transaction are gone), own-player
         // chickens and the reservation release (their PermanentNativeGate stubs and eight patterns are gone).
@@ -165,9 +165,11 @@ static class Program
             }
         }
 
-        Assert(definitions.Count == 41, $"Expected 41 native pattern definitions, found {definitions.Count}.");
-        Assert(uniquelyResolvedNames.Count == 33,
-            $"Expected 33 uniquely resolved pattern contracts, found {uniquelyResolvedNames.Count}.");
+        // Since 1.2.0 APIShared's Herds service owns the herd route builder, the deer and goat threat reads and the
+        // herd records, so their four patterns (route, two flight sites, herd manager tick) left this mod.
+        Assert(definitions.Count == 37, $"Expected 37 native pattern definitions, found {definitions.Count}.");
+        Assert(uniquelyResolvedNames.Count == 29,
+            $"Expected 29 uniquely resolved pattern contracts, found {uniquelyResolvedNames.Count}.");
         int uniqueFallbackPatterns = 0;
         int ambiguousReferencePatterns = 0;
         foreach ((string name, byte?[] bytes, int expectedRva) in definitions)

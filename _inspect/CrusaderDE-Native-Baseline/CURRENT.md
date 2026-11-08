@@ -76,7 +76,7 @@ Only Vanilla behavior; Script Extender names appear only as vocabulary.
 
 - [Worker production bonus and reduced output](./sem/FBCB9319/knowledge/WORKER_PRODUCTION_BONUS.md): signed fixed contribution, complete producer/completion chains, reduced Ox loads, display and raw save/transfer/checksum contracts; static and isolated execution evidence, game acceptance separate.
 
-- [Hunter prey ownership, reservation and shot states](./sem/FBCB9319/knowledge/HUNTER_PREY_RULES.md): three owner barriers, state 10 as the shot, reservation countdown, chicken population, melee rabbit contact and cow facts; single-player acceptance, multiplayer pending. Includes the complete access list of the reservation word (`+0x448`/`+0xAA4`), its war-dog and Engineer meanings, and corpse dead-time thresholds.
+- [Hunter prey ownership, reservation and shot states](./sem/FBCB9319/knowledge/HUNTER_PREY_RULES.md): three owner barriers, state 10 as the shot, reservation countdown, chicken population, melee rabbit contact and cow facts; single-player acceptance, multiplayer pending. Includes the complete access list of the reservation word (`+0x448`/`+0xAA4`), its war-dog and Engineer meanings, and corpse dead-time thresholds; herd kinds, spawn arts and route readers; the three filters for units attacking animals by themselves.
 
 - [Ally goods gifts and transfer boundaries](./sem/FBCB9319/knowledge/ALLY_GOODS_TRANSFERS.md): complete send/Chore/storage/Gold path and actual-transfer boundary; corrective 2026-11-05 audit reuses the existing Extender owner; game acceptance pending.
 

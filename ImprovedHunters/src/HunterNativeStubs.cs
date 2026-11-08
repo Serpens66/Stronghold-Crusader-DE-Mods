@@ -169,27 +169,6 @@ namespace ImprovedHunters
             a.nop();
         }
 
-        /// <summary>
-        /// Deer and goat herd update, reading the threats of its sector into EDI. RBP is the herd.
-        /// A herd marked calm sees none. RAX and RCX are written again before they are read here.
-        /// </summary>
-        internal static void EmitHerdFleeGate(Assembler a, ReadOnlySpan<Instruction> instructions, ulong flag, ulong calmHerds)
-        {
-            Require(instructions, 4, "herd threat read");
-            Label done = a.CreateLabel("herdFleeDone");
-            foreach (Instruction instruction in instructions)
-                a.AddInstruction(instruction);
-            a.mov(rax, flag);
-            a.cmp(__dword_ptr[rax], 0);
-            a.je(done);
-            a.mov(rax, calmHerds);
-            a.cmp(__byte_ptr[rax + rbp], 0);
-            a.je(done);
-            a.xor(edi, edi);
-            a.Label(ref done);
-            a.nop();
-        }
-
         internal const int CorpseEntrySize = 8;
         internal const int CorpseEntryGlobalId = 0;
         internal const int CorpseEntryUnitId = 4;
