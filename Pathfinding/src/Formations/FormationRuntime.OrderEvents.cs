@@ -31,6 +31,9 @@ namespace Pathfinding.UnitCommands
             if (!Enabled || args == null)
                 return;
 
+#if SERP_DEVDIAG
+            RecordTestMove(args);
+#endif
             if (args.Phase == EventHookPhase.Pre)
             {
                 PendingFormationCommand pending;

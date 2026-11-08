@@ -197,6 +197,9 @@ namespace Pathfinding.UnitCommands
             finally { ApplyMouseState(director, FormationReleaseStateModel.Consume()); }
             lock (stateSync)
                 releaseConsumptionWatch = new ReleaseConsumptionWatch(operationId, state.TribeId, state.CommandButton, 2);
+#if SERP_DEVDIAG
+            RecordTestRelease(state.TribeId, operationId);
+#endif
         }
 
         private int RunOriginalWithDeferredRelease(ActiveDrag state, EditorDirector director, FormationMouseState input,

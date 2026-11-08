@@ -286,6 +286,7 @@ internal static class Program
             TestTroopActionButtonLayoutPolicy();
             TestQuarryPileTargetSelectionPolicy();
             TestQuarryPileVanillaGroupPolicy();
+            TestQuarryPileRotationReceipt();
             TestTemporaryGateBlockagePolicy();
             TestGatehouseAutomationSaveState();
             TestBoundedSaveStateDeserialization();
@@ -3433,6 +3434,20 @@ internal static class Program
                 20,
                 out _),
             "AI quarry-pile selection accepted an empty valid-candidate set");
+    }
+
+    private static void TestQuarryPileRotationReceipt()
+    {
+        var committed = new QuarryPileRotationReceipt(2, 100, 101, 40, 50, 7);
+        Check(committed.Matches(2, 100, 101, 40, 50),
+            "an identical request recognizes the committed replacement");
+        Check(!committed.Matches(2, 100, 101, 41, 50) &&
+            !committed.Matches(2, 100, 102, 40, 50) &&
+            !committed.Matches(1, 100, 101, 40, 50) &&
+            !committed.Matches(2, 99, 101, 40, 50),
+            "a different request or live replacement cannot reuse the receipt");
+        Check(!default(QuarryPileRotationReceipt).Matches(2, 100, 101, 40, 50),
+            "a failed first attempt or a new mission has no matching receipt");
     }
 
     private static void TestQuarryPileVanillaGroupPolicy()

@@ -84,6 +84,9 @@ namespace BugfixesAndQoL
         private readonly MultiplayerFeatureGate multiplayerFeatureGate;
         private readonly QuarryPileRelocationButtonViewModel buttonViewModel;
         private readonly QuarryPileTargetSearch targetSearch;
+        // Only the Chore consumer accesses a published table. Mission transitions replace it.
+        private Dictionary<int, QuarryPileRotationReceipt> committedRotations =
+            new Dictionary<int, QuarryPileRotationReceipt>();
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
         private readonly Dictionary<int, PendingAIQuarry> pendingAIQuarriesByGlobalId = new Dictionary<int, PendingAIQuarry>();
         private readonly Stack<int[]> pendingAIQuarryKeyBuffers = new Stack<int[]>();
@@ -737,14 +740,8 @@ namespace BugfixesAndQoL
                     return;
                 }
 
-                if (!TryApplyRotation(operation, "multiplayer-chore", targetAlreadyValidated: false))
-                {
+                if (!TryApplyRotation(operation, "multiplayer-chore", targetAlreadyValidated: false, viaChore: true))
                     targetSearch.RememberFailedRotationTarget(operation);
-                    return;
-                }
-
-                if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    LogInfo($"rotation Chore executed successfully: operationId={operation.OperationId}.");
             }
             catch (Exception ex)
             {
@@ -761,12 +758,13 @@ namespace BugfixesAndQoL
         private bool TryApplyRotation(
             QuarryPileRelocationOperation operation,
             string reason,
-            bool targetAlreadyValidated = false)
+            bool targetAlreadyValidated = false,
+            bool viaChore = false)
         {
-            bool applied = TryApplyRotation(operation, reason, out string failure, targetAlreadyValidated);
+            bool applied = TryApplyRotation(operation, reason, out string failure, targetAlreadyValidated, viaChore);
             if (!applied)
                 LogWarningThreadSafe($"Bugfixes and QoL quarry-pile relocation rejected: source={reason}, " +
-                    $"reason={failure}, operationId={operation.OperationId}, player={operation.PlayerId}, " +
+                    $"reason={failure}, tick={DescribeRotationTick()}, operationId={operation.OperationId}, player={operation.PlayerId}, " +
                     $"quarryGlobalId={operation.QuarryGlobalId}, oldPileGlobalId={operation.OldPileGlobalId}, " +
                     $"target={operation.TargetTileX},{operation.TargetTileY}, targetPrevalidated={targetAlreadyValidated}; existing pile retained.");
             return applied;
@@ -776,7 +774,8 @@ namespace BugfixesAndQoL
             QuarryPileRelocationOperation operation,
             string reason,
             out string failure,
-            bool targetAlreadyValidated)
+            bool targetAlreadyValidated,
+            bool viaChore)
         {
             failure = "quarry missing, stale, wrong owner/type or outside link capacity";
             int quarryId = FindAliveBuildingIdByGlobalId(operation.QuarryGlobalId);
@@ -786,13 +785,48 @@ namespace BugfixesAndQoL
                 !IsAliveBuilding(quarry, eStructs.STRUCT_QUARRY, operation.PlayerId))
                 return false;
 
-            failure = "old pile missing, stale or no longer linked to requested quarry identity; quarryId=" + quarryId;
             int oldPileId = quarry->r_StoneQuarry_StockPileBuildingId;
-            if (oldPileId <= 0 ||
-                !GameBuildingManagerAPI.Instance.TryGetBuildingById(oldPileId, out GameBuilding* oldPile) ||
-                !IsAliveBuilding(oldPile, eStructs.STRUCT_QUARRYPILE, operation.PlayerId) ||
-                (int)oldPile->r_GlobalId != operation.OldPileGlobalId)
+            GameBuilding* oldPile = null;
+            bool pileFound = oldPileId > 0 &&
+                GameBuildingManagerAPI.Instance.TryGetBuildingById(oldPileId, out oldPile) && oldPile != null;
+            int linkedGlobalId = pileFound ? (int)oldPile->r_GlobalId : 0;
+            var receipts = viaChore ? System.Threading.Volatile.Read(ref committedRotations) : null;
+            QuarryPileRotationReceipt receipt = default;
+            bool hasReceipt = receipts != null && receipts.TryGetValue(operation.QuarryGlobalId, out receipt);
+            if (hasReceipt && receipt.Matches(operation.PlayerId, operation.OldPileGlobalId, linkedGlobalId,
+                    operation.TargetTileX, operation.TargetTileY) &&
+                IsValidFreshSpawn(oldPile, eStructs.STRUCT_QUARRYPILE, operation.PlayerId) &&
+                oldPile->r_TilePositionXBegin == receipt.X && oldPile->r_TilePositionYBegin == receipt.Y &&
+                QuarryPileVanillaGroupPolicy.Resolve(Shared.NativeBuildingCompoundGroup.Read(quarry),
+                    Shared.NativeBuildingCompoundGroup.Read(oldPile)).Status == QuarryPileVanillaGroupStatus.Valid)
+            {
+                failure = null;
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogInfo($"rotation Chore already applied: tick={DescribeRotationTick()}, player={operation.PlayerId}, " +
+                        $"operationId={operation.OperationId}, committedOperationId={receipt.OperationId}, " +
+                        $"quarryGlobalId={operation.QuarryGlobalId}, oldPileGlobalId={receipt.OldPile}, " +
+                        $"newPileGlobalId={receipt.NewPile}, target={receipt.X},{receipt.Y}.");
+                return true;
+            }
+
+            if (!IsAliveBuilding(oldPile, eStructs.STRUCT_QUARRYPILE, operation.PlayerId) ||
+                linkedGlobalId != operation.OldPileGlobalId)
+            {
+                string problem = oldPileId <= 0 ? "pile-link-missing" :
+                    !pileFound ? "pile-slot-invalid" :
+                    oldPile->r_BuildingType != eStructs.STRUCT_QUARRYPILE ? "pile-type-mismatch" :
+                    oldPile->r_PlayerIdOwner != operation.PlayerId ? "pile-owner-mismatch" :
+                    oldPile->r_AliveState != AliveState.IsAlive ? "pile-not-alive" : "pile-global-id-mismatch";
+                string linked = pileFound
+                    ? $"id={linkedGlobalId},type={oldPile->r_BuildingType},owner={oldPile->r_PlayerIdOwner}," +
+                      $"alive={oldPile->r_AliveState},position={oldPile->r_TilePositionXBegin},{oldPile->r_TilePositionYBegin}"
+                    : "unavailable";
+                string prior = hasReceipt
+                    ? $"operation={receipt.OperationId},old={receipt.OldPile},new={receipt.NewPile},target={receipt.X},{receipt.Y}"
+                    : "none";
+                failure = $"{problem}; quarryId={quarryId}, linkedPileSlot={oldPileId}, linkedPile=[{linked}], lastCommit=[{prior}]";
                 return false;
+            }
 
             failure = "requested target no longer valid; quarryId=" + quarryId + ",oldPileId=" + oldPileId;
             PlacementPosition expectedTarget;
@@ -893,10 +927,14 @@ namespace BugfixesAndQoL
             }
 
             targetSearch.ClearFailedRotationTargets(operation.QuarryGlobalId);
+            if (receipts != null)
+                receipts[operation.QuarryGlobalId] = new QuarryPileRotationReceipt(operation.PlayerId,
+                    operation.OldPileGlobalId, newPileGlobalId, expectedTarget.X, expectedTarget.Y, operation.OperationId);
             failure = null;
             if (Shared.DebugLogHelper.DiagnosticsEnabled)
                 LogInfo(
-                    $"rotation completed: reason={reason}, playerId={operation.PlayerId}, quarryGlobalId={operation.QuarryGlobalId}, " +
+                    $"rotation completed: reason={reason}, tick={DescribeRotationTick()}, operationId={operation.OperationId}, " +
+                    $"playerId={operation.PlayerId}, quarryGlobalId={operation.QuarryGlobalId}, oldPileGlobalId={operation.OldPileGlobalId}, " +
                     $"newPileGlobalId={newPileGlobalId}, vanillaGroupId={groupResolution.GroupId}, target={expectedTarget.X},{expectedTarget.Y}.");
             return true;
         }
@@ -1178,6 +1216,7 @@ namespace BugfixesAndQoL
 
         private void ClearMapState()
         {
+            System.Threading.Volatile.Write(ref committedRotations, new Dictionary<int, QuarryPileRotationReceipt>());
             targetSearch.ClearAllFailedRotationTargets();
             pendingAIQuarriesByGlobalId.Clear();
             activePrefabSpawnCapture = null;
@@ -1316,6 +1355,9 @@ namespace BugfixesAndQoL
         private void LogWarningThreadSafe(string message) =>
             Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
                 () => Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/QuarryPileRelocationRuntime/LogWarningThreadSafe", message));
+
+        private static string DescribeRotationTick() =>
+            APIShared.Simulation.SimulationTickEvents.TryGetCurrentTick(out int tick) ? tick.ToString() : "unknown";
 
         private void LogErrorThreadSafe(string message) =>
             Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(

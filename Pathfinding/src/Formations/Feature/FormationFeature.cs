@@ -124,6 +124,9 @@ namespace Pathfinding
                 // failure leaves the rooted candidate logically inactive until process exit.
                 runtime = new FormationRuntime(log, context, kind, density, placement, menu, settings, commands, markers);
                 runtime.Initialize();
+#if SERP_DEVDIAG
+                runtime.TryStartFormationReleaseTest();
+#endif
             }
             catch (Exception ex)
             {

@@ -3,6 +3,30 @@ using System.Collections.Generic;
 
 namespace BugfixesAndQoL
 {
+    internal readonly struct QuarryPileRotationReceipt
+    {
+        internal QuarryPileRotationReceipt(int player, int oldPile, int newPile, int x, int y, int operationId)
+        {
+            Player = player;
+            OldPile = oldPile;
+            NewPile = newPile;
+            X = x;
+            Y = y;
+            OperationId = operationId;
+        }
+
+        internal int Player { get; }
+        internal int OldPile { get; }
+        internal int NewPile { get; }
+        internal int X { get; }
+        internal int Y { get; }
+        internal int OperationId { get; }
+
+        internal bool Matches(int player, int oldPile, int currentPile, int x, int y) =>
+            NewPile > 0 && NewPile != OldPile && Player == player &&
+            OldPile == oldPile && NewPile == currentPile && X == x && Y == y;
+    }
+
     internal enum QuarryPileVanillaGroupStatus
     {
         Valid,
