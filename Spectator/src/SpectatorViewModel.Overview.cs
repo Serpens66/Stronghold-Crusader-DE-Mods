@@ -12,6 +12,8 @@ namespace Spectator
   internal OverviewSettings Overview {get;}
   [PresetLocal] public bool EnableLordOverview {get=>enableLordOverview;set=>Set(ref enableLordOverview,value,nameof(EnableLordOverview));}
   [PresetLocal] public bool OverviewShowEliminated {get=>overviewShowEliminated;set=>Set(ref overviewShowEliminated,value,nameof(OverviewShowEliminated));}
+  private bool overviewShowWhileHudHidden;
+  [PresetLocal] public bool OverviewShowWhileHudHidden {get=>overviewShowWhileHudHidden;set=>Set(ref overviewShowWhileHudHidden,value,nameof(OverviewShowWhileHudHidden));}
   [PresetLocal] public bool OverviewSortDescending {get=>overviewSortDescending;set=>Set(ref overviewSortDescending,value,nameof(OverviewSortDescending));}
   [SyncHostOnly, MissionIndependent] public bool AllowEnemyDetails {get=>allowEnemyDetails;set{
    if(!CanMutateSetting())return;

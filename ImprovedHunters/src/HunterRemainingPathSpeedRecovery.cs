@@ -560,7 +560,7 @@ namespace ImprovedHunters
 
             if (removed && logRelease)
             {
-                LogDiagnostic(
+                LogSample(
                     "Improved Hunters released remaining-path speed recovery: " +
                     $"hunter={attempt.Identity.HunterUnitId}/{attempt.Identity.HunterGlobalId}, " +
                     $"target={attempt.Identity.PreyUnitId}/{attempt.Identity.PreyGlobalId}, " +
@@ -622,7 +622,7 @@ namespace ImprovedHunters
                 return;
 
             uint remainingSteps = snapshot.PathLength - snapshot.PathProgress;
-            LogDiagnostic(
+            LogSample(
                 "Improved Hunters remaining-path speed observation: " +
                 $"hunter={hunterUnitId}/{hunter->r_GlobalId}, " +
                 $"target={snapshot.PreyUnitId}/{snapshot.PreyGlobalId}, " +
@@ -649,12 +649,29 @@ namespace ImprovedHunters
                     return;
             }
 
-            LogDiagnostic(
-                "Improved Hunters remaining-path speed recovery skipped: " +
-                $"reason={reason}, hunter={hunterUnitId}, nativeDistance={nativeDistance}, " +
-                "currentCallbackMutation=False.",
-                warning: reason != PathFinishedReason);
+            // Path-decoding invariants and probe failures are faults; other reasons are expected outcomes.
+            if (reason == "invalid-packed-path-direction" ||
+                reason == "path-count-invariant-failed" ||
+                reason == "visibility-probe-unavailable-or-invalid")
+            {
+                LogDiagnostic(FormatSkip(reason, hunterUnitId, nativeDistance), warning: true);
+            }
+            else
+            {
+                LogSample(
+                    FormatSkip(reason, hunterUnitId, nativeDistance),
+                    warning: reason != PathFinishedReason);
+            }
         }
+
+        private static string FormatSkip(string reason, int hunterUnitId, int nativeDistance) =>
+            "Improved Hunters remaining-path speed recovery skipped: " +
+            $"reason={reason}, hunter={hunterUnitId}, nativeDistance={nativeDistance}, " +
+            "currentCallbackMutation=False.";
+
+        // Development samples only: /devdiag builds compile these calls including their message text.
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
+        private void LogSample(string message, bool warning = false) => LogDiagnostic(message, warning);
 
         private void LogDiagnostic(string message, bool warning = false)
         {

@@ -178,10 +178,11 @@
     <Compile Include="src\HunterPclReachability.cs" />
     <Compile Include="src\HunterActiveTargetReachability.cs" />
     <Compile Include="src\HunterRemainingPathSpeedRecovery.cs" />
-    <Compile Include="src\HunterPostShotContinuationDiagnostic.cs" />
-    <Compile Include="src\HunterTargetSearchFallbackDiagnostic.cs" />
-    <Compile Include="src\HunterMovingTargetPathfindingDiagnostic.cs" />
-    <Compile Include="src\HunterVanillaPathContinuationDiagnostic.cs" />
+    <Compile Include="src\HunterPostShotContinuation.cs" />
+    <Compile Include="src\HunterTargetSearchFallback.cs" />
+    <Compile Include="src\HunterFiringPositionSearch.cs" />
+    <Compile Include="src\HunterMovingTargetPathfinding.cs" />
+    <Compile Include="src\HunterVanillaPathContinuation.cs" />
     <Compile Include="src\ImprovedHuntersRuntime.cs" />
     <Compile Include="src\ImprovedHuntersViewModel.cs" />
   </ItemGroup>

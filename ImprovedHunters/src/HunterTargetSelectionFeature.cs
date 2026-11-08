@@ -50,8 +50,12 @@ namespace ImprovedHunters
             if (!settings.IsKnownAnimal(queryType))
                 return;
 
+            // The Extender's default accepts deer and goats, so a switched-off type must be refused explicitly.
             if (!IsRuntimeHuntingEnabled(queryType))
+            {
+                args.IsValidTarget = false;
                 return;
+            }
 
             if (!IsOwnerAllowed((APIShared.UnitAccess.TryGetById(unitApi, hunterUnitId, out _, out _) ? unitApi.GetOwner(hunterUnitId) : -1), args.QueryUnitId, queryType))
             {
@@ -120,7 +124,7 @@ namespace ImprovedHunters
                 targetSelection.HasTarget &&
                 queryGlobalId > 0)
             {
-                hunterTargetSearchFallbackDiagnostic?.RecordCandidate(
+                hunterTargetSearchFallback?.RecordCandidate(
                     hunterUnitId,
                     args.QueryUnitId,
                     unchecked((uint)queryGlobalId),
@@ -600,6 +604,8 @@ namespace ImprovedHunters
                 eligibleChicken);
         }
 
+        // Development samples only: /devdiag builds compile these calls including their message text.
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
         private void LogPreyCacheSummary(
             int knownCount,
             int skippedKnownCount,
@@ -624,6 +630,7 @@ namespace ImprovedHunters
                 Shared.DebugLogHelper.LogInfo(log, "Improved Hunters prey cache diagnostic limit reached.");
         }
 
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
         private void LogPreyCacheDiagnostic(int unitId, PreyEligibility eligibility, string status)
         {
             if (preyCacheDiagnosticLogs >= MaxPreyCacheDiagnosticLogs)
@@ -773,6 +780,12 @@ namespace ImprovedHunters
                 return;
 
             hunterTargetSearchStarts++;
+            LogTargetSearchStartSample(hunterUnitId);
+        }
+
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
+        private void LogTargetSearchStartSample(int hunterUnitId)
+        {
             if (hunterTargetDiagnosticLogs < MaxHunterTargetDiagnosticLogs)
             {
                 Shared.DebugLogHelper.LogInfo(

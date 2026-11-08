@@ -94,8 +94,10 @@ static class Program
             !allSource.Contains("HookRef<", StringComparison.Ordinal) &&
             !allSource.Contains(".Unload()", StringComparison.Ordinal),
             "A legacy Zhuqiaomon hook or teardown contract remains.");
-        Assert(Count(allSource, "new HookHandle<X64InlineHook>()") == 16,
-            "ImprovedHunters must own exactly sixteen typed inline-hook handle declarations.");
+        // 1.1.88 removed the two hooks that steered a jump through Rflags (attack gate, State-1 query result)
+        // and added the State-0 MoveHere destination hook for firing positions.
+        Assert(Count(allSource, "new HookHandle<X64InlineHook>()") == 15,
+            "ImprovedHunters must own exactly fifteen typed inline-hook handle declarations.");
         Assert(Count(allSource, "CommitResult commitResult = transaction.Commit()") == 7 &&
             Count(allSource, "commitResult.IsCompleteSuccess") == 7,
             "Every one of the seven atomic hook transactions must check aggregate success.");

@@ -45,18 +45,19 @@ namespace ImprovedHunters
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             if (memory.Length == 0 || imageBase == 0) throw new ArgumentException("The Crusader library is unavailable.");
-            int entryRva = ValidateNativeSemantics(memory, referenceHashMatches);
+            // The reader sits where the validated pattern was found, also on another game build.
+            int typeSwitchRva = ValidateNativeSemantics(memory, referenceHashMatches);
             dispatchOverride = new PermanentDispatchIndexOverride(
                 region,
-                imageBase + HeightHelperTypeSwitchRva + DispatchReaderOffset,
+                imageBase + unchecked((ulong)(typeSwitchRva + DispatchReaderOffset)),
                 DispatchReaderDisplacedBytes,
                 (int)HunterHutType,
                 NormalBuildingHeight,
                 sourceTypeInR9: false);
             Shared.DebugLogHelper.LogInfo(
                 log,
-                $"Hunter's Hut visibility permanent reader hook installed: entryRva=0x{entryRva:X}, " +
-                $"readerRva=0x{HeightHelperTypeSwitchRva + DispatchReaderOffset:X}, displaced={DispatchReaderDisplacedBytes}.");
+                $"Hunter's Hut visibility permanent reader hook installed: typeSwitchRva=0x{typeSwitchRva:X}, " +
+                $"readerRva=0x{typeSwitchRva + DispatchReaderOffset:X}, displaced={DispatchReaderDisplacedBytes}.");
         }
 
         public bool IsApplied => available && applied && !disposed && dispatchOverride.IsInstalled;
@@ -124,7 +125,7 @@ namespace ImprovedHunters
                  typeTableRva != TypeDispatchTableRva || targetTableRva != DispatchTargetTableRva ||
                  heightTableRva != BuildingBlockHeightTableRva))
                 throw new InvalidOperationException("The Hunter's Hut visibility RVAs changed.");
-            return typeTableRva;
+            return typeSwitchRva;
         }
 
         private static void ValidateRange(ReadOnlySpan<byte> memory, int offset, int length)

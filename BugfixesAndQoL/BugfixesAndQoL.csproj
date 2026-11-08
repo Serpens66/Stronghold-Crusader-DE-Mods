@@ -8,8 +8,8 @@
     <OutputType>Library</OutputType>
     <RootNamespace>BugfixesAndQoL</RootNamespace>
     <AssemblyName>BugfixesAndQoL</AssemblyName>
-    <AssemblyVersion>1.0.215.0</AssemblyVersion>
-    <FileVersion>1.0.215.0</FileVersion>
+    <AssemblyVersion>1.0.216.0</AssemblyVersion>
+    <FileVersion>1.0.216.0</FileVersion>
     <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
     <LangVersion>latest</LangVersion>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
@@ -274,7 +274,7 @@
     <Compile Include="src\Core\Common\LocalPerPlayerSetting.cs" />
     <Compile Include="src\LordAndControlGroups\LordUnitControlsFeature.cs" />
     <Compile Include="src\LordAndControlGroups\LordUnitHudRegistration.cs" />
-    <Compile Include="..\Shared\Runtime\UI\LordPortraitPalette.cs"><Link>Shared\Runtime\UI\LordPortraitPalette.cs</Link></Compile>
+    <Compile Include="src\Hud\LordPortraits.cs" />
     <Compile Include="src\GateRouting\GatehouseDistanceOriginRegistration.cs" />
     <Compile Include="src\LordAndControlGroups\LordControlGroupNativeDefinition.cs" />
     <Compile Include="src\LordAndControlGroups\LordControlGroupNativePatch.cs" />

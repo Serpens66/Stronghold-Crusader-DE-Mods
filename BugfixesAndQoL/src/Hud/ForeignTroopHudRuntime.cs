@@ -363,7 +363,7 @@ namespace BugfixesAndQoL
             if (view.LordIconMissing && !lordIconWarningLogged)
             {
                 lordIconWarningLogged = true;
-                Shared.DebugLogHelper.LogWarning(log, "FOREIGN_TROOP_HUD_RESOURCE_MISSING: BugfixesAndQoL-LordIcon; Lord entry uses its type label.");
+                Shared.DebugLogHelper.LogWarning(log, "FOREIGN_TROOP_HUD_RESOURCE_MISSING: Lord portrait; Lord entry uses its type label.");
             }
             if (!main.Show_HUD_Troops)
             {

@@ -20,6 +20,7 @@ namespace BugfixesAndQoL
         private readonly ManualLogSource log;
         private readonly BugfixesAndQoLViewModel settings;
         private readonly SurrenderFeature surrenderFeature;
+        private readonly LordUnitHudRegistration hudRegistration;
         private readonly Func<bool> isMixedDisbandContractValidated;
         private Hook disbandHook;
         private ButtonUnitDisbandDelegate disbandOriginal;
@@ -32,11 +33,13 @@ namespace BugfixesAndQoL
         private APIShared.Presentation.IUiFrameWorkRegistration frameWork;
         private volatile bool presentationSession;
 
-        internal LordUnitControlsFeature(ManualLogSource log, BugfixesAndQoLViewModel settings, SurrenderFeature surrenderFeature, Func<bool> isMixedDisbandContractValidated)
+        internal LordUnitControlsFeature(ManualLogSource log, BugfixesAndQoLViewModel settings, SurrenderFeature surrenderFeature,
+            LordUnitHudRegistration hudRegistration, Func<bool> isMixedDisbandContractValidated)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
             this.surrenderFeature = surrenderFeature ?? throw new ArgumentNullException(nameof(surrenderFeature));
+            this.hudRegistration = hudRegistration ?? throw new ArgumentNullException(nameof(hudRegistration));
             this.isMixedDisbandContractValidated = isMixedDisbandContractValidated ?? throw new ArgumentNullException(nameof(isMixedDisbandContractValidated));
             MethodInfo disband = RequireMethod(typeof(MainViewModel), "ButtonUnitDisband", BindingFlags.Instance | BindingFlags.NonPublic);
             try
@@ -72,15 +75,21 @@ namespace BugfixesAndQoL
         private void OnBeforeRender()
         {
             bool retiring = !presentationSession || !settings.EnableMod || !settings.EnableLordUnitControls;
+            if (retiring) hudRegistration.RefreshPortrait(false);
             if (retiring && !lordModeActive) return;
-            if (!MainViewModel.viewModelLoaded || MainViewModel.Instance?.HUDmain == null)
+            MainViewModel main = MainViewModel.viewModelLoaded ? MainViewModel.Instance : null;
+            if (main?.HUDmain == null)
             { if (lordModeActive) frameWork.RequestAfter(TimeSpan.FromMilliseconds(100)); return; }
             if (lastFrame == UnityEngine.Time.frameCount) return;
             lastFrame = UnityEngine.Time.frameCount;
             try
             {
                 if (retiring) DeactivateLordOnlyMode(true);
-                else RefreshLordOnlyHud();
+                else
+                {
+                    RefreshLordOnlyHud();
+                    hudRegistration.RefreshPortrait(main.Show_HUD_Troops || main.Show_HUD_ControlGroups);
+                }
             }
             catch (Exception ex)
             {

@@ -21,8 +21,8 @@ that every switch mutates only its own path and that disabled features leave nat
 registers, flags, and patch bytes unchanged.
 
 The temporary `HunterNativeVisibilityProbe`,
-`HunterTargetSearchFallbackDiagnostic`, and
-`HunterVanillaPathContinuationDiagnostic` are deliberately stricter: they are
+`HunterTargetSearchFallback`, and
+`HunterVanillaPathContinuation` are deliberately stricter: they are
 enabled only on the exact audited hash. Their available entry/sequence patterns
 still serve as RVA fallbacks after a local reference-byte failure, but they do
 not approve an unknown DLL because the features also depend on the complete
@@ -50,7 +50,7 @@ only these diagnostic paths.
 | `ComparisonSequencePattern` | `0xD2AB4` | granary chicken target comparison hook at `+11` (`0xD2ABF`) |
 | `HunterQueryCandidateLoopPattern` | `0x18AFC0` | temporary Script Extender issue-123 actor capture |
 | Native Hunter visibility wrapper | `0xA06F0` | behavior-neutral direct probe; seven arguments including context |
-| Native Hunter visibility core | `0x9E350` | wrapper calls forward first and returns immediately when positive; reverse is called only after forward returns zero; `1.1.52` validates the entry and may call both directions explicitly; returns `0` when blocked, otherwise its step count along the line (up to `1000`, `100000` for the same point); Vanilla's Hunter callers only test `< 1`, so any positive value means visible |
+| Native Hunter visibility core | `0x9E350` | wrapper calls forward first and returns immediately when positive; reverse is called only after forward returns zero; `1.1.52` validates the entry and may call both directions explicitly; returns `0` when blocked, otherwise its step count along the line (up to `1000`, `100000` for the same point); the direct attack at `0x18ED6A` treats every positive value as visible, the target query at `0x18B0A2` only `1..0x1B0` |
 | Shared obstacle-height helper | `0x6B990` | reads tile flags, building identity/type and effective obstacle height |
 | Building-height type switch | `0x6B9F8` | dispatches building types `7..78` |
 | Building-height dispatch targets | `0x6BAB4` | entries `0..3`; entry `3` is the normal fixed-height case |
@@ -63,11 +63,12 @@ only these diagnostic paths.
 | Hunter distance helper | `0x79C0` | exact state-1 range result retained in `EDI` |
 | State-0 query handoff | `0x12FDB7` | query return hook at `0x12FDD9`; query callee `0x18AF50` |
 | State-0 `MoveHere` result | `0x12FE7A` | immediately after call to `0x196280` |
-| State-1 near-target refresh | `0x130069` / `0x130072` / `0x12FF7E` | safe compare hook and Vanilla actor load; `1.1.66` reuses the exact 14-byte query-result span only for a guarded stale-moving-target State-0 replan |
+| State-0 `MoveHere` destination | `0x12FE63` | span `[0x12FE63,0x12FE75)`: reservation write and X load (9 + 9 bytes) right before the call to `0x196280`; firing positions replace R8/R9 (see below) |
+| State-1 near-target refresh | `0x130069` / `0x130072` | safe compare hook and Vanilla actor load; the former query-result hook at `0x12FF7E` was removed in `1.1.88` (see below) |
 | State-1 distance-28 compare | `0x13013A` | since `1.1.56` the authoritative snapshot-based attack/continuation decision; sequence begins at `0x130122` |
 | State-1 direct-attack result | `0x130199` | observation-only `test eax,eax` after call to `0x18E9A0` |
 | `StateZeroMoveResultSequencePattern` | `0x12FE63` | unique `.text` fallback; derives result hook `0x12FE7A` and validates `MoveHere` call target |
-| `StateOneRefreshQuerySequencePattern` | `0x12FF57` | unique `.text` fallback; derives refresh-result hook and query call target |
+| `StateOneRefreshQuerySequencePattern` | `0x12FF57` | unique `.text` fallback; derives the near-refresh jump target and query call target |
 | `StateOneDirectAttackSequencePattern` | `0x13018D` | unique `.text` fallback; derives direct-attack result hook `0x130199` |
 | `DistanceStageSequencePattern` (speed recovery) | `0x1300AC` | unique `.text` fallback; derives and validates remaining-path speed stages |
 | `StateTenPrimaryQuerySequencePattern` | `0x130516` | hash-bound diagnostic with local/pattern resolution; derives primary query-result hook |
@@ -76,10 +77,6 @@ only these diagnostic paths.
 | `FailedDirectAttackWriterPattern` | `0x1301C1` | hash-bound diagnostic writer hook after semantic span validation |
 | State-6 writer | `0x12FFA8` | fixed control-flow validation target; no independent fallback because it is part of the hash-bound full `HunterUpdate` audit |
 | State-0 continuation | `0x12FF8E` | fixed control-flow validation target; same full-function hash-bound dependency |
-| Attack-gate hook | `0x130160` | fixed decoded hook span inside hash-bound `HunterUpdate`; no independent safe fallback |
-| Attack-gate ready target | `0x13017A` | decoded branch target validated for the attack-gate hook |
-| Attack-gate second branch | `0x130174` | decoded branch instruction validated for the attack-gate hook |
-| Attack-gate exit target | `0x131402` | decoded far branch target validated against the full hash-bound function |
 | Projectile spawn entry | `0x9B2B0` | Script Extender signature target; creates a live projectile and is not used for LOS preflight |
 | Projectile manager tick | `0x9F960` | iterates live projectiles before their type-specific update |
 | Common projectile flight step | `0x9EF20` | mutates live projectile motion and calls collision, height and orientation helpers |
@@ -416,8 +413,8 @@ a new name. Bound to the audited hash.
 `0x130548` is Vanilla's only corpse handoff: it sets the target (`+0x99C`, `+0x9F6`, `+0x9F8`), state `0xB` and calls
 `0x196280`. It needs R13 (unit manager) and EBP = 0, and reloads RBX itself; both sites have that. Nothing else jumps
 into either span; the only jumps go to their first byte (`0x12FDE4`, `0x1304E8`). Neighbours that must stay clear:
-`HunterTargetSearchFallbackDiagnostic` hooks `0x12FDB7` (19 bytes) and `0x12FDD9` (20 bytes), which is why the search site
-is not at the search call, and `HunterPostShotContinuationDiagnostic` `0x130526` and `0x1305CC`.
+`HunterTargetSearchFallback` hooks `0x12FDB7` (19 bytes) and `0x12FDD9` (20 bytes), which is why the search site
+is not at the search call, and `HunterPostShotContinuation` `0x130526` and `0x1305CC`.
 
 The table has 8 bytes per Hunter (global ID, unit ID) and is filled by the tick scan. The stub checks the choice again
 (same global ID, `+0x6E4` == 2, `+0x8F8` != 0, `+0xAA4` == 0), writes reservation 2, which Vanilla would write in state
@@ -685,7 +682,7 @@ public `+0xF2` also exits. Otherwise RVA `0x13013D` calls direct attack function
 timer-20, return-to-hut writer at `0x130171`.
 
 Version `1.1.38` adds a fourth, observation-only hook to the separately
-removable `HunterTargetSearchFallbackDiagnostic.cs`. The audited sequence begins
+removable `HunterTargetSearchFallback.cs`. The audited sequence begins
 at `0x13013D`, the hook is at offset `+0xC` (`0x130149`), and its relative call
 must resolve to `0x18E950`. It captures volatile registers plus `RDI`, correlates
 only a validated accepted state-0 move with the same live Hunter/target identity
@@ -705,7 +702,7 @@ path state `+0xF2=2`, progress `+0xF6=0`, and length `+0xF8`; generic Vanilla
 unit movement advances `+0xF6`. Reissuing `MoveHere` would reset that progress.
 
 Version `1.1.39` adds the separately removable, exact-hash-only
-`HunterVanillaPathContinuationDiagnostic`. Its full distance-stage pattern
+`HunterVanillaPathContinuation`. Its full distance-stage pattern
 starts at RVA `0x1300D2`; the hook validates `cmp edi,28`, its signed short
 branch target, and runs before the compare at RVA `0x1300EA`. For a live
 same-identity state-1 Hunter with path state `+0xF2=2`, remaining progress
@@ -1429,6 +1426,57 @@ operand of both audited `imul r64,r64,imm32` instructions as
 the State-9 and failed-attack stride multiplies. The three MOV immediates remain
 `OpKind.Immediate32`; no accepted byte, instruction length, register,
 displacement or branch target changed.
+
+### Firing positions in 1.1.88
+
+Vanilla's Hunter gives up (State 1 to State 6, `HunterUpdate` `0x12FC70`) when his path ends without sight of
+the prey, and a direct attack at tile distance 0 or 1 returns 0. Found 08.11.2026 with a deer at the far corner
+of the own keep: the Hunter reached the deer, but the keep's corner cut the line from his side, and the deer
+then stepped onto his tile. The failed-attack recovery sent him back onto the same tile, and the next search
+picked the same deer again: an endless walk between hut and deer.
+
+`HunterFiringPositionSearch` handles this rare case:
+
+- Detection runs in the existing 10-tick scan, over the Hunters only: State 1 to State 6 with the same live
+  target global ID and nothing carried. A failed direct attack at tile distance <= 1 (result hook `0x130199`,
+  RDI) is the second trigger.
+- The search walks rings 4..12 around the prey (inside 20 world units Vanilla's State-1 near refresh `0x130069` sends the Hunter onto the prey's tile, where the direct attack fails). A tile counts when it is walkable, reachable for the Hunter's
+  player (`FindNextComponentTowardDestination` with the Hunter's path mode, so enemy gates and walls count) and
+  the visibility core `0x9E350` sees in both directions from its centre (world = tile * 8 + 4, height = tile
+  height + 30), the same rule as the near-target handoff. At most 64 tiles are tested per search.
+- The hook at `0x12FE63` runs after the relocated reservation write and X load, before the untouched call to
+  `MoveHere` `0x196280`. RDX holds the Hunter ID, R8/R9 the destination. For a staged Hunter whose target global ID
+  still matches, it writes the firing tile into R8/R9 once. No flags are involved; the call follows directly.
+  `0x13052F` and `0x1305DB` jump to `0x12FE8E`, outside the span; the full `HunterUpdate` branch audit runs before
+  installation and the displaced byte count must be 18.
+- When that approach fails as well, or no tile qualifies, the Hunter/prey pair gets a cooldown of 120 seconds in
+  map ticks, and the Hunter takes other prey.
+
+On a new DLL hash, revalidate the span and its register contract together with the other `HunterUpdate` hooks.
+
+### Flag-based hooks removed in 1.1.88
+
+Two context hooks decided an untouched conditional jump through
+`X64SmartCPUContext.Rflags`. The installed RedBird `ContextAssemblyGenerator`
+runs `sub rsp,144` before `pushfq` and `add rsp,144+redZone` after `popfq`, so
+the callback always read ZF=0 and the jump after the hook always saw ZF=0,
+independent of the callback and of the mod's settings (see
+`AGENTS/native-hooks.md`, Flags).
+
+- Attack gate `[0x130160,0x130174)`: the untouched `je 0x131402` at `0x130174`
+  (path state 2 keeps walking) was never taken, so a Hunter at tile distance
+  <= 28 with an unfinished step (`+0xF4 != 0`) called the direct attack early.
+  The intended visible-attack handoff never ran. Removed; Vanilla decides again.
+- State-1 refresh query result `[0x12FF7E,0x12FF8C)`: the untouched
+  `je 0x12FFA3` (zero result, State 6) was never taken, so an empty query always
+  led to State 0. Removed; an empty query leads to Vanilla's State 6 again. The
+  stale-moving-target detection still lets Vanilla's refresh query run, but no
+  longer forces State 0. A correct replacement cannot use a span after the call:
+  `0x13052F` and `0x1305DB` jump to `0x12FF8E`, leaving 11 bytes between the
+  query result and the branch, below RedBird's 14-byte minimum. It is planned
+  as an APIShared hook at the query function entry `0x18AF50`.
+
+The sections below describe the removed hooks as they were built.
 
 ### Guarded stale-moving-target replan in 1.1.66
 

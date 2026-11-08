@@ -18,6 +18,7 @@ internal static class OverviewPresetTests {
   APIShared.Localization.UiText.Configure(()=>"en-US");GameNetworkAPI.LocalHost=true;GameNetworkAPI.Networked=true;GameNetworkAPI.MultiplayerGame=true;
   string file=Path.Combine(Program.PresetFixtureInstallRoot,"Spectator.LordOverview.dll");var model=Prepare(file);
   Check(!model.AllowEnemyDetails && model.EnableMod && model.OverviewShowEliminated,"safe code defaults preserve existing eliminated rows");
+  Check(!model.Overview.ShowWhileHudHidden,"keeping the scoreboard during Hide HUD is opt-in");
   Check(model.OverviewColumns=="GreatestLord,Gold,Army,TroopsKilled,Popularity","fresh settings use the requested five default values in order");
   model.Overview.SetDisplayColumns("Gold,Army,Popularity,Fear");Check(Prepare(file).OverviewColumns=="Gold,Army,Popularity,Fear","even the old exact default selection is preserved when stored");
   model.Overview.SetDisplayShowEliminated(false);Check(!Prepare(file).OverviewShowEliminated,"local eliminated-player filter survives restart");
@@ -42,6 +43,8 @@ internal static class OverviewPresetTests {
   model.System_EnterMissionPreset(new Dictionary<string,byte[]>{{nameof(SpectatorViewModel.AllowEnemyDetails),MessagePackSerializer.Serialize(false)}},"Trail",false);
   model.Overview.SetDisplayColumns("Fear,Popularity");Check(model.Overview.DisplayColumns=="Fear,Popularity","locked mission still permits runtime display choice");
   model.Overview.SetDisplayShowEliminated(false);Check(!model.Overview.DisplayShowEliminated && !model.OverviewShowEliminated && !Prepare(file).OverviewShowEliminated,"locked mission persists local player filter immediately");
+  model.Overview.SetShowWhileHudHidden(true);
+  Check(model.Overview.ShowWhileHudHidden && Prepare(file).Overview.ShowWhileHudHidden,"locked mission persists the local HUD preference immediately");
   model.System_ExitMissionPreset();Check(model.OverviewColumns=="Fear,Popularity","pending display choice persists through normal source after mission");
   Check(Prepare(file).OverviewColumns=="Fear,Popularity","deferred local choice survives restart");
   Check(!Prepare(file).OverviewShowEliminated,"deferred player filter persists after source exit");

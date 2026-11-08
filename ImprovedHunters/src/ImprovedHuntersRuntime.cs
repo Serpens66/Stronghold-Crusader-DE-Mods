@@ -140,11 +140,12 @@ namespace ImprovedHunters
         private HunterHutVisibilityPatch hunterHutVisibilityPatch;
         private HunterNativeVisibilityProbe hunterNativeVisibilityProbe;
         private HunterActiveTargetVisibilitySnapshot hunterActiveTargetVisibilitySnapshot;
+        private HunterFiringPositionSearch hunterFiringPositionSearch;
         private HunterPclReachability hunterPclReachability;
         private HunterRemainingPathSpeedRecovery hunterRemainingPathSpeedRecovery;
-        private HunterPostShotContinuationDiagnostic hunterPostShotContinuationDiagnostic;
-        private HunterTargetSearchFallbackDiagnostic hunterTargetSearchFallbackDiagnostic;
-        private HunterVanillaPathContinuationDiagnostic hunterVanillaPathContinuationDiagnostic;
+        private HunterPostShotContinuation hunterPostShotContinuation;
+        private HunterTargetSearchFallback hunterTargetSearchFallback;
+        private HunterVanillaPathContinuation hunterVanillaPathContinuation;
         private bool referenceHashMatches;
         private bool targetSelectionModeAllowed;
         private bool pathfindingModeAllowed;
@@ -184,10 +185,10 @@ namespace ImprovedHunters
             InitializeHunterCorpseChoicePatch(memory, imageBase, referenceHashMatches);
             TryInitializeFeature("PCL reachability", () => InitializeHunterPclReachability(referenceHashMatches));
             TryInitializeFeature("active-target visibility snapshot", InitializeHunterActiveTargetVisibilitySnapshot);
-            InitializeHunterPostShotContinuationDiagnostic(memory, imageBase, referenceHashMatches);
-            InitializeHunterTargetSearchFallbackDiagnostic(memory, imageBase, referenceHashMatches);
+            InitializeHunterPostShotContinuation(memory, imageBase, referenceHashMatches);
+            InitializeHunterTargetSearchFallback(memory, imageBase, referenceHashMatches);
             InitializeHunterRemainingPathSpeedRecovery(memory, imageBase, referenceHashMatches);
-            InitializeHunterVanillaPathContinuationDiagnostic(memory, imageBase, referenceHashMatches);
+            InitializeHunterVanillaPathContinuation(memory, imageBase, referenceHashMatches);
 
             TryInitializeFeature("simulation tick", RegisterSimulationTick);
 
@@ -224,9 +225,9 @@ namespace ImprovedHunters
                     $"hunterActiveTargetVisibilityAvailable={hunterActiveTargetVisibilitySnapshot?.IsAvailable == true}, " +
                     $"hunterPclReachabilityAvailable={hunterPclReachability?.IsAvailable == true}, " +
                     $"hunterRemainingPathSpeedRecoveryAvailable={hunterRemainingPathSpeedRecovery?.IsAvailable == true}, " +
-                    $"hunterPostShotContinuationAvailable={hunterPostShotContinuationDiagnostic?.IsAvailable == true}, " +
-                    $"hunterTargetSearchFallbackAvailable={hunterTargetSearchFallbackDiagnostic?.IsAvailable == true}, " +
-                    $"hunterVanillaPathContinuationAvailable={hunterVanillaPathContinuationDiagnostic?.IsAvailable == true}, " +
+                    $"hunterPostShotContinuationAvailable={hunterPostShotContinuation?.IsAvailable == true}, " +
+                    $"hunterTargetSearchFallbackAvailable={hunterTargetSearchFallback?.IsAvailable == true}, " +
+                    $"hunterVanillaPathContinuationAvailable={hunterVanillaPathContinuation?.IsAvailable == true}, " +
                     $"referenceHashMatches={referenceHashMatches}.");
         }
 
@@ -316,6 +317,8 @@ namespace ImprovedHunters
                 hunterActiveTargetVisibilitySnapshot?.ProcessNativeScan(units, timestamp);
                 RequeryHuntersWithUnreachableActivePrey(units, hunters, timestamp);
                 RequeryHuntersWithBetterPrey(units, hunters, timestamp);
+                if (CanRunHunterPathfinding())
+                    hunterFiringPositionSearch?.Observe(units, hunters, timestamp);
                 long measured = 0;
                 Shared.DevDiag.Start(ref measured);
                 herdFleeSight?.Update(units);
@@ -465,7 +468,7 @@ namespace ImprovedHunters
 
                 GameUnit* current = units.GetValuePointer(targetUnitId - 1);
                 if (current == null || current->r_GlobalId != targetGlobalId ||
-                    hunterPostShotContinuationDiagnostic?.HasShotInProgress(hunterUnitId) == true)
+                    hunterPostShotContinuation?.HasShotInProgress(hunterUnitId) == true)
                 {
                     continue;
                 }
@@ -501,8 +504,7 @@ namespace ImprovedHunters
                 SetTargetCooldownUntil(
                     new HunterPreyCooldownKey(hunterUnitId, targetGlobalId),
                     timestamp + AbortedTargetCooldownInterval);
-                Shared.DebugLogHelper.LogInfo(
-                    log,
+                LogRuntimeSample(
                     $"Improved Hunters Hunter {hunterUnitId} changed to closer prey: " +
                     $"{targetUnitId}/{currentDistance} tiles -> {selection.BestTarget.UnitId}/{betterDistance} tiles.");
             }
@@ -753,11 +755,12 @@ namespace ImprovedHunters
             ClearTargetSelectionCaches();
             hunterNativeVisibilityProbe?.ResetForMap();
             hunterActiveTargetVisibilitySnapshot?.ResetForMap();
+            hunterFiringPositionSearch?.ResetForMap();
             hunterPclReachability?.ResetForMap();
-            hunterPostShotContinuationDiagnostic?.ResetForMap();
-            hunterTargetSearchFallbackDiagnostic?.ResetForMap();
+            hunterPostShotContinuation?.ResetForMap();
+            hunterTargetSearchFallback?.ResetForMap();
             hunterRemainingPathSpeedRecovery?.ResetForMap();
-            hunterVanillaPathContinuationDiagnostic?.ResetForMap();
+            hunterVanillaPathContinuation?.ResetForMap();
             APIShared.GameModes.GameModeSnapshot gameMode = Shared.GameplayModActivationGate.Snapshot;
             // Without the tick callback nothing would maintain the state these features read.
             targetSelectionModeAllowed = simulationTickRegistered && Shared.GameplayFeatureModePolicy.IsAllowed(
@@ -806,13 +809,19 @@ namespace ImprovedHunters
                 return;
 
             hunterMeatPickupTimestamps.Remove(args.UnitId);
+            LogMeatTripSample(args.UnitId, pickupTimestamp);
+        }
+
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
+        private void LogMeatTripSample(int hunterUnitId, long pickupTimestamp)
+        {
             long elapsedTicks = HunterSimulationTime.Now - pickupTimestamp;
             double elapsedSeconds = elapsedTicks / (double)HunterSimulationTime.MapTicksPerSecond;
             if (hunterTargetDiagnosticLogs < MaxHunterTargetDiagnosticLogs)
             {
                 Shared.DebugLogHelper.LogInfo(
                     log,
-                    $"Improved Hunters meat trip timing: hunter={args.UnitId}, pickupToDropoffSeconds={elapsedSeconds:F2}, " +
+                    $"Improved Hunters meat trip timing: hunter={hunterUnitId}, pickupToDropoffSeconds={elapsedSeconds:F2}, " +
                     $"assumedHutWorkTicks={HunterHutWorkCost}.");
             }
         }
@@ -839,16 +848,21 @@ namespace ImprovedHunters
             *(ushort*)(unitBytes + 0x2C4) = CollectedCorpseDespawnTicks;
             unit->r_AliveState = AliveState.MarkedForDeletion;
 
+            // The set also gates the one-time deletion mark in the native scan, so the Add stays in every build.
             if (loggedCollectedCorpseGlobalIds.Add(target.GlobalId) &&
                 hunterTargetDiagnosticLogs < MaxHunterTargetDiagnosticLogs)
             {
-                Shared.DebugLogHelper.LogInfo(
-                    log,
+                LogRuntimeSample(
                     $"Improved Hunters collected corpse removed: hunter={hunterUnitId}, target={target.UnitId}, " +
                     $"globalId={target.GlobalId}, aiState=0x{*(ushort*)(unitBytes + 0x2BC):X}.");
             }
         }
 
+        // Development samples only: /devdiag builds compile these calls including their message text.
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
+        private void LogRuntimeSample(string message) => Shared.DebugLogHelper.LogInfo(log, message);
+
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
         private void LogShortLivedCorpsePreserve(string message)
         {
             if (shortLivedCorpsePreserveLogs >= 80)
@@ -953,6 +967,7 @@ namespace ImprovedHunters
             abortedTargetCooldowns[key] = expiresAt;
         }
 
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
         private void LogHunterTargetQueryDiagnostic(
             int hunterUnitId,
             int queryUnitId,
@@ -1073,10 +1088,10 @@ namespace ImprovedHunters
             {
                 hunterActiveTargetVisibilitySnapshot?.ResetForMap();
                 hunterPclReachability?.ResetForMap();
-                hunterPostShotContinuationDiagnostic?.ResetForMap();
-                hunterTargetSearchFallbackDiagnostic?.ResetForMap();
+                hunterPostShotContinuation?.ResetForMap();
+                hunterTargetSearchFallback?.ResetForMap();
                 hunterRemainingPathSpeedRecovery?.ResetForMap();
-                hunterVanillaPathContinuationDiagnostic?.ResetForMap();
+                hunterVanillaPathContinuation?.ResetForMap();
             }
 
             if (propertyName == nameof(ImprovedHuntersViewModel.EnableMod) ||
@@ -1309,14 +1324,16 @@ namespace ImprovedHunters
             }
         }
 
-        private void InitializeHunterTargetSearchFallbackDiagnostic(
+        private void InitializeHunterTargetSearchFallback(
             ReadOnlySpan<byte> memory,
             ulong imageBase,
             bool referenceHashMatches)
         {
             try
             {
-                hunterTargetSearchFallbackDiagnostic = new HunterTargetSearchFallbackDiagnostic(
+                if (hunterNativeVisibilityProbe?.IsAvailable == true)
+                    hunterFiringPositionSearch = new HunterFiringPositionSearch(log, hunterNativeVisibilityProbe, SetHunterGiveUpCooldown);
+                hunterTargetSearchFallback = new HunterTargetSearchFallback(
                     log,
                     settings,
                     hookRegion,
@@ -1334,12 +1351,14 @@ namespace ImprovedHunters
                     RecordHunterPostShotMoveHereResult,
                     ResetHunterPostShotAttemptBudget,
                     RegisterRejectedHunterStateZeroMove,
-                    RecordHunterPclMoveHereResult);
+                    RecordHunterPclMoveHereResult,
+                    TryTakeHunterFiringPosition,
+                    (hunterUnitId, preyGlobalId) => hunterFiringPositionSearch?.OnAttackFailedTooClose(hunterUnitId, preyGlobalId));
             }
             catch (Exception exception)
             {
-                hunterTargetSearchFallbackDiagnostic?.Dispose();
-                hunterTargetSearchFallbackDiagnostic = null;
+                hunterTargetSearchFallback?.Dispose();
+                hunterTargetSearchFallback = null;
                 Shared.DebugLogHelper.LogError(
                     log,
                     "Improved Hunters target-search fallback diagnostic is unavailable; " +
@@ -1347,14 +1366,14 @@ namespace ImprovedHunters
             }
         }
 
-        private void InitializeHunterPostShotContinuationDiagnostic(
+        private void InitializeHunterPostShotContinuation(
             ReadOnlySpan<byte> memory,
             ulong imageBase,
             bool referenceHashMatches)
         {
             try
             {
-                hunterPostShotContinuationDiagnostic = new HunterPostShotContinuationDiagnostic(
+                hunterPostShotContinuation = new HunterPostShotContinuation(
                     log,
                     settings,
                     hookRegion,
@@ -1367,8 +1386,8 @@ namespace ImprovedHunters
             }
             catch (Exception exception)
             {
-                hunterPostShotContinuationDiagnostic?.Dispose();
-                hunterPostShotContinuationDiagnostic = null;
+                hunterPostShotContinuation?.Dispose();
+                hunterPostShotContinuation = null;
                 Shared.DebugLogHelper.LogError(
                     log,
                     "Improved Hunters post-shot continuation diagnostic is unavailable; " +
@@ -1480,7 +1499,7 @@ namespace ImprovedHunters
             out HunterPostShotContinuationCandidate candidate)
         {
             candidate = default;
-            return hunterPostShotContinuationDiagnostic?.TryPrepareStateZeroContinuation(
+            return hunterPostShotContinuation?.TryPrepareStateZeroContinuation(
                 hunterUnitId,
                 timestamp,
                 out candidate) == true;
@@ -1490,21 +1509,21 @@ namespace ImprovedHunters
             HunterPostShotContinuationCandidate candidate,
             long timestamp)
         {
-            hunterPostShotContinuationDiagnostic?.RecordAcceptedAttack(candidate, timestamp);
+            hunterPostShotContinuation?.RecordAcceptedAttack(candidate, timestamp);
         }
 
         private void RecordFailedHunterPostShotAttack(
             HunterPostShotContinuationCandidate candidate,
             long timestamp)
         {
-            hunterPostShotContinuationDiagnostic?.RecordFailedDirectAttack(candidate, timestamp);
+            hunterPostShotContinuation?.RecordFailedDirectAttack(candidate, timestamp);
         }
 
         private void RecordHunterPostShotStateZeroHandoff(
             HunterPostShotContinuationCandidate candidate,
             int vanillaTargetUnitId)
         {
-            hunterPostShotContinuationDiagnostic?.RecordStateZeroHandoff(
+            hunterPostShotContinuation?.RecordStateZeroHandoff(
                 candidate,
                 vanillaTargetUnitId);
         }
@@ -1513,7 +1532,7 @@ namespace ImprovedHunters
             HunterPostShotContinuationCandidate candidate,
             int moveHereResult)
         {
-            hunterPostShotContinuationDiagnostic?.RecordMoveHereResult(candidate, moveHereResult);
+            hunterPostShotContinuation?.RecordMoveHereResult(candidate, moveHereResult);
         }
 
         private void ResetHunterPostShotAttemptBudget(
@@ -1521,7 +1540,7 @@ namespace ImprovedHunters
             int preyUnitId,
             uint preyGlobalId)
         {
-            hunterPostShotContinuationDiagnostic?.ResetAttemptBudgetForIndependentMove(
+            hunterPostShotContinuation?.ResetAttemptBudgetForIndependentMove(
                 hunterUnitId,
                 preyUnitId,
                 preyGlobalId);
@@ -1573,10 +1592,10 @@ namespace ImprovedHunters
             out bool shouldLog)
         {
             shouldLog = false;
-            if (hunterVanillaPathContinuationDiagnostic == null)
+            if (hunterVanillaPathContinuation == null)
                 return HunterStateOneNearRefreshAction.None;
 
-            return hunterVanillaPathContinuationDiagnostic.TryPrepareStateOneNearRefresh(
+            return hunterVanillaPathContinuation.TryPrepareStateOneNearRefresh(
                 hunterUnitId,
                 preyUnitId,
                 preyGlobalId,
@@ -1618,15 +1637,15 @@ namespace ImprovedHunters
             hunterHutVisibilityPatch.TrySetEnabled(requestedEnabled);
         }
 
-        private void InitializeHunterVanillaPathContinuationDiagnostic(
+        private void InitializeHunterVanillaPathContinuation(
             ReadOnlySpan<byte> memory,
             ulong imageBase,
             bool referenceHashMatches)
         {
             try
             {
-                hunterVanillaPathContinuationDiagnostic =
-                    new HunterVanillaPathContinuationDiagnostic(
+                hunterVanillaPathContinuation =
+                    new HunterVanillaPathContinuation(
                         log,
                         settings,
                         hunterActiveTargetVisibilitySnapshot,
@@ -1639,8 +1658,8 @@ namespace ImprovedHunters
             }
             catch (Exception exception)
             {
-                hunterVanillaPathContinuationDiagnostic?.Dispose();
-                hunterVanillaPathContinuationDiagnostic = null;
+                hunterVanillaPathContinuation?.Dispose();
+                hunterVanillaPathContinuation = null;
                 Shared.DebugLogHelper.LogError(
                     log,
                     "Improved Hunters Vanilla-path continuation diagnostic is unavailable; " +
@@ -1675,6 +1694,21 @@ namespace ImprovedHunters
                     "Improved Hunters remaining-path speed recovery is unavailable; " +
                     $"Vanilla's direct-distance stage selection remains unchanged: {exception}");
             }
+        }
+
+        private bool TryTakeHunterFiringPosition(int hunterUnitId, long timestamp, out int tileX, out int tileY)
+        {
+            tileX = 0;
+            tileY = 0;
+            return hunterFiringPositionSearch != null &&
+                hunterFiringPositionSearch.TryTakeDestination(hunterUnitId, timestamp, out tileX, out tileY);
+        }
+
+        // A Hunter gave up on this prey even from a firing position, or none exists: other prey first for a while.
+        private void SetHunterGiveUpCooldown(int hunterUnitId, uint preyGlobalId, long expiresAt)
+        {
+            bestTargetCache.Remove(hunterUnitId);
+            SetTargetCooldownUntil(new HunterPreyCooldownKey(hunterUnitId, preyGlobalId), expiresAt);
         }
 
         private void RegisterRejectedHunterStateZeroMove(
@@ -2083,12 +2117,12 @@ namespace ImprovedHunters
             ClearTargetSelectionCaches();
             nativeScanFailureLogged = false;
 
-            hunterTargetSearchFallbackDiagnostic?.Dispose();
-            hunterTargetSearchFallbackDiagnostic = null;
-            hunterPostShotContinuationDiagnostic?.Dispose();
-            hunterPostShotContinuationDiagnostic = null;
-            hunterVanillaPathContinuationDiagnostic?.Dispose();
-            hunterVanillaPathContinuationDiagnostic = null;
+            hunterTargetSearchFallback?.Dispose();
+            hunterTargetSearchFallback = null;
+            hunterPostShotContinuation?.Dispose();
+            hunterPostShotContinuation = null;
+            hunterVanillaPathContinuation?.Dispose();
+            hunterVanillaPathContinuation = null;
             hunterActiveTargetVisibilitySnapshot?.Dispose();
             hunterActiveTargetVisibilitySnapshot = null;
             hunterPclReachability?.Dispose();

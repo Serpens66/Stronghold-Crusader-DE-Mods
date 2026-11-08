@@ -6,6 +6,7 @@ using System.Threading;
 using System.Windows.Input;
 using APIShared;
 using APIShared.GameModes;
+using APIShared.Presentation;
 using BepInEx.Logging;
 using CrusaderDE;
 using Noesis;
@@ -80,7 +81,6 @@ namespace Spectator.LordOverview {
    main=MainViewModel.Instance;main.PropertyChanged+=OnChanged;
    overlay=new Canvas {ClipToBounds=false,Tag=OverviewPresentationPolicy.ContainerTag};
    Grid.SetRowSpan(overlay,Math.Max(1,parent.RowDefinitions.Count));Grid.SetColumnSpan(overlay,Math.Max(1,parent.ColumnDefinitions.Count));
-   overlay.SetBinding(UIElement.VisibilityProperty,new Binding("Visibility"){Source=extras});
    // Same layer as the original extras; later Vanilla dialogs retain their normal precedence.
    Panel.SetZIndex(overlay,Panel.GetZIndex(extras));parent.Children.Insert(parent.Children.IndexOf(extras)+1,overlay);
    panel=new Grid {Visibility=Visibility.Collapsed,Tag=OverviewPresentationPolicy.PassiveTag};Canvas.SetLeft(panel,40);Canvas.SetBottom(panel,0);overlay.Children.Add(panel);
@@ -91,12 +91,38 @@ namespace Spectator.LordOverview {
     <Setter Property='Template'><Setter.Value><ControlTemplate TargetType='{x:Type ToolTip}'><Border Background='{TemplateBinding Background}' BorderBrush='{TemplateBinding BorderBrush}' BorderThickness='{TemplateBinding BorderThickness}' Padding='{TemplateBinding Padding}'><TextBlock Text='{TemplateBinding Content}' FontSize='{TemplateBinding FontSize}' Foreground='{TemplateBinding Foreground}' MaxWidth='{TemplateBinding MaxWidth}' TextWrapping='Wrap'/></Border></ControlTemplate></Setter.Value></Setter>
    </Style>") as Style;
    AttachSettingsMenu();
-
+   UpdateOverlayVisibility();
   }
   private static void OnPanelVisibility(object sender,DependencyPropertyChangedEventArgs e){bool visible=panel?.IsVisible==true;int previous=Interlocked.Exchange(ref shown,visible?1:0);if(!visible){sampling.Cancel();if(previous!=0)Interlocked.Increment(ref generation);CancelHeaderGesture();CloseSettingsMenu();ClosePassiveHover();}}
   private static void OnChanged(object sender,PropertyChangedEventArgs args) {
-   if(args.PropertyName==nameof(MainViewModel.Show_HUD_Goods) && main.Show_HUD_Goods || args.PropertyName==nameof(MainViewModel.Show_HUD_Objectives) && main.Show_HUD_Objectives)Close();
-   if(args.PropertyName==nameof(MainViewModel.Show_HUD_Extras) && !main.Show_HUD_Extras || args.PropertyName==nameof(MainViewModel.Show_InGameUI) && !main.Show_InGameUI)Close();
+   if(!ReferenceEquals(sender,main))return;
+   switch(args.PropertyName){
+    case null: case "":
+    case nameof(MainViewModel.Show_InGame):
+    case nameof(MainViewModel.Show_InGameUI):
+    case nameof(MainViewModel.Show_HUD_Extras):
+    case nameof(MainViewModel.Show_HUD_Goods):
+    case nameof(MainViewModel.Show_HUD_Objectives):
+    case nameof(MainViewModel.Show_HUD_Briefing):
+    case nameof(MainViewModel.Show_HUD_MissionOver):
+    case nameof(MainViewModel.Show_HUD_IngameMenu):
+     UpdateOverlayVisibility();
+     break;
+   }
+  }
+  private static void UpdateOverlayVisibility(){
+   if(overlay==null || main==null)return;
+   bool vanillaVisible=main.Show_InGame && main.Show_InGameUI && main.Show_HUD_Extras;
+   bool keepVisible=!main.Show_InGameUI && settings.ShowWhileHudHidden &&
+    SideHudVisibility.TryGetState(main,out var state) && state==SideHudVisibilityState.HiddenByHudMode;
+   if(!vanillaVisible && !keepVisible || main.Show_HUD_Goods || main.Show_HUD_Objectives ||
+    main.Show_HUD_Briefing || main.Show_HUD_MissionOver || main.Show_HUD_IngameMenu){
+    if(panel?.Visibility==Visibility.Visible)Close();
+    overlay.Visibility=Visibility.Collapsed;
+    return;
+   }
+   if(keepVisible){CancelCrownPress();if(Editing)CloseSettingsMenu();}
+   overlay.Visibility=Visibility.Visible;
   }
   private static void Toggle() {
    if(Interlocked.Read(ref session)<=0 || !settings.EnableMod || panel==null || !panel.IsLoaded || !main.Show_InGameUI)return;
@@ -106,6 +132,7 @@ namespace Spectator.LordOverview {
   private static void OpenOverview(){
    if(Interlocked.Read(ref session)<=0 || !settings.EnableMod || panel==null || !panel.IsLoaded || main?.Show_InGameUI!=true)return;
    main.SetGoodsPopupState(false);main.SetObjectivePopupState(false);
+   if(overlay?.IsVisible!=true)return;
    panel.Visibility=Visibility.Visible;Volatile.Write(ref shown,1);hoverFaulted=false;MarkHoverGeometryDirty();RequestRefresh();
   }
   private static void Close(){CancelCrownPress();CancelHeaderGesture();CloseSettingsMenu();ClosePassiveHover();Interlocked.Increment(ref generation);Volatile.Write(ref shown,0);portraits.Reset();sampling.Cancel();OverviewData.CancelPending();if(panel!=null){CloseTips(panel);panel.Visibility=Visibility.Collapsed;}}
@@ -115,7 +142,7 @@ namespace Spectator.LordOverview {
    if(main!=null)main.PropertyChanged-=OnChanged;
    if(parent!=null)parent.SizeChanged-=OnViewportSizeChanged;
    if(panel!=null)panel.IsVisibleChanged-=OnPanelVisibility;
-   if(overlay!=null){overlay.ClearValue(UIElement.VisibilityProperty);parent?.Children.Remove(overlay);}
+   if(overlay!=null)parent?.Children.Remove(overlay);
    panel=null;overlay=null;parent=null;sourceHost=null;main=null;
   }
 

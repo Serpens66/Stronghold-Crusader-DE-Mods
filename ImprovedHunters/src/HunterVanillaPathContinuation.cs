@@ -19,7 +19,7 @@ namespace ImprovedHunters
     /// already owns a live Hunter path but its near-range visibility is blocked,
     /// this lets the original distance-29 branch continue that same path.
     /// </summary>
-    internal sealed unsafe class HunterVanillaPathContinuationDiagnostic : IDisposable
+    internal sealed unsafe class HunterVanillaPathContinuation : IDisposable
     {
         private const string ReferenceDllSha256 =
             "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2";
@@ -28,11 +28,6 @@ namespace ImprovedHunters
         private const int DistanceTwentyEightNearBranchTargetOffset = 0x30;
         private const int HunterUpdateStartRva = 0x12FC70;
         private const int HunterUpdateEndRva = 0x131422;
-        private const int AttackGateHookRva = 0x130160;
-        private const int AttackGateHookLength = 0x14;
-        private const int AttackGateFirstBranchTargetRva = 0x13017A;
-        private const int AttackGateSecondBranchRva = 0x130174;
-        private const int AttackGateExitTargetRva = 0x131402;
         private const int HunterAiStateOffset = 0x2BC;
         private const int HunterTargetUnitIdOffset = 0x39A;
         private const int HunterTargetGlobalIdOffset = 0x39C;
@@ -48,7 +43,6 @@ namespace ImprovedHunters
         private const int VanillaContinuationDistance = 29;
         private const int MaximumPreparedWorldDistance = 28;
         private const int MaxDiagnosticLogs = 600;
-        private const ulong ZeroFlagMask = 1UL << 6;
 
         private const string DistanceStageSequencePattern =
             "83 FF 1E 7E 13 B8 06 00 00 00 " +
@@ -59,7 +53,6 @@ namespace ImprovedHunters
 
         private static readonly long MaxNoProgressDuration = HunterSimulationTime.MapTicksPerSecond * 3;
         private static readonly long RetryCooldownDuration = HunterSimulationTime.MapTicksPerSecond * 5;
-        private static readonly long FreshAttackGateSnapshotLifetime = HunterSimulationTime.MapTicksPerSecond / 2;
         private readonly ManualLogSource log;
         private readonly ImprovedHuntersViewModel settings;
         private readonly HunterActiveTargetVisibilitySnapshot activeVisibility;
@@ -80,14 +73,12 @@ namespace ImprovedHunters
             new Dictionary<int, WorldRefreshObservation>();
         private HookTransaction transaction;
         private readonly HookHandle<X64InlineHook> distanceCompareHook = new HookHandle<X64InlineHook>();
-        private readonly HookHandle<X64InlineHook> attackGateHook = new HookHandle<X64InlineHook>();
         private bool featureAvailable;
         private bool hookConfirmed;
-        private bool attackGateHookConfirmed;
         private int diagnosticLogs;
         private bool disposed;
 
-        public HunterVanillaPathContinuationDiagnostic(
+        public HunterVanillaPathContinuation(
             ManualLogSource log,
             ImprovedHuntersViewModel settings,
             HunterActiveTargetVisibilitySnapshot activeVisibility,
@@ -132,13 +123,6 @@ namespace ImprovedHunters
                 memory,
                 libraryBase,
                 compareRva);
-            ValidateAttackGateHookSpan(memory, libraryBase);
-            if (compareRva + distanceHookLength > AttackGateHookRva)
-            {
-                throw new InvalidOperationException(
-                    "The Hunter distance and attack-gate hook spans overlap.");
-            }
-
             try
             {
                 transaction = HunterHookInfrastructure.CreateOwnedTransaction(region);
@@ -153,37 +137,20 @@ namespace ImprovedHunters
                     hookSize: distanceHookLength,
                     errorMode: CallbackErrorMode.LogAndContinue,
                     placement: OverwrittenInstructionPlacement.AfterCallback);
-                HunterHookInfrastructure.AddContextHook(
-                    transaction,
-                    attackGateHook,
-                    libraryBase + unchecked((ulong)AttackGateHookRva),
-                    TryHandoffFreshVisibleAttack,
-                    registers: X64SmartCPUContextRegs.Volatile |
-                        X64SmartCPUContextRegs.RBX |
-                        X64SmartCPUContextRegs.RDI |
-                        X64SmartCPUContextRegs.RBP |
-                        X64SmartCPUContextRegs.R13 |
-                        X64SmartCPUContextRegs.R14 |
-                        X64SmartCPUContextRegs.Flags,
-                    hookSize: AttackGateHookLength,
-                    errorMode: CallbackErrorMode.LogAndContinue,
-                    placement: OverwrittenInstructionPlacement.BeforeCallback);
                 CommitResult commitResult = transaction.Commit();
                 if (!commitResult.IsCompleteSuccess ||
-                    !distanceCompareHook.Success || !attackGateHook.Success)
+                    !distanceCompareHook.Success)
                 {
                     throw new InvalidOperationException(
-                        "One or more Hunter continuation/attack-gate hooks were not installed.");
+                        "The Hunter continuation hook was not installed.");
                 }
 
                 featureAvailable = true;
                 Shared.DebugLogHelper.LogInfo(
                     log,
-                    "Improved Hunters Vanilla-path continuation diagnostic initialized: " +
+                    "Improved Hunters Vanilla-path continuation initialized: " +
                     $"sequenceRva=0x{sequenceRva:X}, compareRva=0x{compareRva:X}, " +
                     $"distanceHookSpan=[0x{compareRva:X},0x{compareRva + distanceHookLength:X}), " +
-                    $"attackGateHookSpan=[0x{AttackGateHookRva:X}," +
-                    $"0x{AttackGateHookRva + AttackGateHookLength:X}), " +
                     $"nearBranchTargetRva=0x{sequenceRva + DistanceTwentyEightNearBranchTargetOffset:X}, " +
                     $"forcedDistance={VanillaContinuationDistance}, globalIdentityLimit=None, " +
                     "maxActiveAttempts=one-per-hunter, " +
@@ -194,10 +161,9 @@ namespace ImprovedHunters
                     "speedWrite=False, animationWrite=False, " +
                     "registerOverride=RDI-distance-only, preparedTicketRequired=False, " +
                     "tileAttackDecision=active-visibility-snapshot, " +
-                    "nearVisibility=wrapper-plus-bidirectional-core, visibleAttackHandoff=True, " +
+                    "nearVisibility=wrapper-plus-bidirectional-core, visibleAttackHandoff=world-refresh-only, " +
                     "directionalDisagreementContinuesPath=True, explicitCachedPclReachableRequired=True, " +
                     "staleBlockedContinuation=True, visiblePositionMatchRequired=True, " +
-                    "attackGateSnapshotMaxAgeMs=500, attackGateOverride=RFLAGS.ZF-clear-only, " +
                     "nativeVisibilityOrPclQueryInsideHook=False.");
             }
             catch
@@ -211,7 +177,6 @@ namespace ImprovedHunters
             featureAvailable &&
             !disposed &&
             distanceCompareHook.Success &&
-            attackGateHook.Success &&
             activeVisibility.IsAvailable &&
             pclReachability.IsAvailable;
 
@@ -228,7 +193,6 @@ namespace ImprovedHunters
             }
 
             hookConfirmed = false;
-            attackGateHookConfirmed = false;
             diagnosticLogs = 0;
         }
 
@@ -391,7 +355,7 @@ namespace ImprovedHunters
 
             if (shouldLog)
             {
-                LogDiagnostic(
+                LogSample(
                     "Improved Hunters authorized Hunter world-refresh bypass from active visibility: " +
                     $"hunter={hunterUnitId}/{hunter->r_GlobalId}, " +
                     $"target={preyUnitId}/{preyGlobalId}/{prey->r_UnitChimp}, " +
@@ -680,88 +644,6 @@ namespace ImprovedHunters
                 force: newAttempt || pathChanged);
         }
 
-        private void TryHandoffFreshVisibleAttack(NativePointer<X64SmartCPUContext> context)
-        {
-            // The relocated first CMP/JE and path-state CMP already ran. A set
-            // ZF therefore means Vanilla would take its path-state-2 exit at
-            // 0x130124. Clearing only that flag falls through to the untouched
-            // attack setup at 0x13012A; every failed guard leaves ZF unchanged.
-            if (!IsAvailable || !canRun() || (context.Pointer->Rflags & ZeroFlagMask) == 0)
-                return;
-
-            int tileAttackDistance = unchecked((int)(uint)context.Pointer->RDI);
-            int hunterUnitId = unchecked((int)(uint)context.Pointer->RBX);
-            if (tileAttackDistance < 0 || tileAttackDistance > MaximumPreparedWorldDistance)
-                return;
-
-            long timestamp = HunterSimulationTime.Now;
-            if (!TryGetContext(
-                    hunterUnitId,
-                    out GameUnit* hunter,
-                    out GameUnit* prey,
-                    out int preyUnitId,
-                    out uint preyGlobalId,
-                    out ushort pathState,
-                    out ushort pathFieldF4,
-                    out ushort pathProgress,
-                    out uint pathLength) ||
-                pathState != ActivePathState ||
-                pathLength <= 1 ||
-                pathLength > MaximumPathSteps ||
-                pathProgress >= pathLength)
-            {
-                return;
-            }
-
-            if (!pclReachability.TryGetActiveTargetReachability(
-                    hunterUnitId,
-                    preyUnitId,
-                    preyGlobalId,
-                    prey->r_UnitChimp,
-                    timestamp,
-                    out bool pclReachable,
-                    out long pclSnapshotAgeMilliseconds,
-                    out string pclSnapshotStatus) ||
-                !pclReachable)
-            {
-                return;
-            }
-
-            if (!activeVisibility.TryGetObservation(
-                    hunterUnitId,
-                    preyUnitId,
-                    preyGlobalId,
-                    prey->r_UnitChimp,
-                    timestamp,
-                    out HunterActiveVisibilityObservation visibility) ||
-                visibility.State != HunterActiveVisibilityState.Visible ||
-                !visibility.PositionsMatch ||
-                visibility.SnapshotAgeMilliseconds < 0 ||
-                visibility.SnapshotAgeMilliseconds >
-                    FreshAttackGateSnapshotLifetime * 1000 / HunterSimulationTime.MapTicksPerSecond)
-            {
-                return;
-            }
-
-            context.Pointer->Rflags &= ~ZeroFlagMask;
-            if (!attackGateHookConfirmed)
-            {
-                attackGateHookConfirmed = true;
-                LogDiagnostic(
-                    "Improved Hunters fresh visible attack-gate handoff confirmed: " +
-                    $"hunter={hunterUnitId}/{hunter->r_GlobalId}, " +
-                    $"target={preyUnitId}/{preyGlobalId}/{prey->r_UnitChimp}, " +
-                    $"tileAttackDistance={tileAttackDistance}, snapshotAgeMs=" +
-                    $"{visibility.SnapshotAgeMilliseconds}, positionsMatch=True, " +
-                    $"pclSnapshotStatus={pclSnapshotStatus}, " +
-                    $"pclSnapshotAgeMs={pclSnapshotAgeMilliseconds}, " +
-                    $"path={pathState}/{pathFieldF4}/{pathProgress}/{pathLength}, " +
-                    "registerOverride=RFLAGS.ZF-clear-only, targetRva=0x13012A, " +
-                    "ownMovement=False, ownAiState=False, ownOrderWrite=False, " +
-                    "pathFieldWrite=False.");
-            }
-        }
-
         private bool TryGetContext(
             int hunterUnitId,
             out GameUnit* hunter,
@@ -851,7 +733,7 @@ namespace ImprovedHunters
             if (!hadActiveAttempt)
                 return;
 
-            LogDiagnostic(
+            LogSample(
                 "Improved Hunters released Vanilla Hunter path continuation: " +
                 $"hunter={identity.HunterUnitId}/{identity.HunterGlobalId}, " +
                 $"target={identity.PreyUnitId}/{identity.PreyGlobalId}, reason={reason}, " +
@@ -917,7 +799,7 @@ namespace ImprovedHunters
             if (!shouldLog)
                 return false;
 
-            LogDiagnostic(
+            LogSample(
                 "Improved Hunters consumed active Hunter visibility decision: " +
                 $"hunter={identity.HunterUnitId}/{identity.HunterGlobalId}, " +
                 $"target={identity.PreyUnitId}/{identity.PreyGlobalId}, " +
@@ -981,7 +863,7 @@ namespace ImprovedHunters
                 lastTileVisibilityDecisions[identity.HunterUnitId] = signature;
             }
 
-            LogDiagnostic(
+            string DescribeTileDecision() =>
                 "Improved Hunters Hunter tile-attack decision: " +
                 $"hunter={identity.HunterUnitId}/{identity.HunterGlobalId}, " +
                 $"target={identity.PreyUnitId}/{identity.PreyGlobalId}, " +
@@ -1002,8 +884,15 @@ namespace ImprovedHunters
                 $"path={pathState}/{pathFieldF4}/{pathProgress}/{pathLength}, action={action}, " +
                 $"registerOverride={(action == "continue-vanilla-path" || action == "visibility-pending" ? "RDI-distance-only" : "none")}, " +
                 "ownMovement=False, ownAiState=False, ownOrderWrite=False, " +
-                "speedWrite=False, animationWrite=False.",
-                warning: action.StartsWith("reject-", StringComparison.Ordinal));
+                "speedWrite=False, animationWrite=False.";
+
+            // A stalled continuation is reported in every build; other decisions are samples.
+            if (action == "reject-no-progress")
+                LogDiagnostic(DescribeTileDecision(), warning: true);
+            else
+                LogSample(
+                    DescribeTileDecision(),
+                    warning: action.StartsWith("reject-", StringComparison.Ordinal));
         }
 
         private void LogPreparationRejection(
@@ -1024,7 +913,7 @@ namespace ImprovedHunters
             if (!shouldLog)
                 return;
 
-            LogDiagnostic(
+            LogSample(
                 "Improved Hunters did not prepare Vanilla Hunter path continuation: " +
                 $"hunter={hunterUnitId}, reason={reason}, {details}, " +
                 "nearRefreshBypass=False, currentCallbackMutation=False.",
@@ -1043,6 +932,10 @@ namespace ImprovedHunters
             else
                 Shared.DebugLogHelper.LogInfo(log, boundedMessage);
         }
+
+        // Development samples only: /devdiag builds compile these calls including their message text.
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
+        private void LogSample(string message, bool warning = false) => LogDiagnostic(message, warning);
 
         private static int ValidateDistanceContinuationHookSpan(
             ReadOnlySpan<byte> memory,
@@ -1099,73 +992,6 @@ namespace ImprovedHunters
                 hookEndAddress,
                 "distance-28");
             return hookLength;
-        }
-
-        private static void ValidateAttackGateHookSpan(
-            ReadOnlySpan<byte> memory,
-            ulong libraryBase)
-        {
-            const int decodeLookahead = 48;
-            if (AttackGateHookRva < 0 || AttackGateHookRva > memory.Length - decodeLookahead)
-                throw new InvalidOperationException("Hunter attack-gate hook lies outside the module image.");
-
-            ulong hookAddress = libraryBase + unchecked((ulong)AttackGateHookRva);
-            Decoder decoder = Decoder.Create(
-                64,
-                new ByteArrayCodeReader(
-                    memory.Slice(AttackGateHookRva, decodeLookahead).ToArray()),
-                hookAddress);
-            Instruction locomotionCompare = decoder.Decode();
-            Instruction readyBranch = decoder.Decode();
-            Instruction pathStateCompare = decoder.Decode();
-            int hookLength = checked((int)(decoder.IP - hookAddress));
-            if (locomotionCompare.IsInvalid ||
-                readyBranch.IsInvalid ||
-                pathStateCompare.IsInvalid ||
-                locomotionCompare.Mnemonic != Mnemonic.Cmp ||
-                locomotionCompare.Length != 9 ||
-                readyBranch.Mnemonic != Mnemonic.Je ||
-                readyBranch.Length != 2 ||
-                pathStateCompare.Mnemonic != Mnemonic.Cmp ||
-                pathStateCompare.Length != 9 ||
-                hookLength != AttackGateHookLength)
-            {
-                throw new InvalidOperationException(
-                    "Hunter attack-gate hook does not decode as the audited 9+2+9-byte span.");
-            }
-
-            ulong hookEndAddress = hookAddress + AttackGateHookLength;
-            ulong expectedReadyTarget =
-                libraryBase + unchecked((ulong)AttackGateFirstBranchTargetRva);
-            if (readyBranch.FlowControl != FlowControl.ConditionalBranch ||
-                readyBranch.NearBranchTarget != expectedReadyTarget ||
-                readyBranch.NearBranchTarget < hookEndAddress)
-            {
-                throw new InvalidOperationException(
-                    $"Hunter attack-gate ready branch changed: target=0x{readyBranch.NearBranchTarget:X}, " +
-                    $"span=[0x{hookAddress:X},0x{hookEndAddress:X}).");
-            }
-
-            Instruction exitBranch = decoder.Decode();
-            ulong expectedExitTarget =
-                libraryBase + unchecked((ulong)AttackGateExitTargetRva);
-            if (exitBranch.IsInvalid ||
-                exitBranch.IP != libraryBase + unchecked((ulong)AttackGateSecondBranchRva) ||
-                exitBranch.Mnemonic != Mnemonic.Je ||
-                exitBranch.FlowControl != FlowControl.ConditionalBranch ||
-                exitBranch.NearBranchTarget != expectedExitTarget)
-            {
-                throw new InvalidOperationException(
-                    $"Hunter attack-gate exit branch changed: address=0x{exitBranch.IP:X}, " +
-                    $"target=0x{exitBranch.NearBranchTarget:X}.");
-            }
-
-            ValidateNoExternalDirectBranchTargetsInsideHook(
-                memory,
-                libraryBase,
-                hookAddress,
-                hookEndAddress,
-                "attack-gate");
         }
 
         private static void ValidateNoExternalDirectBranchTargetsInsideHook(

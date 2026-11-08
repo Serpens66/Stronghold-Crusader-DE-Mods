@@ -21,6 +21,12 @@
   },
   "documents": [
     {
+      "file": "SIDE_HUD_VISIBILITY.md",
+      "scope": "vanilla",
+      "components": [],
+      "integrationSections": []
+    },
+    {
       "file": "CUSTOM_LORD_AIV_SELECTION.md",
       "scope": "vanilla+integration",
       "components": ["BugfixesAndQoL"],

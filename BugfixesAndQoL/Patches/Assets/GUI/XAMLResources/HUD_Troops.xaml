@@ -61,4 +61,149 @@
       </Grid>
     </Content>
   </Operation>
+  <!-- APIShared keeps the last category tag on hidden hosts. Match only visible Lord slots. -->
+  <Operation Type="Add" XPath="//n:Grid[@Name='TroopSelectionNumbers']/n:TextBlock[@Name='SelectedTroopCount1']">
+    <Content>
+      <TextBlock.Style>
+        <Style TargetType="{x:Type TextBlock}" BasedOn="{StaticResource {x:Type TextBlock}}">
+          <Style.Triggers>
+            <MultiDataTrigger>
+              <MultiDataTrigger.Conditions>
+                <Condition Binding="{Binding Tag, ElementName=APISharedUnitHudSlot1}" Value="BugfixesAndQoL_Serp:controlled-lord" />
+                <Condition Binding="{Binding Visibility, ElementName=APISharedUnitHudSlotHost1}" Value="Visible" />
+                <Condition Binding="{Binding Text, RelativeSource={RelativeSource Self}}" Value="1" />
+              </MultiDataTrigger.Conditions>
+              <Setter Property="Opacity" Value="0" />
+            </MultiDataTrigger>
+          </Style.Triggers>
+        </Style>
+      </TextBlock.Style>
+    </Content>
+  </Operation>
+  <Operation Type="Add" XPath="//n:Grid[@Name='TroopSelectionNumbers']/n:TextBlock[@Name='SelectedTroopCount2']">
+    <Content>
+      <TextBlock.Style>
+        <Style TargetType="{x:Type TextBlock}" BasedOn="{StaticResource {x:Type TextBlock}}">
+          <Style.Triggers>
+            <MultiDataTrigger>
+              <MultiDataTrigger.Conditions>
+                <Condition Binding="{Binding Tag, ElementName=APISharedUnitHudSlot2}" Value="BugfixesAndQoL_Serp:controlled-lord" />
+                <Condition Binding="{Binding Visibility, ElementName=APISharedUnitHudSlotHost2}" Value="Visible" />
+                <Condition Binding="{Binding Text, RelativeSource={RelativeSource Self}}" Value="1" />
+              </MultiDataTrigger.Conditions>
+              <Setter Property="Opacity" Value="0" />
+            </MultiDataTrigger>
+          </Style.Triggers>
+        </Style>
+      </TextBlock.Style>
+    </Content>
+  </Operation>
+  <Operation Type="Add" XPath="//n:Grid[@Name='TroopSelectionNumbers']/n:TextBlock[@Name='SelectedTroopCount3']">
+    <Content>
+      <TextBlock.Style>
+        <Style TargetType="{x:Type TextBlock}" BasedOn="{StaticResource {x:Type TextBlock}}">
+          <Style.Triggers>
+            <MultiDataTrigger>
+              <MultiDataTrigger.Conditions>
+                <Condition Binding="{Binding Tag, ElementName=APISharedUnitHudSlot3}" Value="BugfixesAndQoL_Serp:controlled-lord" />
+                <Condition Binding="{Binding Visibility, ElementName=APISharedUnitHudSlotHost3}" Value="Visible" />
+                <Condition Binding="{Binding Text, RelativeSource={RelativeSource Self}}" Value="1" />
+              </MultiDataTrigger.Conditions>
+              <Setter Property="Opacity" Value="0" />
+            </MultiDataTrigger>
+          </Style.Triggers>
+        </Style>
+      </TextBlock.Style>
+    </Content>
+  </Operation>
+  <Operation Type="Add" XPath="//n:Grid[@Name='TroopSelectionNumbers']/n:TextBlock[@Name='SelectedTroopCount4']">
+    <Content>
+      <TextBlock.Style>
+        <Style TargetType="{x:Type TextBlock}" BasedOn="{StaticResource {x:Type TextBlock}}">
+          <Style.Triggers>
+            <MultiDataTrigger>
+              <MultiDataTrigger.Conditions>
+                <Condition Binding="{Binding Tag, ElementName=APISharedUnitHudSlot4}" Value="BugfixesAndQoL_Serp:controlled-lord" />
+                <Condition Binding="{Binding Visibility, ElementName=APISharedUnitHudSlotHost4}" Value="Visible" />
+                <Condition Binding="{Binding Text, RelativeSource={RelativeSource Self}}" Value="1" />
+              </MultiDataTrigger.Conditions>
+              <Setter Property="Opacity" Value="0" />
+            </MultiDataTrigger>
+          </Style.Triggers>
+        </Style>
+      </TextBlock.Style>
+    </Content>
+  </Operation>
+  <Operation Type="Add" XPath="//n:Grid[@Name='TroopSelectionNumbers']/n:TextBlock[@Name='SelectedTroopCount5']">
+    <Content>
+      <TextBlock.Style>
+        <Style TargetType="{x:Type TextBlock}" BasedOn="{StaticResource {x:Type TextBlock}}">
+          <Style.Triggers>
+            <MultiDataTrigger>
+              <MultiDataTrigger.Conditions>
+                <Condition Binding="{Binding Tag, ElementName=APISharedUnitHudSlot5}" Value="BugfixesAndQoL_Serp:controlled-lord" />
+                <Condition Binding="{Binding Visibility, ElementName=APISharedUnitHudSlotHost5}" Value="Visible" />
+                <Condition Binding="{Binding Text, RelativeSource={RelativeSource Self}}" Value="1" />
+              </MultiDataTrigger.Conditions>
+              <Setter Property="Opacity" Value="0" />
+            </MultiDataTrigger>
+          </Style.Triggers>
+        </Style>
+      </TextBlock.Style>
+    </Content>
+  </Operation>
+  <Operation Type="Add" XPath="//n:Grid[@Name='TroopSelectionNumbers']/n:TextBlock[@Name='SelectedTroopCount6']">
+    <Content>
+      <TextBlock.Style>
+        <Style TargetType="{x:Type TextBlock}" BasedOn="{StaticResource {x:Type TextBlock}}">
+          <Style.Triggers>
+            <MultiDataTrigger>
+              <MultiDataTrigger.Conditions>
+                <Condition Binding="{Binding Tag, ElementName=APISharedUnitHudSlot6}" Value="BugfixesAndQoL_Serp:controlled-lord" />
+                <Condition Binding="{Binding Visibility, ElementName=APISharedUnitHudSlotHost6}" Value="Visible" />
+                <Condition Binding="{Binding Text, RelativeSource={RelativeSource Self}}" Value="1" />
+              </MultiDataTrigger.Conditions>
+              <Setter Property="Opacity" Value="0" />
+            </MultiDataTrigger>
+          </Style.Triggers>
+        </Style>
+      </TextBlock.Style>
+    </Content>
+  </Operation>
+  <Operation Type="Add" XPath="//n:Grid[@Name='TroopSelectionNumbers']/n:TextBlock[@Name='SelectedTroopCount7']">
+    <Content>
+      <TextBlock.Style>
+        <Style TargetType="{x:Type TextBlock}" BasedOn="{StaticResource {x:Type TextBlock}}">
+          <Style.Triggers>
+            <MultiDataTrigger>
+              <MultiDataTrigger.Conditions>
+                <Condition Binding="{Binding Tag, ElementName=APISharedUnitHudSlot7}" Value="BugfixesAndQoL_Serp:controlled-lord" />
+                <Condition Binding="{Binding Visibility, ElementName=APISharedUnitHudSlotHost7}" Value="Visible" />
+                <Condition Binding="{Binding Text, RelativeSource={RelativeSource Self}}" Value="1" />
+              </MultiDataTrigger.Conditions>
+              <Setter Property="Opacity" Value="0" />
+            </MultiDataTrigger>
+          </Style.Triggers>
+        </Style>
+      </TextBlock.Style>
+    </Content>
+  </Operation>
+  <Operation Type="Add" XPath="//n:Grid[@Name='TroopSelectionNumbers']/n:TextBlock[@Name='SelectedTroopCount8']">
+    <Content>
+      <TextBlock.Style>
+        <Style TargetType="{x:Type TextBlock}" BasedOn="{StaticResource {x:Type TextBlock}}">
+          <Style.Triggers>
+            <MultiDataTrigger>
+              <MultiDataTrigger.Conditions>
+                <Condition Binding="{Binding Tag, ElementName=APISharedUnitHudSlot8}" Value="BugfixesAndQoL_Serp:controlled-lord" />
+                <Condition Binding="{Binding Visibility, ElementName=APISharedUnitHudSlotHost8}" Value="Visible" />
+                <Condition Binding="{Binding Text, RelativeSource={RelativeSource Self}}" Value="1" />
+              </MultiDataTrigger.Conditions>
+              <Setter Property="Opacity" Value="0" />
+            </MultiDataTrigger>
+          </Style.Triggers>
+        </Style>
+      </TextBlock.Style>
+    </Content>
+  </Operation>
 </Patch>

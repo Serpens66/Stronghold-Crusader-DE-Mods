@@ -60,7 +60,7 @@ namespace ImprovedHunters
     /// query result only selects Vanilla's existing State-0 requery path. The
     /// regular State-0 fallback then hands the identity to Vanilla MoveHere.
     /// </summary>
-    internal sealed unsafe class HunterPostShotContinuationDiagnostic : IDisposable
+    internal sealed unsafe class HunterPostShotContinuation : IDisposable
     {
         private const string ReferenceDllSha256 =
             "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2";
@@ -127,7 +127,7 @@ namespace ImprovedHunters
         private int diagnosticLogs;
         private bool disposed;
 
-        public HunterPostShotContinuationDiagnostic(
+        public HunterPostShotContinuation(
             ManualLogSource log,
             ImprovedHuntersViewModel settings,
             ScanRegion region,
@@ -272,7 +272,7 @@ namespace ImprovedHunters
                 featureAvailable = true;
                 Shared.DebugLogHelper.LogInfo(
                     log,
-                    "Improved Hunters post-shot continuation diagnostic initialized: " +
+                    "Improved Hunters post-shot continuation initialized: " +
                     $"primaryQueryRva=0x{primarySequenceRva + QueryCallInstructionOffset:X}, " +
                     $"primaryResultHookSpan=[0x{primaryResultRva:X},0x{primaryResultRva + QueryResultHookLength:X}), " +
                     $"secondaryQueryRva=0x{secondarySequenceRva + QueryCallInstructionOffset:X}, " +
@@ -318,7 +318,7 @@ namespace ImprovedHunters
                     out GameUnit* prey,
                     out string rejection))
             {
-                LogDiagnostic(
+                LogSample(
                     "Improved Hunters post-shot observation rejected accepted attack: " +
                     $"hunter={candidate.HunterUnitId}/{candidate.HunterGlobalId}, " +
                     $"target={candidate.PreyUnitId}/{candidate.PreyGlobalId}/{candidate.PreyType}, " +
@@ -336,7 +336,7 @@ namespace ImprovedHunters
                 pendingStateZeroHandoffs.Remove(candidate.HunterUnitId);
             }
 
-            LogDiagnostic(
+            LogSample(
                 "Improved Hunters post-shot observation queued: " +
                 $"hunter={candidate.HunterUnitId}/{candidate.HunterGlobalId}, " +
                 $"target={candidate.PreyUnitId}/{candidate.PreyGlobalId}/{candidate.PreyType}, " +
@@ -362,7 +362,7 @@ namespace ImprovedHunters
                     out _,
                     out string rejection))
             {
-                LogDiagnostic(
+                LogSample(
                     "Improved Hunters failed direct-attack recovery was not staged: " +
                     $"hunter={candidate.HunterUnitId}/{candidate.HunterGlobalId}, " +
                     $"target={candidate.PreyUnitId}/{candidate.PreyGlobalId}/{candidate.PreyType}, " +
@@ -380,7 +380,7 @@ namespace ImprovedHunters
                 pendingStateZeroHandoffs.Remove(candidate.HunterUnitId);
             }
 
-            LogDiagnostic(
+            LogSample(
                 "Improved Hunters failed direct-attack recovery staged: " +
                 $"hunter={candidate.HunterUnitId}/{candidate.HunterGlobalId}, " +
                 $"target={candidate.PreyUnitId}/{candidate.PreyGlobalId}/{candidate.PreyType}, " +
@@ -414,7 +414,7 @@ namespace ImprovedHunters
 
             if (previous.Attempts > 0 && !sameTarget)
             {
-                LogDiagnostic(
+                LogSample(
                     "Improved Hunters recovery-attempt budget reset by a different Vanilla target: " +
                     $"hunter={hunterUnitId}, previousTarget={previous.PreyUnitId}/" +
                     $"{previous.PreyGlobalId}, newTarget={preyUnitId}/{preyGlobalId}, " +
@@ -448,7 +448,7 @@ namespace ImprovedHunters
                 activeShots[hunterUnitId] = observation;
             }
 
-            LogDiagnostic(
+            LogSample(
                 "Improved Hunters post-shot projectile correlated: " +
                 $"hunter={hunterUnitId}/{hunterGlobalId}, target={targetUnitId}/{targetGlobalId}, " +
                 $"projectile={projectileId}/{projectileGlobalId}, behaviorMutation=False.");
@@ -474,7 +474,7 @@ namespace ImprovedHunters
 
             if (match.Candidate.IsValid)
             {
-                LogDiagnostic(
+                LogSample(
                     "Improved Hunters post-shot projectile delete observed: " +
                     $"hunter={match.Candidate.HunterUnitId}/{match.Candidate.HunterGlobalId}, " +
                     $"target={match.Candidate.PreyUnitId}/{match.Candidate.PreyGlobalId}, " +
@@ -529,7 +529,7 @@ namespace ImprovedHunters
             {
                 lock (stateLock)
                     pendingStateZeroHandoffs.Remove(hunterUnitId);
-                LogDiagnostic(
+                LogSample(
                     "Improved Hunters post-attack State-0 handoff failed revalidation: " +
                     $"hunter={hunterUnitId}, target={handoff.Candidate.PreyUnitId}/" +
                     $"{handoff.Candidate.PreyGlobalId}, identityValidation={identityValidation}, " +
@@ -540,7 +540,7 @@ namespace ImprovedHunters
             }
 
             candidate = handoff.Candidate;
-            LogDiagnostic(
+            LogSample(
                 "Improved Hunters post-shot State-0 continuation prepared: " +
                 $"hunter={candidate.HunterUnitId}/{candidate.HunterGlobalId}, " +
                 $"target={candidate.PreyUnitId}/{candidate.PreyGlobalId}/{candidate.PreyType}, " +
@@ -556,7 +556,7 @@ namespace ImprovedHunters
             lock (stateLock)
                 pendingStateZeroHandoffs.Remove(candidate.HunterUnitId);
 
-            LogDiagnostic(
+            LogSample(
                 "Improved Hunters post-shot target supplied to Vanilla State-0 handoff: " +
                 $"hunter={candidate.HunterUnitId}/{candidate.HunterGlobalId}, " +
                 $"target={candidate.PreyUnitId}/{candidate.PreyGlobalId}/{candidate.PreyType}, " +
@@ -575,7 +575,7 @@ namespace ImprovedHunters
                 pendingStateZeroHandoffs.Remove(candidate.HunterUnitId);
             }
 
-            LogDiagnostic(
+            LogSample(
                 "Improved Hunters post-shot Vanilla MoveHere result: " +
                 $"hunter={candidate.HunterUnitId}/{candidate.HunterGlobalId}, " +
                 $"target={candidate.PreyUnitId}/{candidate.PreyGlobalId}/{candidate.PreyType}, " +
@@ -639,7 +639,7 @@ namespace ImprovedHunters
             if (observation.RecoveryAttempt >= MaximumRecoveryAttempts)
             {
                 ExhaustRecoveryBudget(candidate, observation.ObservedAt);
-                LogDiagnostic(
+                LogSample(
                     "Improved Hunters allowed Vanilla State-6 abandonment after failed direct attack: " +
                     $"hunter={hunterUnitId}, target={candidate.PreyUnitId}/{candidate.PreyGlobalId}, " +
                     $"recoveryAttempt={observation.RecoveryAttempt}/{MaximumRecoveryAttempts}, " +
@@ -657,7 +657,7 @@ namespace ImprovedHunters
                     out GameUnit* prey,
                     out string validation))
             {
-                LogDiagnostic(
+                LogSample(
                     "Improved Hunters allowed Vanilla State-6 abandonment after failed direct attack: " +
                     $"hunter={hunterUnitId}, target={candidate.PreyUnitId}/{candidate.PreyGlobalId}, " +
                     $"reason={validation}, recoveryAttempt={observation.RecoveryAttempt}/" +
@@ -677,7 +677,7 @@ namespace ImprovedHunters
             context.Pointer->RAX = StateZero;
             context.Pointer->R15 = 0;
             context.Pointer->RSI = 0;
-            LogDiagnostic(
+            LogSample(
                 "Improved Hunters rerouted failed direct attack from State 6 to State 0: " +
                 $"hunter={candidate.HunterUnitId}/{candidate.HunterGlobalId}, " +
                 $"target={candidate.PreyUnitId}/{candidate.PreyGlobalId}/{candidate.PreyType}, " +
@@ -747,7 +747,7 @@ namespace ImprovedHunters
                     activeShots.Remove(hunterUnitId);
                     pendingStateZeroHandoffs.Remove(hunterUnitId);
                 }
-                LogDiagnostic(
+                LogSample(
                     "Improved Hunters post-shot continuation left Vanilla unchanged: " +
                     $"path={queryPath}, hunter={hunterUnitId}, target={candidate.PreyUnitId}/" +
                     $"{candidate.PreyGlobalId}/{candidate.PreyType}, vanillaTarget={vanillaTargetUnitId}, " +
@@ -765,7 +765,7 @@ namespace ImprovedHunters
             // The relocated TEST consumes only this result. Its nonzero branch
             // writes State 0; target, reservation and path remain Vanilla-owned.
             context.Pointer->RAX = unchecked((ulong)(uint)candidate.PreyUnitId);
-            LogDiagnostic(
+            LogSample(
                 "Improved Hunters post-shot continuation selected Vanilla State-0 recovery: " +
                 $"path={queryPath}, hunter={candidate.HunterUnitId}/{candidate.HunterGlobalId}, " +
                 $"target={candidate.PreyUnitId}/{candidate.PreyGlobalId}/{candidate.PreyType}, " +
@@ -1180,6 +1180,10 @@ namespace ImprovedHunters
             else
                 Shared.DebugLogHelper.LogInfo(log, countedMessage);
         }
+
+        // Development samples only: /devdiag builds compile these calls including their message text.
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
+        private void LogSample(string message, bool warning = false) => LogDiagnostic(message, warning);
 
         private static string TryFormatMovementSnapshot(GameUnit* hunter)
         {

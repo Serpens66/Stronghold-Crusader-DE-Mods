@@ -30,6 +30,8 @@ namespace ImprovedHunters
         int nativeWorldDistance,
         out bool shouldLog);
 
+    internal delegate bool TryTakeHunterFiringPosition(int hunterUnitId, long timestamp, out int tileX, out int tileY);
+
     internal delegate bool TryPrepareHunterPostShotStateZeroContinuation(
         int hunterUnitId,
         long timestamp,
@@ -42,7 +44,7 @@ namespace ImprovedHunters
     /// only selects Vanilla's existing continuation branch for an already
     /// validated path; Vanilla remains responsible for locomotion and orders.
     /// </summary>
-    internal sealed unsafe partial class HunterTargetSearchFallbackDiagnostic : IDisposable
+    internal sealed unsafe partial class HunterTargetSearchFallback : IDisposable
     {
         private const string ReferenceDllSha256 =
             "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2";
@@ -50,10 +52,10 @@ namespace ImprovedHunters
         private const int StateZeroQueryReturnHookOffset = 0x22;
         private const int StateZeroMoveResultSequenceRva = 0x12FE63;
         private const int StateZeroMoveResultHookOffset = 0x17;
+        // The reservation write and the X load before Vanilla's State-0 MoveHere call (9 + 9 bytes); the call follows.
+        private const int StateZeroMoveDestinationHookLength = 0x12;
+        private const int TooCloseAttackDistance = 1;
         private const int StateOneRefreshQuerySequenceRva = 0x12FF57;
-        private const int StateOneRefreshQueryResultHookOffset = 0x27;
-        private const int StateOneRefreshQueryResultHookLength = 0x0E;
-        private const int StateOneRefreshFailureBranchTargetOffset = 0x25;
         private const int StateOneNearRefreshBranchSequenceRva = 0x130069;
         private const int StateOneNearRefreshHookLength = 0x0F;
         private const int StateOneNearRefreshFarBranchTargetOffset = 0x14;
@@ -85,7 +87,6 @@ namespace ImprovedHunters
         private const int MaximumMovingTargetReplans = 3;
         private const int MaxDiagnosticLogs = 160;
         private const int MaxStateOneDiagnosticLogs = 160;
-        private const ulong ZeroFlagMask = 1UL << 6;
 
         private const string StateZeroQuerySequencePattern =
             "8B D3 49 8B CD E8 ? ? ? ? " +
@@ -121,7 +122,6 @@ namespace ImprovedHunters
         [ThreadStatic] private static int activeHunterUnitId;
         [ThreadStatic] private static Candidate stagedCandidate;
         [ThreadStatic] private static Candidate pendingMoveCandidate;
-        [ThreadStatic] private static Candidate stagedMovingTargetReplan;
 
         private readonly ManualLogSource log;
         private readonly ImprovedHuntersViewModel settings;
@@ -137,6 +137,8 @@ namespace ImprovedHunters
         private readonly Action<int, int, uint> resetPostShotAttemptBudget;
         private readonly Action<int, uint, long> registerRejectedMove;
         private readonly Action<int, int, uint, eChimps, int, long> recordPclMoveHereResult;
+        private readonly TryTakeHunterFiringPosition tryTakeFiringPosition;
+        private readonly Action<int, uint> onAttackFailedTooClose;
         private readonly long generation;
         private int* stateOneWorldDistanceScratch;
         private int* stateOneCurrentHunterUnitId;
@@ -151,8 +153,8 @@ namespace ImprovedHunters
         private readonly HookHandle<X64InlineHook> queryReturnHook = new HookHandle<X64InlineHook>();
         private readonly HookHandle<X64InlineHook> moveResultHook = new HookHandle<X64InlineHook>();
         private readonly HookHandle<X64InlineHook> stateOneRefreshBranchContextHook = new HookHandle<X64InlineHook>();
-        private readonly HookHandle<X64InlineHook> stateOneRefreshQueryResultHook = new HookHandle<X64InlineHook>();
         private readonly HookHandle<X64InlineHook> stateOneDirectAttackResultHook = new HookHandle<X64InlineHook>();
+        private readonly HookHandle<X64InlineHook> stateZeroMoveDestinationHook = new HookHandle<X64InlineHook>();
         private bool featureAvailable;
         private bool hookConfirmed;
         private bool stateOneNearRefreshHookConfirmed;
@@ -163,7 +165,7 @@ namespace ImprovedHunters
         private int stateOneDiagnosticLogs;
         private bool disposed;
 
-        public HunterTargetSearchFallbackDiagnostic(
+        public HunterTargetSearchFallback(
             ManualLogSource log,
             ImprovedHuntersViewModel settings,
             ScanRegion region,
@@ -181,7 +183,9 @@ namespace ImprovedHunters
             Action<HunterPostShotContinuationCandidate, int> recordPostShotMoveHereResult,
             Action<int, int, uint> resetPostShotAttemptBudget,
             Action<int, uint, long> registerRejectedMove,
-            Action<int, int, uint, eChimps, int, long> recordPclMoveHereResult)
+            Action<int, int, uint, eChimps, int, long> recordPclMoveHereResult,
+            TryTakeHunterFiringPosition tryTakeFiringPosition,
+            Action<int, uint> onAttackFailedTooClose)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
@@ -209,6 +213,10 @@ namespace ImprovedHunters
                 throw new ArgumentNullException(nameof(registerRejectedMove));
             this.recordPclMoveHereResult = recordPclMoveHereResult ??
                 throw new ArgumentNullException(nameof(recordPclMoveHereResult));
+            this.tryTakeFiringPosition = tryTakeFiringPosition ??
+                throw new ArgumentNullException(nameof(tryTakeFiringPosition));
+            this.onAttackFailedTooClose = onAttackFailedTooClose ??
+                throw new ArgumentNullException(nameof(onAttackFailedTooClose));
             generation = Interlocked.Increment(ref nextGeneration);
 
             if (!referenceHashMatches)
@@ -298,18 +306,18 @@ namespace ImprovedHunters
                 stateOneRefreshQuerySequenceRva + 0x24,
                 out ulong stateOneWorldDistanceScratchAddress,
                 out ulong stateOneCurrentHunterUnitIdAddress);
-            int stateOneRefreshQueryResultRva = checked(
-                stateOneRefreshQuerySequenceRva + StateOneRefreshQueryResultHookOffset);
-            ValidateStateOneRefreshResultHookSpan(
-                memory,
-                libraryBase,
-                stateOneRefreshQueryResultRva,
-                stateOneCurrentHunterUnitIdAddress);
             stateOneWorldDistanceScratch = (int*)stateOneWorldDistanceScratchAddress;
             stateOneCurrentHunterUnitId = (int*)stateOneCurrentHunterUnitIdAddress;
 
             int queryReturnRva = checked(querySequenceRva + StateZeroQueryReturnHookOffset);
             int moveResultRva = checked(moveResultSequenceRva + StateZeroMoveResultHookOffset);
+            // The pattern pins both displaced instructions; no HunterUpdate branch may enter between them.
+            ulong moveDestinationAddress = libraryBase + unchecked((ulong)moveResultSequenceRva);
+            ValidateNoExternalDirectBranchTargetsInsideHook(
+                memory,
+                libraryBase,
+                moveDestinationAddress,
+                moveDestinationAddress + StateZeroMoveDestinationHookLength);
             int stateOneRefreshBranchContextRva = stateOneNearRefreshBranchSequenceRva;
             int stateOneDirectAttackResultRva = checked(
                 stateOneDirectAttackSequenceRva + StateOneDirectAttackResultHookOffset);
@@ -351,16 +359,6 @@ namespace ImprovedHunters
                     placement: OverwrittenInstructionPlacement.AfterCallback);
                 HunterHookInfrastructure.AddContextHook(
                     transaction,
-                    stateOneRefreshQueryResultHook,
-                    libraryBase + unchecked((ulong)stateOneRefreshQueryResultRva),
-                    CompleteStateOneMovingTargetReplanQuery,
-                    registers: X64SmartCPUContextRegs.Volatile | X64SmartCPUContextRegs.Flags,
-                    hookSize: StateOneRefreshQueryResultHookLength,
-                    errorMode: CallbackErrorMode.LogAndContinue,
-                    // Relocated CALL/TEST/load run first; the untouched JE consumes our final ZF.
-                    placement: OverwrittenInstructionPlacement.BeforeCallback);
-                HunterHookInfrastructure.AddContextHook(
-                    transaction,
                     stateOneDirectAttackResultHook,
                     libraryBase + unchecked((ulong)stateOneDirectAttackResultRva),
                     ObserveStateOneDirectAttackResult,
@@ -368,14 +366,25 @@ namespace ImprovedHunters
                     registers: X64SmartCPUContextRegs.Volatile | X64SmartCPUContextRegs.RDI,
                     errorMode: CallbackErrorMode.LogAndContinue,
                     placement: OverwrittenInstructionPlacement.AfterCallback);
+                HunterHookInfrastructure.AddContextHook(
+                    transaction,
+                    stateZeroMoveDestinationHook,
+                    moveDestinationAddress,
+                    ReplaceStateZeroMoveDestination,
+                    // RDX holds the Hunter, R8/R9 the destination Vanilla has just loaded; the call follows directly.
+                    registers: X64SmartCPUContextRegs.Volatile,
+                    hookSize: StateZeroMoveDestinationHookLength,
+                    errorMode: CallbackErrorMode.LogAndContinue,
+                    placement: OverwrittenInstructionPlacement.BeforeCallback);
                 CommitResult commitResult = transaction.Commit();
 
                 if (!commitResult.IsCompleteSuccess ||
+                    !stateZeroMoveDestinationHook.Success ||
+                    stateZeroMoveDestinationHook.Hook.DisplacedByteCount != StateZeroMoveDestinationHookLength ||
                     !queryStartHook.Success ||
                     !queryReturnHook.Success ||
                     !moveResultHook.Success ||
                     !stateOneRefreshBranchContextHook.Success ||
-                    !stateOneRefreshQueryResultHook.Success ||
                     !stateOneDirectAttackResultHook.Success)
                 {
                     throw new InvalidOperationException("One or more Hunter target-search fallback hooks were not installed.");
@@ -384,28 +393,27 @@ namespace ImprovedHunters
                 featureAvailable = true;
                 Shared.DebugLogHelper.LogInfo(
                     log,
-                    "Improved Hunters target-search fallback diagnostic initialized: " +
+                    "Improved Hunters target-search fallback initialized: " +
                     $"queryStartRva=0x{querySequenceRva:X}, queryReturnRva=0x{queryReturnRva:X}, " +
-                    $"moveResultRva=0x{moveResultRva:X}, queryFunctionRva=0x{queryFunctionRva:X}, " +
+                    $"moveResultRva=0x{moveResultRva:X}, moveDestinationSpan=[0x{moveResultSequenceRva:X}," +
+                    $"0x{moveResultSequenceRva + StateZeroMoveDestinationHookLength:X}), queryFunctionRva=0x{queryFunctionRva:X}, " +
                     $"stateOneRefreshContextRva=0x{stateOneRefreshBranchContextRva:X}, " +
                     $"stateOneRefreshHookSpan=[0x{stateOneRefreshBranchContextRva:X}," +
                     $"0x{stateOneRefreshBranchContextRva + StateOneNearRefreshHookLength:X}), " +
-                    $"stateOneRefreshResultSpan=[0x{stateOneRefreshQueryResultRva:X}," +
-                    $"0x{stateOneRefreshQueryResultRva + StateOneRefreshQueryResultHookLength:X}), " +
                     $"MoveHereRva=0x{moveHereFunctionRva:X}, " +
                     $"stateOneAttackResultRva=0x{stateOneDirectAttackResultRva:X}, " +
                     $"directAttackRva=0x{directAttackFunctionRva:X}, cooldownSeconds=" +
                     $"{RejectedCandidateCooldown / HunterSimulationTime.MapTicksPerSecond}, ownMovement=False, ownAiState=False, " +
                     $"worldDistanceScratchRva=0x{StateOneWorldDistanceScratchRva:X}, " +
                     $"currentHunterUnitIdRva=0x{StateOneCurrentHunterUnitIdRva:X}, " +
-                    "stateOneRefreshOverrides=world-distance-scratch-20-to-21-or-stale-query-ZF-clear-only, " +
+                    "stateOneRefreshOverrides=world-distance-scratch-20-to-21, " +
                     "nearRefreshDecision=bidirectional-native-visibility, " +
                     $"movingTargetReplanDisplacement={MinimumMovingTargetAnchorDisplacement}, " +
                     $"maximumMovingTargetReplans={MaximumMovingTargetReplans}, " +
                     "movingTargetReplan=one-per-accepted-path-generation, " +
                     "continuationTicketRequiredWhenBlocked=False-except-stale-moving-target, " +
                     "tileAttackDecision=active-visibility-snapshot, ownReservationRequired=2, " +
-                    "foreignReservationAllowed=False, stateOneQueryResultMutation=guarded-ZF-clear-only, " +
+                    "foreignReservationAllowed=False, stateOneQueryResultMutation=None, " +
                     "stateOneDirectAttackObservationOnly=True.");
             }
             catch
@@ -422,8 +430,8 @@ namespace ImprovedHunters
             queryReturnHook.Success &&
             moveResultHook.Success &&
             stateOneRefreshBranchContextHook.Success &&
-            stateOneRefreshQueryResultHook.Success &&
-            stateOneDirectAttackResultHook.Success;
+            stateOneDirectAttackResultHook.Success &&
+            stateZeroMoveDestinationHook.Success;
 
         public void RecordCandidate(
             int hunterUnitId,
@@ -606,7 +614,7 @@ namespace ImprovedHunters
                             pendingMovingTargetContinuations.Remove(hunterUnitId);
                     }
 
-                    LogDiagnostic(
+                    LogSample(
                         "Improved Hunters target-search fallback supplied forced same-identity target: " +
                         $"hunter={hunterUnitId}, target={forcedCandidate.PreyUnitId}/" +
                         $"{forcedCandidate.PreyType}, globalId={forcedCandidate.PreyGlobalId}, " +
@@ -654,12 +662,26 @@ namespace ImprovedHunters
             Candidate fallbackCandidate = stagedCandidate.AsSuppliedFallback();
             pendingMoveCandidate = fallbackCandidate;
             context.Pointer->RAX = unchecked((ulong)(uint)fallbackCandidate.PreyUnitId);
-            LogDiagnostic(
+            LogSample(
                 "Improved Hunters target-search fallback supplied hidden candidate: " +
                 $"hunter={hunterUnitId}, target={fallbackCandidate.PreyUnitId}/{fallbackCandidate.PreyType}, " +
                 $"globalId={fallbackCandidate.PreyGlobalId}, preferred={fallbackCandidate.Preferred}, " +
                 "vanillaQueryResult=0, handoff=Vanilla-MoveHere.");
             ClearQueryState(keepPendingMove: true);
+        }
+
+        // A Hunter whose approach ended without sight walks to a staged firing position instead of the prey's tile.
+        private void ReplaceStateZeroMoveDestination(NativePointer<X64SmartCPUContext> context)
+        {
+            if (!IsAvailable || !canRunPathfinding())
+                return;
+
+            int hunterUnitId = unchecked((int)(uint)context.Pointer->RDX);
+            if (!tryTakeFiringPosition(hunterUnitId, HunterSimulationTime.Now, out int tileX, out int tileY))
+                return;
+
+            context.Pointer->R8 = unchecked((ulong)(uint)tileX);
+            context.Pointer->R9 = unchecked((ulong)(uint)tileY);
         }
 
         private void ObserveStateZeroMoveResult(NativePointer<X64SmartCPUContext> context)
@@ -671,7 +693,12 @@ namespace ImprovedHunters
 
             int moveResult = unchecked((int)(uint)context.Pointer->RAX);
             long timestamp = HunterSimulationTime.Now;
+#if SERP_DEVDIAG
+            // Captured before the callbacks below so the sample shows the MoveHere result state.
             string movementSnapshot = TryFormatMovementSnapshot(candidate.HunterUnitId);
+#else
+            const string movementSnapshot = null;
+#endif
             if (candidate.IsPostShotContinuation)
             {
                 try
@@ -735,7 +762,7 @@ namespace ImprovedHunters
                     pendingMovingTargetContinuations.Remove(candidate.HunterUnitId);
                 }
 
-                LogDiagnostic(
+                LogSample(
                     "Improved Hunters target-search fallback accepted by Vanilla MoveHere: " +
                     $"hunter={candidate.HunterUnitId}, target={candidate.PreyUnitId}/{candidate.PreyType}, " +
                     $"globalId={candidate.PreyGlobalId}, source={candidate.Source}, " +
@@ -968,7 +995,7 @@ namespace ImprovedHunters
             bool cleanupValid =
                 (!targetMatches || (targetAfter == 0 && targetGlobalAfter == 0)) &&
                 (reservationBefore != 2 || targetedByOtherHunter || reservationReleased);
-            LogDiagnostic(
+            string DescribeRejection() =>
                 "Improved Hunters target-search fallback rejected by Vanilla MoveHere: " +
                 $"hunter={candidate.HunterUnitId}, target={candidate.PreyUnitId}/{candidate.PreyType}, " +
                 $"globalId={candidate.PreyGlobalId}, source={candidate.Source}, " +
@@ -976,8 +1003,13 @@ namespace ImprovedHunters
                 $"targetAfter={targetAfter}/{targetGlobalAfter}, reservation={reservationBefore}->{reservationAfter}, " +
                 $"targetedByOtherHunter={targetedByOtherHunter}, cooldownSeconds=" +
                 $"{RejectedCandidateCooldown / HunterSimulationTime.MapTicksPerSecond}, cleanupValid={cleanupValid}, " +
-                "followup=Vanilla-state7.",
-                warning: !cleanupValid);
+                "followup=Vanilla-state7.";
+
+            // A rejection is an expected Vanilla outcome; only a failed cleanup is a fault.
+            if (cleanupValid)
+                LogSample(DescribeRejection());
+            else
+                LogDiagnostic(DescribeRejection(), warning: true);
         }
 
         private static bool IsTargetedByOtherLiveHunter(Candidate candidate)
@@ -1022,6 +1054,14 @@ namespace ImprovedHunters
             else
                 Shared.DebugLogHelper.LogInfo(log, boundedMessage);
         }
+
+        // Development samples only: /devdiag builds compile these calls including their message text.
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
+        private void LogSample(string message, bool warning = false) => LogDiagnostic(message, warning);
+
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
+        private void LogStateOneSample(string message, bool warning = false) =>
+            LogStateOneDiagnostic(message, warning);
 
         private void LogStateOneDiagnostic(string message, bool warning = false)
         {
@@ -1069,7 +1109,6 @@ namespace ImprovedHunters
         private static void ClearThreadState()
         {
             ClearQueryState();
-            stagedMovingTargetReplan = default;
         }
 
         public void Dispose()

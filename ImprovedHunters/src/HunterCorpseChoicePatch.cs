@@ -14,7 +14,7 @@ namespace ImprovedHunters
     internal sealed unsafe class HunterCorpseChoicePatch : IDisposable
     {
         // After Vanilla's search and its check that the hut still stands, ahead of its "found prey" branch.
-        // The two hooks of HunterTargetSearchFallbackDiagnostic sit directly before this and must stay clear.
+        // The two hooks of HunterTargetSearchFallback sit directly before this and must stay clear.
         private const int SearchSiteRva = 0x12FE07;
         private const string SearchSitePattern =
             "85 C0 0F 84 ?? ?? ?? ?? 48 63 15 ?? ?? ?? ?? 41 BE 02 00 00 00 48 69 CA 90 04 00 00";

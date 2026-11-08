@@ -46,6 +46,8 @@ Semantic reverse-engineering baseline:
 
 ## Vanilla behavior audits
 
+- [Side HUD visibility](./sem/FBCB9319/knowledge/SIDE_HUD_VISIBILITY.md) documents the managed HUD toggle and independent side-HUD flag.
+
 - [Enemy HP: offline team reference and real multiplayer gate](./sem/FBCB9319/knowledge/ENEMY_HP_MULTIPLIER.md): spectator reference AI/team exemption, per-owner HP consumers, and the mode-1 network-start bypass; static evidence, no new game/host-client acceptance run.
 
 - [Save writer routes and synchronized saves](./sem/FBCB9319/knowledge/SAVE_WRITER_ROUTES.md): autosave/Chore 39, ordinary export and Trail-template routes; shared writer and MP Lord-name limits.

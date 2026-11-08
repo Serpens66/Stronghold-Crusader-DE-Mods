@@ -6,7 +6,6 @@ using CrusaderDE;
 using Noesis;
 using SHCDESE.API;
 using SHCDESE.Interop;
-using SHCDESE.Interop.Enums;
 using System;
 
 namespace BugfixesAndQoL
@@ -17,6 +16,7 @@ namespace BugfixesAndQoL
         private readonly ManualLogSource log;
         private readonly BugfixesAndQoLViewModel settings;
         private readonly TroopHudMiddleClickCameraFeature camera;
+        private (int PlayerId, LordSkin Skin, int Colour)? displayedPortrait;
 
         internal LordUnitHudRegistration(ManualLogSource log, BugfixesAndQoLViewModel settings, TroopHudMiddleClickCameraFeature camera)
         {
@@ -63,29 +63,45 @@ namespace BugfixesAndQoL
         {
             if (!settings.EnableMod || !settings.EnableLordUnitControls || !unit.IsAlive || unit.VanillaType != (int)eChimps.CHIMP_TYPE_LORD)
                 return false;
-            int playerId = APIShared.GameModes.GameModeHelper.IsMapEditor()
-                ? (EditorDirector.instance?.ActivePlayerID ?? -1)
-                : (GamePlayerManagerAPI.Instance?.GetLocalPlayerId() ?? -1);
+            int playerId = GetControlledPlayerId();
             return playerId > 0 && unit.OwnerPlayerId == playerId &&
                 GamePlayerManagerAPI.Instance?.GetLordUnitId(playerId) == unit.GameId;
         }
 
-        private static unsafe ImageSource ResolveLordIcon()
+        internal void RefreshPortrait(bool visible)
         {
-            int playerId = APIShared.GameModes.GameModeHelper.IsMapEditor()
-                ? (EditorDirector.instance?.ActivePlayerID ?? 0)
-                : (GamePlayerManagerAPI.Instance?.GetLocalPlayerId() ?? 0);
-            int colorId = 0;
-            if (playerId > 0 && GamePlayerManagerAPI.Instance != null && GameUnitManagerAPI.Instance != null)
+            if (!visible)
             {
-                int lordId = GamePlayerManagerAPI.Instance.GetLordUnitId(playerId);
-                if (lordId > 0 && APIShared.UnitAccess.TryGetById(lordId, out GameUnit* lord, out _) &&
-                    lord != null && lord->r_ControllableForPlayerId == playerId &&
-                    lord->r_UnitChimp == eChimps.CHIMP_TYPE_LORD)
-                    colorId = (int)lord->r_SpritePlayerColorId;
+                displayedPortrait = null;
+                return;
             }
-            return Shared.LordPortraitPalette.Get(colorId);
+            if (!displayedPortrait.HasValue) return;
+
+            // An already displayed portrait can change while the selection IDs stay the same.
+            var current = ReadPortrait();
+            if (current == displayedPortrait.Value) return;
+            displayedPortrait = current;
+            Capability?.RequestRefresh();
         }
+
+        private ImageSource ResolveLordIcon()
+        {
+            var current = ReadPortrait();
+            displayedPortrait = current;
+            return LordPortraits.Get(current.Skin, current.Colour);
+        }
+
+        private static (int PlayerId, LordSkin Skin, int Colour) ReadPortrait()
+        {
+            int playerId = GetControlledPlayerId();
+            LordSkins.TryGetForPlayer(playerId, out LordSkin skin);
+            PlayerColours.TryGetUiColour(playerId, out int colour);
+            return (playerId, skin, colour);
+        }
+
+        private static int GetControlledPlayerId() => GameModeHelper.IsMapEditor()
+            ? (EditorDirector.instance?.ActivePlayerID ?? -1)
+            : (GamePlayerManagerAPI.Instance?.GetLocalPlayerId() ?? -1);
 
         private void OnInteraction(UnitHudInteractionContext context)
         {

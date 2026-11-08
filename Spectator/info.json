@@ -3,14 +3,14 @@
   "Author": "Serpens66",
   "Name": "Spectator",
   "Description": "Spectator perspectives, live statistics and local AI testing tools.",
-  "Version": "0.2.1",
+  "Version": "0.2.2",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.0",
   "MaximumScriptExtenderVersion": "",
   "Dependencies": [
     {
       "GUID": "APIShared_Serp",
-      "MinimumVersion": "0.33.0"
+      "MinimumVersion": "0.37.0"
     }
   ],
   "Manifest": 1,
@@ -19,6 +19,13 @@
     "2.8.0.2"
   ],
   "SerpChangelog": [
+    {
+      "Version": "0.2.2",
+      "Changes": [
+        "Add Show while HUD hidden to the in-game statistics settings so an open scoreboard can stay visible when you hide the HUD.",
+        "Require APIShared 0.37.0 or newer."
+      ]
+    },
     {
       "Version": "0.2.1",
       "Changes": [

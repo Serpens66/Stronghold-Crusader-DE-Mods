@@ -285,6 +285,7 @@ namespace BugfixesAndQoL
                     log,
                     settings,
                     surrenderFeature,
+                    lordUnitHudRegistration,
                     () => lordMixedDisbandContractValidated);
                 lordUnitControlsFeature.RefreshSetting();
             }

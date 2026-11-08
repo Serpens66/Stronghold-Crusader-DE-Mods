@@ -15,10 +15,9 @@ using RedBird.X64.Hooks.Transaction;
 
 namespace ImprovedHunters
 {
-    internal sealed unsafe partial class HunterTargetSearchFallbackDiagnostic
+    internal sealed unsafe partial class HunterTargetSearchFallback
     {
-        // State-1 visibility handoff and moving-target path regeneration remain
-        // diagnostic code, but are isolated from State-0 target selection.
+        // State-1 near-refresh handoff and moving-target detection, kept apart from State-0 target selection.
         private void CaptureStateOneNearRefreshContext(NativePointer<X64SmartCPUContext> context)
         {
             ClearThreadState();
@@ -73,8 +72,7 @@ namespace ImprovedHunters
                     out Candidate movingTargetCandidate,
                     out string movingTargetDetail))
             {
-                stagedMovingTargetReplan = movingTargetCandidate;
-                LogStateOneDiagnostic(
+                LogStateOneSample(
                     "Improved Hunters detected stale moving-target path and allowed one Vanilla refresh: " +
                     $"hunter={hunterUnitId}, target={movingTargetCandidate.PreyUnitId}/" +
                     $"{movingTargetCandidate.PreyGlobalId}/{movingTargetCandidate.PreyType}, " +
@@ -95,7 +93,7 @@ namespace ImprovedHunters
                 shouldLog |= loggedNearRefreshBypasses.Add(bypassIdentity);
             if (shouldLog)
             {
-                LogStateOneDiagnostic(
+                LogStateOneSample(
                     "Improved Hunters bypassed Hunter state-1 near-target refresh: " +
                     $"hunter={hunterUnitId}, target={refreshCandidate.PreyUnitId}/" +
                     $"{refreshCandidate.PreyGlobalId}/{refreshCandidate.PreyType}, " +
@@ -106,55 +104,6 @@ namespace ImprovedHunters
                     "speedWrite=False, animationWrite=False, compareScratchOnly=True, " +
                     $"{TryFormatMovementSnapshot(hunterUnitId)}.");
             }
-        }
-
-        private void CompleteStateOneMovingTargetReplanQuery(
-            NativePointer<X64SmartCPUContext> context)
-        {
-            Candidate candidate = stagedMovingTargetReplan;
-            stagedMovingTargetReplan = default;
-            if (!candidate.IsMovingTargetReplan ||
-                !IsAvailable ||
-                !canRunPathfinding() ||
-                stateOneCurrentHunterUnitId == null)
-            {
-                return;
-            }
-
-            int currentHunterUnitId = unchecked((int)(uint)context.Pointer->RAX);
-            int expectedHunterUnitId = *stateOneCurrentHunterUnitId;
-            bool vanillaQueryReturnedZero =
-                (context.Pointer->Rflags & ZeroFlagMask) != 0;
-            if (currentHunterUnitId != candidate.HunterUnitId ||
-                expectedHunterUnitId != candidate.HunterUnitId ||
-                !TryValidateOwnReservationCandidate(candidate, requiredAiState: 1))
-            {
-                LogStateOneDiagnostic(
-                    "Improved Hunters discarded stale moving-target refresh result: " +
-                    $"hunter={expectedHunterUnitId}, reloadedHunter={currentHunterUnitId}, " +
-                    $"target={candidate.PreyUnitId}/{candidate.PreyGlobalId}, " +
-                    "reason=identity-or-reservation-changed, behaviorMutation=False.",
-                    warning: true);
-                return;
-            }
-
-            lock (observationLock)
-                pendingMovingTargetContinuations[candidate.HunterUnitId] = candidate;
-
-            // The untouched JE consumes ZF; no synthetic query result or state is written.
-            if (vanillaQueryReturnedZero)
-                context.Pointer->Rflags &= ~ZeroFlagMask;
-
-            LogStateOneDiagnostic(
-                "Improved Hunters moving-target refresh selected Vanilla State-0 replan: " +
-                $"hunter={candidate.HunterUnitId}, target={candidate.PreyUnitId}/" +
-                $"{candidate.PreyGlobalId}/{candidate.PreyType}, " +
-                $"vanillaQueryReturnedZero={vanillaQueryReturnedZero}, " +
-                $"acceptedPathGeneration={candidate.MovingTargetSourceGeneration}, " +
-                $"replanAttempt={candidate.MovingTargetReplanAttempt}/" +
-                $"{MaximumMovingTargetReplans}, " +
-                $"registerOverride={(vanillaQueryReturnedZero ? "ZF-clear-only" : "none")}, " +
-                "next=Vanilla-State0-query-and-MoveHere, behaviorMutation=True.");
         }
 
         private void ObserveStateOneDirectAttackResult(NativePointer<X64SmartCPUContext> context)
@@ -220,7 +169,7 @@ namespace ImprovedHunters
                     $"hunter={hunterUnitId}/{hunter->r_GlobalId}, target={candidate.PreyUnitId}/{candidate.PreyGlobalId}.");
             }
 
-            LogStateOneDiagnostic(
+            LogStateOneSample(
                 "Improved Hunters state-1 direct-attack observation: " +
                 $"hunter={hunterUnitId}/{hunter->r_GlobalId}, target={candidate.PreyUnitId}/{candidate.PreyType}, " +
                 $"globalId={candidate.PreyGlobalId}, source={candidate.Source}, attackResult={attackResult}, " +
@@ -245,6 +194,9 @@ namespace ImprovedHunters
                         candidate.Source);
                 try
                 {
+                    // Vanilla cannot shoot from the prey's own or the next tile; the recovery should not go back there.
+                    if (attackResult == 0 && nativeDistance <= TooCloseAttackDistance)
+                        onAttackFailedTooClose(candidate.HunterUnitId, candidate.PreyGlobalId);
                     if (attackResult != 0)
                         recordAcceptedPostShotAttack(postShotCandidate, timestamp);
                     else
@@ -460,7 +412,7 @@ namespace ImprovedHunters
                         out string pendingValidation))
                 {
                     candidate = pending;
-                    LogDiagnostic(
+                    LogSample(
                         "Improved Hunters moving-target State-0 continuation prepared: " +
                         $"hunter={pending.HunterUnitId}, target={pending.PreyUnitId}/" +
                         $"{pending.PreyGlobalId}/{pending.PreyType}, " +
@@ -544,7 +496,7 @@ namespace ImprovedHunters
             }
 
             candidate = fallbackCandidate;
-            LogDiagnostic(
+            LogSample(
                 "Improved Hunters prepared path-complete moving-target fallback: " +
                 $"hunter={hunterUnitId}, target={candidate.PreyUnitId}/" +
                 $"{candidate.PreyGlobalId}/{candidate.PreyType}, " +
@@ -639,73 +591,6 @@ namespace ImprovedHunters
                 hookEndAddress);
             worldDistanceScratchAddress = compare.IPRelativeMemoryAddress;
             currentHunterUnitIdAddress = nearPathLoad.IPRelativeMemoryAddress;
-        }
-
-        private static void ValidateStateOneRefreshResultHookSpan(
-            ReadOnlySpan<byte> memory,
-            ulong libraryBase,
-            int hookRva,
-            ulong expectedCurrentHunterUnitIdAddress)
-        {
-            const int decodeLookahead = 32;
-            if (hookRva < 0 || hookRva > memory.Length - decodeLookahead)
-                throw new InvalidOperationException("State-1 refresh result hook lies outside the module image.");
-
-            ulong hookAddress = libraryBase + unchecked((ulong)hookRva);
-            Decoder decoder = Decoder.Create(
-                64,
-                new ByteArrayCodeReader(memory.Slice(hookRva, decodeLookahead).ToArray()),
-                hookAddress);
-            Instruction queryCall = decoder.Decode();
-            Instruction resultTest = decoder.Decode();
-            Instruction hunterIdLoad = decoder.Decode();
-            int decodedHookLength = checked((int)(decoder.IP - hookAddress));
-            if (queryCall.IsInvalid ||
-                resultTest.IsInvalid ||
-                hunterIdLoad.IsInvalid ||
-                queryCall.Mnemonic != Mnemonic.Call ||
-                queryCall.FlowControl != FlowControl.Call ||
-                queryCall.Length != 5 ||
-                queryCall.NearBranchTarget !=
-                    libraryBase + unchecked((ulong)HunterQueryFunctionRva) ||
-                resultTest.Mnemonic != Mnemonic.Test ||
-                resultTest.Length != 2 ||
-                resultTest.Op0Register != Register.EAX ||
-                resultTest.Op1Register != Register.EAX ||
-                hunterIdLoad.Mnemonic != Mnemonic.Movsxd ||
-                hunterIdLoad.Length != 7 ||
-                hunterIdLoad.Op0Register != Register.RAX ||
-                !hunterIdLoad.IsIPRelativeMemoryOperand ||
-                hunterIdLoad.IPRelativeMemoryAddress != expectedCurrentHunterUnitIdAddress ||
-                decodedHookLength != StateOneRefreshQueryResultHookLength)
-            {
-                throw new InvalidOperationException(
-                    "State-1 refresh result hook does not decode as the audited 5+2+7-byte span.");
-            }
-
-            ulong hookEndAddress = hookAddress + StateOneRefreshQueryResultHookLength;
-            Instruction failureBranch = decoder.Decode();
-            ulong expectedFailureTarget =
-                hookAddress + StateOneRefreshFailureBranchTargetOffset;
-            if (failureBranch.IsInvalid ||
-                failureBranch.IP != hookEndAddress ||
-                failureBranch.Mnemonic != Mnemonic.Je ||
-                failureBranch.Length != 2 ||
-                failureBranch.FlowControl != FlowControl.ConditionalBranch ||
-                failureBranch.NearBranchTarget != expectedFailureTarget ||
-                failureBranch.NearBranchTarget <= hookEndAddress)
-            {
-                throw new InvalidOperationException(
-                    $"State-1 refresh result span changed or is unsafe: " +
-                    $"failureTarget=0x{failureBranch.NearBranchTarget:X}, " +
-                    $"hookSpan=[0x{hookAddress:X},0x{hookEndAddress:X}).");
-            }
-
-            ValidateNoExternalDirectBranchTargetsInsideHook(
-                memory,
-                libraryBase,
-                hookAddress,
-                hookEndAddress);
         }
 
         private static void ValidateNoExternalDirectBranchTargetsInsideHook(

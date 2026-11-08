@@ -189,7 +189,7 @@ namespace ImprovedHunters
             return TryInvokeVisibility(hunter, prey, out result, out _);
         }
 
-        /// <summary>Vanilla's sight rule between two units: a result in 1..0x1AF means visible (0x18AF50).</summary>
+        /// <summary>Vanilla's target-query sight rule: a result in 1..0x1B0 means visible (0x18B0A2 in 0x18AF50).</summary>
         public bool SeesFromUnit(GameUnit* viewer, GameUnit* target)
         {
             return !IsAvailable ||
@@ -338,6 +338,53 @@ namespace ImprovedHunters
             {
                 throw new InvalidOperationException(
                     $"{name} resolved RVA 0x{targetRva:X}, expected 0x{expectedTargetRva:X}.");
+            }
+        }
+
+        /// <summary>
+        /// Sight from a walkable tile to a prey, for choosing a place to shoot from, by the same rule as the
+        /// near-target handoff: the visibility core (0x9E350) must see in both directions, Hunter to prey and back.
+        /// The viewer stands on the tile centre (world = tile * 8 + 4) at the tile's height plus a Hunter's eye height.
+        /// Returns false when the call itself could not run; <paramref name="visible"/> then stays false.
+        /// </summary>
+        public bool TryEvaluateFromTile(int tileX, int tileY, int tileHeight, GameUnit* prey, out bool visible)
+        {
+            visible = false;
+            if (!IsAvailable || prey == null || Interlocked.CompareExchange(ref probeInProgress, 1, 0) != 0)
+                return false;
+
+            try
+            {
+                int fromX = tileX * 8 + 4, fromY = tileY * 8 + 4, fromHeight = tileHeight + 30;
+                int preyX = prey->r_CurrentWorldPositionX, preyY = prey->r_CurrentWorldPositionY;
+                int preyHeight = prey->r_HeightElevation + prey->N0000006A + 26;
+                if (!TryInvokeGuardedVisibility(visibilityCore, fromX, fromY, fromHeight, preyX, preyY, preyHeight, out int forward, out _))
+                {
+                    DisableForContextGuardChange();
+                    return false;
+                }
+
+                // The second direction only matters when the first one sees.
+                if (forward <= 0)
+                    return true;
+
+                if (!TryInvokeGuardedVisibility(visibilityCore, preyX, preyY, preyHeight, fromX, fromY, fromHeight, out int backward, out _))
+                {
+                    DisableForContextGuardChange();
+                    return false;
+                }
+
+                visible = backward > 0;
+                return true;
+            }
+            catch (Exception exception)
+            {
+                LogFailureOnce("firing-position sight check", exception, disableProbe: true);
+                return false;
+            }
+            finally
+            {
+                Volatile.Write(ref probeInProgress, 0);
             }
         }
 

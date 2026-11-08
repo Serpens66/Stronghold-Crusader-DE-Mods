@@ -143,7 +143,7 @@ namespace ImprovedHunters
 
             // The validated state-0 MoveHere result is the path boundary. Raw
             // +0xF4 and +0xF6 values oscillate while that same path advances.
-            LogDiagnostic(
+            LogSample(
                 "Improved Hunters accepted Vanilla path generation advanced: " +
                 $"hunter={hunterUnitId}, target={preyUnitId}/{preyGlobalId}/{preyType}, " +
                 $"pathGeneration={previousGeneration}->{generation}, " +
@@ -199,7 +199,9 @@ namespace ImprovedHunters
                 }
             }
 
+#if SERP_DEVDIAG
             List<string> retentionLogs = null;
+#endif
             lock (stateLock)
             {
                 List<int> staleHunters = null;
@@ -223,6 +225,7 @@ namespace ImprovedHunters
                     // snapshot alive; a real inactive context still expires.
                     if (timestamp - tracker.LastValidatedAt < TrackerRetentionInterval)
                     {
+#if SERP_DEVDIAG
                         if (!tracker.RetentionMissLogged)
                         {
                             tracker.RetentionMissLogged = true;
@@ -236,6 +239,7 @@ namespace ImprovedHunters
                                 $"reason={captureFailure}, retentionMs=" +
                                 $"{ToMilliseconds(TrackerRetentionInterval)}.");
                         }
+#endif
 
                         continue;
                     }
@@ -243,6 +247,7 @@ namespace ImprovedHunters
                     if (staleHunters == null)
                         staleHunters = new List<int>();
                     staleHunters.Add(hunterUnitId);
+#if SERP_DEVDIAG
                     if (retentionLogs == null)
                         retentionLogs = new List<string>();
                     retentionLogs.Add(
@@ -253,6 +258,7 @@ namespace ImprovedHunters
                         $"absenceMs={ToMilliseconds(timestamp - tracker.MissingSince)}, " +
                         $"lastValidatedAgeMs={ToMilliseconds(timestamp - tracker.LastValidatedAt)}, " +
                         $"reason={tracker.LastCaptureFailure}.");
+#endif
                 }
 
                 if (staleHunters != null)
@@ -263,11 +269,13 @@ namespace ImprovedHunters
 
             }
 
+#if SERP_DEVDIAG
             if (retentionLogs != null)
             {
                 foreach (string message in retentionLogs)
-                    LogDiagnostic(message);
+                    LogSample(message);
             }
+#endif
 
             foreach (ProbeRequest request in requests)
                 Probe(request, timestamp);
@@ -417,7 +425,7 @@ namespace ImprovedHunters
                         out string inputFailure) ||
                     !current.Equals(before))
                 {
-                    LogDiagnostic(
+                    LogSample(
                         "Improved Hunters active-target visibility probe skipped: " +
                         $"hunter={before.HunterUnitId}/{before.HunterGlobalId}, " +
                         $"target={before.PreyUnitId}/{before.PreyGlobalId}/{before.PreyType}, " +
@@ -550,7 +558,7 @@ namespace ImprovedHunters
 
                 if (changed)
                 {
-                    LogDiagnostic(
+                    LogSample(
                         "Improved Hunters active-target visibility snapshot refreshed: " +
                         $"hunter={before.HunterUnitId}/{before.HunterGlobalId}, " +
                         $"target={before.PreyUnitId}/{before.PreyGlobalId}/{before.PreyType}, " +
@@ -856,7 +864,8 @@ namespace ImprovedHunters
             classification = string.Empty;
             failure = string.Empty;
             // Core 0x9E350 returns 0 when blocked and otherwise its step count (up to 1000, 100000 for the
-            // same point); Vanilla's Hunter callers only test < 1. Far targets therefore give large valid results.
+            // same point). The direct attack at 0x18ED6A, which this decision feeds, takes every positive result;
+            // only the target query at 0x18B0A2 limits it to 1..0x1B0. Far targets give large valid results.
             if (wrapperResult < 0)
             {
                 failure = $"wrapper-result-{wrapperResult}";
@@ -922,6 +931,11 @@ namespace ImprovedHunters
                 Shared.DebugLogHelper.LogInfo(log, bounded);
         }
 
+        // Development samples only: /devdiag builds compile these calls including their message text.
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
+        private void LogSample(string message, bool warning = false) => LogDiagnostic(message, warning);
+
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
         private void LogProbeSample(string message, bool warning)
         {
             if (probeSampleLogs >= MaxProbeSampleLogs)
@@ -957,7 +971,9 @@ namespace ImprovedHunters
             public long LastValidatedAt;
             public long MissingSince;
             public string LastCaptureFailure;
+#if SERP_DEVDIAG
             public bool RetentionMissLogged;
+#endif
             public bool HasSnapshot;
             public long ObservedAt;
             public long UsableUntil;

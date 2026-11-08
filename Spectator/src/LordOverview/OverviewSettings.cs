@@ -29,6 +29,7 @@ namespace Spectator.LordOverview {
   internal string DisplaySortBy=>SortBy;
   internal bool DisplaySortDescending=>SortDescending;
   internal bool DisplayShowEliminated=>ShowEliminated;
+  internal bool ShowWhileHudHidden=>owner.OverviewShowWhileHudHidden;
   private string cachedDesignText,cachedLordText,cachedValueText;
   private OverviewDesign cachedDesign;
   private GridFlow cachedLord,cachedValue;
@@ -37,6 +38,7 @@ namespace Spectator.LordOverview {
   internal GridFlow DisplayValueGrid {get{string text=ValueGrid;if(text!=cachedValueText){cachedValueText=text;cachedValue=GridFlow.Parse(text,3);}return cachedValue;}}
   internal void SetDisplayColumns(string value)=>owner.OverviewColumns=Metrics.Serialize(Metrics.Parse(value));
   internal void SetDisplayShowEliminated(bool value)=>owner.OverviewShowEliminated=value;
+  internal void SetShowWhileHudHidden(bool value)=>owner.OverviewShowWhileHudHidden=value;
   internal void SetDisplayDesign(OverviewDesign value)=>owner.OverviewDesign=(Enum.IsDefined(typeof(OverviewDesign),value)?value:OverviewDesign.List).ToString();
   internal void SetDisplayGrid(bool lords,GridFlow value){if(lords)owner.OverviewLordGrid=value.ToString();else owner.OverviewValueGrid=value.ToString();}
   internal void SetDisplaySort(string key,bool descending){owner.OverviewSortBy=key;owner.OverviewSortDescending=descending;}
@@ -58,6 +60,7 @@ namespace Spectator.LordOverview {
     case nameof(SpectatorViewModel.OverviewLordGrid):name=nameof(LordGrid);break;
     case nameof(SpectatorViewModel.OverviewValueGrid):name=nameof(ValueGrid);break;
     case nameof(SpectatorViewModel.OverviewShowEliminated):name=nameof(ShowEliminated);break;
+    case nameof(SpectatorViewModel.OverviewShowWhileHudHidden):name=nameof(ShowWhileHudHidden);break;
     case nameof(SpectatorViewModel.OverviewSortBy):name=nameof(SortBy);break;
     case nameof(SpectatorViewModel.OverviewSortDescending):name=nameof(SortDescending);break;
     default:if(name!=nameof(IsLocalSettingsHost) && name!=nameof(IsRealMultiplayerContext) && name!=nameof(CanEditClientSettings))return;break;

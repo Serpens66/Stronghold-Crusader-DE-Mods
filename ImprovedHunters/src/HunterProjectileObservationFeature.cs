@@ -40,7 +40,7 @@ namespace ImprovedHunters
                 projectileGlobalId = projectile->r_GlobalId;
             }
 
-            hunterPostShotContinuationDiagnostic?.RecordProjectileSpawn(
+            hunterPostShotContinuation?.RecordProjectileSpawn(
                 hunterUnitId,
                 hunterGlobalId,
                 args.AttackedUnitId,
@@ -53,7 +53,7 @@ namespace ImprovedHunters
         {
             try
             {
-                hunterPostShotContinuationDiagnostic?.RecordProjectileDelete(args.ProjectileId);
+                hunterPostShotContinuation?.RecordProjectileDelete(args.ProjectileId);
             }
             catch (Exception exception)
             {

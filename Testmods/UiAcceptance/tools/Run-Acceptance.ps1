@@ -126,6 +126,13 @@ try {
             $stalled = $true; break
         }
         Start-Sleep -Seconds 2
+        if (-not (Get-Process -Name $process -ErrorAction SilentlyContinue)) {
+            # Steam can end the first game process and start a second one a few seconds later. Restoring
+            # settings in that gap let the second process run the scenario unsupervised on 08.11.2026 and
+            # overwrite personal settings, so only a sustained absence counts as the end of the run.
+            $relaunchUntil = (Get-Date).AddSeconds(20)
+            while (-not (Get-Process -Name $process -ErrorAction SilentlyContinue) -and (Get-Date) -lt $relaunchUntil) { Start-Sleep -Seconds 1 }
+        }
     }
     Start-Sleep -Seconds 3
 }

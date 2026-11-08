@@ -155,7 +155,6 @@ foreach ($required in @(
     'PlayerBrush\(entry.OwnerColorArgb\)',
     'drawn.OwnerColorArgb = entry.OwnerColorArgb;',
     'drawn.ColorId != entry.ColorId',
-    'LordPortraitPalette.Get\(entry.ColorId\)',
     'FindPortrait\(portraitKey, entry.ColorId\)',
     'Array.Clear\(drawnEntries, 0, drawnEntries.Length\)'
 )) {

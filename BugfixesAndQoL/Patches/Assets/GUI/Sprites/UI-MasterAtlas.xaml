@@ -8,14 +8,6 @@
   </Operation>
   <Operation Type="Add" XPath="/n:ResourceDictionary">
     <Content>
-      <!-- Crop the transparent Vanilla help artwork to its visible Lord silhouette. -->
-      <CroppedBitmap x:Key="BugfixesAndQoL-LordIcon"
-                     Source="{StaticResource BugfixesAndQoL-LordSource}"
-                     SourceRect="67,42,105,179" />
-    </Content>
-  </Operation>
-  <Operation Type="Add" XPath="/n:ResourceDictionary">
-    <Content>
       <BitmapImage x:Key="BugfixesAndQoL-LobbyGoldShieldSource"
                    UriSource="BugfixesAndQoL-LobbyGoldShields.png" />
     </Content>

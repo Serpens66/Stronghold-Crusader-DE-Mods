@@ -1,94 +1,94 @@
-# Hash- und Adressprüfung: weitere Kandidaten
+# Hash- und Adressprüfung: offene Kandidaten
 
-Diese Liste enthält Stellen, die nach einem Spiel- oder Extender-Update noch Handarbeit verursachen oder bei jedem Start unnötig Zeit kosten. Das Zielverfahren steht in [AGENTS/native-analysis.md](AGENTS/native-analysis.md#rva-signaturen-und-layouts):
-- bei bekanntem Hash nur Bytevergleich an den Referenz-RVAs,
-- bei unbekanntem Hash einmal Pattern- bzw. RIP-Fallback mit persistentem Cache,
-- Datenadressen über validierte Code-Anker,
-- Managed-Code über IL-Verträge statt Datei-Hash.
+Quellstand vom 8. November 2026. Geprüft wurden die lokalen Arbeitsbäume einschließlich laufender Änderungen im Mod-Workspace (`develop`, HEAD `183e32a9b`) und in APIShared (`dev/Serpens66`, HEAD `8e605f0`). Die SHA-256 der installierten `CrusaderDE.dll` und `Assembly-CSharp.dll` entsprechen `FBCB9319…31E2` bzw. `BC8B6A39…D789` aus [CURRENT.json](_inspect/CrusaderDE-Native-Baseline/CURRENT.json) und dem dort referenzierten Datenbankmanifest.
 
-Die Liste ist eine Momentaufnahme vom 2026-10-22 (Native-Hash `FBCB9319…31E2`, Managed `Assembly-CSharp` `BC8B6A39…D789`), erstellt aus einer Codesuche. Vor einer Umstellung jedes Feature erneut prüfen und den Vanilla-Audit nach `AGENTS/native-analysis.md` abschließen.
+Inventur per Quelltextsuche nach Hashvergleichen, Datei-I/O, RVAs und Pattern-Resolvern mit Prüfung der Installationspfade. Die Liste unterscheidet **Arbeit beim regulären Start**, **wiederholte Fallback-Suche auf einem Update** und **Kompatibilitätsgrenzen mit festem Layout**. Sie enthält keine Laufzeitmessung oder Freigabe für einen neuen DLL-Stand. Vor einer neuen Adress- oder Layoutableitung den featurebezogenen Vanilla-Audit gemäß [AGENTS/native-analysis.md](AGENTS/native-analysis.md#rva-signaturen-und-layouts) abschließen.
 
-Bereits umgestellt (nicht mehr hier):
-- SavegameMissingMap und der Managed-Teil von APIShared-Audio
-- die Startscans von Formation, NotificationQueue und den neun Stellen aus dem früheren Abschnitt „Startscans“
+## Startkosten und Cache
 
-Die Details stehen in `BugfixesAndQoL/UpdateToNewDLL.md`, Abschnitt „Update fallback, startup checks and remaining hash bindings“.
+| Kandidat | Nachweis und offene Prüfung |
+|---|---|
+| Spectator | [SpectatorRuntime.Native.cs](Spectator/src/SpectatorRuntime.Native.cs) prüft die native Verfügbarkeit und lädt zwei Verträge. [TestToolsNativeOrders.cs](Spectator/src/TestToolsNativeOrders.cs) und [TestToolsNativeActions.cs](Spectator/src/TestToolsNativeActions.cs) lesen und hashen dieselbe native Datei jeweils vollständig. Die Verfügbarkeitsprüfung liest sie zum Hashen ein drittes Mal. Orders kopiert zusätzlich die ausführbare Sektion vor der Adressprüfung. Kandidat für einen gemeinsam verifizierten Rohdatei-Puffer bzw. Hash bei separaten Site-, Layout- und Live-Prüfungen. |
+| APIShared | [APISharedPlugin.ComputeInstalledHash](APIShared/src/Core/APISharedPlugin.cs) liest die native DLL einmal je Start. Die Initialisierung reicht denselben Hash an die Dienste weiter, auch an Audio. Der APIShared-Hash hat keinen persistenten Cache. Prüfen, ob APIShared die bereits im Workspace verwendete Strategie eigenständig übernehmen kann. Die unaufgerufenen Hashmethoden im internen APIShared-`DebugLogHelper` verursachen dabei keine Startkosten. |
+| Workspace-Hashcache | [DebugLogHelper.GetFileSha256](Shared/Runtime/Diagnostics/DebugLogHelper.cs) speichert nach Pfad, Länge und Änderungszeit bereits persistent. Die quellverlinkten Kopien haben je Assembly eigene In-Memory-Tabellen und Locks. Bei einem normalen Cachetreffer liest jede beteiligte Assembly den persistenten Eintrag vor der ersten lokalen Wiederverwendung. Eine gemeinsame Prozessidentität und das Verhalten bei gleichzeitigem Cachemiss erst messen. Aufrufer wie Kosten- und Limit-Mods nutzen den Hash nur für Diagnose. |
+| Pathfinding FormationSpeech | [FormationSpeechNative.cs](Pathfinding/src/Formations/FormationSpeechNative.cs) durchsucht im Initialisierungspfad viermal die ausführbaren Sektionen, auch auf dem Referenzhash. Die nachträgliche Meldung `reference-rva` kennzeichnet hier einen Treffer am bekannten RVA nach einer Suche. Referenzprüfung zuerst untersuchen. Daten-, Call-Ziel-, Feld- und Lock-Verträge bleiben eigene Prüfungen. |
+| BugfixesAndQoL Drawbridge Destruction | [FixRuntime.cs](BugfixesAndQoL/src/DrawbridgeDestructionFix/FixRuntime.cs) nutzt den vorhandenen Dateihashcache. [NativeContract.ReadReferenceFunction](BugfixesAndQoL/src/DrawbridgeDestructionFix/NativeContract.cs) liest danach für einen Funktionsvergleich die gesamte Rohdatei erneut. Gezieltes Lesen der benötigten PE-Header und Bytes auf Kosten und gleichwertige Identitätsprüfung untersuchen. Der Bodyvergleich hinter dem Extender-Einstieg bleibt maßgeblich. |
+| Testmod AIAttackTest | [AIAttackTestRuntime.cs](Testmods/AIAttackTest/src/AIAttackTestRuntime.cs) scannt auf dem bereits geprüften Referenzhash die Lord-Signatur und, falls Fixes die Stelle freilässt, auch die Rekrutierungssignatur. Beide Treffer müssen am Referenz-RVA liegen. Referenz-Byteprüfung als Startoptimierung separat von einer möglichen Portierung betrachten. |
 
-## Voraussetzung: gemeinsame Befehls-Runtime (BugfixesAndQoL)
+### Scans, die erst nach einem Update oder einer Referenzabweichung anfallen
 
-`UnitCommandPathRuntime` verlangt den Referenz-Hash. Es bindet etwa 40 feste Detour-Prefixe (`src/UnitCommands/Native/NativeDetourContracts.cs`, `nativeDetourPrefixes`) und rund 100 native Konstanten (`src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs`).
+- **BugfixesAndQoL Ctrl-Markthandel** akzeptiert Pattern-Ergebnisse auf unbekanntem Hash und validiert abgeleitete Ziele erneut. [CtrlMarketTradeHook.FindRequiredPattern](BugfixesAndQoL/src/Market/CtrlMarketTradeHook.cs) ruft den Resolver ohne persistenten Cache auf. **AI Economy Protection** hat denselben Pfad für die allgemeinen Schlaf- und Abriss-Hooks. Die zwei layoutgebundenen Teilfunktionen für Ressourcenmangel und Unzugänglichkeit bleiben bei unbekanntem Hash getrennt gesperrt. [AIEconomyProtectionHook.cs](BugfixesAndQoL/src/AI/Economy/AIEconomyProtectionHook.cs)
+- **BugfixesAndQoL AI Keep Range** sucht auf unbekanntem Hash, verwirft danach aber unabhängig vom Treffer jedes Ergebnis. Das Audit-Gate vor der Suche ist ein Kandidat zur Kostensenkung im Ablehnungsfall. Der feste Funktionskörper, die eingehenden Kanten und der Backend-Vertrag bleiben Voraussetzung. [AIKeepRangeNativeContract.Resolve](BugfixesAndQoL/src/AI/Fixes/AIKeepRangeNativeContract.cs)
+- **APIShared AIV Build Step und native Unit-HUD-Gruppendaten** prüfen auf dem bekannten Hash zuerst die Referenzbytes. Nach einer Abweichung sucht `UniquePatternSearch` im gesamten Image, obwohl nur der Referenz-RVA akzeptiert wird. **AssassinPath** und **Gatehouse Automation** haben eine entsprechende Suche in ausführbaren Sektionen. Nur als Arbeit im Ablehnungsfall einordnen. [UniquePatternSearch.cs](APIShared/src/Core/Internal/Native/UniquePatternSearch.cs), [AivBuildStepCapability.cs](APIShared/src/Diagnostics/AivBuildStepCapability.cs), [UnitHudPresentationService.Hooks.cs](APIShared/src/Presentation/UnitHud/UnitHudPresentationService.Hooks.cs), [AssassinPathNativeDefinition.cs](APIShared/src/Pathfinding/Assassin/AssassinPathNativeDefinition.cs), [GatehouseAutomationNativeState.cs](APIShared/src/Buildings/Gatehouse/GatehouseAutomationNativeState.cs)
 
-Davon hängen ab:
-- ExtendedShiftCommandQueue
-- Formation einschließlich FormationSpeech
-- der Großteil der Befehlsfeatures
+Für weitere Nutzer des [NativeResolutionCache](Shared/Runtime/Native/NativeResolutionCache.cs) die Cachebestätigung mit dem frischen Suchpfad abgleichen. Der Cachetreffer prüft derzeit das Muster an der gespeicherten Position. Bei `ExecutableSections` muss auch dort die ganze Signatur in einer ausführbaren Sektion liegen. Ein ungültiger Cachewert soll den regulären Suchpfad auslösen.
 
-Solange diese Runtime keinen Fallback hat, bringt eine Umstellung dieser Features nach einem Spielupdate nichts.
+### Bereits umgestellt
 
-Für ChoreQueue und Formation/Speech ist der Audit schon erledigt: Anker mit Zweitbelegen für die Chore-Staging-Globals, Manager, Strides und Speech-Call-Ziele stehen in `_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/MOVE_STAGER_DATA_ANCHORS.md`. Noch ohne Anker sind `TribeUnitCountOffset 0x5C` und `MovementTargetAvailability 0x3A11EA4`.
+- **BugfixesAndQoL** nutzt den persistenten [BfqolNativeCache](BugfixesAndQoL/src/Core/Native/BfqolNativeCache.cs) produktiv für NotificationQueue und EditorRegionRefresh. Die scanbasierte Validierungsüberladung der NotificationQueue ist für Tests. WorkshopIdleDelay prüft auf passendem Hash zuerst seine Referenzbytes. Der frühere zweite Scan ist entfernt. [Native-Update-Dokumentation](BugfixesAndQoL/UpdateToNewDLL.md#update-fallback-startup-checks-and-remaining-hash-bindings-2026-10-22)
+- **Managed-Code** für SavegameMissingMap, APIShared-Audio und APIShareds ImGui-Shutdown-Fix ist bereits auf Vertragsprüfungen umgestellt. Der frühere `D98415…`-Pin im ImGui-Fix ist entfernt. Der Inhaltsvergleich von `cimguiaio.dll` prüft die Zusammengehörigkeit mit UU-ImGUI. [ScriptExtenderFixesRuntime.cs](APIShared/src/ScriptExtenderFixes/ScriptExtenderFixesRuntime.cs)
 
-Reihenfolge:
-1. Die Befehls-Runtime auf Resolver und Cache umstellen.
-2. Danach ChoreQueue und Formation/Speech nach diesem Audit.
+## BugfixesAndQoL – verbleibende feste Verträge
 
-## Native Daten-RVAs ohne Fallback (BugfixesAndQoL)
+| Bereich | Grenze im aktuellen Quellstand |
+|---|---|
+| AI Raid Retarget | Der Bootstrap blockiert die Initialisierung bei unbekanntem Layout. Der [RaidSearchObserver](BugfixesAndQoL/src/AI/Raid/RaidSearchObserver.cs) verlangt zusätzlich den bekannten Hash. Observer und Retarget teilen sich den zu auditierenden Such-/Kontextvertrag. [BugfixesAndQoLRuntime.InitializeNative](BugfixesAndQoL/src/Core/Bootstrap/BugfixesAndQoLRuntime.cs), [AiRaidRetargetFixRuntime.cs](BugfixesAndQoL/src/AI/Raid/AiRaidRetargetFixRuntime.cs) |
+| AI Preplaced Buildings und AI Economy | [AIPreplacedBuildingFixRuntime.TryInstallNativeFixes](BugfixesAndQoL/src/AI/Prebuilt/AIPreplacedBuildingFixRuntime.cs) bricht vor der Auflösung ab. Der Index für das aktive Layout wird innerhalb des bekannten Vertrags bereits RIP-relativ abgeleitet. Der feste Pfadmanager-RVA des [AIBuildingTemporaryAccessClassifier](BugfixesAndQoL/src/AI/Economy/AIBuildingTemporaryAccessClassifier.cs) hängt am Teilfeature Unzugänglichkeit im [AIEconomyProtectionHook](BugfixesAndQoL/src/AI/Economy/AIEconomyProtectionHook.cs). |
+| Frieden, Vorschau und HP-Anzeige | [VanillaPeaceTimeNativeContract](BugfixesAndQoL/src/PeaceTime/VanillaPeaceTimeNativeContract.cs) dekodiert bereits RIP-Ziele, hat aber ein Layout-Gate. [BuildPreviewRuntime](BugfixesAndQoL/src/BuildPreview/BuildPreviewRuntime.cs) prüft vorab den Hash und verlangt anschließend den Referenz-RVA. Die [HP-Anzeige](BugfixesAndQoL/src/Hud/DamagedHealthBarsRuntime.cs) bindet zusätzlich HP-Felder, Strides und Fortsetzungen. Der verwaltete [GatehouseTargetMarkerHeightHook](BugfixesAndQoL/src/GateRouting/GatehouseTargetMarkerHeightHook.cs) bleibt wegen nativer Daten am Native-Hash gebunden. |
+| Weitere Layout-/Span-Verträge | [WorkshopIdleDelay](BugfixesAndQoL/src/Buildings/WorkshopIdleDelayHook.cs), [TannerFade](BugfixesAndQoL/src/Buildings/NativeTannerFade.cs), [Waterboy](BugfixesAndQoL/src/Buildings/WaterboyTargetReservationRuntime.cs), [AI Outpost Retarget](BugfixesAndQoL/src/AI/Fixes/AiOutpostRetargetFix.cs), [Lord Teleport Guard](BugfixesAndQoL/src/LordTeleportGuard/LordTeleportGuardRuntime.cs), [Gatehouse Living Capture](BugfixesAndQoL/src/GatehouseLivingCapture/CaptureRuntime.cs), [Moat Terrain](BugfixesAndQoL/src/MoatTerrain/TerrainRuntime.cs), [Pitch/Stairs](BugfixesAndQoL/src/PitchStairs/PitchStairsRuntime.cs), [Tree Blight](BugfixesAndQoL/src/TreeBlightDecay/FixRuntime.cs) und [Tribe Member Lookup](BugfixesAndQoL/src/VanillaPerformance/TribeMemberLookupOptimization.cs) prüfen weiterhin den Referenzstand. Ein vorhandener Pattern-Aufruf kann je nach Vertrag nur als zusätzliche Signaturprüfung dienen. Details und Grenzen stehen in der [Native-Update-Dokumentation](BugfixesAndQoL/UpdateToNewDLL.md). |
 
-Alle hängen am globalen Native-Hash (`Shared.DebugLogHelper.IsCurrentNativeLibraryVersion()` → `referenceHashMatches` in `BugfixesAndQoLRuntime.InitializeNative`). Weicht der Hash ab, bleibt das Feature aus.
+Bei **AI Defense Patrol, AI Wall Targeting, AIV Defender Position, Control Group Disband, Lord Control Groups und Healer Attack** liegen die Referenzprüfungen weiterhin hinter einem Hash-Gate. Referenz-RVA-Vergleiche gehören dort zum jeweiligen Adressvertrag. Ein Treffer an anderer Stelle würde keine gültige Portierung belegen. [Initialisierung und Feature-Aufrufe](BugfixesAndQoL/src/Core/Bootstrap/BugfixesAndQoLRuntime.cs)
 
-| Feature | Datenadressen | Gate | Hinweis |
-|---|---|---|---|
-| AiRaidRetarget | `src/AiRaidRetargetFixRuntime.cs:29-37` | `BugfixesAndQoLRuntime.cs:491` | |
-| AssassinPathfinding (Grid-Layer) | `src/AssassinPathfindingRuntime.cs:33-42` | `:146` | |
-| AssassinCombatResume | `AssassinPathContextFlagRva 0x60AD6E8` | `AssassinCombatResumeRuntime.cs:42` | Wird schon per RIP dekodiert (`:234-256`), aber nur gegen die Konstante verglichen; naheliegender erster Kandidat. |
-| UnitCommandPathRuntime | `src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:101-114` | `UnitCommandPathRuntime.Initialization.cs:43` | Großer Verbund; Gate pro Teilfeature prüfen. |
-| LargeMoveTargetMarkerRenderer | `src/Formations/Markers/LargeMoveTargetMarkerRenderer.cs:27-38` | `:165` | |
-| MountedStockpile | `:54-59` | `:108` | |
-| GatehouseTargetMarkerHeight | `:17-19` | `GatehouseTargetMarkerHeightHook.cs:39` | |
-| BuildPreview | `PreviewNativeContract.cs:15-17` | eigener Hash-Check `BuildPreviewRuntime.cs:50` | |
-| NativeTannerFade | `:21-22` | `:281` | |
-| WorkshopIdleDelay | `:14-15` | — | Scannt außerdem bei jedem Start. |
-| AIPreplacedBuilding | `AIPreplacedBuildingFixRuntime.cs:33-43` | — | Nutzt an `:402` bereits RIP-Ableitung für ein Ziel. |
-| VanillaPeaceTime | `:57-58` | `:146` | `VanillaPeaceTimeNativeContract.cs:399, 442` dekodiert schon RIP-relative Ziele mit Iced. |
-| AIBuildingTemporaryAccessClassifier | `:48` | — | |
-| RaidSearchObserver | `ContextRva` (`:17`) | — | |
-| PathfindingGlobalsBaseline | `:101-103` | — | |
-| NativeTroopCommandModeReader | `CommandModeRva 0x67E8410` (`src/UnitCommands/Cursor/GroundMovePreviewEligibility.cs:125`) | Bytevergleich an festen Code-RVAs (`:151-169`) | |
-| Lebensbalken-HP-Felder | `UpdateToNewDLL.md:29-36` | — | Strukturfeld-Offsets; bleiben voraussichtlich hashgebunden. |
 
-Weitere Einträge mit „kein Fallback“ in `BugfixesAndQoL/UpdateToNewDLL.md`: Zeilen 78, 292, 372, 628, 633, 767.
+## Pathfinding – Befehle, Formationen und Bewegungsdaten
 
-## Code-Ziele mit Zwang zur Referenz-RVA
+- **Gemeinsame Voraussetzung.** [UnitCommandPathRuntime.Initialization.cs](Pathfinding/src/UnitCommands/Runtime/UnitCommandPathRuntime.Initialization.cs) verwirft den unbekannten Hash vor dem ersten Resolve. [UnitCommandPathRuntime.NativeContracts.cs](Pathfinding/src/UnitCommands/Native/UnitCommandPathRuntime.NativeContracts.cs) verlangt danach die Referenz-RVAs. `Unaudited command detour entry` stammt aus der [RVA-indizierten Präfixtabelle](Pathfinding/src/UnitCommands/Native/NativeDetourContracts.cs) für unbekannte Tabelleneinträge. Der abgelehnte Hash nimmt den früheren Pfad. Die [Adressinventur](Pathfinding/UpdateToNewDLL.md#shared-command-runtime-address-inventory-and-recovery-contract-moved-from-moatmove-2026-10-30) ist der Einstieg in eine spätere Aufteilung nach Teilverträgen.
+- **Abhängige Teilfunktionen.** [ExtendedShiftCommandQueue](Pathfinding/src/CommandQueue/ExtendedShiftCommandQueueRuntime.cs), [Formation](Pathfinding/src/Formations/Feature/FormationFeature.cs) und [LargeMoveTargetMarkerRenderer](Pathfinding/src/Formations/Markers/LargeMoveTargetMarkerRenderer.cs) haben zusätzlich eigene Gates und feste Adressen. Der bisherige Aufrufer von `PathfindingNativeCache` liegt im hashgebundenen Formationspfad. Bereits dokumentierte Zweitbelege für Chore-Staging, Manager, Strides und Speech-Call-Ziele stehen im [Move-Stager-Audit](_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/MOVE_STAGER_DATA_ANCHORS.md). Darin blieben `TribeUnitCountOffset` und `MovementTargetAvailability` ohne bestätigten Anker. [NativeTroopCommandModeReader](Pathfinding/src/UnitCommands/Cursor/GroundMovePreviewEligibility.cs) bindet die Datenadresse mit zwei festen Instruktionskontexten. Der Abbau der Startscans von FormationSpeech lässt sich separat untersuchen.
+- **Assassinen und Gate-Routing.** [AssassinCombatResume](Pathfinding/src/Assassins/AssassinCombatResumeRuntime.cs) dekodiert drei RIP-Referenzen, vergleicht sie mit derselben festen Flag-Adresse und benutzt anschließend den festen Pointer. [AssassinPathfinding](Pathfinding/src/Assassins/AssassinPathfindingRuntime.cs) bindet Grid-, Pfad- und Rekonstruktionsverträge und nutzt APIShared. [GateRoutingFeature](Pathfinding/src/GateRouting/GateRoutingFeature.cs) und [EnemyGatePathfindingRuntime](Pathfinding/src/GateRouting/EnemyGatePathfindingRuntime.cs) haben weitere Layout-/Site-Prüfungen. Die Tabellen-RVAs in [PathfindingGlobalsBaseline](Pathfinding/src/GateRouting/PathfindingGlobalsBaseline.cs) werden in Tests referenziert. Der produktive Tabellenvergleich nutzt Spans des Extenders.
+- **Bewegung.** [MountedStockpile](Pathfinding/src/TroopMovement/MountedStockpileMovementPatch.cs) und Teile von [TroopMovementFixRuntime](Pathfinding/src/TroopMovement/TroopMovementFixRuntime.cs) bleiben hashgebunden. Unabhängig davon akzeptiert die [Rallypunktplatzierung](Pathfinding/src/TroopMovement/AssemblyPointPlacementPatch.cs) verschobene Pattern-Treffer und prüft die Spannen. Dieser erreichbare Fallback hat keinen persistenten Cache. Bei einer späteren Cache-Anbindung berücksichtigen, dass die Installation auch nach dem einmaligen Speichern in `LibraryLoaded` aus einer Einstellungsanwendung erfolgen kann.
 
-Diese Ziele werden per Pattern gefunden, das Ergebnis muss aber der Referenz-RVA entsprechen. Damit ist der Fallback faktisch wirkungslos.
-- Weitere Stellen mit `ResolveUnique(...)` und anschließendem Gleichheitsvergleich mit der Konstante. Suche nach `!= .*Rva` bzw. `resolved.Rva != `.
-- Die Code-Ziele von UnitCommandPathRuntime (`NativeDetourContracts.cs`, Prefix-Tabelle `nativeDetourPrefixes`, ~40 Einträge): Bei unbekanntem Hash wird jeder Detour abgelehnt (`Unaudited command detour entry`). Prefix-Prüfung und Pattern-Fallback pro Eintrag ergänzen.
+## Weitere produktive Mods
 
-## Startscans in anderen Mods
+| Mod | Geprüfte Kandidaten |
+|---|---|
+| Spectator | Zusätzlich zum doppelten Vertragsladen und der separaten Verfügbarkeitsprüfung ist der Scan in [TestToolsNativeOrders](Spectator/src/TestToolsNativeOrders.cs) im Fehlerpfad entbehrlich zu prüfen. Er läuft nach einem Fehlvergleich im selben Puffer und akzeptiert nur den gerade verworfenen Offset. Die Mod bindet außerdem die NativeX64-Version trotz Backend-Probe. Eine Änderung an der Backend-Freigabe ist ein eigener ABI-Vertrag. |
+| ExtraFeatures | [ChurchPriestCountRuntime](ExtraFeatures/src/ChurchPriestCountRuntime.cs) sucht beim Fallback im gesamten Image und validiert die Tabelle. Cache und Suchbereich anhand des Tabellenvertrags prüfen. [PlagueDurationPatch](ExtraFeatures/src/PlagueDurationPatch.cs) kann die globale Dauer über einen Fallback erreichen, der separate AI-Provenienzpfad bleibt hashgebunden. [NoKillRewardHook](ExtraFeatures/src/NoKillRewardHook.cs) und [FearFactorNeutralizationRuntime](ExtraFeatures/src/FearFactorNeutralizationRuntime.cs) prüfen erst den Hash und lehnen verschobene Ergebnisse ab. [AIDefenseRepairRuntime](ExtraFeatures/src/AIDefenseRepairRuntime.cs) braucht für die native Platzierung das feste Layout und die AIV-Capability. |
+| RandomEvents | [ScenarioSignpostRegistry.ResolveLookup](RandomEvents/src/ScenarioSignpostRegistry.cs) und [ArcherSourceNativeLayout](RandomEvents/src/ArcherSourceNativeLayout.cs) nutzen uncached Fallbacks bei unbekanntem Hash. Bei passendem Hash und abweichenden Referenzbytes erreicht der betreffende Pfad den Scan nicht. Für die [Friedenszeit-Abfrage](RandomEvents/src/RandomEventsRuntime.cs) ist der Hash ein eigenes Gate. Bei fehlendem Nachweis unterdrückt der Mod die betroffenen Angriffe. |
+| StartConditions | [VanillaPeaceTimeState](StartConditions/src/VanillaPeaceTimeState.cs) und [VanillaStartTroopSpawnState](StartConditions/src/VanillaStartTroopSpawnState.cs) schützen zwei getrennte feste Datenzugriffe über den Hash. StartConditions und RandomEvents lesen dasselbe Friedenszeit-Flag wie [APIShared PeaceTimeState](APIShared/src/Simulation/PeaceTimeState.cs). Eine gemeinsame Nutzung ist ein Kandidat, sobald Verfügbarkeit beim Start, Engine-Lock, Missionsidentität und das jeweilige Verhalten bei fehlendem Wert abgeglichen sind. |
+| CastlePlanner | [CastlePlannerPlugin](CastlePlanner/src/CastlePlannerPlugin.cs) sperrt Native Spawn bei unbekanntem Layout bereits vor dem einzelnen Resolver in [CastlePlannerRuntime](CastlePlanner/src/CastlePlannerRuntime.cs). AIV-, Player- und Datenlayout separat absichern. Blueprint und unabhängige Platzierungsfunktionen laufen über eigene Initialisierung. [Native-Update-Dokumentation](CastlePlanner/UpdateToNewDLL.md) |
+| ImprovedHunters | [ImprovedHuntersRuntime.Apply](ImprovedHunters/src/ImprovedHuntersRuntime.cs) initialisiert Teilfunktionen separat. Native Sicht, PCL-Erreichbarkeit, Kadaverwahl und die neuen Fortsetzungs-/Recovery-Pfade enthalten weiterhin feste Layout-/Span-Verträge. Herd und Wildtierreichweite hängen zusätzlich gemeinsam von [WildlifeNativeAddresses](ImprovedHunters/src/WildlifeNativeAddresses.cs) ab. Mehrere unabhängige Referenz-/Pattern-Pfade etwa für Hühnerjagd, Granary-Limit und Hut-Sicht nutzen den Resolver ohne persistenten Cache. [Native-Update-Dokumentation](ImprovedHunters/UpdateToNewDLL.md) |
+| ExtremePowers | [NativeBuildGuard](ExtremePowers/api/Native/NativeBuildGuard.cs) hasht die installierte DLL im üblichen Singleton-Start einmal ohne persistenten Cache. Cache-Wiederverwendung separat vom festen Manager-/Ressourcenlayout prüfen. `IsSupportedImage(byte[])` prüft die tatsächlich übergebenen Bytes. [Native-Update-Dokumentation](ExtremePowers/UpdateToNewDLL.md) |
 
-In BugfixesAndQoL ist das erledigt. In anderen Mods noch nach `FindUniquePattern(` ohne vorherigen Referenz-Bytevergleich suchen.
+In **ExtendedData, UnitCosts, UnitLimit, BuildingCosts, BuildingLimit und CheatMod** dient der gefundene Spiel-DLL-Hash der Diagnose. **SerpsModsHost** prüft mit SHA-256 die Paketherkunft. Inhalts-, Paket- und Multiplayer-Fingerabdrücke gehören außerhalb dieser Kompatibilitätsliste. Versionsgebundene Fixtures bleiben ein eigener Bereich.
+
+## Hilfs- und Testmods
+
+- **ActiveAIVDetector** prüft vor dem Prepare-Layout-Resolver den Referenzhash und das Building-Snapshot-Layout. Eine Signatur allein macht das Hilfsmod bei einem DLL-Update daher nicht verfügbar. [ActiveAIVDetectionRuntime.cs](Helpers/ActiveAIVDetector/src/ActiveAIVDetectionRuntime.cs)
+- **HunterQueryTargetDiagnostic** reicht das Ergebnis der Hashprüfung an den State-7-Diagnosehook weiter. Der Hook sucht bei unbekanntem Hash nach der Writer-Signatur und nutzt den gefundenen RVA. Ein persistenter Cache wäre erst bei regelmäßigem Einsatz und nach Prüfung des Spannenvertrags relevant. [HunterQueryTargetDiagnosticPlugin.cs](Helpers/HunterQueryTargetDiagnostic/src/HunterQueryTargetDiagnosticPlugin.cs), [HunterState7CauseDiagnostic.cs](Helpers/HunterQueryTargetDiagnostic/src/HunterState7CauseDiagnostic.cs)
+- **StockpileAccessFixTest** und **OutpostTest** verlangen den Referenzstand. Ihre Resolver liegen hinter der Sperre. OutpostTest verlangt zusätzlich den Referenz-RVA. Diese Fälle getrennt von AIAttackTests regulären Startscans behandeln. [StockpileAccessFixTestRuntime.cs](Testmods/StockpileAccessFixTest/src/StockpileAccessFixTestRuntime.cs), [OutpostTestPlugin.cs](Testmods/OutpostTest/src/OutpostTestPlugin.cs), [OutpostNative.cs](Testmods/OutpostTest/src/OutpostNative.cs)
+
+## APIShared – Kompatibilitätsgrenzen
+
+| Dienst | Offener Prüfpunkt |
+|---|---|
+| Popularity Display | [PopularityDisplayRuntime](APIShared/src/ScriptExtenderFixes/Popularity/PopularityDisplayRuntime.cs) bindet den Native-Hash und prüft den SHA-256 sowie die Identität der echten geladenen `Assembly-CSharp.dll`. Ein späterer IL-Vertrag müsste die relevanten Vanilla-GUI-Schreibpfade abdecken. Der vorhandene Cecil-Preflight prüft Member und Enums. World Popup und Fear Popularity haben bereits Managed-IL-Prüfungen und getrennte Native-Gates. [Verify-PopularityContracts.ps1](APIShared/tools/Validation/Verify-PopularityContracts.ps1), [PopularityWorldPopupRuntime.cs](APIShared/src/ScriptExtenderFixes/Popularity/PopularityWorldPopupRuntime.cs), [FearPopularityRuntime.cs](APIShared/src/Economy/FearPopularityRuntime.cs) |
+| Peace Time State | [PeaceTimeState](APIShared/src/Simulation/PeaceTimeState.cs) dekodiert bereits eine RIP-Instruktion, prüft aber vollständige Referenzbytes und das feste Ziel hinter dem Native-Gate. Eng abgegrenzter Datenvertrag für einen späteren Audit. |
+| Audio | [SoundRuntime](APIShared/src/Audio/SoundRuntime.cs) prüft die nativen Wrapper-, Flag- und Emitter-Ziele hinter dem Native-Gate und lehnt verschobene Auflösungen ab. Der Hash über den Melee-Frame und die CALL-Prüfungen sichern eigene Maschinenverträge. |
+| KI-Verkauf und Produktion | [AiMarketSellNativeRuntime](APIShared/src/Economy/AiMarketSellNativeRuntime.cs) und [AiMarketSellAssembly](APIShared/src/Economy/AiMarketSellAssembly.cs) binden Hookstellen, Epilog, Struktur- und Stackvertrag weiterhin an den Native-Hash. RedBird/Iced-Dateihashes sind bereits durch Backend-/Stub-Prüfungen ersetzt. Die Worker-/Weapon-Production-Verträge binden weitere Funktionskörper und Felder. Netzwerk- und Save-Identitäten bleiben separat. [Economy-Quellen](APIShared/src/Economy) |
+| AssassinPath, Gate-Routing und Extender-Tabellen | [AssassinPathAPI](APIShared/src/Pathfinding/Assassin/AssassinPathAPI.cs) und [PathfindingTables](APIShared/src/ScriptExtenderReplacements/PathfindingTables.cs) prüfen feste Grids, Profile bzw. Tabellen und Extender-Übereinstimmung. Den Gate-Routing-Vertrag mit den Pathfinding-Verbrauchern prüfen. [GateRoutingNativeLayout](APIShared/src/Pathfinding/GateRoutes/Native/GateRoutingNativeLayout.cs) veröffentlicht ausdrücklich Referenzdaten. Eine künftig aufgelöste Laufzeitadresse hätte einen eigenen Vertrag. |
+| Weitere Referenz-Gates | Native Bindings und Beobachter in [AiMilitary](APIShared/src/Units/AiMilitary), Marktpreise und Ally Transfers in [Economy](APIShared/src/Economy), [NativeChoreContext](APIShared/src/Networking/NativeChoreContext.cs), [PlayerViewIdentity](APIShared/src/Players/ViewIdentity), [Health](APIShared/src/Health), [Gatehouse](APIShared/src/Buildings/Gatehouse) und native Teile der [Presentation](APIShared/src/Presentation) enthalten weitere feste Verträge. Jeweils pro Dienst und abhängigem Feature priorisieren. Der [NativeFieldReader](APIShared/src/NativeKnowledge/NativeFieldReader.cs) verwendet verifizierte Katalogbindungen pro Image als bewusste Freigabegrenze. |
+
+**Fixes-Wheat-Startkorrektur.** [FixesWheatStartup](APIShared/src/Compatibility/FixesWheatStartup.cs) lädt die vollständige rohe Spiel-DLL vor der Prüfung, ob Fixes überhaupt einen Wheat-Hook installiert hat. Kandidat für eine andere Lesereihenfolge innerhalb derselben Startphase. Identitäts-, Live-Code- und Stub-Prüfungen des aktiven Pfades bleiben erforderlich.
+
+**UU-ImGUI-Partnervergleich.** `SameContent` lädt beide nativen Dateien vollständig. Ein blockweiser exakter Vergleich ist ein Kandidat zur Senkung der Spitzenallokation, mit denselben Fehlerpfaden für fehlende oder unterschiedliche Dateien. [ScriptExtenderFixesRuntime.cs](APIShared/src/ScriptExtenderFixes/ScriptExtenderFixesRuntime.cs), [ImGuiShutdownTests.cs](APIShared/tests/APISharedTests/ImGuiShutdownTests.cs)
 
 ## Managed-Hash-Gates in Prüfskripten
 
-Diese Skripte prüfen den Datei-Hash der `Assembly-CSharp.dll` und brechen nach einem Spielupdate ab, auch wenn die geprüften Member unverändert sind. Durch Cecil-Member- bzw. IL-Prüfungen ersetzen:
-- `BugfixesAndQoL/tests/BuildPreview.Tests/managed-contract.ps1:6`
-- `BugfixesAndQoL/Test-GatehouseTargetMarkerHeight.ps1:17`
-- `ExtraFeatures/verify-repair.ps1:16`
-- `Shared/Tools/Release/Test-SCDEModManagerCompatibility.ps1:101`
-- `Testmods/PerfProbe/verify.ps1:9` (nur Warnung)
-
-## Weitere Hash-Gates in APIShared
-
-- `APIShared/src/ScriptExtenderFixes/Popularity/PopularityDisplayRuntime.cs:22`: prüft weiter den Managed-Hash `BC8B6A39…`. Es gibt dort keinen IL-Vertrag. Der Hash sichert ab, welche Vanilla-GUI-Felder je `app_sub_mode` geschrieben werden (`PopularityPresentation.Apply`). Das Feature ist zusätzlich an den Native-Hash gebunden. Für Update-Festigkeit bräuchte es einen IL-Vertrag über die schreibende Vanilla-GUI-Methode.
-- Native Teile von APIShared-Audio (`Audio/NativeContract.cs`: `NativeHash`, `MeleeFrameHash`, feste RVAs): Der Managed-Teil ist auf den IL-Vertrag umgestellt, der native Teil bleibt hashgebunden.
-- KI-Verkauf (`APIShared/src/Economy/AiMarketSellNativeRuntime.cs`, `AiMarketSellAssembly.cs`):
-  - Bleibt hashgebunden: `NativeHash`, die zwei Hookstellen 0x3F1F3/0x29723, das Epilog-Ziel 0x2978B und der Struktur- und Bridge-Stackvertrag (`PlayerStride`, Goods-Offsets).
-  - Keine Datei-Hashes auf RedBird/Iced mehr: Spanne, erzeugter Stub und Sprungform werden zur Laufzeit geprüft.
-  - Grenzen werden am unveränderten Ladeabbild geprüft.
-  - Für Update-Festigkeit müssten die Hookstellen per Pattern plus Cache gefunden und der Strukturvertrag neu abgeleitet werden.
-
-- `APIShared/src/ScriptExtenderFixes/ScriptExtenderFixesRuntime.cs:20`: `ManagedHash = "D98415…"` mit `Supports(...)` (`:141-143`). Betrifft eine andere Managed-Assembly als Assembly-CSharp; Zuordnung klären und auf IL-Vertrag prüfen.
-- Native APIShared-Dienste mit festen RVAs, etwa die Konstanten in `AssassinPathAPI` (`BuildingGridRva`, `TileFlagsRva` usw.) und `EnemyGatePathfindingNativeDefinition`. Die Werte sind zum Teil jetzt öffentlich (`GateRoutingNativeLayout`); dieselbe Cache- und RIP-Strategie wäre hier anwendbar.
-
-## Andere Mods
-
-Bisher nicht inventarisiert: ExtraFeatures, ExtendedData, CastlePlanner, RandomEvents, StartConditions, UnitCosts, UnitLimit, BuildingCosts, BuildingLimit. Dort nach `Rva`, `ReferenceSha`, `NativeHash` und `Assembly-CSharp`-Hashes suchen und die Fundstellen hier ergänzen.
+| Stelle | Aktueller Vertrag und Prüfauftrag |
+|---|---|
+| [BuildPreview Managed Preflight](BugfixesAndQoL/tests/BuildPreview.Tests/managed-contract.ps1) | Vollhash vor Cecil-Prüfungen für Sichtbarkeit, Typen und Signaturen der echten Assembly. Prüfen, ob die bestehenden Memberprüfungen und ggf. ein engerer IL-Vertrag den Managed-Pin vollständig abdecken. |
+| [GatehouseTargetMarkerHeight](BugfixesAndQoL/Test-GatehouseTargetMarkerHeight.ps1) | Vollhash vor Cecil-Prüfungen und Tests des produktiven Prefix. Managed-Member-/IL-Vertrag separat vom notwendigen nativen Audit behandeln. |
+| [ExtraFeatures Repair](ExtraFeatures/verify-repair.ps1) | Aktiver Build-Preflight pinnt beide Dateien. Der Managed-Pin scheitert bereits vor den nachgelagerten Prüfungen. Für den Ersatz die tatsächlich benötigten Member und den Repair-Aufrufvertrag prüfen. |
+| [SCDE Mod Manager Compatibility](Shared/Tools/Release/Test-SCDEModManagerCompatibility.ps1) | Der Managed-Hash ist eine Vorbedingung für einen Test zweier gepinnter Workshop-Map-Fixtures. Der restliche Test liest die Assembly nicht. Klären, ob die Assembly-Vorbedingung zum beabsichtigten Nachweis gehört. |
+| [PerfProbe](Testmods/PerfProbe/verify.ps1) | Der Managed-Hash erzeugt nur eine Warnung. Zurückstellen gegenüber Build-Gates. |
+| [APIShared InstalledAssemblyIdentityTests](APIShared/tests/APISharedTests/InstalledAssemblyIdentityTests.cs) | Integrationstests pinnen die installierte `Assembly-CSharp.dll` und `UnityEngine.CoreModule.dll`. Bei einer Umstellung der Produktprüfung die echten Datei- und MVID-Nachweise von Negativfällen für falschen Hash bzw. falsche Modulidentität trennen. |

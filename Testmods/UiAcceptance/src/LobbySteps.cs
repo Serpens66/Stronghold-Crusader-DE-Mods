@@ -21,6 +21,7 @@ namespace UiAcceptance
             Runner.Register("Lobby.Button", s => Do(view => view.ButtonClicked(s.Arg(0)), 1));
             Runner.Register("Lobby.Play", Play);
             Runner.Register("Lobby.PeaceTime", PeaceTime);
+            Runner.Register("Lobby.StartPositions", StartPositions);
             Runner.Register("Editor.Start", EditorStart);
             Runner.Register("Mp.Host", Host);
             Runner.Register("Mp.WaitMembers", WaitMembers);
@@ -84,6 +85,32 @@ namespace UiAcceptance
         {
             yield return new Until("lobby ready", LobbyReady);
             for (int i = 0; i < repeat; i++) { action(Lobby); yield return new Delay(250); }
+        }
+
+        // args: the keep place of each player in lobby order (0 = the human host, then the AI lords as added), e.g.
+        // "2 5". The lobby hands out free places at random when a player joins; comparable runs need the same places.
+        // Vanilla's own swap through the radar shields writes the same array and then calls UpdateHostInfo.
+        private static IEnumerable<Wait> StartPositions(Step step)
+        {
+            yield return new Until("lobby ready", LobbyReady);
+            var setup = (EngineInterface.MultiplayerSetupData)typeof(FRONT_Multiplayer)
+                .GetField("MPsetupData", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(Lobby);
+            Runner.Require(setup != null, "no lobby setup data");
+            int[] order = setup.start_keep_location_order;
+            int[,] places = GameData.Instance.Keep_Locations;
+            for (int place = 0; place < order.Length; place++)
+                order[place] = -10;
+            for (int player = 0; player < step.Args.Length; player++)
+            {
+                int place = step.Int(player);
+                Runner.Require(place >= 0 && place < order.Length && places[place, 0] >= 0, "no keep place " + place + " on this map");
+                order[place] = player;
+            }
+            typeof(FRONT_Multiplayer).GetMethod("UpdateHostInfo", BindingFlags.Instance | BindingFlags.NonPublic)
+                .Invoke(Lobby, new object[] { false });
+            for (int place = 0; place < order.Length; place++)
+                AcceptLog.Info("LOBBY_KEEP place=" + place + " at=" + places[place, 0] + "," + places[place, 1] + " player=" + order[place]);
+            yield return new Delay(250);
         }
 
         // Through Vanilla's settings panel; its Apply button resets the value if the option is hidden.

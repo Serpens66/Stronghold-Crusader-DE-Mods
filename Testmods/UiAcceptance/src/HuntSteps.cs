@@ -57,7 +57,7 @@ namespace UiAcceptance
             Runner.Register("Hunt.LogHerds", s => GameSteps.Do(() => { lock (Engine()) LogHerds(s.Arg(0, "")); }));
             Runner.Register("Hunt.WatchHerds", WatchHerds);
             Runner.Register("Hunt.RememberStarts", s => GameSteps.Do(() => { lock (Engine()) RememberStarts(); }));
-            Runner.Register("Hunt.ClearOtherAnimals", s => GameSteps.Do(() => { lock (Engine()) ClearOtherAnimals(); }));
+            Runner.Register("Hunt.ClearOtherAnimals", s => GameSteps.Do(() => { lock (Engine()) ClearOtherAnimals(s.Arg(0, "") == "all"); }));
             Runner.Register("Hunt.PickHerd", PickHerd);
             Runner.Register("Hunt.WalledUnitThenHerd", WalledUnitThenHerd);
             Runner.Register("Hunt.ExpectNewHerds", ExpectNewHerds);
@@ -86,6 +86,7 @@ namespace UiAcceptance
             Runner.Register("Hunt.Corpse", s => GameSteps.Do(() => { lock (Engine()) SpawnCorpse(s.Arg(0), s.Int(1)); }));
             Runner.Register("Hunt.HoldForeignReservation", HoldForeignReservation);
             Runner.Register("Hunt.SecondHut", SecondHut);
+            Runner.Register("Hunt.LogHunters", s => GameSteps.Do(() => { lock (Engine()) LogHunters(); }));
             Runner.Register("Hunt.ExpectCorpseTaken", ExpectCorpseTaken);
             Runner.Register("Hunt.ExpectCorpseIgnored", ExpectCorpseIgnored);
             Runner.Register("Hunt.FadingCorpseIgnored", FadingCorpseIgnored);
@@ -94,6 +95,8 @@ namespace UiAcceptance
             Runner.Register("Hunt.ForeignHit", ForeignHit);
             Runner.Register("Hunt.Stress", s => GameSteps.Do(() => { lock (Engine()) Stress(s.Int(0), s.Int(1)); }));
             Runner.Register("Hunt.Supply", s => GameSteps.Do(() => { lock (Engine()) Supply(); }));
+            Runner.Register("Hunt.PreyBehindKeep", s => GameSteps.Do(() => { lock (Engine()) SpawnPreyBehindKeep(s.Arg(0)); }));
+            Runner.Register("Hunt.PreyAt", s => GameSteps.Do(() => { lock (Engine()) SpawnPreyAt(s.Arg(0), s.Int(1), s.Int(2)); }));
             Runner.Register("Hunt.Prey", s => GameSteps.Do(() => { lock (Engine()) SpawnPrey(s.Arg(0), s.Arg(1) == "ring" ? int.MinValue : s.Int(1), s.Arg(1) == "ring" ? 0 : s.Int(2)); }));
             Runner.Register("Hunt.ClearPrey", s => GameSteps.Do(() => { lock (Engine()) deer.Clear(); }));
             Runner.Register("Hunt.SightWall", s => GameSteps.Do(() => { lock (Engine()) SightWall(s.Int(0), s.Int(1)); }));
@@ -103,6 +106,7 @@ namespace UiAcceptance
             Runner.Register("Hunt.OpenRing", OpenRing);
             Runner.Register("Hunt.ExpectTargetDropped", ExpectTargetDropped);
             Runner.Register("Hunt.WaitHunterFree", WaitHunterFree);
+            Runner.Register("Hunt.WaitHuntersFree", WaitHuntersFree);
             Runner.Register("Hunt.ExpectSeparateTargets", ExpectSeparateTargets);
             Runner.Register("Hunt.AxisDeer", AxisDeer);
             Runner.Register("Hunt.ExpectOpenStart", s => GameSteps.Do(() => { lock (Engine()) ExpectOpenStart(); }));
@@ -159,8 +163,9 @@ namespace UiAcceptance
 
         internal static void PlaceBuildings(int local)
         {
-            Runner.Require(APIShared.UnitAccess.TryGetById(GamePlayerManagerAPI.Instance.GetLordUnitId(local), out GameUnit* lord, out _), "no local lord");
-            int x = lord->r_CurrentTilePositionX, y = lord->r_CurrentTilePositionY;
+            // From the keep door, not the wandering lord, so the same start place gives the same layout in every run.
+            var door = GamePlayerManagerAPI.Instance.GetPlayerKeepDoorPosition(local);
+            int x = door.X, y = door.Y;
             // Not every start has a granary; chickens and the Hunter's delivery both need one.
             if (!TryFindBuilding(local, eStructs.STRUCT_GRANARY, out int gx, out int gy))
                 Runner.Require(Place(local, x, y, eMappers.MAPPER_GRANARY, eStructs.STRUCT_GRANARY, 8, out gx, out gy), "no free granary site");
@@ -533,7 +538,8 @@ namespace UiAcceptance
         }
 
         // Lions, hyenas and crocodiles kill herds, and rabbits scare them: the fixture must only lose what the test kills.
-        private static void ClearOtherAnimals()
+        // args: optional "all" also removes living deer, goats and camels, so a Hunter has nothing to hunt but the fixtures.
+        private static void ClearOtherAnimals(bool all)
         {
             int removed = 0;
             SimpleNativeArray<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitArray();
@@ -541,7 +547,8 @@ namespace UiAcceptance
             {
                 GameUnit* unit = units.GetValuePointer(index);
                 if (unit->r_AliveState == AliveState.IsAlive && (unit->r_UnitChimp == eChimps.CHIMP_TYPE_LION || unit->r_UnitChimp == eChimps.CHIMP_TYPE_HYENA ||
-                    unit->r_UnitChimp == eChimps.CHIMP_TYPE_CROCODILE || unit->r_UnitChimp == eChimps.CHIMP_TYPE_RABBIT))
+                    unit->r_UnitChimp == eChimps.CHIMP_TYPE_CROCODILE || unit->r_UnitChimp == eChimps.CHIMP_TYPE_RABBIT ||
+                    all && (unit->r_UnitChimp == eChimps.CHIMP_TYPE_DEER || unit->r_UnitChimp == eChimps.CHIMP_TYPE_GOAT || unit->r_UnitChimp == eChimps.CHIMP_TYPE_CAMEL)))
                 {
                     unit->r_AliveState = AliveState.MarkedForDeletion;
                     removed++;
@@ -1536,6 +1543,23 @@ namespace UiAcceptance
             });
         }
 
+        // One line per Hunter of the local player: what he does and what he aims at.
+        private static void LogHunters()
+        {
+            int local = Local();
+            SimpleNativeArray<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitArray();
+            for (int index = 0; index < units.Length; index++)
+            {
+                GameUnit* unit = units.GetValuePointer(index);
+                if (unit->r_AliveState != AliveState.IsAlive || unit->r_ControllableForPlayerId != local || unit->r_UnitChimp != eChimps.CHIMP_TYPE_HUNTER)
+                    continue;
+                int target = *(ushort*)((byte*)unit + HunterTargetIdOffset);
+                string targetType = target > 0 && target <= units.Length ? units.GetValuePointer(target - 1)->r_UnitChimp.ToString() : "-";
+                AcceptLog.Info("HUNT_HUNTER id=" + (index + 1) + " state=" + unit->r_AIState + " target=" + target + "/" + targetType +
+                    " fixture=" + deer.Contains(target) + " at=" + unit->r_CurrentTilePositionX + "," + unit->r_CurrentTilePositionY);
+            }
+        }
+
         private static int CountHunters(int local)
         {
             int count = 0;
@@ -1762,10 +1786,80 @@ namespace UiAcceptance
             eChimps type = PreyType(kind);
             int owner = type == eChimps.CHIMP_TYPE_CHICKEN ? Local() : 0;
             int atX = dx == int.MinValue ? ringX : x + dx, atY = dx == int.MinValue ? ringY : y + dy;
+            // A fixture must be reachable for the Hunter, or he rightly ignores it. Ring fixtures stay where the ring is.
+            if (dx != int.MinValue)
+                MoveToHunterLand(ref atX, ref atY);
             int id = checked((int)GameUnitManagerAPI.Instance.CreateUnitLocal(owner, owner, atX, atY, height, type));
             Runner.Require(id > 0, "prey missing");
             deer.Add(id);
             AcceptLog.Info("HUNT_PREY id=" + id + " type=" + type + " at=" + atX + "," + atY);
+        }
+
+        // args: kind. A fixture on the far side of the own keep as seen from the hut, so the keep stands between
+        // the Hunter's way in and the prey in every match, whatever the start position.
+        private static void SpawnPreyBehindKeep(string kind)
+        {
+            int local = Local();
+            HutTile(out int hutX, out int hutY, out int height);
+            Runner.Require(GameBuildingManagerAPI.Instance.TryGetBuildingById(GamePlayerManagerAPI.Instance.GetPlayerKeepId(local), out GameBuilding* keep) && keep != null, "no keep");
+            int size = (int)keep->r_OccupyTileGridSize;
+            int keepX = (int)keep->r_TilePositionXBegin + size / 2, keepY = (int)keep->r_TilePositionYBegin + size / 2;
+            // Beside the keep's first row on the far side, as in the case found on 08.11.2026 (keep 400..406 x 275..281,
+            // prey 399,275, Hunter from the east): the keep's corner cuts the line of sight from the near side.
+            int x = keepX + Math.Sign(keepX - hutX) * (size / 2 + 1), y = (int)keep->r_TilePositionYBegin;
+            MoveToHunterLand(ref x, ref y);
+            eChimps type = PreyType(kind);
+            int id = checked((int)GameUnitManagerAPI.Instance.CreateUnitLocal(0, 0, x, y, height, type));
+            Runner.Require(id > 0, "prey missing");
+            deer.Add(id);
+            AcceptLog.Info("HUNT_PREY id=" + id + " type=" + type + " at=" + x + "," + y + " keep=" + keepX + "," + keepY + " size=" + size + " hut=" + hutX + "," + hutY);
+        }
+
+        // args: kind, x, y. A fixture on an exact map tile, for places found in earlier runs; not moved.
+        private static void SpawnPreyAt(string kind, int x, int y)
+        {
+            GameTileManagerAPI tiles = GameTileManagerAPI.Instance;
+            Runner.Require(tiles.IsTileInsideMapBounds(x, y), "tile outside the map");
+            eChimps type = PreyType(kind);
+            int id = checked((int)GameUnitManagerAPI.Instance.CreateUnitLocal(0, 0, x, y, tiles.GetTileHeight(tiles.GetTileId(x, y)), type));
+            Runner.Require(id > 0, "prey missing");
+            deer.Add(id);
+            AcceptLog.Info("HUNT_PREY id=" + id + " type=" + type + " at=" + x + "," + y + " exact=True");
+        }
+
+        // The nearest walkable tile on the Hunter's own path component, at most 6 tiles from the wanted spot.
+        private static void MoveToHunterLand(ref int x, ref int y)
+        {
+            GameUnit* hunter = FindHunter(Local());
+            if (hunter == null)
+                return;
+            GameTileManagerAPI tiles = GameTileManagerAPI.Instance;
+            Span<ushort> components = GamePathingManagerAPI.Instance.GetPathComponentGrid();
+            int hunterTile = tiles.GetTileId(hunter->r_CurrentTilePositionX, hunter->r_CurrentTilePositionY);
+            if (!tiles.IsValidTileId(hunterTile) || (uint)hunterTile >= (uint)components.Length || components[hunterTile] == 0)
+                return;
+            ushort land = components[hunterTile];
+            for (int reach = 0; reach <= 6; reach++)
+            {
+                for (int ox = -reach; ox <= reach; ox++)
+                {
+                    for (int oy = -reach; oy <= reach; oy++)
+                    {
+                        if (Math.Max(Math.Abs(ox), Math.Abs(oy)) != reach || !tiles.IsTileInsideMapBounds(x + ox, y + oy))
+                            continue;
+                        int tile = tiles.GetTileId(x + ox, y + oy);
+                        if (tiles.IsValidTileId(tile) && (uint)tile < (uint)components.Length && components[tile] == land && tiles.IsTileWalkableAndUnoccupied(tile))
+                        {
+                            if (reach > 0)
+                                AcceptLog.Info("HUNT_PREY_MOVED from=" + x + "," + y + " to=" + (x + ox) + "," + (y + oy));
+                            x += ox;
+                            y += oy;
+                            return;
+                        }
+                    }
+                }
+            }
+            Runner.Require(false, "no reachable fixture spot near " + x + "," + y);
         }
 
         // A long wall across the straight line, passable around its ends.
@@ -1958,39 +2052,74 @@ namespace UiAcceptance
             });
         }
 
-        // args: milliseconds. Two Hunters at work never hunt the same animal.
+        // args: milliseconds. Each of two Hunters takes his own fixture deer, and no two Hunters ever hold the same one.
+        // Judged on game state, not on a shared moment in one state, so it does not depend on the game speed.
         private static IEnumerable<Wait> ExpectSeparateTargets(Step step)
         {
-            int local = Local(), end = Environment.TickCount + step.Int(0), both = 0, shared = 0;
-            while (Environment.TickCount < end)
+            int local = Local(), end = Environment.TickCount + step.Int(0), shared = 0;
+            var targets = new Dictionary<int, int>();
+            while (Environment.TickCount < end && !HasSeparateTargets(targets))
             {
-                lock (Engine()) CountTargets(local, ref both, ref shared);
+                lock (Engine()) CountTargets(local, targets, ref shared);
                 yield return NextFrame.Instance;
             }
-            AcceptLog.Info("HUNT_TARGETS both=" + both + " shared=" + shared);
+            AcceptLog.Info("HUNT_TARGETS hunters=" + targets.Count + " distinct=" + new HashSet<int>(targets.Values).Count + " shared=" + shared);
+            if (!HasSeparateTargets(targets))
+                lock (Engine()) LogHunters();
             Runner.Require(shared == 0, "two Hunters hunted one animal");
-            Runner.Require(both > 0, "the two Hunters never hunted at the same time");
+            Runner.Require(HasSeparateTargets(targets), "the two Hunters did not each take a fixture deer of their own");
         }
 
-        private static void CountTargets(int local, ref int both, ref int shared)
+        private static bool HasSeparateTargets(Dictionary<int, int> targets) => targets.Count >= 2 && new HashSet<int>(targets.Values).Count >= 2;
+
+        // Records each Hunter's live fixture target; a target held by two Hunters in the same tick counts as shared.
+        private static void CountTargets(int local, Dictionary<int, int> targets, ref int shared)
         {
-            int first = 0, count = 0;
+            var holders = new HashSet<int>();
             SimpleNativeArray<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitArray();
             for (int index = 0; index < units.Length; index++)
             {
                 GameUnit* unit = units.GetValuePointer(index);
-                if (unit->r_AliveState != AliveState.IsAlive || unit->r_ControllableForPlayerId != local || unit->r_UnitChimp != eChimps.CHIMP_TYPE_HUNTER || unit->r_AIState != 1)
+                if (unit->r_AliveState != AliveState.IsAlive || unit->r_ControllableForPlayerId != local || unit->r_UnitChimp != eChimps.CHIMP_TYPE_HUNTER)
                     continue;
                 int target = *(ushort*)((byte*)unit + HunterTargetIdOffset);
-                if (!deer.Contains(target))
+                // The field keeps the last target, whose ID may belong to a new unit by now.
+                if (!deer.Contains(target) || !APIShared.UnitAccess.TryGetById(target, out GameUnit* prey, out _) ||
+                    prey->r_GlobalId != *(uint*)((byte*)unit + HunterTargetGlobalOffset))
+                {
                     continue;
-                count++;
-                if (first == target)
+                }
+                targets[index + 1] = target;
+                if (!holders.Add(target))
                     shared++;
-                first = target;
             }
-            if (count >= 2)
-                both++;
+        }
+
+        // Until every Hunter of the local player is idle and carries nothing.
+        private static IEnumerable<Wait> WaitHuntersFree(Step step)
+        {
+            int local = Local();
+            yield return new Until("all Hunters have delivered and are idle", () =>
+            {
+                lock (Engine()) return AllHuntersIdle(local);
+            });
+        }
+
+        private static bool AllHuntersIdle(int local)
+        {
+            if (HunterCarry(local) != 0)
+                return false;
+            SimpleNativeArray<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitArray();
+            for (int index = 0; index < units.Length; index++)
+            {
+                GameUnit* unit = units.GetValuePointer(index);
+                if (unit->r_AliveState == AliveState.IsAlive && unit->r_ControllableForPlayerId == local && unit->r_UnitChimp == eChimps.CHIMP_TYPE_HUNTER &&
+                    unit->r_AIState != 0 && unit->r_AIState != 6 && unit->r_AIState != 7)
+                {
+                    return false;
+                }
+            }
+            return true;
         }
 
         private static IDictionary HitCorpses()

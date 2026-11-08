@@ -1,7 +1,9 @@
+using APIShared;
 using System;
 using System.Collections.Generic;
 using CrusaderDE;
 using Noesis;
+using SHCDESE.Interop;
 
 namespace BugfixesAndQoL
 {
@@ -318,6 +320,7 @@ namespace BugfixesAndQoL
                     continue;
                 }
                 ForeignTroopEntry entry = visibleEntries[entryIndex];
+                bool isLord = entry.Type == (int)eChimps.CHIMP_TYPE_LORD;
                 ForeignTroopEntry drawn = drawnEntries[i];
                 bool identityChanged = drawn == null || drawn.Owner != entry.Owner ||
                     drawn.Type != entry.Type || drawn.Material != entry.Material || drawn.ColorId != entry.ColorId;
@@ -326,11 +329,16 @@ namespace BugfixesAndQoL
                 {
                     ownerLabels[i].Text = "P" + entry.Owner;
                     string portraitKey = ForeignTroopPortraits.GetResourceKey(entry.Type, entry.Material);
-                    ImageSource source = entry.Type == 55 ? Shared.LordPortraitPalette.Get(entry.ColorId) :
-                        portraitKey == null ? null : FindPortrait(portraitKey, entry.ColorId);
-                    if (entry.Type == 55 && source == null) LordIconMissing = true;
-                    Canvas.SetTop(portraits[i], entry.Type == 55 ? 65f : 53f);
-                    Canvas.SetTop(typeLabels[i], entry.Type == 55 ? 65f : 53f);
+                    ImageSource source;
+                    if (isLord)
+                    {
+                        LordSkins.TryGetFromMaterial(entry.Material, out LordSkin skin);
+                        source = LordPortraits.Get(skin, entry.ColorId);
+                        if (source == null) LordIconMissing = true;
+                    }
+                    else source = portraitKey == null ? null : FindPortrait(portraitKey, entry.ColorId);
+                    Canvas.SetTop(portraits[i], isLord ? 65f : 53f);
+                    Canvas.SetTop(typeLabels[i], isLord ? 65f : 53f);
                     PropEx.SetSprite1(portraits[i], source);
                     PropEx.SetSprite2(portraits[i], source);
                     PropEx.SetSprite3(portraits[i], source);
@@ -341,7 +349,8 @@ namespace BugfixesAndQoL
                 }
                 if (drawn == null || drawn.OwnerColorArgb != entry.OwnerColorArgb)
                     ownerLabels[i].Foreground = PlayerBrush(entry.OwnerColorArgb);
-                if (drawn == null || drawn.Count != entry.Count) counts[i].Text = entry.Count.ToString();
+                if (drawn == null || drawn.Type != entry.Type || drawn.Count != entry.Count)
+                    counts[i].Text = isLord && entry.Count == 1 ? string.Empty : entry.Count.ToString();
                 if (drawn == null || drawn.CurrentHealth != entry.CurrentHealth || healthChanged)
                     currentHealth[i].Text = showHealth ? ScaleHealth(entry.CurrentHealth) : string.Empty;
                 if (drawn == null || drawn.MaxHealth != entry.MaxHealth || healthChanged)
