@@ -100,7 +100,9 @@ namespace UiAcceptance
             Runner.Register("Hunt.PreyAt", s => GameSteps.Do(() => { lock (Engine()) SpawnPreyAt(s.Arg(0), s.Int(1), s.Int(2)); }));
             Runner.Register("Hunt.Prey", s => GameSteps.Do(() => { lock (Engine()) SpawnPrey(s.Arg(0), s.Arg(1) == "ring" ? int.MinValue : s.Int(1), s.Arg(1) == "ring" ? 0 : s.Int(2)); }));
             Runner.Register("Hunt.ClearPrey", s => GameSteps.Do(() => { lock (Engine()) deer.Clear(); }));
-            Runner.Register("Hunt.RegisterPrey", s => GameSteps.Do(() => RegisterPrey(s.Arg(0), s.Int(1, -1))));
+            Runner.Register("Hunt.RegisterPrey", s => GameSteps.Do(() => RegisterPrey(s.Arg(0), s.Int(1, -1), s.Arg(2, ""))));
+            Runner.Register("Hunt.PreyOwned", s => GameSteps.Do(() => { lock (Engine()) SpawnOwnedPrey(s.Arg(0), s.Int(1), s.Int(2)); }));
+            Runner.Register("Hunt.ExpectButcherRemoval", ExpectButcherRemoval);
             Runner.Register("Hunt.RefusePreyType", s => GameSteps.Do(() => RefusePreyType(s.Arg(0))));
             Runner.Register("Hunt.ExpectPreyAlive", s => GameSteps.Do(() => { lock (Engine()) ExpectPreyAlive(s.Arg(0)); }));
             Runner.Register("Hunt.ExpectTargetType", ExpectTargetType);
@@ -1784,24 +1786,93 @@ namespace UiAcceptance
             new Dictionary<string, APIShared.Wildlife.HuntablePreyRegistration>();
         private const int PreyLeaseOffset = 0x448;
 
-        // args: kind, optional base meat (-1 = Vanilla's).
-        private static void RegisterPrey(string kind, int baseMeat)
+        // args: kind, optional base meat (-1 = Vanilla's), optional options "own" and/or "remove" (comma separated).
+        private static void RegisterPrey(string kind, int baseMeat, string options)
         {
             eChimps type = PreyType(kind);
-            string key = kind + "/" + baseMeat;
+            string key = kind + "/" + baseMeat + "/" + options;
             if (!preyRegistrations.TryGetValue(key, out var registration))
             {
                 var definition = new APIShared.Wildlife.HuntablePreyDefinition((int)type);
                 if (baseMeat >= 0) definition = definition.WithBaseMeat(baseMeat);
-                Runner.Require(APIShared.Wildlife.HuntablePrey.TryRegister(UiAcceptancePlugin.Guid, "test-" + kind + (baseMeat >= 0 ? "-meat" + baseMeat : ""),
+                if (options.Contains("own")) definition = definition.WithOwnPlayerPrey();
+                if (options.Contains("remove")) definition = definition.WithCorpseRemovedWhenButchered();
+                Runner.Require(APIShared.Wildlife.HuntablePrey.TryRegister(UiAcceptancePlugin.Guid,
+                    "test-" + kind + (baseMeat >= 0 ? "-meat" + baseMeat : "") + (options.Length != 0 ? "-" + options.Replace(",", "-") : ""),
                     definition, out registration, out string reason), "register: " + reason);
                 preyRegistrations.Add(key, registration);
             }
+            Runner.Require(registration.Status != APIShared.Wildlife.HuntablePreyRegistrationStatus.Unsupported, "unsupported: " + registration.Diagnostic);
             var catalog = APIShared.Wildlife.HuntablePrey.Current;
             AcceptLog.Info("HUNT_PREY_REGISTERED kind=" + kind + " type=" + (int)type + " status=" + registration.Status +
                 " huntable=" + catalog.IsHuntable((int)type) + " digest=" + catalog.Digest);
             Runner.Require(catalog.IsHuntable((int)type), "the registered type is not in the catalog");
         }
+
+        // args: kind, offset from the hut. An animal owned by the local player, reachable for the Hunter.
+        private static void SpawnOwnedPrey(string kind, int dx, int dy)
+        {
+            HutTile(out int x, out int y, out int height);
+            int atX = x + dx, atY = y + dy, local = Local();
+            MoveToHunterLand(ref atX, ref atY);
+            int id = checked((int)GameUnitManagerAPI.Instance.CreateUnitLocal(local, local, atX, atY, height, PreyType(kind)));
+            Runner.Require(id > 0, "prey missing");
+            Runner.Require(APIShared.UnitAccess.TryGetById(id, out GameUnit* unit, out _) && unit->r_ControllableForPlayerId == local, "the prey is not owned by the local player");
+            deer.Add(id);
+            AcceptLog.Info("HUNT_PREY_OWNED id=" + id + " type=" + PreyType(kind) + " owner=" + local + " at=" + atX + "," + atY);
+        }
+
+        // args: kind, maximum map ticks from the start of butchering until the corpse is gone, expected carried
+        // meat. Proves that an owned animal is hunted, that its corpse is removed at once (Vanilla fades it for
+        // 33 updates) and the yield. The removal is measured from the Hunter's state 2 on that corpse.
+        private static IEnumerable<Wait> ExpectButcherRemoval(Step step)
+        {
+            eChimps type = PreyType(step.Arg(0));
+            int maxTicks = step.Int(1), expectedCarry = step.Int(2), local = Local(), preyId = 0, butcherTick = -1, removedTick = -1, maxCarry = 0;
+            uint preyGlobal = 0;
+            lock (Engine()) Runner.Require(TryFindFixture(type, out preyId, out preyGlobal), "no fixture " + type);
+            yield return new Until("butchered and removed", () =>
+            {
+                lock (Engine())
+                {
+                    if (butcherTick < 0 && IsButchering(local, preyGlobal)) butcherTick = NativeTick();
+                    if (butcherTick >= 0 && removedTick < 0 && !IsLivingSlot(preyId, preyGlobal)) removedTick = NativeTick();
+                    maxCarry = Math.Max(maxCarry, HunterCarry(local));
+                    // The Hunter carries meat only after the hut has made it; stop early only when the removal is late.
+                    return removedTick >= 0 && maxCarry > 0 || butcherTick >= 0 && removedTick < 0 && NativeTick() - butcherTick > maxTicks * 4;
+                }
+            });
+            AcceptLog.Info("HUNT_BUTCHER type=" + type + " prey=" + preyId + " butcherTick=" + butcherTick + " removedAfter=" +
+                (removedTick < 0 ? "never" : (removedTick - butcherTick).ToString()) + " maxCarried=" + maxCarry);
+            Runner.Require(removedTick >= 0 && removedTick - butcherTick <= maxTicks, "the corpse was not removed within " + maxTicks + " ticks");
+            Runner.Require(maxCarry == expectedCarry || maxCarry == expectedCarry + 1, "the Hunter carried " + maxCarry + ", expected " + expectedCarry);
+        }
+
+        private static bool TryFindFixture(eChimps type, out int id, out uint global)
+        {
+            foreach (int candidate in deer)
+                if (APIShared.UnitAccess.TryGetById(candidate, out GameUnit* unit, out _) && unit->r_UnitChimp == type)
+                { id = candidate; global = unit->r_GlobalId; return true; }
+            id = 0; global = 0;
+            return false;
+        }
+
+        private static bool IsButchering(int local, uint preyGlobal)
+        {
+            Span<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitsAsSpan();
+            for (int spanIndex = 0; spanIndex < units.Length; spanIndex++)
+            {
+                ref GameUnit hunter = ref units[spanIndex];
+                if (hunter.r_UnitChimp == eChimps.CHIMP_TYPE_HUNTER && hunter.r_ControllableForPlayerId == local &&
+                    hunter.r_AIState == 2 && hunter.r_AI_ContextTargetUnitGlobalId == preyGlobal)
+                    return true;
+            }
+            return false;
+        }
+
+        // A corpse marked for deletion (3) or already removed no longer occupies its slot as this unit.
+        private static bool IsLivingSlot(int id, uint global) =>
+            APIShared.UnitAccess.TryGetById(id, out GameUnit* unit, out _) && unit->r_GlobalId == global && unit->r_AliveState == AliveState.IsAlive;
 
         // APIShared target policy for tests: refuses one type and counts what it saw. args: kind.
         private static readonly HashSet<string> refusedKinds = new HashSet<string>();

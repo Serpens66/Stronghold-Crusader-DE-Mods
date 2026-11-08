@@ -295,3 +295,24 @@ Installed Extender 2.14.3 (product commit 4628c0e), RedBird 1.5.0, static check 
   -1224745552 match.
 - `OnHunterDropOffMeat` (`0x130B54`, RBX) is correct and fires once per delivered meat. `OnCalculateBonusYield` is a
   full detour of `0x18D940`; a Pre change of the base reaches Vanilla's bonus calculation.
+
+## Corpse phases and owner gates in detail [Scope: Vanilla]
+
+Static audit of 2026-11-08 (hash `FBCB9319…31E2`); the fade immediate at `0x1584C5` re-checked by disassembly.
+
+- Corpse phases: phase `0x75` counts the dead counter `+0x920` (native) up to the type's threshold (signed 16-bit `jle`),
+  then sets state `0x6E` with counter 0. Thresholds: deer/goat 500 (`0x156C25`, imm32), lion/hyena 50 (`0x1574FC`),
+  rabbit 5 (`0x157EBD`), camel 50 (`0x15848E`), crocodile 50 (`0x17F90F`), war dog 50 (`0x16794D`), all imm8 except deer.
+  Chicken, cow and dog have no `0x75` phase and enter `0x6E` with their old counter (chicken +2 per update).
+- Phase `0x6E`: each type has its own `mov ecx,0x20` (deer `0x156C5A`, lion `0x157535`, rabbit `0x157EDC`, camel `0x1584C5`,
+  cow `0x158D45`, dog `0x159BBF`, chicken `0x163472`, war dog `0x167987`, crocodile `0x17F94C`). `cl` caps the fade byte
+  `+0x986` (`cmovg`) and `cx` is the removal threshold of the counter; past it the update sets alive state 3, and the unit
+  pass `0x182B00` then calls removal `0x1869C0` instead of the update. Raising the immediate therefore also stops the fade
+  early (1800 leaves the corpse at fade 8 of 32). The Script Extender's `RabbitDespawnTickTime` is the immediate at `0x157EDC`.
+- Arrival (`0x1306BD`, counter = 1000) starts the fade of a `0x75` corpse; a `0x6E` corpse is marked and removed one pass
+  later. A Hunter in state 2 never reads the corpse again; one in state `0xB` whose corpse vanished finds the global mismatch
+  at `0x1306AC` and searches anew without meat. Alive state 3 also fails the alive filters of `0x18AF50` and `0x18B640`.
+- Owner gates (all 14-byte spans, two instructions, no inbound branch): query `[0x18AFD8,0x18AFE6)` (`cmp word[rbx-0x20A],0;
+  jne 0x18B0DD`, free: rax, r8-r11, rdi), attack `[0x18EBDA,0x18EBE8)` (team-table compare at `0x37EDF3C`, `je 0x18ECA7`; free:
+  rax, r11), arrow `[0x192AA7,0x192AB5)` (team compare plus `movzx r11d,[rsp+0x78]`; the `jne` at `0x192AB5` reads ZF). The
+  query checks the owner word (`+0x6EE`, public `+0x92`); attack and arrow compare teams.
