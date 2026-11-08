@@ -14,6 +14,7 @@ using SHCDESE.API;
 using SHCDESE.Interop;
 namespace Spectator.LordOverview {
  internal static partial class OverviewRuntime {
+  private const float VanillaButtonGutter=40;
   private static ManualLogSource log;
   private static int started,shown,generation;
   private static double[] widths;
@@ -83,7 +84,7 @@ namespace Spectator.LordOverview {
    Grid.SetRowSpan(overlay,Math.Max(1,parent.RowDefinitions.Count));Grid.SetColumnSpan(overlay,Math.Max(1,parent.ColumnDefinitions.Count));
    // Same layer as the original extras; later Vanilla dialogs retain their normal precedence.
    Panel.SetZIndex(overlay,Panel.GetZIndex(extras));parent.Children.Insert(parent.Children.IndexOf(extras)+1,overlay);
-   panel=new Grid {Visibility=Visibility.Collapsed,Tag=OverviewPresentationPolicy.PassiveTag};Canvas.SetLeft(panel,40);Canvas.SetBottom(panel,0);overlay.Children.Add(panel);
+   panel=new Grid {Visibility=Visibility.Collapsed,Tag=OverviewPresentationPolicy.PassiveTag};Canvas.SetLeft(panel,VanillaButtonGutter);Canvas.SetBottom(panel,0);overlay.Children.Add(panel);
    panel.IsVisibleChanged+=OnPanelVisibility;parent.SizeChanged+=OnViewportSizeChanged;
    buttonStyle=GUI.ParseXaml("<Style xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation' TargetType='{x:Type Button}' xmlns:x='http://schemas.microsoft.com/winfx/2006/xaml'><Setter Property='Template'><Setter.Value><ControlTemplate TargetType='{x:Type Button}'><Border Background='Transparent' Padding='{TemplateBinding Padding}'><ContentPresenter/></Border></ControlTemplate></Setter.Value></Setter></Style>") as Style;
    tipStyle=GUI.ParseXaml(@"<Style xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation' xmlns:x='http://schemas.microsoft.com/winfx/2006/xaml' TargetType='{x:Type ToolTip}'>
@@ -122,6 +123,12 @@ namespace Spectator.LordOverview {
     return;
    }
    if(keepVisible){CancelCrownPress();if(Editing)CloseSettingsMenu();}
+   float left=keepVisible?0:VanillaButtonGutter;
+   if(Canvas.GetLeft(panel)!=left){
+    Canvas.SetLeft(panel,left);
+    ClosePassiveHover();
+    MarkHoverGeometryDirty();
+   }
    overlay.Visibility=Visibility.Visible;
   }
   private static void Toggle() {

@@ -94,9 +94,16 @@ def build_atlas(game_data):
             raise ValueError(f"Missing texture coordinates for {name}")
         body = render_sprite_mesh(sprite, mesh, body_atlas).transpose(Image.Transpose.FLIP_TOP_BOTTOM)
         mask = render_sprite_mesh(sprite, mesh, mask_atlas).transpose(Image.Transpose.FLIP_TOP_BOTTOM)
-        visible = body.getchannel("A").getbbox()
+        alpha = body.getchannel("A")
+        visible = alpha.getbbox()
         if visible is None:
             raise ValueError(f"Empty sprite {name}")
+        # A few almost transparent pixels above the figure can shrink the whole
+        # portrait. Keep normal antialiased edges and trim only excess vertical padding.
+        solid = alpha.point(lambda value: 255 if value >= 32 else 0).getbbox()
+        if solid is not None and solid[3] - solid[1] < 0.95 * (visible[3] - visible[1]):
+            left, top, right, bottom = visible
+            visible = (left, max(top, solid[1] - 1), right, min(bottom, solid[3] + 1))
         body = body.crop(visible)
         mask = mask.crop(visible)
         scale = min((CELL_WIDTH - 2 * INSET) / body.width, (CELL_HEIGHT - 2 * INSET) / body.height)

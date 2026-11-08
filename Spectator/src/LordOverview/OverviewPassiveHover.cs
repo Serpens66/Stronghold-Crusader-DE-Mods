@@ -80,6 +80,8 @@ namespace Spectator.LordOverview {
     if(pressed || UnityEngine.Input.mouseScrollDelta.sqrMagnitude>0 || UnityEngine.Input.GetMouseButton(0) || UnityEngine.Input.GetMouseButton(1) || UnityEngine.Input.GetMouseButton(2) || headerGesture.Active || settingsPosition.Dragging || !ScreenContains(parent,screen)) {ClosePassiveHover();return;}
     if(Editing && (LayoutDropDownOpen || ScreenContains(settingsWindow,screen))){ClosePassiveHover();return;}
     if(hoverGeometryDirty){
+     // Canvas offsets take effect during arrange. Keep the bounds dirty until then.
+     if(!overlay.IsArrangeValid())return;
      foreach(var target in hoverTargets.Values){
       var element=target.Element;
       target.ValidBounds=false;
