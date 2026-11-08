@@ -14,7 +14,6 @@
     <Compile Include="..\..\ImprovedHunters\src\WildlifeRangePolicy.cs" Link="WildlifeRangePolicy.cs" />
     <Compile Include="..\..\ImprovedHunters\src\HerdSettingsPolicy.cs" Link="HerdSettingsPolicy.cs" />
     <Compile Include="..\..\ImprovedHunters\src\WildlifeOriginTable.cs" Link="WildlifeOriginTable.cs" />
-    <Compile Include="..\..\ImprovedHunters\src\HunterQueryActorPolicy.cs" Link="HunterQueryActorPolicy.cs" />
     <Compile Include="..\..\ImprovedHunters\src\HunterNativeStubs.cs" Link="HunterNativeStubs.cs" />
     <Compile Include="..\..\ImprovedHunters\src\DispatchIndexStub.cs" Link="DispatchIndexStub.cs" />
   </ItemGroup>

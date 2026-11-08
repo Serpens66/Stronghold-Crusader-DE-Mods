@@ -24,7 +24,6 @@ namespace ImprovedHunters
     {
         private const short RabbitCorpseDespawnTicks = 1800;
         private const short ExtraCorpseDespawnTicks = 1800;
-        private const ushort CollectedCorpseDespawnTicks = 1801;
         private const int HunterSearchRadius = 20;
         private const int HunterTargetCandidateRadius = 54;
         private const int MaxHeuristicCandidatesPerHunter = 24;
@@ -35,7 +34,6 @@ namespace ImprovedHunters
         private const int MaxHunterTargetDiagnosticLogs = 160;
         private const int MaximumPlayerId = 8;
         private const int MaxInvalidHunterEventLogs = 20;
-        private const int MaxHunterQueryActorWorkaroundLogs = 20;
 
         // Native pickupable animal corpse state observed after regular Hunter
         // ranged damage.
@@ -73,10 +71,8 @@ namespace ImprovedHunters
         private readonly ManualLogSource log;
         private readonly ImprovedHuntersViewModel settings;
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
-        private readonly Dictionary<int, eChimps> hunterPreyTypes = new Dictionary<int, eChimps>();
         private readonly Dictionary<int, long> nextBetterPreyChecks = new Dictionary<int, long>();
         private readonly Dictionary<int, long> nextIdleHunterRequeryTimestamps = new Dictionary<int, long>();
-        private readonly HashSet<uint> loggedCollectedCorpseGlobalIds = new HashSet<uint>();
         private readonly List<PreySnapshot> preyCache = new List<PreySnapshot>();
         // Reused by the scan, which only runs in the simulation tick callback.
         private readonly List<IntPtr> scanHunters = new List<IntPtr>();
@@ -125,10 +121,7 @@ namespace ImprovedHunters
         private int hunterTargetSearchStarts;
         private int shortLivedCorpsePreserveLogs;
         private int invalidHunterEventLogs;
-        private int hunterQueryActorWorkaroundLogs;
-        private OwnedChickenHuntPatch ownedChickenHuntPatch;
         private GranaryChickenLimitPatch granaryChickenLimitPatch;
-        private PreyReservationHeartbeatPatch preyReservationHeartbeatPatch;
         private RabbitMeleeOrderPatch rabbitMeleeOrderPatch;
         private TannerMeatPatch tannerMeatPatch;
         private TannerRatioSync tannerRatioSync;
@@ -136,7 +129,6 @@ namespace ImprovedHunters
         private WildlifeRespawnFeature wildlifeRespawn;
         private WildlifeRangeFeature wildlifeRange;
         private HerdFleeSightFeature herdFleeSight;
-        private HunterQueryActorWorkaround hunterQueryActorWorkaround;
         private HunterHutVisibilityPatch hunterHutVisibilityPatch;
         private HunterNativeVisibilityProbe hunterNativeVisibilityProbe;
         private HunterActiveTargetVisibilitySnapshot hunterActiveTargetVisibilitySnapshot;
@@ -172,12 +164,10 @@ namespace ImprovedHunters
                 return;
 
             this.referenceHashMatches = referenceHashMatches;
-            InitializeOwnedChickenHuntPatch(memory, imageBase, referenceHashMatches);
+            TryInitializeFeature("APIShared hunting registrations", RegisterHuntingWithApiShared);
             InitializeGranaryChickenLimitPatch(memory, imageBase, referenceHashMatches);
-            InitializePreyReservationHeartbeatPatch(memory, imageBase, referenceHashMatches);
             InitializeRabbitMeleeOrderPatch(memory, imageBase, referenceHashMatches);
             InitializeTannerMeatPatch(memory, imageBase, referenceHashMatches);
-            InitializeHunterQueryActorWorkaround(memory, imageBase, referenceHashMatches);
             InitializeHunterNativeVisibilityProbe(memory, imageBase, referenceHashMatches);
             InitializeHunterHutVisibilityPatch(memory, imageBase, referenceHashMatches);
             Shared.DevDiag.Attach(log);
@@ -212,13 +202,11 @@ namespace ImprovedHunters
             applied = true;
             Shared.DebugLogHelper.LogInfo(
                     log,
-                    $"Improved Hunters runtime enabled: ownedChickenHuntAvailable=" +
-                    $"{ownedChickenHuntPatch?.IsAvailable == true}, " +
+                    $"Improved Hunters runtime enabled: apiSharedPrey={preyRegistrations.Count}/3, " +
+                    $"apiSharedTargetPolicy={targetPolicyRegistered}, apiSharedMeat={meatHandlerRegistered}, " +
                     $"granaryChickenLimitAvailable={granaryChickenLimitPatch?.IsAvailable == true}, " +
-                    $"preyReservationHeartbeatAvailable={preyReservationHeartbeatPatch?.IsAvailable == true}, " +
                     $"rabbitMeleeOrderAvailable={rabbitMeleeOrderPatch?.IsAvailable == true}, " +
                     $"tannerMeatAvailable={tannerMeatPatch?.IsAvailable == true}, " +
-                    $"hunterQueryActorWorkaroundAvailable={hunterQueryActorWorkaround?.IsAvailable == true}, " +
                     $"hunterHutVisibilityAvailable={hunterHutVisibilityPatch?.IsAvailable == true}, " +
                     $"hunterHutVisibilityApplied={hunterHutVisibilityPatch?.IsApplied == true}, " +
                     $"hunterNativeVisibilityProbeAvailable={hunterNativeVisibilityProbe?.IsAvailable == true}, " +
@@ -326,7 +314,7 @@ namespace ImprovedHunters
                 Shared.DevDiag.Start(ref measured);
                 UpdateCorpseChoices(units, hunters, timestamp);
                 Shared.DevDiag.Stop(ref measured, "hunters.corpseChoice");
-                TrackHunterPreyAndExpireCollectedCorpses(units, hunters, timestamp);
+                TrackHunterTargets(units, hunters, timestamp);
                 RequeryIdleHuntersNearPrey(units, hunters, eligiblePrey, timestamp);
             }
             catch (Exception exception)
@@ -574,7 +562,9 @@ namespace ImprovedHunters
             }
         }
 
-        private unsafe void TrackHunterPreyAndExpireCollectedCorpses(
+        // The prey of each yield and the removal of collected rabbit, camel and chicken corpses are APIShared's
+        // (recorded natively when the Hunter reaches the corpse); this only keeps the target state per Hunter.
+        private unsafe void TrackHunterTargets(
             SimpleNativeArray<GameUnit> units,
             List<IntPtr> hunters,
             long timestamp)
@@ -587,34 +577,6 @@ namespace ImprovedHunters
                 ushort targetUnitId = *(ushort*)(hunterBytes + 0x39A);
                 uint targetGlobalId = *(uint*)(hunterBytes + 0x39C);
                 TrackHunterTargetState(units, hunterId, targetUnitId, targetGlobalId, timestamp);
-
-                if (targetUnitId == 0 || targetUnitId > units.Length)
-                    continue;
-
-                GameUnit* target = units.GetValuePointer(targetUnitId - 1);
-                if (!settings.IsKnownAnimal(target->r_UnitChimp))
-                    continue;
-
-                // The yield is decided at the hut, when the corpse is long gone, and a Hunter with meat
-                // in his hut searches no new target (0x12FC70). Simulation data on fixed ticks, as on all peers.
-                if (target->r_GlobalId == targetGlobalId)
-                    hunterPreyTypes[hunterId] = target->r_UnitChimp;
-
-                byte* targetBytes = (byte*)target;
-                if (*(ushort*)(hunterBytes + 0x2BC) != 0x02 ||
-                    !IsShortLivedPrey(target->r_UnitChimp) ||
-                    *(uint*)(targetBytes + 0x94) != targetGlobalId ||
-                    !IsPreservableCorpseState(*(ushort*)(targetBytes + 0x2BC)))
-                {
-                    continue;
-                }
-
-                ushort deathTimer = *(ushort*)(targetBytes + 0x2C4);
-                if (deathTimer <= CollectedCorpseDespawnTicks)
-                    *(ushort*)(targetBytes + 0x2C4) = CollectedCorpseDespawnTicks;
-
-                if (loggedCollectedCorpseGlobalIds.Add(targetGlobalId))
-                    target->r_AliveState = AliveState.MarkedForDeletion;
             }
         }
 
@@ -747,10 +709,8 @@ namespace ImprovedHunters
         {
             herdFleeSight?.ResetForMap();
             ResetCorpseChoices();
-            hunterPreyTypes.Clear();
             nextBetterPreyChecks.Clear();
             nextIdleHunterRequeryTimestamps.Clear();
-            loggedCollectedCorpseGlobalIds.Clear();
             shortLivedCorpsePreserveUntil.Clear();
             ClearTargetSelectionCaches();
             hunterNativeVisibilityProbe?.ResetForMap();
@@ -792,7 +752,6 @@ namespace ImprovedHunters
             }
 
             hunterMeatPickupTimestamps[args.UnitId] = HunterSimulationTime.Now;
-            TryDeleteCollectedShortLivedCorpse(args.UnitId);
             activeHunterTargets.Remove(args.UnitId);
             bestTargetCache.Remove(args.UnitId);
         }
@@ -826,38 +785,6 @@ namespace ImprovedHunters
             }
         }
 
-        private unsafe void TryDeleteCollectedShortLivedCorpse(int hunterUnitId)
-        {
-            if (!TryGetCollectedCorpseTarget(hunterUnitId, out HunterTargetSnapshot target) ||
-                !APIShared.UnitAccess.TryGetById(target.UnitId, out GameUnit* unit, out _) ||
-                unit == null ||
-                unit->r_GlobalId != target.GlobalId ||
-                !IsShortLivedPrey(unit->r_UnitChimp))
-            {
-                return;
-            }
-
-            byte* unitBytes = (byte*)unit;
-            shortLivedCorpsePreserveUntil.Remove(target.GlobalId);
-            if (*(ushort*)(unitBytes + 0x29C) == 0 ||
-                !IsPreservableCorpseState(*(ushort*)(unitBytes + 0x2BC)))
-            {
-                return;
-            }
-
-            *(ushort*)(unitBytes + 0x2C4) = CollectedCorpseDespawnTicks;
-            unit->r_AliveState = AliveState.MarkedForDeletion;
-
-            // The set also gates the one-time deletion mark in the native scan, so the Add stays in every build.
-            if (loggedCollectedCorpseGlobalIds.Add(target.GlobalId) &&
-                hunterTargetDiagnosticLogs < MaxHunterTargetDiagnosticLogs)
-            {
-                LogRuntimeSample(
-                    $"Improved Hunters collected corpse removed: hunter={hunterUnitId}, target={target.UnitId}, " +
-                    $"globalId={target.GlobalId}, aiState=0x{*(ushort*)(unitBytes + 0x2BC):X}.");
-            }
-        }
-
         // Development samples only: /devdiag builds compile these calls including their message text.
         [System.Diagnostics.Conditional("SERP_DEVDIAG")]
         private void LogRuntimeSample(string message) => Shared.DebugLogHelper.LogInfo(log, message);
@@ -873,25 +800,6 @@ namespace ImprovedHunters
 
             if (shortLivedCorpsePreserveLogs == 80)
                 Shared.DebugLogHelper.LogInfo(log, "Improved Hunters corpse visible preserve diagnostic limit reached.");
-        }
-
-        private unsafe bool TryGetCollectedCorpseTarget(int hunterUnitId, out HunterTargetSnapshot target)
-        {
-            if (APIShared.UnitAccess.TryGetById(hunterUnitId, out GameUnit* hunter, out _) &&
-                hunter != null &&
-                hunter->r_UnitChimp == eChimps.CHIMP_TYPE_HUNTER)
-            {
-                byte* hunterBytes = (byte*)hunter;
-                ushort targetUnitId = *(ushort*)(hunterBytes + 0x39A);
-                uint targetGlobalId = *(uint*)(hunterBytes + 0x39C);
-                if (targetUnitId != 0 && targetGlobalId != 0)
-                {
-                    target = new HunterTargetSnapshot(targetUnitId, targetGlobalId);
-                    return true;
-                }
-            }
-
-            return activeHunterTargets.TryGetValue(hunterUnitId, out target);
         }
 
         private unsafe void TrackHunterTargetState(
@@ -1006,21 +914,6 @@ namespace ImprovedHunters
             }
         }
 
-        private unsafe void OnCalculateBonusYield(UnitCalculateBonusYieldEventArgs args)
-        {
-            if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) ||
-                !IsValidUnitId(args.UnitId) ||
-                (APIShared.UnitAccess.TryGetById(args.UnitId, out _, out _) ? GameUnitManagerAPI.Instance.GetType(args.UnitId) : eChimps.CHIMP_TYPE_NULL) != eChimps.CHIMP_TYPE_HUNTER ||
-                !hunterPreyTypes.TryGetValue(args.UnitId, out eChimps preyType) ||
-                !IsRuntimeHuntingEnabled(preyType))
-            {
-                return;
-            }
-
-            // The setting replaces Vanilla's base amount; Vanilla still adds its bonus, as for all meat.
-            args.GoodAmount = settings.GetMeatAmount(preyType);
-        }
-
         private void OnSettingChanged(string propertyName)
         {
             if (propertyName == nameof(ImprovedHuntersViewModel.EnableMod))
@@ -1043,7 +936,7 @@ namespace ImprovedHunters
                 propertyName == nameof(ImprovedHuntersViewModel.HuntCamel) ||
                 propertyName == nameof(ImprovedHuntersViewModel.HuntChicken))
             {
-                ApplyPreyReservationHeartbeat();
+                ApplyPreyRegistrations();
             }
 
             if (propertyName == nameof(ImprovedHuntersViewModel.EnableMod) ||
@@ -1072,12 +965,6 @@ namespace ImprovedHunters
                 propertyName == nameof(ImprovedHuntersViewModel.TannerMeatPerTrip))
             {
                 ApplyTannerMeatRule();
-            }
-
-            if (propertyName == nameof(ImprovedHuntersViewModel.EnableMod) ||
-                propertyName == nameof(ImprovedHuntersViewModel.HuntChicken))
-            {
-                ownedChickenHuntPatch?.SetEnabled(IsOwnedChickenHuntingEnabled);
             }
 
             ClearTargetSelectionCaches();
@@ -1123,26 +1010,6 @@ namespace ImprovedHunters
             OnSettingChanged(nameof(ImprovedHuntersViewModel.EnableMod));
         }
 
-        private void InitializeOwnedChickenHuntPatch(
-            ReadOnlySpan<byte> memory,
-            ulong imageBase,
-            bool referenceHashMatches)
-        {
-            try
-            {
-                ownedChickenHuntPatch = new OwnedChickenHuntPatch(log, hookRegion, memory, imageBase, referenceHashMatches);
-                ownedChickenHuntPatch.SetEnabled(IsOwnedChickenHuntingEnabled);
-            }
-            catch (Exception exception)
-            {
-                ownedChickenHuntPatch?.Dispose();
-                ownedChickenHuntPatch = null;
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    $"Improved Hunters owned-chicken hunting is unavailable; chickens stay Vanilla and other prey features remain active: {exception}");
-            }
-        }
-
         private void InitializeGranaryChickenLimitPatch(
             ReadOnlySpan<byte> memory,
             ulong imageBase,
@@ -1166,26 +1033,6 @@ namespace ImprovedHunters
                 Shared.DebugLogHelper.LogError(
                     log,
                     $"Improved Hunters chicken population setting is unavailable; Vanilla's food-based population remains active: {exception}");
-            }
-        }
-
-        private void InitializePreyReservationHeartbeatPatch(
-            ReadOnlySpan<byte> memory,
-            ulong imageBase,
-            bool referenceHashMatches)
-        {
-            try
-            {
-                preyReservationHeartbeatPatch = new PreyReservationHeartbeatPatch(log, hookRegion, memory, imageBase, referenceHashMatches);
-                ApplyPreyReservationHeartbeat();
-            }
-            catch (Exception exception)
-            {
-                preyReservationHeartbeatPatch?.Dispose();
-                preyReservationHeartbeatPatch = null;
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    $"Improved Hunters reservation countdown is unavailable; rabbits, camels and chickens are not hunted because their reservations could never expire: {exception}");
             }
         }
 
@@ -1271,31 +1118,6 @@ namespace ImprovedHunters
                 Shared.DebugLogHelper.LogError(
                     log,
                     $"Improved Hunters Tanner meat mode is unavailable; Tanneries keep Vanilla's behaviour: {exception}");
-            }
-        }
-
-        private void InitializeHunterQueryActorWorkaround(
-            ReadOnlySpan<byte> memory,
-            ulong imageBase,
-            bool referenceHashMatches)
-        {
-            try
-            {
-                hunterQueryActorWorkaround = new HunterQueryActorWorkaround(
-                    log,
-                    hookRegion,
-                    memory,
-                    imageBase,
-                    referenceHashMatches);
-            }
-            catch (Exception exception)
-            {
-                hunterQueryActorWorkaround?.Dispose();
-                hunterQueryActorWorkaround = null;
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    $"Improved Hunters temporary Script Extender issue-123 workaround is unavailable; " +
-                    $"validated Hunter IDs may still be used, but unresolved query actors leave Vanilla unchanged: {exception}");
             }
         }
 
@@ -1725,19 +1547,11 @@ namespace ImprovedHunters
                 timestamp + AbortedTargetCooldownInterval);
         }
 
+        // APIShared admits own-player chickens and releases their reservation.
         private bool IsOwnedChickenHuntingEnabled =>
             Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) &&
             settings.HuntChicken &&
-            ownedChickenHuntPatch?.IsAvailable == true &&
-            preyReservationHeartbeatPatch?.IsAvailable == true;
-
-        private void ApplyPreyReservationHeartbeat()
-        {
-            preyReservationHeartbeatPatch?.SetEnabled(
-                Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) &&
-                (settings.HuntRabbit || settings.HuntCamel || settings.HuntChicken));
-            ownedChickenHuntPatch?.SetEnabled(IsOwnedChickenHuntingEnabled);
-        }
+            IsPreyAdmitted(eChimps.CHIMP_TYPE_CHICKEN);
 
         private bool IsTannerMeatModeEnabled =>
             Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) && settings.TannerMeatMode;
@@ -1764,9 +1578,9 @@ namespace ImprovedHunters
             if (!settings.IsHuntingEnabled(type))
                 return false;
 
-            // Without the countdown these prey types would stay reserved forever.
+            // Only APIShared's admission releases their reservation; otherwise they would stay reserved forever.
             if (type == eChimps.CHIMP_TYPE_RABBIT || type == eChimps.CHIMP_TYPE_CAMEL)
-                return preyReservationHeartbeatPatch?.IsAvailable == true;
+                return IsPreyAdmitted(type);
             if (type == eChimps.CHIMP_TYPE_CHICKEN)
                 return IsOwnedChickenHuntingEnabled;
             return true;
@@ -2041,10 +1855,6 @@ namespace ImprovedHunters
             if (runtimeEventsSubscribed || !Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod))
                 return;
 
-            TrySubscribeFeature("hunter target queries", () => UnitR3EventHooks.OnUnitHunterQueryTarget.Observable
-                .Where(args => args.Phase == EventHookPhase.Pre).Subscribe(OnHunterQueryTarget));
-            TrySubscribeFeature("bonus yield", () => UnitR3EventHooks.OnCalculateBonusYield.Observable
-                .Where(args => args.Phase == EventHookPhase.Pre).Subscribe(OnCalculateBonusYield));
             TrySubscribeFeature("hunter meat pickup", () => UnitR3EventHooks.OnHunterPickUpMeat.Observable
                 .Where(args => args.Phase == EventHookPhase.Pre).Subscribe(OnHunterPickUpMeat));
             TrySubscribeFeature("hunter meat dropoff", () => UnitR3EventHooks.OnHunterDropOffMeat.Observable
@@ -2077,7 +1887,6 @@ namespace ImprovedHunters
             // The gate closes before the mission-end observer of these subscriptions can run.
             targetSelectionModeAllowed = false;
             pathfindingModeAllowed = false;
-            hunterPreyTypes.Clear();
             nextBetterPreyChecks.Clear();
             nextIdleHunterRequeryTimestamps.Clear();
             ClearTargetSelectionCaches();
@@ -2110,10 +1919,8 @@ namespace ImprovedHunters
             settings.SettingChanged -= OnSettingChanged;
 
             UnsubscribeRuntimeEvents();
-            hunterPreyTypes.Clear();
             nextBetterPreyChecks.Clear();
             nextIdleHunterRequeryTimestamps.Clear();
-            loggedCollectedCorpseGlobalIds.Clear();
             ClearTargetSelectionCaches();
             nativeScanFailureLogged = false;
 
@@ -2133,14 +1940,8 @@ namespace ImprovedHunters
             hunterNativeVisibilityProbe = null;
             hunterHutVisibilityPatch?.Dispose();
             hunterHutVisibilityPatch = null;
-            hunterQueryActorWorkaround?.Dispose();
-            hunterQueryActorWorkaround = null;
             granaryChickenLimitPatch?.Dispose();
             granaryChickenLimitPatch = null;
-            ownedChickenHuntPatch?.Dispose();
-            ownedChickenHuntPatch = null;
-            preyReservationHeartbeatPatch?.Dispose();
-            preyReservationHeartbeatPatch = null;
             rabbitMeleeOrderPatch?.Dispose();
             rabbitMeleeOrderPatch = null;
             tannerMeatPatch?.Dispose();

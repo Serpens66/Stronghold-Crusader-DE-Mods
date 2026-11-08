@@ -37,7 +37,6 @@ static class Program
             return;
         }
         TestPopulationClamp();
-        TestHunterQueryActorPolicy();
         TestStatefulImmediateLifecycle();
         TestMigrationContracts();
         TestNativePatterns();
@@ -95,12 +94,14 @@ static class Program
             !allSource.Contains(".Unload()", StringComparison.Ordinal),
             "A legacy Zhuqiaomon hook or teardown contract remains.");
         // 1.1.88 removed the two hooks that steered a jump through Rflags (attack gate, State-1 query result)
-        // and added the State-0 MoveHere destination hook for firing positions.
-        Assert(Count(allSource, "new HookHandle<X64InlineHook>()") == 15,
-            "ImprovedHunters must own exactly fifteen typed inline-hook handle declarations.");
-        Assert(Count(allSource, "CommitResult commitResult = transaction.Commit()") == 7 &&
-            Count(allSource, "commitResult.IsCompleteSuccess") == 7,
-            "Every one of the seven atomic hook transactions must check aggregate success.");
+        // and added the State-0 MoveHere destination hook for firing positions. Since 1.2.0 APIShared owns
+        // the Hunter query identity (the issue-123 capture hook and its transaction are gone), own-player
+        // chickens and the reservation release (their PermanentNativeGate stubs and eight patterns are gone).
+        Assert(Count(allSource, "new HookHandle<X64InlineHook>()") == 14,
+            "ImprovedHunters must own exactly fourteen typed inline-hook handle declarations.");
+        Assert(Count(allSource, "CommitResult commitResult = transaction.Commit()") == 6 &&
+            Count(allSource, "commitResult.IsCompleteSuccess") == 6,
+            "Every one of the six atomic hook transactions must check aggregate success.");
         Assert(infrastructure.Contains("HookTarget.FromAddress(address)", StringComparison.Ordinal) &&
             infrastructure.Contains("new ContextHookOptions", StringComparison.Ordinal) &&
             infrastructure.Contains("OwnsHooks = true", StringComparison.Ordinal),
@@ -164,9 +165,9 @@ static class Program
             }
         }
 
-        Assert(definitions.Count == 49, $"Expected 49 native pattern definitions, found {definitions.Count}.");
-        Assert(uniquelyResolvedNames.Count == 41,
-            $"Expected 41 uniquely resolved pattern contracts, found {uniquelyResolvedNames.Count}.");
+        Assert(definitions.Count == 41, $"Expected 41 native pattern definitions, found {definitions.Count}.");
+        Assert(uniquelyResolvedNames.Count == 33,
+            $"Expected 33 uniquely resolved pattern contracts, found {uniquelyResolvedNames.Count}.");
         int uniqueFallbackPatterns = 0;
         int ambiguousReferencePatterns = 0;
         foreach ((string name, byte?[] bytes, int expectedRva) in definitions)
@@ -368,28 +369,6 @@ static class Program
         Assert(TannerMeatPolicy.ClampMeatPerTrip(0) == 1 && TannerMeatPolicy.ClampMeatPerTrip(51) == 50 && TannerMeatPolicy.ClampMeatPerTrip(50) == 50, "The meat per trip clamp failed.");
         Assert(TannerMeatPolicy.MeatRunsFromSliderValue(3) == 0 && TannerMeatPolicy.MeatRunsFromSliderValue(0) == 3 &&
             TannerMeatPolicy.SliderValueFromMeatRuns(1) == 2, "The slider must run from only meat on the left to no meat on the right.");
-    }
-
-    private static void TestHunterQueryActorPolicy()
-    {
-        const ulong manager = 0x10000000;
-        Assert(HunterQueryActorPolicy.TryReconstructHunterUnitId(
-                manager + 96 * HunterQueryActorPolicy.NativeUnitSlotSize,
-                manager,
-                out int hunterUnitId) && hunterUnitId == 96,
-            "The native Hunter ID reconstruction failed.");
-        Assert(!HunterQueryActorPolicy.TryReconstructHunterUnitId(manager, manager, out _),
-            "Hunter ID zero must be rejected.");
-        Assert(!HunterQueryActorPolicy.TryReconstructHunterUnitId(manager - 1, manager, out _),
-            "A Hunter base below the manager must be rejected.");
-        Assert(!HunterQueryActorPolicy.TryReconstructHunterUnitId(manager + 1, manager, out _),
-            "A non-slot-aligned Hunter base must be rejected.");
-        Assert(HunterQueryActorPolicy.IsMatchingCapture(170, 170, 94),
-            "An identity-matching query capture must be accepted.");
-        Assert(!HunterQueryActorPolicy.IsMatchingCapture(170, 171, 94),
-            "A capture from another candidate must be rejected.");
-        Assert(!HunterQueryActorPolicy.IsMatchingCapture(170, 170, 0),
-            "A capture without a reconstructed Hunter must be rejected.");
     }
 
     private static void TestWildlifeRange()

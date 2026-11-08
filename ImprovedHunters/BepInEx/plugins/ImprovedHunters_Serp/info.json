@@ -30,7 +30,9 @@
         "Fixed: Hunters shot before finishing their step and searched again at once after an empty search, unlike the base game, even with the mod switched off.",
         "Fixed: the Hunter's hut visibility rule could fail silently after a game update.",
         "Fixed: a Hunter could walk endlessly between his hut and an animal he cannot shoot at, for example behind a keep; he now looks for a nearby spot with a clear shot, and otherwise turns to other prey for a while.",
-        "Changed: far fewer log lines during play; detailed Hunter diagnostics are only in development builds."
+        "Changed: far fewer log lines during play; detailed Hunter diagnostics are only in development builds.",
+        "Changed: rabbits, camels and chickens are made huntable through APIShared's shared hunting service, so other mods can add their own huntable animals alongside.",
+        "Fixed: after loading a saved game, a Hunter carrying meat could get the base game's amount once instead of the set one."
       ]
     },
     {

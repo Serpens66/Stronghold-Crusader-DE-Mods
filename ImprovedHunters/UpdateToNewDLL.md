@@ -14,7 +14,7 @@ semantically inconsistent match disables only the affected feature. Raw unit
 fields still require an in-game smoke test after a game update.
 
 Production wiring is separated by feature: initial target selection and PCL
-filtering, active pathfinding/visibility recovery, the owned-chicken gates and the
+filtering, active pathfinding/visibility recovery and the
 melee rabbit rule have independent gates. Corpse timers and camel compatibility
 follow their respective animal opt-ins. An update audit must therefore also confirm
 that every switch mutates only its own path and that disabled features leave native
@@ -36,19 +36,11 @@ only these diagnostic paths.
 | --- | ---: | --- |
 | `CamelDespawnTickTimePattern` | `0x1584B8` | signed immediate at `+13` |
 | `ChickenDespawnTickTimePattern` | `0x163465` | signed immediate at `+13` |
-| `HunterQueryOwnerSequencePattern` | `0x18AFC0` | owned-chicken gate; owner check span `[0x18AFD8,0x18AFE6)` at `+24`, rejection `0x18B0DD` |
-| `ExplicitAttackTeamSequencePattern` | `0x18EBC2` | owned-chicken gate; team check span `[0x18EBDA,0x18EBE8)` at `+0x18`, rejection `0x18ECA7` |
-| `ArrowTeamSequencePattern` | `0x192A87` | owned-chicken gate; team check span `[0x192AA7,0x192AB5)` at `+0x20`, miss exit from the following `je` |
-| `ArrowGateBlockPattern` | `0x192B00` | block the arrow stub repeats; continues at `+0x93` (`0x192B93`), behind the warning sound |
-| `RabbitUpdateEntryPattern` | `0x157810` | reservation countdown, span `[0x157828,0x157836)`, the two RIP-relative loads behind the prologue (the Fixes mod owns the entry); derives current unit and manager |
-| `CamelUpdateEntryPattern` | `0x158020` | reservation countdown, span `[0x15803A,0x158048)`; same two globals required |
-| `ChickenUpdateEntryPattern` | `0x162CB0` | reservation countdown, span `[0x162CC8,0x162CD6)`; same two globals required |
 | `HostilityRabbitChainPattern` | `0x18694C` | melee rabbit rule, hash-bound; span `[0x186952,0x186962)`, results `0x18688E`/`0x1869AD` |
 | `MeleeOrderBlockPattern` | `0x11EE64` | melee rabbit rule, hash-bound; span 19 bytes in the melee branch of tribe order case 4 |
 | `StanceScanFilterPattern` | `0x18C731` | melee rabbit rule, hash-bound; span 14 bytes, accept `0x18C75D` |
 | `RangedFlagReaderPattern` | `0x18F315` | melee rabbit rule, hash-bound; reader of tribe flag `+0x58E`, absolute `0x7CC6CAE` |
 | `ComparisonSequencePattern` | `0xD2AB4` | granary chicken target comparison hook at `+11` (`0xD2ABF`) |
-| `HunterQueryCandidateLoopPattern` | `0x18AFC0` | temporary Script Extender issue-123 actor capture |
 | Native Hunter visibility wrapper | `0xA06F0` | behavior-neutral direct probe; seven arguments including context |
 | Native Hunter visibility core | `0x9E350` | wrapper calls forward first and returns immediately when positive; reverse is called only after forward returns zero; `1.1.52` validates the entry and may call both directions explicitly; returns `0` when blocked, otherwise its step count along the line (up to `1000`, `100000` for the same point); the direct attack at `0x18ED6A` treats every positive value as visible, the target query at `0x18B0A2` only `1..0x1B0` |
 | Shared obstacle-height helper | `0x6B990` | reads tile flags, building identity/type and effective obstacle height |
@@ -86,35 +78,16 @@ only these diagnostic paths.
 
 The source constants contain the complete wildcard patterns.
 
-### Owned chickens
+### Owned chickens, reservation countdown and Hunter query identity (APIShared since 1.2.0)
 
-Chickens keep their owner, so Vanilla's wandering (`0x162CB0` picks buildings of the
-owner), counting (`r_GranaryChickens`, player `+0x221C`, written in the chicken update)
-and removal (`0xD29E0` selects by owner) stay intact. Vanilla blocks a Hunter's own
-animal at exactly three points, and all three stubs are generated in
-`HunterNativeStubs.cs` and share one logical flag in `OwnedChickenHuntPatch.cs`:
-
-1. Query `0x18AF50`: `cmp [rbx-0x20A],0` requires owner 0 **before** the Extender's type
-   hook at `0x18AFE6`, so `OnUnitHunterQueryTarget` never fired for a player's chicken.
-   The stub also passes a chicken whose owner equals `[r13+0x6EE]`. `EAX` is dead (next
-   instruction reloads it); no flags are live.
-2. Explicit attack `0x18E9A0`: `team[target] == team[attacker]` rejects. The stub passes
-   only `r12d == Hunter`, target chicken and `rcx == r13` (same owner, not merely allied).
-3. Arrow hit `0x192750`, only caller `0x9C730`: same team returns 0 for arrows. The stub
-   passes only victim chicken (`r12w`), arrow type 1 (`cx`), `r8w == r10w` and a source
-   unit of type Hunter (projectile `+0x736`). It repeats the dead and height gates of
-   `0x192B00` and continues at `0x192B93`: the attacker record is a no-op for equal
-   owners and `General_Warning10.wav` must not play. All other cases restore ZF for the
-   original `jne` behind the span. The three projectile displacements are cross-checked
-   by their field distances.
-
-Everything after the hit is owner-independent: damage uses the attacker's fear factor
-(`0x180560`), the Hunter's shot and pickup in `0x12FC70` read only the Hunter's owner.
-
-Consequences of removing the old approach: Vanilla's type dispatch (`0x18F2B2`) and
-compatibility check (`0x1867A0`) are untouched again, so foreign ranged units auto-target
-enemy chickens and an explicit attack order on a chicken is rejected, as in Vanilla.
-
+APIShared (`APIShared.Wildlife`, see its `UpdateToNewDLL.md` sections "Huntable prey reservation
+word", "Hunter native sites" and "Hunter owner gates") now owns the three owned-chicken gates
+(`0x18AFD8`, `0x18EBDA`, `0x192AA7`), the reservation release of rabbits, camels and chickens and the
+correct Hunter id of `OnUnitHunterQueryTarget` (Script Extender issue 123). Improved Hunters registers
+rabbit, camel and chicken through `HuntablePrey` (chicken with own-player prey, all three with corpse
+removal when butchering starts), its target selection through `HunterTargetPolicies` and its meat
+settings through `HunterMeatYieldEvents`, and installs none of these native sites itself. A changed DLL
+is therefore audited in APIShared first.
 ### Chicken population
 
 `0xD29E0` compares its food-based target in `eax` with `[rdi+0x2048]` at `0xD2ABF`.
@@ -122,16 +95,6 @@ enemy chickens and an explicit attack order on a chicken is rejected, as in Vani
 comparison decide both branches: `jle` to `0xD2BA7` (no spawn), where `jge` reuses them
 and otherwise removes one chicken of the player. `rbx` is the player (the removal loop
 compares with `ebx`). Spawning needs a bakery, mill or granary of the player (`0xBF510`).
-
-### Reservation countdown
-
-GameUnit `+0x448` (manager form `0xAA4`) is not an owner. The Hunter writes 2 in every
-update that holds a target; deer and goats (`0x156130`) decrement it, so the value 1 is
-just one prey update after the last refresh and says nothing about who holds it. Rabbit,
-camel and chicken updates never decrement, so `PreyReservationHeartbeatPatch` adds the
-same step behind their prologues; the entries of rabbit and camel belong to the Fixes
-mod's optional wildlife hook, and an overlap there disabled the first attempt fail-closed. `FUN_18018AF50` only accepts reservation 0. Hunting these
-three types is disabled when this patch is unavailable.
 
 ### Melee rabbit rule
 
@@ -149,17 +112,6 @@ by Vanilla only in the ranged branches (`0x11EC89`, `0x11F2AF`). `RabbitMeleeOrd
 
 The flag has no second independent code anchor, so this feature stays bound to the
 audited hash and logs an error otherwise.
-
-The Script Extender versions through the locally inspected 1.41.0 can report
-the caller's saved `RBX` value instead of the native Hunter ID in
-`OnUnitHunterQueryTarget`; see upstream work item 123. Improved Hunters installs
-a temporary read-only context hook at the candidate-loop anchor `0x18AFC0`.
-At this point `R13 = UnitManager + hunterId * 0x490`, `R14 = UnitManager` and
-`ESI` is the one-based candidate ID. The mod reconstructs and validates the
-Hunter ID from the exact divisible delta and consumes it only for the matching
-public query candidate on the same thread. If capture and the reported ID are
-both invalid, the callback leaves Vanilla's target decision unchanged. Remove
-this workaround once the minimum supported Script Extender fixes work item 123.
 
 ### Native Hunter visibility call
 
@@ -442,10 +394,9 @@ reservation 2 and handles any prey type.
 
 1. Require one semantic match for both despawn patterns and verify that operand 1 at
    pattern offset `13` remains the signed 16-bit despawn duration.
-2. Revalidate the three owned-chicken spans, their register contracts and that nothing
-   else between query and arrow hit compares owners or teams.
-3. Revalidate the reservation writers in `HunterUpdate`, the deer countdown at
-   `0x156130` and the three update entries.
+2. Confirm that the APIShared version in use supports the new DLL for huntable prey,
+   Hunter native sites and owner gates (owned chickens, reservation release, query identity).
+3. Revalidate the reservation writers in `HunterUpdate` that this mod's own hooks rely on.
 4. Revalidate the Script Extender unit array and raw fields `+0x88`, `+0x92`,
    `+0x94`, `+0xC0`, `+0xC2`, `+0x29C`, `+0x2BC`, `+0x2C4`, `+0x370`,
    `+0x39A`, `+0x39C` and `+0x448`.
@@ -458,10 +409,7 @@ reservation 2 and handles any prey type.
    target `0xD2BA7`, its `jge` on the same flags, `rbx` player and `[rdi+0x2048]`.
 8. Update all reference RVAs and the dispatch-table map before approving
    the new shared hash. Re-derive the melee rabbit spans and the tribe flag.
-9. Revalidate the Hunter query candidate-loop signature, `R13`/`R14` slot
-   formula, `ESI` candidate ID and callback ordering before the public Extender
-   event. Check whether upstream work item 123 is fixed and remove the temporary
-   workaround when it is no longer needed.
+9. Revalidate the Hunter query candidate loop this mod's own query hooks rely on.
 10. Revalidate visibility wrapper `0xA06F0`, core `0x9E350`, query call
     `0x18B052`, direct-order call `0x18ED1A`, the seven-argument ABI, both core
     relative targets, context write boundary `+0xC`, world/height field

@@ -156,8 +156,6 @@
     <Compile Include="src\HerdFleeSightFeature.cs" />
     <Compile Include="src\HunterSimulationTime.cs" />
     <Compile Include="src\PermanentNativeGate.cs" />
-    <Compile Include="src\OwnedChickenHuntPatch.cs" />
-    <Compile Include="src\PreyReservationHeartbeatPatch.cs" />
     <Compile Include="src\RabbitMeleeOrderPatch.cs" />
     <Compile Include="src\TannerMeatPatch.cs" />
     <Compile Include="src\TannerMeatPolicy.cs" />
@@ -166,9 +164,8 @@
     <Compile Include="src\TannerRunTable.cs" />
     <Compile Include="src\GranaryChickenLimitPatch.cs" />
     <Compile Include="src\GranaryChickenSpawnPolicy.cs" />
-    <Compile Include="src\HunterQueryActorPolicy.cs" />
-    <Compile Include="src\HunterQueryActorWorkaround.cs" />
     <Compile Include="src\HunterTargetSelectionFeature.cs" />
+    <Compile Include="src\HuntablePreyIntegration.cs" />
     <Compile Include="src\HunterProjectileObservationFeature.cs" />
     <Compile Include="src\HunterAnimalCompatibilityFeature.cs" />
     <Compile Include="src\HunterMovementSnapshot.cs" />

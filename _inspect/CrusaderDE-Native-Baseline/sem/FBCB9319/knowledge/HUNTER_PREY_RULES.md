@@ -316,3 +316,12 @@ Static audit of 2026-11-08 (hash `FBCB9319…31E2`); the fade immediate at `0x15
   jne 0x18B0DD`, free: rax, r8-r11, rdi), attack `[0x18EBDA,0x18EBE8)` (team-table compare at `0x37EDF3C`, `je 0x18ECA7`; free:
   rax, r11), arrow `[0x192AA7,0x192AB5)` (team compare plus `movzx r11d,[rsp+0x78]`; the `jne` at `0x192AB5` reads ZF). The
   query checks the owner word (`+0x6EE`, public `+0x92`); attack and arrow compare teams.
+
+## Ownership since ImprovedHunters 1.2 [mod integration]
+
+From 2026-11-08 (working tree, not yet released): APIShared (`APIShared.Wildlife`) owns the owner gates at `0x18AFD8`,
+`0x18EBDA`, `0x192AA7`, the reservation release of registered types (managed tick sweep, no update-entry stubs), the
+query-entry record `0x18AF50`, the corpse-arrival record and corpse removal `0x1306AE`, and the corrected Hunter ids of the
+Script Extender's query and meat-pickup events. ImprovedHunters registers rabbit, camel and chicken there, plus its target
+policy and meat handler; its own `OwnedChickenHuntPatch`, `PreyReservationHeartbeatPatch` and issue-123 capture are gone. The
+"ImprovedHunters integration" section above describes the state before this change.
