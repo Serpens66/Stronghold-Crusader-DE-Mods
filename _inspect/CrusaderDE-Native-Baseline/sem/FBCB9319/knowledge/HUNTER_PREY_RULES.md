@@ -255,3 +255,43 @@ with the same displacement were checked and excluded.
   cow 1000 in state 5, chicken enters `0x6E` directly (+2 per update); fading then removes the unit after 32 (`+0x986` to 0x20).
   Deer and chicken confirmed, the others probable.
 - Not traced: the clear at mission start, save/load of the word, what `0x18CE60` does with the idle reason.
+
+## Hunter query callers and meat path [Scope: Vanilla]
+
+Static audit of 2026-11-08 (hash `FBCB9319…31E2`), core sites re-checked by disassembly; nothing executed in the game.
+
+- Query `0x18AF50(rcx = unit manager, edx = querying unit id)` has exactly six callers: Hunter states 0 (`0x12FDBC`),
+  1 (`0x12FF7E`), 10 (`0x130521`, `0x1305C7`), `0xB` (`0x1306DD`), and `0x1941B4` in `0x1940C0`, which computes the idle
+  reason (0x34) of the selected unit for its speech (`0x18CE60` <- `0x97DA0`). Only state 0 uses the id; the others use
+  the result as yes/no. The entry span `[0x18AF50,0x18AF5E)` has no inbound branch and holds the hunter id in `edx`.
+- Candidate loop: `r14` = manager, `r13` = manager + hunter id * 0x490, `esi` = candidate id from 1, `rbx` = candidate
+  public pointer + `0x29C`, bound `esi < [r14]`. Filters in order: alive state 2 (`0x18AFC0`), no corpse (`0x18AFCE`),
+  owner 0 (`0x18AFD8`), type deer/goat (`0x18AFE6`, replaced by the Script Extender's hook), lease 0 (`0x18AFFD`),
+  Chebyshev distance above the pass threshold (20, then a second pass with 5; `0x18B02A`), sight 1..0x1B0 below
+  distance 54 (`0x18B0A2`), nearest wins, ties to the lowest id. No upper range, no lease write.
+- Meat: the hut makes it, not the Hunter. While he is inside (state 3) the hut update `0xAE570` adds one meat per
+  phase through `0xB6100(hut,+1,max 6)` at `0xAE928`; state 0 checks hut `+0x1AC` before any search (`0x12FD72`),
+  takes it (state 4, slot set to 0 at `0x12FDAD`) and from state 4 calls the only Hunter yield `0x18D940(hunter,6,1)`
+  at `0x1309FE`. A new hunt before the pickup is impossible.
+- Every butchered animal passes the arrival `0x1306AE` exactly once (Vanilla kill, other killer, `0x18B640`, a mod's
+  free-corpse choice): `rbx` = Hunter id, `rdi` = Hunter id * 0x490, `r14` = manager, `r13`/`rcx` = corpse id and
+  id * 0x490, `eax` = corpse global (= Hunter `+0x9F8`), type at `[rcx+r14+0x6E6]`. `[0x1306AE,0x1306BD)` is 15 bytes,
+  no inbound branch, no RIP-relative operand, flags dead at entry. Then corpse `+0x920` = 1000 (`0x1306BD`) and
+  Hunter `+0xA0C` = (type != deer) (`0x1306CA`).
+- The save stores the unit records (manager + 0x658, 10000 * 0x490) and building records (4000 * 0x32C) raw
+  (section table entries `0x337030`, `0x336FB8`), so Hunter target fields and hut meat survive a load.
+
+## Script Extender hunter events [Scope: External component]
+
+Installed Extender 2.14.3 (product commit 4628c0e), RedBird 1.5.0, static check of 2026-11-08.
+
+- `OnUnitHunterQueryTarget` (`0x18AFE6`): the reported hunter id is read from `[rsp+0xF0]`, assuming a 0x60 shift;
+  RedBird 1.5.0's `X64FastcallSafe(preserveRAX:false)` pushes 0x30, so the slot is the native `[rsp+0xC0]`, which for
+  Hunter updates holds HunterUpdate's saved R15 = the constant 2 set by the dispatcher at `0x183C35`. The event
+  therefore reports Hunter 2 (issue 123; matches the logged "reported=2, reconstructed=1"). The event also fires for
+  the local speech path `0x1941B4`.
+- `OnHunterPickUpMeat` (`0x12FD7C`, `mov r8d,[r14+rdi+0x134]`) reads the unit id from R9, which HunterUpdate sets only
+  later (`0x12FDA1`); the value is a leftover of the dispatcher. The Hunter id is in RBX. Logged ids 0, 1887428016,
+  -1224745552 match.
+- `OnHunterDropOffMeat` (`0x130B54`, RBX) is correct and fires once per delivered meat. `OnCalculateBonusYield` is a
+  full detour of `0x18D940`; a Pre change of the base reaches Vanilla's bonus calculation.

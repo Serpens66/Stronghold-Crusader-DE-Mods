@@ -118,6 +118,41 @@ function Restore-InGameTestState($Snapshot) {
     Assert-InGameTestTree $path $expected
 }
 
+function Complete-InGameTestSaves($Snapshot, [string]$Run, [string]$Evidence) {
+    if ($Run -cnotmatch '^[0-9a-f]{32}$' -or !$Snapshot.Directory) {
+        throw 'Invalid game save verification request.'
+    }
+    $name = "SerpAcceptance-$Run.sav"
+    $root = $Snapshot.Path
+    $expected = $Snapshot.Inventory
+    if ($expected.Files.ContainsKey($name)) { throw "The test save was already present: $name" }
+
+    $actual = Get-InGameTestTree $root
+    $digest = $actual.Files[$name]
+    $actual.Files.Remove($name)
+    if ($actual.Files.Count -ne $expected.Files.Count -or -not $actual.Directories.SetEquals($expected.Directories)) {
+        throw "Unexpected save inventory after the test. Backup retained: $($Snapshot.Backup)"
+    }
+    foreach ($relative in $expected.Files.Keys) {
+        if ($actual.Files[$relative] -cne $expected.Files[$relative]) {
+            throw "Existing save changed: $relative. Backup retained: $($Snapshot.Backup)"
+        }
+    }
+
+    if ($digest) {
+        $testSave = Join-Path $root $name
+        $artifact = Join-Path $Evidence $name
+        Assert-InGameTestUnlinked $artifact
+        [IO.File]::Copy($testSave, $artifact, $false)
+        if ((Get-ApiRepositoryHash $artifact) -cne $digest -or (Get-ApiRepositoryHash $testSave) -cne $digest) {
+            throw "Test save changed while it was copied: $name"
+        }
+        [IO.File]::Delete($testSave)
+    }
+    if (!$expected.Exists -and $actual.Exists) { [IO.Directory]::Delete($root, $false) }
+    Assert-InGameTestTree $root $expected
+}
+
 function Set-InGameTestPackage([string]$Source, [string]$Target, [string]$Backup, $Swaps, [switch]$Directory) {
     Assert-InGameTestUnlinked $Source
     Assert-InGameTestUnlinked $Target
@@ -148,6 +183,40 @@ function Set-InGameTestPackage([string]$Source, [string]$Target, [string]$Backup
     $null = [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($Target))
     if ($Directory) { [IO.Directory]::Move($stage, $Target) } else { [IO.File]::Move($stage, $Target) }
     $swap.Published = $true
+}
+
+function Set-InGameTestPluginLayout([string]$Layout, [string]$Plugins, [string]$Backup, $Swaps, [string[]]$Overlays) {
+    $expected = Get-InGameTestTree $Layout
+    if (!$expected.Exists -or [IO.Directory]::GetFiles($Layout).Length -ne 0 -or
+        [IO.Directory]::GetFiles($Plugins).Length -ne 0) {
+        throw 'Plugin layout and install must contain only package directories at their roots.'
+    }
+    $names = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    foreach ($root in @($Layout, $Plugins)) {
+        foreach ($entry in [IO.Directory]::GetDirectories($root)) {
+            $name = [IO.Path]::GetFileName($entry)
+            if ($name -notin $Overlays) { $null = $names.Add($name) }
+        }
+    }
+    $null = [IO.Directory]::CreateDirectory($Backup)
+    $index = 0
+    foreach ($name in ($names | Sort-Object)) {
+        $source = Join-Path $Layout $name
+        $target = Join-Path $Plugins $name
+        $previous = Join-Path $Backup ([string]$index++)
+        if ([IO.Directory]::Exists($source)) {
+            Set-InGameTestPackage $source $target $previous $Swaps -Directory
+        } else {
+            $inventory = Get-InGameTestTree $target
+            $swap = [pscustomobject]@{
+                Target = $target; Backup = $previous; Stage = $null; Directory = $true
+                Original = $inventory; Saved = $false; Published = $false
+            }
+            $Swaps.Add($swap)
+            [IO.Directory]::Move($target, $previous)
+            $swap.Saved = $true
+        }
+    }
 }
 
 function Restore-InGameTestPackage($Swap) {

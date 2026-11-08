@@ -38,8 +38,19 @@ Für einen vorbereiteten APIShared-Teststand zusätzlich `-ApiPluginPackage`
 und `-ApiPatcherPackage` gemeinsam übergeben. Das Werkzeug sichert die
 Laufprotokolle und stellt die ersetzten Dateien und gesicherten Einstellungen
 wieder her. Nach Abschluss den temporären Szenariocode samt Einstiegspunkt
-entfernen und den normalen Mod-Build prüfen. Die folgenden Abschnitte
-beschreiben vorhandene spezialisierte Testmods und ihre bisherigen Nachweise.
+entfernen und den normalen Mod-Build prüfen. Für Abnahmen mit genau vorgegebenen Modkombinationen nimmt `-PluginLayout`
+einen externen Plugin-Ordner mit Script Extender und den Begleitmods entgegen.
+Der Runner sichert und ersetzt die einzelnen Plugin-Pakete. Nach dem Lauf
+prüft er das gesamte Plugin-Inventar gegen den ursprünglichen Stand. `-ModPackage` und das APIShared-Paar werden
+darüber bereitgestellt. Ein optionaler `-SaveFixture` wird vor dem Start als
+`BepInEx/SerpAutomationRollback/fixture.sav` kopiert. Tests dürfen unter den
+normalen Spielständen ausschließlich `SerpAcceptance-<RunId in N-Format>.sav`
+schreiben. Der Runner prüft die ursprünglichen Saves per Dateihash, archiviert
+den Test-Save und entfernt diese eine Datei. Bei unerwarteten Änderungen bleiben
+Saves und die Wiederherstellungskopie zur Prüfung erhalten.
+
+Die folgenden Abschnitte beschreiben vorhandene spezialisierte Testmods und ihre
+bisherigen Nachweise.
 
 Stand: 20.10.2026. Untersucht wurden die installierten Spielassemblies, der lokale Script Extender sowie die Arbeitsquellen von BugfixesAndQoL und CastlePlanner.
 

@@ -43,6 +43,25 @@ if ([IO.File]::Exists($patcher) -or [IO.File]::Exists((Join-Path $plugin 'new-on
     throw 'Restore did not recover the original tree and bytes.'
 }
 
+$plugins = Join-Path $install 'plugins'
+$layout = Join-Path $root 'layout'
+$oldPlugin = Join-Path $plugins 'original'
+$layoutExtender = Join-Path $layout '000shcdese'
+foreach ($path in @($oldPlugin, $layoutExtender)) { $null = [IO.Directory]::CreateDirectory($path) }
+[IO.File]::WriteAllText((Join-Path $oldPlugin 'old.dll'), 'original installation')
+[IO.File]::WriteAllText((Join-Path $layoutExtender 'se.dll'), 'extender')
+$installedPlugins = Get-InGameTestTree $plugins
+$layoutSwaps = [Collections.Generic.List[object]]::new()
+Set-InGameTestPluginLayout $layout $plugins (Join-Path $backup 'layout') $layoutSwaps @('consumer')
+Set-InGameTestPackage $source (Join-Path $plugins 'consumer') (Join-Path $backup 'consumer') $layoutSwaps -Directory
+if ([IO.Directory]::Exists($oldPlugin) -or ![IO.File]::Exists((Join-Path $plugins 'consumer/plugin.dll'))) {
+    throw 'Explicit plugin layout was not isolated from the installed plugins.'
+}
+for ($i = $layoutSwaps.Count - 1; $i -ge 0; $i--) {
+    Restore-InGameTestPackage $layoutSwaps[$i]
+}
+Assert-InGameTestTree $plugins $installedPlugins
+
 $log = Join-Path $root 'fixture.log'
 $run = [Guid]::NewGuid().ToString('N')
 $old = [Guid]::NewGuid().ToString('N')
@@ -74,5 +93,26 @@ $rejected = $false
 try { Assert-InGameTestApiPair $apiPackage $newPatcher }
 catch { if ($_.Exception.Message -notlike '*digest mismatch: BootstrapSHA256') { throw }; $rejected = $true }
 if (-not $rejected) { throw 'Mixed runtime and patcher were accepted.' }
+$saves = Join-Path $install 'Saves'
+$null = [IO.Directory]::CreateDirectory($saves)
+$personalSave = Join-Path $saves 'personal.sav'
+[IO.File]::WriteAllText($personalSave, 'personal')
+$saveSnapshot = Save-InGameTestState $saves (Join-Path $backup 'saves') -Directory
+$testSaveName = "SerpAcceptance-$run.sav"
+$testSave = Join-Path $saves $testSaveName
+[IO.File]::WriteAllText($testSave, 'test result')
+[IO.File]::WriteAllText($personalSave, 'unexpected change')
+$rejected = $false
+try { Complete-InGameTestSaves $saveSnapshot $run $root }
+catch { if ($_.Exception.Message -notlike 'Existing save changed:*') { throw }; $rejected = $true }
+if (!$rejected -or ![IO.File]::Exists($testSave) -or
+    [IO.File]::ReadAllText((Join-Path $saveSnapshot.Backup 'personal.sav')) -cne 'personal') {
+    throw 'An unexpected save change did not retain the evidence and recovery copy.'
+}
+[IO.File]::WriteAllText($personalSave, 'personal')
+Complete-InGameTestSaves $saveSnapshot $run $root
+if ([IO.File]::Exists($testSave) -or [IO.File]::ReadAllText((Join-Path $root $testSaveName)) -cne 'test result') {
+    throw 'The named test save was not archived and removed.'
+}
 Remove-InGameTestTree $backup $root
-Write-Host "PASS: package swap, APIShared pair, settings restoration and terminal marker isolation. Fixture: $root"
+Write-Host "PASS: package swap, APIShared pair, settings restoration, save preservation and terminal marker isolation. Fixture: $root"

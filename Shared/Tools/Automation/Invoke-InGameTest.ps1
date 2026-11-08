@@ -5,6 +5,8 @@ param(
     [Parameter(Mandatory)][string]$ModPackage,
     [string]$ApiPluginPackage,
     [string]$ApiPatcherPackage,
+    [string]$PluginLayout,
+    [string]$SaveFixture,
     [Parameter(Mandatory)][ValidatePattern('^[A-Za-z0-9][A-Za-z0-9_.-]{0,95}$')][string]$Scenario,
     [Parameter(Mandatory)][string]$OutputDirectory,
     [ValidateRange(1,86400)][int]$TimeoutSeconds = 300
@@ -37,6 +39,7 @@ $request = Join-Path $config ("SerpAutomation/{0}.run" -f $ModGuid)
 $player = Join-Path ([Environment]::GetFolderPath('UserProfile')) ('AppData/LocalLow/Firefly Studios/' + $processName)
 $playerLog = Join-Path $player 'Player.log'
 $settings = Join-Path $player 'settings.cfg'
+$saves = Join-Path $player 'Saves'
 $documents = [Environment]::GetFolderPath('MyDocuments')
 if (-not $documents) { throw 'The Windows Documents folder could not be resolved.' }
 $apiSettings = Join-Path $documents 'SHCDE/APIShared'
@@ -44,6 +47,26 @@ $output = Get-InGameTestPath $OutputDirectory
 $mod = Get-InGameTestPath $ModPackage
 $run = [Guid]::NewGuid().ToString('N')
 $evidence = Join-Path $output ($run.Substring(0, 12))
+$testSaveName = "SerpAcceptance-$run.sav"
+if ($PluginLayout) {
+    $layout = Get-InGameTestPath $PluginLayout
+    Assert-InGameTestUnlinked $layout
+    Assert-InGameTestUnlinked $saves
+    if (!$ApiPluginPackage -or (Test-InGameTestInside $layout $game) -or
+        (Test-InGameTestInside $layout $player) -or (Test-InGameTestInside $output $layout) -or
+        ![IO.Directory]::Exists((Join-Path $layout '000shcdese'))) {
+        throw 'A plugin layout must be external, include the Script Extender and use a supplied APIShared pair.'
+    }
+}
+
+if ($SaveFixture) {
+    $fixture = Get-InGameTestPath $SaveFixture
+    Assert-InGameTestUnlinked $fixture
+    if (!$PluginLayout -or [IO.Path]::GetExtension($fixture) -ine '.sav' -or
+        ![IO.File]::Exists($fixture) -or (Test-InGameTestInside $fixture $game)) {
+        throw 'A save fixture must be an existing external .sav file and requires a plugin layout.'
+    }
+}
 
 foreach ($path in @($gameExe, $plugins, $mod, $output, $rollback, $log, $settings, $playerLog, $apiSettings, $request)) {
     Assert-InGameTestUnlinked $path
@@ -93,6 +116,8 @@ $instance = $null
 $recovery = $false
 $runLogIsolated = $false
 $previousPlayerLog = $null
+$saveSnapshot = $null
+$installedPlugins = $null
 $swaps = [Collections.Generic.List[object]]::new()
 $snapshots = [Collections.Generic.List[object]]::new()
 $restorationErrors = [Collections.Generic.List[string]]::new()
@@ -120,6 +145,17 @@ try {
     [IO.File]::Delete($log) # Isolate the new log with either BepInEx AppendLog setting.
     $runLogIsolated = $true
 
+    if ($PluginLayout) {
+        $saveSnapshot = Save-InGameTestState $saves (Join-Path $rollback 'saves') -Directory
+        if ($saveSnapshot.Inventory.Files.ContainsKey($testSaveName)) {
+            throw "The test save already exists: $testSaveName"
+        }
+        if ($SaveFixture) {
+            $null = Save-InGameTestState $fixture (Join-Path $rollback 'fixture.sav')
+        }
+        $installedPlugins = Get-InGameTestTree $plugins
+        Set-InGameTestPluginLayout $layout $plugins (Join-Path $rollback 'plugin-layout') $swaps @($ModGuid, 'APIShared_Serp')
+    }
     if ($ApiPluginPackage) {
         Set-InGameTestPackage $api $apiDestination (Join-Path $rollback 'api') $swaps -Directory
         Set-InGameTestPackage $patcher $patcherDestination (Join-Path $rollback 'bootstrap') $swaps
@@ -172,8 +208,16 @@ finally {
                 }
             }
             catch { $restorationErrors.Add("Cannot save Unity log: $($_.Exception.Message)") }
+            if ($saveSnapshot) {
+                try { Complete-InGameTestSaves $saveSnapshot $run $evidence }
+                catch { $restorationErrors.Add($_.Exception.Message) }
+            }
             for ($i = $swaps.Count - 1; $i -ge 0; $i--) {
                 try { Restore-InGameTestPackage $swaps[$i] }
+                catch { $restorationErrors.Add($_.Exception.Message) }
+            }
+            if ($installedPlugins) {
+                try { Assert-InGameTestTree $plugins $installedPlugins }
                 catch { $restorationErrors.Add($_.Exception.Message) }
             }
             foreach ($snapshot in $snapshots) {

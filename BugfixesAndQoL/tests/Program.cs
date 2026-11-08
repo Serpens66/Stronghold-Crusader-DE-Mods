@@ -3488,8 +3488,8 @@ namespace BugfixesAndQoL
             string spriteXaml = File.ReadAllText(spriteXamlPath);
             var spritePatchDocument = new XmlDocument();
             spritePatchDocument.Load(spriteXamlPath);
-            XmlNodeList spriteContentNodes =
-                spritePatchDocument.SelectNodes("/Patch/Operation/Content");
+            XmlNodeList spriteContentOperations = spritePatchDocument.SelectNodes(
+                "/Patch/Operation[@Type='Add' or @Type='InsertBefore' or @Type='InsertAfter' or @Type='Replace']");
             Check(
                 spriteXaml.Contains("x:Key=\"BugfixesAndQoL-LobbyGoldShieldNormal\"") &&
                 spriteXaml.Contains("SourceRect=\"0,0,128,132\"") &&
@@ -3501,12 +3501,15 @@ namespace BugfixesAndQoL
                 spriteXaml.Contains("SourceRect=\"384,0,32,34\""),
                 "gold shield resources use unique keys and four exact atlas crops");
             Check(
-                spriteContentNodes != null &&
-                spriteContentNodes.Count == 7 &&
-                spriteContentNodes.Cast<XmlNode>().All(content =>
-                    content.ChildNodes.Cast<XmlNode>().Count(child =>
-                        child.NodeType == XmlNodeType.Element) == 1),
-                "every UI master-atlas patch operation has exactly one direct Content element");
+                spriteContentOperations.Count > 0 &&
+                spriteContentOperations.Cast<XmlNode>().All(operation =>
+                {
+                    XmlNodeList contents = operation.SelectNodes("Content");
+                    return contents.Count == 1 &&
+                        contents[0].ChildNodes.Cast<XmlNode>().Count(child =>
+                            child.NodeType == XmlNodeType.Element) == 1;
+                }),
+                "every UI master-atlas operation that inserts or replaces content has one Content block with one root");
 
             string[] xamlPatchFiles = Directory.GetFiles(
                 Path.Combine(projectDirectory, "Patches"),

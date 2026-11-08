@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
 using APIShared;
 using CrusaderDE;
 using RedBird.Core.Memory;
@@ -99,7 +100,9 @@ namespace UiAcceptance
             Runner.Register("Hunt.PreyAt", s => GameSteps.Do(() => { lock (Engine()) SpawnPreyAt(s.Arg(0), s.Int(1), s.Int(2)); }));
             Runner.Register("Hunt.Prey", s => GameSteps.Do(() => { lock (Engine()) SpawnPrey(s.Arg(0), s.Arg(1) == "ring" ? int.MinValue : s.Int(1), s.Arg(1) == "ring" ? 0 : s.Int(2)); }));
             Runner.Register("Hunt.ClearPrey", s => GameSteps.Do(() => { lock (Engine()) deer.Clear(); }));
-            Runner.Register("Hunt.RegisterPrey", s => GameSteps.Do(() => RegisterPrey(s.Arg(0))));
+            Runner.Register("Hunt.RegisterPrey", s => GameSteps.Do(() => RegisterPrey(s.Arg(0), s.Int(1, -1))));
+            Runner.Register("Hunt.RefusePreyType", s => GameSteps.Do(() => RefusePreyType(s.Arg(0))));
+            Runner.Register("Hunt.ExpectPreyAlive", s => GameSteps.Do(() => { lock (Engine()) ExpectPreyAlive(s.Arg(0)); }));
             Runner.Register("Hunt.ExpectTargetType", ExpectTargetType);
             Runner.Register("Hunt.ExpectLeaseReleased", ExpectLeaseReleased);
             Runner.Register("Hunt.SightWall", s => GameSteps.Do(() => { lock (Engine()) SightWall(s.Int(0), s.Int(1)); }));
@@ -1781,19 +1784,66 @@ namespace UiAcceptance
             new Dictionary<string, APIShared.Wildlife.HuntablePreyRegistration>();
         private const int PreyLeaseOffset = 0x448;
 
-        private static void RegisterPrey(string kind)
+        // args: kind, optional base meat (-1 = Vanilla's).
+        private static void RegisterPrey(string kind, int baseMeat)
         {
             eChimps type = PreyType(kind);
-            if (!preyRegistrations.TryGetValue(kind, out var registration))
+            string key = kind + "/" + baseMeat;
+            if (!preyRegistrations.TryGetValue(key, out var registration))
             {
-                Runner.Require(APIShared.Wildlife.HuntablePrey.TryRegister(UiAcceptancePlugin.Guid, "test-" + kind,
-                    new APIShared.Wildlife.HuntablePreyDefinition((int)type), out registration, out string reason), "register: " + reason);
-                preyRegistrations.Add(kind, registration);
+                var definition = new APIShared.Wildlife.HuntablePreyDefinition((int)type);
+                if (baseMeat >= 0) definition = definition.WithBaseMeat(baseMeat);
+                Runner.Require(APIShared.Wildlife.HuntablePrey.TryRegister(UiAcceptancePlugin.Guid, "test-" + kind + (baseMeat >= 0 ? "-meat" + baseMeat : ""),
+                    definition, out registration, out string reason), "register: " + reason);
+                preyRegistrations.Add(key, registration);
             }
             var catalog = APIShared.Wildlife.HuntablePrey.Current;
             AcceptLog.Info("HUNT_PREY_REGISTERED kind=" + kind + " type=" + (int)type + " status=" + registration.Status +
                 " huntable=" + catalog.IsHuntable((int)type) + " digest=" + catalog.Digest);
             Runner.Require(catalog.IsHuntable((int)type), "the registered type is not in the catalog");
+        }
+
+        // APIShared target policy for tests: refuses one type and counts what it saw. args: kind.
+        private static readonly HashSet<string> refusedKinds = new HashSet<string>();
+        private static int policyRefusals, policyNonHunters, policyPresentationQueries;
+
+        private static void RefusePreyType(string kind)
+        {
+            int type = (int)PreyType(kind);
+            if (refusedKinds.Add(kind))
+                Runner.Require(APIShared.Wildlife.HunterTargetPolicies.TryRegister(UiAcceptancePlugin.Guid, "refuse-" + kind,
+                    (in APIShared.Wildlife.HunterTargetCandidate candidate) => RefuseType(type, candidate), out string reason), "policy: " + reason);
+            AcceptLog.Info("HUNT_POLICY refuse=" + kind + " type=" + type);
+        }
+
+        private static APIShared.Wildlife.HunterTargetDecision RefuseType(int type, in APIShared.Wildlife.HunterTargetCandidate candidate)
+        {
+            if (!candidate.IsSimulationQuery) Interlocked.Increment(ref policyPresentationQueries);
+            if (!IsHunterUnit(candidate.HunterUnitId)) Interlocked.Increment(ref policyNonHunters);
+            if (candidate.CandidateType != type) return APIShared.Wildlife.HunterTargetDecision.Default;
+            Interlocked.Increment(ref policyRefusals);
+            return APIShared.Wildlife.HunterTargetDecision.Refuse;
+        }
+
+        private static bool IsHunterUnit(int unitId) =>
+            APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) && unit->r_UnitChimp == eChimps.CHIMP_TYPE_HUNTER;
+
+        // args: kind. Every fixture of that kind is still alive, and the refusing policy was asked with real Hunter ids.
+        private static void ExpectPreyAlive(string kind)
+        {
+            eChimps type = PreyType(kind);
+            int alive = 0, fixtures = 0;
+            foreach (int id in deer)
+                if (APIShared.UnitAccess.TryGetById(id, out GameUnit* unit, out _) && unit->r_UnitChimp == type)
+                {
+                    fixtures++;
+                    if (APIShared.UnitAccess.IsReallyAlive(unit) && *(ushort*)((byte*)unit + CorpseOffset) == 0) alive++;
+                }
+            AcceptLog.Info("HUNT_POLICY_RESULT kind=" + kind + " fixtures=" + fixtures + " alive=" + alive + " refusals=" + policyRefusals +
+                " nonHunterIds=" + policyNonHunters + " presentationQueries=" + policyPresentationQueries);
+            Runner.Require(fixtures > 0 && alive == fixtures, "a refused " + kind + " was killed");
+            Runner.Require(policyRefusals > 0, "the policy never saw the refused " + kind);
+            Runner.Require(policyNonHunters == 0, "the policy got " + policyNonHunters + " ids that are no Hunter");
         }
 
         // args: kind. Waits until an own Hunter holds a fixture of that type as its target.
