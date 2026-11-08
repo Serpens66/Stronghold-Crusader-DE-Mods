@@ -6,6 +6,7 @@
 - Open the detailed Vanilla statistics screen during the match
 - Show the lord overview with the crown button; the host can allow extra enemy statistics for active players
 - Enable **Show while HUD hidden** in the statistics settings to keep an open scoreboard visible when you hide the HUD.
+- Enable **Show date when HUD is hidden** in the local view settings to show the game date. Drag it to move it and save its position.
 
 ## Test tools
 

@@ -19,6 +19,7 @@ internal static class OverviewPresetTests {
   string file=Path.Combine(Program.PresetFixtureInstallRoot,"Spectator.LordOverview.dll");var model=Prepare(file);
   Check(!model.AllowEnemyDetails && model.EnableMod && model.OverviewShowEliminated,"safe code defaults preserve existing eliminated rows");
   Check(!model.Overview.ShowWhileHudHidden,"keeping the scoreboard during Hide HUD is opt-in");
+  Check(!model.ShowDateWhenHudHidden,"showing the date during Hide HUD is opt-in");
   Check(model.OverviewColumns=="GreatestLord,Gold,Army,TroopsKilled,Popularity","fresh settings use the requested five default values in order");
   model.Overview.SetDisplayColumns("Gold,Army,Popularity,Fear");Check(Prepare(file).OverviewColumns=="Gold,Army,Popularity,Fear","even the old exact default selection is preserved when stored");
   model.Overview.SetDisplayShowEliminated(false);Check(!Prepare(file).OverviewShowEliminated,"local eliminated-player filter survives restart");
@@ -26,12 +27,15 @@ internal static class OverviewPresetTests {
   model.Overview.SetDisplayColumns("Fear,Gold,TroopsKilled");model.Overview.SetDisplayColumns("TroopsKilled,Gold,Fear");model.AllowEnemyDetails=true;
   var restart=Prepare(file);Check(restart.OverviewColumns=="TroopsKilled,Gold,Fear" && restart.AllowEnemyDetails,"actual shared storage survives restart and replacement");
   GameNetworkAPI.LocalHost=false;restart.System_RefreshSettingsAccess();restart.AllowEnemyDetails=false;Check(restart.AllowEnemyDetails,"client rejected host edit");
+  restart.ShowDateWhenHudHidden=true;
+  Check(Prepare(file).ShowDateWhenHudHidden,"client HUD date preference survives restart");
   restart.Overview.SetDisplayColumns("Gold,Popularity");Check(restart.OverviewColumns=="Gold,Popularity","client local columns remain editable");
   restart.Overview.ObserveLobby(new LobbyStateSnapshot(10,null,false,2,false,null,null));
   Check(!restart.Overview.EnemyDetailsReceived,"personal host preference is not host confirmation");
   GameXAMLManagerAPI.Instance.ApplyNetworkSync(restart,()=>restart.AllowEnemyDetails=true);
   Check(restart.Overview.EnemyDetailsReceived && restart.AllowEnemyDetails,"same-value authoritative update confirms permission");
   Check(restart.OverviewColumns=="Gold,Popularity","host update preserves local columns");
+  Check(restart.ShowDateWhenHudHidden,"host update preserves the local HUD date preference");
   restart.Overview.ObserveLobby(new LobbyStateSnapshot(null,null,false,2,true,null,null));Check(restart.Overview.EnemyDetailsReceived,"map transition retains confirmed lobby permission");
   restart.Overview.ObserveLobby(new LobbyStateSnapshot(11,null,false,2,false,null,null));Check(!restart.Overview.EnemyDetailsReceived,"new lobby discards old permission");
   GameXAMLManagerAPI.Instance.ApplyNetworkSync(restart,()=>restart.AllowEnemyDetails=true);

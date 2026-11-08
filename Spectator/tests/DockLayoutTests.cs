@@ -69,6 +69,12 @@ internal static class DockLayoutTests
         Check(goods.Length == 21 && goods.Distinct().Count() == 21,"Every good exactly once.");
         foreach (var e in own.Where(e => new[] {"Button","CheckBox","TextBox"}.Contains(e.Name.LocalName)))
             Check((string)e.Attribute("ToolTipService.ShowDuration") == "60000" && e.Elements().Any(c => c.Name.LocalName.EndsWith(".ToolTip")), "Every input retains a styled long tooltip.");
+        var dateCanvas = after.Descendants().Single(e => (string)e.Attribute(x + "Name") == "SpectatorHiddenDateCanvas");
+        var date = dateCanvas.Elements().Single();
+        Check(ReferenceEquals(dateCanvas.Parent, nativeHud.Parent) && dateCanvas.Attribute("Background") == null &&
+            date.Name.LocalName == "TextBlock" && date.Attribute("Background") != null && (string)date.Attribute("Visibility") == "Collapsed",
+            "The hidden-HUD date is independent of the native HUD and owns only a collapsed date hit surface at startup.");
+        dateCanvas.Remove();
         canvas.Remove();
         // Full semantic tree comparison, not merely an absence check: no original binding,
         // input mask, resource, HUD or command may change when applying this production patch.

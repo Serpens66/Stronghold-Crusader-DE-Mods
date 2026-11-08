@@ -17,7 +17,7 @@ try {
         if (-not ($property.CustomAttributes.AttributeType.Name -contains 'SyncHostOnlyAttribute')) { throw "Host role lost: $name" }
         if (-not ($property.CustomAttributes.AttributeType.Name -contains 'MissionIndependentAttribute')) { throw "Mission-independent ownership lost: $name" }
     }
-    foreach ($name in @('EnableClientFeatures','EnableTestTools','EnableSingleplayerTestMode','EnableSpectatorPerspective','EnableSpectatorControl','EnableStatistics','EnableLordOverview','OverviewColumns','OverviewDesign','OverviewLordGrid','OverviewValueGrid','OverviewShowEliminated','OverviewSortBy','OverviewSortDescending')) {
+    foreach ($name in @('EnableClientFeatures','EnableTestTools','EnableSingleplayerTestMode','EnableSpectatorPerspective','EnableSpectatorControl','EnableStatistics','ShowDateWhenHudHidden','EnableLordOverview','OverviewColumns','OverviewDesign','OverviewLordGrid','OverviewValueGrid','OverviewShowEliminated','OverviewSortBy','OverviewSortDescending')) {
         $client = $settings.Properties | Where-Object Name -eq $name
         if (-not ($client.CustomAttributes.AttributeType.Name -contains 'PresetLocalAttribute')) { throw "Local tools must remain local settings: $name" }
     }
@@ -53,7 +53,7 @@ try {
         @{Controls=@('EnableEliminatedPlayersBecomeSpectators');Role='CanEditMissionIndependentHostSettings'},
         @{Controls=@('AllowEnemyDetails');Role='CanEditMissionIndependentHostSettings'},
         @{Controls=@('EnableLordOverview','OverviewDesignIndex');Role='CanEditClientSettings'},
-        @{Controls=@('EnableSpectatorPerspective','EnableSpectatorControl','EnableStatistics');Role='CanEditClientSettings'},
+        @{Controls=@('EnableSpectatorPerspective','EnableSpectatorControl','EnableStatistics','ShowDateWhenHudHidden');Role='CanEditClientSettings'},
         @{Controls=@('EnableTestTools','EnableSingleplayerTestMode');Role='CanEditClientSettings'})) {
         $section = $null
         foreach ($property in $group.Controls) {

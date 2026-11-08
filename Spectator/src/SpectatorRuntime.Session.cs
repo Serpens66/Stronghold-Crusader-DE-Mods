@@ -45,6 +45,7 @@ namespace Spectator
             actionLedger.Reset(sessionId);
             DiagAiPlacementSessionStarted(sessionId);
             log?.LogInfo($"SPECTATOR_EDITOR_SESSION_START id={sessionId}, gameplayActions={allowsGameplayActions}, {mode.ToDiagnosticString()}");
+            RequestHiddenDateRefresh();
             RequestRender();
         }
 

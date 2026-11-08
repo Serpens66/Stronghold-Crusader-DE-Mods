@@ -31,6 +31,7 @@ namespace Spectator
             Shared.DebugLogHelper.InitializeDiagnostics(Config, Logger);
             SerpLocalization.SetRoutineLoggingEnabled(false);
             ToolbarThemePreference.Initialize(Config);
+            SpectatorRuntime.ConfigureHiddenDate(Config);
             Settings = new SpectatorViewModel();
             SpectatorRuntime.Initialize(Logger, Settings);
             CrusaderLibrary.Instance.LibraryLoaded += OnLibraryLoaded;

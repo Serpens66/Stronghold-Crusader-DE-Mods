@@ -10,7 +10,7 @@ namespace Spectator
         private bool enableClientFeatures = true, enableMod = true, enableSpectatorPerspective = true, enableStatistics = true,
             enableEliminatedPlayersBecomeSpectators = true;
         // Test and cheat tools are opt-in.
-        private bool enableTestTools, enableSingleplayerTestMode, enableSpectatorControl;
+        private bool enableTestTools, enableSingleplayerTestMode, enableSpectatorControl, showDateWhenHudHidden;
         public ToolsText Text { get; } = new ToolsText();
         public RelayCommand ResetToDefaultCommand { get; }
         public string ResetToDefaultText => SerpLocalization.Get(SerpLocalization.ResetToDefault);
@@ -41,6 +41,8 @@ namespace Spectator
         public bool EnableSpectatorControl { get => enableSpectatorControl; set => Set(ref enableSpectatorControl, value, nameof(EnableSpectatorControl)); }
         [PresetLocal]
         public bool EnableStatistics { get => enableStatistics; set => Set(ref enableStatistics, value, nameof(EnableStatistics)); }
+        [PresetLocal]
+        public bool ShowDateWhenHudHidden { get => showDateWhenHudHidden; set => Set(ref showDateWhenHudHidden, value, nameof(ShowDateWhenHudHidden)); }
         [SyncHostOnly, MissionIndependent]
         public bool EnableEliminatedPlayersBecomeSpectators { get => enableEliminatedPlayersBecomeSpectators; set => Set(ref enableEliminatedPlayersBecomeSpectators, value, nameof(EnableEliminatedPlayersBecomeSpectators)); }
 

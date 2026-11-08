@@ -29,6 +29,7 @@ namespace Spectator
                 out renderWork, out string reason, order: 100))
                 throw new InvalidOperationException("Spectator UI scheduling unavailable: " + reason);
             settings.SettingsChanged += InvalidatePresentationState;
+            EnableHiddenDate();
             RequestRender();
         }
 
@@ -139,6 +140,7 @@ namespace Spectator
 
         private static void ResetPresentationScheduling()
         {
+            ResetHiddenDate();
             renderWork?.SetContinuous(false);
             renderWork?.CancelPending();
             presentationRefresh.Reset();
